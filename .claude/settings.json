@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(darwin-rebuild switch --flake ~/.dotfiles*)",
+      "Bash(darwin-rebuild build --flake ~/.dotfiles*)",
+      "Bash(darwin-rebuild --rollback*)",
+      "Bash(nix flake update*)",
+      "Bash(nix flake check*)",
+      "Bash(nix flake show*)",
+      "Bash(nix search nixpkgs*)",
+      "Bash(brew install*)",
+      "Bash(brew uninstall*)",
+      "Bash(brew list*)",
+      "Bash(brew bundle*)",
+      "Bash(brew update*)",
+      "Bash(brew upgrade*)",
+      "Bash(mackup backup*)",
+      "Bash(mackup restore*)",
+      "Bash(mackup list*)",
+      "Bash(git status*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git pull*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(gh auth*)",
+      "Bash(gh repo*)",
+      "Bash(hostname*)"
+    ],
+    "deny": []
+  }
+}
