@@ -94,3 +94,12 @@ Co-Authored-By: Claude <model> <noreply@anthropic.com>
 ```
 
 Types: feat, fix, docs, refactor, chore
+
+## Reference Repos
+
+For more advanced patterns, see:
+- [dustinlyons/nixos-config](https://github.com/dustinlyons/nixos-config) - Cross-platform (macOS + NixOS), secrets management, multi-host
+- [Misterio77/nix-starter-configs](https://github.com/Misterio77/nix-starter-configs) - Minimal templates
+- [ryan4yin/nix-darwin-kickstarter](https://github.com/ryan4yin/nix-darwin-kickstarter) - macOS focused
+
+Our setup is intentionally simpler (macOS only, no secrets management). See `docs/nix-concepts.md` for comparison.

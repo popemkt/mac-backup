@@ -177,11 +177,66 @@ nix build --dry-run
 
 ---
 
+## Reference Configurations
+
+### [dustinlyons/nixos-config](https://github.com/dustinlyons/nixos-config)
+
+A comprehensive cross-platform (NixOS + macOS) starter template.
+
+**Structure:**
+```
+nixos-config/
+├── apps/          # Bootstrap and build commands
+├── hosts/         # Host-specific configs (per-machine)
+├── modules/       # Platform-specific (darwin/nixos) + shared
+├── overlays/      # Package patches/overrides
+└── templates/     # Starter variants
+```
+
+**Notable features:**
+- Cross-platform: same config for Linux and macOS
+- Secrets management via `agenix` (encrypted SSH keys, API tokens)
+- CI auto-updates weekly
+- Video tutorials for beginners
+
+**Comparison to our setup:**
+
+| Aspect | Our Setup | dustinlyons |
+|--------|-----------|-------------|
+| Platforms | macOS only | macOS + NixOS |
+| Structure | Simple (`modules/`) | More dirs (`hosts/`, `apps/`, `overlays/`) |
+| Secrets | None (use Mackup) | agenix (encrypted in repo) |
+| Complexity | Beginner-friendly | More comprehensive |
+| GUI apps | Homebrew | Homebrew (mac) / native (linux) |
+
+**When to consider their approach:**
+- You use both Linux and macOS
+- You want secrets (API keys, SSH keys) in your repo (encrypted)
+- You have multiple machines with different configs
+
+**Our approach is simpler if:**
+- macOS only
+- Single machine (or identical setup across machines)
+- GUI app configs via Mackup is fine
+
+Both are valid - ours prioritizes simplicity, theirs prioritizes cross-platform power.
+
+---
+
 ## Useful Resources
 
+### Learning
 - [Nix Pills](https://nixos.org/guides/nix-pills/) - Deep dive tutorial
 - [nix.dev](https://nix.dev/) - Official learning resource
 - [NixOS Wiki](https://nixos.wiki/) - Community wiki
+- [Zero to Nix](https://zero-to-nix.com/) - Modern beginner guide
+
+### Reference Docs
 - [Home Manager Options](https://nix-community.github.io/home-manager/options.xhtml)
 - [nix-darwin Options](https://daiderd.com/nix-darwin/manual/)
 - [Nixpkgs Search](https://search.nixos.org/packages)
+
+### Example Configs
+- [dustinlyons/nixos-config](https://github.com/dustinlyons/nixos-config) - Cross-platform starter
+- [Misterio77/nix-starter-configs](https://github.com/Misterio77/nix-starter-configs) - Minimal templates
+- [ryan4yin/nix-darwin-kickstarter](https://github.com/ryan4yin/nix-darwin-kickstarter) - macOS focused
