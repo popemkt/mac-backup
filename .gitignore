@@ -1,0 +1,11 @@
+# Nix
+result
+result-*
+
+# macOS
+.DS_Store
+
+# Secrets (never commit these)
+*.secret
+*.private
+secrets/
