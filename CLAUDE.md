@@ -104,6 +104,24 @@ nix flake check
 - `homebrew.onActivation.cleanup = "none"` - keeps unlisted apps
 - Change to `"zap"` for strict reproducibility
 - Touch ID for sudo: `security.pam.services.sudo_local.touchIdAuth`
+- GUI app configs backed up via Mackup to iCloud (macOS only)
+
+## Mackup (GUI App Settings)
+
+```bash
+# Backup GUI app settings to iCloud
+mackup backup
+
+# Restore on new machine
+mackup restore
+```
+
+## Cross-Platform Tips
+
+- Put platform-agnostic config in `modules/shared/`
+- Use `lib.optionals pkgs.stdenv.isDarwin [...]` for conditional packages
+- Use `lib.mkIf pkgs.stdenv.isLinux { ... }` for conditional options
+- The `rebuild` alias automatically uses the correct command for each platform
 
 ## Commit Style
 
@@ -114,3 +132,10 @@ Co-Authored-By: Claude <model> <noreply@anthropic.com>
 ```
 
 Types: feat, fix, docs, refactor, chore
+
+## Reference Repos
+
+For more advanced patterns, see:
+- [dustinlyons/nixos-config](https://github.com/dustinlyons/nixos-config) - Cross-platform, secrets management, multi-host
+- [Misterio77/nix-starter-configs](https://github.com/Misterio77/nix-starter-configs) - Minimal templates
+- [ryan4yin/nix-darwin-kickstarter](https://github.com/ryan4yin/nix-darwin-kickstarter) - macOS focused
