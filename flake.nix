@@ -25,8 +25,8 @@
       programs.home-manager.enable = true;
       programs.git = {
         enable = true;
-        userName = "Hoang Nguyen Gia";
-        userEmail = "hoangng71299@gmail.com";
+        settings.user.name = "Hoang Nguyen Gia";
+        settings.user.email = "hoangng71299@gmail.com";
       };
     };
   in {

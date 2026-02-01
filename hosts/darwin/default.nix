@@ -11,7 +11,8 @@
   # NIX SETTINGS
   # ============================================================================
 
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  # Let Determinate Nix manage the nix installation
+  nix.enable = false;
 
   # Allow unfree packages (like vscode)
   nixpkgs.config.allowUnfree = true;
