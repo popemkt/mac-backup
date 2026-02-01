@@ -1,6 +1,12 @@
-{ pkgs, username, ... }:
+{ pkgs, ... }:
 
 {
+  # ============================================================================
+  # PRIMARY USER (required for many system settings)
+  # ============================================================================
+
+  system.primaryUser = "popemkt";
+
   # ============================================================================
   # NIX SETTINGS
   # ============================================================================
@@ -124,8 +130,8 @@
     };
   };
 
-  # Enable Touch ID for sudo
-  security.pam.enableSudoTouchIdAuth = true;
+  # Enable Touch ID for sudo (new API)
+  security.pam.services.sudo_local.touchIdAuth = true;
 
   # ============================================================================
   # SYSTEM STATE VERSION
