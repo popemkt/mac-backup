@@ -23,7 +23,7 @@
 
       local config_file="$HOME/.dotfiles/hosts/darwin/default.nix"
       local installed=$(brew list --cask 2>/dev/null | sort)
-      local configured=$(grep -oE '"[a-zA-Z0-9-]+"' "$config_file" | tr -d '"' | sort | uniq)
+      local configured=$(grep -v '^\s*#' "$config_file" | grep -oE '"[a-zA-Z0-9-]+"' | tr -d '"' | sort | uniq)
 
       local untracked=""
       for cask in $installed; do
