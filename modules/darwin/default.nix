@@ -25,12 +25,9 @@
       local installed=$(brew list --cask 2>/dev/null | sort)
       local configured=$(grep -v '^\s*#' "$config_file" | grep -oE '"[a-zA-Z0-9-]+"' | tr -d '"' | sort | uniq)
 
-      local untracked=""
-      for cask in $installed; do
-        if ! echo "$configured" | grep -q "^$cask$"; then
-          untracked="$untracked$cask\n"
-        fi
-      done
+      local untracked=$(echo "$installed" | while read -r cask; do
+        echo "$configured" | grep -q "^$cask$" || echo "$cask"
+      done)
 
       if [ -z "$untracked" ]; then
         echo "All casks are tracked in config!"
@@ -38,7 +35,7 @@
         echo "Untracked casks (installed but not in config):"
         echo ""
         echo "$untracked" | while read -r cask; do
-          [ -n "$cask" ] && echo "   $cask"
+          echo "   $cask"
         done
         echo ""
         echo "Add them to: $config_file"
