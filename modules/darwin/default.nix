@@ -11,7 +11,7 @@
     rebuild = "darwin-rebuild switch --flake ~/.dotfiles";
   };
 
-  programs.zsh.initExtra = lib.mkAfter ''
+  programs.zsh.initContent = lib.mkAfter ''
     # ========================================
     # HOMEBREW HELPERS (macOS only)
     # ========================================

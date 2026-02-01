@@ -25,7 +25,7 @@
       lg = "lazygit";
     };
 
-    initExtra = ''
+    initContent = ''
       # fzf integration
       if [ -n "$(command -v fzf)" ]; then
         source <(fzf --zsh)
