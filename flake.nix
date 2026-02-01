@@ -18,18 +18,11 @@
   outputs = inputs@{ self, nixpkgs, nix-darwin, home-manager, ... }:
   let
     username = "popemkt";
-
-    # Shared home-manager config
-    homeConfig = { pkgs, ... }: {
-      home.stateVersion = "24.05";
-      programs.home-manager.enable = true;
-      programs.git = {
-        enable = true;
-        settings.user.name = "Hoang Nguyen Gia";
-        settings.user.email = "hoangng71299@gmail.com";
-      };
-    };
   in {
+    # ========================================================================
+    # DARWIN (macOS) CONFIGURATIONS
+    # ========================================================================
+
     darwinConfigurations."popemkt-mac" = nix-darwin.lib.darwinSystem {
       system = "aarch64-darwin";
       modules = [
@@ -42,7 +35,44 @@
             useGlobalPkgs = true;
             useUserPackages = true;
             backupFileExtension = "backup";
-            users.${username} = homeConfig;
+            users.${username} = { pkgs, lib, ... }: {
+              home.stateVersion = "24.05";
+              programs.home-manager.enable = true;
+
+              imports = [
+                ./modules/shared
+                ./modules/darwin
+              ];
+            };
+          };
+        })
+      ];
+    };
+
+    # ========================================================================
+    # NIXOS (Linux) CONFIGURATIONS
+    # ========================================================================
+
+    nixosConfigurations."nixos" = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        ./hosts/nixos
+
+        home-manager.nixosModules.home-manager
+        ({ config, ... }: {
+          home-manager = {
+            useGlobalPkgs = true;
+            useUserPackages = true;
+            backupFileExtension = "backup";
+            users.${username} = { pkgs, lib, ... }: {
+              home.stateVersion = "24.05";
+              programs.home-manager.enable = true;
+
+              imports = [
+                ./modules/shared
+                ./modules/nixos
+              ];
+            };
           };
         })
       ];
