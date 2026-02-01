@@ -18,25 +18,33 @@
   outputs = inputs@{ self, nixpkgs, nix-darwin, home-manager, ... }:
   let
     username = "popemkt";
+
+    # Shared home-manager config
+    homeConfig = { pkgs, ... }: {
+      home.stateVersion = "24.05";
+      programs.home-manager.enable = true;
+      programs.git = {
+        enable = true;
+        userName = "Hoang Nguyen Gia";
+        userEmail = "hoangng71299@gmail.com";
+      };
+    };
   in {
     darwinConfigurations."popemkt-mac" = nix-darwin.lib.darwinSystem {
       system = "aarch64-darwin";
-      specialArgs = { inherit inputs username; };
       modules = [
         ./hosts/darwin
 
         home-manager.darwinModules.home-manager
-        {
-          home-manager.useGlobalPkgs = true;
-          home-manager.useUserPackages = true;
-          home-manager.backupFileExtension = "backup";
-          home-manager.users.${username} = { pkgs, ... }: {
-            home.username = "popemkt";
-            home.homeDirectory = "/Users/popemkt";
-            home.stateVersion = "24.05";
-            programs.home-manager.enable = true;
+        ({ config, ... }: {
+          users.users.${username}.home = "/Users/${username}";
+          home-manager = {
+            useGlobalPkgs = true;
+            useUserPackages = true;
+            backupFileExtension = "backup";
+            users.${username} = homeConfig;
           };
-        }
+        })
       ];
     };
   };
