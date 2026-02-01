@@ -26,6 +26,11 @@
     };
 
     initContent = ''
+      # Homebrew (Apple Silicon)
+      if [ -f /opt/homebrew/bin/brew ]; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+      fi
+
       # fzf integration
       if [ -n "$(command -v fzf)" ]; then
         source <(fzf --zsh)
