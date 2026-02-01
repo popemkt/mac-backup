@@ -1,5 +1,5 @@
 {
-  description = "popemkt's macOS configuration";
+  description = "popemkt's cross-platform Nix configuration";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
@@ -17,28 +17,25 @@
 
   outputs = inputs@{ self, nixpkgs, nix-darwin, home-manager, ... }:
   let
-    # Change to "x86_64-darwin" for Intel Mac
-    system = "aarch64-darwin";
-
-    # Your username and hostname
     username = "popemkt";
-    hostname = "popemkt-mac";  # Change this: run `hostname` to find yours
-  in
-  {
-    darwinConfigurations.${hostname} = nix-darwin.lib.darwinSystem {
-      inherit system;
-
+  in {
+    darwinConfigurations."popemkt-mac" = nix-darwin.lib.darwinSystem {
+      system = "aarch64-darwin";
       specialArgs = { inherit inputs username; };
-
       modules = [
-        ./modules/darwin.nix
+        ./hosts/darwin
 
         home-manager.darwinModules.home-manager
         {
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
-          home-manager.users.${username} = import ./modules/home.nix;
-          home-manager.extraSpecialArgs = { inherit username; };
+          home-manager.backupFileExtension = "backup";
+          home-manager.users.${username} = { pkgs, ... }: {
+            home.username = "popemkt";
+            home.homeDirectory = "/Users/popemkt";
+            home.stateVersion = "24.05";
+            programs.home-manager.enable = true;
+          };
         }
       ];
     };
