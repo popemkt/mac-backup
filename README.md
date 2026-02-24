@@ -123,6 +123,31 @@ home.packages = with pkgs; [
 
 3. Run `rebuild`
 
+### Adding an npm Global CLI
+
+For npm tools not packaged in `nixpkgs`, use the declarative list in:
+
+`~/.dotfiles/modules/shared/npm-global.nix`
+
+```nix
+let
+  npmGlobalPackages = [
+    "gitnexus"
+    # "your-tool"        # latest
+    # "your-tool@x.y.z"  # pinned
+  ];
+in
+...
+```
+
+Then run `rebuild`.
+
+For quick install now + reminder to track it:
+
+```bash
+npmg add your-tool@x.y.z
+```
+
 ## Homebrew Cleanup Modes
 
 In `modules/darwin.nix`:
@@ -189,6 +214,7 @@ git                # Managed by home-manager
 | `rebuild` | Apply all config changes |
 | `brew-hierarchycheck` | Show untracked Homebrew casks |
 | `cask add <name>` | Install cask + reminder to add to config |
+| `npmg add <name[@version]>` | Install npm global + reminder to add to config |
 | `mackup backup` | Backup GUI app configs |
 | `mackup restore` | Restore GUI app configs |
 | `nix flake update` | Update all Nix inputs |

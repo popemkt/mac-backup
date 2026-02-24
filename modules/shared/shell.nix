@@ -38,6 +38,28 @@
 
       # PATH additions
       export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
+
+      # npm global helper (paired with modules/shared/npm-global.nix)
+      npmg() {
+        local config_file="$HOME/.dotfiles/modules/shared/npm-global.nix"
+
+        if [ "$1" = "add" ] && [ -n "$2" ]; then
+          npm install -g "$2" || return 1
+          echo ""
+          echo "Add this to $config_file for reproducible installs:"
+          echo ""
+          echo "  \"$2\""
+          return 0
+        fi
+
+        if [ "$1" = "list" ]; then
+          npm ls -g --depth=0
+          return 0
+        fi
+
+        echo "Usage: npmg add <package[@version]>"
+        echo "       npmg list"
+      }
     '';
 
     history = {
