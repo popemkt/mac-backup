@@ -4,6 +4,7 @@ let
   npmPrefix = "${config.home.homeDirectory}/.local";
   npmGlobalPackages = [
     "gitnexus"
+    "@openai/codex"
   ];
 in
 {
