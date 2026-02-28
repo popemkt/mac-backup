@@ -15,6 +15,7 @@
     lazygit
     tldr
     gh             # GitHub CLI
+    gemini-cli     # Google Gemini CLI
 
     # Node.js stack
     nodejs
