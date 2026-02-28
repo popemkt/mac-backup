@@ -55,6 +55,7 @@
     casks = [
       # Development
       "visual-studio-code"
+      "claude"
       # "warp"
       # "iterm2"
       # "docker"
