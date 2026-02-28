@@ -39,6 +39,9 @@
       # PATH additions
       export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
 
+      # Fix ECONNRESET errors in Claude Code on macOS
+      export NODE_OPTIONS="--dns-result-order=ipv4first"
+
       # npm global helper (paired with modules/shared/npm-global.nix)
       npmg() {
         local config_file="$HOME/.dotfiles/modules/shared/npm-global.nix"
