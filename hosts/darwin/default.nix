@@ -73,7 +73,7 @@
 
       # Communication
       # "slack"
-      # "discord"
+      "discord"
       # "zoom"
 
       # Utilities
@@ -123,6 +123,8 @@
       InitialKeyRepeat = 15;
       # Show all file extensions
       AppleShowAllExtensions = true;
+      # Allow macOS to auto-terminate idle apps with no windows
+      NSDisableAutomaticTermination = false;
     };
 
     # Trackpad
