@@ -1,141 +1,51 @@
-# Claude Code Context
+# Nix Dotfiles
 
-This file provides context for Claude Code sessions working on this repo.
-
-## Project Overview
-
-Cross-platform declarative system configuration using:
-- **nix-darwin** - macOS system configuration
-- **NixOS** - Linux system configuration (template ready)
-- **home-manager** - User environment (CLI tools, dotfiles)
-- **Homebrew** - GUI apps on macOS (managed declaratively via nix-darwin)
-- **Determinate Nix** - Nix installation manager
-
-## File Structure
-
-```
-~/.dotfiles/
-├── flake.nix                    # Entry point - defines all system configurations
-├── flake.lock                   # Locked dependencies
-├── hosts/
-│   ├── darwin/
-│   │   └── default.nix          # macOS system settings + Homebrew
-│   └── nixos/
-│       └── default.nix          # Linux system settings (template)
-├── modules/
-│   ├── shared/                  # Cross-platform modules (used by both)
-│   │   ├── default.nix          # Imports all shared modules
-│   │   ├── git.nix              # Git configuration
-│   │   ├── packages.nix         # CLI tools (ripgrep, fzf, etc.)
-│   │   ├── shell.nix            # Zsh + Starship
-│   │   └── neovim.nix           # Neovim + Direnv
-│   ├── darwin/
-│   │   └── default.nix          # macOS-specific home-manager (brew helpers)
-│   └── nixos/
-│       └── default.nix          # Linux-specific home-manager
-├── configs/                     # Additional config files (nvim, etc.)
-├── docs/                        # Reference documentation
-├── .mackup.cfg                  # Mackup configuration (macOS)
-└── bootstrap.sh                 # First-time setup script (macOS)
-```
+Declarative macOS config: nix-darwin + home-manager + Homebrew + Mackup.
 
 ## Commands
 
-### macOS
-
 ```bash
-# Apply configuration changes
-darwin-rebuild switch --flake ~/.dotfiles#popemkt-mac
-
-# Or use the alias (after first rebuild)
-rebuild
+rebuild                          # Apply changes (alias for darwin-rebuild switch)
+cd ~/.dotfiles && nix flake update && rebuild  # Update all inputs
+nix flake check                  # Validate flake
+mackup backup / mackup restore   # GUI app settings via iCloud
 ```
 
-### Linux (NixOS)
+## Where to Edit
 
-```bash
-# Apply configuration changes
-sudo nixos-rebuild switch --flake ~/.dotfiles#nixos
-```
+| Want to...               | Edit                              |
+|--------------------------|-----------------------------------|
+| Add CLI tool             | `modules/shared/packages.nix`     |
+| Add GUI app (cask)       | `hosts/darwin/default.nix` → `homebrew.casks` |
+| Add brew formula         | `hosts/darwin/default.nix` → `homebrew.brews` |
+| Add macOS system setting | `hosts/darwin/default.nix` → `system.defaults` |
+| Add shell alias          | `modules/shared/shell.nix`        |
+| Add macOS-only package   | `modules/darwin/default.nix`      |
+| Change git config        | `modules/shared/git.nix`          |
 
-### Both Platforms
+Then run `rebuild`.
 
-```bash
-# Update flake inputs
-cd ~/.dotfiles && nix flake update
+## Architecture
 
-# Check flake validity
-nix flake check
-```
+- `flake.nix` — entry point; defines `username`/`hostname` variables, passes via `specialArgs`
+- `hosts/darwin/` — macOS system config (nix-darwin settings, Homebrew, system defaults)
+- `modules/shared/` — cross-platform home-manager modules (shell, packages, git, neovim)
+- `modules/darwin/` — macOS-specific home-manager (rebuild alias, brew helpers)
+- `configs/` — raw config files (nvim, etc.)
+- Platform conditionals: `lib.optionals pkgs.stdenv.isDarwin [...]` / `lib.mkIf pkgs.stdenv.isLinux { ... }`
 
-## Common Tasks
+## Gotchas
 
-### Add a CLI tool (both platforms)
-1. Edit `modules/shared/packages.nix` → `home.packages`
-2. Run `rebuild`
+- Uses Determinate Nix installer → `nix.enable = false` in darwin config
+- `system.primaryUser` is set via the `username` variable from flake.nix
+- `homebrew.onActivation.cleanup = "none"` — keeps unlisted apps (change to `"zap"` for strict mode)
+- Touch ID sudo: `security.pam.services.sudo_local.touchIdAuth`
 
-### Add macOS-only package
-1. Edit `modules/darwin/default.nix` → `home.packages`
-2. Run `rebuild`
+## User
 
-### Add a GUI app (macOS)
-1. Edit `hosts/darwin/default.nix` → `homebrew.casks`
-2. Run `rebuild`
-
-### Add macOS system setting
-1. Edit `hosts/darwin/default.nix` → `system.defaults`
-2. Run `rebuild`
-
-### Add shell alias (both platforms)
-1. Edit `modules/shared/shell.nix` → `programs.zsh.shellAliases`
-2. Run `rebuild`
-
-## User Info
-
-- **GitHub:** popemkt
-- **Git name:** Hoang Nguyen Gia
-- **Git email:** hoangng71299@gmail.com
 - **System:** Apple Silicon Mac (aarch64-darwin)
-
-## Notes
-
-- Uses Determinate Nix installer (`nix.enable = false` in darwin config)
-- `system.primaryUser = "popemkt"` required for user-specific settings
-- `homebrew.onActivation.cleanup = "none"` - keeps unlisted apps
-- Change to `"zap"` for strict reproducibility
-- Touch ID for sudo: `security.pam.services.sudo_local.touchIdAuth`
-- GUI app configs backed up via Mackup to iCloud (macOS only)
-
-## Mackup (GUI App Settings)
-
-```bash
-# Backup GUI app settings to iCloud
-mackup backup
-
-# Restore on new machine
-mackup restore
-```
-
-## Cross-Platform Tips
-
-- Put platform-agnostic config in `modules/shared/`
-- Use `lib.optionals pkgs.stdenv.isDarwin [...]` for conditional packages
-- Use `lib.mkIf pkgs.stdenv.isLinux { ... }` for conditional options
-- The `rebuild` alias automatically uses the correct command for each platform
+- **GitHub:** popemkt | **Name:** Hoang Nguyen Gia | **Email:** hoangng71299@gmail.com
 
 ## Commit Style
 
-```
-<type>: <short description>
-
-Co-Authored-By: Claude <model> <noreply@anthropic.com>
-```
-
-Types: feat, fix, docs, refactor, chore
-
-## Reference Repos
-
-For more advanced patterns, see:
-- [dustinlyons/nixos-config](https://github.com/dustinlyons/nixos-config) - Cross-platform, secrets management, multi-host
-- [Misterio77/nix-starter-configs](https://github.com/Misterio77/nix-starter-configs) - Minimal templates
-- [ryan4yin/nix-darwin-kickstarter](https://github.com/ryan4yin/nix-darwin-kickstarter) - macOS focused
+`<type>: <short description>` — types: feat, fix, docs, refactor, chore
