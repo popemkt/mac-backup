@@ -1,11 +1,11 @@
-{ pkgs, ... }:
+{ pkgs, username, ... }:
 
 {
   # ============================================================================
   # PRIMARY USER (required for many system settings)
   # ============================================================================
 
-  system.primaryUser = "popemkt";
+  system.primaryUser = username;
 
   # ============================================================================
   # NIX SETTINGS
@@ -44,11 +44,13 @@
     # Homebrew taps
     taps = [
       # "homebrew/bundle"  # Uncomment if needed
+      "skyhook-io/tap"
     ];
 
     # CLI tools from Homebrew (prefer Nix for these, but some work better via brew)
     brews = [
       # "awscli"
+      "radar"
     ];
 
     # GUI Applications
@@ -74,6 +76,7 @@
       # Communication
       # "slack"
       "discord"
+      "lens"
       # "zoom"
 
       # Utilities

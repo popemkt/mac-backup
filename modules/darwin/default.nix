@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, hostname, ... }:
 
 {
   # ============================================================================
@@ -8,7 +8,7 @@
   # macOS-specific shell additions
   programs.zsh.shellAliases = {
     # Nix rebuild alias (darwin-specific)
-    rebuild = "darwin-rebuild switch --flake ~/.dotfiles";
+    rebuild = "sudo darwin-rebuild switch --flake ~/.dotfiles#${hostname}";
   };
 
   programs.zsh.initContent = lib.mkAfter ''

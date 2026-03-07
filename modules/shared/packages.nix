@@ -16,6 +16,11 @@
     tldr
     gh             # GitHub CLI
     gemini-cli     # Google Gemini CLI
+    sqlite
+    kubectl
+
+    # Java
+    graalvmPackages.graalvm-ce
 
     # Node.js stack
     nodejs
