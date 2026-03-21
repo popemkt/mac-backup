@@ -19,6 +19,9 @@
     sqlite
     kubectl
 
+    # .NET
+    dotnet-sdk_8
+
     # Java
     graalvmPackages.graalvm-ce
 

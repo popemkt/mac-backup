@@ -3,6 +3,7 @@
 let
   npmPrefix = "${config.home.homeDirectory}/.local";
   npmGlobalPackages = [
+    "@fission-ai/openspec"
     "gitnexus"
     "@openai/codex"
   ];

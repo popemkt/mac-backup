@@ -58,6 +58,7 @@
       # Development
       "visual-studio-code"
       "claude"
+      "zed"
       # "warp"
       # "iterm2"
       # "docker"
