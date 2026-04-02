@@ -19,7 +19,7 @@ in
 
   # Install declared npm globals during activation for cross-machine bootstrap.
   home.activation.installNpmGlobals = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    export PATH="${npmPrefix}/bin:$PATH"
+    export PATH="${pkgs.nodejs}/bin:${npmPrefix}/bin:$PATH"
     export npm_config_prefix="${npmPrefix}"
     mkdir -p "${npmPrefix}/bin" "${npmPrefix}/lib/node_modules"
 

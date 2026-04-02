@@ -50,6 +50,7 @@
     # CLI tools from Homebrew (prefer Nix for these, but some work better via brew)
     brews = [
       # "awscli"
+      "ollama"
       "radar"
     ];
 
@@ -59,7 +60,7 @@
       "visual-studio-code"
       "claude"
       "zed"
-      # "warp"
+      "warp"
       # "iterm2"
       # "docker"
       # "tableplus"
@@ -69,7 +70,7 @@
       # "firefox"
 
       # Productivity
-      # "raycast"
+      "raycast"
       # "notion"
       # "obsidian"
       # "1password"
@@ -81,9 +82,10 @@
       # "zoom"
 
       # Utilities
+      "alt-tab"
       # "rectangle"
       # "cleanshot"
-      # "karabiner-elements"
+      "karabiner-elements"
     ];
 
     # Mac App Store apps (requires `mas` CLI)
