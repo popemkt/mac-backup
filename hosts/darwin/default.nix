@@ -50,7 +50,8 @@
     # CLI tools from Homebrew (prefer Nix for these, but some work better via brew)
     brews = [
       # "awscli"
-      "gcloud-cli"
+      # Google Workspace CLI for Gmail/Drive/Sheets/etc.
+      # Keep this in Brew so `gws` is easy to restore on macOS.
       "googleworkspace-cli"
       "ollama"
       "radar"
@@ -62,6 +63,9 @@
       "visual-studio-code"
       "claude"
       "zed"
+      # Google Cloud CLI ships as a Homebrew cask, not a formula.
+      # Required by `gws auth setup`.
+      "gcloud-cli"
       "warp"
       # "iterm2"
       # "docker"
