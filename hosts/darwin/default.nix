@@ -50,6 +50,8 @@
     # CLI tools from Homebrew (prefer Nix for these, but some work better via brew)
     brews = [
       # "awscli"
+      "gcloud-cli"
+      "googleworkspace-cli"
       "ollama"
       "radar"
     ];
