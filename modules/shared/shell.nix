@@ -55,13 +55,43 @@
           return 0
         fi
 
+        if [ "$1" = "update" ] && [ -n "$2" ]; then
+          npm install -g "$2" || return 1
+          return 0
+        fi
+
+        if [ "$1" = "update-all" ]; then
+          local packages
+          packages=$(sed -n '/npmGlobalPackages = \[/,/\];/p' "$config_file" | grep -oE '"[^"]+"' | tr -d '"')
+
+          if [ -z "$packages" ]; then
+            echo "No tracked npm global packages found in $config_file"
+            return 1
+          fi
+
+          echo "$packages" | while read -r pkg; do
+            [ -n "$pkg" ] || continue
+            echo "Updating $pkg..."
+            npm install -g "$pkg" || return 1
+          done
+          return 0
+        fi
+
         if [ "$1" = "list" ]; then
           npm ls -g --depth=0
           return 0
         fi
 
+        if [ "$1" = "outdated" ]; then
+          npm outdated -g || true
+          return 0
+        fi
+
         echo "Usage: npmg add <package[@version]>"
+        echo "       npmg update <package[@version]>"
+        echo "       npmg update-all"
         echo "       npmg list"
+        echo "       npmg outdated"
       }
     '';
 

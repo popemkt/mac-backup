@@ -6,6 +6,7 @@ let
     "@fission-ai/openspec"
     "gitnexus"
     "@openai/codex"
+    "portless"
   ];
 in
 {
@@ -18,6 +19,7 @@ in
   home.sessionPath = [ "${npmPrefix}/bin" ];
 
   # Install declared npm globals during activation for cross-machine bootstrap.
+  # Keep rebuilds predictable by only installing packages that are missing.
   home.activation.installNpmGlobals = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     export PATH="${pkgs.nodejs}/bin:${npmPrefix}/bin:$PATH"
     export npm_config_prefix="${npmPrefix}"

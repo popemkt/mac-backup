@@ -66,6 +66,7 @@
       # Google Cloud CLI ships as a Homebrew cask, not a formula.
       # Required by `gws auth setup`.
       "gcloud-cli"
+      "tailscale-app"
       "warp"
       # "iterm2"
       # "docker"
