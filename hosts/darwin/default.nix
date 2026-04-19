@@ -44,6 +44,7 @@
     # Homebrew taps
     taps = [
       # "homebrew/bundle"  # Uncomment if needed
+      "ghostwright/ghost-os"
       "skyhook-io/tap"
     ];
 
@@ -54,6 +55,7 @@
       # Google Workspace CLI for Gmail/Drive/Sheets/etc.
       # Keep this in Brew so `gws` is easy to restore on macOS.
       "googleworkspace-cli"
+      "ghostwright/ghost-os/ghost-os"
       "ollama"
       "radar"
       "zellij"
