@@ -93,6 +93,10 @@
         echo "       npmg list"
         echo "       npmg outdated"
       }
+
+      sysaudit() {
+        "$HOME/.dotfiles/scripts/audit-system-discrepancies.sh"
+      }
     '';
 
     history = {
