@@ -39,6 +39,9 @@
       # PATH additions
       export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
 
+      # Hermes Agent profile (used by `hermes` and gateway launchd service)
+      export HERMES_HOME="$HOME/workspace/repos/_brain/.agents/hermes/profile/popemkt"
+
       # Fix ECONNRESET errors in Claude Code on macOS
       export NODE_OPTIONS="--dns-result-order=ipv4first"
 
