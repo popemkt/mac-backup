@@ -12,6 +12,7 @@ let
     "gitnexus"
     "@openai/codex"
     "portless"
+    "cline"
   ];
 in
 {
