@@ -10,3 +10,4 @@ result-*
 *.secret
 *.private
 secrets/
+.claude/settings.local.json

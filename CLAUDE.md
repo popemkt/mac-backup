@@ -25,6 +25,24 @@ mackup backup / mackup restore   # GUI app settings via iCloud
 
 Then run `rebuild`.
 
+## Lint & Format
+
+Before suggesting commits, ensure changed `.nix` files pass:
+
+```bash
+nixfmt **/*.nix              # auto-format (RFC-166 style)
+statix check .               # anti-pattern lint
+deadnix --fail .             # unused bindings (exits non-zero)
+nix flake check --no-build   # eval-time validation
+```
+
+Pre-commit hook at `.githooks/pre-commit` runs all four on staged files.
+Activated via `git config core.hooksPath .githooks` (already set on this clone).
+
+When adding new modules, prefer `_:` over `{ ... }:` if no args are used —
+statix flags empty patterns. Use `{ pkgs, ... }:` only when actually
+referencing `pkgs` in the body.
+
 ## Architecture
 
 - `flake.nix` — entry point; defines `username`/`hostname` variables, passes via `specialArgs`

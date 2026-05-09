@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+_:
 
 {
   programs.git = {
@@ -18,6 +18,8 @@
       };
       merge.conflictStyle = "diff3";
       diff.colorMoved = "default";
+      credential.helper = "manager";
+      credential.credentialStore = "keychain";
       alias = {
         s = "status";
         co = "checkout";

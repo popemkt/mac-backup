@@ -15,70 +15,79 @@
     };
   };
 
-  outputs = inputs@{ self, nixpkgs, nix-darwin, home-manager, ... }:
-  let
-    username = "popemkt";
-    hostname = "${username}-mac";
-  in {
-    # ========================================================================
-    # DARWIN (macOS) CONFIGURATIONS
-    # ========================================================================
+  outputs =
+    {
+      nixpkgs,
+      nix-darwin,
+      home-manager,
+      ...
+    }:
+    let
+      username = "popemkt";
+      hostname = "${username}-mac";
+    in
+    {
+      # ========================================================================
+      # DARWIN (macOS) CONFIGURATIONS
+      # ========================================================================
 
-    darwinConfigurations.${hostname} = nix-darwin.lib.darwinSystem {
-      system = "aarch64-darwin";
-      specialArgs = { inherit username hostname; };
-      modules = [
-        ./hosts/darwin
+      darwinConfigurations.${hostname} = nix-darwin.lib.darwinSystem {
+        system = "aarch64-darwin";
+        specialArgs = { inherit username hostname; };
+        modules = [
+          ./hosts/darwin
 
-        home-manager.darwinModules.home-manager
-        ({ config, ... }: {
-          users.users.${username}.home = "/Users/${username}";
-          home-manager = {
-            useGlobalPkgs = true;
-            useUserPackages = true;
-            backupFileExtension = "backup";
-            extraSpecialArgs = { inherit username hostname; };
-            users.${username} = { pkgs, lib, ... }: {
-              home.stateVersion = "24.05";
-              programs.home-manager.enable = true;
+          home-manager.darwinModules.home-manager
+          (_: {
+            users.users.${username}.home = "/Users/${username}";
+            home-manager = {
+              useGlobalPkgs = true;
+              useUserPackages = true;
+              backupFileExtension = "backup";
+              extraSpecialArgs = { inherit username hostname; };
+              users.${username} = _: {
+                home.stateVersion = "24.05";
+                programs.home-manager.enable = true;
 
-              imports = [
-                ./modules/shared
-                ./modules/darwin
-              ];
+                imports = [
+                  ./modules/shared
+                  ./modules/darwin
+                ];
+              };
             };
-          };
-        })
-      ];
-    };
+          })
+        ];
+      };
 
-    # ========================================================================
-    # NIXOS (Linux) CONFIGURATIONS
-    # ========================================================================
+      # ========================================================================
+      # NIXOS (Linux) CONFIGURATIONS
+      # ========================================================================
 
-    nixosConfigurations."nixos" = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        ./hosts/nixos
+      nixosConfigurations."nixos" = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        specialArgs = { inherit username hostname; };
+        modules = [
+          ./hosts/nixos
 
-        home-manager.nixosModules.home-manager
-        ({ config, ... }: {
-          home-manager = {
-            useGlobalPkgs = true;
-            useUserPackages = true;
-            backupFileExtension = "backup";
-            users.${username} = { pkgs, lib, ... }: {
-              home.stateVersion = "24.05";
-              programs.home-manager.enable = true;
+          home-manager.nixosModules.home-manager
+          (_: {
+            home-manager = {
+              useGlobalPkgs = true;
+              useUserPackages = true;
+              backupFileExtension = "backup";
+              extraSpecialArgs = { inherit username hostname; };
+              users.${username} = _: {
+                home.stateVersion = "24.05";
+                programs.home-manager.enable = true;
 
-              imports = [
-                ./modules/shared
-                ./modules/nixos
-              ];
+                imports = [
+                  ./modules/shared
+                  ./modules/nixos
+                ];
+              };
             };
-          };
-        })
-      ];
+          })
+        ];
+      };
     };
-  };
 }

@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   home.packages = with pkgs; [
@@ -15,10 +15,13 @@
     lazygit
     tmux
     tldr
-    gh             # GitHub CLI
-    gemini-cli     # Google Gemini CLI
+    gh # GitHub CLI
+    gemini-cli # Google Gemini CLI
     sqlite
     kubectl
+    # azure-cli + git-credential-manager installed via Homebrew
+    # (see hosts/darwin/default.nix). The Nix paths trigger a from-source
+    # rebuild that pulls swift; brew gives signed binaries instantly.
 
     # Java
     graalvmPackages.graalvm-ce
@@ -41,5 +44,10 @@
     lua-language-server
     stylua
     nil
+
+    # Nix tooling
+    statix # anti-pattern lint
+    deadnix # unused-binding finder
+    nixfmt # official formatter (RFC-166)
   ];
 }

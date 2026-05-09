@@ -37,9 +37,11 @@
     # What to do with apps not in this list:
     # "none"   = leave them alone (relaxed, good while experimenting)
     # "zap"    = remove them (strict, full reproducibility)
-    onActivation.cleanup = "none";  # Change to "zap" when your config is complete
-    onActivation.autoUpdate = true;
-    onActivation.upgrade = true;
+    onActivation = {
+      cleanup = "none"; # Change to "zap" when your config is complete
+      autoUpdate = true;
+      upgrade = true;
+    };
 
     # Homebrew taps
     taps = [
@@ -51,6 +53,10 @@
     # CLI tools from Homebrew (prefer Nix for these, but some work better via brew)
     brews = [
       # "awscli"
+      # Brew over Nix: `azure-cli.withExtensions` rebuilds from source (pulls
+      # swift). Brew's azure-cli ships a working Python+pip so dynamic
+      # `az extension add azure-devops` works without nix wrapping.
+      "azure-cli"
       "copilot"
       # Google Workspace CLI for Gmail/Drive/Sheets/etc.
       # Keep this in Brew so `gws` is easy to restore on macOS.
@@ -98,6 +104,9 @@
       # "rectangle"
       # "cleanshot"
       "karabiner-elements"
+      # Brew over Nix: nixpkgs git-credential-manager pulls swift toolchain
+      # on macOS. Brew ships the prebuilt signed binary.
+      "git-credential-manager"
     ];
 
     # Mac App Store apps (requires `mas` CLI)
@@ -147,7 +156,7 @@
 
     # Trackpad
     trackpad = {
-      Clicking = true;  # Tap to click
+      Clicking = true; # Tap to click
       TrackpadRightClick = true;
     };
   };
@@ -163,5 +172,5 @@
   system.stateVersion = 5;
 
   # The platform the configuration will be used on
-  nixpkgs.hostPlatform = "aarch64-darwin";  # Change for Intel
+  nixpkgs.hostPlatform = "aarch64-darwin"; # Change for Intel
 }

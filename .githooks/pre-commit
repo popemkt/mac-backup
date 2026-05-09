@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -e
+
+# Lint + format check on staged .nix files.
+# Install: git config core.hooksPath .githooks
+
+staged=$(git diff --cached --name-only --diff-filter=ACM | grep '\.nix$' || true)
+[ -z "$staged" ] && exit 0
+
+echo "==> nixfmt --check"
+echo "$staged" | xargs nixfmt --check
+
+echo "==> statix check (whole repo)"
+statix check .
+
+echo "==> deadnix --fail (whole repo)"
+deadnix --fail .
+
+# nix flake check skipped: nixos config is stub (no fileSystems/bootloader).
+# Run manually: nix flake check --no-build

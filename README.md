@@ -218,6 +218,43 @@ git                # Managed by home-manager
 | `mackup backup` | Backup GUI app configs |
 | `mackup restore` | Restore GUI app configs |
 | `nix flake update` | Update all Nix inputs |
+| `sysaudit` | Drift report (brew/nix/npm/Applications) |
+
+## Lint & Format
+
+The repo enforces clean Nix via three CLI tools (installed by `rebuild`):
+
+| Tool | Purpose | Like |
+|------|---------|------|
+| `nixfmt` | Formatter (RFC-166 style; was `nixfmt-rfc-style`) | prettier, black |
+| `statix check .` | Anti-pattern lint (repeated keys, redundant `if-then-else`, etc.) | ESLint |
+| `deadnix .` | Unused-binding finder (lambda args, `let` bindings) | unused-vars |
+| `nix flake check --no-build` | Eval-time validator (syntax, missing attrs, type errors) | `tsc --noEmit` |
+
+### Manual run
+
+```bash
+nixfmt **/*.nix              # auto-format
+statix check .               # show anti-patterns
+deadnix .                    # show dead code
+nix flake check --no-build   # validate flake graph
+```
+
+### Pre-commit hook
+
+`.githooks/pre-commit` runs nixfmt/statix/deadnix on staged `.nix` files (flake check is a manual gate — the nixos config is a stub). Activate via:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+(Already set on this clone. Re-run after fresh clone.)
+
+### Docs
+
+- statix lints catalog: https://github.com/nerdypepper/statix/blob/master/lints.md
+- deadnix README: https://github.com/astro/deadnix
+- nixfmt RFC-166 spec: https://github.com/NixOS/nixfmt
 
 ## Customization
 

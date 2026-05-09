@@ -1,11 +1,18 @@
-{ config, pkgs, username, ... }:
+{
+  pkgs,
+  username,
+  ...
+}:
 
 {
   # ============================================================================
   # NIX SETTINGS
   # ============================================================================
 
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings.experimental-features = [
+    "nix-command"
+    "flakes"
+  ];
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
@@ -28,7 +35,7 @@
   # LOCALIZATION
   # ============================================================================
 
-  time.timeZone = "Asia/Ho_Chi_Minh";  # Change to your timezone
+  time.timeZone = "Asia/Ho_Chi_Minh"; # Change to your timezone
 
   i18n.defaultLocale = "en_US.UTF-8";
 
@@ -39,7 +46,11 @@
   users.users.${username} = {
     isNormalUser = true;
     description = username;
-    extraGroups = [ "networkmanager" "wheel" "docker" ];
+    extraGroups = [
+      "networkmanager"
+      "wheel"
+      "docker"
+    ];
     shell = pkgs.zsh;
   };
 

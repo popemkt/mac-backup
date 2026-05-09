@@ -218,5 +218,55 @@ for rel in "${managed_external_paths[@]}"; do
   fi
 done
 
+print_section "macOS /Applications Drift"
+
+mapfile -t all_apps < <(
+  {
+    find /Applications -maxdepth 2 -name "*.app" -type d 2>/dev/null
+    find "$HOME/Applications" -maxdepth 2 -name "*.app" -type d 2>/dev/null
+  } | sort -u
+)
+
+cask_apps=()
+cask_app_basenames=()
+if [ -x "$BREW_BIN" ]; then
+  mapfile -t cask_list < <("$BREW_BIN" list --cask 2>/dev/null)
+  for c in "${cask_list[@]}"; do
+    while IFS= read -r path; do
+      if [ -n "$path" ]; then
+        cask_apps+=("$path")
+        cask_app_basenames+=("$(basename "$path")")
+      fi
+    done < <("$BREW_BIN" ls --cask "$c" 2>/dev/null | grep '\.app$' || true)
+  done
+fi
+
+mas_apps=()
+internet_apps=()
+for app in "${all_apps[@]}"; do
+  if array_contains "$(basename "$app")" "${cask_app_basenames[@]}"; then
+    continue
+  fi
+  if [ -d "$app/Contents/_MASReceipt" ]; then
+    mas_apps+=("$app")
+  else
+    internet_apps+=("$app")
+  fi
+done
+
+printf '  Total .app bundles found: %s\n' "${#all_apps[@]}"
+printf '  Brew cask managed: %s\n' "${#cask_apps[@]}"
+printf '  Mac App Store: %s\n' "${#mas_apps[@]}"
+printf '  Unmanaged (internet/manual): %s\n' "${#internet_apps[@]}"
+
+print_section "Apps Installed Outside Brew (manual/internet)"
+print_list "${internet_apps[@]}"
+
+print_section "Mac App Store Apps"
+print_list "${mas_apps[@]}"
+
+print_section "Brew Cask Apps On Disk"
+print_list "${cask_apps[@]}"
+
 print_section "Tracked Nix Packages"
 printf '%s\n' "${declared_nix_packages[@]}" | sed 's/^/  - /'

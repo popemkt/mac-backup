@@ -8,7 +8,8 @@ let
     ".local/share/uv"
     "Library/Application Support/Claude/vm_bundles"
   ];
-  renderMigration = relativePath:
+  renderMigration =
+    relativePath:
     let
       src = "${homeDir}/${relativePath}";
       dst = "${externalDataRoot}/${relativePath}";
