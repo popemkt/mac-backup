@@ -57,7 +57,6 @@
       # swift). Brew's azure-cli ships a working Python+pip so dynamic
       # `az extension add azure-devops` works without nix wrapping.
       "azure-cli"
-      "copilot"
       # Google Workspace CLI for Gmail/Drive/Sheets/etc.
       # Keep this in Brew so `gws` is easy to restore on macOS.
       "googleworkspace-cli"
@@ -73,6 +72,7 @@
       "visual-studio-code"
       "claude"
       "zed"
+      "copilot-cli" # GitHub Copilot CLI (agentic terminal assistant)
       # Google Cloud CLI ships as a Homebrew cask, not a formula.
       # Required by `gws auth setup`.
       "gcloud-cli"
