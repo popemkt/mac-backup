@@ -12,8 +12,15 @@
     # (nix-darwin scope, e.g. HERMES_HOME in hosts/darwin/default.nix).
     sessionPath = [ "/opt/homebrew/bin" ];
 
-    # Hermes auxiliary ACP uses the Homebrew Copilot CLI on macOS.
-    sessionVariables.HERMES_COPILOT_ACP_COMMAND = "/opt/homebrew/bin/copilot";
+    sessionVariables = {
+      # Hermes auxiliary ACP uses the Homebrew Copilot CLI on macOS.
+      HERMES_COPILOT_ACP_COMMAND = "/opt/homebrew/bin/copilot";
+
+      # Mirrors launchd.user.envVariables.HERMES_HOME (hosts/darwin/default.nix).
+      # Launchd line covers GUI apps; this covers interactive shells where
+      # the launchd setenv lands in the wrong bootstrap domain at activate-time.
+      HERMES_HOME = "/stuff/workspace/repos/_brain/.agents/hermes/profile/popemkt";
+    };
   };
 
   # macOS-specific shell additions

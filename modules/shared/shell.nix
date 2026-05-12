@@ -39,8 +39,9 @@ _:
       # PATH additions
       export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
 
-      # HERMES_HOME is set per-platform via home.sessionVariables
-      # (see modules/darwin/default.nix on macOS).
+      # HERMES_HOME set per-platform via home.sessionVariables
+      # (modules/darwin/default.nix on macOS); launchd.user.envVariables
+      # in hosts/darwin/default.nix mirrors it for GUI apps.
 
       # Fix ECONNRESET errors in Claude Code on macOS
       export NODE_OPTIONS="--dns-result-order=ipv4first"
