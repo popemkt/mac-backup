@@ -11,3 +11,4 @@ result-*
 *.private
 secrets/
 .claude/settings.local.json
+.codex/config.toml

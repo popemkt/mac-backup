@@ -27,6 +27,29 @@
     curl
   ];
 
+  # /etc/synthetic.conf entries (read by apfs.util at boot):
+  #   nix            - empty mountpoint for the Determinate /nix APFS volume (fstab)
+  #   stuff -> /Volumes/Data - symlink to external drive workspace
+  # nix-darwin already appends `run`; we append the rest (custom-named
+  # activation scripts are not wired in, hence extraActivation).
+  # Takes effect after reboot.
+  system.activationScripts.extraActivation.text = ''
+    if ! /usr/bin/grep -q '^nix$' /etc/synthetic.conf 2>/dev/null; then
+      echo "adding nix mountpoint to /etc/synthetic.conf..."
+      echo 'nix' | /usr/bin/tee -a /etc/synthetic.conf >/dev/null
+    fi
+    if ! /usr/bin/grep -q '^stuff\b' /etc/synthetic.conf 2>/dev/null; then
+      echo "adding /stuff -> /Volumes/Data to /etc/synthetic.conf..."
+      /usr/bin/printf 'stuff\t/Volumes/Data\n' | /usr/bin/tee -a /etc/synthetic.conf >/dev/null
+    fi
+  '';
+
+  # Global launchd user-domain env vars (via `launchctl setenv`).
+  # Inherited by all user launchd jobs AND by terminal apps launched from
+  # Dock/Spotlight — so shells see it for free without an `export` in shell.nix.
+  # Unless the agent's plist sets the same key inline, which overrides.
+  launchd.user.envVariables.HERMES_HOME = "/stuff/workspace/repos/_brain/.agents/hermes/profile/popemkt";
+
   # ============================================================================
   # HOMEBREW (GUI Apps)
   # ============================================================================

@@ -2,6 +2,9 @@
 
 let
   homeDir = config.home.homeDirectory;
+  # DEPRECATED: external-data.nix symlinks are kept for backwards compatibility
+  # but new large directories should use synthetic mounts via /etc/synthetic.conf
+  # instead of per-directory symlinks. See hosts/darwin/default.nix.
   externalDataRoot = "/Volumes/Data/workspace/symlinks/User";
   managedPaths = [
     ".ollama"

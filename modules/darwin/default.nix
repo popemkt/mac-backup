@@ -5,6 +5,17 @@
   # DARWIN-SPECIFIC HOME-MANAGER SETTINGS
   # ============================================================================
 
+  home = {
+    # Surface Homebrew bins on PATH for interactive shells.
+    # NOTE: launchd-spawned GUI apps don't read this — set per-agent envs
+    # in their plist, or globally via `launchd.user.envVariables`
+    # (nix-darwin scope, e.g. HERMES_HOME in hosts/darwin/default.nix).
+    sessionPath = [ "/opt/homebrew/bin" ];
+
+    # Hermes auxiliary ACP uses the Homebrew Copilot CLI on macOS.
+    sessionVariables.HERMES_COPILOT_ACP_COMMAND = "/opt/homebrew/bin/copilot";
+  };
+
   # macOS-specific shell additions
   programs.zsh.shellAliases = {
     # Nix rebuild alias (darwin-specific)

@@ -19,6 +19,7 @@
     gemini-cli # Google Gemini CLI
     sqlite
     kubectl
+    yt-dlp
     # azure-cli + git-credential-manager installed via Homebrew
     # (see hosts/darwin/default.nix). The Nix paths trigger a from-source
     # rebuild that pulls swift; brew gives signed binaries instantly.
