@@ -16,6 +16,9 @@ _:
       ls = "eza";
       cat = "bat";
 
+      # Dotfiles maintenance
+      dump-login-items = "bash ~/.dotfiles/scripts/dump-login-items.sh";
+
       # Git
       gs = "git status";
       gd = "git diff";
