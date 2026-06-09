@@ -7,6 +7,9 @@ Declarative macOS setup: **nix-darwin** + **home-manager** + **Homebrew** + **Ma
 ### 1. Prerequisites
 
 ```bash
+# Xcode CLI tools (required by Homebrew)
+xcode-select --install
+
 # Install Determinate Nix
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 
