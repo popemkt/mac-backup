@@ -4,13 +4,15 @@ Declarative macOS setup: **nix-darwin** + **home-manager** + **Homebrew** + **Ma
 
 ## New Machine Restore
 
+> Before starting: run `mackup backup` on the old machine to push latest settings to iCloud.
+
 ### 1. Prerequisites
 
 ```bash
 # Xcode CLI tools (required by Homebrew)
 xcode-select --install
 
-# Install Determinate Nix
+# Install Determinate Nix (restart terminal after)
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 
 # Install Homebrew
@@ -22,11 +24,12 @@ curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix 
 Must clone to `~/.dotfiles` — the flake and rebuild alias hardcode this path.
 
 ```bash
-git clone git@github.com:popemkt/mac-backup.git ~/.dotfiles
+# Use HTTPS if SSH key not set up yet
+git clone https://github.com/popemkt/mac-backup.git ~/.dotfiles
 cd ~/.dotfiles
 git config core.hooksPath .githooks
 
-# Set machine hostname to match flake (or add a new config — see below)
+# Match hostname to flake config
 sudo scutil --set HostName popemkt-mac
 sudo scutil --set ComputerName popemkt-mac
 
@@ -37,48 +40,59 @@ Restart terminal after first build.
 
 ### 3. Restore GUI app settings (Mackup)
 
-Requires iCloud to be signed in and syncing.
+Sign into iCloud first and wait for Mackup folder to sync, then:
 
 ```bash
 mackup restore
 ```
 
-This restores: Karabiner-Elements, Zed, VS Code, Raycast, and other supported apps.
+Restores: AltTab, Karabiner-Elements, Zed, VS Code, Warp, Telegram, Claude Code, macOS keyboard shortcuts.
 
-### 4. Manual steps (not automated)
+### 4. Manual steps
 
 | Item | Action |
 |------|--------|
-| **SSH keys** | Copy from old machine or generate new. No keys tracked in repo. |
-| **Git credentials** | `gh auth login` → re-authenticates GitHub CLI + credential manager |
-| **Azure credentials** | `az login` |
-| **GCP credentials** | `gcloud auth login` |
+| **SSH keys** | Copy from old machine or generate new — no keys tracked in repo |
+| **Git credentials** | `gh auth login` |
+| **Azure** | `az login` |
+| **GCP** | `gcloud auth login` |
 | **Tailscale** | Sign in via menu bar |
-| **Hermes agent** | See below |
 | **Raycast** | `open ~/.dotfiles/configs/raycast.rayconfig` → click Import |
 | **uv tools** | `uvx install browser-harness cognee mempalace` |
-| **/stuff workspace** | Mount or attach `/Volumes/Data` external drive, or update `HERMES_HOME` path |
+| **App sign-ins** | Claude, Discord, Warp, Lens — manual |
+| **/stuff workspace** | Attach `/Volumes/Data` external drive, or update `HERMES_HOME` in `modules/darwin/default.nix` and rebuild |
 
-#### Hermes agent (launchd)
+#### Hermes agent (optional)
 
-The hermes gateway plist is not managed by nix. After setting up the hermes repo:
+Not managed by nix. After cloning the hermes repo:
 
 ```bash
 cp ~/.hermes/hermes-agent/ai.hermes.gateway-popemkt.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/ai.hermes.gateway-popemkt.plist
 ```
 
-Note: plist hardcodes `/Volumes/Data/...` for `HERMES_HOME` — update to match actual path if drive name differs.
+Plist hardcodes `HERMES_HOME=/Volumes/Data/...` — update if drive name differs.
+
+#### SSH: switch from HTTPS to SSH after key setup
+
+```bash
+cd ~/.dotfiles
+git remote set-url origin git@github.com:popemkt/mac-backup.git
+```
 
 ---
 
 ## Daily Usage
 
 ```bash
-rebuild                                    # apply config changes
-cd ~/.dotfiles && nix flake update && rebuild  # update all inputs
-mackup backup                              # sync GUI app settings to iCloud
+rebuild                                         # apply config changes
+cd ~/.dotfiles && nix flake update && rebuild   # update all inputs
+mackup backup                                   # sync GUI app settings to iCloud
 ```
+
+> Re-export Raycast config periodically: Raycast → Export and overwrite `configs/raycast.rayconfig`.
+
+---
 
 ## Where to Edit
 
@@ -89,7 +103,7 @@ mackup backup                              # sync GUI app settings to iCloud
 | Add brew formula | `hosts/darwin/default.nix` → `homebrew.brews` |
 | Add macOS system setting | `hosts/darwin/default.nix` → `system.defaults` |
 | Add shell alias | `modules/shared/shell.nix` |
-| Add macOS-only package | `modules/darwin/default.nix` |
+| Add macOS-only config | `modules/darwin/default.nix` |
 | Change git config | `modules/shared/git.nix` |
 | Add npm global | `modules/shared/npm-global.nix` |
 
@@ -97,43 +111,63 @@ mackup backup                              # sync GUI app settings to iCloud
 
 | Layer | Manages | Source of truth |
 |-------|---------|-----------------|
-| **nix-darwin** | macOS system settings, Homebrew declaration | `hosts/darwin/default.nix` |
+| **nix-darwin** | macOS system settings, Homebrew | `hosts/darwin/default.nix` |
 | **home-manager** | CLI tools, shell, git, neovim, starship | `modules/shared/` |
-| **Mackup → iCloud** | GUI app configs (Karabiner, Zed, Raycast, etc.) | `~/iCloud/Mackup/` |
+| **Mackup → iCloud** | GUI app configs (Karabiner, Zed, VS Code, Warp…) | `~/Library/Mobile Documents/com~apple~CloudDocs/Mackup/` |
 | **npm-global.nix** | npm global CLIs | `modules/shared/npm-global.nix` |
+| **`configs/`** | Raycast export | manual import on new machine |
 | **Manual** | SSH keys, credentials, Hermes, uv tools | — |
 
 ## Adding a Second Machine
 
-Add a new config block in `flake.nix`:
+1. Set hostname on new machine to match an existing config, **or** add a new entry to `flake.nix`:
 
 ```nix
-darwinConfigurations."new-hostname" = nix-darwin.lib.darwinSystem {
-  system = "aarch64-darwin"; # or x86_64-darwin for Intel
-  specialArgs = { username = "popemkt"; hostname = "new-hostname"; };
-  modules = [ ... ]; # same as existing config
+darwinConfigurations."popemkt-mac2" = nix-darwin.lib.darwinSystem {
+  system = "aarch64-darwin"; # x86_64-darwin for Intel
+  specialArgs = { username = "popemkt"; hostname = "popemkt-mac2"; };
+  modules = [
+    ./hosts/darwin
+    home-manager.darwinModules.home-manager
+    (_: {
+      users.users.popemkt.home = "/Users/popemkt";
+      home-manager = {
+        useGlobalPkgs = true;
+        useUserPackages = true;
+        backupFileExtension = "backup";
+        extraSpecialArgs = { username = "popemkt"; hostname = "popemkt-mac2"; };
+        users.popemkt = _: {
+          home.stateVersion = "24.05";
+          programs.home-manager.enable = true;
+          imports = [ ./modules/shared ./modules/darwin ];
+        };
+      };
+    })
+  ];
 };
 ```
 
-Then on new machine: `darwin-rebuild switch --flake ~/.dotfiles#new-hostname`
+2. `darwin-rebuild switch --flake ~/.dotfiles#popemkt-mac2`
+
+Both configs start identical and diverge naturally over time via `if hostname ==` conditionals or separate host modules.
 
 ## Lint & Format
 
 ```bash
-nixfmt **/*.nix          # format
-statix check .           # lint anti-patterns
-deadnix --fail .         # find unused bindings
+nixfmt **/*.nix
+statix check .
+deadnix --fail .
 nix flake check --no-build
 ```
 
 Pre-commit hook at `.githooks/pre-commit` runs all four on staged `.nix` files.
-Already activated on this clone via `git config core.hooksPath .githooks`.
+Activated via `git config core.hooksPath .githooks` (already set on this clone).
 
-## Known Gaps (not fully automated)
+## Known Gaps
 
 - npm globals not yet in `npm-global.nix`: `@tobilu/qmd`, `ccmanager`, `kanban`, `sudocode`, `yarn`
-- uv tools (`browser-harness`, `cognee`, `mempalace`) — install via `uvx install`
+- uv tools not tracked: `browser-harness`, `cognee`, `mempalace`
 - Hermes launchd plist — manual deploy
-- Custom `~/.local/bin` scripts (`hermes`, `iii`, `plannotator`) — depend on `/stuff` workspace
+- `~/.local/bin` scripts (`hermes`, `iii`, `plannotator`) — depend on `/stuff` workspace
 - `~/.gitconfig` has extra entries (nbstripout, agor safe.directory) not in `git.nix`
-- Git nbstripout filter hardcodes `/Volumes/Data/...` path — update after restore if needed
+- Git nbstripout filter hardcodes `/Volumes/Data/...` — update after restore if needed
