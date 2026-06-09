@@ -94,6 +94,7 @@
       # Development
       "visual-studio-code"
       "claude"
+      "codex-app"
       "zed"
       "copilot-cli" # GitHub Copilot CLI (agentic terminal assistant)
       # Google Cloud CLI ships as a Homebrew cask, not a formula.
