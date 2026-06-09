@@ -33,6 +33,7 @@
     # Python
     python3
     python3Packages.pip
+    uv
 
     # Rust
     rustc
@@ -54,5 +55,8 @@
     statix # anti-pattern lint
     deadnix # unused-binding finder
     nixfmt # official formatter (RFC-166)
+
+    # Settings sync
+    mackup
   ];
 }

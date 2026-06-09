@@ -8,11 +8,12 @@
 let
   npmPrefix = "${config.home.homeDirectory}/.local";
   npmGlobalPackages = [
+    "@earendil-works/pi-coding-agent"
     "@fission-ai/openspec"
-    "gitnexus"
     "@openai/codex"
-    "portless"
     "cline"
+    "gitnexus"
+    "portless"
   ];
 in
 {

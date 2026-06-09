@@ -12,6 +12,11 @@
     # (nix-darwin scope, e.g. HERMES_HOME in hosts/darwin/default.nix).
     sessionPath = [ "/opt/homebrew/bin" ];
 
+    file.".mackup.cfg".text = ''
+      [storage]
+      engine = icloud
+    '';
+
     sessionVariables = {
       # Hermes auxiliary ACP uses the Homebrew Copilot CLI on macOS.
       HERMES_COPILOT_ACP_COMMAND = "/opt/homebrew/bin/copilot";
