@@ -33,6 +33,10 @@ git config core.hooksPath .githooks
 sudo scutil --set HostName popemkt-mac
 sudo scutil --set ComputerName popemkt-mac
 
+# First time only — darwin-rebuild not in PATH yet
+nix run nix-darwin -- switch --flake ~/.dotfiles#popemkt-mac
+
+# Subsequent rebuilds
 darwin-rebuild switch --flake ~/.dotfiles#popemkt-mac
 ```
 
