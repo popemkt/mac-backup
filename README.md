@@ -19,6 +19,8 @@ curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix 
 
 ### 2. Clone & build
 
+Must clone to `~/.dotfiles` — the flake and rebuild alias hardcode this path.
+
 ```bash
 git clone git@github.com:popemkt/mac-backup.git ~/.dotfiles
 cd ~/.dotfiles
