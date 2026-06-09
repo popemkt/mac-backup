@@ -85,7 +85,6 @@
       "googleworkspace-cli"
       "ghostwright/ghost-os/ghost-os"
       "ollama"
-      "radar"
       "zellij"
     ];
 
