@@ -1,346 +1,133 @@
 # dotfiles
 
-My declarative macOS setup using **nix-darwin** + **home-manager** + **Homebrew** + **Mackup**.
+Declarative macOS setup: **nix-darwin** + **home-manager** + **Homebrew** + **Mackup**.
 
-One command to rule them all: `rebuild`
+## New Machine Restore
 
-## What This Does
-
-| Component | Tool | Config Location |
-|-----------|------|-----------------|
-| CLI tools & shell | Nix + Home Manager | `modules/home.nix` |
-| GUI apps | Homebrew (managed by Nix) | `modules/darwin.nix` |
-| macOS settings | nix-darwin | `modules/darwin.nix` |
-| GUI app configs | Mackup | iCloud (or configured storage) |
-
-## Quick Start (New Machine)
+### 1. Prerequisites
 
 ```bash
-# 1. Clone this repo
-git clone git@github.com:popemkt/dotfiles.git ~/.dotfiles
+# Install Determinate Nix
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 
-# 2. Run setup
-~/.dotfiles/bootstrap.sh
-
-# 3. Restart your terminal
+# Install Homebrew
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-The bootstrap script will:
-1. Install Nix (Determinate Systems installer)
-2. Install Homebrew
-3. Build and apply the full configuration
-4. Set up Mackup for GUI app config backup
+### 2. Clone & build
 
-## Structure
+```bash
+git clone git@github.com:popemkt/mac-backup.git ~/.dotfiles
+cd ~/.dotfiles
+git config core.hooksPath .githooks
 
+# Set machine hostname to match flake (or add a new config — see below)
+sudo scutil --set HostName popemkt-mac
+sudo scutil --set ComputerName popemkt-mac
+
+darwin-rebuild switch --flake ~/.dotfiles#popemkt-mac
 ```
-~/.dotfiles/
-├── flake.nix              # Entry point (inputs, outputs)
-├── modules/
-│   ├── darwin.nix         # macOS settings + Homebrew casks
-│   └── home.nix           # CLI tools + shell + dotfiles
-├── configs/               # Additional config files (nvim, etc.)
-├── .mackup.cfg            # Mackup configuration
-├── bootstrap.sh           # First-time setup script
-└── README.md
+
+Restart terminal after first build.
+
+### 3. Restore GUI app settings (Mackup)
+
+Requires iCloud to be signed in and syncing.
+
+```bash
+mackup restore
 ```
+
+This restores: Karabiner-Elements, Zed, VS Code, Raycast, and other supported apps.
+
+### 4. Manual steps (not automated)
+
+| Item | Action |
+|------|--------|
+| **SSH keys** | Copy from old machine or generate new. No keys tracked in repo. |
+| **Git credentials** | `gh auth login` → re-authenticates GitHub CLI + credential manager |
+| **Azure credentials** | `az login` |
+| **GCP credentials** | `gcloud auth login` |
+| **Tailscale** | Sign in via menu bar |
+| **Hermes agent** | See below |
+| **uv tools** | `uvx install browser-harness cognee mempalace` |
+| **/stuff workspace** | Mount or attach `/Volumes/Data` external drive, or update `HERMES_HOME` path |
+
+#### Hermes agent (launchd)
+
+The hermes gateway plist is not managed by nix. After setting up the hermes repo:
+
+```bash
+cp ~/.hermes/hermes-agent/ai.hermes.gateway-popemkt.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/ai.hermes.gateway-popemkt.plist
+```
+
+Note: plist hardcodes `/Volumes/Data/...` for `HERMES_HOME` — update to match actual path if drive name differs.
+
+---
 
 ## Daily Usage
 
-### Apply Configuration Changes
-
-After editing any config file:
-
 ```bash
-rebuild    # alias for: darwin-rebuild switch --flake ~/.dotfiles
+rebuild                                    # apply config changes
+cd ~/.dotfiles && nix flake update && rebuild  # update all inputs
+mackup backup                              # sync GUI app settings to iCloud
 ```
 
-### Update All Packages
+## Where to Edit
 
-```bash
-# Update flake inputs (nixpkgs, home-manager, etc.)
-cd ~/.dotfiles
-nix flake update
+| Want to... | Edit |
+|------------|------|
+| Add CLI tool | `modules/shared/packages.nix` |
+| Add GUI app (cask) | `hosts/darwin/default.nix` → `homebrew.casks` |
+| Add brew formula | `hosts/darwin/default.nix` → `homebrew.brews` |
+| Add macOS system setting | `hosts/darwin/default.nix` → `system.defaults` |
+| Add shell alias | `modules/shared/shell.nix` |
+| Add macOS-only package | `modules/darwin/default.nix` |
+| Change git config | `modules/shared/git.nix` |
+| Add npm global | `modules/shared/npm-global.nix` |
 
-# Rebuild with updated packages
-rebuild
+## What's Managed Where
 
-# Update Homebrew apps (happens automatically on rebuild, or manually):
-brew update && brew upgrade
-```
+| Layer | Manages | Source of truth |
+|-------|---------|-----------------|
+| **nix-darwin** | macOS system settings, Homebrew declaration | `hosts/darwin/default.nix` |
+| **home-manager** | CLI tools, shell, git, neovim, starship | `modules/shared/` |
+| **Mackup → iCloud** | GUI app configs (Karabiner, Zed, Raycast, etc.) | `~/iCloud/Mackup/` |
+| **npm-global.nix** | npm global CLIs | `modules/shared/npm-global.nix` |
+| **Manual** | SSH keys, credentials, Hermes, uv tools | — |
 
-## Adding Apps & Packages
+## Adding a Second Machine
 
-### Adding a GUI App (Homebrew Cask)
-
-**Quick install now, track later:**
-
-```bash
-# Install immediately
-cask add raycast
-
-# This installs AND reminds you to add to config
-```
-
-**Check what's untracked:**
-
-```bash
-brew-hierarchycheck
-
-# Output:
-# 📦 Untracked casks (installed but not in config):
-#    discord
-#    zoom
-```
-
-**Add to config:**
-
-Edit `~/.dotfiles/modules/darwin.nix`:
+Add a new config block in `flake.nix`:
 
 ```nix
-homebrew = {
-  casks = [
-    "raycast"    # Add here
-    # ...
-  ];
+darwinConfigurations."new-hostname" = nix-darwin.lib.darwinSystem {
+  system = "aarch64-darwin"; # or x86_64-darwin for Intel
+  specialArgs = { username = "popemkt"; hostname = "new-hostname"; };
+  modules = [ ... ]; # same as existing config
 };
 ```
 
-Then run `rebuild`.
-
-### Adding a CLI Tool (Nix)
-
-1. Search for package: [search.nixos.org/packages](https://search.nixos.org/packages)
-
-2. Edit `~/.dotfiles/modules/home.nix`:
-
-```nix
-home.packages = with pkgs; [
-  ripgrep
-  newpackage    # Add here
-];
-```
-
-3. Run `rebuild`
-
-### Adding an npm Global CLI
-
-For npm tools not packaged in `nixpkgs`, use the declarative list in:
-
-`~/.dotfiles/modules/shared/npm-global.nix`
-
-```nix
-let
-  npmGlobalPackages = [
-    "gitnexus"
-    # "your-tool"        # latest
-    # "your-tool@x.y.z"  # pinned
-  ];
-in
-...
-```
-
-Then run `rebuild`.
-
-For quick install now + reminder to track it:
-
-```bash
-npmg add your-tool@x.y.z
-```
-
-## Homebrew Cleanup Modes
-
-In `modules/darwin.nix`:
-
-```nix
-homebrew = {
-  onActivation.cleanup = "none";   # Leave untracked apps alone
-  # or
-  onActivation.cleanup = "zap";    # Remove apps not in config
-};
-```
-
-**Recommended workflow:**
-1. Start with `"none"` while experimenting
-2. Use `brew-hierarchycheck` to see untracked apps
-3. Add the ones you want to keep to config
-4. Switch to `"zap"` for full reproducibility
-
-## macOS Settings
-
-System preferences are declared in `modules/darwin.nix`:
-
-```nix
-system.defaults = {
-  dock.autohide = true;
-  finder.ShowPathbar = true;
-  NSGlobalDomain.KeyRepeat = 2;
-  # ... etc
-};
-```
-
-Changes apply on `rebuild`. Some settings require logout/restart.
-
-## GUI App Configs (Mackup)
-
-Mackup backs up settings for apps like VSCode, iTerm2, Raycast, etc.
-
-```bash
-# Backup your current app configs
-mackup backup
-
-# Restore on a new machine
-mackup restore
-
-# See what's being tracked
-mackup list
-```
-
-Configure in `~/.mackup.cfg`:
-
-```ini
-[storage]
-engine = icloud    # or: dropbox, google_drive, file_system
-
-[applications_to_ignore]
-zsh                # Managed by home-manager
-git                # Managed by home-manager
-```
-
-## Useful Commands
-
-| Command | Description |
-|---------|-------------|
-| `rebuild` | Apply all config changes |
-| `brew-hierarchycheck` | Show untracked Homebrew casks |
-| `cask add <name>` | Install cask + reminder to add to config |
-| `npmg add <name[@version]>` | Install npm global + reminder to add to config |
-| `mackup backup` | Backup GUI app configs |
-| `mackup restore` | Restore GUI app configs |
-| `nix flake update` | Update all Nix inputs |
-| `sysaudit` | Drift report (brew/nix/npm/Applications) |
+Then on new machine: `darwin-rebuild switch --flake ~/.dotfiles#new-hostname`
 
 ## Lint & Format
 
-The repo enforces clean Nix via three CLI tools (installed by `rebuild`):
-
-| Tool | Purpose | Like |
-|------|---------|------|
-| `nixfmt` | Formatter (RFC-166 style; was `nixfmt-rfc-style`) | prettier, black |
-| `statix check .` | Anti-pattern lint (repeated keys, redundant `if-then-else`, etc.) | ESLint |
-| `deadnix .` | Unused-binding finder (lambda args, `let` bindings) | unused-vars |
-| `nix flake check --no-build` | Eval-time validator (syntax, missing attrs, type errors) | `tsc --noEmit` |
-
-### Manual run
-
 ```bash
-nixfmt **/*.nix              # auto-format
-statix check .               # show anti-patterns
-deadnix .                    # show dead code
-nix flake check --no-build   # validate flake graph
+nixfmt **/*.nix          # format
+statix check .           # lint anti-patterns
+deadnix --fail .         # find unused bindings
+nix flake check --no-build
 ```
 
-### Pre-commit hook
+Pre-commit hook at `.githooks/pre-commit` runs all four on staged `.nix` files.
+Already activated on this clone via `git config core.hooksPath .githooks`.
 
-`.githooks/pre-commit` runs nixfmt/statix/deadnix on staged `.nix` files (flake check is a manual gate — the nixos config is a stub). Activate via:
+## Known Gaps (not fully automated)
 
-```bash
-git config core.hooksPath .githooks
-```
-
-(Already set on this clone. Re-run after fresh clone.)
-
-### Docs
-
-- statix lints catalog: https://github.com/nerdypepper/statix/blob/master/lints.md
-- deadnix README: https://github.com/astro/deadnix
-- nixfmt RFC-166 spec: https://github.com/NixOS/nixfmt
-
-## Customization
-
-### Add Your Git Info
-
-Edit `modules/home.nix`:
-
-```nix
-programs.git = {
-  userName = "Your Name";
-  userEmail = "you@example.com";
-};
-```
-
-### Add Shell Aliases
-
-Edit `modules/home.nix`:
-
-```nix
-programs.zsh.shellAliases = {
-  myalias = "my command";
-};
-```
-
-### Add Neovim Config
-
-1. Place your config in `configs/nvim/`
-2. Uncomment in `modules/home.nix`:
-
-```nix
-home.file.".config/nvim" = {
-  source = ../configs/nvim;
-  recursive = true;
-};
-```
-
-3. Run `rebuild`
-
-## Troubleshooting
-
-### "hostname not found in flake"
-
-Update `hostname` in `flake.nix` to match your Mac's hostname:
-
-```bash
-hostname -s    # Shows your hostname
-```
-
-### "command not found: darwin-rebuild"
-
-Restart your terminal after first bootstrap.
-
-### Nix is slow on first run
-
-Normal - it's downloading packages. Subsequent runs are cached.
-
-### Existing dotfiles conflict
-
-Back them up first:
-
-```bash
-mv ~/.zshrc ~/.zshrc.backup
-mv ~/.gitconfig ~/.gitconfig.backup
-```
-
-## Starting Fresh
-
-If things break:
-
-```bash
-# Remove current config
-darwin-rebuild --rollback
-
-# Or full reset
-/nix/nix-installer uninstall
-rm -rf ~/.dotfiles
-# Then re-clone and bootstrap
-```
-
-## Philosophy
-
-- **CLI tools**: Nix (reproducible, cross-platform)
-- **GUI apps**: Homebrew (best macOS integration)
-- **Config tracking**: Everything in one git repo
-- **Low friction**: `cask add` for quick installs, track later
-
-## License
-
-MIT
+- npm globals not yet in `npm-global.nix`: `@tobilu/qmd`, `ccmanager`, `kanban`, `sudocode`, `yarn`
+- uv tools (`browser-harness`, `cognee`, `mempalace`) — install via `uvx install`
+- Hermes launchd plist — manual deploy
+- Custom `~/.local/bin` scripts (`hermes`, `iii`, `plannotator`) — depend on `/stuff` workspace
+- `~/.gitconfig` has extra entries (nbstripout, agor safe.directory) not in `git.nix`
+- Git nbstripout filter hardcodes `/Volumes/Data/...` path — update after restore if needed
