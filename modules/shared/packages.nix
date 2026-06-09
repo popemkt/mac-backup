@@ -34,12 +34,16 @@
     python3
     python3Packages.pip
 
+    # Rust
+    rustc
+    cargo
+
     # Node.js stack
     nodejs
     bun
     pnpm
-    nodePackages.typescript
-    nodePackages.typescript-language-server
+    typescript
+    typescript-language-server
 
     # Neovim dependencies
     lua-language-server
