@@ -41,7 +41,7 @@
   # macOS-specific shell additions
   programs.zsh.shellAliases = {
     # Nix rebuild alias (darwin-specific)
-    rebuild = "sudo darwin-rebuild switch --flake ~/.dotfiles#${hostname}";
+    rebuild = "darwin-rebuild switch --flake ~/.dotfiles#${hostname} --use-remote-sudo";
   };
 
   programs.zsh.initContent = lib.mkAfter ''
