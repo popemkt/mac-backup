@@ -16,9 +16,6 @@ _:
       ls = "eza";
       cat = "bat";
 
-      # Mackup
-      mackup = "mackup --force";
-
       # Git
       gs = "git status";
       gd = "git diff";

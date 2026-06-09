@@ -87,7 +87,7 @@ git remote set-url origin git@github.com:popemkt/mac-backup.git
 ```bash
 rebuild                                         # apply config changes
 cd ~/.dotfiles && nix flake update && rebuild   # update all inputs
-mackup backup                                   # sync GUI app settings to iCloud
+mackup backup --force                            # sync GUI app settings to iCloud (--force skips replace prompts)
 ```
 
 > Re-export Raycast config periodically: Raycast → Export and overwrite `configs/raycast.rayconfig`.
