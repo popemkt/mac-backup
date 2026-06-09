@@ -55,6 +55,7 @@ This restores: Karabiner-Elements, Zed, VS Code, Raycast, and other supported ap
 | **GCP credentials** | `gcloud auth login` |
 | **Tailscale** | Sign in via menu bar |
 | **Hermes agent** | See below |
+| **Raycast** | `open ~/.dotfiles/configs/raycast.rayconfig` → click Import |
 | **uv tools** | `uvx install browser-harness cognee mempalace` |
 | **/stuff workspace** | Mount or attach `/Volumes/Data` external drive, or update `HERMES_HOME` path |
 
