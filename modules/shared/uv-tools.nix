@@ -17,11 +17,11 @@ let
   #
   # Audited by scripts/audit-system-discrepancies.sh (anchor: uvTools).
   #
-  # NOTE: [all] pulls the heavy ML extras (torch / HuggingFace) — a large venv,
-  # but it enables every compression algorithm for the always-on proxy daemon
-  # (launchd.user.agents.headroom-proxy in hosts/darwin/default.nix).
+  # headroom-ai[all] pulls hnswlib which requires C++ compile; fails on CLT-only
+  # macOS setups without full Xcode SDK. The proxy daemon only needs the core
+  # package — vector-search extras are unused at runtime.
   uvTools = [
-    "headroom-ai[all]"
+    "headroom-ai"
   ];
 in
 {
