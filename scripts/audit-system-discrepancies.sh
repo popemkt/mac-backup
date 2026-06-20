@@ -7,9 +7,11 @@ BREW_CONFIG="$ROOT_DIR/hosts/darwin/default.nix"
 NPM_CONFIG="$ROOT_DIR/modules/shared/npm-global.nix"
 PACKAGES_CONFIG="$ROOT_DIR/modules/shared/packages.nix"
 EXTERNAL_DATA_CONFIG="$ROOT_DIR/modules/shared/external-data.nix"
+UV_TOOLS_CONFIG="$ROOT_DIR/modules/shared/uv-tools.nix"
 
 BREW_BIN="${HOMEBREW_PREFIX:-/opt/homebrew}/bin/brew"
 NPM_BIN="${NPM_BIN:-npm}"
+UV_BIN="${UV_BIN:-uv}"
 
 parse_nix_strings() {
   local file="$1"
@@ -17,7 +19,7 @@ parse_nix_strings() {
 
   awk -v anchor="$anchor" '
     $0 ~ "^[[:space:]]*" anchor "[[:space:]]*=" { in_block=1; next }
-    in_block && /\]/ { exit }
+    in_block && /^[[:space:]]*\]/ { exit }
     in_block {
       line=$0
       sub(/#.*/, "", line)
@@ -117,6 +119,20 @@ normalize_brew_names() {
   awk -F/ '{ print $NF }' | sort -u | sed '/^$/d'
 }
 
+# Strip uv pin/extras: "mempalace==3.3.1" / "headroom-ai[proxy]" -> bare name.
+normalize_uv_names() {
+  sed -E 's/(\[|==).*$//' | sort -u | sed '/^$/d'
+}
+
+# A uv tool is editable/local when its receipt records an editable source.
+# Those are untracked by design (they live with their own repo), so we don't
+# count them as drift.
+uv_is_editable() {
+  local name="$1"
+  local receipt="$HOME/.local/share/uv/tools/$name/uv-receipt.toml"
+  [ -f "$receipt" ] && grep -q 'editable' "$receipt"
+}
+
 readarray_safe declared_brews parse_nix_strings "$BREW_CONFIG" "brews"
 readarray_safe declared_casks parse_nix_strings "$BREW_CONFIG" "casks"
 readarray_safe declared_npm parse_nix_strings "$NPM_CONFIG" "npmGlobalPackages"
@@ -196,6 +212,49 @@ if command -v "$NPM_BIN" >/dev/null 2>&1; then
 else
   print_section "npm Global Drift"
   printf '  npm not found\n'
+fi
+
+if command -v "$UV_BIN" >/dev/null 2>&1; then
+  readarray_safe declared_uv_raw parse_nix_strings "$UV_TOOLS_CONFIG" "uvTools"
+  mapfile -t declared_uv < <(printf '%s\n' "${declared_uv_raw[@]}" | normalize_uv_names)
+
+  readarray_safe uv_list_raw "$UV_BIN" tool list
+  mapfile -t installed_uv < <(
+    printf '%s\n' "${uv_list_raw[@]}" \
+      | grep -E '^[A-Za-z0-9]' \
+      | awk '{ print $1 }' \
+      | sort -u
+  )
+
+  installed_uv_pypi=()
+  installed_uv_editable=()
+  for tool in "${installed_uv[@]}"; do
+    if uv_is_editable "$tool"; then
+      installed_uv_editable+=("$tool")
+    else
+      installed_uv_pypi+=("$tool")
+    fi
+  done
+
+  mapfile -t unmanaged_uv < <(set_diff installed_uv_pypi declared_uv | sort_unique)
+  mapfile -t missing_uv < <(set_diff declared_uv installed_uv | sort_unique)
+
+  print_section "uv Tool Drift"
+  printf '  uv binary: %s\n' "$(command -v "$UV_BIN")"
+  printf '  Declared uv tools tracked: %s\n' "${#declared_uv[@]}"
+  printf '  Installed uv tools: %s\n' "${#installed_uv[@]}"
+
+  print_section "uv Tools Installed But Not Tracked"
+  print_list "${unmanaged_uv[@]}"
+
+  print_section "uv Tools Tracked But Missing"
+  print_list "${missing_uv[@]}"
+
+  print_section "uv Tools Local/Editable (untracked by design)"
+  print_list "${installed_uv_editable[@]}"
+else
+  print_section "uv Tool Drift"
+  printf '  uv not found\n'
 fi
 
 print_section "Managed External Data"

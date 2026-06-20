@@ -1,5 +1,5 @@
 {
-  description = "Cross-platform Nix configuration";
+  description = "Declarative macOS configuration";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
@@ -17,7 +17,6 @@
 
   outputs =
     {
-      nixpkgs,
       nix-darwin,
       home-manager,
       ...
@@ -59,35 +58,7 @@
         ];
       };
 
-      # ========================================================================
-      # NIXOS (Linux) CONFIGURATIONS
-      # ========================================================================
-
-      nixosConfigurations."nixos" = nixpkgs.lib.nixosSystem {
-        system = "x86_64-linux";
-        specialArgs = { inherit username hostname; };
-        modules = [
-          ./hosts/nixos
-
-          home-manager.nixosModules.home-manager
-          (_: {
-            home-manager = {
-              useGlobalPkgs = true;
-              useUserPackages = true;
-              backupFileExtension = "backup";
-              extraSpecialArgs = { inherit username hostname; };
-              users.${username} = _: {
-                home.stateVersion = "24.05";
-                programs.home-manager.enable = true;
-
-                imports = [
-                  ./modules/shared
-                  ./modules/nixos
-                ];
-              };
-            };
-          })
-        ];
-      };
+      # NixOS modules are kept in-tree for future use, but this flake only
+      # exposes complete, actively maintained host configurations.
     };
 }
