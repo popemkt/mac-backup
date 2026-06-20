@@ -1,0 +1,60 @@
+# Change-check workflow — general-purpose template.
+# Adapted from llm-intro harness (itself adapted from Draiver.Application).
+# Advisory: scopes a diff, reads harness specs, recommends validation commands.
+# Never edits files, never gates.
+#
+# Run: archon workflow run change-check <base-ref>
+
+name: change-check
+description: Scope a diff against harness specs and recommend validation commands.
+
+provider: codex
+interactive: true
+
+triggers:
+  - slash: /change-check
+  - manual
+
+isolation:
+  type: git-worktree
+  base: main
+
+nodes:
+
+  - id: read_harness
+    context: fresh
+    prompt: |
+      Read the harness spec. Do not edit. Look for it at:
+        - specs/harness.md
+        - AGENTS.md
+        - README.md
+      Use whichever is most authoritative. Emit JSON:
+        { rules_in_scope: string[], validation_surface: string[] }
+    output_format:
+      type: object
+      required: [rules_in_scope, validation_surface]
+
+  - id: scope_diff
+    depends_on: [read_harness]
+    context: shared
+    prompt: |
+      Base ref: $ARGUMENTS (default "main" if empty).
+      Inspect changed files: git diff --name-only <base>...HEAD
+      Classify the change (one or more of): app-ui, api, persistence,
+      tests, specs, config, infra, tooling.
+      Emit JSON: { base: string, files: string[], areas: string[] }
+    output_format:
+      type: object
+      required: [base, files, areas]
+
+  - id: recommend_validation
+    depends_on: [scope_diff]
+    context: shared
+    prompt: |
+      Harness rules: $read_harness.output
+      Diff scope: $scope_diff.output
+
+      Recommend the smallest sufficient set of validation commands from
+      the registered commands in the harness spec.
+      Explain why each command is included or excluded.
+      Do not edit files. Do not run commands. Advisory only.

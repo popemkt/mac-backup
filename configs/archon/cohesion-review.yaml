@@ -1,0 +1,106 @@
+# Cohesion review workflow — general-purpose template.
+# Adapted from Draiver.Application + llm-intro harnesses.
+# Rubric lives in specs/code-unit-cohesion.md (or equivalent in the target repo).
+# Advisory only — never edits files, never gates by itself.
+# Consumer (CI wrapper, human) decides whether ISSUES(<n>) blocks.
+#
+# Run: archon workflow run cohesion-review <base-ref> --no-worktree
+# Requires: node_modules present (ground_graph runs nx graph or fallback import scan).
+# Provider: codex avoids nested-CC hang when driven from inside a Claude Code session.
+
+name: cohesion-review
+description: Advisory KEEP/PROMOTE/SPLIT/MERGE cohesion review of a diff. Never gates.
+
+provider: codex
+interactive: true
+
+triggers:
+  - slash: /cohesion-review
+  - manual
+
+# PREFERRED: --no-worktree on a real checkout with node_modules.
+# --branch run: isolation.base must point to a branch with the codebase (not a bare scaffold).
+isolation:
+  type: git-worktree
+  base: main
+
+# $ARGUMENTS = base ref to diff against (default: main), or a path/glob to scope.
+
+nodes:
+
+  # 1. Load rubric from its canonical home. Fresh context = clean read.
+  - id: read_rubric
+    context: fresh
+    prompt: |
+      Read the cohesion rubric. Do not edit. Look for it at:
+        - specs/code-unit-cohesion.md
+        - technical-specs/20-code-unit-cohesion.md
+        - AGENTS.md (section: "## Code-unit cohesion")
+      Use whichever exists. Emit JSON:
+        { verdicts: string[], slap_tells: string[], advisory_only: bool }
+    output_format:
+      type: object
+      required: [verdicts, slap_tells, advisory_only]
+
+  # 2. Scope changed units.
+  - id: scope_diff
+    depends_on: [read_rubric]
+    context: shared
+    prompt: |
+      Base ref / scope: $ARGUMENTS (default "main" if empty).
+      List changed source files from:
+        git diff --name-only <base>...HEAD
+        (fallback: git diff --name-only <base>)
+      Exclude: *.spec.*, *.test.*, dist/, node_modules/.
+      Emit JSON: { base: string, files: string[] }
+    output_format:
+      type: object
+      required: [base, files]
+
+  # 3. Ground coupling evidence per changed unit.
+  - id: ground
+    depends_on: [scope_diff]
+    context: shared
+    prompt: |
+      Changed files: $scope_diff.output
+
+      For each file derive coupling from:
+        1. Static imports — fan-out = the file's own imports;
+           fan-in = ripgrep who imports it.
+        2. Project/lib graph — run `npx nx graph --file=/tmp/graph.json` if nx is
+           available, else skip (note degraded grounding).
+        3. DI bindings — if the file is a NestJS provider/service, resolve
+           @Inject(TOKEN) against *.module.ts provider bindings; import fan-in
+           is a lower bound only. Set importGraphIsLowerBound=true for these.
+
+      Emit JSON: { units: [{ file, fanIn, fanOut, importGraphIsLowerBound }] }
+    output_format:
+      type: object
+      required: [units]
+
+  # 4. Judge + emit advisory report.
+  - id: review
+    depends_on: [ground]
+    context: shared
+    prompt: |
+      Rubric: $read_rubric.output
+      Evidence: $ground.output
+
+      Apply the rubric to each changed unit. Every coupling claim MUST cite
+      the layered evidence — no ungrounded "feels coupled".
+
+      Also apply the SLAP / composed-method shape lens:
+        - Step-comments wanting names → SPLIT
+        - Inline computation/parsing in an orchestrator → SPLIT
+        - High complexity/depth (not high line count) in an orchestrator → SPLIT
+        - Over-extracted fragment with no named-step purpose → MERGE
+        - Flat composed body (many named calls, low complexity) → KEEP even if long
+
+      Output the COHESION REVIEW report:
+        - One line per unit: verdict, confidence, evidence, concrete action
+        - Counts per verdict
+        - If any SPLIT/MERGE/leak: lead with ⚠ COHESION: <n> ISSUES — ACTION REQUIRED
+        - If all KEEP/non-blocking PROMOTE: lead with ✓ COHESION: clean
+        - Final line (machine-parseable): COHESION_STATUS: CLEAN or COHESION_STATUS: ISSUES(<n>)
+
+      NEVER edit files. The report is the output.

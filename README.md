@@ -63,6 +63,7 @@ Restores: AltTab, Karabiner-Elements, Zed, VS Code, Warp, Telegram, Claude Code,
 | **Tailscale** | Sign in via menu bar |
 | **Raycast** | `open ~/.dotfiles/configs/raycast.rayconfig` → click Import |
 | **uv tools** | `uvx install browser-harness cognee mempalace` |
+| **Archon CLI** | `curl -fsSL https://archon.diy/install \| sh` then verify with `archon workflow list` |
 | **App sign-ins** | Claude, Discord, Warp, Lens — manual |
 | **/stuff workspace** | Attach `/Volumes/Data` external drive, or update `HERMES_HOME` in `modules/darwin/default.nix` and rebuild |
 
