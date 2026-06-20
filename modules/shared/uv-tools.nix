@@ -17,11 +17,10 @@ let
   #
   # Audited by scripts/audit-system-discrepancies.sh (anchor: uvTools).
   #
-  # [proxy] extras add fastapi/uvicorn/websockets needed by `headroom proxy`.
-  # [all] additionally pulls hnswlib (C++ build, fails on CLT-only macOS) and
-  # torch/HuggingFace — not needed for the proxy daemon. Use [proxy] here.
+  # [all] enables every compression algorithm (hnswlib, torch, HuggingFace).
+  # Requires SDKROOT set for C++ build — handled by the xcrun line below.
   uvTools = [
-    "headroom-ai[proxy]"
+    "headroom-ai[all]"
   ];
 in
 {
