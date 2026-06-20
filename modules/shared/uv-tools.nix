@@ -31,6 +31,10 @@ in
   home.activation.installUvTools = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     # CLT-only macOS doesn't set SDKROOT; without it clang can't find C++ stdlib
     # headers and any package with a C extension (hnswlib, etc.) fails to build.
+    # TODO: prefer full Xcode (App Store) over CLT — sets SDKROOT automatically
+    #       and avoids this workaround entirely:
+    #         sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+    #         sudo xcodebuild -license accept
     export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
     for spec in ${lib.concatStringsSep " " (map lib.escapeShellArg uvTools)}; do
       name="''${spec%%==*}"
