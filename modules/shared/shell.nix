@@ -49,6 +49,11 @@ _:
       # Fix ECONNRESET errors in Claude Code on macOS
       export NODE_OPTIONS="--dns-result-order=ipv4first"
 
+      # macOS SDK root — lets clang find C++ stdlib headers when building Python
+      # extensions (e.g. hnswlib). CLT-only installs don't set this automatically;
+      # full Xcode does. Required by: uv tool install <anything with C++ deps>.
+      export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)"
+
       # npm global helper (paired with modules/shared/npm-global.nix)
       npmg() {
         local config_file="$HOME/.dotfiles/modules/shared/npm-global.nix"

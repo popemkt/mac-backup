@@ -29,6 +29,9 @@ in
   # Only installs tools that are missing; never force-reinstalls or upgrades,
   # so rebuilds stay predictable. Pinned versions are honoured on first install.
   home.activation.installUvTools = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    # CLT-only macOS doesn't set SDKROOT; without it clang can't find C++ stdlib
+    # headers and any package with a C extension (hnswlib, etc.) fails to build.
+    export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
     for spec in ${lib.concatStringsSep " " (map lib.escapeShellArg uvTools)}; do
       name="''${spec%%==*}"
       name="''${name%%[*}"
