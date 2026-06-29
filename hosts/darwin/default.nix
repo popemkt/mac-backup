@@ -1,6 +1,46 @@
 { pkgs, username, ... }:
 
 {
+  launchd.daemons.time-machine-local-snapshot-prune = {
+    script = ''
+      set -eu
+
+      keep=3
+      snapshots=$(/usr/bin/tmutil listlocalsnapshotdates / | /usr/bin/grep '-' | /usr/bin/sort || true)
+      count=$(printf '%s\n' "$snapshots" | /usr/bin/grep -c '-' || true)
+
+      if [ "$count" -le "$keep" ]; then
+        exit 0
+      fi
+
+      printf '%s\n' "$snapshots" | /usr/bin/awk -v keep="$keep" '
+        { snapshots[NR] = $0 }
+        END {
+          limit = NR - keep
+          for (i = 1; i <= limit; i++) {
+            print snapshots[i]
+          }
+        }
+      ' | while IFS= read -r snapshot; do
+        [ -n "$snapshot" ] && /usr/bin/tmutil deletelocalsnapshots "$snapshot"
+      done
+    '';
+    serviceConfig = {
+      StartCalendarInterval = [
+        {
+          Hour = 9;
+          Minute = 15;
+        }
+        {
+          Hour = 18;
+          Minute = 15;
+        }
+      ];
+      StandardOutPath = "/var/log/time-machine-local-snapshot-prune.log";
+      StandardErrorPath = "/var/log/time-machine-local-snapshot-prune.log";
+    };
+  };
+
   # ============================================================================
   # PRIMARY USER (required for many system settings)
   # ============================================================================
