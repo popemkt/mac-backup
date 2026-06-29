@@ -147,6 +147,7 @@
       # "homebrew/bundle"  # Uncomment if needed
       "ghostwright/ghost-os"
       "skyhook-io/tap"
+      "stablyai/orca"
     ];
 
     # CLI tools from Homebrew (prefer Nix for these, but some work better via brew)
@@ -170,6 +171,7 @@
       "visual-studio-code"
       "claude"
       "codex-app"
+      "orca"
       "zed"
       "copilot-cli" # GitHub Copilot CLI (agentic terminal assistant)
       # Google Cloud CLI ships as a Homebrew cask, not a formula.
