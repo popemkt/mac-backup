@@ -28,8 +28,12 @@ in
   # Only installs tools that are missing; never force-reinstalls or upgrades,
   # so rebuilds stay predictable. Pinned versions are honoured on first install.
   home.activation.installUvTools = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    # CLT-only macOS doesn't set SDKROOT; without it clang can't find C++ stdlib
-    # headers and any package with a C extension (hnswlib, etc.) fails to build.
+    # CLT-only macOS doesn't set SDKROOT; without it clang can't find C/C++
+    # headers and any package with a native extension can fail to build.
+    #
+    # Also pin the tool environment to nixpkgs' Python. uv otherwise chooses the
+    # newest discovered interpreter, which can get ahead of wheel/native-extension
+    # support on fresh machines.
     # TODO: prefer full Xcode (App Store) over CLT — sets SDKROOT automatically.
     #       headroom-ai[proxy] has no C++ deps so this workaround is currently
     #       moot, but other uv tools may need it:
@@ -40,7 +44,7 @@ in
       name="''${spec%%==*}"
       name="''${name%%[*}"
       if ! ${pkgs.uv}/bin/uv tool list 2>/dev/null | ${pkgs.gnugrep}/bin/grep -q "^$name "; then
-        $DRY_RUN_CMD ${pkgs.uv}/bin/uv tool install "$spec"
+        $DRY_RUN_CMD ${pkgs.uv}/bin/uv tool install --python ${pkgs.python3}/bin/python3 "$spec"
       fi
     done
   '';
