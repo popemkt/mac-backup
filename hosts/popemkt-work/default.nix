@@ -10,6 +10,7 @@ _:
   # Work-only GUI apps; merged with the base list in hosts/darwin.
   homebrew.casks = [
     "microsoft-outlook"
+    "microsoft-teams"
     "slack"
   ];
 
