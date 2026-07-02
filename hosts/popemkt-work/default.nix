@@ -9,4 +9,18 @@ _:
 
   # Work-only GUI apps; merged with the base list in hosts/darwin.
   homebrew.casks = [ "microsoft-outlook" ];
+
+  # Autostart Outlook at login (-g = don't focus, -j = launch hidden).
+  # RunAtLoad also fires once at rebuild activation, not just login.
+  launchd.user.agents.outlook-autostart = {
+    serviceConfig = {
+      ProgramArguments = [
+        "/usr/bin/open"
+        "-gj"
+        "-a"
+        "Microsoft Outlook"
+      ];
+      RunAtLoad = true;
+    };
+  };
 }
