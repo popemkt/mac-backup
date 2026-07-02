@@ -6,4 +6,7 @@ _:
   imports = [ ../darwin ];
 
   my.role = "work";
+
+  # Work-only GUI apps; merged with the base list in hosts/darwin.
+  homebrew.casks = [ "microsoft-outlook" ];
 }
