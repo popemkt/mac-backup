@@ -1,6 +1,19 @@
-{ pkgs, username, ... }:
+{ pkgs, config, ... }:
 
+let
+  inherit (config.my) username;
+in
 {
+  # Keep the OS hostname in sync with the flake attribute name so
+  # `darwin-rebuild --flake ~/.dotfiles` can auto-select this host.
+  # Rebuild applies these via scutil — renaming a machine = rename the
+  # flake attr + host dir, then rebuild once with the explicit new name.
+  networking = {
+    hostName = config.my.hostname;
+    computerName = config.my.hostname;
+    localHostName = config.my.hostname;
+  };
+
   launchd.daemons.time-machine-local-snapshot-prune = {
     script = ''
       set -eu
@@ -170,8 +183,9 @@
       # Development
       "visual-studio-code"
       "claude"
+      "claude-code@latest"
       "codex-app"
-      "orca"
+      "stablyai/orca/orca"
       "zed"
       "copilot-cli" # GitHub Copilot CLI (agentic terminal assistant)
       # Google Cloud CLI ships as a Homebrew cask, not a formula.
@@ -187,6 +201,7 @@
       # Browsers
       # "arc"
       # "firefox"
+      "google-chrome@beta"
 
       # Productivity
       "raycast"
@@ -253,6 +268,52 @@
       AppleShowAllExtensions = true;
       # Allow macOS to auto-terminate idle apps with no windows
       NSDisableAutomaticTermination = false;
+    };
+
+    CustomUserPreferences = {
+      "com.apple.HIToolbox" = {
+        AppleEnabledInputSources = [
+          # Base Latin keyboard layout.
+          {
+            InputSourceKind = "Keyboard Layout";
+            "KeyboardLayout ID" = 0;
+            "KeyboardLayout Name" = "U.S.";
+          }
+          # Built-in Vietnamese Telex input method.
+          {
+            InputSourceKind = "Input Mode";
+            "Bundle ID" = "com.apple.inputmethod.VietnameseIM";
+            "Input Mode" = "com.apple.inputmethod.VietnameseTelex";
+          }
+        ];
+        AppleSelectedInputSources = [
+          # Keep U.S. first so it remains the default selected layout.
+          {
+            InputSourceKind = "Keyboard Layout";
+            "KeyboardLayout ID" = 0;
+            "KeyboardLayout Name" = "U.S.";
+          }
+          # Make Vietnamese Telex visible in the input switcher.
+          {
+            InputSourceKind = "Input Mode";
+            "Bundle ID" = "com.apple.inputmethod.VietnameseIM";
+            "Input Mode" = "com.apple.inputmethod.VietnameseTelex";
+          }
+        ];
+        AppleInputSourceHistory = [
+          # Mirror the selectable layouts so Text Input services rebuild their menu.
+          {
+            InputSourceKind = "Keyboard Layout";
+            "KeyboardLayout ID" = 0;
+            "KeyboardLayout Name" = "U.S.";
+          }
+          {
+            InputSourceKind = "Input Mode";
+            "Bundle ID" = "com.apple.inputmethod.VietnameseIM";
+            "Input Mode" = "com.apple.inputmethod.VietnameseTelex";
+          }
+        ];
+      };
     };
 
     # Trackpad

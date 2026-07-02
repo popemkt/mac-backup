@@ -22,6 +22,8 @@ mackup backup / mackup restore   # GUI app settings via iCloud
 | Add shell alias          | `modules/shared/shell.nix`        |
 | Add macOS-only package   | `modules/darwin/default.nix`      |
 | Change git config        | `modules/shared/git.nix`          |
+| Add host-only config     | `hosts/<hostname>/default.nix`    |
+| Add work/personal split  | `lib.mkIf (config.my.role == "work") { ... }` in any system module |
 
 Then run `rebuild`.
 
@@ -45,8 +47,11 @@ referencing `pkgs` in the body.
 
 ## Architecture
 
-- `flake.nix` — entry point; defines `username`/`hostname` variables, passes via `specialArgs`
-- `hosts/darwin/` — macOS system config (nix-darwin settings, Homebrew, system defaults)
+- `flake.nix` — entry point; `mkDarwin` builds one config per host (attr name = hostname)
+- `modules/options/` — typed option declarations (`my.username`, `my.hostname`, `my.role`); read via `config.my.*` (system) or `osConfig.my.*` (home-manager) — no specialArgs
+- `hosts/darwin/` — shared macOS base for ALL macs (nix-darwin settings, Homebrew, system defaults)
+- `hosts/popemkt-work/` — work machine; `hosts/popemkt-personal/` — personal; each imports `../darwin` + sets `my.role` + host-only diffs
+- Renaming a machine: rename host dir + flake attr, rebuild once with explicit `--flake ~/.dotfiles#<newname>` — activation sets HostName/ComputerName/LocalHostName via `networking.*`
 - `modules/shared/` — cross-platform home-manager modules (shell, packages, git, neovim)
 - `modules/darwin/` — macOS-specific home-manager (rebuild alias, brew helpers)
 - `configs/` — raw config files (nvim, etc.)
@@ -55,7 +60,7 @@ referencing `pkgs` in the body.
 ## Gotchas
 
 - Uses Determinate Nix installer → `nix.enable = false` in darwin config
-- `system.primaryUser` is set via the `username` variable from flake.nix
+- `system.primaryUser` comes from `config.my.username` (set in flake.nix)
 - `homebrew.onActivation.cleanup = "none"` — keeps unlisted apps (change to `"zap"` for strict mode)
 - Touch ID sudo: `security.pam.services.sudo_local.touchIdAuth`
 

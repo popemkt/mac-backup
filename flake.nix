@@ -23,39 +23,51 @@
     }:
     let
       username = "popemkt";
-      hostname = "${username}-mac";
+
+      # One darwin host = base (hosts/darwin) + host dir (hosts/<hostname>).
+      # Host identity lives in the typed `my.*` options (modules/my.nix),
+      # not in specialArgs.
+      mkDarwin =
+        hostname:
+        nix-darwin.lib.darwinSystem {
+          modules = [
+            (./hosts + "/${hostname}")
+
+            ./modules/options
+            {
+              my = { inherit username hostname; };
+            }
+
+            home-manager.darwinModules.home-manager
+            (_: {
+              users.users.${username}.home = "/Users/${username}";
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                backupFileExtension = "backup";
+                users.${username} = _: {
+                  home.stateVersion = "24.05";
+                  programs.home-manager.enable = true;
+
+                  imports = [
+                    ./modules/shared
+                    ./modules/darwin
+                  ];
+                };
+              };
+            })
+          ];
+        };
     in
     {
       # ========================================================================
       # DARWIN (macOS) CONFIGURATIONS
       # ========================================================================
+      # `rebuild` picks the attribute matching this machine's hostname.
 
-      darwinConfigurations.${hostname} = nix-darwin.lib.darwinSystem {
-        system = "aarch64-darwin";
-        specialArgs = { inherit username hostname; };
-        modules = [
-          ./hosts/darwin
-
-          home-manager.darwinModules.home-manager
-          (_: {
-            users.users.${username}.home = "/Users/${username}";
-            home-manager = {
-              useGlobalPkgs = true;
-              useUserPackages = true;
-              backupFileExtension = "backup";
-              extraSpecialArgs = { inherit username hostname; };
-              users.${username} = _: {
-                home.stateVersion = "24.05";
-                programs.home-manager.enable = true;
-
-                imports = [
-                  ./modules/shared
-                  ./modules/darwin
-                ];
-              };
-            };
-          })
-        ];
+      darwinConfigurations = {
+        popemkt-work = mkDarwin "popemkt-work";
+        popemkt-personal = mkDarwin "popemkt-personal";
       };
 
       # NixOS modules are kept in-tree for future use, but this flake only
