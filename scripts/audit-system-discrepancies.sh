@@ -3,7 +3,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BREW_CONFIG="$ROOT_DIR/hosts/darwin/default.nix"
+# Brew declarations live in the shared darwin base AND per-host files.
+BREW_CONFIG_FILES=("$ROOT_DIR"/hosts/*/default.nix)
 NPM_CONFIG="$ROOT_DIR/modules/shared/npm-global.nix"
 PACKAGES_CONFIG="$ROOT_DIR/modules/shared/packages.nix"
 EXTERNAL_DATA_CONFIG="$ROOT_DIR/modules/shared/external-data.nix"
@@ -29,6 +30,16 @@ parse_nix_strings() {
       }
     }
   ' "$file" | sed '/^$/d'
+}
+
+# Parse an anchor's string list across every host file (base + per-host).
+# Anchor matches both `casks = [` and `homebrew.casks = [` forms.
+parse_nix_strings_all_hosts() {
+  local anchor="$1"
+  local f
+  for f in "${BREW_CONFIG_FILES[@]}"; do
+    parse_nix_strings "$f" "(homebrew\\.)?$anchor"
+  done | sort -u
 }
 
 parse_nix_packages() {
@@ -133,8 +144,8 @@ uv_is_editable() {
   [ -f "$receipt" ] && grep -q 'editable' "$receipt"
 }
 
-readarray_safe declared_brews parse_nix_strings "$BREW_CONFIG" "brews"
-readarray_safe declared_casks parse_nix_strings "$BREW_CONFIG" "casks"
+readarray_safe declared_brews parse_nix_strings_all_hosts "brews"
+readarray_safe declared_casks parse_nix_strings_all_hosts "casks"
 readarray_safe declared_npm parse_nix_strings "$NPM_CONFIG" "npmGlobalPackages"
 readarray_safe declared_nix_packages parse_nix_packages
 readarray_safe managed_external_paths parse_external_paths
@@ -154,8 +165,9 @@ if [ -x "$BREW_BIN" ]; then
 
   mapfile -t unmanaged_brews < <(set_diff installed_brews declared_brews_normalized | sort_unique)
   mapfile -t missing_brews < <(set_diff declared_brews_normalized installed_brews | sort_unique)
-  mapfile -t unmanaged_casks < <(set_diff installed_casks declared_casks | sort_unique)
-  mapfile -t missing_casks < <(set_diff declared_casks installed_casks | sort_unique)
+  mapfile -t declared_casks_normalized < <(printf '%s\n' "${declared_casks[@]}" | normalize_brew_names)
+  mapfile -t unmanaged_casks < <(set_diff installed_casks declared_casks_normalized | sort_unique)
+  mapfile -t missing_casks < <(set_diff declared_casks_normalized installed_casks | sort_unique)
   mapfile -t brew_also_tracked_in_nix < <(
     for formula in "${installed_brews[@]}"; do
       if array_contains "$formula" "${declared_nix_packages[@]}"; then

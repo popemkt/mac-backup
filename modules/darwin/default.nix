@@ -122,7 +122,7 @@
     # darwinConfigurations.<hostname> at runtime, and networking.* keeps the
     # hostname synced to the flake attr. Only a machine RENAME needs an
     # explicit one-off: sudo darwin-rebuild switch --flake ~/.dotfiles#<newname>
-    rebuild = "sudo darwin-rebuild switch --flake ~/.dotfiles";
+    rebuild = "sudo darwin-rebuild switch --flake ~/.dotfiles && ~/.dotfiles/scripts/audit-system-discrepancies.sh";
   };
 
   programs.zsh.initContent = lib.mkAfter ''
@@ -130,30 +130,10 @@
     # HOMEBREW HELPERS (macOS only)
     # ========================================
 
-    # Show casks installed but not in your nix config
+    # Full drift audit (brew, npm, uv, nix, /Applications) — also runs
+    # automatically after `rebuild`.
     brew-check() {
-      echo "Checking for untracked casks..."
-      echo ""
-
-      local config_file="$HOME/.dotfiles/hosts/darwin/default.nix"
-      local installed=$(brew list --cask 2>/dev/null | sort)
-      local configured=$(grep -v '^\s*#' "$config_file" | grep -oE '"[a-zA-Z0-9-]+"' | tr -d '"' | sort | uniq)
-
-      local untracked=$(echo "$installed" | while read -r cask; do
-        echo "$configured" | grep -q "^$cask$" || echo "$cask"
-      done)
-
-      if [ -z "$untracked" ]; then
-        echo "All casks are tracked in config!"
-      else
-        echo "Untracked casks (installed but not in config):"
-        echo ""
-        echo "$untracked" | while read -r cask; do
-          echo "   $cask"
-        done
-        echo ""
-        echo "Add them to: $config_file"
-      fi
+      "$HOME/.dotfiles/scripts/audit-system-discrepancies.sh"
     }
 
     # Install a cask and remind to add to config
