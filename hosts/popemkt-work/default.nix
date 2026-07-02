@@ -8,7 +8,10 @@ _:
   my.role = "work";
 
   # Work-only GUI apps; merged with the base list in hosts/darwin.
-  homebrew.casks = [ "microsoft-outlook" ];
+  homebrew.casks = [
+    "microsoft-outlook"
+    "slack"
+  ];
 
   # Autostart Outlook at login (-g = don't focus, -j = launch hidden).
   # RunAtLoad also fires once at rebuild activation, not just login.
