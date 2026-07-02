@@ -1,4 +1,4 @@
-{ lib, osConfig, ... }:
+{ lib, ... }:
 
 {
   # ============================================================================
@@ -118,8 +118,11 @@
 
   # macOS-specific shell additions
   programs.zsh.shellAliases = {
-    # Nix rebuild alias (darwin-specific)
-    rebuild = "sudo darwin-rebuild switch --flake ~/.dotfiles#${osConfig.my.hostname}";
+    # Nix rebuild alias (darwin-specific). No #attr — darwin-rebuild picks
+    # darwinConfigurations.<hostname> at runtime, and networking.* keeps the
+    # hostname synced to the flake attr. Only a machine RENAME needs an
+    # explicit one-off: sudo darwin-rebuild switch --flake ~/.dotfiles#<newname>
+    rebuild = "sudo darwin-rebuild switch --flake ~/.dotfiles";
   };
 
   programs.zsh.initContent = lib.mkAfter ''
