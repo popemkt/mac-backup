@@ -11,6 +11,7 @@ _:
   homebrew.casks = [
     "microsoft-outlook"
     "microsoft-teams"
+    "onedrive"
     "slack"
   ];
 
