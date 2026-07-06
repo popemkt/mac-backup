@@ -16,5 +16,5 @@ statix check .
 echo "==> deadnix --fail (whole repo)"
 deadnix --fail .
 
-# nix flake check skipped: nixos config is stub (no fileSystems/bootloader).
-# Run manually: nix flake check --no-build
+echo "==> nix flake check --no-build"
+nix flake check --no-build

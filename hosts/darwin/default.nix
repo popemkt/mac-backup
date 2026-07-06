@@ -4,6 +4,11 @@ let
   inherit (config.my) username;
 in
 {
+  imports = [
+    ../../modules/darwin-system/homebrew.nix
+    ../../modules/darwin-system/input-sources.nix
+  ];
+
   # Keep the OS hostname in sync with the flake attribute name so
   # `darwin-rebuild --flake ~/.dotfiles` can auto-select this host.
   # Rebuild applies these via scutil — renaming a machine = rename the
@@ -139,102 +144,6 @@ in
     };
   };
 
-  # ============================================================================
-  # HOMEBREW (GUI Apps)
-  # ============================================================================
-
-  homebrew = {
-    enable = true;
-
-    # What to do with apps not in this list:
-    # "none"   = leave them alone (relaxed, good while experimenting)
-    # "zap"    = remove them (strict, full reproducibility)
-    onActivation = {
-      cleanup = "none"; # Change to "zap" when your config is complete
-      autoUpdate = true;
-      upgrade = true;
-    };
-
-    # Homebrew taps
-    taps = [
-      # "homebrew/bundle"  # Uncomment if needed
-      "ghostwright/ghost-os"
-      "skyhook-io/tap"
-      "stablyai/orca"
-    ];
-
-    # CLI tools from Homebrew (prefer Nix for these, but some work better via brew)
-    brews = [
-      # "awscli"
-      # Brew over Nix: `azure-cli.withExtensions` rebuilds from source (pulls
-      # swift). Brew's azure-cli ships a working Python+pip so dynamic
-      # `az extension add azure-devops` works without nix wrapping.
-      "azure-cli"
-      # Google Workspace CLI for Gmail/Drive/Sheets/etc.
-      # Keep this in Brew so `gws` is easy to restore on macOS.
-      "googleworkspace-cli"
-      "ghostwright/ghost-os/ghost-os"
-      "ollama"
-      "zellij"
-    ];
-
-    # GUI Applications
-    casks = [
-      # Development
-      "visual-studio-code"
-      "claude"
-      "claude-code@latest"
-      "codex-app"
-      "stablyai/orca/orca"
-      "zed"
-      "copilot-cli" # GitHub Copilot CLI (agentic terminal assistant)
-      # Google Cloud CLI ships as a Homebrew cask, not a formula.
-      # Required by `gws auth setup`.
-      "gcloud-cli"
-      "rustdesk"
-      "tailscale-app"
-      "warp"
-      # "iterm2"
-      # "docker"
-      # "tableplus"
-
-      # Browsers
-      # "arc"
-      # "firefox"
-      "browseros"
-      "google-chrome@beta"
-
-      # Productivity
-      "raycast"
-      # "notion"
-      # "obsidian"
-      # "1password"
-
-      # Communication
-      # "slack"
-      "discord"
-      "lens"
-      # "zoom"
-
-      # Utilities
-      "alt-tab"
-      "antigravity-cli"
-      # "rectangle"
-      # "cleanshot"
-      "karabiner-elements"
-      # Brew over Nix: nixpkgs git-credential-manager pulls swift toolchain
-      # on macOS. Brew ships the prebuilt signed binary.
-      "git-credential-manager"
-    ];
-
-    # Mac App Store apps (requires `mas` CLI)
-    # Get IDs from: https://github.com/mas-cli/mas
-    masApps = {
-      # "Magnet" = 441258766;
-    };
-  };
-
-  # ============================================================================
   # macOS SYSTEM SETTINGS
   # ============================================================================
 
@@ -270,52 +179,6 @@ in
       AppleShowAllExtensions = true;
       # Allow macOS to auto-terminate idle apps with no windows
       NSDisableAutomaticTermination = false;
-    };
-
-    CustomUserPreferences = {
-      "com.apple.HIToolbox" = {
-        AppleEnabledInputSources = [
-          # Base Latin keyboard layout.
-          {
-            InputSourceKind = "Keyboard Layout";
-            "KeyboardLayout ID" = 0;
-            "KeyboardLayout Name" = "U.S.";
-          }
-          # Built-in Vietnamese Telex input method.
-          {
-            InputSourceKind = "Input Mode";
-            "Bundle ID" = "com.apple.inputmethod.VietnameseIM";
-            "Input Mode" = "com.apple.inputmethod.VietnameseTelex";
-          }
-        ];
-        AppleSelectedInputSources = [
-          # Keep U.S. first so it remains the default selected layout.
-          {
-            InputSourceKind = "Keyboard Layout";
-            "KeyboardLayout ID" = 0;
-            "KeyboardLayout Name" = "U.S.";
-          }
-          # Make Vietnamese Telex visible in the input switcher.
-          {
-            InputSourceKind = "Input Mode";
-            "Bundle ID" = "com.apple.inputmethod.VietnameseIM";
-            "Input Mode" = "com.apple.inputmethod.VietnameseTelex";
-          }
-        ];
-        AppleInputSourceHistory = [
-          # Mirror the selectable layouts so Text Input services rebuild their menu.
-          {
-            InputSourceKind = "Keyboard Layout";
-            "KeyboardLayout ID" = 0;
-            "KeyboardLayout Name" = "U.S.";
-          }
-          {
-            InputSourceKind = "Input Mode";
-            "Bundle ID" = "com.apple.inputmethod.VietnameseIM";
-            "Input Mode" = "com.apple.inputmethod.VietnameseTelex";
-          }
-        ];
-      };
     };
 
     # Trackpad

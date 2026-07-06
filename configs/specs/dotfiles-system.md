@@ -17,7 +17,8 @@ installs, App Store exclusives).
 
 | Layer | Tool | Owns | Source |
 |---|---|---|---|
-| System config | nix-darwin | macOS settings, Homebrew casks/brews, launchd agents | `hosts/darwin/default.nix` |
+| System config | nix-darwin | macOS settings, launchd agents | `hosts/darwin/default.nix` |
+| Homebrew config | nix-darwin | Homebrew taps, brews, casks, MAS apps | `modules/darwin-system/homebrew.nix` |
 | User environment | home-manager | CLI tools, shell, git, neovim, starship, npm globals, uv tools | `modules/shared/` + `modules/darwin/` |
 | GUI app configs | Mackup → iCloud | Karabiner, Zed, VS Code, Warp, AltTab, Telegram, Claude Code, macOS shortcuts | `~/.mackup.cfg` allowlist |
 | Raw configs | `configs/` | Raycast export, login items snapshot, specs, Archon workflows | manual import on restore |

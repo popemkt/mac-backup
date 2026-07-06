@@ -99,8 +99,8 @@ in version control and minimises what must be done manually.
 
 - Editing a nix file and running `rebuild` applies the change without manual
   follow-up.
-- `git commit` on a staged `.nix` file runs nixfmt, statix, and deadnix; a
-  failing check blocks the commit.
+- `git commit` on a staged `.nix` file runs nixfmt, statix, deadnix, and
+  `nix flake check --no-build`; a failing check blocks the commit.
 
 ### Drift detection
 

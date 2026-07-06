@@ -16,8 +16,8 @@ mackup backup / mackup restore   # GUI app settings via iCloud
 | Want to...               | Edit                              |
 |--------------------------|-----------------------------------|
 | Add CLI tool             | `modules/shared/packages.nix`     |
-| Add GUI app (cask)       | `hosts/darwin/default.nix` → `homebrew.casks` |
-| Add brew formula         | `hosts/darwin/default.nix` → `homebrew.brews` |
+| Add GUI app (cask)       | `modules/darwin-system/homebrew.nix` → `homebrew.casks` |
+| Add brew formula         | `modules/darwin-system/homebrew.nix` → `homebrew.brews` |
 | Add macOS system setting | `hosts/darwin/default.nix` → `system.defaults` |
 | Add shell alias          | `modules/shared/shell.nix`        |
 | Add macOS-only package   | `modules/darwin/default.nix`      |
@@ -26,6 +26,19 @@ mackup backup / mackup restore   # GUI app settings via iCloud
 | Add work/personal split  | `lib.mkIf (config.my.role == "work") { ... }` in any system module |
 
 Then run `rebuild`.
+
+## Module Boundaries
+
+Group by behavior and ownership boundary, not by app count.
+
+- One-line installs stay in the relevant package list.
+- If an app needs install entries plus config files, activation hooks, launchd
+  services, defaults writes, symlinks, or dependencies across multiple places,
+  create a focused module for that behavior.
+- Keep cross-platform behavior in `modules/shared/`, Home Manager macOS user
+  behavior in `modules/darwin/`, and nix-darwin system behavior in
+  `modules/darwin-system/`.
+- Host-specific differences belong in `hosts/<hostname>/default.nix`.
 
 ## Lint & Format
 
@@ -49,7 +62,8 @@ referencing `pkgs` in the body.
 
 - `flake.nix` — entry point; `mkDarwin` builds one config per host (attr name = hostname)
 - `modules/options/` — typed option declarations (`my.username`, `my.hostname`, `my.role`); read via `config.my.*` (system) or `osConfig.my.*` (home-manager) — no specialArgs
-- `hosts/darwin/` — shared macOS base for ALL macs (nix-darwin settings, Homebrew, system defaults)
+- `hosts/darwin/` — shared macOS base for ALL macs (nix-darwin settings, system defaults)
+- `modules/darwin-system/` — shared macOS system modules (Homebrew, input sources)
 - `hosts/popemkt-work/` — work machine; `hosts/popemkt-personal/` — personal; each imports `../darwin` + sets `my.role` + host-only diffs
 - Renaming a machine: rename host dir + flake attr, rebuild once with explicit `--flake ~/.dotfiles#<newname>` — activation sets HostName/ComputerName/LocalHostName via `networking.*`
 - `modules/shared/` — cross-platform home-manager modules (shell, packages, git, neovim)

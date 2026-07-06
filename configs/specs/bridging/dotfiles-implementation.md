@@ -13,8 +13,8 @@ Operator procedure lives in `../../README.md`.
 | Functional area | Tool | Source file(s) |
 |---|---|---|
 | macOS system settings | nix-darwin | `hosts/darwin/default.nix` → `system.defaults` |
-| Homebrew casks + brews | nix-darwin | `hosts/darwin/default.nix` → `homebrew` |
-| Homebrew taps | nix-darwin | `hosts/darwin/default.nix` → `homebrew.taps` |
+| Homebrew casks + brews | nix-darwin | `modules/darwin-system/homebrew.nix` → `homebrew` |
+| Homebrew taps | nix-darwin | `modules/darwin-system/homebrew.nix` → `homebrew.taps` |
 | launchd user agents | nix-darwin | `hosts/darwin/default.nix` → `launchd.user.agents` |
 | Global env vars (all apps) | nix-darwin | `hosts/darwin/default.nix` → `launchd.user.envVariables` |
 | CLI tools (nix packages) | home-manager | `modules/shared/packages.nix` |

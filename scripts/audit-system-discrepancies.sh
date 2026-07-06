@@ -3,8 +3,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# Brew declarations live in the shared darwin base AND per-host files.
-BREW_CONFIG_FILES=("$ROOT_DIR"/hosts/*/default.nix)
+# Brew declarations live in the shared Homebrew module AND per-host files.
+BREW_CONFIG_FILES=(
+  "$ROOT_DIR/modules/darwin-system/homebrew.nix"
+  "$ROOT_DIR"/hosts/*/default.nix
+)
 NPM_CONFIG="$ROOT_DIR/modules/shared/npm-global.nix"
 PACKAGES_CONFIG="$ROOT_DIR/modules/shared/packages.nix"
 EXTERNAL_DATA_CONFIG="$ROOT_DIR/modules/shared/external-data.nix"
@@ -157,17 +160,27 @@ printf '  Brew casks tracked: %s\n' "${#declared_casks[@]}"
 printf '  npm globals tracked: %s\n' "${#declared_npm[@]}"
 printf '  external-data paths tracked: %s\n' "${#managed_external_paths[@]}"
 
+forbidden_casks=()
+if array_contains "orca" "${declared_casks[@]}"; then
+  forbidden_casks+=("orca (use stablyai/orca/orca; bare orca is the Plotly cask)")
+fi
+
+print_section "Forbidden Homebrew Cask Declarations"
+print_list "${forbidden_casks[@]}"
+
 if [ -x "$BREW_BIN" ]; then
   readarray_safe installed_brews_raw "$BREW_BIN" leaves
-  readarray_safe installed_casks "$BREW_BIN" list --cask
+  # Use full cask names so tapped casks do not collapse onto unrelated core
+  # casks with the same token, e.g. stablyai/orca/orca vs homebrew/cask/orca.
+  readarray_safe installed_casks "$BREW_BIN" list --cask --full-name
   mapfile -t installed_brews < <(printf '%s\n' "${installed_brews_raw[@]}" | normalize_brew_names)
   mapfile -t declared_brews_normalized < <(printf '%s\n' "${declared_brews[@]}" | normalize_brew_names)
 
   mapfile -t unmanaged_brews < <(set_diff installed_brews declared_brews_normalized | sort_unique)
   mapfile -t missing_brews < <(set_diff declared_brews_normalized installed_brews | sort_unique)
-  mapfile -t declared_casks_normalized < <(printf '%s\n' "${declared_casks[@]}" | normalize_brew_names)
-  mapfile -t unmanaged_casks < <(set_diff installed_casks declared_casks_normalized | sort_unique)
-  mapfile -t missing_casks < <(set_diff declared_casks_normalized installed_casks | sort_unique)
+  mapfile -t declared_casks_sorted < <(printf '%s\n' "${declared_casks[@]}" | sort_unique)
+  mapfile -t unmanaged_casks < <(set_diff installed_casks declared_casks_sorted | sort_unique)
+  mapfile -t missing_casks < <(set_diff declared_casks_sorted installed_casks | sort_unique)
   mapfile -t brew_also_tracked_in_nix < <(
     for formula in "${installed_brews[@]}"; do
       if array_contains "$formula" "${declared_nix_packages[@]}"; then
@@ -303,12 +316,63 @@ cask_app_basenames=()
 if [ -x "$BREW_BIN" ]; then
   mapfile -t cask_list < <("$BREW_BIN" list --cask 2>/dev/null)
   for c in "${cask_list[@]}"; do
+    found_app=0
     while IFS= read -r path; do
       if [ -n "$path" ]; then
         cask_apps+=("$path")
         cask_app_basenames+=("$(basename "$path")")
+        found_app=1
       fi
     done < <("$BREW_BIN" ls --cask "$c" 2>/dev/null | grep '\.app$' || true)
+
+    # Some casks install purely via a .pkg installer (no `app` artifact stanza),
+    # so `brew ls --cask` only shows the downloaded .pkg, never the resulting
+    # .app bundles it drops in /Applications. Fall back to the cask's declared
+    # `uninstall.pkgutil` receipt IDs and ask pkgutil what that receipt actually
+    # installed, so pkg-based casks aren't misreported as unmanaged.
+    if [ "$found_app" -eq 0 ] && command -v jq >/dev/null 2>&1 && command -v pkgutil >/dev/null 2>&1; then
+      # .pkgutil is sometimes a bare string, sometimes an array - normalize both.
+      mapfile -t pkg_ids < <("$BREW_BIN" info --cask "$c" --json=v2 2>/dev/null |
+        jq -r '.casks[0].artifacts[]? | .uninstall[]?.pkgutil? | if type == "array" then .[] else . end' 2>/dev/null)
+      for pkg_id in "${pkg_ids[@]}"; do
+        [ -n "$pkg_id" ] || continue
+
+        # Some receipts install-location IS the app bundle itself (e.g.
+        # "Applications/Tailscale.app"), so the bundle never appears as an
+        # entry inside `pkgutil --files` (which only lists what's *inside*
+        # the install location). Catch that case directly first.
+        pkg_location="$(pkgutil --pkg-info "$pkg_id" 2>/dev/null | awk -F': ' '/^location:/ {print $2}' || true)"
+        case "$pkg_location" in
+          */*.app | *.app)
+            basename="$(basename "$pkg_location")"
+            cask_apps+=("/Applications/$basename")
+            cask_app_basenames+=("$basename")
+            continue
+            ;;
+        esac
+
+        while IFS= read -r rel_path; do
+          [ -n "$rel_path" ] || continue
+          # Depending on the pkg's install-location, receipts list either
+          # "Applications/Foo.app" or just "Foo.app" - accept both, but only
+          # top-level bundles (skip nested helper .apps inside Contents/...).
+          basename=""
+          case "$rel_path" in
+            Applications/*.app)
+              basename="${rel_path#Applications/}"
+              ;;
+            */*) ;; # nested path (e.g. Foo.app/Contents/...) - not top-level
+            *.app)
+              basename="$rel_path"
+              ;;
+          esac
+          if [ -n "$basename" ]; then
+            cask_apps+=("/Applications/$basename")
+            cask_app_basenames+=("$basename")
+          fi
+        done < <(pkgutil --files "$pkg_id" 2>/dev/null | grep '\.app$' || true)
+      done
+    fi
   done
 fi
 

@@ -104,19 +104,31 @@ mackup backup --force                            # sync GUI app settings to iClo
 | Want to... | Edit |
 |------------|------|
 | Add CLI tool | `modules/shared/packages.nix` |
-| Add GUI app (cask) | `hosts/darwin/default.nix` → `homebrew.casks` |
-| Add brew formula | `hosts/darwin/default.nix` → `homebrew.brews` |
+| Add GUI app (cask) | `modules/darwin-system/homebrew.nix` → `homebrew.casks` |
+| Add brew formula | `modules/darwin-system/homebrew.nix` → `homebrew.brews` |
 | Add macOS system setting | `hosts/darwin/default.nix` → `system.defaults` |
 | Add shell alias | `modules/shared/shell.nix` |
 | Add macOS-only config | `modules/darwin/default.nix` |
 | Change git config | `modules/shared/git.nix` |
 | Add npm global | `modules/shared/npm-global.nix` |
 
+### Module Boundaries
+
+Group by behavior and ownership boundary, not by app count. One-line installs
+stay in package lists. If an app needs install entries plus config files,
+activation hooks, launchd services, defaults writes, symlinks, or dependencies
+across multiple places, create a focused module for that behavior.
+
+Use `modules/shared/` for cross-platform behavior, `modules/darwin/` for
+Home Manager macOS user behavior, `modules/darwin-system/` for nix-darwin
+system behavior, and `hosts/<hostname>/default.nix` for host-only differences.
+
 ## What's Managed Where
 
 | Layer | Manages | Source of truth |
 |-------|---------|-----------------|
-| **nix-darwin** | macOS system settings, Homebrew | `hosts/darwin/default.nix` |
+| **nix-darwin** | macOS system settings | `hosts/darwin/default.nix` |
+| **Homebrew module** | taps, brews, casks, MAS apps | `modules/darwin-system/homebrew.nix` |
 | **home-manager** | CLI tools, shell, git, neovim, starship | `modules/shared/` |
 | **Mackup → iCloud** | GUI app configs (Karabiner, Zed, VS Code, Warp…) | `~/Library/Mobile Documents/com~apple~CloudDocs/Mackup/` |
 | **npm-global.nix** | npm global CLIs | `modules/shared/npm-global.nix` |
