@@ -16,7 +16,6 @@
     tmux
     tldr
     gh # GitHub CLI
-    gemini-cli # Google Gemini CLI
     sqlite
     kubectl
     yt-dlp
