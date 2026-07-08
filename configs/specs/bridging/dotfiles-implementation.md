@@ -15,17 +15,17 @@ Operator procedure lives in `../../README.md`.
 | macOS system settings | nix-darwin | `hosts/darwin/default.nix` → `system.defaults` |
 | Homebrew casks + brews | nix-darwin | `modules/darwin-system/homebrew.nix` → `homebrew` |
 | Homebrew taps | nix-darwin | `modules/darwin-system/homebrew.nix` → `homebrew.taps` |
-| launchd user agents | nix-darwin | `hosts/darwin/default.nix` → `launchd.user.agents` |
-| Global env vars (all apps) | nix-darwin | `hosts/darwin/default.nix` → `launchd.user.envVariables` |
+| launchd user agents | nix-darwin | focused modules under `modules/darwin-system/` |
+| Global env vars (all apps) | nix-darwin | focused modules under `modules/darwin-system/` |
 | CLI tools (nix packages) | home-manager | `modules/shared/packages.nix` |
 | Shell config + aliases | home-manager | `modules/shared/shell.nix` |
 | Git config | home-manager | `modules/shared/git.nix` |
 | Neovim | home-manager | `modules/shared/neovim.nix` |
 | npm global packages | home-manager | `modules/shared/npm-global.nix` |
-| uv tool installs | home-manager activation | `modules/shared/uv-tools.nix` |
-| macOS-only aliases + rebuild | home-manager | `modules/darwin/default.nix` |
-| External data symlinks | home-manager | `modules/shared/external-data.nix` |
-| GUI app configs | Mackup → iCloud | `modules/darwin/default.nix` → `home.file.".mackup.cfg"` |
+| uv tool installs | home-manager activation | owning behavior modules, e.g. `modules/darwin-system/headroom.nix` |
+| macOS-only aliases + rebuild | home-manager | `modules/darwin-home/default.nix` |
+| External workspace + data symlinks | nix-darwin + home-manager | `modules/darwin-system/external-workspace.nix` |
+| GUI app configs | Mackup → iCloud | `modules/darwin-home/mackup.nix` → `home.file.".mackup.cfg"` |
 | Raw configs (specs, Archon) | git-tracked files | `configs/` |
 | Flake inputs + entry point | Nix flake | `flake.nix` |
 
@@ -58,7 +58,7 @@ requiring root since nix-darwin ≥ 2025. See `dotfiles-system.md`.
 | Node version/env | via Homebrew brew or nix | — |
 | Fuzzy finder | `fzf` | `modules/shared/packages.nix` |
 | Git TUI | `lazygit` | `modules/shared/packages.nix` |
-| Config sync | `mackup` | `modules/shared/packages.nix` |
+| Config sync | `mackup` | `modules/darwin-home/mackup.nix` |
 | Rust toolchain | `rustc`, `cargo` | `modules/shared/packages.nix` |
 
 ---
@@ -78,7 +78,7 @@ requiring root since nix-darwin ≥ 2025. See `dotfiles-system.md`.
 | npmg helper | shell function | `modules/shared/shell.nix` → `initContent` |
 | sysaudit alias | calls `scripts/audit-system-discrepancies.sh` | `modules/shared/shell.nix` |
 | dump-login-items alias | calls `scripts/dump-login-items.sh` | `modules/shared/shell.nix` |
-| rebuild alias | `sudo darwin-rebuild switch --flake ~/.dotfiles#${hostname}` | `modules/darwin/default.nix` |
+| rebuild alias | `sudo darwin-rebuild switch --flake ~/.dotfiles#${hostname}` | `modules/darwin-home/default.nix` |
 
 ---
 
@@ -101,11 +101,11 @@ but not declared.
 
 | Functional need | Implementation | File |
 |---|---|---|
-| Tool declaration | `uvTools` list | `modules/shared/uv-tools.nix` |
-| Install mechanism | `home.activation.installUvTools` runs on every rebuild | `modules/shared/uv-tools.nix` |
-| Idempotency | skips if `uv tool list` already shows the package | `modules/shared/uv-tools.nix` |
-| C++ build fix | `SDKROOT` set via `xcrun` before install loop | `modules/shared/uv-tools.nix` |
-| headroom-ai | `[proxy]` extras (fastapi/uvicorn/websockets for `headroom proxy`); avoids `[all]` which pulls hnswlib (C++ build fails on CLT-only) | `modules/shared/uv-tools.nix` |
+| Tool declaration | `uvTools` list | `modules/darwin-system/headroom.nix` |
+| Install mechanism | `home.activation.installHeadroomUvTools` runs on every rebuild | `modules/darwin-system/headroom.nix` |
+| Idempotency | skips if `uv tool list` already shows the package | `modules/darwin-system/headroom.nix` |
+| C++ build fix | `SDKROOT` set via `xcrun` before install loop | `modules/darwin-system/headroom.nix` |
+| headroom-ai | `[all]` extras for the full Headroom toolset; pinned to nixpkgs Python during uv install | `modules/darwin-system/headroom.nix` |
 
 Known gap: editable installs (`browser-harness`) are intentionally excluded —
 they live in their own repos and can't be restored from a version string.
@@ -116,12 +116,12 @@ they live in their own repos and can't be restored from a version string.
 
 | Functional need | Implementation | File |
 |---|---|---|
-| headroom proxy daemon | `launchd.user.agents.headroom-proxy` | `hosts/darwin/default.nix` |
-| Binary path | `~/.local/bin/headroom` (installed by uv) | — |
-| Proxy port | 8787, hardcoded in `ProgramArguments` and `HEADROOM_PORT` env var | `hosts/darwin/default.nix` |
-| Restart on failure | `KeepAlive = true` | `hosts/darwin/default.nix` |
-| Logs | `~/Library/Logs/headroom-proxy.{out,err}.log` | `hosts/darwin/default.nix` |
-| Env exposure | `HEADROOM_PROXY`, `HEADROOM_PORT` via `launchd.user.envVariables` | `hosts/darwin/default.nix` |
+| headroom proxy daemon | `launchd.user.agents.headroom-proxy` | `modules/darwin-system/headroom.nix` |
+| Binary path | `~/.local/bin/headroom` (installed by uv) | `modules/darwin-system/headroom.nix` |
+| Proxy port | 8787, hardcoded in `ProgramArguments` and `HEADROOM_PORT` env var | `modules/darwin-system/headroom.nix` |
+| Restart on failure | `KeepAlive = true` | `modules/darwin-system/headroom.nix` |
+| Logs | `~/Library/Logs/headroom-proxy.{out,err}.log` | `modules/darwin-system/headroom.nix` |
+| Env exposure | `HEADROOM_PROXY`, `HEADROOM_PORT` via `launchd.user.envVariables` | `modules/darwin-system/headroom.nix` |
 
 ---
 
@@ -129,9 +129,9 @@ they live in their own repos and can't be restored from a version string.
 
 | Functional need | Implementation | File |
 |---|---|---|
-| Mackup config file | managed by home-manager as `home.file.".mackup.cfg"` | `modules/darwin/default.nix` |
-| Storage backend | iCloud (`engine = icloud`) | `modules/darwin/default.nix` |
-| Allowlist | explicit `[applications_to_sync]` block | `modules/darwin/default.nix` |
+| Mackup config file | managed by home-manager as `home.file.".mackup.cfg"` | `modules/darwin-home/mackup.nix` |
+| Storage backend | iCloud (`engine = icloud`) | `modules/darwin-home/mackup.nix` |
+| Allowlist | explicit `[applications_to_sync]` block | `modules/darwin-home/mackup.nix` |
 | Backup command | `mackup backup --force` | documented in README |
 | Restore command | `mackup restore` | documented in README |
 
@@ -149,7 +149,7 @@ iCloud on first run. See `dotfiles-system.md`.
 | Tap to click | `system.defaults.trackpad.Clicking` | `hosts/darwin/default.nix` |
 | Key repeat speed | `NSGlobalDomain.KeyRepeat`, `InitialKeyRepeat` | `hosts/darwin/default.nix` |
 | Touch ID sudo | `security.pam.services.sudo_local.touchIdAuth` | `hosts/darwin/default.nix` |
-| /stuff symlink | `system.activationScripts.extraActivation` | `hosts/darwin/default.nix` |
+| /stuff symlink | `system.activationScripts.extraActivation` | `modules/darwin-system/external-workspace.nix` |
 
 ---
 
@@ -182,9 +182,9 @@ Hook location: `.githooks/pre-commit`. Activated via `git config core.hooksPath 
 | Functional intent | Gap | Gap location |
 |---|---|---|
 | All npm globals tracked | `@tobilu/qmd`, `ccmanager`, `kanban`, `sudocode`, `yarn` missing | `modules/shared/npm-global.nix` |
-| All uv tools tracked | `browser-harness` is editable — excluded by design | `modules/shared/uv-tools.nix` |
+| All repo-owned uv tools tracked | editable tools are excluded by design | owning behavior modules |
 | Hermes agent launchd | plist is manual deploy, hardcodes `/Volumes/Data` | `README.md` manual steps |
 | `~/.local/bin` scripts | `hermes`, `iii`, `plannotator` depend on `/stuff` workspace | not in repo |
 | Full gitconfig | `nbstripout`, `agor safe.directory` not in `git.nix` | `modules/shared/git.nix` |
 | Login item restore | no programmatic API on macOS 13+ | manual |
-| Full Xcode | CLT-only; SDKROOT workaround active | `modules/shared/uv-tools.nix`, `shell.nix` |
+| Full Xcode | CLT-only; SDKROOT workaround active | `modules/darwin-system/headroom.nix`, `shell.nix` |

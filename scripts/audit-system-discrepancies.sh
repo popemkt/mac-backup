@@ -10,8 +10,10 @@ BREW_CONFIG_FILES=(
 )
 NPM_CONFIG="$ROOT_DIR/modules/shared/npm-global.nix"
 PACKAGES_CONFIG="$ROOT_DIR/modules/shared/packages.nix"
-EXTERNAL_DATA_CONFIG="$ROOT_DIR/modules/shared/external-data.nix"
-UV_TOOLS_CONFIG="$ROOT_DIR/modules/shared/uv-tools.nix"
+EXTERNAL_DATA_CONFIG="$ROOT_DIR/modules/darwin-system/external-workspace.nix"
+UV_TOOLS_CONFIG_FILES=(
+  "$ROOT_DIR/modules/darwin-system/headroom.nix"
+)
 
 BREW_BIN="${HOMEBREW_PREFIX:-/opt/homebrew}/bin/brew"
 NPM_BIN="${NPM_BIN:-npm}"
@@ -42,6 +44,17 @@ parse_nix_strings_all_hosts() {
   local f
   for f in "${BREW_CONFIG_FILES[@]}"; do
     parse_nix_strings "$f" "(homebrew\\.)?$anchor"
+  done | sort -u
+}
+
+parse_nix_strings_many() {
+  local anchor="$1"
+  shift
+
+  local f
+  for f in "$@"; do
+    [ -f "$f" ] || continue
+    parse_nix_strings "$f" "$anchor"
   done | sort -u
 }
 
@@ -133,7 +146,7 @@ normalize_brew_names() {
   awk -F/ '{ print $NF }' | sort -u | sed '/^$/d'
 }
 
-# Strip uv pin/extras: "mempalace==3.3.1" / "headroom-ai[proxy]" -> bare name.
+# Strip uv pin/extras: "mempalace==3.3.1" / "headroom-ai[all]" -> bare name.
 normalize_uv_names() {
   sed -E 's/(\[|==).*$//' | sort -u | sed '/^$/d'
 }
@@ -240,7 +253,7 @@ else
 fi
 
 if command -v "$UV_BIN" >/dev/null 2>&1; then
-  readarray_safe declared_uv_raw parse_nix_strings "$UV_TOOLS_CONFIG" "uvTools"
+  readarray_safe declared_uv_raw parse_nix_strings_many "uvTools" "${UV_TOOLS_CONFIG_FILES[@]}"
   mapfile -t declared_uv < <(printf '%s\n' "${declared_uv_raw[@]}" | normalize_uv_names)
 
   readarray_safe uv_list_raw "$UV_BIN" tool list

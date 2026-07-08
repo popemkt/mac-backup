@@ -19,7 +19,8 @@ installs, App Store exclusives).
 |---|---|---|---|
 | System config | nix-darwin | macOS settings, launchd agents | `hosts/darwin/default.nix` |
 | Homebrew config | nix-darwin | Homebrew taps, brews, casks, MAS apps | `modules/darwin-system/homebrew.nix` |
-| User environment | home-manager | CLI tools, shell, git, neovim, starship, npm globals, uv tools | `modules/shared/` + `modules/darwin/` |
+| User environment | home-manager | CLI tools, shell, git, neovim, starship, npm globals | `modules/shared/` + `modules/darwin-home/` |
+| Behavior modules | nix-darwin + home-manager | Headroom, Hermes, external workspace, input sources | `modules/darwin-system/` |
 | GUI app configs | Mackup → iCloud | Karabiner, Zed, VS Code, Warp, AltTab, Telegram, Claude Code, macOS shortcuts | `~/.mackup.cfg` allowlist |
 | Raw configs | `configs/` | Raycast export, login items snapshot, specs, Archon workflows | manual import on restore |
 | Manual | — | SSH keys, credentials, Hermes plist, editable uv tools | per-restore checklist |
@@ -55,11 +56,13 @@ One `darwinConfigurations."popemkt-mac"` entry. A second machine can be added
 by duplicating the entry with a new hostname. Both start identical; diverge via
 `if hostname ==` conditionals or separate host modules. No upfront split needed.
 
-### uv tools declared in nix, installed imperatively
+### uv tools declared with their owning behavior
 `uv tool install` runs during home-manager activation (`home.activation`). Nix
 can't package arbitrary PyPI wheels, so the declaration is a manifest of intent,
-not a hermetic derivation. Editable/local installs (browser-harness, etc.) are
-intentionally excluded — they belong to their own repos.
+not a hermetic derivation. Repo-owned tools live with the behavior that needs
+them, for example Headroom in `modules/darwin-system/headroom.nix`.
+Editable/local installs (browser-harness, etc.) are intentionally excluded —
+they belong to their own repos.
 
 ### SDKROOT workaround for C++ Python extensions
 CLT-only macOS doesn't set `SDKROOT`; clang can't find `<iostream>` etc.
@@ -70,7 +73,7 @@ preferred long-term fix.
 ### darwin-rebuild requires sudo (nix-darwin ≥ 2025)
 Activation now runs system-level scripts that require root. All rebuild
 invocations are prefixed with `sudo`. The `rebuild` alias in
-`modules/darwin/default.nix` reflects this.
+`modules/darwin-home/default.nix` reflects this.
 
 ### First bootstrap uses `nix run nix-darwin`, not `darwin-rebuild`
 `darwin-rebuild` is not in PATH until nix-darwin is installed. Bootstrap command:

@@ -51,7 +51,7 @@
 
                   imports = [
                     ./modules/shared
-                    ./modules/darwin
+                    ./modules/darwin-home
                   ];
                 };
               };

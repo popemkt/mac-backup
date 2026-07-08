@@ -5,6 +5,9 @@ let
 in
 {
   imports = [
+    ../../modules/darwin-system/external-workspace.nix
+    ../../modules/darwin-system/headroom.nix
+    ../../modules/darwin-system/hermes.nix
     ../../modules/darwin-system/homebrew.nix
     ../../modules/darwin-system/input-sources.nix
   ];
@@ -85,65 +88,7 @@ in
     curl
   ];
 
-  # /etc/synthetic.conf entries (read by apfs.util at boot):
-  #   nix            - empty mountpoint for the Determinate /nix APFS volume (fstab)
-  #   stuff -> /Volumes/Data - symlink to external drive workspace
-  # nix-darwin already appends `run`; we append the rest (custom-named
-  # activation scripts are not wired in, hence extraActivation).
-  # Takes effect after reboot.
-  system.activationScripts.extraActivation.text = ''
-    if ! /usr/bin/grep -q '^nix$' /etc/synthetic.conf 2>/dev/null; then
-      echo "adding nix mountpoint to /etc/synthetic.conf..."
-      echo 'nix' | /usr/bin/tee -a /etc/synthetic.conf >/dev/null
-    fi
-    if ! /usr/bin/grep -q '^stuff\b' /etc/synthetic.conf 2>/dev/null; then
-      echo "adding /stuff -> /Volumes/Data to /etc/synthetic.conf..."
-      /usr/bin/printf 'stuff\t/Volumes/Data\n' | /usr/bin/tee -a /etc/synthetic.conf >/dev/null
-    fi
-  '';
-
-  # Global launchd user-domain env vars (via `launchctl setenv`).
-  # Inherited by all user launchd jobs AND by terminal apps launched from
-  # Dock/Spotlight — so shells see it for free without an `export` in shell.nix.
-  # Unless the agent's plist sets the same key inline, which overrides.
-  # Global launchd user-domain env vars (via `launchctl setenv`) — inherited by
-  # all launchd jobs AND apps launched from Dock/Spotlight, so every app/shell
-  # sees them without an `export`.
-  launchd.user.envVariables = {
-    HERMES_HOME = "/stuff/workspace/repos/_brain/.agents/hermes/profile/popemkt";
-
-    # Headroom proxy endpoint, exposed to all apps. Apps opt in by routing their
-    # provider base_url here (e.g. package.json `*:proxy` scripts read
-    # HEADROOM_PROXY). NOT setting ANTHROPIC_BASE_URL/OPENAI_BASE_URL globally on
-    # purpose — that would force-route every client through the proxy and break
-    # them if the daemon is down. Flip to auto-route only if you want that.
-    HEADROOM_PROXY = "http://localhost:8787";
-    HEADROOM_PORT = "8787";
-  };
-
-  # Headroom context-compression proxy — always-on user daemon.
-  # Runs the uv-tool-installed binary (declared in modules/shared/uv-tools.nix
-  # as headroom-ai[all]); home-manager activation installs it. On a fresh build,
-  # KeepAlive retries until that install lands, then the proxy comes up.
-  # Projects route their agents at $HEADROOM_PROXY (http://localhost:8787).
-  launchd.user.agents.headroom-proxy = {
-    serviceConfig = {
-      ProgramArguments = [
-        "/Users/${username}/.local/bin/headroom"
-        "proxy"
-        "--port"
-        "8787"
-      ];
-      RunAtLoad = true;
-      KeepAlive = true;
-      StandardOutPath = "/Users/${username}/Library/Logs/headroom-proxy.out.log";
-      StandardErrorPath = "/Users/${username}/Library/Logs/headroom-proxy.err.log";
-      EnvironmentVariables = {
-        PATH = "/Users/${username}/.local/bin:${pkgs.uv}/bin:/usr/bin:/bin:/usr/sbin:/sbin";
-      };
-    };
-  };
-
+  # ============================================================================
   # macOS SYSTEM SETTINGS
   # ============================================================================
 

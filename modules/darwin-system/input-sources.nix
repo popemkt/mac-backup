@@ -2,40 +2,8 @@
 
 let
   inherit (config.my) username;
-  usInputSource = {
-    InputSourceKind = "Keyboard Layout";
-    "KeyboardLayout ID" = 0;
-    "KeyboardLayout Name" = "U.S.";
-  };
-  vietnameseTelexInputSource = {
-    InputSourceKind = "Input Mode";
-    "Bundle ID" = "com.apple.inputmethod.VietnameseIM";
-    "Input Mode" = "com.apple.inputmethod.VietnameseTelex";
-  };
 in
 {
-  system.defaults.CustomUserPreferences = {
-    "com.apple.HIToolbox" = {
-      AppleEnabledInputSources = [
-        # Base Latin keyboard layout.
-        usInputSource
-        # Built-in Vietnamese Telex input method.
-        vietnameseTelexInputSource
-      ];
-      AppleSelectedInputSources = [
-        # Keep U.S. first so it remains the default selected layout.
-        usInputSource
-        # Make Vietnamese Telex visible in the input switcher.
-        vietnameseTelexInputSource
-      ];
-      AppleInputSourceHistory = [
-        # Mirror the selectable layouts so Text Input services rebuild their menu.
-        usInputSource
-        vietnameseTelexInputSource
-      ];
-    };
-  };
-
   home-manager.users.${username} =
     { lib, ... }:
     {
@@ -103,6 +71,10 @@ in
             disableSource(@"com.apple.inputmethod.VietnameseIM.VietnameseSimpleTelex");
             disableSource(@"com.apple.inputmethod.VietnameseIM.VietnameseVNI");
             disableSource(@"com.apple.inputmethod.VietnameseIM.VietnameseVIQR");
+
+            // Selecting Telex once makes macOS surface it in the input switcher;
+            // selecting U.S. afterward preserves U.S. as the default.
+            selectSource(@"com.apple.inputmethod.VietnameseIM.VietnameseTelex");
             selectSource(@"com.apple.keylayout.US");
           }
           return 0;
@@ -111,12 +83,7 @@ in
 
         if /usr/bin/clang -framework Carbon -framework Foundation "$tmpdir/enable-vietnamese-telex.m" -o "$tmpdir/enable-vietnamese-telex"; then
           "$tmpdir/enable-vietnamese-telex"
-          /usr/bin/defaults write com.apple.HIToolbox AppleSelectedInputSources -array \
-            '{ InputSourceKind = "Keyboard Layout"; "KeyboardLayout ID" = 0; "KeyboardLayout Name" = "U.S."; }' \
-            '{ InputSourceKind = "Input Mode"; "Bundle ID" = "com.apple.inputmethod.VietnameseIM"; "Input Mode" = "com.apple.inputmethod.VietnameseTelex"; }'
-          /usr/bin/defaults write com.apple.HIToolbox AppleInputSourceHistory -array \
-            '{ InputSourceKind = "Keyboard Layout"; "KeyboardLayout ID" = 0; "KeyboardLayout Name" = "U.S."; }' \
-            '{ InputSourceKind = "Input Mode"; "Bundle ID" = "com.apple.inputmethod.VietnameseIM"; "Input Mode" = "com.apple.inputmethod.VietnameseTelex"; }'
+          /usr/bin/defaults write com.apple.TextInputMenu visible -bool true
           /usr/bin/killall TextInputMenuAgent TextInputSwitcher SystemUIServer 2>/dev/null || true
         else
           echo "warning: failed to compile Vietnamese Telex input-source helper" >&2

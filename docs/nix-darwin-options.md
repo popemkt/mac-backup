@@ -1,6 +1,6 @@
 # nix-darwin Options Reference
 
-Common options for `modules/darwin.nix`.
+Common options for nix-darwin modules, such as `modules/darwin-system/*.nix`.
 
 Full list: [nix-darwin manual](https://daiderd.com/nix-darwin/manual/index.html)
 

@@ -1,6 +1,10 @@
 { lib, ... }:
 
 {
+  imports = [
+    ./mackup.nix
+  ];
+
   # ============================================================================
   # DARWIN-SPECIFIC HOME-MANAGER SETTINGS
   # ============================================================================
@@ -9,23 +13,8 @@
     # Surface Homebrew bins on PATH for interactive shells.
     # NOTE: launchd-spawned GUI apps don't read this — set per-agent envs
     # in their plist, or globally via `launchd.user.envVariables`
-    # (nix-darwin scope, e.g. HERMES_HOME in hosts/darwin/default.nix).
+    # (nix-darwin scope, e.g. HERMES_HOME in modules/darwin-system/hermes.nix).
     sessionPath = [ "/opt/homebrew/bin" ];
-
-    file.".mackup.cfg".text = ''
-      [storage]
-      engine = icloud
-
-      [applications_to_sync]
-      alt-tab
-      karabiner-elements
-      warp
-      zed
-      vscode
-      telegram_macos
-      claude-code
-      macosx
-    '';
 
     file.".orca/keybindings.json".text = builtins.toJSON {
       version = 1;
@@ -38,16 +27,6 @@
         linux = { };
         win32 = { };
       };
-    };
-
-    sessionVariables = {
-      # Hermes auxiliary ACP uses the Homebrew Copilot CLI on macOS.
-      HERMES_COPILOT_ACP_COMMAND = "/opt/homebrew/bin/copilot";
-
-      # Mirrors launchd.user.envVariables.HERMES_HOME (hosts/darwin/default.nix).
-      # Launchd line covers GUI apps; this covers interactive shells where
-      # the launchd setenv lands in the wrong bootstrap domain at activate-time.
-      HERMES_HOME = "/stuff/workspace/repos/_brain/.agents/hermes/profile/popemkt";
     };
 
   };

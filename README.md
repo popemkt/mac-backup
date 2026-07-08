@@ -62,10 +62,10 @@ Restores: AltTab, Karabiner-Elements, Zed, VS Code, Warp, Telegram, Claude Code,
 | **GCP** | `gcloud auth login` |
 | **Tailscale** | Sign in via menu bar |
 | **Raycast** | `open ~/.dotfiles/configs/raycast.rayconfig` → click Import |
-| **uv tools** | `uvx install browser-harness cognee mempalace` |
-| **Archon CLI** | `curl -fsSL https://archon.diy/install \| sh` then verify with `archon workflow list` |
+| **Editable/local uv tools** | Install from their owning repos if needed; repo-tracked uv tools are installed during rebuild |
+| **Archon CLI** | Managed by Homebrew; verify with `archon workflow list` |
 | **App sign-ins** | Claude, Discord, Warp, Lens — manual |
-| **/stuff workspace** | Attach `/Volumes/Data` external drive, or update `HERMES_HOME` in `modules/darwin/default.nix` and rebuild |
+| **/stuff workspace** | Attach `/Volumes/Data` external drive, or update `modules/darwin-system/external-workspace.nix` and `modules/darwin-system/hermes.nix` |
 
 #### Hermes agent (optional)
 
@@ -108,7 +108,7 @@ mackup backup --force                            # sync GUI app settings to iClo
 | Add brew formula | `modules/darwin-system/homebrew.nix` → `homebrew.brews` |
 | Add macOS system setting | `hosts/darwin/default.nix` → `system.defaults` |
 | Add shell alias | `modules/shared/shell.nix` |
-| Add macOS-only config | `modules/darwin/default.nix` |
+| Add macOS-only Home Manager config | `modules/darwin-home/default.nix` |
 | Change git config | `modules/shared/git.nix` |
 | Add npm global | `modules/shared/npm-global.nix` |
 
@@ -119,9 +119,10 @@ stay in package lists. If an app needs install entries plus config files,
 activation hooks, launchd services, defaults writes, symlinks, or dependencies
 across multiple places, create a focused module for that behavior.
 
-Use `modules/shared/` for cross-platform behavior, `modules/darwin/` for
-Home Manager macOS user behavior, `modules/darwin-system/` for nix-darwin
-system behavior, and `hosts/<hostname>/default.nix` for host-only differences.
+Use `modules/shared/` for cross-platform Home Manager behavior,
+`modules/darwin-home/` for macOS-only Home Manager behavior,
+`modules/darwin-system/` for nix-darwin system behavior, and
+`hosts/<hostname>/default.nix` for host-only differences.
 
 ## What's Managed Where
 
@@ -129,11 +130,11 @@ system behavior, and `hosts/<hostname>/default.nix` for host-only differences.
 |-------|---------|-----------------|
 | **nix-darwin** | macOS system settings | `hosts/darwin/default.nix` |
 | **Homebrew module** | taps, brews, casks, MAS apps | `modules/darwin-system/homebrew.nix` |
-| **home-manager** | CLI tools, shell, git, neovim, starship | `modules/shared/` |
+| **home-manager** | CLI tools, shell, git, neovim, starship | `modules/shared/` + `modules/darwin-home/` |
 | **Mackup → iCloud** | GUI app configs (Karabiner, Zed, VS Code, Warp…) | `~/Library/Mobile Documents/com~apple~CloudDocs/Mackup/` |
 | **npm-global.nix** | npm global CLIs | `modules/shared/npm-global.nix` |
 | **`configs/`** | Raycast export | manual import on new machine |
-| **Manual** | SSH keys, credentials, Hermes, uv tools | — |
+| **Manual** | SSH keys, credentials, Hermes plist, editable uv tools | — |
 
 ## Adding a Second Machine
 
@@ -156,7 +157,7 @@ darwinConfigurations."popemkt-mac2" = nix-darwin.lib.darwinSystem {
         users.popemkt = _: {
           home.stateVersion = "24.05";
           programs.home-manager.enable = true;
-          imports = [ ./modules/shared ./modules/darwin ];
+          imports = [ ./modules/shared ./modules/darwin-home ];
         };
       };
     })
@@ -183,7 +184,7 @@ Activated via `git config core.hooksPath .githooks` (already set on this clone).
 ## Known Gaps
 
 - npm globals not yet in `npm-global.nix`: `@tobilu/qmd`, `ccmanager`, `kanban`, `sudocode`, `yarn`
-- uv tools not tracked: `browser-harness`, `cognee`, `mempalace`
+- editable/local uv tools not tracked: `browser-harness`, `cognee`, `mempalace`
 - Hermes launchd plist — manual deploy
 - `~/.local/bin` scripts (`hermes`, `iii`, `plannotator`) — depend on `/stuff` workspace
 - `~/.gitconfig` has extra entries (nbstripout, agor safe.directory) not in `git.nix`
