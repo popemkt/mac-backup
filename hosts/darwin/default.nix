@@ -201,6 +201,7 @@ in
       # Browsers
       # "arc"
       # "firefox"
+      "browseros"
       "google-chrome@beta"
 
       # Productivity
@@ -217,6 +218,7 @@ in
 
       # Utilities
       "alt-tab"
+      "antigravity-cli"
       # "rectangle"
       # "cleanshot"
       "karabiner-elements"

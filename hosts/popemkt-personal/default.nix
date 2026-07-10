@@ -6,9 +6,4 @@ _:
   imports = [ ../darwin ];
 
   my.role = "personal";
-
-  # Antigravity's CLI is distributed as a Homebrew cask and provides `agy`.
-  homebrew.casks = [
-    "antigravity-cli"
-  ];
 }
