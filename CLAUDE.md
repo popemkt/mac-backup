@@ -5,9 +5,12 @@ Declarative macOS config: nix-darwin + home-manager + Homebrew + Mackup.
 ## Commands
 
 ```bash
-rebuild                          # Apply changes (alias for darwin-rebuild switch)
+rebuild                          # Check release pins, then apply without updating
 cd ~/.dotfiles && nix flake update && rebuild  # Update all inputs
 nix flake check                  # Validate flake
+nix run .#github-sources -- check   # Check direct GitHub release pins
+nix run .#github-sources -- verify  # Verify config and generated pins agree
+nix run .#github-sources -- update  # Refresh versions and hashes
 mackup backup / mackup restore   # GUI app settings via iCloud
 ```
 
@@ -24,6 +27,7 @@ mackup backup / mackup restore   # GUI app settings via iCloud
 | Change git config        | `modules/shared/git.nix`          |
 | Add host-only config     | `hosts/<hostname>/default.nix`    |
 | Add work/personal split  | `lib.mkIf (config.my.role == "work") { ... }` in any system module |
+| Add direct GitHub release package | `nvfetcher.toml` + `pkgs/`; see `docs/github-release-packages.md` |
 
 Then run `rebuild`.
 
@@ -47,7 +51,7 @@ Before suggesting commits, ensure changed `.nix` files pass:
 ```bash
 nixfmt **/*.nix              # auto-format (RFC-166 style)
 statix check .               # anti-pattern lint
-deadnix --fail .             # unused bindings (exits non-zero)
+deadnix --fail --exclude ./_sources/generated.nix .  # ignore generated nvfetcher arguments
 nix flake check --no-build   # eval-time validation
 ```
 
@@ -67,7 +71,8 @@ referencing `pkgs` in the body.
 - `hosts/popemkt-work/` — work machine; `hosts/popemkt-personal/` — personal; each imports `../darwin` + sets `my.role` + host-only diffs
 - Renaming a machine: rename host dir + flake attr, rebuild once with explicit `--flake ~/.dotfiles#<newname>` — activation sets HostName/ComputerName/LocalHostName via `networking.*`
 - `modules/shared/` — cross-platform home-manager modules (shell, packages, git, neovim)
-- `modules/darwin-home/` — macOS-specific home-manager (rebuild alias, brew helpers)
+- `modules/darwin-home/` — macOS-specific home-manager (rebuild helper, brew helpers)
+- `pkgs/` + `_sources/` — custom packages backed by nvfetcher-managed GitHub release pins
 - `configs/` — raw config files (nvim, etc.)
 - Platform conditionals: `lib.optionals pkgs.stdenv.isDarwin [...]` / `lib.mkIf pkgs.stdenv.isLinux { ... }`
 

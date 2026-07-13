@@ -27,6 +27,10 @@ in version control and minimises what must be done manually.
 - The change is immediately reproducible on any machine that pulls and rebuilds.
 - Pre-commit hooks validate nix syntax, format, and dead bindings before every
   commit.
+- Direct GitHub release packages have reusable check/update commands; online
+  pre-commit checks are best-effort and offline checks do not block commits.
+- `rebuild` reports available direct-release updates but never applies them;
+  updating versions and hashes remains an explicit operator action.
 
 ## GUI App Settings Sync
 
@@ -50,6 +54,9 @@ in version control and minimises what must be done manually.
 
 - The headroom context-compression proxy runs as a launchd user daemon on every
   machine after rebuild.
+- CLIProxyAPI runs as a loopback-only launchd user daemon on every machine after
+  rebuild; provider OAuth remains a manual credential step, and its no-key
+  listener explicitly trusts processes that can reach the local loopback port.
 - The proxy starts automatically on login, restarts on failure, and logs to
   `~/Library/Logs/headroom-proxy.{out,err}.log`.
 - `HEADROOM_PROXY` and `HEADROOM_PORT` are available to all apps and shells via
@@ -92,6 +99,7 @@ in version control and minimises what must be done manually.
   has: `rebuild`, `git`, `gh`, `nvim`, `node`, `uv`, `mackup`, starship prompt,
   zsh aliases, and all declared npm globals in PATH.
 - `headroom` is installed and the `headroom-proxy` launchd agent is loaded.
+- `cli-proxy-api` is installed and its launchd agent is loaded on port 8317.
 - After `mackup restore`, Karabiner rules, Zed settings, VS Code settings,
   Warp config, and AltTab layout match the source machine.
 

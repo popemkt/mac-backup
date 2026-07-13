@@ -31,16 +31,23 @@
 
   };
 
-  # macOS-specific shell additions
-  programs.zsh.shellAliases = {
-    # Nix rebuild alias (darwin-specific). No #attr — darwin-rebuild picks
-    # darwinConfigurations.<hostname> at runtime, and networking.* keeps the
-    # hostname synced to the flake attr. Only a machine RENAME needs an
-    # explicit one-off: sudo darwin-rebuild switch --flake ~/.dotfiles#<newname>
-    rebuild = "sudo darwin-rebuild switch --flake ~/.dotfiles && ~/.dotfiles/scripts/audit-system-discrepancies.sh";
-  };
-
   programs.zsh.initContent = lib.mkAfter ''
+    # Best-effort release discovery is informational and never mutates pins.
+    # No #attr is needed: darwin-rebuild selects the host-matching config.
+    rebuild() {
+      nix run "$HOME/.dotfiles#github-sources" -- check --best-effort
+      local source_status=$?
+
+      if (( source_status == 10 )); then
+        echo "warning: rebuilding with current pins; run the suggested update command when ready" >&2
+      elif (( source_status != 0 )); then
+        echo "warning: release check could not run; continuing with pinned sources" >&2
+      fi
+
+      sudo darwin-rebuild switch --flake "$HOME/.dotfiles" &&
+        "$HOME/.dotfiles/scripts/audit-system-discrepancies.sh"
+    }
+
     # ========================================
     # HOMEBREW HELPERS (macOS only)
     # ========================================

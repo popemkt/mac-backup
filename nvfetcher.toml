@@ -1,0 +1,6 @@
+[cli-proxy-api]
+src.github = "router-for-me/CLIProxyAPI"
+src.from_pattern = "^v(.+)$"
+src.to_pattern = "\\1"
+fetch.url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v$ver/CLIProxyAPI_$ver_darwin_aarch64.tar.gz"
+passthru = { github = "router-for-me/CLIProxyAPI", tagPrefix = "v" }

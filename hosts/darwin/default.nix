@@ -5,6 +5,7 @@ let
 in
 {
   imports = [
+    ../../modules/darwin-system/cli-proxy-api.nix
     ../../modules/darwin-system/external-workspace.nix
     ../../modules/darwin-system/headroom.nix
     ../../modules/darwin-system/hermes.nix

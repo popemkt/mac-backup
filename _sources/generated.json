@@ -1,0 +1,20 @@
+{
+    "cli-proxy-api": {
+        "cargoLock": null,
+        "date": null,
+        "extract": null,
+        "name": "cli-proxy-api",
+        "passthru": {
+            "github": "router-for-me/CLIProxyAPI",
+            "tagPrefix": "v"
+        },
+        "pinned": false,
+        "src": {
+            "name": null,
+            "sha256": "sha256-5Viw3+iFqkD6N3dxiEmVOCS9RGHa8uHjSv+yVmz6jfE=",
+            "type": "url",
+            "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.72/CLIProxyAPI_7.2.72_darwin_aarch64.tar.gz"
+        },
+        "version": "7.2.72"
+    }
+}

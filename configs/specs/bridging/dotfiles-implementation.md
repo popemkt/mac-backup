@@ -23,7 +23,8 @@ Operator procedure lives in `../../README.md`.
 | Neovim | home-manager | `modules/shared/neovim.nix` |
 | npm global packages | home-manager | `modules/shared/npm-global.nix` |
 | uv tool installs | home-manager activation | owning behavior modules, e.g. `modules/darwin-system/headroom.nix` |
-| macOS-only aliases + rebuild | home-manager | `modules/darwin-home/default.nix` |
+| Direct GitHub release packages | nvfetcher + local Nix packages | `nvfetcher.toml`, `_sources/`, `pkgs/` |
+| macOS-only shell helpers + rebuild | home-manager | `modules/darwin-home/default.nix` |
 | External workspace + data symlinks | nix-darwin + home-manager | `modules/darwin-system/external-workspace.nix` |
 | GUI app configs | Mackup → iCloud | `modules/darwin-home/mackup.nix` → `home.file.".mackup.cfg"` |
 | Raw configs (specs, Archon) | git-tracked files | `configs/` |
@@ -39,7 +40,7 @@ Operator procedure lives in `../../README.md`.
 | Nix install | Determinate installer; `nix.enable = false` in darwin config so nix-darwin doesn't conflict |
 | Homebrew install | standard Homebrew curl script |
 | First nix-darwin apply | `sudo nix run nix-darwin -- switch --flake ~/.dotfiles#popemkt-mac` (darwin-rebuild not in PATH yet) |
-| Subsequent rebuilds | `sudo darwin-rebuild switch --flake ~/.dotfiles#popemkt-mac` via `rebuild` alias |
+| Subsequent rebuilds | best-effort release check, then `sudo darwin-rebuild switch --flake ~/.dotfiles` via `rebuild` |
 | GUI config restore | `mackup restore` after iCloud Mackup folder syncs |
 
 Rationale for `sudo` prefix: nix-darwin activation runs system-level scripts
@@ -60,6 +61,7 @@ requiring root since nix-darwin ≥ 2025. See `dotfiles-system.md`.
 | Git TUI | `lazygit` | `modules/shared/packages.nix` |
 | Config sync | `mackup` | `modules/darwin-home/mackup.nix` |
 | Rust toolchain | `rustc`, `cargo` | `modules/shared/packages.nix` |
+| OAuth API proxy | `cli-proxy-api` | `pkgs/cli-proxy-api`, `modules/darwin-system/cli-proxy-api.nix` |
 
 ---
 
@@ -78,7 +80,7 @@ requiring root since nix-darwin ≥ 2025. See `dotfiles-system.md`.
 | npmg helper | shell function | `modules/shared/shell.nix` → `initContent` |
 | sysaudit alias | calls `scripts/audit-system-discrepancies.sh` | `modules/shared/shell.nix` |
 | dump-login-items alias | calls `scripts/dump-login-items.sh` | `modules/shared/shell.nix` |
-| rebuild alias | `sudo darwin-rebuild switch --flake ~/.dotfiles#${hostname}` | `modules/darwin-home/default.nix` |
+| rebuild helper | best-effort release check, pinned `darwin-rebuild`, then drift audit | `modules/darwin-home/default.nix` |
 
 ---
 
@@ -122,6 +124,12 @@ they live in their own repos and can't be restored from a version string.
 | Restart on failure | `KeepAlive = true` | `modules/darwin-system/headroom.nix` |
 | Logs | `~/Library/Logs/headroom-proxy.{out,err}.log` | `modules/darwin-system/headroom.nix` |
 | Env exposure | `HEADROOM_PROXY`, `HEADROOM_PORT` via `launchd.user.envVariables` | `modules/darwin-system/headroom.nix` |
+| CLIProxyAPI daemon | `launchd.user.agents.cli-proxy-api` | `modules/darwin-system/cli-proxy-api.nix` |
+| CLIProxyAPI endpoint | loopback-only `127.0.0.1:8317` | `modules/darwin-system/cli-proxy-api.nix` |
+| CLIProxyAPI local trust boundary | no API key; all processes able to reach loopback are trusted | explicit single-user workstation policy |
+| CLIProxyAPI auth state | mutable `~/.local/share/cli-proxy-api` | secure backup or provider re-login |
+| CLIProxyAPI restart policy | retry unsuccessful exits, throttled to 30 seconds | `KeepAlive.SuccessfulExit = false` |
+| CLIProxyAPI logs | `~/Library/Logs/cli-proxy-api.{out,err}.log` | `modules/darwin-system/cli-proxy-api.nix` |
 
 ---
 
@@ -161,6 +169,8 @@ iCloud on first run. See `dotfiles-system.md`.
 | npm global drift | compares `npmGlobalPackages` vs `npm ls -g` | `scripts/audit-system-discrepancies.sh` |
 | uv tool drift | compares `uvTools` vs `uv tool list` (skips editable) | `scripts/audit-system-discrepancies.sh` |
 | Login items snapshot | osascript dump to `configs/login-items.txt` | `scripts/dump-login-items.sh` |
+| GitHub release freshness | best-effort remote comparison; no mutation | `scripts/github-sources check` |
+| GitHub release update | nvfetcher regenerates pinned versions and hashes | `scripts/github-sources update` |
 
 ---
 
@@ -170,8 +180,10 @@ iCloud on first run. See `dotfiles-system.md`.
 |---|---|---|
 | Format | nixfmt | staged `.nix` files |
 | Anti-patterns | statix | whole repo |
-| Dead bindings | deadnix | whole repo |
+| Dead bindings | deadnix | whole repo except generated nvfetcher output |
 | Eval-time errors | `nix flake check --no-build` | whole flake |
+| Release freshness | GitHub API through `github-sources` | best effort; offline passes, stale source changes block |
+| Generated source consistency | nvfetcher regeneration in a temporary directory | staged snapshot locally; authoritative in PR CI |
 
 Hook location: `.githooks/pre-commit`. Activated via `git config core.hooksPath .githooks`.
 

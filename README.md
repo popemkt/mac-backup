@@ -21,7 +21,7 @@ curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix 
 
 ### 2. Clone & build
 
-Must clone to `~/.dotfiles` — the flake and rebuild alias hardcode this path.
+Must clone to `~/.dotfiles` — the flake and rebuild helper hardcode this path.
 
 ```bash
 # Use HTTPS if SSH key not set up yet
@@ -64,6 +64,7 @@ Restores: AltTab, Karabiner-Elements, Zed, VS Code, Warp, Telegram, Claude Code,
 | **Raycast** | `open ~/.dotfiles/configs/raycast.rayconfig` → click Import |
 | **Editable/local uv tools** | Install from their owning repos if needed; repo-tracked uv tools are installed during rebuild |
 | **Archon CLI** | Managed by Homebrew; verify with `archon workflow list` |
+| **CLIProxyAPI OAuth** | Run the provider login commands after the first rebuild; credentials are intentionally not tracked |
 | **App sign-ins** | Claude, Discord, Warp, Lens — manual |
 | **/stuff workspace** | Attach `/Volumes/Data` external drive, or update `modules/darwin-system/external-workspace.nix` and `modules/darwin-system/hermes.nix` |
 
@@ -78,6 +79,25 @@ launchctl load ~/Library/LaunchAgents/ai.hermes.gateway-popemkt.plist
 
 Plist hardcodes `HERMES_HOME=/Volumes/Data/...` — update if drive name differs.
 
+#### CLIProxyAPI provider login
+
+The loopback service is declarative, but OAuth credentials are mutable state.
+Authenticate only the providers you use:
+
+```bash
+cli-proxy-api -config ~/.config/cli-proxy-api/config.yaml -codex-login
+cli-proxy-api -config ~/.config/cli-proxy-api/config.yaml -claude-login
+cli-proxy-api -config ~/.config/cli-proxy-api/config.yaml -antigravity-login
+cli-proxy-api -config ~/.config/cli-proxy-api/config.yaml -kimi-login
+cli-proxy-api -config ~/.config/cli-proxy-api/config.yaml -xai-login
+```
+
+The API listens on `http://127.0.0.1:8317`.
+Its generated configuration intentionally has no API key, so every local
+process that can reach the loopback port is trusted to use the OAuth-backed
+providers. OAuth state is kept in a mode-`0700` directory. launchd starts the
+service at login and retries unsuccessful exits at most once every 30 seconds.
+
 #### SSH: switch from HTTPS to SSH after key setup
 
 ```bash
@@ -90,8 +110,11 @@ git remote set-url origin git@github.com:popemkt/mac-backup.git
 ## Daily Usage
 
 ```bash
-rebuild                                         # apply config changes
+rebuild                                         # check release pins, then apply config without updating
 cd ~/.dotfiles && nix flake update && rebuild   # update all inputs
+nix run .#github-sources -- check               # check pinned GitHub release packages
+nix run .#github-sources -- verify              # verify config, versions, and generated hashes
+nix run .#github-sources -- update              # update their versions + hashes
 mackup backup --force                            # sync GUI app settings to iCloud (--force skips replace prompts)
 ```
 
@@ -111,6 +134,7 @@ mackup backup --force                            # sync GUI app settings to iClo
 | Add macOS-only Home Manager config | `modules/darwin-home/default.nix` |
 | Change git config | `modules/shared/git.nix` |
 | Add npm global | `modules/shared/npm-global.nix` |
+| Add direct GitHub release package | `nvfetcher.toml` + `pkgs/`; see `docs/github-release-packages.md` |
 
 ### Module Boundaries
 
@@ -133,6 +157,7 @@ Use `modules/shared/` for cross-platform Home Manager behavior,
 | **home-manager** | CLI tools, shell, git, neovim, starship | `modules/shared/` + `modules/darwin-home/` |
 | **Mackup → iCloud** | GUI app configs (Karabiner, Zed, VS Code, Warp…) | `~/Library/Mobile Documents/com~apple~CloudDocs/Mackup/` |
 | **npm-global.nix** | npm global CLIs | `modules/shared/npm-global.nix` |
+| **nvfetcher + `pkgs/`** | pinned direct GitHub release packages | `nvfetcher.toml` + `_sources/` |
 | **`configs/`** | Raycast export | manual import on new machine |
 | **Manual** | SSH keys, credentials, Hermes plist, editable uv tools | — |
 
@@ -174,7 +199,7 @@ Both configs start identical and diverge naturally over time via `if hostname ==
 ```bash
 nixfmt **/*.nix
 statix check .
-deadnix --fail .
+deadnix --fail --exclude ./_sources/generated.nix .
 nix flake check --no-build
 ```
 

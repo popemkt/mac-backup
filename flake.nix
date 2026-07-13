@@ -17,12 +17,32 @@
 
   outputs =
     {
+      self,
+      nixpkgs,
       nix-darwin,
       home-manager,
       ...
     }:
     let
+      system = "aarch64-darwin";
       username = "popemkt";
+      pkgs = import nixpkgs { inherit system; };
+      localPackages = import ./pkgs { inherit pkgs; };
+
+      githubSources = pkgs.writeShellApplication {
+        name = "github-sources";
+        runtimeInputs = with pkgs; [
+          coreutils
+          curl
+          diffutils
+          git
+          jq
+          nvfetcher
+        ];
+        text = ''
+          exec ${./scripts/github-sources} "$@"
+        '';
+      };
 
       # One darwin host = base (hosts/darwin) + host dir (hosts/<hostname>).
       # Host identity lives in the typed `my.*` options (modules/my.nix),
@@ -36,6 +56,7 @@
             ./modules/options
             {
               my = { inherit username hostname; };
+              nixpkgs.overlays = [ self.overlays.default ];
             }
 
             home-manager.darwinModules.home-manager
@@ -60,6 +81,32 @@
         };
     in
     {
+      overlays.default = final: _previous: import ./pkgs { pkgs = final; };
+
+      packages.${system} = localPackages // {
+        default = localPackages.cli-proxy-api;
+      };
+
+      checks.${system} = localPackages;
+
+      apps.${system}.github-sources = {
+        type = "app";
+        program = "${githubSources}/bin/github-sources";
+      };
+
+      devShells.${system}.default = pkgs.mkShell {
+        packages = with pkgs; [
+          actionlint
+          deadnix
+          nixfmt
+          nvfetcher
+          shellcheck
+          statix
+        ];
+      };
+
+      formatter.${system} = pkgs.nixfmt;
+
       # ========================================================================
       # DARWIN (macOS) CONFIGURATIONS
       # ========================================================================

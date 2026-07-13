@@ -1,0 +1,305 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [ -n "${GITHUB_SOURCES_ROOT:-}" ]; then
+  ROOT_DIR="$(cd "$GITHUB_SOURCES_ROOT" && pwd)"
+else
+  ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -z "$ROOT_DIR" ]; then
+    ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  fi
+fi
+
+GENERATED_JSON="$ROOT_DIR/_sources/generated.json"
+NVFETCHER_CONFIG="$ROOT_DIR/nvfetcher.toml"
+COMMAND_ROOT="${GITHUB_SOURCES_COMMAND_ROOT:-$ROOT_DIR}"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  github-sources check [--best-effort]
+  github-sources verify [--best-effort]
+  github-sources update [source-name]
+
+Commands:
+  check   Compare pinned versions with the latest stable GitHub releases.
+          Exit 10 when updates are available. Network/API failures exit 20,
+          or pass with a warning when --best-effort is used.
+  verify  Regenerate sources in a temporary directory and prove that the
+          committed outputs match nvfetcher.toml and the latest release.
+          Network failures pass only when --best-effort is used.
+  update  Regenerate versions and hashes with nvfetcher. Optionally update
+          exactly one source from nvfetcher.toml.
+EOF
+}
+
+require_command() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "error: required command not found: $1" >&2
+    return 1
+  fi
+}
+
+print_update_hint() {
+  echo "run: cd \"$COMMAND_ROOT\" && nix run .#github-sources -- update" >&2
+}
+
+github_api_available() {
+  local curl_headers=()
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    curl_headers=(-H "Authorization: Bearer $GITHUB_TOKEN")
+  fi
+
+  curl \
+    --silent \
+    --fail \
+    --location \
+    --connect-timeout 2 \
+    --max-time 5 \
+    --retry 0 \
+    --output /dev/null \
+    -H "Accept: application/vnd.github+json" \
+    "${curl_headers[@]}" \
+    "https://api.github.com/rate_limit"
+}
+
+check_sources() {
+  local best_effort=false
+  if [ "${1:-}" = "--best-effort" ]; then
+    best_effort=true
+    shift
+  fi
+  if [ "$#" -ne 0 ]; then
+    usage >&2
+    return 2
+  fi
+
+  require_command curl
+  require_command jq
+
+  if [ ! -f "$GENERATED_JSON" ]; then
+    echo "error: generated source metadata is missing: $GENERATED_JSON" >&2
+    print_update_hint
+    return 2
+  fi
+
+  local source_count
+  source_count="$(
+    jq '[to_entries[] | select(.value.passthru.github != null)] | length' \
+      "$GENERATED_JSON"
+  )"
+  if [ "$source_count" -eq 0 ]; then
+    echo "error: no GitHub release sources found in $GENERATED_JSON" >&2
+    return 2
+  fi
+
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+  trap 'rm -rf "$tmpdir"' RETURN
+
+  local curl_headers=()
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    curl_headers=(-H "Authorization: Bearer $GITHUB_TOKEN")
+  fi
+
+  local checked=0
+  local unavailable=0
+  local outdated=0
+  local name repo current tag_prefix response_file http_code tag latest
+
+  while IFS=$'\t' read -r name repo current tag_prefix; do
+    response_file="$tmpdir/${name}.json"
+
+    if http_code="$(
+      curl \
+        --silent \
+        --show-error \
+        --location \
+        --connect-timeout 2 \
+        --max-time 5 \
+        --retry 0 \
+        --output "$response_file" \
+        --write-out '%{http_code}' \
+        -H "Accept: application/vnd.github+json" \
+        "${curl_headers[@]}" \
+        "https://api.github.com/repos/$repo/releases/latest"
+    )" && [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+      if ! tag="$(jq -er '.tag_name' "$response_file" 2>/dev/null)"; then
+        echo "warning: GitHub returned invalid release metadata for $repo" >&2
+        unavailable=$((unavailable + 1))
+        continue
+      fi
+
+      latest="$tag"
+      if [ -n "$tag_prefix" ] && [ "${latest#"$tag_prefix"}" != "$latest" ]; then
+        latest="${latest#"$tag_prefix"}"
+      fi
+
+      checked=$((checked + 1))
+      if [ "$latest" != "$current" ]; then
+        printf '%s: %s -> %s\n' "$name" "$current" "$latest"
+        outdated=$((outdated + 1))
+      fi
+    else
+      echo "warning: skipped $name; GitHub is unavailable (HTTP ${http_code:-000})" >&2
+      unavailable=$((unavailable + 1))
+    fi
+  done < <(
+    jq -r '
+      to_entries[]
+      | select(.value.passthru.github != null)
+      | [
+          .key,
+          .value.passthru.github,
+          .value.version,
+          (.value.passthru.tagPrefix // "")
+        ]
+      | @tsv
+    ' "$GENERATED_JSON"
+  )
+
+  if [ "$outdated" -gt 0 ]; then
+    print_update_hint
+    return 10
+  fi
+
+  if [ "$unavailable" -gt 0 ]; then
+    if [ "$best_effort" = true ]; then
+      echo "GitHub release check passed with unavailable sources." >&2
+      return 0
+    fi
+    return 20
+  fi
+
+  echo "GitHub release pins are current ($checked checked)."
+}
+
+verify_sources() {
+  local best_effort=false
+  if [ "${1:-}" = "--best-effort" ]; then
+    best_effort=true
+    shift
+  fi
+  if [ "$#" -ne 0 ]; then
+    usage >&2
+    return 2
+  fi
+
+  require_command curl
+  require_command nvfetcher
+
+  if [ ! -f "$NVFETCHER_CONFIG" ]; then
+    echo "error: nvfetcher config is missing: $NVFETCHER_CONFIG" >&2
+    return 11
+  fi
+
+  local generated_file
+  for generated_file in generated.nix generated.json; do
+    if [ ! -f "$ROOT_DIR/_sources/$generated_file" ]; then
+      echo "error: generated source is missing: $ROOT_DIR/_sources/$generated_file" >&2
+      return 11
+    fi
+  done
+
+  local tmpdir log_file
+  tmpdir="$(mktemp -d)"
+  log_file="$tmpdir/nvfetcher.log"
+
+  if ! nvfetcher \
+    --config "$NVFETCHER_CONFIG" \
+    --build-dir "$tmpdir/_sources" \
+    >"$log_file" 2>&1; then
+    if [ "$best_effort" = true ] && ! github_api_available; then
+      echo "warning: could not regenerate GitHub sources while offline; continuing" >&2
+      rm -rf "$tmpdir"
+      return 0
+    fi
+
+    cat "$log_file" >&2
+    echo "error: nvfetcher could not regenerate GitHub sources" >&2
+    rm -rf "$tmpdir"
+    return 20
+  fi
+
+  local mismatch=false
+  for generated_file in generated.nix generated.json; do
+    if ! cmp -s \
+      "$ROOT_DIR/_sources/$generated_file" \
+      "$tmpdir/_sources/$generated_file"; then
+      mismatch=true
+      echo "error: _sources/$generated_file does not match nvfetcher.toml" >&2
+      diff -u \
+        "$ROOT_DIR/_sources/$generated_file" \
+        "$tmpdir/_sources/$generated_file" \
+        || true
+    fi
+  done
+
+  rm -rf "$tmpdir"
+
+  if [ "$mismatch" = true ]; then
+    print_update_hint
+    return 11
+  fi
+
+  echo "Generated GitHub sources match nvfetcher.toml and the latest releases."
+}
+
+update_sources() {
+  if [ "$#" -gt 1 ]; then
+    usage >&2
+    return 2
+  fi
+
+  require_command nvfetcher
+
+  if [ ! -f "$NVFETCHER_CONFIG" ]; then
+    echo "error: nvfetcher config is missing: $NVFETCHER_CONFIG" >&2
+    return 2
+  fi
+
+  local filter="${1:-}"
+  local args=(
+    --config "$NVFETCHER_CONFIG"
+    --build-dir "$ROOT_DIR/_sources"
+  )
+
+  if [ -n "$filter" ]; then
+    if [[ ! "$filter" =~ ^[A-Za-z0-9._+-]+$ ]]; then
+      echo "error: invalid source name: $filter" >&2
+      return 2
+    fi
+    args+=(--filter "^${filter}$")
+  fi
+
+  nvfetcher "${args[@]}"
+  git -C "$ROOT_DIR" diff --stat -- _sources
+}
+
+command="${1:-}"
+if [ -z "$command" ]; then
+  usage >&2
+  exit 2
+fi
+shift
+
+case "$command" in
+  check)
+    check_sources "$@"
+    ;;
+  verify)
+    verify_sources "$@"
+    ;;
+  update)
+    update_sources "$@"
+    ;;
+  -h | --help | help)
+    usage
+    ;;
+  *)
+    echo "error: unknown command: $command" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

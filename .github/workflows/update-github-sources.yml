@@ -1,0 +1,72 @@
+name: Update GitHub release sources
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-github-sources
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+
+      - name: Update generated GitHub sources
+        run: nix run .#github-sources -- update
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify generated GitHub sources
+        run: nix run .#github-sources -- verify
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate formatting and evaluation
+        run: |
+          nix develop -c shellcheck .githooks/pre-commit scripts/github-sources
+          nix develop -c actionlint
+          nix develop -c sh -c 'find . -name "*.nix" -not -path "./.git/*" -print0 | xargs -0 nixfmt --check'
+          nix develop -c statix check .
+          nix develop -c deadnix --fail --exclude ./_sources/generated.nix .
+          nix flake check --no-build
+
+      - name: Build updated packages
+        run: nix flake check
+
+      - name: Open update pull request
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          token: ${{ secrets.UPDATE_GITHUB_SOURCES_TOKEN || github.token }}
+          branch: chore/update-github-sources
+          delete-branch: true
+          add-paths: |
+            _sources/generated.json
+            _sources/generated.nix
+          commit-message: "chore: update GitHub release sources"
+          title: "chore: update GitHub release sources"
+          body: |
+            Automated weekly refresh of direct GitHub release packages.
+
+            Validation performed:
+            - generated-source consistency
+            - shellcheck
+            - actionlint
+            - nixfmt
+            - statix
+            - deadnix
+            - nix flake check --no-build
+            - package build on Apple Silicon macOS

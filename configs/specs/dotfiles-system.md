@@ -20,7 +20,8 @@ installs, App Store exclusives).
 | System config | nix-darwin | macOS settings, launchd agents | `hosts/darwin/default.nix` |
 | Homebrew config | nix-darwin | Homebrew taps, brews, casks, MAS apps | `modules/darwin-system/homebrew.nix` |
 | User environment | home-manager | CLI tools, shell, git, neovim, starship, npm globals | `modules/shared/` + `modules/darwin-home/` |
-| Behavior modules | nix-darwin + home-manager | Headroom, Hermes, external workspace, input sources | `modules/darwin-system/` |
+| Direct release packages | nvfetcher + Nix | GitHub release versions, assets, and hashes | `nvfetcher.toml` + `_sources/` + `pkgs/` |
+| Behavior modules | nix-darwin + home-manager | Headroom, CLIProxyAPI, Hermes, external workspace, input sources | `modules/darwin-system/` |
 | GUI app configs | Mackup → iCloud | Karabiner, Zed, VS Code, Warp, AltTab, Telegram, Claude Code, macOS shortcuts | `~/.mackup.cfg` allowlist |
 | Raw configs | `configs/` | Raycast export, login items snapshot, specs, Archon workflows | manual import on restore |
 | Manual | — | SSH keys, credentials, Hermes plist, editable uv tools | per-restore checklist |
@@ -64,6 +65,16 @@ them, for example Headroom in `modules/darwin-system/headroom.nix`.
 Editable/local installs (browser-harness, etc.) are intentionally excluded —
 they belong to their own repos.
 
+### Direct GitHub releases use nvfetcher
+Applications distributed as GitHub release assets are declared once in
+`nvfetcher.toml`. Generated versions and hashes are committed under `_sources/`,
+while package recipes live under `pkgs/`. Pre-commit checks freshness when
+online, validates the exact staged snapshot, and never mutates files; offline
+release checks pass. Updates remain explicit or arrive as a weekly pull
+request. The `rebuild` wrapper reports newer releases without changing pins;
+the activation itself consumes pins without version discovery, though a cold
+Nix store may still need to download missing pinned artifacts.
+
 ### SDKROOT workaround for C++ Python extensions
 CLT-only macOS doesn't set `SDKROOT`; clang can't find `<iostream>` etc.
 Set via `xcrun --sdk macosx --show-sdk-path` in both the activation script and
@@ -72,7 +83,7 @@ preferred long-term fix.
 
 ### darwin-rebuild requires sudo (nix-darwin ≥ 2025)
 Activation now runs system-level scripts that require root. All rebuild
-invocations are prefixed with `sudo`. The `rebuild` alias in
+invocations are prefixed with `sudo`. The `rebuild` shell function in
 `modules/darwin-home/default.nix` reflects this.
 
 ### First bootstrap uses `nix run nix-darwin`, not `darwin-rebuild`
@@ -112,7 +123,7 @@ Deliberately excluded: anything storing credentials or tokens.
 8. Sign into iCloud, wait for Mackup folder to sync
 9. `mackup restore`
 10. Manual: SSH keys, `gh auth login`, `az login`, `gcloud auth login`,
-    Tailscale, Raycast import, Hermes plist
+    CLIProxyAPI provider OAuth, Tailscale, Raycast import, Hermes plist
 
 ---
 

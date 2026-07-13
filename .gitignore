@@ -5,6 +5,7 @@ result-*
 # macOS
 .DS_Store
 .playwright-mcp/
+.tokensave/
 
 # Secrets (never commit these)
 *.secret
