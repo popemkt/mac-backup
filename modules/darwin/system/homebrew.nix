@@ -22,7 +22,6 @@ _:
       # "homebrew/bundle"  # Uncomment if needed
       "coleam00/archon"
       "ghostwright/ghost-os"
-      "skyhook-io/tap"
       "stablyai/orca"
     ];
 
@@ -51,7 +50,7 @@ _:
       "visual-studio-code"
       "claude"
       "claude-code@latest"
-      "codex-app"
+      "chatgpt"
       # Use the fully-qualified tap path. Bare "orca" is the unrelated Plotly cask.
       "stablyai/orca/orca"
       "zed"
