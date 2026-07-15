@@ -50,7 +50,8 @@ _:
       "visual-studio-code"
       "claude"
       "claude-code@latest"
-      "chatgpt"
+      # ChatGPT is installed directly from OpenAI and self-updates. Homebrew
+      # cannot adopt its active app bundle because macOS blocks bundle chmod.
       # Use the fully-qualified tap path. Bare "orca" is the unrelated Plotly cask.
       "stablyai/orca/orca"
       "zed"
