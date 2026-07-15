@@ -21,6 +21,7 @@ _:
     taps = [
       # "homebrew/bundle"  # Uncomment if needed
       "coleam00/archon"
+      "entireio/tap"
       "ghostwright/ghost-os"
       "stablyai/orca"
     ];
@@ -51,6 +52,7 @@ _:
       "claude"
       "claude-code@latest"
       "chatgpt"
+      "entireio/tap/entire"
       # Use the fully-qualified tap path. Bare "orca" is the unrelated Plotly cask.
       "stablyai/orca/orca"
       "zed"

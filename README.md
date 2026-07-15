@@ -64,6 +64,8 @@ Restores: AltTab, Karabiner-Elements, Zed, VS Code, Warp, Telegram, Claude Code,
 | **Raycast** | `open ~/.dotfiles/configs/raycast.rayconfig` → click Import |
 | **Editable/local uv tools** | Install from their owning repos if needed; repo-tracked uv tools are installed during rebuild |
 | **Archon CLI** | Managed by Homebrew; verify with `archon workflow list` |
+| **Entire CLI** | Managed by Homebrew; opt in per repo with `entire enable --agent codex` (consider `--skip-push-sessions` for public repos) |
+| **Oh My Pi** | Managed as a Bun global; its command is `omp` (open a new shell after the first rebuild) |
 | **CLIProxyAPI OAuth** | Run the provider login commands after the first rebuild; credentials are intentionally not tracked |
 | **App sign-ins** | Claude, Discord, Warp, Lens — manual |
 | **/stuff workspace** | Attach `/Volumes/Data` external drive, or update `modules/darwin/system/external-workspace.nix` and `modules/darwin/system/hermes.nix` |
