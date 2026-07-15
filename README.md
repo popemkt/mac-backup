@@ -163,7 +163,7 @@ users. These Home Manager modules are imported only for the configured user.
 | **bun-global.nix** | Bun global CLIs, including Oh My Pi | `modules/darwin/home-manager/bun-global.nix` |
 | **nvfetcher + `pkgs/`** | pinned direct GitHub release packages | `nvfetcher.toml` + `_sources/` |
 | **`configs/`** | Raycast export | manual import on new machine |
-| **Manual** | ChatGPT desktop app, SSH keys, credentials, Hermes plist, editable uv tools | — |
+| **Manual** | SSH keys, credentials, Hermes plist, editable uv tools | — |
 
 ## Adding a Second Machine
 
