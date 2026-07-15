@@ -20,7 +20,7 @@
     kubectl
     yt-dlp
     # azure-cli + git-credential-manager installed via Homebrew
-    # (see modules/darwin-system/homebrew.nix). The Nix paths trigger a from-source
+    # (see modules/darwin/system/homebrew.nix). The Nix paths trigger a from-source
     # rebuild that pulls swift; brew gives signed binaries instantly.
 
     # Java
@@ -40,7 +40,6 @@
 
     # Node.js stack
     nodejs
-    bun
     pnpm
     typescript
     typescript-language-server

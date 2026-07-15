@@ -13,7 +13,7 @@ in version control and minimises what must be done manually.
 - A new machine can reach a working developer environment by running a small
   sequence of commands (CLT, Nix, Homebrew, clone, rebuild).
 - After the first rebuild, the terminal has all CLI tools, shell config, git
-  config, starship prompt, neovim, and npm/uv globals in place.
+  config, starship prompt, neovim, and npm/Bun/uv globals in place.
 - No subsequent manual installs are needed for CLI tooling.
 - GUI application configs are restored by a single `mackup restore` after iCloud
   syncs.
@@ -31,6 +31,9 @@ in version control and minimises what must be done manually.
   pre-commit checks are best-effort and offline checks do not block commits.
 - `rebuild` reports available direct-release updates but never applies them;
   updating versions and hashes remains an explicit operator action.
+- `rebuild` upgrades Homebrew packages and every declared npm/Bun global to
+  its latest registry release; transient upgrades preserve the installed
+  version rather than blocking activation.
 
 ## GUI App Settings Sync
 
@@ -65,7 +68,7 @@ in version control and minimises what must be done manually.
 ## Config Auditing
 
 - Running `sysaudit` reports drift between declared nix config and what is
-  actually installed (Homebrew casks/brews, npm globals, uv tools).
+  actually installed (Homebrew casks/brews, npm globals, Bun globals, uv tools).
 - Login items are captured to `configs/login-items.txt` via `dump-login-items`.
 
 ## Spec and Workflow Reuse
@@ -97,7 +100,7 @@ in version control and minimises what must be done manually.
 
 - After running the bootstrap sequence (README §1-9), a new terminal session
   has: `rebuild`, `git`, `gh`, `nvim`, `node`, `uv`, `mackup`, starship prompt,
-  zsh aliases, and all declared npm globals in PATH.
+  zsh aliases, and all declared npm/Bun globals in PATH.
 - `headroom` is installed and the `headroom-proxy` launchd agent is loaded.
 - `cli-proxy-api` is installed and its launchd agent is loaded on port 8317.
 - After `mackup restore`, Karabiner rules, Zed settings, VS Code settings,
@@ -112,7 +115,7 @@ in version control and minimises what must be done manually.
 
 ### Drift detection
 
-- `sysaudit` outputs no unmanaged Homebrew casks/brews, npm globals, or uv
+- `sysaudit` outputs no unmanaged Homebrew casks/brews, npm/Bun globals, or uv
   tools beyond those explicitly excluded as editable/local installs.
 
 ### GUI config sync

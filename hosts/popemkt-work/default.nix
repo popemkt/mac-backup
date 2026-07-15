@@ -1,13 +1,13 @@
 _:
 
 # Work machine.
-# Only diffs from the shared darwin base go here (work-only casks, etc.).
+# Only diffs from the shared Darwin system module go here.
 {
-  imports = [ ../darwin ];
+  imports = [ ../../modules/darwin/system ];
 
   my.role = "work";
 
-  # Work-only GUI apps; merged with the base list in hosts/darwin.
+  # Work-only GUI apps; merged with the shared Homebrew module.
   homebrew.casks = [
     "microsoft-outlook"
     "microsoft-teams"

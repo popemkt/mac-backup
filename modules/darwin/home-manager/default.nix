@@ -2,6 +2,7 @@
 
 {
   imports = [
+    ./bun-global.nix
     ./mackup.nix
   ];
 
@@ -13,7 +14,7 @@
     # Surface Homebrew bins on PATH for interactive shells.
     # NOTE: launchd-spawned GUI apps don't read this — set per-agent envs
     # in their plist, or globally via `launchd.user.envVariables`
-    # (nix-darwin scope, e.g. HERMES_HOME in modules/darwin-system/hermes.nix).
+    # (nix-darwin scope, e.g. HERMES_HOME in modules/darwin/system/hermes.nix).
     sessionPath = [ "/opt/homebrew/bin" ];
 
     file.".orca/keybindings.json".text = builtins.toJSON {
@@ -32,6 +33,18 @@
   };
 
   programs.zsh.initContent = lib.mkAfter ''
+    # Homebrew (Apple Silicon)
+    if [ -f /opt/homebrew/bin/brew ]; then
+      eval "$(/opt/homebrew/bin/brew shellenv)"
+    fi
+
+    # Fix ECONNRESET errors in Claude Code on macOS.
+    export NODE_OPTIONS="--dns-result-order=ipv4first"
+
+    # CLT-only installs do not expose the macOS SDK automatically. Native
+    # extensions such as hnswlib need this path during compilation.
+    export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)"
+
     # Best-effort release discovery is informational and never mutates pins.
     # No #attr is needed: darwin-rebuild selects the host-matching config.
     rebuild() {
@@ -52,7 +65,7 @@
     # HOMEBREW HELPERS (macOS only)
     # ========================================
 
-    # Full drift audit (brew, npm, uv, nix, /Applications) — also runs
+    # Full drift audit (brew, npm, Bun, uv, nix, /Applications) — also runs
     # automatically after `rebuild`.
     brew-check() {
       "$HOME/.dotfiles/scripts/audit-system-discrepancies.sh"
@@ -63,7 +76,7 @@
       if [ "$1" = "add" ] && [ -n "$2" ]; then
         brew install --cask "$2"
         echo ""
-        echo "Don't forget to add to ~/.dotfiles/modules/darwin-system/homebrew.nix:"
+        echo "Don't forget to add to ~/.dotfiles/modules/darwin/system/homebrew.nix:"
         echo ""
         echo "   casks = ["
         echo "     \"$2\""

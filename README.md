@@ -66,7 +66,7 @@ Restores: AltTab, Karabiner-Elements, Zed, VS Code, Warp, Telegram, Claude Code,
 | **Archon CLI** | Managed by Homebrew; verify with `archon workflow list` |
 | **CLIProxyAPI OAuth** | Run the provider login commands after the first rebuild; credentials are intentionally not tracked |
 | **App sign-ins** | Claude, Discord, Warp, Lens — manual |
-| **/stuff workspace** | Attach `/Volumes/Data` external drive, or update `modules/darwin-system/external-workspace.nix` and `modules/darwin-system/hermes.nix` |
+| **/stuff workspace** | Attach `/Volumes/Data` external drive, or update `modules/darwin/system/external-workspace.nix` and `modules/darwin/system/hermes.nix` |
 
 #### Hermes agent (optional)
 
@@ -110,7 +110,7 @@ git remote set-url origin git@github.com:popemkt/mac-backup.git
 ## Daily Usage
 
 ```bash
-rebuild                                         # check release pins, then apply config without updating
+rebuild                                         # apply config; upgrade Homebrew and tracked npm/Bun globals
 cd ~/.dotfiles && nix flake update && rebuild   # update all inputs
 nix run .#github-sources -- check               # check pinned GitHub release packages
 nix run .#github-sources -- verify              # verify config, versions, and generated hashes
@@ -126,14 +126,15 @@ mackup backup --force                            # sync GUI app settings to iClo
 
 | Want to... | Edit |
 |------------|------|
-| Add CLI tool | `modules/shared/packages.nix` |
-| Add GUI app (cask) | `modules/darwin-system/homebrew.nix` → `homebrew.casks` |
-| Add brew formula | `modules/darwin-system/homebrew.nix` → `homebrew.brews` |
-| Add macOS system setting | `hosts/darwin/default.nix` → `system.defaults` |
-| Add shell alias | `modules/shared/shell.nix` |
-| Add macOS-only Home Manager config | `modules/darwin-home/default.nix` |
-| Change git config | `modules/shared/git.nix` |
-| Add npm global | `modules/shared/npm-global.nix` |
+| Add CLI tool | `modules/common/home-manager/packages.nix` |
+| Add GUI app (cask) | `modules/darwin/system/homebrew.nix` → `homebrew.casks` |
+| Add brew formula | `modules/darwin/system/homebrew.nix` → `homebrew.brews` |
+| Add macOS system setting | `modules/darwin/system/default.nix` → `system.defaults` |
+| Add shell alias | `modules/common/home-manager/shell.nix` |
+| Add macOS-only Home Manager config | `modules/darwin/home-manager/default.nix` |
+| Change git config | `modules/common/home-manager/git.nix` |
+| Add npm global | `modules/common/home-manager/npm-global.nix` |
+| Add Bun global | `modules/darwin/home-manager/bun-global.nix` |
 | Add direct GitHub release package | `nvfetcher.toml` + `pkgs/`; see `docs/github-release-packages.md` |
 
 ### Module Boundaries
@@ -143,20 +144,23 @@ stay in package lists. If an app needs install entries plus config files,
 activation hooks, launchd services, defaults writes, symlinks, or dependencies
 across multiple places, create a focused module for that behavior.
 
-Use `modules/shared/` for cross-platform Home Manager behavior,
-`modules/darwin-home/` for macOS-only Home Manager behavior,
-`modules/darwin-system/` for nix-darwin system behavior, and
+Use `modules/common/home-manager/` for cross-platform Home Manager behavior,
+`modules/darwin/home-manager/` for macOS-only Home Manager behavior,
+`modules/darwin/system/` for nix-darwin system behavior, and
 `hosts/<hostname>/default.nix` for host-only differences.
+`common` means reusable across operating systems; it does not mean all local
+users. These Home Manager modules are imported only for the configured user.
 
 ## What's Managed Where
 
 | Layer | Manages | Source of truth |
 |-------|---------|-----------------|
-| **nix-darwin** | macOS system settings | `hosts/darwin/default.nix` |
-| **Homebrew module** | taps, brews, casks, MAS apps | `modules/darwin-system/homebrew.nix` |
-| **home-manager** | CLI tools, shell, git, neovim, starship | `modules/shared/` + `modules/darwin-home/` |
+| **nix-darwin** | macOS system settings | `modules/darwin/system/default.nix` |
+| **Homebrew module** | taps, brews, casks, MAS apps | `modules/darwin/system/homebrew.nix` |
+| **home-manager** | CLI tools, shell, git, neovim, starship | `modules/common/home-manager/` + `modules/darwin/home-manager/` |
 | **Mackup → iCloud** | GUI app configs (Karabiner, Zed, VS Code, Warp…) | `~/Library/Mobile Documents/com~apple~CloudDocs/Mackup/` |
-| **npm-global.nix** | npm global CLIs | `modules/shared/npm-global.nix` |
+| **npm-global.nix** | npm global CLIs | `modules/common/home-manager/npm-global.nix` |
+| **bun-global.nix** | Bun global CLIs, including Oh My Pi | `modules/darwin/home-manager/bun-global.nix` |
 | **nvfetcher + `pkgs/`** | pinned direct GitHub release packages | `nvfetcher.toml` + `_sources/` |
 | **`configs/`** | Raycast export | manual import on new machine |
 | **Manual** | SSH keys, credentials, Hermes plist, editable uv tools | — |
@@ -170,7 +174,7 @@ darwinConfigurations."popemkt-mac2" = nix-darwin.lib.darwinSystem {
   system = "aarch64-darwin"; # x86_64-darwin for Intel
   specialArgs = { username = "popemkt"; hostname = "popemkt-mac2"; };
   modules = [
-    ./hosts/darwin
+    ./modules/darwin/system
     home-manager.darwinModules.home-manager
     (_: {
       users.users.popemkt.home = "/Users/popemkt";
@@ -182,7 +186,7 @@ darwinConfigurations."popemkt-mac2" = nix-darwin.lib.darwinSystem {
         users.popemkt = _: {
           home.stateVersion = "24.05";
           programs.home-manager.enable = true;
-          imports = [ ./modules/shared ./modules/darwin-home ];
+          imports = [ ./modules/common/home-manager ./modules/darwin/home-manager ];
         };
       };
     })

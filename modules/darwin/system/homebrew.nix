@@ -36,6 +36,9 @@ _:
       # Google Workspace CLI for Gmail/Drive/Sheets/etc.
       # Keep this in Brew so `gws` is easy to restore on macOS.
       "googleworkspace-cli"
+      # Oh My Pi requires Bun >= 1.3.14; Homebrew currently ships a newer
+      # runtime than nixpkgs and upgrades it during rebuild activation.
+      "bun"
       "coleam00/archon/archon"
       "ghostwright/ghost-os/ghost-os"
       "ollama"
@@ -71,6 +74,7 @@ _:
 
       # Productivity
       "raycast"
+      "tana"
       # "notion"
       # "obsidian"
       # "1password"

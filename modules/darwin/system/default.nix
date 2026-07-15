@@ -5,12 +5,12 @@ let
 in
 {
   imports = [
-    ../../modules/darwin-system/cli-proxy-api.nix
-    ../../modules/darwin-system/external-workspace.nix
-    ../../modules/darwin-system/headroom.nix
-    ../../modules/darwin-system/hermes.nix
-    ../../modules/darwin-system/homebrew.nix
-    ../../modules/darwin-system/input-sources.nix
+    ./cli-proxy-api.nix
+    ./external-workspace.nix
+    ./headroom.nix
+    ./hermes.nix
+    ./homebrew.nix
+    ./input-sources.nix
   ];
 
   # Keep the OS hostname in sync with the flake attribute name so

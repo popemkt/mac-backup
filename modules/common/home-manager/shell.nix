@@ -29,11 +29,6 @@ _:
     };
 
     initContent = ''
-      # Homebrew (Apple Silicon)
-      if [ -f /opt/homebrew/bin/brew ]; then
-        eval "$(/opt/homebrew/bin/brew shellenv)"
-      fi
-
       # fzf integration
       if [ -n "$(command -v fzf)" ]; then
         source <(fzf --zsh)
@@ -42,20 +37,9 @@ _:
       # PATH additions
       export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
 
-      # HERMES_HOME is set per-platform via home.sessionVariables and
-      # launchd.user.envVariables in modules/darwin-system/hermes.nix.
-
-      # Fix ECONNRESET errors in Claude Code on macOS
-      export NODE_OPTIONS="--dns-result-order=ipv4first"
-
-      # macOS SDK root — lets clang find C++ stdlib headers when building Python
-      # extensions (e.g. hnswlib). CLT-only installs don't set this automatically;
-      # full Xcode does. Required by: uv tool install <anything with C++ deps>.
-      export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)"
-
-      # npm global helper (paired with modules/shared/npm-global.nix)
+      # npm global helper (paired with modules/common/home-manager/npm-global.nix)
       npmg() {
-        local config_file="$HOME/.dotfiles/modules/shared/npm-global.nix"
+        local config_file="$HOME/.dotfiles/modules/common/home-manager/npm-global.nix"
 
         if [ "$1" = "add" ] && [ -n "$2" ]; then
           npm install -g "$2" || return 1

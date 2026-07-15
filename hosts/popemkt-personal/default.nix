@@ -1,9 +1,9 @@
 _:
 
 # Personal machine (placeholder until it's set up).
-# Only diffs from the shared darwin base go here (personal-only casks, etc.).
+# Only diffs from the shared Darwin system module go here.
 {
-  imports = [ ../darwin ];
+  imports = [ ../../modules/darwin/system ];
 
   my.role = "personal";
 }

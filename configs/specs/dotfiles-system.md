@@ -17,11 +17,11 @@ installs, App Store exclusives).
 
 | Layer | Tool | Owns | Source |
 |---|---|---|---|
-| System config | nix-darwin | macOS settings, launchd agents | `hosts/darwin/default.nix` |
-| Homebrew config | nix-darwin | Homebrew taps, brews, casks, MAS apps | `modules/darwin-system/homebrew.nix` |
-| User environment | home-manager | CLI tools, shell, git, neovim, starship, npm globals | `modules/shared/` + `modules/darwin-home/` |
+| System config | nix-darwin | macOS settings, launchd agents | `modules/darwin/system/default.nix` |
+| Homebrew config | nix-darwin | Homebrew taps, brews, casks, MAS apps | `modules/darwin/system/homebrew.nix` |
+| User environment | home-manager | CLI tools, shell, git, neovim, starship, npm/Bun globals | `modules/common/home-manager/` + `modules/darwin/home-manager/` |
 | Direct release packages | nvfetcher + Nix | GitHub release versions, assets, and hashes | `nvfetcher.toml` + `_sources/` + `pkgs/` |
-| Behavior modules | nix-darwin + home-manager | Headroom, CLIProxyAPI, Hermes, external workspace, input sources | `modules/darwin-system/` |
+| Behavior modules | nix-darwin + home-manager | Headroom, CLIProxyAPI, Hermes, external workspace, input sources | `modules/darwin/system/` |
 | GUI app configs | Mackup → iCloud | Karabiner, Zed, VS Code, Warp, AltTab, Telegram, Claude Code, macOS shortcuts | `~/.mackup.cfg` allowlist |
 | Raw configs | `configs/` | Raycast export, login items snapshot, specs, Archon workflows | manual import on restore |
 | Manual | — | SSH keys, credentials, Hermes plist, editable uv tools | per-restore checklist |
@@ -61,9 +61,17 @@ by duplicating the entry with a new hostname. Both start identical; diverge via
 `uv tool install` runs during home-manager activation (`home.activation`). Nix
 can't package arbitrary PyPI wheels, so the declaration is a manifest of intent,
 not a hermetic derivation. Repo-owned tools live with the behavior that needs
-them, for example Headroom in `modules/darwin-system/headroom.nix`.
+them, for example Headroom in `modules/darwin/system/headroom.nix`.
 Editable/local installs (browser-harness, etc.) are intentionally excluded —
 they belong to their own repos.
+
+### JavaScript globals upgrade during rebuild
+npm and Bun global package lists are declarations of intent rather than
+hermetic Nix derivations. Home Manager installs missing declarations and asks
+the owning registry for the latest version on every rebuild. A transient
+upgrade failure preserves an already-installed tool, while a missing package
+still fails activation. Bun itself is owned by Homebrew because Oh My Pi needs
+a newer runtime than the current nixpkgs package.
 
 ### Direct GitHub releases use nvfetcher
 Applications distributed as GitHub release assets are declared once in
@@ -84,7 +92,7 @@ preferred long-term fix.
 ### darwin-rebuild requires sudo (nix-darwin ≥ 2025)
 Activation now runs system-level scripts that require root. All rebuild
 invocations are prefixed with `sudo`. The `rebuild` shell function in
-`modules/darwin-home/default.nix` reflects this.
+`modules/darwin/home-manager/default.nix` reflects this.
 
 ### First bootstrap uses `nix run nix-darwin`, not `darwin-rebuild`
 `darwin-rebuild` is not in PATH until nix-darwin is installed. Bootstrap command:

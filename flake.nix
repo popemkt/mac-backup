@@ -44,7 +44,7 @@
         '';
       };
 
-      # One darwin host = base (hosts/darwin) + host dir (hosts/<hostname>).
+      # One Darwin host = shared system module + host dir (hosts/<hostname>).
       # Host identity lives in the typed `my.*` options (modules/my.nix),
       # not in specialArgs.
       mkDarwin =
@@ -71,8 +71,8 @@
                   programs.home-manager.enable = true;
 
                   imports = [
-                    ./modules/shared
-                    ./modules/darwin-home
+                    ./modules/common/home-manager
+                    ./modules/darwin/home-manager
                   ];
                 };
               };

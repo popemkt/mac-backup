@@ -5,18 +5,20 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Brew declarations live in the shared Homebrew module AND per-host files.
 BREW_CONFIG_FILES=(
-  "$ROOT_DIR/modules/darwin-system/homebrew.nix"
+  "$ROOT_DIR/modules/darwin/system/homebrew.nix"
   "$ROOT_DIR"/hosts/*/default.nix
 )
-NPM_CONFIG="$ROOT_DIR/modules/shared/npm-global.nix"
-PACKAGES_CONFIG="$ROOT_DIR/modules/shared/packages.nix"
-EXTERNAL_DATA_CONFIG="$ROOT_DIR/modules/darwin-system/external-workspace.nix"
+NPM_CONFIG="$ROOT_DIR/modules/common/home-manager/npm-global.nix"
+BUN_CONFIG="$ROOT_DIR/modules/darwin/home-manager/bun-global.nix"
+PACKAGES_CONFIG="$ROOT_DIR/modules/common/home-manager/packages.nix"
+EXTERNAL_DATA_CONFIG="$ROOT_DIR/modules/darwin/system/external-workspace.nix"
 UV_TOOLS_CONFIG_FILES=(
-  "$ROOT_DIR/modules/darwin-system/headroom.nix"
+  "$ROOT_DIR/modules/darwin/system/headroom.nix"
 )
 
 BREW_BIN="${HOMEBREW_PREFIX:-/opt/homebrew}/bin/brew"
 NPM_BIN="${NPM_BIN:-npm}"
+BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
 UV_BIN="${UV_BIN:-uv}"
 
 parse_nix_strings() {
@@ -163,6 +165,7 @@ uv_is_editable() {
 readarray_safe declared_brews parse_nix_strings_all_hosts "brews"
 readarray_safe declared_casks parse_nix_strings_all_hosts "casks"
 readarray_safe declared_npm parse_nix_strings "$NPM_CONFIG" "npmGlobalPackages"
+readarray_safe declared_bun parse_nix_strings "$BUN_CONFIG" "bunGlobalPackages"
 readarray_safe declared_nix_packages parse_nix_packages
 readarray_safe managed_external_paths parse_external_paths
 
@@ -171,6 +174,7 @@ printf '  Nix packages tracked: %s\n' "${#declared_nix_packages[@]}"
 printf '  Brew formulas tracked: %s\n' "${#declared_brews[@]}"
 printf '  Brew casks tracked: %s\n' "${#declared_casks[@]}"
 printf '  npm globals tracked: %s\n' "${#declared_npm[@]}"
+printf '  Bun globals tracked: %s\n' "${#declared_bun[@]}"
 printf '  external-data paths tracked: %s\n' "${#managed_external_paths[@]}"
 
 forbidden_casks=()
@@ -251,6 +255,25 @@ else
   print_section "npm Global Drift"
   printf '  npm not found\n'
 fi
+
+bun_global_manifest="$BUN_INSTALL/install/global/package.json"
+if [ -f "$bun_global_manifest" ] && command -v jq >/dev/null 2>&1; then
+  readarray_safe installed_bun jq -r '.dependencies // {} | keys[]' "$bun_global_manifest"
+else
+  installed_bun=()
+fi
+
+mapfile -t unmanaged_bun < <(set_diff installed_bun declared_bun | sort_unique)
+mapfile -t missing_bun < <(set_diff declared_bun installed_bun | sort_unique)
+
+print_section "Bun Global Drift"
+printf '  Bun global manifest: %s\n' "$bun_global_manifest"
+
+print_section "Bun Globals Installed But Not Tracked"
+print_list "${unmanaged_bun[@]}"
+
+print_section "Bun Globals Tracked But Missing"
+print_list "${missing_bun[@]}"
 
 if command -v "$UV_BIN" >/dev/null 2>&1; then
   readarray_safe declared_uv_raw parse_nix_strings_many "uvTools" "${UV_TOOLS_CONFIG_FILES[@]}"
