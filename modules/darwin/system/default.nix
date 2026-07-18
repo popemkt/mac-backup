@@ -5,10 +5,11 @@ let
 in
 {
   imports = [
-    ./cli-proxy-api.nix
+    # Intent layer: functional stacks contributing to my.pkgs.* channel lists
+    # and their per-tool daemons/config (ai-agents owns cli-proxy-api,
+    # headroom, hermes).
+    ../../stacks
     ./external-workspace.nix
-    ./headroom.nix
-    ./hermes.nix
     ./homebrew.nix
     ./input-sources.nix
   ];

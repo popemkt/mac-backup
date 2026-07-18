@@ -1,6 +1,7 @@
 {
   config,
   pkgs,
+  lib,
   ...
 }:
 
@@ -32,7 +33,7 @@ let
     usage-statistics-enabled = false;
   };
 in
-{
+lib.mkIf config.my.stacks.ai-agents {
   home-manager.users.${username} =
     { lib, ... }:
     {

@@ -1,5 +1,6 @@
 {
   config,
+  osConfig,
   pkgs,
   lib,
   ...
@@ -7,14 +8,14 @@
 
 let
   npmPrefix = "${config.home.homeDirectory}/.local";
-  npmGlobalPackages = [
-    "@earendil-works/pi-coding-agent"
-    "@fission-ai/openspec"
-    "@openai/codex"
-    "cline"
-    "gitnexus"
-    "portless"
-  ];
+  # Executor: base entries with no stack membership + stack-owned globals
+  # merged from the intent layer (modules/stacks/*).
+  npmGlobalPackages = lib.unique (
+    [
+      "portless"
+    ]
+    ++ osConfig.my.pkgs.npmGlobals
+  );
 in
 {
   home = {

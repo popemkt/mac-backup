@@ -1,9 +1,12 @@
-_:
+{ config, lib, ... }:
 
 {
   # ============================================================================
-  # HOMEBREW
+  # HOMEBREW (executor)
   # ============================================================================
+  # Base lists below hold channel-native entries with no stack membership.
+  # Stack-owned software lives in modules/stacks/* and arrives merged via
+  # config.my.pkgs.*; lib.unique collapses tag-style multi-stack entries.
 
   homebrew = {
     enable = true;
@@ -18,85 +21,83 @@ _:
     };
 
     # Homebrew taps
-    taps = [
-      # "homebrew/bundle"  # Uncomment if needed
-      "coleam00/archon"
-      "entireio/tap"
-      "ghostwright/ghost-os"
-      "stablyai/orca"
-    ];
+    taps = lib.unique (
+      [
+        # "homebrew/bundle"  # Uncomment if needed
+        "entireio/tap"
+        "ghostwright/ghost-os"
+      ]
+      ++ config.my.pkgs.taps
+    );
 
     # CLI tools from Homebrew (prefer Nix for these, but some work better via brew)
-    brews = [
-      # "awscli"
-      # Brew over Nix: `azure-cli.withExtensions` rebuilds from source (pulls
-      # swift). Brew's azure-cli ships a working Python+pip so dynamic
-      # `az extension add azure-devops` works without nix wrapping.
-      "azure-cli"
-      # Google Workspace CLI for Gmail/Drive/Sheets/etc.
-      # Keep this in Brew so `gws` is easy to restore on macOS.
-      "googleworkspace-cli"
-      # Oh My Pi requires Bun >= 1.3.14; Homebrew currently ships a newer
-      # runtime than nixpkgs and upgrades it during rebuild activation.
-      "bun"
-      "coleam00/archon/archon"
-      "ghostwright/ghost-os/ghost-os"
-      "ollama"
-      "zellij"
-    ];
+    brews = lib.unique (
+      [
+        # "awscli"
+        # Brew over Nix: `azure-cli.withExtensions` rebuilds from source (pulls
+        # swift). Brew's azure-cli ships a working Python+pip so dynamic
+        # `az extension add azure-devops` works without nix wrapping.
+        "azure-cli"
+        # Google Workspace CLI for Gmail/Drive/Sheets/etc.
+        # Keep this in Brew so `gws` is easy to restore on macOS.
+        "googleworkspace-cli"
+        # Oh My Pi requires Bun >= 1.3.14; Homebrew currently ships a newer
+        # runtime than nixpkgs and upgrades it during rebuild activation.
+        "bun"
+        "ghostwright/ghost-os/ghost-os"
+        "zellij"
+      ]
+      ++ config.my.pkgs.brews
+    );
 
     # GUI Applications
-    casks = [
-      # Development
-      "visual-studio-code"
-      "claude"
-      "claude-code@latest"
-      "chatgpt"
-      "entireio/tap/entire"
-      # Use the fully-qualified tap path. Bare "orca" is the unrelated Plotly cask.
-      "stablyai/orca/orca"
-      "zed"
-      "copilot-cli" # GitHub Copilot CLI (agentic terminal assistant)
-      # Google Cloud CLI ships as a Homebrew cask, not a formula.
-      # Required by `gws auth setup`.
-      "gcloud-cli"
-      "rustdesk"
-      "tailscale-app"
-      "warp"
-      # "iterm2"
-      # "docker"
-      # "tableplus"
+    casks = lib.unique (
+      [
+        # Development
+        "visual-studio-code"
+        "entireio/tap/entire"
+        "zed"
+        # Google Cloud CLI ships as a Homebrew cask, not a formula.
+        # Required by `gws auth setup`.
+        "gcloud-cli"
+        "rustdesk"
+        "tailscale-app"
+        "warp"
+        # "iterm2"
+        # "docker"
+        # "tableplus"
 
-      # Browsers
-      # "arc"
-      # "firefox"
-      "browseros"
-      "google-chrome@beta"
+        # Browsers
+        # "arc"
+        # "firefox"
+        "browseros"
+        "google-chrome@beta"
 
-      # Productivity
-      "raycast"
-      "tana"
-      # "notion"
-      # "obsidian"
-      # "1password"
+        # Productivity
+        "raycast"
+        "tana"
+        # "notion"
+        # "obsidian"
+        # "1password"
 
-      # Communication
-      # "slack"
-      "discord"
-      "lens"
-      # "zoom"
+        # Communication
+        # "slack"
+        "discord"
+        "lens"
+        # "zoom"
 
-      # Utilities
-      "alt-tab"
-      "antigravity-cli"
-      # "rectangle"
-      # "cleanshot"
-      "middleclick"
-      "karabiner-elements"
-      # Brew over Nix: nixpkgs git-credential-manager pulls swift toolchain
-      # on macOS. Brew ships the prebuilt signed binary.
-      "git-credential-manager"
-    ];
+        # Utilities
+        "alt-tab"
+        # "rectangle"
+        # "cleanshot"
+        "middleclick"
+        "karabiner-elements"
+        # Brew over Nix: nixpkgs git-credential-manager pulls swift toolchain
+        # on macOS. Brew ships the prebuilt signed binary.
+        "git-credential-manager"
+      ]
+      ++ config.my.pkgs.casks
+    );
 
     # Mac App Store apps (requires `mas` CLI)
     # Get IDs from: https://github.com/mas-cli/mas

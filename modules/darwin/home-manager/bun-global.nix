@@ -1,5 +1,6 @@
 {
   config,
+  osConfig,
   lib,
   ...
 }:
@@ -7,9 +8,9 @@
 let
   bunInstall = "${config.home.homeDirectory}/.bun";
   bunBin = "/opt/homebrew/bin/bun";
-  bunGlobalPackages = [
-    "@oh-my-pi/pi-coding-agent"
-  ];
+  # Executor: stack-owned globals merged from the intent layer
+  # (modules/stacks/*); add base entries here only if they fit no stack.
+  bunGlobalPackages = lib.unique osConfig.my.pkgs.bunGlobals;
 in
 {
   home = {

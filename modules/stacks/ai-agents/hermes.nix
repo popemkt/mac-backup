@@ -1,10 +1,10 @@
-{ config, ... }:
+{ config, lib, ... }:
 
 let
   inherit (config.my) username;
   hermesHome = "/stuff/workspace/repos/_brain/.agents/hermes/profile/popemkt";
 in
-{
+lib.mkIf config.my.stacks.ai-agents {
   # Global launchd user-domain env vars are inherited by apps launched from
   # Dock/Spotlight and by user launchd jobs.
   launchd.user.envVariables = {

@@ -7,6 +7,12 @@ _:
 
   my.role = "work";
 
+  # Functional stacks (modules/stacks/*) enabled on this machine.
+  my.stacks = {
+    ai-agents = true;
+    office-docs = true;
+  };
+
   # Work-only GUI apps; merged with the shared Homebrew module.
   homebrew.casks = [
     "microsoft-outlook"
