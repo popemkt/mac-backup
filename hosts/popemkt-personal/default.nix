@@ -11,6 +11,7 @@ _:
   my.stacks = {
     ai-agents = true;
     office-docs = true;
+    vpn = true;
   };
 
   # Each entry gets its own TailVIP, MagicDNS name, HTTPS certificate, and

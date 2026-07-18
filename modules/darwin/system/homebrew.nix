@@ -64,7 +64,6 @@
         # Bypasses macOS ptpcamerad claiming the MTP interface.
         "android-platform-tools"
         "rustdesk"
-        "tailscale-app"
         "warp"
         # "iterm2"
         # "docker"

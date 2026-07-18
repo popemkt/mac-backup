@@ -19,6 +19,7 @@ in
     stacks = {
       ai-agents = lib.mkEnableOption "AI coding agent toolchain";
       office-docs = lib.mkEnableOption "Office document automation";
+      vpn = lib.mkEnableOption "VPN / Tailscale mesh (app + hosted services)";
     };
 
     # Channel lists stacks contribute to. Home Manager executors read these

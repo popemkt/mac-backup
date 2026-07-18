@@ -11,5 +11,6 @@ _:
   imports = [
     ./ai-agents
     ./office-docs.nix
+    ./vpn
   ];
 }

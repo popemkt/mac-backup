@@ -11,6 +11,7 @@ _:
   my.stacks = {
     ai-agents = true;
     office-docs = true;
+    vpn = true;
   };
 
   # Work-only GUI apps; merged with the shared Homebrew module.
