@@ -67,6 +67,7 @@ Restores: AltTab, Karabiner-Elements, Zed, VS Code, Warp, Telegram, Claude Code,
 | **Entire CLI** | Managed by Homebrew; opt in per repo with `entire enable --agent codex` (consider `--skip-push-sessions` for public repos) |
 | **Oh My Pi** | Managed as a Bun global; its command is `omp` (open a new shell after the first rebuild) |
 | **CLIProxyAPI OAuth** | Run the provider login commands after the first rebuild; credentials are intentionally not tracked |
+| **Claudex** | After Codex OAuth, run `claudex` for Claude Code backed by GPT-5.6 Sol; normal `claude` remains unchanged |
 | **App sign-ins** | Claude, Discord, Warp, Lens — manual |
 | **/stuff workspace** | Attach `/Volumes/Data` external drive, or update `modules/darwin/system/external-workspace.nix` and `modules/darwin/system/hermes.nix` |
 
@@ -99,6 +100,10 @@ Its generated configuration intentionally has no API key, so every local
 process that can reach the loopback port is trusted to use the OAuth-backed
 providers. OAuth state is kept in a mode-`0700` directory. launchd starts the
 service at login and retries unsuccessful exits at most once every 30 seconds.
+
+The `claudex` shell function scopes the article's Sol settings to one Claude
+Code process and routes it through this existing proxy. After Codex OAuth, open
+a new shell and run `claudex`; pass normal Claude Code arguments as needed.
 
 #### SSH: switch from HTTPS to SSH after key setup
 

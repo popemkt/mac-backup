@@ -59,6 +59,8 @@ in version control and minimises what must be done manually.
 - CLIProxyAPI runs as a loopback-only launchd user daemon on every machine after
   rebuild; provider OAuth remains a manual credential step, and its no-key
   listener explicitly trusts processes that can reach the local loopback port.
+- The `claudex` shell function runs Claude Code against GPT-5.6 Sol through the
+  existing CLIProxyAPI listener without changing normal `claude` sessions.
 - The personal host can expose explicitly declared loopback apps as independent
   Tailscale Services. Undeclared apps remain private to the host.
 - The proxy starts automatically on login, restarts on failure, and logs to

@@ -141,6 +141,7 @@ they live in their own repos and can't be restored from a version string.
 | CLIProxyAPI auth state | mutable `~/.local/share/cli-proxy-api` | secure backup or provider re-login |
 | CLIProxyAPI restart policy | retry unsuccessful exits, throttled to 30 seconds | `KeepAlive.SuccessfulExit = false` |
 | CLIProxyAPI logs | `~/Library/Logs/cli-proxy-api.{out,err}.log` | `modules/darwin/system/cli-proxy-api.nix` |
+| `claudex` command | Zsh function with process-scoped Sol and CLIProxyAPI environment | `modules/darwin/home-manager/default.nix` |
 | Tailscale Service reconciliation | root launchd daemon after Tailscale is online | `modules/darwin/system/tailscale-services.nix` |
 | Tailscale Service declarations | typed `my.tailscaleServices.services` host inventory | `modules/options/my.nix`, `hosts/<hostname>/default.nix` |
 
