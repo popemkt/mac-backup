@@ -29,5 +29,31 @@
       "Bash(hostname*)"
     ],
     "deny": []
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/require-tools.sh session",
+            "timeout": 10,
+            "statusMessage": "Checking repo tool gate"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/require-tools.sh pretool",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
   }
 }

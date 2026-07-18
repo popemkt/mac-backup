@@ -11,6 +11,7 @@ in
     ./hermes.nix
     ./homebrew.nix
     ./input-sources.nix
+    ./tailscale-services.nix
   ];
 
   # Keep the OS hostname in sync with the flake attribute name so

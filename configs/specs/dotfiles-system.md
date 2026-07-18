@@ -22,6 +22,7 @@ installs, App Store exclusives).
 | User environment | home-manager | CLI tools, shell, git, neovim, starship, npm/Bun globals | `modules/common/home-manager/` + `modules/darwin/home-manager/` |
 | Direct release packages | nvfetcher + Nix | GitHub release versions, assets, and hashes | `nvfetcher.toml` + `_sources/` + `pkgs/` |
 | Behavior modules | nix-darwin + home-manager | Headroom, CLIProxyAPI, Hermes, external workspace, input sources | `modules/darwin/system/` |
+| Private service exposure | Tailscale Services + nix-darwin | stable service identities, TailVIP endpoints, HTTPS termination | `modules/darwin/system/tailscale-services.nix` + host declarations |
 | GUI app configs | Mackup → iCloud | Karabiner, Zed, VS Code, Warp, AltTab, Telegram, Claude Code, macOS shortcuts | `~/.mackup.cfg` allowlist |
 | Raw configs | `configs/` | Raycast export, login items snapshot, specs, Archon workflows | manual import on restore |
 | Manual | — | SSH keys, credentials, Hermes plist, editable uv tools | per-restore checklist |
@@ -52,10 +53,19 @@ allowlist without verifying it doesn't store secrets.
 aggressive while config is evolving. Switch to `"zap"` when the cask list
 stabilises.
 
-### Single flake entry for now
-One `darwinConfigurations."popemkt-mac"` entry. A second machine can be added
-by duplicating the entry with a new hostname. Both start identical; diverge via
-`if hostname ==` conditionals or separate host modules. No upfront split needed.
+### Shared modules, explicit host composition
+Each Darwin host has a `hosts/<hostname>/default.nix` entry composed through the
+shared `mkDarwin` helper. Shared behavior belongs in modules; host files declare
+only role and host-specific differences. The configured hostname must match its
+`darwinConfigurations` attribute. Current hosts are `popemkt-personal` and
+`popemkt-work`.
+
+### Tailscale Services own private app exposure
+Apps listen on loopback and opt into exposure through a host declaration under
+`my.tailscaleServices.services`. Each declaration becomes a separate Tailscale
+Service identity and TailVIP. The nix-darwin module owns host-side reconciliation;
+Tailscale grants own network authorization, while the app still owns application
+authentication. See `app-service-contract.md`.
 
 ### uv tools declared with their owning behavior
 `uv tool install` runs during home-manager activation (`home.activation`). Nix
@@ -96,7 +106,7 @@ invocations are prefixed with `sudo`. The `rebuild` shell function in
 
 ### First bootstrap uses `nix run nix-darwin`, not `darwin-rebuild`
 `darwin-rebuild` is not in PATH until nix-darwin is installed. Bootstrap command:
-`sudo nix run nix-darwin -- switch --flake ~/.dotfiles#popemkt-mac`.
+`sudo nix run nix-darwin -- switch --flake ~/.dotfiles#popemkt-personal`.
 
 ---
 
@@ -125,8 +135,8 @@ Deliberately excluded: anything storing credentials or tokens.
 2. Install Determinate Nix, restart terminal
 3. Install Homebrew
 4. `git clone https://github.com/popemkt/mac-backup.git ~/.dotfiles`
-5. `sudo scutil --set HostName popemkt-mac`
-6. `sudo nix run nix-darwin -- switch --flake ~/.dotfiles#popemkt-mac`
+5. `sudo scutil --set HostName popemkt-personal`
+6. `sudo nix run nix-darwin -- switch --flake ~/.dotfiles#popemkt-personal`
 7. Restart terminal
 8. Sign into iCloud, wait for Mackup folder to sync
 9. `mackup restore`

@@ -30,14 +30,14 @@ cd ~/.dotfiles
 git config core.hooksPath .githooks
 
 # Match hostname to flake config
-sudo scutil --set HostName popemkt-mac
-sudo scutil --set ComputerName popemkt-mac
+sudo scutil --set HostName popemkt-personal
+sudo scutil --set ComputerName popemkt-personal
 
 # First time only — darwin-rebuild not in PATH yet
-sudo nix run nix-darwin -- switch --flake ~/.dotfiles#popemkt-mac
+sudo nix run nix-darwin -- switch --flake ~/.dotfiles#popemkt-personal
 
 # Subsequent rebuilds
-sudo darwin-rebuild switch --flake ~/.dotfiles#popemkt-mac
+sudo darwin-rebuild switch --flake ~/.dotfiles#popemkt-personal
 ```
 
 Restart terminal after first build.
@@ -138,6 +138,7 @@ mackup backup --force                            # sync GUI app settings to iClo
 | Add npm global | `modules/common/home-manager/npm-global.nix` |
 | Add Bun global | `modules/darwin/home-manager/bun-global.nix` |
 | Add direct GitHub release package | `nvfetcher.toml` + `pkgs/`; see `docs/github-release-packages.md` |
+| Expose a private app | `hosts/<hostname>/default.nix` → `my.tailscaleServices.services`; see `configs/specs/app-service-contract.md` |
 
 ### Module Boundaries
 
@@ -164,41 +165,21 @@ users. These Home Manager modules are imported only for the configured user.
 | **npm-global.nix** | npm global CLIs | `modules/common/home-manager/npm-global.nix` |
 | **bun-global.nix** | Bun global CLIs, including Oh My Pi | `modules/darwin/home-manager/bun-global.nix` |
 | **nvfetcher + `pkgs/`** | pinned direct GitHub release packages | `nvfetcher.toml` + `_sources/` |
+| **Tailscale Services** | private service identities, HTTPS, and TailVIP routing | `modules/darwin/system/tailscale-services.nix` + host declarations |
 | **`configs/`** | Raycast export | manual import on new machine |
 | **Manual** | SSH keys, credentials, Hermes plist, editable uv tools | — |
 
-## Adding a Second Machine
+## Adding Another Machine
 
-1. Set hostname on new machine to match an existing config, **or** add a new entry to `flake.nix`:
+1. Add `hosts/<hostname>/default.nix`. Import the shared Darwin system module and
+   declare only host-specific differences there.
+2. Add `<hostname> = mkDarwin "<hostname>";` under `darwinConfigurations` in
+   `flake.nix`.
+3. Set the macOS hostname to the same value and bootstrap with
+   `sudo nix run nix-darwin -- switch --flake ~/.dotfiles#<hostname>`.
 
-```nix
-darwinConfigurations."popemkt-mac2" = nix-darwin.lib.darwinSystem {
-  system = "aarch64-darwin"; # x86_64-darwin for Intel
-  specialArgs = { username = "popemkt"; hostname = "popemkt-mac2"; };
-  modules = [
-    ./modules/darwin/system
-    home-manager.darwinModules.home-manager
-    (_: {
-      users.users.popemkt.home = "/Users/popemkt";
-      home-manager = {
-        useGlobalPkgs = true;
-        useUserPackages = true;
-        backupFileExtension = "backup";
-        extraSpecialArgs = { username = "popemkt"; hostname = "popemkt-mac2"; };
-        users.popemkt = _: {
-          home.stateVersion = "24.05";
-          programs.home-manager.enable = true;
-          imports = [ ./modules/common/home-manager ./modules/darwin/home-manager ];
-        };
-      };
-    })
-  ];
-};
-```
-
-2. `darwin-rebuild switch --flake ~/.dotfiles#popemkt-mac2`
-
-Both configs start identical and diverge naturally over time via `if hostname ==` conditionals or separate host modules.
+Current Darwin hosts are `popemkt-personal` and `popemkt-work`. Shared behavior
+lives in modules; host files select roles and host-only behavior.
 
 ## Lint & Format
 

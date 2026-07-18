@@ -1,5 +1,19 @@
 # Agent Notes
 
+## Gate (run first)
+
+This repo is the durable record of an intent => behavior translation process.
+Admission is gated. Before doing any work here, run:
+
+```bash
+intent/gate.sh session <your-harness-name>
+```
+
+Non-zero exit means required tools are missing — restore the environment first
+(`rebuild`, or `nix develop`) instead of working around it. All interaction
+surfaces and their shims are listed in `intent/SURFACES.md`; commits are
+independently gated by `.githooks/pre-commit` (record admission).
+
 Start with the docs in [docs/](/Users/popemkt/.dotfiles/docs) before making structural changes.
 
 Relevant docs:

@@ -27,6 +27,7 @@ Operator procedure lives in `../../README.md`.
 | Direct GitHub release packages | nvfetcher + local Nix packages | `nvfetcher.toml`, `_sources/`, `pkgs/` |
 | macOS-only shell helpers + rebuild | home-manager | `modules/darwin/home-manager/default.nix` |
 | External workspace + data symlinks | nix-darwin + home-manager | `modules/darwin/system/external-workspace.nix` |
+| Private app exposure | Tailscale Services + nix-darwin | `modules/darwin/system/tailscale-services.nix` + `hosts/<hostname>/default.nix` |
 | GUI app configs | Mackup → iCloud | `modules/darwin/home-manager/mackup.nix` → `home.file.".mackup.cfg"` |
 | Raw configs (specs, Archon) | git-tracked files | `configs/` |
 | Flake inputs + entry point | Nix flake | `flake.nix` |
@@ -40,7 +41,7 @@ Operator procedure lives in `../../README.md`.
 | CLT install | `xcode-select --install` (manual, required by Homebrew) |
 | Nix install | Determinate installer; `nix.enable = false` in darwin config so nix-darwin doesn't conflict |
 | Homebrew install | standard Homebrew curl script |
-| First nix-darwin apply | `sudo nix run nix-darwin -- switch --flake ~/.dotfiles#popemkt-mac` (darwin-rebuild not in PATH yet) |
+| First nix-darwin apply | `sudo nix run nix-darwin -- switch --flake ~/.dotfiles#popemkt-personal` (darwin-rebuild not in PATH yet) |
 | Subsequent rebuilds | best-effort release check, then `sudo darwin-rebuild switch --flake ~/.dotfiles` via `rebuild` |
 | GUI config restore | `mackup restore` after iCloud Mackup folder syncs |
 
@@ -140,6 +141,22 @@ they live in their own repos and can't be restored from a version string.
 | CLIProxyAPI auth state | mutable `~/.local/share/cli-proxy-api` | secure backup or provider re-login |
 | CLIProxyAPI restart policy | retry unsuccessful exits, throttled to 30 seconds | `KeepAlive.SuccessfulExit = false` |
 | CLIProxyAPI logs | `~/Library/Logs/cli-proxy-api.{out,err}.log` | `modules/darwin/system/cli-proxy-api.nix` |
+| Tailscale Service reconciliation | root launchd daemon after Tailscale is online | `modules/darwin/system/tailscale-services.nix` |
+| Tailscale Service declarations | typed `my.tailscaleServices.services` host inventory | `modules/options/my.nix`, `hosts/<hostname>/default.nix` |
+
+---
+
+## Private App Exposure
+
+| Functional need | Implementation | File |
+|---|---|---|
+| Stable service identity | attribute name becomes `svc:<name>` | host `my.tailscaleServices.services` declaration |
+| HTTPS and TailVIP endpoint | generated `tailscale serve --service` invocation | `modules/darwin/system/tailscale-services.nix` |
+| Local app isolation | target must resolve to `127.0.0.1` or `localhost` | module assertion |
+| Removed-service cleanup | root-owned managed-service inventory under `/var/db` | module launchd implementation |
+| Network authorization | Tailscale grant targeting `svc:<name>` | tailnet policy |
+| Application authentication | implemented by the app | owning app repository |
+| App runtime contract | build, config, state, secret, and deployment ownership rules | `configs/specs/app-service-contract.md` |
 
 ---
 

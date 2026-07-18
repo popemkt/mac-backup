@@ -6,4 +6,11 @@ _:
   imports = [ ../../modules/darwin/system ];
 
   my.role = "personal";
+
+  # Each entry gets its own TailVIP, MagicDNS name, HTTPS certificate, and
+  # grant target. Services stay private until explicitly listed here.
+  my.tailscaleServices = {
+    enable = true;
+    services = { };
+  };
 }

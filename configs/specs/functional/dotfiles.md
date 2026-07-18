@@ -46,12 +46,11 @@ in version control and minimises what must be done manually.
 
 ## Multi-Machine Support
 
-- A second machine can use the same config by setting its hostname to match the
-  existing flake entry.
-- A second machine can get an independent config by adding a new
-  `darwinConfigurations` entry to `flake.nix` with a different hostname.
-- Both machines share all common modules; divergence happens through per-host
-  conditionals or separate host modules.
+- Each machine has a `hosts/<hostname>/default.nix` module and a matching
+  `darwinConfigurations` entry composed through the shared `mkDarwin` helper.
+- Machines share common modules; roles and host-only differences live in their
+  host modules.
+- The configured macOS hostname matches the selected flake attribute.
 
 ## Always-On Services
 
@@ -60,6 +59,8 @@ in version control and minimises what must be done manually.
 - CLIProxyAPI runs as a loopback-only launchd user daemon on every machine after
   rebuild; provider OAuth remains a manual credential step, and its no-key
   listener explicitly trusts processes that can reach the local loopback port.
+- The personal host can expose explicitly declared loopback apps as independent
+  Tailscale Services. Undeclared apps remain private to the host.
 - The proxy starts automatically on login, restarts on failure, and logs to
   `~/Library/Logs/headroom-proxy.{out,err}.log`.
 - `HEADROOM_PROXY` and `HEADROOM_PORT` are available to all apps and shells via

@@ -60,6 +60,9 @@ _:
       # Google Cloud CLI ships as a Homebrew cask, not a formula.
       # Required by `gws auth setup`.
       "gcloud-cli"
+      # Android adb/fastboot: for pushing files to Android devices over USB.
+      # Bypasses macOS ptpcamerad claiming the MTP interface.
+      "android-platform-tools"
       "rustdesk"
       "tailscale-app"
       "warp"
