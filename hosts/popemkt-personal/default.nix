@@ -12,4 +12,11 @@ _:
     ai-agents = true;
     office-docs = true;
   };
+
+  # Each entry gets its own TailVIP, MagicDNS name, HTTPS certificate, and
+  # grant target. Services stay private until explicitly listed here.
+  my.tailscaleServices = {
+    enable = true;
+    services = { };
+  };
 }

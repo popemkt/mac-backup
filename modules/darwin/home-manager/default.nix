@@ -41,6 +41,18 @@
     # Fix ECONNRESET errors in Claude Code on macOS.
     export NODE_OPTIONS="--dns-result-order=ipv4first"
 
+    # Run Claude Code's harness against GPT-5.6 Sol through the local
+    # CLIProxyAPI service without changing normal `claude` sessions.
+    claudex() {
+      ANTHROPIC_BASE_URL="http://127.0.0.1:8317/v1" \
+      ANTHROPIC_AUTH_TOKEN="freecc" \
+      CLAUDE_CODE_SUBAGENT_MODEL="gpt-5.6-sol" \
+      CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=1 \
+      CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=3 \
+      ENABLE_TOOL_SEARCH=false \
+        command claude --model "gpt-5.6-sol" "$@"
+    }
+
     # CLT-only installs do not expose the macOS SDK automatically. Native
     # extensions such as hnswlib need this path during compilation.
     export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)"
