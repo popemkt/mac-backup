@@ -7,6 +7,13 @@
 # Folder stack: heavier per-tool behavior (daemons, config, activation)
 # lives in sibling files gated on the same toggle; simple install-only
 # entries stay in the my.pkgs lists below.
+#
+# Customizable: `cfg.ollama` / `cfg.archon` component toggles drop optional
+# members; `cfg.extra.*` folds in host-specific additions.
+let
+  cfg = config.my.stacks.ai-agents;
+  inherit (lib) optionals;
+in
 {
   imports = [
     ./cli-proxy-api.nix # local OAuth provider proxy (loopback :8317)
@@ -14,22 +21,20 @@
     ./hermes.nix # agent runtime env (HERMES_HOME, Copilot ACP)
   ];
 
-  config = lib.mkIf config.my.stacks.ai-agents {
+  config = lib.mkIf cfg.enable {
     my.pkgs = {
-      taps = [
-        "coleam00/archon"
-        "stablyai/orca"
-      ];
+      taps = optionals cfg.archon [ "coleam00/archon" ] ++ [ "stablyai/orca" ] ++ cfg.extra.taps;
 
       brews = [
-        # Archon: agent command center; tap-qualified name.
-        "coleam00/archon/archon"
         # Read/edit/automate Office docs (.docx/.xlsx/.pptx) — agent tool set.
         # Self-contained binary in homebrew-core; deps dotnet.
         "officecli"
-        # Local model runtime.
-        "ollama"
-      ];
+      ]
+      # Archon: agent command center; tap-qualified name.
+      ++ optionals cfg.archon [ "coleam00/archon/archon" ]
+      # Local model runtime.
+      ++ optionals cfg.ollama [ "ollama" ]
+      ++ cfg.extra.brews;
 
       casks = [
         "antigravity-cli"
@@ -39,7 +44,8 @@
         "copilot-cli" # GitHub Copilot CLI (agentic terminal assistant)
         # Use the fully-qualified tap path. Bare "orca" is the unrelated Plotly cask.
         "stablyai/orca/orca"
-      ];
+      ]
+      ++ cfg.extra.casks;
 
       npmGlobals = [
         "@earendil-works/pi-coding-agent"
@@ -48,11 +54,13 @@
         "claude-code-templates" # component/agent scaffolding for Claude Code (cct)
         "cline"
         "gitnexus"
-      ];
+      ]
+      ++ cfg.extra.npmGlobals;
 
       bunGlobals = [
         "@oh-my-pi/pi-coding-agent"
-      ];
+      ]
+      ++ cfg.extra.bunGlobals;
     };
   };
 }

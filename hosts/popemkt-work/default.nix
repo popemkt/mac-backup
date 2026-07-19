@@ -9,9 +9,9 @@ _:
 
   # Functional stacks (modules/stacks/*) enabled on this machine.
   my.stacks = {
-    ai-agents = true;
-    office-docs = true;
-    vpn = true;
+    ai-agents.enable = true;
+    office-docs.enable = true;
+    vpn.enable = true;
   };
 
   # Work-only GUI apps; merged with the shared Homebrew module.

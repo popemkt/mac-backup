@@ -9,9 +9,10 @@
     ./tailscale-services.nix
   ];
 
-  config = lib.mkIf config.my.stacks.vpn {
+  config = lib.mkIf config.my.stacks.vpn.enable {
     my.pkgs.casks = [
       "tailscale-app"
-    ];
+    ]
+    ++ config.my.stacks.vpn.extra.casks;
   };
 }

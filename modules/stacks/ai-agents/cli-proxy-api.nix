@@ -33,7 +33,7 @@ let
     usage-statistics-enabled = false;
   };
 in
-lib.mkIf config.my.stacks.ai-agents {
+lib.mkIf config.my.stacks.ai-agents.enable {
   home-manager.users.${username} =
     { lib, ... }:
     {

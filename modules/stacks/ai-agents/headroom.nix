@@ -19,7 +19,7 @@ let
     "headroom-ai[all]"
   ];
 in
-lib.mkIf config.my.stacks.ai-agents {
+lib.mkIf config.my.stacks.ai-agents.enable {
   # Headroom proxy endpoint, exposed to all apps. Apps opt in by routing their
   # provider base_url here (e.g. package.json `*:proxy` scripts read
   # HEADROOM_PROXY). NOT setting ANTHROPIC_BASE_URL/OPENAI_BASE_URL globally on
