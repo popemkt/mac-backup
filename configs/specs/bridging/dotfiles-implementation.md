@@ -24,7 +24,7 @@ Operator procedure lives in `../../README.md`.
 | npm global packages | home-manager | `modules/common/home-manager/npm-global.nix` |
 | Bun global packages | macOS home-manager | `modules/darwin/home-manager/bun-global.nix` |
 | uv tool installs | home-manager activation | owning behavior modules, e.g. `modules/darwin/system/headroom.nix` |
-| Direct GitHub release packages | nvfetcher + local Nix packages | `nvfetcher.toml`, `_sources/`, `pkgs/` |
+| Direct release packages | nvfetcher + local Nix packages | `nvfetcher.toml`, `_sources/`, `pkgs/` |
 | macOS-only shell helpers + rebuild | home-manager | `modules/darwin/home-manager/default.nix` |
 | External workspace + data symlinks | nix-darwin + home-manager | `modules/darwin/system/external-workspace.nix` |
 | Private app exposure | Tailscale Services + nix-darwin | `modules/darwin/system/tailscale-services.nix` + `hosts/<hostname>/default.nix` |
@@ -65,6 +65,7 @@ requiring root since nix-darwin ≥ 2025. See `dotfiles-system.md`.
 | Config sync | `mackup` | `modules/darwin/home-manager/mackup.nix` |
 | Rust toolchain | `rustc`, `cargo` | `modules/common/home-manager/packages.nix` |
 | OAuth API proxy | `cli-proxy-api` | `pkgs/cli-proxy-api`, `modules/darwin/system/cli-proxy-api.nix` |
+| Cursor terminal agent | `cursor-cli` pinned official archive | `pkgs/cursor-cli`, `modules/common/home-manager/packages.nix` |
 
 ---
 
@@ -198,8 +199,8 @@ iCloud on first run. See `dotfiles-system.md`.
 | Bun global drift | compares `bunGlobalPackages` vs Bun's global manifest | `scripts/audit-system-discrepancies.sh` |
 | uv tool drift | compares `uvTools` vs `uv tool list` (skips editable) | `scripts/audit-system-discrepancies.sh` |
 | Login items snapshot | osascript dump to `configs/login-items.txt` | `scripts/dump-login-items.sh` |
-| GitHub release freshness | best-effort remote comparison; no mutation | `scripts/github-sources check` |
-| GitHub release update | nvfetcher regenerates pinned versions and hashes | `scripts/github-sources update` |
+| Direct release freshness | best-effort remote comparison; no mutation | `scripts/github-sources check` |
+| Direct release update | nvfetcher regenerates pinned versions and hashes | `scripts/github-sources update` |
 
 ---
 
@@ -211,7 +212,7 @@ iCloud on first run. See `dotfiles-system.md`.
 | Anti-patterns | statix | whole repo |
 | Dead bindings | deadnix | whole repo except generated nvfetcher output |
 | Eval-time errors | `nix flake check --no-build` | whole flake |
-| Release freshness | GitHub API through `github-sources` | best effort; offline passes, stale source changes block |
+| Release freshness | GitHub API and upstream webpages through `github-sources` | best effort; offline passes, stale source changes block |
 | Generated source consistency | nvfetcher regeneration in a temporary directory | staged snapshot locally; authoritative in PR CI |
 
 Hook location: `.githooks/pre-commit`. Activated via `git config core.hooksPath .githooks`.

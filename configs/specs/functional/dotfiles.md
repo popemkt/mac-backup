@@ -27,7 +27,7 @@ in version control and minimises what must be done manually.
 - The change is immediately reproducible on any machine that pulls and rebuilds.
 - Pre-commit hooks validate nix syntax, format, and dead bindings before every
   commit.
-- Direct GitHub release packages have reusable check/update commands; online
+- Direct release packages have reusable check/update commands; online
   pre-commit checks are best-effort and offline checks do not block commits.
 - `rebuild` reports available direct-release updates but never applies them;
   updating versions and hashes remains an explicit operator action.
@@ -106,6 +106,8 @@ in version control and minimises what must be done manually.
   zsh aliases, and all declared npm/Bun globals in PATH.
 - `headroom` is installed and the `headroom-proxy` launchd agent is loaded.
 - `cli-proxy-api` is installed and its launchd agent is loaded on port 8317.
+- Cursor CLI is installed as both `agent` and `cursor-agent`; authentication is
+  a manual `agent login` step.
 - After `mackup restore`, Karabiner rules, Zed settings, VS Code settings,
   Warp config, and AltTab layout match the source machine.
 

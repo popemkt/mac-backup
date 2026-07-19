@@ -4,3 +4,9 @@ src.from_pattern = "^v(.+)$"
 src.to_pattern = "\\1"
 fetch.url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v$ver/CLIProxyAPI_$ver_darwin_aarch64.tar.gz"
 passthru = { github = "router-for-me/CLIProxyAPI", tagPrefix = "v" }
+
+[cursor-cli]
+src.webpage = "https://cursor.com/install"
+src.regex = 'downloads\.cursor\.com/lab/([0-9]{4}\.[0-9]{2}\.[0-9]{2}-[0-9a-f]+)/\$\{OS\}'
+fetch.url = "https://downloads.cursor.com/lab/$ver/darwin/arm64/agent-cli-package.tar.gz"
+passthru = { versionUrl = "https://cursor.com/install", versionRegex = "downloads.cursor.com/lab/([^/]+)/" }

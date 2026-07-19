@@ -16,6 +16,7 @@
     tmux
     tldr
     gh # GitHub CLI
+    cursor-cli # Cursor terminal agent (`agent` / `cursor-agent`)
     sqlite
     kubectl
     yt-dlp

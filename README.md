@@ -65,6 +65,7 @@ Restores: AltTab, Karabiner-Elements, Zed, VS Code, Warp, Telegram, Claude Code,
 | **Editable/local uv tools** | Install from their owning repos if needed; repo-tracked uv tools are installed during rebuild |
 | **Archon CLI** | Managed by Homebrew; verify with `archon workflow list` |
 | **Entire CLI** | Managed by Homebrew; opt in per repo with `entire enable --agent codex` (consider `--skip-push-sessions` for public repos) |
+| **Cursor CLI** | Managed by Nix; run `agent login`, then use `agent` (or `cursor-agent`) |
 | **Oh My Pi** | Managed as a Bun global; its command is `omp` (open a new shell after the first rebuild) |
 | **CLIProxyAPI OAuth** | Run the provider login commands after the first rebuild; credentials are intentionally not tracked |
 | **Claudex** | After Codex OAuth, run `claudex` for Claude Code backed by GPT-5.6 Sol; normal `claude` remains unchanged |
@@ -105,6 +106,10 @@ The `claudex` shell function scopes the article's Sol settings to one Claude
 Code process and routes it through this existing proxy. After Codex OAuth, open
 a new shell and run `claudex`; pass normal Claude Code arguments as needed.
 
+Cursor CLI is pinned by Nix, and its automatic/self-update path is disabled.
+Run `nix run .#github-sources -- update cursor-cli`, review the generated
+version and hash, then rebuild and verify with `agent --version`.
+
 #### SSH: switch from HTTPS to SSH after key setup
 
 ```bash
@@ -119,7 +124,7 @@ git remote set-url origin git@github.com:popemkt/mac-backup.git
 ```bash
 rebuild                                         # apply config; upgrade Homebrew and tracked npm/Bun globals
 cd ~/.dotfiles && nix flake update && rebuild   # update all inputs
-nix run .#github-sources -- check               # check pinned GitHub release packages
+nix run .#github-sources -- check               # check pinned direct-release packages
 nix run .#github-sources -- verify              # verify config, versions, and generated hashes
 nix run .#github-sources -- update              # update their versions + hashes
 mackup backup --force                            # sync GUI app settings to iCloud (--force skips replace prompts)
@@ -142,7 +147,7 @@ mackup backup --force                            # sync GUI app settings to iClo
 | Change git config | `modules/common/home-manager/git.nix` |
 | Add npm global | `modules/common/home-manager/npm-global.nix` |
 | Add Bun global | `modules/darwin/home-manager/bun-global.nix` |
-| Add direct GitHub release package | `nvfetcher.toml` + `pkgs/`; see `docs/github-release-packages.md` |
+| Add direct release package | `nvfetcher.toml` + `pkgs/`; see `docs/github-release-packages.md` |
 | Expose a private app | `hosts/<hostname>/default.nix` → `my.stacks.vpn.services`; see `configs/specs/app-service-contract.md` |
 
 ### Module Boundaries
@@ -169,7 +174,7 @@ users. These Home Manager modules are imported only for the configured user.
 | **Mackup → iCloud** | GUI app configs (Karabiner, Zed, VS Code, Warp…) | `~/Library/Mobile Documents/com~apple~CloudDocs/Mackup/` |
 | **npm-global.nix** | npm global CLIs | `modules/common/home-manager/npm-global.nix` |
 | **bun-global.nix** | Bun global CLIs, including Oh My Pi | `modules/darwin/home-manager/bun-global.nix` |
-| **nvfetcher + `pkgs/`** | pinned direct GitHub release packages | `nvfetcher.toml` + `_sources/` |
+| **nvfetcher + `pkgs/`** | pinned direct release packages | `nvfetcher.toml` + `_sources/` |
 | **Tailscale Services** | private service identities, HTTPS, and TailVIP routing | `modules/darwin/system/tailscale-services.nix` + host declarations |
 | **`configs/`** | Raycast export | manual import on new machine |
 | **Manual** | SSH keys, credentials, Hermes plist, editable uv tools | — |

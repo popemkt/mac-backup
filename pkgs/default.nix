@@ -7,4 +7,8 @@ in
   cli-proxy-api = pkgs.callPackage ./cli-proxy-api {
     inherit sources;
   };
+
+  cursor-cli = pkgs.callPackage ./cursor-cli {
+    inherit sources;
+  };
 }

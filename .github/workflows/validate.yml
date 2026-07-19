@@ -25,7 +25,7 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v22
 
-      - name: Verify generated GitHub sources
+      - name: Verify generated release sources
         run: nix run .#github-sources -- verify
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

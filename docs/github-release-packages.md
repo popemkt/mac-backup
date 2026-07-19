@@ -1,14 +1,15 @@
-# GitHub Release Packages
+# Direct Release Packages
 
-Direct GitHub release binaries are pinned and updated through `nvfetcher`.
-This is separate from flake inputs, Homebrew, npm, and uv, which keep their own
-update mechanisms.
+Direct release binaries are pinned and updated through `nvfetcher`. Versions
+can be discovered from GitHub releases or an upstream webpage such as Cursor's
+install page. This is separate from flake inputs, Homebrew, npm, and uv, which
+keep their own update mechanisms.
 
 ## Layout
 
 | Path | Responsibility |
 |---|---|
-| `nvfetcher.toml` | Declares upstream repositories and release asset URLs |
+| `nvfetcher.toml` | Declares upstream version sources and release asset URLs |
 | `_sources/generated.nix` | Generated Nix sources, versions, and hashes |
 | `_sources/generated.json` | Machine-readable current source state |
 | `pkgs/<name>/default.nix` | Turns a generated source into a Nix package |
@@ -19,7 +20,7 @@ Never edit files under `_sources/` manually.
 
 ## Commands
 
-Check every tracked GitHub release without changing the working tree:
+Check every tracked release without changing the working tree:
 
 ```bash
 nix run .#github-sources -- check
@@ -60,6 +61,10 @@ performs an uncached, best-effort release check:
 The hook never updates or stages files. Updates are explicit so their diffs can
 be reviewed.
 
+When `GITHUB_TOKEN` is available, `scripts/github-sources` passes it to
+nvfetcher through a mode-0600 temporary nvchecker keyfile. The keyfile is
+removed after the command and is never stored in the repository or printed.
+
 ## Scheduled Updates
 
 `.github/workflows/update-github-sources.yml` runs weekly and can also be
@@ -94,8 +99,8 @@ to download the pinned release asset or other missing Nix inputs.
 6. Confirm `nix flake check` builds it through the automatically exported flake
    checks.
 
-Use `passthru.github` and `passthru.tagPrefix` for entries checked by
-`scripts/github-sources`. For example:
+For GitHub releases, use `passthru.github` and `passthru.tagPrefix` to let
+`scripts/github-sources` perform its lightweight freshness check:
 
 ```toml
 [example]
@@ -104,6 +109,17 @@ src.from_pattern = "^v(.+)$"
 src.to_pattern = "\\1"
 fetch.url = "https://github.com/owner/repository/releases/download/v$ver/example_$ver_darwin_aarch64.tar.gz"
 passthru = { github = "owner/repository", tagPrefix = "v" }
+```
+
+For a webpage-backed version, provide the page and a capture expression both
+to nvfetcher and to the lightweight checker:
+
+```toml
+[example]
+src.webpage = "https://example.com/install"
+src.regex = 'downloads\.example\.com/([^/]+)/\$\{OS\}'
+fetch.url = "https://downloads.example.com/$ver/darwin/arm64/package.tar.gz"
+passthru = { versionUrl = "https://example.com/install", versionRegex = "downloads.example.com/([^/]+)/" }
 ```
 
 Credentials, OAuth tokens, databases, caches, and other mutable application

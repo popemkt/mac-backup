@@ -8,12 +8,22 @@
 {
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "7.2.72";
+    version = "7.2.90";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.72/CLIProxyAPI_7.2.72_darwin_aarch64.tar.gz";
-      sha256 = "sha256-5Viw3+iFqkD6N3dxiEmVOCS9RGHa8uHjSv+yVmz6jfE=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.90/CLIProxyAPI_7.2.90_darwin_aarch64.tar.gz";
+      sha256 = "sha256-Aso9DgVvsyUkmzNJ4Vb4ffSohW2UlC4qmm85QjRtkfk=";
     };
     github = "router-for-me/CLIProxyAPI";
     tagPrefix = "v";
+  };
+  cursor-cli = {
+    pname = "cursor-cli";
+    version = "2026.07.16-899851b";
+    src = fetchurl {
+      url = "https://downloads.cursor.com/lab/2026.07.16-899851b/darwin/arm64/agent-cli-package.tar.gz";
+      sha256 = "sha256-wM17Y8AftjtE4zx6JhNDLo/YyxOIHacqwWE8nxQIEV8=";
+    };
+    versionUrl = "https://cursor.com/install";
+    versionRegex = "downloads.cursor.com/lab/([^/]+)/";
   };
 }

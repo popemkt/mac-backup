@@ -26,7 +26,10 @@
     let
       system = "aarch64-darwin";
       username = "popemkt";
-      pkgs = import nixpkgs { inherit system; };
+      pkgs = import nixpkgs {
+        inherit system;
+        config.allowUnfreePredicate = pkg: nixpkgs.lib.getName pkg == "cursor-cli";
+      };
       localPackages = import ./pkgs { inherit pkgs; };
 
       githubSources = pkgs.writeShellApplication {

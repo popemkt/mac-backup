@@ -14,6 +14,7 @@ fi
 GENERATED_JSON="$ROOT_DIR/_sources/generated.json"
 NVFETCHER_CONFIG="$ROOT_DIR/nvfetcher.toml"
 COMMAND_ROOT="${GITHUB_SOURCES_COMMAND_ROOT:-$ROOT_DIR}"
+NVFETCHER_AUTH_ARGS=()
 
 usage() {
   cat <<'EOF'
@@ -23,7 +24,7 @@ Usage:
   github-sources update [source-name]
 
 Commands:
-  check   Compare pinned versions with the latest stable GitHub releases.
+  check   Compare pinned versions with their latest upstream releases.
           Exit 10 when updates are available. Network/API failures exit 20,
           or pass with a warning when --best-effort is used.
   verify  Regenerate sources in a temporary directory and prove that the
@@ -39,6 +40,25 @@ require_command() {
     echo "error: required command not found: $1" >&2
     return 1
   fi
+}
+
+prepare_nvfetcher_auth() {
+  local auth_dir="$1"
+  local keyfile token_json
+
+  NVFETCHER_AUTH_ARGS=()
+  if [ -z "${GITHUB_TOKEN:-}" ]; then
+    return 0
+  fi
+
+  require_command jq
+  keyfile="$auth_dir/nvchecker-keyfile.toml"
+  token_json="$(printf '%s' "$GITHUB_TOKEN" | jq -Rs .)"
+  (
+    umask 077
+    printf '[keys]\n"github.com" = %s\n' "$token_json" >"$keyfile"
+  )
+  NVFETCHER_AUTH_ARGS=(--keyfile "$keyfile")
 }
 
 print_update_hint() {
@@ -64,6 +84,29 @@ github_api_available() {
     "https://api.github.com/rate_limit"
 }
 
+tracked_sources_available() {
+  github_api_available || return 1
+
+  local version_url
+  while IFS= read -r version_url; do
+    curl \
+      --silent \
+      --fail \
+      --location \
+      --connect-timeout 2 \
+      --max-time 5 \
+      --retry 0 \
+      --output /dev/null \
+      "$version_url" || return 1
+  done < <(
+    jq -r '
+      to_entries[]
+      | select(.value.passthru.versionUrl != null)
+      | .value.passthru.versionUrl
+    ' "$GENERATED_JSON"
+  )
+}
+
 check_sources() {
   local best_effort=false
   if [ "${1:-}" = "--best-effort" ]; then
@@ -86,11 +129,17 @@ check_sources() {
 
   local source_count
   source_count="$(
-    jq '[to_entries[] | select(.value.passthru.github != null)] | length' \
+    jq '[
+      to_entries[]
+      | select(
+          .value.passthru.github != null
+          or .value.passthru.versionUrl != null
+        )
+    ] | length' \
       "$GENERATED_JSON"
   )"
   if [ "$source_count" -eq 0 ]; then
-    echo "error: no GitHub release sources found in $GENERATED_JSON" >&2
+    echo "error: no release sources found in $GENERATED_JSON" >&2
     return 2
   fi
 
@@ -107,6 +156,7 @@ check_sources() {
   local unavailable=0
   local outdated=0
   local name repo current tag_prefix response_file http_code tag latest
+  local version_url version_regex
 
   while IFS=$'\t' read -r name repo current tag_prefix; do
     response_file="$tmpdir/${name}.json"
@@ -159,6 +209,51 @@ check_sources() {
     ' "$GENERATED_JSON"
   )
 
+  while IFS=$'\t' read -r name version_url version_regex current; do
+    response_file="$tmpdir/${name}.version-source"
+
+    if curl \
+      --silent \
+      --show-error \
+      --fail \
+      --location \
+      --connect-timeout 2 \
+      --max-time 5 \
+      --retry 0 \
+      --output "$response_file" \
+      "$version_url"; then
+      latest="$(
+        sed -nE "s#.*${version_regex}.*#\\1#p" "$response_file" | head -n 1
+      )"
+      if [ -z "$latest" ]; then
+        echo "warning: $name returned unrecognized release metadata" >&2
+        unavailable=$((unavailable + 1))
+        continue
+      fi
+
+      checked=$((checked + 1))
+      if [ "$latest" != "$current" ]; then
+        printf '%s: %s -> %s\n' "$name" "$current" "$latest"
+        outdated=$((outdated + 1))
+      fi
+    else
+      echo "warning: skipped $name; $version_url is unavailable" >&2
+      unavailable=$((unavailable + 1))
+    fi
+  done < <(
+    jq -r '
+      to_entries[]
+      | select(.value.passthru.versionUrl != null)
+      | [
+          .key,
+          .value.passthru.versionUrl,
+          .value.passthru.versionRegex,
+          .value.version
+        ]
+      | @tsv
+    ' "$GENERATED_JSON"
+  )
+
   if [ "$outdated" -gt 0 ]; then
     print_update_hint
     return 10
@@ -166,13 +261,13 @@ check_sources() {
 
   if [ "$unavailable" -gt 0 ]; then
     if [ "$best_effort" = true ]; then
-      echo "GitHub release check passed with unavailable sources." >&2
+      echo "Release check passed with unavailable sources." >&2
       return 0
     fi
     return 20
   fi
 
-  echo "GitHub release pins are current ($checked checked)."
+  echo "Release pins are current ($checked checked)."
 }
 
 verify_sources() {
@@ -187,6 +282,7 @@ verify_sources() {
   fi
 
   require_command curl
+  require_command jq
   require_command nvfetcher
 
   if [ ! -f "$NVFETCHER_CONFIG" ]; then
@@ -205,19 +301,21 @@ verify_sources() {
   local tmpdir log_file
   tmpdir="$(mktemp -d)"
   log_file="$tmpdir/nvfetcher.log"
+  prepare_nvfetcher_auth "$tmpdir"
 
   if ! nvfetcher \
+    "${NVFETCHER_AUTH_ARGS[@]}" \
     --config "$NVFETCHER_CONFIG" \
     --build-dir "$tmpdir/_sources" \
     >"$log_file" 2>&1; then
-    if [ "$best_effort" = true ] && ! github_api_available; then
-      echo "warning: could not regenerate GitHub sources while offline; continuing" >&2
+    if [ "$best_effort" = true ] && ! tracked_sources_available; then
+      echo "warning: could not regenerate release sources while offline; continuing" >&2
       rm -rf "$tmpdir"
       return 0
     fi
 
     cat "$log_file" >&2
-    echo "error: nvfetcher could not regenerate GitHub sources" >&2
+    echo "error: nvfetcher could not regenerate release sources" >&2
     rm -rf "$tmpdir"
     return 20
   fi
@@ -243,7 +341,7 @@ verify_sources() {
     return 11
   fi
 
-  echo "Generated GitHub sources match nvfetcher.toml and the latest releases."
+  echo "Generated release sources match nvfetcher.toml and the latest releases."
 }
 
 update_sources() {
@@ -273,7 +371,13 @@ update_sources() {
     args+=(--filter "^${filter}$")
   fi
 
-  nvfetcher "${args[@]}"
+  (
+    local auth_tmpdir
+    auth_tmpdir="$(mktemp -d)"
+    trap 'rm -rf "$auth_tmpdir"' EXIT
+    prepare_nvfetcher_auth "$auth_tmpdir"
+    nvfetcher "${NVFETCHER_AUTH_ARGS[@]}" "${args[@]}"
+  )
   git -C "$ROOT_DIR" diff --stat -- _sources
 }
 

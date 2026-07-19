@@ -11,10 +11,28 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-5Viw3+iFqkD6N3dxiEmVOCS9RGHa8uHjSv+yVmz6jfE=",
+            "sha256": "sha256-Aso9DgVvsyUkmzNJ4Vb4ffSohW2UlC4qmm85QjRtkfk=",
             "type": "url",
-            "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.72/CLIProxyAPI_7.2.72_darwin_aarch64.tar.gz"
+            "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.90/CLIProxyAPI_7.2.90_darwin_aarch64.tar.gz"
         },
-        "version": "7.2.72"
+        "version": "7.2.90"
+    },
+    "cursor-cli": {
+        "cargoLock": null,
+        "date": null,
+        "extract": null,
+        "name": "cursor-cli",
+        "passthru": {
+            "versionRegex": "downloads.cursor.com/lab/([^/]+)/",
+            "versionUrl": "https://cursor.com/install"
+        },
+        "pinned": false,
+        "src": {
+            "name": null,
+            "sha256": "sha256-wM17Y8AftjtE4zx6JhNDLo/YyxOIHacqwWE8nxQIEV8=",
+            "type": "url",
+            "url": "https://downloads.cursor.com/lab/2026.07.16-899851b/darwin/arm64/agent-cli-package.tar.gz"
+        },
+        "version": "2026.07.16-899851b"
     }
 }

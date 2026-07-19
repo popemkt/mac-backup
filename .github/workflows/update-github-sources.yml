@@ -1,4 +1,4 @@
-name: Update GitHub release sources
+name: Update release sources
 
 on:
   workflow_dispatch:
@@ -25,12 +25,12 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v22
 
-      - name: Update generated GitHub sources
+      - name: Update generated release sources
         run: nix run .#github-sources -- update
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify generated GitHub sources
+      - name: Verify generated release sources
         run: nix run .#github-sources -- verify
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -56,10 +56,10 @@ jobs:
           add-paths: |
             _sources/generated.json
             _sources/generated.nix
-          commit-message: "chore: update GitHub release sources"
-          title: "chore: update GitHub release sources"
+          commit-message: "chore: update release sources"
+          title: "chore: update release sources"
           body: |
-            Automated weekly refresh of direct GitHub release packages.
+            Automated weekly refresh of direct release packages.
 
             Validation performed:
             - generated-source consistency

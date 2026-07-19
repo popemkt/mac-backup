@@ -20,7 +20,7 @@ installs, App Store exclusives).
 | System config | nix-darwin | macOS settings, launchd agents | `modules/darwin/system/default.nix` |
 | Homebrew config | nix-darwin | Homebrew taps, brews, casks, MAS apps | `modules/darwin/system/homebrew.nix` |
 | User environment | home-manager | CLI tools, shell, git, neovim, starship, npm/Bun globals | `modules/common/home-manager/` + `modules/darwin/home-manager/` |
-| Direct release packages | nvfetcher + Nix | GitHub release versions, assets, and hashes | `nvfetcher.toml` + `_sources/` + `pkgs/` |
+| Direct release packages | nvfetcher + Nix | upstream versions, assets, and hashes | `nvfetcher.toml` + `_sources/` + `pkgs/` |
 | Behavior modules | nix-darwin + home-manager | Headroom, CLIProxyAPI, Hermes, external workspace, input sources | `modules/darwin/system/` |
 | Private service exposure | Tailscale Services + nix-darwin | stable service identities, TailVIP endpoints, HTTPS termination | `modules/darwin/system/tailscale-services.nix` + host declarations |
 | GUI app configs | Mackup → iCloud | Karabiner, Zed, VS Code, Warp, AltTab, Telegram, Claude Code, macOS shortcuts | `~/.mackup.cfg` allowlist |
@@ -83,15 +83,16 @@ upgrade failure preserves an already-installed tool, while a missing package
 still fails activation. Bun itself is owned by Homebrew because Oh My Pi needs
 a newer runtime than the current nixpkgs package.
 
-### Direct GitHub releases use nvfetcher
-Applications distributed as GitHub release assets are declared once in
-`nvfetcher.toml`. Generated versions and hashes are committed under `_sources/`,
-while package recipes live under `pkgs/`. Pre-commit checks freshness when
-online, validates the exact staged snapshot, and never mutates files; offline
-release checks pass. Updates remain explicit or arrive as a weekly pull
-request. The `rebuild` wrapper reports newer releases without changing pins;
-the activation itself consumes pins without version discovery, though a cold
-Nix store may still need to download missing pinned artifacts.
+### Direct releases use nvfetcher
+Applications distributed as direct release assets are declared once in
+`nvfetcher.toml`; versions may come from GitHub releases or an upstream webpage.
+Generated versions and hashes are committed under `_sources/`, while package
+recipes live under `pkgs/`. Pre-commit checks freshness when online, validates
+the exact staged snapshot, and never mutates files; offline release checks pass.
+Updates remain explicit or arrive as a weekly pull request. The `rebuild`
+wrapper reports newer releases without changing pins; the activation itself
+consumes pins without version discovery, though a cold Nix store may still need
+to download missing pinned artifacts.
 
 ### SDKROOT workaround for C++ Python extensions
 CLT-only macOS doesn't set `SDKROOT`; clang can't find `<iostream>` etc.
