@@ -13,11 +13,17 @@
 let
   mkStack = import ../mk-stack.nix lib;
   cfg = config.my.stacks.ai-agents;
-  inherit (lib) mkOption optionals types;
+  inherit (lib)
+    mkEnableOption
+    mkOption
+    optionals
+    types
+    ;
 in
 {
   imports = [
     ./cli-proxy-api.nix # local OAuth provider proxy (loopback :8317)
+    ./cognee.nix # authenticated memory API + UI (loopback :8088)
     ./headroom.nix # context-compression proxy (:8787) + uv tool install
     ./hermes.nix # agent runtime env (HERMES_HOME, Copilot ACP)
   ];
@@ -34,6 +40,21 @@ in
         type = types.bool;
         default = true;
         description = "Install the Archon agent command center (tap + formula).";
+      };
+      cognee = mkOption {
+        default = { };
+        description = "Authenticated local Cognee API, UI, and gateway.";
+        type = types.submodule {
+          options = {
+            enable = mkEnableOption "the local Cognee memory service";
+            publicUrl = mkOption {
+              type = types.str;
+              default = "https://cognee.invalid";
+              example = "https://cognee.example-tailnet.ts.net";
+              description = "Public HTTPS origin used by the Cognee UI and API.";
+            };
+          };
+        };
       };
     };
   };

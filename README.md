@@ -68,6 +68,7 @@ Restores: AltTab, Karabiner-Elements, Zed, VS Code, Warp, Telegram, Claude Code,
 | **Cursor CLI** | Managed by Nix; run `agent login`, then use `agent` (or `cursor-agent`) |
 | **Oh My Pi** | Managed as a Bun global; its command is `omp` (open a new shell after the first rebuild) |
 | **CLIProxyAPI OAuth** | Run the provider login commands after the first rebuild; credentials are intentionally not tracked |
+| **Cognee** | After rebuild, finish the Tailscale Service approval, then run `cognee-credentials`; see `docs/cognee.md` |
 | **Claudex** | After Codex OAuth, run `claudex` for Claude Code backed by GPT-5.6 Sol; normal `claude` remains unchanged |
 | **App sign-ins** | Claude, Discord, Warp, Lens — manual |
 | **/stuff workspace** | Attach `/Volumes/Data` external drive, or update `modules/darwin/system/external-workspace.nix` and `modules/darwin/system/hermes.nix` |
@@ -95,6 +96,12 @@ cli-proxy-api -config ~/.config/cli-proxy-api/config.yaml -antigravity-login
 cli-proxy-api -config ~/.config/cli-proxy-api/config.yaml -kimi-login
 cli-proxy-api -config ~/.config/cli-proxy-api/config.yaml -xai-login
 ```
+
+The Antigravity CLI (`agy`) and CLIProxyAPI keep separate OAuth state. Signing
+in to `agy` does not populate the proxy automatically. Run the
+`-antigravity-login` command above to expose Antigravity-backed models through
+`http://127.0.0.1:8317`; this registers Antigravity as a proxy upstream and does
+not make `agy` itself consume CLIProxyAPI.
 
 The API listens on `http://127.0.0.1:8317`.
 Its generated configuration intentionally has no API key, so every local
@@ -175,7 +182,8 @@ users. These Home Manager modules are imported only for the configured user.
 | **npm-global.nix** | npm global CLIs | `modules/common/home-manager/npm-global.nix` |
 | **bun-global.nix** | Bun global CLIs, including Oh My Pi | `modules/darwin/home-manager/bun-global.nix` |
 | **nvfetcher + `pkgs/`** | pinned direct release packages | `nvfetcher.toml` + `_sources/` |
-| **Tailscale Services** | private service identities, HTTPS, and TailVIP routing | `modules/darwin/system/tailscale-services.nix` + host declarations |
+| **Tailscale Services** | private service identities, HTTPS, and TailVIP routing | `modules/stacks/vpn/tailscale-services.nix` + host declarations |
+| **Cognee** | pinned service version, launchd jobs, routing, and non-secret configuration | `modules/stacks/ai-agents/cognee.nix` |
 | **`configs/`** | Raycast export | manual import on new machine |
 | **Manual** | SSH keys, credentials, Hermes plist, editable uv tools | — |
 
@@ -206,8 +214,12 @@ Activated via `git config core.hooksPath .githooks` (already set on this clone).
 ## Known Gaps
 
 - npm globals not yet in `npm-global.nix`: `@tobilu/qmd`, `ccmanager`, `kanban`, `sudocode`, `yarn`
-- editable/local uv tools not tracked: `browser-harness`, `cognee`, `mempalace`
+- editable/local uv tools not tracked: `browser-harness`, `mempalace`
 - Hermes launchd plist — manual deploy
 - `~/.local/bin` scripts (`hermes`, `iii`, `plannotator`) — depend on `/stuff` workspace
 - `~/.gitconfig` has extra entries (nbstripout, agor safe.directory) not in `git.nix`
 - Git nbstripout filter hardcodes `/Volumes/Data/...` — update after restore if needed
+- TODO: trial 9Router as an isolated, opt-in experiment rather than replacing
+  CLIProxyAPI. Evaluate Cursor model discovery and request fidelity, local-only
+  binding, credential/account risk, mutable state and backup needs, and whether
+  fallback routing justifies the additional service and dependency surface.
