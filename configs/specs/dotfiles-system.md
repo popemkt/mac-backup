@@ -62,7 +62,7 @@ only role and host-specific differences. The configured hostname must match its
 
 ### Tailscale Services own private app exposure
 Apps listen on loopback and opt into exposure through a host declaration under
-`my.tailscaleServices.services`. Each declaration becomes a separate Tailscale
+`my.stacks.vpn.services`. Each declaration becomes a separate Tailscale
 Service identity and TailVIP. The nix-darwin module owns host-side reconciliation;
 Tailscale grants own network authorization, while the app still owns application
 authentication. See `app-service-contract.md`.

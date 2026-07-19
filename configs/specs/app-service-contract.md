@@ -73,7 +73,7 @@ Keep these concerns in this repository:
 Declare an HTTP app listening locally on port 3000 like this:
 
 ```nix
-my.tailscaleServices.services.my-api = {
+my.stacks.vpn.services.my-api = {
   target = "http://127.0.0.1:3000";
   protocol = "https"; # This is the default.
   port = 443;

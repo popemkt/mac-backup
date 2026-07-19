@@ -6,7 +6,7 @@
 }:
 
 let
-  cfg = config.my.tailscaleServices;
+  cfg = config.my.stacks.vpn;
   inherit (lib)
     concatStringsSep
     escapeShellArg
@@ -43,7 +43,9 @@ let
     target: builtins.match "(http|https|tcp)://(127\\.0\\.0\\.1|localhost):[0-9]+(/.*)?" target != null;
 in
 {
-  config = lib.mkIf cfg.enable {
+  # Only spin up the reconcile daemon when the stack is on AND services are
+  # declared; enabling vpn for just the app leaves no launchd job behind.
+  config = lib.mkIf (cfg.enable && cfg.services != { }) {
     assertions = [
       {
         assertion = builtins.all validName serviceNames;

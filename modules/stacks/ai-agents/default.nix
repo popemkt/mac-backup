@@ -11,8 +11,9 @@
 # Customizable: `cfg.ollama` / `cfg.archon` component toggles drop optional
 # members; `cfg.extra.*` folds in host-specific additions.
 let
+  mkStack = import ../mk-stack.nix lib;
   cfg = config.my.stacks.ai-agents;
-  inherit (lib) optionals;
+  inherit (lib) mkOption optionals types;
 in
 {
   imports = [
@@ -20,6 +21,22 @@ in
     ./headroom.nix # context-compression proxy (:8787) + uv tool install
     ./hermes.nix # agent runtime env (HERMES_HOME, Copilot ACP)
   ];
+
+  options.my.stacks.ai-agents = mkStack {
+    description = "AI coding agent toolchain";
+    componentOptions = {
+      ollama = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Install the local Ollama model runtime.";
+      };
+      archon = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Install the Archon agent command center (tap + formula).";
+      };
+    };
+  };
 
   config = lib.mkIf cfg.enable {
     my.pkgs = {

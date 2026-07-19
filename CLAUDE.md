@@ -19,7 +19,7 @@ mackup backup / mackup restore   # GUI app settings via iCloud
 | Want to...               | Edit                              |
 |--------------------------|-----------------------------------|
 | Add software belonging to a functional stack (AI agents, office docs, …) | `modules/stacks/<stack>` → the matching `my.pkgs.*` channel list |
-| Add a new functional stack | new file/folder in `modules/stacks/` + toggle in `modules/options/stacks.nix` + import in `modules/stacks/default.nix`; enable in `hosts/<hostname>/default.nix` |
+| Add a new functional stack | new file/folder in `modules/stacks/` that declares its own `options.my.stacks.<name> = mkStack {...}` (via `modules/stacks/mk-stack.nix`) + config, then import in `modules/stacks/default.nix`; enable in `hosts/<hostname>/default.nix` |
 | Add CLI tool             | `modules/common/home-manager/packages.nix`     |
 | Add GUI app (cask), no stack fit | `modules/darwin/system/homebrew.nix` → `homebrew.casks` |
 | Add brew formula, no stack fit | `modules/darwin/system/homebrew.nix` → `homebrew.brews` |
@@ -70,8 +70,8 @@ referencing `pkgs` in the body.
 ## Architecture
 
 - `flake.nix` — entry point; `mkDarwin` builds one config per host (attr name = hostname)
-- `modules/options/` — typed option declarations (`my.username`, `my.hostname`, `my.role`, `my.stacks.*`, `my.pkgs.*`); read via `config.my.*` (system) or `osConfig.my.*` (home-manager) — no specialArgs
-- `modules/stacks/` — intent layer: vertical slices by functionality (`ai-agents/`, `office-docs.nix`, `vpn/`). Each stack is a submodule (`my.stacks.<name>`) with an `enable` flag, optional component sub-toggles (e.g. `ai-agents.ollama`), and `extra.{taps,brews,casks,npmGlobals,bunGlobals}` for host-specific additions — everything but `enable` is defaulted. Stacks tag software into channel lists (`my.pkgs.taps/brews/casks/npmGlobals/bunGlobals`). One package may live in several stacks; executors (`homebrew.nix`, `npm-global.nix`, `bun-global.nix`) merge with `lib.unique` and install. Stacks are system-level modules; HM executors read `osConfig.my.pkgs.*`. A stack may be a single file or a folder with `default.nix` + siblings.
+- `modules/options/` — cross-cutting typed options only: `my.{username,hostname,role}` (`my.nix`) and the `my.pkgs.*` channel merge targets (`pkgs.nix`); read via `config.my.*` (system) or `osConfig.my.*` (home-manager) — no specialArgs. Per-stack options are NOT here — each stack module declares its own (schema next to behavior).
+- `modules/stacks/` — intent layer: vertical slices by functionality (`ai-agents/`, `office-docs.nix`, `vpn/`). Each stack module is comprehensive — it declares its own `options.my.stacks.<name>` (a submodule built with `mk-stack.nix`: an `enable` flag, optional component sub-toggles like `ai-agents.ollama` or `vpn.services`, and `extra.{taps,brews,casks,npmGlobals,bunGlobals}` for host additions — everything but `enable` defaulted) alongside its config, sibling daemons, and files. Stacks tag software into channel lists (`my.pkgs.taps/brews/casks/npmGlobals/bunGlobals`). One package may live in several stacks; executors (`homebrew.nix`, `npm-global.nix`, `bun-global.nix`) merge with `lib.unique` and install. Stacks are system-level modules; HM executors read `osConfig.my.pkgs.*`. A stack may be a single file or a folder with `default.nix` + siblings.
 - `modules/darwin/system/` — shared macOS base for all Macs (system defaults, Homebrew executor, input sources, external-workspace). AI service daemons (cli-proxy-api, headroom, hermes) live in the `ai-agents` stack, not here.
 - `hosts/popemkt-work/` — work machine; `hosts/popemkt-personal/` — personal; each imports the Darwin system module, sets `my.role`, and adds host-only diffs
 - Renaming a machine: rename host dir + flake attr, rebuild once with explicit `--flake ~/.dotfiles#<newname>` — activation sets HostName/ComputerName/LocalHostName via `networking.*`

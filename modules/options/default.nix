@@ -5,6 +5,6 @@ _:
 {
   imports = [
     ./my.nix
-    ./stacks.nix
+    ./pkgs.nix
   ];
 }

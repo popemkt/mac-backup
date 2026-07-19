@@ -143,7 +143,7 @@ they live in their own repos and can't be restored from a version string.
 | CLIProxyAPI logs | `~/Library/Logs/cli-proxy-api.{out,err}.log` | `modules/darwin/system/cli-proxy-api.nix` |
 | `claudex` command | Zsh function with process-scoped Sol and CLIProxyAPI environment | `modules/darwin/home-manager/default.nix` |
 | Tailscale Service reconciliation | root launchd daemon after Tailscale is online | `modules/darwin/system/tailscale-services.nix` |
-| Tailscale Service declarations | typed `my.tailscaleServices.services` host inventory | `modules/options/my.nix`, `hosts/<hostname>/default.nix` |
+| Tailscale Service declarations | typed `my.stacks.vpn.services` host inventory | `modules/stacks/vpn/default.nix`, `hosts/<hostname>/default.nix` |
 
 ---
 
@@ -151,7 +151,7 @@ they live in their own repos and can't be restored from a version string.
 
 | Functional need | Implementation | File |
 |---|---|---|
-| Stable service identity | attribute name becomes `svc:<name>` | host `my.tailscaleServices.services` declaration |
+| Stable service identity | attribute name becomes `svc:<name>` | host `my.stacks.vpn.services` declaration |
 | HTTPS and TailVIP endpoint | generated `tailscale serve --service` invocation | `modules/darwin/system/tailscale-services.nix` |
 | Local app isolation | target must resolve to `127.0.0.1` or `localhost` | module assertion |
 | Removed-service cleanup | root-owned managed-service inventory under `/var/db` | module launchd implementation |

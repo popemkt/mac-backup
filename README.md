@@ -143,7 +143,7 @@ mackup backup --force                            # sync GUI app settings to iClo
 | Add npm global | `modules/common/home-manager/npm-global.nix` |
 | Add Bun global | `modules/darwin/home-manager/bun-global.nix` |
 | Add direct GitHub release package | `nvfetcher.toml` + `pkgs/`; see `docs/github-release-packages.md` |
-| Expose a private app | `hosts/<hostname>/default.nix` → `my.tailscaleServices.services`; see `configs/specs/app-service-contract.md` |
+| Expose a private app | `hosts/<hostname>/default.nix` → `my.stacks.vpn.services`; see `configs/specs/app-service-contract.md` |
 
 ### Module Boundaries
 
