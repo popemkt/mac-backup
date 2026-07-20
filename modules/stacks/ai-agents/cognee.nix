@@ -210,6 +210,8 @@ let
     }
 
     http://127.0.0.1:${toString gatewayPort} {
+      bind 127.0.0.1
+
       @backend path /api/v1 /api/v1/* /health /health/* /docs /docs/* /redoc /redoc/* /openapi.json
 
       handle @backend {
