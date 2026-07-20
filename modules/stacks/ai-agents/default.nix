@@ -24,6 +24,7 @@ in
   imports = [
     ./cli-proxy-api.nix # local OAuth provider proxy (loopback :8317)
     ./cognee.nix # authenticated memory API + UI (loopback :8088)
+    ./cognee-client.nix # thin remote bridge to the central Cognee service
     ./headroom.nix # context-compression proxy (:8787) + uv tool install
     ./hermes.nix # agent runtime env (HERMES_HOME, Copilot ACP)
   ];
@@ -52,6 +53,27 @@ in
               default = "https://cognee.invalid";
               example = "https://cognee.example-tailnet.ts.net";
               description = "Public HTTPS origin used by the Cognee UI and API.";
+            };
+            client = mkOption {
+              default = { };
+              description = "Thin agent client for a Cognee service hosted on another tailnet machine.";
+              type = types.submodule {
+                options = {
+                  enable = mkEnableOption "the remote Cognee agent client";
+                  serviceUrl = mkOption {
+                    type = types.str;
+                    default = "https://cognee.invalid";
+                    example = "https://cognee.example-tailnet.ts.net";
+                    description = "HTTPS origin of the central Cognee UI and API.";
+                  };
+                  dataset = mkOption {
+                    type = types.str;
+                    default = "main_dataset";
+                    example = "work";
+                    description = "Dataset used by the Codex and Claude Code lifecycle plugins.";
+                  };
+                };
+              };
             };
           };
         };

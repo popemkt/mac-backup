@@ -13,9 +13,9 @@ The external origin is:
 https://cognee.<tailnet-id>.ts.net
 ```
 
-The concrete `<tailnet-id>` is declared once as `tailnetId` in
-`hosts/popemkt-personal/default.nix`. Change that binding when moving the host
-to another tailnet; service origins derived from it will update together.
+The concrete `<tailnet-id>` is declared once in `hosts/tailnet.nix`. Both the
+service host and remote clients derive their origin from that file, so moving
+to another tailnet remains a one-line change.
 
 One loopback gateway at `127.0.0.1:8088` keeps the browser and API on the same
 origin:
@@ -70,6 +70,57 @@ plugin config, preventing a GUI agent process with stale environment variables
 from falling back to Cognee's separate `localhost:8011` development server.
 Restart active agent sessions afterward.
 
+## Home Server And Remote Clients
+
+`popemkt-personal` is the sole Cognee server. It owns the API, UI, databases,
+graph processing, embeddings, model calls, and backups. Other Macs do not run
+another Cognee database or model stack. They run only `cognee-mcp==0.5.4` as a
+loopback protocol bridge and point their lifecycle plugins at the central HTTPS
+origin.
+
+```text
+remote agent -> 127.0.0.1:8001/mcp -> Tailscale HTTPS -> home Cognee
+remote browser ---------------------> Tailscale HTTPS -> home Cognee UI
+```
+
+The local bridge keeps API keys out of Cursor, OMP, and Hermes configuration
+files. It stores one per-machine key at:
+
+```text
+~/.local/state/cognee/agent-api-key
+```
+
+`popemkt-work` declares the client role with lifecycle dataset `work`. After
+applying that host's configuration, enroll and verify it from a terminal on the
+work Mac:
+
+```bash
+rebuild
+cognee-client-enroll
+cognee-client-status
+```
+
+Enrollment registers or signs into a Cognee account, creates an API key named
+`agent-popemkt-work`, stores only that key, and configures all five agents.
+Passwords are not retained. Restart active Codex, Claude Code, Cursor, OMP, and
+Hermes sessions after enrollment.
+
+Use a distinct Cognee account for the work Mac if work knowledge must be
+authorization-isolated from personal agents. A distinct dataset name alone
+controls normal plugin recall but is not a security boundary for API keys owned
+by the same Cognee user. Confirm company policy before sending employer data to
+a personally administered machine, even though transport remains inside the
+tailnet.
+
+To add another machine, enable `my.stacks.ai-agents.cognee.client`, choose its
+dataset, rebuild it, and enroll it. Use one API key per machine so a lost device
+can be revoked independently. `cognee-client-enroll --replace` rotates the
+local key; revoke the superseded key from Cognee afterward.
+
+Only Cognee knowledge processing is centralized. The coding agents themselves
+and any provider-backed inference they invoke continue to run according to
+their own configuration.
+
 ## Agent Integrations
 
 Cognee uses two integration styles:
@@ -116,11 +167,16 @@ Codex and Claude Code. Cursor, OMP, and Hermes may create partial sessions when
 they explicitly use Cognee tools with a stable `session_id`, but the MCP
 connection alone is not a lifecycle recorder.
 
-All five agents use `main_dataset`. A dataset is the durable searchable graph;
-a session is the traceable prompt/tool/answer timeline that the Codex and
-Claude plugins capture. Choosing `main_dataset` does not disable Sessions. It
-aligns plugin output with Cognee MCP's default dataset so memories cross agent
-boundaries.
+On the server host all five agents use `main_dataset`; the work client uses
+`work` for its Codex and Claude lifecycle plugins. A dataset is the durable
+searchable graph; a session is the traceable prompt/tool/answer timeline that
+the lifecycle plugins capture. Choosing a dataset does not disable Sessions.
+
+MCP tools accept their dataset on each call (`dataset_name` for writes and
+`datasets` for recall/search); the MCP protocol has no client-wide dataset
+setting in `cognee-mcp==0.5.4`. On the work machine, MCP-only agents should pass
+`work`. A separate work user remains the reliable authorization boundary if an
+agent supplies another dataset name.
 
 One unauthenticated but loopback-only MCP process listens at:
 
@@ -163,6 +219,8 @@ tailnet must also authorize the Service:
 4. add grants for the users or devices that should reach `svc:cognee`
 
 Application login remains required even for clients allowed by Tailscale.
+Grant the work device or user access to `svc:cognee`; it does not host or
+advertise a Tailscale Service itself.
 
 ## Models
 
@@ -212,6 +270,20 @@ Ollama models and CLIProxyAPI OAuth state follow their own backup policies.
 The user agents are `cognee-api`, `cognee-ui`, `cognee-gateway`, `cognee-mcp`,
 `cognee-ollama`, and `cognee-embedding-model`. Logs live in
 `~/Library/Logs/cognee`.
+
+The personal host disables computer sleep and enables restart after power loss;
+display sleep remains unchanged. Cognee currently uses per-user launchd agents,
+so the `popemkt` login session must remain active and a reboot does not restore
+Cognee until that account logs in. FileVault may also require a local disk
+unlock after an unattended power failure. Once the user session exists,
+Tailscale and the KeepAlive jobs recover independently. Remote clients fail
+closed when the home host is offline and recover without re-enrollment when it
+returns.
+
+Time Machine currently includes both Cognee state roots, but a live collection
+of SQLite, Ladybug, and LanceDB files is not guaranteed to be point-in-time
+consistent. Keep the documented stopped-service backup as the disaster-recovery
+copy; remote machines intentionally hold no second copy of the knowledge base.
 
 After changing Cognee's version, model, public URL, or service configuration,
 run `rebuild`. The UI build marker includes both the Cognee version and public

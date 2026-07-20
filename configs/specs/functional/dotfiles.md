@@ -63,6 +63,12 @@ in version control and minimises what must be done manually.
   existing CLIProxyAPI listener without changing normal `claude` sessions.
 - The personal host can expose explicitly declared loopback apps as independent
   Tailscale Services. Undeclared apps remain private to the host.
+- The personal host is the only Cognee data and processing node. Authorized
+  remote Macs use a loopback-only MCP bridge and the same authenticated
+  Tailscale HTTPS origin instead of creating local knowledge stores.
+- Remote Cognee credentials are unique per machine, remain mutable state, and
+  are never committed. The work host uses a separate account when work data
+  requires an authorization boundary.
 - The proxy starts automatically on login, restarts on failure, and logs to
   `~/Library/Logs/headroom-proxy.{out,err}.log`.
 - `HEADROOM_PROXY` and `HEADROOM_PORT` are available to all apps and shells via
@@ -108,6 +114,8 @@ in version control and minimises what must be done manually.
 - `cli-proxy-api` is installed and its launchd agent is loaded on port 8317.
 - Cursor CLI is installed as both `agent` and `cursor-agent`; authentication is
   a manual `agent login` step.
+- On `popemkt-work`, `cognee-client-enroll` provisions the per-machine key and
+  `cognee-client-status` verifies the central API and local MCP bridge.
 - After `mackup restore`, Karabiner rules, Zed settings, VS Code settings,
   Warp config, and AltTab layout match the source machine.
 

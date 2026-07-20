@@ -1,4 +1,6 @@
-_:
+let
+  tailnet = import ../tailnet.nix;
+in
 
 # Work machine.
 # Only diffs from the shared Darwin system module go here.
@@ -9,7 +11,14 @@ _:
 
   # Functional stacks (modules/stacks/*) enabled on this machine.
   my.stacks = {
-    ai-agents.enable = true;
+    ai-agents = {
+      enable = true;
+      cognee.client = {
+        enable = true;
+        serviceUrl = tailnet.cogneeUrl;
+        dataset = "work";
+      };
+    };
     office-docs.enable = true;
     vpn.enable = true;
   };

@@ -15,6 +15,7 @@ EXTERNAL_DATA_CONFIG="$ROOT_DIR/modules/darwin/system/external-workspace.nix"
 UV_TOOLS_CONFIG_FILES=(
   "$ROOT_DIR/modules/stacks/ai-agents/headroom.nix"
   "$ROOT_DIR/modules/stacks/ai-agents/cognee.nix"
+  "$ROOT_DIR/modules/stacks/ai-agents/cognee-client.nix"
 )
 
 BREW_BIN="${HOMEBREW_PREFIX:-/opt/homebrew}/bin/brew"

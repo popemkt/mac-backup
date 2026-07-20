@@ -67,6 +67,14 @@ Service identity and TailVIP. The nix-darwin module owns host-side reconciliatio
 Tailscale grants own network authorization, while the app still owns application
 authentication. See `app-service-contract.md`.
 
+### Cognee is centralized, with thin per-machine clients
+`popemkt-personal` is the only Cognee state and processing host. Tailnet Macs
+connect to its authenticated HTTPS origin; their local `cognee-mcp` processes
+are secret-holding protocol bridges, not databases. Each device has a revocable
+API key. Work data uses its own dataset for normal recall and a separate Cognee
+user whenever a true authorization boundary is required. Mutable knowledge,
+credentials, and databases remain backup concerns rather than repo content.
+
 ### uv tools declared with their owning behavior
 `uv tool install` runs during home-manager activation (`home.activation`). Nix
 can't package arbitrary PyPI wheels, so the declaration is a manifest of intent,

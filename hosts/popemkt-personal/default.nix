@@ -1,9 +1,5 @@
-_:
-
 let
-  # MagicDNS tailnet identifier. Service origins on this host derive from
-  # this binding so moving to another tailnet is a one-line change.
-  tailnetId = "taild98079";
+  tailnet = import ../tailnet.nix;
 in
 
 # Personal machine.
@@ -19,7 +15,7 @@ in
       enable = true;
       cognee = {
         enable = true;
-        publicUrl = "https://cognee.${tailnetId}.ts.net";
+        publicUrl = tailnet.cogneeUrl;
       };
     };
     office-docs.enable = true;
@@ -27,5 +23,13 @@ in
       enable = true;
       services.cognee.target = "http://127.0.0.1:8088";
     };
+  };
+
+  # This machine is the tailnet's stateful service host. Let displays and
+  # disks idle normally, but keep the computer reachable and reboot after an
+  # outage. Cognee's user agents resume once this account logs in.
+  power = {
+    restartAfterPowerFailure = true;
+    sleep.computer = "never";
   };
 }
