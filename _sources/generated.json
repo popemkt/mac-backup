@@ -11,11 +11,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-Aso9DgVvsyUkmzNJ4Vb4ffSohW2UlC4qmm85QjRtkfk=",
+            "sha256": "sha256-pOvDnwOo1J0IkzhXSsVMNAdzyNRocxIeQjEIjFbMgW4=",
             "type": "url",
-            "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.90/CLIProxyAPI_7.2.90_darwin_aarch64.tar.gz"
+            "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.91/CLIProxyAPI_7.2.91_darwin_aarch64.tar.gz"
         },
-        "version": "7.2.90"
+        "version": "7.2.91"
     },
     "cursor-cli": {
         "cargoLock": null,
