@@ -10,8 +10,12 @@ databases and credentials remain mutable state and must be backed up separately.
 The external origin is:
 
 ```text
-https://cognee.taild98079.ts.net
+https://cognee.<tailnet-id>.ts.net
 ```
+
+The concrete `<tailnet-id>` is declared once as `tailnetId` in
+`hosts/popemkt-personal/default.nix`. Change that binding when moving the host
+to another tailnet; service origins derived from it will update together.
 
 One loopback gateway at `127.0.0.1:8088` keeps the browser and API on the same
 origin:

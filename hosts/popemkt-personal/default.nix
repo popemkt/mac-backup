@@ -1,5 +1,11 @@
 _:
 
+let
+  # MagicDNS tailnet identifier. Service origins on this host derive from
+  # this binding so moving to another tailnet is a one-line change.
+  tailnetId = "taild98079";
+in
+
 # Personal machine.
 # Only diffs from the shared Darwin system module go here.
 {
@@ -13,7 +19,7 @@ _:
       enable = true;
       cognee = {
         enable = true;
-        publicUrl = "https://cognee.taild98079.ts.net";
+        publicUrl = "https://cognee.${tailnetId}.ts.net";
       };
     };
     office-docs.enable = true;
