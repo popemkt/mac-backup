@@ -9,6 +9,8 @@ result-*
 .tokensave/
 
 # Secrets (never commit these)
+.env
+.env.*
 *.secret
 *.private
 secrets/
