@@ -12,20 +12,28 @@ let
 
   home = "/Users/${username}";
   version = "1.4.0";
+  mcpVersion = "0.5.4";
   apiPort = 8000;
+  mcpPort = 8001;
   uiPort = 3000;
   gatewayPort = 8088;
   ollamaPort = 11435;
 
   stateRoot = "${home}/.local/state/cognee";
   secretFile = "${stateRoot}/secrets.env";
+  integrationKeyFile = "${stateRoot}/agent-api-key";
   dataRoot = "${home}/.local/share/cognee/data";
   systemRoot = "${home}/.local/share/cognee/system";
   cacheRoot = "${home}/.cache/cognee";
   uiCache = "${home}/.cognee/ui-cache";
+  pluginStateRoot = "${home}/.cognee-plugin";
   logRoot = "${home}/Library/Logs/cognee";
   python = "${home}/.local/share/uv/tools/cognee/bin/python";
+  mcpExecutable = "${home}/.local/share/uv/tools/cognee/bin/cognee-mcp";
   publicUrl = lib.removeSuffix "/" cfg.publicUrl;
+  mcpUrl = "http://127.0.0.1:${toString mcpPort}/mcp";
+  hermesHome = config.launchd.user.envVariables.HERMES_HOME or "${home}/.hermes";
+  hermesConfig = "${hermesHome}/config.yaml";
 
   # Declarative uv tool installs owned by the Cognee service boundary.
   #
@@ -33,6 +41,7 @@ let
   # The Ollama extra supplies the Hugging Face tokenizer used for chunk sizing.
   uvTools = [
     "cognee[ollama]==${version}"
+    "cognee-mcp==${mcpVersion}"
   ];
 
   environmentFile = pkgs.writeText "cognee.env" ''
@@ -152,6 +161,34 @@ let
       --port ${toString apiPort} \
       --proxy-headers \
       --forwarded-allow-ips=127.0.0.1
+  '';
+
+  mcpLauncher = pkgs.writeShellScript "cognee-mcp" ''
+    set -euo pipefail
+
+    if [[ ! -x "${mcpExecutable}" ]]; then
+      printf 'error: Cognee MCP %s is not installed yet; run rebuild\n' \
+        '${mcpVersion}' >&2
+      exit 75
+    fi
+    if [[ ! -s "${integrationKeyFile}" ]]; then
+      printf 'error: Cognee agent API key is missing; run cognee-agent-setup\n' >&2
+      exit 75
+    fi
+
+    export HOME="${home}"
+    export COGNEE_LOGS_DIR="${logRoot}"
+    export COGNEE_LOG_FILE=true
+    export TELEMETRY_DISABLED=1
+    export COGNEE_SERVICE_URL="${publicUrl}"
+    COGNEE_API_KEY="$(<"${integrationKeyFile}")"
+    export COGNEE_API_KEY
+
+    exec "${mcpExecutable}" \
+      --transport http \
+      --host 127.0.0.1 \
+      --port ${toString mcpPort} \
+      --path /mcp
   '';
 
   uiLauncher = pkgs.writeShellScript "cognee-ui" ''
@@ -296,6 +333,202 @@ let
     exec ${pkgs.curl}/bin/curl --fail --show-error \
       http://127.0.0.1:${toString gatewayPort}/health/detailed
   '';
+
+  agentSetup = pkgs.writeShellScriptBin "cognee-agent-setup" ''
+    set -euo pipefail
+    umask 077
+
+    local_api="http://127.0.0.1:${toString apiPort}"
+    mcp_url="${mcpUrl}"
+    key=""
+
+    if ! ${pkgs.curl}/bin/curl -fsS --max-time 15 \
+      "$local_api/health" >/dev/null
+    then
+      printf 'error: Cognee API is not ready; run cognee-status first\n' >&2
+      exit 1
+    fi
+
+    if [[ -s "${integrationKeyFile}" ]]; then
+      key="$(<"${integrationKeyFile}")"
+      if ! ${pkgs.curl}/bin/curl -fsS --max-time 15 \
+        -H "X-Api-Key: $key" \
+        "$local_api/api/v1/users/me" >/dev/null
+      then
+        key=""
+      fi
+    fi
+
+    if [[ -z "$key" ]]; then
+      if [[ ! -r "${secretFile}" ]]; then
+        printf 'error: Cognee credentials do not exist yet; run rebuild\n' >&2
+        exit 1
+      fi
+
+      set -a
+      # shellcheck disable=SC1091
+      source "${secretFile}"
+      set +a
+
+      login_response="$(${pkgs.jq}/bin/jq -rn \
+        --arg username 'cognee@example.com' \
+        --arg password "$DEFAULT_USER_PASSWORD" \
+        '"grant_type=password&username=\($username|@uri)&password=\($password|@uri)&scope="' \
+        | ${pkgs.curl}/bin/curl -fsS --max-time 30 \
+          -H 'Content-Type: application/x-www-form-urlencoded' \
+          --data-binary @- \
+          "$local_api/api/v1/auth/login")"
+      unset \
+        DEFAULT_USER_PASSWORD \
+        FASTAPI_USERS_JWT_SECRET \
+        FASTAPI_USERS_VERIFICATION_TOKEN_SECRET \
+        FASTAPI_USERS_RESET_PASSWORD_TOKEN_SECRET
+      token="$(${pkgs.jq}/bin/jq -er '.access_token' <<<"$login_response")"
+
+      key_response="$(${pkgs.jq}/bin/jq -n \
+        --arg name 'agent-integrations' '{name: $name}' \
+        | ${pkgs.curl}/bin/curl -fsS --max-time 30 \
+          -H 'Content-Type: application/json' \
+          -H "Authorization: Bearer $token" \
+          --data-binary @- \
+          "$local_api/api/v1/auth/api-keys")"
+      key="$(${pkgs.jq}/bin/jq -er '.key' <<<"$key_response")"
+
+      key_tmp="$(${pkgs.coreutils}/bin/mktemp "${integrationKeyFile}.tmp.XXXXXX")"
+      trap '${pkgs.coreutils}/bin/rm -f "$key_tmp"' EXIT
+      printf '%s\n' "$key" > "$key_tmp"
+      ${pkgs.coreutils}/bin/chmod 0600 "$key_tmp"
+      ${pkgs.coreutils}/bin/mv "$key_tmp" "${integrationKeyFile}"
+      trap - EXIT
+    fi
+    ${pkgs.coreutils}/bin/chmod 0600 "${integrationKeyFile}"
+
+    ${pkgs.coreutils}/bin/install -d -m 0700 "${pluginStateRoot}"
+
+    # Pin both lifecycle plugins to the self-hosted service even when their
+    # parent GUI process predates launchctl's Cognee environment. Without an
+    # explicit base_url, the upstream plugin falls back to localhost:8011 and
+    # can replace the shared cached key with one for that private local server.
+    for plugin_name in claude-code codex; do
+      plugin_config="${pluginStateRoot}/$plugin_name/config.json"
+      ${pkgs.coreutils}/bin/install -d -m 0700 \
+        "$(${pkgs.coreutils}/bin/dirname "$plugin_config")"
+      plugin_config_tmp="$(${pkgs.coreutils}/bin/mktemp \
+        "$plugin_config.tmp.XXXXXX")"
+      trap '${pkgs.coreutils}/bin/rm -f "$plugin_config_tmp"' EXIT
+      if [[ -s "$plugin_config" ]]; then
+        ${pkgs.jq}/bin/jq \
+          --arg base_url "${publicUrl}" \
+          --arg dataset 'main_dataset' \
+          '.base_url = $base_url | .dataset = $dataset' \
+          "$plugin_config" > "$plugin_config_tmp"
+      else
+        ${pkgs.jq}/bin/jq -n \
+          --arg base_url "${publicUrl}" \
+          --arg dataset 'main_dataset' \
+          '{base_url: $base_url, dataset: $dataset}' \
+          > "$plugin_config_tmp"
+      fi
+      ${pkgs.coreutils}/bin/chmod 0600 "$plugin_config_tmp"
+      ${pkgs.coreutils}/bin/mv "$plugin_config_tmp" "$plugin_config"
+      trap - EXIT
+    done
+
+    plugin_key_tmp="$(${pkgs.coreutils}/bin/mktemp \
+      "${pluginStateRoot}/api_key.json.tmp.XXXXXX")"
+    trap '${pkgs.coreutils}/bin/rm -f "$plugin_key_tmp"' EXIT
+    printf '%s' "$key" | ${pkgs.jq}/bin/jq -Rs \
+      --arg base_url "${publicUrl}" \
+      --arg updated_at "$(${pkgs.coreutils}/bin/date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      '{base_url: $base_url, api_key: ., updated_at: $updated_at}' \
+      > "$plugin_key_tmp"
+    ${pkgs.coreutils}/bin/chmod 0600 "$plugin_key_tmp"
+    ${pkgs.coreutils}/bin/mv "$plugin_key_tmp" \
+      "${pluginStateRoot}/api_key.json"
+    trap - EXIT
+
+    cursor_config="${home}/.cursor/mcp.json"
+    ${pkgs.coreutils}/bin/install -d -m 0700 "$(${pkgs.coreutils}/bin/dirname "$cursor_config")"
+    cursor_tmp="$(${pkgs.coreutils}/bin/mktemp "$cursor_config.tmp.XXXXXX")"
+    trap '${pkgs.coreutils}/bin/rm -f "$cursor_tmp"' EXIT
+    if [[ -s "$cursor_config" ]]; then
+      ${pkgs.jq}/bin/jq --arg url "$mcp_url" \
+        '.mcpServers = (.mcpServers // {}) | .mcpServers.cognee = {url: $url}' \
+        "$cursor_config" > "$cursor_tmp"
+    else
+      ${pkgs.jq}/bin/jq -n --arg url "$mcp_url" \
+        '{mcpServers: {cognee: {url: $url}}}' > "$cursor_tmp"
+    fi
+    ${pkgs.coreutils}/bin/chmod 0600 "$cursor_tmp"
+    ${pkgs.coreutils}/bin/mv "$cursor_tmp" "$cursor_config"
+    trap - EXIT
+
+    omp_config="${home}/.omp/agent/mcp.json"
+    ${pkgs.coreutils}/bin/install -d -m 0700 "$(${pkgs.coreutils}/bin/dirname "$omp_config")"
+    omp_tmp="$(${pkgs.coreutils}/bin/mktemp "$omp_config.tmp.XXXXXX")"
+    trap '${pkgs.coreutils}/bin/rm -f "$omp_tmp"' EXIT
+    if [[ -s "$omp_config" ]]; then
+      ${pkgs.jq}/bin/jq --arg url "$mcp_url" \
+        '.mcpServers = (.mcpServers // {}) | .mcpServers.cognee = {type: "http", url: $url}' \
+        "$omp_config" > "$omp_tmp"
+    else
+      ${pkgs.jq}/bin/jq -n --arg url "$mcp_url" \
+        '{mcpServers: {cognee: {type: "http", url: $url}}}' > "$omp_tmp"
+    fi
+    ${pkgs.coreutils}/bin/chmod 0600 "$omp_tmp"
+    ${pkgs.coreutils}/bin/mv "$omp_tmp" "$omp_config"
+    trap - EXIT
+
+    ${pkgs.coreutils}/bin/install -d -m 0700 \
+      "$(${pkgs.coreutils}/bin/dirname "${hermesConfig}")"
+    if [[ ! -e "${hermesConfig}" ]]; then
+      ${pkgs.coreutils}/bin/install -m 0600 /dev/null "${hermesConfig}"
+    fi
+    COGNEE_MCP_URL="$mcp_url" ${pkgs.yq-go}/bin/yq -i \
+      '.mcp_servers.cognee = {"url": strenv(COGNEE_MCP_URL)}' \
+      "${hermesConfig}"
+    ${pkgs.coreutils}/bin/chmod 0600 "${hermesConfig}"
+
+    /bin/launchctl kickstart -k \
+      "gui/$(${pkgs.coreutils}/bin/id -u)/org.nixos.cognee-mcp" \
+      >/dev/null 2>&1 || true
+
+    if command -v codex >/dev/null 2>&1; then
+      CODEX_HOME="${home}/.codex" codex features enable hooks
+      if ! CODEX_HOME="${home}/.codex" codex plugin marketplace list 2>/dev/null \
+        | ${pkgs.gnugrep}/bin/grep -q '^cognee[[:space:]]'
+      then
+        CODEX_HOME="${home}/.codex" \
+          codex plugin marketplace add topoteretes/cognee-integrations --ref main
+      fi
+      if ! CODEX_HOME="${home}/.codex" codex plugin list 2>/dev/null \
+        | ${pkgs.gnugrep}/bin/grep -q '^cognee@cognee[[:space:]]\+installed,'
+      then
+        CODEX_HOME="${home}/.codex" codex plugin add cognee@cognee
+      fi
+    else
+      printf 'warning: codex is unavailable; skipped its Cognee plugin\n' >&2
+    fi
+
+    if command -v claude >/dev/null 2>&1; then
+      if ! claude plugin marketplace list 2>/dev/null \
+        | ${pkgs.gnugrep}/bin/grep -q 'cognee$'
+      then
+        claude plugin marketplace add topoteretes/cognee-integrations
+      fi
+      if ! claude plugin list 2>/dev/null \
+        | ${pkgs.gnugrep}/bin/grep -q 'cognee-memory@cognee'
+      then
+        claude plugin install cognee-memory@cognee
+      fi
+    else
+      printf 'warning: claude is unavailable; skipped its Cognee plugin\n' >&2
+    fi
+
+    printf 'Cognee agent integrations configured. Restart active agent sessions.\n'
+    printf 'Shared MCP endpoint: %s\n' "$mcp_url"
+    printf 'Shared dataset: main_dataset\n'
+  '';
 in
 lib.mkIf (aiCfg.enable && cfg.enable) {
   assertions = [
@@ -313,9 +546,15 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
     { lib, ... }:
     {
       home.packages = [
+        agentSetup
         credentials
         status
       ];
+
+      home.sessionVariables = {
+        COGNEE_BASE_URL = publicUrl;
+        COGNEE_PLUGIN_DATASET = "main_dataset";
+      };
 
       home.activation.ensureCogneeState = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         $DRY_RUN_CMD ${ensureState}
@@ -328,15 +567,23 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
         if ! ${pkgs.uv}/bin/uv tool list 2>/dev/null \
             | ${pkgs.gnugrep}/bin/grep -q '^cognee v1\.4\.0$' \
           || [[ ! -f "$receipt" ]] \
-          || ! ${pkgs.gnugrep}/bin/grep -q '"ollama"' "$receipt"
+          || ! ${pkgs.gnugrep}/bin/grep -q '"ollama"' "$receipt" \
+          || ! ${pkgs.gnugrep}/bin/grep -q 'cognee-mcp' "$receipt" \
+          || ! ${pkgs.gnugrep}/bin/grep -q '0\.5\.4' "$receipt"
         then
           $DRY_RUN_CMD ${pkgs.uv}/bin/uv tool install \
             --force \
             --python ${pkgs.python3}/bin/python3 \
+            --with ${lib.escapeShellArg (builtins.elemAt uvTools 1)} \
             ${lib.escapeShellArg (builtins.head uvTools)}
         fi
       '';
     };
+
+  launchd.user.envVariables = {
+    COGNEE_BASE_URL = publicUrl;
+    COGNEE_PLUGIN_DATASET = "main_dataset";
+  };
 
   launchd.user.agents = {
     cognee-api.serviceConfig = {
@@ -358,6 +605,17 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
       WorkingDirectory = home;
       StandardOutPath = "${logRoot}/ui.out.log";
       StandardErrorPath = "${logRoot}/ui.err.log";
+      EnvironmentVariables.HOME = home;
+    };
+
+    cognee-mcp.serviceConfig = {
+      ProgramArguments = [ "${mcpLauncher}" ];
+      RunAtLoad = true;
+      KeepAlive = true;
+      ThrottleInterval = 30;
+      WorkingDirectory = home;
+      StandardOutPath = "${logRoot}/mcp.out.log";
+      StandardErrorPath = "${logRoot}/mcp.err.log";
       EnvironmentVariables.HOME = home;
     };
 
