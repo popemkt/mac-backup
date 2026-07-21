@@ -148,7 +148,7 @@ they live in their own repos and can't be restored from a version string.
 | Tailscale Service declarations | typed `my.stacks.vpn.services` host inventory | `modules/stacks/vpn/default.nix`, `hosts/<hostname>/default.nix` |
 | Cognee server | API/UI/databases/models and loopback gateway on `popemkt-personal` | `modules/stacks/ai-agents/cognee.nix` |
 | Cognee remote client | pinned loopback MCP bridge plus agent enrollment/configuration | `modules/stacks/ai-agents/cognee-client.nix` |
-| Cognee service origin | shared tailnet binding consumed by server and clients | `hosts/tailnet.nix` |
+| Tailnet service domain | typed VPN binding consumed by service hosts and clients | `modules/stacks/vpn/default.nix`, `flake.nix` |
 | Cognee work isolation | per-machine key, `work` lifecycle dataset, separate user when authorization isolation is required | `hosts/popemkt-work/default.nix`, `docs/cognee.md` |
 
 ---

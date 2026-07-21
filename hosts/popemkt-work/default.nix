@@ -1,6 +1,4 @@
-let
-  tailnet = import ../tailnet.nix;
-in
+_:
 
 # Work machine.
 # Only diffs from the shared Darwin system module go here.
@@ -15,7 +13,6 @@ in
       enable = true;
       cognee.client = {
         enable = true;
-        serviceUrl = tailnet.cogneeUrl;
         dataset = "work";
       };
     };

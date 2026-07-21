@@ -58,7 +58,10 @@
 
             ./modules/options
             {
-              my = { inherit username hostname; };
+              my = {
+                inherit username hostname;
+                stacks.vpn.tailnetDomain = "taild98079.ts.net";
+              };
               nixpkgs.overlays = [ self.overlays.default ];
             }
 

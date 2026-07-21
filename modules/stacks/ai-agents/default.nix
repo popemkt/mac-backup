@@ -44,15 +44,17 @@ in
       };
       cognee = mkOption {
         default = { };
-        description = "Authenticated local Cognee API, UI, and gateway.";
+        description = "Cognee server and remote client roles.";
         type = types.submodule {
           options = {
-            enable = mkEnableOption "the local Cognee memory service";
-            publicUrl = mkOption {
-              type = types.str;
-              default = "https://cognee.invalid";
-              example = "https://cognee.example-tailnet.ts.net";
-              description = "Public HTTPS origin used by the Cognee UI and API.";
+            server = mkOption {
+              default = { };
+              description = "Stateful Cognee API, UI, databases, models, and gateway.";
+              type = types.submodule {
+                options = {
+                  enable = mkEnableOption "the central Cognee server";
+                };
+              };
             };
             client = mkOption {
               default = { };
@@ -60,12 +62,6 @@ in
               type = types.submodule {
                 options = {
                   enable = mkEnableOption "the remote Cognee agent client";
-                  serviceUrl = mkOption {
-                    type = types.str;
-                    default = "https://cognee.invalid";
-                    example = "https://cognee.example-tailnet.ts.net";
-                    description = "HTTPS origin of the central Cognee UI and API.";
-                  };
                   dataset = mkOption {
                     type = types.str;
                     default = "main_dataset";

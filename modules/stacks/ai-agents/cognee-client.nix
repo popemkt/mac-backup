@@ -7,14 +7,14 @@
 
 let
   aiCfg = config.my.stacks.ai-agents;
-  serverCfg = aiCfg.cognee;
-  cfg = serverCfg.client;
+  cogneeCfg = aiCfg.cognee;
+  cfg = cogneeCfg.client;
   inherit (config.my) hostname username;
 
   home = "/Users/${username}";
   mcpVersion = "0.5.4";
   mcpPort = 8001;
-  serviceUrl = lib.removeSuffix "/" cfg.serviceUrl;
+  serviceUrl = "https://cognee.${config.my.stacks.vpn.tailnetDomain}";
   inherit (cfg) dataset;
 
   # Declarative uv tool install owned by the remote client boundary.
@@ -323,8 +323,12 @@ in
 lib.mkIf (aiCfg.enable && cfg.enable) {
   assertions = [
     {
-      assertion = !serverCfg.enable;
+      assertion = !cogneeCfg.server.enable;
       message = "Cognee server and remote client roles cannot both be enabled on one host.";
+    }
+    {
+      assertion = config.my.stacks.vpn.enable;
+      message = "The Cognee client requires my.stacks.vpn.enable = true.";
     }
     {
       assertion = builtins.match "https://[^/]+.*" serviceUrl != null;

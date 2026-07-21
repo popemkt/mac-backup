@@ -22,6 +22,11 @@ in
   options.my.stacks.vpn = mkStack {
     description = "VPN / Tailscale mesh (app + hosted services)";
     componentOptions = {
+      tailnetDomain = mkOption {
+        type = types.str;
+        example = "example-tailnet.ts.net";
+        description = "MagicDNS tailnet domain shared by service hosts and clients.";
+      };
       services = mkOption {
         default = { };
         description = ''

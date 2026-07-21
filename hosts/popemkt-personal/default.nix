@@ -1,6 +1,4 @@
-let
-  tailnet = import ../tailnet.nix;
-in
+_:
 
 # Personal machine.
 # Only diffs from the shared Darwin system module go here.
@@ -13,10 +11,7 @@ in
   my.stacks = {
     ai-agents = {
       enable = true;
-      cognee = {
-        enable = true;
-        publicUrl = tailnet.cogneeUrl;
-      };
+      cognee.server.enable = true;
     };
     office-docs.enable = true;
     vpn = {

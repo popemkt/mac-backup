@@ -13,9 +13,10 @@ The external origin is:
 https://cognee.<tailnet-id>.ts.net
 ```
 
-The concrete `<tailnet-id>` is declared once in `hosts/tailnet.nix`. Both the
-service host and remote clients derive their origin from that file, so moving
-to another tailnet remains a one-line change.
+The concrete tailnet domain is declared once as
+`my.stacks.vpn.tailnetDomain` in `flake.nix`. Both the service host and remote
+clients derive their origin from that typed VPN setting, so moving to another
+tailnet remains a one-line change.
 
 One loopback gateway at `127.0.0.1:8088` keeps the browser and API on the same
 origin:
@@ -153,6 +154,10 @@ remember to call an MCP tool:
 - Hermes: `on_session_start`, `pre_llm_call`, `post_tool_call`,
   `post_llm_call`, and `on_session_finalize` shell hooks
 
+The detailed event mapping, shared protocol, repository layout, delivery
+phases, and upstream sources are recorded in
+[cognee-agent-hooks.md](./cognee-agent-hooks.md).
+
 The adapters should assign one stable, agent-prefixed Cognee session ID per
 native conversation; recall context before each prompt; submit paired Q&A and
 structured tool traces to `/api/v1/remember/entry`; call `improve` when the
@@ -160,7 +165,10 @@ session ends; and preserve native resume semantics. They must be asynchronous
 or tightly time-bounded, fail open when Cognee is unavailable, redact likely
 credentials, and apply the same field-size caps as the upstream plugins before
 persisting tool inputs or outputs. Subagents, retries, compaction, duplicate
-events, and abrupt process termination need explicit test coverage.
+events, and abrupt process termination need explicit test coverage. Cursor is
+the exception for per-turn recall: its current `beforeSubmitPrompt` hook cannot
+inject context, so it can record the full lifecycle but can only add recalled
+context at `sessionStart` until Cursor exposes a richer hook.
 
 Until that work lands, the Sessions UI is a complete automatic trace only for
 Codex and Claude Code. Cursor, OMP, and Hermes may create partial sessions when

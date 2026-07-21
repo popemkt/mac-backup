@@ -7,7 +7,7 @@
 
 let
   aiCfg = config.my.stacks.ai-agents;
-  cfg = aiCfg.cognee;
+  cfg = aiCfg.cognee.server;
   inherit (config.my) username;
 
   home = "/Users/${username}";
@@ -30,7 +30,7 @@ let
   logRoot = "${home}/Library/Logs/cognee";
   python = "${home}/.local/share/uv/tools/cognee/bin/python";
   mcpExecutable = "${home}/.local/share/uv/tools/cognee/bin/cognee-mcp";
-  publicUrl = lib.removeSuffix "/" cfg.publicUrl;
+  publicUrl = "https://cognee.${config.my.stacks.vpn.tailnetDomain}";
   mcpUrl = "http://127.0.0.1:${toString mcpPort}/mcp";
   hermesHome = config.launchd.user.envVariables.HERMES_HOME or "${home}/.hermes";
   hermesConfig = "${hermesHome}/config.yaml";
@@ -535,6 +535,10 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
     {
       assertion = aiCfg.ollama;
       message = "The Cognee service requires my.stacks.ai-agents.ollama = true.";
+    }
+    {
+      assertion = config.my.stacks.vpn.enable;
+      message = "The Cognee server requires my.stacks.vpn.enable = true.";
     }
     {
       assertion = builtins.match "https://[^/]+.*" publicUrl != null;
