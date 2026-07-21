@@ -1,9 +1,5 @@
 # Agent Notes
 
-`AGENTS.md` is the canonical instruction file. `CLAUDE.md` is intentionally a
-relative symlink to it; edit this file only so every harness receives the same
-guidance.
-
 ## Gate (run first)
 
 This repo is the durable record of an intent => behavior translation process.
