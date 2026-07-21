@@ -252,7 +252,12 @@ let
       @backend path /api/v1 /api/v1/* /health /health/* /docs /docs/* /redoc /redoc/* /openapi.json
 
       handle @backend {
-        reverse_proxy 127.0.0.1:${toString apiPort}
+        reverse_proxy 127.0.0.1:${toString apiPort} {
+          # Tailscale terminates TLS before forwarding to this loopback HTTP
+          # gateway. Preserve the public scheme so FastAPI redirects stay on
+          # HTTPS instead of being blocked by browsers as mixed content.
+          header_up X-Forwarded-Proto https
+        }
       }
 
       handle {

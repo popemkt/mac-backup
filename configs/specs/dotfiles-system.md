@@ -79,7 +79,7 @@ credentials, and databases remain backup concerns rather than repo content.
 `uv tool install` runs during home-manager activation (`home.activation`). Nix
 can't package arbitrary PyPI wheels, so the declaration is a manifest of intent,
 not a hermetic derivation. Repo-owned tools live with the behavior that needs
-them, for example Headroom in `modules/darwin/system/headroom.nix`.
+them, for example Headroom in `modules/stacks/ai-agents/headroom.nix`.
 Editable/local installs (browser-harness, etc.) are intentionally excluded —
 they belong to their own repos.
 

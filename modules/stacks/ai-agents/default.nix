@@ -25,7 +25,7 @@ in
     ./cli-proxy-api.nix # local OAuth provider proxy (loopback :8317)
     ./cognee.nix # authenticated memory API + UI (loopback :8088)
     ./cognee-client.nix # thin remote bridge to the central Cognee service
-    ./headroom.nix # context-compression proxy (:8787) + uv tool install
+    ./headroom.nix # context compression: proxy (:8787), RTK, uv tool install
     ./hermes.nix # agent runtime env (HERMES_HOME, Copilot ACP)
   ];
 

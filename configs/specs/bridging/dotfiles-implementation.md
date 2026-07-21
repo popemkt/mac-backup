@@ -23,7 +23,7 @@ Operator procedure lives in `../../README.md`.
 | Neovim | home-manager | `modules/common/home-manager/neovim.nix` |
 | npm global packages | home-manager | `modules/common/home-manager/npm-global.nix` |
 | Bun global packages | macOS home-manager | `modules/darwin/home-manager/bun-global.nix` |
-| uv tool installs | home-manager activation | owning behavior modules, e.g. `modules/darwin/system/headroom.nix` |
+| uv tool installs | home-manager activation | owning behavior modules, e.g. `modules/stacks/ai-agents/headroom.nix` |
 | Direct release packages | nvfetcher + local Nix packages | `nvfetcher.toml`, `_sources/`, `pkgs/` |
 | macOS-only shell helpers + rebuild | home-manager | `modules/darwin/home-manager/default.nix` |
 | External workspace + data symlinks | nix-darwin + home-manager | `modules/darwin/system/external-workspace.nix` |
@@ -67,6 +67,7 @@ requiring root since nix-darwin ≥ 2025. See `dotfiles-system.md`.
 | Rust toolchain | `rustc`, `cargo` | `modules/common/home-manager/packages.nix` |
 | OAuth API proxy | `cli-proxy-api` | `pkgs/cli-proxy-api`, `modules/darwin/system/cli-proxy-api.nix` |
 | Cursor terminal agent | `cursor-cli` pinned official archive | `pkgs/cursor-cli`, `modules/common/home-manager/packages.nix` |
+| Token-optimized shell output | `rtk` via Homebrew + current Claude hook | `modules/stacks/ai-agents/headroom.nix` |
 
 ---
 
@@ -116,11 +117,11 @@ but not declared.
 
 | Functional need | Implementation | File |
 |---|---|---|
-| Tool declaration | `uvTools` list | `modules/darwin/system/headroom.nix` |
-| Install mechanism | `home.activation.installHeadroomUvTools` runs on every rebuild | `modules/darwin/system/headroom.nix` |
-| Idempotency | skips if `uv tool list` already shows the package | `modules/darwin/system/headroom.nix` |
-| C++ build fix | `SDKROOT` set via `xcrun` before install loop | `modules/darwin/system/headroom.nix` |
-| headroom-ai | `[all]` extras for the full Headroom toolset; pinned to nixpkgs Python during uv install | `modules/darwin/system/headroom.nix` |
+| Tool declaration | `uvTools` list | `modules/stacks/ai-agents/headroom.nix` |
+| Install mechanism | `home.activation.installHeadroomUvTools` runs on every rebuild | `modules/stacks/ai-agents/headroom.nix` |
+| Idempotency | skips if `uv tool list` already shows the package | `modules/stacks/ai-agents/headroom.nix` |
+| C++ build fix | `SDKROOT` set via `xcrun` before install loop | `modules/stacks/ai-agents/headroom.nix` |
+| headroom-ai | `[all]` extras for the full Headroom toolset; pinned to nixpkgs Python during uv install | `modules/stacks/ai-agents/headroom.nix` |
 
 Known gap: editable installs (`browser-harness`) are intentionally excluded —
 they live in their own repos and can't be restored from a version string.
@@ -131,12 +132,12 @@ they live in their own repos and can't be restored from a version string.
 
 | Functional need | Implementation | File |
 |---|---|---|
-| headroom proxy daemon | `launchd.user.agents.headroom-proxy` | `modules/darwin/system/headroom.nix` |
-| Binary path | `~/.local/bin/headroom` (installed by uv) | `modules/darwin/system/headroom.nix` |
-| Proxy port | 8787, hardcoded in `ProgramArguments` and `HEADROOM_PORT` env var | `modules/darwin/system/headroom.nix` |
-| Restart on failure | `KeepAlive = true` | `modules/darwin/system/headroom.nix` |
-| Logs | `~/Library/Logs/headroom-proxy.{out,err}.log` | `modules/darwin/system/headroom.nix` |
-| Env exposure | `HEADROOM_PROXY`, `HEADROOM_PORT` via `launchd.user.envVariables` | `modules/darwin/system/headroom.nix` |
+| headroom proxy daemon | `launchd.user.agents.headroom-proxy` | `modules/stacks/ai-agents/headroom.nix` |
+| Binary path | `~/.local/bin/headroom` (installed by uv) | `modules/stacks/ai-agents/headroom.nix` |
+| Proxy port | 8787, hardcoded in `ProgramArguments` and `HEADROOM_PORT` env var | `modules/stacks/ai-agents/headroom.nix` |
+| Restart on failure | `KeepAlive = true` | `modules/stacks/ai-agents/headroom.nix` |
+| Logs | `~/Library/Logs/headroom-proxy.{out,err}.log` | `modules/stacks/ai-agents/headroom.nix` |
+| Env exposure | `HEADROOM_PROXY`, `HEADROOM_PORT` via `launchd.user.envVariables` | `modules/stacks/ai-agents/headroom.nix` |
 | CLIProxyAPI daemon | `launchd.user.agents.cli-proxy-api` | `modules/darwin/system/cli-proxy-api.nix` |
 | CLIProxyAPI endpoint | loopback-only `127.0.0.1:8317` | `modules/darwin/system/cli-proxy-api.nix` |
 | CLIProxyAPI local trust boundary | no API key; all processes able to reach loopback are trusted | explicit single-user workstation policy |
@@ -234,4 +235,4 @@ Hook location: `.githooks/pre-commit`. Activated via `git config core.hooksPath 
 | `~/.local/bin` scripts | `hermes`, `iii`, `plannotator` depend on `/stuff` workspace | not in repo |
 | Full gitconfig | `nbstripout`, `agor safe.directory` not in `git.nix` | `modules/common/home-manager/git.nix` |
 | Login item restore | no programmatic API on macOS 13+ | manual |
-| Full Xcode | CLT-only; SDKROOT workaround active | `modules/darwin/system/headroom.nix`, `modules/darwin/home-manager/default.nix` |
+| Full Xcode | CLT-only; SDKROOT workaround active | `modules/stacks/ai-agents/headroom.nix`, `modules/darwin/home-manager/default.nix` |

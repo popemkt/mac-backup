@@ -55,7 +55,7 @@ in version control and minimises what must be done manually.
 ## Always-On Services
 
 - The headroom context-compression proxy runs as a launchd user daemon on every
-  machine after rebuild.
+  machine after rebuild, and RTK is installed for token-optimized shell output.
 - CLIProxyAPI runs as a loopback-only launchd user daemon on every machine after
   rebuild; provider OAuth remains a manual credential step, and its no-key
   listener explicitly trusts processes that can reach the local loopback port.
@@ -110,7 +110,8 @@ in version control and minimises what must be done manually.
 - After running the bootstrap sequence (README §1-9), a new terminal session
   has: `rebuild`, `git`, `gh`, `nvim`, `node`, `uv`, `mackup`, starship prompt,
   zsh aliases, and all declared npm/Bun globals in PATH.
-- `headroom` is installed and the `headroom-proxy` launchd agent is loaded.
+- `headroom` and `rtk` are installed, and the `headroom-proxy` launchd agent is
+  loaded.
 - `cli-proxy-api` is installed and its launchd agent is loaded on port 8317.
 - Cursor CLI is installed as both `agent` and `cursor-agent`; authentication is
   a manual `agent login` step.

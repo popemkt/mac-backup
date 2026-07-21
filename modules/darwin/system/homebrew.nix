@@ -90,6 +90,7 @@
 
         # Utilities
         "alt-tab"
+        "snapzy"
         # "rectangle"
         # "cleanshot"
         "middleclick"

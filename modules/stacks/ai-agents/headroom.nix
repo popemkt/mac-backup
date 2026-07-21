@@ -20,6 +20,11 @@ let
   ];
 in
 lib.mkIf config.my.stacks.ai-agents.enable {
+  # RTK applies the same context-budget principle to shell output. Keep the
+  # Homebrew formula in this behavior module so Headroom tooling is restored as
+  # one unit and Homebrew can follow RTK's frequent upstream releases.
+  my.pkgs.brews = [ "rtk" ];
+
   # Headroom proxy endpoint, exposed to all apps. Apps opt in by routing their
   # provider base_url here (e.g. package.json `*:proxy` scripts read
   # HEADROOM_PROXY). NOT setting ANTHROPIC_BASE_URL/OPENAI_BASE_URL globally on
@@ -67,6 +72,14 @@ lib.mkIf config.my.stacks.ai-agents.enable {
             $DRY_RUN_CMD ${pkgs.uv}/bin/uv tool install --python ${pkgs.python3}/bin/python3 "$spec"
           fi
         done
+      '';
+
+      # Keep Claude Code on RTK's current native hook command. RTK performs an
+      # idempotent merge into settings.json, preserving the other agent hooks.
+      home.activation.ensureRtkClaudeHook = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        if [ -x /opt/homebrew/bin/rtk ]; then
+          $DRY_RUN_CMD /opt/homebrew/bin/rtk init -g --auto-patch
+        fi
       '';
     };
 }
