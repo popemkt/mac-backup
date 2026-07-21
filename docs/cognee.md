@@ -56,6 +56,13 @@ cognee-status
 cognee-credentials
 ```
 
+Authenticated UI and API file uploads are enabled. Cognee 1.4 first
+materializes every multipart upload as a temporary local file, so the service
+must permit its loaders to read local paths. The upload endpoint still accepts
+file bodies rather than arbitrary server-side path strings, remains behind
+Cognee authentication, and is reachable remotely only through the authorized
+Tailscale Service.
+
 Open the external origin and sign in to verify the browser UI. Then provision
 one private agent key and configure every supported local agent with:
 

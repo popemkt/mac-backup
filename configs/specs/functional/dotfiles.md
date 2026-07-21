@@ -69,6 +69,8 @@ in version control and minimises what must be done manually.
 - The personal host is the only Cognee data and processing node. Authorized
   remote Macs use a loopback-only MCP bridge and the same authenticated
   Tailscale HTTPS origin instead of creating local knowledge stores.
+- Authenticated Cognee UI and API uploads work through its temporary-file
+  loader while arbitrary HTTP URL ingestion remains disabled.
 - Remote Cognee credentials are unique per machine, remain mutable state, and
   are never committed. The work host uses a separate account when work data
   requires an authorization boundary.

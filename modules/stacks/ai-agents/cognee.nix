@@ -80,7 +80,11 @@ let
     ENABLE_BACKEND_ACCESS_CONTROL=true
     REQUIRE_AUTHENTICATION=true
     HASH_API_KEY=true
-    ACCEPT_LOCAL_FILE_PATH=false
+    # Cognee 1.4 materializes authenticated multipart uploads as temporary
+    # local files before its loaders read them. Disabling local paths therefore
+    # breaks both API and UI file uploads, even though the HTTP route accepts
+    # UploadFile values rather than caller-supplied server paths.
+    ACCEPT_LOCAL_FILE_PATH=true
     ALLOW_HTTP_REQUESTS=false
     DEFAULT_USER_EMAIL=cognee@example.com
     JWT_LIFETIME_SECONDS=86400
