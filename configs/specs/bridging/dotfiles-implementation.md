@@ -173,6 +173,7 @@ they live in their own repos and can't be restored from a version string.
 | Functional need | Implementation | File |
 |---|---|---|
 | Mackup config file | managed by home-manager as `home.file.".mackup.cfg"` | `modules/darwin/home-manager/mackup.nix` |
+| Custom Mackup app definitions | managed under `~/.config/mackup/applications/` | `modules/darwin/home-manager/mackup.nix` |
 | Storage backend | iCloud (`engine = icloud`) | `modules/darwin/home-manager/mackup.nix` |
 | Allowlist | explicit `[applications_to_sync]` block | `modules/darwin/home-manager/mackup.nix` |
 | Backup command | `mackup backup --force` | documented in README |

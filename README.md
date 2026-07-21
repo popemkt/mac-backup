@@ -50,7 +50,8 @@ Sign into iCloud first and wait for Mackup folder to sync, then:
 mackup restore
 ```
 
-Restores: AltTab, Karabiner-Elements, Zed, VS Code, Warp, Telegram, Claude Code, macOS keyboard shortcuts.
+Restores: AltTab, Karabiner-Elements, Zed, VS Code, Warp, Telegram, Claude Code,
+Snapzy preferences, and macOS keyboard shortcuts.
 
 ### 4. Manual steps
 

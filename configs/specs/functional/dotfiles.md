@@ -38,7 +38,10 @@ in version control and minimises what must be done manually.
 ## GUI App Settings Sync
 
 - App settings for Karabiner, Zed, VS Code, Warp, AltTab, Telegram, Claude
-  Code, and macOS keyboard shortcuts are synced to iCloud via Mackup.
+  Code, Snapzy, and macOS keyboard shortcuts are synced to iCloud via Mackup.
+- Raycast remains a deliberate export/import workflow through
+  `configs/raycast.rayconfig`; its live plist and encrypted databases mix
+  portable preferences with device, permission, account, and runtime state.
 - A `mackup backup --force` on the source machine pushes current state.
 - A `mackup restore` on a new machine pulls and links that state.
 - Only explicitly allowlisted apps are synced. Apps that store credentials or
@@ -118,7 +121,7 @@ in version control and minimises what must be done manually.
 - On `popemkt-work`, `cognee-client-enroll` provisions the per-machine key and
   `cognee-client-status` verifies the central API and local MCP bridge.
 - After `mackup restore`, Karabiner rules, Zed settings, VS Code settings,
-  Warp config, and AltTab layout match the source machine.
+  Warp config, AltTab layout, and Snapzy preferences match the source machine.
 
 ### Daily change
 
