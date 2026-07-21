@@ -22,6 +22,9 @@ Relevant docs:
 - [home-manager-options.md](/Users/popemkt/.dotfiles/docs/home-manager-options.md): user-level config patterns
 - [nix-darwin-options.md](/Users/popemkt/.dotfiles/docs/nix-darwin-options.md): macOS-specific config patterns
 - [troubleshooting.md](/Users/popemkt/.dotfiles/docs/troubleshooting.md): common recovery steps
+- [tailscale.md](/Users/popemkt/.dotfiles/docs/tailscale.md): policy ownership,
+  GitHub OIDC enrollment, and every remaining manual Tailscale control-plane
+  step
 
 Working rule:
 - Treat this repo as the source of truth for intentional system configuration.
