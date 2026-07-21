@@ -1,0 +1,51 @@
+// Tailnet policy source of truth.
+//
+// The final wildcard grant preserves the tailnet's existing unrestricted
+// behavior. The explicit service grants document the durable contracts we
+// rely on and let us remove the wildcard safely in a later tightening pass.
+{
+  "tagOwners": {
+    "tag:cognee-host": ["autogroup:admin"],
+  },
+
+  "grants": [
+    // Orca Mobile connects directly to the personal host over MagicDNS.
+    {
+      "src": ["autogroup:member"],
+      "dst": ["tag:cognee-host"],
+      "ip": ["tcp:6768"],
+    },
+
+    // Remote Cognee clients use the Tailscale Service HTTPS endpoint.
+    {
+      "src": ["autogroup:member"],
+      "dst": ["svc:cognee"],
+      "ip": ["tcp:443"],
+    },
+
+    // Preserve the pre-existing default policy until every remaining flow is
+    // inventoried and covered by a narrower grant.
+    {
+      "src": ["*"],
+      "dst": ["*"],
+      "ip": ["*"],
+    },
+  ],
+
+  // A tagged Cognee server can approve itself as a host for the service.
+  "autoApprovers": {
+    "services": {
+      "svc:cognee": ["tag:cognee-host"],
+    },
+  },
+
+  "ssh": [
+    // Preserve Tailscale's default check-mode SSH access to a user's own node.
+    {
+      "action": "check",
+      "src": ["autogroup:member"],
+      "dst": ["autogroup:self"],
+      "users": ["autogroup:nonroot", "root"],
+    },
+  ],
+}

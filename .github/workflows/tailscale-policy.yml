@@ -1,0 +1,79 @@
+name: Sync Tailscale policy
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - configs/tailscale/policy.hujson
+      - .github/workflows/tailscale-policy.yml
+  push:
+    branches:
+      - main
+    paths:
+      - configs/tailscale/policy.hujson
+      - .github/workflows/tailscale-policy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: tailscale-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    env:
+      TS_OAUTH_ID: ${{ secrets.TS_OAUTH_ID }}
+      TS_AUDIENCE: ${{ secrets.TS_AUDIENCE }}
+      TS_TAILNET: ${{ secrets.TS_TAILNET }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Check GitOps configuration
+        id: config
+        shell: bash
+        run: |
+          set -eu
+
+          configured=0
+          [ -n "$TS_OAUTH_ID" ] && configured=$((configured + 1))
+          [ -n "$TS_AUDIENCE" ] && configured=$((configured + 1))
+          [ -n "$TS_TAILNET" ] && configured=$((configured + 1))
+
+          if [ "$configured" -ne 0 ] && [ "$configured" -ne 3 ]; then
+            echo "TS_OAUTH_ID, TS_AUDIENCE, and TS_TAILNET must be configured together." >&2
+            exit 1
+          fi
+
+          if [ "$configured" -eq 3 ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Tailscale GitOps is not enrolled yet; see docs/tailscale.md."
+          fi
+
+      - name: Test policy
+        if: github.event_name == 'pull_request' && steps.config.outputs.enabled == 'true'
+        uses: tailscale/gitops-acl-action@v1
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_ID }}
+          audience: ${{ secrets.TS_AUDIENCE }}
+          tailnet: ${{ secrets.TS_TAILNET }}
+          policy-file: configs/tailscale/policy.hujson
+          action: test
+
+      - name: Apply policy
+        if: github.event_name != 'pull_request' && steps.config.outputs.enabled == 'true'
+        uses: tailscale/gitops-acl-action@v1
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_ID }}
+          audience: ${{ secrets.TS_AUDIENCE }}
+          tailnet: ${{ secrets.TS_TAILNET }}
+          policy-file: configs/tailscale/policy.hujson
+          action: apply

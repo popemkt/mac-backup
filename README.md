@@ -61,7 +61,7 @@ Snapzy preferences, and macOS keyboard shortcuts.
 | **Git credentials** | `gh auth login` |
 | **Azure** | `az login` |
 | **GCP** | `gcloud auth login` |
-| **Tailscale** | Sign in via menu bar |
+| **Tailscale** | Sign in via menu bar; enroll policy GitOps once per tailnet as described in `docs/tailscale.md` |
 | **Raycast** | `open ~/.dotfiles/configs/raycast.rayconfig` → click Import |
 | **Editable/local uv tools** | Install from their owning repos if needed; repo-tracked uv tools are installed during rebuild |
 | **Archon CLI** | Managed by Homebrew; verify with `archon workflow list` |
@@ -183,7 +183,7 @@ users. These Home Manager modules are imported only for the configured user.
 | **npm-global.nix** | npm global CLIs | `modules/common/home-manager/npm-global.nix` |
 | **bun-global.nix** | Bun global CLIs, including Oh My Pi | `modules/darwin/home-manager/bun-global.nix` |
 | **nvfetcher + `pkgs/`** | pinned direct release packages | `nvfetcher.toml` + `_sources/` |
-| **Tailscale Services** | private service identities, HTTPS, and TailVIP routing | `modules/stacks/vpn/tailscale-services.nix` + host declarations |
+| **Tailscale** | app, MagicDNS domain, private services, and access policy | `modules/stacks/vpn/`, host declarations, and `configs/tailscale/policy.hujson` |
 | **Cognee** | pinned service version, launchd jobs, routing, and non-secret configuration | `modules/stacks/ai-agents/cognee.nix` |
 | **`configs/`** | Raycast export | manual import on new machine |
 | **Manual** | SSH keys, credentials, Hermes plist, editable uv tools | — |
