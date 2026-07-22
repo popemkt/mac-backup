@@ -151,6 +151,8 @@
 
       checks.${system} = localPackages // {
         inherit systemSetupCheck;
+        darwin-personal = self.darwinConfigurations.popemkt-personal.system;
+        darwin-work = self.darwinConfigurations.popemkt-work.system;
       };
 
       apps.${system}.github-sources = {

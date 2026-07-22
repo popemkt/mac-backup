@@ -4,6 +4,7 @@
   python313,
   pyproject-nix,
   pyproject-build-systems,
+  runCommand,
   uv2nix,
   includeDev ? false,
 }:
@@ -23,7 +24,15 @@ let
       projectOverlay
     ]
   );
+
+  environment = pythonSet.mkVirtualEnv "dotfiles-system-setup-0.1.0" (
+    if includeDev then workspace.deps.all else workspace.deps.default
+  );
 in
-pythonSet.mkVirtualEnv "dotfiles-system-setup-0.1.0" (
-  if includeDev then workspace.deps.all else workspace.deps.default
-)
+if includeDev then
+  environment
+else
+  runCommand "dotfiles-system-setup-0.1.0" { } ''
+    mkdir -p "$out/bin"
+    ln -s ${environment}/bin/system-setup "$out/bin/system-setup"
+  ''
