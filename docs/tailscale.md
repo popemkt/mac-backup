@@ -112,6 +112,9 @@ The remaining manual control-plane steps are:
    `svc:cognee` and `svc:adhoc` once.
 3. Apply the tracked policy through the GitHub workflow so that
    `tag:cognee-host`, its owner, grants, and the Service auto-approver exist.
+   Service auto-approvers are resolved against existing Service identities, so
+   rerun this workflow whenever a Service was created after the last policy
+   apply.
 4. Open **Machines**, select the Cognee server, edit its tags, and assign
    `tag:cognee-host`.
 5. Rebuild the host. The `tailscale-services` launchd job advertises

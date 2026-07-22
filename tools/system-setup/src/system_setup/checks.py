@@ -122,7 +122,23 @@ def _check_tailscale_service(check: TailscaleServiceCheck) -> str:
     capabilities = self_status.get("Capabilities", []) if isinstance(self_status, dict) else []
     capability = f"services/{check.service.removeprefix('svc:')}"
     if capability not in capabilities:
-        raise CheckFailed(f"{check.service} is declared locally but awaits admin approval")
+        raise CheckFailed(
+            f"{check.service} is declared locally but is not defined in this tailnet; "
+            "create it in the Tailscale Services console, then reapply the tracked policy"
+        )
+
+    capability_map = self_status.get("CapMap", {}) if isinstance(self_status, dict) else {}
+    service_hosts = (
+        capability_map.get("service-host", []) if isinstance(capability_map, dict) else []
+    )
+    approved = isinstance(service_hosts, list) and any(
+        isinstance(entry, dict) and check.service in entry for entry in service_hosts
+    )
+    if not approved:
+        raise CheckFailed(
+            f"{check.service} is defined but this machine awaits host approval; "
+            "reapply the tracked Tailscale policy"
+        )
     return f"approved and routing to {check.target}"
 
 
