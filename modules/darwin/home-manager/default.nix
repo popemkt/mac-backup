@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ lib, pkgs, ... }:
 
 {
   imports = [
@@ -38,6 +38,10 @@
       eval "$(/opt/homebrew/bin/brew shellenv)"
     fi
 
+    # Homebrew dependencies may surface their own moving python3. Keep the
+    # interactive runtime aligned with the Nix-owned 3.13 tool baseline.
+    export PATH="${pkgs.python313}/bin:$PATH"
+
     # Fix ECONNRESET errors in Claude Code on macOS.
     export NODE_OPTIONS="--dns-result-order=ipv4first"
 
@@ -60,7 +64,8 @@
     # Apply the declared state without discovering or upgrading remote packages.
     rebuild() {
       sudo darwin-rebuild switch --flake "$HOME/.dotfiles" &&
-        "$HOME/.dotfiles/scripts/audit-system-discrepancies.sh"
+        "$HOME/.dotfiles/scripts/audit-system-discrepancies.sh" &&
+        system-setup status --advisory
     }
 
     # Prepare reviewable repository updates without mutating the live system.

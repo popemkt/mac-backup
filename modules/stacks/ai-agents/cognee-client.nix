@@ -26,6 +26,7 @@ let
   pluginStateRoot = "${home}/.cognee-plugin";
   logRoot = "${home}/Library/Logs/cognee";
   mcpExecutable = "${home}/.local/share/uv/tools/cognee-mcp/bin/cognee-mcp";
+  mcpPython = "${home}/.local/share/uv/tools/cognee-mcp/bin/python";
   mcpUrl = "http://127.0.0.1:${toString mcpPort}/mcp";
   hermesHome = config.launchd.user.envVariables.HERMES_HOME or "${home}/.hermes";
   hermesConfig = "${hermesHome}/config.yaml";
@@ -366,13 +367,15 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
 
         receipt="${home}/.local/share/uv/tools/cognee-mcp/uv-receipt.toml"
         if [[ ! -x "${mcpExecutable}" ]] \
+          || [[ ! -x "${mcpPython}" ]] \
+          || [[ "$("${mcpPython}" -c 'import platform; print(platform.python_version())' 2>/dev/null || true)" != "${pkgs.python313.version}" ]] \
           || [[ ! -f "$receipt" ]] \
           || ! ${pkgs.uv}/bin/uv tool list 2>/dev/null \
             | ${pkgs.gnugrep}/bin/grep -q '^cognee-mcp v0\.5\.4$'
         then
           $DRY_RUN_CMD ${pkgs.uv}/bin/uv tool install \
             --force \
-            --python ${pkgs.python3}/bin/python3 \
+            --python ${pkgs.python313}/bin/python3 \
             ${lib.escapeShellArg (builtins.head uvTools)}
         fi
       '';

@@ -1,4 +1,9 @@
-{ pkgs }:
+{
+  pkgs,
+  pyproject-build-systems,
+  pyproject-nix,
+  uv2nix,
+}:
 
 let
   sources = pkgs.callPackage ../_sources/generated.nix { };
@@ -14,5 +19,22 @@ in
 
   logseq-nightly = pkgs.callPackage ./logseq-nightly {
     inherit sources;
+  };
+
+  system-setup = pkgs.callPackage ./system-setup {
+    inherit
+      pyproject-build-systems
+      pyproject-nix
+      uv2nix
+      ;
+  };
+
+  system-setup-dev = pkgs.callPackage ./system-setup {
+    inherit
+      pyproject-build-systems
+      pyproject-nix
+      uv2nix
+      ;
+    includeDev = true;
   };
 }

@@ -25,6 +25,7 @@ Operator procedure lives in `../../README.md`.
 | Bun global packages | macOS home-manager | `modules/darwin/home-manager/bun-global.nix` |
 | uv tool installs | home-manager activation | owning behavior modules, e.g. `modules/stacks/ai-agents/headroom.nix` |
 | Direct release packages | nvfetcher + local Nix packages | `nvfetcher.toml`, `_sources/`, `pkgs/` |
+| External enrollment + readiness | Nix + Python (`uv2nix`) | `modules/darwin/system/system-setup.nix`, `tools/system-setup/` |
 | macOS-only shell helpers + rebuild | home-manager | `modules/darwin/home-manager/default.nix` |
 | External workspace + data symlinks | nix-darwin + home-manager | `modules/darwin/system/external-workspace.nix` |
 | Private app exposure | Tailscale Services + nix-darwin | `modules/darwin/system/tailscale-services.nix` + `hosts/<hostname>/default.nix` |
@@ -43,7 +44,7 @@ Operator procedure lives in `../../README.md`.
 | Nix install | Determinate installer; `nix.enable = false` in darwin config so nix-darwin doesn't conflict |
 | Homebrew install | standard Homebrew curl script |
 | First nix-darwin apply | `sudo nix run nix-darwin -- switch --flake ~/.dotfiles#popemkt-personal` (darwin-rebuild not in PATH yet) |
-| Subsequent rebuilds | best-effort release check, then `sudo darwin-rebuild switch --flake ~/.dotfiles` via `rebuild` |
+| Subsequent rebuilds | pinned `sudo darwin-rebuild switch`, drift audit, then advisory `system-setup status` via `rebuild` |
 | GUI config restore | `mackup restore` after iCloud Mackup folder syncs |
 
 Rationale for `sudo` prefix: nix-darwin activation runs system-level scripts
@@ -68,6 +69,7 @@ requiring root since nix-darwin ≥ 2025. See `dotfiles-system.md`.
 | OAuth API proxy | `cli-proxy-api` | `pkgs/cli-proxy-api`, `modules/darwin/system/cli-proxy-api.nix` |
 | Cursor terminal agent | `cursor-cli` pinned official archive | `pkgs/cursor-cli`, `modules/common/home-manager/packages.nix` |
 | Token-optimized shell output | `rtk` via Homebrew + current Claude hook | `modules/stacks/ai-agents/headroom.nix` |
+| External setup operator | `system-setup` hermetic Python 3.13 environment | `pkgs/system-setup`, `tools/system-setup/` |
 
 ---
 
@@ -145,6 +147,7 @@ they live in their own repos and can't be restored from a version string.
 | CLIProxyAPI restart policy | retry unsuccessful exits, throttled to 30 seconds | `KeepAlive.SuccessfulExit = false` |
 | CLIProxyAPI logs | `~/Library/Logs/cli-proxy-api.{out,err}.log` | `modules/darwin/system/cli-proxy-api.nix` |
 | `claudex` command | Zsh function with process-scoped Sol and CLIProxyAPI environment | `modules/darwin/home-manager/default.nix` |
+| Setup manifest | generated `/etc/system-setup/integrations.json`; Pydantic-validated at runtime | `modules/darwin/system/system-setup.nix` |
 | Tailscale Service reconciliation | root launchd daemon after Tailscale is online | `modules/darwin/system/tailscale-services.nix` |
 | Tailscale Service declarations | typed `my.stacks.vpn.services` host inventory | `modules/stacks/vpn/default.nix`, `hosts/<hostname>/default.nix` |
 | Cognee server | API/UI/databases/models and loopback gateway on `popemkt-personal` | `modules/stacks/ai-agents/cognee.nix` |
@@ -208,6 +211,7 @@ iCloud on first run. See `dotfiles-system.md`.
 | Login items snapshot | osascript dump to `configs/login-items.txt` | `scripts/dump-login-items.sh` |
 | Direct release freshness | best-effort remote comparison; no mutation | `scripts/github-sources check` |
 | Direct release update | nvfetcher regenerates pinned versions and hashes | `scripts/github-sources update` |
+| External readiness | `system-setup status`, dependency-aware enrollment, and operational checks | `tools/system-setup/` |
 
 ---
 
@@ -219,6 +223,7 @@ iCloud on first run. See `dotfiles-system.md`.
 | Anti-patterns | statix | whole repo |
 | Dead bindings | deadnix | whole repo except generated nvfetcher output |
 | Eval-time errors | `nix flake check --no-build` | whole flake |
+| Setup application | Ruff, Pyrefly, pytest in the uv2nix dev environment | `checks.<system>.systemSetupCheck` |
 | Release freshness | GitHub API and upstream webpages through `github-sources` | best effort; offline passes, stale source changes block |
 | Generated source consistency | nvfetcher regeneration in a temporary directory | staged snapshot locally; authoritative in PR CI |
 

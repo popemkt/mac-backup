@@ -19,6 +19,8 @@ in version control and minimises what must be done manually.
   syncs.
 - The bootstrap sequence is documented in README.md and is the executable
   definition of a complete restore.
+- External OAuth, device, key, and control-plane requirements are declared per
+  host and exposed through one `system-setup` status/enrollment workflow.
 
 ## Daily Config Changes
 
@@ -31,6 +33,8 @@ in version control and minimises what must be done manually.
   pre-commit checks are best-effort and offline checks do not block commits.
 - `rebuild` reports available direct-release updates but never applies them;
   updating versions and hashes remains an explicit operator action.
+- `rebuild` reports external setup readiness without initiating enrollment or
+  failing merely because an operator action remains.
 - `rebuild` upgrades Homebrew packages and every declared npm/Bun global to
   its latest registry release; transient upgrades preserve the installed
   version rather than blocking activation.
@@ -98,8 +102,10 @@ in version control and minimises what must be done manually.
 
 - Windows or Linux support. The system is macOS aarch64-only; NixOS modules are
   kept in-tree for potential future use but are not built or maintained.
-- Hermetic Python environments. `uv tool install` is imperative; Nix provides
-  the declaration of intent, not a locked derivation.
+- Hermetic packaging of third-party Python services installed through uv.
+  Repo-owned automation such as `system-setup` is locked by uv and built
+  hermetically with `uv2nix`; mutable Cognee and Headroom environments retain
+  their service-specific activation model.
 - Automatic credential rotation or secret management. Credentials are never
   tracked and must be set up manually on each machine.
 - Automatic login item restore. macOS 13+ has no public API for programmatic
@@ -120,6 +126,8 @@ in version control and minimises what must be done manually.
 - `cli-proxy-api` is installed and its launchd agent is loaded on port 8317.
 - Cursor CLI is installed as both `agent` and `cursor-agent`; authentication is
   a manual `agent login` step.
+- `system-setup status --json` provides a machine-readable per-host inventory,
+  and `system-setup verify` fails until every required integration is ready.
 - On `popemkt-work`, `cognee-client-enroll` provisions the per-machine key and
   `cognee-client-status` verifies the central API and local MCP bridge.
 - After `mackup restore`, Karabiner rules, Zed settings, VS Code settings,

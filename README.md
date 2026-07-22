@@ -42,6 +42,20 @@ sudo darwin-rebuild switch --flake ~/.dotfiles#popemkt-personal
 
 Restart terminal after first build.
 
+The rebuild prints a read-only external readiness report. Complete credentials,
+device enrollment, and control-plane approvals in dependency order:
+
+```bash
+system-setup status
+system-setup next
+system-setup enroll <integration-id>
+system-setup verify
+```
+
+See `docs/system-setup.md` for command behavior, recovery policy, and how new
+requirements are declared. Enrollment is intentionally explicit; rebuilds
+never start OAuth or open third-party administration pages.
+
 ### 3. Restore GUI app settings (Mackup)
 
 Sign into iCloud first and wait for Mackup folder to sync, then:
@@ -53,7 +67,11 @@ mackup restore
 Restores: AltTab, Karabiner-Elements, Zed, VS Code, Warp, Telegram, Claude Code,
 Snapzy preferences, and macOS keyboard shortcuts.
 
-### 4. Manual steps
+### 4. External enrollment and remaining manual steps
+
+`system-setup` is the authoritative checklist for declared external services.
+The table below also records standalone application sign-ins that do not yet
+have an operational readiness check.
 
 | Item | Action |
 |------|--------|
@@ -61,15 +79,15 @@ Snapzy preferences, and macOS keyboard shortcuts.
 | **Git credentials** | `gh auth login` |
 | **Azure** | `az login` |
 | **GCP** | `gcloud auth login` |
-| **Tailscale** | Sign in via menu bar; enroll policy GitOps once per tailnet as described in `docs/tailscale.md` |
+| **Tailscale** | Follow `system-setup next`; enroll policy GitOps once per tailnet as described in `docs/tailscale.md` |
 | **Raycast** | `open ~/.dotfiles/configs/raycast.rayconfig` → click Import |
 | **Editable/local uv tools** | Install from their owning repos if needed; repo-tracked uv tools are installed during rebuild |
 | **Archon CLI** | Managed by Homebrew; verify with `archon workflow list` |
 | **Entire CLI** | Managed by Homebrew; opt in per repo with `entire enable --agent codex` (consider `--skip-push-sessions` for public repos) |
 | **Cursor CLI** | Managed by Nix; run `agent login`, then use `agent` (or `cursor-agent`) |
 | **Oh My Pi** | Managed as a Bun global; its command is `omp` (open a new shell after the first rebuild) |
-| **CLIProxyAPI OAuth** | Run the provider login commands after the first rebuild; credentials are intentionally not tracked |
-| **Cognee** | After rebuild, finish the Tailscale Service approval, then run `cognee-credentials`; see `docs/cognee.md` |
+| **CLIProxyAPI OAuth** | Follow `system-setup next`; credentials are intentionally not tracked |
+| **Cognee** | Follow `system-setup next` for service approval and agent enrollment; see `docs/cognee.md` |
 | **Claudex** | After Codex OAuth, run `claudex` for Claude Code backed by GPT-5.6 Sol; normal `claude` remains unchanged |
 | **App sign-ins** | Claude, Discord, Warp, Lens — manual |
 | **/stuff workspace** | Attach `/Volumes/Data` external drive, or update `modules/darwin/system/external-workspace.nix` and `modules/darwin/system/hermes.nix` |
@@ -131,6 +149,8 @@ git remote set-url origin git@github.com:popemkt/mac-backup.git
 
 ```bash
 rebuild                                         # apply declared config; do not discover upgrades
+system-setup status                             # verify external auth and service readiness
+system-setup next                               # show the next required enrollment action
 update-system                                   # prepare and validate reviewable repo pin updates
 apply-system-update                             # apply/upgrade, then commit and push prepared pin files
 nix run .#github-sources -- check               # check pinned direct-release packages
@@ -186,6 +206,7 @@ users. These Home Manager modules are imported only for the configured user.
 | **nvfetcher + `pkgs/`** | pinned direct release packages | `nvfetcher.toml` + `_sources/` |
 | **Tailscale** | app, MagicDNS domain, private services, and access policy | `modules/stacks/vpn/`, host declarations, and `configs/tailscale/policy.hujson` |
 | **Cognee** | pinned service version, launchd jobs, routing, and non-secret configuration | `modules/stacks/ai-agents/cognee.nix` |
+| **system-setup** | declared external requirements, dependency ordering, enrollment guidance, readiness checks | `modules/darwin/system/system-setup.nix` |
 | **`configs/`** | Raycast export | manual import on new machine |
 | **Manual** | SSH keys, credentials, Hermes plist, editable uv tools | — |
 

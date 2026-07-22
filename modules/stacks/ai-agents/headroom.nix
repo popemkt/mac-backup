@@ -8,6 +8,8 @@
 let
   inherit (config.my) username;
   headroomPort = "8787";
+  headroomVersion = "0.32.1";
+  headroomPython = "/Users/${username}/.local/share/uv/tools/headroom-ai/bin/python";
 
   # Declarative uv tool installs owned by the Headroom service boundary.
   #
@@ -16,7 +18,7 @@ let
   # [all] enables every compression algorithm (hnswlib, torch, HuggingFace).
   # Requires SDKROOT set for native extension builds.
   uvTools = [
-    "headroom-ai[all]"
+    "headroom-ai[all]==${headroomVersion}"
   ];
 in
 lib.mkIf config.my.stacks.ai-agents.enable {
@@ -58,8 +60,8 @@ lib.mkIf config.my.stacks.ai-agents.enable {
   home-manager.users.${username} =
     { lib, ... }:
     {
-      # Install Headroom during activation for cross-machine bootstrap. Only
-      # installs tools that are missing; never force-reinstalls or upgrades.
+      # Reconcile both the pinned package and its interpreter. uv keeps the
+      # dependency environment isolated, while Nix owns the Python version.
       home.activation.installHeadroomUvTools = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         # CLT-only macOS doesn't set SDKROOT; without it clang can't find C/C++
         # headers and packages with native extensions can fail to build.
@@ -68,8 +70,15 @@ lib.mkIf config.my.stacks.ai-agents.enable {
         for spec in ${lib.concatStringsSep " " (map lib.escapeShellArg uvTools)}; do
           name="''${spec%%==*}"
           name="''${name%%[*}"
-          if ! ${pkgs.uv}/bin/uv tool list 2>/dev/null | ${pkgs.gnugrep}/bin/grep -q "^$name "; then
-            $DRY_RUN_CMD ${pkgs.uv}/bin/uv tool install --python ${pkgs.python3}/bin/python3 "$spec"
+          if ! ${pkgs.uv}/bin/uv tool list 2>/dev/null \
+              | ${pkgs.gnugrep}/bin/grep -q "^$name v${headroomVersion}$" \
+            || [[ ! -x "${headroomPython}" ]] \
+            || [[ "$("${headroomPython}" -c 'import platform; print(platform.python_version())' 2>/dev/null || true)" != "${pkgs.python313.version}" ]]
+          then
+            $DRY_RUN_CMD ${pkgs.uv}/bin/uv tool install \
+              --force \
+              --python ${pkgs.python313}/bin/python3 \
+              "$spec"
           fi
         done
       '';

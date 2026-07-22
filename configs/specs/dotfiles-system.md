@@ -8,8 +8,9 @@ procedure. README.md is the operator manual; this doc is the *why*.
 ## Principle
 
 Declarative > imperative. Every reproducible setting lives in a file.
-Manual steps exist only where tooling has no solution (credentials, editable
-installs, App Store exclusives).
+Interactive steps exist only where a person or third-party authorization
+boundary is unavoidable. Their intent, dependencies, checks, and recovery are
+still declared and surfaced by `system-setup`.
 
 ---
 
@@ -22,10 +23,11 @@ installs, App Store exclusives).
 | User environment | home-manager | CLI tools, shell, git, neovim, starship, npm/Bun globals | `modules/common/home-manager/` + `modules/darwin/home-manager/` |
 | Direct release packages | nvfetcher + Nix | upstream versions, assets, and hashes | `nvfetcher.toml` + `_sources/` + `pkgs/` |
 | Behavior modules | nix-darwin + home-manager | Headroom, CLIProxyAPI, Hermes, external workspace, input sources | `modules/darwin/system/` |
+| External enrollment | Nix-built Python application | OAuth, device identity, SaaS approvals, generated keys, readiness | `modules/darwin/system/system-setup.nix` |
 | Private service exposure | Tailscale Services + nix-darwin | stable service identities, TailVIP endpoints, HTTPS termination | `modules/darwin/system/tailscale-services.nix` + host declarations |
 | GUI app configs | Mackup → iCloud | Karabiner, Zed, VS Code, Warp, AltTab, Telegram, Claude Code, macOS shortcuts | `~/.mackup.cfg` allowlist |
 | Raw configs | `configs/` | Raycast export, login items snapshot, specs, Archon workflows | manual import on restore |
-| Manual | — | SSH keys, credentials, Hermes plist, editable uv tools | per-restore checklist |
+| Manual | — | SSH keys, standalone app sign-ins, Hermes plist, editable uv tools | per-restore checklist |
 
 ---
 
@@ -82,6 +84,15 @@ not a hermetic derivation. Repo-owned tools live with the behavior that needs
 them, for example Headroom in `modules/stacks/ai-agents/headroom.nix`.
 Editable/local installs (browser-harness, etc.) are intentionally excluded —
 they belong to their own repos.
+
+### External requirements are declarations too
+Nix cannot complete an OAuth consent screen, approve a host in a SaaS control
+plane, or own provider-issued credential state. It does build `system-setup`
+hermetically and generate its strict per-host manifest. The application turns
+those remaining requirements into a dependency graph with read-only checks,
+explicit enrollment commands, secret-state locations, and recovery guidance.
+Routine rebuilds report status but never start an enrollment ceremony. See
+`docs/system-setup.md`.
 
 ### JavaScript globals have an explicit update boundary
 npm and Bun global package lists are declarations of intent rather than
@@ -149,8 +160,9 @@ Deliberately excluded: anything storing credentials or tokens.
 7. Restart terminal
 8. Sign into iCloud, wait for Mackup folder to sync
 9. `mackup restore`
-10. Manual: SSH keys, `gh auth login`, `az login`, `gcloud auth login`,
-    CLIProxyAPI provider OAuth, Tailscale, Raycast import, Hermes plist
+10. Run `system-setup next` until `system-setup verify` succeeds
+11. Manual: SSH keys, `gh auth login`, `az login`, `gcloud auth login`,
+    Raycast import, standalone app sign-ins, Hermes plist
 
 ---
 

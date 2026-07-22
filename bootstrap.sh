@@ -40,7 +40,7 @@ if ! grep -q "hostname = \"$HOSTNAME\"" "$DOTFILES/flake.nix"; then
   echo "   to:"
   echo "     hostname = \"$HOSTNAME\";"
   echo ""
-  read -p "Press Enter after updating, or Ctrl+C to abort..."
+  read -r -p "Press Enter after updating, or Ctrl+C to abort..."
 fi
 
 # ============================================================================
@@ -57,6 +57,13 @@ else
   sudo darwin-rebuild switch --flake "$DOTFILES#$HOSTNAME"
 fi
 
+# The first activation installs system-setup through the per-user Nix profile.
+# Use its absolute path because this bootstrap shell predates that profile.
+SYSTEM_SETUP_BIN="/etc/profiles/per-user/$USER/bin/system-setup"
+if [ -x "$SYSTEM_SETUP_BIN" ]; then
+  "$SYSTEM_SETUP_BIN" status --advisory
+fi
+
 # ============================================================================
 # 5. Install Mackup
 # ============================================================================
@@ -70,18 +77,21 @@ echo "Setup complete."
 echo ""
 echo "Next steps:"
 echo ""
-echo "  1. Review your git config:"
+echo "  1. Complete the next external enrollment action:"
+echo "     system-setup next"
+echo ""
+echo "  2. Review your git config:"
 echo "     nvim ~/.dotfiles/modules/common/home-manager/git.nix"
 echo ""
-echo "  2. Review macOS apps and system settings:"
+echo "  3. Review macOS apps and system settings:"
 echo "     nvim ~/.dotfiles/modules/darwin/system/default.nix"
 echo ""
-echo "  3. Apply changes with:"
+echo "  4. Apply changes with:"
 echo "     rebuild"
 echo ""
-echo "  4. Restore GUI app configs (if you have backups):"
+echo "  5. Restore GUI app configs (if you have backups):"
 echo "     mackup restore"
 echo ""
-echo "  5. Check for untracked casks anytime with:"
+echo "  6. Check for untracked casks anytime with:"
 echo "     sysaudit"
 echo ""

@@ -582,6 +582,8 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
         receipt="${home}/.local/share/uv/tools/cognee/uv-receipt.toml"
         if ! ${pkgs.uv}/bin/uv tool list 2>/dev/null \
             | ${pkgs.gnugrep}/bin/grep -q '^cognee v1\.4\.0$' \
+          || [[ ! -x "${python}" ]] \
+          || [[ "$("${python}" -c 'import platform; print(platform.python_version())' 2>/dev/null || true)" != "${pkgs.python313.version}" ]] \
           || [[ ! -f "$receipt" ]] \
           || ! ${pkgs.gnugrep}/bin/grep -q '"ollama"' "$receipt" \
           || ! ${pkgs.gnugrep}/bin/grep -q 'cognee-mcp' "$receipt" \
@@ -589,7 +591,7 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
         then
           $DRY_RUN_CMD ${pkgs.uv}/bin/uv tool install \
             --force \
-            --python ${pkgs.python3}/bin/python3 \
+            --python ${pkgs.python313}/bin/python3 \
             --with ${lib.escapeShellArg (builtins.elemAt uvTools 1)} \
             ${lib.escapeShellArg (builtins.head uvTools)}
         fi

@@ -32,8 +32,11 @@
     powershell
 
     # Python
-    python3
-    python3Packages.pip
+    # Keep the workstation runtime explicit instead of following the moving
+    # python3 alias. uv-managed tools that belong to this repo use the same
+    # interpreter while retaining isolated dependency environments.
+    python313
+    python313Packages.pip
     uv
 
     # Rust
