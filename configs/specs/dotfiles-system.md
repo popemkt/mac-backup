@@ -83,13 +83,12 @@ them, for example Headroom in `modules/stacks/ai-agents/headroom.nix`.
 Editable/local installs (browser-harness, etc.) are intentionally excluded —
 they belong to their own repos.
 
-### JavaScript globals upgrade during rebuild
+### JavaScript globals have an explicit update boundary
 npm and Bun global package lists are declarations of intent rather than
-hermetic Nix derivations. Home Manager installs missing declarations and asks
-the owning registry for the latest version on every rebuild. A transient
-upgrade failure preserves an already-installed tool, while a missing package
-still fails activation. Bun itself is owned by Homebrew because Oh My Pi needs
-a newer runtime than the current nixpkgs package.
+hermetic Nix derivations. Home Manager restores missing declarations during a
+routine rebuild; `apply-system-update` asks each owning registry for the latest
+declared version after activating prepared pins. Bun itself is owned by Homebrew
+because Oh My Pi needs a newer runtime than the current nixpkgs package.
 
 ### Direct releases use nvfetcher
 Applications distributed as direct release assets are declared once in
@@ -97,10 +96,11 @@ Applications distributed as direct release assets are declared once in
 Generated versions and hashes are committed under `_sources/`, while package
 recipes live under `pkgs/`. Pre-commit checks freshness when online, validates
 the exact staged snapshot, and never mutates files; offline release checks pass.
-Updates remain explicit or arrive as a weekly pull request. The `rebuild`
-wrapper reports newer releases without changing pins; the activation itself
-consumes pins without version discovery, though a cold Nix store may still need
-to download missing pinned artifacts.
+Updates remain explicit or arrive as an automatically merged pull request every
+two days. `rebuild` consumes pins without version discovery; `update-system`
+prepares and validates repository pin changes; `apply-system-update` mutates the
+live system, audits it, then commits and pushes only `flake.lock` and `_sources/`.
+A cold Nix store may still need to download missing pinned artifacts.
 
 ### SDKROOT workaround for C++ Python extensions
 CLT-only macOS doesn't set `SDKROOT`; clang can't find `<iostream>` etc.

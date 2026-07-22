@@ -3,7 +3,7 @@ name: Update release sources
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 3 * * 1"
+    - cron: "17 3 */2 * *"
 
 permissions:
   contents: write
@@ -48,6 +48,7 @@ jobs:
         run: nix flake check
 
       - name: Open update pull request
+        id: create-pull-request
         uses: peter-evans/create-pull-request@v8.1.1
         with:
           token: ${{ secrets.UPDATE_GITHUB_SOURCES_TOKEN || github.token }}
@@ -59,7 +60,7 @@ jobs:
           commit-message: "chore: update release sources"
           title: "chore: update release sources"
           body: |
-            Automated weekly refresh of direct release packages.
+            Automated two-day refresh of direct release packages.
 
             Validation performed:
             - generated-source consistency
@@ -70,3 +71,11 @@ jobs:
             - deadnix
             - nix flake check --no-build
             - package build on Apple Silicon macOS
+
+      - name: Merge validated update pull request
+        if: steps.create-pull-request.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.UPDATE_GITHUB_SOURCES_TOKEN || github.token }}
+        run: |
+          gh pr merge --squash --delete-branch \
+            "${{ steps.create-pull-request.outputs.pull-request-number }}"

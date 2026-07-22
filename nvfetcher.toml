@@ -10,3 +10,9 @@ src.webpage = "https://cursor.com/install"
 src.regex = 'downloads\.cursor\.com/lab/([0-9]{4}\.[0-9]{2}\.[0-9]{2}-[0-9a-f]+)/\$\{OS\}'
 fetch.url = "https://downloads.cursor.com/lab/$ver/darwin/arm64/agent-cli-package.tar.gz"
 passthru = { versionUrl = "https://cursor.com/install", versionRegex = "downloads.cursor.com/lab/([^/]+)/" }
+
+[logseq-nightly]
+src.webpage = "https://api.github.com/repos/logseq/logseq/releases/tags/nightly"
+src.regex = 'name[^:]*:[^L]*Logseq-darwin-arm64-([0-9A-Za-z.+-]+)[.]zip.,'
+fetch.url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-$ver.zip"
+passthru = { versionUrl = "https://api.github.com/repos/logseq/logseq/releases/tags/nightly", versionRegex = 'name[^:]*:[^L]*Logseq-darwin-arm64-([0-9A-Za-z.+-]+)[.]zip.,' }

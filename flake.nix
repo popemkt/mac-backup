@@ -72,6 +72,9 @@
                 useGlobalPkgs = true;
                 useUserPackages = true;
                 backupFileExtension = "backup";
+                # Preserve the latest pre-managed file without failing when a
+                # previous activation already created the fixed-name backup.
+                overwriteBackup = true;
                 users.${username} = _: {
                   home.stateVersion = "24.05";
                   programs.home-manager.enable = true;

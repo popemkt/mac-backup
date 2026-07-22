@@ -11,4 +11,8 @@ in
   cursor-cli = pkgs.callPackage ./cursor-cli {
     inherit sources;
   };
+
+  logseq-nightly = pkgs.callPackage ./logseq-nightly {
+    inherit sources;
+  };
 }

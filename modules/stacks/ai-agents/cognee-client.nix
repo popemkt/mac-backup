@@ -360,6 +360,9 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
 
       home.activation.installCogneeMcpUvTool = lib.hm.dag.entryAfter [ "ensureCogneeClientState" ] ''
         export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
+        export CC=/usr/bin/clang
+        export CXX=/usr/bin/clang++
+        export CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=/usr/bin/clang
 
         receipt="${home}/.local/share/uv/tools/cognee-mcp/uv-receipt.toml"
         if [[ ! -x "${mcpExecutable}" ]] \

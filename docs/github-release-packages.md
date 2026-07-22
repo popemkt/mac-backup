@@ -67,10 +67,11 @@ removed after the command and is never stored in the repository or printed.
 
 ## Scheduled Updates
 
-`.github/workflows/update-github-sources.yml` runs weekly and can also be
-started manually. It refreshes all sources, validates the repository, builds
-the packages on Apple Silicon macOS, and opens one pull request. It does not
-auto-merge.
+`.github/workflows/update-github-sources.yml` runs every two days and can also
+be started manually. It refreshes all sources, validates the repository, builds
+the packages on Apple Silicon macOS, opens one pull request, and squash-merges
+that PR after the updater's validation passes. When no source changed, it does
+not open a pull request.
 
 `.github/workflows/validate.yml` independently verifies every pull request and
 push to `main`. The updater repeats the same source verification before opening
@@ -79,14 +80,22 @@ created with the default `GITHUB_TOKEN`. Defining an
 `UPDATE_GITHUB_SOURCES_TOKEN` repository secret with contents and pull-request
 write access lets updater pull requests trigger the normal PR workflow too.
 
-## Rebuild Behavior
+## Rebuild And Update Behavior
 
-The `rebuild` shell wrapper first performs the same best-effort freshness check
-and reports the explicit update command when a newer release exists. Failure or
-lack of internet never blocks activation, and the check never changes files.
-The subsequent `darwin-rebuild` only consumes pinned generated sources, keeping
-system activation deterministic. A cold Nix store may still need network access
-to download the pinned release asset or other missing Nix inputs.
+The `rebuild` shell wrapper only applies declared state. It does not check for
+new releases or upgrade Homebrew, npm, or Bun packages. Nix reuses existing
+store paths, so repeated rebuilds do not reinstall unchanged direct packages.
+A cold Nix store may still need network access to download a pinned artifact.
+
+The `update-system` wrapper prepares a reviewable repository change: it
+refreshes flake inputs and direct-release pins, verifies the generated sources,
+and evaluates the flake without mutating the live system. Inspect or revert the
+result before proceeding.
+
+`apply-system-update` activates the prepared pins, then upgrades the declared
+Homebrew bundle with serial downloads and refreshes declared npm and Bun
+globals. Keeping preparation and application separate prevents an upstream pin
+change from being activated before its repository diff has been inspected.
 
 ## Adding an Application
 

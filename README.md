@@ -130,8 +130,9 @@ git remote set-url origin git@github.com:popemkt/mac-backup.git
 ## Daily Usage
 
 ```bash
-rebuild                                         # apply config; upgrade Homebrew and tracked npm/Bun globals
-cd ~/.dotfiles && nix flake update && rebuild   # update all inputs
+rebuild                                         # apply declared config; do not discover upgrades
+update-system                                   # prepare and validate reviewable repo pin updates
+apply-system-update                             # apply/upgrade, then commit and push prepared pin files
 nix run .#github-sources -- check               # check pinned direct-release packages
 nix run .#github-sources -- verify              # verify config, versions, and generated hashes
 nix run .#github-sources -- update              # update their versions + hashes

@@ -57,20 +57,54 @@
     # extensions such as hnswlib need this path during compilation.
     export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)"
 
-    # Best-effort release discovery is informational and never mutates pins.
-    # No #attr is needed: darwin-rebuild selects the host-matching config.
+    # Apply the declared state without discovering or upgrading remote packages.
     rebuild() {
-      nix run "$HOME/.dotfiles#github-sources" -- check --best-effort
-      local source_status=$?
-
-      if (( source_status == 10 )); then
-        echo "warning: rebuilding with current pins; run the suggested update command when ready" >&2
-      elif (( source_status != 0 )); then
-        echo "warning: release check could not run; continuing with pinned sources" >&2
-      fi
-
       sudo darwin-rebuild switch --flake "$HOME/.dotfiles" &&
         "$HOME/.dotfiles/scripts/audit-system-discrepancies.sh"
+    }
+
+    # Prepare reviewable repository updates without mutating the live system.
+    update-system() {
+      local dotfiles_root="$HOME/.dotfiles"
+
+      (
+        set -e
+        cd "$dotfiles_root"
+        nix flake update
+        nix run .#github-sources -- update
+        nix run .#github-sources -- verify
+        nix flake check --no-build
+
+        echo "Prepared system updates. Review with:"
+        echo "  git -C \"$dotfiles_root\" diff -- flake.lock _sources/"
+        echo "Apply when ready with: apply-system-update"
+      )
+    }
+
+    # Apply prepared pins, update mutable package-manager declarations, then
+    # publish only the repository-managed pin files.
+    apply-system-update() {
+      local dotfiles_root="$HOME/.dotfiles"
+
+      (
+        set -e
+        cd "$dotfiles_root"
+        sudo darwin-rebuild switch --flake "$dotfiles_root"
+        # These helpers now come from the just-activated configuration, so
+        # they use its declared Homebrew/npm/Bun package sets.
+        update-homebrew
+        update-npm-globals
+        update-bun-globals
+        "$dotfiles_root/scripts/audit-system-discrepancies.sh"
+
+        if ! git diff --quiet HEAD -- flake.lock _sources/; then
+          git add -- flake.lock _sources/
+          git commit --only -m "chore: update system pins" -- flake.lock _sources/
+          git push origin HEAD
+        else
+          echo "No system pin changes to commit."
+        fi
+      )
     }
 
     # ========================================

@@ -1,5 +1,22 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
+let
+  declaredBrewfile = pkgs.writeText "dotfiles-Brewfile" config.homebrew.brewfile;
+  updateHomebrew = pkgs.writeShellScriptBin "update-homebrew" ''
+    set -euo pipefail
+
+    export HOMEBREW_DOWNLOAD_CONCURRENCY=1
+    /opt/homebrew/bin/brew update
+    HOMEBREW_NO_AUTO_UPDATE=1 /opt/homebrew/bin/brew bundle \
+      --file=${declaredBrewfile} \
+      --no-lock
+  '';
+in
 {
   # ============================================================================
   # HOMEBREW (executor)
@@ -16,8 +33,10 @@
     # "zap"    = remove them (strict, full reproducibility)
     onActivation = {
       cleanup = "none"; # Change to "zap" when your config is complete
-      autoUpdate = true;
-      upgrade = true;
+      # Routine rebuilds install missing declarations but never discover or
+      # apply upgrades. `update-system` owns that explicit network boundary.
+      autoUpdate = false;
+      upgrade = false;
     };
 
     # Homebrew taps
@@ -108,4 +127,6 @@
       # "Magnet" = 441258766;
     };
   };
+
+  environment.systemPackages = [ updateHomebrew ];
 }
