@@ -23,6 +23,14 @@
       "ip": ["tcp:443"],
     },
 
+    // Tailnet members can reach whichever temporary HTTP app the personal
+    // host is currently running on the reserved ad hoc port.
+    {
+      "src": ["autogroup:member"],
+      "dst": ["svc:adhoc"],
+      "ip": ["tcp:443"],
+    },
+
     // Preserve the pre-existing default policy until every remaining flow is
     // inventoried and covered by a narrower grant.
     {
@@ -35,6 +43,7 @@
   // A tagged Cognee server can approve itself as a host for the service.
   "autoApprovers": {
     "services": {
+      "svc:adhoc": ["tag:cognee-host"],
       "svc:cognee": ["tag:cognee-host"],
     },
   },

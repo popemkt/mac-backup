@@ -87,9 +87,20 @@ apply fails, Tailscale keeps the previous live policy; inspect it with
 
 ## Services And Direct Ports
 
-Cognee is exposed as `svc:cognee` on HTTPS. Its tagged host is automatically
-approved by policy, but creating the Service identity the first time remains a
-Tailscale control-plane operation.
+The personal host publishes two HTTPS Service identities. Their tagged host is
+automatically approved by policy, but creating each Service identity the first
+time remains a Tailscale control-plane operation.
+
+| Service | Tailnet URL | Loopback target | Purpose |
+|---|---|---|---|
+| `svc:cognee` | `https://cognee.<tailnet-domain>` | `127.0.0.1:8088` | Cognee UI and API gateway |
+| `svc:adhoc` | `https://adhoc.<tailnet-domain>` | `127.0.0.1:9000` | Temporary HTTP apps |
+
+The ad hoc endpoint does not keep an application running and does not add
+application authentication. Start any temporary HTTP server on
+`127.0.0.1:9000`; Tailscale terminates HTTPS and makes it available to allowed
+tailnet members at the stable URL. Stop the server and the endpoint has no
+backend. Binding the temporary app to loopback keeps port 9000 off the LAN.
 
 ### First Tailnet Or Replacement Host
 
@@ -98,15 +109,15 @@ The remaining manual control-plane steps are:
 1. Sign the machine into Tailscale from the menu bar. Device identity and node
    keys must never be committed.
 2. For a new tailnet, open **Services** in the Tailscale console and create
-   `svc:cognee` once.
+   `svc:cognee` and `svc:adhoc` once.
 3. Apply the tracked policy through the GitHub workflow so that
    `tag:cognee-host`, its owner, grants, and the Service auto-approver exist.
 4. Open **Machines**, select the Cognee server, edit its tags, and assign
    `tag:cognee-host`.
 5. Rebuild the host. The `tailscale-services` launchd job advertises
-   `svc:cognee`; policy automatically approves the tagged host.
-6. Confirm `tailscale status --json` reports the tag and `services/cognee`, then
-   test `https://cognee.<tailnet-domain>` from another tailnet device.
+   `svc:cognee` and `svc:adhoc`; policy automatically approves the tagged host.
+6. Confirm `tailscale status --json` reports the tag, `services/cognee`, and
+   `services/adhoc`; then test both HTTPS origins from another tailnet device.
 
 For a replacement host in the same tailnet, the Service and policy already
 exist; repeat steps 1, 4, 5, and 6.
@@ -176,6 +187,7 @@ new configuration path:
 | Machine login and node keys | Each device + Tailscale | Menu-bar sign-in and **Machines** |
 | `tag:cognee-host` assignment | Tailscale machine record | **Machines > Edit tags** |
 | `svc:cognee` identity | Tailscale | Admin console **Services** |
+| `svc:adhoc` identity | Tailscale | Admin console **Services** |
 | GitHub OIDC trust credential | Tailscale | **Settings > Trust credentials** |
 | Enrollment values | GitHub Actions secrets | `gh secret list --repo popemkt/mac-backup` |
 | Policy, tag owner, grants, SSH, auto-approver | This repository | `configs/tailscale/policy.hujson` |
