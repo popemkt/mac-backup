@@ -12,7 +12,7 @@ fetch.url = "https://downloads.cursor.com/lab/$ver/darwin/arm64/agent-cli-packag
 passthru = { versionUrl = "https://cursor.com/install", versionRegex = "downloads.cursor.com/lab/([^/]+)/" }
 
 [logseq-nightly]
-src.webpage = "https://api.github.com/repos/logseq/logseq/releases/tags/nightly"
-src.regex = 'name[^:]*:[^L]*Logseq-darwin-arm64-([0-9A-Za-z.+-]+)[.]zip.,'
+src.webpage = "https://github.com/logseq/logseq/releases/expanded_assets/nightly"
+src.regex = 'Logseq-darwin-arm64-([0-9A-Za-z.+-]+nightly[.][0-9]+)[.]zip'
 fetch.url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-$ver.zip"
-passthru = { versionUrl = "https://api.github.com/repos/logseq/logseq/releases/tags/nightly", versionRegex = 'name[^:]*:[^L]*Logseq-darwin-arm64-([0-9A-Za-z.+-]+)[.]zip.,' }
+passthru = { versionUrl = "https://github.com/logseq/logseq/releases/expanded_assets/nightly", versionRegex = 'Logseq-darwin-arm64-([0-9A-Za-z.+-]+nightly[.][0-9]+)[.]zip' }

@@ -41,8 +41,8 @@
         "extract": null,
         "name": "logseq-nightly",
         "passthru": {
-            "versionRegex": "name[^:]*:[^L]*Logseq-darwin-arm64-([0-9A-Za-z.+-]+)[.]zip.,",
-            "versionUrl": "https://api.github.com/repos/logseq/logseq/releases/tags/nightly"
+            "versionRegex": "Logseq-darwin-arm64-([0-9A-Za-z.+-]+nightly[.][0-9]+)[.]zip",
+            "versionUrl": "https://github.com/logseq/logseq/releases/expanded_assets/nightly"
         },
         "pinned": false,
         "src": {

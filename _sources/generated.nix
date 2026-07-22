@@ -33,7 +33,7 @@
       url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260716.zip";
       sha256 = "sha256-bLWxKckRglrM9XD34ArnLNWFRjyO7iLPAO3aFGfTzJI=";
     };
-    versionUrl = "https://api.github.com/repos/logseq/logseq/releases/tags/nightly";
-    versionRegex = "name[^:]*:[^L]*Logseq-darwin-arm64-([0-9A-Za-z.+-]+)[.]zip.,";
+    versionUrl = "https://github.com/logseq/logseq/releases/expanded_assets/nightly";
+    versionRegex = "Logseq-darwin-arm64-([0-9A-Za-z.+-]+nightly[.][0-9]+)[.]zip";
   };
 }
