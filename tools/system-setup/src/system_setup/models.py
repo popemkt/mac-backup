@@ -19,6 +19,8 @@ class CommandCheck(StrictModel):
     argv: list[str]
     timeout_seconds: float = 30
     success_detail: str
+    stdout_contains: list[str] = Field(default_factory=list)
+    report_stdout: bool = True
 
 
 class FileCheck(StrictModel):

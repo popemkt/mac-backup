@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from system_setup.checks import CheckFailed, evaluate, run_check
-from system_setup.models import Manifest, TailscaleServiceCheck
+from system_setup.models import CommandCheck, Manifest, TailscaleServiceCheck
 from system_setup.native import NativeResult
 
 
@@ -98,6 +98,48 @@ def test_evaluate_distinguishes_ready_missing_and_blocked(tmp_path: Path) -> Non
     existing.write_text("configured", encoding="utf-8")
     results = evaluate(make_manifest(existing, tmp_path / "missing"))
     assert [result.state for result in results] == ["ready", "action-needed", "blocked"]
+
+
+def test_command_check_can_validate_without_reporting_stdout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    check = CommandCheck(
+        kind="command",
+        argv=["provider-cli", "status"],
+        success_detail="Provider CLI is authenticated",
+        stdout_contains=["authenticated"],
+        report_stdout=False,
+    )
+    monkeypatch.setattr(
+        "system_setup.checks.run_native",
+        lambda *_args, **_kwargs: NativeResult(
+            returncode=0,
+            stdout="status: authenticated\naccount: configured",
+            stderr="",
+        ),
+    )
+
+    assert run_check(check) == "Provider CLI is authenticated"
+
+
+def test_command_check_rejects_missing_expected_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    check = CommandCheck(
+        kind="command",
+        argv=["provider-cli", "status"],
+        success_detail="Provider CLI is authenticated",
+        stdout_contains=["authenticated"],
+        report_stdout=False,
+    )
+    monkeypatch.setattr(
+        "system_setup.checks.run_native",
+        lambda *_args, **_kwargs: NativeResult(
+            returncode=0,
+            stdout="Authentication required",
+            stderr="",
+        ),
+    )
+    with pytest.raises(CheckFailed, match="command output is missing: authenticated"):
+        run_check(check)
 
 
 def test_tailscale_service_requires_tailnet_definition(monkeypatch: pytest.MonkeyPatch) -> None:

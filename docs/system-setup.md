@@ -8,6 +8,20 @@ Nix still owns the application, its Python runtime, and the per-host manifest.
 Only authorization ceremonies and the mutable state they produce remain
 outside the Nix store.
 
+The manifest is a dependency graph compiled by Nix and traversed by Python.
+For example, Cognee generation depends on CLIProxyAPI's own provider
+authentication:
+
+```text
+CLIProxyAPI Antigravity OAuth -> local OpenAI-compatible API -> Cognee backend
+```
+
+Nix declares these nodes, their edges, immutable commands, and expected state
+paths. Python checks the live results and blocks downstream nodes until their
+prerequisites are ready. Provider tokens never enter the Nix store or manifest.
+The standalone `agy` CLI has separate OAuth state and is not a Cognee
+prerequisite.
+
 ## Ownership Boundary
 
 | Concern | Owner |

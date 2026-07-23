@@ -46,7 +46,13 @@ def _nested_value(value: Any, path: str) -> Any:
 
 def _check_command(check: CommandCheck) -> str:
     result = run_native(check.argv, timeout_seconds=check.timeout_seconds)
-    return result.stdout.strip() or check.success_detail
+    stdout = result.stdout.strip()
+    missing = [value for value in check.stdout_contains if value not in stdout]
+    if missing:
+        raise CheckFailed(f"command output is missing: {', '.join(missing)}")
+    if check.report_stdout and stdout:
+        return stdout
+    return check.success_detail
 
 
 def _check_file(check: FileCheck) -> str:
