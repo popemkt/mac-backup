@@ -32,7 +32,11 @@ in
 if includeDev then
   environment
 else
-  runCommand "dotfiles-system-setup-0.1.0" { } ''
-    mkdir -p "$out/bin"
-    ln -s ${environment}/bin/system-setup "$out/bin/system-setup"
-  ''
+  runCommand "dotfiles-system-setup-0.1.0"
+    {
+      meta.mainProgram = "system-setup";
+    }
+    ''
+      mkdir -p "$out/bin"
+      ln -s ${environment}/bin/system-setup "$out/bin/system-setup"
+    ''

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -32,6 +33,28 @@ def _load() -> Manifest:
     except ManifestError as error:
         error_console.print(f"[red]error:[/red] {error}")
         raise typer.Exit(code=1) from error
+
+
+@app.command(name="validate-manifest")
+def validate_manifest(
+    manifest_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--manifest",
+            help="Manifest path; defaults to SYSTEM_SETUP_MANIFEST or /etc.",
+        ),
+    ] = None,
+) -> None:
+    """Validate the generated schema and dependency graph without live checks."""
+    try:
+        manifest = load_manifest(manifest_path)
+    except ManifestError as error:
+        error_console.print(f"[red]error:[/red] {error}")
+        raise typer.Exit(code=1) from error
+    console.print(
+        f"[green]Valid manifest[/green] for {manifest.host.name}: "
+        f"{len(manifest.components)} components, {len(manifest.integrations)} integrations."
+    )
 
 
 def _required_incomplete(results: list[CheckResult]) -> bool:
@@ -67,7 +90,7 @@ def status(
         typer.echo(
             json.dumps(
                 {
-                    "schema_version": 1,
+                    "schema_version": manifest.schema_version,
                     "host": manifest.host.model_dump(),
                     "ready": not _required_incomplete(results),
                     "results": [result.model_dump() for result in results],

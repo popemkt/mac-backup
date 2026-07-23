@@ -66,13 +66,27 @@
             nativeBuildInputs = [ localPackages.system-setup-dev ];
           }
           ''
-            cp -R ${./tools/system-setup} source
-            chmod -R u+w source
-            cd source
-            ruff check .
-            ruff format --check .
-            pyrefly check src tests
-            pytest
+              cp -R ${./tools/system-setup} source
+              chmod -R u+w source
+              cd source
+              ruff check .
+              ruff format --check .
+              pyrefly check src tests
+              pytest
+            touch "$out"
+          '';
+
+      systemSetupManifestCheck =
+        hostname:
+        let
+          manifest = self.darwinConfigurations.${hostname}.config.my.systemSetup.manifest;
+        in
+        pkgs.runCommand "system-setup-manifest-${hostname}"
+          {
+            nativeBuildInputs = [ localPackages.system-setup ];
+          }
+          ''
+            system-setup validate-manifest --manifest ${manifest}
             touch "$out"
           '';
 
@@ -151,6 +165,8 @@
 
       checks.${system} = localPackages // {
         inherit systemSetupCheck;
+        system-setup-manifest-personal = systemSetupManifestCheck "popemkt-personal";
+        system-setup-manifest-work = systemSetupManifestCheck "popemkt-work";
         darwin-personal = self.darwinConfigurations.popemkt-personal.system;
         darwin-work = self.darwinConfigurations.popemkt-work.system;
       };

@@ -14,6 +14,18 @@ class Host(StrictModel):
     role: Literal["personal", "work"]
 
 
+class Component(StrictModel):
+    id: str
+    name: str
+    description: str
+    managed_by: Literal["nix", "external", "hybrid"]
+
+
+class Connection(StrictModel):
+    source: str
+    target: str
+
+
 class CommandCheck(StrictModel):
     kind: Literal["command"]
     argv: list[str]
@@ -89,6 +101,7 @@ class Integration(StrictModel):
     required: bool = True
     required_by: list[str] = Field(default_factory=list)
     depends_on: list[str] = Field(default_factory=list)
+    connection: Connection | None = None
     check: CheckSpec
     enrollment: Enrollment
     state_paths: list[str] = Field(default_factory=list)
@@ -97,12 +110,32 @@ class Integration(StrictModel):
 
 
 class Manifest(StrictModel):
-    schema_version: Literal[1]
+    schema_version: Literal[2]
     host: Host
+    components: list[Component]
     integrations: list[Integration]
 
     @model_validator(mode="after")
     def validate_graph(self) -> Manifest:
+        component_ids = [component.id for component in self.components]
+        if len(component_ids) != len(set(component_ids)):
+            raise ValueError("component IDs must be unique")
+
+        known_components = set(component_ids)
+        for integration in self.integrations:
+            if integration.connection is None:
+                continue
+            endpoints = {
+                integration.connection.source,
+                integration.connection.target,
+            }
+            missing_components = endpoints - known_components
+            if missing_components:
+                names = ", ".join(sorted(missing_components))
+                raise ValueError(f"{integration.id} has unknown connection components: {names}")
+            if integration.connection.source == integration.connection.target:
+                raise ValueError(f"{integration.id} connection endpoints must be distinct")
+
         identifiers = [integration.id for integration in self.integrations]
         if len(identifiers) != len(set(identifiers)):
             raise ValueError("integration IDs must be unique")

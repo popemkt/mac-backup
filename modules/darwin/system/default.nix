@@ -12,7 +12,7 @@ in
     ./external-workspace.nix
     ./homebrew.nix
     ./input-sources.nix
-    ./system-setup.nix
+    ./system-setup
   ];
 
   # Keep the OS hostname in sync with the flake attribute name so

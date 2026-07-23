@@ -343,6 +343,32 @@ let
       http://127.0.0.1:${toString gatewayPort}/health/detailed
   '';
 
+  agentStatus = pkgs.writeShellScriptBin "cognee-agent-status" ''
+    set -euo pipefail
+
+    if [[ ! -s "${integrationKeyFile}" ]]; then
+      printf 'Agent API key: missing (run cognee-agent-setup)\n' >&2
+      exit 1
+    fi
+
+    key="$(<"${integrationKeyFile}")"
+    ${pkgs.curl}/bin/curl -fsS --max-time 20 \
+      -H "X-Api-Key: $key" \
+      "http://127.0.0.1:${toString apiPort}/api/v1/users/me" >/dev/null
+    unset key
+    printf 'Agent API key: valid\n'
+
+    if /bin/launchctl print \
+      "gui/$(${pkgs.coreutils}/bin/id -u)/org.nixos.cognee-mcp" \
+      2>/dev/null | ${pkgs.gnugrep}/bin/grep -q 'state = running'
+    then
+      printf 'Local MCP bridge: running\n'
+    else
+      printf 'Local MCP bridge: not ready; run cognee-agent-setup\n' >&2
+      exit 1
+    fi
+  '';
+
   agentSetup = pkgs.writeShellScriptBin "cognee-agent-setup" ''
     set -euo pipefail
     umask 077
@@ -560,6 +586,7 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
     {
       home.packages = [
         agentSetup
+        agentStatus
         credentials
         status
       ];
