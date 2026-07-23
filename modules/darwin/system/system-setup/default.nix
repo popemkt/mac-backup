@@ -203,8 +203,8 @@ in
 
 {
   imports = [
-    ./ai.nix
-    ./vpn.nix
+    ../../../stacks/ai-agents/system-setup.nix
+    ../../../stacks/vpn/system-setup.nix
   ];
 
   options.my.systemSetup = {

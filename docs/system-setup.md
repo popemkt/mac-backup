@@ -34,7 +34,8 @@ a Cognee prerequisite.
 | Python 3.13 runtime and application package | Nix + `uv2nix` |
 | Exact Python dependency graph | `tools/system-setup/uv.lock` |
 | Integration schema and manifest renderer | `modules/darwin/system/system-setup/default.nix` |
-| AI and VPN connective tissue | `modules/darwin/system/system-setup/{ai,vpn}.nix` |
+| AI connective tissue | `modules/stacks/ai-agents/system-setup.nix` |
+| VPN connective tissue | `modules/stacks/vpn/system-setup.nix` |
 | Generated host manifest | `/etc/system-setup/integrations.json` |
 | OAuth tokens, API keys, device keys | Provider-owned mutable state |
 | Tailscale Service creation and host approval | Tailscale control plane |
@@ -107,8 +108,8 @@ and recovery procedure. Use that metadata with `docs/backup-strategy.md`:
 
 ## Adding an Integration
 
-1. Add or reuse components in the dedicated integration file for the relevant
-   domain, currently `modules/darwin/system/system-setup/{ai,vpn}.nix`.
+1. Add or reuse components in a `system-setup.nix` companion beside the stack
+   that owns their configuration.
 2. Add the integration under an attribute key; that key is its stable ID.
 3. For a connection, declare `connection.source` and `connection.target`.
    Declare prerequisite integration IDs in `dependsOn`.
