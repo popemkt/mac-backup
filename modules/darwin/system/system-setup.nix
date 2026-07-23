@@ -39,7 +39,7 @@ let
   tailscaleServices = mapAttrsToList (name: service: {
     id = "tailscale-service-${name}";
     name = "Tailscale service: svc:${name}";
-    description = "Approve and advertise the stable ${name} Tailnet Service endpoint.";
+    description = "Define and advertise the stable ${name} Tailnet Service endpoint.";
     required = service.advertised;
     required_by = [ "https://${name}.${vpnCfg.tailnetDomain}" ];
     depends_on = [ "tailscale-device" ];
@@ -51,14 +51,14 @@ let
     enrollment = {
       kind = "manual";
       instructions = ''
-        Create svc:${name} if it does not exist, then approve ${hostname} as a host for it.
-        The tracked Tailscale policy owns its grant and auto-approver after first creation.
+        Create svc:${name} once in the Tailscale Services console if it does not exist.
+        Then reapply the tracked policy; its auto-approver attaches tagged host ${hostname}.
       '';
-      url = "https://login.tailscale.com/admin/services";
+      url = "https://console.tailscale.com/admin/services";
     };
     state_paths = [ ];
     secret_policy = "The Service identity and host approval remain Tailscale control-plane state.";
-    recovery = "Recreate svc:${name}, reapply the tracked policy, rebuild, and approve this host.";
+    recovery = "Recreate svc:${name}, reapply the tracked policy, and rebuild this host.";
   }) vpnCfg.services;
 
   cliProxyAntigravity = {
