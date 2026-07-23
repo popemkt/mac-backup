@@ -14,7 +14,7 @@ from system_setup.native import NativeResult
 def make_manifest(existing: Path, missing: Path) -> Manifest:
     return Manifest.model_validate(
         {
-            "schema_version": 2,
+            "schema_version": 3,
             "host": {"name": "test", "role": "personal"},
             "components": [],
             "integrations": [

@@ -38,10 +38,12 @@ in
           description = "Prove CLIProxyAPI can expose the Gemini model used by Cognee.";
           required = cogneeServer;
           requiredBy = if cogneeServer then [ "Cognee generation" ] else [ "Claudex (optional)" ];
-          connection = {
-            source = "cli-proxy-api";
-            target = "antigravity";
-          };
+          connections = [
+            {
+              source = "cli-proxy-api";
+              target = "antigravity";
+            }
+          ];
           check = {
             kind = "openai_models";
             url = "http://127.0.0.1:8317/v1/models";
@@ -82,6 +84,12 @@ in
             managedBy = "hybrid";
           };
 
+          ollama = {
+            name = "Ollama";
+            description = "Local embedding model runtime used by Cognee.";
+            managedBy = "hybrid";
+          };
+
           "agent-clients" = {
             name = "Agent clients";
             description = "Codex, Claude Code, Cursor, OMP, and Hermes memory consumers.";
@@ -98,10 +106,16 @@ in
               "tailscale-service-cognee"
               "cli-proxy-antigravity"
             ];
-            connection = {
-              source = "cognee";
-              target = "cli-proxy-api";
-            };
+            connections = [
+              {
+                source = "cognee";
+                target = "cli-proxy-api";
+              }
+              {
+                source = "cognee";
+                target = "ollama";
+              }
+            ];
             check = {
               kind = "http_json";
               url = "http://127.0.0.1:8088/health/detailed";
@@ -134,10 +148,12 @@ in
             description = "Prove the shared agent API key and local MCP bridge can reach Cognee.";
             requiredBy = [ "Codex, Claude Code, Cursor, OMP, and Hermes memory" ];
             dependsOn = [ "cognee-server" ];
-            connection = {
-              source = "agent-clients";
-              target = "cognee";
-            };
+            connections = [
+              {
+                source = "agent-clients";
+                target = "cognee";
+              }
+            ];
             check = {
               kind = "command";
               argv = [ "cognee-agent-status" ];
@@ -177,10 +193,12 @@ in
           description = "Prove the central service, per-machine key, and local MCP bridge work together.";
           requiredBy = [ "Remote agent memory" ];
           dependsOn = [ "tailscale-device" ];
-          connection = {
-            source = "agent-clients";
-            target = "cognee";
-          };
+          connections = [
+            {
+              source = "agent-clients";
+              target = "cognee";
+            }
+          ];
           check = {
             kind = "command";
             argv = [ "cognee-client-status" ];

@@ -14,6 +14,7 @@ or source-to-target connections, and checks provide live evidence. For example:
 
 ```text
 Cognee --generation request--> CLIProxyAPI --OAuth--> Antigravity
+Cognee --embedding request----> Ollama
 ```
 
 The connection declaration alone does not claim reachability. Its check must
@@ -111,8 +112,9 @@ and recovery procedure. Use that metadata with `docs/backup-strategy.md`:
 1. Add or reuse components in a `system-setup.nix` companion beside the stack
    that owns their configuration.
 2. Add the integration under an attribute key; that key is its stable ID.
-3. For a connection, declare `connection.source` and `connection.target`.
-   Declare prerequisite integration IDs in `dependsOn`.
+3. Declare every concrete source-to-target edge in `connections`; one
+   integration may prove multiple edges. Declare prerequisite integration IDs
+   in `dependsOn`.
 4. Declare the non-secret check, enrollment action, state paths, secret policy,
    and recovery text. A connection check must exercise the relationship rather
    than merely confirm that both endpoints exist.

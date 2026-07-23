@@ -18,7 +18,7 @@ def component(identifier: str) -> dict[str, object]:
 def integration(
     identifier: str,
     depends_on: list[str] | None = None,
-    connection: tuple[str, str] | None = None,
+    connections: list[tuple[str, str]] | None = None,
 ) -> dict[str, object]:
     value: dict[str, object] = {
         "id": identifier,
@@ -34,8 +34,10 @@ def integration(
         "secret_policy": "none",
         "recovery": "retry",
     }
-    if connection is not None:
-        value["connection"] = {"source": connection[0], "target": connection[1]}
+    if connections is not None:
+        value["connections"] = [
+            {"source": source, "target": target} for source, target in connections
+        ]
     return value
 
 
@@ -44,7 +46,7 @@ def manifest(
     components: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "host": {"name": "test", "role": "personal"},
         "components": components or [],
         "integrations": list(integrations),
@@ -61,13 +63,12 @@ def test_manifest_accepts_valid_dependency_graph() -> None:
 def test_manifest_accepts_connection_with_known_components() -> None:
     parsed = Manifest.model_validate(
         manifest(
-            integration("generation", connection=("cognee", "proxy")),
+            integration("generation", connections=[("cognee", "proxy")]),
             components=[component("cognee"), component("proxy")],
         )
     )
 
-    assert parsed.integrations[0].connection is not None
-    assert parsed.integrations[0].connection.target == "proxy"
+    assert parsed.integrations[0].connections[0].target == "proxy"
 
 
 @pytest.mark.parametrize(
@@ -90,11 +91,20 @@ def test_manifest_rejects_invalid_graph(items: tuple[dict[str, object], ...]) ->
         ([component("same"), component("same")], ()),
         (
             [component("cognee")],
-            (integration("generation", connection=("cognee", "missing")),),
+            (integration("generation", connections=[("cognee", "missing")]),),
         ),
         (
             [component("cognee")],
-            (integration("generation", connection=("cognee", "cognee")),),
+            (integration("generation", connections=[("cognee", "cognee")]),),
+        ),
+        (
+            [component("cognee"), component("proxy")],
+            (
+                integration(
+                    "generation",
+                    connections=[("cognee", "proxy"), ("cognee", "proxy")],
+                ),
+            ),
         ),
     ],
 )

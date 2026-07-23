@@ -101,7 +101,7 @@ class Integration(StrictModel):
     required: bool = True
     required_by: list[str] = Field(default_factory=list)
     depends_on: list[str] = Field(default_factory=list)
-    connection: Connection | None = None
+    connections: list[Connection] = Field(default_factory=list)
     check: CheckSpec
     enrollment: Enrollment
     state_paths: list[str] = Field(default_factory=list)
@@ -110,7 +110,7 @@ class Integration(StrictModel):
 
 
 class Manifest(StrictModel):
-    schema_version: Literal[2]
+    schema_version: Literal[3]
     host: Host
     components: list[Component]
     integrations: list[Integration]
@@ -123,18 +123,18 @@ class Manifest(StrictModel):
 
         known_components = set(component_ids)
         for integration in self.integrations:
-            if integration.connection is None:
-                continue
-            endpoints = {
-                integration.connection.source,
-                integration.connection.target,
-            }
-            missing_components = endpoints - known_components
-            if missing_components:
-                names = ", ".join(sorted(missing_components))
-                raise ValueError(f"{integration.id} has unknown connection components: {names}")
-            if integration.connection.source == integration.connection.target:
-                raise ValueError(f"{integration.id} connection endpoints must be distinct")
+            pairs: list[tuple[str, str]] = []
+            for connection in integration.connections:
+                endpoints = {connection.source, connection.target}
+                missing_components = endpoints - known_components
+                if missing_components:
+                    names = ", ".join(sorted(missing_components))
+                    raise ValueError(f"{integration.id} has unknown connection components: {names}")
+                if connection.source == connection.target:
+                    raise ValueError(f"{integration.id} connection endpoints must be distinct")
+                pairs.append((connection.source, connection.target))
+            if len(pairs) != len(set(pairs)):
+                raise ValueError(f"{integration.id} has duplicate connections")
 
         identifiers = [integration.id for integration in self.integrations]
         if len(identifiers) != len(set(identifiers)):

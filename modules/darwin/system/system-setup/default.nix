@@ -79,10 +79,10 @@ let
         default = [ ];
       };
 
-      connection = mkOption {
-        type = types.nullOr connectionType;
-        default = null;
-        description = "Optional source-to-target relationship this check proves.";
+      connections = mkOption {
+        type = types.listOf connectionType;
+        default = [ ];
+        description = "Concrete source-to-target relationships this check proves.";
       };
 
       check = mkOption {
@@ -127,26 +127,16 @@ let
 
   connectionComponentIds = concatMap (
     id:
-    let
-      connection = integrations.${id}.connection;
-    in
-    if connection == null then
-      [ ]
-    else
-      [
-        connection.source
-        connection.target
-      ]
+    concatMap (connection: [
+      connection.source
+      connection.target
+    ]) integrations.${id}.connections
   ) integrationIds;
 
   unknownConnectionComponents = filter (id: !builtins.hasAttr id components) connectionComponentIds;
 
   selfConnections = filter (
-    id:
-    let
-      connection = integrations.${id}.connection;
-    in
-    connection != null && connection.source == connection.target
+    id: builtins.any (connection: connection.source == connection.target) integrations.${id}.connections
   ) integrationIds;
 
   serializedComponents = mapAttrsToList (id: component: {
@@ -167,20 +157,16 @@ let
       ;
     required_by = integration.requiredBy;
     depends_on = integration.dependsOn;
-    connection =
-      if integration.connection == null then
-        null
-      else
-        {
-          inherit (integration.connection) source target;
-        };
+    connections = map (connection: {
+      inherit (connection) source target;
+    }) integration.connections;
     state_paths = integration.statePaths;
     secret_policy = integration.secretPolicy;
   }) integrations;
 
   rawManifest = pkgs.writeText "system-setup-integrations.json" (
     builtins.toJSON {
-      schema_version = 2;
+      schema_version = 3;
       host = {
         name = hostname;
         inherit role;

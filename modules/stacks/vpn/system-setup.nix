@@ -26,10 +26,12 @@ let
       required = service.advertised;
       requiredBy = [ "https://${name}.${cfg.tailnetDomain}" ];
       dependsOn = [ "tailscale-device" ];
-      connection = {
-        source = "tailscale-control-plane";
-        target = "tailscale-service-${name}";
-      };
+      connections = [
+        {
+          source = "tailscale-control-plane";
+          target = "tailscale-service-${name}";
+        }
+      ];
       check = {
         kind = "tailscale_service";
         service = "svc:${name}";
@@ -67,10 +69,12 @@ in
           name = "Tailscale device identity";
           description = "Enroll this Mac in the configured tailnet.";
           requiredBy = [ "Private service connectivity" ];
-          connection = {
-            source = "local-host";
-            target = "tailscale-control-plane";
-          };
+          connections = [
+            {
+              source = "local-host";
+              target = "tailscale-control-plane";
+            }
+          ];
           check.kind = "tailscale_device";
           enrollment = {
             kind = "command";
