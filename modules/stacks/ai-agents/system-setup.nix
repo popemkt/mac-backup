@@ -26,39 +26,39 @@ in
             managedBy = "hybrid";
           };
 
-          antigravity = {
-            name = "Antigravity";
-            description = "Externally authenticated Gemini model provider.";
+          codex = {
+            name = "Codex";
+            description = "Externally authenticated OpenAI model provider.";
             managedBy = "external";
           };
         };
 
-        integrations."cli-proxy-antigravity" = {
-          name = "CLIProxyAPI Antigravity OAuth";
-          description = "Prove CLIProxyAPI can expose the Gemini model used by Cognee.";
-          required = cogneeServer;
-          requiredBy = if cogneeServer then [ "Cognee generation" ] else [ "Claudex (optional)" ];
+        integrations."cli-proxy-codex" = {
+          name = "CLIProxyAPI Codex OAuth";
+          description = "Prove CLIProxyAPI can expose the GPT model Claudex runs against.";
+          required = false;
+          requiredBy = [ "Claudex (optional)" ];
           connections = [
             {
               source = "cli-proxy-api";
-              target = "antigravity";
+              target = "codex";
             }
           ];
           check = {
             kind = "openai_models";
             url = "http://127.0.0.1:8317/v1/models";
-            expected_models = [ "gemini-3.5-flash-low" ];
+            expected_models = [ "gpt-5.6-sol" ];
           };
           enrollment = {
             kind = "command";
             instructions = ''
-              Authenticate Antigravity inside CLIProxyAPI. This is separate from the agy CLI login.
+              Authenticate Codex inside CLIProxyAPI. This is separate from the codex CLI login.
             '';
             argv = [
               "${pkgs.cli-proxy-api}/bin/cli-proxy-api"
               "-config"
               "${home}/.config/cli-proxy-api/config.yaml"
-              "-antigravity-login"
+              "-codex-login"
             ];
           };
           statePaths = [ "${home}/.local/share/cli-proxy-api" ];
@@ -78,6 +78,12 @@ in
 
       my.systemSetup = {
         components = {
+          antigravity = {
+            name = "Antigravity";
+            description = "Externally authenticated Gemini model provider.";
+            managedBy = "external";
+          };
+
           cognee = {
             name = "Cognee";
             description = "Locally supervised knowledge API, data stores, and MCP bridge.";
@@ -98,6 +104,38 @@ in
         };
 
         integrations = {
+          "cli-proxy-antigravity" = {
+            name = "CLIProxyAPI Antigravity OAuth";
+            description = "Prove CLIProxyAPI can expose the Gemini model used by Cognee.";
+            requiredBy = [ "Cognee generation" ];
+            connections = [
+              {
+                source = "cli-proxy-api";
+                target = "antigravity";
+              }
+            ];
+            check = {
+              kind = "openai_models";
+              url = "http://127.0.0.1:8317/v1/models";
+              expected_models = [ "gemini-3.5-flash-low" ];
+            };
+            enrollment = {
+              kind = "command";
+              instructions = ''
+                Authenticate Antigravity inside CLIProxyAPI. This is separate from the agy CLI login.
+              '';
+              argv = [
+                "${pkgs.cli-proxy-api}/bin/cli-proxy-api"
+                "-config"
+                "${home}/.config/cli-proxy-api/config.yaml"
+                "-antigravity-login"
+              ];
+            };
+            statePaths = [ "${home}/.local/share/cli-proxy-api" ];
+            secretPolicy = "OAuth refresh state is mutable secret material and must not enter Git.";
+            recovery = "Run this enrollment again or restore the auth directory from an encrypted backup.";
+          };
+
           "cognee-server" = {
             name = "Cognee backend and generation path";
             description = "Prove Cognee data stores, embeddings, and Cognee-to-CLIProxyAPI generation.";
