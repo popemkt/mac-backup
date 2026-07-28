@@ -91,6 +91,31 @@ The repo has two axes, and every module belongs to exactly one of them.
   decide membership; executors never do. Adding software means adding to a
   channel from the owning stack, never editing an executor.
 
+### Writing an executor
+
+Activation runs with a minimal environment. It inherits no interactive PATH,
+so an executor that shells out to a package manager must supply that tool's
+environment itself. Three rules, each learned from a real breakage:
+
+- **Invoke the tool by absolute path.** `${pkgs.nodejs}/bin/npm`,
+  `/opt/homebrew/bin/brew`, `/opt/homebrew/bin/bun`. Where the tool is owned by
+  Homebrew or npm and has no store path, declare the runtime it needs with
+  `lib.makeBinPath` rather than assuming PATH — an npm-installed CLI is
+  usually `#!/usr/bin/env node` and dies without one.
+- **Never read a failed probe as an empty result.** Capture the listing and
+  check the exit status. `cmd list | grep -q x` treats "command crashed" and
+  "nothing installed" identically, which makes an executor reinstall things
+  that already exist.
+- **Converge best effort.** Homebrew, npm, and Bun install their CLIs during
+  the same rebuild, so on a fresh machine a downstream executor may legitimately
+  find nothing to run. Warn and continue; never abort activation over an
+  optional package.
+
+Failing soft is only safe because the drift audit closes the loop: whatever
+did not converge shows up under "Tracked But Missing" in
+`scripts/audit-system-discrepancies.sh`, which `rebuild` runs. Prefer that pair
+over trying to make activation itself infallible.
+
 Group by behavior and ownership boundary, not by app count.
 
 - One-line installs stay in the relevant package list.

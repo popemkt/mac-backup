@@ -28,12 +28,16 @@ let
 
   quoted = xs: lib.concatStringsSep " " (map lib.escapeShellArg (lib.unique xs));
 
+  # Runtimes these CLIs need at activation time. Unlike the other executors we
+  # cannot invoke the tools by absolute store path — Homebrew and npm own them
+  # — so the dependency is declared here instead of assumed from PATH. codex is
+  # `#!/usr/bin/env node`, and activation inherits no interactive PATH.
+  runtimes = lib.makeBinPath [ pkgs.nodejs ];
+
   # Shared prelude: the agent CLIs come from Homebrew and npm, not Nix, so
   # every entry point resolves them from PATH and degrades to a warning.
-  # nodejs is required because the npm-installed `codex` is `#!/usr/bin/env
-  # node`, and activation does not inherit an interactive PATH.
   prelude = ''
-    export PATH="${pkgs.nodejs}/bin:/opt/homebrew/bin:${home}/.local/bin:$PATH"
+    export PATH="${runtimes}:/opt/homebrew/bin:${home}/.local/bin:$PATH"
     export CODEX_HOME=${lib.escapeShellArg codexHome}
 
     split_name() { printf '%s' "''${1%%=*}"; }
