@@ -45,6 +45,7 @@ rtk nix run .#github-sources -- check
 rtk nix run .#github-sources -- verify
 rtk nix run .#github-sources -- update
 rtk ./scripts/uv-sources check
+rtk ./scripts/uv-sources update
 rtk mackup backup
 rtk mackup restore
 ```
@@ -67,7 +68,8 @@ GitHub release pins.
 | Add macOS-only Home Manager config | `modules/darwin/home-manager/default.nix` |
 | Change Git config | `modules/common/home-manager/git.nix` |
 | Add an npm global | `modules/common/home-manager/npm-global.nix` |
-| Add or bump a uv tool | the owning module's `uvTools`, contributed to `my.pkgs.uvTools` |
+| Add a uv tool | the owning module's `uvTools`, plus an entry in `_sources/uv-pins.json` |
+| Hold a uv tool at a version | set `track = "manual"` on its `_sources/uv-pins.json` entry |
 | Add a Bun global | `modules/darwin/home-manager/bun-global.nix` |
 | Add a Claude Code or Codex plugin | the owning stack's `my.pkgs.{claude,codex}{Marketplaces,Plugins}` lists |
 | Add host-only config | `hosts/<hostname>/default.nix` |

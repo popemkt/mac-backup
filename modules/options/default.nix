@@ -6,5 +6,6 @@ _:
   imports = [
     ./my.nix
     ./pkgs.nix
+    ./uv-pins.nix
   ];
 }

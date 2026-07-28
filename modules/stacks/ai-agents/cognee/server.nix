@@ -11,8 +11,8 @@ let
   inherit (config.my) username;
 
   home = "/Users/${username}";
-  version = "1.4.0";
-  mcpVersion = "0.5.4";
+  version = config.my.uvPins."cognee".version;
+  mcpVersion = config.my.uvPins."cognee-mcp".version;
   apiPort = 8000;
   mcpPort = 8001;
   uiPort = 3000;

@@ -8,7 +8,7 @@
 let
   inherit (config.my) username;
   headroomPort = "8787";
-  headroomVersion = "0.32.1";
+  headroomVersion = config.my.uvPins."headroom-ai".version;
   headroomPython = "/Users/${username}/.local/share/uv/tools/headroom-ai/bin/python";
 
   # Declarative uv tool installs owned by the Headroom service boundary.

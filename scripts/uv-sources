@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 #
-# Report uv tool pins that have a newer release on PyPI.
+# Manage uv tool version pins in _sources/uv-pins.json.
 #
-# uv tools are pinned deliberately (Cognee's graph stores are version-coupled),
-# so this only ever reports. Bumping a pin stays a reviewed edit in the module
-# that owns it, followed by a rebuild — the activation hooks reinstall on a
-# version mismatch.
+# Mirrors scripts/github-sources: `update` rewrites pins into the working tree
+# for review, `check` reports without writing. Nothing is applied until
+# apply-system-update rebuilds, so an automatic bump is still a reviewed change.
 #
-# Exit codes mirror scripts/github-sources so update-system can treat them the
-# same way: 0 current, 10 updates available, 1 could not run.
+# A pin with track="manual" is reported but never rewritten. Use that to hold a
+# version deliberately — Cognee's stores are coupled to its release, so a major
+# bump there wants a human decision.
+#
+# Exit codes match github-sources: 0 nothing to do, 10 updates available
+# (check only), 1 could not run.
 
 set -euo pipefail
 
@@ -21,17 +24,17 @@ else
   fi
 fi
 
-UV_SOURCES_HOST="${UV_SOURCES_HOST:-$(hostname -s)}"
+PINS="$ROOT_DIR/_sources/uv-pins.json"
 
 usage() {
   cat <<'EOF'
-Usage: uv-sources check [--best-effort] [--host HOST]
+Usage: uv-sources <check|update> [--best-effort]
 
-  check   Compare my.pkgs.uvTools pins against the latest PyPI releases.
+  check   Report pins that have a newer PyPI release. Writes nothing.
+  update  Rewrite track="latest" pins to the newest PyPI release.
 
 Options:
-  --best-effort  Warn instead of failing when the check cannot run.
-  --host HOST    Flake attribute to read pins from (default: hostname -s).
+  --best-effort  Warn instead of failing when the command cannot run.
 EOF
 }
 
@@ -40,72 +43,96 @@ command=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    check) command="check" ;;
+    check | update) command="$1" ;;
     --best-effort) best_effort=true ;;
-    --host)
-      shift
-      [ $# -gt 0 ] || { usage >&2; exit 1; }
-      UV_SOURCES_HOST="$1"
+    -h | --help)
+      usage
+      exit 0
       ;;
-    -h | --help) usage; exit 0 ;;
-    *) usage >&2; exit 1 ;;
+    *)
+      usage >&2
+      exit 1
+      ;;
   esac
   shift
 done
 
-[ -n "$command" ] || { usage >&2; exit 1; }
-
-fail() {
-  if [ "$best_effort" = true ]; then
-    printf 'warning: %s\n' "$1" >&2
-    exit 0
-  fi
-  printf 'error: %s\n' "$1" >&2
+[ -n "$command" ] || {
+  usage >&2
   exit 1
 }
 
-pins="$(
-  nix eval --raw --no-warn-dirty \
-    "$ROOT_DIR#darwinConfigurations.$UV_SOURCES_HOST.config.my.pkgs.uvTools" \
-    --apply 'xs: builtins.concatStringsSep "\n" xs' 2>/dev/null
-)" || fail "could not evaluate my.pkgs.uvTools for host $UV_SOURCES_HOST"
+if [ ! -f "$PINS" ]; then
+  if [ "$best_effort" = true ]; then
+    printf 'warning: %s is missing\n' "$PINS" >&2
+    exit 0
+  fi
+  printf 'error: %s is missing\n' "$PINS" >&2
+  exit 1
+fi
 
-[ -n "$pins" ] || { echo "No uv tools are pinned."; exit 0; }
+set +e
+UV_PINS_FILE="$PINS" UV_SOURCES_MODE="$command" python3 - <<'PY'
+import json, os, sys, urllib.error, urllib.request
 
-printf '%s\n' "$pins" | python3 -c '
-import json, re, sys, urllib.error, urllib.request
+path = os.environ["UV_PINS_FILE"]
+mode = os.environ["UV_SOURCES_MODE"]
 
-SPEC = re.compile(r"^(?P<name>[A-Za-z0-9._-]+)(?:\[[^\]]*\])?==(?P<version>.+)$")
+with open(path) as fh:
+    pins = json.load(fh)
+
 
 def latest(name):
-    url = f"https://pypi.org/pypi/{name}/json"
-    with urllib.request.urlopen(url, timeout=15) as resp:
+    with urllib.request.urlopen(f"https://pypi.org/pypi/{name}/json", timeout=15) as resp:
         return json.load(resp)["info"]["version"]
 
-outdated, unknown = [], []
-for line in filter(None, (l.strip() for l in sys.stdin)):
-    m = SPEC.match(line)
-    if not m:
-        unknown.append((line, "unpinned or unparseable spec"))
-        continue
-    name, current = m.group("name"), m.group("version")
+
+bumped, held, failed = [], [], []
+for name in sorted(pins):
+    entry = pins[name]
+    current = entry["version"]
     try:
         newest = latest(name)
     except (urllib.error.URLError, OSError, KeyError, ValueError) as exc:
-        unknown.append((name, str(exc)[:80]))
+        failed.append((name, str(exc)[:80]))
         continue
-    if newest != current:
-        outdated.append((name, current, newest))
+    if newest == current:
+        continue
+    if entry.get("track", "latest") != "latest":
+        held.append((name, current, newest))
+        continue
+    bumped.append((name, current, newest))
+    if mode == "update":
+        entry["version"] = newest
 
-for name, current, newest in outdated:
-    print(f"{name}: {current} -> {newest}")
-for name, why in unknown:
+for name, current, newest in bumped:
+    verb = "->" if mode == "update" else "-> available"
+    print(f"{name}: {current} {verb} {newest}")
+for name, current, newest in held:
+    print(f"{name}: {current} -> {newest} (held; track=manual)")
+for name, why in failed:
     print(f"warning: {name}: {why}", file=sys.stderr)
 
-if outdated:
-    print("edit the pin in its owning module, then rebuild")
-    sys.exit(10)
-if unknown:
+if mode == "update" and bumped:
+    with open(path, "w") as fh:
+        json.dump(pins, fh, indent=2, sort_keys=True)
+        fh.write("\n")
+    print("Rewrote uv pins. Review with: git diff -- _sources/uv-pins.json")
+
+if failed:
     sys.exit(1)
-print("uv tool pins are current.")
-'
+if not bumped and not held:
+    print("uv tool pins are current.")
+    sys.exit(0)
+# `update` already applied the change, so only `check` signals work pending.
+sys.exit(10 if mode == "check" and bumped else 0)
+PY
+status=$?
+set -e
+
+if [ "$status" -eq 1 ] && [ "$best_effort" = true ]; then
+  printf 'warning: uv pin check could not complete\n' >&2
+  exit 0
+fi
+
+exit "$status"
