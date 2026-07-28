@@ -47,14 +47,19 @@
 
     # Run Claude Code's harness against GPT-5.6 Sol through the local
     # CLIProxyAPI service without changing normal `claude` sessions.
+    # ANTHROPIC_BASE_URL/AUTH_TOKEN go through --settings, not shell env: a
+    # project .claude/settings(.local).json `env` block outranks the process
+    # environment, so an inline env var here loses to any repo pinning a
+    # different base URL (e.g. a local Headroom proxy). --settings is the
+    # highest-precedence layer and wins from any working directory.
     claudex() {
-      ANTHROPIC_BASE_URL="http://127.0.0.1:8317/v1" \
-      ANTHROPIC_AUTH_TOKEN="freecc" \
       CLAUDE_CODE_SUBAGENT_MODEL="gpt-5.6-sol" \
       CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=1 \
       CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=3 \
       ENABLE_TOOL_SEARCH=false \
-        command claude --model "gpt-5.6-sol" "$@"
+        command claude \
+          --settings '{"env":{"ANTHROPIC_BASE_URL":"http://127.0.0.1:8317","ANTHROPIC_AUTH_TOKEN":"freecc"}}' \
+          --model "gpt-5.6-sol" --effort high "$@"
     }
 
     # CLT-only installs do not expose the macOS SDK automatically. Native
