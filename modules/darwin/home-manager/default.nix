@@ -86,6 +86,10 @@
         nix run .#github-sources -- verify
         nix flake check --no-build
 
+        # uv pins are version-coupled to their service data, so this reports
+        # only; exit 10 means bumps are available, not that the run failed.
+        ./scripts/uv-sources check || [ $? -eq 10 ]
+
         echo "Prepared system updates. Review with:"
         echo "  git -C \"$dotfiles_root\" diff -- flake.lock _sources/"
         echo "Apply when ready with: apply-system-update"

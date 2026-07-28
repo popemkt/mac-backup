@@ -24,6 +24,7 @@ let
       claudePlugins = strList;
       codexMarketplaces = strList;
       codexPlugins = strList;
+      uvTools = strList;
     };
   };
 in

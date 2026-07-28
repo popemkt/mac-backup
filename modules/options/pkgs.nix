@@ -46,5 +46,11 @@ in
     codexPlugins = strList // {
       description = "Codex plugins (plugin@marketplace) contributed by stacks.";
     };
+    # Installation stays with the owning module: each uv tool needs its own
+    # build environment, extras, and --with resolution. This channel exists so
+    # membership and pins are readable in one place for drift and update checks.
+    uvTools = strList // {
+      description = "uv tool specs (name[extras]==version) contributed by stacks.";
+    };
   };
 }

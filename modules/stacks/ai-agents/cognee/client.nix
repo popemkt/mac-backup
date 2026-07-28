@@ -294,6 +294,10 @@ let
   '';
 in
 lib.mkIf (aiCfg.enable && cfg.enable) {
+  # Pins are contributed for drift and update checks; the install stays
+  # below because it needs this role's build environment.
+  my.pkgs = { inherit uvTools; };
+
   assertions = [
     {
       assertion = !cogneeCfg.server.enable;

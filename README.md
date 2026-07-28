@@ -156,6 +156,7 @@ apply-system-update                             # apply/upgrade, then commit and
 nix run .#github-sources -- check               # check pinned direct-release packages
 nix run .#github-sources -- verify              # verify config, versions, and generated hashes
 nix run .#github-sources -- update              # update their versions + hashes
+./scripts/uv-sources check                      # report uv tool pins with newer PyPI releases
 mackup backup --force                            # sync GUI app settings to iCloud (--force skips replace prompts)
 ```
 
@@ -175,6 +176,7 @@ mackup backup --force                            # sync GUI app settings to iClo
 | Add macOS-only Home Manager config | `modules/darwin/home-manager/default.nix` |
 | Change git config | `modules/common/home-manager/git.nix` |
 | Add npm global | `modules/common/home-manager/npm-global.nix` |
+| Add/bump uv tool | owning module's `uvTools` (contributed to `my.pkgs.uvTools`) |
 | Add Bun global | `modules/darwin/home-manager/bun-global.nix` |
 | Add Claude Code / Codex plugin | owning stack's `my.pkgs.{claude,codex}{Marketplaces,Plugins}` |
 | Add direct release package | `nvfetcher.toml` + `pkgs/`; see `docs/github-release-packages.md` |

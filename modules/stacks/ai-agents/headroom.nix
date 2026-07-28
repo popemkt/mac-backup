@@ -12,11 +12,10 @@ let
   headroomPython = "/Users/${username}/.local/share/uv/tools/headroom-ai/bin/python";
 
   # Declarative uv tool installs owned by the Headroom service boundary.
-  #
-  # Audited by scripts/audit-system-discrepancies.sh (anchor: uvTools).
+  # Contributed to my.pkgs.uvTools below so drift and update checks can read
+  # the pin; the install itself stays here because it needs SDKROOT.
   #
   # [all] enables every compression algorithm (hnswlib, torch, HuggingFace).
-  # Requires SDKROOT set for native extension builds.
   uvTools = [
     "headroom-ai[all]==${headroomVersion}"
   ];
@@ -25,7 +24,10 @@ lib.mkIf config.my.stacks.ai-agents.enable {
   # RTK applies the same context-budget principle to shell output. Keep the
   # Homebrew formula in this behavior module so Headroom tooling is restored as
   # one unit and Homebrew can follow RTK's frequent upstream releases.
-  my.pkgs.brews = [ "rtk" ];
+  my.pkgs = {
+    brews = [ "rtk" ];
+    inherit uvTools;
+  };
 
   # Headroom proxy endpoint, exposed to all apps. Apps opt in by routing their
   # provider base_url here (e.g. package.json `*:proxy` scripts read

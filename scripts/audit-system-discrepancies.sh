@@ -9,11 +9,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EXTERNAL_DATA_CONFIG="$ROOT_DIR/modules/darwin/system/external-workspace.nix"
-UV_TOOLS_CONFIG_FILES=(
-  "$ROOT_DIR/modules/stacks/ai-agents/headroom.nix"
-  "$ROOT_DIR/modules/stacks/ai-agents/cognee/server.nix"
-  "$ROOT_DIR/modules/stacks/ai-agents/cognee/client.nix"
-)
 # Agent plugin channels are read from the evaluated host configuration, so the
 # flake attribute for this machine has to resolve.
 AUDIT_HOST="${AUDIT_HOST:-$(hostname -s)}"
@@ -22,64 +17,6 @@ BREW_BIN="${HOMEBREW_PREFIX:-/opt/homebrew}/bin/brew"
 NPM_BIN="${NPM_BIN:-npm}"
 BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
 UV_BIN="${UV_BIN:-uv}"
-
-parse_nix_strings() {
-  local file="$1"
-  local anchor="$2"
-
-  # Reads the anchor line itself and terminates at the first `]` that sits
-  # outside a string literal, so a single-line list parses the same as a
-  # multi-line one and a `]` inside a value (e.g. "headroom-ai[all]==1.2") does
-  # not truncate the block. Only for values with no evaluated option to read;
-  # prefer eval_host_list otherwise.
-  awk -v anchor="$anchor" '
-    # Index of the first char matching want outside a double-quoted string,
-    # or 0 when absent.
-    function outside(s, want,   i, c, instr) {
-      instr = 0
-      for (i = 1; i <= length(s); i++) {
-        c = substr(s, i, 1)
-        if (c == "\"") { instr = !instr; continue }
-        if (!instr && c == want) return i
-      }
-      return 0
-    }
-    function emit(s,   rest) {
-      rest = s
-      while (match(rest, /"[^"]*"/)) {
-        if (RLENGTH > 2) print substr(rest, RSTART + 1, RLENGTH - 2)
-        rest = substr(rest, RSTART + RLENGTH)
-      }
-    }
-    function consume(s,   hash, endpos) {
-      hash = outside(s, "#")
-      if (hash) s = substr(s, 1, hash - 1)
-      endpos = outside(s, "]")
-      if (endpos) { emit(substr(s, 1, endpos - 1)); return 1 }
-      emit(s)
-      return 0
-    }
-    !in_block && $0 ~ "^[[:space:]]*" anchor "[[:space:]]*=" {
-      in_block = 1
-      line = $0
-      sub("^[[:space:]]*" anchor "[[:space:]]*=", "", line)
-      if (consume(line)) exit
-      next
-    }
-    in_block { if (consume($0)) exit }
-  ' "$file" | sed '/^$/d'
-}
-
-parse_nix_strings_many() {
-  local anchor="$1"
-  shift
-
-  local f
-  for f in "$@"; do
-    [ -f "$f" ] || continue
-    parse_nix_strings "$f" "$anchor"
-  done | sort -u
-}
 
 # Read a resolved list from the evaluated host configuration. Scanning Nix
 # source cannot see stack contributions, host `extra.*` additions, or lists
@@ -327,7 +264,7 @@ print_section "Bun Globals Tracked But Missing"
 print_list "${missing_bun[@]}"
 
 if command -v "$UV_BIN" >/dev/null 2>&1; then
-  readarray_safe declared_uv_raw parse_nix_strings_many "uvTools" "${UV_TOOLS_CONFIG_FILES[@]}"
+  read_lines_into declared_uv_raw "$(eval_channel uvTools)"
   mapfile -t declared_uv < <(printf '%s\n' "${declared_uv_raw[@]}" | normalize_uv_names)
 
   readarray_safe uv_list_raw "$UV_BIN" tool list

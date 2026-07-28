@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+#
+# Report uv tool pins that have a newer release on PyPI.
+#
+# uv tools are pinned deliberately (Cognee's graph stores are version-coupled),
+# so this only ever reports. Bumping a pin stays a reviewed edit in the module
+# that owns it, followed by a rebuild — the activation hooks reinstall on a
+# version mismatch.
+#
+# Exit codes mirror scripts/github-sources so update-system can treat them the
+# same way: 0 current, 10 updates available, 1 could not run.
+
+set -euo pipefail
+
+if [ -n "${UV_SOURCES_ROOT:-}" ]; then
+  ROOT_DIR="$(cd "$UV_SOURCES_ROOT" && pwd)"
+else
+  ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -z "$ROOT_DIR" ]; then
+    ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  fi
+fi
+
+UV_SOURCES_HOST="${UV_SOURCES_HOST:-$(hostname -s)}"
+
+usage() {
+  cat <<'EOF'
+Usage: uv-sources check [--best-effort] [--host HOST]
+
+  check   Compare my.pkgs.uvTools pins against the latest PyPI releases.
+
+Options:
+  --best-effort  Warn instead of failing when the check cannot run.
+  --host HOST    Flake attribute to read pins from (default: hostname -s).
+EOF
+}
+
+best_effort=false
+command=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    check) command="check" ;;
+    --best-effort) best_effort=true ;;
+    --host)
+      shift
+      [ $# -gt 0 ] || { usage >&2; exit 1; }
+      UV_SOURCES_HOST="$1"
+      ;;
+    -h | --help) usage; exit 0 ;;
+    *) usage >&2; exit 1 ;;
+  esac
+  shift
+done
+
+[ -n "$command" ] || { usage >&2; exit 1; }
+
+fail() {
+  if [ "$best_effort" = true ]; then
+    printf 'warning: %s\n' "$1" >&2
+    exit 0
+  fi
+  printf 'error: %s\n' "$1" >&2
+  exit 1
+}
+
+pins="$(
+  nix eval --raw --no-warn-dirty \
+    "$ROOT_DIR#darwinConfigurations.$UV_SOURCES_HOST.config.my.pkgs.uvTools" \
+    --apply 'xs: builtins.concatStringsSep "\n" xs' 2>/dev/null
+)" || fail "could not evaluate my.pkgs.uvTools for host $UV_SOURCES_HOST"
+
+[ -n "$pins" ] || { echo "No uv tools are pinned."; exit 0; }
+
+printf '%s\n' "$pins" | python3 -c '
+import json, re, sys, urllib.error, urllib.request
+
+SPEC = re.compile(r"^(?P<name>[A-Za-z0-9._-]+)(?:\[[^\]]*\])?==(?P<version>.+)$")
+
+def latest(name):
+    url = f"https://pypi.org/pypi/{name}/json"
+    with urllib.request.urlopen(url, timeout=15) as resp:
+        return json.load(resp)["info"]["version"]
+
+outdated, unknown = [], []
+for line in filter(None, (l.strip() for l in sys.stdin)):
+    m = SPEC.match(line)
+    if not m:
+        unknown.append((line, "unpinned or unparseable spec"))
+        continue
+    name, current = m.group("name"), m.group("version")
+    try:
+        newest = latest(name)
+    except (urllib.error.URLError, OSError, KeyError, ValueError) as exc:
+        unknown.append((name, str(exc)[:80]))
+        continue
+    if newest != current:
+        outdated.append((name, current, newest))
+
+for name, current, newest in outdated:
+    print(f"{name}: {current} -> {newest}")
+for name, why in unknown:
+    print(f"warning: {name}: {why}", file=sys.stderr)
+
+if outdated:
+    print("edit the pin in its owning module, then rebuild")
+    sys.exit(10)
+if unknown:
+    sys.exit(1)
+print("uv tool pins are current.")
+'
