@@ -30,58 +30,87 @@ let
 
   # Shared prelude: the agent CLIs come from Homebrew and npm, not Nix, so
   # every entry point resolves them from PATH and degrades to a warning.
+  # nodejs is required because the npm-installed `codex` is `#!/usr/bin/env
+  # node`, and activation does not inherit an interactive PATH.
   prelude = ''
-    export PATH="/opt/homebrew/bin:${home}/.local/bin:$PATH"
+    export PATH="${pkgs.nodejs}/bin:/opt/homebrew/bin:${home}/.local/bin:$PATH"
     export CODEX_HOME=${lib.escapeShellArg codexHome}
 
     split_name() { printf '%s' "''${1%%=*}"; }
     split_source() { printf '%s' "''${1#*=}"; }
   '';
 
+  # Membership convergence is best effort on purpose: these CLIs are installed
+  # by Homebrew and npm during the same rebuild, so on a fresh machine they may
+  # not work yet. A missing plugin must never abort system activation.
+  #
+  # Listing is also the readiness probe. If a list command fails we skip rather
+  # than treat empty output as "nothing installed", which would otherwise
+  # re-add marketplaces that already exist.
   installScript = ''
-    if command -v claude >/dev/null 2>&1; then
+    claude_plugins() {
+      if ! listing="$(claude plugin marketplace list 2>/dev/null)"; then
+        echo "warning: claude plugin marketplace list failed; skipped its tracked plugins" >&2
+        return 0
+      fi
       for entry in ${quoted claudeMarketplaces}; do
         name="$(split_name "$entry")"
         source="$(split_source "$entry")"
-        if ! claude plugin marketplace list 2>/dev/null \
-          | ${pkgs.gnugrep}/bin/grep -q "$name\$"
-        then
+        if ! printf '%s' "$listing" | ${pkgs.gnugrep}/bin/grep -q "$name\$"; then
           echo "Adding Claude Code marketplace: $name"
-          claude plugin marketplace add "$source"
+          claude plugin marketplace add "$source" || {
+            echo "warning: failed to add Claude Code marketplace $name" >&2
+            return 0
+          }
         fi
       done
+      installed="$(claude plugin list 2>/dev/null)" || return 0
       for plugin in ${quoted claudePlugins}; do
-        if ! claude plugin list 2>/dev/null \
-          | ${pkgs.gnugrep}/bin/grep -qF "$plugin"
-        then
+        if ! printf '%s' "$installed" | ${pkgs.gnugrep}/bin/grep -qF "$plugin"; then
           echo "Installing Claude Code plugin: $plugin"
-          claude plugin install "$plugin"
+          claude plugin install "$plugin" \
+            || echo "warning: failed to install $plugin" >&2
         fi
       done
+    }
+
+    codex_plugins() {
+      if ! listing="$(codex plugin marketplace list 2>/dev/null)"; then
+        echo "warning: codex plugin marketplace list failed; skipped its tracked plugins" >&2
+        return 0
+      fi
+      codex features enable hooks >/dev/null 2>&1 || true
+      for entry in ${quoted codexMarketplaces}; do
+        name="$(split_name "$entry")"
+        source="$(split_source "$entry")"
+        if ! printf '%s' "$listing" | ${pkgs.gnugrep}/bin/grep -q "^$name[[:space:]]"; then
+          echo "Adding Codex marketplace: $name"
+          codex plugin marketplace add "$source" || {
+            echo "warning: failed to add Codex marketplace $name" >&2
+            return 0
+          }
+        fi
+      done
+      installed="$(codex plugin list 2>/dev/null)" || return 0
+      for plugin in ${quoted codexPlugins}; do
+        if ! printf '%s' "$installed" \
+          | ${pkgs.gnugrep}/bin/grep -q "^$plugin[[:space:]]\+installed,"
+        then
+          echo "Installing Codex plugin: $plugin"
+          codex plugin add "$plugin" \
+            || echo "warning: failed to install $plugin" >&2
+        fi
+      done
+    }
+
+    if command -v claude >/dev/null 2>&1; then
+      claude_plugins
     else
       echo "warning: claude is unavailable; skipped its tracked plugins" >&2
     fi
 
     if command -v codex >/dev/null 2>&1; then
-      codex features enable hooks >/dev/null 2>&1 || true
-      for entry in ${quoted codexMarketplaces}; do
-        name="$(split_name "$entry")"
-        source="$(split_source "$entry")"
-        if ! codex plugin marketplace list 2>/dev/null \
-          | ${pkgs.gnugrep}/bin/grep -q "^$name[[:space:]]"
-        then
-          echo "Adding Codex marketplace: $name"
-          codex plugin marketplace add "$source"
-        fi
-      done
-      for plugin in ${quoted codexPlugins}; do
-        if ! codex plugin list 2>/dev/null \
-          | ${pkgs.gnugrep}/bin/grep -q "^$plugin[[:space:]]\+installed,"
-        then
-          echo "Installing Codex plugin: $plugin"
-          codex plugin add "$plugin"
-        fi
-      done
+      codex_plugins
     else
       echo "warning: codex is unavailable; skipped its tracked plugins" >&2
     fi
