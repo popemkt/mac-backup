@@ -173,6 +173,38 @@ documentation today and become enforcement when the wildcard is removed.
 Before removing it, inventory remaining machine-to-machine, subnet, exit-node,
 SSH, and shared-device flows and add a policy test for each intended path.
 
+### TODO: tightening pass
+
+Not started. Two pieces, in order.
+
+**1. Give Orca its own tag.** The Orca grant targets `tag:cognee-host`, which
+conflates "runs the Cognee server" with "runs Orca desktop". Only
+`popemkt-personal` carries that tag, so Orca on `popemkt-work` reaches the
+tailnet solely through the wildcard and would break the moment it is removed.
+Add `tag:orca-host` to `tagOwners`, retarget the grant's `dst`, and assign the
+tag to both Macs in the admin console.
+
+Assigning a tag also removes a device's user owner, and `autogroup:self` does
+not match tagged devices. Confirm whether Tailscale SSH into `popemkt-work` is
+used before tagging it; if so, the `ssh` block needs widening in the same
+change.
+
+**2. Remove the wildcard.** Flows observed on 2026-07-28, and whether a grant
+already covers them:
+
+| Flow | Covered |
+|---|---|
+| Phones/tablet to either Mac, `tcp:6768` (Orca Mobile) | after step 1 |
+| `popemkt-work` to `svc:cognee`, `tcp:443` | yes |
+| Any member to `svc:adhoc`, `tcp:443` | yes |
+| Member to own node, SSH | yes, `ssh` block |
+| `ControlCe` on `*:5000` and `*:7000` (AirPlay) | no — LAN feature, expected to be denied |
+| `rapportd` on `*:57212` (Continuity) | no — LAN feature, expected to be denied |
+| Mac-to-Mac file/screen sharing, exit node, subnet routes | unknown, needs a decision |
+
+The last row is the blocker: those cannot be observed from a single host. Decide
+them before the wildcard goes, and add a policy test for each path kept.
+
 ## What Is Not Exported
 
 The policy file is the primary reproducible Tailscale artifact. DNS resolver
