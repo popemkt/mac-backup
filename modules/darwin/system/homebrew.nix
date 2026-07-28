@@ -13,8 +13,7 @@ let
     export HOMEBREW_DOWNLOAD_CONCURRENCY=1
     /opt/homebrew/bin/brew update
     HOMEBREW_NO_AUTO_UPDATE=1 /opt/homebrew/bin/brew bundle \
-      --file=${declaredBrewfile} \
-      --no-lock
+      --file=${declaredBrewfile}
   '';
 in
 {
