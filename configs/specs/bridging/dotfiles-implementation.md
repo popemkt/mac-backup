@@ -119,11 +119,15 @@ but not declared.
 
 | Functional need | Implementation | File |
 |---|---|---|
-| Tool declaration | `uvTools` list | `modules/stacks/ai-agents/headroom.nix` |
+| Tool declaration | `uvTools` list, also contributed to the `my.pkgs.uvTools` channel | `modules/stacks/ai-agents/headroom.nix`, `modules/stacks/ai-agents/cognee/{server,client}.nix` |
+| Version pins | generated `_sources/uv-pins.json`, read through `my.uvPins` | `modules/options/uv-pins.nix` |
+| Update discovery | `uv-sources update` rewrites `track = "latest"` pins from PyPI; `update-system` calls it | `scripts/uv-sources` |
+| Deliberate hold | `track = "manual"` reports newer releases without rewriting the pin | `_sources/uv-pins.json` |
 | Install mechanism | `home.activation.installHeadroomUvTools` runs on every rebuild | `modules/stacks/ai-agents/headroom.nix` |
 | Idempotency | skips if `uv tool list` already shows the package | `modules/stacks/ai-agents/headroom.nix` |
 | C++ build fix | `SDKROOT` set via `xcrun` before install loop | `modules/stacks/ai-agents/headroom.nix` |
 | headroom-ai | `[all]` extras for the full Headroom toolset; pinned to nixpkgs Python during uv install | `modules/stacks/ai-agents/headroom.nix` |
+| Drift audit | reads `my.pkgs.uvTools` by evaluation, so it is host-correct | `scripts/audit-system-discrepancies.sh` |
 
 Known gap: editable installs (`browser-harness`) are intentionally excluded —
 they live in their own repos and can't be restored from a version string.

@@ -33,6 +33,10 @@ in version control and minimises what must be done manually.
   pre-commit checks are best-effort and offline checks do not block commits.
 - `rebuild` reports available direct-release updates but never applies them;
   updating versions and hashes remains an explicit operator action.
+- uv tool versions are pinned centrally and refreshed by `update-system` into a
+  reviewable diff, never during `rebuild`. A pin marked as manually held is
+  reported as outdated but not rewritten, so a release coupled to on-disk
+  service state cannot move without an operator decision.
 - `rebuild` reports external setup readiness without initiating enrollment or
   failing merely because an operator action remains.
 - `rebuild` upgrades Homebrew packages and every declared npm/Bun global to

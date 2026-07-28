@@ -77,13 +77,28 @@ API key. Work data uses its own dataset for normal recall and a separate Cognee
 user whenever a true authorization boundary is required. Mutable knowledge,
 credentials, and databases remain backup concerns rather than repo content.
 
-### uv tools declared with their owning behavior
+### uv tools declared with their owning behavior, pinned centrally
 `uv tool install` runs during home-manager activation (`home.activation`). Nix
 can't package arbitrary PyPI wheels, so the declaration is a manifest of intent,
 not a hermetic derivation. Repo-owned tools live with the behavior that needs
-them, for example Headroom in `modules/stacks/ai-agents/headroom.nix`.
+them, for example Headroom in `modules/stacks/ai-agents/headroom.nix`, because
+each install needs its own extras, build environment, and `--with` resolution.
 Editable/local installs (browser-harness, etc.) are intentionally excluded —
 they belong to their own repos.
+
+Versions are the exception to that locality. They live in
+`_sources/uv-pins.json`, read through `my.uvPins`, so one number covers every
+consumer — both Cognee roles install the same `cognee-mcp` — and so
+`scripts/uv-sources` has a machine-writable place to edit. `update-system`
+rewrites `track = "latest"` pins from PyPI next to the flake and nvfetcher
+updates; `track = "manual"` holds a version that is coupled to on-disk state,
+and is still reported as outdated without being rewritten. Nothing is applied
+until `apply-system-update` rebuilds, which stages the pin file with the other
+generated sources.
+
+Membership is separately contributed to the `my.pkgs.uvTools` channel, which is
+what the drift audit reads. That makes the audit host-correct: a Cognee client
+is not told it should have the server-only `cognee[ollama]`.
 
 ### External requirements are declarations too
 Nix cannot complete an OAuth consent screen, approve a host in a SaaS control
