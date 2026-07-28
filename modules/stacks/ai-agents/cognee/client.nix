@@ -176,37 +176,9 @@ let
       "gui/$(${pkgs.coreutils}/bin/id -u)/org.nixos.cognee-mcp-client" \
       >/dev/null 2>&1 || true
 
-    if command -v codex >/dev/null 2>&1; then
-      CODEX_HOME="${home}/.codex" codex features enable hooks
-      if ! CODEX_HOME="${home}/.codex" codex plugin marketplace list 2>/dev/null \
-        | ${pkgs.gnugrep}/bin/grep -q '^cognee[[:space:]]'
-      then
-        CODEX_HOME="${home}/.codex" \
-          codex plugin marketplace add topoteretes/cognee-integrations --ref main
-      fi
-      if ! CODEX_HOME="${home}/.codex" codex plugin list 2>/dev/null \
-        | ${pkgs.gnugrep}/bin/grep -q '^cognee@cognee[[:space:]]\+installed,'
-      then
-        CODEX_HOME="${home}/.codex" codex plugin add cognee@cognee
-      fi
-    else
-      printf 'warning: codex is unavailable; skipped its Cognee plugin\n' >&2
-    fi
-
-    if command -v claude >/dev/null 2>&1; then
-      if ! claude plugin marketplace list 2>/dev/null \
-        | ${pkgs.gnugrep}/bin/grep -q 'cognee$'
-      then
-        claude plugin marketplace add topoteretes/cognee-integrations
-      fi
-      if ! claude plugin list 2>/dev/null \
-        | ${pkgs.gnugrep}/bin/grep -q 'cognee-memory@cognee'
-      then
-        claude plugin install cognee-memory@cognee
-      fi
-    else
-      printf 'warning: claude is unavailable; skipped its Cognee plugin\n' >&2
-    fi
+    # Plugin membership is a tracked channel (my.pkgs.{claude,codex}Plugins),
+    # installed by modules/darwin/home-manager/agent-plugins.nix on every
+    # rebuild. Enrollment only writes the credentials those plugins read.
 
     printf 'Cognee client configured for %s. Restart active agent sessions.\n' \
       '${serviceUrl}'

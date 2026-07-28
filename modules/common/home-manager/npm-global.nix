@@ -31,7 +31,17 @@ let
   '';
 in
 {
-  home = {
+  # Read-only view of what this executor will install, so drift audits can
+  # evaluate the resolved set instead of re-deriving it by scanning source.
+  options.my.resolvedNpmGlobals = lib.mkOption {
+    type = lib.types.listOf lib.types.str;
+    readOnly = true;
+    internal = true;
+    default = npmGlobalPackages;
+    description = "Merged npm globals this host installs.";
+  };
+
+  config.home = {
     # Keep npm -g installs out of /nix/store.
     file.".npmrc".text = lib.mkDefault ''
       prefix=${npmPrefix}

@@ -20,6 +20,10 @@ let
       casks = strList;
       npmGlobals = strList;
       bunGlobals = strList;
+      claudeMarketplaces = strList;
+      claudePlugins = strList;
+      codexMarketplaces = strList;
+      codexPlugins = strList;
     };
   };
 in

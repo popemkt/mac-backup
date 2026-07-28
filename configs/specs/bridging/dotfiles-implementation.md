@@ -29,7 +29,7 @@ Operator procedure lives in `../../README.md`.
 | macOS-only shell helpers + rebuild | home-manager | `modules/darwin/home-manager/default.nix` |
 | External workspace + data symlinks | nix-darwin + home-manager | `modules/darwin/system/external-workspace.nix` |
 | Private app exposure | Tailscale Services + nix-darwin | `modules/darwin/system/tailscale-services.nix` + `hosts/<hostname>/default.nix` |
-| Central Cognee server/client split | nix-darwin + uv + Tailscale | `modules/stacks/ai-agents/cognee.nix`, `cognee-client.nix`, host declarations |
+| Central Cognee server/client split | nix-darwin + uv + Tailscale | `modules/stacks/ai-agents/cognee/server.nix`, `cognee/client.nix`, host declarations |
 | GUI app configs | Mackup → iCloud | `modules/darwin/home-manager/mackup.nix` → `home.file.".mackup.cfg"` |
 | Raw configs (specs, Archon) | git-tracked files | `configs/` |
 | Flake inputs + entry point | Nix flake | `flake.nix` |
@@ -150,8 +150,8 @@ they live in their own repos and can't be restored from a version string.
 | Setup manifest | generated `/etc/system-setup/integrations.json`; Pydantic-validated at runtime | `modules/darwin/system/system-setup.nix` |
 | Tailscale Service reconciliation | root launchd daemon after Tailscale is online | `modules/darwin/system/tailscale-services.nix` |
 | Tailscale Service declarations | typed `my.stacks.vpn.services` host inventory | `modules/stacks/vpn/default.nix`, `hosts/<hostname>/default.nix` |
-| Cognee server | API/UI/databases/models and loopback gateway on `popemkt-personal` | `modules/stacks/ai-agents/cognee.nix` |
-| Cognee remote client | pinned loopback MCP bridge plus agent enrollment/configuration | `modules/stacks/ai-agents/cognee-client.nix` |
+| Cognee server | API/UI/databases/models and loopback gateway on `popemkt-personal` | `modules/stacks/ai-agents/cognee/server.nix` |
+| Cognee remote client | pinned loopback MCP bridge plus agent enrollment/configuration | `modules/stacks/ai-agents/cognee/client.nix` |
 | Tailnet service domain | typed VPN binding consumed by service hosts and clients | `modules/stacks/vpn/default.nix`, `flake.nix` |
 | Cognee work isolation | per-machine key, `work` lifecycle dataset, separate user when authorization isolation is required | `hosts/popemkt-work/default.nix`, `docs/cognee.md` |
 

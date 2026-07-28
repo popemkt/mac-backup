@@ -67,6 +67,7 @@ GitHub release pins.
 | Change Git config | `modules/common/home-manager/git.nix` |
 | Add an npm global | `modules/common/home-manager/npm-global.nix` |
 | Add a Bun global | `modules/darwin/home-manager/bun-global.nix` |
+| Add a Claude Code or Codex plugin | the owning stack's `my.pkgs.{claude,codex}{Marketplaces,Plugins}` lists |
 | Add host-only config | `hosts/<hostname>/default.nix` |
 | Add a work/personal split | `lib.mkIf (config.my.role == "work") { ... }` in the owning system module |
 | Add a direct GitHub release package | `nvfetcher.toml` and `pkgs/`; see `docs/github-release-packages.md` |
@@ -74,6 +75,19 @@ GitHub release pins.
 Run `rtk rebuild` after a change that should affect the live system.
 
 ## Module Boundaries
+
+The repo has two axes, and every module belongs to exactly one of them.
+
+- **Vertical (semantic encapsulation).** A stack under `modules/stacks/` owns
+  one functional slice end to end: its option schema, daemons, activation,
+  scripts, and package membership. A component that grows past a single file
+  gets its own folder inside the stack (`ai-agents/cognee/`), not a prefixed
+  sibling. Nothing outside a component should reach into its option subtree to
+  decide membership — the component declares its own contributions.
+- **Horizontal (cross-cutting mechanism).** A channel in `modules/options/pkgs.nix`
+  is a typed merge target, and its executor installs whatever lands there. Stacks
+  decide membership; executors never do. Adding software means adding to a
+  channel from the owning stack, never editing an executor.
 
 Group by behavior and ownership boundary, not by app count.
 
@@ -117,9 +131,8 @@ referenced.
   `ai-agents/`, `office-docs.nix`, and `vpn/`. Each stack owns its option schema,
   config, sibling daemons, and package-channel contributions. `mk-stack.nix`
   provides `enable`, optional component toggles such as `ai-agents.ollama` or
-  `vpn.services`, and host additions through
-  `extra.{taps,brews,casks,npmGlobals,bunGlobals}`; everything except `enable`
-  is defaulted. A package may belong to multiple stacks. Homebrew, npm, and Bun
+  `vpn.services`, and host additions through `extra.*` mirroring the channels
+  in `modules/options/pkgs.nix`; everything except `enable` is defaulted. A package may belong to multiple stacks. Homebrew, npm, and Bun
   executors merge contributions with `lib.unique`; Home Manager executors read
   them through `osConfig.my.pkgs.*`. A stack may be one file or a directory with
   `default.nix` and focused siblings.

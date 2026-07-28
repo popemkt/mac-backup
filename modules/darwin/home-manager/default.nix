@@ -2,6 +2,7 @@
 
 {
   imports = [
+    ./agent-plugins.nix
     ./bun-global.nix
     ./mackup.nix
   ];
@@ -105,6 +106,7 @@
         update-homebrew
         update-npm-globals
         update-bun-globals
+        update-agent-plugins
         "$dotfiles_root/scripts/audit-system-discrepancies.sh"
 
         if ! git diff --quiet HEAD -- flake.lock _sources/; then

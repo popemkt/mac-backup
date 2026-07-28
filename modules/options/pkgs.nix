@@ -34,5 +34,17 @@ in
     bunGlobals = strList // {
       description = "Bun global packages contributed by stacks.";
     };
+    claudeMarketplaces = strList // {
+      description = "Claude Code plugin marketplace sources contributed by stacks.";
+    };
+    claudePlugins = strList // {
+      description = "Claude Code plugins (plugin@marketplace) contributed by stacks.";
+    };
+    codexMarketplaces = strList // {
+      description = "Codex plugin marketplace sources (owner/repo[@ref]) contributed by stacks.";
+    };
+    codexPlugins = strList // {
+      description = "Codex plugins (plugin@marketplace) contributed by stacks.";
+    };
   };
 }

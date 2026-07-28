@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
+#
+# shellcheck disable=SC2154,SC2034
+# readarray_safe/read_lines_into assign through a nameref and set_diff takes
+# array names rather than values, neither of which shellcheck can follow. No
+# variable here is genuinely unassigned or unused.
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# Brew declarations live in the shared Homebrew module AND per-host files.
-BREW_CONFIG_FILES=(
-  "$ROOT_DIR/modules/darwin/system/homebrew.nix"
-  "$ROOT_DIR"/hosts/*/default.nix
-)
-NPM_CONFIG="$ROOT_DIR/modules/common/home-manager/npm-global.nix"
-BUN_CONFIG="$ROOT_DIR/modules/darwin/home-manager/bun-global.nix"
-PACKAGES_CONFIG="$ROOT_DIR/modules/common/home-manager/packages.nix"
 EXTERNAL_DATA_CONFIG="$ROOT_DIR/modules/darwin/system/external-workspace.nix"
 UV_TOOLS_CONFIG_FILES=(
   "$ROOT_DIR/modules/stacks/ai-agents/headroom.nix"
-  "$ROOT_DIR/modules/stacks/ai-agents/cognee.nix"
-  "$ROOT_DIR/modules/stacks/ai-agents/cognee-client.nix"
+  "$ROOT_DIR/modules/stacks/ai-agents/cognee/server.nix"
+  "$ROOT_DIR/modules/stacks/ai-agents/cognee/client.nix"
 )
+# Agent plugin channels are read from the evaluated host configuration, so the
+# flake attribute for this machine has to resolve.
+AUDIT_HOST="${AUDIT_HOST:-$(hostname -s)}"
 
 BREW_BIN="${HOMEBREW_PREFIX:-/opt/homebrew}/bin/brew"
 NPM_BIN="${NPM_BIN:-npm}"
@@ -27,28 +27,47 @@ parse_nix_strings() {
   local file="$1"
   local anchor="$2"
 
+  # Reads the anchor line itself and terminates at the first `]` that sits
+  # outside a string literal, so a single-line list parses the same as a
+  # multi-line one and a `]` inside a value (e.g. "headroom-ai[all]==1.2") does
+  # not truncate the block. Only for values with no evaluated option to read;
+  # prefer eval_host_list otherwise.
   awk -v anchor="$anchor" '
-    $0 ~ "^[[:space:]]*" anchor "[[:space:]]*=" { in_block=1; next }
-    in_block && /^[[:space:]]*\]/ { exit }
-    in_block {
-      line=$0
-      sub(/#.*/, "", line)
-      while (match(line, /"[^"]+"/)) {
-        print substr(line, RSTART + 1, RLENGTH - 2)
-        line = substr(line, RSTART + RLENGTH)
+    # Index of the first char matching want outside a double-quoted string,
+    # or 0 when absent.
+    function outside(s, want,   i, c, instr) {
+      instr = 0
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        if (c == "\"") { instr = !instr; continue }
+        if (!instr && c == want) return i
+      }
+      return 0
+    }
+    function emit(s,   rest) {
+      rest = s
+      while (match(rest, /"[^"]*"/)) {
+        if (RLENGTH > 2) print substr(rest, RSTART + 1, RLENGTH - 2)
+        rest = substr(rest, RSTART + RLENGTH)
       }
     }
+    function consume(s,   hash, endpos) {
+      hash = outside(s, "#")
+      if (hash) s = substr(s, 1, hash - 1)
+      endpos = outside(s, "]")
+      if (endpos) { emit(substr(s, 1, endpos - 1)); return 1 }
+      emit(s)
+      return 0
+    }
+    !in_block && $0 ~ "^[[:space:]]*" anchor "[[:space:]]*=" {
+      in_block = 1
+      line = $0
+      sub("^[[:space:]]*" anchor "[[:space:]]*=", "", line)
+      if (consume(line)) exit
+      next
+    }
+    in_block { if (consume($0)) exit }
   ' "$file" | sed '/^$/d'
-}
-
-# Parse an anchor's string list across every host file (base + per-host).
-# Anchor matches both `casks = [` and `homebrew.casks = [` forms.
-parse_nix_strings_all_hosts() {
-  local anchor="$1"
-  local f
-  for f in "${BREW_CONFIG_FILES[@]}"; do
-    parse_nix_strings "$f" "(homebrew\\.)?$anchor"
-  done | sort -u
 }
 
 parse_nix_strings_many() {
@@ -62,18 +81,25 @@ parse_nix_strings_many() {
   done | sort -u
 }
 
-parse_nix_packages() {
-  awk '
-    /home\.packages[[:space:]]*=/ { in_block=1; next }
-    in_block && /\];/ { exit }
-    in_block {
-      line=$0
-      sub(/#.*/, "", line)
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
-      if (line == "" || line == "[" || line == "]") next
-      if (line ~ /^[[:alnum:]_.+-]+$/) print line
-    }
-  ' "$PACKAGES_CONFIG"
+# Read a resolved list from the evaluated host configuration. Scanning Nix
+# source cannot see stack contributions, host `extra.*` additions, or lists
+# written on one line; evaluation is the only reading that matches what the
+# executors actually install.
+eval_host_list() {
+  local apply="$1"
+  nix eval --raw --no-warn-dirty \
+    "$ROOT_DIR#darwinConfigurations.$AUDIT_HOST.config" \
+    --apply "xs: builtins.concatStringsSep \"\\n\" ($apply)" 2>/dev/null
+}
+
+# Same, for a my.pkgs channel by name.
+eval_channel() {
+  eval_host_list "xs.my.pkgs.$1"
+}
+
+# Same, for a Home Manager option on the configured user.
+eval_hm_list() {
+  eval_host_list "xs.home-manager.users.\${xs.my.username}.$1"
 }
 
 parse_external_paths() {
@@ -164,17 +190,40 @@ uv_is_editable() {
   [ -f "$receipt" ] && grep -q 'editable' "$receipt"
 }
 
-readarray_safe declared_brews parse_nix_strings_all_hosts "brews"
-readarray_safe declared_casks parse_nix_strings_all_hosts "casks"
-readarray_safe declared_npm parse_nix_strings "$NPM_CONFIG" "npmGlobalPackages"
-readarray_safe declared_bun parse_nix_strings "$BUN_CONFIG" "bunGlobalPackages"
-readarray_safe declared_nix_packages parse_nix_packages
+read_lines_into() {
+  local -n _dest="$1"
+  local text="$2"
+  mapfile -t _dest < <(printf '%s\n' "$text" | sed '/^$/d' | sort -u)
+}
+
+# homebrew.{brews,casks,taps} normalize to submodules, so project to the name.
+brew_names() {
+  eval_host_list "map (x: if builtins.isAttrs x then x.name else x) xs.homebrew.$1"
+}
+
+read_lines_into declared_brews "$(brew_names brews)"
+read_lines_into declared_casks "$(brew_names casks)"
+read_lines_into declared_taps "$(brew_names taps)"
+read_lines_into declared_npm "$(eval_hm_list 'my.resolvedNpmGlobals')"
+read_lines_into declared_bun "$(eval_hm_list 'my.resolvedBunGlobals')"
+read_lines_into declared_nix_packages "$(
+  eval_host_list 'map (p: p.pname or (builtins.parseDrvName p.name).name)
+    (builtins.filter builtins.isAttrs
+      xs.home-manager.users.${xs.my.username}.home.packages)'
+)"
 readarray_safe managed_external_paths parse_external_paths
+
+if [ "${#declared_brews[@]}" -eq 0 ] && [ "${#declared_casks[@]}" -eq 0 ]; then
+  printf 'error: could not evaluate host %s; declarations below would be wrong\n' \
+    "$AUDIT_HOST" >&2
+  exit 1
+fi
 
 print_section "Repo Declarations"
 printf '  Nix packages tracked: %s\n' "${#declared_nix_packages[@]}"
 printf '  Brew formulas tracked: %s\n' "${#declared_brews[@]}"
 printf '  Brew casks tracked: %s\n' "${#declared_casks[@]}"
+printf '  Brew taps tracked: %s\n' "${#declared_taps[@]}"
 printf '  npm globals tracked: %s\n' "${#declared_npm[@]}"
 printf '  Bun globals tracked: %s\n' "${#declared_bun[@]}"
 printf '  external-data paths tracked: %s\n' "${#managed_external_paths[@]}"
@@ -319,6 +368,49 @@ else
   print_section "uv Tool Drift"
   printf '  uv not found\n'
 fi
+
+# Agent plugins report presence only. Their CLIs render versions
+# inconsistently (semver, git sha, or "unknown"), so version equality is not a
+# usable drift signal.
+audit_agent_plugins() {
+  local label="$1" attr="$2"
+  shift 2
+
+  local declared=() installed=()
+  read_lines_into declared "$(eval_channel "$attr")"
+
+  if ! command -v "$1" >/dev/null 2>&1; then
+    print_section "$label Plugin Drift"
+    printf '  %s not found\n' "$1"
+    return
+  fi
+
+  local raw=()
+  readarray_safe raw "$@"
+  mapfile -t installed < <(
+    printf '%s\n' "${raw[@]}" \
+      | grep -oE '[A-Za-z0-9_.-]+@[A-Za-z0-9_.-]+' \
+      | sort -u
+  )
+
+  local unmanaged=() missing=()
+  mapfile -t unmanaged < <(set_diff installed declared | sort_unique)
+  mapfile -t missing < <(set_diff declared installed | sort_unique)
+
+  print_section "$label Plugin Drift"
+  printf '  Declared %s plugins tracked: %s\n' "$label" "${#declared[@]}"
+  printf '  Installed %s plugins: %s\n' "$label" "${#installed[@]}"
+
+  print_section "$label Plugins Installed But Not Tracked"
+  print_list "${unmanaged[@]}"
+
+  print_section "$label Plugins Tracked But Missing"
+  print_list "${missing[@]}"
+}
+
+audit_agent_plugins "Claude Code" claudePlugins claude plugin list
+CODEX_HOME="${CODEX_HOME:-$HOME/.codex}" \
+  audit_agent_plugins "Codex" codexPlugins codex plugin list
 
 print_section "Managed External Data"
 printf '  Root: /Volumes/Data/workspace/symlinks/User\n'

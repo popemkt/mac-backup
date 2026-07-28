@@ -176,6 +176,7 @@ mackup backup --force                            # sync GUI app settings to iClo
 | Change git config | `modules/common/home-manager/git.nix` |
 | Add npm global | `modules/common/home-manager/npm-global.nix` |
 | Add Bun global | `modules/darwin/home-manager/bun-global.nix` |
+| Add Claude Code / Codex plugin | owning stack's `my.pkgs.{claude,codex}{Marketplaces,Plugins}` |
 | Add direct release package | `nvfetcher.toml` + `pkgs/`; see `docs/github-release-packages.md` |
 | Expose a private app | `hosts/<hostname>/default.nix` → `my.stacks.vpn.services`; see `configs/specs/app-service-contract.md` |
 | Review local voice-tool choices | `docs/local-voice-tools.md` |
@@ -204,9 +205,10 @@ users. These Home Manager modules are imported only for the configured user.
 | **Mackup → iCloud** | GUI app configs (Karabiner, Zed, VS Code, Warp…) | `~/Library/Mobile Documents/com~apple~CloudDocs/Mackup/` |
 | **npm-global.nix** | npm global CLIs | `modules/common/home-manager/npm-global.nix` |
 | **bun-global.nix** | Bun global CLIs, including Oh My Pi | `modules/darwin/home-manager/bun-global.nix` |
+| **agent-plugins.nix** | tracked Claude Code and Codex plugins and their marketplaces | `modules/darwin/home-manager/agent-plugins.nix` |
 | **nvfetcher + `pkgs/`** | pinned direct release packages | `nvfetcher.toml` + `_sources/` |
 | **Tailscale** | app, MagicDNS domain, private services, and access policy | `modules/stacks/vpn/`, host declarations, and `configs/tailscale/policy.hujson` |
-| **Cognee** | pinned service version, launchd jobs, routing, and non-secret configuration | `modules/stacks/ai-agents/cognee.nix` |
+| **Cognee** | pinned service version, launchd jobs, routing, and non-secret configuration | `modules/stacks/ai-agents/cognee/server.nix` |
 | **system-setup** | declared external requirements, dependency ordering, enrollment guidance, readiness checks | `modules/darwin/system/system-setup.nix` |
 | **`configs/`** | Raycast export | manual import on new machine |
 | **Manual** | SSH keys, credentials, Hermes plist, editable uv tools | — |

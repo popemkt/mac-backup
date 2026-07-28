@@ -23,8 +23,7 @@ in
 {
   imports = [
     ./cli-proxy-api.nix # local OAuth provider proxy (loopback :8317)
-    ./cognee.nix # authenticated memory API + UI (loopback :8088)
-    ./cognee-client.nix # thin remote bridge to the central Cognee service
+    ./cognee # server and remote-client roles, plus their agent plugins
     ./headroom.nix # context compression: proxy (:8787), RTK, uv tool install
     ./hermes.nix # agent runtime env (HERMES_HOME, Copilot ACP)
   ];
@@ -117,6 +116,13 @@ in
         "@oh-my-pi/pi-coding-agent"
       ]
       ++ cfg.extra.bunGlobals;
+
+      # Stack-owned plugin membership lives with its component (see
+      # cognee-plugins.nix); these fold in host-specific additions only.
+      claudeMarketplaces = cfg.extra.claudeMarketplaces;
+      claudePlugins = cfg.extra.claudePlugins;
+      codexMarketplaces = cfg.extra.codexMarketplaces;
+      codexPlugins = cfg.extra.codexPlugins;
     };
   };
 }
