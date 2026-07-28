@@ -110,6 +110,8 @@ in
         # Utilities
         "alt-tab"
         "snapzy"
+        # Open-source local dictation app; Parakeet v2/v3/Flash on Apple Silicon.
+        "fluidvoice"
         # "rectangle"
         # "cleanshot"
         "middleclick"
