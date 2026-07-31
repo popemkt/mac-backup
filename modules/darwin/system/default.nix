@@ -129,12 +129,27 @@ in
       NSDisableAutomaticTermination = false;
     };
 
+    # Hide menu bar controls not covered by typed nix-darwin options.
+    CustomUserPreferences = {
+      "com.apple.TextInputMenu".visible = false;
+      "com.apple.TextInputMenuAgent"."NSStatusItem VisibleCC Item-0" = false;
+    };
+
     # Trackpad
     trackpad = {
       Clicking = true; # Tap to click
       TrackpadRightClick = true;
     };
   };
+
+  # Spotlight stores menu visibility in a host-specific preference, which
+  # CustomUserPreferences cannot represent.
+  system.activationScripts.postActivation.text = ''
+    $DRY_RUN_CMD /usr/bin/sudo -H -u ${username} \
+      /usr/bin/defaults -currentHost write com.apple.Spotlight MenuItemHidden -bool true
+    $DRY_RUN_CMD /usr/bin/sudo -H -u ${username} \
+      /usr/bin/killall SystemUIServer 2>/dev/null || true
+  '';
 
   # Enable Touch ID for sudo (new API)
   security.pam.services.sudo_local.touchIdAuth = true;

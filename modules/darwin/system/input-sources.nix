@@ -83,7 +83,7 @@ in
 
         if /usr/bin/clang -framework Carbon -framework Foundation "$tmpdir/enable-vietnamese-telex.m" -o "$tmpdir/enable-vietnamese-telex"; then
           "$tmpdir/enable-vietnamese-telex"
-          /usr/bin/defaults write com.apple.TextInputMenu visible -bool true
+          /usr/bin/defaults write com.apple.TextInputMenu visible -bool false
           /usr/bin/killall TextInputMenuAgent TextInputSwitcher SystemUIServer 2>/dev/null || true
         else
           echo "warning: failed to compile Vietnamese Telex input-source helper" >&2
