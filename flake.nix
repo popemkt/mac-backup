@@ -49,7 +49,12 @@
       username = "popemkt";
       pkgs = import nixpkgs {
         inherit system;
-        config.allowUnfreePredicate = pkg: nixpkgs.lib.getName pkg == "cursor-cli";
+        config.allowUnfreePredicate =
+          pkg:
+          builtins.elem (nixpkgs.lib.getName pkg) [
+            "chat2db"
+            "cursor-cli"
+          ];
       };
       localPackages = import ./pkgs {
         inherit

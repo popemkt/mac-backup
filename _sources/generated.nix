@@ -6,12 +6,22 @@
   dockerTools,
 }:
 {
+  chat2db = {
+    pname = "chat2db";
+    version = "5.3.2";
+    src = fetchurl {
+      url = "https://github.com/OtterMind/Chat2DB/releases/download/v5.3.2/Chat2DB-Community-5.3.2-arm64.dmg";
+      sha256 = "sha256-X54hVugE7Snu2X3dLLEsxvqhyXmK9n9mL3TNE8QWOKs=";
+    };
+    github = "OtterMind/Chat2DB";
+    tagPrefix = "v";
+  };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "7.2.104";
+    version = "7.2.118";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.104/CLIProxyAPI_7.2.104_darwin_aarch64.tar.gz";
-      sha256 = "sha256-PVLCkq9X6nEUus81+xt2yVUkSJQNPp8Q05wexXIpwOA=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.118/CLIProxyAPI_7.2.118_darwin_aarch64.tar.gz";
+      sha256 = "sha256-mPasJ+a4U+KqqcJ7lwEd6Gzr+wSHIQJxW8tRl5keGvs=";
     };
     github = "router-for-me/CLIProxyAPI";
     tagPrefix = "v";
@@ -25,6 +35,16 @@
     };
     versionUrl = "https://cursor.com/install";
     versionRegex = "downloads.cursor.com/lab/([^/]+)/";
+  };
+  genoffice = {
+    pname = "genoffice";
+    version = "0.5.1";
+    src = fetchurl {
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.5.1/GenOffice-0.5.1-arm64.dmg";
+      sha256 = "sha256-boqG9pw4Bbf8jQgNjH8OqNXcEMw6V0Tqz9kdiHhTdeQ=";
+    };
+    github = "genspark-ai/genoffice";
+    tagPrefix = "v";
   };
   logseq-nightly = {
     pname = "logseq-nightly";

@@ -18,6 +18,7 @@
     gh # GitHub CLI
     cursor-cli # Cursor terminal agent (`agent` / `cursor-agent`)
     logseq-nightly # ARM64 app from Logseq's moving nightly GitHub release
+    chat2db # AI database client / SQL workspace (GitHub release DMG)
     sqlite
     kubectl
     yt-dlp

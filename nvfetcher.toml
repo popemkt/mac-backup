@@ -16,3 +16,17 @@ src.webpage = "https://github.com/logseq/logseq/releases/expanded_assets/nightly
 src.regex = 'Logseq-darwin-arm64-([0-9A-Za-z.+-]+nightly[.][0-9]+)[.]zip'
 fetch.url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-$ver.zip"
 passthru = { versionUrl = "https://github.com/logseq/logseq/releases/expanded_assets/nightly", versionRegex = 'Logseq-darwin-arm64-([0-9A-Za-z.+-]+nightly[.][0-9]+)[.]zip' }
+
+[genoffice]
+src.github = "genspark-ai/genoffice"
+src.from_pattern = "^v(.+)$"
+src.to_pattern = "\\1"
+fetch.url = "https://github.com/genspark-ai/genoffice/releases/download/v$ver/GenOffice-$ver-arm64.dmg"
+passthru = { github = "genspark-ai/genoffice", tagPrefix = "v" }
+
+[chat2db]
+src.github = "OtterMind/Chat2DB"
+src.from_pattern = "^v(.+)$"
+src.to_pattern = "\\1"
+fetch.url = "https://github.com/OtterMind/Chat2DB/releases/download/v$ver/Chat2DB-Community-$ver-arm64.dmg"
+passthru = { github = "OtterMind/Chat2DB", tagPrefix = "v" }

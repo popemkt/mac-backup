@@ -109,6 +109,7 @@ in
         "claude-code-templates" # component/agent scaffolding for Claude Code (cct)
         "cline"
         "gitnexus"
+        "reasonix" # DeepSeek-native cache-first coding agent
       ]
       ++ cfg.extra.npmGlobals;
 

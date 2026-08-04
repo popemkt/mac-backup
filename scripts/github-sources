@@ -358,9 +358,11 @@ update_sources() {
   fi
 
   local filter="${1:-}"
+  # --keep-old preserves co-located non-nvfetcher files such as uv-pins.json.
   local args=(
     --config "$NVFETCHER_CONFIG"
     --build-dir "$ROOT_DIR/_sources"
+    --keep-old
   )
 
   if [ -n "$filter" ]; then

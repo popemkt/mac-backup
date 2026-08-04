@@ -11,6 +11,15 @@
   # DARWIN-SPECIFIC HOME-MANAGER SETTINGS
   # ============================================================================
 
+  # stateVersion is still 24.05, so HM defaults to linkApps (nix-store
+  # symlinks). Spotlight/Launchpad ignore those; copyApps materializes real
+  # .app bundles instead. Keep the dedicated subdirectory — copyApps uses
+  # rsync --delete, so pointing it at ~/Applications would wipe unrelated apps.
+  targets.darwin = {
+    linkApps.enable = false;
+    copyApps.enable = true;
+  };
+
   home = {
     # Surface Homebrew bins on PATH for interactive shells.
     # NOTE: launchd-spawned GUI apps don't read this — set per-agent envs
