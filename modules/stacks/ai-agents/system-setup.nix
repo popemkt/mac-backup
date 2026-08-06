@@ -31,6 +31,49 @@ in
             description = "Externally authenticated OpenAI model provider.";
             managedBy = "external";
           };
+
+          deepseek = {
+            name = "DeepSeek";
+            description = "OpenAI-compatible DeepSeek API provider (API key).";
+            managedBy = "external";
+          };
+        };
+
+        integrations."cli-proxy-deepseek" = {
+          name = "CLIProxyAPI DeepSeek";
+          description = "Prove CLIProxyAPI can expose DeepSeek V4 models via openai-compatibility.";
+          required = false;
+          requiredBy = [ "Kun / OpenAI-compatible clients (optional)" ];
+          connections = [
+            {
+              source = "cli-proxy-api";
+              target = "deepseek";
+            }
+          ];
+          check = {
+            kind = "openai_models";
+            url = "http://127.0.0.1:8317/v1/models";
+            expected_models = [
+              "deepseek-v4-flash"
+              "deepseek-v4-pro"
+            ];
+          };
+          enrollment = {
+            kind = "manual";
+            url = "https://platform.deepseek.com/api_keys";
+            instructions = ''
+              Create a DeepSeek API key, put DEEPSEEK_API_KEY=... in
+              ~/.local/state/cli-proxy-api/secrets.env (mode 0600), then rebuild
+              so Home Manager merges it into ~/.config/cli-proxy-api/config.yaml.
+              Do not commit the key.
+            '';
+          };
+          statePaths = [
+            "${home}/.local/state/cli-proxy-api/secrets.env"
+            "${home}/.config/cli-proxy-api/config.yaml"
+          ];
+          secretPolicy = "DEEPSEEK_API_KEY stays in secrets.env (mode 0600) and must not enter Git or the Nix store.";
+          recovery = "Restore secrets.env from an encrypted backup, or paste a new DeepSeek key and rebuild.";
         };
 
         integrations."cli-proxy-codex" = {
