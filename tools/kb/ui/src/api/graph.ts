@@ -15,10 +15,14 @@ function useFixturesForced(): boolean {
   );
 }
 
+function validatedFixtures(): GraphSnapshot {
+  return GraphSnapshotSchema.parse(fixtureGraph);
+}
+
 /** Load GET /api/graph; fall back to protocol-shaped fixtures when offline. */
 export async function loadGraph(): Promise<GraphLoadResult> {
   if (useFixturesForced()) {
-    return { snapshot: fixtureGraph, source: "fixtures" };
+    return { snapshot: validatedFixtures(), source: "fixtures" };
   }
 
   try {
@@ -28,6 +32,6 @@ export async function loadGraph(): Promise<GraphLoadResult> {
     const snapshot = GraphSnapshotSchema.parse(json);
     return { snapshot, source: "api" };
   } catch {
-    return { snapshot: fixtureGraph, source: "fixtures" };
+    return { snapshot: validatedFixtures(), source: "fixtures" };
   }
 }
