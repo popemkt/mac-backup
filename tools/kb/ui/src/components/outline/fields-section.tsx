@@ -10,7 +10,9 @@ interface FieldsSectionProps {
 
 /**
  * Inline field rows under a node (nxus anatomy).
- * Indent = (depth+1) × --kb-indent; label width = --kb-field-label.
+ * Indent = (depth+1) × --kb-indent + --kb-row-h: the row-h term stands in for
+ * the field-bullet slot nxus renders, so labels align with its label column.
+ * Label width = --kb-field-label.
  * Side panel keeps bulk editing; this is the glanceable inline surface.
  */
 export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
