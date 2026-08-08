@@ -43,6 +43,15 @@ describe("resolveBulletKind", () => {
     ).toBe("command");
   });
 
+  it("maps canvas from #canvas tag or sys.tag.canvas type ref", () => {
+    expect(
+      resolveBulletKind(base({ tagNames: ["canvas"] })),
+    ).toBe("canvas");
+    expect(
+      resolveBulletKind(base({ typeRefs: [SYSTEM_IDS.canvasTag] })),
+    ).toBe("canvas");
+  });
+
   it("prefers type ref over parent/query", () => {
     expect(
       resolveBulletKind(

@@ -159,7 +159,9 @@ describe("kb ext list", () => {
     const human = await runCli(["--root", root, "ext", "list"]);
     expect(human.code).toBe(0);
     expect(human.out).toContain("docs (bundled)");
+    expect(human.out).toContain("canvas (bundled)");
     expect(human.out).toContain("ext.docs.materialize (alias: docs.materialize)");
+    expect(human.out).toContain("ext.canvas.tx.apply");
     expect(human.out).toContain("ext.hello.greet");
     expect(human.out).toContain("! broken.ts");
 
@@ -175,7 +177,7 @@ describe("kb ext list", () => {
     };
     expect(parsed.status).toBe("succeeded");
     const names = parsed.output.extensions.map((e) => e.name).sort();
-    expect(names).toEqual(["docs", "hello"]);
+    expect(names).toEqual(["canvas", "docs", "hello"]);
     expect(parsed.output.failures.map((f) => f.file)).toEqual(["broken.ts"]);
   });
 });

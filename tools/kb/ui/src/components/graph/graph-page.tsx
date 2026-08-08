@@ -13,7 +13,7 @@ import {
   type LensRenderer,
 } from "@/lib/graph-lens";
 import { SYSTEM_IDS } from "@/lib/types";
-import { graphPath, navigate } from "@/lib/route";
+import { graphPath, navigate } from "@/lib/router";
 import { PerspectivePicker } from "@/components/graph/perspective-picker";
 import { RendererSwitch } from "@/components/graph/renderer-switch";
 import { SigmaGraph } from "@/components/graph/sigma-graph";

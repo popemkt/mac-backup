@@ -4,9 +4,15 @@
 
 ## todo
 
+- canvas C2: media cards (assets) + frictionless quick-add — draw.io feel
+- canvas simplify (Logseq model): edges are drawings only; native bind = one-shot prop write; bound-state computed at render (unbound tint); DELETE reconciler/persist-back/bindingId repair — supersedes broken-edge repair todo
+- canvas: offload canvas doc to .kb/canvas/<id>.json (prop holds pointer) — keep nodes.jsonl lean
+- graph: smart-elide system/editor-only nodes by default + toggle; universal graph button in header
 - kb ui portless mode: UDS transport for local subscriber apps + port discovery via .kb/runtime.json
 - Package kb as nix app in pkgs/ (pinned bun deps, vp build in sandbox, wrapper bin) — replaces checkout-based wrapper
+- per-viz demo seed + user test script (tree/cluster/3D/board/canvas)
 - Study production nix repo shape before adopting
+- views: toolbar tucked in hover/settings gear — never always-visible
 
 ## done
 
@@ -20,8 +26,13 @@
 - kb reskin W8b: unified NodeRow/TagChip/FieldRow + borderless field editors + tag colors + selection states — DESIGN-RESKIN.md
 - Migrate TODO.md items into kb (M5)
 
+## dropped
+
+- canvas: keep broken kbLink edges as dashed + repair prompt (flip from auto-remove)
+
 ## later
 
+- core: investigate tag inheritance (supertag extends) for Tana parity
 - kb refine V-wave: viz surfaces beyond nxus (2D sigma, 3D force, stacked/folder views, JSON Canvas) — DESIGN-REFINE.md + .research/kb-refine/viz/report.md
 - kb ui server: datalog subscription limits (query complexity/time cap) + inline sub-error surfacing in query nodes
 

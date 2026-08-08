@@ -17,6 +17,7 @@ export default defineConfig({
     alias: {
       "@": path.join(root, "src"),
       "@kb/protocol": path.join(root, "../src/surface/protocol.ts"),
+      "@kb/canvas": path.join(root, "../src/canvas/doc.ts"),
     },
   },
   server: {
