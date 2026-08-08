@@ -9,12 +9,7 @@ import {
 import { OutlineEditor } from "@/components/outline/outline-editor";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
-import {
-  isCanvasList,
-  matchCanvasId,
-  navigate,
-  usePath,
-} from "@/lib/router";
+import { matchRoute, navigate, usePath } from "@/lib/router";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -92,8 +87,10 @@ export function App() {
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
   const setNodePaletteOpen = useUiStore((s) => s.setNodePaletteOpen);
   const path = usePath();
-  const canvasId = matchCanvasId(path);
-  const onCanvas = isCanvasList(path) || canvasId !== null;
+  const route = matchRoute(path);
+  const onCanvas =
+    route.name === "canvas-list" || route.name === "canvas";
+  const canvasId = route.name === "canvas" ? route.id : null;
 
   useEffect(() => {
     let cancelled = false;

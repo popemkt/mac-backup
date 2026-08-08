@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-/** Tiny path router — no react-router dependency. */
+/** Tiny path router — no react-router dependency. Single route table. */
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -35,12 +35,30 @@ export function usePath(): string {
   );
 }
 
-/** Match `/canvas/:id` → id, or null. */
-export function matchCanvasId(path: string): string | null {
-  const m = path.match(/^\/canvas\/([^/]+)\/?$/);
-  return m?.[1] ? decodeURIComponent(m[1]) : null;
+export type AppRoute =
+  | { name: "outline" }
+  | { name: "canvas-list" }
+  | { name: "canvas"; id: string }
+  | { name: "graph" };
+
+/** Canonical route table — App.tsx and nav consume this only. */
+export function matchRoute(path: string): AppRoute {
+  if (path === "/canvas" || path === "/canvas/") return { name: "canvas-list" };
+  const canvas = path.match(/^\/canvas\/([^/]+)\/?$/);
+  if (canvas?.[1]) {
+    return { name: "canvas", id: decodeURIComponent(canvas[1]) };
+  }
+  if (path === "/graph" || path === "/graph/") return { name: "graph" };
+  return { name: "outline" };
 }
 
+/** @deprecated use matchRoute */
+export function matchCanvasId(path: string): string | null {
+  const r = matchRoute(path);
+  return r.name === "canvas" ? r.id : null;
+}
+
+/** @deprecated use matchRoute */
 export function isCanvasList(path: string): boolean {
-  return path === "/canvas" || path === "/canvas/";
+  return matchRoute(path).name === "canvas-list";
 }

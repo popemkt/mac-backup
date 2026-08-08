@@ -8,7 +8,12 @@ import type {
   KbLinkMode,
 } from "@kb/canvas";
 import {
+  dedupeNativeEdgesByTriple,
+  isGroupNode,
+  isKbNode,
+  isTextNode,
   removeCanvasEdge,
+  removeEdgesByBindingId,
   upsertCanvasEdge,
   upsertCanvasNode,
 } from "@kb/canvas";
@@ -19,12 +24,15 @@ import { EdgeInspector } from "@/components/canvas/edge-inspector";
 import { NodePicker } from "@/components/canvas/node-picker";
 import { edgePath } from "@/components/canvas/edge-path";
 import {
+  isValidNativeTarget,
   listRefFields,
   persistCanvasDoc,
+  planNativeBind,
   readCanvasDoc,
-  reconcileAndMaybePersist,
+  reconcileOnRev,
 } from "@/lib/canvas-api";
 import { navigate } from "@/lib/router";
+import { toast } from "@/lib/toast";
 import { useOutlineStore } from "@/stores/outline.store";
 import { cn } from "@/lib/cn";
 
@@ -64,6 +72,7 @@ type Drag =
 
 export function CanvasPage({ canvasId }: CanvasPageProps) {
   const nodes = useOutlineStore((s) => s.nodes);
+  const queryDb = useOutlineStore((s) => s.queryDb);
   const rev = useOutlineStore((s) => s.rev);
   const canvasNode = nodes.get(canvasId);
 
@@ -81,27 +90,41 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const dragRef = useRef<Drag | null>(null);
+  const dirtyRef = useRef(false);
   const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const docRef = useRef(doc);
   docRef.current = doc;
 
-  // Load + reconcile on rev bumps (WS / remote prop changes).
+  const isBusy = useCallback(
+    () => dragRef.current !== null || dirtyRef.current,
+    [],
+  );
+
+  const applyLocal = useCallback((next: CanvasDoc) => {
+    docRef.current = next;
+    setDoc(next);
+  }, []);
+
+  // Load + reconcile on rev bumps — never clobber in-progress local edits.
   useEffect(() => {
-    const map = useOutlineStore.getState().nodes;
-    const next = readCanvasDoc(map.get(canvasId));
-    const reconciled = reconcileAndMaybePersist(canvasId, next, map);
-    setDoc(reconciled);
-  }, [canvasId, rev]);
+    reconcileOnRev(canvasId, useOutlineStore.getState().nodes, {
+      getLocalDoc: () => docRef.current,
+      applyLocal,
+      isBusy,
+    });
+  }, [canvasId, rev, applyLocal, isBusy]);
 
   const schedulePersist = useCallback(
     (next: CanvasDoc) => {
-      setDoc(next);
+      dirtyRef.current = true;
+      applyLocal(next);
       if (persistTimer.current) clearTimeout(persistTimer.current);
       persistTimer.current = setTimeout(() => {
-        void persistCanvasDoc(canvasId, next);
+        dirtyRef.current = false;
+        void persistCanvasDoc(canvasId, docRef.current);
       }, DEBOUNCE_MS);
     },
-    [canvasId],
+    [canvasId, applyLocal],
   );
 
   const flushPersist = useCallback(
@@ -110,10 +133,11 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       opts?: Parameters<typeof persistCanvasDoc>[2],
     ) => {
       if (persistTimer.current) clearTimeout(persistTimer.current);
-      setDoc(next);
+      dirtyRef.current = false;
+      applyLocal(next);
       await persistCanvasDoc(canvasId, next, opts);
     },
-    [canvasId],
+    [canvasId, applyLocal],
   );
 
   const byId = useMemo(() => {
@@ -126,7 +150,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "Space" && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target as HTMLElement).isContentEditable) {
+      if (
+        e.code === "Space" &&
+        !(e.target instanceof HTMLInputElement) &&
+        !(e.target instanceof HTMLTextAreaElement) &&
+        !(e.target as HTMLElement).isContentEditable
+      ) {
         setSpaceDown(true);
         e.preventDefault();
       }
@@ -164,7 +193,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   };
 
   const onPointerDownStage = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button === 1 || spaceDown || e.button === 0 && e.altKey) {
+    if (e.button === 1 || spaceDown || (e.button === 0 && e.altKey)) {
       dragRef.current = {
         kind: "pan",
         x: e.clientX,
@@ -235,7 +264,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     }
     if (d.kind === "edge") {
       dragRef.current = { ...d, x: e.clientX, y: e.clientY };
-      // force re-render for preview line
       setPan((p) => ({ ...p }));
     }
   };
@@ -264,8 +292,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         mode: "layout",
         via: "prop",
         fieldId: "",
-        sourceNodeId: from.type === "kb-node" ? from.nodeId : "",
-        targetNodeId: to.type === "kb-node" ? to.nodeId : "",
+        sourceNodeId: isKbNode(from) ? from.nodeId : "",
+        targetNodeId: isKbNode(to) ? to.nodeId : "",
         bindingId: ulid(),
       },
     };
@@ -295,16 +323,24 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     if (!selectedEdgeObj) return;
     const from = byId.get(selectedEdgeObj.fromNode);
     const to = byId.get(selectedEdgeObj.toNode);
-    if (!from || !to || from.type !== "kb-node" || to.type !== "kb-node") {
+
+    // Refuse native without a field — keep layout until field is chosen.
+    if (mode === "native" && !selectedEdgeObj.kbLink?.fieldId) {
+      toast("Pick a ref field before enabling native mode");
+      return;
+    }
+
+    if (!from || !to || !isKbNode(from) || !isKbNode(to)) {
       const next = upsertCanvasEdge(docRef.current, {
         ...selectedEdgeObj,
         kbLink: selectedEdgeObj.kbLink
-          ? { ...selectedEdgeObj.kbLink, mode }
+          ? { ...selectedEdgeObj.kbLink, mode: mode === "native" && !selectedEdgeObj.kbLink.fieldId ? "layout" : mode }
           : undefined,
       });
       await flushPersist(next);
       return;
     }
+
     const link = {
       mode,
       via: "prop" as const,
@@ -313,15 +349,26 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       targetNodeId: to.nodeId,
       bindingId: selectedEdgeObj.kbLink?.bindingId ?? ulid(),
     };
-    const nextEdge = { ...selectedEdgeObj, kbLink: link };
-    const next = upsertCanvasEdge(docRef.current, nextEdge);
+    if (mode === "native" && !link.fieldId) {
+      toast("Pick a ref field before enabling native mode");
+      return;
+    }
+
+    let next = upsertCanvasEdge(docRef.current, {
+      ...selectedEdgeObj,
+      kbLink: link,
+    });
+    next = dedupeNativeEdgesByTriple(next);
 
     if (mode === "native" && link.fieldId) {
+      if (!isValidNativeTarget(link.fieldId, to.nodeId, nodes, queryDb)) {
+        toast("Target not allowed for this ref field");
+        return;
+      }
+      const bind = planNativeBind(nodes, from.nodeId, link.fieldId, to.nodeId);
       await flushPersist(next, {
         propTargetId: from.nodeId,
-        setProps: [
-          { field: link.fieldId, value: { t: "ref", v: to.nodeId } },
-        ],
+        setProps: bind.skip ? undefined : bind.setProps,
       });
     } else if (
       mode === "layout" &&
@@ -346,23 +393,27 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     if (!selectedEdgeObj) return;
     const from = byId.get(selectedEdgeObj.fromNode);
     const to = byId.get(selectedEdgeObj.toNode);
-    if (!from || !to || from.type !== "kb-node" || to.type !== "kb-node") return;
+    if (!from || !to || !isKbNode(from) || !isKbNode(to)) return;
+
+    if (!isValidNativeTarget(fieldId, to.nodeId, nodes, queryDb)) {
+      toast("Target not allowed for this ref field");
+      return;
+    }
 
     const prev = selectedEdgeObj.kbLink;
     const link = {
-      mode: (prev?.mode ?? "native") as KbLinkMode,
+      mode: "native" as const,
       via: "prop" as const,
       fieldId,
       sourceNodeId: from.nodeId,
       targetNodeId: to.nodeId,
       bindingId: prev?.bindingId ?? ulid(),
     };
-    // Promote to native when picking a field.
-    link.mode = "native";
-    const next = upsertCanvasEdge(docRef.current, {
+    let next = upsertCanvasEdge(docRef.current, {
       ...selectedEdgeObj,
       kbLink: link,
     });
+    next = dedupeNativeEdgesByTriple(next);
 
     const unsetProps =
       prev?.mode === "native" && prev.fieldId && prev.fieldId !== fieldId
@@ -374,17 +425,26 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           ]
         : undefined;
 
+    const bind = planNativeBind(nodes, from.nodeId, fieldId, to.nodeId);
     await flushPersist(next, {
       propTargetId: from.nodeId,
       unsetProps,
-      setProps: [{ field: fieldId, value: { t: "ref", v: to.nodeId } }],
+      setProps: bind.skip ? undefined : bind.setProps,
     });
   };
 
   const onDeleteEdge = async () => {
     if (!selectedEdgeObj) return;
-    const next = removeCanvasEdge(docRef.current, selectedEdgeObj.id);
     const link = selectedEdgeObj.kbLink;
+    // Drop only edges sharing this bindingId when native; else by edge id.
+    let next =
+      link?.bindingId
+        ? removeEdgesByBindingId(docRef.current, link.bindingId)
+        : removeCanvasEdge(docRef.current, selectedEdgeObj.id);
+    // If bindingId remove missed (no link), fall back.
+    if (next.edges.length === docRef.current.edges.length) {
+      next = removeCanvasEdge(docRef.current, selectedEdgeObj.id);
+    }
     if (link?.mode === "native" && link.fieldId) {
       await flushPersist(next, {
         propTargetId: link.sourceNodeId,
@@ -535,7 +595,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
           <div data-canvas-stage className="contents">
             {doc.nodes.map((card) => {
-              if (card.type === "group") {
+              if (isGroupNode(card)) {
                 return (
                   <div
                     key={card.id}
@@ -556,7 +616,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                   </div>
                 );
               }
-              if (card.type === "text") {
+              if (isTextNode(card)) {
                 return (
                   <div key={card.id} data-card-id={card.id}>
                     <TextCard
@@ -601,6 +661,24 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                         };
                       }}
                     />
+                  </div>
+                );
+              }
+              if (!isKbNode(card)) {
+                // Opaque file/link/etc — layout-only box.
+                return (
+                  <div
+                    key={card.id}
+                    data-card-id={card.id}
+                    className="absolute rounded-md border border-foreground/[0.06] bg-background px-2 py-1 text-[11px] text-foreground/40"
+                    style={{
+                      left: card.x,
+                      top: card.y,
+                      width: card.width,
+                      height: card.height,
+                    }}
+                  >
+                    {card.type}
                   </div>
                 );
               }

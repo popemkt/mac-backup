@@ -82,6 +82,46 @@ function assertUserWritable(id: string): void {
   }
 }
 
+class CanvasTxError extends Error {
+  readonly code = "invalid_input" as const;
+  constructor(
+    message: string,
+    readonly details?: unknown,
+  ) {
+    super(message);
+    this.name = "CanvasTxError";
+  }
+}
+
+function assertCanvasHost(ctx: KbContext, id: NodeId): KbNode {
+  assertUserWritable(id);
+  const node = requireNode(ctx, id);
+  const types = node.props[SYSTEM_IDS.typeField] ?? [];
+  const tagged = types.some(
+    (v) => v.t === "ref" && v.v === SYSTEM_IDS.canvasTag,
+  );
+  if (!tagged) {
+    // Also accept a user tag named "canvas" typed as sys.tag (text match).
+    const canvasTagNodes = ctx.nodes.filter(
+      (n) =>
+        n.text === "canvas" &&
+        (n.props[SYSTEM_IDS.typeField] ?? []).some(
+          (v) => v.t === "ref" && v.v === SYSTEM_IDS.tag,
+        ),
+    );
+    const ok = types.some(
+      (v) => v.t === "ref" && canvasTagNodes.some((t) => t.id === v.v),
+    );
+    if (!ok) {
+      throw new CanvasTxError(
+        `canvas host must be tagged #canvas: ${id}`,
+        { id },
+      );
+    }
+  }
+  return node;
+}
+
 function applySetProps(
   ctx: KbContext,
   props: Record<NodeId, PropValue[]>,
@@ -114,23 +154,10 @@ function applyUnsetProps(
   }
 }
 
-class CanvasTxError extends Error {
-  readonly code = "invalid_input" as const;
-  constructor(
-    message: string,
-    readonly details?: unknown,
-  ) {
-    super(message);
-    this.name = "CanvasTxError";
-  }
-}
-
 async function canvasTxApply(
   ctx: KbContext,
   input: z.infer<typeof applyInput>,
 ): Promise<z.infer<typeof applyOutput>> {
-  assertUserWritable(input.canvasId);
-
   // Parse/validate doc before any mutation — failure rolls back (no write).
   let parsed: CanvasDoc;
   try {
@@ -143,7 +170,7 @@ async function canvasTxApply(
   }
   const docStr = stringifyCanvasDoc(parsed);
 
-  const canvas = cloneNode(requireNode(ctx, input.canvasId));
+  const canvas = cloneNode(assertCanvasHost(ctx, input.canvasId));
   // Replace (not append) the canvas JSON prop — single current document.
   canvas.props[SYSTEM_IDS.canvasField] = [{ t: "str", v: docStr }];
   canvas.updatedAt = nowIso();

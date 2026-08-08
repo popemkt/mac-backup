@@ -7,13 +7,21 @@ import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
 import { cn } from "@/lib/cn";
 
+/** Stable instance key for a kb-node card on a canvas. */
+export function canvasCardInstanceKey(cardId: string, nodeId: string): string {
+  return `canvas:${cardId}:${nodeId}`;
+}
+
 interface KbCardProps {
   card: CanvasKbNode;
   selected: boolean;
   onSelect: () => void;
   onMoveStart: (e: React.PointerEvent) => void;
   onResizeStart: (e: React.PointerEvent) => void;
-  onPortDown: (side: "left" | "right" | "top" | "bottom", e: React.PointerEvent) => void;
+  onPortDown: (
+    side: "left" | "right" | "top" | "bottom",
+    e: React.PointerEvent,
+  ) => void;
 }
 
 /** kb-node card: layout shell + shared NodeRow / NodeContent / TagChips. */
@@ -27,16 +35,42 @@ export function KbNodeCard({
 }: KbCardProps) {
   const node = useOutlineStore((s) => s.nodes.get(card.nodeId));
   const activeNodeId = useOutlineStore((s) => s.activeNodeId);
+  const activeInstanceKey = useOutlineStore((s) => s.activeInstanceKey);
   const activateNode = useOutlineStore((s) => s.activateNode);
   const selectNode = useOutlineStore((s) => s.selectNode);
   const cursorPosition = useOutlineStore((s) => s.cursorPosition);
-  const isActive = activeNodeId === card.nodeId;
+  const instanceKey = canvasCardInstanceKey(card.id, card.nodeId);
+  const isActive =
+    activeNodeId === card.nodeId && activeInstanceKey === instanceKey;
 
   const handleActivate = useCallback(
     (cursorPos?: number) => {
-      activateNode(card.nodeId, cursorPos);
+      activateNode(card.nodeId, cursorPos, instanceKey);
     },
-    [activateNode, card.nodeId],
+    [activateNode, card.nodeId, instanceKey],
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      // Canvas-safe subset: no structural outline ops (indent/split/merge).
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        (e.target as HTMLElement).blur();
+        useOutlineStore.getState().selectNode(card.nodeId, instanceKey);
+        return;
+      }
+      if (e.key === "Tab") {
+        e.preventDefault();
+        return;
+      }
+      if (
+        (e.key === "Backspace" || e.key === "Delete") &&
+        (e.metaKey || e.ctrlKey)
+      ) {
+        e.preventDefault();
+      }
+    },
+    [card.nodeId, instanceKey],
   );
 
   if (!node) {
@@ -84,10 +118,11 @@ export function KbNodeCard({
       <NodeRow
         depth={0}
         nodeId={card.nodeId}
+        instanceKey={instanceKey}
         isSelected={selected}
         isActive={isActive}
         onRowClick={() => {
-          selectNode(card.nodeId);
+          selectNode(card.nodeId, instanceKey);
           onSelect();
         }}
         bullet={
@@ -96,20 +131,21 @@ export function KbNodeCard({
             tagColor={node.tags[0]?.color ?? null}
             onClick={(e) => {
               e.stopPropagation();
-              selectNode(card.nodeId);
+              selectNode(card.nodeId, instanceKey);
             }}
           />
         }
         content={
           <NodeContent
             nodeId={card.nodeId}
+            instanceKey={instanceKey}
             content={node.text}
             isActive={isActive}
             tags={node.tags}
             cursorPosition={cursorPosition}
             onActivate={handleActivate}
             onChange={(text) => mutations.updateNodeContent(card.nodeId, text)}
-            onKeyDown={() => {}}
+            onKeyDown={handleKeyDown}
           />
         }
       />
@@ -122,9 +158,12 @@ export function KbNodeCard({
           className={cn(
             "absolute z-10 h-2.5 w-2.5 rounded-full border border-foreground/20 bg-background",
             "opacity-0 transition-opacity group-hover/card:opacity-100",
-            side === "left" && "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
-            side === "right" && "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
-            side === "top" && "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
+            side === "left" &&
+              "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
+            side === "right" &&
+              "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
+            side === "top" &&
+              "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
             side === "bottom" &&
               "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
           )}
@@ -153,7 +192,10 @@ interface TextCardProps {
   onChange: (text: string) => void;
   onMoveStart: (e: React.PointerEvent) => void;
   onResizeStart: (e: React.PointerEvent) => void;
-  onPortDown: (side: "left" | "right" | "top" | "bottom", e: React.PointerEvent) => void;
+  onPortDown: (
+    side: "left" | "right" | "top" | "bottom",
+    e: React.PointerEvent,
+  ) => void;
 }
 
 export function TextCard({
@@ -203,9 +245,12 @@ export function TextCard({
           className={cn(
             "absolute z-10 h-2.5 w-2.5 rounded-full border border-foreground/20 bg-background",
             "opacity-0 transition-opacity group-hover/card:opacity-100",
-            side === "left" && "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
-            side === "right" && "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
-            side === "top" && "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
+            side === "left" &&
+              "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
+            side === "right" &&
+              "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
+            side === "top" &&
+              "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
             side === "bottom" &&
               "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
           )}

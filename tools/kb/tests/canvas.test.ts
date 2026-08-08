@@ -6,9 +6,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
   EMPTY_CANVAS_DOC,
+  dedupeNativeEdgesByTriple,
   parseCanvasDoc,
+  pruneOrphanEdges,
   reconcileCanvasDoc,
   removeCanvasEdge,
+  removeEdgesByBindingId,
   stringifyCanvasDoc,
   upsertCanvasEdge,
   upsertCanvasNode,
@@ -207,6 +210,167 @@ describe("reconciler", () => {
     expect(dropped).toEqual(["native-ok", "native-orphan"]);
     expect(doc.edges.map((e) => e.id)).toEqual(["layout-edge"]);
   });
+
+  test("native + empty fieldId demotes to layout (never auto-drops)", () => {
+    const doc: CanvasDoc = {
+      nodes: [],
+      edges: [
+        {
+          id: "e-empty",
+          fromNode: "a",
+          toNode: "b",
+          kbLink: {
+            mode: "native",
+            via: "prop",
+            fieldId: "",
+            sourceNodeId: "s",
+            targetNodeId: "t",
+            bindingId: "b",
+          },
+        },
+      ],
+    };
+    const { doc: next, dropped, demoted } = reconcileCanvasDoc(
+      doc,
+      () => undefined,
+    );
+    expect(dropped).toEqual([]);
+    expect(demoted).toEqual(["e-empty"]);
+    expect(next.edges[0]!.kbLink?.mode).toBe("layout");
+  });
+
+  test("pruneOrphanEdges is a minimal delta on base layout", () => {
+    const base: CanvasDoc = {
+      nodes: [
+        {
+          id: "c1",
+          type: "kb-node",
+          nodeId: "n",
+          x: 99,
+          y: 88,
+          width: 10,
+          height: 10,
+        },
+      ],
+      edges: [
+        { id: "keep", fromNode: "c1", toNode: "c1" },
+        { id: "drop", fromNode: "c1", toNode: "c1" },
+      ],
+    };
+    const next = pruneOrphanEdges(base, ["drop"]);
+    expect(next.nodes[0]).toEqual(base.nodes[0]);
+    expect(next.edges.map((e) => e.id)).toEqual(["keep"]);
+  });
+});
+
+describe("unknown type + field round-trip", () => {
+  test("file node + extra fields survive stringify/parse", () => {
+    const raw = {
+      nodes: [
+        {
+          id: "f1",
+          type: "file",
+          file: "note.md",
+          x: 1,
+          y: 2,
+          width: 100,
+          height: 50,
+          custom: { a: 1 },
+        },
+      ],
+      edges: [
+        {
+          id: "e1",
+          fromNode: "f1",
+          toNode: "f1",
+          pluginMeta: true,
+        },
+      ],
+      schemaVersion: 2,
+    };
+    const again = parseCanvasDoc(stringifyCanvasDoc(parseCanvasDoc(raw)));
+    expect(again.nodes[0]?.type).toBe("file");
+    expect(again.nodes[0]?.extra?.file).toBe("note.md");
+    expect(again.nodes[0]?.extra?.custom).toEqual({ a: 1 });
+    expect(again.edges[0]?.extra?.pluginMeta).toBe(true);
+    expect(again.extra?.schemaVersion).toBe(2);
+  });
+});
+
+describe("bindingId helpers", () => {
+  test("dedupeNativeEdgesByTriple keeps first native triple", () => {
+    const doc: CanvasDoc = {
+      nodes: [],
+      edges: [
+        {
+          id: "e1",
+          fromNode: "a",
+          toNode: "b",
+          kbLink: {
+            mode: "native",
+            via: "prop",
+            fieldId: "f",
+            sourceNodeId: "s",
+            targetNodeId: "t",
+            bindingId: "b1",
+          },
+        },
+        {
+          id: "e2",
+          fromNode: "a",
+          toNode: "b",
+          kbLink: {
+            mode: "native",
+            via: "prop",
+            fieldId: "f",
+            sourceNodeId: "s",
+            targetNodeId: "t",
+            bindingId: "b2",
+          },
+        },
+      ],
+    };
+    expect(dedupeNativeEdgesByTriple(doc).edges.map((e) => e.id)).toEqual([
+      "e1",
+    ]);
+  });
+
+  test("removeEdgesByBindingId drops matching binding only", () => {
+    const doc: CanvasDoc = {
+      nodes: [],
+      edges: [
+        {
+          id: "e1",
+          fromNode: "a",
+          toNode: "b",
+          kbLink: {
+            mode: "native",
+            via: "prop",
+            fieldId: "f",
+            sourceNodeId: "s",
+            targetNodeId: "t",
+            bindingId: "bind-x",
+          },
+        },
+        {
+          id: "e2",
+          fromNode: "a",
+          toNode: "b",
+          kbLink: {
+            mode: "layout",
+            via: "prop",
+            fieldId: "",
+            sourceNodeId: "s",
+            targetNodeId: "t",
+            bindingId: "other",
+          },
+        },
+      ],
+    };
+    expect(
+      removeEdgesByBindingId(doc, "bind-x").edges.map((e) => e.id),
+    ).toEqual(["e2"]);
+  });
 });
 
 describe("ext.canvas.tx.apply", () => {
@@ -350,6 +514,27 @@ describe("ext.canvas.tx.apply", () => {
     expect(receipt.status).toBe("failed");
     if (receipt.status === "failed") {
       expect(receipt.code).toBe("forbidden");
+    }
+  });
+
+  test("requires #canvas tag on host node", async () => {
+    const root = await tempRoot();
+    const ctx = await openKb(root);
+    await invoke(ctx, {
+      id: "node.add",
+      input: { text: "Not a canvas", id: "n.plain" },
+    });
+    const receipt = await invoke(ctx, {
+      id: "ext.canvas.tx.apply",
+      input: {
+        canvasId: "n.plain",
+        doc: EMPTY_CANVAS_DOC,
+      },
+    });
+    expect(receipt.status).toBe("failed");
+    if (receipt.status === "failed") {
+      expect(receipt.code).toBe("invalid_input");
+      expect(receipt.message).toContain("#canvas");
     }
   });
 
