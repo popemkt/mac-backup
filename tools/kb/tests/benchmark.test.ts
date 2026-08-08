@@ -70,7 +70,7 @@ describe("benchmark 50k", () => {
         `[bench] nodes=${loaded.length} write=${tWrite.toFixed(1)}ms load=${loadMs.toFixed(1)}ms build=${buildMs.toFixed(1)}ms query=${queryMs.toFixed(1)}ms total=${totalMs.toFixed(1)}ms rows=${rows.length}`,
       );
 
-      expect(loaded.length).toBe(N + 11); // 10 sys + 1 tag + N
+      expect(loaded.length).toBe(N + systemSeedNodes().length + 1); // sys seed + 1 tag + N
       // every 10th of N (i % 10 === 0): 5000 nodes
       expect(rows.length).toBe(N / 10);
       expect(totalMs).toBeLessThan(1000);

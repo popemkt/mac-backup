@@ -33,6 +33,12 @@ export const SYSTEM_IDS = {
   cmdDefineField: "sys.cmd.define-field",
   cmdGoQuery: "sys.cmd.go-query",
   cmdNewQuery: "sys.cmd.new-query",
+  /** Query nodes as pure system nodes (DESIGN-REFINE §2 W4). */
+  queryTag: "sys.tag.query",
+  queryField: "sys.f.query",
+  queryLimitField: "sys.f.query.limit",
+  /** Virtual root for saved queries (.kb/queries/*.edn); never in jsonl. */
+  queriesRoot: "sys.queries",
 } as const;
 
 export type SystemId = (typeof SYSTEM_IDS)[keyof typeof SYSTEM_IDS];

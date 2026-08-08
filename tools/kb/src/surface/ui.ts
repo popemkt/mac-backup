@@ -4,7 +4,7 @@ import { dirname, join, normalize, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { openKb, reload, type KbContext } from "../context.ts";
-import type { KbNode } from "../foundation/model.ts";
+import { SYSTEM_IDS, type KbNode } from "../foundation/model.ts";
 import { buildQueryDb, query } from "../foundation/query/index.ts";
 import { invoke, manifest } from "../registry.ts";
 import {
@@ -113,11 +113,21 @@ class SubscriptionHub {
   private nodeMap = new Map<string, KbNode>();
   private clients = new Map<string, ClientState>();
   private ctx: KbContext;
+  /** Virtual nodes (saved queries) merged into every broadcast/snapshot,
+   * never written back to .kb/nodes.jsonl. */
+  private virtual: KbNode[];
 
-  constructor(ctx: KbContext) {
+  constructor(ctx: KbContext, virtual: KbNode[] = []) {
     this.ctx = ctx;
-    this.nodeMap = nodesToMap(ctx.nodes);
-    this.hash = contentHash(ctx.nodes);
+    this.virtual = virtual;
+    const merged = this.withVirtual(ctx.nodes);
+    this.nodeMap = nodesToMap(merged);
+    this.hash = contentHash(merged);
+    ctx.qdb = buildQueryDb(merged);
+  }
+
+  private withVirtual(nodes: KbNode[]): KbNode[] {
+    return this.virtual.length === 0 ? nodes : [...nodes, ...this.virtual];
   }
 
   get snapshot(): GraphSnapshot {
@@ -199,19 +209,21 @@ class SubscriptionHub {
    * action→fs.watch double-fire). Bumps rev, broadcasts tx + row updates.
    */
   applyNodes(nodes: KbNode[]): void {
-    const hash = contentHash(nodes);
+    const merged = this.withVirtual(nodes);
+    const hash = contentHash(merged);
     if (hash === this.hash) return;
 
     const oldMap = this.nodeMap;
-    const newMap = nodesToMap(nodes);
+    const newMap = nodesToMap(merged);
     const { upserts, deletes } = diffNodes(oldMap, newMap);
 
     this.nodeMap = newMap;
     this.hash = hash;
     this.rev += 1;
 
+    // Real nodes only — virtual saved-query nodes must never reach persist().
     this.ctx.nodes = nodes;
-    this.ctx.qdb = buildQueryDb(nodes);
+    this.ctx.qdb = buildQueryDb(merged);
 
     if (upserts.length > 0 || deletes.length > 0) {
       const tx: ServerMessage = {
@@ -276,6 +288,37 @@ async function listSavedQueries(
   return out;
 }
 
+/** Stable timestamp keeps virtual nodes out of the content-hash noise. */
+const SAVED_QUERY_ISO = "1970-01-01T00:00:00.000Z";
+
+/**
+ * Saved queries (.kb/queries/*.edn) surfaced as query nodes under a
+ * `sys.queries` root (DESIGN-REFINE §2 W4). Materialized at load into the
+ * UI graph only — never duplicated into .kb/nodes.jsonl.
+ */
+export function savedQueryNodes(
+  saved: { name: string; edn: string }[],
+): KbNode[] {
+  if (saved.length === 0) return [];
+  const mk = (id: string, text: string, props: KbNode["props"]): KbNode => ({
+    id,
+    text,
+    props,
+    children: [],
+    createdAt: SAVED_QUERY_ISO,
+    updatedAt: SAVED_QUERY_ISO,
+  });
+  const queries = saved.map((q) =>
+    mk(`sys.query.${q.name}`, q.name, {
+      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.queryTag }],
+      [SYSTEM_IDS.queryField]: [{ t: "str", v: q.edn.trim() }],
+    }),
+  );
+  const root = mk(SYSTEM_IDS.queriesRoot, "Saved queries", {});
+  root.children = queries.map((q) => q.id);
+  return [root, ...queries];
+}
+
 async function serveStatic(
   pathname: string,
 ): Promise<Response | null> {
@@ -328,7 +371,8 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
   const openBrowserFlag = opts.openBrowser !== false;
 
   const ctx = await openKb(opts.root);
-  const hub = new SubscriptionHub(ctx);
+  const saved = await listSavedQueries(opts.root);
+  const hub = new SubscriptionHub(ctx, savedQueryNodes(saved));
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let watcher: FSWatcher | null = null;

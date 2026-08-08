@@ -1,6 +1,8 @@
 import type { WireNode } from "@kb/protocol";
+import { isQueryTagBadges } from "@/lib/query-node";
 import {
   COLLAPSE_STORAGE_KEY,
+  EXPANDED_QUERIES_STORAGE_KEY,
   SYSTEM_IDS,
   WORKSPACE_ROOT_ID,
   type NodeMap,
@@ -65,6 +67,7 @@ export function forestRootIds(nodes: WireNode[]): string[] {
 export function wireToOutlineMap(
   nodes: WireNode[],
   collapsedIds: Set<string>,
+  expandedQueryIds: Set<string> = new Set(),
 ): NodeMap {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const parentOf = new Map<string, string>();
@@ -91,16 +94,22 @@ export function wireToOutlineMap(
     const parentId = parentOf.get(wire.id) ?? null;
     const outlineParent =
       parentId ?? (roots.includes(wire.id) ? WORKSPACE_ROOT_ID : null);
+    const tags = resolveTags(wire, byId);
+    // Query nodes are cheap-by-default: collapsed unless explicitly expanded
+    // (expanded ⇒ live /ws subscription).
+    const collapsed = isQueryTagBadges(tags)
+      ? !expandedQueryIds.has(wire.id)
+      : collapsedIds.has(wire.id);
     map.set(wire.id, {
       id: wire.id,
       text: wire.text,
       parentId: outlineParent,
       children: [...wire.children],
-      collapsed: collapsedIds.has(wire.id),
+      collapsed,
       props: wire.props,
       createdAt: wire.createdAt,
       updatedAt: wire.updatedAt,
-      tags: resolveTags(wire, byId),
+      tags,
     });
   }
 
@@ -149,9 +158,9 @@ export function formatPropValue(
   }
 }
 
-export function loadCollapsedIds(): Set<string> {
+function loadIdSet(key: string): Set<string> {
   try {
-    const raw = localStorage.getItem(COLLAPSE_STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return new Set();
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return new Set();
@@ -161,12 +170,28 @@ export function loadCollapsedIds(): Set<string> {
   }
 }
 
-export function saveCollapsedIds(ids: Set<string>): void {
+function saveIdSet(key: string, ids: Set<string>): void {
   try {
-    localStorage.setItem(COLLAPSE_STORAGE_KEY, JSON.stringify([...ids]));
+    localStorage.setItem(key, JSON.stringify([...ids]));
   } catch {
     // ignore quota / private mode
   }
+}
+
+export function loadCollapsedIds(): Set<string> {
+  return loadIdSet(COLLAPSE_STORAGE_KEY);
+}
+
+export function saveCollapsedIds(ids: Set<string>): void {
+  saveIdSet(COLLAPSE_STORAGE_KEY, ids);
+}
+
+export function loadExpandedQueryIds(): Set<string> {
+  return loadIdSet(EXPANDED_QUERIES_STORAGE_KEY);
+}
+
+export function saveExpandedQueryIds(ids: Set<string>): void {
+  saveIdSet(EXPANDED_QUERIES_STORAGE_KEY, ids);
 }
 
 export function searchNodes(

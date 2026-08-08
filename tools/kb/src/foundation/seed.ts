@@ -38,7 +38,33 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     mk(SYSTEM_IDS.cmdNewQuery, "New query node", cmdType),
   ];
 
-  return [field, tag, typeField, fieldsField, command, ...commands];
+  // Query nodes as pure system nodes (W4): a tag "query" templating the
+  // EDN definition + optional result cap fields. A query node is any node
+  // tagged #query carrying sys.f.query.
+  const fieldType = {
+    [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: SYSTEM_IDS.field }],
+  };
+  const queryField = mk(SYSTEM_IDS.queryField, "query", fieldType);
+  const queryLimitField = mk(SYSTEM_IDS.queryLimitField, "limit", fieldType);
+  const queryTag = mk(SYSTEM_IDS.queryTag, "query", {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+    [SYSTEM_IDS.fieldsField]: [
+      { t: "ref", v: SYSTEM_IDS.queryField },
+      { t: "ref", v: SYSTEM_IDS.queryLimitField },
+    ],
+  });
+
+  return [
+    field,
+    tag,
+    typeField,
+    fieldsField,
+    command,
+    ...commands,
+    queryField,
+    queryLimitField,
+    queryTag,
+  ];
 }
 
 /** Merge seed into existing nodes without overwriting user edits to sys.* text/props. */

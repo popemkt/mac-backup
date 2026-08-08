@@ -14,6 +14,12 @@ export const SYSTEM_IDS = {
   cmdDefineField: "sys.cmd.define-field",
   cmdGoQuery: "sys.cmd.go-query",
   cmdNewQuery: "sys.cmd.new-query",
+  /** Query nodes as pure system nodes (DESIGN-REFINE §2 W4). */
+  queryTag: "sys.tag.query",
+  queryField: "sys.f.query",
+  queryLimitField: "sys.f.query.limit",
+  /** Virtual root the ui server materializes saved queries under. */
+  queriesRoot: "sys.queries",
 } as const;
 
 /** Any reserved / seeded id under the `sys.` prefix. */
@@ -22,6 +28,9 @@ export function isSysPrefixed(id: string): boolean {
 }
 
 export const COLLAPSE_STORAGE_KEY = "kb-ui:collapsed";
+/** Query nodes are collapsed by default (cheap-by-default); this set
+ * remembers the ones the user expanded. */
+export const EXPANDED_QUERIES_STORAGE_KEY = "kb-ui:expanded-queries";
 
 export type PropValue = WireNode["props"][string][number];
 
