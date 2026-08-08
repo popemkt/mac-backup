@@ -10,6 +10,10 @@ import {
 import type { KbContext } from "./context.ts";
 import { ResolveError } from "./foundation/resolve.ts";
 import {
+  docsCheck,
+  docsCheckDef,
+  docsMaterialize,
+  docsMaterializeDef,
   fieldDefine,
   fieldDefineDef,
   graphQuery,
@@ -23,6 +27,7 @@ import {
   tagDefine,
   tagDefineDef,
 } from "./operations/index.ts";
+import { DocsError } from "./operations/docs/index.ts";
 
 const definitions = [
   nodeAddDef,
@@ -31,6 +36,8 @@ const definitions = [
   fieldDefineDef,
   tagDefineDef,
   graphQueryDef,
+  docsMaterializeDef,
+  docsCheckDef,
 ] as const satisfies readonly ActionDefinition[];
 
 export function manifest() {
@@ -81,6 +88,16 @@ export async function invoke(
         const output = await graphQuery(ctx, parsed);
         return succeeded(id, output);
       }
+      case "docs.materialize": {
+        const parsed = docsMaterializeDef.inputSchema.parse(input);
+        const output = await docsMaterialize(ctx, parsed);
+        return succeeded(id, output);
+      }
+      case "docs.check": {
+        const parsed = docsCheckDef.inputSchema.parse(input);
+        const output = await docsCheck(ctx, parsed);
+        return succeeded(id, output);
+      }
       default:
         return failed(id, "unknown_action", `unknown action: ${id}`);
     }
@@ -90,6 +107,9 @@ export async function invoke(
 }
 
 function receiptFromError(id: string, err: unknown): ActionReceipt {
+  if (err instanceof DocsError) {
+    return failed(id, err.code, err.message, err.details);
+  }
   if (err instanceof ResolveError) {
     return failed(id, err.code, err.message, err.details);
   }
