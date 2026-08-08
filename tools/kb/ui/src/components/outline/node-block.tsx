@@ -39,10 +39,12 @@ export const NodeBlock = memo(function NodeBlock({
   const selectNode = useOutlineStore((s) => s.selectNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
-  const getPreviousVisibleNode = useOutlineStore(
-    (s) => s.getPreviousVisibleNode,
+  const getPreviousVisibleInstance = useOutlineStore(
+    (s) => s.getPreviousVisibleInstance,
   );
-  const getNextVisibleNode = useOutlineStore((s) => s.getNextVisibleNode);
+  const getNextVisibleInstance = useOutlineStore(
+    (s) => s.getNextVisibleInstance,
+  );
   const showAllFields = usePrefsStore((s) => s.showAllFields);
   const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
 
@@ -123,11 +125,17 @@ export const NodeBlock = memo(function NodeBlock({
         if (cursor === 0) {
           e.preventDefault();
           if (node?.text === "" && (node?.children.length ?? 0) === 0) {
-            const prev = getPreviousVisibleNode(nodeId);
+            const prev = getPreviousVisibleInstance(instanceKey);
             void mutations.deleteNode(nodeId).then(() => {
               if (prev) {
-                const prevNode = useOutlineStore.getState().nodes.get(prev);
-                activateNode(prev, prevNode?.text.length ?? 0);
+                const prevNode = useOutlineStore
+                  .getState()
+                  .nodes.get(prev.nodeId);
+                activateNode(
+                  prev.nodeId,
+                  prevNode?.text.length ?? 0,
+                  prev.instanceKey,
+                );
               }
             });
           } else {
@@ -161,10 +169,14 @@ export const NodeBlock = memo(function NodeBlock({
         }
         if (cursor === 0) {
           e.preventDefault();
-          const prevId = getPreviousVisibleNode(nodeId);
-          if (prevId) {
-            const prevNode = useOutlineStore.getState().nodes.get(prevId);
-            activateNode(prevId, prevNode?.text.length ?? 0);
+          const prev = getPreviousVisibleInstance(instanceKey);
+          if (prev) {
+            const prevNode = useOutlineStore.getState().nodes.get(prev.nodeId);
+            activateNode(
+              prev.nodeId,
+              prevNode?.text.length ?? 0,
+              prev.instanceKey,
+            );
           }
         }
         return;
@@ -192,8 +204,8 @@ export const NodeBlock = memo(function NodeBlock({
         const isAtEnd = cursor === (node?.text.length ?? 0);
         if (isAtEnd) {
           e.preventDefault();
-          const nextId = getNextVisibleNode(nodeId);
-          if (nextId) activateNode(nextId, 0);
+          const next = getNextVisibleInstance(instanceKey);
+          if (next) activateNode(next.nodeId, 0, next.instanceKey);
         }
         return;
       }
@@ -205,8 +217,8 @@ export const NodeBlock = memo(function NodeBlock({
       instanceKey,
       toggleCollapse,
       activateNode,
-      getPreviousVisibleNode,
-      getNextVisibleNode,
+      getPreviousVisibleInstance,
+      getNextVisibleInstance,
     ],
   );
 

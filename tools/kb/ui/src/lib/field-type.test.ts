@@ -3,9 +3,11 @@ import { buildQueryDb } from "@/ds/db";
 import { fixtureGraph } from "@/fixtures/graph";
 import { wireToOutlineMap } from "@/lib/graph-view";
 import {
+  clearAllowedRefIdsCache,
   emptyValueForType,
   isValueMismatch,
   resolveAllowedRefIds,
+  resolveAllowedRefIdsCached,
   resolveFieldType,
   resolveFieldTypeById,
 } from "@/lib/field-type";
@@ -115,6 +117,48 @@ describe("field types", () => {
     const allowed = resolveAllowedRefIds(nodes.get("field.both"), nodes, qdb);
     // Query matches n.root-c only; tag.todo would have included a/b — query wins.
     expect([...allowed!]).toEqual(["n.root-c"]);
+  });
+
+  it("resolveAllowedRefIdsCached reuses the set for the same fieldId+rev", () => {
+    clearAllowedRefIdsCache();
+    const wire = [
+      ...fixtureGraph.nodes,
+      fieldNode({
+        id: "field.assignee",
+        text: "assignee",
+        props: {
+          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+          [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "ref" }],
+          [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: "tag.todo" }],
+        },
+      }),
+    ];
+    const nodes = wireToOutlineMap(wire, new Set());
+    const field = nodes.get("field.assignee");
+    const a = resolveAllowedRefIdsCached(
+      "field.assignee",
+      field,
+      nodes,
+      null,
+      1,
+    );
+    const b = resolveAllowedRefIdsCached(
+      "field.assignee",
+      field,
+      nodes,
+      null,
+      1,
+    );
+    expect(a).toBe(b);
+    const c = resolveAllowedRefIdsCached(
+      "field.assignee",
+      field,
+      nodes,
+      null,
+      2,
+    );
+    expect(c).not.toBe(a);
+    expect([...c!].sort()).toEqual([...a!].sort());
   });
 
   it("plan helpers write fieldType / targetTag / targetQuery", () => {

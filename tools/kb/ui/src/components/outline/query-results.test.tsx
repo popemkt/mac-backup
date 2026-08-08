@@ -4,11 +4,8 @@
  * without children. Rendered via react-dom/server off pure props (store
  * hooks resolve zustand's initial state inside React's server renderer, so
  * store-coupled components are covered by the logic tests in
- * lib/query-node.test.ts instead).
+ * lib/query-node.test.ts + instance-identity.component.test.tsx).
  */
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -26,8 +23,6 @@ const TODO_EDN = `[:find ?id ?text
          [?t :node/id "tag.todo"]
          [?n :node/id ?id]
          [?n :node/text ?text]]`;
-
-const outlineDir = path.dirname(fileURLToPath(import.meta.url));
 
 function queryWire(): WireNode {
   return {
@@ -108,18 +103,8 @@ describe("result row render (W4)", () => {
   });
 
   it("isRef applies only to the top-level result row (children stay ordinary)", () => {
-    const nodeBlockSrc = readFileSync(
-      path.join(outlineDir, "node-block.tsx"),
-      "utf8",
-    );
-    const childMap = nodeBlockSrc.match(
-      /node\.children\.map\([\s\S]*?\}\)/,
-    )?.[0];
-    expect(childMap).toBeTruthy();
-    // Children must not inherit the parent's isRef prop.
-    expect(childMap!).not.toContain("isRef={isRef}");
-    expect(childMap!).not.toContain("isRef ");
-
+    // Render assertion: parent ref bullet vs child ordinary bullet.
+    // Full NodeBlock cascade covered in instance-identity.component.test.tsx.
     const nodes = outlineMap();
     const top = renderBullet(nodes.get("n.root-a")!, true);
     expect(top).toContain('data-bullet-ref="true"');

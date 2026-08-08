@@ -1,7 +1,7 @@
 import { mutations } from "@/actions/mutations";
 import {
   isValueMismatch,
-  resolveAllowedRefIds,
+  resolveAllowedRefIdsCached,
   resolveFieldTypeById,
 } from "@/lib/field-type";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
@@ -21,6 +21,7 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const nodes = useOutlineStore((s) => s.nodes);
   const queryDb = useOutlineStore((s) => s.queryDb);
+  const rev = useOutlineStore((s) => s.rev);
   const showAllFields = usePrefsStore((s) => s.showAllFields);
 
   if (!node) return null;
@@ -34,7 +35,13 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
         const fieldNode = nodes.get(p.fieldId);
         const allowedRefIds =
           fieldType === "ref"
-            ? resolveAllowedRefIds(fieldNode, nodes, queryDb)
+            ? resolveAllowedRefIdsCached(
+                p.fieldId,
+                fieldNode,
+                nodes,
+                queryDb,
+                rev,
+              )
             : null;
         return p.values.map((v, i) => (
           <FieldRow

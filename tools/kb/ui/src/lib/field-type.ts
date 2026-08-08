@@ -98,6 +98,46 @@ export function resolveAllowedRefIds(
   return allowed;
 }
 
+/** Cache keyed by fieldId + rev + constraint fingerprint (EDN / tags). */
+const allowedRefCache = new Map<string, Set<string> | null>();
+let allowedRefCacheRev = -1;
+
+function constraintFingerprint(fieldNode: OutlineNode | undefined): string {
+  const edn = resolveTargetQuery(fieldNode);
+  if (edn) return `q:${edn}`;
+  const tags = resolveTargetTags(fieldNode);
+  if (tags.length === 0) return "open";
+  return `t:${tags.slice().sort().join(",")}`;
+}
+
+/**
+ * Memoized allowed-ref set. Recomputes only when rev or the field's
+ * targetQuery/targetTag constraint changes — not per React render/keystroke.
+ */
+export function resolveAllowedRefIdsCached(
+  fieldId: string,
+  fieldNode: OutlineNode | undefined,
+  nodes: NodeMap,
+  queryDb: QueryDb | null,
+  rev: number,
+): Set<string> | null {
+  if (allowedRefCacheRev !== rev) {
+    allowedRefCache.clear();
+    allowedRefCacheRev = rev;
+  }
+  const key = `${fieldId}\0${constraintFingerprint(fieldNode)}`;
+  if (allowedRefCache.has(key)) return allowedRefCache.get(key)!;
+  const value = resolveAllowedRefIds(fieldNode, nodes, queryDb);
+  allowedRefCache.set(key, value);
+  return value;
+}
+
+/** Test helper — drop memo between cases. */
+export function clearAllowedRefIdsCache(): void {
+  allowedRefCache.clear();
+  allowedRefCacheRev = -1;
+}
+
 /** Expected wire PropValue.t for a declared FieldType (url/date use str). */
 export function expectedPropKind(
   fieldType: FieldType,

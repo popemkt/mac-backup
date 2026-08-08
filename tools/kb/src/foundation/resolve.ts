@@ -58,14 +58,20 @@ export function resolveNamed(
 }
 
 export function resolveFieldId(nodes: KbNode[], nameOrId: string): NodeId {
-  // system field ids resolve directly
+  // system field ids resolve directly (short aliases + full sys.* ids)
   if (
     nameOrId === SYSTEM_IDS.typeField ||
     nameOrId === SYSTEM_IDS.fieldsField ||
     nameOrId === SYSTEM_IDS.hiddenField ||
+    nameOrId === SYSTEM_IDS.fieldTypeField ||
+    nameOrId === SYSTEM_IDS.targetTagField ||
+    nameOrId === SYSTEM_IDS.targetQueryField ||
     nameOrId === "type" ||
     nameOrId === "fields" ||
-    nameOrId === "hidden"
+    nameOrId === "hidden" ||
+    nameOrId === "fieldType" ||
+    nameOrId === "targetTag" ||
+    nameOrId === "targetQuery"
   ) {
     if (nameOrId === "type" || nameOrId === SYSTEM_IDS.typeField) {
       return SYSTEM_IDS.typeField;
@@ -75,6 +81,18 @@ export function resolveFieldId(nodes: KbNode[], nameOrId: string): NodeId {
     }
     if (nameOrId === "hidden" || nameOrId === SYSTEM_IDS.hiddenField) {
       return SYSTEM_IDS.hiddenField;
+    }
+    if (nameOrId === "fieldType" || nameOrId === SYSTEM_IDS.fieldTypeField) {
+      return SYSTEM_IDS.fieldTypeField;
+    }
+    if (nameOrId === "targetTag" || nameOrId === SYSTEM_IDS.targetTagField) {
+      return SYSTEM_IDS.targetTagField;
+    }
+    if (
+      nameOrId === "targetQuery" ||
+      nameOrId === SYSTEM_IDS.targetQueryField
+    ) {
+      return SYSTEM_IDS.targetQueryField;
     }
   }
   return resolveNamed(nodes, nameOrId, "field");

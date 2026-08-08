@@ -1,4 +1,4 @@
-import { childInstanceKey } from "@/lib/instance-key";
+import { outlineInstanceKey } from "@/lib/instance-key";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -11,11 +11,10 @@ import { SchemaSection } from "./schema-section";
 import { ZoomedRootHeader } from "./zoomed-root-header";
 import { useSelectionKeymap } from "./use-selection-keymap";
 
-const TREE_ROOT_KEY = "tree";
-
 export function OutlineEditor() {
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
   const root = useOutlineStore((s) => s.nodes.get(s.rootNodeId));
+  const nodes = useOutlineStore((s) => s.nodes);
   const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
   const setNodePaletteOpen = useUiStore((s) => s.setNodePaletteOpen);
   useSelectionKeymap();
@@ -29,13 +28,13 @@ export function OutlineEditor() {
   }
 
   if (rootNodeId !== WORKSPACE_ROOT_ID) {
-    const zoomKey = childInstanceKey(TREE_ROOT_KEY, rootNodeId);
     return (
       <div className="outline-editor px-2 pb-40">
         <Breadcrumbs />
         <ZoomedRootHeader node={root} />
         {root.children.map((id) => {
-          const key = childInstanceKey(zoomKey, id);
+          // Full ancestor chain — must match outlineInstanceKey / store fallback.
+          const key = outlineInstanceKey(id, nodes);
           return (
             <NodeBlock key={key} nodeId={id} instanceKey={key} depth={0} />
           );
@@ -63,7 +62,7 @@ export function OutlineEditor() {
     <div className="outline-editor px-2 pb-40">
       <Breadcrumbs />
       {root.children.map((id) => {
-        const key = childInstanceKey(TREE_ROOT_KEY, id);
+        const key = outlineInstanceKey(id, nodes);
         return (
           <NodeBlock key={key} nodeId={id} instanceKey={key} depth={0} />
         );

@@ -12,11 +12,18 @@ import { outlineInstanceKey } from "@/lib/instance-key";
 import { isQueryNode } from "@/lib/query-node";
 import { mergeTx } from "@/lib/tx";
 import {
+  collectVisibleInstances,
+  neighborVisibleInstance,
+  type VisibleInstance,
+} from "@/lib/visible-instances";
+import {
   WORKSPACE_ROOT_ID,
   type NodeMap,
   type OutlineNode,
 } from "@/lib/types";
 import type { WireNode } from "@kb/protocol";
+
+export type { VisibleInstance };
 
 interface OutlineState {
   nodes: NodeMap;
@@ -66,25 +73,17 @@ interface OutlineState {
   expandAncestors: (id: string) => void;
   jumpToNode: (id: string) => void;
   search: (query: string) => Array<{ id: string; text: string }>;
+  getVisibleInstances: () => VisibleInstance[];
   getVisibleNodes: () => string[];
+  getPreviousVisibleInstance: (
+    instanceKey: string,
+  ) => VisibleInstance | null;
+  getNextVisibleInstance: (instanceKey: string) => VisibleInstance | null;
+  /** @deprecated Prefer getPreviousVisibleInstance — ambiguous when nodeId repeats. */
   getPreviousVisibleNode: (id: string) => string | null;
+  /** @deprecated Prefer getNextVisibleInstance — ambiguous when nodeId repeats. */
   getNextVisibleNode: (id: string) => string | null;
   getBreadcrumbs: () => Array<{ id: string; text: string }>;
-}
-
-function getVisibleNodesRecursive(
-  nodeId: string,
-  nodes: NodeMap,
-  result: string[],
-): void {
-  const node = nodes.get(nodeId);
-  if (!node) return;
-  result.push(nodeId);
-  if (!node.collapsed) {
-    for (const childId of node.children) {
-      getVisibleNodesRecursive(childId, nodes, result);
-    }
-  }
 }
 
 function collectExpanded(nodes: NodeMap): Set<string> {
@@ -393,32 +392,31 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
 
   search: (query) => searchNodes(get().nodes, query),
 
-  getVisibleNodes: () => {
-    const { nodes, rootNodeId } = get();
-    const root = nodes.get(rootNodeId);
-    if (!root) return [];
-    const result: string[] = [];
-    // When zoomed into a real node, show that node + descendants
-    if (rootNodeId !== WORKSPACE_ROOT_ID) {
-      getVisibleNodesRecursive(rootNodeId, nodes, result);
-      return result;
-    }
-    for (const childId of root.children) {
-      getVisibleNodesRecursive(childId, nodes, result);
-    }
-    return result;
+  getVisibleInstances: () => {
+    const { nodes, rootNodeId, queryDb } = get();
+    return collectVisibleInstances(rootNodeId, nodes, queryDb);
   },
 
+  getVisibleNodes: () => get().getVisibleInstances().map((i) => i.nodeId),
+
+  getPreviousVisibleInstance: (instanceKey) =>
+    neighborVisibleInstance(get().getVisibleInstances(), instanceKey, -1),
+
+  getNextVisibleInstance: (instanceKey) =>
+    neighborVisibleInstance(get().getVisibleInstances(), instanceKey, 1),
+
   getPreviousVisibleNode: (id) => {
-    const visible = get().getVisibleNodes();
-    const idx = visible.indexOf(id);
-    return idx > 0 ? visible[idx - 1]! : null;
+    const instances = get().getVisibleInstances();
+    const idx = instances.findIndex((i) => i.nodeId === id);
+    return idx > 0 ? instances[idx - 1]!.nodeId : null;
   },
 
   getNextVisibleNode: (id) => {
-    const visible = get().getVisibleNodes();
-    const idx = visible.indexOf(id);
-    return idx < visible.length - 1 ? visible[idx + 1]! : null;
+    const instances = get().getVisibleInstances();
+    const idx = instances.findIndex((i) => i.nodeId === id);
+    return idx >= 0 && idx < instances.length - 1
+      ? instances[idx + 1]!.nodeId
+      : null;
   },
 
   getBreadcrumbs: () => {

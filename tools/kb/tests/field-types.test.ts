@@ -3,6 +3,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { SYSTEM_IDS, type KbNode, type PropValue } from "../src/foundation/model.ts";
+import { resolveFieldId } from "../src/foundation/resolve.ts";
 import { ensureSystemSeed, systemSeedNodes } from "../src/foundation/seed.ts";
 
 function refs(node: KbNode, field: string): string[] {
@@ -37,5 +38,17 @@ describe("typed field seeds", () => {
     const again = ensureSystemSeed(first.nodes);
     expect(again.seeded).toBe(false);
     expect(again.nodes.length).toBe(first.nodes.length);
+  });
+
+  test("resolveFieldId short aliases for typed-field sys nodes", () => {
+    const nodes = systemSeedNodes();
+    expect(resolveFieldId(nodes, "fieldType")).toBe(SYSTEM_IDS.fieldTypeField);
+    expect(resolveFieldId(nodes, "targetTag")).toBe(SYSTEM_IDS.targetTagField);
+    expect(resolveFieldId(nodes, "targetQuery")).toBe(
+      SYSTEM_IDS.targetQueryField,
+    );
+    expect(resolveFieldId(nodes, SYSTEM_IDS.fieldTypeField)).toBe(
+      SYSTEM_IDS.fieldTypeField,
+    );
   });
 });
