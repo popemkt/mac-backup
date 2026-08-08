@@ -340,6 +340,78 @@ export const mutations = {
     const ok = await applyPlan(planNewQueryNode(text, newId));
     return ok ? newId : null;
   },
+
+  async setViewMode(
+    frameId: string,
+    mode: import("@/lib/view-config").ViewMode,
+  ): Promise<void> {
+    if (!guardSysWrite(frameId)) return;
+    const { planSetViewMode } = await import("@/actions/plan");
+    await applyPlan(planSetViewMode(wire(), frameId, mode));
+  },
+
+  async setViewSort(
+    frameId: string,
+    sortSpecs: import("@/lib/view-config").SortSpec[],
+  ): Promise<void> {
+    if (!guardSysWrite(frameId)) return;
+    const { planSetViewSort } = await import("@/actions/plan");
+    await applyPlan(planSetViewSort(wire(), frameId, sortSpecs));
+  },
+
+  async toggleViewSort(frameId: string, fieldId: string): Promise<void> {
+    if (!guardSysWrite(frameId)) return;
+    const store = useOutlineStore.getState();
+    const frameNode = store.nodes.get(frameId);
+    const { getViewConfig } = await import("@/lib/view-config");
+    const config = getViewConfig(frameNode?.props);
+    const current = config.sort;
+    const existingIndex = current.findIndex((s) => s.fieldId === fieldId);
+
+    let nextSort: import("@/lib/view-config").SortSpec[];
+    if (existingIndex === -1) {
+      nextSort = [{ fieldId, dir: "asc" }, ...current];
+    } else if (current[existingIndex]?.dir === "asc") {
+      nextSort = current.map((s, i) =>
+        i === existingIndex ? { ...s, dir: "desc" as const } : s,
+      );
+    } else {
+      nextSort = current.filter((s) => s.fieldId !== fieldId);
+    }
+
+    const { planSetViewSort } = await import("@/actions/plan");
+    await applyPlan(planSetViewSort(wire(), frameId, nextSort));
+  },
+
+  async setViewDisplay(
+    frameId: string,
+    displayFieldIds: string[],
+  ): Promise<void> {
+    if (!guardSysWrite(frameId)) return;
+    const { planSetViewDisplay } = await import("@/actions/plan");
+    await applyPlan(planSetViewDisplay(wire(), frameId, displayFieldIds));
+  },
+
+  async setColumnWidth(
+    frameId: string,
+    fieldId: string,
+    widthPx: number,
+  ): Promise<void> {
+    if (!guardSysWrite(frameId)) return;
+    const store = useOutlineStore.getState();
+    const frameNode = store.nodes.get(frameId);
+    const { getViewConfig } = await import("@/lib/view-config");
+    const config = getViewConfig(frameNode?.props);
+    const nextColwidth = { ...config.colwidth, [fieldId]: widthPx };
+    const { planSetViewColwidth } = await import("@/actions/plan");
+    await applyPlan(planSetViewColwidth(wire(), frameId, nextColwidth));
+  },
+
+  async setViewPagesize(frameId: string, pagesize: number): Promise<void> {
+    if (!guardSysWrite(frameId)) return;
+    const { planSetViewPagesize } = await import("@/actions/plan");
+    await applyPlan(planSetViewPagesize(wire(), frameId, pagesize));
+  },
 };
 
 export type Mutations = typeof mutations;

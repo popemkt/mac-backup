@@ -675,3 +675,132 @@ export function planSetFieldTargetQuery(
     existing,
   );
 }
+
+export function planSetViewMode(
+  nodes: WireNode[],
+  frameId: string,
+  mode: "list" | "table",
+): PlannedMutation {
+  const frame = cloneWire(requireNode(nodes, frameId));
+  const existing = frame.props[SYSTEM_IDS.viewModeField]?.[0];
+  return planSetProp(
+    nodes,
+    frameId,
+    SYSTEM_IDS.viewModeField,
+    { t: "str", v: mode },
+    existing,
+  );
+}
+
+export function planSetViewSort(
+  nodes: WireNode[],
+  frameId: string,
+  sortSpecs: Array<{ fieldId: string; dir: "asc" | "desc" }>,
+): PlannedMutation {
+  const frame = cloneWire(requireNode(nodes, frameId));
+  const sortRefs: PropValue[] = sortSpecs.map((s) => ({
+    t: "ref",
+    v: s.fieldId,
+  }));
+  const sortDirs: PropValue[] = sortSpecs.map((s) => ({
+    t: "str",
+    v: s.dir,
+  }));
+
+  frame.props[SYSTEM_IDS.viewSortField] = sortRefs;
+  frame.props[SYSTEM_IDS.viewSortDirField] = sortDirs;
+  frame.updatedAt = nowIso();
+
+  return {
+    upserts: [frame],
+    deletes: [],
+    actions: [
+      {
+        id: "node.update",
+        input: {
+          id: frameId,
+          unsetProps: [
+            { field: SYSTEM_IDS.viewSortField },
+            { field: SYSTEM_IDS.viewSortDirField },
+          ],
+          setProps: [
+            ...sortRefs.map((r) => ({
+              field: SYSTEM_IDS.viewSortField,
+              value: r,
+            })),
+            ...sortDirs.map((d) => ({
+              field: SYSTEM_IDS.viewSortDirField,
+              value: d,
+            })),
+          ],
+        },
+      },
+    ],
+  };
+}
+
+export function planSetViewDisplay(
+  nodes: WireNode[],
+  frameId: string,
+  displayFieldIds: string[],
+): PlannedMutation {
+  const frame = cloneWire(requireNode(nodes, frameId));
+  const refs: PropValue[] = displayFieldIds.map((id) => ({
+    t: "ref",
+    v: id,
+  }));
+
+  frame.props[SYSTEM_IDS.viewDisplayField] = refs;
+  frame.updatedAt = nowIso();
+
+  return {
+    upserts: [frame],
+    deletes: [],
+    actions: [
+      {
+        id: "node.update",
+        input: {
+          id: frameId,
+          unsetProps: [{ field: SYSTEM_IDS.viewDisplayField }],
+          setProps: refs.map((r) => ({
+            field: SYSTEM_IDS.viewDisplayField,
+            value: r,
+          })),
+        },
+      },
+    ],
+  };
+}
+
+export function planSetViewColwidth(
+  nodes: WireNode[],
+  frameId: string,
+  colwidth: Record<string, number>,
+): PlannedMutation {
+  const frame = cloneWire(requireNode(nodes, frameId));
+  const existing = frame.props[SYSTEM_IDS.viewColwidthField]?.[0];
+  const json = JSON.stringify(colwidth);
+  return planSetProp(
+    nodes,
+    frameId,
+    SYSTEM_IDS.viewColwidthField,
+    { t: "str", v: json },
+    existing,
+  );
+}
+
+export function planSetViewPagesize(
+  nodes: WireNode[],
+  frameId: string,
+  pagesize: number,
+): PlannedMutation {
+  const frame = cloneWire(requireNode(nodes, frameId));
+  const existing = frame.props[SYSTEM_IDS.viewPagesizeField]?.[0];
+  return planSetProp(
+    nodes,
+    frameId,
+    SYSTEM_IDS.viewPagesizeField,
+    { t: "num", v: pagesize },
+    existing,
+  );
+}
