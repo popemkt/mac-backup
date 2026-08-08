@@ -4,7 +4,6 @@
 
 ## todo
 
-- kb reskin W8a: nxus tokens + shell (styles port, dark/light, prefs popover, kill panel+query tab, centered/full modes, References inline) — DESIGN-RESKIN.md
 - kb reskin W8b: unified NodeRow/TagChip/FieldRow + borderless field editors + tag colors + selection states — DESIGN-RESKIN.md
 - kb ui portless mode: UDS transport for local subscriber apps + port discovery via .kb/runtime.json
 - Package kb as nix app in pkgs/ (pinned bun deps, vp build in sandbox, wrapper bin) — replaces checkout-based wrapper
@@ -18,6 +17,7 @@
 - kb refine W4: query nodes (#query tag + sys.f.query, live results in outline) — DESIGN-REFINE.md
 - kb refine W5: core/extension split (.kb/extensions, docs.* -> ext.docs) — DESIGN-REFINE.md
 - kb refine W6a: inline media (.kb/assets, md images, asset.upload) — DESIGN-REFINE.md
+- kb reskin W8a: nxus tokens + shell (styles port, dark/light, prefs popover, kill panel+query tab, centered/full modes, References inline) — DESIGN-RESKIN.md
 - Migrate TODO.md items into kb (M5)
 
 ## later
