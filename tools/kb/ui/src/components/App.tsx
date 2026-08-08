@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { CircleHalf } from "@phosphor-icons/react";
+import { lazy, Suspense, useEffect, useState, useSyncExternalStore } from "react";
+import { CircleHalf, Graph as GraphIcon } from "@phosphor-icons/react";
 import { loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
 import {
@@ -9,10 +9,20 @@ import {
 import { OutlineEditor } from "@/components/outline/outline-editor";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
+import {
+  getPathname,
+  graphPath,
+  navigate,
+  parseRoute,
+  pathnameSubscribe,
+} from "@/lib/route";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { cn } from "@/lib/cn";
+
+/** Sigma/graphology land in a separate chunk — outline bundle must not grow. */
+const GraphPage = lazy(() => import("@/components/graph/graph-page"));
 
 const WS_DOT: Record<string, { className: string; label: string }> = {
   open: { className: "bg-success", label: "live" },
@@ -60,20 +70,94 @@ function Toasts() {
   );
 }
 
-export function App() {
-  const hydrateFromWire = useOutlineStore((s) => s.hydrateFromWire);
-  const loadSource = useOutlineStore((s) => s.loadSource);
+function OutlineShell({
+  status,
+  error,
+}: {
+  status: "loading" | "ready" | "error";
+  error: string | null;
+}) {
   const rev = useOutlineStore((s) => s.rev);
+  const loadSource = useOutlineStore((s) => s.loadSource);
   const width = usePrefsStore((s) => s.width);
   const prefsOpen = useUiStore((s) => s.prefsOpen);
   const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
+  const globalPaletteOpen = useUiStore((s) => s.globalPaletteOpen);
+  const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
+
+  return (
+    <div className="relative flex h-full min-h-0 flex-col">
+      <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
+        <h1 className="text-[13px] font-medium text-foreground/50">kb</h1>
+        <span className="text-[11px] text-foreground/30">
+          {status === "loading"
+            ? "loading…"
+            : `rev ${rev} · ${loadSource ?? "?"}`}
+        </span>
+        <ConnectionDot />
+        <div className="flex-1" />
+        <button
+          type="button"
+          className="flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70"
+          aria-label="Open graph"
+          title="Graph"
+          onClick={() => navigate(graphPath())}
+        >
+          <GraphIcon size={15} />
+          graph
+        </button>
+        <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />
+        <button
+          type="button"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70"
+          aria-label="Preferences"
+          title="Preferences"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setPrefsOpen(!prefsOpen)}
+        >
+          <CircleHalf size={15} />
+        </button>
+      </header>
+
+      {status === "error" ? (
+        <div className="p-6 text-destructive">{error}</div>
+      ) : (
+        <main className="min-h-0 flex-1 overflow-auto">
+          <div
+            className={cn(
+              "kb-shell w-full",
+              width === "centered" ? "mx-auto max-w-3xl px-4" : "px-8",
+            )}
+          >
+            <OutlineEditor />
+          </div>
+        </main>
+      )}
+
+      <PreferencesPopover />
+      <CommandPalette
+        open={globalPaletteOpen}
+        onClose={() => setGlobalPaletteOpen(false)}
+      />
+      <Toasts />
+    </div>
+  );
+}
+
+export function App() {
+  const hydrateFromWire = useOutlineStore((s) => s.hydrateFromWire);
+  const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
+  const setNodePaletteOpen = useUiStore((s) => s.setNodePaletteOpen);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
   const [error, setError] = useState<string | null>(null);
-  const globalPaletteOpen = useUiStore((s) => s.globalPaletteOpen);
-  const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
-  const setNodePaletteOpen = useUiStore((s) => s.setNodePaletteOpen);
+  const pathname = useSyncExternalStore(
+    pathnameSubscribe,
+    getPathname,
+    () => "/",
+  );
+  const route = parseRoute(pathname);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,8 +167,6 @@ export function App() {
         if (cancelled) return;
         hydrateFromWire(snapshot.nodes, snapshot.rev, source);
         setStatus("ready");
-        // Graph is in; go live. Fixture mode still tries — the dot just
-        // shows offline while backoff retries in the background.
         ensureLiveConnection();
       } catch (e) {
         if (cancelled) return;
@@ -128,51 +210,22 @@ export function App() {
     return () => window.removeEventListener("keydown", handler, true);
   }, [setGlobalPaletteOpen, setNodePaletteOpen]);
 
-  return (
-    <div className="relative flex h-full min-h-0 flex-col">
-      <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
-        <h1 className="text-[13px] font-medium text-foreground/50">kb</h1>
-        <span className="text-[11px] text-foreground/30">
-          {status === "loading"
-            ? "loading…"
-            : `rev ${rev} · ${loadSource ?? "?"}`}
-        </span>
-        <ConnectionDot />
-        <div className="flex-1" />
-        <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />
-        <button
-          type="button"
-          className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70"
-          aria-label="Preferences"
-          title="Preferences"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => setPrefsOpen(!prefsOpen)}
+  if (route.name === "graph") {
+    return (
+      <div className="relative flex h-full min-h-0 flex-col">
+        <Suspense
+          fallback={
+            <div className="p-6 text-[13px] text-foreground/40">
+              loading graph…
+            </div>
+          }
         >
-          <CircleHalf size={15} />
-        </button>
-      </header>
+          <GraphPage perspectiveId={route.perspectiveId} />
+        </Suspense>
+        <Toasts />
+      </div>
+    );
+  }
 
-      {status === "error" ? (
-        <div className="p-6 text-destructive">{error}</div>
-      ) : (
-        <main className="min-h-0 flex-1 overflow-auto">
-          <div
-            className={cn(
-              "kb-shell w-full",
-              width === "centered" ? "mx-auto max-w-3xl px-4" : "px-8",
-            )}
-          >
-            <OutlineEditor />
-          </div>
-        </main>
-      )}
-
-      <PreferencesPopover />
-      <CommandPalette
-        open={globalPaletteOpen}
-        onClose={() => setGlobalPaletteOpen(false)}
-      />
-      <Toasts />
-    </div>
-  );
+  return <OutlineShell status={status} error={error} />;
 }

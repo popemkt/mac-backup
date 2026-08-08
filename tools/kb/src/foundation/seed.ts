@@ -80,6 +80,55 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ],
   });
 
+  // Graph perspectives (V0): #graph-perspective tag + lens field template.
+  const lensQueryField = mk(SYSTEM_IDS.lensQueryField, "lens.query", fieldType);
+  const lensRendererField = mk(
+    SYSTEM_IDS.lensRendererField,
+    "lens.renderer",
+    fieldType,
+  );
+  const lensColorByField = mk(
+    SYSTEM_IDS.lensColorByField,
+    "lens.color-by",
+    fieldType,
+  );
+  const lensSizeByField = mk(
+    SYSTEM_IDS.lensSizeByField,
+    "lens.size-by",
+    fieldType,
+  );
+  const lensEdgeKindsField = mk(
+    SYSTEM_IDS.lensEdgeKindsField,
+    "lens.edge-kinds",
+    fieldType,
+  );
+  const lensMaxNodesField = mk(
+    SYSTEM_IDS.lensMaxNodesField,
+    "lens.max-nodes",
+    fieldType,
+  );
+  const graphPerspectiveTag = mk(SYSTEM_IDS.graphPerspectiveTag, "graph-perspective", {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+    [SYSTEM_IDS.fieldsField]: [
+      { t: "ref", v: SYSTEM_IDS.lensQueryField },
+      { t: "ref", v: SYSTEM_IDS.lensRendererField },
+      { t: "ref", v: SYSTEM_IDS.lensColorByField },
+      { t: "ref", v: SYSTEM_IDS.lensSizeByField },
+      { t: "ref", v: SYSTEM_IDS.lensEdgeKindsField },
+      { t: "ref", v: SYSTEM_IDS.lensMaxNodesField },
+    ],
+  });
+  const lensAllMentions = mk(SYSTEM_IDS.lensAllMentions, "All mentions", {
+    [SYSTEM_IDS.typeField]: [
+      { t: "ref", v: SYSTEM_IDS.graphPerspectiveTag },
+    ],
+    [SYSTEM_IDS.lensRendererField]: [{ t: "str", v: "force2d" }],
+    [SYSTEM_IDS.lensEdgeKindsField]: [
+      { t: "str", v: "mention" },
+      { t: "str", v: "child" },
+    ],
+  });
+
   return [
     field,
     tag,
@@ -95,6 +144,14 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     queryField,
     queryLimitField,
     queryTag,
+    lensQueryField,
+    lensRendererField,
+    lensColorByField,
+    lensSizeByField,
+    lensEdgeKindsField,
+    lensMaxNodesField,
+    graphPerspectiveTag,
+    lensAllMentions,
   ];
 }
 
