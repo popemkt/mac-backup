@@ -48,6 +48,15 @@ export interface CanvasKbNode extends CanvasNodeBase {
   nodeId: string;
 }
 
+/** Freeform draw.io-style shape (JSON-only; no store node). */
+export type CanvasShapeKind = "rect" | "ellipse" | "diamond";
+
+export interface CanvasShapeNode extends CanvasNodeBase {
+  type: "shape";
+  shape: CanvasShapeKind;
+  label?: string;
+}
+
 /** Opaque passthrough for file/link/future types. */
 export interface CanvasUnknownNode extends CanvasNodeBase {
   type: string;
@@ -57,6 +66,7 @@ export type CanvasNode =
   | CanvasTextNode
   | CanvasGroupNode
   | CanvasKbNode
+  | CanvasShapeNode
   | CanvasUnknownNode;
 
 export function isKbNode(n: CanvasNode): n is CanvasKbNode {
@@ -69,6 +79,18 @@ export function isTextNode(n: CanvasNode): n is CanvasTextNode {
 
 export function isGroupNode(n: CanvasNode): n is CanvasGroupNode {
   return n.type === "group" && !("nodeId" in n) && !("text" in n);
+}
+
+export function isShapeNode(n: CanvasNode): n is CanvasShapeNode {
+  return n.type === "shape" && "shape" in n;
+}
+
+const SHAPE_KINDS = new Set<string>(["rect", "ellipse", "diamond"]);
+
+export function normalizeShapeKind(raw: unknown): CanvasShapeKind {
+  return typeof raw === "string" && SHAPE_KINDS.has(raw)
+    ? (raw as CanvasShapeKind)
+    : "rect";
 }
 
 export interface CanvasEdge {
@@ -109,6 +131,7 @@ const KNOWN_NODE_KEYS = new Set([
   "text",
   "label",
   "nodeId",
+  "shape",
 ]);
 const KNOWN_EDGE_KEYS = new Set([
   "id",
@@ -198,6 +221,14 @@ function parseNode(raw: unknown): CanvasNode | null {
     if (typeof raw.nodeId !== "string") return null;
     return { ...base, type: "kb-node", nodeId: raw.nodeId };
   }
+  if (raw.type === "shape") {
+    return {
+      ...base,
+      type: "shape",
+      shape: normalizeShapeKind(raw.shape),
+      ...(typeof raw.label === "string" ? { label: raw.label } : {}),
+    };
+  }
   // file / link / future — opaque passthrough
   return base as CanvasUnknownNode;
 }
@@ -252,6 +283,11 @@ function emitNode(n: CanvasNode): Record<string, unknown> {
     out.label = (n as CanvasGroupNode).label;
   }
   if (n.type === "kb-node") out.nodeId = (n as CanvasKbNode).nodeId;
+  if (n.type === "shape") {
+    const s = n as CanvasShapeNode;
+    out.shape = s.shape;
+    if (s.label !== undefined) out.label = s.label;
+  }
   if (n.extra) Object.assign(out, n.extra);
   return out;
 }

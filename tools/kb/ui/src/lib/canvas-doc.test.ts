@@ -72,6 +72,41 @@ describe("canvas doc (UI alias)", () => {
     expect(again.nodes[0]?.type).toBe("link");
     expect(again.nodes[0]?.extra?.url).toBe("https://example.com");
   });
+
+  test("shape node round-trip + unknown kind → rect", () => {
+    const doc: CanvasDoc = {
+      nodes: [
+        {
+          id: "s1",
+          type: "shape",
+          shape: "diamond",
+          label: "X",
+          color: "1",
+          x: 1,
+          y: 2,
+          width: 160,
+          height: 100,
+        },
+      ],
+      edges: [],
+    };
+    expect(parseCanvasDoc(stringifyCanvasDoc(doc))).toEqual(doc);
+    const fallback = parseCanvasDoc({
+      nodes: [
+        {
+          id: "s2",
+          type: "shape",
+          shape: "star",
+          x: 0,
+          y: 0,
+          width: 10,
+          height: 10,
+        },
+      ],
+      edges: [],
+    });
+    expect(fallback.nodes[0]).toMatchObject({ type: "shape", shape: "rect" });
+  });
 });
 
 describe("unbound tint computation", () => {
