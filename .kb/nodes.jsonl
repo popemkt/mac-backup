@@ -33,6 +33,7 @@
 {"children":[],"createdAt":"2026-08-08T11:10:19.811Z","id":"sys.cmd.toggle-theme","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Toggle theme","updatedAt":"2026-08-08T11:10:19.811Z"}
 {"children":[],"createdAt":"2026-08-08T11:10:19.811Z","id":"sys.cmd.toggle-width","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Toggle width","updatedAt":"2026-08-08T11:10:19.811Z"}
 {"children":[],"createdAt":"2026-08-08T09:24:49.357Z","id":"sys.command","props":{},"text":"sys.command","updatedAt":"2026-08-08T09:24:49.357Z"}
+{"children":[],"createdAt":"2026-08-08T11:31:40.865Z","id":"sys.f.color","props":{"sys.f.type":[{"t":"ref","v":"sys.field"}]},"text":"color","updatedAt":"2026-08-08T11:31:40.865Z"}
 {"children":[],"createdAt":"2026-08-08T05:02:53.090Z","id":"sys.f.fields","props":{"sys.f.type":[{"t":"ref","v":"sys.field"}]},"text":"fields","updatedAt":"2026-08-08T05:02:53.090Z"}
 {"children":[],"createdAt":"2026-08-08T09:41:47.447Z","id":"sys.f.query","props":{"sys.f.type":[{"t":"ref","v":"sys.field"}]},"text":"query","updatedAt":"2026-08-08T09:41:47.447Z"}
 {"children":[],"createdAt":"2026-08-08T09:41:47.447Z","id":"sys.f.query.limit","props":{"sys.f.type":[{"t":"ref","v":"sys.field"}]},"text":"limit","updatedAt":"2026-08-08T09:41:47.447Z"}
