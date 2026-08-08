@@ -18,6 +18,17 @@ export type InlineSeg =
 const CACHE_MAX = 256;
 const parseCache = new Map<string, InlineSeg[]>();
 
+/**
+ * Only these link targets render as <a href>; anything else (javascript:,
+ * data:, vbscript:, …) is left as plain text. Protocol-relative and
+ * relative paths (assets/… for W6a media) are allowed.
+ */
+const SAFE_HREF = /^(https?:\/\/|mailto:|#|\/|\.\/|\.\.\/|assets\/)/i;
+
+export function isSafeHref(href: string): boolean {
+  return SAFE_HREF.test(href.trim());
+}
+
 /** Memoized parse keyed by full text (stable while inactive). */
 export function parseInlineMd(text: string): InlineSeg[] {
   const hit = parseCache.get(text);
@@ -85,13 +96,25 @@ function parseOnce(text: string): InlineSeg[] {
         text[close + 1] === "(" &&
         !text.slice(i + 1, close).includes("[")
       ) {
-        const urlEnd = text.indexOf(")", close + 2);
-        if (urlEnd > close) {
+        // Walk to the matching ")" counting nested parens so URLs like
+        // https://x.com/f(1) survive intact.
+        let depth = 1;
+        let urlEnd = -1;
+        for (let j = close + 2; j < text.length; j++) {
+          const ch = text[j];
+          if (ch === "(") depth++;
+          else if (ch === ")" && --depth === 0) {
+            urlEnd = j;
+            break;
+          }
+        }
+        const href = urlEnd > close ? text.slice(close + 2, urlEnd) : "";
+        if (urlEnd > close && isSafeHref(href)) {
           flush();
           out.push({
             t: "link",
             label: text.slice(i + 1, close),
-            href: text.slice(close + 2, urlEnd),
+            href,
           });
           i = urlEnd + 1;
           continue;

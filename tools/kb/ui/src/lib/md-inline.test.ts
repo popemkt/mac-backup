@@ -35,6 +35,26 @@ describe("parseInlineMd", () => {
     ]);
   });
 
+  it("refuses unsafe link protocols (XSS)", () => {
+    clearInlineMdCache();
+    // javascript:/data: links must fall through as plain text segments.
+    expect(parseInlineMd("[x](javascript:alert(1))")).toEqual([
+      { t: "text", v: "[x](javascript:alert(1))" },
+    ]);
+    expect(parseInlineMd("[x](data:text/html,hi)")).toEqual([
+      { t: "text", v: "[x](data:text/html,hi)" },
+    ]);
+    expect(parseInlineMd("[a](assets/pic.png)")).toEqual([
+      { t: "link", href: "assets/pic.png", label: "a" },
+    ]);
+  });
+
+  it("keeps balanced parens inside URLs", () => {
+    expect(parseInlineMd("[d](https://ex.test/f(1))")).toEqual([
+      { t: "link", href: "https://ex.test/f(1)", label: "d" },
+    ]);
+  });
+
   it("memoizes by text hash (same array identity)", () => {
     clearInlineMdCache();
     const a = parseInlineMd("**x**");

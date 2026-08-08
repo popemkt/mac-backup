@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, type MouseEvent, type ReactNode } from "rea
 import { cn } from "@/lib/cn";
 import {
   KB_TEXT_CLASS,
+  isSafeHref,
   parseInlineMd,
   type InlineSeg,
 } from "@/lib/md-inline";
@@ -68,6 +69,11 @@ function renderSeg(
         </code>
       );
     case "link":
+      // Defense in depth: parser already filters, but never render an
+      // unsafe protocol even if a segment arrives from elsewhere.
+      if (!isSafeHref(seg.href)) {
+        return <span key={key}>{seg.label}</span>;
+      }
       return (
         <a
           key={key}
