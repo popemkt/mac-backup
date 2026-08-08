@@ -5,7 +5,7 @@
 ## todo
 
 - canvas C2: media cards (assets) + frictionless quick-add — draw.io feel
-- canvas: keep broken kbLink edges as dashed + repair prompt (flip from auto-remove)
+- canvas simplify (Logseq model): edges are drawings only; native bind = one-shot prop write; bound-state computed at render (unbound tint); DELETE reconciler/persist-back/bindingId repair — supersedes broken-edge repair todo
 - canvas: offload canvas doc to .kb/canvas/<id>.json (prop holds pointer) — keep nodes.jsonl lean
 - graph: smart-elide system/editor-only nodes by default + toggle; universal graph button in header
 - kb ui portless mode: UDS transport for local subscriber apps + port discovery via .kb/runtime.json
@@ -25,6 +25,10 @@
 - kb reskin W8a: nxus tokens + shell (styles port, dark/light, prefs popover, kill panel+query tab, centered/full modes, References inline) — DESIGN-RESKIN.md
 - kb reskin W8b: unified NodeRow/TagChip/FieldRow + borderless field editors + tag colors + selection states — DESIGN-RESKIN.md
 - Migrate TODO.md items into kb (M5)
+
+## dropped
+
+- canvas: keep broken kbLink edges as dashed + repair prompt (flip from auto-remove)
 
 ## later
 
