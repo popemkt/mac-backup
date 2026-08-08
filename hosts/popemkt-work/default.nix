@@ -16,6 +16,7 @@ _:
         dataset = "work";
       };
     };
+    browsers.enable = true;
     office-docs.enable = true;
     vpn.enable = true;
   };

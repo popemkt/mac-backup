@@ -190,6 +190,7 @@ in
 {
   imports = [
     ../../../stacks/ai-agents/system-setup.nix
+    ../../../stacks/browsers/system-setup.nix
     ../../../stacks/vpn/system-setup.nix
   ];
 

@@ -120,7 +120,10 @@ and recovery procedure. Use that metadata with `docs/backup-strategy.md`:
    than merely confirm that both endpoints exist.
 5. Prefer an existing check kind. Add a discriminated Pydantic model and tests
    under `tools/system-setup/` only when a new protocol is necessary.
-6. Run `nix flake check`. Nix rejects unknown component/dependency references,
+6. Import the stack's `system-setup.nix` from
+   `modules/darwin/system/system-setup/default.nix` (same pattern as vpn /
+   ai-agents) and enable the stack on the host.
+7. Run `nix flake check`. Nix rejects unknown component/dependency references,
    while per-host manifest checks validate cycles and the complete generated
    Pydantic schema without contacting live services.
 

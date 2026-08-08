@@ -4,6 +4,8 @@
 
 ## todo
 
+- kb reskin W8a: nxus tokens + shell (styles port, dark/light, prefs popover, kill panel+query tab, centered/full modes, References inline) — DESIGN-RESKIN.md
+- kb reskin W8b: unified NodeRow/TagChip/FieldRow + borderless field editors + tag colors + selection states — DESIGN-RESKIN.md
 - kb ui portless mode: UDS transport for local subscriber apps + port discovery via .kb/runtime.json
 - Package kb as nix app in pkgs/ (pinned bun deps, vp build in sandbox, wrapper bin) — replaces checkout-based wrapper
 - Study production nix repo shape before adopting

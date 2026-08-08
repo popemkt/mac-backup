@@ -10,6 +10,7 @@ _:
 {
   imports = [
     ./ai-agents
+    ./browsers
     ./office-docs.nix
     ./vpn
   ];
