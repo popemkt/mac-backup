@@ -63,6 +63,7 @@ describe("GhostNodeRow (component)", () => {
     g.document = dom.document as unknown;
     g.HTMLElement = dom.HTMLElement as unknown;
     g.KeyboardEvent = dom.KeyboardEvent as unknown;
+    g.MouseEvent = dom.MouseEvent as unknown;
   });
 
   beforeEach(() => {
@@ -86,6 +87,58 @@ describe("GhostNodeRow (component)", () => {
     act(() => root.unmount());
     container.remove();
     vi.restoreAllMocks();
+  });
+
+  it("bullet click focuses ghost row so typing works immediately", async () => {
+    await act(async () => {
+      root.render(
+        <GhostNodeRow depth={1} parentId="n.root-c" afterSiblingId={null} />,
+      );
+    });
+
+    const ghost = container.querySelector(
+      '[data-ghost-row="true"]',
+    ) as HTMLElement;
+    const bullet = container.querySelector(
+      '[data-ghost-bullet="true"]',
+    ) as HTMLElement;
+    expect(ghost).toBeTruthy();
+    expect(bullet).toBeTruthy();
+
+    // Simulate bullet mousedown (must not steal focus from the ghost textbox).
+    act(() => {
+      bullet.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+      bullet.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true }),
+      );
+    });
+
+    expect(dom.document.activeElement).toBe(ghost);
+
+    const beforeCount = useOutlineStore.getState().wireNodes.length;
+    act(() => {
+      fireKey(ghost, "z");
+    });
+
+    await act(async () => {
+      await vi.waitFor(
+        () => {
+          expect(useOutlineStore.getState().wireNodes.length).toBe(
+            beforeCount + 1,
+          );
+        },
+        { timeout: 500 },
+      );
+    });
+
+    const created = useOutlineStore
+      .getState()
+      .wireNodes.filter((n) => n.id.startsWith("01GHOST"));
+    expect(created).toHaveLength(1);
+    expect(created[0]!.text).toBe("z");
+    expect(useOutlineStore.getState().activeNodeId).toBe(created[0]!.id);
   });
 
   it("buffers fast a,b,c keystrokes into one new node with text abc", async () => {

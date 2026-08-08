@@ -39,8 +39,9 @@ export function Breadcrumbs() {
           <CaretRight size={10} weight="bold" className="text-foreground/25" />
           <button
             type="button"
+            title={item.text}
             className={cn(
-              "rounded-sm px-1.5 py-0.5",
+              "max-w-[12rem] truncate rounded-sm px-1.5 py-0.5",
               "text-foreground/40 hover:text-foreground/70 hover:bg-foreground/5",
               "transition-colors duration-100",
               item.id === rootNodeId && "text-foreground/70 font-medium",

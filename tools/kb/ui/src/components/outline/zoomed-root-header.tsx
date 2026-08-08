@@ -34,18 +34,18 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
 
         <div className="relative flex items-center justify-between min-h-9 gap-2">
           <h1
+            title={node.text || "Untitled"}
             className={cn(
-              "flex min-h-9 items-center",
+              "flex min-h-9 min-w-0 flex-1 items-center truncate",
               "text-[20px] font-semibold leading-[1.4] text-foreground/90",
             )}
           >
             {node.text || "Untitled"}
           </h1>
-          <ViewToolbar
-            frameId={node.id}
-            mode={viewConfig.mode}
-            tucked
-          />
+          {/* Tana model: no view chrome on list; compact toolbar only for ≠ list. */}
+          {viewConfig.mode !== "list" ? (
+            <ViewToolbar frameId={node.id} mode={viewConfig.mode} />
+          ) : null}
         </div>
 
         {node.tags.length > 0 && (

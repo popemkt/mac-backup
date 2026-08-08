@@ -15,20 +15,40 @@ export interface Prefs {
   width: WidthPref;
   /** Reveal sys.* + user-hidden fields in FieldRow lists. */
   showAllFields: boolean;
+  /** Tana-style left rail. Absent in storage → viewport default (≥1024 open). */
+  sidebarOpen: boolean;
 }
 
 export const PREFS_STORAGE_KEY = "kb-prefs";
+
+/** Default open on large viewports; closed on narrow (first visit / missing key). */
+export function defaultSidebarOpen(
+  widthPx: number | null = typeof window !== "undefined"
+    ? window.innerWidth
+    : null,
+): boolean {
+  if (widthPx == null) return true;
+  return widthPx >= 1024;
+}
 
 export const DEFAULT_PREFS: Prefs = {
   theme: "system",
   font: "outfit",
   width: "centered",
   showAllFields: false,
+  sidebarOpen: true,
 };
 
 /** Parse a raw localStorage payload; unknown values fall back to defaults. */
-export function loadPrefs(raw: string | null): Prefs {
-  if (!raw) return { ...DEFAULT_PREFS };
+export function loadPrefs(
+  raw: string | null,
+  viewportWidth: number | null = typeof window !== "undefined"
+    ? window.innerWidth
+    : null,
+): Prefs {
+  if (!raw) {
+    return { ...DEFAULT_PREFS, sidebarOpen: defaultSidebarOpen(viewportWidth) };
+  }
   try {
     const parsed = JSON.parse(raw) as Partial<Prefs> | null;
     return {
@@ -39,9 +59,13 @@ export function loadPrefs(raw: string | null): Prefs {
       font: parsed?.font === "inter" ? "inter" : "outfit",
       width: parsed?.width === "full" ? "full" : "centered",
       showAllFields: parsed?.showAllFields === true,
+      sidebarOpen:
+        typeof parsed?.sidebarOpen === "boolean"
+          ? parsed.sidebarOpen
+          : defaultSidebarOpen(viewportWidth),
     };
   } catch {
-    return { ...DEFAULT_PREFS };
+    return { ...DEFAULT_PREFS, sidebarOpen: defaultSidebarOpen(viewportWidth) };
   }
 }
 
@@ -85,6 +109,7 @@ function writeStored(prefs: Prefs) {
         font: prefs.font,
         width: prefs.width,
         showAllFields: prefs.showAllFields,
+        sidebarOpen: prefs.sidebarOpen,
       }),
     );
   } catch {
@@ -98,13 +123,15 @@ interface PrefsState extends Prefs {
   setWidth: (width: WidthPref) => void;
   setShowAllFields: (show: boolean) => void;
   toggleShowAllFields: () => void;
+  setSidebarOpen: (open: boolean) => void;
+  toggleSidebar: () => void;
 }
 
 export const usePrefsStore = create<PrefsState>((set, get) => {
   const commit = (patch: Partial<Prefs>) => {
     set(patch);
-    const { theme, font, width, showAllFields } = get();
-    const prefs = { theme, font, width, showAllFields };
+    const { theme, font, width, showAllFields, sidebarOpen } = get();
+    const prefs = { theme, font, width, showAllFields, sidebarOpen };
     writeStored(prefs);
     applyPrefs(prefs);
   };
@@ -116,6 +143,8 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
     setShowAllFields: (showAllFields) => commit({ showAllFields }),
     toggleShowAllFields: () =>
       commit({ showAllFields: !get().showAllFields }),
+    setSidebarOpen: (sidebarOpen) => commit({ sidebarOpen }),
+    toggleSidebar: () => commit({ sidebarOpen: !get().sidebarOpen }),
   };
 });
 
@@ -126,8 +155,9 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
 export function initPrefs() {
   if (typeof window === "undefined") return;
   const current = () => {
-    const { theme, font, width, showAllFields } = usePrefsStore.getState();
-    return { theme, font, width, showAllFields };
+    const { theme, font, width, showAllFields, sidebarOpen } =
+      usePrefsStore.getState();
+    return { theme, font, width, showAllFields, sidebarOpen };
   };
   applyPrefs(current());
 

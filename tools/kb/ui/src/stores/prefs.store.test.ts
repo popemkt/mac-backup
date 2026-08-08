@@ -80,11 +80,28 @@ describe("loadPrefs", () => {
 
   it("parses valid values and rejects unknown ones", () => {
     expect(
-      prefs.loadPrefs('{"theme":"dark","font":"inter","width":"full"}'),
-    ).toEqual({ theme: "dark", font: "inter", width: "full", showAllFields: false });
-    expect(
-      prefs.loadPrefs('{"theme":"neon","font":"comic","width":"wide"}'),
-    ).toEqual(prefs.DEFAULT_PREFS);
+      prefs.loadPrefs(
+        '{"theme":"dark","font":"inter","width":"full","sidebarOpen":false}',
+        1280,
+      ),
+    ).toEqual({
+      theme: "dark",
+      font: "inter",
+      width: "full",
+      showAllFields: false,
+      sidebarOpen: false,
+    });
+    expect(prefs.loadPrefs('{"theme":"neon","font":"comic","width":"wide"}', 1280)).toEqual({
+      ...prefs.DEFAULT_PREFS,
+      sidebarOpen: true,
+    });
+  });
+
+  it("defaults sidebarOpen from viewport when key is absent", () => {
+    expect(prefs.defaultSidebarOpen(1280)).toBe(true);
+    expect(prefs.defaultSidebarOpen(800)).toBe(false);
+    expect(prefs.loadPrefs(null, 800).sidebarOpen).toBe(false);
+    expect(prefs.loadPrefs('{"theme":"system"}', 1280).sidebarOpen).toBe(true);
   });
 });
 
@@ -105,13 +122,23 @@ describe("usePrefsStore", () => {
     prefs.usePrefsStore.getState().setTheme("dark");
     prefs.usePrefsStore.getState().setFont("inter");
     prefs.usePrefsStore.getState().setWidth("full");
+    prefs.usePrefsStore.getState().setSidebarOpen(false);
     const raw = (g.localStorage as Storage).getItem(prefs.PREFS_STORAGE_KEY);
     expect(JSON.parse(raw!)).toEqual({
       theme: "dark",
       font: "inter",
       width: "full",
       showAllFields: false,
+      sidebarOpen: false,
     });
+  });
+
+  it("toggleSidebar persists collapse state", () => {
+    prefs.usePrefsStore.getState().setSidebarOpen(true);
+    prefs.usePrefsStore.getState().toggleSidebar();
+    expect(prefs.usePrefsStore.getState().sidebarOpen).toBe(false);
+    const raw = (g.localStorage as Storage).getItem(prefs.PREFS_STORAGE_KEY);
+    expect(JSON.parse(raw!).sidebarOpen).toBe(false);
   });
 
   it("applies theme class + font attribute to <html>", () => {

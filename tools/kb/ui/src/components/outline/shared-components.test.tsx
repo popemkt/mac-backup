@@ -9,7 +9,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CircleHalf } from "@phosphor-icons/react";
 import { FieldRow } from "./field-row";
-import { TagChip } from "./tag-chip";
+import { TagChip, TagChipGroup } from "./tag-chip";
 import { hashTagColor, resolveTagColor } from "@/lib/tag-color";
 
 const outlineDir = path.dirname(fileURLToPath(import.meta.url));
@@ -29,6 +29,24 @@ describe("shared outline components (W8b)", () => {
     expect(html).toContain(`${color}18`);
     expect(html).toContain(`color:${color}`);
     expect(html).toContain("kb-chip");
+    expect(html).toContain("leading-4");
+    expect(html).toContain("h-4");
+  });
+
+  it("TagChipGroup wraps without fixed height", () => {
+    const color = hashTagColor("tag.todo");
+    const html = renderToStaticMarkup(
+      createElement(TagChipGroup, {
+        tags: [
+          { id: "t1", name: "todo", color },
+          { id: "t2", name: "urgent", color },
+          { id: "t3", name: "work", color },
+        ],
+      }),
+    );
+    expect(html).toContain('data-tag-chip-group="true"');
+    expect(html).toContain("flex-wrap");
+    expect(html).not.toMatch(/\bh-6\b/);
   });
 
   it("resolveTagColor override wins over hash in TagChip style", () => {

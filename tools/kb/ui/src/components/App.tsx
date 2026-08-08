@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { CircleHalf, Graph as GraphIcon } from "@phosphor-icons/react";
+import { CircleHalf } from "@phosphor-icons/react";
 import { loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
 import {
@@ -9,8 +9,9 @@ import {
 import { OutlineEditor } from "@/components/outline/outline-editor";
 import { ViewFilterPopoverHost } from "@/components/outline/view-filter-popover";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
+import { Sidebar, SidebarToggle } from "@/components/sidebar/sidebar";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
-import { graphPath, matchRoute, navigate, usePath } from "@/lib/router";
+import { matchRoute, usePath } from "@/lib/router";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -112,6 +113,7 @@ function OutlineShell({
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
+        <SidebarToggle />
         <h1 className="text-[13px] font-medium text-foreground/50">kb</h1>
         <span className="text-[11px] text-foreground/30">
           {status === "loading"
@@ -120,28 +122,6 @@ function OutlineShell({
         </span>
         <ConnectionDot />
         <div className="flex-1" />
-        <button
-          type="button"
-          className="flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70"
-          aria-label="Open graph"
-          title="Graph"
-          onClick={() => navigate(graphPath())}
-        >
-          <GraphIcon size={15} />
-          graph
-        </button>
-        <button
-          type="button"
-          className={cn(
-            "flex h-6 items-center rounded-md px-1.5 text-[11px] transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70",
-            onCanvas ? "text-foreground/70" : "text-foreground/40",
-          )}
-          aria-label="Open canvas list"
-          title="Canvas"
-          onClick={() => navigate("/canvas")}
-        >
-          canvas
-        </button>
         <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />
         <button
           type="button"
@@ -247,39 +227,36 @@ export function App() {
     return () => window.removeEventListener("keydown", handler, true);
   }, [setGlobalPaletteOpen, setNodePaletteOpen]);
 
-  if (route.name === "graph") {
-    return (
-      <div className="relative flex h-full min-h-0 flex-col">
-        {status === "loading" ? (
-          <div className="p-6 text-[13px] text-foreground/40">loading…</div>
-        ) : status === "error" ? (
-          <div className="p-6 text-destructive">{error}</div>
+  return (
+    <div className="relative flex h-full min-h-0">
+      <Sidebar />
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        {route.name === "graph" ? (
+          status === "loading" ? (
+            <div className="p-6 text-[13px] text-foreground/40">loading…</div>
+          ) : status === "error" ? (
+            <div className="p-6 text-destructive">{error}</div>
+          ) : (
+            <Suspense
+              fallback={
+                <div className="p-6 text-[13px] text-foreground/40">
+                  loading graph…
+                </div>
+              }
+            >
+              <GraphPage perspectiveId={route.perspectiveId} />
+            </Suspense>
+          )
         ) : (
-          <Suspense
-            fallback={
-              <div className="p-6 text-[13px] text-foreground/40">
-                loading graph…
-              </div>
-            }
-          >
-            <GraphPage perspectiveId={route.perspectiveId} />
-          </Suspense>
+          <OutlineShell
+            status={status}
+            error={error}
+            canvasId={route.name === "canvas" ? route.id : null}
+            onCanvas={route.name === "canvas-list" || route.name === "canvas"}
+          />
         )}
         <SharedChrome />
       </div>
-    );
-  }
-
-  return (
-    <div className="relative flex h-full min-h-0 flex-col">
-      <OutlineShell
-        status={status}
-        error={error}
-        canvasId={route.name === "canvas" ? route.id : null}
-        onCanvas={route.name === "canvas-list" || route.name === "canvas"}
-      />
-      <SharedChrome />
     </div>
   );
 }
-

@@ -20,6 +20,7 @@ import { RendererSwitch } from "@/components/graph/renderer-switch";
 import { SigmaGraph } from "@/components/graph/sigma-graph";
 import { ClusterGraph } from "@/components/graph/cluster-graph";
 import { TreeGraph } from "@/components/graph/tree-graph";
+import { SidebarToggle } from "@/components/sidebar/sidebar";
 
 /** Heavier three.js bundle — must stay out of the sigma/graph-page chunk. */
 const Force3dGraph = lazy(() => import("@/components/graph/force3d-graph"));
@@ -106,13 +107,7 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
-        <button
-          type="button"
-          className="text-[13px] text-foreground/40 transition-colors duration-100 hover:text-foreground/70"
-          onClick={() => navigate("/")}
-        >
-          ← outline
-        </button>
+        <SidebarToggle />
         <span className="text-[13px] font-medium text-foreground/50">graph</span>
         <PerspectivePicker
           perspectives={perspectives}

@@ -99,22 +99,22 @@ export const fixtureGraph: GraphSnapshot = {
     }),
     node({
       id: "sys.cmd.view-as-list",
-      text: "View as list",
+      text: "View as: List",
       props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
     }),
     node({
       id: "sys.cmd.view-as-table",
-      text: "View as table",
+      text: "View as: Table",
       props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
     }),
     node({
       id: "sys.cmd.view-as-board",
-      text: "View as board",
+      text: "View as: Board",
       props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
     }),
     node({
       id: "sys.cmd.view-as-cards",
-      text: "View as cards",
+      text: "View as: Cards",
       props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
     }),
     node({

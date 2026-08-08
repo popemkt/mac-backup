@@ -4,13 +4,17 @@ import {
   ArrowBendUpLeft,
   ArrowRight,
   Hash,
+  ListBullets,
   MagnifyingGlass,
+  SquaresFour,
+  Table,
   Trash,
 } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
 import { DEFAULT_QUERY_EDN, isQueryNode } from "@/lib/query-node";
 import { SYSTEM_IDS } from "@/lib/types";
+import type { ViewMode } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -134,6 +138,53 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         },
       },
     ];
+
+    const setMode = (mode: ViewMode) => {
+      if (!targetNodeId) return;
+      void mutations.setViewMode(targetNodeId, mode);
+      onClose();
+    };
+    base.push(
+      {
+        id: "view-as-list",
+        label: "View as: List",
+        icon: <ListBullets size={14} />,
+        immediate: true,
+        action: () => setMode("list"),
+      },
+      {
+        id: "view-as-table",
+        label: "View as: Table",
+        icon: <Table size={14} />,
+        immediate: true,
+        action: () => setMode("table"),
+      },
+      {
+        id: "view-as-board",
+        label: "View as: Board",
+        icon: <SquaresFour size={14} />,
+        immediate: true,
+        action: () => setMode("board"),
+      },
+      {
+        id: "view-as-cards",
+        label: "View as: Cards",
+        icon: <SquaresFour size={14} weight="duotone" />,
+        immediate: true,
+        action: () => setMode("cards"),
+      },
+      {
+        id: "view-filter",
+        label: "Filter…",
+        icon: <MagnifyingGlass size={14} />,
+        immediate: true,
+        action: () => {
+          if (!targetNodeId) return;
+          useUiStore.getState().setFilterPopoverFrameId(targetNodeId);
+          onClose();
+        },
+      },
+    );
 
     if (targetNode && !isQueryNode(targetNode)) {
       base.splice(1, 0, {
