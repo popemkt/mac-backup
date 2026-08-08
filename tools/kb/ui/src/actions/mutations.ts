@@ -421,6 +421,71 @@ export const mutations = {
     const { planSetViewPagesize } = await import("@/actions/plan");
     await applyPlan(planSetViewPagesize(wire(), frameId, pagesize));
   },
+
+  async setViewGroup(
+    frameId: string,
+    fieldId: string | null,
+  ): Promise<void> {
+    if (!guardSysWrite(frameId)) return;
+    const { planSetViewGroup } = await import("@/actions/plan");
+    await applyPlan(planSetViewGroup(wire(), frameId, fieldId));
+  },
+
+  async setViewFilters(
+    frameId: string,
+    filterEdnList: string[],
+  ): Promise<void> {
+    if (!guardSysWrite(frameId)) return;
+    const { planSetViewFilters } = await import("@/actions/plan");
+    await applyPlan(planSetViewFilters(wire(), frameId, filterEdnList));
+  },
+
+  async addViewFilter(frameId: string, edn: string): Promise<void> {
+    if (!guardSysWrite(frameId)) return;
+    const store = useOutlineStore.getState();
+    const frame = store.nodes.get(frameId);
+    const { getViewConfig, serializeViewFilter, parseViewFilterEdn } =
+      await import("@/lib/view-config");
+    const parsed = parseViewFilterEdn(edn);
+    if (!parsed) {
+      toast(`Bad filter EDN: ${edn}`);
+      return;
+    }
+    const config = getViewConfig(frame?.props);
+    const next = [
+      ...config.filters.map((f) => f.raw || serializeViewFilter(f)),
+      serializeViewFilter(parsed),
+    ];
+    const { planSetViewFilters } = await import("@/actions/plan");
+    await applyPlan(planSetViewFilters(wire(), frameId, next));
+  },
+
+  async removeViewFilter(frameId: string, edn: string): Promise<void> {
+    if (!guardSysWrite(frameId)) return;
+    const store = useOutlineStore.getState();
+    const frame = store.nodes.get(frameId);
+    const { getViewConfig, serializeViewFilter } =
+      await import("@/lib/view-config");
+    const config = getViewConfig(frame?.props);
+    const next = config.filters
+      .map((f) => f.raw || serializeViewFilter(f))
+      .filter((raw) => raw !== edn);
+    const { planSetViewFilters } = await import("@/actions/plan");
+    await applyPlan(planSetViewFilters(wire(), frameId, next));
+  },
+
+  async moveBoardCard(
+    nodeId: string,
+    fieldId: string,
+    oldValue: import("@/lib/types").PropValue | null,
+    newValue: import("@/lib/types").PropValue | null,
+  ): Promise<void> {
+    if (!guardSysWrite(nodeId)) return;
+    const { planMoveBoardCard } = await import("@/actions/plan");
+    await applyPlan(
+      planMoveBoardCard(wire(), nodeId, fieldId, oldValue, newValue),
+    );
+  },
 };
 
 export type Mutations = typeof mutations;

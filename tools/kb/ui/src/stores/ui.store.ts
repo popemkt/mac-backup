@@ -14,11 +14,14 @@ interface UiState {
   prefsOpen: boolean;
   globalPaletteOpen: boolean;
   nodePaletteOpen: boolean;
+  /** W7.1: open filter popover for this frame (toolbar ⚙ / palette Filter…). */
+  filterPopoverFrameId: string | null;
 
   setWsStatus: (status: WsStatus) => void;
   setPrefsOpen: (open: boolean) => void;
   setGlobalPaletteOpen: (open: boolean) => void;
   setNodePaletteOpen: (open: boolean) => void;
+  setFilterPopoverFrameId: (frameId: string | null) => void;
   pushToast: (kind: Toast["kind"], text: string) => void;
   dismissToast: (id: number) => void;
 }
@@ -31,6 +34,7 @@ export const useUiStore = create<UiState>((set) => ({
   prefsOpen: false,
   globalPaletteOpen: false,
   nodePaletteOpen: false,
+  filterPopoverFrameId: null,
 
   setWsStatus: (wsStatus) => set({ wsStatus }),
   setPrefsOpen: (prefsOpen) => set({ prefsOpen }),
@@ -44,6 +48,8 @@ export const useUiStore = create<UiState>((set) => ({
       nodePaletteOpen,
       globalPaletteOpen: nodePaletteOpen ? false : s.globalPaletteOpen,
     })),
+  setFilterPopoverFrameId: (filterPopoverFrameId) =>
+    set({ filterPopoverFrameId }),
 
   pushToast: (kind, text) => {
     const id = ++toastSeq;

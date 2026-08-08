@@ -1,19 +1,24 @@
-import { memo, useCallback } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { isQueryNode } from "@/lib/query-node";
+import { cn } from "@/lib/cn";
 import { childInstanceKey, outlineInstanceKey } from "@/lib/instance-key";
 import { resolveProps } from "@/lib/graph-view";
 import { useUiStore } from "@/stores/ui.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { mutations } from "@/actions/mutations";
-import { getViewConfig } from "@/lib/view-config";
+import {
+  applyViewFilters,
+  getViewConfig,
+  isProjectedViewMode,
+} from "@/lib/view-config";
 import { Bullet } from "./bullet";
 import { FieldsSection } from "./fields-section";
+import { FrameChildrenView } from "./frame-children-view";
 import { GhostNodeRow } from "./ghost-node-row";
 import { NodeContent } from "./node-content";
 import { NodeRow } from "./node-row";
 import { QueryResultsSection } from "./query-results";
-import { TableView } from "./table-view";
 import { useNodeKeyDown } from "./use-node-keydown";
 import { ViewToolbar } from "./view-toolbar";
 
@@ -92,6 +97,16 @@ export const NodeBlock = memo(function NodeBlock({
     isRef,
   });
 
+  const viewConfig = getViewConfig(node?.props);
+
+  const listChildren = useMemo(() => {
+    if (!node || isProjectedViewMode(viewConfig.mode)) return [];
+    const kids = node.children
+      .map((id) => nodes.get(id))
+      .filter((n): n is NonNullable<typeof n> => n !== undefined);
+    return applyViewFilters(kids, viewConfig.filters, nodes);
+  }, [node, nodes, viewConfig.mode, viewConfig.filters]);
+
   if (!node) return null;
 
   const isActive =
@@ -107,11 +122,14 @@ export const NodeBlock = memo(function NodeBlock({
   const hasFields =
     resolveProps(node, nodes, { showAllFields }).length > 0;
   const isExpandable = hasChildren || isQuery || hasFields;
-  const viewConfig = getViewConfig(node.props);
+  const showToolbar = (hasChildren || isQuery) && !node.collapsed;
+  const projected = isProjectedViewMode(viewConfig.mode);
+  const filterOpen = useUiStore((s) => s.filterPopoverFrameId === nodeId);
 
   return (
     <div
       className="node-block relative group/frame"
+      data-node-block="true"
       data-node-id={nodeId}
       data-instance-key={instanceKey}
     >
@@ -148,8 +166,15 @@ export const NodeBlock = memo(function NodeBlock({
             }
           />
         </div>
-        {hasChildren && !node.collapsed && (
-          <div className="absolute right-2 opacity-0 group-hover/frame:opacity-100 group-focus-within/frame:opacity-100 transition-opacity z-10">
+        {showToolbar && (
+          <div
+            className={cn(
+              "absolute right-2 transition-opacity z-10",
+              filterOpen
+                ? "opacity-100"
+                : "opacity-0 group-hover/frame:opacity-100 group-focus-within/frame:opacity-100",
+            )}
+          >
             <ViewToolbar frameId={nodeId} mode={viewConfig.mode} />
           </div>
         )}
@@ -168,24 +193,30 @@ export const NodeBlock = memo(function NodeBlock({
           <FieldsSection nodeId={nodeId} depth={depth} />
 
           {!isRef && isQuery && (
-            <QueryResultsSection nodeId={nodeId} depth={depth} />
+            <QueryResultsSection
+              nodeId={nodeId}
+              depth={depth}
+              viewMode={viewConfig.mode}
+              frameInstanceKey={instanceKey}
+            />
           )}
 
-          {hasChildren &&
-            (viewConfig.mode === "table" ? (
+          {!isQuery &&
+            hasChildren &&
+            (projected ? (
               <div style={{ paddingLeft: `${(depth + 1) * 24}px` }}>
-                <TableView
+                <FrameChildrenView
                   frameId={nodeId}
                   frameInstanceKey={instanceKey}
                 />
               </div>
             ) : (
-              node.children.map((childId) => {
-                const childKey = childInstanceKey(instanceKey, childId);
+              listChildren.map((child) => {
+                const childKey = childInstanceKey(instanceKey, child.id);
                 return (
                   <NodeBlock
                     key={childKey}
-                    nodeId={childId}
+                    nodeId={child.id}
                     instanceKey={childKey}
                     depth={depth + 1}
                   />
@@ -193,7 +224,7 @@ export const NodeBlock = memo(function NodeBlock({
               })
             ))}
 
-          {!isRef && (
+          {!isRef && !projected && (
             <GhostNodeRow
               depth={depth + 1}
               parentId={nodeId}

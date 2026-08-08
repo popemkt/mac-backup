@@ -98,6 +98,31 @@ export const fixtureGraph: GraphSnapshot = {
       props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
     }),
     node({
+      id: "sys.cmd.view-as-list",
+      text: "View as list",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
+    node({
+      id: "sys.cmd.view-as-table",
+      text: "View as table",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
+    node({
+      id: "sys.cmd.view-as-board",
+      text: "View as board",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
+    node({
+      id: "sys.cmd.view-as-cards",
+      text: "View as cards",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
+    node({
+      id: "sys.cmd.view-filter",
+      text: "Filter…",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
+    node({
       id: "sys.f.query",
       text: "query",
       props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },

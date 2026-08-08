@@ -40,6 +40,15 @@ export const SYSTEM_IDS = {
   viewDisplayField: "sys.f.view.display",
   viewColwidthField: "sys.f.view.colwidth",
   viewPagesizeField: "sys.f.view.pagesize",
+  /** W7.1 board group-by field (ref → field node). */
+  viewGroupField: "sys.f.view.group",
+  /** W7.1 filter clauses (str EDN, multi). */
+  viewFilterField: "sys.f.view.filter",
+  cmdViewAsList: "sys.cmd.view-as-list",
+  cmdViewAsTable: "sys.cmd.view-as-table",
+  cmdViewAsBoard: "sys.cmd.view-as-board",
+  cmdViewAsCards: "sys.cmd.view-as-cards",
+  cmdViewFilter: "sys.cmd.view-filter",
   /** Virtual root the ui server materializes saved queries under. */
   queriesRoot: "sys.queries",
   /** Graph perspective lenses (V0/V1 — graph-lens module). */

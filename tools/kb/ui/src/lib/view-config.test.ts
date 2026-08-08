@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import { SYSTEM_IDS } from "./types";
 import type { NodeMap, OutlineNode } from "./types";
 import {
+  applyViewFilters,
   DEFAULT_VIEW_CONFIG,
   getViewConfig,
+  groupChildrenForBoard,
+  parseViewFilterEdn,
   resolveTableColumns,
+  serializeViewFilter,
   sortChildrenForTable,
 } from "./view-config";
 
@@ -12,24 +16,29 @@ describe("view-config", () => {
   it("returns default view config when props are empty or undefined", () => {
     expect(getViewConfig(undefined)).toEqual(DEFAULT_VIEW_CONFIG);
     expect(getViewConfig({})).toEqual(DEFAULT_VIEW_CONFIG);
+    expect(DEFAULT_VIEW_CONFIG.groupFieldId).toBeNull();
+    expect(DEFAULT_VIEW_CONFIG.filters).toEqual([]);
   });
 
-  it("reads view mode (list|table) and falls back to list on invalid mode", () => {
+  it("reads view mode (list|table|board|cards) and falls back to list on invalid mode", () => {
     expect(
       getViewConfig({
         [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "table" }],
       }).mode,
     ).toBe("table");
-
     expect(
       getViewConfig({
         [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "board" }],
       }).mode,
-    ).toBe("list");
-
+    ).toBe("board");
     expect(
       getViewConfig({
         [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "cards" }],
+      }).mode,
+    ).toBe("cards");
+    expect(
+      getViewConfig({
+        [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "kanban" }],
       }).mode,
     ).toBe("list");
   });
@@ -218,5 +227,145 @@ describe("view-config", () => {
 
     // INVARIANT CHECK: Original array is untouched
     expect(originalChildren.map((n) => n.id)).toEqual(["c1", "c2"]);
+  });
+
+  it("parses filter EDN (good) and ignores bad EDN", () => {
+    const eq = parseViewFilterEdn('{:field field.status :eq "doing"}');
+    expect(eq).toEqual({
+      kind: "eq",
+      fieldId: "field.status",
+      value: "doing",
+      raw: '{:field field.status :eq "doing"}',
+    });
+    const text = parseViewFilterEdn('{:text "ship"}');
+    expect(text).toEqual({
+      kind: "text",
+      text: "ship",
+      raw: '{:text "ship"}',
+    });
+    expect(parseViewFilterEdn("{:bogus}")).toBeNull();
+    expect(parseViewFilterEdn("not edn")).toBeNull();
+    expect(
+      serializeViewFilter({
+        kind: "eq",
+        fieldId: "f",
+        value: "x",
+        raw: "",
+      }),
+    ).toBe('{:field f :eq "x"}');
+  });
+
+  it("getViewConfig collects filters and group field; warns on bad EDN", () => {
+    const warn = console.warn;
+    const warns: string[] = [];
+    console.warn = (...args: unknown[]) => {
+      warns.push(String(args[0]));
+    };
+    try {
+      const config = getViewConfig({
+        [SYSTEM_IDS.viewGroupField]: [{ t: "ref", v: "field.status" }],
+        [SYSTEM_IDS.viewFilterField]: [
+          { t: "str", v: '{:field field.status :eq "doing"}' },
+          { t: "str", v: "{bad" },
+          { t: "str", v: '{:text "kb"}' },
+        ],
+      });
+      expect(config.groupFieldId).toBe("field.status");
+      expect(config.filters).toHaveLength(2);
+      expect(config.filters[0]?.kind).toBe("eq");
+      expect(config.filters[1]?.kind).toBe("text");
+      expect(warns.some((w) => w.includes("bad filter"))).toBe(true);
+    } finally {
+      console.warn = warn;
+    }
+  });
+
+  it("applyViewFilters ANDs eq + text filters", () => {
+    const nodes: NodeMap = new Map();
+    const a: OutlineNode = {
+      id: "a",
+      text: "Ship kb",
+      parentId: null,
+      children: [],
+      collapsed: false,
+      props: { "field.status": [{ t: "str", v: "doing" }] },
+      createdAt: "",
+      updatedAt: "",
+      tags: [],
+    };
+    const b: OutlineNode = {
+      id: "b",
+      text: "Other",
+      parentId: null,
+      children: [],
+      collapsed: false,
+      props: { "field.status": [{ t: "str", v: "todo" }] },
+      createdAt: "",
+      updatedAt: "",
+      tags: [],
+    };
+    const filtered = applyViewFilters(
+      [a, b],
+      [
+        {
+          kind: "eq",
+          fieldId: "field.status",
+          value: "doing",
+          raw: "",
+        },
+        { kind: "text", text: "ship", raw: "" },
+      ],
+      nodes,
+    );
+    expect(filtered.map((n) => n.id)).toEqual(["a"]);
+  });
+
+  it("groupChildrenForBoard groups by field + empty column; cards = single column", () => {
+    const nodes: NodeMap = new Map();
+    nodes.set("field.status", {
+      id: "field.status",
+      text: "status",
+      parentId: null,
+      children: [],
+      collapsed: false,
+      props: {},
+      createdAt: "",
+      updatedAt: "",
+      tags: [],
+    });
+    const doing: OutlineNode = {
+      id: "d",
+      text: "Doing",
+      parentId: null,
+      children: [],
+      collapsed: false,
+      props: { "field.status": [{ t: "str", v: "doing" }] },
+      createdAt: "",
+      updatedAt: "",
+      tags: [],
+    };
+    const empty: OutlineNode = {
+      id: "e",
+      text: "Empty",
+      parentId: null,
+      children: [],
+      collapsed: false,
+      props: {},
+      createdAt: "",
+      updatedAt: "",
+      tags: [],
+    };
+    const cols = groupChildrenForBoard([doing, empty], "field.status", nodes);
+    expect(cols.map((c) => c.key)).toContain("__empty__");
+    expect(cols.find((c) => c.label === "doing")?.nodes.map((n) => n.id)).toEqual([
+      "d",
+    ]);
+    expect(cols.find((c) => c.key === "__empty__")?.nodes.map((n) => n.id)).toEqual([
+      "e",
+    ]);
+
+    const cards = groupChildrenForBoard([doing, empty], null, nodes);
+    expect(cards).toHaveLength(1);
+    expect(cards[0]!.nodes.map((n) => n.id)).toEqual(["d", "e"]);
   });
 });

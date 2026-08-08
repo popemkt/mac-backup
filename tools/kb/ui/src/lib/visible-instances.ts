@@ -1,6 +1,7 @@
 /**
  * Render-order visible outline instances (tree + query-result rows).
- * Must stay aligned with NodeBlock / QueryResultsSection / OutlineEditor / TableView.
+ * Must stay aligned with NodeBlock / QueryResultsSection / OutlineEditor /
+ * TableView / BoardCardsView.
  */
 import type { QueryDb } from "@/ds/db";
 import { runQuery } from "@/ds/query";
@@ -15,7 +16,14 @@ import {
   resultNodeIds,
 } from "@/lib/query-node";
 import type { NodeMap, OutlineNode } from "@/lib/types";
-import { getViewConfig, sortChildrenForTable } from "@/lib/view-config";
+import {
+  applyViewFilters,
+  flattenBoardOrder,
+  getViewConfig,
+  groupChildrenForBoard,
+  isProjectedViewMode,
+  sortChildrenForTable,
+} from "@/lib/view-config";
 
 export type VisibleInstance = {
   nodeId: string;
@@ -28,23 +36,35 @@ function childNodes(parent: OutlineNode, nodes: NodeMap): OutlineNode[] {
     .filter((n): n is OutlineNode => n !== undefined);
 }
 
-/** Flat table rows: direct children only, in TableView sort projection order. */
-function emitTableRows(
+function projectFrameRows(
+  parent: OutlineNode,
+  nodes: NodeMap,
+  rowNodes: OutlineNode[],
+): OutlineNode[] {
+  const viewConfig = getViewConfig(parent.props);
+  const filtered = applyViewFilters(rowNodes, viewConfig.filters, nodes);
+  const sorted = sortChildrenForTable(filtered, viewConfig.sort, nodes);
+  if (viewConfig.mode === "board") {
+    return flattenBoardOrder(
+      groupChildrenForBoard(sorted, viewConfig.groupFieldId, nodes),
+    );
+  }
+  // table + cards: sorted flat order
+  return sorted;
+}
+
+function emitProjectedRows(
   parentKey: string,
   parent: OutlineNode,
   nodes: NodeMap,
+  rowNodes: OutlineNode[],
   out: VisibleInstance[],
+  keyFor: (nodeId: string) => string,
 ): void {
-  const viewConfig = getViewConfig(parent.props);
-  const sorted = sortChildrenForTable(
-    childNodes(parent, nodes),
-    viewConfig.sort,
-    nodes,
-  );
-  for (const child of sorted) {
+  for (const child of projectFrameRows(parent, nodes, rowNodes)) {
     out.push({
       nodeId: child.id,
-      instanceKey: childInstanceKey(parentKey, child.id),
+      instanceKey: keyFor(child.id),
     });
   }
 }
@@ -62,7 +82,9 @@ function walkVisibleInstances(
   out.push({ nodeId, instanceKey });
   if (node.collapsed) return;
 
-  // Query results render before structural children (NodeBlock order).
+  const viewConfig = getViewConfig(node.props);
+
+  // Query results — list walks refs; projected modes emit flat result rows.
   if (!isRef && isQueryNode(node)) {
     const def = queryDefOf(node);
     if (def?.edn && queryDb) {
@@ -72,6 +94,22 @@ function walkVisibleInstances(
           limit: def.limit,
           excludeId: nodeId,
         });
+        const resultNodes = ids
+          .map((id) => nodes.get(id))
+          .filter((n): n is OutlineNode => n !== undefined);
+
+        if (isProjectedViewMode(viewConfig.mode)) {
+          emitProjectedRows(
+            instanceKey,
+            node,
+            nodes,
+            resultNodes,
+            out,
+            (id) => queryResultInstanceKey(nodeId, id),
+          );
+          return;
+        }
+
         for (const id of ids) {
           walkVisibleInstances(
             id,
@@ -83,22 +121,38 @@ function walkVisibleInstances(
           );
         }
       } catch {
-        // Broken EDN: skip results (UI shows the error separately).
+        // Broken EDN: skip results
       }
     }
+    // Non-projected query: also walk structural children below results.
   }
 
-  // Table frames render only direct children (sorted); no grandchild walk.
-  if (getViewConfig(node.props).mode === "table") {
-    emitTableRows(instanceKey, node, nodes, out);
+  if (isProjectedViewMode(viewConfig.mode) && !isQueryNode(node)) {
+    emitProjectedRows(
+      instanceKey,
+      node,
+      nodes,
+      childNodes(node, nodes),
+      out,
+      (id) => childInstanceKey(instanceKey, id),
+    );
     return;
   }
 
-  // Children of ref rows are ordinary (isRef does not cascade).
-  for (const childId of node.children) {
+  if (isProjectedViewMode(viewConfig.mode) && isQueryNode(node)) {
+    return;
+  }
+
+  // List mode — filtered structural children.
+  const kids = applyViewFilters(
+    childNodes(node, nodes),
+    viewConfig.filters,
+    nodes,
+  );
+  for (const child of kids) {
     walkVisibleInstances(
-      childId,
-      childInstanceKey(instanceKey, childId),
+      child.id,
+      childInstanceKey(instanceKey, child.id),
       false,
       nodes,
       queryDb,
@@ -107,12 +161,6 @@ function walkVisibleInstances(
   }
 }
 
-/**
- * Visible render instances for the current zoom/home root, in DOM order.
- * Zoomed root header is not a NodeBlock — only its children are listed.
- * When the zoomed/home root is itself in table mode, emit sorted direct
- * children only (matches OutlineEditor → TableView).
- */
 export function collectVisibleInstances(
   rootNodeId: string,
   nodes: NodeMap,
@@ -122,27 +170,27 @@ export function collectVisibleInstances(
   const root = nodes.get(rootNodeId);
   if (!root) return out;
 
-  if (getViewConfig(root.props).mode === "table") {
-    // Root itself is not a visible NodeBlock; table rows use full-chain keys.
-    const viewConfig = getViewConfig(root.props);
-    const sorted = sortChildrenForTable(
-      childNodes(root, nodes),
-      viewConfig.sort,
+  const rootConfig = getViewConfig(root.props);
+  if (isProjectedViewMode(rootConfig.mode)) {
+    emitProjectedRows(
+      `tree/${rootNodeId}`,
+      root,
       nodes,
+      childNodes(root, nodes),
+      out,
+      (id) => outlineInstanceKey(id, nodes),
     );
-    for (const child of sorted) {
-      out.push({
-        nodeId: child.id,
-        instanceKey: outlineInstanceKey(child.id, nodes),
-      });
-    }
     return out;
   }
 
-  for (const childId of root.children) {
-    // Full ancestor chain — matches outlineInstanceKey / zoomed OutlineEditor.
-    const key = outlineInstanceKey(childId, nodes);
-    walkVisibleInstances(childId, key, false, nodes, queryDb, out);
+  const kids = applyViewFilters(
+    childNodes(root, nodes),
+    rootConfig.filters,
+    nodes,
+  );
+  for (const child of kids) {
+    const key = outlineInstanceKey(child.id, nodes);
+    walkVisibleInstances(child.id, key, false, nodes, queryDb, out);
   }
   return out;
 }

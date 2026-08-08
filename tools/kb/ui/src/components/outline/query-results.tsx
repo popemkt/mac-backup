@@ -1,28 +1,32 @@
 /**
  * Live results under an expanded query node (DESIGN-REFINE §2 W4).
- * Expanded → subscribe over /ws (existing SubscriptionHub); collapse or
- * unmount → unsubscribe. Offline / fixtures fall back to the local
- * DataScript db, re-run per graph rev. Result rows are read-only refs to
- * the real nodes: dashed bullets, click = zoom, text edit routes to the
- * source node, structural edits (Tab/indent & co) disabled.
+ * List mode → NodeBlock refs. Table/board/cards → shared FrameChildrenView
+ * with query-result instance keys (W7.1 / W8e).
  */
 import { useEffect, useMemo, useState } from "react";
 import { getLiveClient } from "@/api/live";
 import { runQuery } from "@/ds/query";
 import { queryResultInstanceKey } from "@/lib/instance-key";
 import { queryDefOf, resultNodeIds, subscribeQueryNode } from "@/lib/query-node";
+import type { ViewMode } from "@/lib/view-config";
+import { isProjectedViewMode } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
+import { FrameChildrenView } from "./frame-children-view";
 import { NodeBlock } from "./node-block";
 
 interface QueryResultsSectionProps {
   nodeId: string;
   depth: number;
+  viewMode?: ViewMode;
+  frameInstanceKey?: string;
 }
 
 export function QueryResultsSection({
   nodeId,
   depth,
+  viewMode = "list",
+  frameInstanceKey,
 }: QueryResultsSectionProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const nodes = useOutlineStore((s) => s.nodes);
@@ -67,7 +71,6 @@ export function QueryResultsSection({
         error: err instanceof Error ? err.message : String(err),
       };
     }
-    // rev: local results must re-run on every graph change
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, edn, queryDb, rev]);
 
@@ -79,27 +82,55 @@ export function QueryResultsSection({
     ? resultNodeIds(rows, nodes, { limit: def.limit, excludeId: nodeId })
     : [];
 
-  return (
-    <div className="query-results" data-query-results-for={nodeId}>
-      {error ? (
-        <p
-          className="px-1 py-0.5 text-[12px] text-destructive"
-          style={{ paddingLeft: `calc(${depth + 1} * var(--kb-indent))` }}
-        >
+  const pad = { paddingLeft: `calc(${depth + 1} * var(--kb-indent))` };
+
+  if (error) {
+    return (
+      <div className="query-results" data-query-results-for={nodeId}>
+        <p className="px-1 py-0.5 text-[12px] text-destructive" style={pad}>
           {error}
         </p>
-      ) : rows === null ? (
-        <p
-          className="px-1 py-0.5 text-[12px] text-foreground/50"
-          style={{ paddingLeft: `calc(${depth + 1} * var(--kb-indent))` }}
-        >
+      </div>
+    );
+  }
+
+  if (rows === null) {
+    return (
+      <div className="query-results" data-query-results-for={nodeId}>
+        <p className="px-1 py-0.5 text-[12px] text-foreground/50" style={pad}>
           loading results…
         </p>
-      ) : ids.length === 0 ? (
-        <p
-          className="px-1 py-0.5 text-[12px] text-foreground/50"
-          style={{ paddingLeft: `calc(${depth + 1} * var(--kb-indent))` }}
-        >
+      </div>
+    );
+  }
+
+  if (isProjectedViewMode(viewMode)) {
+    return (
+      <div
+        className="query-results"
+        data-query-results-for={nodeId}
+        style={pad}
+      >
+        {ids.length === 0 ? (
+          <p className="px-1 py-0.5 text-[12px] text-foreground/50">
+            No results
+          </p>
+        ) : (
+          <FrameChildrenView
+            frameId={nodeId}
+            frameInstanceKey={frameInstanceKey}
+            rowIds={ids}
+            isQuerySource
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="query-results" data-query-results-for={nodeId}>
+      {ids.length === 0 ? (
+        <p className="px-1 py-0.5 text-[12px] text-foreground/50" style={pad}>
           No results
         </p>
       ) : (

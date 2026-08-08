@@ -13,9 +13,10 @@ import {
 } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "@/components/outline/fields-section";
-
-const valueClass =
-  "min-w-0 flex-1 cursor-pointer appearance-none rounded-sm border-none bg-transparent text-[14.5px] leading-[1.6] text-foreground/70 outline-none hover:text-foreground/85";
+import {
+  POPOVER_VALUE_CLASS,
+  PopoverShell,
+} from "@/components/ui/popover-shell";
 
 export function PreferencesPopover() {
   const open = useUiStore((s) => s.prefsOpen);
@@ -44,20 +45,16 @@ export function PreferencesPopover() {
   if (!open) return null;
 
   return (
-    <div
-      ref={panelRef}
-      role="dialog"
-      aria-label="Preferences"
-      className="absolute right-4 top-11 z-40 mt-1 w-[320px] rounded-lg border border-foreground/10 bg-popover p-2 shadow-xl"
+    <PopoverShell
+      panelRef={panelRef}
+      title="Preferences"
+      className="absolute right-4 top-11 mt-1"
     >
-      <h2 className="px-1.5 pb-1 pt-0.5 text-[12px] uppercase tracking-wide text-foreground/30">
-        Preferences
-      </h2>
       <ThemeRow />
       <FontRow />
       <WidthRow />
       <ShowAllFieldsRow />
-    </div>
+    </PopoverShell>
   );
 }
 
@@ -67,7 +64,7 @@ function ThemeRow() {
   return (
     <PrefFieldRow icon={CircleHalf} label="theme">
       <select
-        className={valueClass}
+        className={POPOVER_VALUE_CLASS}
         value={theme}
         onChange={(e) => setTheme(e.target.value as ThemePref)}
       >
@@ -85,7 +82,7 @@ function FontRow() {
   return (
     <PrefFieldRow icon={TextAa} label="font">
       <select
-        className={valueClass}
+        className={POPOVER_VALUE_CLASS}
         value={font}
         onChange={(e) => setFont(e.target.value as FontPref)}
       >
@@ -102,7 +99,7 @@ function WidthRow() {
   return (
     <PrefFieldRow icon={ArrowsHorizontal} label="width">
       <select
-        className={valueClass}
+        className={POPOVER_VALUE_CLASS}
         value={width}
         onChange={(e) => setWidth(e.target.value as WidthPref)}
       >
@@ -125,7 +122,7 @@ function ShowAllFieldsRow() {
           checked={showAllFields}
           onChange={(e) => setShowAllFields(e.target.checked)}
         />
-        <span className={valueClass}>Show all fields (debug)</span>
+        <span className={POPOVER_VALUE_CLASS}>Show all fields (debug)</span>
       </label>
     </PrefFieldRow>
   );

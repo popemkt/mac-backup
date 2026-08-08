@@ -1,7 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
-import { childInstanceKey, outlineInstanceKey } from "@/lib/instance-key";
+import {
+  childInstanceKey,
+  outlineInstanceKey,
+  queryResultInstanceKey,
+} from "@/lib/instance-key";
 import {
   emptyValueForType,
   isValueMismatch,
@@ -12,6 +16,7 @@ import { cn } from "@/lib/cn";
 import { isQueryNode } from "@/lib/query-node";
 import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
 import {
+  applyViewFilters,
   getViewConfig,
   resolveTableColumns,
   sortChildrenForTable,
@@ -33,6 +38,9 @@ interface TableViewProps {
   nodes?: NodeMap;
   /** Test/override hook — defaults to prefs store width. */
   widthPref?: "centered" | "full";
+  /** Query-result row ids (overrides frame children). */
+  rowIds?: string[];
+  isQuerySource?: boolean;
 }
 
 export function TableView({
@@ -40,6 +48,8 @@ export function TableView({
   frameInstanceKey,
   nodes: nodesProp,
   widthPref: widthPrefProp,
+  rowIds,
+  isQuerySource = false,
 }: TableViewProps) {
   const storeNodes = useOutlineStore((s) => s.nodes);
   const nodes = nodesProp ?? storeNodes;
@@ -57,20 +67,25 @@ export function TableView({
   );
 
   const children = useMemo(() => {
-    if (!frameNode) return [];
-    return frameNode.children
+    const ids = rowIds ?? frameNode?.children ?? [];
+    return ids
       .map((id) => nodes.get(id))
       .filter((n): n is OutlineNode => n !== undefined);
-  }, [frameNode, nodes]);
+  }, [frameNode, nodes, rowIds]);
+
+  const filtered = useMemo(
+    () => applyViewFilters(children, viewConfig.filters, nodes),
+    [children, viewConfig.filters, nodes],
+  );
 
   const columns = useMemo(
-    () => resolveTableColumns(viewConfig, children, nodes, showAllFields),
-    [viewConfig, children, nodes, showAllFields],
+    () => resolveTableColumns(viewConfig, filtered, nodes, showAllFields),
+    [viewConfig, filtered, nodes, showAllFields],
   );
 
   const sortedChildren = useMemo(
-    () => sortChildrenForTable(children, viewConfig.sort, nodes),
-    [children, viewConfig.sort, nodes],
+    () => sortChildrenForTable(filtered, viewConfig.sort, nodes),
+    [filtered, viewConfig.sort, nodes],
   );
 
   const [visibleLimit, setVisibleLimit] = useState(viewConfig.pagesize);
@@ -133,7 +148,7 @@ export function TableView({
     [frameId],
   );
 
-  if (!frameNode) return null;
+  if (!frameNode && !rowIds) return null;
 
   const breakoutCentered = widthPref === "centered";
 
@@ -212,7 +227,9 @@ export function TableView({
         </thead>
         <tbody>
           {displayedChildren.map((child) => {
-            const childKey = childInstanceKey(baseInstanceKey, child.id);
+            const childKey = isQuerySource
+              ? queryResultInstanceKey(frameId, child.id)
+              : childInstanceKey(baseInstanceKey, child.id);
             return (
               <TableRow
                 key={childKey}
@@ -221,6 +238,7 @@ export function TableView({
                 columns={columns}
                 nodes={nodes}
                 showAllFields={showAllFields}
+                isRef={isQuerySource}
               />
             );
           })}
@@ -250,12 +268,14 @@ const TableRow = memo(function TableRow({
   columns,
   nodes,
   showAllFields,
+  isRef = false,
 }: {
   child: OutlineNode;
   childKey: string;
   columns: TableColumnSpec[];
   nodes: NodeMap;
   showAllFields: boolean;
+  isRef?: boolean;
 }) {
   const isActive = useOutlineStore(
     (s) => s.activeNodeId === child.id && s.activeInstanceKey === childKey,
@@ -278,6 +298,7 @@ const TableRow = memo(function TableRow({
     nodeId: child.id,
     instanceKey: childKey,
     node: child,
+    isRef,
   });
 
   const primaryTagColor = child.tags[0]?.color ?? null;
@@ -300,15 +321,18 @@ const TableRow = memo(function TableRow({
           instanceKey={childKey}
           isSelected={isSelected}
           isActive={isActive}
-          onRowClick={() => selectNode(child.id, childKey)}
+          onRowClick={() => {
+            if (isRef) zoomTo(child.id);
+            else selectNode(child.id, childKey);
+          }}
           bullet={
             <Bullet
               node={child}
-              collapsible={isExpandable}
-              isRef={false}
+              collapsible={isExpandable && !isRef}
+              isRef={isRef}
               tagColor={primaryTagColor}
               onClick={(e) => {
-                if (e.metaKey || e.ctrlKey) zoomTo(child.id);
+                if (isRef || e.metaKey || e.ctrlKey) zoomTo(child.id);
                 else toggleCollapse(child.id);
               }}
             />
