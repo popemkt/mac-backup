@@ -273,4 +273,35 @@ describe("registry + operations", () => {
       expect((q.output as { rows: unknown[][] }).rows.length).toBe(1);
     }
   });
+
+  test("sys.* write-guard blocks edits unless force", async () => {
+    const ctx = await openKb(root);
+    const blocked = await invoke(ctx, {
+      id: "node.update",
+      input: { id: SYSTEM_IDS.tag, text: "hacked" },
+    });
+    expect(blocked.status).toBe("failed");
+    if (blocked.status === "failed") {
+      expect(blocked.code).toBe("forbidden");
+    }
+    expect(ctx.nodes.find((n) => n.id === SYSTEM_IDS.tag)?.text).toBe(
+      "sys.tag",
+    );
+
+    const forced = await invoke(ctx, {
+      id: "node.update",
+      input: { id: SYSTEM_IDS.tag, text: "sys.tag", force: true },
+    });
+    expect(forced.status).toBe("succeeded");
+
+    // Browse (node.get) still works
+    const got = await invoke(ctx, {
+      id: "node.get",
+      input: { id: SYSTEM_IDS.command, depth: 0 },
+    });
+    expect(got.status).toBe("succeeded");
+
+    // Seeded command nodes exist
+    expect(ctx.nodes.some((n) => n.id === SYSTEM_IDS.cmdAddNode)).toBe(true);
+  });
 });

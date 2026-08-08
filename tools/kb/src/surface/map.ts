@@ -85,6 +85,7 @@ export function mapSet(opts: {
   field: string;
   value: string;
   type?: PropType;
+  force?: boolean;
 }): PlannedAction {
   return {
     id: "node.update",
@@ -93,6 +94,7 @@ export function mapSet(opts: {
       setProps: [
         { field: opts.field, value: parsePropValue(opts.value, opts.type) },
       ],
+      ...(opts.force === true ? { force: true } : {}),
     },
   };
 }
@@ -102,6 +104,7 @@ export function mapUnset(opts: {
   field: string;
   value?: string;
   type?: PropType;
+  force?: boolean;
 }): PlannedAction {
   const entry: { field: string; value?: unknown } = { field: opts.field };
   if (opts.value !== undefined) {
@@ -109,7 +112,11 @@ export function mapUnset(opts: {
   }
   return {
     id: "node.update",
-    input: { id: opts.id, unsetProps: [entry] },
+    input: {
+      id: opts.id,
+      unsetProps: [entry],
+      ...(opts.force === true ? { force: true } : {}),
+    },
   };
 }
 
@@ -120,10 +127,14 @@ export function mapGet(opts: { id: string; depth?: number }): PlannedAction {
   };
 }
 
-export function mapRm(opts: { id: string }): PlannedAction {
+export function mapRm(opts: { id: string; force?: boolean }): PlannedAction {
   return {
     id: "node.update",
-    input: { id: opts.id, delete: true },
+    input: {
+      id: opts.id,
+      delete: true,
+      ...(opts.force === true ? { force: true } : {}),
+    },
   };
 }
 

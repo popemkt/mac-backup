@@ -3,7 +3,7 @@ export type {
   NodeId,
   PropValue,
 } from "./foundation/model.ts";
-export { SYSTEM_IDS } from "./foundation/model.ts";
+export { SYSTEM_IDS, isSysPrefixed } from "./foundation/model.ts";
 export { JsonlStore, canonicalJson } from "./foundation/storage/index.ts";
 export { openKb, type KbContext } from "./context.ts";
 export {

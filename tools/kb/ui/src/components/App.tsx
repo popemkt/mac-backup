@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
-import { SearchBox } from "@/components/search-box";
+import {
+  CommandPalette,
+  PaletteTrigger,
+} from "@/components/palette/command-palette";
 import { NodePanel } from "@/components/node-panel";
 import { OutlineEditor } from "@/components/outline/outline-editor";
 import { QueryPage } from "@/components/query/query-page";
@@ -83,6 +86,7 @@ export function App() {
     "loading",
   );
   const [error, setError] = useState<string | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,6 +110,17 @@ export function App() {
     };
   }, [hydrateFromWire]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex items-center justify-between gap-4 border-b border-stone-200/70 px-5 py-3">
@@ -124,7 +139,7 @@ export function App() {
           </span>
           <ConnectionDot />
         </div>
-        <SearchBox />
+        <PaletteTrigger onOpen={() => setPaletteOpen(true)} />
       </header>
 
       {status === "error" ? (
@@ -141,6 +156,10 @@ export function App() {
           </div>
         </div>
       )}
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+      />
       <Toasts />
     </div>
   );

@@ -39,7 +39,7 @@ describe("resolveBulletKind", () => {
       resolveBulletKind(base({ tagNames: ["Query"] })),
     ).toBe("query");
     expect(
-      resolveBulletKind(base({ typeRefs: ["sys.command"] })),
+      resolveBulletKind(base({ typeRefs: [SYSTEM_IDS.command] })),
     ).toBe("command");
   });
 

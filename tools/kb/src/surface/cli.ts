@@ -311,6 +311,7 @@ export function buildProgram(): Command {
     .argument("<value>", "value")
     .option("--type <t>", "str|num|bool|date|ref")
     .option("--create", "mint missing field", false)
+    .option("--force", "allow edits on sys.* nodes", false)
     .action(async function (
       this: Command,
       id: string,
@@ -324,6 +325,7 @@ export function buildProgram(): Command {
           field,
           value,
           type: opts.type as PropType | undefined,
+          force: opts.force === true,
         });
         return runPlan(ctx, plan, globals, { create: opts.create === true });
       });
@@ -337,6 +339,7 @@ export function buildProgram(): Command {
     .argument("<field>", "field name or id")
     .argument("[value]", "specific value to remove")
     .option("--type <t>", "str|num|bool|date|ref")
+    .option("--force", "allow edits on sys.* nodes", false)
     .action(async function (
       this: Command,
       id: string,
@@ -350,6 +353,7 @@ export function buildProgram(): Command {
           field,
           value,
           type: opts.type as PropType | undefined,
+          force: opts.force === true,
         });
         return runPlan(ctx, plan, globals);
       });
@@ -372,9 +376,14 @@ export function buildProgram(): Command {
     .command("rm")
     .description("Delete a node")
     .argument("<id>", "node id")
-    .action(async function (this: Command, id: string) {
+    .option("--force", "allow deleting sys.* nodes", false)
+    .action(async function (this: Command, id: string, opts) {
       const code = await withCtx(this, async (ctx, globals) => {
-        return runPlan(ctx, mapRm({ id }), globals);
+        return runPlan(
+          ctx,
+          mapRm({ id, force: opts.force === true }),
+          globals,
+        );
       });
       process.exitCode = code;
     });

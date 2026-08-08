@@ -5,6 +5,7 @@ import { ulid } from "ulid";
 import { postAction } from "@/api/action";
 import { runOptimistic } from "@/actions/optimistic";
 import {
+  planAddRootNode,
   planAddTag,
   planCreateAfter,
   planDefineField,
@@ -22,6 +23,7 @@ import {
   type PlannedMutation,
 } from "@/actions/plan";
 import { toast } from "@/lib/toast";
+import { isSysPrefixed } from "@/lib/types";
 import { cloneWireNodes } from "@/lib/tx";
 import type { PropValue } from "@/lib/types";
 import type { WireNode } from "@kb/protocol";
@@ -29,6 +31,13 @@ import { useOutlineStore } from "@/stores/outline.store";
 
 function wire(): WireNode[] {
   return useOutlineStore.getState().wireNodes;
+}
+
+/** Block edits on sys.* in the UI with a toast (core also enforces). */
+function guardSysWrite(id: string): boolean {
+  if (!isSysPrefixed(id)) return true;
+  toast("System nodes (sys.*) are read-only");
+  return false;
 }
 
 async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
@@ -85,6 +94,8 @@ async function flushContentRemote(
 export const mutations = {
   /** Immediate local text apply; debounced remote POST with pre-edit revert. */
   updateNodeContent(id: string, content: string): void {
+    if (!guardSysWrite(id)) return;
+
     const store = useOutlineStore.getState();
     const prev = pendingContent.get(id);
     const snapshot = prev?.snapshot ?? cloneWireNodes(store.wireNodes);
@@ -104,34 +115,47 @@ export const mutations = {
   },
 
   async createNodeAfter(afterId: string): Promise<void> {
+    if (!guardSysWrite(afterId)) return;
     await applyPlan(planCreateAfter(wire(), afterId, ulid()));
   },
 
+  async addRootNode(text: string, newId?: string): Promise<boolean> {
+    const id = newId ?? ulid();
+    return applyPlan(planAddRootNode(text, id));
+  },
+
   async splitNode(id: string, cursor: number): Promise<void> {
+    if (!guardSysWrite(id)) return;
     await applyPlan(planSplit(wire(), id, cursor, ulid()));
   },
 
   async deleteNode(id: string): Promise<void> {
+    if (!guardSysWrite(id)) return;
     await applyPlan(planDelete(wire(), id));
   },
 
   async mergeWithPrevious(id: string): Promise<void> {
+    if (!guardSysWrite(id)) return;
     await applyPlan(planMergeWithPrevious(wire(), id));
   },
 
   async indentNode(id: string): Promise<void> {
+    if (!guardSysWrite(id)) return;
     await applyPlan(planIndent(wire(), id));
   },
 
   async outdentNode(id: string): Promise<void> {
+    if (!guardSysWrite(id)) return;
     await applyPlan(planOutdent(wire(), id));
   },
 
   async moveNodeUp(id: string): Promise<void> {
+    if (!guardSysWrite(id)) return;
     await applyPlan(planMove(wire(), id, "up"));
   },
 
   async moveNodeDown(id: string): Promise<void> {
+    if (!guardSysWrite(id)) return;
     await applyPlan(planMove(wire(), id, "down"));
   },
 
@@ -141,6 +165,7 @@ export const mutations = {
     value: PropValue,
     oldValue?: PropValue,
   ): Promise<void> {
+    if (!guardSysWrite(nodeId)) return;
     await applyPlan(planSetProp(wire(), nodeId, fieldId, value, oldValue));
   },
 
@@ -149,14 +174,17 @@ export const mutations = {
     fieldId: string,
     value?: PropValue,
   ): Promise<void> {
+    if (!guardSysWrite(nodeId)) return;
     await applyPlan(planUnsetProp(wire(), nodeId, fieldId, value));
   },
 
   async addTag(nodeId: string, tagId: string): Promise<void> {
+    if (!guardSysWrite(nodeId)) return;
     await applyPlan(planAddTag(wire(), nodeId, tagId));
   },
 
   async removeTag(nodeId: string, tagId: string): Promise<void> {
+    if (!guardSysWrite(nodeId)) return;
     await applyPlan(planRemoveTag(wire(), nodeId, tagId));
   },
 
