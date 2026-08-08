@@ -1,6 +1,8 @@
 import { mutations } from "@/actions/mutations";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
+import type { PropValue } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
+import { FieldRow } from "./field-row";
 import { PropValueEditor } from "./field-value";
 
 interface FieldsSectionProps {
@@ -8,13 +10,7 @@ interface FieldsSectionProps {
   depth: number;
 }
 
-/**
- * Inline field rows under a node (nxus anatomy).
- * Indent = (depth+1) × --kb-indent + --kb-row-h: the row-h term stands in for
- * the field-bullet slot nxus renders, so labels align with its label column.
- * Label width = --kb-field-label.
- * Side panel keeps bulk editing; this is the glanceable inline surface.
- */
+/** Inline field rows under a node (DESIGN-RESKIN §1.4). */
 export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const nodes = useOutlineStore((s) => s.nodes);
@@ -24,51 +20,44 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
   if (props.length === 0) return null;
 
   return (
-    <div
-      className="fields-section flex flex-col gap-0.5 pb-0.5"
-      style={{
-        paddingLeft: `calc(${depth + 1} * var(--kb-indent) + var(--kb-row-h))`,
-      }}
-      data-fields-for={nodeId}
-    >
-      {props.map((p) => (
-        <div
-          key={p.fieldId}
-          className="field-row flex min-h-[var(--kb-row-h)] items-start gap-2"
-        >
-          <div
-            className="shrink-0 truncate text-[14.5px] font-medium leading-[1.6] text-foreground/35"
-            style={{ width: "var(--kb-field-label)" }}
-            title={p.fieldName}
+    <div className="fields-section" data-fields-for={nodeId}>
+      {props.map((p) =>
+        p.values.map((v, i) => (
+          <FieldRow
+            key={`${p.fieldId}-${i}`}
+            depth={depth}
+            fieldType={v.t}
+            label={p.fieldName}
+            onRemove={() => void mutations.removeProp(nodeId, p.fieldId, v)}
           >
-            {p.fieldName}
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            {p.values.map((v, i) => (
-              <div key={i} className="flex items-center gap-1">
-                <PropValueEditor
-                  value={v}
-                  display={formatPropValue(v, nodes)}
-                  compact
-                  onCommit={(next) =>
-                    void mutations.updateProp(nodeId, p.fieldId, next, v)
-                  }
-                />
-                <button
-                  type="button"
-                  className="text-foreground/35 hover:text-foreground/70"
-                  aria-label="Remove value"
-                  onClick={() =>
-                    void mutations.removeProp(nodeId, p.fieldId, v)
-                  }
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
+            <PropValueEditor
+              value={v}
+              display={formatPropValue(v, nodes)}
+              nodes={nodes}
+              onCommit={(next) =>
+                void mutations.updateProp(nodeId, p.fieldId, next, v)
+              }
+            />
+          </FieldRow>
+        )),
+      )}
     </div>
+  );
+}
+
+/** Single pref/settings row — same FieldRow, borderless value slot. */
+export function PrefFieldRow({
+  icon,
+  label,
+  children,
+}: {
+  icon: React.ComponentProps<typeof FieldRow>["icon"];
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <FieldRow depth={-1} icon={icon} label={label}>
+      {children}
+    </FieldRow>
   );
 }

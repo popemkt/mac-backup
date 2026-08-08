@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Hash } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
@@ -8,17 +7,16 @@ import {
   insertRefAtCursor,
   openRefQuery,
 } from "@/lib/refs";
-import type { TagBadge } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { MdView } from "@/components/outline/md-view";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
+import { TagChipGroup } from "./tag-chip";
 
 interface NodeContentProps {
   nodeId: string;
   content: string;
   isActive: boolean;
-  isSelected: boolean;
-  tags: TagBadge[];
+  tags: Parameters<typeof TagChipGroup>[0]["tags"];
   cursorPosition: number;
   onActivate: (cursorPos?: number) => void;
   onChange: (content: string) => void;
@@ -29,7 +27,6 @@ export function NodeContent({
   nodeId,
   content,
   isActive,
-  isSelected,
   tags,
   cursorPosition,
   onActivate,
@@ -40,6 +37,7 @@ export function NodeContent({
   const isComposing = useRef(false);
   const wasActive = useRef(false);
   const nodes = useOutlineStore((s) => s.nodes);
+  const zoomTo = useOutlineStore((s) => s.zoomTo);
   const [acIndex, setAcIndex] = useState(0);
   const [cursor, setCursor] = useState(cursorPosition);
 
@@ -86,7 +84,6 @@ export function NodeContent({
     } else {
       wasActive.current = false;
     }
-    // content intentionally omitted — DOM owns text while active
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, cursorPosition]);
 
@@ -131,7 +128,6 @@ export function NodeContent({
     (e: React.MouseEvent) => {
       if (!isActive) {
         const t = e.target as HTMLElement;
-        // Ref / md links / media own the click; don't enter edit.
         if (
           t.closest(
             "a.kb-md-ref, a.kb-md-link, .kb-md-media, img.kb-md-media, video.kb-md-media, audio.kb-md-media",
@@ -219,81 +215,53 @@ export function NodeContent({
   );
 
   return (
-    <div
-      className={cn(
-        "node-content relative flex flex-1 items-start gap-1.5",
-        "rounded-sm px-1",
-        isSelected && !isActive && "bg-primary/8",
-      )}
-      style={{ minHeight: "var(--kb-row-h)" }}
-      onClick={handleClick}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-    >
-      {isActive ? (
-        <div
-          ref={editorRef}
-          key="editor"
-          className={cn(
-            "editable",
-            KB_TEXT_CLASS,
-            "flex-1 outline-none",
-            "text-foreground/85",
-            "caret-foreground/70",
-          )}
-          contentEditable
-          suppressContentEditableWarning
-          onInput={handleInput}
-          onKeyDown={handleKeyDown}
-          onKeyUp={() => setCursor(readCursor())}
-          onCompositionStart={handleCompositionStart}
-          onCompositionEnd={handleCompositionEnd}
-          role="textbox"
-        />
-      ) : (
-        <MdView text={content} className="text-foreground/85" />
-      )}
+    <>
+      <div
+        className="relative min-w-0 flex-1"
+        onClick={handleClick}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {isActive ? (
+          <div
+            ref={editorRef}
+            key="editor"
+            className={cn(
+              "editable",
+              KB_TEXT_CLASS,
+              "outline-none",
+              "text-foreground/85",
+              "caret-foreground/70",
+            )}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={handleInput}
+            onKeyDown={handleKeyDown}
+            onKeyUp={() => setCursor(readCursor())}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
+            role="textbox"
+          />
+        ) : (
+          <MdView text={content} className="text-foreground/85" />
+        )}
 
-      {tags.length > 0 && <TagBadges tags={tags} />}
+        {refOpen && candidates.length > 0 && (
+          <RefAutocomplete
+            candidates={candidates}
+            activeIndex={acIndex}
+            onSelect={(c) => applyRef(c.id, c.text)}
+          />
+        )}
+      </div>
 
-      {refOpen && candidates.length > 0 && (
-        <RefAutocomplete
-          candidates={candidates}
-          activeIndex={acIndex}
-          onSelect={(c) => applyRef(c.id, c.text)}
-        />
-      )}
-    </div>
-  );
-}
-
-function TagBadges({ tags }: { tags: TagBadge[] }) {
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
-
-  return (
-    <div
-      className="flex items-center gap-0.5"
-      style={{ height: "var(--kb-row-h)" }}
-    >
-      {tags.map((tag) => (
-        <span
-          key={tag.id}
-          className={cn(
-            "kb-chip inline-flex items-center gap-0.5 rounded-sm px-1.5 py-px",
-            "font-medium select-none whitespace-nowrap",
-            "cursor-pointer transition-opacity hover:opacity-70",
-            "bg-primary/10 text-primary",
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            zoomTo(tag.id);
-          }}
-          title={`Go to: ${tag.name}`}
-        >
-          <Hash size={10} weight="bold" className="shrink-0 opacity-60" />
-          {tag.name}
-        </span>
-      ))}
-    </div>
+      <TagChipGroup
+        tags={tags}
+        onTagClick={(tag, e) => {
+          e.stopPropagation();
+          zoomTo(tag.id);
+        }}
+      />
+    </>
   );
 }

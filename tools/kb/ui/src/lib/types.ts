@@ -8,6 +8,7 @@ export const SYSTEM_IDS = {
   tag: "sys.tag",
   typeField: "sys.f.type",
   fieldsField: "sys.f.fields",
+  colorField: "sys.f.color",
   command: "sys.command",
   cmdAddNode: "sys.cmd.add-node",
   cmdAddTag: "sys.cmd.add-tag",
@@ -55,6 +56,8 @@ export interface OutlineNode {
 export interface TagBadge {
   id: string;
   name: string;
+  /** Resolved chip + bullet color (explicit tag color prop or hash). */
+  color: string;
 }
 
 export type NodeMap = Map<string, OutlineNode>;

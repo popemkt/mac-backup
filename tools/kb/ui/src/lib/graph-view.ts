@@ -1,5 +1,6 @@
 import type { WireNode } from "@kb/protocol";
 import { isQueryTagBadges } from "@/lib/query-node";
+import { resolveTagColor } from "@/lib/tag-color";
 import {
   COLLAPSE_STORAGE_KEY,
   EXPANDED_QUERIES_STORAGE_KEY,
@@ -34,7 +35,14 @@ function resolveTags(
     if (pv.v === SYSTEM_IDS.tag || pv.v === SYSTEM_IDS.field) continue;
     const target = byId.get(pv.v);
     if (!isTagNode(target)) continue;
-    tags.push({ id: pv.v, name: target?.text || pv.v });
+    const colorProp = target?.props[SYSTEM_IDS.colorField]?.[0];
+    const explicitColor =
+      colorProp?.t === "str" ? String(colorProp.v) : undefined;
+    tags.push({
+      id: pv.v,
+      name: target?.text || pv.v,
+      color: resolveTagColor(pv.v, explicitColor),
+    });
   }
   return tags;
 }

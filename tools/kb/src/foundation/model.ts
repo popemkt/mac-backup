@@ -26,6 +26,8 @@ export const SYSTEM_IDS = {
   tag: "sys.tag",
   typeField: "sys.f.type",
   fieldsField: "sys.f.fields",
+  /** Optional chip color on tag definition nodes (DESIGN-RESKIN §1.8). */
+  colorField: "sys.f.color",
   /** Type node for palette command nodes (DESIGN-REFINE §2 W3). */
   command: "sys.command",
   cmdAddNode: "sys.cmd.add-node",

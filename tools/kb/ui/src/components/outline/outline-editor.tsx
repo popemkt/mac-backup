@@ -4,6 +4,7 @@ import { Breadcrumbs } from "./breadcrumbs";
 import { NodeBlock } from "./node-block";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
+import { ZoomedRootHeader } from "./zoomed-root-header";
 import { useSelectionKeymap } from "./use-selection-keymap";
 
 export function OutlineEditor() {
@@ -19,13 +20,14 @@ export function OutlineEditor() {
     );
   }
 
-  // When zoomed into a node, render that node as the top row then its
-  // children, with inline References (backlinks) at the bottom.
   if (rootNodeId !== WORKSPACE_ROOT_ID) {
     return (
       <div className="outline-editor px-2 pb-40">
         <Breadcrumbs />
-        <NodeBlock nodeId={rootNodeId} depth={0} />
+        <ZoomedRootHeader node={root} />
+        {root.children.map((id) => (
+          <NodeBlock key={id} nodeId={id} depth={0} />
+        ))}
         <SchemaSection nodeId={rootNodeId} />
         <ReferencesSection nodeId={rootNodeId} />
       </div>

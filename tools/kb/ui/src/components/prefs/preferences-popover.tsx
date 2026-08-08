@@ -3,7 +3,6 @@ import {
   ArrowsHorizontal,
   CircleHalf,
   TextAa,
-  type Icon,
 } from "@phosphor-icons/react";
 import {
   usePrefsStore,
@@ -12,13 +11,11 @@ import {
   type WidthPref,
 } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
+import { PrefFieldRow } from "@/components/outline/fields-section";
 
-/**
- * Device preferences popover (DESIGN-RESKIN §1.7). Floating panel under the
- * header button; rows use the nxus field-row anatomy — 24px icon slot,
- * 120px label at foreground/35, borderless value — so settings read like
- * editing a node's fields. Every change applies instantly.
- */
+const valueClass =
+  "min-w-0 flex-1 cursor-pointer appearance-none rounded-sm border-none bg-transparent text-[14.5px] leading-[1.6] text-foreground/70 outline-none hover:text-foreground/85";
+
 export function PreferencesPopover() {
   const open = useUiStore((s) => s.prefsOpen);
   const setOpen = useUiStore((s) => s.setPrefsOpen);
@@ -62,36 +59,11 @@ export function PreferencesPopover() {
   );
 }
 
-function PrefRow({
-  icon: IconCmp,
-  label,
-  children,
-}: {
-  icon: Icon;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="flex min-h-6 items-center py-1">
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center text-[13px] text-foreground/25">
-        <IconCmp size={14} />
-      </span>
-      <span className="w-[120px] shrink-0 truncate text-[14.5px] font-medium text-foreground/35">
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-const valueClass =
-  "min-w-0 flex-1 cursor-pointer appearance-none rounded-sm border-none bg-transparent text-[14.5px] text-foreground/70 outline-none hover:text-foreground/85";
-
 function ThemeRow() {
   const theme = usePrefsStore((s) => s.theme);
   const setTheme = usePrefsStore((s) => s.setTheme);
   return (
-    <PrefRow icon={CircleHalf} label="theme">
+    <PrefFieldRow icon={CircleHalf} label="theme">
       <select
         className={valueClass}
         value={theme}
@@ -101,7 +73,7 @@ function ThemeRow() {
         <option value="light">light</option>
         <option value="dark">dark</option>
       </select>
-    </PrefRow>
+    </PrefFieldRow>
   );
 }
 
@@ -109,7 +81,7 @@ function FontRow() {
   const font = usePrefsStore((s) => s.font);
   const setFont = usePrefsStore((s) => s.setFont);
   return (
-    <PrefRow icon={TextAa} label="font">
+    <PrefFieldRow icon={TextAa} label="font">
       <select
         className={valueClass}
         value={font}
@@ -118,7 +90,7 @@ function FontRow() {
         <option value="outfit">Outfit</option>
         <option value="inter">Inter</option>
       </select>
-    </PrefRow>
+    </PrefFieldRow>
   );
 }
 
@@ -126,7 +98,7 @@ function WidthRow() {
   const width = usePrefsStore((s) => s.width);
   const setWidth = usePrefsStore((s) => s.setWidth);
   return (
-    <PrefRow icon={ArrowsHorizontal} label="width">
+    <PrefFieldRow icon={ArrowsHorizontal} label="width">
       <select
         className={valueClass}
         value={width}
@@ -135,6 +107,6 @@ function WidthRow() {
         <option value="centered">centered</option>
         <option value="full">full</option>
       </select>
-    </PrefRow>
+    </PrefFieldRow>
   );
 }

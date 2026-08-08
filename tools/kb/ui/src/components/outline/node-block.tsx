@@ -1,11 +1,12 @@
 import { memo, useCallback } from "react";
-import { cn } from "@/lib/cn";
 import { isQueryNode } from "@/lib/query-node";
+import { resolveProps } from "@/lib/graph-view";
 import { useOutlineStore } from "@/stores/outline.store";
 import { mutations } from "@/actions/mutations";
 import { Bullet } from "./bullet";
 import { FieldsSection } from "./fields-section";
 import { NodeContent } from "./node-content";
+import { NodeRow } from "./node-row";
 import { QueryResultsSection } from "./query-results";
 
 interface NodeBlockProps {
@@ -21,6 +22,7 @@ export const NodeBlock = memo(function NodeBlock({
   isRef = false,
 }: NodeBlockProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
+  const nodes = useOutlineStore((s) => s.nodes);
   const activeNodeId = useOutlineStore((s) => s.activeNodeId);
   const selectedNodeId = useOutlineStore((s) => s.selectedNodeId);
   const cursorPosition = useOutlineStore((s) => s.cursorPosition);
@@ -33,9 +35,10 @@ export const NodeBlock = memo(function NodeBlock({
   );
   const getNextVisibleNode = useOutlineStore((s) => s.getNextVisibleNode);
 
+  const primaryTagColor = node?.tags[0]?.color ?? null;
+
   const handleBulletClick = useCallback(
     (e: React.MouseEvent) => {
-      // Result-row refs: click = zoom to the source node (W4).
       if (isRef || e.metaKey || e.ctrlKey) {
         zoomTo(nodeId);
       } else {
@@ -54,7 +57,6 @@ export const NodeBlock = memo(function NodeBlock({
 
   const handleRowSelect = useCallback(
     (e: React.MouseEvent) => {
-      // Click on row chrome (not content) → selection mode
       if (e.target === e.currentTarget) {
         selectNode(nodeId);
       }
@@ -74,8 +76,6 @@ export const NodeBlock = memo(function NodeBlock({
       const sel = window.getSelection();
       const cursor = sel?.focusOffset ?? 0;
 
-      // Result rows are structurally read-only: text edit-in-place routes to
-      // the source node, but split/merge/delete/indent/move are disabled.
       if (isRef) {
         const structural =
           e.key === "Tab" ||
@@ -200,67 +200,66 @@ export const NodeBlock = memo(function NodeBlock({
   const isActive = activeNodeId === nodeId;
   const isSelected = selectedNodeId === nodeId;
   const hasChildren = node.children.length > 0;
+  const isQuery = isQueryNode(node);
+  const hasFields = resolveProps(node, nodes).length > 0;
+  const isExpandable = hasChildren || isQuery || hasFields;
 
   return (
     <div className="node-block relative" data-node-id={nodeId}>
-      <div
-        className={cn(
-          "node-row group/node flex items-start",
-          "rounded-sm transition-colors duration-75",
-          isSelected && !isActive && "bg-primary/5",
-        )}
-        style={{
-          paddingLeft: `calc(${depth} * var(--kb-indent))`,
-          minHeight: "var(--kb-row-h)",
-        }}
-        onClick={handleRowSelect}
-      >
-        <Bullet node={node} isRef={isRef} onClick={handleBulletClick} />
-        <NodeContent
-          nodeId={nodeId}
-          content={node.text}
-          isActive={isActive}
-          isSelected={isSelected}
-          tags={node.tags}
-          cursorPosition={cursorPosition}
-          onActivate={handleActivate}
-          onChange={handleContentChange}
-          onKeyDown={handleKeyDown}
-        />
-      </div>
+      <NodeRow
+        depth={depth}
+        nodeId={nodeId}
+        isSelected={isSelected}
+        isActive={isActive}
+        onRowClick={handleRowSelect}
+        bullet={
+          <Bullet
+            node={node}
+            isRef={isRef}
+            tagColor={primaryTagColor}
+            onClick={handleBulletClick}
+          />
+        }
+        content={
+          <NodeContent
+            nodeId={nodeId}
+            content={node.text}
+            isActive={isActive}
+            tags={node.tags}
+            cursorPosition={cursorPosition}
+            onActivate={handleActivate}
+            onChange={handleContentChange}
+            onKeyDown={handleKeyDown}
+          />
+        }
+      />
 
-      <FieldsSection nodeId={nodeId} depth={depth} />
-
-      {hasChildren && !node.collapsed && (
+      {isExpandable && !node.collapsed && (
         <div className="children-container relative">
           <div
-            className="absolute top-0 bottom-2 cursor-pointer group/line"
-            style={{
-              left: `calc(${depth} * var(--kb-indent) + 2px)`,
-              width: "var(--kb-indent)",
-            }}
+            className="absolute top-0 bottom-2 w-5 cursor-pointer group/line"
+            style={{ left: `${depth * 24 + 2}px` }}
             onClick={handleBulletClick}
           >
-            <div
-              className="absolute top-0 bottom-0 w-px bg-foreground/[0.06] group-hover/line:bg-foreground/15 transition-colors duration-200"
-              style={{ left: "9px" }}
-            />
+            <div className="absolute left-[9px] top-0 bottom-0 w-px bg-foreground/[0.06] group-hover/line:bg-foreground/15 transition-colors duration-200" />
           </div>
-          {node.children.map((childId) => (
-            <NodeBlock
-              key={childId}
-              nodeId={childId}
-              depth={depth + 1}
-              isRef={isRef}
-            />
-          ))}
-        </div>
-      )}
 
-      {/* W4: expanded query node → live results as read-only ref rows.
-          Not inside ref rows themselves (guards self-referential loops). */}
-      {!isRef && !node.collapsed && isQueryNode(node) && (
-        <QueryResultsSection nodeId={nodeId} depth={depth} />
+          <FieldsSection nodeId={nodeId} depth={depth} />
+
+          {!isRef && isQuery && (
+            <QueryResultsSection nodeId={nodeId} depth={depth} />
+          )}
+
+          {hasChildren &&
+            node.children.map((childId) => (
+              <NodeBlock
+                key={childId}
+                nodeId={childId}
+                depth={depth + 1}
+                isRef={isRef}
+              />
+            ))}
+        </div>
       )}
     </div>
   );

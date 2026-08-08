@@ -46,7 +46,9 @@ describe("outline store (WireNode adaptation)", () => {
   it("resolves tags from sys.f.type refs", () => {
     seed();
     const a = useOutlineStore.getState().nodes.get("n.root-a")!;
-    expect(a.tags).toEqual([{ id: "tag.todo", name: "todo" }]);
+    expect(a.tags).toEqual([
+      { id: "tag.todo", name: "todo", color: expect.any(String) },
+    ]);
   });
 
   it("activate / select / deactivate", () => {

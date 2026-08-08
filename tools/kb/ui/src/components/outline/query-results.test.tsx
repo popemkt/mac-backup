@@ -78,7 +78,7 @@ describe("result row render (W4)", () => {
 
     const html = renderBullet(q, false);
     expect(html).toContain('data-bullet-kind="query"');
-    expect(html).toContain("⌕"); // ⌕
+    expect(html).toContain("data-bullet-query");
     // collapsed query node shows the halo even without children
     expect(html).toContain("data-bullet-halo");
     expect(html).toContain("Expand results");

@@ -1,10 +1,11 @@
-import { Hash } from "@phosphor-icons/react";
 import { useMemo } from "react";
 import { queryBacklinks } from "@/ds/db";
-import { cn } from "@/lib/cn";
 import { MdView } from "@/components/outline/md-view";
 import type { TagBadge } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
+import { Bullet } from "./bullet";
+import { NodeRow } from "./node-row";
+import { TagChipGroup } from "./tag-chip";
 
 export interface BacklinkRow {
   id: string;
@@ -13,8 +14,7 @@ export interface BacklinkRow {
 }
 
 /**
- * Inline "References (N)" at the bottom of a zoomed view (DESIGN-RESKIN
- * §1.5) — shallow backlink rows (text + chips only), click = zoom.
+ * Inline "References (N)" at the bottom of a zoomed view (DESIGN-RESKIN §1.5).
  */
 export function ReferencesSection({ nodeId }: { nodeId: string }) {
   const queryDb = useOutlineStore((s) => s.queryDb);
@@ -30,14 +30,12 @@ export function ReferencesSection({ nodeId }: { nodeId: string }) {
         text: b.text,
         tags: nodes.get(b.id)?.tags ?? [],
       }));
-    // rev: backlinks must re-run on every graph change
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryDb, nodeId, rev, nodes]);
 
   return <ReferencesView nodeId={nodeId} backlinks={backlinks} />;
 }
 
-/** Pure render half — testable without the live store. */
 export function ReferencesView({
   nodeId,
   backlinks,
@@ -49,7 +47,7 @@ export function ReferencesView({
 
   return (
     <section className="references-section" data-references-for={nodeId}>
-      <h2 className="mt-3 mb-1 text-[12px] uppercase tracking-wide text-foreground/30">
+      <h2 className="mb-1 mt-3 text-[12px] uppercase tracking-wide text-foreground/30">
         References ({backlinks.length})
       </h2>
       {backlinks.map((row) => (
@@ -61,43 +59,53 @@ export function ReferencesView({
 
 function ShallowBacklinkRow({ row }: { row: BacklinkRow }) {
   const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const nodes = useOutlineStore((s) => s.nodes);
+  const node = nodes.get(row.id);
+  const tagColor = row.tags[0]?.color ?? null;
+
+  const bulletNode = node ?? {
+    id: row.id,
+    text: row.text,
+    parentId: null,
+    children: [],
+    collapsed: true,
+    props: {},
+    createdAt: "",
+    updatedAt: "",
+    tags: row.tags,
+  };
 
   return (
-    <button
-      type="button"
-      className="node-row flex w-full min-h-[var(--kb-row-h)] items-start rounded-sm text-left"
-      data-node-id={row.id}
-      onClick={() => zoomTo(row.id)}
-    >
-      <span
-        className="flex shrink-0 items-center justify-center"
-        style={{ width: "var(--kb-row-h)", height: "var(--kb-row-h)" }}
-        aria-hidden
-      >
-        <span className="inline-block h-[18px] w-[18px] rounded-full border border-dashed border-foreground/45" />
-      </span>
-      <MdView text={row.text} className="min-w-0 flex-1 text-foreground/85" />
-      {row.tags.length > 0 && (
-        <div
-          className="flex shrink-0 items-center gap-0.5"
-          style={{ height: "var(--kb-row-h)" }}
-        >
-          {row.tags.map((tag) => (
-            <span
-              key={tag.id}
-              className={cn(
-                "kb-chip inline-flex items-center gap-0.5 rounded-sm px-1.5 py-px",
-                "font-medium select-none whitespace-nowrap",
-                "bg-primary/10 text-primary",
-              )}
-              title={`Go to: ${tag.name}`}
-            >
-              <Hash size={10} weight="bold" className="shrink-0 opacity-60" />
-              {tag.name}
-            </span>
-          ))}
-        </div>
-      )}
-    </button>
+    <NodeRow
+      depth={0}
+      nodeId={row.id}
+      className="w-full text-left"
+      onRowClick={() => zoomTo(row.id)}
+      bullet={
+        <Bullet
+          node={bulletNode}
+          isRef
+          tagColor={tagColor}
+          onClick={(e) => {
+            e.stopPropagation();
+            zoomTo(row.id);
+          }}
+        />
+      }
+      content={
+        <>
+          <MdView text={row.text} className="min-w-0 flex-1 text-foreground/85" />
+          {row.tags.length > 0 && (
+            <TagChipGroup
+              tags={row.tags}
+              onTagClick={(tag, e) => {
+                e.stopPropagation();
+                zoomTo(tag.id);
+              }}
+            />
+          )}
+        </>
+      }
+    />
   );
 }

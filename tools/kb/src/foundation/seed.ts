@@ -16,13 +16,17 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   });
 
   const field = mk(SYSTEM_IDS.field, "sys.field");
-  const tag = mk(SYSTEM_IDS.tag, "sys.tag");
-  // sys.f.type and sys.f.fields are themselves fields (typed sys.field)
   const typeField = mk(SYSTEM_IDS.typeField, "type", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
   });
   const fieldsField = mk(SYSTEM_IDS.fieldsField, "fields", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+  });
+  const colorField = mk(SYSTEM_IDS.colorField, "color", {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+  });
+  const tag = mk(SYSTEM_IDS.tag, "sys.tag", {
+    [SYSTEM_IDS.fieldsField]: [{ t: "ref", v: SYSTEM_IDS.colorField }],
   });
 
   // Command type + palette command instances (W3)
@@ -63,6 +67,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     tag,
     typeField,
     fieldsField,
+    colorField,
     command,
     ...commands,
     queryField,
