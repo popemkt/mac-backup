@@ -340,102 +340,19 @@ export function removeCanvasEdge(doc: CanvasDoc, edgeId: string): CanvasDoc {
   return { ...doc, edges: doc.edges.filter((e) => e.id !== edgeId) };
 }
 
-/** Drop edges that share a bindingId (native unlink). */
-export function removeEdgesByBindingId(
-  doc: CanvasDoc,
-  bindingId: string,
-): CanvasDoc {
-  if (!bindingId) return doc;
-  return {
-    ...doc,
-    edges: doc.edges.filter((e) => e.kbLink?.bindingId !== bindingId),
-  };
-}
-
-/** Dedupe native edges that share the same (source, field, target) triple. */
-export function dedupeNativeEdgesByTriple(doc: CanvasDoc): CanvasDoc {
-  const seen = new Set<string>();
-  const edges: CanvasEdge[] = [];
-  for (const e of doc.edges) {
-    const link = e.kbLink;
-    if (link?.mode === "native" && link.fieldId) {
-      const key = `${link.sourceNodeId}\0${link.fieldId}\0${link.targetNodeId}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-    }
-    edges.push(e);
-  }
-  return edges.length === doc.edges.length ? doc : { ...doc, edges };
-}
-
-export type PropLookup = (
-  nodeId: string,
-  fieldId: string,
-) => ReadonlyArray<{ t: string; v: unknown }> | undefined;
-
 /**
- * Normalize + drop orphaned native kbLink edges.
- * - native + empty fieldId → demote to layout (never auto-drop)
- * - native with field whose prop value is gone → drop edge id
- * Layout-mode edges are kept regardless of prop state.
+ * Pure render-time check: does the source still carry the bound ref prop?
+ * Edges are drawings — this never mutates the canvas document.
  */
-export function reconcileCanvasDoc(
-  doc: CanvasDoc,
-  lookup: PropLookup,
-): { doc: CanvasDoc; dropped: string[]; demoted: string[] } {
-  const dropped: string[] = [];
-  const demoted: string[] = [];
-  const edges: CanvasEdge[] = [];
-
-  for (const edge of doc.edges) {
-    const link = edge.kbLink;
-    if (!link || link.mode !== "native") {
-      edges.push(edge);
-      continue;
-    }
-    if (!link.fieldId) {
-      demoted.push(edge.id);
-      edges.push({
-        ...edge,
-        kbLink: { ...link, mode: "layout" },
-      });
-      continue;
-    }
-    const props = lookup(link.sourceNodeId, link.fieldId) ?? [];
-    const stillBound = props.some(
-      (p) => p.t === "ref" && p.v === link.targetNodeId,
-    );
-    if (!stillBound) {
-      dropped.push(edge.id);
-      continue;
-    }
-    edges.push(edge);
-  }
-
-  if (dropped.length === 0 && demoted.length === 0) {
-    return { doc, dropped, demoted };
-  }
-  return { doc: { ...doc, edges }, dropped, demoted };
-}
-
-/** Apply orphan-edge drops as a minimal delta onto `base` (keeps base layout). */
-export function pruneOrphanEdges(
-  base: CanvasDoc,
-  orphanEdgeIds: ReadonlySet<string> | readonly string[],
-): CanvasDoc {
-  const drop = orphanEdgeIds instanceof Set
-    ? orphanEdgeIds
-    : new Set(orphanEdgeIds);
-  if (drop.size === 0) return base;
-  const edges = base.edges.filter((e) => !drop.has(e.id));
-  return edges.length === base.edges.length ? base : { ...base, edges };
-}
-
-/** Find orphan native edge ids on `doc` without mutating layout of other edges. */
-export function findOrphanNativeEdgeIds(
-  doc: CanvasDoc,
-  lookup: PropLookup,
-): string[] {
-  const { dropped } = reconcileCanvasDoc(doc, lookup);
-  return dropped;
+export function isNativeEdgeBound(
+  edge: CanvasEdge,
+  lookup: (
+    nodeId: string,
+    fieldId: string,
+  ) => ReadonlyArray<{ t: string; v: unknown }> | undefined,
+): boolean {
+  const link = edge.kbLink;
+  if (!link || link.mode !== "native" || !link.fieldId) return true;
+  const props = lookup(link.sourceNodeId, link.fieldId) ?? [];
+  return props.some((p) => p.t === "ref" && p.v === link.targetNodeId);
 }

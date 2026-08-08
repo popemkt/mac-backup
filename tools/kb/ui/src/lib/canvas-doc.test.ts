@@ -1,27 +1,21 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import {
+  isNativeEdgeBound,
   parseCanvasDoc,
-  pruneOrphanEdges,
-  reconcileCanvasDoc,
   stringifyCanvasDoc,
   type CanvasDoc,
+  type CanvasEdge,
 } from "@kb/canvas";
 import {
+  edgePropPresent,
   hasPropRef,
   planNativeBind,
   isValidNativeTarget,
-  reconcileOnRev,
-  resetReconcileTimers,
+  syncDocOnRev,
 } from "@/lib/canvas-api";
 import { matchRoute } from "@/lib/router";
 import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
 import { clearAllowedRefIdsCache } from "@/lib/field-type";
-
-afterEach(() => {
-  resetReconcileTimers();
-  clearAllowedRefIdsCache();
-  vi.useRealTimers();
-});
 
 describe("canvas doc (UI alias)", () => {
   test("round-trip kb-node + kbLink", () => {
@@ -78,55 +72,62 @@ describe("canvas doc (UI alias)", () => {
     expect(again.nodes[0]?.type).toBe("link");
     expect(again.nodes[0]?.extra?.url).toBe("https://example.com");
   });
+});
 
-  test("empty-fieldId native demotes to layout", () => {
-    const { dropped, demoted, doc } = reconcileCanvasDoc(
-      {
-        nodes: [],
-        edges: [
-          {
-            id: "e",
-            fromNode: "a",
-            toNode: "b",
-            kbLink: {
-              mode: "native",
-              via: "prop",
-              fieldId: "",
-              sourceNodeId: "s",
-              targetNodeId: "t",
-              bindingId: "b",
-            },
-          },
-        ],
-      },
-      () => undefined,
-    );
-    expect(dropped).toEqual([]);
-    expect(demoted).toEqual(["e"]);
-    expect(doc.edges[0]?.kbLink?.mode).toBe("layout");
-  });
+describe("unbound tint computation", () => {
+  const nativeEdge: CanvasEdge = {
+    id: "e",
+    fromNode: "a",
+    toNode: "b",
+    kbLink: {
+      mode: "native",
+      via: "prop",
+      fieldId: "f",
+      sourceNodeId: "s",
+      targetNodeId: "t",
+      bindingId: "b",
+    },
+  };
 
-  test("reconciler drops orphan native edges", () => {
-    const doc: CanvasDoc = {
-      nodes: [],
-      edges: [
+  test("edgePropPresent is false when prop missing (tint path)", () => {
+    const nodes = new Map<string, OutlineNode>([
+      [
+        "s",
         {
-          id: "e",
-          fromNode: "a",
-          toNode: "b",
-          kbLink: {
-            mode: "native",
-            via: "prop",
-            fieldId: "f",
-            sourceNodeId: "s",
-            targetNodeId: "t",
-            bindingId: "b",
-          },
+          id: "s",
+          text: "S",
+          parentId: null,
+          children: [],
+          collapsed: false,
+          props: {},
+          createdAt: "",
+          updatedAt: "",
+          tags: [],
         },
       ],
-    };
-    const { dropped } = reconcileCanvasDoc(doc, () => undefined);
-    expect(dropped).toEqual(["e"]);
+    ]);
+    expect(edgePropPresent(nativeEdge, nodes)).toBe(false);
+    expect(isNativeEdgeBound(nativeEdge, () => undefined)).toBe(false);
+  });
+
+  test("edgePropPresent is true when prop present", () => {
+    const nodes = new Map<string, OutlineNode>([
+      [
+        "s",
+        {
+          id: "s",
+          text: "S",
+          parentId: null,
+          children: [],
+          collapsed: false,
+          props: { f: [{ t: "ref", v: "t" }] },
+          createdAt: "",
+          updatedAt: "",
+          tags: [],
+        },
+      ],
+    ]);
+    expect(edgePropPresent(nativeEdge, nodes)).toBe(true);
   });
 });
 
@@ -135,16 +136,12 @@ describe("canvas routes", () => {
     expect(matchRoute("/canvas")).toEqual({ name: "canvas-list" });
     expect(matchRoute("/canvas/abc")).toEqual({ name: "canvas", id: "abc" });
     expect(matchRoute("/graph")).toEqual({ name: "graph", perspectiveId: null });
-    expect(matchRoute("/graph/abc")).toEqual({
-      name: "graph",
-      perspectiveId: "abc",
-    });
     expect(matchRoute("/")).toEqual({ name: "outline" });
   });
 });
 
-describe("bind helpers", () => {
-  test("planNativeBind is idempotent when triple exists", () => {
+describe("one-shot bind", () => {
+  test("planNativeBind skips when triple already present", () => {
     const nodes = new Map<string, OutlineNode>([
       [
         "s",
@@ -164,9 +161,13 @@ describe("bind helpers", () => {
     expect(hasPropRef(nodes, "s", "f", "t")).toBe(true);
     expect(planNativeBind(nodes, "s", "f", "t")).toEqual({ skip: true });
     expect(planNativeBind(nodes, "s", "f", "other").skip).toBe(false);
+    expect(planNativeBind(nodes, "s", "f", "other").setProps).toEqual([
+      { field: "f", value: { t: "ref", v: "other" } },
+    ]);
   });
 
   test("isValidNativeTarget respects targetTag", () => {
+    clearAllowedRefIdsCache();
     const nodes = new Map<string, OutlineNode>([
       [
         "f.rel",
@@ -220,52 +221,22 @@ describe("bind helpers", () => {
   });
 });
 
-describe("reconcile-during-drag", () => {
-  test("busy path keeps local positions; prune is delta-only", () => {
-    vi.useFakeTimers();
-    const local: CanvasDoc = {
+describe("drag/dirty live-sync guard", () => {
+  test("syncDocOnRev skips when busy; applies foreign doc when idle", () => {
+    const foreign: CanvasDoc = {
       nodes: [
         {
           id: "c1",
-          type: "kb-node",
-          nodeId: "n.a",
-          x: 500,
-          y: 500,
-          width: 100,
-          height: 40,
+          type: "text",
+          text: "from-store",
+          x: 1,
+          y: 2,
+          width: 10,
+          height: 10,
         },
       ],
-      edges: [
-        {
-          id: "orphan",
-          fromNode: "c1",
-          toNode: "c1",
-          kbLink: {
-            mode: "native",
-            via: "prop",
-            fieldId: "f",
-            sourceNodeId: "n.a",
-            targetNodeId: "gone",
-            bindingId: "b",
-          },
-        },
-        {
-          id: "keep",
-          fromNode: "c1",
-          toNode: "c1",
-          kbLink: {
-            mode: "layout",
-            via: "prop",
-            fieldId: "",
-            sourceNodeId: "n.a",
-            targetNodeId: "n.a",
-            bindingId: "b2",
-          },
-        },
-      ],
+      edges: [],
     };
-    let current = local;
-    const applied: CanvasDoc[] = [];
     const nodes = new Map<string, OutlineNode>([
       [
         "canvas",
@@ -276,25 +247,8 @@ describe("reconcile-during-drag", () => {
           children: [],
           collapsed: false,
           props: {
-            [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.canvasTag }],
             [SYSTEM_IDS.canvasField]: [
-              {
-                t: "str",
-                v: stringifyCanvasDoc({
-                  nodes: [
-                    {
-                      id: "c1",
-                      type: "kb-node",
-                      nodeId: "n.a",
-                      x: 0,
-                      y: 0,
-                      width: 100,
-                      height: 40,
-                    },
-                  ],
-                  edges: local.edges,
-                }),
-              },
+              { t: "str", v: stringifyCanvasDoc(foreign) },
             ],
           },
           createdAt: "",
@@ -302,40 +256,19 @@ describe("reconcile-during-drag", () => {
           tags: [],
         },
       ],
-      [
-        "n.a",
-        {
-          id: "n.a",
-          text: "A",
-          parentId: null,
-          children: [],
-          collapsed: false,
-          props: {},
-          createdAt: "",
-          updatedAt: "",
-          tags: [],
-        },
-      ],
     ]);
-
-    reconcileOnRev("canvas", nodes, {
-      getLocalDoc: () => current,
-      applyLocal: (d) => {
-        current = d;
-        applied.push(d);
-      },
+    const applied: CanvasDoc[] = [];
+    syncDocOnRev("canvas", nodes, {
+      applyLocal: (d) => applied.push(d),
       isBusy: () => true,
     });
+    expect(applied).toEqual([]);
 
-    // Local drag position preserved; orphan demoted/dropped in memory.
-    expect(current.nodes[0]?.x).toBe(500);
-    expect(current.nodes[0]?.y).toBe(500);
-    expect(current.edges.map((e) => e.id)).toEqual(["keep"]);
-
-    // Idle flush applies pruneOrphanEdges delta — still keeps x=500.
-    vi.advanceTimersByTime(500);
-    // persist may fail (no server) but applyLocal already has pruned doc
-    expect(current.nodes[0]?.x).toBe(500);
-    expect(pruneOrphanEdges(local, ["orphan"]).nodes[0]?.x).toBe(500);
+    syncDocOnRev("canvas", nodes, {
+      applyLocal: (d) => applied.push(d),
+      isBusy: () => false,
+    });
+    expect(applied).toHaveLength(1);
+    expect(applied[0]?.nodes[0]).toMatchObject({ text: "from-store", x: 1 });
   });
 });

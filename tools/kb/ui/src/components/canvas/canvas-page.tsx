@@ -8,12 +8,10 @@ import type {
   KbLinkMode,
 } from "@kb/canvas";
 import {
-  dedupeNativeEdgesByTriple,
   isGroupNode,
   isKbNode,
   isTextNode,
   removeCanvasEdge,
-  removeEdgesByBindingId,
   upsertCanvasEdge,
   upsertCanvasNode,
 } from "@kb/canvas";
@@ -24,12 +22,13 @@ import { EdgeInspector } from "@/components/canvas/edge-inspector";
 import { NodePicker } from "@/components/canvas/node-picker";
 import { edgePath } from "@/components/canvas/edge-path";
 import {
+  edgePropPresent,
   isValidNativeTarget,
   listRefFields,
   persistCanvasDoc,
   planNativeBind,
   readCanvasDoc,
-  reconcileOnRev,
+  syncDocOnRev,
 } from "@/lib/canvas-api";
 import { navigate } from "@/lib/router";
 import { toast } from "@/lib/toast";
@@ -105,10 +104,10 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setDoc(next);
   }, []);
 
-  // Load + reconcile on rev bumps — never clobber in-progress local edits.
+  // Live-sync canvas JSON on rev — never clobber in-progress local edits.
+  // No reconciler: edges are drawings; unbound state is render-time only.
   useEffect(() => {
-    reconcileOnRev(canvasId, useOutlineStore.getState().nodes, {
-      getLocalDoc: () => docRef.current,
+    syncDocOnRev(canvasId, useOutlineStore.getState().nodes, {
       applyLocal,
       isBusy,
     });
@@ -354,12 +353,13 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       return;
     }
 
-    let next = upsertCanvasEdge(docRef.current, {
+    const next = upsertCanvasEdge(docRef.current, {
       ...selectedEdgeObj,
       kbLink: link,
     });
-    next = dedupeNativeEdgesByTriple(next);
 
+    // One-shot bind: write prop only when entering native with a field.
+    // Demoting to layout is JSON-only — edge no longer owns the prop.
     if (mode === "native" && link.fieldId) {
       if (!isValidNativeTarget(link.fieldId, to.nodeId, nodes, queryDb)) {
         toast("Target not allowed for this ref field");
@@ -369,20 +369,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       await flushPersist(next, {
         propTargetId: from.nodeId,
         setProps: bind.skip ? undefined : bind.setProps,
-      });
-    } else if (
-      mode === "layout" &&
-      selectedEdgeObj.kbLink?.mode === "native" &&
-      selectedEdgeObj.kbLink.fieldId
-    ) {
-      await flushPersist(next, {
-        propTargetId: from.nodeId,
-        unsetProps: [
-          {
-            field: selectedEdgeObj.kbLink.fieldId,
-            value: { t: "ref", v: to.nodeId },
-          },
-        ],
       });
     } else {
       await flushPersist(next);
@@ -400,35 +386,23 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       return;
     }
 
-    const prev = selectedEdgeObj.kbLink;
     const link = {
       mode: "native" as const,
       via: "prop" as const,
       fieldId,
       sourceNodeId: from.nodeId,
       targetNodeId: to.nodeId,
-      bindingId: prev?.bindingId ?? ulid(),
+      bindingId: selectedEdgeObj.kbLink?.bindingId ?? ulid(),
     };
-    let next = upsertCanvasEdge(docRef.current, {
+    const next = upsertCanvasEdge(docRef.current, {
       ...selectedEdgeObj,
       kbLink: link,
     });
-    next = dedupeNativeEdgesByTriple(next);
 
-    const unsetProps =
-      prev?.mode === "native" && prev.fieldId && prev.fieldId !== fieldId
-        ? [
-            {
-              field: prev.fieldId,
-              value: { t: "ref" as const, v: to.nodeId },
-            },
-          ]
-        : undefined;
-
+    // One-shot: set the new field prop if missing. Old field props are left alone.
     const bind = planNativeBind(nodes, from.nodeId, fieldId, to.nodeId);
     await flushPersist(next, {
       propTargetId: from.nodeId,
-      unsetProps,
       setProps: bind.skip ? undefined : bind.setProps,
     });
   };
@@ -436,16 +410,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const onDeleteEdge = async () => {
     if (!selectedEdgeObj) return;
     const link = selectedEdgeObj.kbLink;
-    // Drop only edges sharing this bindingId when native; else by edge id.
-    let next =
-      link?.bindingId
-        ? removeEdgesByBindingId(docRef.current, link.bindingId)
-        : removeCanvasEdge(docRef.current, selectedEdgeObj.id);
-    // If bindingId remove missed (no link), fall back.
-    if (next.edges.length === docRef.current.edges.length) {
-      next = removeCanvasEdge(docRef.current, selectedEdgeObj.id);
-    }
-    if (link?.mode === "native" && link.fieldId) {
+    const next = removeCanvasEdge(docRef.current, selectedEdgeObj.id);
+    const offerUnset =
+      link?.mode === "native" &&
+      !!link.fieldId &&
+      window.confirm("Also remove the bound prop from the source node?");
+    if (offerUnset && link) {
       await flushPersist(next, {
         propTargetId: link.sourceNodeId,
         unsetProps: [
@@ -564,6 +534,10 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                 if (!from || !to) return null;
                 const d = edgePath(from, to, edge);
                 const selected = edge.id === selectedEdge;
+                const unbound =
+                  edge.kbLink?.mode === "native" &&
+                  !!edge.kbLink.fieldId &&
+                  !edgePropPresent(edge, nodes);
                 return (
                   <path
                     key={edge.id}
@@ -572,7 +546,11 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                     stroke="currentColor"
                     strokeWidth={selected ? 2.5 : 1.5}
                     className={cn(
-                      selected ? "text-primary" : "text-foreground/35",
+                      unbound
+                        ? "text-foreground/25"
+                        : selected
+                          ? "text-primary"
+                          : "text-foreground/35",
                       "cursor-pointer",
                     )}
                     markerEnd={
@@ -587,7 +565,11 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                         y: ev.clientY,
                       });
                     }}
-                  />
+                  >
+                    {unbound && (
+                      <title>prop no longer present — rebind?</title>
+                    )}
+                  </path>
                 );
               })}
             </g>

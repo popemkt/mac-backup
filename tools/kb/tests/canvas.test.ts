@@ -1,21 +1,20 @@
 /**
- * C1 — canvas MVP: JSON Canvas doc helpers + ext.canvas.tx.apply.
+ * Canvas — JSON Canvas docs + one-shot native bind (Logseq model).
+ * Edges are drawings; unbound state is render-time only (no reconciler).
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
   EMPTY_CANVAS_DOC,
-  dedupeNativeEdgesByTriple,
+  isNativeEdgeBound,
   parseCanvasDoc,
-  pruneOrphanEdges,
-  reconcileCanvasDoc,
   removeCanvasEdge,
-  removeEdgesByBindingId,
   stringifyCanvasDoc,
   upsertCanvasEdge,
   upsertCanvasNode,
   type CanvasDoc,
+  type CanvasEdge,
 } from "../src/canvas/doc.ts";
 import { openKb } from "../src/context.ts";
 import { SYSTEM_IDS } from "../src/foundation/model.ts";
@@ -125,141 +124,39 @@ describe("canvas doc parse/patch round-trip", () => {
   });
 });
 
-describe("reconciler", () => {
-  const base: CanvasDoc = {
-    nodes: [
-      {
-        id: "c1",
-        type: "kb-node",
-        nodeId: "n.a",
-        x: 0,
-        y: 0,
-        width: 100,
-        height: 40,
+describe("render-time bound check (no reconciler)", () => {
+  function mkEdge(
+    id: string,
+    link: Partial<NonNullable<CanvasEdge["kbLink"]>> = {},
+  ): CanvasEdge {
+    return {
+      id,
+      fromNode: "a",
+      toNode: "b",
+      kbLink: {
+        mode: link.mode ?? "native",
+        via: "prop",
+        fieldId: link.fieldId ?? "f.rel",
+        sourceNodeId: link.sourceNodeId ?? "n.a",
+        targetNodeId: link.targetNodeId ?? "n.b",
+        bindingId: link.bindingId ?? "b1",
       },
-      {
-        id: "c2",
-        type: "kb-node",
-        nodeId: "n.b",
-        x: 200,
-        y: 0,
-        width: 100,
-        height: 40,
-      },
-    ],
-    edges: [
-      {
-        id: "native-ok",
-        fromNode: "c1",
-        toNode: "c2",
-        kbLink: {
-          mode: "native",
-          via: "prop",
-          fieldId: "f.rel",
-          sourceNodeId: "n.a",
-          targetNodeId: "n.b",
-          bindingId: "b1",
-        },
-      },
-      {
-        id: "native-orphan",
-        fromNode: "c1",
-        toNode: "c2",
-        kbLink: {
-          mode: "native",
-          via: "prop",
-          fieldId: "f.rel",
-          sourceNodeId: "n.a",
-          targetNodeId: "n.gone",
-          bindingId: "b2",
-        },
-      },
-      {
-        id: "layout-edge",
-        fromNode: "c1",
-        toNode: "c2",
-        kbLink: {
-          mode: "layout",
-          via: "prop",
-          fieldId: "f.rel",
-          sourceNodeId: "n.a",
-          targetNodeId: "n.gone",
-          bindingId: "b3",
-        },
-      },
-    ],
-  };
+    };
+  }
 
-  test("drops orphaned native kbLink edges; keeps layout-mode", () => {
+  test("isNativeEdgeBound reflects prop presence without mutating doc", () => {
     const props: Record<string, { t: string; v: unknown }[]> = {
       "n.a|f.rel": [{ t: "ref", v: "n.b" }],
     };
-    const { doc, dropped } = reconcileCanvasDoc(
-      base,
-      (nodeId, fieldId) => props[`${nodeId}|${fieldId}`],
-    );
-    expect(dropped).toEqual(["native-orphan"]);
-    expect(doc.edges.map((e) => e.id).sort()).toEqual([
-      "layout-edge",
-      "native-ok",
-    ]);
-  });
-
-  test("layout-mode edge survives prop changes (no native bind)", () => {
-    const { doc, dropped } = reconcileCanvasDoc(base, () => undefined);
-    expect(dropped).toEqual(["native-ok", "native-orphan"]);
-    expect(doc.edges.map((e) => e.id)).toEqual(["layout-edge"]);
-  });
-
-  test("native + empty fieldId demotes to layout (never auto-drops)", () => {
-    const doc: CanvasDoc = {
-      nodes: [],
-      edges: [
-        {
-          id: "e-empty",
-          fromNode: "a",
-          toNode: "b",
-          kbLink: {
-            mode: "native",
-            via: "prop",
-            fieldId: "",
-            sourceNodeId: "s",
-            targetNodeId: "t",
-            bindingId: "b",
-          },
-        },
-      ],
-    };
-    const { doc: next, dropped, demoted } = reconcileCanvasDoc(
-      doc,
-      () => undefined,
-    );
-    expect(dropped).toEqual([]);
-    expect(demoted).toEqual(["e-empty"]);
-    expect(next.edges[0]!.kbLink?.mode).toBe("layout");
-  });
-
-  test("pruneOrphanEdges is a minimal delta on base layout", () => {
-    const base: CanvasDoc = {
-      nodes: [
-        {
-          id: "c1",
-          type: "kb-node",
-          nodeId: "n",
-          x: 99,
-          y: 88,
-          width: 10,
-          height: 10,
-        },
-      ],
-      edges: [
-        { id: "keep", fromNode: "c1", toNode: "c1" },
-        { id: "drop", fromNode: "c1", toNode: "c1" },
-      ],
-    };
-    const next = pruneOrphanEdges(base, ["drop"]);
-    expect(next.nodes[0]).toEqual(base.nodes[0]);
-    expect(next.edges.map((e) => e.id)).toEqual(["keep"]);
+    const lookup = (nodeId: string, fieldId: string) =>
+      props[`${nodeId}|${fieldId}`];
+    expect(isNativeEdgeBound(mkEdge("ok"), lookup)).toBe(true);
+    expect(
+      isNativeEdgeBound(mkEdge("gone", { targetNodeId: "n.gone" }), lookup),
+    ).toBe(false);
+    expect(
+      isNativeEdgeBound(mkEdge("lay", { mode: "layout", fieldId: "" }), lookup),
+    ).toBe(true);
   });
 });
 
@@ -294,82 +191,6 @@ describe("unknown type + field round-trip", () => {
     expect(again.nodes[0]?.extra?.custom).toEqual({ a: 1 });
     expect(again.edges[0]?.extra?.pluginMeta).toBe(true);
     expect(again.extra?.schemaVersion).toBe(2);
-  });
-});
-
-describe("bindingId helpers", () => {
-  test("dedupeNativeEdgesByTriple keeps first native triple", () => {
-    const doc: CanvasDoc = {
-      nodes: [],
-      edges: [
-        {
-          id: "e1",
-          fromNode: "a",
-          toNode: "b",
-          kbLink: {
-            mode: "native",
-            via: "prop",
-            fieldId: "f",
-            sourceNodeId: "s",
-            targetNodeId: "t",
-            bindingId: "b1",
-          },
-        },
-        {
-          id: "e2",
-          fromNode: "a",
-          toNode: "b",
-          kbLink: {
-            mode: "native",
-            via: "prop",
-            fieldId: "f",
-            sourceNodeId: "s",
-            targetNodeId: "t",
-            bindingId: "b2",
-          },
-        },
-      ],
-    };
-    expect(dedupeNativeEdgesByTriple(doc).edges.map((e) => e.id)).toEqual([
-      "e1",
-    ]);
-  });
-
-  test("removeEdgesByBindingId drops matching binding only", () => {
-    const doc: CanvasDoc = {
-      nodes: [],
-      edges: [
-        {
-          id: "e1",
-          fromNode: "a",
-          toNode: "b",
-          kbLink: {
-            mode: "native",
-            via: "prop",
-            fieldId: "f",
-            sourceNodeId: "s",
-            targetNodeId: "t",
-            bindingId: "bind-x",
-          },
-        },
-        {
-          id: "e2",
-          fromNode: "a",
-          toNode: "b",
-          kbLink: {
-            mode: "layout",
-            via: "prop",
-            fieldId: "",
-            sourceNodeId: "s",
-            targetNodeId: "t",
-            bindingId: "other",
-          },
-        },
-      ],
-    };
-    expect(
-      removeEdgesByBindingId(doc, "bind-x").edges.map((e) => e.id),
-    ).toEqual(["e2"]);
   });
 });
 
@@ -538,7 +359,69 @@ describe("ext.canvas.tx.apply", () => {
     }
   });
 
-  test("delete native edge unsets prop atomically", async () => {
+  test("one-shot bind writes prop exactly once (append is idempotent at UI layer)", async () => {
+    const root = await tempRoot();
+    const ctx = await openKb(root);
+    await invoke(ctx, {
+      id: "field.define",
+      input: { name: "related", id: "f.related" },
+    });
+    await invoke(ctx, {
+      id: "node.add",
+      input: { text: "Source", id: "n.source" },
+    });
+    await invoke(ctx, {
+      id: "node.add",
+      input: { text: "Target", id: "n.target" },
+    });
+    await invoke(ctx, {
+      id: "node.add",
+      input: { text: "Board", id: "n.canvas", tags: ["canvas"] },
+    });
+
+    const doc = {
+      nodes: [],
+      edges: [
+        {
+          id: "e1",
+          fromNode: "a",
+          toNode: "b",
+          kbLink: {
+            mode: "native" as const,
+            via: "prop" as const,
+            fieldId: "f.related",
+            sourceNodeId: "n.source",
+            targetNodeId: "n.target",
+            bindingId: "b1",
+          },
+        },
+      ],
+    };
+
+    const first = await invoke(ctx, {
+      id: "ext.canvas.tx.apply",
+      input: {
+        canvasId: "n.canvas",
+        doc,
+        propTargetId: "n.source",
+        setProps: [
+          { field: "f.related", value: { t: "ref", v: "n.target" } },
+        ],
+      },
+    });
+    expect(first.status).toBe("succeeded");
+
+    // Second apply with JSON-only (UI skips setProps when triple exists).
+    const second = await invoke(ctx, {
+      id: "ext.canvas.tx.apply",
+      input: { canvasId: "n.canvas", doc },
+    });
+    expect(second.status).toBe("succeeded");
+    const source = ctx.nodes.find((n) => n.id === "n.source")!;
+    expect(source.props["f.related"]).toEqual([{ t: "ref", v: "n.target" }]);
+  });
+
+  test("optional unset on delete still works via tx.apply", async () => {
     const root = await tempRoot();
     const ctx = await openKb(root);
     await invoke(ctx, {
