@@ -122,6 +122,70 @@ describe("canvas doc parse/patch round-trip", () => {
     );
     expect(doc.edges.map((e) => e.id)).toEqual(["e2"]);
   });
+
+  test("shape nodes round-trip with label + color", () => {
+    let doc: CanvasDoc = { nodes: [], edges: [] };
+    doc = upsertCanvasNode(doc, {
+      id: "s1",
+      type: "shape",
+      shape: "ellipse",
+      label: "Idea",
+      color: "3",
+      x: 40,
+      y: 60,
+      width: 160,
+      height: 100,
+    });
+    expect(parseCanvasDoc(stringifyCanvasDoc(doc))).toEqual(doc);
+  });
+
+  test("unknown shape kind falls back to rect", () => {
+    const again = parseCanvasDoc({
+      nodes: [
+        {
+          id: "s1",
+          type: "shape",
+          shape: "hexagon",
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 80,
+        },
+      ],
+      edges: [],
+    });
+    expect(again.nodes[0]).toMatchObject({
+      type: "shape",
+      shape: "rect",
+    });
+  });
+
+  test("shape preserves extra fields on round-trip", () => {
+    const again = parseCanvasDoc(
+      stringifyCanvasDoc(
+        parseCanvasDoc({
+          nodes: [
+            {
+              id: "s1",
+              type: "shape",
+              shape: "diamond",
+              x: 1,
+              y: 2,
+              width: 10,
+              height: 10,
+              customMeta: { a: 1 },
+            },
+          ],
+          edges: [],
+        }),
+      ),
+    );
+    expect(again.nodes[0]).toMatchObject({
+      type: "shape",
+      shape: "diamond",
+      extra: { customMeta: { a: 1 } },
+    });
+  });
 });
 
 describe("render-time bound check (no reconciler)", () => {

@@ -10,6 +10,7 @@ import type {
 import {
   isGroupNode,
   isKbNode,
+  isShapeNode,
   isTextNode,
   removeCanvasEdge,
   upsertCanvasEdge,
@@ -18,9 +19,12 @@ import {
 import { Bullet } from "@/components/outline/bullet";
 import { NodeRow } from "@/components/outline/node-row";
 import { KbNodeCard, TextCard } from "@/components/canvas/canvas-card";
+import { CanvasToolbar } from "@/components/canvas/canvas-toolbar";
 import { EdgeInspector } from "@/components/canvas/edge-inspector";
 import { NodePicker } from "@/components/canvas/node-picker";
 import { edgePath } from "@/components/canvas/edge-path";
+import { ShapeCard } from "@/components/canvas/shape-card";
+import { ShapeInspector } from "@/components/canvas/shape-inspector";
 import {
   edgePropPresent,
   isValidNativeTarget,
@@ -30,6 +34,12 @@ import {
   readCanvasDoc,
   syncDocOnRev,
 } from "@/lib/canvas-api";
+import {
+  placeWithTool,
+  reduceCanvasTool,
+  type CanvasTool,
+  type ToolState,
+} from "@/lib/canvas-tool";
 import { navigate } from "@/lib/router";
 import { toast } from "@/lib/toast";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -88,6 +98,11 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     y: number;
   } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [toolState, setToolState] = useState<ToolState>({ tool: "select" });
+  const [shapeInspectorAnchor, setShapeInspectorAnchor] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const dragRef = useRef<Drag | null>(null);
   const dirtyRef = useRef(false);
   const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -149,12 +164,16 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.code === "Space" &&
-        !(e.target instanceof HTMLInputElement) &&
-        !(e.target instanceof HTMLTextAreaElement) &&
-        !(e.target as HTMLElement).isContentEditable
-      ) {
+      const inField =
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement).isContentEditable;
+      if (e.key === "Escape") {
+        setToolState((s) => reduceCanvasTool(s, { type: "escape" }));
+        setShapeInspectorAnchor(null);
+        return;
+      }
+      if (e.code === "Space" && !inField) {
         setSpaceDown(true);
         e.preventDefault();
       }
@@ -168,6 +187,15 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
+  }, []);
+
+  const setTool = useCallback((tool: CanvasTool) => {
+    if (tool === "kb-node") {
+      setToolState({ tool: "select" });
+      setPickerOpen(true);
+      return;
+    }
+    setToolState((s) => reduceCanvasTool(s, { type: "set-tool", tool }));
   }, []);
 
   const screenToWorld = useCallback(
@@ -191,6 +219,15 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
   };
 
+  const isEmptyStageTarget = (target: EventTarget | null) => {
+    const el = target as HTMLElement | null;
+    if (!el?.closest) return false;
+    if (el.closest("[data-card-id]")) return false;
+    if (el.closest("[data-testid='canvas-toolbar']")) return false;
+    if (el.closest("path")) return false;
+    return true;
+  };
+
   const onPointerDownStage = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button === 1 || spaceDown || (e.button === 0 && e.altKey)) {
       dragRef.current = {
@@ -203,15 +240,35 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
       return;
     }
-    if (e.button === 0 && e.target === e.currentTarget) {
+    if (e.button === 0 && isEmptyStageTarget(e.target)) {
+      const placed = placeWithTool(
+        docRef.current,
+        toolState.tool,
+        screenToWorld(e.clientX, e.clientY, e.currentTarget),
+        ulid(),
+      );
+      if (placed) {
+        schedulePersist(placed.doc);
+        setSelectedCard(placed.node.id);
+        setToolState((s) => reduceCanvasTool(s, { type: "placed" }));
+        setSelectedEdge(null);
+        setInspectorAnchor(null);
+        setShapeInspectorAnchor(null);
+        if (isShapeNode(placed.node)) {
+          setShapeInspectorAnchor({ x: e.clientX, y: e.clientY });
+        }
+        return;
+      }
       setSelectedCard(null);
       setSelectedEdge(null);
       setInspectorAnchor(null);
+      setShapeInspectorAnchor(null);
     }
   };
 
   const onDoubleClickStage = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget) return;
+    if (!isEmptyStageTarget(e.target)) return;
+    if (toolState.tool !== "select") return;
     const world = screenToWorld(e.clientX, e.clientY, e.currentTarget);
     const card = {
       id: ulid(),
@@ -317,6 +374,13 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   };
 
   const selectedEdgeObj = doc.edges.find((e) => e.id === selectedEdge) ?? null;
+  const selectedShape =
+    selectedCard != null
+      ? (() => {
+          const n = byId.get(selectedCard);
+          return n && isShapeNode(n) ? n : null;
+        })()
+      : null;
 
   const onModeChange = async (mode: KbLinkMode) => {
     if (!selectedEdgeObj) return;
@@ -489,7 +553,11 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       <div
         className={cn(
           "relative min-h-0 flex-1 overflow-hidden",
-          spaceDown ? "cursor-grab" : "cursor-default",
+          spaceDown
+            ? "cursor-grab"
+            : toolState.tool !== "select"
+              ? "cursor-crosshair"
+              : "cursor-default",
         )}
         style={{
           backgroundImage:
@@ -503,6 +571,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         onPointerUp={onPointerUp}
         onDoubleClick={onDoubleClickStage}
       >
+        <CanvasToolbar tool={toolState.tool} onToolChange={setTool} />
         <div
           className="absolute inset-0 origin-top-left"
           style={{
@@ -646,6 +715,62 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                   </div>
                 );
               }
+              if (isShapeNode(card)) {
+                return (
+                  <div key={card.id} data-card-id={card.id}>
+                    <ShapeCard
+                      card={card}
+                      selected={selectedCard === card.id}
+                      onSelect={(anchor) => {
+                        setSelectedCard(card.id);
+                        setSelectedEdge(null);
+                        setInspectorAnchor(null);
+                        setShapeInspectorAnchor(anchor);
+                      }}
+                      onLabelChange={(label) =>
+                        schedulePersist(
+                          upsertCanvasNode(docRef.current, {
+                            ...card,
+                            label,
+                          }),
+                        )
+                      }
+                      onMoveStart={(e) => {
+                        dragRef.current = {
+                          kind: "move",
+                          id: card.id,
+                          startX: e.clientX,
+                          startY: e.clientY,
+                          origX: card.x,
+                          origY: card.y,
+                        };
+                        (e.target as HTMLElement).setPointerCapture?.(
+                          e.pointerId,
+                        );
+                      }}
+                      onResizeStart={(e) => {
+                        dragRef.current = {
+                          kind: "resize",
+                          id: card.id,
+                          startX: e.clientX,
+                          startY: e.clientY,
+                          origW: card.width,
+                          origH: card.height,
+                        };
+                      }}
+                      onPortDown={(side, e) => {
+                        dragRef.current = {
+                          kind: "edge",
+                          fromCardId: card.id,
+                          fromSide: side,
+                          x: e.clientX,
+                          y: e.clientY,
+                        };
+                      }}
+                    />
+                  </div>
+                );
+              }
               if (!isKbNode(card)) {
                 // Opaque file/link/etc — layout-only box.
                 return (
@@ -719,6 +844,19 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           onModeChange={(m) => void onModeChange(m)}
           onFieldChange={(f) => void onFieldChange(f)}
           onDelete={() => void onDeleteEdge()}
+        />
+      )}
+      {selectedShape && shapeInspectorAnchor && (
+        <ShapeInspector
+          card={selectedShape}
+          anchor={shapeInspectorAnchor}
+          onClose={() => setShapeInspectorAnchor(null)}
+          onColorChange={(color) => {
+            const next = { ...selectedShape };
+            if (color === undefined) delete next.color;
+            else next.color = color;
+            schedulePersist(upsertCanvasNode(docRef.current, next));
+          }}
         />
       )}
       {pickerOpen && (
