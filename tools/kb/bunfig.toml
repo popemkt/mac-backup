@@ -1,0 +1,7 @@
+# UI component tests that need vitest's mock-hoist / happy-dom WebGL stubs
+# still run under `cd ui && bunx vp test`. Bun's recursive `bun test` from
+# tools/kb would otherwise load sigma (WebGL2) and fail at import time.
+[test]
+pathIgnorePatterns = [
+  "**/ui/src/components/graph/graph-page.component.test.tsx",
+]

@@ -144,6 +144,63 @@ export const fixtureGraph: GraphSnapshot = {
       },
     }),
     node({
+      id: "sys.f.lens.query",
+      text: "lens.query",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.f.lens.renderer",
+      text: "lens.renderer",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.f.lens.color-by",
+      text: "lens.color-by",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.f.lens.size-by",
+      text: "lens.size-by",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.f.lens.edge-kinds",
+      text: "lens.edge-kinds",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.f.lens.max-nodes",
+      text: "lens.max-nodes",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.tag.graph-perspective",
+      text: "graph-perspective",
+      props: {
+        "sys.f.type": [{ t: "ref", v: "sys.tag" }],
+        "sys.f.fields": [
+          { t: "ref", v: "sys.f.lens.query" },
+          { t: "ref", v: "sys.f.lens.renderer" },
+          { t: "ref", v: "sys.f.lens.color-by" },
+          { t: "ref", v: "sys.f.lens.size-by" },
+          { t: "ref", v: "sys.f.lens.edge-kinds" },
+          { t: "ref", v: "sys.f.lens.max-nodes" },
+        ],
+      },
+    }),
+    node({
+      id: "lens.all-mentions",
+      text: "All mentions",
+      props: {
+        "sys.f.type": [{ t: "ref", v: "sys.tag.graph-perspective" }],
+        "sys.f.lens.renderer": [{ t: "str", v: "force2d" }],
+        "sys.f.lens.edge-kinds": [
+          { t: "str", v: "mention" },
+          { t: "str", v: "child" },
+        ],
+      },
+    }),
+    node({
       id: "field.status",
       text: "status",
       props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },

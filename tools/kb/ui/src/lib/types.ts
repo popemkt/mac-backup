@@ -51,7 +51,26 @@ export const SYSTEM_IDS = {
   cmdViewFilter: "sys.cmd.view-filter",
   /** Virtual root the ui server materializes saved queries under. */
   queriesRoot: "sys.queries",
+  /** Graph perspective lenses (V0/V1 — graph-lens module). */
+  graphPerspectiveTag: "sys.tag.graph-perspective",
+  lensQueryField: "sys.f.lens.query",
+  lensRendererField: "sys.f.lens.renderer",
+  lensColorByField: "sys.f.lens.color-by",
+  lensSizeByField: "sys.f.lens.size-by",
+  lensEdgeKindsField: "sys.f.lens.edge-kinds",
+  lensMaxNodesField: "sys.f.lens.max-nodes",
+  /**
+   * Default global mentions+child force2d perspective.
+   * User-editable (NOT sys-prefixed) so write-guard does not lock it.
+   */
+  lensAllMentions: "lens.all-mentions",
+  /** Canvas nodes (JSON Canvas 1.0 doc on sys.f.canvas). */
+  canvasTag: "sys.tag.canvas",
+  canvasField: "sys.f.canvas",
 } as const;
+
+/** Pre-fix id — migrated away by ensureSystemSeed. */
+export const LEGACY_LENS_ALL_MENTIONS = "sys.lens.all-mentions";
 
 /** Any reserved / seeded id under the `sys.` prefix. */
 export function isSysPrefixed(id: string): boolean {
