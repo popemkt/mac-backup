@@ -56,17 +56,22 @@ GitHub release pins.
 
 ## kb — repo knowledge base
 
-`kb` (code in `tools/kb/`, specs in `tools/kb/DESIGN.md` and
-`tools/kb/DESIGN-UI.md`) is this repo's outliner datastore: todos, notes, and
+`kb` (code in `tools/kb/`, specs in `tools/kb/DESIGN.md`,
+`tools/kb/DESIGN-UI.md`, and `tools/kb/DESIGN-REFINE.md`) is this repo's
+outliner datastore: todos, notes, and
 any structured facts live as nodes in `.kb/nodes.jsonl` (committed).
 Everything is a node — fields and tags too. Props are keyed by field-node id;
 tags template fields; values may reference other nodes. Query with datalog
 (DataScript), or via the MCP server registered in `.mcp.json` (tools
 `node_add`, `graph_query`, `kb_manifest`, `render_view`, plus `ui://kb/view/*`
 html resources). `kb ui` serves the human outliner UI on 127.0.0.1:4321
-(Tana-style editing, query page, live WS updates); other apps can subscribe to
-live datalog queries over its `/ws` endpoint (see protocol in
-`tools/kb/src/surface/protocol.ts`).
+(Tana-style editing, ⌘K palette, inline markdown + `[[id|label]]` ref links,
+inline fields, query nodes — a `#query`-tagged node with a `sys.f.query` EDN
+prop renders live results while expanded — media via `![](assets/…)` backed
+by `.kb/assets/` and the `asset.upload` action, live WS updates); other apps
+can subscribe to live datalog queries over its `/ws` endpoint (see protocol in
+`tools/kb/src/surface/protocol.ts`). `sys.*` nodes are write-guarded (CLI
+`--force` to override).
 
 ```bash
 kb add "Fix drift audit" --tag todo --prop status=doing   # alias for bun tools/kb/src/surface/cli.ts

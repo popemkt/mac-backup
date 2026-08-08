@@ -3,7 +3,7 @@ import { mutations } from "@/actions/mutations";
 import { PropValueEditor } from "@/components/outline/field-value";
 import { queryBacklinks } from "@/ds/db";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 
 export function NodePanel() {
