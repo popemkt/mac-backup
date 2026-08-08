@@ -1,16 +1,19 @@
 /**
- * Client helpers for canvas doc IO via ext.canvas.tx.apply / node.update.
+ * Client helpers for canvas doc IO.
+ *
+ * Logseq model: edges are drawings. Native bind is a one-shot prop write via
+ * ext.canvas.tx.apply; afterward the edge does not track/own the prop.
+ * Bound vs unbound is computed at render time only (no reconciler writes).
  */
 import { ulid } from "ulid";
 import { postAction } from "@/api/action";
 import {
   EMPTY_CANVAS_DOC,
+  isNativeEdgeBound,
   parseCanvasDoc,
-  pruneOrphanEdges,
-  reconcileCanvasDoc,
   stringifyCanvasDoc,
   type CanvasDoc,
-  type PropLookup,
+  type CanvasEdge,
 } from "@kb/canvas";
 import {
   resolveAllowedRefIds,
@@ -20,8 +23,6 @@ import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 import type { OutlineNode } from "@/lib/types";
 import type { WireNode } from "@kb/protocol";
 import { useOutlineStore } from "@/stores/outline.store";
-
-const RECONCILE_PERSIST_MS = 400;
 
 export function readCanvasDoc(node: OutlineNode | undefined): CanvasDoc {
   if (!node) return { nodes: [], edges: [] };
@@ -51,7 +52,7 @@ export function listCanvasNodes(
 
 export function propLookupFromStore(
   nodes: Map<string, OutlineNode>,
-): PropLookup {
+): (nodeId: string, fieldId: string) => ReadonlyArray<{ t: string; v: unknown }> | undefined {
   return (nodeId, fieldId) => {
     const n = nodes.get(nodeId);
     return n?.props[fieldId] as
@@ -60,122 +61,29 @@ export function propLookupFromStore(
   };
 }
 
-export interface ReconcileOptions {
-  /** Current local editor doc — prune orphans onto THIS, never store snapshot. */
-  getLocalDoc: () => CanvasDoc;
-  /** Apply pruned local doc into React state. */
-  applyLocal: (doc: CanvasDoc) => void;
-  /** True while drag/dirty — skip store→doc overwrite; still may schedule prune. */
-  isBusy: () => boolean;
-  /** Optional: accept foreign host doc when not busy. */
-  onForeignDoc?: (doc: CanvasDoc) => void;
+/** Render-time: native edge whose prop is still present. */
+export function edgePropPresent(
+  edge: CanvasEdge,
+  nodes: Map<string, OutlineNode>,
+): boolean {
+  return isNativeEdgeBound(edge, propLookupFromStore(nodes));
 }
-
-let reconcileTimer: ReturnType<typeof setTimeout> | null = null;
-let pendingOrphans: { canvasId: string; ids: string[] } | null = null;
 
 /**
- * On rev: if busy, only collect orphan edge ids from local doc and debounce
- * a minimal prune persist. If idle, accept foreign host doc then prune.
+ * Live-sync canvas JSON from the store on rev bumps.
+ * When busy (drag/dirty), skip — never clobber in-progress local edits.
+ * No orphan pruning / no persist-back.
  */
-export function reconcileOnRev(
+export function syncDocOnRev(
   canvasId: string,
   nodes: Map<string, OutlineNode>,
-  opts: ReconcileOptions,
+  opts: {
+    applyLocal: (doc: CanvasDoc) => void;
+    isBusy: () => boolean;
+  },
 ): void {
-  const lookup = propLookupFromStore(nodes);
-  const local = opts.getLocalDoc();
-  const { doc: normalized, dropped, demoted } = reconcileCanvasDoc(
-    local,
-    lookup,
-  );
-
-  if (!opts.isBusy()) {
-    const foreign = readCanvasDoc(nodes.get(canvasId));
-    // Merge: take foreign layout only when idle; re-apply orphan prune on it.
-    const { doc: foreignNorm, dropped: d2 } = reconcileCanvasDoc(
-      foreign,
-      lookup,
-    );
-    const merged = demoted.length > 0 || dropped.length > 0
-      ? pruneOrphanEdges(
-          foreignNorm.nodes.length > 0 || foreignNorm.edges.length > 0
-            ? foreignNorm
-            : normalized,
-          [...dropped, ...d2],
-        )
-      : foreignNorm.nodes.length > 0 || foreignNorm.edges.length > 0
-        ? foreignNorm
-        : normalized;
-    // Re-demote empty-field natives on the chosen doc
-    const final = reconcileCanvasDoc(merged, lookup).doc;
-    opts.onForeignDoc?.(final);
-    opts.applyLocal(final);
-    const orphans = [...new Set([...dropped, ...d2])];
-    if (orphans.length > 0) scheduleOrphanPersist(canvasId, orphans, opts);
-    return;
-  }
-
-  // Busy: keep local layout; demote empty-field natives in memory; schedule
-  // orphan drops as a delta on whatever docRef is at flush time.
-  if (demoted.length > 0 || dropped.length > 0) {
-    opts.applyLocal(normalized);
-  }
-  if (dropped.length > 0) {
-    scheduleOrphanPersist(canvasId, dropped, opts);
-  }
-}
-
-function scheduleOrphanPersist(
-  canvasId: string,
-  ids: string[],
-  opts: ReconcileOptions,
-): void {
-  pendingOrphans = {
-    canvasId,
-    ids: [...new Set([...(pendingOrphans?.ids ?? []), ...ids])],
-  };
-  if (reconcileTimer) clearTimeout(reconcileTimer);
-  reconcileTimer = setTimeout(() => {
-    reconcileTimer = null;
-    const pending = pendingOrphans;
-    pendingOrphans = null;
-    if (!pending || pending.ids.length === 0) return;
-    if (opts.isBusy()) {
-      // Still busy — reschedule.
-      scheduleOrphanPersist(pending.canvasId, pending.ids, opts);
-      return;
-    }
-    const base = opts.getLocalDoc();
-    const next = pruneOrphanEdges(base, pending.ids);
-    if (next === base) return;
-    console.info(
-      `[kb/canvas] pruned orphaned native edges on ${pending.canvasId}:`,
-      pending.ids,
-    );
-    opts.applyLocal(next);
-    void persistCanvasDoc(pending.canvasId, next);
-  }, RECONCILE_PERSIST_MS);
-}
-
-/** @deprecated use reconcileOnRev — kept for tests of pure prune helpers. */
-export function reconcileAndMaybePersist(
-  canvasId: string,
-  doc: CanvasDoc,
-  nodes: Map<string, OutlineNode>,
-): CanvasDoc {
-  const { doc: next, dropped } = reconcileCanvasDoc(
-    doc,
-    propLookupFromStore(nodes),
-  );
-  if (dropped.length > 0) {
-    console.info(
-      `[kb/canvas] dropped orphaned native edges on ${canvasId}:`,
-      dropped,
-    );
-    void persistCanvasDoc(canvasId, next);
-  }
-  return next;
+  if (opts.isBusy()) return;
+  opts.applyLocal(readCanvasDoc(nodes.get(canvasId)));
 }
 
 export function hasPropRef(
@@ -188,7 +96,7 @@ export function hasPropRef(
   return props.some((p) => p.t === "ref" && p.v === targetId);
 }
 
-/** Build setProps/unsetProps for an idempotent native bind. */
+/** One-shot native bind: setProps only if the triple is not already present. */
 export function planNativeBind(
   nodes: Map<string, OutlineNode>,
   sourceId: string,
@@ -218,6 +126,10 @@ export function isValidNativeTarget(
   return allowed.has(targetNodeId);
 }
 
+/**
+ * Persist canvas JSON (+ optional one-shot prop ops) via ext.canvas.tx.apply.
+ * UI never writes props through node.update — this is the only semantic path.
+ */
 export async function persistCanvasDoc(
   canvasId: string,
   doc: CanvasDoc,
@@ -288,7 +200,6 @@ export async function createCanvasNode(
   const docStr = stringifyCanvasDoc(EMPTY_CANVAS_DOC);
   const at = new Date().toISOString();
   const store = useOutlineStore.getState();
-  // Optimistic local upsert so /canvas/:id resolves before WS.
   const optimistic: WireNode = {
     id,
     text,
@@ -333,11 +244,4 @@ export function listRefFields(
     out.push({ id: n.id, name: n.text, isRef: true });
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/** Test helper — clear debounce timers between cases. */
-export function resetReconcileTimers(): void {
-  if (reconcileTimer) clearTimeout(reconcileTimer);
-  reconcileTimer = null;
-  pendingOrphans = null;
 }
