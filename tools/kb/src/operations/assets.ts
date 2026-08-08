@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { extname, join, normalize, resolve } from "node:path";
+import { extname, isAbsolute, join, normalize, relative, resolve } from "node:path";
 import { z } from "zod";
 import { ulid } from "ulid";
 import type { ActionDefinition } from "../shared/contracts.ts";
@@ -67,14 +67,15 @@ export function resolveAssetFile(
 
   const rootResolved = resolve(assetsDir(kbRoot));
   const candidate = normalize(join(rootResolved, ...segments));
+  // relative() is separator-agnostic; escapes show up as ".." or absolute.
+  const relFromRoot = relative(rootResolved, candidate);
   if (
-    candidate !== rootResolved &&
-    !candidate.startsWith(rootResolved + "/")
+    relFromRoot === "" || // the directory itself is not a file we serve
+    relFromRoot.startsWith("..") ||
+    isAbsolute(relFromRoot)
   ) {
     return null;
   }
-  // Directory itself is not a file we serve.
-  if (candidate === rootResolved) return null;
   return candidate;
 }
 
@@ -99,21 +100,25 @@ export function textHasAssetRef(text: string): boolean {
   return /!\[[^\]]*\]\(assets\/[^)\s]+\)/i.test(text);
 }
 
+/** Upload whitelist: renderable media + pdf. No html/js/… — those would be
+ * served same-origin by kb ui and could carry scripts. */
+const UPLOAD_EXT = new Set([...IMAGE_EXT, ...VIDEO_EXT, ...AUDIO_EXT, "pdf"]);
+
 function sanitizeExt(raw: string | undefined, filename: string | undefined): string {
   let ext = (raw ?? "").replace(/^\./, "").trim();
   if (!ext && filename) {
     const fromName = extname(filename).replace(/^\./, "");
     ext = fromName;
   }
-  if (!ext) ext = "bin";
-  if (!SAFE_EXT.test(ext)) {
+  ext = ext.toLowerCase();
+  if (!ext || !SAFE_EXT.test(ext) || !UPLOAD_EXT.has(ext)) {
     throw new ResolveError(
       "forbidden",
-      `unsafe asset extension: ${ext}`,
+      `unsupported asset extension: ${ext || "(none)"} — allowed: media types + pdf`,
       { ext },
     );
   }
-  return ext.toLowerCase();
+  return ext;
 }
 
 function decodeBytes(input: string, encoding: "base64" | "utf8"): Uint8Array {

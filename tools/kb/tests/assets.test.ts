@@ -88,6 +88,16 @@ describe("asset.upload action", () => {
       },
     });
     expect(receipt.status).toBe("failed");
+
+    // Non-media extensions are refused even when syntactically safe:
+    // html/js served same-origin could carry scripts.
+    for (const ext of ["html", "js", "sh", "bin"]) {
+      const r = await invoke(ctx, {
+        id: "asset.upload",
+        input: { bytes: Buffer.from("x").toString("base64"), ext },
+      });
+      expect(r.status).toBe("failed");
+    }
     await rm(root, { recursive: true, force: true });
   });
 

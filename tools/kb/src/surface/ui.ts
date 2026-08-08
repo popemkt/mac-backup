@@ -1,5 +1,5 @@
 import { watch, type FSWatcher } from "node:fs";
-import { access, constants, readdir, readFile, stat } from "node:fs/promises";
+import { access, constants, lstat, readdir, readFile, stat } from "node:fs/promises";
 import { dirname, join, normalize, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -289,18 +289,53 @@ async function serveKbAsset(
   if (!abs) {
     return new Response("forbidden", { status: 403 });
   }
-  if (!(await pathExists(abs))) {
-    return new Response("not found", { status: 404 });
-  }
   try {
-    const st = await stat(abs);
-    if (!st.isFile()) {
+    // lstat: a symlink under .kb/assets must not escape the directory.
+    const st = await lstat(abs);
+    if (!st.isFile() || st.isSymbolicLink()) {
       return new Response("forbidden", { status: 403 });
     }
   } catch {
     return new Response("not found", { status: 404 });
   }
-  return new Response(Bun.file(abs));
+  const headers: Record<string, string> = {
+    "Content-Type": assetContentType(abs),
+    "X-Content-Type-Options": "nosniff",
+  };
+  // SVG can carry scripts when navigated directly; neuter them.
+  if (abs.toLowerCase().endsWith(".svg")) {
+    headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'";
+  }
+  return new Response(Bun.file(abs), { headers });
+}
+
+const ASSET_MIME: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+  avif: "image/avif",
+  bmp: "image/bmp",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+  ogv: "video/ogg",
+  m4v: "video/x-m4v",
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  ogg: "audio/ogg",
+  m4a: "audio/mp4",
+  aac: "audio/aac",
+  flac: "audio/flac",
+  opus: "audio/opus",
+  pdf: "application/pdf",
+};
+
+function assetContentType(absPath: string): string {
+  const ext = absPath.split(".").pop()?.toLowerCase() ?? "";
+  return ASSET_MIME[ext] ?? "application/octet-stream";
 }
 
 async function serveStatic(
