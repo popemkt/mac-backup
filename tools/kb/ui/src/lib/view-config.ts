@@ -370,7 +370,7 @@ export function groupChildrenForBoard(
       empty.nodes.push(child);
       continue;
     }
-    // Multi-value: card appears in first value's column (Tana-ish).
+    // Display: first value wins. Drag clears all values then sets one.
     const v = vals[0]!;
     const key = propValueKey(v, nodes);
     let col = columns.get(key);

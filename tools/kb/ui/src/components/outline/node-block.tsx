@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo } from "react";
 import { isQueryNode } from "@/lib/query-node";
+import { cn } from "@/lib/cn";
 import { childInstanceKey, outlineInstanceKey } from "@/lib/instance-key";
 import { resolveProps } from "@/lib/graph-view";
 import { useUiStore } from "@/stores/ui.store";
@@ -123,10 +124,12 @@ export const NodeBlock = memo(function NodeBlock({
   const isExpandable = hasChildren || isQuery || hasFields;
   const showToolbar = (hasChildren || isQuery) && !node.collapsed;
   const projected = isProjectedViewMode(viewConfig.mode);
+  const filterOpen = useUiStore((s) => s.filterPopoverFrameId === nodeId);
 
   return (
     <div
       className="node-block relative group/frame"
+      data-node-block="true"
       data-node-id={nodeId}
       data-instance-key={instanceKey}
     >
@@ -164,7 +167,14 @@ export const NodeBlock = memo(function NodeBlock({
           />
         </div>
         {showToolbar && (
-          <div className="absolute right-2 opacity-0 group-hover/frame:opacity-100 group-focus-within/frame:opacity-100 transition-opacity z-10">
+          <div
+            className={cn(
+              "absolute right-2 transition-opacity z-10",
+              filterOpen
+                ? "opacity-100"
+                : "opacity-0 group-hover/frame:opacity-100 group-focus-within/frame:opacity-100",
+            )}
+          >
             <ViewToolbar frameId={nodeId} mode={viewConfig.mode} />
           </div>
         )}

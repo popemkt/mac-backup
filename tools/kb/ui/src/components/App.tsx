@@ -7,6 +7,7 @@ import {
   PaletteTrigger,
 } from "@/components/palette/command-palette";
 import { OutlineEditor } from "@/components/outline/outline-editor";
+import { ViewFilterPopoverHost } from "@/components/outline/view-filter-popover";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
 import { graphPath, matchRoute, navigate, usePath } from "@/lib/router";
@@ -80,6 +81,7 @@ function SharedChrome() {
   return (
     <>
       <PreferencesPopover />
+      <ViewFilterPopoverHost />
       <CommandPalette
         open={globalPaletteOpen}
         onClose={() => setGlobalPaletteOpen(false)}

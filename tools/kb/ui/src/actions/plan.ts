@@ -862,36 +862,26 @@ export function planSetViewFilters(
 }
 
 /**
- * Board drag: unset old group value + set new (exact-value unset).
- * Does NOT touch children[] / tree order.
+ * Board drag: unset ALL group values, then set at most one.
+ * Does NOT touch children[] / tree order. No multi-value pretence.
  */
 export function planMoveBoardCard(
   nodes: WireNode[],
   nodeId: string,
   fieldId: string,
-  oldValue: PropValue | null,
+  _oldValue: PropValue | null,
   newValue: PropValue | null,
 ): PlannedMutation {
   const node = cloneWire(requireNode(nodes, nodeId));
-  let list = [...(node.props[fieldId] ?? [])];
-  if (oldValue) {
-    list = list.filter(
-      (pv) => JSON.stringify(pv) !== JSON.stringify(oldValue),
-    );
-  }
-  if (newValue) {
-    const already = list.some(
-      (pv) => JSON.stringify(pv) === JSON.stringify(newValue),
-    );
-    if (!already) list.push(newValue);
-  }
-  if (list.length === 0) delete node.props[fieldId];
-  else node.props[fieldId] = list;
+  const existing = [...(node.props[fieldId] ?? [])];
+  if (newValue) node.props[fieldId] = [newValue];
+  else delete node.props[fieldId];
   node.updatedAt = nowIso();
 
-  const unsetProps = oldValue
-    ? [{ field: fieldId, value: oldValue }]
-    : undefined;
+  const unsetProps =
+    existing.length > 0
+      ? existing.map((value) => ({ field: fieldId, value }))
+      : undefined;
   const setProps = newValue
     ? [{ field: fieldId, value: newValue }]
     : undefined;
@@ -906,8 +896,7 @@ export function planMoveBoardCard(
           id: nodeId,
           ...(unsetProps ? { unsetProps } : {}),
           ...(setProps ? { setProps } : {}),
-        },
-      },
+        },      },
     ],
   };
 }

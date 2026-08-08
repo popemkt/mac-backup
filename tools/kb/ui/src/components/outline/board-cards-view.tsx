@@ -52,8 +52,14 @@ export function BoardCardsView({
   isQuerySource = false,
   widthPref: widthPrefProp,
 }: BoardCardsViewProps) {
+  const rev = useOutlineStore((s) => s.rev);
   const storeNodes = useOutlineStore((s) => s.nodes);
-  const nodes = nodesProp ?? storeNodes;
+  const nodes = useMemo(
+    () => nodesProp ?? storeNodes,
+    // rev gates store map identity; props path uses explicit nodesProp.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodesProp, storeNodes, rev],
+  );
   const frameNode = nodes.get(frameId);
   const showAllFields = usePrefsStore((s) => s.showAllFields);
   const storeWidth = usePrefsStore((s) => s.width);
@@ -106,6 +112,12 @@ export function BoardCardsView({
   );
 
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);
+  const handleCardDragStart = useCallback((id: string) => {
+    setDragNodeId(id);
+  }, []);
+  const handleCardDragEnd = useCallback(() => {
+    setDragNodeId(null);
+  }, []);
 
   const handleDropOnColumn = useCallback(
     (columnKey: string, columnValue: PropValue | null) => {
@@ -113,7 +125,6 @@ export function BoardCardsView({
       const node = nodes.get(dragNodeId);
       if (!node) return;
       const oldVal = node.props[groupFieldId]?.[0] ?? null;
-      // Same column — no-op
       if (columnKey === EMPTY_GROUP_KEY && !oldVal) return;
       if (
         oldVal &&
@@ -134,6 +145,31 @@ export function BoardCardsView({
   );
 
   if (!frameNode && !rowIds) return null;
+
+  if (mode === "board" && !groupFieldId) {
+    return (
+      <div
+        className="board-cards-view my-2 rounded-md border border-dashed border-foreground/15 px-3 py-4 text-[13px] text-foreground/45"
+        data-board-cards-view="true"
+        data-view-mode="board"
+        data-board-empty="true"
+        data-frame-id={frameId}
+      >
+        <p>
+          Set <code className="text-foreground/60">view.group</code> to use the
+          board.
+        </p>
+        <button
+          type="button"
+          className="mt-2 rounded-md bg-foreground/[0.06] px-2 py-1 text-[12px] font-medium text-foreground/70 hover:bg-foreground/[0.1]"
+          data-switch-to-cards="true"
+          onClick={() => void mutations.setViewMode(frameId, "cards")}
+        >
+          Switch to cards
+        </button>
+      </div>
+    );
+  }
 
   const breakout = mode === "board" && widthPref === "centered";
 
@@ -202,8 +238,8 @@ export function BoardCardsView({
                     nodes={nodes}
                     isRef={isQuerySource}
                     draggable={!isQuerySource && !!groupFieldId}
-                    onDragStart={() => setDragNodeId(child.id)}
-                    onDragEnd={() => setDragNodeId(null)}
+                    onDragStart={handleCardDragStart}
+                    onDragEnd={handleCardDragEnd}
                   />
                 ))}
               </div>
@@ -231,7 +267,7 @@ const ViewCard = memo(function ViewCard({
   nodes: NodeMap;
   isRef: boolean;
   draggable: boolean;
-  onDragStart?: () => void;
+  onDragStart?: (id: string) => void;
   onDragEnd?: () => void;
 }) {
   const isActive = useOutlineStore(
@@ -271,7 +307,7 @@ const ViewCard = memo(function ViewCard({
         if (!draggable) return;
         e.dataTransfer.setData("text/plain", child.id);
         e.dataTransfer.effectAllowed = "move";
-        onDragStart?.();
+        onDragStart?.(child.id);
       }}
       onDragEnd={() => onDragEnd?.()}
     >

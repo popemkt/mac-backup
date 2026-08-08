@@ -13,7 +13,11 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
   const viewConfig = getViewConfig(node.props);
 
   return (
-    <div className="zoomed-root-header px-2 pb-2 pt-1">
+    <div
+      className="zoomed-root-header px-2 pb-2 pt-1"
+      data-zoomed-root-header="true"
+      data-frame-id={node.id}
+    >
       <div className="relative pl-7 pt-1">
         {gradientColor && (
           <div
@@ -37,7 +41,11 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
           >
             {node.text || "Untitled"}
           </h1>
-          <ViewToolbar frameId={node.id} mode={viewConfig.mode} />
+          <ViewToolbar
+            frameId={node.id}
+            mode={viewConfig.mode}
+            tucked
+          />
         </div>
 
         {node.tags.length > 0 && (

@@ -1,15 +1,19 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { GearSix } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { ViewMode } from "@/lib/view-config";
 import { mutations } from "@/actions/mutations";
 import { useUiStore } from "@/stores/ui.store";
-import { ViewFilterPopover } from "./view-filter-popover";
 
 interface ViewToolbarProps {
   frameId: string;
   mode: ViewMode;
   className?: string;
+  /**
+   * Zoomed-header mode: collapse modes+filter behind a single gear until
+   * expanded on demand (or when the filter popover is open for this frame).
+   */
+  tucked?: boolean;
 }
 
 const MODES: Array<{ id: ViewMode; label: string; icon: string }> = [
@@ -23,9 +27,12 @@ export function ViewToolbar({
   frameId,
   mode,
   className,
+  tucked = false,
 }: ViewToolbarProps) {
   const filterOpen = useUiStore((s) => s.filterPopoverFrameId === frameId);
   const setFilterFrame = useUiStore((s) => s.setFilterPopoverFrameId);
+  const [expanded, setExpanded] = useState(false);
+  const showChrome = !tucked || expanded || filterOpen;
 
   const handleSelect = useCallback(
     (newMode: ViewMode, e: React.MouseEvent) => {
@@ -37,6 +44,28 @@ export function ViewToolbar({
     [frameId, mode],
   );
 
+  if (!showChrome) {
+    return (
+      <button
+        type="button"
+        className={cn(
+          "flex h-7 w-7 items-center justify-center rounded-md border border-foreground/[0.06] bg-foreground/[0.04] text-foreground/40 hover:bg-foreground/[0.08] hover:text-foreground/70",
+          className,
+        )}
+        data-view-toolbar-gear="true"
+        data-frame-id={frameId}
+        title="View options"
+        aria-label="View options"
+        onClick={(e) => {
+          e.stopPropagation();
+          setExpanded(true);
+        }}
+      >
+        <GearSix size={14} />
+      </button>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -46,6 +75,7 @@ export function ViewToolbar({
       data-view-toolbar="true"
       data-frame-id={frameId}
       data-active-mode={mode}
+      data-tucked={tucked ? "true" : undefined}
     >
       {MODES.map((m) => (
         <button
@@ -80,7 +110,21 @@ export function ViewToolbar({
       >
         <GearSix size={12} weight={filterOpen ? "fill" : "regular"} />
       </button>
-      <ViewFilterPopover frameId={frameId} />
+      {tucked ? (
+        <button
+          type="button"
+          className="flex h-6 w-6 items-center justify-center rounded text-foreground/30 hover:text-foreground/60"
+          title="Collapse view options"
+          aria-label="Collapse view options"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded(false);
+            if (filterOpen) setFilterFrame(null);
+          }}
+        >
+          ×
+        </button>
+      ) : null}
     </div>
   );
 }

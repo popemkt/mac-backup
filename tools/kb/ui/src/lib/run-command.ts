@@ -98,7 +98,7 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
               : "cards";
       const frameId = viewTargetFrameId();
       if (!frameId) {
-        toast("Zoom into a frame to change its view");
+        toast("select a frame first");
         return;
       }
       await mutations.setViewMode(frameId, mode);
@@ -107,9 +107,11 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
     case SYSTEM_IDS.cmdViewFilter: {
       const frameId = viewTargetFrameId();
       if (!frameId) {
-        toast("Zoom into a frame to filter its view");
+        toast("select a frame first");
         return;
       }
+      // Portal host (ViewFilterPopoverHost) anchors to toolbar/frame row;
+      // if no DOM host exists it toasts and clears — never a silent no-op.
       useUiStore.getState().setFilterPopoverFrameId(frameId);
       return;
     }
