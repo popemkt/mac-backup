@@ -45,6 +45,23 @@ type PendingContent = {
 
 const pendingContent = new Map<string, PendingContent>();
 
+/**
+ * Failure recovery for the debounced text path: other mutations may have
+ * landed after this flush's snapshot was taken, so restoring the snapshot
+ * would clobber them. Resync from the server (source of truth) instead;
+ * fall back to the snapshot only if the resync itself fails.
+ */
+async function resyncOrRestore(snapshot: WireNode[]): Promise<void> {
+  const store = useOutlineStore.getState();
+  try {
+    const { loadGraph } = await import("@/api/graph");
+    const { snapshot: fresh, source } = await loadGraph();
+    store.hydrateFromWire(fresh.nodes, fresh.rev, source);
+  } catch {
+    store.restoreSnapshot(snapshot, store.rev);
+  }
+}
+
 async function flushContentRemote(
   id: string,
   content: string,
@@ -56,12 +73,12 @@ async function flushContentRemote(
   try {
     const receipt = await postAction("node.update", { id, text: content });
     if (receipt.status === "failed") {
-      store.restoreSnapshot(snapshot, store.rev);
       toast(receipt.message);
+      await resyncOrRestore(snapshot);
     }
   } catch (err) {
-    store.restoreSnapshot(snapshot, store.rev);
     toast(err instanceof Error ? err.message : String(err));
+    await resyncOrRestore(snapshot);
   }
 }
 

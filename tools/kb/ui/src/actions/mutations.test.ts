@@ -169,3 +169,29 @@ describe("U4 seam", () => {
     expect(() => ws.connect()).toThrow(/not wired/);
   });
 });
+
+describe("multi-valued prop semantics", () => {
+  it("planSetProp with oldValue emits unset of old plus set of new", async () => {
+    const { planSetProp } = await import("@/actions/plan");
+    const store = useOutlineStore.getState();
+    const nodes = store.wireNodes;
+    const target = nodes.find((n) => Object.keys(n.props).length > 0)!;
+    const fieldId = Object.keys(target.props)[0]!;
+    const oldValue = target.props[fieldId]![0]!;
+    const next = { t: "str" as const, v: "changed-value" };
+
+    const plan = planSetProp(nodes, target.id, fieldId, next, oldValue);
+    expect(plan).not.toBeNull();
+    const input = plan!.actions[0]!.input as {
+      setProps?: unknown[];
+      unsetProps?: unknown[];
+    };
+    expect(input.unsetProps?.length ?? 0).toBeGreaterThan(0);
+    expect(input.setProps?.length ?? 0).toBeGreaterThan(0);
+
+    const upsert = plan!.upserts.find((n) => n.id === target.id)!;
+    const values = upsert.props[fieldId]!;
+    expect(values).toContainEqual(next);
+    expect(values).not.toContainEqual(oldValue);
+  });
+});
