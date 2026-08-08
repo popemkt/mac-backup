@@ -2,7 +2,9 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
+  ListResourcesRequestSchema,
   ListToolsRequestSchema,
+  ReadResourceRequestSchema,
   type CallToolResult,
   type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
@@ -10,8 +12,11 @@ import { openKb, reload } from "../context.ts";
 import { resolveRoot } from "./root.ts";
 import { invoke, manifest } from "../registry.ts";
 import type { ActionInvocation } from "../shared/contracts.ts";
+import { listViewNames, renderNamedView } from "../render/index.ts";
 
 const MANIFEST_TOOL = "kb_manifest";
+const RENDER_TOOL = "render_view";
+const VIEW_URI_PREFIX = "ui://kb/view/";
 
 function actionIdToToolName(actionId: string): string {
   return actionId.replaceAll(".", "_");
@@ -64,14 +69,62 @@ export async function createMcpServer(root: string): Promise<Server> {
         destructiveHint: false,
       },
     },
+    {
+      name: RENDER_TOOL,
+      title: "Render a kb view",
+      description:
+        "Render a saved view (.kb/views/<name>.json) as html or md. " +
+        `The same content is exposed as ${VIEW_URI_PREFIX}<name> resources.`,
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          view: { type: "string", description: "view name" },
+          format: { type: "string", enum: ["html", "md"], default: "html" },
+        },
+        required: ["view"],
+      },
+      annotations: {
+        title: "Render a kb view",
+        readOnlyHint: true,
+        destructiveHint: false,
+      },
+    },
   ];
 
   const server = new Server(
     { name: "kb", version: "0.1.0" },
-    { capabilities: { tools: {} } },
+    { capabilities: { tools: {}, resources: {} } },
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
+
+  // MCP Apps backbone: each saved view is a ui:// html resource.
+  server.setRequestHandler(ListResourcesRequestSchema, async () => {
+    await reload(ctx);
+    const names = await listViewNames(ctx);
+    return {
+      resources: names.map((name) => ({
+        uri: `${VIEW_URI_PREFIX}${name}`,
+        name: `kb view: ${name}`,
+        mimeType: "text/html",
+      })),
+    };
+  });
+
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    const uri = request.params.uri;
+    if (!uri.startsWith(VIEW_URI_PREFIX)) {
+      throw new Error(`unknown resource: ${uri}`);
+    }
+    const name = uri.slice(VIEW_URI_PREFIX.length);
+    await reload(ctx);
+    const rendered = await renderNamedView(ctx, name, "html");
+    return {
+      contents: [
+        { uri, mimeType: "text/html", text: rendered.content },
+      ],
+    };
+  });
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     try {
@@ -79,6 +132,19 @@ export async function createMcpServer(root: string): Promise<Server> {
 
       if (name === MANIFEST_TOOL) {
         return jsonResult(manifest());
+      }
+
+      if (name === RENDER_TOOL) {
+        const view = (args as { view?: unknown })?.view;
+        const format = (args as { format?: unknown })?.format ?? "html";
+        if (typeof view !== "string" || (format !== "html" && format !== "md")) {
+          return errorResult("invalid_input", "expected {view: string, format?: 'html'|'md'}");
+        }
+        await reload(ctx);
+        const rendered = await renderNamedView(ctx, view, format);
+        return {
+          content: [{ type: "text" as const, text: rendered.content }],
+        } satisfies CallToolResult;
       }
 
       const action = byToolName.get(name);

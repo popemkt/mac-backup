@@ -101,4 +101,46 @@ describe("MCP surface", () => {
     await client.close();
     await server.close();
   });
+
+  test("views are ui:// resources and render_view returns html", async () => {
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    await mkdir(join(root, ".kb", "views"), { recursive: true });
+    await writeFile(
+      join(root, ".kb", "views", "todos.json"),
+      JSON.stringify({
+        output: "docs/kb/todos.md",
+        query:
+          '[:find ?id :where [?n :f/sys.f.type ?tag] [?tag :node/text "todo"] [?n :node/id ?id]]',
+        template: "todos",
+      }),
+    );
+
+    const server = await createMcpServer(root);
+    const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      client.connect(clientTransport),
+      server.connect(serverTransport),
+    ]);
+
+    const resources = await client.listResources();
+    const uris = resources.resources.map((r) => r.uri);
+    expect(uris).toContain("ui://kb/view/todos");
+
+    const read = await client.readResource({ uri: "ui://kb/view/todos" });
+    const first = read.contents[0]!;
+    expect(first.mimeType).toBe("text/html");
+    expect(String(first.text)).toContain("<h1>Todos</h1>");
+
+    const rendered = await client.callTool({
+      name: "render_view",
+      arguments: { view: "todos", format: "md" },
+    });
+    const text = (rendered.content as Array<{ text: string }>)[0]!.text;
+    expect(text).toContain("# Todos");
+
+    await client.close();
+    await server.close();
+  });
 });
