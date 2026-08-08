@@ -1,0 +1,39 @@
+/** Node identity: ULID, or reserved `sys.*` system ids. */
+export type NodeId = string;
+
+/**
+ * Property values keyed by field-node id.
+ * Refs point at other nodes by NodeId.
+ */
+export type PropValue =
+  | { t: "str" | "num" | "bool" | "date"; v: string | number | boolean }
+  | { t: "ref"; v: NodeId };
+
+/** Everything is a node — fields and tags included. */
+export interface KbNode {
+  id: NodeId;
+  text: string;
+  /** key = FIELD NODE id, not a display name */
+  props: Record<NodeId, PropValue[]>;
+  /** ordered outline children */
+  children: NodeId[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const SYSTEM_IDS = {
+  field: "sys.field",
+  tag: "sys.tag",
+  typeField: "sys.f.type",
+  fieldsField: "sys.f.fields",
+} as const;
+
+export type SystemId = (typeof SYSTEM_IDS)[keyof typeof SYSTEM_IDS];
+
+export function isSystemId(id: string): id is SystemId {
+  return (Object.values(SYSTEM_IDS) as string[]).includes(id);
+}
+
+export function nowIso(): string {
+  return new Date().toISOString();
+}
