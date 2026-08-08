@@ -289,7 +289,6 @@ async function listSavedQueries(
   return out;
 }
 
-<<<<<<< HEAD
 /**
  * Read-only GET for `.kb/assets/*`. Traversal / missing → 403 / 404.
  * Never lists the directory.
@@ -351,8 +350,6 @@ function assetContentType(absPath: string): string {
   return ASSET_MIME[ext] ?? "application/octet-stream";
 }
 
-||||||| feefc65
-=======
 /** Stable timestamp keeps virtual nodes out of the content-hash noise. */
 const SAVED_QUERY_ISO = "1970-01-01T00:00:00.000Z";
 
@@ -384,7 +381,6 @@ export function savedQueryNodes(
   return [root, ...queries];
 }
 
->>>>>>> popemkt/kb-w4-query
 async function serveStatic(
   pathname: string,
 ): Promise<Response | null> {
