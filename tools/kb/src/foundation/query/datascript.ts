@@ -35,10 +35,33 @@ const QUERY_DIRECTIVES = new Set([
  * Rewrite `:attr` → `":attr"` (quoted) except query directives.
  */
 export function normalizeEdnQuery(edn: string): string {
-  return edn.replace(/:([A-Za-z*][\w./+*-]*)/g, (match, name: string) => {
-    if (QUERY_DIRECTIVES.has(name)) return match;
-    return `"${match}"`;
-  });
+  const keyword = /^:([A-Za-z*][\w./+*-]*)/;
+  let out = "";
+  let i = 0;
+  while (i < edn.length) {
+    if (edn[i] === '"') {
+      let j = i + 1;
+      while (j < edn.length) {
+        if (edn[j] === "\\") j += 2;
+        else if (edn[j] === '"') {
+          j += 1;
+          break;
+        } else j += 1;
+      }
+      out += edn.slice(i, j);
+      i = j;
+      continue;
+    }
+    const m = keyword.exec(edn.slice(i));
+    if (m) {
+      out += QUERY_DIRECTIVES.has(m[1]!) ? m[0] : `"${m[0]}"`;
+      i += m[0].length;
+      continue;
+    }
+    out += edn[i];
+    i += 1;
+  }
+  return out;
 }
 
 export function buildIdMap(nodes: KbNode[]): IdMap {

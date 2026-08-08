@@ -156,6 +156,25 @@ function applyProps(
   }
 }
 
+function isInSubtree(
+  nodes: KbNode[],
+  rootId: NodeId,
+  targetId: NodeId,
+): boolean {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const stack = [rootId];
+  const seen = new Set<NodeId>();
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    if (id === targetId) return true;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const n = byId.get(id);
+    if (n) stack.push(...n.children);
+  }
+  return false;
+}
+
 function detachFromParents(nodes: KbNode[], childId: NodeId): KbNode[] {
   const touched: KbNode[] = [];
   for (const n of nodes) {
@@ -300,6 +319,16 @@ export async function nodeUpdate(
   }
 
   if (input.parent !== undefined) {
+    if (
+      input.parent !== null &&
+      isInSubtree(ctx.nodes, input.id, input.parent)
+    ) {
+      throw new ResolveError(
+        "invalid_move",
+        `cannot move ${input.id} under itself or its own descendant ${input.parent}`,
+        { id: input.id, parent: input.parent },
+      );
+    }
     upserts.push(...detachFromParents(ctx.nodes, input.id));
     if (input.parent !== null) {
       const parent =

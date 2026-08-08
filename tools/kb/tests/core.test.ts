@@ -220,4 +220,57 @@ describe("registry + operations", () => {
       await invoke(ctx, { id: "node.get", input: { id: "missing" } });
     }).not.toThrow();
   });
+
+  test("node.update rejects moves into own subtree", async () => {
+    const ctx = await openKb(root);
+    const a = await invoke(ctx, { id: "node.add", input: { text: "a" } });
+    const aId = (a as { output: { id: string } }).output.id;
+    const b = await invoke(ctx, {
+      id: "node.add",
+      input: { text: "b", parent: aId },
+    });
+    const bId = (b as { output: { id: string } }).output.id;
+    const c = await invoke(ctx, {
+      id: "node.add",
+      input: { text: "c", parent: bId },
+    });
+    const cId = (c as { output: { id: string } }).output.id;
+
+    const selfMove = await invoke(ctx, {
+      id: "node.update",
+      input: { id: aId, parent: aId },
+    });
+    expect(selfMove.status).toBe("failed");
+
+    const cycleMove = await invoke(ctx, {
+      id: "node.update",
+      input: { id: aId, parent: cId },
+    });
+    expect(cycleMove.status).toBe("failed");
+    if (cycleMove.status === "failed") {
+      expect(cycleMove.code).toBe("invalid_move");
+    }
+
+    // legal reparent still works
+    const ok = await invoke(ctx, {
+      id: "node.update",
+      input: { id: cId, parent: aId },
+    });
+    expect(ok.status).toBe("succeeded");
+  });
+
+  test("graph.query keeps colons inside string literals intact", async () => {
+    const ctx = await openKb(root);
+    await invoke(ctx, { id: "node.add", input: { text: "Type:Draft" } });
+    const q = await invoke(ctx, {
+      id: "graph.query",
+      input: {
+        query: '[:find ?e :where [?e :node/text "Type:Draft"]]',
+      },
+    });
+    expect(q.status).toBe("succeeded");
+    if (q.status === "succeeded") {
+      expect((q.output as { rows: unknown[][] }).rows.length).toBe(1);
+    }
+  });
 });

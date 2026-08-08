@@ -2,7 +2,7 @@ import { SYSTEM_IDS, type KbNode, type NodeId } from "./model.ts";
 
 export class ResolveError extends Error {
   constructor(
-    readonly code: "not_found" | "ambiguous",
+    readonly code: "not_found" | "ambiguous" | "invalid_move",
     message: string,
     readonly details?: unknown,
   ) {
