@@ -28,6 +28,8 @@ export const SYSTEM_IDS = {
   fieldsField: "sys.f.fields",
   /** Optional chip color on tag definition nodes (DESIGN-RESKIN §1.8). */
   colorField: "sys.f.color",
+  /** Per-field visibility: when true, field rows are hidden unless debug mode. */
+  hiddenField: "sys.f.hidden",
   /** Type node for palette command nodes (DESIGN-REFINE §2 W3). */
   command: "sys.command",
   cmdAddNode: "sys.cmd.add-node",
@@ -39,6 +41,7 @@ export const SYSTEM_IDS = {
   cmdPreferences: "sys.cmd.preferences",
   cmdToggleTheme: "sys.cmd.toggle-theme",
   cmdToggleWidth: "sys.cmd.toggle-width",
+  cmdDebugShowFields: "sys.cmd.debug-show-fields",
   /** Query nodes as pure system nodes (DESIGN-REFINE §2 W4). */
   queryTag: "sys.tag.query",
   queryField: "sys.f.query",

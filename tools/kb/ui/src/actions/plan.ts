@@ -555,6 +555,26 @@ export function planRemoveTagField(
   });
 }
 
+export function planSetFieldHidden(
+  nodes: WireNode[],
+  fieldId: string,
+  hidden: boolean,
+): PlannedMutation {
+  if (fieldId.startsWith("sys.")) {
+    throw new Error("sys.* fields are read-only");
+  }
+  if (hidden) {
+    return planSetProp(nodes, fieldId, SYSTEM_IDS.hiddenField, {
+      t: "bool",
+      v: true,
+    });
+  }
+  return planUnsetProp(nodes, fieldId, SYSTEM_IDS.hiddenField, {
+    t: "bool",
+    v: true,
+  });
+}
+
 export function planSetTagColor(
   nodes: WireNode[],
   tagId: string,

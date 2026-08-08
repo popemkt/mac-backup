@@ -1,6 +1,7 @@
 import { memo, useCallback } from "react";
 import { isQueryNode } from "@/lib/query-node";
 import { resolveProps } from "@/lib/graph-view";
+import { usePrefsStore } from "@/stores/prefs.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { mutations } from "@/actions/mutations";
 import { Bullet } from "./bullet";
@@ -35,6 +36,7 @@ export const NodeBlock = memo(function NodeBlock({
     (s) => s.getPreviousVisibleNode,
   );
   const getNextVisibleNode = useOutlineStore((s) => s.getNextVisibleNode);
+  const showAllFields = usePrefsStore((s) => s.showAllFields);
 
   const primaryTagColor = node?.tags[0]?.color ?? null;
 
@@ -202,7 +204,8 @@ export const NodeBlock = memo(function NodeBlock({
   const isSelected = selectedNodeId === nodeId;
   const hasChildren = node.children.length > 0;
   const isQuery = isQueryNode(node);
-  const hasFields = resolveProps(node, nodes).length > 0;
+  const hasFields =
+    resolveProps(node, nodes, { showAllFields }).length > 0;
   const isExpandable = hasChildren || isQuery || hasFields;
 
   return (

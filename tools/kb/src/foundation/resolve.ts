@@ -62,14 +62,19 @@ export function resolveFieldId(nodes: KbNode[], nameOrId: string): NodeId {
   if (
     nameOrId === SYSTEM_IDS.typeField ||
     nameOrId === SYSTEM_IDS.fieldsField ||
+    nameOrId === SYSTEM_IDS.hiddenField ||
     nameOrId === "type" ||
-    nameOrId === "fields"
+    nameOrId === "fields" ||
+    nameOrId === "hidden"
   ) {
     if (nameOrId === "type" || nameOrId === SYSTEM_IDS.typeField) {
       return SYSTEM_IDS.typeField;
     }
     if (nameOrId === "fields" || nameOrId === SYSTEM_IDS.fieldsField) {
       return SYSTEM_IDS.fieldsField;
+    }
+    if (nameOrId === "hidden" || nameOrId === SYSTEM_IDS.hiddenField) {
+      return SYSTEM_IDS.hiddenField;
     }
   }
   return resolveNamed(nodes, nameOrId, "field");

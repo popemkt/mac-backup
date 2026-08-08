@@ -9,6 +9,7 @@ export const SYSTEM_IDS = {
   typeField: "sys.f.type",
   fieldsField: "sys.f.fields",
   colorField: "sys.f.color",
+  hiddenField: "sys.f.hidden",
   command: "sys.command",
   cmdAddNode: "sys.cmd.add-node",
   cmdAddTag: "sys.cmd.add-tag",
@@ -19,6 +20,7 @@ export const SYSTEM_IDS = {
   cmdPreferences: "sys.cmd.preferences",
   cmdToggleTheme: "sys.cmd.toggle-theme",
   cmdToggleWidth: "sys.cmd.toggle-width",
+  cmdDebugShowFields: "sys.cmd.debug-show-fields",
   /** Query nodes as pure system nodes (DESIGN-REFINE §2 W4). */
   queryTag: "sys.tag.query",
   queryField: "sys.f.query",
@@ -68,4 +70,6 @@ export interface ResolvedProp {
   fieldId: string;
   fieldName: string;
   values: PropValue[];
+  /** Muted debug row when show-all-fields is on. */
+  debug?: boolean;
 }

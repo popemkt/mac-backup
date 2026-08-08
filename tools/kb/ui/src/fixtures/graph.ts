@@ -31,6 +31,16 @@ export const fixtureGraph: GraphSnapshot = {
       text: "fields",
       props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
     }),
+    node({
+      id: "sys.f.hidden",
+      text: "hidden",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.f.color",
+      text: "color",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
     node({ id: "sys.command", text: "sys.command" }),
     node({
       id: "sys.cmd.add-node",
@@ -55,6 +65,11 @@ export const fixtureGraph: GraphSnapshot = {
     node({
       id: "sys.cmd.new-query",
       text: "New query node",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
+    node({
+      id: "sys.cmd.debug-show-fields",
+      text: "Debug: show all fields",
       props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
     }),
     node({
@@ -84,6 +99,14 @@ export const fixtureGraph: GraphSnapshot = {
       props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
     }),
     node({
+      id: "field.noisy",
+      text: "noisy",
+      props: {
+        "sys.f.type": [{ t: "ref", v: "sys.field" }],
+        "sys.f.hidden": [{ t: "bool", v: true }],
+      },
+    }),
+    node({
       id: "tag.todo",
       text: "todo",
       props: {
@@ -97,6 +120,7 @@ export const fixtureGraph: GraphSnapshot = {
       props: {
         "sys.f.type": [{ t: "ref", v: "tag.todo" }],
         "field.status": [{ t: "str", v: "doing" }],
+        "field.noisy": [{ t: "str", v: "internal" }],
       },
       children: ["n.child-a1", "n.child-a2"],
     }),

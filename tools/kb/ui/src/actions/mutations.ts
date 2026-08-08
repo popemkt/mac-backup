@@ -180,6 +180,12 @@ export const mutations = {
     await applyPlan(planSetTagColor(wire(), tagId, color));
   },
 
+  async setFieldHidden(fieldId: string, hidden: boolean): Promise<void> {
+    if (!guardSysWrite(fieldId)) return;
+    const { planSetFieldHidden } = await import("@/actions/plan");
+    await applyPlan(planSetFieldHidden(wire(), fieldId, hidden));
+  },
+
   async splitNode(id: string, cursor: number): Promise<void> {
     if (!guardSysWrite(id)) return;
     await applyPlan(planSplit(wire(), id, cursor, ulid()));

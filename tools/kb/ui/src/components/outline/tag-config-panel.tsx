@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Hash, Plus, X } from "@phosphor-icons/react";
+import { Hash, Eye, EyeSlash, Plus, X } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
+import { isFieldNodeHidden } from "@/lib/field-visibility";
 import { TAG_PALETTE } from "@/lib/tag-color";
-import { SYSTEM_IDS, type NodeMap } from "@/lib/types";
+import { isSysPrefixed, SYSTEM_IDS, type NodeMap } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { FieldRow } from "./field-row";
 import { TagChip } from "./tag-chip";
@@ -145,14 +146,46 @@ export function TagConfigPanel({
         <div className="px-1 py-1">
           {fieldIds.map((fieldId) => {
             const fieldNode = nodes.get(fieldId);
+            const hidden = isFieldNodeHidden(fieldId, nodes);
+            const readOnly = isSysPrefixed(fieldId);
             return (
               <FieldRow
                 key={fieldId}
                 depth={-1}
+                fieldId={fieldId}
                 label={fieldNode?.text ?? fieldId}
                 onRemove={() => void mutations.removeTagField(tagId, fieldId)}
               >
-                <span className="kb-text text-foreground/50">{fieldId}</span>
+                <div className="flex min-h-6 items-center justify-between gap-2">
+                  <span className="kb-text truncate text-foreground/50">
+                    {fieldId}
+                  </span>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-sm",
+                      "text-foreground/30 transition-colors hover:bg-foreground/8 hover:text-foreground/60",
+                      readOnly && "cursor-default opacity-40",
+                    )}
+                    title={
+                      readOnly
+                        ? "System field visibility is read-only"
+                        : hidden
+                          ? "Show field on nodes"
+                          : "Hide field on nodes"
+                    }
+                    disabled={readOnly}
+                    onClick={() =>
+                      void mutations.setFieldHidden(fieldId, !hidden)
+                    }
+                  >
+                    {hidden ? (
+                      <EyeSlash size={13} weight="bold" />
+                    ) : (
+                      <Eye size={13} weight="bold" />
+                    )}
+                  </button>
+                </div>
               </FieldRow>
             );
           })}

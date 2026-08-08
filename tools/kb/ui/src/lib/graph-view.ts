@@ -3,6 +3,10 @@ import { isQueryTagBadges } from "@/lib/query-node";
 import { resolveTagColor } from "@/lib/tag-color";
 import { compareWireNodeId } from "@/lib/tx";
 import {
+  resolveVisibleProps,
+  type ResolvePropsOptions,
+} from "@/lib/field-visibility";
+import {
   EXPANDED_STORAGE_KEY,
   LEGACY_COLLAPSED_STORAGE_KEY,
   LEGACY_EXPANDED_QUERIES_STORAGE_KEY,
@@ -141,18 +145,9 @@ export function wireToOutlineMap(
 export function resolveProps(
   node: OutlineNode,
   nodes: NodeMap,
+  opts?: ResolvePropsOptions,
 ): ResolvedProp[] {
-  const out: ResolvedProp[] = [];
-  for (const [fieldId, values] of Object.entries(node.props)) {
-    if (fieldId === SYSTEM_IDS.typeField) continue; // shown as tags
-    const fieldNode = nodes.get(fieldId);
-    out.push({
-      fieldId,
-      fieldName: fieldNode?.text ?? fieldId,
-      values,
-    });
-  }
-  return out;
+  return resolveVisibleProps(node, nodes, opts);
 }
 
 export function formatPropValue(
