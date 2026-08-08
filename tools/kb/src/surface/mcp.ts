@@ -6,7 +6,7 @@ import {
   type CallToolResult,
   type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-import { openKb } from "../context.ts";
+import { openKb, reload } from "../context.ts";
 import { invoke, manifest } from "../registry.ts";
 import type { ActionInvocation } from "../shared/contracts.ts";
 
@@ -89,6 +89,9 @@ export async function createMcpServer(root: string): Promise<Server> {
         id: action.id,
         input: args ?? {},
       };
+      // The server is long-lived while the CLI mutates the same .kb files;
+      // reload keeps per-invocation semantics instead of serving stale state.
+      await reload(ctx);
       const receipt = await invoke(ctx, invocation);
 
       if (receipt.status === "succeeded") {
