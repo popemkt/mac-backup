@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "kb": {
+      "command": "bun",
+      "args": ["tools/kb/src/surface/mcp.ts", "--root", "."]
+    }
+  }
+}

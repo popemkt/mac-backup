@@ -4,4 +4,12 @@
 
 ## todo
 
+- Study production nix repo shape before adopting
+
+## done
+
 - Migrate TODO.md items into kb (M5)
+
+## parked
+
+- Revisit app catalog → Nix package-list hydration (parked experiment)

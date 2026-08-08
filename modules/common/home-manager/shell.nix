@@ -18,6 +18,7 @@ _:
 
       # Dotfiles maintenance
       dump-login-items = "bash ~/.dotfiles/scripts/dump-login-items.sh";
+      kb = "bun ~/.dotfiles/tools/kb/src/surface/cli.ts";
 
       # Git
       gs = "git status";
