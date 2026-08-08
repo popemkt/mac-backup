@@ -9,6 +9,7 @@
     "bench": "bun test tests/benchmark.test.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "datascript": "^1.7.8",
     "ulid": "^3.0.2",
     "zod": "^4.4.3"
