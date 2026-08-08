@@ -13,6 +13,7 @@ import {
   type LensRenderer,
 } from "@/lib/graph-lens";
 import { SYSTEM_IDS } from "@/lib/types";
+import { cn } from "@/lib/cn";
 import { graphPath, navigate } from "@/lib/router";
 import { PerspectivePicker } from "@/components/graph/perspective-picker";
 import { RendererSwitch } from "@/components/graph/renderer-switch";
@@ -42,6 +43,9 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
   const prefsOpen = useUiStore((s) => s.prefsOpen);
   const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
 
+  /** Local pref: show sys/command/schema nodes (smart-elide off). */
+  const [includeSystemNodes, setIncludeSystemNodes] = useState(false);
+
   const perspectives = useMemo(
     () => listPerspectiveNodes(wireNodes).map(parsePerspective),
     [wireNodes, rev],
@@ -68,17 +72,19 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
 
   const [lensGraph, setLensGraph] = useState(() =>
     queryDb && active
-      ? extractLensGraph(queryDb, wireNodes, active)
+      ? extractLensGraph(queryDb, wireNodes, active, { includeSystemNodes })
       : { nodes: [], edges: [], dropped: 0 },
   );
 
   useEffect(() => {
     if (!queryDb || !active) return;
     const handle = window.setTimeout(() => {
-      setLensGraph(extractLensGraph(queryDb, wireNodes, active));
+      setLensGraph(
+        extractLensGraph(queryDb, wireNodes, active, { includeSystemNodes }),
+      );
     }, 300);
     return () => window.clearTimeout(handle);
-  }, [queryDb, wireNodes, active, rev]);
+  }, [queryDb, wireNodes, active, rev, includeSystemNodes]);
 
   const forest = useMemo(
     () =>
@@ -88,7 +94,8 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
     [wireNodes, lensGraph.nodes, active],
   );
 
-  const themeKey = `${theme}:${dark ? "d" : "l"}:${rev}`;
+  // Theme tokens only — topology updates via nodes/edges props (not remount).
+  const themeKey = `${theme}:${dark ? "d" : "l"}`;
   const onNodeClick = (id: string) => {
     navigate("/");
     zoomTo(id);
@@ -120,6 +127,25 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
             }}
           />
         ) : null}
+        <button
+          type="button"
+          className={cn(
+            "rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors duration-100",
+            includeSystemNodes
+              ? "bg-foreground/[0.08] text-foreground/70"
+              : "text-foreground/35 hover:bg-foreground/[0.04] hover:text-foreground/55",
+          )}
+          data-elide-toggle="true"
+          aria-pressed={includeSystemNodes}
+          title={
+            includeSystemNodes
+              ? "Hide sys / command / schema nodes"
+              : "Show sys / command / schema nodes"
+          }
+          onClick={() => setIncludeSystemNodes((v) => !v)}
+        >
+          {includeSystemNodes ? "sys on" : "sys off"}
+        </button>
         <span className="text-[11px] text-foreground/30">
           {lensGraph.nodes.length} nodes · {lensGraph.edges.length} edges
           {lensGraph.dropped > 0 ? ` · −${lensGraph.dropped}` : ""}

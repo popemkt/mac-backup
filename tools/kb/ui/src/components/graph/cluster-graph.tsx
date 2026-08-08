@@ -245,11 +245,12 @@ export function ClusterGraph({
 
   return (
     <div className="relative h-full w-full min-h-0" data-testid="cluster-graph">
-      <div ref={containerRef} className="absolute inset-0" />
+      {/* Hull canvas under Sigma so fills/labels sit behind node glyphs. */}
       <canvas
         ref={hullRef}
-        className="pointer-events-none absolute inset-0"
+        className="pointer-events-none absolute inset-0 z-0"
       />
+      <div ref={containerRef} className="absolute inset-0 z-10" />
     </div>
   );
 }

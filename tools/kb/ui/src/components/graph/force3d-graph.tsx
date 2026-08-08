@@ -33,6 +33,8 @@ type FgNode = {
 
 type FgLink = { source: string; target: string; kind: string };
 
+type Vec3 = { x: number; y: number; z: number };
+
 export default function Force3dGraph({
   nodes,
   edges,
@@ -42,6 +44,9 @@ export default function Force3dGraph({
 }: Force3dGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<ForceGraph3DInstance | null>(null);
+  const positionsRef = useRef<Map<string, Vec3>>(new Map());
+  const cameraRef = useRef<Vec3 | null>(null);
+  const layoutKeyRef = useRef(layoutKey);
   const onClickRef = useRef(onNodeClick);
   onClickRef.current = onNodeClick;
 
@@ -56,6 +61,12 @@ export default function Force3dGraph({
     }
     graphRef.current = null;
 
+    if (layoutKeyRef.current !== layoutKey) {
+      positionsRef.current = new Map();
+      cameraRef.current = null;
+      layoutKeyRef.current = layoutKey;
+    }
+
     const background = readTokenColor("--background", {
       fallback: "rgb(20,20,20)",
     });
@@ -65,7 +76,7 @@ export default function Force3dGraph({
     });
 
     const clusters = [...new Set(nodes.map((n) => n.clusterKey))].sort();
-    const attractors = new Map<string, { x: number; y: number; z: number }>();
+    const attractors = new Map<string, Vec3>();
     const radius = 120 + clusters.length * 20;
     clusters.forEach((key, i) => {
       attractors.set(
@@ -74,19 +85,31 @@ export default function Force3dGraph({
       );
     });
 
+    const prev = positionsRef.current;
+    const nextPositions = new Map<string, Vec3>();
+
     const fgNodes: FgNode[] = nodes.map((n) => {
       const a = attractors.get(n.clusterKey) ?? { x: 0, y: 0, z: 0 };
+      const prior = prev.get(n.id);
+      const pos = prior ?? {
+        x: a.x + (Math.random() - 0.5) * 20,
+        y: a.y + (Math.random() - 0.5) * 20,
+        z: a.z + (Math.random() - 0.5) * 20,
+      };
+      nextPositions.set(n.id, pos);
       return {
         id: n.id,
         name: n.label,
         color: n.color,
         val: n.size,
         clusterKey: n.clusterKey,
-        x: a.x + (Math.random() - 0.5) * 20,
-        y: a.y + (Math.random() - 0.5) * 20,
-        z: a.z + (Math.random() - 0.5) * 20,
+        x: pos.x,
+        y: pos.y,
+        z: pos.z,
       };
     });
+    positionsRef.current = nextPositions;
+
     const idSet = new Set(nodes.map((n) => n.id));
     const fgLinks: FgLink[] = edges
       .filter((e) => idSet.has(e.source) && idSet.has(e.target))
@@ -117,6 +140,15 @@ export default function Force3dGraph({
       }
     });
 
+    if (cameraRef.current) {
+      const c = cameraRef.current;
+      try {
+        Graph.cameraPosition({ x: c.x, y: c.y, z: c.z });
+      } catch {
+        /* */
+      }
+    }
+
     graphRef.current = Graph;
 
     const ro = new ResizeObserver(() => {
@@ -127,6 +159,36 @@ export default function Force3dGraph({
 
     return () => {
       ro.disconnect();
+      try {
+        const cam = Graph.cameraPosition();
+        if (
+          cam &&
+          typeof cam.x === "number" &&
+          typeof cam.y === "number" &&
+          typeof cam.z === "number"
+        ) {
+          cameraRef.current = { x: cam.x, y: cam.y, z: cam.z };
+        }
+      } catch {
+        /* */
+      }
+      try {
+        const data = Graph.graphData() as unknown as { nodes?: FgNode[] };
+        const snap = new Map<string, Vec3>();
+        for (const n of data.nodes ?? fgNodes) {
+          if (
+            n.id &&
+            typeof n.x === "number" &&
+            typeof n.y === "number" &&
+            typeof n.z === "number"
+          ) {
+            snap.set(n.id, { x: n.x, y: n.y, z: n.z });
+          }
+        }
+        if (snap.size > 0) positionsRef.current = snap;
+      } catch {
+        /* */
+      }
       try {
         Graph._destructor();
       } catch {

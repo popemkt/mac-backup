@@ -159,6 +159,25 @@ describe("extractLensGraph", () => {
     });
   });
 
+  it("smart-elides sys/command/schema by default; toggle re-includes", () => {
+    const db = buildQueryDb(nodes, 1);
+    const elided = extractLensGraph(db, nodes, perspective());
+    const elidedIds = new Set(elided.nodes.map((n) => n.id));
+    expect(elidedIds.has("sys.field")).toBe(false);
+    expect(elidedIds.has("sys.f.type")).toBe(false);
+    expect(elidedIds.has("tag.todo")).toBe(false);
+    expect(elidedIds.has("n.a")).toBe(true);
+    expect(elidedIds.has("n.b")).toBe(true);
+
+    const full = extractLensGraph(db, nodes, perspective(), {
+      includeSystemNodes: true,
+    });
+    const fullIds = new Set(full.nodes.map((n) => n.id));
+    expect(fullIds.has("sys.field")).toBe(true);
+    expect(fullIds.has("tag.todo")).toBe(true);
+    expect(full.nodes.length).toBeGreaterThan(elided.nodes.length);
+  });
+
   it("selects only ref-prop edges when configured", () => {
     const db = buildQueryDb(nodes, 1);
     const g = extractLensGraph(

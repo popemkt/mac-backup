@@ -82,6 +82,36 @@ describe("V0 seed: graph-perspective + lens fields", () => {
     expect(again.nodes.length).toBe(first.nodes.length);
   });
 
+  test("ensureSystemSeed merges missing lens.cluster-by/focus onto existing tag", () => {
+    const at = "2026-08-08T00:00:00.000Z";
+    const staleTag: KbNode = {
+      id: SYSTEM_IDS.graphPerspectiveTag,
+      text: "graph-perspective",
+      props: {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+        [SYSTEM_IDS.fieldsField]: [
+          { t: "ref", v: SYSTEM_IDS.lensQueryField },
+          { t: "ref", v: SYSTEM_IDS.lensRendererField },
+        ],
+      },
+      children: [],
+      createdAt: at,
+      updatedAt: at,
+    };
+    const result = ensureSystemSeed([staleTag]);
+    expect(result.seeded).toBe(true);
+    const tag = result.nodes.find(
+      (n) => n.id === SYSTEM_IDS.graphPerspectiveTag,
+    )!;
+    const fieldIds = refs(tag, SYSTEM_IDS.fieldsField);
+    expect(fieldIds).toContain(SYSTEM_IDS.lensClusterByField);
+    expect(fieldIds).toContain(SYSTEM_IDS.lensFocusField);
+    expect(fieldIds).toContain(SYSTEM_IDS.lensQueryField);
+
+    const again = ensureSystemSeed(result.nodes);
+    expect(again.seeded).toBe(false);
+  });
+
   test("migrates legacy sys.lens.all-mentions → lens.all-mentions", () => {
     const at = "2026-08-08T00:00:00.000Z";
     const legacy: KbNode = {

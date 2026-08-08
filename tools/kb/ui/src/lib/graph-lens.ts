@@ -300,16 +300,47 @@ export function idsFromQueryRows(
   return out;
 }
 
+/**
+ * Smart-elide targets: sys.* ids, #command nodes, and tag/field template
+ * nodes (schema), so default empty-query lenses paint content — not scaffolding.
+ */
+export function isElidedSchemaNode(wire: WireNode): boolean {
+  if (wire.id.startsWith("sys.")) return true;
+  const types = wire.props[SYSTEM_IDS.typeField] ?? [];
+  for (const v of types) {
+    if (v.t !== "ref") continue;
+    if (
+      v.v === SYSTEM_IDS.command ||
+      v.v === SYSTEM_IDS.field ||
+      v.v === SYSTEM_IDS.tag
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export interface ExtractLensOptions {
+  /** When true, keep sys/command/schema nodes. Default false (smart-elide). */
+  includeSystemNodes?: boolean;
+}
+
 function resolveNodeSet(
   db: QueryDb,
   wireNodes: WireNode[],
   perspective: LensPerspective,
+  opts: ExtractLensOptions = {},
 ): Set<string> {
-  const all = new Set(wireNodes.map((n) => n.id));
+  const includeSystem = opts.includeSystemNodes === true;
+  const candidates = includeSystem
+    ? wireNodes
+    : wireNodes.filter((n) => !isElidedSchemaNode(n));
+  const all = new Set(candidates.map((n) => n.id));
   const edn = perspective.query.trim();
   if (!edn) return all;
   try {
     const rows = runQuery(db, edn);
+    // Query may return elided ids; intersect with the (possibly filtered) set.
     return idsFromQueryRows(rows, all);
   } catch (err) {
     console.warn(
@@ -441,9 +472,10 @@ export function extractLensGraph(
   db: QueryDb,
   wireNodes: WireNode[],
   perspective: LensPerspective,
+  opts: ExtractLensOptions = {},
 ): LensGraph {
   const byId = new Map(wireNodes.map((n) => [n.id, n]));
-  const nodeSet = resolveNodeSet(db, wireNodes, perspective);
+  const nodeSet = resolveNodeSet(db, wireNodes, perspective, opts);
   const kinds = new Set(perspective.edgeKinds);
   const rawEdges = collectEdges(db, wireNodes, nodeSet, kinds);
   const candidateIds = [...nodeSet];

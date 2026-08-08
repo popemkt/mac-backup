@@ -236,9 +236,35 @@ export function ensureSystemSeed(nodes: KbNode[]): {
     seeded = true;
   }
 
+  let seedPerspectiveTag: KbNode | undefined;
   for (const seed of systemSeedNodes()) {
+    if (seed.id === SYSTEM_IDS.graphPerspectiveTag) seedPerspectiveTag = seed;
     if (!byId.has(seed.id)) {
       byId.set(seed.id, seed);
+      seeded = true;
+    }
+  }
+
+  // Merge missing template field refs onto existing #graph-perspective tag
+  // (ensureSystemSeed otherwise never rewrites existing sys.* props).
+  const existingTag = byId.get(SYSTEM_IDS.graphPerspectiveTag);
+  if (seedPerspectiveTag && existingTag) {
+    const want = seedPerspectiveTag.props[SYSTEM_IDS.fieldsField] ?? [];
+    const have = existingTag.props[SYSTEM_IDS.fieldsField] ?? [];
+    const haveIds = new Set(
+      have.filter((v) => v.t === "ref").map((v) => String(v.v)),
+    );
+    const missing = want.filter(
+      (v) => v.t === "ref" && !haveIds.has(String(v.v)),
+    );
+    if (missing.length > 0) {
+      byId.set(SYSTEM_IDS.graphPerspectiveTag, {
+        ...existingTag,
+        props: {
+          ...existingTag.props,
+          [SYSTEM_IDS.fieldsField]: [...have, ...missing],
+        },
+      });
       seeded = true;
     }
   }

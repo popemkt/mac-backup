@@ -50,15 +50,19 @@ function forestFind(forest: LensTreeNode[], id: string): LensTreeNode | null {
 
 export function TreeGraph({ forest, onNodeClick, themeKey }: TreeGraphProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
-  void themeKey;
 
-  const labelColor = readTokenColor("--foreground", {
-    fallback: "rgb(34,34,34)",
-  });
-  const linkColor = readTokenColor("--foreground", {
-    alpha: 0.2,
-    fallback: "rgba(128,128,128,0.2)",
-  });
+  const tokens = useMemo(() => {
+    void themeKey;
+    return {
+      labelColor: readTokenColor("--foreground", {
+        fallback: "rgb(34,34,34)",
+      }),
+      linkColor: readTokenColor("--foreground", {
+        alpha: 0.2,
+        fallback: "rgba(128,128,128,0.2)",
+      }),
+    };
+  }, [themeKey]);
 
   const layout = useMemo(() => {
     if (forest.length === 0) {
@@ -121,14 +125,19 @@ export function TreeGraph({ forest, onNodeClick, themeKey }: TreeGraphProps) {
       className="h-full w-full min-h-0 overflow-auto"
       data-testid="tree-graph"
     >
-      <svg width={layout.width} height={layout.height} className="block">
+      <svg
+        key={themeKey}
+        width={layout.width}
+        height={layout.height}
+        className="block"
+      >
         <g transform={`translate(${-layout.originX},${-layout.originY})`}>
           {layout.links.map((l, i) => (
             <path
               key={i}
               d={`M${l.source.y},${l.source.x}C${(l.source.y + l.target.y) / 2},${l.source.x} ${(l.source.y + l.target.y) / 2},${l.target.x} ${l.target.y},${l.target.x}`}
               fill="none"
-              stroke={linkColor}
+              stroke={tokens.linkColor}
               strokeWidth={1}
             />
           ))}
@@ -168,7 +177,7 @@ export function TreeGraph({ forest, onNodeClick, themeKey }: TreeGraphProps) {
                   x={10}
                   y={4}
                   fontSize={11}
-                  fill={labelColor}
+                  fill={tokens.labelColor}
                   style={{
                     fontFamily:
                       "Outfit Variable, ui-sans-serif, system-ui, sans-serif",
