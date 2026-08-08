@@ -122,7 +122,11 @@ export const NodeBlock = memo(function NodeBlock({
   const hasFields =
     resolveProps(node, nodes, { showAllFields }).length > 0;
   const isExpandable = hasChildren || isQuery || hasFields;
-  const showToolbar = (hasChildren || isQuery) && !node.collapsed;
+  // Tana model: list = no chrome; toolbar only when mode ≠ list AND expanded.
+  const showToolbar =
+    (hasChildren || isQuery) &&
+    !node.collapsed &&
+    viewConfig.mode !== "list";
   const projected = isProjectedViewMode(viewConfig.mode);
   const filterOpen = useUiStore((s) => s.filterPopoverFrameId === nodeId);
 

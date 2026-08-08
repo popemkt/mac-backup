@@ -111,14 +111,29 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     expect(html).toContain('data-filter-button="true"');
   });
 
-  it("zoomed-header ViewToolbar is tucked behind a gear", () => {
+  it("zoomed-header shows compact toolbar when mode ≠ list (no gear on list)", () => {
     const frame = useOutlineStore.getState().nodes.get("frame1")!;
+    expect(getViewConfig(frame.props).mode).toBe("board");
     const html = renderToStaticMarkup(
       createElement(ZoomedRootHeader, { node: frame }),
     );
-    expect(html).toContain('data-view-toolbar-gear="true"');
-    expect(html).not.toContain('data-mode-button="list"');
+    expect(html).toContain('data-view-toolbar="true"');
+    expect(html).toContain('data-mode-button="board"');
+    expect(html).not.toContain('data-view-toolbar-gear="true"');
     expect(html).toContain('data-zoomed-root-header="true"');
+
+    const listFrame = {
+      ...frame,
+      props: {
+        ...frame.props,
+        [SYSTEM_IDS.viewModeField]: [{ t: "str" as const, v: "list" }],
+      },
+    };
+    const listHtml = renderToStaticMarkup(
+      createElement(ZoomedRootHeader, { node: listFrame }),
+    );
+    expect(listHtml).not.toContain("data-view-toolbar");
+    expect(listHtml).not.toContain("data-view-toolbar-gear");
   });
 
   it("board groups by view.group field with No status column", () => {
