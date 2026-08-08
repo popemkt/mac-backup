@@ -2,10 +2,6 @@
 
 # Todos
 
-## doing
-
-- kb refine W1: token system + row anatomy (bullet catalog, fields inline, selection keymap) — DESIGN-REFINE.md
-
 ## todo
 
 - kb ui portless mode: UDS transport for local subscriber apps + port discovery via .kb/runtime.json
@@ -14,6 +10,7 @@
 
 ## done
 
+- kb refine W1: token system + row anatomy (bullet catalog, fields inline, selection keymap) — DESIGN-REFINE.md
 - Migrate TODO.md items into kb (M5)
 
 ## later

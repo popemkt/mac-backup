@@ -200,10 +200,11 @@ export function NodeContent({
   return (
     <div
       className={cn(
-        "node-content relative flex min-h-6 flex-1 items-start gap-1.5",
+        "node-content relative flex flex-1 items-start gap-1.5",
         "rounded-sm px-1",
-        isSelected && !isActive && "bg-teal-900/8",
+        isSelected && !isActive && "bg-[var(--kb-select)]",
       )}
+      style={{ minHeight: "var(--kb-row-h)" }}
       onClick={handleClick}
     >
       {isActive ? (
@@ -211,10 +212,9 @@ export function NodeContent({
           ref={editorRef}
           key="editor"
           className={cn(
-            "editable flex-1 outline-none",
-            "text-[14.5px] leading-[1.6]",
-            "text-stone-800",
-            "caret-teal-800",
+            "editable kb-text flex-1 outline-none",
+            "text-[var(--kb-fg)]",
+            "caret-[var(--kb-accent)]",
           )}
           contentEditable
           suppressContentEditableWarning
@@ -229,10 +229,9 @@ export function NodeContent({
         <div
           ref={editorRef}
           className={cn(
-            "editable flex-1 outline-none",
-            "text-[14.5px] leading-[1.6]",
-            "text-stone-800",
-            !content && "text-stone-400",
+            "editable kb-text flex-1 outline-none",
+            "text-[var(--kb-fg)]",
+            !content && "text-[var(--kb-muted)]",
           )}
           role="presentation"
         >
@@ -257,16 +256,18 @@ function TagBadges({ tags }: { tags: TagBadge[] }) {
   const zoomTo = useOutlineStore((s) => s.zoomTo);
 
   return (
-    <div className="flex h-6 items-center gap-0.5">
+    <div
+      className="flex items-center gap-0.5"
+      style={{ height: "var(--kb-row-h)" }}
+    >
       {tags.map((tag) => (
         <span
           key={tag.id}
           className={cn(
-            "inline-flex items-center gap-0.5 rounded-sm px-1.5 py-px",
-            "text-[11px] font-medium leading-[1.8]",
-            "select-none whitespace-nowrap",
+            "kb-chip inline-flex items-center gap-0.5 rounded-sm px-1.5 py-px",
+            "font-medium select-none whitespace-nowrap",
             "cursor-pointer transition-opacity hover:opacity-70",
-            "bg-teal-900/8 text-teal-900/60",
+            "bg-[var(--kb-accent-soft)] text-[var(--kb-accent)]",
           )}
           onClick={(e) => {
             e.stopPropagation();

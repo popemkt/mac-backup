@@ -2,14 +2,18 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { Breadcrumbs } from "./breadcrumbs";
 import { NodeBlock } from "./node-block";
+import { useSelectionKeymap } from "./use-selection-keymap";
 
 export function OutlineEditor() {
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
   const root = useOutlineStore((s) => s.nodes.get(s.rootNodeId));
+  useSelectionKeymap();
 
   if (!root) {
     return (
-      <div className="px-2 py-8 text-[13px] text-stone-400">Loading outline…</div>
+      <div className="px-2 py-8 text-[13px] text-[var(--kb-muted)]">
+        Loading outline…
+      </div>
     );
   }
 

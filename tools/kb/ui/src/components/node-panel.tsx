@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
+import { PropValueEditor } from "@/components/outline/field-value";
 import { queryBacklinks } from "@/ds/db";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
-import { SYSTEM_IDS, type PropValue } from "@/lib/types";
+import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 
 export function NodePanel() {
@@ -297,83 +298,5 @@ function PropsEditor({
         </form>
       </div>
     </div>
-  );
-}
-
-function PropValueEditor({
-  value,
-  display,
-  onCommit,
-}: {
-  value: PropValue;
-  display: string;
-  onCommit: (next: PropValue) => void;
-}) {
-  if (value.t === "bool") {
-    return (
-      <label className="flex flex-1 items-center gap-2 text-[12px]">
-        <input
-          type="checkbox"
-          checked={value.v}
-          onChange={(e) => onCommit({ t: "bool", v: e.target.checked })}
-        />
-        {value.v ? "true" : "false"}
-      </label>
-    );
-  }
-
-  if (value.t === "num") {
-    return (
-      <input
-        type="number"
-        className="min-w-0 flex-1 rounded border border-stone-200 px-1.5 py-0.5 text-[12px]"
-        defaultValue={value.v}
-        onBlur={(e) => {
-          const n = Number(e.target.value);
-          if (!Number.isNaN(n) && n !== value.v) onCommit({ t: "num", v: n });
-        }}
-      />
-    );
-  }
-
-  if (value.t === "date") {
-    return (
-      <input
-        type="date"
-        className="min-w-0 flex-1 rounded border border-stone-200 px-1.5 py-0.5 text-[12px]"
-        defaultValue={value.v.slice(0, 10)}
-        onBlur={(e) => {
-          if (e.target.value && e.target.value !== value.v.slice(0, 10)) {
-            onCommit({ t: "date", v: e.target.value });
-          }
-        }}
-      />
-    );
-  }
-
-  if (value.t === "ref") {
-    return (
-      <input
-        className="min-w-0 flex-1 rounded border border-stone-200 px-1.5 py-0.5 font-mono text-[11px]"
-        defaultValue={value.v}
-        title={display}
-        onBlur={(e) => {
-          const next = e.target.value.trim();
-          if (next && next !== value.v) onCommit({ t: "ref", v: next });
-        }}
-      />
-    );
-  }
-
-  return (
-    <input
-      className="min-w-0 flex-1 rounded border border-stone-200 px-1.5 py-0.5 text-[12px]"
-      defaultValue={value.v}
-      onBlur={(e) => {
-        if (e.target.value !== value.v) {
-          onCommit({ t: "str", v: e.target.value });
-        }
-      }}
-    />
   );
 }

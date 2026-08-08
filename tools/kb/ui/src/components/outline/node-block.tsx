@@ -3,22 +3,27 @@ import { cn } from "@/lib/cn";
 import { useOutlineStore } from "@/stores/outline.store";
 import { mutations } from "@/actions/mutations";
 import { Bullet } from "./bullet";
+import { FieldsSection } from "./fields-section";
 import { NodeContent } from "./node-content";
 
 interface NodeBlockProps {
   nodeId: string;
   depth: number;
+  /** Reference-row state for query results / embeds (dashed bullet ring). */
+  isRef?: boolean;
 }
 
 export const NodeBlock = memo(function NodeBlock({
   nodeId,
   depth,
+  isRef = false,
 }: NodeBlockProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const activeNodeId = useOutlineStore((s) => s.activeNodeId);
   const selectedNodeId = useOutlineStore((s) => s.selectedNodeId);
   const cursorPosition = useOutlineStore((s) => s.cursorPosition);
   const activateNode = useOutlineStore((s) => s.activateNode);
+  const selectNode = useOutlineStore((s) => s.selectNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const getPreviousVisibleNode = useOutlineStore(
@@ -42,6 +47,16 @@ export const NodeBlock = memo(function NodeBlock({
       activateNode(nodeId, cursorPos);
     },
     [activateNode, nodeId],
+  );
+
+  const handleRowSelect = useCallback(
+    (e: React.MouseEvent) => {
+      // Click on row chrome (not content) → selection mode
+      if (e.target === e.currentTarget) {
+        selectNode(nodeId);
+      }
+    },
+    [selectNode, nodeId],
   );
 
   const handleContentChange = useCallback(
@@ -170,16 +185,15 @@ export const NodeBlock = memo(function NodeBlock({
         className={cn(
           "node-row group/node flex items-start",
           "rounded-sm transition-colors duration-75",
-          isSelected && !isActive && "bg-teal-900/5",
+          isSelected && !isActive && "bg-[var(--kb-select)]",
         )}
-        style={{ paddingLeft: `${depth * 24}px` }}
+        style={{
+          paddingLeft: `calc(${depth} * var(--kb-indent))`,
+          minHeight: "var(--kb-row-h)",
+        }}
+        onClick={handleRowSelect}
       >
-        <Bullet
-          hasChildren={hasChildren}
-          collapsed={node.collapsed}
-          childCount={node.children.length}
-          onClick={handleBulletClick}
-        />
+        <Bullet node={node} isRef={isRef} onClick={handleBulletClick} />
         <NodeContent
           nodeId={nodeId}
           content={node.text}
@@ -193,14 +207,22 @@ export const NodeBlock = memo(function NodeBlock({
         />
       </div>
 
+      <FieldsSection nodeId={nodeId} depth={depth} />
+
       {hasChildren && !node.collapsed && (
         <div className="children-container relative">
           <div
-            className="absolute top-0 bottom-2 w-5 cursor-pointer group/line"
-            style={{ left: `${depth * 24 + 2}px` }}
+            className="absolute top-0 bottom-2 cursor-pointer group/line"
+            style={{
+              left: `calc(${depth} * var(--kb-indent) + 2px)`,
+              width: "var(--kb-indent)",
+            }}
             onClick={handleBulletClick}
           >
-            <div className="absolute left-[9px] top-0 bottom-0 w-px bg-stone-900/10 group-hover/line:bg-stone-900/25 transition-colors duration-200" />
+            <div
+              className="absolute top-0 bottom-0 w-px bg-[var(--kb-line)] group-hover/line:bg-[var(--kb-bullet)] transition-colors duration-200"
+              style={{ left: "9px" }}
+            />
           </div>
           {node.children.map((childId) => (
             <NodeBlock key={childId} nodeId={childId} depth={depth + 1} />
