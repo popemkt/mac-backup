@@ -2,6 +2,10 @@
 
 # Todos
 
+## doing
+
+- kb refine W1: token system + row anatomy (bullet catalog, fields inline, selection keymap) — DESIGN-REFINE.md
+
 ## todo
 
 - kb ui portless mode: UDS transport for local subscriber apps + port discovery via .kb/runtime.json
@@ -11,6 +15,15 @@
 ## done
 
 - Migrate TODO.md items into kb (M5)
+
+## later
+
+- kb refine V-wave: viz surfaces beyond nxus (2D sigma, 3D force, stacked/folder views, JSON Canvas) — DESIGN-REFINE.md + .research/kb-refine/viz/report.md
+- kb refine W2: markdown render-swap + ref links (micromark, cost budget) — DESIGN-REFINE.md
+- kb refine W3: command palette + schema-as-nodes + sys write-guard — DESIGN-REFINE.md
+- kb refine W4: query nodes (#query tag + sys.f.query, live results in outline) — DESIGN-REFINE.md
+- kb refine W5: core/extension split (.kb/extensions, docs.* -> ext.docs) — DESIGN-REFINE.md
+- kb refine W6a: inline media (.kb/assets, md images, asset.upload) — DESIGN-REFINE.md
 
 ## parked
 
