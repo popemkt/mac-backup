@@ -223,7 +223,7 @@ export function NodeContent({
       className={cn(
         "node-content relative flex flex-1 items-start gap-1.5",
         "rounded-sm px-1",
-        isSelected && !isActive && "bg-[var(--kb-select)]",
+        isSelected && !isActive && "bg-primary/8",
       )}
       style={{ minHeight: "var(--kb-row-h)" }}
       onClick={handleClick}
@@ -238,8 +238,8 @@ export function NodeContent({
             "editable",
             KB_TEXT_CLASS,
             "flex-1 outline-none",
-            "text-[var(--kb-fg)]",
-            "caret-[var(--kb-accent)]",
+            "text-foreground/85",
+            "caret-foreground/70",
           )}
           contentEditable
           suppressContentEditableWarning
@@ -251,7 +251,7 @@ export function NodeContent({
           role="textbox"
         />
       ) : (
-        <MdView text={content} className="text-[var(--kb-fg)]" />
+        <MdView text={content} className="text-foreground/85" />
       )}
 
       {tags.length > 0 && <TagBadges tags={tags} />}
@@ -282,7 +282,7 @@ function TagBadges({ tags }: { tags: TagBadge[] }) {
             "kb-chip inline-flex items-center gap-0.5 rounded-sm px-1.5 py-px",
             "font-medium select-none whitespace-nowrap",
             "cursor-pointer transition-opacity hover:opacity-70",
-            "bg-[var(--kb-accent-soft)] text-[var(--kb-accent)]",
+            "bg-primary/10 text-primary",
           )}
           onClick={(e) => {
             e.stopPropagation();

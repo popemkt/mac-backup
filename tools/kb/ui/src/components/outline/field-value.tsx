@@ -15,8 +15,8 @@ export function PropValueEditor({
   compact = false,
 }: PropValueEditorProps) {
   const inputClass = compact
-    ? "min-w-0 flex-1 rounded border border-[var(--kb-line)] bg-transparent px-1.5 py-0.5 text-[12px]"
-    : "min-w-0 flex-1 rounded border border-stone-200 px-1.5 py-0.5 text-[12px]";
+    ? "min-w-0 flex-1 rounded border border-foreground/10 bg-transparent px-1.5 py-0.5 text-[12px]"
+    : "min-w-0 flex-1 rounded border border-foreground/10 px-1.5 py-0.5 text-[12px]";
 
   if (value.t === "bool") {
     return (

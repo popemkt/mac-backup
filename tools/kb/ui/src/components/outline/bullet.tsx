@@ -53,7 +53,7 @@ export function Bullet({
       className={cn(
         "bullet-container group/bullet relative flex shrink-0 items-center justify-center",
         "rounded-sm",
-        "hover:bg-[var(--kb-halo)] transition-colors duration-100",
+        "hover:bg-foreground/5 transition-colors duration-100",
         "cursor-pointer",
         mode.isSys && "opacity-50",
       )}
@@ -82,7 +82,7 @@ export function Bullet({
     >
       {showHalo && (
         <span
-          className="absolute rounded-full bg-[var(--kb-halo)]"
+          className="absolute rounded-full bg-foreground/[0.08]"
           style={{ inset: "3px" }}
           data-bullet-halo
         />
@@ -90,7 +90,7 @@ export function Bullet({
 
       {mode.isRef && (
         <span
-          className="absolute rounded-full border border-dashed border-[var(--kb-bullet)]"
+          className="absolute rounded-full border border-dashed border-foreground/45"
           style={{ inset: "4px" }}
           data-bullet-ref-ring
         />
@@ -100,7 +100,7 @@ export function Bullet({
         <span
           className={cn(
             "relative z-[1] select-none leading-none",
-            "text-[var(--kb-bullet-strong)]",
+            "text-foreground/50",
             "text-[11px] font-medium",
           )}
           aria-hidden
@@ -111,8 +111,8 @@ export function Bullet({
         <span
           className={cn(
             "relative z-[1] block rounded-full transition-all duration-100",
-            "bg-[var(--kb-bullet)]",
-            mode.kind === "parent" && "bg-[var(--kb-bullet-strong)]",
+            "bg-foreground/45",
+            mode.kind === "parent" && "bg-foreground/50",
             mode.kind === "parent" &&
               !mode.collapsed &&
               "group-hover/bullet:opacity-90",
@@ -129,8 +129,8 @@ export function Bullet({
         <span
           className={cn(
             "absolute -right-1 -top-1 flex min-w-3.5 items-center justify-center",
-            "rounded-full bg-[var(--kb-halo)] px-0.5",
-            "kb-chip font-medium text-[var(--kb-muted)]",
+            "rounded-full bg-foreground/[0.08] px-0.5",
+            "kb-chip font-medium text-foreground/50",
           )}
           style={{ height: "14px" }}
           data-bullet-count

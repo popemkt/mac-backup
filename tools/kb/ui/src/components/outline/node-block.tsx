@@ -207,7 +207,7 @@ export const NodeBlock = memo(function NodeBlock({
         className={cn(
           "node-row group/node flex items-start",
           "rounded-sm transition-colors duration-75",
-          isSelected && !isActive && "bg-[var(--kb-select)]",
+          isSelected && !isActive && "bg-primary/5",
         )}
         style={{
           paddingLeft: `calc(${depth} * var(--kb-indent))`,
@@ -242,7 +242,7 @@ export const NodeBlock = memo(function NodeBlock({
             onClick={handleBulletClick}
           >
             <div
-              className="absolute top-0 bottom-0 w-px bg-[var(--kb-line)] group-hover/line:bg-[var(--kb-bullet)] transition-colors duration-200"
+              className="absolute top-0 bottom-0 w-px bg-foreground/[0.06] group-hover/line:bg-foreground/15 transition-colors duration-200"
               style={{ left: "9px" }}
             />
           </div>

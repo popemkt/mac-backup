@@ -33,15 +33,15 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
     kind === "tag" ? "Tagged instances" : "Nodes with this field";
 
   return (
-    <section className="mt-6 border-t border-[var(--kb-line)] px-1 pt-4">
-      <h2 className="mb-2 px-1 text-[11px] font-medium uppercase tracking-wide text-[var(--kb-muted)]">
+    <section className="mt-6 border-t border-foreground/[0.06] px-1 pt-4">
+      <h2 className="mb-2 px-1 text-[12px] uppercase tracking-wide text-foreground/30">
         {title}
         <span className="ml-1.5 font-normal normal-case tracking-normal">
           ({hits.length})
         </span>
       </h2>
       {hits.length === 0 ? (
-        <p className="px-1 text-[13px] text-[var(--kb-muted)]">None yet</p>
+        <p className="px-1 text-[13px] text-foreground/50">None yet</p>
       ) : (
         <ul className="flex flex-col">
           {hits.map((hit) => (
@@ -50,7 +50,7 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
                 type="button"
                 className={cn(
                   "flex w-full items-center gap-2 rounded-sm px-1 py-0.5 text-left",
-                  "hover:bg-[var(--kb-select)]",
+                  "hover:bg-primary/5",
                 )}
                 style={{ minHeight: "var(--kb-row-h)" }}
                 onClick={() => {
@@ -60,11 +60,11 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
                 }}
                 onDoubleClick={() => zoomTo(hit.id)}
               >
-                <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full border border-dashed border-[var(--kb-bullet)]" />
-                <span className="kb-text truncate text-[var(--kb-fg)]">
+                <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full border border-dashed border-foreground/45" />
+                <span className="kb-text truncate text-foreground/85">
                   {hit.text || "(empty)"}
                 </span>
-                <span className="ml-auto shrink-0 font-mono text-[10px] text-[var(--kb-muted)]">
+                <span className="ml-auto shrink-0 font-mono text-[10px] text-foreground/30">
                   {hit.id}
                 </span>
               </button>

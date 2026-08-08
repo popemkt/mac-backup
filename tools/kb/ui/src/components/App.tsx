@@ -1,22 +1,23 @@
 import { useEffect, useState } from "react";
+import { CircleHalf } from "@phosphor-icons/react";
 import { loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
 import {
   CommandPalette,
   PaletteTrigger,
 } from "@/components/palette/command-palette";
-import { NodePanel } from "@/components/node-panel";
 import { OutlineEditor } from "@/components/outline/outline-editor";
-import { QueryPage } from "@/components/query/query-page";
+import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { useOutlineStore } from "@/stores/outline.store";
-import { useUiStore, type AppView } from "@/stores/ui.store";
+import { usePrefsStore } from "@/stores/prefs.store";
+import { useUiStore } from "@/stores/ui.store";
 import { cn } from "@/lib/cn";
 
 const WS_DOT: Record<string, { className: string; label: string }> = {
-  open: { className: "bg-emerald-500", label: "live" },
-  connecting: { className: "bg-amber-400", label: "connecting" },
-  closed: { className: "bg-red-400", label: "offline" },
-  idle: { className: "bg-stone-300", label: "idle" },
+  open: { className: "bg-success", label: "live" },
+  connecting: { className: "bg-warning", label: "connecting" },
+  closed: { className: "bg-destructive", label: "offline" },
+  idle: { className: "bg-foreground/25", label: "idle" },
 };
 
 function ConnectionDot() {
@@ -24,7 +25,7 @@ function ConnectionDot() {
   const dot = WS_DOT[wsStatus] ?? WS_DOT.idle!;
   return (
     <span
-      className="flex items-center gap-1.5 text-[11px] text-stone-400"
+      className="flex items-center gap-1.5 text-[11px] text-foreground/40"
       title={`WebSocket: ${wsStatus}`}
     >
       <span className={cn("h-2 w-2 rounded-full", dot.className)} />
@@ -47,8 +48,8 @@ function Toasts() {
           className={cn(
             "rounded-md border px-3 py-2 text-left text-[12px] shadow-md",
             t.kind === "error"
-              ? "border-red-200 bg-red-50 text-red-700"
-              : "border-stone-200 bg-white text-stone-600",
+              ? "border-destructive/30 bg-destructive/10 text-destructive"
+              : "border-foreground/10 bg-popover text-foreground/70",
           )}
         >
           {t.text}
@@ -58,30 +59,13 @@ function Toasts() {
   );
 }
 
-function TabButton({ view, label }: { view: AppView; label: string }) {
-  const active = useUiStore((s) => s.view === view);
-  const setView = useUiStore((s) => s.setView);
-  return (
-    <button
-      type="button"
-      onClick={() => setView(view)}
-      className={cn(
-        "rounded-md px-2.5 py-1 text-[13px]",
-        active
-          ? "bg-stone-900 font-medium text-white"
-          : "text-stone-500 hover:bg-stone-100",
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
 export function App() {
   const hydrateFromWire = useOutlineStore((s) => s.hydrateFromWire);
   const loadSource = useOutlineStore((s) => s.loadSource);
   const rev = useOutlineStore((s) => s.rev);
-  const view = useUiStore((s) => s.view);
+  const width = usePrefsStore((s) => s.width);
+  const prefsOpen = useUiStore((s) => s.prefsOpen);
+  const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -122,40 +106,45 @@ export function App() {
   }, []);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <header className="flex items-center justify-between gap-4 border-b border-stone-200/70 px-5 py-3">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-[22px] font-semibold tracking-tight text-stone-900">
-            kb
-          </h1>
-          <nav className="flex items-center gap-1">
-            <TabButton view="outline" label="Outline" />
-            <TabButton view="query" label="Query" />
-          </nav>
-          <span className="text-[12px] text-stone-400">
-            {status === "loading"
-              ? "loading…"
-              : `rev ${rev} · ${loadSource ?? "?"}`}
-          </span>
-          <ConnectionDot />
-        </div>
+    <div className="relative flex h-full min-h-0 flex-col">
+      <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
+        <h1 className="text-[13px] font-medium text-foreground/50">kb</h1>
+        <span className="text-[11px] text-foreground/30">
+          {status === "loading"
+            ? "loading…"
+            : `rev ${rev} · ${loadSource ?? "?"}`}
+        </span>
+        <ConnectionDot />
+        <div className="flex-1" />
         <PaletteTrigger onOpen={() => setPaletteOpen(true)} />
+        <button
+          type="button"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70"
+          aria-label="Preferences"
+          title="Preferences"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setPrefsOpen(!prefsOpen)}
+        >
+          <CircleHalf size={15} />
+        </button>
       </header>
 
       {status === "error" ? (
-        <div className="p-6 text-red-700">{error}</div>
-      ) : view === "query" ? (
-        <QueryPage />
+        <div className="p-6 text-destructive">{error}</div>
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <main className="min-h-0 overflow-auto px-4 pt-2">
+        <main className="min-h-0 flex-1 overflow-auto">
+          <div
+            className={cn(
+              "w-full",
+              width === "centered" ? "mx-auto max-w-3xl px-4" : "px-8",
+            )}
+          >
             <OutlineEditor />
-          </main>
-          <div className="hidden min-h-0 lg:block">
-            <NodePanel />
           </div>
-        </div>
+        </main>
       )}
+
+      <PreferencesPopover />
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}

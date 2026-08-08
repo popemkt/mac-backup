@@ -14,6 +14,10 @@ export const SYSTEM_IDS = {
   cmdDefineField: "sys.cmd.define-field",
   cmdGoQuery: "sys.cmd.go-query",
   cmdNewQuery: "sys.cmd.new-query",
+  /** Device prefs + shell commands (DESIGN-RESKIN §1.7 W8a). */
+  cmdPreferences: "sys.cmd.preferences",
+  cmdToggleTheme: "sys.cmd.toggle-theme",
+  cmdToggleWidth: "sys.cmd.toggle-width",
   /** Query nodes as pure system nodes (DESIGN-REFINE §2 W4). */
   queryTag: "sys.tag.query",
   queryField: "sys.f.query",

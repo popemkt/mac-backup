@@ -1,8 +1,6 @@
 import { create } from "zustand";
 import type { WsStatus } from "@/api/ws";
 
-export type AppView = "outline" | "query";
-
 export interface Toast {
   id: number;
   kind: "error" | "info";
@@ -10,12 +8,13 @@ export interface Toast {
 }
 
 interface UiState {
-  view: AppView;
   wsStatus: WsStatus;
   toasts: Toast[];
+  /** Preferences popover (DESIGN-RESKIN §1.7) — header button + palette. */
+  prefsOpen: boolean;
 
-  setView: (view: AppView) => void;
   setWsStatus: (status: WsStatus) => void;
+  setPrefsOpen: (open: boolean) => void;
   pushToast: (kind: Toast["kind"], text: string) => void;
   dismissToast: (id: number) => void;
 }
@@ -23,12 +22,12 @@ interface UiState {
 let toastSeq = 0;
 
 export const useUiStore = create<UiState>((set) => ({
-  view: "outline",
   wsStatus: "idle",
   toasts: [],
+  prefsOpen: false,
 
-  setView: (view) => set({ view }),
   setWsStatus: (wsStatus) => set({ wsStatus }),
+  setPrefsOpen: (prefsOpen) => set({ prefsOpen }),
 
   pushToast: (kind, text) => {
     const id = ++toastSeq;

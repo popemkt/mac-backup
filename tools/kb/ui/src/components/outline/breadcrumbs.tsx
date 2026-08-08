@@ -24,9 +24,9 @@ export function Breadcrumbs() {
         type="button"
         className={cn(
           "flex items-center gap-1 rounded-sm px-1.5 py-0.5",
-          "text-stone-500 hover:text-stone-800 hover:bg-stone-900/5",
+          "text-foreground/40 hover:text-foreground/70 hover:bg-foreground/5",
           "transition-colors duration-100",
-          isAtRoot && "text-stone-700",
+          isAtRoot && "text-foreground/70",
         )}
         onClick={() => zoomHome()}
       >
@@ -36,14 +36,14 @@ export function Breadcrumbs() {
 
       {crumbs.map((item) => (
         <div key={item.id} className="flex items-center gap-1">
-          <CaretRight size={10} weight="bold" className="text-stone-300" />
+          <CaretRight size={10} weight="bold" className="text-foreground/25" />
           <button
             type="button"
             className={cn(
               "rounded-sm px-1.5 py-0.5",
-              "text-stone-500 hover:text-stone-800 hover:bg-stone-900/5",
+              "text-foreground/40 hover:text-foreground/70 hover:bg-foreground/5",
               "transition-colors duration-100",
-              item.id === rootNodeId && "text-stone-800 font-medium",
+              item.id === rootNodeId && "text-foreground/70 font-medium",
             )}
             onClick={() => zoomTo(item.id)}
           >

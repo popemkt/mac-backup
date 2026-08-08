@@ -82,21 +82,21 @@ export function QueryResultsSection({
     <div className="query-results" data-query-results-for={nodeId}>
       {error ? (
         <p
-          className="px-1 py-0.5 text-[12px] text-red-600"
+          className="px-1 py-0.5 text-[12px] text-destructive"
           style={{ paddingLeft: `calc(${depth + 1} * var(--kb-indent))` }}
         >
           {error}
         </p>
       ) : rows === null ? (
         <p
-          className="px-1 py-0.5 text-[12px] text-[var(--kb-muted)]"
+          className="px-1 py-0.5 text-[12px] text-foreground/50"
           style={{ paddingLeft: `calc(${depth + 1} * var(--kb-indent))` }}
         >
           loading results…
         </p>
       ) : ids.length === 0 ? (
         <p
-          className="px-1 py-0.5 text-[12px] text-[var(--kb-muted)]"
+          className="px-1 py-0.5 text-[12px] text-foreground/50"
           style={{ paddingLeft: `calc(${depth + 1} * var(--kb-indent))` }}
         >
           No results

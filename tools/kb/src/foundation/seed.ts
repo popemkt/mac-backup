@@ -34,8 +34,12 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     mk(SYSTEM_IDS.cmdAddNode, "Add node", cmdType),
     mk(SYSTEM_IDS.cmdAddTag, "Add tag", cmdType),
     mk(SYSTEM_IDS.cmdDefineField, "Define field", cmdType),
-    mk(SYSTEM_IDS.cmdGoQuery, "Go to query page", cmdType),
+    mk(SYSTEM_IDS.cmdGoQuery, "Saved queries", cmdType),
     mk(SYSTEM_IDS.cmdNewQuery, "New query node", cmdType),
+    // W8a shell commands: device prefs popover + quick toggles
+    mk(SYSTEM_IDS.cmdPreferences, "Preferences", cmdType),
+    mk(SYSTEM_IDS.cmdToggleTheme, "Toggle theme", cmdType),
+    mk(SYSTEM_IDS.cmdToggleWidth, "Toggle width", cmdType),
   ];
 
   // Query nodes as pure system nodes (W4): a tag "query" templating the

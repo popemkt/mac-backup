@@ -33,7 +33,7 @@ export const MdView = memo(function MdView({ text, className }: MdViewProps) {
   if (!text) {
     return (
       <div
-        className={cn(KB_TEXT_CLASS, className, "text-[var(--kb-muted)]")}
+        className={cn(KB_TEXT_CLASS, className, "text-foreground/25")}
         role="presentation"
       >
         {"\u200B"}

@@ -10,7 +10,6 @@ import {
 import { runPaletteCommand } from "@/lib/run-command";
 import { schemaZoomKind } from "@/lib/schema-zoom";
 import { useOutlineStore } from "@/stores/outline.store";
-import { useUiStore } from "@/stores/ui.store";
 
 const ROW_LIMIT = 20;
 
@@ -28,7 +27,6 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const rev = useOutlineStore((s) => s.rev);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
-  const setView = useUiStore((s) => s.setView);
 
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -67,7 +65,6 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         await runPaletteCommand(hit.id);
         return;
       }
-      setView("outline");
       const node = useOutlineStore.getState().nodes.get(hit.id);
       if (schemaZoomKind(node) || hit.id.startsWith("sys.")) {
         zoomTo(hit.id);
@@ -75,7 +72,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       }
       jumpToNode(hit.id);
     },
-    [onClose, setView, zoomTo, jumpToNode],
+    [onClose, zoomTo, jumpToNode],
   );
 
   const onKeyDown = useCallback(
@@ -115,33 +112,33 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     >
       <button
         type="button"
-        className="absolute inset-0 bg-stone-900/25 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
         aria-label="Dismiss palette"
         onClick={onClose}
       />
       <div
         className={cn(
           "relative z-10 w-full max-w-lg overflow-hidden rounded-xl",
-          "border border-stone-200/80 bg-white/85 shadow-2xl backdrop-blur-xl",
+          "border border-foreground/10 bg-popover shadow-2xl",
         )}
         onKeyDown={onKeyDown}
       >
-        <div className="flex items-center gap-2 border-b border-stone-200/70 px-3 py-2.5">
-          <MagnifyingGlass size={16} className="shrink-0 text-stone-400" />
+        <div className="flex items-center gap-2 border-b border-foreground/[0.06] px-3 py-2.5">
+          <MagnifyingGlass size={16} className="shrink-0 text-foreground/25" />
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search and open…"
-            className="w-full bg-transparent text-[14px] text-stone-800 outline-none placeholder:text-stone-400"
+            className="w-full bg-transparent text-[14px] text-foreground/85 outline-none placeholder:text-foreground/25"
             aria-autocomplete="list"
             aria-controls="kb-palette-list"
             aria-activedescendant={
               hits[active] ? `kb-palette-${hits[active]!.id}` : undefined
             }
           />
-          <kbd className="hidden rounded border border-stone-200 px-1.5 py-0.5 text-[10px] text-stone-400 sm:inline">
+          <kbd className="hidden rounded border border-foreground/10 px-1.5 py-0.5 text-[10px] text-foreground/40 sm:inline">
             esc
           </kbd>
         </div>
@@ -151,7 +148,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           className="max-h-[min(20*2rem,50vh)] overflow-auto py-1"
         >
           {hits.length === 0 ? (
-            <li className="px-3 py-3 text-[13px] text-stone-400">No matches</li>
+            <li className="px-3 py-3 text-[13px] text-foreground/40">
+              No matches
+            </li>
           ) : (
             hits.map((hit, i) => (
               <li key={hit.id} role="option" aria-selected={i === active}>
@@ -160,23 +159,22 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   type="button"
                   className={cn(
                     "flex w-full items-center gap-2 px-3 py-1.5 text-left",
-                    i === active ? "bg-teal-50" : "hover:bg-stone-50",
+                    i === active
+                      ? "bg-foreground/[0.06]"
+                      : "hover:bg-foreground/[0.03]",
                   )}
                   onMouseEnter={() => setActive(i)}
                   onClick={() => void selectHit(hit)}
                 >
                   {hit.kind === "command" ? (
-                    <Terminal
-                      size={14}
-                      className="shrink-0 text-[var(--kb-accent)]"
-                    />
+                    <Terminal size={14} className="shrink-0 text-primary" />
                   ) : (
-                    <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-stone-300" />
+                    <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-foreground/25" />
                   )}
-                  <span className="min-w-0 flex-1 truncate text-[13px] text-stone-800">
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-foreground/85">
                     {hit.text || "(empty)"}
                   </span>
-                  <span className="shrink-0 font-mono text-[10px] text-stone-400">
+                  <span className="shrink-0 font-mono text-[10px] text-foreground/30">
                     {hit.kind === "command" ? "cmd" : hit.id}
                   </span>
                 </button>
@@ -195,12 +193,14 @@ export function PaletteTrigger({ onOpen }: { onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full max-w-md items-center gap-2 rounded-md border border-stone-300/80 bg-white/70 px-2.5 py-1.5 text-left shadow-sm backdrop-blur hover:bg-white"
+      className="flex w-full max-w-xs items-center gap-2 rounded-md bg-foreground/[0.03] px-2.5 py-1 text-left transition-colors duration-100 hover:bg-foreground/[0.06]"
       aria-label="Open search palette"
     >
-      <MagnifyingGlass size={14} className="shrink-0 text-stone-400" />
-      <span className="flex-1 text-[13px] text-stone-400">Search and open…</span>
-      <kbd className="rounded border border-stone-200 px-1.5 py-0.5 text-[10px] text-stone-400">
+      <MagnifyingGlass size={14} className="shrink-0 text-foreground/25" />
+      <span className="flex-1 text-[13px] text-foreground/25">
+        Search and open…
+      </span>
+      <kbd className="rounded border border-foreground/10 px-1.5 py-0.5 text-[10px] text-foreground/40">
         ⌘K
       </kbd>
     </button>

@@ -4,6 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>kb</title>
+    <!-- Blocking no-FOUC prefs: theme class + font attr before first paint
+         (kb-prefs, DESIGN-RESKIN §1.7; pattern from nxus __root.tsx). -->
+    <script>
+      (function () {
+        try {
+          var theme = "system";
+          var font = "outfit";
+          var stored = localStorage.getItem("kb-prefs");
+          if (stored) {
+            var s = JSON.parse(stored) || {};
+            if (s.theme === "light" || s.theme === "dark") theme = s.theme;
+            if (s.font === "inter") font = "inter";
+          }
+          var dark =
+            theme === "dark" ||
+            (theme === "system" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.classList.add("dark");
+          document.documentElement.setAttribute("data-font", font);
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
