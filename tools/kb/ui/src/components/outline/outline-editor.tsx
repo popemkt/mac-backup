@@ -1,22 +1,26 @@
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
-import { getViewConfig } from "@/lib/view-config";
+import {
+  applyViewFilters,
+  getViewConfig,
+  isProjectedViewMode,
+} from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { Breadcrumbs } from "./breadcrumbs";
+import { FrameChildrenView } from "./frame-children-view";
 import { GhostNodeRow } from "./ghost-node-row";
 import { NodeBlock } from "./node-block";
 import { NodeCommandPalette } from "./node-command-palette";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
-import { TableView } from "./table-view";
 import { ZoomedRootHeader } from "./zoomed-root-header";
 import { useSelectionKeymap } from "./use-selection-keymap";
 
 /**
  * Home (`__kb_root__`) is a virtual node with empty props — view.mode cannot
- * persist there, so home always renders the list of forest roots. Table mode
- * is available on zoomed/nested frames via ViewToolbar.
+ * persist there, so home always renders the list of forest roots. Projected
+ * views are available on zoomed/nested frames via ViewToolbar.
  */
 export function OutlineEditor() {
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
@@ -36,31 +40,49 @@ export function OutlineEditor() {
 
   if (rootNodeId !== WORKSPACE_ROOT_ID) {
     const viewConfig = getViewConfig(root.props);
+    const projected = isProjectedViewMode(viewConfig.mode);
+    const listKids = projected
+      ? []
+      : applyViewFilters(
+          root.children
+            .map((id) => nodes.get(id))
+            .filter((n): n is NonNullable<typeof n> => n !== undefined),
+          viewConfig.filters,
+          nodes,
+        );
+
     return (
       <div className="outline-editor px-2 pb-40">
         <Breadcrumbs />
         <ZoomedRootHeader node={root} />
 
-        {viewConfig.mode === "table" ? (
-          <TableView frameId={rootNodeId} />
+        {projected ? (
+          <FrameChildrenView frameId={rootNodeId} />
         ) : (
-          root.children.map((id) => {
-            const key = outlineInstanceKey(id, nodes);
+          listKids.map((child) => {
+            const key = outlineInstanceKey(child.id, nodes);
             return (
-              <NodeBlock key={key} nodeId={id} instanceKey={key} depth={0} />
+              <NodeBlock
+                key={key}
+                nodeId={child.id}
+                instanceKey={key}
+                depth={0}
+              />
             );
           })
         )}
 
-        <GhostNodeRow
-          depth={0}
-          parentId={rootNodeId}
-          afterSiblingId={
-            root.children.length > 0
-              ? root.children[root.children.length - 1]!
-              : null
-          }
-        />
+        {!projected && (
+          <GhostNodeRow
+            depth={0}
+            parentId={rootNodeId}
+            afterSiblingId={
+              root.children.length > 0
+                ? root.children[root.children.length - 1]!
+                : null
+            }
+          />
+        )}
         <SchemaSection nodeId={rootNodeId} />
         <ReferencesSection nodeId={rootNodeId} />
         <NodeCommandPalette

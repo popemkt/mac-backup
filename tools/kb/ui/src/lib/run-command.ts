@@ -4,7 +4,7 @@
 import { ulid } from "ulid";
 import { mutations } from "@/actions/mutations";
 import { toast } from "@/lib/toast";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, type ThemePref } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -84,7 +84,47 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
       useOutlineStore.getState().collapseAllInScope();
       return;
     }
+    case SYSTEM_IDS.cmdViewAsList:
+    case SYSTEM_IDS.cmdViewAsTable:
+    case SYSTEM_IDS.cmdViewAsBoard:
+    case SYSTEM_IDS.cmdViewAsCards: {
+      const mode =
+        commandId === SYSTEM_IDS.cmdViewAsList
+          ? "list"
+          : commandId === SYSTEM_IDS.cmdViewAsTable
+            ? "table"
+            : commandId === SYSTEM_IDS.cmdViewAsBoard
+              ? "board"
+              : "cards";
+      const frameId = viewTargetFrameId();
+      if (!frameId) {
+        toast("Zoom into a frame to change its view");
+        return;
+      }
+      await mutations.setViewMode(frameId, mode);
+      return;
+    }
+    case SYSTEM_IDS.cmdViewFilter: {
+      const frameId = viewTargetFrameId();
+      if (!frameId) {
+        toast("Zoom into a frame to filter its view");
+        return;
+      }
+      useUiStore.getState().setFilterPopoverFrameId(frameId);
+      return;
+    }
     default:
       toast(`Unknown command: ${commandId}`);
   }
+}
+
+/** Zoomed root, else selected non-sys node, else null. */
+function viewTargetFrameId(): string | null {
+  const store = useOutlineStore.getState();
+  if (store.rootNodeId && store.rootNodeId !== WORKSPACE_ROOT_ID) {
+    return store.rootNodeId;
+  }
+  const sel = store.selectedNodeId;
+  if (sel && !sel.startsWith("sys.")) return sel;
+  return null;
 }

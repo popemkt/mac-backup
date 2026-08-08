@@ -679,7 +679,7 @@ export function planSetFieldTargetQuery(
 export function planSetViewMode(
   nodes: WireNode[],
   frameId: string,
-  mode: "list" | "table",
+  mode: "list" | "table" | "board" | "cards",
 ): PlannedMutation {
   const frame = cloneWire(requireNode(nodes, frameId));
   const existing = frame.props[SYSTEM_IDS.viewModeField]?.[0];
@@ -803,4 +803,111 @@ export function planSetViewPagesize(
     { t: "num", v: pagesize },
     existing,
   );
+}
+
+export function planSetViewGroup(
+  nodes: WireNode[],
+  frameId: string,
+  fieldId: string | null,
+): PlannedMutation {
+  const frame = requireNode(nodes, frameId);
+  const existing = frame.props[SYSTEM_IDS.viewGroupField]?.[0];
+  if (!fieldId) {
+    return planUnsetProp(
+      nodes,
+      frameId,
+      SYSTEM_IDS.viewGroupField,
+      existing?.t === "ref" ? existing : undefined,
+    );
+  }
+  return planSetProp(
+    nodes,
+    frameId,
+    SYSTEM_IDS.viewGroupField,
+    { t: "ref", v: fieldId },
+    existing,
+  );
+}
+
+/** Replace all view.filter str props with the given EDN list. */
+export function planSetViewFilters(
+  nodes: WireNode[],
+  frameId: string,
+  filterEdnList: string[],
+): PlannedMutation {
+  const frame = cloneWire(requireNode(nodes, frameId));
+  const vals: PropValue[] = filterEdnList.map((edn) => ({
+    t: "str",
+    v: edn,
+  }));
+  frame.props[SYSTEM_IDS.viewFilterField] = vals;
+  frame.updatedAt = nowIso();
+  return {
+    upserts: [frame],
+    deletes: [],
+    actions: [
+      {
+        id: "node.update",
+        input: {
+          id: frameId,
+          unsetProps: [{ field: SYSTEM_IDS.viewFilterField }],
+          setProps: vals.map((v) => ({
+            field: SYSTEM_IDS.viewFilterField,
+            value: v,
+          })),
+        },
+      },
+    ],
+  };
+}
+
+/**
+ * Board drag: unset old group value + set new (exact-value unset).
+ * Does NOT touch children[] / tree order.
+ */
+export function planMoveBoardCard(
+  nodes: WireNode[],
+  nodeId: string,
+  fieldId: string,
+  oldValue: PropValue | null,
+  newValue: PropValue | null,
+): PlannedMutation {
+  const node = cloneWire(requireNode(nodes, nodeId));
+  let list = [...(node.props[fieldId] ?? [])];
+  if (oldValue) {
+    list = list.filter(
+      (pv) => JSON.stringify(pv) !== JSON.stringify(oldValue),
+    );
+  }
+  if (newValue) {
+    const already = list.some(
+      (pv) => JSON.stringify(pv) === JSON.stringify(newValue),
+    );
+    if (!already) list.push(newValue);
+  }
+  if (list.length === 0) delete node.props[fieldId];
+  else node.props[fieldId] = list;
+  node.updatedAt = nowIso();
+
+  const unsetProps = oldValue
+    ? [{ field: fieldId, value: oldValue }]
+    : undefined;
+  const setProps = newValue
+    ? [{ field: fieldId, value: newValue }]
+    : undefined;
+
+  return {
+    upserts: [node],
+    deletes: [],
+    actions: [
+      {
+        id: "node.update",
+        input: {
+          id: nodeId,
+          ...(unsetProps ? { unsetProps } : {}),
+          ...(setProps ? { setProps } : {}),
+        },
+      },
+    ],
+  };
 }
