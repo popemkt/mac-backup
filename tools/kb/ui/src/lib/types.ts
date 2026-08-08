@@ -32,10 +32,12 @@ export function isSysPrefixed(id: string): boolean {
   return id.startsWith("sys.");
 }
 
-export const COLLAPSE_STORAGE_KEY = "kb-ui:collapsed";
-/** Query nodes are collapsed by default (cheap-by-default); this set
- * remembers the ones the user expanded. */
-export const EXPANDED_QUERIES_STORAGE_KEY = "kb-ui:expanded-queries";
+/** Node ids the user manually expanded (default is collapsed when expandable). */
+export const EXPANDED_STORAGE_KEY = "kb-expanded";
+/** @deprecated migrated into EXPANDED_STORAGE_KEY on read */
+export const LEGACY_COLLAPSED_STORAGE_KEY = "kb-ui:collapsed";
+/** @deprecated migrated into EXPANDED_STORAGE_KEY on read */
+export const LEGACY_EXPANDED_QUERIES_STORAGE_KEY = "kb-ui:expanded-queries";
 
 export type PropValue = WireNode["props"][string][number];
 

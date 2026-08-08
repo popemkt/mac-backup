@@ -41,10 +41,9 @@ export function NodeRow({
       {bullet}
       <div
         className={cn(
-          "node-content flex min-h-6 flex-1 items-start gap-1.5 rounded-sm px-1",
+          "node-content flex min-h-6 min-w-0 flex-1 items-start gap-1.5 rounded-sm px-1",
           isSelected && !isActive && "bg-primary/8",
         )}
-        style={{ minHeight: "var(--kb-row-h)" }}
       >
         {content}
       </div>

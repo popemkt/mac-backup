@@ -1,9 +1,11 @@
 import type { WireNode } from "@kb/protocol";
 import { isQueryTagBadges } from "@/lib/query-node";
 import { resolveTagColor } from "@/lib/tag-color";
+import { compareWireNodeId } from "@/lib/tx";
 import {
-  COLLAPSE_STORAGE_KEY,
-  EXPANDED_QUERIES_STORAGE_KEY,
+  EXPANDED_STORAGE_KEY,
+  LEGACY_COLLAPSED_STORAGE_KEY,
+  LEGACY_EXPANDED_QUERIES_STORAGE_KEY,
   SYSTEM_IDS,
   WORKSPACE_ROOT_ID,
   type NodeMap,
@@ -69,13 +71,22 @@ export function forestRootIds(nodes: WireNode[]): string[] {
       void byId;
       return true;
     })
+    .sort(compareWireNodeId)
     .map((n) => n.id);
+}
+
+function nodeDefaultsCollapsed(
+  wire: WireNode,
+  tags: TagBadge[],
+): boolean {
+  if (isQueryTagBadges(tags)) return true;
+  if (wire.children.length > 0) return true;
+  return false;
 }
 
 export function wireToOutlineMap(
   nodes: WireNode[],
-  collapsedIds: Set<string>,
-  expandedQueryIds: Set<string> = new Set(),
+  expandedIds: Set<string>,
 ): NodeMap {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const parentOf = new Map<string, string>();
@@ -103,11 +114,8 @@ export function wireToOutlineMap(
     const outlineParent =
       parentId ?? (roots.includes(wire.id) ? WORKSPACE_ROOT_ID : null);
     const tags = resolveTags(wire, byId);
-    // Query nodes are cheap-by-default: collapsed unless explicitly expanded
-    // (expanded ⇒ live /ws subscription).
-    const collapsed = isQueryTagBadges(tags)
-      ? !expandedQueryIds.has(wire.id)
-      : collapsedIds.has(wire.id);
+    const collapsed =
+      nodeDefaultsCollapsed(wire, tags) && !expandedIds.has(wire.id);
     map.set(wire.id, {
       id: wire.id,
       text: wire.text,
@@ -186,20 +194,28 @@ function saveIdSet(key: string, ids: Set<string>): void {
   }
 }
 
-export function loadCollapsedIds(): Set<string> {
-  return loadIdSet(COLLAPSE_STORAGE_KEY);
+/** Load expanded ids, migrating legacy collapsed / query-expanded keys once. */
+export function loadExpandedIds(): Set<string> {
+  const expanded = loadIdSet(EXPANDED_STORAGE_KEY);
+  if (expanded.size > 0) return expanded;
+
+  const migrated = new Set<string>();
+  try {
+    const legacyCollapsed = loadIdSet(LEGACY_COLLAPSED_STORAGE_KEY);
+    const legacyQueries = loadIdSet(LEGACY_EXPANDED_QUERIES_STORAGE_KEY);
+    for (const id of legacyQueries) migrated.add(id);
+    // Legacy stored collapsed ids — we cannot invert without node metadata here;
+    // query expanded set is the meaningful subset to preserve.
+    if (migrated.size > 0) saveExpandedIds(migrated);
+    void legacyCollapsed;
+  } catch {
+    // ignore
+  }
+  return migrated;
 }
 
-export function saveCollapsedIds(ids: Set<string>): void {
-  saveIdSet(COLLAPSE_STORAGE_KEY, ids);
-}
-
-export function loadExpandedQueryIds(): Set<string> {
-  return loadIdSet(EXPANDED_QUERIES_STORAGE_KEY);
-}
-
-export function saveExpandedQueryIds(ids: Set<string>): void {
-  saveIdSet(EXPANDED_QUERIES_STORAGE_KEY, ids);
+export function saveExpandedIds(ids: Set<string>): void {
+  saveIdSet(EXPANDED_STORAGE_KEY, ids);
 }
 
 export function searchNodes(

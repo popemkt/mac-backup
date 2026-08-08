@@ -492,3 +492,90 @@ export function planAddRootNode(
     focusCursor: text.length,
   };
 }
+
+/** Append a child under `parentId` (first or additional). */
+export function planAddChild(
+  nodes: WireNode[],
+  parentId: string,
+  newId: string,
+  text = "",
+): PlannedMutation {
+  const parent = cloneWire(requireNode(nodes, parentId));
+  const at = nowIso();
+  const position = parent.children.length;
+  const child: WireNode = {
+    id: newId,
+    text,
+    props: {},
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+  parent.children = [...parent.children, newId];
+  parent.updatedAt = at;
+  return {
+    upserts: [parent, child],
+    deletes: [],
+    actions: [
+      {
+        id: "node.add",
+        input: { id: newId, text, parent: parentId, position },
+      },
+    ],
+    focusId: newId,
+    focusCursor: text.length,
+  };
+}
+
+export function planAddTagField(
+  nodes: WireNode[],
+  tagId: string,
+  fieldId: string,
+): PlannedMutation {
+  if (tagId.startsWith("sys.")) {
+    throw new Error("sys.* tags are read-only");
+  }
+  return planSetProp(nodes, tagId, SYSTEM_IDS.fieldsField, {
+    t: "ref",
+    v: fieldId,
+  });
+}
+
+export function planRemoveTagField(
+  nodes: WireNode[],
+  tagId: string,
+  fieldId: string,
+): PlannedMutation {
+  if (tagId.startsWith("sys.")) {
+    throw new Error("sys.* tags are read-only");
+  }
+  return planUnsetProp(nodes, tagId, SYSTEM_IDS.fieldsField, {
+    t: "ref",
+    v: fieldId,
+  });
+}
+
+export function planSetTagColor(
+  nodes: WireNode[],
+  tagId: string,
+  color: string | null,
+): PlannedMutation {
+  if (tagId.startsWith("sys.")) {
+    throw new Error("sys.* tags are read-only");
+  }
+  const trimmed = color?.trim();
+  if (!trimmed) {
+    const node = requireNode(nodes, tagId);
+    const existing = node.props[SYSTEM_IDS.colorField]?.[0];
+    return planUnsetProp(
+      nodes,
+      tagId,
+      SYSTEM_IDS.colorField,
+      existing?.t === "str" ? existing : undefined,
+    );
+  }
+  return planSetProp(nodes, tagId, SYSTEM_IDS.colorField, {
+    t: "str",
+    v: trimmed,
+  });
+}

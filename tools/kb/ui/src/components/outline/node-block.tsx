@@ -5,6 +5,7 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { mutations } from "@/actions/mutations";
 import { Bullet } from "./bullet";
 import { FieldsSection } from "./fields-section";
+import { GhostNodeRow } from "./ghost-node-row";
 import { NodeContent } from "./node-content";
 import { NodeRow } from "./node-row";
 import { QueryResultsSection } from "./query-results";
@@ -259,6 +260,18 @@ export const NodeBlock = memo(function NodeBlock({
                 isRef={isRef}
               />
             ))}
+
+          {!isRef && (
+            <GhostNodeRow
+              depth={depth + 1}
+              parentId={nodeId}
+              afterSiblingId={
+                node.children.length > 0
+                  ? node.children[node.children.length - 1]!
+                  : null
+              }
+            />
+          )}
         </div>
       )}
     </div>

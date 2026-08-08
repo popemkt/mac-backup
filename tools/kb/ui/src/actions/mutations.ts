@@ -24,7 +24,7 @@ import {
   type PlannedMutation,
 } from "@/actions/plan";
 import { toast } from "@/lib/toast";
-import { isSysPrefixed } from "@/lib/types";
+import { isSysPrefixed, WORKSPACE_ROOT_ID } from "@/lib/types";
 import { cloneWireNodes } from "@/lib/tx";
 import type { PropValue } from "@/lib/types";
 import type { WireNode } from "@kb/protocol";
@@ -123,6 +123,61 @@ export const mutations = {
   async addRootNode(text: string, newId?: string): Promise<boolean> {
     const id = newId ?? ulid();
     return applyPlan(planAddRootNode(text, id));
+  },
+
+  async addChildNode(
+    parentId: string,
+    text: string,
+    newId?: string,
+  ): Promise<boolean> {
+    if (!guardSysWrite(parentId)) return false;
+    const id = newId ?? ulid();
+    const { planAddChild } = await import("@/actions/plan");
+    return applyPlan(planAddChild(wire(), parentId, id, text));
+  },
+
+  /** Ghost-row create: root, first child, or after sibling. */
+  async createGhostNode(
+    parentId: string,
+    afterSiblingId: string | null,
+    text: string,
+  ): Promise<void> {
+    const newId = ulid();
+    if (parentId === WORKSPACE_ROOT_ID) {
+      await applyPlan(planAddRootNode(text, newId));
+      return;
+    }
+    if (afterSiblingId) {
+      await applyPlan(planCreateAfter(wire(), afterSiblingId, newId));
+      if (text) mutations.updateNodeContent(newId, text);
+      return;
+    }
+    await applyPlan(
+      (await import("@/actions/plan")).planAddChild(
+        wire(),
+        parentId,
+        newId,
+        text,
+      ),
+    );
+  },
+
+  async addTagField(tagId: string, fieldId: string): Promise<void> {
+    if (!guardSysWrite(tagId)) return;
+    const { planAddTagField } = await import("@/actions/plan");
+    await applyPlan(planAddTagField(wire(), tagId, fieldId));
+  },
+
+  async removeTagField(tagId: string, fieldId: string): Promise<void> {
+    if (!guardSysWrite(tagId)) return;
+    const { planRemoveTagField } = await import("@/actions/plan");
+    await applyPlan(planRemoveTagField(wire(), tagId, fieldId));
+  },
+
+  async setTagColor(tagId: string, color: string | null): Promise<void> {
+    if (!guardSysWrite(tagId)) return;
+    const { planSetTagColor } = await import("@/actions/plan");
+    await applyPlan(planSetTagColor(wire(), tagId, color));
   },
 
   async splitNode(id: string, cursor: number): Promise<void> {

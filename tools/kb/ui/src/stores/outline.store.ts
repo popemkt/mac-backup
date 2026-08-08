@@ -2,10 +2,8 @@ import { create } from "zustand";
 import type { QueryDb } from "@/ds/db";
 import { buildQueryDb } from "@/ds/db";
 import {
-  loadCollapsedIds,
-  loadExpandedQueryIds,
-  saveCollapsedIds,
-  saveExpandedQueryIds,
+  loadExpandedIds,
+  saveExpandedIds,
   searchNodes,
   wireToOutlineMap,
 } from "@/lib/graph-view";
@@ -77,19 +75,10 @@ function getVisibleNodesRecursive(
   }
 }
 
-function collectCollapsed(nodes: NodeMap): Set<string> {
+function collectExpanded(nodes: NodeMap): Set<string> {
   const ids = new Set<string>();
   for (const n of nodes.values()) {
-    if (n.collapsed && n.id !== WORKSPACE_ROOT_ID) ids.add(n.id);
-  }
-  return ids;
-}
-
-/** Query nodes default collapsed; remember the ones currently expanded. */
-function collectExpandedQueries(nodes: NodeMap): Set<string> {
-  const ids = new Set<string>();
-  for (const n of nodes.values()) {
-    if (!n.collapsed && isQueryNode(n)) ids.add(n.id);
+    if (!n.collapsed && n.id !== WORKSPACE_ROOT_ID) ids.add(n.id);
   }
   return ids;
 }
@@ -108,8 +97,8 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
   loadError: null,
 
   hydrateFromWire: (wireNodes, rev, source) => {
-    const collapsed = loadCollapsedIds();
-    const nodes = wireToOutlineMap(wireNodes, collapsed, loadExpandedQueryIds());
+    const expanded = loadExpandedIds();
+    const nodes = wireToOutlineMap(wireNodes, expanded);
     const queryDb = buildQueryDb(wireNodes, rev);
     set({
       wireNodes,
@@ -126,12 +115,9 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
   applyTx: (upserts, deletes, opts) => {
     const prev = get();
     const nextWire = mergeTx(prev.wireNodes, upserts, deletes);
-    const collapsed = collectCollapsed(prev.nodes);
-    // Also honor localStorage collapses for brand-new ids
-    for (const id of loadCollapsedIds()) collapsed.add(id);
-    const expanded = collectExpandedQueries(prev.nodes);
-    for (const id of loadExpandedQueryIds()) expanded.add(id);
-    const nodes = wireToOutlineMap(nextWire, collapsed, expanded);
+    const expanded = collectExpanded(prev.nodes);
+    for (const id of loadExpandedIds()) expanded.add(id);
+    const nodes = wireToOutlineMap(nextWire, expanded);
     const nextRev = opts?.rev ?? prev.rev;
     // Deleted nodes must not remain the zoom root / selection.
     const rootNodeId = nodes.has(prev.rootNodeId)
@@ -158,13 +144,11 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
 
   restoreSnapshot: (wireNodes, rev) => {
     const prevNodes = get().nodes;
-    const collapsed = collectCollapsed(prevNodes);
-    for (const id of loadCollapsedIds()) collapsed.add(id);
-    const expanded = collectExpandedQueries(prevNodes);
-    for (const id of loadExpandedQueryIds()) expanded.add(id);
+    const expanded = collectExpanded(prevNodes);
+    for (const id of loadExpandedIds()) expanded.add(id);
     set({
       wireNodes,
-      nodes: wireToOutlineMap(wireNodes, collapsed, expanded),
+      nodes: wireToOutlineMap(wireNodes, expanded),
       queryDb: buildQueryDb(wireNodes, rev),
       rev,
     });
@@ -172,10 +156,8 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
 
   refreshFromWire: (wireNodes, rev) => {
     const prev = get();
-    // In-memory collapse state is the truth here (localStorage may lag).
-    const collapsed = collectCollapsed(prev.nodes);
-    const expanded = collectExpandedQueries(prev.nodes);
-    const nodes = wireToOutlineMap(wireNodes, collapsed, expanded);
+    const expanded = collectExpanded(prev.nodes);
+    const nodes = wireToOutlineMap(wireNodes, expanded);
     const queryDb = buildQueryDb(wireNodes, rev);
     const rootNodeId = nodes.has(prev.rootNodeId)
       ? prev.rootNodeId
@@ -232,8 +214,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
     if (!node || (node.children.length === 0 && !isQueryNode(node))) return;
     const next = new Map(nodes);
     next.set(id, { ...node, collapsed: !node.collapsed });
-    saveCollapsedIds(collectCollapsed(next));
-    saveExpandedQueryIds(collectExpandedQueries(next));
+    saveExpandedIds(collectExpanded(next));
     set({ nodes: next });
   },
 
@@ -252,7 +233,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
       current = parent;
     }
     if (changed) {
-      saveCollapsedIds(collectCollapsed(next));
+      saveExpandedIds(collectExpanded(next));
       set({ nodes: next });
     }
   },

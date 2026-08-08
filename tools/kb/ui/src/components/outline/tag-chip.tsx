@@ -1,4 +1,4 @@
-import { Hash, X } from "@phosphor-icons/react";
+import { Hash, GearSix, X } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { TagBadge } from "@/lib/types";
 
@@ -6,15 +6,22 @@ export interface TagChipProps {
   tag: TagBadge;
   onClick?: (e: React.MouseEvent) => void;
   onRemove?: (e: React.MouseEvent) => void;
+  onConfigure?: (e: React.MouseEvent) => void;
   className?: string;
 }
 
 /** DESIGN-RESKIN §1.2/1.8 — the one tag chip everywhere. */
-export function TagChip({ tag, onClick, onRemove, className }: TagChipProps) {
+export function TagChip({
+  tag,
+  onClick,
+  onRemove,
+  onConfigure,
+  className,
+}: TagChipProps) {
   return (
     <span
       className={cn(
-        "group/tag inline-flex items-center gap-0.5 rounded-sm px-1.5 py-px",
+        "group/tag inline-flex h-6 max-w-full items-center gap-0.5 rounded-sm px-1.5 py-px",
         "kb-chip font-medium select-none whitespace-nowrap",
         "cursor-pointer transition-opacity hover:opacity-70",
         className,
@@ -45,7 +52,19 @@ export function TagChip({ tag, onClick, onRemove, className }: TagChipProps) {
           </span>
         )}
       </span>
-      {tag.name}
+      <span className="truncate">{tag.name}</span>
+      {onConfigure && (
+        <span
+          className="relative ml-0.5 flex h-[10px] w-[10px] shrink-0 cursor-pointer items-center justify-center opacity-0 transition-opacity group-hover/tag:opacity-40 hover:!opacity-80"
+          onClick={(e) => {
+            e.stopPropagation();
+            onConfigure(e);
+          }}
+          title={`Configure #${tag.name}`}
+        >
+          <GearSix size={10} weight="bold" />
+        </span>
+      )}
     </span>
   );
 }
@@ -54,20 +73,25 @@ export function TagChipGroup({
   tags,
   onTagClick,
   onTagRemove,
+  onTagConfigure,
 }: {
   tags: TagBadge[];
   onTagClick?: (tag: TagBadge, e: React.MouseEvent) => void;
   onTagRemove?: (tag: TagBadge, e: React.MouseEvent) => void;
+  onTagConfigure?: (tag: TagBadge, e: React.MouseEvent) => void;
 }) {
   if (tags.length === 0) return null;
   return (
-    <div className="flex h-6 shrink-0 items-center gap-0.5">
+    <div className="flex h-6 shrink-0 items-center gap-1.5">
       {tags.map((tag) => (
         <TagChip
           key={tag.id}
           tag={tag}
           onClick={onTagClick ? (e) => onTagClick(tag, e) : undefined}
           onRemove={onTagRemove ? (e) => onTagRemove(tag, e) : undefined}
+          onConfigure={
+            onTagConfigure ? (e) => onTagConfigure(tag, e) : undefined
+          }
         />
       ))}
     </div>
