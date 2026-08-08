@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getLiveClient } from "@/api/live";
 import { runQuery } from "@/ds/query";
+import { queryResultInstanceKey } from "@/lib/instance-key";
 import { queryDefOf, resultNodeIds, subscribeQueryNode } from "@/lib/query-node";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -102,9 +103,18 @@ export function QueryResultsSection({
           No results
         </p>
       ) : (
-        ids.map((id) => (
-          <NodeBlock key={id} nodeId={id} depth={depth + 1} isRef />
-        ))
+        ids.map((id) => {
+          const key = queryResultInstanceKey(nodeId, id);
+          return (
+            <NodeBlock
+              key={key}
+              nodeId={id}
+              instanceKey={key}
+              depth={depth + 1}
+              isRef
+            />
+          );
+        })
       )}
     </div>
   );

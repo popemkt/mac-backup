@@ -8,6 +8,7 @@ import {
   searchNodes,
   wireToOutlineMap,
 } from "@/lib/graph-view";
+import { outlineInstanceKey } from "@/lib/instance-key";
 import { isQueryNode } from "@/lib/query-node";
 import { mergeTx } from "@/lib/tx";
 import {
@@ -24,8 +25,12 @@ interface OutlineState {
   rev: number;
   rootNodeId: string;
   homeRootId: string;
+  /** Data-layer node id currently being edited. */
   activeNodeId: string | null;
+  /** Render-instance key for the active editor (disambiguates duplicates). */
+  activeInstanceKey: string | null;
   selectedNodeId: string | null;
+  selectedInstanceKey: string | null;
   cursorPosition: number;
   loadSource: "api" | "fixtures" | null;
   loadError: string | null;
@@ -48,9 +53,13 @@ interface OutlineState {
   setRootNodeId: (id: string) => void;
   zoomTo: (id: string) => void;
   zoomHome: () => void;
-  activateNode: (id: string, cursorPos?: number) => void;
+  activateNode: (
+    id: string,
+    cursorPos?: number,
+    instanceKey?: string,
+  ) => void;
   deactivateNode: () => void;
-  selectNode: (id: string | null) => void;
+  selectNode: (id: string | null, instanceKey?: string) => void;
   toggleCollapse: (id: string) => void;
   expandAllInScope: () => void;
   collapseAllInScope: () => void;
@@ -123,6 +132,14 @@ function isExpandableOutlineNode(node: OutlineNode, nodes: NodeMap): boolean {
   return resolveProps(node, nodes).length > 0;
 }
 
+function resolveActivateKey(
+  id: string,
+  instanceKey: string | undefined,
+  nodes: NodeMap,
+): string {
+  return instanceKey ?? outlineInstanceKey(id, nodes);
+}
+
 export const useOutlineStore = create<OutlineState>((set, get) => ({
   nodes: new Map(),
   wireNodes: [],
@@ -131,7 +148,9 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
   rootNodeId: WORKSPACE_ROOT_ID,
   homeRootId: WORKSPACE_ROOT_ID,
   activeNodeId: null,
+  activeInstanceKey: null,
   selectedNodeId: null,
+  selectedInstanceKey: null,
   cursorPosition: 0,
   loadSource: null,
   loadError: null,
@@ -178,7 +197,9 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
       rev: nextRev,
       rootNodeId,
       selectedNodeId,
+      selectedInstanceKey: selectedNodeId ? prev.selectedInstanceKey : null,
       activeNodeId,
+      activeInstanceKey: activeNodeId ? prev.activeInstanceKey : null,
     });
   },
 
@@ -217,7 +238,9 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
       rev,
       rootNodeId,
       selectedNodeId,
+      selectedInstanceKey: selectedNodeId ? prev.selectedInstanceKey : null,
       activeNodeId,
+      activeInstanceKey: activeNodeId ? prev.activeInstanceKey : null,
     });
   },
 
@@ -226,26 +249,61 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
   zoomTo: (id) => {
     const { nodes } = get();
     if (!nodes.has(id)) return;
-    set({ rootNodeId: id, selectedNodeId: id, activeNodeId: null });
+    const key = outlineInstanceKey(id, nodes);
+    set({
+      rootNodeId: id,
+      selectedNodeId: id,
+      selectedInstanceKey: key,
+      activeNodeId: null,
+      activeInstanceKey: null,
+    });
   },
 
   zoomHome: () =>
     set({
       rootNodeId: get().homeRootId,
       selectedNodeId: null,
+      selectedInstanceKey: null,
       activeNodeId: null,
+      activeInstanceKey: null,
     }),
 
-  activateNode: (id, cursorPos) =>
+  activateNode: (id, cursorPos, instanceKey) => {
+    const { nodes } = get();
+    if (!nodes.has(id)) return;
+    const key = resolveActivateKey(id, instanceKey, nodes);
     set({
       activeNodeId: id,
+      activeInstanceKey: key,
       selectedNodeId: id,
+      selectedInstanceKey: key,
       cursorPosition: cursorPos ?? 0,
-    }),
+    });
+  },
 
-  deactivateNode: () => set({ activeNodeId: null }),
+  deactivateNode: () =>
+    set({ activeNodeId: null, activeInstanceKey: null }),
 
-  selectNode: (id) => set({ selectedNodeId: id, activeNodeId: null }),
+  selectNode: (id, instanceKey) => {
+    if (!id) {
+      set({
+        selectedNodeId: null,
+        selectedInstanceKey: null,
+        activeNodeId: null,
+        activeInstanceKey: null,
+      });
+      return;
+    }
+    const { nodes } = get();
+    if (!nodes.has(id)) return;
+    const key = resolveActivateKey(id, instanceKey, nodes);
+    set({
+      selectedNodeId: id,
+      selectedInstanceKey: key,
+      activeNodeId: null,
+      activeInstanceKey: null,
+    });
+  },
 
   toggleCollapse: (id) => {
     const { nodes } = get();
@@ -323,11 +381,12 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
       set({ rootNodeId: WORKSPACE_ROOT_ID });
       get().expandAncestors(id);
     }
-    activateNode(id, 0);
-    // scroll into view after paint
+    const key = outlineInstanceKey(id, get().nodes);
+    activateNode(id, 0, key);
+    // scroll into view after paint — instance key beats bare nodeId
     requestAnimationFrame(() => {
       document
-        .querySelector(`[data-node-id="${CSS.escape(id)}"]`)
+        .querySelector(`[data-instance-key="${CSS.escape(key)}"]`)
         ?.scrollIntoView({ block: "center", behavior: "smooth" });
     });
   },

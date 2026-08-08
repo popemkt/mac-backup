@@ -15,6 +15,7 @@ import { TagChipGroup } from "./tag-chip";
 
 interface NodeContentProps {
   nodeId: string;
+  instanceKey?: string;
   content: string;
   isActive: boolean;
   tags: Parameters<typeof TagChipGroup>[0]["tags"];
@@ -26,6 +27,7 @@ interface NodeContentProps {
 
 export function NodeContent({
   nodeId,
+  instanceKey,
   content,
   isActive,
   tags,
@@ -116,9 +118,11 @@ export function NodeContent({
         }
       }
       setCursor(inserted.cursor);
-      useOutlineStore.getState().activateNode(nodeId, inserted.cursor);
+      useOutlineStore
+        .getState()
+        .activateNode(nodeId, inserted.cursor, instanceKey);
     },
-    [content, nodeId, onChange, readCursor],
+    [content, nodeId, instanceKey, onChange, readCursor],
   );
 
   const handleInput = useCallback(() => {

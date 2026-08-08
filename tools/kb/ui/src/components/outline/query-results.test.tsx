@@ -6,6 +6,9 @@
  * store-coupled components are covered by the logic tests in
  * lib/query-node.test.ts instead).
  */
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -23,6 +26,8 @@ const TODO_EDN = `[:find ?id ?text
          [?t :node/id "tag.todo"]
          [?n :node/id ?id]
          [?n :node/text ?text]]`;
+
+const outlineDir = path.dirname(fileURLToPath(import.meta.url));
 
 function queryWire(): WireNode {
   return {
@@ -100,5 +105,25 @@ describe("result row render (W4)", () => {
     const html = renderBullet(nodes.get("sys.query.open-todos")!, false);
     expect(html).toContain('data-bullet-kind="query"');
     expect(html).toContain('data-bullet-sys="true"');
+  });
+
+  it("isRef applies only to the top-level result row (children stay ordinary)", () => {
+    const nodeBlockSrc = readFileSync(
+      path.join(outlineDir, "node-block.tsx"),
+      "utf8",
+    );
+    const childMap = nodeBlockSrc.match(
+      /node\.children\.map\([\s\S]*?\}\)/,
+    )?.[0];
+    expect(childMap).toBeTruthy();
+    // Children must not inherit the parent's isRef prop.
+    expect(childMap!).not.toContain("isRef={isRef}");
+    expect(childMap!).not.toContain("isRef ");
+
+    const nodes = outlineMap();
+    const top = renderBullet(nodes.get("n.root-a")!, true);
+    expect(top).toContain('data-bullet-ref="true"');
+    const child = renderBullet(nodes.get("n.child-a1")!, false);
+    expect(child).not.toContain("data-bullet-ref");
   });
 });

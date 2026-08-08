@@ -1,5 +1,6 @@
 import { memo, useCallback } from "react";
 import { isQueryNode } from "@/lib/query-node";
+import { childInstanceKey, outlineInstanceKey } from "@/lib/instance-key";
 import { resolveProps } from "@/lib/graph-view";
 import { useUiStore } from "@/stores/ui.store";
 import { usePrefsStore } from "@/stores/prefs.store";
@@ -15,6 +16,8 @@ import { QueryResultsSection } from "./query-results";
 interface NodeBlockProps {
   nodeId: string;
   depth: number;
+  /** Stable render-instance id (parent-path or ref-container + nodeId). */
+  instanceKey?: string;
   /** Reference-row state for query results / embeds (dashed bullet ring). */
   isRef?: boolean;
 }
@@ -22,12 +25,15 @@ interface NodeBlockProps {
 export const NodeBlock = memo(function NodeBlock({
   nodeId,
   depth,
+  instanceKey: instanceKeyProp,
   isRef = false,
 }: NodeBlockProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const nodes = useOutlineStore((s) => s.nodes);
   const activeNodeId = useOutlineStore((s) => s.activeNodeId);
+  const activeInstanceKey = useOutlineStore((s) => s.activeInstanceKey);
   const selectedNodeId = useOutlineStore((s) => s.selectedNodeId);
+  const selectedInstanceKey = useOutlineStore((s) => s.selectedInstanceKey);
   const cursorPosition = useOutlineStore((s) => s.cursorPosition);
   const activateNode = useOutlineStore((s) => s.activateNode);
   const selectNode = useOutlineStore((s) => s.selectNode);
@@ -39,6 +45,9 @@ export const NodeBlock = memo(function NodeBlock({
   const getNextVisibleNode = useOutlineStore((s) => s.getNextVisibleNode);
   const showAllFields = usePrefsStore((s) => s.showAllFields);
   const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
+
+  const instanceKey =
+    instanceKeyProp ?? outlineInstanceKey(nodeId, nodes);
 
   const primaryTagColor = node?.tags[0]?.color ?? null;
 
@@ -55,18 +64,18 @@ export const NodeBlock = memo(function NodeBlock({
 
   const handleActivate = useCallback(
     (cursorPos?: number) => {
-      activateNode(nodeId, cursorPos);
+      activateNode(nodeId, cursorPos, instanceKey);
     },
-    [activateNode, nodeId],
+    [activateNode, nodeId, instanceKey],
   );
 
   const handleRowSelect = useCallback(
     (e: React.MouseEvent) => {
       if (e.target === e.currentTarget) {
-        selectNode(nodeId);
+        selectNode(nodeId, instanceKey);
       }
     },
-    [selectNode, nodeId],
+    [selectNode, nodeId, instanceKey],
   );
 
   const handleContentChange = useCallback(
@@ -163,7 +172,7 @@ export const NodeBlock = memo(function NodeBlock({
 
       if (e.key === "Escape") {
         e.preventDefault();
-        useOutlineStore.getState().selectNode(nodeId);
+        useOutlineStore.getState().selectNode(nodeId, instanceKey);
         return;
       }
 
@@ -193,6 +202,7 @@ export const NodeBlock = memo(function NodeBlock({
       nodeId,
       node,
       isRef,
+      instanceKey,
       toggleCollapse,
       activateNode,
       getPreviousVisibleNode,
@@ -202,10 +212,14 @@ export const NodeBlock = memo(function NodeBlock({
 
   if (!node) return null;
 
-  const isActive = activeNodeId === nodeId;
-  const isSelected = selectedNodeId === nodeId;
+  const isActive =
+    activeNodeId === nodeId && activeInstanceKey === instanceKey;
+  const isSelected =
+    selectedNodeId === nodeId && selectedInstanceKey === instanceKey;
   const isPaletteAnchor =
-    nodePaletteOpen && (selectedNodeId === nodeId || activeNodeId === nodeId);
+    nodePaletteOpen &&
+    ((selectedNodeId === nodeId && selectedInstanceKey === instanceKey) ||
+      (activeNodeId === nodeId && activeInstanceKey === instanceKey));
   const hasChildren = node.children.length > 0;
   const isQuery = isQueryNode(node);
   const hasFields =
@@ -213,10 +227,15 @@ export const NodeBlock = memo(function NodeBlock({
   const isExpandable = hasChildren || isQuery || hasFields;
 
   return (
-    <div className="node-block relative" data-node-id={nodeId}>
+    <div
+      className="node-block relative"
+      data-node-id={nodeId}
+      data-instance-key={instanceKey}
+    >
       <NodeRow
         depth={depth}
         nodeId={nodeId}
+        instanceKey={instanceKey}
         isSelected={isSelected || isPaletteAnchor}
         isActive={isActive}
         onRowClick={handleRowSelect}
@@ -232,6 +251,7 @@ export const NodeBlock = memo(function NodeBlock({
         content={
           <NodeContent
             nodeId={nodeId}
+            instanceKey={instanceKey}
             content={node.text}
             isActive={isActive}
             tags={node.tags}
@@ -260,14 +280,17 @@ export const NodeBlock = memo(function NodeBlock({
           )}
 
           {hasChildren &&
-            node.children.map((childId) => (
-              <NodeBlock
-                key={childId}
-                nodeId={childId}
-                depth={depth + 1}
-                isRef={isRef}
-              />
-            ))}
+            node.children.map((childId) => {
+              const childKey = childInstanceKey(instanceKey, childId);
+              return (
+                <NodeBlock
+                  key={childKey}
+                  nodeId={childId}
+                  instanceKey={childKey}
+                  depth={depth + 1}
+                />
+              );
+            })}
 
           {!isRef && (
             <GhostNodeRow
