@@ -54,6 +54,13 @@ export const SYSTEM_IDS = {
   queryTag: "sys.tag.query",
   queryField: "sys.f.query",
   queryLimitField: "sys.f.query.limit",
+  /** View configuration field nodes (W7.0). */
+  viewModeField: "sys.f.view.mode",
+  viewSortField: "sys.f.view.sort",
+  viewSortDirField: "sys.f.view.sort.dir",
+  viewDisplayField: "sys.f.view.display",
+  viewColwidthField: "sys.f.view.colwidth",
+  viewPagesizeField: "sys.f.view.pagesize",
   /** Virtual root for saved queries (.kb/queries/*.edn); never in jsonl. */
   queriesRoot: "sys.queries",
 } as const;

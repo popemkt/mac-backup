@@ -80,6 +80,30 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ],
   });
 
+  // View configuration field nodes (W7.0)
+  const viewModeField = mk(SYSTEM_IDS.viewModeField, "view.mode", fieldType);
+  const viewSortField = mk(SYSTEM_IDS.viewSortField, "view.sort", fieldType);
+  const viewSortDirField = mk(
+    SYSTEM_IDS.viewSortDirField,
+    "view.sort.dir",
+    fieldType,
+  );
+  const viewDisplayField = mk(
+    SYSTEM_IDS.viewDisplayField,
+    "view.display",
+    fieldType,
+  );
+  const viewColwidthField = mk(
+    SYSTEM_IDS.viewColwidthField,
+    "view.colwidth",
+    fieldType,
+  );
+  const viewPagesizeField = mk(
+    SYSTEM_IDS.viewPagesizeField,
+    "view.pagesize",
+    fieldType,
+  );
+
   return [
     field,
     tag,
@@ -95,6 +119,12 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     queryField,
     queryLimitField,
     queryTag,
+    viewModeField,
+    viewSortField,
+    viewSortDirField,
+    viewDisplayField,
+    viewColwidthField,
+    viewPagesizeField,
   ];
 }
 
