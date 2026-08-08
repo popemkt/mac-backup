@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Hash } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
+import {
+  fuzzyNodeCandidates,
+  insertRefAtCursor,
+  openRefQuery,
+} from "@/lib/refs";
 import type { TagBadge } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
+import { RefAutocomplete } from "@/components/ref-autocomplete";
 
 interface NodeContentProps {
   nodeId: string;
@@ -17,6 +23,7 @@ interface NodeContentProps {
 }
 
 export function NodeContent({
+  nodeId,
   content,
   isActive,
   isSelected,
@@ -29,9 +36,24 @@ export function NodeContent({
   const editorRef = useRef<HTMLDivElement>(null);
   const isComposing = useRef(false);
   const wasActive = useRef(false);
+  const nodes = useOutlineStore((s) => s.nodes);
+  const [acIndex, setAcIndex] = useState(0);
+  const [cursor, setCursor] = useState(cursorPosition);
 
-  // When becoming active: set DOM content and focus with cursor position.
-  // NEVER set DOM content during active editing — the DOM is the source of truth.
+  const refOpen = useMemo(() => {
+    if (!isActive) return null;
+    return openRefQuery(content, cursor);
+  }, [isActive, content, cursor]);
+
+  const candidates = useMemo(() => {
+    if (!refOpen) return [];
+    return fuzzyNodeCandidates(nodes, refOpen.query);
+  }, [refOpen, nodes]);
+
+  useEffect(() => {
+    setAcIndex(0);
+  }, [refOpen?.query, refOpen?.start]);
+
   useEffect(() => {
     if (isActive && editorRef.current) {
       const el = editorRef.current;
@@ -54,6 +76,7 @@ export function NodeContent({
         range.collapse(true);
         sel?.removeAllRanges();
         sel?.addRange(range);
+        setCursor(pos);
       } else if (!textNode) {
         el.focus();
       }
@@ -64,11 +87,42 @@ export function NodeContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, cursorPosition]);
 
+  const readCursor = useCallback(() => {
+    const sel = window.getSelection();
+    return sel?.focusOffset ?? 0;
+  }, []);
+
+  const applyRef = useCallback(
+    (id: string, label: string) => {
+      const pos = readCursor();
+      const inserted = insertRefAtCursor(content, pos, id, label);
+      if (!inserted) return;
+      onChange(inserted.text);
+      if (editorRef.current) {
+        editorRef.current.textContent = inserted.text;
+        const textNode = editorRef.current.firstChild;
+        if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+          const sel = window.getSelection();
+          const range = document.createRange();
+          range.setStart(textNode, inserted.cursor);
+          range.collapse(true);
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
+      }
+      setCursor(inserted.cursor);
+      useOutlineStore.getState().activateNode(nodeId, inserted.cursor);
+    },
+    [content, nodeId, onChange, readCursor],
+  );
+
   const handleInput = useCallback(() => {
     if (editorRef.current && !isComposing.current) {
-      onChange(editorRef.current.textContent ?? "");
+      const text = editorRef.current.textContent ?? "";
+      setCursor(readCursor());
+      onChange(text);
     }
-  }, [onChange]);
+  }, [onChange, readCursor]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -103,15 +157,50 @@ export function NodeContent({
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (isComposing.current) return;
+
+      if (refOpen && candidates.length > 0) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setAcIndex((i) => (i + 1) % candidates.length);
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setAcIndex(
+            (i) => (i - 1 + candidates.length) % candidates.length,
+          );
+          return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
+          const pick = candidates[acIndex] ?? candidates[0];
+          if (pick) applyRef(pick.id, pick.text);
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setCursor(readCursor());
+          return;
+        }
+      }
+
+      setCursor(readCursor());
       onKeyDown(e);
     },
-    [onKeyDown],
+    [
+      refOpen,
+      candidates,
+      acIndex,
+      applyRef,
+      onKeyDown,
+      readCursor,
+    ],
   );
 
   return (
     <div
       className={cn(
-        "node-content flex min-h-6 flex-1 items-start gap-1.5",
+        "node-content relative flex min-h-6 flex-1 items-start gap-1.5",
         "rounded-sm px-1",
         isSelected && !isActive && "bg-teal-900/8",
       )}
@@ -131,6 +220,7 @@ export function NodeContent({
           suppressContentEditableWarning
           onInput={handleInput}
           onKeyDown={handleKeyDown}
+          onKeyUp={() => setCursor(readCursor())}
           onCompositionStart={handleCompositionStart}
           onCompositionEnd={handleCompositionEnd}
           role="textbox"
@@ -151,6 +241,14 @@ export function NodeContent({
       )}
 
       {tags.length > 0 && <TagBadges tags={tags} />}
+
+      {refOpen && candidates.length > 0 && (
+        <RefAutocomplete
+          candidates={candidates}
+          activeIndex={acIndex}
+          onSelect={(c) => applyRef(c.id, c.text)}
+        />
+      )}
     </div>
   );
 }

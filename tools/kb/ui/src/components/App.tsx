@@ -3,6 +3,7 @@ import { loadGraph } from "@/api/graph";
 import { SearchBox } from "@/components/search-box";
 import { NodePanel } from "@/components/node-panel";
 import { OutlineEditor } from "@/components/outline/outline-editor";
+import { ToastHost } from "@/components/toast-host";
 import { useOutlineStore } from "@/stores/outline.store";
 
 export function App() {
@@ -61,6 +62,7 @@ export function App() {
           </div>
         </div>
       )}
+      <ToastHost />
     </div>
   );
 }

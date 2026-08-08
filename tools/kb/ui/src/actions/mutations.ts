@@ -1,27 +1,176 @@
 /**
- * Mutation action layer — U3 wires these to optimistic tx + POST /api/action.
- * U2 leaves them throwing so call sites stay discoverable without silent no-ops.
+ * Mutation action layer — optimistic local tx → POST /api/action.
  */
-function notWired(name: string): never {
-  throw new Error(`not wired: ${name}`);
+import { ulid } from "ulid";
+import { postAction } from "@/api/action";
+import { runOptimistic } from "@/actions/optimistic";
+import {
+  planAddTag,
+  planCreateAfter,
+  planDefineField,
+  planDefineTag,
+  planDelete,
+  planIndent,
+  planMergeWithPrevious,
+  planMove,
+  planOutdent,
+  planRemoveTag,
+  planSetProp,
+  planSplit,
+  planUnsetProp,
+  planUpdateText,
+  type PlannedMutation,
+} from "@/actions/plan";
+import { toast } from "@/lib/toast";
+import { cloneWireNodes } from "@/lib/tx";
+import type { PropValue } from "@/lib/types";
+import type { WireNode } from "@kb/protocol";
+import { useOutlineStore } from "@/stores/outline.store";
+
+function wire(): WireNode[] {
+  return useOutlineStore.getState().wireNodes;
+}
+
+async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
+  if (!plan) return false;
+  const result = await runOptimistic(plan);
+  return result.ok;
+}
+
+type PendingContent = {
+  text: string;
+  snapshot: WireNode[];
+  timer: ReturnType<typeof setTimeout>;
+};
+
+const pendingContent = new Map<string, PendingContent>();
+
+/**
+ * Failure recovery for the debounced text path: other mutations may have
+ * landed after this flush's snapshot was taken, so restoring the snapshot
+ * would clobber them. Resync from the server (source of truth) instead;
+ * fall back to the snapshot only if the resync itself fails.
+ */
+async function resyncOrRestore(snapshot: WireNode[]): Promise<void> {
+  const store = useOutlineStore.getState();
+  try {
+    const { loadGraph } = await import("@/api/graph");
+    const { snapshot: fresh, source } = await loadGraph();
+    store.hydrateFromWire(fresh.nodes, fresh.rev, source);
+  } catch {
+    store.restoreSnapshot(snapshot, store.rev);
+  }
+}
+
+async function flushContentRemote(
+  id: string,
+  content: string,
+  snapshot: WireNode[],
+): Promise<void> {
+  const store = useOutlineStore.getState();
+  if (store.loadSource === "fixtures" || store.loadSource === null) return;
+
+  try {
+    const receipt = await postAction("node.update", { id, text: content });
+    if (receipt.status === "failed") {
+      toast(receipt.message);
+      await resyncOrRestore(snapshot);
+    }
+  } catch (err) {
+    toast(err instanceof Error ? err.message : String(err));
+    await resyncOrRestore(snapshot);
+  }
 }
 
 export const mutations = {
-  updateNodeContent: (_id: string, _content: string): never =>
-    notWired("updateNodeContent"),
-  createNodeAfter: (_afterId: string): never => notWired("createNodeAfter"),
-  deleteNode: (_id: string): never => notWired("deleteNode"),
-  indentNode: (_id: string): never => notWired("indentNode"),
-  outdentNode: (_id: string): never => notWired("outdentNode"),
-  moveNodeUp: (_id: string): never => notWired("moveNodeUp"),
-  moveNodeDown: (_id: string): never => notWired("moveNodeDown"),
-  updateProp: (
-    _nodeId: string,
-    _fieldId: string,
-    _value: unknown,
-  ): never => notWired("updateProp"),
-  addTag: (_nodeId: string, _tagId: string): never => notWired("addTag"),
-  removeTag: (_nodeId: string, _tagId: string): never => notWired("removeTag"),
+  /** Immediate local text apply; debounced remote POST with pre-edit revert. */
+  updateNodeContent(id: string, content: string): void {
+    const store = useOutlineStore.getState();
+    const prev = pendingContent.get(id);
+    const snapshot = prev?.snapshot ?? cloneWireNodes(store.wireNodes);
+
+    const plan = planUpdateText(store.wireNodes, id, content);
+    store.applyTx(plan.upserts, plan.deletes);
+
+    if (prev) clearTimeout(prev.timer);
+    pendingContent.set(id, {
+      text: content,
+      snapshot,
+      timer: setTimeout(() => {
+        pendingContent.delete(id);
+        void flushContentRemote(id, content, snapshot);
+      }, 280),
+    });
+  },
+
+  async createNodeAfter(afterId: string): Promise<void> {
+    await applyPlan(planCreateAfter(wire(), afterId, ulid()));
+  },
+
+  async splitNode(id: string, cursor: number): Promise<void> {
+    await applyPlan(planSplit(wire(), id, cursor, ulid()));
+  },
+
+  async deleteNode(id: string): Promise<void> {
+    await applyPlan(planDelete(wire(), id));
+  },
+
+  async mergeWithPrevious(id: string): Promise<void> {
+    await applyPlan(planMergeWithPrevious(wire(), id));
+  },
+
+  async indentNode(id: string): Promise<void> {
+    await applyPlan(planIndent(wire(), id));
+  },
+
+  async outdentNode(id: string): Promise<void> {
+    await applyPlan(planOutdent(wire(), id));
+  },
+
+  async moveNodeUp(id: string): Promise<void> {
+    await applyPlan(planMove(wire(), id, "up"));
+  },
+
+  async moveNodeDown(id: string): Promise<void> {
+    await applyPlan(planMove(wire(), id, "down"));
+  },
+
+  async updateProp(
+    nodeId: string,
+    fieldId: string,
+    value: PropValue,
+    oldValue?: PropValue,
+  ): Promise<void> {
+    await applyPlan(planSetProp(wire(), nodeId, fieldId, value, oldValue));
+  },
+
+  async removeProp(
+    nodeId: string,
+    fieldId: string,
+    value?: PropValue,
+  ): Promise<void> {
+    await applyPlan(planUnsetProp(wire(), nodeId, fieldId, value));
+  },
+
+  async addTag(nodeId: string, tagId: string): Promise<void> {
+    await applyPlan(planAddTag(wire(), nodeId, tagId));
+  },
+
+  async removeTag(nodeId: string, tagId: string): Promise<void> {
+    await applyPlan(planRemoveTag(wire(), nodeId, tagId));
+  },
+
+  async defineField(name: string): Promise<string | null> {
+    const newId = ulid();
+    const ok = await applyPlan(planDefineField(name, newId));
+    return ok ? newId : null;
+  },
+
+  async defineTag(name: string): Promise<string | null> {
+    const newId = ulid();
+    const ok = await applyPlan(planDefineTag(name, newId));
+    return ok ? newId : null;
+  },
 };
 
 export type Mutations = typeof mutations;

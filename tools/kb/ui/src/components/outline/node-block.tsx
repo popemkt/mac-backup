@@ -45,13 +45,8 @@ export const NodeBlock = memo(function NodeBlock({
   );
 
   const handleContentChange = useCallback(
-    (_content: string) => {
-      // U3: mutations.updateNodeContent(nodeId, content)
-      try {
-        mutations.updateNodeContent(nodeId, _content);
-      } catch {
-        // read-only shell — swallow until wired
-      }
+    (content: string) => {
+      mutations.updateNodeContent(nodeId, content);
     },
     [nodeId],
   );
@@ -59,53 +54,52 @@ export const NodeBlock = memo(function NodeBlock({
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       const sel = window.getSelection();
+      const cursor = sel?.focusOffset ?? 0;
 
-      // Mutation keys → stub seam (U3). PreventDefault so browser doesn't insert newlines.
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        try {
-          mutations.createNodeAfter(nodeId);
-        } catch {
-          /* not wired */
-        }
+        void mutations.splitNode(nodeId, cursor);
         return;
       }
 
       if (e.key === "Tab") {
         e.preventDefault();
-        try {
-          if (e.shiftKey) mutations.outdentNode(nodeId);
-          else mutations.indentNode(nodeId);
-        } catch {
-          /* not wired */
-        }
+        if (e.shiftKey) void mutations.outdentNode(nodeId);
+        else void mutations.indentNode(nodeId);
         return;
       }
 
+      if (e.key === "Backspace" && !e.metaKey && !e.ctrlKey) {
+        if (cursor === 0) {
+          e.preventDefault();
+          if (node?.text === "" && (node?.children.length ?? 0) === 0) {
+            const prev = getPreviousVisibleNode(nodeId);
+            void mutations.deleteNode(nodeId).then(() => {
+              if (prev) {
+                const prevNode = useOutlineStore.getState().nodes.get(prev);
+                activateNode(prev, prevNode?.text.length ?? 0);
+              }
+            });
+          } else {
+            void mutations.mergeWithPrevious(nodeId);
+          }
+          return;
+        }
+      }
+
       if (
-        e.key === "Backspace" &&
-        node?.text === "" &&
-        node?.children.length === 0 &&
-        !e.metaKey &&
-        !e.ctrlKey
+        (e.key === "Backspace" || e.key === "Delete") &&
+        (e.metaKey || e.ctrlKey)
       ) {
         e.preventDefault();
-        try {
-          mutations.deleteNode(nodeId);
-        } catch {
-          /* not wired */
-        }
+        void mutations.deleteNode(nodeId);
         return;
       }
 
       if (e.key === "ArrowUp") {
         if (e.metaKey && e.shiftKey) {
           e.preventDefault();
-          try {
-            mutations.moveNodeUp(nodeId);
-          } catch {
-            /* not wired */
-          }
+          void mutations.moveNodeUp(nodeId);
           return;
         }
         if (e.metaKey) {
@@ -115,8 +109,7 @@ export const NodeBlock = memo(function NodeBlock({
           }
           return;
         }
-        const isAtStart = sel?.focusOffset === 0;
-        if (isAtStart) {
+        if (cursor === 0) {
           e.preventDefault();
           const prevId = getPreviousVisibleNode(nodeId);
           if (prevId) {
@@ -136,11 +129,7 @@ export const NodeBlock = memo(function NodeBlock({
       if (e.key === "ArrowDown") {
         if (e.metaKey && e.shiftKey) {
           e.preventDefault();
-          try {
-            mutations.moveNodeDown(nodeId);
-          } catch {
-            /* not wired */
-          }
+          void mutations.moveNodeDown(nodeId);
           return;
         }
         if (e.metaKey) {
@@ -150,7 +139,7 @@ export const NodeBlock = memo(function NodeBlock({
           }
           return;
         }
-        const isAtEnd = sel?.focusOffset === (node?.text.length ?? 0);
+        const isAtEnd = cursor === (node?.text.length ?? 0);
         if (isAtEnd) {
           e.preventDefault();
           const nextId = getNextVisibleNode(nodeId);
