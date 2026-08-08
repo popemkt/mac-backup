@@ -72,6 +72,7 @@ live datalog queries over its `/ws` endpoint (see protocol in
 kb add "Fix drift audit" --tag todo --prop status=doing   # alias for bun tools/kb/src/surface/cli.ts
 kb search "drift" --json
 kb query '[:find ?id ?text :where [?n :f/sys.f.type ?t] [?t :node/text "todo"] [?n :node/id ?id] [?n :node/text ?text]]'
+kb query '[:find ?from ?text :where [?e :node/mentions ?m] [?m :node/id "n.root-a"] [?e :node/id ?from] [?e :node/text ?text]]'
 kb run <saved-query>            # .kb/queries/<name>.edn
 kb action-invoke '{"id":"docs.materialize","input":{}}'   # regenerate docs/kb/*
 kb ext list                     # loaded extensions + their actions
@@ -88,6 +89,7 @@ bundled example `tools/kb/extensions-bundled/docs.ts` owns
 Rules for agents:
 - Prefer `kb` over ad-hoc TODO files for durable repo todos/notes; `--json` for machine output.
 - Props are multi-valued: `set` appends — `unset` the old value when changing e.g. `status`.
+- `[[id|label]]` in node text is the official ref form; load extracts `:node/mentions` datoms (see `tools/kb/DESIGN.md`). Use `kb backlinks <id>` or the datalog example above.
 - `docs/kb/*.md` is generated (header marks it); edit data, then materialize.
   Pre-commit runs `docs.check` and blocks stale generated docs.
 
