@@ -81,6 +81,7 @@ have an operational readiness check.
 | **GCP** | `gcloud auth login` |
 | **Tailscale** | Follow `system-setup next`; enroll policy GitOps once per tailnet as described in `docs/tailscale.md` |
 | **Raycast** | `open ~/.dotfiles/configs/raycast.rayconfig` → click Import |
+| **Vorssaint** | Import `~/.dotfiles/configs/vorssaint-settings.plist` in Vorssaint (Export → overwrite that file later) |
 | **Editable/local uv tools** | Install from their owning repos if needed; repo-tracked uv tools are installed during rebuild |
 | **Archon CLI** | Managed by Homebrew; verify with `archon workflow list` |
 | **Entire CLI** | Managed by Homebrew; opt in per repo with `entire enable --agent codex` (consider `--skip-push-sessions` for public repos) |
@@ -162,6 +163,7 @@ mackup backup --force                            # sync GUI app settings to iClo
 ```
 
 > Re-export Raycast config periodically: Raycast → Export and overwrite `configs/raycast.rayconfig`.
+> Re-export Vorssaint the same way: overwrite `configs/vorssaint-settings.plist`.
 
 ---
 
@@ -213,7 +215,7 @@ users. These Home Manager modules are imported only for the configured user.
 | **Tailscale** | app, MagicDNS domain, private services, and access policy | `modules/stacks/vpn/`, host declarations, and `configs/tailscale/policy.hujson` |
 | **Cognee** | pinned service version, launchd jobs, routing, and non-secret configuration | `modules/stacks/ai-agents/cognee/server.nix` |
 | **system-setup** | declared external requirements, dependency ordering, enrollment guidance, readiness checks | `modules/darwin/system/system-setup.nix` |
-| **`configs/`** | Raycast export | manual import on new machine |
+| **`configs/`** | Raycast / Vorssaint exports | manual import on new machine |
 | **Manual** | SSH keys, credentials, Hermes plist, editable uv tools | — |
 
 ## Adding Another Machine

@@ -67,7 +67,15 @@ lib.mkIf config.my.stacks.ai-agents.enable {
       home.activation.installHeadroomUvTools = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         # CLT-only macOS doesn't set SDKROOT; without it clang can't find C/C++
         # headers and packages with native extensions can fail to build.
+        # Prefer Apple's toolchain over any Nix clang/ar on PATH — maturin/cc-rs
+        # need a matching ar next to /usr/bin/clang (litellm's rust bridge).
         export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
+        export PATH="/usr/bin:/bin:$PATH"
+        export CC=/usr/bin/clang
+        export CXX=/usr/bin/clang++
+        export AR=/usr/bin/ar
+        export RANLIB=/usr/bin/ranlib
+        export CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=/usr/bin/clang
 
         for spec in ${lib.concatStringsSep " " (map lib.escapeShellArg uvTools)}; do
           name="''${spec%%==*}"

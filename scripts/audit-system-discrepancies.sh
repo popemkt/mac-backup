@@ -70,6 +70,121 @@ print_list() {
   done
 }
 
+# Warnings/passes are tallied for a pytest-style summary on stderr at the end.
+AUDIT_WARNINGS=()
+AUDIT_PASS=0
+AUDIT_FAIL=0
+SECONDS=0
+AUDIT_STARTED_AT="${EPOCHREALTIME:-}"
+
+if [ -t 2 ] && [ -z "${NO_COLOR:-}" ]; then
+  _AUDIT_BOLD=$'\033[1m'
+  _AUDIT_YELLOW=$'\033[33m'
+  _AUDIT_RED=$'\033[31m'
+  _AUDIT_GREEN=$'\033[32m'
+  _AUDIT_DIM=$'\033[2m'
+  _AUDIT_RESET=$'\033[0m'
+else
+  _AUDIT_BOLD=
+  _AUDIT_YELLOW=
+  _AUDIT_RED=
+  _AUDIT_GREEN=
+  _AUDIT_DIM=
+  _AUDIT_RESET=
+fi
+
+# Silent pass — counts toward the summary without inventory noise.
+record_pass() {
+  AUDIT_PASS=$((AUDIT_PASS + 1))
+}
+
+# Record an actionable warning: bright line on stderr + summary entry.
+record_warn() {
+  local msg="$1"
+  AUDIT_FAIL=$((AUDIT_FAIL + 1))
+  AUDIT_WARNINGS+=("$msg")
+  printf '%s%sWARNING:%s %s\n' \
+    "$_AUDIT_BOLD" "$_AUDIT_YELLOW" "$_AUDIT_RESET" "$msg" >&2
+}
+
+# Visible positive status in the inventory stream + pass tally.
+record_ok() {
+  record_pass
+  printf '  %sok%s %s\n' "$_AUDIT_GREEN" "$_AUDIT_RESET" "$1"
+}
+
+# Pass if count is 0, else warn with "$count $label".
+check_count() {
+  local count="$1"
+  local label="$2"
+  if [ "$count" -eq 0 ]; then
+    record_pass
+  else
+    record_warn "$count $label"
+  fi
+}
+
+# Detail under a warning (stderr, dim) — fix hints belong here.
+warn_detail() {
+  printf '  %s%s%s\n' "$_AUDIT_DIM" "$1" "$_AUDIT_RESET" >&2
+}
+
+_audit_elapsed() {
+  local started="${AUDIT_STARTED_AT:-}"
+  local now="${EPOCHREALTIME:-}"
+  if [ -n "$started" ] && [ -n "$now" ]; then
+    awk -v a="$started" -v b="$now" 'BEGIN { printf "%.1fs", b - a }'
+    return
+  fi
+  printf '%ss' "${SECONDS:-0}"
+}
+
+print_warning_summary() {
+  local count="${#AUDIT_WARNINGS[@]}"
+  local i=1
+  local msg
+  local elapsed
+  elapsed="$(_audit_elapsed)"
+  local total=$((AUDIT_PASS + AUDIT_FAIL))
+
+  printf '\n' >&2
+
+  if [ "$count" -gt 0 ]; then
+    printf '%s%s!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!%s\n' \
+      "$_AUDIT_BOLD" "$_AUDIT_RED" "$_AUDIT_RESET" >&2
+    printf '%s%sAUDIT WARNINGS (%s) — action needed%s\n' \
+      "$_AUDIT_BOLD" "$_AUDIT_YELLOW" "$count" "$_AUDIT_RESET" >&2
+    printf '%s%s!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!%s\n' \
+      "$_AUDIT_BOLD" "$_AUDIT_RED" "$_AUDIT_RESET" >&2
+    for msg in "${AUDIT_WARNINGS[@]}"; do
+      printf '  %s%s%d.%s %s\n' \
+        "$_AUDIT_BOLD" "$_AUDIT_YELLOW" "$i" "$_AUDIT_RESET" "$msg" >&2
+      i=$((i + 1))
+    done
+    printf '%s%s!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!%s\n' \
+      "$_AUDIT_BOLD" "$_AUDIT_RED" "$_AUDIT_RESET" >&2
+    printf '%sDetails above in the audit log; rebuild alone does not apply upgrades.%s\n' \
+      "$_AUDIT_DIM" "$_AUDIT_RESET" >&2
+  fi
+
+  # Pytest / cargo-test style totals line — the thing you glance at.
+  printf '\n' >&2
+  printf '%s%s==================== audit summary ====================%s\n' \
+    "$_AUDIT_BOLD" "$_AUDIT_DIM" "$_AUDIT_RESET" >&2
+  if [ "$AUDIT_FAIL" -eq 0 ]; then
+    printf '%s%s%s passed%s %sin %s%s\n' \
+      "$_AUDIT_BOLD" "$_AUDIT_GREEN" "$AUDIT_PASS" "$_AUDIT_RESET" \
+      "$_AUDIT_DIM" "$elapsed" "$_AUDIT_RESET" >&2
+  else
+    printf '%s%s%s failed%s, %s%s passed%s %sin %s (%s checks)%s\n' \
+      "$_AUDIT_BOLD" "$_AUDIT_RED" "$AUDIT_FAIL" "$_AUDIT_RESET" \
+      "$_AUDIT_BOLD" "$_AUDIT_GREEN" "$AUDIT_PASS" "$_AUDIT_RESET" \
+      "$_AUDIT_DIM" "$elapsed" "$total" "$_AUDIT_RESET" >&2
+  fi
+  printf '%s%s=======================================================%s\n' \
+    "$_AUDIT_BOLD" "$_AUDIT_DIM" "$_AUDIT_RESET" >&2
+}
+
 readarray_safe() {
   local __var_name="$1"
   shift
@@ -172,6 +287,7 @@ fi
 
 print_section "Forbidden Homebrew Cask Declarations"
 print_list "${forbidden_casks[@]}"
+check_count "${#forbidden_casks[@]}" "forbidden Homebrew cask declaration(s)"
 
 if [ -x "$BREW_BIN" ]; then
   readarray_safe installed_brews_raw "$BREW_BIN" leaves
@@ -201,21 +317,26 @@ if [ -x "$BREW_BIN" ]; then
 
   print_section "Homebrew Formulas Installed But Not Tracked"
   print_list "${unmanaged_brews[@]}"
+  check_count "${#unmanaged_brews[@]}" "Homebrew formula(s) installed but not tracked"
 
   print_section "Homebrew Formulas Tracked But Missing"
   print_list "${missing_brews[@]}"
+  check_count "${#missing_brews[@]}" "Homebrew formula(s) tracked but missing"
 
   print_section "Homebrew Casks Installed But Not Tracked"
   print_list "${unmanaged_casks[@]}"
+  check_count "${#unmanaged_casks[@]}" "Homebrew cask(s) installed but not tracked"
 
   print_section "Homebrew Casks Tracked But Missing"
   print_list "${missing_casks[@]}"
+  check_count "${#missing_casks[@]}" "Homebrew cask(s) tracked but missing"
 
   print_section "Homebrew Formulas Also Tracked In Nix"
   print_list "${brew_also_tracked_in_nix[@]}"
 else
   print_section "Homebrew Drift"
   printf '  brew not found at %s\n' "$BREW_BIN"
+  record_warn "Homebrew binary not found at $BREW_BIN"
 fi
 
 if command -v "$NPM_BIN" >/dev/null 2>&1; then
@@ -236,9 +357,11 @@ if command -v "$NPM_BIN" >/dev/null 2>&1; then
 
   print_section "npm Globals Installed But Not Tracked"
   print_list "${unmanaged_npm[@]}"
+  check_count "${#unmanaged_npm[@]}" "npm global(s) installed but not tracked"
 
   print_section "npm Globals Tracked But Missing"
   print_list "${missing_npm[@]}"
+  check_count "${#missing_npm[@]}" "npm global(s) tracked but missing"
 else
   print_section "npm Global Drift"
   printf '  npm not found\n'
@@ -259,9 +382,11 @@ printf '  Bun global manifest: %s\n' "$bun_global_manifest"
 
 print_section "Bun Globals Installed But Not Tracked"
 print_list "${unmanaged_bun[@]}"
+check_count "${#unmanaged_bun[@]}" "Bun global(s) installed but not tracked"
 
 print_section "Bun Globals Tracked But Missing"
 print_list "${missing_bun[@]}"
+check_count "${#missing_bun[@]}" "Bun global(s) tracked but missing"
 
 if command -v "$UV_BIN" >/dev/null 2>&1; then
   read_lines_into declared_uv_raw "$(eval_channel uvTools)"
@@ -295,9 +420,11 @@ if command -v "$UV_BIN" >/dev/null 2>&1; then
 
   print_section "uv Tools Installed But Not Tracked"
   print_list "${unmanaged_uv[@]}"
+  check_count "${#unmanaged_uv[@]}" "uv tool(s) installed but not tracked"
 
   print_section "uv Tools Tracked But Missing"
   print_list "${missing_uv[@]}"
+  check_count "${#missing_uv[@]}" "uv tool(s) tracked but missing"
 
   print_section "uv Tools Local/Editable (untracked by design)"
   print_list "${installed_uv_editable[@]}"
@@ -340,9 +467,11 @@ audit_agent_plugins() {
 
   print_section "$label Plugins Installed But Not Tracked"
   print_list "${unmanaged[@]}"
+  check_count "${#unmanaged[@]}" "$label plugin(s) installed but not tracked"
 
   print_section "$label Plugins Tracked But Missing"
   print_list "${missing[@]}"
+  check_count "${#missing[@]}" "$label plugin(s) tracked but missing"
 }
 
 audit_agent_plugins "Claude Code" claudePlugins claude plugin list
@@ -472,3 +601,128 @@ print_list "${cask_apps[@]}"
 
 print_section "Tracked Nix Packages"
 printf '%s\n' "${declared_nix_packages[@]}" | sed 's/^/  - /'
+
+# Out-of-band surfaces are not owned by flake.lock / Homebrew channels.
+# rebuild and apply-system-update both run this script, so keep these
+# advisory: warn and stay exit 0 so activation is not blocked.
+print_section "Out-of-band Freshness (advisory)"
+
+# Determinate Nix installs outside nix-darwin (`nix.enable = false`).
+if command -v determinate-nixd >/dev/null 2>&1; then
+  determinate_status="$(determinate-nixd status 2>&1 || true)"
+  nix_version_line="$(nix --version 2>/dev/null || true)"
+  if printf '%s\n' "$determinate_status" | grep -qiE 'out of date|now available'; then
+    available="$(
+      printf '%s\n' "$determinate_status" |
+        grep -oE 'Determinate Nix [0-9]+(\.[0-9]+)+' |
+        head -1 |
+        awk '{ print $3 }'
+    )"
+    current="$(
+      printf '%s\n' "$nix_version_line" |
+        grep -oE 'Determinate Nix [0-9]+(\.[0-9]+)+' |
+        head -1 |
+        awk '{ print $3 }'
+    )"
+    if [ -n "$available" ] && [ -n "$current" ]; then
+      record_warn "Determinate Nix $current → $available available"
+    else
+      record_warn "Determinate Nix is out of date"
+    fi
+    warn_detail "fix: sudo determinate-nixd upgrade"
+  else
+    record_ok "Determinate Nix current (${nix_version_line:-unknown})"
+  fi
+else
+  record_warn "determinate-nixd not found"
+fi
+
+# Apple OS / firmware updates are never flake-managed.
+if command -v softwareupdate >/dev/null 2>&1; then
+  # -l talks to Apple; keep going if offline.
+  softwareupdate_out="$(softwareupdate -l 2>&1 || true)"
+  mapfile -t os_updates < <(
+    printf '%s\n' "$softwareupdate_out" |
+      sed -nE 's/^[[:space:]]*\*[[:space:]]*Label:[[:space:]]*(.*)$/\1/p'
+  )
+  if [ "${#os_updates[@]}" -gt 0 ]; then
+    record_warn "macOS software update(s) available: ${os_updates[*]}"
+    for label in "${os_updates[@]}"; do
+      printf '    - %s\n' "$label"
+    done
+    warn_detail "fix: System Settings → Software Update (or softwareupdate -i -a)"
+  elif printf '%s\n' "$softwareupdate_out" | grep -qiE 'No new software available|No updates'; then
+    record_ok "macOS softwareupdate: none pending"
+  else
+    printf '  macOS softwareupdate: could not determine (offline or deferred)\n'
+  fi
+else
+  record_warn "softwareupdate not found"
+fi
+
+# Declared brew membership is tracked above; this is version freshness for
+# formulae/casks that only move on apply-system-update → update-homebrew.
+if [ -x "$BREW_BIN" ]; then
+  mapfile -t brew_outdated < <("$BREW_BIN" outdated 2>/dev/null | sed '/^$/d' || true)
+  if [ "${#brew_outdated[@]}" -gt 0 ]; then
+    record_warn "${#brew_outdated[@]} Homebrew package(s) outdated"
+    sample_count=10
+    i=0
+    for pkg in "${brew_outdated[@]}"; do
+      [ "$i" -lt "$sample_count" ] || break
+      printf '    - %s\n' "$pkg"
+      i=$((i + 1))
+    done
+    if [ "${#brew_outdated[@]}" -gt "$sample_count" ]; then
+      printf '    … %s more\n' "$((${#brew_outdated[@]} - sample_count))"
+    fi
+    warn_detail "fix: apply-system-update (or update-homebrew)"
+  else
+    record_ok "Homebrew outdated: none"
+  fi
+fi
+
+# Pin freshness for repo-managed mutable surfaces (no apply here).
+if [ -x "$ROOT_DIR/scripts/uv-sources" ]; then
+  uv_check_rc=0
+  uv_check_out="$("$ROOT_DIR/scripts/uv-sources" check --best-effort 2>&1)" || uv_check_rc=$?
+  case "$uv_check_rc" in
+    0)
+      record_ok "$(printf '%s\n' "$uv_check_out" | tail -1)"
+      ;;
+    10)
+      record_warn "uv tool pins have newer PyPI releases"
+      printf '%s\n' "$uv_check_out" | sed 's/^/    /'
+      warn_detail "fix: update-system → review → apply-system-update"
+      ;;
+    *)
+      printf '  uv pins: check skipped (%s)\n' "$(printf '%s\n' "$uv_check_out" | tail -1)"
+      ;;
+  esac
+fi
+
+if [ -x "$ROOT_DIR/scripts/github-sources" ]; then
+  gh_check_rc=0
+  gh_check_out="$("$ROOT_DIR/scripts/github-sources" check --best-effort 2>&1)" || gh_check_rc=$?
+  # Drop nix "Git tree dirty" noise; keep the verdict line(s).
+  gh_check_clean="$(
+    printf '%s\n' "$gh_check_out" |
+      grep -vE '^warning: Git tree|^warning: ignoring' || true
+  )"
+  case "$gh_check_rc" in
+    0)
+      record_ok "$(printf '%s\n' "$gh_check_clean" | tail -1)"
+      ;;
+    10)
+      record_warn "GitHub release pins have newer upstreams"
+      printf '%s\n' "$gh_check_clean" | sed 's/^/    /'
+      warn_detail "fix: update-system → review → apply-system-update"
+      ;;
+    *)
+      printf '  GitHub release pins: check skipped (%s)\n' \
+        "$(printf '%s\n' "$gh_check_clean" | tail -1)"
+      ;;
+  esac
+fi
+
+print_warning_summary

@@ -578,8 +578,13 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
 
       home.activation.installCogneeUvTool = lib.hm.dag.entryAfter [ "ensureCogneeState" ] ''
         export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
+        # Prefer Apple's toolchain over any Nix clang/ar on PATH — maturin/cc-rs
+        # need a matching ar next to /usr/bin/clang (litellm's rust bridge).
+        export PATH="/usr/bin:/bin:$PATH"
         export CC=/usr/bin/clang
         export CXX=/usr/bin/clang++
+        export AR=/usr/bin/ar
+        export RANLIB=/usr/bin/ranlib
         export CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=/usr/bin/clang
 
         receipt="${home}/.local/share/uv/tools/cognee/uv-receipt.toml"

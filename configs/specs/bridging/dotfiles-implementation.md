@@ -212,6 +212,7 @@ iCloud on first run. See `dotfiles-system.md`.
 | npm global drift | compares `npmGlobalPackages` vs `npm ls -g` | `scripts/audit-system-discrepancies.sh` |
 | Bun global drift | compares `bunGlobalPackages` vs Bun's global manifest | `scripts/audit-system-discrepancies.sh` |
 | uv tool drift | compares `uvTools` vs `uv tool list` (skips editable) | `scripts/audit-system-discrepancies.sh` |
+| Out-of-band freshness | Determinate Nix, macOS softwareupdate, brew outdated, uv/GitHub pin checks (advisory) | `scripts/audit-system-discrepancies.sh` |
 | Login items snapshot | osascript dump to `configs/login-items.txt` | `scripts/dump-login-items.sh` |
 | Direct release freshness | best-effort remote comparison; no mutation | `scripts/github-sources check` |
 | Direct release update | nvfetcher regenerates pinned versions and hashes | `scripts/github-sources update` |

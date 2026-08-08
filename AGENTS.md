@@ -54,6 +54,29 @@ rtk mackup restore
 Bun globals. The GitHub-sources commands check, verify, or refresh direct
 GitHub release pins.
 
+## kb — repo knowledge base
+
+`kb` (code in `tools/kb/`, spec in `tools/kb/DESIGN.md`) is this repo's
+outliner datastore: todos, notes, and any structured facts live as nodes in
+`.kb/nodes.jsonl` (committed). Everything is a node — fields and tags too.
+Props are keyed by field-node id; tags template fields; values may reference
+other nodes. Query with datalog (DataScript), or via the MCP server registered
+in `.mcp.json` (tools `node_add`, `graph_query`, `kb_manifest`, ...).
+
+```bash
+kb add "Fix drift audit" --tag todo --prop status=doing   # alias for bun tools/kb/src/surface/cli.ts
+kb search "drift" --json
+kb query '[:find ?id ?text :where [?n :f/sys.f.type ?t] [?t :node/text "todo"] [?n :node/id ?id] [?n :node/text ?text]]'
+kb run <saved-query>            # .kb/queries/<name>.edn
+kb action-invoke '{"id":"docs.materialize","input":{}}'   # regenerate docs/kb/*
+```
+
+Rules for agents:
+- Prefer `kb` over ad-hoc TODO files for durable repo todos/notes; `--json` for machine output.
+- Props are multi-valued: `set` appends — `unset` the old value when changing e.g. `status`.
+- `docs/kb/*.md` is generated (header marks it); edit data, then materialize.
+  Pre-commit runs `docs.check` and blocks stale generated docs.
+
 ## Where To Edit
 
 | Intent | Location |
