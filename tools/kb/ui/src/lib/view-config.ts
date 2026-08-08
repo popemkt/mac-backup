@@ -60,14 +60,24 @@ export function getViewConfig(
     }
   }
 
-  // Colwidth: sys.f.view.colwidth (JSON string)
+  // Colwidth: sys.f.view.colwidth (JSON string) — keep finite numbers > 0 only
   let colwidth: Record<string, number> = {};
   const rawColwidth = props[SYSTEM_IDS.viewColwidthField]?.[0];
   if (rawColwidth && rawColwidth.t === "str") {
     try {
       const parsed = JSON.parse(rawColwidth.v);
-      if (typeof parsed === "object" && parsed !== null) {
-        colwidth = parsed as Record<string, number>;
+      if (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        !Array.isArray(parsed)
+      ) {
+        for (const [key, value] of Object.entries(
+          parsed as Record<string, unknown>,
+        )) {
+          if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+            colwidth[key] = value;
+          }
+        }
       }
     } catch {
       colwidth = {};

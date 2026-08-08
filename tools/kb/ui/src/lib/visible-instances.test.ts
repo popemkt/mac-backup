@@ -88,4 +88,46 @@ describe("visible instances", () => {
       "tree/n.root-a/n.child-a2/n.grandchild",
     ]);
   });
+
+  it("table-mode frame emits only sorted direct children (no grandchildren)", async () => {
+    const { mutations } = await import("@/actions/mutations");
+    useOutlineStore.getState().zoomTo("n.root-a");
+    useOutlineStore.getState().toggleCollapse("n.root-a");
+    // Expand would show grandchild in list mode; table must stay flat.
+    useOutlineStore.getState().toggleCollapse("n.child-a2");
+
+    await mutations.setViewMode("n.root-a", "table");
+    await mutations.setViewSort("n.root-a", [
+      { fieldId: "__name__", dir: "asc" },
+    ]);
+
+    const keys = useOutlineStore
+      .getState()
+      .getVisibleInstances()
+      .map((i) => i.instanceKey);
+
+    // Sorted by name among n.root-a children (fixture texts), no grandchild.
+    expect(keys).not.toContain("tree/n.root-a/n.child-a2/n.grandchild");
+    expect(keys.every((k) => k.split("/").length === 3)).toBe(true);
+    expect(keys).toContain("tree/n.root-a/n.child-a1");
+    expect(keys).toContain("tree/n.root-a/n.child-a2");
+
+    // Neighbor order follows sort projection, not children[] store order.
+    const storeKids = useOutlineStore.getState().nodes.get("n.root-a")!.children;
+    const sortedKeys = keys.filter((k) =>
+      storeKids.some((id) => k.endsWith(`/${id}`)),
+    );
+    const texts = sortedKeys.map(
+      (k) =>
+        useOutlineStore.getState().nodes.get(k.split("/").at(-1)!)?.text ?? "",
+    );
+    const sortedTexts = [...texts].sort((a, b) =>
+      a.toLowerCase() < b.toLowerCase()
+        ? -1
+        : a.toLowerCase() > b.toLowerCase()
+          ? 1
+          : 0,
+    );
+    expect(texts).toEqual(sortedTexts);
+  });
 });

@@ -36,6 +36,8 @@ export interface FieldRowProps {
   debug?: boolean;
   /** Subtle type-mismatch affordance (UI-only; writes stay permissive). */
   mismatch?: boolean;
+  /** Table cells: keep FieldRow shell, hide icon/label chrome (value slot only). */
+  valueOnly?: boolean;
   onIconClick?: (e: React.MouseEvent) => void;
   onRemove?: () => void;
   children: React.ReactNode;
@@ -73,6 +75,7 @@ export function FieldRow({
   labelTitle,
   debug = false,
   mismatch = false,
+  valueOnly = false,
   onIconClick,
   onRemove,
   children,
@@ -85,39 +88,45 @@ export function FieldRow({
       className={cn(
         "field-row group/field flex items-start py-1",
         debug && "opacity-90",
+        valueOnly && "py-0",
         className,
       )}
-      style={{ paddingLeft: `${(depth + 1) * 24}px` }}
+      style={valueOnly ? undefined : { paddingLeft: `${(depth + 1) * 24}px` }}
       data-field-row="true"
+      data-field-value-only={valueOnly ? "true" : undefined}
       data-debug-field={debug ? "true" : undefined}
       data-field-mismatch={mismatch ? "true" : undefined}
     >
-      <span
-        className={cn(
-          "flex h-6 w-6 shrink-0 items-center justify-center text-foreground/25",
-          onIconClick && "cursor-pointer transition-opacity hover:opacity-70",
-        )}
-        onClick={onIconClick}
-      >
-        <IconCmp size={13} />
-      </span>
-
-      <span
-        className={cn(
-          "flex h-6 shrink-0 items-center truncate pl-1",
-          "text-[14.5px] font-medium leading-[1.6]",
-          debug ? "text-foreground/25" : "text-foreground/35",
-        )}
-        style={{ width: `${FIELD_LABEL_WIDTH}px` }}
-        title={labelTitle ?? (fieldId ? `${label} (${fieldId})` : label)}
-      >
-        {label}
-        {debug && fieldId && (
-          <span className="ml-1 truncate font-mono text-[10px] text-foreground/25">
-            {fieldId}
+      {!valueOnly && (
+        <>
+          <span
+            className={cn(
+              "flex h-6 w-6 shrink-0 items-center justify-center text-foreground/25",
+              onIconClick && "cursor-pointer transition-opacity hover:opacity-70",
+            )}
+            onClick={onIconClick}
+          >
+            <IconCmp size={13} />
           </span>
-        )}
-      </span>
+
+          <span
+            className={cn(
+              "flex h-6 shrink-0 items-center truncate pl-1",
+              "text-[14.5px] font-medium leading-[1.6]",
+              debug ? "text-foreground/25" : "text-foreground/35",
+            )}
+            style={{ width: `${FIELD_LABEL_WIDTH}px` }}
+            title={labelTitle ?? (fieldId ? `${label} (${fieldId})` : label)}
+          >
+            {label}
+            {debug && fieldId && (
+              <span className="ml-1 truncate font-mono text-[10px] text-foreground/25">
+                {fieldId}
+              </span>
+            )}
+          </span>
+        </>
+      )}
 
       {mismatch && (
         <span
@@ -129,7 +138,7 @@ export function FieldRow({
         </span>
       )}
 
-      {onRemove && (
+      {!valueOnly && onRemove && (
         <button
           type="button"
           className={cn(
@@ -149,7 +158,9 @@ export function FieldRow({
         </button>
       )}
 
-      <div className="min-w-0 flex-1 px-1">{children}</div>
+      <div className={cn("min-w-0 flex-1", valueOnly ? "px-0" : "px-1")}>
+        {children}
+      </div>
     </div>
   );
 }

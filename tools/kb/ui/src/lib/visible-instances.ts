@@ -1,6 +1,6 @@
 /**
  * Render-order visible outline instances (tree + query-result rows).
- * Must stay aligned with NodeBlock / QueryResultsSection / OutlineEditor.
+ * Must stay aligned with NodeBlock / QueryResultsSection / OutlineEditor / TableView.
  */
 import type { QueryDb } from "@/ds/db";
 import { runQuery } from "@/ds/query";
@@ -14,12 +14,40 @@ import {
   queryDefOf,
   resultNodeIds,
 } from "@/lib/query-node";
-import { WORKSPACE_ROOT_ID, type NodeMap } from "@/lib/types";
+import type { NodeMap, OutlineNode } from "@/lib/types";
+import { getViewConfig, sortChildrenForTable } from "@/lib/view-config";
 
 export type VisibleInstance = {
   nodeId: string;
   instanceKey: string;
 };
+
+function childNodes(parent: OutlineNode, nodes: NodeMap): OutlineNode[] {
+  return parent.children
+    .map((id) => nodes.get(id))
+    .filter((n): n is OutlineNode => n !== undefined);
+}
+
+/** Flat table rows: direct children only, in TableView sort projection order. */
+function emitTableRows(
+  parentKey: string,
+  parent: OutlineNode,
+  nodes: NodeMap,
+  out: VisibleInstance[],
+): void {
+  const viewConfig = getViewConfig(parent.props);
+  const sorted = sortChildrenForTable(
+    childNodes(parent, nodes),
+    viewConfig.sort,
+    nodes,
+  );
+  for (const child of sorted) {
+    out.push({
+      nodeId: child.id,
+      instanceKey: childInstanceKey(parentKey, child.id),
+    });
+  }
+}
 
 function walkVisibleInstances(
   nodeId: string,
@@ -60,6 +88,12 @@ function walkVisibleInstances(
     }
   }
 
+  // Table frames render only direct children (sorted); no grandchild walk.
+  if (getViewConfig(node.props).mode === "table") {
+    emitTableRows(instanceKey, node, nodes, out);
+    return;
+  }
+
   // Children of ref rows are ordinary (isRef does not cascade).
   for (const childId of node.children) {
     walkVisibleInstances(
@@ -76,6 +110,8 @@ function walkVisibleInstances(
 /**
  * Visible render instances for the current zoom/home root, in DOM order.
  * Zoomed root header is not a NodeBlock — only its children are listed.
+ * When the zoomed/home root is itself in table mode, emit sorted direct
+ * children only (matches OutlineEditor → TableView).
  */
 export function collectVisibleInstances(
   rootNodeId: string,
@@ -85,6 +121,23 @@ export function collectVisibleInstances(
   const out: VisibleInstance[] = [];
   const root = nodes.get(rootNodeId);
   if (!root) return out;
+
+  if (getViewConfig(root.props).mode === "table") {
+    // Root itself is not a visible NodeBlock; table rows use full-chain keys.
+    const viewConfig = getViewConfig(root.props);
+    const sorted = sortChildrenForTable(
+      childNodes(root, nodes),
+      viewConfig.sort,
+      nodes,
+    );
+    for (const child of sorted) {
+      out.push({
+        nodeId: child.id,
+        instanceKey: outlineInstanceKey(child.id, nodes),
+      });
+    }
+    return out;
+  }
 
   for (const childId of root.children) {
     // Full ancestor chain — matches outlineInstanceKey / zoomed OutlineEditor.

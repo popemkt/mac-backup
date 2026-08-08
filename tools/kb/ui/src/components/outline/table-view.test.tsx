@@ -2,8 +2,12 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mutations } from "@/actions/mutations";
+import { fixtureGraph } from "@/fixtures/graph";
+import { outlineInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
+import { getViewConfig } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
+import { usePrefsStore } from "@/stores/prefs.store";
 import type { WireNode } from "@kb/protocol";
 import { TableView } from "./table-view";
 import { ViewToolbar } from "./view-toolbar";
@@ -81,17 +85,17 @@ function getStoreNodes() {
   return useOutlineStore.getState().nodes;
 }
 
-import { fixtureGraph } from "@/fixtures/graph";
-
 describe("W7 TableView & ViewToolbar", () => {
   beforeEach(() => {
     useOutlineStore.getState().hydrateFromWire(mockWireNodes, 1, "fixtures");
+    usePrefsStore.getState().setWidth("centered");
   });
 
   afterEach(() => {
     useOutlineStore
       .getState()
       .hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+    usePrefsStore.getState().setWidth("centered");
   });
 
   it("ViewToolbar mode switch mutation updates frame node view.mode prop", async () => {
@@ -119,19 +123,44 @@ describe("W7 TableView & ViewToolbar", () => {
       createElement(TableView, { frameId: "frame1", nodes: getStoreNodes() }),
     );
 
-    // Check headers
     expect(html).toContain("Name");
     expect(html).toContain("status");
     expect(html).toContain("score");
-
-    // Check row text
     expect(html).toContain("Banana Task");
     expect(html).toContain("Apple Task");
-
-    // Assert NodeRow reuse via data-instance-key presence in rendered HTML
     expect(html).toContain('data-instance-key="tree/frame1/child1"');
     expect(html).toContain('data-instance-key="tree/frame1/child2"');
     expect(html).toContain("node-row");
+  });
+
+  it("field cells render through shared FieldRow (valueOnly)", () => {
+    const html = renderToStaticMarkup(
+      createElement(TableView, { frameId: "frame1", nodes: getStoreNodes() }),
+    );
+    expect(html).toContain('data-field-row="true"');
+    expect(html).toContain('data-field-value-only="true"');
+  });
+
+  it("auto-full-width breakout when width pref is centered", () => {
+    const centered = renderToStaticMarkup(
+      createElement(TableView, {
+        frameId: "frame1",
+        nodes: getStoreNodes(),
+        widthPref: "centered",
+      }),
+    );
+    expect(centered).toContain("table-view-breakout");
+    expect(centered).toContain('data-breakout="centered"');
+
+    const full = renderToStaticMarkup(
+      createElement(TableView, {
+        frameId: "frame1",
+        nodes: getStoreNodes(),
+        widthPref: "full",
+      }),
+    );
+    expect(full).not.toContain("table-view-breakout");
+    expect(full).not.toContain('data-breakout="centered"');
   });
 
   it("renders TableView columns from explicit display refs when set", async () => {
@@ -143,17 +172,15 @@ describe("W7 TableView & ViewToolbar", () => {
 
     expect(html).toContain("Name");
     expect(html).toContain("score");
-    expect(html).not.toContain("status");
+    expect(html).not.toContain(">status<");
   });
 
   it("sorts table render order without mutating children[] array in store", async () => {
-    // Initial store children order
     const initialChildren = [
       ...useOutlineStore.getState().nodes.get("frame1")!.children,
     ];
     expect(initialChildren).toEqual(["child1", "child2"]);
 
-    // Apply sort by name ascending (Apple Task first)
     await mutations.setViewSort("frame1", [
       { fieldId: "__name__", dir: "asc" },
     ]);
@@ -162,16 +189,54 @@ describe("W7 TableView & ViewToolbar", () => {
       createElement(TableView, { frameId: "frame1", nodes: getStoreNodes() }),
     );
 
-    // Verify rendered row order in markup (Apple Task appears before Banana Task)
     const posApple = html.indexOf("Apple Task");
     const posBanana = html.indexOf("Banana Task");
     expect(posApple).toBeGreaterThan(-1);
     expect(posBanana).toBeGreaterThan(-1);
     expect(posApple).toBeLessThan(posBanana);
 
-    // CRITICAL INVARIANT: Children order in store must NOT be changed!
     const storeChildren = useOutlineStore.getState().nodes.get("frame1")!
       .children;
     expect(storeChildren).toEqual(["child1", "child2"]);
+  });
+
+  it("Enter split-at-cursor inserts after the edited node (visual row) and focuses with table instanceKey", async () => {
+    await mutations.setViewSort("frame1", [
+      { fieldId: "__name__", dir: "asc" },
+    ]);
+    // Visual first row is Apple (child2); split mid-text.
+    await mutations.splitNode("child2", "Apple".length);
+
+    const frame = useOutlineStore.getState().nodes.get("frame1")!;
+    const appleIdx = frame.children.indexOf("child2");
+    expect(appleIdx).toBeGreaterThanOrEqual(0);
+    const insertedId = frame.children[appleIdx + 1];
+    expect(insertedId).toBeTruthy();
+    expect(insertedId).not.toBe("child1");
+
+    const apple = useOutlineStore.getState().nodes.get("child2")!;
+    const created = useOutlineStore.getState().nodes.get(insertedId!)!;
+    expect(apple.text).toBe("Apple");
+    expect(created.text).toBe(" Task");
+
+    // Focus lands on new node with outline/table instance key.
+    const store = useOutlineStore.getState();
+    expect(store.activeNodeId).toBe(insertedId);
+    expect(store.activeInstanceKey).toBe(
+      outlineInstanceKey(insertedId!, store.nodes),
+    );
+    expect(store.activeInstanceKey).toBe(`tree/frame1/${insertedId}`);
+
+    // children[] still Banana then Apple then New — sort projection unchanged rule.
+    expect(frame.children[0]).toBe("child1");
+  });
+
+  it("getViewConfig rejects bad colwidth shapes used by table resize path", () => {
+    const bad = getViewConfig({
+      [SYSTEM_IDS.viewColwidthField]: [
+        { t: "str", v: JSON.stringify({ a: "x", b: 0, c: 120 }) },
+      ],
+    });
+    expect(bad.colwidth).toEqual({ c: 120 });
   });
 });

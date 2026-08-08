@@ -234,4 +234,21 @@ html[data-font="inter"] {
     white-space: pre-wrap;
     word-break: break-word;
   }
+
+  /*
+   * W7: table breaks out of the centered max-w-3xl shell to viewport width.
+   * Only the table region — not the whole page (RED4 / DESIGN views).
+   */
+  .table-view-breakout {
+    width: 100vw;
+    max-width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    box-sizing: border-box;
+  }
 }

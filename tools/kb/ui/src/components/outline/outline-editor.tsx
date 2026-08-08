@@ -13,6 +13,11 @@ import { TableView } from "./table-view";
 import { ZoomedRootHeader } from "./zoomed-root-header";
 import { useSelectionKeymap } from "./use-selection-keymap";
 
+/**
+ * Home (`__kb_root__`) is a virtual node with empty props — view.mode cannot
+ * persist there, so home always renders the list of forest roots. Table mode
+ * is available on zoomed/nested frames via ViewToolbar.
+ */
 export function OutlineEditor() {
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
   const root = useOutlineStore((s) => s.nodes.get(s.rootNodeId));
@@ -29,9 +34,8 @@ export function OutlineEditor() {
     );
   }
 
-  const viewConfig = getViewConfig(root.props);
-
   if (rootNodeId !== WORKSPACE_ROOT_ID) {
+    const viewConfig = getViewConfig(root.props);
     return (
       <div className="outline-editor px-2 pb-40">
         <Breadcrumbs />
@@ -71,16 +75,12 @@ export function OutlineEditor() {
     <div className="outline-editor px-2 pb-40">
       <Breadcrumbs />
 
-      {viewConfig.mode === "table" ? (
-        <TableView frameId={WORKSPACE_ROOT_ID} />
-      ) : (
-        root.children.map((id) => {
-          const key = outlineInstanceKey(id, nodes);
-          return (
-            <NodeBlock key={key} nodeId={id} instanceKey={key} depth={0} />
-          );
-        })
-      )}
+      {root.children.map((id) => {
+        const key = outlineInstanceKey(id, nodes);
+        return (
+          <NodeBlock key={key} nodeId={id} instanceKey={key} depth={0} />
+        );
+      })}
 
       <GhostNodeRow
         depth={0}

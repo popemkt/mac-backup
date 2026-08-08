@@ -76,6 +76,30 @@ describe("view-config", () => {
     expect(config.colwidth).toEqual({});
   });
 
+  it("sanitizes colwidth to finite numbers > 0 (drops arrays/strings/null/≤0)", () => {
+    const config = getViewConfig({
+      [SYSTEM_IDS.viewColwidthField]: [
+        {
+          t: "str",
+          v: JSON.stringify({
+            ok: 180,
+            zero: 0,
+            neg: -10,
+            str: "200",
+            nil: null,
+            nan: Number.NaN,
+          }),
+        },
+      ],
+    });
+    expect(config.colwidth).toEqual({ ok: 180 });
+
+    const arr = getViewConfig({
+      [SYSTEM_IDS.viewColwidthField]: [{ t: "str", v: JSON.stringify([1, 2]) }],
+    });
+    expect(arr.colwidth).toEqual({});
+  });
+
   it("resolves columns from display refs or tag field fallback", () => {
     const nodes: NodeMap = new Map();
     nodes.set("tag1", {
