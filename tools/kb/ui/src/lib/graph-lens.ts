@@ -5,7 +5,7 @@
 import type { WireNode } from "@kb/protocol";
 import type { QueryDb } from "@/ds/db";
 import { runQuery } from "@/ds/query";
-import { resolveTagColor } from "@/lib/tag-color";
+import { hashTagColor, resolveTagColor } from "@/lib/tag-color";
 import { SYSTEM_IDS } from "@/lib/types";
 
 export type EdgeKind = "mention" | "child" | "ref-prop";
@@ -162,8 +162,12 @@ function resolveNodeSet(
   try {
     const rows = runQuery(db, edn);
     return idsFromQueryRows(rows, all);
-  } catch {
-    return all;
+  } catch (err) {
+    console.warn(
+      "[graph-lens] lens.query failed; using empty node set:",
+      err instanceof Error ? err.message : err,
+    );
+    return new Set();
   }
 }
 
@@ -265,10 +269,10 @@ export function resolveColor(
     const hex = colorBy.slice("fixed:".length).trim() || "#888888";
     return { color: hex, clusterKey: "fixed" };
   }
-  // default: tag
+  // default: tag — untagged uses the same djb2 palette (tag-color pipeline).
   const tag = firstTagOf(wire, byId);
   if (tag) return { color: tag.color, clusterKey: tag.id };
-  return { color: "#888888", clusterKey: "untagged" };
+  return { color: hashTagColor("untagged"), clusterKey: "untagged" };
 }
 
 export function resolveSize(

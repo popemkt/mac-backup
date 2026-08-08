@@ -17,10 +17,10 @@ export interface KbContext {
 export async function openKb(root: string): Promise<KbContext> {
   const store = new JsonlStore(root);
   let nodes = await store.load();
-  const { nodes: seeded, seeded: didSeed } = ensureSystemSeed(nodes);
-  if (didSeed || nodes.length === 0) {
+  const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(nodes);
+  if (didSeed || nodes.length === 0 || deletes.length > 0) {
     nodes = seeded;
-    await store.commit({ upserts: nodes, deletes: [] });
+    await store.commit({ upserts: nodes, deletes });
   } else {
     nodes = seeded;
   }

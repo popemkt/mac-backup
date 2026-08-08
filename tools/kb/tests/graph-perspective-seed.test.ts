@@ -3,7 +3,12 @@
  * default "All mentions" perspective.
  */
 import { describe, expect, test } from "bun:test";
-import { SYSTEM_IDS, type KbNode, type PropValue } from "../src/foundation/model.ts";
+import {
+  LEGACY_LENS_ALL_MENTIONS,
+  SYSTEM_IDS,
+  type KbNode,
+  type PropValue,
+} from "../src/foundation/model.ts";
 import { ensureSystemSeed, systemSeedNodes } from "../src/foundation/seed.ts";
 
 function refs(node: KbNode, field: string): string[] {
@@ -51,6 +56,7 @@ describe("V0 seed: graph-perspective + lens fields", () => {
 
     const perspective = byId.get(SYSTEM_IDS.lensAllMentions);
     expect(perspective).toBeDefined();
+    expect(SYSTEM_IDS.lensAllMentions.startsWith("sys.")).toBe(false);
     expect(perspective!.text).toBe("All mentions");
     expect(refs(perspective!, SYSTEM_IDS.typeField)).toEqual([
       SYSTEM_IDS.graphPerspectiveTag,
@@ -70,5 +76,30 @@ describe("V0 seed: graph-perspective + lens fields", () => {
     const again = ensureSystemSeed(first.nodes);
     expect(again.seeded).toBe(false);
     expect(again.nodes.length).toBe(first.nodes.length);
+  });
+
+  test("migrates legacy sys.lens.all-mentions → lens.all-mentions", () => {
+    const at = "2026-08-08T00:00:00.000Z";
+    const legacy: KbNode = {
+      id: LEGACY_LENS_ALL_MENTIONS,
+      text: "All mentions (edited)",
+      props: {
+        [SYSTEM_IDS.typeField]: [
+          { t: "ref", v: SYSTEM_IDS.graphPerspectiveTag },
+        ],
+        [SYSTEM_IDS.lensRendererField]: [{ t: "str", v: "force2d" }],
+      },
+      children: [],
+      createdAt: at,
+      updatedAt: at,
+    };
+    const result = ensureSystemSeed([legacy]);
+    expect(result.seeded).toBe(true);
+    expect(result.deletes).toEqual([LEGACY_LENS_ALL_MENTIONS]);
+    const byId = new Map(result.nodes.map((n) => [n.id, n]));
+    expect(byId.has(LEGACY_LENS_ALL_MENTIONS)).toBe(false);
+    expect(byId.get(SYSTEM_IDS.lensAllMentions)?.text).toBe(
+      "All mentions (edited)",
+    );
   });
 });

@@ -3,33 +3,41 @@ import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Sigma from "sigma";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
+import { readTokenColor } from "@/lib/css-color";
+
+type CameraSnap = { x: number; y: number; angle: number; ratio: number };
 
 export interface SigmaGraphProps {
   nodes: LensNode[];
   edges: LensEdge[];
-  /** CSS color strings (resolved from tokens). */
-  background: string;
-  labelColor: string;
   onNodeClick: (id: string) => void;
-  /** Bump to force full rebuild while preserving camera when possible. */
+  /** Bump when a full remount is desired (perspective change). */
   layoutKey: string;
+  /** Theme/rev signal so token colors refresh without topology churn. */
+  themeKey: string;
 }
 
-function cssColor(value: string, fallback: string): string {
-  const v = value.trim();
-  return v || fallback;
+function topologyKey(nodes: LensNode[], edges: LensEdge[]): string {
+  const n = nodes.map((x) => x.id).sort().join(",");
+  const e = edges
+    .map((x) => `${x.kind}:${x.source}->${x.target}`)
+    .sort()
+    .join(",");
+  return `${n}|${e}`;
 }
 
 export function SigmaGraph({
   nodes,
   edges,
-  background,
-  labelColor,
   onNodeClick,
   layoutKey,
+  themeKey,
 }: SigmaGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sigmaRef = useRef<Sigma | null>(null);
+  const cameraRef = useRef<CameraSnap | null>(null);
+  const positionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const topologyRef = useRef<string>("");
   const hoveredRef = useRef<string | null>(null);
   const onClickRef = useRef(onNodeClick);
   onClickRef.current = onNodeClick;
@@ -38,50 +46,87 @@ export function SigmaGraph({
     const el = containerRef.current;
     if (!el) return;
 
-    const prevCamera = sigmaRef.current?.getCamera().getState();
+    // Kill any leftover instance (StrictMode / rapid deps) before rebuild.
     sigmaRef.current?.kill();
     sigmaRef.current = null;
 
     const graph = new Graph({ multi: true, type: "directed" });
+    const prevPositions = positionsRef.current;
+    const nextPositions = new Map<string, { x: number; y: number }>();
+
     for (const n of nodes) {
+      const prior = prevPositions.get(n.id);
+      const x = prior?.x ?? Math.random() * 100;
+      const y = prior?.y ?? Math.random() * 100;
+      nextPositions.set(n.id, { x, y });
       graph.addNode(n.id, {
         label: n.label,
         color: n.color,
         size: n.size,
-        x: Math.random() * 100,
-        y: Math.random() * 100,
+        x,
+        y,
       });
     }
     for (let i = 0; i < edges.length; i++) {
       const e = edges[i]!;
       if (!graph.hasNode(e.source) || !graph.hasNode(e.target)) continue;
       try {
-        graph.addEdgeWithKey(`${e.kind}:${e.source}->${e.target}:${i}`, e.source, e.target, {
-          kind: e.kind,
-          size: 1,
-          color: "#88888855",
-        });
+        graph.addEdgeWithKey(
+          `${e.kind}:${e.source}->${e.target}:${i}`,
+          e.source,
+          e.target,
+          { kind: e.kind, size: 1 },
+        );
       } catch {
         // ignore duplicate keys
       }
     }
 
-    if (graph.order > 0) {
+    const topo = topologyKey(nodes, edges);
+    const topologyChanged = topo !== topologyRef.current;
+    topologyRef.current = topo;
+
+    if (graph.order > 0 && topologyChanged) {
       const settings = forceAtlas2.inferSettings(graph);
       forceAtlas2.assign(graph, {
         iterations: Math.min(120, 40 + graph.order),
         settings,
       });
+      graph.forEachNode((id, attrs) => {
+        nextPositions.set(id, { x: Number(attrs.x), y: Number(attrs.y) });
+      });
     }
+    positionsRef.current = nextPositions;
+
+    const background = readTokenColor("--background", {
+      fallback: "rgb(255, 255, 255)",
+    });
+    const labelColor = readTokenColor("--foreground", {
+      fallback: "rgb(34, 34, 34)",
+    });
+    const edgeColor = readTokenColor("--foreground", {
+      alpha: 0.2,
+      fallback: "rgba(128, 128, 128, 0.2)",
+    });
+    const edgeHoverColor = readTokenColor("--foreground", {
+      alpha: 0.55,
+      fallback: "rgba(128, 128, 128, 0.55)",
+    });
+    const dimFallback = readTokenColor("--foreground", {
+      alpha: 0.15,
+      fallback: "rgba(128, 128, 128, 0.15)",
+    });
+
+    el.style.background = background;
 
     const sigma = new Sigma(graph, el, {
       allowInvalidContainer: true,
       renderLabels: true,
       labelFont: "Outfit Variable, ui-sans-serif, system-ui, sans-serif",
       labelSize: 11,
-      labelColor: { color: cssColor(labelColor, "#222") },
+      labelColor: { color: labelColor },
       labelRenderedSizeThreshold: 8,
-      defaultEdgeColor: "#88888855",
+      defaultEdgeColor: edgeColor,
       stagePadding: 40,
     });
 
@@ -94,16 +139,21 @@ export function SigmaGraph({
         }
         return {
           ...data,
-          color: dimColor(String(data.color ?? "#888"), 0.15),
+          color: dimFallback,
           label: "",
           zIndex: 0,
         };
       });
       sigma.setSetting("edgeReducer", (edge, data) => {
-        if (!hovered) return { ...data, hidden: false };
+        if (!hovered) return { ...data, hidden: false, color: edgeColor };
         const extremities = graph.extremities(edge);
         if (extremities.includes(hovered)) {
-          return { ...data, hidden: false, color: "#888888aa", zIndex: 1 };
+          return {
+            ...data,
+            hidden: false,
+            color: edgeHoverColor,
+            zIndex: 1,
+          };
         }
         return { ...data, hidden: true };
       });
@@ -122,19 +172,22 @@ export function SigmaGraph({
       onClickRef.current(node);
     });
 
-    el.style.background = cssColor(background, "#fff");
-
-    if (prevCamera && nodes.length > 0) {
-      sigma.getCamera().setState(prevCamera);
+    if (cameraRef.current && nodes.length > 0) {
+      sigma.getCamera().setState(cameraRef.current);
     }
 
     sigmaRef.current = sigma;
     return () => {
+      // Stash camera BEFORE kill so the next effect can restore it.
+      try {
+        cameraRef.current = sigma.getCamera().getState();
+      } catch {
+        // already dead
+      }
       sigma.kill();
       if (sigmaRef.current === sigma) sigmaRef.current = null;
     };
-    // layoutKey intentionally drives rebuild; camera restored from prior instance.
-  }, [nodes, edges, background, labelColor, layoutKey]);
+  }, [nodes, edges, layoutKey, themeKey]);
 
   return (
     <div
@@ -143,23 +196,4 @@ export function SigmaGraph({
       data-testid="sigma-graph"
     />
   );
-}
-
-/** Approximate alpha blend toward transparent (15% opacity ≈ keep 15% of channel). */
-function dimColor(color: string, opacity: number): string {
-  const hex = color.trim();
-  if (hex.startsWith("#") && (hex.length === 7 || hex.length === 4)) {
-    const full =
-      hex.length === 4
-        ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
-        : hex;
-    const r = parseInt(full.slice(1, 3), 16);
-    const g = parseInt(full.slice(3, 5), 16);
-    const b = parseInt(full.slice(5, 7), 16);
-    const a = Math.round(opacity * 255)
-      .toString(16)
-      .padStart(2, "0");
-    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}${a}`;
-  }
-  return color;
 }

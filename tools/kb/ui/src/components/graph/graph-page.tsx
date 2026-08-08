@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { CircleHalf } from "@phosphor-icons/react";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, resolveDark } from "@/stores/prefs.store";
+import { useUiStore } from "@/stores/ui.store";
 import {
   extractLensGraph,
   listPerspectiveNodes,
@@ -9,15 +11,8 @@ import {
 } from "@/lib/graph-lens";
 import { SYSTEM_IDS } from "@/lib/types";
 import { graphPath, navigate } from "@/lib/route";
+import { PerspectivePicker } from "@/components/graph/perspective-picker";
 import { SigmaGraph } from "@/components/graph/sigma-graph";
-
-function readToken(name: string, fallback: string): string {
-  if (typeof document === "undefined") return fallback;
-  const v = getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim();
-  return v || fallback;
-}
 
 function systemPrefersDark(): boolean {
   if (typeof window === "undefined" || !window.matchMedia) return false;
@@ -35,6 +30,8 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const theme = usePrefsStore((s) => s.theme);
   const dark = resolveDark(theme, systemPrefersDark());
+  const prefsOpen = useUiStore((s) => s.prefsOpen);
+  const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
 
   const perspectives = useMemo(
     () => listPerspectiveNodes(wireNodes).map(parsePerspective),
@@ -76,11 +73,8 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
     return () => window.clearTimeout(handle);
   }, [queryDb, wireNodes, active, rev]);
 
-  const background = readToken("--background", dark ? "#1a1a1a" : "#ffffff");
-  const labelColor = readToken("--foreground", dark ? "#f5f5f5" : "#222222");
-
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="relative flex h-full min-h-0 flex-col">
       <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
         <button
           type="button"
@@ -90,24 +84,26 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
           ← outline
         </button>
         <span className="text-[13px] font-medium text-foreground/50">graph</span>
-        <select
-          className="min-w-0 max-w-xs cursor-pointer appearance-none rounded-sm border-none bg-transparent text-[13px] text-foreground/70 outline-none hover:text-foreground/85"
-          aria-label="Perspective"
-          value={active?.id ?? ""}
-          onChange={(e) => navigate(graphPath(e.target.value))}
-          disabled={!active}
-        >
-          {perspectives.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.label}
-            </option>
-          ))}
-        </select>
+        <PerspectivePicker
+          perspectives={perspectives}
+          activeId={active?.id ?? null}
+          onSelect={(id) => navigate(graphPath(id))}
+        />
         <span className="text-[11px] text-foreground/30">
           {lensGraph.nodes.length} nodes · {lensGraph.edges.length} edges
           {lensGraph.dropped > 0 ? ` · −${lensGraph.dropped}` : ""}
         </span>
         <div className="flex-1" />
+        <button
+          type="button"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70"
+          aria-label="Preferences"
+          title="Preferences"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setPrefsOpen(!prefsOpen)}
+        >
+          <CircleHalf size={15} />
+        </button>
       </header>
       <div className="min-h-0 flex-1">
         {!active || !queryDb ? (
@@ -118,9 +114,8 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
           <SigmaGraph
             nodes={lensGraph.nodes}
             edges={lensGraph.edges}
-            background={background}
-            labelColor={labelColor}
-            layoutKey={`${active.id}:${rev}:${lensGraph.nodes.length}:${lensGraph.edges.length}`}
+            layoutKey={active.id}
+            themeKey={`${theme}:${dark ? "d" : "l"}:${rev}`}
             onNodeClick={(id) => {
               navigate("/");
               zoomTo(id);

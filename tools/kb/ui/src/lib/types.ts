@@ -43,9 +43,15 @@ export const SYSTEM_IDS = {
   lensSizeByField: "sys.f.lens.size-by",
   lensEdgeKindsField: "sys.f.lens.edge-kinds",
   lensMaxNodesField: "sys.f.lens.max-nodes",
-  /** Default global mentions+child force2d perspective. */
-  lensAllMentions: "sys.lens.all-mentions",
+  /**
+   * Default global mentions+child force2d perspective.
+   * User-editable (NOT sys-prefixed) so write-guard does not lock it.
+   */
+  lensAllMentions: "lens.all-mentions",
 } as const;
+
+/** Pre-fix id — migrated away by ensureSystemSeed. */
+export const LEGACY_LENS_ALL_MENTIONS = "sys.lens.all-mentions";
 
 /** Any reserved / seeded id under the `sys.` prefix. */
 export function isSysPrefixed(id: string): boolean {

@@ -83,7 +83,7 @@ function baseGraph(): WireNode[] {
       text: "Gamma orphan",
     }),
     node({
-      id: "sys.lens.all-mentions",
+      id: SYSTEM_IDS.lensAllMentions,
       text: "All mentions",
       props: {
         "sys.f.type": [{ t: "ref", v: SYSTEM_IDS.graphPerspectiveTag }],
@@ -101,7 +101,7 @@ function perspective(
   patch: Partial<LensPerspective> = {},
 ): LensPerspective {
   return {
-    id: "sys.lens.all-mentions",
+    id: SYSTEM_IDS.lensAllMentions,
     label: "All mentions",
     query: "",
     renderer: "force2d",
@@ -117,7 +117,7 @@ describe("parsePerspective / listPerspectiveNodes", () => {
   it("lists #graph-perspective nodes and applies defaults", () => {
     const nodes = baseGraph();
     const listed = listPerspectiveNodes(nodes);
-    expect(listed.map((n) => n.id)).toEqual(["sys.lens.all-mentions"]);
+    expect(listed.map((n) => n.id)).toEqual([SYSTEM_IDS.lensAllMentions]);
     const p = parsePerspective(listed[0]!);
     expect(p.renderer).toBe("force2d");
     expect(p.edgeKinds).toEqual(["mention", "child"]);
@@ -185,6 +185,23 @@ describe("extractLensGraph", () => {
     expect(ids.has("n.b")).toBe(true);
     expect(ids.has("n.a1")).toBe(false);
     expect(ids.has("n.c")).toBe(false);
+  });
+
+  it("bad EDN query yields empty set and warns (never all-nodes)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const db = buildQueryDb(nodes, 1);
+    const g = extractLensGraph(
+      db,
+      nodes,
+      perspective({
+        query: "[:find ?id :where this-is-not-valid-edn",
+        edgeKinds: ["mention"],
+      }),
+    );
+    expect(g.nodes).toEqual([]);
+    expect(g.edges).toEqual([]);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("caps to highest-degree nodes and logs dropped count", () => {

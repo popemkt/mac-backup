@@ -70,6 +70,21 @@ function Toasts() {
   );
 }
 
+function SharedChrome() {
+  const globalPaletteOpen = useUiStore((s) => s.globalPaletteOpen);
+  const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
+  return (
+    <>
+      <PreferencesPopover />
+      <CommandPalette
+        open={globalPaletteOpen}
+        onClose={() => setGlobalPaletteOpen(false)}
+      />
+      <Toasts />
+    </>
+  );
+}
+
 function OutlineShell({
   status,
   error,
@@ -82,7 +97,6 @@ function OutlineShell({
   const width = usePrefsStore((s) => s.width);
   const prefsOpen = useUiStore((s) => s.prefsOpen);
   const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
-  const globalPaletteOpen = useUiStore((s) => s.globalPaletteOpen);
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
 
   return (
@@ -133,13 +147,6 @@ function OutlineShell({
           </div>
         </main>
       )}
-
-      <PreferencesPopover />
-      <CommandPalette
-        open={globalPaletteOpen}
-        onClose={() => setGlobalPaletteOpen(false)}
-      />
-      <Toasts />
     </div>
   );
 }
@@ -213,19 +220,30 @@ export function App() {
   if (route.name === "graph") {
     return (
       <div className="relative flex h-full min-h-0 flex-col">
-        <Suspense
-          fallback={
-            <div className="p-6 text-[13px] text-foreground/40">
-              loading graph…
-            </div>
-          }
-        >
-          <GraphPage perspectiveId={route.perspectiveId} />
-        </Suspense>
-        <Toasts />
+        {status === "loading" ? (
+          <div className="p-6 text-[13px] text-foreground/40">loading…</div>
+        ) : status === "error" ? (
+          <div className="p-6 text-destructive">{error}</div>
+        ) : (
+          <Suspense
+            fallback={
+              <div className="p-6 text-[13px] text-foreground/40">
+                loading graph…
+              </div>
+            }
+          >
+            <GraphPage perspectiveId={route.perspectiveId} />
+          </Suspense>
+        )}
+        <SharedChrome />
       </div>
     );
   }
 
-  return <OutlineShell status={status} error={error} />;
+  return (
+    <div className="relative flex h-full min-h-0 flex-col">
+      <OutlineShell status={status} error={error} />
+      <SharedChrome />
+    </div>
+  );
 }

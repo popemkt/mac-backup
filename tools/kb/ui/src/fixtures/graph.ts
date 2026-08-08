@@ -164,7 +164,7 @@ export const fixtureGraph: GraphSnapshot = {
       },
     }),
     node({
-      id: "sys.lens.all-mentions",
+      id: "lens.all-mentions",
       text: "All mentions",
       props: {
         "sys.f.type": [{ t: "ref", v: "sys.tag.graph-perspective" }],

@@ -1,4 +1,5 @@
 import {
+  LEGACY_LENS_ALL_MENTIONS,
   SYSTEM_IDS,
   type KbNode,
   nowIso,
@@ -155,18 +156,43 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   ];
 }
 
-/** Merge seed into existing nodes without overwriting user edits to sys.* text/props. */
+/**
+ * Merge seed into existing nodes without overwriting user edits to sys.* text/props.
+ *
+ * Also migrates the legacy default perspective `sys.lens.all-mentions` →
+ * `lens.all-mentions` (user-editable). If both exist, drop the legacy id;
+ * if only legacy exists, rename in place preserving text/props.
+ */
 export function ensureSystemSeed(nodes: KbNode[]): {
   nodes: KbNode[];
   seeded: boolean;
+  /** Ids removed by migration (must be passed to store.commit deletes). */
+  deletes: string[];
 } {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   let seeded = false;
+  const deletes: string[] = [];
+
+  // Migrate legacy BEFORE seeding defaults so edits on the old id are kept.
+  const legacy = byId.get(LEGACY_LENS_ALL_MENTIONS);
+  if (legacy) {
+    if (!byId.has(SYSTEM_IDS.lensAllMentions)) {
+      byId.set(SYSTEM_IDS.lensAllMentions, {
+        ...legacy,
+        id: SYSTEM_IDS.lensAllMentions,
+      });
+    }
+    byId.delete(LEGACY_LENS_ALL_MENTIONS);
+    deletes.push(LEGACY_LENS_ALL_MENTIONS);
+    seeded = true;
+  }
+
   for (const seed of systemSeedNodes()) {
     if (!byId.has(seed.id)) {
       byId.set(seed.id, seed);
       seeded = true;
     }
   }
-  return { nodes: [...byId.values()], seeded };
+
+  return { nodes: [...byId.values()], seeded, deletes };
 }
