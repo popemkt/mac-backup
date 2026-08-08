@@ -3,4 +3,15 @@
 # Registered in intent/SURFACES.md.
 # Install: git config core.hooksPath .githooks
 set -euo pipefail
-exec "$(git rev-parse --show-toplevel)/intent/gate.sh" record git-commit
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+# kb generated docs must match .kb data. Converge best effort: skip silently
+# when bun is missing (fresh machine); the check itself failing is a real stop.
+if [ -d "$repo_root/tools/kb" ] && [ -d "$repo_root/.kb" ]; then
+  if command -v bun >/dev/null 2>&1; then
+    (cd "$repo_root" && bun tools/kb/src/bin/docs-check.ts)
+  fi
+fi
+
+exec "$repo_root/intent/gate.sh" record git-commit

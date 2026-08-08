@@ -1,0 +1,5 @@
+{
+  "output": "docs/kb/todos.md",
+  "query": "[:find ?id :where [?n :f/sys.f.type ?tag] [?tag :node/text \"todo\"] [?tag :f/sys.f.type ?tagType] [?tagType :node/id \"sys.tag\"] [?n :node/id ?id]]",
+  "template": "todos"
+}
