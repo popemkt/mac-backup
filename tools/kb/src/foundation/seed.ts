@@ -62,6 +62,12 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     mk(SYSTEM_IDS.cmdDebugShowFields, "Debug: show all fields", cmdType),
     mk(SYSTEM_IDS.cmdExpandAll, "Expand all", cmdType),
     mk(SYSTEM_IDS.cmdCollapseAll, "Collapse all", cmdType),
+    // W7.1 view mode + filter commands
+    mk(SYSTEM_IDS.cmdViewAsList, "View as list", cmdType),
+    mk(SYSTEM_IDS.cmdViewAsTable, "View as table", cmdType),
+    mk(SYSTEM_IDS.cmdViewAsBoard, "View as board", cmdType),
+    mk(SYSTEM_IDS.cmdViewAsCards, "View as cards", cmdType),
+    mk(SYSTEM_IDS.cmdViewFilter, "Filter…", cmdType),
   ];
 
   // Query nodes as pure system nodes (W4): a tag "query" templating the
@@ -103,6 +109,12 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     "view.pagesize",
     fieldType,
   );
+  const viewGroupField = mk(SYSTEM_IDS.viewGroupField, "view.group", fieldType);
+  const viewFilterField = mk(
+    SYSTEM_IDS.viewFilterField,
+    "view.filter",
+    fieldType,
+  );
 
   return [
     field,
@@ -125,6 +137,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewDisplayField,
     viewColwidthField,
     viewPagesizeField,
+    viewGroupField,
+    viewFilterField,
   ];
 }
 

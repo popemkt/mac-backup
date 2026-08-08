@@ -55,3 +55,10 @@
 {"children":[],"createdAt":"2026-08-08T05:02:53.090Z","id":"sys.field","props":{},"text":"sys.field","updatedAt":"2026-08-08T05:02:53.090Z"}
 {"children":[],"createdAt":"2026-08-08T05:02:53.090Z","id":"sys.tag","props":{},"text":"sys.tag","updatedAt":"2026-08-08T05:02:53.090Z"}
 {"children":[],"createdAt":"2026-08-08T09:41:47.447Z","id":"sys.tag.query","props":{"sys.f.fields":[{"t":"ref","v":"sys.f.query"},{"t":"ref","v":"sys.f.query.limit"}],"sys.f.type":[{"t":"ref","v":"sys.tag"}]},"text":"query","updatedAt":"2026-08-08T09:41:47.447Z"}
+{"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.f.view.group","props":{"sys.f.type":[{"t":"ref","v":"sys.field"}]},"text":"view.group","updatedAt":"2026-08-08T14:09:32.000Z"}
+{"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.f.view.filter","props":{"sys.f.type":[{"t":"ref","v":"sys.field"}]},"text":"view.filter","updatedAt":"2026-08-08T14:09:32.000Z"}
+{"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.cmd.view-as-list","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"View as list","updatedAt":"2026-08-08T14:09:32.000Z"}
+{"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.cmd.view-as-table","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"View as table","updatedAt":"2026-08-08T14:09:32.000Z"}
+{"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.cmd.view-as-board","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"View as board","updatedAt":"2026-08-08T14:09:32.000Z"}
+{"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.cmd.view-as-cards","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"View as cards","updatedAt":"2026-08-08T14:09:32.000Z"}
+{"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.cmd.view-filter","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Filter…","updatedAt":"2026-08-08T14:09:32.000Z"}
