@@ -10,7 +10,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { openKb, reload } from "../context.ts";
 import { resolveRoot } from "./root.ts";
-import { invoke, manifest } from "../registry.ts";
+import { invoke, registryFor } from "../registry.ts";
 import type { ActionInvocation } from "../shared/contracts.ts";
 import { listViewNames, renderNamedView } from "../render/index.ts";
 
@@ -39,7 +39,7 @@ function asObjectSchema(schema: unknown): Tool["inputSchema"] {
  */
 export async function createMcpServer(root: string): Promise<Server> {
   const ctx = await openKb(root);
-  const actions = manifest();
+  const actions = (await registryFor(root)).manifestEntries;
   const byToolName = new Map(
     actions.map((a) => [actionIdToToolName(a.id), a] as const),
   );
@@ -131,7 +131,7 @@ export async function createMcpServer(root: string): Promise<Server> {
       const { name, arguments: args } = request.params;
 
       if (name === MANIFEST_TOOL) {
-        return jsonResult(manifest());
+        return jsonResult(actions);
       }
 
       if (name === RENDER_TOOL) {

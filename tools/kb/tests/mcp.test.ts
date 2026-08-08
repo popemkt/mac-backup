@@ -36,7 +36,7 @@ describe("MCP surface", () => {
     const listed = await client.listTools();
     const names = new Set(listed.tools.map((t) => t.name));
     expect(names.has("kb_manifest")).toBe(true);
-    for (const entry of manifest()) {
+    for (const entry of await manifest(root)) {
       expect(names.has(entry.id.replaceAll(".", "_"))).toBe(true);
     }
 

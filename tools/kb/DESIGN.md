@@ -104,9 +104,32 @@ Harman-lite (zod):
 
 - `ActionDefinition { id, title, description, mode: "read"|"apply", inputSchema, outputSchema }` — JSON Schemas via `z.toJSONSchema`, never hand-written.
 - `ActionReceipt` = `succeeded | failed` discriminated union, typed failure codes, never throws across boundary.
-- `registry.manifest()` + `registry.invoke()`; one explicit dispatch switch.
+- `registryFor(root)` builds a handler table per kb root (cached for the
+  process); `manifest(root)` + `invoke(ctx, invocation)` dispatch through it.
 - Skipped from harman (YAGNI): profiles, pagination cursors, idempotency
   replay, cancellation, A2A/HTTP surfaces. Contracts leave room.
+
+### Core boundary & extensions
+
+Core ships mechanism only: store (JSONL), datalog (DataScript), the action
+registry, subscription hub, render backbone (view specs + templates), and the
+CLI/MCP/UI surfaces. Policy — what markdown to write where, repo-specific
+output of any kind — lives in **extensions**:
+
+- An extension is a TS module in `.kb/extensions/` (repo-local = trusted)
+  whose default export is an array of harman-style actions: an
+  `ActionDefinition` plus a `handler(ctx, input)` (see `src/extensions.ts`).
+- The registry discovers them at build and namespaces ids as
+  `ext.<file>.<action>`. A failing module or malformed action warns and is
+  skipped — extension errors never crash core. `kb ext list` shows what
+  loaded (and what didn't).
+- `tools/kb/extensions-bundled/docs.ts` is the bundled example: it owns
+  `ext.docs.materialize` / `ext.docs.check`, with the legacy ids
+  `docs.materialize` / `docs.check` registered as aliases so pre-commit and
+  existing callers are unchanged. Core keeps only the render mechanism the
+  extension calls into (`src/operations/docs/`).
+- Extensions are loaded once per process; changing one requires restarting
+  long-lived surfaces (`kb ui`, `kb mcp`).
 
 ## Operations (verticals)
 
@@ -119,8 +142,8 @@ Harman-lite (zod):
 | `graph.query` | read | raw datalog → JSON rows |
 | `graph.run` | read | execute saved query from `.kb/queries/` |
 | `graph.search` | read | text/prop filter convenience |
-| `docs.materialize` | apply | run view specs → write md |
-| `docs.check` | read | materialize to memory, diff vs disk |
+| `ext.docs.materialize` (alias `docs.materialize`) | apply | run view specs → write md (bundled extension) |
+| `ext.docs.check` (alias `docs.check`) | read | materialize to memory, diff vs disk (bundled extension) |
 
 ## Materialization
 

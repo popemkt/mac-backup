@@ -4,7 +4,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { openKb, type KbContext } from "../context.ts";
 import { ResolveError, resolveFieldId } from "../foundation/resolve.ts";
-import { invoke } from "../registry.ts";
+import { invoke, registryFor } from "../registry.ts";
 import type { ActionReceipt } from "../shared/contracts.ts";
 import { filterSearchRows, formatReceipt } from "./format.ts";
 import {
@@ -516,6 +516,53 @@ export function buildProgram(): Command {
     .action(async function (this: Command, id: string) {
       const code = await withCtx(this, async (ctx, globals) => {
         return runPlan(ctx, mapChildren(id), globals, { command: "children" });
+      });
+      process.exitCode = code;
+    });
+
+  const ext = program.command("ext").description("Extension operations");
+  ext
+    .command("list")
+    .description("List loaded extensions (bundled + .kb/extensions) and their actions")
+    .action(async function (this: Command) {
+      const code = await withCtx(this, async (ctx, globals) => {
+        const registry = await registryFor(ctx.root);
+        if (globals.json === true) {
+          writeOut(
+            JSON.stringify({
+              status: "succeeded",
+              id: "ext.list",
+              output: {
+                extensions: registry.extensions.map((e) => ({
+                  name: e.name,
+                  source: e.source,
+                  actions: e.actions.map((a) => ({
+                    id: a.def.id,
+                    title: a.def.title,
+                    mode: a.def.mode,
+                    aliases: a.aliases,
+                  })),
+                })),
+                failures: registry.failures,
+              },
+            }),
+          );
+          return EXIT_OK;
+        }
+        const lines: string[] = [];
+        for (const e of registry.extensions) {
+          lines.push(`${e.name} (${e.source})`);
+          for (const a of e.actions) {
+            const alias =
+              a.aliases.length > 0 ? ` (alias: ${a.aliases.join(", ")})` : "";
+            lines.push(`  ${a.def.id}${alias} — ${a.def.title} [${a.def.mode}]`);
+          }
+        }
+        for (const f of registry.failures) {
+          lines.push(`! ${f.file}: ${f.error} (skipped)`);
+        }
+        writeOut(lines.length > 0 ? lines.join("\n") : "no extensions loaded");
+        return EXIT_OK;
       });
       process.exitCode = code;
     });

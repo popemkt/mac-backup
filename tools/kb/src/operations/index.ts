@@ -441,10 +441,3 @@ export async function graphQuery(
   const rows = query(ctx.qdb, input.query, ...(input.inputs ?? []));
   return { rows };
 }
-
-export {
-  docsCheck,
-  docsCheckDef,
-  docsMaterialize,
-  docsMaterializeDef,
-} from "./docs/index.ts";
