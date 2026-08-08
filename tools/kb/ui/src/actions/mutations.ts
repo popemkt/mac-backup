@@ -188,6 +188,33 @@ export const mutations = {
     await applyPlan(planSetFieldHidden(wire(), fieldId, hidden));
   },
 
+  async setFieldType(fieldId: string, fieldType: string): Promise<void> {
+    if (!guardSysWrite(fieldId)) return;
+    const { planSetFieldType } = await import("@/actions/plan");
+    await applyPlan(planSetFieldType(wire(), fieldId, fieldType));
+  },
+
+  async addFieldTargetTag(fieldId: string, tagId: string): Promise<void> {
+    if (!guardSysWrite(fieldId)) return;
+    const { planAddFieldTargetTag } = await import("@/actions/plan");
+    await applyPlan(planAddFieldTargetTag(wire(), fieldId, tagId));
+  },
+
+  async removeFieldTargetTag(fieldId: string, tagId: string): Promise<void> {
+    if (!guardSysWrite(fieldId)) return;
+    const { planRemoveFieldTargetTag } = await import("@/actions/plan");
+    await applyPlan(planRemoveFieldTargetTag(wire(), fieldId, tagId));
+  },
+
+  async setFieldTargetQuery(
+    fieldId: string,
+    edn: string | null,
+  ): Promise<void> {
+    if (!guardSysWrite(fieldId)) return;
+    const { planSetFieldTargetQuery } = await import("@/actions/plan");
+    await applyPlan(planSetFieldTargetQuery(wire(), fieldId, edn));
+  },
+
   async splitNode(id: string, cursor: number): Promise<void> {
     if (!guardSysWrite(id)) return;
     await applyPlan(planSplit(wire(), id, cursor, ulid()));

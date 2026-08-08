@@ -44,13 +44,30 @@ describe("shared outline components (W8b)", () => {
     expect(html).toContain("#11223318");
   });
 
+  it("FieldRow shows mismatch warning icon when flagged", () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        FieldRow,
+        {
+          depth: 0,
+          fieldType: "number",
+          label: "count",
+          mismatch: true,
+          children: createElement("span", null, "abc"),
+        },
+      ),
+    );
+    expect(html).toContain('data-field-mismatch="true"');
+    expect(html).toContain("data-mismatch-warning");
+  });
+
   it("FieldRow is reused by Preferences via PrefFieldRow depth −1 anatomy", () => {
     const outlineHtml = renderToStaticMarkup(
       createElement(
         FieldRow,
         {
           depth: 0,
-          fieldType: "str",
+          fieldType: "text",
           label: "status",
           children: createElement("span", null, "doing"),
         },

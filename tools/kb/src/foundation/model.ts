@@ -30,6 +30,12 @@ export const SYSTEM_IDS = {
   colorField: "sys.f.color",
   /** Per-field visibility: when true, field rows are hidden unless debug mode. */
   hiddenField: "sys.f.hidden",
+  /** Declared value type on field nodes (text|number|date|url|checkbox|ref). */
+  fieldTypeField: "sys.f.fieldType",
+  /** Ref constraint sugar: allowed target tag(s), multi = union. */
+  targetTagField: "sys.f.targetTag",
+  /** Ref constraint general form: EDN datalog of allowed node ids (wins over tag). */
+  targetQueryField: "sys.f.targetQuery",
   /** Type node for palette command nodes (DESIGN-REFINE §2 W3). */
   command: "sys.command",
   cmdAddNode: "sys.cmd.add-node",

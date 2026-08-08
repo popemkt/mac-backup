@@ -10,6 +10,12 @@ export const SYSTEM_IDS = {
   fieldsField: "sys.f.fields",
   colorField: "sys.f.color",
   hiddenField: "sys.f.hidden",
+  /** Declared value type on field nodes (text|number|date|url|checkbox|ref). */
+  fieldTypeField: "sys.f.fieldType",
+  /** Ref constraint sugar: allowed target tag(s), multi = union. */
+  targetTagField: "sys.f.targetTag",
+  /** Ref constraint general form: EDN datalog of allowed node ids (wins over tag). */
+  targetQueryField: "sys.f.targetQuery",
   command: "sys.command",
   cmdAddNode: "sys.cmd.add-node",
   cmdAddTag: "sys.cmd.add-tag",

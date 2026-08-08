@@ -1,4 +1,9 @@
 import { mutations } from "@/actions/mutations";
+import {
+  isValueMismatch,
+  resolveAllowedRefIds,
+  resolveFieldTypeById,
+} from "@/lib/field-type";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
 import type { PropValue } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -15,6 +20,7 @@ interface FieldsSectionProps {
 export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const nodes = useOutlineStore((s) => s.nodes);
+  const queryDb = useOutlineStore((s) => s.queryDb);
   const showAllFields = usePrefsStore((s) => s.showAllFields);
 
   if (!node) return null;
@@ -23,15 +29,22 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
 
   return (
     <div className="fields-section" data-fields-for={nodeId}>
-      {props.map((p) =>
-        p.values.map((v, i) => (
+      {props.map((p) => {
+        const fieldType = resolveFieldTypeById(p.fieldId, nodes);
+        const fieldNode = nodes.get(p.fieldId);
+        const allowedRefIds =
+          fieldType === "ref"
+            ? resolveAllowedRefIds(fieldNode, nodes, queryDb)
+            : null;
+        return p.values.map((v, i) => (
           <FieldRow
             key={`${p.fieldId}-${i}`}
             depth={depth}
-            fieldType={v.t}
+            fieldType={fieldType}
             fieldId={p.fieldId}
             label={p.fieldName}
             debug={p.debug}
+            mismatch={isValueMismatch(fieldType, v)}
             onRemove={
               p.debug
                 ? undefined
@@ -41,14 +54,16 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
             <PropValueEditor
               value={v}
               display={formatPropValue(v, nodes)}
+              fieldType={fieldType}
+              allowedRefIds={allowedRefIds}
               nodes={nodes}
-              onCommit={(next) =>
+              onCommit={(next: PropValue) =>
                 void mutations.updateProp(nodeId, p.fieldId, next, v)
               }
             />
           </FieldRow>
-        )),
-      )}
+        ));
+      })}
     </div>
   );
 }

@@ -3,7 +3,12 @@ import { Command, CommanderError } from "commander";
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { openKb, type KbContext } from "../context.ts";
-import { ResolveError, resolveFieldId } from "../foundation/resolve.ts";
+import { SYSTEM_IDS } from "../foundation/model.ts";
+import {
+  ResolveError,
+  resolveFieldId,
+  resolveTagId,
+} from "../foundation/resolve.ts";
 import { invoke, registryFor } from "../registry.ts";
 import type { ActionReceipt } from "../shared/contracts.ts";
 import { filterSearchRows, formatReceipt } from "./format.ts";
@@ -15,6 +20,9 @@ import {
   mapChildren,
   mapFieldDefine,
   mapFieldList,
+  mapFieldTarget,
+  mapFieldTargetQuery,
+  mapFieldType,
   mapGet,
   mapMv,
   mapQuery,
@@ -41,6 +49,9 @@ export {
   mapFieldDefine,
   mapTagDefine,
   mapFieldList,
+  mapFieldType,
+  mapFieldTarget,
+  mapFieldTargetQuery,
   mapTagList,
   mapQuery,
   mapRunQuery,
@@ -428,6 +439,59 @@ export function buildProgram(): Command {
     .action(async function (this: Command) {
       const code = await withCtx(this, async (ctx, globals) => {
         return runPlan(ctx, mapFieldList(), globals);
+      });
+      process.exitCode = code;
+    });
+  field
+    .command("type")
+    .description("Set sys.f.fieldType on a field (text|number|date|url|checkbox|ref)")
+    .argument("<field>", "field name or id")
+    .argument("<type>", "field type")
+    .action(async function (this: Command, field: string, type: string) {
+      const code = await withCtx(this, async (ctx, globals) => {
+        const fieldId = resolveFieldId(ctx.nodes, field);
+        const node = ctx.nodes.find((n) => n.id === fieldId);
+        const prev = node?.props[SYSTEM_IDS.fieldTypeField]?.[0];
+        const previous =
+          prev?.t === "str" ? { t: "str" as const, v: String(prev.v) } : undefined;
+        return runPlan(
+          ctx,
+          mapFieldType({ fieldId, type, previous }),
+          globals,
+        );
+      });
+      process.exitCode = code;
+    });
+  field
+    .command("target")
+    .description("Add sys.f.targetTag constraint (union) on a ref field")
+    .argument("<field>", "field name or id")
+    .argument("<tag>", "tag name or id")
+    .action(async function (this: Command, field: string, tag: string) {
+      const code = await withCtx(this, async (ctx, globals) => {
+        const fieldId = resolveFieldId(ctx.nodes, field);
+        const tagId = resolveTagId(ctx.nodes, tag);
+        return runPlan(ctx, mapFieldTarget({ fieldId, tagId }), globals);
+      });
+      process.exitCode = code;
+    });
+  field
+    .command("target-query")
+    .description("Set sys.f.targetQuery EDN constraint (wins over targetTag)")
+    .argument("<field>", "field name or id")
+    .argument("<edn>", "datalog EDN returning allowed node ids")
+    .action(async function (this: Command, field: string, edn: string) {
+      const code = await withCtx(this, async (ctx, globals) => {
+        const fieldId = resolveFieldId(ctx.nodes, field);
+        const node = ctx.nodes.find((n) => n.id === fieldId);
+        const prev = node?.props[SYSTEM_IDS.targetQueryField]?.[0];
+        const previous =
+          prev?.t === "str" ? { t: "str" as const, v: String(prev.v) } : undefined;
+        return runPlan(
+          ctx,
+          mapFieldTargetQuery({ fieldId, edn, previous }),
+          globals,
+        );
       });
       process.exitCode = code;
     });
