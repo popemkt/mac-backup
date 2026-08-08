@@ -28,6 +28,15 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const hiddenField = mk(SYSTEM_IDS.hiddenField, "hidden", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
   });
+  const fieldTypeField = mk(SYSTEM_IDS.fieldTypeField, "fieldType", {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+  });
+  const targetTagField = mk(SYSTEM_IDS.targetTagField, "targetTag", {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+  });
+  const targetQueryField = mk(SYSTEM_IDS.targetQueryField, "targetQuery", {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+  });
   const tag = mk(SYSTEM_IDS.tag, "sys.tag", {
     [SYSTEM_IDS.fieldsField]: [
       { t: "ref", v: SYSTEM_IDS.colorField },
@@ -78,6 +87,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     fieldsField,
     colorField,
     hiddenField,
+    fieldTypeField,
+    targetTagField,
+    targetQueryField,
     command,
     ...commands,
     queryField,

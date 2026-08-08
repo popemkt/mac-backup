@@ -1,5 +1,6 @@
 import { memo, useCallback } from "react";
 import { isQueryNode } from "@/lib/query-node";
+import { childInstanceKey, outlineInstanceKey } from "@/lib/instance-key";
 import { resolveProps } from "@/lib/graph-view";
 import { useUiStore } from "@/stores/ui.store";
 import { usePrefsStore } from "@/stores/prefs.store";
@@ -15,6 +16,8 @@ import { QueryResultsSection } from "./query-results";
 interface NodeBlockProps {
   nodeId: string;
   depth: number;
+  /** Stable render-instance id (parent-path or ref-container + nodeId). */
+  instanceKey?: string;
   /** Reference-row state for query results / embeds (dashed bullet ring). */
   isRef?: boolean;
 }
@@ -22,23 +25,31 @@ interface NodeBlockProps {
 export const NodeBlock = memo(function NodeBlock({
   nodeId,
   depth,
+  instanceKey: instanceKeyProp,
   isRef = false,
 }: NodeBlockProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const nodes = useOutlineStore((s) => s.nodes);
   const activeNodeId = useOutlineStore((s) => s.activeNodeId);
+  const activeInstanceKey = useOutlineStore((s) => s.activeInstanceKey);
   const selectedNodeId = useOutlineStore((s) => s.selectedNodeId);
+  const selectedInstanceKey = useOutlineStore((s) => s.selectedInstanceKey);
   const cursorPosition = useOutlineStore((s) => s.cursorPosition);
   const activateNode = useOutlineStore((s) => s.activateNode);
   const selectNode = useOutlineStore((s) => s.selectNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
-  const getPreviousVisibleNode = useOutlineStore(
-    (s) => s.getPreviousVisibleNode,
+  const getPreviousVisibleInstance = useOutlineStore(
+    (s) => s.getPreviousVisibleInstance,
   );
-  const getNextVisibleNode = useOutlineStore((s) => s.getNextVisibleNode);
+  const getNextVisibleInstance = useOutlineStore(
+    (s) => s.getNextVisibleInstance,
+  );
   const showAllFields = usePrefsStore((s) => s.showAllFields);
   const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
+
+  const instanceKey =
+    instanceKeyProp ?? outlineInstanceKey(nodeId, nodes);
 
   const primaryTagColor = node?.tags[0]?.color ?? null;
 
@@ -55,18 +66,18 @@ export const NodeBlock = memo(function NodeBlock({
 
   const handleActivate = useCallback(
     (cursorPos?: number) => {
-      activateNode(nodeId, cursorPos);
+      activateNode(nodeId, cursorPos, instanceKey);
     },
-    [activateNode, nodeId],
+    [activateNode, nodeId, instanceKey],
   );
 
   const handleRowSelect = useCallback(
     (e: React.MouseEvent) => {
       if (e.target === e.currentTarget) {
-        selectNode(nodeId);
+        selectNode(nodeId, instanceKey);
       }
     },
-    [selectNode, nodeId],
+    [selectNode, nodeId, instanceKey],
   );
 
   const handleContentChange = useCallback(
@@ -114,11 +125,17 @@ export const NodeBlock = memo(function NodeBlock({
         if (cursor === 0) {
           e.preventDefault();
           if (node?.text === "" && (node?.children.length ?? 0) === 0) {
-            const prev = getPreviousVisibleNode(nodeId);
+            const prev = getPreviousVisibleInstance(instanceKey);
             void mutations.deleteNode(nodeId).then(() => {
               if (prev) {
-                const prevNode = useOutlineStore.getState().nodes.get(prev);
-                activateNode(prev, prevNode?.text.length ?? 0);
+                const prevNode = useOutlineStore
+                  .getState()
+                  .nodes.get(prev.nodeId);
+                activateNode(
+                  prev.nodeId,
+                  prevNode?.text.length ?? 0,
+                  prev.instanceKey,
+                );
               }
             });
           } else {
@@ -152,10 +169,14 @@ export const NodeBlock = memo(function NodeBlock({
         }
         if (cursor === 0) {
           e.preventDefault();
-          const prevId = getPreviousVisibleNode(nodeId);
-          if (prevId) {
-            const prevNode = useOutlineStore.getState().nodes.get(prevId);
-            activateNode(prevId, prevNode?.text.length ?? 0);
+          const prev = getPreviousVisibleInstance(instanceKey);
+          if (prev) {
+            const prevNode = useOutlineStore.getState().nodes.get(prev.nodeId);
+            activateNode(
+              prev.nodeId,
+              prevNode?.text.length ?? 0,
+              prev.instanceKey,
+            );
           }
         }
         return;
@@ -163,7 +184,7 @@ export const NodeBlock = memo(function NodeBlock({
 
       if (e.key === "Escape") {
         e.preventDefault();
-        useOutlineStore.getState().selectNode(nodeId);
+        useOutlineStore.getState().selectNode(nodeId, instanceKey);
         return;
       }
 
@@ -183,8 +204,8 @@ export const NodeBlock = memo(function NodeBlock({
         const isAtEnd = cursor === (node?.text.length ?? 0);
         if (isAtEnd) {
           e.preventDefault();
-          const nextId = getNextVisibleNode(nodeId);
-          if (nextId) activateNode(nextId, 0);
+          const next = getNextVisibleInstance(instanceKey);
+          if (next) activateNode(next.nodeId, 0, next.instanceKey);
         }
         return;
       }
@@ -193,19 +214,24 @@ export const NodeBlock = memo(function NodeBlock({
       nodeId,
       node,
       isRef,
+      instanceKey,
       toggleCollapse,
       activateNode,
-      getPreviousVisibleNode,
-      getNextVisibleNode,
+      getPreviousVisibleInstance,
+      getNextVisibleInstance,
     ],
   );
 
   if (!node) return null;
 
-  const isActive = activeNodeId === nodeId;
-  const isSelected = selectedNodeId === nodeId;
+  const isActive =
+    activeNodeId === nodeId && activeInstanceKey === instanceKey;
+  const isSelected =
+    selectedNodeId === nodeId && selectedInstanceKey === instanceKey;
   const isPaletteAnchor =
-    nodePaletteOpen && (selectedNodeId === nodeId || activeNodeId === nodeId);
+    nodePaletteOpen &&
+    ((selectedNodeId === nodeId && selectedInstanceKey === instanceKey) ||
+      (activeNodeId === nodeId && activeInstanceKey === instanceKey));
   const hasChildren = node.children.length > 0;
   const isQuery = isQueryNode(node);
   const hasFields =
@@ -213,10 +239,15 @@ export const NodeBlock = memo(function NodeBlock({
   const isExpandable = hasChildren || isQuery || hasFields;
 
   return (
-    <div className="node-block relative" data-node-id={nodeId}>
+    <div
+      className="node-block relative"
+      data-node-id={nodeId}
+      data-instance-key={instanceKey}
+    >
       <NodeRow
         depth={depth}
         nodeId={nodeId}
+        instanceKey={instanceKey}
         isSelected={isSelected || isPaletteAnchor}
         isActive={isActive}
         onRowClick={handleRowSelect}
@@ -232,6 +263,7 @@ export const NodeBlock = memo(function NodeBlock({
         content={
           <NodeContent
             nodeId={nodeId}
+            instanceKey={instanceKey}
             content={node.text}
             isActive={isActive}
             tags={node.tags}
@@ -260,14 +292,17 @@ export const NodeBlock = memo(function NodeBlock({
           )}
 
           {hasChildren &&
-            node.children.map((childId) => (
-              <NodeBlock
-                key={childId}
-                nodeId={childId}
-                depth={depth + 1}
-                isRef={isRef}
-              />
-            ))}
+            node.children.map((childId) => {
+              const childKey = childInstanceKey(instanceKey, childId);
+              return (
+                <NodeBlock
+                  key={childKey}
+                  nodeId={childId}
+                  instanceKey={childKey}
+                  depth={depth + 1}
+                />
+              );
+            })}
 
           {!isRef && (
             <GhostNodeRow

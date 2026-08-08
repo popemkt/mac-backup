@@ -1,19 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { mapSelectionKey } from "@/lib/selection-keymap";
+import type { VisibleInstance } from "@/lib/visible-instances";
 
-const ids = ["a", "b", "c"];
+const instances: VisibleInstance[] = [
+  { nodeId: "a", instanceKey: "tree/a" },
+  { nodeId: "b", instanceKey: "tree/b" },
+  { nodeId: "c", instanceKey: "tree/c" },
+];
 
-function ctx(selected: string | null, active: string | null = null) {
+function ctx(
+  selected: string | null,
+  active: string | null = null,
+  selectedKey: string | null = selected ? `tree/${selected}` : null,
+) {
   return {
     selectedNodeId: selected,
+    selectedInstanceKey: selectedKey,
     activeNodeId: active,
-    getPreviousVisibleNode: (id: string) => {
-      const i = ids.indexOf(id);
-      return i > 0 ? ids[i - 1]! : null;
+    getPreviousVisibleInstance: (key: string) => {
+      const i = instances.findIndex((x) => x.instanceKey === key);
+      return i > 0 ? instances[i - 1]! : null;
     },
-    getNextVisibleNode: (id: string) => {
-      const i = ids.indexOf(id);
-      return i >= 0 && i < ids.length - 1 ? ids[i + 1]! : null;
+    getNextVisibleInstance: (key: string) => {
+      const i = instances.findIndex((x) => x.instanceKey === key);
+      return i >= 0 && i < instances.length - 1 ? instances[i + 1]! : null;
     },
   };
 }
@@ -24,14 +34,16 @@ describe("mapSelectionKey", () => {
     expect(mapSelectionKey("Enter", ctx(null))).toBeNull();
   });
 
-  it("ArrowUp/Down select neighbors", () => {
+  it("ArrowUp/Down select neighbors by instanceKey", () => {
     expect(mapSelectionKey("ArrowDown", ctx("a"))).toEqual({
       type: "select",
       nodeId: "b",
+      instanceKey: "tree/b",
     });
     expect(mapSelectionKey("ArrowUp", ctx("b"))).toEqual({
       type: "select",
       nodeId: "a",
+      instanceKey: "tree/a",
     });
     expect(mapSelectionKey("ArrowUp", ctx("a"))).toBeNull();
   });
@@ -40,6 +52,7 @@ describe("mapSelectionKey", () => {
     expect(mapSelectionKey("Enter", ctx("b"))).toEqual({
       type: "edit",
       nodeId: "b",
+      instanceKey: "tree/b",
     });
     expect(mapSelectionKey(" ", ctx("b"))).toEqual({
       type: "toggleCollapse",
@@ -55,10 +68,12 @@ describe("mapSelectionKey", () => {
     expect(mapSelectionKey("Backspace", ctx("c"))).toEqual({
       type: "delete",
       nodeId: "c",
+      instanceKey: "tree/c",
     });
     expect(mapSelectionKey("Delete", ctx("c"))).toEqual({
       type: "delete",
       nodeId: "c",
+      instanceKey: "tree/c",
     });
     expect(mapSelectionKey("Escape", ctx("c"))).toEqual({ type: "clear" });
   });

@@ -597,3 +597,81 @@ export function planSetTagColor(
     v: trimmed,
   });
 }
+
+/** Replace sys.f.fieldType on a field definition node. */
+export function planSetFieldType(
+  nodes: WireNode[],
+  fieldId: string,
+  fieldType: string,
+): PlannedMutation {
+  if (fieldId.startsWith("sys.")) {
+    throw new Error("sys.* fields are read-only");
+  }
+  const node = requireNode(nodes, fieldId);
+  const existing = node.props[SYSTEM_IDS.fieldTypeField]?.[0];
+  return planSetProp(
+    nodes,
+    fieldId,
+    SYSTEM_IDS.fieldTypeField,
+    { t: "str", v: fieldType },
+    existing,
+  );
+}
+
+/** Append a target-tag constraint (union). */
+export function planAddFieldTargetTag(
+  nodes: WireNode[],
+  fieldId: string,
+  tagId: string,
+): PlannedMutation {
+  if (fieldId.startsWith("sys.")) {
+    throw new Error("sys.* fields are read-only");
+  }
+  return planSetProp(nodes, fieldId, SYSTEM_IDS.targetTagField, {
+    t: "ref",
+    v: tagId,
+  });
+}
+
+export function planRemoveFieldTargetTag(
+  nodes: WireNode[],
+  fieldId: string,
+  tagId: string,
+): PlannedMutation {
+  if (fieldId.startsWith("sys.")) {
+    throw new Error("sys.* fields are read-only");
+  }
+  return planUnsetProp(nodes, fieldId, SYSTEM_IDS.targetTagField, {
+    t: "ref",
+    v: tagId,
+  });
+}
+
+/** Replace sys.f.targetQuery EDN (empty clears). */
+export function planSetFieldTargetQuery(
+  nodes: WireNode[],
+  fieldId: string,
+  edn: string | null,
+): PlannedMutation {
+  if (fieldId.startsWith("sys.")) {
+    throw new Error("sys.* fields are read-only");
+  }
+  const node = requireNode(nodes, fieldId);
+  const existing = node.props[SYSTEM_IDS.targetQueryField]?.[0];
+  const trimmed = edn?.trim() ?? "";
+  if (!trimmed) {
+    return planUnsetProp(
+      nodes,
+      fieldId,
+      SYSTEM_IDS.targetQueryField,
+      existing?.t === "str" ? existing : undefined,
+    );
+  }
+  return planSetProp(
+    nodes,
+    fieldId,
+    SYSTEM_IDS.targetQueryField,
+    { t: "str", v: trimmed },
+    existing,
+  );
+}

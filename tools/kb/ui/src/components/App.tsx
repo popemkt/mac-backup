@@ -106,8 +106,12 @@ export function App() {
         setGlobalPaletteOpen(!useUiStore.getState().globalPaletteOpen);
         return;
       }
-      const { activeNodeId, selectedNodeId, selectNode } =
-        useOutlineStore.getState();
+      const {
+        activeNodeId,
+        activeInstanceKey,
+        selectedNodeId,
+        selectNode,
+      } = useOutlineStore.getState();
       const anchorId = activeNodeId ?? selectedNodeId;
       if (!anchorId) {
         useUiStore
@@ -115,7 +119,9 @@ export function App() {
           .pushToast("info", "Select a node to open the command palette");
         return;
       }
-      if (activeNodeId) selectNode(activeNodeId);
+      if (activeNodeId) {
+        selectNode(activeNodeId, activeInstanceKey ?? undefined);
+      }
       setNodePaletteOpen(!useUiStore.getState().nodePaletteOpen);
     };
     window.addEventListener("keydown", handler, true);

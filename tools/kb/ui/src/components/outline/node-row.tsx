@@ -10,6 +10,8 @@ export interface NodeRowProps {
   content: React.ReactNode;
   className?: string;
   nodeId?: string;
+  /** Render-instance key when the same nodeId appears more than once. */
+  instanceKey?: string;
 }
 
 /** DESIGN-RESKIN §1.3 — the one node row everywhere. */
@@ -22,6 +24,7 @@ export function NodeRow({
   content,
   className,
   nodeId,
+  instanceKey,
 }: NodeRowProps) {
   return (
     <div
@@ -36,6 +39,7 @@ export function NodeRow({
         minHeight: "var(--kb-row-h)",
       }}
       data-node-id={nodeId}
+      data-instance-key={instanceKey}
       onClick={onRowClick}
     >
       {bullet}

@@ -4,7 +4,7 @@
  * without children. Rendered via react-dom/server off pure props (store
  * hooks resolve zustand's initial state inside React's server renderer, so
  * store-coupled components are covered by the logic tests in
- * lib/query-node.test.ts instead).
+ * lib/query-node.test.ts + instance-identity.component.test.tsx).
  */
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
@@ -100,5 +100,15 @@ describe("result row render (W4)", () => {
     const html = renderBullet(nodes.get("sys.query.open-todos")!, false);
     expect(html).toContain('data-bullet-kind="query"');
     expect(html).toContain('data-bullet-sys="true"');
+  });
+
+  it("isRef applies only to the top-level result row (children stay ordinary)", () => {
+    // Render assertion: parent ref bullet vs child ordinary bullet.
+    // Full NodeBlock cascade covered in instance-identity.component.test.tsx.
+    const nodes = outlineMap();
+    const top = renderBullet(nodes.get("n.root-a")!, true);
+    expect(top).toContain('data-bullet-ref="true"');
+    const child = renderBullet(nodes.get("n.child-a1")!, false);
+    expect(child).not.toContain("data-bullet-ref");
   });
 });

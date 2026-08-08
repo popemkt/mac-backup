@@ -79,6 +79,9 @@ kb search "drift" --json
 kb query '[:find ?id ?text :where [?n :f/sys.f.type ?t] [?t :node/text "todo"] [?n :node/id ?id] [?n :node/text ?text]]'
 kb query '[:find ?from ?text :where [?e :node/mentions ?m] [?m :node/id "n.root-a"] [?e :node/id ?from] [?e :node/text ?text]]'
 kb run <saved-query>            # .kb/queries/<name>.edn
+kb field type <field> <text|number|date|url|checkbox|ref>
+kb field target <field> <tag>            # ref constraint sugar (union)
+kb field target-query <field> '<edn>'    # general form; wins over targetTag
 kb action-invoke '{"id":"docs.materialize","input":{}}'   # regenerate docs/kb/*
 kb ext list                     # loaded extensions + their actions
 ```

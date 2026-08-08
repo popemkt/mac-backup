@@ -4,18 +4,20 @@ import {
   LinkSimple,
   TextT,
   ToggleRight,
+  Warning,
   X,
   type Icon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
+import {
+  fieldTypeIconKind,
+  type FieldType,
+} from "@/lib/field-type";
 import type { PropValue } from "@/lib/types";
 
 export const FIELD_LABEL_WIDTH = 120;
 
-const FIELD_ICON: Record<
-  PropValue["t"],
-  Icon
-> = {
+const FIELD_ICON: Record<PropValue["t"], Icon> = {
   str: TextT,
   num: Hash,
   bool: ToggleRight,
@@ -26,32 +28,57 @@ const FIELD_ICON: Record<
 export interface FieldRowProps {
   depth?: number;
   icon?: Icon;
-  fieldType?: PropValue["t"];
+  /** Declared field type (defaults text). Drives the type icon. */
+  fieldType?: FieldType | PropValue["t"];
   fieldId?: string;
   label: string;
   labelTitle?: string;
   debug?: boolean;
+  /** Subtle type-mismatch affordance (UI-only; writes stay permissive). */
+  mismatch?: boolean;
   onIconClick?: (e: React.MouseEvent) => void;
   onRemove?: () => void;
   children: React.ReactNode;
   className?: string;
 }
 
+function resolveIconKind(
+  fieldType: FieldType | PropValue["t"],
+): PropValue["t"] {
+  switch (fieldType) {
+    case "text":
+    case "number":
+    case "url":
+    case "checkbox":
+    case "ref":
+      return fieldTypeIconKind(fieldType);
+    case "date":
+      return "date";
+    case "str":
+    case "num":
+    case "bool":
+      return fieldType;
+    default:
+      return "str";
+  }
+}
+
 /** DESIGN-RESKIN §1.4 — the one field row everywhere (outline, prefs, …). */
 export function FieldRow({
   depth = 0,
   icon,
-  fieldType = "str",
+  fieldType = "text",
   fieldId,
   label,
   labelTitle,
   debug = false,
+  mismatch = false,
   onIconClick,
   onRemove,
   children,
   className,
 }: FieldRowProps) {
-  const IconCmp = icon ?? FIELD_ICON[fieldType] ?? TextT;
+  const IconCmp = icon ?? FIELD_ICON[resolveIconKind(fieldType)] ?? TextT;
 
   return (
     <div
@@ -63,6 +90,7 @@ export function FieldRow({
       style={{ paddingLeft: `${(depth + 1) * 24}px` }}
       data-field-row="true"
       data-debug-field={debug ? "true" : undefined}
+      data-field-mismatch={mismatch ? "true" : undefined}
     >
       <span
         className={cn(
@@ -90,6 +118,16 @@ export function FieldRow({
           </span>
         )}
       </span>
+
+      {mismatch && (
+        <span
+          className="mr-1 mt-px flex h-6 w-4 shrink-0 items-center justify-center text-warning"
+          title="Value type does not match field type"
+          data-mismatch-warning="true"
+        >
+          <Warning size={11} weight="fill" />
+        </span>
+      )}
 
       {onRemove && (
         <button

@@ -1,9 +1,15 @@
 import type { PropValue } from "@/lib/types";
 import type { NodeMap } from "@/lib/types";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+import {
+  emptyValueForType,
+  type FieldType,
+} from "@/lib/field-type";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
+import { fuzzyNodeCandidates } from "@/lib/refs";
 import { useOutlineStore } from "@/stores/outline.store";
+import { RefAutocomplete } from "@/components/ref-autocomplete";
 import { Bullet } from "./bullet";
 import { NodeRow } from "./node-row";
 import { TagChipGroup } from "./tag-chip";
@@ -11,6 +17,9 @@ import { TagChipGroup } from "./tag-chip";
 interface PropValueEditorProps {
   value: PropValue;
   display: string;
+  fieldType: FieldType;
+  /** When set, ref suggestions are filtered to this id set. */
+  allowedRefIds?: Set<string> | null;
   onCommit: (next: PropValue) => void;
   nodes: NodeMap;
 }
@@ -24,57 +33,104 @@ const emptyClass = cn(
   "px-1 text-[14.5px] leading-[1.6] text-foreground/25 italic",
 );
 
-/** Borderless inline prop editors (DESIGN-RESKIN §1.4). */
+/** Borderless inline prop editors — picked by declared fieldType. */
 export function PropValueEditor({
   value,
   display,
+  fieldType,
+  allowedRefIds = null,
   onCommit,
   nodes,
 }: PropValueEditorProps) {
-  switch (value.t) {
-    case "bool":
+  switch (fieldType) {
+    case "checkbox":
       return (
         <BooleanValue
-          value={value.v}
+          value={value.t === "bool" ? value.v : false}
           onChange={(v) => onCommit({ t: "bool", v })}
         />
       );
-    case "num":
+    case "number":
       return (
         <EditableText
-          text={String(value.v)}
+          text={value.t === "num" ? String(value.v) : String(value.v ?? "")}
           onCommit={(text) => {
             const n = Number(text.trim());
             if (!Number.isNaN(n)) onCommit({ t: "num", v: n });
           }}
-          empty={value.v === null || value.v === undefined}
+          empty={
+            value.t !== "num" ||
+            value.v === null ||
+            value.v === undefined
+          }
         />
       );
     case "date":
       return (
         <DateValue
-          value={value.v}
-          onChange={(v) => onCommit({ t: "date", v })}
+          value={
+            value.t === "str" || value.t === "date"
+              ? String(value.v)
+              : ""
+          }
+          onChange={(v) => onCommit({ t: "str", v })}
+        />
+      );
+    case "url":
+      return (
+        <EditableText
+          text={value.t === "str" ? String(value.v) : String(value.v ?? "")}
+          onCommit={(text) => onCommit({ t: "str", v: text })}
+          empty={!value.v}
+          underline
         />
       );
     case "ref":
       return (
-        <RefValue
-          refId={value.v}
+        <RefEditor
+          refId={value.t === "ref" ? value.v : ""}
           display={display}
           nodes={nodes}
+          allowedRefIds={allowedRefIds}
+          onCommit={(id) => onCommit({ t: "ref", v: id })}
         />
       );
+    case "text":
     default:
       return (
         <EditableText
-          text={String(value.v ?? "")}
+          text={value.t === "str" ? String(value.v ?? "") : String(value.v ?? "")}
           onCommit={(text) => onCommit({ t: "str", v: text })}
           empty={!value.v}
           underline={false}
         />
       );
   }
+}
+
+/** Editor for an empty typed slot (no value yet). */
+export function EmptyTypedEditor({
+  fieldType,
+  allowedRefIds = null,
+  onCommit,
+  nodes,
+}: {
+  fieldType: FieldType;
+  allowedRefIds?: Set<string> | null;
+  onCommit: (next: PropValue) => void;
+  nodes: NodeMap;
+}) {
+  const starter = emptyValueForType(fieldType);
+  return (
+    <PropValueEditor
+      value={starter}
+      display=""
+      fieldType={fieldType}
+      allowedRefIds={allowedRefIds}
+      onCommit={onCommit}
+      nodes={nodes}
+    />
+  );
 }
 
 function EditableText({
@@ -191,7 +247,6 @@ function DateValue({
   onChange: (v: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const displayDate = value
     ? new Date(String(value)).toLocaleDateString("en-US", {
@@ -204,9 +259,11 @@ function DateValue({
   if (editing) {
     return (
       <input
-        ref={inputRef}
         type="date"
-        className={cn(editableClass, "border-none bg-transparent text-foreground/70")}
+        className={cn(
+          editableClass,
+          "border-none bg-transparent text-foreground/70",
+        )}
         defaultValue={value ? String(value).slice(0, 10) : ""}
         autoFocus
         onChange={(e) => {
@@ -233,23 +290,82 @@ function DateValue({
   );
 }
 
-function RefValue({
+function RefEditor({
   refId,
   display,
   nodes,
+  allowedRefIds,
+  onCommit,
 }: {
   refId: string;
   display: string;
   nodes: NodeMap;
+  allowedRefIds?: Set<string> | null;
+  onCommit: (id: string) => void;
 }) {
   const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const [editing, setEditing] = useState(!refId);
+  const [query, setQuery] = useState("");
+  const [acIndex, setAcIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const candidates = useMemo(() => {
+    const all = fuzzyNodeCandidates(nodes, query);
+    if (!allowedRefIds) return all;
+    return all.filter((c) => allowedRefIds.has(c.id));
+  }, [nodes, query, allowedRefIds]);
+
   const target = nodes.get(refId);
 
-  if (!refId) {
-    return <span className={emptyClass}>Empty</span>;
+  if (!editing && target) {
+    const primaryColor = target.tags[0]?.color ?? null;
+    return (
+      <NodeRow
+        depth={0}
+        nodeId={refId}
+        className="cursor-pointer !pl-0"
+        onRowClick={() => setEditing(true)}
+        bullet={
+          <Bullet
+            node={{ ...target, collapsed: true }}
+            isRef
+            tagColor={primaryColor}
+            onClick={(e) => {
+              e.stopPropagation();
+              zoomTo(refId);
+            }}
+          />
+        }
+        content={
+          <>
+            <span
+              className={cn(
+                KB_TEXT_CLASS,
+                "min-w-0 flex-1 truncate text-foreground/70",
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditing(true);
+              }}
+            >
+              {display || target.text || "\u200B"}
+            </span>
+            {target.tags.length > 0 && (
+              <TagChipGroup
+                tags={target.tags}
+                onTagClick={(tag, e) => {
+                  e.stopPropagation();
+                  zoomTo(tag.id);
+                }}
+              />
+            )}
+          </>
+        }
+      />
+    );
   }
 
-  if (!target) {
+  if (!editing && refId && !target) {
     return (
       <span
         className={cn(
@@ -257,10 +373,7 @@ function RefValue({
           "text-[14.5px] leading-[1.6] bg-primary/8 text-foreground/50",
           "hover:bg-primary/12 transition-colors duration-100",
         )}
-        onClick={(e) => {
-          e.stopPropagation();
-          zoomTo(refId);
-        }}
+        onClick={() => setEditing(true)}
         title={`Node: ${refId}`}
       >
         <span className="h-1 w-1 shrink-0 rounded-full bg-foreground/35" />
@@ -269,46 +382,79 @@ function RefValue({
     );
   }
 
-  const primaryColor = target.tags[0]?.color ?? null;
-
   return (
-    <NodeRow
-      depth={0}
-      nodeId={refId}
-      className="cursor-pointer !pl-0"
-      bullet={
-        <Bullet
-          node={{ ...target, collapsed: true }}
-          isRef
-          tagColor={primaryColor}
-          onClick={(e) => {
-            e.stopPropagation();
-            zoomTo(refId);
+    <div className="relative min-w-0 flex-1">
+      <input
+        ref={inputRef}
+        type="text"
+        value={query}
+        placeholder="Search node…"
+        className={cn(
+          editableClass,
+          "w-full border-none bg-transparent text-foreground/70 placeholder:text-foreground/25",
+        )}
+        autoFocus
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setAcIndex(0);
+        }}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "ArrowDown" && candidates.length > 0) {
+            e.preventDefault();
+            setAcIndex((i) => (i + 1) % candidates.length);
+            return;
+          }
+          if (e.key === "ArrowUp" && candidates.length > 0) {
+            e.preventDefault();
+            setAcIndex(
+              (i) => (i - 1 + candidates.length) % candidates.length,
+            );
+            return;
+          }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            const pick = candidates[acIndex] ?? candidates[0];
+            if (pick) {
+              onCommit(pick.id);
+              setEditing(false);
+              setQuery("");
+            } else if (query.trim()) {
+              // Manual entry still allowed (filter is suggestions-only).
+              onCommit(query.trim());
+              setEditing(false);
+              setQuery("");
+            }
+            return;
+          }
+          if (e.key === "Escape") {
+            e.preventDefault();
+            setEditing(false);
+            setQuery("");
+          }
+        }}
+        onBlur={() => {
+          // Delay so mousedown on suggestion can fire first.
+          window.setTimeout(() => {
+            setEditing(Boolean(refId));
+            setQuery("");
+          }, 120);
+        }}
+      />
+      {candidates.length > 0 && (
+        <RefAutocomplete
+          candidates={candidates}
+          activeIndex={acIndex}
+          onSelect={(c) => {
+            onCommit(c.id);
+            setEditing(false);
+            setQuery("");
           }}
         />
-      }
-      content={
-        <>
-          <span
-            className={cn(KB_TEXT_CLASS, "min-w-0 flex-1 truncate text-foreground/70")}
-            onClick={(e) => {
-              e.stopPropagation();
-              zoomTo(refId);
-            }}
-          >
-            {display || target.text || "\u200B"}
-          </span>
-          {target.tags.length > 0 && (
-            <TagChipGroup
-              tags={target.tags}
-              onTagClick={(tag, e) => {
-                e.stopPropagation();
-                zoomTo(tag.id);
-              }}
-            />
-          )}
-        </>
-      }
-    />
+      )}
+      {!refId && candidates.length === 0 && (
+        <span className={emptyClass}>Empty</span>
+      )}
+    </div>
   );
 }

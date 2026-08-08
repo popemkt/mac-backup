@@ -8,6 +8,8 @@ import {
 } from "@/lib/schema-zoom";
 import { MdView } from "@/components/outline/md-view";
 import { Bullet } from "./bullet";
+import { FieldRow } from "./field-row";
+import { FieldTypeConfig } from "./field-type-config";
 import { NodeRow } from "./node-row";
 import { TagChipGroup } from "./tag-chip";
 
@@ -38,6 +40,16 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
 
   return (
     <section className="mt-6 border-t border-foreground/[0.06] px-1 pt-4">
+      {kind === "field" && (
+        <div className="mb-4">
+          <h2 className="mb-2 px-1 text-[12px] uppercase tracking-wide text-foreground/30">
+            Schema
+          </h2>
+          <FieldRow depth={-1} label="type" fieldId={nodeId}>
+            <FieldTypeConfig fieldId={nodeId} />
+          </FieldRow>
+        </div>
+      )}
       <h2 className="mb-2 px-1 text-[12px] uppercase tracking-wide text-foreground/30">
         {title}
         <span className="ml-1.5 font-normal normal-case tracking-normal">

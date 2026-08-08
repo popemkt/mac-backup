@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 import { flushSync } from "react-dom";
 import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
+import { outlineInstanceKey } from "@/lib/instance-key";
 import { useOutlineStore } from "@/stores/outline.store";
 import { NodeRow } from "./node-row";
 
@@ -41,7 +42,9 @@ export function GhostNodeRow({
 
   const beginEditing = useCallback((newId: string, cursorPos: number) => {
     flushSync(() => {
-      useOutlineStore.getState().activateNode(newId, cursorPos);
+      const store = useOutlineStore.getState();
+      const key = outlineInstanceKey(newId, store.nodes);
+      store.activateNode(newId, cursorPos, key);
     });
   }, []);
 

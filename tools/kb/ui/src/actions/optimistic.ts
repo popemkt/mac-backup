@@ -1,5 +1,6 @@
 import { postAction } from "@/api/action";
 import type { PlannedMutation } from "@/actions/plan";
+import { outlineInstanceKey } from "@/lib/instance-key";
 import { toast } from "@/lib/toast";
 import { cloneWireNodes } from "@/lib/tx";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -26,7 +27,9 @@ export async function runOptimistic(
   store.applyTx(plan.upserts, plan.deletes);
 
   if (plan.focusId) {
-    store.activateNode(plan.focusId, plan.focusCursor ?? 0);
+    const next = useOutlineStore.getState();
+    const key = outlineInstanceKey(plan.focusId, next.nodes);
+    next.activateNode(plan.focusId, plan.focusCursor ?? 0, key);
   }
 
   const skip =

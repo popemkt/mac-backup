@@ -8,6 +8,7 @@ import { TAG_PALETTE } from "@/lib/tag-color";
 import { isSysPrefixed, SYSTEM_IDS, type NodeMap } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { FieldRow } from "./field-row";
+import { FieldTypeConfig } from "./field-type-config";
 import { TagChip } from "./tag-chip";
 
 interface TagConfigPanelProps {
@@ -156,10 +157,10 @@ export function TagConfigPanel({
                 label={fieldNode?.text ?? fieldId}
                 onRemove={() => void mutations.removeTagField(tagId, fieldId)}
               >
-                <div className="flex min-h-6 items-center justify-between gap-2">
-                  <span className="kb-text truncate text-foreground/50">
-                    {fieldId}
-                  </span>
+                <div className="flex min-h-6 min-w-0 flex-1 items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <FieldTypeConfig fieldId={fieldId} compact />
+                  </div>
                   <button
                     type="button"
                     className={cn(

@@ -194,6 +194,85 @@ export function mapFieldList(): PlannedAction {
   };
 }
 
+const FIELD_TYPE_ENUM = new Set([
+  "text",
+  "number",
+  "date",
+  "url",
+  "checkbox",
+  "ref",
+]);
+
+/** Replace sys.f.fieldType (caller must resolve field id + pass prior value to unset). */
+export function mapFieldType(opts: {
+  fieldId: string;
+  type: string;
+  previous?: { t: "str"; v: string };
+}): PlannedAction {
+  if (!FIELD_TYPE_ENUM.has(opts.type)) {
+    throw new UsageError(
+      `invalid field type: ${opts.type} (expected ${[...FIELD_TYPE_ENUM].join("|")})`,
+    );
+  }
+  return {
+    id: "node.update",
+    input: {
+      id: opts.fieldId,
+      ...(opts.previous
+        ? {
+            unsetProps: [
+              { field: "sys.f.fieldType", value: opts.previous },
+            ],
+          }
+        : {}),
+      setProps: [
+        { field: "sys.f.fieldType", value: { t: "str", v: opts.type } },
+      ],
+    },
+  };
+}
+
+export function mapFieldTarget(opts: {
+  fieldId: string;
+  tagId: string;
+}): PlannedAction {
+  return {
+    id: "node.update",
+    input: {
+      id: opts.fieldId,
+      setProps: [
+        { field: "sys.f.targetTag", value: { t: "ref", v: opts.tagId } },
+      ],
+    },
+  };
+}
+
+export function mapFieldTargetQuery(opts: {
+  fieldId: string;
+  edn: string;
+  previous?: { t: "str"; v: string };
+}): PlannedAction {
+  return {
+    id: "node.update",
+    input: {
+      id: opts.fieldId,
+      ...(opts.previous
+        ? {
+            unsetProps: [
+              { field: "sys.f.targetQuery", value: opts.previous },
+            ],
+          }
+        : {}),
+      setProps: [
+        {
+          field: "sys.f.targetQuery",
+          value: { t: "str", v: opts.edn },
+        },
+      ],
+    },
+  };
+}
+
 export function mapTagList(): PlannedAction {
   return {
     id: "graph.query",
