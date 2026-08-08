@@ -6,12 +6,15 @@ import { useUiStore } from "@/stores/ui.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { mutations } from "@/actions/mutations";
+import { getViewConfig } from "@/lib/view-config";
 import { Bullet } from "./bullet";
 import { FieldsSection } from "./fields-section";
 import { GhostNodeRow } from "./ghost-node-row";
 import { NodeContent } from "./node-content";
 import { NodeRow } from "./node-row";
 import { QueryResultsSection } from "./query-results";
+import { TableView } from "./table-view";
+import { ViewToolbar } from "./view-toolbar";
 
 interface NodeBlockProps {
   nodeId: string;
@@ -237,43 +240,53 @@ export const NodeBlock = memo(function NodeBlock({
   const hasFields =
     resolveProps(node, nodes, { showAllFields }).length > 0;
   const isExpandable = hasChildren || isQuery || hasFields;
+  const viewConfig = getViewConfig(node.props);
 
   return (
     <div
-      className="node-block relative"
+      className="node-block relative group/frame"
       data-node-id={nodeId}
       data-instance-key={instanceKey}
     >
-      <NodeRow
-        depth={depth}
-        nodeId={nodeId}
-        instanceKey={instanceKey}
-        isSelected={isSelected || isPaletteAnchor}
-        isActive={isActive}
-        onRowClick={handleRowSelect}
-        bullet={
-          <Bullet
-            node={node}
-            collapsible={isExpandable}
-            isRef={isRef}
-            tagColor={primaryTagColor}
-            onClick={handleBulletClick}
-          />
-        }
-        content={
-          <NodeContent
+      <div className="relative flex items-center">
+        <div className="flex-1 min-w-0">
+          <NodeRow
+            depth={depth}
             nodeId={nodeId}
             instanceKey={instanceKey}
-            content={node.text}
+            isSelected={isSelected || isPaletteAnchor}
             isActive={isActive}
-            tags={node.tags}
-            cursorPosition={cursorPosition}
-            onActivate={handleActivate}
-            onChange={handleContentChange}
-            onKeyDown={handleKeyDown}
+            onRowClick={handleRowSelect}
+            bullet={
+              <Bullet
+                node={node}
+                collapsible={isExpandable}
+                isRef={isRef}
+                tagColor={primaryTagColor}
+                onClick={handleBulletClick}
+              />
+            }
+            content={
+              <NodeContent
+                nodeId={nodeId}
+                instanceKey={instanceKey}
+                content={node.text}
+                isActive={isActive}
+                tags={node.tags}
+                cursorPosition={cursorPosition}
+                onActivate={handleActivate}
+                onChange={handleContentChange}
+                onKeyDown={handleKeyDown}
+              />
+            }
           />
-        }
-      />
+        </div>
+        {hasChildren && !node.collapsed && (
+          <div className="absolute right-2 opacity-0 group-hover/frame:opacity-100 group-focus-within/frame:opacity-100 transition-opacity z-10">
+            <ViewToolbar frameId={nodeId} mode={viewConfig.mode} />
+          </div>
+        )}
+      </div>
 
       {isExpandable && !node.collapsed && (
         <div className="children-container relative">
@@ -292,17 +305,26 @@ export const NodeBlock = memo(function NodeBlock({
           )}
 
           {hasChildren &&
-            node.children.map((childId) => {
-              const childKey = childInstanceKey(instanceKey, childId);
-              return (
-                <NodeBlock
-                  key={childKey}
-                  nodeId={childId}
-                  instanceKey={childKey}
-                  depth={depth + 1}
+            (viewConfig.mode === "table" ? (
+              <div style={{ paddingLeft: `${(depth + 1) * 24}px` }}>
+                <TableView
+                  frameId={nodeId}
+                  frameInstanceKey={instanceKey}
                 />
-              );
-            })}
+              </div>
+            ) : (
+              node.children.map((childId) => {
+                const childKey = childInstanceKey(instanceKey, childId);
+                return (
+                  <NodeBlock
+                    key={childKey}
+                    nodeId={childId}
+                    instanceKey={childKey}
+                    depth={depth + 1}
+                  />
+                );
+              })
+            ))}
 
           {!isRef && (
             <GhostNodeRow

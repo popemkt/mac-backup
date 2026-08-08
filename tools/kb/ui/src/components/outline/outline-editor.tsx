@@ -1,5 +1,6 @@
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
+import { getViewConfig } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { Breadcrumbs } from "./breadcrumbs";
@@ -8,6 +9,7 @@ import { NodeBlock } from "./node-block";
 import { NodeCommandPalette } from "./node-command-palette";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
+import { TableView } from "./table-view";
 import { ZoomedRootHeader } from "./zoomed-root-header";
 import { useSelectionKeymap } from "./use-selection-keymap";
 
@@ -27,18 +29,25 @@ export function OutlineEditor() {
     );
   }
 
+  const viewConfig = getViewConfig(root.props);
+
   if (rootNodeId !== WORKSPACE_ROOT_ID) {
     return (
       <div className="outline-editor px-2 pb-40">
         <Breadcrumbs />
         <ZoomedRootHeader node={root} />
-        {root.children.map((id) => {
-          // Full ancestor chain — must match outlineInstanceKey / store fallback.
-          const key = outlineInstanceKey(id, nodes);
-          return (
-            <NodeBlock key={key} nodeId={id} instanceKey={key} depth={0} />
-          );
-        })}
+
+        {viewConfig.mode === "table" ? (
+          <TableView frameId={rootNodeId} />
+        ) : (
+          root.children.map((id) => {
+            const key = outlineInstanceKey(id, nodes);
+            return (
+              <NodeBlock key={key} nodeId={id} instanceKey={key} depth={0} />
+            );
+          })
+        )}
+
         <GhostNodeRow
           depth={0}
           parentId={rootNodeId}
@@ -61,12 +70,18 @@ export function OutlineEditor() {
   return (
     <div className="outline-editor px-2 pb-40">
       <Breadcrumbs />
-      {root.children.map((id) => {
-        const key = outlineInstanceKey(id, nodes);
-        return (
-          <NodeBlock key={key} nodeId={id} instanceKey={key} depth={0} />
-        );
-      })}
+
+      {viewConfig.mode === "table" ? (
+        <TableView frameId={WORKSPACE_ROOT_ID} />
+      ) : (
+        root.children.map((id) => {
+          const key = outlineInstanceKey(id, nodes);
+          return (
+            <NodeBlock key={key} nodeId={id} instanceKey={key} depth={0} />
+          );
+        })
+      )}
+
       <GhostNodeRow
         depth={0}
         parentId={WORKSPACE_ROOT_ID}
