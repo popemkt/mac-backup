@@ -2,9 +2,11 @@ lib:
 
 # Shared shape for a stack option. Each stack module declares its own
 # `options.my.stacks.<name>` with this helper, so schema lives next to the
-# behavior it governs. `enable` is the only required knob; `extra` folds
-# host-specific packages into the stack's channels; `componentOptions` are
-# per-stack sub-toggles or config (e.g. ai-agents.ollama, vpn.services).
+# behavior it governs. `enable` is the only required knob (stack gate for core
+# always-on behavior). `extra` folds host-specific packages into the stack's
+# channels. `componentOptions` are optional / host-split / mutually exclusive
+# sub-toggles (e.g. ai-agents.ollama, ai-agents.cognee.server, vpn.services).
+# See AGENTS.md "Stack enable vs component gates".
 let
   inherit (lib) mkOption mkEnableOption types;
 

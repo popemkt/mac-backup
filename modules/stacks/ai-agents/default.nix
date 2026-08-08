@@ -23,6 +23,8 @@ in
 {
   imports = [
     ./cli-proxy-api.nix # local OAuth provider proxy (loopback :8317)
+    # Alternative/companion: OmniRoute (https://github.com/diegosouzapw/OmniRoute)
+    # npm i -g omniroute → dashboard/API :20128 — not installed; note only.
     ./cognee # server and remote-client roles, plus their agent plugins
     ./headroom.nix # context compression: proxy (:8787), RTK, uv tool install
     ./hermes.nix # agent runtime env (HERMES_HOME, Copilot ACP)
@@ -82,6 +84,7 @@ in
         optionals cfg.archon [ "coleam00/archon" ]
         ++ [
           "stablyai/orca"
+          "traycerai/traycer"
           "vorssaint/tap"
         ]
         ++ cfg.extra.taps;
@@ -105,6 +108,8 @@ in
         "copilot-cli" # GitHub Copilot CLI (agentic terminal assistant)
         # Use the fully-qualified tap path. Bare "orca" is the unrelated Plotly cask.
         "stablyai/orca/orca"
+        # Traycer Desktop: control surface for agentic coding (tap: traycerai/traycer).
+        "traycerai/traycer/traycer-desktop"
         # Modular menu-bar utility suite from vorssaint/vorssaint-utils.
         "vorssaint/tap/vorssaint"
       ]

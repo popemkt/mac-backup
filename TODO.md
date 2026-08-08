@@ -1,5 +1,21 @@
 # TODO
 
+## Experiments
+
+### App catalog -> Nix package lists (parked)
+
+Piloted hydrating `ai-agents` taps/casks/npmGlobals from
+`configs/apps/ai-agents-catalog.json` into `modules/stacks/ai-agents/default.nix`.
+Looked fine for a few install-only entries; unsure it scales cleanly once
+behavior-heavy stacks (Cognee, CLIProxyAPI, conditionals) are involved.
+
+Parked after reverting. Revisit only if package-list churn becomes painful.
+
+Safe boundary if revived:
+- catalog owns inventory membership only (`tap` / `cask` / `brew` / `npm` / `bun`)
+- handwritten Nix keeps semantics (`mkIf`, launchd, secrets, health checks)
+- add generator-staleness + flake-check gates before expanding beyond one stack
+
 ## Nix patterns to research
 
 Production nix repo shape (study before adopting):

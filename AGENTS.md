@@ -130,6 +130,23 @@ Group by behavior and ownership boundary, not by app count.
   not configuration automatically applied to every local user.
 - Host-specific differences belong in `hosts/<hostname>/default.nix`.
 
+### Stack enable vs component gates
+
+`imports` only merges modules into the evaluation. It does not turn them on.
+Behavior is gated with `mkIf` against options from `mkStack`.
+
+- **Stack gate** (`my.stacks.<name>.enable`): core always-on behavior for that
+  stack. Prefer this for siblings that are inseparable from the stack itself
+  (e.g. `ai-agents` → CLIProxyAPI, Headroom, Hermes).
+- **Component gate** (`componentOptions` on `mkStack`): optional, host-split, or
+  mutually exclusive pieces (e.g. `ai-agents.ollama`, `ai-agents.archon`,
+  `ai-agents.cognee.{server,client}`, `vpn.services.<name>`).
+
+Leaves may read their own stack/component option path. They must not reach into
+another component's option subtree to decide membership. Hosts flip stack and
+component switches in `hosts/<hostname>/default.nix`; they do not open sibling
+module internals.
+
 ## Lint And Format
 
 Before suggesting commits, ensure changed Nix files pass:
