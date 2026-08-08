@@ -149,6 +149,16 @@ export const fixtureGraph: GraphSnapshot = {
       props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
     }),
     node({
+      id: "sys.f.lens.cluster-by",
+      text: "lens.cluster-by",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.f.lens.focus",
+      text: "lens.focus",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
       id: "sys.tag.graph-perspective",
       text: "graph-perspective",
       props: {
@@ -160,6 +170,8 @@ export const fixtureGraph: GraphSnapshot = {
           { t: "ref", v: "sys.f.lens.size-by" },
           { t: "ref", v: "sys.f.lens.edge-kinds" },
           { t: "ref", v: "sys.f.lens.max-nodes" },
+          { t: "ref", v: "sys.f.lens.cluster-by" },
+          { t: "ref", v: "sys.f.lens.focus" },
         ],
       },
     }),

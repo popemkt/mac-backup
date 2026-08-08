@@ -10,18 +10,24 @@ import { SYSTEM_IDS } from "@/lib/types";
 
 export type EdgeKind = "mention" | "child" | "ref-prop";
 
+export type LensRenderer = "force2d" | "tree" | "cluster" | "force3d" | string;
+
 export interface LensPerspective {
   id: string;
   label: string;
   /** EDN datalog → node id set; empty/absent = all nodes. */
   query: string;
-  renderer: string;
+  renderer: LensRenderer;
   /** `tag` | `fixed:<hex>` */
   colorBy: string;
   /** `degree` | `children` | `fixed` */
   sizeBy: string;
   edgeKinds: EdgeKind[];
   maxNodes: number;
+  /** `tag:<id>` | `prop:<id>` | `parent` | `none` */
+  clusterBy: string;
+  /** Tree / ego root node id when set. */
+  focus: string | null;
 }
 
 export interface LensNode {
@@ -50,6 +56,14 @@ export const DEFAULT_MAX_NODES = 500;
 export const DEFAULT_COLOR_BY = "tag";
 export const DEFAULT_SIZE_BY = "degree";
 export const DEFAULT_RENDERER = "force2d";
+export const DEFAULT_CLUSTER_BY = "none";
+
+export const LENS_RENDERERS = [
+  "force2d",
+  "tree",
+  "cluster",
+  "force3d",
+] as const;
 
 const EDGE_KIND_SET = new Set<string>(["mention", "child", "ref-prop"]);
 
@@ -78,6 +92,13 @@ function multiStrProp(node: WireNode, fieldId: string): string[] {
     .filter((p) => p.t === "str" && typeof p.v === "string")
     .map((p) => String(p.v).trim())
     .filter(Boolean);
+}
+
+function refProp(node: WireNode, fieldId: string): string | null {
+  const v = (node.props[fieldId] ?? []).find(
+    (p) => p.t === "ref" && typeof p.v === "string",
+  );
+  return v ? String(v.v) : null;
 }
 
 function isTagNode(node: WireNode | undefined): boolean {
@@ -135,7 +156,135 @@ export function parsePerspective(node: WireNode): LensPerspective {
       maxNodes !== null && Number.isFinite(maxNodes) && maxNodes > 0
         ? Math.floor(maxNodes)
         : DEFAULT_MAX_NODES,
+    clusterBy:
+      strProp(node, SYSTEM_IDS.lensClusterByField) ?? DEFAULT_CLUSTER_BY,
+    focus: refProp(node, SYSTEM_IDS.lensFocusField),
   };
+}
+
+/** parentOf map from children[] within an optional id set. */
+export function buildParentMap(
+  wireNodes: WireNode[],
+  nodeSet?: Set<string>,
+): Map<string, string> {
+  const parentOf = new Map<string, string>();
+  for (const n of wireNodes) {
+    if (nodeSet && !nodeSet.has(n.id)) continue;
+    for (const child of n.children) {
+      if (nodeSet && !nodeSet.has(child)) continue;
+      if (!parentOf.has(child)) parentOf.set(child, n.id);
+    }
+  }
+  return parentOf;
+}
+
+/**
+ * Resolve cluster key for a node.
+ * Modes: `tag:<id>` | `prop:<id>` | `parent` | `none` (default).
+ */
+export function resolveClusterKey(
+  wire: WireNode,
+  byId: Map<string, WireNode>,
+  parentOf: Map<string, string>,
+  clusterBy: string,
+): string {
+  void byId;
+  const mode = (clusterBy || DEFAULT_CLUSTER_BY).trim();
+  if (mode === "none" || mode === "") return "none";
+  if (mode === "parent") return parentOf.get(wire.id) ?? "root";
+  if (mode.startsWith("tag:")) {
+    const tagId = mode.slice("tag:".length).trim();
+    if (!tagId) return "untagged";
+    const types = wire.props[SYSTEM_IDS.typeField] ?? [];
+    const has = types.some((v) => v.t === "ref" && v.v === tagId);
+    return has ? tagId : "untagged";
+  }
+  if (mode.startsWith("prop:")) {
+    const fieldId = mode.slice("prop:".length).trim();
+    if (!fieldId) return "none";
+    const vals = wire.props[fieldId] ?? [];
+    const ref = vals.find((v) => v.t === "ref");
+    if (ref) return String(ref.v);
+    const other = vals[0];
+    if (other && other.t !== "ref") return String(other.v);
+    return "none";
+  }
+  return "none";
+}
+
+export interface LensTreeNode {
+  id: string;
+  label: string;
+  color: string;
+  size: number;
+  children: LensTreeNode[];
+}
+
+/**
+ * Build a cycle-safe forest (or single tree when focus is set) over
+ * children[] restricted to the lens node set.
+ */
+export function buildTreeForest(
+  wireNodes: WireNode[],
+  lensNodes: LensNode[],
+  focusId: string | null,
+): LensTreeNode[] {
+  const byLens = new Map(lensNodes.map((n) => [n.id, n]));
+  const nodeSet = new Set(byLens.keys());
+  const byWire = new Map(wireNodes.map((n) => [n.id, n]));
+
+  const childMap = new Map<string, string[]>();
+  for (const id of nodeSet) {
+    const wire = byWire.get(id);
+    if (!wire) continue;
+    const kids = wire.children.filter((c) => nodeSet.has(c));
+    childMap.set(id, kids);
+  }
+
+  const visiting = new Set<string>();
+  const built = new Map<string, LensTreeNode>();
+
+  function build(id: string): LensTreeNode | null {
+    if (built.has(id)) return built.get(id)!;
+    if (visiting.has(id)) return null; // cycle
+    visiting.add(id);
+    const meta = byLens.get(id);
+    if (!meta) {
+      visiting.delete(id);
+      return null;
+    }
+    const kids: LensTreeNode[] = [];
+    for (const childId of childMap.get(id) ?? []) {
+      const child = build(childId);
+      if (child) kids.push(child);
+    }
+    visiting.delete(id);
+    const node: LensTreeNode = {
+      id,
+      label: meta.label,
+      color: meta.color,
+      size: meta.size,
+      children: kids,
+    };
+    built.set(id, node);
+    return node;
+  }
+
+  if (focusId && nodeSet.has(focusId)) {
+    const root = build(focusId);
+    return root ? [root] : [];
+  }
+
+  const parentOf = buildParentMap(wireNodes, nodeSet);
+  const roots = [...nodeSet]
+    .filter((id) => !parentOf.has(id))
+    .sort((a, b) => a.localeCompare(b));
+  const forest: LensTreeNode[] = [];
+  for (const id of roots) {
+    const t = build(id);
+    if (t) forest.push(t);
+  }
+  return forest;
 }
 
 /** Collect node ids from a datalog result set (first string column per row). */
@@ -264,15 +413,15 @@ export function resolveColor(
   wire: WireNode,
   byId: Map<string, WireNode>,
   colorBy: string,
-): { color: string; clusterKey: string } {
+): string {
   if (colorBy.startsWith("fixed:")) {
     const hex = colorBy.slice("fixed:".length).trim() || "#888888";
-    return { color: hex, clusterKey: "fixed" };
+    return hex;
   }
   // default: tag — untagged uses the same djb2 palette (tag-color pipeline).
   const tag = firstTagOf(wire, byId);
-  if (tag) return { color: tag.color, clusterKey: tag.id };
-  return { color: hashTagColor("untagged"), clusterKey: "untagged" };
+  if (tag) return tag.color;
+  return hashTagColor("untagged");
 }
 
 export function resolveSize(
@@ -309,14 +458,17 @@ export function extractLensGraph(
   );
   const finalDegrees = degreeMap(keep, edges);
 
+  const parentOf = buildParentMap(wireNodes, keep);
   const nodes: LensNode[] = [];
   for (const id of keep) {
     const wire = byId.get(id);
     if (!wire) continue;
-    const { color, clusterKey } = resolveColor(
+    const color = resolveColor(wire, byId, perspective.colorBy);
+    const clusterKey = resolveClusterKey(
       wire,
       byId,
-      perspective.colorBy,
+      parentOf,
+      perspective.clusterBy,
     );
     const size = resolveSize(
       perspective.sizeBy,

@@ -1,5 +1,5 @@
 /**
- * GraphPage smoke: hydrated store renders header + sigma canvas mount.
+ * GraphPage smoke: hydrated store renders header + canvas mount.
  */
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -8,7 +8,6 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { fixtureGraph } from "@/fixtures/graph";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
-import GraphPage from "./graph-page";
 
 vi.mock("@/components/graph/sigma-graph", () => ({
   SigmaGraph: (props: { nodes: unknown[]; edges: unknown[] }) =>
@@ -18,6 +17,17 @@ vi.mock("@/components/graph/sigma-graph", () => ({
       "data-edge-count": props.edges.length,
     }),
 }));
+vi.mock("@/components/graph/cluster-graph", () => ({
+  ClusterGraph: () => createElement("div", { "data-testid": "cluster-graph" }),
+}));
+vi.mock("@/components/graph/tree-graph", () => ({
+  TreeGraph: () => createElement("div", { "data-testid": "tree-graph" }),
+}));
+vi.mock("@/components/graph/force3d-graph", () => ({
+  default: () => createElement("div", { "data-testid": "force3d-graph" }),
+}));
+
+import GraphPage from "./graph-page";
 
 function seed() {
   useOutlineStore.setState({
@@ -59,6 +69,11 @@ describe("GraphPage (smoke)", () => {
     g.cancelAnimationFrame = ((id: number) => {
       dom.clearTimeout(id as unknown as ReturnType<typeof dom.setTimeout>);
     }) as unknown;
+    g.ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
   });
 
   beforeEach(() => {
@@ -88,6 +103,7 @@ describe("GraphPage (smoke)", () => {
     expect(container.textContent).toContain("graph");
     expect(container.textContent).toContain("All mentions");
     expect(container.textContent).toMatch(/\d+ nodes/);
+    expect(container.querySelector('[data-renderer-switch="true"]')).not.toBeNull();
     const canvas = container.querySelector('[data-testid="sigma-graph"]');
     expect(canvas).not.toBeNull();
     expect(Number(canvas!.getAttribute("data-node-count"))).toBeGreaterThan(0);

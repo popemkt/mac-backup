@@ -1,18 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { CircleHalf } from "@phosphor-icons/react";
+import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, resolveDark } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import {
+  buildTreeForest,
   extractLensGraph,
   listPerspectiveNodes,
   parsePerspective,
   type LensPerspective,
+  type LensRenderer,
 } from "@/lib/graph-lens";
 import { SYSTEM_IDS } from "@/lib/types";
 import { graphPath, navigate } from "@/lib/route";
 import { PerspectivePicker } from "@/components/graph/perspective-picker";
+import { RendererSwitch } from "@/components/graph/renderer-switch";
 import { SigmaGraph } from "@/components/graph/sigma-graph";
+import { ClusterGraph } from "@/components/graph/cluster-graph";
+import { TreeGraph } from "@/components/graph/tree-graph";
+
+/** Heavier three.js bundle — must stay out of the sigma/graph-page chunk. */
+const Force3dGraph = lazy(() => import("@/components/graph/force3d-graph"));
 
 function systemPrefersDark(): boolean {
   if (typeof window === "undefined" || !window.matchMedia) return false;
@@ -50,7 +59,6 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
     );
   }, [perspectives, perspectiveId]);
 
-  // Keep URL in sync when defaulting.
   useEffect(() => {
     if (!active) return;
     if (perspectiveId !== active.id) {
@@ -64,7 +72,6 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
       : { nodes: [], edges: [], dropped: 0 },
   );
 
-  // Debounced re-extract on store rev / perspective change; camera preserved in SigmaGraph.
   useEffect(() => {
     if (!queryDb || !active) return;
     const handle = window.setTimeout(() => {
@@ -72,6 +79,22 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
     }, 300);
     return () => window.clearTimeout(handle);
   }, [queryDb, wireNodes, active, rev]);
+
+  const forest = useMemo(
+    () =>
+      active
+        ? buildTreeForest(wireNodes, lensGraph.nodes, active.focus)
+        : [],
+    [wireNodes, lensGraph.nodes, active],
+  );
+
+  const themeKey = `${theme}:${dark ? "d" : "l"}:${rev}`;
+  const onNodeClick = (id: string) => {
+    navigate("/");
+    zoomTo(id);
+  };
+
+  const renderer = active?.renderer ?? "force2d";
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
@@ -89,6 +112,14 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
           activeId={active?.id ?? null}
           onSelect={(id) => navigate(graphPath(id))}
         />
+        {active ? (
+          <RendererSwitch
+            value={renderer}
+            onChange={(r: LensRenderer) => {
+              void mutations.setLensRenderer(active.id, r);
+            }}
+          />
+        ) : null}
         <span className="text-[11px] text-foreground/30">
           {lensGraph.nodes.length} nodes · {lensGraph.edges.length} edges
           {lensGraph.dropped > 0 ? ` · −${lensGraph.dropped}` : ""}
@@ -110,16 +141,43 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
           <div className="p-6 text-[13px] text-foreground/40">
             No graph perspectives seeded.
           </div>
+        ) : renderer === "tree" ? (
+          <TreeGraph
+            forest={forest}
+            themeKey={themeKey}
+            onNodeClick={onNodeClick}
+          />
+        ) : renderer === "cluster" ? (
+          <ClusterGraph
+            nodes={lensGraph.nodes}
+            edges={lensGraph.edges}
+            layoutKey={active.id}
+            themeKey={themeKey}
+            onNodeClick={onNodeClick}
+          />
+        ) : renderer === "force3d" ? (
+          <Suspense
+            fallback={
+              <div className="p-6 text-[13px] text-foreground/40">
+                loading 3D…
+              </div>
+            }
+          >
+            <Force3dGraph
+              nodes={lensGraph.nodes}
+              edges={lensGraph.edges}
+              layoutKey={active.id}
+              themeKey={themeKey}
+              onNodeClick={onNodeClick}
+            />
+          </Suspense>
         ) : (
           <SigmaGraph
             nodes={lensGraph.nodes}
             edges={lensGraph.edges}
             layoutKey={active.id}
-            themeKey={`${theme}:${dark ? "d" : "l"}:${rev}`}
-            onNodeClick={(id) => {
-              navigate("/");
-              zoomTo(id);
-            }}
+            themeKey={themeKey}
+            onNodeClick={onNodeClick}
           />
         )}
       </div>

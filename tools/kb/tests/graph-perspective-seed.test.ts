@@ -35,6 +35,8 @@ describe("V0 seed: graph-perspective + lens fields", () => {
       SYSTEM_IDS.lensSizeByField,
       SYSTEM_IDS.lensEdgeKindsField,
       SYSTEM_IDS.lensMaxNodesField,
+      SYSTEM_IDS.lensClusterByField,
+      SYSTEM_IDS.lensFocusField,
     ]) {
       const field = byId.get(id);
       expect(field).toBeDefined();
@@ -52,6 +54,8 @@ describe("V0 seed: graph-perspective + lens fields", () => {
       SYSTEM_IDS.lensSizeByField,
       SYSTEM_IDS.lensEdgeKindsField,
       SYSTEM_IDS.lensMaxNodesField,
+      SYSTEM_IDS.lensClusterByField,
+      SYSTEM_IDS.lensFocusField,
     ]);
 
     const perspective = byId.get(SYSTEM_IDS.lensAllMentions);

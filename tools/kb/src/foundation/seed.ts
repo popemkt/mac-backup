@@ -132,6 +132,12 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     "lens.max-nodes",
     fieldType,
   );
+  const lensClusterByField = mk(
+    SYSTEM_IDS.lensClusterByField,
+    "lens.cluster-by",
+    fieldType,
+  );
+  const lensFocusField = mk(SYSTEM_IDS.lensFocusField, "lens.focus", fieldType);
   const graphPerspectiveTag = mk(SYSTEM_IDS.graphPerspectiveTag, "graph-perspective", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
     [SYSTEM_IDS.fieldsField]: [
@@ -141,6 +147,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.lensSizeByField },
       { t: "ref", v: SYSTEM_IDS.lensEdgeKindsField },
       { t: "ref", v: SYSTEM_IDS.lensMaxNodesField },
+      { t: "ref", v: SYSTEM_IDS.lensClusterByField },
+      { t: "ref", v: SYSTEM_IDS.lensFocusField },
     ],
   });
   const lensAllMentions = mk(SYSTEM_IDS.lensAllMentions, "All mentions", {
@@ -181,6 +189,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     lensSizeByField,
     lensEdgeKindsField,
     lensMaxNodesField,
+    lensClusterByField,
+    lensFocusField,
     graphPerspectiveTag,
     lensAllMentions,
   ];

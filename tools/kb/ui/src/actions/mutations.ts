@@ -350,6 +350,15 @@ export const mutations = {
     await applyPlan(planSetViewMode(wire(), frameId, mode));
   },
 
+  async setLensRenderer(
+    perspectiveId: string,
+    renderer: string,
+  ): Promise<void> {
+    if (!guardSysWrite(perspectiveId)) return;
+    const { planSetLensRenderer } = await import("@/actions/plan");
+    await applyPlan(planSetLensRenderer(wire(), perspectiveId, renderer));
+  },
+
   async setViewSort(
     frameId: string,
     sortSpecs: import("@/lib/view-config").SortSpec[],

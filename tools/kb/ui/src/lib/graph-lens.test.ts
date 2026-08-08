@@ -4,13 +4,16 @@ import { buildQueryDb } from "@/ds/db";
 import {
   DEFAULT_EDGE_KINDS,
   DEFAULT_MAX_NODES,
+  buildTreeForest,
   extractLensGraph,
   firstTagOf,
   idsFromQueryRows,
   listPerspectiveNodes,
   parsePerspective,
+  resolveClusterKey,
   resolveColor,
   resolveSize,
+  buildParentMap,
   type LensPerspective,
 } from "@/lib/graph-lens";
 import { SYSTEM_IDS } from "@/lib/types";
@@ -109,6 +112,8 @@ function perspective(
     sizeBy: "degree",
     edgeKinds: [...DEFAULT_EDGE_KINDS],
     maxNodes: DEFAULT_MAX_NODES,
+    clusterBy: "none",
+    focus: null,
     ...patch,
   };
 }
@@ -221,17 +226,63 @@ describe("extractLensGraph", () => {
   it("resolves color-by tag and fixed", () => {
     const byId = new Map(nodes.map((n) => [n.id, n]));
     const tagged = resolveColor(nodes.find((n) => n.id === "n.a1")!, byId, "tag");
-    expect(tagged.color).toBe("#ff00aa");
-    expect(tagged.clusterKey).toBe("tag.note");
+    expect(tagged).toBe("#ff00aa");
     const fixed = resolveColor(
       nodes.find((n) => n.id === "n.c")!,
       byId,
       "fixed:#abcdef",
     );
-    expect(fixed.color).toBe("#abcdef");
+    expect(fixed).toBe("#abcdef");
     expect(firstTagOf(nodes.find((n) => n.id === "n.a")!, byId)?.id).toBe(
       "tag.todo",
     );
+  });
+
+  it("resolveClusterKey covers none / parent / tag / prop", () => {
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const parentOf = buildParentMap(nodes);
+    const a = nodes.find((n) => n.id === "n.a")!;
+    const a1 = nodes.find((n) => n.id === "n.a1")!;
+    const b = nodes.find((n) => n.id === "n.b")!;
+    expect(resolveClusterKey(a, byId, parentOf, "none")).toBe("none");
+    expect(resolveClusterKey(a1, byId, parentOf, "parent")).toBe("n.a");
+    expect(resolveClusterKey(a, byId, parentOf, "parent")).toBe("root");
+    expect(resolveClusterKey(a, byId, parentOf, "tag:tag.todo")).toBe("tag.todo");
+    expect(resolveClusterKey(a1, byId, parentOf, "tag:tag.todo")).toBe(
+      "untagged",
+    );
+    expect(resolveClusterKey(b, byId, parentOf, "prop:field.depends")).toBe(
+      "n.c",
+    );
+    expect(resolveClusterKey(a, byId, parentOf, "prop:field.depends")).toBe(
+      "none",
+    );
+  });
+
+  it("buildTreeForest: forest roots vs focus root, cycle-safe", () => {
+    const db = buildQueryDb(nodes, 1);
+    const g = extractLensGraph(db, nodes, perspective({ edgeKinds: ["child"] }));
+    const forest = buildTreeForest(nodes, g.nodes, null);
+    const rootIds = forest.map((t) => t.id).sort();
+    expect(rootIds).toContain("n.a");
+    expect(rootIds).not.toContain("n.a1");
+    const focused = buildTreeForest(nodes, g.nodes, "n.a");
+    expect(focused).toHaveLength(1);
+    expect(focused[0]!.id).toBe("n.a");
+    expect(focused[0]!.children.some((c) => c.id === "n.a1")).toBe(true);
+
+    // Cycle: a → a1 → a
+    const cyclic = nodes.map((n) =>
+      n.id === "n.a1" ? { ...n, children: ["n.a"] } : { ...n },
+    );
+    const g2 = extractLensGraph(
+      buildQueryDb(cyclic, 1),
+      cyclic,
+      perspective({ edgeKinds: ["child"] }),
+    );
+    expect(() => buildTreeForest(cyclic, g2.nodes, "n.a")).not.toThrow();
+    const cyc = buildTreeForest(cyclic, g2.nodes, "n.a");
+    expect(cyc[0]!.id).toBe("n.a");
   });
 
   it("resolves size-by degree / children / fixed", () => {

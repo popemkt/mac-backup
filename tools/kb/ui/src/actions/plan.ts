@@ -692,6 +692,23 @@ export function planSetViewMode(
   );
 }
 
+/** Persist graph perspective renderer (force2d|tree|cluster|force3d). */
+export function planSetLensRenderer(
+  nodes: WireNode[],
+  perspectiveId: string,
+  renderer: string,
+): PlannedMutation {
+  const node = cloneWire(requireNode(nodes, perspectiveId));
+  const existing = node.props[SYSTEM_IDS.lensRendererField]?.[0];
+  return planSetProp(
+    nodes,
+    perspectiveId,
+    SYSTEM_IDS.lensRendererField,
+    { t: "str", v: renderer },
+    existing,
+  );
+}
+
 export function planSetViewSort(
   nodes: WireNode[],
   frameId: string,

@@ -71,6 +71,10 @@ export const SYSTEM_IDS = {
   lensSizeByField: "sys.f.lens.size-by",
   lensEdgeKindsField: "sys.f.lens.edge-kinds",
   lensMaxNodesField: "sys.f.lens.max-nodes",
+  /** Cluster key mode: `tag:<id>` | `prop:<id>` | `parent` | `none`. */
+  lensClusterByField: "sys.f.lens.cluster-by",
+  /** Ego/tree root for tree + local lenses (ref, single). */
+  lensFocusField: "sys.f.lens.focus",
   /**
    * Default global mentions+child force2d perspective.
    * User-editable (NOT sys-prefixed) so write-guard does not lock it.
