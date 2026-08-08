@@ -78,7 +78,13 @@ in
 
   config = lib.mkIf cfg.enable {
     my.pkgs = {
-      taps = optionals cfg.archon [ "coleam00/archon" ] ++ [ "stablyai/orca" ] ++ cfg.extra.taps;
+      taps =
+        optionals cfg.archon [ "coleam00/archon" ]
+        ++ [
+          "stablyai/orca"
+          "vorssaint/tap"
+        ]
+        ++ cfg.extra.taps;
 
       brews = [
         # Read/edit/automate Office docs (.docx/.xlsx/.pptx) — agent tool set.
@@ -99,6 +105,8 @@ in
         "copilot-cli" # GitHub Copilot CLI (agentic terminal assistant)
         # Use the fully-qualified tap path. Bare "orca" is the unrelated Plotly cask.
         "stablyai/orca/orca"
+        # Modular menu-bar utility suite from vorssaint/vorssaint-utils.
+        "vorssaint/tap/vorssaint"
       ]
       ++ cfg.extra.casks;
 
@@ -108,8 +116,9 @@ in
         "@openai/codex"
         "claude-code-templates" # component/agent scaffolding for Claude Code (cct)
         "cline"
+        "command-code" # Command Code agent (cmd)
         "gitnexus"
-        "reasonix" # DeepSeek-native cache-first coding agent
+        "reasonix" # DeepSeek-native coding agent
       ]
       ++ cfg.extra.npmGlobals;
 

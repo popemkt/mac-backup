@@ -7,6 +7,14 @@ _:
 
   my.role = "personal";
 
+  # Cognee 1.4 can retain database descriptors across recall requests. The
+  # macOS launchd default of 256 turns that leak into HTTP 409/500 responses
+  # after a few days, so contain it to the only host running the API.
+  launchd.user.agents.cognee-api.serviceConfig = {
+    SoftResourceLimits.NumberOfFiles = 65536;
+    HardResourceLimits.NumberOfFiles = 65536;
+  };
+
   # Functional stacks (modules/stacks/*) enabled on this machine.
   my.stacks = {
     ai-agents = {
