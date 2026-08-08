@@ -35,6 +35,9 @@ export const SYSTEM_IDS = {
   queryLimitField: "sys.f.query.limit",
   /** Virtual root the ui server materializes saved queries under. */
   queriesRoot: "sys.queries",
+  /** Canvas nodes (JSON Canvas 1.0 doc on sys.f.canvas). */
+  canvasTag: "sys.tag.canvas",
+  canvasField: "sys.f.canvas",
 } as const;
 
 /** Any reserved / seeded id under the `sys.` prefix. */

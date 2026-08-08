@@ -80,6 +80,13 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ],
   });
 
+  // Canvas nodes (C1): #canvas tag templating sys.f.canvas (JSON Canvas 1.0 str).
+  const canvasField = mk(SYSTEM_IDS.canvasField, "canvas", fieldType);
+  const canvasTag = mk(SYSTEM_IDS.canvasTag, "canvas", {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+    [SYSTEM_IDS.fieldsField]: [{ t: "ref", v: SYSTEM_IDS.canvasField }],
+  });
+
   return [
     field,
     tag,
@@ -95,6 +102,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     queryField,
     queryLimitField,
     queryTag,
+    canvasField,
+    canvasTag,
   ];
 }
 

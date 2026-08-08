@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { CircleHalf } from "@phosphor-icons/react";
 import { loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
@@ -9,10 +9,27 @@ import {
 import { OutlineEditor } from "@/components/outline/outline-editor";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
+import {
+  isCanvasList,
+  matchCanvasId,
+  navigate,
+  usePath,
+} from "@/lib/router";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { cn } from "@/lib/cn";
+
+const CanvasListPage = lazy(() =>
+  import("@/components/canvas/canvas-list-page").then((m) => ({
+    default: m.CanvasListPage,
+  })),
+);
+const CanvasPage = lazy(() =>
+  import("@/components/canvas/canvas-page").then((m) => ({
+    default: m.CanvasPage,
+  })),
+);
 
 const WS_DOT: Record<string, { className: string; label: string }> = {
   open: { className: "bg-success", label: "live" },
@@ -74,6 +91,9 @@ export function App() {
   const globalPaletteOpen = useUiStore((s) => s.globalPaletteOpen);
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
   const setNodePaletteOpen = useUiStore((s) => s.setNodePaletteOpen);
+  const path = usePath();
+  const canvasId = matchCanvasId(path);
+  const onCanvas = isCanvasList(path) || canvasId !== null;
 
   useEffect(() => {
     let cancelled = false;
@@ -83,8 +103,6 @@ export function App() {
         if (cancelled) return;
         hydrateFromWire(snapshot.nodes, snapshot.rev, source);
         setStatus("ready");
-        // Graph is in; go live. Fixture mode still tries — the dot just
-        // shows offline while backoff retries in the background.
         ensureLiveConnection();
       } catch (e) {
         if (cancelled) return;
@@ -131,7 +149,25 @@ export function App() {
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
-        <h1 className="text-[13px] font-medium text-foreground/50">kb</h1>
+        <button
+          type="button"
+          className="text-[13px] font-medium text-foreground/50 hover:text-foreground/70"
+          onClick={() => navigate("/")}
+        >
+          kb
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "text-[12px] transition-colors",
+            onCanvas
+              ? "text-foreground/70"
+              : "text-foreground/30 hover:text-foreground/50",
+          )}
+          onClick={() => navigate("/canvas")}
+        >
+          canvas
+        </button>
         <span className="text-[11px] text-foreground/30">
           {status === "loading"
             ? "loading…"
@@ -154,6 +190,22 @@ export function App() {
 
       {status === "error" ? (
         <div className="p-6 text-destructive">{error}</div>
+      ) : onCanvas ? (
+        <main className="min-h-0 flex-1 overflow-hidden">
+          <Suspense
+            fallback={
+              <div className="p-6 text-[13px] text-foreground/40">
+                Loading canvas…
+              </div>
+            }
+          >
+            {canvasId ? (
+              <CanvasPage canvasId={canvasId} />
+            ) : (
+              <CanvasListPage />
+            )}
+          </Suspense>
+        </main>
       ) : (
         <main className="min-h-0 flex-1 overflow-auto">
           <div

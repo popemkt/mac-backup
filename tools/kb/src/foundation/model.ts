@@ -56,6 +56,9 @@ export const SYSTEM_IDS = {
   queryLimitField: "sys.f.query.limit",
   /** Virtual root for saved queries (.kb/queries/*.edn); never in jsonl. */
   queriesRoot: "sys.queries",
+  /** Canvas nodes (JSON Canvas 1.0 doc on sys.f.canvas). */
+  canvasTag: "sys.tag.canvas",
+  canvasField: "sys.f.canvas",
 } as const;
 
 export type SystemId = (typeof SYSTEM_IDS)[keyof typeof SYSTEM_IDS];
