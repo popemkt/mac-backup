@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, type MouseEvent, type ReactNode } from "rea
 import { cn } from "@/lib/cn";
 import {
   KB_TEXT_CLASS,
+  assetSrcUrl,
   isSafeHref,
   parseInlineMd,
   type InlineSeg,
@@ -13,7 +14,7 @@ interface MdViewProps {
   className?: string;
 }
 
-/** Inactive-row markdown view — memoized parse, accent refs, tinted code. */
+/** Inactive-row markdown view — memoized parse, accent refs, tinted code, media. */
 export const MdView = memo(function MdView({ text, className }: MdViewProps) {
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);
@@ -98,5 +99,46 @@ function renderSeg(
           {seg.label}
         </a>
       );
+    case "media": {
+      const src = assetSrcUrl(seg.href);
+      if (seg.kind === "image") {
+        return (
+          <img
+            key={key}
+            className="kb-md-media kb-md-media-img"
+            src={src}
+            alt={seg.alt}
+            loading="lazy"
+            onClick={(e) => e.stopPropagation()}
+          />
+        );
+      }
+      if (seg.kind === "video") {
+        return (
+          <video
+            key={key}
+            className="kb-md-media kb-md-media-video"
+            src={src}
+            controls
+            preload="metadata"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {seg.alt}
+          </video>
+        );
+      }
+      return (
+        <audio
+          key={key}
+          className="kb-md-media kb-md-media-audio"
+          src={src}
+          controls
+          preload="metadata"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {seg.alt}
+        </audio>
+      );
+    }
   }
 }

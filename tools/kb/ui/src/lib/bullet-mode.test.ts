@@ -63,6 +63,15 @@ describe("resolveBulletKind", () => {
       resolveBulletKind(base({ kindOverride: "canvas", typeRefs: [SYSTEM_IDS.tag] })),
     ).toBe("canvas");
   });
+
+  it("uses media kind when text embeds ![…](assets/…)", () => {
+    expect(
+      resolveBulletKind(
+        base({ text: "note ![shot](assets/01HABC.png)", hasChildren: true }),
+      ),
+    ).toBe("media");
+    expect(resolveBulletKind(base({ text: "no asset here" }))).toBe("plain");
+  });
 });
 
 describe("resolveBulletMode states", () => {

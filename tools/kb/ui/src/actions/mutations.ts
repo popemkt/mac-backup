@@ -199,6 +199,49 @@ export const mutations = {
     const ok = await applyPlan(planDefineTag(name, newId));
     return ok ? newId : null;
   },
+
+  /**
+   * W6a: upload a file via `asset.upload`, then append `![alt](assets/…)`
+   * markdown to the node text.
+   */
+  async attachFileToNode(nodeId: string, file: File): Promise<boolean> {
+    if (!guardSysWrite(nodeId)) return false;
+    const store = useOutlineStore.getState();
+    if (store.loadSource === "fixtures" || store.loadSource === null) {
+      toast("Cannot upload assets without a live kb server");
+      return false;
+    }
+
+    try {
+      const buf = new Uint8Array(await file.arrayBuffer());
+      let binary = "";
+      for (let i = 0; i < buf.length; i++) {
+        binary += String.fromCharCode(buf[i]!);
+      }
+      const bytes = btoa(binary);
+      const receipt = await postAction("asset.upload", {
+        bytes,
+        filename: file.name,
+      });
+      if (receipt.status === "failed") {
+        toast(receipt.message);
+        return false;
+      }
+      const out = receipt.output as { path: string };
+      const node = store.nodes.get(nodeId);
+      const alt = file.name.replace(/\.[^.]+$/, "") || "file";
+      const md = `![${alt}](${out.path})`;
+      const next =
+        !node?.text || node.text.trim() === ""
+          ? md
+          : `${node.text}${node.text.endsWith("\n") ? "" : "\n"}${md}`;
+      mutations.updateNodeContent(nodeId, next);
+      return true;
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err));
+      return false;
+    }
+  },
 };
 
 export type Mutations = typeof mutations;

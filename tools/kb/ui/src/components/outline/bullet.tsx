@@ -33,6 +33,7 @@ export function Bullet({
     typeRefs: typeRefsOf(node),
     tagNames: node.tags.map((t) => t.name),
     isSys: node.id.startsWith("sys."),
+    text: node.text,
     kindOverride,
     collapsed: node.collapsed,
     childCount: node.children.length,

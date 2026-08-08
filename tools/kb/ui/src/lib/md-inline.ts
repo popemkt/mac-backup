@@ -1,11 +1,13 @@
 /**
- * Inline markdown subset for inactive outline rows (DESIGN-REFINE §2 W2).
- * bold / italic / code / links / [[id|label]] refs — no block elements.
+ * Inline markdown subset for inactive outline rows (DESIGN-REFINE §2 W2/W6a).
+ * bold / italic / code / links / [[id|label]] refs / ![alt](assets/…) media.
  * Edit mode stays plain text; this module is never on the typing hot path.
  */
 
 /** Shared type-scale class: edit + view must use this for equal line-height. */
 export const KB_TEXT_CLASS = "kb-text";
+
+export type AssetMediaKind = "image" | "video" | "audio";
 
 export type InlineSeg =
   | { t: "text"; v: string }
@@ -13,7 +15,13 @@ export type InlineSeg =
   | { t: "italic"; v: string }
   | { t: "code"; v: string }
   | { t: "link"; href: string; label: string }
-  | { t: "ref"; id: string; label: string };
+  | { t: "ref"; id: string; label: string }
+  | {
+      t: "media";
+      href: string;
+      alt: string;
+      kind: AssetMediaKind;
+    };
 
 const CACHE_MAX = 256;
 const parseCache = new Map<string, InlineSeg[]>();
@@ -24,6 +32,42 @@ const parseCache = new Map<string, InlineSeg[]>();
  * relative paths (assets/… for W6a media) are allowed.
  */
 const SAFE_HREF = /^(https?:\/\/|mailto:|#|\/|\.\/|\.\.\/|assets\/)/i;
+
+const IMAGE_EXT = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "svg",
+  "avif",
+  "bmp",
+]);
+const VIDEO_EXT = new Set(["mp4", "webm", "mov", "ogv", "m4v"]);
+const AUDIO_EXT = new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac", "opus"]);
+
+/** True when text embeds `![…](assets/…)`. */
+export function textHasAssetRef(text: string): boolean {
+  return /!\[[^\]]*\]\(assets\/[^)\s]+\)/i.test(text);
+}
+
+export function mediaKindFromHref(href: string): AssetMediaKind | null {
+  const m = /\.([a-z0-9]{1,12})(?:$|[?#])/i.exec(href.trim());
+  if (!m) return null;
+  const e = m[1]!.toLowerCase();
+  if (IMAGE_EXT.has(e)) return "image";
+  if (VIDEO_EXT.has(e)) return "video";
+  if (AUDIO_EXT.has(e)) return "audio";
+  return null;
+}
+
+/** Asset hrefs become /assets/… for the kb ui static route. */
+export function assetSrcUrl(href: string): string {
+  const h = href.trim();
+  if (h.startsWith("/")) return h;
+  if (/^assets\//i.test(h)) return `/${h}`;
+  return h;
+}
 
 export function isSafeHref(href: string): boolean {
   return SAFE_HREF.test(href.trim());
@@ -42,6 +86,17 @@ export function parseInlineMd(text: string): InlineSeg[] {
 /** Test / cache-control helper. */
 export function clearInlineMdCache(): void {
   parseCache.clear();
+}
+
+function parseUrlAfterParen(text: string, openParenIdx: number): number {
+  // openParenIdx points at "("; walk to matching ")" with nesting.
+  let depth = 1;
+  for (let j = openParenIdx + 1; j < text.length; j++) {
+    const ch = text[j];
+    if (ch === "(") depth++;
+    else if (ch === ")" && --depth === 0) return j;
+  }
+  return -1;
 }
 
 function parseOnce(text: string): InlineSeg[] {
@@ -88,6 +143,36 @@ function parseOnce(text: string): InlineSeg[] {
       }
     }
 
+    // ![alt](assets/…) media (W6a) — before plain links
+    if (text[i] === "!" && text[i + 1] === "[") {
+      const close = text.indexOf("]", i + 2);
+      if (
+        close > i + 1 &&
+        text[close + 1] === "(" &&
+        !text.slice(i + 2, close).includes("[")
+      ) {
+        const urlEnd = parseUrlAfterParen(text, close + 1);
+        const href = urlEnd > close ? text.slice(close + 2, urlEnd) : "";
+        const kind =
+          urlEnd > close &&
+          /^assets\//i.test(href.trim()) &&
+          isSafeHref(href)
+            ? mediaKindFromHref(href)
+            : null;
+        if (kind) {
+          flush();
+          out.push({
+            t: "media",
+            alt: text.slice(i + 2, close),
+            href: href.trim(),
+            kind,
+          });
+          i = urlEnd + 1;
+          continue;
+        }
+      }
+    }
+
     // [label](url)
     if (text[i] === "[") {
       const close = text.indexOf("]", i + 1);
@@ -96,18 +181,7 @@ function parseOnce(text: string): InlineSeg[] {
         text[close + 1] === "(" &&
         !text.slice(i + 1, close).includes("[")
       ) {
-        // Walk to the matching ")" counting nested parens so URLs like
-        // https://x.com/f(1) survive intact.
-        let depth = 1;
-        let urlEnd = -1;
-        for (let j = close + 2; j < text.length; j++) {
-          const ch = text[j];
-          if (ch === "(") depth++;
-          else if (ch === ")" && --depth === 0) {
-            urlEnd = j;
-            break;
-          }
-        }
+        const urlEnd = parseUrlAfterParen(text, close + 1);
         const href = urlEnd > close ? text.slice(close + 2, urlEnd) : "";
         if (urlEnd > close && isSafeHref(href)) {
           flush();

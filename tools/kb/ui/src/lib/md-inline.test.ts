@@ -4,8 +4,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   KB_TEXT_CLASS,
+  assetSrcUrl,
   clearInlineMdCache,
   parseInlineMd,
+  textHasAssetRef,
 } from "./md-inline";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -33,6 +35,39 @@ describe("parseInlineMd", () => {
     expect(parseInlineMd("[[sys.tag]]")).toEqual([
       { t: "ref", id: "sys.tag", label: "sys.tag" },
     ]);
+  });
+
+  it("parses ![alt](assets/…) into media segments by kind", () => {
+    clearInlineMdCache();
+    expect(parseInlineMd("pic ![cat](assets/01.png) end")).toEqual([
+      { t: "text", v: "pic " },
+      {
+        t: "media",
+        alt: "cat",
+        href: "assets/01.png",
+        kind: "image",
+      },
+      { t: "text", v: " end" },
+    ]);
+    expect(parseInlineMd("![v](assets/x.mp4)")).toEqual([
+      { t: "media", alt: "v", href: "assets/x.mp4", kind: "video" },
+    ]);
+    expect(parseInlineMd("![a](assets/x.mp3)")).toEqual([
+      { t: "media", alt: "a", href: "assets/x.mp3", kind: "audio" },
+    ]);
+  });
+
+  it("does not treat non-asset image markdown as media", () => {
+    clearInlineMdCache();
+    // Non-assets ![](…) is not media; the bang stays text and [label](url)
+    // may still parse as a normal safe link.
+    expect(parseInlineMd("![x](https://ex.test/a.png)")).toEqual([
+      { t: "text", v: "!" },
+      { t: "link", href: "https://ex.test/a.png", label: "x" },
+    ]);
+    expect(textHasAssetRef("![x](assets/a.png)")).toBe(true);
+    expect(textHasAssetRef("no media")).toBe(false);
+    expect(assetSrcUrl("assets/a.png")).toBe("/assets/a.png");
   });
 
   it("refuses unsafe link protocols (XSS)", () => {
@@ -90,5 +125,11 @@ describe("line-height consistency (edit vs view)", () => {
     expect(mdView).toContain("KB_TEXT_CLASS");
     expect(mdView).toContain('className="kb-md-code"');
     expect(mdView).toContain("kb-md-ref");
+    // W6a render branch for assets media
+    expect(mdView).toContain('case "media"');
+    expect(mdView).toContain("kb-md-media");
+    expect(mdView).toMatch(/<img[\s\S]*kb-md-media/);
+    expect(mdView).toMatch(/<video[\s\S]*kb-md-media/);
+    expect(mdView).toMatch(/<audio[\s\S]*kb-md-media/);
   });
 });

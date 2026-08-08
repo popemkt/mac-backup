@@ -1,5 +1,6 @@
 import { SYSTEM_IDS } from "@/lib/types";
 import type { OutlineNode } from "@/lib/types";
+import { textHasAssetRef } from "@/lib/md-inline";
 
 /** Glyph / shape family for the outline bullet (DESIGN-REFINE §2 W1). */
 export type BulletKind =
@@ -12,7 +13,7 @@ export type BulletKind =
   | "media"
   | "canvas";
 
-/** Optional overrides for W6 stubs (media/canvas) until those tags ship. */
+/** Optional overrides for canvas (and forced media) until those tags ship. */
 export type BulletKindOverride = "media" | "canvas";
 
 export interface BulletModeInput {
@@ -23,6 +24,8 @@ export interface BulletModeInput {
   tagNames: string[];
   /** True when node id starts with `sys.`. */
   isSys: boolean;
+  /** Node text — used to detect `![…](assets/…)` media refs (W6a). */
+  text?: string;
   /** Stub override for media/canvas kinds. */
   kindOverride?: BulletKindOverride | null;
 }
@@ -46,7 +49,7 @@ export function typeRefsOf(
 
 /**
  * Map node metadata → bullet kind.
- * Priority: override → tag/field/command/query type → parent → plain.
+ * Priority: override → tag/field/command/query type → media asset ref → parent → plain.
  */
 export function resolveBulletKind(input: BulletModeInput): BulletKind {
   if (input.kindOverride === "media" || input.kindOverride === "canvas") {
@@ -60,6 +63,9 @@ export function resolveBulletKind(input: BulletModeInput): BulletKind {
   if (refs.includes(SYSTEM_IDS.command)) return "command";
   // W4: anything tagged #query
   if (input.tagNames.some((n) => n.toLowerCase() === "query")) return "query";
+
+  // W6a: ▣ when node text embeds an assets/ markdown image
+  if (input.text && textHasAssetRef(input.text)) return "media";
 
   if (input.hasChildren) return "parent";
   return "plain";

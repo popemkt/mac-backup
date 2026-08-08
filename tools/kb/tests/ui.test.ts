@@ -254,4 +254,42 @@ describe("kb ui server", () => {
     expect(receipt.status).toBe("failed");
     expect(receipt.code).toBe("unknown_action");
   });
+
+  test("GET /assets/* serves uploads; traversal returns 403", async () => {
+    handle = await startUi({ root, port: 0, openBrowser: false });
+
+    const upload = await fetch(`${handle.url}/api/action`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id: "asset.upload",
+        input: {
+          bytes: Buffer.from("asset-body").toString("base64"),
+          filename: "pic.png",
+        },
+      }),
+    });
+    const receipt = (await upload.json()) as {
+      status: string;
+      output: { path: string };
+    };
+    expect(receipt.status).toBe("succeeded");
+    const path = receipt.output.path; // assets/<ulid>.png
+
+    const ok = await fetch(`${handle.url}/${path}`);
+    expect(ok.status).toBe(200);
+    expect(await ok.text()).toBe("asset-body");
+
+    const missing = await fetch(`${handle.url}/assets/does-not-exist.png`);
+    expect(missing.status).toBe(404);
+
+    const traversal = await fetch(
+      `${handle.url}/assets/..%2fnodes.jsonl`,
+    );
+    expect(traversal.status).toBe(403);
+
+    const man = await fetch(`${handle.url}/api/manifest`);
+    const actions = (await man.json()) as { id: string }[];
+    expect(actions.some((a) => a.id === "asset.upload")).toBe(true);
+  });
 });

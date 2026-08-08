@@ -11,7 +11,8 @@ import { z } from "zod";
  *   GET  /api/queries   -> SavedQuery[]         (.kb/queries/*.edn)
  *   POST /api/action    <- ActionInvocation     -> ActionReceipt (registry.invoke)
  *   GET  /ws            -> upgrade to WebSocket (messages below)
- * Static assets for the UI are served from / (ui/dist).
+ * Static UI bundle is served from / (ui/dist). Opaque kb media files are
+ * served read-only from GET /assets/* → .kb/assets/ (W6a).
  */
 
 const PropValueSchema = z.union([

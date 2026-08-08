@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Hash } from "@phosphor-icons/react";
+import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
 import {
@@ -130,8 +131,12 @@ export function NodeContent({
     (e: React.MouseEvent) => {
       if (!isActive) {
         const t = e.target as HTMLElement;
-        // Ref / md links own the click (zoom / jump / open); don't enter edit.
-        if (t.closest("a.kb-md-ref, a.kb-md-link")) {
+        // Ref / md links / media own the click; don't enter edit.
+        if (
+          t.closest(
+            "a.kb-md-ref, a.kb-md-link, .kb-md-media, img.kb-md-media, video.kb-md-media, audio.kb-md-media",
+          )
+        ) {
           e.stopPropagation();
           return;
         }
@@ -140,6 +145,25 @@ export function NodeContent({
       e.stopPropagation();
     },
     [isActive, onActivate, content.length],
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (![...e.dataTransfer.types].includes("Files")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "copy";
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      const files = e.dataTransfer.files;
+      if (!files || files.length === 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const file = files[0];
+      if (file) void mutations.attachFileToNode(nodeId, file);
+    },
+    [nodeId],
   );
 
   const handleCompositionStart = useCallback(() => {
@@ -203,6 +227,8 @@ export function NodeContent({
       )}
       style={{ minHeight: "var(--kb-row-h)" }}
       onClick={handleClick}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
       {isActive ? (
         <div

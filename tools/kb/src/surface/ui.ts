@@ -6,6 +6,7 @@ import { z } from "zod";
 import { openKb, reload, type KbContext } from "../context.ts";
 import type { KbNode } from "../foundation/model.ts";
 import { buildQueryDb, query } from "../foundation/query/index.ts";
+import { resolveAssetFile } from "../operations/assets.ts";
 import { invoke, manifest } from "../registry.ts";
 import {
   ClientMessageSchema,
@@ -276,6 +277,32 @@ async function listSavedQueries(
   return out;
 }
 
+/**
+ * Read-only GET for `.kb/assets/*`. Traversal / missing → 403 / 404.
+ * Never lists the directory.
+ */
+async function serveKbAsset(
+  kbRoot: string,
+  pathname: string,
+): Promise<Response> {
+  const abs = resolveAssetFile(kbRoot, pathname);
+  if (!abs) {
+    return new Response("forbidden", { status: 403 });
+  }
+  if (!(await pathExists(abs))) {
+    return new Response("not found", { status: 404 });
+  }
+  try {
+    const st = await stat(abs);
+    if (!st.isFile()) {
+      return new Response("forbidden", { status: 403 });
+    }
+  } catch {
+    return new Response("not found", { status: 404 });
+  }
+  return new Response(Bun.file(abs));
+}
+
 async function serveStatic(
   pathname: string,
 ): Promise<Response | null> {
@@ -432,6 +459,16 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
           // Immediate bump/broadcast — do not wait for fs.watch.
           hub.applyNodes(ctx.nodes);
           return Response.json(receipt);
+        }
+
+        // W6a: opaque media files — before SPA / ui/dist so /assets never
+        // falls through to index.html.
+        if (
+          (url.pathname === "/assets" ||
+            url.pathname.startsWith("/assets/")) &&
+          req.method === "GET"
+        ) {
+          return serveKbAsset(opts.root, url.pathname);
         }
 
         if (

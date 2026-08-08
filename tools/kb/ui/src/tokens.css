@@ -61,3 +61,25 @@
 .kb-md-link:hover {
   text-decoration: underline;
 }
+
+/* W6a inline media in inactive rows */
+.kb-md-media {
+  display: block;
+  max-width: min(100%, 28rem);
+  margin: 0.25rem 0;
+  border-radius: 4px;
+}
+
+.kb-md-media-img {
+  height: auto;
+  max-height: 16rem;
+  object-fit: contain;
+}
+
+.kb-md-media-video {
+  max-height: 16rem;
+}
+
+.kb-md-media-audio {
+  width: min(100%, 20rem);
+}
