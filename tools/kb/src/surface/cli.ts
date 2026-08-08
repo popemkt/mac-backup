@@ -235,6 +235,27 @@ export function buildProgram(): Command {
     });
 
   program
+    .command("ui")
+    .description("Serve the kb browser UI + subscription backend")
+    .option(
+      "--port <n>",
+      "listen port (default 4321)",
+      (v) => Number.parseInt(v, 10),
+    )
+    .option("--no-open", "do not open a browser")
+    .action(async function (this: Command) {
+      const { runUiCli, UI_DEFAULT_PORT } = await import("./ui.ts");
+      const globals = this.optsWithGlobals() as { root?: string };
+      const opts = this.opts() as { port?: number; open?: boolean };
+      const root = await resolveRoot({ root: globals.root });
+      await runUiCli({
+        root,
+        port: opts.port ?? UI_DEFAULT_PORT,
+        openBrowser: opts.open !== false,
+      });
+    });
+
+  program
     .command("init")
     .description("Initialize .kb/ at --root or cwd")
     .action(async function (this: Command) {
