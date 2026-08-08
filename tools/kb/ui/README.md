@@ -1,4 +1,4 @@
-# kb ui — browser outliner (U2 read-only shell)
+# kb ui — browser outliner
 
 Vite+ (`vite-plus@0.2.8`) + React 19 + Tailwind 4 + Zustand + DataScript.
 
@@ -12,4 +12,6 @@ npm run build
 
 Force fixtures (no server): `VITE_USE_FIXTURES=1 npm run dev`
 
-U3 wires `src/actions/mutations.ts`. U4 wires `src/api/ws.ts`.
+U3: optimistic mutations (`src/actions/mutations.ts`), props/tags editors,
+`[[ref]]` autocomplete, backlinks. U4 wires `src/api/ws.ts` onto
+`outlineStore.applyTx`.

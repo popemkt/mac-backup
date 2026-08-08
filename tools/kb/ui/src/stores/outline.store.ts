@@ -7,6 +7,7 @@ import {
   searchNodes,
   wireToOutlineMap,
 } from "@/lib/graph-view";
+import { mergeTx } from "@/lib/tx";
 import {
   WORKSPACE_ROOT_ID,
   type NodeMap,
@@ -32,6 +33,14 @@ interface OutlineState {
     rev: number,
     source: "api" | "fixtures",
   ) => void;
+  /** Apply node-level delta (optimistic edits + WS tx from U4). */
+  applyTx: (
+    upserts: WireNode[],
+    deletes: string[],
+    opts?: { rev?: number },
+  ) => void;
+  /** Restore a prior wire snapshot (optimistic revert). */
+  restoreSnapshot: (nodes: WireNode[], rev: number) => void;
   setRootNodeId: (id: string) => void;
   zoomTo: (id: string) => void;
   zoomHome: () => void;
@@ -97,6 +106,33 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
       loadError: null,
       rootNodeId: WORKSPACE_ROOT_ID,
       homeRootId: WORKSPACE_ROOT_ID,
+    });
+  },
+
+  applyTx: (upserts, deletes, opts) => {
+    const { wireNodes, rev, nodes: prevNodes } = get();
+    const nextWire = mergeTx(wireNodes, upserts, deletes);
+    const collapsed = collectCollapsed(prevNodes);
+    // Also honor localStorage collapses for brand-new ids
+    for (const id of loadCollapsedIds()) collapsed.add(id);
+    const nodes = wireToOutlineMap(nextWire, collapsed);
+    const nextRev = opts?.rev ?? rev;
+    set({
+      wireNodes: nextWire,
+      nodes,
+      queryDb: buildQueryDb(nextWire, nextRev),
+      rev: nextRev,
+    });
+  },
+
+  restoreSnapshot: (wireNodes, rev) => {
+    const collapsed = collectCollapsed(get().nodes);
+    for (const id of loadCollapsedIds()) collapsed.add(id);
+    set({
+      wireNodes,
+      nodes: wireToOutlineMap(wireNodes, collapsed),
+      queryDb: buildQueryDb(wireNodes, rev),
+      rev,
     });
   },
 
