@@ -8,40 +8,40 @@
 {
   chat2db = {
     pname = "chat2db";
-    version = "5.3.2";
+    version = "5.3.3";
     src = fetchurl {
-      url = "https://github.com/OtterMind/Chat2DB/releases/download/v5.3.2/Chat2DB-Community-5.3.2-arm64.dmg";
-      sha256 = "sha256-X54hVugE7Snu2X3dLLEsxvqhyXmK9n9mL3TNE8QWOKs=";
+      url = "https://github.com/OtterMind/Chat2DB/releases/download/v5.3.3/Chat2DB-Community-5.3.3-arm64.dmg";
+      sha256 = "sha256-u6wIXrPR4ObKpddNnMNg8BazNtqPhwn+VAJvJOaSso4=";
     };
     github = "OtterMind/Chat2DB";
     tagPrefix = "v";
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "7.2.118";
+    version = "7.2.123";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.118/CLIProxyAPI_7.2.118_darwin_aarch64.tar.gz";
-      sha256 = "sha256-mPasJ+a4U+KqqcJ7lwEd6Gzr+wSHIQJxW8tRl5keGvs=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.123/CLIProxyAPI_7.2.123_darwin_aarch64.tar.gz";
+      sha256 = "sha256-Z7Ao+YxeQl8+dBDPv1G8aSTU6TI+SgsQc2hCLjuCSa8=";
     };
     github = "router-for-me/CLIProxyAPI";
     tagPrefix = "v";
   };
   cursor-cli = {
     pname = "cursor-cli";
-    version = "2026.07.23-e383d2b";
+    version = "2026.08.04-aaa8809";
     src = fetchurl {
-      url = "https://downloads.cursor.com/lab/2026.07.23-e383d2b/darwin/arm64/agent-cli-package.tar.gz";
-      sha256 = "sha256-8uslhR8gedzfBVioFuBsQC0Yer/KkyVdNRZwIEOeu/I=";
+      url = "https://downloads.cursor.com/lab/2026.08.04-aaa8809/darwin/arm64/agent-cli-package.tar.gz";
+      sha256 = "sha256-/B0mdiL/gGoz2/UWFIuf05V4B/TZMcdjEYwmn5K1Nfw=";
     };
     versionUrl = "https://cursor.com/install";
     versionRegex = "downloads.cursor.com/lab/([^/]+)/";
   };
   genoffice = {
     pname = "genoffice";
-    version = "0.5.1";
+    version = "0.5.83";
     src = fetchurl {
-      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.5.1/GenOffice-0.5.1-arm64.dmg";
-      sha256 = "sha256-boqG9pw4Bbf8jQgNjH8OqNXcEMw6V0Tqz9kdiHhTdeQ=";
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.5.83/GenOffice-0.5.83-arm64.dmg";
+      sha256 = "sha256-wV30jkvlgXR7bZHmHuJVuCxrpxuDYww4Czcd6Oj2Nu0=";
     };
     github = "genspark-ai/genoffice";
     tagPrefix = "v";

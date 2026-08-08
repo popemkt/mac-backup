@@ -18,7 +18,8 @@ fetch.url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-d
 passthru = { versionUrl = "https://github.com/logseq/logseq/releases/expanded_assets/nightly", versionRegex = 'Logseq-darwin-arm64-([0-9A-Za-z.+-]+nightly[.][0-9]+)[.]zip' }
 
 [genoffice]
-src.github = "genspark-ai/genoffice"
+src.github_tag = "genspark-ai/genoffice"
+src.include_regex = "^v[0-9].*"
 src.from_pattern = "^v(.+)$"
 src.to_pattern = "\\1"
 fetch.url = "https://github.com/genspark-ai/genoffice/releases/download/v$ver/GenOffice-$ver-arm64.dmg"
