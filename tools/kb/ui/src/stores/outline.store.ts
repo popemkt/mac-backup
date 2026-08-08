@@ -3,10 +3,13 @@ import type { QueryDb } from "@/ds/db";
 import { buildQueryDb } from "@/ds/db";
 import {
   loadCollapsedIds,
+  loadExpandedQueryIds,
   saveCollapsedIds,
+  saveExpandedQueryIds,
   searchNodes,
   wireToOutlineMap,
 } from "@/lib/graph-view";
+import { isQueryNode } from "@/lib/query-node";
 import { mergeTx } from "@/lib/tx";
 import {
   WORKSPACE_ROOT_ID,
@@ -82,6 +85,15 @@ function collectCollapsed(nodes: NodeMap): Set<string> {
   return ids;
 }
 
+/** Query nodes default collapsed; remember the ones currently expanded. */
+function collectExpandedQueries(nodes: NodeMap): Set<string> {
+  const ids = new Set<string>();
+  for (const n of nodes.values()) {
+    if (!n.collapsed && isQueryNode(n)) ids.add(n.id);
+  }
+  return ids;
+}
+
 export const useOutlineStore = create<OutlineState>((set, get) => ({
   nodes: new Map(),
   wireNodes: [],
@@ -97,7 +109,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
 
   hydrateFromWire: (wireNodes, rev, source) => {
     const collapsed = loadCollapsedIds();
-    const nodes = wireToOutlineMap(wireNodes, collapsed);
+    const nodes = wireToOutlineMap(wireNodes, collapsed, loadExpandedQueryIds());
     const queryDb = buildQueryDb(wireNodes, rev);
     set({
       wireNodes,
@@ -117,7 +129,9 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
     const collapsed = collectCollapsed(prev.nodes);
     // Also honor localStorage collapses for brand-new ids
     for (const id of loadCollapsedIds()) collapsed.add(id);
-    const nodes = wireToOutlineMap(nextWire, collapsed);
+    const expanded = collectExpandedQueries(prev.nodes);
+    for (const id of loadExpandedQueryIds()) expanded.add(id);
+    const nodes = wireToOutlineMap(nextWire, collapsed, expanded);
     const nextRev = opts?.rev ?? prev.rev;
     // Deleted nodes must not remain the zoom root / selection.
     const rootNodeId = nodes.has(prev.rootNodeId)
@@ -143,11 +157,14 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
   },
 
   restoreSnapshot: (wireNodes, rev) => {
-    const collapsed = collectCollapsed(get().nodes);
+    const prevNodes = get().nodes;
+    const collapsed = collectCollapsed(prevNodes);
     for (const id of loadCollapsedIds()) collapsed.add(id);
+    const expanded = collectExpandedQueries(prevNodes);
+    for (const id of loadExpandedQueryIds()) expanded.add(id);
     set({
       wireNodes,
-      nodes: wireToOutlineMap(wireNodes, collapsed),
+      nodes: wireToOutlineMap(wireNodes, collapsed, expanded),
       queryDb: buildQueryDb(wireNodes, rev),
       rev,
     });
@@ -157,7 +174,8 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
     const prev = get();
     // In-memory collapse state is the truth here (localStorage may lag).
     const collapsed = collectCollapsed(prev.nodes);
-    const nodes = wireToOutlineMap(wireNodes, collapsed);
+    const expanded = collectExpandedQueries(prev.nodes);
+    const nodes = wireToOutlineMap(wireNodes, collapsed, expanded);
     const queryDb = buildQueryDb(wireNodes, rev);
     const rootNodeId = nodes.has(prev.rootNodeId)
       ? prev.rootNodeId
@@ -210,10 +228,12 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
   toggleCollapse: (id) => {
     const { nodes } = get();
     const node = nodes.get(id);
-    if (!node || node.children.length === 0) return;
+    // Query nodes toggle even without children: expanded = live results.
+    if (!node || (node.children.length === 0 && !isQueryNode(node))) return;
     const next = new Map(nodes);
     next.set(id, { ...node, collapsed: !node.collapsed });
     saveCollapsedIds(collectCollapsed(next));
+    saveExpandedQueryIds(collectExpandedQueries(next));
     set({ nodes: next });
   },
 

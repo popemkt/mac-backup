@@ -14,6 +14,7 @@ import {
   planIndent,
   planMergeWithPrevious,
   planMove,
+  planNewQueryNode,
   planOutdent,
   planRemoveTag,
   planSetProp,
@@ -241,6 +242,13 @@ export const mutations = {
       toast(err instanceof Error ? err.message : String(err));
       return false;
     }
+  },
+
+  /** W4: root node tagged #query with a starter sys.f.query definition. */
+  async newQueryNode(text = "New query"): Promise<string | null> {
+    const newId = ulid();
+    const ok = await applyPlan(planNewQueryNode(text, newId));
+    return ok ? newId : null;
   },
 };
 

@@ -58,6 +58,27 @@ export const fixtureGraph: GraphSnapshot = {
       props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
     }),
     node({
+      id: "sys.f.query",
+      text: "query",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.f.query.limit",
+      text: "limit",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.tag.query",
+      text: "query",
+      props: {
+        "sys.f.type": [{ t: "ref", v: "sys.tag" }],
+        "sys.f.fields": [
+          { t: "ref", v: "sys.f.query" },
+          { t: "ref", v: "sys.f.query.limit" },
+        ],
+      },
+    }),
+    node({
       id: "field.status",
       text: "status",
       props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },

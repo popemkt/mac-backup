@@ -2,6 +2,7 @@
  * Pure outline mutation planners — map UI intents to local tx + registry actions.
  */
 import type { WireNode } from "@kb/protocol";
+import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import type { PropValue } from "@/lib/types";
 import { SYSTEM_IDS } from "@/lib/types";
 import { cloneWire, findParentWire, nowIso, wireById } from "@/lib/tx";
@@ -415,6 +416,48 @@ export function planDefineTag(
     upserts: [node],
     deletes: [],
     actions: [{ id: "tag.define", input: { name, id: newId } }],
+  };
+}
+
+/** W4: mint a root query node — #query tag + sys.f.query EDN prop. */
+export function planNewQueryNode(
+  text: string,
+  newId: string,
+  edn: string = DEFAULT_QUERY_EDN,
+): PlannedMutation {
+  const at = nowIso();
+  const node: WireNode = {
+    id: newId,
+    text,
+    props: {
+      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.queryTag }],
+      [SYSTEM_IDS.queryField]: [{ t: "str", v: edn }],
+    },
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+  return {
+    upserts: [node],
+    deletes: [],
+    actions: [
+      {
+        id: "node.add",
+        input: {
+          text,
+          id: newId,
+          tags: [SYSTEM_IDS.queryTag],
+          props: [
+            {
+              field: SYSTEM_IDS.queryField,
+              value: { t: "str", v: edn },
+            },
+          ],
+        },
+      },
+    ],
+    focusId: newId,
+    focusCursor: text.length,
   };
 }
 

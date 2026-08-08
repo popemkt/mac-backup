@@ -44,12 +44,11 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
       return;
     }
     case SYSTEM_IDS.cmdNewQuery: {
-      // W4 will attach #query + sys.f.query; placeholder node for now.
-      const newId = ulid();
-      const ok = await mutations.addRootNode("New query", newId);
-      if (ok) {
+      // W4: #query tag + sys.f.query starter EDN, zoomed for editing.
+      const newId = await mutations.newQueryNode();
+      if (newId) {
         useUiStore.getState().setView("outline");
-        useOutlineStore.getState().jumpToNode(newId);
+        useOutlineStore.getState().zoomTo(newId);
       }
       return;
     }

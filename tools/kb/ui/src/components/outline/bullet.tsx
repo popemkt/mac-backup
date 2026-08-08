@@ -41,7 +41,9 @@ export function Bullet({
   });
 
   const glyph = KIND_GLYPH[mode.kind];
-  const showHalo = hasChildren && mode.collapsed;
+  // Query nodes expand/collapse without children (expanded = live results).
+  const collapsible = hasChildren || mode.kind === "query";
+  const showHalo = collapsible && mode.collapsed;
   const showCount = showHalo && mode.childCount > 0;
 
   return (
@@ -64,14 +66,16 @@ export function Bullet({
       data-bullet-ref={mode.isRef ? "true" : undefined}
       data-bullet-sys={mode.isSys ? "true" : undefined}
       title={
-        hasChildren
+        collapsible
           ? "Click to toggle, Cmd+click to focus"
           : "Cmd+click to focus"
       }
       aria-label={
-        hasChildren
+        collapsible
           ? mode.collapsed
-            ? `Expand (${mode.childCount} children)`
+            ? hasChildren
+              ? `Expand (${mode.childCount} children)`
+              : "Expand results"
             : "Collapse"
           : undefined
       }

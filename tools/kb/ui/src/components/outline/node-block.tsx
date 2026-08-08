@@ -1,10 +1,12 @@
 import { memo, useCallback } from "react";
 import { cn } from "@/lib/cn";
+import { isQueryNode } from "@/lib/query-node";
 import { useOutlineStore } from "@/stores/outline.store";
 import { mutations } from "@/actions/mutations";
 import { Bullet } from "./bullet";
 import { FieldsSection } from "./fields-section";
 import { NodeContent } from "./node-content";
+import { QueryResultsSection } from "./query-results";
 
 interface NodeBlockProps {
   nodeId: string;
@@ -33,13 +35,14 @@ export const NodeBlock = memo(function NodeBlock({
 
   const handleBulletClick = useCallback(
     (e: React.MouseEvent) => {
-      if (e.metaKey || e.ctrlKey) {
+      // Result-row refs: click = zoom to the source node (W4).
+      if (isRef || e.metaKey || e.ctrlKey) {
         zoomTo(nodeId);
       } else {
         toggleCollapse(nodeId);
       }
     },
-    [toggleCollapse, zoomTo, nodeId],
+    [toggleCollapse, zoomTo, nodeId, isRef],
   );
 
   const handleActivate = useCallback(
@@ -70,6 +73,24 @@ export const NodeBlock = memo(function NodeBlock({
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       const sel = window.getSelection();
       const cursor = sel?.focusOffset ?? 0;
+
+      // Result rows are structurally read-only: text edit-in-place routes to
+      // the source node, but split/merge/delete/indent/move are disabled.
+      if (isRef) {
+        const structural =
+          e.key === "Tab" ||
+          (e.key === "Enter" && !e.shiftKey) ||
+          ((e.key === "Backspace" || e.key === "Delete") &&
+            (e.metaKey || e.ctrlKey)) ||
+          (e.key === "Backspace" && cursor === 0) ||
+          ((e.key === "ArrowUp" || e.key === "ArrowDown") &&
+            e.metaKey &&
+            e.shiftKey);
+        if (structural) {
+          e.preventDefault();
+          return;
+        }
+      }
 
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
@@ -166,6 +187,7 @@ export const NodeBlock = memo(function NodeBlock({
     [
       nodeId,
       node,
+      isRef,
       toggleCollapse,
       activateNode,
       getPreviousVisibleNode,
@@ -225,9 +247,20 @@ export const NodeBlock = memo(function NodeBlock({
             />
           </div>
           {node.children.map((childId) => (
-            <NodeBlock key={childId} nodeId={childId} depth={depth + 1} />
+            <NodeBlock
+              key={childId}
+              nodeId={childId}
+              depth={depth + 1}
+              isRef={isRef}
+            />
           ))}
         </div>
+      )}
+
+      {/* W4: expanded query node → live results as read-only ref rows.
+          Not inside ref rows themselves (guards self-referential loops). */}
+      {!isRef && !node.collapsed && isQueryNode(node) && (
+        <QueryResultsSection nodeId={nodeId} depth={depth} />
       )}
     </div>
   );

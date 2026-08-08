@@ -1,8 +1,14 @@
+/**
+ * Query page (W4): query nodes + a scratch EDN editor. Saved queries
+ * (.kb/queries/*.edn) surface as query nodes under sys.queries — opening
+ * one zooms the outline onto that node (the zoomed-query-node view, where
+ * results render live). The scratch editor stays for one-off EDN.
+ */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SavedQuery } from "@kb/protocol";
-import { fetchSavedQueries } from "@/api/queries";
 import { getLiveClient } from "@/api/live";
 import { runQuery } from "@/ds/query";
+import { isQueryNode } from "@/lib/query-node";
+import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { ResultsTable } from "./results-table";
@@ -13,33 +19,94 @@ const LIVE_SUB_ID = "query-page";
 const PLACEHOLDER =
   '[:find ?id ?text :where [?n :node/id ?id] [?n :node/text ?text]]';
 
+/** Saved queries first (sys.queries children), then user #query nodes. */
+export function listQueryNodes(nodes: Map<string, OutlineNode>): {
+  saved: OutlineNode[];
+  user: OutlineNode[];
+} {
+  const savedIds = nodes.get(SYSTEM_IDS.queriesRoot)?.children ?? [];
+  const saved = savedIds
+    .map((id) => nodes.get(id))
+    .filter((n): n is OutlineNode => n !== undefined);
+  const savedSet = new Set(savedIds);
+  const user: OutlineNode[] = [];
+  for (const n of nodes.values()) {
+    if (savedSet.has(n.id) || n.id === SYSTEM_IDS.queriesRoot) continue;
+    if (n.id === SYSTEM_IDS.queryTag) continue;
+    if (isQueryNode(n)) user.push(n);
+  }
+  user.sort((a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id));
+  return { saved, user };
+}
+
+function QueryNodeList({
+  title,
+  items,
+  onOpen,
+}: {
+  title: string;
+  items: OutlineNode[];
+  onOpen: (id: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <h2 className="text-[13px] font-semibold text-stone-700">{title}</h2>
+      {items.length === 0 ? (
+        <p className="text-[12px] text-stone-400">None</p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {items.map((n) => (
+            <li key={n.id}>
+              <button
+                type="button"
+                onClick={() => onOpen(n.id)}
+                className="flex w-full items-center gap-1.5 truncate rounded px-2 py-1 text-left text-[12px] text-teal-700 hover:bg-teal-50"
+                title={n.id}
+              >
+                <span aria-hidden className="shrink-0 text-[11px]">
+                  {"⌕"}
+                </span>
+                <span className="truncate font-mono">
+                  {n.text || "(untitled)"}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function QueryPage() {
   const queryDb = useOutlineStore((s) => s.queryDb);
+  const nodes = useOutlineStore((s) => s.nodes);
   const wsStatus = useUiStore((s) => s.wsStatus);
   const pushToast = useUiStore((s) => s.pushToast);
+  const setView = useUiStore((s) => s.setView);
 
   const [edn, setEdn] = useState("");
   const [rows, setRows] = useState<unknown[][] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<SavedQuery[]>([]);
   const [live, setLive] = useState(false);
   const [source, setSource] = useState<"local" | "live" | null>(null);
   const liveRef = useRef(live);
   liveRef.current = live;
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchSavedQueries()
-      .then((qs) => {
-        if (!cancelled) setSaved(qs);
-      })
-      .catch(() => {
-        // offline / fixtures mode — saved queries simply unavailable
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { saved, user } = listQueryNodes(nodes);
+
+  /** Zoomed-query-node view: expand + zoom in the outline. */
+  const openQueryNode = useCallback(
+    (id: string) => {
+      const store = useOutlineStore.getState();
+      const node = store.nodes.get(id);
+      if (!node) return;
+      if (node.collapsed) store.toggleCollapse(id);
+      setView("outline");
+      store.zoomTo(id);
+    },
+    [setView],
+  );
 
   const runLocal = useCallback(
     (text: string) => {
@@ -95,11 +162,6 @@ export function QueryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, subscribeLive]);
 
-  const loadSaved = (q: SavedQuery) => {
-    setEdn(q.edn.trim());
-    run(q.edn.trim());
-  };
-
   const onKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
       e.preventDefault();
@@ -111,31 +173,18 @@ export function QueryPage() {
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-auto p-5 lg:grid-cols-[220px_minmax(0,1fr)]">
-      <aside className="flex flex-col gap-2">
-        <h2 className="text-[13px] font-semibold text-stone-700">
-          Saved queries
-        </h2>
-        {saved.length === 0 ? (
-          <p className="text-[12px] text-stone-400">
-            None found (.kb/queries/*.edn)
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-1">
-            {saved.map((q) => (
-              <li key={q.name}>
-                <button
-                  type="button"
-                  onClick={() => loadSaved(q)}
-                  className="w-full truncate rounded px-2 py-1 text-left font-mono text-[12px] text-teal-700 hover:bg-teal-50"
-                  title={q.edn}
-                >
-                  {q.name}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="mt-4 border-t border-stone-200 pt-4">
+      <aside className="flex flex-col gap-4">
+        <QueryNodeList
+          title="Saved queries"
+          items={saved}
+          onOpen={openQueryNode}
+        />
+        <QueryNodeList
+          title="Query nodes"
+          items={user}
+          onOpen={openQueryNode}
+        />
+        <div className="mt-2 border-t border-stone-200 pt-4">
           <ViewPanel />
         </div>
       </aside>
