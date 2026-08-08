@@ -31,6 +31,32 @@ export const fixtureGraph: GraphSnapshot = {
       text: "fields",
       props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
     }),
+    node({ id: "sys.command", text: "sys.command" }),
+    node({
+      id: "sys.cmd.add-node",
+      text: "Add node",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
+    node({
+      id: "sys.cmd.add-tag",
+      text: "Add tag",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
+    node({
+      id: "sys.cmd.define-field",
+      text: "Define field",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
+    node({
+      id: "sys.cmd.go-query",
+      text: "Go to query page",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
+    node({
+      id: "sys.cmd.new-query",
+      text: "New query node",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
     node({
       id: "field.status",
       text: "status",

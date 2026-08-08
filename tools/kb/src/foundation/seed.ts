@@ -4,7 +4,7 @@ import {
   nowIso,
 } from "./model.ts";
 
-/** Four reserved system nodes. Idempotent — same ids every time. */
+/** Reserved system nodes. Idempotent — same ids every time. */
 export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const mk = (id: string, text: string, props: KbNode["props"] = {}): KbNode => ({
     id,
@@ -25,7 +25,20 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
   });
 
-  return [field, tag, typeField, fieldsField];
+  // Command type + palette command instances (W3)
+  const command = mk(SYSTEM_IDS.command, "sys.command");
+  const cmdType = {
+    [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: SYSTEM_IDS.command }],
+  };
+  const commands: KbNode[] = [
+    mk(SYSTEM_IDS.cmdAddNode, "Add node", cmdType),
+    mk(SYSTEM_IDS.cmdAddTag, "Add tag", cmdType),
+    mk(SYSTEM_IDS.cmdDefineField, "Define field", cmdType),
+    mk(SYSTEM_IDS.cmdGoQuery, "Go to query page", cmdType),
+    mk(SYSTEM_IDS.cmdNewQuery, "New query node", cmdType),
+  ];
+
+  return [field, tag, typeField, fieldsField, command, ...commands];
 }
 
 /** Merge seed into existing nodes without overwriting user edits to sys.* text/props. */

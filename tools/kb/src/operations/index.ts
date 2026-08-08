@@ -3,6 +3,7 @@ import { ulid } from "ulid";
 import type { ActionDefinition } from "../shared/contracts.ts";
 import {
   SYSTEM_IDS,
+  isSysPrefixed,
   type KbNode,
   type NodeId,
   type PropValue,
@@ -62,6 +63,8 @@ export const nodeUpdateDef = {
     parent: z.string().nullable().optional(),
     position: z.number().int().nonnegative().optional(),
     delete: z.boolean().optional(),
+    /** Bypass sys.* write-guard (browse yes / break no). */
+    force: z.boolean().optional(),
   }),
   outputSchema: z.object({
     id: z.string(),
@@ -287,10 +290,32 @@ export async function nodeAdd(
   return { id, node };
 }
 
+function assertSysWriteAllowed(
+  id: string,
+  input: z.infer<typeof nodeUpdateDef.inputSchema>,
+): void {
+  if (!isSysPrefixed(id) || input.force === true) return;
+  const mutating =
+    input.text !== undefined ||
+    (input.setProps !== undefined && input.setProps.length > 0) ||
+    (input.unsetProps !== undefined && input.unsetProps.length > 0) ||
+    input.delete === true ||
+    input.parent !== undefined ||
+    input.position !== undefined;
+  if (!mutating) return;
+  throw new ResolveError(
+    "forbidden",
+    `sys.* nodes are write-protected (use force to override): ${id}`,
+    { id },
+  );
+}
+
 export async function nodeUpdate(
   ctx: KbContext,
   input: z.infer<typeof nodeUpdateDef.inputSchema>,
 ): Promise<{ id: string; deleted?: boolean; node?: KbNode }> {
+  assertSysWriteAllowed(input.id, input);
+
   if (input.delete) {
     const upserts = detachFromParents(ctx.nodes, input.id);
     // also detach this node's children? keep children as orphans (explicit)

@@ -426,3 +426,26 @@ export function planCreateAfter(
   const after = requireNode(nodes, afterId);
   return planSplit(nodes, afterId, after.text.length, newId);
 }
+
+/** Add a forest-root content node (no parent). */
+export function planAddRootNode(
+  text: string,
+  newId: string,
+): PlannedMutation {
+  const at = nowIso();
+  const node: WireNode = {
+    id: newId,
+    text,
+    props: {},
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+  return {
+    upserts: [node],
+    deletes: [],
+    actions: [{ id: "node.add", input: { text, id: newId } }],
+    focusId: newId,
+    focusCursor: text.length,
+  };
+}

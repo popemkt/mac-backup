@@ -26,12 +26,24 @@ export const SYSTEM_IDS = {
   tag: "sys.tag",
   typeField: "sys.f.type",
   fieldsField: "sys.f.fields",
+  /** Type node for palette command nodes (DESIGN-REFINE §2 W3). */
+  command: "sys.command",
+  cmdAddNode: "sys.cmd.add-node",
+  cmdAddTag: "sys.cmd.add-tag",
+  cmdDefineField: "sys.cmd.define-field",
+  cmdGoQuery: "sys.cmd.go-query",
+  cmdNewQuery: "sys.cmd.new-query",
 } as const;
 
 export type SystemId = (typeof SYSTEM_IDS)[keyof typeof SYSTEM_IDS];
 
 export function isSystemId(id: string): id is SystemId {
   return (Object.values(SYSTEM_IDS) as string[]).includes(id);
+}
+
+/** Any reserved / seeded id under the `sys.` prefix (browse yes, break no). */
+export function isSysPrefixed(id: string): boolean {
+  return id.startsWith("sys.");
 }
 
 export function nowIso(): string {

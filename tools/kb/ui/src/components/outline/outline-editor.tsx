@@ -2,6 +2,7 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { Breadcrumbs } from "./breadcrumbs";
 import { NodeBlock } from "./node-block";
+import { SchemaSection } from "./schema-section";
 import { useSelectionKeymap } from "./use-selection-keymap";
 
 export function OutlineEditor() {
@@ -23,6 +24,7 @@ export function OutlineEditor() {
       <div className="outline-editor px-1 pb-16">
         <Breadcrumbs />
         <NodeBlock nodeId={rootNodeId} depth={0} />
+        <SchemaSection nodeId={rootNodeId} />
       </div>
     );
   }

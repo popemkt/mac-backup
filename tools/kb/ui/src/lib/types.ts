@@ -8,7 +8,18 @@ export const SYSTEM_IDS = {
   tag: "sys.tag",
   typeField: "sys.f.type",
   fieldsField: "sys.f.fields",
+  command: "sys.command",
+  cmdAddNode: "sys.cmd.add-node",
+  cmdAddTag: "sys.cmd.add-tag",
+  cmdDefineField: "sys.cmd.define-field",
+  cmdGoQuery: "sys.cmd.go-query",
+  cmdNewQuery: "sys.cmd.new-query",
 } as const;
+
+/** Any reserved / seeded id under the `sys.` prefix. */
+export function isSysPrefixed(id: string): boolean {
+  return id.startsWith("sys.");
+}
 
 export const COLLAPSE_STORAGE_KEY = "kb-ui:collapsed";
 

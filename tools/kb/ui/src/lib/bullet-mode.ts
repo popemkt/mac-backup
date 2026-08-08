@@ -56,8 +56,8 @@ export function resolveBulletKind(input: BulletModeInput): BulletKind {
   const refs = input.typeRefs;
   if (refs.includes(SYSTEM_IDS.tag)) return "tag";
   if (refs.includes(SYSTEM_IDS.field)) return "field";
-  // W3: sys.command type node (may not exist in seed yet)
-  if (refs.includes("sys.command")) return "command";
+  // W3: sys.command type node
+  if (refs.includes(SYSTEM_IDS.command)) return "command";
   // W4: anything tagged #query
   if (input.tagNames.some((n) => n.toLowerCase() === "query")) return "query";
 
