@@ -46,10 +46,10 @@
 {"children":[],"createdAt":"2026-08-08T11:10:19.811Z","id":"sys.cmd.preferences","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Preferences","updatedAt":"2026-08-08T11:10:19.811Z"}
 {"children":[],"createdAt":"2026-08-08T11:10:19.811Z","id":"sys.cmd.toggle-theme","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Toggle theme","updatedAt":"2026-08-08T11:10:19.811Z"}
 {"children":[],"createdAt":"2026-08-08T11:10:19.811Z","id":"sys.cmd.toggle-width","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Toggle width","updatedAt":"2026-08-08T11:10:19.811Z"}
-{"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.cmd.view-as-board","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"View as board","updatedAt":"2026-08-08T14:09:32.000Z"}
-{"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.cmd.view-as-cards","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"View as cards","updatedAt":"2026-08-08T14:09:32.000Z"}
-{"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.cmd.view-as-list","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"View as list","updatedAt":"2026-08-08T14:09:32.000Z"}
-{"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.cmd.view-as-table","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"View as table","updatedAt":"2026-08-08T14:09:32.000Z"}
+{"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.cmd.view-as-board","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"View as: Board","updatedAt":"2026-08-08T14:09:32.000Z"}
+{"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.cmd.view-as-cards","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"View as: Cards","updatedAt":"2026-08-08T14:09:32.000Z"}
+{"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.cmd.view-as-list","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"View as: List","updatedAt":"2026-08-08T14:09:32.000Z"}
+{"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.cmd.view-as-table","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"View as: Table","updatedAt":"2026-08-08T14:09:32.000Z"}
 {"children":[],"createdAt":"2026-08-08T14:09:32.000Z","id":"sys.cmd.view-filter","props":{"sys.f.type":[{"t":"ref","v":"sys.command"}]},"text":"Filter…","updatedAt":"2026-08-08T14:09:32.000Z"}
 {"children":[],"createdAt":"2026-08-08T09:24:49.357Z","id":"sys.command","props":{},"text":"sys.command","updatedAt":"2026-08-08T09:24:49.357Z"}
 {"children":[],"createdAt":"2026-08-08T13:52:00.000Z","id":"sys.f.canvas","props":{"sys.f.type":[{"t":"ref","v":"sys.field"}]},"text":"canvas","updatedAt":"2026-08-08T13:52:00.000Z"}

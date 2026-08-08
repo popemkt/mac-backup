@@ -107,6 +107,26 @@ export function GhostNodeRow({
     [createNode],
   );
 
+  const handleBeforeInput = useCallback(
+    (e: React.FormEvent<HTMLDivElement>) => {
+      // IME/autocomplete inserts bypass keydown — the ghost DOM must never
+      // mutate directly; route the text through createNode instead.
+      e.preventDefault();
+      const data = (e.nativeEvent as InputEvent).data;
+      if (data) void createNode(data);
+    },
+    [createNode],
+  );
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const text = e.clipboardData.getData("text/plain");
+      if (text) void createNode(text);
+    },
+    [createNode],
+  );
+
   const handleBulletMouseDown = useCallback(
     (e: React.MouseEvent) => {
       // Keep focus on the ghost textbox — do not let the bullet steal it.
@@ -159,6 +179,8 @@ export function GhostNodeRow({
           onMouseDown={handleContentMouseDown}
           onClick={handleContentClick}
           onKeyDown={handleKeyDown}
+          onBeforeInput={handleBeforeInput}
+          onPaste={handlePaste}
         />
       }
     />

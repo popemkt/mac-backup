@@ -43,7 +43,7 @@ describe("kb tokens", () => {
     expect(tokens).toMatch(/--kb-indent:\s*24px/);
     expect(tokens).toMatch(/--kb-row-h:\s*24px/);
     expect(tokens).toMatch(/--kb-text:\s*14\.5px\s*\/\s*1\.6/);
-    expect(tokens).toMatch(/--kb-chip:\s*11px\s*\/\s*1\.8/);
+    expect(tokens).toMatch(/--kb-chip:\s*11px\s*\/\s*16px/);
     expect(tokens).toMatch(/--kb-field-label:\s*120px/);
   });
 
