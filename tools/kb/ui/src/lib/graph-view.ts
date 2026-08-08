@@ -4,6 +4,7 @@ import { resolveTagColor } from "@/lib/tag-color";
 import { compareWireNodeId } from "@/lib/tx";
 import {
   resolveVisibleProps,
+  isIntrinsicSystemPropKey,
   type ResolvePropsOptions,
 } from "@/lib/field-visibility";
 import {
@@ -79,12 +80,30 @@ export function forestRootIds(nodes: WireNode[]): string[] {
     .map((n) => n.id);
 }
 
+function wireHasVisibleFields(
+  wire: WireNode,
+  byId: Map<string, WireNode>,
+): boolean {
+  for (const [fieldId, values] of Object.entries(wire.props)) {
+    if (values.length === 0) continue;
+    if (fieldId === SYSTEM_IDS.typeField) continue;
+    if (isIntrinsicSystemPropKey(fieldId)) continue;
+    const fieldNode = byId.get(fieldId);
+    const hidden = fieldNode?.props[SYSTEM_IDS.hiddenField]?.[0];
+    if (hidden?.t === "bool" && hidden.v === true) continue;
+    return true;
+  }
+  return false;
+}
+
 function nodeDefaultsCollapsed(
   wire: WireNode,
   tags: TagBadge[],
+  byId: Map<string, WireNode>,
 ): boolean {
   if (isQueryTagBadges(tags)) return true;
   if (wire.children.length > 0) return true;
+  if (wireHasVisibleFields(wire, byId)) return true;
   return false;
 }
 
@@ -119,7 +138,7 @@ export function wireToOutlineMap(
       parentId ?? (roots.includes(wire.id) ? WORKSPACE_ROOT_ID : null);
     const tags = resolveTags(wire, byId);
     const collapsed =
-      nodeDefaultsCollapsed(wire, tags) && !expandedIds.has(wire.id);
+      nodeDefaultsCollapsed(wire, tags, byId) && !expandedIds.has(wire.id);
     map.set(wire.id, {
       id: wire.id,
       text: wire.text,

@@ -136,23 +136,24 @@ export const mutations = {
     return applyPlan(planAddChild(wire(), parentId, id, text));
   },
 
-  /** Ghost-row create: root, first child, or after sibling. */
+  /** Ghost-row create: root, first child, or after sibling. Returns new node id. */
   async createGhostNode(
     parentId: string,
     afterSiblingId: string | null,
     text: string,
-  ): Promise<void> {
+  ): Promise<string | null> {
     const newId = ulid();
     if (parentId === WORKSPACE_ROOT_ID) {
-      await applyPlan(planAddRootNode(text, newId));
-      return;
+      const ok = await applyPlan(planAddRootNode(text, newId));
+      return ok ? newId : null;
     }
     if (afterSiblingId) {
-      await applyPlan(planCreateAfter(wire(), afterSiblingId, newId));
+      const ok = await applyPlan(planCreateAfter(wire(), afterSiblingId, newId));
+      if (!ok) return null;
       if (text) mutations.updateNodeContent(newId, text);
-      return;
+      return newId;
     }
-    await applyPlan(
+    const ok = await applyPlan(
       (await import("@/actions/plan")).planAddChild(
         wire(),
         parentId,
@@ -160,6 +161,7 @@ export const mutations = {
         text,
       ),
     );
+    return ok ? newId : null;
   },
 
   async addTagField(tagId: string, fieldId: string): Promise<void> {

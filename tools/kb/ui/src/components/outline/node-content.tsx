@@ -232,7 +232,7 @@ export function NodeContent({
             ref={editorRef}
             key="editor"
             className={cn(
-              "editable min-h-6 min-w-0 flex-1",
+              "editable min-h-6 min-w-0 flex-1 self-start",
               KB_TEXT_CLASS,
               "outline-none",
               "text-foreground/85",
@@ -250,7 +250,7 @@ export function NodeContent({
         ) : (
           <MdView
             text={content}
-            className="min-h-6 min-w-0 flex-1 text-foreground/85"
+            className="min-h-6 min-w-0 flex-1 self-start text-foreground/85"
           />
         )}
 

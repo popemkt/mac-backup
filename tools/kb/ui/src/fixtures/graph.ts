@@ -73,6 +73,16 @@ export const fixtureGraph: GraphSnapshot = {
       props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
     }),
     node({
+      id: "sys.cmd.expand-all",
+      text: "Expand all",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
+    node({
+      id: "sys.cmd.collapse-all",
+      text: "Collapse all",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
+    }),
+    node({
       id: "sys.f.query",
       text: "query",
       props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },

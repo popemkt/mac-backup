@@ -8,6 +8,7 @@ import {
 } from "@/components/palette/command-palette";
 import { OutlineEditor } from "@/components/outline/outline-editor";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
+import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -70,7 +71,9 @@ export function App() {
     "loading",
   );
   const [error, setError] = useState<string | null>(null);
-  const [paletteOpen, setPaletteOpen] = useState(false);
+  const globalPaletteOpen = useUiStore((s) => s.globalPaletteOpen);
+  const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
+  const setNodePaletteOpen = useUiStore((s) => s.setNodePaletteOpen);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,15 +98,21 @@ export function App() {
   }, [hydrateFromWire]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setPaletteOpen((open) => !open);
+    const handler = (e: KeyboardEvent) => {
+      const action = matchGlobalShortcut(e);
+      if (!action) return;
+      e.preventDefault();
+      if (action === "global-search") {
+        setGlobalPaletteOpen(!useUiStore.getState().globalPaletteOpen);
+        return;
       }
+      const { activeNodeId, selectNode } = useOutlineStore.getState();
+      if (activeNodeId) selectNode(activeNodeId);
+      setNodePaletteOpen(!useUiStore.getState().nodePaletteOpen);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [setGlobalPaletteOpen, setNodePaletteOpen]);
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
@@ -116,7 +125,7 @@ export function App() {
         </span>
         <ConnectionDot />
         <div className="flex-1" />
-        <PaletteTrigger onOpen={() => setPaletteOpen(true)} />
+        <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />
         <button
           type="button"
           className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70"
@@ -146,8 +155,8 @@ export function App() {
 
       <PreferencesPopover />
       <CommandPalette
-        open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
+        open={globalPaletteOpen}
+        onClose={() => setGlobalPaletteOpen(false)}
       />
       <Toasts />
     </div>

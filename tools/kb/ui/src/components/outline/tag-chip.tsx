@@ -21,8 +21,9 @@ export function TagChip({
   return (
     <span
       className={cn(
-        "group/tag inline-flex h-6 max-w-full items-center gap-0.5 rounded-sm px-1.5 py-px",
-        "kb-chip font-medium select-none whitespace-nowrap",
+        "group/tag inline-flex max-w-full items-center gap-0.5 rounded-sm px-1.5 py-px",
+        "text-[11px] font-medium leading-[1.8]",
+        "kb-chip select-none whitespace-nowrap",
         "cursor-pointer transition-opacity hover:opacity-70",
         className,
       )}
@@ -82,7 +83,7 @@ export function TagChipGroup({
 }) {
   if (tags.length === 0) return null;
   return (
-    <div className="flex h-6 shrink-0 items-center gap-1.5">
+    <div className="flex h-6 shrink-0 items-center gap-0.5 self-start">
       {tags.map((tag) => (
         <TagChip
           key={tag.id}

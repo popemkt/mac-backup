@@ -1,6 +1,7 @@
 import { memo, useCallback } from "react";
 import { isQueryNode } from "@/lib/query-node";
 import { resolveProps } from "@/lib/graph-view";
+import { useUiStore } from "@/stores/ui.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { mutations } from "@/actions/mutations";
@@ -37,6 +38,7 @@ export const NodeBlock = memo(function NodeBlock({
   );
   const getNextVisibleNode = useOutlineStore((s) => s.getNextVisibleNode);
   const showAllFields = usePrefsStore((s) => s.showAllFields);
+  const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
 
   const primaryTagColor = node?.tags[0]?.color ?? null;
 
@@ -202,6 +204,8 @@ export const NodeBlock = memo(function NodeBlock({
 
   const isActive = activeNodeId === nodeId;
   const isSelected = selectedNodeId === nodeId;
+  const isPaletteAnchor =
+    nodePaletteOpen && (selectedNodeId === nodeId || activeNodeId === nodeId);
   const hasChildren = node.children.length > 0;
   const isQuery = isQueryNode(node);
   const hasFields =
@@ -213,12 +217,13 @@ export const NodeBlock = memo(function NodeBlock({
       <NodeRow
         depth={depth}
         nodeId={nodeId}
-        isSelected={isSelected}
+        isSelected={isSelected || isPaletteAnchor}
         isActive={isActive}
         onRowClick={handleRowSelect}
         bullet={
           <Bullet
             node={node}
+            collapsible={isExpandable}
             isRef={isRef}
             tagColor={primaryTagColor}
             onClick={handleBulletClick}

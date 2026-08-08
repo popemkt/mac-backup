@@ -1,8 +1,10 @@
-import { useOutlineStore } from "@/stores/outline.store";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
+import { useOutlineStore } from "@/stores/outline.store";
+import { useUiStore } from "@/stores/ui.store";
 import { Breadcrumbs } from "./breadcrumbs";
 import { GhostNodeRow } from "./ghost-node-row";
 import { NodeBlock } from "./node-block";
+import { NodeCommandPalette } from "./node-command-palette";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
 import { ZoomedRootHeader } from "./zoomed-root-header";
@@ -11,6 +13,8 @@ import { useSelectionKeymap } from "./use-selection-keymap";
 export function OutlineEditor() {
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
   const root = useOutlineStore((s) => s.nodes.get(s.rootNodeId));
+  const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
+  const setNodePaletteOpen = useUiStore((s) => s.setNodePaletteOpen);
   useSelectionKeymap();
 
   if (!root) {
@@ -40,6 +44,10 @@ export function OutlineEditor() {
         />
         <SchemaSection nodeId={rootNodeId} />
         <ReferencesSection nodeId={rootNodeId} />
+        <NodeCommandPalette
+          open={nodePaletteOpen}
+          onClose={() => setNodePaletteOpen(false)}
+        />
       </div>
     );
   }
@@ -58,6 +66,10 @@ export function OutlineEditor() {
             ? root.children[root.children.length - 1]!
             : null
         }
+      />
+      <NodeCommandPalette
+        open={nodePaletteOpen}
+        onClose={() => setNodePaletteOpen(false)}
       />
     </div>
   );

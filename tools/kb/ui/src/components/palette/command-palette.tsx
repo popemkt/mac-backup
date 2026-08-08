@@ -201,7 +201,7 @@ export function PaletteTrigger({ onOpen }: { onOpen: () => void }) {
         Search and open…
       </span>
       <kbd className="rounded border border-foreground/10 px-1.5 py-0.5 text-[10px] text-foreground/40">
-        ⌘K
+        ⌘S
       </kbd>
     </button>
   );

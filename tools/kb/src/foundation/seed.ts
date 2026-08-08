@@ -51,6 +51,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     mk(SYSTEM_IDS.cmdToggleTheme, "Toggle theme", cmdType),
     mk(SYSTEM_IDS.cmdToggleWidth, "Toggle width", cmdType),
     mk(SYSTEM_IDS.cmdDebugShowFields, "Debug: show all fields", cmdType),
+    mk(SYSTEM_IDS.cmdExpandAll, "Expand all", cmdType),
+    mk(SYSTEM_IDS.cmdCollapseAll, "Collapse all", cmdType),
   ];
 
   // Query nodes as pure system nodes (W4): a tag "query" templating the

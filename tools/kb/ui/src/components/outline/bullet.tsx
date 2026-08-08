@@ -6,6 +6,8 @@ import type { OutlineNode } from "@/lib/types";
 
 interface BulletProps {
   node: OutlineNode;
+  /** True when node has children, fields, or is a query node. */
+  collapsible?: boolean;
   /** Reference-row state (query result / embedded ref) — dashed ring. */
   isRef?: boolean;
   /** W6 stubs: force media/canvas glyph before those tags exist. */
@@ -25,6 +27,7 @@ const KIND_GLYPH: Partial<Record<BulletKind, string>> = {
 
 export function Bullet({
   node,
+  collapsible: collapsibleProp,
   isRef = false,
   kindOverride = null,
   tagColor = null,
@@ -44,7 +47,8 @@ export function Bullet({
   });
 
   const glyph = KIND_GLYPH[mode.kind];
-  const collapsible = hasChildren || mode.kind === "query";
+  const collapsible =
+    collapsibleProp ?? (hasChildren || mode.kind === "query");
   const showHalo = collapsible && mode.collapsed;
   const showCount = showHalo && mode.childCount > 0;
   const isQuery = mode.kind === "query";

@@ -12,9 +12,13 @@ interface UiState {
   toasts: Toast[];
   /** Preferences popover (DESIGN-RESKIN §1.7) — header button + palette. */
   prefsOpen: boolean;
+  globalPaletteOpen: boolean;
+  nodePaletteOpen: boolean;
 
   setWsStatus: (status: WsStatus) => void;
   setPrefsOpen: (open: boolean) => void;
+  setGlobalPaletteOpen: (open: boolean) => void;
+  setNodePaletteOpen: (open: boolean) => void;
   pushToast: (kind: Toast["kind"], text: string) => void;
   dismissToast: (id: number) => void;
 }
@@ -25,9 +29,13 @@ export const useUiStore = create<UiState>((set) => ({
   wsStatus: "idle",
   toasts: [],
   prefsOpen: false,
+  globalPaletteOpen: false,
+  nodePaletteOpen: false,
 
   setWsStatus: (wsStatus) => set({ wsStatus }),
   setPrefsOpen: (prefsOpen) => set({ prefsOpen }),
+  setGlobalPaletteOpen: (globalPaletteOpen) => set({ globalPaletteOpen }),
+  setNodePaletteOpen: (nodePaletteOpen) => set({ nodePaletteOpen }),
 
   pushToast: (kind, text) => {
     const id = ++toastSeq;

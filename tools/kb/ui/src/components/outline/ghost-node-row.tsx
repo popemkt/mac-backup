@@ -1,8 +1,8 @@
 import { useCallback, useRef } from "react";
+import { flushSync } from "react-dom";
 import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
-import { KB_TEXT_CLASS } from "@/lib/md-inline";
-import { WORKSPACE_ROOT_ID } from "@/lib/types";
+import { useOutlineStore } from "@/stores/outline.store";
 import { NodeRow } from "./node-row";
 
 interface GhostNodeRowProps {
@@ -27,17 +27,38 @@ export function GhostNodeRow({
   afterSiblingId = null,
 }: GhostNodeRowProps) {
   const focusRef = useRef<HTMLDivElement>(null);
+  const creatingRef = useRef(false);
+
+  const beginEditing = useCallback((newId: string, cursorPos: number) => {
+    flushSync(() => {
+      useOutlineStore.getState().activateNode(newId, cursorPos);
+    });
+  }, []);
 
   const createNode = useCallback(
     async (text: string) => {
-      await mutations.createGhostNode(parentId, afterSiblingId, text);
-      requestAnimationFrame(() => focusRef.current?.focus());
+      if (creatingRef.current) return;
+      creatingRef.current = true;
+      try {
+        const newId = await mutations.createGhostNode(
+          parentId,
+          afterSiblingId,
+          text,
+        );
+        if (newId) beginEditing(newId, text.length);
+      } finally {
+        creatingRef.current = false;
+      }
     },
-    [afterSiblingId, parentId],
+    [afterSiblingId, beginEditing, parentId],
   );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (creatingRef.current) {
+        e.preventDefault();
+        return;
+      }
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         void createNode("");
@@ -69,17 +90,11 @@ export function GhostNodeRow({
           aria-label="New node"
           data-ghost-row="true"
           className={cn(
-            "ghost-row flex min-h-6 min-w-0 flex-1 cursor-text items-start rounded-sm px-1 outline-none",
-            KB_TEXT_CLASS,
-            "italic text-foreground/25 focus:text-foreground/35",
+            "ghost-row min-h-6 min-w-0 flex-1 cursor-text rounded-sm px-1 outline-none",
           )}
           onKeyDown={handleKeyDown}
-        >
-          New node…
-        </div>
+        />
       }
     />
   );
 }
-
-export { WORKSPACE_ROOT_ID };

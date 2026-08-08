@@ -3,6 +3,7 @@ import type { QueryDb } from "@/ds/db";
 import { buildQueryDb } from "@/ds/db";
 import {
   loadExpandedIds,
+  resolveProps,
   saveExpandedIds,
   searchNodes,
   wireToOutlineMap,
@@ -51,6 +52,8 @@ interface OutlineState {
   deactivateNode: () => void;
   selectNode: (id: string | null) => void;
   toggleCollapse: (id: string) => void;
+  expandAllInScope: () => void;
+  collapseAllInScope: () => void;
   expandAncestors: (id: string) => void;
   jumpToNode: (id: string) => void;
   search: (query: string) => Array<{ id: string; text: string }>;
@@ -81,6 +84,43 @@ function collectExpanded(nodes: NodeMap): Set<string> {
     if (!n.collapsed && n.id !== WORKSPACE_ROOT_ID) ids.add(n.id);
   }
   return ids;
+}
+
+function collectSubtreeIds(
+  nodeId: string,
+  nodes: NodeMap,
+  result: string[],
+): void {
+  const node = nodes.get(nodeId);
+  if (!node) return;
+  result.push(nodeId);
+  for (const childId of node.children) {
+    collectSubtreeIds(childId, nodes, result);
+  }
+}
+
+function scopeNodeIds(nodes: NodeMap, rootNodeId: string): string[] {
+  const result: string[] = [];
+  if (rootNodeId !== WORKSPACE_ROOT_ID) {
+    const root = nodes.get(rootNodeId);
+    if (!root) return result;
+    for (const childId of root.children) {
+      collectSubtreeIds(childId, nodes, result);
+    }
+    return result;
+  }
+  const workspace = nodes.get(WORKSPACE_ROOT_ID);
+  if (!workspace) return result;
+  for (const childId of workspace.children) {
+    collectSubtreeIds(childId, nodes, result);
+  }
+  return result;
+}
+
+function isExpandableOutlineNode(node: OutlineNode, nodes: NodeMap): boolean {
+  if (node.children.length > 0) return true;
+  if (isQueryNode(node)) return true;
+  return resolveProps(node, nodes).length > 0;
 }
 
 export const useOutlineStore = create<OutlineState>((set, get) => ({
@@ -210,10 +250,45 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
   toggleCollapse: (id) => {
     const { nodes } = get();
     const node = nodes.get(id);
-    // Query nodes toggle even without children: expanded = live results.
-    if (!node || (node.children.length === 0 && !isQueryNode(node))) return;
+    if (!node) return;
+    const expandable = isExpandableOutlineNode(node, nodes);
+    if (!expandable) return;
     const next = new Map(nodes);
     next.set(id, { ...node, collapsed: !node.collapsed });
+    saveExpandedIds(collectExpanded(next));
+    set({ nodes: next });
+  },
+
+  expandAllInScope: () => {
+    const { nodes, rootNodeId } = get();
+    const next = new Map(nodes);
+    let changed = false;
+    for (const id of scopeNodeIds(next, rootNodeId)) {
+      const node = next.get(id);
+      if (!node || !isExpandableOutlineNode(node, next)) continue;
+      if (node.collapsed) {
+        next.set(id, { ...node, collapsed: false });
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    saveExpandedIds(collectExpanded(next));
+    set({ nodes: next });
+  },
+
+  collapseAllInScope: () => {
+    const { nodes, rootNodeId } = get();
+    const next = new Map(nodes);
+    let changed = false;
+    for (const id of scopeNodeIds(next, rootNodeId)) {
+      const node = next.get(id);
+      if (!node || !isExpandableOutlineNode(node, next)) continue;
+      if (!node.collapsed) {
+        next.set(id, { ...node, collapsed: true });
+        changed = true;
+      }
+    }
+    if (!changed) return;
     saveExpandedIds(collectExpanded(next));
     set({ nodes: next });
   },

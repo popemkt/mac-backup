@@ -21,6 +21,8 @@ export const SYSTEM_IDS = {
   cmdToggleTheme: "sys.cmd.toggle-theme",
   cmdToggleWidth: "sys.cmd.toggle-width",
   cmdDebugShowFields: "sys.cmd.debug-show-fields",
+  cmdExpandAll: "sys.cmd.expand-all",
+  cmdCollapseAll: "sys.cmd.collapse-all",
   /** Query nodes as pure system nodes (DESIGN-REFINE §2 W4). */
   queryTag: "sys.tag.query",
   queryField: "sys.f.query",

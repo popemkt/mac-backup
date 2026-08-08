@@ -76,6 +76,14 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
       usePrefsStore.getState().toggleShowAllFields();
       return;
     }
+    case SYSTEM_IDS.cmdExpandAll: {
+      useOutlineStore.getState().expandAllInScope();
+      return;
+    }
+    case SYSTEM_IDS.cmdCollapseAll: {
+      useOutlineStore.getState().collapseAllInScope();
+      return;
+    }
     default:
       toast(`Unknown command: ${commandId}`);
   }

@@ -93,4 +93,20 @@ describe("createGhostNode (ghost row)", () => {
     await mutations.createGhostNode("n.root-c", null, "Second call");
     expect(useOutlineStore.getState().wireNodes.length).toBe(beforeCount + 2);
   });
+
+  it("first ghost keystroke creates one node; continued typing updates it", async () => {
+    const before = wireIds();
+    const newId = await mutations.createGhostNode("n.root-c", null, "a");
+    expect(newId).toBeTruthy();
+    const created = newWireNodes(before);
+    expect(created).toHaveLength(1);
+    expect(created[0]!.text).toBe("a");
+
+    useOutlineStore.getState().activateNode(newId!, 1);
+    mutations.updateNodeContent(newId!, "abc");
+
+    const node = useOutlineStore.getState().nodes.get(newId!)!;
+    expect(node.text).toBe("abc");
+    expect(newWireNodes(before)).toHaveLength(1);
+  });
 });
