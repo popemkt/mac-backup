@@ -4,6 +4,8 @@
 
 ## todo
 
+- kb ui portless mode: UDS transport for local subscriber apps + port discovery via .kb/runtime.json
+- Package kb as nix app in pkgs/ (pinned bun deps, vp build in sandbox, wrapper bin) — replaces checkout-based wrapper
 - Study production nix repo shape before adopting
 
 ## done
