@@ -6,7 +6,6 @@ import { fixtureGraph } from "@/fixtures/graph";
 import { formatRefToken, insertRefAtCursor } from "@/lib/refs";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
-import { createWsClient } from "@/api/ws";
 
 function seed(source: "api" | "fixtures" = "fixtures") {
   useOutlineStore
@@ -159,14 +158,6 @@ describe("autocomplete insertion", () => {
 
   it("returns null when no open ref trigger", () => {
     expect(insertRefAtCursor("plain", 5, "n.root-a", "x")).toBeNull();
-  });
-});
-
-describe("U4 seam", () => {
-  it("ws client stub still throws not wired", () => {
-    const ws = createWsClient();
-    expect(ws.status).toBe("idle");
-    expect(() => ws.connect()).toThrow(/not wired/);
   });
 });
 

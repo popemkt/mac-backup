@@ -1,0 +1,8 @@
+[:find ?id ?text
+ :where
+ [?n :f/sys.f.type ?tag]
+ [?tag :node/text "todo"]
+ [?tag :f/sys.f.type ?tagType]
+ [?tagType :node/id "sys.tag"]
+ [?n :node/id ?id]
+ [?n :node/text ?text]]

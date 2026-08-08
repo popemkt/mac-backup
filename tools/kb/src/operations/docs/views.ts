@@ -51,6 +51,11 @@ export function viewsDir(root: string): string {
 }
 
 async function loadView(root: string, name: string): Promise<LoadedView> {
+  if (!/^[\w][\w.-]*$/.test(name)) {
+    throw new DocsError("invalid_input", `invalid view name: ${name}`, {
+      name,
+    });
+  }
   const path = join(viewsDir(root), `${name}.json`);
   let raw: string;
   try {

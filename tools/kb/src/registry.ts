@@ -28,6 +28,12 @@ import {
   tagDefineDef,
 } from "./operations/index.ts";
 import { DocsError } from "./operations/docs/index.ts";
+import {
+  renderViewAction,
+  renderViewDef,
+  renderViewsAction,
+  renderViewsDef,
+} from "./render/index.ts";
 
 const definitions = [
   nodeAddDef,
@@ -38,6 +44,8 @@ const definitions = [
   graphQueryDef,
   docsMaterializeDef,
   docsCheckDef,
+  renderViewDef,
+  renderViewsDef,
 ] as const satisfies readonly ActionDefinition[];
 
 export function manifest() {
@@ -96,6 +104,16 @@ export async function invoke(
       case "docs.check": {
         const parsed = docsCheckDef.inputSchema.parse(input);
         const output = await docsCheck(ctx, parsed);
+        return succeeded(id, output);
+      }
+      case "render.view": {
+        const parsed = renderViewDef.inputSchema.parse(input);
+        const output = await renderViewAction(ctx, parsed);
+        return succeeded(id, output);
+      }
+      case "render.views": {
+        renderViewsDef.inputSchema.parse(input);
+        const output = await renderViewsAction(ctx);
         return succeeded(id, output);
       }
       default:

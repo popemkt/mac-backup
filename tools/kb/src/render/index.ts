@@ -1,4 +1,6 @@
+import { z } from "zod";
 import type { KbContext } from "../context.ts";
+import type { ActionDefinition } from "../shared/contracts.ts";
 import {
   GENERATED_HEADER,
   loadViews,
@@ -88,4 +90,45 @@ export async function renderNamedView(
 export async function listViewNames(ctx: KbContext): Promise<string[]> {
   const views = await loadViews(ctx.root);
   return views.map((v) => v.name).sort();
+}
+
+// ── registry actions: the render backbone exposed over /api/action ──────
+
+export const renderViewDef = {
+  id: "render.view",
+  title: "Render view",
+  description:
+    "Render a saved view (.kb/views/<name>.json) to html or md and return the content",
+  mode: "read" as const,
+  inputSchema: z.object({
+    name: z.string().min(1),
+    format: z.enum(["html", "md"]).default("html"),
+  }),
+  outputSchema: z.object({
+    name: z.string(),
+    format: z.enum(["html", "md"]),
+    content: z.string(),
+  }),
+} satisfies ActionDefinition;
+
+export const renderViewsDef = {
+  id: "render.views",
+  title: "List views",
+  description: "List saved view names available to render.view",
+  mode: "read" as const,
+  inputSchema: z.object({}),
+  outputSchema: z.object({ views: z.array(z.string()) }),
+} satisfies ActionDefinition;
+
+export async function renderViewAction(
+  ctx: KbContext,
+  input: z.infer<typeof renderViewDef.inputSchema>,
+): Promise<RenderedView> {
+  return renderNamedView(ctx, input.name, input.format);
+}
+
+export async function renderViewsAction(
+  ctx: KbContext,
+): Promise<{ views: string[] }> {
+  return { views: await listViewNames(ctx) };
 }

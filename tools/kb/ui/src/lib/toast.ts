@@ -1,31 +1,9 @@
-import { create } from "zustand";
+import { useUiStore } from "@/stores/ui.store";
 
-export interface ToastItem {
-  id: string;
-  message: string;
-}
-
-interface ToastState {
-  items: ToastItem[];
-  push: (message: string) => void;
-  dismiss: (id: string) => void;
-}
-
-let seq = 0;
-
-export const useToastStore = create<ToastState>((set) => ({
-  items: [],
-  push: (message) => {
-    const id = `toast-${++seq}`;
-    set((s) => ({ items: [...s.items, { id, message }] }));
-    setTimeout(() => {
-      set((s) => ({ items: s.items.filter((t) => t.id !== id) }));
-    }, 4000);
-  },
-  dismiss: (id) =>
-    set((s) => ({ items: s.items.filter((t) => t.id !== id) })),
-}));
-
+/**
+ * Single toast system: the ui store owns toast state and App's <Toasts/>
+ * renders it. This shim keeps the mutations/optimistic call sites terse.
+ */
 export function toast(message: string): void {
-  useToastStore.getState().push(message);
+  useUiStore.getState().pushToast("error", message);
 }

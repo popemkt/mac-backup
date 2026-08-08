@@ -122,4 +122,76 @@ describe("outline store (WireNode adaptation)", () => {
     expect(db!.ids.toEid.has("n.root-a")).toBe(true);
     expect(db!.rev).toBe(1);
   });
+
+  describe("applyTx (WS delta seam)", () => {
+    const wire = (id: string, text: string) => ({
+      id,
+      text,
+      props: {},
+      children: [],
+      createdAt: "2026-08-08T00:00:00.000Z",
+      updatedAt: "2026-08-08T00:00:00.000Z",
+    });
+
+    it("upserts new nodes and bumps rev + query db", () => {
+      seed();
+      useOutlineStore.getState().applyTx([wire("n.new", "fresh node")], [], { rev: 2 });
+      const s = useOutlineStore.getState();
+      expect(s.rev).toBe(2);
+      expect(s.nodes.get("n.new")?.text).toBe("fresh node");
+      expect(s.nodes.get(WORKSPACE_ROOT_ID)!.children).toContain("n.new");
+      expect(s.queryDb!.ids.toEid.has("n.new")).toBe(true);
+      expect(s.queryDb!.rev).toBe(2);
+    });
+
+    it("updates existing node text in place", () => {
+      seed();
+      const cur = useOutlineStore
+        .getState()
+        .wireNodes.find((n) => n.id === "n.root-b")!;
+      useOutlineStore
+        .getState()
+        .applyTx([{ ...cur, text: "renamed" }], [], { rev: 2 });
+      expect(useOutlineStore.getState().nodes.get("n.root-b")?.text).toBe(
+        "renamed",
+      );
+    });
+
+    it("deletes nodes", () => {
+      seed();
+      useOutlineStore.getState().applyTx([], ["n.root-c"], { rev: 2 });
+      const s = useOutlineStore.getState();
+      expect(s.nodes.has("n.root-c")).toBe(false);
+      expect(s.nodes.get(WORKSPACE_ROOT_ID)!.children).not.toContain(
+        "n.root-c",
+      );
+    });
+
+    it("preserves collapse state across deltas", () => {
+      seed();
+      useOutlineStore.getState().toggleCollapse("n.root-a");
+      useOutlineStore.getState().applyTx([wire("n.new", "x")], [], { rev: 2 });
+      expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(
+        true,
+      );
+    });
+
+    it("preserves zoom + selection when targets survive", () => {
+      seed();
+      useOutlineStore.getState().zoomTo("n.root-a");
+      useOutlineStore.getState().applyTx([wire("n.new", "x")], [], { rev: 2 });
+      const s = useOutlineStore.getState();
+      expect(s.rootNodeId).toBe("n.root-a");
+      expect(s.selectedNodeId).toBe("n.root-a");
+    });
+
+    it("falls back to home when the zoomed node is deleted", () => {
+      seed();
+      useOutlineStore.getState().zoomTo("n.root-c");
+      useOutlineStore.getState().applyTx([], ["n.root-c"], { rev: 2 });
+      const s = useOutlineStore.getState();
+      expect(s.rootNodeId).toBe(WORKSPACE_ROOT_ID);
+      expect(s.selectedNodeId).toBeNull();
+    });
+  });
 });

@@ -58,3 +58,15 @@ export function postAction(
 ): Promise<ActionReceipt> {
   return postActionImpl({ id, input });
 }
+
+/** Invoke and unwrap; throws on failed receipts. */
+export async function invokeAction<T>(
+  id: string,
+  input: unknown = {},
+): Promise<T> {
+  const receipt = await postAction(id, input);
+  if (receipt.status === "failed") {
+    throw new Error(`${receipt.code}: ${receipt.message}`);
+  }
+  return receipt.output as T;
+}

@@ -33,7 +33,7 @@ interface OutlineState {
     rev: number,
     source: "api" | "fixtures",
   ) => void;
-  /** Apply node-level delta (optimistic edits + WS tx from U4). */
+  /** Apply node-level delta (optimistic edits + WS tx). */
   applyTx: (
     upserts: WireNode[],
     deletes: string[],
@@ -41,6 +41,8 @@ interface OutlineState {
   ) => void;
   /** Restore a prior wire snapshot (optimistic revert). */
   restoreSnapshot: (nodes: WireNode[], rev: number) => void;
+  /** Full-snapshot resync (rev gap) that preserves zoom/selection/collapse. */
+  refreshFromWire: (nodes: WireNode[], rev: number) => void;
   setRootNodeId: (id: string) => void;
   zoomTo: (id: string) => void;
   zoomHome: () => void;
@@ -110,18 +112,33 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
   },
 
   applyTx: (upserts, deletes, opts) => {
-    const { wireNodes, rev, nodes: prevNodes } = get();
-    const nextWire = mergeTx(wireNodes, upserts, deletes);
-    const collapsed = collectCollapsed(prevNodes);
+    const prev = get();
+    const nextWire = mergeTx(prev.wireNodes, upserts, deletes);
+    const collapsed = collectCollapsed(prev.nodes);
     // Also honor localStorage collapses for brand-new ids
     for (const id of loadCollapsedIds()) collapsed.add(id);
     const nodes = wireToOutlineMap(nextWire, collapsed);
-    const nextRev = opts?.rev ?? rev;
+    const nextRev = opts?.rev ?? prev.rev;
+    // Deleted nodes must not remain the zoom root / selection.
+    const rootNodeId = nodes.has(prev.rootNodeId)
+      ? prev.rootNodeId
+      : prev.homeRootId;
+    const selectedNodeId =
+      prev.selectedNodeId && nodes.has(prev.selectedNodeId)
+        ? prev.selectedNodeId
+        : null;
+    const activeNodeId =
+      prev.activeNodeId && nodes.has(prev.activeNodeId)
+        ? prev.activeNodeId
+        : null;
     set({
       wireNodes: nextWire,
       nodes,
       queryDb: buildQueryDb(nextWire, nextRev),
       rev: nextRev,
+      rootNodeId,
+      selectedNodeId,
+      activeNodeId,
     });
   },
 
@@ -133,6 +150,34 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
       nodes: wireToOutlineMap(wireNodes, collapsed),
       queryDb: buildQueryDb(wireNodes, rev),
       rev,
+    });
+  },
+
+  refreshFromWire: (wireNodes, rev) => {
+    const prev = get();
+    // In-memory collapse state is the truth here (localStorage may lag).
+    const collapsed = collectCollapsed(prev.nodes);
+    const nodes = wireToOutlineMap(wireNodes, collapsed);
+    const queryDb = buildQueryDb(wireNodes, rev);
+    const rootNodeId = nodes.has(prev.rootNodeId)
+      ? prev.rootNodeId
+      : prev.homeRootId;
+    const selectedNodeId =
+      prev.selectedNodeId && nodes.has(prev.selectedNodeId)
+        ? prev.selectedNodeId
+        : null;
+    const activeNodeId =
+      prev.activeNodeId && nodes.has(prev.activeNodeId)
+        ? prev.activeNodeId
+        : null;
+    set({
+      wireNodes,
+      nodes,
+      queryDb,
+      rev,
+      rootNodeId,
+      selectedNodeId,
+      activeNodeId,
     });
   },
 
