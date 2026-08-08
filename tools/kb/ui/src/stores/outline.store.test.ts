@@ -31,7 +31,12 @@ describe("outline store (WireNode adaptation)", () => {
   it("hydrates forest roots under virtual workspace root (id-sorted)", () => {
     seed();
     const root = useOutlineStore.getState().nodes.get(WORKSPACE_ROOT_ID)!;
-    expect(root.children).toEqual(["n.root-a", "n.root-b", "n.root-c"]);
+    expect(root.children).toEqual([
+      "lens.all-mentions",
+      "n.root-a",
+      "n.root-b",
+      "n.root-c",
+    ]);
     expect(root.children).not.toContain("sys.tag");
     expect(root.children).not.toContain("tag.todo");
   });
@@ -69,6 +74,7 @@ describe("outline store (WireNode adaptation)", () => {
       true,
     );
     expect(useOutlineStore.getState().getVisibleNodes()).toEqual([
+      "lens.all-mentions",
       "n.root-a",
       "n.root-b",
       "n.root-c",
@@ -79,6 +85,7 @@ describe("outline store (WireNode adaptation)", () => {
     seed();
     useOutlineStore.getState().toggleCollapse("n.root-a");
     expect(useOutlineStore.getState().getVisibleNodes()).toEqual([
+      "lens.all-mentions",
       "n.root-a",
       "n.child-a1",
       "n.child-a2",
@@ -87,6 +94,7 @@ describe("outline store (WireNode adaptation)", () => {
     ]);
     useOutlineStore.getState().toggleCollapse("n.root-a");
     expect(useOutlineStore.getState().getVisibleNodes()).toEqual([
+      "lens.all-mentions",
       "n.root-a",
       "n.root-b",
       "n.root-c",

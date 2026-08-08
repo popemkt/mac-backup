@@ -35,7 +35,12 @@ describe("stable outline ordering", () => {
 
   it("forest roots are sorted by id ascending", () => {
     const roots = forestRootIds(fixtureGraph.nodes);
-    expect(roots).toEqual(["n.root-a", "n.root-b", "n.root-c"]);
+    expect(roots).toEqual([
+      "lens.all-mentions",
+      "n.root-a",
+      "n.root-b",
+      "n.root-c",
+    ]);
   });
 
   it("mergeTx preserves deterministic wire order (id ascending)", () => {

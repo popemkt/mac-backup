@@ -1,4 +1,5 @@
 import {
+  LEGACY_LENS_ALL_MENTIONS,
   SYSTEM_IDS,
   type KbNode,
   nowIso,
@@ -104,6 +105,55 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     fieldType,
   );
 
+  // Graph perspectives (V0): #graph-perspective tag + lens field template.
+  const lensQueryField = mk(SYSTEM_IDS.lensQueryField, "lens.query", fieldType);
+  const lensRendererField = mk(
+    SYSTEM_IDS.lensRendererField,
+    "lens.renderer",
+    fieldType,
+  );
+  const lensColorByField = mk(
+    SYSTEM_IDS.lensColorByField,
+    "lens.color-by",
+    fieldType,
+  );
+  const lensSizeByField = mk(
+    SYSTEM_IDS.lensSizeByField,
+    "lens.size-by",
+    fieldType,
+  );
+  const lensEdgeKindsField = mk(
+    SYSTEM_IDS.lensEdgeKindsField,
+    "lens.edge-kinds",
+    fieldType,
+  );
+  const lensMaxNodesField = mk(
+    SYSTEM_IDS.lensMaxNodesField,
+    "lens.max-nodes",
+    fieldType,
+  );
+  const graphPerspectiveTag = mk(SYSTEM_IDS.graphPerspectiveTag, "graph-perspective", {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+    [SYSTEM_IDS.fieldsField]: [
+      { t: "ref", v: SYSTEM_IDS.lensQueryField },
+      { t: "ref", v: SYSTEM_IDS.lensRendererField },
+      { t: "ref", v: SYSTEM_IDS.lensColorByField },
+      { t: "ref", v: SYSTEM_IDS.lensSizeByField },
+      { t: "ref", v: SYSTEM_IDS.lensEdgeKindsField },
+      { t: "ref", v: SYSTEM_IDS.lensMaxNodesField },
+    ],
+  });
+  const lensAllMentions = mk(SYSTEM_IDS.lensAllMentions, "All mentions", {
+    [SYSTEM_IDS.typeField]: [
+      { t: "ref", v: SYSTEM_IDS.graphPerspectiveTag },
+    ],
+    [SYSTEM_IDS.lensRendererField]: [{ t: "str", v: "force2d" }],
+    [SYSTEM_IDS.lensEdgeKindsField]: [
+      { t: "str", v: "mention" },
+      { t: "str", v: "child" },
+    ],
+  });
+
   return [
     field,
     tag,
@@ -125,21 +175,54 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewDisplayField,
     viewColwidthField,
     viewPagesizeField,
+    lensQueryField,
+    lensRendererField,
+    lensColorByField,
+    lensSizeByField,
+    lensEdgeKindsField,
+    lensMaxNodesField,
+    graphPerspectiveTag,
+    lensAllMentions,
   ];
 }
 
-/** Merge seed into existing nodes without overwriting user edits to sys.* text/props. */
+/**
+ * Merge seed into existing nodes without overwriting user edits to sys.* text/props.
+ *
+ * Also migrates the legacy default perspective `sys.lens.all-mentions` →
+ * `lens.all-mentions` (user-editable). If both exist, drop the legacy id;
+ * if only legacy exists, rename in place preserving text/props.
+ */
 export function ensureSystemSeed(nodes: KbNode[]): {
   nodes: KbNode[];
   seeded: boolean;
+  /** Ids removed by migration (must be passed to store.commit deletes). */
+  deletes: string[];
 } {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   let seeded = false;
+  const deletes: string[] = [];
+
+  // Migrate legacy BEFORE seeding defaults so edits on the old id are kept.
+  const legacy = byId.get(LEGACY_LENS_ALL_MENTIONS);
+  if (legacy) {
+    if (!byId.has(SYSTEM_IDS.lensAllMentions)) {
+      byId.set(SYSTEM_IDS.lensAllMentions, {
+        ...legacy,
+        id: SYSTEM_IDS.lensAllMentions,
+      });
+    }
+    byId.delete(LEGACY_LENS_ALL_MENTIONS);
+    deletes.push(LEGACY_LENS_ALL_MENTIONS);
+    seeded = true;
+  }
+
   for (const seed of systemSeedNodes()) {
     if (!byId.has(seed.id)) {
       byId.set(seed.id, seed);
       seeded = true;
     }
   }
-  return { nodes: [...byId.values()], seeded };
+
+  return { nodes: [...byId.values()], seeded, deletes };
 }

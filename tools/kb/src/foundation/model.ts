@@ -63,7 +63,23 @@ export const SYSTEM_IDS = {
   viewPagesizeField: "sys.f.view.pagesize",
   /** Virtual root for saved queries (.kb/queries/*.edn); never in jsonl. */
   queriesRoot: "sys.queries",
+  /** Graph perspective lenses (V0/V1 — graph-lens module). */
+  graphPerspectiveTag: "sys.tag.graph-perspective",
+  lensQueryField: "sys.f.lens.query",
+  lensRendererField: "sys.f.lens.renderer",
+  lensColorByField: "sys.f.lens.color-by",
+  lensSizeByField: "sys.f.lens.size-by",
+  lensEdgeKindsField: "sys.f.lens.edge-kinds",
+  lensMaxNodesField: "sys.f.lens.max-nodes",
+  /**
+   * Default global mentions+child force2d perspective.
+   * User-editable (NOT sys-prefixed) so write-guard does not lock it.
+   */
+  lensAllMentions: "lens.all-mentions",
 } as const;
+
+/** Pre-fix id — migrated away by ensureSystemSeed. */
+export const LEGACY_LENS_ALL_MENTIONS = "sys.lens.all-mentions";
 
 export type SystemId = (typeof SYSTEM_IDS)[keyof typeof SYSTEM_IDS];
 
