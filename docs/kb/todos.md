@@ -4,9 +4,15 @@
 
 ## todo
 
+- canvas C2: media cards (assets) + frictionless quick-add — draw.io feel
+- canvas: keep broken kbLink edges as dashed + repair prompt (flip from auto-remove)
+- canvas: offload canvas doc to .kb/canvas/<id>.json (prop holds pointer) — keep nodes.jsonl lean
+- graph: smart-elide system/editor-only nodes by default + toggle; universal graph button in header
 - kb ui portless mode: UDS transport for local subscriber apps + port discovery via .kb/runtime.json
 - Package kb as nix app in pkgs/ (pinned bun deps, vp build in sandbox, wrapper bin) — replaces checkout-based wrapper
+- per-viz demo seed + user test script (tree/cluster/3D/board/canvas)
 - Study production nix repo shape before adopting
+- views: toolbar tucked in hover/settings gear — never always-visible
 
 ## done
 
@@ -22,6 +28,7 @@
 
 ## later
 
+- core: investigate tag inheritance (supertag extends) for Tana parity
 - kb refine V-wave: viz surfaces beyond nxus (2D sigma, 3D force, stacked/folder views, JSON Canvas) — DESIGN-REFINE.md + .research/kb-refine/viz/report.md
 - kb ui server: datalog subscription limits (query complexity/time cap) + inline sub-error surfacing in query nodes
 
