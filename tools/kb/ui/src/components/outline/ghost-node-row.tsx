@@ -21,13 +21,23 @@ function GhostBullet() {
   );
 }
 
+function isPrintableGhostKey(e: React.KeyboardEvent | KeyboardEvent): boolean {
+  return (
+    e.key.length === 1 &&
+    !e.metaKey &&
+    !e.ctrlKey &&
+    !e.altKey &&
+    e.key !== " "
+  );
+}
+
 export function GhostNodeRow({
   depth,
   parentId,
   afterSiblingId = null,
 }: GhostNodeRowProps) {
-  const focusRef = useRef<HTMLDivElement>(null);
   const creatingRef = useRef(false);
+  const pendingCharsRef = useRef("");
 
   const beginEditing = useCallback((newId: string, cursorPos: number) => {
     flushSync(() => {
@@ -37,15 +47,27 @@ export function GhostNodeRow({
 
   const createNode = useCallback(
     async (text: string) => {
-      if (creatingRef.current) return;
+      if (creatingRef.current) {
+        if (text.length === 1) pendingCharsRef.current += text;
+        return;
+      }
       creatingRef.current = true;
+      pendingCharsRef.current = "";
       try {
         const newId = await mutations.createGhostNode(
           parentId,
           afterSiblingId,
           text,
         );
-        if (newId) beginEditing(newId, text.length);
+        if (newId) {
+          const pending = pendingCharsRef.current;
+          pendingCharsRef.current = "";
+          const fullText = text + pending;
+          if (pending.length > 0) {
+            mutations.updateNodeContent(newId, fullText);
+          }
+          beginEditing(newId, fullText.length);
+        }
       } finally {
         creatingRef.current = false;
       }
@@ -57,6 +79,9 @@ export function GhostNodeRow({
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (creatingRef.current) {
         e.preventDefault();
+        if (isPrintableGhostKey(e)) {
+          pendingCharsRef.current += e.key;
+        }
         return;
       }
       if (e.key === "Enter" && !e.shiftKey) {
@@ -64,13 +89,7 @@ export function GhostNodeRow({
         void createNode("");
         return;
       }
-      if (
-        e.key.length === 1 &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.altKey &&
-        e.key !== " "
-      ) {
+      if (isPrintableGhostKey(e)) {
         e.preventDefault();
         void createNode(e.key);
       }
@@ -84,7 +103,6 @@ export function GhostNodeRow({
       bullet={<GhostBullet />}
       content={
         <div
-          ref={focusRef}
           tabIndex={0}
           role="textbox"
           aria-label="New node"

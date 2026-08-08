@@ -34,8 +34,16 @@ export const useUiStore = create<UiState>((set) => ({
 
   setWsStatus: (wsStatus) => set({ wsStatus }),
   setPrefsOpen: (prefsOpen) => set({ prefsOpen }),
-  setGlobalPaletteOpen: (globalPaletteOpen) => set({ globalPaletteOpen }),
-  setNodePaletteOpen: (nodePaletteOpen) => set({ nodePaletteOpen }),
+  setGlobalPaletteOpen: (globalPaletteOpen) =>
+    set((s) => ({
+      globalPaletteOpen,
+      nodePaletteOpen: globalPaletteOpen ? false : s.nodePaletteOpen,
+    })),
+  setNodePaletteOpen: (nodePaletteOpen) =>
+    set((s) => ({
+      nodePaletteOpen,
+      globalPaletteOpen: nodePaletteOpen ? false : s.globalPaletteOpen,
+    })),
 
   pushToast: (kind, text) => {
     const id = ++toastSeq;

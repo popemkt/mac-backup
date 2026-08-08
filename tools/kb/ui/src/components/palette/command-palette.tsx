@@ -19,7 +19,7 @@ interface CommandPaletteProps {
 }
 
 /**
- * ⌘K "Search and open" — single overlay, fuzzy over all nodes + commands.
+ * ⌘S "Search and open" — single overlay, fuzzy over all nodes + commands.
  * nxus chrome: backdrop-blur, single list, ↑↓/Enter (DESIGN-REFINE §2 W3).
  */
 export function CommandPalette({ open, onClose }: CommandPaletteProps) {
