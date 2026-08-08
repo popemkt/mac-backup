@@ -8,6 +8,11 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [tailwindcss(), react()],
+  build: {
+    // `/assets/*` is the kb media route (.kb/assets) on the server; keep the
+    // bundler's hashed output out of that namespace or index.html 404s.
+    assetsDir: "static",
+  },
   resolve: {
     alias: {
       "@": path.join(root, "src"),
