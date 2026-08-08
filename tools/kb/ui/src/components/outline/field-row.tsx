@@ -78,14 +78,14 @@ export function FieldRow({
         className={cn(
           "flex h-6 shrink-0 items-center truncate pl-1",
           "text-[14.5px] font-medium leading-[1.6]",
-          debug ? "text-foreground/35" : "text-foreground/35",
+          debug ? "text-foreground/25" : "text-foreground/35",
         )}
         style={{ width: `${FIELD_LABEL_WIDTH}px` }}
         title={labelTitle ?? (fieldId ? `${label} (${fieldId})` : label)}
       >
         {label}
         {debug && fieldId && (
-          <span className="ml-1 truncate font-mono text-[10px] text-foreground/35">
+          <span className="ml-1 truncate font-mono text-[10px] text-foreground/25">
             {fieldId}
           </span>
         )}

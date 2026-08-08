@@ -31,7 +31,7 @@ export function OutlineEditor() {
         ))}
         <GhostNodeRow
           depth={0}
-          parentId={WORKSPACE_ROOT_ID}
+          parentId={rootNodeId}
           afterSiblingId={
             root.children.length > 0
               ? root.children[root.children.length - 1]!

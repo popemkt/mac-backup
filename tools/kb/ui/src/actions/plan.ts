@@ -5,6 +5,7 @@ import type { WireNode } from "@kb/protocol";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import type { PropValue } from "@/lib/types";
 import { SYSTEM_IDS } from "@/lib/types";
+import { forestRootIds } from "@/lib/graph-view";
 import { cloneWire, findParentWire, nowIso, wireById } from "@/lib/tx";
 
 export interface PlannedMutation {
@@ -171,11 +172,8 @@ export function planIndent(
   if (parent) {
     sibs = parent.children;
   } else {
-    // Forest roots: nodes not nested under another node (skip sys.*).
-    const kids = new Set(nodes.flatMap((n) => n.children));
-    sibs = nodes
-      .filter((n) => !kids.has(n.id) && !n.id.startsWith("sys."))
-      .map((n) => n.id);
+    // Forest roots: same id-sorted order as forestRootIds / outline display.
+    sibs = forestRootIds(nodes);
   }
 
   const idx = sibs.indexOf(id);

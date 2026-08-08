@@ -199,8 +199,9 @@ export function loadExpandedIds(): Set<string> {
     const legacyCollapsed = loadIdSet(LEGACY_COLLAPSED_STORAGE_KEY);
     const legacyQueries = loadIdSet(LEGACY_EXPANDED_QUERIES_STORAGE_KEY);
     for (const id of legacyQueries) migrated.add(id);
-    // Legacy stored collapsed ids — we cannot invert without node metadata here;
-    // query expanded set is the meaningful subset to preserve.
+    // Intentional breakage: kb-ui:collapsed stored *collapsed* ids; inverting
+    // to expanded requires node metadata we don't have at load time — drop it.
+    // Only legacy query-expanded ids are worth preserving on first migration.
     if (migrated.size > 0) saveExpandedIds(migrated);
     void legacyCollapsed;
   } catch {

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import {
   ArrowsHorizontal,
   CircleHalf,
+  Eye,
   TextAa,
 } from "@phosphor-icons/react";
 import {
@@ -55,6 +56,7 @@ export function PreferencesPopover() {
       <ThemeRow />
       <FontRow />
       <WidthRow />
+      <ShowAllFieldsRow />
     </div>
   );
 }
@@ -107,6 +109,24 @@ function WidthRow() {
         <option value="centered">centered</option>
         <option value="full">full</option>
       </select>
+    </PrefFieldRow>
+  );
+}
+
+function ShowAllFieldsRow() {
+  const showAllFields = usePrefsStore((s) => s.showAllFields);
+  const setShowAllFields = usePrefsStore((s) => s.setShowAllFields);
+  return (
+    <PrefFieldRow icon={Eye} label="debug fields">
+      <label className="flex min-h-6 cursor-pointer items-center gap-2">
+        <input
+          type="checkbox"
+          className="h-3.5 w-3.5 rounded border-foreground/20 accent-primary"
+          checked={showAllFields}
+          onChange={(e) => setShowAllFields(e.target.checked)}
+        />
+        <span className={valueClass}>Show all fields (debug)</span>
+      </label>
     </PrefFieldRow>
   );
 }

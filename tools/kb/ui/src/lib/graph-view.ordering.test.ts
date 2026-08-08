@@ -69,6 +69,46 @@ describe("stable outline ordering", () => {
     expect(afterChildren).toEqual(beforeChildren);
   });
 
+  it("order survives JsonlStore-shaped id-sorted reload and re-edit", () => {
+    const idSorted = [...fixtureGraph.nodes].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    );
+    useOutlineStore
+      .getState()
+      .hydrateFromWire(idSorted, fixtureGraph.rev, "fixtures");
+
+    const beforeRoots = [
+      ...useOutlineStore.getState().nodes.get("__kb_root__")!.children,
+    ];
+    const beforeChildren = [
+      ...useOutlineStore.getState().nodes.get("n.root-a")!.children,
+    ];
+
+    mutations.updateNodeContent("n.root-a", "edited once");
+
+    const wireAfterEdit = useOutlineStore.getState().wireNodes;
+    const idSortedReload = [...wireAfterEdit].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    );
+    useOutlineStore
+      .getState()
+      .hydrateFromWire(idSortedReload, fixtureGraph.rev + 1, "api");
+
+    for (let i = 0; i < 10; i++) {
+      mutations.updateNodeContent("n.root-a", `edited ${i}`);
+    }
+
+    const afterRoots = [
+      ...useOutlineStore.getState().nodes.get("__kb_root__")!.children,
+    ];
+    const afterChildren = [
+      ...useOutlineStore.getState().nodes.get("n.root-a")!.children,
+    ];
+
+    expect(afterRoots).toEqual(beforeRoots);
+    expect(afterChildren).toEqual(beforeChildren);
+  });
+
   it("expanded ids persist in kb-expanded localStorage", () => {
     if (typeof localStorage === "undefined") return;
     useOutlineStore.getState().toggleCollapse("n.root-a");
