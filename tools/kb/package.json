@@ -4,11 +4,15 @@
   "private": true,
   "type": "module",
   "module": "src/index.ts",
+  "bin": {
+    "kb": "./src/surface/cli.ts"
+  },
   "scripts": {
     "test": "bun test",
     "bench": "bun test tests/benchmark.test.ts"
   },
   "dependencies": {
+    "commander": "^13.1.0",
     "datascript": "^1.7.8",
     "ulid": "^3.0.2",
     "zod": "^4.4.3"

@@ -5,6 +5,7 @@
     "": {
       "name": "kb",
       "dependencies": {
+        "commander": "^13.1.0",
         "datascript": "^1.7.8",
         "ulid": "^3.0.2",
         "zod": "^4.4.3",
@@ -21,6 +22,8 @@
     "@types/node": ["@types/node@26.2.0", "", { "dependencies": { "undici-types": "~8.3.0" } }, "sha512-5IviulTZeRNp2vAJ514cc/HUlY5nZ9fCbq9DMyC52BrhFZACo3nI0R7qBxhQmo/d27NFe96ur/b7Wwxklda+kg=="],
 
     "bun-types": ["bun-types@1.3.14", "", { "dependencies": { "@types/node": "*" } }, "sha512-4N0ig0fEomHt5R0KCFWjovxow98rIoRwKolrYdCcknNwMekCXRnWEUvgu5soYV8QXtVsrUD8B95MBOZGPvr6KQ=="],
+
+    "commander": ["commander@13.1.0", "", {}, "sha512-/rFeCpNJQbhSZjGVwO9RFV3xPqbnERS8MmIQzCtD/zl6gpJuV/bMLuN92oG3F7d8oDEHHRrujSXNUr8fpjntKw=="],
 
     "datascript": ["datascript@1.7.8", "", {}, "sha512-PFJNAbcUgVxkLGXBbvkEqTAvcRWCLuw/PibWuLuwaZhXAgI5xx7p9l9FHHFCqKoDODenzhfLKuQJ8987ShsNqg=="],
 
