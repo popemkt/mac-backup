@@ -21,6 +21,10 @@ describe("tag color hash (DESIGN-RESKIN §1.8)", () => {
     expect(typeof djb2Hash("x")).toBe("number");
   });
 
+  it("matches nxus getSupertagColor (Math.abs hash % 12)", () => {
+    expect(hashTagColor("tag.todo")).toBe("#8b5cf6");
+  });
+
   it("explicit color prop overrides the hash", () => {
     expect(resolveTagColor("tag.todo", "#112233")).toBe("#112233");
     expect(resolveTagColor("tag.todo", "  #aabbcc  ")).toBe("#aabbcc");

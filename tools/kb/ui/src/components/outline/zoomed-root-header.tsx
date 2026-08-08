@@ -7,8 +7,7 @@ import { TagChipGroup } from "./tag-chip";
 /** Zoomed root title + tag wash + fields at depth −1 (DESIGN-RESKIN §1.5). */
 export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
   const zoomTo = useOutlineStore((s) => s.zoomTo);
-  const gradientColor =
-    node.tags.length > 0 ? node.tags[node.tags.length - 1]!.color : null;
+  const gradientColor = node.tags[0]?.color ?? null;
 
   return (
     <div className="zoomed-root-header px-2 pb-2">
@@ -29,7 +28,7 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
         <h1
           className={cn(
             "relative flex min-h-9 items-center",
-            "text-xl font-semibold leading-[1.4] text-foreground/90",
+            "text-[20px] font-semibold leading-[1.4] text-foreground/90",
           )}
         >
           {node.text || "Untitled"}

@@ -4,8 +4,12 @@ import {
   queryFieldCarriers,
   queryTaggedInstances,
   schemaZoomKind,
+  type SchemaHit,
 } from "@/lib/schema-zoom";
-import { cn } from "@/lib/cn";
+import { MdView } from "@/components/outline/md-view";
+import { Bullet } from "./bullet";
+import { NodeRow } from "./node-row";
+import { TagChipGroup } from "./tag-chip";
 
 /**
  * When zoomed into a tag or field definition, show live schema instances
@@ -43,35 +47,84 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
       {hits.length === 0 ? (
         <p className="px-1 text-[13px] text-foreground/50">None yet</p>
       ) : (
-        <ul className="flex flex-col">
-          {hits.map((hit) => (
-            <li key={hit.id}>
-              <button
-                type="button"
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-sm px-1 py-0.5 text-left",
-                  "hover:bg-primary/5",
-                )}
-                style={{ minHeight: "var(--kb-row-h)" }}
-                onClick={() => {
-                  // Jump into outline home so the instance is editable in context
-                  useOutlineStore.getState().zoomHome();
-                  jumpToNode(hit.id);
-                }}
-                onDoubleClick={() => zoomTo(hit.id)}
-              >
-                <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full border border-dashed border-foreground/45" />
-                <span className="kb-text truncate text-foreground/85">
-                  {hit.text || "(empty)"}
-                </span>
-                <span className="ml-auto shrink-0 font-mono text-[10px] text-foreground/30">
-                  {hit.id}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        hits.map((hit) => (
+          <SchemaInstanceRow
+            key={hit.id}
+            hit={hit}
+            onActivate={() => {
+              useOutlineStore.getState().zoomHome();
+              jumpToNode(hit.id);
+            }}
+            onZoom={() => zoomTo(hit.id)}
+          />
+        ))
       )}
     </section>
+  );
+}
+
+function SchemaInstanceRow({
+  hit,
+  onActivate,
+  onZoom,
+}: {
+  hit: SchemaHit;
+  onActivate: () => void;
+  onZoom: () => void;
+}) {
+  const nodes = useOutlineStore((s) => s.nodes);
+  const node = nodes.get(hit.id);
+  const tags = node?.tags ?? [];
+  const tagColor = tags[0]?.color ?? null;
+
+  const bulletNode = node ?? {
+    id: hit.id,
+    text: hit.text,
+    parentId: null,
+    children: [],
+    collapsed: true,
+    props: {},
+    createdAt: "",
+    updatedAt: "",
+    tags,
+  };
+
+  return (
+    <div onDoubleClick={onZoom}>
+      <NodeRow
+        depth={0}
+        nodeId={hit.id}
+        className="w-full cursor-pointer text-left"
+        onRowClick={onActivate}
+        bullet={
+          <Bullet
+            node={bulletNode}
+            isRef
+            tagColor={tagColor}
+            onClick={(e) => {
+              e.stopPropagation();
+              onZoom();
+            }}
+          />
+        }
+        content={
+          <>
+            <MdView
+              text={hit.text || "(empty)"}
+              className="min-w-0 flex-1 text-foreground/85"
+            />
+            {tags.length > 0 && (
+              <TagChipGroup
+                tags={tags}
+                onTagClick={(tag, e) => {
+                  e.stopPropagation();
+                  onZoom();
+                }}
+              />
+            )}
+          </>
+        }
+      />
+    </div>
   );
 }

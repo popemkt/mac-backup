@@ -163,7 +163,7 @@ function BooleanValue({
     <button
       type="button"
       className={cn(
-        "relative h-5 w-9 shrink-0 rounded-full transition-colors duration-150",
+        "relative h-[20px] w-[36px] shrink-0 rounded-full transition-colors duration-150",
         value ? "bg-primary/60" : "bg-foreground/15",
       )}
       onClick={(e) => {

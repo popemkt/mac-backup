@@ -14,16 +14,18 @@ export const TAG_PALETTE = [
   "#10b981",
 ] as const;
 
+/** Signed djb2 — matches nxus `hashString` (no unsigned coercion). */
 export function djb2Hash(input: string): number {
   let hash = 5381;
   for (let i = 0; i < input.length; i++) {
     hash = (hash * 33) ^ input.charCodeAt(i);
   }
-  return hash >>> 0;
+  return hash;
 }
 
 export function hashTagColor(tagId: string): string {
-  return TAG_PALETTE[djb2Hash(tagId) % TAG_PALETTE.length]!;
+  const index = Math.abs(djb2Hash(tagId)) % TAG_PALETTE.length;
+  return TAG_PALETTE[index]!;
 }
 
 /** Explicit tag-node `color` prop overrides the hash. */

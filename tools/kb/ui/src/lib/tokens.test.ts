@@ -6,7 +6,15 @@ import { describe, expect, it } from "vitest";
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /** DESIGN-RESKIN §1.2 pixel font-size whitelist for Tailwind text-[Npx] literals. */
-const FONT_SIZE_WHITELIST = new Set([14.5, 13, 12, 11, 10, 9, 20]);
+const FONT_SIZE_WHITELIST = new Set([
+  14.5, // node/field body
+  13, // breadcrumb
+  12, // section headers
+  11, // tag chip
+  10, // mono ids
+  9, // bullet count badge
+  20, // zoomed root title (§1.2 / §1.5)
+]);
 
 function collectSourceFiles(dir: string): string[] {
   const out: string[] = [];
