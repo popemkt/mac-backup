@@ -54,22 +54,21 @@ describe("GhostNodeRow (component)", () => {
 
   beforeAll(() => {
     dom = new Window();
-    const g = globalThis as typeof globalThis & {
-      window: Window;
-      document: Document;
-      HTMLElement: typeof HTMLElement;
-      KeyboardEvent: typeof KeyboardEvent;
-    };
-    g.window = dom;
-    g.document = dom.document;
-    g.HTMLElement = dom.HTMLElement;
-    g.KeyboardEvent = dom.KeyboardEvent;
+    // happy-dom types are structurally close to lib.dom but not assignable;
+    // the runtime objects are what React needs, so bridge via unknown.
+    const g = globalThis as Record<string, unknown>;
+    g.window = dom as unknown;
+    g.document = dom.document as unknown;
+    g.HTMLElement = dom.HTMLElement as unknown;
+    g.KeyboardEvent = dom.KeyboardEvent as unknown;
   });
 
   beforeEach(() => {
     seed();
-    container = dom.document.createElement("div");
-    dom.document.body.appendChild(container);
+    container = dom.document.createElement(
+      "div",
+    ) as unknown as HTMLDivElement;
+    dom.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
 
     const realCreate = mutations.createGhostNode.bind(mutations);
