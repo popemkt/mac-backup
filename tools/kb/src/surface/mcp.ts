@@ -7,6 +7,7 @@ import {
   type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import { openKb, reload } from "../context.ts";
+import { resolveRoot } from "./root.ts";
 import { invoke, manifest } from "../registry.ts";
 import type { ActionInvocation } from "../shared/contracts.ts";
 
@@ -143,7 +144,7 @@ export async function startMcp(root: string): Promise<void> {
   await server.connect(transport);
 }
 
-function parseRoot(argv: string[]): string {
+async function parseRoot(argv: string[]): Promise<string> {
   const idx = argv.indexOf("--root");
   if (idx >= 0) {
     const value = argv[idx + 1];
@@ -152,12 +153,13 @@ function parseRoot(argv: string[]): string {
     }
     return value;
   }
-  return process.cwd();
+  // MCP clients launch with cwd = project dir; walk upward to find .kb/.
+  return resolveRoot();
 }
 
 if (import.meta.main) {
   try {
-    const root = parseRoot(process.argv.slice(2));
+    const root = await parseRoot(process.argv.slice(2));
     await startMcp(root);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

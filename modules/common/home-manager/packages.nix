@@ -2,6 +2,11 @@
 
 {
   home.packages = with pkgs; [
+    # Repo-native outliner datastore; code lives in ~/.dotfiles/tools/kb,
+    # data is per-repo (.kb/ discovered by walking cwd upward).
+    (writeShellScriptBin "kb" ''
+      exec ${bun}/bin/bun "$HOME/.dotfiles/tools/kb/src/surface/cli.ts" "$@"
+    '')
     # Dev essentials
     ripgrep
     fzf

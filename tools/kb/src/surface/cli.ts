@@ -223,6 +223,18 @@ export function buildProgram(): Command {
     .showHelpAfterError(false);
 
   program
+    .command("mcp")
+    .description("Serve the kb MCP server on stdio")
+    .action(async function (this: Command) {
+      const { startMcp } = await import("./mcp.ts");
+      const globals = this.optsWithGlobals() as { root?: string };
+      const root = await resolveRoot({ root: globals.root });
+      await startMcp(root);
+      // keep the process alive; the transport owns stdio from here
+      await new Promise(() => {});
+    });
+
+  program
     .command("init")
     .description("Initialize .kb/ at --root or cwd")
     .action(async function (this: Command) {
