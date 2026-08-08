@@ -169,6 +169,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         e.target instanceof HTMLTextAreaElement ||
         (e.target as HTMLElement).isContentEditable;
       if (e.key === "Escape") {
+        // Focused inputs own Esc (shape-label draft cancel, textareas, etc.).
+        if (inField) return;
         setToolState((s) => reduceCanvasTool(s, { type: "escape" }));
         setShapeInspectorAnchor(null);
         return;

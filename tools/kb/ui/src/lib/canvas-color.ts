@@ -1,15 +1,15 @@
 /**
- * JSON Canvas color presets ("1"–"6") → theme-safe oklch tokens.
- * Spec leaves hex undefined so apps can brand; hex strings pass through.
+ * JSON Canvas color presets ("1"–"6") → theme CSS custom properties
+ * (`--canvas-color-N` on :root / .dark). Hex and other literals pass through.
  */
 
 export const CANVAS_COLOR_PRESETS = [
-  { id: "1", label: "red", css: "oklch(0.65 0.18 25)" },
-  { id: "2", label: "orange", css: "oklch(0.72 0.16 55)" },
-  { id: "3", label: "yellow", css: "oklch(0.82 0.14 95)" },
-  { id: "4", label: "green", css: "oklch(0.7 0.14 145)" },
-  { id: "5", label: "cyan", css: "oklch(0.72 0.12 210)" },
-  { id: "6", label: "purple", css: "oklch(0.65 0.16 300)" },
+  { id: "1", label: "red", css: "var(--canvas-color-1)" },
+  { id: "2", label: "orange", css: "var(--canvas-color-2)" },
+  { id: "3", label: "yellow", css: "var(--canvas-color-3)" },
+  { id: "4", label: "green", css: "var(--canvas-color-4)" },
+  { id: "5", label: "cyan", css: "var(--canvas-color-5)" },
+  { id: "6", label: "purple", css: "var(--canvas-color-6)" },
 ] as const;
 
 export type CanvasColorPresetId = (typeof CANVAS_COLOR_PRESETS)[number]["id"];

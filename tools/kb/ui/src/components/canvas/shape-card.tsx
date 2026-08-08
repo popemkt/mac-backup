@@ -2,6 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CanvasShapeNode } from "@kb/canvas";
 import { canvasColorStyle, resolveCanvasColor } from "@/lib/canvas-color";
 import { cn } from "@/lib/cn";
+import {
+  cancelLabelEdit,
+  commitLabelEdit,
+  startLabelEdit,
+  typeLabelDraft,
+  type LabelEditState,
+} from "@/lib/shape-label-edit";
 
 interface ShapeCardProps {
   card: CanvasShapeNode;
@@ -86,15 +93,39 @@ export function ShapeCard({
   onResizeStart,
   onPortDown,
 }: ShapeCardProps) {
-  const [editing, setEditing] = useState(false);
+  const [edit, setEdit] = useState<LabelEditState>(() =>
+    startLabelEdit(""),
+  );
+  const editRef = useRef(edit);
+  editRef.current = edit;
   const inputRef = useRef<HTMLInputElement>(null);
+  /** Guards blur after Enter commit / Escape cancel (input unmount). */
+  const endEditRef = useRef<"idle" | "committing" | "canceling">("idle");
 
   useEffect(() => {
-    if (editing) inputRef.current?.focus();
-  }, [editing]);
+    if (edit.editing) inputRef.current?.focus();
+  }, [edit.editing]);
+
+  const beginEdit = useCallback(() => {
+    endEditRef.current = "idle";
+    setEdit(startLabelEdit(card.label ?? ""));
+  }, [card.label]);
 
   const commit = useCallback(() => {
-    setEditing(false);
+    if (endEditRef.current !== "idle") {
+      setEdit((s) => ({ ...s, editing: false }));
+      return;
+    }
+    endEditRef.current = "committing";
+    const result = commitLabelEdit(editRef.current);
+    setEdit(result.state);
+    if (result.persist !== null) onLabelChange(result.persist);
+  }, [onLabelChange]);
+
+  const cancel = useCallback(() => {
+    if (endEditRef.current !== "idle") return;
+    endEditRef.current = "canceling";
+    setEdit(cancelLabelEdit(editRef.current));
   }, []);
 
   return (
@@ -120,21 +151,27 @@ export function ShapeCard({
       onDoubleClick={(e) => {
         e.stopPropagation();
         onSelect({ x: e.clientX, y: e.clientY });
-        setEditing(true);
+        beginEdit();
       }}
     >
       <ShapeChrome shape={card.shape} color={card.color} selected={selected}>
-        {editing ? (
+        {edit.editing ? (
           <input
             ref={inputRef}
+            data-testid="shape-label-input"
             className="w-full truncate bg-transparent text-center text-[13px] text-foreground/85 outline-none"
-            value={card.label ?? ""}
-            onChange={(e) => onLabelChange(e.target.value)}
+            value={edit.draft}
+            onChange={(e) =>
+              setEdit((s) => typeLabelDraft(s, e.target.value))
+            }
             onBlur={commit}
             onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === "Escape") {
+              if (e.key === "Enter") {
                 e.preventDefault();
                 commit();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                cancel();
               }
               e.stopPropagation();
             }}
