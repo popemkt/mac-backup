@@ -1,0 +1,284 @@
+import type { ActionInvocation } from "../shared/contracts.ts";
+
+export type PropType = "str" | "num" | "bool" | "date" | "ref";
+
+export interface PlannedAction {
+  id: string;
+  input: unknown;
+}
+
+/** Infer PropValue from a CLI string (optional explicit type). */
+export function parsePropValue(
+  raw: string,
+  type?: PropType,
+): { t: PropType; v: string | number | boolean } {
+  if (type === "str") return { t: "str", v: raw };
+  if (type === "num") return { t: "num", v: Number(raw) };
+  if (type === "bool") return { t: "bool", v: raw === "true" || raw === "1" };
+  if (type === "date") return { t: "date", v: raw };
+  if (type === "ref") return { t: "ref", v: raw };
+
+  if (raw === "true" || raw === "false") return { t: "bool", v: raw === "true" };
+  if (/^-?\d+(\.\d+)?$/.test(raw)) return { t: "num", v: Number(raw) };
+  return { t: "str", v: raw };
+}
+
+/** Parse `field=value` or `field:type=value` fragments. */
+export function parsePropArg(arg: string): {
+  field: string;
+  value: { t: PropType; v: string | number | boolean };
+} {
+  const eq = arg.indexOf("=");
+  if (eq <= 0) {
+    throw new UsageError(`invalid --prop (expected field=value): ${arg}`);
+  }
+  const left = arg.slice(0, eq);
+  const raw = arg.slice(eq + 1);
+  const colon = left.lastIndexOf(":");
+  if (colon > 0) {
+    const field = left.slice(0, colon);
+    const type = left.slice(colon + 1) as PropType;
+    if (!["str", "num", "bool", "date", "ref"].includes(type)) {
+      throw new UsageError(`invalid prop type: ${type}`);
+    }
+    return { field, value: parsePropValue(raw, type) };
+  }
+  return { field: left, value: parsePropValue(raw) };
+}
+
+export class UsageError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UsageError";
+  }
+}
+
+export function mapInit(): PlannedAction[] {
+  // init is openKb/seed — no registry action; empty plan signals side-effect only
+  return [];
+}
+
+export function mapAdd(opts: {
+  text: string;
+  parent?: string;
+  position?: number;
+  tags?: string[];
+  props?: string[];
+  id?: string;
+}): PlannedAction {
+  const props = (opts.props ?? []).map(parsePropArg);
+  return {
+    id: "node.add",
+    input: {
+      text: opts.text,
+      ...(opts.parent !== undefined ? { parent: opts.parent } : {}),
+      ...(opts.position !== undefined ? { position: opts.position } : {}),
+      ...(opts.tags && opts.tags.length > 0 ? { tags: opts.tags } : {}),
+      ...(props.length > 0 ? { props } : {}),
+      ...(opts.id !== undefined ? { id: opts.id } : {}),
+    },
+  };
+}
+
+export function mapSet(opts: {
+  id: string;
+  field: string;
+  value: string;
+  type?: PropType;
+}): PlannedAction {
+  return {
+    id: "node.update",
+    input: {
+      id: opts.id,
+      setProps: [
+        { field: opts.field, value: parsePropValue(opts.value, opts.type) },
+      ],
+    },
+  };
+}
+
+export function mapUnset(opts: {
+  id: string;
+  field: string;
+  value?: string;
+  type?: PropType;
+}): PlannedAction {
+  const entry: { field: string; value?: unknown } = { field: opts.field };
+  if (opts.value !== undefined) {
+    entry.value = parsePropValue(opts.value, opts.type);
+  }
+  return {
+    id: "node.update",
+    input: { id: opts.id, unsetProps: [entry] },
+  };
+}
+
+export function mapGet(opts: { id: string; depth?: number }): PlannedAction {
+  return {
+    id: "node.get",
+    input: { id: opts.id, depth: opts.depth ?? 1 },
+  };
+}
+
+export function mapRm(opts: { id: string }): PlannedAction {
+  return {
+    id: "node.update",
+    input: { id: opts.id, delete: true },
+  };
+}
+
+export function mapMv(opts: {
+  id: string;
+  parent: string | null;
+  position?: number;
+}): PlannedAction {
+  return {
+    id: "node.update",
+    input: {
+      id: opts.id,
+      parent: opts.parent,
+      ...(opts.position !== undefined ? { position: opts.position } : {}),
+    },
+  };
+}
+
+export function mapFieldDefine(opts: {
+  name: string;
+  id?: string;
+}): PlannedAction {
+  return {
+    id: "field.define",
+    input: {
+      name: opts.name,
+      ...(opts.id !== undefined ? { id: opts.id } : {}),
+    },
+  };
+}
+
+export function mapTagDefine(opts: {
+  name: string;
+  id?: string;
+  fields?: string[];
+}): PlannedAction {
+  return {
+    id: "tag.define",
+    input: {
+      name: opts.name,
+      ...(opts.id !== undefined ? { id: opts.id } : {}),
+      ...(opts.fields && opts.fields.length > 0 ? { fields: opts.fields } : {}),
+    },
+  };
+}
+
+export function mapFieldList(): PlannedAction {
+  return {
+    id: "graph.query",
+    input: {
+      query: `[:find ?id ?text
+               :where [?n :node/id ?id]
+                      [?n :node/text ?text]
+                      [?n :f/sys.f.type ?t]
+                      [?t :node/id "sys.field"]]`,
+    },
+  };
+}
+
+export function mapTagList(): PlannedAction {
+  return {
+    id: "graph.query",
+    input: {
+      query: `[:find ?id ?text
+               :where [?n :node/id ?id]
+                      [?n :node/text ?text]
+                      [?n :f/sys.f.type ?t]
+                      [?t :node/id "sys.tag"]]`,
+    },
+  };
+}
+
+export function mapQuery(opts: {
+  query: string;
+  inputs?: unknown[];
+}): PlannedAction {
+  return {
+    id: "graph.query",
+    input: {
+      query: opts.query,
+      ...(opts.inputs ? { inputs: opts.inputs } : {}),
+    },
+  };
+}
+
+/** Saved-query run: caller loads EDN then maps via mapQuery. */
+export function mapRunQuery(edn: string): PlannedAction {
+  return mapQuery({ query: edn.trim() });
+}
+
+export function mapSearch(_text: string): PlannedAction {
+  // Fetch all id+text; CLI filters substring (DataScript has no string includes).
+  return {
+    id: "graph.query",
+    input: {
+      query: `[:find ?id ?text
+               :where [?n :node/id ?id]
+                      [?n :node/text ?text]]`,
+    },
+  };
+}
+
+export function mapBacklinks(id: string): PlannedAction {
+  return {
+    id: "graph.query",
+    input: {
+      query: `[:find ?from ?text
+               :where [?e :node/mentions ?m]
+                      [?e :node/id ?from]
+                      [?e :node/text ?text]
+                      [?m :node/id "${id}"]]`,
+    },
+  };
+}
+
+export function mapChildren(id: string): PlannedAction {
+  return {
+    id: "node.get",
+    input: { id, depth: 1 },
+  };
+}
+
+export function mapActionInvoke(raw: unknown): ActionInvocation {
+  if (
+    typeof raw !== "object" ||
+    raw === null ||
+    !("id" in raw) ||
+    typeof (raw as { id: unknown }).id !== "string"
+  ) {
+    throw new UsageError(
+      'action-invoke expects JSON object with string "id" and optional "input"',
+    );
+  }
+  const obj = raw as { id: string; input?: unknown };
+  return { id: obj.id, input: obj.input ?? {} };
+}
+
+/** Fields referenced by a planned apply that may need --create minting. */
+export function fieldsNeedingCreate(plan: PlannedAction): string[] {
+  const input = plan.input as Record<string, unknown> | null;
+  if (!input || typeof input !== "object") return [];
+  const names: string[] = [];
+  if (Array.isArray(input.props)) {
+    for (const p of input.props) {
+      if (p && typeof p === "object" && "field" in p) {
+        names.push(String((p as { field: string }).field));
+      }
+    }
+  }
+  if (Array.isArray(input.setProps)) {
+    for (const p of input.setProps) {
+      if (p && typeof p === "object" && "field" in p) {
+        names.push(String((p as { field: string }).field));
+      }
+    }
+  }
+  return names;
+}
