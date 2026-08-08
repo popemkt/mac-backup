@@ -148,7 +148,7 @@ in
 
     # Routine rebuilds only restore missing declarations. `update-system`
     # invokes update-agent-plugins when network-backed upgrades are intentional.
-    activation.installAgentPlugins = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    activation.installAgentPlugins = lib.hm.dag.entryAfter [ "installNpmGlobals" ] ''
       ${prelude}
       ${installScript}
     '';

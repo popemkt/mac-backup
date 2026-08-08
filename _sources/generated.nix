@@ -6,25 +6,45 @@
   dockerTools,
 }:
 {
+  chat2db = {
+    pname = "chat2db";
+    version = "5.3.3";
+    src = fetchurl {
+      url = "https://github.com/OtterMind/Chat2DB/releases/download/v5.3.3/Chat2DB-Community-5.3.3-arm64.dmg";
+      sha256 = "sha256-u6wIXrPR4ObKpddNnMNg8BazNtqPhwn+VAJvJOaSso4=";
+    };
+    github = "OtterMind/Chat2DB";
+    tagPrefix = "v";
+  };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "7.2.104";
+    version = "7.2.123";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.104/CLIProxyAPI_7.2.104_darwin_aarch64.tar.gz";
-      sha256 = "sha256-PVLCkq9X6nEUus81+xt2yVUkSJQNPp8Q05wexXIpwOA=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.123/CLIProxyAPI_7.2.123_darwin_aarch64.tar.gz";
+      sha256 = "sha256-Z7Ao+YxeQl8+dBDPv1G8aSTU6TI+SgsQc2hCLjuCSa8=";
     };
     github = "router-for-me/CLIProxyAPI";
     tagPrefix = "v";
   };
   cursor-cli = {
     pname = "cursor-cli";
-    version = "2026.07.23-e383d2b";
+    version = "2026.08.04-aaa8809";
     src = fetchurl {
-      url = "https://downloads.cursor.com/lab/2026.07.23-e383d2b/darwin/arm64/agent-cli-package.tar.gz";
-      sha256 = "sha256-8uslhR8gedzfBVioFuBsQC0Yer/KkyVdNRZwIEOeu/I=";
+      url = "https://downloads.cursor.com/lab/2026.08.04-aaa8809/darwin/arm64/agent-cli-package.tar.gz";
+      sha256 = "sha256-/B0mdiL/gGoz2/UWFIuf05V4B/TZMcdjEYwmn5K1Nfw=";
     };
     versionUrl = "https://cursor.com/install";
     versionRegex = "downloads.cursor.com/lab/([^/]+)/";
+  };
+  genoffice = {
+    pname = "genoffice";
+    version = "0.5.83";
+    src = fetchurl {
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.5.83/GenOffice-0.5.83-arm64.dmg";
+      sha256 = "sha256-wV30jkvlgXR7bZHmHuJVuCxrpxuDYww4Czcd6Oj2Nu0=";
+    };
+    github = "genspark-ai/genoffice";
+    tagPrefix = "v";
   };
   logseq-nightly = {
     pname = "logseq-nightly";

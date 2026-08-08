@@ -63,6 +63,9 @@ in
         if ! ${pkgs.nodejs}/bin/npm ls -g --depth=0 "$pkg" >/dev/null 2>&1; then
           echo "Installing missing npm global: $pkg"
           $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g "$pkg@latest"
+        elif [ "$pkg" = "@openai/codex" ] && [ ! -x "${npmPrefix}/bin/codex" ]; then
+          echo "Relinking missing Codex executable"
+          $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm rebuild -g "$pkg"
         fi
       done
     '';
