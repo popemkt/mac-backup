@@ -88,10 +88,15 @@ describe("kb ui server", () => {
     const saved = (await queries.json()) as { name: string; edn: string }[];
     expect(saved.some((q) => q.name === "all-ids")).toBe(true);
 
-    const uiHint = await fetch(`${handle.url}/`);
-    expect(uiHint.status).toBe(503);
-    const hintBody = (await uiHint.json()) as { error: string };
-    expect(hintBody.error).toBe("ui_not_built");
+    // With ui/dist built, / serves the SPA; without it, a 503 hint.
+    const uiRoot = await fetch(`${handle.url}/`);
+    if (uiRoot.status === 503) {
+      const hintBody = (await uiRoot.json()) as { error: string };
+      expect(hintBody.error).toBe("ui_not_built");
+    } else {
+      expect(uiRoot.status).toBe(200);
+      expect(await uiRoot.text()).toContain("<div id=\"root\">");
+    }
 
     const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/ws`);
     await new Promise<void>((resolve, reject) => {
@@ -179,6 +184,62 @@ describe("kb ui server", () => {
     expect(pong).toEqual({ op: "pong" });
 
     ws.close();
+  });
+
+  test("render.views + render.view serve html through /api/action", async () => {
+    await mkdir(join(root, ".kb", "views"), { recursive: true });
+    await writeFile(
+      join(root, ".kb", "views", "todos.json"),
+      JSON.stringify({
+        output: "docs/kb/todos.md",
+        query: "[:find ?id :where [?e :node/id ?id]]",
+        template: "todos",
+      }),
+    );
+    handle = await startUi({ root, port: 0, openBrowser: false });
+
+    const listResp = await fetch(`${handle.url}/api/action`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: "render.views", input: {} }),
+    });
+    const listReceipt = (await listResp.json()) as {
+      status: string;
+      output: { views: string[] };
+    };
+    expect(listReceipt.status).toBe("succeeded");
+    expect(listReceipt.output.views).toEqual(["todos"]);
+
+    const renderResp = await fetch(`${handle.url}/api/action`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id: "render.view",
+        input: { name: "todos", format: "html" },
+      }),
+    });
+    const renderReceipt = (await renderResp.json()) as {
+      status: string;
+      output: { name: string; format: string; content: string };
+    };
+    expect(renderReceipt.status).toBe("succeeded");
+    expect(renderReceipt.output.format).toBe("html");
+    expect(renderReceipt.output.content).toContain("<!doctype html>");
+
+    const missing = await fetch(`${handle.url}/api/action`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id: "render.view",
+        input: { name: "nope" },
+      }),
+    });
+    const missingReceipt = (await missing.json()) as {
+      status: string;
+      code: string;
+    };
+    expect(missingReceipt.status).toBe("failed");
+    expect(missingReceipt.code).toBe("not_found");
   });
 
   test("POST /api/action never throws on unknown action", async () => {

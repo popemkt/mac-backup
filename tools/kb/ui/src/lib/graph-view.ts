@@ -1,5 +1,6 @@
 import type { WireNode } from "@kb/protocol";
 import {
+  COLLAPSE_STORAGE_KEY,
   SYSTEM_IDS,
   WORKSPACE_ROOT_ID,
   type NodeMap,
@@ -150,7 +151,7 @@ export function formatPropValue(
 
 export function loadCollapsedIds(): Set<string> {
   try {
-    const raw = localStorage.getItem("kb-ui:collapsed");
+    const raw = localStorage.getItem(COLLAPSE_STORAGE_KEY);
     if (!raw) return new Set();
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return new Set();
@@ -162,7 +163,7 @@ export function loadCollapsedIds(): Set<string> {
 
 export function saveCollapsedIds(ids: Set<string>): void {
   try {
-    localStorage.setItem("kb-ui:collapsed", JSON.stringify([...ids]));
+    localStorage.setItem(COLLAPSE_STORAGE_KEY, JSON.stringify([...ids]));
   } catch {
     // ignore quota / private mode
   }

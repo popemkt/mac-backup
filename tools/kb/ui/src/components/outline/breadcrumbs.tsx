@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { CaretRight, House } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
@@ -5,7 +6,14 @@ import { useOutlineStore } from "@/stores/outline.store";
 
 export function Breadcrumbs() {
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
-  const crumbs = useOutlineStore((s) => s.getBreadcrumbs());
+  // getBreadcrumbs builds a fresh array; selecting it directly makes the
+  // uSES snapshot unstable (infinite rerender). Derive it with useMemo.
+  const nodes = useOutlineStore((s) => s.nodes);
+  const crumbs = useMemo(
+    () => useOutlineStore.getState().getBreadcrumbs(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodes, rootNodeId],
+  );
   const zoomHome = useOutlineStore((s) => s.zoomHome);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const isAtRoot = rootNodeId === WORKSPACE_ROOT_ID;
