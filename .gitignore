@@ -24,3 +24,4 @@ secrets/
 # kb ui (Vite build + deps)
 tools/kb/ui/dist/
 tools/kb/ui/node_modules/
+.research/
