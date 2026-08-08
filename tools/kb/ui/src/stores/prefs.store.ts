@@ -53,12 +53,13 @@ function systemPrefersDark(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
-/** Push prefs onto <html>: .dark class + data-font attribute. */
+/** Push prefs onto <html>: .dark class + data-font / data-width attributes. */
 export function applyPrefs(prefs: Prefs, systemDark = systemPrefersDark()) {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   root.classList.toggle("dark", resolveDark(prefs.theme, systemDark));
   root.setAttribute("data-font", prefs.font);
+  root.setAttribute("data-width", prefs.width);
 }
 
 function readStored(): Prefs {

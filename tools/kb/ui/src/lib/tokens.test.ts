@@ -1,9 +1,27 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+/** DESIGN-RESKIN §1.2 pixel font-size whitelist for Tailwind text-[Npx] literals. */
+const FONT_SIZE_WHITELIST = new Set([14.5, 13, 12, 11, 10, 9, 20]);
+
+function collectSourceFiles(dir: string): string[] {
+  const out: string[] = [];
+  for (const name of readdirSync(dir)) {
+    const full = path.join(dir, name);
+    const st = statSync(full);
+    if (st.isDirectory()) {
+      if (name === "node_modules") continue;
+      out.push(...collectSourceFiles(full));
+    } else if (/\.(tsx?|css)$/.test(name)) {
+      out.push(full);
+    }
+  }
+  return out;
+}
 
 describe("kb tokens", () => {
   const tokens = readFileSync(path.join(root, "tokens.css"), "utf8");
@@ -50,5 +68,25 @@ describe("kb tokens", () => {
     expect(index).toMatch(/--app-font:\s*"Outfit Variable"/);
     expect(index).toMatch(/html\[data-font="inter"\]/);
     expect(index).toMatch(/--font-sans:\s*var\(--app-font\)/);
+  });
+
+  it("text-[Npx] literals in ui/src stay within §1.2 whitelist", () => {
+    const srcRoot = path.join(root, "..");
+    const offenders: string[] = [];
+    const re = /text-\[(\d+(?:\.\d+)?)px\]/g;
+
+    for (const file of collectSourceFiles(srcRoot)) {
+      const rel = path.relative(srcRoot, file);
+      if (rel.endsWith("tokens.test.ts")) continue;
+      const text = readFileSync(file, "utf8");
+      for (const match of text.matchAll(re)) {
+        const size = Number(match[1]);
+        if (!FONT_SIZE_WHITELIST.has(size)) {
+          offenders.push(`${rel}: text-[${match[1]}px]`);
+        }
+      }
+    }
+
+    expect(offenders).toEqual([]);
   });
 });

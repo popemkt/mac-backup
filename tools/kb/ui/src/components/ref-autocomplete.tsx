@@ -17,7 +17,7 @@ export function RefAutocomplete({
       className={cn(
         "absolute left-1 top-full z-20 mt-1 max-h-48 w-72 overflow-auto",
         "rounded-md border border-foreground/10 bg-popover py-1 shadow-md",
-        "text-[12.5px]",
+        "text-[13px]",
       )}
       role="listbox"
     >

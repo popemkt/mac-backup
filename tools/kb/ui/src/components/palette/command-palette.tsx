@@ -118,7 +118,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       />
       <div
         className={cn(
-          "relative z-10 w-full max-w-lg overflow-hidden rounded-xl",
+          "relative z-10 w-full max-w-[520px] overflow-hidden rounded-xl",
           "border border-foreground/10 bg-popover shadow-2xl",
         )}
         onKeyDown={onKeyDown}
@@ -131,7 +131,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search and open…"
-            className="w-full bg-transparent text-[14px] text-foreground/85 outline-none placeholder:text-foreground/25"
+            className="w-full bg-transparent text-[14.5px] text-foreground/85 outline-none placeholder:text-foreground/25"
             aria-autocomplete="list"
             aria-controls="kb-palette-list"
             aria-activedescendant={

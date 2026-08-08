@@ -4,18 +4,33 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>kb</title>
-    <!-- Blocking no-FOUC prefs: theme class + font attr before first paint
+    <!-- Blocking no-FOUC prefs: theme class + font/width attrs before first paint
          (kb-prefs, DESIGN-RESKIN §1.7; pattern from nxus __root.tsx). -->
+    <style>
+      html[data-width="centered"] .kb-shell {
+        max-width: 48rem;
+        margin-left: auto;
+        margin-right: auto;
+        padding-left: 1rem;
+        padding-right: 1rem;
+      }
+      html[data-width="full"] .kb-shell {
+        padding-left: 2rem;
+        padding-right: 2rem;
+      }
+    </style>
     <script>
       (function () {
         try {
           var theme = "system";
           var font = "outfit";
+          var width = "centered";
           var stored = localStorage.getItem("kb-prefs");
           if (stored) {
             var s = JSON.parse(stored) || {};
             if (s.theme === "light" || s.theme === "dark") theme = s.theme;
             if (s.font === "inter") font = "inter";
+            if (s.width === "full") width = "full";
           }
           var dark =
             theme === "dark" ||
@@ -23,6 +38,7 @@
               window.matchMedia("(prefers-color-scheme: dark)").matches);
           if (dark) document.documentElement.classList.add("dark");
           document.documentElement.setAttribute("data-font", font);
+          document.documentElement.setAttribute("data-width", width);
         } catch (e) {}
       })();
     </script>

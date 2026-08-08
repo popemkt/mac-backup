@@ -37,7 +37,7 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
           className="field-row flex min-h-[var(--kb-row-h)] items-start gap-2"
         >
           <div
-            className="shrink-0 truncate text-[11px] leading-[var(--kb-row-h)] text-foreground/35"
+            className="shrink-0 truncate text-[14.5px] font-medium leading-[1.6] text-foreground/35"
             style={{ width: "var(--kb-field-label)" }}
             title={p.fieldName}
           >

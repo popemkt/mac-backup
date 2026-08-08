@@ -37,16 +37,20 @@ describe("inline References (W8a)", () => {
     const html = renderToStaticMarkup(
       createElement(ReferencesView, {
         nodeId: "n.root-a",
-        backlinkIds: ["n.referrer", "n.other"],
+        backlinks: [
+          { id: "n.referrer", text: "See root-a", tags: [] },
+          { id: "n.other", text: "Other link", tags: [] },
+        ],
       }),
     );
     expect(html).toContain("References (2)");
     expect(html).toContain('data-references-for="n.root-a"');
+    expect(html).toContain('data-node-id="n.referrer"');
   });
 
   it("renders nothing when the node has no backlinks", () => {
     const html = renderToStaticMarkup(
-      createElement(ReferencesView, { nodeId: "n.root-b", backlinkIds: [] }),
+      createElement(ReferencesView, { nodeId: "n.root-b", backlinks: [] }),
     );
     expect(html).toBe("");
   });

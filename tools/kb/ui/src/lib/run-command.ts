@@ -6,12 +6,14 @@ import { mutations } from "@/actions/mutations";
 import { toast } from "@/lib/toast";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
-import { usePrefsStore, resolveDark } from "@/stores/prefs.store";
+import { usePrefsStore, type ThemePref } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 
-function systemPrefersDark(): boolean {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+const THEME_CYCLE: ThemePref[] = ["light", "dark", "system"];
+
+function nextTheme(current: ThemePref): ThemePref {
+  const i = THEME_CYCLE.indexOf(current);
+  return THEME_CYCLE[(i + 1) % THEME_CYCLE.length]!;
 }
 
 export async function runPaletteCommand(commandId: string): Promise<void> {
@@ -62,8 +64,7 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
     }
     case SYSTEM_IDS.cmdToggleTheme: {
       const prefs = usePrefsStore.getState();
-      const dark = resolveDark(prefs.theme, systemPrefersDark());
-      prefs.setTheme(dark ? "light" : "dark");
+      prefs.setTheme(nextTheme(prefs.theme));
       return;
     }
     case SYSTEM_IDS.cmdToggleWidth: {
