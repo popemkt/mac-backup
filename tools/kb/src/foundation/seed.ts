@@ -25,8 +25,14 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const colorField = mk(SYSTEM_IDS.colorField, "color", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
   });
+  const hiddenField = mk(SYSTEM_IDS.hiddenField, "hidden", {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+  });
   const tag = mk(SYSTEM_IDS.tag, "sys.tag", {
-    [SYSTEM_IDS.fieldsField]: [{ t: "ref", v: SYSTEM_IDS.colorField }],
+    [SYSTEM_IDS.fieldsField]: [
+      { t: "ref", v: SYSTEM_IDS.colorField },
+      { t: "ref", v: SYSTEM_IDS.hiddenField },
+    ],
   });
 
   // Command type + palette command instances (W3)
@@ -44,6 +50,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     mk(SYSTEM_IDS.cmdPreferences, "Preferences", cmdType),
     mk(SYSTEM_IDS.cmdToggleTheme, "Toggle theme", cmdType),
     mk(SYSTEM_IDS.cmdToggleWidth, "Toggle width", cmdType),
+    mk(SYSTEM_IDS.cmdDebugShowFields, "Debug: show all fields", cmdType),
   ];
 
   // Query nodes as pure system nodes (W4): a tag "query" templating the
@@ -68,6 +75,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     typeField,
     fieldsField,
     colorField,
+    hiddenField,
     command,
     ...commands,
     queryField,

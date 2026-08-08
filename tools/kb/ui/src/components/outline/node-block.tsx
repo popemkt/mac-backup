@@ -1,10 +1,12 @@
 import { memo, useCallback } from "react";
 import { isQueryNode } from "@/lib/query-node";
 import { resolveProps } from "@/lib/graph-view";
+import { usePrefsStore } from "@/stores/prefs.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { mutations } from "@/actions/mutations";
 import { Bullet } from "./bullet";
 import { FieldsSection } from "./fields-section";
+import { GhostNodeRow } from "./ghost-node-row";
 import { NodeContent } from "./node-content";
 import { NodeRow } from "./node-row";
 import { QueryResultsSection } from "./query-results";
@@ -34,6 +36,7 @@ export const NodeBlock = memo(function NodeBlock({
     (s) => s.getPreviousVisibleNode,
   );
   const getNextVisibleNode = useOutlineStore((s) => s.getNextVisibleNode);
+  const showAllFields = usePrefsStore((s) => s.showAllFields);
 
   const primaryTagColor = node?.tags[0]?.color ?? null;
 
@@ -201,7 +204,8 @@ export const NodeBlock = memo(function NodeBlock({
   const isSelected = selectedNodeId === nodeId;
   const hasChildren = node.children.length > 0;
   const isQuery = isQueryNode(node);
-  const hasFields = resolveProps(node, nodes).length > 0;
+  const hasFields =
+    resolveProps(node, nodes, { showAllFields }).length > 0;
   const isExpandable = hasChildren || isQuery || hasFields;
 
   return (
@@ -259,6 +263,18 @@ export const NodeBlock = memo(function NodeBlock({
                 isRef={isRef}
               />
             ))}
+
+          {!isRef && (
+            <GhostNodeRow
+              depth={depth + 1}
+              parentId={nodeId}
+              afterSiblingId={
+                node.children.length > 0
+                  ? node.children[node.children.length - 1]!
+                  : null
+              }
+            />
+          )}
         </div>
       )}
     </div>

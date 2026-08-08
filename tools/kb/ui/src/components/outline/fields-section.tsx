@@ -2,6 +2,7 @@ import { mutations } from "@/actions/mutations";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
 import type { PropValue } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
+import { usePrefsStore } from "@/stores/prefs.store";
 import { FieldRow } from "./field-row";
 import { PropValueEditor } from "./field-value";
 
@@ -14,9 +15,10 @@ interface FieldsSectionProps {
 export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const nodes = useOutlineStore((s) => s.nodes);
+  const showAllFields = usePrefsStore((s) => s.showAllFields);
 
   if (!node) return null;
-  const props = resolveProps(node, nodes);
+  const props = resolveProps(node, nodes, { showAllFields });
   if (props.length === 0) return null;
 
   return (
@@ -27,8 +29,14 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
             key={`${p.fieldId}-${i}`}
             depth={depth}
             fieldType={v.t}
+            fieldId={p.fieldId}
             label={p.fieldName}
-            onRemove={() => void mutations.removeProp(nodeId, p.fieldId, v)}
+            debug={p.debug}
+            onRemove={
+              p.debug
+                ? undefined
+                : () => void mutations.removeProp(nodeId, p.fieldId, v)
+            }
           >
             <PropValueEditor
               value={v}

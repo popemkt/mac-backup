@@ -72,6 +72,10 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
       prefs.setWidth(prefs.width === "centered" ? "full" : "centered");
       return;
     }
+    case SYSTEM_IDS.cmdDebugShowFields: {
+      usePrefsStore.getState().toggleShowAllFields();
+      return;
+    }
     default:
       toast(`Unknown command: ${commandId}`);
   }

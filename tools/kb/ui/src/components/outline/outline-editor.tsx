@@ -1,6 +1,7 @@
 import { useOutlineStore } from "@/stores/outline.store";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { Breadcrumbs } from "./breadcrumbs";
+import { GhostNodeRow } from "./ghost-node-row";
 import { NodeBlock } from "./node-block";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
@@ -28,6 +29,15 @@ export function OutlineEditor() {
         {root.children.map((id) => (
           <NodeBlock key={id} nodeId={id} depth={0} />
         ))}
+        <GhostNodeRow
+          depth={0}
+          parentId={rootNodeId}
+          afterSiblingId={
+            root.children.length > 0
+              ? root.children[root.children.length - 1]!
+              : null
+          }
+        />
         <SchemaSection nodeId={rootNodeId} />
         <ReferencesSection nodeId={rootNodeId} />
       </div>
@@ -40,6 +50,15 @@ export function OutlineEditor() {
       {root.children.map((id) => (
         <NodeBlock key={id} nodeId={id} depth={0} />
       ))}
+      <GhostNodeRow
+        depth={0}
+        parentId={WORKSPACE_ROOT_ID}
+        afterSiblingId={
+          root.children.length > 0
+            ? root.children[root.children.length - 1]!
+            : null
+        }
+      />
     </div>
   );
 }

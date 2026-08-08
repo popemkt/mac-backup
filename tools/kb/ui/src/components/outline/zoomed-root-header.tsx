@@ -10,8 +10,8 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
   const gradientColor = node.tags[0]?.color ?? null;
 
   return (
-    <div className="zoomed-root-header px-2 pb-2">
-      <div className="relative pl-7">
+    <div className="zoomed-root-header px-2 pb-2 pt-1">
+      <div className="relative pl-7 pt-1">
         {gradientColor && (
           <div
             className="pointer-events-none absolute"

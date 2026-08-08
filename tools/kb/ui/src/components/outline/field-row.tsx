@@ -27,8 +27,10 @@ export interface FieldRowProps {
   depth?: number;
   icon?: Icon;
   fieldType?: PropValue["t"];
+  fieldId?: string;
   label: string;
   labelTitle?: string;
+  debug?: boolean;
   onIconClick?: (e: React.MouseEvent) => void;
   onRemove?: () => void;
   children: React.ReactNode;
@@ -40,8 +42,10 @@ export function FieldRow({
   depth = 0,
   icon,
   fieldType = "str",
+  fieldId,
   label,
   labelTitle,
+  debug = false,
   onIconClick,
   onRemove,
   children,
@@ -51,9 +55,14 @@ export function FieldRow({
 
   return (
     <div
-      className={cn("field-row group/field flex items-start py-1", className)}
+      className={cn(
+        "field-row group/field flex items-start py-1",
+        debug && "opacity-90",
+        className,
+      )}
       style={{ paddingLeft: `${(depth + 1) * 24}px` }}
       data-field-row="true"
+      data-debug-field={debug ? "true" : undefined}
     >
       <span
         className={cn(
@@ -68,12 +77,18 @@ export function FieldRow({
       <span
         className={cn(
           "flex h-6 shrink-0 items-center truncate pl-1",
-          "text-[14.5px] font-medium leading-[1.6] text-foreground/35",
+          "text-[14.5px] font-medium leading-[1.6]",
+          debug ? "text-foreground/25" : "text-foreground/35",
         )}
         style={{ width: `${FIELD_LABEL_WIDTH}px` }}
-        title={labelTitle ?? label}
+        title={labelTitle ?? (fieldId ? `${label} (${fieldId})` : label)}
       >
         {label}
+        {debug && fieldId && (
+          <span className="ml-1 truncate font-mono text-[10px] text-foreground/25">
+            {fieldId}
+          </span>
+        )}
       </span>
 
       {onRemove && (

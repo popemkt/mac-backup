@@ -13,6 +13,8 @@ export interface Prefs {
   theme: ThemePref;
   font: FontPref;
   width: WidthPref;
+  /** Reveal sys.* + user-hidden fields in FieldRow lists. */
+  showAllFields: boolean;
 }
 
 export const PREFS_STORAGE_KEY = "kb-prefs";
@@ -21,6 +23,7 @@ export const DEFAULT_PREFS: Prefs = {
   theme: "system",
   font: "outfit",
   width: "centered",
+  showAllFields: false,
 };
 
 /** Parse a raw localStorage payload; unknown values fall back to defaults. */
@@ -35,6 +38,7 @@ export function loadPrefs(raw: string | null): Prefs {
           : "system",
       font: parsed?.font === "inter" ? "inter" : "outfit",
       width: parsed?.width === "full" ? "full" : "centered",
+      showAllFields: parsed?.showAllFields === true,
     };
   } catch {
     return { ...DEFAULT_PREFS };
@@ -76,7 +80,12 @@ function writeStored(prefs: Prefs) {
   try {
     localStorage.setItem(
       PREFS_STORAGE_KEY,
-      JSON.stringify({ theme: prefs.theme, font: prefs.font, width: prefs.width }),
+      JSON.stringify({
+        theme: prefs.theme,
+        font: prefs.font,
+        width: prefs.width,
+        showAllFields: prefs.showAllFields,
+      }),
     );
   } catch {
     // Quota / private mode — prefs stay in-memory for this session.
@@ -87,13 +96,15 @@ interface PrefsState extends Prefs {
   setTheme: (theme: ThemePref) => void;
   setFont: (font: FontPref) => void;
   setWidth: (width: WidthPref) => void;
+  setShowAllFields: (show: boolean) => void;
+  toggleShowAllFields: () => void;
 }
 
 export const usePrefsStore = create<PrefsState>((set, get) => {
   const commit = (patch: Partial<Prefs>) => {
     set(patch);
-    const { theme, font, width } = get();
-    const prefs = { theme, font, width };
+    const { theme, font, width, showAllFields } = get();
+    const prefs = { theme, font, width, showAllFields };
     writeStored(prefs);
     applyPrefs(prefs);
   };
@@ -102,6 +113,9 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
     setTheme: (theme) => commit({ theme }),
     setFont: (font) => commit({ font }),
     setWidth: (width) => commit({ width }),
+    setShowAllFields: (showAllFields) => commit({ showAllFields }),
+    toggleShowAllFields: () =>
+      commit({ showAllFields: !get().showAllFields }),
   };
 });
 
@@ -112,8 +126,8 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
 export function initPrefs() {
   if (typeof window === "undefined") return;
   const current = () => {
-    const { theme, font, width } = usePrefsStore.getState();
-    return { theme, font, width };
+    const { theme, font, width, showAllFields } = usePrefsStore.getState();
+    return { theme, font, width, showAllFields };
   };
   applyPrefs(current());
 

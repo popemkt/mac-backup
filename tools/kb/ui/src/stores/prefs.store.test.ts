@@ -81,7 +81,7 @@ describe("loadPrefs", () => {
   it("parses valid values and rejects unknown ones", () => {
     expect(
       prefs.loadPrefs('{"theme":"dark","font":"inter","width":"full"}'),
-    ).toEqual({ theme: "dark", font: "inter", width: "full" });
+    ).toEqual({ theme: "dark", font: "inter", width: "full", showAllFields: false });
     expect(
       prefs.loadPrefs('{"theme":"neon","font":"comic","width":"wide"}'),
     ).toEqual(prefs.DEFAULT_PREFS);
@@ -110,6 +110,7 @@ describe("usePrefsStore", () => {
       theme: "dark",
       font: "inter",
       width: "full",
+      showAllFields: false,
     });
   });
 

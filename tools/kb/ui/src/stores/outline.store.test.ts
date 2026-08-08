@@ -26,12 +26,10 @@ describe("outline store (WireNode adaptation)", () => {
     });
   });
 
-  it("hydrates forest roots under virtual workspace root", () => {
+  it("hydrates forest roots under virtual workspace root (id-sorted)", () => {
     seed();
     const root = useOutlineStore.getState().nodes.get(WORKSPACE_ROOT_ID)!;
-    expect(root.children).toEqual(
-      expect.arrayContaining(["n.root-a", "n.root-b", "n.root-c"]),
-    );
+    expect(root.children).toEqual(["n.root-a", "n.root-b", "n.root-c"]);
     expect(root.children).not.toContain("sys.tag");
     expect(root.children).not.toContain("tag.todo");
   });
@@ -63,13 +61,25 @@ describe("outline store (WireNode adaptation)", () => {
     expect(useOutlineStore.getState().activeNodeId).toBeNull();
   });
 
-  it("toggleCollapse hides descendants in visible list", () => {
+  it("defaults expandable nodes collapsed; visible list shows roots only", () => {
     seed();
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(
+      true,
+    );
+    expect(useOutlineStore.getState().getVisibleNodes()).toEqual([
+      "n.root-a",
+      "n.root-b",
+      "n.root-c",
+    ]);
+  });
+
+  it("toggleCollapse expands to show direct children (nested stay collapsed)", () => {
+    seed();
+    useOutlineStore.getState().toggleCollapse("n.root-a");
     expect(useOutlineStore.getState().getVisibleNodes()).toEqual([
       "n.root-a",
       "n.child-a1",
       "n.child-a2",
-      "n.grandchild",
       "n.root-b",
       "n.root-c",
     ]);
@@ -106,14 +116,14 @@ describe("outline store (WireNode adaptation)", () => {
     expect(hits.map((h) => h.id)).toEqual(["n.grandchild"]);
   });
 
-  it("getPrevious / getNext skip collapsed children", () => {
+  it("getPrevious / getNext respect collapsed subtrees", () => {
     seed();
     useOutlineStore.getState().toggleCollapse("n.root-a");
     expect(useOutlineStore.getState().getNextVisibleNode("n.root-a")).toBe(
-      "n.root-b",
+      "n.child-a1",
     );
     expect(useOutlineStore.getState().getPreviousVisibleNode("n.root-b")).toBe(
-      "n.root-a",
+      "n.child-a2",
     );
   });
 
@@ -172,9 +182,12 @@ describe("outline store (WireNode adaptation)", () => {
     it("preserves collapse state across deltas", () => {
       seed();
       useOutlineStore.getState().toggleCollapse("n.root-a");
+      expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(
+        false,
+      );
       useOutlineStore.getState().applyTx([wire("n.new", "x")], [], { rev: 2 });
       expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(
-        true,
+        false,
       );
     });
 

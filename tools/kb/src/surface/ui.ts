@@ -134,7 +134,9 @@ class SubscriptionHub {
   get snapshot(): GraphSnapshot {
     return GraphSnapshotSchema.parse({
       rev: this.rev,
-      nodes: [...this.nodeMap.values()].map(toWireNode),
+      nodes: [...this.nodeMap.values()]
+        .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+        .map(toWireNode),
     });
   }
 

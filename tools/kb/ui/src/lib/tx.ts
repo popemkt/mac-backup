@@ -1,5 +1,14 @@
 import type { WireNode } from "@kb/protocol";
 
+/** Stable wire-node order: ULID id ascending (time-sortable). */
+export function compareWireNodeId(a: WireNode, b: WireNode): number {
+  return a.id.localeCompare(b.id);
+}
+
+export function sortWireNodes(nodes: WireNode[]): WireNode[] {
+  return [...nodes].sort(compareWireNodeId);
+}
+
 /** Deep-clone a wire node list (snapshot for optimistic revert). */
 export function cloneWireNodes(nodes: WireNode[]): WireNode[] {
   return structuredClone(nodes);
@@ -29,7 +38,7 @@ export function mergeTx(
   const byId = wireById(nodes);
   for (const id of deletes) byId.delete(id);
   for (const u of upserts) byId.set(u.id, cloneWire(u));
-  return [...byId.values()];
+  return sortWireNodes([...byId.values()]);
 }
 
 export function nowIso(): string {

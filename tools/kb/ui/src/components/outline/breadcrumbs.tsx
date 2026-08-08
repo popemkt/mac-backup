@@ -19,7 +19,7 @@ export function Breadcrumbs() {
   const isAtRoot = rootNodeId === WORKSPACE_ROOT_ID;
 
   return (
-    <nav className="breadcrumbs flex items-center gap-1 px-1 py-2 text-[13px]">
+    <nav className="breadcrumbs flex h-11 items-center gap-1 px-1 text-[13px]">
       <button
         type="button"
         className={cn(

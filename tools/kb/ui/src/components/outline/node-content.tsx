@@ -10,6 +10,7 @@ import {
 import { useOutlineStore } from "@/stores/outline.store";
 import { MdView } from "@/components/outline/md-view";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
+import { TagConfigPanel } from "./tag-config-panel";
 import { TagChipGroup } from "./tag-chip";
 
 interface NodeContentProps {
@@ -40,6 +41,10 @@ export function NodeContent({
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const [acIndex, setAcIndex] = useState(0);
   const [cursor, setCursor] = useState(cursorPosition);
+  const [configTag, setConfigTag] = useState<{
+    id: string;
+    rect: DOMRect;
+  } | null>(null);
 
   const refOpen = useMemo(() => {
     if (!isActive) return null;
@@ -217,7 +222,7 @@ export function NodeContent({
   return (
     <>
       <div
-        className="relative min-w-0 flex-1"
+        className="relative flex min-h-6 min-w-0 flex-1 items-start gap-1.5"
         onClick={handleClick}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
@@ -227,7 +232,7 @@ export function NodeContent({
             ref={editorRef}
             key="editor"
             className={cn(
-              "editable",
+              "editable min-h-6 min-w-0 flex-1",
               KB_TEXT_CLASS,
               "outline-none",
               "text-foreground/85",
@@ -243,8 +248,30 @@ export function NodeContent({
             role="textbox"
           />
         ) : (
-          <MdView text={content} className="text-foreground/85" />
+          <MdView
+            text={content}
+            className="min-h-6 min-w-0 flex-1 text-foreground/85"
+          />
         )}
+
+        <TagChipGroup
+          tags={tags}
+          onTagClick={(tag, e) => {
+            e.stopPropagation();
+            zoomTo(tag.id);
+          }}
+          onTagRemove={(tag, e) => {
+            e.stopPropagation();
+            void mutations.removeTag(nodeId, tag.id);
+          }}
+          onTagConfigure={(tag, e) => {
+            e.stopPropagation();
+            const rect = (
+              e.currentTarget.closest(".group\\/tag") as HTMLElement
+            )?.getBoundingClientRect();
+            if (rect) setConfigTag({ id: tag.id, rect });
+          }}
+        />
 
         {refOpen && candidates.length > 0 && (
           <RefAutocomplete
@@ -255,13 +282,13 @@ export function NodeContent({
         )}
       </div>
 
-      <TagChipGroup
-        tags={tags}
-        onTagClick={(tag, e) => {
-          e.stopPropagation();
-          zoomTo(tag.id);
-        }}
-      />
+      {configTag && (
+        <TagConfigPanel
+          tagId={configTag.id}
+          anchorRect={configTag.rect}
+          onClose={() => setConfigTag(null)}
+        />
+      )}
     </>
   );
 }
