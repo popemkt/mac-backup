@@ -92,8 +92,8 @@ describe("registry + operations", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  test("manifest exposes JSON schemas", () => {
-    const m = manifest();
+  test("manifest exposes JSON schemas", async () => {
+    const m = await manifest();
     expect(m.some((a) => a.id === "node.add")).toBe(true);
     const add = m.find((a) => a.id === "graph.query")!;
     expect(add.inputSchema).toBeTruthy();

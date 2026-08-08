@@ -74,7 +74,16 @@ kb search "drift" --json
 kb query '[:find ?id ?text :where [?n :f/sys.f.type ?t] [?t :node/text "todo"] [?n :node/id ?id] [?n :node/text ?text]]'
 kb run <saved-query>            # .kb/queries/<name>.edn
 kb action-invoke '{"id":"docs.materialize","input":{}}'   # regenerate docs/kb/*
+kb ext list                     # loaded extensions + their actions
 ```
+
+Core is mechanism only (store, datalog, registry, subscriptions, render
+backbone). Repo-specific action policy lives in extensions: `.kb/extensions/*.ts`
+modules default-exporting `{...ActionDefinition, handler}` arrays, registered
+as `ext.<file>.<action>`; loader failures warn and skip, never crash core. The
+bundled example `tools/kb/extensions-bundled/docs.ts` owns
+`ext.docs.materialize`/`ext.docs.check` (legacy ids `docs.materialize`/
+`docs.check` remain as aliases, so pre-commit is unchanged).
 
 Rules for agents:
 - Prefer `kb` over ad-hoc TODO files for durable repo todos/notes; `--json` for machine output.

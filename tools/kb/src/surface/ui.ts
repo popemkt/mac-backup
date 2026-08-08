@@ -386,7 +386,7 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
         }
 
         if (url.pathname === "/api/manifest" && req.method === "GET") {
-          return Response.json(manifest());
+          return Response.json(await manifest(opts.root));
         }
 
         if (url.pathname === "/api/queries" && req.method === "GET") {
