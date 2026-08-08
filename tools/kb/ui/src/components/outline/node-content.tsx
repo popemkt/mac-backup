@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Hash } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
+import { KB_TEXT_CLASS } from "@/lib/md-inline";
 import {
   fuzzyNodeCandidates,
   insertRefAtCursor,
@@ -8,6 +9,7 @@ import {
 } from "@/lib/refs";
 import type { TagBadge } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
+import { MdView } from "@/components/outline/md-view";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
 
 interface NodeContentProps {
@@ -127,18 +129,13 @@ export function NodeContent({
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       if (!isActive) {
-        requestAnimationFrame(() => {
-          const sel = window.getSelection();
-          if (
-            sel &&
-            sel.rangeCount > 0 &&
-            editorRef.current?.contains(sel.anchorNode)
-          ) {
-            onActivate(sel.focusOffset);
-          } else {
-            onActivate(content.length);
-          }
-        });
+        const t = e.target as HTMLElement;
+        // Ref / md links own the click (zoom / jump / open); don't enter edit.
+        if (t.closest("a.kb-md-ref, a.kb-md-link")) {
+          e.stopPropagation();
+          return;
+        }
+        onActivate(content.length);
       }
       e.stopPropagation();
     },
@@ -212,7 +209,9 @@ export function NodeContent({
           ref={editorRef}
           key="editor"
           className={cn(
-            "editable kb-text flex-1 outline-none",
+            "editable",
+            KB_TEXT_CLASS,
+            "flex-1 outline-none",
             "text-[var(--kb-fg)]",
             "caret-[var(--kb-accent)]",
           )}
@@ -226,17 +225,7 @@ export function NodeContent({
           role="textbox"
         />
       ) : (
-        <div
-          ref={editorRef}
-          className={cn(
-            "editable kb-text flex-1 outline-none",
-            "text-[var(--kb-fg)]",
-            !content && "text-[var(--kb-muted)]",
-          )}
-          role="presentation"
-        >
-          {content || "\u200B"}
-        </div>
+        <MdView text={content} className="text-[var(--kb-fg)]" />
       )}
 
       {tags.length > 0 && <TagBadges tags={tags} />}

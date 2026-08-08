@@ -61,8 +61,25 @@ type PropValue =
   unique-text lookup among `sys.field`/`sys.tag` nodes (error on ambiguity,
   `--create` to mint). Resolution is dynamic at load — at our scale (\<\<100k
   nodes) caching is premature; revisit only if load profiling says so.
-- Refs in `text` as `[[node-id|label]]`, surfaced as `mentions` datoms at
-  build time.
+- **Refs / `:node/mentions` (official ref relationship).** Wiki-links in
+  node `text` use `[[node-id|label]]` (or bare `[[node-id]]`). At datom
+  build time each target becomes a `:node/mentions` ref datom on the
+  source — same shape as Logseq `:block/refs` (parse-at-transact). The UI
+  renders inactive refs as accent links (click = zoom, ⌘/Ctrl-click =
+  jump); the relationship itself is queryable, not UI-only. Example —
+  nodes that mention a target:
+
+  ```
+  [:find ?from ?text
+   :where [?e :node/mentions ?m]
+          [?m :node/id "n.root-a"]
+          [?e :node/id ?from]
+          [?e :node/text ?text]]
+  ```
+
+  (`kb backlinks <id>` is the shorthand.) Optional Logseq-style
+  `:node/path-refs` (ancestor mentions) is backlog — add only when a
+  real query needs hierarchy-scoped reach.
 - Datom mapping: `[id :node/text v]`, `[id :node/child child]` (+order),
   `[id :f/<fieldId> v]` with ref values as entity refs → native datalog joins
   and graph traversal.

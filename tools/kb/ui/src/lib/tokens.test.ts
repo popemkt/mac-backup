@@ -23,7 +23,7 @@ describe("kb tokens", () => {
 
   it("content row uses var(--kb-text) via .kb-text", () => {
     expect(tokens).toMatch(/\.kb-text\s*\{[^}]*var\(--kb-text\)/s);
-    expect(content).toMatch(/kb-text/);
+    expect(content).toMatch(/KB_TEXT_CLASS|kb-text/);
     expect(content).not.toMatch(/text-\[14\.5px\]/);
   });
 });
