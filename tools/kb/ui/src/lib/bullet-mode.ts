@@ -63,6 +63,13 @@ export function resolveBulletKind(input: BulletModeInput): BulletKind {
   if (refs.includes(SYSTEM_IDS.command)) return "command";
   // W4: anything tagged #query
   if (input.tagNames.some((n) => n.toLowerCase() === "query")) return "query";
+  // C1: #canvas tag (or seeded sys.tag.canvas)
+  if (
+    refs.includes(SYSTEM_IDS.canvasTag) ||
+    input.tagNames.some((n) => n.toLowerCase() === "canvas")
+  ) {
+    return "canvas";
+  }
 
   // W6a: ▣ when node text embeds an assets/ markdown image
   if (input.text && textHasAssetRef(input.text)) return "media";

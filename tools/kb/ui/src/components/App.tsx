@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { CircleHalf, Graph as GraphIcon } from "@phosphor-icons/react";
 import { loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
@@ -9,20 +9,24 @@ import {
 import { OutlineEditor } from "@/components/outline/outline-editor";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
-import {
-  getPathname,
-  graphPath,
-  navigate,
-  parseRoute,
-  pathnameSubscribe,
-} from "@/lib/route";
+import { graphPath, matchRoute, navigate, usePath } from "@/lib/router";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { cn } from "@/lib/cn";
 
-/** Sigma/graphology land in a separate chunk — outline bundle must not grow. */
+/** Sigma/graphology and canvas land in separate chunks — outline bundle must not grow. */
 const GraphPage = lazy(() => import("@/components/graph/graph-page"));
+const CanvasListPage = lazy(() =>
+  import("@/components/canvas/canvas-list-page").then((m) => ({
+    default: m.CanvasListPage,
+  })),
+);
+const CanvasPage = lazy(() =>
+  import("@/components/canvas/canvas-page").then((m) => ({
+    default: m.CanvasPage,
+  })),
+);
 
 const WS_DOT: Record<string, { className: string; label: string }> = {
   open: { className: "bg-success", label: "live" },
@@ -88,9 +92,13 @@ function SharedChrome() {
 function OutlineShell({
   status,
   error,
+  canvasId = null,
+  onCanvas = false,
 }: {
   status: "loading" | "ready" | "error";
   error: string | null;
+  canvasId?: string | null;
+  onCanvas?: boolean;
 }) {
   const rev = useOutlineStore((s) => s.rev);
   const loadSource = useOutlineStore((s) => s.loadSource);
@@ -120,6 +128,18 @@ function OutlineShell({
           <GraphIcon size={15} />
           graph
         </button>
+        <button
+          type="button"
+          className={cn(
+            "flex h-6 items-center rounded-md px-1.5 text-[11px] transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70",
+            onCanvas ? "text-foreground/70" : "text-foreground/40",
+          )}
+          aria-label="Open canvas list"
+          title="Canvas"
+          onClick={() => navigate("/canvas")}
+        >
+          canvas
+        </button>
         <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />
         <button
           type="button"
@@ -135,6 +155,18 @@ function OutlineShell({
 
       {status === "error" ? (
         <div className="p-6 text-destructive">{error}</div>
+      ) : onCanvas ? (
+        <main className="min-h-0 flex-1 overflow-hidden">
+          <Suspense
+            fallback={
+              <div className="p-6 text-[13px] text-foreground/40">
+                Loading canvas…
+              </div>
+            }
+          >
+            {canvasId ? <CanvasPage canvasId={canvasId} /> : <CanvasListPage />}
+          </Suspense>
+        </main>
       ) : (
         <main className="min-h-0 flex-1 overflow-auto">
           <div
@@ -159,12 +191,8 @@ export function App() {
     "loading",
   );
   const [error, setError] = useState<string | null>(null);
-  const pathname = useSyncExternalStore(
-    pathnameSubscribe,
-    getPathname,
-    () => "/",
-  );
-  const route = parseRoute(pathname);
+  const path = usePath();
+  const route = matchRoute(path);
 
   useEffect(() => {
     let cancelled = false;
@@ -242,8 +270,14 @@ export function App() {
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      <OutlineShell status={status} error={error} />
+      <OutlineShell
+        status={status}
+        error={error}
+        canvasId={route.name === "canvas" ? route.id : null}
+        onCanvas={route.name === "canvas-list" || route.name === "canvas"}
+      />
       <SharedChrome />
     </div>
   );
 }
+
