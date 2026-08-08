@@ -434,6 +434,11 @@ export function buildProgram(): Command {
     .argument("<name>", "saved query name (without .edn)")
     .action(async function (this: Command, name: string) {
       const code = await withCtx(this, async (ctx, globals) => {
+        if (!/^[\w][\w.-]*$/.test(name)) {
+          throw new UsageError(
+            `invalid saved query name: ${name} (letters, digits, ., _, - only)`,
+          );
+        }
         const path = join(ctx.root, ".kb", "queries", `${name}.edn`);
         let edn: string;
         try {
