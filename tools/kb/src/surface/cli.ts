@@ -676,7 +676,8 @@ export async function main(argv: string[] = process.argv): Promise<number> {
   const program = buildProgram();
   try {
     await program.parseAsync(argv);
-    return process.exitCode ?? EXIT_OK;
+    const exitCode = process.exitCode;
+    return typeof exitCode === "number" ? exitCode : EXIT_OK;
   } catch (err) {
     const json = argv.includes("--json");
     const code = handleCliError(err, json);
