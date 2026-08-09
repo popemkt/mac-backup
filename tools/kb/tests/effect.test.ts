@@ -28,7 +28,7 @@ import {
 } from "../src/foundation/schema-seam.ts";
 import { DocsError } from "../src/operations/docs/index.ts";
 import { mapRenderErr } from "../src/render/index.ts";
-import { invoke, invokeEffect } from "../src/registry.ts";
+import { invoke, invokeEffect, invokeReceiptEffect } from "../src/registry.ts";
 import { z } from "zod";
 
 async function tempRoot(): Promise<string> {
@@ -130,6 +130,38 @@ describe("Effect services + layers", () => {
       expect(publicReceipt.message).toContain("n.missing");
     }
     expect(receipt.status).toBe("failed");
+  });
+
+  test("invokeReceiptEffect matches invoke Promise boundary", async () => {
+    root = await tempRoot();
+    const ctx = await openKb(root);
+    const viaEffect = await Effect.runPromise(
+      invokeReceiptEffect(ctx, {
+        id: "node.get",
+        input: { id: "n.missing" },
+      }).pipe(Effect.provideService(KbCtx, ctx)),
+    );
+    const viaPromise = await invoke(ctx, {
+      id: "node.get",
+      input: { id: "n.missing" },
+    });
+    expect(viaEffect).toEqual(viaPromise);
+    expect(viaEffect.status).toBe("failed");
+    if (viaEffect.status === "failed") {
+      expect(viaEffect.code).toBe("not_found");
+    }
+
+    const addEffect = await Effect.runPromise(
+      invokeReceiptEffect(ctx, {
+        id: "node.add",
+        input: { text: "receipt-ok" },
+      }).pipe(
+        Effect.provideService(KbCtx, ctx),
+        Effect.provideService(KbStore, ctx.effectStore),
+        Effect.provide(bunFileSystemLayer),
+      ),
+    );
+    expect(addEffect.status).toBe("succeeded");
   });
 });
 
