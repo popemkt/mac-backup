@@ -278,7 +278,7 @@ export async function invoke(
   const exit = await Effect.runPromiseExit(
     invokeEffect(ctx, invocation).pipe(
       Effect.provideService(KbCtx, ctx),
-      Effect.provide(kbStoreLayer(ctx.store)),
+      Effect.provide(kbStoreLayer(ctx.effectStore)),
       Effect.provide(bunFileSystemLayer),
       Effect.catch((err) =>
         Effect.succeed(receiptFromError(invocation.id, err)),

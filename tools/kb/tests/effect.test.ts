@@ -12,6 +12,7 @@ import {
   runWithKb,
   KbCtx,
   KbStore,
+  bunFileSystemLayer,
 } from "../src/context.ts";
 import {
   DomainError,
@@ -42,9 +43,12 @@ describe("Effect services + layers", () => {
 
   test("openKbEffect seeds system nodes", async () => {
     root = await tempRoot();
-    const ctx = await Effect.runPromise(openKbEffect(root));
+    const ctx = await Effect.runPromise(
+      openKbEffect(root).pipe(Effect.provide(bunFileSystemLayer)),
+    );
     expect(ctx.nodes.some((n) => n.id === "sys.tag")).toBe(true);
     expect(ctx.store).toBeTruthy();
+    expect(ctx.effectStore).toBeTruthy();
   });
 
   test("runWithKb provides KbCtx, KbStore, and Bun FileSystem", async () => {
@@ -60,7 +64,7 @@ describe("Effect services + layers", () => {
         return {
           root: live.root,
           exists,
-          sameStore: store === live.store,
+          sameStore: store === live.effectStore,
         };
       }),
     );

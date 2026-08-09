@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import { ulid } from "ulid";
 import type { ActionDefinition } from "../shared/contracts.ts";
@@ -23,6 +24,8 @@ import {
 import type { KbContext } from "../context.ts";
 import { KbCtx, KbStore, persistEffect, runWithKb } from "../context.ts";
 import { pull, query } from "../foundation/query/index.ts";
+
+type KbWriteEnv = KbCtx | KbStore | FileSystem;
 
 /** Lift sync resolve/throw helpers into DomainError. */
 function syncDomain<A>(f: () => A): Effect.Effect<A, DomainError> {
@@ -273,7 +276,7 @@ export function pullSubtree(
 export const nodeAddEffect = Effect.fn("node.add")(
   function* (
     input: z.infer<typeof nodeAddDef.inputSchema>,
-  ): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbCtx | KbStore> {
+  ): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
     const ctx = yield* KbCtx;
     const at = nowIso();
     const id = input.id ?? ulid();
@@ -351,7 +354,7 @@ export const nodeUpdateEffect = Effect.fn("node.update")(
   ): Effect.fn.Return<
     { id: string; deleted?: boolean; node?: KbNode },
     DomainError,
-    KbCtx | KbStore
+    KbWriteEnv
   > {
     const ctx = yield* KbCtx;
     yield* syncDomain(() => assertSysWriteAllowed(input.id, input));
@@ -461,7 +464,7 @@ export async function nodeGet(
 export const fieldDefineEffect = Effect.fn("field.define")(
   function* (
     input: z.infer<typeof fieldDefineDef.inputSchema>,
-  ): Effect.fn.Return<{ id: string }, DomainError, KbCtx | KbStore> {
+  ): Effect.fn.Return<{ id: string }, DomainError, KbWriteEnv> {
     const ctx = yield* KbCtx;
     const existing = ctx.nodes.filter(
       (n) =>
@@ -499,7 +502,7 @@ export async function fieldDefine(
 export const tagDefineEffect = Effect.fn("tag.define")(
   function* (
     input: z.infer<typeof tagDefineDef.inputSchema>,
-  ): Effect.fn.Return<{ id: string }, DomainError, KbCtx | KbStore> {
+  ): Effect.fn.Return<{ id: string }, DomainError, KbWriteEnv> {
     const ctx = yield* KbCtx;
     const props: z.infer<typeof PropInputSchema>[] = [
       {

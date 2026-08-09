@@ -4,7 +4,13 @@ export type {
   PropValue,
 } from "./foundation/model.ts";
 export { SYSTEM_IDS, isSysPrefixed } from "./foundation/model.ts";
-export { JsonlStore, canonicalJson } from "./foundation/storage/index.ts";
+export {
+  JsonlStore,
+  asPromiseStore,
+  canonicalJson,
+  KbNodeSchema,
+} from "./foundation/storage/index.ts";
+export type { EffectStore, Store, StoreTx } from "./foundation/storage/index.ts";
 export {
   openKb,
   openKbEffect,
@@ -13,6 +19,9 @@ export {
   runWithKb,
   KbCtx,
   KbStore,
+  bunFileSystemLayer,
+  jsonlStoreLayer,
+  kbStoreLayer,
   type KbContext,
 } from "./context.ts";
 export {
