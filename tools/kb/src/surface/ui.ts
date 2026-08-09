@@ -599,9 +599,13 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
   const url = `http://${hostname}:${server.port}`;
   if (openBrowserFlag) openBrowser(url);
 
+  // server.port is `number | undefined` only for unix-socket listeners; we
+  // always bind a TCP port, so it is defined here.
+  const boundPort = server.port!;
+
   return {
-    port: server.port,
-    url,
+    port: boundPort,
+    url: `http://${hostname}:${boundPort}`,
     hostname,
     stop: async () => {
       stopped = true;

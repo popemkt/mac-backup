@@ -12,6 +12,8 @@ export const FailureCodeSchema = z.enum([
   "invalid_input",
   "ambiguous",
   "conflict",
+  "invalid_move",
+  "forbidden",
   "internal",
   "unknown_action",
 ]);

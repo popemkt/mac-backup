@@ -14,4 +14,16 @@ if [ -d "$repo_root/tools/kb" ] && [ -d "$repo_root/.kb" ]; then
   fi
 fi
 
+# kb TS7 typecheck gate: zero-error `tsc --noEmit` on the backend and UI
+# packages. Runs whenever anything under tools/kb changed. Skips silently when
+# node_modules is absent (fresh machine); a real type error is a hard stop.
+if git diff --cached --name-only --diff-filter=ACMRD | grep -q '^tools/kb/'; then
+  for pkg in tools/kb tools/kb/ui; do
+    if [ -x "$repo_root/$pkg/node_modules/.bin/tsc" ]; then
+      echo "==> typecheck ($pkg)"
+      (cd "$repo_root/$pkg" && ./node_modules/.bin/tsc --noEmit)
+    fi
+  done
+fi
+
 exec "$repo_root/intent/gate.sh" record git-commit
