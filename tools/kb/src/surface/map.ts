@@ -1,4 +1,10 @@
 import type { ActionInvocation } from "../shared/contracts.ts";
+import {
+  LIST_ALL_NODES_QUERY,
+  LIST_FIELDS_QUERY,
+  LIST_TAGS_QUERY,
+  backlinksQuery,
+} from "../foundation/query/queries.ts";
 
 export type PropType = "str" | "num" | "bool" | "date" | "ref";
 
@@ -185,11 +191,7 @@ export function mapFieldList(): PlannedAction {
   return {
     id: "graph.query",
     input: {
-      query: `[:find ?id ?text
-               :where [?n :node/id ?id]
-                      [?n :node/text ?text]
-                      [?n :f/sys.f.type ?t]
-                      [?t :node/id "sys.field"]]`,
+      query: LIST_FIELDS_QUERY,
     },
   };
 }
@@ -277,11 +279,7 @@ export function mapTagList(): PlannedAction {
   return {
     id: "graph.query",
     input: {
-      query: `[:find ?id ?text
-               :where [?n :node/id ?id]
-                      [?n :node/text ?text]
-                      [?n :f/sys.f.type ?t]
-                      [?t :node/id "sys.tag"]]`,
+      query: LIST_TAGS_QUERY,
     },
   };
 }
@@ -309,9 +307,7 @@ export function mapSearch(_text: string): PlannedAction {
   return {
     id: "graph.query",
     input: {
-      query: `[:find ?id ?text
-               :where [?n :node/id ?id]
-                      [?n :node/text ?text]]`,
+      query: LIST_ALL_NODES_QUERY,
     },
   };
 }
@@ -320,11 +316,7 @@ export function mapBacklinks(id: string): PlannedAction {
   return {
     id: "graph.query",
     input: {
-      query: `[:find ?from ?text
-               :where [?e :node/mentions ?m]
-                      [?e :node/id ?from]
-                      [?e :node/text ?text]
-                      [?m :node/id "${id}"]]`,
+      query: backlinksQuery(id),
     },
   };
 }
