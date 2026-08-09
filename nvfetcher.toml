@@ -31,3 +31,10 @@ src.from_pattern = "^v(.+)$"
 src.to_pattern = "\\1"
 fetch.url = "https://github.com/OtterMind/Chat2DB/releases/download/v$ver/Chat2DB-Community-$ver-arm64.dmg"
 passthru = { github = "OtterMind/Chat2DB", tagPrefix = "v" }
+
+[vite-plus]
+src.github = "voidzero-dev/vite-plus"
+src.from_pattern = "^v(.+)$"
+src.to_pattern = "\\1"
+fetch.url = "https://github.com/voidzero-dev/vite-plus/releases/download/v$ver/vp-aarch64-apple-darwin.tar.gz"
+passthru = { github = "voidzero-dev/vite-plus", tagPrefix = "v" }

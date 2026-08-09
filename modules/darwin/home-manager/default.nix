@@ -129,6 +129,55 @@
       )
     }
 
+    # Host surfaces Nix cannot manage: Determinate Nix (upgrade) and macOS
+    # Software Update (list only — never silent OS installs).
+    upgrade-out-of-band() {
+      echo "==> Determinate Nix"
+      if ! command -v determinate-nixd >/dev/null 2>&1; then
+        echo "determinate-nixd not found; skip"
+      else
+        local determinate_status
+        determinate_status="$(determinate-nixd status 2>&1 || true)"
+        if printf '%s\n' "$determinate_status" | grep -qiE 'out of date|now available'; then
+          echo "$determinate_status" | sed -n '1,6p'
+          sudo determinate-nixd upgrade
+        else
+          echo "current ($(nix --version 2>/dev/null || echo unknown))"
+        fi
+      fi
+
+      echo ""
+      echo "==> macOS Software Update (advisory)"
+      if ! command -v softwareupdate >/dev/null 2>&1; then
+        echo "softwareupdate not found; skip"
+        return 0
+      fi
+
+      local softwareupdate_out
+      softwareupdate_out="$(softwareupdate -l 2>&1 || true)"
+      local -a os_updates=()
+      while IFS= read -r label; do
+        [ -n "$label" ] && os_updates+=("$label")
+      done < <(
+        printf '%s\n' "$softwareupdate_out" |
+          sed -nE 's/^[[:space:]]*\*[[:space:]]*Label:[[:space:]]*(.*)$/\1/p'
+      )
+
+      if [ "''${#os_updates[@]}" -gt 0 ]; then
+        echo "pending:"
+        local label
+        for label in "''${os_updates[@]}"; do
+          echo "  - $label"
+        done
+        echo "Install from System Settings → Software Update (not automated)."
+        open "x-apple.systempreferences:com.apple.Software-Update-Settings.extension" 2>/dev/null || true
+      elif printf '%s\n' "$softwareupdate_out" | grep -qiE 'No new software available|No updates'; then
+        echo "none pending"
+      else
+        echo "could not determine (offline or deferred)"
+      fi
+    }
+
     # ========================================
     # HOMEBREW HELPERS (macOS only)
     # ========================================

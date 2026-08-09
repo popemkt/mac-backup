@@ -18,10 +18,10 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "7.2.123";
+    version = "7.2.125";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.123/CLIProxyAPI_7.2.123_darwin_aarch64.tar.gz";
-      sha256 = "sha256-Z7Ao+YxeQl8+dBDPv1G8aSTU6TI+SgsQc2hCLjuCSa8=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.125/CLIProxyAPI_7.2.125_darwin_aarch64.tar.gz";
+      sha256 = "sha256-iFwxOGjjs0FPMZN8ZQbUbQr5rShwIC9O9FiT3N+kQao=";
     };
     github = "router-for-me/CLIProxyAPI";
     tagPrefix = "v";
@@ -38,10 +38,10 @@
   };
   genoffice = {
     pname = "genoffice";
-    version = "0.5.83";
+    version = "0.6.13";
     src = fetchurl {
-      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.5.83/GenOffice-0.5.83-arm64.dmg";
-      sha256 = "sha256-wV30jkvlgXR7bZHmHuJVuCxrpxuDYww4Czcd6Oj2Nu0=";
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.6.13/GenOffice-0.6.13-arm64.dmg";
+      sha256 = "sha256-hrxJ0L0K9tAjlbH5U3mUCWHck0oJKj6b5Y1erIEw00A=";
     };
     github = "genspark-ai/genoffice";
     tagPrefix = "v";
@@ -55,5 +55,15 @@
     };
     versionUrl = "https://github.com/logseq/logseq/releases/expanded_assets/nightly";
     versionRegex = "Logseq-darwin-arm64-([0-9A-Za-z.+-]+nightly[.][0-9]+)[.]zip";
+  };
+  vite-plus = {
+    pname = "vite-plus";
+    version = "0.2.8";
+    src = fetchurl {
+      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v0.2.8/vp-aarch64-apple-darwin.tar.gz";
+      sha256 = "sha256-GjQ2NIq1gnFnMtKT1RGrm3D1xzBpUf5PpvbIrHThHmI=";
+    };
+    github = "voidzero-dev/vite-plus";
+    tagPrefix = "v";
   };
 }

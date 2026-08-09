@@ -97,6 +97,10 @@ Homebrew bundle with serial downloads and refreshes declared npm and Bun
 globals. Keeping preparation and application separate prevents an upstream pin
 change from being activated before its repository diff has been inspected.
 
+`upgrade-out-of-band` covers host surfaces the flake cannot own: it upgrades
+Determinate Nix when outdated, and lists (never silently installs) macOS
+Software Update labels.
+
 ## Adding an Application
 
 1. Add an entry to `nvfetcher.toml` with a version source and fetcher.

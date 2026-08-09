@@ -29,6 +29,10 @@ in
     inherit sources;
   };
 
+  vite-plus = pkgs.callPackage ./vite-plus {
+    inherit sources;
+  };
+
   system-setup = pkgs.callPackage ./system-setup {
     inherit
       pyproject-build-systems

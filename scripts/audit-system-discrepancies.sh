@@ -228,7 +228,7 @@ normalize_brew_names() {
   awk -F/ '{ print $NF }' | sort -u | sed '/^$/d'
 }
 
-# Strip uv pin/extras: "mempalace==3.3.1" / "headroom-ai[all]" -> bare name.
+# Strip uv pin/extras: "pkg==1.2.3" / "headroom-ai[all]" -> bare name.
 normalize_uv_names() {
   sed -E 's/(\[|==).*$//' | sort -u | sed '/^$/d'
 }
@@ -629,7 +629,7 @@ if command -v determinate-nixd >/dev/null 2>&1; then
     else
       record_warn "Determinate Nix is out of date"
     fi
-    warn_detail "fix: sudo determinate-nixd upgrade"
+    warn_detail "fix: upgrade-out-of-band"
   else
     record_ok "Determinate Nix current (${nix_version_line:-unknown})"
   fi
@@ -650,7 +650,7 @@ if command -v softwareupdate >/dev/null 2>&1; then
     for label in "${os_updates[@]}"; do
       printf '    - %s\n' "$label"
     done
-    warn_detail "fix: System Settings → Software Update (or softwareupdate -i -a)"
+    warn_detail "fix: upgrade-out-of-band (lists; install via System Settings)"
   elif printf '%s\n' "$softwareupdate_out" | grep -qiE 'No new software available|No updates'; then
     record_ok "macOS softwareupdate: none pending"
   else

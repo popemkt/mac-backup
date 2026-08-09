@@ -44,10 +44,10 @@ lib.mkIf config.my.stacks.ai-agents.enable {
   launchd.user.agents.headroom-proxy = {
     serviceConfig = {
       ProgramArguments = [
-        "/Users/${username}/.local/bin/headroom"
-        "proxy"
-        "--port"
-        headroomPort
+        "/bin/zsh"
+        "-l"
+        "-c"
+        "exec /Users/${username}/.local/bin/headroom proxy --port ${headroomPort}"
       ];
       RunAtLoad = true;
       KeepAlive = true;

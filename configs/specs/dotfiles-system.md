@@ -126,7 +126,9 @@ Updates remain explicit or arrive as an automatically merged pull request every
 two days. `rebuild` consumes pins without version discovery; `update-system`
 prepares and validates repository pin changes; `apply-system-update` mutates the
 live system, audits it, then commits and pushes only `flake.lock` and `_sources/`.
-A cold Nix store may still need to download missing pinned artifacts.
+`upgrade-out-of-band` upgrades Determinate Nix and lists macOS Software Update
+labels without installing OS updates. A cold Nix store may still need to
+download missing pinned artifacts.
 
 ### SDKROOT workaround for C++ Python extensions
 CLT-only macOS doesn't set `SDKROOT`; clang can't find `<iostream>` etc.

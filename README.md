@@ -154,6 +154,7 @@ system-setup status                             # verify external auth and servi
 system-setup next                               # show the next required enrollment action
 update-system                                   # prepare and validate reviewable repo pin updates
 apply-system-update                             # apply/upgrade, then commit and push prepared pin files
+upgrade-out-of-band                             # Determinate Nix upgrade + list macOS Software Update
 nix run .#github-sources -- check               # check pinned direct-release packages
 nix run .#github-sources -- verify              # verify config, versions, and generated hashes
 nix run .#github-sources -- update              # update their versions + hashes
@@ -245,7 +246,7 @@ Activated via `git config core.hooksPath .githooks` (already set on this clone).
 ## Known Gaps
 
 - npm globals not yet in `npm-global.nix`: `@tobilu/qmd`, `ccmanager`, `kanban`, `sudocode`, `yarn`
-- editable/local uv tools not tracked: `browser-harness`, `mempalace`
+- editable/local uv tools not tracked: `browser-harness`
 - Hermes launchd plist — manual deploy
 - `~/.local/bin` scripts (`hermes`, `iii`, `plannotator`) — depend on `/stuff` workspace
 - `~/.gitconfig` has extra entries (nbstripout, agor safe.directory) not in `git.nix`

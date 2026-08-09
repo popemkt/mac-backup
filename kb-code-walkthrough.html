@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>kb Datastore & UI — Comprehensive Top-Down Code Walkthrough</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --panel-border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #7dd3fc;
+      --accent-bg: rgba(56, 189, 248, 0.1);
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --code-bg: #090d16;
+      --highlight: #e0f2fe;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar Navigation */
+    nav {
+      width: 320px;
+      background: #090d16;
+      border-right: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      shrink: 0;
+    }
+
+    .nav-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--panel-border);
+    }
+    .nav-header h1 {
+      font-size: 1.1rem;
+      margin: 0 0 6px 0;
+      color: var(--accent);
+    }
+    .nav-header p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    .nav-links {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    .nav-section {
+      margin-bottom: 16px;
+    }
+    .nav-section-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      padding: 6px 10px;
+    }
+
+    .nav-link {
+      display: block;
+      padding: 8px 10px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 0.85rem;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+    }
+    .nav-link:hover {
+      background: var(--panel);
+      color: var(--accent);
+    }
+
+    /* Main Content Area */
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 40px 60px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    header.doc-title {
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 24px;
+      margin-bottom: 40px;
+    }
+    header.doc-title h1 {
+      font-size: 2.2rem;
+      margin: 0 0 10px 0;
+    }
+    header.doc-title p {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 32px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+
+    .card h2 {
+      margin-top: 0;
+      font-size: 1.5rem;
+      color: var(--accent);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge {
+      background: var(--accent-bg);
+      color: var(--accent);
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    /* File Link Box */
+    .file-ref {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin: 14px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: monospace;
+      font-size: 0.88rem;
+    }
+    .file-ref .path {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .file-ref .actions {
+      display: flex;
+      gap: 10px;
+    }
+    .btn-link {
+      color: var(--text);
+      background: #1e293b;
+      border: 1px solid var(--panel-border);
+      padding: 4px 10px;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 0.75rem;
+      transition: background 0.15s;
+    }
+    .btn-link:hover {
+      background: #334155;
+      color: #ffffff;
+    }
+
+    /* Code snippets */
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 16px;
+      overflow-x: auto;
+      font-family: "JetBrains Mono", SFMono-Regular, Consolas, Menlo, monospace;
+      font-size: 0.85rem;
+      color: #e2e8f0;
+      line-height: 1.5;
+    }
+    code {
+      font-family: "JetBrains Mono", SFMono-Regular, Consolas, Menlo, monospace;
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .diagram {
+      background: #090d16;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 20px;
+      font-family: monospace;
+      color: #7dd3fc;
+      white-space: pre;
+      overflow-x: auto;
+      margin: 16px 0;
+    }
+
+    ul, ol { padding-left: 24px; }
+    li { margin-bottom: 8px; }
+
+    .highlight-box {
+      border-left: 4px solid var(--accent);
+      background: rgba(56, 189, 248, 0.05);
+      padding: 12px 16px;
+      margin: 16px 0;
+      border-radius: 0 6px 6px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-header">
+      <h1>kb Datastore & UI</h1>
+      <p>Top-Down Architecture & Code Walkthrough</p>
+    </div>
+    <div class="nav-links">
+      <div class="nav-section">
+        <div class="nav-section-title">Overview</div>
+        <a href="#overview" class="nav-link">1. System Concept & Design</a>
+        <a href="#architecture" class="nav-link">2. Architecture Overview</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Surfaces & Entry</div>
+        <a href="#surface-cli" class="nav-link">3. CLI Surface</a>
+        <a href="#surface-mcp" class="nav-link">4. MCP Surface</a>
+        <a href="#surface-ui" class="nav-link">5. UI Backend Server</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Control Boundary</div>
+        <a href="#registry" class="nav-link">6. Harman Action Registry</a>
+        <a href="#operations" class="nav-link">7. Operations & Extensions</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Data & Engine</div>
+        <a href="#context" class="nav-link">8. KbContext & Seed</a>
+        <a href="#storage" class="nav-link">9. JsonlStore Persistence</a>
+        <a href="#query" class="nav-link">10. DataScript Engine</a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-title">Frontend (UI)</div>
+        <a href="#frontend-shell" class="nav-link">11. React App Shell & Routing</a>
+        <a href="#frontend-stores" class="nav-link">12. Zustand State Stores</a>
+        <a href="#frontend-sync" class="nav-link">13. WebSocket Sync Layer</a>
+        <a href="#frontend-mutations" class="nav-link">14. Optimistic Mutations</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <div class="container">
+      <header class="doc-title">
+        <h1><code>kb</code> Codebase Guided Tour</h1>
+        <p>A comprehensive, top-down guide to reading and understanding the <code>kb</code> outliner datastore and React UI frontend.</p>
+      </header>
+
+      <!-- SECTION 1 -->
+      <section id="overview" class="card">
+        <h2>1. System Concept & Design Philosophy <span class="badge">Core Design</span></h2>
+        <p><code>kb</code> is a repo-native outliner datastore built with Bun and TypeScript. Inspired by Tana and Logseq, it models all user data, fields, supertags, and queries as first-class <strong>Nodes</strong> in a unified graph.</p>
+        
+        <div class="highlight-box">
+          <strong>Key Decision: Everything is a Node</strong><br>
+          Fields and Supertags are not secondary relational schemas—they are nodes (typed <code>sys.field</code> and <code>sys.tag</code>). Attaching a field to a node means attaching a property keyed by the <em>field node's ULID</em>.
+        </div>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/DESIGN.md</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/DESIGN.md" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/DESIGN.md" class="btn-link">VS Code</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2 -->
+      <section id="architecture" class="card">
+        <h2>2. Top-Down Architecture Diagram</h2>
+        <div class="diagram">
++-----------------------------------------------------------------------------------+
+|                                 SURFACE LAYER                                     |
+|  CLI (surface/cli.ts)      MCP Server (surface/mcp.ts)     UI Server (surface/ui.ts) |
++----------------------------------------+------------------------------------------+
+                                         |
+                                         v
++-----------------------------------------------------------------------------------+
+|                            HARMAN CONTROL BOUNDARY                                |
+|  Action Registry (registry.ts) <-- Manifest & Invocation (shared/contracts.ts)     |
+|  Bundled Extensions (docs.ts, canvas.ts) & Custom Extensions (.kb/extensions/)    |
++----------------------------------------+------------------------------------------+
+                                         |
+                                         v
++-----------------------------------------------------------------------------------+
+|                             DATA CONTEXT & SEED                                   |
+|  KbContext (context.ts) -- openKb(), reload(), persist()                           |
+|  System Seed (foundation/seed.ts) -- sys.field, sys.tag, sys.f.type                |
++-----------------------------------+-----------------------------------------------+
+                                    |
+            +-----------------------+-----------------------+
+            |                                               |
+            v                                               v
++-----------------------+                       +-----------------------+
+|    STORAGE LAYER      |                       |    QUERY ENGINE       |
+| JsonlStore (.jsonl)   |                       | DataScript Datalog    |
+| (foundation/storage/) |                       | (foundation/query/)   |
++-----------------------+                       +-----------------------+
+        </div>
+      </section>
+
+      <!-- SECTION 3 -->
+      <section id="surface-cli" class="card">
+        <h2>3. CLI Surface Entry Point</h2>
+        <p>The command-line interface uses <code>commander</code> to parse subcommands, maps options into planned action payloads via <code>surface/map.ts</code>, and dispatches them into the Action Registry.</p>
+        
+        <div class="file-ref">
+          <span class="path">tools/kb/src/surface/cli.ts</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/src/surface/cli.ts" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/surface/cli.ts" class="btn-link">VS Code</a>
+          </div>
+        </div>
+
+        <pre><code>// Excerpt from tools/kb/src/surface/cli.ts
+export function buildProgram(): Command {
+  const program = new Command();
+  program
+    .name("kb")
+    .description("Repo-native outliner datastore");
+
+  program
+    .command("ui")
+    .description("Serve the kb browser UI + subscription backend")
+    .option("--port &lt;n&gt;", "listen port (default 4321)")
+    .action(async function () {
+      const { runUiCli } = await import("./ui.ts");
+      // launch server...
+    });
+
+  return program;
+}</code></pre>
+      </section>
+
+      <!-- SECTION 4 -->
+      <section id="surface-mcp" class="card">
+        <h2>4. MCP Surface Entry Point</h2>
+        <p>The MCP server initializes a stdio channel using <code>@modelcontextprotocol/sdk</code>. It fetches the manifest from the Action Registry and dynamically registers every action as an MCP tool.</p>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/src/surface/mcp.ts</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/src/surface/mcp.ts" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/surface/mcp.ts" class="btn-link">VS Code</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 5 -->
+      <section id="surface-ui" class="card">
+        <h2>5. UI Backend & Real-Time Sync Server</h2>
+        <p>The UI server runs on Bun's native HTTP/WS engine. It exposes static frontend assets from <code>ui/dist</code>, REST endpoints (<code>/api/action</code>, <code>/api/graph</code>), and a real-time WebSocket endpoint (<code>/ws</code>) powered by <code>SubscriptionHub</code>.</p>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/src/surface/ui.ts</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/src/surface/ui.ts" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/surface/ui.ts" class="btn-link">VS Code</a>
+          </div>
+        </div>
+
+        <pre><code>// Excerpt: HTTP POST /api/action handler in tools/kb/src/surface/ui.ts
+if (url.pathname === "/api/action" && req.method === "POST") {
+  await reload(ctx);
+  const receipt = await invoke(ctx, {
+    id: parsed.data.id,
+    input: parsed.data.input ?? {},
+  });
+  // Immediately broadcast transaction deltas to all active WebSocket clients
+  hub.applyNodes(ctx.nodes);
+  return Response.json(receipt);
+}</code></pre>
+      </section>
+
+      <!-- SECTION 6 -->
+      <section id="registry" class="card">
+        <h2>6. Harman Control Boundary & Action Registry</h2>
+        <p>The Action Registry is the core isolation boundary. Every request (from CLI, MCP, or UI) passes through <code>invoke(ctx, invocation)</code>. It validates Zod schemas and catches all runtime errors, returning a discriminated <code>ActionReceipt</code> union (never throwing exceptions).</p>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/src/shared/contracts.ts</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/src/shared/contracts.ts" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/shared/contracts.ts" class="btn-link">VS Code</a>
+          </div>
+        </div>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/src/registry.ts</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/src/registry.ts" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/registry.ts" class="btn-link">VS Code</a>
+          </div>
+        </div>
+
+        <pre><code>// Excerpt: Receipt safety boundary in tools/kb/src/registry.ts
+export async function invoke(
+  ctx: KbContext,
+  invocation: ActionInvocation,
+): Promise&lt;ActionReceipt&gt; {
+  const { id, input } = invocation;
+  try {
+    const registry = await registryFor(ctx.root);
+    const entry = registry.byId.get(id);
+    if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
+    const parsed = entry.def.inputSchema.parse(input);
+    const output = await entry.handler(ctx, parsed as never);
+    return succeeded(id, output);
+  } catch (err) {
+    return receiptFromError(id, err); // Traps ZodError, ResolveError, Internal
+  }
+}</code></pre>
+      </section>
+
+      <!-- SECTION 7 -->
+      <section id="operations" class="card">
+        <h2>7. Operations & Extensions</h2>
+        <p>Core operations handle primitive graph mutations (<code>node.add</code>, <code>node.update</code>, <code>node.get</code>, <code>field.define</code>, <code>tag.define</code>). Domain-specific behavior lives in extensions (such as bundled markdown materialization in <code>extensions-bundled/docs.ts</code>).</p>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/src/operations/index.ts</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/src/operations/index.ts" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/operations/index.ts" class="btn-link">VS Code</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 8 -->
+      <section id="context" class="card">
+        <h2>8. Data Context & System Seed</h2>
+        <p><code>KbContext</code> holds the in-memory graph state (<code>nodes: KbNode[]</code>), the physical <code>Store</code>, and the <code>QueryDb</code>. System initialization seeds system nodes (like <code>sys.field</code>, <code>sys.tag</code>, <code>sys.f.type</code>) to guarantee structural graph integrity.</p>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/src/context.ts</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/src/context.ts" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/context.ts" class="btn-link">VS Code</a>
+          </div>
+        </div>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/src/foundation/seed.ts</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/src/foundation/seed.ts" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/foundation/seed.ts" class="btn-link">VS Code</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 9 -->
+      <section id="storage" class="card">
+        <h2>9. Persistence Layer: JsonlStore</h2>
+        <p><code>JsonlStore</code> persists the node graph in <code>.kb/nodes.jsonl</code>. It formats canonical JSON (one line per node, sorted keys, sorted node IDs) to maximize git mergeability and diff readability. Saves use atomic temp-file rename operations.</p>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/src/foundation/storage/jsonl-store.ts</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/src/foundation/storage/jsonl-store.ts" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/foundation/storage/jsonl-store.ts" class="btn-link">VS Code</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 10 -->
+      <section id="query" class="card">
+        <h2>10. DataScript Datalog Query Engine</h2>
+        <p><code>foundation/query/datascript.ts</code> translates the <code>KbNode</code> array into DataScript datoms. It parses text wiki-links (<code>[[node-id]]</code>) into native <code>:node/mentions</code> reference datoms, enabling graph traversal and datalog queries.</p>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/src/foundation/query/datascript.ts</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/src/foundation/query/datascript.ts" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/foundation/query/datascript.ts" class="btn-link">VS Code</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 11 -->
+      <section id="frontend-shell" class="card">
+        <h2>11. Frontend React App Shell & Routing</h2>
+        <p>The UI is a single-page app built with React and Tailwind CSS. <code>App.tsx</code> handles path matching (<code>matchRoute</code>), chrome tools (sidebar, preference popovers, command palette), and lazy-loads heavy views (Canvas, 3D Graph).</p>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/ui/src/components/App.tsx</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/components/App.tsx" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/components/App.tsx" class="btn-link">VS Code</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 12 -->
+      <section id="frontend-stores" class="card">
+        <h2>12. Zustand State Stores</h2>
+        <p>Application state is split cleanly across three Zustand stores:</p>
+        <ul>
+          <li><code>outline.store.ts</code>: Graph nodes, selection state, visible instances, query DB.</li>
+          <li><code>ui.store.ts</code>: Translucent popovers, toast notifications, WebSocket connection status.</li>
+          <li><code>prefs.store.ts</code>: User theme, font choice, layout width.</li>
+        </ul>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/ui/src/stores/outline.store.ts</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/stores/outline.store.ts" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/stores/outline.store.ts" class="btn-link">VS Code</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 13 -->
+      <section id="frontend-sync" class="card">
+        <h2>13. WebSocket Synchronization Layer</h2>
+        <p><code>KbWsClient</code> maintains a resilient WebSocket connection with exponential backoff. Incoming transaction deltas automatically update the local Zustand store via <code>outlineStore.applyTx()</code>.</p>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/ui/src/api/ws.ts</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/api/ws.ts" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/api/ws.ts" class="btn-link">VS Code</a>
+          </div>
+        </div>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/ui/src/api/live.ts</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/api/live.ts" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/api/live.ts" class="btn-link">VS Code</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 14 -->
+      <section id="frontend-mutations" class="card">
+        <h2>14. Optimistic Mutation Layer</h2>
+        <p>Mutations apply instantly to the local store via pure transaction planners in <code>actions/plan.ts</code>. The UI then asynchronously dispatches the operation to <code>POST /api/action</code>. If the remote request fails, a rollback restores the prior snapshot.</p>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/ui/src/actions/plan.ts</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/actions/plan.ts" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/actions/plan.ts" class="btn-link">VS Code</a>
+          </div>
+        </div>
+
+        <div class="file-ref">
+          <span class="path">tools/kb/ui/src/actions/mutations.ts</span>
+          <div class="actions">
+            <a href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/actions/mutations.ts" class="btn-link">Open File</a>
+            <a href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/actions/mutations.ts" class="btn-link">VS Code</a>
+          </div>
+        </div>
+
+        <pre><code>// Excerpt: Optimistic flow in tools/kb/ui/src/actions/optimistic.ts
+export async function runOptimistic(
+  plan: PlannedMutation,
+): Promise&lt;{ ok: boolean; receipt?: ActionReceipt }&gt; {
+  const store = useOutlineStore.getState();
+  const snapshot = cloneWireNodes(store.wireNodes);
+
+  // Apply optimistic changes locally immediately
+  store.applyTx(plan.upserts, plan.deletes);
+
+  try {
+    const receipt = await postAction(plan.actionId, plan.input);
+    if (receipt.status === "failed") {
+      // Revert store state on failure
+      store.restoreSnapshot(snapshot, store.rev);
+      return { ok: false, receipt };
+    }
+    return { ok: true, receipt };
+  } catch (err) {
+    store.restoreSnapshot(snapshot, store.rev);
+    return { ok: false };
+  }
+}</code></pre>
+      </section>
+
+    </div>
+  </main>
+
+</body>
+</html>
