@@ -36,7 +36,9 @@ export const resolveRootEffect = Effect.fn("kb.resolveRoot")(
 );
 
 /**
- * Promise facade over {@link resolveRootEffect} (Commander / MCP entry edges).
+ * Promise compatibility shim over {@link resolveRootEffect}.
+ * Kept for external importers; CLI/MCP call {@link resolveRootEffect} at their
+ * Effect boundaries and do not use this entrypoint.
  */
 export async function resolveRoot(
   opts: { root?: string; cwd?: string; allowCreate?: boolean } = {},

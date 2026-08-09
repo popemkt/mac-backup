@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { Command, CommanderError } from "commander";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
 import {
@@ -238,34 +238,40 @@ function handleCliError(err: unknown, json: boolean): number {
   return EXIT_FAILED;
 }
 
-function readActionJsonEffect(
-  arg: string,
-): Effect.Effect<unknown, UsageError | SyntaxError> {
+const ActionJsonUnknown = Schema.fromJsonString(Schema.Unknown);
+
+function decodeActionJson(text: string): Effect.Effect<unknown, UsageError> {
+  return Schema.decodeUnknownEffect(ActionJsonUnknown)(text).pipe(
+    Effect.mapError(
+      (err) =>
+        new UsageError(
+          `invalid JSON: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+    ),
+  );
+}
+
+function readActionJsonEffect(arg: string): Effect.Effect<unknown, UsageError> {
   if (arg === "-") {
-    return Effect.tryPromise({
-      try: async () => {
-        const chunks: Buffer[] = [];
-        for await (const chunk of process.stdin) {
-          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-        }
-        const text = Buffer.concat(chunks).toString("utf8").trim();
-        if (!text) throw new UsageError("action-invoke: empty stdin");
-        return JSON.parse(text) as unknown;
-      },
-      catch: (err) => {
-        if (err instanceof UsageError || err instanceof SyntaxError) return err;
-        if (err instanceof Error) return err;
-        return new Error(String(err));
-      },
-    }) as Effect.Effect<unknown, UsageError | SyntaxError>;
+    return Effect.gen(function* () {
+      const text = yield* Effect.tryPromise({
+        try: async () => {
+          const chunks: Buffer[] = [];
+          for await (const chunk of process.stdin) {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+          }
+          return Buffer.concat(chunks).toString("utf8").trim();
+        },
+        catch: (err) =>
+          new UsageError(err instanceof Error ? err.message : String(err)),
+      });
+      if (!text) {
+        return yield* Effect.fail(new UsageError("action-invoke: empty stdin"));
+      }
+      return yield* decodeActionJson(text);
+    });
   }
-  return Effect.try({
-    try: () => JSON.parse(arg) as unknown,
-    catch: (err) =>
-      err instanceof SyntaxError
-        ? err
-        : new Error(err instanceof Error ? err.message : String(err)),
-  });
+  return decodeActionJson(arg);
 }
 
 export function buildProgram(): Command {
@@ -769,14 +775,7 @@ export function buildProgram(): Command {
     .action(async function (this: Command, jsonArg: string) {
       const code = await withCtx(this, (ctx, globals) =>
         Effect.gen(function* () {
-          const raw = yield* readActionJsonEffect(jsonArg).pipe(
-            Effect.catch((err) => {
-              if (err instanceof SyntaxError) {
-                return Effect.fail(new UsageError(`invalid JSON: ${err.message}`));
-              }
-              return Effect.fail(err);
-            }),
-          );
+          const raw = yield* readActionJsonEffect(jsonArg);
           const invocation = mapActionInvoke(raw);
           const receipt = yield* invokeReceiptEffect(ctx, invocation);
           writeOut(formatReceipt(receipt, { json: globals.json === true }));

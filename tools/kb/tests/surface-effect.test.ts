@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect, Exit, Fiber } from "effect";
+import { Cause, Effect, Exit, Fiber } from "effect";
 import {
   bunFileSystemLayer,
   kbRuntimeLayer,
@@ -15,12 +15,15 @@ import { mapAdd, mapGet } from "../src/surface/map.ts";
 import type { ManifestEntry } from "../src/registry.ts";
 import {
   callToolEffect,
+  containToolResult,
   createMcpServer,
+  mcpInternalError,
   type McpToolContext,
 } from "../src/surface/mcp.ts";
 import { resolveRootEffect, RootNotFoundError } from "../src/surface/root.ts";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-surface-effect-"));
@@ -63,22 +66,21 @@ describe("CLI Effect surface", () => {
     expect(caught).toBeInstanceOf(RootNotFoundError);
   });
 
-  test("interrupted fiber yields Exit.interrupt", async () => {
-    root = await tempRoot();
-    const ctx = await openKb(root);
+  test("Fiber.interrupt cancels an in-flight surface Effect before completion", async () => {
+    // Honest scope: Effect fibers are interruptible. This does not claim
+    // Commander/MCP Promise edges wire abort signals into running actions.
+    let completed = false;
     const fiber = Effect.runFork(
       Effect.gen(function* () {
-        yield* Effect.sleep("10 seconds");
-        return yield* runPlanEffect(
-          ctx,
-          mapAdd({ text: "never" }),
-          { json: true },
-        );
-      }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
+        yield* Effect.sleep("5 seconds");
+        completed = true;
+        return 0;
+      }),
     );
     await Effect.runPromise(Fiber.interrupt(fiber));
     const exit = await Effect.runPromise(Fiber.await(fiber));
     expect(Exit.hasInterrupts(exit)).toBe(true);
+    expect(completed).toBe(false);
   });
 });
 
@@ -151,6 +153,77 @@ describe("MCP Effect surface", () => {
       (bad.content as { text: string }[])[0]!.text,
     ) as { message: string };
     expect(body.message).toContain("expected {view: string");
+  });
+
+  test("render_view format:null defaults to html like base MCP clients", async () => {
+    root = await tempRoot();
+    await mkdir(join(root, ".kb", "views"), { recursive: true });
+    await writeFile(
+      join(root, ".kb", "views", "todos.json"),
+      JSON.stringify({
+        output: "docs/kb/todos.md",
+        query:
+          '[:find ?id :where [?n :f/sys.f.type ?tag] [?tag :node/text "todo"] [?n :node/id ?id]]',
+        template: "todos",
+      }),
+    );
+    const ctx = await openKb(root);
+    const tools: McpToolContext = { actions: [], byToolName: new Map() };
+    const rendered = await Effect.runPromise(
+      callToolEffect(
+        ctx,
+        "render_view",
+        { view: "todos", format: null },
+        tools,
+      ),
+    );
+    expect(rendered.isError).toBeFalsy();
+    const text = (rendered.content as { text: string }[])[0]!.text;
+    expect(text).toContain("<h1>Todos</h1>");
+    expect(text).not.toMatch(/^# Todos/m);
+  });
+
+  test("containToolResult maps Die defects to isError internal (never rejects)", async () => {
+    const result = await Effect.runPromise(
+      containToolResult(Effect.die(new Error("injected-defect"))),
+    );
+    expect(result.isError).toBe(true);
+    const body = JSON.parse(
+      (result.content as { text: string }[])[0]!.text,
+    ) as { code: string; message: string };
+    expect(body.code).toBe("internal");
+    expect(body.message).toContain("injected-defect");
+  });
+
+  test("mcpInternalError maps defects to JSON-RPC -32603", () => {
+    const err = mcpInternalError(Cause.die(new Error("resource-defect")));
+    expect(err).toBeInstanceOf(McpError);
+    expect(err.code).toBe(ErrorCode.InternalError);
+    expect(err.code).toBe(-32603);
+    expect(err.message).toContain("resource-defect");
+  });
+
+  test("resource Fail/Die surfaces as McpError -32603 to the client", async () => {
+    root = await tempRoot();
+    const server = await createMcpServer(root);
+    const client = new Client({ name: "surface-effect", version: "0.0.0" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      client.connect(clientTransport),
+      server.connect(serverTransport),
+    ]);
+
+    try {
+      await client.readResource({ uri: "ui://kb/view/missing-view" });
+      expect.unreachable("expected McpError");
+    } catch (err) {
+      expect(err).toBeInstanceOf(McpError);
+      expect((err as McpError).code).toBe(-32603);
+    }
+
+    await client.close();
+    await server.close();
   });
 
   test("lifecycle: MCP reload sees CLI Effect write", async () => {

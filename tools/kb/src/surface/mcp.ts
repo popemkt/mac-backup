@@ -2,13 +2,15 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
+  ErrorCode,
   ListResourcesRequestSchema,
   ListToolsRequestSchema,
+  McpError,
   ReadResourceRequestSchema,
   type CallToolResult,
   type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-import { Effect, Schema } from "effect";
+import { Cause, Effect, Exit, Schema } from "effect";
 import {
   bunFileSystemLayer,
   kbRuntimeLayer,
@@ -34,7 +36,8 @@ const VIEW_URI_PREFIX = "ui://kb/view/";
 
 const RenderViewArgs = Schema.Struct({
   view: Schema.String,
-  format: Schema.optionalKey(Schema.Literals(["html", "md"])),
+  // null/absent → html (base MCP client behavior); optionalKey alone rejects null.
+  format: Schema.optionalKey(Schema.NullOr(Schema.Literals(["html", "md"]))),
 });
 
 function actionIdToToolName(actionId: string): string {
@@ -78,14 +81,38 @@ function errorResult(
   };
 }
 
+function causeMessage(cause: Cause.Cause<unknown>): string {
+  const squashed = Cause.squash(cause);
+  return squashed instanceof Error ? squashed.message : String(squashed);
+}
+
+/**
+ * Map typed Failures, Die defects, and Interruptions to an `isError` tool
+ * result so `Effect.runPromise` never rejects at the MCP CallTool edge.
+ */
+export function containToolResult<R>(
+  effect: Effect.Effect<CallToolResult, unknown, R>,
+): Effect.Effect<CallToolResult, never, R> {
+  return effect.pipe(
+    Effect.catchCause((cause) =>
+      Effect.succeed(errorResult("internal", causeMessage(cause))),
+    ),
+  );
+}
+
+/** Canonical JSON-RPC -32603 for resource-handler failures/defects. */
+export function mcpInternalError(cause: Cause.Cause<unknown>): McpError {
+  return new McpError(ErrorCode.InternalError, causeMessage(cause));
+}
+
 export interface McpToolContext {
   actions: readonly ManifestEntry[];
   byToolName: Map<string, ManifestEntry>;
 }
 
 /**
- * Effect program for one MCP CallTool request. Failures are mapped to
- * {@link CallToolResult} with `isError` — the error channel is empty.
+ * Effect program for one MCP CallTool request. Failures and defects are mapped
+ * to {@link CallToolResult} with `isError` — the error channel is empty.
  */
 export function callToolEffect(
   ctx: KbContext,
@@ -93,52 +120,48 @@ export function callToolEffect(
   args: unknown,
   tools: McpToolContext,
 ): Effect.Effect<CallToolResult, never, never> {
-  return Effect.gen(function* () {
-    if (name === MANIFEST_TOOL) {
-      return jsonResult(tools.actions);
-    }
-
-    if (name === RENDER_TOOL) {
-      const decoded = yield* Schema.decodeUnknownEffect(RenderViewArgs)(
-        args ?? {},
-      ).pipe(Effect.catch(() => Effect.succeed(null)));
-      if (!decoded) {
-        return errorResult(
-          "invalid_input",
-          "expected {view: string, format?: 'html'|'md'}",
-        );
+  return containToolResult(
+    Effect.gen(function* () {
+      if (name === MANIFEST_TOOL) {
+        return jsonResult(tools.actions);
       }
-      const format = decoded.format ?? "html";
+
+      if (name === RENDER_TOOL) {
+        const decoded = yield* Schema.decodeUnknownEffect(RenderViewArgs)(
+          args ?? {},
+        ).pipe(Effect.catch(() => Effect.succeed(null)));
+        if (!decoded) {
+          return errorResult(
+            "invalid_input",
+            "expected {view: string, format?: 'html'|'md'}",
+          );
+        }
+        const format = decoded.format ?? "html";
+        yield* reloadEffect(ctx);
+        const rendered = yield* renderNamedViewEffect(decoded.view, format);
+        return {
+          content: [{ type: "text" as const, text: rendered.content }],
+        } satisfies CallToolResult;
+      }
+
+      const action = tools.byToolName.get(name);
+      if (!action) {
+        return errorResult("unknown_action", `unknown tool: ${name}`);
+      }
+
+      const invocation: ActionInvocation = {
+        id: action.id,
+        input: args ?? {},
+      };
+      // Long-lived server vs CLI mutators: reload keeps per-invocation freshness.
       yield* reloadEffect(ctx);
-      const rendered = yield* renderNamedViewEffect(decoded.view, format);
-      return {
-        content: [{ type: "text" as const, text: rendered.content }],
-      } satisfies CallToolResult;
-    }
+      const receipt = yield* invokeReceiptEffect(ctx, invocation);
 
-    const action = tools.byToolName.get(name);
-    if (!action) {
-      return errorResult("unknown_action", `unknown tool: ${name}`);
-    }
-
-    const invocation: ActionInvocation = {
-      id: action.id,
-      input: args ?? {},
-    };
-    // Long-lived server vs CLI mutators: reload keeps per-invocation freshness.
-    yield* reloadEffect(ctx);
-    const receipt = yield* invokeReceiptEffect(ctx, invocation);
-
-    if (receipt.status === "succeeded") {
-      return jsonResult(receipt.output);
-    }
-    return errorResult(receipt.code, receipt.message, receipt.details);
-  }).pipe(
-    Effect.provide(kbRuntimeLayer(ctx)),
-    Effect.catch((err) => {
-      const message = err instanceof Error ? err.message : String(err);
-      return Effect.succeed(errorResult("internal", message));
-    }),
+      if (receipt.status === "succeeded") {
+        return jsonResult(receipt.output);
+      }
+      return errorResult(receipt.code, receipt.message, receipt.details);
+    }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
   );
 }
 
@@ -169,6 +192,18 @@ export const readResourceEffect = Effect.fn("mcp.readResource")(
     };
   },
 );
+
+/**
+ * Run a resource Effect to an Exit, then throw {@link McpError} (-32603) on
+ * any Failure/Die so the Promise edge never surfaces an unmapped reject.
+ */
+async function runResourceHandler<A>(
+  effect: Effect.Effect<A, unknown, never>,
+): Promise<A> {
+  const exit = await Effect.runPromiseExit(effect);
+  if (Exit.isSuccess(exit)) return exit.value;
+  throw mcpInternalError(exit.cause);
+}
 
 /**
  * Build an MCP server bound to a kb root. Does not connect a transport —
@@ -240,13 +275,13 @@ export async function createMcpServer(root: string): Promise<Server> {
 
   // MCP Apps backbone: each saved view is a ui:// html resource.
   server.setRequestHandler(ListResourcesRequestSchema, async () =>
-    Effect.runPromise(
+    runResourceHandler(
       listResourcesEffect(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx))),
     ),
   );
 
   server.setRequestHandler(ReadResourceRequestSchema, async (request) =>
-    Effect.runPromise(
+    runResourceHandler(
       readResourceEffect(ctx, request.params.uri).pipe(
         Effect.provide(kbRuntimeLayer(ctx)),
       ),
@@ -255,7 +290,7 @@ export async function createMcpServer(root: string): Promise<Server> {
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-    // callToolEffect already provides kbRuntimeLayer and maps failures → isError.
+    // callToolEffect already provides kbRuntimeLayer and maps Fail/Die → isError.
     return Effect.runPromise(callToolEffect(ctx, name, args, toolsCtx));
   });
 

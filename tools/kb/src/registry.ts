@@ -9,7 +9,6 @@ import {
   succeeded,
 } from "./shared/contracts.ts";
 import type { KbContext } from "./context.ts";
-import { KbCtx, bunFileSystemLayer, kbStoreLayer } from "./context.ts";
 import { ResolveError } from "./foundation/resolve.ts";
 import {
   ActionSchemaError,
@@ -294,12 +293,9 @@ export async function invoke(
   ctx: KbContext,
   invocation: ActionInvocation,
 ): Promise<ActionReceipt> {
+  // invokeReceiptEffect has no Layer requirements (handlers run via tryPromise).
   const exit = await Effect.runPromiseExit(
-    invokeReceiptEffect(ctx, invocation).pipe(
-      Effect.provideService(KbCtx, ctx),
-      Effect.provide(kbStoreLayer(ctx.effectStore)),
-      Effect.provide(bunFileSystemLayer),
-    ),
+    invokeReceiptEffect(ctx, invocation),
   );
   if (Exit.isSuccess(exit)) return exit.value;
   return receiptFromError(invocation.id, Cause.squash(exit.cause));
