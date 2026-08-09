@@ -12,9 +12,11 @@
     "bench": "bun test tests/benchmark.test.ts"
   },
   "dependencies": {
+    "@effect/platform-bun": "4.0.0-beta.106",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "commander": "^13.1.0",
     "datascript": "^1.7.8",
+    "effect": "4.0.0-beta.106",
     "ulid": "^3.0.2",
     "zod": "^4.4.3"
   },
