@@ -24,7 +24,7 @@ per-invocation CLI (fresh db each run); if we later add watch-mode or a server,
 | Query | **DataScript** in-memory, rebuilt per invocation | real datalog; Cozo persistent backends are binary |
 | Surfaces | **CLI + MCP over one action registry** | action is the abstraction (harman pattern) |
 | Runtime | **Bun**, no build step | the production `kb` tool (CLI, `kb ui` server, MCP) runs under Bun and may use Bun APIs (`Bun.serve`, `Bun.file`, …) where appropriate |
-| Toolchain | **TypeScript 7 + Vite+ (`vp` 0.2.8)** | tooling and verification live in the vp ecosystem (lint, check, test for the UI and Node-compatible pieces, `tsc` typecheck) — see [Runtime/tooling boundary](#runtime-tooling-boundary) |
+| Toolchain | **TypeScript 7 + Vite+ (`vp` 0.2.8)** | vp owns lint/check/fmt/UI test; authoritative typecheck is `tsc --noEmit` — see [Runtime/tooling boundary](#runtime-tooling-boundary) |
 | Model | **Everything is a node** — fields and tags included | Tana model; Logseq DB does the same (properties are first-class entities) |
 
 ## Runtime/tooling boundary
@@ -38,13 +38,18 @@ The backend runs on **Bun** in production; the toolchain around it is **Vite+
   appropriate Bun APIs and stay.
 - **vp owns the tooling.** `tools/kb/package.json` scripts:
   - `typecheck` → `tsc --noEmit` (TS 7, zero-error gate; also enforced by the
-    pre-commit hook when `tools/kb/` changes)
+    pre-commit hook when `tools/kb/` changes). This is the authoritative
+    typecheck — not `vp check`.
   - `lint` → `vp lint` (oxlint)
-  - `check` → `vp check --no-fmt` (lint + typecheck; `--no-fmt` keeps the gate
-    from failing on pre-existing legacy formatting — `vp fmt` is available for
-    incremental adoption)
+  - `check` → `vp check --no-fmt` (**lint-only** here: `lint.options.typeCheck`
+    is deliberately off in `tools/kb/vite.config.ts` because oxlint-tsgolint
+    is not verified as a meaningful gate for this Bun/Effect tree. `--no-fmt`
+    skips format; `vp fmt` remains available for incremental adoption)
   - `test` → `bun test` (Bun-dependent backend integration tests keep running
     under Bun); the UI (`tools/kb/ui`) runs `vp test` under Vitest.
+- **Backend lint/check never enter `ui/`.** `tools/kb/vite.config.ts` sets
+  `lint.ignorePatterns: ["ui/**", …]`. The browser app is its own Vite+
+  package (`tools/kb/ui`) with separate install, `vp` config, and gates.
 - **Tests are split by runtime need.** Tests that exercise Bun APIs
   (`ui.test.ts`, `query-nodes.test.ts`, store round-trips) stay on `bun:test` —
   forcing them through vp/Vitest would require Bun APIs to exist under a node
