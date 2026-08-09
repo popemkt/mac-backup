@@ -38,6 +38,19 @@ browser ──HTTP GET /api/graph────────► kb ui server (bun)
 DataScript (client) ← re-run open queries on tx
 ```
 
+Server ownership lives behind the stable facade `src/surface/ui.ts`, which
+re-exports the public CLI/server seam (`startUi`, `runUiCli`, …). The
+implementation modules under `src/surface/ui/` split by concern:
+
+| Module | Owns |
+|---|---|
+| `server.ts` | Bun.serve bootstrap, fs-watch, CLI entry |
+| `http.ts` | REST/API routing, kb asset GET, SPA static fallback |
+| `session.ts` | WebSocket clients + `SubscriptionHub` |
+| `assets.ts` | SPA `ui/dist` static + `.kb/assets` serving |
+| `saved-queries.ts` | list/materialize `.kb/queries/*.edn` |
+| `paths.ts` | `KB_PKG_ROOT`, `UI_DIST`, `pathExists` |
+
 - **Client DataScript**: browser loads all nodes once, builds the same datom
   set the CLI builds (shared `foundation/query` code — it's isomorphic TS, no
   node APIs in the datom builder). Keystrokes never wait on the network.
@@ -110,11 +123,18 @@ pane, persistent collapse state (localStorage), query page.
 
 ```
 tools/kb/
-  src/surface/ui.ts          # `kb ui` command: Bun.serve + SubscriptionHub
-  src/surface/protocol.ts    # WS/HTTP message types (zod) — shared contract
-  ui/                        # Vite app (own package.json)
+  src/surface/ui.ts              # stable facade (re-exports startUi / runUiCli / …)
+  src/surface/ui/
+    server.ts                    # Bun.serve + fs-watch + CLI entry
+    http.ts                      # REST/API + asset GET + SPA fallback
+    session.ts                   # WS clients + SubscriptionHub
+    assets.ts                    # ui/dist static + .kb/assets
+    saved-queries.ts             # .kb/queries listing / virtual nodes
+    paths.ts                     # KB_PKG_ROOT, UI_DIST, pathExists
+  src/surface/protocol.ts        # WS/HTTP message types (zod) — shared contract
+  ui/                            # Vite app (own package.json)
     src/{stores,components,ds}/ ...
-    dist/                    # built assets, committed? → no: built on demand
+    dist/                        # built assets, committed? → no: built on demand
 ```
 
 `kb ui` with no `ui/dist`: runs `bun install && bunx vite build` once (cached),

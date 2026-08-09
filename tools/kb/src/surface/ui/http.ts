@@ -88,7 +88,8 @@ export async function handleHttpRequest(
       (url.pathname === "/assets" || url.pathname.startsWith("/assets/")) &&
       req.method === "GET"
     ) {
-      return serveKbAsset(root, url.pathname);
+      // await so rejected asset promises hit the catch → 500 (not an unhandled reject)
+      return await serveKbAsset(root, url.pathname);
     }
 
     if (url.pathname.startsWith("/api/") || url.pathname === "/ws") {

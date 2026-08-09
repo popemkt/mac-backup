@@ -1,8 +1,8 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assetContentType, serveKbAsset, serveStatic } from "../src/surface/ui/assets.ts";
+import * as assets from "../src/surface/ui/assets.ts";
 import { handleHttpRequest } from "../src/surface/ui/http.ts";
 import { UI_DIST } from "../src/surface/ui/paths.ts";
 import { listSavedQueries, savedQueryNodes } from "../src/surface/ui/saved-queries.ts";
@@ -13,6 +13,8 @@ import {
   rowsHash,
 } from "../src/surface/ui/session.ts";
 import type { KbNode } from "../src/foundation/model.ts";
+
+const { assetContentType, serveKbAsset, serveStatic } = assets;
 
 function node(id: string, text = id): KbNode {
   return {
@@ -138,6 +140,35 @@ describe("ui http boundary", () => {
       expect(body.error).toBe("ui_not_built");
     } else {
       expect(fallback.status).toBe(200);
+    }
+  });
+
+  test("rejected serveKbAsset becomes controlled 500 (not handler reject)", async () => {
+    const spy = spyOn(assets, "serveKbAsset").mockImplementation(() =>
+      Promise.reject(new Error("asset-read-failed")),
+    );
+    try {
+      const res = await handleHttpRequest(
+        new Request("http://127.0.0.1/assets/x.png"),
+        {
+          root: "/tmp",
+          ctx: { nodes: [] } as never,
+          hub: { snapshot: { rev: 0, nodes: [] }, applyNodes() {} } as never,
+        },
+      );
+      expect(res.status).toBe(500);
+      const body = (await res.json()) as {
+        status: string;
+        code: string;
+        message: string;
+      };
+      expect(body).toEqual({
+        status: "failed",
+        code: "internal",
+        message: "asset-read-failed",
+      });
+    } finally {
+      spy.mockRestore();
     }
   });
 });
