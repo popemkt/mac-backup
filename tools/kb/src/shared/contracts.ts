@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  type ActionSchema,
+  schemaToJsonSchema,
+} from "../foundation/schema-seam.ts";
 
 export const ActionModeSchema = z.enum(["read", "apply"]);
 export type ActionMode = z.infer<typeof ActionModeSchema>;
@@ -14,12 +18,13 @@ export const FailureCodeSchema = z.enum([
 export type FailureCode = z.infer<typeof FailureCodeSchema>;
 
 /**
- * Action contract. Schemas are Zod; JSON Schema is derived via z.toJSONSchema
- * at manifest time — never hand-written.
+ * Action contract. Schemas are Standard Schema v1–compatible (zod 4 satisfies
+ * this). JSON Schema for manifests is derived when the vendor is zod;
+ * otherwise a permissive object schema is emitted.
  */
 export interface ActionDefinition<
-  TIn extends z.ZodType = z.ZodType,
-  TOut extends z.ZodType = z.ZodType,
+  TIn extends ActionSchema = ActionSchema,
+  TOut extends ActionSchema = ActionSchema,
 > {
   id: string;
   title: string;
@@ -70,7 +75,7 @@ export function actionToManifestEntry(def: ActionDefinition) {
     title: def.title,
     description: def.description,
     mode: def.mode,
-    inputSchema: z.toJSONSchema(def.inputSchema),
-    outputSchema: z.toJSONSchema(def.outputSchema),
+    inputSchema: schemaToJsonSchema(def.inputSchema),
+    outputSchema: schemaToJsonSchema(def.outputSchema),
   };
 }
