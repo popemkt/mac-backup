@@ -1,67 +1,162 @@
-import { mkdir } from "node:fs/promises";
+import { Effect, Schema } from "effect";
+import { FileSystem } from "effect/FileSystem";
 import { dirname, join } from "node:path";
+import { domainError, type DomainError } from "../errors.ts";
 import type { KbNode } from "../model.ts";
+import { bunFileSystemLayer } from "../platform.ts";
 import { canonicalJson } from "./canonical.ts";
-import type { Store, StoreTx } from "./store.ts";
+import { KbNodeSchema } from "./node-schema.ts";
+import type { EffectStore, Store, StoreTx } from "./store.ts";
+
+function mapFsError(err: { message?: string } | unknown): DomainError {
+  const message =
+    typeof err === "object" &&
+    err !== null &&
+    "message" in err &&
+    typeof (err as { message: unknown }).message === "string"
+      ? (err as { message: string }).message
+      : String(err);
+  return domainError("internal", message);
+}
+
+function decodeNodeLine(
+  line: string,
+  path: string,
+  lineNo: number,
+): Effect.Effect<KbNode, DomainError> {
+  return Effect.gen(function* () {
+    const raw = yield* Effect.try({
+      try: () => JSON.parse(line) as unknown,
+      catch: (err) =>
+        domainError(
+          "invalid_input",
+          `malformed JSONL at ${path}:${lineNo}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+          { path, lineNo },
+        ),
+    });
+    const node = yield* Schema.decodeUnknownEffect(KbNodeSchema)(raw).pipe(
+      Effect.mapError((err) =>
+        domainError(
+          "invalid_input",
+          `invalid node at ${path}:${lineNo}: ${err.message}`,
+          { path, lineNo, issue: err.issue },
+        ),
+      ),
+    );
+    return node as KbNode;
+  });
+}
 
 /**
  * JSONL backend: `<root>/.kb/nodes.jsonl`
- * One canonical-JSON node per line, sorted by id. Atomic tmp+rename writes.
+ * One canonical-JSON node per line, sorted by id.
+ * Commits are atomic (tmp + rename) and keep `nodes.jsonl.bak` of the prior file.
+ *
+ * Effect-native I/O: {@link loadEffect}/{@link commitEffect} (yield* FileSystem).
+ * Promise {@link load}/{@link commit} are public adapters for tests/context.
  */
-export class JsonlStore implements Store {
+export class JsonlStore implements Store, EffectStore {
   readonly path: string;
+  readonly backupPath: string;
 
   constructor(root: string) {
     this.path = join(root, ".kb", "nodes.jsonl");
+    this.backupPath = `${this.path}.bak`;
   }
 
-  async load(): Promise<KbNode[]> {
-    const file = Bun.file(this.path);
-    if (!(await file.exists())) return [];
+  loadEffect(): Effect.Effect<KbNode[], DomainError, FileSystem> {
+    const path = this.path;
+    return Effect.gen(function* () {
+      const fs = yield* FileSystem;
+      const exists = yield* fs.exists(path).pipe(Effect.mapError(mapFsError));
+      if (!exists) return [];
 
-    const nodes: KbNode[] = [];
-    const stream = file.stream();
-    const reader = stream.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
+      const body = yield* fs
+        .readFileString(path)
+        .pipe(Effect.mapError(mapFsError));
+      if (body.trim().length === 0) return [];
 
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let nl: number;
-      while ((nl = buffer.indexOf("\n")) !== -1) {
-        const line = buffer.slice(0, nl);
-        buffer = buffer.slice(nl + 1);
+      const nodes: KbNode[] = [];
+      const lines = body.split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]!;
         if (line.trim().length === 0) continue;
-        nodes.push(JSON.parse(line) as KbNode);
+        nodes.push(yield* decodeNodeLine(line, path, i + 1));
       }
-    }
-    buffer += decoder.decode();
-    if (buffer.trim().length > 0) {
-      nodes.push(JSON.parse(buffer) as KbNode);
-    }
-    return nodes;
+      return nodes;
+    });
   }
 
-  async commit(tx: StoreTx): Promise<void> {
-    const existing = await this.load();
-    const byId = new Map(existing.map((n) => [n.id, n]));
-    for (const id of tx.deletes) byId.delete(id);
-    for (const node of tx.upserts) byId.set(node.id, node);
+  commitEffect(tx: StoreTx): Effect.Effect<void, DomainError, FileSystem> {
+    const path = this.path;
+    const backupPath = this.backupPath;
+    const loadEffect = this.loadEffect.bind(this);
+    return Effect.gen(function* () {
+      const fs = yield* FileSystem;
+      const existing = yield* loadEffect();
+      const byId = new Map(existing.map((n) => [n.id, n]));
+      for (const id of tx.deletes) byId.delete(id);
+      for (const node of tx.upserts) byId.set(node.id, node);
 
-    const sorted = [...byId.values()].sort((a, b) =>
-      a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+      const sorted = [...byId.values()].sort((a, b) =>
+        a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+      );
+      const body =
+        sorted.length === 0
+          ? ""
+          : sorted.map((n) => canonicalJson(n)).join("\n") + "\n";
+
+      yield* fs
+        .makeDirectory(dirname(path), { recursive: true })
+        .pipe(Effect.mapError(mapFsError));
+
+      const tmp = `${path}.${process.pid}.${Date.now()}.tmp`;
+      yield* fs.writeFileString(tmp, body).pipe(Effect.mapError(mapFsError));
+
+      const hadPrior = yield* fs.exists(path).pipe(Effect.mapError(mapFsError));
+      if (hadPrior) {
+        yield* fs
+          .copyFile(path, backupPath)
+          .pipe(Effect.mapError(mapFsError));
+      }
+
+      yield* fs.rename(tmp, path).pipe(
+        Effect.mapError(mapFsError),
+        Effect.catch((err) =>
+          fs
+            .remove(tmp, { force: true })
+            .pipe(Effect.ignore, Effect.andThen(Effect.fail(err))),
+        ),
+      );
+    });
+  }
+
+  load(): Promise<KbNode[]> {
+    return Effect.runPromise(
+      this.loadEffect().pipe(Effect.provide(bunFileSystemLayer)),
     );
-    const body =
-      sorted.length === 0
-        ? ""
-        : sorted.map((n) => canonicalJson(n)).join("\n") + "\n";
-
-    await mkdir(dirname(this.path), { recursive: true });
-    const tmp = `${this.path}.${process.pid}.${Date.now()}.tmp`;
-    await Bun.write(tmp, body);
-    const { rename } = await import("node:fs/promises");
-    await rename(tmp, this.path);
   }
+
+  commit(tx: StoreTx): Promise<void> {
+    return Effect.runPromise(
+      this.commitEffect(tx).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+  }
+}
+
+/** Promise facade over any {@link EffectStore} (e.g. in-memory test doubles). */
+export function asPromiseStore(store: EffectStore): Store {
+  return {
+    path: store.path,
+    load: () =>
+      Effect.runPromise(
+        store.loadEffect().pipe(Effect.provide(bunFileSystemLayer)),
+      ),
+    commit: (tx) =>
+      Effect.runPromise(
+        store.commitEffect(tx).pipe(Effect.provide(bunFileSystemLayer)),
+      ),
+  };
 }

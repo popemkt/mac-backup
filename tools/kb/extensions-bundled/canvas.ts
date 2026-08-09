@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import type { KbContext } from "../src/context.ts";
 import { KbCtx, KbStore, persistEffect, runWithKb } from "../src/context.ts";
@@ -168,7 +169,7 @@ const canvasTxApplyEffect = Effect.fn("ext.canvas.tx.apply")(
   ): Effect.fn.Return<
     z.infer<typeof applyOutput>,
     CanvasFail,
-    KbCtx | KbStore
+    KbCtx | KbStore | FileSystem
   > {
     const ctx = yield* KbCtx;
 
