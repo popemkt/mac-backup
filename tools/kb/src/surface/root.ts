@@ -1,36 +1,48 @@
-import { access, constants } from "node:fs/promises";
+import { Effect } from "effect";
+import { FileSystem } from "effect/FileSystem";
 import { dirname, join, resolve } from "node:path";
-
-async function exists(path: string): Promise<boolean> {
-  try {
-    await access(path, constants.F_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { bunFileSystemLayer } from "../foundation/platform.ts";
 
 /**
- * Resolve the kb repo root.
+ * Resolve the kb repo root (Effect).
  * --root wins; otherwise walk cwd upward looking for `.kb/`.
  * When `allowCreate` (init), fall back to cwd if none found.
+ */
+export const resolveRootEffect = Effect.fn("kb.resolveRoot")(
+  function* (
+    opts: { root?: string; cwd?: string; allowCreate?: boolean } = {},
+  ): Effect.fn.Return<string, RootNotFoundError, FileSystem> {
+    if (opts.root) return resolve(opts.root);
+
+    const fs = yield* FileSystem;
+    let dir = resolve(opts.cwd ?? process.cwd());
+    for (;;) {
+      const hasKb = yield* fs
+        .exists(join(dir, ".kb"))
+        .pipe(Effect.catch(() => Effect.succeed(false)));
+      if (hasKb) return dir;
+      const parent = dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+
+    if (opts.allowCreate) return resolve(opts.cwd ?? process.cwd());
+    return yield* Effect.fail(
+      new RootNotFoundError(
+        "no .kb/ found (walked up from cwd); pass --root or run kb init",
+      ),
+    );
+  },
+);
+
+/**
+ * Promise facade over {@link resolveRootEffect} (Commander / MCP entry edges).
  */
 export async function resolveRoot(
   opts: { root?: string; cwd?: string; allowCreate?: boolean } = {},
 ): Promise<string> {
-  if (opts.root) return resolve(opts.root);
-
-  let dir = resolve(opts.cwd ?? process.cwd());
-  for (;;) {
-    if (await exists(join(dir, ".kb"))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-
-  if (opts.allowCreate) return resolve(opts.cwd ?? process.cwd());
-  throw new RootNotFoundError(
-    "no .kb/ found (walked up from cwd); pass --root or run kb init",
+  return Effect.runPromise(
+    resolveRootEffect(opts).pipe(Effect.provide(bunFileSystemLayer)),
   );
 }
 

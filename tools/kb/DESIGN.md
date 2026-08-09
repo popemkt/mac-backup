@@ -218,9 +218,9 @@ output of any kind — lives in **extensions**:
 
 ## Surfaces
 
-- **CLI** (`commander`, `#!/usr/bin/env bun`): human commands + `kb action-invoke <json>`; `--json` everywhere.
+- **CLI** (`commander`, `#!/usr/bin/env bun`): human commands + `kb action-invoke <json>`; `--json` everywhere. Internal command orchestration is Effect (`resolveRootEffect` → `openKbEffect` → `runPlanEffect` / `invokeReceiptEffect`) with one `Effect.runPromise` + exit-code boundary per Commander action. Commander itself stays the argv contract.
 - **MCP** (`kb mcp`, `@modelcontextprotocol/sdk` stdio): loop manifest → one
-  tool per action → handler calls `registry.invoke`; `readOnlyHint` from mode.
+  tool per action → Effect handler (`callToolEffect` / resource Effects via `reloadEffect` + `invokeReceiptEffect`); `readOnlyHint` from mode. SDK request handlers remain Promise-returning; each runs one Effect to completion.
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
 
