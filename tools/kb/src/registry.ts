@@ -3,7 +3,6 @@ import {
   type ActionDefinition,
   type ActionInvocation,
   type ActionReceipt,
-  type FailureCode,
   FailureCodeSchema,
   actionToManifestEntry,
   failed,
@@ -20,6 +19,7 @@ import {
 import {
   domainFromResolve,
   isDomainError,
+  receiptCodeOf,
   type DomainError,
 } from "./foundation/errors.ts";
 import {
@@ -297,24 +297,21 @@ function receiptFromError(id: string, err: unknown): ActionReceipt {
     return failed(id, "invalid_input", err.message, err.issues);
   }
   if (isDomainError(err)) {
-    return failed(id, err.code as FailureCode, err.message, err.details);
+    return failed(id, receiptCodeOf(err), err.message, err.details);
   }
   if (err instanceof ResolveError) {
-    // ResolveError carries codes beyond FailureCodeSchema (e.g.
-    // invalid_move); pass them through as the receipt code, as before.
-    return failed(id, err.code as FailureCode, err.message, err.details);
+    return failed(id, receiptCodeOf(err), err.message, err.details);
   }
   if (err instanceof Error) {
-    // DocsError, ResolveError, and extension errors alike: any Error
-    // carrying a valid FailureCode `code` maps to a typed failure.
-    const code = (err as { code?: unknown }).code;
-    if (
-      typeof code === "string" &&
-      FailureCodeSchema.safeParse(code).success
-    ) {
+    // DocsError and extension errors alike: any Error carrying a valid
+    // FailureCode `code` maps to a typed failure.
+    const parsed = FailureCodeSchema.safeParse(
+      (err as { code?: unknown }).code,
+    );
+    if (parsed.success) {
       return failed(
         id,
-        code as FailureCode,
+        parsed.data,
         err.message,
         (err as { details?: unknown }).details,
       );

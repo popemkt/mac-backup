@@ -127,7 +127,7 @@ describe("arg → invocation mapping", () => {
 
 describe("cli e2e (tmpdir)", () => {
   let root: string;
-  let prevExit: string | number | undefined;
+  let prevExit: string | number | null | undefined;
 
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), "kb-cli-"));
@@ -136,7 +136,7 @@ describe("cli e2e (tmpdir)", () => {
   });
 
   afterEach(async () => {
-    process.exitCode = prevExit as number | undefined;
+    process.exitCode = prevExit;
     await rm(root, { recursive: true, force: true });
   });
 

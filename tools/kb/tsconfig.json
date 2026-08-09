@@ -26,5 +26,11 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
-  }
+  },
+  // Backend package only. The browser app lives in ui/ with its own tsconfig;
+  // dragging it into this project makes `tsc --noEmit` surface UI errors that
+  // belong to ui/tsconfig.json and pulls in DOM/jsx/alias assumptions the
+  // backend doesn't share.
+  "include": ["index.ts", "src", "tests", "extensions-bundled"],
+  "exclude": ["ui"]
 }

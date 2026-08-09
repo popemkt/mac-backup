@@ -100,6 +100,14 @@ Rules for agents:
 - `[[id|label]]` in node text is the official ref form; load extracts `:node/mentions` datoms (see `tools/kb/DESIGN.md`). Use `kb backlinks <id>` or the datalog example above.
 - `docs/kb/*.md` is generated (header marks it); edit data, then materialize.
   Pre-commit runs `docs.check` and blocks stale generated docs.
+- Runtime/tooling boundary: Bun is the production runtime (Bun APIs stay where
+  appropriate); TS 7 + Vite+ (`vp` 0.2.8) own lint/check tooling. Run
+  `npm run typecheck` (authoritative zero-error `tsc --noEmit`, also in
+  pre-commit when `tools/kb/` changes), `npm run check` (`vp check --no-fmt`,
+  lint-only — `typeCheck` is off), `npm run lint`. Backend `vp` ignores
+  `tools/kb/ui`. Bun-dependent tests stay on `bun test` (recursive from
+  `tools/kb` also hits most `ui/` tests — needs UI deps); the dedicated UI
+  suite is `vp test`. See `tools/kb/DESIGN.md`.
 
 ## Where To Edit
 

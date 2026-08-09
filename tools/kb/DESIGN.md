@@ -23,8 +23,45 @@ per-invocation CLI (fresh db each run); if we later add watch-mode or a server,
 | Storage | Backend-agnostic `Store`; **JSONL backend v1** | exact round-trip, line-per-node git diffs. git-lfs rejected (stores blobs, doesn't make them mergeable); dolt-on-branch possible later as another backend |
 | Query | **DataScript** in-memory, rebuilt per invocation | real datalog; Cozo persistent backends are binary |
 | Surfaces | **CLI + MCP over one action registry** | action is the abstraction (harman pattern) |
-| Runtime | **Bun + TS**, no build step | Vite+ is web-app toolchain, adds ceremony |
+| Runtime | **Bun**, no build step | the production `kb` tool (CLI, `kb ui` server, MCP) runs under Bun and may use Bun APIs (`Bun.serve`, `Bun.file`, …) where appropriate |
+| Toolchain | **TypeScript 7 + Vite+ (`vp` 0.2.8)** | vp owns lint/check/fmt/UI test; authoritative typecheck is `tsc --noEmit` — see [Runtime/tooling boundary](#runtime-tooling-boundary) |
 | Model | **Everything is a node** — fields and tags included | Tana model; Logseq DB does the same (properties are first-class entities) |
+
+## Runtime/tooling boundary
+
+The backend runs on **Bun** in production; the toolchain around it is **Vite+
+(`vp` 0.2.8) + TypeScript 7**. The two are deliberately separated:
+
+- **Bun is the production runtime.** `bin/kb` is a bash shim
+  (`#!/usr/bin/env bash`) that `exec`s Bun on `src/surface/cli.ts`; the
+  `kb ui` server uses `Bun.serve`/`Bun.ServerWebSocket`; the store streams with
+  `Bun.file`/`Bun.write`; `Bun.hash` powers change detection. These are
+  appropriate Bun APIs and stay.
+- **vp owns the tooling.** `tools/kb/package.json` scripts:
+  - `typecheck` → `tsc --noEmit` (TS 7, zero-error gate; also enforced by the
+    pre-commit hook when `tools/kb/` changes). This is the authoritative
+    typecheck — not `vp check`.
+  - `lint` → `vp lint` (oxlint)
+  - `check` → `vp check --no-fmt` (**lint-only** here: `lint.options.typeCheck`
+    is deliberately off in `tools/kb/vite.config.ts` because oxlint-tsgolint
+    is not verified as a meaningful gate for this Bun/Effect tree. `--no-fmt`
+    skips format; `vp fmt` remains available for incremental adoption)
+  - `test` → `bun test` (Bun-dependent backend integration tests keep running
+    under Bun). Note: recursive `bun test` from `tools/kb` also discovers many
+    `ui/**/*.test.ts(x)` files — only the Vitest-only paths in `bunfig.toml`
+    are ignored — so a full backend `bun test` still needs `tools/kb/ui`
+    deps installed. The dedicated UI suite is `cd ui && vp test` (Vitest).
+- **Backend lint/check never enter `ui/`.** `tools/kb/vite.config.ts` sets
+  `lint.ignorePatterns: ["ui/**", …]`. The browser app is its own Vite+
+  package (`tools/kb/ui`) with separate install, `vp` config, and gates.
+- **Tests are split by runtime need.** Tests that exercise Bun APIs
+  (`ui.test.ts`, `query-nodes.test.ts`, store round-trips) stay on `bun:test` —
+  forcing them through vp/Vitest would require Bun APIs to exist under a node
+  worker. UI component tests that need Vitest mock-hoist / happy-dom stay on
+  `vp test` (and are listed in `bunfig.toml` so recursive `bun test` skips them).
+- TypeScript 7 removed `baseUrl`; the UI tsconfig uses relative `paths`, and
+  the backend tsconfig scopes to backend sources (`src`, `tests`,
+  `extensions-bundled`) — it never compiles `ui/`.
 
 ## Data model — everything is a node
 

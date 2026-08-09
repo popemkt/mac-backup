@@ -1,12 +1,15 @@
+import type { FailureCode } from "../shared/contracts.ts";
 import { SYSTEM_IDS, type KbNode, type NodeId } from "./model.ts";
+
+/** Resolve failures; codes are the FailureCodeSchema subset used by lookup/move. */
+export type ResolveErrorCode = Extract<
+  FailureCode,
+  "not_found" | "ambiguous" | "invalid_move" | "forbidden"
+>;
 
 export class ResolveError extends Error {
   constructor(
-    readonly code:
-      | "not_found"
-      | "ambiguous"
-      | "invalid_move"
-      | "forbidden",
+    readonly code: ResolveErrorCode,
     message: string,
     readonly details?: unknown,
   ) {
