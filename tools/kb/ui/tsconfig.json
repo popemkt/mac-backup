@@ -11,9 +11,8 @@
     "isolatedModules": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
+      "@/*": ["./src/*"],
       "@kb/protocol": ["../src/surface/protocol.ts"],
       "@kb/canvas": ["../src/canvas/doc.ts"]
     }

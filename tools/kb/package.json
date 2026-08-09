@@ -9,7 +9,11 @@
   },
   "scripts": {
     "test": "bun test",
-    "bench": "bun test tests/benchmark.test.ts"
+    "bench": "bun test tests/benchmark.test.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "vp lint",
+    "check": "vp check --no-fmt",
+    "fmt": "vp fmt"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
@@ -20,6 +24,8 @@
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2",
+    "vite-plus": "0.2.8",
+    "vitest": "4.1.10"
   }
 }
