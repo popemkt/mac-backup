@@ -105,8 +105,9 @@ Rules for agents:
   `npm run typecheck` (authoritative zero-error `tsc --noEmit`, also in
   pre-commit when `tools/kb/` changes), `npm run check` (`vp check --no-fmt`,
   lint-only — `typeCheck` is off), `npm run lint`. Backend `vp` ignores
-  `tools/kb/ui`. Bun-dependent backend tests stay on `bun test`; the UI runs
-  `vp test`. See `tools/kb/DESIGN.md`.
+  `tools/kb/ui`. Bun-dependent tests stay on `bun test` (recursive from
+  `tools/kb` also hits most `ui/` tests — needs UI deps); the dedicated UI
+  suite is `vp test`. See `tools/kb/DESIGN.md`.
 
 ## Where To Edit
 

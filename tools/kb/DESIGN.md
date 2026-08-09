@@ -32,7 +32,8 @@ per-invocation CLI (fresh db each run); if we later add watch-mode or a server,
 The backend runs on **Bun** in production; the toolchain around it is **Vite+
 (`vp` 0.2.8) + TypeScript 7**. The two are deliberately separated:
 
-- **Bun is the production runtime.** `bin/kb` is `#!/usr/bin/env bun`; the
+- **Bun is the production runtime.** `bin/kb` is a bash shim
+  (`#!/usr/bin/env bash`) that `exec`s Bun on `src/surface/cli.ts`; the
   `kb ui` server uses `Bun.serve`/`Bun.ServerWebSocket`; the store streams with
   `Bun.file`/`Bun.write`; `Bun.hash` powers change detection. These are
   appropriate Bun APIs and stay.
@@ -46,14 +47,18 @@ The backend runs on **Bun** in production; the toolchain around it is **Vite+
     is not verified as a meaningful gate for this Bun/Effect tree. `--no-fmt`
     skips format; `vp fmt` remains available for incremental adoption)
   - `test` → `bun test` (Bun-dependent backend integration tests keep running
-    under Bun); the UI (`tools/kb/ui`) runs `vp test` under Vitest.
+    under Bun). Note: recursive `bun test` from `tools/kb` also discovers many
+    `ui/**/*.test.ts(x)` files — only the Vitest-only paths in `bunfig.toml`
+    are ignored — so a full backend `bun test` still needs `tools/kb/ui`
+    deps installed. The dedicated UI suite is `cd ui && vp test` (Vitest).
 - **Backend lint/check never enter `ui/`.** `tools/kb/vite.config.ts` sets
   `lint.ignorePatterns: ["ui/**", …]`. The browser app is its own Vite+
   package (`tools/kb/ui`) with separate install, `vp` config, and gates.
 - **Tests are split by runtime need.** Tests that exercise Bun APIs
   (`ui.test.ts`, `query-nodes.test.ts`, store round-trips) stay on `bun:test` —
   forcing them through vp/Vitest would require Bun APIs to exist under a node
-  worker. Everything else is Node-compatible and runs wherever it lands.
+  worker. UI component tests that need Vitest mock-hoist / happy-dom stay on
+  `vp test` (and are listed in `bunfig.toml` so recursive `bun test` skips them).
 - TypeScript 7 removed `baseUrl`; the UI tsconfig uses relative `paths`, and
   the backend tsconfig scopes to backend sources (`src`, `tests`,
   `extensions-bundled`) — it never compiles `ui/`.
