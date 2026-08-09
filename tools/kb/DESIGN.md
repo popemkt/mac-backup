@@ -218,11 +218,19 @@ output of any kind — lives in **extensions**:
 
 ## Surfaces
 
-- **CLI** (`commander`, `#!/usr/bin/env bun`): human commands + `kb action-invoke <json>`; `--json` everywhere.
+- **CLI** (`commander`, `#!/usr/bin/env bun`): human commands + `kb action-invoke <json>`; `--json` everywhere. Internal command orchestration is Effect (`resolveRootEffect` → `openKbEffect` → `runPlanEffect` / `invokeReceiptEffect`) with an `Effect.runPromise` + exit-code boundary at each Commander surface action (not a claim that the whole process has a single runPromise). Commander itself stays the argv contract.
 - **MCP** (`kb mcp`, `@modelcontextprotocol/sdk` stdio): loop manifest → one
-  tool per action → handler calls `registry.invoke`; `readOnlyHint` from mode.
+  tool per action → Effect handler (`callToolEffect` / resource Effects via `reloadEffect` + `invokeReceiptEffect`); `readOnlyHint` from mode. SDK request handlers remain Promise-returning; CallTool maps Fail/Die to `isError`, resource Fail/Die to JSON-RPC `-32603`.
 - **Agent onboarding**: CLAUDE.md/AGENTS.md section — node model, field/tag
   conventions, 5 example invocations.
+
+### Remaining Effect surface boundaries
+
+- `surface/ui/**` HTTP/WebSocket stays Promise-style (explicitly out of CLI/MCP scope).
+- Extension / action handlers remain `(ctx, input) => Promise` and are lifted
+  inside `invokeEffect` via `tryPromise` — nested Promise boundaries inside the
+  action registry are not migrated yet.
+- No `@effect/cli` adoption (Commander preserved by design).
 
 ## Repo integration
 

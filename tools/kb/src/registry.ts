@@ -9,7 +9,6 @@ import {
   succeeded,
 } from "./shared/contracts.ts";
 import type { KbContext } from "./context.ts";
-import { KbCtx, bunFileSystemLayer, kbStoreLayer } from "./context.ts";
 import { ResolveError } from "./foundation/resolve.ts";
 import {
   ActionSchemaError,
@@ -269,21 +268,34 @@ export const invokeEffect = Effect.fn("kb.invoke")(
 );
 
 /**
+ * Effect invoke that always succeeds with an {@link ActionReceipt}.
+ * Surfaces compose this inside Effect programs; typed failures from
+ * {@link invokeEffect} are mapped through the canonical receipt mapper.
+ */
+export const invokeReceiptEffect = Effect.fn("kb.invokeReceipt")(
+  function* (
+    ctx: KbContext,
+    invocation: ActionInvocation,
+  ): Effect.fn.Return<ActionReceipt> {
+    return yield* invokeEffect(ctx, invocation).pipe(
+      Effect.catch((err) =>
+        Effect.succeed(receiptFromError(invocation.id, err)),
+      ),
+    );
+  },
+);
+
+/**
  * Invoke an action. Never throws across this boundary — failures become receipts.
+ * Thin Promise compatibility edge over {@link invokeReceiptEffect}.
  */
 export async function invoke(
   ctx: KbContext,
   invocation: ActionInvocation,
 ): Promise<ActionReceipt> {
+  // invokeReceiptEffect has no Layer requirements (handlers run via tryPromise).
   const exit = await Effect.runPromiseExit(
-    invokeEffect(ctx, invocation).pipe(
-      Effect.provideService(KbCtx, ctx),
-      Effect.provide(kbStoreLayer(ctx.effectStore)),
-      Effect.provide(bunFileSystemLayer),
-      Effect.catch((err) =>
-        Effect.succeed(receiptFromError(invocation.id, err)),
-      ),
-    ),
+    invokeReceiptEffect(ctx, invocation),
   );
   if (Exit.isSuccess(exit)) return exit.value;
   return receiptFromError(invocation.id, Cause.squash(exit.cause));

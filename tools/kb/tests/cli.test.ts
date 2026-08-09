@@ -240,4 +240,48 @@ describe("cli e2e (tmpdir)", () => {
     const bad = await kb(["mv", "missing-id"]);
     expect(bad.code).toBe(2);
   });
+
+  test("action-invoke malformed JSON preserves JSON.parse diagnostics", async () => {
+    await kb(["init"]);
+    const bad = await kb(["action-invoke", "{not-json"]);
+    expect(bad.code).toBe(2);
+    const msg = `${bad.stderr}${bad.stdout}`;
+    expect(msg).toContain("invalid JSON:");
+    // Native JSON.parse wording (Bun/JS), not Schema's "valid JSON string".
+    expect(msg).toMatch(/JSON Parse error|Unexpected|Expected/i);
+    expect(msg).not.toContain("Expected a valid JSON string");
+  });
+
+  test("action-invoke stdin I/O failure exits 1, not UsageError 2", async () => {
+    await kb(["init"]);
+    const prevStdin = process.stdin;
+    const broken = {
+      [Symbol.asyncIterator]() {
+        return {
+          next() {
+            return Promise.reject(
+              new Error("EIO: simulated stdin failure"),
+            );
+          },
+        };
+      },
+    };
+    Object.defineProperty(process, "stdin", {
+      value: broken,
+      configurable: true,
+      writable: true,
+    });
+    try {
+      const result = await kb(["action-invoke", "-"]);
+      expect(result.code).toBe(1);
+      const msg = `${result.stderr}${result.stdout}`;
+      expect(msg).toContain("EIO: simulated stdin failure");
+    } finally {
+      Object.defineProperty(process, "stdin", {
+        value: prevStdin,
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
 });
