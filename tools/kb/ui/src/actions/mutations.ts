@@ -56,13 +56,31 @@ type PendingContent = {
 
 const pendingContent = new Map<string, PendingContent>();
 
-/** Re-apply in-flight debounced text so a resync cannot drop concurrent edits. */
-function reapplyPendingLocalEdits(excludeId?: string): void {
-  const store = useOutlineStore.getState();
-  for (const [id, pending] of pendingContent) {
-    if (excludeId !== undefined && id === excludeId) continue;
-    const plan = planUpdateText(store.wireNodes, id, pending.text);
-    store.applyTx(plan.upserts, plan.deletes);
+/**
+ * Re-apply every newer pending local text edit after a resync wipe.
+ * Node-local and independent: missing or unplannable ids are pruned and
+ * skipped so one failure never aborts the rest of the batch.
+ * Do not exclude the failed flush id — its map entry was already removed at
+ * timer fire, and any same-id entry present now is a newer in-flight re-edit.
+ */
+function reapplyPendingLocalEdits(): void {
+  for (const [id, pending] of [...pendingContent]) {
+    try {
+      const store = useOutlineStore.getState();
+      if (!store.wireNodes.some((n) => n.id === id)) {
+        clearTimeout(pending.timer);
+        pendingContent.delete(id);
+        continue;
+      }
+      const plan = planUpdateText(store.wireNodes, id, pending.text);
+      store.applyTx(plan.upserts, plan.deletes);
+    } catch {
+      const still = pendingContent.get(id);
+      if (still) {
+        clearTimeout(still.timer);
+        pendingContent.delete(id);
+      }
+    }
   }
 }
 
@@ -70,12 +88,10 @@ function reapplyPendingLocalEdits(excludeId?: string): void {
  * Failure recovery for the debounced text path.
  * Prefer a server resync, then restore only the failed node's pre-edit state
  * if resync itself fails — never replace the whole graph from a local snapshot.
- * Concurrent pending edits on other nodes are re-applied afterward.
+ * Concurrent pending edits (including a same-node re-edit made during the
+ * in-flight resync) are re-applied afterward.
  */
-async function resyncOrRestoreNode(
-  id: string,
-  preEdit: WireNode,
-): Promise<void> {
+async function resyncOrRestoreNode(preEdit: WireNode): Promise<void> {
   const store = useOutlineStore.getState();
   try {
     const { loadGraph } = await import("@/api/graph");
@@ -84,7 +100,7 @@ async function resyncOrRestoreNode(
   } catch {
     useOutlineStore.getState().applyTx([cloneWire(preEdit)], []);
   }
-  reapplyPendingLocalEdits(id);
+  reapplyPendingLocalEdits();
 }
 
 async function flushContentRemote(
@@ -99,11 +115,11 @@ async function flushContentRemote(
     const receipt = await postAction("node.update", { id, text: content });
     if (receipt.status === "failed") {
       toast(receipt.message);
-      await resyncOrRestoreNode(id, preEdit);
+      await resyncOrRestoreNode(preEdit);
     }
   } catch (err) {
     toast(err instanceof Error ? err.message : String(err));
-    await resyncOrRestoreNode(id, preEdit);
+    await resyncOrRestoreNode(preEdit);
   }
 }
 

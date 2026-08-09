@@ -162,4 +162,104 @@ describe("debounced text-save rollback", () => {
 
     restoreSpy.mockRestore();
   });
+
+  it("re-applies a same-node re-edit typed during in-flight resync", async () => {
+    const originalA = useOutlineStore.getState().nodes.get("n.root-a")!.text;
+    let resolveResync!: (value: {
+      snapshot: { rev: number; nodes: typeof fixtureGraph.nodes };
+      source: "api";
+    }) => void;
+    loadGraph.mockReturnValue(
+      new Promise((resolve) => {
+        resolveResync = resolve;
+      }),
+    );
+
+    setPostAction(async (inv) => {
+      const input = inv.input as { id: string };
+      if (input.id === "n.root-a") {
+        return {
+          status: "failed",
+          id: "node.update",
+          code: "internal",
+          message: "save failed",
+        };
+      }
+      return { status: "succeeded", id: "node.update", output: {} };
+    });
+
+    mutations.updateNodeContent("n.root-a", "edit1");
+    // Fire A's debounce → pendingContent.delete(A) → flush starts resync.
+    await vi.advanceTimersByTimeAsync(280);
+    expect(loadGraph).toHaveBeenCalled();
+
+    // User types a newer edit while resync is still in flight.
+    mutations.updateNodeContent("n.root-a", "edit2");
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(
+      "edit2",
+    );
+
+    resolveResync({
+      snapshot: {
+        rev: 2,
+        nodes: structuredClone(fixtureGraph.nodes),
+      },
+      source: "api",
+    });
+    await vi.advanceTimersByTimeAsync(0);
+
+    // Must keep the newer local edit — not the stale server original.
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(
+      "edit2",
+    );
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).not.toBe(
+      originalA,
+    );
+  });
+
+  it("skips a missing pending node without aborting sibling re-applies", async () => {
+    const originalC = useOutlineStore.getState().nodes.get("n.root-c")!.text;
+    const wireWithoutB = structuredClone(fixtureGraph.nodes).filter(
+      (n) => n.id !== "n.root-b",
+    );
+
+    loadGraph.mockResolvedValue({
+      snapshot: {
+        rev: 3,
+        nodes: wireWithoutB,
+      },
+      source: "api" as const,
+    });
+
+    setPostAction(async (inv) => {
+      const input = inv.input as { id: string };
+      if (input.id === "n.root-a") {
+        return {
+          status: "failed",
+          id: "node.update",
+          code: "internal",
+          message: "save failed",
+        };
+      }
+      return { status: "succeeded", id: "node.update", output: {} };
+    });
+
+    mutations.updateNodeContent("n.root-a", "failed-edit");
+    await vi.advanceTimersByTimeAsync(200);
+    // B stays pending; C also pending — B will be absent from post-resync wire.
+    mutations.updateNodeContent("n.root-b", "pending-deleted-server-side");
+    mutations.updateNodeContent("n.root-c", "sibling-must-survive");
+
+    // Must not reject / abort the batch when B is gone server-side.
+    await vi.advanceTimersByTimeAsync(80);
+
+    expect(loadGraph).toHaveBeenCalled();
+    expect(useOutlineStore.getState().nodes.get("n.root-b")).toBeUndefined();
+    expect(useOutlineStore.getState().nodes.get("n.root-c")?.text).toBe(
+      "sibling-must-survive",
+    );
+    expect(useOutlineStore.getState().nodes.get("n.root-c")?.text).not.toBe(
+      originalC,
+    );
+  });
 });
