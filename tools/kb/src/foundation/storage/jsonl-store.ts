@@ -5,7 +5,7 @@ import { domainError, type DomainError } from "../errors.ts";
 import type { KbNode } from "../model.ts";
 import { bunFileSystemLayer } from "../platform.ts";
 import { canonicalJson } from "./canonical.ts";
-import { KbNodeSchema } from "./node-schema.ts";
+import { KbNodeSchema, nodeParseOptions } from "./node-schema.ts";
 import type { EffectStore, Store, StoreTx } from "./store.ts";
 
 function mapFsError(err: { message?: string } | unknown): DomainError {
@@ -36,7 +36,12 @@ function decodeNodeLine(
           { path, lineNo },
         ),
     });
-    const node = yield* Schema.decodeUnknownEffect(KbNodeSchema)(raw).pipe(
+    // Preserve unknown own keys (prior JSON.parse cast kept them). Strip would
+    // silently drop data on the next commit rewrite.
+    const node = yield* Schema.decodeUnknownEffect(
+      KbNodeSchema,
+      nodeParseOptions,
+    )(raw).pipe(
       Effect.mapError((err) =>
         domainError(
           "invalid_input",
@@ -53,6 +58,10 @@ function decodeNodeLine(
  * JSONL backend: `<root>/.kb/nodes.jsonl`
  * One canonical-JSON node per line, sorted by id.
  * Commits are atomic (tmp + rename) and keep `nodes.jsonl.bak` of the prior file.
+ *
+ * Load is all-or-nothing: any malformed/invalid line fails the Effect with a
+ * line-numbered DomainError and returns no nodes — the file is never rewritten
+ * by load (compatible with the pre-Schema loader, which threw mid-parse).
  *
  * Effect-native I/O: {@link loadEffect}/{@link commitEffect} (yield* FileSystem).
  * Promise {@link load}/{@link commit} are public adapters for tests/context.
@@ -78,6 +87,8 @@ export class JsonlStore implements Store, EffectStore {
         .pipe(Effect.mapError(mapFsError));
       if (body.trim().length === 0) return [];
 
+      // Accumulate only after every line validates — fail the whole load on the
+      // first bad line (no partial KbNode[] for callers; no file mutation here).
       const nodes: KbNode[] = [];
       const lines = body.split("\n");
       for (let i = 0; i < lines.length; i++) {

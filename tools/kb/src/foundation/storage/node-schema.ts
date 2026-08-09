@@ -1,8 +1,13 @@
 import { Schema } from "effect";
+import type { ParseOptions } from "effect/SchemaAST";
 
 /**
  * Internal Effect Schema for JSONL node rows.
  * Surfaces/extensions keep zod + Standard Schema; this validates persistence only.
+ *
+ * Decode with {@link nodeParseOptions}: unknown own properties are preserved so a
+ * load→commit round-trip cannot silently drop fields the pre-Schema loader kept.
+ * Known KbNode fields stay typed; extras exist only at runtime.
  */
 
 const ScalarPropValue = Schema.Struct({
@@ -25,3 +30,8 @@ export const KbNodeSchema = Schema.Struct({
   createdAt: Schema.String,
   updatedAt: Schema.String,
 });
+
+/** Parse options for JSONL node decode (preserve excess own keys). */
+export const nodeParseOptions: ParseOptions = {
+  onExcessProperty: "preserve",
+};

@@ -134,8 +134,15 @@ interface Store {
   sorted by id, sorted keys → stable bytes, mergeable diffs.
 - **Performance is a stated requirement**: streaming line parse (no
   read-whole-string-then-split), single-pass datom build, atomic write
-  (tmp + rename). Milestone 1 includes a benchmark: 50k-node fixture must
-  load+query well under 1s. (Will peek at orca's jsonstore for tricks.)
+  (tmp + rename; prior file copied to `nodes.jsonl.bak`). Milestone 1 includes
+  a benchmark: 50k-node fixture must load+query well under 1s. (Will peek at
+  orca's jsonstore for tricks.) `.bak` / `nodes.jsonl.*.tmp` are gitignored —
+  only the live `nodes.jsonl` is committed.
+- **Load is all-or-nothing**: a malformed or schema-invalid line fails the load
+  with a line-numbered error and returns no nodes; load never rewrites the file
+  (same fail-closed posture as the pre-Schema `JSON.parse` loader). Unknown own
+  JSON properties on otherwise-valid nodes are preserved across decode so a later
+  commit cannot silently drop them.
 - Backend-agnostic by construction — operations/query/surfaces see only
   `Store` + `KbNode`. Future backends (SQLite cache, dolt, md-outline) slot in
   without touching upper layers.
