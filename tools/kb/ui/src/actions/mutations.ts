@@ -25,7 +25,7 @@ import {
 } from "@/actions/plan";
 import { toast } from "@/lib/toast";
 import { isSysPrefixed, WORKSPACE_ROOT_ID } from "@/lib/types";
-import { cloneWireNodes } from "@/lib/tx";
+import { cloneWire } from "@/lib/tx";
 import type { PropValue } from "@/lib/types";
 import type { WireNode } from "@kb/protocol";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -49,33 +49,48 @@ async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
 
 type PendingContent = {
   text: string;
-  snapshot: WireNode[];
+  /** Pre-edit wire node for this id only — never a whole-graph snapshot. */
+  preEdit: WireNode;
   timer: ReturnType<typeof setTimeout>;
 };
 
 const pendingContent = new Map<string, PendingContent>();
 
+/** Re-apply in-flight debounced text so a resync cannot drop concurrent edits. */
+function reapplyPendingLocalEdits(excludeId?: string): void {
+  const store = useOutlineStore.getState();
+  for (const [id, pending] of pendingContent) {
+    if (excludeId !== undefined && id === excludeId) continue;
+    const plan = planUpdateText(store.wireNodes, id, pending.text);
+    store.applyTx(plan.upserts, plan.deletes);
+  }
+}
+
 /**
- * Failure recovery for the debounced text path: other mutations may have
- * landed after this flush's snapshot was taken, so restoring the snapshot
- * would clobber them. Resync from the server (source of truth) instead;
- * fall back to the snapshot only if the resync itself fails.
+ * Failure recovery for the debounced text path.
+ * Prefer a server resync, then restore only the failed node's pre-edit state
+ * if resync itself fails — never replace the whole graph from a local snapshot.
+ * Concurrent pending edits on other nodes are re-applied afterward.
  */
-async function resyncOrRestore(snapshot: WireNode[]): Promise<void> {
+async function resyncOrRestoreNode(
+  id: string,
+  preEdit: WireNode,
+): Promise<void> {
   const store = useOutlineStore.getState();
   try {
     const { loadGraph } = await import("@/api/graph");
     const { snapshot: fresh, source } = await loadGraph();
     store.hydrateFromWire(fresh.nodes, fresh.rev, source);
   } catch {
-    store.restoreSnapshot(snapshot, store.rev);
+    useOutlineStore.getState().applyTx([cloneWire(preEdit)], []);
   }
+  reapplyPendingLocalEdits(id);
 }
 
 async function flushContentRemote(
   id: string,
   content: string,
-  snapshot: WireNode[],
+  preEdit: WireNode,
 ): Promise<void> {
   const store = useOutlineStore.getState();
   if (store.loadSource === "fixtures" || store.loadSource === null) return;
@@ -84,22 +99,30 @@ async function flushContentRemote(
     const receipt = await postAction("node.update", { id, text: content });
     if (receipt.status === "failed") {
       toast(receipt.message);
-      await resyncOrRestore(snapshot);
+      await resyncOrRestoreNode(id, preEdit);
     }
   } catch (err) {
     toast(err instanceof Error ? err.message : String(err));
-    await resyncOrRestore(snapshot);
+    await resyncOrRestoreNode(id, preEdit);
   }
 }
 
+/** @internal Clear debounce map between tests. */
+export function __resetPendingContentForTests(): void {
+  for (const pending of pendingContent.values()) clearTimeout(pending.timer);
+  pendingContent.clear();
+}
+
 export const mutations = {
-  /** Immediate local text apply; debounced remote POST with pre-edit revert. */
+  /** Immediate local text apply; debounced remote POST with per-node revert. */
   updateNodeContent(id: string, content: string): void {
     if (!guardSysWrite(id)) return;
 
     const store = useOutlineStore.getState();
     const prev = pendingContent.get(id);
-    const snapshot = prev?.snapshot ?? cloneWireNodes(store.wireNodes);
+    const existing = store.wireNodes.find((n) => n.id === id);
+    if (!existing && !prev) return;
+    const preEdit = prev?.preEdit ?? cloneWire(existing!);
 
     const plan = planUpdateText(store.wireNodes, id, content);
     store.applyTx(plan.upserts, plan.deletes);
@@ -107,10 +130,10 @@ export const mutations = {
     if (prev) clearTimeout(prev.timer);
     pendingContent.set(id, {
       text: content,
-      snapshot,
+      preEdit,
       timer: setTimeout(() => {
         pendingContent.delete(id);
-        void flushContentRemote(id, content, snapshot);
+        void flushContentRemote(id, content, preEdit);
       }, 280),
     });
   },
