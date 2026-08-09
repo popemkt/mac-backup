@@ -5,10 +5,32 @@ export type {
 } from "./foundation/model.ts";
 export { SYSTEM_IDS, isSysPrefixed } from "./foundation/model.ts";
 export { JsonlStore, canonicalJson } from "./foundation/storage/index.ts";
-export { openKb, type KbContext } from "./context.ts";
+export {
+  openKb,
+  openKbEffect,
+  persistEffect,
+  reloadEffect,
+  runWithKb,
+  KbCtx,
+  KbStore,
+  type KbContext,
+} from "./context.ts";
+export {
+  DomainError,
+  domainError,
+  domainFromResolve,
+  isDomainError,
+} from "./foundation/errors.ts";
+export {
+  parseActionInput,
+  isActionSchema,
+  isStandardSchemaV1,
+  type ActionSchema,
+} from "./foundation/schema-seam.ts";
 export {
   manifest,
   invoke,
+  invokeEffect,
   listDefinitions,
   registryFor,
   resetRegistryCache,

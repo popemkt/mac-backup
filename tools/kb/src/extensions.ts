@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { ActionDefinition } from "./shared/contracts.ts";
 import type { KbContext } from "./context.ts";
+import { isActionSchema } from "./foundation/schema-seam.ts";
 
 /**
  * Extension seam: a TS module in `.kb/extensions/` (repo-local = trusted)
@@ -10,6 +11,9 @@ import type { KbContext } from "./context.ts";
  * plus a `handler`. The registry namespaces each action id as
  * `ext.<file>.<action>` at build time. Loader failures warn and skip the
  * offending file/action; they never crash core.
+ *
+ * Schemas accept Standard Schema v1 (`~standard`) or zod `.parse` (zod 4
+ * implements both).
  */
 export interface ExtensionAction extends ActionDefinition {
   // The registry parses inputSchema before calling; `never` keeps any
@@ -58,9 +62,8 @@ function actionProblem(value: unknown): string | null {
     return `action ${a.id}: mode must be "read" or "apply"`;
   }
   for (const key of ["inputSchema", "outputSchema"] as const) {
-    const schema = a[key] as { parse?: unknown } | null | undefined;
-    if (typeof schema?.parse !== "function") {
-      return `action ${a.id}: ${key} must be a zod schema`;
+    if (!isActionSchema(a[key])) {
+      return `action ${a.id}: ${key} must be a Standard Schema v1 or zod schema`;
     }
   }
   if (typeof a.handler !== "function") {
