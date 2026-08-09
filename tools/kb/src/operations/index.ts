@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import { z } from "zod";
 import { ulid } from "ulid";
 import type { ActionDefinition } from "../shared/contracts.ts";
@@ -14,9 +15,28 @@ import {
   resolveFieldId,
   resolveTagId,
 } from "../foundation/resolve.ts";
+import {
+  domainError,
+  domainFromResolve,
+  type DomainError,
+} from "../foundation/errors.ts";
 import type { KbContext } from "../context.ts";
-import { persist } from "../context.ts";
+import { KbCtx, persistEffect, runWithKb } from "../context.ts";
 import { pull, query } from "../foundation/query/index.ts";
+
+/** Lift sync resolve/throw helpers into DomainError. */
+function syncDomain<A>(f: () => A): Effect.Effect<A, DomainError> {
+  return Effect.try({
+    try: f,
+    catch: (err) => {
+      if (err instanceof ResolveError) return domainFromResolve(err);
+      return domainError(
+        "internal",
+        err instanceof Error ? err.message : String(err),
+      );
+    },
+  });
+}
 
 const PropInputSchema = z.object({
   field: z.string(),
@@ -250,44 +270,59 @@ export function pullSubtree(
   return walk(node, depth);
 }
 
+export const nodeAddEffect = Effect.fn("node.add")(
+  function* (
+    input: z.infer<typeof nodeAddDef.inputSchema>,
+  ): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbCtx> {
+    const ctx = yield* KbCtx;
+    const at = nowIso();
+    const id = input.id ?? ulid();
+    if (nodeById(ctx, id)) {
+      return yield* domainError("ambiguous", `node id already exists: ${id}`, {
+        id,
+      });
+    }
+
+    const props: Record<NodeId, PropValue[]> = {};
+    yield* syncDomain(() => {
+      if (input.props) applyProps(ctx, props, input.props);
+      if (input.tags) {
+        for (const tagName of input.tags) {
+          const tagId = resolveTagId(ctx.nodes, tagName);
+          const list = props[SYSTEM_IDS.typeField] ?? [];
+          list.push({ t: "ref", v: tagId });
+          props[SYSTEM_IDS.typeField] = list;
+        }
+      }
+    });
+
+    const node: KbNode = {
+      id,
+      text: input.text,
+      props,
+      children: [],
+      createdAt: at,
+      updatedAt: at,
+    };
+
+    const upserts: KbNode[] = [node];
+    if (input.parent) {
+      const parent = yield* syncDomain(() =>
+        cloneNode(requireNode(ctx, input.parent!)),
+      );
+      upserts.push(insertChild(parent, id, input.position));
+    }
+
+    yield* persistEffect(ctx, { upserts, deletes: [] });
+    return { id, node };
+  },
+);
+
 export async function nodeAdd(
   ctx: KbContext,
   input: z.infer<typeof nodeAddDef.inputSchema>,
 ): Promise<{ id: string; node: KbNode }> {
-  const at = nowIso();
-  const id = input.id ?? ulid();
-  if (nodeById(ctx, id)) {
-    throw new ResolveError("ambiguous", `node id already exists: ${id}`, { id });
-  }
-
-  const props: Record<NodeId, PropValue[]> = {};
-  if (input.props) applyProps(ctx, props, input.props);
-  if (input.tags) {
-    for (const tagName of input.tags) {
-      const tagId = resolveTagId(ctx.nodes, tagName);
-      const list = props[SYSTEM_IDS.typeField] ?? [];
-      list.push({ t: "ref", v: tagId });
-      props[SYSTEM_IDS.typeField] = list;
-    }
-  }
-
-  const node: KbNode = {
-    id,
-    text: input.text,
-    props,
-    children: [],
-    createdAt: at,
-    updatedAt: at,
-  };
-
-  const upserts: KbNode[] = [node];
-  if (input.parent) {
-    const parent = cloneNode(requireNode(ctx, input.parent));
-    upserts.push(insertChild(parent, id, input.position));
-  }
-
-  await persist(ctx, { upserts, deletes: [] });
-  return { id, node };
+  return runWithKb(ctx, nodeAddEffect(input));
 }
 
 function assertSysWriteAllowed(
@@ -310,159 +345,208 @@ function assertSysWriteAllowed(
   );
 }
 
+export const nodeUpdateEffect = Effect.fn("node.update")(
+  function* (
+    input: z.infer<typeof nodeUpdateDef.inputSchema>,
+  ): Effect.fn.Return<
+    { id: string; deleted?: boolean; node?: KbNode },
+    DomainError,
+    KbCtx
+  > {
+    const ctx = yield* KbCtx;
+    yield* syncDomain(() => assertSysWriteAllowed(input.id, input));
+
+    if (input.delete) {
+      const upserts = detachFromParents(ctx.nodes, input.id);
+      yield* persistEffect(ctx, { upserts, deletes: [input.id] });
+      return { id: input.id, deleted: true };
+    }
+
+    const node = yield* syncDomain(() => cloneNode(requireNode(ctx, input.id)));
+    const upserts: KbNode[] = [];
+
+    yield* syncDomain(() => {
+      if (input.text !== undefined) node.text = input.text;
+      if (input.setProps) applyProps(ctx, node.props, input.setProps);
+      if (input.unsetProps) {
+        for (const u of input.unsetProps) {
+          const fieldId = resolveFieldId(ctx.nodes, u.field);
+          if (u.value === undefined) {
+            delete node.props[fieldId];
+          } else {
+            const list = node.props[fieldId] ?? [];
+            node.props[fieldId] = list.filter(
+              (pv) => JSON.stringify(pv) !== JSON.stringify(u.value),
+            );
+            if (node.props[fieldId]!.length === 0) delete node.props[fieldId];
+          }
+        }
+      }
+    });
+
+    if (input.parent !== undefined) {
+      if (
+        input.parent !== null &&
+        isInSubtree(ctx.nodes, input.id, input.parent)
+      ) {
+        return yield* domainError(
+          "invalid_move",
+          `cannot move ${input.id} under itself or its own descendant ${input.parent}`,
+          { id: input.id, parent: input.parent },
+        );
+      }
+      upserts.push(...detachFromParents(ctx.nodes, input.id));
+      if (input.parent !== null) {
+        const parent = yield* syncDomain(
+          () =>
+            upserts.find((n) => n.id === input.parent) ??
+            cloneNode(requireNode(ctx, input.parent!)),
+        );
+        const updated = insertChild(parent, input.id, input.position);
+        const idx = upserts.findIndex((n) => n.id === parent.id);
+        if (idx >= 0) upserts[idx] = updated;
+        else upserts.push(updated);
+      }
+    } else if (input.position !== undefined) {
+      const parent = ctx.nodes.find((n) => n.children.includes(input.id));
+      if (parent) {
+        const c = cloneNode(parent);
+        c.children = c.children.filter((id) => id !== input.id);
+        const pos = Math.min(input.position, c.children.length);
+        c.children = [
+          ...c.children.slice(0, pos),
+          input.id,
+          ...c.children.slice(pos),
+        ];
+        c.updatedAt = nowIso();
+        upserts.push(c);
+      }
+    }
+
+    node.updatedAt = nowIso();
+    upserts.push(node);
+    yield* persistEffect(ctx, { upserts, deletes: [] });
+    return { id: input.id, node };
+  },
+);
+
 export async function nodeUpdate(
   ctx: KbContext,
   input: z.infer<typeof nodeUpdateDef.inputSchema>,
 ): Promise<{ id: string; deleted?: boolean; node?: KbNode }> {
-  assertSysWriteAllowed(input.id, input);
-
-  if (input.delete) {
-    const upserts = detachFromParents(ctx.nodes, input.id);
-    // also detach this node's children? keep children as orphans (explicit)
-    await persist(ctx, { upserts, deletes: [input.id] });
-    return { id: input.id, deleted: true };
-  }
-
-  const node = cloneNode(requireNode(ctx, input.id));
-  const upserts: KbNode[] = [];
-
-  if (input.text !== undefined) node.text = input.text;
-  if (input.setProps) applyProps(ctx, node.props, input.setProps);
-  if (input.unsetProps) {
-    for (const u of input.unsetProps) {
-      const fieldId = resolveFieldId(ctx.nodes, u.field);
-      if (u.value === undefined) {
-        delete node.props[fieldId];
-      } else {
-        const list = node.props[fieldId] ?? [];
-        node.props[fieldId] = list.filter(
-          (pv) => JSON.stringify(pv) !== JSON.stringify(u.value),
-        );
-        if (node.props[fieldId]!.length === 0) delete node.props[fieldId];
-      }
-    }
-  }
-
-  if (input.parent !== undefined) {
-    if (
-      input.parent !== null &&
-      isInSubtree(ctx.nodes, input.id, input.parent)
-    ) {
-      throw new ResolveError(
-        "invalid_move",
-        `cannot move ${input.id} under itself or its own descendant ${input.parent}`,
-        { id: input.id, parent: input.parent },
-      );
-    }
-    upserts.push(...detachFromParents(ctx.nodes, input.id));
-    if (input.parent !== null) {
-      const parent =
-        upserts.find((n) => n.id === input.parent) ??
-        cloneNode(requireNode(ctx, input.parent));
-      const updated = insertChild(parent, input.id, input.position);
-      const idx = upserts.findIndex((n) => n.id === parent.id);
-      if (idx >= 0) upserts[idx] = updated;
-      else upserts.push(updated);
-    }
-  } else if (input.position !== undefined) {
-    // reorder within current parent
-    const parent = ctx.nodes.find((n) => n.children.includes(input.id));
-    if (parent) {
-      const c = cloneNode(parent);
-      c.children = c.children.filter((id) => id !== input.id);
-      const pos = Math.min(input.position, c.children.length);
-      c.children = [
-        ...c.children.slice(0, pos),
-        input.id,
-        ...c.children.slice(pos),
-      ];
-      c.updatedAt = nowIso();
-      upserts.push(c);
-    }
-  }
-
-  node.updatedAt = nowIso();
-  upserts.push(node);
-  await persist(ctx, { upserts, deletes: [] });
-  return { id: input.id, node };
+  return runWithKb(ctx, nodeUpdateEffect(input));
 }
+
+export const nodeGetEffect = Effect.fn("node.get")(
+  function* (
+    input: z.infer<typeof nodeGetDef.inputSchema>,
+  ): Effect.fn.Return<{ node: unknown }, DomainError, KbCtx> {
+    const ctx = yield* KbCtx;
+    yield* syncDomain(() => requireNode(ctx, input.id));
+    const node = pullSubtree(ctx, input.id, input.depth);
+    if (input.depth <= 1) {
+      void pull(ctx.qdb, subtreePattern(input.depth), input.id);
+    }
+    return { node };
+  },
+);
 
 export async function nodeGet(
   ctx: KbContext,
   input: z.infer<typeof nodeGetDef.inputSchema>,
 ): Promise<{ node: unknown }> {
-  requireNode(ctx, input.id);
-  // Prefer our ordered subtree; also exercise datascript pull for shallow
-  const node = pullSubtree(ctx, input.id, input.depth);
-  if (input.depth <= 1) {
-    // keep datascript pull path warm / validated
-    void pull(ctx.qdb, subtreePattern(input.depth), input.id);
-  }
-  return { node };
+  return runWithKb(ctx, nodeGetEffect(input));
 }
+
+export const fieldDefineEffect = Effect.fn("field.define")(
+  function* (
+    input: z.infer<typeof fieldDefineDef.inputSchema>,
+  ): Effect.fn.Return<{ id: string }, DomainError, KbCtx> {
+    const ctx = yield* KbCtx;
+    const existing = ctx.nodes.filter(
+      (n) =>
+        n.text === input.name &&
+        (n.props[SYSTEM_IDS.typeField] ?? []).some(
+          (v) => v.t === "ref" && v.v === SYSTEM_IDS.field,
+        ),
+    );
+    if (existing.length > 0 && !input.id) {
+      return yield* domainError("ambiguous", `field already exists: ${input.name}`, {
+        ids: existing.map((e) => e.id),
+      });
+    }
+    const result = yield* nodeAddEffect({
+      id: input.id,
+      text: input.name,
+      props: [
+        {
+          field: SYSTEM_IDS.typeField,
+          value: { t: "ref", v: SYSTEM_IDS.field },
+        },
+      ],
+    });
+    return { id: result.id };
+  },
+);
 
 export async function fieldDefine(
   ctx: KbContext,
   input: z.infer<typeof fieldDefineDef.inputSchema>,
 ): Promise<{ id: string }> {
-  const existing = ctx.nodes.filter(
-    (n) =>
-      n.text === input.name &&
-      (n.props[SYSTEM_IDS.typeField] ?? []).some(
-        (v) => v.t === "ref" && v.v === SYSTEM_IDS.field,
-      ),
-  );
-  if (existing.length > 0 && !input.id) {
-    throw new ResolveError(
-      "ambiguous",
-      `field already exists: ${input.name}`,
-      { ids: existing.map((e) => e.id) },
-    );
-  }
-  const result = await nodeAdd(ctx, {
-    id: input.id,
-    text: input.name,
-    props: [
+  return runWithKb(ctx, fieldDefineEffect(input));
+}
+
+export const tagDefineEffect = Effect.fn("tag.define")(
+  function* (
+    input: z.infer<typeof tagDefineDef.inputSchema>,
+  ): Effect.fn.Return<{ id: string }, DomainError, KbCtx> {
+    const ctx = yield* KbCtx;
+    const props: z.infer<typeof PropInputSchema>[] = [
       {
         field: SYSTEM_IDS.typeField,
-        value: { t: "ref", v: SYSTEM_IDS.field },
+        value: { t: "ref", v: SYSTEM_IDS.tag },
       },
-    ],
-  });
-  return { id: result.id };
-}
+    ];
+    yield* syncDomain(() => {
+      if (input.fields) {
+        for (const f of input.fields) {
+          const fieldId = resolveFieldId(ctx.nodes, f);
+          props.push({
+            field: SYSTEM_IDS.fieldsField,
+            value: { t: "ref", v: fieldId },
+          });
+        }
+      }
+    });
+    const result = yield* nodeAddEffect({
+      id: input.id,
+      text: input.name,
+      props,
+    });
+    return { id: result.id };
+  },
+);
 
 export async function tagDefine(
   ctx: KbContext,
   input: z.infer<typeof tagDefineDef.inputSchema>,
 ): Promise<{ id: string }> {
-  const props: z.infer<typeof PropInputSchema>[] = [
-    {
-      field: SYSTEM_IDS.typeField,
-      value: { t: "ref", v: SYSTEM_IDS.tag },
-    },
-  ];
-  if (input.fields) {
-    for (const f of input.fields) {
-      const fieldId = resolveFieldId(ctx.nodes, f);
-      props.push({
-        field: SYSTEM_IDS.fieldsField,
-        value: { t: "ref", v: fieldId },
-      });
-    }
-  }
-  const result = await nodeAdd(ctx, {
-    id: input.id,
-    text: input.name,
-    props,
-  });
-  return { id: result.id };
+  return runWithKb(ctx, tagDefineEffect(input));
 }
+
+export const graphQueryEffect = Effect.fn("graph.query")(
+  function* (
+    input: z.infer<typeof graphQueryDef.inputSchema>,
+  ): Effect.fn.Return<{ rows: unknown }, DomainError, KbCtx> {
+    const ctx = yield* KbCtx;
+    const rows = query(ctx.qdb, input.query, ...(input.inputs ?? []));
+    return { rows };
+  },
+);
 
 export async function graphQuery(
   ctx: KbContext,
   input: z.infer<typeof graphQueryDef.inputSchema>,
 ): Promise<{ rows: unknown }> {
-  const rows = query(ctx.qdb, input.query, ...(input.inputs ?? []));
-  return { rows };
+  return runWithKb(ctx, graphQueryEffect(input));
 }

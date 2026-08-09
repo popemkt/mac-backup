@@ -1,11 +1,29 @@
+import { Effect } from "effect";
 import { z } from "zod";
 import type { KbContext } from "../context.ts";
+import { KbCtx, runWithKb } from "../context.ts";
 import type { ActionDefinition } from "../shared/contracts.ts";
 import {
+  domainError,
+  type DomainError,
+} from "../foundation/errors.ts";
+import {
+  DocsError,
   GENERATED_HEADER,
   loadViews,
   renderView,
 } from "../operations/docs/index.ts";
+
+type RenderError = DomainError | DocsError;
+
+function mapRenderErr(err: unknown): RenderError {
+  if (err instanceof DocsError) return err;
+  if (err instanceof DomainError) return err;
+  return domainError(
+    "internal",
+    err instanceof Error ? err.message : String(err),
+  );
+}
 
 /**
  * Shared render backbone: named view (query + template) -> md or html.
@@ -67,29 +85,61 @@ const HTML_SHELL_STYLE =
  * Render a saved view (.kb/views/<name>.json) as md (materializer bytes,
  * including the generated header) or as a self-contained html page.
  */
+export const renderNamedViewEffect = Effect.fn("render.namedView")(
+  function* (
+    viewName: string,
+    format: RenderFormat,
+  ): Effect.fn.Return<RenderedView, RenderError, KbCtx> {
+    const ctx = yield* KbCtx;
+    const views = yield* Effect.tryPromise({
+      try: () => loadViews(ctx.root, viewName),
+      catch: mapRenderErr,
+    });
+    const view = views[0];
+    if (!view) {
+      return yield* Effect.fail(
+        new DocsError("not_found", `view not found: ${viewName}`, { viewName }),
+      );
+    }
+    const md = yield* Effect.tryPromise({
+      try: () => renderView(ctx, view),
+      catch: mapRenderErr,
+    });
+    if (format === "md") {
+      return { name: viewName, format, content: md };
+    }
+    const body = md.replace(GENERATED_HEADER, "").trim();
+    const html = [
+      `<!doctype html><meta charset="utf-8"><title>kb: ${escapeHtml(viewName)}</title>`,
+      `<body style="${HTML_SHELL_STYLE}">`,
+      mdToHtml(body),
+      "</body>",
+    ].join("\n");
+    return { name: viewName, format, content: html };
+  },
+);
+
 export async function renderNamedView(
   ctx: KbContext,
   viewName: string,
   format: RenderFormat,
 ): Promise<RenderedView> {
-  const [view] = await loadViews(ctx.root, viewName);
-  const md = await renderView(ctx, view!);
-  if (format === "md") {
-    return { name: viewName, format, content: md };
-  }
-  const body = md.replace(GENERATED_HEADER, "").trim();
-  const html = [
-    `<!doctype html><meta charset="utf-8"><title>kb: ${escapeHtml(viewName)}</title>`,
-    `<body style="${HTML_SHELL_STYLE}">`,
-    mdToHtml(body),
-    "</body>",
-  ].join("\n");
-  return { name: viewName, format, content: html };
+  return runWithKb(ctx, renderNamedViewEffect(viewName, format));
 }
 
+export const listViewNamesEffect = Effect.fn("render.listViews")(
+  function* (): Effect.fn.Return<string[], RenderError, KbCtx> {
+    const ctx = yield* KbCtx;
+    const views = yield* Effect.tryPromise({
+      try: () => loadViews(ctx.root),
+      catch: mapRenderErr,
+    });
+    return views.map((v) => v.name).sort();
+  },
+);
+
 export async function listViewNames(ctx: KbContext): Promise<string[]> {
-  const views = await loadViews(ctx.root);
-  return views.map((v) => v.name).sort();
+  return runWithKb(ctx, listViewNamesEffect());
 }
 
 // ── registry actions: the render backbone exposed over /api/action ──────
@@ -120,15 +170,29 @@ export const renderViewsDef = {
   outputSchema: z.object({ views: z.array(z.string()) }),
 } satisfies ActionDefinition;
 
+export const renderViewActionEffect = Effect.fn("render.view")(
+  function* (
+    input: z.infer<typeof renderViewDef.inputSchema>,
+  ): Effect.fn.Return<RenderedView, RenderError, KbCtx> {
+    return yield* renderNamedViewEffect(input.name, input.format);
+  },
+);
+
 export async function renderViewAction(
   ctx: KbContext,
   input: z.infer<typeof renderViewDef.inputSchema>,
 ): Promise<RenderedView> {
-  return renderNamedView(ctx, input.name, input.format);
+  return runWithKb(ctx, renderViewActionEffect(input));
 }
+
+export const renderViewsActionEffect = Effect.fn("render.views")(
+  function* (): Effect.fn.Return<{ views: string[] }, RenderError, KbCtx> {
+    return { views: yield* listViewNamesEffect() };
+  },
+);
 
 export async function renderViewsAction(
   ctx: KbContext,
 ): Promise<{ views: string[] }> {
-  return { views: await listViewNames(ctx) };
+  return runWithKb(ctx, renderViewsActionEffect());
 }
