@@ -10,6 +10,7 @@ import { OutlineEditor } from "@/components/outline/outline-editor";
 import { ViewFilterPopoverHost } from "@/components/outline/view-filter-popover";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { Sidebar, SidebarToggle } from "@/components/sidebar/sidebar";
+import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
 import { matchRoute, usePath } from "@/lib/router";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -139,15 +140,24 @@ function OutlineShell({
         <div className="p-6 text-destructive">{error}</div>
       ) : onCanvas ? (
         <main className="min-h-0 flex-1 overflow-hidden">
-          <Suspense
-            fallback={
-              <div className="p-6 text-[13px] text-foreground/40">
-                Loading canvas…
-              </div>
-            }
+          <ViewErrorBoundary
+            title="Canvas crashed"
+            resetKey={canvasId ?? "canvas-list"}
           >
-            {canvasId ? <CanvasPage canvasId={canvasId} /> : <CanvasListPage />}
-          </Suspense>
+            <Suspense
+              fallback={
+                <div className="p-6 text-[13px] text-foreground/40">
+                  Loading canvas…
+                </div>
+              }
+            >
+              {canvasId ? (
+                <CanvasPage canvasId={canvasId} />
+              ) : (
+                <CanvasListPage />
+              )}
+            </Suspense>
+          </ViewErrorBoundary>
         </main>
       ) : (
         <main className="min-h-0 flex-1 overflow-auto">
@@ -237,15 +247,20 @@ export function App() {
           ) : status === "error" ? (
             <div className="p-6 text-destructive">{error}</div>
           ) : (
-            <Suspense
-              fallback={
-                <div className="p-6 text-[13px] text-foreground/40">
-                  loading graph…
-                </div>
-              }
+            <ViewErrorBoundary
+              title="Graph crashed"
+              resetKey={route.perspectiveId ?? "graph"}
             >
-              <GraphPage perspectiveId={route.perspectiveId} />
-            </Suspense>
+              <Suspense
+                fallback={
+                  <div className="p-6 text-[13px] text-foreground/40">
+                    loading graph…
+                  </div>
+                }
+              >
+                <GraphPage perspectiveId={route.perspectiveId} />
+              </Suspense>
+            </ViewErrorBoundary>
           )
         ) : (
           <OutlineShell
