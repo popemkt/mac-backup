@@ -1,7 +1,6 @@
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { dirname, join, resolve } from "node:path";
-import { bunFileSystemLayer } from "../foundation/platform.ts";
 
 /**
  * Resolve the kb repo root (Effect).
@@ -34,19 +33,6 @@ export const resolveRootEffect = Effect.fn("kb.resolveRoot")(
     );
   },
 );
-
-/**
- * Promise compatibility shim over {@link resolveRootEffect}.
- * Kept for external importers; CLI/MCP call {@link resolveRootEffect} at their
- * Effect boundaries and do not use this entrypoint.
- */
-export async function resolveRoot(
-  opts: { root?: string; cwd?: string; allowCreate?: boolean } = {},
-): Promise<string> {
-  return Effect.runPromise(
-    resolveRootEffect(opts).pipe(Effect.provide(bunFileSystemLayer)),
-  );
-}
 
 export class RootNotFoundError extends Error {
   constructor(message: string) {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { Command, CommanderError } from "commander";
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
 import {
@@ -238,20 +238,30 @@ function handleCliError(err: unknown, json: boolean): number {
   return EXIT_FAILED;
 }
 
-const ActionJsonUnknown = Schema.fromJsonString(Schema.Unknown);
-
-function decodeActionJson(text: string): Effect.Effect<unknown, UsageError> {
-  return Schema.decodeUnknownEffect(ActionJsonUnknown)(text).pipe(
-    Effect.mapError(
-      (err) =>
-        new UsageError(
-          `invalid JSON: ${err instanceof Error ? err.message : String(err)}`,
-        ),
-    ),
-  );
+/**
+ * Parse action-invoke JSON text with native JSON.parse diagnostics, then leave
+ * structural/action Schema validation to mapActionInvoke + invokeReceiptEffect.
+ */
+function parseActionJson(text: string): Effect.Effect<unknown, UsageError> {
+  return Effect.try({
+    try: () => JSON.parse(text) as unknown,
+    catch: (err) =>
+      err instanceof SyntaxError
+        ? new UsageError(`invalid JSON: ${err.message}`)
+        : new UsageError(
+            `invalid JSON: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+  });
 }
 
-function readActionJsonEffect(arg: string): Effect.Effect<unknown, UsageError> {
+/**
+ * Read action-invoke JSON from an argv blob or stdin ("-").
+ * Empty stdin → UsageError (exit 2). Genuine stdin I/O failures stay plain
+ * Error (exit 1), matching pre-Effect CLI behavior.
+ */
+function readActionJsonEffect(
+  arg: string,
+): Effect.Effect<unknown, UsageError | Error> {
   if (arg === "-") {
     return Effect.gen(function* () {
       const text = yield* Effect.tryPromise({
@@ -263,15 +273,15 @@ function readActionJsonEffect(arg: string): Effect.Effect<unknown, UsageError> {
           return Buffer.concat(chunks).toString("utf8").trim();
         },
         catch: (err) =>
-          new UsageError(err instanceof Error ? err.message : String(err)),
+          err instanceof Error ? err : new Error(String(err)),
       });
       if (!text) {
         return yield* Effect.fail(new UsageError("action-invoke: empty stdin"));
       }
-      return yield* decodeActionJson(text);
+      return yield* parseActionJson(text);
     });
   }
-  return decodeActionJson(arg);
+  return parseActionJson(arg);
 }
 
 export function buildProgram(): Command {

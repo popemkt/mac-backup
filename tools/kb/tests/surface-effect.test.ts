@@ -13,11 +13,13 @@ import { invokeReceiptEffect } from "../src/registry.ts";
 import { runPlanEffect } from "../src/surface/cli.ts";
 import { mapAdd, mapGet } from "../src/surface/map.ts";
 import type { ManifestEntry } from "../src/registry.ts";
+import { resetRegistryCache } from "../src/registry.ts";
 import {
   callToolEffect,
   containToolResult,
   createMcpServer,
   mcpInternalError,
+  runResourceHandler,
   type McpToolContext,
 } from "../src/surface/mcp.ts";
 import { resolveRootEffect, RootNotFoundError } from "../src/surface/root.ts";
@@ -27,6 +29,11 @@ import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-surface-effect-"));
+}
+
+/** Under tests/ so fixture extensions resolve zod via tools/kb/node_modules. */
+async function tempExtRoot(): Promise<string> {
+  return mkdtemp(join(import.meta.dir, "kb-surface-effect-"));
 }
 
 describe("CLI Effect surface", () => {
@@ -66,9 +73,9 @@ describe("CLI Effect surface", () => {
     expect(caught).toBeInstanceOf(RootNotFoundError);
   });
 
-  test("Fiber.interrupt cancels an in-flight surface Effect before completion", async () => {
-    // Honest scope: Effect fibers are interruptible. This does not claim
-    // Commander/MCP Promise edges wire abort signals into running actions.
+  test("Effect runtime: Fiber.interrupt prevents completion (not surface wiring)", async () => {
+    // Lifecycle guarantee of the Effect runtime only — does not exercise
+    // Commander/MCP surfaces or claim abort signals reach running actions.
     let completed = false;
     const fiber = Effect.runFork(
       Effect.gen(function* () {
@@ -203,7 +210,20 @@ describe("MCP Effect surface", () => {
     expect(err.message).toContain("resource-defect");
   });
 
-  test("resource Fail/Die surfaces as McpError -32603 to the client", async () => {
+  test("runResourceHandler Die defect canonicalizes to numeric -32603", async () => {
+    try {
+      await runResourceHandler(Effect.die(new Error("injected-resource-die")));
+      expect.unreachable("expected McpError");
+    } catch (err) {
+      expect(err).toBeInstanceOf(McpError);
+      expect(typeof (err as McpError).code).toBe("number");
+      expect((err as McpError).code).toBe(-32603);
+      expect((err as McpError).code).toBe(ErrorCode.InternalError);
+      expect((err as McpError).message).toContain("injected-resource-die");
+    }
+  });
+
+  test("resource Fail surfaces as McpError -32603 to the client", async () => {
     root = await tempRoot();
     const server = await createMcpServer(root);
     const client = new Client({ name: "surface-effect", version: "0.0.0" });
@@ -219,8 +239,83 @@ describe("MCP Effect surface", () => {
       expect.unreachable("expected McpError");
     } catch (err) {
       expect(err).toBeInstanceOf(McpError);
+      expect(typeof (err as McpError).code).toBe("number");
       expect((err as McpError).code).toBe(-32603);
     }
+
+    await client.close();
+    await server.close();
+  });
+
+  test("CallTool e2e: registered rejecting handler becomes isError", async () => {
+    root = await tempExtRoot();
+    await mkdir(join(root, ".kb", "extensions"), { recursive: true });
+    await writeFile(
+      join(root, ".kb", "extensions", "boom.ts"),
+      `import { z } from "zod";
+export default [{
+  id: "reject",
+  title: "Reject",
+  description: "test rejecting handler",
+  mode: "read",
+  inputSchema: z.object({}),
+  outputSchema: z.unknown(),
+  handler: async () => { throw new Error("injected-handler-reject"); },
+}];
+`,
+    );
+    resetRegistryCache();
+    const server = await createMcpServer(root);
+    const client = new Client({ name: "surface-effect", version: "0.0.0" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      client.connect(clientTransport),
+      server.connect(serverTransport),
+    ]);
+
+    const result = await client.callTool({
+      name: "ext_boom_reject",
+      arguments: {},
+    });
+    expect(result.isError).toBe(true);
+    const body = JSON.parse(
+      (result.content as { text: string }[])[0]!.text,
+    ) as { code: string; message: string };
+    expect(body.message).toContain("injected-handler-reject");
+
+    await client.close();
+    await server.close();
+    resetRegistryCache();
+  });
+
+  test("render_view advertised inputSchema accepts null format", async () => {
+    root = await tempRoot();
+    const server = await createMcpServer(root);
+    const client = new Client({ name: "surface-effect", version: "0.0.0" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      client.connect(clientTransport),
+      server.connect(serverTransport),
+    ]);
+
+    const listed = await client.listTools();
+    const renders = listed.tools.filter((t) => t.name === "render_view");
+    expect(renders).toHaveLength(1);
+    const format = (
+      renders[0]!.inputSchema as {
+        properties?: {
+          format?: { anyOf?: unknown[]; default?: unknown };
+        };
+        required?: string[];
+      }
+    ).properties?.format;
+    expect(renders[0]!.inputSchema).toMatchObject({
+      required: ["view"],
+    });
+    expect(format?.default).toBe("html");
+    expect(JSON.stringify(format)).toContain('"null"');
 
     await client.close();
     await server.close();

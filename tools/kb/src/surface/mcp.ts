@@ -87,20 +87,34 @@ function causeMessage(cause: Cause.Cause<unknown>): string {
 }
 
 /**
- * Map typed Failures, Die defects, and Interruptions to an `isError` tool
- * result so `Effect.runPromise` never rejects at the MCP CallTool edge.
+ * Map typed Failures and Die defects to an `isError` tool result.
+ *
+ * External Fiber interruption is not claimed as recovered here: interrupting
+ * the `Effect.runPromise` host fiber can still reject at the Promise edge.
+ * Pure interrupt-only causes are re-raised so we do not pretend MCP can
+ * turn cancellation into a normal tool result.
  */
 export function containToolResult<R>(
   effect: Effect.Effect<CallToolResult, unknown, R>,
 ): Effect.Effect<CallToolResult, never, R> {
-  return effect.pipe(
-    Effect.catchCause((cause) =>
-      Effect.succeed(errorResult("internal", causeMessage(cause))),
-    ),
+  return Effect.exit(effect).pipe(
+    Effect.flatMap((exit) => {
+      if (Exit.isSuccess(exit)) return Effect.succeed(exit.value);
+      if (Cause.hasInterruptsOnly(exit.cause)) {
+        // Re-raise interrupt; cast keeps the CallTool Promise edge typed as
+        // never while still rejecting on cancellation.
+        return Effect.failCause(exit.cause) as unknown as Effect.Effect<
+          CallToolResult,
+          never,
+          never
+        >;
+      }
+      return Effect.succeed(errorResult("internal", causeMessage(exit.cause)));
+    }),
   );
 }
 
-/** Canonical JSON-RPC -32603 for resource-handler failures/defects. */
+/** Canonical JSON-RPC -32603 for resource-handler Failures and Die defects. */
 export function mcpInternalError(cause: Cause.Cause<unknown>): McpError {
   return new McpError(ErrorCode.InternalError, causeMessage(cause));
 }
@@ -111,8 +125,9 @@ export interface McpToolContext {
 }
 
 /**
- * Effect program for one MCP CallTool request. Failures and defects are mapped
- * to {@link CallToolResult} with `isError` — the error channel is empty.
+ * Effect program for one MCP CallTool request. Failures and Die defects are
+ * mapped to {@link CallToolResult} with `isError`. Interrupt-only cancellation
+ * is not converted into a tool result (see {@link containToolResult}).
  */
 export function callToolEffect(
   ctx: KbContext,
@@ -195,13 +210,18 @@ export const readResourceEffect = Effect.fn("mcp.readResource")(
 
 /**
  * Run a resource Effect to an Exit, then throw {@link McpError} (-32603) on
- * any Failure/Die so the Promise edge never surfaces an unmapped reject.
+ * Failure/Die so the Promise edge surfaces a canonical JSON-RPC internal
+ * error. Interrupt-only causes propagate as FiberFailure rejects — they are
+ * not rewritten into -32603.
  */
-async function runResourceHandler<A>(
+export async function runResourceHandler<A>(
   effect: Effect.Effect<A, unknown, never>,
 ): Promise<A> {
   const exit = await Effect.runPromiseExit(effect);
   if (Exit.isSuccess(exit)) return exit.value;
+  if (Cause.hasInterruptsOnly(exit.cause)) {
+    return Effect.runPromise(Effect.failCause(exit.cause));
+  }
   throw mcpInternalError(exit.cause);
 }
 
@@ -219,20 +239,25 @@ export async function createMcpServer(root: string): Promise<Server> {
   );
   const toolsCtx: McpToolContext = { actions, byToolName };
 
+  // Dedicated MCP tools own these names; skip colliding registry actions so the
+  // advertised inputSchema matches callToolEffect (format:null → html).
+  const reservedToolNames = new Set([MANIFEST_TOOL, RENDER_TOOL]);
   const tools: Tool[] = [
-    ...actions.map(
-      (a): Tool => ({
-        name: actionIdToToolName(a.id),
-        title: a.title,
-        description: a.description,
-        inputSchema: asObjectSchema(a.inputSchema),
-        annotations: {
+    ...actions
+      .filter((a) => !reservedToolNames.has(actionIdToToolName(a.id)))
+      .map(
+        (a): Tool => ({
+          name: actionIdToToolName(a.id),
           title: a.title,
-          readOnlyHint: a.mode === "read",
-          destructiveHint: a.mode === "apply",
-        },
-      }),
-    ),
+          description: a.description,
+          inputSchema: asObjectSchema(a.inputSchema),
+          annotations: {
+            title: a.title,
+            readOnlyHint: a.mode === "read",
+            destructiveHint: a.mode === "apply",
+          },
+        }),
+      ),
     {
       name: MANIFEST_TOOL,
       title: "KB action manifest",
@@ -254,7 +279,15 @@ export async function createMcpServer(root: string): Promise<Server> {
         type: "object" as const,
         properties: {
           view: { type: "string", description: "view name" },
-          format: { type: "string", enum: ["html", "md"], default: "html" },
+          // Advertised shape matches runtime: null/absent → html (see RenderViewArgs).
+          format: {
+            anyOf: [
+              { type: "string", enum: ["html", "md"] },
+              { type: "null" },
+            ],
+            default: "html",
+            description: "html or md; null or omitted defaults to html",
+          },
         },
         required: ["view"],
       },
@@ -290,7 +323,7 @@ export async function createMcpServer(root: string): Promise<Server> {
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-    // callToolEffect already provides kbRuntimeLayer and maps Fail/Die → isError.
+    // callToolEffect provides kbRuntimeLayer and maps Fail/Die → isError.
     return Effect.runPromise(callToolEffect(ctx, name, args, toolsCtx));
   });
 
