@@ -3,10 +3,7 @@ import { z } from "zod";
 import type { KbContext } from "../context.ts";
 import { KbCtx, runWithKb } from "../context.ts";
 import type { ActionDefinition } from "../shared/contracts.ts";
-import {
-  domainError,
-  type DomainError,
-} from "../foundation/errors.ts";
+import { DomainError, domainError } from "../foundation/errors.ts";
 import {
   DocsError,
   GENERATED_HEADER,
@@ -16,7 +13,8 @@ import {
 
 type RenderError = DomainError | DocsError;
 
-function mapRenderErr(err: unknown): RenderError {
+/** Map unknown render failures; DomainError must be a runtime import for instanceof. */
+export function mapRenderErr(err: unknown): RenderError {
   if (err instanceof DocsError) return err;
   if (err instanceof DomainError) return err;
   return domainError(

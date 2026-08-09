@@ -64,7 +64,7 @@ export function isActionSchema(schema: unknown): schema is ActionSchema {
 }
 
 export class ActionSchemaError extends Error {
-  readonly name = "ActionSchemaError";
+  override readonly name = "ActionSchemaError";
   constructor(
     message: string,
     readonly issues: ReadonlyArray<StandardSchemaV1Issue>,

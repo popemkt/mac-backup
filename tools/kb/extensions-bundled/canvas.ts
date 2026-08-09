@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { z } from "zod";
 import type { KbContext } from "../src/context.ts";
-import { KbCtx, persistEffect, runWithKb } from "../src/context.ts";
+import { KbCtx, KbStore, persistEffect, runWithKb } from "../src/context.ts";
 import type { ExtensionAction } from "../src/extensions.ts";
 import {
   SYSTEM_IDS,
@@ -165,7 +165,11 @@ type CanvasFail = DomainError | CanvasTxError;
 const canvasTxApplyEffect = Effect.fn("ext.canvas.tx.apply")(
   function* (
     input: z.infer<typeof applyInput>,
-  ): Effect.fn.Return<z.infer<typeof applyOutput>, CanvasFail, KbCtx> {
+  ): Effect.fn.Return<
+    z.infer<typeof applyOutput>,
+    CanvasFail,
+    KbCtx | KbStore
+  > {
     const ctx = yield* KbCtx;
 
     const parsed: CanvasDoc = yield* Effect.try({

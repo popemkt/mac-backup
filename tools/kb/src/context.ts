@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import type { KbNode } from "./foundation/model.ts";
 import type { StoreTx } from "./foundation/storage/index.ts";
 import {
+  kbStoreLayer,
   openKbEffect,
   persistEffect,
   reloadEffect,
@@ -27,12 +28,16 @@ export async function openKb(root: string): Promise<KbContext> {
 }
 
 export async function reload(ctx: KbContext): Promise<void> {
-  return Effect.runPromise(reloadEffect(ctx));
+  return Effect.runPromise(
+    reloadEffect(ctx).pipe(Effect.provide(kbStoreLayer(ctx.store))),
+  );
 }
 
 export async function persist(
   ctx: KbContext,
   tx: { upserts: KbNode[]; deletes: string[] } | StoreTx,
 ): Promise<void> {
-  return Effect.runPromise(persistEffect(ctx, tx));
+  return Effect.runPromise(
+    persistEffect(ctx, tx).pipe(Effect.provide(kbStoreLayer(ctx.store))),
+  );
 }

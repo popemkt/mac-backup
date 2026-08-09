@@ -1,21 +1,32 @@
 import { describe, expect, test, afterEach } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import { openKb, openKbEffect, runWithKb, KbCtx } from "../src/context.ts";
+import {
+  openKb,
+  openKbEffect,
+  persist,
+  reload,
+  runWithKb,
+  KbCtx,
+  KbStore,
+} from "../src/context.ts";
 import {
   DomainError,
   domainError,
   isDomainError,
 } from "../src/foundation/errors.ts";
 import {
+  ActionSchemaError,
   isActionSchema,
   isStandardSchemaV1,
   parseActionInput,
   schemaToJsonSchema,
 } from "../src/foundation/schema-seam.ts";
+import { DocsError } from "../src/operations/docs/index.ts";
+import { mapRenderErr } from "../src/render/index.ts";
 import { invoke, invokeEffect } from "../src/registry.ts";
 import { z } from "zod";
 
@@ -36,20 +47,52 @@ describe("Effect services + layers", () => {
     expect(ctx.store).toBeTruthy();
   });
 
-  test("runWithKb provides KbCtx and Bun FileSystem", async () => {
+  test("runWithKb provides KbCtx, KbStore, and Bun FileSystem", async () => {
     root = await tempRoot();
     const ctx = await openKb(root);
     const result = await runWithKb(
       ctx,
       Effect.gen(function* () {
         const live = yield* KbCtx;
+        const store = yield* KbStore;
         const fs = yield* FileSystem;
         const exists = yield* fs.exists(join(live.root, ".kb", "nodes.jsonl"));
-        return { root: live.root, exists };
+        return {
+          root: live.root,
+          exists,
+          sameStore: store === live.store,
+        };
       }),
     );
     expect(result.root).toBe(root);
     expect(result.exists).toBe(true);
+    expect(result.sameStore).toBe(true);
+  });
+
+  test("reload/persist consume provided KbStore layer", async () => {
+    root = await tempRoot();
+    const ctx = await openKb(root);
+    const before = ctx.nodes.length;
+    await persist(ctx, {
+      upserts: [
+        {
+          id: "n.effect-store",
+          text: "via KbStore",
+          props: {},
+          children: [],
+          createdAt: new Date(0).toISOString(),
+          updatedAt: new Date(0).toISOString(),
+        },
+      ],
+      deletes: [],
+    });
+    expect(ctx.nodes.some((n) => n.id === "n.effect-store")).toBe(true);
+    expect(ctx.nodes.length).toBe(before + 1);
+
+    // Drop in-memory state, then reload through the KbStore port.
+    ctx.nodes = [];
+    await reload(ctx);
+    expect(ctx.nodes.some((n) => n.id === "n.effect-store")).toBe(true);
   });
 
   test("DomainError maps to typed invoke receipts", async () => {
@@ -83,6 +126,51 @@ describe("Effect services + layers", () => {
       expect(publicReceipt.message).toContain("n.missing");
     }
     expect(receipt.status).toBe("failed");
+  });
+});
+
+describe("render DomainError path", () => {
+  test("mapRenderErr keeps DomainError via runtime instanceof", () => {
+    const domain = domainError("internal", "render boom", { where: "test" });
+    expect(mapRenderErr(domain)).toBe(domain);
+    expect(mapRenderErr(domain)).toBeInstanceOf(DomainError);
+
+    const docs = new DocsError("not_found", "missing view", { viewName: "x" });
+    expect(mapRenderErr(docs)).toBe(docs);
+
+    const mapped = mapRenderErr(new Error("unexpected"));
+    expect(mapped).toBeInstanceOf(DomainError);
+    expect(mapped.code).toBe("internal");
+    expect(mapped.message).toBe("unexpected");
+  });
+
+  test("render.view unknown view stays DocsError not ReferenceError", async () => {
+    const root = await tempRoot();
+    try {
+      const ctx = await openKb(root);
+      await mkdir(join(root, ".kb", "views"), { recursive: true });
+      // Ensure views dir exists but the named view does not.
+      await writeFile(join(root, ".kb", "views", ".keep"), "");
+      const receipt = await invoke(ctx, {
+        id: "render.view",
+        input: { name: "no-such-view", format: "html" },
+      });
+      expect(receipt.status).toBe("failed");
+      if (receipt.status === "failed") {
+        expect(receipt.code).toBe("not_found");
+        expect(receipt.message).toContain("no-such-view");
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("ActionSchemaError override", () => {
+  test("name override is ActionSchemaError", () => {
+    const err = new ActionSchemaError("bad", [{ message: "bad" }]);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.name).toBe("ActionSchemaError");
   });
 });
 

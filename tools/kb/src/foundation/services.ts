@@ -22,7 +22,11 @@ export interface KbContext {
   qdb: QueryDb;
 }
 
-/** Promise-shaped Store port, provided as an Effect service. */
+/**
+ * Promise-shaped Store port, provided as an Effect service.
+ * Live consumers: {@link reloadEffect} / {@link persistEffect} (yield* KbStore).
+ * This is the seam for migrating JsonlStore methods onto Effect later — keep it.
+ */
 export class KbStore extends Context.Service<KbStore, Store>()("kb/KbStore") {}
 
 /** Live kb session (nodes + qdb + store). */
@@ -80,9 +84,13 @@ export const openKbEffect = Effect.fn("kb.open")(
 );
 
 export const reloadEffect = Effect.fn("kb.reload")(
-  function* (ctx: KbContext): Effect.fn.Return<void, DomainError> {
+  function* (
+    ctx: KbContext,
+  ): Effect.fn.Return<void, DomainError, KbStore> {
+    // Prefer the Effect Store port over ctx.store so Layer provisioning is live.
+    const store = yield* KbStore;
     ctx.nodes = yield* Effect.tryPromise({
-      try: () => ctx.store.load(),
+      try: () => store.load(),
       catch: (err) =>
         domainError(
           "internal",
@@ -97,9 +105,10 @@ export const persistEffect = Effect.fn("kb.persist")(
   function* (
     ctx: KbContext,
     tx: StoreTx,
-  ): Effect.fn.Return<void, DomainError> {
+  ): Effect.fn.Return<void, DomainError, KbStore> {
+    const store = yield* KbStore;
     yield* Effect.tryPromise({
-      try: () => ctx.store.commit(tx),
+      try: () => store.commit(tx),
       catch: (err) =>
         domainError(
           "internal",

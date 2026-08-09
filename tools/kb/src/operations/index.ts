@@ -21,7 +21,7 @@ import {
   type DomainError,
 } from "../foundation/errors.ts";
 import type { KbContext } from "../context.ts";
-import { KbCtx, persistEffect, runWithKb } from "../context.ts";
+import { KbCtx, KbStore, persistEffect, runWithKb } from "../context.ts";
 import { pull, query } from "../foundation/query/index.ts";
 
 /** Lift sync resolve/throw helpers into DomainError. */
@@ -273,7 +273,7 @@ export function pullSubtree(
 export const nodeAddEffect = Effect.fn("node.add")(
   function* (
     input: z.infer<typeof nodeAddDef.inputSchema>,
-  ): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbCtx> {
+  ): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbCtx | KbStore> {
     const ctx = yield* KbCtx;
     const at = nowIso();
     const id = input.id ?? ulid();
@@ -351,7 +351,7 @@ export const nodeUpdateEffect = Effect.fn("node.update")(
   ): Effect.fn.Return<
     { id: string; deleted?: boolean; node?: KbNode },
     DomainError,
-    KbCtx
+    KbCtx | KbStore
   > {
     const ctx = yield* KbCtx;
     yield* syncDomain(() => assertSysWriteAllowed(input.id, input));
@@ -461,7 +461,7 @@ export async function nodeGet(
 export const fieldDefineEffect = Effect.fn("field.define")(
   function* (
     input: z.infer<typeof fieldDefineDef.inputSchema>,
-  ): Effect.fn.Return<{ id: string }, DomainError, KbCtx> {
+  ): Effect.fn.Return<{ id: string }, DomainError, KbCtx | KbStore> {
     const ctx = yield* KbCtx;
     const existing = ctx.nodes.filter(
       (n) =>
@@ -499,7 +499,7 @@ export async function fieldDefine(
 export const tagDefineEffect = Effect.fn("tag.define")(
   function* (
     input: z.infer<typeof tagDefineDef.inputSchema>,
-  ): Effect.fn.Return<{ id: string }, DomainError, KbCtx> {
+  ): Effect.fn.Return<{ id: string }, DomainError, KbCtx | KbStore> {
     const ctx = yield* KbCtx;
     const props: z.infer<typeof PropInputSchema>[] = [
       {
