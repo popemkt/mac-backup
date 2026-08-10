@@ -1,7 +1,9 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Effect } from "effect";
+import { openKb } from "../src/context.ts";
 import * as assets from "../src/surface/ui/assets.ts";
 import { handleHttpRequest } from "../src/surface/ui/http.ts";
 import { UI_DIST } from "../src/surface/ui/paths.ts";
@@ -11,6 +13,7 @@ import {
   diffNodes,
   normalizeRows,
   rowsHash,
+  SubscriptionHub,
 } from "../src/surface/ui/session.ts";
 import type { KbNode } from "../src/foundation/model.ts";
 
@@ -34,10 +37,15 @@ describe("ui assets boundary", () => {
     expect(assetContentType("/x/note.weird")).toBe("application/octet-stream");
   });
 
-  test("serveKbAsset rejects traversal and missing files", async () => {
+  test("serveKbAsset rejects traversal, missing files, and symlinks", async () => {
     const root = await mkdtemp(join(tmpdir(), "kb-ui-assets-"));
     await mkdir(join(root, ".kb", "assets"), { recursive: true });
     await writeFile(join(root, ".kb", "assets", "ok.png"), "png-bytes");
+    await writeFile(join(root, "outside.txt"), "secret");
+    await symlink(
+      join(root, "outside.txt"),
+      join(root, ".kb", "assets", "link.png"),
+    );
 
     const ok = await serveKbAsset(root, "/assets/ok.png");
     expect(ok.status).toBe(200);
@@ -49,6 +57,9 @@ describe("ui assets boundary", () => {
 
     const traversal = await serveKbAsset(root, "/assets/../nodes.jsonl");
     expect(traversal.status).toBe(403);
+
+    const linked = await serveKbAsset(root, "/assets/link.png");
+    expect(linked.status).toBe(403);
   });
 
   test("serveStatic returns null when UI dist is absent", async () => {
@@ -113,26 +124,74 @@ describe("ui session boundary", () => {
     expect(deletes).toEqual(["gone"]);
     expect(upserts.map((n) => n.id).sort()).toEqual(["add", "chg"]);
   });
+
+  test("session cleanup removes client; malformed messages become error frames", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-ui-sess-"));
+    await mkdir(join(root, ".kb"), { recursive: true });
+    const ctx = await openKb(root);
+    const hub = new SubscriptionHub(ctx);
+    const frames: string[] = [];
+    const send = (text: string) =>
+      Effect.sync(() => {
+        frames.push(text);
+      });
+
+    await Effect.runPromise(hub.addClient("c1", send));
+    expect(hub.clientCount).toBe(1);
+    expect(JSON.parse(frames[0]!)).toEqual({ op: "hello", rev: 0 });
+
+    await Effect.runPromise(hub.handleMessage("c1", "not-json{{{"));
+    expect(JSON.parse(frames[1]!)).toMatchObject({
+      op: "error",
+      code: "invalid_json",
+    });
+
+    await Effect.runPromise(
+      hub.handleMessage("c1", JSON.stringify({ op: "subscribe" })),
+    );
+    expect(JSON.parse(frames[2]!)).toMatchObject({
+      op: "error",
+      code: "invalid_message",
+    });
+
+    await Effect.runPromise(hub.removeClient("c1"));
+    expect(hub.clientCount).toBe(0);
+
+    // Messages after remove are no-ops (no throw, no frame).
+    const before = frames.length;
+    await Effect.runPromise(hub.handleMessage("c1", JSON.stringify({ op: "ping" })));
+    expect(frames.length).toBe(before);
+  });
 });
 
 describe("ui http boundary", () => {
   test("unknown /api path is 404; non-api falls through to static/503", async () => {
-    const hub = {
-      snapshot: { rev: 0, nodes: [] },
-      applyNodes() {},
-    };
-    const ctx = { nodes: [] };
+    const root = await mkdtemp(join(tmpdir(), "kb-ui-http-"));
+    await mkdir(join(root, ".kb"), { recursive: true });
+    const ctx = await openKb(root);
+    const hub = new SubscriptionHub(ctx);
 
     const api404 = await handleHttpRequest(
       new Request("http://127.0.0.1/api/nope"),
-      // session hub/ctx are only needed for graph/action paths
-      { root: "/tmp", ctx: ctx as never, hub: hub as never },
+      { root, ctx, hub },
     );
     expect(api404.status).toBe(404);
 
+    const badJson = await handleHttpRequest(
+      new Request("http://127.0.0.1/api/action", {
+        method: "POST",
+        body: "not-json",
+        headers: { "content-type": "application/json" },
+      }),
+      { root, ctx, hub },
+    );
+    expect(badJson.status).toBe(400);
+    const badBody = (await badJson.json()) as { code: string };
+    expect(badBody.code).toBe("invalid_input");
+
     const fallback = await handleHttpRequest(
       new Request("http://127.0.0.1/"),
-      { root: "/tmp", ctx: ctx as never, hub: hub as never },
+      { root, ctx, hub },
     );
     // Built UI → 200 SPA; unbuilt → 503 ui_not_built.
     if (fallback.status === 503) {
@@ -143,18 +202,19 @@ describe("ui http boundary", () => {
     }
   });
 
-  test("rejected serveKbAsset becomes controlled 500 (not handler reject)", async () => {
-    const spy = spyOn(assets, "serveKbAsset").mockImplementation(() =>
-      Promise.reject(new Error("asset-read-failed")),
+  test("rejected serveKbAssetEffect becomes controlled 500 (not handler reject)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-ui-http-500-"));
+    await mkdir(join(root, ".kb"), { recursive: true });
+    const ctx = await openKb(root);
+    const hub = new SubscriptionHub(ctx);
+
+    const spy = spyOn(assets, "serveKbAssetEffect").mockImplementation(
+      (() => Effect.die(new Error("asset-read-failed"))) as typeof assets.serveKbAssetEffect,
     );
     try {
       const res = await handleHttpRequest(
         new Request("http://127.0.0.1/assets/x.png"),
-        {
-          root: "/tmp",
-          ctx: { nodes: [] } as never,
-          hub: { snapshot: { rev: 0, nodes: [] }, applyNodes() {} } as never,
-        },
+        { root, ctx, hub },
       );
       expect(res.status).toBe(500);
       const body = (await res.json()) as {
