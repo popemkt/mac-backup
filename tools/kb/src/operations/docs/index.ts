@@ -80,7 +80,15 @@ export const renderViewEffect = Effect.fn("docs.renderView")(
       );
     }
     const edn = yield* viewEdnEffect(view);
-    const rows = query(ctx.qdb, edn) as unknown[][];
+    const rows = yield* Effect.try({
+      try: () => query(ctx.qdb, edn) as unknown[][],
+      catch: (err) =>
+        new DocsError(
+          "invalid_input",
+          `invalid datalog query in view ${view.name}: ${err instanceof Error ? err.message : String(err)}`,
+          { view: view.name },
+        ),
+    });
     const body = template(rows, templateContext(ctx));
     return `${GENERATED_HEADER}\n\n${body.trimEnd()}\n`;
   },

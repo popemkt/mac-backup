@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { bunFileSystemLayer } from "../../context.ts";
 import { SYSTEM_IDS, type KbNode } from "../../foundation/model.ts";
@@ -18,9 +18,14 @@ export const listSavedQueriesEffect = Effect.fn("kb.ui.listSavedQueries")(
       const stem = name.slice(0, -4);
       // Skip traversal/control/ambiguous stems — same rule as run/save/delete.
       if (!isValidSavedQueryName(stem)) continue;
-      const edn = yield* fs
-        .readFileString(join(dir, name))
-        .pipe(Effect.orDie);
+      // Skip non-regular entries (directories, sockets, unreadable files) so
+      // a stray dir named *.edn can never brick GET /api/queries (C3).
+      const edn = yield* Effect.gen(function* () {
+        const stat = yield* fs.stat(join(dir, name));
+        if (stat.type !== "File") return null;
+        return yield* fs.readFileString(join(dir, name));
+      }).pipe(Effect.option, Effect.map(Option.getOrNull));
+      if (edn === null) continue;
       out.push({ name: stem, edn });
     }
     out.sort((a, b) => a.name.localeCompare(b.name));

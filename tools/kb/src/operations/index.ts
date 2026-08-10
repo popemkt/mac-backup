@@ -64,6 +64,8 @@ export const nodeAddDef = {
     position: z.number().int().nonnegative().optional(),
     tags: z.array(z.string()).optional(),
     id: z.string().optional(),
+    /** Bypass sys.* write-guard (browse yes / break no). */
+    force: z.boolean().optional(),
   }),
   outputSchema: z.object({
     id: z.string(),
@@ -316,6 +318,10 @@ export const nodeAddEffect = Effect.fn("node.add")(
       upserts.push(insertChild(parent, id, input.position));
     }
 
+    yield* syncDomain(() =>
+      assertNoSysUpsert(upserts, input.force === true, "node.add"),
+    );
+
     yield* persistEffect(ctx, { upserts, deletes: [] });
     return { id, node };
   },
@@ -348,6 +354,30 @@ function assertSysWriteAllowed(
   );
 }
 
+/**
+ * Refuse any commit that upserts a sys.* node unless `force` is set. This is
+ * the load-bearing guard behind the sys.* write-protection contract: it
+ * covers mint-id (node.add `id`), reparenting under a sys.* parent
+ * (`insertChild` mutates the parent), and every alias that funnels into
+ * node.add / node.update. Checked against the final computed upserts, so no
+ * structural path can slip through without tripping it.
+ */
+function assertNoSysUpsert(
+  upserts: readonly KbNode[],
+  force: boolean,
+  action: string,
+): void {
+  if (force) return;
+  for (const n of upserts) {
+    if (!isSysPrefixed(n.id)) continue;
+    throw new ResolveError(
+      "forbidden",
+      `sys.* nodes are write-protected (use force to override): ${n.id}`,
+      { id: n.id, action },
+    );
+  }
+}
+
 export const nodeUpdateEffect = Effect.fn("node.update")(
   function* (
     input: z.infer<typeof nodeUpdateDef.inputSchema>,
@@ -361,6 +391,9 @@ export const nodeUpdateEffect = Effect.fn("node.update")(
 
     if (input.delete) {
       const upserts = detachFromParents(ctx.nodes, input.id);
+      yield* syncDomain(() =>
+        assertNoSysUpsert(upserts, input.force === true, "node.update"),
+      );
       yield* persistEffect(ctx, { upserts, deletes: [input.id] });
       return { id: input.id, deleted: true };
     }
@@ -428,6 +461,9 @@ export const nodeUpdateEffect = Effect.fn("node.update")(
 
     node.updatedAt = nowIso();
     upserts.push(node);
+    yield* syncDomain(() =>
+      assertNoSysUpsert(upserts, input.force === true, "node.update"),
+    );
     yield* persistEffect(ctx, { upserts, deletes: [] });
     return { id: input.id, node };
   },
@@ -542,7 +578,15 @@ export const graphQueryEffect = Effect.fn("graph.query")(
     input: z.infer<typeof graphQueryDef.inputSchema>,
   ): Effect.fn.Return<{ rows: unknown }, DomainError, KbCtx> {
     const ctx = yield* KbCtx;
-    const rows = query(ctx.qdb, input.query, ...(input.inputs ?? []));
+    const rows = yield* Effect.try({
+      try: () => query(ctx.qdb, input.query, ...(input.inputs ?? [])),
+      catch: (err) =>
+        domainError(
+          "invalid_input",
+          `invalid datalog query: ${err instanceof Error ? err.message : String(err)}`,
+          { query: input.query },
+        ),
+    });
     return { rows };
   },
 );

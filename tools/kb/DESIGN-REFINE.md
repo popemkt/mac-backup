@@ -128,7 +128,7 @@ Logseq pattern on top of existing swap:
 - **Perf bar** (your annotation): index built once per graph rev (not per keystroke), fuzzy match over prebuilt lowercase haystack, results virtualized (render ≤ 20 rows), open-to-first-paint < 50ms and per-keystroke < 10ms at 50k nodes — measured in a test against the benchmark graph.
 - Commands modeled **as nodes** (`sys.command` type) so palette content is itself queryable — your 2.1/2.2.
 - Schema section: zooming a **tag node** shows its instances (live query "everything tagged X" — Tana schema page); zooming a **field node** shows nodes carrying it. Fields/tags stop being invisible pick-lists (R3 gap).
-- `sys.*` write-guard: core actions refuse text/prop edits on `sys.*` unless `--force` (browse yes, break no).
+- `sys.*` write-guard: core actions refuse any commit that writes a `sys.*` node — text/prop edits, delete, reparenting a node *under* a `sys.*` parent (`node.update parent`), and minting/placing nodes via `node.add` (`id` or `parent` pointing at `sys.*`) — unless `force` (`--force` on `kb add`/`kb set`/`kb rm`/`kb mv`; `force: true` on `node.add`/`node.update`). Browse stays open (`node.get`, `graph.query`). (browse yes, break no).
 
 ### W4 — Query nodes (L, claude)
 Pure system-node modeling (your annotation — no special node type, just more system nodes):
