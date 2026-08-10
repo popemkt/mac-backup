@@ -154,13 +154,17 @@ interface Store {
   untouched. Temp files are cleaned on write/copy/rename/interrupt failure.
 - **Concurrency**: multi-surface writers (UI/CLI/MCP/agents) and multiple
   `JsonlStore` instances on the same path are in contract. Commits serialize via
-  an exclusive `nodes.jsonl.lock` acquired by write-then-`link` (payload is
-  never observed empty mid-create). Empty/unparseable lock bodies are treated
-  as held; stale takeover renames the lock away (atomic single winner) then
-  retries; release unlinks only when the well-known path still shares the
-  owner's sidecar inode. Locks with a dead pid, or a live pid older than
-  `COMMIT_LOCK_STALE_MS` (pid-reuse / abandoned), are reclaimable. Acquisition
-  is Effect-interruptible. Unique temps prevent same-ms collisions. Still
+  write-then-`link` ownership of `nodes.jsonl.lock` (file): a unique sidecar
+  gets the full `{v,pid,token,createdAt}` body, then `link` is the sole name
+  creator. Empty/unparseable lock bodies are held (never deleted). Stale ⇔
+  dead pid only — never steal a live holder (`COMMIT_LOCK_STALE_MS` is a
+  documented hung-alive wedge bound, not a live-steal TTL). Dead-pid takeover
+  is content-verified rename to quarantine (byte-equal body vs decision-time
+  read), then restore-if-vacant / drop-if-occupied on ABA mismatch; the next
+  loop iteration re-`link`s. Release unlinks the well-known name only while it
+  still shares the sidecar inode, then removes the sidecar. Acquire timeout is
+  `conflict` with `retryable: true` (caller retry budget). Acquisition is
+  Effect-interruptible. Unique temps prevent same-ms collisions. Still
   single-user repo scale — no WAL.
 - Backend-agnostic by construction — operations/query/surfaces see only
   `Store` + `KbNode`. Future backends (SQLite cache, dolt, md-outline) slot in

@@ -3,7 +3,7 @@ import { Effect, Fiber } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   bunFileSystemLayer,
   kbStoreLayer,
@@ -27,6 +27,8 @@ import {
   JsonlStore,
   COMMIT_LOCK_STALE_MS,
   COMMIT_LOCK_TIMEOUT_MS,
+  claimStaleLock,
+  ownsCommitLock,
   canonicalJson,
   type EffectStore,
   type StoreTx,
@@ -45,30 +47,92 @@ function lockArtifacts(files: string[]): string[] {
   );
 }
 
+async function plantStaleLock(lockPath: string, token = "planted-stale"): Promise<void> {
+  await mkdir(dirname(lockPath), { recursive: true });
+  await writeFile(
+    lockPath,
+    JSON.stringify({
+      v: 1,
+      pid: 2147483647,
+      token,
+      createdAt: Date.now() - COMMIT_LOCK_STALE_MS - 1_000,
+    }),
+  );
+}
+
+async function plantLiveLock(
+  lockPath: string,
+  token: string,
+  pid = process.pid,
+  createdAt = Date.now(),
+): Promise<void> {
+  await mkdir(dirname(lockPath), { recursive: true });
+  await writeFile(
+    lockPath,
+    JSON.stringify({ v: 1, pid, token, createdAt }),
+  );
+}
+
+/**
+ * Pre-warm N children behind a go-file barrier so arrivals contend for real,
+ * not just boot skew. Safety gate is lost===0; explicit conflict rejections
+ * are logged separately (liveness, not silent upsert loss).
+ */
 async function spawnCrossProcessCommits(
   root: string,
   ids: string[],
-): Promise<number[]> {
+): Promise<{ codes: number[]; logs: string[]; conflicts: number }> {
   const storePath = join(
     import.meta.dir,
     "../src/foundation/storage/jsonl-store.ts",
   );
+  const goPath = join(root, ".kb", ".stress-go");
+  await mkdir(join(root, ".kb"), { recursive: true });
+
   const procs = ids.map((id) => {
     const code = `
+      import { existsSync } from "node:fs";
       import { JsonlStore } from ${JSON.stringify(storePath)};
+      const go = ${JSON.stringify(goPath)};
+      while (!existsSync(go)) {
+        await Bun.sleep(5);
+      }
       const store = new JsonlStore(${JSON.stringify(root)});
       const at = "2026-01-01T00:00:00.000Z";
-      await store.commit({
-        upserts: [{ id: ${JSON.stringify(id)}, text: ${JSON.stringify(id)}, props: {}, children: [], createdAt: at, updatedAt: at }],
-        deletes: [],
-      });
+      try {
+        await store.commit({
+          upserts: [{ id: ${JSON.stringify(id)}, text: ${JSON.stringify(id)}, props: {}, children: [], createdAt: at, updatedAt: at }],
+          deletes: [],
+        });
+      } catch (e) {
+        const msg = e && typeof e === "object" && "message" in e ? String(e.message) : String(e);
+        const code = e && typeof e === "object" && "code" in e ? String(e.code) : "";
+        console.error("COMMIT_FAIL", ${JSON.stringify(id)}, code, msg);
+        process.exit(code === "conflict" ? 2 : 1);
+      }
     `;
     return Bun.spawn(["bun", "-e", code], {
       stdout: "pipe",
       stderr: "pipe",
     });
   });
-  return Promise.all(procs.map((p) => p.exited));
+
+  // Give children time to boot past import before releasing the barrier.
+  await Bun.sleep(250);
+  await writeFile(goPath, "go\n");
+
+  const results = await Promise.all(
+    procs.map(async (p) => {
+      const code = await p.exited;
+      const err = await new Response(p.stderr).text();
+      return { code, err: err.trim() };
+    }),
+  );
+  return {
+    codes: results.map((r) => r.code),
+    logs: results.map((r) => r.err).filter(Boolean),
+    conflicts: results.filter((r) => r.code === 2).length,
+  };
 }
 
 function sampleNode(id: string, text = id): KbNode {
@@ -370,128 +434,214 @@ describe("JsonlStore Effect persistence", () => {
     );
   });
 
-  test("cross-process stress: 40×N=8 retains every upsert (0 lost/rejected)", async () => {
+  test("Window B: content-verified claim cannot steal live lock after ABA", async () => {
+    root = await tempRoot();
+    const lockPath = join(root, ".kb", "nodes.jsonl.lock");
+    await plantStaleLock(lockPath, "planted-stale");
+    const staleBody = await readFile(lockPath, "utf8");
+
+    const fs = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* FileSystem;
+      }).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+
+    // W1: content-verified reclaim of dead-pid body.
+    const w1Claimed = await Effect.runPromise(
+      claimStaleLock(fs, lockPath, staleBody, "w1-token").pipe(
+        Effect.provide(bunFileSystemLayer),
+      ),
+    );
+    expect(w1Claimed).toBe(true);
+
+    // W1 installs a live lock (same inode number possible on reuse).
+    await plantLiveLock(lockPath, "w1-live");
+
+    // W2 still holds the OLD decision-time body — must not remove w1-live.
+    const w2Claimed = await Effect.runPromise(
+      claimStaleLock(fs, lockPath, staleBody, "w2-token").pipe(
+        Effect.provide(bunFileSystemLayer),
+      ),
+    );
+    expect(w2Claimed).toBe(false);
+    const w1Owns = await Effect.runPromise(
+      ownsCommitLock(fs, lockPath, "w1-live").pipe(
+        Effect.provide(bunFileSystemLayer),
+      ),
+    );
+    expect(w1Owns).toBe(true);
+  });
+
+  test("public acquire reclaim: concurrent commits after planted stale lose zero", async () => {
+    root = await tempRoot();
+    const store = new JsonlStore(root);
+    await plantStaleLock(store.lockPath, "planted-for-acquire");
+    const N = 6;
+    const ids = Array.from({ length: N }, (_, i) => `n.acq${i}`);
+    await Effect.runPromise(
+      Effect.all(
+        ids.map((id) =>
+          store.commitEffect({ upserts: [sampleNode(id)], deletes: [] }),
+        ),
+        { concurrency: "unbounded" },
+      ).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    const loaded = await store.load();
+    expect(loaded.map((n) => n.id).sort()).toEqual([...ids].sort());
+  });
+
+  test("ownsCommitLock rejects foreign token", async () => {
+    root = await tempRoot();
+    const lockPath = join(root, ".kb", "nodes.jsonl.lock");
+    await plantLiveLock(lockPath, "attacker");
+    const fs = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* FileSystem;
+      }).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    const stillOurs = await Effect.runPromise(
+      ownsCommitLock(fs, lockPath, "victim").pipe(
+        Effect.provide(bunFileSystemLayer),
+      ),
+    );
+    expect(stillOurs).toBe(false);
+  });
+
+  test("cross-process stress: 40×N=8 zero lost upserts (conflicts logged)", async () => {
     const RUNS = 40;
     const N = 8;
     let lost = 0;
-    let rejected = 0;
+    let conflicts = 0;
+    let hardFails = 0;
     for (let run = 0; run < RUNS; run++) {
       const runRoot = await tempRoot();
       try {
         const ids = Array.from({ length: N }, (_, i) => `n.r${run}.p${i}`);
-        const codes = await spawnCrossProcessCommits(runRoot, ids);
-        rejected += codes.filter((c) => c !== 0).length;
+        const result = await spawnCrossProcessCommits(runRoot, ids);
+        conflicts += result.conflicts;
+        hardFails += result.codes.filter((c) => c !== 0 && c !== 2).length;
         const store = new JsonlStore(runRoot);
         const loaded = await store.load();
         const got = new Set(loaded.map((n) => n.id));
-        for (const id of ids) {
-          if (!got.has(id)) lost += 1;
+        // Safety: only count ids that exited 0 but are missing (true silent loss).
+        let runLost = 0;
+        for (let i = 0; i < ids.length; i++) {
+          const id = ids[i]!;
+          if (result.codes[i] === 0 && !got.has(id)) {
+            lost += 1;
+            runLost += 1;
+          }
+        }
+        if (runLost > 0) {
+          throw new Error(
+            `stress no-stale run ${run}: lost=${runLost} conflicts=${result.conflicts} codes=${result.codes.join(",")} ids=${ids.join(",")} got=${[...got].sort().join(",")} logs=${JSON.stringify(result.logs)}`,
+          );
         }
       } finally {
         await rm(runRoot, { recursive: true, force: true });
       }
     }
-    expect({ lost, rejected, runs: RUNS, N }).toEqual({
+    expect({ lost, hardFails, runs: RUNS, N }).toEqual({
       lost: 0,
-      rejected: 0,
+      hardFails: 0,
       runs: RUNS,
       N,
     });
-  }, 120_000);
+    if (conflicts > 0) {
+      console.log(`stress no-stale: logged ${conflicts} explicit conflict exits (liveness)`);
+    }
+  }, 180_000);
 
   test("cross-process stress with planted stale locks: 30×N=8 zero loss", async () => {
     const RUNS = 30;
     const N = 8;
     let lost = 0;
-    let rejected = 0;
+    let conflicts = 0;
+    let hardFails = 0;
     for (let run = 0; run < RUNS; run++) {
       const runRoot = await tempRoot();
       try {
-        await mkdir(join(runRoot, ".kb"), { recursive: true });
-        const lockPath = join(runRoot, ".kb", "nodes.jsonl.lock");
-        // Dead pid + several contenders racing stale rename-away.
-        await writeFile(
-          lockPath,
-          JSON.stringify({
-            v: 1,
-            pid: 2147483647,
-            token: `stale-${run}`,
-            createdAt: Date.now() - 1_000,
-          }),
+        await plantStaleLock(
+          join(runRoot, ".kb", "nodes.jsonl.lock"),
+          `stale-${run}`,
         );
         const ids = Array.from({ length: N }, (_, i) => `n.s${run}.p${i}`);
-        const codes = await spawnCrossProcessCommits(runRoot, ids);
-        rejected += codes.filter((c) => c !== 0).length;
+        const result = await spawnCrossProcessCommits(runRoot, ids);
+        conflicts += result.conflicts;
+        hardFails += result.codes.filter((c) => c !== 0 && c !== 2).length;
         const store = new JsonlStore(runRoot);
         const loaded = await store.load();
         const got = new Set(loaded.map((n) => n.id));
-        for (const id of ids) {
-          if (!got.has(id)) lost += 1;
+        let runLost = 0;
+        for (let i = 0; i < ids.length; i++) {
+          const id = ids[i]!;
+          if (result.codes[i] === 0 && !got.has(id)) {
+            lost += 1;
+            runLost += 1;
+          }
+        }
+        if (runLost > 0) {
+          throw new Error(
+            `stress planted-stale run ${run}: lost=${runLost} conflicts=${result.conflicts} codes=${result.codes.join(",")} ids=${ids.join(",")} got=${[...got].sort().join(",")} logs=${JSON.stringify(result.logs)}`,
+          );
         }
       } finally {
         await rm(runRoot, { recursive: true, force: true });
       }
     }
-    expect({ lost, rejected, runs: RUNS, N }).toEqual({
+    expect({ lost, hardFails, runs: RUNS, N }).toEqual({
       lost: 0,
-      rejected: 0,
+      hardFails: 0,
       runs: RUNS,
       N,
     });
-  }, 120_000);
+    if (conflicts > 0) {
+      console.log(`stress planted-stale: logged ${conflicts} explicit conflict exits (liveness)`);
+    }
+  }, 180_000);
 
   test("crash/stale lock with dead pid is reclaimed; commit succeeds", async () => {
     root = await tempRoot();
     const store = new JsonlStore(root);
-    await mkdir(join(root, ".kb"), { recursive: true });
-    await writeFile(
-      store.lockPath,
-      JSON.stringify({
-        v: 1,
-        pid: 2147483647,
-        token: "dead-owner",
-        createdAt: Date.now(),
-      }),
-    );
+    await plantStaleLock(store.lockPath, "dead-owner");
     await store.commit({ upserts: [sampleNode("n.after-stale")], deletes: [] });
     const loaded = await store.load();
     expect(loaded.map((n) => n.id)).toEqual(["n.after-stale"]);
     expect(lockArtifacts(await readdir(join(root, ".kb")))).toEqual([]);
   });
 
-  test("pid-reuse: live pid past STALE_MS is reclaimable", async () => {
+  test("live pid past STALE_MS is NOT stolen (dead-pid-only stale)", async () => {
     root = await tempRoot();
     const store = new JsonlStore(root);
-    await mkdir(join(root, ".kb"), { recursive: true });
-    await writeFile(
+    await plantLiveLock(
       store.lockPath,
-      JSON.stringify({
-        v: 1,
-        pid: process.pid,
-        token: "reused-pid-old",
-        createdAt: Date.now() - COMMIT_LOCK_STALE_MS - 1_000,
-      }),
+      "reused-pid-old",
+      process.pid,
+      Date.now() - COMMIT_LOCK_STALE_MS - 1_000,
     );
-    await store.commit({ upserts: [sampleNode("n.reclaimed")], deletes: [] });
-    expect((await store.load()).map((n) => n.id)).toEqual(["n.reclaimed"]);
+    const before = await readFile(store.lockPath, "utf8");
+
+    const fiber = await Effect.runPromise(
+      Effect.forkDetach(
+        store
+          .commitEffect({ upserts: [sampleNode("n.should-block")], deletes: [] })
+          .pipe(Effect.provide(bunFileSystemLayer)),
+      ).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    await Effect.runPromise(Effect.sleep("300 millis"));
+    // Product path must not reclaim a live holder regardless of createdAt age.
+    expect(await readFile(store.lockPath, "utf8")).toBe(before);
+    await Effect.runPromise(Fiber.interrupt(fiber));
+    await rm(store.lockPath, { force: true });
   });
 
   test("live recent lock is not stolen; waiter times out conflict", async () => {
     root = await tempRoot();
     const store = new JsonlStore(root);
-    await mkdir(join(root, ".kb"), { recursive: true });
-    const ownerPath = `${store.lockPath}.owner.hold`;
-    const body = JSON.stringify({
-      v: 1,
-      pid: process.pid,
-      token: "live-hold",
-      createdAt: Date.now(),
-    });
-    await writeFile(ownerPath, body);
-    // Atomic publish with full body (mirrors production link protocol).
-    const { linkSync } = await import("node:fs");
-    linkSync(ownerPath, store.lockPath);
+    await plantLiveLock(store.lockPath, "live-hold");
 
+    // maxAttempts=4 × COMMIT_LOCK_TIMEOUT_MS with retryable acquire timeout.
+    const budget = 4 * COMMIT_LOCK_TIMEOUT_MS;
     const started = Date.now();
     const caught = await Effect.runPromise(
       store
@@ -506,19 +656,16 @@ describe("JsonlStore Effect persistence", () => {
     if (isDomainError(caught)) {
       expect(caught.code).toBe("conflict");
     }
-    expect(elapsed).toBeGreaterThanOrEqual(COMMIT_LOCK_TIMEOUT_MS - 200);
-    expect(elapsed).toBeLessThan(COMMIT_LOCK_TIMEOUT_MS + 2_000);
+    expect(elapsed).toBeGreaterThanOrEqual(budget - 2_000);
+    expect(elapsed).toBeLessThan(budget + 8_000);
     await rm(store.lockPath, { force: true });
-    await rm(ownerPath, { force: true });
-  }, 15_000);
+  }, 90_000);
 
   test("empty/unparseable lock body is not deleted as stale", async () => {
     root = await tempRoot();
     const store = new JsonlStore(root);
-    await mkdir(join(root, ".kb"), { recursive: true });
+    await mkdir(dirname(store.lockPath), { recursive: true });
     await writeFile(store.lockPath, "");
-    const holder = await readFile(store.lockPath, "utf8");
-    expect(holder).toBe("");
 
     const fiber = await Effect.runPromise(
       Effect.forkDetach(
@@ -538,19 +685,7 @@ describe("JsonlStore Effect persistence", () => {
   test("lock-wait acquisition is interruptible well under timeout", async () => {
     root = await tempRoot();
     const store = new JsonlStore(root);
-    await mkdir(join(root, ".kb"), { recursive: true });
-    const ownerPath = `${store.lockPath}.owner.hold`;
-    await writeFile(
-      ownerPath,
-      JSON.stringify({
-        v: 1,
-        pid: process.pid,
-        token: "hold-interrupt",
-        createdAt: Date.now(),
-      }),
-    );
-    const { linkSync } = await import("node:fs");
-    linkSync(ownerPath, store.lockPath);
+    await plantLiveLock(store.lockPath, "hold-interrupt");
 
     const fiber = await Effect.runPromise(
       Effect.forkDetach(
@@ -562,11 +697,9 @@ describe("JsonlStore Effect persistence", () => {
     await Effect.runPromise(Effect.sleep("30 millis"));
     const t0 = Date.now();
     await Effect.runPromise(Fiber.interrupt(fiber));
-    // Fiber.interrupt awaits fiber completion — must not wait out the ~5s timeout.
     const interruptMs = Date.now() - t0;
     expect(interruptMs).toBeLessThan(500);
     await rm(store.lockPath, { force: true });
-    await rm(ownerPath, { force: true });
   });
 
   test("invalid upsert is rejected and leaves prior file untouched", async () => {

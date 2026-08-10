@@ -4,6 +4,9 @@ export {
   asPromiseStore,
   COMMIT_LOCK_STALE_MS,
   COMMIT_LOCK_TIMEOUT_MS,
+  claimStaleLock,
+  ownsCommitLock,
+  sameInode,
 } from "./jsonl-store.ts";
 export { canonicalJson } from "./canonical.ts";
 export {

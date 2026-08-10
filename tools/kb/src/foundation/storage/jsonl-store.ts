@@ -10,11 +10,15 @@ import { canonicalJson } from "./canonical.ts";
 import { KbNodeSchema, nodeParseOptions } from "./node-schema.ts";
 import type { EffectStore, Store, StoreTx } from "./store.ts";
 
-/** Lock older than this is reclaimable even if pid is still alive (pid-reuse). */
+/**
+ * Documented bound only — NOT used to steal live-pid locks.
+ * A hung-but-alive holder wedges waiters until {@link COMMIT_LOCK_TIMEOUT_MS}.
+ * A dead pid reused by an unrelated process likewise waits out the timeout.
+ */
 export const COMMIT_LOCK_STALE_MS = 30_000;
 
-/** Max time to wait for a live holder before failing `conflict`. */
-export const COMMIT_LOCK_TIMEOUT_MS = 5_000;
+/** Max time for one acquire attempt before `conflict` (retryable). */
+export const COMMIT_LOCK_TIMEOUT_MS = 15_000;
 
 const LOCK_RETRY = "10 millis" as const;
 
@@ -136,16 +140,12 @@ function parseLockOwner(body: string): Omit<LockOwner, "ownerPath"> | null {
   }
 }
 
-function isStaleOwner(
-  owner: Omit<LockOwner, "ownerPath">,
-  now: number,
-): boolean {
-  if (!pidAlive(owner.pid)) return true;
-  // Live pid past TTL: treat as pid-reuse / abandoned holder.
-  return now - owner.createdAt > COMMIT_LOCK_STALE_MS;
+/** Stale ⇔ dead pid only. Never steal a live holder (TTL is documentation only). */
+export function isStaleOwner(owner: { pid: number }): boolean {
+  return !pidAlive(owner.pid);
 }
 
-function sameInode(
+export function sameInode(
   a: { dev: number; ino: Option.Option<number> },
   b: { dev: number; ino: Option.Option<number> },
 ): boolean {
@@ -157,14 +157,76 @@ function sameInode(
   );
 }
 
+/** True when lockPath still carries our unique token (content identity). */
+export function ownsCommitLock(
+  fs: FileSystem,
+  lockPath: string,
+  token: string,
+): Effect.Effect<boolean> {
+  return Effect.gen(function* () {
+    const body = yield* fs
+      .readFileString(lockPath)
+      .pipe(Effect.catch(() => Effect.succeed("")));
+    const cur = parseLockOwner(body);
+    return cur?.token === token;
+  });
+}
+
 /**
- * Atomic commit lock:
- * 1. Write full owner payload to a unique sidecar, then `link` it onto
- *    `lockPath` (content is never observed empty mid-create).
- * 2. Empty/unparseable lock bodies are treated as held — never deleted.
- * 3. Stale takeover renames the lock away (atomic; only one winner), then
- *    retries the link — cannot delete a live/reacquired lock by content guess.
- * 4. Release unlinks `lockPath` only when it still shares the sidecar inode.
+ * Dead-pid takeover with content-verified rename.
+ * After rename, the quarantine body must byte-equal the body observed at
+ * decision time (ABA-proof vs inode reuse). On mismatch, restore only if
+ * lockPath is vacant.
+ */
+export function claimStaleLock(
+  fs: FileSystem,
+  lockPath: string,
+  observedBody: string,
+  token: string,
+): Effect.Effect<boolean, DomainError> {
+  return Effect.gen(function* () {
+    const quarantine = `${lockPath}.quarantine.${token}.${randomUUID()}`;
+    const moved = yield* fs.rename(lockPath, quarantine).pipe(
+      Effect.as(true as const),
+      Effect.catch((err) =>
+        isNotFound(err)
+          ? Effect.succeed(false as const)
+          : Effect.fail(mapFsError(err)),
+      ),
+    );
+    if (!moved) return false;
+
+    const qBody = yield* fs
+      .readFileString(quarantine)
+      .pipe(Effect.catch(() => Effect.succeed("")));
+    if (qBody === observedBody) {
+      yield* fs.remove(quarantine, { force: true }).pipe(Effect.ignore);
+      return true;
+    }
+
+    // Content mismatch: ABA reuse or a fresh lock was swapped in.
+    const lockExists = yield* fs
+      .exists(lockPath)
+      .pipe(Effect.catch(() => Effect.succeed(true)));
+    if (!lockExists) {
+      yield* fs
+        .rename(quarantine, lockPath)
+        .pipe(Effect.catch(() => Effect.void));
+    } else {
+      // Occupied by a live/fresh holder — drop quarantine only (dead content).
+      yield* fs.remove(quarantine, { force: true }).pipe(Effect.ignore);
+    }
+    return false;
+  });
+}
+
+/**
+ * Atomic commit lock (consult-r3 protocol):
+ * 1. Write full owner payload to a unique sidecar, then `link` onto lockPath
+ *    (link is the sole name creator; body never empty mid-create).
+ * 2. Empty/unparseable lock bodies are held — never deleted.
+ * 3. Stale ⇔ dead pid only; takeover is content-verified rename + restore-if-vacant.
+ * 4. Release unlinks lockPath only while it still shares the sidecar inode.
  */
 function acquireCommitLock(
   fs: FileSystem,
@@ -190,7 +252,7 @@ function acquireCommitLock(
       .pipe(Effect.mapError(mapFsError));
 
     const deadline = Date.now() + COMMIT_LOCK_TIMEOUT_MS;
-    while (Date.now() < deadline) {
+    while (true) {
       const linked = yield* fs.link(ownerPath, lockPath).pipe(
         Effect.as(true as const),
         Effect.catch((err) =>
@@ -200,39 +262,37 @@ function acquireCommitLock(
         ),
       );
       if (linked) {
-        return { ...record, ownerPath };
-      }
-
-      const body = yield* fs
-        .readFileString(lockPath)
-        .pipe(Effect.catch(() => Effect.succeed("")));
-      const current = parseLockOwner(body);
-      // Unparseable/empty: holder still publishing or foreign format — wait.
-      if (!current || !isStaleOwner(current, Date.now())) {
+        const stillOurs = yield* ownsCommitLock(fs, lockPath, token);
+        if (stillOurs) return { ...record, ownerPath };
+        // Lost between link and check — wait and retry (do not self-deadlock).
+        if (Date.now() > deadline) break;
         yield* Effect.sleep(LOCK_RETRY);
         continue;
       }
 
-      // Atomic stale claim: rename lock out of the well-known path.
-      const stalePath = `${lockPath}.stale.${token}.${randomUUID()}`;
-      const moved = yield* fs.rename(lockPath, stalePath).pipe(
-        Effect.as(true as const),
-        Effect.catch((err) =>
-          isNotFound(err)
-            ? Effect.succeed(false as const)
-            : Effect.fail(mapFsError(err)),
-        ),
-      );
-      if (moved) {
-        yield* fs.remove(stalePath, { force: true }).pipe(Effect.ignore);
+      const curBody = yield* fs
+        .readFileString(lockPath)
+        .pipe(Effect.catch(() => Effect.succeed("")));
+      const cur = parseLockOwner(curBody);
+      // Live, unknown, or unparseable ⇒ never steal (INV3).
+      if (!cur || !isStaleOwner(cur)) {
+        if (Date.now() > deadline) break;
+        yield* Effect.sleep(LOCK_RETRY);
         continue;
       }
-      yield* Effect.sleep(LOCK_RETRY);
+
+      const claimed = yield* claimStaleLock(fs, lockPath, curBody, token);
+      if (!claimed) {
+        if (Date.now() > deadline) break;
+        yield* Effect.sleep(LOCK_RETRY);
+      }
+      // Claimed: name vacant — retry link immediately.
     }
 
     return yield* Effect.fail(
       domainError("conflict", `commit lock timeout for ${lockPath}`, {
         lockPath,
+        retryable: true,
       }),
     );
   }).pipe(
@@ -253,12 +313,13 @@ function releaseCommitLock(
     const ownerStat = yield* fs
       .stat(owner.ownerPath)
       .pipe(Effect.catch(() => Effect.succeed(null)));
+    // INV2: unlink the well-known name only while it is still our inode;
+    // sidecar stays alive until after that unlink (prevents inode reuse).
     if (
       lockStat !== null &&
       ownerStat !== null &&
       sameInode(lockStat, ownerStat)
     ) {
-      // Still our inode at the well-known path — safe to release.
       yield* fs.remove(lockPath, { force: true }).pipe(Effect.ignore);
     }
     yield* fs.remove(owner.ownerPath, { force: true }).pipe(Effect.ignore);
@@ -270,17 +331,14 @@ function releaseCommitLock(
  * One canonical-JSON node per line, sorted by id.
  * Commits are atomic (tmp + rename) and keep `nodes.jsonl.bak` of the prior file.
  *
- * Concurrent commits (multi-fiber, multi-JsonlStore instance, or multi-process
- * surfaces on the same path) are serialized by an exclusive
- * `nodes.jsonl.lock` acquired via write-then-link ownership (never an empty
- * wx create). Stale locks are reclaimed by rename-away, not blind unlink.
- * Upserts and the merged snapshot are schema-validated before any durable
- * write; invalid input fails with `invalid_input` and leaves the live file
- * untouched.
+ * Concurrent commits serialize via write-then-`link` ownership of
+ * `nodes.jsonl.lock`. Stale ⇔ dead pid only (never steal a live holder).
+ * Takeover is content-verified rename with restore-if-vacant. Upserts and the
+ * merged snapshot are schema-validated before any durable write.
  *
  * Load is all-or-nothing: any malformed/invalid line fails the Effect with a
  * line-numbered DomainError and returns no nodes — the file is never rewritten
- * by load (compatible with the pre-Schema loader, which threw mid-parse).
+ * by load.
  *
  * Effect-native I/O: {@link loadEffect}/{@link commitEffect} (yield* FileSystem).
  * Promise {@link load}/{@link commit} are public adapters for tests/context.
@@ -308,8 +366,6 @@ export class JsonlStore implements Store, EffectStore {
         .pipe(Effect.mapError(mapFsError));
       if (body.trim().length === 0) return [];
 
-      // Accumulate only after every line validates — fail the whole load on the
-      // first bad line (no partial KbNode[] for callers; no file mutation here).
       const nodes: KbNode[] = [];
       const lines = body.split("\n");
       for (let i = 0; i < lines.length; i++) {
@@ -326,12 +382,12 @@ export class JsonlStore implements Store, EffectStore {
     const backupPath = this.backupPath;
     const lockPath = this.lockPath;
     const loadEffect = this.loadEffect.bind(this);
+    const maxAttempts = 4;
 
-    return Effect.scoped(
+    const attemptOnce = Effect.scoped(
       Effect.gen(function* () {
         const fs = yield* FileSystem;
 
-        // Directory must exist before lock sidecar + link.
         yield* fs
           .makeDirectory(dirname(path), { recursive: true })
           .pipe(Effect.mapError(mapFsError));
@@ -342,6 +398,7 @@ export class JsonlStore implements Store, EffectStore {
           { interruptible: true },
         );
 
+        // INV1: dead-pid-only stale means no live peer can be mid-section.
         const upserts: KbNode[] = [];
         for (let i = 0; i < tx.upserts.length; i++) {
           upserts.push(
@@ -388,6 +445,30 @@ export class JsonlStore implements Store, EffectStore {
         yield* fs.rename(tmp, path).pipe(Effect.mapError(mapFsError));
       }),
     );
+
+    return Effect.gen(function* () {
+      let last: DomainError | null = null;
+      for (let i = 0; i < maxAttempts; i++) {
+        const outcome = yield* Effect.result(attemptOnce);
+        if (outcome._tag === "Success") return;
+        last = outcome.failure;
+        const retryable =
+          last.code === "conflict" &&
+          typeof last.details === "object" &&
+          last.details !== null &&
+          (last.details as { retryable?: unknown }).retryable === true;
+        if (!retryable) return yield* Effect.fail(last);
+        yield* Effect.sleep(LOCK_RETRY);
+      }
+      return yield* Effect.fail(
+        last ??
+          domainError(
+            "conflict",
+            `commit lock retries exhausted for ${lockPath}`,
+            { lockPath, retryable: true },
+          ),
+      );
+    });
   }
 
   load(): Promise<KbNode[]> {
