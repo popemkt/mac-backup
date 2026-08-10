@@ -1,4 +1,5 @@
 export {
+  DatalogError,
   buildQueryDb,
   query,
   pull,

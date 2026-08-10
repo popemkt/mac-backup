@@ -13,7 +13,7 @@ import {
   mapMv,
   mapQuery,
   mapRm,
-  mapRunQuery,
+  mapRun,
   mapSearch,
   mapSet,
   mapTagDefine,
@@ -99,10 +99,17 @@ describe("arg → invocation mapping", () => {
     expect(mapQuery({ query: "[:find ?e :where [?e]]" }).input).toEqual({
       query: "[:find ?e :where [?e]]",
     });
-    expect(mapRunQuery("  [:find ?e :where [?e]]\n").input).toEqual({
-      query: "[:find ?e :where [?e]]",
+    expect(mapRun("all-text")).toEqual({
+      id: "graph.run",
+      input: { name: "all-text" },
     });
-    expect(mapSearch("todo").id).toBe("graph.query");
+    // Names that can never resolve stay a usage error at the CLI edge; the
+    // action owns .kb/queries resolution + read + execution.
+    expect(() => mapRun("../escape")).toThrow();
+    expect(mapSearch("todo")).toEqual({
+      id: "graph.search",
+      input: { text: "todo" },
+    });
     expect(mapBacklinks("sys.tag").id).toBe("graph.query");
     expect(
       (mapBacklinks("sys.tag").input as { query: string }).query,
@@ -334,6 +341,26 @@ describe("cli e2e (tmpdir)", () => {
     const body = JSON.parse(q.stdout);
     expect(body.status).toBe("failed");
     expect(body.code).toBe("invalid_input");
+  });
+
+  test("run routes through graph.run: missing saved query is not_found, invalid name is usage error", async () => {
+    await kb(["init"]);
+    const missing = await kb(["run", "no-such-query"]);
+    expect(missing.code).toBe(1);
+    expect(JSON.parse(missing.stdout).code).toBe("not_found");
+
+    const badName = await kb(["run", "../escape"]);
+    expect(badName.code).toBe(2);
+    expect(`${badName.stderr}${badName.stdout}`).toContain("invalid saved query name");
+
+    // Malformed EDN inside a valid saved query is invalid_input, not internal.
+    await writeFile(
+      join(root, ".kb", "queries", "broken.edn"),
+      "not [valid",
+    );
+    const broken = await kb(["run", "broken"]);
+    expect(broken.code).toBe(1);
+    expect(JSON.parse(broken.stdout).code).toBe("invalid_input");
   });
 
   test("mv / add under a sys.* parent require --force", async () => {

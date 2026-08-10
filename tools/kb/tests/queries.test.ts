@@ -32,9 +32,12 @@ describe("foundation/query/queries", () => {
     expect((mapTagList().input as { query: string }).query).toBe(
       LIST_TAGS_QUERY,
     );
-    expect((mapSearch("todo").input as { query: string }).query).toBe(
-      LIST_ALL_NODES_QUERY,
-    );
+    // Text search delegates to the graph.search action (native substring
+    // filtering), not a CLI-side LIST_ALL_NODES_QUERY + filter.
+    expect(mapSearch("todo")).toEqual({
+      id: "graph.search",
+      input: { text: "todo" },
+    });
     expect((mapBacklinks("sys.tag").input as { query: string }).query).toBe(
       backlinksQuery("sys.tag"),
     );

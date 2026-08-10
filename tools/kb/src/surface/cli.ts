@@ -17,16 +17,12 @@ import {
 } from "../foundation/resolve.ts";
 import { receiptCodeOf } from "../foundation/errors.ts";
 import {
-  readSavedQuery,
-  resolveSavedQueryFile,
-} from "../foundation/saved-query.ts";
-import {
   invokeReceiptEffect,
   registryFor,
   type ActionHandlerEnv,
 } from "../registry.ts";
 import type { ActionReceipt } from "../shared/contracts.ts";
-import { filterSearchRows, formatReceipt } from "./format.ts";
+import { formatReceipt } from "./format.ts";
 import {
   fieldsNeedingCreate,
   mapActionInvoke,
@@ -42,7 +38,7 @@ import {
   mapMv,
   mapQuery,
   mapRm,
-  mapRunQuery,
+  mapRun,
   mapSearch,
   mapSet,
   mapTagDefine,
@@ -69,7 +65,7 @@ export {
   mapFieldTargetQuery,
   mapTagList,
   mapQuery,
-  mapRunQuery,
+  mapRun,
   mapSearch,
   mapBacklinks,
   mapChildren,
@@ -157,19 +153,12 @@ function ensureFieldsEffect(
   });
 }
 
-function stripInternalInput(input: unknown): unknown {
-  if (!input || typeof input !== "object" || Array.isArray(input)) return input;
-  const copy = { ...(input as Record<string, unknown>) };
-  delete copy._searchFilter;
-  return copy;
-}
-
 /** Run a planned registry action and write formatted stdout. */
 export function runPlanEffect(
   ctx: KbContext,
   plan: PlannedAction,
   globals: GlobalOpts,
-  opts: { create?: boolean; command?: string; searchFilter?: string } = {},
+  opts: { create?: boolean; command?: string } = {},
 ): Effect.Effect<number, Error, ActionHandlerEnv> {
   return Effect.gen(function* () {
     const created = yield* ensureFieldsEffect(ctx, plan, opts.create === true);
@@ -180,33 +169,16 @@ export function runPlanEffect(
 
     const receipt = yield* invokeReceiptEffect(ctx, {
       id: plan.id,
-      input: stripInternalInput(plan.input),
+      input: plan.input,
     });
 
-    let toFormat = receipt;
-    if (
-      receipt.status === "succeeded" &&
-      opts.searchFilter !== undefined &&
-      receipt.output &&
-      typeof receipt.output === "object"
-    ) {
-      const rows = filterSearchRows(
-        (receipt.output as { rows: unknown }).rows,
-        opts.searchFilter,
-      );
-      toFormat = {
-        ...receipt,
-        output: { rows },
-      };
-    }
-
     writeOut(
-      formatReceipt(toFormat, {
+      formatReceipt(receipt, {
         json: globals.json === true,
         command: opts.command,
       }),
     );
-    return toFormat.status === "succeeded" ? EXIT_OK : EXIT_FAILED;
+    return receipt.status === "succeeded" ? EXIT_OK : EXIT_FAILED;
   });
 }
 
@@ -692,41 +664,18 @@ export function buildProgram(): Command {
     .argument("<name>", "saved query name (without .edn)")
     .action(async function (this: Command, name: string) {
       const code = await withCtx(this, (ctx, globals) =>
-        Effect.gen(function* () {
-          const path = resolveSavedQueryFile(ctx.root, name);
-          if (!path) {
-            return yield* Effect.fail(
-              new UsageError(
-                `invalid saved query name: ${name} (letters, digits, ., _, - only)`,
-              ),
-            );
-          }
-          const edn = yield* Effect.tryPromise({
-            try: () => readSavedQuery(ctx.root, name),
-            catch: (err) =>
-              err instanceof Error ? err : new Error(String(err)),
-          });
-          if (edn === null) {
-            return yield* Effect.fail(
-              new UsageError(`saved query not found: ${path}`),
-            );
-          }
-          return yield* runPlanEffect(ctx, mapRunQuery(edn), globals);
-        }),
+        runPlanEffect(ctx, mapRun(name), globals),
       );
       process.exitCode = code;
     });
 
   program
     .command("search")
-    .description("Search node text (substring)")
+    .description("Search node text (case-insensitive substring)")
     .argument("<text>", "search text")
     .action(async function (this: Command, text: string) {
       const code = await withCtx(this, (ctx, globals) =>
-        runPlanEffect(ctx, mapSearch(text), globals, {
-          command: "search",
-          searchFilter: text,
-        }),
+        runPlanEffect(ctx, mapSearch(text), globals, { command: "search" }),
       );
       process.exitCode = code;
     });

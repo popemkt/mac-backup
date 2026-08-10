@@ -154,12 +154,20 @@ interface Store {
 
 - `datascript` npm. Load → datoms → `conn` → query.
 - `kb query '<edn datalog>'` for raw power; pull API via `kb get <id> --depth N`.
+- Query failures are typed at the action boundary: errors thrown by the
+  datascript engine on the caller's EDN become `DatalogError`
+  (→ `invalid_input`); defects in our own glue (normalization / result
+  revival) stay plain `Error` (→ `internal`) so internal bugs are never
+  hidden behind "invalid datalog".
 - **Saved queries are data, not code** (portability): `.kb/queries/*.edn`
-  files, run via `kb run <name>`. The tool stays generic; repo-specific
+  files, run via `kb run <name>` or the first-class `graph.run` action.
+  The tool stays generic; repo-specific
   queries travel with the repo's data dir. Any repo adopting `kb` brings its
   own `.kb/queries/`. Shell-script wrappers optional on top, zero baked-in.
 - Built-in shorthands limited to structural ones: `kb backlinks <id>`,
-  `kb children <id>`, `kb search <text>`.
+  `kb children <id>`, `kb search <text>` — `kb search` delegates to the
+  first-class `graph.search` action (case-insensitive substring over node
+  text), so the substring policy lives in the action, not the CLI.
 
 ## Action registry
 

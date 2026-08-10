@@ -6,6 +6,19 @@ const MENTION_RE = /\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g;
 
 export type Datom = [number | string, string, unknown, number?, boolean?];
 
+/**
+ * A query that failed inside the datascript engine — parse or evaluation
+ * error in the user-supplied EDN. Distinguishes "the datalog is wrong"
+ * (invalid_input at the action boundary) from internal glue failures
+ * (normalization / revive bugs, which stay plain `Error` → internal).
+ */
+export class DatalogError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DatalogError";
+  }
+}
+
 export interface IdMap {
   /** NodeId → integer eid */
   toEid: Map<NodeId, number>;
@@ -193,7 +206,17 @@ function reviveValue(v: unknown, ids: IdMap): unknown {
 /** Run raw EDN datalog; entity ids in results are revived to NodeIds when known. */
 export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
   const q = normalizeEdnQuery(edn);
-  const raw = d.q(q, db.db, ...inputs) as unknown;
+  let raw: unknown;
+  try {
+    raw = d.q(q, db.db, ...inputs) as unknown;
+  } catch (err) {
+    // Query parse/evaluation failures are the caller's datalog at fault, not
+    // an internal defect — surface them as DatalogError so action surfaces can
+    // type them invalid_input while genuine glue bugs stay plain Error.
+    throw new DatalogError(
+      err instanceof Error ? err.message : String(err),
+    );
+  }
   return reviveValue(raw, db.ids);
 }
 
