@@ -56,10 +56,12 @@ implementation modules under `src/surface/ui/` split by concern:
   node APIs in the datom builder). Keystrokes never wait on the network.
 - **Mutations**: optimistic local tx → `POST /api/action` (registry.invoke,
   same receipts) → on failure, strict `/api/graph` refetch (never demo
-  fixtures mid-session) + toast; if refetch fails, restore local pre-plan
-  state without rewinding `rev`, dropping unconfirmed minted nodes after
-  partial multi-action applies. Cold-boot `loadGraph` may fall back to
-  fixtures; `hydrateFromWire` is boot-only — live resync uses
+  fixtures mid-session) + toast; if refetch fails, restore plan-touched
+  nodes to pre-plan state without rewinding `rev`, drop minted nodes, and
+  re-apply only confirmed non-structural actions (text/props) — never keep
+  unconfirmed reparent/delete `children[]` fragments. Unrelated live-graph
+  nodes (concurrent remote edits) are preserved. Cold-boot `loadGraph` may
+  fall back to fixtures; `hydrateFromWire` is boot-only — live resync uses
   `refreshFromWire` so `loadSource` stays `api`. No temp-id dance (nxus's
   pain): client mints final ULIDs, server accepts explicit ids (already
   supported by `node.add`).

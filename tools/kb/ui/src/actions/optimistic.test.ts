@@ -2,8 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setPostAction } from "@/api/action";
 import { setFetchGraphSnapshot } from "@/api/graph";
 import { runOptimistic } from "@/actions/optimistic";
-import { planSplit, planUpdateText, type PlannedMutation } from "@/actions/plan";
+import {
+  planMergeWithPrevious,
+  planSplit,
+  planUpdateText,
+  type PlannedMutation,
+} from "@/actions/plan";
 import { fixtureGraph } from "@/fixtures/graph";
+import { findParentWire } from "@/lib/tx";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -322,5 +328,182 @@ describe("runOptimistic multi-action transactions", () => {
     expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(
       fixtureGraph.nodes.find((n) => n.id === "n.root-a")!.text,
     );
+  });
+
+  it("merge partial failure + failed refetch drops structural fragments, keeps text sibling", async () => {
+    useOutlineStore.getState().applyTx([], [], { rev: 8 });
+    const a1Before = useOutlineStore.getState().nodes.get("n.child-a1")!.text;
+    const a2Before = useOutlineStore.getState().nodes.get("n.child-a2")!.text;
+    const merge = planMergeWithPrevious(
+      useOutlineStore.getState().wireNodes,
+      "n.child-a2",
+    );
+    expect(merge).not.toBeNull();
+    expect(merge!.actions.length).toBeGreaterThan(2);
+    expect(merge!.deletes).toEqual(["n.child-a2"]);
+
+    fetchGraph.mockRejectedValue(new Error("resync offline"));
+    let calls = 0;
+    setPostAction(async () => {
+      calls += 1;
+      if (calls === 1) {
+        return { status: "succeeded", id: "node.update", output: {} };
+      }
+      return {
+        status: "failed",
+        id: "node.update",
+        code: "internal",
+        message: "reparent failed",
+      };
+    });
+
+    const result = await runOptimistic(merge!);
+    expect(result.ok).toBe(false);
+
+    const store = useOutlineStore.getState();
+    const wire = store.wireNodes;
+    // Confirmed text sibling kept; unconfirmed reparent/delete dropped.
+    expect(store.nodes.get("n.child-a1")?.text).toBe(a1Before + a2Before);
+    expect(store.nodes.get("n.child-a2")?.text).toBe(a2Before);
+    expect(store.nodes.get("n.root-a")?.children).toEqual([
+      "n.child-a1",
+      "n.child-a2",
+    ]);
+    expect(store.nodes.get("n.child-a2")?.children).toEqual(["n.grandchild"]);
+    expect(store.nodes.get("n.child-a1")?.children ?? []).not.toContain(
+      "n.grandchild",
+    );
+    expect(findParentWire(wire, "n.child-a2")?.id).toBe("n.root-a");
+    expect(findParentWire(wire, "n.grandchild")?.id).toBe("n.child-a2");
+    // No orphan forest-root / duplicated descendant.
+    expect(findParentWire(wire, "n.child-a2")).not.toBeNull();
+    expect(store.rev).toBeGreaterThanOrEqual(8);
+    expect(store.loadSource).toBe("api");
+  });
+
+  it("merge partial failure + successful refetch adopts authoritative server state", async () => {
+    const merge = planMergeWithPrevious(
+      useOutlineStore.getState().wireNodes,
+      "n.child-a2",
+    )!;
+    const a1 = useOutlineStore.getState().wireNodes.find(
+      (n) => n.id === "n.child-a1",
+    )!;
+    const a2 = useOutlineStore.getState().wireNodes.find(
+      (n) => n.id === "n.child-a2",
+    )!;
+    // Server kept text update only — structure unchanged.
+    const authoritative = structuredClone(fixtureGraph.nodes).map((n) =>
+      n.id === "n.child-a1"
+        ? { ...n, text: a1.text + a2.text }
+        : n,
+    );
+    fetchGraph.mockResolvedValue({ rev: 12, nodes: authoritative });
+
+    let calls = 0;
+    setPostAction(async () => {
+      calls += 1;
+      if (calls === 1) {
+        return { status: "succeeded", id: "node.update", output: {} };
+      }
+      return {
+        status: "failed",
+        id: "node.update",
+        code: "internal",
+        message: "reparent failed",
+      };
+    });
+
+    expect((await runOptimistic(merge)).ok).toBe(false);
+    const store = useOutlineStore.getState();
+    expect(store.rev).toBe(12);
+    expect(store.nodes.get("n.child-a1")?.text).toBe(a1.text + a2.text);
+    expect(store.nodes.get("n.root-a")?.children).toEqual([
+      "n.child-a1",
+      "n.child-a2",
+    ]);
+    expect(store.nodes.get("n.child-a2")?.children).toEqual(["n.grandchild"]);
+    expect(fetchGraph).toHaveBeenCalledTimes(1);
+  });
+
+  it("merge double-failure preserves unrelated concurrent remote edits", async () => {
+    const merge = planMergeWithPrevious(
+      useOutlineStore.getState().wireNodes,
+      "n.child-a2",
+    )!;
+    // Interleaved remote update on an unrelated node during the plan.
+    useOutlineStore.getState().applyTx(
+      [
+        {
+          ...useOutlineStore
+            .getState()
+            .wireNodes.find((n) => n.id === "n.root-b")!,
+          text: "remote-unrelated",
+        },
+      ],
+      [],
+      { rev: 15 },
+    );
+
+    fetchGraph.mockRejectedValue(new Error("resync offline"));
+    let calls = 0;
+    setPostAction(async () => {
+      calls += 1;
+      if (calls === 1) {
+        return { status: "succeeded", id: "node.update", output: {} };
+      }
+      return {
+        status: "failed",
+        id: "node.update",
+        code: "internal",
+        message: "reparent failed",
+      };
+    });
+
+    expect((await runOptimistic(merge)).ok).toBe(false);
+    const store = useOutlineStore.getState();
+    expect(store.nodes.get("n.root-b")?.text).toBe("remote-unrelated");
+    expect(store.rev).toBeGreaterThanOrEqual(15);
+    expect(findParentWire(store.wireNodes, "n.grandchild")?.id).toBe(
+      "n.child-a2",
+    );
+  });
+
+  it("retry after merge double-failure can succeed", async () => {
+    const merge = planMergeWithPrevious(
+      useOutlineStore.getState().wireNodes,
+      "n.child-a2",
+    )!;
+    fetchGraph.mockRejectedValue(new Error("resync offline"));
+    let calls = 0;
+    setPostAction(async () => {
+      calls += 1;
+      if (calls <= 2) {
+        // First plan: text ok, reparent fails (stops the plan).
+        if (calls === 1) {
+          return { status: "succeeded", id: "node.update", output: {} };
+        }
+        return {
+          status: "failed",
+          id: "node.update",
+          code: "internal",
+          message: "reparent failed",
+        };
+      }
+      return { status: "succeeded", id: "node.update", output: {} };
+    });
+
+    expect((await runOptimistic(merge)).ok).toBe(false);
+    expect(useOutlineStore.getState().loadSource).toBe("api");
+
+    const retry = planMergeWithPrevious(
+      useOutlineStore.getState().wireNodes,
+      "n.child-a2",
+    )!;
+    fetchGraph.mockReset();
+    expect((await runOptimistic(retry)).ok).toBe(true);
+    const store = useOutlineStore.getState();
+    expect(store.nodes.has("n.child-a2")).toBe(false);
+    expect(store.nodes.get("n.child-a1")?.children).toContain("n.grandchild");
   });
 });
