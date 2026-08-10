@@ -25,7 +25,7 @@ import {
 } from "@/actions/plan";
 import { toast } from "@/lib/toast";
 import { isSysPrefixed, WORKSPACE_ROOT_ID } from "@/lib/types";
-import { cloneWire } from "@/lib/tx";
+import { cloneWire, findParentWire } from "@/lib/tx";
 import type { PropValue } from "@/lib/types";
 import type { WireNode } from "@kb/protocol";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -187,11 +187,16 @@ export const mutations = {
       return ok ? newId : null;
     }
     if (afterSiblingId) {
+      // Inserting after a sibling lands under the sibling's parent — guard
+      // that parent, not just the sibling id (sys.* write-guard).
+      const siblingParent = findParentWire(wire(), afterSiblingId);
+      if (siblingParent && !guardSysWrite(siblingParent.id)) return null;
       const ok = await applyPlan(planCreateAfter(wire(), afterSiblingId, newId));
       if (!ok) return null;
       if (text) mutations.updateNodeContent(newId, text);
       return newId;
     }
+    if (!guardSysWrite(parentId)) return null;
     const ok = await applyPlan(
       (await import("@/actions/plan")).planAddChild(
         wire(),

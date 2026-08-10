@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/fixtures/graph";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
+import type { WireNode } from "@kb/protocol";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
+import { cloneWire } from "@/lib/tx";
 
 describe("sys.* UI write-guard", () => {
   beforeEach(() => {
@@ -52,5 +54,53 @@ describe("sys.* UI write-guard", () => {
     expect(useOutlineStore.getState().nodes.get("n.root-c")!.text).toBe(
       "edited",
     );
+  });
+
+  it("ghost-row create under a sys.* parent returns null with a toast", async () => {
+    const newId = await mutations.createGhostNode("sys.tag.query", null, "ghost");
+    expect(newId).toBeNull();
+    expect(useOutlineStore.getState().nodes.has("sys.tag.query")).toBe(true);
+    expect(useUiStore.getState().toasts.some((t) => /sys\.\*/.test(t.text))).toBe(
+      true,
+    );
+  });
+
+  it("ghost-row create after a sibling under a sys.* parent returns null", async () => {
+    // Craft a normal node whose parent is sys.tag, then try to insert after it.
+    const at = "2026-08-08T05:00:00.000Z";
+    const child: WireNode = {
+      id: "n.under-sys",
+      text: "child",
+      props: {},
+      children: [],
+      createdAt: at,
+      updatedAt: at,
+    };
+    const sysTag = cloneWire(
+      useOutlineStore.getState().nodes.get("sys.tag")!,
+    );
+    sysTag.children = [child.id];
+    useOutlineStore
+      .getState()
+      .hydrateFromWire(
+        [...fixtureGraph.nodes, sysTag, child],
+        fixtureGraph.rev,
+        "fixtures",
+      );
+
+    const newId = await mutations.createGhostNode("sys.tag", child.id, "ghost");
+    expect(newId).toBeNull();
+    expect(useOutlineStore.getState().nodes.has("n.under-sys")).toBe(true);
+    expect(useUiStore.getState().toasts.some((t) => /sys\.\*/.test(t.text))).toBe(
+      true,
+    );
+  });
+
+  it("ghost-row create under a normal parent still works", async () => {
+    const before = useOutlineStore.getState().nodes.get("n.root-c")!.children;
+    const newId = await mutations.createGhostNode("n.root-c", null, "kid");
+    expect(newId).not.toBeNull();
+    const after = useOutlineStore.getState().nodes.get("n.root-c")!.children;
+    expect(after.length).toBe(before.length + 1);
   });
 });
