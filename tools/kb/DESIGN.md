@@ -163,14 +163,15 @@ interface Store {
 
 ## Action registry
 
-Harman-lite (zod):
+Harman-lite (zod) + Effect-native handlers for owned actions:
 
-- `ActionDefinition { id, title, description, mode: "read"|"apply", inputSchema, outputSchema }` — JSON Schemas via `z.toJSONSchema`, never hand-written.
+- `ActionDefinition { id, title, description, mode: "read"|"apply", inputSchema, outputSchema, effect? }` — JSON Schemas via `z.toJSONSchema`, never hand-written. Optional `effect` is the Effect-native handler seam for built-ins / bundled extensions.
 - `ActionReceipt` = `succeeded | failed` discriminated union, typed failure codes, never throws across boundary.
 - `registryFor(root)` builds a handler table per kb root (cached for the
-  process); `manifest(root)` + `invoke(ctx, invocation)` dispatch through it.
+  process); `manifest(root)` + `invoke(ctx, invocation)` / `invokeReceiptEffect` dispatch through it.
+- Dispatch prefers `effect` and composes it under `Effect.scoped` (finalizers / interrupt). Legacy Promise `handler`s (third-party `.kb/extensions`) are the only path lifted via `tryPromise`.
 - Skipped from harman (YAGNI): profiles, pagination cursors, idempotency
-  replay, cancellation, A2A/HTTP surfaces. Contracts leave room.
+  replay, A2A surfaces. Contracts leave room; Fiber interrupt covers cancellation for native handlers.
 
 ### Core boundary & extensions
 
@@ -181,16 +182,17 @@ output of any kind — lives in **extensions**:
 
 - An extension is a TS module in `.kb/extensions/` (repo-local = trusted)
   whose default export is an array of harman-style actions: an
-  `ActionDefinition` plus a `handler(ctx, input)` (see `src/extensions.ts`).
+  `ActionDefinition` plus either Effect `effect(input)` (preferred) or a
+  legacy Promise `handler(ctx, input)` (see `src/extensions.ts`).
 - The registry discovers them at build and namespaces ids as
   `ext.<file>.<action>`. A failing module or malformed action warns and is
   skipped — extension errors never crash core. `kb ext list` shows what
   loaded (and what didn't).
-- `tools/kb/extensions-bundled/docs.ts` is the bundled example: it owns
-  `ext.docs.materialize` / `ext.docs.check`, with the legacy ids
-  `docs.materialize` / `docs.check` registered as aliases so pre-commit and
-  existing callers are unchanged. Core keeps only the render mechanism the
-  extension calls into (`src/operations/docs/`).
+- `tools/kb/extensions-bundled/docs.ts` / `canvas.ts` are Effect-native
+  bundled examples (`effect` handlers using `KbCtx` / `FileSystem` /
+  `KbStore` Layers). Docs owns `ext.docs.materialize` / `ext.docs.check`,
+  with legacy aliases `docs.materialize` / `docs.check`. Core keeps only the
+  render mechanism the extension calls into (`src/operations/docs/`).
 - Extensions are loaded once per process; changing one requires restarting
   long-lived surfaces (`kb ui`, `kb mcp`).
 
@@ -230,10 +232,17 @@ output of any kind — lives in **extensions**:
 
 - `surface/ui/**` HTTP routing, assets, and SubscriptionHub are Effect programs;
   Bun.serve remains the listen/WS/`Bun.file` boundary (see Runtime/tooling
-  boundary and DESIGN-UI.md).
-- Extension / action handlers remain `(ctx, input) => Promise` and are lifted
-  inside `invokeEffect` via `tryPromise` — nested Promise boundaries inside the
-  action registry are not migrated yet.
+  boundary and DESIGN-UI.md). `/api/action` composes `invokeReceiptEffect`
+  directly (no nested `invoke` Promise).
+- Repository-owned / core / bundled action handlers are Effect-native end to
+  end (`effect` + Layers). Third-party `.kb/extensions` may still export
+  Promise `handler`s; those alone use `tryPromise` inside `invokeEffect`.
+- Registry discovery still uses dynamic `import()` of extension modules
+  (Promise at the load boundary). Standard Schema `validate` may return a
+  Promise and is lifted once at parse time.
+- Surface tips (`CLI` Commander actions, MCP SDK handlers, `Bun.serve`) still
+  call `Effect.runPromise` / `runPromiseExit` at the process edge — not inside
+  action handlers.
 - No `@effect/cli` adoption (Commander preserved by design).
 
 ## Repo integration
