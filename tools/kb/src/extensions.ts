@@ -1,27 +1,43 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { ActionDefinition } from "./shared/contracts.ts";
+import type {
+  ActionDefinition,
+  ActionEffectHandler,
+} from "./shared/contracts.ts";
 import type { KbContext } from "./context.ts";
 import { isActionSchema } from "./foundation/schema-seam.ts";
 
 /**
  * Extension seam: a TS module in `.kb/extensions/` (repo-local = trusted)
  * default-exports an array of harman-style actions — an `ActionDefinition`
- * plus a `handler`. The registry namespaces each action id as
+ * plus either an Effect `effect` handler (preferred) or a legacy Promise
+ * `handler`. The registry namespaces each action id as
  * `ext.<file>.<action>` at build time. Loader failures warn and skip the
  * offending file/action; they never crash core.
  *
  * Schemas accept Standard Schema v1 (`~standard`) or zod `.parse` (zod 4
- * implements both).
+ * implements both). Third-party extensions typically ship Promise handlers;
+ * bundled extensions use Effect-native `effect`.
  */
-export interface ExtensionAction extends ActionDefinition {
-  // The registry parses inputSchema before calling; `never` keeps any
-  // concretely-typed handler assignable without casts.
-  handler: (ctx: KbContext, input: never) => Promise<unknown>;
+export type ExtensionPromiseHandler = (
+  ctx: KbContext,
+  input: never,
+) => Promise<unknown>;
+
+export type ExtensionAction = ActionDefinition & {
   /** Extra top-level ids this action also answers to (compat shims). */
   aliases?: readonly string[];
-}
+} & (
+  | {
+      effect: ActionEffectHandler;
+      handler?: ExtensionPromiseHandler;
+    }
+  | {
+      handler: ExtensionPromiseHandler;
+      effect?: ActionEffectHandler;
+    }
+);
 
 export interface LoadedExtension {
   /** File basename without `.ts`; becomes the `ext.<name>.` namespace. */
@@ -66,8 +82,10 @@ function actionProblem(value: unknown): string | null {
       return `action ${a.id}: ${key} must be a Standard Schema v1 or zod schema`;
     }
   }
-  if (typeof a.handler !== "function") {
-    return `action ${a.id}: handler must be a function`;
+  const hasEffect = typeof a.effect === "function";
+  const hasHandler = typeof a.handler === "function";
+  if (!hasEffect && !hasHandler) {
+    return `action ${a.id}: effect or handler must be a function`;
   }
   if (
     a.aliases !== undefined &&
@@ -119,7 +137,8 @@ export async function discoverExtensions(root: string): Promise<{
     if (!Array.isArray(exported)) {
       failures.push({
         file,
-        error: "default export must be an array of actions ({...ActionDefinition, handler})",
+        error:
+          "default export must be an array of actions ({...ActionDefinition, effect|handler})",
       });
       continue;
     }

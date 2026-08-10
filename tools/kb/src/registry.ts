@@ -1,6 +1,8 @@
 import { Cause, Effect, Exit } from "effect";
+import { FileSystem } from "effect/FileSystem";
 import {
   type ActionDefinition,
+  type ActionEffectHandler,
   type ActionInvocation,
   type ActionReceipt,
   FailureCodeSchema,
@@ -8,7 +10,12 @@ import {
   failed,
   succeeded,
 } from "./shared/contracts.ts";
-import type { KbContext } from "./context.ts";
+import {
+  KbCtx,
+  KbStore,
+  kbRuntimeLayer,
+  type KbContext,
+} from "./context.ts";
 import { ResolveError } from "./foundation/resolve.ts";
 import {
   ActionSchemaError,
@@ -26,38 +33,51 @@ import {
   namespacedId,
   type ExtensionAction,
   type ExtensionFailure,
+  type ExtensionPromiseHandler,
   type LoadedExtension,
 } from "./extensions.ts";
 import bundledDocs from "../extensions-bundled/docs.ts";
 import bundledCanvas from "../extensions-bundled/canvas.ts";
 import {
-  assetUpload,
   assetUploadDef,
+  assetUploadEffect,
 } from "./operations/assets.ts";
 import {
-  fieldDefine,
   fieldDefineDef,
-  graphQuery,
+  fieldDefineEffect,
   graphQueryDef,
-  nodeAdd,
+  graphQueryEffect,
   nodeAddDef,
-  nodeGet,
+  nodeAddEffect,
   nodeGetDef,
-  nodeUpdate,
+  nodeGetEffect,
   nodeUpdateDef,
-  tagDefine,
+  nodeUpdateEffect,
   tagDefineDef,
+  tagDefineEffect,
 } from "./operations/index.ts";
 import {
-  renderViewAction,
+  renderViewActionEffect,
   renderViewDef,
-  renderViewsAction,
+  renderViewsActionEffect,
   renderViewsDef,
 } from "./render/index.ts";
 
+/** Services Effect-native handlers may require; provided at the invoke tip. */
+export type ActionHandlerEnv = KbCtx | KbStore | FileSystem;
+
 export interface RegisteredAction {
   def: ActionDefinition;
-  handler: (ctx: KbContext, input: never) => Promise<unknown>;
+  /**
+   * Effect-native handler. Preferred when set — composed directly inside
+   * {@link invokeEffect} (no `tryPromise`).
+   */
+  effect?: ActionEffectHandler;
+  /**
+   * Legacy Promise handler. Used only when {@link RegisteredAction.effect}
+   * is absent (third-party `.kb/extensions`).
+   */
+  handler?: ExtensionPromiseHandler;
   /** "core" | "ext:<name>" */
   source: string;
   aliases: readonly string[];
@@ -90,16 +110,23 @@ export interface Registry {
   manifestEntries: readonly ManifestEntry[];
 }
 
+function coreNative(
+  def: ActionDefinition,
+  effect: ActionEffectHandler,
+): RegisteredAction {
+  return { def, effect, source: "core", aliases: [] };
+}
+
 const CORE_ACTIONS: readonly RegisteredAction[] = [
-  { def: nodeAddDef, handler: nodeAdd, source: "core", aliases: [] },
-  { def: nodeUpdateDef, handler: nodeUpdate, source: "core", aliases: [] },
-  { def: nodeGetDef, handler: nodeGet, source: "core", aliases: [] },
-  { def: fieldDefineDef, handler: fieldDefine, source: "core", aliases: [] },
-  { def: tagDefineDef, handler: tagDefine, source: "core", aliases: [] },
-  { def: graphQueryDef, handler: graphQuery, source: "core", aliases: [] },
-  { def: assetUploadDef, handler: assetUpload, source: "core", aliases: [] },
-  { def: renderViewDef, handler: renderViewAction, source: "core", aliases: [] },
-  { def: renderViewsDef, handler: renderViewsAction, source: "core", aliases: [] },
+  coreNative(nodeAddDef, nodeAddEffect as ActionEffectHandler),
+  coreNative(nodeUpdateDef, nodeUpdateEffect as ActionEffectHandler),
+  coreNative(nodeGetDef, nodeGetEffect as ActionEffectHandler),
+  coreNative(fieldDefineDef, fieldDefineEffect as ActionEffectHandler),
+  coreNative(tagDefineDef, tagDefineEffect as ActionEffectHandler),
+  coreNative(graphQueryDef, graphQueryEffect as ActionEffectHandler),
+  coreNative(assetUploadDef, assetUploadEffect as ActionEffectHandler),
+  coreNative(renderViewDef, renderViewActionEffect as ActionEffectHandler),
+  coreNative(renderViewsDef, renderViewsActionEffect as ActionEffectHandler),
 ];
 
 /** Extensions shipped with kb itself; loaded like repo extensions. */
@@ -138,6 +165,7 @@ async function buildRegistry(root: string | null): Promise<Registry> {
           inputSchema: action.inputSchema,
           outputSchema: action.outputSchema,
         },
+        effect: action.effect,
         handler: action.handler,
         source: `ext:${ext.name}`,
         aliases,
@@ -207,6 +235,11 @@ export async function listDefinitions(
   return (await registryFor(root ?? null)).actions.map((a) => a.def);
 }
 
+/** True when the registered action dispatches through an Effect handler. */
+export function isEffectNativeAction(action: RegisteredAction): boolean {
+  return typeof action.effect === "function";
+}
+
 const parseInputEffect = Effect.fn("kb.parseActionInput")(
   function* (
     schema: ActionSchema,
@@ -232,8 +265,18 @@ const parseInputEffect = Effect.fn("kb.parseActionInput")(
   },
 );
 
+function mapHandlerError(err: unknown): ActionSchemaError | DomainError | Error {
+  if (err instanceof ResolveError) return domainFromResolve(err);
+  if (isDomainError(err)) return err;
+  if (err instanceof ActionSchemaError) return err;
+  if (err instanceof Error) return err;
+  return new Error(String(err));
+}
+
 /**
  * Effect invoke — failures stay typed until {@link invoke} maps them to receipts.
+ * Native handlers are composed directly (scoped); legacy Promise handlers are
+ * the only path that uses `tryPromise`.
  */
 export const invokeEffect = Effect.fn("kb.invoke")(
   function* (
@@ -241,9 +284,11 @@ export const invokeEffect = Effect.fn("kb.invoke")(
     invocation: ActionInvocation,
   ): Effect.fn.Return<
     ActionReceipt,
-    ActionSchemaError | DomainError | Error
+    ActionSchemaError | DomainError | Error,
+    ActionHandlerEnv
   > {
     const { id, input } = invocation;
+    // Registry discovery still uses dynamic import (external boundary).
     const registry = yield* Effect.tryPromise({
       try: () => registryFor(ctx.root),
       catch: (err) =>
@@ -253,17 +298,23 @@ export const invokeEffect = Effect.fn("kb.invoke")(
     if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
 
     const parsed = yield* parseInputEffect(entry.def.inputSchema, input);
-    const output = yield* Effect.tryPromise({
-      try: () => entry.handler(ctx, parsed as never),
-      catch: (err) => {
-        if (err instanceof ResolveError) return domainFromResolve(err);
-        if (isDomainError(err)) return err;
-        if (err instanceof ActionSchemaError) return err;
-        if (err instanceof Error) return err;
-        return new Error(String(err));
-      },
-    });
-    return succeeded(id, output);
+
+    if (entry.effect) {
+      const output = yield* Effect.scoped(
+        entry.effect(parsed as never),
+      ).pipe(Effect.mapError(mapHandlerError));
+      return succeeded(id, output);
+    }
+
+    if (entry.handler) {
+      const output = yield* Effect.tryPromise({
+        try: () => entry.handler!(ctx, parsed as never),
+        catch: mapHandlerError,
+      });
+      return succeeded(id, output);
+    }
+
+    return failed(id, "internal", `action has no effect or handler: ${id}`);
   },
 );
 
@@ -271,12 +322,13 @@ export const invokeEffect = Effect.fn("kb.invoke")(
  * Effect invoke that always succeeds with an {@link ActionReceipt}.
  * Surfaces compose this inside Effect programs; typed failures from
  * {@link invokeEffect} are mapped through the canonical receipt mapper.
+ * Requires {@link ActionHandlerEnv} so native handlers receive Layers.
  */
 export const invokeReceiptEffect = Effect.fn("kb.invokeReceipt")(
   function* (
     ctx: KbContext,
     invocation: ActionInvocation,
-  ): Effect.fn.Return<ActionReceipt> {
+  ): Effect.fn.Return<ActionReceipt, never, ActionHandlerEnv> {
     return yield* invokeEffect(ctx, invocation).pipe(
       Effect.catch((err) =>
         Effect.succeed(receiptFromError(invocation.id, err)),
@@ -287,15 +339,16 @@ export const invokeReceiptEffect = Effect.fn("kb.invokeReceipt")(
 
 /**
  * Invoke an action. Never throws across this boundary — failures become receipts.
- * Thin Promise compatibility edge over {@link invokeReceiptEffect}.
+ * Thin Promise compatibility edge over {@link invokeReceiptEffect} + live Layers.
  */
 export async function invoke(
   ctx: KbContext,
   invocation: ActionInvocation,
 ): Promise<ActionReceipt> {
-  // invokeReceiptEffect has no Layer requirements (handlers run via tryPromise).
   const exit = await Effect.runPromiseExit(
-    invokeReceiptEffect(ctx, invocation),
+    invokeReceiptEffect(ctx, invocation).pipe(
+      Effect.provide(kbRuntimeLayer(ctx)),
+    ),
   );
   if (Exit.isSuccess(exit)) return exit.value;
   return receiptFromError(invocation.id, Cause.squash(exit.cause));

@@ -1,7 +1,9 @@
-import { readFile, readdir } from "node:fs/promises";
 import { isAbsolute, join, normalize } from "node:path";
+import { Effect } from "effect";
+import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import type { FailureCode } from "../../shared/contracts.ts";
+import { bunFileSystemLayer } from "../../foundation/platform.ts";
 
 /** Typed failure for docs operations; registry maps it to a receipt. */
 export class DocsError extends Error {
@@ -50,19 +52,7 @@ export function viewsDir(root: string): string {
   return join(root, ".kb", "views");
 }
 
-async function loadView(root: string, name: string): Promise<LoadedView> {
-  if (!/^[\w][\w.-]*$/.test(name)) {
-    throw new DocsError("invalid_input", `invalid view name: ${name}`, {
-      name,
-    });
-  }
-  const path = join(viewsDir(root), `${name}.json`);
-  let raw: string;
-  try {
-    raw = await readFile(path, "utf8");
-  } catch {
-    throw new DocsError("not_found", `view not found: ${name}`, { name, path });
-  }
+function parseViewJson(name: string, path: string, raw: string): LoadedView {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -84,22 +74,68 @@ async function loadView(root: string, name: string): Promise<LoadedView> {
   return { name, spec: result.data };
 }
 
-/** Load one view by name, or all views sorted by name. */
+const loadViewEffect = Effect.fn("docs.loadView")(
+  function* (
+    root: string,
+    name: string,
+  ): Effect.fn.Return<LoadedView, DocsError, FileSystem> {
+    if (!/^[\w][\w.-]*$/.test(name)) {
+      return yield* Effect.fail(
+        new DocsError("invalid_input", `invalid view name: ${name}`, { name }),
+      );
+    }
+    const path = join(viewsDir(root), `${name}.json`);
+    const fs = yield* FileSystem;
+    const raw = yield* fs.readFileString(path).pipe(
+      Effect.mapError(
+        () => new DocsError("not_found", `view not found: ${name}`, { name, path }),
+      ),
+    );
+    return yield* Effect.try({
+      try: () => parseViewJson(name, path, raw),
+      catch: (err) =>
+        err instanceof DocsError
+          ? err
+          : new DocsError(
+              "internal",
+              err instanceof Error ? err.message : String(err),
+              { name, path },
+            ),
+    });
+  },
+);
+
+/** Load one view by name, or all views sorted by name (Effect + FileSystem). */
+export const loadViewsEffect = Effect.fn("docs.loadViews")(
+  function* (
+    root: string,
+    name?: string,
+  ): Effect.fn.Return<LoadedView[], DocsError, FileSystem> {
+    if (name !== undefined) return [yield* loadViewEffect(root, name)];
+
+    const fs = yield* FileSystem;
+    const dir = viewsDir(root);
+    const entries = yield* fs.readDirectory(dir).pipe(
+      Effect.catch(() => Effect.succeed([] as string[])),
+    );
+    const names = entries
+      .filter((e) => e.endsWith(".json"))
+      .map((e) => e.slice(0, -".json".length))
+      .sort();
+    const views: LoadedView[] = [];
+    for (const n of names) {
+      views.push(yield* loadViewEffect(root, n));
+    }
+    return views;
+  },
+);
+
+/** Promise facade over {@link loadViewsEffect} for non-action callers. */
 export async function loadViews(
   root: string,
   name?: string,
 ): Promise<LoadedView[]> {
-  if (name !== undefined) return [await loadView(root, name)];
-
-  let entries: string[];
-  try {
-    entries = await readdir(viewsDir(root));
-  } catch {
-    return [];
-  }
-  const names = entries
-    .filter((e) => e.endsWith(".json"))
-    .map((e) => e.slice(0, -".json".length))
-    .sort();
-  return Promise.all(names.map((n) => loadView(root, n)));
+  return Effect.runPromise(
+    loadViewsEffect(root, name).pipe(Effect.provide(bunFileSystemLayer)),
+  );
 }

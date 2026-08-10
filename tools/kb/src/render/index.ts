@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import type { KbContext } from "../context.ts";
 import { KbCtx, runWithKb } from "../context.ts";
@@ -7,11 +8,12 @@ import { DomainError, domainError } from "../foundation/errors.ts";
 import {
   DocsError,
   GENERATED_HEADER,
-  loadViews,
-  renderView,
+  loadViewsEffect,
+  renderViewEffect,
 } from "../operations/docs/index.ts";
 
 type RenderError = DomainError | DocsError;
+type RenderEnv = KbCtx | FileSystem;
 
 /** Map unknown render failures; DomainError must be a runtime import for instanceof. */
 export function mapRenderErr(err: unknown): RenderError {
@@ -87,22 +89,16 @@ export const renderNamedViewEffect = Effect.fn("render.namedView")(
   function* (
     viewName: string,
     format: RenderFormat,
-  ): Effect.fn.Return<RenderedView, RenderError, KbCtx> {
+  ): Effect.fn.Return<RenderedView, RenderError, RenderEnv> {
     const ctx = yield* KbCtx;
-    const views = yield* Effect.tryPromise({
-      try: () => loadViews(ctx.root, viewName),
-      catch: mapRenderErr,
-    });
+    const views = yield* loadViewsEffect(ctx.root, viewName);
     const view = views[0];
     if (!view) {
       return yield* Effect.fail(
         new DocsError("not_found", `view not found: ${viewName}`, { viewName }),
       );
     }
-    const md = yield* Effect.tryPromise({
-      try: () => renderView(ctx, view),
-      catch: mapRenderErr,
-    });
+    const md = yield* renderViewEffect(view);
     if (format === "md") {
       return { name: viewName, format, content: md };
     }
@@ -126,12 +122,9 @@ export async function renderNamedView(
 }
 
 export const listViewNamesEffect = Effect.fn("render.listViews")(
-  function* (): Effect.fn.Return<string[], RenderError, KbCtx> {
+  function* (): Effect.fn.Return<string[], RenderError, RenderEnv> {
     const ctx = yield* KbCtx;
-    const views = yield* Effect.tryPromise({
-      try: () => loadViews(ctx.root),
-      catch: mapRenderErr,
-    });
+    const views = yield* loadViewsEffect(ctx.root);
     return views.map((v) => v.name).sort();
   },
 );
@@ -171,7 +164,7 @@ export const renderViewsDef = {
 export const renderViewActionEffect = Effect.fn("render.view")(
   function* (
     input: z.infer<typeof renderViewDef.inputSchema>,
-  ): Effect.fn.Return<RenderedView, RenderError, KbCtx> {
+  ): Effect.fn.Return<RenderedView, RenderError, RenderEnv> {
     return yield* renderNamedViewEffect(input.name, input.format);
   },
 );
@@ -184,7 +177,7 @@ export async function renderViewAction(
 }
 
 export const renderViewsActionEffect = Effect.fn("render.views")(
-  function* (): Effect.fn.Return<{ views: string[] }, RenderError, KbCtx> {
+  function* (): Effect.fn.Return<{ views: string[] }, RenderError, RenderEnv> {
     return { views: yield* listViewNamesEffect() };
   },
 );

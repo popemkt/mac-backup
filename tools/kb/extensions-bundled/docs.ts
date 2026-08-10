@@ -1,9 +1,15 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { Effect } from "effect";
+import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import type { KbContext } from "../src/context.ts";
+import { KbCtx } from "../src/context.ts";
 import type { ExtensionAction } from "../src/extensions.ts";
-import { loadViews, renderView } from "../src/operations/docs/index.ts";
+import {
+  DocsError,
+  loadViewsEffect,
+  renderViewEffect,
+} from "../src/operations/docs/index.ts";
+import type { ActionEffectHandler } from "../src/shared/contracts.ts";
 
 /**
  * Bundled example extension: repo-doc materialization policy.
@@ -16,6 +22,8 @@ import { loadViews, renderView } from "../src/operations/docs/index.ts";
  * Registered as `ext.docs.materialize` / `ext.docs.check`; the legacy ids
  * `docs.materialize` / `docs.check` stay as aliases so pre-commit and
  * existing callers keep working.
+ *
+ * Handlers are Effect-native (`effect`) — no Promise nest under registry.
  */
 
 const viewInput = z.object({
@@ -37,44 +45,63 @@ const checkOutput = z.object({
   ),
 });
 
-async function docsMaterialize(
-  ctx: KbContext,
-  input: z.infer<typeof viewInput>,
-): Promise<z.infer<typeof materializeOutput>> {
-  const views = await loadViews(ctx.root, input.view);
-  const written: { view: string; output: string }[] = [];
-  for (const view of views) {
-    const content = await renderView(ctx, view);
-    const path = join(ctx.root, view.spec.output);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, content, "utf8");
-    written.push({ view: view.name, output: view.spec.output });
-  }
-  return { written };
+type DocsEnv = KbCtx | FileSystem;
+
+function mapDocsFs(err: unknown, message: string): DocsError {
+  return new DocsError(
+    "internal",
+    `${message}: ${err instanceof Error ? err.message : String(err)}`,
+  );
 }
 
-async function docsCheck(
-  ctx: KbContext,
-  input: z.infer<typeof viewInput>,
-): Promise<z.infer<typeof checkOutput>> {
-  const views = await loadViews(ctx.root, input.view);
-  const results: z.infer<typeof checkOutput>["views"] = [];
-  for (const view of views) {
-    const expected = await renderView(ctx, view);
-    let status: "clean" | "stale" | "missing";
-    try {
-      const actual = await readFile(join(ctx.root, view.spec.output), "utf8");
-      status = actual === expected ? "clean" : "stale";
-    } catch {
-      status = "missing";
+export const docsMaterializeEffect = Effect.fn("ext.docs.materialize")(
+  function* (
+    input: z.infer<typeof viewInput>,
+  ): Effect.fn.Return<z.infer<typeof materializeOutput>, DocsError, DocsEnv> {
+    const ctx = yield* KbCtx;
+    const fs = yield* FileSystem;
+    const views = yield* loadViewsEffect(ctx.root, input.view);
+    const written: { view: string; output: string }[] = [];
+    for (const view of views) {
+      const content = yield* renderViewEffect(view);
+      const path = join(ctx.root, view.spec.output);
+      yield* fs.makeDirectory(dirname(path), { recursive: true }).pipe(
+        Effect.mapError((err) => mapDocsFs(err, `mkdir ${dirname(path)}`)),
+      );
+      yield* fs.writeFileString(path, content).pipe(
+        Effect.mapError((err) => mapDocsFs(err, `write ${path}`)),
+      );
+      written.push({ view: view.name, output: view.spec.output });
     }
-    results.push({ view: view.name, output: view.spec.output, status });
-  }
-  return {
-    clean: results.every((r) => r.status === "clean"),
-    views: results,
-  };
-}
+    return { written };
+  },
+);
+
+export const docsCheckEffect = Effect.fn("ext.docs.check")(
+  function* (
+    input: z.infer<typeof viewInput>,
+  ): Effect.fn.Return<z.infer<typeof checkOutput>, DocsError, DocsEnv> {
+    const ctx = yield* KbCtx;
+    const fs = yield* FileSystem;
+    const views = yield* loadViewsEffect(ctx.root, input.view);
+    const results: z.infer<typeof checkOutput>["views"] = [];
+    for (const view of views) {
+      const expected = yield* renderViewEffect(view);
+      const path = join(ctx.root, view.spec.output);
+      const status = yield* fs.readFileString(path).pipe(
+        Effect.map((actual) =>
+          actual === expected ? ("clean" as const) : ("stale" as const),
+        ),
+        Effect.catch(() => Effect.succeed("missing" as const)),
+      );
+      results.push({ view: view.name, output: view.spec.output, status });
+    }
+    return {
+      clean: results.every((r) => r.status === "clean"),
+      views: results,
+    };
+  },
+);
 
 const actions: ExtensionAction[] = [
   {
@@ -86,7 +113,7 @@ const actions: ExtensionAction[] = [
     inputSchema: viewInput,
     outputSchema: materializeOutput,
     aliases: ["docs.materialize"],
-    handler: docsMaterialize,
+    effect: docsMaterializeEffect as ActionEffectHandler,
   },
   {
     id: "check",
@@ -97,7 +124,7 @@ const actions: ExtensionAction[] = [
     inputSchema: viewInput,
     outputSchema: checkOutput,
     aliases: ["docs.check"],
-    handler: docsCheck,
+    effect: docsCheckEffect as ActionEffectHandler,
   },
 ];
 

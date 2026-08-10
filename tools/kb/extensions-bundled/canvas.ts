@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import type { KbContext } from "../src/context.ts";
-import { KbCtx, KbStore, persistEffect, runWithKb } from "../src/context.ts";
+import { KbCtx, KbStore, persistEffect } from "../src/context.ts";
 import type { ExtensionAction } from "../src/extensions.ts";
 import {
   SYSTEM_IDS,
@@ -23,6 +23,7 @@ import {
   stringifyCanvasDoc,
   type CanvasDoc,
 } from "../src/canvas/doc.ts";
+import type { ActionEffectHandler } from "../src/shared/contracts.ts";
 
 /**
  * Bundled canvas extension: atomic canvas JSON + relationship prop writes.
@@ -31,6 +32,8 @@ import {
  * `sys.f.canvas` on the canvas node and optionally (2) set/unset props on a
  * source node (native edge bind/unbind). Validation failures throw before
  * persist — nothing is written.
+ *
+ * Handler is Effect-native (`effect`) — no Promise nest under registry.
  */
 
 const PropInputSchema = z.object({
@@ -163,7 +166,7 @@ function applyUnsetProps(
 
 type CanvasFail = DomainError | CanvasTxError;
 
-const canvasTxApplyEffect = Effect.fn("ext.canvas.tx.apply")(
+export const canvasTxApplyEffect = Effect.fn("ext.canvas.tx.apply")(
   function* (
     input: z.infer<typeof applyInput>,
   ): Effect.fn.Return<
@@ -242,13 +245,6 @@ const canvasTxApplyEffect = Effect.fn("ext.canvas.tx.apply")(
   },
 );
 
-async function canvasTxApply(
-  ctx: KbContext,
-  input: z.infer<typeof applyInput>,
-): Promise<z.infer<typeof applyOutput>> {
-  return runWithKb(ctx, canvasTxApplyEffect(input));
-}
-
 const actions: ExtensionAction[] = [
   {
     id: "tx.apply",
@@ -258,7 +254,7 @@ const actions: ExtensionAction[] = [
     mode: "apply",
     inputSchema: applyInput,
     outputSchema: applyOutput,
-    handler: canvasTxApply,
+    effect: canvasTxApplyEffect as ActionEffectHandler,
   },
 ];
 

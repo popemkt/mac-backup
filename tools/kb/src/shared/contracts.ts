@@ -1,3 +1,4 @@
+import type { Effect } from "effect";
 import { z } from "zod";
 import {
   type ActionSchema,
@@ -20,9 +21,22 @@ export const FailureCodeSchema = z.enum([
 export type FailureCode = z.infer<typeof FailureCodeSchema>;
 
 /**
+ * Effect-native action handler. Input is already schema-parsed; services
+ * (`KbCtx` / `KbStore` / `FileSystem`) come from Layers at the invoke tip.
+ * `R` is intentionally wide so built-ins with narrower requirements assign.
+ */
+export type ActionEffectHandler = (
+  input: never,
+) => Effect.Effect<unknown, unknown, any>;
+
+/**
  * Action contract. Schemas are Standard Schema v1–compatible (zod 4 satisfies
  * this). JSON Schema for manifests is derived when the vendor is zod;
  * otherwise a permissive object schema is emitted.
+ *
+ * Built-ins / bundled extensions may set {@link ActionDefinition.effect};
+ * third-party `.kb/extensions` keep a Promise `handler` (see ExtensionAction).
+ * Manifest serialization ignores both handler fields.
  */
 export interface ActionDefinition<
   TIn extends ActionSchema = ActionSchema,
@@ -34,6 +48,11 @@ export interface ActionDefinition<
   mode: ActionMode;
   inputSchema: TIn;
   outputSchema: TOut;
+  /**
+   * Effect-native handler. When present, the registry composes it directly
+   * (scoped) and never lifts it through `tryPromise`.
+   */
+  effect?: ActionEffectHandler;
 }
 
 export interface ActionInvocation {

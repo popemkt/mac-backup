@@ -40,11 +40,19 @@ export {
   manifest,
   invoke,
   invokeEffect,
+  invokeReceiptEffect,
+  isEffectNativeAction,
   listDefinitions,
   registryFor,
   resetRegistryCache,
 } from "./registry.ts";
-export type { Registry, RegistryExtension, ManifestEntry } from "./registry.ts";
+export type {
+  ActionHandlerEnv,
+  Registry,
+  RegistryExtension,
+  ManifestEntry,
+  RegisteredAction,
+} from "./registry.ts";
 export type {
   ExtensionAction,
   ExtensionFailure,
@@ -52,6 +60,7 @@ export type {
 } from "./extensions.ts";
 export type {
   ActionDefinition,
+  ActionEffectHandler,
   ActionInvocation,
   ActionReceipt,
 } from "./shared/contracts.ts";

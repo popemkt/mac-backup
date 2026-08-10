@@ -1,14 +1,16 @@
+import { Effect } from "effect";
+import { FileSystem } from "effect/FileSystem";
 import { SYSTEM_IDS, type NodeId } from "../../foundation/model.ts";
 import { query } from "../../foundation/query/index.ts";
 import {
-  readSavedQuery,
   resolveSavedQueryFile,
 } from "../../foundation/saved-query.ts";
 import type { KbContext } from "../../context.ts";
+import { KbCtx, runWithKb } from "../../context.ts";
 import { templates, type TemplateContext } from "./templates.ts";
 import { DocsError, type LoadedView } from "./views.ts";
 
-export { DocsError, ViewSpecSchema, loadViews } from "./views.ts";
+export { DocsError, ViewSpecSchema, loadViews, loadViewsEffect } from "./views.ts";
 export { templates, renderText } from "./templates.ts";
 export type { TemplateContext, TemplateFn } from "./templates.ts";
 
@@ -30,43 +32,64 @@ function templateContext(ctx: KbContext): TemplateContext {
   };
 }
 
-async function viewEdn(ctx: KbContext, view: LoadedView): Promise<string> {
-  if (view.spec.query !== undefined) return view.spec.query;
-  const name = view.spec.savedQuery!;
-  const path = resolveSavedQueryFile(ctx.root, name);
-  if (!path) {
-    throw new DocsError(
-      "invalid_input",
-      `invalid saved query name: ${name}`,
-      { view: view.name, savedQuery: name },
+const viewEdnEffect = Effect.fn("docs.viewEdn")(
+  function* (
+    view: LoadedView,
+  ): Effect.fn.Return<string, DocsError, KbCtx | FileSystem> {
+    if (view.spec.query !== undefined) return view.spec.query;
+    const ctx = yield* KbCtx;
+    const name = view.spec.savedQuery!;
+    const path = resolveSavedQueryFile(ctx.root, name);
+    if (!path) {
+      return yield* Effect.fail(
+        new DocsError(
+          "invalid_input",
+          `invalid saved query name: ${name}`,
+          { view: view.name, savedQuery: name },
+        ),
+      );
+    }
+    const fs = yield* FileSystem;
+    const edn = yield* fs.readFileString(path).pipe(
+      Effect.mapError(
+        () =>
+          new DocsError("not_found", `saved query not found: ${name}`, {
+            view: view.name,
+            path,
+          }),
+      ),
     );
-  }
-  const edn = await readSavedQuery(ctx.root, name);
-  if (edn === null) {
-    throw new DocsError(
-      "not_found",
-      `saved query not found: ${name}`,
-      { view: view.name, path },
-    );
-  }
-  return edn;
-}
+    return edn;
+  },
+);
 
 /** Render one view to its final file content (header + template output). */
+export const renderViewEffect = Effect.fn("docs.renderView")(
+  function* (
+    view: LoadedView,
+  ): Effect.fn.Return<string, DocsError, KbCtx | FileSystem> {
+    const ctx = yield* KbCtx;
+    const template = templates[view.spec.template];
+    if (!template) {
+      return yield* Effect.fail(
+        new DocsError(
+          "invalid_input",
+          `unknown template: ${view.spec.template}`,
+          { view: view.name, known: Object.keys(templates).sort() },
+        ),
+      );
+    }
+    const edn = yield* viewEdnEffect(view);
+    const rows = query(ctx.qdb, edn) as unknown[][];
+    const body = template(rows, templateContext(ctx));
+    return `${GENERATED_HEADER}\n\n${body.trimEnd()}\n`;
+  },
+);
+
+/** Promise facade over {@link renderViewEffect} for non-action callers. */
 export async function renderView(
   ctx: KbContext,
   view: LoadedView,
 ): Promise<string> {
-  const template = templates[view.spec.template];
-  if (!template) {
-    throw new DocsError(
-      "invalid_input",
-      `unknown template: ${view.spec.template}`,
-      { view: view.name, known: Object.keys(templates).sort() },
-    );
-  }
-  const edn = await viewEdn(ctx, view);
-  const rows = query(ctx.qdb, edn) as unknown[][];
-  const body = template(rows, templateContext(ctx));
-  return `${GENERATED_HEADER}\n\n${body.trimEnd()}\n`;
+  return runWithKb(ctx, renderViewEffect(view));
 }

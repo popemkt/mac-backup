@@ -19,7 +19,11 @@ import {
   readSavedQuery,
   resolveSavedQueryFile,
 } from "../foundation/saved-query.ts";
-import { invokeReceiptEffect, registryFor } from "../registry.ts";
+import {
+  invokeReceiptEffect,
+  registryFor,
+  type ActionHandlerEnv,
+} from "../registry.ts";
 import type { ActionReceipt } from "../shared/contracts.ts";
 import { filterSearchRows, formatReceipt } from "./format.ts";
 import {
@@ -96,7 +100,7 @@ function withCtx(
   body: (
     ctx: KbContext,
     globals: GlobalOpts,
-  ) => Effect.Effect<number, unknown, FileSystem>,
+  ) => Effect.Effect<number, unknown, ActionHandlerEnv>,
   allowCreateRoot = false,
 ): Promise<number> {
   const globals = getGlobals(cmd);
@@ -118,7 +122,7 @@ function ensureFieldsEffect(
   ctx: KbContext,
   plan: PlannedAction,
   create: boolean,
-): Effect.Effect<ActionReceipt | null, Error> {
+): Effect.Effect<ActionReceipt | null, Error, ActionHandlerEnv> {
   return Effect.gen(function* () {
     if (!create) return null;
     for (const name of fieldsNeedingCreate(plan)) {
@@ -165,7 +169,7 @@ export function runPlanEffect(
   plan: PlannedAction,
   globals: GlobalOpts,
   opts: { create?: boolean; command?: string; searchFilter?: string } = {},
-): Effect.Effect<number, Error> {
+): Effect.Effect<number, Error, ActionHandlerEnv> {
   return Effect.gen(function* () {
     const created = yield* ensureFieldsEffect(ctx, plan, opts.create === true);
     if (created && created.status === "failed") {

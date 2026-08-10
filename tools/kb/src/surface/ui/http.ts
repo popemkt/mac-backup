@@ -7,9 +7,10 @@ import { reloadEffect, type KbContext } from "../../context.ts";
 import {
   bunFileSystemLayer,
   kbStoreLayer,
+  KbCtx,
   KbStore,
 } from "../../context.ts";
-import { invoke, manifest } from "../../registry.ts";
+import { invokeReceiptEffect, manifest } from "../../registry.ts";
 import * as assets from "./assets.ts";
 import { listSavedQueriesEffect } from "./saved-queries.ts";
 import type { SubscriptionHub } from "./session.ts";
@@ -75,7 +76,7 @@ export const handleHttpRequestEffect = (
 ): Effect.Effect<
   HttpServerResponse.HttpServerResponse,
   never,
-  FileSystem | KbStore
+  FileSystem | KbStore | KbCtx
 > =>
   Effect.gen(function* () {
     const { root, ctx, hub } = deps;
@@ -108,14 +109,12 @@ export const handleHttpRequestEffect = (
         );
       }
 
-      // Fresh load so we don't miss external writes, then invoke.
+      // Fresh load so we don't miss external writes, then invoke natively.
       yield* reloadEffect(ctx);
-      const receipt = yield* Effect.promise(() =>
-        invoke(ctx, {
-          id: parsed.data.id,
-          input: parsed.data.input ?? {},
-        }),
-      );
+      const receipt = yield* invokeReceiptEffect(ctx, {
+        id: parsed.data.id,
+        input: parsed.data.input ?? {},
+      });
       // Immediate bump/broadcast — do not wait for fs.watch.
       yield* hub.applyNodes(ctx.nodes);
       return jsonResponse(receipt);
@@ -166,6 +165,7 @@ export function handleHttpRequest(
     handleHttpRequestEffect(req, deps).pipe(
       Effect.provide(bunFileSystemLayer),
       Effect.provide(kbStoreLayer(deps.ctx.effectStore)),
+      Effect.provideService(KbCtx, deps.ctx),
       Effect.map(HttpServerResponse.toWeb),
     ),
   );
