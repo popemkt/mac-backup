@@ -592,6 +592,68 @@ describe("JsonlStore Effect persistence", () => {
     expect(await readFile(lockPath, "utf8")).toBe(currentBody);
   });
 
+  test("breaker: dead-orphan reclaim is link-arbitered — the reap loser never unlinks", async () => {
+    root = await tempRoot();
+    const lockPath = join(root, ".kb", "nodes.jsonl.lock");
+    const breakerPath = `${lockPath}.break`;
+    await plantStaleLock(lockPath, "planted");
+    const staleBody = await readFile(lockPath, "utf8");
+    // Dead-pid orphan vote for the current dead lock.
+    const orphan = {
+      v: 1 as const,
+      lock: staleBody,
+      pid: 2147483647,
+      token: "dead-holder",
+      createdAt: Date.now(),
+    };
+    const orphanBody = JSON.stringify(orphan);
+    await writeFile(breakerPath, orphanBody);
+
+    const real = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* FileSystem;
+      }).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    // Scripted FS: the token-scoped reap link for THIS dead vote always loses
+    // (another reaper already owns its reclamation). A reaper that did not
+    // atomically win the gate must never unlink the breaker.
+    let reapLinkAttempts = 0;
+    let unlinkAttempts = 0;
+    const fs = {
+      ...real,
+      link: ((src, dst) => {
+        if (dst === `${breakerPath}.reap.dead-holder`) {
+          reapLinkAttempts += 1;
+          return Effect.fail({
+            _tag: "PlatformError",
+            reason: { _tag: "AlreadyExists" },
+          } as never);
+        }
+        return real.link(src, dst);
+      }) as FileSystem["link"],
+      remove: ((p, opts) => {
+        if (p === breakerPath) unlinkAttempts += 1;
+        return real.remove(p, opts);
+      }) as FileSystem["remove"],
+    } as FileSystem;
+
+    const claimed = await Effect.runPromise(
+      claimStaleLock(fs, lockPath, staleBody).pipe(
+        Effect.provide(bunFileSystemLayer),
+      ),
+    );
+    expect(claimed).toBe(false);
+    // The gate was attempted exactly once; the loser never unlinked the orphan.
+    expect(reapLinkAttempts).toBe(1);
+    expect(unlinkAttempts).toBe(0);
+    expect(await readFile(breakerPath, "utf8")).toBe(orphanBody);
+    // Only our own reap sidecar was cleaned up; the foreign orphan is intact.
+    expect(lockArtifacts(await readdir(join(root, ".kb")))).toEqual([
+      "nodes.jsonl.lock",
+      "nodes.jsonl.lock.break",
+    ]);
+  });
+
   test("breaker: alive breaker vote is never deleted — fail-closed wedge (public commit path)", async () => {
     root = await tempRoot();
     const store = new JsonlStore(root);
@@ -806,6 +868,64 @@ describe("JsonlStore Effect persistence", () => {
     }
   }, 180_000);
 
+  test("cross-process stress with planted stale locks AND dead orphan breaker: 10×N=8 zero loss", async () => {
+    const RUNS = 10;
+    const N = 8;
+    let lost = 0;
+    let conflicts = 0;
+    let hardFails = 0;
+    for (let run = 0; run < RUNS; run++) {
+      const runRoot = await tempRoot();
+      try {
+        const lockPath = join(runRoot, ".kb", "nodes.jsonl.lock");
+        await plantStaleLock(lockPath, `stale-orphan-${run}`);
+        // Dead-pid orphan breaker vote left by a reaper that crashed inside
+        // its breaker-held window, targeting the same dead lock.
+        await writeFile(
+          `${lockPath}.break`,
+          JSON.stringify({
+            v: 1,
+            lock: await readFile(lockPath, "utf8"),
+            pid: 2147483647,
+            token: `orphan-${run}`,
+            createdAt: Date.now() - 1_000,
+          }),
+        );
+        const ids = Array.from({ length: N }, (_, i) => `n.o${run}.p${i}`);
+        const result = await spawnCrossProcessCommits(runRoot, ids);
+        conflicts += result.conflicts;
+        hardFails += result.codes.filter((c) => c !== 0 && c !== 2).length;
+        const store = new JsonlStore(runRoot);
+        const loaded = await store.load();
+        const got = new Set(loaded.map((n) => n.id));
+        let runLost = 0;
+        for (let i = 0; i < ids.length; i++) {
+          const id = ids[i]!;
+          if (result.codes[i] === 0 && !got.has(id)) {
+            lost += 1;
+            runLost += 1;
+          }
+        }
+        if (runLost > 0) {
+          throw new Error(
+            `stress planted-orphan run ${run}: lost=${runLost} conflicts=${result.conflicts} codes=${result.codes.join(",")} ids=${ids.join(",")} got=${[...got].sort().join(",")} logs=${JSON.stringify(result.logs)}`,
+          );
+        }
+      } finally {
+        await rm(runRoot, { recursive: true, force: true });
+      }
+    }
+    expect({ lost, hardFails, runs: RUNS, N }).toEqual({
+      lost: 0,
+      hardFails: 0,
+      runs: RUNS,
+      N,
+    });
+    if (conflicts > 0) {
+      console.log(`stress planted-orphan: logged ${conflicts} explicit conflict exits (liveness)`);
+    }
+  }, 120_000);
+
   test("crash/stale lock with dead pid is reclaimed; commit succeeds", async () => {
     root = await tempRoot();
     const store = new JsonlStore(root);
@@ -906,6 +1026,57 @@ describe("JsonlStore Effect persistence", () => {
     const interruptMs = Date.now() - t0;
     expect(interruptMs).toBeLessThan(500);
     await rm(store.lockPath, { force: true });
+  });
+
+  test("interrupting the acquire winner releases its exact lock name (no orphan live-pid lock)", async () => {
+    root = await tempRoot();
+    const store = new JsonlStore(root);
+    const real = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* FileSystem;
+      }).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    // Park the winner right after its link succeeded (inside ownsCommitLock's
+    // read of lockPath), so the interrupt lands while the fiber HOLDS the lock.
+    let reachedPark!: () => void;
+    const reachedParkP = new Promise<void>((res) => {
+      reachedPark = res;
+    });
+    let parkedOnce = false;
+    const fs = {
+      ...real,
+      readFileString: ((p, opts) => {
+        if (p === store.lockPath && !parkedOnce) {
+          parkedOnce = true;
+          return Effect.gen(function* () {
+            reachedPark();
+            yield* Effect.promise(() => new Promise<void>(() => {}));
+            return yield* real.readFileString(p, opts);
+          });
+        }
+        return real.readFileString(p, opts);
+      }) as FileSystem["readFileString"],
+    } as FileSystem;
+
+    const fiber = await Effect.runPromise(
+      Effect.forkDetach(
+        store
+          .commitEffect({ upserts: [sampleNode("n.winner")], deletes: [] })
+          .pipe(Effect.provideService(FileSystem, fs)),
+      ).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    await reachedParkP;
+    expect(existsSync(store.lockPath)).toBe(true);
+    await Effect.runPromise(Fiber.interrupt(fiber));
+    await Effect.runPromise(Effect.sleep("50 millis"));
+    // The lock name must be released even though the interrupt landed after
+    // the link succeeded — no live-pid lock orphan, no sidecar litter.
+    expect(existsSync(store.lockPath)).toBe(false);
+    expect(lockArtifacts(await readdir(join(root, ".kb")))).toEqual([]);
+    // The process is not self-bricked: a follow-up commit acquires immediately.
+    await store.commit({ upserts: [sampleNode("n.after")], deletes: [] });
+    const loaded = await store.load();
+    expect(loaded.map((n) => n.id)).toEqual(["n.after"]);
   });
 
   test("invalid upsert is rejected and leaves prior file untouched", async () => {

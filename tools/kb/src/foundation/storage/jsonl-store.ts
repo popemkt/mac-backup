@@ -216,7 +216,9 @@ export function ownsCommitLock(
  * Invariants:
  * - INV-B1 (sole breaker owner): `link` is the only way the breaker name is
  *   created; a breaker vote is removed only by (a) its owner, verified by its
- *   unique token, or (b) a reaper that proves the owner PID is dead AND
+ *   unique token, or (b) a reaper that proves the owner PID is dead, atomically
+ *   wins the token-scoped reap name (`${breakerPath}.reap.<token>`, created by
+ *   `link`, so exactly one reaper is ever authorised to remove that vote), and
  *   re-reads the same byte-identical vote immediately before unlinking.
  *   A differing decision-time `observedBody` is never authority to delete
  *   another's vote — delayed contenders back off and let the owner finish.
@@ -230,14 +232,19 @@ export function ownsCommitLock(
  *   `lockPath`, finds a foreign/live body, and aborts without touching it;
  *   cleanup drops only its own breaker (token-verified).
  * - INV-B4 (breaker reclaim): an existing breaker is only ever removed when
- *   its holder PID is dead (`!pidAlive`) and the re-read just before unlink
- *   shows the same dead vote. A crashed holder's orphan breaker (dead pid) is
- *   reclaimed on the next reaper attempt; a suspended-but-alive holder is
- *   never reclaimed (no TTL), so no reclaim can race a legitimate hold. A dead
- *   pid reused by an unrelated process wedges reapers until the bounded
- *   acquire timeout (`conflict`, retryable) — the same documented liveness
- *   bound as the lock. Safety over liveness: any reclaim that cannot be
- *   expressed atomically degrades to that fail-closed wedge, never to an
+ *   its holder PID is dead (`!pidAlive`) and the reaper has atomically won the
+ *   token-scoped reap name for that exact vote. The reap name is created only
+ *   by `link`, so winning it proves exclusive authority over that dead vote,
+ *   and the byte-identical dead vote is re-read immediately before the unlink.
+ *   A crashed holder's orphan breaker (dead pid) is reclaimed on the next
+ *   reaper attempt via the reap gate. A reaper that loses the reap link
+ *   (another reaper already owns that vote's reclamation) backs off and fails
+ *   closed, and a reaper that crashes after winning the gate leaves the reap
+ *   name behind — both degrade to the bounded acquire timeout (`conflict`,
+ *   retryable), the same documented liveness bound as the lock. A
+ *   suspended-but-alive holder is never reclaimed (no TTL), so no reclaim can
+ *   race a legitimate hold. Safety over liveness: any reclaim that cannot
+ *   prove ownership atomically degrades to that fail-closed wedge, never to an
  *   unsafe unlink of a live vote.
  * - INV-B5 (ABA): identity is content, never inode; the breaker is a vote
  *   file, not a hard link, and both breaker ownership and lock bytes are
@@ -264,6 +271,10 @@ export function claimStaleLock(
   const payload = JSON.stringify(record);
 
   let held = false;
+  /** Token-scoped reap gate state (mutable so finalizers see the live value). */
+  let reapPath: string | null = null;
+  let reapSidecar: string | null = null;
+  let reapWon = false;
   const removeSidecar = fs
     .remove(breakerOwnerPath, { force: true })
     .pipe(Effect.ignore);
@@ -278,6 +289,27 @@ export function claimStaleLock(
       yield* fs.remove(breakerPath, { force: true }).pipe(Effect.ignore);
     }
   });
+  /** Clean up a reap sidecar we wrote, wherever the flow stopped. */
+  const removeReapSidecar: Effect.Effect<void> = Effect.gen(function* () {
+    if (reapSidecar !== null) {
+      yield* fs.remove(reapSidecar, { force: true }).pipe(Effect.ignore);
+    }
+  });
+  /**
+   * Remove the reap name we won. We own it (we won it via `link`), so this is
+   * always safe; if we lost or never attempted the gate this is a no-op.
+   */
+  const removeReapName: Effect.Effect<void> = Effect.gen(function* () {
+    if (reapPath !== null && reapWon) {
+      yield* fs.remove(reapPath, { force: true }).pipe(Effect.ignore);
+    }
+  });
+  const cleanupAll = Effect.all([
+    removeOwnBreaker,
+    removeReapName,
+    removeReapSidecar,
+    removeSidecar,
+  ]);
 
   return Effect.gen(function* () {
     yield* fs
@@ -316,30 +348,58 @@ export function claimStaleLock(
     }
 
     // EEXIST — another reaper owns the breaker. Only its owner, or a reaper
-    // that proves the owner PID dead, may remove it (INV-B1/INV-B4). A
-    // differing observedBody is NOT authority to delete another's vote.
+    // that atomically proves ownership of a dead holder's vote, may remove it.
+    // A differing observedBody is NOT authority to delete another's vote.
     const holderBody = yield* fs
       .readFileString(breakerPath)
       .pipe(Effect.catch(() => Effect.succeed("")));
     const holder = parseLockBreaker(holderBody);
     if (holder && !pidAlive(holder.pid)) {
-      // Owner is dead. Re-read and require the SAME dead vote (same token)
-      // immediately before unlink, so we never remove a re-acquired live vote.
-      const againBody = yield* fs
-        .readFileString(breakerPath)
-        .pipe(Effect.catch(() => Effect.succeed("")));
-      const again = parseLockBreaker(againBody);
-      if (again?.token === holder.token) {
-        yield* fs.remove(breakerPath, { force: true }).pipe(Effect.ignore);
+      // Owner PID is dead, so the vote may be reclaimed — but only after
+      // atomically winning a token-scoped reap name created by `link` (the
+      // same write-then-link discipline and sole-arbiter property as the
+      // breaker itself). The reap name is keyed by the dead vote's token, so
+      // authority is scoped to the exact vote observed; while the orphan still
+      // occupies the breaker name no third party can `link` a new vote, so
+      // exactly one reaper is ever authorised to unlink that orphan. A reaper
+      // that loses the reap link (EEXIST — another reaper already owns this
+      // vote's reclamation) backs off and fails closed; a reaper that crashes
+      // after winning it leaves the reap name behind, which degrades to the
+      // same fail-closed wedge until the bounded acquire timeout. No process
+      // ever unlinks a breaker vote it did not atomically prove ownership of.
+      reapPath = `${breakerPath}.reap.${holder.token}`;
+      reapSidecar = `${reapPath}.${token}`;
+      yield* fs
+        .writeFileString(reapSidecar, payload)
+        .pipe(Effect.mapError(mapFsError));
+      const won = yield* fs.link(reapSidecar, reapPath).pipe(
+        Effect.as(true as const),
+        Effect.catch((err) =>
+          isAlreadyExists(err)
+            ? Effect.succeed(false as const)
+            : Effect.fail(mapFsError(err)),
+        ),
+      );
+      if (won) {
+        reapWon = true;
+        // Sole reaper for this dead vote. Re-read immediately before unlink
+        // and require the SAME byte-identical dead vote (INV-B5): a fresh
+        // re-acquired vote — live or otherwise — must never be removed.
+        const againBody = yield* fs
+          .readFileString(breakerPath)
+          .pipe(Effect.catch(() => Effect.succeed("")));
+        if (againBody === holderBody) {
+          yield* fs.remove(breakerPath, { force: true }).pipe(Effect.ignore);
+        }
+        yield* removeReapName;
       }
+      yield* removeReapSidecar;
     }
     yield* removeSidecar;
     return false;
   }).pipe(
-    Effect.tapError(() => removeSidecar),
-    Effect.onInterrupt(() =>
-      Effect.all([removeOwnBreaker, removeSidecar]),
-    ),
+    Effect.tapError(() => cleanupAll),
+    Effect.onInterrupt(() => cleanupAll),
   );
 }
 
@@ -351,7 +411,10 @@ export function claimStaleLock(
  * 3. Stale ⇔ dead pid only; stale break is via the exclusive breaker protocol
  *    (see {@link claimStaleLock}) — never renames onto or unlinks a lock it
  *    cannot prove dead at removal time.
- * 4. Release unlinks lockPath only while it still shares the sidecar inode.
+ * 4. Release (success, error, or interrupt) unlinks lockPath only while it
+ *    still shares the sidecar inode, sidecar last — an interrupt after the
+ *    link succeeded releases the exact owned lock name instead of orphaning a
+ *    live-pid lock.
  */
 function acquireCommitLock(
   fs: FileSystem,
@@ -370,6 +433,18 @@ function acquireCommitLock(
   const cleanupOwner = fs
     .remove(ownerPath, { force: true })
     .pipe(Effect.ignore);
+
+  // Interrupt-safe release: an interrupt that lands after `link` succeeded
+  // must not orphan lockPath carrying this still-live pid — dead-pid-only
+  // stale could never reclaim it while this process lives. releaseCommitLock
+  // unlinks lockPath only while it still shares the sidecar inode and removes
+  // the sidecar last, so an interrupted acquire releases exactly its owned
+  // lock name and can never touch a foreign lock (whether or not we ever
+  // linked, this degrades to a sidecar-only cleanup).
+  const releaseIfHeld = releaseCommitLock(fs, lockPath, {
+    ...record,
+    ownerPath,
+  });
 
   return Effect.gen(function* () {
     yield* fs
@@ -420,7 +495,7 @@ function acquireCommitLock(
     );
   }).pipe(
     Effect.tapError(() => cleanupOwner),
-    Effect.onInterrupt(() => cleanupOwner),
+    Effect.onInterrupt(() => releaseIfHeld),
   );
 }
 
