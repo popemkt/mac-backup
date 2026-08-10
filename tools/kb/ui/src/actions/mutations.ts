@@ -157,6 +157,10 @@ export const mutations = {
 
   async createNodeAfter(afterId: string): Promise<void> {
     if (!guardSysWrite(afterId)) return;
+    // Splitting after a node inserts the new row under the sibling's parent —
+    // guard that parent, not just the sibling id (sys.* write-guard).
+    const siblingParent = findParentWire(wire(), afterId);
+    if (siblingParent && !guardSysWrite(siblingParent.id)) return;
     await applyPlan(planCreateAfter(wire(), afterId, ulid()));
   },
 

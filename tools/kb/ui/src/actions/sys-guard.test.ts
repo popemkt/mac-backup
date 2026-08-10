@@ -96,6 +96,54 @@ describe("sys.* UI write-guard", () => {
     );
   });
 
+  it("createNodeAfter a sibling under a sys.* parent is blocked (no parent mutation)", async () => {
+    // The keyboard/command create-after path splits the node and lands the new
+    // row under the sibling's parent — a sys.* parent must be guarded there
+    // too, not just the sibling id.
+    const at = "2026-08-08T05:00:00.000Z";
+    const child: WireNode = {
+      id: "n.under-sys-2",
+      text: "child",
+      props: {},
+      children: [],
+      createdAt: at,
+      updatedAt: at,
+    };
+    const sysTag = cloneWire(
+      useOutlineStore.getState().nodes.get("sys.tag")!,
+    );
+    sysTag.children = [child.id];
+    useOutlineStore
+      .getState()
+      .hydrateFromWire(
+        [...fixtureGraph.nodes, sysTag, child],
+        fixtureGraph.rev,
+        "fixtures",
+      );
+
+    await mutations.createNodeAfter(child.id);
+    const store = useOutlineStore.getState();
+    // No new row minted, no children[] fragment on the sys.* parent.
+    expect(store.nodes.has("n.under-sys-2")).toBe(true);
+    expect(store.nodes.get("sys.tag")!.children).toEqual([child.id]);
+    expect(
+      [...store.nodes.values()].filter((n) => n.text === "").length,
+    ).toBe(0);
+    expect(useUiStore.getState().toasts.some((t) => /sys\.\*/.test(t.text))).toBe(
+      true,
+    );
+  });
+
+  it("createNodeAfter a sibling under a normal parent still works", async () => {
+    const store = useOutlineStore.getState();
+    const parent = store.nodes.get("n.root-a")!;
+    const before = parent.children;
+    await mutations.createNodeAfter("n.child-a1");
+    const after = useOutlineStore.getState().nodes.get("n.root-a")!.children;
+    expect(after.length).toBe(before.length + 1);
+    expect(after).toEqual(["n.child-a1", expect.any(String), "n.child-a2"]);
+  });
+
   it("ghost-row create under a normal parent still works", async () => {
     const before = useOutlineStore.getState().nodes.get("n.root-c")!.children;
     const newId = await mutations.createGhostNode("n.root-c", null, "kid");
