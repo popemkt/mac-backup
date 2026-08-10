@@ -498,6 +498,30 @@ for rel in "${managed_external_paths[@]}"; do
   fi
 done
 
+print_section "kb Media Backup (Mackup)"
+if [ -x "$ROOT_DIR/scripts/check-kb-assets-backup.sh" ]; then
+  # Static ownership regression: the Mackup declaration, .gitignore, backup
+  # docs, and committed node asset references must all stay consistent.
+  if "$ROOT_DIR/scripts/check-kb-assets-backup.sh" check >/dev/null 2>&1; then
+    record_ok "kb media ownership declaration intact"
+  else
+    record_warn "kb media backup ownership declaration is broken"
+    warn_detail "fix: run $ROOT_DIR/scripts/check-kb-assets-backup.sh check; review modules/darwin/home-manager/mackup.nix, .gitignore, docs/backup-strategy.md, .kb/nodes.jsonl"
+  fi
+
+  # Runtime coverage: local media dir vs iCloud Mackup storage. The status
+  # command prints tagged PASS:/WARN:/INFO: lines that tally into the audit.
+  while IFS= read -r line; do
+    case "$line" in
+      PASS:*) record_ok "${line#PASS: }" ;;
+      WARN:*) record_warn "${line#WARN: }" ;;
+      INFO:*) printf '  %s\n' "${line#INFO: }" ;;
+    esac
+  done < <("$ROOT_DIR/scripts/check-kb-assets-backup.sh" status)
+else
+  record_warn "scripts/check-kb-assets-backup.sh missing"
+fi
+
 print_section "macOS /Applications Drift"
 
 mapfile -t all_apps < <(

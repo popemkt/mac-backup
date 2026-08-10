@@ -65,7 +65,8 @@ mackup restore
 ```
 
 Restores: AltTab, Karabiner-Elements, Zed, VS Code, Warp, Telegram, Claude Code,
-Snapzy preferences, and macOS keyboard shortcuts.
+Snapzy preferences, KB media (`~/.dotfiles/.kb/assets`, via the `kb` app), and
+macOS keyboard shortcuts.
 
 ### 4. External enrollment and remaining manual steps
 
@@ -160,7 +161,7 @@ nix run .#github-sources -- verify              # verify config, versions, and g
 nix run .#github-sources -- update              # update their versions + hashes
 ./scripts/uv-sources check                      # report uv tool pins with newer PyPI releases
 ./scripts/uv-sources update                     # bump track="latest" uv pins (update-system runs this)
-mackup backup --force                            # sync GUI app settings to iCloud (--force skips replace prompts)
+mackup backup --force                            # sync GUI app settings + kb media (.kb/assets) to iCloud (--force skips replace prompts)
 ```
 
 > Re-export Raycast config periodically: Raycast → Export and overwrite `configs/raycast.rayconfig`.

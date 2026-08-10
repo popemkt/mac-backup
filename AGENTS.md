@@ -68,7 +68,9 @@ html resources). `kb ui` serves the human outliner UI on 127.0.0.1:4321
 (Tana-style editing, ⌘K palette, inline markdown + `[[id|label]]` ref links,
 inline fields, query nodes — a `#query`-tagged node with a `sys.f.query` EDN
 prop renders live results while expanded — media via `![](assets/…)` backed
-by `.kb/assets/` and the `asset.upload` action, live WS updates); other apps
+by `.kb/assets/` (Mackup-owned backup, never committed; see
+`docs/backup-strategy.md`) and the `asset.upload` action, live WS updates);
+other apps
 can subscribe to live datalog queries over its `/ws` endpoint (see protocol in
 `tools/kb/src/surface/protocol.ts`). `sys.*` nodes are write-guarded (CLI
 `--force` to override).

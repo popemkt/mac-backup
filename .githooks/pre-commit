@@ -14,6 +14,16 @@ if [ -d "$repo_root/tools/kb" ] && [ -d "$repo_root/.kb" ]; then
   fi
 fi
 
+# kb media backup ownership regression: .kb/assets must stay covered by a
+# declared Mackup decision, and committed node asset references must resolve
+# under .kb/assets/ so none can silently point at unowned state. Runs whenever
+# the repo carries a .kb dir; a violation is a hard stop (pre-commit exits
+# non-zero before record admission).
+if [ -d "$repo_root/.kb" ]; then
+  echo "==> kb media backup ownership"
+  "$repo_root/scripts/check-kb-assets-backup.sh" check
+fi
+
 # kb TS7 typecheck gate: zero-error `tsc --noEmit` on the backend and UI
 # packages. Runs whenever anything under tools/kb changed. Skips silently when
 # node_modules is absent (fresh machine); a real type error is a hard stop.
