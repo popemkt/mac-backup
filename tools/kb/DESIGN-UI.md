@@ -55,7 +55,12 @@ implementation modules under `src/surface/ui/` split by concern:
   set the CLI builds (shared `foundation/query` code — it's isomorphic TS, no
   node APIs in the datom builder). Keystrokes never wait on the network.
 - **Mutations**: optimistic local tx → `POST /api/action` (registry.invoke,
-  same receipts) → on failure, revert + toast. No temp-id dance (nxus's
+  same receipts) → on failure, strict `/api/graph` refetch (never demo
+  fixtures mid-session) + toast; if refetch fails, restore local pre-plan
+  state without rewinding `rev`, dropping unconfirmed minted nodes after
+  partial multi-action applies. Cold-boot `loadGraph` may fall back to
+  fixtures; `hydrateFromWire` is boot-only — live resync uses
+  `refreshFromWire` so `loadSource` stays `api`. No temp-id dance (nxus's
   pain): client mints final ULIDs, server accepts explicit ids (already
   supported by `node.add`).
 - **Change flow**: server fs-watches `.kb/` (catches CLI/MCP/agent writes

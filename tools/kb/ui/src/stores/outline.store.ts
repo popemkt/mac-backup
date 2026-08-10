@@ -203,14 +203,17 @@ export const useOutlineStore = create<OutlineState>((set, get) => ({
   },
 
   restoreSnapshot: (wireNodes, rev) => {
-    const prevNodes = get().nodes;
-    const expanded = collectExpanded(prevNodes);
+    const prev = get();
+    // Never rewind rev: concurrent WS/refetch may have advanced past the
+    // pre-optimistic baseline. Node payload may still roll back; rev must not.
+    const nextRev = Math.max(prev.rev, rev);
+    const expanded = collectExpanded(prev.nodes);
     for (const id of loadExpandedIds()) expanded.add(id);
     set({
       wireNodes,
       nodes: wireToOutlineMap(wireNodes, expanded),
-      queryDb: buildQueryDb(wireNodes, rev),
-      rev,
+      queryDb: buildQueryDb(wireNodes, nextRev),
+      rev: nextRev,
     });
   },
 
