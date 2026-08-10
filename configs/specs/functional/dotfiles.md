@@ -53,7 +53,10 @@ in version control and minimises what must be done manually.
 - Vorssaint uses the same pattern via `configs/vorssaint-settings.plist`
   (clipboard history and recordings stay out of the repo).
 - A `mackup backup --force` on the source machine pushes current state.
-- A `mackup restore` on a new machine pulls and links that state.
+- A `mackup restore` on a new machine pulls and links that state for
+  allowlisted GUI configs. KB media (`.kb/assets`) is the deliberate exception:
+  it is restored copy-only and never symlinked (see docs/backup-strategy.md §
+  "kb Opaque Media").
 - Only explicitly allowlisted apps are synced. Apps that store credentials or
   tokens are never added to the allowlist.
 

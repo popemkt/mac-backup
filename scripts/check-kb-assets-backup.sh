@@ -20,6 +20,9 @@
 #   status       Runtime snapshot of the local media dir vs the iCloud Mackup
 #                storage. Prints PASS:/WARN:/INFO: tagged lines for the drift
 #                audit (scripts/audit-system-discrepancies.sh). Always exits 0.
+#                Warns when the local `.kb/assets` is itself a symlink (even
+#                one into Mackup storage): ownership is copy-only, never a
+#                link, so a symlinked local dir is a violation, not a match.
 #   --self-test  Prove `check` and `status` against inline fixtures; exit
 #                non-zero on any failure.
 #
@@ -33,6 +36,7 @@ Usage: check-kb-assets-backup.sh <check|status|--self-test>
 
   check        Static regression over the working tree; exit 1 on violation.
   status       Runtime local-vs-iCloud snapshot; prints PASS:/WARN:/INFO: lines.
+               WARNs when the local .kb/assets is a symlink (copy-only contract).
   --self-test  Run the check/status fixtures and exit non-zero on any failure.
 
 Env:
@@ -111,7 +115,7 @@ check_node_refs() {
   while IFS= read -r target; do
     [ -n "$target" ] || continue
     case "$target" in
-      *'..'* | *'\\'* | *'//'*)
+      *'..'* | *"\\"* | *'//'*)
         echo "FAIL: node media reference escapes owned .kb/assets/: $target"
         rc=1
         ;;
@@ -169,6 +173,11 @@ status() {
   fi
 
   local_dir="$HOME/$media_rel"
+  if [ -L "$local_dir" ]; then
+    echo "WARN: kb media at $local_dir is a symlink to $(readlink "$local_dir"); copy-only ownership requires a real directory (run 'mackup restore' to replace it)"
+    return 0
+  fi
+
   engine="$(storage_engine || true)"
   if [ "$engine" != "icloud" ]; then
     echo "INFO: kb media backup uses storage engine '${engine:-unknown}'; status only supports icloud"
@@ -331,6 +340,70 @@ EOF
     echo "PASS: status flags local-only media"
   else
     echo "FAIL: status did not flag local-only media"
+    rc=1
+  fi
+
+  # status: backup-only (local present, storage absent) warns run mackup backup.
+  rm -rf "$fixture/home/.dotfiles/.kb/assets" "$fixture/home/Library/Mobile Documents/com~apple~CloudDocs/Mackup/.dotfiles/.kb/assets"
+  mkdir -p "$fixture/home/.dotfiles/.kb/assets"
+  printf 'a' > "$fixture/home/.dotfiles/.kb/assets/backup-only.png"
+  if HOME="$fixture/home" status | grep -q '^WARN: kb media exists locally but is not in iCloud storage'; then
+    echo "PASS: status flags backup-only media"
+  else
+    echo "FAIL: status did not flag backup-only media"
+    rc=1
+  fi
+
+  # status: missing media (neither local nor storage) reports INFO, not a warning.
+  rm -rf "$fixture/home/.dotfiles/.kb/assets" "$fixture/home/Library/Mobile Documents/com~apple~CloudDocs/Mackup/.dotfiles/.kb/assets"
+  if HOME="$fixture/home" status | grep -q '^INFO: no kb media locally and none in iCloud storage'; then
+    echo "PASS: status reports missing media as INFO"
+  else
+    echo "FAIL: status did not report missing media as INFO"
+    rc=1
+  fi
+
+  # status: stale media (local file newer than storage) warns drift.
+  rm -rf "$fixture/home/.dotfiles/.kb/assets" "$fixture/home/Library/Mobile Documents/com~apple~CloudDocs/Mackup/.dotfiles/.kb/assets"
+  mkdir -p "$fixture/home/.dotfiles/.kb/assets" "$fixture/home/Library/Mobile Documents/com~apple~CloudDocs/Mackup/.dotfiles/.kb/assets"
+  printf 'a' > "$fixture/home/Library/Mobile Documents/com~apple~CloudDocs/Mackup/.dotfiles/.kb/assets/stale.png"
+  touch -t 200001010000 "$fixture/home/Library/Mobile Documents/com~apple~CloudDocs/Mackup/.dotfiles/.kb/assets/stale.png"
+  printf 'b' > "$fixture/home/.dotfiles/.kb/assets/stale.png"
+  if HOME="$fixture/home" status | grep -q '^WARN: kb media updated locally after the last backup'; then
+    echo "PASS: status flags stale media (drift)"
+  else
+    echo "FAIL: status did not flag stale media"
+    rc=1
+  fi
+
+  # status: local .kb/assets as a symlink into configured Mackup storage must
+  # WARN (copy-only ownership), never report a match.
+  rm -rf "$fixture/home/.dotfiles/.kb/assets" "$fixture/home/Library/Mobile Documents/com~apple~CloudDocs/Mackup/.dotfiles/.kb/assets"
+  mkdir -p "$fixture/home/.dotfiles/.kb" "$fixture/home/Library/Mobile Documents/com~apple~CloudDocs/Mackup/.dotfiles/.kb/assets"
+  printf 'a' > "$fixture/home/Library/Mobile Documents/com~apple~CloudDocs/Mackup/.dotfiles/.kb/assets/one.png"
+  ln -s "$fixture/home/Library/Mobile Documents/com~apple~CloudDocs/Mackup/.dotfiles/.kb/assets" "$fixture/home/.dotfiles/.kb/assets"
+  if HOME="$fixture/home" status | grep -q '^WARN: kb media at .* is a symlink to'; then
+    echo "PASS: status flags .kb/assets symlinked into Mackup storage"
+  else
+    echo "FAIL: status did not flag .kb/assets symlinked into Mackup storage"
+    rc=1
+  fi
+  if HOME="$fixture/home" status | grep -q '^PASS: kb media matches'; then
+    echo "FAIL: status reported a match for symlinked .kb/assets"
+    rc=1
+  else
+    echo "PASS: status never matches a symlinked .kb/assets"
+  fi
+
+  # status: local .kb/assets as a symlink elsewhere must WARN too.
+  rm -rf "$fixture/home/.dotfiles/.kb/assets" "$fixture/home/Library/Mobile Documents/com~apple~CloudDocs/Mackup/.dotfiles/.kb/assets"
+  mkdir -p "$fixture/home/.dotfiles/.kb" "$fixture/elsewhere"
+  printf 'a' > "$fixture/elsewhere/one.png"
+  ln -s "$fixture/elsewhere" "$fixture/home/.dotfiles/.kb/assets"
+  if HOME="$fixture/home" status | grep -q '^WARN: kb media at .* is a symlink to'; then
+    echo "PASS: status flags .kb/assets symlinked elsewhere"
+  else
+    echo "FAIL: status did not flag .kb/assets symlinked elsewhere"
     rc=1
   fi
 

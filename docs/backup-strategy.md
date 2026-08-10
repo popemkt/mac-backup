@@ -169,8 +169,9 @@ Verification and drift:
 - `scripts/check-kb-assets-backup.sh status` reports local vs iCloud state; it
   is part of `scripts/audit-system-discrepancies.sh`. It warns when local media
   is missing from storage (run `mackup backup`) or storage is not restored
-  locally (run `mackup restore`), and when a locally updated file is newer
-  than its stored copy.
+  locally (run `mackup restore`), when a locally updated file is newer
+  than its stored copy, and when the local `.kb/assets` is itself a symlink
+  (even one into Mackup storage) — ownership is copy-only, never a link.
 
 Boundary:
 
