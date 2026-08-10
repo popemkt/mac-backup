@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { bunFileSystemLayer } from "../../context.ts";
 import { SYSTEM_IDS, type KbNode } from "../../foundation/model.ts";
+import { isValidSavedQueryName } from "../../foundation/saved-query.ts";
 
 export const listSavedQueriesEffect = Effect.fn("kb.ui.listSavedQueries")(
   function* (root: string) {
@@ -14,10 +15,13 @@ export const listSavedQueriesEffect = Effect.fn("kb.ui.listSavedQueries")(
     const out: { name: string; edn: string }[] = [];
     for (const name of entries) {
       if (!name.endsWith(".edn")) continue;
+      const stem = name.slice(0, -4);
+      // Skip traversal/control/ambiguous stems — same rule as run/save/delete.
+      if (!isValidSavedQueryName(stem)) continue;
       const edn = yield* fs
         .readFileString(join(dir, name))
         .pipe(Effect.orDie);
-      out.push({ name: name.slice(0, -4), edn });
+      out.push({ name: stem, edn });
     }
     out.sort((a, b) => a.name.localeCompare(b.name));
     return out;

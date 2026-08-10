@@ -1,9 +1,8 @@
-import { lstat } from "node:fs/promises";
-import { join, normalize, resolve } from "node:path";
+import { join, normalize, relative, resolve, isAbsolute } from "node:path";
 import { Effect, Option } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
-import { resolveAssetFile } from "../../operations/assets.ts";
+import { resolveAssetFile, assetsDir } from "../../operations/assets.ts";
 import { bunFileSystemLayer } from "../../context.ts";
 import { UI_DIST } from "./paths.ts";
 
@@ -50,35 +49,73 @@ function assetHeaders(abs: string): Record<string, string> {
   return headers;
 }
 
+/** Match pre-Effect `new Response(body, { status })` — no Content-Type. */
+function plainStatus(
+  body: string,
+  status: number,
+): HttpServerResponse.HttpServerResponse {
+  return HttpServerResponse.raw(body, { status });
+}
+
+function isPathInside(rootReal: string, targetReal: string): boolean {
+  const rel = relative(rootReal, targetReal);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+/**
+ * Canonical-path containment: realPath(candidate) must stay under
+ * realPath(rootDir) and name a regular file. Symlink escapes → forbidden;
+ * missing → missing.
+ */
+const resolveContainedFile = Effect.fn("kb.ui.resolveContainedFile")(
+  function* (rootDir: string, candidate: string) {
+    const fs = yield* FileSystem;
+    const rootReal = yield* fs.realPath(rootDir).pipe(Effect.option);
+    if (Option.isNone(rootReal)) {
+      return { kind: "missing" as const };
+    }
+    const fileReal = yield* fs.realPath(candidate).pipe(Effect.option);
+    if (Option.isNone(fileReal)) {
+      return { kind: "missing" as const };
+    }
+    if (!isPathInside(rootReal.value, fileReal.value)) {
+      return { kind: "forbidden" as const };
+    }
+    const info = yield* fs.stat(fileReal.value).pipe(Effect.option);
+    if (Option.isNone(info) || info.value.type !== "File") {
+      return { kind: "forbidden" as const };
+    }
+    return { kind: "ok" as const, path: fileReal.value };
+  },
+);
+
 /**
  * Read-only GET for `.kb/assets/*`. Traversal / missing → 403 / 404.
  * Never lists the directory.
  *
- * Effect program. `lstat` (which `effect/FileSystem` has no equivalent of)
- * is bridged at this boundary so a symlink under `.kb/assets` cannot escape
- * the directory; the file body is served via `Bun.file` at the Bun.serve
- * response boundary.
+ * Effect program. Symlink escapes are blocked by canonical-path containment
+ * (`FileSystem.realPath` under the assets root); the file body is served via
+ * `Bun.file` at the Bun.serve response boundary.
  */
 export const serveKbAssetEffect = Effect.fn("kb.ui.serveKbAsset")(
   function* (
     kbRoot: string,
     pathname: string,
-  ): Effect.fn.Return<HttpServerResponse.HttpServerResponse, never, never> {
+  ): Effect.fn.Return<HttpServerResponse.HttpServerResponse, never, FileSystem> {
     const abs = resolveAssetFile(kbRoot, pathname);
     if (!abs) {
-      return HttpServerResponse.text("forbidden", { status: 403 });
+      return plainStatus("forbidden", 403);
     }
-    // lstat: a symlink under .kb/assets must not escape the directory.
-    const st = yield* Effect.tryPromise(() => lstat(abs)).pipe(Effect.option);
-    if (Option.isNone(st)) {
-      return HttpServerResponse.text("not found", { status: 404 });
+    const contained = yield* resolveContainedFile(assetsDir(kbRoot), abs);
+    if (contained.kind === "missing") {
+      return plainStatus("not found", 404);
     }
-    if (!st.value.isFile() || st.value.isSymbolicLink()) {
-      return HttpServerResponse.text("forbidden", { status: 403 });
+    if (contained.kind === "forbidden") {
+      return plainStatus("forbidden", 403);
     }
-    return HttpServerResponse.raw(Bun.file(abs), {
+    return HttpServerResponse.raw(Bun.file(contained.path), {
       status: 200,
-      headers: assetHeaders(abs),
+      headers: assetHeaders(contained.path),
     });
   },
 );
@@ -90,6 +127,7 @@ export function serveKbAsset(
 ): Promise<Response> {
   return Effect.runPromise(
     serveKbAssetEffect(kbRoot, pathname).pipe(
+      Effect.provide(bunFileSystemLayer),
       Effect.map(HttpServerResponse.toWeb),
     ),
   );
@@ -115,14 +153,20 @@ export const serveStaticEffect = Effect.fn("kb.ui.serveStatic")(
       candidate !== distResolved &&
       !candidate.startsWith(distResolved + "/")
     ) {
-      return HttpServerResponse.text("forbidden", { status: 403 });
+      return plainStatus("forbidden", 403);
     }
 
     if (yield* fs.exists(candidate).pipe(Effect.orDie)) {
-      const info = yield* fs.stat(candidate).pipe(Effect.orDie);
-      if (info.type === "File") {
-        return HttpServerResponse.raw(Bun.file(candidate), { status: 200 });
+      const contained = yield* resolveContainedFile(UI_DIST, candidate);
+      if (contained.kind === "ok") {
+        return HttpServerResponse.raw(Bun.file(contained.path), {
+          status: 200,
+        });
       }
+      if (contained.kind === "forbidden") {
+        return plainStatus("forbidden", 403);
+      }
+      // missing after exists: race / broken link — fall through to SPA
     }
 
     // SPA fallback

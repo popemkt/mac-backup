@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { Command, CommanderError } from "commander";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { openKb, type KbContext } from "../context.ts";
 import { SYSTEM_IDS } from "../foundation/model.ts";
@@ -540,16 +540,17 @@ export function buildProgram(): Command {
     .argument("<name>", "saved query name (without .edn)")
     .action(async function (this: Command, name: string) {
       const code = await withCtx(this, async (ctx, globals) => {
-        if (!/^[\w][\w.-]*$/.test(name)) {
+        const { resolveSavedQueryFile, readSavedQuery } = await import(
+          "../foundation/saved-query.ts"
+        );
+        const path = resolveSavedQueryFile(ctx.root, name);
+        if (!path) {
           throw new UsageError(
             `invalid saved query name: ${name} (letters, digits, ., _, - only)`,
           );
         }
-        const path = join(ctx.root, ".kb", "queries", `${name}.edn`);
-        let edn: string;
-        try {
-          edn = await readFile(path, "utf8");
-        } catch {
+        const edn = await readSavedQuery(ctx.root, name);
+        if (edn === null) {
           throw new UsageError(`saved query not found: ${path}`);
         }
         return runPlan(ctx, mapRunQuery(edn), globals);

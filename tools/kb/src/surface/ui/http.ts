@@ -14,6 +14,9 @@ import * as assets from "./assets.ts";
 import { listSavedQueriesEffect } from "./saved-queries.ts";
 import type { SubscriptionHub } from "./session.ts";
 
+/** Match Bun/Web `Response.json` Content-Type exactly. */
+const JSON_CONTENT_TYPE = "application/json;charset=utf-8";
+
 const ActionInvocationSchema = z.object({
   id: z.string().min(1),
   input: z.unknown().optional(),
@@ -25,16 +28,34 @@ export interface UiHttpDeps {
   hub: SubscriptionHub;
 }
 
+function jsonResponse(
+  body: unknown,
+  options?: { status?: number },
+): HttpServerResponse.HttpServerResponse {
+  return HttpServerResponse.jsonUnsafe(body, {
+    status: options?.status,
+    contentType: JSON_CONTENT_TYPE,
+  });
+}
+
+/** Match pre-Effect `new Response(body, { status })` — no Content-Type. */
+function plainStatus(
+  body: string,
+  status: number,
+): HttpServerResponse.HttpServerResponse {
+  return HttpServerResponse.raw(body, { status });
+}
+
 function internalFailure(err: unknown): HttpServerResponse.HttpServerResponse {
   const message = err instanceof Error ? err.message : String(err);
-  return HttpServerResponse.jsonUnsafe(
+  return jsonResponse(
     { status: "failed", code: "internal", message },
     { status: 500 },
   );
 }
 
 function invalidInput(message: string): HttpServerResponse.HttpServerResponse {
-  return HttpServerResponse.jsonUnsafe(
+  return jsonResponse(
     { status: "failed", id: "unknown", code: "invalid_input", message },
     { status: 400 },
   );
@@ -45,9 +66,8 @@ function invalidInput(message: string): HttpServerResponse.HttpServerResponse {
  * boundary in `server.ts`).
  *
  * Genuine Effect program: route dispatch, asset reads, saved-query reads,
- * store reloads and hub broadcasts are all Effect programs. Every
- * route/status/body/header is preserved byte-for-byte from the pre-Effect
- * surface.
+ * store reloads and hub broadcasts are all Effect programs. Content-Type
+ * matches the pre-Effect surface (`Response.json` charset + bare text bodies).
  */
 export const handleHttpRequestEffect = (
   req: Request,
@@ -62,19 +82,15 @@ export const handleHttpRequestEffect = (
     const url = new URL(req.url);
 
     if (url.pathname === "/api/graph" && req.method === "GET") {
-      return HttpServerResponse.jsonUnsafe(hub.snapshot);
+      return jsonResponse(hub.snapshot);
     }
 
     if (url.pathname === "/api/manifest" && req.method === "GET") {
-      return HttpServerResponse.jsonUnsafe(
-        yield* Effect.promise(() => manifest(root)),
-      );
+      return jsonResponse(yield* Effect.promise(() => manifest(root)));
     }
 
     if (url.pathname === "/api/queries" && req.method === "GET") {
-      return HttpServerResponse.jsonUnsafe(
-        yield* listSavedQueriesEffect(root),
-      );
+      return jsonResponse(yield* listSavedQueriesEffect(root));
     }
 
     if (url.pathname === "/api/action" && req.method === "POST") {
@@ -102,7 +118,7 @@ export const handleHttpRequestEffect = (
       );
       // Immediate bump/broadcast — do not wait for fs.watch.
       yield* hub.applyNodes(ctx.nodes);
-      return HttpServerResponse.jsonUnsafe(receipt);
+      return jsonResponse(receipt);
     }
 
     // W6a: opaque media files — before SPA / ui/dist so /assets never
@@ -115,13 +131,13 @@ export const handleHttpRequestEffect = (
     }
 
     if (url.pathname.startsWith("/api/") || url.pathname === "/ws") {
-      return HttpServerResponse.text("not found", { status: 404 });
+      return plainStatus("not found", 404);
     }
 
     const staticResp = yield* assets.serveStaticEffect(url.pathname);
     if (staticResp) return staticResp;
 
-    return HttpServerResponse.jsonUnsafe(
+    return jsonResponse(
       {
         error: "ui_not_built",
         message:
