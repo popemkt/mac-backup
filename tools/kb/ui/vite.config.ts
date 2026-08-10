@@ -6,6 +6,11 @@ import { defineConfig } from "vite-plus";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 
+// `kb ui --dev` spawns `vp dev` and sets KB_UI_API_PORT to the backend port;
+// KB_UI_DEV_PORT overrides the Vite listen port. Defaults match the CLI.
+const apiPort = process.env.KB_UI_API_PORT ?? "4321";
+const devPort = Number(process.env.KB_UI_DEV_PORT ?? 5173);
+
 export default defineConfig({
   // Own lint/check block is required: without it, `vp` walks up to
   // tools/kb/vite.config.ts and inherits `lint.ignorePatterns: ["ui/**"]`,
@@ -36,18 +41,18 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: devPort,
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:4321",
+        target: `http://127.0.0.1:${apiPort}`,
         changeOrigin: true,
       },
       "/assets": {
-        target: "http://127.0.0.1:4321",
+        target: `http://127.0.0.1:${apiPort}`,
         changeOrigin: true,
       },
       "/ws": {
-        target: "ws://127.0.0.1:4321",
+        target: `ws://127.0.0.1:${apiPort}`,
         ws: true,
         changeOrigin: true,
       },

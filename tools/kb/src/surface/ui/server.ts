@@ -1,5 +1,5 @@
 import { watch, type FSWatcher } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { Effect, Exit, Scope } from "effect";
 import {
   bunFileSystemLayer,
@@ -8,6 +8,18 @@ import {
   reloadEffect,
 } from "../../context.ts";
 import { UI_DEFAULT_PORT } from "../protocol.ts";
+import {
+  ensureUiBuilt,
+  type UiEnsureResult,
+} from "./build.ts";
+import {
+  UI_DEV_DEFAULT_PORT,
+  bunSpawnDev,
+  runDevUntilExit,
+  type UiDevChild,
+  type UiDevSpawn,
+} from "./dev.ts";
+import { KB_PKG_ROOT, UI_DIST } from "./paths.ts";
 import { handleHttpRequest } from "./http.ts";
 import { listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
 import {
@@ -185,19 +197,144 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
   };
 }
 
+export interface UiDevServer {
+  backend: UiServerHandle;
+  child: UiDevChild;
+  /** Browser URL for the Vite dev server. */
+  url: string;
+  /** Kill the Vite child and stop the backend listener. */
+  stop: () => Promise<void>;
+}
+
 /**
- * CLI entry used by `kb ui`. Keeps the process alive until signal.
+ * `kb ui --dev`: the kb backend plus a Vite dev child that proxies /api,
+ * /assets and /ws back to it (HMR on the Vite port). Fails fast — stopping
+ * the backend — if either cannot come up (e.g. backend port already bound).
  */
-export async function runUiCli(opts: {
+export async function startDevServer(opts: {
+  root: string;
+  backendPort: number;
+  devPort: number;
+  uiRoot: string;
+  spawn?: UiDevSpawn;
+}): Promise<UiDevServer> {
+  const backend = await startUi({
+    root: opts.root,
+    port: opts.backendPort,
+    openBrowser: false,
+  });
+  try {
+    const spawn = opts.spawn ?? bunSpawnDev;
+    const child = spawn({
+      cmd: "bun",
+      args: ["run", "dev", "--port", String(opts.devPort)],
+      cwd: join(opts.uiRoot),
+      env: {
+        ...process.env,
+        // Vite proxy target: /api, /assets, /ws all route to the kb backend.
+        KB_UI_API_PORT: String(backend.port),
+      },
+    });
+    return {
+      backend,
+      child,
+      url: `http://127.0.0.1:${opts.devPort}`,
+      stop: async () => {
+        child.kill();
+        await backend.stop();
+      },
+    };
+  } catch (err) {
+    await backend.stop();
+    throw err;
+  }
+}
+
+/**
+ * Production lifecycle: ensure the built UI is present and fresh, then serve.
+ * The build step is injectable for tests (fake runner, no live checkout).
+ */
+export async function startProductionUi(opts: {
+  root: string;
+  port: number;
+  openBrowser: boolean;
+  uiRoot: string;
+  ensureBuilt?: (uiRoot: string, distDir: string) => Promise<UiEnsureResult>;
+}): Promise<{ handle: UiServerHandle; build: UiEnsureResult }> {
+  const ensure = opts.ensureBuilt ?? ensureUiBuilt;
+  const build = await ensure(opts.uiRoot, UI_DIST);
+  const handle = await startUi({
+    root: opts.root,
+    port: opts.port,
+    openBrowser: opts.openBrowser,
+  });
+  return { handle, build };
+}
+
+export interface RunUiCliOptions {
   root: string;
   port?: number;
   openBrowser?: boolean;
-}): Promise<void> {
-  const handle = await startUi({
+  dev?: boolean;
+  devPort?: number;
+  uiRoot?: string;
+  /** Injectable build-ensure step (default {@link ensureUiBuilt}). */
+  ensureBuilt?: (uiRoot: string, distDir: string) => Promise<UiEnsureResult>;
+  spawnDev?: UiDevSpawn;
+}
+
+/**
+ * CLI entry used by `kb ui`. Production auto-builds `ui/dist` when required
+ * (missing or stale), then serves it; `--dev` spawns the Vite dev server and
+ * proxies to the kb backend. Stays alive until signal (production) or the Vite
+ * child exits (dev).
+ */
+export async function runUiCli(opts: RunUiCliOptions): Promise<void> {
+  const open = opts.openBrowser !== false;
+  const uiRoot = opts.uiRoot ?? join(KB_PKG_ROOT, "ui");
+
+  if (opts.dev === true) {
+    const devPort = opts.devPort ?? UI_DEV_DEFAULT_PORT;
+    const dev = await startDevServer({
+      root: opts.root,
+      backendPort: opts.port ?? UI_DEFAULT_PORT,
+      devPort,
+      uiRoot,
+      spawn: opts.spawnDev,
+    });
+    console.error(`kb ui dev server listening on ${dev.url}`);
+    if (open) openBrowser(dev.url);
+
+    const onSignal = () => {
+      void dev.stop();
+      process.exit(0);
+    };
+    process.once("SIGINT", onSignal);
+    process.once("SIGTERM", onSignal);
+
+    const code = await runDevUntilExit(dev, (exitCode) => {
+      process.off("SIGINT", onSignal);
+      process.off("SIGTERM", onSignal);
+      if (exitCode !== 0 && exitCode !== null) {
+        console.error(`kb ui: vite dev server exited with code ${exitCode}`);
+      }
+    });
+    process.exit(code === 0 ? 0 : 1);
+    return;
+  }
+
+  const { build, handle } = await startProductionUi({
     root: opts.root,
     port: opts.port ?? UI_DEFAULT_PORT,
-    openBrowser: opts.openBrowser !== false,
+    openBrowser: open,
+    uiRoot,
+    ensureBuilt: opts.ensureBuilt,
   });
+  if (build.built) {
+    console.error(
+      `kb ui: built UI at ${relative(process.cwd(), UI_DIST)} (${build.state})`,
+    );
+  }
   console.error(`kb ui listening on ${handle.url}`);
   await new Promise(() => {});
 }

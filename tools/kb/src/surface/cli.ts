@@ -314,14 +314,25 @@ export function buildProgram(): Command {
     .description("Serve the kb browser UI + subscription backend")
     .option(
       "--port <n>",
-      "listen port (default 4321)",
+      "backend listen port (default 4321)",
+      (v) => Number.parseInt(v, 10),
+    )
+    .option("--dev", "spawn the Vite dev server (HMR) and proxy to the backend", false)
+    .option(
+      "--dev-port <n>",
+      "Vite dev server port (default 5173)",
       (v) => Number.parseInt(v, 10),
     )
     .option("--no-open", "do not open a browser")
     .action(async function (this: Command) {
       const { runUiCli, UI_DEFAULT_PORT } = await import("./ui.ts");
       const globals = this.optsWithGlobals() as { root?: string };
-      const opts = this.opts() as { port?: number; open?: boolean };
+      const opts = this.opts() as {
+        port?: number;
+        dev?: boolean;
+        devPort?: number;
+        open?: boolean;
+      };
       const root = await Effect.runPromise(
         resolveRootEffect({ root: globals.root }).pipe(
           Effect.provide(bunFileSystemLayer),
@@ -331,6 +342,8 @@ export function buildProgram(): Command {
         root,
         port: opts.port ?? UI_DEFAULT_PORT,
         openBrowser: opts.open !== false,
+        dev: opts.dev === true,
+        devPort: opts.devPort,
       });
     });
 
