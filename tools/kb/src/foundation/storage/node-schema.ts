@@ -8,11 +8,30 @@ import type { ParseOptions } from "effect/SchemaAST";
  * Decode with {@link nodeParseOptions}: unknown own properties are preserved so a
  * load→commit round-trip cannot silently drop fields the pre-Schema loader kept.
  * Known KbNode fields stay typed; extras exist only at runtime.
+ *
+ * PropValue `t`/`v` are correlated (discriminated by `t`) to match the wire
+ * contract in `surface/protocol.ts` — uncorrelated pairs that would later 500
+ * at WireNodeSchema are rejected at the persistence boundary.
  */
 
-const ScalarPropValue = Schema.Struct({
-  t: Schema.Literals(["str", "num", "bool", "date"]),
-  v: Schema.Union([Schema.String, Schema.Number, Schema.Boolean]),
+const StrPropValue = Schema.Struct({
+  t: Schema.Literal("str"),
+  v: Schema.String,
+});
+
+const NumPropValue = Schema.Struct({
+  t: Schema.Literal("num"),
+  v: Schema.Number,
+});
+
+const BoolPropValue = Schema.Struct({
+  t: Schema.Literal("bool"),
+  v: Schema.Boolean,
+});
+
+const DatePropValue = Schema.Struct({
+  t: Schema.Literal("date"),
+  v: Schema.String,
 });
 
 const RefPropValue = Schema.Struct({
@@ -20,7 +39,14 @@ const RefPropValue = Schema.Struct({
   v: Schema.String,
 });
 
-export const PropValueSchema = Schema.Union([ScalarPropValue, RefPropValue]);
+/** Correlated prop value — same variants as wire `PropValueSchema`. */
+export const PropValueSchema = Schema.Union([
+  StrPropValue,
+  NumPropValue,
+  BoolPropValue,
+  DatePropValue,
+  RefPropValue,
+]);
 
 export const KbNodeSchema = Schema.Struct({
   id: Schema.String,
