@@ -67,6 +67,11 @@ describe("arg → invocation mapping", () => {
       id: "n1",
       parent: null,
     });
+    expect(mapMv({ id: "n1", parent: "sys.field", force: true }).input).toEqual({
+      id: "n1",
+      parent: "sys.field",
+      force: true,
+    });
   });
 
   test("mapGet depth defaults to 1", () => {
@@ -283,5 +288,69 @@ describe("cli e2e (tmpdir)", () => {
         writable: true,
       });
     }
+  });
+
+  test("field type/target/target-query with unknown field/tag exit 1 not_found", async () => {
+    await kb(["init"]);
+    await kb(["field", "define", "status"]);
+    await kb(["tag", "define", "todo"]);
+
+    const typeBad = await kb(["field", "type", "no-such-field", "text"]);
+    expect(typeBad.code).toBe(1);
+    expect(JSON.parse(typeBad.stdout).code).toBe("not_found");
+
+    const targetBadField = await kb([
+      "field",
+      "target",
+      "no-such-field",
+      "todo",
+    ]);
+    expect(targetBadField.code).toBe(1);
+    expect(JSON.parse(targetBadField.stdout).code).toBe("not_found");
+
+    const targetBadTag = await kb([
+      "field",
+      "target",
+      "status",
+      "no-such-tag",
+    ]);
+    expect(targetBadTag.code).toBe(1);
+    expect(JSON.parse(targetBadTag.stdout).code).toBe("not_found");
+
+    const tqBad = await kb([
+      "field",
+      "target-query",
+      "no-such-field",
+      "[:find ?x]",
+    ]);
+    expect(tqBad.code).toBe(1);
+    expect(JSON.parse(tqBad.stdout).code).toBe("not_found");
+  });
+
+  test("query with malformed EDN exits 1 invalid_input", async () => {
+    await kb(["init"]);
+    const q = await kb(["query", "not [valid"]);
+    expect(q.code).toBe(1);
+    const body = JSON.parse(q.stdout);
+    expect(body.status).toBe("failed");
+    expect(body.code).toBe("invalid_input");
+  });
+
+  test("mv / add under a sys.* parent require --force", async () => {
+    await kb(["init"]);
+    const add = await kb(["add", "victim"]);
+    expect(add.code).toBe(0);
+    const victimId = JSON.parse(add.stdout).output.id as string;
+
+    const blockedMv = await kb(["mv", victimId, "sys.tag"]);
+    expect(blockedMv.code).toBe(1);
+    expect(JSON.parse(blockedMv.stdout).code).toBe("forbidden");
+
+    const blockedAdd = await kb(["add", "evil", "--parent", "sys.tag"]);
+    expect(blockedAdd.code).toBe(1);
+    expect(JSON.parse(blockedAdd.stdout).code).toBe("forbidden");
+
+    const forcedAdd = await kb(["add", "minted", "--id", "sys.evil", "--force"]);
+    expect(forcedAdd.code).toBe(0);
   });
 });

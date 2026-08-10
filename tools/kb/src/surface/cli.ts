@@ -15,6 +15,7 @@ import {
   resolveFieldId,
   resolveTagId,
 } from "../foundation/resolve.ts";
+import { receiptCodeOf } from "../foundation/errors.ts";
 import {
   readSavedQuery,
   resolveSavedQueryFile,
@@ -229,6 +230,23 @@ function handleCliError(err: unknown, json: boolean): number {
     }
     return EXIT_USAGE;
   }
+  if (err instanceof ResolveError) {
+    // Domain lookup/move failures (unknown field/tag, ambiguous, forbidden,
+    // invalid move) surface as typed receipts — never `internal`.
+    const msg = err.message;
+    if (json) {
+      writeOut(
+        JSON.stringify({
+          status: "failed",
+          code: receiptCodeOf(err),
+          message: msg,
+        }),
+      );
+    } else {
+      process.stderr.write(`${msg}\n`);
+    }
+    return EXIT_FAILED;
+  }
   if (err instanceof CommanderError) {
     if (err.code === "commander.helpDisplayed") return EXIT_OK;
     if (err.code === "commander.version") return EXIT_OK;
@@ -390,6 +408,7 @@ export function buildProgram(): Command {
     .option("--prop <field=value>", "prop (repeatable)", collect, [])
     .option("--id <id>", "explicit node id")
     .option("--create", "mint missing fields", false)
+    .option("--force", "allow minting or parenting under sys.* nodes", false)
     .action(async function (this: Command, text: string, opts) {
       const code = await withCtx(this, (ctx, globals) =>
         runPlanEffect(
@@ -401,6 +420,7 @@ export function buildProgram(): Command {
             tags: opts.tag,
             props: opts.prop,
             id: opts.id,
+            force: opts.force === true,
           }),
           globals,
           { create: opts.create === true },
@@ -508,6 +528,7 @@ export function buildProgram(): Command {
     .argument("[parent]", "new parent id")
     .option("--position <n>", "child index", (v) => Number.parseInt(v, 10))
     .option("--root-parent", "detach from parent", false)
+    .option("--force", "allow moving under sys.* parents", false)
     .action(async function (
       this: Command,
       id: string,
@@ -527,6 +548,7 @@ export function buildProgram(): Command {
               id,
               parent: opts.rootParent ? null : parent!,
               position: opts.position,
+              force: opts.force === true,
             }),
             globals,
           );

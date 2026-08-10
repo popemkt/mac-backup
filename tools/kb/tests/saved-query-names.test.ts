@@ -64,4 +64,13 @@ describe("saved-query name validation", () => {
     const listed = await listSavedQueries(root);
     expect(listed.map((q) => q.name)).toEqual(["good"]);
   });
+
+  test("listSavedQueries skips non-regular entries named *.edn", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-sq-dir-"));
+    await mkdir(join(root, ".kb", "queries", "dir.edn"), { recursive: true });
+    await writeFile(join(root, ".kb", "queries", "good.edn"), "[:find ?g]");
+
+    const listed = await listSavedQueries(root);
+    expect(listed.map((q) => q.name)).toEqual(["good"]);
+  });
 });

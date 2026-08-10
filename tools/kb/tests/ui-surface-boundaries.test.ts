@@ -184,6 +184,20 @@ describe("ui session boundary", () => {
       code: "invalid_message",
     });
 
+    // Malformed EDN on a valid subscribe yields a query_error frame, never a
+    // crash or a bogus rows push (C4 datalog-input classification at the WS edge).
+    await Effect.runPromise(
+      hub.handleMessage(
+        "c1",
+        JSON.stringify({ op: "subscribe", id: "s1", query: "not [valid" }),
+      ),
+    );
+    expect(JSON.parse(frames[3]!)).toMatchObject({
+      op: "error",
+      id: "s1",
+      code: "query_error",
+    });
+
     await Effect.runPromise(hub.removeClient("c1"));
     expect(hub.clientCount).toBe(0);
 
@@ -291,5 +305,97 @@ describe("ui http boundary", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+
+  test("GET /api/queries stays 200 when a directory is named *.edn", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-ui-sq-dir-"));
+    await mkdir(join(root, ".kb", "queries", "dir.edn"), { recursive: true });
+    await writeFile(join(root, ".kb", "queries", "good.edn"), "[:find ?x]");
+    const ctx = await openKb(root);
+    const hub = new SubscriptionHub(ctx);
+
+    const queries = await handleHttpRequest(
+      new Request("http://127.0.0.1/api/queries"),
+      { root, ctx, hub },
+    );
+    expect(queries.status).toBe(200);
+    const body = (await queries.json()) as { name: string }[];
+    expect(body.map((q) => q.name)).toEqual(["good"]);
+  });
+
+  test("POST /api/action graph.query malformed EDN returns invalid_input receipt", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-ui-http-badq-"));
+    await mkdir(join(root, ".kb", "queries"), { recursive: true });
+    const ctx = await openKb(root);
+    const hub = new SubscriptionHub(ctx);
+
+    const res = await handleHttpRequest(
+      new Request("http://127.0.0.1/api/action", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: "graph.query", input: { query: "not [valid" } }),
+      }),
+      { root, ctx, hub },
+    );
+    expect(res.status).toBe(200);
+    const receipt = (await res.json()) as {
+      status: string;
+      code: string;
+      message: string;
+    };
+    expect(receipt.status).toBe("failed");
+    expect(receipt.code).toBe("invalid_input");
+  });
+
+  test("POST /api/action node.add under a sys.* parent is forbidden", async () => {
+    const root = await mkdtemp(join(tmpdir(), "kb-ui-http-sys-"));
+    await mkdir(join(root, ".kb", "queries"), { recursive: true });
+    const ctx = await openKb(root);
+    const hub = new SubscriptionHub(ctx);
+
+    const res = await handleHttpRequest(
+      new Request("http://127.0.0.1/api/action", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: "node.add",
+          input: { text: "evil", parent: "sys.tag" },
+        }),
+      }),
+      { root, ctx, hub },
+    );
+    expect(res.status).toBe(200);
+    const receipt = (await res.json()) as { status: string; code: string };
+    expect(receipt.status).toBe("failed");
+    expect(receipt.code).toBe("forbidden");
+  });
+
+  test("POST /api/action node.update on a missing field id returns not_found", async () => {
+    // Mirrors the CLI `field type no-such-field` contract at the HTTP edge:
+    // the "equivalent action" (node.update targeting the field id) resolves
+    // the id server-side and must fail with not_found, not internal.
+    const root = await mkdtemp(join(tmpdir(), "kb-ui-http-nf-"));
+    await mkdir(join(root, ".kb", "queries"), { recursive: true });
+    const ctx = await openKb(root);
+    const hub = new SubscriptionHub(ctx);
+
+    const res = await handleHttpRequest(
+      new Request("http://127.0.0.1/api/action", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: "node.update",
+          input: {
+            id: "no-such-field-id",
+            setProps: [{ field: "sys.f.fieldType", value: { t: "str", v: "text" } }],
+          },
+        }),
+      }),
+      { root, ctx, hub },
+    );
+    expect(res.status).toBe(200);
+    const receipt = (await res.json()) as { status: string; code: string };
+    expect(receipt.status).toBe("failed");
+    expect(receipt.code).toBe("not_found");
   });
 });

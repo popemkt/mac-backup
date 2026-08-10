@@ -71,6 +71,7 @@ export function mapAdd(opts: {
   tags?: string[];
   props?: string[];
   id?: string;
+  force?: boolean;
 }): PlannedAction {
   const props = (opts.props ?? []).map(parsePropArg);
   return {
@@ -82,6 +83,7 @@ export function mapAdd(opts: {
       ...(opts.tags && opts.tags.length > 0 ? { tags: opts.tags } : {}),
       ...(props.length > 0 ? { props } : {}),
       ...(opts.id !== undefined ? { id: opts.id } : {}),
+      ...(opts.force === true ? { force: true } : {}),
     },
   };
 }
@@ -148,6 +150,7 @@ export function mapMv(opts: {
   id: string;
   parent: string | null;
   position?: number;
+  force?: boolean;
 }): PlannedAction {
   return {
     id: "node.update",
@@ -155,6 +158,7 @@ export function mapMv(opts: {
       id: opts.id,
       parent: opts.parent,
       ...(opts.position !== undefined ? { position: opts.position } : {}),
+      ...(opts.force === true ? { force: true } : {}),
     },
   };
 }

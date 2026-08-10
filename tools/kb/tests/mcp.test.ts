@@ -102,6 +102,52 @@ describe("MCP surface", () => {
     await server.close();
   });
 
+  test("graph_query with malformed EDN returns isError invalid_input", async () => {
+    const server = await createMcpServer(root);
+    const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      client.connect(clientTransport),
+      server.connect(serverTransport),
+    ]);
+
+    const result = await client.callTool({
+      name: "graph_query",
+      arguments: { query: "not [valid" },
+    });
+    expect(result.isError).toBe(true);
+    const text = (result.content as { type: string; text: string }[])[0]!.text;
+    const body = JSON.parse(text) as { code: string };
+    expect(body.code).toBe("invalid_input");
+
+    await client.close();
+    await server.close();
+  });
+
+  test("node_add under a sys.* parent returns isError forbidden", async () => {
+    const server = await createMcpServer(root);
+    const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      client.connect(clientTransport),
+      server.connect(serverTransport),
+    ]);
+
+    const result = await client.callTool({
+      name: "node_add",
+      arguments: { text: "evil", parent: "sys.tag" },
+    });
+    expect(result.isError).toBe(true);
+    const text = (result.content as { type: string; text: string }[])[0]!.text;
+    const body = JSON.parse(text) as { code: string };
+    expect(body.code).toBe("forbidden");
+
+    await client.close();
+    await server.close();
+  });
+
   test("views are ui:// resources and render_view returns html", async () => {
     const { mkdir, writeFile } = await import("node:fs/promises");
     await mkdir(join(root, ".kb", "views"), { recursive: true });
