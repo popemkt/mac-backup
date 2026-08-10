@@ -292,4 +292,42 @@ describe("kb ui server", () => {
     const actions = (await man.json()) as { id: string }[];
     expect(actions.some((a) => a.id === "asset.upload")).toBe(true);
   });
+
+  test("stop() cancels listen; WS close cleans hub session", async () => {
+    handle = await startUi({ root, port: 0, openBrowser: false });
+    const url = handle.url;
+    const port = handle.port;
+
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    await new Promise<void>((resolve, reject) => {
+      ws.addEventListener("open", () => resolve());
+      ws.addEventListener("error", () => reject(new Error("ws open failed")));
+    });
+    const hello = await waitFor(ws, (m) => m.op === "hello");
+    expect(hello).toEqual({ op: "hello", rev: 0 });
+
+    const closed = new Promise<void>((resolve) => {
+      ws.addEventListener("close", () => resolve());
+    });
+    ws.close();
+    await closed;
+
+    await handle.stop();
+    handle = null;
+
+    await expect(fetch(`${url}/api/graph`)).rejects.toThrow();
+  });
+
+  test("malformed action body is 400 invalid_input", async () => {
+    handle = await startUi({ root, port: 0, openBrowser: false });
+    const resp = await fetch(`${handle.url}/api/action`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{not-json",
+    });
+    expect(resp.status).toBe(400);
+    const body = (await resp.json()) as { code: string; status: string };
+    expect(body.status).toBe("failed");
+    expect(body.code).toBe("invalid_input");
+  });
 });

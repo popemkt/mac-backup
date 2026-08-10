@@ -15,6 +15,10 @@ import {
   resolveFieldId,
   resolveTagId,
 } from "../foundation/resolve.ts";
+import {
+  readSavedQuery,
+  resolveSavedQueryFile,
+} from "../foundation/saved-query.ts";
 import { invokeReceiptEffect, registryFor } from "../registry.ts";
 import type { ActionReceipt } from "../shared/contracts.ts";
 import { filterSearchRows, formatReceipt } from "./format.ts";
@@ -663,20 +667,24 @@ export function buildProgram(): Command {
     .action(async function (this: Command, name: string) {
       const code = await withCtx(this, (ctx, globals) =>
         Effect.gen(function* () {
-          if (!/^[\w][\w.-]*$/.test(name)) {
+          const path = resolveSavedQueryFile(ctx.root, name);
+          if (!path) {
             return yield* Effect.fail(
               new UsageError(
                 `invalid saved query name: ${name} (letters, digits, ., _, - only)`,
               ),
             );
           }
-          const path = join(ctx.root, ".kb", "queries", `${name}.edn`);
-          const fs = yield* FileSystem;
-          const edn = yield* fs.readFileString(path).pipe(
-            Effect.mapError(
-              () => new UsageError(`saved query not found: ${path}`),
-            ),
-          );
+          const edn = yield* Effect.tryPromise({
+            try: () => readSavedQuery(ctx.root, name),
+            catch: (err) =>
+              err instanceof Error ? err : new Error(String(err)),
+          });
+          if (edn === null) {
+            return yield* Effect.fail(
+              new UsageError(`saved query not found: ${path}`),
+            );
+          }
           return yield* runPlanEffect(ctx, mapRunQuery(edn), globals);
         }),
       );

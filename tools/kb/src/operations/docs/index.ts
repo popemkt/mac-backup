@@ -1,10 +1,12 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { SYSTEM_IDS, type NodeId } from "../../foundation/model.ts";
 import { query } from "../../foundation/query/index.ts";
+import {
+  readSavedQuery,
+  resolveSavedQueryFile,
+} from "../../foundation/saved-query.ts";
 import type { KbContext } from "../../context.ts";
 import { templates, type TemplateContext } from "./templates.ts";
-import { DocsError, loadViews, type LoadedView } from "./views.ts";
+import { DocsError, type LoadedView } from "./views.ts";
 
 export { DocsError, ViewSpecSchema, loadViews } from "./views.ts";
 export { templates, renderText } from "./templates.ts";
@@ -30,16 +32,24 @@ function templateContext(ctx: KbContext): TemplateContext {
 
 async function viewEdn(ctx: KbContext, view: LoadedView): Promise<string> {
   if (view.spec.query !== undefined) return view.spec.query;
-  const path = join(ctx.root, ".kb", "queries", `${view.spec.savedQuery}.edn`);
-  try {
-    return await readFile(path, "utf8");
-  } catch {
+  const name = view.spec.savedQuery!;
+  const path = resolveSavedQueryFile(ctx.root, name);
+  if (!path) {
+    throw new DocsError(
+      "invalid_input",
+      `invalid saved query name: ${name}`,
+      { view: view.name, savedQuery: name },
+    );
+  }
+  const edn = await readSavedQuery(ctx.root, name);
+  if (edn === null) {
     throw new DocsError(
       "not_found",
-      `saved query not found: ${view.spec.savedQuery}`,
+      `saved query not found: ${name}`,
       { view: view.name, path },
     );
   }
+  return edn;
 }
 
 /** Render one view to its final file content (header + template output). */

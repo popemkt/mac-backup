@@ -2,11 +2,11 @@
  * Stable facade for the `kb ui` surface.
  *
  * Implementation lives under `./ui/`:
- * - `assets` — static SPA + `.kb/assets` serving
- * - `http` — REST/API request routing
- * - `session` — WebSocket clients + SubscriptionHub
- * - `server` — Bun.serve bootstrap, fs-watch, CLI entry
- * - `saved-queries` — virtual saved-query nodes
+ * - `assets` — Effect FileSystem static SPA + `.kb/assets` serving
+ * - `http` — Effect REST/API request routing + failure mapping
+ * - `session` — Effect SubscriptionHub (message/broadcast/cleanup)
+ * - `server` — Bun.serve / Effect runtime boundary, fs-watch, CLI entry
+ * - `saved-queries` — Effect listing of `.kb/queries/*.edn` + virtual nodes
  */
 export type { UiServerHandle, UiServerOptions } from "./ui/server.ts";
 export { runUiCli, startUi } from "./ui/server.ts";

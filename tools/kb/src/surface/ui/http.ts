@@ -1,10 +1,21 @@
 import { relative } from "node:path";
+import { Cause, Effect, Option } from "effect";
+import { FileSystem } from "effect/FileSystem";
+import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import { z } from "zod";
-import { reload, type KbContext } from "../../context.ts";
+import { reloadEffect, type KbContext } from "../../context.ts";
+import {
+  bunFileSystemLayer,
+  kbStoreLayer,
+  KbStore,
+} from "../../context.ts";
 import { invoke, manifest } from "../../registry.ts";
-import { serveKbAsset, serveStatic, UI_DIST } from "./assets.ts";
-import { listSavedQueries } from "./saved-queries.ts";
+import * as assets from "./assets.ts";
+import { listSavedQueriesEffect } from "./saved-queries.ts";
 import type { SubscriptionHub } from "./session.ts";
+
+/** Match Bun/Web `Response.json` Content-Type exactly. */
+const JSON_CONTENT_TYPE = "application/json;charset=utf-8";
 
 const ActionInvocationSchema = z.object({
   id: z.string().min(1),
@@ -17,69 +28,97 @@ export interface UiHttpDeps {
   hub: SubscriptionHub;
 }
 
+function jsonResponse(
+  body: unknown,
+  options?: { status?: number },
+): HttpServerResponse.HttpServerResponse {
+  return HttpServerResponse.jsonUnsafe(body, {
+    status: options?.status,
+    contentType: JSON_CONTENT_TYPE,
+  });
+}
+
+/** Match pre-Effect `new Response(body, { status })` — no Content-Type. */
+function plainStatus(
+  body: string,
+  status: number,
+): HttpServerResponse.HttpServerResponse {
+  return HttpServerResponse.raw(body, { status });
+}
+
+function internalFailure(err: unknown): HttpServerResponse.HttpServerResponse {
+  const message = err instanceof Error ? err.message : String(err);
+  return jsonResponse(
+    { status: "failed", code: "internal", message },
+    { status: 500 },
+  );
+}
+
+function invalidInput(message: string): HttpServerResponse.HttpServerResponse {
+  return jsonResponse(
+    { status: "failed", id: "unknown", code: "invalid_input", message },
+    { status: 400 },
+  );
+}
+
 /**
- * HTTP/API routing for `kb ui` (everything except WebSocket upgrade).
- * Ownership: REST endpoints, kb asset GET, SPA static fallback.
+ * HTTP/API routing for `kb ui` (WebSocket upgrade stays on the Bun.serve
+ * boundary in `server.ts`).
+ *
+ * Genuine Effect program: route dispatch, asset reads, saved-query reads,
+ * store reloads and hub broadcasts are all Effect programs. Content-Type
+ * matches the pre-Effect surface (`Response.json` charset + bare text bodies).
  */
-export async function handleHttpRequest(
+export const handleHttpRequestEffect = (
   req: Request,
   deps: UiHttpDeps,
-): Promise<Response> {
-  const { root, ctx, hub } = deps;
-  const url = new URL(req.url);
+): Effect.Effect<
+  HttpServerResponse.HttpServerResponse,
+  never,
+  FileSystem | KbStore
+> =>
+  Effect.gen(function* () {
+    const { root, ctx, hub } = deps;
+    const url = new URL(req.url);
 
-  try {
     if (url.pathname === "/api/graph" && req.method === "GET") {
-      return Response.json(hub.snapshot);
+      return jsonResponse(hub.snapshot);
     }
 
     if (url.pathname === "/api/manifest" && req.method === "GET") {
-      return Response.json(await manifest(root));
+      return jsonResponse(yield* Effect.promise(() => manifest(root)));
     }
 
     if (url.pathname === "/api/queries" && req.method === "GET") {
-      const queries = await listSavedQueries(root);
-      return Response.json(queries);
+      return jsonResponse(yield* listSavedQueriesEffect(root));
     }
 
     if (url.pathname === "/api/action" && req.method === "POST") {
-      let body: unknown;
-      try {
-        body = await req.json();
-      } catch {
-        return Response.json(
-          {
-            status: "failed",
-            id: "unknown",
-            code: "invalid_input",
-            message: "request body must be JSON",
-          },
-          { status: 400 },
-        );
+      const body = yield* Effect.tryPromise(() => req.json()).pipe(
+        Effect.option,
+      );
+      if (Option.isNone(body)) {
+        return invalidInput("request body must be JSON");
       }
 
-      const parsed = ActionInvocationSchema.safeParse(body);
+      const parsed = ActionInvocationSchema.safeParse(body.value);
       if (!parsed.success) {
-        return Response.json(
-          {
-            status: "failed",
-            id: "unknown",
-            code: "invalid_input",
-            message: parsed.error.issues.map((i) => i.message).join("; "),
-          },
-          { status: 400 },
+        return invalidInput(
+          parsed.error.issues.map((i) => i.message).join("; "),
         );
       }
 
       // Fresh load so we don't miss external writes, then invoke.
-      await reload(ctx);
-      const receipt = await invoke(ctx, {
-        id: parsed.data.id,
-        input: parsed.data.input ?? {},
-      });
+      yield* reloadEffect(ctx);
+      const receipt = yield* Effect.promise(() =>
+        invoke(ctx, {
+          id: parsed.data.id,
+          input: parsed.data.input ?? {},
+        }),
+      );
       // Immediate bump/broadcast — do not wait for fs.watch.
-      hub.applyNodes(ctx.nodes);
-      return Response.json(receipt);
+      yield* hub.applyNodes(ctx.nodes);
+      return jsonResponse(receipt);
     }
 
     // W6a: opaque media files — before SPA / ui/dist so /assets never
@@ -88,31 +127,46 @@ export async function handleHttpRequest(
       (url.pathname === "/assets" || url.pathname.startsWith("/assets/")) &&
       req.method === "GET"
     ) {
-      // await so rejected asset promises hit the catch → 500 (not an unhandled reject)
-      return await serveKbAsset(root, url.pathname);
+      return yield* assets.serveKbAssetEffect(root, url.pathname);
     }
 
     if (url.pathname.startsWith("/api/") || url.pathname === "/ws") {
-      return new Response("not found", { status: 404 });
+      return plainStatus("not found", 404);
     }
 
-    const staticResp = await serveStatic(url.pathname);
+    const staticResp = yield* assets.serveStaticEffect(url.pathname);
     if (staticResp) return staticResp;
 
-    return Response.json(
+    return jsonResponse(
       {
         error: "ui_not_built",
         message:
           "kb UI assets not found; build tools/kb/ui (ui/dist) or use the API/WS endpoints",
-        hint: relative(process.cwd(), UI_DIST),
+        hint: relative(process.cwd(), assets.UI_DIST),
       },
       { status: 503 },
     );
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return Response.json(
-      { status: "failed", code: "internal", message },
-      { status: 500 },
-    );
-  }
+  }).pipe(
+    Effect.catchCause((cause) =>
+      Cause.hasInterruptsOnly(cause)
+        ? Effect.interrupt
+        : Effect.succeed(internalFailure(Cause.squash(cause))),
+    ),
+  );
+
+/**
+ * Promise facade for the HTTP layer: runs the routing Effect with the
+ * FileSystem/KbStore layers and converts the response to a Web `Response`.
+ */
+export function handleHttpRequest(
+  req: Request,
+  deps: UiHttpDeps,
+): Promise<Response> {
+  return Effect.runPromise(
+    handleHttpRequestEffect(req, deps).pipe(
+      Effect.provide(bunFileSystemLayer),
+      Effect.provide(kbStoreLayer(deps.ctx.effectStore)),
+      Effect.map(HttpServerResponse.toWeb),
+    ),
+  );
 }
