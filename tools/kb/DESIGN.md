@@ -154,10 +154,14 @@ interface Store {
   untouched. Temp files are cleaned on write/copy/rename/interrupt failure.
 - **Concurrency**: multi-surface writers (UI/CLI/MCP/agents) and multiple
   `JsonlStore` instances on the same path are in contract. Commits serialize via
-  a per-path in-process semaphore plus an exclusive `nodes.jsonl.lock` (wx) so
-  read-modify-write cannot drop concurrent upserts or collide same-ms temps.
-  Still single-user repo scale — no WAL; the lock is a short-lived exclusive
-  create, not a lease manager.
+  an exclusive `nodes.jsonl.lock` acquired by write-then-`link` (payload is
+  never observed empty mid-create). Empty/unparseable lock bodies are treated
+  as held; stale takeover renames the lock away (atomic single winner) then
+  retries; release unlinks only when the well-known path still shares the
+  owner's sidecar inode. Locks with a dead pid, or a live pid older than
+  `COMMIT_LOCK_STALE_MS` (pid-reuse / abandoned), are reclaimable. Acquisition
+  is Effect-interruptible. Unique temps prevent same-ms collisions. Still
+  single-user repo scale — no WAL.
 - Backend-agnostic by construction — operations/query/surfaces see only
   `Store` + `KbNode`. Future backends (SQLite cache, dolt, md-outline) slot in
   without touching upper layers.

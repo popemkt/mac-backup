@@ -33,3 +33,4 @@ tools/kb/ui/node_modules/
 .kb/nodes.jsonl.bak
 .kb/nodes.jsonl.*.tmp
 .kb/nodes.jsonl.lock
+.kb/nodes.jsonl.lock.*

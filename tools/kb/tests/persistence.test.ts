@@ -25,6 +25,8 @@ import { SYSTEM_IDS } from "../src/foundation/model.ts";
 import { buildQueryDb } from "../src/foundation/query/index.ts";
 import {
   JsonlStore,
+  COMMIT_LOCK_STALE_MS,
+  COMMIT_LOCK_TIMEOUT_MS,
   canonicalJson,
   type EffectStore,
   type StoreTx,
@@ -32,6 +34,41 @@ import {
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-persist-"));
+}
+
+function lockArtifacts(files: string[]): string[] {
+  return files.filter(
+    (f) =>
+      f.endsWith(".tmp") ||
+      f === "nodes.jsonl.lock" ||
+      f.startsWith("nodes.jsonl.lock."),
+  );
+}
+
+async function spawnCrossProcessCommits(
+  root: string,
+  ids: string[],
+): Promise<number[]> {
+  const storePath = join(
+    import.meta.dir,
+    "../src/foundation/storage/jsonl-store.ts",
+  );
+  const procs = ids.map((id) => {
+    const code = `
+      import { JsonlStore } from ${JSON.stringify(storePath)};
+      const store = new JsonlStore(${JSON.stringify(root)});
+      const at = "2026-01-01T00:00:00.000Z";
+      await store.commit({
+        upserts: [{ id: ${JSON.stringify(id)}, text: ${JSON.stringify(id)}, props: {}, children: [], createdAt: at, updatedAt: at }],
+        deletes: [],
+      });
+    `;
+    return Bun.spawn(["bun", "-e", code], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+  });
+  return Promise.all(procs.map((p) => p.exited));
 }
 
 function sampleNode(id: string, text = id): KbNode {
@@ -333,33 +370,203 @@ describe("JsonlStore Effect persistence", () => {
     );
   });
 
-  test("cross-process concurrent commits retain every upsert", async () => {
-    root = await tempRoot();
-    const storePath = join(import.meta.dir, "../src/foundation/storage/jsonl-store.ts");
-    const N = 6;
-    const procs = Array.from({ length: N }, (_, i) => {
-      const id = `n.p${i}`;
-      const code = `
-        import { JsonlStore } from ${JSON.stringify(storePath)};
-        const store = new JsonlStore(${JSON.stringify(root)});
-        const at = "2026-01-01T00:00:00.000Z";
-        await store.commit({
-          upserts: [{ id: ${JSON.stringify(id)}, text: ${JSON.stringify(id)}, props: {}, children: [], createdAt: at, updatedAt: at }],
-          deletes: [],
-        });
-      `;
-      return Bun.spawn(["bun", "-e", code], {
-        stdout: "pipe",
-        stderr: "pipe",
-      });
+  test("cross-process stress: 40×N=8 retains every upsert (0 lost/rejected)", async () => {
+    const RUNS = 40;
+    const N = 8;
+    let lost = 0;
+    let rejected = 0;
+    for (let run = 0; run < RUNS; run++) {
+      const runRoot = await tempRoot();
+      try {
+        const ids = Array.from({ length: N }, (_, i) => `n.r${run}.p${i}`);
+        const codes = await spawnCrossProcessCommits(runRoot, ids);
+        rejected += codes.filter((c) => c !== 0).length;
+        const store = new JsonlStore(runRoot);
+        const loaded = await store.load();
+        const got = new Set(loaded.map((n) => n.id));
+        for (const id of ids) {
+          if (!got.has(id)) lost += 1;
+        }
+      } finally {
+        await rm(runRoot, { recursive: true, force: true });
+      }
+    }
+    expect({ lost, rejected, runs: RUNS, N }).toEqual({
+      lost: 0,
+      rejected: 0,
+      runs: RUNS,
+      N,
     });
-    const codes = await Promise.all(procs.map((p) => p.exited));
-    expect(codes.every((c) => c === 0)).toBe(true);
+  }, 120_000);
+
+  test("cross-process stress with planted stale locks: 30×N=8 zero loss", async () => {
+    const RUNS = 30;
+    const N = 8;
+    let lost = 0;
+    let rejected = 0;
+    for (let run = 0; run < RUNS; run++) {
+      const runRoot = await tempRoot();
+      try {
+        await mkdir(join(runRoot, ".kb"), { recursive: true });
+        const lockPath = join(runRoot, ".kb", "nodes.jsonl.lock");
+        // Dead pid + several contenders racing stale rename-away.
+        await writeFile(
+          lockPath,
+          JSON.stringify({
+            v: 1,
+            pid: 2147483647,
+            token: `stale-${run}`,
+            createdAt: Date.now() - 1_000,
+          }),
+        );
+        const ids = Array.from({ length: N }, (_, i) => `n.s${run}.p${i}`);
+        const codes = await spawnCrossProcessCommits(runRoot, ids);
+        rejected += codes.filter((c) => c !== 0).length;
+        const store = new JsonlStore(runRoot);
+        const loaded = await store.load();
+        const got = new Set(loaded.map((n) => n.id));
+        for (const id of ids) {
+          if (!got.has(id)) lost += 1;
+        }
+      } finally {
+        await rm(runRoot, { recursive: true, force: true });
+      }
+    }
+    expect({ lost, rejected, runs: RUNS, N }).toEqual({
+      lost: 0,
+      rejected: 0,
+      runs: RUNS,
+      N,
+    });
+  }, 120_000);
+
+  test("crash/stale lock with dead pid is reclaimed; commit succeeds", async () => {
+    root = await tempRoot();
     const store = new JsonlStore(root);
-    const loaded = await store.load();
-    expect(loaded.map((n) => n.id).sort()).toEqual(
-      Array.from({ length: N }, (_, i) => `n.p${i}`).sort(),
+    await mkdir(join(root, ".kb"), { recursive: true });
+    await writeFile(
+      store.lockPath,
+      JSON.stringify({
+        v: 1,
+        pid: 2147483647,
+        token: "dead-owner",
+        createdAt: Date.now(),
+      }),
     );
+    await store.commit({ upserts: [sampleNode("n.after-stale")], deletes: [] });
+    const loaded = await store.load();
+    expect(loaded.map((n) => n.id)).toEqual(["n.after-stale"]);
+    expect(lockArtifacts(await readdir(join(root, ".kb")))).toEqual([]);
+  });
+
+  test("pid-reuse: live pid past STALE_MS is reclaimable", async () => {
+    root = await tempRoot();
+    const store = new JsonlStore(root);
+    await mkdir(join(root, ".kb"), { recursive: true });
+    await writeFile(
+      store.lockPath,
+      JSON.stringify({
+        v: 1,
+        pid: process.pid,
+        token: "reused-pid-old",
+        createdAt: Date.now() - COMMIT_LOCK_STALE_MS - 1_000,
+      }),
+    );
+    await store.commit({ upserts: [sampleNode("n.reclaimed")], deletes: [] });
+    expect((await store.load()).map((n) => n.id)).toEqual(["n.reclaimed"]);
+  });
+
+  test("live recent lock is not stolen; waiter times out conflict", async () => {
+    root = await tempRoot();
+    const store = new JsonlStore(root);
+    await mkdir(join(root, ".kb"), { recursive: true });
+    const ownerPath = `${store.lockPath}.owner.hold`;
+    const body = JSON.stringify({
+      v: 1,
+      pid: process.pid,
+      token: "live-hold",
+      createdAt: Date.now(),
+    });
+    await writeFile(ownerPath, body);
+    // Atomic publish with full body (mirrors production link protocol).
+    const { linkSync } = await import("node:fs");
+    linkSync(ownerPath, store.lockPath);
+
+    const started = Date.now();
+    const caught = await Effect.runPromise(
+      store
+        .commitEffect({ upserts: [sampleNode("n.blocked")], deletes: [] })
+        .pipe(
+          Effect.provide(bunFileSystemLayer),
+          Effect.catch((e) => Effect.succeed(e)),
+        ),
+    );
+    const elapsed = Date.now() - started;
+    expect(isDomainError(caught)).toBe(true);
+    if (isDomainError(caught)) {
+      expect(caught.code).toBe("conflict");
+    }
+    expect(elapsed).toBeGreaterThanOrEqual(COMMIT_LOCK_TIMEOUT_MS - 200);
+    expect(elapsed).toBeLessThan(COMMIT_LOCK_TIMEOUT_MS + 2_000);
+    await rm(store.lockPath, { force: true });
+    await rm(ownerPath, { force: true });
+  }, 15_000);
+
+  test("empty/unparseable lock body is not deleted as stale", async () => {
+    root = await tempRoot();
+    const store = new JsonlStore(root);
+    await mkdir(join(root, ".kb"), { recursive: true });
+    await writeFile(store.lockPath, "");
+    const holder = await readFile(store.lockPath, "utf8");
+    expect(holder).toBe("");
+
+    const fiber = await Effect.runPromise(
+      Effect.forkDetach(
+        store
+          .commitEffect({ upserts: [sampleNode("n.x")], deletes: [] })
+          .pipe(Effect.provide(bunFileSystemLayer)),
+      ).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    await Effect.runPromise(Effect.sleep("80 millis"));
+    // Still empty — waiter must not have removed it as "stale".
+    expect(await readFile(store.lockPath, "utf8")).toBe("");
+    await Effect.runPromise(Fiber.interrupt(fiber));
+    await Effect.runPromise(Effect.sleep("50 millis"));
+    await rm(store.lockPath, { force: true });
+  });
+
+  test("lock-wait acquisition is interruptible well under timeout", async () => {
+    root = await tempRoot();
+    const store = new JsonlStore(root);
+    await mkdir(join(root, ".kb"), { recursive: true });
+    const ownerPath = `${store.lockPath}.owner.hold`;
+    await writeFile(
+      ownerPath,
+      JSON.stringify({
+        v: 1,
+        pid: process.pid,
+        token: "hold-interrupt",
+        createdAt: Date.now(),
+      }),
+    );
+    const { linkSync } = await import("node:fs");
+    linkSync(ownerPath, store.lockPath);
+
+    const fiber = await Effect.runPromise(
+      Effect.forkDetach(
+        store
+          .commitEffect({ upserts: [sampleNode("n.int")], deletes: [] })
+          .pipe(Effect.provide(bunFileSystemLayer)),
+      ).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    await Effect.runPromise(Effect.sleep("30 millis"));
+    const t0 = Date.now();
+    await Effect.runPromise(Fiber.interrupt(fiber));
+    // Fiber.interrupt awaits fiber completion — must not wait out the ~5s timeout.
+    const interruptMs = Date.now() - t0;
+    expect(interruptMs).toBeLessThan(500);
+    await rm(store.lockPath, { force: true });
+    await rm(ownerPath, { force: true });
   });
 
   test("invalid upsert is rejected and leaves prior file untouched", async () => {
@@ -506,8 +713,7 @@ describe("JsonlStore Effect persistence", () => {
 
     expect(await readFile(live.path, "utf8")).toBe(before);
     const files = await readdir(join(root, ".kb"));
-    expect(files.filter((f) => f.endsWith(".tmp"))).toEqual([]);
-    expect(files.filter((f) => f.endsWith(".lock"))).toEqual([]);
+    expect(lockArtifacts(files)).toEqual([]);
   });
 });
 

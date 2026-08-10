@@ -1,7 +1,8 @@
-import { Effect, Schema, Semaphore } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
+import type { PlatformError } from "effect/PlatformError";
 import { randomUUID } from "node:crypto";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { domainError, type DomainError } from "../errors.ts";
 import type { KbNode } from "../model.ts";
 import { bunFileSystemLayer } from "../platform.ts";
@@ -9,18 +10,22 @@ import { canonicalJson } from "./canonical.ts";
 import { KbNodeSchema, nodeParseOptions } from "./node-schema.ts";
 import type { EffectStore, Store, StoreTx } from "./store.ts";
 
-/** In-process gate per absolute nodes.jsonl path (multi-instance / multi-fiber). */
-const commitGates = new Map<string, Semaphore.Semaphore>();
+/** Lock older than this is reclaimable even if pid is still alive (pid-reuse). */
+export const COMMIT_LOCK_STALE_MS = 30_000;
 
-function commitGateFor(path: string): Semaphore.Semaphore {
-  const key = resolve(path);
-  let gate = commitGates.get(key);
-  if (!gate) {
-    gate = Semaphore.makeUnsafe(1);
-    commitGates.set(key, gate);
-  }
-  return gate;
-}
+/** Max time to wait for a live holder before failing `conflict`. */
+export const COMMIT_LOCK_TIMEOUT_MS = 5_000;
+
+const LOCK_RETRY = "10 millis" as const;
+
+type LockOwner = {
+  readonly v: 1;
+  readonly pid: number;
+  readonly token: string;
+  readonly createdAt: number;
+  /** Sidecar hard-link path kept until release for inode identity proof. */
+  readonly ownerPath: string;
+};
 
 function mapFsError(err: { message?: string } | unknown): DomainError {
   const message =
@@ -33,12 +38,27 @@ function mapFsError(err: { message?: string } | unknown): DomainError {
   return domainError("internal", message);
 }
 
+/** Structural PlatformError AlreadyExists — never match on message text. */
 function isAlreadyExists(err: unknown): boolean {
   if (typeof err !== "object" || err === null) return false;
-  const e = err as { _tag?: unknown; reason?: unknown; message?: unknown };
-  if (e._tag === "AlreadyExists") return true;
-  if (e.reason === "AlreadyExists") return true;
-  return typeof e.message === "string" && /AlreadyExists/i.test(e.message);
+  const pe = err as Partial<PlatformError>;
+  return (
+    pe._tag === "PlatformError" &&
+    typeof pe.reason === "object" &&
+    pe.reason !== null &&
+    (pe.reason as { _tag?: unknown })._tag === "AlreadyExists"
+  );
+}
+
+function isNotFound(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const pe = err as Partial<PlatformError>;
+  return (
+    pe._tag === "PlatformError" &&
+    typeof pe.reason === "object" &&
+    pe.reason !== null &&
+    (pe.reason as { _tag?: unknown })._tag === "NotFound"
+  );
 }
 
 function decodeKbNode(
@@ -94,46 +114,154 @@ function pidAlive(pid: number): boolean {
   }
 }
 
+function parseLockOwner(body: string): Omit<LockOwner, "ownerPath"> | null {
+  try {
+    const raw = JSON.parse(body) as Record<string, unknown>;
+    if (
+      raw.v !== 1 ||
+      typeof raw.pid !== "number" ||
+      typeof raw.token !== "string" ||
+      typeof raw.createdAt !== "number"
+    ) {
+      return null;
+    }
+    return {
+      v: 1,
+      pid: raw.pid,
+      token: raw.token,
+      createdAt: raw.createdAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function isStaleOwner(
+  owner: Omit<LockOwner, "ownerPath">,
+  now: number,
+): boolean {
+  if (!pidAlive(owner.pid)) return true;
+  // Live pid past TTL: treat as pid-reuse / abandoned holder.
+  return now - owner.createdAt > COMMIT_LOCK_STALE_MS;
+}
+
+function sameInode(
+  a: { dev: number; ino: Option.Option<number> },
+  b: { dev: number; ino: Option.Option<number> },
+): boolean {
+  return (
+    a.dev === b.dev &&
+    Option.isSome(a.ino) &&
+    Option.isSome(b.ino) &&
+    a.ino.value === b.ino.value
+  );
+}
+
 /**
- * Exclusive create of `lockPath` (wx). Retries while another live holder owns
- * it; clears stale locks left by crashed writers. Interruptible via sleep.
+ * Atomic commit lock:
+ * 1. Write full owner payload to a unique sidecar, then `link` it onto
+ *    `lockPath` (content is never observed empty mid-create).
+ * 2. Empty/unparseable lock bodies are treated as held — never deleted.
+ * 3. Stale takeover renames the lock away (atomic; only one winner), then
+ *    retries the link — cannot delete a live/reacquired lock by content guess.
+ * 4. Release unlinks `lockPath` only when it still shares the sidecar inode.
  */
 function acquireCommitLock(
   fs: FileSystem,
   lockPath: string,
-): Effect.Effect<void, DomainError> {
-  const maxAttempts = 500;
+): Effect.Effect<LockOwner, DomainError> {
+  const token = randomUUID();
+  const ownerPath = `${lockPath}.owner.${token}`;
+  const record = {
+    v: 1 as const,
+    pid: process.pid,
+    token,
+    createdAt: Date.now(),
+  };
+  const payload = JSON.stringify(record);
+
+  const cleanupOwner = fs
+    .remove(ownerPath, { force: true })
+    .pipe(Effect.ignore);
+
   return Effect.gen(function* () {
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const acquired = yield* fs
-        .writeFileString(lockPath, `${process.pid}\n`, { flag: "wx" })
-        .pipe(
-          Effect.as(true as const),
-          Effect.catch((err) =>
-            isAlreadyExists(err)
-              ? Effect.succeed(false as const)
-              : Effect.fail(mapFsError(err)),
-          ),
-        );
-      if (acquired) return;
+    yield* fs
+      .writeFileString(ownerPath, payload)
+      .pipe(Effect.mapError(mapFsError));
+
+    const deadline = Date.now() + COMMIT_LOCK_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      const linked = yield* fs.link(ownerPath, lockPath).pipe(
+        Effect.as(true as const),
+        Effect.catch((err) =>
+          isAlreadyExists(err)
+            ? Effect.succeed(false as const)
+            : Effect.fail(mapFsError(err)),
+        ),
+      );
+      if (linked) {
+        return { ...record, ownerPath };
+      }
 
       const body = yield* fs
         .readFileString(lockPath)
         .pipe(Effect.catch(() => Effect.succeed("")));
-      const holder = Number.parseInt(body.trim(), 10);
-      if (!pidAlive(holder)) {
-        yield* fs
-          .remove(lockPath, { force: true })
-          .pipe(Effect.catch(() => Effect.void));
+      const current = parseLockOwner(body);
+      // Unparseable/empty: holder still publishing or foreign format — wait.
+      if (!current || !isStaleOwner(current, Date.now())) {
+        yield* Effect.sleep(LOCK_RETRY);
         continue;
       }
-      yield* Effect.sleep("10 millis");
+
+      // Atomic stale claim: rename lock out of the well-known path.
+      const stalePath = `${lockPath}.stale.${token}.${randomUUID()}`;
+      const moved = yield* fs.rename(lockPath, stalePath).pipe(
+        Effect.as(true as const),
+        Effect.catch((err) =>
+          isNotFound(err)
+            ? Effect.succeed(false as const)
+            : Effect.fail(mapFsError(err)),
+        ),
+      );
+      if (moved) {
+        yield* fs.remove(stalePath, { force: true }).pipe(Effect.ignore);
+        continue;
+      }
+      yield* Effect.sleep(LOCK_RETRY);
     }
+
     return yield* Effect.fail(
       domainError("conflict", `commit lock timeout for ${lockPath}`, {
         lockPath,
       }),
     );
+  }).pipe(
+    Effect.tapError(() => cleanupOwner),
+    Effect.onInterrupt(() => cleanupOwner),
+  );
+}
+
+function releaseCommitLock(
+  fs: FileSystem,
+  lockPath: string,
+  owner: LockOwner,
+): Effect.Effect<void> {
+  return Effect.gen(function* () {
+    const lockStat = yield* fs
+      .stat(lockPath)
+      .pipe(Effect.catch(() => Effect.succeed(null)));
+    const ownerStat = yield* fs
+      .stat(owner.ownerPath)
+      .pipe(Effect.catch(() => Effect.succeed(null)));
+    if (
+      lockStat !== null &&
+      ownerStat !== null &&
+      sameInode(lockStat, ownerStat)
+    ) {
+      // Still our inode at the well-known path — safe to release.
+      yield* fs.remove(lockPath, { force: true }).pipe(Effect.ignore);
+    }
+    yield* fs.remove(owner.ownerPath, { force: true }).pipe(Effect.ignore);
   });
 }
 
@@ -143,10 +271,12 @@ function acquireCommitLock(
  * Commits are atomic (tmp + rename) and keep `nodes.jsonl.bak` of the prior file.
  *
  * Concurrent commits (multi-fiber, multi-JsonlStore instance, or multi-process
- * surfaces on the same path) are serialized: an in-process per-path semaphore
- * plus an exclusive `nodes.jsonl.lock` file. Upserts and the merged snapshot
- * are schema-validated before any durable write; invalid input fails with
- * `invalid_input` and leaves the live file untouched.
+ * surfaces on the same path) are serialized by an exclusive
+ * `nodes.jsonl.lock` acquired via write-then-link ownership (never an empty
+ * wx create). Stale locks are reclaimed by rename-away, not blind unlink.
+ * Upserts and the merged snapshot are schema-validated before any durable
+ * write; invalid input fails with `invalid_input` and leaves the live file
+ * untouched.
  *
  * Load is all-or-nothing: any malformed/invalid line fails the Effect with a
  * line-numbered DomainError and returns no nodes — the file is never rewritten
@@ -196,71 +326,67 @@ export class JsonlStore implements Store, EffectStore {
     const backupPath = this.backupPath;
     const lockPath = this.lockPath;
     const loadEffect = this.loadEffect.bind(this);
-    const gate = commitGateFor(path);
 
-    return gate.withPermits(1)(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const fs = yield* FileSystem;
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem;
 
-          // Directory must exist before the exclusive lock create (wx).
+        // Directory must exist before lock sidecar + link.
+        yield* fs
+          .makeDirectory(dirname(path), { recursive: true })
+          .pipe(Effect.mapError(mapFsError));
+
+        yield* Effect.acquireRelease(
+          acquireCommitLock(fs, lockPath),
+          (owner) => releaseCommitLock(fs, lockPath, owner),
+          { interruptible: true },
+        );
+
+        const upserts: KbNode[] = [];
+        for (let i = 0; i < tx.upserts.length; i++) {
+          upserts.push(
+            yield* decodeKbNode(tx.upserts[i], `upsert[${i}]`, {
+              index: i,
+            }),
+          );
+        }
+
+        const existing = yield* loadEffect();
+        const byId = new Map(existing.map((n) => [n.id, n]));
+        for (const id of tx.deletes) byId.delete(id);
+        for (const node of upserts) byId.set(node.id, node);
+
+        const sorted = [...byId.values()].sort((a, b) =>
+          a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+        );
+        for (let i = 0; i < sorted.length; i++) {
+          yield* decodeKbNode(sorted[i], `snapshot[${i}]`, { index: i });
+        }
+
+        const body =
+          sorted.length === 0
+            ? ""
+            : sorted.map((n) => canonicalJson(n)).join("\n") + "\n";
+
+        const tmp = `${path}.${process.pid}.${randomUUID()}.tmp`;
+        yield* Effect.acquireRelease(
+          Effect.succeed(tmp),
+          (p) => fs.remove(p, { force: true }).pipe(Effect.ignore),
+        );
+
+        yield* fs.writeFileString(tmp, body).pipe(Effect.mapError(mapFsError));
+
+        const hadPrior = yield* fs
+          .exists(path)
+          .pipe(Effect.mapError(mapFsError));
+        if (hadPrior) {
           yield* fs
-            .makeDirectory(dirname(path), { recursive: true })
+            .copyFile(path, backupPath)
             .pipe(Effect.mapError(mapFsError));
+        }
 
-          yield* Effect.acquireRelease(
-            acquireCommitLock(fs, lockPath).pipe(Effect.as(lockPath)),
-            (p) => fs.remove(p, { force: true }).pipe(Effect.ignore),
-          );
-
-          const upserts: KbNode[] = [];
-          for (let i = 0; i < tx.upserts.length; i++) {
-            upserts.push(
-              yield* decodeKbNode(tx.upserts[i], `upsert[${i}]`, {
-                index: i,
-              }),
-            );
-          }
-
-          const existing = yield* loadEffect();
-          const byId = new Map(existing.map((n) => [n.id, n]));
-          for (const id of tx.deletes) byId.delete(id);
-          for (const node of upserts) byId.set(node.id, node);
-
-          const sorted = [...byId.values()].sort((a, b) =>
-            a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
-          );
-          for (let i = 0; i < sorted.length; i++) {
-            yield* decodeKbNode(sorted[i], `snapshot[${i}]`, { index: i });
-          }
-
-          const body =
-            sorted.length === 0
-              ? ""
-              : sorted.map((n) => canonicalJson(n)).join("\n") + "\n";
-
-          const tmp = `${path}.${process.pid}.${randomUUID()}.tmp`;
-          yield* Effect.acquireRelease(
-            Effect.succeed(tmp),
-            (p) => fs.remove(p, { force: true }).pipe(Effect.ignore),
-          );
-
-          yield* fs
-            .writeFileString(tmp, body)
-            .pipe(Effect.mapError(mapFsError));
-
-          const hadPrior = yield* fs
-            .exists(path)
-            .pipe(Effect.mapError(mapFsError));
-          if (hadPrior) {
-            yield* fs
-              .copyFile(path, backupPath)
-              .pipe(Effect.mapError(mapFsError));
-          }
-
-          yield* fs.rename(tmp, path).pipe(Effect.mapError(mapFsError));
-        }),
-      ),
+        yield* fs.rename(tmp, path).pipe(Effect.mapError(mapFsError));
+      }),
     );
   }
 
