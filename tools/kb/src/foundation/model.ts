@@ -4,9 +4,13 @@ export type NodeId = string;
 /**
  * Property values keyed by field-node id.
  * Refs point at other nodes by NodeId.
+ * `t`/`v` are correlated (same discriminant as wire + persistence schemas).
  */
 export type PropValue =
-  | { t: "str" | "num" | "bool" | "date"; v: string | number | boolean }
+  | { t: "str"; v: string }
+  | { t: "num"; v: number }
+  | { t: "bool"; v: boolean }
+  | { t: "date"; v: string }
   | { t: "ref"; v: NodeId };
 
 /** Everything is a node — fields and tags included. */
