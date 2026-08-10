@@ -136,6 +136,51 @@ This is a pragmatic middle ground:
 Prefer this for large, self-contained directories. Avoid using it as a blanket
 strategy for all of `~/Library` or the entire home directory.
 
+## kb Opaque Media (`.kb/assets`)
+
+kb node text can reference media as `![alt](assets/x.png)`; the files live in
+`~/.dotfiles/.kb/assets/` (W6a media, uploaded via the `asset.upload` action).
+The node text is committed (`.kb/nodes.jsonl`), but the media binaries are not.
+
+Decision: `.kb/assets` is user/application state, not configuration. It is
+gitignored and owned by a dedicated Mackup backup decision declared in
+`modules/darwin/home-manager/mackup.nix` (the `kb` application). The committed
+references stay portable; the media itself is a backup concern.
+
+Mechanism — copy-based Mackup, no symlinks:
+
+- Source: `~/.dotfiles/.kb/assets` (the live media directory).
+- Destination: `~/Library/Mobile Documents/com~apple~CloudDocs/Mackup/.dotfiles/.kb/assets`
+  (iCloud Drive, written by `mackup backup`). The HOME-relative path assumes
+  the repo lives at `~/.dotfiles`, a repo invariant shared by both hosts.
+- Restore: `mackup restore` copies the media back into `~/.dotfiles/.kb/assets`
+  as a real directory. No symlink is ever created, so restore cannot form a
+  symlink loop; the only prerequisites are iCloud sign-in and a synced Mackup
+  folder.
+- Refresh: `asset.upload` writes new media locally immediately; it reaches
+  iCloud on the next `mackup backup --force`. Nothing re-runs automatically.
+
+Verification and drift:
+
+- `scripts/check-kb-assets-backup.sh check` proves the directory is covered
+  (the Mackup declaration, `.gitignore`, and this doc are all in place) and
+  that every `assets/…` reference in committed `.kb/nodes.jsonl` resolves
+  under `.kb/assets/`. It runs on every commit via `.githooks/pre-commit`.
+- `scripts/check-kb-assets-backup.sh status` reports local vs iCloud state; it
+  is part of `scripts/audit-system-discrepancies.sh`. It warns when local media
+  is missing from storage (run `mackup backup`) or storage is not restored
+  locally (run `mackup restore`), and when a locally updated file is newer
+  than its stored copy.
+
+Boundary:
+
+- `.kb/nodes.jsonl`, `.kb/queries/`, and `.kb/views/` stay committed in this
+  repo — they are source of truth, not backup concerns.
+- A committed node reference to `assets/…` is only valid if it resolves under
+  `.kb/assets/`; anything outside that directory is rejected by the check.
+- Before the first `mackup restore` on a fresh machine the media is absent and
+  node references render as broken media — by design, the text stays portable.
+
 ## App Onboarding Checklist
 
 When adding a new app or agent, classify it using this checklist:

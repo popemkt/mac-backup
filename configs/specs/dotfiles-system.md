@@ -160,6 +160,7 @@ Apps in Mackup sync (`.mackup.cfg`):
 | vscode | settings, keybindings, snippets |
 | telegram_macos | account-independent UI prefs |
 | claude-code | settings.json (MCP servers, hooks, preferences) |
+| kb | opaque media dir `.kb/assets` (gitignored; copied to iCloud by `mackup backup`, never committed) |
 | macosx | global keyboard shortcuts |
 
 Deliberately excluded: anything storing credentials or tokens.
