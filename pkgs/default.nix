@@ -33,6 +33,8 @@ in
     inherit sources;
   };
 
+  kb = pkgs.callPackage ./kb { };
+
   system-setup = pkgs.callPackage ./system-setup {
     inherit
       pyproject-build-systems
