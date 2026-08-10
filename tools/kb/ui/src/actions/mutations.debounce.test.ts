@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setPostAction } from "@/api/action";
+import { setFetchGraphSnapshot } from "@/api/graph";
 import { fixtureGraph } from "@/fixtures/graph";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -8,15 +9,11 @@ import {
   mutations,
 } from "@/actions/mutations";
 
-const loadGraph = vi.fn();
-
-vi.mock("@/api/graph", () => ({
-  loadGraph: (...args: unknown[]) => loadGraph(...args),
-}));
-
 vi.mock("@/lib/toast", () => ({
   toast: vi.fn(),
 }));
+
+const fetchGraphSnapshot = vi.fn();
 
 function seed(source: "api" | "fixtures" = "api") {
   useOutlineStore.setState({
@@ -48,7 +45,8 @@ describe("debounced text-save rollback", () => {
     vi.useFakeTimers();
     seed("api");
     setPostAction(null);
-    loadGraph.mockReset();
+    fetchGraphSnapshot.mockReset();
+    setFetchGraphSnapshot(fetchGraphSnapshot);
     __resetPendingContentForTests();
   });
 
@@ -56,18 +54,16 @@ describe("debounced text-save rollback", () => {
     __resetPendingContentForTests();
     vi.useRealTimers();
     setPostAction(null);
+    setFetchGraphSnapshot(null);
   });
 
   it("resync-first recovery re-applies concurrent pending edits", async () => {
     const originalA = useOutlineStore.getState().nodes.get("n.root-a")!.text;
     const originalB = useOutlineStore.getState().nodes.get("n.root-b")!.text;
 
-    loadGraph.mockResolvedValue({
-      snapshot: {
-        rev: 2,
-        nodes: structuredClone(fixtureGraph.nodes),
-      },
-      source: "api" as const,
+    fetchGraphSnapshot.mockResolvedValue({
+      rev: 2,
+      nodes: structuredClone(fixtureGraph.nodes),
     });
 
     setPostAction(async (inv) => {
@@ -97,7 +93,7 @@ describe("debounced text-save rollback", () => {
 
     await vi.advanceTimersByTimeAsync(80);
 
-    expect(loadGraph).toHaveBeenCalled();
+    expect(fetchGraphSnapshot).toHaveBeenCalled();
     expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(
       originalA,
     );
@@ -115,6 +111,8 @@ describe("debounced text-save rollback", () => {
       useOutlineStore.getState(),
       "restoreSnapshot",
     );
+    const hydrateSpy = vi.spyOn(useOutlineStore.getState(), "hydrateFromWire");
+    hydrateSpy.mockClear();
 
     // Mutate another node successfully (simulates concurrent landed edit).
     useOutlineStore.getState().applyTx(
@@ -129,7 +127,7 @@ describe("debounced text-save rollback", () => {
       [],
     );
 
-    loadGraph.mockRejectedValue(new Error("offline"));
+    fetchGraphSnapshot.mockRejectedValue(new Error("offline"));
     setPostAction(async (inv) => {
       const input = inv.input as { id: string };
       if (input.id === "n.root-a") {
@@ -150,6 +148,8 @@ describe("debounced text-save rollback", () => {
     await vi.advanceTimersByTimeAsync(80);
 
     expect(restoreSpy).not.toHaveBeenCalled();
+    expect(hydrateSpy).not.toHaveBeenCalled();
+    expect(useOutlineStore.getState().loadSource).toBe("api");
     expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(
       originalA,
     );
@@ -161,15 +161,16 @@ describe("debounced text-save rollback", () => {
     );
 
     restoreSpy.mockRestore();
+    hydrateSpy.mockRestore();
   });
 
   it("re-applies a same-node re-edit typed during in-flight resync", async () => {
     const originalA = useOutlineStore.getState().nodes.get("n.root-a")!.text;
     let resolveResync!: (value: {
-      snapshot: { rev: number; nodes: typeof fixtureGraph.nodes };
-      source: "api";
+      rev: number;
+      nodes: typeof fixtureGraph.nodes;
     }) => void;
-    loadGraph.mockReturnValue(
+    fetchGraphSnapshot.mockReturnValue(
       new Promise((resolve) => {
         resolveResync = resolve;
       }),
@@ -191,7 +192,7 @@ describe("debounced text-save rollback", () => {
     mutations.updateNodeContent("n.root-a", "edit1");
     // Fire A's debounce → pendingContent.delete(A) → flush starts resync.
     await vi.advanceTimersByTimeAsync(280);
-    expect(loadGraph).toHaveBeenCalled();
+    expect(fetchGraphSnapshot).toHaveBeenCalled();
 
     // User types a newer edit while resync is still in flight.
     mutations.updateNodeContent("n.root-a", "edit2");
@@ -200,11 +201,8 @@ describe("debounced text-save rollback", () => {
     );
 
     resolveResync({
-      snapshot: {
-        rev: 2,
-        nodes: structuredClone(fixtureGraph.nodes),
-      },
-      source: "api",
+      rev: 2,
+      nodes: structuredClone(fixtureGraph.nodes),
     });
     await vi.advanceTimersByTimeAsync(0);
 
@@ -223,12 +221,9 @@ describe("debounced text-save rollback", () => {
       (n) => n.id !== "n.root-b",
     );
 
-    loadGraph.mockResolvedValue({
-      snapshot: {
-        rev: 3,
-        nodes: wireWithoutB,
-      },
-      source: "api" as const,
+    fetchGraphSnapshot.mockResolvedValue({
+      rev: 3,
+      nodes: wireWithoutB,
     });
 
     setPostAction(async (inv) => {
@@ -253,7 +248,7 @@ describe("debounced text-save rollback", () => {
     // Must not reject / abort the batch when B is gone server-side.
     await vi.advanceTimersByTimeAsync(80);
 
-    expect(loadGraph).toHaveBeenCalled();
+    expect(fetchGraphSnapshot).toHaveBeenCalled();
     expect(useOutlineStore.getState().nodes.get("n.root-b")).toBeUndefined();
     expect(useOutlineStore.getState().nodes.get("n.root-c")?.text).toBe(
       "sibling-must-survive",
@@ -261,5 +256,64 @@ describe("debounced text-save rollback", () => {
     expect(useOutlineStore.getState().nodes.get("n.root-c")?.text).not.toBe(
       originalC,
     );
+  });
+
+  it("never swaps live api data for demo fixtures on resync failure", async () => {
+    const hydrateSpy = vi.spyOn(useOutlineStore.getState(), "hydrateFromWire");
+    hydrateSpy.mockClear();
+    fetchGraphSnapshot.mockRejectedValue(new Error("graph down"));
+
+    setPostAction(async () => ({
+      status: "failed",
+      id: "node.update",
+      code: "internal",
+      message: "save failed",
+    }));
+
+    mutations.updateNodeContent("n.root-a", "must-not-become-fixtures");
+    await vi.advanceTimersByTimeAsync(280);
+
+    expect(hydrateSpy).not.toHaveBeenCalled();
+    expect(
+      hydrateSpy.mock.calls.some((call) => call[2] === "fixtures"),
+    ).toBe(false);
+    expect(useOutlineStore.getState().loadSource).toBe("api");
+    expect(
+      useOutlineStore.getState().nodes.has("n.root-a"),
+    ).toBe(true);
+
+    hydrateSpy.mockRestore();
+  });
+
+  it("keeps later remote writes usable after a failed resync", async () => {
+    fetchGraphSnapshot.mockRejectedValue(new Error("graph down"));
+    const posts: unknown[] = [];
+    setPostAction(async (inv) => {
+      posts.push(inv);
+      const input = inv.input as { id: string; text?: string };
+      if (input.text === "first-fail") {
+        return {
+          status: "failed",
+          id: "node.update",
+          code: "internal",
+          message: "save failed",
+        };
+      }
+      return { status: "succeeded", id: "node.update", output: {} };
+    });
+
+    mutations.updateNodeContent("n.root-a", "first-fail");
+    await vi.advanceTimersByTimeAsync(280);
+    expect(useOutlineStore.getState().loadSource).toBe("api");
+
+    mutations.updateNodeContent("n.root-a", "second-ok");
+    await vi.advanceTimersByTimeAsync(280);
+
+    expect(posts.length).toBe(2);
+    expect(posts[1]).toMatchObject({
+      id: "node.update",
+      input: { id: "n.root-a", text: "second-ok" },
+    });
+    expect(useOutlineStore.getState().loadSource).toBe("api");
   });
 });

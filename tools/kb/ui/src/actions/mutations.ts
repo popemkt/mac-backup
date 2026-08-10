@@ -3,6 +3,7 @@
  */
 import { ulid } from "ulid";
 import { postAction } from "@/api/action";
+import { fetchGraphSnapshot } from "@/api/graph";
 import { runOptimistic } from "@/actions/optimistic";
 import {
   planAddRootNode,
@@ -86,17 +87,17 @@ function reapplyPendingLocalEdits(): void {
 
 /**
  * Failure recovery for the debounced text path.
- * Prefer a server resync, then restore only the failed node's pre-edit state
- * if resync itself fails — never replace the whole graph from a local snapshot.
+ * Prefer a strict server resync (never demo fixtures), then restore only the
+ * failed node's pre-edit state if resync itself fails — never hydrateFromWire
+ * mid-session and never flip loadSource to fixtures.
  * Concurrent pending edits (including a same-node re-edit made during the
  * in-flight resync) are re-applied afterward.
  */
 async function resyncOrRestoreNode(preEdit: WireNode): Promise<void> {
   const store = useOutlineStore.getState();
   try {
-    const { loadGraph } = await import("@/api/graph");
-    const { snapshot: fresh, source } = await loadGraph();
-    store.hydrateFromWire(fresh.nodes, fresh.rev, source);
+    const fresh = await fetchGraphSnapshot();
+    store.refreshFromWire(fresh.nodes, fresh.rev);
   } catch {
     useOutlineStore.getState().applyTx([cloneWire(preEdit)], []);
   }

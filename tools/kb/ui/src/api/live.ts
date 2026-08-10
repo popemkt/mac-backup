@@ -3,7 +3,7 @@
  * (tx deltas via applyTx, rev-gap resync via /api/graph refetch) and the
  * ui store (status indicator, error toasts).
  */
-import { GraphSnapshotSchema } from "@kb/protocol";
+import { fetchGraphSnapshot } from "@/api/graph";
 import { KbWsClient, type KbWsClientOptions } from "@/api/ws";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -11,14 +11,12 @@ import { useUiStore } from "@/stores/ui.store";
 let client: KbWsClient | null = null;
 let refetching = false;
 
-/** Rev gap → resync from the full snapshot. Exported for tests. */
+/** Rev gap → strict resync from /api/graph (never fixtures). Exported for tests. */
 export async function refetchGraph(): Promise<void> {
   if (refetching) return;
   refetching = true;
   try {
-    const res = await fetch("/api/graph");
-    if (!res.ok) throw new Error(`GET /api/graph → ${res.status}`);
-    const snapshot = GraphSnapshotSchema.parse(await res.json());
+    const snapshot = await fetchGraphSnapshot();
     useOutlineStore
       .getState()
       .refreshFromWire(snapshot.nodes, snapshot.rev);

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { GraphSnapshot } from "@kb/protocol";
+import { setFetchGraphSnapshot } from "@/api/graph";
 import { fixtureGraph } from "@/fixtures/graph";
 import { useOutlineStore } from "@/stores/outline.store";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
@@ -63,9 +64,11 @@ const origFetch = globalThis.fetch;
 describe("live wiring: rev gap → /api/graph refetch", () => {
   beforeEach(() => {
     resetStore();
+    setFetchGraphSnapshot(null);
   });
   afterEach(() => {
     globalThis.fetch = origFetch;
+    setFetchGraphSnapshot(null);
   });
 
   it("refetches the snapshot when the tx stream jumps a rev", async () => {
