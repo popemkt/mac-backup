@@ -1,10 +1,20 @@
 import { watch, type FSWatcher } from "node:fs";
 import { join } from "node:path";
-import { openKb, reload } from "../../context.ts";
+import { Effect, Exit, Scope } from "effect";
+import {
+  bunFileSystemLayer,
+  kbStoreLayer,
+  openKbEffect,
+  reloadEffect,
+} from "../../context.ts";
 import { UI_DEFAULT_PORT } from "../protocol.ts";
 import { handleHttpRequest } from "./http.ts";
-import { listSavedQueries, savedQueryNodes } from "./saved-queries.ts";
-import { SubscriptionHub, type WsData } from "./session.ts";
+import { listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
+import {
+  SubscriptionHub,
+  type ClientSend,
+  type WsData,
+} from "./session.ts";
 
 export interface UiServerOptions {
   root: string;
@@ -35,17 +45,41 @@ function openBrowser(url: string): void {
   });
 }
 
+function clientSend(ws: Bun.ServerWebSocket<WsData>): ClientSend {
+  return (text) =>
+    Effect.sync(() => {
+      try {
+        ws.send(text);
+      } catch {
+        // client gone — ignore
+      }
+    });
+}
+
 /**
- * Start the `kb ui` HTTP+WS server. Binds 127.0.0.1 only.
+ * Start the `kb ui` HTTP+WS server.
+ *
+ * Single Bun.serve / Effect runtime boundary: `Bun.serve` owns the TCP listen,
+ * WebSocket upgrade, and response delivery (`Bun.file` bodies). Request
+ * routing, asset/static reads, hub message processing, broadcast, and reload
+ * are Effect programs provided with FileSystem/KbStore layers. Binds
+ * 127.0.0.1 only by default.
  */
 export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
   const hostname = opts.hostname ?? "127.0.0.1";
   const port = opts.port ?? UI_DEFAULT_PORT;
   const openBrowserFlag = opts.openBrowser !== false;
 
-  const ctx = await openKb(opts.root);
-  const saved = await listSavedQueries(opts.root);
-  const hub = new SubscriptionHub(ctx, savedQueryNodes(saved));
+  const lifetime = Scope.makeUnsafe("parallel");
+
+  const { ctx, hub } = await Effect.runPromise(
+    Effect.gen(function* () {
+      const ctx = yield* openKbEffect(opts.root);
+      const saved = yield* listSavedQueriesEffect(opts.root);
+      const hub = new SubscriptionHub(ctx, savedQueryNodes(saved));
+      return { ctx, hub };
+    }).pipe(Effect.provide(bunFileSystemLayer)),
+  );
 
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let watcher: FSWatcher | null = null;
@@ -55,14 +89,16 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
     if (stopped) return;
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      void (async () => {
-        try {
-          await reload(ctx);
-          hub.applyNodes(ctx.nodes);
-        } catch {
-          // never crash the server on watch errors
-        }
-      })();
+      Effect.runFork(
+        Effect.gen(function* () {
+          yield* reloadEffect(ctx);
+          yield* hub.applyNodes(ctx.nodes);
+        }).pipe(
+          Effect.provide(kbStoreLayer(ctx.effectStore)),
+          Effect.provide(bunFileSystemLayer),
+          Effect.catchCause(() => Effect.void),
+        ),
+      );
     }, 50);
   };
 
@@ -105,20 +141,32 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
     },
     websocket: {
       open(ws) {
-        hub.addClient(ws);
+        Effect.runFork(hub.addClient(ws.data.clientId, clientSend(ws)));
       },
       message(ws, message) {
         const text =
           typeof message === "string"
             ? message
             : new TextDecoder().decode(message);
-        hub.handleMessage(ws, text);
+        Effect.runFork(hub.handleMessage(ws.data.clientId, text));
       },
       close(ws) {
-        hub.removeClient(ws);
+        Effect.runFork(hub.removeClient(ws.data.clientId));
       },
     },
   });
+
+  await Effect.runPromise(
+    Scope.addFinalizer(
+      lifetime,
+      Effect.sync(() => {
+        stopped = true;
+        if (debounceTimer) clearTimeout(debounceTimer);
+        watcher?.close();
+        server.stop(true);
+      }),
+    ),
+  );
 
   const url = `http://${hostname}:${server.port}`;
   if (openBrowserFlag) openBrowser(url);
@@ -132,10 +180,7 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
     url: `http://${hostname}:${boundPort}`,
     hostname,
     stop: async () => {
-      stopped = true;
-      if (debounceTimer) clearTimeout(debounceTimer);
-      watcher?.close();
-      server.stop(true);
+      await Effect.runPromise(Scope.close(lifetime, Exit.void));
     },
   };
 }

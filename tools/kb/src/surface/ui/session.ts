@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import type { KbContext } from "../../context.ts";
 import type { KbNode } from "../../foundation/model.ts";
 import { buildQueryDb, query } from "../../foundation/query/index.ts";
@@ -10,12 +11,16 @@ import {
   type WireNode,
 } from "../protocol.ts";
 
+/** Bun.serve websocket attachment (server boundary only). */
 export type WsData = {
   clientId: string;
 };
 
+/** Outbound send handle for a live WS client. Failures are ignored by the hub. */
+export type ClientSend = (text: string) => Effect.Effect<void>;
+
 interface ClientState {
-  ws: Bun.ServerWebSocket<WsData>;
+  send: ClientSend;
   watchTx: boolean;
   /** subscription id → { query, lastHash } */
   subs: Map<string, { query: string; lastHash: string }>;
@@ -47,14 +52,6 @@ export function normalizeRows(raw: unknown): unknown[][] {
   return list.map((r) => (Array.isArray(r) ? r : [r]));
 }
 
-function send(ws: Bun.ServerWebSocket<WsData>, msg: ServerMessage): void {
-  try {
-    ws.send(JSON.stringify(msg));
-  } catch {
-    // client gone — ignore
-  }
-}
-
 export function diffNodes(
   oldMap: Map<string, KbNode>,
   newMap: Map<string, KbNode>,
@@ -73,7 +70,14 @@ export function diffNodes(
   return { upserts, deletes };
 }
 
-/** Live WS graph + query subscription hub for `kb ui`. */
+/**
+ * Live WS graph + query subscription hub for `kb ui`.
+ *
+ * Clients are tracked by an opaque clientId with an Effect-valued send
+ * handle (acquired from the socket writer at the server boundary). Message
+ * processing, broadcasting and cleanup are Effect programs — every method
+ * returns `Effect<void>` and never throws.
+ */
 export class SubscriptionHub {
   rev = 0;
   private hash = "";
@@ -93,6 +97,11 @@ export class SubscriptionHub {
     ctx.qdb = buildQueryDb(merged);
   }
 
+  /** Test hook: number of live clients. */
+  get clientCount(): number {
+    return this.clients.size;
+  }
+
   private withVirtual(nodes: KbNode[]): KbNode[] {
     return this.virtual.length === 0 ? nodes : [...nodes, ...this.virtual];
   }
@@ -106,69 +115,76 @@ export class SubscriptionHub {
     });
   }
 
-  addClient(ws: Bun.ServerWebSocket<WsData>): void {
-    const id = ws.data.clientId;
-    this.clients.set(id, { ws, watchTx: false, subs: new Map() });
-    send(ws, { op: "hello", rev: this.rev });
+  /** Register a client and send the connection `hello`. */
+  addClient(clientId: string, send: ClientSend): Effect.Effect<void> {
+    this.clients.set(clientId, { send, watchTx: false, subs: new Map() });
+    return send(JSON.stringify({ op: "hello", rev: this.rev }));
   }
 
-  removeClient(ws: Bun.ServerWebSocket<WsData>): void {
-    this.clients.delete(ws.data.clientId);
+  /** Forget a client (socket closed / session interrupted). */
+  removeClient(clientId: string): Effect.Effect<void> {
+    this.clients.delete(clientId);
+    return Effect.void;
   }
 
-  handleMessage(ws: Bun.ServerWebSocket<WsData>, raw: string): void {
-    const client = this.clients.get(ws.data.clientId);
-    if (!client) return;
+  /** Process one inbound WS frame. Never throws; failures become `error` frames. */
+  handleMessage(clientId: string, raw: string): Effect.Effect<void> {
+    const client = this.clients.get(clientId);
+    if (!client) return Effect.void;
 
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
     } catch {
-      send(ws, {
-        op: "error",
-        code: "invalid_json",
-        message: "message is not valid JSON",
-      });
-      return;
+      return client.send(
+        JSON.stringify({
+          op: "error",
+          code: "invalid_json",
+          message: "message is not valid JSON",
+        }),
+      );
     }
 
     const result = ClientMessageSchema.safeParse(parsed);
     if (!result.success) {
-      send(ws, {
-        op: "error",
-        code: "invalid_message",
-        message: result.error.issues.map((i) => i.message).join("; "),
-      });
-      return;
+      return client.send(
+        JSON.stringify({
+          op: "error",
+          code: "invalid_message",
+          message: result.error.issues.map((i) => i.message).join("; "),
+        }),
+      );
     }
 
     const msg = result.data;
     switch (msg.op) {
       case "ping":
-        send(ws, { op: "pong" });
-        break;
+        return client.send(JSON.stringify({ op: "pong" }));
       case "watch-tx":
         client.watchTx = msg.enabled;
-        break;
+        return Effect.void;
       case "unsubscribe":
         client.subs.delete(msg.id);
-        break;
+        return Effect.void;
       case "subscribe": {
         try {
           const rows = normalizeRows(query(this.ctx.qdb, msg.query));
           const hash = rowsHash(rows);
           client.subs.set(msg.id, { query: msg.query, lastHash: hash });
-          send(ws, { op: "rows", id: msg.id, rev: this.rev, rows });
+          return client.send(
+            JSON.stringify({ op: "rows", id: msg.id, rev: this.rev, rows }),
+          );
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          send(ws, {
-            op: "error",
-            id: msg.id,
-            code: "query_error",
-            message,
-          });
+          return client.send(
+            JSON.stringify({
+              op: "error",
+              id: msg.id,
+              code: "query_error",
+              message,
+            }),
+          );
         }
-        break;
       }
     }
   }
@@ -176,11 +192,13 @@ export class SubscriptionHub {
   /**
    * Apply a new node set. No-ops when content hash matches (guards
    * action→fs.watch double-fire). Bumps rev, broadcasts tx + row updates.
+   * The node-set mutation is synchronous (atomic at the JS level); the
+   * broadcast sends are returned as an Effect sequence.
    */
-  applyNodes(nodes: KbNode[]): void {
+  applyNodes(nodes: KbNode[]): Effect.Effect<void> {
     const merged = this.withVirtual(nodes);
     const hash = contentHash(merged);
-    if (hash === this.hash) return;
+    if (hash === this.hash) return Effect.void;
 
     const oldMap = this.nodeMap;
     const newMap = nodesToMap(merged);
@@ -194,6 +212,8 @@ export class SubscriptionHub {
     this.ctx.nodes = nodes;
     this.ctx.qdb = buildQueryDb(merged);
 
+    const sends: Effect.Effect<void>[] = [];
+
     if (upserts.length > 0 || deletes.length > 0) {
       const tx: ServerMessage = {
         op: "tx",
@@ -201,33 +221,34 @@ export class SubscriptionHub {
         upserts,
         deletes,
       };
+      const payload = JSON.stringify(tx);
       for (const c of this.clients.values()) {
-        if (c.watchTx) send(c.ws, tx);
+        if (c.watchTx) sends.push(c.send(payload));
       }
     }
 
-    this.pushSubscriptionRows();
-  }
-
-  private pushSubscriptionRows(): void {
     for (const c of this.clients.values()) {
       for (const [id, sub] of c.subs) {
         try {
           const rows = normalizeRows(query(this.ctx.qdb, sub.query));
-          const hash = rowsHash(rows);
-          if (hash === sub.lastHash) continue;
-          sub.lastHash = hash;
-          send(c.ws, { op: "rows", id, rev: this.rev, rows });
+          const subHash = rowsHash(rows);
+          if (subHash === sub.lastHash) continue;
+          sub.lastHash = subHash;
+          sends.push(
+            c.send(JSON.stringify({ op: "rows", id, rev: this.rev, rows })),
+          );
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          send(c.ws, {
-            op: "error",
-            id,
-            code: "query_error",
-            message,
-          });
+          sends.push(
+            c.send(
+              JSON.stringify({ op: "error", id, code: "query_error", message }),
+            ),
+          );
         }
       }
     }
+
+    if (sends.length === 0) return Effect.void;
+    return Effect.all(sends).pipe(Effect.map(() => undefined));
   }
 }

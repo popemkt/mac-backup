@@ -1,22 +1,35 @@
-import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { Effect } from "effect";
+import { FileSystem } from "effect/FileSystem";
+import { bunFileSystemLayer } from "../../context.ts";
 import { SYSTEM_IDS, type KbNode } from "../../foundation/model.ts";
-import { pathExists } from "./paths.ts";
 
-export async function listSavedQueries(
+export const listSavedQueriesEffect = Effect.fn("kb.ui.listSavedQueries")(
+  function* (root: string) {
+    const fs = yield* FileSystem;
+    const dir = join(root, ".kb", "queries");
+    // Platform I/O errors become defects; HTTP catchCause maps them to 500.
+    if (!(yield* fs.exists(dir).pipe(Effect.orDie))) return [];
+    const entries = yield* fs.readDirectory(dir).pipe(Effect.orDie);
+    const out: { name: string; edn: string }[] = [];
+    for (const name of entries) {
+      if (!name.endsWith(".edn")) continue;
+      const edn = yield* fs
+        .readFileString(join(dir, name))
+        .pipe(Effect.orDie);
+      out.push({ name: name.slice(0, -4), edn });
+    }
+    out.sort((a, b) => a.name.localeCompare(b.name));
+    return out;
+  },
+);
+
+export function listSavedQueries(
   root: string,
 ): Promise<{ name: string; edn: string }[]> {
-  const dir = join(root, ".kb", "queries");
-  if (!(await pathExists(dir))) return [];
-  const entries = await readdir(dir);
-  const out: { name: string; edn: string }[] = [];
-  for (const name of entries) {
-    if (!name.endsWith(".edn")) continue;
-    const edn = await readFile(join(dir, name), "utf8");
-    out.push({ name: name.slice(0, -4), edn });
-  }
-  out.sort((a, b) => a.name.localeCompare(b.name));
-  return out;
+  return Effect.runPromise(
+    listSavedQueriesEffect(root).pipe(Effect.provide(bunFileSystemLayer)),
+  );
 }
 
 /** Stable timestamp keeps virtual nodes out of the content-hash noise. */
