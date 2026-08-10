@@ -13,6 +13,7 @@ import {
   KbCtx,
   KbStore,
   bunFileSystemLayer,
+  kbRuntimeLayer,
 } from "../src/context.ts";
 import {
   DomainError,
@@ -116,7 +117,7 @@ describe("Effect services + layers", () => {
             message: e instanceof Error ? e.message : String(e),
           }),
         ),
-        Effect.provideService(KbCtx, ctx),
+        Effect.provide(kbRuntimeLayer(ctx)),
       ),
     );
     // Prefer the public Promise boundary for exact receipt shape.
@@ -139,7 +140,7 @@ describe("Effect services + layers", () => {
       invokeReceiptEffect(ctx, {
         id: "node.get",
         input: { id: "n.missing" },
-      }).pipe(Effect.provideService(KbCtx, ctx)),
+      }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
     );
     const viaPromise = await invoke(ctx, {
       id: "node.get",
@@ -155,11 +156,7 @@ describe("Effect services + layers", () => {
       invokeReceiptEffect(ctx, {
         id: "node.add",
         input: { text: "receipt-ok" },
-      }).pipe(
-        Effect.provideService(KbCtx, ctx),
-        Effect.provideService(KbStore, ctx.effectStore),
-        Effect.provide(bunFileSystemLayer),
-      ),
+      }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
     );
     expect(addEffect.status).toBe("succeeded");
   });
