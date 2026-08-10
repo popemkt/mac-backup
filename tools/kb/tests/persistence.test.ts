@@ -1,7 +1,7 @@
 import { describe, expect, test, afterEach } from "bun:test";
-import { Effect } from "effect";
+import { Effect, Fiber } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -274,6 +274,240 @@ describe("JsonlStore Effect persistence", () => {
     expect(after).toBe(before);
     expect(after).toContain("n.keep");
     expect(after).not.toContain("n.new");
+    const orphans = (await readdir(join(root, ".kb"))).filter((f) =>
+      f.endsWith(".tmp"),
+    );
+    expect(orphans).toEqual([]);
+  });
+
+  test("concurrent commits on one store retain every upsert", async () => {
+    root = await tempRoot();
+    const store = new JsonlStore(root);
+    const N = 10;
+    const results = await Promise.allSettled(
+      Array.from({ length: N }, (_, i) =>
+        store.commit({ upserts: [sampleNode(`n.${i}`)], deletes: [] }),
+      ),
+    );
+    expect(results.every((r) => r.status === "fulfilled")).toBe(true);
+    const loaded = await store.load();
+    const ids = loaded.map((n) => n.id).sort();
+    expect(ids).toEqual(
+      Array.from({ length: N }, (_, i) => `n.${i}`).sort(),
+    );
+  });
+
+  test("concurrent commits across JsonlStore instances retain every upsert", async () => {
+    root = await tempRoot();
+    const a = new JsonlStore(root);
+    const b = new JsonlStore(root);
+    const results = await Promise.allSettled([
+      a.commit({ upserts: [sampleNode("n.a")], deletes: [] }),
+      b.commit({ upserts: [sampleNode("n.b")], deletes: [] }),
+      a.commit({ upserts: [sampleNode("n.c")], deletes: [] }),
+      b.commit({ upserts: [sampleNode("n.d")], deletes: [] }),
+    ]);
+    expect(results.every((r) => r.status === "fulfilled")).toBe(true);
+    const loaded = await a.load();
+    expect(loaded.map((n) => n.id).sort()).toEqual(["n.a", "n.b", "n.c", "n.d"]);
+  });
+
+  test("concurrent commitEffect fibers retain every upsert", async () => {
+    root = await tempRoot();
+    const store = new JsonlStore(root);
+    const N = 8;
+    await Effect.runPromise(
+      Effect.all(
+        Array.from({ length: N }, (_, i) =>
+          store.commitEffect({
+            upserts: [sampleNode(`n.e${i}`)],
+            deletes: [],
+          }),
+        ),
+        { concurrency: "unbounded" },
+      ).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    const loaded = await store.load();
+    expect(loaded.map((n) => n.id).sort()).toEqual(
+      Array.from({ length: N }, (_, i) => `n.e${i}`).sort(),
+    );
+  });
+
+  test("cross-process concurrent commits retain every upsert", async () => {
+    root = await tempRoot();
+    const storePath = join(import.meta.dir, "../src/foundation/storage/jsonl-store.ts");
+    const N = 6;
+    const procs = Array.from({ length: N }, (_, i) => {
+      const id = `n.p${i}`;
+      const code = `
+        import { JsonlStore } from ${JSON.stringify(storePath)};
+        const store = new JsonlStore(${JSON.stringify(root)});
+        const at = "2026-01-01T00:00:00.000Z";
+        await store.commit({
+          upserts: [{ id: ${JSON.stringify(id)}, text: ${JSON.stringify(id)}, props: {}, children: [], createdAt: at, updatedAt: at }],
+          deletes: [],
+        });
+      `;
+      return Bun.spawn(["bun", "-e", code], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+    });
+    const codes = await Promise.all(procs.map((p) => p.exited));
+    expect(codes.every((c) => c === 0)).toBe(true);
+    const store = new JsonlStore(root);
+    const loaded = await store.load();
+    expect(loaded.map((n) => n.id).sort()).toEqual(
+      Array.from({ length: N }, (_, i) => `n.p${i}`).sort(),
+    );
+  });
+
+  test("invalid upsert is rejected and leaves prior file untouched", async () => {
+    root = await tempRoot();
+    const store = new JsonlStore(root);
+    await store.commit({ upserts: [sampleNode("n.keep")], deletes: [] });
+    const before = await readFile(store.path, "utf8");
+
+    const bad = {
+      ...sampleNode("n.bad"),
+      props: { "sys.f.type": [{ t: "weird", v: 1 }] },
+    } as unknown as KbNode;
+
+    const caught = await Effect.runPromise(
+      store.commitEffect({ upserts: [bad], deletes: [] }).pipe(
+        Effect.provide(bunFileSystemLayer),
+        Effect.catch((e) => Effect.succeed(e)),
+      ),
+    );
+    expect(isDomainError(caught)).toBe(true);
+    if (isDomainError(caught)) {
+      expect(caught.code).toBe("invalid_input");
+      expect(caught.message).toMatch(/upsert/);
+    }
+    expect(await readFile(store.path, "utf8")).toBe(before);
+    const reopened = await store.load();
+    expect(reopened.map((n) => n.id)).toEqual(["n.keep"]);
+  });
+
+  test("uncorrelated prop upsert cannot brick later loads", async () => {
+    root = await tempRoot();
+    const store = new JsonlStore(root);
+    const bad = {
+      ...sampleNode("n.bad"),
+      props: { "sys.f.type": [{ t: "num", v: "not-a-number" }] },
+    } as unknown as KbNode;
+    await expect(
+      store.commit({ upserts: [bad], deletes: [] }),
+    ).rejects.toBeInstanceOf(DomainError);
+    await expect(store.load()).resolves.toEqual([]);
+  });
+
+  test("failed writeFileString leaves no tmp orphan and prior intact", async () => {
+    root = await tempRoot();
+    const live = new JsonlStore(root);
+    await live.commit({ upserts: [sampleNode("n.keep")], deletes: [] });
+    const before = await readFile(live.path, "utf8");
+    const real = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* FileSystem;
+      }).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    const failingFs = {
+      ...real,
+      writeFileString: ((p, data, opts) => {
+        if (p.endsWith(".tmp")) {
+          return Effect.fail({ message: "simulated write failure" } as never);
+        }
+        return real.writeFileString(p, data, opts);
+      }) as FileSystem["writeFileString"],
+    } as FileSystem;
+
+    const caught = await Effect.runPromise(
+      live
+        .commitEffect({ upserts: [sampleNode("n.new")], deletes: [] })
+        .pipe(
+          Effect.provideService(FileSystem, failingFs),
+          Effect.catch((e) => Effect.succeed(e)),
+        ),
+    );
+    expect(isDomainError(caught)).toBe(true);
+    expect(await readFile(live.path, "utf8")).toBe(before);
+    const orphans = (await readdir(join(root, ".kb"))).filter((f) =>
+      f.endsWith(".tmp"),
+    );
+    expect(orphans).toEqual([]);
+  });
+
+  test("failed copyFile leaves no tmp orphan and prior intact", async () => {
+    root = await tempRoot();
+    const live = new JsonlStore(root);
+    await live.commit({ upserts: [sampleNode("n.keep")], deletes: [] });
+    const before = await readFile(live.path, "utf8");
+    const real = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* FileSystem;
+      }).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    const failingFs = {
+      ...real,
+      copyFile: () =>
+        Effect.fail({ message: "simulated copy failure" } as never),
+    } as FileSystem;
+
+    const caught = await Effect.runPromise(
+      live
+        .commitEffect({ upserts: [sampleNode("n.new")], deletes: [] })
+        .pipe(
+          Effect.provideService(FileSystem, failingFs),
+          Effect.catch((e) => Effect.succeed(e)),
+        ),
+    );
+    expect(isDomainError(caught)).toBe(true);
+    expect(await readFile(live.path, "utf8")).toBe(before);
+    const orphans = (await readdir(join(root, ".kb"))).filter((f) =>
+      f.endsWith(".tmp"),
+    );
+    expect(orphans).toEqual([]);
+  });
+
+  test("interrupt during commit cleans tmp and lock orphans", async () => {
+    root = await tempRoot();
+    const live = new JsonlStore(root);
+    await live.commit({ upserts: [sampleNode("n.keep")], deletes: [] });
+    const before = await readFile(live.path, "utf8");
+    const real = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* FileSystem;
+      }).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    const slowFs = {
+      ...real,
+      writeFileString: ((p, data, opts) => {
+        if (p.endsWith(".tmp")) {
+          return Effect.gen(function* () {
+            yield* Effect.sleep("2 seconds");
+            return yield* real.writeFileString(p, data, opts);
+          });
+        }
+        return real.writeFileString(p, data, opts);
+      }) as FileSystem["writeFileString"],
+    } as FileSystem;
+
+    const fiber = await Effect.runPromise(
+      Effect.forkDetach(
+        live
+          .commitEffect({ upserts: [sampleNode("n.new")], deletes: [] })
+          .pipe(Effect.provideService(FileSystem, slowFs)),
+      ).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    await Effect.runPromise(Effect.sleep("50 millis"));
+    await Effect.runPromise(Fiber.interrupt(fiber));
+    await Effect.runPromise(Effect.sleep("50 millis"));
+
+    expect(await readFile(live.path, "utf8")).toBe(before);
+    const files = await readdir(join(root, ".kb"));
+    expect(files.filter((f) => f.endsWith(".tmp"))).toEqual([]);
+    expect(files.filter((f) => f.endsWith(".lock"))).toEqual([]);
   });
 });
 

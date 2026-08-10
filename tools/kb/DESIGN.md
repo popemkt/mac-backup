@@ -80,7 +80,10 @@ interface KbNode {
 }
 
 type PropValue =
-  | { t: "str" | "num" | "bool" | "date"; v: string | number | boolean }
+  | { t: "str"; v: string }
+  | { t: "num"; v: number }
+  | { t: "bool"; v: boolean }
+  | { t: "date"; v: string }
   | { t: "ref"; v: NodeId };
 ```
 
@@ -136,19 +139,28 @@ interface Store {
   sorted by id, sorted keys → stable bytes, mergeable diffs.
 - **Performance is a stated requirement**: streaming line parse (no
   read-whole-string-then-split), single-pass datom build, atomic write
-  (tmp + rename; prior file copied to `nodes.jsonl.bak`). Milestone 1 includes
+  (unique tmp + rename; prior file copied to `nodes.jsonl.bak`). Milestone 1 includes
   a benchmark: 50k-node fixture must load+query well under 1s. (Will peek at
-  orca's jsonstore for tricks.) `.bak` / `nodes.jsonl.*.tmp` are gitignored —
-  only the live `nodes.jsonl` is committed.
+  orca's jsonstore for tricks.) `.bak` / `nodes.jsonl.*.tmp` / `nodes.jsonl.lock`
+  are gitignored — only the live `nodes.jsonl` is committed.
 - **Load is all-or-nothing**: a malformed or schema-invalid line fails the load
   with a line-numbered error and returns no nodes; load never rewrites the file
   (same fail-closed posture as the pre-Schema `JSON.parse` loader). Unknown own
   JSON properties on otherwise-valid nodes are preserved across decode so a later
   commit cannot silently drop them.
+- **Commit validates before durable write**: each upsert and the merged snapshot
+  must decode via the persistence `KbNodeSchema` (correlated PropValue `t`/`v`,
+  matching wire). Invalid input fails `invalid_input` and leaves the live file
+  untouched. Temp files are cleaned on write/copy/rename/interrupt failure.
+- **Concurrency**: multi-surface writers (UI/CLI/MCP/agents) and multiple
+  `JsonlStore` instances on the same path are in contract. Commits serialize via
+  a per-path in-process semaphore plus an exclusive `nodes.jsonl.lock` (wx) so
+  read-modify-write cannot drop concurrent upserts or collide same-ms temps.
+  Still single-user repo scale — no WAL; the lock is a short-lived exclusive
+  create, not a lease manager.
 - Backend-agnostic by construction — operations/query/surfaces see only
   `Store` + `KbNode`. Future backends (SQLite cache, dolt, md-outline) slot in
   without touching upper layers.
-- No WAL/leases — single-user repo scale, atomic rename suffices.
 
 ## Query layer (horizontal)
 

@@ -29,6 +29,7 @@ tools/kb/ui/node_modules/
 .kb/assets/
 .research/
 
-# kb JsonlStore atomic-write artifacts (backup + tmp; live nodes.jsonl stays tracked)
+# kb JsonlStore atomic-write artifacts (backup + tmp + lock; live nodes.jsonl stays tracked)
 .kb/nodes.jsonl.bak
 .kb/nodes.jsonl.*.tmp
+.kb/nodes.jsonl.lock
