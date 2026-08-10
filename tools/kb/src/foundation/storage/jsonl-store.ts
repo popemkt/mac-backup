@@ -22,12 +22,26 @@ export const COMMIT_LOCK_TIMEOUT_MS = 15_000;
 
 const LOCK_RETRY = "10 millis" as const;
 
+/** Suffix of the fixed stale-break breaker vote file (`nodes.jsonl.lock.break`). */
+const BREAKER_SUFFIX = ".break";
+
 type LockOwner = {
   readonly v: 1;
   readonly pid: number;
   readonly token: string;
   readonly createdAt: number;
   /** Sidecar hard-link path kept until release for inode identity proof. */
+  readonly ownerPath: string;
+};
+
+type LockBreaker = {
+  readonly v: 1;
+  /** The dead lock body (byte-identical) this breaker vote targets. */
+  readonly lock: string;
+  readonly pid: number;
+  readonly token: string;
+  readonly createdAt: number;
+  /** Sidecar path the breaker was linked from. */
   readonly ownerPath: string;
 };
 
@@ -51,17 +65,6 @@ function isAlreadyExists(err: unknown): boolean {
     typeof pe.reason === "object" &&
     pe.reason !== null &&
     (pe.reason as { _tag?: unknown })._tag === "AlreadyExists"
-  );
-}
-
-function isNotFound(err: unknown): boolean {
-  if (typeof err !== "object" || err === null) return false;
-  const pe = err as Partial<PlatformError>;
-  return (
-    pe._tag === "PlatformError" &&
-    typeof pe.reason === "object" &&
-    pe.reason !== null &&
-    (pe.reason as { _tag?: unknown })._tag === "NotFound"
   );
 }
 
@@ -140,6 +143,30 @@ function parseLockOwner(body: string): Omit<LockOwner, "ownerPath"> | null {
   }
 }
 
+function parseLockBreaker(body: string): Omit<LockBreaker, "ownerPath"> | null {
+  try {
+    const raw = JSON.parse(body) as Record<string, unknown>;
+    if (
+      raw.v !== 1 ||
+      typeof raw.lock !== "string" ||
+      typeof raw.pid !== "number" ||
+      typeof raw.token !== "string" ||
+      typeof raw.createdAt !== "number"
+    ) {
+      return null;
+    }
+    return {
+      v: 1,
+      lock: raw.lock,
+      pid: raw.pid,
+      token: raw.token,
+      createdAt: raw.createdAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Stale ⇔ dead pid only. Never steal a live holder (TTL is documentation only). */
 export function isStaleOwner(owner: { pid: number }): boolean {
   return !pidAlive(owner.pid);
@@ -173,59 +200,136 @@ export function ownsCommitLock(
 }
 
 /**
- * Dead-pid takeover with content-verified rename.
- * After rename, the quarantine body must byte-equal the body observed at
- * decision time (ABA-proof vs inode reuse). On mismatch, restore only if
- * lockPath is vacant.
+ * Dead-pid stale-break via an exclusive breaker vote (race-free protocol).
+ *
+ * The well-known `lockPath` name is ONLY ever created by atomic `link` and
+ * removed by `unlink`. A stale reaper never renames anything onto `lockPath`
+ * and never unlinks it directly: it first acquires a FIXED breaker name
+ * (`${lockPath}.break`) by `link`ing a fully-written sidecar — the same
+ * write-then-link discipline as the lock itself, so the breaker body is never
+ * observed empty. `link` is the sole breaker arbiter: exactly one reaper holds
+ * the breaker at a time, and only the breaker holder may unlink `lockPath`.
+ *
+ * Invariants:
+ * - INV-B1 (sole unlinker): only the breaker holder removes `lockPath`, after
+ *   re-reading it and requiring byte-identical content to the dead body it
+ *   observed at decision time. Content is immutable once linked (owner
+ *   sidecars are written once, then linked), so a byte-equal re-read proves
+ *   the well-known name still names the dead lock.
+ * - INV-B2 (no live detach): a live holder's lock is never unlinked. It can
+ *   only be removed by its own release (INV2) or by a breaker holder whose
+ *   verify passed — which requires the content to equal the observed dead
+ *   body, impossible for a live lock (live pid ⇒ never classified stale).
+ * - INV-B3 (delayed decision): a reaper whose decision-time body is stale
+ *   (the dead lock was replaced before it linked the breaker) re-reads
+ *   `lockPath`, finds a foreign/live body, and aborts without touching it;
+ *   the finalizer drops its breaker.
+ * - INV-B4 (breaker reclaim): an existing breaker is only ever removed when
+ *   its holder pid is dead (`!pidAlive`) or it references a lock body that no
+ *   longer matches the observer's — both provably not an active live breaker.
+ *   A crashed holder's orphan breaker (dead pid) is reclaimed on the next
+ *   reaper attempt; a suspended-but-alive holder is never reclaimed (no TTL),
+ *   so no reclaim can race a legitimate hold. A dead pid reused by an
+ *   unrelated process wedges reapers until the bounded acquire timeout
+ *   (`conflict`, retryable) — the same documented liveness bound as the lock.
+ * - INV-B5 (ABA): identity is content, never inode; the breaker is a vote
+ *   file, not a hard link, and content re-verification happens immediately
+ *   before the unlink. The only processes that can change `lockPath` are
+ *   `link`-creators (name occupied, cannot) and the sole breaker holder (us,
+ *   alive, not reclaimed), so the verify→unlink gap cannot be exploited.
+ *
+ * Returns `true` when the dead lock was removed (name vacant — caller retries
+ * its `link` immediately); `false` otherwise (caller re-reads and retries).
  */
 export function claimStaleLock(
   fs: FileSystem,
   lockPath: string,
   observedBody: string,
-  token: string,
 ): Effect.Effect<boolean, DomainError> {
+  const token = randomUUID();
+  const breakerPath = `${lockPath}${BREAKER_SUFFIX}`;
+  const breakerOwnerPath = `${breakerPath}.${token}`;
+  const record = {
+    v: 1 as const,
+    lock: observedBody,
+    pid: process.pid,
+    token,
+    createdAt: Date.now(),
+  };
+  const payload = JSON.stringify(record);
+
+  let held = false;
+  const removeSidecar = fs
+    .remove(breakerOwnerPath, { force: true })
+    .pipe(Effect.ignore);
+  const removeBreaker = () =>
+    held
+      ? fs.remove(breakerPath, { force: true }).pipe(Effect.ignore)
+      : Effect.void;
+
   return Effect.gen(function* () {
-    const quarantine = `${lockPath}.quarantine.${token}.${randomUUID()}`;
-    const moved = yield* fs.rename(lockPath, quarantine).pipe(
+    yield* fs
+      .writeFileString(breakerOwnerPath, payload)
+      .pipe(Effect.mapError(mapFsError));
+
+    const got = yield* fs.link(breakerOwnerPath, breakerPath).pipe(
       Effect.as(true as const),
       Effect.catch((err) =>
-        isNotFound(err)
+        isAlreadyExists(err)
           ? Effect.succeed(false as const)
           : Effect.fail(mapFsError(err)),
       ),
     );
-    if (!moved) return false;
-
-    const qBody = yield* fs
-      .readFileString(quarantine)
-      .pipe(Effect.catch(() => Effect.succeed("")));
-    if (qBody === observedBody) {
-      yield* fs.remove(quarantine, { force: true }).pipe(Effect.ignore);
+    if (got) {
+      held = true;
+      // Sole breaker holder: re-read the well-known lock and require the
+      // exact dead body observed at decision time (INV-B1/INV-B3).
+      const current = yield* fs
+        .readFileString(lockPath)
+        .pipe(Effect.catch(() => Effect.succeed("")));
+      if (current !== observedBody) {
+        yield* removeBreaker();
+        yield* removeSidecar;
+        return false;
+      }
+      yield* fs.remove(lockPath, { force: true }).pipe(Effect.ignore);
+      yield* removeBreaker();
+      yield* removeSidecar;
       return true;
     }
 
-    // Content mismatch: ABA reuse or a fresh lock was swapped in.
-    const lockExists = yield* fs
-      .exists(lockPath)
-      .pipe(Effect.catch(() => Effect.succeed(true)));
-    if (!lockExists) {
-      yield* fs
-        .rename(quarantine, lockPath)
-        .pipe(Effect.catch(() => Effect.void));
-    } else {
-      // Occupied by a live/fresh holder — drop quarantine only (dead content).
-      yield* fs.remove(quarantine, { force: true }).pipe(Effect.ignore);
+    // EEXIST — another reaper holds the breaker. Inspect it (INV-B4).
+    const holderBody = yield* fs
+      .readFileString(breakerPath)
+      .pipe(Effect.catch(() => Effect.succeed("")));
+    const holder = parseLockBreaker(holderBody);
+    if (
+      holder &&
+      (!pidAlive(holder.pid) || holder.lock !== observedBody)
+    ) {
+      // Stale vote: holder died mid-break, or it references a lock body that
+      // no longer matches the current dead lock (its byte re-verify can only
+      // fail when it resumes). Drop the vote; caller re-reads + retries.
+      yield* fs.remove(breakerPath, { force: true }).pipe(Effect.ignore);
     }
+    yield* removeSidecar;
     return false;
-  });
+  }).pipe(
+    Effect.tapError(() => removeSidecar),
+    Effect.onInterrupt(() =>
+      Effect.all([removeBreaker(), removeSidecar]),
+    ),
+  );
 }
 
 /**
- * Atomic commit lock (consult-r3 protocol):
+ * Atomic commit lock:
  * 1. Write full owner payload to a unique sidecar, then `link` onto lockPath
  *    (link is the sole name creator; body never empty mid-create).
  * 2. Empty/unparseable lock bodies are held — never deleted.
- * 3. Stale ⇔ dead pid only; takeover is content-verified rename + restore-if-vacant.
+ * 3. Stale ⇔ dead pid only; stale break is via the exclusive breaker protocol
+ *    (see {@link claimStaleLock}) — never renames onto or unlinks a lock it
+ *    cannot prove dead at removal time.
  * 4. Release unlinks lockPath only while it still shares the sidecar inode.
  */
 function acquireCommitLock(
@@ -281,12 +385,10 @@ function acquireCommitLock(
         continue;
       }
 
-      const claimed = yield* claimStaleLock(fs, lockPath, curBody, token);
-      if (!claimed) {
-        if (Date.now() > deadline) break;
-        yield* Effect.sleep(LOCK_RETRY);
-      }
-      // Claimed: name vacant — retry link immediately.
+      const broken = yield* claimStaleLock(fs, lockPath, curBody);
+      if (broken) continue; // dead lock removed — name vacant, retry link now
+      if (Date.now() > deadline) break;
+      yield* Effect.sleep(LOCK_RETRY);
     }
 
     return yield* Effect.fail(
@@ -333,7 +435,9 @@ function releaseCommitLock(
  *
  * Concurrent commits serialize via write-then-`link` ownership of
  * `nodes.jsonl.lock`. Stale ⇔ dead pid only (never steal a live holder).
- * Takeover is content-verified rename with restore-if-vacant. Upserts and the
+ * Dead-pid stale break uses an exclusive breaker vote: the well-known name is
+ * only ever created by `link` and removed by its owner or by the sole breaker
+ * holder after a byte-identical dead-body re-verify. Upserts and the
  * merged snapshot are schema-validated before any durable write.
  *
  * Load is all-or-nothing: any malformed/invalid line fails the Effect with a

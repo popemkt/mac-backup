@@ -2,6 +2,7 @@ import { describe, expect, test, afterEach } from "bun:test";
 import { Effect, Fiber } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -434,10 +435,39 @@ describe("JsonlStore Effect persistence", () => {
     );
   });
 
-  test("Window B: content-verified claim cannot steal live lock after ABA", async () => {
+  test("breaker: stale decision cannot detach a live holder", async () => {
     root = await tempRoot();
     const lockPath = join(root, ".kb", "nodes.jsonl.lock");
-    await plantStaleLock(lockPath, "planted-stale");
+    // Live holder (this process) mid critical section.
+    await plantLiveLock(lockPath, "live-holder");
+    const liveBody = await readFile(lockPath, "utf8");
+
+    const fs = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* FileSystem;
+      }).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+
+    // Contender whose decision-time body predates the live holder.
+    const claimed = await Effect.runPromise(
+      claimStaleLock(
+        fs,
+        lockPath,
+        JSON.stringify({ v: 1, pid: 2147483647, token: "dead-decision", createdAt: 1 }),
+      ).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    expect(claimed).toBe(false);
+    // Live lock untouched, byte-identical, no breaker/tmp litter besides the live lock.
+    expect(await readFile(lockPath, "utf8")).toBe(liveBody);
+    expect(lockArtifacts(await readdir(join(root, ".kb")))).toEqual([
+      "nodes.jsonl.lock",
+    ]);
+  });
+
+  test("breaker: exactly one reaper removes the dead lock; the loser backs off", async () => {
+    root = await tempRoot();
+    const lockPath = join(root, ".kb", "nodes.jsonl.lock");
+    await plantStaleLock(lockPath, "planted");
     const staleBody = await readFile(lockPath, "utf8");
 
     const fs = await Effect.runPromise(
@@ -446,30 +476,90 @@ describe("JsonlStore Effect persistence", () => {
       }).pipe(Effect.provide(bunFileSystemLayer)),
     );
 
-    // W1: content-verified reclaim of dead-pid body.
-    const w1Claimed = await Effect.runPromise(
-      claimStaleLock(fs, lockPath, staleBody, "w1-token").pipe(
-        Effect.provide(bunFileSystemLayer),
-      ),
+    const [a, b] = await Effect.runPromise(
+      Effect.all(
+        [
+          claimStaleLock(fs, lockPath, staleBody),
+          claimStaleLock(fs, lockPath, staleBody),
+        ],
+        { concurrency: "unbounded" },
+      ).pipe(Effect.provide(bunFileSystemLayer)),
     );
-    expect(w1Claimed).toBe(true);
+    expect([a, b].filter(Boolean).length).toBe(1);
+    expect(existsSync(lockPath)).toBe(false);
+    expect(lockArtifacts(await readdir(join(root, ".kb")))).toEqual([]);
+  });
 
-    // W1 installs a live lock (same inode number possible on reuse).
-    await plantLiveLock(lockPath, "w1-live");
+  test("breaker: delayed stale decision against a fresh live lock backs off untouched", async () => {
+    root = await tempRoot();
+    const lockPath = join(root, ".kb", "nodes.jsonl.lock");
+    await plantStaleLock(lockPath, "planted");
+    const staleBody = await readFile(lockPath, "utf8");
 
-    // W2 still holds the OLD decision-time body — must not remove w1-live.
-    const w2Claimed = await Effect.runPromise(
-      claimStaleLock(fs, lockPath, staleBody, "w2-token").pipe(
+    const fs = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* FileSystem;
+      }).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+
+    // W1 wins the break of the dead lock.
+    const w1 = await Effect.runPromise(
+      claimStaleLock(fs, lockPath, staleBody).pipe(
         Effect.provide(bunFileSystemLayer),
       ),
     );
-    expect(w2Claimed).toBe(false);
-    const w1Owns = await Effect.runPromise(
-      ownsCommitLock(fs, lockPath, "w1-live").pipe(
+    expect(w1).toBe(true);
+    // W2 acquires a fresh live lock.
+    await plantLiveLock(lockPath, "w2-live");
+    const liveBody = await readFile(lockPath, "utf8");
+    // W3's decision-time body is the OLD dead one — must back off untouched.
+    const w3 = await Effect.runPromise(
+      claimStaleLock(fs, lockPath, staleBody).pipe(
         Effect.provide(bunFileSystemLayer),
       ),
     );
-    expect(w1Owns).toBe(true);
+    expect(w3).toBe(false);
+    expect(await readFile(lockPath, "utf8")).toBe(liveBody);
+    expect(lockArtifacts(await readdir(join(root, ".kb")))).toEqual([
+      "nodes.jsonl.lock",
+    ]);
+  });
+
+  test("breaker: dead-pid orphan breaker is reclaimed through the public commit path", async () => {
+    root = await tempRoot();
+    const store = new JsonlStore(root);
+    await plantStaleLock(store.lockPath, "planted");
+    const staleBody = await readFile(store.lockPath, "utf8");
+    // Orphan breaker: holder died (dead pid), still referencing the current lock.
+    await writeFile(
+      `${store.lockPath}.break`,
+      JSON.stringify({ v: 1, lock: staleBody, pid: 2147483647, token: "dead-holder", createdAt: Date.now() }),
+    );
+    await store.commit({ upserts: [sampleNode("n.after-orphan")], deletes: [] });
+    const loaded = await store.load();
+    expect(loaded.map((n) => n.id)).toEqual(["n.after-orphan"]);
+    expect(lockArtifacts(await readdir(join(root, ".kb")))).toEqual([]);
+  });
+
+  test("breaker: unparseable breaker is held, never deleted", async () => {
+    root = await tempRoot();
+    const lockPath = join(root, ".kb", "nodes.jsonl.lock");
+    await plantStaleLock(lockPath, "planted");
+    const staleBody = await readFile(lockPath, "utf8");
+    await writeFile(`${lockPath}.break`, "not-json-garbage");
+
+    const fs = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* FileSystem;
+      }).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    const claimed = await Effect.runPromise(
+      claimStaleLock(fs, lockPath, staleBody).pipe(
+        Effect.provide(bunFileSystemLayer),
+      ),
+    );
+    expect(claimed).toBe(false);
+    expect(await readFile(`${lockPath}.break`, "utf8")).toBe("not-json-garbage");
   });
 
   test("public acquire reclaim: concurrent commits after planted stale lose zero", async () => {
