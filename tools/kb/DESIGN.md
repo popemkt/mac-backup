@@ -34,7 +34,9 @@ The backend runs on **Bun** in production; the toolchain around it is **Vite+
 
 - **Bun is the production runtime.** `bin/kb` is a bash shim
   (`#!/usr/bin/env bash`) that `exec`s Bun on `src/surface/cli.ts`; the
-  `kb ui` server uses `Bun.serve`/`Bun.ServerWebSocket`; the store streams with
+  `kb ui` server uses `Bun.serve`/`Bun.ServerWebSocket` as the listen/WS/`Bun.file`
+  boundary while routing, assets, and the subscription hub are Effect programs;
+  the store streams with
   `Bun.file`/`Bun.write`; `Bun.hash` powers change detection. These are
   appropriate Bun APIs and stay.
 - **vp owns the tooling.** `tools/kb/package.json` scripts:

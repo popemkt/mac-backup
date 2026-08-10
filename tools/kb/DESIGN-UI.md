@@ -11,7 +11,7 @@ subscribe to live queries later. MCP Apps generative UI is phase 2.
 |---|---|
 | Shell | Browser app served by `kb ui` (no Electron/Tauri). **Why not Electron for "local ops like materialization":** those ops run in the `kb ui` bun server, which has full fs access — the browser only calls actions. Electron's sole trick is bundling Chromium+Node to get fs in one process; we already have a local server process. Zero gain, +200MB. |
 | Frontend build | **Vite+ (`vite-plus@0.2.8`, on npm, Evan You et al — confirmed installable)** + React 19 + Tailwind 4 + Zustand — same stack as nxus, so its outliner forks in cleanly. If vp misbehaves anywhere, its config is Vite config; plain-Vite fallback is a dependency swap. |
-| Bun's role | Runtime for the server only (`kb ui` = Bun.serve: static assets + HTTP actions + WS). Bun ≠ bundler here; Vite builds the frontend |
+| Bun's role | Runtime for the server only (`kb ui` = Bun.serve listen + WS upgrade + `Bun.file` bodies). HTTP routing, asset/static reads, SubscriptionHub message/broadcast/cleanup, and fs-watch reloads are Effect v4 programs (`@effect/platform-bun` FileSystem). Bun ≠ bundler here; Vite builds the frontend. No Effect in the browser bundle. |
 | Reactivity | Client-side DataScript (Logseq architecture) **plus** backend subscription hub designed for third-party consumers |
 | Edit scope v1 | Solid basics (outline CRUD, props/tags panel, [[ref]] autocomplete, query page, backlinks) |
 | MCP Apps | **Backbone now, apps later**: shared render layer (query + template → HTML) ships in this wave and kb MCP serves one `ui://` resource through it. Adding an "app" later = adding a template + query, nothing structural. |
@@ -44,12 +44,12 @@ implementation modules under `src/surface/ui/` split by concern:
 
 | Module | Owns |
 |---|---|
-| `server.ts` | Bun.serve bootstrap, fs-watch, CLI entry |
-| `http.ts` | REST/API routing, kb asset GET, SPA static fallback |
-| `session.ts` | WebSocket clients + `SubscriptionHub` |
-| `assets.ts` | SPA `ui/dist` static + `.kb/assets` serving |
-| `saved-queries.ts` | list/materialize `.kb/queries/*.edn` |
-| `paths.ts` | `KB_PKG_ROOT`, `UI_DIST`, `pathExists` |
+| `server.ts` | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown |
+| `http.ts` | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback |
+| `session.ts` | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup) |
+| `assets.ts` | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary) |
+| `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn` |
+| `paths.ts` | `KB_PKG_ROOT`, `UI_DIST`, Effect `pathExists` |
 
 - **Client DataScript**: browser loads all nodes once, builds the same datom
   set the CLI builds (shared `foundation/query` code — it's isomorphic TS, no
@@ -125,11 +125,11 @@ pane, persistent collapse state (localStorage), query page.
 tools/kb/
   src/surface/ui.ts              # stable facade (re-exports startUi / runUiCli / …)
   src/surface/ui/
-    server.ts                    # Bun.serve + fs-watch + CLI entry
-    http.ts                      # REST/API + asset GET + SPA fallback
-    session.ts                   # WS clients + SubscriptionHub
-    assets.ts                    # ui/dist static + .kb/assets
-    saved-queries.ts             # .kb/queries listing / virtual nodes
+    server.ts                    # Bun.serve boundary + Effect Scope stop + fs-watch
+    http.ts                      # Effect REST/API + asset GET + SPA fallback
+    session.ts                   # Effect SubscriptionHub (WS protocol)
+    assets.ts                    # Effect ui/dist static + .kb/assets
+    saved-queries.ts             # Effect .kb/queries listing / virtual nodes
     paths.ts                     # KB_PKG_ROOT, UI_DIST, pathExists
   src/surface/protocol.ts        # WS/HTTP message types (zod) — shared contract
   ui/                            # Vite app (own package.json)
