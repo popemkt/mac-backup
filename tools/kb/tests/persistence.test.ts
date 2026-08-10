@@ -562,6 +562,122 @@ describe("JsonlStore Effect persistence", () => {
     expect(await readFile(`${lockPath}.break`, "utf8")).toBe("not-json-garbage");
   });
 
+  test("breaker: stale decision cannot delete a live breaker vote", async () => {
+    root = await tempRoot();
+    const lockPath = join(root, ".kb", "nodes.jsonl.lock");
+    await plantStaleLock(lockPath, "b3");
+    const currentBody = await readFile(lockPath, "utf8");
+    // D's in-progress breaker for the CURRENT dead lock, holder ALIVE.
+    await writeFile(
+      `${lockPath}.break`,
+      JSON.stringify({ v: 1, lock: currentBody, pid: process.pid, token: "D", createdAt: Date.now() }),
+    );
+
+    const fs = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* FileSystem;
+      }).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    // A's decision-time body is a DIFFERENT dead body (delayed/stale decision).
+    const claimed = await Effect.runPromise(
+      claimStaleLock(
+        fs,
+        lockPath,
+        JSON.stringify({ v: 1, pid: 2147483647, token: "b1", createdAt: 1 }),
+      ).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    expect(claimed).toBe(false);
+    // D's live breaker and the current lock must be byte-untouched.
+    expect(JSON.parse(await readFile(`${lockPath}.break`, "utf8")).token).toBe("D");
+    expect(await readFile(lockPath, "utf8")).toBe(currentBody);
+  });
+
+  test("breaker: alive breaker vote is never deleted — fail-closed wedge (public commit path)", async () => {
+    root = await tempRoot();
+    const store = new JsonlStore(root);
+    await plantStaleLock(store.lockPath, "planted");
+    const staleBody = await readFile(store.lockPath, "utf8");
+    // A live breaker holder (impostor) that never finishes its break.
+    await writeFile(
+      `${store.lockPath}.break`,
+      JSON.stringify({ v: 1, lock: staleBody, pid: process.pid, token: "impostor", createdAt: Date.now() }),
+    );
+    const dataPath = join(root, ".kb", "nodes.jsonl");
+
+    const fiber = await Effect.runPromise(
+      Effect.forkDetach(
+        store
+          .commitEffect({ upserts: [sampleNode("n.wedge")], deletes: [] })
+          .pipe(Effect.provide(bunFileSystemLayer)),
+      ).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    await Effect.runPromise(Effect.sleep("400 millis"));
+    // The commit must NOT have deleted the impostor breaker, the dead lock, or
+    // written anything while wedged on the live breaker vote.
+    expect(JSON.parse(await readFile(`${store.lockPath}.break`, "utf8")).token).toBe("impostor");
+    expect(await readFile(store.lockPath, "utf8")).toBe(staleBody);
+    const written = existsSync(dataPath) ? await readFile(dataPath, "utf8") : "";
+    expect(written.includes("n.wedge")).toBe(false);
+    // Interrupting the waiter must not delete the impostor breaker either.
+    await Effect.runPromise(Fiber.interrupt(fiber));
+    expect(JSON.parse(await readFile(`${store.lockPath}.break`, "utf8")).token).toBe("impostor");
+    expect(await readFile(store.lockPath, "utf8")).toBe(staleBody);
+    await rm(store.lockPath, { force: true });
+    await rm(`${store.lockPath}.break`, { force: true });
+  });
+
+  test("breaker: deposed holder can never remove a foreign breaker or a fresh lock", async () => {
+    root = await tempRoot();
+    const lockPath = join(root, ".kb", "nodes.jsonl.lock");
+    const breakerPath = `${lockPath}.break`;
+    await plantStaleLock(lockPath, "planted");
+    const staleBody = await readFile(lockPath, "utf8");
+
+    const fs = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* FileSystem;
+      }).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+
+    // In-flight breaker owner.
+    const fiber = await Effect.runPromise(
+      Effect.forkDetach(
+        claimStaleLock(fs, lockPath, staleBody).pipe(
+          Effect.provide(bunFileSystemLayer),
+        ),
+      ).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    // Depose it the moment its breaker appears: swap the vote to a foreign
+    // token. Its re-validate must then fail ownership; it must never unlink
+    // anything it did not byte-verify, and never delete the foreign vote.
+    const deadline = Date.now() + 2_000;
+    while (!existsSync(breakerPath) && Date.now() < deadline) {
+      await Bun.sleep(0);
+    }
+    if (existsSync(breakerPath)) {
+      await writeFile(
+        breakerPath,
+        JSON.stringify({ v: 1, lock: staleBody, pid: process.pid, token: "intruder", createdAt: Date.now() }),
+      );
+    }
+    const claimed = await Effect.runPromise(
+      Fiber.join(fiber).pipe(Effect.provide(bunFileSystemLayer)),
+    );
+    // Deterministic safety invariants, in every race outcome:
+    // (1) the deposed holder never removes a breaker it does not own;
+    expect(JSON.parse(await readFile(breakerPath, "utf8")).token).toBe("intruder");
+    // (2) if it aborted, the dead lock is byte-untouched;
+    // (3) if it slipped past the re-validation, it only removed the
+    //     byte-verified dead lock (nothing fresh was ever linked, so a fresh
+    //     owner can never be detached by it).
+    if (!claimed) {
+      expect(await readFile(lockPath, "utf8")).toBe(staleBody);
+    } else {
+      expect(existsSync(lockPath)).toBe(false);
+    }
+    await rm(breakerPath, { force: true });
+  });
+
   test("public acquire reclaim: concurrent commits after planted stale lose zero", async () => {
     root = await tempRoot();
     const store = new JsonlStore(root);

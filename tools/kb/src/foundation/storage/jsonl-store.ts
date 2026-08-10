@@ -208,35 +208,40 @@ export function ownsCommitLock(
  * (`${lockPath}.break`) by `link`ing a fully-written sidecar — the same
  * write-then-link discipline as the lock itself, so the breaker body is never
  * observed empty. `link` is the sole breaker arbiter: exactly one reaper holds
- * the breaker at a time, and only the breaker holder may unlink `lockPath`.
+ * the breaker at a time, and only the current breaker owner may unlink
+ * `lockPath`. Ownership is content identity: the breaker body carries the
+ * owner's unique token, and every breaker removal is token-verified so no
+ * contender can delete another reaper's vote.
  *
  * Invariants:
- * - INV-B1 (sole unlinker): only the breaker holder removes `lockPath`, after
- *   re-reading it and requiring byte-identical content to the dead body it
- *   observed at decision time. Content is immutable once linked (owner
- *   sidecars are written once, then linked), so a byte-equal re-read proves
- *   the well-known name still names the dead lock.
- * - INV-B2 (no live detach): a live holder's lock is never unlinked. It can
- *   only be removed by its own release (INV2) or by a breaker holder whose
- *   verify passed — which requires the content to equal the observed dead
- *   body, impossible for a live lock (live pid ⇒ never classified stale).
+ * - INV-B1 (sole breaker owner): `link` is the only way the breaker name is
+ *   created; a breaker vote is removed only by (a) its owner, verified by its
+ *   unique token, or (b) a reaper that proves the owner PID is dead AND
+ *   re-reads the same byte-identical vote immediately before unlinking.
+ *   A differing decision-time `observedBody` is never authority to delete
+ *   another's vote — delayed contenders back off and let the owner finish.
+ * - INV-B2 (ownership re-validated before unlink): the breaker owner removes
+ *   `lockPath` only after re-reading BOTH the breaker (token still its own)
+ *   and the lock (bytes still the dead body observed at decision time),
+ *   immediately before the unlink. A deposed holder can never unlink through
+ *   a vacate→relink gap; a lock replaced after the re-check cannot be removed.
  * - INV-B3 (delayed decision): a reaper whose decision-time body is stale
  *   (the dead lock was replaced before it linked the breaker) re-reads
  *   `lockPath`, finds a foreign/live body, and aborts without touching it;
- *   the finalizer drops its breaker.
+ *   cleanup drops only its own breaker (token-verified).
  * - INV-B4 (breaker reclaim): an existing breaker is only ever removed when
- *   its holder pid is dead (`!pidAlive`) or it references a lock body that no
- *   longer matches the observer's — both provably not an active live breaker.
- *   A crashed holder's orphan breaker (dead pid) is reclaimed on the next
- *   reaper attempt; a suspended-but-alive holder is never reclaimed (no TTL),
- *   so no reclaim can race a legitimate hold. A dead pid reused by an
- *   unrelated process wedges reapers until the bounded acquire timeout
- *   (`conflict`, retryable) — the same documented liveness bound as the lock.
+ *   its holder PID is dead (`!pidAlive`) and the re-read just before unlink
+ *   shows the same dead vote. A crashed holder's orphan breaker (dead pid) is
+ *   reclaimed on the next reaper attempt; a suspended-but-alive holder is
+ *   never reclaimed (no TTL), so no reclaim can race a legitimate hold. A dead
+ *   pid reused by an unrelated process wedges reapers until the bounded
+ *   acquire timeout (`conflict`, retryable) — the same documented liveness
+ *   bound as the lock. Safety over liveness: any reclaim that cannot be
+ *   expressed atomically degrades to that fail-closed wedge, never to an
+ *   unsafe unlink of a live vote.
  * - INV-B5 (ABA): identity is content, never inode; the breaker is a vote
- *   file, not a hard link, and content re-verification happens immediately
- *   before the unlink. The only processes that can change `lockPath` are
- *   `link`-creators (name occupied, cannot) and the sole breaker holder (us,
- *   alive, not reclaimed), so the verify→unlink gap cannot be exploited.
+ *   file, not a hard link, and both breaker ownership and lock bytes are
+ *   re-verified immediately before any unlink.
  *
  * Returns `true` when the dead lock was removed (name vacant — caller retries
  * its `link` immediately); `false` otherwise (caller re-reads and retries).
@@ -262,10 +267,17 @@ export function claimStaleLock(
   const removeSidecar = fs
     .remove(breakerOwnerPath, { force: true })
     .pipe(Effect.ignore);
-  const removeBreaker = () =>
-    held
-      ? fs.remove(breakerPath, { force: true }).pipe(Effect.ignore)
-      : Effect.void;
+  /** Only the exact breaker owner may remove the breaker name (token-proof). */
+  const removeOwnBreaker: Effect.Effect<void> = Effect.gen(function* () {
+    if (!held) return;
+    const body = yield* fs
+      .readFileString(breakerPath)
+      .pipe(Effect.catch(() => Effect.succeed("")));
+    const cur = parseLockBreaker(body);
+    if (cur?.token === token) {
+      yield* fs.remove(breakerPath, { force: true }).pipe(Effect.ignore);
+    }
+  });
 
   return Effect.gen(function* () {
     yield* fs
@@ -282,42 +294,51 @@ export function claimStaleLock(
     );
     if (got) {
       held = true;
-      // Sole breaker holder: re-read the well-known lock and require the
-      // exact dead body observed at decision time (INV-B1/INV-B3).
+      // Sole breaker owner (for now). Re-validate BOTH breaker ownership token
+      // and observed lock bytes immediately before removing the stale lock
+      // (INV-B2) — a deposed holder or a changed lock must abort, never unlink.
+      const breakerBody = yield* fs
+        .readFileString(breakerPath)
+        .pipe(Effect.catch(() => Effect.succeed("")));
+      const breakerNow = parseLockBreaker(breakerBody);
       const current = yield* fs
         .readFileString(lockPath)
         .pipe(Effect.catch(() => Effect.succeed("")));
-      if (current !== observedBody) {
-        yield* removeBreaker();
+      if (breakerNow?.token !== token || current !== observedBody) {
+        yield* removeOwnBreaker;
         yield* removeSidecar;
         return false;
       }
       yield* fs.remove(lockPath, { force: true }).pipe(Effect.ignore);
-      yield* removeBreaker();
+      yield* removeOwnBreaker;
       yield* removeSidecar;
       return true;
     }
 
-    // EEXIST — another reaper holds the breaker. Inspect it (INV-B4).
+    // EEXIST — another reaper owns the breaker. Only its owner, or a reaper
+    // that proves the owner PID dead, may remove it (INV-B1/INV-B4). A
+    // differing observedBody is NOT authority to delete another's vote.
     const holderBody = yield* fs
       .readFileString(breakerPath)
       .pipe(Effect.catch(() => Effect.succeed("")));
     const holder = parseLockBreaker(holderBody);
-    if (
-      holder &&
-      (!pidAlive(holder.pid) || holder.lock !== observedBody)
-    ) {
-      // Stale vote: holder died mid-break, or it references a lock body that
-      // no longer matches the current dead lock (its byte re-verify can only
-      // fail when it resumes). Drop the vote; caller re-reads + retries.
-      yield* fs.remove(breakerPath, { force: true }).pipe(Effect.ignore);
+    if (holder && !pidAlive(holder.pid)) {
+      // Owner is dead. Re-read and require the SAME dead vote (same token)
+      // immediately before unlink, so we never remove a re-acquired live vote.
+      const againBody = yield* fs
+        .readFileString(breakerPath)
+        .pipe(Effect.catch(() => Effect.succeed("")));
+      const again = parseLockBreaker(againBody);
+      if (again?.token === holder.token) {
+        yield* fs.remove(breakerPath, { force: true }).pipe(Effect.ignore);
+      }
     }
     yield* removeSidecar;
     return false;
   }).pipe(
     Effect.tapError(() => removeSidecar),
     Effect.onInterrupt(() =>
-      Effect.all([removeBreaker(), removeSidecar]),
+      Effect.all([removeOwnBreaker, removeSidecar]),
     ),
   );
 }

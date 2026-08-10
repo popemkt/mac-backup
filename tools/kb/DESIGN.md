@@ -164,19 +164,26 @@ interface Store {
   never observed empty; `link` is the sole breaker arbiter so at most one reaper
   holds it), re-reads `nodes.jsonl.lock` and requires it byte-identical to the
   dead body observed at decision time, and only then unlinks it; the breaker
-  and sidecar are removed on success/failure/interrupt. A stale/foreign decision
-  (the dead lock was replaced before the breaker link) backs off untouched; an
-  orphaned breaker whose holder pid is dead is reclaimed on the next attempt; a
-  suspended-but-alive holder is never reclaimed (no breaker TTL), and a dead pid
-  reused by an unrelated process wedges reapers until the bounded acquire
-  timeout. Release unlinks the well-known name only while it still shares the
-  sidecar inode, then removes the sidecar. Acquire timeout is `conflict` with
-  `retryable: true` (caller retry budget). Acquisition is Effect-interruptible.
-  Unique temps prevent same-ms collisions. The well-known lock name is only ever
-  created by `link` and removed by its owner or by the sole breaker holder after
-  a byte-verified dead-body re-check — no rename ever lands on it, so a live
-  holder can never be detached or clobbered (single critical-section writer).
-  Still single-user repo scale — no WAL.
+  and sidecar are removed on success/failure/interrupt. Breaker ownership is
+  content identity: before removing the stale lock the holder re-validates
+  BOTH the breaker token (still its own) and the lock bytes, immediately before
+  the unlink, so a deposed holder can never unlink through a vacate gap, and a
+  breaker vote is removed only by its own token-verified owner or by a reaper
+  that proves the owner pid dead and re-reads the same vote — a differing
+  decision-time body is never authority to delete another's breaker. A
+  stale/foreign decision (the dead lock was replaced before the breaker link)
+  backs off untouched; an orphaned breaker whose holder pid is dead is
+  reclaimed on the next attempt; a suspended-but-alive holder is never reclaimed
+  (no breaker TTL), and a dead pid reused by an unrelated process wedges reapers
+  until the bounded acquire timeout. Release unlinks the well-known name only
+  while it still shares the sidecar inode, then removes the sidecar. Acquire
+  timeout is `conflict` with `retryable: true` (caller retry budget).
+  Acquisition is Effect-interruptible. Unique temps prevent same-ms collisions.
+  The well-known lock name is only ever created by `link` and removed by its
+  owner or by the sole breaker holder after a byte-verified dead-body re-check
+  — no rename ever lands on it, so a live holder can never be detached or
+  clobbered (single critical-section writer). Still single-user repo scale —
+  no WAL.
 - Backend-agnostic by construction — operations/query/surfaces see only
   `Store` + `KbNode`. Future backends (SQLite cache, dolt, md-outline) slot in
   without touching upper layers.
