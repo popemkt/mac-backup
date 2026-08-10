@@ -1,6 +1,6 @@
 import type { ActionInvocation } from "../shared/contracts.ts";
+import { isValidSavedQueryName } from "../foundation/saved-query.ts";
 import {
-  LIST_ALL_NODES_QUERY,
   LIST_FIELDS_QUERY,
   LIST_TAGS_QUERY,
   backlinksQuery,
@@ -301,18 +301,27 @@ export function mapQuery(opts: {
   };
 }
 
-/** Saved-query run: caller loads EDN then maps via mapQuery. */
-export function mapRunQuery(edn: string): PlannedAction {
-  return mapQuery({ query: edn.trim() });
+/**
+ * Saved-query run: the action owns name validation + `.kb/queries/<name>.edn`
+ * resolution + execution. The CLI keeps only the argv-shape check (a name that
+ * can never resolve is a usage error, exit 2); the file read is not CLI policy.
+ */
+export function mapRun(name: string): PlannedAction {
+  if (!isValidSavedQueryName(name)) {
+    throw new UsageError(
+      `invalid saved query name: ${name} (letters, digits, ., _, - only)`,
+    );
+  }
+  return {
+    id: "graph.run",
+    input: { name },
+  };
 }
 
-export function mapSearch(_text: string): PlannedAction {
-  // Fetch all id+text; CLI filters substring (DataScript has no string includes).
+export function mapSearch(text: string): PlannedAction {
   return {
-    id: "graph.query",
-    input: {
-      query: LIST_ALL_NODES_QUERY,
-    },
+    id: "graph.search",
+    input: { text },
   };
 }
 

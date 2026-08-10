@@ -144,8 +144,15 @@ tools/kb/
     dist/                        # built assets, committed? → no: built on demand
 ```
 
-`kb ui` with no `ui/dist`: runs `bun install && bunx vite build` once (cached),
-then serves. `kb ui --dev`: spawns vite dev + proxies. No new global deps.
+`kb ui` with no `ui/dist`: auto-builds on first run and caches — the command
+shells out to `bun install && bun run build` (`vp build`) in `ui/` when the
+SPA is missing or **stale** (a source fingerprint written to
+`ui/dist/.kb-build-hash` at build time vs the current sources; a rebuilt
+install that touches lockfiles cannot loop). Fresh build = fast no-op.
+`kb ui --dev`: spawns the Vite dev server (`vp dev` on 5173, `--dev-port` to
+override) as a child of the kb backend and proxies `/api`, `/assets`, `/ws` to
+it via `KB_UI_API_PORT`; the child is killed on SIGINT/SIGTERM and the backend
+stops when the child exits. No new global deps.
 
 ## Milestones (max parallel)
 
@@ -188,7 +195,8 @@ Decision: **don't commit `ui/dist`** — built artifacts in git churn every
 diff. Instead, two install shapes:
 - Now: checkout-based (global `kb` wrapper already installed by HM); first
   `kb ui` run builds `ui/dist` into a gitignored dir, cached until sources
-  change. Fresh machine cost: one `vp build` (~seconds), automatic.
+  change (source fingerprint vs `ui/dist/.kb-build-hash`). Fresh machine cost:
+  one `vp build` (~seconds), automatic.
 - Clean "like other apps" shape, when the tool stabilizes: a **nix package
   in `pkgs/`** (buildable derivation: bun deps pinned via lockfile hash, vp
   build in the sandbox, wrapper binary), installed from `home.packages` like

@@ -36,7 +36,13 @@ function formatSuccess(
     return formatOutline(node, 0);
   }
 
-  if (actionId === "graph.query" && output && typeof output === "object") {
+  if (
+    (actionId === "graph.query" ||
+      actionId === "graph.run" ||
+      actionId === "graph.search") &&
+    output &&
+    typeof output === "object"
+  ) {
     const rows = (output as { rows?: unknown }).rows;
     return formatTable(rows);
   }
@@ -142,17 +148,4 @@ function cellString(cell: unknown): string {
   if (cell === null || cell === undefined) return "";
   if (typeof cell === "string") return cell;
   return JSON.stringify(cell);
-}
-
-/** Filter search rows by substring (case-insensitive). */
-export function filterSearchRows(
-  rows: unknown,
-  text: string,
-): unknown[][] {
-  if (!Array.isArray(rows)) return [];
-  const needle = text.toLowerCase();
-  return rows.filter((r) => {
-    if (!Array.isArray(r) || r.length < 2) return false;
-    return String(r[1]).toLowerCase().includes(needle);
-  }) as unknown[][];
 }

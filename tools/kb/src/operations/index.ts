@@ -23,7 +23,12 @@ import {
 } from "../foundation/errors.ts";
 import type { KbContext } from "../context.ts";
 import { KbCtx, KbStore, persistEffect, runWithKb } from "../context.ts";
-import { pull, query } from "../foundation/query/index.ts";
+import {
+  DatalogError,
+  pull,
+  query,
+} from "../foundation/query/index.ts";
+import { resolveSavedQueryFile } from "../foundation/saved-query.ts";
 
 type KbWriteEnv = KbCtx | KbStore | FileSystem;
 
@@ -145,6 +150,37 @@ export const graphQueryDef = {
   inputSchema: z.object({
     query: z.string(),
     inputs: z.array(z.unknown()).optional(),
+  }),
+  outputSchema: z.object({
+    rows: z.unknown(),
+  }),
+} satisfies ActionDefinition;
+
+export const graphRunDef = {
+  id: "graph.run",
+  title: "Run saved query",
+  description: "Execute a saved query from .kb/queries/<name>.edn",
+  mode: "read" as const,
+  inputSchema: z.object({
+    name: z.string(),
+    inputs: z.array(z.unknown()).optional(),
+  }),
+  outputSchema: z.object({
+    name: z.string(),
+    query: z.string(),
+    rows: z.unknown(),
+  }),
+} satisfies ActionDefinition;
+
+export const graphSearchDef = {
+  id: "graph.search",
+  title: "Search nodes",
+  description:
+    "Case-insensitive substring search over node text (id + text rows)",
+  mode: "read" as const,
+  inputSchema: z.object({
+    text: z.string(),
+    limit: z.number().int().nonnegative().optional(),
   }),
   outputSchema: z.object({
     rows: z.unknown(),
@@ -573,20 +609,45 @@ export async function tagDefine(
   return runWithKb(ctx, tagDefineEffect(input));
 }
 
+/**
+ * Map a query-layer failure to a typed domain error. Datalog errors thrown by
+ * the datascript engine (parse/eval of the user's EDN) are `invalid_input`;
+ * anything else — a genuine defect in our glue (normalization, revive) — stays
+ * `internal` so internal bugs are never hidden behind an "invalid query" code.
+ */
+export function classifyQueryError(err: unknown, queryString: string): DomainError {
+  if (err instanceof DatalogError) {
+    return domainError(
+      "invalid_input",
+      `invalid datalog query: ${err.message}`,
+      { query: queryString },
+    );
+  }
+  return domainError(
+    "internal",
+    `graph query failed: ${err instanceof Error ? err.message : String(err)}`,
+    { query: queryString },
+  );
+}
+
+/** Shared datalog execution for graph.query / graph.run. */
+function runDatalog(
+  ctx: KbContext,
+  edn: string,
+  inputs?: unknown[],
+): Effect.Effect<unknown, DomainError, never> {
+  return Effect.try({
+    try: () => query(ctx.qdb, edn, ...(inputs ?? [])),
+    catch: (err) => classifyQueryError(err, edn),
+  });
+}
+
 export const graphQueryEffect = Effect.fn("graph.query")(
   function* (
     input: z.infer<typeof graphQueryDef.inputSchema>,
   ): Effect.fn.Return<{ rows: unknown }, DomainError, KbCtx> {
     const ctx = yield* KbCtx;
-    const rows = yield* Effect.try({
-      try: () => query(ctx.qdb, input.query, ...(input.inputs ?? [])),
-      catch: (err) =>
-        domainError(
-          "invalid_input",
-          `invalid datalog query: ${err instanceof Error ? err.message : String(err)}`,
-          { query: input.query },
-        ),
-    });
+    const rows = yield* runDatalog(ctx, input.query, input.inputs);
     return { rows };
   },
 );
@@ -596,4 +657,80 @@ export async function graphQuery(
   input: z.infer<typeof graphQueryDef.inputSchema>,
 ): Promise<{ rows: unknown }> {
   return runWithKb(ctx, graphQueryEffect(input));
+}
+
+/** True for FileSystem "not found" platform errors (ENOENT on read). */
+function isFsNotFound(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  return (err as { reason?: { _tag?: string } }).reason?._tag === "NotFound";
+}
+
+export const graphRunEffect = Effect.fn("graph.run")(
+  function* (
+    input: z.infer<typeof graphRunDef.inputSchema>,
+  ): Effect.fn.Return<
+    z.infer<typeof graphRunDef.outputSchema>,
+    DomainError,
+    KbCtx | FileSystem
+  > {
+    const ctx = yield* KbCtx;
+    const fs = yield* FileSystem;
+    const path = resolveSavedQueryFile(ctx.root, input.name);
+    if (!path) {
+      return yield* domainError(
+        "invalid_input",
+        `invalid saved query name: ${input.name} (letters, digits, ., _, - only)`,
+        { name: input.name },
+      );
+    }
+    const edn = yield* fs.readFileString(path).pipe(
+      Effect.mapError((err) => {
+        if (isFsNotFound(err)) {
+          return domainError(
+            "not_found",
+            `saved query not found: ${input.name}`,
+            { name: input.name, path },
+          );
+        }
+        return domainError(
+          "internal",
+          `read saved query failed: ${err instanceof Error ? err.message : String(err)}`,
+          { name: input.name, path },
+        );
+      }),
+    );
+    const rows = yield* runDatalog(ctx, edn, input.inputs);
+    return { name: input.name, query: edn.trim(), rows };
+  },
+);
+
+export async function graphRun(
+  ctx: KbContext,
+  input: z.infer<typeof graphRunDef.inputSchema>,
+): Promise<z.infer<typeof graphRunDef.outputSchema>> {
+  return runWithKb(ctx, graphRunEffect(input));
+}
+
+export const graphSearchEffect = Effect.fn("graph.search")(
+  function* (
+    input: z.infer<typeof graphSearchDef.inputSchema>,
+  ): Effect.fn.Return<{ rows: unknown[][] }, DomainError, KbCtx> {
+    const ctx = yield* KbCtx;
+    const needle = input.text.toLowerCase();
+    const rows = ctx.nodes
+      .filter((n) => n.text.toLowerCase().includes(needle))
+      .map((n) => [n.id, n.text])
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    if (input.limit !== undefined && rows.length > input.limit) {
+      rows.length = input.limit;
+    }
+    return { rows };
+  },
+);
+
+export async function graphSearch(
+  ctx: KbContext,
+  input: z.infer<typeof graphSearchDef.inputSchema>,
+): Promise<{ rows: unknown[][] }> {
+  return runWithKb(ctx, graphSearchEffect(input));
 }
