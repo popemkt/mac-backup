@@ -304,4 +304,110 @@ describe("registry + operations", () => {
     // Seeded command nodes exist
     expect(ctx.nodes.some((n) => n.id === SYSTEM_IDS.cmdAddNode)).toBe(true);
   });
+
+  test("sys.* write-guard blocks node.add mint-id and parent bypasses", async () => {
+    const ctx = await openKb(root);
+
+    // node.add under a sys.* parent must be forbidden (guard bypass).
+    const underSys = await invoke(ctx, {
+      id: "node.add",
+      input: { text: "evil", parent: SYSTEM_IDS.tag },
+    });
+    expect(underSys.status).toBe("failed");
+    if (underSys.status === "failed") {
+      expect(underSys.code).toBe("forbidden");
+    }
+    expect(ctx.nodes.find((n) => n.id === SYSTEM_IDS.tag)?.children).toEqual([]);
+
+    // node.add minting a sys.* id must be forbidden (guard bypass).
+    const mint = await invoke(ctx, {
+      id: "node.add",
+      input: { text: "evil", id: "sys.evil" },
+    });
+    expect(mint.status).toBe("failed");
+    if (mint.status === "failed") {
+      expect(mint.code).toBe("forbidden");
+    }
+    expect(ctx.nodes.some((n) => n.id === "sys.evil")).toBe(false);
+
+    // reparenting a normal node under a sys.* node must be forbidden.
+    const victim = await invoke(ctx, {
+      id: "node.add",
+      input: { text: "victim" },
+    });
+    const victimId = (victim as { output: { id: string } }).output.id;
+    const reparent = await invoke(ctx, {
+      id: "node.update",
+      input: { id: victimId, parent: SYSTEM_IDS.field },
+    });
+    expect(reparent.status).toBe("failed");
+    if (reparent.status === "failed") {
+      expect(reparent.code).toBe("forbidden");
+    }
+    expect(
+      ctx.nodes.find((n) => n.id === SYSTEM_IDS.field)?.children.includes(
+        victimId,
+      ),
+    ).toBe(false);
+
+    // The documented admin escape (force) still works for mint + reparent.
+    const forcedMint = await invoke(ctx, {
+      id: "node.add",
+      input: { text: "minted", id: "sys.evil", force: true },
+    });
+    expect(forcedMint.status).toBe("succeeded");
+    expect(ctx.nodes.some((n) => n.id === "sys.evil")).toBe(true);
+
+    const forcedReparent = await invoke(ctx, {
+      id: "node.update",
+      input: { id: victimId, parent: SYSTEM_IDS.field, force: true },
+    });
+    expect(forcedReparent.status).toBe("succeeded");
+    expect(
+      ctx.nodes.find((n) => n.id === SYSTEM_IDS.field)?.children.includes(
+        victimId,
+      ),
+    ).toBe(true);
+  });
+
+  test("sys.* write-guard covers field.define / tag.define id-mint aliases", async () => {
+    const ctx = await openKb(root);
+    const field = await invoke(ctx, {
+      id: "field.define",
+      input: { name: "x", id: "sys.evil" },
+    });
+    expect(field.status).toBe("failed");
+    if (field.status === "failed") {
+      expect(field.code).toBe("forbidden");
+    }
+
+    const tag = await invoke(ctx, {
+      id: "tag.define",
+      input: { name: "y", id: "sys.evil" },
+    });
+    expect(tag.status).toBe("failed");
+    if (tag.status === "failed") {
+      expect(tag.code).toBe("forbidden");
+    }
+    expect(ctx.nodes.some((n) => n.id === "sys.evil")).toBe(false);
+  });
+
+  test("graph.query with malformed EDN returns invalid_input, not internal", async () => {
+    const ctx = await openKb(root);
+    const q = await invoke(ctx, {
+      id: "graph.query",
+      input: { query: "not [valid" },
+    });
+    expect(q.status).toBe("failed");
+    if (q.status === "failed") {
+      expect(q.code).toBe("invalid_input");
+      expect(q.message).toContain("datalog");
+    }
+    // Store stays intact and browsable after a rejected query.
+    const after = await invoke(ctx, {
+      id: "graph.query",
+      input: { query: "[:find ?e :where [?e :node/id ?id]]" },
+    });
+    expect(after.status).toBe("succeeded");
+  });
 });
