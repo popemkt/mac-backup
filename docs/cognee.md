@@ -242,15 +242,47 @@ advertise a Tailscale Service itself.
 Cognee sends generation requests to CLIProxyAPI:
 
 ```text
-model:    openai/gemini-3.5-flash-low
+model:    openai/gpt-5.6-luna
 endpoint: http://127.0.0.1:8317/v1
 mode:     Instructor json_mode
 ```
 
-CLIProxyAPI must retain its Antigravity OAuth state. Embeddings are generated
-locally by a Cognee-only Ollama process on `127.0.0.1:11435` using
-`nomic-embed-text:latest` with 768 dimensions. Its model cache is isolated from
-the workstation-wide `~/.ollama` state.
+The generation model is the Codex/OAuth-backed `gpt-5.6-luna`. It replaced
+`openai/gemini-3.5-flash-low` (Antigravity) after that provider entered a
+multi-day quota/cooldown: every completion retried into `model_cooldown`, the
+`/health/detailed` LLM probe timed out after 30s, and the system-setup
+"Cognee backend and generation path" check flagged it. CLIProxyAPI must
+therefore retain its Codex OAuth state; the `cli-proxy-codex` integration check
+validates the model is exposed.
+
+Embeddings are generated locally by a Cognee-only Ollama process on
+`127.0.0.1:11435` using `nomic-embed-text:latest` with 768 dimensions.
+
+Cognee deliberately runs its own isolated Ollama instead of reusing the
+workstation-wide `~/.ollama`:
+
+- **registry isolation**: a second Ollama sharing `~/.ollama` would corrupt the
+  signing key and model registry that the interactive instance also owns
+- **model guarantee**: the `cognee-embedding-model` agent keeps
+  `nomic-embed-text` present, so embeddings cannot silently break when the
+  shared registry is pruned or replaced by interactive use
+- **deterministic runtime**: the private daemon pins its own KV-cache and
+  flash-attention settings without affecting interactive model loads
+- **volume independence**: it does not depend on the TCC-gated `/Volumes/Data`
+  that hosts the interactive `~/.ollama`
+
+The private instance keeps its signing key in durable state while the model
+blobs stay in rebuildable cache:
+
+```text
+key/config: ~/.local/state/cognee/ollama-home/.ollama
+models:     ~/.cache/cognee/ollama-models
+```
+
+Ollama only generates `id_ed25519` at server startup. The key lives in state
+(rather than `~/.cache/cognee`) so clearing the cache cannot silently break
+model pulls; if it is ever lost, restarting the `cognee-ollama` agent
+regenerates it and the model re-downloads.
 
 ## State And Backup
 
@@ -261,6 +293,7 @@ Back up these paths together while Cognee is stopped:
 ~/.local/share/cognee/system
 ~/.local/state/cognee/secrets.env
 ~/.local/state/cognee/agent-api-key
+~/.local/state/cognee/ollama-home
 ```
 
 The two share directories contain uploaded content and databases. The secret
@@ -268,7 +301,8 @@ file contains the JWT signing material and initial login password. Losing it
 invalidates sessions and can make the generated default credentials
 unrecoverable. The agent API key is the recoverable source for the derived
 `~/.cognee-plugin/api_key.json` used by the Codex and Claude plugins; both files
-must remain mode `0600`.
+must remain mode `0600`. `ollama-home` holds the Cognee Ollama identity key; it
+regenerates on restart but backing it up avoids a re-pull after a cache wipe.
 
 These paths are rebuildable and do not need normal backup:
 
@@ -278,7 +312,9 @@ These paths are rebuildable and do not need normal backup:
 ~/Library/Logs/cognee
 ```
 
-Ollama models and CLIProxyAPI OAuth state follow their own backup policies.
+`~/.cache/cognee` holds re-downloadable Ollama model blobs and manifests plus
+the Caddy/npm build caches. CLIProxyAPI OAuth state follows its own backup
+policy.
 
 ## Operations
 

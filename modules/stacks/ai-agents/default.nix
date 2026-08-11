@@ -28,6 +28,7 @@ in
     ./cognee # server and remote-client roles, plus their agent plugins
     ./headroom.nix # context compression: proxy (:8787), RTK, uv tool install
     ./hermes.nix # agent runtime env (HERMES_HOME, Copilot ACP)
+    ./semantica.nix # context graphs, decision intelligence, provenance CLI
   ];
 
   options.my.stacks.ai-agents = mkStack {
@@ -106,6 +107,9 @@ in
         "claude"
         "claude-code@latest"
         "copilot-cli" # GitHub Copilot CLI (agentic terminal assistant)
+        # Rowboat: desktop AI coworker with a local knowledge graph and
+        # work surfaces (email, notes, browser, code mode). Official cask.
+        "rowboat"
         # Use the fully-qualified tap path. Bare "orca" is the unrelated Plotly cask.
         "stablyai/orca/orca"
         # Traycer Desktop: control surface for agentic coding (tap: traycerai/traycer).
@@ -119,6 +123,7 @@ in
         "@earendil-works/pi-coding-agent"
         "@fission-ai/openspec"
         "@openai/codex"
+        "opencode-ai" # OpenCode terminal coding agent
         "claude-code-templates" # component/agent scaffolding for Claude Code (cct)
         "cline"
         "command-code" # Command Code agent (cmd)

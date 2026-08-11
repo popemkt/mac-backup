@@ -25,6 +25,10 @@ let
   dataRoot = "${home}/.local/share/cognee/data";
   systemRoot = "${home}/.local/share/cognee/system";
   cacheRoot = "${home}/.cache/cognee";
+  # Ollama home (signing key + config) is durable state: it lives under
+  # stateRoot, not cacheRoot, so clearing ~/.cache/cognee cannot silently break
+  # model pulls. Model blobs/manifests stay in the cache (re-downloadable).
+  ollamaHome = "${stateRoot}/ollama-home";
   uiCache = "${home}/.cognee/ui-cache";
   pluginStateRoot = "${home}/.cognee-plugin";
   logRoot = "${home}/Library/Logs/cognee";
@@ -64,7 +68,9 @@ let
     VECTOR_DATASET_DATABASE_HANDLER=lancedb
 
     LLM_PROVIDER=openai
-    LLM_MODEL=openai/gemini-3.5-flash-low
+    # gemini-3.5-flash-low (antigravity) is quota-exhausted; generation and the
+    # /health/detailed LLM probe use gpt-5.6-luna (openai/codex) instead.
+    LLM_MODEL=openai/gpt-5.6-luna
     LLM_ENDPOINT=http://127.0.0.1:8317/v1
     LLM_API_KEY=local
     STRUCTURED_OUTPUT_FRAMEWORK=instructor
@@ -104,7 +110,7 @@ let
       "${cacheRoot}/caddy/config" \
       "${cacheRoot}/caddy/data" \
       "${cacheRoot}/npm" \
-      "${cacheRoot}/ollama-home" \
+      "${ollamaHome}" \
       "${cacheRoot}/ollama-models" \
       "${uiCache}" \
       "${logRoot}"
@@ -286,7 +292,7 @@ let
       exit 75
     fi
 
-    export HOME="${cacheRoot}/ollama-home"
+    export HOME="${ollamaHome}"
     export OLLAMA_MODELS="${cacheRoot}/ollama-models"
     export OLLAMA_HOST="127.0.0.1:${toString ollamaPort}"
     export OLLAMA_FLASH_ATTENTION=1
@@ -304,7 +310,7 @@ let
       exit 75
     fi
 
-    export HOME="${cacheRoot}/ollama-home"
+    export HOME="${ollamaHome}"
     export OLLAMA_HOST="http://127.0.0.1:${toString ollamaPort}"
 
     if ! ${pkgs.curl}/bin/curl -fsS \

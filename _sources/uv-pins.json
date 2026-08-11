@@ -10,5 +10,9 @@
   "headroom-ai": {
     "track": "latest",
     "version": "0.34.0"
+  },
+  "semantica": {
+    "track": "latest",
+    "version": "0.6.0"
   }
 }
