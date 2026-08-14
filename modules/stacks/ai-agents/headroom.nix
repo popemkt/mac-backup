@@ -70,7 +70,7 @@ lib.mkIf config.my.stacks.ai-agents.enable {
         # Prefer Apple's toolchain over any Nix clang/ar on PATH — maturin/cc-rs
         # need a matching ar next to /usr/bin/clang (litellm's rust bridge).
         export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
-        export PATH="/usr/bin:/bin:$PATH"
+        export PATH="$PATH:/usr/bin:/bin"
         export CC=/usr/bin/clang
         export CXX=/usr/bin/clang++
         export AR=/usr/bin/ar

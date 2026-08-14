@@ -77,10 +77,44 @@
     export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)"
 
     # Apply the declared state without discovering or upgrading remote packages.
+    # --no-checks skips only the post-switch audit and advisory runtime checks.
     rebuild() {
-      sudo darwin-rebuild switch --flake "$HOME/.dotfiles" &&
-        "$HOME/.dotfiles/scripts/audit-system-discrepancies.sh" &&
-        system-setup status --advisory
+      local skip_checks=false
+      if [[ "''${1:-}" == "--no-checks" ]]; then
+        skip_checks=true
+        shift
+      fi
+
+      sudo darwin-rebuild switch --flake "$HOME/.dotfiles" "$@" || return $?
+
+      if [[ "$skip_checks" == true ]]; then
+        return 0
+      fi
+
+      local audit_output status_output audit_status status_status
+      audit_output="$(mktemp "''${TMPDIR:-/tmp}/rebuild-audit.XXXXXX")" || return $?
+      status_output="$(mktemp "''${TMPDIR:-/tmp}/rebuild-status.XXXXXX")" || {
+        rm -f "$audit_output"
+        return 1
+      }
+
+      "$HOME/.dotfiles/scripts/audit-system-discrepancies.sh" >"$audit_output" 2>&1 &
+      local audit_pid=$!
+      system-setup status --advisory >"$status_output" 2>&1 &
+      local status_pid=$!
+
+      audit_status=0
+      wait "$audit_pid" || audit_status=$?
+      status_status=0
+      wait "$status_pid" || status_status=$?
+
+      printf '\n==> System audit\n'
+      cat "$audit_output"
+      printf '\n==> System setup status\n'
+      cat "$status_output"
+      rm -f "$audit_output" "$status_output"
+
+      (( audit_status == 0 && status_status == 0 ))
     }
 
     # Prepare reviewable repository updates without mutating the live system.

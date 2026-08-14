@@ -37,7 +37,7 @@ lib.mkIf config.my.stacks.ai-agents.enable {
       # but native builds still need the Apple toolchain and SDKROOT.
       home.activation.installSemanticaUvTool = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
-        export PATH="/usr/bin:/bin:$PATH"
+        export PATH="$PATH:/usr/bin:/bin"
         export CC=/usr/bin/clang
         export CXX=/usr/bin/clang++
         export AR=/usr/bin/ar
