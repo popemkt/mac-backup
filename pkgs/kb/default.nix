@@ -35,7 +35,7 @@ let
     nativeBuildInputs = [ bun ];
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-HnKqC6iJTPL8cE9rdQ2akvIRw+3bUP8s0QJ/hKgxrTk=";
+    outputHash = "sha256-jtnZUIUcBsInNdZ9axLGI32d3sc2PjXUxzrozxyEvP0=";
     dontConfigure = true;
     buildPhase = ''
       runHook preBuild
@@ -64,7 +64,7 @@ let
     nativeBuildInputs = [ bun ];
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-7l296bBF+fdYddjm8Wm+ndCFbZMUzoFrPr5HGwGcAs8=";
+    outputHash = "sha256-jfW7E+8xtUqvU759lXSE0t9z9Q4V5BmBj1WBBg5y1+U=";
     dontConfigure = true;
     buildPhase = ''
       runHook preBuild

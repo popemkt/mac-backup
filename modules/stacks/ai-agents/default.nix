@@ -120,6 +120,7 @@ in
       ++ cfg.extra.casks;
 
       npmGlobals = [
+        "@deepseek-ai/dsh"
         "@earendil-works/pi-coding-agent"
         "@fission-ai/openspec"
         "@openai/codex"
