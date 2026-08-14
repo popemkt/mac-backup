@@ -202,7 +202,7 @@ readarray_safe() {
 AUDIT_PROBE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/audit-probes.XXXXXX")"
 AUDIT_PROBE_PIDS=()
 AUDIT_PROBE_DONE=()
-AUDIT_PROBE_LIMIT=4
+AUDIT_PROBE_LIMIT=8
 
 cleanup_audit_probes() {
   rm -rf "$AUDIT_PROBE_DIR"
@@ -327,7 +327,7 @@ brew_names() {
   eval_host_list "map (x: if builtins.isAttrs x then x.name else x) xs.homebrew.$1"
 }
 
-# Declarations are independent evaluations. Capture no more than four at once;
+# Declarations are independent evaluations. Capture no more than eight at once;
 # load their results below in the original declaration order.
 declared_brews_probe=${#AUDIT_PROBE_PIDS[@]}
 audit_probe_start brew_names brews
@@ -738,7 +738,7 @@ printf '%s\n' "${declared_nix_packages[@]}" | sed 's/^/  - /'
 # Out-of-band surfaces are advisory: warn and stay exit 0.
 print_section "Out-of-band Freshness (advisory)"
 
-# Collect up to four independent commands, then let the parent map results in
+# Collect up to eight independent commands, then let the parent map results in
 # the existing report order.
 determinate_status_probe=
 nix_version_probe=
