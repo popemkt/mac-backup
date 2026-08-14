@@ -33,14 +33,18 @@ git config core.hooksPath .githooks
 sudo scutil --set HostName popemkt-personal
 sudo scutil --set ComputerName popemkt-personal
 
-# First time only — darwin-rebuild not in PATH yet
+# First time only — darwin-rebuild is not in PATH yet
 sudo nix run nix-darwin -- switch --flake ~/.dotfiles#popemkt-personal
 
-# Subsequent rebuilds
-sudo darwin-rebuild switch --flake ~/.dotfiles#popemkt-personal
+# Subsequent rebuilds, after opening a new terminal
+rebuild
+
+# Skip only the post-switch audit and advisory checks
+rebuild --no-checks
 ```
 
-Restart terminal after first build.
+`rebuild` delegates to `scripts/rebuild`, so later workflow changes take effect
+from the checkout without another Home Manager activation.
 
 The rebuild prints a read-only external readiness report. Complete credentials,
 device enrollment, and control-plane approvals in dependency order:

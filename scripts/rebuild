@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Apply this repository's Darwin configuration, then optionally run read-only checks.
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+skip_checks=false
+
+if [[ "${1:-}" == "--no-checks" ]]; then
+  skip_checks=true
+  shift
+fi
+
+sudo darwin-rebuild switch --flake "$ROOT_DIR" "$@"
+
+if [[ "$skip_checks" == true ]]; then
+  exit 0
+fi
+
+audit_output="$(mktemp "${TMPDIR:-/tmp}/rebuild-audit.XXXXXX")"
+status_output="$(mktemp "${TMPDIR:-/tmp}/rebuild-status.XXXXXX")" || {
+  rm -f "$audit_output"
+  exit 1
+}
+trap 'rm -f "$audit_output" "$status_output"' EXIT
+
+"$ROOT_DIR/scripts/audit-system-discrepancies.sh" >"$audit_output" 2>&1 &
+audit_pid=$!
+system-setup status --advisory >"$status_output" 2>&1 &
+status_pid=$!
+
+audit_status=0
+wait "$audit_pid" || audit_status=$?
+status_status=0
+wait "$status_pid" || status_status=$?
+
+printf '\n==> System audit\n'
+cat "$audit_output"
+printf '\n==> System setup status\n'
+cat "$status_output"
+
+(( audit_status == 0 && status_status == 0 ))
