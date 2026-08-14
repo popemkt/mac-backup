@@ -271,18 +271,19 @@ workstation-wide `~/.ollama`:
 - **volume independence**: it does not depend on the TCC-gated `/Volumes/Data`
   that hosts the interactive `~/.ollama`
 
-The private instance keeps its signing key in durable state while the model
-blobs stay in rebuildable cache:
+The private instance keeps its signing key and configuration in durable state
+and its model blobs in durable service data, so routine cache cleanup cannot
+make embeddings unavailable:
 
 ```text
 key/config: ~/.local/state/cognee/ollama-home/.ollama
-models:     ~/.cache/cognee/ollama-models
+models:     ~/.local/share/cognee/models
 ```
 
-Ollama only generates `id_ed25519` at server startup. The key lives in state
-(rather than `~/.cache/cognee`) so clearing the cache cannot silently break
-model pulls; if it is ever lost, restarting the `cognee-ollama` agent
-regenerates it and the model re-downloads.
+Ollama only generates `id_ed25519` at server startup. The key lives in state,
+while model blobs live outside the cache cleanup boundary. Both are recoverable:
+losing the key regenerates it on restart, and losing the model causes a
+re-download.
 
 ## State And Backup
 
@@ -301,20 +302,23 @@ file contains the JWT signing material and initial login password. Losing it
 invalidates sessions and can make the generated default credentials
 unrecoverable. The agent API key is the recoverable source for the derived
 `~/.cognee-plugin/api_key.json` used by the Codex and Claude plugins; both files
-must remain mode `0600`. `ollama-home` holds the Cognee Ollama identity key; it
-regenerates on restart but backing it up avoids a re-pull after a cache wipe.
+must remain mode `0600`. `ollama-home` holds the Cognee Ollama identity key;
+it regenerates on restart if lost.
 
-These paths are rebuildable and do not need normal backup:
+These paths are rebuildable; backing them up is optional:
 
 ```text
 ~/.cache/cognee
 ~/.cognee/ui-cache
 ~/Library/Logs/cognee
+~/.local/share/cognee/models
 ```
 
-`~/.cache/cognee` holds re-downloadable Ollama model blobs and manifests plus
-the Caddy/npm build caches. CLIProxyAPI OAuth state follows its own backup
-policy.
+`~/.cache/cognee` holds the Caddy/npm build caches. The model directory holds
+re-downloadable Ollama blobs, but is deliberately separate from that generic
+cache so cache cleanup cannot interrupt embeddings. It may be excluded from
+backups if storage matters more than avoiding a re-download. CLIProxyAPI OAuth
+state follows its own backup policy.
 
 ## Operations
 

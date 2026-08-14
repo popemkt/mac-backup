@@ -24,10 +24,10 @@ let
   integrationKeyFile = "${stateRoot}/agent-api-key";
   dataRoot = "${home}/.local/share/cognee/data";
   systemRoot = "${home}/.local/share/cognee/system";
+  modelRoot = "${home}/.local/share/cognee/models";
   cacheRoot = "${home}/.cache/cognee";
-  # Ollama home (signing key + config) is durable state: it lives under
-  # stateRoot, not cacheRoot, so clearing ~/.cache/cognee cannot silently break
-  # model pulls. Model blobs/manifests stay in the cache (re-downloadable).
+  # Ollama identity/config belongs in state; model blobs are durable service data
+  # so routine cache cleanup cannot make the embedding service unavailable.
   ollamaHome = "${stateRoot}/ollama-home";
   uiCache = "${home}/.cognee/ui-cache";
   pluginStateRoot = "${home}/.cognee-plugin";
@@ -111,7 +111,7 @@ let
       "${cacheRoot}/caddy/data" \
       "${cacheRoot}/npm" \
       "${ollamaHome}" \
-      "${cacheRoot}/ollama-models" \
+      "${modelRoot}" \
       "${uiCache}" \
       "${logRoot}"
 
@@ -293,7 +293,7 @@ let
     fi
 
     export HOME="${ollamaHome}"
-    export OLLAMA_MODELS="${cacheRoot}/ollama-models"
+    export OLLAMA_MODELS="${modelRoot}"
     export OLLAMA_HOST="127.0.0.1:${toString ollamaPort}"
     export OLLAMA_FLASH_ATTENTION=1
     export OLLAMA_KV_CACHE_TYPE=q8_0
@@ -586,7 +586,7 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
         export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
         # Prefer Apple's toolchain over any Nix clang/ar on PATH — maturin/cc-rs
         # need a matching ar next to /usr/bin/clang (litellm's rust bridge).
-        export PATH="/usr/bin:/bin:$PATH"
+        export PATH="$PATH:/usr/bin:/bin"
         export CC=/usr/bin/clang
         export CXX=/usr/bin/clang++
         export AR=/usr/bin/ar
