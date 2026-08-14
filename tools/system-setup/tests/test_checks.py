@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import json
+import threading
 from collections.abc import Callable
-from pathlib import Path
 
 import pytest
 
-from system_setup.checks import CheckFailed, evaluate, run_check
+from system_setup.checks import MAX_CHECK_WORKERS, CheckFailed, evaluate, run_check
 from system_setup.models import CommandCheck, Manifest, TailscaleServiceCheck
 from system_setup.native import NativeResult
 
@@ -193,3 +194,160 @@ def test_tailscale_service_accepts_approved_host(monkeypatch: pytest.MonkeyPatch
     )
 
     assert run_check(check) == "approved and routing to http://127.0.0.1:9000"
+
+
+def make_parallel_manifest(
+    integrations: list[tuple[str, str, list[str]]],
+) -> Manifest:
+    return Manifest.model_validate(
+        {
+            "schema_version": 3,
+            "host": {"name": "test", "role": "personal"},
+            "components": [],
+            "integrations": [
+                {
+                    "id": identifier,
+                    "name": name,
+                    "description": "test",
+                    "depends_on": dependencies,
+                    "check": {
+                        "kind": "file",
+                        "path": f"/{identifier}",
+                        "success_detail": identifier,
+                    },
+                    "enrollment": {"kind": "none", "instructions": "none"},
+                    "secret_policy": "none",
+                    "recovery": "retry",
+                }
+                for identifier, name, dependencies in integrations
+            ],
+        }
+    )
+
+
+def test_evaluate_overlaps_independent_checks_and_preserves_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = make_parallel_manifest(
+        [("first", "First", []), ("second", "Second", [])]
+    )
+    both_started = threading.Event()
+    lock = threading.Lock()
+    started = 0
+
+    def fake_run_check(_check: object) -> str:
+        nonlocal started
+        with lock:
+            started += 1
+            if started == 2:
+                both_started.set()
+        assert both_started.wait(timeout=1)
+        return "ready"
+
+    monkeypatch.setattr("system_setup.checks.run_check", fake_run_check)
+
+    results = evaluate(manifest)
+
+    assert [result.id for result in results] == ["first", "second"]
+    assert [result.state for result in results] == ["ready", "ready"]
+
+
+def test_evaluate_waits_for_a_complete_dependency_wave(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = make_parallel_manifest(
+        [
+            ("child", "Child", ["parent-a", "parent-b"]),
+            ("parent-a", "Parent A", []),
+            ("parent-b", "Parent B", []),
+        ]
+    )
+    both_parents_started = threading.Barrier(2, timeout=1)
+    parents_finished: set[str] = set()
+    lock = threading.Lock()
+
+    def fake_run_check(check: object) -> str:
+        identifier = getattr(check, "path").removeprefix("/")
+        if identifier.startswith("parent"):
+            both_parents_started.wait()
+            with lock:
+                parents_finished.add(identifier)
+            return "ready"
+        assert parents_finished == {"parent-a", "parent-b"}
+        return "ready"
+
+    monkeypatch.setattr("system_setup.checks.run_check", fake_run_check)
+
+    results = evaluate(manifest)
+
+    assert [result.id for result in results] == ["parent-a", "parent-b", "child"]
+    assert [result.state for result in results] == ["ready", "ready", "ready"]
+
+
+def test_evaluate_blocks_descendants_without_running_their_checks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = make_parallel_manifest(
+        [
+            ("child", "Child", ["action-needed", "error"]),
+            ("action-needed", "Needs action", []),
+            ("error", "Errored", []),
+        ]
+    )
+    checked: list[str] = []
+    lock = threading.Lock()
+
+    def fake_run_check(check: object) -> str:
+        identifier = getattr(check, "path").removeprefix("/")
+        with lock:
+            checked.append(identifier)
+        if identifier == "action-needed":
+            raise CheckFailed("configure it")
+        if identifier == "error":
+            raise ValueError("unexpected")
+        raise AssertionError("blocked integration must not run")
+
+    monkeypatch.setattr("system_setup.checks.run_check", fake_run_check)
+
+    results = evaluate(manifest)
+
+    assert [result.id for result in results] == ["action-needed", "error", "child"]
+    assert [result.state for result in results] == ["action-needed", "error", "blocked"]
+    assert results[2].detail == "waiting for: Needs action, Errored"
+    assert set(checked) == {"action-needed", "error"}
+
+
+def test_evaluate_limits_independent_checks_to_eight_workers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = make_parallel_manifest(
+        [(f"check-{index}", f"Check {index}", []) for index in range(10)]
+    )
+    release = threading.Event()
+    saturated = threading.Event()
+    lock = threading.Lock()
+    active = 0
+    peak = 0
+
+    def fake_run_check(_check: object) -> str:
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+            if active == MAX_CHECK_WORKERS:
+                saturated.set()
+        assert release.wait(timeout=1)
+        with lock:
+            active -= 1
+        return "ready"
+
+    monkeypatch.setattr("system_setup.checks.run_check", fake_run_check)
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(evaluate, manifest)
+        assert saturated.wait(timeout=1)
+        release.set()
+        results = future.result(timeout=1)
+
+    assert peak == MAX_CHECK_WORKERS
+    assert [result.state for result in results] == ["ready"] * 10

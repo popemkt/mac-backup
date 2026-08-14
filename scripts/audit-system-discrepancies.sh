@@ -176,7 +176,7 @@ print_warning_summary() {
       "$_AUDIT_BOLD" "$_AUDIT_GREEN" "$AUDIT_PASS" "$_AUDIT_RESET" \
       "$_AUDIT_DIM" "$elapsed" "$_AUDIT_RESET" >&2
   else
-    printf '%s%s%s failed%s, %s%s passed%s %sin %s (%s checks)%s\n' \
+    printf '%s%s%s failed%s, %s%s%s passed%s %sin %s (%s checks)%s\n' \
       "$_AUDIT_BOLD" "$_AUDIT_RED" "$AUDIT_FAIL" "$_AUDIT_RESET" \
       "$_AUDIT_BOLD" "$_AUDIT_GREEN" "$AUDIT_PASS" "$_AUDIT_RESET" \
       "$_AUDIT_DIM" "$elapsed" "$total" "$_AUDIT_RESET" >&2
@@ -195,6 +195,80 @@ readarray_safe() {
   else
     eval "$__var_name=()"
   fi
+}
+
+# Probe workers only capture command results. The parent waits and consumes them
+# in a fixed order, so report rendering and audit state remain single-writer.
+AUDIT_PROBE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/audit-probes.XXXXXX")"
+AUDIT_PROBE_PIDS=()
+AUDIT_PROBE_DONE=()
+AUDIT_PROBE_LIMIT=4
+
+cleanup_audit_probes() {
+  rm -rf "$AUDIT_PROBE_DIR"
+}
+trap cleanup_audit_probes EXIT
+
+audit_probe_start() {
+  local index active=0 probe
+  for probe in "${!AUDIT_PROBE_PIDS[@]}"; do
+    [ "${AUDIT_PROBE_DONE[$probe]:-}" = 1 ] || active=$((active + 1))
+  done
+  if [ "$active" -ge "$AUDIT_PROBE_LIMIT" ]; then
+    for probe in "${!AUDIT_PROBE_PIDS[@]}"; do
+      if [ "${AUDIT_PROBE_DONE[$probe]:-}" != 1 ]; then
+        audit_probe_wait "$probe"
+        break
+      fi
+    done
+  fi
+
+  index=${#AUDIT_PROBE_PIDS[@]}
+  (
+    local rc
+    if "$@" >"$AUDIT_PROBE_DIR/$index.out" 2>"$AUDIT_PROBE_DIR/$index.err"; then
+      rc=0
+    else
+      rc=$?
+    fi
+    printf '%s\n' "$rc" >"$AUDIT_PROBE_DIR/$index.rc"
+  ) &
+  AUDIT_PROBE_PIDS+=("$!")
+}
+
+audit_probe_wait() {
+  local index="$1"
+  [ "${AUDIT_PROBE_DONE[$index]:-}" = 1 ] && return
+  if ! wait "${AUDIT_PROBE_PIDS[$index]}"; then
+    : # The worker records its command status; waiting itself must not abort.
+  fi
+  AUDIT_PROBE_DONE[$index]=1
+}
+
+audit_probe_wait_all() {
+  local index
+  for index in "${!AUDIT_PROBE_PIDS[@]}"; do
+    audit_probe_wait "$index"
+  done
+}
+
+audit_probe_output() {
+  cat "$AUDIT_PROBE_DIR/$1.out"
+}
+
+audit_probe_status() {
+  cat "$AUDIT_PROBE_DIR/$1.rc"
+}
+
+audit_probe_combined() {
+  "$@" 2>&1
+}
+
+audit_probe_app_paths() {
+  {
+    find /Applications -maxdepth 2 -name "*.app" -type d 2>/dev/null
+    find "$HOME/Applications" -maxdepth 2 -name "*.app" -type d 2>/dev/null
+  } | sort -u
 }
 
 array_contains() {
@@ -253,17 +327,40 @@ brew_names() {
   eval_host_list "map (x: if builtins.isAttrs x then x.name else x) xs.homebrew.$1"
 }
 
-read_lines_into declared_brews "$(brew_names brews)"
-read_lines_into declared_casks "$(brew_names casks)"
-read_lines_into declared_taps "$(brew_names taps)"
-read_lines_into declared_npm "$(eval_hm_list 'my.resolvedNpmGlobals')"
-read_lines_into declared_bun "$(eval_hm_list 'my.resolvedBunGlobals')"
-read_lines_into declared_nix_packages "$(
-  eval_host_list 'map (p: p.pname or (builtins.parseDrvName p.name).name)
+# Declarations are independent evaluations. Capture no more than four at once;
+# load their results below in the original declaration order.
+declared_brews_probe=${#AUDIT_PROBE_PIDS[@]}
+audit_probe_start brew_names brews
+declared_casks_probe=${#AUDIT_PROBE_PIDS[@]}
+audit_probe_start brew_names casks
+declared_taps_probe=${#AUDIT_PROBE_PIDS[@]}
+audit_probe_start brew_names taps
+declared_npm_probe=${#AUDIT_PROBE_PIDS[@]}
+audit_probe_start eval_hm_list 'my.resolvedNpmGlobals'
+audit_probe_wait_all
+
+declared_bun_probe=${#AUDIT_PROBE_PIDS[@]}
+audit_probe_start eval_hm_list 'my.resolvedBunGlobals'
+declared_nix_packages_probe=${#AUDIT_PROBE_PIDS[@]}
+audit_probe_start eval_host_list 'map (p: p.pname or (builtins.parseDrvName p.name).name)
     (builtins.filter builtins.isAttrs
       xs.home-manager.users.${xs.my.username}.home.packages)'
-)"
-readarray_safe managed_external_paths parse_external_paths
+managed_external_paths_probe=${#AUDIT_PROBE_PIDS[@]}
+audit_probe_start parse_external_paths
+audit_probe_wait_all
+
+read_lines_into declared_brews "$(audit_probe_output "$declared_brews_probe")"
+read_lines_into declared_casks "$(audit_probe_output "$declared_casks_probe")"
+read_lines_into declared_taps "$(audit_probe_output "$declared_taps_probe")"
+read_lines_into declared_npm "$(audit_probe_output "$declared_npm_probe")"
+read_lines_into declared_bun "$(audit_probe_output "$declared_bun_probe")"
+read_lines_into declared_nix_packages "$(audit_probe_output "$declared_nix_packages_probe")"
+managed_external_paths_text="$(audit_probe_output "$managed_external_paths_probe")"
+if [ -n "$managed_external_paths_text" ]; then
+  mapfile -t managed_external_paths < <(printf '%s\n' "$managed_external_paths_text" | sed '/^$/d')
+else
+  managed_external_paths=()
+fi
 
 if [ "${#declared_brews[@]}" -eq 0 ] && [ "${#declared_casks[@]}" -eq 0 ]; then
   printf 'error: could not evaluate host %s; declarations below would be wrong\n' \
@@ -289,11 +386,34 @@ print_section "Forbidden Homebrew Cask Declarations"
 print_list "${forbidden_casks[@]}"
 check_count "${#forbidden_casks[@]}" "forbidden Homebrew cask declaration(s)"
 
+# Installed package inventories are independent command probes. Their results
+# are collected before the existing, dependency-sensitive diff calculations.
+brew_leaves_probe=
+brew_casks_probe=
+npm_probe=
+bun_probe=
 if [ -x "$BREW_BIN" ]; then
-  readarray_safe installed_brews_raw "$BREW_BIN" leaves
+  brew_leaves_probe=${#AUDIT_PROBE_PIDS[@]}
+  audit_probe_start "$BREW_BIN" leaves
+  brew_casks_probe=${#AUDIT_PROBE_PIDS[@]}
+  audit_probe_start "$BREW_BIN" list --cask --full-name
+fi
+if command -v "$NPM_BIN" >/dev/null 2>&1; then
+  npm_probe=${#AUDIT_PROBE_PIDS[@]}
+  audit_probe_start "$NPM_BIN" ls -g --depth=0 --parseable
+fi
+bun_global_manifest="$BUN_INSTALL/install/global/package.json"
+if [ -f "$bun_global_manifest" ] && command -v jq >/dev/null 2>&1; then
+  bun_probe=${#AUDIT_PROBE_PIDS[@]}
+  audit_probe_start jq -r '.dependencies // {} | keys[]' "$bun_global_manifest"
+fi
+audit_probe_wait_all
+
+if [ -x "$BREW_BIN" ]; then
+  readarray_safe installed_brews_raw audit_probe_output "$brew_leaves_probe"
   # Use full cask names so tapped casks do not collapse onto unrelated core
   # casks with the same token, e.g. stablyai/orca/orca vs homebrew/cask/orca.
-  readarray_safe installed_casks "$BREW_BIN" list --cask --full-name
+  readarray_safe installed_casks audit_probe_output "$brew_casks_probe"
   mapfile -t installed_brews < <(printf '%s\n' "${installed_brews_raw[@]}" | normalize_brew_names)
   mapfile -t declared_brews_normalized < <(printf '%s\n' "${declared_brews[@]}" | normalize_brew_names)
 
@@ -340,7 +460,7 @@ else
 fi
 
 if command -v "$NPM_BIN" >/dev/null 2>&1; then
-  readarray_safe installed_npm_raw "$NPM_BIN" ls -g --depth=0 --parseable
+  readarray_safe installed_npm_raw audit_probe_output "$npm_probe"
   mapfile -t installed_npm < <(
     printf '%s\n' "${installed_npm_raw[@]}" \
       | sed '1d' \
@@ -367,9 +487,8 @@ else
   printf '  npm not found\n'
 fi
 
-bun_global_manifest="$BUN_INSTALL/install/global/package.json"
-if [ -f "$bun_global_manifest" ] && command -v jq >/dev/null 2>&1; then
-  readarray_safe installed_bun jq -r '.dependencies // {} | keys[]' "$bun_global_manifest"
+if [ -n "$bun_probe" ]; then
+  readarray_safe installed_bun audit_probe_output "$bun_probe"
 else
   installed_bun=()
 fi
@@ -389,10 +508,16 @@ print_list "${missing_bun[@]}"
 check_count "${#missing_bun[@]}" "Bun global(s) tracked but missing"
 
 if command -v "$UV_BIN" >/dev/null 2>&1; then
-  read_lines_into declared_uv_raw "$(eval_channel uvTools)"
+  uv_declarations_probe=${#AUDIT_PROBE_PIDS[@]}
+  audit_probe_start eval_channel uvTools
+  uv_list_probe=${#AUDIT_PROBE_PIDS[@]}
+  audit_probe_start "$UV_BIN" tool list
+  audit_probe_wait_all
+
+  read_lines_into declared_uv_raw "$(audit_probe_output "$uv_declarations_probe")"
   mapfile -t declared_uv < <(printf '%s\n' "${declared_uv_raw[@]}" | normalize_uv_names)
 
-  readarray_safe uv_list_raw "$UV_BIN" tool list
+  readarray_safe uv_list_raw audit_probe_output "$uv_list_probe"
   mapfile -t installed_uv < <(
     printf '%s\n' "${uv_list_raw[@]}" \
       | grep -E '^[A-Za-z0-9]' \
@@ -474,6 +599,8 @@ audit_agent_plugins() {
   check_count "${#missing[@]}" "$label plugin(s) tracked but missing"
 }
 
+# Plugin declaration and list probes remain serial within this helper because
+# its report aggregation depends on both inputs.
 audit_agent_plugins "Claude Code" claudePlugins claude plugin list
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}" \
   audit_agent_plugins "Codex" codexPlugins codex plugin list
@@ -524,17 +651,20 @@ fi
 
 print_section "macOS /Applications Drift"
 
-mapfile -t all_apps < <(
-  {
-    find /Applications -maxdepth 2 -name "*.app" -type d 2>/dev/null
-    find "$HOME/Applications" -maxdepth 2 -name "*.app" -type d 2>/dev/null
-  } | sort -u
-)
+all_apps_probe=${#AUDIT_PROBE_PIDS[@]}
+audit_probe_start audit_probe_app_paths
+cask_list_probe=
+if [ -x "$BREW_BIN" ]; then
+  cask_list_probe=${#AUDIT_PROBE_PIDS[@]}
+  audit_probe_start "$BREW_BIN" list --cask
+fi
+audit_probe_wait_all
+mapfile -t all_apps < <(audit_probe_output "$all_apps_probe")
 
 cask_apps=()
 cask_app_basenames=()
 if [ -x "$BREW_BIN" ]; then
-  mapfile -t cask_list < <("$BREW_BIN" list --cask 2>/dev/null)
+  mapfile -t cask_list < <(audit_probe_output "$cask_list_probe")
   for c in "${cask_list[@]}"; do
     found_app=0
     while IFS= read -r path; do
@@ -545,22 +675,12 @@ if [ -x "$BREW_BIN" ]; then
       fi
     done < <("$BREW_BIN" ls --cask "$c" 2>/dev/null | grep '\.app$' || true)
 
-    # Some casks install purely via a .pkg installer (no `app` artifact stanza),
-    # so `brew ls --cask` only shows the downloaded .pkg, never the resulting
-    # .app bundles it drops in /Applications. Fall back to the cask's declared
-    # `uninstall.pkgutil` receipt IDs and ask pkgutil what that receipt actually
-    # installed, so pkg-based casks aren't misreported as unmanaged.
+    # Cask receipt aggregation stays serial after the cask-list probe settles.
     if [ "$found_app" -eq 0 ] && command -v jq >/dev/null 2>&1 && command -v pkgutil >/dev/null 2>&1; then
-      # .pkgutil is sometimes a bare string, sometimes an array - normalize both.
       mapfile -t pkg_ids < <("$BREW_BIN" info --cask "$c" --json=v2 2>/dev/null |
         jq -r '.casks[0].artifacts[]? | .uninstall[]?.pkgutil? | if type == "array" then .[] else . end' 2>/dev/null)
       for pkg_id in "${pkg_ids[@]}"; do
         [ -n "$pkg_id" ] || continue
-
-        # Some receipts install-location IS the app bundle itself (e.g.
-        # "Applications/Tailscale.app"), so the bundle never appears as an
-        # entry inside `pkgutil --files` (which only lists what's *inside*
-        # the install location). Catch that case directly first.
         pkg_location="$(pkgutil --pkg-info "$pkg_id" 2>/dev/null | awk -F': ' '/^location:/ {print $2}' || true)"
         case "$pkg_location" in
           */*.app | *.app)
@@ -570,21 +690,13 @@ if [ -x "$BREW_BIN" ]; then
             continue
             ;;
         esac
-
         while IFS= read -r rel_path; do
           [ -n "$rel_path" ] || continue
-          # Depending on the pkg's install-location, receipts list either
-          # "Applications/Foo.app" or just "Foo.app" - accept both, but only
-          # top-level bundles (skip nested helper .apps inside Contents/...).
           basename=""
           case "$rel_path" in
-            Applications/*.app)
-              basename="${rel_path#Applications/}"
-              ;;
-            */*) ;; # nested path (e.g. Foo.app/Contents/...) - not top-level
-            *.app)
-              basename="$rel_path"
-              ;;
+            Applications/*.app) basename="${rel_path#Applications/}" ;;
+            */*) ;;
+            *.app) basename="$rel_path" ;;
           esac
           if [ -n "$basename" ]; then
             cask_apps+=("/Applications/$basename")
@@ -616,38 +728,55 @@ printf '  Unmanaged (internet/manual): %s\n' "${#internet_apps[@]}"
 
 print_section "Apps Installed Outside Brew (manual/internet)"
 print_list "${internet_apps[@]}"
-
 print_section "Mac App Store Apps"
 print_list "${mas_apps[@]}"
-
 print_section "Brew Cask Apps On Disk"
 print_list "${cask_apps[@]}"
-
 print_section "Tracked Nix Packages"
 printf '%s\n' "${declared_nix_packages[@]}" | sed 's/^/  - /'
 
-# Out-of-band surfaces are not owned by flake.lock / Homebrew channels.
-# rebuild and apply-system-update both run this script, so keep these
-# advisory: warn and stay exit 0 so activation is not blocked.
+# Out-of-band surfaces are advisory: warn and stay exit 0.
 print_section "Out-of-band Freshness (advisory)"
 
-# Determinate Nix installs outside nix-darwin (`nix.enable = false`).
+# Collect up to four independent commands, then let the parent map results in
+# the existing report order.
+determinate_status_probe=
+nix_version_probe=
+softwareupdate_probe=
+brew_outdated_probe=
 if command -v determinate-nixd >/dev/null 2>&1; then
-  determinate_status="$(determinate-nixd status 2>&1 || true)"
-  nix_version_line="$(nix --version 2>/dev/null || true)"
+  determinate_status_probe=${#AUDIT_PROBE_PIDS[@]}
+  audit_probe_start audit_probe_combined determinate-nixd status
+  nix_version_probe=${#AUDIT_PROBE_PIDS[@]}
+  audit_probe_start nix --version
+fi
+if command -v softwareupdate >/dev/null 2>&1; then
+  softwareupdate_probe=${#AUDIT_PROBE_PIDS[@]}
+  audit_probe_start audit_probe_combined softwareupdate -l
+fi
+if [ -x "$BREW_BIN" ]; then
+  brew_outdated_probe=${#AUDIT_PROBE_PIDS[@]}
+  audit_probe_start "$BREW_BIN" outdated
+fi
+audit_probe_wait_all
+
+uv_check_probe=
+gh_check_probe=
+if [ -x "$ROOT_DIR/scripts/uv-sources" ]; then
+  uv_check_probe=${#AUDIT_PROBE_PIDS[@]}
+  audit_probe_start audit_probe_combined "$ROOT_DIR/scripts/uv-sources" check --best-effort
+fi
+if [ -x "$ROOT_DIR/scripts/github-sources" ]; then
+  gh_check_probe=${#AUDIT_PROBE_PIDS[@]}
+  audit_probe_start audit_probe_combined "$ROOT_DIR/scripts/github-sources" check --best-effort
+fi
+
+if command -v determinate-nixd >/dev/null 2>&1; then
+  determinate_status="$(audit_probe_output "$determinate_status_probe")"
+  nix_version_line="$(audit_probe_output "$nix_version_probe")"
   if printf '%s\n' "$determinate_status" | grep -qiE 'out of date|now available'; then
-    available="$(
-      printf '%s\n' "$determinate_status" |
-        grep -oE 'Determinate Nix [0-9]+(\.[0-9]+)+' |
-        head -1 |
-        awk '{ print $3 }'
-    )"
-    current="$(
-      printf '%s\n' "$nix_version_line" |
-        grep -oE 'Determinate Nix [0-9]+(\.[0-9]+)+' |
-        head -1 |
-        awk '{ print $3 }'
-    )"
+    available="$(printf '%s\n' "$determinate_status" | grep -oE 'Determinate Nix [0-9]+(\.[0-9]+)+' | head -1 | awk '{ print $3 }')"
+    current="$(printf '%s\n' "$nix_version_line" | grep -oE 'Determinate Nix [0-9]+(\.[0-9]+)+' | head -1 | awk '{ print $3 }')"
     if [ -n "$available" ] && [ -n "$current" ]; then
       record_warn "Determinate Nix $current → $available available"
     else
@@ -661,19 +790,12 @@ else
   record_warn "determinate-nixd not found"
 fi
 
-# Apple OS / firmware updates are never flake-managed.
 if command -v softwareupdate >/dev/null 2>&1; then
-  # -l talks to Apple; keep going if offline.
-  softwareupdate_out="$(softwareupdate -l 2>&1 || true)"
-  mapfile -t os_updates < <(
-    printf '%s\n' "$softwareupdate_out" |
-      sed -nE 's/^[[:space:]]*\*[[:space:]]*Label:[[:space:]]*(.*)$/\1/p'
-  )
+  softwareupdate_out="$(audit_probe_output "$softwareupdate_probe")"
+  mapfile -t os_updates < <(printf '%s\n' "$softwareupdate_out" | sed -nE 's/^[[:space:]]*\*[[:space:]]*Label:[[:space:]]*(.*)$/\1/p')
   if [ "${#os_updates[@]}" -gt 0 ]; then
     record_warn "macOS software update(s) available: ${os_updates[*]}"
-    for label in "${os_updates[@]}"; do
-      printf '    - %s\n' "$label"
-    done
+    for label in "${os_updates[@]}"; do printf '    - %s\n' "$label"; done
     warn_detail "fix: upgrade-out-of-band (lists; install via System Settings)"
   elif printf '%s\n' "$softwareupdate_out" | grep -qiE 'No new software available|No updates'; then
     record_ok "macOS softwareupdate: none pending"
@@ -684,10 +806,8 @@ else
   record_warn "softwareupdate not found"
 fi
 
-# Declared brew membership is tracked above; this is version freshness for
-# formulae/casks that only move on apply-system-update → update-homebrew.
 if [ -x "$BREW_BIN" ]; then
-  mapfile -t brew_outdated < <("$BREW_BIN" outdated 2>/dev/null | sed '/^$/d' || true)
+  mapfile -t brew_outdated < <(audit_probe_output "$brew_outdated_probe" | sed '/^$/d')
   if [ "${#brew_outdated[@]}" -gt 0 ]; then
     record_warn "${#brew_outdated[@]} Homebrew package(s) outdated"
     sample_count=10
@@ -706,46 +826,32 @@ if [ -x "$BREW_BIN" ]; then
   fi
 fi
 
-# Pin freshness for repo-managed mutable surfaces (no apply here).
+audit_probe_wait_all
 if [ -x "$ROOT_DIR/scripts/uv-sources" ]; then
-  uv_check_rc=0
-  uv_check_out="$("$ROOT_DIR/scripts/uv-sources" check --best-effort 2>&1)" || uv_check_rc=$?
+  uv_check_rc="$(audit_probe_status "$uv_check_probe")"
+  uv_check_out="$(audit_probe_output "$uv_check_probe")"
   case "$uv_check_rc" in
-    0)
-      record_ok "$(printf '%s\n' "$uv_check_out" | tail -1)"
-      ;;
+    0) record_ok "$(printf '%s\n' "$uv_check_out" | tail -1)" ;;
     10)
       record_warn "uv tool pins have newer PyPI releases"
       printf '%s\n' "$uv_check_out" | sed 's/^/    /'
       warn_detail "fix: update-system → review → apply-system-update"
       ;;
-    *)
-      printf '  uv pins: check skipped (%s)\n' "$(printf '%s\n' "$uv_check_out" | tail -1)"
-      ;;
+    *) printf '  uv pins: check skipped (%s)\n' "$(printf '%s\n' "$uv_check_out" | tail -1)" ;;
   esac
 fi
-
 if [ -x "$ROOT_DIR/scripts/github-sources" ]; then
-  gh_check_rc=0
-  gh_check_out="$("$ROOT_DIR/scripts/github-sources" check --best-effort 2>&1)" || gh_check_rc=$?
-  # Drop nix "Git tree dirty" noise; keep the verdict line(s).
-  gh_check_clean="$(
-    printf '%s\n' "$gh_check_out" |
-      grep -vE '^warning: Git tree|^warning: ignoring' || true
-  )"
+  gh_check_rc="$(audit_probe_status "$gh_check_probe")"
+  gh_check_out="$(audit_probe_output "$gh_check_probe")"
+  gh_check_clean="$(printf '%s\n' "$gh_check_out" | grep -vE '^warning: Git tree|^warning: ignoring' || true)"
   case "$gh_check_rc" in
-    0)
-      record_ok "$(printf '%s\n' "$gh_check_clean" | tail -1)"
-      ;;
+    0) record_ok "$(printf '%s\n' "$gh_check_clean" | tail -1)" ;;
     10)
       record_warn "GitHub release pins have newer upstreams"
       printf '%s\n' "$gh_check_clean" | sed 's/^/    /'
       warn_detail "fix: update-system → review → apply-system-update"
       ;;
-    *)
-      printf '  GitHub release pins: check skipped (%s)\n' \
-        "$(printf '%s\n' "$gh_check_clean" | tail -1)"
-      ;;
+    *) printf '  GitHub release pins: check skipped (%s)\n' "$(printf '%s\n' "$gh_check_clean" | tail -1)" ;;
   esac
 fi
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import json
 import subprocess
 import urllib.error
@@ -166,17 +167,38 @@ def run_check(check: CheckSpec) -> str:
         raise CheckFailed(str(error)) from error
     raise TypeError(f"unsupported check: {type(check).__name__}")
 
+MAX_CHECK_WORKERS = 8
+
 
 def evaluate(manifest: Manifest) -> list[CheckResult]:
-    results: list[CheckResult] = []
+    ordered = list(manifest.integrations)
     by_id: dict[str, CheckResult] = {}
+    pending = list(ordered)
 
-    pending = list(manifest.integrations)
     while pending:
-        progressed = False
-        for integration in list(pending):
-            if any(dependency not in by_id for dependency in integration.depends_on):
-                continue
+        frontier = [
+            integration
+            for integration in pending
+            if all(dependency in by_id for dependency in integration.depends_on)
+        ]
+        if not frontier:
+            raise RuntimeError("manifest dependencies could not be ordered")
+
+        futures = {}
+        runnable = [
+            integration
+            for integration in frontier
+            if all(by_id[dependency].state == "ready" for dependency in integration.depends_on)
+        ]
+        if runnable:
+            with ThreadPoolExecutor(max_workers=min(MAX_CHECK_WORKERS, len(runnable))) as executor:
+                futures = {
+                    integration.id: executor.submit(run_check, integration.check)
+                    for integration in runnable
+                }
+
+        frontier_results: list[CheckResult] = []
+        for integration in frontier:
             blockers = [
                 by_id[dependency]
                 for dependency in integration.depends_on
@@ -187,19 +209,41 @@ def evaluate(manifest: Manifest) -> list[CheckResult]:
                 result = _result(integration, "blocked", f"waiting for: {names}")
             else:
                 try:
-                    detail = run_check(integration.check)
+                    detail = futures[integration.id].result()
                     result = _result(integration, "ready", detail)
                 except CheckFailed as error:
                     result = _result(integration, "action-needed", str(error))
                 except Exception as error:  # Defensive boundary for operator diagnostics.
                     result = _result(integration, "error", f"{type(error).__name__}: {error}")
-            results.append(result)
-            by_id[integration.id] = result
+            frontier_results.append(result)
+
+        by_id.update({result.id: result for result in frontier_results})
+        frontier_ids = {integration.id for integration in frontier}
+        pending = [integration for integration in pending if integration.id not in frontier_ids]
+
+    return [by_id[identifier] for identifier in _legacy_result_order(ordered)]
+
+
+def _legacy_result_order(integrations: list[Integration]) -> list[str]:
+    ordered_ids: list[str] = []
+    resolved: set[str] = set()
+    pending = list(integrations)
+
+    while pending:
+        progressed = False
+        for integration in list(pending):
+            if any(dependency not in resolved for dependency in integration.depends_on):
+                continue
+            ordered_ids.append(integration.id)
+            resolved.add(integration.id)
             pending.remove(integration)
             progressed = True
         if not progressed:
             raise RuntimeError("manifest dependencies could not be ordered")
-    return results
+
+    return ordered_ids
+
+
 
 
 def _result(
