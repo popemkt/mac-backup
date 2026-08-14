@@ -89,7 +89,11 @@
       (
         set -e
         cd "$dotfiles_root"
-        nix flake update
+        local github_token nix_config
+        github_token="$(gh auth token)"
+        nix_config="''${NIX_CONFIG:-}"
+        NIX_CONFIG="$nix_config"$'\n'"access-tokens = github.com=$github_token" nix flake update
+        unset github_token nix_config
         nix run .#github-sources -- update
         nix run .#github-sources -- verify
         ./scripts/uv-sources update
