@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How direnv Works - Interactive Visual Guide</title>
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --bg-card: #1e293b;
+      --bg-card-hover: #334155;
+      --border-color: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-green: #4ade80;
+      --accent-yellow: #facc15;
+      --accent-red: #f87171;
+      --accent-purple: #c084fc;
+      --accent-orange: #fb923c;
+      --code-bg: #090d16;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      padding: 2rem 1rem;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    header h1 {
+      font-size: 2.25rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    /* Navigation Tabs */
+    .tabs {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      background-color: var(--bg-card);
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      padding: 0.55rem 1.1rem;
+      border-radius: 0.5rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      background-color: var(--bg-card-hover);
+      color: var(--text-main);
+    }
+
+    .tab-btn.active {
+      background-color: var(--accent-blue);
+      color: #0f172a;
+      border-color: var(--accent-blue);
+    }
+
+    /* Section Views */
+    .view-panel {
+      display: none;
+    }
+
+    .view-panel.active {
+      display: block;
+    }
+
+    /* Card styling */
+    .card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+
+    .card h2 {
+      font-size: 1.35rem;
+      color: var(--accent-blue);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card h3 {
+      font-size: 1.15rem;
+      color: var(--accent-green);
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .card p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.25rem;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+    }
+
+    @media (max-width: 900px) {
+      .grid-2, .grid-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .feature-card {
+      background-color: rgba(9, 13, 22, 0.6);
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+    }
+
+    .feature-card h4 {
+      color: var(--text-main);
+      font-size: 1.05rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .feature-card p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .badge-tag {
+      font-size: 0.75rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 0.25rem;
+      font-weight: 600;
+      display: inline-block;
+      margin-bottom: 0.5rem;
+    }
+
+    .tag-blue { background: rgba(56, 189, 248, 0.2); color: var(--accent-blue); }
+    .tag-green { background: rgba(74, 222, 128, 0.2); color: var(--accent-green); }
+    .tag-purple { background: rgba(192, 132, 252, 0.2); color: var(--accent-purple); }
+    .tag-orange { background: rgba(251, 146, 60, 0.2); color: var(--accent-orange); }
+
+    /* Comparison Table */
+    .table-wrapper {
+      overflow-x: auto;
+      margin-top: 1rem;
+    }
+
+    table.comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      text-align: left;
+    }
+
+    table.comparison-table th, table.comparison-table td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    table.comparison-table th {
+      background-color: var(--code-bg);
+      color: var(--accent-blue);
+      font-weight: 700;
+    }
+
+    table.comparison-table tr:hover {
+      background-color: var(--bg-card-hover);
+    }
+
+    .check-yes { color: var(--accent-green); font-weight: bold; }
+    .check-no { color: var(--accent-red); font-weight: bold; }
+    .check-partial { color: var(--accent-yellow); font-weight: bold; }
+
+    /* Lifecycle Stepper */
+    .stepper-nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .step-node {
+      background-color: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .step-node .step-num {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+
+    .step-node .step-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .step-node:hover {
+      border-color: var(--accent-blue);
+    }
+
+    .step-node.active {
+      border-color: var(--accent-blue);
+      background-color: rgba(56, 189, 248, 0.1);
+    }
+
+    .step-node.active .step-num {
+      color: var(--accent-blue);
+      font-weight: bold;
+    }
+
+    .step-detail {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 850px) {
+      .step-detail {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .detail-text h3 {
+      font-size: 1.2rem;
+      color: var(--accent-green);
+      margin-bottom: 0.75rem;
+    }
+
+    .detail-text p {
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+    }
+
+    .detail-text ul {
+      margin-left: 1.25rem;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .detail-text li {
+      margin-bottom: 0.5rem;
+    }
+
+    /* Visual Diagram Box */
+    .diagram-box {
+      background-color: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-family: var(--font-mono);
+      min-height: 250px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .flow-badge {
+      padding: 0.35rem 0.75rem;
+      border-radius: 0.375rem;
+      font-weight: 600;
+      font-size: 0.85rem;
+      margin-bottom: 0.75rem;
+      border: 1px solid transparent;
+    }
+
+    .badge-blue { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); border-color: rgba(56, 189, 248, 0.3); }
+    .badge-yellow { background: rgba(250, 204, 21, 0.15); color: var(--accent-yellow); border-color: rgba(250, 204, 21, 0.3); }
+    .badge-green { background: rgba(74, 222, 128, 0.15); color: var(--accent-green); border-color: rgba(74, 222, 128, 0.3); }
+    .badge-red { background: rgba(248, 113, 113, 0.15); color: var(--accent-red); border-color: rgba(248, 113, 113, 0.3); }
+    .badge-purple { background: rgba(192, 132, 252, 0.15); color: var(--accent-purple); border-color: rgba(192, 132, 252, 0.3); }
+
+    .code-block {
+      background-color: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      color: var(--text-main);
+      overflow-x: auto;
+      white-space: pre-wrap;
+    }
+
+    .code-keyword { color: var(--accent-purple); }
+    .code-string { color: var(--accent-green); }
+    .code-comment { color: var(--text-muted); font-style: italic; }
+    .code-var { color: var(--accent-blue); }
+
+    /* Interactive Simulator */
+    .simulator-grid {
+      display: grid;
+      grid-template-columns: 280px 1fr 280px;
+      gap: 1rem;
+    }
+
+    @media (max-width: 1024px) {
+      .simulator-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .tree-panel, .env-panel {
+      background-color: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+
+    .tree-title, .env-title {
+      font-weight: 700;
+      color: var(--accent-blue);
+      margin-bottom: 0.75rem;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.5rem;
+    }
+
+    .tree-item {
+      padding: 0.35rem 0.5rem;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background-color 0.15s;
+    }
+
+    .tree-item:hover {
+      background-color: var(--bg-card-hover);
+    }
+
+    .tree-item.active {
+      background-color: rgba(56, 189, 248, 0.2);
+      color: var(--accent-blue);
+      font-weight: bold;
+    }
+
+    .file-badge {
+      font-size: 0.7rem;
+      padding: 0.1rem 0.35rem;
+      border-radius: 0.2rem;
+      font-weight: normal;
+    }
+
+    .terminal-window {
+      background-color: #050811;
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      height: 400px;
+      overflow: hidden;
+    }
+
+    .terminal-header {
+      background-color: #121827;
+      padding: 0.5rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .dot-red { background-color: #ef4444; }
+    .dot-yellow { background-color: #f59e0b; }
+    .dot-green { background-color: #10b981; }
+
+    .terminal-title {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      margin-left: 0.5rem;
+    }
+
+    .terminal-body {
+      padding: 1rem;
+      flex: 1;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+    }
+
+    .log-line {
+      margin-bottom: 0.4rem;
+      word-break: break-all;
+    }
+
+    .log-prompt { color: var(--accent-blue); font-weight: bold; }
+    .log-direnv { color: var(--accent-purple); font-weight: bold; }
+    .log-load { color: var(--accent-green); }
+    .log-unload { color: var(--accent-yellow); }
+    .log-error { color: var(--accent-red); }
+    .log-system { color: var(--text-muted); }
+
+    .quick-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-action {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.4rem 0.75rem;
+      border-radius: 0.375rem;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-action:hover {
+      background-color: var(--accent-blue);
+      color: #0f172a;
+      border-color: var(--accent-blue);
+    }
+
+    .env-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.3rem 0;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+      font-size: 0.8rem;
+    }
+
+    .env-key { color: var(--accent-blue); font-weight: 600; }
+    .env-val { color: var(--accent-green); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Architecture diagram */
+    .arch-flow {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      align-items: center;
+      margin: 1rem 0;
+    }
+
+    .arch-node {
+      background-color: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      width: 100%;
+      max-width: 600px;
+      text-align: center;
+      position: relative;
+    }
+
+    .arch-node h4 {
+      color: var(--accent-blue);
+      margin-bottom: 0.3rem;
+    }
+
+    .arch-node p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .arch-arrow {
+      color: var(--accent-purple);
+      font-size: 1.25rem;
+      font-weight: bold;
+    }
+
+    /* Callouts */
+    .callout {
+      border-left: 4px solid var(--accent-yellow);
+      background-color: rgba(250, 204, 21, 0.05);
+      padding: 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .callout strong {
+      color: var(--accent-yellow);
+    }
+
+    .callout-blue {
+      border-left-color: var(--accent-blue);
+      background-color: rgba(56, 189, 248, 0.05);
+    }
+    .callout-blue strong { color: var(--accent-blue); }
+
+    .callout-purple {
+      border-left-color: var(--accent-purple);
+      background-color: rgba(192, 132, 252, 0.05);
+    }
+    .callout-purple strong { color: var(--accent-purple); }
+
+    footer {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 3rem;
+      border-top: 1px solid var(--border-color);
+      padding-top: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>How direnv Works</h1>
+    <p>An interactive visual guide to directory-scoped environment variables, subshell isolation, shell hooks, alternative solutions, and Nix integration.</p>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('use-cases', this)">1. What It's For</button>
+    <button class="tab-btn" onclick="switchTab('lifecycle', this)">2. 6-Step Lifecycle</button>
+    <button class="tab-btn" onclick="switchTab('simulator', this)">3. Terminal Simulator</button>
+    <button class="tab-btn" onclick="switchTab('alternatives', this)">4. Similar Solutions</button>
+    <button class="tab-btn" onclick="switchTab('nix', this)">5. Nix & nix-direnv</button>
+    <button class="tab-btn" onclick="switchTab('architecture', this)">6. Architecture & Security</button>
+  </div>
+
+  <!-- VIEW 1: WHAT IT'S FOR -->
+  <div id="view-use-cases" class="view-panel active">
+    <div class="card">
+      <h2>The Core Problem & What direnv Solves</h2>
+      <p>
+        In modern software development, different projects require different environment variables, secret tokens, tool versions, and database URLs. Without <code>direnv</code>, developers face common friction points:
+      </p>
+
+      <div class="grid-2">
+        <div class="feature-card" style="border-color: rgba(248, 113, 113, 0.4);">
+          <span class="badge-tag" style="background: rgba(248, 113, 113, 0.2); color: var(--accent-red);">❌ BEFORE DIRENV (Manual Friction)</span>
+          <ul style="margin-left: 1.25rem; font-size: 0.88rem; color: var(--text-muted);">
+            <li>Forgetting to run <code>source .env</code> when opening a new terminal tab.</li>
+            <li>Environment variables from Project A bleeding into commands run in Project B.</li>
+            <li>Polluting global <code>~/.zshrc</code> / <code>~/.bashrc</code> with project-specific API keys.</li>
+            <li>Manual <code>export AWS_PROFILE=staging</code> causing accidental production deploys.</li>
+          </ul>
+        </div>
+
+        <div class="feature-card" style="border-color: rgba(74, 222, 128, 0.4);">
+          <span class="badge-tag tag-green">✓ WITH DIRENV (Automated Isolation)</span>
+          <ul style="margin-left: 1.25rem; font-size: 0.88rem; color: var(--text-muted);">
+            <li><strong>Automatic Loading:</strong> Environment variables load immediately upon <code>cd</code> into a project.</li>
+            <li><strong>Automatic Unloading:</strong> Variables disappear clean as soon as you <code>cd ..</code> out.</li>
+            <li><strong>Isolated & Safe:</strong> Evaluated in a subshell sandbox so it won't crash your main shell.</li>
+            <li><strong>Toolchain Integration:</strong> Automatically activates Python venvs, Node paths, or Nix shells.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Primary Use Cases</h2>
+
+      <div class="grid-3">
+        <div class="feature-card">
+          <span class="badge-tag tag-blue">1. SECRETS &amp; LOCAL CONFIG</span>
+          <h4>Per-Project Environment</h4>
+          <p>Keep API keys, DB connections, and debug flags isolated strictly to the directory.</p>
+          <div class="code-block"><span class="code-comment"># Secrets live in gitignored .env.local or .envrc.private:</span>
+<span class="code-keyword">dotenv_if_exists</span> .env.local
+<span class="code-keyword">source_env_if_exists</span> .envrc.private</div>
+          <p style="font-size: 0.78rem; color: var(--accent-yellow); margin-top: 0.5rem; margin-bottom: 0;">
+            🔒 <strong>Security Note:</strong> Never commit secrets to Git! Keep <code>.envrc</code> clean and load local secrets from gitignored <code>.env.local</code> or <code>.envrc.private</code>.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <span class="badge-tag tag-purple">2. PATH EXTENSION</span>
+          <h4>Run devDependencies Directly</h4>
+          <p>Automatically prepends <code>./node_modules/.bin</code> &amp; <code>./scripts</code> to <code>$PATH</code>. Run local CLI tools (<code>vite</code>, <code>eslint</code>, <code>tsc</code>) directly as commands without <code>npx</code> or <code>pnpm exec</code>!</p>
+          <div class="code-block"><span class="code-comment"># Auto-add ./node_modules/.bin to $PATH:</span>
+<span class="code-keyword">layout</span> node
+
+<span class="code-comment"># Auto-add project scripts folder to $PATH:</span>
+<span class="code-keyword">PATH_add</span> ./scripts</div>
+        </div>
+
+        <div class="feature-card">
+          <span class="badge-tag tag-orange">3. VIRTUAL ENVS</span>
+          <h4>Python / Ruby Isolation</h4>
+          <p>Automatically create and activate Virtualenvs or Ruby gems as soon as you enter the directory.</p>
+          <div class="code-block"><span class="code-comment"># Auto-activates .venv/</span>
+<span class="code-keyword">layout</span> python python3.11</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Standard Library (stdlib) Directives Explained</h2>
+      <p>Inside <code>.envrc</code>, direnv provides built-in helper functions (called the <code>stdlib</code>) to streamline project setup. Here is how the key directives work:</p>
+
+      <div class="grid-3" style="margin-top: 1rem;">
+        <div class="feature-card" style="border-color: rgba(56, 189, 248, 0.4);">
+          <span class="badge-tag tag-blue">layout node</span>
+          <h4>Node.js Binary Helper</h4>
+          <p><strong>What it does:</strong> Automatically prepends <code>./node_modules/.bin</code> to your shell's <code>$PATH</code>.</p>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0;"><strong>Why use it:</strong> Run local CLI tools like <code>vite</code>, <code>jest</code>, <code>eslint</code>, <code>prettier</code>, or <code>tsc</code> directly from your terminal prompt (e.g., <code>vite dev</code>) without typing <code>npx</code> or <code>./node_modules/.bin/</code>.</p>
+        </div>
+
+        <div class="feature-card" style="border-color: rgba(192, 132, 252, 0.4);">
+          <span class="badge-tag tag-purple">dotenv / dotenv_if_exists</span>
+          <h4>Native .env Parser (Not Node.js!)</h4>
+          <p><strong>Is it Node.js?</strong> <span style="color: var(--accent-red); font-weight: bold;">No!</span> It is completely independent of the Node.js <code>dotenv</code> npm package.</p>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0;"><strong>What it does:</strong> A native Go/Bash parser built directly into direnv. It reads key-value pairs from standard <code>.env</code> or <code>.env.local</code> files and exports them into your shell session on <code>cd</code> without needing Node.js or any runtime installed.</p>
+        </div>
+
+        <div class="feature-card" style="border-color: rgba(74, 222, 128, 0.4);">
+          <span class="badge-tag tag-green">PATH_add &lt;path&gt;</span>
+          <h4>Safe PATH Prepending</h4>
+          <p><strong>What it does:</strong> Safely prepends a directory (e.g., <code>PATH_add ./bin</code> or <code>PATH_add scripts</code>) to your <code>$PATH</code>.</p>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0;"><strong>Why not <code>export PATH="./bin:$PATH"</code>?</strong><br>
+          1. <em>Absolute path expansion:</em> Expands <code>./bin</code> relative to the <code>.envrc</code> folder, so changing into subdirectories (e.g. <code>cd src/utils</code>) won't break relative paths.<br>
+          2. <em>Clean unloading:</em> Safely unsets and restores original <code>$PATH</code> when you <code>cd ..</code>.<br>
+          3. <em>Safety:</em> Checks directory existence & avoids duplicate PATH entries.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Interactive .envrc Directive Playground</h2>
+      <p>Click below to preview common standard library (<code>stdlib</code>) idioms used in <code>.envrc</code> files:</p>
+
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+        <button class="btn-action" onclick="showSnippet('dotenv')">Load .env files</button>
+        <button class="btn-action" onclick="showSnippet('python')">Python Virtualenv</button>
+        <button class="btn-action" onclick="showSnippet('node')">Node.js Binaries</button>
+        <button class="btn-action" onclick="showSnippet('nix')">Nix Flakes</button>
+      </div>
+
+      <div class="code-block" id="playground-code">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 2: STEP BY STEP LIFECYCLE -->
+  <div id="view-lifecycle" class="view-panel">
+    <div class="card">
+      <h2>The 6-Step direnv Lifecycle</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1.25rem;">
+        Click through each phase below to see how direnv automatically loads and unloads environment variables as you navigate directories.
+      </p>
+
+      <div class="stepper-nav">
+        <div class="step-node active" onclick="setStep(1)">
+          <span class="step-num">Step 1</span>
+          <span class="step-title">Shell Hook</span>
+        </div>
+        <div class="step-node" onclick="setStep(2)">
+          <span class="step-num">Step 2</span>
+          <span class="step-title">Discovery</span>
+        </div>
+        <div class="step-node" onclick="setStep(3)">
+          <span class="step-num">Step 3</span>
+          <span class="step-title">Security Check</span>
+        </div>
+        <div class="step-node" onclick="setStep(4)">
+          <span class="step-num">Step 4</span>
+          <span class="step-title">Subshell Eval</span>
+        </div>
+        <div class="step-node" onclick="setStep(5)">
+          <span class="step-num">Step 5</span>
+          <span class="step-title">Env Diffing</span>
+        </div>
+        <div class="step-node" onclick="setStep(6)">
+          <span class="step-num">Step 6</span>
+          <span class="step-title">Parent Export</span>
+        </div>
+      </div>
+
+      <div class="step-detail card" style="background-color: rgba(15, 23, 42, 0.5); margin-bottom: 0;">
+        <div class="detail-text" id="step-text-container">
+          <!-- Populated by JS -->
+        </div>
+        <div class="diagram-box" id="step-diagram-container">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 3: INTERACTIVE SIMULATOR -->
+  <div id="view-simulator" class="view-panel">
+    <div class="card">
+      <h2>Interactive Shell & direnv Simulator</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1.25rem;">
+        Navigate through directories, view live direnv terminal logs, inspect environment variables, and test <code>direnv allow</code> / <code>direnv deny</code>.
+      </p>
+
+      <div class="simulator-grid">
+        <!-- Directory Tree Panel -->
+        <div class="tree-panel">
+          <div class="tree-title">Directory Structure</div>
+          <div id="tree-container">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Terminal Panel -->
+        <div>
+          <div class="terminal-window">
+            <div class="terminal-header">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+              <span class="terminal-title">zsh - direnv simulation</span>
+            </div>
+            <div class="terminal-body" id="terminal-body">
+              <!-- Logs appended here -->
+            </div>
+          </div>
+
+          <div class="quick-actions">
+            <button class="btn-action" onclick="runSimCommand('cd ~/projects/app-backend')">cd ~/projects/app-backend</button>
+            <button class="btn-action" onclick="runSimCommand('cd ~/projects/app-frontend')">cd ~/projects/app-frontend</button>
+            <button class="btn-action" onclick="runSimCommand('cd ~/projects')">cd ~/projects</button>
+            <button class="btn-action" onclick="runSimCommand('direnv allow')">direnv allow</button>
+            <button class="btn-action" onclick="runSimCommand('direnv deny')">direnv deny</button>
+            <button class="btn-action" onclick="runSimCommand('env')">env</button>
+          </div>
+        </div>
+
+        <!-- Environment Variable Inspector Panel -->
+        <div class="env-panel">
+          <div class="env-title">Active Process Env</div>
+          <div id="env-container">
+            <!-- Active env vars populated by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 4: SIMILAR SOLUTIONS -->
+  <div id="view-alternatives" class="view-panel">
+    <div class="card">
+      <h2>Similar Solutions & Ecosystem Comparison</h2>
+      <p>
+        How does <code>direnv</code> compare to language-specific dotenv loaders, shell hooks, version managers, and Nix shells?
+      </p>
+
+      <div class="grid-2">
+        <div class="feature-card">
+          <h4>1. Language Dotenv Libraries</h4>
+          <span class="badge-tag tag-blue">python-dotenv / dotenv-rails / godotenv</span>
+          <p>Loads <code>.env</code> files inside application process memory during runtime.</p>
+          <ul style="margin-left: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
+            <li><strong>Difference:</strong> Only affects the application process, not CLI commands run in your shell (e.g., <code>git</code>, <code>aws</code>, <code>psql</code>).</li>
+            <li><strong>Scripting:</strong> Cannot execute shell logic or adjust <code>$PATH</code>.</li>
+          </ul>
+        </div>
+
+        <div class="feature-card">
+          <h4>2. Shell Directory Hooks</h4>
+          <span class="badge-tag tag-purple">autoenv / smartcd</span>
+          <p>Sources <code>.env</code> or shell scripts directly when changing directories.</p>
+          <ul style="margin-left: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
+            <li><strong>Difference:</strong> <code>autoenv</code> sources directly into the main shell without subshell diffing or automatic variable unsetting when leaving.</li>
+            <li><strong>Security:</strong> Lacks <code>direnv</code>'s strict subshell sandbox.</li>
+          </ul>
+        </div>
+
+        <div class="feature-card">
+          <h4>3. All-in-One Version & Env Managers</h4>
+          <span class="badge-tag tag-orange">mise (rtx) / asdf</span>
+          <p>Blends runtime version management (Node, Python) with environment variable loading.</p>
+          <ul style="margin-left: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
+            <li><strong>Difference:</strong> <code>mise</code> combines <code>asdf</code> + <code>direnv</code> into one tool.</li>
+            <li><strong>Philosophy:</strong> <code>direnv</code> strictly focuses on environment diffing and pairs with Nix/asdf.</li>
+          </ul>
+        </div>
+
+        <div class="feature-card">
+          <h4>4. Team Environment Managers</h4>
+          <span class="badge-tag tag-green">shadowenv (by Shopify)</span>
+          <p>Uses Lisp-based configuration files to safely manage team shell environments.</p>
+          <ul style="margin-left: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
+            <li><strong>Difference:</strong> Uses custom Lisp syntax instead of standard shell script syntax.</li>
+            <li><strong>Focus:</strong> Built for large enterprise teams needing fast, deterministic overrides.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Comprehensive Tool Comparison Matrix</h2>
+      <div class="table-wrapper">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Feature / Capability</th>
+              <th>direnv</th>
+              <th>dotenv (.env)</th>
+              <th>autoenv</th>
+              <th>mise (rtx)</th>
+              <th>nix-shell</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Scope Level</strong></td>
+              <td>Shell & Process</td>
+              <td>App Code Only</td>
+              <td>Shell Level</td>
+              <td>Shell & Process</td>
+              <td>Isolated Process</td>
+            </tr>
+            <tr>
+              <td><strong>Auto-Unload on <code>cd ..</code></strong></td>
+              <td class="check-yes">✓ Automatic</td>
+              <td class="check-no">N/A</td>
+              <td class="check-no">✗ Manual script</td>
+              <td class="check-yes">✓ Automatic</td>
+              <td class="check-partial">Exit subshell</td>
+            </tr>
+            <tr>
+              <td><strong>Subshell Sandbox & Diff</strong></td>
+              <td class="check-yes">✓ Yes (isolated)</td>
+              <td class="check-no">✗ No</td>
+              <td class="check-no">✗ Direct source</td>
+              <td class="check-yes">✓ Yes</td>
+              <td class="check-yes">✓ Subshell</td>
+            </tr>
+            <tr>
+              <td><strong>Arbitrary Shell Scripts</strong></td>
+              <td class="check-yes">✓ Full Bash/Zsh</td>
+              <td class="check-no">✗ Key-Value only</td>
+              <td class="check-yes">✓ Full Shell</td>
+              <td class="check-partial">Limited DSL</td>
+              <td class="check-yes">✓ Full Nix/Bash</td>
+            </tr>
+            <tr>
+              <td><strong>Dynamic $PATH Extension</strong></td>
+              <td class="check-yes">✓ PATH_add</td>
+              <td class="check-no">✗ No</td>
+              <td class="check-yes">✓ Manual export</td>
+              <td class="check-yes">✓ Automatic</td>
+              <td class="check-yes">✓ Full closure</td>
+            </tr>
+            <tr>
+              <td><strong>Security Hash Verification</strong></td>
+              <td class="check-yes">✓ SHA-256 allow</td>
+              <td class="check-no">✗ None</td>
+              <td class="check-partial">~ Basic prompt</td>
+              <td class="check-yes">✓ Trust prompt</td>
+              <td class="check-yes">✓ Nix store hash</td>
+            </tr>
+            <tr>
+              <td><strong>Binary Package Provisioning</strong></td>
+              <td class="check-partial">Via Nix/layout</td>
+              <td class="check-no">✗ No</td>
+              <td class="check-no">✗ No</td>
+              <td class="check-yes">✓ Built-in</td>
+              <td class="check-yes">✓ Native Nix</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 5: NIX ECOSYSTEM & NIX-DIRENV -->
+  <div id="view-nix" class="view-panel">
+    <div class="card">
+      <h2>How direnv Fits into the Nix Ecosystem</h2>
+      <p>
+        Nix allows developers to build completely reproducible, hermetic development environments (<code>shell.nix</code> or <code>flake.nix</code>). However, standard Nix usage has developer UX limitations that <code>direnv</code> solves seamlessly.
+      </p>
+
+      <div class="grid-2">
+        <div class="feature-card">
+          <h4>The Problem with Vanilla <code>nix-shell</code> / <code>nix develop</code></h4>
+          <ul style="margin-left: 1.25rem; font-size: 0.88rem; color: var(--text-muted);">
+            <li>Spawns a <strong>nested subshell</strong> process (you have to type <code>exit</code> to leave).</li>
+            <li>Breaks shell prompt customizations, Zsh/Fish themes, history, and custom keybindings.</li>
+            <li>Does not automatically activate when you <code>cd</code> into a directory.</li>
+          </ul>
+        </div>
+
+        <div class="feature-card" style="border-color: var(--accent-purple);">
+          <h4>The Solution: <code>direnv</code> + <code>nix-direnv</code></h4>
+          <ul style="margin-left: 1.25rem; font-size: 0.88rem; color: var(--text-muted);">
+            <li>Injects the Nix devShell environment directly into your <strong>main, primary shell</strong>.</li>
+            <li>Automatically loads packages and env vars on <code>cd</code> and unloads them on <code>cd ..</code>.</li>
+            <li>Keeps your full interactive shell setup, aliases, history, and theme intact.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout callout-purple">
+        <strong>Directives in .envrc:</strong><br>
+        <code>use nix</code> — Loads legacy Nix environment from <code>shell.nix</code> or <code>default.nix</code>.<br>
+        <code>use flake</code> — Loads modern Nix Flakes environment from <code>flake.nix</code> (outputs.devShells).
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>The Game Changer: <code>nix-direnv</code> Extension</h2>
+      <p>
+        Standard <code>use flake</code> evaluates Nix expressions synchronously on every <code>cd</code>, which can take 1–3 seconds. Furthermore, Nix garbage collection (<code>nix-collect-garbage</code>) will wipe out your unreferenced project dependencies! <code>nix-direnv</code> solves both issues:
+      </p>
+
+      <div class="grid-3">
+        <div class="feature-card">
+          <span class="badge-tag tag-green">1. INSTANT LOAD (0ms)</span>
+          <h4>Persistent Environment Cache</h4>
+          <p>Caches the evaluated Nix devShell environment inside <code>.direnv/</code>. Switching directories becomes instant (0ms latency).</p>
+        </div>
+
+        <div class="feature-card">
+          <span class="badge-tag tag-blue">2. GC PROTECTION</span>
+          <h4>Garbage Collector Roots</h4>
+          <p>Registers GC roots in <code>.direnv/cain-gcroots</code> so <code>nix-collect-garbage</code> won't delete your project's build dependencies.</p>
+        </div>
+
+        <div class="feature-card">
+          <span class="badge-tag tag-purple">3. ASYNC RELOAD</span>
+          <h4>Background Evaluation</h4>
+          <p>When <code>flake.nix</code> or <code>flake.lock</code> changes, <code>nix-direnv</code> re-evaluates the Nix shell in the background without blocking your prompt.</p>
+        </div>
+      </div>
+
+      <h3>Nix + nix-direnv Data Flow Diagram</h3>
+      <div class="arch-flow">
+        <div class="arch-node">
+          <h4>1. Developer enters directory with <code>flake.nix</code> and <code>.envrc</code> (containing <code>use flake</code>)</h4>
+        </div>
+        <div class="arch-arrow">↓ First time or cache miss</div>
+        <div class="arch-node">
+          <h4>2. <code>nix-direnv</code> invokes <code>nix print-dev-env</code> & creates GC roots</h4>
+          <p>Stores result in <code>.direnv/flake-profile</code> to protect packages from Garbage Collection.</p>
+        </div>
+        <div class="arch-arrow">↓ Cached environment loaded</div>
+        <div class="arch-node" style="border-color: var(--accent-green);">
+          <h4>3. Instant Shell Export (&lt; 10ms)</h4>
+          <p>Environment variables & Nix package paths exported directly into active terminal session.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>High-Level Frameworks Built on Nix + direnv</h2>
+      <div class="grid-2">
+        <div class="feature-card">
+          <h4>Devenv (devenv.sh)</h4>
+          <p>Declarative, fast developer environments powered by Nix + Flakes. Running <code>devenv init</code> automatically generates a <code>.envrc</code> file with <code>use devenv</code>.</p>
+          <div class="code-block"><span class="code-comment"># .envrc generated by devenv</span>
+<span class="code-keyword">use</span> devenv</div>
+        </div>
+
+        <div class="feature-card">
+          <h4>Devshell (numtide/devshell)</h4>
+          <p>A Nix flake framework focused on per-project CLI commands, environment variables, and toolchain setup, designed to integrate directly with <code>nix-direnv</code>.</p>
+          <div class="code-block"><span class="code-comment"># .envrc for devshell</span>
+<span class="code-keyword">use</span> flake</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 6: ARCHITECTURE & SECURITY -->
+  <div id="view-architecture" class="view-panel">
+    <div class="card">
+      <h2>Architecture & Data Flow</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1rem;">
+        How direnv connects your interactive shell, file system triggers, subshell execution, and hash authorization.
+      </p>
+
+      <div class="arch-flow">
+        <div class="arch-node">
+          <h4>1. Interactive Shell (Bash / Zsh / Fish)</h4>
+          <p>Hook function runs on every prompt (e.g., <code>PROMPT_COMMAND</code> or <code>precmd</code>).</p>
+        </div>
+
+        <div class="arch-arrow">↓ Invokes <code>eval "$(direnv export zsh)"</code></div>
+
+        <div class="arch-node">
+          <h4>2. direnv Binary Execution</h4>
+          <p>Scans upward from current directory to find <code>.envrc</code> / <code>.env</code> files.</p>
+        </div>
+
+        <div class="arch-arrow">↓ Checks <code>~/.config/direnv/allow/&lt;sha256&gt;</code></div>
+
+        <div class="arch-node">
+          <h4>3. Security Verification</h4>
+          <p>Verifies path & SHA-256 hash of <code>.envrc</code> against allowed checksum store.</p>
+        </div>
+
+        <div class="arch-arrow">↓ If allowed: Spawns Subshell</div>
+
+        <div class="arch-node">
+          <h4>4. Subshell Evaluation & Environment Capture</h4>
+          <p>Runs <code>bash -c "source ~/.config/direnv/direnvrc &amp;&amp; source .envrc &amp;&amp; env"</code> and captures environment snapshot B.</p>
+        </div>
+
+        <div class="arch-arrow">↓ Compares Snapshot A (Before) vs Snapshot B (After)</div>
+
+        <div class="arch-node">
+          <h4>5. Diff Generation & Host Shell Evaluation</h4>
+          <p>Outputs formatted <code>export VAR=val</code> or <code>unset VAR</code> statements into host shell.</p>
+        </div>
+      </div>
+
+      <div class="callout">
+        <strong>Why Subshell Isolation is Crucial:</strong><br>
+        Directly sourcing arbitrary shell scripts into your main interactive shell could permanently pollute state or run unsafe commands.
+        By executing <code>.envrc</code> in an isolated subshell, <code>direnv</code> accurately records only the resulting environment changes (delta) without leaking shell functions or aliases into your main terminal session.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Common direnv Standard Library Directives</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1rem;">
+        Inside <code>.envrc</code>, direnv provides built-in helper functions (stdlib) for common development setups:
+      </p>
+
+      <div class="code-block"><span class="code-comment"># Add local node_modules/.bin to PATH so you can run tools like 'vite' or 'jest' directly</span>
+<span class="code-keyword">layout</span> node
+
+<span class="code-comment"># Activate a Python virtual environment automatically</span>
+<span class="code-keyword">layout</span> python python3.11
+
+<span class="code-comment"># Load variables from standard .env file (Native parser, no Node.js required!)</span>
+<span class="code-keyword">dotenv</span> .env.local
+
+<span class="code-comment"># Prepend directory to PATH with absolute path resolution and clean unloading</span>
+<span class="code-keyword">PATH_add</span> ./bin
+
+<span class="code-comment"># Load Nix / Flake environment</span>
+<span class="code-keyword">use</span> flake</div>
+    </div>
+  </div>
+
+  <footer>
+    <p>direnv Visualization Guide • Interactive HTML/CSS/JS • Zero Dependencies</p>
+  </footer>
+</div>
+
+<script>
+  /* TAB SWITCHING */
+  function switchTab(tabId, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
+
+    if (btn) {
+      btn.classList.add('active');
+    }
+    const target = document.getElementById('view-' + tabId);
+    if (target) {
+      target.classList.add('active');
+    }
+  }
+
+  /* PLAYGROUND SNIPPETS */
+  const snippets = {
+    dotenv: `<span class="code-comment"># Load standard .env file (Native direnv stdlib parser - NOT Node.js!)</span>
+<span class="code-keyword">dotenv</span> .env
+
+<span class="code-comment"># Load overriding local secrets file if present (silently ignores if missing)</span>
+<span class="code-keyword">dotenv_if_exists</span> .env.local`,
+
+    python: `<span class="code-comment"># Creates/activates virtualenv in .venv/ using python3.11</span>
+<span class="code-keyword">layout</span> python python3.11
+
+<span class="code-comment"># Export custom app environment variables</span>
+<span class="code-keyword">export</span> <span class="code-var">FLASK_ENV</span>=<span class="code-string">"development"</span>
+<span class="code-keyword">export</span> <span class="code-var">PYTHONPATH</span>=<span class="code-string">"./src"</span>`,
+
+    node: `<span class="code-comment"># Prepends ./node_modules/.bin to $PATH so you can run 'vite', 'jest', or 'tsc' directly</span>
+<span class="code-keyword">layout</span> node
+
+<span class="code-comment"># Or add custom bin scripts folder with PATH_add (resolves absolute path)</span>
+<span class="code-keyword">PATH_add</span> ./scripts
+
+<span class="code-keyword">export</span> <span class="code-var">PORT</span>=<span class="code-string">"3000"</span>
+<span class="code-keyword">export</span> <span class="code-var">NODE_ENV</span>=<span class="code-string">"development"</span>`,
+
+    nix: `<span class="code-comment"># 1. Automatically load Nix Flake devShell into primary shell (no 'nix develop' subshell!)</span>
+<span class="code-keyword">use</span> flake
+
+<span class="code-comment"># 2. (Optional) Also prepend project custom ./scripts folder to $PATH</span>
+<span class="code-keyword">PATH_add</span> ./scripts`
+  };
+
+  function showSnippet(type) {
+    const el = document.getElementById('playground-code');
+    if (el && snippets[type]) {
+      el.innerHTML = snippets[type];
+    }
+  }
+
+  // Initialize playground
+  showSnippet('dotenv');
+
+  /* STEPPER DATA & CONTROLLER */
+  const stepsData = {
+    1: {
+      title: "Shell Prompt Hook",
+      heading: "1. The Shell Hook Trigger",
+      description: "direnv hooks into your shell's prompt handler (like PROMPT_COMMAND in Bash or precmd in Zsh). Every time you change directories or press Enter, the hook executes.",
+      points: [
+        "Hook function executes lightweight 'direnv export <shell>' command.",
+        "Passes current environment state and current directory path to direnv.",
+        "Runs silently in the background before displaying your command prompt."
+      ],
+      badge: "badge-blue",
+      badgeText: "SHELL HOOK FIRED",
+      codeSnippet: `<span class="code-comment"># Shell Hook configuration in ~/.zshrc</span>
+<span class="code-keyword">eval</span> <span class="code-string">"$(direnv hook zsh)"</span>
+
+<span class="code-comment"># What happens on every prompt:</span>
+<span class="code-keyword">precmd</span>() {
+  <span class="code-keyword">eval</span> <span class="code-string">"$(direnv export zsh)"</span>
+}`
+    },
+    2: {
+      title: "Directory Discovery",
+      heading: "2. Locating .envrc Files",
+      description: "direnv scans the current working directory and traverses up parent directories searching for an .envrc or .env file.",
+      points: [
+        "Traverses upward until root '/' or a directory marked with DIRENV_DIR.",
+        "Allows nested configs (child .envrc can extend parent settings via 'source_up').",
+        "Detects when you leave a managed directory so it can unload variables."
+      ],
+      badge: "badge-yellow",
+      badgeText: "DIRECTORY DISCOVERY",
+      codeSnippet: `<span class="code-comment"># Traverses parent tree:</span>
+/home/user/projects/app/  <span class="code-comment">← Checks here (.envrc found!)</span>
+/home/user/projects/      <span class="code-comment">← Checks here</span>
+/home/user/               <span class="code-comment">← Checks here</span>`
+    },
+    3: {
+      title: "Security Check",
+      heading: "3. Hash & Security Authorization",
+      description: "Executing arbitrary scripts on 'cd' is a potential security risk. direnv ensures you have explicitly approved the file before running it.",
+      points: [
+        "Computes SHA-256 hash of the .envrc content and file path.",
+        "Compares hash against approved hashes in ~/.config/direnv/allow/.",
+        "If modified or new, blocks execution and warns user to run 'direnv allow'."
+      ],
+      badge: "badge-red",
+      badgeText: "SECURITY VERIFICATION",
+      codeSnippet: `<span class="code-comment"># Hash check location:</span>
+~/.config/direnv/allow/&lt;sha256_hash_of_path_and_content&gt;
+
+<span class="code-comment"># If blocked, terminal shows:</span>
+<span class="code-var">direnv: error .envrc is blocked. Run \`direnv allow\` to approve</span>`
+    },
+    4: {
+      title: "Subshell Evaluation",
+      heading: "4. Isolated Subshell Execution",
+      description: "If authorized, direnv spawns an isolated Bash subshell to evaluate the .envrc script safely.",
+      points: [
+        "Executes .envrc inside a separate clean subshell process.",
+        "Loads direnv's standard library (stdlib) providing <code>layout node</code>, <code>dotenv</code>, <code>PATH_add</code>, etc.",
+        "<strong>layout node:</strong> Adds <code>./node_modules/.bin</code> to <code>$PATH</code> so you can run local binaries directly.",
+        "<strong>dotenv:</strong> Native direnv parser (not Node.js) that loads <code>.env</code> files.",
+        "<strong>PATH_add:</strong> Safely expands relative paths to absolute paths anchored at <code>.envrc</code>.",
+        "Captures complete environment state AFTER execution."
+      ],
+      badge: "badge-purple",
+      badgeText: "SUBSHELL EVALUATION",
+      codeSnippet: `<span class="code-comment"># Subshell process:</span>
+<span class="code-keyword">bash</span> -c <span class="code-string">"source ~/.config/direnv/direnvrc &amp;&amp; source .envrc &amp;&amp; env"</span>`
+    },
+    5: {
+      title: "Environment Diffing",
+      heading: "5. Environment Delta Calculation",
+      description: "direnv compares the environment BEFORE running .envrc with the environment AFTER running .envrc to compute the precise diff.",
+      points: [
+        "Identifies ADDED variables (e.g. +PORT=8080).",
+        "Identifies MODIFIED variables (e.g. PATH prepended).",
+        "Identifies REMOVED variables.",
+        "Encodes previous state into DIRENV_DIFF for seamless unloading later."
+      ],
+      badge: "badge-green",
+      badgeText: "DIFF GENERATION",
+      codeSnippet: `<span class="code-comment"># Environment Delta computed:</span>
+<span class="code-var">+DATABASE_URL</span> = <span class="code-string">"postgres://localhost/db"</span>
+<span class="code-var">+NODE_ENV</span>     = <span class="code-string">"development"</span>
+<span class="code-var">DIRENV_DIR</span>    = <span class="code-string">"/home/user/projects/app"</span>`
+    },
+    6: {
+      title: "Parent Shell Export",
+      heading: "6. Exporting to Host Shell & Unloading",
+      description: "direnv outputs shell-specific export and unset statements. The host shell evaluates them, applying changes to your live session.",
+      points: [
+        "Exports variables into host shell memory.",
+        "When you 'cd ..' out of directory, direnv reverses the delta and unsets loaded vars.",
+        "Maintains clean environment hygiene across terminal navigation."
+      ],
+      badge: "badge-blue",
+      badgeText: "HOST SHELL EXPORT",
+      codeSnippet: `<span class="code-comment"># Generated output evaluated by host shell:</span>
+<span class="code-keyword">export</span> <span class="code-var">DATABASE_URL</span>=<span class="code-string">"postgres://localhost/db"</span>;
+<span class="code-keyword">export</span> <span class="code-var">NODE_ENV</span>=<span class="code-string">"development"</span>;
+<span class="code-keyword">export</span> <span class="code-var">DIRENV_DIR</span>=<span class="code-string">"-/home/user/projects/app"</span>;`
+    }
+  };
+
+  function setStep(stepNum) {
+    document.querySelectorAll('.step-node').forEach((node, index) => {
+      if (index + 1 === stepNum) {
+        node.classList.add('active');
+      } else {
+        node.classList.remove('active');
+      }
+    });
+
+    const data = stepsData[stepNum];
+    const textContainer = document.getElementById('step-text-container');
+    const diagramContainer = document.getElementById('step-diagram-container');
+
+    if (textContainer && data) {
+      let pointsHtml = data.points.map(pt => `<li>${pt}</li>`).join('');
+      textContainer.innerHTML = `
+        <h3>${data.heading}</h3>
+        <p>${data.description}</p>
+        <ul>${pointsHtml}</ul>
+      `;
+    }
+
+    if (diagramContainer && data) {
+      diagramContainer.innerHTML = `
+        <div class="flow-badge ${data.badge}">${data.badgeText}</div>
+        <div class="code-block" style="width: 100%; font-size: 0.82rem;">${data.codeSnippet}</div>
+      `;
+    }
+  }
+
+  // Initialize Step 1
+  setStep(1);
+
+  /* INTERACTIVE SIMULATOR ENGINE */
+  const simState = {
+    currentDir: "~/projects",
+    allowedDirs: {
+      "~/projects/app-backend": true,
+      "~/projects/app-frontend": false
+    },
+    dirConfigs: {
+      "~/projects": {
+        hasEnvrc: false,
+        envVars: {}
+      },
+      "~/projects/app-backend": {
+        hasEnvrc: true,
+        envVars: {
+          "PORT": "8080",
+          "DATABASE_URL": "postgres://localhost:5432/backend_db",
+          "NODE_ENV": "development"
+        }
+      },
+      "~/projects/app-frontend": {
+        hasEnvrc: true,
+        envVars: {
+          "PORT": "3000",
+          "API_URL": "http://localhost:8080",
+          "FEATURE_FLAG_NEW_UI": "true"
+        }
+      }
+    },
+    activeEnv: {
+      "USER": "developer",
+      "HOME": "/home/developer",
+      "SHELL": "/bin/zsh",
+      "PATH": "/usr/local/bin:/usr/bin:/bin"
+    },
+    loadedDir: null
+  };
+
+  function renderTree() {
+    const container = document.getElementById('tree-container');
+    if (!container) return;
+
+    const dirs = [
+      { path: "~/projects", name: "projects", hasEnvrc: false },
+      { path: "~/projects/app-backend", name: "  └── app-backend", hasEnvrc: true },
+      { path: "~/projects/app-frontend", name: "  └── app-frontend", hasEnvrc: true }
+    ];
+
+    container.innerHTML = dirs.map(d => {
+      const isActive = simState.currentDir === d.path;
+      let badge = "";
+      if (d.hasEnvrc) {
+        const isAllowed = simState.allowedDirs[d.path];
+        if (isAllowed) {
+          badge = `<span class="file-badge" style="background: rgba(74, 222, 128, 0.2); color: var(--accent-green);">.envrc (allowed)</span>`;
+        } else {
+          badge = `<span class="file-badge" style="background: rgba(248, 113, 113, 0.2); color: var(--accent-red);">.envrc (blocked)</span>`;
+        }
+      }
+
+      return `
+        <div class="tree-item ${isActive ? 'active' : ''}" onclick="runSimCommand('cd ${d.path}')">
+          <span>📂 ${d.name}</span>
+          ${badge}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderEnv() {
+    const container = document.getElementById('env-container');
+    if (!container) return;
+
+    const keys = Object.keys(simState.activeEnv);
+    container.innerHTML = keys.map(k => `
+      <div class="env-row">
+        <span class="env-key">${k}</span>
+        <span class="env-val" title="${simState.activeEnv[k]}">${simState.activeEnv[k]}</span>
+      </div>
+    `).join('');
+  }
+
+  function appendLog(prompt, message, type = "normal") {
+    const terminal = document.getElementById('terminal-body');
+    if (!terminal) return;
+
+    let lineHtml = "";
+    if (prompt) {
+      lineHtml += `<span class="log-prompt">${simState.currentDir} ❯ </span><span>${prompt}</span>`;
+    }
+
+    if (message) {
+      if (prompt) lineHtml += "<br>";
+      let classCss = "log-system";
+      if (type === "direnv-load") classCss = "log-load";
+      if (type === "direnv-unload") classCss = "log-unload";
+      if (type === "direnv-error") classCss = "log-error";
+
+      lineHtml += `<span class="${classCss}">${message}</span>`;
+    }
+
+    const div = document.createElement('div');
+    div.className = 'log-line';
+    div.innerHTML = lineHtml;
+    terminal.appendChild(div);
+    terminal.scrollTop = terminal.scrollHeight;
+  }
+
+  function runSimCommand(cmd) {
+    if (cmd.startsWith("cd ")) {
+      const targetDir = cmd.substring(3).trim();
+      const oldDir = simState.currentDir;
+      simState.currentDir = targetDir;
+
+      appendLog(cmd, null);
+
+      // Unload previous if leaving
+      if (simState.loadedDir && simState.loadedDir !== targetDir) {
+        const unloadedVars = simState.dirConfigs[simState.loadedDir]?.envVars || {};
+        for (const k in unloadedVars) {
+          delete simState.activeEnv[k];
+        }
+        appendLog(null, `direnv: unloading`, "direnv-unload");
+        simState.loadedDir = null;
+      }
+
+      // Load new if envrc exists
+      const config = simState.dirConfigs[targetDir];
+      if (config && config.hasEnvrc) {
+        if (simState.allowedDirs[targetDir]) {
+          Object.assign(simState.activeEnv, config.envVars);
+          simState.loadedDir = targetDir;
+          const exportedKeys = Object.keys(config.envVars).map(k => `+${k}`).join(" ");
+          appendLog(null, `direnv: loading .envrc\ndirenv: export ${exportedKeys}`, "direnv-load");
+        } else {
+          appendLog(null, `direnv: error .envrc is blocked. Run \`direnv allow\` to approve`, "direnv-error");
+        }
+      }
+    } else if (cmd === "direnv allow") {
+      appendLog(cmd, null);
+      const targetDir = simState.currentDir;
+      const config = simState.dirConfigs[targetDir];
+
+      if (config && config.hasEnvrc) {
+        simState.allowedDirs[targetDir] = true;
+        Object.assign(simState.activeEnv, config.envVars);
+        simState.loadedDir = targetDir;
+        const exportedKeys = Object.keys(config.envVars).map(k => `+${k}`).join(" ");
+        appendLog(null, `direnv: loading .envrc\ndirenv: export ${exportedKeys}`, "direnv-load");
+      } else {
+        appendLog(null, `direnv: no .envrc file found in current directory`, "normal");
+      }
+    } else if (cmd === "direnv deny") {
+      appendLog(cmd, null);
+      const targetDir = simState.currentDir;
+      const config = simState.dirConfigs[targetDir];
+
+      if (config && config.hasEnvrc) {
+        simState.allowedDirs[targetDir] = false;
+        if (simState.loadedDir === targetDir) {
+          for (const k in config.envVars) {
+            delete simState.activeEnv[k];
+          }
+          simState.loadedDir = null;
+          appendLog(null, `direnv: unloading`, "direnv-unload");
+        }
+      } else {
+        appendLog(null, `direnv: no .envrc file found in current directory`, "normal");
+      }
+    } else if (cmd === "env") {
+      appendLog(cmd, null);
+      let output = "";
+      for (const k in simState.activeEnv) {
+        output += `${k}=${simState.activeEnv[k]}\n`;
+      }
+      appendLog(null, output.trim(), "normal");
+    }
+
+    renderTree();
+    renderEnv();
+  }
+
+  // Initial simulator render
+  renderTree();
+  renderEnv();
+  appendLog(null, "direnv simulation session ready. Click directory tree or buttons to test.", "normal");
+</script>
+
+</body>
+</html>

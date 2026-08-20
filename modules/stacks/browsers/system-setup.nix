@@ -13,7 +13,7 @@ let
   cfg = config.my.stacks.browsers;
 
   repoRoot = "/stuff/workspace/repos/chrome-new-tab";
-  extensionRoot = "${repoRoot}/chrome-extension";
+  extensionRoot = "${repoRoot}/dist";
   manifestPath = "${extensionRoot}/manifest.json";
   remote = "https://github.com/popemkt/chrome-new-tab.git";
 
@@ -24,6 +24,7 @@ let
     remote=${lib.escapeShellArg remote}
     manifest=${lib.escapeShellArg manifestPath}
     git=${lib.escapeShellArg "${pkgs.git}/bin/git"}
+    pnpm=${lib.escapeShellArg "${pkgs.pnpm}/bin/pnpm"}
 
     if [ ! -d /stuff/workspace ]; then
       echo "error: /stuff/workspace missing; mount the Data volume (see external-workspace)" >&2
@@ -35,17 +36,23 @@ let
         echo "already present: $repo"
         exit 0
       fi
-      echo "error: $repo exists but $manifest is missing" >&2
-      exit 1
+      if [ ! -f "$repo/package.json" ]; then
+        echo "error: $repo exists but is not a chrome-new-tab checkout" >&2
+        exit 1
+      fi
+    else
+      mkdir -p /stuff/workspace/repos
+      "$git" clone "$remote" "$repo"
+      echo "cloned $remote"
     fi
 
-    mkdir -p /stuff/workspace/repos
-    "$git" clone "$remote" "$repo"
+    cd "$repo"
+    "$pnpm" install --frozen-lockfile
+    "$pnpm" build
     if [ ! -f "$manifest" ]; then
-      echo "error: clone succeeded but $manifest is missing" >&2
+      echo "error: build succeeded but $manifest is missing" >&2
       exit 1
     fi
-    echo "cloned $remote"
     echo "Load unpacked from: ${extensionRoot}"
   '';
 in
@@ -77,7 +84,8 @@ in
         enrollment = {
           kind = "command";
           instructions = ''
-            Clone chrome-new-tab into ${repoRoot} (requires /stuff mounted).
+            Enroll chrome-new-tab into ${repoRoot} (requires /stuff mounted);
+            enrollment installs dependencies and builds the unpacked extension.
             Then in each Chromium browser you want: chrome://extensions →
             Developer mode → Load unpacked → ${extensionRoot}.
           '';

@@ -44,6 +44,7 @@ in
         # "homebrew/bundle"  # Uncomment if needed
         "entireio/tap"
         "ghostwright/ghost-os"
+        "anomalyco/tap"
       ]
       ++ config.my.pkgs.taps
     );
@@ -59,6 +60,9 @@ in
         # Google Workspace CLI for Gmail/Drive/Sheets/etc.
         # Keep this in Brew so `gws` is easy to restore on macOS.
         "googleworkspace-cli"
+        # OpenCode is managed as a Homebrew CLI so it is restored with the
+        # rest of the terminal agent toolchain.
+        "anomalyco/tap/opencode"
         # Oh My Pi requires Bun >= 1.3.14; Homebrew currently ships a newer
         # runtime than nixpkgs and upgrades it during rebuild activation.
         "bun"
