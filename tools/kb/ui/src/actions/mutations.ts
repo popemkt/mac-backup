@@ -6,6 +6,8 @@ import { postAction } from "@/api/action";
 import { fetchGraphSnapshot } from "@/api/graph";
 import { runOptimistic } from "@/actions/optimistic";
 import {
+  inversePlanActions,
+  invertPlan,
   planAddRootNode,
   planAddTag,
   planCreateAfter,
@@ -13,6 +15,7 @@ import {
   planDefineTag,
   planDelete,
   planIndent,
+  planMergeInto,
   planMergeWithPrevious,
   planMove,
   planNewQueryNode,
@@ -25,9 +28,10 @@ import {
   type PlannedMutation,
 } from "@/actions/plan";
 import { toast } from "@/lib/toast";
-import { isSysPrefixed, WORKSPACE_ROOT_ID } from "@/lib/types";
+import { isSysPrefixed, WORKSPACE_ROOT_ID, type PropValue } from "@/lib/types";
+import { forestRootIds } from "@/lib/graph-view";
+import { outlineInstanceKey } from "@/lib/instance-key";
 import { cloneWire, findParentWire } from "@/lib/tx";
-import type { PropValue } from "@/lib/types";
 import type { WireNode } from "@kb/protocol";
 import { useOutlineStore } from "@/stores/outline.store";
 
@@ -42,9 +46,34 @@ function guardSysWrite(id: string): boolean {
   return false;
 }
 
+/** Capture an undo entry against pre-state after a successful apply (D19). */
+function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
+  const inv = invertPlan(preWire, plan);
+  useOutlineStore.getState().recordUndo({
+    inv,
+    actions: inversePlanActions(preWire, plan, inv),
+  });
+}
+
+/** Best-effort remote sync for undo/redo compensating actions. */
+async function postCompensations(actions: Array<{ id: string; input: unknown }>): Promise<void> {
+  const source = useOutlineStore.getState().loadSource;
+  if (source !== "api") return;
+  for (const action of actions) {
+    try {
+      await postAction(action.id, action.input);
+    } catch {
+      // Server resync (WS / next refetch) heals divergence; never block UI.
+      return;
+    }
+  }
+}
+
 async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
   if (!plan) return false;
+  const preWire = useOutlineStore.getState().wireNodes;
   const result = await runOptimistic(plan);
+  if (result.ok) recordHistory(preWire, plan);
   return result.ok;
 }
 
@@ -104,11 +133,7 @@ async function resyncOrRestoreNode(preEdit: WireNode): Promise<void> {
   reapplyPendingLocalEdits();
 }
 
-async function flushContentRemote(
-  id: string,
-  content: string,
-  preEdit: WireNode,
-): Promise<void> {
+async function flushContentRemote(id: string, content: string, preEdit: WireNode): Promise<void> {
   const store = useOutlineStore.getState();
   if (store.loadSource === "fixtures" || store.loadSource === null) return;
 
@@ -169,48 +194,72 @@ export const mutations = {
     return applyPlan(planAddRootNode(text, id));
   },
 
-  async addChildNode(
-    parentId: string,
-    text: string,
-    newId?: string,
-  ): Promise<boolean> {
+  async addChildNode(parentId: string, text: string, newId?: string): Promise<boolean> {
     if (!guardSysWrite(parentId)) return false;
     const id = newId ?? ulid();
     const { planAddChild } = await import("@/actions/plan");
     return applyPlan(planAddChild(wire(), parentId, id, text));
   },
 
-  /** Ghost-row create: root, first child, or after sibling. Returns new node id. */
-  async createGhostNode(
+  /**
+   * Tana transient create (r1 §3.3): mint a REAL empty node immediately
+   * (root, first child, or after sibling), mark it auto-prune candidate,
+   * and activate it at offset 0. Replaces the detached ghost row entirely.
+   */
+  async createTransientNode(
     parentId: string,
     afterSiblingId: string | null,
-    text: string,
   ): Promise<string | null> {
     const newId = ulid();
+    let ok = false;
     if (parentId === WORKSPACE_ROOT_ID) {
-      const ok = await applyPlan(planAddRootNode(text, newId));
-      return ok ? newId : null;
-    }
-    if (afterSiblingId) {
+      ok = await applyPlan(planAddRootNode("", newId));
+    } else if (afterSiblingId) {
       // Inserting after a sibling lands under the sibling's parent — guard
       // that parent, not just the sibling id (sys.* write-guard).
       const siblingParent = findParentWire(wire(), afterSiblingId);
       if (siblingParent && !guardSysWrite(siblingParent.id)) return null;
-      const ok = await applyPlan(planCreateAfter(wire(), afterSiblingId, newId));
-      if (!ok) return null;
-      if (text) mutations.updateNodeContent(newId, text);
-      return newId;
+      ok = await applyPlan(planCreateAfter(wire(), afterSiblingId, newId));
+    } else {
+      if (!guardSysWrite(parentId)) return null;
+      const { planAddChild } = await import("@/actions/plan");
+      ok = await applyPlan(planAddChild(wire(), parentId, newId, ""));
     }
-    if (!guardSysWrite(parentId)) return null;
-    const ok = await applyPlan(
-      (await import("@/actions/plan")).planAddChild(
-        wire(),
-        parentId,
-        newId,
-        text,
-      ),
-    );
-    return ok ? newId : null;
+    if (!ok) return null;
+    useOutlineStore.getState().markTransient(newId);
+    const store = useOutlineStore.getState();
+    store.activateNode(newId, 0, outlineInstanceKey(newId, store.nodes));
+    return newId;
+  },
+
+  /** Create a sibling directly ABOVE the anchor and activate it ('O' key). */
+  async createNodeBefore(beforeId: string): Promise<string | null> {
+    if (!guardSysWrite(beforeId)) return null;
+    const parent = findParentWire(wire(), beforeId);
+    if (!parent) {
+      // Forest root: no positional insert above exists; append then rely on
+      // id ordering is wrong visually — fall back to after-anchor semantics.
+      return mutations.createTransientNode(WORKSPACE_ROOT_ID, beforeId);
+    }
+    if (!guardSysWrite(parent.id)) return null;
+    const siblings = parent.children;
+    const idx = siblings.indexOf(beforeId);
+    const prevSibling = idx > 0 ? siblings[idx - 1]! : null;
+    const newId = ulid();
+    let plan: PlannedMutation | null;
+    if (prevSibling) {
+      plan = planCreateAfter(wire(), prevSibling, newId);
+    } else {
+      // First slot: prepend as the parent's first child.
+      const { planPrependChild } = await import("@/actions/plan");
+      plan = planPrependChild(wire(), parent.id, newId);
+    }
+    const ok = await applyPlan(plan);
+    if (!ok) return null;
+    useOutlineStore.getState().markTransient(newId);
+    const store = useOutlineStore.getState();
+    store.activateNode(newId, 0, outlineInstanceKey(newId, store.nodes));
+    return newId;
   },
 
   async addTagField(tagId: string, fieldId: string): Promise<void> {
@@ -255,10 +304,7 @@ export const mutations = {
     await applyPlan(planRemoveFieldTargetTag(wire(), fieldId, tagId));
   },
 
-  async setFieldTargetQuery(
-    fieldId: string,
-    edn: string | null,
-  ): Promise<void> {
+  async setFieldTargetQuery(fieldId: string, edn: string | null): Promise<void> {
     if (!guardSysWrite(fieldId)) return;
     const { planSetFieldTargetQuery } = await import("@/actions/plan");
     await applyPlan(planSetFieldTargetQuery(wire(), fieldId, edn));
@@ -266,7 +312,13 @@ export const mutations = {
 
   async splitNode(id: string, cursor: number): Promise<void> {
     if (!guardSysWrite(id)) return;
-    await applyPlan(planSplit(wire(), id, cursor, ulid()));
+    const store = useOutlineStore.getState();
+    // Expanded set from the UI outline map drives Tana first-child splits.
+    const expandedIds = new Set<string>();
+    for (const n of store.nodes.values()) {
+      if (!n.collapsed && !n.id.startsWith("sys.")) expandedIds.add(n.id);
+    }
+    await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds }));
   },
 
   async deleteNode(id: string): Promise<void> {
@@ -274,19 +326,67 @@ export const mutations = {
     await applyPlan(planDelete(wire(), id));
   },
 
-  async mergeWithPrevious(id: string): Promise<void> {
+  /**
+   * Backspace-merge. When the caller has render context it passes
+   * instanceKey so the target resolves through the VISIBLE tree (r1 D09):
+   * a preceding sibling with expanded children merges into its deepest
+   * last descendant — what the user sees directly above the caret.
+   */
+  async mergeWithPrevious(id: string, instanceKey?: string): Promise<void> {
     if (!guardSysWrite(id)) return;
-    await applyPlan(planMergeWithPrevious(wire(), id));
+    let plan: PlannedMutation | null = null;
+    if (instanceKey) {
+      const prevInst = useOutlineStore.getState().getPreviousVisibleInstance(instanceKey);
+      if (prevInst && prevInst.nodeId !== id) {
+        plan = planMergeInto(wire(), id, prevInst.nodeId);
+      }
+    }
+    if (!plan) plan = planMergeWithPrevious(wire(), id);
+    await applyPlan(plan);
   },
 
-  async indentNode(id: string): Promise<void> {
+  /**
+   * Tab-indent. The target parent is auto-expanded BEFORE focus restore so
+   * the reparented row never vanishes into a collapsed container (r1 D05),
+   * and the caret returns to its exact character offset (spec §3.1).
+   */
+  async indentNode(id: string, cursor?: number): Promise<void> {
     if (!guardSysWrite(id)) return;
-    await applyPlan(planIndent(wire(), id));
+    const store = useOutlineStore.getState();
+    const parent = findParentWire(store.wireNodes, id);
+    const siblings = parent ? parent.children : forestRootIds(store.wireNodes);
+    const idx = siblings.indexOf(id);
+    if (idx <= 0) return;
+    const prevId = siblings[idx - 1]!;
+    if (!guardSysWrite(prevId)) return;
+
+    const preWire = store.wireNodes;
+    const plan = planIndent(preWire, id);
+    if (!plan) return;
+    const ok = await runOptimistic(plan);
+    if (!ok) return;
+    recordHistory(preWire, plan);
+
+    // D05: reveal the new parent chain before caret restore so the row is
+    // guaranteed visible; focusSeq bump re-places the caret post-remount.
+    const next = useOutlineStore.getState();
+    next.expandAncestors(id);
+    const key = outlineInstanceKey(id, useOutlineStore.getState().nodes);
+    useOutlineStore.getState().activateNode(id, cursor ?? 0, key);
   },
 
-  async outdentNode(id: string): Promise<void> {
+  /** Shift+Tab outdent; caret stays at its exact offset (spec §3.1). */
+  async outdentNode(id: string, cursor?: number): Promise<void> {
     if (!guardSysWrite(id)) return;
-    await applyPlan(planOutdent(wire(), id));
+    const store = useOutlineStore.getState();
+    const plan = planOutdent(store.wireNodes, id);
+    if (!plan) return;
+    const preWire = store.wireNodes;
+    const ok = await runOptimistic(plan);
+    if (!ok) return;
+    recordHistory(preWire, plan);
+    const key = outlineInstanceKey(id, useOutlineStore.getState().nodes);
+    useOutlineStore.getState().activateNode(id, cursor ?? 0, key);
   },
 
   async moveNodeUp(id: string): Promise<void> {
@@ -299,6 +399,22 @@ export const mutations = {
     await applyPlan(planMove(wire(), id, "down"));
   },
 
+  /** D19: undo the last structural mutation (local inverse + remote sync). */
+  async undo(): Promise<boolean> {
+    const entry = useOutlineStore.getState().applyUndo();
+    if (!entry) return false;
+    await postCompensations(entry.actions);
+    return true;
+  },
+
+  /** D19: redo the last undone mutation. */
+  async redo(): Promise<boolean> {
+    const entry = useOutlineStore.getState().applyRedo();
+    if (!entry) return false;
+    await postCompensations(entry.actions);
+    return true;
+  },
+
   async updateProp(
     nodeId: string,
     fieldId: string,
@@ -309,11 +425,7 @@ export const mutations = {
     await applyPlan(planSetProp(wire(), nodeId, fieldId, value, oldValue));
   },
 
-  async removeProp(
-    nodeId: string,
-    fieldId: string,
-    value?: PropValue,
-  ): Promise<void> {
+  async removeProp(nodeId: string, fieldId: string, value?: PropValue): Promise<void> {
     if (!guardSysWrite(nodeId)) return;
     await applyPlan(planUnsetProp(wire(), nodeId, fieldId, value));
   },
@@ -390,19 +502,13 @@ export const mutations = {
     return ok ? newId : null;
   },
 
-  async setViewMode(
-    frameId: string,
-    mode: import("@/lib/view-config").ViewMode,
-  ): Promise<void> {
+  async setViewMode(frameId: string, mode: import("@/lib/view-config").ViewMode): Promise<void> {
     if (!guardSysWrite(frameId)) return;
     const { planSetViewMode } = await import("@/actions/plan");
     await applyPlan(planSetViewMode(wire(), frameId, mode));
   },
 
-  async setLensRenderer(
-    perspectiveId: string,
-    renderer: string,
-  ): Promise<void> {
+  async setLensRenderer(perspectiveId: string, renderer: string): Promise<void> {
     if (!guardSysWrite(perspectiveId)) return;
     const { planSetLensRenderer } = await import("@/actions/plan");
     await applyPlan(planSetLensRenderer(wire(), perspectiveId, renderer));
@@ -430,9 +536,7 @@ export const mutations = {
     if (existingIndex === -1) {
       nextSort = [{ fieldId, dir: "asc" }, ...current];
     } else if (current[existingIndex]?.dir === "asc") {
-      nextSort = current.map((s, i) =>
-        i === existingIndex ? { ...s, dir: "desc" as const } : s,
-      );
+      nextSort = current.map((s, i) => (i === existingIndex ? { ...s, dir: "desc" as const } : s));
     } else {
       nextSort = current.filter((s) => s.fieldId !== fieldId);
     }
@@ -441,20 +545,13 @@ export const mutations = {
     await applyPlan(planSetViewSort(wire(), frameId, nextSort));
   },
 
-  async setViewDisplay(
-    frameId: string,
-    displayFieldIds: string[],
-  ): Promise<void> {
+  async setViewDisplay(frameId: string, displayFieldIds: string[]): Promise<void> {
     if (!guardSysWrite(frameId)) return;
     const { planSetViewDisplay } = await import("@/actions/plan");
     await applyPlan(planSetViewDisplay(wire(), frameId, displayFieldIds));
   },
 
-  async setColumnWidth(
-    frameId: string,
-    fieldId: string,
-    widthPx: number,
-  ): Promise<void> {
+  async setColumnWidth(frameId: string, fieldId: string, widthPx: number): Promise<void> {
     if (!guardSysWrite(frameId)) return;
     const store = useOutlineStore.getState();
     const frameNode = store.nodes.get(frameId);
@@ -471,19 +568,13 @@ export const mutations = {
     await applyPlan(planSetViewPagesize(wire(), frameId, pagesize));
   },
 
-  async setViewGroup(
-    frameId: string,
-    fieldId: string | null,
-  ): Promise<void> {
+  async setViewGroup(frameId: string, fieldId: string | null): Promise<void> {
     if (!guardSysWrite(frameId)) return;
     const { planSetViewGroup } = await import("@/actions/plan");
     await applyPlan(planSetViewGroup(wire(), frameId, fieldId));
   },
 
-  async setViewFilters(
-    frameId: string,
-    filterEdnList: string[],
-  ): Promise<void> {
+  async setViewFilters(frameId: string, filterEdnList: string[]): Promise<void> {
     if (!guardSysWrite(frameId)) return;
     const { planSetViewFilters } = await import("@/actions/plan");
     await applyPlan(planSetViewFilters(wire(), frameId, filterEdnList));
@@ -513,8 +604,7 @@ export const mutations = {
     if (!guardSysWrite(frameId)) return;
     const store = useOutlineStore.getState();
     const frame = store.nodes.get(frameId);
-    const { getViewConfig, serializeViewFilter } =
-      await import("@/lib/view-config");
+    const { getViewConfig, serializeViewFilter } = await import("@/lib/view-config");
     const config = getViewConfig(frame?.props);
     const next = config.filters
       .map((f) => f.raw || serializeViewFilter(f))
@@ -531,9 +621,7 @@ export const mutations = {
   ): Promise<void> {
     if (!guardSysWrite(nodeId)) return;
     const { planMoveBoardCard } = await import("@/actions/plan");
-    await applyPlan(
-      planMoveBoardCard(wire(), nodeId, fieldId, oldValue, newValue),
-    );
+    await applyPlan(planMoveBoardCard(wire(), nodeId, fieldId, oldValue, newValue));
   },
 };
 

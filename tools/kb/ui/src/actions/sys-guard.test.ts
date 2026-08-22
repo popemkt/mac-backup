@@ -56,8 +56,8 @@ describe("sys.* UI write-guard", () => {
     );
   });
 
-  it("ghost-row create under a sys.* parent returns null with a toast", async () => {
-    const newId = await mutations.createGhostNode("sys.tag.query", null, "ghost");
+  it("transient create under a sys.* parent returns null with a toast", async () => {
+    const newId = await mutations.createTransientNode("sys.tag.query", null);
     expect(newId).toBeNull();
     expect(useOutlineStore.getState().nodes.has("sys.tag.query")).toBe(true);
     expect(useUiStore.getState().toasts.some((t) => /sys\.\*/.test(t.text))).toBe(
@@ -65,7 +65,7 @@ describe("sys.* UI write-guard", () => {
     );
   });
 
-  it("ghost-row create after a sibling under a sys.* parent returns null", async () => {
+  it("transient create after a sibling under a sys.* parent returns null", async () => {
     // Craft a normal node whose parent is sys.tag, then try to insert after it.
     const at = "2026-08-08T05:00:00.000Z";
     const child: WireNode = {
@@ -88,7 +88,7 @@ describe("sys.* UI write-guard", () => {
         "fixtures",
       );
 
-    const newId = await mutations.createGhostNode("sys.tag", child.id, "ghost");
+    const newId = await mutations.createTransientNode("sys.tag", child.id);
     expect(newId).toBeNull();
     expect(useOutlineStore.getState().nodes.has("n.under-sys")).toBe(true);
     expect(useUiStore.getState().toasts.some((t) => /sys\.\*/.test(t.text))).toBe(
@@ -144,9 +144,9 @@ describe("sys.* UI write-guard", () => {
     expect(after).toEqual(["n.child-a1", expect.any(String), "n.child-a2"]);
   });
 
-  it("ghost-row create under a normal parent still works", async () => {
+  it("transient create under a normal parent still works", async () => {
     const before = useOutlineStore.getState().nodes.get("n.root-c")!.children;
-    const newId = await mutations.createGhostNode("n.root-c", null, "kid");
+    const newId = await mutations.createTransientNode("n.root-c", null);
     expect(newId).not.toBeNull();
     const after = useOutlineStore.getState().nodes.get("n.root-c")!.children;
     expect(after.length).toBe(before.length + 1);

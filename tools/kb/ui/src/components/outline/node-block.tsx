@@ -7,15 +7,10 @@ import { useUiStore } from "@/stores/ui.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { mutations } from "@/actions/mutations";
-import {
-  applyViewFilters,
-  getViewConfig,
-  isProjectedViewMode,
-} from "@/lib/view-config";
+import { applyViewFilters, getViewConfig, isProjectedViewMode } from "@/lib/view-config";
 import { Bullet } from "./bullet";
 import { FieldsSection } from "./fields-section";
 import { FrameChildrenView } from "./frame-children-view";
-import { GhostNodeRow } from "./ghost-node-row";
 import { NodeContent } from "./node-content";
 import { NodeRow } from "./node-row";
 import { QueryResultsSection } from "./query-results";
@@ -51,8 +46,7 @@ export const NodeBlock = memo(function NodeBlock({
   const showAllFields = usePrefsStore((s) => s.showAllFields);
   const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
 
-  const instanceKey =
-    instanceKeyProp ?? outlineInstanceKey(nodeId, nodes);
+  const instanceKey = instanceKeyProp ?? outlineInstanceKey(nodeId, nodes);
 
   const primaryTagColor = node?.tags[0]?.color ?? null;
 
@@ -90,6 +84,12 @@ export const NodeBlock = memo(function NodeBlock({
     [nodeId],
   );
 
+  /** Tana whitespace-create: mint a transient child under this parent. */
+  const handleCreateChild = useCallback(() => {
+    const lastChild = node?.children[node.children.length - 1] ?? null;
+    void mutations.createTransientNode(nodeId, lastChild);
+  }, [nodeId, node]);
+
   const handleKeyDown = useNodeKeyDown({
     nodeId,
     instanceKey,
@@ -109,24 +109,18 @@ export const NodeBlock = memo(function NodeBlock({
 
   if (!node) return null;
 
-  const isActive =
-    activeNodeId === nodeId && activeInstanceKey === instanceKey;
-  const isSelected =
-    selectedNodeId === nodeId && selectedInstanceKey === instanceKey;
+  const isActive = activeNodeId === nodeId && activeInstanceKey === instanceKey;
+  const isSelected = selectedNodeId === nodeId && selectedInstanceKey === instanceKey;
   const isPaletteAnchor =
     nodePaletteOpen &&
     ((selectedNodeId === nodeId && selectedInstanceKey === instanceKey) ||
       (activeNodeId === nodeId && activeInstanceKey === instanceKey));
   const hasChildren = node.children.length > 0;
   const isQuery = isQueryNode(node);
-  const hasFields =
-    resolveProps(node, nodes, { showAllFields }).length > 0;
+  const hasFields = resolveProps(node, nodes, { showAllFields }).length > 0;
   const isExpandable = hasChildren || isQuery || hasFields;
   // Tana model: list = no chrome; toolbar only when mode ≠ list AND expanded.
-  const showToolbar =
-    (hasChildren || isQuery) &&
-    !node.collapsed &&
-    viewConfig.mode !== "list";
+  const showToolbar = (hasChildren || isQuery) && !node.collapsed && viewConfig.mode !== "list";
   const projected = isProjectedViewMode(viewConfig.mode);
   const filterOpen = useUiStore((s) => s.filterPopoverFrameId === nodeId);
 
@@ -209,10 +203,7 @@ export const NodeBlock = memo(function NodeBlock({
             hasChildren &&
             (projected ? (
               <div style={{ paddingLeft: `${(depth + 1) * 24}px` }}>
-                <FrameChildrenView
-                  frameId={nodeId}
-                  frameInstanceKey={instanceKey}
-                />
+                <FrameChildrenView frameId={nodeId} frameInstanceKey={instanceKey} />
               </div>
             ) : (
               listChildren.map((child) => {
@@ -229,15 +220,20 @@ export const NodeBlock = memo(function NodeBlock({
             ))}
 
           {!isRef && !projected && (
-            <GhostNodeRow
-              depth={depth + 1}
-              parentId={nodeId}
-              afterSiblingId={
-                node.children.length > 0
-                  ? node.children[node.children.length - 1]!
-                  : null
-              }
-            />
+            <div
+              data-create-child-zone={nodeId}
+              className="group/create relative flex h-6 cursor-pointer items-center"
+              style={{ paddingLeft: `${(depth + 1) * 24}px` }}
+              onClick={handleCreateChild}
+              title="New child node"
+            >
+              <span
+                className="flex h-6 w-6 items-center justify-center text-[13px] leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25"
+                aria-hidden
+              >
+                +
+              </span>
+            </div>
           )}
         </div>
       )}
