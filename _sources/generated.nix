@@ -8,20 +8,20 @@
 {
   chat2db = {
     pname = "chat2db";
-    version = "5.3.3";
+    version = "5.3.4";
     src = fetchurl {
-      url = "https://github.com/OtterMind/Chat2DB/releases/download/v5.3.3/Chat2DB-Community-5.3.3-arm64.dmg";
-      sha256 = "sha256-u6wIXrPR4ObKpddNnMNg8BazNtqPhwn+VAJvJOaSso4=";
+      url = "https://github.com/OtterMind/Chat2DB/releases/download/v5.3.4/Chat2DB-Community-5.3.4-arm64.dmg";
+      sha256 = "sha256-edkGPrsdHXIIBsWeaigSkWUdBthaAhe7Mw5Ylm8a0f0=";
     };
     github = "OtterMind/Chat2DB";
     tagPrefix = "v";
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "7.2.131";
+    version = "7.2.140";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.131/CLIProxyAPI_7.2.131_darwin_aarch64.tar.gz";
-      sha256 = "sha256-7GOk+Z2gKe0E2Dc8FxUidNhfUkySwbLaNrnHDLrdCv4=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.140/CLIProxyAPI_7.2.140_darwin_aarch64.tar.gz";
+      sha256 = "sha256-R6pSnimnWAQoOtRCBjkOHDWykOLE4ZFzm9gnWUYex+c=";
     };
     github = "router-for-me/CLIProxyAPI";
     tagPrefix = "v";
@@ -38,20 +38,20 @@
   };
   genoffice = {
     pname = "genoffice";
-    version = "0.6.389";
+    version = "0.7.793";
     src = fetchurl {
-      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.6.389/GenOffice-0.6.389-arm64.dmg";
-      sha256 = "sha256-fCyVF0oL8D4FJqKKQs35FxdntZaFpZib8/beLq9CfHs=";
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.7.793/GenOffice-0.7.793-arm64.dmg";
+      sha256 = "sha256-nx0Hg2gwHrp4Q+Q122GgBQH/DzVtkhOWpeUL8KtP88I=";
     };
     github = "genspark-ai/genoffice";
     tagPrefix = "v";
   };
   logseq-nightly = {
     pname = "logseq-nightly";
-    version = "2.0.1-alpha+nightly.20260728";
+    version = "2.0.1-alpha+nightly.20260819";
     src = fetchurl {
-      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260728.zip";
-      sha256 = "sha256-EOJRbg4mpn3a5LIqWG1G5a1rdlGT1oGCoIjWpZIsjyc=";
+      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260819.zip";
+      sha256 = "sha256-t4qialn6gSLvlVGUvVbDfFuF4+6rYJjL6/51OfqDlks=";
     };
     versionUrl = "https://github.com/logseq/logseq/releases/expanded_assets/nightly";
     versionRegex = "Logseq-darwin-arm64-([0-9A-Za-z.+-]+nightly[.][0-9]+)[.]zip";
