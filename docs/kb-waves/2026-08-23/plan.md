@@ -111,6 +111,13 @@ Single worker implements r5's core spec against merged main. Mostly new files
 Cross-feature regression pass, docs updates (DESIGN*.md, INSPIRATIONS.md
 lineage rows for anything adopted), full check suite, final report for owner.
 
+### X — Repo-wide DX & functionality polish (after F)
+
+Owner directive: "once you're done, find stuff and polish the repo, both dx
+wise and functionalities wise." Sweep beyond tools/kb: script ergonomics,
+hook latency, stale docs vs reality, confusing errors, missing conveniences.
+Fix what's safe; log the rest as findings for owner review.
+
 ## Merge protocol (per implementation branch)
 
 1. In worktree: `bun install && bun test`; `npm run typecheck`;

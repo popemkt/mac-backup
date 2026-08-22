@@ -2,6 +2,17 @@
 
 # Todos
 
+## doing
+
+- A outline editor defects -> Tana-grade polish
+- B graph view CodeFlow-parity overhaul
+- C canvas professionalism overhaul (delete nodes!)
+- D backend abstraction hardening + ext SDK type surface
+- E perf/storage research only (reliable as db)
+- F ontology design ambitious + core impl
+- H whole-surface UX audit -> i5 polish wave
+- kb-refine wave 2026-08-23: plan at docs/kb-waves/2026-08-23/plan.md
+
 ## todo
 
 - canvas C2: media cards (assets) + frictionless quick-add — draw.io feel
