@@ -191,15 +191,22 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
   /** Apply an inverse/forward tx; return the opposite-direction entry. */
   function applyHistoryEntry(entry: UndoEntry): UndoEntry {
     const st = get();
-    const touched = new Set<string>([...entry.inv.upserts.map((u) => u.id), ...entry.inv.deletes]);
-    const postWire = mergeTx(st.wireNodes, entry.inv.upserts, entry.inv.deletes);
-    const forwardUpserts: WireNode[] = [];
-    for (const n of postWire) {
-      if (touched.has(n.id)) forwardUpserts.push(cloneWire(n));
+    const touched = new Set<string>([
+      ...entry.inv.upserts.map((u) => u.id),
+      ...entry.inv.deletes,
+    ]);
+    // Capture the opposite-direction entry AGAINST THE PRE-APPLICATION
+    // STATE: survivors revert to their pre-apply payload; ids this entry
+    // restores (absent now) are removed again by the opposite pass.
+    const oppositeUpserts: WireNode[] = [];
+    for (const n of st.wireNodes) {
+      if (touched.has(n.id)) oppositeUpserts.push(cloneWire(n));
     }
-    const forwardDeletes = entry.inv.upserts
+    const oppositeDeletes = entry.inv.upserts
       .map((u) => u.id)
-      .filter((id) => !postWire.some((n) => n.id === id));
+      .filter((id) => !st.wireNodes.some((n) => n.id === id));
+
+    const postWire = mergeTx(st.wireNodes, entry.inv.upserts, entry.inv.deletes);
     const expanded = collectExpanded(st.nodes);
     for (const id of loadExpandedIds()) expanded.add(id);
     const survives = (id: string | null): boolean =>
@@ -215,7 +222,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       activeInstanceKey: null,
     });
     return {
-      inv: { upserts: forwardUpserts, deletes: forwardDeletes },
+      inv: { upserts: oppositeUpserts, deletes: oppositeDeletes },
       actions: [],
     };
   }
