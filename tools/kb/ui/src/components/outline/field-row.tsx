@@ -138,11 +138,15 @@ export function FieldRow({
         </span>
       )}
 
+      <div className={cn("min-w-0 flex-1", valueOnly ? "px-0" : "px-1")}>
+        {children}
+      </div>
+
       {!valueOnly && onRemove && (
         <button
           type="button"
           className={cn(
-            "mr-1 mt-px flex h-6 w-5 shrink-0 items-center justify-center rounded-sm",
+            "ml-1 mt-px flex h-6 w-5 shrink-0 items-center justify-center rounded-sm",
             "text-foreground/20 opacity-0 transition-opacity",
             "group-hover/field:opacity-100 hover:bg-foreground/8 hover:text-foreground/50",
             "focus:opacity-100",
@@ -157,10 +161,6 @@ export function FieldRow({
           <X size={11} weight="bold" />
         </button>
       )}
-
-      <div className={cn("min-w-0 flex-1", valueOnly ? "px-0" : "px-1")}>
-        {children}
-      </div>
     </div>
   );
 }

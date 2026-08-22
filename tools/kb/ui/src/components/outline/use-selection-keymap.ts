@@ -5,6 +5,7 @@ import {
   mapSelectionKey,
   type SelectionKeyAction,
 } from "@/lib/selection-keymap";
+import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 
 function applySelectionAction(action: SelectionKeyAction): void {
@@ -20,11 +21,73 @@ function applySelectionAction(action: SelectionKeyAction): void {
       store.activateNode(action.nodeId, 0, action.instanceKey);
       break;
     case "toggleCollapse":
+    case "collapse":
+    case "expand":
       store.toggleCollapse(action.nodeId);
       break;
-    case "createAfter":
-      void mutations.createNodeAfter(action.nodeId);
+    case "selectParent": {
+      const parent = store.nodes.get(action.nodeId)?.parentId ?? null;
+      if (parent) {
+        store.selectNode(parent);
+        requestAnimationFrame(() => {
+          document
+            .querySelector(`[data-node-id="${CSS.escape(parent)}"]`)
+            ?.scrollIntoView({ block: "nearest" });
+        });
+      }
       break;
+    }
+    case "selectFirstChild": {
+      const first = store.nodes.get(action.nodeId)?.children[0];
+      if (first) store.selectNode(first);
+      break;
+    }
+    case "indent":
+      void mutations.indentNode(action.nodeId);
+      break;
+    case "outdent":
+      void mutations.outdentNode(action.nodeId);
+      break;
+    case "moveUp":
+      void mutations.moveNodeUp(action.nodeId);
+      break;
+    case "moveDown":
+      void mutations.moveNodeDown(action.nodeId);
+      break;
+    case "zoom":
+      store.zoomTo(action.nodeId);
+      break;
+    case "createAfter": {
+      // 'o': directly below = first child when expanded, else next sibling.
+      const n = store.nodes.get(action.nodeId);
+      const expanded = Boolean(
+        n && !n.collapsed && n.children.length > 0,
+      );
+      if (expanded) {
+        void mutations.createTransientNode(action.nodeId, null);
+      } else {
+        void mutations.createTransientNode(
+          n?.parentId ?? WORKSPACE_ROOT_ID,
+          action.nodeId,
+        );
+      }
+      break;
+    }
+    case "createBefore":
+      void mutations.createNodeBefore(action.nodeId);
+      break;
+    case "append": {
+      // Printable char: activate at text end with the character appended.
+      const node = store.nodes.get(action.nodeId);
+      const nextText = (node?.text ?? "") + action.char;
+      store.activateNode(
+        action.nodeId,
+        nextText.length,
+        action.instanceKey,
+      );
+      mutations.updateNodeContent(action.nodeId, nextText);
+      break;
+    }
     case "delete": {
       const prev = store.getPreviousVisibleInstance(action.instanceKey);
       const next = store.getNextVisibleInstance(action.instanceKey);
@@ -53,17 +116,36 @@ export function useSelectionKeymap(): void {
     if (!selectedNodeId || !selectedInstanceKey || activeNodeId) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.altKey && !(e.metaKey || e.ctrlKey)) {
+        if (e.key.length === 1) return; // Alt-composed glyphs stay native
+      }
       if (isEditableTarget(e.target)) return;
 
       const store = useOutlineStore.getState();
-      const action = mapSelectionKey(e.key, {
-        selectedNodeId: store.selectedNodeId,
-        selectedInstanceKey: store.selectedInstanceKey,
-        activeNodeId: store.activeNodeId,
-        getPreviousVisibleInstance: store.getPreviousVisibleInstance,
-        getNextVisibleInstance: store.getNextVisibleInstance,
-      });
+      const action = mapSelectionKey(
+        {
+          key: e.key,
+          metaKey: e.metaKey,
+          ctrlKey: e.ctrlKey,
+          shiftKey: e.shiftKey,
+        },
+        {
+          selectedNodeId: store.selectedNodeId,
+          selectedInstanceKey: store.selectedInstanceKey,
+          activeNodeId: store.activeNodeId,
+          getPreviousVisibleInstance: store.getPreviousVisibleInstance,
+          getNextVisibleInstance: store.getNextVisibleInstance,
+          getNode: (id) => {
+            const n = store.nodes.get(id);
+            if (!n) return undefined;
+            return {
+              collapsed: n.collapsed,
+              childIds: n.children,
+              parentId: n.parentId,
+            };
+          },
+        },
+      );
       if (!action) return;
       e.preventDefault();
       applySelectionAction(action);

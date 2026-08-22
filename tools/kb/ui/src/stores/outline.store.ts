@@ -360,11 +360,24 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       });
     },
 
-    activateNode: (id, cursorPos, instanceKey, opts) => {
-      if (!get().nodes.has(id)) return;
-      // Tana transient rule: an empty session-minted node prunes the moment
-      // focus moves to a different row (r1 §3.3).
+  activateNode: (id, cursorPos, instanceKey, opts) => {
+    if (!get().nodes.has(id)) return;
+    // System nodes are read-only at the DOM level: activation degrades to
+    // selection so no caret ever enters their content (r1 D20).
+    if (isSysPrefixed(id)) {
       pruneOutgoingTransient(id);
+      const sysKey = resolveActivateKey(id, instanceKey, get().nodes);
+      set({
+        selectedNodeId: id,
+        selectedInstanceKey: sysKey,
+        activeNodeId: null,
+        activeInstanceKey: null,
+      });
+      return;
+    }
+    // Tana transient rule: an empty session-minted node prunes the moment
+    // focus moves to a different row (r1 §3.3).
+    pruneOutgoingTransient(id);
       const { nodes } = get();
       const key = resolveActivateKey(id, instanceKey, nodes);
       set((s) => ({
