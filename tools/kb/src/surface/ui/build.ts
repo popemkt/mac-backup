@@ -111,11 +111,17 @@ export type UiBuildState = "missing" | "stale" | "fresh";
 /**
  * Fresh-checkout build decision. `missing` = no `index.html` (never built);
  * `stale` = built but the source fingerprint moved on; `fresh` = safe to serve.
+ *
+ * A `uiRoot` without `package.json` is a packaged layout (e.g. the Nix store):
+ * `ui/dist` is baked at build time and no sources exist to rebuild from — a
+ * runtime `bun install` there can never succeed (read-only, dep-free). Serve
+ * the baked assets as-is.
  */
 export async function needsUiBuild(
   uiRoot: string,
   distDir: string,
 ): Promise<UiBuildState> {
+  if (!(await pathExists(join(uiRoot, "package.json")))) return "fresh";
   if (!(await pathExists(join(distDir, "index.html")))) return "missing";
   const fp = await uiSourceFingerprint(uiRoot);
   const marker = await readBuildMarker(distDir);

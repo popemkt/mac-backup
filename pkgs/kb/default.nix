@@ -64,7 +64,7 @@ let
     nativeBuildInputs = [ bun ];
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-jfW7E+8xtUqvU759lXSE0t9z9Q4V5BmBj1WBBg5y1+U=";
+    outputHash = "sha256-rSSnIzuqAWkoDnfoIYXcC/vHKsJLHp0XX267A6uyy7Y=";
     dontConfigure = true;
     buildPhase = ''
       runHook preBuild

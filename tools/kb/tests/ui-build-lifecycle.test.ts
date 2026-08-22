@@ -73,6 +73,24 @@ describe("needsUiBuild decision", () => {
     await writeBuildMarker(distDir, "fp-123");
     expect(await readBuildMarker(distDir)).toBe("fp-123");
   });
+
+  test("packaged uiRoot (no package.json) is served as-is, never built", async () => {
+    const { uiRoot, distDir } = await makeUi();
+    // Packaged layout: dist baked, sources stripped.
+    await rm(join(uiRoot, "package.json"));
+    await mkdir(distDir, { recursive: true });
+    await writeFile(join(distDir, "index.html"), "baked");
+
+    const calls: string[] = [];
+    const runner: UiBuildRunner = async () => {
+      calls.push("build");
+    };
+    expect(await needsUiBuild(uiRoot, distDir)).toBe("fresh");
+    const result = await ensureUiBuilt(uiRoot, distDir, runner);
+    expect(result).toEqual({ built: false, state: "fresh" });
+    expect(calls).toEqual([]);
+  });
+
 });
 
 describe("ensureUiBuilt", () => {
