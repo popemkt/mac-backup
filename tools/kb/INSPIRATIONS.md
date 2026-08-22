@@ -1,8 +1,10 @@
 # kb — design inspirations
 
-Where each aspect of kb comes from, as stated by the project owner during the
-build program (2026-08). This is the "why does it feel like X" record —
-DESIGN*.md documents the mechanics; this documents the lineage.
+Where each aspect of kb comes from. This is the "why does it feel like X"
+record — DESIGN*.md documents the mechanics; this documents the lineage.
+Most entries were stated by the project owner during the build program
+(2026-08); the ones marked *(research-adopted)* entered via design research
+and were approved with the wave that shipped them.
 
 | Aspect | Inspiration | What was taken |
 |---|---|---|
@@ -17,6 +19,8 @@ DESIGN*.md documents the mechanics; this documents the lineage.
 | Canvas elements (shapes/tools) | **Excalidraw / draw.io / Miro** | Left tool strip, click-to-place rect/ellipse/diamond, inline labels, color swatches. Freehand, rotation, and z-order deliberately cut (simplicity rule) |
 | Canvas file format | **JSON Canvas 1.0 (Obsidian)** | Open interchange format stored in `sys.f.canvas`; unknown node types/fields preserved on round-trip |
 | Visual skin | **nxus** (owner's editor project) | Tokens, type scale, row metrics, chip styling, dark/light palette ported to match nxus exactly (DESIGN-RESKIN.md) |
+| Display views (Table/Board/Cards) | **Notion** *(research-adopted)* | Database-view semantics — one node list projected through interchangeable views, per-view config (sort/group/filter/column widths) stored as props on the frame node. Tana's menu was the UX spec; Notion's view model informed what the views do |
+| Agent-facing render surface | **MCP Apps** *(research-adopted)* | Saved views served as `ui://kb/view/<name>` HTML resources plus a `render_view` tool over the MCP server — "adding an app = drop a view JSON + template", following the MCP Apps resource shape |
 
 ## Standing design rules attached to these inspirations
 
