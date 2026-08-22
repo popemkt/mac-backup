@@ -19,7 +19,7 @@ interface CommandPaletteProps {
 }
 
 /**
- * ⌘S "Search and open" — single overlay, fuzzy over all nodes + commands.
+ * ⌘K "Search and open" — single overlay, fuzzy over all nodes + commands.
  * nxus chrome: backdrop-blur, single list, ↑↓/Enter (DESIGN-REFINE §2 W3).
  */
 export function CommandPalette({ open, onClose }: CommandPaletteProps) {
@@ -31,6 +31,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   const indexCache = useRef<PaletteIndex | null>(null);
 
   // Index once per graph rev — not per keystroke.
@@ -48,15 +50,30 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   useEffect(() => {
     if (!open) return;
+    restoreFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
     setQuery("");
     setActive(0);
     const t = requestAnimationFrame(() => inputRef.current?.focus());
-    return () => cancelAnimationFrame(t);
+    return () => {
+      cancelAnimationFrame(t);
+      restoreFocusRef.current?.focus();
+      restoreFocusRef.current = null;
+    };
   }, [open]);
 
   useEffect(() => {
     setActive(0);
   }, [query]);
+
+  useEffect(() => {
+    if (!open || !hits[active]) return;
+    const row = listRef.current?.querySelector<HTMLElement>(
+      '[data-palette-active="true"]',
+    );
+    row?.scrollIntoView?.({ block: "nearest" });
+  }, [active, hits, open]);
 
   const selectHit = useCallback(
     async (hit: PaletteHit) => {
@@ -96,6 +113,26 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         e.preventDefault();
         const hit = hits[active];
         if (hit) void selectHit(hit);
+        return;
+      }
+      if (e.key === "Tab") {
+        const focusable = Array.from(
+          e.currentTarget.querySelectorAll<HTMLElement>(
+            'input:not([disabled]), button:not([disabled]), [href]',
+          ),
+        );
+        if (focusable.length === 0) return;
+        const current = document.activeElement as HTMLElement | null;
+        const index = current ? focusable.indexOf(current) : -1;
+        const next = e.shiftKey
+          ? index <= 0
+            ? focusable.length - 1
+            : index - 1
+          : index === focusable.length - 1
+            ? 0
+            : index + 1;
+        e.preventDefault();
+        focusable[next]?.focus();
       }
     },
     [hits, active, onClose, selectHit],
@@ -145,6 +182,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         <ul
           id="kb-palette-list"
           role="listbox"
+          ref={listRef}
           className="max-h-[min(20*2rem,50vh)] overflow-auto py-1"
         >
           {hits.length === 0 ? (
@@ -156,6 +194,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
               <li key={hit.id} role="option" aria-selected={i === active}>
                 <button
                   id={`kb-palette-${hit.id}`}
+                  data-palette-row={hit.id}
+                  data-palette-active={i === active ? "true" : undefined}
                   type="button"
                   className={cn(
                     "flex w-full items-center gap-2 px-3 py-1.5 text-left",
@@ -201,7 +241,7 @@ export function PaletteTrigger({ onOpen }: { onOpen: () => void }) {
         Search and open…
       </span>
       <kbd className="rounded border border-foreground/10 px-1.5 py-0.5 text-[10px] text-foreground/40">
-        ⌘S
+        ⌘K
       </kbd>
     </button>
   );

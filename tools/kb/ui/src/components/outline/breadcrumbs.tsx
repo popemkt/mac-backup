@@ -19,7 +19,10 @@ export function Breadcrumbs() {
   const isAtRoot = rootNodeId === WORKSPACE_ROOT_ID;
 
   return (
-    <nav className="breadcrumbs flex h-11 items-center gap-1 px-1 text-[13px]">
+    <nav
+      className="breadcrumbs flex h-11 items-center gap-1 px-1 text-[13px]"
+      aria-label="Breadcrumb"
+    >
       <button
         type="button"
         className={cn(
@@ -29,6 +32,7 @@ export function Breadcrumbs() {
           isAtRoot && "text-foreground/70",
         )}
         onClick={() => zoomHome()}
+        aria-current={isAtRoot ? "page" : undefined}
       >
         <House size={14} weight="bold" />
         <span>Home</span>
@@ -47,6 +51,7 @@ export function Breadcrumbs() {
               item.id === rootNodeId && "text-foreground/70 font-medium",
             )}
             onClick={() => zoomTo(item.id)}
+            aria-current={item.id === rootNodeId ? "page" : undefined}
           >
             {item.text}
           </button>

@@ -146,6 +146,7 @@ function EditableText({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const isEditing = useRef(false);
+  const isComposing = useRef(false);
 
   const handleClick = useCallback(() => {
     if (!isEditing.current && ref.current) {
@@ -171,7 +172,12 @@ function EditableText({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === "Enter" && !e.shiftKey) {
+      if (
+        e.key === "Enter" &&
+        !e.shiftKey &&
+        !isComposing.current &&
+        !e.nativeEvent.isComposing
+      ) {
         e.preventDefault();
         ref.current?.blur();
       }
@@ -201,6 +207,12 @@ function EditableText({
       onClick={handleClick}
       onBlur={commit}
       onKeyDown={handleKeyDown}
+      onCompositionStart={() => {
+        isComposing.current = true;
+      }}
+      onCompositionEnd={() => {
+        isComposing.current = false;
+      }}
       suppressContentEditableWarning
     >
       {showEmpty ? "Empty" : text}
