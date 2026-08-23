@@ -7,6 +7,7 @@ import {
 } from "d3-hierarchy";
 import type { LensTreeNode } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
+import { formatGraphLabel } from "@/lib/graph-label";
 
 interface TreeGraphProps {
   forest: LensTreeNode[];
@@ -126,11 +127,9 @@ export function TreeGraph({ forest, onNodeClick, themeKey }: TreeGraphProps) {
   const dragState = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      setZoom((z) => Math.max(0.2, Math.min(3, z * delta)));
-    }
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoom((z) => Math.max(0.1, Math.min(3, z * delta)));
   }, []);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
@@ -151,9 +150,15 @@ export function TreeGraph({ forest, onNodeClick, themeKey }: TreeGraphProps) {
   }, []);
 
   const fitTreeView = useCallback(() => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  }, []);
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const scale = Math.min(1, (rect.width - 48) / layout.width, (rect.height - 48) / layout.height);
+    setZoom(scale);
+    setPan({
+      x: Math.max(24, (rect.width - layout.width * scale) / 2),
+      y: Math.max(24, (rect.height - layout.height * scale) / 2),
+    });
+  }, [layout]);
 
   const collapseAll = useCallback(() => {
     const ids = new Set<string>();
@@ -244,7 +249,7 @@ export function TreeGraph({ forest, onNodeClick, themeKey }: TreeGraphProps) {
                       "Outfit Variable, ui-sans-serif, system-ui, sans-serif",
                   }}
                 >
-                  {d.data.label || d.data.id}
+                  {d.data.label ? formatGraphLabel(d.data.label, d.data.size) : "untitled"}
                   {isCollapsed && hasKids ? " …" : ""}
                 </text>
               </g>

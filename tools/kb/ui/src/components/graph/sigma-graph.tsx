@@ -5,6 +5,7 @@ import { EdgeArrowProgram } from "sigma/rendering";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
 import { graphNodeAlpha, withGraphAlpha } from "@/lib/graph-dim";
+import { formatGraphLabel } from "@/lib/graph-label";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
 import { fitView } from "./graph-camera";
 
@@ -117,7 +118,7 @@ export function SigmaGraph({
       return {
         ...data,
         color: withGraphAlpha(String(data.color), alpha),
-        label: emphatic ? data.label : "",
+        label: emphatic ? formatGraphLabel(String(data.label), data.size) : "",
         forceLabel: emphatic && (!!filter || !!highlight),
         highlighted: emphatic,
         zIndex: emphatic ? 1 : 0,
@@ -285,6 +286,7 @@ export function SigmaGraph({
         startX: pos.x,
         startY: pos.y,
       };
+      graph.setNodeAttribute(node, "fixed", true);
       sigma.getCamera().disable();
     });
 
@@ -309,9 +311,12 @@ export function SigmaGraph({
       nextPositions.set(drag.node, { x: pos.x, y: pos.y });
     };
 
-    const onMouseUp = () => {
+    const onMouseUp = (event: MouseEvent) => {
       if (dragRef.current?.dragging) {
         layoutRef.current?.reheat(600);
+      }
+      if (dragRef.current && !event.altKey) {
+        graph.removeNodeAttribute(dragRef.current.node, "fixed");
       }
       dragRef.current = null;
       sigma.getCamera().enable();
@@ -328,10 +333,9 @@ export function SigmaGraph({
       }
     };
 
-    el.addEventListener("mousemove", onMouseMove);
-    el.addEventListener("mousemove", onHoverMove);
-    el.addEventListener("mouseup", onMouseUp);
-    el.addEventListener("mouseleave", onMouseUp);
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mousemove", onHoverMove);
+    document.addEventListener("mouseup", onMouseUp);
 
     // --- Layout ---
     if (graph.order > 0 && topologyChanged) {
@@ -362,10 +366,9 @@ export function SigmaGraph({
     refreshReducers();
 
     return () => {
-      el.removeEventListener("mousemove", onMouseMove);
-      el.removeEventListener("mousemove", onHoverMove);
-      el.removeEventListener("mouseup", onMouseUp);
-      el.removeEventListener("mouseleave", onMouseUp);
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mousemove", onHoverMove);
+      document.removeEventListener("mouseup", onMouseUp);
       try {
         cameraRef.current = sigma.getCamera().getState() as CameraSnap;
       } catch {
