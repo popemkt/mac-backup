@@ -14,6 +14,7 @@ import {
   type ClientMessage,
   type ServerMessage,
 } from "@kb/protocol";
+import { getClientOrigin } from "@/api/action";
 
 export type WsStatus = "idle" | "connecting" | "open" | "closed";
 
@@ -63,7 +64,7 @@ interface Subscription {
 function defaultUrl(): string {
   const loc = window.location;
   const proto = loc.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${loc.host}/ws`;
+  return `${proto}//${loc.host}/ws?origin=${encodeURIComponent(getClientOrigin())}`;
 }
 
 function defaultMakeSocket(url: string): WsLike {

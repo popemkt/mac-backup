@@ -17,6 +17,47 @@ export interface CaretGeometry {
   x: number | null;
 }
 
+/** Text mutations that can map a serialized markdown offset. */
+export type CaretStep =
+  | { kind: "updateText"; before: string; after: string }
+  | { kind: "split"; offset: number; side: "left" | "right" }
+  | { kind: "merge"; leftLength: number; source: "left" | "right" };
+
+/**
+ * Map an offset through the small text-operation vocabulary used by the
+ * outline. Insertions at the boundary are biased to the edited content;
+ * callers therefore retain their intended character rather than merely
+ * clamping to a plausible position after a structural write.
+ */
+export function mapOffset(step: CaretStep, offset: number): number {
+  const at = Math.max(0, offset);
+  switch (step.kind) {
+    case "updateText": {
+      if (step.before === step.after) return at;
+      let prefix = 0;
+      const shared = Math.min(step.before.length, step.after.length);
+      while (prefix < shared && step.before[prefix] === step.after[prefix]) prefix += 1;
+      let beforeSuffix = step.before.length;
+      let afterSuffix = step.after.length;
+      while (
+        beforeSuffix > prefix &&
+        afterSuffix > prefix &&
+        step.before[beforeSuffix - 1] === step.after[afterSuffix - 1]
+      ) {
+        beforeSuffix -= 1;
+        afterSuffix -= 1;
+      }
+      if (at <= prefix) return at;
+      if (at >= beforeSuffix) return at + (afterSuffix - beforeSuffix);
+      return afterSuffix;
+    }
+    case "split":
+      return step.side === "left" ? Math.min(at, step.offset) : Math.max(0, at - step.offset);
+    case "merge":
+      return step.source === "left" ? at : step.leftLength + at;
+  }
+}
+
 const PERMISSIVE: CaretGeometry = {
   onFirstLine: true,
   onLastLine: true,

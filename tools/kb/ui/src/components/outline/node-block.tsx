@@ -38,7 +38,6 @@ export const NodeBlock = memo(function NodeBlock({
   const activeInstanceKey = useOutlineStore((s) => s.activeInstanceKey);
   const selectedNodeId = useOutlineStore((s) => s.selectedNodeId);
   const selectedInstanceKey = useOutlineStore((s) => s.selectedInstanceKey);
-  const cursorPosition = useOutlineStore((s) => s.cursorPosition);
   const activateNode = useOutlineStore((s) => s.activateNode);
   const selectNode = useOutlineStore((s) => s.selectNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
@@ -156,7 +155,6 @@ export const NodeBlock = memo(function NodeBlock({
                 content={node.text}
                 isActive={isActive}
                 tags={node.tags}
-                cursorPosition={cursorPosition}
                 onActivate={handleActivate}
                 onChange={handleContentChange}
                 onKeyDown={handleKeyDown}

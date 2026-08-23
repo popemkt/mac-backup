@@ -141,7 +141,7 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
       const url = new URL(req.url);
 
       if (url.pathname === "/ws" && req.method === "GET") {
-        const clientId = crypto.randomUUID();
+        const clientId = url.searchParams.get("origin") || crypto.randomUUID();
         const ok = srv.upgrade(req, { data: { clientId } });
         if (!ok) {
           return new Response("WebSocket upgrade failed", { status: 400 });

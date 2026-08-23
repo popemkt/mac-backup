@@ -21,12 +21,22 @@ export type PostActionFn = (
 
 let postActionImpl: PostActionFn = defaultPostAction;
 
+const clientOrigin =
+  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `kb-${Math.random().toString(36).slice(2)}`;
+
+/** Stable per-tab origin shared by HTTP actions and the live socket. */
+export function getClientOrigin(): string {
+  return clientOrigin;
+}
+
 async function defaultPostAction(
   invocation: ActionInvocation,
 ): Promise<ActionReceipt> {
   const res = await fetch("/api/action", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-KB-Origin": getClientOrigin() },
     body: JSON.stringify(invocation),
   });
   const json: unknown = await res.json().catch(() => null);

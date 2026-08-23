@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { LockSimple } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
@@ -23,29 +23,38 @@ import { nearestOffsetForX, offsetFromPoint } from "./caret";
 import { TagChipGroup } from "./tag-chip";
 
 
-interface NodeContentProps {
+export interface NodeTextHostProps {
   nodeId: string;
   instanceKey?: string;
   content: string;
   isActive: boolean;
   tags: Parameters<typeof TagChipGroup>[0]["tags"];
-  cursorPosition: number;
+  /** @deprecated compatibility for the canvas editor; outline uses CaretIntent. */
+  cursorPosition?: number;
+  /** Explicit local placement for non-outline hosts such as a page title. */
+  initialCaret?: "end";
+  textClassName?: string;
+  onBlur?: () => void;
+  zoomTitleEditor?: boolean;
   onActivate: (cursorPos?: number) => void;
   onChange: (content: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
 }
 
-export function NodeContent({
+export function NodeTextHost({
   nodeId,
   instanceKey,
   content,
   isActive,
   tags,
-  cursorPosition,
+  initialCaret,
+  textClassName,
+  onBlur,
+  zoomTitleEditor,
   onActivate,
   onChange,
   onKeyDown,
-}: NodeContentProps) {
+}: NodeTextHostProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const mdViewRef = useRef<HTMLDivElement>(null);
   const isComposing = useRef(false);
@@ -54,11 +63,11 @@ export function NodeContent({
   const acDismissedQuery = useRef<string | null>(null);
   const nodes = useOutlineStore((s) => s.nodes);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
-  const focusSeq = useOutlineStore((s) => s.focusSeq);
+  const pendingCaret = useOutlineStore((s) => s.pendingCaret);
   const [acIndex, setAcIndex] = useState(0);
   /** D14: Escape dismisses the popup without blurring or leaving edit mode. */
   const [acDismissed, setAcDismissed] = useState(false);
-  const [cursor, setCursor] = useState(cursorPosition);
+  const [cursor, setCursor] = useState(0);
   const readOnly = isSysPrefixed(nodeId);
 
 
@@ -82,8 +91,22 @@ export function NodeContent({
     setAcIndex(0);
   }, [refOpen?.query, refOpen?.start]);
 
-  useEffect(() => {
-    if (isActive && editorRef.current) {
+  useLayoutEffect(() => {
+    if (!isActive || !instanceKey) return;
+    const registry = useOutlineStore.getState();
+    registry.registerTextHost(instanceKey);
+    return () => registry.unregisterTextHost(instanceKey);
+  }, [isActive, instanceKey]);
+
+  useLayoutEffect(() => {
+    const intent =
+      instanceKey && pendingCaret?.instanceKey === instanceKey ? pendingCaret : null;
+    const localIntent =
+      !intent && isActive && !wasActive.current && initialCaret
+        ? { instanceKey: instanceKey ?? "local", at: initialCaret }
+        : null;
+    const placement = intent ?? localIntent;
+    if (isActive && editorRef.current && placement) {
       const el = editorRef.current;
 
       if (!wasActive.current) {
@@ -93,31 +116,34 @@ export function NodeContent({
       wasActive.current = true;
 
       el.focus();
-      let placedCursor = Math.min(cursorPosition, content.length);
+      let placedCursor =
+        placement.at === "end"
+          ? content.length
+          : typeof placement.at === "number"
+            ? placement.at
+            : 0;
       setCaretSerializedOffset(el, placedCursor);
 
       // Column preservation across vertical navigation (D11): nudge the
       // caret to the character whose visual x best matches the previous row.
-      const focusX = useOutlineStore.getState().focusX;
-      if (focusX !== null && focusX !== undefined) {
+      if (typeof placement.at === "object") {
         const adjusted =
-          nearestOffsetForX(el, focusX, "first") ??
-          nearestOffsetForX(el, focusX, "last");
+          nearestOffsetForX(el, placement.at.x, "first") ??
+          nearestOffsetForX(el, placement.at.x, "last");
         if (adjusted !== null) {
           setCaretSerializedOffset(el, adjusted);
           placedCursor = adjusted;
         }
-        useOutlineStore.setState({ focusX: null });
       }
 
       setCursor(placedCursor);
+      if (intent) useOutlineStore.getState().consumeCaret(intent.instanceKey);
       setAcDismissed(false);
       acDismissedQuery.current = null;
     } else {
       wasActive.current = false;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, cursorPosition, focusSeq]);
+  }, [isActive, content, initialCaret, instanceKey, pendingCaret]);
 
   const applyRef = useCallback(
     (id: string, label: string) => {
@@ -130,9 +156,7 @@ export function NodeContent({
         setCaretSerializedOffset(editorRef.current, inserted.cursor);
       }
       setCursor(inserted.cursor);
-      useOutlineStore
-        .getState()
-        .activateNode(nodeId, inserted.cursor, instanceKey);
+      if (instanceKey) useOutlineStore.getState().placeCaret(instanceKey, inserted.cursor);
     },
     [content, cursor, nodeId, instanceKey, onChange],
   );
@@ -148,7 +172,7 @@ export function NodeContent({
     renderEditableContent(editorRef.current, next);
     setCaretSerializedOffset(editorRef.current, cursor + 2);
     setCursor(cursor + 2);
-    useOutlineStore.getState().activateNode(nodeId, cursor + 2, instanceKey);
+    if (instanceKey) useOutlineStore.getState().placeCaret(instanceKey, cursor + 2);
   }, [content, cursor, nodeId, instanceKey, onChange]);
 
   const handleInput = useCallback(() => {
@@ -297,6 +321,7 @@ export function NodeContent({
               "outline-none",
               "text-foreground/85",
               "caret-foreground/70",
+              textClassName,
             )}
             contentEditable
             suppressContentEditableWarning
@@ -310,13 +335,15 @@ export function NodeContent({
             onClick={(e) => e.stopPropagation()}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
+            onBlur={onBlur}
             role="textbox"
+            data-zoom-title-editor={zoomTitleEditor ? "true" : undefined}
           />
         ) : (
           <div ref={mdViewRef} className="min-h-6 min-w-0 flex-1 self-start">
             <MdView
               text={content}
-              className="min-h-6 min-w-0 flex-1 self-start text-foreground/85"
+              className={cn("min-h-6 min-w-0 flex-1 self-start text-foreground/85", textClassName)}
               clamp={false}
             />
           </div>
@@ -355,3 +382,6 @@ export function NodeContent({
     </>
   );
 }
+
+/** Compatibility name while callers migrate to the common text host. */
+export const NodeContent = NodeTextHost;

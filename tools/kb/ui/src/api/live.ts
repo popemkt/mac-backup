@@ -7,6 +7,7 @@ import { fetchGraphSnapshot } from "@/api/graph";
 import { KbWsClient, type KbWsClientOptions } from "@/api/ws";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
+import { mergeRemoteUpserts } from "@/actions/mutations";
 
 let client: KbWsClient | null = null;
 let refetching = false;
@@ -39,7 +40,7 @@ export function createLiveClient(
   return new KbWsClient({
     getRev: () => useOutlineStore.getState().rev,
     onTx: (tx) =>
-      useOutlineStore.getState().applyTx(tx.upserts, tx.deletes, { rev: tx.rev }),
+      useOutlineStore.getState().applyTx(mergeRemoteUpserts(tx.upserts), tx.deletes, { rev: tx.rev }),
     onGap: () => void refetchGraph(),
     onStatus: (status) => useUiStore.getState().setWsStatus(status),
     onServerError: (err) =>

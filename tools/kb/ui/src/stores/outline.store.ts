@@ -40,6 +40,12 @@ export interface ActivateOpts {
   x?: number | null;
 }
 
+/** A one-shot request for a mounted text host to place its caret. */
+export type CaretIntent = {
+  instanceKey: string;
+  at: number | "end" | { x: number };
+};
+
 interface OutlineState {
   nodes: NodeMap;
   wireNodes: WireNode[];
@@ -53,6 +59,12 @@ interface OutlineState {
   activeInstanceKey: string | null;
   selectedNodeId: string | null;
   selectedInstanceKey: string | null;
+  /**
+   * Consumable placement command. Unlike the legacy cursor fields below this
+   * is not editor state: ordinary store writes cannot make a host move.
+   */
+  pendingCaret: CaretIntent | null;
+  /** @deprecated Canvas compatibility only; text hosts must not read this. */
   cursorPosition: number;
   loadSource: "api" | "fixtures" | null;
   loadError: string | null;
@@ -89,6 +101,10 @@ interface OutlineState {
   zoomTo: (id: string) => void;
   zoomHome: () => void;
   activateNode: (id: string, cursorPos?: number, instanceKey?: string, opts?: ActivateOpts) => void;
+  placeCaret: (instanceKey: string, at: CaretIntent["at"]) => void;
+  consumeCaret: (instanceKey: string) => CaretIntent | null;
+  registerTextHost: (instanceKey: string) => void;
+  unregisterTextHost: (instanceKey: string) => void;
   deactivateNode: () => void;
   selectNode: (id: string | null, instanceKey?: string) => void;
   toggleCollapse: (id: string) => void;
@@ -222,6 +238,26 @@ function isPrunableTransient(
 
 export const useOutlineStore = create<OutlineState>((set, get) => {
   /**
+   * FocusRegistry's mounted half. Visibility is checked synchronously during
+   * activation; this set closes the final race between projection and React
+   * mounting so an orphaned active id cannot eat keyboard input.
+   */
+  const mountedTextHosts = new Set<string>();
+
+  function fallBackFromMissingHost(instanceKey: string): void {
+    const active = get();
+    if (active.activeInstanceKey !== instanceKey || mountedTextHosts.has(instanceKey)) return;
+    if (import.meta.env.DEV) {
+      console.warn(`kb: active text host did not mount: ${instanceKey}`);
+    }
+    set({
+      activeNodeId: null,
+      activeInstanceKey: null,
+      pendingCaret: null,
+    });
+  }
+
+  /**
    * Prune the outgoing active row when it is an empty session transient
    * (r1 §3.3 auto-prune). nextId = incoming focus target; null when focus
    * leaves the outline entirely.
@@ -316,6 +352,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     activeInstanceKey: null,
     selectedNodeId: null,
     selectedInstanceKey: null,
+    pendingCaret: null,
     cursorPosition: 0,
     loadSource: null,
     loadError: null,
@@ -342,6 +379,11 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
         loadError: null,
         rootNodeId: WORKSPACE_ROOT_ID,
         homeRootId: WORKSPACE_ROOT_ID,
+        activeNodeId: null,
+        activeInstanceKey: null,
+        pendingCaret: null,
+        selectedNodeId: null,
+        selectedInstanceKey: null,
         ontologyId: null,
         ontologyMembers: null,
         ontologyWarnings: [],
@@ -527,25 +569,76 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       });
       return;
     }
+    // Reveal the full parent chain before validating the instance. Creation,
+    // indent, and palette navigation therefore cannot focus a hidden row.
+    get().expandAncestors(id);
+    const revealed = get();
+    const key = resolveActivateKey(id, instanceKey, revealed.nodes);
+    // Reference instances are projected by query components, so their exact
+    // visibility is only knowable once that component mounts. The mounted-host
+    // half of the registry below validates them after React commits.
+    const isReferenceInstance = key.startsWith("ref:");
+    if (
+      !isReferenceInstance &&
+      !revealed.getVisibleInstances().some((item) => item.instanceKey === key)
+    ) {
+      if (import.meta.env.DEV) console.warn(`kb: refused unreachable focus target: ${key}`);
+      toast("That node is not visible in this outline");
+      return;
+    }
     // Tana transient rule: an empty session-minted node prunes the moment
     // focus moves to a different row (r1 §3.3).
     pruneOutgoingTransient(id);
-      const { nodes } = get();
-      const key = resolveActivateKey(id, instanceKey, nodes);
-      set((s) => ({
+      const at: CaretIntent["at"] =
+        opts?.x !== null && opts?.x !== undefined
+          ? { x: opts.x }
+          : cursorPos ?? 0;
+      set({
         activeNodeId: id,
         activeInstanceKey: key,
         selectedNodeId: id,
         selectedInstanceKey: key,
+        pendingCaret: { instanceKey: key, at },
+        // Keep this projection for the canvas wave, which has not yet
+        // migrated to CaretIntent. It is deliberately not observed by any
+        // outline text host.
         cursorPosition: cursorPos ?? 0,
-        focusSeq: s.focusSeq + 1,
-        focusX: opts?.x ?? null,
-      }));
+        focusX: null,
+      });
+      if (typeof window !== "undefined") {
+        // Let React finish a full paint cycle (including a virtualized list
+        // remount) before treating the focus target as unavailable.
+        window.setTimeout(() => fallBackFromMissingHost(key), 250);
+      }
+    },
+
+    placeCaret: (instanceKey, at) => {
+      const st = get();
+      if (st.activeInstanceKey !== instanceKey) return;
+      set({ pendingCaret: { instanceKey, at } });
+    },
+
+    consumeCaret: (instanceKey) => {
+      const intent = get().pendingCaret;
+      if (!intent || intent.instanceKey !== instanceKey) return null;
+      set({ pendingCaret: null });
+      return intent;
+    },
+
+    registerTextHost: (instanceKey) => {
+      mountedTextHosts.add(instanceKey);
+    },
+
+    unregisterTextHost: (instanceKey) => {
+      mountedTextHosts.delete(instanceKey);
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => fallBackFromMissingHost(instanceKey), 250);
+      }
     },
 
     deactivateNode: () => {
       pruneOutgoingTransient(null);
-      set({ activeNodeId: null, activeInstanceKey: null });
+      set({ activeNodeId: null, activeInstanceKey: null, pendingCaret: null });
     },
 
     selectNode: (id, instanceKey) => {
@@ -556,6 +649,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
           selectedInstanceKey: null,
           activeNodeId: null,
           activeInstanceKey: null,
+          pendingCaret: null,
         });
         return;
       }
@@ -568,6 +662,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
         selectedInstanceKey: key,
         activeNodeId: null,
         activeInstanceKey: null,
+        pendingCaret: null,
       });
     },
 

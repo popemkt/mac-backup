@@ -60,12 +60,29 @@ describe("outline store (WireNode adaptation)", () => {
     seed();
     useOutlineStore.getState().activateNode("n.root-a", 3);
     expect(useOutlineStore.getState().activeNodeId).toBe("n.root-a");
-    expect(useOutlineStore.getState().cursorPosition).toBe(3);
+    expect(useOutlineStore.getState().pendingCaret).toMatchObject({ at: 3 });
     useOutlineStore.getState().selectNode("n.root-b");
     expect(useOutlineStore.getState().selectedNodeId).toBe("n.root-b");
     expect(useOutlineStore.getState().activeNodeId).toBeNull();
     useOutlineStore.getState().deactivateNode();
     expect(useOutlineStore.getState().activeNodeId).toBeNull();
+  });
+
+  it("FocusRegistry reveals ancestors before activating a hidden child", () => {
+    seed();
+    useOutlineStore.getState().activateNode("n.grandchild", 0);
+    const state = useOutlineStore.getState();
+    expect(state.getVisibleNodes()).toContain("n.grandchild");
+    expect(state.activeNodeId).toBe("n.grandchild");
+    expect(state.pendingCaret).toMatchObject({ at: 0 });
+  });
+
+  it("FocusRegistry refuses a target outside the current visible root", () => {
+    seed();
+    useOutlineStore.getState().zoomTo("n.root-b");
+    useOutlineStore.getState().activateNode("n.child-a1", 0);
+    expect(useOutlineStore.getState().activeNodeId).toBeNull();
+    expect(useOutlineStore.getState().pendingCaret).toBeNull();
   });
 
   it("defaults expandable nodes collapsed; visible list shows roots only", () => {

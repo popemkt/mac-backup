@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { LockSimple } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
@@ -9,6 +9,7 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { FieldsSection } from "./fields-section";
 import { TagChipGroup } from "./tag-chip";
 import { ViewToolbar } from "./view-toolbar";
+import { NodeTextHost } from "./node-content";
 
 /**
  * D13: everything is a node — the zoomed page title edits in place with
@@ -17,33 +18,9 @@ import { ViewToolbar } from "./view-toolbar";
 function EditableTitle({ node }: { node: OutlineNode }) {
   const readOnly = isSysPrefixed(node.id);
   const [editing, setEditing] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
   const text = node.text;
 
-  useEffect(() => {
-    if (!editing || !ref.current) return;
-    const el = ref.current;
-    el.textContent = text;
-    el.focus();
-    const sel = window.getSelection();
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    range.collapse(false); // caret at end
-    sel?.removeAllRanges();
-    sel?.addRange(range);
-  }, [editing, text]);
-
-  const commit = useCallback(() => {
-    if (!ref.current) return;
-    const next = ref.current.textContent ?? "";
-    setEditing(false);
-    if (next !== text) mutations.updateNodeContent(node.id, next);
-  }, [node.id, text]);
-
-  const cancel = useCallback(() => {
-    if (ref.current) ref.current.textContent = text;
-    setEditing(false);
-  }, [text]);
+  const commit = useCallback(() => setEditing(false), []);
 
   if (readOnly) {
     return (
@@ -62,29 +39,27 @@ function EditableTitle({ node }: { node: OutlineNode }) {
 
   if (editing) {
     return (
-      <div
-        ref={ref}
-        contentEditable
-        suppressContentEditableWarning
-        className={cn(
-          TITLE_CLASS,
-          "editable rounded-sm outline-none",
-          "text-foreground/90 caret-foreground/70",
-        )}
-        data-zoom-title-editor="true"
-        onClick={(e) => e.stopPropagation()}
+      <NodeTextHost
+        nodeId={node.id}
+        instanceKey={`title/${node.id}`}
+        content={text}
+        isActive
+        tags={[]}
+        initialCaret="end"
+        textClassName={cn(TITLE_CLASS, "rounded-sm text-foreground/90")}
+        onActivate={() => undefined}
+        onChange={(next) => {
+          if (next !== text) mutations.updateNodeContent(node.id, next);
+        }}
+        onBlur={commit}
+        zoomTitleEditor
         onKeyDown={(e) => {
           e.stopPropagation();
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             commit();
           }
-          if (e.key === "Escape") {
-            e.preventDefault();
-            cancel();
-          }
         }}
-        onBlur={commit}
       />
     );
   }

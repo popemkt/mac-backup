@@ -116,7 +116,7 @@ export const handleHttpRequestEffect = (
         input: parsed.data.input ?? {},
       });
       // Immediate bump/broadcast — do not wait for fs.watch.
-      yield* hub.applyNodes(ctx.nodes);
+      yield* hub.applyNodes(ctx.nodes, req.headers.get("x-kb-origin") ?? undefined);
       return jsonResponse(receipt);
     }
 

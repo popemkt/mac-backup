@@ -137,23 +137,19 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
     expect(plan.upserts.find(n => n.id === "p")!.children).toEqual(["a", "new"]);
   });
 
-  it("F4/B4: cursor does not jump to 0 when POST resolves after typing", async () => {
+  it("F4/B4: only an explicit CaretIntent can move the caret", async () => {
     // Simulate the transient-create path with fixtures (no network delay) — verify single activation
-    const s0 = useOutlineStore.getState();
-    const beforeSeq = s0.focusSeq;
     const newId = await mutations.createTransientNode("n.root-c", null);
     expect(newId).not.toBeNull();
     const s1 = useOutlineStore.getState();
     expect(s1.activeNodeId).toBe(newId);
-    expect(s1.cursorPosition).toBe(0);
-    expect(s1.focusSeq).toBe(beforeSeq + 1);
+    expect(s1.pendingCaret).toMatchObject({ at: 0 });
     // Typing should not be clobbered by a second activation — simulate user typing
     mutations.updateNodeContent(newId!, "hello");
     act(() => useOutlineStore.getState().activateNode(newId!, 5, outlineInstanceKey(newId!, s1.nodes)));
     const s2 = useOutlineStore.getState();
-    expect(s2.cursorPosition).toBe(5);
+    expect(s2.pendingCaret).toMatchObject({ at: 5 });
     // No further bump — the duplicate activation is gone
-    expect(s2.focusSeq).toBe(beforeSeq + 2);
   });
 
   it("F11: indent/outdent guard uses result.ok not object truthiness", async () => {

@@ -284,11 +284,6 @@ const TableRow = memo(function TableRow({
     (s) =>
       s.selectedNodeId === child.id && s.selectedInstanceKey === childKey,
   );
-  const cursorPosition = useOutlineStore((s) =>
-    s.activeNodeId === child.id && s.activeInstanceKey === childKey
-      ? s.cursorPosition
-      : 0,
-  );
   const selectNode = useOutlineStore((s) => s.selectNode);
   const activateNode = useOutlineStore((s) => s.activateNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
@@ -344,7 +339,6 @@ const TableRow = memo(function TableRow({
               content={child.text}
               isActive={isActive}
               tags={child.tags}
-              cursorPosition={cursorPosition}
               onActivate={(pos) => activateNode(child.id, pos, childKey)}
               onChange={(text) => mutations.updateNodeContent(child.id, text)}
               onKeyDown={handleKeyDown}
