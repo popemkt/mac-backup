@@ -728,3 +728,234 @@ on record:
   pipeline — so it costs almost no new concepts.
 - Every claim about existing behaviour in Part 2 is anchored to a read file or
   a live probe (§0); nothing here assumes a capability that was not checked.
+
+---
+
+## Implementation handoff
+
+Worker: claude (worktree `kb-i6-ontology`, branch `popemkt/kb-i6-ontology`).
+Gate: `./intent/gate.sh session claude` → `SOFT_MISSING: shellcheck actionlint
+nvfetcher` (soft, non-blocking). Four commits, none pushed, nothing merged.
+
+```
+eb9a0ca feat: ontology core model, resolver, and ontology.members action
+e098b48 feat: ontology scope, page, and graph projection in the UI
+6c3ef38 test: end-to-end acceptance for entering and leaving an ontology
+53f0d6b feat: ontology picker in the graph header and inline rename on the page
+```
+
+Final gate state, all four green:
+
+| Command | Result |
+|---|---|
+| `bun test` (tools/kb) | 580 pass, 0 fail (78 files) |
+| `npm run typecheck` | clean |
+| `npm run check` | 0 warnings, 0 errors (76 files) |
+| `cd ui && vp test` | 375 pass (59 files) |
+
+`ui/tsc --noEmit` and `ui/vp check --no-fmt` are also clean (9 warnings, all
+pre-existing in `lib/refs.ts` / unrelated files — verified identical before my
+changes).
+
+### What shipped
+
+**The resolver (`src/foundation/ontology.ts`, new).** Pure, isomorphic, no
+Node/Bun API, no datascript import — the EDN runner is injected, so CLI, MCP and
+the browser share ONE implementation through a new `@kb/ontology` alias. No fork
+like `ds/datoms.ts`. Implements §1.2 minus `intersect`/`subtract`: extends DFS
+(cycle-safe, depth-capped at 32) → include tags → explicit pins → query →
+`closure: descendants` → exclude, applied last and absolute. Self and
+extends-ancestors are never members. Provenance (`reasons`) is produced during
+resolution. Deterministic: iteration follows input node order and prop order.
+Nothing graph-shaped throws — cycles, malformed EDN, unknown refs and cap hits
+all surface as `warnings`. Also exports `wouldCreateExtendsCycle`,
+`listOntologyNodes`, `describeReason`, `LIST_ONTOLOGIES_QUERY`.
+
+**Seed + action.** `#ontology` tag, six `sys.f.onto.*` fields, three
+`sys.command` nodes. `ontoExtendsField` carries `sys.f.targetQuery` so the ref
+picker offers only `#ontology` nodes. No default ontology instance is seeded.
+`ontology.members` (read) is the single new registry action; CLI sugar is
+`kb ontology list` and `kb ontology members <id> [--reasons]`, so the UI's scope
+is exactly reachable through data.
+
+**Scope (`ui/src/lib/ontology-scope.ts` + store).** The store gained
+`ontologyId` / `ontologyMembers` / `ontologyWarnings` / `preScopeRootId` and
+`setOntologyScope`. All six `wireToOutlineMap` + `buildQueryDb` call sites now go
+through one `projectWire()` helper (the report said four; `pruneOutgoingTransient`
+and `applyHistoryEntry` are the other two). `queryDb` stays built over the FULL
+snapshot — scope is a projection, not a sandbox — so backlinks, `#query` nodes and
+WS subscriptions keep honest reach. Search, keyboard nav, breadcrumbs and
+`getVisibleInstances` scope for free.
+
+**Graph.** One additive `restrictTo?: Set<string>` on `ExtractLensOptions`,
+intersected in `resolveNodeSet`. No new renderer; internal-edge-only falls out of
+the existing endpoint check in `collectEdges`.
+
+**UI.** `/o` (list), `/o/<id>` (Members page), `/o/<id>/outline`,
+`/o/<id>/graph` — scope lives in the URL, so it is linkable, survives reload and
+the back button. Ontology page: inline rename, include/extends chip rows with a
+filterable ref picker, EDN query editor, closure toggle, Members list with a
+provenance label per row, Excluded list with restore. Scope chip
+(`⬡ Name · N members · Members/Outline/Graph · Exit`) with a warning badge.
+Sidebar **Ontologies** section, `⬡` bullet kind, three palette commands, ontology
+picker beside the perspective picker in the graph header.
+
+### Verified against the acceptance bar
+
+Playwright was unavailable — `Browser is already in use for
+/Users/popemkt/.claude/chrome` on both attempts, so I could not click through a
+real browser. Substituted three checks, two of them automated and permanent:
+
+1. **Real server, isolated root.** `kb ui --root <tmp> --port 4399` built the
+   bundle (a distinct `ontology-page` chunk, 18.6 kB) and served every deep link:
+   `/o`, `/o/<id>`, `/o/<id>/graph` all 200 — SPA fallback works, so a reload
+   inside a scope is not a 404.
+2. **Data surface** (`kb ontology members --reasons` on a seeded demo root):
+   created the ontology with exactly the action the UI posts, added members
+   **three ways** — include tag `#service` (2 members, `{kind:"tag",via}`),
+   explicit pin (`{kind:"member"}`), query (`{kind:"query"}`) — then vetoed the
+   query-derived member and watched it move to `excluded`. `not_found` /
+   `invalid_input` receipts confirmed.
+3. **`ontology-scope.acceptance.test.tsx`** drives the real `App`: enter the
+   ontology → only members render, a member's non-member child is *absent* (not
+   hidden), the internal parent/child link survives, the graph keeps only the
+   internal edge, search is scoped; then leave → `container.innerHTML` is
+   **byte-identical** to the pre-scope render. That last assertion is the direct
+   automated proof that non-member nodes render exactly as before.
+
+Data compat, measured rather than asserted: the repo's own
+`.kb/nodes.jsonl` diff is **+10 lines, −0** — all `sys.*` seed rows.
+`tests/ontology.test.ts` additionally proves a pre-ontology store's content lines
+stay byte-identical through `openKb`, and that no node except the ontology itself
+carries any `sys.f.onto.*` prop.
+
+### Shared-file touches (every one, with why)
+
+Backend:
+
+| File | Change |
+|---|---|
+| `src/foundation/model.ts` | `SYSTEM_IDS`: tag + 6 fields + 3 commands. Purely additive. |
+| `src/foundation/seed.ts` | Seed those nodes. **One existing block rewritten**: the `#graph-perspective`-only template-field backfill became a `TEMPLATE_TAGS` loop so `#ontology` gets the same treatment. Behaviour for `#graph-perspective` is unchanged (covered by `graph-perspective-seed.test.ts`). |
+| `src/registry.ts` | 1 import + 1 `coreNative(...)` line. |
+| `src/surface/map.ts` | `mapOntologyList` / `mapOntologyMembers` + 1 import. |
+| `src/surface/cli.ts` | `kb ontology list\|members` block + 2 entries in the existing import/export lists. |
+| `bunfig.toml` | 3 `pathIgnorePatterns` entries for the DOM-requiring UI tests. |
+
+UI:
+
+| File | Change |
+|---|---|
+| `ui/tsconfig.json` | `@kb/ontology` path **and** `allowImportingTsExtensions: true` — the shared resolver imports `./model.ts`, which the UI tsconfig otherwise rejects. `noEmit` is on, so it is inert at build time. Flagging this one because it loosens a rule for the whole UI package. |
+| `ui/vite.config.ts` | `@kb/ontology` alias. |
+| `ui/src/lib/types.ts` | Mirror the new `SYSTEM_IDS` entries. |
+| `ui/src/lib/router.ts` | `AppRoute` gains `ontology-list` + `ontology`; `/o` routes; `ontologyPath()`. |
+| `ui/src/stores/outline.store.ts` | Scope state, `projectWire()` (6 call sites), `setOntologyScope`, scope-escape in `zoomTo`/`jumpToNode`. **One behaviour change beyond scope**: `jumpToNode`'s "not visible" fallback now resets to `homeRootId` instead of hard-coding `WORKSPACE_ROOT_ID` (identical unscoped; correct under a scope). |
+| `ui/src/actions/plan.ts` | 11 ontology planners + 1 import. |
+| `ui/src/actions/mutations.ts` | 10 `mutations.ontology*` methods + `defineOntology`. |
+| `ui/src/lib/graph-lens.ts` | `restrictTo` option; the `resolveNodeSet` candidate filter is now one predicate instead of a ternary. |
+| `ui/src/components/graph/graph-page.tsx` | `ontologyId` prop, `restrictTo`, `OntologyPicker`, header label, node-click target, and a guard so the perspective effect never rewrites `/o/<id>/graph`. |
+| `ui/src/components/App.tsx` | Lazy `OntologyPage`/`OntologyListPage`; `OutlineShell` gains `ontology`/`ontologyList`; `OntologyChrome`; URL→scope effect; route branches. |
+| `ui/src/components/sidebar/sidebar-nav.ts` | `listOntologyNavItems`. |
+| `ui/src/components/sidebar/sidebar.tsx` | Ontologies section + "New ontology". |
+| `ui/src/lib/bullet-mode.ts` | `"ontology"` bullet kind (after `canvas`). |
+| `ui/src/components/outline/bullet.tsx` | `⬡` glyph entry. |
+| `ui/src/lib/run-command.ts` | Handlers for the three new commands. |
+| `.kb/nodes.jsonl` | +10 `sys.*` seed lines, −0. |
+
+`index.css`, `tokens.css` and `ds/**` were **not** touched. The wire format in
+`src/surface/protocol.ts` was **not** touched — no HTTP/WS message shape changed.
+
+New files are all in-zone except the two noted below.
+
+### Deviations from the report (with rationale)
+
+1. **`ontologyMembersDef` lives in a new `src/operations/ontology.ts`**, not in
+   `src/operations/index.ts` as §2.6 specifies. That file is 736 lines and is
+   almost certainly i4-backend's territory; a new module has zero merge surface
+   and the registration line in `registry.ts` is unchanged in spirit.
+2. **`LIST_ONTOLOGIES_QUERY` lives in `foundation/ontology.ts`**, not
+   `query/queries.ts` — avoids touching a second shared file for one constant.
+3. **`scopedWireNodes` makes the ontology the scope ROOT with synthetic
+   children.** §2.5 says the ontology node "is included (it is the scope root
+   header) but is not a member"; read literally with its own (empty) children,
+   and with `rootNodeId` set to the ontology, the scoped outline would render
+   nothing. So members not nested under another member hang off the ontology.
+   Consequence worth knowing: displayed depth inside a scope is synthetic where a
+   member's real parent is a non-member (see follow-up 2).
+4. **`ui/src/lib/palette-index.ts` was not touched** (§2.6 lists it). The palette
+   indexes every node, so the three new `sys.command` nodes appear automatically;
+   only `run-command.ts` needed handlers.
+5. **Scope membership is memoized per snapshot IDENTITY, not per `rev`** as §2.5
+   suggests. `rev` does not move for a local optimistic edit (`applyTx` reuses
+   `prev.rev`), so a rev key serves stale membership the moment you add an
+   include tag. A `WeakMap` keyed on the `wireNodes` array is exact and
+   leak-free. Regression-tested.
+6. **`mutations.ontologyAddExtends` returns a boolean and toasts on refusal**;
+   the report only specified the planner returning `null`.
+7. **Two new files sit just outside the literal zone glob**:
+   `ui/src/lib/ontology-scope.ts` (the path the report itself names — `lib` is
+   the right layer for a pure helper) and `src/operations/ontology.ts` (see 1).
+
+### Cut, and why
+
+- Everything in §2.9 — parked by design, not by time.
+- **Docs.** No section added to `tools/kb/DESIGN.md` or the root `CLAUDE.md` kb
+  block. Both are shared prose files with high merge risk across five workers;
+  the orchestrator should add one paragraph post-merge. Suggested content: the
+  `#ontology` node kind, the union+veto algebra with `exclude` absolute, the
+  `/o/<id>` routes, and `kb ontology list|members`.
+- **Live browser click-through** — blocked, substituted as described above.
+
+### Follow-ups for later waves
+
+1. **Structural editing inside a scope.** Tab / Shift-Tab / move on a member
+   whose real parent is a non-member operates on the real graph while the
+   display shows synthetic depth. Inherent to projecting a subgraph, and core
+   scope is a reading mode — but either make indent/outdent scope-aware or
+   disable them inside a scope.
+2. **Auto-admission** of nodes created inside a scope (§1.4 calls this the
+   highest-value non-core feature; without it, working inside a scope leaks).
+3. Node-side *Ontologies* chip row (join/leave from the member's panel).
+4. Schema / Relations / View tabs; per-ontology presentation defaults.
+5. Palette re-ranking of members and the "add to ontology and stay" affordance
+   when following a ref out of scope (core leaves the scope with a toast).
+6. **For r4-perf:** explicit membership is one multi-valued prop on one node, so
+   an ontology with thousands of pins is one enormous JSONL line. The resolver
+   warns above 5000 members rather than failing; the page shows the count. The
+   Members list is also unvirtualized — fine to hundreds, not thousands.
+7. **Observed twice, not reproducible:** a full `vp test` run immediately after a
+   file write failed in `src/lib/tokens.test.ts`'s font-size scan (it reads the
+   source tree from disk at runtime, so a partial read during active editing is
+   the likely cause). 11 consecutive runs green afterwards, including cold-cache.
+   Recording it in case it resurfaces in CI.
+
+### Self-grade against the quality bar
+
+**Model and resolver — strong.** 44 backend cases including the one that matters
+most (an `extends` cycle terminates, warns, and still returns the correct union),
+the 40-deep depth cap, malformed EDN, `children` cycles under `closure`,
+determinism, and a migration test that compares bytes rather than trusting a
+claim. The abstraction is the report's, not a patch over it: `exclude` is a
+single subtraction step applied last, not scattered guards.
+
+**Scope mechanics — strong.** One projection point, the URL as the source of
+truth, an exit path that always exists, and a scope that refuses to dead-end
+(navigating to a non-member leaves the scope instead of silently doing nothing).
+Proven end to end by a byte-identical before/after comparison.
+
+**UI polish — good, not yet Tana-grade.** Honest gaps: the Members list has no
+keyboard navigation and no virtualization; there is no drag-a-node-onto-an-
+ontology affordance (§1.5 offers one); `⬡` is a text glyph rather than a tuned
+icon, so it sits slightly differently from the Phosphor set around it; the
+Excluded section has no count-collapse for long lists; and the empty states are
+prose rather than designed. Two gaps I caught and fixed rather than shipping:
+`OntologyPicker` was written but never mounted (now in the graph header), and a
+freshly created ontology had nowhere to be named (now an inline title).
+
+**Verification — one real gap.** I never saw this feature in a browser. Every
+claim above is backed by a test, a receipt, or an HTTP status, and the acceptance
+test drives the actual `App` through the actual routes — but a human should still
+click through `/o` once before trusting the visual result, particularly the
+popover positioning in `ref-add-popover.tsx`, which no automated test exercises
+in a layout engine.
