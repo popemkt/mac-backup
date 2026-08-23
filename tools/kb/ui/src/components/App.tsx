@@ -68,12 +68,16 @@ function Toasts() {
   const dismiss = useUiStore((s) => s.dismissToast);
   if (toasts.length === 0) return null;
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex w-80 flex-col gap-2">
+    <div
+      className="fixed bottom-4 right-4 z-50 flex w-80 flex-col gap-2"
+      aria-live="polite"
+    >
       {toasts.map((t) => (
         <button
           key={t.id}
           type="button"
           onClick={() => dismiss(t.id)}
+          aria-label={`Dismiss notification: ${t.text}`}
           className={cn(
             "rounded-md border px-3 py-2 text-left text-[12px] shadow-md",
             t.kind === "error"
@@ -123,6 +127,7 @@ function OutlineShell({
   ontologyList?: boolean;
 }) {
   const rev = useOutlineStore((s) => s.rev);
+  const rootNodeId = useOutlineStore((s) => s.rootNodeId);
   const loadSource = useOutlineStore((s) => s.loadSource);
   const width = usePrefsStore((s) => s.width);
   const prefsOpen = useUiStore((s) => s.prefsOpen);
@@ -225,14 +230,19 @@ function OutlineShell({
         </main>
       ) : (
         <main className="min-h-0 flex-1 overflow-auto">
-          <div
-            className={cn(
-              "kb-shell w-full",
-              width === "centered" ? "mx-auto max-w-3xl px-4" : "px-8",
-            )}
+          <ViewErrorBoundary
+            title="Outline crashed"
+            resetKey={rootNodeId ?? "outline"}
           >
-            <OutlineEditor />
-          </div>
+            <div
+              className={cn(
+                "kb-shell w-full",
+                width === "centered" ? "mx-auto max-w-3xl px-4" : "px-8",
+              )}
+            >
+              <OutlineEditor />
+            </div>
+          </ViewErrorBoundary>
         </main>
       )}
     </div>
@@ -351,7 +361,9 @@ export function App() {
 
   return (
     <div className="relative flex h-full min-h-0">
-      <Sidebar />
+      <ViewErrorBoundary title="Sidebar crashed" resetKey="sidebar">
+        <Sidebar />
+      </ViewErrorBoundary>
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         {route.name === "graph" || (route.name === "ontology" && route.view === "graph") ? (
           status === "loading" ? (
