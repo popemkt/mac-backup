@@ -48,54 +48,120 @@ component architecture). Item 2's Phase 1 merged; Phase 2/3 in flight.
 
 ## Session update — 2026-08-24 (claude orchestrator, owner asleep)
 
-Everything under "IMMEDIATE" below is DONE. Current main: see `git log`.
+Everything under "IMMEDIATE" below is DONE and superseded. Four waves merged
+and pushed; a fifth (i11-graph) is running. Main is green at every merge.
 
-Done this session:
-- **Disk/ENOSPC root-caused and fixed.** `/` was at 97%. `uv cache clean
-  --force` freed 8.3G but Time Machine local snapshots held it; a real TM
-  backup existed (2026-08-24 00:48) so the six oldest local snapshots were
-  deleted. `/` went 7.8G → 16G free. The "pre-existing 50k benchmark timing
-  failure" and the `palette-index` perf flake were host disk pressure — both
-  pass now. Treat a reappearance as a real regression.
-- **i8b merged** (`--no-ff`, tasks 10–12). Only the 3 CODE commits were merged;
-  `5a6e7f5` (the pre-baked `.kb/nodes.jsonl`) was deliberately NOT merged
-  because main's data had diverged under live owner edits. `migrateOrderKeys`
-  runs automatically in `openKbEffect`, so restarting the UI migrated main's
-  live data instead. Verified purely additive: 187 → 187 nodes, none lost or
-  added, no field but `order` changed except the owner's own live renderer
-  switch on `lens.all-mentions`. Committed separately.
-- **One real regression caught by the merge**: `ontology migration > seeding
-  into a pre-ontology store leaves every existing line byte-identical` failed,
-  because the order migration rewrites every legacy line. codex had never run
-  the full core suite. Assertion re-scoped to compare lines with `order`
-  stripped, keeping its teeth (content must survive; new lines must be seed
-  rows). Suite green before push.
-- Verified green on main and pushed: core 643/0, typecheck clean, lint clean,
-  UI 433/0.
-- **UI restarted** on the merged build; serving 127.0.0.1:4321.
-- **3D exists** — contrary to the owner's report. `force3d-graph.tsx`,
-  `3d-force-graph@^1.80.0`, lazy chunk, and a "3D" pill in
-  `renderer-switch.tsx`. So the complaint is discoverability or scene quality,
-  not absence. Chasing that empirically is r10's Q1.
+### Environment fixes
 
-### Waves in flight (dispatched this session)
+- **ENOSPC root-caused.** `/` was at 97%. `uv cache clean --force` freed 8.3G
+  but Time Machine *local snapshots* held it; a real TM backup existed
+  (2026-08-24 00:48) so the six oldest local snapshots were deleted. `/` went
+  7.8G → 16G free. The "pre-existing 50k benchmark timing failure" and the
+  `palette-index` perf flake were **both host disk pressure** and now pass.
+  Treat a reappearance as a real regression, not known noise.
+- **Orca's runtime died** partway through the session (app alive, runtime
+  unresponsive; `orca worktree list` times out). Its agents had already
+  finished and merged, so nothing was lost. i11 was therefore launched
+  *outside* Orca: plain `git worktree` + `codex exec
+  --dangerously-bypass-approvals-and-sandbox` in the background. **i11 does not
+  appear in FleetView.** Log: session scratchpad `i11-codex.log`; branch
+  `popemkt/kb-i11-graph`. Restart Orca before dispatching anything else.
 
-| Wave | Brief | Harness | Worktree |
-|---|---|---|---|
-| i8c | `briefs/i8c-editor-core.md` (r9 tasks 13–17) | codex, gpt-5.6-terra high | `kb-i8c-editor-core` |
-| i10-polish | `briefs/i10-polish.md` (owner's live-review round) | cursor, Grok 4.5 High | `kb-i10-polish` |
-| r10-graph | `briefs/r10-graph-deep.md` (research only) | claude | `kb-r10-graph` |
+### Merged
 
-omp was dispatched for i10 first and pulled back: its good model is still
-capped and it fell back to `gemini-3.7-flash-tiered`, too weak for a
-taste-heavy typography/layout-shift round. Load is now spread one wave per
-provider.
+- **i8b** (tasks 10–12). Merged the 3 *code* commits only; `5a6e7f5` (a
+  pre-baked `.kb/nodes.jsonl`) was deliberately NOT merged, because main's data
+  had diverged under live owner edits. `migrateOrderKeys` runs automatically in
+  `openKbEffect`, so restarting the UI migrated main's live data instead.
+  Verified purely additive: 187 → 187 nodes, none lost or added, no field but
+  `order` changed except the owner's own renderer switch on `lens.all-mentions`.
+  **Pattern worth reusing: never merge a worker's data snapshot; re-run the
+  migration on live data.**
+- **i8c** (tasks 13–17) — CaretIntent, FocusRegistry, WS origin exclusion, one
+  `NodeTextHost`, spec reconciliation. Clean five-commit wave.
+- **i10-polish** — all five owner items. Inter Variable with a metric-matched
+  `@font-face` fallback (`size-adjust`/ascent/descent overrides), tag `×`
+  overlaid on the hash in a fixed 9×9 slot so hover cannot resize the chip, tag
+  size unified onto one token, tag colour edited through a node-page swatch
+  field with no bespoke panel, `NodeRow` `role="treeitem"` + roving tabindex.
+  Regression tests for layout shift, colour swatch, and row a11y.
+- **r10-graph** — the research report (848 lines), see below.
 
-**r10-graph is new scope from the owner**, verbatim: "I feel like we need
-careful consideration at which codeflow's graph to copy for what. and how to
-pull it here properly. I think the graph is still not polished enough, and it
-doesn't even have 3d." It is research-only and produces the ordered task list
-for an i11 impl wave — that wave still needs dispatching once r10 lands.
+### Regressions caught at merge (both were real)
+
+1. `ontology migration > seeding into a pre-ontology store leaves every existing
+   line byte-identical` failed after i8b: the order migration rewrites every
+   legacy line. **codex had never run the full core suite.** Assertion
+   re-scoped to compare lines with `order` stripped, keeping its teeth.
+2. `bun.lock` was left unsynced by i10 (it updated `package-lock.json` only).
+
+### Orchestrator-authored fixes (graph zone was unowned; all with tests)
+
+- `3b1f82f` — **3D rendered blank.** `readTokenColor` returned `oklch(...)`
+  because Chrome preserves the authored colour space in computed style, and
+  `3d-force-graph` → `three-render-objects` parses via `polished`, which
+  supports only hex/rgb/rgba/hsl/hsla and **throws**. That single throw aborted
+  scene init inside kapsule's digest. The same gap silently dropped
+  `readTokenColor`'s `alpha` option, so edge/label opacity was wrong in the 2D,
+  tree and cluster renderers too. Converts oklch → sRGB; 10 tests.
+- `131877c` — **blank graph canvas.** `fitView`/`focusNode` built camera targets
+  from raw post-layout coordinates (±10²–10³) while sigma's camera reads framed
+  space (~[0,1]²). force2d auto-fits 200ms after mount, so the default view
+  painted nothing, and Fit / Focus / search-cycling each blanked it again. Only
+  reset worked, being the one path that hardcodes normalized coords. 6 tests.
+  Does **not** yet have r10 §2 row 2's screen-space transform or zoom-in cap —
+  i11 owns that.
+- `64204d0` — `sys.f.lens.cluster-by` absent → all 126 nodes resolved to key
+  `"none"` → one attractor → force3d's cluster force pulled every node onto one
+  point. Set to `parent` as a **data stopgap**; i11 owns the code default.
+
+### r10-graph — the owner's graph question, answered
+
+`reports/r10-graph-deep.md`. Empirical: it served `kb ui` on **4322 against an
+isolated copy of `.kb`** rather than driving 4321, because a renderer switch is
+a persisted prop write and would have mutated a committed file — good judgment
+worth copying.
+
+The headline finding is §1.0: **the owner's persisted renderer was `cluster`,
+and `graph-page.tsx` mounts the toolbar and legend only in the force2d
+branch.** So every interaction i2 shipped was invisible from the default entry
+point — the wave was graded A− against a renderer the owner never saw. Plus:
+cluster hulls are invisible for three independent reasons (mis-projected,
+painted under an opaque sheet, un-clickable); tree's "Fit" is a reset, not a
+fit; node drag is a confirmed no-op (no `fixed` pin, so the worker overwrites
+it); dim treatments are three hardcoded greys that invert on the light theme.
+
+Verdict: **none of the four renderers is "never built"; three of four are
+"built and broken in a way no test caught."** Hence i11 opens with a
+rendering-truth harness.
+
+§2 is the copy/adapt/reject table the owner asked for — its framing is that
+CodeFlow's value is in *treatments*, not *features*. §4 **withdraws r2's "3D is
+exploratory" verdict** and keeps `3d-force-graph`. §5 is the ordered 16-task
+i11 plan with PC/A tags and a cut order.
+
+### In flight
+
+**i11-graph** on codex (outside Orca, see above), brief
+`briefs/i11-graph.md`, working r10 §5 in order. When it lands: merge `--no-ff`,
+verify all four suites, push, restart the UI.
+
+### Baseline for the next merge
+
+core **669** pass / 0 fail · typecheck clean · lint clean · UI **465** pass / 0
+fail. Main at `699bbe4` + i11's merge.
+
+### Told the owner, still open
+
+- Their perspective is persisted on `cluster`, which carries no chrome — they
+  were told to click the **2D** pill. i11 task 3 migrates the default to
+  force2d; task 9 mounts chrome on all four renderers.
+- i10 flagged two leftovers: the **ontology page still has its own local 11px
+  chip** (a second chip path), and nobody could measure real pixel CLS without
+  a browser harness.
+- Stale merged worktrees (kb-i1…kb-i9, kb-r1…kb-r10, kb-f-docs, kb-x-dx,
+  kb-i8b, kb-i8c, kb-i10) are safe to remove; they free /Volumes/Data (803G
+  free), **not** `/`, so it is not urgent.
 
 ---
 
