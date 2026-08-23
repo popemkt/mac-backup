@@ -32,6 +32,12 @@ export function GraphToolbar({
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
 
+      if (e.key === "/") {
+        e.preventDefault();
+        setSearchOpen(true);
+        setTimeout(() => inputRef.current?.focus(), 0);
+        return;
+      }
       const sigma = sigmaRef.current;
       if (!sigma) return;
 
@@ -56,11 +62,6 @@ export function GraphToolbar({
           } else {
             fitView(sigma);
           }
-          break;
-        case "/":
-          e.preventDefault();
-          setSearchOpen(true);
-          setTimeout(() => inputRef.current?.focus(), 0);
           break;
       }
     };
