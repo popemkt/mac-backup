@@ -81,6 +81,18 @@ curates, commits centrally to main.
   r1–r3 (palette, search, node panel, views, sidebar, query page, prefs,
   systemic loading/empty/error states, keyboard consistency). Output: ranked
   findings + i5-polish task proposal.
+- r8-zerolang (omp): study Vercel's zerolang (talk-directly-to-the-compiler,
+  .0-file projections) against kb's projection/view/extension seams; extract
+  adoptable ideas ranked by value/effort. Owner directive 2026-08-23 late.
+
+## Harness policy (owner directive, late 2026-08-23)
+
+- opencode tends to stall asking questions on scoped tasks: keep opencode
+  sessions short-scoped and WATCHDOGGED — if one runs long without terminal
+  progress, orchestrator stops it and re-dispatches to another harness.
+- cursor (`cursor-agent`) joins the pool from wave i4 onward.
+- Priority order now effectively: omp > cursor ≈ codex ≈ claude > opencode
+  (for dispatch of new waves).
 
 ### I1 — Implementation round 1 (parallel ×4)
 
