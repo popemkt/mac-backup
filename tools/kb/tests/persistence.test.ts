@@ -1,6 +1,5 @@
 import { describe, expect, test, afterEach } from "bun:test";
 import { Effect } from "effect";
-import { FileSystem } from "effect/FileSystem";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -238,42 +237,37 @@ describe("JsonlStore Effect persistence", () => {
     expect(bak).toContain("n.1");
   });
 
-  test("failed rename leaves prior file intact (atomicity)", async () => {
+  test("concurrent commits serialize via write lock (no lost update)", async () => {
     root = await tempRoot();
-    const live = new JsonlStore(root);
-    await live.commit({ upserts: [sampleNode("n.keep", "keep")], deletes: [] });
-    const before = await readFile(live.path, "utf8");
+    const store = new JsonlStore(root);
+    await store.commit({ upserts: [sampleNode("n.seed", "seed")], deletes: [] });
 
-    // Real Bun FS for read/write/copy; only rename fails — prior file must remain.
-    const real = await Effect.runPromise(
-      Effect.gen(function* () {
-        return yield* FileSystem;
-      }).pipe(Effect.provide(bunFileSystemLayer)),
+    const writers = Array.from({ length: 8 }, (_, i) =>
+      store.commit({
+        upserts: [sampleNode(`n.w${i}`, `w${i}`)],
+        deletes: [],
+      }),
     );
-    const atomicFs = {
-      ...real,
-      rename: () =>
-        Effect.fail({
-          message: "simulated rename failure",
-        } as never),
-    } as FileSystem;
+    await Promise.all(writers);
 
-    const caught = await Effect.runPromise(
-      live
-        .commitEffect({ upserts: [sampleNode("n.new", "new")], deletes: [] })
-        .pipe(
-          Effect.provideService(FileSystem, atomicFs),
-          Effect.catch((e) => Effect.succeed(e)),
-        ),
-    );
-    expect(isDomainError(caught)).toBe(true);
-    if (isDomainError(caught)) {
-      expect(caught.message).toMatch(/simulated rename failure/);
+    const loaded = await store.load();
+    const ids = new Set(loaded.map((n) => n.id));
+    expect(ids.has("n.seed")).toBe(true);
+    for (let i = 0; i < 8; i++) {
+      expect(ids.has(`n.w${i}`)).toBe(true);
     }
-    const after = await readFile(live.path, "utf8");
-    expect(after).toBe(before);
-    expect(after).toContain("n.keep");
-    expect(after).not.toContain("n.new");
+  });
+
+  test("stale lock file is stolen so commits proceed", async () => {
+    root = await tempRoot();
+    const store = new JsonlStore(root);
+    await mkdir(join(root, ".kb"), { recursive: true });
+    const { lockPathFor } = await import("../src/foundation/storage/write-lock.ts");
+    await writeFile(lockPathFor(store.path), "999999999\n", "utf8");
+
+    await store.commit({ upserts: [sampleNode("n.after-stale", "ok")], deletes: [] });
+    const loaded = await store.load();
+    expect(loaded.some((n) => n.id === "n.after-stale")).toBe(true);
   });
 });
 

@@ -1,12 +1,18 @@
 import { Effect, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { domainError, type DomainError } from "../errors.ts";
 import type { KbNode } from "../model.ts";
 import { bunFileSystemLayer } from "../platform.ts";
 import { canonicalJson } from "./canonical.ts";
+import { durableReplaceFile } from "./durable-replace.ts";
 import { KbNodeSchema, nodeParseOptions } from "./node-schema.ts";
 import type { EffectStore, Store, StoreTx } from "./store.ts";
+import {
+  acquireNodesWriteLockEffect,
+  ensureDomainError,
+  releaseNodesWriteLock,
+} from "./write-lock.ts";
 
 function mapFsError(err: { message?: string } | unknown): DomainError {
   const message =
@@ -57,7 +63,10 @@ function decodeNodeLine(
 /**
  * JSONL backend: `<root>/.kb/nodes.jsonl`
  * One canonical-JSON node per line, sorted by id.
- * Commits are atomic (tmp + rename) and keep `nodes.jsonl.bak` of the prior file.
+ *
+ * Commits (r4 Stage-0 hardening, format unchanged):
+ * - exclusive `.lock` covering load → mutate → replace
+ * - durable replace: write+fsync tmp, rotate `.bak`, rename, fsync dir
  *
  * Load is all-or-nothing: any malformed/invalid line fails the Effect with a
  * line-numbered DomainError and returns no nodes — the file is never rewritten
@@ -104,44 +113,32 @@ export class JsonlStore implements Store, EffectStore {
     const path = this.path;
     const backupPath = this.backupPath;
     const loadEffect = this.loadEffect.bind(this);
-    return Effect.gen(function* () {
-      const fs = yield* FileSystem;
-      const existing = yield* loadEffect();
-      const byId = new Map(existing.map((n) => [n.id, n]));
-      for (const id of tx.deletes) byId.delete(id);
-      for (const node of tx.upserts) byId.set(node.id, node);
+    return Effect.scoped(
+      Effect.gen(function* () {
+        yield* Effect.acquireRelease(
+          acquireNodesWriteLockEffect(path),
+          (lockPath) => Effect.sync(() => releaseNodesWriteLock(lockPath)),
+        );
 
-      const sorted = [...byId.values()].sort((a, b) =>
-        a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
-      );
-      const body =
-        sorted.length === 0
-          ? ""
-          : sorted.map((n) => canonicalJson(n)).join("\n") + "\n";
+        const existing = yield* loadEffect();
+        const byId = new Map(existing.map((n) => [n.id, n]));
+        for (const id of tx.deletes) byId.delete(id);
+        for (const node of tx.upserts) byId.set(node.id, node);
 
-      yield* fs
-        .makeDirectory(dirname(path), { recursive: true })
-        .pipe(Effect.mapError(mapFsError));
+        const sorted = [...byId.values()].sort((a, b) =>
+          a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+        );
+        const body =
+          sorted.length === 0
+            ? ""
+            : sorted.map((n) => canonicalJson(n)).join("\n") + "\n";
 
-      const tmp = `${path}.${process.pid}.${Date.now()}.tmp`;
-      yield* fs.writeFileString(tmp, body).pipe(Effect.mapError(mapFsError));
-
-      const hadPrior = yield* fs.exists(path).pipe(Effect.mapError(mapFsError));
-      if (hadPrior) {
-        yield* fs
-          .copyFile(path, backupPath)
-          .pipe(Effect.mapError(mapFsError));
-      }
-
-      yield* fs.rename(tmp, path).pipe(
-        Effect.mapError(mapFsError),
-        Effect.catch((err) =>
-          fs
-            .remove(tmp, { force: true })
-            .pipe(Effect.ignore, Effect.andThen(Effect.fail(err))),
-        ),
-      );
-    });
+        yield* Effect.try({
+          try: () => durableReplaceFile(path, backupPath, body),
+          catch: (err) => ensureDomainError(err),
+        });
+      }),
+    );
   }
 
   load(): Promise<KbNode[]> {

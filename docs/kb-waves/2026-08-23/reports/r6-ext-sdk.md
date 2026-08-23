@@ -255,3 +255,63 @@ wrote .kb/sdk.d.ts (kb 0.1.0)
   the artifact, so this is additive.
 - **Effect exposure**: revisit including `ActionEffectHandler` in the public surface
   when effect@4 stabilizes.
+
+---
+
+## Implementation handoff
+
+Wave i4-backend · Agent: cursor-agent · Branch: `popemkt/kb-i4-backend` · Status: shipped (not pushed).
+
+### What shipped
+
+1. **Extension SDK (this report’s chosen design)**
+   - `tools/kb/src/ext-sdk/surface.ts` — self-contained public types (no Effect/zod imports) so declaration emit stays portable under Nix and checkout layouts.
+   - `tools/kb/scripts/gen-ext-sdk.ts` — `tsc --emitDeclarationOnly` over surface → ambient `declare module "kb-ext-sdk"`.
+   - `tools/kb/src/ext-sdk/sdk-dts.text.ts` — GENERATED committed `KB_SDK_DTS` string (inlined into `cli.js` / Nix FOD with zero packaging changes).
+   - `tools/kb/src/ext-sdk/emit.ts` — `writeSdkDts(root)` / `readEmbeddedSdkDts()`.
+   - CLI: `kb ext sdk` (stdout) and `kb ext sdk --write` → `<root>/.kb/sdk.d.ts`.
+   - Tests (`tests/ext-sdk-fresh.test.ts`): freshness byte-equality vs regeneration; CLI write + loader ignores `.d.ts`; scratch author fixture typechecks with zero repo-relative imports and loads at runtime; `mode: "reed"` fails tsc.
+   - Docs: `tools/kb/DESIGN.md` Extension SDK paragraph; `tools/kb/README.md` author quickstart; `package.json` script `gen:ext-sdk`.
+
+2. **Stage-0 JSONL hardening (r4 context, cheap/safe only — format unchanged)**
+   - Exclusive `.kb/nodes.jsonl.lock` covering load → mutate → replace (`foundation/storage/write-lock.ts`); spin via `Effect.sleep` (never event-loop-blocking sleep).
+   - Durable replace: write+fsync tmp, rotate `.bak` (+fsync), rename, best-effort dir fsync (`durable-replace.ts`).
+   - HTTP/WS untouched; bundled `docs.ts` behavior unchanged.
+   - Tests: concurrent commits retain all writers’ nodes; stale lock stolen.
+
+### Judgment calls
+
+- **Surface is self-contained, not a re-export barrel from live modules.** Re-exporting `extensions.ts` / `contracts.ts` would drag Effect/zod into the ambient d.ts and break the Nix/no-deps author story. Freshness + author tsc fixtures guard drift. Full Real↔Sdk mutual assignability of `ExtensionPromiseHandler` was not enforced: Sdk `KbContext` is the Promise-handler subset `{ root, nodes }`.
+- **CLI `ext sdk` lives in `surface/cli.ts`.** Brief zone names “SDK emission step”; treated as in-zone.
+- **Repo-root `AGENTS.md` one-liner deferred** (outside zone) — orchestrator/F docs pass.
+- **Skipped:** SQLite migration, revision/CAS manifest, streaming load, `_*.ts` discovery ignore (follow-ups / later waves).
+- **Replaced** Effect-FS rename mock atomicity test with lock concurrency + stale-lock coverage (write path is node:fs durable protocol).
+
+### Shared-file / out-of-narrow-zone touches
+
+| Path | Why |
+|---|---|
+| `tools/kb/src/surface/cli.ts` | `kb ext sdk [--write]` emission command |
+| `tools/kb/DESIGN.md` | Extension SDK author contract (research MUST §3.5) |
+| `tools/kb/README.md` | Author quickstart |
+| `tools/kb/package.json` | `gen:ext-sdk` (in zone) |
+
+### Cut / follow-ups
+
+- AGENTS.md / CLAUDE.md one-liner for `kb ext sdk --write`.
+- Optional: ignore `_*.ts` helper siblings in `discoverExtensions` (this report §1.5 / §5).
+- Optional: pre-commit freshness check alongside `docs.check`.
+- r4 remainder: revision/CAS, verified generation rotation, streaming load, SQLite stages.
+- npm `exports` map for `kb-ext-sdk` if kb is ever published (option a).
+
+### Verification
+
+- `bun test` — 441 pass / 0 fail
+- `npm run typecheck` — clean
+- `npm run check` — clean
+- `cd ui && vp test` — 47 files / 264 tests pass
+- Manual `/tmp` scratch: `ext sdk --write`, tsc clean, extension loads and invokes
+
+### Self-grade
+
+**A-** against the quality bar. SDK matches this report’s design (self-describing binary, freshness gate, verified author walkthrough). Stage-0 durability/locking is real but not crash-injection complete (no power-loss / F_FULLFSYNC / revision CAS). Honest gap: Sdk `KbContext` is intentionally narrower than the live session; authors needing `store`/`qdb` still lack typed access without reaching into core.
