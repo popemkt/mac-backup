@@ -12,10 +12,11 @@ import { useOutlineStore } from "@/stores/outline.store";
 interface MdViewProps {
   text: string;
   className?: string;
+  clamp?: boolean;
 }
 
 /** Inactive-row markdown view — memoized parse, accent refs, tinted code, media. */
-export const MdView = memo(function MdView({ text, className }: MdViewProps) {
+export const MdView = memo(function MdView({ text, className, clamp }: MdViewProps) {
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);
   const segs = useMemo(() => parseInlineMd(text), [text]);
@@ -33,7 +34,7 @@ export const MdView = memo(function MdView({ text, className }: MdViewProps) {
   if (!text) {
     return (
       <div
-        className={cn(KB_TEXT_CLASS, className, "text-foreground/25")}
+        className={cn(KB_TEXT_CLASS, clamp ? "kb-text-clamp" : "kb-text-row", className, "text-foreground/25")}
         role="presentation"
       >
         {"\u200B"}
@@ -43,7 +44,7 @@ export const MdView = memo(function MdView({ text, className }: MdViewProps) {
 
   return (
     <div
-      className={cn(KB_TEXT_CLASS, "kb-md-view flex-1 outline-none", className)}
+      className={cn(KB_TEXT_CLASS, clamp ? "kb-text-clamp" : "kb-text-row", "kb-md-view flex-1 outline-none", className)}
       role="presentation"
     >
       {segs.map((seg, i) => renderSeg(seg, i, onRefClick))}

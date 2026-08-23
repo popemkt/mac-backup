@@ -7,6 +7,7 @@ import {
 } from "@/lib/selection-keymap";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
+import { useUiStore } from "@/stores/ui.store";
 
 function applySelectionAction(action: SelectionKeyAction): void {
   const store = useOutlineStore.getState();

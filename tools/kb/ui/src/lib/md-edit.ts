@@ -204,7 +204,11 @@ function selectRange(tn: Text, offset: number): void {
 }
 
 function lastDescendantText(el: HTMLElement): Text | null {
-  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const nf = (globalThis as unknown as Record<string, unknown>).NodeFilter as
+    | { SHOW_TEXT: number }
+    | undefined;
+  const whatToShow = nf?.SHOW_TEXT ?? 4;
+  const walker = document.createTreeWalker(el, whatToShow);
   let last: Text | null = null;
   let cur = walker.nextNode();
   while (cur) {

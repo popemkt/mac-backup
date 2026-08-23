@@ -153,23 +153,34 @@ export function useNodeKeyDown({
         }
 
         case "Delete": {
-          if (!(e.metaKey || e.ctrlKey)) return; // native forward delete
-          e.preventDefault();
-          const prev = store.getPreviousVisibleInstance(instanceKey);
+          if (e.metaKey || e.ctrlKey) {
+            e.preventDefault();
+            const prev = store.getPreviousVisibleInstance(instanceKey);
+            const nextInst = store.getNextVisibleInstance(instanceKey);
+            void mutations.deleteNode(nodeId).then(() => {
+              const pick = prev ?? nextInst;
+              if (!pick) {
+                useOutlineStore.getState().selectNode(null);
+                return;
+              }
+              const pickNode = useOutlineStore
+                .getState()
+                .nodes.get(pick.nodeId);
+              const at = pick === prev ? (pickNode?.text.length ?? 0) : 0;
+              useOutlineStore
+                .getState()
+                .activateNode(pick.nodeId, at, pick.instanceKey);
+            });
+            return;
+          }
+          // F13: forward-delete at end merges the next visible row into this one.
+          if (cursor !== text.length) return; // mid-text: native delete char
           const nextInst = store.getNextVisibleInstance(instanceKey);
-          void mutations.deleteNode(nodeId).then(() => {
-            const pick = prev ?? nextInst;
-            if (!pick) {
-              useOutlineStore.getState().selectNode(null);
-              return;
-            }
-            const pickNode = useOutlineStore
-              .getState()
-              .nodes.get(pick.nodeId);
-            const at = pick === prev ? (pickNode?.text.length ?? 0) : 0;
-            useOutlineStore
-              .getState()
-              .activateNode(pick.nodeId, at, pick.instanceKey);
+          if (!nextInst || nextInst.nodeId === nodeId) return;
+          e.preventDefault();
+          // Merge next row's text/children into this row.
+          void mutations.mergeNextIntoThis(nodeId, nextInst.nodeId).then(() => {
+            useOutlineStore.getState().activateNode(nodeId, text.length, instanceKey);
           });
           return;
         }
