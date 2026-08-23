@@ -23,7 +23,7 @@ import { nearestOffsetForX, offsetFromPoint } from "./caret";
 import { TagChipGroup } from "./tag-chip";
 
 
-interface NodeContentProps {
+export interface NodeTextHostProps {
   nodeId: string;
   instanceKey?: string;
   content: string;
@@ -31,21 +31,30 @@ interface NodeContentProps {
   tags: Parameters<typeof TagChipGroup>[0]["tags"];
   /** @deprecated compatibility for the canvas editor; outline uses CaretIntent. */
   cursorPosition?: number;
+  /** Explicit local placement for non-outline hosts such as a page title. */
+  initialCaret?: "end";
+  textClassName?: string;
+  onBlur?: () => void;
+  zoomTitleEditor?: boolean;
   onActivate: (cursorPos?: number) => void;
   onChange: (content: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
 }
 
-export function NodeContent({
+export function NodeTextHost({
   nodeId,
   instanceKey,
   content,
   isActive,
   tags,
+  initialCaret,
+  textClassName,
+  onBlur,
+  zoomTitleEditor,
   onActivate,
   onChange,
   onKeyDown,
-}: NodeContentProps) {
+}: NodeTextHostProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const mdViewRef = useRef<HTMLDivElement>(null);
   const isComposing = useRef(false);
@@ -92,7 +101,12 @@ export function NodeContent({
   useLayoutEffect(() => {
     const intent =
       instanceKey && pendingCaret?.instanceKey === instanceKey ? pendingCaret : null;
-    if (isActive && editorRef.current && intent) {
+    const localIntent =
+      !intent && isActive && !wasActive.current && initialCaret
+        ? { instanceKey: instanceKey ?? "local", at: initialCaret }
+        : null;
+    const placement = intent ?? localIntent;
+    if (isActive && editorRef.current && placement) {
       const el = editorRef.current;
 
       if (!wasActive.current) {
@@ -103,19 +117,19 @@ export function NodeContent({
 
       el.focus();
       let placedCursor =
-        intent.at === "end"
+        placement.at === "end"
           ? content.length
-          : typeof intent.at === "number"
-            ? intent.at
+          : typeof placement.at === "number"
+            ? placement.at
             : 0;
       setCaretSerializedOffset(el, placedCursor);
 
       // Column preservation across vertical navigation (D11): nudge the
       // caret to the character whose visual x best matches the previous row.
-      if (typeof intent.at === "object") {
+      if (typeof placement.at === "object") {
         const adjusted =
-          nearestOffsetForX(el, intent.at.x, "first") ??
-          nearestOffsetForX(el, intent.at.x, "last");
+          nearestOffsetForX(el, placement.at.x, "first") ??
+          nearestOffsetForX(el, placement.at.x, "last");
         if (adjusted !== null) {
           setCaretSerializedOffset(el, adjusted);
           placedCursor = adjusted;
@@ -123,13 +137,13 @@ export function NodeContent({
       }
 
       setCursor(placedCursor);
-      useOutlineStore.getState().consumeCaret(intent.instanceKey);
+      if (intent) useOutlineStore.getState().consumeCaret(intent.instanceKey);
       setAcDismissed(false);
       acDismissedQuery.current = null;
     } else {
       wasActive.current = false;
     }
-  }, [isActive, content, instanceKey, pendingCaret]);
+  }, [isActive, content, initialCaret, instanceKey, pendingCaret]);
 
   const applyRef = useCallback(
     (id: string, label: string) => {
@@ -307,6 +321,7 @@ export function NodeContent({
               "outline-none",
               "text-foreground/85",
               "caret-foreground/70",
+              textClassName,
             )}
             contentEditable
             suppressContentEditableWarning
@@ -320,13 +335,15 @@ export function NodeContent({
             onClick={(e) => e.stopPropagation()}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
+            onBlur={onBlur}
             role="textbox"
+            data-zoom-title-editor={zoomTitleEditor ? "true" : undefined}
           />
         ) : (
           <div ref={mdViewRef} className="min-h-6 min-w-0 flex-1 self-start">
             <MdView
               text={content}
-              className="min-h-6 min-w-0 flex-1 self-start text-foreground/85"
+              className={cn("min-h-6 min-w-0 flex-1 self-start text-foreground/85", textClassName)}
               clamp={false}
             />
           </div>
@@ -365,3 +382,6 @@ export function NodeContent({
     </>
   );
 }
+
+/** Compatibility name while callers migrate to the common text host. */
+export const NodeContent = NodeTextHost;
