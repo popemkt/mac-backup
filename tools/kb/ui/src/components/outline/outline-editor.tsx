@@ -41,7 +41,16 @@ export function OutlineEditor() {
   }, [rootNodeId]);
 
   if (!root) {
-    return <div className="px-2 py-8 text-[13px] text-foreground/50">Loading outline…</div>;
+    return (
+      <div
+        className="px-2 py-8 text-[13px] text-foreground/50"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        Loading outline…
+      </div>
+    );
   }
 
   if (rootNodeId !== WORKSPACE_ROOT_ID) {
@@ -74,11 +83,20 @@ export function OutlineEditor() {
         {!projected && (
           <div
             data-create-child-zone={rootNodeId}
-            className="group/create flex h-8 cursor-pointer items-center pl-6"
+            role="button"
+            tabIndex={0}
+            aria-label="New node"
+            className="group/create flex h-8 cursor-pointer items-center rounded-sm pl-6 outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             onClick={handleStripCreate}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleStripCreate();
+              }
+            }}
             title="New node"
           >
-            <span className="text-[13px] leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25">
+            <span className="text-[13px] leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25">
               +
             </span>
           </div>
@@ -101,11 +119,20 @@ export function OutlineEditor() {
 
       <div
         data-create-child-zone={WORKSPACE_ROOT_ID}
-        className="group/create flex h-8 cursor-pointer items-center pl-6"
+        role="button"
+        tabIndex={0}
+        aria-label="New node"
+        className="group/create flex h-8 cursor-pointer items-center rounded-sm pl-6 outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         onClick={handleStripCreate}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleStripCreate();
+          }
+        }}
         title="New node"
       >
-        <span className="text-[13px] leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25">
+        <span className="text-[13px] leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25">
           +
         </span>
       </div>

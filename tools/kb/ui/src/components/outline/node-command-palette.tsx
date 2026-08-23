@@ -285,6 +285,16 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         setHighlightIndex((i) => Math.max(i - 1, 0));
         return;
       }
+      if (e.key === "Home") {
+        e.preventDefault();
+        setHighlightIndex(0);
+        return;
+      }
+      if (e.key === "End") {
+        e.preventDefault();
+        setHighlightIndex(Math.max(items.length - 1, 0));
+        return;
+      }
       if (e.key === "Enter") {
         e.preventDefault();
         handleSelect(highlightIndex);
@@ -313,6 +323,8 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
           top: anchorRect.bottom + 4,
           left: Math.max(8, anchorRect.left),
         }}
+        role="dialog"
+        aria-label={stepLabel ?? "Node commands"}
         onClick={(e) => e.stopPropagation()}
       >
         {stepLabel && (

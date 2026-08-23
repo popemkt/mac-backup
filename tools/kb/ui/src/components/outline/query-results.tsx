@@ -96,9 +96,14 @@ export function QueryResultsSection({
 
   if (rows === null) {
     return (
-      <div className="query-results" data-query-results-for={nodeId}>
+      <div
+        className="query-results"
+        data-query-results-for={nodeId}
+        aria-busy="true"
+        aria-live="polite"
+      >
         <p className="px-1 py-0.5 text-[12px] text-foreground/50" style={pad}>
-          loading results…
+          Loading results…
         </p>
       </div>
     );
@@ -113,7 +118,7 @@ export function QueryResultsSection({
       >
         {ids.length === 0 ? (
           <p className="px-1 py-0.5 text-[12px] text-foreground/50">
-            No results
+            No results yet
           </p>
         ) : (
           <FrameChildrenView
