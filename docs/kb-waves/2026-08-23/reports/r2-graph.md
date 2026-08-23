@@ -339,3 +339,61 @@ feels effortless.
 
 *Report ends. No code was modified; CodeFlow clone left at /tmp/codeflow-study
 for implementers.*
+
+
+---
+
+## Implementation handoff
+
+**Agent:** omp (i2-graph). Committed on `popemkt/kb-i2-graph`.
+
+### What shipped
+
+All MUST interactions from §4 addressed in the force2d renderer:
+
+1. **Select-in-place** (MUST 1–3): single click selects with blast-radius recoloring + info card (label, tags, degree, Open/Focus buttons). Background click & Esc clear. Double-click / ⌘-click / Enter opens in outline. `f` focuses camera on selected node.
+2. **Worker layout + settle** (T1): FA2 worker-based layout with 2.5s auto-settle. Synchronous rAF-chunked fallback via feature detection. Reheat on drag (600ms burst).
+3. **Node drag** (MUST 6–7): pointer drag moves nodes, reheats layout on release. Camera disabled during drag to prevent pan interference.
+4. **Directed edges** (MUST — arrows): `EdgeArrowProgram` enabled; edge width scales by `√weight` from deduplicated edges.
+5. **Animated camera** (MUST 8–9): graph-camera.ts with `fitView`, `zoomIn`, `zoomOut`, `resetCamera`, `focusNode` — all cubic-eased 300ms. Camera survives data updates.
+6. **Toolbar** (MUST 8, 10): floating toolbar with +/−/fit/reset buttons + keyboard shortcuts (+/= − 0 f /). Inline search with substring match + Enter cycles focus.
+7. **Legend + filter** (MUST 12–13): collapsible tag legend with counts, click-to-isolate, clear chip. Filters are ephemeral (never persisted).
+8. **Label truncation** (MUST — labels): 40-char single-line truncation in extract, density-aware hide at large scale.
+9. **Empty/error states** (MUST 16–17): 0-node guidance message, query-error warning chip, dropped-notice tooltip with explanation.
+10. **Degraded mode** (MUST 18): >1500 nodes auto-enables hideEdgesOnMove, higher label threshold, lower density.
+11. **Cluster upgrades** (T6): smooth padded hulls with quadratic curves + stroke, member count labels, top-15 cluster cap.
+12. **Tree upgrades** (T7): pan/zoom via drag + pinch-wheel, Fit/Collapse-all/Expand-all toolbar.
+13. **Chrome polish** (T9): sys toggle backed by localStorage, perspective picker unchanged (keyboard nav deferred).
+
+### What was cut and why
+
+- **T8 (force3d parity pass)**: timeboxed out — 3D is exploratory, not primary nav surface per report §4. Low priority vs the 2D spine.
+- **T10 (perf validation fixtures)**: no synthetic 10k-node fixture committed. Real performance was validated manually during development; fixture + assertion test deferred to next wave.
+- **Settings popover** (report T4, sliders for spread/link-distance/labels): the live-layout API is wired (FA2 worker settings) but no UI popover shipped — interaction density already high. Follow-up wave.
+- **Picker keyboard nav**: small UX gap, skipped to prioritize MUST interactions.
+- **Multi-select**: explicitly deferred per report §4 (I2+).
+
+### Shared-file touches
+
+| Path | Reason |
+|------|--------|
+| `tools/kb/ui/src/lib/graph-lens.ts` | Added `tags`, `degree` to LensNode; `weight` to LensEdge; `queryError` to LensGraph; label truncation; error propagation from resolveNodeSet |
+| `tools/kb/ui/package.json` + `bun.lock` | +graphology-layout, +graphology-layout-noverlap, +graphology-communities-louvain |
+
+### Follow-ups for later waves
+
+1. Settings popover with live sliders (spread, link distance, label density, arrow toggle)
+2. force3d parity (zoomToFit on load, autorotate, selection particles)
+3. Synthetic perf fixture (10k nodes) + budget regression tests
+4. Picker keyboard navigation (↑↓/Enter)
+5. Bundle regression test asserting sigma chunk doesn't pull three.js
+6. Cluster hull click-to-isolate (wired in sigma, not yet in cluster renderer)
+7. Perspective "New…" button (creates #graph-perspective node via mutations)
+
+### Self-grade vs quality bar
+
+**B+ / "feels designed, gaps named"**
+
+Strengths: the core select-in-place + drag + animated camera + legend + search bring force2d to genuine CodeFlow feel. Worker layout eliminates the frozen-graph gap entirely. All MUST interactions are present and responsive. UI components follow nxus skin tokens/anatomy.
+
+Gaps: settings popover absent (reduces discoverability of layout tweaks); force3d untouched; no perf regression guard committed; picker keyboard nav skipped. The shipped feature set achieves "designed" for the primary 2D surface but leaves secondary renderers at "works" level.
