@@ -21,6 +21,7 @@ SURFACE="${2:-unspecified}"
 
 HARD_TOOLS=(git jq nix nixfmt statix deadnix)
 SOFT_TOOLS=(shellcheck actionlint nvfetcher)
+ADMISSION_CHECKS_DIR=""
 
 check_env() {
   local hard_missing=() soft_missing=() t
@@ -120,27 +121,51 @@ record_admission() {
   )
   [ -z "$nix_changes_staged" ] && return 0
 
-  if [ -n "$staged_nix" ]; then
-    echo "==> nixfmt --check"
+  # These checks all read the immutable staged snapshot and do not share
+  # outputs. Run them concurrently, then replay output in a stable order.
+  # This preserves every admission gate while cutting the slow Nix path.
+  local check_failed=0 check_index
+  local -a check_pids=() check_outputs=()
+  ADMISSION_CHECKS_DIR="$(mktemp -d)"
+  trap 'rm -rf "$staged_tree" "$ADMISSION_CHECKS_DIR"' EXIT
+
+  run_admission_check() {
+    local label="$1"
+    shift
+    check_index="${#check_pids[@]}"
+    check_outputs+=("$ADMISSION_CHECKS_DIR/$check_index.out")
+    echo "==> $label"
+    ("$@") >"${check_outputs[$check_index]}" 2>&1 &
+    check_pids+=("$!")
+  }
+
+  check_nixfmt() {
+    local file
     while IFS= read -r file; do
       nixfmt --check "$staged_tree/$file"
     done <<<"$staged_nix"
+  }
+
+  if [ -n "$staged_nix" ]; then
+    run_admission_check "nixfmt --check" check_nixfmt
   fi
+  run_admission_check "statix check (whole repo)" bash -c 'cd "$1" && statix check .' bash "$staged_tree"
+  run_admission_check "deadnix --fail (excluding nvfetcher output)" bash -c 'cd "$1" && deadnix --fail --exclude ./_sources/generated.nix .' bash "$staged_tree"
+  run_admission_check "nix flake check --no-build" nix flake check "path:$staged_tree" --no-build
 
-  echo "==> statix check (whole repo)"
-  (
-    cd "$staged_tree"
-    statix check .
-  )
+  for check_index in "${!check_pids[@]}"; do
+    if ! wait "${check_pids[$check_index]}"; then
+      check_failed=1
+    fi
+    if [ -s "${check_outputs[$check_index]}" ]; then
+      cat "${check_outputs[$check_index]}"
+    fi
+  done
 
-  echo "==> deadnix --fail (excluding nvfetcher output)"
-  (
-    cd "$staged_tree"
-    deadnix --fail --exclude ./_sources/generated.nix .
-  )
-
-  echo "==> nix flake check --no-build"
-  nix flake check "path:$staged_tree" --no-build
+  if [ "$check_failed" -ne 0 ]; then
+    echo "error: staged Nix admission check failed" >&2
+    exit 1
+  fi
 }
 
 audit_surfaces() {

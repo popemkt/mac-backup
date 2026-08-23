@@ -130,7 +130,7 @@ Nix:
 
 ```bash
 # Permanent: part of your system
-rebuild  # Installs what's in home.nix
+rebuild  # Installs the configuration declared in this repository's modules
 
 # Temporary: need ffmpeg for 5 minutes
 nix shell nixpkgs#ffmpeg
