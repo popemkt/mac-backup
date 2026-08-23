@@ -57,7 +57,9 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
         </span>
       </h2>
       {hits.length === 0 ? (
-        <p className="px-1 text-[13px] text-foreground/50">None yet</p>
+        <p className="px-1 text-[13px] text-foreground/50" role="status">
+          None yet
+        </p>
       ) : (
         hits.map((hit) => (
           <SchemaInstanceRow

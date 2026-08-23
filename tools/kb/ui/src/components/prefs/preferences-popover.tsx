@@ -86,8 +86,8 @@ function FontRow() {
         value={font}
         onChange={(e) => setFont(e.target.value as FontPref)}
       >
-        <option value="outfit">Outfit</option>
         <option value="inter">Inter</option>
+        <option value="outfit">Outfit</option>
       </select>
     </PrefFieldRow>
   );

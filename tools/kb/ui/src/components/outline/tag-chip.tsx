@@ -9,14 +9,57 @@ export interface TagChipProps {
   className?: string;
 }
 
-
-/** DESIGN-RESKIN §1.2/1.8 — the one tag chip everywhere. Tokenized smaller (—tag-size). */
+/**
+ * DESIGN-RESKIN §1.2/1.8 — the one tag chip everywhere.
+ * Tokenized via `.kb-tag` / `--tag-size`. Remove × overlays the hash slot so
+ * hover never changes measured width (i10 item 2; Tana/CodeFlow placement).
+ */
 export function TagChip({ tag, onClick, onRemove, className }: TagChipProps) {
   const canNavigate = Boolean(onClick);
+  const mark = (
+    <span
+      className="relative inline-flex h-[9px] w-[9px] shrink-0 items-center justify-center"
+      data-tag-mark="true"
+    >
+      <Hash
+        size={9}
+        weight="bold"
+        className={cn(
+          "opacity-60 transition-opacity",
+          onRemove && "group-hover/tag:opacity-0 group-focus-within/tag:opacity-0",
+        )}
+        aria-hidden
+      />
+      {onRemove ? (
+        <button
+          type="button"
+          className={cn(
+            "absolute inset-0 flex items-center justify-center rounded-sm",
+            "opacity-0 transition-opacity",
+            "group-hover/tag:opacity-60 group-focus-within/tag:opacity-60",
+            "hover:!opacity-100 focus-visible:opacity-100",
+            "focus-visible:ring-2 focus-visible:ring-primary/60 outline-none",
+          )}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(e);
+          }}
+          title={`Remove #${tag.name}`}
+          aria-label={`Remove tag ${tag.name}`}
+          data-tag-remove="true"
+        >
+          <X size={9} weight="bold" />
+        </button>
+      ) : null}
+    </span>
+  );
+
+  const label = <span className="truncate">{tag.name}</span>;
+
   return (
     <span
       className={cn(
-        "group/tag inline-flex h-[14px] max-w-full items-center gap-0.5 rounded-sm px-1 py-0",
+        "group/tag inline-flex h-[12px] max-w-full items-center gap-0.5 rounded-sm px-1 py-0",
         "kb-tag select-none whitespace-nowrap",
         "transition-opacity hover:opacity-70",
         className,
@@ -25,6 +68,7 @@ export function TagChip({ tag, onClick, onRemove, className }: TagChipProps) {
         backgroundColor: `${tag.color}18`,
         color: tag.color,
       }}
+      data-tag-chip="true"
     >
       {canNavigate ? (
         <button
@@ -34,33 +78,18 @@ export function TagChip({ tag, onClick, onRemove, className }: TagChipProps) {
           title={`Go to: ${tag.name}`}
           aria-label={`Go to tag ${tag.name}`}
         >
-          <Hash size={9} weight="bold" className="shrink-0 opacity-60" />
-          <span className="truncate">{tag.name}</span>
+          {mark}
+          {label}
         </button>
       ) : (
         <span className="flex min-w-0 items-center gap-0.5">
-          <Hash size={9} weight="bold" className="shrink-0 opacity-60" />
-          <span className="truncate">{tag.name}</span>
+          {mark}
+          {label}
         </span>
       )}
-      {onRemove ? (
-        <button
-          type="button"
-          className="ml-0.5 hidden h-[12px] w-[12px] shrink-0 items-center justify-center rounded-sm opacity-60 group-hover/tag:flex hover:!opacity-100 focus:flex focus-visible:ring-2 focus-visible:ring-primary/60 group-focus-within/tag:flex"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove(e);
-          }}
-          title={`Remove #${tag.name}`}
-          aria-label={`Remove tag ${tag.name}`}
-        >
-          <X size={10} weight="bold" />
-        </button>
-      ) : null}
     </span>
   );
 }
-
 
 export function TagChipGroup({
   tags,

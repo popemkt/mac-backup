@@ -4,19 +4,22 @@
  * Colors come from the nxus palette in index.css (DESIGN-RESKIN §1.1);
  * the legacy --kb-* palette and --bg bridge names are gone.
  */
-::root {
+:root {
   --kb-indent: 24px;
   --kb-row-h: 24px;
   --kb-text: 14.5px / 1.6;
-  --kb-chip: 11px / 16px;
+  --kb-text-weight: var(--font-weight-body, 400);
+  /* Chip alias tracks the tag token — one size, one path (i10 item 3). */
+  --tag-size: 9px;
+  --tag-line: 11px;
+  --tag-weight: var(--font-weight-ui, 500);
+  --kb-chip: var(--tag-size) / var(--tag-line);
   --kb-field-label: 120px;
-  /* Owner: tag chips visibly tighter/smaller than node text, tokenized. */
-  --tag-size: 10px;
-  --tag-line: 12px;
 }
 
 .kb-text {
   font: var(--kb-text) inherit;
+  font-weight: var(--kb-text-weight);
 }
 
 /* F9: row text host — active and inactive share pre-wrap so \n never collapses. */
@@ -33,16 +36,11 @@
   word-break: break-all;
 }
 
-.kb-chip {
-  /* Legacy alias — equivalent to --tag-size/--tag-line. */
-  font-size: var(--tag-size);
-  line-height: var(--tag-line);
-}
-
+.kb-chip,
 .kb-tag {
   font-size: var(--tag-size);
   line-height: var(--tag-line);
-  font-weight: 500;
+  font-weight: var(--tag-weight);
 }
 
 

@@ -29,7 +29,8 @@ describe("shared outline components (W8b)", () => {
     expect(html).toContain(`${color}18`);
     expect(html).toContain(`color:${color}`);
     expect(html).toContain("kb-tag");
-    expect(html).toContain("h-[14px]");
+    expect(html).toContain("h-[12px]");
+    expect(html).toContain("data-tag-chip");
   });
 
   it("TagChip exposes navigation and remove as keyboard-reachable buttons", () => {
@@ -45,16 +46,20 @@ describe("shared outline components (W8b)", () => {
     expect(html.match(/<button/g) ?? []).toHaveLength(2);
   });
 
-  it("TagChip remove uses display-based reveal not reserved opacity", () => {
+  it("TagChip remove uses hash-overlay (opacity), never display toggle", () => {
     const html = renderToStaticMarkup(
       createElement(TagChip, {
         tag: { id: "tag.todo", name: "todo", color: "#112233" },
         onRemove: () => undefined,
       }),
     );
-    expect(html).toContain("hidden");
-    expect(html).toContain("group-hover/tag:flex");
-    expect(html).not.toContain("opacity-0");
+    expect(html).toContain("data-tag-remove");
+    expect(html).toContain("absolute");
+    expect(html).toContain("opacity-0");
+    expect(html).toContain("group-hover/tag:opacity-60");
+    expect(html).not.toContain("group-hover/tag:flex");
+    // Remove is not a flex sibling that appears on hover — mark slot is fixed.
+    expect(html).toContain("data-tag-mark");
   });
 
   it("TagChip has no configure affordance", () => {
@@ -148,6 +153,8 @@ describe("shared outline components (W8b)", () => {
     expect(prefHtml).toContain("theme");
     expect(outlineHtml).toContain("text-[14.5px]");
     expect(prefHtml).toContain("text-[14.5px]");
+    expect(outlineHtml).toContain("font-normal");
+    expect(prefHtml).toContain("font-normal");
   });
 
   it("surface modules import the single shared row/chip/field components", () => {
@@ -160,6 +167,17 @@ describe("shared outline components (W8b)", () => {
     expect(readOutlineSource("fields-section.tsx")).toMatch(/from "\.\/field-row"/);
     expect(readOutlineSource("query-results.tsx")).toMatch(/from "\.\/node-block"/);
     expect(readOutlineSource("schema-section.tsx")).toMatch(/from "\.\/node-row"/);
+  });
+
+  it("tag render path is TagChip only — no inline striped duplicate (i10 item 3)", () => {
+    const content = readOutlineSource("node-content.tsx");
+    expect(content).toMatch(/from "\.\/tag-chip"/);
+    expect(content).toMatch(/TagChipGroup/);
+    // No second ad-hoc tag markup / hardcoded chip sizes in the content row.
+    expect(content).not.toMatch(/text-\[1[01]px\].*tag|tag.*text-\[1[01]px\]/i);
+    expect(content).not.toMatch(/striped/);
+    expect(readOutlineSource("tag-chip.tsx")).toContain("kb-tag");
+    expect(readOutlineSource("tag-chip.tsx")).not.toMatch(/text-\[\d+px\]/);
   });
 
   it("node-block encodes §1.3 guide-line metrics (depth*24+2, left-[9px], w-5, bottom-2)", () => {

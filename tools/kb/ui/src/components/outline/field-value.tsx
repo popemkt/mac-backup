@@ -1,5 +1,6 @@
 import type { PropValue } from "@/lib/types";
 import type { NodeMap } from "@/lib/types";
+import { SYSTEM_IDS } from "@/lib/types";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import {
@@ -8,6 +9,7 @@ import {
 } from "@/lib/field-type";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
 import { fuzzyNodeCandidates } from "@/lib/refs";
+import { TAG_PALETTE } from "@/lib/tag-color";
 import { useOutlineStore } from "@/stores/outline.store";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
 import { Bullet } from "./bullet";
@@ -18,6 +20,8 @@ interface PropValueEditorProps {
   value: PropValue;
   display: string;
   fieldType: FieldType;
+  /** Field definition id — special-cases editors (e.g. sys.f.color swatch). */
+  fieldId?: string;
   /** When set, ref suggestions are filtered to this id set. */
   allowedRefIds?: Set<string> | null;
   onCommit: (next: PropValue) => void;
@@ -39,10 +43,20 @@ export function PropValueEditor({
   value,
   display,
   fieldType,
+  fieldId,
   allowedRefIds = null,
   onCommit,
   nodes,
 }: PropValueEditorProps) {
+  if (fieldId === SYSTEM_IDS.colorField) {
+    return (
+      <ColorSwatchEditor
+        value={value.t === "str" ? String(value.v) : ""}
+        onCommit={(hex) => onCommit({ t: "str", v: hex })}
+      />
+    );
+  }
+
   switch (fieldType) {
     case "checkbox":
       return (
@@ -112,25 +126,113 @@ export function PropValueEditor({
 /** Editor for an empty typed slot (no value yet). */
 export function EmptyTypedEditor({
   fieldType,
+  fieldId,
   allowedRefIds = null,
   onCommit,
   nodes,
 }: {
   fieldType: FieldType;
+  fieldId?: string;
   allowedRefIds?: Set<string> | null;
   onCommit: (next: PropValue) => void;
   nodes: NodeMap;
 }) {
+  if (fieldId === SYSTEM_IDS.colorField) {
+    return (
+      <ColorSwatchEditor
+        value=""
+        onCommit={(hex) => onCommit({ t: "str", v: hex })}
+      />
+    );
+  }
   const starter = emptyValueForType(fieldType);
   return (
     <PropValueEditor
       value={starter}
       display=""
       fieldType={fieldType}
+      fieldId={fieldId}
       allowedRefIds={allowedRefIds}
       onCommit={onCommit}
       nodes={nodes}
     />
+  );
+}
+
+/**
+ * Color field editor — palette swatches + optional custom hex.
+ * Used for sys.f.color on tag nodes (and any other color field).
+ */
+export function ColorSwatchEditor({
+  value,
+  onCommit,
+}: {
+  value: string;
+  onCommit: (hex: string) => void;
+}) {
+  const current = value.trim();
+  const [custom, setCustom] = useState(current);
+
+  return (
+    <div
+      className="flex min-h-6 flex-wrap items-center gap-1 py-0.5"
+      data-color-swatch-editor="true"
+      role="group"
+      aria-label="Color"
+    >
+      {TAG_PALETTE.map((hex) => {
+        const selected = current.toLowerCase() === hex.toLowerCase();
+        return (
+          <button
+            key={hex}
+            type="button"
+            title={hex}
+            aria-label={`Set color ${hex}`}
+            aria-pressed={selected}
+            className={cn(
+              "h-4 w-4 shrink-0 rounded-sm border transition-shadow",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+              selected
+                ? "border-foreground/50 ring-2 ring-primary/40"
+                : "border-foreground/15 hover:border-foreground/35",
+            )}
+            style={{ backgroundColor: hex }}
+            onClick={() => {
+              setCustom(hex);
+              onCommit(hex);
+            }}
+          />
+        );
+      })}
+      <input
+        type="text"
+        value={custom}
+        spellCheck={false}
+        placeholder="#hex"
+        aria-label="Custom color hex"
+        className={cn(
+          "ml-1 h-5 w-[5.5rem] rounded-sm border border-foreground/10 bg-transparent px-1",
+          "font-mono text-[11px] text-foreground/60 outline-none",
+          "placeholder:text-foreground/25 focus:border-foreground/25",
+        )}
+        onChange={(e) => setCustom(e.target.value)}
+        onBlur={() => {
+          const next = custom.trim();
+          if (/^#[0-9a-fA-F]{3,8}$/.test(next) && next !== current) {
+            onCommit(next);
+          } else {
+            setCustom(current);
+          }
+        }}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") {
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+      />
+    </div>
   );
 }
 

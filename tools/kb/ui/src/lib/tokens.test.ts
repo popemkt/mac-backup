@@ -43,8 +43,19 @@ describe("kb tokens", () => {
     expect(tokens).toMatch(/--kb-indent:\s*24px/);
     expect(tokens).toMatch(/--kb-row-h:\s*24px/);
     expect(tokens).toMatch(/--kb-text:\s*14\.5px\s*\/\s*1\.6/);
-    expect(tokens).toMatch(/--kb-chip:\s*11px\s*\/\s*16px/);
+    expect(tokens).toMatch(/--tag-size:\s*9px/);
+    expect(tokens).toMatch(/--tag-line:\s*11px/);
+    expect(tokens).toMatch(/--kb-chip:\s*var\(--tag-size\)\s*\/\s*var\(--tag-line\)/);
     expect(tokens).toMatch(/--kb-field-label:\s*120px/);
+  });
+
+  it("tag typography is one token on .kb-tag/.kb-chip (i10 item 3)", () => {
+    expect(tokens).toMatch(/\.kb-chip,\s*\n\.kb-tag\s*\{/);
+    expect(tokens).toMatch(/font-size:\s*var\(--tag-size\)/);
+    expect(tokens).toMatch(/line-height:\s*var\(--tag-line\)/);
+    // No duplicate hardcoded chip sizes outside the shared token.
+    expect(tokens).not.toMatch(/--tag-size:\s*10px/);
+    expect(tokens).not.toMatch(/--kb-chip:\s*11px/);
   });
 
   it("content row uses var(--kb-text) via .kb-text", () => {
@@ -72,10 +83,19 @@ describe("kb tokens", () => {
     }
   });
 
-  it("font is a pref-driven CSS var (Outfit default, Inter opt-in)", () => {
-    expect(index).toMatch(/--app-font:\s*"Outfit Variable"/);
-    expect(index).toMatch(/html\[data-font="inter"\]/);
+  it("font is a pref-driven CSS var (Inter Variable default, Outfit opt-in)", () => {
+    expect(index).toMatch(/--app-font:\s*"Inter Variable"/);
+    expect(index).toMatch(/html\[data-font="outfit"\]/);
     expect(index).toMatch(/--font-sans:\s*var\(--app-font\)/);
+    expect(index).toMatch(/font-family:\s*"Inter Fallback"/);
+    expect(index).toMatch(/@fontsource-variable\/inter/);
+    expect(index).toMatch(/size-adjust:/);
+  });
+
+  it("tokens declare body weight for Inter (Outfit 500 read heavy)", () => {
+    expect(tokens).toMatch(/--kb-text-weight:/);
+    expect(tokens).toMatch(/--tag-weight:/);
+    expect(index).toMatch(/--font-weight-body:\s*400/);
   });
 
   it("text-[Npx] literals in ui/src stay within §1.2 whitelist", () => {
