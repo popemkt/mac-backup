@@ -235,7 +235,7 @@ describe("ontology scope (acceptance)", () => {
     ]);
     // Only the internal edge survives (tailscaled → acl file is dropped).
     expect(graph.edges).toEqual([
-      { source: "n.tailscaled", target: "n.caddy", kind: "child" },
+      { source: "n.tailscaled", target: "n.caddy", kind: "child", weight: 1 },
     ]);
   });
 

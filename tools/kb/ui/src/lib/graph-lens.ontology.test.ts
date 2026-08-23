@@ -44,7 +44,7 @@ describe("extractLensGraph — restrictTo (ontology scope)", () => {
     });
     expect(graph.nodes.map((n) => n.id)).toEqual(["n.a", "n.b"]);
     expect(graph.edges).toEqual([
-      { source: "n.a", target: "n.b", kind: "child" },
+      { source: "n.a", target: "n.b", kind: "child", weight: 1 },
     ]);
   });
 
@@ -57,7 +57,7 @@ describe("extractLensGraph — restrictTo (ontology scope)", () => {
     expect(graph.nodes.map((n) => n.id)).toEqual(["n.b", "n.c"]);
     // a→b is gone (a is out); b→c survives (both in).
     expect(graph.edges).toEqual([
-      { source: "n.b", target: "n.c", kind: "child" },
+      { source: "n.b", target: "n.c", kind: "child", weight: 1 },
     ]);
   });
 
