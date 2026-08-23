@@ -195,7 +195,7 @@ export class SubscriptionHub {
    * The node-set mutation is synchronous (atomic at the JS level); the
    * broadcast sends are returned as an Effect sequence.
    */
-  applyNodes(nodes: KbNode[]): Effect.Effect<void> {
+  applyNodes(nodes: KbNode[], origin?: string): Effect.Effect<void> {
     const merged = this.withVirtual(nodes);
     const hash = contentHash(merged);
     if (hash === this.hash) return Effect.void;
@@ -222,8 +222,8 @@ export class SubscriptionHub {
         deletes,
       };
       const payload = JSON.stringify(tx);
-      for (const c of this.clients.values()) {
-        if (c.watchTx) sends.push(c.send(payload));
+      for (const [clientId, c] of this.clients) {
+        if (c.watchTx && clientId !== origin) sends.push(c.send(payload));
       }
     }
 

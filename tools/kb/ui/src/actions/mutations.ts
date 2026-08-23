@@ -87,6 +87,14 @@ type PendingContent = {
 };
 
 const pendingContent = new Map<string, PendingContent>();
+
+/** Remote deltas retain a newer local text buffer until its FIFO flush lands. */
+export function mergeRemoteUpserts(upserts: WireNode[]): WireNode[] {
+  return upserts.map((remote) => {
+    const pending = pendingContent.get(remote.id);
+    return pending ? { ...remote, text: pending.text } : remote;
+  });
+}
 /**
  * Remote text writes have a deliberately small owner.  The old debounce map
  * captured a string in the timer closure, which meant a structural write
