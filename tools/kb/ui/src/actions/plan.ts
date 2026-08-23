@@ -2,6 +2,7 @@
  * Pure outline mutation planners — map UI intents to local tx + registry actions.
  */
 import type { WireNode } from "@kb/protocol";
+import { wouldCreateExtendsCycle } from "@kb/ontology";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import type { PropValue } from "@/lib/types";
 import { SYSTEM_IDS } from "@/lib/types";
@@ -560,6 +561,195 @@ export function planNewQueryNode(
     focusId: newId,
     focusCursor: text.length,
   };
+}
+
+// ── ontology planners (r5 core) ────────────────────────────────────────────
+// All are thin wrappers over planSetProp / planUnsetProp, exactly as
+// planAddTag / planRemoveTag are, so they inherit the optimistic-tx, undo,
+// and receipt plumbing untouched.
+
+/** Mint an ontology: a plain node tagged #ontology. */
+export function planDefineOntology(name: string, newId: string): PlannedMutation {
+  const at = nowIso();
+  const node: WireNode = {
+    id: newId,
+    text: name,
+    props: {
+      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.ontologyTag }],
+    },
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+  return {
+    upserts: [node],
+    deletes: [],
+    actions: [
+      {
+        id: "node.add",
+        input: {
+          text: name,
+          id: newId,
+          tags: [SYSTEM_IDS.ontologyTag],
+        },
+      },
+    ],
+    focusId: newId,
+    focusCursor: name.length,
+  };
+}
+
+export function planOntologyAddInclude(
+  nodes: WireNode[],
+  ontoId: string,
+  tagId: string,
+): PlannedMutation {
+  return planSetProp(nodes, ontoId, SYSTEM_IDS.ontoIncludeField, {
+    t: "ref",
+    v: tagId,
+  });
+}
+
+export function planOntologyRemoveInclude(
+  nodes: WireNode[],
+  ontoId: string,
+  tagId: string,
+): PlannedMutation {
+  return planUnsetProp(nodes, ontoId, SYSTEM_IDS.ontoIncludeField, {
+    t: "ref",
+    v: tagId,
+  });
+}
+
+/** "Pin": promote a derived member to explicit so it survives the tag going. */
+export function planOntologyAddMember(
+  nodes: WireNode[],
+  ontoId: string,
+  nodeId: string,
+): PlannedMutation {
+  return planSetProp(nodes, ontoId, SYSTEM_IDS.ontoMemberField, {
+    t: "ref",
+    v: nodeId,
+  });
+}
+
+export function planOntologyRemoveMember(
+  nodes: WireNode[],
+  ontoId: string,
+  nodeId: string,
+): PlannedMutation {
+  return planUnsetProp(nodes, ontoId, SYSTEM_IDS.ontoMemberField, {
+    t: "ref",
+    v: nodeId,
+  });
+}
+
+/**
+ * Veto a node. Also drops a matching pin in the SAME plan, so pin and veto can
+ * never contradict each other on one ontology.
+ */
+export function planOntologyExclude(
+  nodes: WireNode[],
+  ontoId: string,
+  nodeId: string,
+): PlannedMutation {
+  const exclude = planSetProp(nodes, ontoId, SYSTEM_IDS.ontoExcludeField, {
+    t: "ref",
+    v: nodeId,
+  });
+  const pinned = (
+    wireById(nodes).get(ontoId)?.props[SYSTEM_IDS.ontoMemberField] ?? []
+  ).some((pv) => pv.t === "ref" && pv.v === nodeId);
+  if (!pinned) return exclude;
+  const unpin = planOntologyRemoveMember(exclude.upserts, ontoId, nodeId);
+  return {
+    upserts: unpin.upserts,
+    deletes: [],
+    actions: [...exclude.actions, ...unpin.actions],
+  };
+}
+
+export function planOntologyUnexclude(
+  nodes: WireNode[],
+  ontoId: string,
+  nodeId: string,
+): PlannedMutation {
+  return planUnsetProp(nodes, ontoId, SYSTEM_IDS.ontoExcludeField, {
+    t: "ref",
+    v: nodeId,
+  });
+}
+
+/**
+ * `A extends B` = A inherits B's members (A is the superset).
+ * Returns null when the edge would close a cycle — a cheap client-side
+ * pre-check; the resolver stays cycle-safe regardless.
+ */
+export function planOntologyAddExtends(
+  nodes: WireNode[],
+  ontoId: string,
+  parentId: string,
+): PlannedMutation | null {
+  if (wouldCreateExtendsCycle(nodes, ontoId, parentId)) return null;
+  return planSetProp(nodes, ontoId, SYSTEM_IDS.ontoExtendsField, {
+    t: "ref",
+    v: parentId,
+  });
+}
+
+export function planOntologyRemoveExtends(
+  nodes: WireNode[],
+  ontoId: string,
+  parentId: string,
+): PlannedMutation {
+  return planUnsetProp(nodes, ontoId, SYSTEM_IDS.ontoExtendsField, {
+    t: "ref",
+    v: parentId,
+  });
+}
+
+/** Single-valued str: replace the previous value rather than appending. */
+export function planOntologySetQuery(
+  nodes: WireNode[],
+  ontoId: string,
+  edn: string,
+): PlannedMutation {
+  const existing = wireById(nodes).get(ontoId)?.props[
+    SYSTEM_IDS.ontoQueryField
+  ]?.[0];
+  const trimmed = edn.trim();
+  if (!trimmed) {
+    return planUnsetProp(nodes, ontoId, SYSTEM_IDS.ontoQueryField);
+  }
+  return planSetProp(
+    nodes,
+    ontoId,
+    SYSTEM_IDS.ontoQueryField,
+    { t: "str", v: trimmed },
+    existing,
+  );
+}
+
+export function planOntologySetClosure(
+  nodes: WireNode[],
+  ontoId: string,
+  mode: "none" | "descendants",
+): PlannedMutation {
+  const existing = wireById(nodes).get(ontoId)?.props[
+    SYSTEM_IDS.ontoClosureField
+  ]?.[0];
+  if (mode === "none") {
+    return existing
+      ? planUnsetProp(nodes, ontoId, SYSTEM_IDS.ontoClosureField, existing)
+      : planUnsetProp(nodes, ontoId, SYSTEM_IDS.ontoClosureField);
+  }
+  return planSetProp(
+    nodes,
+    ontoId,
+    SYSTEM_IDS.ontoClosureField,
+    { t: "str", v: mode },
+    existing,
+  );
 }
 
 export function planCreateAfter(

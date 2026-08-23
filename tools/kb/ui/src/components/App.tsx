@@ -12,7 +12,8 @@ import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { Sidebar, SidebarToggle } from "@/components/sidebar/sidebar";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
-import { matchRoute, usePath } from "@/lib/router";
+import { OntologyScopeBar } from "@/components/ontology/ontology-scope-bar";
+import { matchRoute, navigate, usePath } from "@/lib/router";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -28,6 +29,16 @@ const CanvasListPage = lazy(() =>
 const CanvasPage = lazy(() =>
   import("@/components/canvas/canvas-page").then((m) => ({
     default: m.CanvasPage,
+  })),
+);
+const OntologyPage = lazy(() =>
+  import("@/components/ontology/ontology-page").then((m) => ({
+    default: m.OntologyPage,
+  })),
+);
+const OntologyListPage = lazy(() =>
+  import("@/components/ontology/ontology-list-page").then((m) => ({
+    default: m.OntologyListPage,
   })),
 );
 
@@ -99,12 +110,17 @@ function OutlineShell({
   onRetry,
   canvasId = null,
   onCanvas = false,
+  ontology = null,
+  ontologyList = false,
 }: {
   status: "loading" | "ready" | "error";
   error: string | null;
   onRetry: () => void;
   canvasId?: string | null;
   onCanvas?: boolean;
+  /** Active ontology scope: `page` shows the definition, `outline` its members. */
+  ontology?: { id: string; view: "page" | "outline" } | null;
+  ontologyList?: boolean;
 }) {
   const rev = useOutlineStore((s) => s.rev);
   const loadSource = useOutlineStore((s) => s.loadSource);
@@ -138,8 +154,54 @@ function OutlineShell({
         </button>
       </header>
 
+      {ontology && status !== "error" ? (
+        <OntologyChrome id={ontology.id} view={ontology.view} />
+      ) : null}
+
       {status === "error" ? (
         <LoadError error={error} onRetry={onRetry} />
+      ) : ontology ? (
+        <main className="min-h-0 flex-1 overflow-auto">
+          <ViewErrorBoundary
+            title="Ontology crashed"
+            resetKey={`${ontology.id}:${ontology.view}`}
+          >
+            {ontology.view === "page" ? (
+              <Suspense
+                fallback={
+                  <div className="p-6 text-[13px] text-foreground/40">
+                    Loading ontology…
+                  </div>
+                }
+              >
+                <OntologyPage ontologyId={ontology.id} />
+              </Suspense>
+            ) : (
+              <div
+                className={cn(
+                  "kb-shell w-full",
+                  width === "centered" ? "mx-auto max-w-3xl px-4" : "px-8",
+                )}
+              >
+                <OutlineEditor />
+              </div>
+            )}
+          </ViewErrorBoundary>
+        </main>
+      ) : ontologyList ? (
+        <main className="min-h-0 flex-1 overflow-auto">
+          <ViewErrorBoundary title="Ontologies crashed" resetKey="ontology-list">
+            <Suspense
+              fallback={
+                <div className="p-6 text-[13px] text-foreground/40">
+                  Loading ontologies…
+                </div>
+              }
+            >
+              <OntologyListPage />
+            </Suspense>
+          </ViewErrorBoundary>
+        </main>
       ) : onCanvas ? (
         <main className="min-h-0 flex-1 overflow-hidden">
           <ViewErrorBoundary
@@ -174,6 +236,31 @@ function OutlineShell({
         </main>
       )}
     </div>
+  );
+}
+
+/** Scope chip fed from the store's resolved membership. */
+function OntologyChrome({
+  id,
+  view,
+}: {
+  id: string;
+  view: "page" | "outline" | "graph";
+}) {
+  const members = useOutlineStore((s) => s.ontologyMembers);
+  const warnings = useOutlineStore((s) => s.ontologyWarnings);
+  const wireNodes = useOutlineStore((s) => s.wireNodes);
+  const label =
+    wireNodes.find((n) => n.id === id)?.text?.trim() || "Untitled ontology";
+  return (
+    <OntologyScopeBar
+      ontologyId={id}
+      label={label}
+      memberCount={members?.size ?? 0}
+      warnings={warnings}
+      view={view}
+      onExit={() => navigate("/")}
+    />
   );
 }
 
@@ -224,6 +311,8 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const path = usePath();
   const route = matchRoute(path);
+  const setOntologyScope = useOutlineStore((s) => s.setOntologyScope);
+  const scopeId = route.name === "ontology" ? route.id : null;
 
   const reload = useCallback(async () => {
     setStatus("loading");
@@ -243,6 +332,12 @@ export function App() {
     void reload();
   }, [reload]);
 
+  // Scope lives in the URL; the store follows it (reload + back button safe).
+  useEffect(() => {
+    if (status !== "ready") return;
+    setOntologyScope(scopeId);
+  }, [status, scopeId, setOntologyScope]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const action = matchGlobalShortcut(e);
@@ -258,26 +353,40 @@ export function App() {
     <div className="relative flex h-full min-h-0">
       <Sidebar />
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-        {route.name === "graph" ? (
+        {route.name === "graph" || (route.name === "ontology" && route.view === "graph") ? (
           status === "loading" ? (
             <div className="p-6 text-[13px] text-foreground/40">loading…</div>
           ) : status === "error" ? (
             <LoadError error={error} onRetry={() => void reload()} />
           ) : (
-            <ViewErrorBoundary
-              title="Graph crashed"
-              resetKey={route.perspectiveId ?? "graph"}
-            >
-              <Suspense
-                fallback={
-                  <div className="p-6 text-[13px] text-foreground/40">
-                    loading graph…
-                  </div>
+            <>
+              {route.name === "ontology" ? (
+                <OntologyChrome id={route.id} view="graph" />
+              ) : null}
+              <ViewErrorBoundary
+                title="Graph crashed"
+                resetKey={
+                  route.name === "ontology"
+                    ? `o:${route.id}`
+                    : (route.perspectiveId ?? "graph")
                 }
               >
-                <GraphPage perspectiveId={route.perspectiveId} />
-              </Suspense>
-            </ViewErrorBoundary>
+                <Suspense
+                  fallback={
+                    <div className="p-6 text-[13px] text-foreground/40">
+                      loading graph…
+                    </div>
+                  }
+                >
+                  <GraphPage
+                    perspectiveId={
+                      route.name === "graph" ? route.perspectiveId : null
+                    }
+                    ontologyId={route.name === "ontology" ? route.id : null}
+                  />
+                </Suspense>
+              </ViewErrorBoundary>
+            </>
           )
         ) : (
           <OutlineShell
@@ -286,6 +395,12 @@ export function App() {
             onRetry={() => void reload()}
             canvasId={route.name === "canvas" ? route.id : null}
             onCanvas={route.name === "canvas-list" || route.name === "canvas"}
+            ontology={
+              route.name === "ontology" && route.view !== "graph"
+                ? { id: route.id, view: route.view }
+                : null
+            }
+            ontologyList={route.name === "ontology-list"}
           />
         )}
         <SharedChrome />

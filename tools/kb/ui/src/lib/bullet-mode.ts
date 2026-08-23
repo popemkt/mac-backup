@@ -11,7 +11,8 @@ export type BulletKind =
   | "query"
   | "command"
   | "media"
-  | "canvas";
+  | "canvas"
+  | "ontology";
 
 /** Optional overrides for canvas (and forced media) until those tags ship. */
 export type BulletKindOverride = "media" | "canvas";
@@ -49,7 +50,8 @@ export function typeRefsOf(
 
 /**
  * Map node metadata → bullet kind.
- * Priority: override → tag/field/command/query type → media asset ref → parent → plain.
+ * Priority: override → tag/field/command/query/canvas/ontology type →
+ * media asset ref → parent → plain.
  */
 export function resolveBulletKind(input: BulletModeInput): BulletKind {
   if (input.kindOverride === "media" || input.kindOverride === "canvas") {
@@ -69,6 +71,13 @@ export function resolveBulletKind(input: BulletModeInput): BulletKind {
     input.tagNames.some((n) => n.toLowerCase() === "canvas")
   ) {
     return "canvas";
+  }
+  // r5: #ontology tag — a lens over the graph, not ordinary content
+  if (
+    refs.includes(SYSTEM_IDS.ontologyTag) ||
+    input.tagNames.some((n) => n.toLowerCase() === "ontology")
+  ) {
+    return "ontology";
   }
 
   // W6a: ▣ when node text embeds an assets/ markdown image

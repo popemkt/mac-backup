@@ -5,6 +5,7 @@ import {
   LIST_TAGS_QUERY,
   backlinksQuery,
 } from "../foundation/query/queries.ts";
+import { LIST_ONTOLOGIES_QUERY } from "../foundation/ontology.ts";
 
 export type PropType = "str" | "num" | "bool" | "date" | "ref";
 
@@ -284,6 +285,30 @@ export function mapTagList(): PlannedAction {
     id: "graph.query",
     input: {
       query: LIST_TAGS_QUERY,
+    },
+  };
+}
+
+/** All `#ontology` nodes (id + text). */
+export function mapOntologyList(): PlannedAction {
+  return {
+    id: "graph.query",
+    input: {
+      query: LIST_ONTOLOGIES_QUERY,
+    },
+  };
+}
+
+/** Resolve one ontology's membership, optionally with provenance. */
+export function mapOntologyMembers(opts: {
+  id: string;
+  reasons?: boolean;
+}): PlannedAction {
+  return {
+    id: "ontology.members",
+    input: {
+      id: opts.id,
+      ...(opts.reasons === true ? { reasons: true } : {}),
     },
   };
 }

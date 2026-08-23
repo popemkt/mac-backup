@@ -323,6 +323,12 @@ export function isElidedSchemaNode(wire: WireNode): boolean {
 export interface ExtractLensOptions {
   /** When true, keep sys/command/schema nodes. Default false (smart-elide). */
   includeSystemNodes?: boolean;
+  /**
+   * Ontology scope: intersect the lens node set with these ids, so the graph
+   * shows member nodes and their internal connections only. No new renderer —
+   * an ontology is just another way of producing the node set (r5 §1.6).
+   */
+  restrictTo?: Set<string>;
 }
 
 function resolveNodeSet(
@@ -332,9 +338,11 @@ function resolveNodeSet(
   opts: ExtractLensOptions = {},
 ): Set<string> {
   const includeSystem = opts.includeSystemNodes === true;
-  const candidates = includeSystem
-    ? wireNodes
-    : wireNodes.filter((n) => !isElidedSchemaNode(n));
+  const restrictTo = opts.restrictTo;
+  const candidates = wireNodes.filter((n) => {
+    if (restrictTo && !restrictTo.has(n.id)) return false;
+    return includeSystem || !isElidedSchemaNode(n);
+  });
   const all = new Set(candidates.map((n) => n.id));
   const edn = perspective.query.trim();
   if (!edn) return all;

@@ -61,6 +61,10 @@ import {
   tagDefineEffect,
 } from "./operations/index.ts";
 import {
+  ontologyMembersDef,
+  ontologyMembersEffect,
+} from "./operations/ontology.ts";
+import {
   renderViewActionEffect,
   renderViewDef,
   renderViewsActionEffect,
@@ -133,6 +137,7 @@ const CORE_ACTIONS: readonly RegisteredAction[] = [
   coreNative(assetUploadDef, assetUploadEffect as ActionEffectHandler),
   coreNative(renderViewDef, renderViewActionEffect as ActionEffectHandler),
   coreNative(renderViewsDef, renderViewsActionEffect as ActionEffectHandler),
+  coreNative(ontologyMembersDef, ontologyMembersEffect as ActionEffectHandler),
 ];
 
 /** Extensions shipped with kb itself; loaded like repo extensions. */

@@ -3,6 +3,8 @@
  */
 import { ulid } from "ulid";
 import { mutations } from "@/actions/mutations";
+import { listOntologyItems } from "@/lib/ontology-scope";
+import { navigate, ontologyPath } from "@/lib/router";
 import { toast } from "@/lib/toast";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -56,6 +58,34 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
       if (newId) {
         useOutlineStore.getState().zoomTo(newId);
       }
+      return;
+    }
+    case SYSTEM_IDS.cmdNewOntology: {
+      const id = await mutations.defineOntology();
+      if (id) navigate(ontologyPath(id));
+      return;
+    }
+    case SYSTEM_IDS.cmdEnterOntology: {
+      // The selected / zoomed node when it is an ontology, else the first one.
+      const store = useOutlineStore.getState();
+      const candidates = listOntologyItems(store.wireNodes);
+      if (candidates.length === 0) {
+        toast("No ontologies yet — try “New ontology”");
+        return;
+      }
+      const preferred =
+        [store.selectedNodeId, store.rootNodeId].find((id) =>
+          candidates.some((c) => c.id === id),
+        ) ?? candidates[0]!.id;
+      navigate(ontologyPath(preferred));
+      return;
+    }
+    case SYSTEM_IDS.cmdExitOntology: {
+      if (!useOutlineStore.getState().ontologyId) {
+        toast("Not inside an ontology");
+        return;
+      }
+      navigate("/");
       return;
     }
     case SYSTEM_IDS.cmdPreferences: {

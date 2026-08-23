@@ -1,19 +1,22 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Graph as GraphIcon,
+  Hexagon,
   House,
   List,
   Plus,
   PushPin,
   Square,
 } from "@phosphor-icons/react";
+import { mutations } from "@/actions/mutations";
 import { createCanvasNode } from "@/lib/canvas-api";
 import { cn } from "@/lib/cn";
-import { graphPath, matchRoute, navigate, usePath } from "@/lib/router";
+import { graphPath, matchRoute, navigate, ontologyPath, usePath } from "@/lib/router";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import {
   listCanvasNavItems,
+  listOntologyNavItems,
   listPerspectiveNavItems,
   listPinnedNodes,
 } from "./sidebar-nav";
@@ -127,6 +130,10 @@ export function Sidebar() {
     [wireNodes, rev],
   );
   const canvases = useMemo(() => listCanvasNavItems(nodes), [nodes, rev]);
+  const ontologies = useMemo(
+    () => listOntologyNavItems(wireNodes),
+    [wireNodes, rev],
+  );
   const pinned = useMemo(() => listPinnedNodes(nodes), [nodes, rev]);
 
   const onNewCanvas = async () => {
@@ -143,6 +150,17 @@ export function Sidebar() {
   const onPinned = (id: string) => {
     navigate("/");
     zoomTo(id);
+  };
+
+  const onNewOntology = async () => {
+    if (creating) return;
+    setCreating(true);
+    try {
+      const id = await mutations.defineOntology();
+      if (id) navigate(ontologyPath(id));
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -187,6 +205,31 @@ export function Sidebar() {
               onClick={() => navigate(graphPath(p.id))}
             />
           ))}
+        </SidebarSection>
+
+        <SidebarSection>
+          <SidebarRow
+            label="Ontologies"
+            icon={<Hexagon size={14} />}
+            active={route.name === "ontology-list"}
+            onClick={() => navigate("/o")}
+          />
+          {ontologies.map((o) => (
+            <SidebarRow
+              key={o.id}
+              label={o.label}
+              indented
+              active={route.name === "ontology" && route.id === o.id}
+              onClick={() => navigate(ontologyPath(o.id))}
+            />
+          ))}
+          <SidebarRow
+            label={creating ? "Creating…" : "New ontology"}
+            icon={<Plus size={14} />}
+            indented
+            muted
+            onClick={() => void onNewOntology()}
+          />
         </SidebarSection>
 
         <SidebarSection>

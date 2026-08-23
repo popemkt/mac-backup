@@ -4,6 +4,7 @@ import {
   type KbNode,
   nowIso,
 } from "./model.ts";
+import { ONTOLOGY_TARGET_QUERY } from "./ontology.ts";
 
 /** Reserved system nodes. Idempotent — same ids every time. */
 export function systemSeedNodes(at: string = nowIso()): KbNode[] {
@@ -69,6 +70,10 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     mk(SYSTEM_IDS.cmdViewAsBoard, "View as: Board", cmdType),
     mk(SYSTEM_IDS.cmdViewAsCards, "View as: Cards", cmdType),
     mk(SYSTEM_IDS.cmdViewFilter, "Filter…", cmdType),
+    // r5 ontology commands
+    mk(SYSTEM_IDS.cmdNewOntology, "New ontology", cmdType),
+    mk(SYSTEM_IDS.cmdEnterOntology, "Enter ontology…", cmdType),
+    mk(SYSTEM_IDS.cmdExitOntology, "Exit ontology", cmdType),
   ];
 
   // Query nodes as pure system nodes (W4): a tag "query" templating the
@@ -181,6 +186,52 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     [SYSTEM_IDS.fieldsField]: [{ t: "ref", v: SYSTEM_IDS.canvasField }],
   });
 
+  // Ontologies (r5 core): #ontology tag templating the sys.f.onto.* algebra.
+  // No default ontology is seeded — an empty ontology list is a legitimate
+  // empty state (unlike a graph page with zero perspectives).
+  const refField = (id: string, text: string, targetTag?: string): KbNode =>
+    mk(id, text, {
+      ...fieldType,
+      [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "ref" }],
+      ...(targetTag
+        ? { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: targetTag }] }
+        : {}),
+    });
+  const ontoIncludeField = refField(
+    SYSTEM_IDS.ontoIncludeField,
+    "onto.include",
+    SYSTEM_IDS.tag,
+  );
+  const ontoMemberField = refField(SYSTEM_IDS.ontoMemberField, "onto.member");
+  const ontoExcludeField = refField(SYSTEM_IDS.ontoExcludeField, "onto.exclude");
+  // targetQuery (not targetTag) so the ref picker offers only #ontology nodes.
+  const ontoExtendsField = mk(SYSTEM_IDS.ontoExtendsField, "onto.extends", {
+    ...fieldType,
+    [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "ref" }],
+    [SYSTEM_IDS.targetQueryField]: [
+      { t: "str", v: ONTOLOGY_TARGET_QUERY },
+    ],
+  });
+  const ontoQueryField = mk(SYSTEM_IDS.ontoQueryField, "onto.query", {
+    ...fieldType,
+    [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "text" }],
+  });
+  const ontoClosureField = mk(SYSTEM_IDS.ontoClosureField, "onto.closure", {
+    ...fieldType,
+    [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "text" }],
+  });
+  const ontologyTag = mk(SYSTEM_IDS.ontologyTag, "ontology", {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+    [SYSTEM_IDS.fieldsField]: [
+      { t: "ref", v: SYSTEM_IDS.ontoIncludeField },
+      { t: "ref", v: SYSTEM_IDS.ontoMemberField },
+      { t: "ref", v: SYSTEM_IDS.ontoExcludeField },
+      { t: "ref", v: SYSTEM_IDS.ontoExtendsField },
+      { t: "ref", v: SYSTEM_IDS.ontoQueryField },
+      { t: "ref", v: SYSTEM_IDS.ontoClosureField },
+    ],
+  });
+
   return [
     field,
     tag,
@@ -216,6 +267,13 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     lensAllMentions,
     canvasField,
     canvasTag,
+    ontoIncludeField,
+    ontoMemberField,
+    ontoExcludeField,
+    ontoExtendsField,
+    ontoQueryField,
+    ontoClosureField,
+    ontologyTag,
   ];
 }
 
@@ -250,20 +308,28 @@ export function ensureSystemSeed(nodes: KbNode[]): {
     seeded = true;
   }
 
-  let seedPerspectiveTag: KbNode | undefined;
+  /** Tags whose sys.f.fields template must stay in sync as fields are added. */
+  const TEMPLATE_TAGS: readonly string[] = [
+    SYSTEM_IDS.graphPerspectiveTag,
+    SYSTEM_IDS.ontologyTag,
+  ];
+
+  const seedTemplateTags = new Map<string, KbNode>();
   for (const seed of systemSeedNodes()) {
-    if (seed.id === SYSTEM_IDS.graphPerspectiveTag) seedPerspectiveTag = seed;
+    if (TEMPLATE_TAGS.includes(seed.id)) seedTemplateTags.set(seed.id, seed);
     if (!byId.has(seed.id)) {
       byId.set(seed.id, seed);
       seeded = true;
     }
   }
 
-  // Merge missing template field refs onto existing #graph-perspective tag
+  // Merge missing template field refs onto existing template tags
   // (ensureSystemSeed otherwise never rewrites existing sys.* props).
-  const existingTag = byId.get(SYSTEM_IDS.graphPerspectiveTag);
-  if (seedPerspectiveTag && existingTag) {
-    const want = seedPerspectiveTag.props[SYSTEM_IDS.fieldsField] ?? [];
+  for (const tagId of TEMPLATE_TAGS) {
+    const seedTag = seedTemplateTags.get(tagId);
+    const existingTag = byId.get(tagId);
+    if (!seedTag || !existingTag) continue;
+    const want = seedTag.props[SYSTEM_IDS.fieldsField] ?? [];
     const have = existingTag.props[SYSTEM_IDS.fieldsField] ?? [];
     const haveIds = new Set(
       have.filter((v) => v.t === "ref").map((v) => String(v.v)),
@@ -271,16 +337,15 @@ export function ensureSystemSeed(nodes: KbNode[]): {
     const missing = want.filter(
       (v) => v.t === "ref" && !haveIds.has(String(v.v)),
     );
-    if (missing.length > 0) {
-      byId.set(SYSTEM_IDS.graphPerspectiveTag, {
-        ...existingTag,
-        props: {
-          ...existingTag.props,
-          [SYSTEM_IDS.fieldsField]: [...have, ...missing],
-        },
-      });
-      seeded = true;
-    }
+    if (missing.length === 0) continue;
+    byId.set(tagId, {
+      ...existingTag,
+      props: {
+        ...existingTag.props,
+        [SYSTEM_IDS.fieldsField]: [...have, ...missing],
+      },
+    });
+    seeded = true;
   }
 
   return { nodes: [...byId.values()], seeded, deletes };

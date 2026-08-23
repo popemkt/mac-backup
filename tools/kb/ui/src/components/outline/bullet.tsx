@@ -23,6 +23,7 @@ const KIND_GLYPH: Partial<Record<BulletKind, string>> = {
   command: "\u2699",
   media: "\u25A3",
   canvas: "\u25C7",
+  ontology: "\u2B21",
 };
 
 export function Bullet({
