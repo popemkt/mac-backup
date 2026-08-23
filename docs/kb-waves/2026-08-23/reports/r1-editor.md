@@ -365,6 +365,16 @@ The implementation worker (`i1-editor`) should create or update automated tests 
 - `planMergeWithPrevious`: Merging first child (`idx=0`) outdents or merges into parent without returning `null`.
 - `planMergeWithPrevious`: Merging into a sibling with expanded descendants targets the deepest last descendant.
 
+### Reconciliation addendum — forward delete and multiline text
+
+- **Forward merge (`Delete` at text end):** merge the next visible row into the
+  active row and retain the caret at the text join boundary. It is the forward
+  counterpart to `Backspace` at offset 0.
+- **Multiline rendering:** active and inactive node text preserve hard line
+  breaks with identical wrapping and line count. Only explicit clamp contexts
+  (references, schema, table/board summaries, breadcrumbs) may ellipsize to a
+  single line.
+
 ### 5.2 Component & Geometry Tests (`tools/kb/ui/src/components/outline/geometry.test.tsx`)
 - **Metric Invariant Test:** Render `<NodeRow>` in inactive, active, and transient states; assert computed `paddingLeft`, `fontSize`, and `lineHeight` are identical down to subpixels.
 - **Field Value Placeholder Test:** Render `<EditableText empty={true} text="" />`; assert DOM `textContent` is empty string `""` and CSS `empty-placeholder` is active.

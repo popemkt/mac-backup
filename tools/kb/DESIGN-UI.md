@@ -139,6 +139,12 @@ i5 (cross-surface polish), i6 (ontology). The normative specs are
 `r7-ux-sweep.md` and `r5-ontology.md`; each carries its own implementation
 handoff with the honest cut list.
 
+### Transient-prune remote compensation
+
+When an empty session-transient is pruned after its optimistic `node.add` has
+already reached the server, the mutation path MUST post a compensating delete.
+Pre-existing nodes remain ineligible for this cleanup.
+
 ### Outline editor (i1)
 
 **Transient nodes replace ghost rows.** There is no permanent phantom bullet at
