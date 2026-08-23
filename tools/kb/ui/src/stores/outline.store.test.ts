@@ -60,7 +60,7 @@ describe("outline store (WireNode adaptation)", () => {
     seed();
     useOutlineStore.getState().activateNode("n.root-a", 3);
     expect(useOutlineStore.getState().activeNodeId).toBe("n.root-a");
-    expect(useOutlineStore.getState().cursorPosition).toBe(3);
+    expect(useOutlineStore.getState().pendingCaret).toMatchObject({ at: 3 });
     useOutlineStore.getState().selectNode("n.root-b");
     expect(useOutlineStore.getState().selectedNodeId).toBe("n.root-b");
     expect(useOutlineStore.getState().activeNodeId).toBeNull();

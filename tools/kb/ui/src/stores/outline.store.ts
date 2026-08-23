@@ -40,6 +40,12 @@ export interface ActivateOpts {
   x?: number | null;
 }
 
+/** A one-shot request for a mounted text host to place its caret. */
+export type CaretIntent = {
+  instanceKey: string;
+  at: number | "end" | { x: number };
+};
+
 interface OutlineState {
   nodes: NodeMap;
   wireNodes: WireNode[];
@@ -53,6 +59,12 @@ interface OutlineState {
   activeInstanceKey: string | null;
   selectedNodeId: string | null;
   selectedInstanceKey: string | null;
+  /**
+   * Consumable placement command. Unlike the legacy cursor fields below this
+   * is not editor state: ordinary store writes cannot make a host move.
+   */
+  pendingCaret: CaretIntent | null;
+  /** @deprecated Canvas compatibility only; text hosts must not read this. */
   cursorPosition: number;
   loadSource: "api" | "fixtures" | null;
   loadError: string | null;
@@ -89,6 +101,8 @@ interface OutlineState {
   zoomTo: (id: string) => void;
   zoomHome: () => void;
   activateNode: (id: string, cursorPos?: number, instanceKey?: string, opts?: ActivateOpts) => void;
+  placeCaret: (instanceKey: string, at: CaretIntent["at"]) => void;
+  consumeCaret: (instanceKey: string) => CaretIntent | null;
   deactivateNode: () => void;
   selectNode: (id: string | null, instanceKey?: string) => void;
   toggleCollapse: (id: string) => void;
@@ -316,6 +330,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     activeInstanceKey: null,
     selectedNodeId: null,
     selectedInstanceKey: null,
+    pendingCaret: null,
     cursorPosition: 0,
     loadSource: null,
     loadError: null,
@@ -532,20 +547,40 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     pruneOutgoingTransient(id);
       const { nodes } = get();
       const key = resolveActivateKey(id, instanceKey, nodes);
-      set((s) => ({
+      const at: CaretIntent["at"] =
+        opts?.x !== null && opts?.x !== undefined
+          ? { x: opts.x }
+          : cursorPos ?? 0;
+      set({
         activeNodeId: id,
         activeInstanceKey: key,
         selectedNodeId: id,
         selectedInstanceKey: key,
+        pendingCaret: { instanceKey: key, at },
+        // Keep this projection for the canvas wave, which has not yet
+        // migrated to CaretIntent. It is deliberately not observed by any
+        // outline text host.
         cursorPosition: cursorPos ?? 0,
-        focusSeq: s.focusSeq + 1,
-        focusX: opts?.x ?? null,
-      }));
+        focusX: null,
+      });
+    },
+
+    placeCaret: (instanceKey, at) => {
+      const st = get();
+      if (st.activeInstanceKey !== instanceKey) return;
+      set({ pendingCaret: { instanceKey, at } });
+    },
+
+    consumeCaret: (instanceKey) => {
+      const intent = get().pendingCaret;
+      if (!intent || intent.instanceKey !== instanceKey) return null;
+      set({ pendingCaret: null });
+      return intent;
     },
 
     deactivateNode: () => {
       pruneOutgoingTransient(null);
-      set({ activeNodeId: null, activeInstanceKey: null });
+      set({ activeNodeId: null, activeInstanceKey: null, pendingCaret: null });
     },
 
     selectNode: (id, instanceKey) => {
@@ -556,6 +591,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
           selectedInstanceKey: null,
           activeNodeId: null,
           activeInstanceKey: null,
+          pendingCaret: null,
         });
         return;
       }
@@ -568,6 +604,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
         selectedInstanceKey: key,
         activeNodeId: null,
         activeInstanceKey: null,
+        pendingCaret: null,
       });
     },
 

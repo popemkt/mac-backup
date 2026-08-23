@@ -277,11 +277,6 @@ const ViewCard = memo(function ViewCard({
     (s) =>
       s.selectedNodeId === child.id && s.selectedInstanceKey === instanceKey,
   );
-  const cursorPosition = useOutlineStore((s) =>
-    s.activeNodeId === child.id && s.activeInstanceKey === instanceKey
-      ? s.cursorPosition
-      : 0,
-  );
   const selectNode = useOutlineStore((s) => s.selectNode);
   const activateNode = useOutlineStore((s) => s.activateNode);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
@@ -340,7 +335,6 @@ const ViewCard = memo(function ViewCard({
             content={child.text}
             isActive={isActive}
             tags={[]}
-            cursorPosition={cursorPosition}
             onActivate={(pos) => activateNode(child.id, pos, instanceKey)}
             onChange={(text) => mutations.updateNodeContent(child.id, text)}
             onKeyDown={handleKeyDown}
