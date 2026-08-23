@@ -347,9 +347,10 @@ export function SigmaGraph({
           graph.forEachNode((id, attrs) => {
             nextPositions.set(id, { x: Number(attrs.x), y: Number(attrs.y) });
           });
-          positionsRef.current = nextPositions;
-          positionsCache.set(layoutKey, nextPositions);
-          sigma.refresh();
+        positionsRef.current = nextPositions;
+        positionsCache.set(layoutKey, nextPositions);
+        sigma.refresh();
+        fitView(sigma, 400);
         },
       });
       layoutRef.current = fa2;
@@ -362,7 +363,7 @@ export function SigmaGraph({
     if (cameraRef.current && nodes.length > 0) {
       sigma.getCamera().setState(cameraRef.current);
     } else if (nodes.length > 0) {
-      setTimeout(() => fitView(sigma, 0.08, 400), 200);
+      fitView(sigma, 400);
     }
 
     refreshReducers();
