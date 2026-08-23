@@ -239,7 +239,7 @@ export function SigmaGraph({
       refreshReducers();
       const display = sigma.getNodeDisplayData(node);
       if (display) {
-        const vp = sigma.graphToViewport({ x: display.x, y: display.y });
+        const vp = sigma.framedGraphToViewport({ x: display.x, y: display.y });
         setTooltip({ id: node, x: vp.x, y: vp.y });
       }
     });

@@ -152,9 +152,6 @@ export function ClusterGraph({
     }
     positionsRef.current = nextPos;
 
-    const background = readTokenColor("--background", {
-      fallback: "rgb(255,255,255)",
-    });
     const labelColor = readTokenColor("--foreground", {
       fallback: "rgb(34,34,34)",
     });
@@ -162,7 +159,6 @@ export function ClusterGraph({
       alpha: 0.2,
       fallback: "rgba(128,128,128,0.2)",
     });
-    el.style.background = background;
 
     const sigma = new Sigma(graph, el, {
       allowInvalidContainer: true,
@@ -196,14 +192,17 @@ export function ClusterGraph({
           if (String(attrs.clusterKey) !== key) return;
           const display = sigma.getNodeDisplayData(id);
           if (!display) return;
-          const vp = sigma.graphToViewport({ x: display.x, y: display.y });
+          const vp = sigma.framedGraphToViewport({ x: display.x, y: display.y });
           pts.push(vp);
         });
         if (pts.length < 2) continue;
-        const hull =
-          pts.length >= 3
-            ? convexHull(pts)
-            : pts.map((p) => ({ x: p.x, y: p.y }));
+        const pad = 24;
+        const hull = convexHull(pts.flatMap((p) => [
+          { x: p.x - pad, y: p.y - pad },
+          { x: p.x + pad, y: p.y - pad },
+          { x: p.x + pad, y: p.y + pad },
+          { x: p.x - pad, y: p.y + pad },
+        ]));
         const color = clusterColor(key);
         ctx.beginPath();
         if (hull.length === 2) {
@@ -213,7 +212,7 @@ export function ClusterGraph({
           const r = Math.hypot(a!.x - b!.x, a!.y - b!.y) / 2 + 22;
           ctx.arc(mx, my, r, 0, Math.PI * 2);
         } else {
-          const PAD = 18;
+          const PAD = 0;
           const padded = hull.map((p) => {
             let cx = 0, cy = 0;
             for (const q of hull) { cx += q.x; cy += q.y; }
@@ -240,7 +239,7 @@ export function ClusterGraph({
           }
           ctx.closePath();
         }
-        ctx.fillStyle = withAlpha(color, 0.07);
+        ctx.fillStyle = withAlpha(color, 0.04);
         ctx.fill();
         ctx.strokeStyle = withAlpha(color, 0.25);
         ctx.lineWidth = 1.5;
@@ -252,7 +251,8 @@ export function ClusterGraph({
         ctx.font = "bold 11px Outfit Variable, ui-sans-serif, system-ui, sans-serif";
         ctx.textAlign = "center";
         const count = clusterCounts.get(key) ?? pts.length;
-        ctx.fillText(`${key} (${count})`, cx, cy - 16);
+        const minY = Math.min(...pts.map((p) => p.y));
+        ctx.fillText(`${key} (${count})`, cx, minY - pad - 8);
       }
     };
 
@@ -308,10 +308,16 @@ export function ClusterGraph({
           if (String(attrs.clusterKey) !== key) return;
           const display = sigma.getNodeDisplayData(id);
           if (!display) return;
-          pts.push(sigma.graphToViewport({ x: display.x, y: display.y }));
+          pts.push(sigma.framedGraphToViewport({ x: display.x, y: display.y }));
         });
         if (pts.length < 3) continue;
-        const hull = convexHull(pts);
+        const pad = 24;
+        const hull = convexHull(pts.flatMap((p) => [
+          { x: p.x - pad, y: p.y - pad },
+          { x: p.x + pad, y: p.y - pad },
+          { x: p.x + pad, y: p.y + pad },
+          { x: p.x - pad, y: p.y + pad },
+        ]));
         const path2d = new Path2D();
         path2d.moveTo(hull[0]!.x, hull[0]!.y);
         for (let i = 1; i < hull.length; i++) path2d.lineTo(hull[i]!.x, hull[i]!.y);
@@ -375,7 +381,7 @@ export function ClusterGraph({
       {/* Hull canvas between Sigma layers for fills + click targets. */}
       <canvas
         ref={hullRef}
-        className="absolute inset-0 z-0"
+        className="absolute inset-0 z-20"
       />
       <div ref={containerRef} className="absolute inset-0 z-10" />
       {isolatedCluster && (
