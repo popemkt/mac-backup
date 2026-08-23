@@ -2,6 +2,7 @@ import {
   CalendarBlank,
   Hash,
   LinkSimple,
+  Palette,
   TextT,
   ToggleRight,
   Warning,
@@ -13,7 +14,7 @@ import {
   fieldTypeIconKind,
   type FieldType,
 } from "@/lib/field-type";
-import type { PropValue } from "@/lib/types";
+import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 
 export const FIELD_LABEL_WIDTH = 120;
 
@@ -84,7 +85,11 @@ export function FieldRow({
   children,
   className,
 }: FieldRowProps) {
-  const IconCmp = icon ?? FIELD_ICON[resolveIconKind(fieldType)] ?? TextT;
+  const IconCmp =
+    icon ??
+    (fieldId === SYSTEM_IDS.colorField
+      ? Palette
+      : FIELD_ICON[resolveIconKind(fieldType)] ?? TextT);
 
   return (
     <div

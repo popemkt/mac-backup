@@ -20,7 +20,16 @@ export const fixtureGraph: GraphSnapshot = {
   rev: 1,
   nodes: [
     node({ id: "sys.field", text: "sys.field" }),
-    node({ id: "sys.tag", text: "sys.tag" }),
+    node({
+      id: "sys.tag",
+      text: "sys.tag",
+      props: {
+        "sys.f.fields": [
+          { t: "ref", v: "sys.f.color" },
+          { t: "ref", v: "sys.f.hidden" },
+        ],
+      },
+    }),
     node({
       id: "sys.f.type",
       text: "type",

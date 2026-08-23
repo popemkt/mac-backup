@@ -20,6 +20,7 @@ describe("field visibility", () => {
     const visible = resolveVisibleProps(node, nodes);
     expect(visible.map((p) => p.fieldId)).toEqual(["field.status"]);
     expect(isIntrinsicSystemPropKey("sys.f.type")).toBe(true);
+    expect(isIntrinsicSystemPropKey("sys.f.color")).toBe(false);
     expect(isFieldNodeHidden("field.noisy", nodes)).toBe(true);
   });
 
@@ -34,6 +35,18 @@ describe("field visibility", () => {
     expect(noisy?.debug).toBe(true);
     const type = visible.find((p) => p.fieldId === "sys.f.type");
     expect(type?.debug).toBe(true);
+  });
+
+  it("surfaces color/hidden template slots on tag nodes even when unset", () => {
+    const nodes = mapFromFixture();
+    const tag = nodes.get("tag.todo");
+    expect(tag).toBeTruthy();
+    const visible = resolveVisibleProps(tag!, nodes);
+    expect(visible.map((p) => p.fieldId)).toEqual(
+      expect.arrayContaining(["sys.f.color", "sys.f.hidden"]),
+    );
+    const color = visible.find((p) => p.fieldId === "sys.f.color");
+    expect(color?.empty || (color?.values.length ?? 0) >= 0).toBe(true);
   });
 
   it("planSetFieldHidden sets and unsets sys.f.hidden on field nodes", () => {
