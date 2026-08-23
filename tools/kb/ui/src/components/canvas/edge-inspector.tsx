@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { CanvasEdge, KbLinkMode } from "@kb/canvas";
+import { CANVAS_COLOR_PRESETS } from "@/lib/canvas-color";
 import { cn } from "@/lib/cn";
 
 export interface EdgeInspectorProps {
@@ -11,6 +12,9 @@ export interface EdgeInspectorProps {
   onModeChange: (mode: KbLinkMode) => void;
   onFieldChange: (fieldId: string) => void;
   onDelete: () => void;
+  onArrowChange?: (end: "fromEnd" | "toEnd", value: "none" | "arrow") => void;
+  onColorChange?: (color: string | undefined) => void;
+  onLabelChange?: (label: string) => void;
 }
 
 export function EdgeInspector({
@@ -21,6 +25,9 @@ export function EdgeInspector({
   onModeChange,
   onFieldChange,
   onDelete,
+  onArrowChange,
+  onColorChange,
+  onLabelChange,
 }: EdgeInspectorProps) {
   const ref = useRef<HTMLDivElement>(null);
   const mode = edge.kbLink?.mode ?? "layout";
@@ -50,6 +57,99 @@ export function EdgeInspector({
       <div className="mb-2 text-[11px] font-medium text-foreground/50">
         Edge
       </div>
+
+      {/* Label */}
+      {onLabelChange && (
+        <label className="mb-2 flex flex-col gap-1 text-[12px]">
+          <span className="text-foreground/60">Label</span>
+          <input
+            type="text"
+            className="rounded-md border border-foreground/10 bg-background px-2 py-1 text-[12px]"
+            value={edge.label ?? ""}
+            placeholder="Edge label…"
+            onChange={(e) => onLabelChange(e.target.value)}
+          />
+        </label>
+      )}
+
+      {/* Arrowheads */}
+      {onArrowChange && (
+        <div className="mb-2 flex items-center justify-between gap-2 text-[12px]">
+          <span className="text-foreground/60">Arrows</span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              title="Start arrow"
+              className={cn(
+                "rounded-md border px-1.5 py-0.5 text-[11px]",
+                edge.fromEnd === "arrow"
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-foreground/10 text-foreground/50 hover:bg-foreground/5",
+              )}
+              onClick={() =>
+                onArrowChange(
+                  "fromEnd",
+                  edge.fromEnd === "arrow" ? "none" : "arrow",
+                )
+              }
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              title="End arrow"
+              className={cn(
+                "rounded-md border px-1.5 py-0.5 text-[11px]",
+                (edge.toEnd ?? "arrow") === "arrow"
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-foreground/10 text-foreground/50 hover:bg-foreground/5",
+              )}
+              onClick={() =>
+                onArrowChange(
+                  "toEnd",
+                  (edge.toEnd ?? "arrow") === "arrow" ? "none" : "arrow",
+                )
+              }
+            >
+              →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Color swatches */}
+      {onColorChange && (
+        <div className="mb-2">
+          <div className="mb-1 text-[12px] text-foreground/60">Color</div>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              aria-label="No color"
+              title="None"
+              className={cn(
+                "h-5 w-5 rounded-full border border-foreground/15 bg-background",
+                !edge.color && "ring-2 ring-primary/50",
+              )}
+              onClick={() => onColorChange(undefined)}
+            />
+            {CANVAS_COLOR_PRESETS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                aria-label={p.label}
+                title={p.label}
+                className={cn(
+                  "h-5 w-5 rounded-full border border-foreground/10",
+                  edge.color === p.id && "ring-2 ring-primary/50",
+                )}
+                style={{ backgroundColor: p.css }}
+                onClick={() => onColorChange(p.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <label className="mb-2 flex items-center justify-between gap-2 text-[12px]">
         <span className="text-foreground/60">Mode</span>
         <select

@@ -9,6 +9,7 @@ import {
   type CanvasShapeKind,
   type CanvasShapeNode,
   type CanvasTextNode,
+  type CanvasGroupNode,
 } from "@kb/canvas";
 
 export type CanvasTool =
@@ -17,23 +18,31 @@ export type CanvasTool =
   | "rect"
   | "ellipse"
   | "diamond"
-  | "kb-node";
+  | "kb-node"
+  | "group";
 
 export const DEFAULT_SHAPE_SIZE = { width: 160, height: 100 } as const;
 export const DEFAULT_TEXT_SIZE = { width: 220, height: 80 } as const;
+export const DEFAULT_GROUP_SIZE = { width: 300, height: 200 } as const;
 
 export interface ToolState {
   tool: CanvasTool;
+  sticky?: boolean;
 }
 
 export type ToolAction =
   | { type: "set-tool"; tool: CanvasTool }
+  | { type: "set-tool-sticky"; tool: CanvasTool }
   | { type: "escape" }
   | { type: "placed" };
 
 export function reduceCanvasTool(state: ToolState, action: ToolAction): ToolState {
-  if (action.type === "escape" || action.type === "placed") {
-    return { tool: "select" };
+  if (action.type === "escape") return { tool: "select" };
+  if (action.type === "placed") {
+    return state.sticky ? state : { tool: "select" };
+  }
+  if (action.type === "set-tool-sticky") {
+    return { tool: action.tool, sticky: true };
   }
   return { tool: action.tool };
 }
@@ -81,6 +90,21 @@ export function placeWithTool(
       x: world.x,
       y: world.y,
       ...DEFAULT_TEXT_SIZE,
+    };
+    return {
+      doc: upsertCanvasNode(doc, node),
+      node,
+      nextTool: "select",
+    };
+  }
+
+  if (tool === "group") {
+    const node: CanvasGroupNode = {
+      id,
+      type: "group",
+      x: world.x,
+      y: world.y,
+      ...DEFAULT_GROUP_SIZE,
     };
     return {
       doc: upsertCanvasNode(doc, node),
