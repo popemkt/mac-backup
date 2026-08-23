@@ -266,3 +266,8 @@ html[data-font="inter"] {
     box-sizing: border-box;
   }
 }
+
+@keyframes graph-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

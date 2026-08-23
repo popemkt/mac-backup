@@ -126,8 +126,11 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
   const [selection, setSelection] = useState<GraphSelection | null>(null);
   const [searchHighlight, setSearchHighlight] = useState<Set<string> | null>(null);
   const [filterIds, setFilterIds] = useState<Set<string> | null>(null);
+  const [capDismissed, setCapDismissed] = useState(false);
 
   const nodeIds = useMemo(() => lensGraph.nodes.map((n) => n.id), [lensGraph.nodes]);
+
+  useEffect(() => { setCapDismissed(false); }, [lensGraph.dropped]);
 
   const showForce2d = renderer === "force2d";
 
@@ -170,14 +173,6 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
         </button>
         <span className="text-[11px] text-foreground/30">
           {lensGraph.nodes.length} nodes · {lensGraph.edges.length} edges
-          {lensGraph.dropped > 0 && (
-            <span
-              className="ml-1 cursor-help text-foreground/40"
-              title={`Showing top ${lensGraph.nodes.length} of ${lensGraph.nodes.length + lensGraph.dropped} by degree. Edit this perspective’s max-nodes to widen.`}
-            >
-              −{lensGraph.dropped}
-            </span>
-          )}
         </span>
         {lensGraph.queryError && (
           <span
@@ -199,7 +194,7 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
           <CircleHalf size={15} />
         </button>
       </header>
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1" key={renderer} style={{ animation: "graph-fade-in 200ms ease-out" }}>
         {!active || !queryDb ? (
           <div className="flex h-full items-center justify-center">
             <p className="text-center text-[13px] text-foreground/40">
@@ -266,6 +261,30 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
               onFilterChange={setFilterIds}
             />
           </>
+        )}
+        {lensGraph.dropped > 0 && !capDismissed && (
+          <div className="absolute left-1/2 top-3 z-30 -translate-x-1/2 flex items-center gap-2 rounded-lg border border-foreground/8 bg-popover/95 px-3 py-1.5 shadow-md backdrop-blur-sm">
+            <span className="text-[11px] text-foreground/60">
+              showing top {lensGraph.nodes.length} of {lensGraph.nodes.length + lensGraph.dropped} by degree
+            </span>
+            <button
+              type="button"
+              className="rounded-md bg-foreground/[0.06] px-2 py-0.5 text-[10px] font-medium text-foreground/60 transition-colors hover:bg-foreground/[0.1] hover:text-foreground/80"
+              onClick={() => {
+                if (active) { navigate("/"); zoomTo(active.id); }
+              }}
+            >
+              edit max-nodes
+            </button>
+            <button
+              type="button"
+              className="text-foreground/30 hover:text-foreground/60 text-[11px]"
+              onClick={() => setCapDismissed(true)}
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
         )}
       </div>
     </div>

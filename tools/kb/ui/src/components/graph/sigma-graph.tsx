@@ -77,6 +77,11 @@ export function SigmaGraph({
   onSelRef.current = onSelectionChange;
 
   const [selected, setSelected] = useState<string | null>(null);
+  const [tooltip, setTooltip] = useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const refreshReducers = useCallback(() => {
     const sigma = sigmaRef.current;
@@ -229,10 +234,16 @@ export function SigmaGraph({
       hoveredRef.current = node;
       el.style.cursor = "pointer";
       refreshReducers();
+      const display = sigma.getNodeDisplayData(node);
+      if (display) {
+        const vp = sigma.graphToViewport({ x: display.x, y: display.y });
+        setTooltip({ id: node, x: vp.x, y: vp.y });
+      }
     });
     sigma.on("leaveNode", () => {
       hoveredRef.current = null;
       el.style.cursor = "default";
+      setTooltip(null);
       refreshReducers();
     });
 
@@ -268,7 +279,7 @@ export function SigmaGraph({
     });
 
     // --- Node drag ---
-    sigma.on("downNode", ({ node, event }) => {
+    sigma.on("downNode", ({ node }) => {
       const pos = sigma.graphToViewport(
         graph.getNodeAttributes(node) as { x: number; y: number },
       );
@@ -310,7 +321,19 @@ export function SigmaGraph({
       sigma.getCamera().enable();
     };
 
+    const onHoverMove = (e: MouseEvent) => {
+      if (hoveredRef.current) {
+        const rect = el.getBoundingClientRect();
+        setTooltip({
+          id: hoveredRef.current,
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        });
+      }
+    };
+
     el.addEventListener("mousemove", onMouseMove);
+    el.addEventListener("mousemove", onHoverMove);
     el.addEventListener("mouseup", onMouseUp);
     el.addEventListener("mouseleave", onMouseUp);
 
@@ -341,6 +364,7 @@ export function SigmaGraph({
 
     return () => {
       el.removeEventListener("mousemove", onMouseMove);
+      el.removeEventListener("mousemove", onHoverMove);
       el.removeEventListener("mouseup", onMouseUp);
       el.removeEventListener("mouseleave", onMouseUp);
       try {
@@ -383,6 +407,14 @@ export function SigmaGraph({
         className="h-full w-full min-h-0"
         data-sigma-container="true"
       />
+      {tooltip && !selected && (
+        <HoverTooltip
+          nodeId={tooltip.id}
+          nodes={nodes}
+          x={tooltip.x}
+          y={tooltip.y}
+        />
+      )}
       {selected && (
         <SelectionCard
           nodeId={selected}
@@ -466,6 +498,38 @@ function SelectionCard({ nodeId, nodes, onOpen, onClose, onFocus }: SelectionCar
           Focus (f)
         </button>
       </div>
+    </div>
+  );
+}
+
+
+interface HoverTooltipProps {
+  nodeId: string;
+  nodes: LensNode[];
+  x: number;
+  y: number;
+}
+
+function HoverTooltip({ nodeId, nodes, x, y }: HoverTooltipProps) {
+  const meta = nodes.find((n) => n.id === nodeId);
+  if (!meta) return null;
+
+  return (
+    <div
+      className="pointer-events-none absolute z-40 flex flex-col gap-0.5 rounded-md border border-foreground/10 bg-popover/95 px-2.5 py-1.5 shadow-lg backdrop-blur-sm"
+      style={{ left: x + 12, top: y - 8, maxWidth: 220 }}
+    >
+      <span className="truncate text-[11px] font-medium text-foreground/80">
+        {meta.label}
+      </span>
+      {meta.tags.length > 0 && (
+        <span className="truncate text-[10px] text-foreground/50">
+          {meta.tags.slice(0, 3).join(", ")}
+        </span>
+      )}
+      <span className="text-[10px] text-foreground/40">
+        {meta.degree} connection{meta.degree !== 1 ? "s" : ""}
+      </span>
     </div>
   );
 }

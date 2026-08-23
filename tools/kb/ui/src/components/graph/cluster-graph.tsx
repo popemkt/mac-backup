@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Sigma from "sigma";
@@ -13,6 +13,7 @@ export interface ClusterGraphProps {
   nodes: LensNode[];
   edges: LensEdge[];
   onNodeClick: (id: string) => void;
+  onClusterFilter?: (clusterKey: string | null) => void;
   layoutKey: string;
   themeKey: string;
 }
@@ -52,6 +53,7 @@ export function ClusterGraph({
   nodes,
   edges,
   onNodeClick,
+  onClusterFilter,
   layoutKey,
   themeKey,
 }: ClusterGraphProps) {
@@ -63,6 +65,8 @@ export function ClusterGraph({
   const topologyRef = useRef("");
   const onClickRef = useRef(onNodeClick);
   onClickRef.current = onNodeClick;
+  const dragRef = useRef<{ node: string; dragging: boolean; startX: number; startY: number } | null>(null);
+  const [isolatedCluster, setIsolatedCluster] = useState<string | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -253,7 +257,72 @@ export function ClusterGraph({
     };
 
     sigma.on("afterRender", drawHulls);
-    sigma.on("clickNode", ({ node }) => onClickRef.current(node));
+    sigma.on("clickNode", ({ node }) => {
+      if (dragRef.current?.dragging) return;
+      onClickRef.current(node);
+    });
+
+    // --- Node drag (MUST 7) ---
+    sigma.on("downNode", ({ node, event }) => {
+      const pos = sigma.graphToViewport(
+        graph.getNodeAttributes(node) as { x: number; y: number },
+      );
+      dragRef.current = { node, dragging: false, startX: pos.x, startY: pos.y };
+      sigma.getCamera().disable();
+    });
+
+    const onDragMove = (e: MouseEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const rect = el.getBoundingClientRect();
+      const viewX = e.clientX - rect.left;
+      const viewY = e.clientY - rect.top;
+      if (!drag.dragging && Math.hypot(viewX - drag.startX, viewY - drag.startY) > 3) {
+        drag.dragging = true;
+      }
+      if (!drag.dragging) return;
+      const pos = sigma.viewportToGraph({ x: viewX, y: viewY });
+      graph.setNodeAttribute(drag.node, "x", pos.x);
+      graph.setNodeAttribute(drag.node, "y", pos.y);
+      nextPos.set(drag.node, { x: pos.x, y: pos.y });
+    };
+    const onDragUp = () => {
+      dragRef.current = null;
+      sigma.getCamera().enable();
+    };
+    el.addEventListener("mousemove", onDragMove);
+    el.addEventListener("mouseup", onDragUp);
+    el.addEventListener("mouseleave", onDragUp);
+
+    // --- Hull click isolation (MUST 13) ---
+    hullCanvas.style.pointerEvents = "auto";
+    const onHullClick = (e: MouseEvent) => {
+      const rect = hullCanvas.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      const ctx = hullCanvas.getContext("2d");
+      if (!ctx) return;
+      for (const key of clusters) {
+        const pts: Array<{ x: number; y: number }> = [];
+        graph.forEachNode((id, attrs) => {
+          if (String(attrs.clusterKey) !== key) return;
+          const display = sigma.getNodeDisplayData(id);
+          if (!display) return;
+          pts.push(sigma.graphToViewport({ x: display.x, y: display.y }));
+        });
+        if (pts.length < 3) continue;
+        const hull = convexHull(pts);
+        const path2d = new Path2D();
+        path2d.moveTo(hull[0]!.x, hull[0]!.y);
+        for (let i = 1; i < hull.length; i++) path2d.lineTo(hull[i]!.x, hull[i]!.y);
+        path2d.closePath();
+        if (ctx.isPointInPath(path2d, cx, cy)) {
+          setIsolatedCluster((prev) => prev === key ? null : key);
+          return;
+        }
+      }
+    };
+    hullCanvas.addEventListener("click", onHullClick);
 
     if (cameraRef.current && nodes.length > 0) {
       sigma.getCamera().setState(cameraRef.current);
@@ -262,6 +331,11 @@ export function ClusterGraph({
     sigmaRef.current = sigma;
 
     return () => {
+      el.removeEventListener("mousemove", onDragMove);
+      el.removeEventListener("mouseup", onDragUp);
+      el.removeEventListener("mouseleave", onDragUp);
+      hullCanvas.removeEventListener("click", onHullClick);
+      hullCanvas.style.pointerEvents = "none";
       try {
         cameraRef.current = sigma.getCamera().getState();
       } catch {
@@ -272,14 +346,47 @@ export function ClusterGraph({
     };
   }, [nodes, edges, layoutKey, themeKey]);
 
+  useEffect(() => {
+    const sigma = sigmaRef.current;
+    if (!sigma) return;
+    const graph = sigma.getGraph();
+    if (isolatedCluster) {
+      sigma.setSetting("nodeReducer", (node, data) => {
+        const key = String(graph.getNodeAttribute(node, "clusterKey") ?? "none");
+        if (key === isolatedCluster) return { ...data, highlighted: true };
+        return { ...data, color: "rgba(128,128,128,0.15)", label: "", zIndex: 0 };
+      });
+      sigma.setSetting("edgeReducer", (edge, data) => {
+        const [src, tgt] = graph.extremities(edge);
+        const srcKey = String(graph.getNodeAttribute(src, "clusterKey") ?? "none");
+        const tgtKey = String(graph.getNodeAttribute(tgt, "clusterKey") ?? "none");
+        if (srcKey === isolatedCluster || tgtKey === isolatedCluster) return data;
+        return { ...data, hidden: true };
+      });
+    } else {
+      sigma.setSetting("nodeReducer", (_node, data) => data);
+      sigma.setSetting("edgeReducer", (_edge, data) => ({ ...data, hidden: false }));
+    }
+    sigma.refresh();
+  }, [isolatedCluster]);
+
   return (
     <div className="relative h-full w-full min-h-0" data-testid="cluster-graph">
-      {/* Hull canvas under Sigma so fills/labels sit behind node glyphs. */}
+      {/* Hull canvas between Sigma layers for fills + click targets. */}
       <canvas
         ref={hullRef}
-        className="pointer-events-none absolute inset-0 z-0"
+        className="absolute inset-0 z-0"
       />
       <div ref={containerRef} className="absolute inset-0 z-10" />
+      {isolatedCluster && (
+        <button
+          type="button"
+          className="absolute top-3 left-1/2 -translate-x-1/2 z-20 rounded-md border border-foreground/10 bg-popover/95 px-2.5 py-1 text-[11px] font-medium text-foreground/60 shadow-md backdrop-blur-sm hover:bg-foreground/[0.06]"
+          onClick={() => setIsolatedCluster(null)}
+        >
+          clear filter: {isolatedCluster} ✕
+        </button>
+      )}
     </div>
   );
 }
