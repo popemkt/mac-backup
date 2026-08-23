@@ -187,6 +187,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     w: number;
     h: number;
   } | null>(null);
+  const [snapGuides, setSnapGuides] = useState<{ axis: "x" | "y"; pos: number }[]>([]);
+  const [editingEdgeLabel, setEditingEdgeLabel] = useState<string | null>(null);
 
   const dragRef = useRef<Drag | null>(null);
   const dirtyRef = useRef(false);
@@ -479,6 +481,9 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         "5": "diamond",
         n: "kb-node",
         "6": "kb-node",
+        g: "group",
+        f: "group",
+        "7": "group",
       };
       const mapped = toolKeys[e.key.toLowerCase()];
       if (mapped) {
@@ -510,6 +515,13 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         setZoom(1);
         return;
       }
+
+      // Zoom to fit (Shift+1)
+      if (e.shiftKey && e.key === "!") {
+        e.preventDefault();
+        zoomToFit();
+        return;
+      }
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
@@ -530,6 +542,40 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       return;
     }
     setToolState((s) => reduceCanvasTool(s, { type: "set-tool", tool }));
+  }, []);
+
+  const setToolSticky = useCallback((tool: CanvasTool) => {
+    if (tool === "kb-node" || tool === "select") return;
+    setToolState((s) => reduceCanvasTool(s, { type: "set-tool-sticky", tool }));
+  }, []);
+
+  const zoomToFit = useCallback(() => {
+    const nodes = docRef.current.nodes;
+    if (nodes.length === 0) return;
+    const stageEl = document.querySelector("[data-canvas-stage]")?.parentElement?.parentElement;
+    if (!stageEl) return;
+    const rect = stageEl.getBoundingClientRect();
+    const PAD = 40;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of nodes) {
+      minX = Math.min(minX, n.x);
+      minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + n.width);
+      maxY = Math.max(maxY, n.y + n.height);
+    }
+    const contentW = maxX - minX;
+    const contentH = maxY - minY;
+    if (contentW <= 0 || contentH <= 0) return;
+    const scaleX = (rect.width - PAD * 2) / contentW;
+    const scaleY = (rect.height - PAD * 2) / contentH;
+    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.min(scaleX, scaleY, 1)));
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    setPan({
+      x: rect.width / 2 - cx * newZoom,
+      y: rect.height / 2 - cy * newZoom,
+    });
+    setZoom(newZoom);
   }, []);
 
   const screenToWorld = useCallback(
@@ -716,8 +762,55 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     }
 
     if (d.kind === "move") {
-      const dx = (e.clientX - d.startX) / zoom;
-      const dy = (e.clientY - d.startY) / zoom;
+      let dx = (e.clientX - d.startX) / zoom;
+      let dy = (e.clientY - d.startY) / zoom;
+
+      // Alignment snapping (5px tolerance)
+      const SNAP_TOL = 5;
+      const guides: { axis: "x" | "y"; pos: number }[] = [];
+      const movingIds = new Set(d.origPositions.keys());
+      const firstOrig = d.origPositions.values().next().value;
+      if (firstOrig && movingIds.size > 0) {
+        const movingNode = byId.get([...movingIds][0]);
+        if (movingNode) {
+          const myLeft = firstOrig.x + dx;
+          const myTop = firstOrig.y + dy;
+          const myRight = myLeft + movingNode.width;
+          const myBottom = myTop + movingNode.height;
+          const myCx = (myLeft + myRight) / 2;
+          const myCy = (myTop + myBottom) / 2;
+
+          for (const other of docRef.current.nodes) {
+            if (movingIds.has(other.id)) continue;
+            const oLeft = other.x;
+            const oRight = other.x + other.width;
+            const oTop = other.y;
+            const oBottom = other.y + other.height;
+            const oCx = (oLeft + oRight) / 2;
+            const oCy = (oTop + oBottom) / 2;
+
+            // X-axis snaps
+            for (const [myEdge, oEdge] of [[myLeft, oLeft], [myLeft, oRight], [myRight, oLeft], [myRight, oRight], [myCx, oCx]] as [number, number][]) {
+              if (Math.abs(myEdge - oEdge) < SNAP_TOL) {
+                dx += oEdge - myEdge;
+                guides.push({ axis: "x", pos: oEdge });
+                break;
+              }
+            }
+            // Y-axis snaps
+            for (const [myEdge, oEdge] of [[myTop, oTop], [myTop, oBottom], [myBottom, oTop], [myBottom, oBottom], [myCy, oCy]] as [number, number][]) {
+              if (Math.abs(myEdge - oEdge) < SNAP_TOL) {
+                dy += oEdge - myEdge;
+                guides.push({ axis: "y", pos: oEdge });
+                break;
+              }
+            }
+            if (guides.length >= 2) break;
+          }
+        }
+      }
+      setSnapGuides(guides);
+
       let nextDoc = docRef.current;
       for (const [id, orig] of d.origPositions) {
         const node = byId.get(id);
@@ -773,6 +866,16 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           break;
       }
 
+      // Shift: lock aspect ratio
+      if (e.shiftKey && d.origW > 0 && d.origH > 0) {
+        const ratio = d.origW / d.origH;
+        if (newW / newH > ratio) {
+          newW = Math.max(MIN_NODE_W, newH * ratio);
+        } else {
+          newH = Math.max(MIN_NODE_H, newW / ratio);
+        }
+      }
+
       schedulePersistSilent(
         upsertCanvasNode(docRef.current, {
           ...node,
@@ -818,6 +921,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     }
 
     if (d.kind === "move") {
+      setSnapGuides([]);
       // Commit the final position into history
       const dx = (e.clientX - d.startX) / zoom;
       const dy = (e.clientY - d.startY) / zoom;
@@ -1213,7 +1317,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         onPointerUp={onPointerUp}
         onDoubleClick={onDoubleClickStage}
       >
-        <CanvasToolbar tool={toolState.tool} onToolChange={setTool} />
+        <CanvasToolbar tool={toolState.tool} sticky={toolState.sticky} onToolChange={setTool} onToolDoubleClick={setToolSticky} />
         <div
           className="absolute inset-0 origin-top-left"
           style={{
@@ -1254,6 +1358,34 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                   />
                 </marker>
               ))}
+              <marker
+                id="kb-arrow-rev"
+                viewBox="0 0 10 10"
+                refX="2"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path d="M 10 0 L 0 5 L 10 10 z" fill="currentColor" />
+              </marker>
+              {["1", "2", "3", "4", "5", "6"].map((cid) => (
+                <marker
+                  key={`rev-${cid}`}
+                  id={`kb-arrow-rev-${cid}`}
+                  viewBox="0 0 10 10"
+                  refX="2"
+                  refY="5"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto-start-reverse"
+                >
+                  <path
+                    d="M 10 0 L 0 5 L 10 10 z"
+                    fill={`var(--canvas-color-${cid})`}
+                  />
+                </marker>
+              ))}
             </defs>
             <g className="pointer-events-auto text-foreground/35">
               {doc.edges.map((edge) => {
@@ -1272,15 +1404,49 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                   : edge.color
                     ? `url(#kb-arrow-${edge.color})`
                     : "url(#kb-arrow)";
+                const markerStart = edge.fromEnd === "arrow"
+                  ? (edge.color ? `url(#kb-arrow-rev-${edge.color})` : "url(#kb-arrow-rev)")
+                  : undefined;
 
                 // Edge label midpoint
-                const labelEl = edge.label ? (() => {
+                const labelEl = (() => {
                   const a = sidePoint(from, edge.fromSide ?? "right");
                   const b = sidePoint(to, edge.toSide ?? "left");
                   const mx = (a.x + b.x) / 2;
                   const my = (a.y + b.y) / 2;
+                  if (editingEdgeLabel === edge.id) {
+                    return (
+                      <foreignObject x={mx - 60} y={my - 12} width={120} height={24}>
+                        <input
+                          // eslint-disable-next-line jsx-a11y/no-autofocus
+                          autoFocus
+                          type="text"
+                          className="h-full w-full rounded border border-primary/40 bg-popover px-1 text-center text-[11px]"
+                          defaultValue={edge.label ?? ""}
+                          onBlur={(ev) => {
+                            const val = ev.currentTarget.value.trim();
+                            const updated = { ...edge, label: val || undefined };
+                            if (!val) delete updated.label;
+                            schedulePersist(upsertCanvasEdge(docRef.current, updated));
+                            setEditingEdgeLabel(null);
+                          }}
+                          onKeyDown={(ev) => {
+                            if (ev.key === "Enter" || ev.key === "Escape") {
+                              ev.currentTarget.blur();
+                            }
+                            ev.stopPropagation();
+                          }}
+                        />
+                      </foreignObject>
+                    );
+                  }
+                  if (!edge.label) return null;
                   return (
-                    <g transform={`translate(${mx}, ${my})`}>
+                    <g
+                      transform={`translate(${mx}, ${my})`}
+                      className="cursor-pointer"
+                      onDoubleClick={(ev) => { ev.stopPropagation(); setEditingEdgeLabel(edge.id); }}
+                    >
                       <rect
                         x={-edge.label.length * 3.5 - 6}
                         y={-10}
@@ -1300,7 +1466,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                       </text>
                     </g>
                   );
-                })() : null;
+                })();
 
                 return (
                   <g key={edge.id}>
@@ -1312,6 +1478,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                       strokeWidth={20}
                       className="cursor-pointer"
                       onClick={(ev) => handleEdgeClick(edge, ev)}
+                      onDoubleClick={(ev) => { ev.stopPropagation(); setEditingEdgeLabel(edge.id); }}
                     />
                     {/* Visible stroke */}
                     <path
@@ -1328,6 +1495,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                       strokeWidth={selected ? 2.5 : 1.5}
                       className="pointer-events-none transition-colors"
                       markerEnd={markerEnd}
+                      markerStart={markerStart}
                     >
                       {unbound && (
                         <title>prop no longer present — rebind?</title>
@@ -1367,6 +1535,23 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
               );
             })()}
           </svg>
+
+          {/* Alignment snap guides */}
+          {snapGuides.map((g, i) =>
+            g.axis === "x" ? (
+              <div
+                key={`sg-${i}`}
+                className="absolute border-l border-dashed border-primary/40"
+                style={{ left: g.pos, top: -4000, height: 8000, pointerEvents: "none" }}
+              />
+            ) : (
+              <div
+                key={`sg-${i}`}
+                className="absolute border-t border-dashed border-primary/40"
+                style={{ top: g.pos, left: -4000, width: 8000, pointerEvents: "none" }}
+              />
+            ),
+          )}
 
           {/* Marquee selection rectangle */}
           {marqueeRect && (
@@ -1569,6 +1754,56 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         </div>
       </div>
 
+      {/* Floating selection toolbar */}
+      {!selectionEmpty(selection) && !inspectorAnchor && !shapeInspectorAnchor && (
+        <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-foreground/10 bg-popover/95 px-2 py-1.5 shadow-lg backdrop-blur-sm">
+          <span className="mr-1 text-[11px] text-foreground/40">
+            {selection.nodeIds.size + selection.edgeIds.size} selected
+          </span>
+          <button
+            type="button"
+            title="Bring to front"
+            className="rounded-md px-1.5 py-1 text-[11px] text-foreground/60 hover:bg-foreground/5"
+            onClick={() => {
+              let nextDoc = docRef.current;
+              const kept = nextDoc.nodes.filter((n) => !selection.nodeIds.has(n.id));
+              const moved = nextDoc.nodes.filter((n) => selection.nodeIds.has(n.id));
+              nextDoc = { ...nextDoc, nodes: [...kept, ...moved] };
+              schedulePersist(nextDoc);
+            }}
+          >
+            ↑ Front
+          </button>
+          <button
+            type="button"
+            title="Send to back"
+            className="rounded-md px-1.5 py-1 text-[11px] text-foreground/60 hover:bg-foreground/5"
+            onClick={() => {
+              let nextDoc = docRef.current;
+              const moved = nextDoc.nodes.filter((n) => selection.nodeIds.has(n.id));
+              const kept = nextDoc.nodes.filter((n) => !selection.nodeIds.has(n.id));
+              nextDoc = { ...nextDoc, nodes: [...moved, ...kept] };
+              schedulePersist(nextDoc);
+            }}
+          >
+            ↓ Back
+          </button>
+          <div className="mx-1 h-4 w-px bg-foreground/10" />
+          <button
+            type="button"
+            title="Delete selected (Del)"
+            className="rounded-md px-1.5 py-1 text-[11px] text-destructive hover:bg-destructive/10"
+            onClick={() => {
+              const nextDoc = deleteSelected(docRef.current, selection);
+              schedulePersist(nextDoc);
+              setSelection(EMPTY_SELECTION);
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      )}
+
       {selectedEdgeObj && inspectorAnchor && (
         <EdgeInspector
           edge={selectedEdgeObj}
@@ -1581,6 +1816,23 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           onModeChange={(m) => void onModeChange(m)}
           onFieldChange={(f) => void onFieldChange(f)}
           onDelete={() => void onDeleteEdge()}
+          onArrowChange={(end, val) => {
+            const next = upsertCanvasEdge(docRef.current, { ...selectedEdgeObj, [end]: val });
+            schedulePersist(next);
+          }}
+          onColorChange={(color) => {
+            const updated = { ...selectedEdgeObj };
+            if (color === undefined) delete updated.color;
+            else updated.color = color;
+            const next = upsertCanvasEdge(docRef.current, updated);
+            schedulePersist(next);
+          }}
+          onLabelChange={(label) => {
+            const updated = { ...selectedEdgeObj, label: label || undefined };
+            if (!label) delete updated.label;
+            const next = upsertCanvasEdge(docRef.current, updated);
+            schedulePersist(next);
+          }}
         />
       )}
       {selectedShape && shapeInspectorAnchor && (
