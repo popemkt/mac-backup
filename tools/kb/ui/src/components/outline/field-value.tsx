@@ -334,6 +334,7 @@ function RefEditor({
   }, [nodes, query, allowedRefIds]);
 
   const target = nodes.get(refId);
+  const resolvedLabel = target?.text ?? display;
 
   if (!editing && target) {
     const primaryColor = target.tags[0]?.color ?? null;
@@ -366,7 +367,7 @@ function RefEditor({
                 setEditing(true);
               }}
             >
-              {display || target.text || "\u200B"}
+              {resolvedLabel || target.text || "\u200B"}
             </span>
             {target.tags.length > 0 && (
               <TagChipGroup
@@ -382,20 +383,24 @@ function RefEditor({
       />
     );
   }
-
+  // Unresolved ref: show warning glyph + resolved or raw id, not a generic warning.
   if (!editing && refId && !target) {
+    const hasDisplay = Boolean(display && display !== refId);
     return (
       <span
         className={cn(
           "inline-flex cursor-pointer items-center gap-1 rounded-sm px-1.5 py-px",
-          "text-[14.5px] leading-[1.6] bg-primary/8 text-foreground/50",
-          "hover:bg-primary/12 transition-colors duration-100",
+          "text-[14.5px] leading-[1.6] text-foreground/70",
+          hasDisplay ? "bg-primary/8 hover:bg-primary/12" : "bg-warning/10 hover:bg-warning/15",
+          "transition-colors duration-100",
         )}
         onClick={() => setEditing(true)}
-        title={`Node: ${refId}`}
+        title={hasDisplay ? `Node: ${refId}` : `Unresolved ref: ${refId}`}
+        data-unresolved-ref={!hasDisplay ? "true" : undefined}
       >
-        <span className="h-1 w-1 shrink-0 rounded-full bg-foreground/35" />
-        <span className="max-w-[200px] truncate">{refId.slice(0, 12)}</span>
+        {!hasDisplay && <span className="text-warning text-[11px] leading-none">⚠</span>}
+        <span className={cn("h-1 w-1 shrink-0 rounded-full", hasDisplay ? "bg-foreground/35" : "bg-warning/60")} />
+        <span className="max-w-[200px] truncate">{hasDisplay ? display : refId}</span>
       </span>
     );
   }

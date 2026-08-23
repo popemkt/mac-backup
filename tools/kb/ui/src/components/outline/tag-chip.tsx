@@ -1,4 +1,4 @@
-import { Hash, GearSix, X } from "@phosphor-icons/react";
+import { Hash, X } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { TagBadge } from "@/lib/types";
 
@@ -6,25 +6,18 @@ export interface TagChipProps {
   tag: TagBadge;
   onClick?: (e: React.MouseEvent) => void;
   onRemove?: (e: React.MouseEvent) => void;
-  onConfigure?: (e: React.MouseEvent) => void;
   className?: string;
 }
 
-/** DESIGN-RESKIN §1.2/1.8 — the one tag chip everywhere. */
-export function TagChip({
-  tag,
-  onClick,
-  onRemove,
-  onConfigure,
-  className,
-}: TagChipProps) {
+
+/** DESIGN-RESKIN §1.2/1.8 — the one tag chip everywhere. Tokenized smaller (—tag-size). */
+export function TagChip({ tag, onClick, onRemove, className }: TagChipProps) {
   const canNavigate = Boolean(onClick);
   return (
     <span
       className={cn(
-        "group/tag inline-flex h-4 max-w-full items-center gap-0.5 rounded-sm px-1.5 py-0",
-        "text-[11px] font-medium leading-4",
-        "kb-chip select-none whitespace-nowrap",
+        "group/tag inline-flex h-[14px] max-w-full items-center gap-0.5 rounded-sm px-1 py-0",
+        "kb-tag select-none whitespace-nowrap",
         "transition-opacity hover:opacity-70",
         className,
       )}
@@ -41,19 +34,19 @@ export function TagChip({
           title={`Go to: ${tag.name}`}
           aria-label={`Go to tag ${tag.name}`}
         >
-          <Hash size={10} weight="bold" className="shrink-0 opacity-60" />
+          <Hash size={9} weight="bold" className="shrink-0 opacity-60" />
           <span className="truncate">{tag.name}</span>
         </button>
       ) : (
         <span className="flex min-w-0 items-center gap-0.5">
-          <Hash size={10} weight="bold" className="shrink-0 opacity-60" />
+          <Hash size={9} weight="bold" className="shrink-0 opacity-60" />
           <span className="truncate">{tag.name}</span>
         </span>
       )}
       {onRemove ? (
         <button
           type="button"
-          className="ml-0.5 flex h-[12px] w-[12px] shrink-0 items-center justify-center rounded-sm opacity-0 transition-opacity group-hover/tag:opacity-60 hover:!opacity-100 focus:opacity-100 focus-visible:ring-2 focus-visible:ring-primary/60"
+          className="ml-0.5 hidden h-[12px] w-[12px] shrink-0 items-center justify-center rounded-sm opacity-60 group-hover/tag:flex hover:!opacity-100 focus:flex focus-visible:ring-2 focus-visible:ring-primary/60 group-focus-within/tag:flex"
           onClick={(e) => {
             e.stopPropagation();
             onRemove(e);
@@ -64,34 +57,19 @@ export function TagChip({
           <X size={10} weight="bold" />
         </button>
       ) : null}
-      {onConfigure && (
-        <button
-          type="button"
-          className="relative ml-0.5 flex h-[12px] w-[12px] shrink-0 items-center justify-center rounded-sm opacity-0 transition-opacity group-hover/tag:opacity-40 hover:!opacity-80 focus:opacity-100 focus-visible:ring-2 focus-visible:ring-primary/60"
-          onClick={(e) => {
-            e.stopPropagation();
-            onConfigure(e);
-          }}
-          title={`Configure #${tag.name}`}
-          aria-label={`Configure tag ${tag.name}`}
-        >
-          <GearSix size={10} weight="bold" />
-        </button>
-      )}
     </span>
   );
 }
+
 
 export function TagChipGroup({
   tags,
   onTagClick,
   onTagRemove,
-  onTagConfigure,
 }: {
   tags: TagBadge[];
   onTagClick?: (tag: TagBadge, e: React.MouseEvent) => void;
   onTagRemove?: (tag: TagBadge, e: React.MouseEvent) => void;
-  onTagConfigure?: (tag: TagBadge, e: React.MouseEvent) => void;
 }) {
   if (tags.length === 0) return null;
   return (
@@ -105,9 +83,6 @@ export function TagChipGroup({
           tag={tag}
           onClick={onTagClick ? (e) => onTagClick(tag, e) : undefined}
           onRemove={onTagRemove ? (e) => onTagRemove(tag, e) : undefined}
-          onConfigure={
-            onTagConfigure ? (e) => onTagConfigure(tag, e) : undefined
-          }
         />
       ))}
     </div>

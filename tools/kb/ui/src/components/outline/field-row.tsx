@@ -65,7 +65,10 @@ function resolveIconKind(
   }
 }
 
-/** DESIGN-RESKIN §1.4 — the one field row everywhere (outline, prefs, …). */
+/** DESIGN-RESKIN §1.4 — the one field row everywhere (outline, prefs, …).
+ * Single source of alignment: label col top-aligned to first value line.
+ * Icon + label slots use h-6 baseline; value slot is first-line-flex via items-start.
+ */
 export function FieldRow({
   depth = 0,
   icon,
@@ -86,7 +89,7 @@ export function FieldRow({
   return (
     <div
       className={cn(
-        "field-row group/field flex items-start py-1",
+        "field-row group/field flex items-start gap-0 py-1",
         debug && "opacity-90",
         valueOnly && "py-0",
         className,
@@ -101,7 +104,7 @@ export function FieldRow({
         <>
           <span
             className={cn(
-              "flex h-6 w-6 shrink-0 items-center justify-center text-foreground/25",
+              "flex h-6 w-6 shrink-0 items-center justify-center self-start text-foreground/25",
               onIconClick && "cursor-pointer transition-opacity hover:opacity-70",
             )}
             onClick={onIconClick}
@@ -111,16 +114,16 @@ export function FieldRow({
 
           <span
             className={cn(
-              "flex h-6 shrink-0 items-center truncate pl-1",
+              "flex h-6 shrink-0 items-start self-start truncate pl-1 pt-px",
               "text-[14.5px] font-medium leading-[1.6]",
               debug ? "text-foreground/25" : "text-foreground/35",
             )}
             style={{ width: `${FIELD_LABEL_WIDTH}px` }}
             title={labelTitle ?? (fieldId ? `${label} (${fieldId})` : label)}
           >
-            {label}
+            <span className="truncate leading-[1.6]">{label}</span>
             {debug && fieldId && (
-              <span className="ml-1 truncate font-mono text-[10px] text-foreground/25">
+              <span className="ml-1 truncate font-mono text-[10px] leading-[1.6] text-foreground/25">
                 {fieldId}
               </span>
             )}
@@ -130,7 +133,7 @@ export function FieldRow({
 
       {mismatch && (
         <span
-          className="mr-1 mt-px flex h-6 w-4 shrink-0 items-center justify-center text-warning"
+          className="mr-1 mt-0 flex h-6 w-4 shrink-0 items-center justify-center self-start text-warning"
           title="Value type does not match field type"
           data-mismatch-warning="true"
         >
@@ -138,7 +141,7 @@ export function FieldRow({
         </span>
       )}
 
-      <div className={cn("min-w-0 flex-1", valueOnly ? "px-0" : "px-1")}>
+      <div className={cn("min-w-0 flex-1 self-start", valueOnly ? "px-0" : "px-1")}>
         {children}
       </div>
 
@@ -146,7 +149,7 @@ export function FieldRow({
         <button
           type="button"
           className={cn(
-            "ml-1 mt-px flex h-6 w-5 shrink-0 items-center justify-center rounded-sm",
+            "ml-1 flex h-6 w-5 shrink-0 items-center justify-center self-start rounded-sm",
             "text-foreground/20 opacity-0 transition-opacity",
             "group-hover/field:opacity-100 hover:bg-foreground/8 hover:text-foreground/50",
             "focus:opacity-100",

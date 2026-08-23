@@ -28,25 +28,49 @@ describe("shared outline components (W8b)", () => {
     );
     expect(html).toContain(`${color}18`);
     expect(html).toContain(`color:${color}`);
-    expect(html).toContain("kb-chip");
-    expect(html).toContain("leading-4");
-    expect(html).toContain("h-4");
+    expect(html).toContain("kb-tag");
+    expect(html).toContain("h-[14px]");
   });
 
-  it("TagChip exposes navigation and actions as keyboard-reachable buttons", () => {
+  it("TagChip exposes navigation and remove as keyboard-reachable buttons", () => {
     const html = renderToStaticMarkup(
       createElement(TagChip, {
         tag: { id: "tag.todo", name: "todo", color: "#112233" },
         onClick: () => undefined,
         onRemove: () => undefined,
-        onConfigure: () => undefined,
       }),
     );
     expect(html).toContain('aria-label="Go to tag todo"');
     expect(html).toContain('aria-label="Remove tag todo"');
-    expect(html).toContain('aria-label="Configure tag todo"');
-    expect(html.match(/<button/g) ?? []).toHaveLength(3);
+    expect(html.match(/<button/g) ?? []).toHaveLength(2);
   });
+
+  it("TagChip remove uses display-based reveal not reserved opacity", () => {
+    const html = renderToStaticMarkup(
+      createElement(TagChip, {
+        tag: { id: "tag.todo", name: "todo", color: "#112233" },
+        onRemove: () => undefined,
+      }),
+    );
+    expect(html).toContain("hidden");
+    expect(html).toContain("group-hover/tag:flex");
+    expect(html).not.toContain("opacity-0");
+  });
+
+  it("TagChip has no configure affordance", () => {
+    const html = renderToStaticMarkup(
+      createElement(TagChip, {
+        tag: { id: "tag.todo", name: "todo", color: "#112233" },
+        onClick: () => undefined,
+      }),
+    );
+    expect(html).not.toContain("Configure tag");
+    expect(html).not.toContain("GearSix");
+    expect(readOutlineSource("tag-chip.tsx")).not.toContain("GearSix");
+    expect(readOutlineSource("tag-chip.tsx")).not.toContain("onConfigure");
+    expect(readOutlineSource("tag-chip.tsx")).not.toContain("onTagConfigure");
+  });
+
 
   it("TagChipGroup wraps without fixed height", () => {
     const color = hashTagColor("tag.todo");
