@@ -169,6 +169,17 @@ describe("shared outline components (W8b)", () => {
     expect(readOutlineSource("schema-section.tsx")).toMatch(/from "\.\/node-row"/);
   });
 
+  it("tag render path is TagChip only — no inline striped duplicate (i10 item 3)", () => {
+    const content = readOutlineSource("node-content.tsx");
+    expect(content).toMatch(/from "\.\/tag-chip"/);
+    expect(content).toMatch(/TagChipGroup/);
+    // No second ad-hoc tag markup / hardcoded chip sizes in the content row.
+    expect(content).not.toMatch(/text-\[1[01]px\].*tag|tag.*text-\[1[01]px\]/i);
+    expect(content).not.toMatch(/striped/);
+    expect(readOutlineSource("tag-chip.tsx")).toContain("kb-tag");
+    expect(readOutlineSource("tag-chip.tsx")).not.toMatch(/text-\[\d+px\]/);
+  });
+
   it("node-block encodes §1.3 guide-line metrics (depth*24+2, left-[9px], w-5, bottom-2)", () => {
     const src = readOutlineSource("node-block.tsx");
     expect(src).toMatch(/depth \* 24 \+ 2/);

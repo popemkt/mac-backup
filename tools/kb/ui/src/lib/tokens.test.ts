@@ -43,8 +43,19 @@ describe("kb tokens", () => {
     expect(tokens).toMatch(/--kb-indent:\s*24px/);
     expect(tokens).toMatch(/--kb-row-h:\s*24px/);
     expect(tokens).toMatch(/--kb-text:\s*14\.5px\s*\/\s*1\.6/);
-    expect(tokens).toMatch(/--kb-chip:\s*11px\s*\/\s*16px/);
+    expect(tokens).toMatch(/--tag-size:\s*9px/);
+    expect(tokens).toMatch(/--tag-line:\s*11px/);
+    expect(tokens).toMatch(/--kb-chip:\s*var\(--tag-size\)\s*\/\s*var\(--tag-line\)/);
     expect(tokens).toMatch(/--kb-field-label:\s*120px/);
+  });
+
+  it("tag typography is one token on .kb-tag/.kb-chip (i10 item 3)", () => {
+    expect(tokens).toMatch(/\.kb-chip,\s*\n\.kb-tag\s*\{/);
+    expect(tokens).toMatch(/font-size:\s*var\(--tag-size\)/);
+    expect(tokens).toMatch(/line-height:\s*var\(--tag-line\)/);
+    // No duplicate hardcoded chip sizes outside the shared token.
+    expect(tokens).not.toMatch(/--tag-size:\s*10px/);
+    expect(tokens).not.toMatch(/--kb-chip:\s*11px/);
   });
 
   it("content row uses var(--kb-text) via .kb-text", () => {
