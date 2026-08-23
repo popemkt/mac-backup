@@ -47,6 +47,7 @@ export default function Force3dGraph({
   const positionsRef = useRef<Map<string, Vec3>>(new Map());
   const cameraRef = useRef<Vec3 | null>(null);
   const layoutKeyRef = useRef(layoutKey);
+  const nodeSetRef = useRef("");
   const onClickRef = useRef(onNodeClick);
   onClickRef.current = onNodeClick;
 
@@ -61,10 +62,12 @@ export default function Force3dGraph({
     }
     graphRef.current = null;
 
-    if (layoutKeyRef.current !== layoutKey) {
+    const nodeSetKey = nodes.map((node) => node.id).sort().join("|");
+    if (layoutKeyRef.current !== layoutKey || nodeSetRef.current !== nodeSetKey) {
       positionsRef.current = new Map();
       cameraRef.current = null;
       layoutKeyRef.current = layoutKey;
+      nodeSetRef.current = nodeSetKey;
     }
 
     const background = readTokenColor("--background", {
@@ -117,28 +120,46 @@ export default function Force3dGraph({
 
     const Graph = new ForceGraph3D(el)
       .backgroundColor(background)
+      .showNavInfo(false)
       .graphData({ nodes: fgNodes, links: fgLinks })
       .nodeId("id")
       .nodeLabel("name")
       .nodeColor((n: object) => (n as FgNode).color)
       .nodeVal((n: object) => (n as FgNode).val)
       .linkColor(() => linkColor)
+      .onEngineStop(() => {
+        try {
+          Graph.zoomToFit(600, 40);
+        } catch {
+          // The renderer may have been torn down while the engine was stopping.
+        }
+      })
       .onNodeClick((n: object) => {
         const id = (n as FgNode).id;
         if (id) onClickRef.current(id);
       });
 
-    // Cluster gravity toward Fibonacci-sphere attractors.
-    Graph.d3Force("cluster", () => {
-      const alpha = 0.08;
+    // Cluster gravity must cool with simulation alpha. A permanent pull to a
+    // single attractor beats charge repulsion and collapses the whole scene.
+    const clusterForce = (axis: "x" | "y" | "z") => (alpha: number) => {
       for (const node of fgNodes) {
-        const a = attractors.get(node.clusterKey);
-        if (!a) continue;
-        node.vx = (node.vx ?? 0) + (a.x - (node.x ?? 0)) * alpha;
-        node.vy = (node.vy ?? 0) + (a.y - (node.y ?? 0)) * alpha;
-        node.vz = (node.vz ?? 0) + (a.z - (node.z ?? 0)) * alpha;
+        const attractor = attractors.get(node.clusterKey);
+        if (!attractor) continue;
+        const pull = (attractor[axis] - (node[axis] ?? 0)) * 0.15 * alpha;
+        if (axis === "x") node.vx = (node.vx ?? 0) + pull;
+        if (axis === "y") node.vy = (node.vy ?? 0) + pull;
+        if (axis === "z") node.vz = (node.vz ?? 0) + pull;
       }
-    });
+    };
+    if (clusters.length >= 2) {
+      Graph.d3Force("x", clusterForce("x"));
+      Graph.d3Force("y", clusterForce("y"));
+      Graph.d3Force("z", clusterForce("z"));
+    } else {
+      Graph.d3Force("x", null);
+      Graph.d3Force("y", null);
+      Graph.d3Force("z", null);
+    }
 
     if (cameraRef.current) {
       const c = cameraRef.current;
