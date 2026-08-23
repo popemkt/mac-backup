@@ -46,6 +46,59 @@ component architecture). Item 2's Phase 1 merged; Phase 2/3 in flight.
 
 ---
 
+## Session update — 2026-08-24 (claude orchestrator, owner asleep)
+
+Everything under "IMMEDIATE" below is DONE. Current main: see `git log`.
+
+Done this session:
+- **Disk/ENOSPC root-caused and fixed.** `/` was at 97%. `uv cache clean
+  --force` freed 8.3G but Time Machine local snapshots held it; a real TM
+  backup existed (2026-08-24 00:48) so the six oldest local snapshots were
+  deleted. `/` went 7.8G → 16G free. The "pre-existing 50k benchmark timing
+  failure" and the `palette-index` perf flake were host disk pressure — both
+  pass now. Treat a reappearance as a real regression.
+- **i8b merged** (`--no-ff`, tasks 10–12). Only the 3 CODE commits were merged;
+  `5a6e7f5` (the pre-baked `.kb/nodes.jsonl`) was deliberately NOT merged
+  because main's data had diverged under live owner edits. `migrateOrderKeys`
+  runs automatically in `openKbEffect`, so restarting the UI migrated main's
+  live data instead. Verified purely additive: 187 → 187 nodes, none lost or
+  added, no field but `order` changed except the owner's own live renderer
+  switch on `lens.all-mentions`. Committed separately.
+- **One real regression caught by the merge**: `ontology migration > seeding
+  into a pre-ontology store leaves every existing line byte-identical` failed,
+  because the order migration rewrites every legacy line. codex had never run
+  the full core suite. Assertion re-scoped to compare lines with `order`
+  stripped, keeping its teeth (content must survive; new lines must be seed
+  rows). Suite green before push.
+- Verified green on main and pushed: core 643/0, typecheck clean, lint clean,
+  UI 433/0.
+- **UI restarted** on the merged build; serving 127.0.0.1:4321.
+- **3D exists** — contrary to the owner's report. `force3d-graph.tsx`,
+  `3d-force-graph@^1.80.0`, lazy chunk, and a "3D" pill in
+  `renderer-switch.tsx`. So the complaint is discoverability or scene quality,
+  not absence. Chasing that empirically is r10's Q1.
+
+### Waves in flight (dispatched this session)
+
+| Wave | Brief | Harness | Worktree |
+|---|---|---|---|
+| i8c | `briefs/i8c-editor-core.md` (r9 tasks 13–17) | codex, gpt-5.6-terra high | `kb-i8c-editor-core` |
+| i10-polish | `briefs/i10-polish.md` (owner's live-review round) | cursor, Grok 4.5 High | `kb-i10-polish` |
+| r10-graph | `briefs/r10-graph-deep.md` (research only) | claude | `kb-r10-graph` |
+
+omp was dispatched for i10 first and pulled back: its good model is still
+capped and it fell back to `gemini-3.7-flash-tiered`, too weak for a
+taste-heavy typography/layout-shift round. Load is now spread one wave per
+provider.
+
+**r10-graph is new scope from the owner**, verbatim: "I feel like we need
+careful consideration at which codeflow's graph to copy for what. and how to
+pull it here properly. I think the graph is still not polished enough, and it
+doesn't even have 3d." It is research-only and produces the ordered task list
+for an i11 impl wave — that wave still needs dispatching once r10 lands.
+
+---
+
 ## IMMEDIATE — verify/wrap up main state
 
 1. `git status` shows `M .kb/nodes.jsonl` on main. Investigate: this is from
