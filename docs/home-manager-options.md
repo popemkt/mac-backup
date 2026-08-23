@@ -1,6 +1,6 @@
 # Home Manager Options Reference
 
-Common options for `modules/home.nix`.
+Common options for this repo's `modules/common/home-manager/*.nix` modules.
 
 Full list: [home-manager options](https://nix-community.github.io/home-manager/options.xhtml)
 

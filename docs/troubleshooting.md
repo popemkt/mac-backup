@@ -28,7 +28,8 @@ source /etc/bashrc  # or restart terminal
 
 **Cause:** Two packages provide the same file.
 
-**Fix:** Check for duplicates in `home.nix`. If intentional:
+**Fix:** Check the Home Manager package lists (usually under
+`modules/common/home-manager/`). If intentional:
 ```nix
 home.packages = [
   (pkgs.lib.lowPrio pkgs.somePackage)
@@ -132,7 +133,7 @@ darwin-rebuild --list-generations
 darwin-rebuild --rollback
 
 # Rollback to specific generation
-darwin-rebuild switch --flake ~/.dotfiles --switch-generation 42
+darwin-rebuild --switch-generation 42 --flake ~/.dotfiles
 ```
 
 ### Rollback home-manager

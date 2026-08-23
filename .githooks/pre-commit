@@ -2,36 +2,37 @@
 # Shim: record admission routes through the single gate (intent/gate.sh).
 # Registered in intent/SURFACES.md.
 # Install: git config core.hooksPath .githooks
+
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
 
-# kb generated docs must match .kb data. Converge best effort: skip silently
-# when bun is missing (fresh machine); the check itself failing is a real stop.
+# kb generated docs match .kb data. A fresh checkout may have Bun but not its
+# local dependencies yet; say exactly how to restore this optional check.
 if [ -d "$repo_root/tools/kb" ] && [ -d "$repo_root/.kb" ]; then
-  if command -v bun >/dev/null 2>&1; then
+  if command -v bun >/dev/null 2>&1 && [ -d "$repo_root/tools/kb/node_modules/effect" ]; then
     (cd "$repo_root" && bun tools/kb/src/bin/docs-check.ts)
+  else
+    echo "warning: kb docs check skipped — tools/kb dependencies are unavailable; run: bun install --cwd tools/kb" >&2
   fi
 fi
 
-# kb media backup ownership regression: .kb/assets must stay covered by a
-# declared Mackup decision, and committed node asset references must resolve
-# under .kb/assets/ so none can silently point at unowned state. Runs whenever
-# the repo carries a .kb dir; a violation is a hard stop (pre-commit exits
-# non-zero before record admission).
+# kb media backup ownership regression: .kb/assets stays covered by its Mackup
+# declaration and committed node references cannot point at unowned state.
 if [ -d "$repo_root/.kb" ]; then
   echo "==> kb media backup ownership"
   "$repo_root/scripts/check-kb-assets-backup.sh" check
 fi
 
-# kb TS7 typecheck gate: zero-error `tsc --noEmit` on the backend and UI
-# packages. Runs whenever anything under tools/kb changed. Skips silently when
-# node_modules is absent (fresh machine); a real type error is a hard stop.
+# kb TS7 typecheck gate: zero-error `tsc --noEmit` for changed kb packages.
+# Dependencies may be absent on a fresh checkout, so report the recovery step.
 if git diff --cached --name-only --diff-filter=ACMRD | grep -q '^tools/kb/'; then
   for pkg in tools/kb tools/kb/ui; do
     if [ -x "$repo_root/$pkg/node_modules/.bin/tsc" ]; then
       echo "==> typecheck ($pkg)"
       (cd "$repo_root/$pkg" && ./node_modules/.bin/tsc --noEmit)
+    else
+      echo "warning: typecheck ($pkg) skipped — dependencies are unavailable; run: bun install --cwd $pkg" >&2
     fi
   done
 fi
