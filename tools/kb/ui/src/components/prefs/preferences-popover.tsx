@@ -115,14 +115,16 @@ function ShowAllFieldsRow() {
   const setShowAllFields = usePrefsStore((s) => s.setShowAllFields);
   return (
     <PrefFieldRow icon={Eye} label="debug fields">
-      <label className="flex min-h-6 cursor-pointer items-center gap-2">
+      <label className="flex min-h-6 cursor-pointer items-center gap-2 py-0">
         <input
           type="checkbox"
-          className="h-3.5 w-3.5 rounded border-foreground/20 accent-primary"
+          className="h-3.5 w-3.5 shrink-0 rounded border-foreground/20 accent-primary"
           checked={showAllFields}
           onChange={(e) => setShowAllFields(e.target.checked)}
         />
-        <span className={POPOVER_VALUE_CLASS}>Show all fields (debug)</span>
+        <span className="min-w-0 flex-1 whitespace-nowrap text-[13px] leading-[1.5] text-foreground/70">
+          Show all fields (debug)
+        </span>
       </label>
     </PrefFieldRow>
   );

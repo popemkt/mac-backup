@@ -19,8 +19,8 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { MdView } from "@/components/outline/md-view";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
 import { nearestOffsetForX } from "./caret";
-import { TagConfigPanel } from "./tag-config-panel";
 import { TagChipGroup } from "./tag-chip";
+
 
 interface NodeContentProps {
   nodeId: string;
@@ -57,11 +57,8 @@ export function NodeContent({
   /** D14: Escape dismisses the popup without blurring or leaving edit mode. */
   const [acDismissed, setAcDismissed] = useState(false);
   const [cursor, setCursor] = useState(cursorPosition);
-  const [configTag, setConfigTag] = useState<{
-    id: string;
-    rect: DOMRect;
-  } | null>(null);
   const readOnly = isSysPrefixed(nodeId);
+
 
   const rawRefOpen = useMemo(() => {
     if (!isActive || readOnly) return null;
@@ -321,13 +318,6 @@ export function NodeContent({
             e.stopPropagation();
             void mutations.removeTag(nodeId, tag.id);
           }}
-          onTagConfigure={(tag, e) => {
-            e.stopPropagation();
-            const rect = (
-              e.currentTarget.closest(".group\\/tag") as HTMLElement
-            )?.getBoundingClientRect();
-            if (rect) setConfigTag({ id: tag.id, rect });
-          }}
         />
 
         {refOpen && candidates.length > 0 && (
@@ -338,14 +328,6 @@ export function NodeContent({
           />
         )}
       </div>
-
-      {configTag && (
-        <TagConfigPanel
-          tagId={configTag.id}
-          anchorRect={configTag.rect}
-          onClose={() => setConfigTag(null)}
-        />
-      )}
     </>
   );
 }

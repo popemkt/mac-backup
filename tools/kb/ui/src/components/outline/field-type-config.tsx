@@ -53,6 +53,7 @@ export function FieldTypeConfig({
   compact?: boolean;
 }) {
   const nodes = useOutlineStore((s) => s.nodes);
+  const zoomTo = useOutlineStore((s) => s.zoomTo);
   const fieldNode = nodes.get(fieldId);
   const readOnly = isSysPrefixed(fieldId);
   const fieldType = resolveFieldType(fieldNode);
@@ -126,6 +127,7 @@ export function FieldTypeConfig({
                         name: tag?.text || tagId,
                         color: resolveTagColor(tagId, explicit),
                       }}
+                      onClick={() => zoomTo(tagId)}
                     />
                     {!readOnly && (
                       <button

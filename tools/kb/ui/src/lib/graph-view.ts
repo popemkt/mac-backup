@@ -169,13 +169,22 @@ export function resolveProps(
   return resolveVisibleProps(node, nodes, opts);
 }
 
+/** Resolve a ref prop to a label: target text when present, otherwise raw id fallback. */
+export function resolveRefLabel(refId: string, nodes: NodeMap): string | null {
+  const n = nodes.get(refId);
+  if (!n) return null;
+  return n.text || refId;
+}
+
 export function formatPropValue(
   value: OutlineNode["props"][string][number],
   nodes: NodeMap,
 ): string {
   switch (value.t) {
-    case "ref":
-      return nodes.get(value.v)?.text ?? value.v;
+    case "ref": {
+      const resolved = resolveRefLabel(value.v, nodes);
+      return resolved ?? value.v;
+    }
     case "bool":
       return value.v ? "true" : "false";
     case "num":
@@ -187,7 +196,6 @@ export function formatPropValue(
       return JSON.stringify(value);
   }
 }
-
 function loadIdSet(key: string): Set<string> {
   try {
     const raw = localStorage.getItem(key);
