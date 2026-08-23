@@ -662,12 +662,19 @@ describe("ontology migration", () => {
     const beforeLines = before.trim().split("\n");
     const afterLines = readFileSync(jsonl, "utf8").trim().split("\n");
 
-    // Every original line survives verbatim.
+    // Every original line survives, modulo the one-time additive `order` key
+    // stamped by the sibling-order migration (nothing else may change).
+    const strip = (line: string) => {
+      const { order: _order, ...rest } = JSON.parse(line) as Record<string, unknown>;
+      return canonicalJson(rest);
+    };
+    const afterStripped = afterLines.map(strip);
     for (const line of beforeLines) {
-      expect(afterLines).toContain(line);
+      expect(afterStripped).toContain(strip(line));
     }
-    // Everything added is a seed row — no content line was rewritten.
-    const added = afterLines.filter((l) => !beforeLines.includes(l));
+    // Everything added is a seed row — no content was rewritten.
+    const beforeStripped = new Set(beforeLines.map(strip));
+    const added = afterLines.filter((l) => !beforeStripped.has(strip(l)));
     expect(added.length).toBeGreaterThan(0);
     const seedIds = new Set(systemSeedNodes().map((n) => n.id));
     for (const line of added) {
