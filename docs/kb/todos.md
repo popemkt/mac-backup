@@ -11,6 +11,7 @@
 - E perf/storage research only (reliable as db)
 - F ontology design ambitious + core impl
 - H whole-surface UX audit -> i5 polish wave
+
 - kb-refine wave 2026-08-23: plan at docs/kb-waves/2026-08-23/plan.md
 
 ## todo
