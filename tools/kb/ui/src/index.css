@@ -1,15 +1,32 @@
 /**
  * kb token system — ported from nxus apps/nxus-editor/src/styles.css
  * (DESIGN-RESKIN §1.1). Light/dark oklch palettes, radius scale, auto-hiding
- * scrollbar. Fonts are device prefs (kb-prefs): Outfit Variable or Inter,
- * switched via the --app-font var set off <html data-font>.
+ * scrollbar. Default face is Inter Variable (Tana parity); Outfit remains an
+ * opt-in pref via <html data-font>. Metric-matched fallbacks keep swap CLS-free.
  */
 @import "tailwindcss";
+@import "@fontsource-variable/inter/wght.css";
 @import "@fontsource-variable/outfit";
-@import "@fontsource/inter/400.css";
-@import "@fontsource/inter/500.css";
-@import "@fontsource/inter/600.css";
 @import "./tokens.css";
+
+/* Arial reshaped to Inter metrics — swap must not reflow (item 1 / i10). */
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial"), local("Helvetica Neue"), local("Helvetica");
+  size-adjust: 107.64%;
+  ascent-override: 90%;
+  descent-override: 22.43%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Outfit Fallback";
+  src: local("Arial"), local("Helvetica Neue"), local("Helvetica");
+  size-adjust: 105%;
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -60,7 +77,11 @@
   --canvas-color-4: oklch(0.62 0.15 145);
   --canvas-color-5: oklch(0.62 0.12 210);
   --canvas-color-6: oklch(0.58 0.17 300);
-  --app-font: "Outfit Variable", ui-sans-serif, system-ui, sans-serif;
+  --app-font: "Inter Variable", "Inter Fallback", ui-sans-serif, system-ui,
+    sans-serif;
+  --font-weight-body: 400;
+  --font-weight-ui: 500;
+  --font-weight-emphasis: 600;
 }
 
 .dark {
@@ -107,8 +128,9 @@
   --canvas-color-6: oklch(0.74 0.15 300);
 }
 
-html[data-font="inter"] {
-  --app-font: "Inter", ui-sans-serif, system-ui, sans-serif;
+html[data-font="outfit"] {
+  --app-font: "Outfit Variable", "Outfit Fallback", ui-sans-serif, system-ui,
+    sans-serif;
 }
 
 @theme inline {
@@ -162,9 +184,11 @@ html[data-font="inter"] {
   }
   body {
     @apply font-sans bg-background text-foreground;
+    font-weight: var(--font-weight-body, 400);
   }
   html {
     @apply font-sans;
+    font-weight: var(--font-weight-body, 400);
   }
 
   html,

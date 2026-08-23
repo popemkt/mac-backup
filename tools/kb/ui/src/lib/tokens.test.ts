@@ -72,10 +72,19 @@ describe("kb tokens", () => {
     }
   });
 
-  it("font is a pref-driven CSS var (Outfit default, Inter opt-in)", () => {
-    expect(index).toMatch(/--app-font:\s*"Outfit Variable"/);
-    expect(index).toMatch(/html\[data-font="inter"\]/);
+  it("font is a pref-driven CSS var (Inter Variable default, Outfit opt-in)", () => {
+    expect(index).toMatch(/--app-font:\s*"Inter Variable"/);
+    expect(index).toMatch(/html\[data-font="outfit"\]/);
     expect(index).toMatch(/--font-sans:\s*var\(--app-font\)/);
+    expect(index).toMatch(/font-family:\s*"Inter Fallback"/);
+    expect(index).toMatch(/@fontsource-variable\/inter/);
+    expect(index).toMatch(/size-adjust:/);
+  });
+
+  it("tokens declare body weight for Inter (Outfit 500 read heavy)", () => {
+    expect(tokens).toMatch(/--kb-text-weight:/);
+    expect(tokens).toMatch(/--tag-weight:/);
+    expect(index).toMatch(/--font-weight-body:\s*400/);
   });
 
   it("text-[Npx] literals in ui/src stay within §1.2 whitelist", () => {

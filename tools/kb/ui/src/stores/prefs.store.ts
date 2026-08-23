@@ -33,7 +33,7 @@ export function defaultSidebarOpen(
 
 export const DEFAULT_PREFS: Prefs = {
   theme: "system",
-  font: "outfit",
+  font: "inter",
   width: "centered",
   showAllFields: false,
   sidebarOpen: true,
@@ -56,7 +56,7 @@ export function loadPrefs(
         parsed?.theme === "light" || parsed?.theme === "dark"
           ? parsed.theme
           : "system",
-      font: parsed?.font === "inter" ? "inter" : "outfit",
+      font: parsed?.font === "outfit" ? "outfit" : "inter",
       width: parsed?.width === "full" ? "full" : "centered",
       showAllFields: parsed?.showAllFields === true,
       sidebarOpen:

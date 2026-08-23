@@ -148,6 +148,8 @@ describe("shared outline components (W8b)", () => {
     expect(prefHtml).toContain("theme");
     expect(outlineHtml).toContain("text-[14.5px]");
     expect(prefHtml).toContain("text-[14.5px]");
+    expect(outlineHtml).toContain("font-normal");
+    expect(prefHtml).toContain("font-normal");
   });
 
   it("surface modules import the single shared row/chip/field components", () => {

@@ -7,16 +7,20 @@
 ::root {
   --kb-indent: 24px;
   --kb-row-h: 24px;
+  /* Inter Variable: keep 14.5/1.6; body weight 400 (Outfit 500 read heavy). */
   --kb-text: 14.5px / 1.6;
+  --kb-text-weight: var(--font-weight-body, 400);
   --kb-chip: 11px / 16px;
   --kb-field-label: 120px;
   /* Owner: tag chips visibly tighter/smaller than node text, tokenized. */
   --tag-size: 10px;
   --tag-line: 12px;
+  --tag-weight: var(--font-weight-ui, 500);
 }
 
 .kb-text {
   font: var(--kb-text) inherit;
+  font-weight: var(--kb-text-weight);
 }
 
 /* F9: row text host — active and inactive share pre-wrap so \n never collapses. */
@@ -42,7 +46,7 @@
 .kb-tag {
   font-size: var(--tag-size);
   line-height: var(--tag-line);
-  font-weight: 500;
+  font-weight: var(--tag-weight);
 }
 
 
