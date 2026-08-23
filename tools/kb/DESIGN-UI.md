@@ -124,7 +124,231 @@ pane, persistent collapse state (localStorage), query page.
   listed and runnable, results as table with node links.
 - Search box (text substring) with jump-to-node.
 - Live updates: edits from CLI/agents appear without reload (fs-watch → WS).
-- No drag-drop, no undo/redo, no table/board views in v1 (explicitly out).
+- ~~No drag-drop, no undo/redo, no table/board views in v1 (explicitly out).~~
+  **Superseded.** Table/Board/Cards views shipped with the refinement wave,
+  outline and canvas both have undo/redo, and board cards drag between groups.
+  Outline row drag-and-drop is still not implemented (keyboard reorder only).
+  See [Interaction model](#interaction-model-as-shipped-2026-08-23-wave).
+
+## Interaction model (as shipped, 2026-08-23 wave)
+
+The v1 list above is the original contract. Five implementation waves rebuilt
+the interaction layer on top of it — i1 (editor), i2 (graph), i3 (canvas),
+i5 (cross-surface polish), i6 (ontology). The normative specs are
+`docs/kb-waves/2026-08-23/reports/r1-editor.md`, `r2-graph.md`, `r3-canvas.md`,
+`r7-ux-sweep.md` and `r5-ontology.md`; each carries its own implementation
+handoff with the honest cut list.
+
+### Outline editor (i1)
+
+**Transient nodes replace ghost rows.** There is no permanent phantom bullet at
+the end of a list: `GhostNodeRow`, with its async character buffering and
+`beforeinput` interception, is deleted outright. Tana semantics instead —
+`mutations.createTransientNode` mints a *real* node synchronously through the
+normal optimistic path, records it in `outlineStore.transientIds`, and activates
+it at offset 0. The click-to-create affordance is a whitespace strip
+(`data-create-child-zone`) rendered at the end of every expanded container and
+at zoom-root level. `pruneOutgoingTransient` silently drops a session-transient
+node when focus leaves it while it is still empty; a node that existed before
+this session is never pruned, so committed content cannot evaporate.
+
+**Two keymaps, one row.** The authoritative tables are r1-editor.md §3.2; the
+split is what matters here:
+
+| Mode | When | Owner |
+|---|---|---|
+| **A — active edit** (caret inside node text) | typing | `components/outline/use-node-keydown.ts` |
+| **B — selection** (row selected, caret inactive) | after `Escape`, or arrow-nav | `lib/selection-keymap.ts` + `components/outline/use-selection-keymap.ts` |
+
+Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`),
+vertical caret motion, and autocomplete interception. Mode B owns
+`ArrowLeft/Right` collapse-expand-parent-firstchild, `o` / `Shift+O`
+create-below/above, `Space` toggle, `Cmd+.` zoom, and printable-character
+re-entry into Mode A. Focus hand-offs are specified per operation (split → new
+node at 0; indent/outdent → same offset; merge → the join boundary; delete →
+neighbour) and tested.
+
+**Caret geometry is measured, not guessed.** `components/outline/caret.ts`
+exposes `readCaretGeometry` (range rects → real line detection),
+`verticalArrowDecision` (pure: is this arrow a line move or a row move?) and
+`nearestOffsetForX` (column restoration), fed by `outlineStore.focusX`. Offsets
+into the *serialized markdown* — not the DOM text — come from
+`lib/md-edit.ts` (`getCaretSerializedOffset` / `setCaretSerializedOffset`), a
+recursive measure that survives element boundaries and counts an atomic ref
+pill at its full token length. A layout-free environment (unit tests, headless)
+degrades to offset-based behaviour rather than breaking. `focusSeq` forces
+caret re-placement when a row remounts.
+
+**Undo/redo is action-level, not keystroke-level.** `actions/plan.ts`
+`invertPlan` computes an inverse transaction against the *pre-application*
+state; `inversePlanActions` derives the compensating registry actions.
+`outlineStore` keeps bounded `undoStack` / `redoStack` of `{ inv, actions }`
+(`HISTORY_LIMIT` = 50). `Cmd/Ctrl+Z` binds outside editable targets, and in api
+mode the compensation is posted best-effort — there is **no** server-authoritative
+undo journal, and rapid same-node text edits are not coalesced. Structural
+operations (split, merge, indent, outdent, delete, move) are the covered case.
+
+**Refs are atomic in the editor.** An active editor renders `[[id|label]]` as a
+`contenteditable=false` pill carrying its serialized token, so a raw ULID never
+faces the caret and serialization round-trips canonical markdown.
+
+**`sys.*` rows are read-only at the door.** `store.activateNode` degrades a
+`sys.*` id to selection so no caret ever enters one; the row shows a hover
+padlock instead of failing on write.
+
+### Ontology scope (i6)
+
+The reading-mode consumption of the resolver documented in
+[DESIGN.md → Ontologies](./DESIGN.md#ontologies--a-lens-over-the-graph).
+
+**Scope lives in the URL**, so it is linkable, survives reload, and the back
+button exits it: `/o` (list), `/o/<id>` (members page), `/o/<id>/outline`,
+`/o/<id>/graph` (`lib/router.ts`, `ontologyPath()`).
+
+**Scope is a projection, not a sandbox.** `outlineStore` gained `ontologyId`,
+`ontologyMembers`, `ontologyWarnings`, `preScopeRootId` and `setOntologyScope`,
+and every wire→outline conversion goes through a single `projectWire()` helper
+so there is one place where members are filtered. Crucially `queryDb` stays
+built over the **full** snapshot — backlinks, `#query` nodes and WS
+subscriptions keep honest reach while the outline, search, keyboard navigation
+and breadcrumbs see members only. Membership is memoized in a `WeakMap` keyed
+on the wire-snapshot array (inner key `rev` + ontology id), which is exact
+under optimistic local edits where `rev` does not move.
+
+**Scope never dead-ends.** Navigating to a non-member leaves the scope with a
+toast rather than silently doing nothing, and the scope chip
+(`⬡ Name · N members · Members/Outline/Graph · Exit`) always offers the exit.
+Members whose real parent is a non-member hang off the ontology node itself, so
+displayed depth inside a scope is *synthetic* — structural editing
+(Tab/Shift-Tab/move) still operates on the real graph. That mismatch is a named
+follow-up, not a fixed contract.
+
+**Graph under scope** is one additive `restrictTo?: Set<string>` on
+`ExtractLensOptions`, intersected in `resolveNodeSet`; internal-edges-only falls
+out of the existing endpoint check. Ontology and perspective are orthogonal —
+the ontology picks *which nodes*, the perspective picks renderer/color-by/
+cluster-by — and both pickers sit in the graph header.
+
+Elsewhere: an **Ontologies** sidebar section, the `⬡` bullet kind, three
+`sys.command` palette entries (new / enter / exit). The ⌘K palette stays
+**global** on purpose — it is the escape hatch out of a scope.
+
+### Graph (i2)
+
+The graph is the CodeFlow-parity surface: every renderer is
+`datalog query → {nodes, edges} → renderer`, and interaction happens *in place*
+rather than by navigation.
+
+- **Select-in-place.** A single click selects: the neighbourhood stays lit,
+  non-neighbours dim to ~15% alpha, and an info card (label, tags, degree,
+  Open/Focus) appears. Background click and `Escape` clear. Double-click,
+  `Enter`, ⌘/Ctrl-click and the card's Open button all navigate to the outline.
+  Hover does the same lighting through `nodeReducer`/`edgeReducer` only — hover
+  and selection never mutate graph data.
+- **Animated camera.** `graph-camera.ts` owns `fitView`, `zoomIn`, `zoomOut`,
+  `resetCamera`, `focusNode` — cubic-eased ~300ms. Toolbar buttons plus
+  `+`/`=`, `−`, `0`, `f`, `/`. Camera state survives data updates and theme
+  switches, and a module-level positions cache keyed by layout restores a
+  perspective's layout when you return to it.
+- **Worker layout.** `fa2-layout.ts` runs ForceAtlas2 in a web worker with a
+  2.5s auto-settle (`SETTLE_TIMEOUT_MS`), falling back to a synchronous
+  rAF-chunked loop by feature detection. Dragging a node reheats the layout
+  (~600ms burst) on release; the camera is disabled during drag so a pan
+  cannot fight the drag.
+- **Search and filter compose.** The toolbar search (`/` focuses) does
+  case-insensitive substring matching on labels, `Enter` cycles matches with an
+  animated camera move; the collapsible tag legend isolates a colour bucket on
+  click. The two intersect — a node must pass both to stay lit. Both are
+  **ephemeral**: filters, search and selection never persist, while a renderer
+  switch is a persisted prop write (`mutations.setLensRenderer`).
+- **Directed, weighted edges.** `EdgeArrowProgram` is enabled and edges render
+  as arrows. `graph-lens.ts` deduplicates parallel edges into a `weight` count,
+  and stroke width scales as `√weight` — repeated relationships read as
+  thicker, single links stay hairline.
+- **Honest empty and large states.** Zero matches renders guidance rather than
+  a blank canvas; invalid EDN surfaces an amber warning chip (`queryError` on
+  the lens); a capped lens shows a dismissible "showing top N of M by degree"
+  notice with a jump to the perspective node. Above
+  `LARGE_GRAPH_THRESHOLD` = 1500 nodes the renderer degrades deliberately:
+  `hideEdgesOnMove`, label threshold 12 (from 7), label density 0.5 (from 0.8).
+- Cluster renderer: padded hulls with member-count labels, top-15 cluster cap,
+  drag with live hull redraw, hull-click isolation. Tree renderer: pointer
+  pan/zoom plus Fit / Collapse-all / Expand-all.
+
+Not shipped, named: the settings popover (the FA2 live-layout API is wired but
+has no UI), force3d parity, a committed perf fixture, picker keyboard nav.
+
+### Canvas (i3)
+
+The canvas is a thinking surface (draw.io lineage), and this wave made direct
+manipulation feel professional rather than merely functional.
+
+- **Selection is a set.** `lib/canvas-selection.ts` owns one
+  `CanvasSelection { nodeIds, edgeIds }` with single / Shift-toggle /
+  rubber-band marquee / `Cmd+A`. Dragging any card in a multi-selection
+  translates all of them. Delete/Backspace removes every selected node and edge
+  with cascade edge removal — and deleting a kb-node *card* never touches the
+  underlying graph node.
+- **Undo/redo.** `lib/canvas-history.ts` is an immutable ring buffer
+  (`MAX_HISTORY` = 30) with reference-equality skip; `Cmd+Z` /
+  `Cmd+Shift+Z` / `Cmd+Y`.
+- **Direct-manipulation invariants.** A 4px `DRAG_THRESHOLD` kills hair-trigger
+  moves, pointer capture on card drags and resize handles survives a fast drag,
+  four corner resize handles clamp at 80×40 (`Shift` locks aspect ratio), and
+  arrow keys nudge 1px / 10px with `Shift`.
+- **Snap guides and fit.** Alignment snapping is magnetic within 5px
+  (`SNAP_TOL`) and draws dashed guide lines; `Shift+1` zoom-to-fit frames the
+  bounding box with 40px padding. Zoom range is 0.1–3.0 (`MIN_ZOOM`/`MAX_ZOOM`).
+- **Sticky tools.** `lib/canvas-tool.ts` is a pure reducer: picking a tool is
+  one-shot (it returns to `select` after placing), double-clicking the tool icon
+  makes it **sticky** for repeated placement, `Escape` always returns to select.
+  Tools: select (V), text (T), rect (R), ellipse (O / C), diamond (D),
+  group (G / F), kb node (N); digits `1`–`7` mirror the same order.
+- **Edges are drawings** (the Logseq-whiteboards decision, unchanged): a live
+  dashed bezier ghost during creation, smart port snapping by nearest Euclidean
+  distance, 18×18px port targets, a 20px transparent hit path under the visible
+  stroke, per-colour SVG arrowhead markers, and mid-path labels editable by
+  double-click. `EdgeInspector` toggles arrowheads per end and picks JSON Canvas
+  colours 1–6.
+- **Floating selection toolbar** with Delete / Bring-to-front / Send-to-back
+  (z-order is array reorder in the JSON Canvas doc).
+
+Not shipped, named: cursor-centred scroll zoom (zoom is viewport-centred),
+real Clipboard-API copy/paste, snap guides during keyboard nudge, edge colour
+on the stroke itself, edge endpoint re-routing, group cards translating their
+children.
+
+### Cross-surface polish (i5)
+
+The rules that hold everywhere, so no surface re-invents them:
+
+- **One captured global shortcut.** `lib/keyboard-shortcuts.ts`
+  `matchGlobalShortcut` returns `"global-search"` for ⌘/Ctrl-K and nothing else
+  — ⌘S is deliberately left to the browser, because kb has no save action to
+  bind it to. App-level dispatch lives in `components/App.tsx`.
+- **The palette behaves like a dialog.** `components/palette/command-palette.tsx`
+  records `document.activeElement` on open and restores focus on close, traps
+  `Tab` inside itself, and keeps the active result scrolled into view.
+- **IME composition is never interrupted.** Field editors track
+  `compositionstart`/`compositionend` *and* check `nativeEvent.isComposing`
+  before treating a key as a commit, so a composing CJK/dead-key sequence is not
+  swallowed by Enter.
+- **Load failures are recoverable, not raw.** An initial graph/workspace error
+  renders a human-readable state with a Retry action and the technical detail
+  behind a disclosure, rather than dumping the error.
+- **Motion is a preference.** `index.css` carries one global
+  `@media (prefers-reduced-motion: reduce)` block that flattens animation,
+  transition and scroll behaviour across *every* surface — the graph cross-fade,
+  the canvas, the outline — so an animated surface added later inherits the
+  policy for free rather than opting in.
+- Navigation affordances are keyboard-reachable: sidebar Home exits zoom, a
+  closed sidebar is inert with focus returned to its toggle, breadcrumbs carry
+  an accessible label and current-page marker, and tag chips expose real
+  navigate / remove / configure buttons instead of click-only regions.
+
+Deferred from i5 and still open: query-subscription error routing, view-settings
+and Board setup flows, the Add-field flow, palette ranking/highlighting, URL and
+history handling, and a toast-model redesign.
 
 ## Layout
 
