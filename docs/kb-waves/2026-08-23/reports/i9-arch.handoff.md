@@ -85,3 +85,10 @@ See `ARCHITECTURE.md` table. Top offenders: `canvas-page.tsx` (1859),
 4. Surface a11y gaps documented, not patched inside read-only zones.
 5. God-component splits deferred to owning waves (plans in ARCHITECTURE.md).
 
+### Self-grade
+
+**A−** — Mission delivered: audit + conventions doc, missing boundaries,
+catalog decision with minimal implementable catalog, honest God-list for
+future waves. Gaps: no visual catalog UI, no structural refactors of Gods
+(by zone design), surface a11y left as findings.
+
