@@ -16,6 +16,17 @@ export interface PlannedMutation {
   /** New node focus after apply (split/create). */
   focusId?: string;
   focusCursor?: number;
+  /** Nodes whose collapsed state must be cleared after apply (D05). */
+  revealIds?: string[];
+}
+
+export interface PlanSplitOpts {
+  /**
+   * Ids currently expanded in the UI outline map. When the split node has
+   * children and is expanded, Enter creates the new node as its FIRST CHILD
+   * (Tana semantics, r1 D07) instead of a trailing sibling.
+   */
+  expandedIds?: Set<string> | null;
 }
 
 function requireNode(nodes: WireNode[], id: string): WireNode {
@@ -24,11 +35,7 @@ function requireNode(nodes: WireNode[], id: string): WireNode {
   return n;
 }
 
-export function planUpdateText(
-  nodes: WireNode[],
-  id: string,
-  text: string,
-): PlannedMutation {
+export function planUpdateText(nodes: WireNode[], id: string, text: string): PlannedMutation {
   const node = cloneWire(requireNode(nodes, id));
   node.text = text;
   node.updatedAt = nowIso();
@@ -44,10 +51,17 @@ export function planSplit(
   id: string,
   cursor: number,
   newId: string,
+  opts: PlanSplitOpts = {},
 ): PlannedMutation {
   const node = cloneWire(requireNode(nodes, id));
   const left = node.text.slice(0, cursor);
   const right = node.text.slice(cursor);
+
+  // Tana semantics (r1 D07): Enter on an expanded parent with children
+  // creates the new node as its first child — the row stays visually
+  // adjacent to the caret instead of jumping below the whole subtree.
+  const asFirstChild = node.children.length > 0 && (!opts.expandedIds || opts.expandedIds.has(id));
+
   node.text = left;
   node.updatedAt = nowIso();
 
@@ -61,6 +75,23 @@ export function planSplit(
     updatedAt: at,
   };
 
+  if (asFirstChild) {
+    node.children = [newId, ...node.children];
+    return {
+      upserts: [node, child],
+      deletes: [],
+      actions: [
+        { id: "node.update", input: { id, text: left } },
+        {
+          id: "node.add",
+          input: { id: newId, text: right, parent: id, position: 0 },
+        },
+      ],
+      focusId: newId,
+      focusCursor: 0,
+    };
+  }
+
   const parent = findParentWire(nodes, id);
   const upserts: WireNode[] = [node, child];
   let position: number | undefined;
@@ -71,11 +102,7 @@ export function planSplit(
     const idx = p.children.indexOf(id);
     position = idx + 1;
     parentId = p.id;
-    p.children = [
-      ...p.children.slice(0, position),
-      newId,
-      ...p.children.slice(position),
-    ];
+    p.children = [...p.children.slice(0, position), newId, ...p.children.slice(position)];
     p.updatedAt = at;
     upserts.push(p);
   }
@@ -117,55 +144,70 @@ export function planDelete(nodes: WireNode[], id: string): PlannedMutation {
   };
 }
 
-/** Merge `id` into previous sibling (same parent); append text + adopt children. */
-export function planMergeWithPrevious(
+/**
+ * Merge `id` into an explicit visual predecessor (r1 D09): append text,
+ * adopt children, remove `id` from its own parent. Works across parents —
+ * the target may be a deeper last-descendant of the array-level sibling.
+ */
+export function planMergeInto(
   nodes: WireNode[],
   id: string,
+  targetId: string,
 ): PlannedMutation | null {
-  const parent = findParentWire(nodes, id);
-  if (!parent) return null;
-  const idx = parent.children.indexOf(id);
-  if (idx <= 0) return null;
-  const prevId = parent.children[idx - 1]!;
-  const prev = cloneWire(requireNode(nodes, prevId));
+  if (id === targetId) return null;
   const cur = requireNode(nodes, id);
-  const joinAt = prev.text.length;
-  const baseChildCount = prev.children.length;
-  prev.text = prev.text + cur.text;
-  prev.children = [...prev.children, ...cur.children];
-  prev.updatedAt = nowIso();
+  const target = cloneWire(requireNode(nodes, targetId));
 
-  const p = cloneWire(parent);
-  p.children = p.children.filter((c) => c !== id);
-  p.updatedAt = nowIso();
+  const joinAt = target.text.length;
+  const baseChildCount = target.children.length;
+  target.text = target.text + cur.text;
+  target.children = [...target.children, ...cur.children];
+  target.updatedAt = nowIso();
+
+  const parent = findParentWire(nodes, id);
+  const upserts: WireNode[] = [target];
+  if (parent && parent.id !== targetId) {
+    const p = cloneWire(parent);
+    p.children = p.children.filter((c) => c !== id);
+    p.updatedAt = nowIso();
+    upserts.push(p);
+  }
 
   return {
-    upserts: [prev, p],
+    upserts,
     deletes: [id],
     actions: [
-      {
-        id: "node.update",
-        input: { id: prevId, text: prev.text },
-      },
+      { id: "node.update", input: { id: targetId, text: target.text } },
       ...cur.children.map((cid, i) => ({
-        id: "node.update",
+        id: "node.update" as const,
         input: {
           id: cid,
-          parent: prevId,
+          parent: targetId,
           position: baseChildCount + i,
         },
       })),
       { id: "node.update", input: { id, delete: true } },
     ],
-    focusId: prevId,
+    focusId: targetId,
     focusCursor: joinAt,
   };
 }
 
-export function planIndent(
-  nodes: WireNode[],
-  id: string,
-): PlannedMutation | null {
+/**
+ * Merge `id` into its previous ARRAY sibling (same parent).
+ * Prefer planMergeInto with a visually-resolved target when the caller has
+ * instance context (r1 D09). Returns null for first children / roots —
+ * callers must handle those via delete-empty or outdent (r1 D08).
+ */
+export function planMergeWithPrevious(nodes: WireNode[], id: string): PlannedMutation | null {
+  const parent = findParentWire(nodes, id);
+  if (!parent) return null;
+  const idx = parent.children.indexOf(id);
+  if (idx <= 0) return null;
+  return planMergeInto(nodes, id, parent.children[idx - 1]!);
+}
+
+export function planIndent(nodes: WireNode[], id: string): PlannedMutation | null {
   const parent = findParentWire(nodes, id);
   const oldParent: WireNode | null = parent;
   let sibs: string[];
@@ -204,10 +246,7 @@ export function planIndent(
   };
 }
 
-export function planOutdent(
-  nodes: WireNode[],
-  id: string,
-): PlannedMutation | null {
+export function planOutdent(nodes: WireNode[], id: string): PlannedMutation | null {
   const parent = findParentWire(nodes, id);
   if (!parent) return null;
   const grand = findParentWire(nodes, parent.id);
@@ -223,11 +262,7 @@ export function planOutdent(
     const g = cloneWire(grand);
     const pIdx = g.children.indexOf(parent.id);
     const position = pIdx + 1;
-    g.children = [
-      ...g.children.slice(0, position),
-      id,
-      ...g.children.slice(position),
-    ];
+    g.children = [...g.children.slice(0, position), id, ...g.children.slice(position)];
     g.updatedAt = at;
     upserts.push(g);
     return {
@@ -280,6 +315,93 @@ export function planMove(
   };
 }
 
+/** A pure inverse transaction: applying it undoes the source tx locally. */
+export interface InverseTx {
+  upserts: WireNode[];
+  deletes: string[];
+}
+
+/**
+ * Compute the inverse of a planned mutation against its PRE state (r1 D19).
+ * - Nodes deleted by the plan are restored verbatim.
+ * - Nodes minted by the plan are removed.
+ * - Touched survivors revert to their pre-plan payload.
+ * Pure: no store access, fully unit-testable.
+ */
+export function invertPlan(preWire: WireNode[], plan: PlannedMutation): InverseTx {
+  const preById = wireById(preWire);
+  const upserts: WireNode[] = [];
+  const deletes: string[] = [];
+
+  // Restore hard-deleted subtrees (plan deletes cascade via children ids).
+  for (const id of plan.deletes) {
+    const pre = preById.get(id);
+    if (pre && !upserts.some((u) => u.id === id)) {
+      upserts.push(cloneWire(pre));
+    }
+  }
+
+  // Revert every upserted node; drop ones the plan minted.
+  for (const u of plan.upserts) {
+    const pre = preById.get(u.id);
+    if (!pre) {
+      if (!deletes.includes(u.id)) deletes.push(u.id);
+      continue;
+    }
+    if (!upserts.some((x) => x.id === u.id)) {
+      upserts.push(cloneWire(pre));
+    }
+  }
+
+  return { upserts, deletes };
+}
+
+/**
+ * Best-effort compensating registry actions so remote state follows a local
+ * undo. Hard-deleted ids are re-added (`node.add`); surviving touched nodes
+ * revert text/structure (`node.update`). Order: removals first.
+ */
+export function inversePlanActions(
+  preWire: WireNode[],
+  plan: PlannedMutation,
+  inv: InverseTx,
+): PlannedMutation["actions"] {
+  const actions: PlannedMutation["actions"] = [];
+  for (const id of inv.deletes) {
+    actions.push({ id: "node.update", input: { id, delete: true } });
+  }
+  const preById = wireById(preWire);
+  const wasDeleted = new Set(plan.deletes);
+  for (const u of inv.upserts) {
+    const pre = preById.get(u.id);
+    if (!pre) continue;
+    const parent = findParentWire(
+      preWire.filter((n) => n.id !== u.id),
+      u.id,
+    );
+    if (wasDeleted.has(u.id)) {
+      actions.push({
+        id: "node.add",
+        input: {
+          id: u.id,
+          text: u.text,
+          ...(parent ? { parent: parent.id } : {}),
+        },
+      });
+    } else {
+      actions.push({
+        id: "node.update",
+        input: {
+          id: u.id,
+          text: u.text,
+          ...(parent ? { parent: parent.id } : { parent: null }),
+        },
+      });
+    }
+  }
+  return actions;
+}
+
 export function planSetProp(
   nodes: WireNode[],
   nodeId: string,
@@ -290,18 +412,13 @@ export function planSetProp(
   const node = cloneWire(requireNode(nodes, nodeId));
   let list = [...(node.props[fieldId] ?? [])];
   if (oldValue !== undefined) {
-    list = list.filter(
-      (pv) => JSON.stringify(pv) !== JSON.stringify(oldValue),
-    );
+    list = list.filter((pv) => JSON.stringify(pv) !== JSON.stringify(oldValue));
   }
   list.push(value);
   node.props[fieldId] = list;
   node.updatedAt = nowIso();
 
-  const unsetProps =
-    oldValue !== undefined
-      ? [{ field: fieldId, value: oldValue }]
-      : undefined;
+  const unsetProps = oldValue !== undefined ? [{ field: fieldId, value: oldValue }] : undefined;
 
   return {
     upserts: [node],
@@ -351,32 +468,21 @@ export function planUnsetProp(
   };
 }
 
-export function planAddTag(
-  nodes: WireNode[],
-  nodeId: string,
-  tagId: string,
-): PlannedMutation {
+export function planAddTag(nodes: WireNode[], nodeId: string, tagId: string): PlannedMutation {
   return planSetProp(nodes, nodeId, SYSTEM_IDS.typeField, {
     t: "ref",
     v: tagId,
   });
 }
 
-export function planRemoveTag(
-  nodes: WireNode[],
-  nodeId: string,
-  tagId: string,
-): PlannedMutation {
+export function planRemoveTag(nodes: WireNode[], nodeId: string, tagId: string): PlannedMutation {
   return planUnsetProp(nodes, nodeId, SYSTEM_IDS.typeField, {
     t: "ref",
     v: tagId,
   });
 }
 
-export function planDefineField(
-  name: string,
-  newId: string,
-): PlannedMutation {
+export function planDefineField(name: string, newId: string): PlannedMutation {
   const at = nowIso();
   const node: WireNode = {
     id: newId,
@@ -395,10 +501,7 @@ export function planDefineField(
   };
 }
 
-export function planDefineTag(
-  name: string,
-  newId: string,
-): PlannedMutation {
+export function planDefineTag(name: string, newId: string): PlannedMutation {
   const at = nowIso();
   const node: WireNode = {
     id: newId,
@@ -469,10 +572,7 @@ export function planCreateAfter(
 }
 
 /** Add a forest-root content node (no parent). */
-export function planAddRootNode(
-  text: string,
-  newId: string,
-): PlannedMutation {
+export function planAddRootNode(text: string, newId: string): PlannedMutation {
   const at = nowIso();
   const node: WireNode = {
     id: newId,
@@ -518,6 +618,39 @@ export function planAddChild(
       {
         id: "node.add",
         input: { id: newId, text, parent: parentId, position },
+      },
+    ],
+    focusId: newId,
+    focusCursor: text.length,
+  };
+}
+
+/** Insert a child at the TOP of `parentId`'s children ('O' above first kid). */
+export function planPrependChild(
+  nodes: WireNode[],
+  parentId: string,
+  newId: string,
+  text = "",
+): PlannedMutation {
+  const parent = cloneWire(requireNode(nodes, parentId));
+  const at = nowIso();
+  const child: WireNode = {
+    id: newId,
+    text,
+    props: {},
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+  parent.children = [newId, ...parent.children];
+  parent.updatedAt = at;
+  return {
+    upserts: [parent, child],
+    deletes: [],
+    actions: [
+      {
+        id: "node.add",
+        input: { id: newId, text, parent: parentId, position: 0 },
       },
     ],
     focusId: newId,
@@ -683,13 +816,7 @@ export function planSetViewMode(
 ): PlannedMutation {
   const frame = cloneWire(requireNode(nodes, frameId));
   const existing = frame.props[SYSTEM_IDS.viewModeField]?.[0];
-  return planSetProp(
-    nodes,
-    frameId,
-    SYSTEM_IDS.viewModeField,
-    { t: "str", v: mode },
-    existing,
-  );
+  return planSetProp(nodes, frameId, SYSTEM_IDS.viewModeField, { t: "str", v: mode }, existing);
 }
 
 /** Persist graph perspective renderer (force2d|tree|cluster|force3d). */
@@ -736,10 +863,7 @@ export function planSetViewSort(
         id: "node.update",
         input: {
           id: frameId,
-          unsetProps: [
-            { field: SYSTEM_IDS.viewSortField },
-            { field: SYSTEM_IDS.viewSortDirField },
-          ],
+          unsetProps: [{ field: SYSTEM_IDS.viewSortField }, { field: SYSTEM_IDS.viewSortDirField }],
           setProps: [
             ...sortRefs.map((r) => ({
               field: SYSTEM_IDS.viewSortField,
@@ -797,13 +921,7 @@ export function planSetViewColwidth(
   const frame = cloneWire(requireNode(nodes, frameId));
   const existing = frame.props[SYSTEM_IDS.viewColwidthField]?.[0];
   const json = JSON.stringify(colwidth);
-  return planSetProp(
-    nodes,
-    frameId,
-    SYSTEM_IDS.viewColwidthField,
-    { t: "str", v: json },
-    existing,
-  );
+  return planSetProp(nodes, frameId, SYSTEM_IDS.viewColwidthField, { t: "str", v: json }, existing);
 }
 
 export function planSetViewPagesize(
@@ -837,13 +955,7 @@ export function planSetViewGroup(
       existing?.t === "ref" ? existing : undefined,
     );
   }
-  return planSetProp(
-    nodes,
-    frameId,
-    SYSTEM_IDS.viewGroupField,
-    { t: "ref", v: fieldId },
-    existing,
-  );
+  return planSetProp(nodes, frameId, SYSTEM_IDS.viewGroupField, { t: "ref", v: fieldId }, existing);
 }
 
 /** Replace all view.filter str props with the given EDN list. */
@@ -896,12 +1008,8 @@ export function planMoveBoardCard(
   node.updatedAt = nowIso();
 
   const unsetProps =
-    existing.length > 0
-      ? existing.map((value) => ({ field: fieldId, value }))
-      : undefined;
-  const setProps = newValue
-    ? [{ field: fieldId, value: newValue }]
-    : undefined;
+    existing.length > 0 ? existing.map((value) => ({ field: fieldId, value })) : undefined;
+  const setProps = newValue ? [{ field: fieldId, value: newValue }] : undefined;
 
   return {
     upserts: [node],
@@ -913,7 +1021,8 @@ export function planMoveBoardCard(
           id: nodeId,
           ...(unsetProps ? { unsetProps } : {}),
           ...(setProps ? { setProps } : {}),
-        },      },
+        },
+      },
     ],
   };
 }

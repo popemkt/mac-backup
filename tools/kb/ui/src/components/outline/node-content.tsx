@@ -1,15 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LockSimple } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
+import {
+  getCaretSerializedOffset,
+  renderEditableContent,
+  serializeEditable,
+  setCaretSerializedOffset,
+} from "@/lib/md-edit";
 import {
   fuzzyNodeCandidates,
   insertRefAtCursor,
   openRefQuery,
 } from "@/lib/refs";
+import { isSysPrefixed } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { MdView } from "@/components/outline/md-view";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
+import { nearestOffsetForX } from "./caret";
 import { TagConfigPanel } from "./tag-config-panel";
 import { TagChipGroup } from "./tag-chip";
 
@@ -39,19 +48,31 @@ export function NodeContent({
   const editorRef = useRef<HTMLDivElement>(null);
   const isComposing = useRef(false);
   const wasActive = useRef(false);
+  /** Query captured at dismissal time; a different query re-opens (D14). */
+  const acDismissedQuery = useRef<string | null>(null);
   const nodes = useOutlineStore((s) => s.nodes);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const focusSeq = useOutlineStore((s) => s.focusSeq);
   const [acIndex, setAcIndex] = useState(0);
+  /** D14: Escape dismisses the popup without blurring or leaving edit mode. */
+  const [acDismissed, setAcDismissed] = useState(false);
   const [cursor, setCursor] = useState(cursorPosition);
   const [configTag, setConfigTag] = useState<{
     id: string;
     rect: DOMRect;
   } | null>(null);
+  const readOnly = isSysPrefixed(nodeId);
 
-  const refOpen = useMemo(() => {
-    if (!isActive) return null;
+  const rawRefOpen = useMemo(() => {
+    if (!isActive || readOnly) return null;
     return openRefQuery(content, cursor);
-  }, [isActive, content, cursor]);
+  }, [isActive, readOnly, content, cursor]);
+
+  // Dismissal survives until the query itself changes or typing resumes.
+  const refOpen =
+    acDismissed && rawRefOpen?.query === acDismissedQuery.current
+      ? null
+      : rawRefOpen;
 
   const candidates = useMemo(() => {
     if (!refOpen) return [];
@@ -67,71 +88,79 @@ export function NodeContent({
       const el = editorRef.current;
 
       if (!wasActive.current) {
-        el.textContent = content;
+        // Rebuild DOM from the authoritative string (atomic pills, D16).
+        renderEditableContent(el, content);
       }
       wasActive.current = true;
 
       el.focus();
-      const textNode = el.firstChild;
-      if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-        const sel = window.getSelection();
-        const range = document.createRange();
-        const pos = Math.min(
-          cursorPosition,
-          textNode.textContent?.length ?? 0,
-        );
-        range.setStart(textNode, pos);
-        range.collapse(true);
-        sel?.removeAllRanges();
-        sel?.addRange(range);
-        setCursor(pos);
-      } else if (!textNode) {
-        el.focus();
+      let placedCursor = Math.min(cursorPosition, content.length);
+      setCaretSerializedOffset(el, placedCursor);
+
+      // Column preservation across vertical navigation (D11): nudge the
+      // caret to the character whose visual x best matches the previous row.
+      const focusX = useOutlineStore.getState().focusX;
+      if (focusX !== null && focusX !== undefined) {
+        const adjusted =
+          nearestOffsetForX(el, focusX, "first") ??
+          nearestOffsetForX(el, focusX, "last");
+        if (adjusted !== null) {
+          setCaretSerializedOffset(el, adjusted);
+          placedCursor = adjusted;
+        }
+        useOutlineStore.setState({ focusX: null });
       }
+
+      setCursor(placedCursor);
+      setAcDismissed(false);
+      acDismissedQuery.current = null;
     } else {
       wasActive.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, cursorPosition]);
-
-  const readCursor = useCallback(() => {
-    const sel = window.getSelection();
-    return sel?.focusOffset ?? 0;
-  }, []);
+  }, [isActive, cursorPosition, focusSeq]);
 
   const applyRef = useCallback(
     (id: string, label: string) => {
-      const pos = readCursor();
+      const pos = cursor;
       const inserted = insertRefAtCursor(content, pos, id, label);
       if (!inserted) return;
       onChange(inserted.text);
       if (editorRef.current) {
-        editorRef.current.textContent = inserted.text;
-        const textNode = editorRef.current.firstChild;
-        if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-          const sel = window.getSelection();
-          const range = document.createRange();
-          range.setStart(textNode, inserted.cursor);
-          range.collapse(true);
-          sel?.removeAllRanges();
-          sel?.addRange(range);
-        }
+        renderEditableContent(editorRef.current, inserted.text);
+        setCaretSerializedOffset(editorRef.current, inserted.cursor);
       }
       setCursor(inserted.cursor);
       useOutlineStore
         .getState()
         .activateNode(nodeId, inserted.cursor, instanceKey);
     },
-    [content, nodeId, instanceKey, onChange, readCursor],
+    [content, cursor, nodeId, instanceKey, onChange],
   );
+
+  /**
+   * D15: Enter/Tab with an open popup and zero candidates completes the
+   * bracket (`]]`) instead of falling through to a destructive split.
+   */
+  const completeBracket = useCallback(() => {
+    if (!editorRef.current) return;
+    const next = content.slice(0, cursor) + "]]" + content.slice(cursor);
+    onChange(next);
+    renderEditableContent(editorRef.current, next);
+    setCaretSerializedOffset(editorRef.current, cursor + 2);
+    setCursor(cursor + 2);
+    useOutlineStore.getState().activateNode(nodeId, cursor + 2, instanceKey);
+  }, [content, cursor, nodeId, instanceKey, onChange]);
 
   const handleInput = useCallback(() => {
     if (editorRef.current && !isComposing.current) {
-      const text = editorRef.current.textContent ?? "";
-      setCursor(readCursor());
+      const text = serializeEditable(editorRef.current);
+      setCursor(getCaretSerializedOffset(editorRef.current));
+      acDismissedQuery.current = null;
+      setAcDismissed(false);
       onChange(text);
     }
-  }, [onChange, readCursor]);
+  }, [onChange]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -184,13 +213,13 @@ export function NodeContent({
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (isComposing.current) return;
 
-      if (refOpen && candidates.length > 0) {
-        if (e.key === "ArrowDown") {
+      if (refOpen) {
+        if (e.key === "ArrowDown" && candidates.length > 0) {
           e.preventDefault();
           setAcIndex((i) => (i + 1) % candidates.length);
           return;
         }
-        if (e.key === "ArrowUp") {
+        if (e.key === "ArrowUp" && candidates.length > 0) {
           e.preventDefault();
           setAcIndex(
             (i) => (i - 1 + candidates.length) % candidates.length,
@@ -199,18 +228,25 @@ export function NodeContent({
         }
         if (e.key === "Enter" || e.key === "Tab") {
           e.preventDefault();
-          const pick = candidates[acIndex] ?? candidates[0];
-          if (pick) applyRef(pick.id, pick.text);
+          if (candidates.length > 0) {
+            const pick = candidates[acIndex] ?? candidates[0];
+            if (pick) applyRef(pick.id, pick.text);
+          } else {
+            completeBracket();
+          }
           return;
         }
         if (e.key === "Escape") {
+          // D14: dismiss the popover only — stay editing, keep caret.
           e.preventDefault();
-          setCursor(readCursor());
+          e.stopPropagation();
+          acDismissedQuery.current = refOpen.query;
+          setAcDismissed(true);
           return;
         }
       }
 
-      setCursor(readCursor());
+      setCursor(getCaretSerializedOffset(editorRef.current));
       onKeyDown(e);
     },
     [
@@ -218,10 +254,12 @@ export function NodeContent({
       candidates,
       acIndex,
       applyRef,
+      completeBracket,
       onKeyDown,
-      readCursor,
     ],
   );
+
+  const showPadlock = readOnly && !isActive;
 
   return (
     <>
@@ -231,7 +269,7 @@ export function NodeContent({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        {isActive ? (
+        {isActive && !readOnly ? (
           <div
             ref={editorRef}
             key="editor"
@@ -246,7 +284,12 @@ export function NodeContent({
             suppressContentEditableWarning
             onInput={handleInput}
             onKeyDown={handleKeyDown}
-            onKeyUp={() => setCursor(readCursor())}
+            onKeyUp={() =>
+              setCursor(
+                getCaretSerializedOffset(editorRef.current),
+              )
+            }
+            onClick={(e) => e.stopPropagation()}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
             role="textbox"
@@ -256,6 +299,16 @@ export function NodeContent({
             text={content}
             className="min-h-6 min-w-0 flex-1 self-start text-foreground/85"
           />
+        )}
+
+        {showPadlock && (
+          <span
+            className="mt-1 shrink-0 text-foreground/25 opacity-0 transition-opacity duration-150 group-hover/node:opacity-100"
+            title="System node — read-only"
+            data-sys-lock="true"
+          >
+            <LockSimple size={12} weight="bold" />
+          </span>
         )}
 
         <TagChipGroup

@@ -26,11 +26,12 @@ interface PropValueEditorProps {
 
 const editableClass = cn(
   "flex-1 outline-none rounded-sm px-1",
-  "text-[14.5px] leading-[1.6]",
+  KB_TEXT_CLASS,
 );
 
 const emptyClass = cn(
-  "px-1 text-[14.5px] leading-[1.6] text-foreground/25 italic",
+  "px-1 text-foreground/25 italic",
+  KB_TEXT_CLASS,
 );
 
 /** Borderless inline prop editors — picked by declared fieldType. */
@@ -192,6 +193,7 @@ function EditableText({
       className={cn(
         editableClass,
         "cursor-text",
+        showEmpty && "empty-placeholder",
         showEmpty
           ? "text-foreground/25 italic"
           : underline
@@ -201,9 +203,12 @@ function EditableText({
       onClick={handleClick}
       onBlur={commit}
       onKeyDown={handleKeyDown}
+      data-empty-placeholder={showEmpty ? "true" : undefined}
       suppressContentEditableWarning
     >
-      {showEmpty ? "Empty" : text}
+      {/* D17: empty state is CSS-only (:empty::before) — the DOM stays
+          empty so the caret lands on a truly blank editor. */}
+      {showEmpty ? "" : text}
     </div>
   );
 }
@@ -281,11 +286,12 @@ function DateValue({
       className={cn(
         editableClass,
         "cursor-text",
-        displayDate ? "text-foreground/70" : "text-foreground/25 italic",
+        !displayDate && "empty-placeholder text-foreground/25 italic",
       )}
+      data-empty-placeholder={!displayDate ? "true" : undefined}
       onClick={() => setEditing(true)}
     >
-      {displayDate ?? "Empty"}
+      {displayDate ?? ""}
     </span>
   );
 }
@@ -453,7 +459,10 @@ function RefEditor({
         />
       )}
       {!refId && candidates.length === 0 && (
-        <span className={emptyClass}>Empty</span>
+        <span
+          className={cn(emptyClass, "empty-placeholder")}
+          data-empty-placeholder="true"
+        />
       )}
     </div>
   );

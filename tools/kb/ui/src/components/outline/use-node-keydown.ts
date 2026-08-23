@@ -1,7 +1,13 @@
 import { useCallback } from "react";
 import { mutations } from "@/actions/mutations";
+import {
+  getCaretSerializedOffset,
+  renderEditableContent,
+  setCaretSerializedOffset,
+} from "@/lib/md-edit";
 import type { OutlineNode } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
+import { readCaretGeometry, verticalArrowDecision } from "./caret";
 
 export interface UseNodeKeyDownArgs {
   nodeId: string;
@@ -11,8 +17,9 @@ export interface UseNodeKeyDownArgs {
 }
 
 /**
- * Shared structural keymap for outline name editing (list + table).
- * Owned once so TableView name cells keep parity with NodeBlock.
+ * Mode A structural keymap (r1 §3.2) — shared by list rows and table cells.
+ * Offsets are SERIALIZED character offsets (pills count as their token), and
+ * vertical navigation reads visual-line geometry, never naive extremes.
  */
 export function useNodeKeyDown({
   nodeId,
@@ -22,17 +29,16 @@ export function useNodeKeyDown({
 }: UseNodeKeyDownArgs) {
   const activateNode = useOutlineStore((s) => s.activateNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
-  const getPreviousVisibleInstance = useOutlineStore(
-    (s) => s.getPreviousVisibleInstance,
-  );
-  const getNextVisibleInstance = useOutlineStore(
-    (s) => s.getNextVisibleInstance,
-  );
 
   return useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      const sel = window.getSelection();
-      const cursor = sel?.focusOffset ?? 0;
+      const store = useOutlineStore.getState();
+      const live = store.nodes.get(nodeId);
+      const el = e.currentTarget;
+
+      // Serialized caret offset — robust across element boundaries and
+      // atomic ref pills (D06).
+      const cursor = getCaretSerializedOffset(el);
 
       if (isRef) {
         const structural =
@@ -50,106 +56,187 @@ export function useNodeKeyDown({
         }
       }
 
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        void mutations.splitNode(nodeId, cursor);
-        return;
-      }
+      const text = live?.text ?? "";
+      const parentId = live?.parentId ?? null;
+      const parentNode = parentId ? store.nodes.get(parentId) : null;
+      const siblingIdx = parentNode
+        ? parentNode.children.indexOf(nodeId)
+        : -1;
 
-      if (e.key === "Tab") {
-        e.preventDefault();
-        if (e.shiftKey) void mutations.outdentNode(nodeId);
-        else void mutations.indentNode(nodeId);
-        return;
-      }
-
-      if (e.key === "Backspace" && !e.metaKey && !e.ctrlKey) {
-        if (cursor === 0) {
+      switch (e.key) {
+        case "Enter": {
+          if (e.shiftKey) {
+            // Soft line break inside the node — never a split (§3.2).
+            e.preventDefault();
+            const next =
+              text.slice(0, cursor) + "\n" + text.slice(cursor);
+            mutations.updateNodeContent(nodeId, next);
+            renderEditableContent(el, next);
+            setCaretSerializedOffset(el, cursor + 1);
+            activateNode(nodeId, cursor + 1, instanceKey);
+            return;
+          }
           e.preventDefault();
-          if (node?.text === "" && (node?.children.length ?? 0) === 0) {
-            const prev = getPreviousVisibleInstance(instanceKey);
+          // Expanded parent ⇒ first child; otherwise sibling-after (D07).
+          void mutations.splitNode(nodeId, cursor);
+          return;
+        }
+
+        case "Tab": {
+          e.preventDefault();
+          if (e.shiftKey) void mutations.outdentNode(nodeId, cursor);
+          else void mutations.indentNode(nodeId, cursor);
+          return;
+        }
+
+        case "Backspace": {
+          if (cursor !== 0) return; // native char delete
+          if (e.metaKey || e.ctrlKey) {
+            // Delete subtree; focus previous visible at text end, else next.
+            e.preventDefault();
+            const prev = store.getPreviousVisibleInstance(instanceKey);
+            const nextInst = store.getNextVisibleInstance(instanceKey);
             void mutations.deleteNode(nodeId).then(() => {
-              if (prev) {
-                const prevNode = useOutlineStore
-                  .getState()
-                  .nodes.get(prev.nodeId);
-                activateNode(
+              const pick = prev ?? nextInst;
+              if (!pick) {
+                useOutlineStore.getState().selectNode(null);
+                return;
+              }
+              const pickNode = useOutlineStore
+                .getState()
+                .nodes.get(pick.nodeId);
+              const at =
+                pick === prev ? (pickNode?.text.length ?? 0) : 0;
+              useOutlineStore
+                .getState()
+                .activateNode(pick.nodeId, at, pick.instanceKey);
+            });
+            return;
+          }
+
+          // Empty leaf anywhere: delete + focus previous visible end.
+          if (text === "" && (live?.children.length ?? 0) === 0) {
+            e.preventDefault();
+            const prev = store.getPreviousVisibleInstance(instanceKey);
+            void mutations.deleteNode(nodeId).then(() => {
+              if (!prev) return;
+              const prevNode = useOutlineStore
+                .getState()
+                .nodes.get(prev.nodeId);
+              useOutlineStore
+                .getState()
+                .activateNode(
                   prev.nodeId,
                   prevNode?.text.length ?? 0,
                   prev.instanceKey,
                 );
-              }
             });
-          } else {
-            void mutations.mergeWithPrevious(nodeId);
+            return;
           }
-          return;
-        }
-      }
 
-      if (
-        (e.key === "Backspace" || e.key === "Delete") &&
-        (e.metaKey || e.ctrlKey)
-      ) {
-        e.preventDefault();
-        void mutations.deleteNode(nodeId);
-        return;
-      }
-
-      if (e.key === "ArrowUp") {
-        if (e.metaKey && e.shiftKey) {
-          e.preventDefault();
-          void mutations.moveNodeUp(nodeId);
-          return;
-        }
-        if (e.metaKey) {
-          e.preventDefault();
-          if (node?.children.length && !node.collapsed) {
-            toggleCollapse(nodeId);
+          // First child (or root-level): outdent, NEVER swallow (D08).
+          if (siblingIdx === 0) {
+            e.preventDefault();
+            void mutations.outdentNode(nodeId, cursor);
+            return;
           }
-          return;
-        }
-        if (cursor === 0) {
-          e.preventDefault();
-          const prev = getPreviousVisibleInstance(instanceKey);
-          if (prev) {
-            const prevNode = useOutlineStore.getState().nodes.get(prev.nodeId);
-            activateNode(
-              prev.nodeId,
-              prevNode?.text.length ?? 0,
-              prev.instanceKey,
-            );
-          }
-        }
-        return;
-      }
 
-      if (e.key === "Escape") {
-        e.preventDefault();
-        useOutlineStore.getState().selectNode(nodeId, instanceKey);
-        return;
-      }
-
-      if (e.key === "ArrowDown") {
-        if (e.metaKey && e.shiftKey) {
-          e.preventDefault();
-          void mutations.moveNodeDown(nodeId);
-          return;
-        }
-        if (e.metaKey) {
-          e.preventDefault();
-          if (node?.children.length && node.collapsed) {
-            toggleCollapse(nodeId);
+          // Deeper than first child: merge into the VISIBLE predecessor
+          // (deepest last descendant of the array sibling) — D09.
+          if (siblingIdx > 0) {
+            e.preventDefault();
+            void mutations.mergeWithPrevious(nodeId, instanceKey);
+            return;
           }
+          // Forest top edge: nothing above; keep native no-op.
           return;
         }
-        const isAtEnd = cursor === (node?.text.length ?? 0);
-        if (isAtEnd) {
+
+        case "Delete": {
+          if (!(e.metaKey || e.ctrlKey)) return; // native forward delete
           e.preventDefault();
-          const next = getNextVisibleInstance(instanceKey);
-          if (next) activateNode(next.nodeId, 0, next.instanceKey);
+          const prev = store.getPreviousVisibleInstance(instanceKey);
+          const nextInst = store.getNextVisibleInstance(instanceKey);
+          void mutations.deleteNode(nodeId).then(() => {
+            const pick = prev ?? nextInst;
+            if (!pick) {
+              useOutlineStore.getState().selectNode(null);
+              return;
+            }
+            const pickNode = useOutlineStore
+              .getState()
+              .nodes.get(pick.nodeId);
+            const at = pick === prev ? (pickNode?.text.length ?? 0) : 0;
+            useOutlineStore
+              .getState()
+              .activateNode(pick.nodeId, at, pick.instanceKey);
+          });
+          return;
         }
-        return;
+
+        case "ArrowUp":
+        case "ArrowDown": {
+          if (e.metaKey && e.shiftKey) {
+            e.preventDefault();
+            if (e.key === "ArrowUp") void mutations.moveNodeUp(nodeId);
+            else void mutations.moveNodeDown(nodeId);
+            return;
+          }
+          if (e.metaKey || e.ctrlKey) {
+            e.preventDefault();
+            if (e.key === "ArrowUp") {
+              if (live && live.children.length > 0 && !live.collapsed) {
+                toggleCollapse(nodeId);
+              } else if (parentId) {
+                // Collapsed / leaf: jump to enclosing page (zoomed root).
+                store.zoomTo(parentId);
+              }
+            } else if (
+              live &&
+              live.collapsed &&
+              (live.children.length > 0 ||
+                live.tags.length > 0)
+            ) {
+              toggleCollapse(nodeId);
+            }
+            return;
+          }
+
+          // Visual-line vertical navigation (D10/D11).
+          const decision = verticalArrowDecision({
+            key: e.key,
+            geometry: readCaretGeometry(el),
+          });
+          if (decision.kind === "within") return; // native line move
+          const neighbor =
+            decision.direction === -1
+              ? store.getPreviousVisibleInstance(instanceKey)
+              : store.getNextVisibleInstance(instanceKey);
+          if (!neighbor) return; // document edge: native no-op
+          e.preventDefault();
+          const nNode = store.nodes.get(neighbor.nodeId);
+          const fallbackCursor =
+            decision.direction === -1
+              ? (nNode?.text.length ?? 0)
+              : 0;
+          activateNode(
+            neighbor.nodeId,
+            fallbackCursor,
+            neighbor.instanceKey,
+            { x: decision.x },
+          );
+          return;
+        }
+
+        case "Escape": {
+          // Popups handle Escape before delegating; bare Escape selects.
+          e.preventDefault();
+          store.selectNode(nodeId, instanceKey);
+          return;
+        }
+
+        default:
+          return;
       }
     },
     [
@@ -159,8 +246,6 @@ export function useNodeKeyDown({
       instanceKey,
       toggleCollapse,
       activateNode,
-      getPreviousVisibleInstance,
-      getNextVisibleInstance,
     ],
   );
 }
