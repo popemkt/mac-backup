@@ -36,12 +36,15 @@ export interface LensNode {
   color: string;
   size: number;
   clusterKey: string;
+  tags: string[];
+  degree: number;
 }
 
 export interface LensEdge {
   source: string;
   target: string;
   kind: EdgeKind;
+  weight: number;
 }
 
 export interface LensGraph {
@@ -49,6 +52,8 @@ export interface LensGraph {
   edges: LensEdge[];
   /** Nodes dropped by max-nodes cap. */
   dropped: number;
+  /** Query parse/exec error message, if any. */
+  queryError: string | null;
 }
 
 export const DEFAULT_EDGE_KINDS: EdgeKind[] = ["mention", "child"];
@@ -336,7 +341,7 @@ function resolveNodeSet(
   wireNodes: WireNode[],
   perspective: LensPerspective,
   opts: ExtractLensOptions = {},
-): Set<string> {
+): { nodeSet: Set<string>; queryError: string | null } {
   const includeSystem = opts.includeSystemNodes === true;
   const restrictTo = opts.restrictTo;
   const candidates = wireNodes.filter((n) => {
@@ -345,17 +350,14 @@ function resolveNodeSet(
   });
   const all = new Set(candidates.map((n) => n.id));
   const edn = perspective.query.trim();
-  if (!edn) return all;
+  if (!edn) return { nodeSet: all, queryError: null };
   try {
     const rows = runQuery(db, edn);
-    // Query may return elided ids; intersect with the (possibly filtered) set.
-    return idsFromQueryRows(rows, all);
+    return { nodeSet: idsFromQueryRows(rows, all), queryError: null };
   } catch (err) {
-    console.warn(
-      "[graph-lens] lens.query failed; using empty node set:",
-      err instanceof Error ? err.message : err,
-    );
-    return new Set();
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[graph-lens] lens.query failed:", msg);
+    return { nodeSet: new Set(), queryError: msg };
   }
 }
 
@@ -366,14 +368,22 @@ function collectEdges(
   kinds: Set<EdgeKind>,
 ): LensEdge[] {
   const edges: LensEdge[] = [];
-  const seen = new Set<string>();
+  const weights = new Map<string, number>();
   const push = (source: string, target: string, kind: EdgeKind) => {
     if (!nodeSet.has(source) || !nodeSet.has(target)) return;
     if (source === target) return;
     const key = `${kind}:${source}->${target}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    edges.push({ source, target, kind });
+    const existing = weights.get(key);
+    if (existing !== undefined) {
+      weights.set(key, existing + 1);
+      const edge = edges.find(
+        (e) => e.source === source && e.target === target && e.kind === kind,
+      );
+      if (edge) edge.weight = existing + 1;
+      return;
+    }
+    weights.set(key, 1);
+    edges.push({ source, target, kind, weight: 1 });
   };
 
   if (kinds.has("mention")) {
@@ -476,6 +486,13 @@ export function resolveSize(
   return Math.max(3, Math.min(20, 3 + Math.sqrt(degree) * 2.5));
 }
 
+const MAX_LABEL_LEN = 40;
+function truncateLabel(text: string): string {
+  const line = text.split("\n")[0] ?? text;
+  if (line.length <= MAX_LABEL_LEN) return line;
+  return line.slice(0, MAX_LABEL_LEN - 1) + "…";
+}
+
 export function extractLensGraph(
   db: QueryDb,
   wireNodes: WireNode[],
@@ -483,7 +500,7 @@ export function extractLensGraph(
   opts: ExtractLensOptions = {},
 ): LensGraph {
   const byId = new Map(wireNodes.map((n) => [n.id, n]));
-  const nodeSet = resolveNodeSet(db, wireNodes, perspective, opts);
+  const { nodeSet, queryError } = resolveNodeSet(db, wireNodes, perspective, opts);
   const kinds = new Set(perspective.edgeKinds);
   const rawEdges = collectEdges(db, wireNodes, nodeSet, kinds);
   const candidateIds = [...nodeSet];
@@ -515,15 +532,25 @@ export function extractLensGraph(
       finalDegrees.get(id) ?? 0,
       wire.children.length,
     );
+    const wireTags: string[] = [];
+    const types = wire.props[SYSTEM_IDS.typeField] ?? [];
+    for (const pv of types) {
+      if (pv.t === "ref") {
+        const target = byId.get(pv.v);
+        if (target && isTagNode(target)) wireTags.push(target.text || pv.v);
+      }
+    }
     nodes.push({
       id,
-      label: wire.text || id,
+      label: truncateLabel(wire.text || id),
       color,
       size,
       clusterKey,
+      tags: wireTags,
+      degree: finalDegrees.get(id) ?? 0,
     });
   }
   nodes.sort((a, b) => a.id.localeCompare(b.id));
 
-  return { nodes, edges, dropped };
+  return { nodes, edges, dropped, queryError };
 }

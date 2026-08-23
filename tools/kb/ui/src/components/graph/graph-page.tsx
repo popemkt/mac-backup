@@ -1,5 +1,6 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { CircleHalf } from "@phosphor-icons/react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CircleHalf, Warning } from "@phosphor-icons/react";
+import type Sigma from "sigma";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, resolveDark } from "@/stores/prefs.store";
@@ -19,18 +20,21 @@ import { graphPath, navigate, ontologyPath } from "@/lib/router";
 import { OntologyPicker } from "@/components/ontology/ontology-picker";
 import { PerspectivePicker } from "@/components/graph/perspective-picker";
 import { RendererSwitch } from "@/components/graph/renderer-switch";
-import { SigmaGraph } from "@/components/graph/sigma-graph";
+import { SigmaGraph, type GraphSelection } from "@/components/graph/sigma-graph";
 import { ClusterGraph } from "@/components/graph/cluster-graph";
 import { TreeGraph } from "@/components/graph/tree-graph";
+import { GraphToolbar } from "@/components/graph/graph-toolbar";
+import { GraphLegend } from "@/components/graph/graph-legend";
 import { SidebarToggle } from "@/components/sidebar/sidebar";
 
-/** Heavier three.js bundle — must stay out of the sigma/graph-page chunk. */
 const Force3dGraph = lazy(() => import("@/components/graph/force3d-graph"));
 
 function systemPrefersDark(): boolean {
   if (typeof window === "undefined" || !window.matchMedia) return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
+
+const SYS_STORAGE_KEY = "kb-graph-include-sys";
 
 export interface GraphPageProps {
   perspectiveId: string | null;
@@ -55,8 +59,21 @@ export default function GraphPage({
   const prefsOpen = useUiStore((s) => s.prefsOpen);
   const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
 
-  /** Local pref: show sys/command/schema nodes (smart-elide off). */
-  const [includeSystemNodes, setIncludeSystemNodes] = useState(false);
+  const [includeSystemNodes, setIncludeSystemNodes] = useState(() => {
+    try {
+      return localStorage.getItem(SYS_STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSys = () => {
+    setIncludeSystemNodes((v) => {
+      const next = !v;
+      try { localStorage.setItem(SYS_STORAGE_KEY, next ? "1" : "0"); } catch {}
+      return next;
+    });
+  };
 
   const perspectives = useMemo(
     () => listPerspectiveNodes(wireNodes).map(parsePerspective),
@@ -98,7 +115,7 @@ export default function GraphPage({
           includeSystemNodes,
           ...(restrictTo ? { restrictTo } : {}),
         })
-      : { nodes: [], edges: [], dropped: 0 },
+      : { nodes: [], edges: [], dropped: 0, queryError: null },
   );
 
   useEffect(() => {
@@ -122,14 +139,26 @@ export default function GraphPage({
     [wireNodes, lensGraph.nodes, active],
   );
 
-  // Theme tokens only — topology updates via nodes/edges props (not remount).
   const themeKey = `${theme}:${dark ? "d" : "l"}`;
-  const onNodeClick = (id: string) => {
+  const onNodeOpen = useCallback((id: string) => {
     navigate(ontologyId ? ontologyPath(ontologyId, "outline") : "/");
     zoomTo(id);
-  };
+  }, [navigate, ontologyId, zoomTo]);
 
   const renderer = active?.renderer ?? "force2d";
+
+  // Graph interaction state
+  const sigmaInstanceRef = useRef<Sigma | null>(null);
+  const [selection, setSelection] = useState<GraphSelection | null>(null);
+  const [searchHighlight, setSearchHighlight] = useState<Set<string> | null>(null);
+  const [filterIds, setFilterIds] = useState<Set<string> | null>(null);
+  const [capDismissed, setCapDismissed] = useState(false);
+
+  const nodeIds = useMemo(() => lensGraph.nodes.map((n) => n.id), [lensGraph.nodes]);
+
+  useEffect(() => { setCapDismissed(false); }, [lensGraph.dropped]);
+
+  const showForce2d = renderer === "force2d";
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
@@ -175,14 +204,21 @@ export default function GraphPage({
               ? "Hide sys / command / schema nodes"
               : "Show sys / command / schema nodes"
           }
-          onClick={() => setIncludeSystemNodes((v) => !v)}
+          onClick={toggleSys}
         >
           {includeSystemNodes ? "sys on" : "sys off"}
         </button>
         <span className="text-[11px] text-foreground/30">
           {lensGraph.nodes.length} nodes · {lensGraph.edges.length} edges
-          {lensGraph.dropped > 0 ? ` · −${lensGraph.dropped}` : ""}
         </span>
+        {lensGraph.queryError && (
+          <span
+            className="flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-600 dark:text-amber-400"
+            title={lensGraph.queryError}
+          >
+            <Warning size={12} /> query error
+          </span>
+        )}
         <div className="flex-1" />
         <button
           type="button"
@@ -195,16 +231,24 @@ export default function GraphPage({
           <CircleHalf size={15} />
         </button>
       </header>
-      <div className="min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1" key={renderer} style={{ animation: "graph-fade-in 200ms ease-out" }}>
         {!active || !queryDb ? (
-          <div className="p-6 text-[13px] text-foreground/40">
-            No graph perspectives seeded.
+          <div className="flex h-full items-center justify-center">
+            <p className="text-center text-[13px] text-foreground/40">
+              No graph perspectives seeded.
+            </p>
+          </div>
+        ) : lensGraph.nodes.length === 0 && !lensGraph.queryError ? (
+          <div className="flex h-full items-center justify-center">
+            <p className="max-w-xs text-center text-[13px] text-foreground/40">
+              0 nodes match — edit this perspective’s query to broaden the view.
+            </p>
           </div>
         ) : renderer === "tree" ? (
           <TreeGraph
             forest={forest}
             themeKey={themeKey}
-            onNodeClick={onNodeClick}
+            onNodeClick={onNodeOpen}
           />
         ) : renderer === "cluster" ? (
           <ClusterGraph
@@ -212,7 +256,7 @@ export default function GraphPage({
             edges={lensGraph.edges}
             layoutKey={active.id}
             themeKey={themeKey}
-            onNodeClick={onNodeClick}
+            onNodeClick={onNodeOpen}
           />
         ) : renderer === "force3d" ? (
           <Suspense
@@ -227,17 +271,57 @@ export default function GraphPage({
               edges={lensGraph.edges}
               layoutKey={active.id}
               themeKey={themeKey}
-              onNodeClick={onNodeClick}
+              onNodeClick={onNodeOpen}
             />
           </Suspense>
         ) : (
-          <SigmaGraph
-            nodes={lensGraph.nodes}
-            edges={lensGraph.edges}
-            layoutKey={active.id}
-            themeKey={themeKey}
-            onNodeClick={onNodeClick}
-          />
+          <>
+            <SigmaGraph
+              nodes={lensGraph.nodes}
+              edges={lensGraph.edges}
+              layoutKey={active.id}
+              themeKey={themeKey}
+              onNodeOpen={onNodeOpen}
+              onSelectionChange={setSelection}
+              sigmaRef={sigmaInstanceRef}
+              highlightIds={searchHighlight ?? undefined}
+              filterIds={filterIds ?? undefined}
+            />
+            <GraphToolbar
+              sigmaRef={sigmaInstanceRef}
+              selectedNodeId={selection?.nodeId ?? null}
+              nodeIds={nodeIds}
+              onSearchChange={setSearchHighlight}
+            />
+            <GraphLegend
+              nodes={lensGraph.nodes}
+              onFilterChange={setFilterIds}
+            />
+          </>
+        )}
+        {lensGraph.dropped > 0 && !capDismissed && (
+          <div className="absolute left-1/2 top-3 z-30 -translate-x-1/2 flex items-center gap-2 rounded-lg border border-foreground/8 bg-popover/95 px-3 py-1.5 shadow-md backdrop-blur-sm">
+            <span className="text-[11px] text-foreground/60">
+              showing top {lensGraph.nodes.length} of {lensGraph.nodes.length + lensGraph.dropped} by degree
+            </span>
+            <button
+              type="button"
+              className="rounded-md bg-foreground/[0.06] px-2 py-0.5 text-[10px] font-medium text-foreground/60 transition-colors hover:bg-foreground/[0.1] hover:text-foreground/80"
+              onClick={() => {
+                if (active) { navigate("/"); zoomTo(active.id); }
+              }}
+            >
+              edit max-nodes
+            </button>
+            <button
+              type="button"
+              className="text-foreground/30 hover:text-foreground/60 text-[11px]"
+              onClick={() => setCapDismissed(true)}
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
         )}
       </div>
     </div>

@@ -9,6 +9,8 @@ import { fixtureGraph } from "@/fixtures/graph";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 
+vi.mock("sigma", () => ({ default: class {} }));
+vi.mock("sigma/rendering", () => ({ EdgeArrowProgram: class {} }));
 vi.mock("@/components/graph/sigma-graph", () => ({
   SigmaGraph: (props: { nodes: unknown[]; edges: unknown[] }) =>
     createElement("div", {
@@ -16,6 +18,12 @@ vi.mock("@/components/graph/sigma-graph", () => ({
       "data-node-count": props.nodes.length,
       "data-edge-count": props.edges.length,
     }),
+}));
+vi.mock("@/components/graph/graph-toolbar", () => ({
+  GraphToolbar: () => createElement("div", { "data-testid": "graph-toolbar" }),
+}));
+vi.mock("@/components/graph/graph-legend", () => ({
+  GraphLegend: () => createElement("div", { "data-testid": "graph-legend" }),
 }));
 vi.mock("@/components/graph/cluster-graph", () => ({
   ClusterGraph: () => createElement("div", { "data-testid": "cluster-graph" }),

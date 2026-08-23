@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   hierarchy,
   tree as d3Tree,
@@ -120,16 +120,77 @@ export function TreeGraph({ forest, onNodeClick, themeKey }: TreeGraphProps) {
     };
   }, [forest, collapsed]);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragState = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setZoom((z) => Math.max(0.2, Math.min(3, z * delta)));
+    }
+  }, []);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    dragState.current = { startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [pan]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragState.current) return;
+    const dx = e.clientX - dragState.current.startX;
+    const dy = e.clientY - dragState.current.startY;
+    setPan({ x: dragState.current.panX + dx, y: dragState.current.panY + dy });
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    dragState.current = null;
+  }, []);
+
+  const fitTreeView = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  const collapseAll = useCallback(() => {
+    const ids = new Set<string>();
+    function collect(nodes: LensTreeNode[]) {
+      for (const n of nodes) {
+        if (n.children.length > 0) { ids.add(n.id); collect(n.children); }
+      }
+    }
+    collect(forest);
+    setCollapsed(ids);
+  }, [forest]);
+
+  const expandAll = useCallback(() => {
+    setCollapsed(new Set());
+  }, []);
+
   return (
     <div
-      className="h-full w-full min-h-0 overflow-auto"
+      ref={containerRef}
+      className="relative h-full w-full min-h-0 overflow-hidden select-none"
       data-testid="tree-graph"
+      onWheel={handleWheel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
     >
+      <div className="absolute right-3 top-3 z-20 flex items-center gap-1 rounded-lg border border-foreground/8 bg-popover/90 p-1 shadow-lg backdrop-blur-sm">
+        <button type="button" className="px-2 py-0.5 text-[11px] text-foreground/60 hover:text-foreground/80" onClick={fitTreeView} title="Fit view">Fit</button>
+        <button type="button" className="px-2 py-0.5 text-[11px] text-foreground/60 hover:text-foreground/80" onClick={collapseAll} title="Collapse all">−All</button>
+        <button type="button" className="px-2 py-0.5 text-[11px] text-foreground/60 hover:text-foreground/80" onClick={expandAll} title="Expand all">+All</button>
+      </div>
       <svg
         key={themeKey}
         width={layout.width}
         height={layout.height}
         className="block"
+        style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "0 0" }}
       >
         <g transform={`translate(${-layout.originX},${-layout.originY})`}>
           {layout.links.map((l, i) => (

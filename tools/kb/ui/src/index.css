@@ -266,7 +266,6 @@ html[data-font="inter"] {
     box-sizing: border-box;
   }
 }
-
 /* State changes remain visible without motion; this also covers shared chrome
  * transitions, palette scrolling, and every projected view consistently. */
 @media (prefers-reduced-motion: reduce) {
@@ -278,4 +277,9 @@ html[data-font="inter"] {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+@keyframes graph-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
