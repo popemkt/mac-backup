@@ -29,7 +29,8 @@ describe("shared outline components (W8b)", () => {
     expect(html).toContain(`${color}18`);
     expect(html).toContain(`color:${color}`);
     expect(html).toContain("kb-tag");
-    expect(html).toContain("h-[14px]");
+    expect(html).toContain("h-[12px]");
+    expect(html).toContain("data-tag-chip");
   });
 
   it("TagChip exposes navigation and remove as keyboard-reachable buttons", () => {
@@ -45,16 +46,20 @@ describe("shared outline components (W8b)", () => {
     expect(html.match(/<button/g) ?? []).toHaveLength(2);
   });
 
-  it("TagChip remove uses display-based reveal not reserved opacity", () => {
+  it("TagChip remove uses hash-overlay (opacity), never display toggle", () => {
     const html = renderToStaticMarkup(
       createElement(TagChip, {
         tag: { id: "tag.todo", name: "todo", color: "#112233" },
         onRemove: () => undefined,
       }),
     );
-    expect(html).toContain("hidden");
-    expect(html).toContain("group-hover/tag:flex");
-    expect(html).not.toContain("opacity-0");
+    expect(html).toContain("data-tag-remove");
+    expect(html).toContain("absolute");
+    expect(html).toContain("opacity-0");
+    expect(html).toContain("group-hover/tag:opacity-60");
+    expect(html).not.toContain("group-hover/tag:flex");
+    // Remove is not a flex sibling that appears on hover — mark slot is fixed.
+    expect(html).toContain("data-tag-mark");
   });
 
   it("TagChip has no configure affordance", () => {

@@ -347,12 +347,18 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
           />
         </div>
 
-        {items.length > 0 && (
-          <div
-            ref={listRef}
-            className="max-h-[240px] overflow-y-auto border-t border-foreground/[0.06] p-1"
-          >
-            {items.map((item, i) => (
+        {/* Always occupy the list slot so empty ↔ matched does not resize the shell. */}
+        <div
+          ref={listRef}
+          className="min-h-[2.5rem] max-h-[240px] overflow-y-auto border-t border-foreground/[0.06] p-1"
+          data-palette-list="true"
+        >
+          {items.length === 0 ? (
+            <div className="px-2 py-2 text-center text-[12px] text-foreground/25">
+              {query ? "No matches" : "Type to filter…"}
+            </div>
+          ) : (
+            items.map((item, i) => (
               <button
                 key={item.id}
                 type="button"
@@ -371,15 +377,9 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
                 )}
                 <span className="truncate">{item.label}</span>
               </button>
-            ))}
-          </div>
-        )}
-
-        {items.length === 0 && query && (
-          <div className="border-t border-foreground/[0.06] px-3 py-3 text-center text-[12px] text-foreground/25">
-            No matches
-          </div>
-        )}
+            ))
+          )}
+        </div>
 
         <div className="flex items-center gap-3 border-t border-foreground/[0.06] px-3 py-1.5 text-[10px] text-foreground/20">
           <span>↑↓ navigate</span>
