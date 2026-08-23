@@ -22,6 +22,11 @@ import {
   type ActionHandlerEnv,
 } from "../registry.ts";
 import type { ActionReceipt } from "../shared/contracts.ts";
+import {
+  KB_SDK_VERSION,
+  readEmbeddedSdkDts,
+  writeSdkDts,
+} from "../ext-sdk/emit.ts";
 import { formatReceipt } from "./format.ts";
 import {
   fieldsNeedingCreate,
@@ -771,6 +776,50 @@ export function buildProgram(): Command {
           return EXIT_OK;
         }),
       );
+      process.exitCode = code;
+    });
+  ext
+    .command("sdk")
+    .description(
+      "Print or write the ambient extension SDK types (kb-ext-sdk) for this binary",
+    )
+    .option("--write", "write .kb/sdk.d.ts under the resolved root", false)
+    .action(async function (this: Command) {
+      const globals = getGlobals(this);
+      const write = (this.opts() as { write?: boolean }).write === true;
+      const code = await Effect.runPromise(
+        Effect.gen(function* () {
+          if (!write) {
+            writeOut(readEmbeddedSdkDts());
+            return EXIT_OK;
+          }
+          const root = yield* resolveRootEffect({
+            root: globals.root,
+            allowCreate: true,
+          });
+          const result = yield* Effect.tryPromise({
+            try: () => writeSdkDts(root),
+            catch: (err) =>
+              err instanceof Error ? err : new Error(String(err)),
+          });
+          if (globals.json === true) {
+            writeOut(
+              JSON.stringify({
+                status: "succeeded",
+                id: "ext.sdk",
+                output: {
+                  path: result.path,
+                  bytes: result.bytes,
+                  version: result.version,
+                },
+              }),
+            );
+          } else {
+            writeOut(`wrote .kb/sdk.d.ts (kb ${KB_SDK_VERSION})`);
+          }
+          return EXIT_OK;
+        }).pipe(Effect.provide(bunFileSystemLayer)),
+      ).catch((err) => handleCliError(err, globals.json === true));
       process.exitCode = code;
     });
 

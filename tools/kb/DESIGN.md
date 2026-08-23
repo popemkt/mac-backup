@@ -203,6 +203,14 @@ output of any kind — lives in **extensions**:
   render mechanism the extension calls into (`src/operations/docs/`).
 - Extensions are loaded once per process; changing one requires restarting
   long-lived surfaces (`kb ui`, `kb mcp`).
+- **Extension SDK:** external `.kb/extensions/*.ts` authors get types from
+  the running binary — `kb ext sdk --write` emits `.kb/sdk.d.ts` (ambient
+  module `kb-ext-sdk`), then `import type { ExtensionAction } from
+  "kb-ext-sdk"`. Types are generated from `src/ext-sdk/surface.ts` and
+  embedded in the CLI bundle; `bun scripts/gen-ext-sdk.ts` refreshes the
+  committed string (freshness-tested). Prefer Promise `handler`s; schemas
+  may be zod, Standard Schema v1, or a bare `{ parse }`. Helper siblings
+  should `export default []` so discovery stays quiet.
 
 ## Operations (verticals)
 

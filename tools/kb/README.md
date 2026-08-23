@@ -20,3 +20,20 @@ install UI deps before relying on a full `bun test` from `tools/kb`.
 Core / bundled actions are Effect-native (`ActionDefinition.effect` +
 `KbCtx`/`KbStore`/`FileSystem` Layers). Third-party `.kb/extensions` may keep
 Promise `handler`s; the registry uses `tryPromise` only for those.
+
+### External extension types
+
+```bash
+kb ext sdk --write   # writes .kb/sdk.d.ts matching this kb binary
+```
+
+```ts
+/// <reference path="../sdk.d.ts" />
+import type { ExtensionAction } from "kb-ext-sdk";
+
+const actions: ExtensionAction[] = [/* … */];
+export default actions;
+```
+
+No repo-relative imports, no npm install of kb. Regenerate the embedded
+string after changing `src/ext-sdk/surface.ts`: `bun run gen:ext-sdk`.
