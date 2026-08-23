@@ -519,3 +519,330 @@ agent, extension or CLI writer will corrupt a perspective this way.
    `folderFilter` and `graphConfig` can be read directly by all of them. kb's
    equivalent of that shared closure is the frame (§3.2) plus the perspective
    node — and unlike CodeFlow's, kb's survives a reload.
+
+---
+
+## 4. Q4 — 3D: what it should be
+
+### 4.1 Verdict: first-class navigation mode, and r2's verdict is withdrawn
+
+r2 §4 concluded "3D is exploratory, not primary navigation; polish it cheaply,
+do not invest beyond parity". I contradict that, for three reasons that r2 did
+not have:
+
+1. **The evidence r2 reasoned from was wrong.** r2 rated the force3d gap
+   "low-medium" from source inspection. Running it showed an empty viewport
+   (§1.5). "Exploratory" is a defensible priority call about a working feature;
+   it is not a defensible one about a feature that renders nothing.
+2. **The owner's signal is the product signal we have.** "It doesn't even have
+   3d" is not a request for a novelty; it is a report that a labelled affordance
+   in the header did nothing. Whatever the priority, a pill that renders an empty
+   scene must not ship.
+3. **The cost curve is inverted from what r2 assumed.** Almost everything 3D
+   needs is a one-line `3d-force-graph` builder call (§2 row 11). The expensive
+   parts of a graph UI — the query layer, the perspective model, the extract, the
+   dim rule, the settings popover — are shared with 2D and are being built
+   anyway. 3D's *marginal* cost is small; r2 priced it as if it were a separate
+   product.
+
+So: **3D is a first-class renderer**, held to the same interaction contract as
+force2d, with two honest exceptions — no rubber-band selection and no node drag
+(orbit controls own the drag gesture; pinning in 3D is a genuinely different
+interaction and is out of scope).
+
+What it is *not*: the default. The persisted default renderer should be
+**force2d** (see task 3 below), because a 2D hairball is legible on first
+contact and a 3D cloud needs camera skill. 3D is one pill click away and, once
+clicked, is persisted per perspective — which is the right shape: the *user*
+decides it is their primary view, and the graph remembers.
+
+### 4.2 Vehicle: keep `3d-force-graph@1.80.0`
+
+Decision on the four axes the brief names:
+
+- **Quality.** Everything in the §4.3 spec is already a first-class option in
+  1.80: `zoomToFit`, `cameraPosition(pos, lookAt, ms)`,
+  `linkDirectionalParticles`, `linkDirectionalArrowLength`, `linkCurvature`,
+  `linkWidth`, `nodeThreeObject`, `controls().autoRotate`, `nodeResolution`,
+  `d3Force`. CodeFlow's entire 3D scene is ~200 lines of configuration against
+  this same library (8205-8445). Hand-rolling against three.js would mean
+  reimplementing a 3D force simulation, GPU picking for hover/click, the
+  particle system, and camera easing — for the same result.
+- **Bundle size.** The built `force3d-graph-*` chunk is **1 374 842 bytes**
+  uncompressed, against 225 202 for `graph-page-*`. That is large, but
+  `three@0.185.1` is the dominant term and **both** candidate vehicles pay it —
+  react-three-fiber is a renderer binding, not a replacement for three. Swapping
+  would trade a ~200 KB wrapper for hand-written equivalents of the same
+  functionality. The invariant that matters is the one kb already has: the chunk
+  is lazily imported and must never join `graph-page`. Keep it, and finally
+  assert it (task 16).
+- **Maintenance.** `3d-force-graph@1.80.0`, `three-render-objects@1.42.0`,
+  `kapsule@1.16.3` are all Vasco Asturiano's, actively released, and the same
+  stack CodeFlow ships. One caveat learned the hard way this session: the
+  colour path goes through `polished@4.3.1`
+  (`three-render-objects.mjs:676-678`), which supports only
+  hex/rgb/rgba/hsl/hsla. kb must hand it a parsed colour, never a raw CSS
+  token — which is what `3b1f82f` now guarantees. Encode that as a rule, not a
+  memory: **every colour crossing into the 3D renderer MUST be normalized
+  rgb/rgba** (task 16's test).
+- **License.** MIT throughout: `3d-force-graph` 1.80.0, `three` 0.185.1,
+  `three-render-objects` 1.42.0, `kapsule` 1.16.3, `polished` 4.3.1. No change
+  to the repo's MIT-family standard. (react-three-fiber is also MIT; license is
+  not the deciding axis.)
+
+**Rejected:** driving three.js / react-three-fiber directly. Revisit only if a
+3D lens needs geometry that `nodeThreeObject` cannot express — and note that
+`nodeThreeObject` already hands you a raw `THREE.Group`, which is the escape
+hatch CodeFlow uses for its sprite labels (8309-8375). We are not blocked.
+
+### 4.3 Specification — what "has 3D" must mean
+
+Numbered MUSTs; these are normative for i11 and each is demoable.
+
+**Scene legibility**
+
+1. MUST `zoomToFit(600, padding)` once the layout has settled on first mount,
+   and MUST expose it as an explicit control. A scene that loads as a speck in
+   the middle of a 1220×856 viewport (`shots/r10-31`) reads as "broken", which
+   is precisely how the owner read it.
+2. MUST NOT collapse. The cluster force MUST scale by the simulation `alpha`
+   argument it is given, and MUST be removed entirely (`d3Force('x', null)`)
+   when the perspective yields fewer than two distinct cluster keys. Acceptance:
+   with `cluster-by` unset, the bounding box of node positions after settle is a
+   non-degenerate volume, not a point.
+3. MUST hide the library's own nav hint (`showNavInfo(false)`) and provide kb's
+   own controls hint in the frame instead. Today that hint is the only content
+   in the viewport when the scene fails.
+4. MUST render labels in-scene for the top-N nodes by size, as canvas-texture
+   sprites (`nodeThreeObject` + `nodeThreeObjectExtend(false)`), with the same
+   radius-derived truncation as 2D (§2 row 5). A zoomed-in view of anonymous
+   coloured balls (`shots/r10-16`) is not navigation. Sprites for *every* node
+   at 126+ nodes is a texture-memory decision, hence top-N with the count
+   driven by the same adaptive tier as 2D label density.
+5. MUST give links visible weight and direction: width
+   `max(0.8, min(3, √weight · 0.4))`, `linkDirectionalArrowLength(3.5)` with
+   `linkDirectionalArrowRelPos(1)`, and `linkCurvature` 0.25 behind the persisted
+   `curved-links` prop. kb's current hairlines carry neither weight nor
+   direction, so a directed `mentions` graph reads as undirected — the same
+   information loss r2 §1.1 called out for 2D and i2 fixed only in 2D.
+
+**Interaction parity with 2D**
+
+6. MUST select in place on click, never navigate. Click MUST (a) set the shared
+   selection state the frame owns, (b) animate the camera to the node via
+   `cameraPosition(offsetAlongNodeVector, node, 1200)` so the node is both
+   approached and looked at, and (c) show the same selection card as 2D with the
+   same **Open** affordance for leaving to the outline. Background click and
+   `Esc` MUST clear. This is a direct port of CodeFlow 8292-8304 and it is the
+   single change that turns kb's 3D from a picture into a view.
+7. MUST express selection through the shared dim rule (§2 row 1): the selected
+   node full strength, its depth-1 neighbourhood full strength, everything else
+   at low alpha — via `nodeColor`/`linkColor` accessors, since 3D has no sigma
+   reducer. Incident links MUST get `linkDirectionalParticles(4)` at
+   `ParticleSpeed(0.015)` / `ParticleWidth(2.5)` while selected, and 1 / 0.004 /
+   1.2 at rest (CodeFlow 8261-8290). The particles are the one purely decorative
+   item I would defend at 3am: they are how a 3D scene communicates edge
+   direction, which arrows alone do not at oblique angles.
+8. MUST show a hover card with the same fields as 2D (label, tags, degree).
+   `nodeLabel()` already provides the mechanism and accepts HTML
+   (CodeFlow 8220-8227); it just has to be given kb's content instead of a bare
+   name.
+9. MUST participate in the shared chrome (§3.2): toolbar fit/zoom-in/zoom-out
+   (`cameraPosition` scaled ×0.7 / ×1.4 over 400 ms, CodeFlow 8966-8989),
+   legend, info chips, and the `f` / `0` / `+` / `-` / `Esc` keys. Today 3D has
+   no chrome at all and a lost camera is unrecoverable.
+10. MUST offer `autorotate` as a persisted `sys.f.lens.autorotate` prop applied
+    through `controls().autoRotate` with `autoRotateSpeed 1.0`, default off.
+11. MUST NOT persist a camera it cannot recover from. The position/camera cache
+    (`force3d-graph.tsx:141-147`) currently restores a bad camera across
+    remounts; it MUST be invalidated whenever the node set changes materially,
+    and `0` MUST always return to `zoomToFit`.
+
+**Discovery**
+
+12. MUST be discoverable without pixel archaeology. The pill is already there
+    and labelled "3D" — that part was never the problem. What MUST change is
+    that switching to it produces something obviously alive within one second:
+    fitted, labelled, orbitable. Failing that, it MUST show the in-canvas error
+    state (§2 row 10), never a white rectangle.
+
+**Explicitly out of scope for 3D:** node drag/pinning (orbit owns the gesture),
+multi-select, and hulls/cluster shells in 3D (transparent geometry at this scale
+is a research project, not a polish item).
+
+---
+
+## 5. Ordered i11 task list
+
+Each task is independently shippable and lands on the one before it. **PC** =
+polish-critical (closes the owner's "not polished enough"); **A** = additive
+capability. Zones are the file sets a task may touch; `lib/graph-lens.ts` and
+`graph-page.tsx` are shared-file touches to be declared in the handoff.
+
+| # | Task | Kind | Acceptance test | Zone |
+|---|---|---|---|---|
+| 1 | **Rendering-truth harness.** For each of the four renderers, mount with a fixed 30-node fixture, let layout settle, and assert the renderer actually *painted*: sigma — ≥90% of node display positions inside viewport bounds and `canvas.sigma-labels` painted-pixel count > 0; tree — SVG node count equals fixture size and the content bbox intersects the viewport; force3d — `graphData().nodes.length` equals fixture size and the position bounding box is non-degenerate. | **PC** | The four assertions above. Each must **fail** against today's `HEAD` for force2d (blank after auto-fit), cluster (hull pixels ≈ 0 outside a 50 px box) and force3d (degenerate bbox) — a harness that passes on a broken build is worthless. | new `components/graph/*.render.test.tsx`, `components/graph/__fixtures__/` |
+| 2 | **Fix camera space.** Rewrite `fitView`/`focusNode` to set camera `{x, y}` in normalized space and scale via `ratio` (target = `currentRatio / scale`), with CodeFlow's `0.8` padding factor and `min(scale, 2)` cap. Make `graph-camera.ts` a static import everywhere. | **PC** | After `fitView` on the fixture, every node's viewport position is inside the canvas and camera `x`,`y` ∈ [0,1]; task 1's force2d assertion passes. `INEFFECTIVE_DYNAMIC_IMPORT` gone from the build log. | `components/graph/graph-camera.ts`, `graph-toolbar.tsx`, `sigma-graph.tsx` |
+| 3 | **Kill the mount-time fit race and set a sane default renderer.** Fit after the layout reports settled, not on a 200 ms timer; and change the seeded `lens.all-mentions` perspective's `sys.f.lens.renderer` to `force2d` with a one-time data migration. | **PC** | Mount → settle → nodes visible without any key press (task 1's assertion, with no `resetCamera` in the test). `kb query` shows `renderer = ["force2d"]` — exactly one value. | `sigma-graph.tsx`, `fa2-layout.ts`, seed/migration in `tools/kb/src` |
+| 4 | **Fix every display-space→viewport conversion.** Replace `graphToViewport(getNodeDisplayData(...))` with `framedGraphToViewport(...)` at the hover-tooltip site and both cluster-hull sites. | **PC** | First hover on a node places the tooltip within 24 px of the cursor (today: 570 px, §1.1). | `sigma-graph.tsx`, `cluster-graph.tsx` |
+| 5 | **Make cluster hulls visible.** Hull canvas above the sigma container (or a sigma layer); drop the imperative opaque `el.style.background`; padded-corner-point hulls (`pad ≈ 24`); `fill-opacity 0.04` / `stroke-opacity 0.25`; label above the cluster at `min(y) − pad − 8`; restore hit-testing so click-to-isolate fires. | **PC** | Hull painted bbox covers ≥60% of the bbox of its member nodes (today: a 50×42 px box for a full-canvas cluster); `document.elementFromPoint` inside a hull returns the hull canvas; clicking a hull isolates that cluster. | `cluster-graph.tsx` |
+| 6 | **Fix the 3D cluster force.** Multiply the pull by the `alpha` argument; register per-axis under `d3Force('x'/'y'/'z')`; set them to `null` when distinct cluster keys < 2. | **PC** | With `cluster-by` unset, the post-settle position bounding box is non-degenerate (task 1's force3d assertion); with `cluster-by=parent`, distinct cluster centroids are separated by ≥ the mean intra-cluster radius. | `force3d-graph.tsx` |
+| 7 | **3D fit + nav hint.** `zoomToFit(600)` after settle and on `0`/fit; `showNavInfo(false)`; invalidate the persisted camera when the node set changes materially. | **PC** | On mount, ≥80% of nodes project inside the viewport; the library hint element is absent. | `force3d-graph.tsx` |
+| 8 | **One dim rule.** New pure `lib/graph-dim.ts` composing selection ∩ hover ∩ search ∩ filter into a single alpha per node/edge; delete `#444444`, `#666666`, `rgba(128,128,128,0.15)`. Includes the ~200 ms transition clock. Applied in sigma reducers and 3D colour accessors. | **PC** | Unit: alphas compose multiplicatively and are theme-independent (no hardcoded greys remain — grep assertion). Visual: filtering a tag leaves the *kept* set as the highest-contrast thing on screen in both themes, with labels forced on. | new `lib/graph-dim.ts`, `sigma-graph.tsx`, `cluster-graph.tsx`, `force3d-graph.tsx` |
+| 9 | **`GraphCanvasFrame`.** Extract toolbar + legend + info chips + cap notice + empty/error states + keyboard map out of the force2d branch; renderers declare capabilities; the frame renders the intersection. | **PC** | Mount each of the four renderers: toolbar and legend present in all four; `f`, `0`, `Esc`, `/` handled in all four; unsupported controls rendered disabled, not absent. | `graph-page.tsx`, new `components/graph/graph-canvas-frame.tsx`, `graph-toolbar.tsx`, `graph-legend.tsx` |
+| 10 | **Drag that moves nodes.** Set the graphology `fixed: true` attribute while dragging, clear on drop (keep it under Alt), bind move/up on `document`, and reheat on release. | **PC** | A programmatic 200 px drag moves the node's stored `x`/`y` by the equivalent graph delta, the node is still there after settle, and the camera does not pan. Today the same test shows zero movement (§1.2.4). | `sigma-graph.tsx`, `cluster-graph.tsx`, `fa2-layout.ts` |
+| 11 | **Labels sized and truncated by rendered size.** New pure `lib/graph-label.ts` (`maxLen = max(4, floor(radius/2))`, font `max(6, min(12, r·0.6))`); remove the flat 40-char truncation from the extract so `LensNode.label` carries full text. | **PC** | Unit: truncation length is monotonic in node size; extract returns untruncated text. Visual: no label overlaps another at default zoom on the 126-node lens. | new `lib/graph-label.ts`, `lib/graph-lens.ts` (shared), renderers |
+| 12 | **Tree navigability.** Make `Fit` actually fit (scale to content bbox, cap at 1); plain wheel zooms; selection parity via the frame (click selects, `Open` navigates); disambiguate click from pan; stop rendering raw ULIDs for empty-text nodes. | **PC** | A 2670 px-tall tree is fully inside the viewport after `Fit`; plain wheel changes zoom; clicking a node selects without navigating; no label matches `/^[0-9A-HJKMNP-TV-Z]{26}$/`. | `tree-graph.tsx` |
+| 13 | **Settings popover + persisted lens props.** Toolbar `⚙` opening spread / link-distance / label-density / show-labels / curved-links / **cluster-by** / layout / autorotate; every control writes `sys.f.lens.*` via a new `mutations.setLensProp` that **unsets before setting**; only popover open state stays in React. | **PC** for `cluster-by` (its invisibility caused §1.0); **A** for the rest | Changing a control twice leaves exactly one value on the prop (today: `set` appends, §1.6); reload preserves every setting; `kb set` from the CLI moves the UI. | new `components/graph/graph-settings.tsx`, `actions/mutations.ts`, `lib/graph-lens.ts` (shared) |
+| 14 | **3D scene configuration + select-in-place.** Link width by √weight, directional arrows, directional particles (1/4 at rest/selected), curvature toggle, `nodeResolution(24)`, sprite labels for top-N, autorotate, hover card with kb fields, and click = fly-to + select (never navigate). | **A**, but MUST-bearing (§4.3) | Clicking a node in 3D keeps you in 3D, eases the camera to it in ~1.2 s, and shows the same selection card as 2D; incident links carry moving particles; `Esc` clears. | `force3d-graph.tsx` |
+| 15 | **Layout sub-modes.** New pure `lib/graph-layouts.ts` returning `Map<id,{x,y}>` for `radial` / `hierarchical` / `grid`; `force` delegates to the FA2 worker; selection persisted as `sys.f.lens.layout` and exposed in task 13's popover. `metro` explicitly not implemented. | **A** | Each mode is deterministic for a given fixture (snapshot of positions), assigns positions without starting the worker, and survives reload. | new `lib/graph-layouts.ts`, `sigma-graph.tsx`, `graph-settings.tsx` |
+| 16 | **Guardrails.** (a) Assert no graph chunk except `force3d-graph-*` imports `three`; (b) assert every colour handed to the 3D renderer matches `/^(#|rgba?\()/` — the rule behind `3b1f82f`; (c) in-canvas error state replacing silent blanks, including `resolveNodeSet`'s `console.warn`-only path; (d) hull redraw throttled by tick count and a second adaptive tier for labels. | **PC** for (c), **A** for the rest | Bundle test fails if `three` leaks into `graph-page`; colour test fails on an `oklch()` token; a thrown renderer error draws a message inside the canvas frame and leaves the rest of the page interactive. | `components/graph/*`, `lib/graph-lens.ts` (shared), new bundle test |
+
+**Cut order if the night runs short:** 1 → 2 → 3 → 5 → 6 → 7 → 8 → 9 are the
+spine and together constitute "the graph is polished". 4, 10, 11, 12 are the
+next tier of visible quality. 13, 14, 15, 16 are capability and can slip —
+except 16(c), which should ride along with 9 since both touch the frame.
+
+**Definition of done for i11:** open `/graph` on the seeded perspective and,
+without pressing a key, see a fitted, labelled, legible graph; press `f` and
+still see it; switch to Cluster and see labelled hulls you can click; switch to
+Tree and reach the whole tree; switch to 3D and get a fitted, labelled,
+orbitable scene where clicking a node keeps you in the scene. Every renderer
+carries the same toolbar, legend and keyboard map.
+
+---
+
+## 6. Deliberately excluded
+
+1. **Re-deriving the oklch/polished 3D colour bug.** Diagnosed and fixed on
+   `main` in `3b1f82f` with tests; recorded in §1.5 as root-caused. My
+   contribution there is only the *second*, independent cause (the cluster-force
+   collapse), which the colour fix does not address.
+2. **Isolating the drag no-op to a single line.** CONFIRMED as a no-op with two
+   independent gestures (§1.2.4) and the pin mechanism identified
+   (`fixed` attribute), but I did not instrument the handler to prove which of
+   the two candidate causes dominates. Task 10 is written as a rewrite so it does
+   not matter; a successor wanting the exact line should log inside
+   `onMouseMove`.
+3. **Performance validation.** r2 §6's budget table and i2's cut T10 remain
+   unmeasured. This wave's evidence says correctness, not throughput, is what the
+   owner is reacting to: 126 nodes rendered at interactive speed in every
+   renderer that rendered at all. Deliberately deferred rather than half-measured.
+4. **New lens types** — treemap, bundle, matrix, sankey, block. Ranked in the
+   graphviz report §7 and still backlog. Adding a fifth renderer while three of
+   four are broken would be malpractice.
+5. **Multi-select and rubber-band.** Deferred by r2 §4 and still correctly
+   deferred; nothing in the owner's signal points at it.
+6. **`exportSVG`** (§3.6) and **CodeFlow's blast-radius graph theory**
+   (§2 row 19) — rejected with reasons rather than silently dropped.
+7. **The canvas page and the ontology graph scope.** Both touch
+   `graph-page.tsx` and both were left alone; the ontology picker's interaction
+   with perspectives was not audited (there were zero ontologies in the data).
+8. **`metro` layout** — rejected on data-model grounds (§2 row 8).
+9. **Dark theme sweep.** Every observation in §1 is from the light theme, which
+   is what the running app defaulted to. The dim-colour finding (§1.2.2) is
+   *worse* on light and would partly self-conceal on dark; the fix in task 8 is
+   theme-independent either way, but a successor should re-run §1 in dark before
+   claiming parity.
+10. **The stale-lazy-chunk failure mode** (§1.5, last bullet) — noted, not
+    pursued; it is a deploy-time concern, not a graph concern.
+
+---
+
+## 7. Sources
+
+CodeFlow, `github.com/braedonsaunders/codeflow`, clone at `/tmp/codeflow-study`
+at commit `4f0d944` ("Count circular deps and god objects from issue items"),
+`index.html`, 10 838 lines. Every claim cited by line:
+
+- `6475`, `6485`, `6488`, `6492` — ephemeral view state (`blastRadius`,
+  `folderFilter`, `graphConfig`, `legendCollapsed`).
+- `7712-7735` — `selectFile`: select in place, open details panel, compute blast.
+- `7737-7748` — `updateGraphHighlight`: 200 ms opacity-based dim (0.2 nodes /
+  0.05 links) and selection fills.
+- `7955-7969` — `getNodeColor`, folder centre grid.
+- `7970-7981` — `applyReadableLabels`, `d3.zoom().scaleExtent([0.08|0.2, 5])`.
+- `7983-7986` — arrow marker `defs`; `hullLayer` / `linkLayer` / `nodeLayer`
+  stacking order.
+- `7989-8046` — the five layout sub-modes and their anchor-spring compositions.
+- `8047-8051` — adaptive `alphaDecay`/`velocityDecay` at `nodes.length > 300`.
+- `8052` — link width `max(1, min(2, √count · 0.3))`, opacity 0.4, arrow marker.
+- `8055` — `d3.drag()` with `fx`/`fy` pin and `alphaTarget(0.1).restart()`.
+- `8056-8058` — node click → select; cursor-relative hover tooltip;
+  background-click clear.
+- `8059` — node stroke as `d3.color(fill).brighter(0.3)`.
+- `8061-8062` — label density gate; font size and **truncation length derived
+  from node radius**.
+- `8066-8082` — `updateHulls`: padded corner points, `d3.polygonHull`,
+  `fill-opacity 0.04` / `stroke-opacity 0.25`, label above the cluster.
+- `8084-8096` — hull tick throttle (`isLargeGraph ? 5 : 1`), curved-link arc
+  path, node transform.
+- `8098` — `try/catch` drawing `'Graph rendering error: …'` into the canvas.
+- `8104-8134` — 3D guard on a missing library; node-identity preservation across
+  updates.
+- `8205-8218` — `ForceGraph3D({controlType:'orbit'})`, **literal hex**
+  `backgroundColor`, `showNavInfo(false)`, `nodeResolution(24)`.
+- `8220-8227` — HTML hover card via `nodeLabel`.
+- `8228-8290` — selection-aware `linkColor` (non-incident at 0.08 alpha),
+  `linkWidth`, `linkDirectionalArrowLength`, `linkDirectionalParticles` /
+  `…Width` / `…Speed` / `…Color`.
+- `8291` — `linkCurvature(0.25)`.
+- `8292-8304` — `onNodeClick`: `cameraPosition(newPos, node, 1200)` fly-to +
+  select; `onBackgroundClick` clear.
+- `8306-8377` — sprite labels via `THREE.CanvasTexture` + `nodeThreeObject` +
+  `nodeThreeObjectExtend(false)`.
+- `8380-8389` — `controls().autoRotate`, `autoRotateSpeed 1.0`.
+- `8392-8398` — `d3Force('link').distance`, `d3Force('charge').strength`.
+- `8404-8418` — Fibonacci-sphere cluster centres at radius 180.
+- `8420-8445` — `customForce` scaling by **`alpha`**; per-axis registration;
+  **forces nulled when `groups.length === 0`**.
+- `8447-8464` — `ResizeObserver`; teardown via `pauseAnimation()` + empty
+  `graphData`.
+- `8966-8997` — `zoomIn`/`zoomOut` (2D `scaleBy` 1.4/0.7 @200 ms; 3D camera
+  vector ×0.7/×1.4 @400 ms); `resetZoom` (3D `zoomToFit(600)`).
+- `8998-9018` — `computeGraphFitTransform` (screen-space, `min(scale, 2)`) and
+  `fitView`.
+- `9019-9027` — `exportSVG` with inlined theme variables.
+- `9985-9991` — toolbar `+ − ⟲ ⊡ ⚙` with `aria-label`s.
+- `9993-10025` — settings popover: layout buttons, `Spread` 50-500, `Links`
+  30-200, show-labels, curved-links, auto-rotate.
+- `10026-10042` — info chips, including the selection-relative
+  "N dependents • N fns used".
+- `10043-10054` — collapsible legend, top-12 + "+N more",
+  `legend-item.active`, click → `filterByFolder` (a **data-set** filter).
+
+Library sources, from `tools/kb/ui/node_modules` at the versions the app builds
+against:
+
+- `sigma@3.0.3` — `dist/sigma.esm.js:3423` (`framedGraphToViewport`),
+  `:3485-3489` (`graphToViewport = framedGraphToViewport ∘ normalizationFunction`),
+  `:1949`, `:2209`, `:2297` (internal use on display data), `:487-490`
+  (mouse captor binds `mousemove`/`mouseup` on `document`).
+- `graphology-layout-forceatlas2@0.10.1` — `helpers.js:144`,
+  `iterate.js:21,698,744`, `webworker.js:33,710,756` — the **`fixed`** node
+  attribute that makes drag-pinning possible.
+- `three-render-objects@1.42.0` — `dist/three-render-objects.mjs:8`,
+  `:676-678` (`parseToRgb` / `opacify` on `backgroundColor`), `:583`
+  (`alpha: true`, why an unset clear colour reads as the page background).
+- `kapsule@1.16.3` — `dist/kapsule.mjs:120-145` (deferred digest; prop
+  `onChange` called synchronously in the setter).
+- Versions and licences: `3d-force-graph@1.80.0` MIT, `three@0.185.1` MIT,
+  `three-render-objects@1.42.0` MIT, `kapsule@1.16.3` MIT, `polished@4.3.1` MIT,
+  `sigma@3.0.3` MIT, `graphology@0.26.0` MIT. Built chunk sizes:
+  `force3d-graph-*.js` 1 374 842 B, `graph-page-*.js` 225 202 B.
+
+Repo prior art read before starting: `reports/r2-graph.md` (including its
+appended implementation handoff), `reports/i2-graph.handoff.md`,
+`reports/r9-editor-deep.md` §7 (task-list shape),
+`briefs/r10-graph-deep.md`. `.research/kb-refine/**` is **absent from this
+worktree** — the graphviz report's "one graph, many lenses" principle was taken
+from the brief's statement of it and from `tools/kb/DESIGN.md` /
+`CLAUDE.md`, not from the original file.
+
+Current implementation read in full: `components/graph/{sigma-graph,
+cluster-graph,tree-graph,force3d-graph,graph-camera,fa2-layout,graph-toolbar,
+graph-legend,graph-page,renderer-switch}.tsx|ts`, `lib/graph-lens.ts`,
+`lib/css-color.ts`, `lib/tag-color.ts`.
+
+*Report ends. No `tools/kb/**` file was modified. The CodeFlow clone is left at
+`/tmp/codeflow-study` for i11.*
