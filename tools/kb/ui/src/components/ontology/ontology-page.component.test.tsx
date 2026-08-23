@@ -92,6 +92,15 @@ describe("OntologyPage (component)", () => {
     expect(html).toContain("pinned");
   });
 
+  it("offers inline rename of the ontology itself", async () => {
+    await render("o.1");
+    const input = container.querySelector(
+      'input[aria-label="Ontology name"]',
+    ) as HTMLInputElement | null;
+    expect(input).not.toBeNull();
+    expect(input!.value).toBe("Infrastructure");
+  });
+
   it("renders include and extends chips from the definition props", async () => {
     const html = await render("o.1");
     expect(html).toContain("include");

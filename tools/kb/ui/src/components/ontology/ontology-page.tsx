@@ -138,6 +138,8 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-6">
+      <OntologyTitle id={ontologyId} text={onto.text} />
+
       <section className="flex flex-col gap-2">
         <DefinitionRow label="include">
           {includeTags.length === 0 ? (
@@ -287,6 +289,54 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
 }
 
 // ── pieces ─────────────────────────────────────────────────────────────────
+
+/**
+ * Inline rename. An ontology is minted as "New ontology" and named here — the
+ * page you land on after creating one has to be the place you can name it.
+ */
+function OntologyTitle({ id, text }: { id: string; text: string }) {
+  const [draft, setDraft] = useState(text);
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setDraft(text);
+  }, [text, editing]);
+
+  return (
+    <div className="flex items-center gap-2">
+      <span aria-hidden className="text-[13px] text-foreground/35">
+        ⬡
+      </span>
+      <input
+        value={draft}
+        aria-label="Ontology name"
+        placeholder="Untitled ontology"
+        spellCheck={false}
+        className="min-w-0 flex-1 rounded-md bg-transparent px-1 py-0.5 text-[20px] font-medium text-foreground/85 outline-none placeholder:text-foreground/25 hover:bg-foreground/[0.03] focus:bg-foreground/[0.04]"
+        onFocus={() => setEditing(true)}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          mutations.updateNodeContent(id, e.target.value);
+        }}
+        onBlur={() => setEditing(false)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            setDraft(text);
+            mutations.updateNodeContent(id, text);
+            e.currentTarget.blur();
+            return;
+          }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+        }}
+      />
+    </div>
+  );
+}
+
 
 function isTagNode(node: WireNode): boolean {
   return (node.props[SYSTEM_IDS.typeField] ?? []).some(

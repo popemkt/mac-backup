@@ -12,9 +12,11 @@ import {
   type LensPerspective,
   type LensRenderer,
 } from "@/lib/graph-lens";
+import { listOntologyItems } from "@/lib/ontology-scope";
 import { SYSTEM_IDS } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { graphPath, navigate, ontologyPath } from "@/lib/router";
+import { OntologyPicker } from "@/components/ontology/ontology-picker";
 import { PerspectivePicker } from "@/components/graph/perspective-picker";
 import { RendererSwitch } from "@/components/graph/renderer-switch";
 import { SigmaGraph } from "@/components/graph/sigma-graph";
@@ -83,6 +85,13 @@ export default function GraphPage({
 
   const restrictTo = ontologyId ? (ontologyMembers ?? new Set<string>()) : undefined;
 
+  // An ontology decides WHICH nodes, a perspective decides how they look —
+  // orthogonal, so both pickers sit in the header together (r5 §1.4).
+  const ontologies = useMemo(
+    () => listOntologyItems(wireNodes),
+    [wireNodes, rev],
+  );
+
   const [lensGraph, setLensGraph] = useState(() =>
     queryDb && active
       ? extractLensGraph(queryDb, wireNodes, active, {
@@ -134,6 +143,15 @@ export default function GraphPage({
           activeId={active?.id ?? null}
           onSelect={(id) => navigate(graphPath(id))}
         />
+        {ontologies.length > 0 ? (
+          <OntologyPicker
+            ontologies={ontologies}
+            activeId={ontologyId}
+            placeholder="all nodes"
+            onSelect={(id) => navigate(ontologyPath(id, "graph"))}
+            onClear={() => navigate(graphPath(active?.id ?? null))}
+          />
+        ) : null}
         {active ? (
           <RendererSwitch
             value={renderer}
