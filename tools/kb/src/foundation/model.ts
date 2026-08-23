@@ -96,6 +96,29 @@ export const SYSTEM_IDS = {
   /** Canvas nodes (JSON Canvas 1.0 doc on sys.f.canvas). */
   canvasTag: "sys.tag.canvas",
   canvasField: "sys.f.canvas",
+  /**
+   * Ontologies (r5 core): a named, editable lens over the graph. An ontology
+   * is an ordinary node tagged `#ontology` carrying `sys.f.onto.*` props —
+   * a new node KIND, not a new node type. Membership bookkeeping lives on
+   * the ontology, never on the member (r5 §2.3), so a node that never joins
+   * one carries zero ontology props.
+   */
+  ontologyTag: "sys.tag.ontology",
+  /** ref, multi → tag nodes whose instances are members. */
+  ontoIncludeField: "sys.f.onto.include",
+  /** ref, multi → explicitly pinned member nodes. */
+  ontoMemberField: "sys.f.onto.member",
+  /** ref, multi → vetoed nodes; absolute, wins over every other source. */
+  ontoExcludeField: "sys.f.onto.exclude",
+  /** ref, multi → parent ontologies whose members are inherited (superset). */
+  ontoExtendsField: "sys.f.onto.extends",
+  /** str, single → parameter-free EDN datalog contributing member ids. */
+  ontoQueryField: "sys.f.onto.query",
+  /** str, single → "none" (default) | "descendants" structural pull. */
+  ontoClosureField: "sys.f.onto.closure",
+  cmdNewOntology: "sys.cmd.new-ontology",
+  cmdEnterOntology: "sys.cmd.enter-ontology",
+  cmdExitOntology: "sys.cmd.exit-ontology",
 } as const;
 
 /** Pre-fix id — migrated away by ensureSystemSeed. */

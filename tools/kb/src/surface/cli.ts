@@ -36,6 +36,8 @@ import {
   mapFieldType,
   mapGet,
   mapMv,
+  mapOntologyList,
+  mapOntologyMembers,
   mapQuery,
   mapRm,
   mapRun,
@@ -64,6 +66,8 @@ export {
   mapFieldTarget,
   mapFieldTargetQuery,
   mapTagList,
+  mapOntologyList,
+  mapOntologyMembers,
   mapQuery,
   mapRun,
   mapSearch,
@@ -656,6 +660,34 @@ export function buildProgram(): Command {
     .action(async function (this: Command) {
       const code = await withCtx(this, (ctx, globals) =>
         runPlanEffect(ctx, mapTagList(), globals),
+      );
+      process.exitCode = code;
+    });
+
+  const ontology = program
+    .command("ontology")
+    .description("Ontology operations (#ontology nodes)");
+  ontology
+    .command("list")
+    .description("List #ontology nodes")
+    .action(async function (this: Command) {
+      const code = await withCtx(this, (ctx, globals) =>
+        runPlanEffect(ctx, mapOntologyList(), globals),
+      );
+      process.exitCode = code;
+    });
+  ontology
+    .command("members")
+    .description("Resolve an ontology's members (tags + pins + query + extends)")
+    .argument("<id>", "ontology node id")
+    .option("--reasons", "include per-member provenance")
+    .action(async function (this: Command, id: string, opts) {
+      const code = await withCtx(this, (ctx, globals) =>
+        runPlanEffect(
+          ctx,
+          mapOntologyMembers({ id, reasons: opts.reasons === true }),
+          globals,
+        ),
       );
       process.exitCode = code;
     });
