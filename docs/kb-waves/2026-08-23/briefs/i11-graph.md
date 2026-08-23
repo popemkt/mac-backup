@@ -43,6 +43,14 @@ Three of r10's findings are already resolved. Verify, then build on them:
   bucket, and fix the force itself (row 13 — multiply by `alpha`, and clear the
   force when there are no groups).
 
+One consequence for task 1: its acceptance says the harness must **fail**
+against today's HEAD for force2d, cluster and force3d. The camera fix already
+landed, so force2d's assertion may now pass. That does not weaken task 1 — write
+the assertion anyway, and verify it fails by reverting `131877c` locally (or by
+pointing the fixture at the pre-fix behaviour) so you have evidence the harness
+has teeth. Cluster and force3d must still fail on HEAD; if they do not, find out
+why before proceeding.
+
 ## Order of work
 
 Follow r10 §5. Do not reorder it to get to the fun parts. In particular its
