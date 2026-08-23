@@ -316,4 +316,41 @@ describe("debounced text-save rollback", () => {
     });
     expect(useOutlineStore.getState().loadSource).toBe("api");
   });
+
+  it("flushes the newest text before split so an old debounce cannot overwrite it (B13)", async () => {
+    const posts: Array<{ id: string; input: Record<string, unknown> }> = [];
+    setPostAction(async (inv) => {
+      posts.push(inv as { id: string; input: Record<string, unknown> });
+      return { status: "succeeded", id: inv.id, output: {} };
+    });
+
+    mutations.updateNodeContent("n.root-a", "abcdef");
+    await mutations.splitNode("n.root-a", 3);
+    await vi.advanceTimersByTimeAsync(300);
+
+    const textPosts = posts.filter(
+      (post) => post.id === "node.update" && post.input.id === "n.root-a",
+    );
+    expect(textPosts.map((post) => post.input.text)).toEqual(["abcdef", "abc"]);
+    expect(textPosts.at(-1)?.input.text).toBe("abc");
+  });
+
+  it("cancels an unsent text write when its node is deleted (B14)", async () => {
+    const posts: Array<{ id: string; input: Record<string, unknown> }> = [];
+    setPostAction(async (inv) => {
+      posts.push(inv as { id: string; input: Record<string, unknown> });
+      return { status: "succeeded", id: inv.id, output: {} };
+    });
+
+    mutations.updateNodeContent("n.root-c", "fresh keystrokes");
+    await mutations.deleteNode("n.root-c");
+    await vi.advanceTimersByTimeAsync(300);
+
+    expect(posts).toEqual([
+      expect.objectContaining({
+        id: "node.update",
+        input: expect.objectContaining({ id: "n.root-c", delete: true }),
+      }),
+    ]);
+  });
 });

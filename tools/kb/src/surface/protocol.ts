@@ -28,6 +28,7 @@ export const WireNodeSchema = z.object({
   text: z.string(),
   props: z.record(z.string(), z.array(PropValueSchema)),
   children: z.array(z.string()),
+  order: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

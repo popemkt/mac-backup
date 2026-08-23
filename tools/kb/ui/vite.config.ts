@@ -39,6 +39,7 @@ export default defineConfig({
       "@kb/protocol": path.join(root, "../src/surface/protocol.ts"),
       "@kb/canvas": path.join(root, "../src/canvas/doc.ts"),
       "@kb/ontology": path.join(root, "../src/foundation/ontology.ts"),
+      "@kb/order": path.join(root, "../src/foundation/order.ts"),
     },
   },
   server: {

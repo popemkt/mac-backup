@@ -7,6 +7,7 @@ import { openKb } from "../src/context.ts";
 import { SYSTEM_IDS, type KbNode } from "../src/foundation/model.ts";
 import { ensureSystemSeed, systemSeedNodes } from "../src/foundation/seed.ts";
 import { invoke, manifest } from "../src/registry.ts";
+import { txIntegrityError } from "../src/foundation/tx-validation.ts";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-test-"));
@@ -257,6 +258,22 @@ describe("registry + operations", () => {
       input: { id: cId, parent: aId },
     });
     expect(ok.status).toBe("succeeded");
+  });
+
+  test("node.update delete cascades descendants and core rejects shallow orphan tx", async () => {
+    const ctx = await openKb(root);
+    const parent = await invoke(ctx, { id: "node.add", input: { id: "n.parent", text: "parent" } });
+    expect(parent.status).toBe("succeeded");
+    await invoke(ctx, { id: "node.add", input: { id: "n.child", text: "child", parent: "n.parent" } });
+    await invoke(ctx, { id: "node.add", input: { id: "n.grandchild", text: "grandchild", parent: "n.child" } });
+
+    const deleted = await invoke(ctx, { id: "node.update", input: { id: "n.parent", delete: true } });
+    expect(deleted.status).toBe("succeeded");
+    expect(ctx.nodes.some((node) => node.id === "n.child" || node.id === "n.grandchild")).toBe(false);
+
+    const p: KbNode = { id: "p", text: "p", props: {}, children: ["c"], createdAt: "", updatedAt: "" };
+    const c: KbNode = { id: "c", text: "c", props: {}, children: [], createdAt: "", updatedAt: "" };
+    expect(txIntegrityError([p, c], { upserts: [], deletes: ["p"] })).toContain("orphan descendant c");
   });
 
   test("graph.query keeps colons inside string literals intact", async () => {
