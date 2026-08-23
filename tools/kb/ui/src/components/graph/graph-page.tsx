@@ -23,8 +23,7 @@ import { RendererSwitch } from "@/components/graph/renderer-switch";
 import { SigmaGraph, type GraphSelection } from "@/components/graph/sigma-graph";
 import { ClusterGraph } from "@/components/graph/cluster-graph";
 import { TreeGraph } from "@/components/graph/tree-graph";
-import { GraphToolbar } from "@/components/graph/graph-toolbar";
-import { GraphLegend } from "@/components/graph/graph-legend";
+import { GraphCanvasFrame } from "@/components/graph/graph-canvas-frame";
 import { SidebarToggle } from "@/components/sidebar/sidebar";
 
 const Force3dGraph = lazy(() => import("@/components/graph/force3d-graph"));
@@ -154,8 +153,6 @@ export default function GraphPage({
   const [filterIds, setFilterIds] = useState<Set<string> | null>(null);
   const [capDismissed, setCapDismissed] = useState(false);
 
-  const nodeIds = useMemo(() => lensGraph.nodes.map((n) => n.id), [lensGraph.nodes]);
-
   useEffect(() => { setCapDismissed(false); }, [lensGraph.dropped]);
 
   const showForce2d = renderer === "force2d";
@@ -244,22 +241,30 @@ export default function GraphPage({
               0 nodes match — edit this perspective’s query to broaden the view.
             </p>
           </div>
-        ) : renderer === "tree" ? (
-          <TreeGraph
+        ) : (
+          <GraphCanvasFrame
+            nodes={lensGraph.nodes}
+            sigmaRef={sigmaInstanceRef}
+            selectedNodeId={selection?.nodeId ?? null}
+            onSearchChange={setSearchHighlight}
+            onFilterChange={setFilterIds}
+          >
+          {renderer === "tree" ? (
+            <TreeGraph
             forest={forest}
             themeKey={themeKey}
             onNodeClick={onNodeOpen}
-          />
-        ) : renderer === "cluster" ? (
-          <ClusterGraph
+            />
+          ) : renderer === "cluster" ? (
+            <ClusterGraph
             nodes={lensGraph.nodes}
             edges={lensGraph.edges}
             layoutKey={active.id}
             themeKey={themeKey}
             onNodeClick={onNodeOpen}
-          />
-        ) : renderer === "force3d" ? (
-          <Suspense
+            />
+          ) : renderer === "force3d" ? (
+            <Suspense
             fallback={
               <div className="p-6 text-[13px] text-foreground/40">
                 loading 3D…
@@ -273,9 +278,8 @@ export default function GraphPage({
               themeKey={themeKey}
               onNodeClick={onNodeOpen}
             />
-          </Suspense>
-        ) : (
-          <>
+            </Suspense>
+          ) : (
             <SigmaGraph
               nodes={lensGraph.nodes}
               edges={lensGraph.edges}
@@ -287,17 +291,8 @@ export default function GraphPage({
               highlightIds={searchHighlight ?? undefined}
               filterIds={filterIds ?? undefined}
             />
-            <GraphToolbar
-              sigmaRef={sigmaInstanceRef}
-              selectedNodeId={selection?.nodeId ?? null}
-              nodeIds={nodeIds}
-              onSearchChange={setSearchHighlight}
-            />
-            <GraphLegend
-              nodes={lensGraph.nodes}
-              onFilterChange={setFilterIds}
-            />
-          </>
+          )}
+          </GraphCanvasFrame>
         )}
         {lensGraph.dropped > 0 && !capDismissed && (
           <div className="absolute left-1/2 top-3 z-30 -translate-x-1/2 flex items-center gap-2 rounded-lg border border-foreground/8 bg-popover/95 px-3 py-1.5 shadow-md backdrop-blur-sm">

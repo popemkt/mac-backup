@@ -4,6 +4,8 @@ import Sigma from "sigma";
 import { EdgeArrowProgram } from "sigma/rendering";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
+import { graphNodeAlpha, withGraphAlpha } from "@/lib/graph-dim";
+import { formatGraphLabel } from "@/lib/graph-label";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
 import { fitView } from "./graph-camera";
 
@@ -95,7 +97,6 @@ export function SigmaGraph({
     const sel = selectedRef.current;
     const highlight = highlightIds;
     const filter = filterIds;
-    const isLarge = graph.order > LARGE_GRAPH_THRESHOLD;
 
     const activeNode = sel ?? hovered;
     const neighborSet = new Set<string>();
@@ -105,31 +106,24 @@ export function SigmaGraph({
     }
 
     sigma.setSetting("nodeReducer", (node, data) => {
-      if (filter && !filter.has(node)) {
-        return { ...data, color: "#444444", label: "", zIndex: 0 };
-      }
-      if (highlight && highlight.size > 0) {
-        if (!highlight.has(node)) {
-          return { ...data, color: "#666666", label: "", zIndex: 0 };
-        }
-      }
-      if (activeNode) {
-        if (neighborSet.has(node)) {
-          return {
-            ...data,
-            highlighted: true,
-            zIndex: 1,
-            ...(node === activeNode ? { size: data.size * 1.3 } : {}),
-          };
-        }
-        return {
-          ...data,
-          color: isLarge ? "#333333" : "rgba(128,128,128,0.15)",
-          label: "",
-          zIndex: 0,
-        };
-      }
-      return { ...data, highlighted: false };
+      const filterMatch = !filter || filter.has(node);
+      const searchMatch = !highlight || highlight.size === 0 || highlight.has(node);
+      const focusMatch = !activeNode || neighborSet.has(node);
+      const alpha = graphNodeAlpha({
+        includedByFilter: filterMatch,
+        includedBySearch: searchMatch,
+        includedByFocus: focusMatch,
+      });
+      const emphatic = alpha === 1;
+      return {
+        ...data,
+        color: withGraphAlpha(String(data.color), alpha),
+        label: emphatic ? formatGraphLabel(String(data.label), data.size) : "",
+        forceLabel: emphatic && (!!filter || !!highlight),
+        highlighted: emphatic,
+        zIndex: emphatic ? 1 : 0,
+        ...(activeNode === node ? { size: data.size * 1.3 } : {}),
+      };
     });
 
     sigma.setSetting("edgeReducer", (edge, data) => {
@@ -239,7 +233,7 @@ export function SigmaGraph({
       refreshReducers();
       const display = sigma.getNodeDisplayData(node);
       if (display) {
-        const vp = sigma.graphToViewport({ x: display.x, y: display.y });
+        const vp = sigma.framedGraphToViewport({ x: display.x, y: display.y });
         setTooltip({ id: node, x: vp.x, y: vp.y });
       }
     });
@@ -292,6 +286,7 @@ export function SigmaGraph({
         startX: pos.x,
         startY: pos.y,
       };
+      graph.setNodeAttribute(node, "fixed", true);
       sigma.getCamera().disable();
     });
 
@@ -316,9 +311,12 @@ export function SigmaGraph({
       nextPositions.set(drag.node, { x: pos.x, y: pos.y });
     };
 
-    const onMouseUp = () => {
+    const onMouseUp = (event: MouseEvent) => {
       if (dragRef.current?.dragging) {
         layoutRef.current?.reheat(600);
+      }
+      if (dragRef.current && !event.altKey) {
+        graph.removeNodeAttribute(dragRef.current.node, "fixed");
       }
       dragRef.current = null;
       sigma.getCamera().enable();
@@ -335,10 +333,9 @@ export function SigmaGraph({
       }
     };
 
-    el.addEventListener("mousemove", onMouseMove);
-    el.addEventListener("mousemove", onHoverMove);
-    el.addEventListener("mouseup", onMouseUp);
-    el.addEventListener("mouseleave", onMouseUp);
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mousemove", onHoverMove);
+    document.addEventListener("mouseup", onMouseUp);
 
     // --- Layout ---
     if (graph.order > 0 && topologyChanged) {
@@ -347,9 +344,10 @@ export function SigmaGraph({
           graph.forEachNode((id, attrs) => {
             nextPositions.set(id, { x: Number(attrs.x), y: Number(attrs.y) });
           });
-          positionsRef.current = nextPositions;
-          positionsCache.set(layoutKey, nextPositions);
-          sigma.refresh();
+        positionsRef.current = nextPositions;
+        positionsCache.set(layoutKey, nextPositions);
+        sigma.refresh();
+        fitView(sigma, 400);
         },
       });
       layoutRef.current = fa2;
@@ -362,16 +360,15 @@ export function SigmaGraph({
     if (cameraRef.current && nodes.length > 0) {
       sigma.getCamera().setState(cameraRef.current);
     } else if (nodes.length > 0) {
-      setTimeout(() => fitView(sigma, 0.08, 400), 200);
+      fitView(sigma, 400);
     }
 
     refreshReducers();
 
     return () => {
-      el.removeEventListener("mousemove", onMouseMove);
-      el.removeEventListener("mousemove", onHoverMove);
-      el.removeEventListener("mouseup", onMouseUp);
-      el.removeEventListener("mouseleave", onMouseUp);
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mousemove", onHoverMove);
+      document.removeEventListener("mouseup", onMouseUp);
       try {
         cameraRef.current = sigma.getCamera().getState() as CameraSnap;
       } catch {

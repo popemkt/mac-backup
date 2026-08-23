@@ -486,13 +486,6 @@ export function resolveSize(
   return Math.max(3, Math.min(20, 3 + Math.sqrt(degree) * 2.5));
 }
 
-const MAX_LABEL_LEN = 40;
-function truncateLabel(text: string): string {
-  const line = text.split("\n")[0] ?? text;
-  if (line.length <= MAX_LABEL_LEN) return line;
-  return line.slice(0, MAX_LABEL_LEN - 1) + "…";
-}
-
 export function extractLensGraph(
   db: QueryDb,
   wireNodes: WireNode[],
@@ -542,7 +535,7 @@ export function extractLensGraph(
     }
     nodes.push({
       id,
-      label: truncateLabel(wire.text || id),
+      label: wire.text,
       color,
       size,
       clusterKey,

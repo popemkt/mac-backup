@@ -14,7 +14,7 @@ describe("computeFitTarget", () => {
         { x: 0.2, y: 0.4 },
         { x: 0.8, y: 0.6 },
       ],
-      0.1,
+      1,
     );
     expect(target?.x).toBeCloseTo(0.5);
     expect(target?.y).toBeCloseTo(0.5);
@@ -33,22 +33,22 @@ describe("computeFitTarget", () => {
     expect(target!.y).toBeLessThanOrEqual(1);
   });
 
-  it("derives ratio from the larger span so nothing is cropped", () => {
+  it("uses the larger span with CodeFlow's 0.8 fit padding", () => {
     // Wider than tall: the x span must drive the ratio.
     const target = computeFitTarget(
       [
         { x: 0, y: 0.45 },
         { x: 1, y: 0.55 },
       ],
-      0.1,
+      1,
     );
-    // span 1 over usable 0.8
+    // span 1 yields a 0.8 scale, represented as inverse Sigma ratio.
     expect(target?.ratio).toBeCloseTo(1.25);
   });
 
-  it("does not zoom infinitely into a single node", () => {
+  it("caps zoom-in at 2x for a single-node lens", () => {
     const target = computeFitTarget([{ x: 0.5, y: 0.5 }]);
-    expect(target?.ratio).toBeGreaterThan(0);
+    expect(target?.ratio).toBeCloseTo(0.5);
     expect(Number.isFinite(target!.ratio!)).toBe(true);
   });
 

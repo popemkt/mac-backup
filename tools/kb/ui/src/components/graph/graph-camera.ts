@@ -70,7 +70,7 @@ export function framedPoints(sigma: Sigma): Point[] {
  */
 export function computeFitTarget(
   points: readonly Point[],
-  padding = 0.1,
+  currentRatio = 1,
 ): Partial<CameraState> | null {
   if (points.length === 0) return null;
 
@@ -86,18 +86,18 @@ export function computeFitTarget(
   }
   if (!Number.isFinite(minX)) return null;
 
-  const usable = Math.max(0.05, 1 - padding * 2);
-  const span = Math.max(maxX - minX, maxY - minY);
+  const span = Math.max(maxX - minX, maxY - minY, 0.001);
+  const scale = Math.min(0.8 / span, 2);
   return {
     x: (minX + maxX) / 2,
     y: (minY + maxY) / 2,
     // A single node has zero span; keep it readable rather than infinitely zoomed.
-    ratio: Math.max(0.05, span / usable),
+    ratio: Math.max(0.01, currentRatio / scale),
   };
 }
 
-export function fitView(sigma: Sigma, padding = 0.1, durationMs = 300): void {
-  const target = computeFitTarget(framedPoints(sigma), padding);
+export function fitView(sigma: Sigma, durationMs = 300): void {
+  const target = computeFitTarget(framedPoints(sigma), sigma.getCamera().getState().ratio);
   // No display data yet (fit raced the first render) — the reset framing at
   // least shows the graph instead of blanking the canvas.
   if (!target) {
