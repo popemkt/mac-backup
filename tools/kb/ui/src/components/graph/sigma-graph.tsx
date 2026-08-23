@@ -35,6 +35,8 @@ export interface SigmaGraphProps {
 
 const LARGE_GRAPH_THRESHOLD = 1500;
 
+const positionsCache = new Map<string, Map<string, { x: number; y: number }>>();
+
 function topologyKey(nodes: LensNode[], edges: LensEdge[]): string {
   if (nodes.length > 200) return `${nodes.length}:${edges.length}`;
   const n = nodes.map((x) => x.id).sort().join(",");
@@ -152,6 +154,7 @@ export function SigmaGraph({
     layoutRef.current = null;
 
     const graph = new Graph({ multi: true, type: "directed" });
+    positionsRef.current = positionsCache.get(layoutKey) ?? positionsRef.current;
     const prevPositions = positionsRef.current;
     const nextPositions = new Map<string, { x: number; y: number }>();
 
@@ -345,6 +348,7 @@ export function SigmaGraph({
             nextPositions.set(id, { x: Number(attrs.x), y: Number(attrs.y) });
           });
           positionsRef.current = nextPositions;
+          positionsCache.set(layoutKey, nextPositions);
           sigma.refresh();
         },
       });
@@ -352,6 +356,7 @@ export function SigmaGraph({
       fa2.start();
     } else {
       positionsRef.current = nextPositions;
+      positionsCache.set(layoutKey, nextPositions);
     }
 
     if (cameraRef.current && nodes.length > 0) {
