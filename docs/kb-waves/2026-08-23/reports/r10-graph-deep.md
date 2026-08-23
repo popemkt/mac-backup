@@ -352,3 +352,170 @@ start with a rendering-truth test harness, not with new features.**
 
 *(Sections 2–6 follow: Q2 decision table, Q3 porting plan, Q4 3D verdict,
 ordered i11 task list, exclusions, sources.)*
+
+---
+
+## 2. Q2 — which CodeFlow subsystem to copy, for what, and which to reject
+
+CodeFlow is `/tmp/codeflow-study/index.html` at `4f0d944`, 10838 lines. All line
+numbers below are from that file and were re-read for this report.
+
+One framing point first. r2 §1.2 listed six things to "copy wholesale" and i2
+implemented five of them, yet the result did not read as polished. The reason is
+visible in the table: **the value in CodeFlow is concentrated in its
+*treatments*, not its *features*.** kb has selection; CodeFlow has selection
+that fades 200 ms into a 0.2-opacity ghost field. kb has a fit button;
+CodeFlow's is computed in screen space and clamped. Copying the feature list
+again would produce the same grade. The rows below are therefore weighted toward
+treatments and invariants, and several "kb already has this" features are marked
+**Adapt** precisely because the mechanism is present and the treatment is not.
+
+| # | CodeFlow subsystem | Verdict | What kb gets | Cost | Why |
+|---|---|---|---|---|---|
+| 1 | **Opacity-based selection dim** — `updateGraphHighlight` (7737-7748): 200 ms `d3` transition; selected `opacity 1` + `#ff5f5f`, affected `1` + `#ff9f43`, everything else `opacity 0.2` keeping its own colour; incident links `stroke-opacity 0.8`, others `0.05`, none `0.4` | **Copy wholesale** | Replaces kb's three inconsistent, theme-blind dim treatments (`#444444` filter, `#666666` search, `rgba(128,128,128,0.15)` hover — §1.2.2) with one rule that works in both themes and keeps colour identity while dimming | Low. Sigma reducers already return per-node data; the change is "compute `color` with an alpha multiplier instead of substituting grey", plus a short tween | This is the single biggest perceived-quality delta available. Colour substitution destroys the information the colour encoded *and* inverts contrast on light themes; alpha does neither. It is also the only dim treatment that composes — search ∩ filter ∩ hover can multiply alphas instead of fighting over one `color` slot |
+| 2 | **Screen-space fit transform** — `computeGraphFitTransform` (8998-9009): bbox of live sim nodes → `scale = 0.8 / max(dx+pad/w, dy+pad/h)` → `zoomIdentity.translate(w/2 - scale·cx, h/2 - scale·cy).scale(min(scale, 2))`; `fitView` applies it over 400 ms (9010-9018) | **Copy wholesale** | A `fitView` that works. Note the two details kb's version lacks: the transform is built in **screen space**, and the scale is **capped at 2** so a 3-node lens does not zoom to absurdity | Low — it is a rewrite of one 40-line function | kb's `fitView` feeds raw graph coordinates to a normalized-space camera and blanks the canvas (§1.1). The porting note matters: sigma has no `zoomIdentity`, so the equivalent is `camera.setState({x: 0.5, y: 0.5, ratio: currentRatio / scale})` — centre in *normalized* space, scale via `ratio`. Never pass a graph coordinate to `camera.setState` |
+| 3 | **Drag with `fx`/`fy` pin + `alphaTarget` reheat** — `node.call(d3.drag()...)` (8055): `start` → `alphaTarget(0.1).restart()`, `d.fx = d.x`; `drag` → `d.fx = e.x`; `end` → `alphaTarget(0)`, `d.fx = null` | **Copy wholesale (as a rewrite)** | Working drag. kb's drag is a **no-op** today (§1.2.4) | Medium. The graphology mechanism is different but present: `graphology-layout-forceatlas2` honours a **`fixed: true`** node attribute in both the sync and worker paths (`iterate.js:21,698,744`; `webworker.js:33,710,756`) — it skips position writes for fixed nodes | The pin is not a nicety, it is what makes drag *possible* while a layout is running: without it the worker overwrites the dragged position on its next tick. kb writes `x`/`y` and never sets `fixed`, which is very likely why nothing moved |
+| 4 | **Hulls in the same paint tree, drawn under links, labelled above the cluster** — `hullLayer` appended before `linkLayer`/`nodeLayer` (7984-7986); `updateHulls` (8066-8082): 4 padded corner points per node (`pad = 30`) → `d3.polygonHull` → `fill-opacity 0.04`, `stroke-opacity 0.25`, `stroke-width 2`; label at `mean(x)`, `min(y) − pad − 8` | **Copy wholesale** | Visible hulls. Three specific corrections to kb's version: (a) same stacking context, no opaque layer on top; (b) hull built from **padded corner points**, which avoids degenerate slivers for 2–3-node clusters without kb's special-case arc branch; (c) label **above** the cluster, not at the centroid where it collides with nodes | Medium — kb's hull canvas needs to move above the sigma container (or become a sigma layer) and stop being covered by an opaque background | kb's hulls are invisible for three independent reasons (§1.3) and its centroid label would collide even if they weren't. The padded-corner trick is the non-obvious part worth stealing verbatim |
+| 5 | **Radius-derived label truncation and density** — labels drawn only if `!isLargeGraph \|\| showLabels` (8061); font size `max(6, min(10, r·0.6))`; **truncation length from radius**: `maxLen = max(4, floor(r/2))` (8062) | **Copy wholesale** | Labels that stop overlapping. Big hubs get long labels, leaf dots get 4 characters or none | Low, but it must move **out of the extract**: kb truncates to a flat 40 chars in `graph-lens.ts`, which is a data-layer decision about a render-layer concern | A flat 40-char label on a size-3 node is the direct cause of the label collisions in `shots/r10-03` and the tree's overlap (§1.4). Deriving length from rendered size is the whole trick, and it is 3 lines |
+| 6 | **Counter-scaled labels on zoom** — `readableLabelScale(k)` applied to `text.node-label` and hull labels on every zoom event (7970-7976, 7977-7981) | **Adapt** | Labels stay legible when zoomed out instead of vanishing below `labelRenderedSizeThreshold` | Low-medium | Sigma does not scale label text with the camera, so the *problem* is different: kb's failure mode is labels disappearing, not shrinking. Adapt to "raise label density and lower the size threshold as `ratio` grows", driven off the camera `updated` event. Do not port the transform literally |
+| 7 | **Settings popover with live-applied controls** — toolbar `⚙` toggle (9989-9991) opening a panel with Layout sub-mode buttons, `Spread` 50–500, `Links` 30–200, `Show labels`, `Curved links`, `Auto-rotate` (9993-10025) | **Adapt** | The r2 T4 item i2 cut. This is the discoverability surface for everything in rows 5, 6, 8, 12 | Low-medium | Adapt the *contents*, not the storage. CodeFlow keeps all of it in one ephemeral `graphConfig` React object (6488). In kb these are perspective properties (`sys.f.lens.*`) so they survive reload, are queryable, and are settable by an agent through the CLI — kb's rule that UI actions are reachable through data. Split explicitly: layout/spread/link-distance/labels/curvature/autorotate **persist**; the popover's open/closed state does not |
+| 8 | **Layout sub-modes** — five modes, each a different composition of d3 forces over per-node `targetX`/`targetY` anchors: `force` (folder-centre springs at 0.15), `radial` (ring anchors at 0.8), `hierarchical` (layer columns, x at 0.9 / y at 0.3), `grid` (cell anchors at 1.0), `metro` (BFS lines at 0.95) — 7989-8046 | **Adapt (and cut `metro`)** | `radial`, `hierarchical`, `grid` are genuinely useful lenses over a knowledge graph and each is ~15 lines of arithmetic | Medium | The important porting fact: **these are not five layout engines, they are one engine plus anchor springs**, and FA2 has no anchor force. So in kb they become *pure position functions* that assign `x`/`y` directly and skip FA2 entirely; only `force` runs the worker. That is simpler than CodeFlow, not harder. `metro` is rejected: it is a BFS-over-dependency-direction device that assumes a code-import DAG, and on a `mentions` graph it degenerates (every node with no inbound mention becomes a "line root") |
+| 9 | **Adaptive params by graph size** — `isLargeGraph = nodes.length > 300` → `alphaDecay 0.08 / velocityDecay 0.7`, hull update every 5th tick instead of every tick, labels off (8047-8051, 8084-8086) | **Adapt** | A second, lower degradation tier | Low | kb already has one tier at 1500 nodes (`LARGE_GRAPH_THRESHOLD`, `sigma-graph.tsx:35`) tuned for hiding edges on move. CodeFlow's threshold is 5× lower because SVG is 5× more expensive than WebGL — do not copy the number. Copy the *shape*: throttle hull redraw by tick count (kb redraws hulls on every `afterRender`, `cluster-graph.tsx:288`) and step label density down before edges |
+| 10 | **In-canvas error state** — the whole force-graph body is wrapped in `try/catch` that clears the SVG and draws `'Graph rendering error: ' + e.message` into it (8098) | **Copy wholesale** | Every kb graph failure today is either a silent blank canvas or a whole-view `ViewErrorBoundary` (§1.5). A renderer that fails should say so *in the canvas frame* and leave the rest of the page alive | Low | This is the cheapest defence against exactly the class of bug this report is made of: three of four renderers failed silently, and a `console.warn`-only path (`graph-lens.ts` `resolveNodeSet`) was already called out in r2 §1.1 and still exists |
+| 11 | **3D scene configuration** — `linkWidth` `max(0.8,min(3,√count·0.4))` ×2 when incident to selection, ×0.3 otherwise (8239-8248); `linkDirectionalArrowLength` 3.5 / 5.0 / 0 (8249-8259); `linkDirectionalParticles` 1 → **4 on selected-incident** → 0 (8261-8290); `linkCurvature 0.25` (8291); `linkColor` selection-aware with non-incident at **0.08 alpha** (8228-8238); `nodeResolution(24)`; `showNavInfo(false)` (8216-8218); sprite labels via `CanvasTexture` + `nodeThreeObject` (8306-8377); `controls().autoRotate` + `autoRotateSpeed 1.0` (8380-8389) | **Copy wholesale** | Effectively all of kb's 3D specification (§4). Every one of these is a one-line `3d-force-graph` call and together they are the difference between "coloured balls" and a scene | Low individually; the sprite labels are the only non-trivial piece | Note `showNavInfo(false)`: kb leaves the default hint on, and in the broken state that hint was **the only thing visible** in the viewport. Also note CodeFlow passes `'#ffffff'` / `'#0a0a0c'` as **literal hex** to `backgroundColor` (8215) — which is exactly why CodeFlow never hit the polished/oklch throw that blanked kb's 3D |
+| 12 | **3D click = animated fly-to + select in place** — `onNodeClick` (8292-8302): computes a point 120 units out along the node's own vector and calls `cameraPosition(newPos, node, 1200)` so the camera eases in *and* looks at the node, then selects it; `onBackgroundClick` clears (8301-8304) | **Copy wholesale** | The best interaction CodeFlow has, and the one kb's 3D most conspicuously lacks: kb's `onNodeClick` **leaves the graph** (`graph-page.tsx:272`, `onNodeOpen` → `navigate("/")`) | Low | r2 called click-to-navigate "Critical" for 2D and then left it in 3D. A 3D scene where clicking a node exits the 3D scene cannot be explored |
+| 13 | **3D cluster force** — `customForce(axis, targetSelector, strength)` (8420-8432) applying `node[v] += (target − node[p]) · strength · alpha` on x/y/z separately at strength 0.15, registered under the canonical `d3Force('x'/'y'/'z')` names, Fibonacci-sphere centres at radius 180 (8404-8418), and **explicitly nulled out when there are no groups** (8442-8445) | **Copy wholesale** | The fix for the collapse in §1.5. Two differences from kb's version are each independently causal: CodeFlow multiplies by **`alpha`** so the pull cools as the sim settles, and CodeFlow **clears the force when `groups.length === 0`** | Low — it is a 12-line function | kb's force (`force3d-graph.tsx:129-139`) ignores the `alpha` argument and applies a constant 0.08 forever, so it never yields to charge repulsion; and with `cluster-by` unset there is one attractor, so all 126 nodes are pulled onto one point. Both defects are visible in `shots/r10-31` |
+| 14 | **Node identity preserved across data updates** — `existingNodesMap` reuses the previous node objects so positions *and velocities* survive a re-render (8112-8134); teardown is `pauseAnimation()` + empty `graphData`, keeping the instance (8461-8464) | **Adapt** | No sim reset on every WS tick | Medium | kb rebuilds objects and restores only `x/y/z` from a `Map` (`force3d-graph.tsx:88-105`), losing velocity, and calls `_destructor()` on every effect run. The same disease exists in 2D (`sigma.kill()` per data batch, flagged in r2 §1.1 and still unfixed). Adapt as one shared principle — *diff, don't rebuild* — rather than two copies |
+| 15 | **Info chips** — `<n> files`, `<n> links`, `<n> custom excludes`, and when something is selected `<n> dependents • <n> fns used` (10026-10042) | **Adapt** | kb's header has a bare `126 nodes · 91 edges`. The chip worth stealing is the **selection-relative** one: "N dependents" tells you why the highlight looks the way it does | Low | Adapt to kb's vocabulary: `N backlinks · M mentions · depth-1 neighbourhood K`. Keep them in the floating canvas layer, not the h-11 header, which r2 §5.1 already found overloaded and which has since gained an ontology picker |
+| 16 | **Legend-as-data-filter** — `legend-item` click → `filterByFolder(f)` → `folderFilter` state → **every renderer re-derives `filteredFiles` and re-runs layout** (10043-10054, and the `folderFilter` reads at 7945, 8110, 8481, 8551, 8610) | **Reject the mechanism, keep the affordance** | Nothing — kb's version is better | — | kb already has a collapsible legend with counts and click-to-isolate implemented as a **sigma reducer** (`graph-legend.tsx`, `sigma-graph.tsx:100-112`), so the layout does not move when you filter. CodeFlow's data-set filter re-runs the whole simulation, so every legend click throws the layout away and re-settles — jarring, and the reason its filter feels like a page change. Keep kb's reducer approach; take only the missing polish (force labels on the surviving set, row 3 of §1.2) |
+| 17 | Ephemeral `graphConfig` / `colorMode` / `viewMode` React state (6488) | **Reject** | Nothing | — | This is the axis where kb is structurally ahead and must not regress. kb's perspectives are persisted, queryable `#graph-perspective` sys-nodes; CodeFlow's view state dies with the tab. Every control the settings popover (row 7) grows must land as a `sys.f.lens.*` prop, with only genuinely transient state (search text, hover, transient tag isolation, popover open) left in React |
+| 18 | Hardcoded folder-based clustering and `LAYER_COLORS` layer taxonomy (7955-7969, 8004-8014) | **Reject** | Nothing | — | kb's `cluster-by` is already configurable across `tag:` / `prop:` / `parent` / `none` (`graph-lens.ts:189-217`), which is strictly more general than "folder". The *bug* is that the default is `"none"` and nothing surfaces the choice (§1.0) — that is a defaults-and-UI problem, not a reason to copy a hardcoded taxonomy. Same for `hierarchical`'s `layerOrder` map: port the column mechanism, source the order from a kb ontology or tag order |
+| 19 | Blast-radius *semantics* — `calcBlast(path, connections, files)` computing `affected` (transitive dependents) and `dependencies` (7722), rendered as size ×1.4 and distinct purple/orange fills (8189-8201) | **Reject as-is, adapt the visual** | The two-tone treatment (self / affected / rest), not the graph theory | Low | "Transitive dependents of a source file" has no kb analogue worth faking; kb's honest equivalent is the depth-1 (and optionally depth-2) `:node/mentions` neighbourhood it already computes for hover. Take the visual grammar — self, ring 1, ring 2, rest — and drop the dependency-direction semantics |
+| 20 | `exportSVG` with inlined theme variables (9019-9027) | **Reject (defer)** | — | — | Genuinely nice, genuinely out of scope for a polish wave, and only meaningful for the SVG-based tree renderer since sigma and three are canvas/WebGL. Noted so the next reader does not have to rediscover it |
+
+### 2.1 Where this contradicts r2
+
+- r2 §1.1 rated force3d's gap **"low-medium"** and §4 concluded 3D is
+  "exploratory, not primary navigation … do not invest beyond parity". Both are
+  withdrawn. The gap was not low-medium; the renderer produced an empty
+  viewport (§1.5). r2 could not have known — it read the source, and the source
+  looks complete. The lesson for i11 is the one r2 missed: **a renderer with no
+  rendering assertion in its test suite has no evidence behind its grade.**
+- r2 §1.2.1 said to copy "blast-radius-style neighborhood coloring". Row 1
+  refines this: copy the **opacity** treatment, not the colouring. i2 copied the
+  colouring (`#444444`/`#666666`) and that is exactly what looks wrong on the
+  light theme.
+- r2 §1.1 called the frozen one-shot layout "the single biggest 'feel' gap".
+  That was true then and i2 fixed it with the FA2 worker. It is no longer the
+  biggest gap; the camera is (§1.1).
+- r2 §7 T4 (settings popover) was ranked below T5-T9 in the cut order and duly
+  cut. Row 7 promotes it, because it is the only surface that makes `cluster-by`,
+  layout mode and label density discoverable — and `cluster-by` being invisible
+  is half of why the cluster renderer and 3D both degenerate (§1.0).
+
+---
+
+## 3. Q3 — how to pull it in properly
+
+### 3.1 What does not move
+
+The data plane is invariant, exactly as the graphviz report §4 locked it:
+`/api/graph` + `/ws` stay the only shared surface, every renderer stays a pure
+client of `extractLensGraph`, and every viz remains
+"datalog query → `{nodes, edges}` → renderer". Nothing in Q2 requires a server
+change. Nothing in Q2 requires a new query.
+
+### 3.2 The one structural change: chrome must stop being force2d-only
+
+This is the finding from §1.0 and it dictates the shape of the port.
+`graph-page.tsx` currently mounts `GraphToolbar` and `GraphLegend` inside the
+force2d branch (`:283-329`), so every renderer that is not force2d is naked.
+The port must invert that:
+
+- Extract a **`GraphCanvasFrame`** that owns the floating toolbar, the legend,
+  the info chips, the cap notice, the empty/error states and the keyboard map,
+  and renders `children` — the active renderer — inside it. `graph-page.tsx`
+  becomes `frame(renderer)`, not `if (force2d) frame else bare`.
+- Give the frame a small **renderer capability descriptor** so a renderer can
+  declare what the shared chrome may drive: `{ fit, zoom, reset, focus, search,
+  selection, dim, drag }`. Tree has no `zoom` in the camera sense but does have
+  `fit`; 3D has `fit`/`zoom`/`focus`/`selection` but no sigma reducer. The
+  toolbar renders the intersection and greys the rest, instead of the frame
+  assuming a `Sigma` instance — which is what `GraphToolbar`'s
+  `sigmaRef: MutableRefObject<Sigma | null>` prop hardcodes today.
+- Consequence: the keyboard map (`Esc`/`Enter`/`f`/`0`/`+`/`-`//`) moves to the
+  frame and works in all four renderers instead of one.
+
+### 3.3 Where each Q2 row lands
+
+| Q2 row | Lands in | Portability |
+|---|---|---|
+| 1 opacity dim | new `lib/graph-dim.ts` (pure: `(state) => alphaFor(nodeId)`), consumed by `sigma-graph.tsx` + `cluster-graph.tsx` reducers and by `force3d-graph.tsx`'s `nodeColor`/`linkColor` accessors | **Portable logic.** The alpha-composition rule is pure and unit-testable; only the application differs per renderer |
+| 2 fit transform | rewrite `components/graph/graph-camera.ts` | **Must be rewritten against sigma.** d3's `zoomIdentity` has no sigma equivalent; the correct target is `{x: 0.5, y: 0.5, ratio: currentRatio / scale}` in normalized space. Add a same-named `fitView3d` that just calls `zoomToFit(600)` |
+| 3 drag + pin | `sigma-graph.tsx`, `cluster-graph.tsx`; pin flag written as the graphology node attribute `fixed` | **Mechanism differs, concept identical.** `fx/fy` → `fixed: true`. Also fix the gesture plumbing: bind the move/up listeners on `document` (as sigma's own captor does, `sigma.esm.js:487-490`) rather than on the container |
+| 4 hulls | `cluster-graph.tsx`; hull canvas moves above the sigma container and the imperative opaque `el.style.background` (`:160`) goes away | **Portable logic** (padded corner points, `convexHull` already exists in `lib/convex-hull.ts`) + **a fix that is not a port**: the projection must use `sigma.framedGraphToViewport(displayData)`, never `graphToViewport(displayData)` |
+| 5 label truncation | `lib/graph-label.ts` (new, pure) called from the renderers; the flat 40-char truncation leaves `lib/graph-lens.ts` and `LensNode` keeps the **full** text | **Portable logic.** Note this reverses part of i2's T2: truncation is a render decision and the extract should stop making it |
+| 6 zoom-aware density | `sigma-graph.tsx` on the camera `updated` event | **Rewrite** — different failure mode, different fix (§2 row 6) |
+| 7 settings popover | new `components/graph/graph-settings.tsx` inside the frame; writes via `actions/mutations.ts` (`setLensRenderer`'s siblings) | **UI port; storage inverted.** Each control is a `sys.f.lens.*` prop write. `mutations` needs a generic `setLensProp(perspectiveId, field, value)` that **unsets before setting** — props are multi-valued and `set` appends (§1.6) |
+| 8 layout sub-modes | new `lib/graph-layouts.ts` (pure `(nodes, edges, size) => Map<id, {x,y}>`), selected by a new `sys.f.lens.layout` prop; `force` alone delegates to `fa2-layout.ts` | **Rewrite, and simpler than the original.** FA2 has no anchor springs, so the anchored modes assign positions directly and never start the worker. This also makes them instant and deterministic — unit-testable, which the d3 versions are not |
+| 9 adaptive tiers | `sigma-graph.tsx` (existing threshold), `cluster-graph.tsx` (hull tick throttle) | Portable shape, not the numbers (§2 row 9) |
+| 10 in-canvas error | the frame, plus a real error surface for `resolveNodeSet`'s currently `console.warn`-only failure (`lib/graph-lens.ts`) | **Portable** |
+| 11-14 3D | `force3d-graph.tsx` | **Portable** — every item is a `3d-force-graph` builder call already available in `1.80.0`. The sprite labels are the only part that touches `three` directly, and `three` is already in that chunk |
+| 15 info chips | the frame | Portable |
+| 16 legend | keep `graph-legend.tsx`; move it into the frame so all renderers get it | — |
+
+### 3.4 Persisted vs transient — the explicit split
+
+kb's rule is that a UI action should be reachable through data. Applying it:
+
+**Persisted** as `sys.f.lens.*` props on the `#graph-perspective` node (and
+therefore CLI- and agent-settable, and surviving reload):
+`renderer` (exists), `cluster-by` (exists, unset), `color-by`, `size-by`,
+`edge-kinds`, `max-nodes`, `focus` (all exist), plus new:
+`layout` (`force|radial|hierarchical|grid`), `spread`, `link-distance`,
+`show-labels`, `curved-links`, `autorotate`, `label-density`.
+
+**Transient** React state, never written: search text and match set, hover,
+transient tag/cluster isolation, selection, popover open/closed, camera. This is
+r2 MUST 15 and it held up in testing — do not weaken it. The one addition:
+because `cluster-by` is invisible today, the settings popover **must** surface
+it; a persisted prop nobody can see is how §1.0 happened.
+
+**Also fix while here:** `mutations.setLensRenderer`-style writers must unset
+before set. Driving `sys.f.lens.renderer` from the CLI produced
+`["force2d","force3d"]` and `strProp` silently took the first (§1.6). Any
+agent, extension or CLI writer will corrupt a perspective this way.
+
+### 3.5 Bundle discipline
+
+- `three@0.185.1` arrives only transitively via `3d-force-graph@1.80.0` and must
+  stay inside the lazily-imported `force3d-graph-*` chunk. Verified by
+  inspection this session; still **not** covered by a test. r2 §3 asked for the
+  assertion, i2 listed it as follow-up 5 — i11 must land it, because every 3D
+  item in Q2 row 11 adds imports to that file.
+- No new heavy dependency is needed for anything in Q2. Rows 1-10 and 15-16 are
+  arithmetic over packages already installed; rows 11-14 are configuration of a
+  package already installed. The three packages i2 added
+  (`graphology-layout`, `graphology-layout-noverlap`,
+  `graphology-communities-louvain`) cover the remaining layout needs; row 8's
+  anchored modes need none of them.
+- `graph-camera.ts` is currently both statically imported (`graph-toolbar.tsx`)
+  and dynamically imported (`sigma-graph.tsx`'s Focus handler), which the build
+  reports as `INEFFECTIVE_DYNAMIC_IMPORT`. Make it static everywhere.
+
+### 3.6 What cannot be ported cleanly
+
+1. **d3's transition system.** Rows 1 and 12's *feel* comes from `d3`
+   transitions on SVG attributes. Sigma has no attribute tweening — reducers are
+   sampled per frame. So the port is an explicit animation clock: a
+   `useDimTransition` hook that advances a 0→1 progress value over ~200 ms and
+   drives the alpha the reducers read, calling `sigma.refresh()` per frame while
+   in flight. Build this once, in the frame, rather than per renderer.
+2. **`readableLabelScale` counter-scaling** — no sigma equivalent (§2 row 6).
+3. **`metro` layout** — rejected on data-model grounds (§2 row 8).
+4. **`exportSVG`** — only meaningful for the tree renderer; deferred.
+5. **CodeFlow's single-file structure itself.** Its 10 838-line `index.html`
+   keeps every renderer in one closure, which is why `selected`, `blastRadius`,
+   `folderFilter` and `graphConfig` can be read directly by all of them. kb's
+   equivalent of that shared closure is the frame (§3.2) plus the perspective
+   node — and unlike CodeFlow's, kb's survives a reload.
