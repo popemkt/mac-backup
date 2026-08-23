@@ -135,11 +135,26 @@ interface Store {
 - **JsonlStore v1**: `.kb/nodes.jsonl`, one canonical-JSON node per line,
   sorted by id, sorted keys → stable bytes, mergeable diffs.
 - **Performance is a stated requirement**: streaming line parse (no
-  read-whole-string-then-split), single-pass datom build, atomic write
-  (tmp + rename; prior file copied to `nodes.jsonl.bak`). Milestone 1 includes
+  read-whole-string-then-split), single-pass datom build, durable whole-file
+  replace (below). Milestone 1 includes
   a benchmark: 50k-node fixture must load+query well under 1s. (Will peek at
   orca's jsonstore for tricks.) `.bak` / `nodes.jsonl.*.tmp` are gitignored —
-  only the live `nodes.jsonl` is committed.
+  only the live `nodes.jsonl` is committed. The transient
+  `nodes.jsonl.lock` is *not* yet gitignored (known gap).
+- **Write hardening** (r4 Stage-0 — on-disk format unchanged), two modules
+  under `src/foundation/storage/`:
+  - `write-lock.ts` — an exclusive `.kb/nodes.jsonl.lock` carrying the holder
+    pid wraps the *whole* commit via `Effect.acquireRelease` inside
+    `Effect.scoped`, so reload → merge → replace is one critical section and
+    concurrent CLI / MCP / `kb ui` writers cannot silently clobber each other
+    (previously last-writer-wins). Contention spins on `Effect.sleep`
+    (25ms, `MAX_WAIT_MS` 15s — never a loop-blocking sleep); a lock whose
+    recorded pid is dead is stolen, and only exhausting the ceiling fails,
+    with a `conflict` error naming the holder pid.
+  - `durable-replace.ts` — write the candidate to a tmp fd + `fsync`, copy the
+    live file to `nodes.jsonl.bak` (+fsync), `rename` tmp → live, best-effort
+    parent-directory fsync. Ordering-safe; **not** crash-injection tested
+    (no `F_FULLFSYNC`, no revision/CAS).
 - **Load is all-or-nothing**: a malformed or schema-invalid line fails the load
   with a line-numbered error and returns no nodes; load never rewrites the file
   (same fail-closed posture as the pre-Schema `JSON.parse` loader). Unknown own
@@ -148,7 +163,12 @@ interface Store {
 - Backend-agnostic by construction — operations/query/surfaces see only
   `Store` + `KbNode`. Future backends (SQLite cache, dolt, md-outline) slot in
   without touching upper layers.
-- No WAL/leases — single-user repo scale, atomic rename suffices.
+- No WAL, no leases — repo scale. The lock above is advisory, filesystem-local
+  and process-scoped; it serializes writers but does not make a *reader's*
+  snapshot binding. Conditional writes (an `expect` precondition carrying graph
+  identity / node hash, returning the existing `conflict` receipt) are designed
+  in `docs/kb-waves/2026-08-23/reports/r8-zerolang.md` §1 and **parked** — no
+  action input accepts `expect` today.
 
 ## Query layer (horizontal)
 
@@ -168,6 +188,94 @@ interface Store {
   `kb children <id>`, `kb search <text>` — `kb search` delegates to the
   first-class `graph.search` action (case-insensitive substring over node
   text), so the substring policy lives in the action, not the CLI.
+
+## Ontologies — a lens over the graph
+
+An **ontology** is an ordinary node tagged `#ontology` that names a subset of
+the graph. It is a new node *kind*, not a new node *type*: nothing in the data
+model changes, and membership bookkeeping lives on the ontology, never on the
+member — a node that never joins one carries zero ontology props. Full design
+(including the parts deliberately left out) is
+`docs/kb-waves/2026-08-23/reports/r5-ontology.md`.
+
+Six seeded fields carry the definition, all templated by the `#ontology` tag:
+
+| Field | Type | Means |
+|---|---|---|
+| `sys.f.onto.include` | ref (→ `sys.tag`), multi | tags whose instances are members |
+| `sys.f.onto.member` | ref, multi | explicit pins |
+| `sys.f.onto.exclude` | ref, multi | vetoed nodes — absolute |
+| `sys.f.onto.extends` | ref (→ `#ontology` via `sys.f.targetQuery`), multi | parent ontologies whose members are inherited |
+| `sys.f.onto.query` | text | parameter-free EDN datalog; first column = node id |
+| `sys.f.onto.closure` | text: `none` (default) \| `descendants` | structural pull of members' subtrees |
+
+**Membership algebra — core is union + veto:**
+
+```
+members(O) =  ⋃ members(P)  for P ∈ O.extends      -- inheritance
+           ∪  { n | ∃t ∈ O.include . n tagged t }  -- supertag sets
+           ∪  O.member                             -- explicit pins
+           ∪  ids(run(O.query))                    -- query-defined
+           ⊕  closure(O.closure)                   -- structural pull
+           ∖  O.exclude                            -- absolute veto
+           ∖  { O } ∪ extends-ancestors(O)         -- definitions never members
+```
+
+Precedence is the whole rule a human has to remember: **union everything, then
+subtract**. `exclude` is applied last and beats tag-, pin-, query-, extends-
+and closure-derived membership, which is what makes "remove this from my
+ontology" always work. Set algebra *over* ontologies (`intersect` / `subtract`,
+so "Infrastructure ∩ Open work" would itself be a node) is specified in r5 §1.2
+and is out of core — the resolver signature leaves them as extra passes rather
+than a rewrite.
+
+**Nothing graph-shaped throws.** `extends` is a DAG by intent and cycle-safe by
+implementation: DFS with a `visiting` set, back-edges ignored *and reported*,
+depth capped at 32 (`DEFAULT_MAX_DEPTH`). Cycles, malformed EDN, unknown refs,
+a missing query runner, and the soft size cap (`DEFAULT_WARN_ABOVE` = 5000
+members) all surface as `warnings` on the resolution instead of failing it —
+a broken definition must never make a page unopenable. Same posture as
+`buildTreeForest` in the graph lens.
+
+**One resolver, three surfaces.** `src/foundation/ontology.ts` is pure and
+isomorphic — no Node/Bun API, no `datascript` import; the EDN runner is
+*injected*. CLI and MCP pass `foundation/query`, the browser passes its own
+`ds/query`, both reaching the same module through the `@kb/ontology` alias, so
+there is no fork (contrast `ds/datoms.ts`). Resolution is deterministic
+(input node order, then prop order) and carries per-member provenance —
+`reasons: MemberReason[]` with `kind: "member" | "tag" | "query" | "extends" |
+"closure"` and an optional `via` — which is what the Members list renders.
+
+**Surface.** `ontology.members` (read) is the only registry action the feature
+adds: everything mutating is already expressible as `node.add` / `node.update`,
+and the resolver is the one thing not expressible as a single datalog query.
+CLI sugar:
+
+```bash
+kb ontology list                        # #ontology nodes
+kb ontology members <id> --reasons      # members + provenance + excluded + warnings
+
+# defining one is plain node.update — but the onto.* ref fields need --type ref:
+# a bare `kb set` writes {t:"str"} and the resolver only counts {t:"ref"}.
+kb set <onto> onto.include <tagId>  --type ref
+kb set <onto> onto.member  <nodeId> --type ref
+kb set <onto> onto.exclude <nodeId> --type ref
+```
+
+So the UI's scope is *exactly* reachable through data — the standing rule in
+INSPIRATIONS.md ("anything the UI can do must be reachable through data").
+
+**Scoped reading mode** is the UI consumption of the same resolver and is
+specified in DESIGN-UI.md. The one invariant that belongs here: scope is a
+**projection over the wire snapshot, not a sandbox** — the query db stays built
+over the full graph, so backlinks, `#query` nodes, and WS subscriptions keep
+honest reach while the outline/graph/search render members only.
+
+Parked by design (r5 §2.9, none of it in core): an ontology's *schema*
+vocabulary (which fields members carry) and *relation* vocabulary (which
+ref-fields count as internal edges), inference, auto-classification, validation
+enforcement, tag inheritance, and auto-admission of nodes created inside a
+scope.
 
 ## Action registry
 
@@ -223,8 +331,13 @@ output of any kind — lives in **extensions**:
 | `graph.query` | read | raw datalog → JSON rows |
 | `graph.run` | read | execute saved query from `.kb/queries/` |
 | `graph.search` | read | text/prop filter convenience |
+| `ontology.members` | read | resolve an `#ontology` node's membership, with provenance ([Ontologies](#ontologies--a-lens-over-the-graph)) |
+| `asset.upload` | apply | write opaque bytes to `.kb/assets/<ulid>.<ext>`; returns the `assets/…` markdown path |
+| `render.view` | read | render a saved view (`.kb/views/<name>.json`) to html or md |
+| `render.views` | read | list saved view names available to `render.view` |
 | `ext.docs.materialize` (alias `docs.materialize`) | apply | run view specs → write md (bundled extension) |
 | `ext.docs.check` (alias `docs.check`) | read | materialize to memory, diff vs disk (bundled extension) |
+| `ext.canvas.tx.apply` | apply | apply a JSON Canvas transaction to a `#canvas` node (bundled extension) |
 
 ## Materialization
 
