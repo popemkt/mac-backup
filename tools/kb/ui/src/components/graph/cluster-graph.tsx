@@ -73,18 +73,26 @@ export function ClusterGraph({
     sigmaRef.current = null;
 
     const graph = new Graph({ multi: true, type: "directed" });
-    const clusters = [...new Set(nodes.map((n) => n.clusterKey))].sort();
+    const allClusters = [...new Set(nodes.map((n) => n.clusterKey))].sort();
+    const clusterSizes = new Map<string, number>();
+    for (const n of nodes) clusterSizes.set(n.clusterKey, (clusterSizes.get(n.clusterKey) ?? 0) + 1);
+    const clusters = allClusters
+      .sort((a, b) => (clusterSizes.get(b) ?? 0) - (clusterSizes.get(a) ?? 0))
+      .slice(0, 15);
+    const clusterSet = new Set(clusters);
     const attractors = new Map<string, { x: number; y: number }>();
     const R = 80 + clusters.length * 12;
     clusters.forEach((key, i) => {
       const angle = (2 * Math.PI * i) / Math.max(clusters.length, 1);
       attractors.set(key, { x: Math.cos(angle) * R, y: Math.sin(angle) * R });
     });
+    if (!attractors.has("other")) attractors.set("other", { x: 0, y: 0 });
 
     const prev = positionsRef.current;
     const nextPos = new Map<string, { x: number; y: number }>();
     for (const n of nodes) {
-      const attr = attractors.get(n.clusterKey) ?? { x: 0, y: 0 };
+      const effectiveCluster = clusterSet.has(n.clusterKey) ? n.clusterKey : "other";
+      const attr = attractors.get(effectiveCluster) ?? attractors.get("other") ?? { x: 0, y: 0 };
       const prior = prev.get(n.id);
       const x = prior?.x ?? attr.x + (Math.random() - 0.5) * 30;
       const y = prior?.y ?? attr.y + (Math.random() - 0.5) * 30;
@@ -163,6 +171,11 @@ export function ClusterGraph({
       stagePadding: 40,
     });
 
+    const clusterCounts = new Map<string, number>();
+    for (const n of nodes) {
+      clusterCounts.set(n.clusterKey, (clusterCounts.get(n.clusterKey) ?? 0) + 1);
+    }
+
     const drawHulls = () => {
       const ctx = hullCanvas.getContext("2d");
       if (!ctx) return;
@@ -183,7 +196,6 @@ export function ClusterGraph({
           pts.push(vp);
         });
         if (pts.length < 2) continue;
-        // Expand slightly so single/dual points still show a blob.
         const hull =
           pts.length >= 3
             ? convexHull(pts)
@@ -194,32 +206,49 @@ export function ClusterGraph({
           const [a, b] = hull;
           const mx = (a!.x + b!.x) / 2;
           const my = (a!.y + b!.y) / 2;
-          const r =
-            Math.hypot(a!.x - b!.x, a!.y - b!.y) / 2 + 18;
+          const r = Math.hypot(a!.x - b!.x, a!.y - b!.y) / 2 + 22;
           ctx.arc(mx, my, r, 0, Math.PI * 2);
         } else {
-          ctx.moveTo(hull[0]!.x, hull[0]!.y);
-          for (let i = 1; i < hull.length; i++) {
-            ctx.lineTo(hull[i]!.x, hull[i]!.y);
+          const PAD = 18;
+          const padded = hull.map((p) => {
+            let cx = 0, cy = 0;
+            for (const q of hull) { cx += q.x; cy += q.y; }
+            cx /= hull.length; cy /= hull.length;
+            const dx = p.x - cx, dy = p.y - cy;
+            const dist = Math.hypot(dx, dy) || 1;
+            return { x: p.x + (dx / dist) * PAD, y: p.y + (dy / dist) * PAD };
+          });
+          if (padded.length >= 3) {
+            ctx.moveTo(
+              (padded[padded.length - 1]!.x + padded[0]!.x) / 2,
+              (padded[padded.length - 1]!.y + padded[0]!.y) / 2,
+            );
+            for (let i = 0; i < padded.length; i++) {
+              const next = padded[(i + 1) % padded.length]!;
+              const curr = padded[i]!;
+              ctx.quadraticCurveTo(curr.x, curr.y, (curr.x + next.x) / 2, (curr.y + next.y) / 2);
+            }
+          } else {
+            ctx.moveTo(padded[0]!.x, padded[0]!.y);
+            for (let i = 1; i < padded.length; i++) {
+              ctx.lineTo(padded[i]!.x, padded[i]!.y);
+            }
           }
           ctx.closePath();
         }
-        ctx.fillStyle = withAlpha(color, 0.08);
+        ctx.fillStyle = withAlpha(color, 0.07);
         ctx.fill();
-        // Cluster label at centroid
-        let cx = 0;
-        let cy = 0;
-        for (const p of pts) {
-          cx += p.x;
-          cy += p.y;
-        }
-        cx /= pts.length;
-        cy /= pts.length;
+        ctx.strokeStyle = withAlpha(color, 0.25);
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        let cx = 0, cy = 0;
+        for (const p of pts) { cx += p.x; cy += p.y; }
+        cx /= pts.length; cy /= pts.length;
         ctx.fillStyle = labelColor;
-        ctx.font =
-          "11px Outfit Variable, ui-sans-serif, system-ui, sans-serif";
+        ctx.font = "bold 11px Outfit Variable, ui-sans-serif, system-ui, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText(key, cx, cy - 14);
+        const count = clusterCounts.get(key) ?? pts.length;
+        ctx.fillText(`${key} (${count})`, cx, cy - 16);
       }
     };
 

@@ -151,11 +151,13 @@ describe("extractLensGraph", () => {
       source: "n.a",
       target: "n.b",
       kind: "mention",
+      weight: 1,
     });
     expect(g.edges).toContainEqual({
       source: "n.a",
       target: "n.a1",
       kind: "child",
+      weight: 1,
     });
   });
 
@@ -190,6 +192,7 @@ describe("extractLensGraph", () => {
       source: "n.b",
       target: "n.c",
       kind: "ref-prop",
+      weight: 1,
     });
   });
 

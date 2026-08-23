@@ -17,6 +17,12 @@ vi.mock("@/components/graph/sigma-graph", () => ({
       "data-edge-count": props.edges.length,
     }),
 }));
+vi.mock("@/components/graph/graph-toolbar", () => ({
+  GraphToolbar: () => createElement("div", { "data-testid": "graph-toolbar" }),
+}));
+vi.mock("@/components/graph/graph-legend", () => ({
+  GraphLegend: () => createElement("div", { "data-testid": "graph-legend" }),
+}));
 vi.mock("@/components/graph/cluster-graph", () => ({
   ClusterGraph: () => createElement("div", { "data-testid": "cluster-graph" }),
 }));
