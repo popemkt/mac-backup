@@ -14,7 +14,7 @@ import {
 } from "@/lib/graph-lens";
 import { SYSTEM_IDS } from "@/lib/types";
 import { cn } from "@/lib/cn";
-import { graphPath, navigate } from "@/lib/router";
+import { graphPath, navigate, ontologyPath } from "@/lib/router";
 import { PerspectivePicker } from "@/components/graph/perspective-picker";
 import { RendererSwitch } from "@/components/graph/renderer-switch";
 import { SigmaGraph } from "@/components/graph/sigma-graph";
@@ -32,13 +32,22 @@ function systemPrefersDark(): boolean {
 
 export interface GraphPageProps {
   perspectiveId: string | null;
+  /**
+   * Ontology scope: render member nodes and their internal edges only. No new
+   * renderer — an ontology is just another way of producing the node set.
+   */
+  ontologyId?: string | null;
 }
 
-export default function GraphPage({ perspectiveId }: GraphPageProps) {
+export default function GraphPage({
+  perspectiveId,
+  ontologyId = null,
+}: GraphPageProps) {
   const wireNodes = useOutlineStore((s) => s.wireNodes);
   const queryDb = useOutlineStore((s) => s.queryDb);
   const rev = useOutlineStore((s) => s.rev);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const ontologyMembers = useOutlineStore((s) => s.ontologyMembers);
   const theme = usePrefsStore((s) => s.theme);
   const dark = resolveDark(theme, systemPrefersDark());
   const prefsOpen = useUiStore((s) => s.prefsOpen);
@@ -65,15 +74,21 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
   }, [perspectives, perspectiveId]);
 
   useEffect(() => {
-    if (!active) return;
+    // Under an ontology scope the URL is /o/<id>/graph; never rewrite it.
+    if (!active || ontologyId) return;
     if (perspectiveId !== active.id) {
       navigate(graphPath(active.id));
     }
-  }, [active, perspectiveId]);
+  }, [active, perspectiveId, ontologyId]);
+
+  const restrictTo = ontologyId ? (ontologyMembers ?? new Set<string>()) : undefined;
 
   const [lensGraph, setLensGraph] = useState(() =>
     queryDb && active
-      ? extractLensGraph(queryDb, wireNodes, active, { includeSystemNodes })
+      ? extractLensGraph(queryDb, wireNodes, active, {
+          includeSystemNodes,
+          ...(restrictTo ? { restrictTo } : {}),
+        })
       : { nodes: [], edges: [], dropped: 0 },
   );
 
@@ -81,11 +96,14 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
     if (!queryDb || !active) return;
     const handle = window.setTimeout(() => {
       setLensGraph(
-        extractLensGraph(queryDb, wireNodes, active, { includeSystemNodes }),
+        extractLensGraph(queryDb, wireNodes, active, {
+          includeSystemNodes,
+          ...(restrictTo ? { restrictTo } : {}),
+        }),
       );
     }, 300);
     return () => window.clearTimeout(handle);
-  }, [queryDb, wireNodes, active, rev, includeSystemNodes]);
+  }, [queryDb, wireNodes, active, rev, includeSystemNodes, restrictTo]);
 
   const forest = useMemo(
     () =>
@@ -98,7 +116,7 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
   // Theme tokens only — topology updates via nodes/edges props (not remount).
   const themeKey = `${theme}:${dark ? "d" : "l"}`;
   const onNodeClick = (id: string) => {
-    navigate("/");
+    navigate(ontologyId ? ontologyPath(ontologyId, "outline") : "/");
     zoomTo(id);
   };
 
@@ -108,7 +126,9 @@ export default function GraphPage({ perspectiveId }: GraphPageProps) {
     <div className="relative flex h-full min-h-0 flex-col">
       <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
         <SidebarToggle />
-        <span className="text-[13px] font-medium text-foreground/50">graph</span>
+        <span className="text-[13px] font-medium text-foreground/50">
+          {ontologyId ? "ontology graph" : "graph"}
+        </span>
         <PerspectivePicker
           perspectives={perspectives}
           activeId={active?.id ?? null}

@@ -10,6 +10,8 @@ import {
 } from "@/lib/graph-view";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { isQueryNode } from "@/lib/query-node";
+import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
+import { toast } from "@/lib/toast";
 import { cloneWire, mergeTx } from "@/lib/tx";
 import {
   collectVisibleInstances,
@@ -54,6 +56,17 @@ interface OutlineState {
   cursorPosition: number;
   loadSource: "api" | "fixtures" | null;
   loadError: string | null;
+  /**
+   * Active ontology scope (r5 §2.5). When set, the OUTLINE PROJECTION is
+   * restricted to resolved members; `wireNodes` and `queryDb` stay global so
+   * mutations, backlinks, and #query nodes keep honest reach.
+   */
+  ontologyId: string | null;
+  ontologyMembers: Set<string> | null;
+  /** Non-fatal resolution warnings (cycle, bad EDN, unknown ref, cap). */
+  ontologyWarnings: string[];
+  /** rootNodeId to return to when the scope is left. */
+  preScopeRootId: string | null;
   /** Bumped on every activateNode so remounts re-place the caret. */
   focusSeq: number;
   /** Pending column-preservation target for the next activation (D11). */
@@ -71,6 +84,8 @@ interface OutlineState {
   /** Full-snapshot resync (rev gap) that preserves zoom/selection/collapse. */
   refreshFromWire: (nodes: WireNode[], rev: number) => void;
   setRootNodeId: (id: string) => void;
+  /** Enter (id) / leave (null) an ontology scope. */
+  setOntologyScope: (id: string | null) => void;
   zoomTo: (id: string) => void;
   zoomHome: () => void;
   activateNode: (id: string, cursorPos?: number, instanceKey?: string, opts?: ActivateOpts) => void;
@@ -142,6 +157,48 @@ function isExpandableOutlineNode(node: OutlineNode, nodes: NodeMap): boolean {
   return resolveProps(node, nodes).length > 0;
 }
 
+interface Projection {
+  nodes: NodeMap;
+  queryDb: QueryDb;
+  ontologyMembers: Set<string> | null;
+  ontologyWarnings: string[];
+}
+
+/**
+ * The single place a wire snapshot becomes the outline view model.
+ *
+ * `queryDb` is always built over the FULL snapshot — scope is a projection,
+ * not a sandbox, so backlinks, `#query` nodes, and WS subscriptions keep global
+ * reach (r5 §2.5). Only the array handed to `wireToOutlineMap` is restricted,
+ * which is what makes search, keyboard nav, and breadcrumbs scope for free.
+ */
+function projectWire(
+  wire: WireNode[],
+  expanded: Set<string>,
+  rev: number,
+  ontologyId: string | null,
+): Projection {
+  const queryDb = buildQueryDb(wire, rev);
+  if (!ontologyId) {
+    return {
+      nodes: wireToOutlineMap(wire, expanded),
+      queryDb,
+      ontologyMembers: null,
+      ontologyWarnings: [],
+    };
+  }
+  const resolution = resolveScope(wire, ontologyId, queryDb, rev);
+  return {
+    nodes: wireToOutlineMap(
+      scopedWireNodes(wire, resolution.members, ontologyId),
+      expanded,
+    ),
+    queryDb,
+    ontologyMembers: resolution.members,
+    ontologyWarnings: resolution.warnings,
+  };
+}
+
 function resolveActivateKey(id: string, instanceKey: string | undefined, nodes: NodeMap): string {
   return instanceKey ?? outlineInstanceKey(id, nodes);
 }
@@ -180,12 +237,30 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     for (const id of loadExpandedIds()) expanded.add(id);
     const nextTransient = new Set(st.transientIds);
     nextTransient.delete(out);
+    const projection = projectWire(nextWire, expanded, st.rev, st.ontologyId);
     set({
       wireNodes: nextWire,
-      nodes: wireToOutlineMap(nextWire, expanded),
-      queryDb: buildQueryDb(nextWire, st.rev),
+      nodes: projection.nodes,
+      queryDb: projection.queryDb,
+      ontologyMembers: projection.ontologyMembers,
+      ontologyWarnings: projection.ontologyWarnings,
       transientIds: nextTransient,
     });
+  }
+
+  /**
+   * A scope must never be a dead end. Navigating to a node outside the member
+   * set (⌘K palette, a `[[ref]]` out of scope) leaves the scope instead of
+   * silently doing nothing. Returns true when the target is reachable.
+   */
+  function escapeScopeFor(id: string): boolean {
+    const st = get();
+    if (st.nodes.has(id)) return true;
+    if (st.ontologyId === null) return false;
+    if (!st.wireNodes.some((n) => n.id === id)) return false;
+    get().setOntologyScope(null);
+    toast("Left the ontology to follow that node");
+    return get().nodes.has(id);
   }
 
   /** Apply an inverse/forward tx; return the opposite-direction entry. */
@@ -212,10 +287,13 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     const survives = (id: string | null): boolean =>
       id !== null && postWire.some((n) => n.id === id);
     const selectedNodeId = survives(st.selectedNodeId) ? st.selectedNodeId : null;
+    const projection = projectWire(postWire, expanded, st.rev, st.ontologyId);
     set({
       wireNodes: postWire,
-      nodes: wireToOutlineMap(postWire, expanded),
-      queryDb: buildQueryDb(postWire, st.rev),
+      nodes: projection.nodes,
+      queryDb: projection.queryDb,
+      ontologyMembers: projection.ontologyMembers,
+      ontologyWarnings: projection.ontologyWarnings,
       selectedNodeId,
       selectedInstanceKey: selectedNodeId ? st.selectedInstanceKey : null,
       activeNodeId: null,
@@ -241,6 +319,10 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     cursorPosition: 0,
     loadSource: null,
     loadError: null,
+    ontologyId: null,
+    ontologyMembers: null,
+    ontologyWarnings: [],
+    preScopeRootId: null,
     focusSeq: 0,
     focusX: null,
     transientIds: new Set<string>(),
@@ -249,17 +331,21 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
 
     hydrateFromWire: (wireNodes, rev, source) => {
       const expanded = loadExpandedIds();
-      const nodes = wireToOutlineMap(wireNodes, expanded);
-      const queryDb = buildQueryDb(wireNodes, rev);
+      // A fresh load starts unscoped; App re-applies the URL scope after.
+      const projection = projectWire(wireNodes, expanded, rev, null);
       set({
         wireNodes,
-        nodes,
-        queryDb,
+        nodes: projection.nodes,
+        queryDb: projection.queryDb,
         rev,
         loadSource: source,
         loadError: null,
         rootNodeId: WORKSPACE_ROOT_ID,
         homeRootId: WORKSPACE_ROOT_ID,
+        ontologyId: null,
+        ontologyMembers: null,
+        ontologyWarnings: [],
+        preScopeRootId: null,
         transientIds: new Set<string>(),
         undoStack: [],
         redoStack: [],
@@ -271,8 +357,9 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       const nextWire = mergeTx(prev.wireNodes, upserts, deletes);
       const expanded = collectExpanded(prev.nodes);
       for (const id of loadExpandedIds()) expanded.add(id);
-      const nodes = wireToOutlineMap(nextWire, expanded);
       const nextRev = opts?.rev ?? prev.rev;
+      const projection = projectWire(nextWire, expanded, nextRev, prev.ontologyId);
+      const nodes = projection.nodes;
       // Deleted nodes must not remain the zoom root / selection.
       const rootNodeId = nodes.has(prev.rootNodeId) ? prev.rootNodeId : prev.homeRootId;
       const selectedNodeId =
@@ -286,7 +373,9 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       set({
         wireNodes: nextWire,
         nodes,
-        queryDb: buildQueryDb(nextWire, nextRev),
+        queryDb: projection.queryDb,
+        ontologyMembers: projection.ontologyMembers,
+        ontologyWarnings: projection.ontologyWarnings,
         rev: nextRev,
         rootNodeId,
         selectedNodeId,
@@ -304,10 +393,13 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       const nextRev = Math.max(prev.rev, rev);
       const expanded = collectExpanded(prev.nodes);
       for (const id of loadExpandedIds()) expanded.add(id);
+      const projection = projectWire(wireNodes, expanded, nextRev, prev.ontologyId);
       set({
         wireNodes,
-        nodes: wireToOutlineMap(wireNodes, expanded),
-        queryDb: buildQueryDb(wireNodes, nextRev),
+        nodes: projection.nodes,
+        queryDb: projection.queryDb,
+        ontologyMembers: projection.ontologyMembers,
+        ontologyWarnings: projection.ontologyWarnings,
         rev: nextRev,
       });
     },
@@ -315,8 +407,9 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     refreshFromWire: (wireNodes, rev) => {
       const prev = get();
       const expanded = collectExpanded(prev.nodes);
-      const nodes = wireToOutlineMap(wireNodes, expanded);
-      const queryDb = buildQueryDb(wireNodes, rev);
+      const projection = projectWire(wireNodes, expanded, rev, prev.ontologyId);
+      const nodes = projection.nodes;
+      const queryDb = projection.queryDb;
       const rootNodeId = nodes.has(prev.rootNodeId) ? prev.rootNodeId : prev.homeRootId;
       const selectedNodeId =
         prev.selectedNodeId && nodes.has(prev.selectedNodeId) ? prev.selectedNodeId : null;
@@ -330,6 +423,8 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
         wireNodes,
         nodes,
         queryDb,
+        ontologyMembers: projection.ontologyMembers,
+        ontologyWarnings: projection.ontologyWarnings,
         rev,
         rootNodeId,
         selectedNodeId,
@@ -342,9 +437,59 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
 
     setRootNodeId: (id) => set({ rootNodeId: id }),
 
+    setOntologyScope: (id) => {
+      const prev = get();
+      if (prev.ontologyId === id) return;
+      pruneOutgoingTransient(null);
+      const st = get();
+      const expanded = collectExpanded(st.nodes);
+      for (const eid of loadExpandedIds()) expanded.add(eid);
+      const projection = projectWire(st.wireNodes, expanded, st.rev, id);
+
+      if (id === null) {
+        // Leaving: return to the root the user was on before entering.
+        const restored =
+          st.preScopeRootId && projection.nodes.has(st.preScopeRootId)
+            ? st.preScopeRootId
+            : WORKSPACE_ROOT_ID;
+        set({
+          ontologyId: null,
+          ontologyMembers: null,
+          ontologyWarnings: [],
+          preScopeRootId: null,
+          nodes: projection.nodes,
+          queryDb: projection.queryDb,
+          rootNodeId: restored,
+          homeRootId: WORKSPACE_ROOT_ID,
+          selectedNodeId: null,
+          selectedInstanceKey: null,
+          activeNodeId: null,
+          activeInstanceKey: null,
+        });
+        return;
+      }
+
+      // Entering: the ontology becomes both the zoom root and home, so an
+      // exit path always exists even if the previous root is not a member.
+      set({
+        ontologyId: id,
+        ontologyMembers: projection.ontologyMembers,
+        ontologyWarnings: projection.ontologyWarnings,
+        preScopeRootId:
+          st.ontologyId === null ? st.rootNodeId : st.preScopeRootId,
+        nodes: projection.nodes,
+        queryDb: projection.queryDb,
+        rootNodeId: id,
+        homeRootId: id,
+        selectedNodeId: null,
+        selectedInstanceKey: null,
+        activeNodeId: null,
+        activeInstanceKey: null,
+      });
+    },
+
     zoomTo: (id) => {
-      const { nodes } = get();
-      if (!nodes.has(id)) return;
+      if (!escapeScopeFor(id)) return;
       pruneOutgoingTransient(null);
       const key = outlineInstanceKey(id, get().nodes);
       set({
@@ -493,13 +638,13 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     },
 
     jumpToNode: (id) => {
-      const { nodes, expandAncestors, activateNode } = get();
-      if (!nodes.has(id) || id === WORKSPACE_ROOT_ID) return;
+      if (id === WORKSPACE_ROOT_ID || !escapeScopeFor(id)) return;
+      const { expandAncestors, activateNode } = get();
       expandAncestors(id);
       // Ensure zoom shows the node: if not under current root, go home
       const visible = get().getVisibleNodes();
       if (!visible.includes(id)) {
-        set({ rootNodeId: WORKSPACE_ROOT_ID });
+        set({ rootNodeId: get().homeRootId });
         get().expandAncestors(id);
       }
       const key = outlineInstanceKey(id, get().nodes);

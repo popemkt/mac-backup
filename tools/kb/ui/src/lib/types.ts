@@ -71,6 +71,21 @@ export const SYSTEM_IDS = {
   /** Canvas nodes (JSON Canvas 1.0 doc on sys.f.canvas). */
   canvasTag: "sys.tag.canvas",
   canvasField: "sys.f.canvas",
+  /**
+   * Ontologies (r5 core) — a named, editable lens over the graph. Mirrors
+   * SYSTEM_IDS in src/foundation/model.ts; the resolver itself is shared
+   * through the `@kb/ontology` alias, not copied.
+   */
+  ontologyTag: "sys.tag.ontology",
+  ontoIncludeField: "sys.f.onto.include",
+  ontoMemberField: "sys.f.onto.member",
+  ontoExcludeField: "sys.f.onto.exclude",
+  ontoExtendsField: "sys.f.onto.extends",
+  ontoQueryField: "sys.f.onto.query",
+  ontoClosureField: "sys.f.onto.closure",
+  cmdNewOntology: "sys.cmd.new-ontology",
+  cmdEnterOntology: "sys.cmd.enter-ontology",
+  cmdExitOntology: "sys.cmd.exit-ontology",
 } as const;
 
 /** Pre-fix id — migrated away by ensureSystemSeed. */

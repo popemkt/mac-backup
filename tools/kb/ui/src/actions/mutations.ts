@@ -502,6 +502,86 @@ export const mutations = {
     return ok ? newId : null;
   },
 
+  // ── ontology mutations (r5 core) ────────────────────────────────────────
+
+  /** Mint an ontology node (#ontology) and return its id. */
+  async defineOntology(name = "New ontology"): Promise<string | null> {
+    const newId = ulid();
+    const { planDefineOntology } = await import("@/actions/plan");
+    const ok = await applyPlan(planDefineOntology(name, newId));
+    return ok ? newId : null;
+  },
+
+  async ontologyAddInclude(ontoId: string, tagId: string): Promise<void> {
+    if (!guardSysWrite(ontoId)) return;
+    const { planOntologyAddInclude } = await import("@/actions/plan");
+    await applyPlan(planOntologyAddInclude(wire(), ontoId, tagId));
+  },
+
+  async ontologyRemoveInclude(ontoId: string, tagId: string): Promise<void> {
+    if (!guardSysWrite(ontoId)) return;
+    const { planOntologyRemoveInclude } = await import("@/actions/plan");
+    await applyPlan(planOntologyRemoveInclude(wire(), ontoId, tagId));
+  },
+
+  async ontologyAddMember(ontoId: string, nodeId: string): Promise<void> {
+    if (!guardSysWrite(ontoId)) return;
+    const { planOntologyAddMember } = await import("@/actions/plan");
+    await applyPlan(planOntologyAddMember(wire(), ontoId, nodeId));
+  },
+
+  async ontologyRemoveMember(ontoId: string, nodeId: string): Promise<void> {
+    if (!guardSysWrite(ontoId)) return;
+    const { planOntologyRemoveMember } = await import("@/actions/plan");
+    await applyPlan(planOntologyRemoveMember(wire(), ontoId, nodeId));
+  },
+
+  /** Veto a node; drops a matching pin in the same plan. */
+  async ontologyExclude(ontoId: string, nodeId: string): Promise<void> {
+    if (!guardSysWrite(ontoId)) return;
+    const { planOntologyExclude } = await import("@/actions/plan");
+    await applyPlan(planOntologyExclude(wire(), ontoId, nodeId));
+  },
+
+  async ontologyUnexclude(ontoId: string, nodeId: string): Promise<void> {
+    if (!guardSysWrite(ontoId)) return;
+    const { planOntologyUnexclude } = await import("@/actions/plan");
+    await applyPlan(planOntologyUnexclude(wire(), ontoId, nodeId));
+  },
+
+  /** Refuses (and says so) when the edge would close an extends cycle. */
+  async ontologyAddExtends(ontoId: string, parentId: string): Promise<boolean> {
+    if (!guardSysWrite(ontoId)) return false;
+    const { planOntologyAddExtends } = await import("@/actions/plan");
+    const plan = planOntologyAddExtends(wire(), ontoId, parentId);
+    if (!plan) {
+      toast("That would make an ontology extend itself");
+      return false;
+    }
+    return applyPlan(plan);
+  },
+
+  async ontologyRemoveExtends(ontoId: string, parentId: string): Promise<void> {
+    if (!guardSysWrite(ontoId)) return;
+    const { planOntologyRemoveExtends } = await import("@/actions/plan");
+    await applyPlan(planOntologyRemoveExtends(wire(), ontoId, parentId));
+  },
+
+  async ontologySetQuery(ontoId: string, edn: string): Promise<void> {
+    if (!guardSysWrite(ontoId)) return;
+    const { planOntologySetQuery } = await import("@/actions/plan");
+    await applyPlan(planOntologySetQuery(wire(), ontoId, edn));
+  },
+
+  async ontologySetClosure(
+    ontoId: string,
+    mode: "none" | "descendants",
+  ): Promise<void> {
+    if (!guardSysWrite(ontoId)) return;
+    const { planOntologySetClosure } = await import("@/actions/plan");
+    await applyPlan(planOntologySetClosure(wire(), ontoId, mode));
+  },
+
   async setViewMode(frameId: string, mode: import("@/lib/view-config").ViewMode): Promise<void> {
     if (!guardSysWrite(frameId)) return;
     const { planSetViewMode } = await import("@/actions/plan");

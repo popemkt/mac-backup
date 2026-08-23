@@ -9,12 +9,17 @@
     "noEmit": true,
     "skipLibCheck": true,
     "isolatedModules": true,
+    // Shared backend modules imported through the `@kb/*` aliases (protocol,
+    // canvas, ontology) use explicit `.ts` specifiers, as the backend package
+    // requires. noEmit is on, so permitting them here is inert at build time.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "paths": {
       "@/*": ["./src/*"],
       "@kb/protocol": ["../src/surface/protocol.ts"],
-      "@kb/canvas": ["../src/canvas/doc.ts"]
+      "@kb/canvas": ["../src/canvas/doc.ts"],
+      "@kb/ontology": ["../src/foundation/ontology.ts"]
     }
   },
   "include": ["src", "vite.config.ts"]

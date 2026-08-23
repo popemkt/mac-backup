@@ -5,6 +5,7 @@
 import type { WireNode } from "@kb/protocol";
 import { listCanvasNodes } from "@/lib/canvas-api";
 import { listPerspectiveNodes } from "@/lib/graph-lens";
+import { listOntologyItems } from "@/lib/ontology-scope";
 import type { OutlineNode } from "@/lib/types";
 
 export interface SidebarNavItem {
@@ -44,4 +45,11 @@ export function listCanvasNavItems(
     id: n.id,
     label: n.text || "Untitled canvas",
   }));
+}
+
+/** `#ontology` nodes for the Ontologies section. */
+export function listOntologyNavItems(
+  wireNodes: WireNode[],
+): SidebarNavItem[] {
+  return listOntologyItems(wireNodes);
 }

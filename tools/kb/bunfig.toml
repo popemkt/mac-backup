@@ -4,6 +4,7 @@
 [test]
 pathIgnorePatterns = [
   "ui/src/components/graph/graph-page.component.test.tsx",
+  "ui/src/components/ontology/ontology-page.component.test.tsx",
   "ui/src/components/outline/ghost-node-row.component.test.tsx",
   # Vitest-only: vi.mock hoist / happy-dom ErrorBoundary / fake-timer debounce.
   "ui/src/actions/mutations.debounce.test.ts",
