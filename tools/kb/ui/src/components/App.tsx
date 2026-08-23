@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { CircleHalf } from "@phosphor-icons/react";
 import { loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
@@ -96,11 +96,13 @@ function SharedChrome() {
 function OutlineShell({
   status,
   error,
+  onRetry,
   canvasId = null,
   onCanvas = false,
 }: {
   status: "loading" | "ready" | "error";
   error: string | null;
+  onRetry: () => void;
   canvasId?: string | null;
   onCanvas?: boolean;
 }) {
@@ -137,7 +139,7 @@ function OutlineShell({
       </header>
 
       {status === "error" ? (
-        <div className="p-6 text-destructive">{error}</div>
+        <LoadError error={error} onRetry={onRetry} />
       ) : onCanvas ? (
         <main className="min-h-0 flex-1 overflow-hidden">
           <ViewErrorBoundary
@@ -175,10 +177,47 @@ function OutlineShell({
   );
 }
 
+function LoadError({
+  error,
+  onRetry,
+}: {
+  error: string | null;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="mx-auto flex max-w-md flex-col gap-3 p-6" role="alert">
+      <div>
+        <h2 className="text-[14.5px] font-medium text-foreground/80">
+          Couldn’t load your workspace
+        </h2>
+        <p className="mt-1 text-[13px] text-foreground/50">
+          Check that kb is running, then try again. Your local data has not been changed.
+        </p>
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-md bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground hover:opacity-90"
+        >
+          Try again
+        </button>
+        {error ? (
+          <details className="text-[12px] text-foreground/45">
+            <summary className="cursor-pointer">Technical details</summary>
+            <pre className="mt-1 max-w-sm overflow-auto whitespace-pre-wrap text-destructive/80">
+              {error}
+            </pre>
+          </details>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function App() {
   const hydrateFromWire = useOutlineStore((s) => s.hydrateFromWire);
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
-  const setNodePaletteOpen = useUiStore((s) => s.setNodePaletteOpen);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -186,56 +225,34 @@ export function App() {
   const path = usePath();
   const route = matchRoute(path);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { snapshot, source } = await loadGraph();
-        if (cancelled) return;
-        hydrateFromWire(snapshot.nodes, snapshot.rev, source);
-        setStatus("ready");
-        ensureLiveConnection();
-      } catch (e) {
-        if (cancelled) return;
-        setError(e instanceof Error ? e.message : String(e));
-        setStatus("error");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const reload = useCallback(async () => {
+    setStatus("loading");
+    setError(null);
+    try {
+      const { snapshot, source } = await loadGraph();
+      hydrateFromWire(snapshot.nodes, snapshot.rev, source);
+      setStatus("ready");
+      ensureLiveConnection();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setStatus("error");
+    }
   }, [hydrateFromWire]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const action = matchGlobalShortcut(e);
       if (!action) return;
       e.preventDefault();
-      if (action === "global-search") {
-        setGlobalPaletteOpen(!useUiStore.getState().globalPaletteOpen);
-        return;
-      }
-      const {
-        activeNodeId,
-        activeInstanceKey,
-        selectedNodeId,
-        selectNode,
-      } = useOutlineStore.getState();
-      const anchorId = activeNodeId ?? selectedNodeId;
-      if (!anchorId) {
-        useUiStore
-          .getState()
-          .pushToast("info", "Select a node to open the command palette");
-        return;
-      }
-      if (activeNodeId) {
-        selectNode(activeNodeId, activeInstanceKey ?? undefined);
-      }
-      setNodePaletteOpen(!useUiStore.getState().nodePaletteOpen);
+      setGlobalPaletteOpen(!useUiStore.getState().globalPaletteOpen);
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
-  }, [setGlobalPaletteOpen, setNodePaletteOpen]);
+  }, [setGlobalPaletteOpen]);
 
   return (
     <div className="relative flex h-full min-h-0">
@@ -245,7 +262,7 @@ export function App() {
           status === "loading" ? (
             <div className="p-6 text-[13px] text-foreground/40">loading…</div>
           ) : status === "error" ? (
-            <div className="p-6 text-destructive">{error}</div>
+            <LoadError error={error} onRetry={() => void reload()} />
           ) : (
             <ViewErrorBoundary
               title="Graph crashed"
@@ -266,6 +283,7 @@ export function App() {
           <OutlineShell
             status={status}
             error={error}
+            onRetry={() => void reload()}
             canvasId={route.name === "canvas" ? route.id : null}
             onCanvas={route.name === "canvas-list" || route.name === "canvas"}
           />

@@ -525,3 +525,39 @@ UI-only paths and leaves data-model/history work with i1/i4.
 - Every opened dialog/popover is on-screen, Escape-closeable, and returns focus.
 - Existing 264 UI tests remain green, new interactions have regression tests,
   and no light/dark or reduced-motion regression is introduced.
+
+## Implementation handoff
+
+Shipped a focused first polish slice: ⌘K is now the sole captured global
+search/open shortcut (⌘S is left to the browser); the palette restores focus,
+traps Tab focus, and keeps its active result visible. Sidebar Home exits zoom,
+active state now distinguishes the workspace root and pinned roots, and a
+closed sidebar is inert with focus returned to its toggle. Breadcrumbs now have
+an accessible label/current page. Shared tags expose real keyboard-reachable
+navigation, remove, and configure buttons; field editing respects IME
+composition; initial graph/workspace errors have a retryable, human-readable
+recovery state with optional technical detail. A global reduced-motion policy
+keeps all existing state feedback while removing animation.
+
+Cut/deferred: query subscription error routing/workbench, view-settings and
+Board setup, Add field flow, richer ranking/context/highlighting, unified
+contextual commands, URL/history, broader floating-surface consolidation,
+table/filter polish, and toast model redesign. They need either the i4 error
+protocol seam or substantially more surface work than is safe in this slice.
+
+Shared-file touch list:
+
+- `tools/kb/ui/src/components/App.tsx` — unified keyboard dispatch and replaced
+  raw initial-load errors with retryable recovery UI.
+- `tools/kb/ui/src/index.css` — added the global reduced-motion policy so every
+  existing animated surface observes the same accessibility preference.
+
+Verification: `bun test` passed (437 tests); local `tsc --noEmit`, `vp check
+--no-fmt` (0 errors; pre-existing warnings), and `vp test` passed (47 files / 265
+tests). `npm run typecheck` and `npm run check` remain blocked by the repo's
+declared npm 12.0.2 requirement while this environment provides npm 10.9.8;
+equivalent local binaries were used after `bun install`.
+
+Self-grade: solid system-state/accessibility polish for the shipped seams, but
+not yet inspiration-parity across the complete I5 brief because the core query
+and view-configuration flows remain deferred.

@@ -33,6 +33,21 @@ describe("shared outline components (W8b)", () => {
     expect(html).toContain("h-4");
   });
 
+  it("TagChip exposes navigation and actions as keyboard-reachable buttons", () => {
+    const html = renderToStaticMarkup(
+      createElement(TagChip, {
+        tag: { id: "tag.todo", name: "todo", color: "#112233" },
+        onClick: () => undefined,
+        onRemove: () => undefined,
+        onConfigure: () => undefined,
+      }),
+    );
+    expect(html).toContain('aria-label="Go to tag todo"');
+    expect(html).toContain('aria-label="Remove tag todo"');
+    expect(html).toContain('aria-label="Configure tag todo"');
+    expect(html.match(/<button/g) ?? []).toHaveLength(3);
+  });
+
   it("TagChipGroup wraps without fixed height", () => {
     const color = hashTagColor("tag.todo");
     const html = renderToStaticMarkup(

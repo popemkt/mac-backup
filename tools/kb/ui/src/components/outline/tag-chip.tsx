@@ -18,53 +18,65 @@ export function TagChip({
   onConfigure,
   className,
 }: TagChipProps) {
+  const canNavigate = Boolean(onClick);
   return (
     <span
       className={cn(
         "group/tag inline-flex h-4 max-w-full items-center gap-0.5 rounded-sm px-1.5 py-0",
         "text-[11px] font-medium leading-4",
         "kb-chip select-none whitespace-nowrap",
-        "cursor-pointer transition-opacity hover:opacity-70",
+        "transition-opacity hover:opacity-70",
         className,
       )}
       style={{
         backgroundColor: `${tag.color}18`,
         color: tag.color,
       }}
-      onClick={onClick}
-      title={`Go to: ${tag.name}`}
     >
-      <span className="relative h-[10px] w-[10px] shrink-0">
-        <Hash
-          size={10}
-          weight="bold"
-          className="opacity-60 transition-opacity group-hover/tag:opacity-0"
-        />
-        {onRemove && (
-          <span
-            className="absolute inset-0 flex cursor-pointer items-center justify-center opacity-0 transition-opacity group-hover/tag:opacity-60 hover:!opacity-100"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove(e);
-            }}
-            title={`Remove #${tag.name}`}
-          >
-            <X size={10} weight="bold" />
-          </span>
-        )}
-      </span>
-      <span className="truncate">{tag.name}</span>
+      {canNavigate ? (
+        <button
+          type="button"
+          className="flex min-w-0 items-center gap-0.5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          onClick={onClick}
+          title={`Go to: ${tag.name}`}
+          aria-label={`Go to tag ${tag.name}`}
+        >
+          <Hash size={10} weight="bold" className="shrink-0 opacity-60" />
+          <span className="truncate">{tag.name}</span>
+        </button>
+      ) : (
+        <span className="flex min-w-0 items-center gap-0.5">
+          <Hash size={10} weight="bold" className="shrink-0 opacity-60" />
+          <span className="truncate">{tag.name}</span>
+        </span>
+      )}
+      {onRemove ? (
+        <button
+          type="button"
+          className="ml-0.5 flex h-[12px] w-[12px] shrink-0 items-center justify-center rounded-sm opacity-0 transition-opacity group-hover/tag:opacity-60 hover:!opacity-100 focus:opacity-100 focus-visible:ring-2 focus-visible:ring-primary/60"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(e);
+          }}
+          title={`Remove #${tag.name}`}
+          aria-label={`Remove tag ${tag.name}`}
+        >
+          <X size={10} weight="bold" />
+        </button>
+      ) : null}
       {onConfigure && (
-        <span
-          className="relative ml-0.5 flex h-[10px] w-[10px] shrink-0 cursor-pointer items-center justify-center opacity-0 transition-opacity group-hover/tag:opacity-40 hover:!opacity-80"
+        <button
+          type="button"
+          className="relative ml-0.5 flex h-[12px] w-[12px] shrink-0 items-center justify-center rounded-sm opacity-0 transition-opacity group-hover/tag:opacity-40 hover:!opacity-80 focus:opacity-100 focus-visible:ring-2 focus-visible:ring-primary/60"
           onClick={(e) => {
             e.stopPropagation();
             onConfigure(e);
           }}
           title={`Configure #${tag.name}`}
+          aria-label={`Configure tag ${tag.name}`}
         >
           <GearSix size={10} weight="bold" />
-        </span>
+        </button>
       )}
     </span>
   );

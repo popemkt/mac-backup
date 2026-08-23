@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Graph as GraphIcon,
   House,
@@ -23,6 +23,7 @@ const SIDEBAR_WIDTH_PX = 220;
 export function SidebarToggle({ className }: { className?: string }) {
   const open = usePrefsStore((s) => s.sidebarOpen);
   const toggle = usePrefsStore((s) => s.toggleSidebar);
+  const ref = useRef<HTMLButtonElement>(null);
   return (
     <button
       type="button"
@@ -33,7 +34,16 @@ export function SidebarToggle({ className }: { className?: string }) {
       aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
       aria-expanded={open}
       title={open ? "Collapse sidebar" : "Expand sidebar"}
-      onClick={toggle}
+      onClick={() => {
+        const focusedInSidebar = document.activeElement?.closest(
+          '[data-sidebar="true"]',
+        );
+        toggle();
+        if (open && focusedInSidebar) {
+          requestAnimationFrame(() => ref.current?.focus());
+        }
+      }}
+      ref={ref}
     >
       <List size={15} />
     </button>
@@ -107,6 +117,9 @@ export function Sidebar() {
   const wireNodes = useOutlineStore((s) => s.wireNodes);
   const rev = useOutlineStore((s) => s.rev);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const zoomHome = useOutlineStore((s) => s.zoomHome);
+  const rootNodeId = useOutlineStore((s) => s.rootNodeId);
+  const homeRootId = useOutlineStore((s) => s.homeRootId);
   const [creating, setCreating] = useState(false);
 
   const perspectives = useMemo(
@@ -136,6 +149,7 @@ export function Sidebar() {
     <aside
       data-sidebar="true"
       aria-hidden={!open}
+      inert={!open}
       className={cn(
         "flex h-full shrink-0 flex-col overflow-hidden border-r border-foreground/[0.06] bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-out",
         open ? "w-[220px]" : "w-0 border-r-0",
@@ -147,8 +161,11 @@ export function Sidebar() {
           <SidebarRow
             label="Home"
             icon={<House size={14} />}
-            active={route.name === "outline"}
-            onClick={() => navigate("/")}
+            active={route.name === "outline" && rootNodeId === homeRootId}
+            onClick={() => {
+              navigate("/");
+              zoomHome();
+            }}
           />
         </SidebarSection>
 
@@ -208,6 +225,7 @@ export function Sidebar() {
                 key={f.id}
                 label={f.label}
                 icon={<PushPin size={14} />}
+                active={route.name === "outline" && rootNodeId === f.id}
                 onClick={() => onPinned(f.id)}
               />
             ))
