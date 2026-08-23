@@ -83,6 +83,13 @@ export function NodeContent({
   }, [refOpen?.query, refOpen?.start]);
 
   useLayoutEffect(() => {
+    if (!isActive || !instanceKey) return;
+    const registry = useOutlineStore.getState();
+    registry.registerTextHost(instanceKey);
+    return () => registry.unregisterTextHost(instanceKey);
+  }, [isActive, instanceKey]);
+
+  useLayoutEffect(() => {
     const intent =
       instanceKey && pendingCaret?.instanceKey === instanceKey ? pendingCaret : null;
     if (isActive && editorRef.current && intent) {

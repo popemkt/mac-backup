@@ -68,6 +68,23 @@ describe("outline store (WireNode adaptation)", () => {
     expect(useOutlineStore.getState().activeNodeId).toBeNull();
   });
 
+  it("FocusRegistry reveals ancestors before activating a hidden child", () => {
+    seed();
+    useOutlineStore.getState().activateNode("n.grandchild", 0);
+    const state = useOutlineStore.getState();
+    expect(state.getVisibleNodes()).toContain("n.grandchild");
+    expect(state.activeNodeId).toBe("n.grandchild");
+    expect(state.pendingCaret).toMatchObject({ at: 0 });
+  });
+
+  it("FocusRegistry refuses a target outside the current visible root", () => {
+    seed();
+    useOutlineStore.getState().zoomTo("n.root-b");
+    useOutlineStore.getState().activateNode("n.child-a1", 0);
+    expect(useOutlineStore.getState().activeNodeId).toBeNull();
+    expect(useOutlineStore.getState().pendingCaret).toBeNull();
+  });
+
   it("defaults expandable nodes collapsed; visible list shows roots only", () => {
     seed();
     expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(
