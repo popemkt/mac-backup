@@ -155,3 +155,14 @@ Fix what's safe; log the rest as findings for owner review.
 
 - [x] W0 baseline: dirty leftover work committed (packaged-ui build fix, pins,
       docs), main clean @ 4c43d5b+ , gates green.
+- [x] R wave: r1–r7 delivered; r8 redispatched omp→codex after stall, delivered.
+- [x] I wave: i1/i2/i3/i4/i5/i6 all merged & pushed; suites green
+      (607 core + 397 UI tests).
+- [x] F/X waves merged & pushed (docs integration, repo DX).
+- [ ] Owner-feedback wave (post-merge review, 6 items):
+      r9 editor-deep research (claude) → i8 editor-core fix (omp, after r9);
+      i7 tags+alignment (omp); i9 component architecture (cursor).
+      Items: tag chip sizing/space/configure-removal; ghost/plus bugs
+      (click failures, wrong insert position, delete gaps, cursor jumps);
+      inline palette verification; multiline-collapse question; field/prefs
+      alignment; component encapsulation + catalog.
