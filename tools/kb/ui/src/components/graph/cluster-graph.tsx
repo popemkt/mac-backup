@@ -5,6 +5,7 @@ import Sigma from "sigma";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import { hashTagColor } from "@/lib/tag-color";
 import { readTokenColor } from "@/lib/css-color";
+import { withGraphAlpha } from "@/lib/graph-dim";
 import { convexHull } from "@/lib/convex-hull";
 
 type CameraSnap = { x: number; y: number; angle: number; ratio: number };
@@ -35,18 +36,6 @@ function clusterColor(key: string): string {
     return hashTagColor(key);
   }
   return hashTagColor(key);
-}
-
-function withAlpha(color: string, alpha: number): string {
-  if (color.startsWith("#") && color.length === 7) {
-    const a = Math.round(alpha * 255)
-      .toString(16)
-      .padStart(2, "0");
-    return `${color}${a}`;
-  }
-  const m = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/.exec(color);
-  if (m) return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${alpha})`;
-  return color;
 }
 
 export function ClusterGraph({
@@ -239,9 +228,9 @@ export function ClusterGraph({
           }
           ctx.closePath();
         }
-        ctx.fillStyle = withAlpha(color, 0.04);
+        ctx.fillStyle = withGraphAlpha(color, 0.04);
         ctx.fill();
-        ctx.strokeStyle = withAlpha(color, 0.25);
+        ctx.strokeStyle = withGraphAlpha(color, 0.25);
         ctx.lineWidth = 1.5;
         ctx.stroke();
         let cx = 0, cy = 0;
@@ -360,7 +349,7 @@ export function ClusterGraph({
       sigma.setSetting("nodeReducer", (node, data) => {
         const key = String(graph.getNodeAttribute(node, "clusterKey") ?? "none");
         if (key === isolatedCluster) return { ...data, highlighted: true };
-        return { ...data, color: "rgba(128,128,128,0.15)", label: "", zIndex: 0 };
+        return { ...data, color: withGraphAlpha(String(data.color), 0.2), label: "", zIndex: 0 };
       });
       sigma.setSetting("edgeReducer", (edge, data) => {
         const [src, tgt] = graph.extremities(edge);

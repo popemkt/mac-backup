@@ -7,6 +7,7 @@ import ForceGraph3D, {
 } from "3d-force-graph";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
+import { withGraphAlpha } from "@/lib/graph-dim";
 import { fibonacciSphere } from "@/lib/convex-hull";
 
 export interface Force3dGraphProps {
@@ -124,9 +125,9 @@ export default function Force3dGraph({
       .graphData({ nodes: fgNodes, links: fgLinks })
       .nodeId("id")
       .nodeLabel("name")
-      .nodeColor((n: object) => (n as FgNode).color)
+      .nodeColor((n: object) => withGraphAlpha((n as FgNode).color, 1))
       .nodeVal((n: object) => (n as FgNode).val)
-      .linkColor(() => linkColor)
+      .linkColor(() => withGraphAlpha(linkColor, 1))
       .onEngineStop(() => {
         try {
           Graph.zoomToFit(600, 40);

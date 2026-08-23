@@ -4,6 +4,7 @@ import Sigma from "sigma";
 import { EdgeArrowProgram } from "sigma/rendering";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
+import { graphNodeAlpha, withGraphAlpha } from "@/lib/graph-dim";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
 import { fitView } from "./graph-camera";
 
@@ -95,7 +96,6 @@ export function SigmaGraph({
     const sel = selectedRef.current;
     const highlight = highlightIds;
     const filter = filterIds;
-    const isLarge = graph.order > LARGE_GRAPH_THRESHOLD;
 
     const activeNode = sel ?? hovered;
     const neighborSet = new Set<string>();
@@ -105,31 +105,24 @@ export function SigmaGraph({
     }
 
     sigma.setSetting("nodeReducer", (node, data) => {
-      if (filter && !filter.has(node)) {
-        return { ...data, color: "#444444", label: "", zIndex: 0 };
-      }
-      if (highlight && highlight.size > 0) {
-        if (!highlight.has(node)) {
-          return { ...data, color: "#666666", label: "", zIndex: 0 };
-        }
-      }
-      if (activeNode) {
-        if (neighborSet.has(node)) {
-          return {
-            ...data,
-            highlighted: true,
-            zIndex: 1,
-            ...(node === activeNode ? { size: data.size * 1.3 } : {}),
-          };
-        }
-        return {
-          ...data,
-          color: isLarge ? "#333333" : "rgba(128,128,128,0.15)",
-          label: "",
-          zIndex: 0,
-        };
-      }
-      return { ...data, highlighted: false };
+      const filterMatch = !filter || filter.has(node);
+      const searchMatch = !highlight || highlight.size === 0 || highlight.has(node);
+      const focusMatch = !activeNode || neighborSet.has(node);
+      const alpha = graphNodeAlpha({
+        includedByFilter: filterMatch,
+        includedBySearch: searchMatch,
+        includedByFocus: focusMatch,
+      });
+      const emphatic = alpha === 1;
+      return {
+        ...data,
+        color: withGraphAlpha(String(data.color), alpha),
+        label: emphatic ? data.label : "",
+        forceLabel: emphatic && (!!filter || !!highlight),
+        highlighted: emphatic,
+        zIndex: emphatic ? 1 : 0,
+        ...(activeNode === node ? { size: data.size * 1.3 } : {}),
+      };
     });
 
     sigma.setSetting("edgeReducer", (edge, data) => {
