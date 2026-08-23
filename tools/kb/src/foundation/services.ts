@@ -7,6 +7,7 @@ import { JsonlStore, asPromiseStore } from "./storage/index.ts";
 import { bunFileSystemLayer } from "./platform.ts";
 import { buildQueryDb, type QueryDb } from "./query/index.ts";
 import type { DomainError } from "./errors.ts";
+import { txIntegrityError } from "./tx-validation.ts";
 
 /**
  * UI materializes saved-query nodes into `ctx.qdb` only (never jsonl).
@@ -130,6 +131,14 @@ export const persistEffect = Effect.fn("kb.persist")(
     tx: StoreTx,
   ): Effect.fn.Return<void, DomainError, KbStore | FileSystem> {
     const store = yield* KbStore;
+    const integrityError = txIntegrityError(ctx.nodes, tx);
+    if (integrityError) {
+      return yield* Effect.fail({
+        _tag: "Kb/DomainError",
+        code: "invalid_input",
+        message: `invalid graph transaction: ${integrityError}`,
+      } as DomainError);
+    }
     const previousRealIds = new Set(ctx.nodes.map((n) => n.id));
     yield* store.commitEffect(tx);
     const byId = new Map(ctx.nodes.map((n) => [n.id, n]));

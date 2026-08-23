@@ -117,6 +117,16 @@ export function planSplit(
 }
 
 export function planDelete(nodes: WireNode[], id: string): PlannedMutation {
+  const byId = wireById(nodes);
+  const deletes: string[] = [];
+  const seen = new Set<string>();
+  const collect = (nodeId: string): void => {
+    if (seen.has(nodeId)) return;
+    seen.add(nodeId);
+    deletes.push(nodeId);
+    for (const childId of byId.get(nodeId)?.children ?? []) collect(childId);
+  };
+  collect(id);
   const parent = findParentWire(nodes, id);
   const upserts: WireNode[] = [];
   if (parent) {
@@ -127,8 +137,8 @@ export function planDelete(nodes: WireNode[], id: string): PlannedMutation {
   }
   return {
     upserts,
-    deletes: [id],
-    actions: [{ id: "node.update", input: { id, delete: true } }],
+    deletes,
+    actions: [{ id: "node.update", input: { id, delete: true, descendants: "cascade" } }],
   };
 }
 

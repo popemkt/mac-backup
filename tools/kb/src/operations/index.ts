@@ -93,6 +93,8 @@ export const nodeUpdateDef = {
     parent: z.string().nullable().optional(),
     position: z.number().int().nonnegative().optional(),
     delete: z.boolean().optional(),
+    /** Parent deletion is never implicitly shallow; cascade is the default. */
+    descendants: z.enum(["cascade", "reparent"]).optional(),
     /** Bypass sys.* write-guard (browse yes / break no). */
     force: z.boolean().optional(),
   }),
@@ -249,6 +251,21 @@ function detachFromParents(nodes: KbNode[], childId: NodeId): KbNode[] {
     touched.push(c);
   }
   return touched;
+}
+
+function collectSubtreeIds(nodes: KbNode[], rootId: NodeId): NodeId[] {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const result: NodeId[] = [];
+  const seen = new Set<NodeId>();
+  const stack = [rootId];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    result.push(id);
+    stack.push(...(byId.get(id)?.children ?? []));
+  }
+  return result;
 }
 
 function insertChild(
@@ -426,11 +443,13 @@ export const nodeUpdateEffect = Effect.fn("node.update")(
     yield* syncDomain(() => assertSysWriteAllowed(input.id, input));
 
     if (input.delete) {
+      const deleteIds =
+        input.descendants === "reparent" ? [input.id] : collectSubtreeIds(ctx.nodes, input.id);
       const upserts = detachFromParents(ctx.nodes, input.id);
       yield* syncDomain(() =>
         assertNoSysUpsert(upserts, input.force === true, "node.update"),
       );
-      yield* persistEffect(ctx, { upserts, deletes: [input.id] });
+      yield* persistEffect(ctx, { upserts, deletes: deleteIds });
       return { id: input.id, deleted: true };
     }
 
