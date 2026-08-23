@@ -67,6 +67,7 @@ export const nodeAddDef = {
     props: z.array(PropInputSchema).optional(),
     parent: z.string().optional(),
     position: z.number().int().nonnegative().optional(),
+    order: z.string().optional(),
     tags: z.array(z.string()).optional(),
     id: z.string().optional(),
     /** Bypass sys.* write-guard (browse yes / break no). */
@@ -92,6 +93,7 @@ export const nodeUpdateDef = {
       .optional(),
     parent: z.string().nullable().optional(),
     position: z.number().int().nonnegative().optional(),
+    order: z.string().optional(),
     delete: z.boolean().optional(),
     /** Parent deletion is never implicitly shallow; cascade is the default. */
     descendants: z.enum(["cascade", "reparent"]).optional(),
@@ -359,6 +361,7 @@ export const nodeAddEffect = Effect.fn("node.add")(
       text: input.text,
       props,
       children: [],
+      ...(input.order ? { order: input.order } : {}),
       createdAt: at,
       updatedAt: at,
     };
@@ -458,6 +461,7 @@ export const nodeUpdateEffect = Effect.fn("node.update")(
 
     yield* syncDomain(() => {
       if (input.text !== undefined) node.text = input.text;
+      if (input.order !== undefined) node.order = input.order;
       if (input.setProps) applyProps(ctx, node.props, input.setProps);
       if (input.unsetProps) {
         for (const u of input.unsetProps) {

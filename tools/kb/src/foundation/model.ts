@@ -21,6 +21,8 @@ export interface KbNode {
   props: Record<NodeId, PropValue[]>;
   /** ordered outline children */
   children: NodeId[];
+  /** Fractional sibling rank. Optional only while legacy JSONL is migrating. */
+  order?: string;
   createdAt: string;
   updatedAt: string;
 }

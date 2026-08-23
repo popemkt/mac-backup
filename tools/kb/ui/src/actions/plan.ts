@@ -8,6 +8,7 @@ import type { PropValue } from "@/lib/types";
 import { SYSTEM_IDS } from "@/lib/types";
 import { forestRootIds } from "@/lib/graph-view";
 import { cloneWire, findParentWire, nowIso, wireById } from "@/lib/tx";
+import { rankBetween } from "@kb/order";
 
 export interface PlannedMutation {
   upserts: WireNode[];
@@ -28,6 +29,13 @@ function requireNode(nodes: WireNode[], id: string): WireNode {
   const n = wireById(nodes).get(id);
   if (!n) throw new Error(`node not found: ${id}`);
   return n;
+}
+function orderAt(nodes: WireNode[], siblings: string[], position: number): string {
+  const byId = wireById(nodes);
+  return rankBetween(
+    byId.get(siblings[position - 1] ?? "")?.order,
+    byId.get(siblings[position] ?? "")?.order,
+  );
 }
 export function planUpdateText(nodes: WireNode[], id: string, text: string): PlannedMutation {
   const node = cloneWire(requireNode(nodes, id));
@@ -289,10 +297,25 @@ export function planMove(
   dir: "up" | "down",
 ): PlannedMutation | null {
   const parent = findParentWire(nodes, id);
-  if (!parent) return null;
-  const idx = parent.children.indexOf(id);
+  const siblings = parent?.children ?? forestRootIds(nodes);
+  const idx = siblings.indexOf(id);
   const target = dir === "up" ? idx - 1 : idx + 1;
-  if (target < 0 || target >= parent.children.length) return null;
+  if (target < 0 || target >= siblings.length) return null;
+
+  if (!parent) {
+    const reordered = [...siblings];
+    reordered.splice(idx, 1);
+    reordered.splice(target, 0, id);
+    const ranks = reordered.map((siblingId, index) => ({
+      node: cloneWire(requireNode(nodes, siblingId)),
+      order: orderAt(nodes, [], index),
+    }));
+    // Re-space the small root set in one transaction; the sequence is exactly
+    // the requested visible move, independent of JSONL's id sort.
+    const rootRanks = ranks.map(({ node }, index) => ({ ...node, order: String(index).padStart(10, "0"), updatedAt: nowIso() }));
+    const moved = rootRanks.find((node) => node.id === id)!;
+    return { upserts: rootRanks, deletes: [], actions: [{ id: "node.update", input: { id, order: moved.order } }] };
+  }
 
   const p = cloneWire(parent);
   const kids = [...p.children];
@@ -758,36 +781,38 @@ export function planInsertSibling(
   text = "",
 ): PlannedMutation {
   const at = nowIso();
+  const parent = findParentWire(nodes, anchorId);
+  const siblings = parent?.children ?? forestRootIds(nodes);
+  const anchorIndex = siblings.indexOf(anchorId);
+  if (anchorIndex === -1) throw new Error(`anchor not found: ${anchorId}`);
+  const position = side === "after" ? anchorIndex + 1 : anchorIndex;
   const child: WireNode = {
     id: newId,
     text,
     props: {},
     children: [],
+    order: orderAt(nodes, siblings, position),
     createdAt: at,
     updatedAt: at,
   };
-  const parent = findParentWire(nodes, anchorId);
   // Forest root: no parent to hold order yet (pre-F7 migration) — mint as root.
   // Phase 2 will give this a stored order key; until then at least never bury as first child.
   if (!parent) {
     return {
       upserts: [child],
       deletes: [],
-      actions: [{ id: "node.add", input: { text, id: newId } }],
+      actions: [{ id: "node.add", input: { text, id: newId, order: child.order } }],
       focusId: newId,
       focusCursor: text.length,
     };
   }
   const p = cloneWire(parent);
-  const idx = p.children.indexOf(anchorId);
-  if (idx === -1) throw new Error(`anchor not in parent: ${anchorId}`);
-  const position = side === "after" ? idx + 1 : idx;
   p.children = [...p.children.slice(0, position), newId, ...p.children.slice(position)];
   p.updatedAt = at;
   return {
     upserts: [p, child],
     deletes: [],
-    actions: [{ id: "node.add", input: { id: newId, text, parent: parent.id, position } }],
+    actions: [{ id: "node.add", input: { id: newId, text, parent: parent.id, position, order: child.order } }],
     focusId: newId,
     focusCursor: text.length,
   };

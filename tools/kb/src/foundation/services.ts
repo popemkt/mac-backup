@@ -8,6 +8,7 @@ import { bunFileSystemLayer } from "./platform.ts";
 import { buildQueryDb, type QueryDb } from "./query/index.ts";
 import type { DomainError } from "./errors.ts";
 import { txIntegrityError } from "./tx-validation.ts";
+import { migrateOrderKeys } from "./order.ts";
 
 /**
  * UI materializes saved-query nodes into `ctx.qdb` only (never jsonl).
@@ -101,12 +102,13 @@ export const openKbEffect = Effect.fn("kb.open")(
   ): Effect.fn.Return<KbContext, DomainError, FileSystem> {
     const effectStore = new JsonlStore(root);
     let nodes = yield* effectStore.loadEffect();
-    const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(nodes);
-    if (didSeed || nodes.length === 0 || deletes.length > 0) {
-      nodes = seeded;
-      yield* effectStore.commitEffect({ upserts: nodes, deletes });
-    } else {
-      nodes = seeded;
+  const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(nodes);
+  const migrated = migrateOrderKeys(seeded);
+  if (didSeed || nodes.length === 0 || deletes.length > 0 || migrated.changed) {
+    nodes = migrated.nodes;
+    yield* effectStore.commitEffect({ upserts: nodes, deletes });
+  } else {
+    nodes = migrated.nodes;
     }
     const qdb = buildQueryDb(nodes);
     const store = asPromiseStore(effectStore);
