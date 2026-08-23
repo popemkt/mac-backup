@@ -140,16 +140,74 @@ CodeFlow's value is in *treatments*, not *features*. §4 **withdraws r2's "3D is
 exploratory" verdict** and keeps `3d-force-graph`. §5 is the ordered 16-task
 i11 plan with PC/A tags and a cut order.
 
-### In flight
+### i11-graph — merged, with one defect fixed at merge
 
-**i11-graph** on codex (outside Orca, see above), brief
-`briefs/i11-graph.md`, working r10 §5 in order. When it lands: merge `--no-ff`,
-verify all four suites, push, restart the UI.
+Eight commits, shipping r10 §5 tasks **2–12** (camera fit/cap, post-settle fit,
+framed-space projection for hover + hulls, visible padded hulls, alpha-cooled
+3D cluster force + zoomToFit, one alpha-composition dim rule replacing the
+hardcoded greys, drag with graphology's `fixed` pin, size-derived labels, real
+tree Fit + plain-wheel zoom) plus **task 9's `GraphCanvasFrame`**, so toolbar
+and legend chrome now wrap every renderer instead of only force2d.
+
+**Fixed at merge (`c99cc22`):** i11 adopted r10 §2 row 2's fit formula
+verbatim — `ratio = currentRatio / scale`. That is CodeFlow's *screen-space*
+arithmetic, valid there because CodeFlow rebuilds its transform from
+`zoomIdentity` on every fit. Sigma's `ratio` is already absolute and framed
+coordinates are camera-independent, so `scale` is constant and each fit divides
+the live ratio again: pressing `f` walked the zoom inward 0.75 → 0.5625 →
+0.4219 → 0.3164 instead of settling. Replaced with the absolute form
+`ratio = max(span / 0.8, 0.5)` — the 0.5 floor *is* CodeFlow's 2× cap — which
+reproduces i11's own acceptance numbers and adds idempotence. **The r10 report
+line was corrected too**, so the next reader cannot reintroduce it.
+
+**Not shipped, and the reason matters.** Task 1's rendering-truth harness was
+cut. i11 declined to write a unit test that could pass while a renderer is
+blank, which is the right call: r10's acceptance mixes display-position
+assertions (unit-testable) with **painted-pixel counts, which need real
+WebGL** — `vp test` runs happy-dom and cannot paint. This is the wave's central
+omission and it is a **decision for the owner**, not a task to redispatch
+blindly: a real harness means adding Playwright (or vitest browser mode) as a
+dev dependency plus a browser download (~0.5–1G), on a machine that was at 7.8G
+free earlier tonight. r10 proved every one of these bugs with the Playwright
+MCP, so the capability exists interactively; the question is whether it should
+become a committed test dependency.
+
+Also unshipped: tasks **13–16** (persisted settings popover, full 3D
+select-in-place/labels/particles, layout sub-modes, bundle+error guardrails),
+and within task 9 the renderer capability descriptors — currently unsupported
+toolbar actions are *visible but inert*, which is worse than disabled and
+should be finished first in any follow-up. Tree selection parity is incomplete.
+
+### Environment warning — the machine is unhealthy
+
+Nothing to do with the waves. At 02:45 load was **42–57** with:
+`fseventsd` 114% (likely thrashing over ~24 worktrees' node_modules),
+a Chrome renderer 99%, `audiomxd` 75%, `configd` 41%, `spindump` running, and
+**seven-plus `hermes` node processes at ~50% each** from
+`_brain/.agents/hermes` (~350% total). Consequences seen:
+- `pgrep` failed outright (`sysmond service not found`).
+- The **system resolver broke**: `nslookup github.com` resolves fine and
+  `ping 1.1.1.1` is clean, but `getaddrinfo` fails, so **git cannot push**.
+  A background retry loop is armed to push `main` + the i11 branch when the
+  resolver recovers; if it did not fire, just `git push origin main` by hand.
+- `tests/ext-sdk-fresh.test.ts` failed once (`status: null` — its spawned
+  `tsc` was killed by the test's own 5s budget) and passed on a re-run. Same
+  class as the old benchmark flake. **Everything was verified green
+  afterwards.**
+
+Look at Hermes first. No daemons were killed — that is the owner's call.
+
+### Suggested next wave (not dispatched — machine was saturated)
+
+`i12-graph`: renderer capability descriptors (finish task 9 properly so inert
+controls become disabled), then tasks 13 → 14 → 15 → 16, with 16(c)'s
+in-canvas error state early since it is the guard against exactly the silent
+blanks this cycle was spent chasing. Decide the harness question first.
 
 ### Baseline for the next merge
 
-core **669** pass / 0 fail · typecheck clean · lint clean · UI **465** pass / 0
-fail. Main at `699bbe4` + i11's merge.
+core **680** pass / 0 fail · typecheck clean · lint clean · UI **470** pass / 0
+fail, verified on main after the i11 merge and the fit fix.
 
 ### Told the owner, still open
 
