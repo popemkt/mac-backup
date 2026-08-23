@@ -20,22 +20,15 @@ export interface PlannedMutation {
   /** Nodes whose collapsed state must be cleared after apply (D05). */
   revealIds?: string[];
 }
-
 export interface PlanSplitOpts {
-  /**
-   * Ids currently expanded in the UI outline map. When the split node has
-   * children and is expanded, Enter creates the new node as its FIRST CHILD
-   * (Tana semantics, r1 D07) instead of a trailing sibling.
-   */
-  expandedIds?: Set<string> | null;
+  /** Ids currently expanded in the UI outline map — required, no default (F2). */
+  expandedIds: Set<string>;
 }
-
 function requireNode(nodes: WireNode[], id: string): WireNode {
   const n = wireById(nodes).get(id);
   if (!n) throw new Error(`node not found: ${id}`);
   return n;
 }
-
 export function planUpdateText(nodes: WireNode[], id: string, text: string): PlannedMutation {
   const node = cloneWire(requireNode(nodes, id));
   node.text = text;
@@ -46,23 +39,17 @@ export function planUpdateText(nodes: WireNode[], id: string, text: string): Pla
     actions: [{ id: "node.update", input: { id, text } }],
   };
 }
-
 export function planSplit(
   nodes: WireNode[],
   id: string,
   cursor: number,
   newId: string,
-  opts: PlanSplitOpts = {},
+  opts: PlanSplitOpts,
 ): PlannedMutation {
   const node = cloneWire(requireNode(nodes, id));
   const left = node.text.slice(0, cursor);
   const right = node.text.slice(cursor);
-
-  // Tana semantics (r1 D07): Enter on an expanded parent with children
-  // creates the new node as its first child — the row stays visually
-  // adjacent to the caret instead of jumping below the whole subtree.
-  const asFirstChild = node.children.length > 0 && (!opts.expandedIds || opts.expandedIds.has(id));
-
+  const asFirstChild = node.children.length > 0 && opts.expandedIds.has(id);
   node.text = left;
   node.updatedAt = nowIso();
 
@@ -752,15 +739,84 @@ export function planOntologySetClosure(
   );
 }
 
-export function planCreateAfter(
+/** Insert a sibling after/before `anchorId` under its parent (never as child). F2. */
+export function planInsertSibling(
   nodes: WireNode[],
-  afterId: string,
+  anchorId: string,
+  side: "before" | "after",
   newId: string,
+  text = "",
 ): PlannedMutation {
-  const after = requireNode(nodes, afterId);
-  return planSplit(nodes, afterId, after.text.length, newId);
+  const at = nowIso();
+  const child: WireNode = {
+    id: newId,
+    text,
+    props: {},
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+  const parent = findParentWire(nodes, anchorId);
+  // Forest root: no parent to hold order yet (pre-F7 migration) — mint as root.
+  // Phase 2 will give this a stored order key; until then at least never bury as first child.
+  if (!parent) {
+    return {
+      upserts: [child],
+      deletes: [],
+      actions: [{ id: "node.add", input: { text, id: newId } }],
+      focusId: newId,
+      focusCursor: text.length,
+    };
+  }
+  const p = cloneWire(parent);
+  const idx = p.children.indexOf(anchorId);
+  if (idx === -1) throw new Error(`anchor not in parent: ${anchorId}`);
+  const position = side === "after" ? idx + 1 : idx;
+  p.children = [...p.children.slice(0, position), newId, ...p.children.slice(position)];
+  p.updatedAt = at;
+  return {
+    upserts: [p, child],
+    deletes: [],
+    actions: [{ id: "node.add", input: { id: newId, text, parent: parent.id, position } }],
+    focusId: newId,
+    focusCursor: text.length,
+  };
 }
 
+/** Insert a child under `parentId` at index (or start/end). */
+export function planInsertChild(
+  nodes: WireNode[],
+  parentId: string,
+  index: number | "start" | "end",
+  newId: string,
+  text = "",
+): PlannedMutation {
+  const parent = cloneWire(requireNode(nodes, parentId));
+  const at = nowIso();
+  const child: WireNode = {
+    id: newId,
+    text,
+    props: {},
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+  const position =
+    index === "start" ? 0 : index === "end" ? parent.children.length : index;
+  parent.children = [
+    ...parent.children.slice(0, position),
+    newId,
+    ...parent.children.slice(position),
+  ];
+  parent.updatedAt = at;
+  return {
+    upserts: [parent, child],
+    deletes: [],
+    actions: [{ id: "node.add", input: { id: newId, text, parent: parentId, position } }],
+    focusId: newId,
+    focusCursor: text.length,
+  };
+}
 /** Add a forest-root content node (no parent). */
 export function planAddRootNode(text: string, newId: string): PlannedMutation {
   const at = nowIso();

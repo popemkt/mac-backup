@@ -19,6 +19,20 @@
   font: var(--kb-text) inherit;
 }
 
+/* F9: row text host — active and inactive share pre-wrap so \n never collapses. */
+.kb-text-row {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* F9: clamp variant for compressed contexts (refs/schema/table/board/breadcrumbs). */
+.kb-text-clamp {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-all;
+}
+
 .kb-chip {
   /* Legacy alias — equivalent to --tag-size/--tag-line. */
   font-size: var(--tag-size);

@@ -352,6 +352,22 @@ export function App() {
     const handler = (e: KeyboardEvent) => {
       const action = matchGlobalShortcut(e);
       if (!action) return;
+      // F15: ⌘K → node palette when a row is selected/active, else global search
+      if (action === "global-search" && (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        const o = useOutlineStore.getState();
+        const hasRow = Boolean(o.activeNodeId || o.selectedNodeId);
+        if (hasRow) {
+          e.preventDefault();
+          // If an editable row is active, demote to selected so palette can anchor.
+          if (o.activeNodeId && o.activeInstanceKey) {
+            o.selectNode(o.activeNodeId, o.activeInstanceKey);
+          }
+          useUiStore.getState().setNodePaletteOpen(true);
+          return;
+        }
+        // No row: fall through to global search
+      }
+      if (action !== "global-search") return;
       e.preventDefault();
       setGlobalPaletteOpen(!useUiStore.getState().globalPaletteOpen);
     };

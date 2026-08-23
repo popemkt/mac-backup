@@ -28,18 +28,17 @@ export function OutlineEditor() {
   useSelectionKeymap();
   useUndoRedoKeymap();
 
-  /** Tana whitespace-create at zoom-root level (r1 §3.3). */
-  const handleBackgroundCreate = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.target !== e.currentTarget) return;
-      const store = useOutlineStore.getState();
-      void mutations.createTransientNode(
-        rootNodeId,
-        store.nodes.get(rootNodeId)?.children.slice(-1)[0] ?? null,
-      );
-    },
-    [rootNodeId],
-  );
+  /**
+   * Container background is NOT a create target — only the explicit strip is (F14).
+   * The zoomed container click is removed entirely; the strip has its own guard-free handler (F1).
+   */
+  const handleStripCreate = useCallback(() => {
+    const store = useOutlineStore.getState();
+    void mutations.createTransientNode(
+      rootNodeId,
+      store.nodes.get(rootNodeId)?.children.slice(-1)[0] ?? null,
+    );
+  }, [rootNodeId]);
 
   if (!root) {
     return <div className="px-2 py-8 text-[13px] text-foreground/50">Loading outline…</div>;
@@ -59,7 +58,7 @@ export function OutlineEditor() {
         );
 
     return (
-      <div className="outline-editor px-2 pb-40" onClick={handleBackgroundCreate}>
+      <div className="outline-editor px-2 pb-40">
         <Breadcrumbs />
         <ZoomedRootHeader node={root} />
 
@@ -76,7 +75,7 @@ export function OutlineEditor() {
           <div
             data-create-child-zone={rootNodeId}
             className="group/create flex h-8 cursor-pointer items-center pl-6"
-            onClick={handleBackgroundCreate}
+            onClick={handleStripCreate}
             title="New node"
           >
             <span className="text-[13px] leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25">
@@ -103,7 +102,7 @@ export function OutlineEditor() {
       <div
         data-create-child-zone={WORKSPACE_ROOT_ID}
         className="group/create flex h-8 cursor-pointer items-center pl-6"
-        onClick={handleBackgroundCreate}
+        onClick={handleStripCreate}
         title="New node"
       >
         <span className="text-[13px] leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25">

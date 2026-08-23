@@ -8,18 +8,20 @@ import { runOptimistic } from "@/actions/optimistic";
 import {
   inversePlanActions,
   invertPlan,
+  planAddChild,
   planAddRootNode,
   planAddTag,
-  planCreateAfter,
   planDefineField,
   planDefineTag,
   planDelete,
   planIndent,
+  planInsertSibling,
   planMergeInto,
   planMergeWithPrevious,
   planMove,
   planNewQueryNode,
   planOutdent,
+  planPrependChild,
   planRemoveTag,
   planSetProp,
   planSplit,
@@ -186,7 +188,7 @@ export const mutations = {
     // guard that parent, not just the sibling id (sys.* write-guard).
     const siblingParent = findParentWire(wire(), afterId);
     if (siblingParent && !guardSysWrite(siblingParent.id)) return;
-    await applyPlan(planCreateAfter(wire(), afterId, ulid()));
+    await applyPlan(planInsertSibling(wire(), afterId, "after", ulid()));
   },
 
   async addRootNode(text: string, newId?: string): Promise<boolean> {
@@ -197,7 +199,6 @@ export const mutations = {
   async addChildNode(parentId: string, text: string, newId?: string): Promise<boolean> {
     if (!guardSysWrite(parentId)) return false;
     const id = newId ?? ulid();
-    const { planAddChild } = await import("@/actions/plan");
     return applyPlan(planAddChild(wire(), parentId, id, text));
   },
 
@@ -219,16 +220,14 @@ export const mutations = {
       // that parent, not just the sibling id (sys.* write-guard).
       const siblingParent = findParentWire(wire(), afterSiblingId);
       if (siblingParent && !guardSysWrite(siblingParent.id)) return null;
-      ok = await applyPlan(planCreateAfter(wire(), afterSiblingId, newId));
+      ok = await applyPlan(planInsertSibling(wire(), afterSiblingId, "after", newId));
     } else {
       if (!guardSysWrite(parentId)) return null;
-      const { planAddChild } = await import("@/actions/plan");
       ok = await applyPlan(planAddChild(wire(), parentId, newId, ""));
     }
     if (!ok) return null;
     useOutlineStore.getState().markTransient(newId);
-    const store = useOutlineStore.getState();
-    store.activateNode(newId, 0, outlineInstanceKey(newId, store.nodes));
+    // F4: single activation via runOptimistic — no post-await re-activation.
     return newId;
   },
 
@@ -237,8 +236,6 @@ export const mutations = {
     if (!guardSysWrite(beforeId)) return null;
     const parent = findParentWire(wire(), beforeId);
     if (!parent) {
-      // Forest root: no positional insert above exists; append then rely on
-      // id ordering is wrong visually — fall back to after-anchor semantics.
       return mutations.createTransientNode(WORKSPACE_ROOT_ID, beforeId);
     }
     if (!guardSysWrite(parent.id)) return null;
@@ -248,20 +245,15 @@ export const mutations = {
     const newId = ulid();
     let plan: PlannedMutation | null;
     if (prevSibling) {
-      plan = planCreateAfter(wire(), prevSibling, newId);
+      plan = planInsertSibling(wire(), prevSibling, "after", newId);
     } else {
-      // First slot: prepend as the parent's first child.
-      const { planPrependChild } = await import("@/actions/plan");
       plan = planPrependChild(wire(), parent.id, newId);
     }
     const ok = await applyPlan(plan);
     if (!ok) return null;
     useOutlineStore.getState().markTransient(newId);
-    const store = useOutlineStore.getState();
-    store.activateNode(newId, 0, outlineInstanceKey(newId, store.nodes));
     return newId;
   },
-
   async addTagField(tagId: string, fieldId: string): Promise<void> {
     if (!guardSysWrite(tagId)) return;
     const { planAddTagField } = await import("@/actions/plan");
@@ -332,6 +324,13 @@ export const mutations = {
    * a preceding sibling with expanded children merges into its deepest
    * last descendant — what the user sees directly above the caret.
    */
+  async mergeNextIntoThis(thisId: string, nextId: string): Promise<void> {
+    if (!guardSysWrite(thisId) || !guardSysWrite(nextId)) return;
+    const plan = planMergeInto(wire(), nextId, thisId);
+    if (!plan) return;
+    await applyPlan(plan);
+  },
+
   async mergeWithPrevious(id: string, instanceKey?: string): Promise<void> {
     if (!guardSysWrite(id)) return;
     let plan: PlannedMutation | null = null;
@@ -363,8 +362,8 @@ export const mutations = {
     const preWire = store.wireNodes;
     const plan = planIndent(preWire, id);
     if (!plan) return;
-    const ok = await runOptimistic(plan);
-    if (!ok) return;
+    const result = await runOptimistic(plan);
+    if (!result.ok) return;
     recordHistory(preWire, plan);
 
     // D05: reveal the new parent chain before caret restore so the row is
@@ -382,8 +381,8 @@ export const mutations = {
     const plan = planOutdent(store.wireNodes, id);
     if (!plan) return;
     const preWire = store.wireNodes;
-    const ok = await runOptimistic(plan);
-    if (!ok) return;
+    const result = await runOptimistic(plan);
+    if (!result.ok) return;
     recordHistory(preWire, plan);
     const key = outlineInstanceKey(id, useOutlineStore.getState().nodes);
     useOutlineStore.getState().activateNode(id, cursor ?? 0, key);

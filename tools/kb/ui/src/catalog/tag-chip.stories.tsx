@@ -17,7 +17,6 @@ export const stories = {
       tag: { id: "tag.urgent", name: "urgent", color: "#ef4444" },
       onClick: () => undefined,
       onRemove: () => undefined,
-      onConfigure: () => undefined,
     }),
   group: (): ReactElement =>
     createElement(TagChipGroup, {

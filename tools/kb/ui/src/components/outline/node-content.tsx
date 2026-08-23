@@ -16,9 +16,10 @@ import {
 } from "@/lib/refs";
 import { isSysPrefixed } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
+import { useUiStore } from "@/stores/ui.store";
 import { MdView } from "@/components/outline/md-view";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
-import { nearestOffsetForX } from "./caret";
+import { nearestOffsetForX, offsetFromPoint } from "./caret";
 import { TagChipGroup } from "./tag-chip";
 
 
@@ -46,6 +47,7 @@ export function NodeContent({
   onKeyDown,
 }: NodeContentProps) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const mdViewRef = useRef<HTMLDivElement>(null);
   const isComposing = useRef(false);
   const wasActive = useRef(false);
   /** Query captured at dismissal time; a different query re-opens (D14). */
@@ -171,11 +173,18 @@ export function NodeContent({
           e.stopPropagation();
           return;
         }
-        onActivate(content.length);
+        // F16: caret at click, not at end. Probe the rendered text; fallback to end.
+        let at = content.length;
+        const host = mdViewRef.current;
+        if (host) {
+          const probed = offsetFromPoint(host, e.clientX, e.clientY);
+          if (probed !== null) at = Math.max(0, Math.min(probed, content.length));
+        }
+        onActivate(at);
       }
       e.stopPropagation();
     },
-    [isActive, onActivate, content.length],
+    [isActive, onActivate, content],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -209,6 +218,18 @@ export function NodeContent({
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (isComposing.current) return;
+
+      // F15: '/' at offset 0 of an empty node opens the node palette (r1 Mode A MUST, before autocomplete).
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey && content === "" && getCaretSerializedOffset(editorRef.current) === 0) {
+        e.preventDefault();
+        // Select this row so palette can anchor, then open it
+        useOutlineStore.getState().selectNode(nodeId, instanceKey);
+        // rAF not available in happy-dom — fall back to sync
+        const raf = (globalThis as unknown as { requestAnimationFrame?: (cb: () => void) => number }).requestAnimationFrame;
+        if (raf) raf(() => useUiStore.getState().setNodePaletteOpen(true));
+        else useUiStore.getState().setNodePaletteOpen(true);
+        return;
+      }
 
       if (refOpen) {
         if (e.key === "ArrowDown" && candidates.length > 0) {
@@ -271,7 +292,7 @@ export function NodeContent({
             ref={editorRef}
             key="editor"
             className={cn(
-              "editable min-h-6 min-w-0 flex-1 self-start",
+              "editable kb-text-row min-h-6 min-w-0 flex-1 self-start",
               KB_TEXT_CLASS,
               "outline-none",
               "text-foreground/85",
@@ -292,10 +313,13 @@ export function NodeContent({
             role="textbox"
           />
         ) : (
-          <MdView
-            text={content}
-            className="min-h-6 min-w-0 flex-1 self-start text-foreground/85"
-          />
+          <div ref={mdViewRef} className="min-h-6 min-w-0 flex-1 self-start">
+            <MdView
+              text={content}
+              className="min-h-6 min-w-0 flex-1 self-start text-foreground/85"
+              clamp={false}
+            />
+          </div>
         )}
 
         {showPadlock && (

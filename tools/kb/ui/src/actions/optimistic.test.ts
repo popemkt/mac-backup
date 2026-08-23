@@ -71,6 +71,7 @@ describe("runOptimistic multi-action transactions", () => {
       "n.root-a",
       4,
       "n.split-new",
+      { expandedIds: new Set() },
     );
     expect(split.actions.length).toBe(2);
 
@@ -228,6 +229,7 @@ describe("runOptimistic multi-action transactions", () => {
       "n.root-a",
       4,
       "n.split-keep",
+      { expandedIds: new Set() },
     );
 
     fetchGraph.mockRejectedValue(new Error("resync offline"));
