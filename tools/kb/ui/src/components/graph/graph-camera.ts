@@ -64,13 +64,19 @@ export function framedPoints(sigma: Sigma): Point[] {
 }
 
 /**
- * The camera's visible extent in framed space is its `ratio` (ratio 1 shows the
- * whole normalized square), so covering a span with padding on each side needs
- * `ratio = span / (1 - 2 * padding)`.
+ * The camera's visible extent in framed space *is* its `ratio` (ratio 1 shows
+ * the whole normalized square), so the fit ratio is absolute: `span / 0.8` for
+ * CodeFlow's 0.8 fit padding, floored at 0.5 to honour its 2× zoom-in cap.
+ *
+ * It must not be derived from the current ratio. CodeFlow computes
+ * `currentRatio / scale` because it rebuilds its transform from `zoomIdentity`
+ * every time, so its base really is identity; sigma has no such reset. Framed
+ * coordinates are camera-independent, so `scale` is constant across calls and
+ * dividing the live ratio by it again on each fit walks the zoom inward
+ * (0.75 → 0.5625 → 0.42 …) instead of settling. Fitting twice must be a no-op.
  */
 export function computeFitTarget(
   points: readonly Point[],
-  currentRatio = 1,
 ): Partial<CameraState> | null {
   if (points.length === 0) return null;
 
@@ -87,17 +93,17 @@ export function computeFitTarget(
   if (!Number.isFinite(minX)) return null;
 
   const span = Math.max(maxX - minX, maxY - minY, 0.001);
-  const scale = Math.min(0.8 / span, 2);
   return {
     x: (minX + maxX) / 2,
     y: (minY + maxY) / 2,
-    // A single node has zero span; keep it readable rather than infinitely zoomed.
-    ratio: Math.max(0.01, currentRatio / scale),
+    // The 0.5 floor is the 2x zoom-in cap, which also keeps a single-node
+    // lens readable rather than infinitely zoomed.
+    ratio: Math.max(0.5, span / 0.8),
   };
 }
 
 export function fitView(sigma: Sigma, durationMs = 300): void {
-  const target = computeFitTarget(framedPoints(sigma), sigma.getCamera().getState().ratio);
+  const target = computeFitTarget(framedPoints(sigma));
   // No display data yet (fit raced the first render) — the reset framing at
   // least shows the graph instead of blanking the canvas.
   if (!target) {

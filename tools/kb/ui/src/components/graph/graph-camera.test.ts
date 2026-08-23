@@ -14,7 +14,6 @@ describe("computeFitTarget", () => {
         { x: 0.2, y: 0.4 },
         { x: 0.8, y: 0.6 },
       ],
-      1,
     );
     expect(target?.x).toBeCloseTo(0.5);
     expect(target?.y).toBeCloseTo(0.5);
@@ -40,7 +39,6 @@ describe("computeFitTarget", () => {
         { x: 0, y: 0.45 },
         { x: 1, y: 0.55 },
       ],
-      1,
     );
     // span 1 yields a 0.8 scale, represented as inverse Sigma ratio.
     expect(target?.ratio).toBeCloseTo(1.25);
@@ -50,6 +48,19 @@ describe("computeFitTarget", () => {
     const target = computeFitTarget([{ x: 0.5, y: 0.5 }]);
     expect(target?.ratio).toBeCloseTo(0.5);
     expect(Number.isFinite(target!.ratio!)).toBe(true);
+  });
+
+  it("is idempotent — fitting twice must not walk the zoom inward", () => {
+    const points = [
+      { x: 0.2, y: 0.3 },
+      { x: 0.8, y: 0.7 },
+    ];
+    const first = computeFitTarget(points);
+    const second = computeFitTarget(points);
+    // Derived from the live camera ratio, this drifted 0.75 -> 0.5625 -> 0.42.
+    expect(second?.ratio).toBe(first?.ratio);
+    expect(second?.x).toBe(first?.x);
+    expect(second?.y).toBe(first?.y);
   });
 
   it("returns null when there is nothing to frame", () => {
