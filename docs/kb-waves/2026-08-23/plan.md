@@ -138,7 +138,9 @@ Fix what's safe; log the rest as findings for owner review.
 3. Orchestrator merges --no-ff into main sequentially, resolving shared-file
    conflicts centrally; re-runs suite on main after each merge; smoke-tests
    `kb ui` boot.
-4. Never push without owner request. Each merge is revertible.
+4. Push policy (owner directive 2026-08-23 late): after merges complete,
+   orchestrator PUSHES everything to origin (main and merged worker
+   branches). Individual workers still never push.
 
 ## Risks
 
