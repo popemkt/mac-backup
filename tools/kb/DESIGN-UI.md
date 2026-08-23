@@ -132,12 +132,12 @@ pane, persistent collapse state (localStorage), query page.
 
 ## Interaction model (as shipped, 2026-08-23 wave)
 
-The v1 list above is the original contract. Four implementation waves rebuilt
-the interaction layer on top of it — i1 (editor), i2 (graph), i3 (canvas), i6
-(ontology). The normative specs are
-`docs/kb-waves/2026-08-23/reports/r1-editor.md`, `r2-graph.md`, `r3-canvas.md`
-and `r5-ontology.md`; each carries its own implementation handoff with the
-honest cut list.
+The v1 list above is the original contract. Five implementation waves rebuilt
+the interaction layer on top of it — i1 (editor), i2 (graph), i3 (canvas),
+i5 (cross-surface polish), i6 (ontology). The normative specs are
+`docs/kb-waves/2026-08-23/reports/r1-editor.md`, `r2-graph.md`, `r3-canvas.md`,
+`r7-ux-sweep.md` and `r5-ontology.md`; each carries its own implementation
+handoff with the honest cut list.
 
 ### Outline editor (i1)
 
@@ -317,6 +317,38 @@ Not shipped, named: cursor-centred scroll zoom (zoom is viewport-centred),
 real Clipboard-API copy/paste, snap guides during keyboard nudge, edge colour
 on the stroke itself, edge endpoint re-routing, group cards translating their
 children.
+
+### Cross-surface polish (i5)
+
+The rules that hold everywhere, so no surface re-invents them:
+
+- **One captured global shortcut.** `lib/keyboard-shortcuts.ts`
+  `matchGlobalShortcut` returns `"global-search"` for ⌘/Ctrl-K and nothing else
+  — ⌘S is deliberately left to the browser, because kb has no save action to
+  bind it to. App-level dispatch lives in `components/App.tsx`.
+- **The palette behaves like a dialog.** `components/palette/command-palette.tsx`
+  records `document.activeElement` on open and restores focus on close, traps
+  `Tab` inside itself, and keeps the active result scrolled into view.
+- **IME composition is never interrupted.** Field editors track
+  `compositionstart`/`compositionend` *and* check `nativeEvent.isComposing`
+  before treating a key as a commit, so a composing CJK/dead-key sequence is not
+  swallowed by Enter.
+- **Load failures are recoverable, not raw.** An initial graph/workspace error
+  renders a human-readable state with a Retry action and the technical detail
+  behind a disclosure, rather than dumping the error.
+- **Motion is a preference.** `index.css` carries one global
+  `@media (prefers-reduced-motion: reduce)` block that flattens animation,
+  transition and scroll behaviour across *every* surface — the graph cross-fade,
+  the canvas, the outline — so an animated surface added later inherits the
+  policy for free rather than opting in.
+- Navigation affordances are keyboard-reachable: sidebar Home exits zoom, a
+  closed sidebar is inert with focus returned to its toggle, breadcrumbs carry
+  an accessible label and current-page marker, and tag chips expose real
+  navigate / remove / configure buttons instead of click-only regions.
+
+Deferred from i5 and still open: query-subscription error routing, view-settings
+and Board setup flows, the Add-field flow, palette ranking/highlighting, URL and
+history handling, and a toast-model redesign.
 
 ## Layout
 

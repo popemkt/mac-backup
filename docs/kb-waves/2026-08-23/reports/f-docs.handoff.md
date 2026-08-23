@@ -10,7 +10,8 @@ Commits:
 
 ```
 31e5737 docs(kb): reconcile design docs with the 2026-08-23 wave
-<this>  docs: f-docs integration handoff
+e5b25ec docs: f-docs integration handoff
+<this>  docs(kb): document the i5 cross-surface polish wave
 ```
 
 ## Method
@@ -98,6 +99,15 @@ Corrections: the canvas row said z-order was "deliberately cut" — it shipped
 this wave. The preamble gained a `*(researched, parked)*` marker convention, and
 the standing-rules list gained the warnings-never-throw rule this wave proved.
 
+### `tools/kb/DESIGN-UI.md` (second pass — i5)
+
+**"Cross-surface polish (i5)"** documents the rules that hold everywhere so no
+surface re-invents them: ⌘K as the *only* captured global shortcut (⌘S
+deliberately left to the browser), the palette's focus record/restore + Tab
+trap, IME-composition guarding on field commits, retryable load-error recovery,
+and the single global `prefers-reduced-motion` block in `index.css` that every
+current and future animated surface inherits. Plus i5's own deferred list.
+
 ### `tools/kb/ui/README.md`
 
 Rewritten command block, plus a shape paragraph pointing at DESIGN-UI.md. See
@@ -165,8 +175,10 @@ these docs before the next `rebuild` must do the same.
    while the machine ships npm 10.9.8, so *every* `npm` command in that package
    dies with `EBADDEVENGINES` — including `npm install`. I fixed the README to
    document the `bun` path that works, but the pin itself is either intentional
-   (then say so) or accidental (then drop it). Owner: **x-dx** / UI package
-   owner.
+   (then say so) or accidental (then drop it). **Independently corroborated:**
+   the i5-polish handoff in `r7-ux-sweep.md` reports the same block and worked
+   around it the same way. Two waves have now lost time to it. Owner: **x-dx** /
+   UI package owner.
 4. **The `kb ext sdk --write` one-liner is still missing from root `CLAUDE.md` /
    `AGENTS.md`.** i4 deferred this to "the orchestrator / F docs pass", but root
    `CLAUDE.md` is not in the f-docs zone. Same for a `kb ontology list|members`
@@ -203,10 +215,13 @@ Honest gaps:
 - **`DESIGN-REFINE.md` / `DESIGN-RESKIN.md` left stale**, deliberately (finding
   6) — but "the design docs must match what shipped" arguably covers them, so
   this is a scope judgment a reviewer may disagree with.
-- **The i5-polish wave has no handoff report** in `reports/`, and I found no
-  commit carrying one, so anything it shipped that is not visible in the code I
-  read is undocumented. The brief named six waves; I could reconcile five with
-  their own written record.
+- **I initially missed the i5-polish wave.** Its handoff is appended to
+  `r7-ux-sweep.md`, not filed under an `i5-*` name, and I did not find it until
+  after the first commit — a search-by-filename failure, caught only by
+  double-checking my own claim before finishing. Corrected in a follow-up commit
+  (`### Cross-surface polish (i5)` in DESIGN-UI.md). Worth noting for the next
+  integrator: **every** i-wave handoff was appended to its r-report except
+  i1-editor and i2-graph, which got their own files.
 - INSPIRATIONS.md rows are lineage prose; they are my synthesis of what the
   research reports claim, and the owner is the authority on what he actually
   drew from. Worth a skim.
