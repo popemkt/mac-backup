@@ -54,6 +54,7 @@
     "graphology-communities-louvain",
     "graphology-layout",
     "graphology-layout-noverlap",
+    "storybook",
     "tailwindcss",
     "zod"
   ]
