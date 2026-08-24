@@ -169,7 +169,11 @@ describe("shared outline components (W8b)", () => {
     expect(readOutlineSource("field-value.tsx")).toMatch(/from "\.\/node-row"/);
     expect(readOutlineSource("field-value.tsx")).toMatch(/from "\.\/tag-chip"/);
     expect(readOutlineSource("fields-section.tsx")).toMatch(/from "\.\/field-row"/);
-    expect(readOutlineSource("query-results.tsx")).toMatch(/from "\.\/node-block"/);
+    // W8b + import/no-cycle: query results render via the shared NodeBlock, so
+    // the recursive node<->query pair must not be a static import cycle. The
+    // renderer is inverted (node-block passes renderNode into query-results).
+    expect(readOutlineSource("query-results.tsx")).not.toMatch(/from "\.\/node-block"/);
+    expect(readOutlineSource("node-block.tsx")).toMatch(/from "\.\/query-results"/);
     expect(readOutlineSource("schema-section.tsx")).toMatch(/from "\.\/node-row"/);
   });
 

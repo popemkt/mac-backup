@@ -194,6 +194,15 @@ export const NodeBlock = memo(function NodeBlock({
               depth={depth}
               viewMode={viewConfig.mode}
               frameInstanceKey={instanceKey}
+              renderNode={({ nodeId: rid, instanceKey, depth: rDepth, isRef }) => (
+                <NodeBlock
+                  key={instanceKey}
+                  nodeId={rid}
+                  instanceKey={instanceKey}
+                  depth={rDepth}
+                  isRef={isRef}
+                />
+              )}
             />
           )}
 

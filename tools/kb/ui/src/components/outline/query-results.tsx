@@ -3,7 +3,7 @@
  * List mode → NodeBlock refs. Table/board/cards → shared FrameChildrenView
  * with query-result instance keys (W7.1 / W8e).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { getLiveClient } from "@/api/live";
 import { runQuery } from "@/ds/query";
 import { queryResultInstanceKey } from "@/lib/instance-key";
@@ -13,13 +13,22 @@ import { isProjectedViewMode } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { FrameChildrenView } from "./frame-children-view";
-import { NodeBlock } from "./node-block";
+
+interface QueryResultItem {
+  nodeId: string;
+  instanceKey: string;
+  depth: number;
+  isRef: boolean;
+}
 
 interface QueryResultsSectionProps {
   nodeId: string;
   depth: number;
   viewMode?: ViewMode;
   frameInstanceKey?: string;
+  /** How to render one result node. Inverted from QueryResultsSection so the
+   * recursive node <-> query-results pair is not a static import cycle. */
+  renderNode: (item: QueryResultItem) => ReactNode;
 }
 
 export function QueryResultsSection({
@@ -27,6 +36,7 @@ export function QueryResultsSection({
   depth,
   viewMode = "list",
   frameInstanceKey,
+  renderNode,
 }: QueryResultsSectionProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const nodes = useOutlineStore((s) => s.nodes);
@@ -141,15 +151,12 @@ export function QueryResultsSection({
       ) : (
         ids.map((id) => {
           const key = queryResultInstanceKey(nodeId, id);
-          return (
-            <NodeBlock
-              key={key}
-              nodeId={id}
-              instanceKey={key}
-              depth={depth + 1}
-              isRef
-            />
-          );
+          return renderNode({
+            nodeId: id,
+            instanceKey: key,
+            depth: depth + 1,
+            isRef: true,
+          });
         })
       )}
     </div>
