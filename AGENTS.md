@@ -1,5 +1,37 @@
 # Agent Notes
 
+## Rule 1 — Abstraction before addition
+
+This is the first rule and it outranks every other consideration in this repo:
+speed, diff size, and "it already works" all lose to it.
+
+Every change lands as a clean abstraction. Nothing gets bolted onto the side of
+an existing one. When new behavior does not fit the current model, the job is to
+fix the model, not to special-case around it.
+
+Before writing code:
+
+- Name the concept the change is actually about, then find where that concept
+  already lives. If it lives in two places, collapse them **first**.
+- Prefer deleting a special case to adding one. A second `if` on the same
+  distinction means that distinction belongs in the data or the type, not at
+  the call site.
+- One mechanism per concept, and one place that owns it. No parallel path that
+  "also" does the thing — no `fooV2`, no `handleSpecialFoo`, no second picker
+  for an enum that already has one.
+- If a token, option, or module exists for a purpose, make it actually apply.
+  A declared abstraction that no code path reads is worse than none, because it
+  reads as covered.
+- If the clean version is too big for the moment, say so and stop. Do not ship
+  the patch as a stopgap. A named gap is cheaper than a silent fork.
+
+Corollary for the knowledge base: **everything is a node.** New capability is
+expressed as nodes, fields, and tags behaving like every other node — never as
+a bespoke surface standing beside them. A tag is a node that is tagged as a
+tag; a field is a node; a field's allowed values are nodes. If a feature needs
+its own widget, its own storage shape, or its own editing gesture, that is the
+signal the model is wrong, not that the widget is needed.
+
 ## Gate (run first)
 
 This repo is the durable record of an intent => behavior translation process.
