@@ -23,6 +23,7 @@ secrets/
 
 # kb ui (Vite build + deps)
 tools/kb/ui/dist/
+tools/kb/ui/storybook-static/
 tools/kb/ui/node_modules/
 
 # kb opaque media files (W6a) — never commit binaries. No trailing slash so a
