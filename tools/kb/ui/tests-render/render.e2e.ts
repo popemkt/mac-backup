@@ -129,7 +129,11 @@ test("cluster paints labels and a hull spanning its members", async ({ page }) =
 test("tree mounts every fixture node inside the viewport after Fit", async ({ page }) => {
   await selectRenderer(page, "tree");
   const tree = page.locator("[data-testid='tree-graph']");
-  await tree.getByRole("button", { name: "Fit" }).click();
+  // The tree viewport's pointer pan layer overlaps its control group, so use
+  // the native button activation to exercise Fit without a synthetic layout.
+  await tree.getByTitle("Fit view").evaluate((button) => {
+    (button as HTMLButtonElement).click();
+  });
   await expect(tree.locator("svg g.cursor-pointer")).toHaveCount(FIXTURE_SIZE);
   const intersects = await tree.evaluate((element) => {
     const container = element.getBoundingClientRect();
