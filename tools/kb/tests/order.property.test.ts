@@ -28,7 +28,7 @@ describe("order properties (fast-check)", () => {
           expect(uniqueRanks.size).toBe(ids.length);
         },
       ),
-      { numRuns: 100 },
+      { numRuns: 500 },
     );
   });
 
@@ -54,7 +54,7 @@ describe("order properties (fast-check)", () => {
           }
         },
       ),
-      { numRuns: 100 },
+      { numRuns: 500 },
     );
   });
 
@@ -157,7 +157,7 @@ describe("order properties (fast-check)", () => {
           expect(migrateOrderKeys(migrated).changed).toBe(false);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 500 },
     );
   });
 
@@ -214,7 +214,7 @@ describe("order properties (fast-check)", () => {
           expect(migrateOrderKeys(migrated).changed).toBe(false);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 500 },
     );
   });
 
@@ -240,7 +240,7 @@ describe("order properties (fast-check)", () => {
           }
         },
       ),
-      { numRuns: 100 },
+      { numRuns: 500 },
     );
   });
 });

@@ -42,7 +42,7 @@ describe("extractMentions properties (fast-check)", () => {
           expect(extractMentions(text)).toEqual(mentions.map(([id]) => id));
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 500 },
     );
   });
 
@@ -60,7 +60,7 @@ describe("extractMentions properties (fast-check)", () => {
           expect(extractMentions(text)).toEqual(ids);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 500 },
     );
   });
 
@@ -69,7 +69,7 @@ describe("extractMentions properties (fast-check)", () => {
       fc.property(idArb, fc.constantFrom(" ", "  ", "\t", ""), (id, pad) => {
         expect(extractMentions(`[[${pad}${id}${pad}]]`)).toEqual([id]);
       }),
-      { numRuns: 100 },
+      { numRuns: 500 },
     );
   });
 });

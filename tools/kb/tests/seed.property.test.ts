@@ -77,7 +77,7 @@ describe("seed idempotence properties (fast-check)", () => {
           expect(second.nodes).toEqual(result.nodes);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 500 },
     );
   });
 });

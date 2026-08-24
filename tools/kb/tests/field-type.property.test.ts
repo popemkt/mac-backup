@@ -35,7 +35,7 @@ describe("field-type properties (fast-check)", () => {
           expect(fieldTypeOf(props)).toBe(t);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 500 },
     );
   });
 
@@ -49,7 +49,7 @@ describe("field-type properties (fast-check)", () => {
         expect(fieldTypeOf(legacyForm)).toBe(fieldTypeOf(refForm));
         expect(fieldTypeOf(legacyForm)).toBe(t);
       }),
-      { numRuns: 200 },
+      { numRuns: 500 },
     );
   });
 
@@ -80,7 +80,7 @@ describe("field-type properties (fast-check)", () => {
           expect(fieldTypeOf(props)).toBe("text");
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 500 },
     );
   });
 
@@ -113,7 +113,7 @@ describe("field-type properties (fast-check)", () => {
           if (!hasLegacy) expect(first.nodes[i]).toBe(original);
         });
       }),
-      { numRuns: 200 },
+      { numRuns: 500 },
     );
   });
 
@@ -138,7 +138,7 @@ describe("field-type properties (fast-check)", () => {
           expect(fieldTypeOf(nodes[0]!.props)).toBe(t);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 500 },
     );
   });
 });

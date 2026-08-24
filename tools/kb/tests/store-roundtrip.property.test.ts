@@ -79,7 +79,7 @@ describe("JsonlStore round trip (fast-check)", () => {
           }
         },
       ),
-      { numRuns: 40 },
+      { numRuns: 100 },
     );
   });
 });
