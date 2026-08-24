@@ -2,10 +2,10 @@ import { extname, isAbsolute, join, normalize, relative, resolve } from "node:pa
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { ulid } from "ulid";
 import type { ActionDefinition } from "../shared/contracts.ts";
 import type { KbContext } from "../context.ts";
 import { KbCtx, runWithKb } from "../context.ts";
+import { freshId } from "../foundation/model.ts";
 import { ResolveError } from "../foundation/resolve.ts";
 import {
   domainError,
@@ -179,6 +179,7 @@ export const assetUploadEffect = Effect.fn("asset.upload")(
   > {
     const ctx = yield* KbCtx;
     const fs = yield* FileSystem;
+    const id = yield* freshId;
 
     const prepared = yield* Effect.try({
       try: () => {
@@ -187,7 +188,6 @@ export const assetUploadEffect = Effect.fn("asset.upload")(
         if (data.byteLength === 0) {
           throw new ResolveError("forbidden", "empty asset payload", {});
         }
-        const id = ulid();
         const filename = `${id}.${ext}`;
         const abs = resolveAssetFile(ctx.root, `assets/${filename}`);
         if (!abs) {

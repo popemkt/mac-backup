@@ -1,15 +1,15 @@
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { ulid } from "ulid";
 import type { ActionDefinition } from "../shared/contracts.ts";
 import {
   SYSTEM_IDS,
+  currentIso,
+  freshId,
   isSysPrefixed,
   type KbNode,
   type NodeId,
   type PropValue,
-  nowIso,
 } from "../foundation/model.ts";
 import {
   ResolveError,
@@ -243,13 +243,17 @@ function isInSubtree(
   return false;
 }
 
-function detachFromParents(nodes: KbNode[], childId: NodeId): KbNode[] {
+function detachFromParents(
+  nodes: KbNode[],
+  childId: NodeId,
+  at: string,
+): KbNode[] {
   const touched: KbNode[] = [];
   for (const n of nodes) {
     if (!n.children.includes(childId)) continue;
     const c = cloneNode(n);
     c.children = c.children.filter((id) => id !== childId);
-    c.updatedAt = nowIso();
+    c.updatedAt = at;
     touched.push(c);
   }
   return touched;
@@ -273,6 +277,7 @@ function collectSubtreeIds(nodes: KbNode[], rootId: NodeId): NodeId[] {
 function insertChild(
   parent: KbNode,
   childId: NodeId,
+  at: string,
   position?: number,
 ): KbNode {
   const c = cloneNode(parent);
@@ -285,7 +290,7 @@ function insertChild(
     childId,
     ...c.children.slice(pos),
   ];
-  c.updatedAt = nowIso();
+  c.updatedAt = at;
   return c;
 }
 
@@ -335,8 +340,8 @@ export const nodeAddEffect = Effect.fn("node.add")(
     input: z.infer<typeof nodeAddDef.inputSchema>,
   ): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
     const ctx = yield* KbCtx;
-    const at = nowIso();
-    const id = input.id ?? ulid();
+    const at = yield* currentIso;
+    const id = input.id ?? (yield* freshId);
     if (nodeById(ctx, id)) {
       return yield* domainError("ambiguous", `node id already exists: ${id}`, {
         id,
@@ -371,7 +376,7 @@ export const nodeAddEffect = Effect.fn("node.add")(
       const parent = yield* syncDomain(() =>
         cloneNode(requireNode(ctx, input.parent!)),
       );
-      upserts.push(insertChild(parent, id, input.position));
+      upserts.push(insertChild(parent, id, at, input.position));
     }
 
     yield* syncDomain(() =>
@@ -443,12 +448,13 @@ export const nodeUpdateEffect = Effect.fn("node.update")(
     KbWriteEnv
   > {
     const ctx = yield* KbCtx;
+    const at = yield* currentIso;
     yield* syncDomain(() => assertSysWriteAllowed(input.id, input));
 
     if (input.delete) {
       const deleteIds =
         input.descendants === "reparent" ? [input.id] : collectSubtreeIds(ctx.nodes, input.id);
-      const upserts = detachFromParents(ctx.nodes, input.id);
+      const upserts = detachFromParents(ctx.nodes, input.id, at);
       yield* syncDomain(() =>
         assertNoSysUpsert(upserts, input.force === true, "node.update"),
       );
@@ -490,14 +496,14 @@ export const nodeUpdateEffect = Effect.fn("node.update")(
           { id: input.id, parent: input.parent },
         );
       }
-      upserts.push(...detachFromParents(ctx.nodes, input.id));
+      upserts.push(...detachFromParents(ctx.nodes, input.id, at));
       if (input.parent !== null) {
         const parent = yield* syncDomain(
           () =>
             upserts.find((n) => n.id === input.parent) ??
             cloneNode(requireNode(ctx, input.parent!)),
         );
-        const updated = insertChild(parent, input.id, input.position);
+        const updated = insertChild(parent, input.id, at, input.position);
         const idx = upserts.findIndex((n) => n.id === parent.id);
         if (idx >= 0) upserts[idx] = updated;
         else upserts.push(updated);
@@ -513,12 +519,19 @@ export const nodeUpdateEffect = Effect.fn("node.update")(
           input.id,
           ...c.children.slice(pos),
         ];
-        c.updatedAt = nowIso();
+        // DELIBERATE BUG (t2-dst red demo): stamp a fixed fractional rank on
+        // the reordered parent so its sibling group ends up with two children
+        // sharing one `order` key. `migrateOrderKeys` never rewrites an
+        // existing rank, so the collision survives reopen — and the store's
+        // own tx-validation never inspects `order`, so only the DST harness's
+        // "strictly increasing order" invariant catches it.
+        c.order = "1000000000";
+        c.updatedAt = at;
         upserts.push(c);
       }
     }
 
-    node.updatedAt = nowIso();
+    node.updatedAt = at;
     upserts.push(node);
     yield* syncDomain(() =>
       assertNoSysUpsert(upserts, input.force === true, "node.update"),

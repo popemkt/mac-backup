@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import { SYSTEM_IDS, type KbNode } from "./model.ts";
+import { SYSTEM_IDS, type KbNode, currentIso } from "./model.ts";
 import { ensureSystemSeed } from "./seed.ts";
 import type { EffectStore, Store, StoreTx } from "./storage/index.ts";
 import { JsonlStore, asPromiseStore } from "./storage/index.ts";
@@ -103,7 +103,8 @@ export const openKbEffect = Effect.fn("kb.open")(
   ): Effect.fn.Return<KbContext, DomainError, FileSystem> {
     const effectStore = new JsonlStore(root);
     let nodes = yield* effectStore.loadEffect();
-  const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(nodes);
+  const at = yield* currentIso;
+  const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(nodes, at);
   const typed = migrateFieldTypeValues(seeded);
   const migrated = migrateOrderKeys(typed.nodes);
   if (

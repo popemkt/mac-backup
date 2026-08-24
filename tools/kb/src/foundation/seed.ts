@@ -368,7 +368,10 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
  * `lens.all-mentions` (user-editable). If both exist, drop the legacy id;
  * if only legacy exists, rename in place preserving text/props.
  */
-export function ensureSystemSeed(nodes: KbNode[]): {
+export function ensureSystemSeed(
+  nodes: KbNode[],
+  at: string = nowIso(),
+): {
   nodes: KbNode[];
   seeded: boolean;
   /** Ids removed by migration (must be passed to store.commit deletes). */
@@ -400,7 +403,7 @@ export function ensureSystemSeed(nodes: KbNode[]): {
 
   const seedById = new Map<string, KbNode>();
   const seedTemplateTags = new Map<string, KbNode>();
-  for (const seed of systemSeedNodes()) {
+  for (const seed of systemSeedNodes(at)) {
     seedById.set(seed.id, seed);
     if (TEMPLATE_TAGS.includes(seed.id)) seedTemplateTags.set(seed.id, seed);
     if (!byId.has(seed.id)) {

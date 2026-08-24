@@ -1,3 +1,18 @@
+import { Clock, Effect, Random } from "effect";
+import { ulid } from "ulid";
+
+/**
+ * Time and identity seam — the single owner of both nondeterminism sources that
+ * would otherwise leak into the store (see DESIGN, t2-dst).
+ *
+ * Rule 1 (abstraction before addition): Effect already owns these as the
+ * `Clock` and `Random` services. Every store-reachable call site must go
+ * through one of them; nothing here is a parallel capability record. The
+ * harness provides a deterministic `Clock` and a seeded `Random` (`withSeed`),
+ * so a whole history replays bit-identically. A grep-based guard test
+ * (tests/dst/guard.test.ts) fails if any call site bypasses this seam.
+ */
+
 /** Node identity: ULID, or reserved `sys.*` system ids. */
 export type NodeId = string;
 
@@ -168,3 +183,37 @@ export function isSysPrefixed(id: string): boolean {
 export function nowIso(): string {
   return new Date().toISOString();
 }
+
+/**
+ * Milliseconds since epoch → the store's canonical ISO timestamp. Kept as the
+ * single formatting point so the store's time shape is owned here.
+ */
+export function isoFromMillis(ms: number): string {
+  return new Date(ms).toISOString();
+}
+
+/**
+ * TIME OWNER — the current instant as an Effect reading the `Clock` service.
+ * Store-reachable Effect programs yield this; the harness overrides `Clock`.
+ */
+export const currentIso: Effect.Effect<string> = Effect.map(
+  Clock.currentTimeMillis,
+  isoFromMillis,
+);
+
+/** Holds the `Random` service as the single source of store identity entropy. */
+const randomService = Random.Random;
+
+/**
+ * IDENTITY OWNER — a fresh, deterministic node id drawn from the seeded
+ * `Random` service and the active `Clock` (ULID is time-ordered). Every id the
+ * store mints flows here; the harness seeds `Random` so ids replay identically.
+ */
+export const freshId: Effect.Effect<NodeId> = Effect.gen(function* () {
+  const ms = yield* Clock.currentTimeMillis;
+  const rnd = yield* randomService;
+  // `ulid(seedTime, …)` treats a falsy seed time as "use Date.now()", which
+  // would silently re-introduce the nondeterminism this seam exists to own.
+  // Coerce 0 → 1 so an epoch-0 clock still replays deterministically.
+  return ulid(ms || 1, () => rnd.nextDoubleUnsafe());
+});
