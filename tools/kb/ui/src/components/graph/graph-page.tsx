@@ -291,8 +291,19 @@ export default function GraphPage({
               edges={lensGraph.edges}
               layoutKey={active.id}
               themeKey={themeKey}
-              onNodeClick={onNodeOpen}
+              onSelectionChange={setSelection}
+              selectedNodeId={selection?.nodeId ?? null}
               onControlsReady={setControls}
+              curvedLinks={active.curvedLinks}
+              autorotate={active.autorotate}
+              showLabels={active.showLabels}
+              labelTopN={
+                active.labelDensity === "low"
+                  ? 12
+                  : active.labelDensity === "high"
+                    ? 48
+                    : 24
+              }
             />
             </Suspense>
           ) : (

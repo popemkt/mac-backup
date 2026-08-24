@@ -25,8 +25,8 @@ describe("renderer capabilities", () => {
     expect(c.dim).toBe(false);
   });
 
-  it("force3d does not claim selection until task 14 wires it", () => {
-    expect(capabilitiesFor("force3d").selection).toBe(false);
+  it("force3d supports selection but not node drag", () => {
+    expect(capabilitiesFor("force3d").selection).toBe(true);
     expect(capabilitiesFor("force3d").drag).toBe(false);
     expect(capabilitiesFor("force3d").fit).toBe(true);
   });

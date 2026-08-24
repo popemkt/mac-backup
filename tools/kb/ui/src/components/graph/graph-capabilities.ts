@@ -65,8 +65,7 @@ export const RENDERER_CAPABILITIES: Record<string, RendererCapabilities> = {
     reset: true,
     focus: true,
     search: true,
-    // Select-in-place is task 14; declare false until then so chrome stays honest.
-    selection: false,
+    selection: true,
     dim: true,
     drag: false,
   },
