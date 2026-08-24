@@ -1,25 +1,51 @@
-import { createElement, createRef, type ReactElement } from "react";
-import type Sigma from "sigma";
+import { createElement, type ReactElement } from "react";
 import { GraphToolbar } from "@/components/graph/graph-toolbar";
+import { RENDERER_CAPABILITIES } from "@/components/graph/graph-capabilities";
+import type { GraphCameraControls } from "@/components/graph/graph-camera-controls";
+
+const noopControls: GraphCameraControls = {
+  fit: () => {},
+  zoomIn: () => {},
+  zoomOut: () => {},
+  reset: () => {},
+  focusNode: () => {},
+};
 
 /** Catalog: GraphToolbar — idle / with search open (via default idle chrome). */
 export const stories = {
   idle: (): ReactElement =>
     createElement(GraphToolbar, {
-      sigmaRef: createRef<Sigma | null>(),
+      capabilities: RENDERER_CAPABILITIES.force2d!,
+      controls: noopControls,
       selectedNodeId: null,
-      nodeIds: ["n.a", "n.b", "n.c"],
+      nodes: [
+        { id: "n.a", label: "Alpha" },
+        { id: "n.b", label: "Beta" },
+        { id: "n.c", label: "Gamma" },
+      ],
     }),
   withSelection: (): ReactElement =>
     createElement(GraphToolbar, {
-      sigmaRef: createRef<Sigma | null>(),
+      capabilities: RENDERER_CAPABILITIES.force2d!,
+      controls: noopControls,
       selectedNodeId: "n.a",
-      nodeIds: ["n.a", "n.b"],
+      nodes: [
+        { id: "n.a", label: "Alpha" },
+        { id: "n.b", label: "Beta" },
+      ],
+    }),
+  treePartial: (): ReactElement =>
+    createElement(GraphToolbar, {
+      capabilities: RENDERER_CAPABILITIES.tree!,
+      controls: noopControls,
+      selectedNodeId: null,
+      nodes: [],
     }),
   emptyGraph: (): ReactElement =>
     createElement(GraphToolbar, {
-      sigmaRef: createRef<Sigma | null>(),
+      capabilities: RENDERER_CAPABILITIES.force2d!,
+      controls: null,
       selectedNodeId: null,
-      nodeIds: [],
+      nodes: [],
     }),
 } as const;

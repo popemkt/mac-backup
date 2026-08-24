@@ -6,93 +6,101 @@ import {
   ArrowsIn,
   ArrowCounterClockwise,
 } from "@phosphor-icons/react";
-import type Sigma from "sigma";
-import { fitView, zoomIn, zoomOut, resetCamera, focusNode } from "./graph-camera";
 import { cn } from "@/lib/cn";
+import {
+  CAPABILITY_REASONS,
+  type RendererCapabilities,
+} from "./graph-capabilities";
+import type { GraphCameraControls } from "./graph-camera-controls";
 
 interface GraphToolbarProps {
-  sigmaRef: React.MutableRefObject<Sigma | null>;
+  capabilities: RendererCapabilities;
+  controls: GraphCameraControls | null;
   selectedNodeId: string | null;
-  nodeIds: string[];
+  /** id → label for search matching (label only — never raw id). */
+  nodes: Array<{ id: string; label: string }>;
   onSearchChange?: (ids: Set<string> | null) => void;
 }
 
 export function GraphToolbar({
-  sigmaRef,
+  capabilities,
+  controls,
   selectedNodeId,
-  nodeIds,
+  nodes,
   onSearchChange,
 }: GraphToolbarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const controlsRef = useRef(controls);
+  controlsRef.current = controls;
+  const capsRef = useRef(capabilities);
+  capsRef.current = capabilities;
+  const selectedRef = useRef(selectedNodeId);
+  selectedRef.current = selectedNodeId;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+      const caps = capsRef.current;
+      const cam = controlsRef.current;
 
-      if (e.key === "/") {
+      if (e.key === "/" && caps.search) {
         e.preventDefault();
         setSearchOpen(true);
         setTimeout(() => inputRef.current?.focus(), 0);
         return;
       }
-      const sigma = sigmaRef.current;
-      if (!sigma) return;
+      if (!cam) return;
 
       switch (e.key) {
         case "+":
         case "=":
+          if (!caps.zoom) return;
           e.preventDefault();
-          zoomIn(sigma);
+          cam.zoomIn();
           break;
         case "-":
+          if (!caps.zoom) return;
           e.preventDefault();
-          zoomOut(sigma);
+          cam.zoomOut();
           break;
         case "0":
+          if (!caps.reset) return;
           e.preventDefault();
-          resetCamera(sigma);
+          cam.reset();
           break;
         case "f":
           e.preventDefault();
-          if (selectedNodeId) {
-            focusNode(sigma, selectedNodeId);
-          } else {
-            fitView(sigma);
+          if (selectedRef.current && caps.focus) {
+            cam.focusNode(selectedRef.current);
+          } else if (caps.fit) {
+            cam.fit();
           }
           break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [sigmaRef, selectedNodeId]);
+  }, []);
 
   useEffect(() => {
+    if (!capabilities.search) {
+      onSearchChange?.(null);
+      return;
+    }
     if (!searchQuery.trim()) {
       onSearchChange?.(null);
       return;
     }
     const q = searchQuery.toLowerCase();
     const matches = new Set<string>();
-    for (const id of nodeIds) {
-      if (id.toLowerCase().includes(q)) matches.add(id);
-    }
-    const sigma = sigmaRef.current;
-    if (sigma) {
-      const graph = sigma.getGraph();
-      graph.forEachNode((node, attrs) => {
-        if (
-          typeof attrs.label === "string" &&
-          attrs.label.toLowerCase().includes(q)
-        ) {
-          matches.add(node);
-        }
-      });
+    for (const n of nodes) {
+      if (n.label.toLowerCase().includes(q)) matches.add(n.id);
     }
     onSearchChange?.(matches.size > 0 ? matches : new Set());
-  }, [searchQuery, nodeIds, sigmaRef, onSearchChange]);
+  }, [searchQuery, nodes, capabilities.search, onSearchChange]);
 
   const handleSearchClose = () => {
     setSearchOpen(false);
@@ -100,9 +108,14 @@ export function GraphToolbar({
     onSearchChange?.(null);
   };
 
+  const runOrNoop = (enabled: boolean, fn: () => void) => {
+    if (!enabled || !controls) return;
+    fn();
+  };
+
   return (
     <div className="absolute right-3 top-3 z-20 flex items-center gap-1 rounded-lg border border-foreground/8 bg-popover/90 p-1 shadow-lg backdrop-blur-sm">
-      {searchOpen && (
+      {searchOpen && capabilities.search && (
         <div className="flex items-center gap-1 pr-1">
           <input
             ref={inputRef}
@@ -111,17 +124,13 @@ export function GraphToolbar({
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Escape") handleSearchClose();
-              if (e.key === "Enter" && searchQuery) {
-                const sigma = sigmaRef.current;
-                if (sigma) {
-                  const graph = sigma.getGraph();
-                  const q = searchQuery.toLowerCase();
-                  const match = graph.findNode(
-                    (_node, attrs) =>
-                      typeof attrs.label === "string" &&
-                      attrs.label.toLowerCase().includes(q),
-                  );
-                  if (match) focusNode(sigma, match);
+              if (e.key === "Enter" && searchQuery && controls) {
+                const q = searchQuery.toLowerCase();
+                const match = nodes.find((n) =>
+                  n.label.toLowerCase().includes(q),
+                );
+                if (match && capabilities.focus) {
+                  controls.focusNode(match.id);
                 }
               }
             }}
@@ -140,6 +149,8 @@ export function GraphToolbar({
       <ToolbarButton
         icon={<MagnifyingGlass size={14} />}
         label="Search (/)"
+        disabled={!capabilities.search}
+        disabledReason={CAPABILITY_REASONS.search}
         onClick={() => {
           setSearchOpen(true);
           setTimeout(() => inputRef.current?.focus(), 0);
@@ -149,22 +160,30 @@ export function GraphToolbar({
       <ToolbarButton
         icon={<Plus size={14} />}
         label="Zoom in (+)"
-        onClick={() => sigmaRef.current && zoomIn(sigmaRef.current)}
+        disabled={!capabilities.zoom || !controls}
+        disabledReason={CAPABILITY_REASONS.zoom}
+        onClick={() => runOrNoop(capabilities.zoom, () => controls!.zoomIn())}
       />
       <ToolbarButton
         icon={<Minus size={14} />}
         label="Zoom out (-)"
-        onClick={() => sigmaRef.current && zoomOut(sigmaRef.current)}
+        disabled={!capabilities.zoom || !controls}
+        disabledReason={CAPABILITY_REASONS.zoom}
+        onClick={() => runOrNoop(capabilities.zoom, () => controls!.zoomOut())}
       />
       <ToolbarButton
         icon={<ArrowsIn size={14} />}
         label="Fit view (f)"
-        onClick={() => sigmaRef.current && fitView(sigmaRef.current)}
+        disabled={!capabilities.fit || !controls}
+        disabledReason={CAPABILITY_REASONS.fit}
+        onClick={() => runOrNoop(capabilities.fit, () => controls!.fit())}
       />
       <ToolbarButton
         icon={<ArrowCounterClockwise size={14} />}
         label="Reset (0)"
-        onClick={() => sigmaRef.current && resetCamera(sigmaRef.current)}
+        disabled={!capabilities.reset || !controls}
+        disabledReason={CAPABILITY_REASONS.reset}
+        onClick={() => runOrNoop(capabilities.reset, () => controls!.reset())}
       />
     </div>
   );
@@ -175,22 +194,34 @@ function ToolbarButton({
   label,
   onClick,
   active,
+  disabled,
+  disabledReason,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
   active?: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
 }) {
+  const title = disabled && disabledReason ? disabledReason : label;
   return (
     <button
       type="button"
+      disabled={disabled}
       className={cn(
-        "flex h-7 w-7 items-center justify-center rounded-md text-foreground/50 transition-colors hover:bg-foreground/[0.06] hover:text-foreground/80",
-        active && "bg-foreground/[0.08] text-foreground/80",
+        "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+        disabled
+          ? "cursor-not-allowed text-foreground/20"
+          : "text-foreground/50 hover:bg-foreground/[0.06] hover:text-foreground/80",
+        active && !disabled && "bg-foreground/[0.08] text-foreground/80",
       )}
-      title={label}
-      aria-label={label}
-      onClick={onClick}
+      title={title}
+      aria-label={title}
+      aria-disabled={disabled || undefined}
+      onClick={() => {
+        if (!disabled) onClick();
+      }}
     >
       {icon}
     </button>

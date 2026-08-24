@@ -7,6 +7,10 @@ import { hashTagColor } from "@/lib/tag-color";
 import { readTokenColor } from "@/lib/css-color";
 import { withGraphAlpha } from "@/lib/graph-dim";
 import { convexHull } from "@/lib/convex-hull";
+import {
+  sigmaCameraControls,
+  type GraphCameraControls,
+} from "./graph-camera-controls";
 
 type CameraSnap = { x: number; y: number; angle: number; ratio: number };
 
@@ -17,6 +21,7 @@ export interface ClusterGraphProps {
   onClusterFilter?: (clusterKey: string | null) => void;
   layoutKey: string;
   themeKey: string;
+  onControlsReady?: (controls: GraphCameraControls | null) => void;
 }
 
 function topologyKey(nodes: LensNode[], edges: LensEdge[]): string {
@@ -45,6 +50,7 @@ export function ClusterGraph({
   onClusterFilter,
   layoutKey,
   themeKey,
+  onControlsReady,
 }: ClusterGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const hullRef = useRef<HTMLCanvasElement>(null);
@@ -54,6 +60,8 @@ export function ClusterGraph({
   const topologyRef = useRef("");
   const onClickRef = useRef(onNodeClick);
   onClickRef.current = onNodeClick;
+  const onControlsReadyRef = useRef(onControlsReady);
+  onControlsReadyRef.current = onControlsReady;
   const dragRef = useRef<{ node: string; dragging: boolean; startX: number; startY: number } | null>(null);
   const [isolatedCluster, setIsolatedCluster] = useState<string | null>(null);
 
@@ -324,6 +332,7 @@ export function ClusterGraph({
     }
     drawHulls();
     sigmaRef.current = sigma;
+    onControlsReadyRef.current?.(sigmaCameraControls(() => sigmaRef.current));
 
     return () => {
       el.removeEventListener("mousemove", onDragMove);
@@ -338,6 +347,7 @@ export function ClusterGraph({
       }
       sigma.kill();
       if (sigmaRef.current === sigma) sigmaRef.current = null;
+      onControlsReadyRef.current?.(null);
     };
   }, [nodes, edges, layoutKey, themeKey]);
 

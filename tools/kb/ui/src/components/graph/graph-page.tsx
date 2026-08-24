@@ -1,6 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { CircleHalf, Warning } from "@phosphor-icons/react";
-import type Sigma from "sigma";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, resolveDark } from "@/stores/prefs.store";
@@ -20,10 +19,12 @@ import { graphPath, navigate, ontologyPath } from "@/lib/router";
 import { OntologyPicker } from "@/components/ontology/ontology-picker";
 import { PerspectivePicker } from "@/components/graph/perspective-picker";
 import { RendererSwitch } from "@/components/graph/renderer-switch";
-import { SigmaGraph, type GraphSelection } from "@/components/graph/sigma-graph";
+import { SigmaGraph } from "@/components/graph/sigma-graph";
 import { ClusterGraph } from "@/components/graph/cluster-graph";
 import { TreeGraph } from "@/components/graph/tree-graph";
 import { GraphCanvasFrame } from "@/components/graph/graph-canvas-frame";
+import type { GraphCameraControls } from "@/components/graph/graph-camera-controls";
+import type { GraphSelection } from "@/components/graph/graph-selection-card";
 import { SidebarToggle } from "@/components/sidebar/sidebar";
 
 const Force3dGraph = lazy(() => import("@/components/graph/force3d-graph"));
@@ -146,16 +147,20 @@ export default function GraphPage({
 
   const renderer = active?.renderer ?? "force2d";
 
-  // Graph interaction state
-  const sigmaInstanceRef = useRef<Sigma | null>(null);
+  // Graph interaction state — selection + camera live on the frame, not per-renderer.
+  const [controls, setControls] = useState<GraphCameraControls | null>(null);
   const [selection, setSelection] = useState<GraphSelection | null>(null);
   const [searchHighlight, setSearchHighlight] = useState<Set<string> | null>(null);
   const [filterIds, setFilterIds] = useState<Set<string> | null>(null);
   const [capDismissed, setCapDismissed] = useState(false);
 
   useEffect(() => { setCapDismissed(false); }, [lensGraph.dropped]);
+  useEffect(() => {
+    setSelection(null);
+    setControls(null);
+  }, [renderer]);
 
-  const showForce2d = renderer === "force2d";
+  const clearSelection = useCallback(() => setSelection(null), []);
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
@@ -244,16 +249,24 @@ export default function GraphPage({
         ) : (
           <GraphCanvasFrame
             nodes={lensGraph.nodes}
-            sigmaRef={sigmaInstanceRef}
+            renderer={renderer}
+            controls={controls}
             selectedNodeId={selection?.nodeId ?? null}
+            selection={selection}
+            onClearSelection={clearSelection}
+            onOpenNode={onNodeOpen}
             onSearchChange={setSearchHighlight}
             onFilterChange={setFilterIds}
+            queryError={lensGraph.queryError}
+            resetKey={`${renderer}:${active.id}`}
           >
           {renderer === "tree" ? (
             <TreeGraph
             forest={forest}
             themeKey={themeKey}
-            onNodeClick={onNodeOpen}
+            selectedNodeId={selection?.nodeId ?? null}
+            onSelectionChange={setSelection}
+            onControlsReady={setControls}
             />
           ) : renderer === "cluster" ? (
             <ClusterGraph
@@ -262,6 +275,7 @@ export default function GraphPage({
             layoutKey={active.id}
             themeKey={themeKey}
             onNodeClick={onNodeOpen}
+            onControlsReady={setControls}
             />
           ) : renderer === "force3d" ? (
             <Suspense
@@ -277,6 +291,7 @@ export default function GraphPage({
               layoutKey={active.id}
               themeKey={themeKey}
               onNodeClick={onNodeOpen}
+              onControlsReady={setControls}
             />
             </Suspense>
           ) : (
@@ -287,7 +302,8 @@ export default function GraphPage({
               themeKey={themeKey}
               onNodeOpen={onNodeOpen}
               onSelectionChange={setSelection}
-              sigmaRef={sigmaInstanceRef}
+              selectedNodeId={selection?.nodeId ?? null}
+              onControlsReady={setControls}
               highlightIds={searchHighlight ?? undefined}
               filterIds={filterIds ?? undefined}
             />

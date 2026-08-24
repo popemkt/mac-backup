@@ -9,6 +9,10 @@ import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
 import { withGraphAlpha } from "@/lib/graph-dim";
 import { fibonacciSphere } from "@/lib/convex-hull";
+import {
+  force3dCameraControls,
+  type GraphCameraControls,
+} from "./graph-camera-controls";
 
 export interface Force3dGraphProps {
   nodes: LensNode[];
@@ -16,6 +20,7 @@ export interface Force3dGraphProps {
   onNodeClick: (id: string) => void;
   layoutKey: string;
   themeKey: string;
+  onControlsReady?: (controls: GraphCameraControls | null) => void;
 }
 
 type FgNode = {
@@ -42,6 +47,7 @@ export default function Force3dGraph({
   onNodeClick,
   layoutKey,
   themeKey,
+  onControlsReady,
 }: Force3dGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<ForceGraph3DInstance | null>(null);
@@ -51,6 +57,8 @@ export default function Force3dGraph({
   const nodeSetRef = useRef("");
   const onClickRef = useRef(onNodeClick);
   onClickRef.current = onNodeClick;
+  const onControlsReadyRef = useRef(onControlsReady);
+  onControlsReadyRef.current = onControlsReady;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -172,6 +180,7 @@ export default function Force3dGraph({
     }
 
     graphRef.current = Graph;
+    onControlsReadyRef.current?.(force3dCameraControls(() => graphRef.current));
 
     const ro = new ResizeObserver(() => {
       Graph.width(el.clientWidth).height(el.clientHeight);
@@ -217,6 +226,7 @@ export default function Force3dGraph({
         /* */
       }
       graphRef.current = null;
+      onControlsReadyRef.current?.(null);
       el.replaceChildren();
     };
   }, [nodes, edges, layoutKey, themeKey]);
