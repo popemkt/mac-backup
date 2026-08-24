@@ -82,7 +82,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
     : "";
 
   const tagCandidates = useMemo(() => {
-    const taken = new Set(includeTags);
+    const taken = new Set(includeTags); // oxlint-disable-line react-hooks/exhaustive-deps -- includeTags is a fresh array each render; the memo depends on its contents via the joined-key dep below
     return wireNodes
       .filter((n) => isTagNode(n))
       .map((n) => ({
@@ -92,10 +92,10 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
         disabled: taken.has(n.id),
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [wireNodes, includeTags.join(",")]);
+  }, [wireNodes, includeTags.join(",")]); // oxlint-disable-line react-hooks/exhaustive-deps -- joined-key is a stable primitive dep for a fresh-array input; depends on the array's contents, not its identity
 
   const ontologyCandidates = useMemo(() => {
-    const taken = new Set(extendsIds);
+    const taken = new Set(extendsIds); // oxlint-disable-line react-hooks/exhaustive-deps -- extendsIds is a fresh array each render; the memo depends on its contents via the joined-key dep below
     return wireNodes
       .filter(
         (n) =>
@@ -118,7 +118,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
         };
       })
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [wireNodes, ontologyId, extendsIds.join(",")]);
+  }, [wireNodes, ontologyId, extendsIds.join(",")]); // oxlint-disable-line react-hooks/exhaustive-deps -- joined-key is a stable primitive dep for a fresh-array input; depends on the array's contents, not its identity
 
   if (!onto) {
     return (

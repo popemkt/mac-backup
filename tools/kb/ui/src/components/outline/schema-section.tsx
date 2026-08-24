@@ -19,7 +19,6 @@ import { TagChipGroup } from "./tag-chip";
 export function SchemaSection({ nodeId }: { nodeId: string }) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const queryDb = useOutlineStore((s) => s.queryDb);
-  const rev = useOutlineStore((s) => s.rev);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
 
@@ -30,7 +29,7 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
     return kind === "tag"
       ? queryTaggedInstances(queryDb, nodeId)
       : queryFieldCarriers(queryDb, nodeId);
-  }, [queryDb, nodeId, kind, rev]);
+  }, [queryDb, nodeId, kind]);
 
   if (!kind) return null;
 

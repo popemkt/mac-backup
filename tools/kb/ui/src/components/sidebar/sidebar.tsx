@@ -118,7 +118,6 @@ export function Sidebar() {
   const route = matchRoute(path);
   const nodes = useOutlineStore((s) => s.nodes);
   const wireNodes = useOutlineStore((s) => s.wireNodes);
-  const rev = useOutlineStore((s) => s.rev);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const zoomHome = useOutlineStore((s) => s.zoomHome);
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
@@ -127,14 +126,14 @@ export function Sidebar() {
 
   const perspectives = useMemo(
     () => listPerspectiveNavItems(wireNodes),
-    [wireNodes, rev],
+    [wireNodes],
   );
-  const canvases = useMemo(() => listCanvasNavItems(nodes), [nodes, rev]);
+  const canvases = useMemo(() => listCanvasNavItems(nodes), [nodes]);
   const ontologies = useMemo(
     () => listOntologyNavItems(wireNodes),
-    [wireNodes, rev],
+    [wireNodes],
   );
-  const pinned = useMemo(() => listPinnedNodes(nodes), [nodes, rev]);
+  const pinned = useMemo(() => listPinnedNodes(nodes), [nodes]);
 
   const onNewCanvas = async () => {
     if (creating) return;

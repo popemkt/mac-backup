@@ -77,7 +77,7 @@ export default function GraphPage({
 
   const perspectives = useMemo(
     () => listPerspectiveNodes(wireNodes).map(parsePerspective),
-    [wireNodes, rev],
+    [wireNodes],
   );
 
   const active: LensPerspective | null = useMemo(() => {
@@ -100,13 +100,16 @@ export default function GraphPage({
     }
   }, [active, perspectiveId, ontologyId]);
 
-  const restrictTo = ontologyId ? (ontologyMembers ?? new Set<string>()) : undefined;
+  const restrictTo = useMemo(
+    () => (ontologyId ? (ontologyMembers ?? new Set<string>()) : undefined),
+    [ontologyId, ontologyMembers],
+  );
 
   // An ontology decides WHICH nodes, a perspective decides how they look —
   // orthogonal, so both pickers sit in the header together (r5 §1.4).
   const ontologies = useMemo(
     () => listOntologyItems(wireNodes),
-    [wireNodes, rev],
+    [wireNodes],
   );
 
   const [lensGraph, setLensGraph] = useState(() =>
@@ -143,7 +146,7 @@ export default function GraphPage({
   const onNodeOpen = useCallback((id: string) => {
     navigate(ontologyId ? ontologyPath(ontologyId, "outline") : "/");
     zoomTo(id);
-  }, [navigate, ontologyId, zoomTo]);
+  }, [ontologyId, zoomTo]);
 
   const renderer = active?.renderer ?? "force2d";
 

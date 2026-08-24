@@ -85,7 +85,7 @@ export function ViewFilterPopoverHost() {
   const fields = useMemo(() => {
     if (!frameId) return [];
     return listFilterFieldOptions(frameId, useOutlineStore.getState().nodes);
-  }, [frameId, rev]);
+  }, [frameId, rev]); // oxlint-disable-line react-hooks/exhaustive-deps -- rev is the reactive invalidation key: the body reads the store imperatively via getState(), so rev drives recomputation
 
   const config = getViewConfig(frame?.props);
 

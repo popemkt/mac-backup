@@ -358,7 +358,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       })();
       onClose();
     },
-    [filteredCommands, nodes, onClose, pickerItems, step.type, targetNodeId, trimmed],
+    [filteredCommands, nodes, onClose, pickerItems, step.type, targetNodeId, trimmed], // oxlint-disable-line react-hooks/exhaustive-deps -- pickerItems changes every render by construction; memoizing it would not help the callback's closure, so it is kept as a coarse invalidation key
   );
 
   const handleKeyDown = useCallback(

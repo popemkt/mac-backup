@@ -158,7 +158,7 @@ export function NodeTextHost({
       setCursor(inserted.cursor);
       if (instanceKey) useOutlineStore.getState().placeCaret(instanceKey, inserted.cursor);
     },
-    [content, cursor, nodeId, instanceKey, onChange],
+    [content, cursor, instanceKey, onChange],
   );
 
   /**
@@ -173,7 +173,7 @@ export function NodeTextHost({
     setCaretSerializedOffset(editorRef.current, cursor + 2);
     setCursor(cursor + 2);
     if (instanceKey) useOutlineStore.getState().placeCaret(instanceKey, cursor + 2);
-  }, [content, cursor, nodeId, instanceKey, onChange]);
+  }, [content, cursor, instanceKey, onChange]);
 
   const handleInput = useCallback(() => {
     if (editorRef.current && !isComposing.current) {
@@ -298,6 +298,9 @@ export function NodeTextHost({
       applyRef,
       completeBracket,
       onKeyDown,
+      content,
+      nodeId,
+      instanceKey,
     ],
   );
 

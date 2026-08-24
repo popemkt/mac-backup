@@ -10,8 +10,7 @@ import { useOutlineStore } from "@/stores/outline.store";
  */
 export function OntologyListPage() {
   const wireNodes = useOutlineStore((s) => s.wireNodes);
-  const rev = useOutlineStore((s) => s.rev);
-  const items = useMemo(() => listOntologyItems(wireNodes), [wireNodes, rev]);
+  const items = useMemo(() => listOntologyItems(wireNodes), [wireNodes]);
   const [busy, setBusy] = useState(false);
 
   const onNew = async () => {

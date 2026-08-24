@@ -24,7 +24,6 @@ export interface UseNodeKeyDownArgs {
 export function useNodeKeyDown({
   nodeId,
   instanceKey,
-  node,
   isRef = false,
 }: UseNodeKeyDownArgs) {
   const activateNode = useOutlineStore((s) => s.activateNode);
@@ -252,7 +251,6 @@ export function useNodeKeyDown({
     },
     [
       nodeId,
-      node,
       isRef,
       instanceKey,
       toggleCollapse,
