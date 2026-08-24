@@ -1,4 +1,4 @@
-import { createElement, type ReactElement } from "react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { GraphToolbar } from "@/components/graph/graph-toolbar";
 import { RENDERER_CAPABILITIES } from "@/components/graph/graph-capabilities";
 import type { GraphCameraControls } from "@/components/graph/graph-camera-controls";
@@ -11,41 +11,55 @@ const noopControls: GraphCameraControls = {
   focusNode: () => {},
 };
 
-/** Catalog: GraphToolbar — idle / with search open (via default idle chrome). */
-export const stories = {
-  idle: (): ReactElement =>
-    createElement(GraphToolbar, {
-      capabilities: RENDERER_CAPABILITIES.force2d!,
-      controls: noopControls,
-      selectedNodeId: null,
-      nodes: [
-        { id: "n.a", label: "Alpha" },
-        { id: "n.b", label: "Beta" },
-        { id: "n.c", label: "Gamma" },
-      ],
-    }),
-  withSelection: (): ReactElement =>
-    createElement(GraphToolbar, {
-      capabilities: RENDERER_CAPABILITIES.force2d!,
-      controls: noopControls,
-      selectedNodeId: "n.a",
-      nodes: [
-        { id: "n.a", label: "Alpha" },
-        { id: "n.b", label: "Beta" },
-      ],
-    }),
-  treePartial: (): ReactElement =>
-    createElement(GraphToolbar, {
-      capabilities: RENDERER_CAPABILITIES.tree!,
-      controls: noopControls,
-      selectedNodeId: null,
-      nodes: [],
-    }),
-  emptyGraph: (): ReactElement =>
-    createElement(GraphToolbar, {
-      capabilities: RENDERER_CAPABILITIES.force2d!,
-      controls: null,
-      selectedNodeId: null,
-      nodes: [],
-    }),
-} as const;
+const meta = {
+  title: "Graph/GraphToolbar",
+  component: GraphToolbar,
+} satisfies Meta<typeof GraphToolbar>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Idle: Story = {
+  args: {
+    capabilities: RENDERER_CAPABILITIES.force2d!,
+    controls: noopControls,
+    selectedNodeId: null,
+    nodes: [
+      { id: "n.a", label: "Alpha" },
+      { id: "n.b", label: "Beta" },
+      { id: "n.c", label: "Gamma" },
+    ],
+  },
+};
+
+export const WithSelection: Story = {
+  args: {
+    capabilities: RENDERER_CAPABILITIES.force2d!,
+    controls: noopControls,
+    selectedNodeId: "n.a",
+    nodes: [
+      { id: "n.a", label: "Alpha" },
+      { id: "n.b", label: "Beta" },
+    ],
+  },
+};
+
+/** Tree renderer: fewer capabilities (no focus, no dim). */
+export const TreePartial: Story = {
+  args: {
+    capabilities: RENDERER_CAPABILITIES.tree!,
+    controls: noopControls,
+    selectedNodeId: null,
+    nodes: [],
+  },
+};
+
+/** No renderer camera yet — every control disabled with a reason, never a no-op. */
+export const EmptyGraph: Story = {
+  args: {
+    capabilities: RENDERER_CAPABILITIES.force2d!,
+    controls: null,
+    selectedNodeId: null,
+    nodes: [],
+  },
+};

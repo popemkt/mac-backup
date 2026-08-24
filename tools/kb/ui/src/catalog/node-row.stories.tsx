@@ -1,30 +1,43 @@
-import { createElement, type ReactElement } from "react";
+import { createElement } from "react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { NodeRow } from "@/components/outline/node-row";
 
-/** Catalog: NodeRow — depth / selection / active content slot. */
-export const stories = {
-  depth0: (): ReactElement =>
-    createElement(NodeRow, {
-      depth: 0,
-      nodeId: "n.root",
-      bullet: createElement("span", { "data-story": "bullet" }, "•"),
-      content: createElement("span", null, "Root row"),
-    }),
-  nestedSelected: (): ReactElement =>
-    createElement(NodeRow, {
-      depth: 2,
-      nodeId: "n.child",
-      isSelected: true,
-      bullet: createElement("span", { "data-story": "bullet" }, "•"),
-      content: createElement("span", null, "Selected nested"),
-    }),
-  active: (): ReactElement =>
-    createElement(NodeRow, {
-      depth: 1,
-      nodeId: "n.active",
-      isActive: true,
-      isSelected: true,
-      bullet: createElement("span", { "data-story": "bullet" }, "•"),
-      content: createElement("span", null, "Active editing"),
-    }),
-} as const;
+const bullet = createElement("span", { "data-story": "bullet" }, "\u2022");
+
+const meta = {
+  title: "Outline/NodeRow",
+  component: NodeRow,
+} satisfies Meta<typeof NodeRow>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Depth0: Story = {
+  args: {
+    depth: 0,
+    nodeId: "n.root",
+    bullet,
+    content: createElement("span", null, "Root row"),
+  },
+};
+
+export const NestedSelected: Story = {
+  args: {
+    depth: 2,
+    nodeId: "n.child",
+    isSelected: true,
+    bullet,
+    content: createElement("span", null, "Selected nested"),
+  },
+};
+
+export const Active: Story = {
+  args: {
+    depth: 1,
+    nodeId: "n.active",
+    isActive: true,
+    isSelected: true,
+    bullet,
+    content: createElement("span", null, "Active editing"),
+  },
+};
