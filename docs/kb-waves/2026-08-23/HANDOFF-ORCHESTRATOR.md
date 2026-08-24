@@ -507,3 +507,156 @@ data `.kb/nodes.jsonl` never loses content; TODO content preserved.
 omp > cursor ≈ codex ≈ claude > opencode. Use omp for priority work; codex for
 long model-heavy jobs; cursor for fresh zones (with trust approval); claude for
 design/UX research (r5/r9 did well).
+
+---
+
+## 2026-08-24 — owner feedback pass (Rule 1, fields, tags, seed)
+
+Seven items of owner feedback plus a follow-up ontology/seed request. All
+implemented directly (no waves) because they form one coherent model change.
+Pushed on `main` at `b7986af`.
+
+### Rule 1 is now the first rule (`AGENTS.md`, `28e0a5f`)
+
+"Abstraction before addition" outranks speed, diff size and "it already works".
+Named consequences: collapse a concept that lives in two places *before*
+extending it; prefer deleting a special case to adding one; a declared
+abstraction no code path reads is worse than none; if the clean version is too
+big, say so and stop rather than shipping the patch. Corollary: everything is a
+node — capability is nodes/fields/tags, never a bespoke surface beside them.
+
+Every item below was found or fixed by applying it, which is the argument for
+keeping it first.
+
+### What the rule immediately caught
+
+**The type scale never applied** (`b442dec`). `.kb-text` used
+`font: var(--kb-text) inherit` — invalid CSS, because a CSS-wide keyword cannot
+be a shorthand component, so the declaration was dropped whole and every row
+inherited the 16px body size while field labels hard-coded `text-[14.5px]`. That
+was the visible label/content mismatch the owner reported. **Two unit tests
+asserted the token by matching the text of `tokens.css` and passed the entire
+time.** Fixed with longhands in the `components` layer; seven call sites that
+restated 14.5px collapsed onto it. Chromium now computes 14.5px/23.2px.
+
+**The type list existed three times** (`4aa02ad`) — a CLI enum, a UI literal
+union, and hardcoded seed values. Now one module shared via `@kb/field-type`.
+
+**`FieldTypeConfig` was a second picker for an enum that already had one**
+(`4aa02ad`). `sys.f.fieldType` is now an ordinary ref field constrained to
+`#field-type` option nodes, so the generic ref editor renders it and the panel
+was **deleted**. Same shape as any user "field with options": tag the options,
+point the field at the tag, add an option by adding a node.
+
+**A FieldRow per value** (`0505fac`) — a field with three values printed its own
+name three times. One label, values stacked, removal on the value it removes.
+
+### The bug hidden behind the visibility rule (`4aa02ad`)
+
+`resolveVisibleProps` consulted only `sys.tag`'s template, and only for tag
+nodes. So **fields added to a supertag were invisible on its members until
+someone set a value by hand** — adding a field to a tag looked like it did
+nothing, which is exactly what the owner was asking about. One rule now
+surfaces whatever a node's kinds and tags template, covering tag pages, field
+pages and ordinary tagged nodes alike.
+
+### Supertags (`ee13136`)
+
+`sys.f.type` is the *kind* slot, not a tag list: `resolveTags` deliberately
+skips a `sys.tag` ref so it never renders as a chip, and `forestRootIds`
+excludes tag nodes from the outline. So promotion needs no new mutation — it
+appends the `sys.tag` kind through `planAddTag` — but it **must navigate**,
+because a promoted node leaves the outline and would otherwise vanish silently.
+
+`sys.tag` stays deliberately untyped. Self-typing it would list it among
+selectable tags, where applying it would look like tagging while actually
+changing the node's kind: one concept, two mechanisms.
+
+### Seeding
+
+- The one-off "cluster-by=parent when absent" default generalised into filling
+  any seed prop key an existing `sys.*` node has never carried; a key the store
+  already holds is never rewritten. The seed already declared that value, so
+  the pass subsumes the special case exactly. On the live store it also restored
+  `sys.tag`'s own field template, which had been absent — meaning supertags had
+  never received their `color`/`hidden` fields.
+- Stored type strings migrate to refs on open, beside the order-key migration.
+  Reading handled both forms already; the migration exists so the store holds
+  **one** representation, because two made the ref editor render a stored string
+  as unset.
+- Verified on a copy of the live store before touching it: purely additive,
+  7 nodes added, no key rewritten.
+
+### Example content on `kb init` (`b7986af`)
+
+23 ordinary `ex.*` nodes: supertags with field templates, one field of every
+type, an option list behind a ref field, a `[[ref]]` in text, a query node, and
+two ontologies where one inherits and vetoes. Deliberately **not** in the system
+seed — that runs on every open and is write-guarded, so demo nodes there would
+resurrect after deletion and no test fixture could avoid them. Init runs once,
+by choice, only into a store holding nothing but its system seed. `--bare` skips.
+
+Deliberate consequence: example fields use ordinary names, so a fresh store
+already has `status`, and `kb field define status` reports the existing field
+rather than minting a duplicate that would split every query against it. The
+CLI e2e test inits `--bare` for that reason.
+
+Ontology verified against a real fresh store: Work = 6 members (3 via `#task`,
+2 via `#person`, 1 pinned); Active work inherits all 6 then vetoes one → 5 + 1
+excluded, no warnings. Exercising it found two real page bugs, both fixed:
+member rows printed node text as raw source (`**bold**`, `[[id|label]]` leaked
+verbatim), and excluded rows showed a raw ulid — an excluded node is by
+definition absent from a scoped node map, so that lookup could only ever fail.
+
+### Palette (`ee13136`, `4aa02ad`)
+
+Added "Make supertag" and "Add field"; add-tag and add-field are **one** picker
+over different node kinds, including the same "no match, mint one" row.
+
+Also fixed: ⌘K found *nothing at all* on a freshly loaded store. The palette
+cached its index behind a rev check, and a store unmutated since it opened is
+still at rev 0 — so the empty index built before hydration stuck permanently.
+`useMemo` already rebuilds on its inputs; the cache could only be wrong.
+Red-proofed by restoring it and watching the new spec fail.
+
+### Harness
+
+- Specs that write now get their own server and store. The store is server-side
+  and shared for a server's lifetime, so promoting a node in a palette spec made
+  the graph specs — which count fixture nodes — fail. Spawn-and-wait is now one
+  helper rather than two copies.
+- New specs: `typography.e2e.ts` (the type scale is applied, not merely
+  declared; the pill yields only the first line), `palette.e2e.ts` (both new
+  gestures change the document; two values under one label; ⌘K on a fresh store).
+- A computed-style claim belongs here: a source-text assertion structurally
+  cannot catch a dropped declaration.
+
+### Correction to a previous entry
+
+The earlier note that the render harness was "4/4" is **no longer true**. At
+HEAD, on a clean tree with my work stashed, **3 of the 4 graph specs fail** —
+`force2d` and `force3d` report zero nodes, and `cluster` never switches
+renderer. Confirmed pre-existing and unrelated to this pass (my 5 specs pass
+alongside them). The graph work from the overnight waves is therefore **not**
+currently covered by a green harness.
+
+### Open
+
+- **3 graph render specs failing at HEAD** (above). Highest-value next item:
+  the harness reports zero nodes for two renderers, so something in the lens or
+  fixture path is broken, not just flaky.
+- Component catalog covers **6 of 57** components (`src/catalog/`), primitives
+  only, and has **no viewer** — the stories are only asserted to render by
+  `catalog.smoke.test.tsx`, so nobody can look at them. Not Storybook.
+- Field rows still render only for an expanded node. A node with fields is
+  expandable, so they are reachable, but they are not visible at a glance.
+- Ontology nodes appear as outline roots as well as in the sidebar.
+- Carried over: FA2 `spread`/`link-distance` persist but do not drive the
+  worker; cluster navigates on click instead of selecting; no build-time chunk
+  assertion for `three`; Headroom still needs Full Disk Access.
+- `.kb/nodes.jsonl` is left uncommitted: it holds the owner's in-progress notes
+  alongside the additive seed/migration changes. Committing owner data is the
+  owner's call.
+- A stale `opencode --auto --session` committed `c7e48c8` (docs-only, an i11
+  lint report) to main mid-session. Harmless, but an overnight worker is still
+  running and writing to main.
