@@ -224,6 +224,13 @@ describe("ontology scope (acceptance)", () => {
         maxNodes: 500,
         clusterBy: "none",
         focus: null,
+        layout: "force",
+        spread: 150,
+        linkDistance: 60,
+        showLabels: true,
+        curvedLinks: false,
+        autorotate: false,
+        labelDensity: "medium",
       },
       { restrictTo: s.ontologyMembers! },
     );

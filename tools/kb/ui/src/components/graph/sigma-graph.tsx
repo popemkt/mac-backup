@@ -2,37 +2,45 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Graph from "graphology";
 import Sigma from "sigma";
 import { EdgeArrowProgram } from "sigma/rendering";
-import type { LensEdge, LensNode } from "@/lib/graph-lens";
+import type { LensEdge, LensNode, LensLayout } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
 import { graphNodeAlpha, withGraphAlpha } from "@/lib/graph-dim";
 import { formatGraphLabel } from "@/lib/graph-label";
+import { computeLayoutPositions } from "@/lib/graph-layouts";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
 import { fitView } from "./graph-camera";
+import {
+  sigmaCameraControls,
+  type GraphCameraControls,
+} from "./graph-camera-controls";
+import {
+  selectionFromNode,
+  type GraphSelection,
+} from "./graph-selection-card";
+
+export type { GraphSelection };
 
 type CameraSnap = { x: number; y: number; angle: number; ratio: number };
-
-export interface GraphSelection {
-  nodeId: string;
-  label: string;
-  tags: string[];
-  degree: number;
-}
 
 export interface SigmaGraphProps {
   nodes: LensNode[];
   edges: LensEdge[];
   onNodeOpen: (id: string) => void;
   onSelectionChange?: (sel: GraphSelection | null) => void;
+  /** Controlled selection id from the frame (null clears). */
+  selectedNodeId?: string | null;
   /** Bump when a full remount is desired (perspective change). */
   layoutKey: string;
   /** Theme/rev signal so token colors refresh without topology churn. */
   themeKey: string;
+  /** Persisted layout mode — non-force modes skip FA2. */
+  layout?: LensLayout;
   /** External search highlight set. */
   highlightIds?: Set<string>;
   /** External filter dim set (ids to keep lit). */
   filterIds?: Set<string>;
-  /** Sigma instance ref for toolbar/keyboard to drive camera. */
-  sigmaRef?: React.MutableRefObject<Sigma | null>;
+  /** Register camera verbs with the shared frame. */
+  onControlsReady?: (controls: GraphCameraControls | null) => void;
 }
 
 const LARGE_GRAPH_THRESHOLD = 1500;
@@ -54,11 +62,13 @@ export function SigmaGraph({
   edges,
   onNodeOpen,
   onSelectionChange,
+  selectedNodeId = null,
   layoutKey,
   themeKey,
+  layout = "force",
   highlightIds,
   filterIds,
-  sigmaRef: externalSigmaRef,
+  onControlsReady,
 }: SigmaGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sigmaRef = useRef<Sigma | null>(null);
@@ -68,7 +78,7 @@ export function SigmaGraph({
   const positionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const topologyRef = useRef<string>("");
   const hoveredRef = useRef<string | null>(null);
-  const selectedRef = useRef<string | null>(null);
+  const selectedRef = useRef<string | null>(selectedNodeId);
   const dragRef = useRef<{
     node: string;
     dragging: boolean;
@@ -79,8 +89,10 @@ export function SigmaGraph({
   onOpenRef.current = onNodeOpen;
   const onSelRef = useRef(onSelectionChange);
   onSelRef.current = onSelectionChange;
+  const onControlsReadyRef = useRef(onControlsReady);
+  onControlsReadyRef.current = onControlsReady;
 
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(selectedNodeId);
   const [tooltip, setTooltip] = useState<{
     id: string;
     x: number;
@@ -139,6 +151,12 @@ export function SigmaGraph({
   }, [highlightIds, filterIds]);
 
   useEffect(() => {
+    selectedRef.current = selectedNodeId;
+    setSelected(selectedNodeId);
+    refreshReducers();
+  }, [selectedNodeId, refreshReducers]);
+
+  useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
@@ -152,10 +170,12 @@ export function SigmaGraph({
     const prevPositions = positionsRef.current;
     const nextPositions = new Map<string, { x: number; y: number }>();
 
+    const assigned = computeLayoutPositions(layout, nodes, edges);
     for (const n of nodes) {
       const prior = prevPositions.get(n.id);
-      const x = prior?.x ?? Math.random() * 100;
-      const y = prior?.y ?? Math.random() * 100;
+      const laid = assigned?.get(n.id);
+      const x = laid?.x ?? prior?.x ?? Math.random() * 100;
+      const y = laid?.y ?? prior?.y ?? Math.random() * 100;
       nextPositions.set(n.id, { x, y });
       graph.addNode(n.id, {
         label: n.label,
@@ -163,6 +183,7 @@ export function SigmaGraph({
         size: n.size,
         x,
         y,
+        ...(assigned ? { fixed: true } : {}),
       });
     }
 
@@ -204,6 +225,8 @@ export function SigmaGraph({
     el.style.background = background;
 
     const isLarge = graph.order > LARGE_GRAPH_THRESHOLD;
+    // Second adaptive tier: step label density down before the 1500-node edge hide.
+    const isMedium = graph.order > 300;
 
     const sigma = new Sigma(graph, el, {
       allowInvalidContainer: true,
@@ -211,8 +234,8 @@ export function SigmaGraph({
       labelFont: "Outfit Variable, ui-sans-serif, system-ui, sans-serif",
       labelSize: 12,
       labelColor: { color: labelColor },
-      labelRenderedSizeThreshold: isLarge ? 12 : 7,
-      labelDensity: isLarge ? 0.5 : 0.8,
+      labelRenderedSizeThreshold: isLarge ? 12 : isMedium ? 9 : 7,
+      labelDensity: isLarge ? 0.5 : isMedium ? 0.65 : 0.8,
       defaultEdgeColor: edgeColor,
       defaultEdgeType: "arrow",
       edgeProgramClasses: {
@@ -223,8 +246,8 @@ export function SigmaGraph({
       zIndex: true,
     });
 
-    if (externalSigmaRef) externalSigmaRef.current = sigma;
     sigmaRef.current = sigma;
+    onControlsReadyRef.current?.(sigmaCameraControls(() => sigmaRef.current));
 
     // --- Hover ---
     sigma.on("enterNode", ({ node }) => {
@@ -255,11 +278,12 @@ export function SigmaGraph({
       selectedRef.current = node;
       setSelected(node);
       const meta = nodes.find((n) => n.id === node);
-      onSelRef.current?.(
-        meta
-          ? { nodeId: node, label: meta.label, tags: meta.tags, degree: meta.degree }
-          : { nodeId: node, label: node, tags: [], degree: 0 },
-      );
+      onSelRef.current?.(meta ? selectionFromNode(meta) : {
+        nodeId: node,
+        label: node,
+        tags: [],
+        degree: 0,
+      });
       refreshReducers();
     });
 
@@ -338,7 +362,7 @@ export function SigmaGraph({
     document.addEventListener("mouseup", onMouseUp);
 
     // --- Layout ---
-    if (graph.order > 0 && topologyChanged) {
+    if (graph.order > 0 && topologyChanged && layout === "force") {
       const fa2 = createFA2Layout(graph, {
         onConverged() {
           graph.forEachNode((id, attrs) => {
@@ -378,9 +402,9 @@ export function SigmaGraph({
       layoutRef.current = null;
       sigma.kill();
       if (sigmaRef.current === sigma) sigmaRef.current = null;
-      if (externalSigmaRef?.current === sigma) externalSigmaRef.current = null;
+      onControlsReadyRef.current?.(null);
     };
-  }, [nodes, edges, layoutKey, themeKey]);
+  }, [nodes, edges, layoutKey, themeKey, layout]);
 
   useEffect(() => {
     refreshReducers();
@@ -417,93 +441,9 @@ export function SigmaGraph({
           y={tooltip.y}
         />
       )}
-      {selected && (
-        <SelectionCard
-          nodeId={selected}
-          nodes={nodes}
-          onOpen={onNodeOpen}
-          onClose={() => {
-            selectedRef.current = null;
-            setSelected(null);
-            onSelRef.current?.(null);
-            refreshReducers();
-          }}
-          onFocus={() => {
-            const sigma = sigmaRef.current;
-            if (sigma && selected) {
-              import("./graph-camera").then(({ focusNode }) =>
-                focusNode(sigma, selected),
-              );
-            }
-          }}
-        />
-      )}
     </div>
   );
 }
-
-interface SelectionCardProps {
-  nodeId: string;
-  nodes: LensNode[];
-  onOpen: (id: string) => void;
-  onClose: () => void;
-  onFocus: () => void;
-}
-
-function SelectionCard({ nodeId, nodes, onOpen, onClose, onFocus }: SelectionCardProps) {
-  const meta = nodes.find((n) => n.id === nodeId);
-  if (!meta) return null;
-
-  return (
-    <div className="absolute bottom-4 left-4 z-30 flex max-w-xs flex-col gap-1.5 rounded-lg border border-foreground/10 bg-popover/95 p-3 shadow-xl backdrop-blur-sm">
-      <div className="flex items-start justify-between gap-2">
-        <span className="text-[13px] font-semibold text-foreground/90 leading-tight">
-          {meta.label}
-        </span>
-        <button
-          type="button"
-          className="shrink-0 text-[11px] text-foreground/40 hover:text-foreground/70"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          ✕
-        </button>
-      </div>
-      {meta.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {meta.tags.slice(0, 5).map((t) => (
-            <span
-              key={t}
-              className="rounded bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] text-foreground/60"
-            >
-              {t}
-            </span>
-          ))}
-        </div>
-      )}
-      <span className="text-[11px] text-foreground/40">
-        {meta.degree} connection{meta.degree !== 1 ? "s" : ""}
-      </span>
-      <div className="flex gap-2 pt-0.5">
-        <button
-          type="button"
-          className="rounded-md bg-foreground/[0.06] px-2.5 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:bg-foreground/[0.1] hover:text-foreground/90"
-          onClick={() => onOpen(nodeId)}
-        >
-          Open
-        </button>
-        <button
-          type="button"
-          className="rounded-md px-2.5 py-1 text-[11px] font-medium text-foreground/50 transition-colors hover:bg-foreground/[0.06] hover:text-foreground/70"
-          onClick={onFocus}
-        >
-          Focus (f)
-        </button>
-      </div>
-    </div>
-  );
-}
-
 
 interface HoverTooltipProps {
   nodeId: string;

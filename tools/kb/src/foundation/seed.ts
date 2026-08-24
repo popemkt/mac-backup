@@ -155,6 +155,33 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     fieldType,
   );
   const lensFocusField = mk(SYSTEM_IDS.lensFocusField, "lens.focus", fieldType);
+  const lensLayoutField = mk(SYSTEM_IDS.lensLayoutField, "lens.layout", fieldType);
+  const lensSpreadField = mk(SYSTEM_IDS.lensSpreadField, "lens.spread", fieldType);
+  const lensLinkDistanceField = mk(
+    SYSTEM_IDS.lensLinkDistanceField,
+    "lens.link-distance",
+    fieldType,
+  );
+  const lensShowLabelsField = mk(
+    SYSTEM_IDS.lensShowLabelsField,
+    "lens.show-labels",
+    fieldType,
+  );
+  const lensCurvedLinksField = mk(
+    SYSTEM_IDS.lensCurvedLinksField,
+    "lens.curved-links",
+    fieldType,
+  );
+  const lensAutorotateField = mk(
+    SYSTEM_IDS.lensAutorotateField,
+    "lens.autorotate",
+    fieldType,
+  );
+  const lensLabelDensityField = mk(
+    SYSTEM_IDS.lensLabelDensityField,
+    "lens.label-density",
+    fieldType,
+  );
   const graphPerspectiveTag = mk(SYSTEM_IDS.graphPerspectiveTag, "graph-perspective", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
     [SYSTEM_IDS.fieldsField]: [
@@ -166,6 +193,13 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.lensMaxNodesField },
       { t: "ref", v: SYSTEM_IDS.lensClusterByField },
       { t: "ref", v: SYSTEM_IDS.lensFocusField },
+      { t: "ref", v: SYSTEM_IDS.lensLayoutField },
+      { t: "ref", v: SYSTEM_IDS.lensSpreadField },
+      { t: "ref", v: SYSTEM_IDS.lensLinkDistanceField },
+      { t: "ref", v: SYSTEM_IDS.lensShowLabelsField },
+      { t: "ref", v: SYSTEM_IDS.lensCurvedLinksField },
+      { t: "ref", v: SYSTEM_IDS.lensAutorotateField },
+      { t: "ref", v: SYSTEM_IDS.lensLabelDensityField },
     ],
   });
   const lensAllMentions = mk(SYSTEM_IDS.lensAllMentions, "All mentions", {
@@ -173,6 +207,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.graphPerspectiveTag },
     ],
     [SYSTEM_IDS.lensRendererField]: [{ t: "str", v: "force2d" }],
+    [SYSTEM_IDS.lensClusterByField]: [{ t: "str", v: "parent" }],
     [SYSTEM_IDS.lensEdgeKindsField]: [
       { t: "str", v: "mention" },
       { t: "str", v: "child" },
@@ -263,6 +298,13 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     lensMaxNodesField,
     lensClusterByField,
     lensFocusField,
+    lensLayoutField,
+    lensSpreadField,
+    lensLinkDistanceField,
+    lensShowLabelsField,
+    lensCurvedLinksField,
+    lensAutorotateField,
+    lensLabelDensityField,
     graphPerspectiveTag,
     lensAllMentions,
     canvasField,
@@ -346,6 +388,23 @@ export function ensureSystemSeed(nodes: KbNode[]): {
       },
     });
     seeded = true;
+  }
+
+  // One-time defaults on the seeded perspective: cluster-by=parent when absent
+  // (mirrors force2d renderer default — without it cluster/3D degenerate).
+  const mentions = byId.get(SYSTEM_IDS.lensAllMentions);
+  if (mentions) {
+    const clusterBy = mentions.props[SYSTEM_IDS.lensClusterByField] ?? [];
+    if (clusterBy.length === 0) {
+      byId.set(SYSTEM_IDS.lensAllMentions, {
+        ...mentions,
+        props: {
+          ...mentions.props,
+          [SYSTEM_IDS.lensClusterByField]: [{ t: "str", v: "parent" }],
+        },
+      });
+      seeded = true;
+    }
   }
 
   return { nodes: [...byId.values()], seeded, deletes };

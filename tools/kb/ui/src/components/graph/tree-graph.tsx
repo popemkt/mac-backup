@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   hierarchy,
   tree as d3Tree,
@@ -8,11 +8,19 @@ import {
 import type { LensTreeNode } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
 import { formatGraphLabel } from "@/lib/graph-label";
+import {
+  treeCameraControls,
+  type GraphCameraControls,
+  type TreeViewHandle,
+} from "./graph-camera-controls";
+import type { GraphSelection } from "./graph-selection-card";
 
 interface TreeGraphProps {
   forest: LensTreeNode[];
-  onNodeClick: (id: string) => void;
   themeKey: string;
+  onSelectionChange?: (sel: GraphSelection | null) => void;
+  selectedNodeId?: string | null;
+  onControlsReady?: (controls: GraphCameraControls | null) => void;
 }
 
 interface HierDatum {
@@ -49,8 +57,27 @@ function forestFind(forest: LensTreeNode[], id: string): LensTreeNode | null {
   return null;
 }
 
-export function TreeGraph({ forest, onNodeClick, themeKey }: TreeGraphProps) {
+function degreeOf(n: LensTreeNode): number {
+  return n.children.length;
+}
+
+export function TreeGraph({
+  forest,
+  themeKey,
+  onSelectionChange,
+  selectedNodeId = null,
+  onControlsReady,
+}: TreeGraphProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [selected, setSelected] = useState<string | null>(selectedNodeId);
+  const onSelRef = useRef(onSelectionChange);
+  onSelRef.current = onSelectionChange;
+  const onControlsReadyRef = useRef(onControlsReady);
+  onControlsReadyRef.current = onControlsReady;
+
+  useEffect(() => {
+    setSelected(selectedNodeId);
+  }, [selectedNodeId]);
 
   const tokens = useMemo(() => {
     void themeKey;
@@ -124,35 +151,22 @@ export function TreeGraph({ forest, onNodeClick, themeKey }: TreeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const dragState = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
-
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom((z) => Math.max(0.1, Math.min(3, z * delta)));
-  }, []);
-
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.button !== 0) return;
-    dragState.current = { startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  }, [pan]);
-
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragState.current) return;
-    const dx = e.clientX - dragState.current.startX;
-    const dy = e.clientY - dragState.current.startY;
-    setPan({ x: dragState.current.panX + dx, y: dragState.current.panY + dy });
-  }, []);
-
-  const handlePointerUp = useCallback(() => {
-    dragState.current = null;
-  }, []);
+  const dragState = useRef<{
+    startX: number;
+    startY: number;
+    panX: number;
+    panY: number;
+    moved: boolean;
+  } | null>(null);
 
   const fitTreeView = useCallback(() => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const scale = Math.min(1, (rect.width - 48) / layout.width, (rect.height - 48) / layout.height);
+    const scale = Math.min(
+      1,
+      (rect.width - 48) / layout.width,
+      (rect.height - 48) / layout.height,
+    );
     setZoom(scale);
     setPan({
       x: Math.max(24, (rect.width - layout.width * scale) / 2),
@@ -160,11 +174,92 @@ export function TreeGraph({ forest, onNodeClick, themeKey }: TreeGraphProps) {
     });
   }, [layout]);
 
+  const handleRef = useRef<TreeViewHandle | null>(null);
+  handleRef.current = {
+    fit: fitTreeView,
+    zoomIn: () => setZoom((z) => Math.min(3, z * 1.25)),
+    zoomOut: () => setZoom((z) => Math.max(0.1, z / 1.25)),
+    reset: fitTreeView,
+  };
+
+  useEffect(() => {
+    onControlsReadyRef.current?.(treeCameraControls(() => handleRef.current));
+    return () => onControlsReadyRef.current?.(null);
+  }, []);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoom((z) => Math.max(0.1, Math.min(3, z * delta)));
+  }, []);
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
+      dragState.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        panX: pan.x,
+        panY: pan.y,
+        moved: false,
+      };
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    },
+    [pan],
+  );
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragState.current) return;
+    const dx = e.clientX - dragState.current.startX;
+    const dy = e.clientY - dragState.current.startY;
+    if (Math.hypot(dx, dy) > 3) dragState.current.moved = true;
+    setPan({
+      x: dragState.current.panX + dx,
+      y: dragState.current.panY + dy,
+    });
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    dragState.current = null;
+  }, []);
+
+  const selectNode = useCallback((id: string) => {
+    if (dragState.current?.moved) return;
+    const node = forestFind(forest, id);
+    setSelected(id);
+    onSelRef.current?.(
+      node
+        ? {
+            nodeId: id,
+            label: node.label,
+            tags: [],
+            degree: degreeOf(node),
+          }
+        : { nodeId: id, label: id, tags: [], degree: 0 },
+    );
+  }, [forest]);
+
+  const clearSelection = useCallback(() => {
+    setSelected(null);
+    onSelRef.current?.(null);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") clearSelection();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [clearSelection]);
+
   const collapseAll = useCallback(() => {
     const ids = new Set<string>();
     function collect(nodes: LensTreeNode[]) {
       for (const n of nodes) {
-        if (n.children.length > 0) { ids.add(n.id); collect(n.children); }
+        if (n.children.length > 0) {
+          ids.add(n.id);
+          collect(n.children);
+        }
       }
     }
     collect(forest);
@@ -184,18 +279,38 @@ export function TreeGraph({ forest, onNodeClick, themeKey }: TreeGraphProps) {
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onClick={(e) => {
+        if (e.target === containerRef.current) clearSelection();
+      }}
     >
-      <div className="absolute right-3 top-3 z-20 flex items-center gap-1 rounded-lg border border-foreground/8 bg-popover/90 p-1 shadow-lg backdrop-blur-sm">
-        <button type="button" className="px-2 py-0.5 text-[11px] text-foreground/60 hover:text-foreground/80" onClick={fitTreeView} title="Fit view">Fit</button>
-        <button type="button" className="px-2 py-0.5 text-[11px] text-foreground/60 hover:text-foreground/80" onClick={collapseAll} title="Collapse all">−All</button>
-        <button type="button" className="px-2 py-0.5 text-[11px] text-foreground/60 hover:text-foreground/80" onClick={expandAll} title="Expand all">+All</button>
+      <div className="absolute left-3 top-3 z-20 flex items-center gap-1 rounded-lg border border-foreground/8 bg-popover/90 p-1 shadow-lg backdrop-blur-sm">
+        <button
+          type="button"
+          className="px-2 py-0.5 text-[11px] text-foreground/60 hover:text-foreground/80"
+          onClick={collapseAll}
+          title="Collapse all"
+        >
+          −All
+        </button>
+        <button
+          type="button"
+          className="px-2 py-0.5 text-[11px] text-foreground/60 hover:text-foreground/80"
+          onClick={expandAll}
+          title="Expand all"
+        >
+          +All
+        </button>
       </div>
       <svg
         key={themeKey}
         width={layout.width}
         height={layout.height}
         className="block"
-        style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "0 0" }}
+        style={{
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          transformOrigin: "0 0",
+        }}
+        onClick={() => clearSelection()}
       >
         <g transform={`translate(${-layout.originX},${-layout.originY})`}>
           {layout.links.map((l, i) => (
@@ -211,12 +326,16 @@ export function TreeGraph({ forest, onNodeClick, themeKey }: TreeGraphProps) {
             const hasKids =
               (forestFind(forest, d.data.id)?.children.length ?? 0) > 0;
             const isCollapsed = collapsed.has(d.data.id);
+            const isSelected = selected === d.data.id;
             return (
               <g
                 key={d.data.id}
                 transform={`translate(${d.y},${d.x})`}
                 className="cursor-pointer"
-                onClick={() => onNodeClick(d.data.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  selectNode(d.data.id);
+                }}
               >
                 {hasKids ? (
                   <circle
@@ -238,18 +357,23 @@ export function TreeGraph({ forest, onNodeClick, themeKey }: TreeGraphProps) {
                 <circle
                   r={isCollapsed || !hasKids ? 4.5 : 3}
                   fill={d.data.color}
+                  stroke={isSelected ? tokens.labelColor : "none"}
+                  strokeWidth={isSelected ? 2 : 0}
                 />
                 <text
                   x={10}
                   y={4}
                   fontSize={11}
                   fill={tokens.labelColor}
+                  fontWeight={isSelected ? 600 : 400}
                   style={{
                     fontFamily:
                       "Outfit Variable, ui-sans-serif, system-ui, sans-serif",
                   }}
                 >
-                  {d.data.label ? formatGraphLabel(d.data.label, d.data.size) : "untitled"}
+                  {d.data.label
+                    ? formatGraphLabel(d.data.label, d.data.size)
+                    : "untitled"}
                   {isCollapsed && hasKids ? " …" : ""}
                 </text>
               </g>

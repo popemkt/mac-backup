@@ -1106,15 +1106,40 @@ export function planSetLensRenderer(
   perspectiveId: string,
   renderer: string,
 ): PlannedMutation {
+  return planSetLensProp(nodes, perspectiveId, SYSTEM_IDS.lensRendererField, {
+    t: "str",
+    v: renderer,
+  });
+}
+
+/**
+ * Persist any `sys.f.lens.*` prop. Always unsets the entire field first so a
+ * multi-valued append cannot leave `["force2d","force3d"]` behind (r10 §1.6).
+ */
+export function planSetLensProp(
+  nodes: WireNode[],
+  perspectiveId: string,
+  fieldId: string,
+  value: PropValue,
+): PlannedMutation {
   const node = cloneWire(requireNode(nodes, perspectiveId));
-  const existing = node.props[SYSTEM_IDS.lensRendererField]?.[0];
-  return planSetProp(
-    nodes,
-    perspectiveId,
-    SYSTEM_IDS.lensRendererField,
-    { t: "str", v: renderer },
-    existing,
-  );
+  const had = (node.props[fieldId] ?? []).length > 0;
+  node.props[fieldId] = [value];
+  node.updatedAt = nowIso();
+  return {
+    upserts: [node],
+    deletes: [],
+    actions: [
+      {
+        id: "node.update",
+        input: {
+          id: perspectiveId,
+          ...(had ? { unsetProps: [{ field: fieldId }] } : {}),
+          setProps: [{ field: fieldId, value }],
+        },
+      },
+    ],
+  };
 }
 
 export function planSetViewSort(

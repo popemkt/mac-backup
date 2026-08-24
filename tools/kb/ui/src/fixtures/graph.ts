@@ -193,6 +193,41 @@ export const fixtureGraph: GraphSnapshot = {
       props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
     }),
     node({
+      id: "sys.f.lens.layout",
+      text: "lens.layout",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.f.lens.spread",
+      text: "lens.spread",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.f.lens.link-distance",
+      text: "lens.link-distance",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.f.lens.show-labels",
+      text: "lens.show-labels",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.f.lens.curved-links",
+      text: "lens.curved-links",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.f.lens.autorotate",
+      text: "lens.autorotate",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
+      id: "sys.f.lens.label-density",
+      text: "lens.label-density",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
+    }),
+    node({
       id: "sys.tag.graph-perspective",
       text: "graph-perspective",
       props: {
@@ -206,6 +241,13 @@ export const fixtureGraph: GraphSnapshot = {
           { t: "ref", v: "sys.f.lens.max-nodes" },
           { t: "ref", v: "sys.f.lens.cluster-by" },
           { t: "ref", v: "sys.f.lens.focus" },
+          { t: "ref", v: "sys.f.lens.layout" },
+          { t: "ref", v: "sys.f.lens.spread" },
+          { t: "ref", v: "sys.f.lens.link-distance" },
+          { t: "ref", v: "sys.f.lens.show-labels" },
+          { t: "ref", v: "sys.f.lens.curved-links" },
+          { t: "ref", v: "sys.f.lens.autorotate" },
+          { t: "ref", v: "sys.f.lens.label-density" },
         ],
       },
     }),
@@ -215,6 +257,7 @@ export const fixtureGraph: GraphSnapshot = {
       props: {
         "sys.f.type": [{ t: "ref", v: "sys.tag.graph-perspective" }],
         "sys.f.lens.renderer": [{ t: "str", v: "force2d" }],
+        "sys.f.lens.cluster-by": [{ t: "str", v: "parent" }],
         "sys.f.lens.edge-kinds": [
           { t: "str", v: "mention" },
           { t: "str", v: "child" },

@@ -657,6 +657,20 @@ export const mutations = {
     await applyPlan(planSetLensRenderer(wire(), perspectiveId, renderer));
   },
 
+  /**
+   * Persist a `sys.f.lens.*` prop. Unsets the field before set so multi-valued
+   * append cannot accumulate (r10 §1.6).
+   */
+  async setLensProp(
+    perspectiveId: string,
+    fieldId: string,
+    value: import("@/lib/types").PropValue,
+  ): Promise<void> {
+    if (!guardSysWrite(perspectiveId)) return;
+    const { planSetLensProp } = await import("@/actions/plan");
+    await applyPlan(planSetLensProp(wire(), perspectiveId, fieldId, value));
+  },
+
   async setViewSort(
     frameId: string,
     sortSpecs: import("@/lib/view-config").SortSpec[],

@@ -24,6 +24,13 @@ const PERSPECTIVE: LensPerspective = {
   maxNodes: DEFAULT_MAX_NODES,
   clusterBy: "none",
   focus: null,
+  layout: "force",
+  spread: 150,
+  linkDistance: 60,
+  showLabels: true,
+  curvedLinks: false,
+  autorotate: false,
+  labelDensity: "medium",
 };
 
 /** a → b (both members), b → c (c outside the scope). */

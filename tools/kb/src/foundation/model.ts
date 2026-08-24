@@ -90,6 +90,20 @@ export const SYSTEM_IDS = {
   lensClusterByField: "sys.f.lens.cluster-by",
   /** Ego/tree root for tree + local lenses (ref, single). */
   lensFocusField: "sys.f.lens.focus",
+  /** Layout sub-mode: `force` | `radial` | `hierarchical` | `grid` (not metro). */
+  lensLayoutField: "sys.f.lens.layout",
+  /** FA2 / force spread scale (num). */
+  lensSpreadField: "sys.f.lens.spread",
+  /** Link distance hint for force layouts (num). */
+  lensLinkDistanceField: "sys.f.lens.link-distance",
+  /** Show node labels (bool). */
+  lensShowLabelsField: "sys.f.lens.show-labels",
+  /** Curved links (bool). */
+  lensCurvedLinksField: "sys.f.lens.curved-links",
+  /** 3D autorotate (bool). */
+  lensAutorotateField: "sys.f.lens.autorotate",
+  /** Label density tier: `low` | `medium` | `high` (str). */
+  lensLabelDensityField: "sys.f.lens.label-density",
   /**
    * Default global mentions+child force2d perspective.
    * User-editable (NOT sys-prefixed) so write-guard does not lock it.
