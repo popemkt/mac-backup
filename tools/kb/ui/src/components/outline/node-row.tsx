@@ -78,7 +78,6 @@ export function NodeRow({
         className={cn(
           "node-content flex min-h-6 min-w-0 flex-1 items-start gap-1.5 rounded-sm px-1",
           isSelected && !isActive && "bg-primary/8",
-          isActive && "ring-1 ring-primary/25",
         )}
       >
         {content}

@@ -42,7 +42,10 @@ describe("NodeRow a11y (i10 item 5)", () => {
     expect(html).not.toContain("tabindex");
   });
 
-  it("active row gets a subtle content ring without layout shift", () => {
+  it("active row is marked in data, with no border drawn around it", () => {
+    // The owner rejected the active-content ring i10 added: editing a node must
+    // not draw a box around it. Keyboard focus is still shown by the
+    // focus-visible ring on the row itself (asserted above).
     const html = renderToStaticMarkup(
       createElement(NodeRow, {
         depth: 0,
@@ -52,8 +55,8 @@ describe("NodeRow a11y (i10 item 5)", () => {
         content: createElement("span", null, "editing"),
       }),
     );
-    expect(html).toContain("ring-1 ring-primary/25");
     expect(html).toContain('data-active="true"');
+    expect(html).not.toContain("ring-1 ring-primary/25");
   });
 
   it("create strips are keyboard-reachable buttons", () => {
