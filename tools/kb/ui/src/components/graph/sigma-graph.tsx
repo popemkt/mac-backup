@@ -409,7 +409,7 @@ export function SigmaGraph({
       if (sigmaRef.current === sigma) sigmaRef.current = null;
       onControlsReadyRef.current?.(null);
     };
-  }, [nodes, edges, layoutKey, themeKey, layout]);
+  }, [nodes, edges, layoutKey, themeKey, layout]); // oxlint-disable-line react-hooks/exhaustive-deps -- the sigma lifecycle handlers read refreshReducers via mutable refs; refreshReducers is not a stable dep (it derives from highlightIds) and re-running this effect on its change would re-init sigma
 
   useEffect(() => {
     refreshReducers();
@@ -421,7 +421,7 @@ export function SigmaGraph({
         selectedRef.current = null;
         setSelected(null);
         onSelRef.current?.(null);
-        refreshReducers();
+      refreshReducers();
       }
       if (e.key === "Enter" && selectedRef.current) {
         onOpenRef.current(selectedRef.current);

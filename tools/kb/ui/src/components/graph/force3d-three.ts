@@ -1,4 +1,4 @@
-// @ts-nocheck — three ships no types; keep the declaration debt in this leaf.
+// three ships no types; the tiny surface is declared in src/types/three.d.ts.
 export {
   CanvasTexture,
   Object3D,
