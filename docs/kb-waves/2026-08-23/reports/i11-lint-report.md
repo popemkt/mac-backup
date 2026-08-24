@@ -1,13 +1,59 @@
-# i11-lint — Implementation report: ESLint + Oxlint + dependency-cruiser
+# i11-lint — Implementation report: linting, module boundaries, dependency hygiene
 
 Scope: **linting, module boundaries, and dependency hygiene** for the kb tooling
 (`tools/kb` backend + `tools/kb/ui` browser app). Written for a downstream
 implementer to execute against `main`. No code in this file; this is the spec.
 
-Owner decision (2026-08-23): **skip Biome.** Use **Oxlint (already the `vp`
-lint backend)** as the fast primary linter, add a **trimmed flat ESLint config**
-for the rules Oxlint can't do, and add **dependency-cruiser** for graph-level
-boundary/cycle enforcement plus **knip** for dead-code/dependency hygiene.
+## 0. FINAL RECOMMENDATION (owner constraint: fewest tools, minimal interop)
+
+Owner goal (2026-08-23): *"at most one software/tool as possible"* — different
+tools don't interop and create friction. Updated after verifying current Oxlint
+capability:
+
+**Recommended: Oxlint ONLY (already the `vp` lint backend) + keep `vp fmt`
+and `tsc --noEmit`. No ESLint, no dependency-cruiser, no Biome.**
+
+Rationale: Oxlint 1.76 (bundled in `vp`, with `oxlint-tsgolint`) is now a
+superset of everything this repo needs *except whole-graph dead-code analysis*.
+It has natively:
+- `import/no-cycle` — multi-file analysis, auto-discovers `tsconfig` path
+  aliases (`@/*`, `@kb/*`), few seconds (ESLint's `import/no-cycle` was the
+  minute-long pain point this replaces).
+- `eslint/no-restricted-imports` — with `patterns`/`group`/`regex`/`message`:
+  the exact module-boundary mechanism (per-directory forbidden imports + a
+  written message). This IS the boundary enforcer; no plugin needed.
+- `react/exhaustive-deps` — 3,642 conformance tests passing.
+- `typescript/ban-ts-comment` — the escape-hatch rule (`@ts-ignore`/`@ts-nocheck`).
+- `jsx-a11y` — keyboard/focus/role subset (plugin on-by-default toggle).
+- `typescript/*` type-aware rules via `tsgolint` (59/61 of `typescript-eslint`).
+
+So interop friction drops to zero: ONE binary, ONE config, ONE command (`vp
+check`/`vp lint`). No ESLint↔oxlint overlap disables, no depcruise baseline
+diffing, no `eslint-config-prettier` glue. Every concern has exactly one owner.
+
+**What this makes obsolete:** the ESLint flat config and dependency-cruiser.
+Only add them later IF a specific gap bites (see §11 contingency). Do not
+pre-install them.
+
+### Recommended FULL setup (owner-approved, includes dead-code)
+
+Oxlint alone lacks one thing Oxlint genuinely cannot do: **whole-graph dead-code
+and orphan-dependency analysis** (which entry points make which files/exports/deps
+unreachable). For that we add **`knip`** — the gold standard, CI-only, one small
+tool. So the recommended full setup is:
+
+| Tool | Job | Cadence |
+|---|---|---|
+| **Oxlint** (via `vp`) | lint + import-sort + boundaries + cycles + hooks + a11y + escape hatches + type-aware | pre-commit + editor-every-save (fast) |
+| **knip** | dead files / dead exports / unused + unlisted deps | CI + on-demand (not hot pre-commit) |
+| `vp fmt` | formatting (unchanged) | on save |
+| `tsc --noEmit` | authoritative types (unchanged) | pre-commit + CI |
+
+That's **two linters, one owned by `vp` (Oxlint) and one optional-adjacent (knip)**,
+plus the format/type tools already present. This is the ceiling for "fewest
+tools while still catching dead code" — dropping knip gives you a pure one-tool
+lint setup, but you lose dead-code detection, which is what knip is uniquely
+good at. Recommended: keep knip (it's the only justified second tool here).
 
 ---
 
@@ -36,14 +82,24 @@ fails instead of drift. And eliminate dead code/deps as the codebase grows.
 |---|---|---|
 | Formatting | `vp fmt` (unchanged) | Already the repo's formatter. |
 | Fast lint + import organization + safe autofix | **Oxlint** (bundled in `vp`, `oxlint@1.76.0` + `oxlint-tsgolint`) | 865+ rules, type-aware incl. 59/61 `typescript-eslint` rules, sub-second. Fast enough for pre-commit + editor-every-save. |
-| Rules Oxlint lacks (boundaries at full fidelity, exhaustive-deps, escape-hatch, keyboard-a11y subset) | **ESLint flat config** (trimmed) | `eslint-plugin-oxlint` turns OFF overlapping ESLint rules so nothing double-lints. |
-| Graph-level module boundaries, cycles, orphans, cross-feature, missing dev-deps | **dependency-cruiser** | Reads the whole graph; catches relative escapes + cycles a per-line rule can't. |
-| Dead files/exports/entries/dependencies | **knip** | Gold standard for "what's actually reachable." Run in CI, not hot pre-commit. |
+| Module boundaries (`no-restricted-imports`) | **Oxlint** | Native `eslint/no-restricted-imports` with per-directory patterns + message. The boundary enforcer — no plugin, no ESLint. |
+| Cyclic dependencies (`import/no-cycle`) | **Oxlint** | Native multi-file graph analysis, auto-discovers tsconfig paths. |
+| React hooks correctness (`exhaustive-deps`) | **Oxlint** | Native `react/exhaustive-deps`. |
+| Escape hatches (`@ts-ignore`/`@ts-nocheck`) | **Oxlint** | Native `typescript/ban-ts-comment`. |
+| Keyboard/role accessibility | **Oxlint** | Native `jsx-a11y` plugin (subset, see §5). |
+| Dead files/exports/entries/dependencies | **knip** (recommended, CI-only) | Oxlint can't do whole-graph reachability. The ONE justified second tool; the only thing beyond Oxlint. |
 | Authoritative types | `tsc --noEmit` (unchanged) | Real type-checking. |
 
-**Separation that must hold:** ESLint runs ONLY the rule families Oxlint can't
-reproduce. It does NOT re-run ESLint-core/TS-core/recommended (those are Oxlint's
-job). `eslint-plugin-oxlint` disables them so the two never argue.
+No ESLint, no dependency-cruiser, no Biome. Every concern above has exactly
+one owner: Oxlint for lint/boundaries/cycles/hooks/a11y/escape-hatches, `knip`
+for dead code, `vp fmt` for formatting, `tsc --noEmit` for authoritative types.
+
+> **SUPERSEDED BELOW.** §3–§5 describe the *original* ESLint + dependency-cruiser
+> plan in full, because it was written before the owner constrained to
+> fewest-tools. Under the §0 recommendation you DO NOT build an ESLint config or
+> a `.dependency-cruiser.js`. The intent of those rules carries over — expressed
+> natively in Oxlint. Read §5b (the recommended config) and §6 (knip). §3/§4/§5
+> are retained only as contingency reference if an Oxlint gap ever bites.
 
 ---
 
@@ -142,6 +198,58 @@ imported, it must be scoped so its rules are disabled by `eslint-plugin-oxlint`.
 
 ---
 
+## 5b. THE RECOMMENDED CONFIG — rules expressed natively in Oxlint (⊂ `vp`)
+
+Do this instead of §5. `vp` already wraps oxlint, so this is just enabling the
+right plugins/rules in the oxlint config that `vp` reads (an `oxlint.json` or
+`vite-plus` config's `linter`/`plugins` block — confirm the exact knob in the
+`vp` docs). No ESLint dependency, no `eslint-plugin-oxlint`.
+
+Enable plugins (default `eslint`/`typescript`/`unicorn`/`oxc` stay on; add these):
+
+```jsonc
+{
+  "plugins": ["react", "import", "jsx-a11y"],
+  "rules": {
+    // Module boundaries — the ARCHITECTURE.md layer map, one rule per layer.
+    "eslint/no-restricted-imports": ["error", {
+      "patterns": [
+        { "group": ["@kb/foundation/*", "@kb/operations/*"], "message": "ui may reach the backend only via the @kb/* seam + surface/ui.ts wire format, not foundation/operations internals." },
+        { "group": ["../../src/foundation/*"], "message": "use @kb/* seam instead of a relative path into backend internals." }
+      ]
+    }],
+    // Cycles (multifile; auto-discovers tsconfig paths for @/* and @kb/*).
+    "import/no-cycle": ["error", { "maxDepth": 8 }],
+    // React hooks — real bug-catcher.
+    "react/exhaustive-deps": "error",
+    // Escape hatches — require a reason, ban the silent ones.
+    "typescript/ban-ts-comment": ["error", { "ts-expect-error": "allow-with-description" }],
+    "typescript/no-explicit-any": "warn"
+  }
+}
+```
+
+Notes for the implementer:
+- **Confirm the plugin/id naming** exactly matches this oxlint version (the
+  import plugin id is `import/*`; the eslint-core port is `eslint/no-restricted-imports`)
+  — run `oxlint --rules` to see the live rule list and adjust ids if a schema
+  regex differs (oxlint uses Rust regex: NO lookahead/lookbehind — keep boundary
+  patterns as plain path globs, not JS regex with lookaheads).
+- The `@kb/*` seam rules duplicate `import/no-cycle`'s intent only where they
+  overlap; that's fine — boundaries (who may import whom) and cycles (shape) are
+  different concerns, both stay.
+- **`no-explicit-any` at warn**, with a deliberate allowlist for the three known
+  leak files (`ui/src/api/ws.ts`, `ui/src/components/graph/force3d-three.ts`,
+  `ui/src/components/canvas/canvas-page.tsx`) until they're typed — put them in
+  an oxlint `overrides`/ignore or `// oxlint-disable-next-line no-explicit-any`
+  with a reason, NOT a global disable.
+- **a11y subset:** `jsx-a11y` plugin on; keep only keyboard/focus/role rules
+  (`tabindex-no-positive`, `click-events-have-key-events` where it makes sense,
+  `role-has-required-aria-props`); disable the contrast/landmark noise rules so
+  they don't teach `disable` (per the "judgment rule" warning).
+
+---
+
 ## 6. knip (dead code + dependency hygiene)
 
 - **Add `knip` dev dep** and a script: `"knip": "knip"` (or `knip --production`).
@@ -160,9 +268,10 @@ imported, it must be scoped so its rules are disabled by `eslint-plugin-oxlint`.
 ## 7. Tailwind / CSS override (mandatory, easy to miss)
 
 Oxlint (via `vp`) and any linter will try to lint/format the CSS (`index.css`,
-`tokens.css`). Tailwind v4 owns that layer. Add an **override** to the ESLint
-config and an oxlint ignore so `**/*.css` is excluded from both lint and format.
-Without this the two tools fight the stylesheet layer.
+`tokens.css`). Tailwind v4 owns that layer. Add an **override** to the oxlint
+config and `vp` ignore so `**/*.css` is excluded from both lint and format,
+plus an override for the UI's `vite.config.ts`/story files if oxlint chokes on
+them. Without this oxlint fights the stylesheet layer.
 
 ---
 
@@ -170,59 +279,70 @@ Without this the two tools fight the stylesheet layer.
 
 ```jsonc
 "scripts": {
-  "lint":      "vp lint",               // unchanged (oxlint)
-  "check":     "vp check --no-fmt",     // unchanged
-  "eslint:arch": "eslint .",            // boundary/escape/a11y subset (trimmed)
-  "boundaries": "depcruise src ui/src --config .dependency-cruiser.js",
-  "knip":       "knip",
-  "verify": "npm run typecheck && npm run check && npm run eslint:arch && npm run boundaries"
+  "lint":   "vp lint",             // unchanged (oxlint, fast path)
+  "check":  "vp check --no-fmt",   // unchanged
+  "knip":   "knip",                // recommended (dead code/deps)
+  "verify": "npm run typecheck && npm run check && npm run knip"
 }
 ```
 
-Keep `lint`/`check` as the fast path; `eslint:arch`, `boundaries`, and `knip`
-are the deeper gates. Do NOT merge them into one script — different cadences.
+`lint`/`check` are the fast path (oxlint, via vp) — keep them in pre-commit.
+`knip` is CI/on-demand only (slow-ish, noisy). The module-boundary, cycle,
+hooks, and a11y rules live in the oxlint config (§5b) and thus already run under
+`vp check` — they need no separate script. Do NOT merge knip into the pre-commit
+fast path or into `check` (different cadence; knip noise is better reviewed than
+blocked-on). If you later hit an Oxlint gap and MUST add dependency-cruiser
+(§3/§4 contingency), add a `"boundaries": "depcruise ..."` script then — not now.
 
 ---
 
 ## 9. Implementation task list (for the implementer, ordered)
 
-1. Add dev deps: `eslint`, `eslint-plugin-oxlint`, `@typescript-eslint/parser`
-   + `@typescript-eslint/eslint-plugin` (only for the escape-hatch/ban-ts rules;
-   not type-aware), `eslint-plugin-react-hooks`, `eslint-plugin-jsx-a11y`,
-   `dependency-cruiser`, `knip`. Pin exact versions (Biome article lesson:
-   unpinned lint tooling changes which diagnostics fire).
-2. Write `.dependency-cruiser.js` (section 4 rules) + `depcruise --init`-style
-   `options`. Run it; confirm only the intended violations (the three leak files
-   and any real coupling). 
-3. Write the trimmed flat ESLint config (section 5). Wire `eslint-plugin-oxlint`
-   LAST. Add the Tailwind/CSS override (section 7).
-4. Run ESLint. For each finding: if it's a real boundary/escape gap, fix the
-   code AND keep the rule; if it's noise, narrow the rule, don't disable it
-   wholesale.
-5. Add `knip` config + script (section 6); triage output.
-6. Add the script aliases (section 8) and wire NOTHING into pre-commit except the
-   fast path + `eslint:arch` and `boundaries` (both sub-second on this size) —
-   keep pre-commit fast so it doesn't get skipped (the repo's own hypothesis:
-   "slow pre-commit is the step people skip").
+Recommended path = §0/§5b (Oxlint) + §6 (knip). Steps 1–4 below are the plan;
+§5's ESLint + §4's depcruise are contingency and should NOT be built now.
+
+1. Add ONE dev dep: `knip`. Pin exact version (unpinned lint tooling drifts
+   which diagnostics fire). Do NOT add eslint/dependency-cruiser.
+2. Confirm how `vp` surfaces its bundled Oxlint config (read the `vp` docs for
+   the `linter`/`plugins`/`rules` knob or the `oxlint.json` it reads), then
+   write the §5b config: enable `react`/`import`/`jsx-a11y` plugins; add the
+   `eslint/no-restricted-imports` boundary patterns, `import/no-cycle`,
+   `react/exhaustive-deps`, `typescript/ban-ts-comment`, `no-explicit-any`.
+   Run `vp lint` and adjust rule ids/naming to exactly what this oxlint emits.
+3. Add the Tailwind/CSS + config-file override (§7) so oxlint doesn't touch
+   `**/*.css` or the dev configs. Confirm `vp check` stays CSS-clean.
+4. Run the linter over `tools/kb` + `ui`. For each finding: real boundary/
+   escape gap → fix the code AND keep the rule; noise → narrow the rule (or
+   scoped ignore with a reason), never disable wholesale. Expect the three
+   known leak files to need a scoped `no-explicit-any` allowlist until typed.
+5. Add `knip` config + script (§6); point entrypoints at `index.ts`,
+   `src/surface/{cli,ui,mcp}.ts`, `ui/src/main.tsx`, tests; configure `@/*` and
+   `@kb/*` aliases. Triage output.
+6. Add the script aliases (§8): `lint`/`check` unchanged (fast path, in
+   pre-commit) + `knip` (CI/on-demand). Wire NOTHING slow into pre-commit
+   (repo hypothesis: "slow pre-commit is the step people skip").
 7. Add an `ARCHITECTURE.md` section (or extend the existing one) documenting the
-   direction-of-imports table *and* pointing at the two commands that enforce
-   it — the research found convention files get read when placed where the tool
-   looks.
+   direction-of-imports table *and* pointing at `vp lint` (the command that
+   enforces it) — the research found convention files get read when placed where
+   the tool looks.
 
 ---
 
 ## 10. Acceptance criteria
 
-- `npm run verify` (typecheck + check + eslint:arch + boundaries) is green on a
-  clean main, with the three known leak files either fixed or explicitly
-  allowlisted-with-rationale.
-- `depcruise` reports **zero `no-circular`** and **zero `ui→foundation-internals`**.
-- No `@ts-ignore` / `@ts-nocheck` remain without an `@ts-expect-error` reason;
-  `no-explicit-any` is at warn with only documented exceptions.
-- ESLint config runs ONLY non-overlapping rule families (run `eslint-plugin-oxlint`
-  and assert the diff); nothing is double-linted by both ESLint and Oxlint.
-- `**/*.css` is untouched by lint/format (confirmed: run `vp check` and ESLint
-  and see zero CSS churn).
+- `npm run verify` (typecheck + check + knip) is green on a clean main, with the
+  three known leak files either fixed or narrowly allowlisted-with-rationale for
+  `no-explicit-any`.
+- `vp lint` (oxlint) reports **zero cyclic imports** (`import/no-cycle`) and
+  **zero boundary violations** (`no-restricted-imports`) against the
+  ARCHITECTURE.md layer map.
+- No `@ts-ignore` / `@ts-nocheck` remain without a reason; `no-explicit-any` is
+  at warn with only documented exceptions.
+- ONE linter engine (Oxlint) owns lint + boundaries + cycles + hooks + a11y +
+  escape hatches; the only added tool is `knip` (dead code). No ESLint, no
+  dependency-cruiser, no Biome in the dependency tree.
+- `**/*.css` is untouched by lint/format (confirmed: `vp check` shows zero CSS
+  churn).
 - `knip` output is reviewed; genuine dead code in the repo is removed or marked
   as explicitly-kept with a note.
 - README/AGENTS.md gains a one-line "linting & boundaries" pointer so the
@@ -232,12 +352,17 @@ are the deeper gates. Do NOT merge them into one script — different cadences.
 
 ## 11. Open questions for the owner before the implementer starts
 
-1. Module-boundary lint: **builtin `no-restricted-imports`** (simpler, zero deps)
-   vs **`eslint-plugin-boundaries`** (richer element/file/module classification)?
-   Recommendation: `no-restricted-imports` for now; boundaries only if the map
-   grows multi-dimensional. **gated on owner**.
-2. Severity policy: OK to make `no-circular` and `ui→foundation-internals`
-   **errors** (blocking) while everything judgment-y stays **warn**? 
-3. The three known leak files (`any`/`ts-ignore`): fix them now (preferred) or
+1. Boundary expressiveness: Oxlint's `eslint/no-restricted-imports` (simpler,
+   zero deps — the §0/§5b recommendation) vs adopting `eslint-plugin-boundaries`
+   later (richer element/file/module classification) only if the layer map grows
+   multi-dimensional. Recommendation: `no-restricted-imports`, revisit only if the
+   ARCHITECTURE.md map gets complex. **gated on owner.**
+2. Severity policy: OK to make `import/no-cycle` and `no-restricted-imports`
+   boundary rules **errors** (blocking) while judgment-y rules (a11y subset,
+   `no-explicit-any`) stay **warn**?
+3. The three known leak files (`any`/`ts-ignore` in `ui/src/api/ws.ts`,
+   `force3d-three.ts`, `canvas-page.tsx`): fix them now (preferred) or narrow
    allowlist-with-rationale this pass? Recommend fix.
-4. `knip` in CI-but-not-precommit okay?
+4. `knip`: confirm CI-and-on-demand (not pre-commit) is acceptable, and that
+   adding it as the single extra tool beyond Oxlint is desired (vs pure one-tool
+   with no dead-code detection).
