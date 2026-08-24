@@ -9,6 +9,7 @@
   },
   "scripts": {
     "test": "bun test",
+    "test:mutation": "stryker run",
     "bench": "bun test tests/benchmark.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "vp lint",

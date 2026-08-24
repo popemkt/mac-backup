@@ -18,7 +18,11 @@ const propValueArb: fc.Arbitrary<PropValue> = fc.oneof(
   fc.record({ t: fc.constant("str" as const), v: fc.string() }),
   fc.record({
     t: fc.constant("num" as const),
-    v: fc.double({ noNaN: true, noDefaultInfinity: true, min: -1e9, max: 1e9 }),
+    // JSON has no negative-zero literal — `JSON.stringify(-0) === "0"` — so
+    // it is excluded for the same reason as NaN/Infinity: not representable.
+    v: fc
+      .double({ noNaN: true, noDefaultInfinity: true, min: -1e9, max: 1e9 })
+      .filter((n) => !Object.is(n, -0)),
   }),
   fc.record({ t: fc.constant("bool" as const), v: fc.boolean() }),
   fc.record({ t: fc.constant("date" as const), v: fc.string() }),
