@@ -157,7 +157,11 @@ export default function GraphPage({
   useEffect(() => { setCapDismissed(false); }, [lensGraph.dropped]);
   useEffect(() => {
     setSelection(null);
-    setControls(null);
+    // Deliberately not resetting `controls` here. Child effects run before
+    // parent effects, so the incoming renderer has already registered its
+    // adapter by the time this runs — nulling it clobbered the registration on
+    // mount and on every switch, leaving the shared toolbar's camera verbs
+    // permanently disabled. Each renderer nulls its own adapter on unmount.
   }, [renderer]);
 
   const clearSelection = useCallback(() => setSelection(null), []);

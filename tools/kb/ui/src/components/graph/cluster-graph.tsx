@@ -339,6 +339,10 @@ export function ClusterGraph({
     drawHulls();
     sigmaRef.current = sigma;
     onControlsReadyRef.current?.(sigmaCameraControls(() => sigmaRef.current));
+    // Browser render harness only: display positions are internal to Sigma.
+    if (import.meta.env.MODE === "test-render") {
+      (el as HTMLDivElement & { __kbSigma?: Sigma }).__kbSigma = sigma;
+    }
 
     return () => {
       el.removeEventListener("mousemove", onDragMove);
@@ -352,6 +356,7 @@ export function ClusterGraph({
         /* */
       }
       sigma.kill();
+      delete (el as HTMLDivElement & { __kbSigma?: Sigma }).__kbSigma;
       if (sigmaRef.current === sigma) sigmaRef.current = null;
       onControlsReadyRef.current?.(null);
     };

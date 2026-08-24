@@ -9,6 +9,7 @@
     "preview": "vp preview",
     "test": "vp test",
     "test:watch": "vp test --watch",
+    "test:render": "bun run build -- --mode test-render && playwright test",
     "typecheck": "tsc --noEmit",
     "lint": "vp lint",
     "check": "vp check --no-fmt",
@@ -43,6 +44,7 @@
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.4",
     "happy-dom": "^20.11.2",
+    "playwright": "^1.62.1",
     "typescript": "^7.0.2",
     "vite-plus": "0.2.8"
   },

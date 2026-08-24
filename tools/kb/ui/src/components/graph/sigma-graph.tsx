@@ -248,6 +248,10 @@ export function SigmaGraph({
 
     sigmaRef.current = sigma;
     onControlsReadyRef.current?.(sigmaCameraControls(() => sigmaRef.current));
+    // Browser render harness only: display positions are internal to Sigma.
+    if (import.meta.env.MODE === "test-render") {
+      (el as HTMLDivElement & { __kbSigma?: Sigma }).__kbSigma = sigma;
+    }
 
     // --- Hover ---
     sigma.on("enterNode", ({ node }) => {
@@ -401,6 +405,7 @@ export function SigmaGraph({
       layoutRef.current?.kill();
       layoutRef.current = null;
       sigma.kill();
+      delete (el as HTMLDivElement & { __kbSigma?: Sigma }).__kbSigma;
       if (sigmaRef.current === sigma) sigmaRef.current = null;
       onControlsReadyRef.current?.(null);
     };
