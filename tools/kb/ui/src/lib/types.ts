@@ -10,8 +10,10 @@ export const SYSTEM_IDS = {
   fieldsField: "sys.f.fields",
   colorField: "sys.f.color",
   hiddenField: "sys.f.hidden",
-  /** Declared value type on field nodes (text|number|date|url|checkbox|ref). */
+  /** Declared value type on field nodes — a ref to a #field-type option node. */
   fieldTypeField: "sys.f.fieldType",
+  /** Field types are option nodes; see @kb/field-type for the mapping. */
+  fieldTypeTag: "sys.tag.field-type",
   /** Ref constraint sugar: allowed target tag(s), multi = union. */
   targetTagField: "sys.f.targetTag",
   /** Ref constraint general form: EDN datalog of allowed node ids (wins over tag). */

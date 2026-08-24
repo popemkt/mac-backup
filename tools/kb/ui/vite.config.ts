@@ -40,6 +40,7 @@ export default defineConfig({
       "@kb/canvas": path.join(root, "../src/canvas/doc.ts"),
       "@kb/ontology": path.join(root, "../src/foundation/ontology.ts"),
       "@kb/order": path.join(root, "../src/foundation/order.ts"),
+      "@kb/field-type": path.join(root, "../src/foundation/field-type.ts"),
     },
   },
   server: {

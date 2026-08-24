@@ -37,6 +37,71 @@ describe("field visibility", () => {
     expect(type?.debug).toBe(true);
   });
 
+  it("surfaces a supertag's fields on its members even when unset", () => {
+    // The gap this closes: the rule used to consult only sys.tag's template,
+    // and only for tag nodes, so adding a field to a supertag changed nothing
+    // visible on anything tagged with it until someone set a value by hand.
+    const wire = [
+      ...fixtureGraph.nodes.filter(
+        (n) => n.id !== "tag.todo" && n.id !== "n.root-b",
+      ),
+      {
+        ...fixtureGraph.nodes.find((n) => n.id === "tag.todo")!,
+        props: {
+          "sys.f.type": [{ t: "ref" as const, v: "sys.tag" }],
+          "sys.f.fields": [{ t: "ref" as const, v: "field.status" }],
+        },
+      },
+      {
+        id: "n.member",
+        text: "tagged member",
+        children: [],
+        props: { "sys.f.type": [{ t: "ref" as const, v: "tag.todo" }] },
+        createdAt: "",
+        updatedAt: "",
+      },
+    ];
+    const nodes = wireToOutlineMap(wire, new Set());
+    const visible = resolveVisibleProps(nodes.get("n.member")!, nodes);
+
+    const status = visible.find((p) => p.fieldId === "field.status");
+    expect(status).toBeTruthy();
+    expect(status!.empty).toBe(true);
+    expect(status!.values).toEqual([]);
+  });
+
+  it("surfaces a field node's own type and constraints, so no panel is needed", () => {
+    // sys.field templates fieldType/targetTag/targetQuery, and the same rule
+    // that serves tags serves field pages — which is what replaced the bespoke
+    // FieldTypeConfig panel.
+    const wire = [
+      ...fixtureGraph.nodes,
+      {
+        id: "sys.field",
+        text: "sys.field",
+        children: [],
+        props: {
+          "sys.f.fields": [
+            { t: "ref" as const, v: "sys.f.fieldType" },
+            { t: "ref" as const, v: "sys.f.targetTag" },
+            { t: "ref" as const, v: "sys.f.targetQuery" },
+          ],
+        },
+        createdAt: "",
+        updatedAt: "",
+      },
+    ];
+    const nodes = wireToOutlineMap(wire, new Set());
+    const visible = resolveVisibleProps(nodes.get("field.status")!, nodes);
+    expect(visible.map((p) => p.fieldId)).toEqual(
+      expect.arrayContaining([
+        "sys.f.fieldType",
+        "sys.f.targetTag",
+        "sys.f.targetQuery",
+      ]),
+    );
+  });
+
   it("surfaces color/hidden template slots on tag nodes even when unset", () => {
     const nodes = mapFromFixture();
     const tag = nodes.get("tag.todo");

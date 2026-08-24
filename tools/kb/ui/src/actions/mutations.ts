@@ -2,6 +2,7 @@
  * Mutation action layer — optimistic local tx → POST /api/action.
  */
 import { ulid } from "ulid";
+import type { FieldType } from "@kb/field-type";
 import { postAction } from "@/api/action";
 import { fetchGraphSnapshot } from "@/api/graph";
 import { runOptimistic } from "@/actions/optimistic";
@@ -338,7 +339,7 @@ export const mutations = {
     await applyPlan(planSetFieldHidden(wire(), fieldId, hidden));
   },
 
-  async setFieldType(fieldId: string, fieldType: string): Promise<void> {
+  async setFieldType(fieldId: string, fieldType: FieldType): Promise<void> {
     if (!guardSysWrite(fieldId)) return;
     const { planSetFieldType } = await import("@/actions/plan");
     await applyPlan(planSetFieldType(wire(), fieldId, fieldType));

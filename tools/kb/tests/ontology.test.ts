@@ -10,6 +10,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SYSTEM_IDS, type KbNode, type PropValue } from "../src/foundation/model.ts";
+import { fieldTypeOf } from "../src/foundation/field-type.ts";
 import { ensureSystemSeed, systemSeedNodes } from "../src/foundation/seed.ts";
 import {
   DEFAULT_MAX_DEPTH,
@@ -563,9 +564,12 @@ describe("ontology seed", () => {
       expect(refs(field!, SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.field]);
     }
 
-    expect(strs(byId.get(SYSTEM_IDS.ontoIncludeField)!, SYSTEM_IDS.fieldTypeField)).toEqual(["ref"]);
+    // Assert the declared type, not its storage form: field types are option
+    // nodes now, and reading through the shared resolver is what keeps this
+    // test honest across either representation.
+    expect(fieldTypeOf(byId.get(SYSTEM_IDS.ontoIncludeField)!.props)).toBe("ref");
     expect(refs(byId.get(SYSTEM_IDS.ontoIncludeField)!, SYSTEM_IDS.targetTagField)).toEqual([SYSTEM_IDS.tag]);
-    expect(strs(byId.get(SYSTEM_IDS.ontoQueryField)!, SYSTEM_IDS.fieldTypeField)).toEqual(["text"]);
+    expect(fieldTypeOf(byId.get(SYSTEM_IDS.ontoQueryField)!.props)).toBe("text");
 
     // extends uses targetQuery (not targetTag) so the picker offers ontologies.
     const ext = byId.get(SYSTEM_IDS.ontoExtendsField)!;

@@ -1,34 +1,38 @@
 /**
  * Declared field types (Tana fieldType pattern).
- * Absent sys.f.fieldType ⇒ text. Stored as {t:str} enum on the field node.
+ *
+ * The mapping itself is shared with core through `@kb/field-type` — a field
+ * type is an option node, and restating the list here is how the CLI mapper,
+ * the seed, and this file drifted into three copies of one enum. What stays
+ * local is only what the UI adds: allowed-ref resolution, mismatch hints, and
+ * the empty value a typed editor starts from.
  */
+import {
+  FIELD_TYPES,
+  FIELD_TYPE_OPTION_IDS,
+  fieldTypeOf,
+  fieldTypeValue,
+  isFieldType,
+  type FieldType,
+} from "@kb/field-type";
 import { runQuery } from "@/ds/query";
 import type { QueryDb } from "@/ds/db";
 import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
 
-export const FIELD_TYPES = [
-  "text",
-  "number",
-  "date",
-  "url",
-  "checkbox",
-  "ref",
-] as const;
-
-export type FieldType = (typeof FIELD_TYPES)[number];
-
-export function isFieldType(v: unknown): v is FieldType {
-  return typeof v === "string" && (FIELD_TYPES as readonly string[]).includes(v);
-}
+export {
+  FIELD_TYPES,
+  FIELD_TYPE_OPTION_IDS,
+  fieldTypeValue,
+  isFieldType,
+  type FieldType,
+};
 
 /** Read declared type from a field definition node; default text. */
 export function resolveFieldType(
   fieldNode: OutlineNode | undefined,
 ): FieldType {
-  const raw = fieldNode?.props[SYSTEM_IDS.fieldTypeField]?.[0];
-  if (raw?.t === "str" && isFieldType(raw.v)) return raw.v;
-  return "text";
+  return fieldTypeOf(fieldNode?.props);
 }
 
 export function resolveFieldTypeById(

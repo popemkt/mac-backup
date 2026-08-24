@@ -8,6 +8,7 @@ import { bunFileSystemLayer } from "./platform.ts";
 import { buildQueryDb, type QueryDb } from "./query/index.ts";
 import type { DomainError } from "./errors.ts";
 import { txIntegrityError } from "./tx-validation.ts";
+import { migrateFieldTypeValues } from "./field-type.ts";
 import { migrateOrderKeys } from "./order.ts";
 
 /**
@@ -103,8 +104,15 @@ export const openKbEffect = Effect.fn("kb.open")(
     const effectStore = new JsonlStore(root);
     let nodes = yield* effectStore.loadEffect();
   const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(nodes);
-  const migrated = migrateOrderKeys(seeded);
-  if (didSeed || nodes.length === 0 || deletes.length > 0 || migrated.changed) {
+  const typed = migrateFieldTypeValues(seeded);
+  const migrated = migrateOrderKeys(typed.nodes);
+  if (
+    didSeed ||
+    nodes.length === 0 ||
+    deletes.length > 0 ||
+    typed.changed ||
+    migrated.changed
+  ) {
     nodes = migrated.nodes;
     yield* effectStore.commitEffect({ upserts: nodes, deletes });
   } else {

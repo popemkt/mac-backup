@@ -4,6 +4,11 @@ import {
   type KbNode,
   nowIso,
 } from "./model.ts";
+import {
+  FIELD_TYPES,
+  FIELD_TYPE_OPTION_IDS,
+  fieldTypeValue,
+} from "./field-type.ts";
 import { ONTOLOGY_TARGET_QUERY } from "./ontology.ts";
 
 /** Reserved system nodes. Idempotent — same ids every time. */
@@ -17,7 +22,17 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     updatedAt: at,
   });
 
-  const field = mk(SYSTEM_IDS.field, "sys.field");
+  // A field node's own configuration is a field template, exactly like a tag's.
+  // That is what lets one rule — "surface the fields your kinds and tags
+  // template" — serve tag pages, field pages, and ordinary tagged nodes alike,
+  // instead of a bespoke panel per kind.
+  const field = mk(SYSTEM_IDS.field, "sys.field", {
+    [SYSTEM_IDS.fieldsField]: [
+      { t: "ref", v: SYSTEM_IDS.fieldTypeField },
+      { t: "ref", v: SYSTEM_IDS.targetTagField },
+      { t: "ref", v: SYSTEM_IDS.targetQueryField },
+    ],
+  });
   const typeField = mk(SYSTEM_IDS.typeField, "type", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
   });
@@ -30,8 +45,28 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const hiddenField = mk(SYSTEM_IDS.hiddenField, "hidden", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
   });
+  /*
+   * Field types are nodes. `fieldType` is an ordinary ref field constrained to
+   * nodes tagged `field-type`, which is the same shape any user-defined
+   * "field with a list of options" takes: tag the options, point the field at
+   * the tag, add an option by adding a node. That is what lets the normal ref
+   * editor render the type slot instead of a picker built only for this enum.
+   * The sys options are write-guarded; a user's own list is not.
+   */
+  const fieldTypeTag = mk(SYSTEM_IDS.fieldTypeTag, "field-type", {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+  });
+  const fieldTypeOption = (id: string, text: string): KbNode =>
+    mk(id, text, {
+      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.fieldTypeTag }],
+    });
+  const fieldTypeOptions = FIELD_TYPES.map((type) =>
+    fieldTypeOption(FIELD_TYPE_OPTION_IDS[type], type),
+  );
   const fieldTypeField = mk(SYSTEM_IDS.fieldTypeField, "fieldType", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+    [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
+    [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.fieldTypeTag }],
   });
   const targetTagField = mk(SYSTEM_IDS.targetTagField, "targetTag", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
@@ -232,7 +267,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const refField = (id: string, text: string, targetTag?: string): KbNode =>
     mk(id, text, {
       ...fieldType,
-      [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "ref" }],
+      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
       ...(targetTag
         ? { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: targetTag }] }
         : {}),
@@ -247,18 +282,18 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   // targetQuery (not targetTag) so the ref picker offers only #ontology nodes.
   const ontoExtendsField = mk(SYSTEM_IDS.ontoExtendsField, "onto.extends", {
     ...fieldType,
-    [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "ref" }],
+    [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
     [SYSTEM_IDS.targetQueryField]: [
       { t: "str", v: ONTOLOGY_TARGET_QUERY },
     ],
   });
   const ontoQueryField = mk(SYSTEM_IDS.ontoQueryField, "onto.query", {
     ...fieldType,
-    [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "text" }],
+    [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("text")],
   });
   const ontoClosureField = mk(SYSTEM_IDS.ontoClosureField, "onto.closure", {
     ...fieldType,
-    [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "text" }],
+    [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("text")],
   });
   const ontologyTag = mk(SYSTEM_IDS.ontologyTag, "ontology", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
@@ -275,6 +310,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   return [
     field,
     tag,
+    fieldTypeTag,
+    ...fieldTypeOptions,
     typeField,
     fieldsField,
     colorField,

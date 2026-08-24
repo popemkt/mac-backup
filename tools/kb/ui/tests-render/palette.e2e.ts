@@ -94,3 +94,22 @@ test("Add field names a new field and gives the node an editable row for it", as
       .first(),
   ).toBeVisible();
 });
+
+test("global search finds nodes on a freshly loaded store", async ({ page }) => {
+  // The harness server has just opened its store and nothing has mutated it, so
+  // its rev is 0 — the exact condition under which the palette used to cache an
+  // empty index (built before hydration) and never rebuild, leaving ⌘K matching
+  // nothing at all until the first edit.
+  await page.goto(home());
+  await expect(page.locator(`[data-node-id="${PERSPECTIVE}"]`).first()).toBeVisible();
+
+  await page.keyboard.press("ControlOrMeta+k");
+  const search = page.getByRole("dialog", { name: "Search and open" });
+  await expect(search).toBeVisible();
+  await page.keyboard.type("Fixture");
+
+  await expect(search).not.toContainText("No matches");
+  await expect(
+    search.getByRole("button", { name: /Fixture/ }).first(),
+  ).toBeVisible();
+});

@@ -584,11 +584,9 @@ export function buildProgram(): Command {
         Effect.gen(function* () {
           const fieldId = resolveFieldId(ctx.nodes, fieldName);
           const node = ctx.nodes.find((n) => n.id === fieldId);
-          const prev = node?.props[SYSTEM_IDS.fieldTypeField]?.[0];
-          const previous =
-            prev?.t === "str"
-              ? { t: "str" as const, v: String(prev.v) }
-              : undefined;
+          // Props are multi-valued and set appends, so the prior value has to
+          // be unset explicitly — whichever form it was stored in.
+          const previous = node?.props[SYSTEM_IDS.fieldTypeField]?.[0];
           return yield* runPlanEffect(
             ctx,
             mapFieldType({ fieldId, type, previous }),

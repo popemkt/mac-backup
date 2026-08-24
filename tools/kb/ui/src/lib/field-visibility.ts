@@ -4,10 +4,18 @@ import { SYSTEM_IDS } from "@/lib/types";
 /**
  * Schema props that live under sys.* but are meant to edit like ordinary
  * fields on tag/field nodes (i10 item 4 — color/hidden on a tag page).
+ *
+ * The field-configuration trio is here for the same reason: a field node's type
+ * and ref constraints are the field's own settings, and editing them on the
+ * field's page is what removes the need for a configurator panel built only
+ * for them.
  */
 export const SCHEMA_SURFACE_FIELDS = new Set<string>([
   SYSTEM_IDS.colorField,
   SYSTEM_IDS.hiddenField,
+  SYSTEM_IDS.fieldTypeField,
+  SYSTEM_IDS.targetTagField,
+  SYSTEM_IDS.targetQueryField,
 ]);
 
 /** Prop keys that are system/metadata and hidden from normal field rows. */
@@ -45,21 +53,28 @@ export type VisibleProp = ResolvedProp & {
   empty?: boolean;
 };
 
-function isTagNode(node: OutlineNode): boolean {
-  const types = node.props[SYSTEM_IDS.typeField] ?? [];
-  return types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.tag);
-}
-
-/** Field ids templated onto every tag node via sys.tag.sys.f.fields. */
-function tagTemplateFieldIds(nodes: NodeMap): string[] {
-  const meta = nodes.get(SYSTEM_IDS.tag);
-  if (!meta) return [...SCHEMA_SURFACE_FIELDS];
-  const refs = meta.props[SYSTEM_IDS.fieldsField] ?? [];
+/**
+ * Field ids this node inherits, in declaration order.
+ *
+ * Everything in the node's kind slot contributes its own `sys.f.fields`
+ * template: `sys.tag` gives a tag node color and hidden, `sys.field` gives a
+ * field node its type and ref constraints, and a user supertag gives its
+ * members whatever fields were added to it. That last case is the one this
+ * replaces — the old rule consulted only `sys.tag`'s template and only for tag
+ * nodes, so fields added to a supertag stayed invisible on its members until
+ * somebody set a value, which made adding fields to a tag look like it did
+ * nothing.
+ */
+function templatedFieldIds(node: OutlineNode, nodes: NodeMap): string[] {
   const ids: string[] = [];
-  for (const v of refs) {
-    if (v.t === "ref" && typeof v.v === "string") ids.push(v.v);
+  for (const type of node.props[SYSTEM_IDS.typeField] ?? []) {
+    if (type.t !== "ref" || typeof type.v !== "string") continue;
+    for (const ref of nodes.get(type.v)?.props[SYSTEM_IDS.fieldsField] ?? []) {
+      if (ref.t !== "ref" || typeof ref.v !== "string") continue;
+      if (!ids.includes(ref.v)) ids.push(ref.v);
+    }
   }
-  return ids.length > 0 ? ids : [...SCHEMA_SURFACE_FIELDS];
+  return ids;
 }
 
 /** Resolve node props for FieldRow display with visibility filtering. */
@@ -88,21 +103,20 @@ export function resolveVisibleProps(
     });
   }
 
-  // Tag nodes: surface template fields (color, hidden, …) even when unset so
-  // the node page is the configurator — no bespoke panel.
-  if (isTagNode(node)) {
-    for (const fieldId of tagTemplateFieldIds(nodes)) {
-      if (seen.has(fieldId)) continue;
-      if (!showAll && isPropHiddenByDefault(fieldId, nodes)) continue;
-      const fieldNode = nodes.get(fieldId);
-      out.push({
-        fieldId,
-        fieldName: fieldNode?.text ?? fieldId,
-        values: [] as PropValue[],
-        empty: true,
-      });
-      seen.add(fieldId);
-    }
+  // Surface inherited fields even when unset, so the node page is always the
+  // configurator — no bespoke panel, and a tag's fields show up on its members
+  // as soon as the tag declares them.
+  for (const fieldId of templatedFieldIds(node, nodes)) {
+    if (seen.has(fieldId)) continue;
+    if (!showAll && isPropHiddenByDefault(fieldId, nodes)) continue;
+    const fieldNode = nodes.get(fieldId);
+    out.push({
+      fieldId,
+      fieldName: fieldNode?.text ?? fieldId,
+      values: [] as PropValue[],
+      empty: true,
+    });
+    seen.add(fieldId);
   }
 
   return out;

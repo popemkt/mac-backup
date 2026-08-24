@@ -5,7 +5,6 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { SYSTEM_IDS } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { FieldRow } from "./field-row";
-import { FieldTypeConfig } from "./field-type-config";
 
 export interface TagFieldRef {
   id: string;
@@ -72,7 +71,6 @@ export function TagFieldsConfigView({
       {template.map((field) => (
         <FieldRow key={field.id} depth={-1} label={field.name} fieldId={field.id}>
           <div className="flex min-w-0 flex-1 items-center gap-1">
-            <FieldTypeConfig fieldId={field.id} />
             <button
               type="button"
               className="ml-auto text-[11px] text-foreground/40 underline-offset-2 hover:text-foreground/70 hover:underline"

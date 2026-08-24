@@ -33,15 +33,20 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
-  const indexCache = useRef<PaletteIndex | null>(null);
-
-  // Index once per graph rev — not per keystroke.
-  const index = useMemo(() => {
-    if (indexCache.current?.rev === rev) return indexCache.current;
-    const next = buildPaletteIndex(wireNodes, rev);
-    indexCache.current = next;
-    return next;
-  }, [wireNodes, rev]);
+  /*
+   * Index once per graph load — not per keystroke.
+   *
+   * There used to be a ref cache keyed on rev in front of this memo, which made
+   * search permanently empty on a freshly loaded store: this component mounts
+   * before hydration, caches an empty index at rev 0, and a store that has not
+   * been mutated since it opened is still at rev 0 — so the guard short
+   * circuited forever and ⌘K matched nothing. useMemo already rebuilds exactly
+   * when its inputs change, so the cache was only able to be wrong.
+   */
+  const index = useMemo(
+    () => buildPaletteIndex(wireNodes, rev),
+    [wireNodes, rev],
+  );
 
   const hits = useMemo(
     () => searchPalette(index, query, ROW_LIMIT),

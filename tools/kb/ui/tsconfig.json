@@ -21,6 +21,7 @@
       "@kb/canvas": ["../src/canvas/doc.ts"],
       "@kb/ontology": ["../src/foundation/ontology.ts"]
       ,"@kb/order": ["../src/foundation/order.ts"]
+      ,"@kb/field-type": ["../src/foundation/field-type.ts"]
     }
   },
   "include": ["src", "vite.config.ts"]

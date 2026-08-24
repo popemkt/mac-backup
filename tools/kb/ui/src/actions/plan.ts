@@ -5,6 +5,7 @@ import type { WireNode } from "@kb/protocol";
 import { wouldCreateExtendsCycle } from "@kb/ontology";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import type { PropValue } from "@/lib/types";
+import { fieldTypeValue, type FieldType } from "@kb/field-type";
 import { SYSTEM_IDS } from "@/lib/types";
 import { forestRootIds } from "@/lib/graph-view";
 import { cloneWire, findParentWire, nowIso, wireById } from "@/lib/tx";
@@ -1016,18 +1017,20 @@ export function planSetTagColor(
 export function planSetFieldType(
   nodes: WireNode[],
   fieldId: string,
-  fieldType: string,
+  fieldType: FieldType,
 ): PlannedMutation {
   if (fieldId.startsWith("sys.")) {
     throw new Error("sys.* fields are read-only");
   }
   const node = requireNode(nodes, fieldId);
   const existing = node.props[SYSTEM_IDS.fieldTypeField]?.[0];
+  // A ref to the type's option node: the value is a node like any other, which
+  // is what lets the ordinary ref editor set it.
   return planSetProp(
     nodes,
     fieldId,
     SYSTEM_IDS.fieldTypeField,
-    { t: "str", v: fieldType },
+    fieldTypeValue(fieldType),
     existing,
   );
 }

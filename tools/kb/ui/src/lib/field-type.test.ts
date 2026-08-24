@@ -5,6 +5,7 @@ import { wireToOutlineMap } from "@/lib/graph-view";
 import {
   clearAllowedRefIdsCache,
   emptyValueForType,
+  fieldTypeValue,
   isValueMismatch,
   resolveAllowedRefIds,
   resolveAllowedRefIdsCached,
@@ -166,10 +167,13 @@ describe("field types", () => {
       ...fixtureGraph.nodes,
       fieldNode({ id: "field.x", text: "x" }),
     ];
+    // The declared type is a ref to its option node — field types are nodes.
     const typed = planSetFieldType(wire, "field.x", "ref");
     expect(typed.upserts[0]?.props[SYSTEM_IDS.fieldTypeField]).toEqual([
-      { t: "str", v: "ref" },
+      fieldTypeValue("ref"),
     ]);
+    // And the round trip still reads back as the declared type.
+    expect(resolveFieldType(typed.upserts[0] as never)).toBe("ref");
 
     const withType: WireNode[] = [
       ...wire.filter((n) => n.id !== "field.x"),

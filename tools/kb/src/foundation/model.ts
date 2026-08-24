@@ -36,8 +36,22 @@ export const SYSTEM_IDS = {
   colorField: "sys.f.color",
   /** Per-field visibility: when true, field rows are hidden unless debug mode. */
   hiddenField: "sys.f.hidden",
-  /** Declared value type on field nodes (text|number|date|url|checkbox|ref). */
+  /** Declared value type on field nodes — a ref to one of the option nodes below. */
   fieldTypeField: "sys.f.fieldType",
+  /**
+   * Field types are option nodes, not an enum baked into a picker. A field
+   * whose value comes from a list is a ref field constrained to nodes carrying
+   * the list's tag, and this is that pattern applied to the type slot itself —
+   * so the ordinary ref editor renders it and a user's own option list works
+   * exactly the same way.
+   */
+  fieldTypeTag: "sys.tag.field-type",
+  ftText: "sys.ft.text",
+  ftNumber: "sys.ft.number",
+  ftDate: "sys.ft.date",
+  ftUrl: "sys.ft.url",
+  ftCheckbox: "sys.ft.checkbox",
+  ftRef: "sys.ft.ref",
   /** Ref constraint sugar: allowed target tag(s), multi = union. */
   targetTagField: "sys.f.targetTag",
   /** Ref constraint general form: EDN datalog of allowed node ids (wins over tag). */

@@ -5,6 +5,12 @@ import {
   LIST_TAGS_QUERY,
   backlinksQuery,
 } from "../foundation/query/queries.ts";
+import {
+  FIELD_TYPES,
+  fieldTypeValue,
+  isFieldType,
+} from "../foundation/field-type.ts";
+import { SYSTEM_IDS, type PropValue } from "../foundation/model.ts";
 import { LIST_ONTOLOGIES_QUERY } from "../foundation/ontology.ts";
 
 export type PropType = "str" | "num" | "bool" | "date" | "ref";
@@ -201,24 +207,21 @@ export function mapFieldList(): PlannedAction {
   };
 }
 
-const FIELD_TYPE_ENUM = new Set([
-  "text",
-  "number",
-  "date",
-  "url",
-  "checkbox",
-  "ref",
-]);
 
-/** Replace sys.f.fieldType (caller must resolve field id + pass prior value to unset). */
+/**
+ * Replace sys.f.fieldType (caller must resolve field id + pass prior value to
+ * unset). The written value is a ref to the type's option node — field types
+ * are nodes, and the accepted names come from that one mapping rather than an
+ * enum kept in step by hand.
+ */
 export function mapFieldType(opts: {
   fieldId: string;
   type: string;
-  previous?: { t: "str"; v: string };
+  previous?: PropValue;
 }): PlannedAction {
-  if (!FIELD_TYPE_ENUM.has(opts.type)) {
+  if (!isFieldType(opts.type)) {
     throw new UsageError(
-      `invalid field type: ${opts.type} (expected ${[...FIELD_TYPE_ENUM].join("|")})`,
+      `invalid field type: ${opts.type} (expected ${FIELD_TYPES.join("|")})`,
     );
   }
   return {
@@ -228,12 +231,15 @@ export function mapFieldType(opts: {
       ...(opts.previous
         ? {
             unsetProps: [
-              { field: "sys.f.fieldType", value: opts.previous },
+              { field: SYSTEM_IDS.fieldTypeField, value: opts.previous },
             ],
           }
         : {}),
       setProps: [
-        { field: "sys.f.fieldType", value: { t: "str", v: opts.type } },
+        {
+          field: SYSTEM_IDS.fieldTypeField,
+          value: fieldTypeValue(opts.type),
+        },
       ],
     },
   };
