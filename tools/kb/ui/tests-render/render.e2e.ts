@@ -160,7 +160,9 @@ test("force3d receives all fixture nodes and settles to a non-degenerate volume"
     return graph?.graphData().nodes.length ?? 0;
   })).toBe(FIXTURE_SIZE);
 
-  await page.waitForTimeout(3_000);
+  // The historical uncooled cluster force contracts throughout the simulation;
+  // sample after its default cooldown window rather than its initial spread.
+  await page.waitForTimeout(10_000);
   const maximumExtent = await host.evaluate((element) => {
     const graph = (
       element as HTMLDivElement & {
