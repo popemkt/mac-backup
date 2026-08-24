@@ -6,19 +6,28 @@ import {
   Hash,
   ListBullets,
   MagnifyingGlass,
+  Plus,
   SquaresFour,
   Table,
+  TextT,
   Trash,
 } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
+import { emptyValueForType, resolveFieldTypeById } from "@/lib/field-type";
 import { DEFAULT_QUERY_EDN, isQueryNode } from "@/lib/query-node";
 import { SYSTEM_IDS } from "@/lib/types";
 import type { ViewMode } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 
-type PaletteStep = { type: "commands" } | { type: "add-tag" };
+type PaletteStep =
+  | { type: "commands" }
+  | { type: "add-tag" }
+  | { type: "add-field" };
+
+/** Sentinel row id for "no match — make one with what I typed". */
+const CREATE_ID = "\u0000create";
 
 interface Command {
   id: string;
@@ -89,6 +98,17 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [wireNodes]);
 
+  const fieldOptions = useMemo(() => {
+    return wireNodes
+      .filter((n) =>
+        (n.props[SYSTEM_IDS.typeField] ?? []).some(
+          (v) => v.t === "ref" && v.v === SYSTEM_IDS.field,
+        ),
+      )
+      .map((n) => ({ id: n.id, name: n.text || n.id }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [wireNodes]);
+
   const commands: Command[] = useMemo(() => {
     const base: Command[] = [
       {
@@ -96,6 +116,12 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         label: "Add tag",
         icon: <Hash size={14} weight="bold" />,
         step: "add-tag",
+      },
+      {
+        id: "add-field",
+        label: "Add field",
+        icon: <TextT size={14} weight="bold" />,
+        step: "add-field",
       },
       {
         id: "search-all",
@@ -186,6 +212,27 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       },
     );
 
+    const isTag = targetNode?.tags.some((t) => t.id === SYSTEM_IDS.tag) ?? false;
+    if (targetNode && !isTag) {
+      base.splice(2, 0, {
+        id: "make-supertag",
+        label: "Make supertag",
+        icon: <Hash size={14} weight="fill" />,
+        immediate: true,
+        action: () => {
+          if (!targetNodeId) return;
+          void (async () => {
+            if (!(await mutations.makeSupertag(targetNodeId))) return;
+            // A supertag is schema, so it leaves the outline forest the moment
+            // it becomes one. Zoom to it rather than letting the row vanish —
+            // and its field template is the next thing anyone wants anyway.
+            useOutlineStore.getState().zoomTo(targetNodeId);
+          })();
+          onClose();
+        },
+      });
+    }
+
     if (targetNode && !isQueryNode(targetNode)) {
       base.splice(1, 0, {
         id: "turn-query",
@@ -213,18 +260,53 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     c.label.toLowerCase().includes(query.toLowerCase()),
   );
 
-  const filteredTags = tagOptions.filter((t) =>
-    t.name.toLowerCase().includes(query.toLowerCase()),
+  /**
+   * Add-tag and add-field are the same gesture over different node kinds:
+   * filter by name, and offer to mint one when nothing matches. Keeping them
+   * one code path is what stops them drifting into two pickers.
+   */
+  const picking =
+    step.type === "add-field"
+      ? {
+          options: fieldOptions,
+          icon: <TextT size={12} weight="bold" />,
+          createLabel: (name: string) => `Create field "${name}"`,
+        }
+      : {
+          options: tagOptions,
+          icon: <Hash size={12} weight="bold" />,
+          createLabel: (name: string) => `Create tag "${name}"`,
+        };
+
+  const trimmed = query.trim();
+  const filteredOptions = picking.options.filter((o) =>
+    o.name.toLowerCase().includes(query.toLowerCase()),
   );
+  const exactMatch = picking.options.some(
+    (o) => o.name.toLowerCase() === trimmed.toLowerCase(),
+  );
+
+  const pickerItems = [
+    ...filteredOptions.map((o) => ({
+      id: o.id,
+      label: o.name,
+      icon: picking.icon,
+    })),
+    ...(trimmed && !exactMatch
+      ? [
+          {
+            id: CREATE_ID,
+            label: picking.createLabel(trimmed),
+            icon: <Plus size={12} weight="bold" />,
+          },
+        ]
+      : []),
+  ];
 
   const items =
     step.type === "commands"
       ? filteredCommands.map((c) => ({ id: c.id, label: c.label, icon: c.icon }))
-      : filteredTags.map((t) => ({
-          id: t.id,
-          label: t.name,
-          icon: <Hash size={12} weight="bold" />,
-        }));
+      : pickerItems;
 
   useEffect(() => {
     setHighlightIndex(0);
@@ -252,13 +334,31 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         return;
       }
 
-      const tag = filteredTags[index];
-      if (tag && targetNodeId) {
-        void mutations.addTag(targetNodeId, tag.id);
-        onClose();
-      }
+      const item = pickerItems[index];
+      if (!item || !targetNodeId) return;
+      const creating = item.id === CREATE_ID;
+
+      void (async () => {
+        if (step.type === "add-field") {
+          const fieldId = creating
+            ? await mutations.defineField(trimmed)
+            : item.id;
+          if (!fieldId) return;
+          // An empty typed value is what makes the row appear and focusable;
+          // the field's own declared type decides which editor that row gets.
+          await mutations.updateProp(
+            targetNodeId,
+            fieldId,
+            emptyValueForType(resolveFieldTypeById(fieldId, nodes)),
+          );
+          return;
+        }
+        const tagId = creating ? await mutations.defineTag(trimmed) : item.id;
+        if (tagId) await mutations.addTag(targetNodeId, tagId);
+      })();
+      onClose();
     },
-    [filteredCommands, filteredTags, onClose, step.type, targetNodeId],
+    [filteredCommands, nodes, onClose, pickerItems, step.type, targetNodeId, trimmed],
   );
 
   const handleKeyDown = useCallback(
@@ -306,8 +406,17 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   if (!open || !anchorRect || !targetNodeId) return null;
 
   const placeholder =
-    step.type === "commands" ? "Type a command..." : "Search tags...";
-  const stepLabel = step.type === "add-tag" ? "Add tag" : null;
+    step.type === "commands"
+      ? "Type a command..."
+      : step.type === "add-field"
+        ? "Search or name a field..."
+        : "Search or name a tag...";
+  const stepLabel =
+    step.type === "add-tag"
+      ? "Add tag"
+      : step.type === "add-field"
+        ? "Add field"
+        : null;
 
   return createPortal(
     <>

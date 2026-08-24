@@ -82,6 +82,51 @@ describe("system seed", () => {
     const again = ensureSystemSeed(ctx2.nodes);
     expect(again.seeded).toBe(false);
   });
+
+  test("sys.tag stays untyped so tagness is a kind, not a chip", () => {
+    // A ref to sys.tag in the kind slot means "this node is a supertag", and
+    // resolveTags skips it so it never renders as a tag chip. Self-typing it
+    // would put it in every tag picker, where applying it would look like
+    // tagging while actually changing the node's kind.
+    const tag = systemSeedNodes().find((n) => n.id === SYSTEM_IDS.tag);
+    expect(tag).toBeDefined();
+    expect(tag!.props[SYSTEM_IDS.typeField]).toBeUndefined();
+  });
+
+  test("seed fills prop keys a stored sys node lacks, and never rewrites one it has", () => {
+    const seeded = systemSeedNodes();
+    const tagSeed = seeded.find((n) => n.id === SYSTEM_IDS.tag)!;
+
+    // An older store: sys.tag predates its field template, and
+    // lens.all-mentions carries a deliberately different value.
+    const stored = seeded.map((n) => {
+      if (n.id === SYSTEM_IDS.tag) return { ...n, props: {} };
+      if (n.id === SYSTEM_IDS.lensAllMentions) {
+        return {
+          ...n,
+          props: {
+            ...n.props,
+            [SYSTEM_IDS.lensClusterByField]: [{ t: "str" as const, v: "none" }],
+          },
+        };
+      }
+      return n;
+    });
+
+    const result = ensureSystemSeed(stored);
+    expect(result.seeded).toBe(true);
+    const byId = new Map(result.nodes.map((n) => [n.id, n]));
+
+    // Absent keys arrive.
+    expect(byId.get(SYSTEM_IDS.tag)!.props[SYSTEM_IDS.fieldsField]).toEqual(
+      tagSeed.props[SYSTEM_IDS.fieldsField],
+    );
+
+    // A key the store already carries is the owner's, seed default or not.
+    expect(
+      byId.get(SYSTEM_IDS.lensAllMentions)!.props[SYSTEM_IDS.lensClusterByField],
+    ).toEqual([{ t: "str", v: "none" }]);
+  });
 });
 
 describe("registry + operations", () => {

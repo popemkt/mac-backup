@@ -39,6 +39,11 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const targetQueryField = mk(SYSTEM_IDS.targetQueryField, "targetQuery", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
   });
+  // Deliberately NOT self-typed. `sys.f.type` is the kind slot, and a ref to
+  // `sys.tag` there declares "this node is a supertag" — resolveTags skips it
+  // precisely so it never renders as a chip. Listing sys.tag among selectable
+  // tags would dress a kind change up as tag application, which is a second
+  // mechanism for one concept. Promotion is its own gesture instead.
   const tag = mk(SYSTEM_IDS.tag, "sys.tag", {
     [SYSTEM_IDS.fieldsField]: [
       { t: "ref", v: SYSTEM_IDS.colorField },
@@ -356,8 +361,10 @@ export function ensureSystemSeed(nodes: KbNode[]): {
     SYSTEM_IDS.ontologyTag,
   ];
 
+  const seedById = new Map<string, KbNode>();
   const seedTemplateTags = new Map<string, KbNode>();
   for (const seed of systemSeedNodes()) {
+    seedById.set(seed.id, seed);
     if (TEMPLATE_TAGS.includes(seed.id)) seedTemplateTags.set(seed.id, seed);
     if (!byId.has(seed.id)) {
       byId.set(seed.id, seed);
@@ -390,21 +397,30 @@ export function ensureSystemSeed(nodes: KbNode[]): {
     seeded = true;
   }
 
-  // One-time defaults on the seeded perspective: cluster-by=parent when absent
-  // (mirrors force2d renderer default — without it cluster/3D degenerate).
-  const mentions = byId.get(SYSTEM_IDS.lensAllMentions);
-  if (mentions) {
-    const clusterBy = mentions.props[SYSTEM_IDS.lensClusterByField] ?? [];
-    if (clusterBy.length === 0) {
-      byId.set(SYSTEM_IDS.lensAllMentions, {
-        ...mentions,
-        props: {
-          ...mentions.props,
-          [SYSTEM_IDS.lensClusterByField]: [{ t: "str", v: "parent" }],
-        },
-      });
-      seeded = true;
-    }
+  /*
+   * Fill seed prop keys an existing sys.* node has never carried.
+   *
+   * A key the store already has is a value the owner may have chosen, so it is
+   * never rewritten. A key that is absent entirely is not a conflict — it is a
+   * prop added to the seed after that store was created, and leaving it absent
+   * is what made new system behaviour invisible on older stores. This replaces
+   * the one-off "cluster-by=parent when absent" special case, which the seed
+   * already declares on lens.all-mentions and which this pass therefore covers
+   * exactly; adding the next such default now means editing the seed, not
+   * adding another block here.
+   */
+  for (const seed of seedById.values()) {
+    const existing = byId.get(seed.id);
+    if (!existing || existing === seed) continue;
+    const absent = Object.entries(seed.props ?? {}).filter(
+      ([field]) => !(field in (existing.props ?? {})),
+    );
+    if (absent.length === 0) continue;
+    byId.set(seed.id, {
+      ...existing,
+      props: { ...existing.props, ...Object.fromEntries(absent) },
+    });
+    seeded = true;
   }
 
   return { nodes: [...byId.values()], seeded, deletes };

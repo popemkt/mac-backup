@@ -23,7 +23,9 @@ await writeFile(
 
 const server = await startUi({
   root: scratchRoot,
-  port: 4323,
+  // Per-spec port: a spec that writes must not share a store with one that
+  // counts (see harness-server.ts).
+  port: Number(process.env.KB_HARNESS_PORT ?? 4323),
   openBrowser: false,
 });
 console.log(`render harness UI: ${server.url} (scratch root: ${scratchRoot})`);

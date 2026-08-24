@@ -30,7 +30,7 @@ import {
   type PlannedMutation,
 } from "@/actions/plan";
 import { toast } from "@/lib/toast";
-import { isSysPrefixed, WORKSPACE_ROOT_ID, type PropValue } from "@/lib/types";
+import { isSysPrefixed, SYSTEM_IDS, WORKSPACE_ROOT_ID, type PropValue } from "@/lib/types";
 import { forestRootIds } from "@/lib/graph-view";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { cloneWire, findParentWire } from "@/lib/tx";
@@ -507,6 +507,25 @@ export const mutations = {
     const newId = ulid();
     const ok = await applyPlan(planDefineField(name, newId));
     return ok ? newId : null;
+  },
+
+  /**
+   * Promote an existing node to a supertag.
+   *
+   * `sys.f.type` is the kind slot and it is multi-valued, so this appends the
+   * `sys.tag` kind and leaves any tags the node already carries alone. Note
+   * the consequence, which is the model's and not this function's: a tag node
+   * is schema, so `forestRootIds` stops listing it in the outline forest. The
+   * caller is responsible for taking the user to it.
+   */
+  async makeSupertag(nodeId: string): Promise<boolean> {
+    if (!guardSysWrite(nodeId)) return false;
+    const node = wire().find((n) => n.id === nodeId);
+    const already = (node?.props[SYSTEM_IDS.typeField] ?? []).some(
+      (v) => v.t === "ref" && v.v === SYSTEM_IDS.tag,
+    );
+    if (already) return true;
+    return applyPlan(planAddTag(wire(), nodeId, SYSTEM_IDS.tag));
   },
 
   async defineTag(name: string): Promise<string | null> {
