@@ -172,6 +172,10 @@ export default function Force3dGraph({
     }
 
     graphRef.current = Graph;
+    // Browser render harness only: 3d-force-graph keeps simulation state private.
+    if (import.meta.env.MODE === "test-render") {
+      (el as HTMLDivElement & { __kbForceGraph?: ForceGraph3DInstance }).__kbForceGraph = Graph;
+    }
 
     const ro = new ResizeObserver(() => {
       Graph.width(el.clientWidth).height(el.clientHeight);
@@ -217,6 +221,7 @@ export default function Force3dGraph({
         /* */
       }
       graphRef.current = null;
+      delete (el as HTMLDivElement & { __kbForceGraph?: ForceGraph3DInstance }).__kbForceGraph;
       el.replaceChildren();
     };
   }, [nodes, edges, layoutKey, themeKey]);
