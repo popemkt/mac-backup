@@ -3,6 +3,7 @@ import fc from "fast-check";
 import { SYSTEM_IDS, type NodeId, type PropValue } from "../src/foundation/model.ts";
 import {
   resolveOntology,
+  ontologyClosureMode,
   type NodeLike,
   type OntologyResolution,
 } from "../src/foundation/ontology.ts";
@@ -31,6 +32,7 @@ function ontologyNode(
     member?: NodeId[];
     exclude?: NodeId[];
     extends?: NodeId[];
+    closure?: "descendants";
   } = {},
 ): NodeLike {
   const props: Record<string, PropValue[]> = {
@@ -40,6 +42,9 @@ function ontologyNode(
   if (opts.member?.length) props[SYSTEM_IDS.ontoMemberField] = opts.member.map(ref);
   if (opts.exclude?.length) props[SYSTEM_IDS.ontoExcludeField] = opts.exclude.map(ref);
   if (opts.extends?.length) props[SYSTEM_IDS.ontoExtendsField] = opts.extends.map(ref);
+  if (opts.closure) {
+    props[SYSTEM_IDS.ontoClosureField] = [{ t: "str", v: opts.closure }];
+  }
   return { id, text: id, props, children: [] };
 }
 
@@ -78,7 +83,7 @@ describe("ontology resolver properties (fast-check)", () => {
           }
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 1000 },
     );
   });
 
@@ -113,7 +118,7 @@ describe("ontology resolver properties (fast-check)", () => {
           }
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 1000 },
     );
   });
 
@@ -137,7 +142,7 @@ describe("ontology resolver properties (fast-check)", () => {
           expect(resolution!.members.has(ids[0]!)).toBe(false);
         },
       ),
-      { numRuns: 100 },
+      { numRuns: 1000 },
     );
   });
 
@@ -180,7 +185,111 @@ describe("ontology resolver properties (fast-check)", () => {
           expect([...shuffledRes.excluded].sort()).toEqual([...baselineRes.excluded].sort());
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 1000 },
+    );
+  });
+
+  test("closure descendants pulls exactly the structural descendants of every member, no more and no less", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 2, max: 12 }),
+        fc.array(fc.nat(), { minLength: 12, maxLength: 12 }), // children-edge entropy
+        fc.array(fc.boolean(), { minLength: 12, maxLength: 12 }), // seed-selection entropy
+        (nodeCount, edgeSeed, seedFlags) => {
+          const ids = Array.from({ length: nodeCount }, (_, i) => `f${i}`);
+          // Forest: node i's children are drawn only from indices > i, so the
+          // structure is acyclic by construction.
+          const childrenOf = new Map<NodeId, NodeId[]>();
+          for (let i = 0; i < ids.length; i++) {
+            const laterCount = ids.length - i - 1;
+            const childCount = laterCount === 0 ? 0 : edgeSeed[i % edgeSeed.length]! % (laterCount + 1);
+            childrenOf.set(ids[i]!, ids.slice(i + 1, i + 1 + childCount));
+          }
+          const nodes: NodeLike[] = ids.map((id) => ({
+            id,
+            text: id,
+            props: {},
+            children: childrenOf.get(id) ?? [],
+          }));
+
+          const seedIds = ids.filter((_, i) => seedFlags[i % seedFlags.length]!);
+          if (seedIds.length === 0) return; // need at least one seed to say anything
+
+          // Reference: transitive closure over the same children edges.
+          const expected = new Set(seedIds);
+          const stack = [...seedIds];
+          while (stack.length > 0) {
+            const current = stack.pop()!;
+            for (const childId of childrenOf.get(current) ?? []) {
+              if (expected.has(childId)) continue;
+              expected.add(childId);
+              stack.push(childId);
+            }
+          }
+
+          const onto = ontologyNode("o", { member: seedIds, closure: "descendants" });
+          const resolution = resolveOntology([...nodes, onto], "o");
+
+          expect([...resolution.members].sort()).toEqual([...expected].sort());
+        },
+      ),
+      { numRuns: 1000 },
+    );
+  });
+
+  test("a non-ref value sitting in a ref-list field is never treated as a member id, even when its stringified value collides with a real node", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 5 }),
+        fc.constantFrom(
+          { t: "str", v: "bystander" } as PropValue,
+          { t: "num", v: 42 } as PropValue,
+          { t: "bool", v: true } as PropValue,
+        ),
+        (memberCount, noise) => {
+          const memberIds = Array.from({ length: memberCount }, (_, i) => `m${i}`);
+          const members = memberIds.map((id) => plainNode(id, []));
+          // A real node whose id equals every noise value's stringified `v`
+          // ("bystander", "42", "true") — present in the graph, but never
+          // named as a real ref, so it must never become a member.
+          const bystander = plainNode(String(noise.v), []);
+          const onto: NodeLike = {
+            id: "o",
+            text: "o",
+            props: {
+              [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.ontologyTag)],
+              // A real onto.member list with one non-ref value spliced in.
+              [SYSTEM_IDS.ontoMemberField]: [...memberIds.map(ref), noise],
+            },
+            children: [],
+          };
+
+          const resolution = resolveOntology([...members, bystander, onto], "o");
+
+          expect([...resolution.members].sort()).toEqual([...memberIds].sort());
+          expect(resolution.members.has(String(noise.v))).toBe(false);
+        },
+      ),
+      { numRuns: 1000 },
+    );
+  });
+
+  test("closure mode reads a malformed onto.closure value as 'none', and 'descendants' round-trips through arbitrary whitespace", () => {
+    fc.assert(
+      fc.property(
+        fc.oneof(
+          fc.record({ t: fc.constant("str" as const), v: fc.constant(" descendants ") }),
+          fc.record({ t: fc.constant("str" as const), v: fc.string().filter((s) => s.trim() !== "descendants") }),
+          fc.record({ t: fc.constant("num" as const), v: fc.double({ noNaN: true }) }),
+          fc.record({ t: fc.constant("bool" as const), v: fc.boolean() }),
+        ),
+        (raw) => {
+          const node: NodeLike = { id: "o", text: "o", props: { [SYSTEM_IDS.ontoClosureField]: [raw as PropValue] }, children: [] };
+          const expectDescendants = raw.t === "str" && raw.v.trim() === "descendants";
+          expect(ontologyClosureMode(node)).toBe(expectDescendants ? "descendants" : "none");
+        },
+      ),
+      { numRuns: 500 },
     );
   });
 });

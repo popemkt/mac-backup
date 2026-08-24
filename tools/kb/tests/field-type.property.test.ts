@@ -58,7 +58,17 @@ describe("field-type properties (fast-check)", () => {
       fc.property(
         fc.oneof(
           fc.constant(undefined),
-          fc.record({ t: fc.constant("str" as const), v: fc.string().filter((s) => !isFieldType(s)) }),
+          fc.record({
+            t: fc.constant("str" as const),
+            // Exclude the known type names directly (not via `isFieldType`,
+            // which this property must stay independent of — filtering
+            // through the function under test risks masking a mutation to
+            // it, and fast-check's rejection-sampling can stall badly if the
+            // predicate the filter calls is itself broken).
+            v: fc
+              .string()
+              .filter((s) => !(FIELD_TYPES as readonly string[]).includes(s)),
+          }),
           fc.record({ t: fc.constant("num" as const), v: fc.double({ noNaN: true }) }),
           fc.record({ t: fc.constant("bool" as const), v: fc.boolean() }),
         ),

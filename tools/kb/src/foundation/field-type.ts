@@ -34,7 +34,10 @@ export const FIELD_TYPE_BY_OPTION_ID: Record<string, FieldType> =
   );
 
 export function isFieldType(value: unknown): value is FieldType {
-  return typeof value === "string" && value in FIELD_TYPE_OPTION_IDS;
+  // `Object.hasOwn`, not `in`: `in` also matches inherited names like
+  // `__proto__`, `toString`, or `constructor`, which are not own keys of
+  // FIELD_TYPE_OPTION_IDS but would otherwise pass as a "known" field type.
+  return typeof value === "string" && Object.hasOwn(FIELD_TYPE_OPTION_IDS, value);
 }
 
 /** The value written into a field node's type slot. */
