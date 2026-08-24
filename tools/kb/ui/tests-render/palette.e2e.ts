@@ -87,12 +87,27 @@ test("Add field names a new field and gives the node an editable row for it", as
   ).toBeVisible();
   await page.keyboard.press("Enter");
 
-  await expect(
-    page
-      .locator('[data-fields-for] [data-field-row="true"]')
-      .filter({ hasText: "priority" })
-      .first(),
-  ).toBeVisible();
+  const row = page
+    .locator('[data-fields-for] [data-field-row="true"]')
+    .filter({ hasText: "priority" })
+    .first();
+  await expect(row).toBeVisible();
+
+  // Two values, one label. The old shape rendered a whole labelled row per
+  // value, so a field with two values said "priority" twice.
+  // A text slot only becomes contenteditable once clicked, so click the slot.
+  await row.locator("[data-editable-text]").first().click();
+  await page.keyboard.type("high");
+  await page.keyboard.press("Enter");
+  await expect(row.locator('[data-field-value="true"]')).toHaveCount(1);
+
+  await row.getByRole("button", { name: "value", exact: true }).click();
+  await row.locator("[data-editable-text]").last().click();
+  await page.keyboard.type("later");
+  await page.keyboard.press("Enter");
+
+  await expect(row.locator('[data-field-value="true"]')).toHaveCount(2);
+  await expect(row.locator("[data-field-values]")).toHaveCount(1);
 });
 
 test("global search finds nodes on a freshly loaded store", async ({ page }) => {

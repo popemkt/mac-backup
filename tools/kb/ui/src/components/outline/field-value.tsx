@@ -311,6 +311,7 @@ function EditableText({
       onClick={handleClick}
       onBlur={commit}
       onKeyDown={handleKeyDown}
+      data-editable-text="true"
       data-empty-placeholder={showEmpty ? "true" : undefined}
       onCompositionStart={() => {
         isComposing.current = true;

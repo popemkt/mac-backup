@@ -95,6 +95,10 @@ export function FieldRow({
     <div
       className={cn(
         "field-row group/field flex items-start gap-0 py-1",
+        // Tana's field separators appear on hover only. The border is always
+        // present and merely transparent, so revealing it cannot shift the row.
+        !valueOnly &&
+          "border-y border-transparent transition-colors hover:border-foreground/[0.07]",
         debug && "opacity-90",
         valueOnly && "py-0",
         className,
