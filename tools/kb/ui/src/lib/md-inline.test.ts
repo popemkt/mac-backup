@@ -118,7 +118,7 @@ describe("line-height consistency (edit vs view)", () => {
     );
 
     expect(KB_TEXT_CLASS).toBe("kb-text");
-    expect(tokens).toMatch(/\.kb-text\s*\{[^}]*var\(--kb-text\)/s);
+    expect(tokens).toMatch(/\.kb-text\s*\{[^}]*var\(--kb-text-size\)/s);
     // Both modes must apply the same token class (equal computed font/line-height).
     expect(content).toContain(`KB_TEXT_CLASS`);
     expect(content).toMatch(/isActive[\s\S]*KB_TEXT_CLASS/);

@@ -306,17 +306,51 @@ export function NodeTextHost({
   return (
     <>
       <div
-        className="relative flex min-h-6 min-w-0 flex-1 items-start gap-1.5"
+        className="relative min-h-6 min-w-0 flex-1"
         onClick={handleClick}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
+        {/*
+          Trailing chrome is a float, and a float can only displace line boxes
+          that follow it — so it must come first in source order. This is what
+          gives Tana's behaviour: the pill shortens the first line and every
+          later line runs full width. As a flex sibling it narrowed all of them.
+        */}
+        {(showPadlock || tags.length > 0) && (
+          <span
+            className="kb-text-trailing flex items-center gap-1.5"
+            data-node-trailing="true"
+          >
+            {showPadlock && (
+              <span
+                className="shrink-0 text-foreground/25 opacity-0 transition-opacity duration-150 group-hover/node:opacity-100"
+                title="System node — read-only"
+                data-sys-lock="true"
+              >
+                <LockSimple size={12} weight="bold" />
+              </span>
+            )}
+            <TagChipGroup
+              tags={tags}
+              onTagClick={(tag, e) => {
+                e.stopPropagation();
+                zoomTo(tag.id);
+              }}
+              onTagRemove={(tag, e) => {
+                e.stopPropagation();
+                void mutations.removeTag(nodeId, tag.id);
+              }}
+            />
+          </span>
+        )}
+
         {isActive && !readOnly ? (
           <div
             ref={editorRef}
             key="editor"
             className={cn(
-              "editable kb-text-row min-h-6 min-w-0 flex-1 self-start",
+              "editable kb-text-row min-h-6 min-w-0",
               KB_TEXT_CLASS,
               "outline-none",
               "text-foreground/85",
@@ -340,36 +374,14 @@ export function NodeTextHost({
             data-zoom-title-editor={zoomTitleEditor ? "true" : undefined}
           />
         ) : (
-          <div ref={mdViewRef} className="min-h-6 min-w-0 flex-1 self-start">
+          <div ref={mdViewRef} className="min-h-6 min-w-0">
             <MdView
               text={content}
-              className={cn("min-h-6 min-w-0 flex-1 self-start text-foreground/85", textClassName)}
+              className={cn("min-h-6 min-w-0 text-foreground/85", textClassName)}
               clamp={false}
             />
           </div>
         )}
-
-        {showPadlock && (
-          <span
-            className="mt-1 shrink-0 text-foreground/25 opacity-0 transition-opacity duration-150 group-hover/node:opacity-100"
-            title="System node — read-only"
-            data-sys-lock="true"
-          >
-            <LockSimple size={12} weight="bold" />
-          </span>
-        )}
-
-        <TagChipGroup
-          tags={tags}
-          onTagClick={(tag, e) => {
-            e.stopPropagation();
-            zoomTo(tag.id);
-          }}
-          onTagRemove={(tag, e) => {
-            e.stopPropagation();
-            void mutations.removeTag(nodeId, tag.id);
-          }}
-        />
 
         {refOpen && candidates.length > 0 && (
           <RefAutocomplete

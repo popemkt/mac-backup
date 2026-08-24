@@ -29,7 +29,8 @@ describe("shared outline components (W8b)", () => {
     expect(html).toContain(`${color}18`);
     expect(html).toContain(`color:${color}`);
     expect(html).toContain("kb-tag");
-    expect(html).toContain("h-[12px]");
+    // Height comes from --tag-h on .kb-tag, so the chip must not restate one.
+    expect(html).not.toMatch(/h-\[\d+px\]/);
     expect(html).toContain("data-tag-chip");
   });
 
@@ -91,6 +92,7 @@ describe("shared outline components (W8b)", () => {
     expect(html).toContain('data-tag-chip-group="true"');
     expect(html).toContain("flex-wrap");
     expect(html).not.toMatch(/\bh-6\b/);
+    expect(html).not.toMatch(/h-\[\d+px\]/);
   });
 
   it("resolveTagColor override wins over hash in TagChip style", () => {
@@ -151,10 +153,12 @@ describe("shared outline components (W8b)", () => {
     expect(outlineHtml).toMatch(/padding-left:\s*24px/);
     expect(prefHtml).toMatch(/padding-left:\s*0px/);
     expect(prefHtml).toContain("theme");
-    expect(outlineHtml).toContain("text-[14.5px]");
-    expect(prefHtml).toContain("text-[14.5px]");
-    expect(outlineHtml).toContain("font-normal");
-    expect(prefHtml).toContain("font-normal");
+    // Label rides the shared type scale rather than restating it, so a label
+    // and the node text next to it can never drift apart again.
+    expect(outlineHtml).toContain("kb-text");
+    expect(prefHtml).toContain("kb-text");
+    expect(outlineHtml).not.toContain("text-[14.5px]");
+    expect(prefHtml).not.toContain("text-[14.5px]");
   });
 
   it("surface modules import the single shared row/chip/field components", () => {

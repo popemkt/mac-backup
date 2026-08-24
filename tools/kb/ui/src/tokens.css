@@ -3,46 +3,91 @@
  * Metrics only — indent / hit / type scale / chips / field labels.
  * Colors come from the nxus palette in index.css (DESIGN-RESKIN §1.1);
  * the legacy --kb-* palette and --bg bridge names are gone.
+ *
+ * The type scale is declared as longhands, never via the `font` shorthand.
+ * `font: var(--kb-text) inherit` looks tokenized but is invalid CSS — a
+ * CSS-wide keyword such as `inherit` may not appear as a shorthand component —
+ * so the whole declaration was dropped and every `.kb-text` row silently
+ * inherited the 16px body size while field labels hard-coded 14.5px. That is
+ * the mismatch you could see between a field label and node text. One scale,
+ * one place, and it actually applies.
+ *
+ * These are component defaults, so they live in the `components` layer: a
+ * Tailwind utility (`font-medium`, `text-[20px]`) must still win over them
+ * without a specificity fight.
  */
 :root {
   --kb-indent: 24px;
   --kb-row-h: 24px;
-  --kb-text: 14.5px / 1.6;
+
+  --kb-text-size: 14.5px;
+  --kb-text-leading: 1.6;
   --kb-text-weight: var(--font-weight-body, 400);
-  /* Chip alias tracks the tag token — one size, one path (i10 item 3). */
-  --tag-size: 9px;
-  --tag-line: 11px;
+  /* Resolved line box. Anything that must align to a line of text reads this
+   * rather than re-deriving it (chips, floats, row minimums). */
+  --kb-text-line: calc(var(--kb-text-size) * var(--kb-text-leading));
+
+  /* Tag pill fills the line box like Tana's, minus a hairline of breathing
+   * room top and bottom — a readable chip, not a superscript. */
+  --tag-size: 11.5px;
+  --tag-h: calc(var(--kb-text-line) - 4px);
+  --tag-line: var(--tag-h);
   --tag-weight: var(--font-weight-ui, 500);
-  --kb-chip: var(--tag-size) / var(--tag-line);
   --kb-field-label: 120px;
 }
 
-.kb-text {
-  font: var(--kb-text) inherit;
-  font-weight: var(--kb-text-weight);
-}
+@layer components {
+  .kb-text {
+    font-size: var(--kb-text-size);
+    line-height: var(--kb-text-leading);
+    font-weight: var(--kb-text-weight);
+  }
 
-/* F9: row text host — active and inactive share pre-wrap so \n never collapses. */
-.kb-text-row {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
+  /* F9: row text host — active and inactive share pre-wrap so \n never collapses. */
+  .kb-text-row {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
 
-/* F9: clamp variant for compressed contexts (refs/schema/table/board/breadcrumbs). */
-.kb-text-clamp {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  word-break: break-all;
-}
+  /* F9: clamp variant for compressed contexts (refs/schema/table/board/breadcrumbs). */
+  .kb-text-clamp {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-all;
+  }
 
-.kb-chip,
-.kb-tag {
-  font-size: var(--tag-size);
-  line-height: var(--tag-line);
-  font-weight: var(--tag-weight);
-}
+  .kb-chip,
+  .kb-tag {
+    font-size: var(--tag-size);
+    line-height: var(--tag-line);
+    font-weight: var(--tag-weight);
+  }
 
+  /* Box metrics belong with the type token, not re-stated per component. */
+  .kb-tag {
+    height: var(--tag-h);
+  }
+
+  /*
+   * Trailing chips ride the first line of the node text and let later lines
+   * run full width (Tana). A float — not a flex sibling — is what makes that
+   * true: a flex sibling narrows every line of a wrapped node, including the
+   * ones the chip never touches. The float is only as tall as one line box,
+   * so exactly one line is displaced.
+   */
+  .kb-text-trailing {
+    float: right;
+    margin-left: 0.375rem;
+    /* Content-sized on purpose. One row of pills is shorter than one line box
+     * (--tag-h < --kb-text-line), so exactly one line yields; a node carrying
+     * enough tags to wrap grows the float and displaces a second line, which
+     * is the truthful outcome rather than pills overlapping the text. The
+     * remainder of the line box is split top and bottom so a single row of
+     * pills sits centred on the line it displaces. */
+    margin-top: calc((var(--kb-text-line) - var(--tag-h)) / 2);
+  }
+}
 
 /* W2 inactive md view — inherit .kb-text line-height; tint code; primary refs */
 .kb-md-code {

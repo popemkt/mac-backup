@@ -31,8 +31,14 @@ function collectSourceFiles(dir: string): string[] {
   return out;
 }
 
+/** Declarations only — a rule about code must not be satisfied by prose. */
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+}
+
 describe("kb tokens", () => {
   const tokens = readFileSync(path.join(root, "tokens.css"), "utf8");
+  const tokenDecls = stripComments(tokens);
   const index = readFileSync(path.join(root, "index.css"), "utf8");
   const content = readFileSync(
     path.join(root, "components/outline/node-content.tsx"),
@@ -42,26 +48,52 @@ describe("kb tokens", () => {
   it("defines row metric tokens from DESIGN-REFINE W1", () => {
     expect(tokens).toMatch(/--kb-indent:\s*24px/);
     expect(tokens).toMatch(/--kb-row-h:\s*24px/);
-    expect(tokens).toMatch(/--kb-text:\s*14\.5px\s*\/\s*1\.6/);
-    expect(tokens).toMatch(/--tag-size:\s*9px/);
-    expect(tokens).toMatch(/--tag-line:\s*11px/);
-    expect(tokens).toMatch(/--kb-chip:\s*var\(--tag-size\)\s*\/\s*var\(--tag-line\)/);
+    expect(tokens).toMatch(/--kb-text-size:\s*14\.5px/);
+    expect(tokens).toMatch(/--kb-text-leading:\s*1\.6/);
     expect(tokens).toMatch(/--kb-field-label:\s*120px/);
   });
 
   it("tag typography is one token on .kb-tag/.kb-chip (i10 item 3)", () => {
-    expect(tokens).toMatch(/\.kb-chip,\s*\n\.kb-tag\s*\{/);
+    expect(tokens).toMatch(/\.kb-chip,\s*\n\s*\.kb-tag\s*\{/);
     expect(tokens).toMatch(/font-size:\s*var\(--tag-size\)/);
     expect(tokens).toMatch(/line-height:\s*var\(--tag-line\)/);
-    // No duplicate hardcoded chip sizes outside the shared token.
-    expect(tokens).not.toMatch(/--tag-size:\s*10px/);
-    expect(tokens).not.toMatch(/--kb-chip:\s*11px/);
   });
 
-  it("content row uses var(--kb-text) via .kb-text", () => {
-    expect(tokens).toMatch(/\.kb-text\s*\{[^}]*var\(--kb-text\)/s);
+  it("tag pill is sized from the line box, not a hardcoded chip height", () => {
+    // Tana parity: the pill fills the line, so it is derived from the text
+    // metric rather than re-stated as a magic px height per component.
+    expect(tokens).toMatch(/--tag-h:\s*calc\(var\(--kb-text-line\)/);
+    expect(tokens).toMatch(/--tag-line:\s*var\(--tag-h\)/);
+    expect(tokens).toMatch(/\.kb-tag\s*\{[^}]*height:\s*var\(--tag-h\)/s);
+    const chip = readFileSync(
+      path.join(root, "components/outline/tag-chip.tsx"),
+      "utf8",
+    );
+    expect(stripComments(chip)).not.toMatch(/h-\[\d+px\]/);
+  });
+
+  it("content row type scale is applied, not merely declared", () => {
+    // The previous form was `font: var(--kb-text) inherit`, which reads as
+    // tokenized but is invalid: a CSS-wide keyword cannot be a shorthand
+    // component, so the declaration was dropped whole and .kb-text inherited
+    // the 16px body size for its entire life. Longhands only.
+    expect(tokens).toMatch(/\.kb-text\s*\{[^}]*font-size:\s*var\(--kb-text-size\)/s);
+    expect(tokens).toMatch(
+      /\.kb-text\s*\{[^}]*line-height:\s*var\(--kb-text-leading\)/s,
+    );
+    expect(tokenDecls).not.toMatch(/\bfont:\s*var\(/);
+    expect(tokenDecls).not.toMatch(/\binherit\b/);
     expect(content).toMatch(/KB_TEXT_CLASS|kb-text/);
     expect(content).not.toMatch(/text-\[14\.5px\]/);
+  });
+
+  it("type-scale classes sit in the components layer so utilities still win", () => {
+    // font-medium on a .kb-text heading must beat the token's 400, and
+    // tokens.css is imported after Tailwind — without a layer it would not.
+    expect(tokens).toMatch(/@layer\s+components\s*\{/);
+    const layerStart = tokens.indexOf("@layer components");
+    expect(layerStart).toBeGreaterThan(-1);
+    expect(tokens.indexOf(".kb-text {")).toBeGreaterThan(layerStart);
   });
 
   it("index.css carries the nxus oklch palette (DESIGN-RESKIN §1.1)", () => {

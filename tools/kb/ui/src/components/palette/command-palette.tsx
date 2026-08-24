@@ -168,7 +168,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search and open…"
-            className="w-full bg-transparent text-[14.5px] text-foreground/85 outline-none placeholder:text-foreground/25"
+            className="kb-text w-full bg-transparent text-foreground/85 outline-none placeholder:text-foreground/25"
             aria-autocomplete="list"
             aria-controls="kb-palette-list"
             aria-activedescendant={

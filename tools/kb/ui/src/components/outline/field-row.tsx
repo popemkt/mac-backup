@@ -120,15 +120,16 @@ export function FieldRow({
           <span
             className={cn(
               "flex h-6 shrink-0 items-start self-start truncate pl-1 pt-px",
-              "text-[14.5px] font-normal leading-[1.6]",
+              // Same type scale as node text — only the tint differs (Tana).
+              "kb-text",
               debug ? "text-foreground/25" : "text-foreground/35",
             )}
             style={{ width: `${FIELD_LABEL_WIDTH}px` }}
             title={labelTitle ?? (fieldId ? `${label} (${fieldId})` : label)}
           >
-            <span className="truncate leading-[1.6]">{label}</span>
+            <span className="truncate">{label}</span>
             {debug && fieldId && (
-              <span className="ml-1 truncate font-mono text-[10px] leading-[1.6] text-foreground/25">
+              <span className="ml-1 truncate font-mono text-[10px] text-foreground/25">
                 {fieldId}
               </span>
             )}

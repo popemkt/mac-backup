@@ -284,7 +284,7 @@ function LoadError({
   return (
     <div className="mx-auto flex max-w-md flex-col gap-3 p-6" role="alert">
       <div>
-        <h2 className="text-[14.5px] font-medium text-foreground/80">
+        <h2 className="kb-text font-medium text-foreground/80">
           Couldn’t load your workspace
         </h2>
         <p className="mt-1 text-[13px] text-foreground/50">

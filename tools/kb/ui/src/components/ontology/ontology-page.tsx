@@ -118,7 +118,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
   if (!onto) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-6">
-        <h2 className="text-[14.5px] font-medium text-foreground/80">
+        <h2 className="kb-text font-medium text-foreground/80">
           Ontology not found
         </h2>
         <p className="mt-1 text-[13px] text-foreground/45">

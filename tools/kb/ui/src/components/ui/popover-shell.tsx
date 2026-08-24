@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn";
 
 /** Shared prefs / filter panel chrome (DESIGN-RESKIN §0). */
 export const POPOVER_VALUE_CLASS =
-  "min-w-0 flex-1 cursor-pointer appearance-none rounded-sm border-none bg-transparent text-[14.5px] leading-[1.6] text-foreground/70 outline-none hover:text-foreground/85";
+  "kb-text min-w-0 flex-1 cursor-pointer appearance-none rounded-sm border-none bg-transparent text-foreground/70 outline-none hover:text-foreground/85";
 
 export interface PopoverShellProps {
   title: string;

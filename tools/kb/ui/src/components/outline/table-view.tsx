@@ -155,7 +155,7 @@ export function TableView({
   return (
     <div
       className={cn(
-        "table-view w-full overflow-x-auto my-2 rounded-md border border-foreground/[0.06] bg-background text-[14.5px] leading-[1.6]",
+        "table-view kb-text w-full overflow-x-auto my-2 rounded-md border border-foreground/[0.06] bg-background",
         breakoutCentered && "table-view-breakout",
       )}
       data-table-view="true"

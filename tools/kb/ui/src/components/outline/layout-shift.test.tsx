@@ -37,13 +37,17 @@ describe("layout-shift regressions (i10)", () => {
     expect(withRemove).toContain("group-hover/tag:opacity-60");
     expect(withRemove).not.toContain("group-hover/tag:flex");
     expect(withRemove).toContain('data-tag-mark="true"');
-    expect(withRemove).toContain("w-[9px]");
+    // Mark scales in em off --tag-size rather than pinning its own px box.
+    expect(withRemove).toContain("w-[1em]");
 
     // Label + mark anatomy matches the no-remove chip (only overlay button added).
     expect(withRemove).toContain(">todo</span>");
     expect(withoutRemove).toContain(">todo</span>");
-    expect(withRemove).toContain("h-[12px]");
-    expect(withoutRemove).toContain("h-[12px]");
+    // Both carry the same token class; the height itself lives on .kb-tag.
+    expect(withRemove).toContain("kb-tag");
+    expect(withoutRemove).toContain("kb-tag");
+    expect(withRemove).not.toMatch(/h-\[\d+px\]/);
+    expect(withoutRemove).not.toMatch(/h-\[\d+px\]/);
 
     const src = readFileSync(path.join(outlineDir, "tag-chip.tsx"), "utf8");
     expect(src).toContain("absolute inset-0");

@@ -11,18 +11,22 @@ export interface TagChipProps {
 
 /**
  * DESIGN-RESKIN §1.2/1.8 — the one tag chip everywhere.
- * Tokenized via `.kb-tag` / `--tag-size`. Remove × overlays the hash slot so
- * hover never changes measured width (i10 item 2; Tana/CodeFlow placement).
+ * Tokenized via `.kb-tag` / `--tag-size` / `--tag-h`: the pill fills the text
+ * line box (Tana parity) and its box metrics live with the token, not here —
+ * a component that restates `h-[12px]` is a second source of truth for the
+ * same thing. The mark scales in `em`, so it tracks --tag-size for free.
+ * Remove × overlays the hash slot so hover never changes measured width
+ * (i10 item 2; Tana/CodeFlow placement).
  */
 export function TagChip({ tag, onClick, onRemove, className }: TagChipProps) {
   const canNavigate = Boolean(onClick);
   const mark = (
     <span
-      className="relative inline-flex h-[9px] w-[9px] shrink-0 items-center justify-center"
+      className="relative inline-flex h-[1em] w-[1em] shrink-0 items-center justify-center"
       data-tag-mark="true"
     >
       <Hash
-        size={9}
+        size="1em"
         weight="bold"
         className={cn(
           "opacity-60 transition-opacity",
@@ -48,7 +52,7 @@ export function TagChip({ tag, onClick, onRemove, className }: TagChipProps) {
           aria-label={`Remove tag ${tag.name}`}
           data-tag-remove="true"
         >
-          <X size={9} weight="bold" />
+          <X size="1em" weight="bold" />
         </button>
       ) : null}
     </span>
@@ -59,7 +63,7 @@ export function TagChip({ tag, onClick, onRemove, className }: TagChipProps) {
   return (
     <span
       className={cn(
-        "group/tag inline-flex h-[12px] max-w-full items-center gap-0.5 rounded-sm px-1 py-0",
+        "group/tag inline-flex max-w-full items-center gap-1 rounded-sm px-1.5 py-0",
         "kb-tag select-none whitespace-nowrap",
         "transition-opacity hover:opacity-70",
         className,
@@ -103,7 +107,7 @@ export function TagChipGroup({
   if (tags.length === 0) return null;
   return (
     <div
-      className="flex max-w-[min(100%,16rem)] shrink-0 flex-wrap items-center gap-0.5 self-start"
+      className="flex max-w-[min(100%,16rem)] flex-wrap items-center gap-1"
       data-tag-chip-group="true"
     >
       {tags.map((tag) => (

@@ -492,7 +492,7 @@ function RefEditor({
       <span
         className={cn(
           "inline-flex cursor-pointer items-center gap-1 rounded-sm px-1.5 py-px",
-          "text-[14.5px] leading-[1.6] text-foreground/70",
+          "kb-text text-foreground/70",
           hasDisplay ? "bg-primary/8 hover:bg-primary/12" : "bg-warning/10 hover:bg-warning/15",
           "transition-colors duration-100",
         )}
