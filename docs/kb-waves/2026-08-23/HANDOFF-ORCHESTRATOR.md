@@ -259,6 +259,69 @@ a production build.**
 Baseline now: core **713** pass / 0 fail · typecheck clean · lint clean · UI
 **501** pass / 0 fail.
 
+### i12-render-harness merged — and it immediately earned its keep
+
+`npm run test:render` (Playwright, chromium only) builds a deterministic
+30-node fixture in a `mkdtemp` root, copies `.kb` and replaces only the
+*scratch* `nodes.jsonl`, and serves it on 4323 — so renderer switches (which
+are persisted prop writes) never touch the tracked store. Four browser
+assertions: force2d/cluster read Sigma display positions plus
+`canvas.sigma-labels` pixels, cluster requires hull coverage ≥60% of its
+member box, tree requires all 30 SVG nodes intersecting the viewport after
+Fit, force3d requires a non-degenerate post-cooldown extent.
+
+**Red-proof: 3 of 4 demonstrated with numbers** (reverts applied with
+`git revert --no-commit`, then aborted; none left on the branch):
+`131877c` reverted → force2d coverage `0/30`; `70c7184` reverted → 3D extent
+`3.8e-6` (needs > 1); `96fe4ed` reverted → hull 48px vs required 73.8px.
+
+**The 4th is honestly reported as NOT demonstrated**, and it corrects a claim
+made repeatedly in this handoff: reverting `3b1f82f` still passed, because
+**Chromium 151 serializes a computed `oklch()` probe colour to `rgb()`**. So
+"Chrome preserves the authored colour space in computed style" is
+version-dependent, not universal. r10 did observe the real `polished` throw
+with a stack in its browser, and normalizing colours before handing them to a
+parser that only accepts hex/rgb/hsl is correct regardless — but do not claim
+that assertion is proven until it runs on a browser that preserves `oklch()`.
+
+**Merge caught two real integration breaks** (i13 merged first, as planned;
+i12's three `MODE === "test-render"` hooks were re-applied by hand over i13's
+rewrite — all six set/delete sites verified present):
+
+1. i12's tree test scoped `getByTitle("Fit view")` inside
+   `[data-testid='tree-graph']`, but i13 moved chrome out of the renderer into
+   `GraphCanvasFrame`. Retargeted to the frame's button, and tightened to
+   require it *enabled* — which is what exposed the next one.
+2. **i13's shared toolbar was completely dead.** `graph-page` reset `controls`
+   to null in a `[renderer]` effect; child effects run before parent effects,
+   so the incoming renderer's camera adapter was registered and then
+   immediately discarded — on first mount as well as every switch. `controls`
+   was therefore always null and the frame disabled Fit / Zoom / Reset for all
+   four renderers. The toolbar looked right and did nothing: exactly the defect
+   class i13 was dispatched to remove. Fixed by dropping the redundant parent
+   reset (each renderer already nulls its own adapter on unmount). **Every unit
+   suite and all four paint assertions passed against the dead toolbar** — only
+   the harness driving a real button caught it, which is the argument for the
+   harness in one sentence.
+
+Operational notes: the ui package declares npm 12 while the system npm is
+10.9.8, so `npm run test:render` must be run as `bunx npm@12 run test:render`
+(or fix the engine). Playwright needs `bun install` in `tools/kb/ui` plus
+`npx playwright install chromium`; the browser download stays out of the repo.
+i12 recommends the render suite stay **out** of pre-commit — see its handoff.
+
+Baseline now: core **713** pass / 0 fail · typecheck clean · lint clean · UI
+**501** pass / 0 fail · render **4** pass / 0 fail.
+
+### Remaining graph gaps (named, not silent)
+
+- FA2 `spread` / `link-distance` persist and parse but do not drive the worker.
+- Cluster still navigates on node click (`selection: false` in its capability
+  table); force2d / tree / force3d select in place.
+- No build-time chunk assertion for `three` (i13 used a source import scan).
+- The oklch red-proof above.
+- Ontology page still carries its own local 11px chip (second chip path).
+
 ### Suggested next wave (not dispatched — machine was saturated)
 
 `i12-graph`: renderer capability descriptors (finish task 9 properly so inert
