@@ -11,6 +11,7 @@ import { Bullet } from "./bullet";
 import { FieldRow } from "./field-row";
 import { FieldTypeConfig } from "./field-type-config";
 import { NodeRow } from "./node-row";
+import { TagFieldsConfig } from "./tag-fields-config";
 import { TagChipGroup } from "./tag-chip";
 
 /**
@@ -40,6 +41,7 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
 
   return (
     <section className="mt-6 border-t border-foreground/[0.06] px-1 pt-4">
+      {kind === "tag" && <TagFieldsConfig tagId={nodeId} />}
       {kind === "field" && (
         <div className="mb-4">
           <h2 className="mb-2 px-1 text-[12px] uppercase tracking-wide text-foreground/30">
