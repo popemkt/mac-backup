@@ -12,6 +12,7 @@ import {
   isKbNode,
   isShapeNode,
   isTextNode,
+  parseCanvasDoc,
   removeCanvasEdge,
   upsertCanvasEdge,
   upsertCanvasNode,
@@ -354,17 +355,16 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         e.preventDefault();
         void navigator.clipboard.readText().then((text) => {
           try {
-            const parsed = JSON.parse(text);
-            if (!Array.isArray(parsed.nodes)) return;
+            const parsed = parseCanvasDoc(text);
             const idMap = new Map<string, string>();
-            const newNodes: CanvasNode[] = parsed.nodes.map((n: any) => {
+            const newNodes: CanvasNode[] = parsed.nodes.map((n) => {
               const newId = ulid();
               idMap.set(n.id, newId);
-              return { ...n, id: newId, x: (n.x ?? 0) + 24, y: (n.y ?? 0) + 24 };
+              return { ...n, id: newId, x: n.x + 24, y: n.y + 24 };
             });
-            const newEdges: CanvasEdge[] = (parsed.edges ?? [])
-              .filter((edge: any) => idMap.has(edge.fromNode) && idMap.has(edge.toNode))
-              .map((edge: any) => ({
+            const newEdges: CanvasEdge[] = parsed.edges
+              .filter((edge) => idMap.has(edge.fromNode) && idMap.has(edge.toNode))
+              .map((edge) => ({
                 ...edge,
                 id: ulid(),
                 fromNode: idMap.get(edge.fromNode)!,
@@ -533,7 +533,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [canvasId, byId, schedulePersist, schedulePersistSilent]);
+  }, [canvasId, byId, schedulePersist, schedulePersistSilent]); // oxlint-disable-line react-hooks/exhaustive-deps -- zoomToFit is recreated per render and is not a stable dep; this effect intentionally binds a one-shot keydown listener
 
   const setTool = useCallback((tool: CanvasTool) => {
     if (tool === "kb-node") {
