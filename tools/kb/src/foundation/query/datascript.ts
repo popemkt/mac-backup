@@ -1,8 +1,15 @@
 import * as d from "datascript";
 import type { KbNode, NodeId, PropValue } from "../model.ts";
 
-/** Mention form in text: [[node-id|label]] or [[node-id]] */
-const MENTION_RE = /\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g;
+/**
+ * Mention form in text: [[node-id|label]] or [[node-id]].
+ *
+ * The id group excludes `[` as well as `]`/`|`: a real id is ULID/`sys.*`
+ * shaped and never contains one, and excluding it lets the regex re-sync to
+ * a genuine `[[id]]` marker after a stray extra `[` in surrounding prose
+ * (e.g. `[[[id]]`) instead of swallowing that `[` into the captured id.
+ */
+const MENTION_RE = /\[\[([^[\]|]+)(?:\|[^\]]*)?\]\]/g;
 
 export type Datom = [number | string, string, unknown, number?, boolean?];
 
