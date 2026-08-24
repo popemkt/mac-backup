@@ -73,10 +73,21 @@ describe("DST — dangling inbound refs are intended, not a violation", () => {
     expect(DANGLING_REF_DECISION).toMatch(/intended/);
   });
 
+  test("deleting a field node orphans prop keys but the store stays legal + round-trips", async () => {
+    // A field is just a node; deleting it leaves any prop keyed by it dangling.
+    // That is INTENDED (the store never rewrites another node's props), and the
+    // store must still be structurally legal and byte-stable. This seed is one
+    // of the committed set that exercises the delete path onto a field node.
+    const a = await run("dst-0");
+    expect(a.violations, a.violations.join("; ")).toEqual([]);
+    expect(canonicalJsonl(a.nodes)).toBe(a.json);
+  });
+
   test("a node referenced by another node's prop/mention can be deleted safely", async () => {
-    // dst-4 embeds `[[id|label]]` mentions to live content nodes; the sim
-    // sometimes deletes those targets. The store must remain legal, and any
-    // dangling ref must be a CONTENT ref (never a structural child edge).
+    // The sim embeds `[[id|label]]` mentions + set/unset prop ops and deletes
+    // arbitrary content nodes (even field nodes, which orphans prop keys). The
+    // store must stay legal (structural edges resolve), and anything dangling
+    // must be CONTENT — never a structural child edge.
     const a = await run("dst-4");
     expect(a.violations, a.violations.join("; ")).toEqual([]);
 
@@ -84,14 +95,17 @@ describe("DST — dangling inbound refs are intended, not a violation", () => {
     const parents = parentOf(a.nodes);
     for (const n of a.nodes) {
       for (const c of n.children) {
-        // Every structural child edge must resolve — this is the violation side.
+        // Every structural child edge must resolve — the violation side.
         expect(parents.has(c), `node ${n.id} references missing child ${c}`).toBe(true);
       }
     }
-    // Whatever dangles is content-only (the resolver tolerates it by design).
-    // We don't assert it must be non-empty (seeded outcome varies), but IF the
-    // sim produced dangling refs, they are the tolerated kind.
-    expect(dangling.every((d) => d.startsWith("ref ") || d.startsWith("mention "))).toBe(true);
+    // Whatever dangles is a tolerated content ref (ref value / mention / prop
+    // key). The harness never flags it; it only enforces structural integrity
+    // and byte-stable round-trips.
+    expect(
+      dangling.every((d) => /^(ref|mention|propkey) /.test(d)),
+      `unexpected dangling kind: ${dangling.join("; ")}`,
+    ).toBe(true);
   });
 });
 

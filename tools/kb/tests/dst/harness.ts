@@ -322,14 +322,7 @@ export function invariantViolations(nodes: KbNode[]): string[] {
   const txErr = txIntegrityError(nodes, { upserts: [], deletes: [] });
   if (txErr) out.push(txErr);
 
-  // 5. No prop key is invented: every prop key must name an existing field node.
-  for (const n of nodes) {
-    for (const key of Object.keys(n.props)) {
-      if (!byId.has(key)) out.push(`node ${n.id} carries prop key ${key} with no field node`);
-    }
-  }
-
-  // 6. sys.* write guards hold: the harness never sets `force`, so no new
+  // 5. sys.* write guards hold: the harness never sets `force`, so no new
   //    sys.* node may appear and none may have been added by the sim.
   const seedIds = new Set(systemSeedNodes().map((n) => n.id));
   for (const n of nodes) {
@@ -364,10 +357,18 @@ export function parentOf(nodes: KbNode[]): Map<string, string | null> {
 }
 
 /**
- * Count of dangling INBOUND CONTENT refs (ref prop values / text mentions that
- * point at a node id no longer in the store). Per the dangling-ref decision
- * these are intended/tolerated, so the harness does NOT flag them — but the
- * value is exposed so a test can assert they are the ONLY dangling kind.
+ * Count of dangling INBOUND CONTENT refs. Three kinds are all tolerated by
+ * design (the resolver warns, never rewrites another node's content):
+ *   - a `{t:"ref"}` prop *value* pointing at a deleted node id
+ *   - a `[[id|label]]` mention in text pointing at a deleted node id
+ *   - a *prop key* naming a field node id that was itself deleted — the field
+ *     is gone, so the prop key dangles, but the value still round-trips and
+ *     nothing else was rewritten.
+ *
+ * The harness does NOT flag any of these as violations. The business rule that
+ * must hold instead is round-trip byte-stability: a legal store re-serialises
+ * to the same bytes (asserted separately), so a key is never invented (a new
+ * key appears on reload) or silently dropped (an existing key vanishes).
  */
 export function contentDanglingRefs(nodes: KbNode[]): string[] {
   const byId = new Set(nodes.map((n) => n.id));
@@ -380,6 +381,9 @@ export function contentDanglingRefs(nodes: KbNode[]): string[] {
           out.push(`ref ${n.id} -> ${v.v}`);
         }
       }
+    }
+    for (const key of Object.keys(n.props)) {
+      if (!byId.has(key)) out.push(`propkey ${n.id} -> ${key}`);
     }
     mentionRe.lastIndex = 0;
     let m: RegExpExecArray | null;
@@ -478,6 +482,13 @@ export async function runScenario(
       }
       if (!orderingIdempotent(snap.nodes)) {
         violations.push(`op#${i} (seed ${seed}): migrateOrderKeys reorders siblings`);
+        return;
+      }
+      // "No prop key invented or silently dropped": re-serialising the loaded
+      // nodes must reproduce the on-disk bytes exactly. A props key/phrase that
+      // appears or vanishes on the reload path is a persist/load asymmetry.
+      if (canonicalJsonl(snap.nodes) !== snap.json) {
+        violations.push(`op#${i} (seed ${seed}): store does not round-trip to identical canonical bytes`);
         return;
       }
       applied = i + 1;
