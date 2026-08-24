@@ -225,6 +225,8 @@ export function SigmaGraph({
     el.style.background = background;
 
     const isLarge = graph.order > LARGE_GRAPH_THRESHOLD;
+    // Second adaptive tier: step label density down before the 1500-node edge hide.
+    const isMedium = graph.order > 300;
 
     const sigma = new Sigma(graph, el, {
       allowInvalidContainer: true,
@@ -232,8 +234,8 @@ export function SigmaGraph({
       labelFont: "Outfit Variable, ui-sans-serif, system-ui, sans-serif",
       labelSize: 12,
       labelColor: { color: labelColor },
-      labelRenderedSizeThreshold: isLarge ? 12 : 7,
-      labelDensity: isLarge ? 0.5 : 0.8,
+      labelRenderedSizeThreshold: isLarge ? 12 : isMedium ? 9 : 7,
+      labelDensity: isLarge ? 0.5 : isMedium ? 0.65 : 0.8,
       defaultEdgeColor: edgeColor,
       defaultEdgeType: "arrow",
       edgeProgramClasses: {

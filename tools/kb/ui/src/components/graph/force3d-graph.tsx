@@ -13,7 +13,7 @@ import {
   SpriteMaterial,
 } from "./force3d-three";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
-import { readTokenColor } from "@/lib/css-color";
+import { force3dColor, readTokenColor } from "@/lib/css-color";
 import { graphNodeAlpha, withGraphAlpha } from "@/lib/graph-dim";
 import { formatGraphLabel } from "@/lib/graph-label";
 import { fibonacciSphere } from "@/lib/convex-hull";
@@ -140,16 +140,18 @@ export default function Force3dGraph({
       nodeSetRef.current = nodeSetKey;
     }
 
-    const background = readTokenColor("--background", {
-      fallback: "rgb(20,20,20)",
-    });
-    const linkBase = readTokenColor("--foreground", {
-      alpha: 0.35,
-      fallback: "rgba(200,200,200,0.35)",
-    });
-    const labelColor = readTokenColor("--foreground", {
-      fallback: "rgb(34,34,34)",
-    });
+    const background = force3dColor(
+      readTokenColor("--background", { fallback: "rgb(20,20,20)" }),
+    );
+    const linkBase = force3dColor(
+      readTokenColor("--foreground", {
+        alpha: 0.35,
+        fallback: "rgba(200,200,200,0.35)",
+      }),
+    );
+    const labelColor = force3dColor(
+      readTokenColor("--foreground", { fallback: "rgb(34,34,34)" }),
+    );
 
     const clusters = [...new Set(nodes.map((n) => n.clusterKey))].sort();
     const attractors = new Map<string, Vec3>();
@@ -176,7 +178,7 @@ export default function Force3dGraph({
       return {
         id: n.id,
         name: n.label,
-        color: n.color,
+        color: force3dColor(n.color),
         val: n.size,
         clusterKey: n.clusterKey,
         tags: n.tags,

@@ -174,7 +174,12 @@ export function ClusterGraph({
       clusterCounts.set(n.clusterKey, (clusterCounts.get(n.clusterKey) ?? 0) + 1);
     }
 
+    // Throttle hull redraw on large graphs (r10 §2 row 9 / task 16d).
+    const hullEvery = graph.order > 300 ? 5 : 1;
+    let hullTick = 0;
     const drawHulls = () => {
+      hullTick += 1;
+      if (hullTick % hullEvery !== 0) return;
       const ctx = hullCanvas.getContext("2d");
       if (!ctx) return;
       const w = el.clientWidth;
