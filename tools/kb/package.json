@@ -9,6 +9,7 @@
   },
   "scripts": {
     "test": "bun test",
+    "test:mutation": "stryker run",
     "bench": "bun test tests/benchmark.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "vp lint",
@@ -29,7 +30,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "^10.0.0",
     "@types/bun": "^1.3.14",
+    "fast-check": "^4.9.0",
     "knip": "6.32.2",
     "typescript": "^7.0.2",
     "vite-plus": "0.2.8",
