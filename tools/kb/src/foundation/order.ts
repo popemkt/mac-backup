@@ -36,7 +36,18 @@ export function rankBetween(before?: string, after?: string): string {
   return `${before ?? encode(0n)}h`;
 }
 
-/** One-time additive migration: assign ranks in today's visible child/root order. */
+/**
+ * One-time additive migration: give ranks to nodes that do not have one yet,
+ * in today's visible child/root order.
+ *
+ * It must never rewrite a rank that already exists. This runs on every
+ * `openKb`, and the first version recomputed evenly-spaced ranks for every
+ * sibling group and overwrote whatever was stored. Child order survived that
+ * (the group came from `node.children`, which is already the visible order),
+ * but the forest-root group was rebuilt with `.sort()` on the id, so every
+ * server start silently reverted root reordering to id order — defeating the
+ * root-level move/insert this rank was added to enable.
+ */
 export function migrateOrderKeys(nodes: KbNode[]): { nodes: KbNode[]; changed: boolean } {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const orderedGroups: NodeId[][] = [];
@@ -45,15 +56,56 @@ export function migrateOrderKeys(nodes: KbNode[]): { nodes: KbNode[]; changed: b
     orderedGroups.push(node.children.filter((id) => byId.has(id)));
     node.children.forEach((id) => children.add(id));
   }
-  // Legacy forest roots were id-sorted by the projection; use precisely that
-  // sequence for migration so loading old JSONL cannot visibly reorder it.
-  orderedGroups.push(nodes.filter((node) => !children.has(node.id)).map((node) => node.id).sort());
+  // Forest roots: respect any ranks already stored, and fall back to the id
+  // sequence only for roots that have never been ranked.
+  const rootIds = nodes.filter((node) => !children.has(node.id)).map((node) => node.id);
+  rootIds.sort((a, b) => {
+    const oa = byId.get(a)?.order;
+    const ob = byId.get(b)?.order;
+    if (oa && ob) return oa < ob ? -1 : oa > ob ? 1 : 0;
+    if (oa) return -1;
+    if (ob) return 1;
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+  orderedGroups.push(rootIds);
+
   const ranks = new Map<NodeId, string>();
-  for (const ids of orderedGroups) for (const [id, rank] of ranksFor(ids)) ranks.set(id, rank);
+  for (const ids of orderedGroups) {
+    if (ids.length === 0) continue;
+    const stored = ids.map((id) => byId.get(id)?.order);
+    if (stored.every(Boolean)) continue; // fully ranked already — leave it alone
+    if (!stored.some(Boolean)) {
+      for (const [id, rank] of ranksFor(ids)) ranks.set(id, rank);
+      continue;
+    }
+    // Mixed: rank only the gaps, between their already-ranked neighbours, so
+    // the visible sequence of this group is unchanged.
+    for (let i = 0; i < ids.length; i++) {
+      if (stored[i]) continue;
+      let before: string | undefined;
+      for (let j = i - 1; j >= 0; j--) {
+        const prior = stored[j] ?? ranks.get(ids[j]!);
+        if (prior) {
+          before = prior;
+          break;
+        }
+      }
+      let after: string | undefined;
+      for (let j = i + 1; j < ids.length; j++) {
+        if (stored[j]) {
+          after = stored[j];
+          break;
+        }
+      }
+      ranks.set(ids[i]!, rankBetween(before, after));
+    }
+  }
+
   let changed = false;
   const migrated = nodes.map((node) => {
+    if (node.order) return node; // never overwrite an existing rank
     const order = ranks.get(node.id);
-    if (!order || node.order === order) return node;
+    if (!order) return node;
     changed = true;
     return { ...node, order };
   });
