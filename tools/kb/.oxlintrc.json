@@ -1,0 +1,48 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "react", "import", "unicorn", "oxc"],
+  "rules": {
+    "import/no-cycle": ["error", { "maxDepth": 8 }],
+    "react/exhaustive-deps": "error",
+    "typescript/ban-ts-comment": ["error", { "ts-expect-error": "allow-with-description" }],
+    "typescript/no-explicit-any": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["ui/src/**"],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(?:\\.\\./)+src/",
+                "message": "ui may reach the backend only via the @kb/* seam, never a relative path into backend src internals."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/foundation/**", "src/operations/**"],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(?:\\.\\./)+(?:surface|operations|render)/",
+                "message": "foundation is a leaf and operations must not reach into surface/render internals; layer direction is surface -> operations -> foundation."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/*.css"],
+      "rules": {}
+    }
+  ]
+}
