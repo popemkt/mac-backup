@@ -12,6 +12,9 @@ export type EdgeKind = "mention" | "child" | "ref-prop";
 
 export type LensRenderer = "force2d" | "tree" | "cluster" | "force3d" | string;
 
+export type LensLayout = "force" | "radial" | "hierarchical" | "grid";
+export type LensLabelDensity = "low" | "medium" | "high";
+
 export interface LensPerspective {
   id: string;
   label: string;
@@ -28,6 +31,13 @@ export interface LensPerspective {
   clusterBy: string;
   /** Tree / ego root node id when set. */
   focus: string | null;
+  layout: LensLayout;
+  spread: number;
+  linkDistance: number;
+  showLabels: boolean;
+  curvedLinks: boolean;
+  autorotate: boolean;
+  labelDensity: LensLabelDensity;
 }
 
 export interface LensNode {
@@ -61,7 +71,22 @@ export const DEFAULT_MAX_NODES = 500;
 export const DEFAULT_COLOR_BY = "tag";
 export const DEFAULT_SIZE_BY = "degree";
 export const DEFAULT_RENDERER = "force2d";
-export const DEFAULT_CLUSTER_BY = "none";
+/** Fallback when a perspective has no cluster-by prop. Seeded perspectives use `parent`. */
+export const DEFAULT_CLUSTER_BY = "parent";
+export const DEFAULT_LAYOUT: LensLayout = "force";
+export const DEFAULT_SPREAD = 150;
+export const DEFAULT_LINK_DISTANCE = 60;
+export const DEFAULT_SHOW_LABELS = true;
+export const DEFAULT_CURVED_LINKS = false;
+export const DEFAULT_AUTOROTATE = false;
+export const DEFAULT_LABEL_DENSITY: LensLabelDensity = "medium";
+
+export const LENS_LAYOUTS: LensLayout[] = [
+  "force",
+  "radial",
+  "hierarchical",
+  "grid",
+];
 
 export const LENS_RENDERERS = [
   "force2d",
@@ -144,11 +169,36 @@ export function listPerspectiveNodes(wireNodes: WireNode[]): WireNode[] {
     .sort((a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id));
 }
 
+function boolProp(node: WireNode, fieldId: string): boolean | null {
+  const v = (node.props[fieldId] ?? []).find(
+    (p) => p.t === "bool" && typeof p.v === "boolean",
+  );
+  return v ? Boolean(v.v) : null;
+}
+
 export function parsePerspective(node: WireNode): LensPerspective {
   const kindsRaw = multiStrProp(node, SYSTEM_IDS.lensEdgeKindsField);
   const edgeKinds = kindsRaw
     .filter((k): k is EdgeKind => EDGE_KIND_SET.has(k));
   const maxNodes = numProp(node, SYSTEM_IDS.lensMaxNodesField);
+  const layoutRaw = strProp(node, SYSTEM_IDS.lensLayoutField);
+  const layout: LensLayout =
+    layoutRaw === "radial" ||
+    layoutRaw === "hierarchical" ||
+    layoutRaw === "grid" ||
+    layoutRaw === "force"
+      ? layoutRaw
+      : DEFAULT_LAYOUT;
+  const densityRaw = strProp(node, SYSTEM_IDS.lensLabelDensityField);
+  const labelDensity: LensLabelDensity =
+    densityRaw === "low" || densityRaw === "medium" || densityRaw === "high"
+      ? densityRaw
+      : DEFAULT_LABEL_DENSITY;
+  const spread = numProp(node, SYSTEM_IDS.lensSpreadField);
+  const linkDistance = numProp(node, SYSTEM_IDS.lensLinkDistanceField);
+  const showLabels = boolProp(node, SYSTEM_IDS.lensShowLabelsField);
+  const curvedLinks = boolProp(node, SYSTEM_IDS.lensCurvedLinksField);
+  const autorotate = boolProp(node, SYSTEM_IDS.lensAutorotateField);
   return {
     id: node.id,
     label: node.text || node.id,
@@ -164,6 +214,19 @@ export function parsePerspective(node: WireNode): LensPerspective {
     clusterBy:
       strProp(node, SYSTEM_IDS.lensClusterByField) ?? DEFAULT_CLUSTER_BY,
     focus: refProp(node, SYSTEM_IDS.lensFocusField),
+    layout,
+    spread:
+      spread !== null && Number.isFinite(spread) && spread > 0
+        ? spread
+        : DEFAULT_SPREAD,
+    linkDistance:
+      linkDistance !== null && Number.isFinite(linkDistance) && linkDistance > 0
+        ? linkDistance
+        : DEFAULT_LINK_DISTANCE,
+    showLabels: showLabels ?? DEFAULT_SHOW_LABELS,
+    curvedLinks: curvedLinks ?? DEFAULT_CURVED_LINKS,
+    autorotate: autorotate ?? DEFAULT_AUTOROTATE,
+    labelDensity,
   };
 }
 

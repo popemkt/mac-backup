@@ -259,6 +259,7 @@ export default function GraphPage({
             onFilterChange={setFilterIds}
             queryError={lensGraph.queryError}
             resetKey={`${renderer}:${active.id}`}
+            perspective={active}
           >
           {renderer === "tree" ? (
             <TreeGraph

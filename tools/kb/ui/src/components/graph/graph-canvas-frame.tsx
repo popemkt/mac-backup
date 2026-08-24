@@ -26,6 +26,7 @@ export function GraphCanvasFrame({
   onFilterChange,
   queryError,
   resetKey,
+  perspective,
 }: {
   children: React.ReactNode;
   nodes: LensNode[];
@@ -40,6 +41,7 @@ export function GraphCanvasFrame({
   /** Surfaces resolveNodeSet failures inside the canvas (task 16c). */
   queryError?: string | null;
   resetKey?: string;
+  perspective?: import("@/lib/graph-lens").LensPerspective | null;
 }) {
   const capabilities = capabilitiesFor(renderer);
   const clearRef = useRef(onClearSelection);
@@ -73,6 +75,7 @@ export function GraphCanvasFrame({
         selectedNodeId={selectedNodeId}
         nodes={nodes.map((n) => ({ id: n.id, label: n.label }))}
         onSearchChange={onSearchChange}
+        perspective={perspective}
       />
       <GraphLegend nodes={nodes} onFilterChange={onFilterChange} />
       {selection && capabilities.selection ? (

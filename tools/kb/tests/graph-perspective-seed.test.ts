@@ -37,6 +37,13 @@ describe("V0 seed: graph-perspective + lens fields", () => {
       SYSTEM_IDS.lensMaxNodesField,
       SYSTEM_IDS.lensClusterByField,
       SYSTEM_IDS.lensFocusField,
+      SYSTEM_IDS.lensLayoutField,
+      SYSTEM_IDS.lensSpreadField,
+      SYSTEM_IDS.lensLinkDistanceField,
+      SYSTEM_IDS.lensShowLabelsField,
+      SYSTEM_IDS.lensCurvedLinksField,
+      SYSTEM_IDS.lensAutorotateField,
+      SYSTEM_IDS.lensLabelDensityField,
     ]) {
       const field = byId.get(id);
       expect(field).toBeDefined();
@@ -56,6 +63,13 @@ describe("V0 seed: graph-perspective + lens fields", () => {
       SYSTEM_IDS.lensMaxNodesField,
       SYSTEM_IDS.lensClusterByField,
       SYSTEM_IDS.lensFocusField,
+      SYSTEM_IDS.lensLayoutField,
+      SYSTEM_IDS.lensSpreadField,
+      SYSTEM_IDS.lensLinkDistanceField,
+      SYSTEM_IDS.lensShowLabelsField,
+      SYSTEM_IDS.lensCurvedLinksField,
+      SYSTEM_IDS.lensAutorotateField,
+      SYSTEM_IDS.lensLabelDensityField,
     ]);
 
     const perspective = byId.get(SYSTEM_IDS.lensAllMentions);
@@ -67,6 +81,9 @@ describe("V0 seed: graph-perspective + lens fields", () => {
     ]);
     expect(strs(perspective!, SYSTEM_IDS.lensRendererField)).toEqual([
       "force2d",
+    ]);
+    expect(strs(perspective!, SYSTEM_IDS.lensClusterByField)).toEqual([
+      "parent",
     ]);
     expect(strs(perspective!, SYSTEM_IDS.lensEdgeKindsField)).toEqual([
       "mention",

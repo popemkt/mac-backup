@@ -114,6 +114,13 @@ function perspective(
     maxNodes: DEFAULT_MAX_NODES,
     clusterBy: "none",
     focus: null,
+    layout: "force",
+    spread: 150,
+    linkDistance: 60,
+    showLabels: true,
+    curvedLinks: false,
+    autorotate: false,
+    labelDensity: "medium",
     ...patch,
   };
 }
@@ -130,6 +137,8 @@ describe("parsePerspective / listPerspectiveNodes", () => {
     expect(p.sizeBy).toBe("degree");
     expect(p.maxNodes).toBe(500);
     expect(p.query).toBe("");
+    expect(p.clusterBy).toBe("parent");
+    expect(p.layout).toBe("force");
   });
 });
 

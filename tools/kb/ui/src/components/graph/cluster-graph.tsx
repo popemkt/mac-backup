@@ -77,23 +77,24 @@ export function ClusterGraph({
     const allClusters = [...new Set(nodes.map((n) => n.clusterKey))].sort();
     const clusterSizes = new Map<string, number>();
     for (const n of nodes) clusterSizes.set(n.clusterKey, (clusterSizes.get(n.clusterKey) ?? 0) + 1);
-    const clusters = allClusters
+    const topClusters = allClusters
       .sort((a, b) => (clusterSizes.get(b) ?? 0) - (clusterSizes.get(a) ?? 0))
       .slice(0, 15);
-    const clusterSet = new Set(clusters);
+    const clusterSet = new Set(topClusters);
+    const hasOther = allClusters.some((k) => !clusterSet.has(k));
+    const clusters = hasOther ? [...topClusters, "other"] : topClusters;
     const attractors = new Map<string, { x: number; y: number }>();
     const R = 80 + clusters.length * 12;
     clusters.forEach((key, i) => {
       const angle = (2 * Math.PI * i) / Math.max(clusters.length, 1);
       attractors.set(key, { x: Math.cos(angle) * R, y: Math.sin(angle) * R });
     });
-    if (!attractors.has("other")) attractors.set("other", { x: 0, y: 0 });
 
     const prev = positionsRef.current;
     const nextPos = new Map<string, { x: number; y: number }>();
     for (const n of nodes) {
       const effectiveCluster = clusterSet.has(n.clusterKey) ? n.clusterKey : "other";
-      const attr = attractors.get(effectiveCluster) ?? attractors.get("other") ?? { x: 0, y: 0 };
+      const attr = attractors.get(effectiveCluster) ?? { x: 0, y: 0 };
       const prior = prev.get(n.id);
       const x = prior?.x ?? attr.x + (Math.random() - 0.5) * 30;
       const y = prior?.y ?? attr.y + (Math.random() - 0.5) * 30;
@@ -102,7 +103,7 @@ export function ClusterGraph({
         label: n.label,
         color: n.color,
         size: n.size,
-        clusterKey: n.clusterKey,
+        clusterKey: effectiveCluster,
         x,
         y,
       });

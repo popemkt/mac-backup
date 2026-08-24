@@ -7,11 +7,13 @@ import {
   ArrowCounterClockwise,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
+import type { LensPerspective } from "@/lib/graph-lens";
 import {
   CAPABILITY_REASONS,
   type RendererCapabilities,
 } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";
+import { GraphSettings } from "./graph-settings";
 
 interface GraphToolbarProps {
   capabilities: RendererCapabilities;
@@ -20,6 +22,7 @@ interface GraphToolbarProps {
   /** id → label for search matching (label only — never raw id). */
   nodes: Array<{ id: string; label: string }>;
   onSearchChange?: (ids: Set<string> | null) => void;
+  perspective?: LensPerspective | null;
 }
 
 export function GraphToolbar({
@@ -28,6 +31,7 @@ export function GraphToolbar({
   selectedNodeId,
   nodes,
   onSearchChange,
+  perspective,
 }: GraphToolbarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -185,6 +189,12 @@ export function GraphToolbar({
         disabledReason={CAPABILITY_REASONS.reset}
         onClick={() => runOrNoop(capabilities.reset, () => controls!.reset())}
       />
+      {perspective ? (
+        <>
+          <div className="mx-0.5 h-4 w-px bg-foreground/8" />
+          <GraphSettings perspective={perspective} />
+        </>
+      ) : null}
     </div>
   );
 }
