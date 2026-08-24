@@ -197,6 +197,68 @@ a Chrome renderer 99%, `audiomxd` 75%, `configd` 41%, `spindump` running, and
 
 Look at Hermes first. No daemons were killed — that is the owner's call.
 
+### Morning session (2026-08-24, owner awake)
+
+**Owner requests, both done and live:**
+- Removed the ring i10 drew around the active node (`ring-1 ring-primary/25` on
+  the row's content). The row's `focus-visible` ring stays — it is keyboard-only
+  and carries the a11y affordance. Its test now asserts the ring is *absent*.
+- **Added the ability to add a field, which the UI simply did not have.**
+  `mutations.defineField` / `addTagField` / `removeTagField` were all
+  implemented and tested, but **no component called any of them** — i7 deleted
+  the tag config panel and nothing replaced the gesture, so the only path was
+  `kb field define` + `kb set <tag> sys.f.fields <field> --type ref`. A tag page
+  now has a Fields section: the `sys.f.fields` template with each field's type,
+  a remove control, a link to the field node, and an input that adds one.
+  Typing an existing field's name reuses it rather than minting a duplicate —
+  two fields named "status" would silently split every query on them. `sys.*`
+  tags render read-only. Split into a pure view plus a connected wrapper
+  because store reads do not survive `renderToStaticMarkup`.
+
+**i13-graph merged** (tasks 0 + 13–16): renderer capability descriptors, so no
+toolbar control is visible-but-inert any more; camera verbs go through
+sigma/tree/force3d adapters instead of a `sigmaRef`; in-canvas error boundary;
+settings popover persisting eight `sys.f.lens.*` props via unset-before-set; 3D
+select-in-place with fly-to, weighted links, particles and sprite labels;
+radial/hierarchical/grid layouts; three-import boundary test and a
+`force3dColor` guard. Its own honest gaps: FA2 spread/link-distance do not yet
+drive the worker, cluster still navigates on click, no build-time chunk
+assertion.
+
+**A real data-integrity bug found and fixed (`d6db372`).**
+`migrateOrderKeys` runs on *every* `openKb` and recomputed evenly-spaced ranks
+for every sibling group, overwriting whatever was stored. Child order survived
+by accident (that group is built from `node.children`, already the visible
+order). The forest-root group did not: it was rebuilt with `.sort()` on the id,
+so **every server restart silently reverted root-level reordering to id
+order** — defeating the root move/insert that i8b task 12 introduced the rank
+to enable. Proven by swapping two roots' ranks in a copy of the live store and
+reopening: reverted before, holds after. Now it never rewrites an existing
+rank; unranked groups rank as before, partly ranked groups get ranks only in
+their gaps. The live `.kb/nodes.jsonl` is stable across restart again.
+
+**Environment: Headroom was dead, and codex routes everything through it**
+(`openai_base_url = http://127.0.0.1:8787/v1`). Root cause:
+`~/.local/share/uv` is a symlink onto `/Volumes/Data`, and a launchd agent has
+no access to an external volume without an explicit grant, so the daemon dies
+with `EPERM` reading `pyvenv.cfg` while the same binary runs fine from a shell.
+`launchctl kickstart` does not help. Started manually as a stopgap
+(`headroom proxy --port 8787`, log `/tmp/headroom-manual.log`) — **that instance
+dies with the orchestrator session, and the launchd job will keep failing until
+Full Disk Access is granted.** Orca's runtime also recovered on its own.
+
+**i12-render-harness in flight** (codex, Playwright approved by the owner). Its
+deliverable is proof the assertions go red against the real breaks, since those
+are all fixed on main now. It adds a 5-line `MODE === "test-render"` hook to
+each of `sigma-graph`, `cluster-graph`, `force3d-graph` exposing the renderer
+instance — sanctioned by its brief. **Merge order: i13 first (done), then i12,
+re-applying those three hooks by hand if git conflicts. Do not drop them; the
+harness cannot assert paint without them, and verify the gate is unreachable in
+a production build.**
+
+Baseline now: core **713** pass / 0 fail · typecheck clean · lint clean · UI
+**501** pass / 0 fail.
+
 ### Suggested next wave (not dispatched — machine was saturated)
 
 `i12-graph`: renderer capability descriptors (finish task 9 properly so inert
