@@ -3,13 +3,14 @@
 Vite+ (`vite-plus@0.2.8`) + React 19 + Tailwind 4 + Zustand + DataScript.
 
 ```bash
-cd tools/kb/ui
 bun install       # what `kb ui` itself runs
 bun run dev       # proxies /api and /ws → 127.0.0.1:4321 (or $KB_UI_API_PORT)
 bun run test      # vp test (Vitest); ./node_modules/.bin/vp test also works
 bun run typecheck # tsc --noEmit
 bun run check     # vp check --no-fmt (lint-only)
 bun run build
+bun run storybook         # component viewer at http://localhost:6006
+bun run build-storybook   # static build → ui/storybook-static (gitignored)
 ```
 
 **Use `bun run`, not `npm run`, in this package.** `package.json` declares
@@ -32,6 +33,12 @@ Shape: `src/actions/{plan,mutations}.ts` is the optimistic mutation pipeline
 `src/stores/outline.store.ts` holds outline + selection + ontology-scope state;
 `src/lib/` holds the pure, unit-tested helpers (caret/markdown, canvas
 selection + history + tools, graph lens, ontology scope, router).
+
+`src/catalog/*.stories.tsx` is the one place components render in isolation
+— Storybook CSF3, `.storybook/main.ts` glob-scoped to this directory. Every
+story is also a test: `catalog.smoke.test.tsx` reads the same files via
+Storybook's portable-stories `composeStories` and asserts each variant
+renders without throwing, so there is no second fixture set to keep in sync.
 
 The interaction contracts these implement are in
 [../DESIGN-UI.md](../DESIGN-UI.md).
