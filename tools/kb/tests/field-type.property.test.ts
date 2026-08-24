@@ -141,4 +141,33 @@ describe("field-type properties (fast-check)", () => {
       { numRuns: 500 },
     );
   });
+
+  test("in a multi-valued fieldTypeField, only the legacy string entries are rewritten — an already-migrated ref entry is left alone", () => {
+    fc.assert(
+      fc.property(fieldTypeArb, fieldTypeArb, (legacyType, refType) => {
+        // One legacy string form and one already-migrated ref form, sharing
+        // the same (multi-valued) field key — `.some(...)` must still catch
+        // the legacy one even though not *every* entry qualifies, and the
+        // ref entry must be untouched by the rewrite.
+        const node = {
+          id: "n1",
+          text: "x",
+          props: {
+            [SYSTEM_IDS.fieldTypeField]: [
+              { t: "str", v: legacyType } as PropValue,
+              fieldTypeValue(refType),
+            ],
+          },
+        };
+        const { nodes, changed } = migrateFieldTypeValues([node]);
+        expect(changed).toBe(true);
+        const values = nodes[0]!.props[SYSTEM_IDS.fieldTypeField]!;
+        expect(values[0]).toEqual(fieldTypeValue(legacyType));
+        expect(values[1]).toEqual(fieldTypeValue(refType));
+
+        expect(migrateFieldTypeValues(nodes).changed).toBe(false);
+      }),
+      { numRuns: 500 },
+    );
+  });
 });
