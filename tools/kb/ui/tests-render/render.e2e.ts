@@ -1,9 +1,9 @@
 // Deliberately .e2e.ts: Bun's recursive unit-test discovery must not load it.
 import { expect, test, type Page } from "playwright/test";
-import { FIXTURE_CLUSTER_TAG, FIXTURE_SIZE } from "./fixture";
+import { FIXTURE_SIZE } from "./fixture";
 
 type SigmaInspector = {
-  getGraph(): { nodes(): string[]; getNodeAttribute(id: string, key: string): unknown };
+  getGraph(): { nodes(): string[] };
   getNodeDisplayData(id: string): { x: number; y: number } | undefined;
   framedGraphToViewport(position: { x: number; y: number }): { x: number; y: number };
 };
@@ -82,10 +82,12 @@ test("force2d paints labels and frames settled nodes", async ({ page }) => {
   await expect
     .poll(() => alphaBoundingBox(page, "canvas.sigma-labels"))
     .toMatchObject({ pixels: expect.any(Number) });
-  expect((await alphaBoundingBox(page, "canvas.sigma-labels")).pixels).toBeGreaterThan(0);
+  expect(
+    (await alphaBoundingBox(page, "canvas.sigma-labels")).pixels,
+  ).toBeGreaterThan(0);
 });
 
-test("cluster paints labels and a hull spanning its tagged members", async ({ page }) => {
+test("cluster paints labels and a hull spanning its members", async ({ page }) => {
   await selectRenderer(page, "cluster");
   const host = "[data-testid='cluster-graph'] > div";
   await expect(page.locator(`${host} canvas.sigma-labels`)).toBeVisible();
@@ -101,26 +103,25 @@ test("cluster paints labels and a hull spanning its tagged members", async ({ pa
     page,
     "[data-testid='cluster-graph'] > canvas",
   );
-  const members = await page.locator(host).evaluate((element, clusterTag) => {
+  const members = await page.locator(host).evaluate((element) => {
     const sigma = (element as HTMLDivElement & { __kbSigma?: SigmaInspector })
       .__kbSigma;
     if (!sigma) return { width: 0, height: 0 };
     const points = sigma
       .getGraph()
       .nodes()
-      .filter(
-        (id) =>
-          sigma.getGraph().getNodeAttribute(id, "clusterKey") ===
-          clusterTag,
-      )
       .map((id) => sigma.getNodeDisplayData(id))
       .filter((point): point is { x: number; y: number } => !!point)
       .map((point) => sigma.framedGraphToViewport(point));
     return {
-      width: Math.max(...points.map((point) => point.x)) - Math.min(...points.map((point) => point.x)),
-      height: Math.max(...points.map((point) => point.y)) - Math.min(...points.map((point) => point.y)),
+      width:
+        Math.max(...points.map((point) => point.x)) -
+        Math.min(...points.map((point) => point.x)),
+      height:
+        Math.max(...points.map((point) => point.y)) -
+        Math.min(...points.map((point) => point.y)),
     };
-  }, FIXTURE_CLUSTER_TAG);
+  });
   expect(hull.width).toBeGreaterThanOrEqual(members.width * 0.6);
   expect(hull.height).toBeGreaterThanOrEqual(members.height * 0.6);
 });

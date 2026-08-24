@@ -1,7 +1,5 @@
-// 28 leaves + a root + the editable perspective + its cluster tag = 31.
-// This remains intentionally “~30” while keeping the tag materialised.
-export const FIXTURE_SIZE = 31;
-export const FIXTURE_CLUSTER_TAG = "sys.tag.render-fixture";
+// 28 leaves + a root + the editable perspective.
+export const FIXTURE_SIZE = 30;
 
 type PropValue = { t: "str" | "ref" | "num"; v: string | number };
 
@@ -35,8 +33,9 @@ function node(
 }
 
 /**
- * A stable graph with one large tagged cluster and 29 child edges. The
- * perspective is intentionally part of the ~30-node lens: it remains editable
+ * A stable single-cluster graph with 29 child edges. Keeping `cluster-by` at
+ * `none` matches the production failure that used to collapse ForceGraph3D.
+ * The perspective is intentionally part of the ~30-node lens: it remains editable
  * when renderer switching persists to this scratch data root.
  */
 export function renderFixtureNodes(): FixtureNode[] {
@@ -50,26 +49,23 @@ export function renderFixtureNodes(): FixtureNode[] {
       id,
       `Fixture node ${index + 1} [[${rootId}|fixture root]]`,
       [],
-      { "sys.f.type": [{ t: "ref", v: FIXTURE_CLUSTER_TAG }] },
+      {},
     ),
   );
 
   return [
-    node(FIXTURE_CLUSTER_TAG, "render-fixture", [], {
-      "sys.f.type": [{ t: "ref", v: "sys.tag" }],
-    }),
     node(rootId, "Fixture root", leafIds),
     ...leaves,
-    node("render.fixture.perspective", "Render fixture", [], {
+    // Preserve the seed id so opening the scratch root does not add a second
+    // default perspective beside this fixture.
+    node("lens.all-mentions", "Render fixture", [], {
       "sys.f.type": [{ t: "ref", v: "sys.tag.graph-perspective" }],
       "sys.f.lens.renderer": [{ t: "str", v: "force2d" }],
       "sys.f.lens.edge-kinds": [
         { t: "str", v: "mention" },
         { t: "str", v: "child" },
       ],
-      "sys.f.lens.cluster-by": [
-        { t: "str", v: `tag:${FIXTURE_CLUSTER_TAG}` },
-      ],
+      "sys.f.lens.cluster-by": [{ t: "str", v: "none" }],
       "sys.f.lens.max-nodes": [{ t: "num", v: FIXTURE_SIZE }],
     }),
   ];
