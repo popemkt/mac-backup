@@ -172,6 +172,10 @@ describe("resolveScope", () => {
   });
 });
 
+/** Adapts a node map to the resolver the row builders now take. */
+const labelOf = (map: ReturnType<typeof wireToOutlineMap>) => (id: string) =>
+  map.get(id)?.text?.trim() || id;
+
 describe("member rows", () => {
   it("labels provenance and flags pins, sorted by label", () => {
     const wire = [
@@ -186,7 +190,7 @@ describe("member rows", () => {
     ];
     const map = wireToOutlineMap(wire, new Set());
     const r = resolveScope(wire, "o", buildQueryDb(wire, 1), 1);
-    const rows = memberRows(r, map);
+    const rows = memberRows(r, labelOf(map));
     expect(rows.map((x) => x.label)).toEqual(["alpha", "pinned one", "zeta"]);
     expect(rows.find((x) => x.id === "n.p")!.pinned).toBe(true);
     expect(rows.find((x) => x.id === "n.a")!.pinned).toBe(false);
@@ -206,8 +210,37 @@ describe("member rows", () => {
     ];
     const map = wireToOutlineMap(wire, new Set());
     const r = resolveScope(wire, "o", buildQueryDb(wire, 1), 1);
-    expect(memberRows(r, map)).toEqual([]);
-    expect(excludedRows(r, map).map((x) => x.label)).toEqual(["alpha"]);
+    expect(memberRows(r, labelOf(map))).toEqual([]);
+    expect(excludedRows(r, labelOf(map)).map((x) => x.label)).toEqual(["alpha"]);
+  });
+
+  it("an excluded node still gets its text, even when the scope omits it", () => {
+    // A scoped node map cannot contain an excluded node by definition, so
+    // resolving its label there always fell through to printing a raw id.
+    const wire = [
+      tagDef("t.svc", "service"),
+      tagged("n.a", "alpha", "t.svc"),
+      onto("o", "O", {
+        [SYSTEM_IDS.ontoIncludeField]: [{ t: "ref", v: "t.svc" }],
+        [SYSTEM_IDS.ontoExcludeField]: [{ t: "ref", v: "n.a" }],
+      }),
+    ];
+    const r = resolveScope(wire, "o", buildQueryDb(wire, 1), 1);
+    // A members-only map: exactly what the ontology page holds while scoped.
+    const scoped = wireToOutlineMap(
+      wire.filter((n) => n.id !== "n.a"),
+      new Set(),
+    );
+    expect(excludedRows(r, labelOf(scoped)).map((x) => x.label)).toEqual([
+      "n.a",
+    ]);
+    // The page's resolver falls back to the unscoped nodes, so it recovers it.
+    const unscoped = wireToOutlineMap(wire, new Set());
+    const pageResolver = (id: string) =>
+      unscoped.get(id)?.text?.trim() || scoped.get(id)?.text?.trim() || id;
+    expect(excludedRows(r, pageResolver).map((x) => x.label)).toEqual([
+      "alpha",
+    ]);
   });
 });
 

@@ -1,6 +1,7 @@
 import { ArrowUUpLeft, PushPin, PushPinSlash, X } from "@phosphor-icons/react";
 import { describeReason } from "@kb/ontology";
 import { cn } from "@/lib/cn";
+import { MdView } from "@/components/outline/md-view";
 import type { MemberRowModel } from "@/lib/ontology-scope";
 
 export interface MemberRowProps {
@@ -62,7 +63,7 @@ export function MemberRow({
       <button
         type="button"
         className={cn(
-          "min-w-0 flex-1 truncate text-left text-[13px]",
+          "flex min-w-0 flex-1 text-left",
           excluded
             ? "text-foreground/35 line-through decoration-foreground/20"
             : "text-foreground/80 hover:text-foreground",
@@ -70,7 +71,10 @@ export function MemberRow({
         title={row.id}
         onClick={() => onOpen?.(row.id)}
       >
-        {row.label}
+        {/* Same renderer as the outline: a member row showed its node text as
+            raw source, so bold markers and [[id|label]] refs leaked verbatim
+            into the list. Clamped, because these rows are one line tall. */}
+        <MdView text={row.label} className="min-w-0 flex-1" clamp />
       </button>
 
       <span

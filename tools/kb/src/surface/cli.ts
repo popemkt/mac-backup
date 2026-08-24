@@ -9,6 +9,7 @@ import {
   openKbEffect,
   type KbContext,
 } from "../context.ts";
+import { exampleSeedNodes, isPristine } from "../foundation/example.ts";
 import { SYSTEM_IDS } from "../foundation/model.ts";
 import {
   ResolveError,
@@ -359,7 +360,11 @@ export function buildProgram(): Command {
   program
     .command("init")
     .description("Initialize .kb/ at --root or cwd")
-    .action(async function (this: Command) {
+    .option(
+      "--bare",
+      "skip the example content (supertags, fields, query, ontologies)",
+    )
+    .action(async function (this: Command, opts: { bare?: boolean }) {
       const code = await withCtx(
         this,
         (ctx, globals) =>
@@ -377,13 +382,34 @@ export function buildProgram(): Command {
                     ),
                 ),
               );
+
+            /*
+             * Example content lands here rather than in the system seed on
+             * purpose: the seed runs on every open and is write-guarded, so
+             * demo nodes there would come back after you deleted them and no
+             * test fixture could avoid them. Init runs once, by choice, and
+             * only fills a store nobody has put anything into yet.
+             */
+            let examples = 0;
+            if (opts.bare !== true && isPristine(ctx.nodes)) {
+              const nodes = exampleSeedNodes();
+              yield* ctx.effectStore.commitEffect({
+                upserts: nodes,
+                deletes: [],
+              });
+              ctx.nodes = [...ctx.nodes, ...nodes];
+              examples = nodes.length;
+            }
+
             const msg = globals.json
               ? JSON.stringify({
                   status: "succeeded",
                   id: "init",
-                  output: { root: ctx.root },
+                  output: { root: ctx.root, exampleNodes: examples },
                 })
-              : `initialized ${join(ctx.root, ".kb")}`;
+              : examples > 0
+                ? `initialized ${join(ctx.root, ".kb")} with ${examples} example nodes (ordinary nodes — delete any of them)`
+                : `initialized ${join(ctx.root, ".kb")}`;
             writeOut(msg);
             return EXIT_OK;
           }),

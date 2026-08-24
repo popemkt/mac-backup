@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { X } from "@phosphor-icons/react";
 import type { WireNode } from "@kb/protocol";
 import {
@@ -44,8 +44,13 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
   );
   const onto = byId.get(ontologyId);
 
-  const labelFor = (id: string): string =>
-    byId.get(id)?.text?.trim() || nodes.get(id)?.text?.trim() || id;
+  // Consults the unscoped wire nodes first, so a node the scope excludes still
+  // resolves to its text instead of showing a raw id.
+  const labelFor = useCallback(
+    (id: string): string =>
+      byId.get(id)?.text?.trim() || nodes.get(id)?.text?.trim() || id,
+    [byId, nodes],
+  );
 
   const resolution = useMemo(
     () => resolveScope(wireNodes, ontologyId, queryDb, rev),
@@ -53,12 +58,12 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
   );
 
   const members = useMemo(
-    () => memberRows(resolution, nodes),
-    [resolution, nodes],
+    () => memberRows(resolution, labelFor),
+    [resolution, labelFor],
   );
   const excluded = useMemo(
-    () => excludedRows(resolution, nodes),
-    [resolution, nodes],
+    () => excludedRows(resolution, labelFor),
+    [resolution, labelFor],
   );
 
   const includeTags = onto

@@ -131,16 +131,24 @@ export interface MemberRowModel {
 }
 
 /** Member rows for the ontology page, sorted by label then id. */
+/**
+ * Rows take a label resolver rather than a NodeMap.
+ *
+ * An excluded node is, by definition, absent from a scoped node map — so
+ * looking its label up there always failed and fell back to printing a raw
+ * ulid. The page already owns a resolver that consults the unscoped nodes as
+ * well; passing it in is what lets both lists use one answer.
+ */
 export function memberRows(
   resolution: OntologyResolution,
-  nodes: NodeMap,
+  resolveLabel: (id: string) => string,
 ): MemberRowModel[] {
   const rows: MemberRowModel[] = [];
   for (const id of resolution.members) {
     const reasons = resolution.reasons.get(id) ?? [];
     rows.push({
       id,
-      label: labelOf(id, nodes),
+      label: resolveLabel(id),
       reasons,
       pinned: reasons.some((r) => r.kind === "member"),
     });
@@ -153,12 +161,12 @@ export function memberRows(
 /** Excluded rows for the ontology page ("restore" candidates). */
 export function excludedRows(
   resolution: OntologyResolution,
-  nodes: NodeMap,
+  resolveLabel: (id: string) => string,
 ): MemberRowModel[] {
   return [...resolution.excluded]
     .map((id) => ({
       id,
-      label: labelOf(id, nodes),
+      label: resolveLabel(id),
       reasons: [] as MemberReason[],
       pinned: false,
     }))

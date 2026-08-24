@@ -181,8 +181,37 @@ describe("cli e2e (tmpdir)", () => {
     }
   }
 
+  test("init seeds example content, and --bare does not", async () => {
+    const withExamples = await kb(["init", "--json"]);
+    expect(withExamples.code).toBe(0);
+    const seeded = JSON.parse(withExamples.stdout);
+    expect(seeded.output.exampleNodes).toBeGreaterThan(0);
+
+    const nodes = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");
+    expect(nodes).toContain("ex.tag.task");
+    expect(nodes).toContain("ex.onto.work");
+
+    // Re-running init must not duplicate them, and must not resurrect any the
+    // owner deleted: the store is no longer pristine.
+    const again = await kb(["init", "--json"]);
+    expect(again.code).toBe(0);
+    expect(JSON.parse(again.stdout).output.exampleNodes).toBe(0);
+  });
+
+  test("init --bare leaves a store with nothing but its system seed", async () => {
+    const bare = await kb(["init", "--bare", "--json"]);
+    expect(bare.code).toBe(0);
+    expect(JSON.parse(bare.stdout).output.exampleNodes).toBe(0);
+    const nodes = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");
+    expect(nodes).toContain("sys.field");
+    expect(nodes).not.toContain("ex.");
+  });
+
   test("init → add → query → get", async () => {
-    const init = await kb(["init"]);
+    // --bare: this exercises CLI mechanics on a clean store. Example content
+    // deliberately occupies ordinary names like "status", so a non-bare init
+    // would make `field define status` report the existing field instead.
+    const init = await kb(["init", "--bare"]);
     expect(init.code).toBe(0);
     const nodesPath = join(root, ".kb", "nodes.jsonl");
     expect(await readFile(nodesPath, "utf8")).toContain("sys.field");
