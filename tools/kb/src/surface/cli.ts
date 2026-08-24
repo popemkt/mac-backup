@@ -10,7 +10,7 @@ import {
   type KbContext,
 } from "../context.ts";
 import { exampleSeedNodes, isPristine } from "../foundation/example.ts";
-import { SYSTEM_IDS } from "../foundation/model.ts";
+import { SYSTEM_IDS, currentIso } from "../foundation/model.ts";
 import {
   ResolveError,
   resolveFieldId,
@@ -392,7 +392,7 @@ export function buildProgram(): Command {
              */
             let examples = 0;
             if (opts.bare !== true && isPristine(ctx.nodes)) {
-              const nodes = exampleSeedNodes();
+              const nodes = exampleSeedNodes(yield* currentIso);
               yield* ctx.effectStore.commitEffect({
                 upserts: nodes,
                 deletes: [],
