@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Graph from "graphology";
 import Sigma from "sigma";
 import { EdgeArrowProgram } from "sigma/rendering";
-import type { LensEdge, LensNode } from "@/lib/graph-lens";
+import type { LensEdge, LensNode, LensLayout } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
 import { graphNodeAlpha, withGraphAlpha } from "@/lib/graph-dim";
 import { formatGraphLabel } from "@/lib/graph-label";
+import { computeLayoutPositions } from "@/lib/graph-layouts";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
 import { fitView } from "./graph-camera";
 import {
@@ -32,6 +33,8 @@ export interface SigmaGraphProps {
   layoutKey: string;
   /** Theme/rev signal so token colors refresh without topology churn. */
   themeKey: string;
+  /** Persisted layout mode — non-force modes skip FA2. */
+  layout?: LensLayout;
   /** External search highlight set. */
   highlightIds?: Set<string>;
   /** External filter dim set (ids to keep lit). */
@@ -62,6 +65,7 @@ export function SigmaGraph({
   selectedNodeId = null,
   layoutKey,
   themeKey,
+  layout = "force",
   highlightIds,
   filterIds,
   onControlsReady,
@@ -166,10 +170,12 @@ export function SigmaGraph({
     const prevPositions = positionsRef.current;
     const nextPositions = new Map<string, { x: number; y: number }>();
 
+    const assigned = computeLayoutPositions(layout, nodes, edges);
     for (const n of nodes) {
       const prior = prevPositions.get(n.id);
-      const x = prior?.x ?? Math.random() * 100;
-      const y = prior?.y ?? Math.random() * 100;
+      const laid = assigned?.get(n.id);
+      const x = laid?.x ?? prior?.x ?? Math.random() * 100;
+      const y = laid?.y ?? prior?.y ?? Math.random() * 100;
       nextPositions.set(n.id, { x, y });
       graph.addNode(n.id, {
         label: n.label,
@@ -177,6 +183,7 @@ export function SigmaGraph({
         size: n.size,
         x,
         y,
+        ...(assigned ? { fixed: true } : {}),
       });
     }
 
@@ -353,7 +360,7 @@ export function SigmaGraph({
     document.addEventListener("mouseup", onMouseUp);
 
     // --- Layout ---
-    if (graph.order > 0 && topologyChanged) {
+    if (graph.order > 0 && topologyChanged && layout === "force") {
       const fa2 = createFA2Layout(graph, {
         onConverged() {
           graph.forEachNode((id, attrs) => {
@@ -395,7 +402,7 @@ export function SigmaGraph({
       if (sigmaRef.current === sigma) sigmaRef.current = null;
       onControlsReadyRef.current?.(null);
     };
-  }, [nodes, edges, layoutKey, themeKey]);
+  }, [nodes, edges, layoutKey, themeKey, layout]);
 
   useEffect(() => {
     refreshReducers();

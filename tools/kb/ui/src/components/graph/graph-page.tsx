@@ -312,6 +312,7 @@ export default function GraphPage({
               edges={lensGraph.edges}
               layoutKey={active.id}
               themeKey={themeKey}
+              layout={active.layout}
               onNodeOpen={onNodeOpen}
               onSelectionChange={setSelection}
               selectedNodeId={selection?.nodeId ?? null}
