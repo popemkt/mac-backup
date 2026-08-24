@@ -142,6 +142,16 @@ Rules for agents:
   `tools/kb/ui`. Bun-dependent tests stay on `bun test` (recursive from
   `tools/kb` also hits most `ui/` tests — needs UI deps); the dedicated UI
   suite is `vp test`. See `tools/kb/DESIGN.md`.
+- Linting & boundaries (`tools/kb`): `tools/kb/.oxlintrc.json` is the single
+  oxlint ruleset (module boundaries via `eslint/no-restricted-imports`,
+  `import/no-cycle`, `react/exhaustive-deps`, `typescript/ban-ts-comment`,
+  `typescript/no-explicit-any`, plus a `**/*.css` override). `vp` does not
+  read it, so the whole-tree gate is `npm run lint:all` (oxlint over
+  `index.ts src ui/src extensions-bundled`); `npm run verify` = typecheck +
+  check + lint:all + `knip` and is the entry point a human or CI runs. The ui
+  may reach the backend only through the `@kb/*` seam — never a relative path
+  into `src/`; `src/foundation` is a leaf (must not import surface/operations/
+  render).
 
 ## Where To Edit
 
