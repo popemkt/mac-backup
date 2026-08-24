@@ -1,4 +1,4 @@
-import { createElement, type ReactElement } from "react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { TextCard } from "@/components/canvas/canvas-card";
 import type { CanvasTextNode } from "@kb/canvas";
 
@@ -18,39 +18,47 @@ function textCard(
   };
 }
 
-/**
- * Catalog: canvas TextCard (presentational card chrome).
- * KbNodeCard is store-coupled — covered by canvas component tests, not stories.
- */
-export const stories = {
-  idle: (): ReactElement =>
-    createElement(TextCard, {
-      card: textCard({ id: "c1", text: "Sticky note" }),
-      selected: false,
-      onSelect: noop,
-      onChange: noop,
-      onMoveStart: noop,
-      onResizeStart: noop,
-      onPortDown: noopPort,
-    }),
-  selected: (): ReactElement =>
-    createElement(TextCard, {
-      card: textCard({ id: "c2", text: "Selected card" }),
-      selected: true,
-      onSelect: noop,
-      onChange: noop,
-      onMoveStart: noop,
-      onResizeStart: noop,
-      onPortDown: noopPort,
-    }),
-  empty: (): ReactElement =>
-    createElement(TextCard, {
-      card: textCard({ id: "c3", text: "" }),
-      selected: false,
-      onSelect: noop,
-      onChange: noop,
-      onMoveStart: noop,
-      onResizeStart: noop,
-      onPortDown: noopPort,
-    }),
-} as const;
+/** KbNodeCard is store-coupled — covered by canvas component tests, not stories. */
+const meta = {
+  title: "Canvas/TextCard",
+  component: TextCard,
+} satisfies Meta<typeof TextCard>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Idle: Story = {
+  args: {
+    card: textCard({ id: "c1", text: "Sticky note" }),
+    selected: false,
+    onSelect: noop,
+    onChange: noop,
+    onMoveStart: noop,
+    onResizeStart: noop,
+    onPortDown: noopPort,
+  },
+};
+
+export const Selected: Story = {
+  args: {
+    card: textCard({ id: "c2", text: "Selected card" }),
+    selected: true,
+    onSelect: noop,
+    onChange: noop,
+    onMoveStart: noop,
+    onResizeStart: noop,
+    onPortDown: noopPort,
+  },
+};
+
+export const Empty: Story = {
+  args: {
+    card: textCard({ id: "c3", text: "" }),
+    selected: false,
+    onSelect: noop,
+    onChange: noop,
+    onMoveStart: noop,
+    onResizeStart: noop,
+    onPortDown: noopPort,
+  },
+};

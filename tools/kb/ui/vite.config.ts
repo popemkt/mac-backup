@@ -16,7 +16,7 @@ export default defineConfig({
   // tools/kb/vite.config.ts and inherits `lint.ignorePatterns: ["ui/**"]`,
   // so `npm run lint` / `npm run check` find zero files.
   lint: {
-    ignorePatterns: ["dist/**", "**/node_modules/**"],
+    ignorePatterns: ["dist/**", "storybook-static/**", "**/node_modules/**"],
     options: {
       // Authoritative typecheck remains `tsc --noEmit` (`npm run typecheck`).
       typeCheck: false,

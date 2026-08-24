@@ -1,29 +1,34 @@
-import { createElement, type ReactElement } from "react";
-import { TagChip, TagChipGroup } from "@/components/outline/tag-chip";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { TagChip } from "@/components/outline/tag-chip";
 
-/** Catalog: TagChip — static / navigable / with actions. */
-export const stories = {
-  static: (): ReactElement =>
-    createElement(TagChip, {
-      tag: { id: "tag.todo", name: "todo", color: "#3b82f6" },
-    }),
-  navigable: (): ReactElement =>
-    createElement(TagChip, {
-      tag: { id: "tag.todo", name: "todo", color: "#3b82f6" },
-      onClick: () => undefined,
-    }),
-  withActions: (): ReactElement =>
-    createElement(TagChip, {
-      tag: { id: "tag.urgent", name: "urgent", color: "#ef4444" },
-      onClick: () => undefined,
-      onRemove: () => undefined,
-    }),
-  group: (): ReactElement =>
-    createElement(TagChipGroup, {
-      tags: [
-        { id: "t1", name: "todo", color: "#3b82f6" },
-        { id: "t2", name: "work", color: "#22c55e" },
-      ],
-      onTagClick: () => undefined,
-    }),
-} as const;
+const meta = {
+  title: "Outline/TagChip",
+  component: TagChip,
+} satisfies Meta<typeof TagChip>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+/** No handlers — a read-only tag, e.g. inside a query result row. */
+export const Static: Story = {
+  args: {
+    tag: { id: "tag.todo", name: "todo", color: "#3b82f6" },
+  },
+};
+
+/** `onClick` present — zooms to the tag's own node. */
+export const Navigable: Story = {
+  args: {
+    tag: { id: "tag.todo", name: "todo", color: "#3b82f6" },
+    onClick: () => undefined,
+  },
+};
+
+/** `onRemove` present too — hover reveals the ✕ affordance. */
+export const WithActions: Story = {
+  args: {
+    tag: { id: "tag.urgent", name: "urgent", color: "#ef4444" },
+    onClick: () => undefined,
+    onRemove: () => undefined,
+  },
+};
