@@ -41,3 +41,62 @@ jobs:
 
       - name: Build flake checks
         run: nix flake check
+
+  # The kb datastore is TypeScript on Bun and shares nothing with the Nix
+  # evaluation above, so it runs as its own job rather than serialising behind
+  # a 45-minute flake build. macos-15 matches the only platform the suite has
+  # ever run on; moving it to ubuntu would be cheaper but would conflate real
+  # regressions with first-ever-Linux-run portability noise.
+  kb:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: |
+          bun install --cwd tools/kb --frozen-lockfile
+          bun install --cwd tools/kb/ui --frozen-lockfile
+
+      # typecheck + vp check + lint:all (oxlint boundaries, cycles,
+      # exhaustive-deps, ban-ts-comment) + knip. This is the entry point
+      # g1-guardrails built for exactly this purpose; do not inline its parts.
+      - name: Verify (typecheck, lint, boundaries, dead code)
+        run: npm run verify
+        working-directory: tools/kb
+
+      # verify only typechecks the root package; ui carries its own tsconfig,
+      # and pre-commit gates both. Invoked as a binary, not via npm: ui declares
+      # devEngines npm 12 and `npm run` there fails EBADDEVENGINES on the
+      # runner's npm.
+      - name: Typecheck ui
+        run: ./node_modules/.bin/tsc --noEmit
+        working-directory: tools/kb/ui
+
+      - name: Core suite
+        run: bun test
+        working-directory: tools/kb
+
+      - name: UI suite
+        run: ./node_modules/.bin/vp test
+        working-directory: tools/kb/ui
+
+      # Wider than the committed seeds that `bun test` already runs. Cheap
+      # (pure, in-memory histories) and the only thing that exercises replay
+      # determinism across seeds nobody has looked at.
+      - name: Deterministic simulation sweep
+        run: bun tests/dst/run-many.ts 25
+        working-directory: tools/kb
+
+      - name: Generated docs match .kb data
+        run: bun tools/kb/src/bin/docs-check.ts
+
+      - name: kb media backup ownership
+        run: ./scripts/check-kb-assets-backup.sh check

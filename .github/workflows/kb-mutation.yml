@@ -1,0 +1,62 @@
+name: kb mutation
+
+# Mutation testing grades the test suite rather than the code, and it is slow
+# (tens of minutes: every mutant spawns a fresh `bun test`). It is deliberately
+# NOT part of Validate:
+#
+#   - As a PR gate it would add half an hour to every push, and a gate that slow
+#     gets routed around.
+#   - Its score is not reproducible run to run. The properties use fast-check's
+#     default unseeded random source, so each mutant is tested against fresh
+#     data; three runs over byte-identical source produced 9, then 53, then 68
+#     survivors. `thresholds.break` is therefore a loose floor (60) rather than
+#     a ratchet, and a per-PR pass/fail on that number would be noise.
+#
+# So it runs weekly and on demand, and its value is the survivor list in the
+# uploaded HTML report — not the headline percentage.
+
+on:
+  schedule:
+    # Mondays 04:00 UTC.
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kb-mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutation:
+    runs-on: macos-15
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --cwd tools/kb --frozen-lockfile
+
+      - name: Mutation run
+        run: npm run test:mutation
+        working-directory: tools/kb
+
+      # The report is the deliverable: which mutants no test killed. Kept even
+      # when the run fails its threshold, since that is exactly when the
+      # survivor list matters.
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: tools/kb/reports/mutation/
+          if-no-files-found: warn
+          retention-days: 30

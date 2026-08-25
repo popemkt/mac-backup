@@ -18,7 +18,7 @@ Rules:
 | Claude Code session | agent (Claude Code) | `.claude/hooks/require-tools.sh` | session + edit deny | hard within this harness (SessionStart context, PreToolUse deny on Edit/Write) |
 | Other agent harnesses | agent (Codex, Cursor, ...) | `AGENTS.md` | session | protocol — instruction-following only |
 | git commit | any actor that persists changes | `.githooks/pre-commit` | record | hard, universal locally (`core.hooksPath` — bypassable via `--no-verify`) |
-| git push to origin | any actor that replicates | none yet | record | planned — branch protection + required CI check |
+| git push to origin | any actor that replicates | none yet | record | partial — CI (`.github/workflows/validate.yml`, described in `docs/ci.md`) validates every push to `main` and every PR: Nix job runs shellcheck, actionlint, nixfmt, statix, deadnix and flake check; kb job runs `npm run verify`, both typechecks, core + UI suites, a DST sweep, the docs check and assets ownership. This is enforcement, not admission — nothing yet *gates* the push itself, because branch protection making the check **required** is a manual control-plane step, and there is no pre-push shim |
 | raw filesystem edits | any | none | — | unenforceable on a plain filesystem; ephemeral until commit. Capture option: jj op log / DeltaDB — see intent decisions |
 
 Enforcement ladder: soft shims fail early with good errors; the hard guarantee
