@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import json
 import threading
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import pytest
 
@@ -228,9 +229,7 @@ def make_parallel_manifest(
 def test_evaluate_overlaps_independent_checks_and_preserves_order(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    manifest = make_parallel_manifest(
-        [("first", "First", []), ("second", "Second", [])]
-    )
+    manifest = make_parallel_manifest([("first", "First", []), ("second", "Second", [])])
     both_started = threading.Event()
     lock = threading.Lock()
     started = 0
@@ -267,7 +266,10 @@ def test_evaluate_waits_for_a_complete_dependency_wave(
     lock = threading.Lock()
 
     def fake_run_check(check: object) -> str:
-        identifier = getattr(check, "path").removeprefix("/")
+        # B009 suppressed deliberately: CheckSpec is a six-member union and only
+        # FileCheck carries `path`, so plain attribute access would not typecheck
+        # against this double's `object` annotation.
+        identifier = getattr(check, "path").removeprefix("/")  # noqa: B009
         if identifier.startswith("parent"):
             both_parents_started.wait()
             with lock:
@@ -298,7 +300,10 @@ def test_evaluate_blocks_descendants_without_running_their_checks(
     lock = threading.Lock()
 
     def fake_run_check(check: object) -> str:
-        identifier = getattr(check, "path").removeprefix("/")
+        # B009 suppressed deliberately: CheckSpec is a six-member union and only
+        # FileCheck carries `path`, so plain attribute access would not typecheck
+        # against this double's `object` annotation.
+        identifier = getattr(check, "path").removeprefix("/")  # noqa: B009
         with lock:
             checked.append(identifier)
         if identifier == "action-needed":

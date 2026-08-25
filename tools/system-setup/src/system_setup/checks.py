@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import json
 import subprocess
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -167,6 +167,7 @@ def run_check(check: CheckSpec) -> str:
         raise CheckFailed(str(error)) from error
     raise TypeError(f"unsupported check: {type(check).__name__}")
 
+
 MAX_CHECK_WORKERS = 8
 
 
@@ -242,8 +243,6 @@ def _legacy_result_order(integrations: list[Integration]) -> list[str]:
             raise RuntimeError("manifest dependencies could not be ordered")
 
     return ordered_ids
-
-
 
 
 def _result(

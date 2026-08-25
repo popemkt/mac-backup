@@ -18,10 +18,10 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "7.2.140";
+    version = "7.2.141";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.140/CLIProxyAPI_7.2.140_darwin_aarch64.tar.gz";
-      sha256 = "sha256-R6pSnimnWAQoOtRCBjkOHDWykOLE4ZFzm9gnWUYex+c=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.141/CLIProxyAPI_7.2.141_darwin_aarch64.tar.gz";
+      sha256 = "sha256-co+1ahpF3DWQ3blK2iRzk+4tRksIkXBWJILPWE+ie8I=";
     };
     github = "router-for-me/CLIProxyAPI";
     tagPrefix = "v";
@@ -38,10 +38,10 @@
   };
   genoffice = {
     pname = "genoffice";
-    version = "0.7.793";
+    version = "0.8.262";
     src = fetchurl {
-      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.7.793/GenOffice-0.7.793-arm64.dmg";
-      sha256 = "sha256-nx0Hg2gwHrp4Q+Q122GgBQH/DzVtkhOWpeUL8KtP88I=";
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.8.262/GenOffice-0.8.262-arm64.dmg";
+      sha256 = "sha256-dGdb/Qzs9ueoegN0Sa/F29nTw0i2nyXNwzKlYy84sDo=";
     };
     github = "genspark-ai/genoffice";
     tagPrefix = "v";
@@ -58,10 +58,10 @@
   };
   vite-plus = {
     pname = "vite-plus";
-    version = "0.2.9";
+    version = "0.3.0";
     src = fetchurl {
-      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v0.2.9/vp-aarch64-apple-darwin.tar.gz";
-      sha256 = "sha256-Gp/pHxiq7hU2+nal2WlGHGLM81YrOUMYC7LZz13HsI0=";
+      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v0.3.0/vp-aarch64-apple-darwin.tar.gz";
+      sha256 = "sha256-0+eh5oK2Qhbj2pOTcdclm4I47CHeQp0DmRwZg6gqlh4=";
     };
     github = "voidzero-dev/vite-plus";
     tagPrefix = "v";
