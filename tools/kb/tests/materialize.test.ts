@@ -118,6 +118,73 @@ describe("templates", () => {
     };
     expect(todos([], tctx)).toBe("# Todos\n\n_No todos._");
   });
+
+  test("todos snapshot with project hierarchy: grouped by project then status", () => {
+    const PROJ_TAG_ID = "01TESTPROJTAG";
+    const PROJ_A_ID = "01PROJA";
+    const PROJ_B_ID = "01PROJB";
+    const tagNode: KbNode = {
+      id: PROJ_TAG_ID,
+      text: "project",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.tag" }] },
+      children: [],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    const projANode: KbNode = {
+      id: PROJ_A_ID,
+      text: ".dotfiles",
+      props: { "sys.f.type": [{ t: "ref", v: PROJ_TAG_ID }] },
+      children: [A_ID],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    const projBNode: KbNode = {
+      id: PROJ_B_ID,
+      text: "kb",
+      props: { "sys.f.type": [{ t: "ref", v: PROJ_TAG_ID }] },
+      children: [B_ID],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    const nodes = [
+      tagNode,
+      projANode,
+      projBNode,
+      mkNode(A_ID, "Nix config", "doing"),
+      mkNode(B_ID, "Core engine", "todo"),
+      mkNode(C_ID, "Unassigned task", "todo"),
+    ];
+    const tctx: TemplateContext = {
+      nodes: new Map(nodes.map((n) => [n.id, n])),
+      fieldIdByName: (name) => (name === "status" ? FIELD_ID : undefined),
+    };
+    const rows = [[C_ID], [B_ID], [A_ID]];
+    const md = todos(rows, tctx);
+    expect(md).toBe(
+      [
+        "# Todos",
+        "",
+        "## .dotfiles",
+        "",
+        "### doing",
+        "",
+        "- Nix config",
+        "",
+        "## kb",
+        "",
+        "### todo",
+        "",
+        "- Core engine",
+        "",
+        "## (other)",
+        "",
+        "### todo",
+        "",
+        "- Unassigned task",
+      ].join("\n"),
+    );
+  });
 });
 
 describe("docs.materialize + docs.check", () => {

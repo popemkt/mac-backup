@@ -37,6 +37,12 @@ in
             description = "OpenAI-compatible DeepSeek API provider (API key).";
             managedBy = "external";
           };
+
+          opencode-go = {
+            name = "OpenCode Go";
+            description = "OpenAI-compatible OpenCode Go model provider (API key).";
+            managedBy = "external";
+          };
         };
 
         integrations."cli-proxy-deepseek" = {
@@ -74,6 +80,43 @@ in
           ];
           secretPolicy = "DEEPSEEK_API_KEY stays in secrets.env (mode 0600) and must not enter Git or the Nix store.";
           recovery = "Restore secrets.env from an encrypted backup, or paste a new DeepSeek key and rebuild.";
+        };
+
+        integrations."cli-proxy-opencode-go" = {
+          name = "CLIProxyAPI OpenCode Go";
+          description = "Prove CLIProxyAPI can expose the OpenCode Go model catalog.";
+          required = false;
+          requiredBy = [ "OpenCode and OpenAI-compatible clients (optional)" ];
+          connections = [
+            {
+              source = "cli-proxy-api";
+              target = "opencode-go";
+            }
+          ];
+          check = {
+            kind = "openai_models";
+            url = "http://127.0.0.1:8317/v1/models";
+            expected_models = [
+              "opencodego/qwen3.8-max"
+              "qwen3.8-max"
+            ];
+          };
+          enrollment = {
+            kind = "manual";
+            url = "https://opencode.ai/zen/go/v1";
+            instructions = ''
+              Put the OpenCode Go key in ~/.dotfiles/.env as KEY=..., then rebuild.
+              Home Manager migrates it into ~/.local/state/cli-proxy-api/secrets.env
+              (mode 0600) and merges it into ~/.config/cli-proxy-api/config.yaml.
+              Do not commit the key.
+            '';
+          };
+          statePaths = [
+            "${home}/.local/state/cli-proxy-api/secrets.env"
+            "${home}/.config/cli-proxy-api/config.yaml"
+          ];
+          secretPolicy = "OPENCODE_GO_API_KEY stays in secrets.env (mode 0600) and must not enter Git or the Nix store.";
+          recovery = "Restore secrets.env from an encrypted backup, or paste a new OpenCode Go key and rebuild.";
         };
 
         integrations."cli-proxy-codex" = {

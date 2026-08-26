@@ -37,11 +37,103 @@ function firstScalar(values: KbNode["props"][string] | undefined): string | unde
   return v === undefined ? undefined : String(v.v);
 }
 
-/** Todo-tagged nodes grouped by their `status` field value. Rows: [[nodeId], …]. */
+/** Todo-tagged nodes grouped by project (if project supertag nodes exist) and `status`. Rows: [[nodeId], …]. */
 export function todos(rows: unknown[][], ctx: TemplateContext): string {
   const statusFieldId = ctx.fieldIdByName("status");
   const ids = [...new Set(rows.map((r) => r[0]).filter((v): v is string => typeof v === "string"))];
 
+  if (ids.length === 0) {
+    return "# Todos\n\n_No todos._";
+  }
+
+  // Discover project tag(s) and project nodes
+  const projectTagIds = new Set<NodeId>();
+  for (const [id, node] of ctx.nodes) {
+    if (node.text === "project") {
+      const typeRefs = node.props["sys.f.type"]?.filter((pv) => pv.t === "ref").map((pv) => pv.v);
+      if (typeRefs?.includes("sys.tag")) {
+        projectTagIds.add(id);
+      }
+    }
+  }
+
+  const projectNodes = new Map<NodeId, KbNode>();
+  if (projectTagIds.size > 0) {
+    for (const [id, node] of ctx.nodes) {
+      const typeRefs = node.props["sys.f.type"]?.filter((pv) => pv.t === "ref").map((pv) => pv.v) ?? [];
+      if (typeRefs.some((ref) => projectTagIds.has(ref))) {
+        projectNodes.set(id, node);
+      }
+    }
+  }
+
+  if (projectNodes.size > 0) {
+    const nodeToProject = new Map<NodeId, string>();
+    for (const [, projNode] of projectNodes) {
+      const queue = [...projNode.children];
+      while (queue.length > 0) {
+        const childId = queue.shift()!;
+        if (!nodeToProject.has(childId)) {
+          nodeToProject.set(childId, projNode.text);
+          const childNode = ctx.nodes.get(childId);
+          if (childNode && childNode.children.length > 0) {
+            queue.push(...childNode.children);
+          }
+        }
+      }
+    }
+
+    const projectGroups = new Map<string, Map<string, KbNode[]>>();
+    const sortedProjects = [...projectNodes.values()]
+      .map((p) => p.text)
+      .sort((a, b) => a.localeCompare(b));
+    for (const pName of sortedProjects) {
+      projectGroups.set(pName, new Map());
+    }
+
+    for (const id of ids) {
+      const node = ctx.nodes.get(id);
+      if (!node) continue;
+      const projName = nodeToProject.get(id) ?? "(other)";
+      let statusMap = projectGroups.get(projName);
+      if (!statusMap) {
+        statusMap = new Map();
+        projectGroups.set(projName, statusMap);
+      }
+      const status =
+        (statusFieldId ? firstScalar(node.props[statusFieldId]) : undefined) ?? NO_STATUS;
+      const list = statusMap.get(status) ?? [];
+      list.push(node);
+      statusMap.set(status, list);
+    }
+
+    const lines = ["# Todos"];
+    let totalCount = 0;
+    for (const [projName, statusMap] of projectGroups) {
+      if (statusMap.size === 0) continue;
+      lines.push("", `## ${projName}`);
+      const statuses = [...statusMap.keys()].sort(
+        (a, b) => statusRank(a) - statusRank(b) || a.localeCompare(b),
+      );
+      for (const status of statuses) {
+        lines.push("", `### ${status}`, "");
+        const nodes = statusMap
+          .get(status)!
+          .sort((a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id));
+        for (const n of nodes) {
+          lines.push(`- ${renderText(n.text, ctx)}`);
+          totalCount++;
+        }
+      }
+    }
+
+    if (totalCount === 0) {
+      return "# Todos\n\n_No todos._";
+    }
+    return lines.join("\n");
+  }
+
+  // Fallback flat status grouping when no project supertag nodes exist
   const groups = new Map<string, KbNode[]>();
   for (const id of ids) {
     const node = ctx.nodes.get(id);
@@ -54,11 +146,6 @@ export function todos(rows: unknown[][], ctx: TemplateContext): string {
   }
 
   const lines = ["# Todos"];
-  if (groups.size === 0) {
-    lines.push("", "_No todos._");
-    return lines.join("\n");
-  }
-
   const statuses = [...groups.keys()].sort(
     (a, b) => statusRank(a) - statusRank(b) || a.localeCompare(b),
   );

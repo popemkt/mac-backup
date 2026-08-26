@@ -2,7 +2,24 @@
 
 # Todos
 
-## doing
+## .dotfiles
+
+### todo
+
+- Package kb as nix app in pkgs/ (pinned bun deps, vp build in sandbox, wrapper bin) — replaces checkout-based wrapper
+- Study production nix repo shape before adopting
+
+### done
+
+- Migrate TODO.md items into kb (M5)
+
+### parked
+
+- Revisit app catalog → Nix package-list hydration (parked experiment)
+
+## kb
+
+### doing
 
 - A outline editor defects -> Tana-grade polish
 - B graph view CodeFlow-parity overhaul
@@ -14,17 +31,19 @@
 
 - kb-refine wave 2026-08-23: plan at docs/kb-waves/2026-08-23/plan.md
 
-## todo
+### todo
 
 - canvas C2: media cards (assets) + frictionless quick-add — draw.io feel
 - canvas: offload canvas doc to .kb/canvas/<id>.json (prop holds pointer) — keep nodes.jsonl lean
+- Check out ideas from this, how did it handle transaction and stuff https://news.ycombinator.com/item?id=49440174
+- Check out Memgraph optimization: how does it optimize its in-memory virtualization layer (and other deployment modes) similar to our architecture
+- Check out more about zerolang and Lisp data as code code as data, and overall: making state unrepresentable paradigm of zerolang
 - kb ui portless mode: UDS transport for local subscriber apps + port discovery via .kb/runtime.json
-- Package kb as nix app in pkgs/ (pinned bun deps, vp build in sandbox, wrapper bin) — replaces checkout-based wrapper
+- Look into performant DB as "rebuildable" index syncing to source-control committable JSONL, and how Epic's LORE VCS solves binary versioning performantly
 - per-viz demo seed + user test script (tree/cluster/3D/board/canvas)
-- Study production nix repo shape before adopting
 - views: toolbar tucked in hover/settings gear — never always-visible
 
-## done
+### done
 
 - canvas simplify (Logseq model): edges are drawings only; native bind = one-shot prop write; bound-state computed at render (unbound tint); DELETE reconciler/persist-back/bindingId repair — supersedes broken-edge repair todo
 - graph: smart-elide system/editor-only nodes by default + toggle; universal graph button in header
@@ -36,18 +55,14 @@
 - kb refine W6a: inline media (.kb/assets, md images, asset.upload) — DESIGN-REFINE.md
 - kb reskin W8a: nxus tokens + shell (styles port, dark/light, prefs popover, kill panel+query tab, centered/full modes, References inline) — DESIGN-RESKIN.md
 - kb reskin W8b: unified NodeRow/TagChip/FieldRow + borderless field editors + tag colors + selection states — DESIGN-RESKIN.md
-- Migrate TODO.md items into kb (M5)
 
-## dropped
+### dropped
 
 - canvas: keep broken kbLink edges as dashed + repair prompt (flip from auto-remove)
 
-## later
+### later
 
 - core: investigate tag inheritance (supertag extends) for Tana parity
+- Graph database engines and query language comparison catalog — https://gdb-engines.com/
 - kb refine V-wave: viz surfaces beyond nxus (2D sigma, 3D force, stacked/folder views, JSON Canvas) — DESIGN-REFINE.md + .research/kb-refine/viz/report.md
 - kb ui server: datalog subscription limits (query complexity/time cap) + inline sub-error surfacing in query nodes
-
-## parked
-
-- Revisit app catalog → Nix package-list hydration (parked experiment)

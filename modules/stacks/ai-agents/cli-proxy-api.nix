@@ -54,6 +54,11 @@ let
           }
         ];
       }
+      {
+        name = "opencode-go";
+        base-url = "https://opencode.ai/zen/go/v1";
+        models = [ ];
+      }
     ];
   };
 
@@ -77,6 +82,7 @@ let
       {
         printf '# CLIProxyAPI upstream provider secrets. Mode 0600; do not commit.\n'
         printf '# DEEPSEEK_API_KEY=\n'
+        printf '# OPENCODE_GO_API_KEY=\n'
       } > "$secret_tmp"
       ${pkgs.coreutils}/bin/chmod 0600 "$secret_tmp"
       ${pkgs.coreutils}/bin/mv "$secret_tmp" "$secret_file"
@@ -90,6 +96,17 @@ let
       key="$(${pkgs.gnused}/bin/sed -n 's/^KEY=//p' "$legacy_dotenv" | ${pkgs.coreutils}/bin/head -n 1)"
       if [[ -n "$key" ]]; then
         printf 'DEEPSEEK_API_KEY=%s\n' "$key" >> "$secret_file"
+        ${pkgs.coreutils}/bin/chmod 0600 "$secret_file"
+      fi
+    fi
+
+    # One-time migration from the ad-hoc repo .env KEY= for OpenCode Go.
+    if ! ${pkgs.gnugrep}/bin/grep -q '^OPENCODE_GO_API_KEY=' "$secret_file" \
+      && [[ -r "$legacy_dotenv" ]] \
+      && ${pkgs.gnugrep}/bin/grep -q '^KEY=' "$legacy_dotenv"; then
+      key="$(${pkgs.gnused}/bin/sed -n 's/^KEY=//p' "$legacy_dotenv" | ${pkgs.coreutils}/bin/head -n 1)"
+      if [[ -n "$key" ]]; then
+        printf 'OPENCODE_GO_API_KEY=%s\n' "$key" >> "$secret_file"
         ${pkgs.coreutils}/bin/chmod 0600 "$secret_file"
       fi
     fi
@@ -110,6 +127,39 @@ let
       ' "$config_tmp"
     else
       printf 'warning: %s has no DEEPSEEK_API_KEY; DeepSeek upstream will be unauthenticated\n' \
+        "$secret_file" >&2
+    fi
+
+    if [[ -n "''${OPENCODE_GO_API_KEY:-}" ]]; then
+      OPENCODE_GO_API_KEY="$OPENCODE_GO_API_KEY" ${pkgs.yq-go}/bin/yq -i '
+        (.["openai-compatibility"][] | select(.name == "opencode-go"))
+          |= . + {"api-key-entries": [{"api-key": strenv(OPENCODE_GO_API_KEY)}]}
+      ' "$config_tmp"
+
+      # Dynamically fetch live model catalog from OpenCode Go so model names do not drift.
+      models_json="$(${pkgs.curl}/bin/curl -s --max-time 5 \
+        -H "Authorization: Bearer $OPENCODE_GO_API_KEY" \
+        https://opencode.ai/zen/go/v1/models || true)"
+
+      models_json_str="$(printf '%s' "$models_json" | ${pkgs.jq}/bin/jq -c '
+        if (.data | type == "array" and length > 0) then
+          [.data[].id] | map([
+            {"name": ., "alias": "opencodego/\(.)"},
+            {"name": ., "alias": "opencode-go/\(.)"},
+            {"name": ., "alias": .}
+          ]) | flatten
+        else
+          []
+        end
+      ' 2>/dev/null || printf '[]')"
+
+      if [[ "$models_json_str" != "[]" && "$models_json_str" != "" ]]; then
+        OPENCODE_MODELS="$models_json_str" ${pkgs.yq-go}/bin/yq -i '
+          (.["openai-compatibility"][] | select(.name == "opencode-go").models) = (strenv(OPENCODE_MODELS) | fromjson)
+        ' "$config_tmp"
+      fi
+    else
+      printf 'warning: %s has no OPENCODE_GO_API_KEY; OpenCode Go will be unauthenticated\n' \
         "$secret_file" >&2
     fi
 
