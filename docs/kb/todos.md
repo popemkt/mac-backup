@@ -38,8 +38,11 @@
 - Check out ideas from this, how did it handle transaction and stuff https://news.ycombinator.com/item?id=49440174
 - Check out Memgraph optimization: how does it optimize its in-memory virtualization layer (and other deployment modes) similar to our architecture
 - Check out more about zerolang and Lisp data as code code as data, and overall: making state unrepresentable paradigm of zerolang
+- Explore @statelyai/graph for kb graph modeling, traversal algorithms, and visualization pipeline https://github.com/statelyai/graph
+- Graph Database Engines Directory & Comparison https://gdb-engines.com/
 - kb ui portless mode: UDS transport for local subscriber apps + port discovery via .kb/runtime.json
 - Look into performant DB as "rebuildable" index syncing to source-control committable JSONL, and how Epic's LORE VCS solves binary versioning performantly
+- Memgraph: In-Memory Graph Database (open source) https://github.com/memgraph/memgraph
 - per-viz demo seed + user test script (tree/cluster/3D/board/canvas)
 - views: toolbar tucked in hover/settings gear — never always-visible
 
