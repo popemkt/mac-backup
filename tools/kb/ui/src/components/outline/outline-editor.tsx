@@ -1,7 +1,8 @@
 import { useCallback, useEffect } from "react";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
-import { applyViewFilters, getViewConfig, isProjectedViewMode } from "@/lib/view-config";
+import { frameListChildren } from "@/lib/frame-rows";
+import { getViewConfig, isProjectedViewMode } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { mutations } from "@/actions/mutations";
@@ -53,32 +54,26 @@ export function OutlineEditor() {
     );
   }
 
-  if (rootNodeId !== WORKSPACE_ROOT_ID) {
-    const viewConfig = getViewConfig(root.props);
-    const projected = isProjectedViewMode(viewConfig.mode);
-    const listKids = projected
-      ? []
-      : applyViewFilters(
-          root.children
-            .map((id) => nodes.get(id))
-            .filter((n): n is NonNullable<typeof n> => n !== undefined),
-          viewConfig.filters,
-          nodes,
-        );
+  // The root is a frame like any other: its rows come from the shared owner,
+  // whether it is the workspace root or a zoomed-in node.
+  const projected = isProjectedViewMode(getViewConfig(root.props).mode);
+  const listKids = projected ? [] : frameListChildren(rootNodeId, nodes);
+  const rootRows = projected ? (
+    <FrameChildrenView frameId={rootNodeId} />
+  ) : (
+    listKids.map((child) => {
+      const key = outlineInstanceKey(child.id, nodes);
+      return <NodeBlock key={key} nodeId={child.id} instanceKey={key} depth={0} />;
+    })
+  );
 
+  if (rootNodeId !== WORKSPACE_ROOT_ID) {
     return (
       <div className="outline-editor px-2 pb-40">
         <Breadcrumbs />
         <ZoomedRootHeader node={root} />
 
-        {projected ? (
-          <FrameChildrenView frameId={rootNodeId} />
-        ) : (
-          listKids.map((child) => {
-            const key = outlineInstanceKey(child.id, nodes);
-            return <NodeBlock key={key} nodeId={child.id} instanceKey={key} depth={0} />;
-          })
-        )}
+        {rootRows}
 
         {!projected && (
           <div
@@ -112,10 +107,7 @@ export function OutlineEditor() {
     <div className="outline-editor px-2 pb-40">
       <Breadcrumbs />
 
-      {root.children.map((id) => {
-        const key = outlineInstanceKey(id, nodes);
-        return <NodeBlock key={key} nodeId={id} instanceKey={key} depth={0} />;
-      })}
+      {rootRows}
 
       <div
         data-create-child-zone={WORKSPACE_ROOT_ID}

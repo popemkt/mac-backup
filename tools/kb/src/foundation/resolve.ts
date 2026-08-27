@@ -1,5 +1,6 @@
 import type { FailureCode } from "../shared/contracts.ts";
 import { SYSTEM_IDS, type KbNode, type NodeId } from "./model.ts";
+import { typeRefsOf } from "./ontology.ts";
 
 /** Resolve failures; codes are the FailureCodeSchema subset used by lookup/move. */
 export type ResolveErrorCode = Extract<
@@ -19,8 +20,7 @@ export class ResolveError extends Error {
 }
 
 function hasType(node: KbNode, typeId: NodeId): boolean {
-  const vals = node.props[SYSTEM_IDS.typeField] ?? [];
-  return vals.some((v) => v.t === "ref" && v.v === typeId);
+  return typeRefsOf(node).includes(typeId);
 }
 
 /**
@@ -33,12 +33,11 @@ export function resolveNamed(
   kind: "field" | "tag",
 ): NodeId {
   const typeId = kind === "field" ? SYSTEM_IDS.field : SYSTEM_IDS.tag;
+  // An explicit id always wins, typed or not: `hasType` and the old sys.*
+  // special case both fell through to the same answer, so neither ever
+  // decided anything.
   const byId = nodes.find((n) => n.id === nameOrId);
-  if (byId) {
-    if (hasType(byId, typeId) || nameOrId.startsWith("sys.")) return byId.id;
-    // raw id hit that isn't typed — still accept explicit id
-    return byId.id;
-  }
+  if (byId) return byId.id;
 
   const matches = nodes.filter(
     (n) => n.text === nameOrId && hasType(n, typeId),

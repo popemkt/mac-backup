@@ -14,6 +14,7 @@ import {
   fieldTypeIconKind,
   type FieldType,
 } from "@/lib/field-type";
+import { indentStyle } from "@/lib/indent";
 import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 
 export const FIELD_LABEL_WIDTH = 120;
@@ -103,7 +104,7 @@ export function FieldRow({
         valueOnly && "py-0",
         className,
       )}
-      style={valueOnly ? undefined : { paddingLeft: `${(depth + 1) * 24}px` }}
+      style={valueOnly ? undefined : indentStyle(depth + 1)}
       data-field-row="true"
       data-field-value-only={valueOnly ? "true" : undefined}
       data-debug-field={debug ? "true" : undefined}

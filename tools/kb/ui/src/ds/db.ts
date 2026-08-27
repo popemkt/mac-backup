@@ -1,5 +1,6 @@
 import * as d from "datascript";
 import type { WireNode } from "@kb/protocol";
+import { backlinksQuery } from "@kb/queries";
 import { nodesToDatoms, type IdMap } from "./datoms";
 
 export interface QueryDb {
@@ -75,19 +76,16 @@ export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
   return reviveValue(raw, db.ids);
 }
 
-const BACKLINKS_Q = `[:find ?id ?text
-  :in $ ?tid
-  :where
-  [?t :node/id ?tid]
-  [?e :node/mentions ?t]
-  [?e :node/id ?id]
-  [?e :node/text ?text]]`;
-
+/**
+ * Nodes that reference `targetId`. The EDN comes from the backend through
+ * `@kb/queries` — one owner for "what references X", so the CLI's
+ * `kb backlinks` and the UI's References section cannot answer it differently.
+ */
 export function queryBacklinks(
   db: QueryDb,
   targetId: string,
 ): Array<{ id: string; text: string }> {
-  const rows = query(db, BACKLINKS_Q, targetId) as Array<[string, string]>;
+  const rows = query(db, backlinksQuery(targetId)) as Array<[string, string]>;
   if (!Array.isArray(rows)) return [];
   return rows.map(([id, text]) => ({ id, text }));
 }

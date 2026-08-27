@@ -13,16 +13,15 @@ import {
 } from "@/lib/field-type";
 import { cn } from "@/lib/cn";
 import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
+import { frameRows } from "@/lib/frame-rows";
 import {
-  applyViewFilters,
   EMPTY_GROUP_KEY,
   getViewConfig,
-  groupChildrenForBoard,
   resolveTableColumns,
-  sortChildrenForTable,
   type ViewMode,
 } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
+import { useDebugFields } from "@/stores/debug-fields.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { Bullet } from "./bullet";
 import { FieldRow } from "./field-row";
@@ -35,7 +34,6 @@ import { useNodeKeyDown } from "./use-node-keydown";
 interface BoardCardsViewProps {
   frameId: string;
   frameInstanceKey?: string;
-  mode: "board" | "cards";
   nodes?: NodeMap;
   /** Query-result row ids (overrides frame children). */
   rowIds?: string[];
@@ -46,7 +44,6 @@ interface BoardCardsViewProps {
 export function BoardCardsView({
   frameId,
   frameInstanceKey,
-  mode,
   nodes: nodesProp,
   rowIds,
   isQuerySource = false,
@@ -61,7 +58,8 @@ export function BoardCardsView({
     [nodesProp, storeNodes, rev],
   );
   const frameNode = nodes.get(frameId);
-  const showAllFields = usePrefsStore((s) => s.showAllFields);
+  // Same rule as the table: displayed columns belong to the frame.
+  const debugColumns = useDebugFields(frameId);
   const storeWidth = usePrefsStore((s) => s.width);
   const widthPref = widthPrefProp ?? storeWidth;
 
@@ -73,34 +71,20 @@ export function BoardCardsView({
     [frameNode?.props],
   );
 
-  const children = useMemo(() => {
-    const ids = rowIds ?? frameNode?.children ?? [];
-    return ids
-      .map((id) => nodes.get(id))
-      .filter((n): n is OutlineNode => n !== undefined);
-  }, [frameNode, nodes, rowIds]);
-
-  const filtered = useMemo(
-    () => applyViewFilters(children, viewConfig.filters, nodes),
-    [children, viewConfig.filters, nodes],
+  // Grouping and order come from the shared owner: board columns and the flat
+  // nav order are two views of one computation.
+  const rows = useMemo(
+    () => frameRows({ frameId, nodes, rowIds }),
+    [frameId, nodes, rowIds],
   );
-
-  const sorted = useMemo(
-    () => sortChildrenForTable(filtered, viewConfig.sort, nodes),
-    [filtered, viewConfig.sort, nodes],
-  );
-
-  const groupFieldId =
-    mode === "board" ? viewConfig.groupFieldId : null;
-
-  const columns = useMemo(
-    () => groupChildrenForBoard(sorted, groupFieldId, nodes),
-    [sorted, groupFieldId, nodes],
-  );
+  const sorted = rows.ordered;
+  const columns = rows.columns;
+  const groupFieldId = rows.groupFieldId;
+  const mode = rows.mode;
 
   const displayCols = useMemo(
-    () => resolveTableColumns(viewConfig, sorted, nodes, showAllFields),
-    [viewConfig, sorted, nodes, showAllFields],
+    () => resolveTableColumns(viewConfig, sorted, nodes, debugColumns),
+    [viewConfig, sorted, nodes, debugColumns],
   );
 
   const instanceKeyFor = useCallback(
@@ -145,6 +129,9 @@ export function BoardCardsView({
   );
 
   if (!frameNode && !rowIds) return null;
+  // The frame's stored view config is the only source of mode; a frame that is
+  // not board/cards is FrameChildrenView's business, not ours.
+  if (!isBoardOrCards(mode)) return null;
 
   if (mode === "board" && !groupFieldId) {
     return (
@@ -321,7 +308,6 @@ const ViewCard = memo(function ViewCard({
             node={child}
             collapsible={false}
             isRef={isRef}
-            tagColor={child.tags[0]?.color ?? null}
             onClick={(e) => {
               e.stopPropagation();
               zoomTo(child.id);

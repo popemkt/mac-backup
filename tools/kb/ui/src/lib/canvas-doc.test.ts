@@ -230,7 +230,10 @@ describe("one-shot bind", () => {
           parentId: null,
           children: [],
           collapsed: false,
-          props: {},
+          // Tag membership is the prop; the badge is what the row renders from
+          // it. Only the prop makes this node a #todo — a fixture carrying the
+          // badge alone described a state wireToOutlineMap cannot produce.
+          props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "tag.todo" }] },
           createdAt: "",
           updatedAt: "",
           tags: [{ id: "tag.todo", name: "todo", color: "#000" }],

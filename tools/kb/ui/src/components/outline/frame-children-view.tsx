@@ -51,7 +51,6 @@ export function FrameChildrenView({
     <BoardCardsView
       frameId={frameId}
       frameInstanceKey={frameInstanceKey}
-      mode={viewConfig.mode}
       nodes={nodes}
       rowIds={rowIds}
       isQuerySource={isQuerySource}

@@ -41,6 +41,7 @@ export default defineConfig({
       "@kb/ontology": path.join(root, "../src/foundation/ontology.ts"),
       "@kb/order": path.join(root, "../src/foundation/order.ts"),
       "@kb/field-type": path.join(root, "../src/foundation/field-type.ts"),
+      "@kb/queries": path.join(root, "../src/foundation/query/queries.ts"),
     },
   },
   server: {

@@ -30,12 +30,18 @@ import {
   planUpdateText,
   type PlannedMutation,
 } from "@/actions/plan";
+import {
+  findPinnedTagId,
+  pinnedTagIdsOn,
+  PINNED_TAG_TEXT,
+} from "@/lib/pinned";
 import { toast } from "@/lib/toast";
 import { isSysPrefixed, SYSTEM_IDS, WORKSPACE_ROOT_ID, type PropValue } from "@/lib/types";
 import { forestRootIds } from "@/lib/graph-view";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { cloneWire, findParentWire } from "@/lib/tx";
 import type { WireNode } from "@kb/protocol";
+import { typeRefsOf } from "@kb/ontology";
 import { useOutlineStore } from "@/stores/outline.store";
 
 function wire(): WireNode[] {
@@ -370,7 +376,7 @@ export const mutations = {
     // Expanded set from the UI outline map drives Tana first-child splits.
     const expandedIds = new Set<string>();
     for (const n of store.nodes.values()) {
-      if (!n.collapsed && !n.id.startsWith("sys.")) expandedIds.add(n.id);
+      if (!n.collapsed && !isSysPrefixed(n.id)) expandedIds.add(n.id);
     }
     await applyPlan(planSplit(wire(), id, cursor, ulid(), { expandedIds }));
   },
@@ -522,10 +528,7 @@ export const mutations = {
   async makeSupertag(nodeId: string): Promise<boolean> {
     if (!guardSysWrite(nodeId)) return false;
     const node = wire().find((n) => n.id === nodeId);
-    const already = (node?.props[SYSTEM_IDS.typeField] ?? []).some(
-      (v) => v.t === "ref" && v.v === SYSTEM_IDS.tag,
-    );
-    if (already) return true;
+    if (typeRefsOf(node).includes(SYSTEM_IDS.tag)) return true;
     return applyPlan(planAddTag(wire(), nodeId, SYSTEM_IDS.tag));
   },
 
@@ -533,6 +536,29 @@ export const mutations = {
     const newId = ulid();
     const ok = await applyPlan(planDefineTag(name, newId));
     return ok ? newId : null;
+  },
+
+  /**
+   * Pin / unpin a node for the sidebar's Pinned section.
+   *
+   * Pinning is tagging (see lib/pinned): the toggle is `addTag`/`removeTag`
+   * over the `pinned` tag, and nothing here is bespoke. The tag is minted on
+   * first use through the same `defineTag` the ⌘K picker's "Create tag" path
+   * uses, which is why no `sys.tag.pinned` needs seeding.
+   */
+  async togglePin(nodeId: string): Promise<boolean> {
+    if (!guardSysWrite(nodeId)) return false;
+    const nodes = useOutlineStore.getState().nodes;
+    const carried = pinnedTagIdsOn(nodes.get(nodeId), nodes);
+    if (carried.length > 0) {
+      for (const tagId of carried) await mutations.removeTag(nodeId, tagId);
+      return true;
+    }
+    const existing = findPinnedTagId(nodes);
+    const tagId = existing ?? (await mutations.defineTag(PINNED_TAG_TEXT));
+    if (!tagId) return false;
+    await mutations.addTag(nodeId, tagId);
+    return true;
   },
 
   /**

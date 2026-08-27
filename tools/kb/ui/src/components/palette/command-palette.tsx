@@ -9,6 +9,7 @@ import {
 } from "@/lib/palette-index";
 import { runPaletteCommand } from "@/lib/run-command";
 import { schemaZoomKind } from "@/lib/schema-zoom";
+import { isSysPrefixed } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 
 const ROW_LIMIT = 20;
@@ -88,7 +89,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         return;
       }
       const node = useOutlineStore.getState().nodes.get(hit.id);
-      if (schemaZoomKind(node) || hit.id.startsWith("sys.")) {
+      if (schemaZoomKind(node) || isSysPrefixed(hit.id)) {
         zoomTo(hit.id);
         return;
       }

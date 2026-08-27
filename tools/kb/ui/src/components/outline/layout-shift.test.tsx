@@ -90,4 +90,34 @@ describe("layout-shift regressions (i10)", () => {
     expect(src).toContain("min-h-[2.5rem]");
     expect(src).not.toMatch(/items\.length > 0 && \(/);
   });
+
+  it("the main scroll region reserves its scrollbar gutter", () => {
+    const src = readFileSync(
+      path.join(outlineDir, "../App.tsx"),
+      "utf8",
+    );
+    // One owner of "the main region" — the className is not restated per route.
+    expect(src).toMatch(/function MainRegion\(/);
+    expect((src.match(/<main\b/g) ?? []).length).toBe(1);
+    expect(src).not.toMatch(/className="min-h-0 flex-1 overflow-(?:auto|hidden)"/);
+    // Every route's region goes through it, canvas (non-scrolling) included.
+    expect((src.match(/<MainRegion\b/g) ?? []).length).toBe(4);
+    // The track is reserved unconditionally, so a view that overflows and one
+    // that does not resolve to the same content width — the centered column,
+    // and with it the breadcrumb, cannot shift by the 6px scrollbar.
+    expect(src).toMatch(/overflow-y-scroll/);
+    // Reserved by always-on scroll, not by scrollbar-gutter: the property is
+    // unsupported before Safari 18.2, which would leave the shift in place
+    // there. One mechanism, so the two cannot drift apart.
+    expect(src).not.toMatch(/\[scrollbar-gutter:/);
+    // Pinned at the region itself, so a later edit cannot quietly drop back to
+    // `overflow-auto` (the unrelated `<pre>` in the error view may keep it).
+    expect(src).toMatch(/scroll \? "overflow-x-auto overflow-y-scroll"/);
+    // And the shift is fixed at the scroll region, not compensated downstream.
+    const crumbs = readFileSync(
+      path.join(outlineDir, "breadcrumbs.tsx"),
+      "utf8",
+    );
+    expect(crumbs).not.toMatch(/scrollbar|margin-left|\bml-|padding-right|\bpr-/);
+  });
 });

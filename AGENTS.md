@@ -133,7 +133,7 @@ bundled example `tools/kb/extensions-bundled/docs.ts` owns
 Rules for agents:
 - Prefer `kb` over ad-hoc TODO files for durable repo todos/notes; `--json` for machine output.
 - Props are multi-valued: `set` appends — `unset` the old value when changing e.g. `status`.
-- `[[id|label]]` in node text is the official ref form; load extracts `:node/mentions` datoms (see `tools/kb/DESIGN.md`). Use `kb backlinks <id>` or the datalog example above.
+- `[[id|label]]` in node text and any `{t:"ref"}` prop value are both the ref form; load extracts `:node/mentions` datoms from either (see `tools/kb/DESIGN.md`). Use `kb backlinks <id>` or the datalog example above.
 - `docs/kb/*.md` is generated (header marks it); edit data, then materialize.
   Pre-commit runs `docs.check` and blocks stale generated docs.
 - Runtime/tooling boundary: Bun is the production runtime (Bun APIs stay where

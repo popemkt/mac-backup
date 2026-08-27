@@ -94,17 +94,29 @@ export const LIST_ONTOLOGIES_QUERY = `[:find ?id ?text
                       [?t :node/id "${SYSTEM_IDS.ontologyTag}"]]`;
 
 // ── prop readers ───────────────────────────────────────────────────────────
+//
+// Generic, kind-agnostic readers over `NodeLike.props`. They are the only
+// place a prop is decoded, so every resolution surface — ontology membership,
+// ref-target constraints, CLI receipts — reads the same bytes the same way.
+// (Their natural home is the model alongside `PropValue`; they live here
+// because this is the module that already owns the isomorphic node shape.)
 
 /** Ref values of a multi-valued ref field, in stored order. */
-export function ontologyRefs(node: NodeLike, fieldId: string): NodeId[] {
-  return (node.props[fieldId] ?? [])
+export function refValuesOf(
+  node: Pick<NodeLike, "props"> | undefined,
+  fieldId: string,
+): NodeId[] {
+  return (node?.props[fieldId] ?? [])
     .filter((v) => v.t === "ref" && typeof v.v === "string")
     .map((v) => String(v.v));
 }
 
 /** First non-empty str value of a single-valued str field. */
-export function ontologyStr(node: NodeLike, fieldId: string): string | null {
-  for (const v of node.props[fieldId] ?? []) {
+export function strValueOf(
+  node: Pick<NodeLike, "props"> | undefined,
+  fieldId: string,
+): string | null {
+  for (const v of node?.props[fieldId] ?? []) {
     if (v.t !== "str" || typeof v.v !== "string") continue;
     const trimmed = v.v.trim();
     if (trimmed) return trimmed;
@@ -112,13 +124,26 @@ export function ontologyStr(node: NodeLike, fieldId: string): string | null {
   return null;
 }
 
-/** Type refs (`sys.f.type`) of any node. */
-function typeRefs(node: NodeLike): NodeId[] {
-  return ontologyRefs(node, SYSTEM_IDS.typeField);
+/**
+ * TRUTH READER for the kind slot: the ids a node declares in `sys.f.type`.
+ *
+ * "n is tagged t", "n is a supertag", "n is a field" are all this one datum —
+ * a tag node carries `sys.f.type → sys.tag`, an instance carries
+ * `sys.f.type → <tag>`. Every membership / constraint / validity decision must
+ * come through here.
+ *
+ * It is deliberately NOT the same list a UI renders as `#tag` chips: the
+ * badge list drops the kind refs (`sys.tag`, `sys.field`) because a chip
+ * saying "#tag" on a tag's own page would be nonsense. That is a *display*
+ * rule. Reading badges back as truth is what made `sys.f.onto.include`
+ * (`targetTag → sys.tag`) resolve to the empty set and the field unfillable.
+ */
+export function typeRefsOf(node: Pick<NodeLike, "props"> | undefined): NodeId[] {
+  return refValuesOf(node, SYSTEM_IDS.typeField);
 }
 
 export function isOntologyNode(node: NodeLike): boolean {
-  return typeRefs(node).includes(SYSTEM_IDS.ontologyTag);
+  return typeRefsOf(node).includes(SYSTEM_IDS.ontologyTag);
 }
 
 /** `#ontology` nodes sorted by label then id (stable picker/sidebar order). */
@@ -134,7 +159,7 @@ export function listOntologyNodes<T extends NodeLike>(nodes: readonly T[]): T[] 
 }
 
 export function ontologyClosureMode(node: NodeLike): OntologyClosureMode {
-  const raw = ontologyStr(node, SYSTEM_IDS.ontoClosureField);
+  const raw = strValueOf(node, SYSTEM_IDS.ontoClosureField);
   return raw === "descendants" ? "descendants" : "none";
 }
 
@@ -158,7 +183,7 @@ export function wouldCreateExtendsCycle(
     seen.add(current);
     const node = byId.get(current);
     if (!node) continue;
-    for (const next of ontologyRefs(node, SYSTEM_IDS.ontoExtendsField)) {
+    for (const next of refValuesOf(node, SYSTEM_IDS.ontoExtendsField)) {
       stack.push(next);
     }
   }
@@ -199,7 +224,7 @@ function warn(state: ResolveState, key: string, message: string): void {
 function buildTagIndex(nodes: readonly NodeLike[]): Map<NodeId, NodeId[]> {
   const byTag = new Map<NodeId, NodeId[]>();
   for (const node of nodes) {
-    for (const tagId of typeRefs(node)) {
+    for (const tagId of typeRefsOf(node)) {
       const list = byTag.get(tagId);
       if (list) list.push(node.id);
       else byTag.set(tagId, [node.id]);
@@ -269,7 +294,7 @@ function resolveInto(
   state.visiting.add(ontologyId);
 
   // 1. extends — parent members are inherited (A extends B ⇒ A ⊇ B).
-  for (const parentId of ontologyRefs(onto, SYSTEM_IDS.ontoExtendsField)) {
+  for (const parentId of refValuesOf(onto, SYSTEM_IDS.ontoExtendsField)) {
     if (state.visiting.has(parentId)) {
       warn(
         state,
@@ -303,7 +328,7 @@ function resolveInto(
   }
 
   // 2. include tags — every instance of each listed tag.
-  for (const tagId of ontologyRefs(onto, SYSTEM_IDS.ontoIncludeField)) {
+  for (const tagId of refValuesOf(onto, SYSTEM_IDS.ontoIncludeField)) {
     if (!state.byId.has(tagId)) {
       warn(
         state,
@@ -319,7 +344,7 @@ function resolveInto(
   }
 
   // 3. explicit members ("pins") — survive the tag being removed.
-  for (const id of ontologyRefs(onto, SYSTEM_IDS.ontoMemberField)) {
+  for (const id of refValuesOf(onto, SYSTEM_IDS.ontoMemberField)) {
     if (!state.byId.has(id)) {
       warn(
         state,
@@ -332,7 +357,7 @@ function resolveInto(
   }
 
   // 4. query — parameter-free EDN; never throws across this boundary.
-  const edn = ontologyStr(onto, SYSTEM_IDS.ontoQueryField);
+  const edn = strValueOf(onto, SYSTEM_IDS.ontoQueryField);
   if (edn) {
     if (!state.runQuery) {
       warn(
@@ -381,7 +406,7 @@ function resolveInto(
   }
 
   // 6. exclude — absolute veto, applied last, wins over everything above.
-  for (const id of ontologyRefs(onto, SYSTEM_IDS.ontoExcludeField)) {
+  for (const id of refValuesOf(onto, SYSTEM_IDS.ontoExcludeField)) {
     result.excluded.add(id);
     result.members.delete(id);
     result.reasons.delete(id);

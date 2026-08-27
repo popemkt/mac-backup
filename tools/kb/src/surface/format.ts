@@ -1,4 +1,5 @@
 import type { ActionReceipt } from "../shared/contracts.ts";
+import { isSysPrefixed } from "../foundation/model.ts";
 
 export function formatReceipt(
   receipt: ActionReceipt,
@@ -120,7 +121,7 @@ function compactProps(props: Record<string, unknown>): string {
 }
 
 function shortId(id: string): string {
-  if (id.startsWith("sys.")) return id;
+  if (isSysPrefixed(id)) return id;
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;
 }
 

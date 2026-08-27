@@ -1,24 +1,30 @@
 /**
- * Declared field types (Tana fieldType pattern).
+ * Declared field types (Tana fieldType pattern) — the browser side.
  *
- * The mapping itself is shared with core through `@kb/field-type` — a field
- * type is an option node, and restating the list here is how the CLI mapper,
- * the seed, and this file drifted into three copies of one enum. What stays
- * local is only what the UI adds: allowed-ref resolution, mismatch hints, and
+ * What a field node *declares* (its type, and for ref fields its allowed
+ * targets) is shared with core through `@kb/field-type`: restating any of it
+ * here is how the CLI mapper, the seed, and this file drifted into three copies
+ * of one enum, and how allowed-ref resolution ended up reading the outline's
+ * `#tag` badge array — a display artifact — as if it were the graph.
+ *
+ * What stays local is only what the browser adds: binding DataScript as the EDN
+ * runner core asks for, memoizing the result per snapshot, mismatch hints, and
  * the empty value a typed editor starts from.
  */
 import {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
+  allowedRefIdsOf,
   fieldTypeOf,
   fieldTypeValue,
   isFieldType,
+  targetQueryOf,
+  targetTagsOf,
   type FieldType,
 } from "@kb/field-type";
 import { runQuery } from "@/ds/query";
 import type { QueryDb } from "@/ds/db";
 import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
-import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
 
 export {
   FIELD_TYPES,
@@ -42,64 +48,27 @@ export function resolveFieldTypeById(
   return resolveFieldType(nodes.get(fieldId));
 }
 
-/** Target tag ids (union sugar) when fieldType=ref. */
-export function resolveTargetTags(
-  fieldNode: OutlineNode | undefined,
-): string[] {
-  if (!fieldNode) return [];
-  return (fieldNode.props[SYSTEM_IDS.targetTagField] ?? [])
-    .filter((v): v is Extract<PropValue, { t: "ref" }> => v.t === "ref")
-    .map((v) => v.v);
-}
-
-/** Optional EDN constraint; when present, wins over targetTag. */
-export function resolveTargetQuery(
-  fieldNode: OutlineNode | undefined,
-): string | null {
-  const raw = fieldNode?.props[SYSTEM_IDS.targetQueryField]?.[0];
-  if (raw?.t !== "str") return null;
-  const edn = String(raw.v).trim();
-  return edn || null;
-}
-
 /**
- * Allowed ref suggestion ids.
- * targetQuery present ⇒ query result set (tag ignored).
- * else targetTag ⇒ union of nodes tagged with any listed tag.
- * else ⇒ unrestricted (null).
+ * Allowed ref target ids for a field — the browser binding of
+ * `@kb/field-type`'s resolver, with DataScript supplied as its EDN runner.
+ *
+ * There is no logic here on purpose. Resolution answers "what does this field
+ * node declare", which is a question about the graph, so it is owned by core
+ * and shared verbatim with the CLI and MCP. Deciding which of the answers a
+ * picker should *show* is the separate, display-side question, and it is
+ * answered once in `fuzzyNodeCandidates` (lib/refs), which takes this set as an
+ * input.
  */
 export function resolveAllowedRefIds(
   fieldNode: OutlineNode | undefined,
   nodes: NodeMap,
   queryDb: QueryDb | null,
 ): Set<string> | null {
-  const edn = resolveTargetQuery(fieldNode);
-  if (edn) {
-    if (!queryDb) return new Set();
-    try {
-      const rows = runQuery(queryDb, edn);
-      const ids = new Set<string>();
-      for (const row of rows) {
-        for (const cell of row) {
-          if (typeof cell === "string" && nodes.has(cell)) ids.add(cell);
-        }
-      }
-      return ids;
-    } catch {
-      return new Set();
-    }
-  }
-
-  const tags = resolveTargetTags(fieldNode);
-  if (tags.length === 0) return null;
-
-  const allowed = new Set<string>();
-  const tagSet = new Set(tags);
-  for (const n of nodes.values()) {
-    if (n.id === WORKSPACE_ROOT_ID || n.id.startsWith("sys.")) continue;
-    if (n.tags.some((t) => tagSet.has(t.id))) allowed.add(n.id);
-  }
-  return allowed;
+  return allowedRefIdsOf(
+    fieldNode,
+    nodes,
+    queryDb ? (edn) => runQuery(queryDb, edn) : null,
+  );
 }
 
 /** Cache keyed by fieldId + rev + constraint fingerprint (EDN / tags). */
@@ -107,9 +76,9 @@ const allowedRefCache = new Map<string, Set<string> | null>();
 let allowedRefCacheRev = -1;
 
 function constraintFingerprint(fieldNode: OutlineNode | undefined): string {
-  const edn = resolveTargetQuery(fieldNode);
+  const edn = targetQueryOf(fieldNode);
   if (edn) return `q:${edn}`;
-  const tags = resolveTargetTags(fieldNode);
+  const tags = targetTagsOf(fieldNode);
   if (tags.length === 0) return "open";
   return `t:${tags.slice().sort().join(",")}`;
 }

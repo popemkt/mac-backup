@@ -78,7 +78,6 @@ function SchemaInstanceRow({
   const nodes = useOutlineStore((s) => s.nodes);
   const node = nodes.get(hit.id);
   const tags = node?.tags ?? [];
-  const tagColor = tags[0]?.color ?? null;
 
   const bulletNode = node ?? {
     id: hit.id,
@@ -103,7 +102,6 @@ function SchemaInstanceRow({
           <Bullet
             node={bulletNode}
             isRef
-            tagColor={tagColor}
             onClick={(e) => {
               e.stopPropagation();
               onZoom();

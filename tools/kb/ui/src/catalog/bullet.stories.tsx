@@ -34,6 +34,41 @@ export const CollapsedBranch: Story = {
   },
 };
 
+/** Many tags divide the bullet equally from the center (DESIGN-RESKIN §1.8). */
+export const MultiTag: Story = {
+  args: {
+    node: stubOutlineNode({
+      id: "n.multi",
+      text: "Three supertags",
+      tags: [
+        { id: "tag.todo", name: "todo", color: "#8b5cf6" },
+        { id: "tag.work", name: "work", color: "#22c55e" },
+        { id: "tag.urgent", name: "urgent", color: "#ef4444" },
+      ],
+    }),
+    onClick: noop,
+  },
+};
+
+/** Same three tags, collapsed — the halo is where the split is legible. */
+export const MultiTagCollapsed: Story = {
+  args: {
+    node: stubOutlineNode({
+      id: "n.multi",
+      text: "Three supertags",
+      children: ["c1", "c2"],
+      collapsed: true,
+      tags: [
+        { id: "tag.todo", name: "todo", color: "#8b5cf6" },
+        { id: "tag.work", name: "work", color: "#22c55e" },
+        { id: "tag.urgent", name: "urgent", color: "#ef4444" },
+      ],
+    }),
+    collapsible: true,
+    onClick: noop,
+  },
+};
+
 /** Live query node gets the query bullet glyph. */
 export const QueryKind: Story = {
   args: {

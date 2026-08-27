@@ -24,17 +24,19 @@ interface PropValueEditorProps {
   fieldId?: string;
   /** When set, ref suggestions are filtered to this id set. */
   allowedRefIds?: Set<string> | null;
+  /**
+   * This slot exists because the user asked for it (⌘"+ value"), so the
+   * gesture that created it owns the focus and the editor opens straight away.
+   * A slot that exists only because the field is unset passes false and renders
+   * as a quiet placeholder until it is focused — see RefEditor.
+   */
+  autoOpen?: boolean;
   onCommit: (next: PropValue) => void;
   nodes: NodeMap;
 }
 
 const editableClass = cn(
   "flex-1 outline-none rounded-sm px-1",
-  KB_TEXT_CLASS,
-);
-
-const emptyClass = cn(
-  "px-1 text-foreground/25 italic",
   KB_TEXT_CLASS,
 );
 
@@ -45,6 +47,7 @@ export function PropValueEditor({
   fieldType,
   fieldId,
   allowedRefIds = null,
+  autoOpen = false,
   onCommit,
   nodes,
 }: PropValueEditorProps) {
@@ -88,6 +91,7 @@ export function PropValueEditor({
               ? String(value.v)
               : ""
           }
+          autoOpen={autoOpen}
           onChange={(v) => onCommit({ t: "str", v })}
         />
       );
@@ -107,6 +111,7 @@ export function PropValueEditor({
           display={display}
           nodes={nodes}
           allowedRefIds={allowedRefIds}
+          autoOpen={autoOpen}
           onCommit={(id) => onCommit({ t: "ref", v: id })}
         />
       );
@@ -128,12 +133,14 @@ export function EmptyTypedEditor({
   fieldType,
   fieldId,
   allowedRefIds = null,
+  autoOpen = false,
   onCommit,
   nodes,
 }: {
   fieldType: FieldType;
   fieldId?: string;
   allowedRefIds?: Set<string> | null;
+  autoOpen?: boolean;
   onCommit: (next: PropValue) => void;
   nodes: NodeMap;
 }) {
@@ -153,6 +160,7 @@ export function EmptyTypedEditor({
       fieldType={fieldType}
       fieldId={fieldId}
       allowedRefIds={allowedRefIds}
+      autoOpen={autoOpen}
       onCommit={onCommit}
       nodes={nodes}
     />
@@ -361,12 +369,15 @@ function BooleanValue({
 
 function DateValue({
   value,
+  autoOpen = false,
   onChange,
 }: {
   value: string;
+  autoOpen?: boolean;
   onChange: (v: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  // Same rule as RefEditor: mount open only when a gesture created this slot.
+  const [editing, setEditing] = useState(autoOpen);
 
   const displayDate = value
     ? new Date(String(value)).toLocaleDateString("en-US", {
@@ -411,47 +422,72 @@ function DateValue({
   );
 }
 
+/**
+ * Ref value editor: a search input over the field's allowed targets, with the
+ * suggestion list open from the moment it focuses (no typing required).
+ *
+ * Three rules live here.
+ *
+ * `allowedRefIds` is an *input* to candidate resolution, never a filter over
+ * its output — lib/refs owns membership, and a field's declared targets outrank
+ * its hide-infrastructure heuristic.
+ *
+ * The open editor's placeholder is the input's own native attribute:
+ * `.empty-placeholder` (`:empty::before`) is the mechanism the other editors
+ * here use, but it cannot render on an `<input>`, so there is exactly one
+ * placeholder per state and this is the open one.
+ *
+ * **Focus belongs to the gesture that created the slot, not to the slot being
+ * empty.** `useState(!refId)` meant every unset ref field on a page mounted
+ * already open, so a page of empty option fields opened every dropdown at once
+ * and several `autoFocus` inputs fought over the caret with outline keyboard
+ * navigation. An unset slot now renders as a quiet placeholder and opens when
+ * it *receives focus*; `autoOpen` (threaded down from FieldValueStack, the only
+ * component that knows which kind of slot this is) opens the ones the user
+ * minted with "+ value". Openness is therefore one state, driven by focus —
+ * blur closes it — which is also what keeps the dropdown from rendering under
+ * an input nobody is typing in.
+ */
 function RefEditor({
   refId,
   display,
   nodes,
   allowedRefIds,
+  autoOpen = false,
   onCommit,
 }: {
   refId: string;
   display: string;
   nodes: NodeMap;
   allowedRefIds?: Set<string> | null;
+  autoOpen?: boolean;
   onCommit: (id: string) => void;
 }) {
   const zoomTo = useOutlineStore((s) => s.zoomTo);
-  const [editing, setEditing] = useState(!refId);
+  const [open, setOpen] = useState(autoOpen);
   const [query, setQuery] = useState("");
   const [acIndex, setAcIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const candidates = useMemo(() => {
-    const all = fuzzyNodeCandidates(nodes, query);
-    if (!allowedRefIds) return all;
-    return all.filter((c) => allowedRefIds.has(c.id));
-  }, [nodes, query, allowedRefIds]);
+  const candidates = useMemo(
+    () => fuzzyNodeCandidates(nodes, query, { allowed: allowedRefIds }),
+    [nodes, query, allowedRefIds],
+  );
 
   const target = nodes.get(refId);
   const resolvedLabel = target?.text ?? display;
 
-  if (!editing && target) {
-    const primaryColor = target.tags[0]?.color ?? null;
+  if (!open && target) {
     return (
       <NodeRow
         depth={0}
         nodeId={refId}
-        className="cursor-pointer !pl-0"
-        onRowClick={() => setEditing(true)}
+        className="cursor-pointer"
+        onRowClick={() => setOpen(true)}
         bullet={
           <Bullet
             node={{ ...target, collapsed: true }}
             isRef
-            tagColor={primaryColor}
             onClick={(e) => {
               e.stopPropagation();
               zoomTo(refId);
@@ -467,7 +503,7 @@ function RefEditor({
               )}
               onClick={(e) => {
                 e.stopPropagation();
-                setEditing(true);
+                setOpen(true);
               }}
             >
               {resolvedLabel || target.text || "\u200B"}
@@ -487,7 +523,7 @@ function RefEditor({
     );
   }
   // Unresolved ref: show warning glyph + resolved or raw id, not a generic warning.
-  if (!editing && refId && !target) {
+  if (!open && refId && !target) {
     const hasDisplay = Boolean(display && display !== refId);
     return (
       <span
@@ -497,7 +533,7 @@ function RefEditor({
           hasDisplay ? "bg-primary/8 hover:bg-primary/12" : "bg-warning/10 hover:bg-warning/15",
           "transition-colors duration-100",
         )}
-        onClick={() => setEditing(true)}
+        onClick={() => setOpen(true)}
         title={hasDisplay ? `Node: ${refId}` : `Unresolved ref: ${refId}`}
         data-unresolved-ref={!hasDisplay ? "true" : undefined}
       >
@@ -505,6 +541,26 @@ function RefEditor({
         <span className={cn("h-1 w-1 shrink-0 rounded-full", hasDisplay ? "bg-foreground/35" : "bg-warning/60")} />
         <span className="max-w-[200px] truncate">{hasDisplay ? display : refId}</span>
       </span>
+    );
+  }
+  // Unset and nobody asked: the quiet placeholder every other editor here
+  // shows, focusable so the search opens the moment it is aimed at — by click,
+  // by Tab, or by anything else that moves focus.
+  if (!open && !refId) {
+    return (
+      <span
+        tabIndex={0}
+        role="button"
+        aria-label="Set reference"
+        className={cn(
+          editableClass,
+          "cursor-text italic empty-placeholder text-foreground/25",
+        )}
+        data-empty-placeholder="true"
+        data-ref-slot="closed"
+        onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
+      />
     );
   }
 
@@ -520,6 +576,7 @@ function RefEditor({
           "w-full border-none bg-transparent text-foreground/70 placeholder:text-foreground/25",
         )}
         autoFocus
+        onFocus={() => setOpen(true)}
         onChange={(e) => {
           setQuery(e.target.value);
           setAcIndex(0);
@@ -543,26 +600,26 @@ function RefEditor({
             const pick = candidates[acIndex] ?? candidates[0];
             if (pick) {
               onCommit(pick.id);
-              setEditing(false);
+              setOpen(false);
               setQuery("");
             } else if (query.trim()) {
               // Manual entry still allowed (filter is suggestions-only).
               onCommit(query.trim());
-              setEditing(false);
+              setOpen(false);
               setQuery("");
             }
             return;
           }
           if (e.key === "Escape") {
             e.preventDefault();
-            setEditing(false);
+            setOpen(false);
             setQuery("");
           }
         }}
         onBlur={() => {
           // Delay so mousedown on suggestion can fire first.
           window.setTimeout(() => {
-            setEditing(Boolean(refId));
+            setOpen(false);
             setQuery("");
           }, 120);
         }}
@@ -573,17 +630,12 @@ function RefEditor({
           activeIndex={acIndex}
           onSelect={(c) => {
             onCommit(c.id);
-            setEditing(false);
+            setOpen(false);
             setQuery("");
           }}
         />
       )}
-      {!refId && candidates.length === 0 && (
-        <span
-          className={cn(emptyClass, "empty-placeholder")}
-          data-empty-placeholder="true"
-        />
-      )}
+      {/* No `.empty-placeholder` sibling — see the note on RefEditor. */}
     </div>
   );
 }

@@ -150,8 +150,11 @@ describe("shared outline components (W8b)", () => {
     );
     expect(outlineHtml).toContain('data-field-row="true"');
     expect(outlineHtml).toContain("status");
-    expect(outlineHtml).toMatch(/padding-left:\s*24px/);
-    expect(prefHtml).toMatch(/padding-left:\s*0px/);
+    // One indent step for an outline field, none for a popover field — the
+    // indent is space before the row, so the row's own box is undecorated at
+    // its left edge either way.
+    expect(outlineHtml).toMatch(/margin-left:\s*calc\(1 \* var\(--kb-indent\)\)/);
+    expect(prefHtml).toMatch(/margin-left:\s*calc\(0 \* var\(--kb-indent\)\)/);
     expect(prefHtml).toContain("theme");
     // Label rides the shared type scale rather than restating it, so a label
     // and the node text next to it can never drift apart again.
@@ -188,9 +191,16 @@ describe("shared outline components (W8b)", () => {
     expect(readOutlineSource("tag-chip.tsx")).not.toMatch(/text-\[\d+px\]/);
   });
 
-  it("node-block encodes §1.3 guide-line metrics (depth*24+2, left-[9px], w-5, bottom-2)", () => {
+  it("node-block encodes §1.3 guide-line metrics (indent+2, left-[9px], w-5, bottom-2)", () => {
     const src = readOutlineSource("node-block.tsx");
-    expect(src).toMatch(/depth \* 24 \+ 2/);
+    // The offset itself lives with the rest of the indent geometry.
+    expect(src).toMatch(/guideLineStyle\(depth\)/);
+    const indent = readFileSync(
+      path.join(outlineDir, "../../lib/indent.ts"),
+      "utf8",
+    );
+    expect(indent).toMatch(/var\(--kb-indent\)/);
+    expect(indent).toMatch(/\+ 2px/);
     expect(src).toContain("left-[9px]");
     expect(src).toContain("w-5");
     expect(src).toContain("bottom-2");

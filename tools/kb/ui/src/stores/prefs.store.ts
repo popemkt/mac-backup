@@ -13,13 +13,17 @@ export interface Prefs {
   theme: ThemePref;
   font: FontPref;
   width: WidthPref;
-  /** Reveal sys.* + user-hidden fields in FieldRow lists. */
-  showAllFields: boolean;
   /** Tana-style left rail. Absent in storage → viewport default (≥1024 open). */
   sidebarOpen: boolean;
 }
 
 export const PREFS_STORAGE_KEY = "kb-prefs";
+
+/**
+ * `showAllFields` used to live here as one device-wide switch. Debug field
+ * visibility is per node now (`stores/debug-fields.store`), so a stale key in
+ * an existing payload is ignored on read and dropped on the next write.
+ */
 
 /** Default open on large viewports; closed on narrow (first visit / missing key). */
 export function defaultSidebarOpen(
@@ -35,7 +39,6 @@ export const DEFAULT_PREFS: Prefs = {
   theme: "system",
   font: "inter",
   width: "centered",
-  showAllFields: false,
   sidebarOpen: true,
 };
 
@@ -58,7 +61,6 @@ export function loadPrefs(
           : "system",
       font: parsed?.font === "outfit" ? "outfit" : "inter",
       width: parsed?.width === "full" ? "full" : "centered",
-      showAllFields: parsed?.showAllFields === true,
       sidebarOpen:
         typeof parsed?.sidebarOpen === "boolean"
           ? parsed.sidebarOpen
@@ -108,7 +110,6 @@ function writeStored(prefs: Prefs) {
         theme: prefs.theme,
         font: prefs.font,
         width: prefs.width,
-        showAllFields: prefs.showAllFields,
         sidebarOpen: prefs.sidebarOpen,
       }),
     );
@@ -121,8 +122,6 @@ interface PrefsState extends Prefs {
   setTheme: (theme: ThemePref) => void;
   setFont: (font: FontPref) => void;
   setWidth: (width: WidthPref) => void;
-  setShowAllFields: (show: boolean) => void;
-  toggleShowAllFields: () => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
 }
@@ -130,8 +129,8 @@ interface PrefsState extends Prefs {
 export const usePrefsStore = create<PrefsState>((set, get) => {
   const commit = (patch: Partial<Prefs>) => {
     set(patch);
-    const { theme, font, width, showAllFields, sidebarOpen } = get();
-    const prefs = { theme, font, width, showAllFields, sidebarOpen };
+    const { theme, font, width, sidebarOpen } = get();
+    const prefs = { theme, font, width, sidebarOpen };
     writeStored(prefs);
     applyPrefs(prefs);
   };
@@ -140,9 +139,6 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
     setTheme: (theme) => commit({ theme }),
     setFont: (font) => commit({ font }),
     setWidth: (width) => commit({ width }),
-    setShowAllFields: (showAllFields) => commit({ showAllFields }),
-    toggleShowAllFields: () =>
-      commit({ showAllFields: !get().showAllFields }),
     setSidebarOpen: (sidebarOpen) => commit({ sidebarOpen }),
     toggleSidebar: () => commit({ sidebarOpen: !get().sidebarOpen }),
   };
@@ -155,9 +151,8 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
 export function initPrefs() {
   if (typeof window === "undefined") return;
   const current = () => {
-    const { theme, font, width, showAllFields, sidebarOpen } =
-      usePrefsStore.getState();
-    return { theme, font, width, showAllFields, sidebarOpen };
+    const { theme, font, width, sidebarOpen } = usePrefsStore.getState();
+    return { theme, font, width, sidebarOpen };
   };
   applyPrefs(current());
 

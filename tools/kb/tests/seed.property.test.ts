@@ -4,23 +4,25 @@
  * fills only genuinely missing prop keys — a present value, even one a user
  * modified away from the fresh default, is never rewritten.
  *
- * Excludes SYSTEM_IDS.graphPerspectiveTag / .ontologyTag: those two get a
- * separate, deliberate "merge missing template field refs" pass (documented
- * in seed.ts) distinct from the generic fill-absent invariant under test here.
+ * Excludes seed.ts's exported TEMPLATE_TAGS: those get a separate, deliberate
+ * "merge missing template field refs" pass (documented in seed.ts) distinct
+ * from the generic fill-absent invariant under test here. The list is imported,
+ * not restated, so adding a template tag cannot silently break this property.
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
-import { SYSTEM_IDS, type KbNode, type PropValue } from "../src/foundation/model.ts";
-import { ensureSystemSeed, systemSeedNodes } from "../src/foundation/seed.ts";
+import { type KbNode, type PropValue } from "../src/foundation/model.ts";
+import {
+  TEMPLATE_TAGS,
+  ensureSystemSeed,
+  systemSeedNodes,
+} from "../src/foundation/seed.ts";
 
 const AT = "2026-08-24T00:00:00.000Z";
-const TEMPLATE_TAGS = new Set<string>([
-  SYSTEM_IDS.graphPerspectiveTag,
-  SYSTEM_IDS.ontologyTag,
-]);
+const EXCLUDED = new Set<string>(TEMPLATE_TAGS);
 const CANDIDATE_IDS = systemSeedNodes(AT)
   .map((n) => n.id)
-  .filter((id) => !TEMPLATE_TAGS.has(id));
+  .filter((id) => !EXCLUDED.has(id));
 
 describe("seed idempotence properties (fast-check)", () => {
   test("ensureSystemSeed over the pristine seed is a no-op", () => {

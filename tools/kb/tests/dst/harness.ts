@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { openKbEffect, kbRuntimeLayer, bunFileSystemLayer } from "../../src/context.ts";
 import { invokeReceiptEffect } from "../../src/registry.ts";
 import { txIntegrityError } from "../../src/foundation/tx-validation.ts";
-import type { KbNode } from "../../src/foundation/model.ts";
+import { isSysPrefixed, type KbNode } from "../../src/foundation/model.ts";
 import { systemSeedNodes } from "../../src/foundation/seed.ts";
 import { migrateOrderKeys } from "../../src/foundation/order.ts";
 import { canonicalJson } from "../../src/foundation/storage/canonical.ts";
@@ -62,9 +62,8 @@ export const DANGLING_REF_DECISION =
   "inbound content refs to a deleted node are intended (resolver warn, never rewrite); " +
   "dangling structural children are a violation";
 
-export function isSysNode(id: string): boolean {
-  return id.startsWith("sys.");
-}
+/** One owner for "this id is infrastructure" — see foundation/model. */
+export const isSysNode = isSysPrefixed;
 
 /** The store's canonical nodes.jsonl file. */
 export function nodesPath(root: string): string {
@@ -326,7 +325,7 @@ export function invariantViolations(nodes: KbNode[]): string[] {
   //    sys.* node may appear and none may have been added by the sim.
   const seedIds = new Set(systemSeedNodes().map((n) => n.id));
   for (const n of nodes) {
-    if (n.id.startsWith("sys.") && !seedIds.has(n.id)) {
+    if (isSysPrefixed(n.id) && !seedIds.has(n.id)) {
       out.push(`sys node ${n.id} was minted during simulation`);
     }
   }

@@ -11,6 +11,19 @@ import {
 } from "./field-type.ts";
 import { ONTOLOGY_TARGET_QUERY } from "./ontology.ts";
 
+/**
+ * Tags whose `sys.f.fields` template must stay in sync as fields are added to
+ * the seed. Exported because it is a real invariant boundary: the generic
+ * fill-absent pass does not apply to these, so the property test that asserts
+ * the generic rule has to exclude exactly this set — reading it here instead of
+ * restating it is what keeps the two from drifting.
+ */
+export const TEMPLATE_TAGS: readonly string[] = [
+  SYSTEM_IDS.graphPerspectiveTag,
+  SYSTEM_IDS.ontologyTag,
+  SYSTEM_IDS.refTag,
+];
+
 /** Reserved system nodes. Idempotent — same ids every time. */
 export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const mk = (id: string, text: string, props: KbNode["props"] = {}): KbNode => ({
@@ -295,6 +308,22 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...fieldType,
     [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("text")],
   });
+  /*
+   * Contextual references: #ref templating one ref-typed field. Same anatomy
+   * as #query (tag + templated definition field), so a contextual reference is
+   * an ordinary node in every other respect — children, tags, collapse state,
+   * backlinks and keyboard behaviour all come for free.
+   *
+   * No target constraint on purpose: a reference may point at any node, and a
+   * declared `targetTag` would narrow the picker to a rule the feature does
+   * not have. `sys.f.onto.member` is unconstrained for the same reason.
+   */
+  const refTargetField = refField(SYSTEM_IDS.refTargetField, "ref.target");
+  const refTag = mk(SYSTEM_IDS.refTag, "ref", {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+    [SYSTEM_IDS.fieldsField]: [{ t: "ref", v: SYSTEM_IDS.refTargetField }],
+  });
+
   const ontologyTag = mk(SYSTEM_IDS.ontologyTag, "ontology", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
     [SYSTEM_IDS.fieldsField]: [
@@ -358,6 +387,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ontoQueryField,
     ontoClosureField,
     ontologyTag,
+    refTargetField,
+    refTag,
   ];
 }
 
@@ -394,12 +425,6 @@ export function ensureSystemSeed(
     deletes.push(LEGACY_LENS_ALL_MENTIONS);
     seeded = true;
   }
-
-  /** Tags whose sys.f.fields template must stay in sync as fields are added. */
-  const TEMPLATE_TAGS: readonly string[] = [
-    SYSTEM_IDS.graphPerspectiveTag,
-    SYSTEM_IDS.ontologyTag,
-  ];
 
   const seedById = new Map<string, KbNode>();
   const seedTemplateTags = new Map<string, KbNode>();

@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { getLiveClient } from "@/api/live";
 import { runQuery } from "@/ds/query";
+import { indentStyle } from "@/lib/indent";
 import { queryResultInstanceKey } from "@/lib/instance-key";
 import { queryDefOf, resultNodeIds, subscribeQueryNode } from "@/lib/query-node";
 import type { ViewMode } from "@/lib/view-config";
@@ -92,12 +93,12 @@ export function QueryResultsSection({
     ? resultNodeIds(rows, nodes, { limit: def.limit, excludeId: nodeId })
     : [];
 
-  const pad = { paddingLeft: `calc(${depth + 1} * var(--kb-indent))` };
+  const indent = indentStyle(depth + 1);
 
   if (error) {
     return (
       <div className="query-results" data-query-results-for={nodeId}>
-        <p className="px-1 py-0.5 text-[12px] text-destructive" style={pad}>
+        <p className="px-1 py-0.5 text-[12px] text-destructive" style={indent}>
           {error}
         </p>
       </div>
@@ -112,7 +113,7 @@ export function QueryResultsSection({
         aria-busy="true"
         aria-live="polite"
       >
-        <p className="px-1 py-0.5 text-[12px] text-foreground/50" style={pad}>
+        <p className="px-1 py-0.5 text-[12px] text-foreground/50" style={indent}>
           Loading results…
         </p>
       </div>
@@ -124,7 +125,7 @@ export function QueryResultsSection({
       <div
         className="query-results"
         data-query-results-for={nodeId}
-        style={pad}
+        style={indent}
       >
         {ids.length === 0 ? (
           <p className="px-1 py-0.5 text-[12px] text-foreground/50">
@@ -145,7 +146,7 @@ export function QueryResultsSection({
   return (
     <div className="query-results" data-query-results-for={nodeId}>
       {ids.length === 0 ? (
-        <p className="px-1 py-0.5 text-[12px] text-foreground/50" style={pad}>
+        <p className="px-1 py-0.5 text-[12px] text-foreground/50" style={indent}>
           No results
         </p>
       ) : (

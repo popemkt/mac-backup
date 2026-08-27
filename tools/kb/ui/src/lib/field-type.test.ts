@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildQueryDb } from "@/ds/db";
 import { fixtureGraph } from "@/fixtures/graph";
 import { wireToOutlineMap } from "@/lib/graph-view";
+import { fuzzyNodeCandidates } from "@/lib/refs";
 import {
   clearAllowedRefIdsCache,
   emptyValueForType,
@@ -12,7 +13,15 @@ import {
   resolveFieldType,
   resolveFieldTypeById,
 } from "@/lib/field-type";
-import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
+import {
+  SYSTEM_IDS,
+  WORKSPACE_ROOT_ID,
+  isSysPrefixed,
+  type NodeMap,
+  type OutlineNode,
+} from "@/lib/types";
+import { allowedRefIdsOf } from "@kb/field-type";
+import { typeRefsOf, type NodeLike } from "@kb/ontology";
 import type { WireNode } from "@kb/protocol";
 import {
   planAddFieldTargetTag,
@@ -198,5 +207,171 @@ describe("field types", () => {
     expect(queried.upserts[0]?.props[SYSTEM_IDS.targetQueryField]).toEqual([
       { t: "str", v: "[:find ?id :where [?e :node/id ?id]]" },
     ]);
+  });
+});
+
+/**
+ * Display and resolution are two layers, and only one of them is allowed to
+ * hide things.
+ *
+ * `OutlineNode.tags` is the *badge* list `wireToOutlineMap` builds for chips.
+ * It drops the kind refs on purpose — `sys.f.type → sys.tag` means "this node
+ * IS a supertag", and a chip reading "#tag" on a tag's own page is nonsense.
+ * Reading that list back as membership therefore reports every supertag as
+ * untagged, which is exactly how `sys.f.onto.include` (`targetTag → sys.tag`,
+ * seeded in src/foundation/seed.ts) ended up with an empty allowed set and an
+ * unfillable ref picker.
+ */
+describe("allowed ref targets: resolution vs display", () => {
+  /** The seeded `sys.f.onto.include` definition, on the fixture graph. */
+  function withIncludeField(): NodeMap {
+    return wireToOutlineMap(
+      [
+        ...fixtureGraph.nodes,
+        fieldNode({
+          id: SYSTEM_IDS.ontoIncludeField,
+          text: "onto.include",
+          props: {
+            [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+            [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
+            [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+          },
+        }),
+      ],
+      new Set(),
+    );
+  }
+
+  /**
+   * Every fixture node whose kind slot names sys.tag — i.e. every supertag,
+   * read the same way resolution reads it rather than restated as a list that
+   * goes stale the next time the fixture grows a tag.
+   */
+  const TAG_NODES = fixtureGraph.nodes
+    .filter((n) => typeRefsOf(n).includes(SYSTEM_IDS.tag))
+    .map((n) => n.id)
+    .sort();
+
+  it("offers every supertag for targetTag → sys.tag", () => {
+    const nodes = withIncludeField();
+    const allowed = resolveAllowedRefIds(
+      nodes.get(SYSTEM_IDS.ontoIncludeField),
+      nodes,
+      null,
+    );
+    expect(allowed).not.toBeNull();
+    expect(allowed!.size).toBeGreaterThan(0);
+    expect([...allowed!].sort()).toEqual(TAG_NODES);
+    // Both kinds are present, and resolution hides neither: seeded supertags
+    // are exactly the ones a sys.-skipping resolver used to drop.
+    expect(TAG_NODES.some(isSysPrefixed)).toBe(true);
+    expect(TAG_NODES.some((id) => !isSysPrefixed(id))).toBe(true);
+  });
+
+  it("does not read the badge list — those very nodes show no chips", () => {
+    const nodes = withIncludeField();
+    for (const id of TAG_NODES) {
+      expect(nodes.get(id)!.tags.map((t) => t.id)).not.toContain(
+        SYSTEM_IDS.tag,
+      );
+    }
+    expect(nodes.get("tag.todo")!.tags).toEqual([]);
+  });
+
+  it("ignores badges even when they are wrong", () => {
+    const nodes = withIncludeField();
+    const truth = resolveAllowedRefIds(
+      nodes.get(SYSTEM_IDS.ontoIncludeField),
+      nodes,
+      null,
+    );
+    // Guard the comparison below against being vacuously true.
+    expect(truth!.size).toBeGreaterThan(0);
+    // Strip every badge, and forge one on a node that is not a tag at all.
+    const forged: NodeMap = new Map(
+      [...nodes].map(([id, n]) => [
+        id,
+        {
+          ...n,
+          tags:
+            id === "n.root-c"
+              ? [{ id: SYSTEM_IDS.tag, name: "tag", color: "#fff" }]
+              : [],
+        },
+      ]),
+    );
+    const afterForgery = resolveAllowedRefIds(
+      forged.get(SYSTEM_IDS.ontoIncludeField),
+      forged,
+      null,
+    );
+    expect([...afterForgery!].sort()).toEqual([...truth!].sort());
+    expect(afterForgery!.has("n.root-c")).toBe(false);
+  });
+
+  it("resolves from a badge-free node shape (structural pin)", () => {
+    // `NodeLike` is `{id, text, props, children}` — no `tags` field exists on
+    // it. The shared resolver in `@kb/field-type` declares its input as this
+    // shape, so this call only compiles while resolution stays badge-free:
+    // widening it back to the outline's node type to read `n.tags` fails the
+    // typecheck instead of quietly emptying a picker again.
+    const nodes = withIncludeField();
+    const bare: ReadonlyMap<string, NodeLike> = new Map<string, NodeLike>(
+      [...nodes]
+        .filter(([id]) => id !== WORKSPACE_ROOT_ID)
+        .map(([id, n]) => [
+          id,
+          { id, text: n.text, props: n.props, children: n.children },
+        ]),
+    );
+    const allowed = allowedRefIdsOf(
+      bare.get(SYSTEM_IDS.ontoIncludeField),
+      bare,
+    );
+    expect([...allowed!].sort()).toEqual(TAG_NODES);
+  });
+
+  it("still hides infrastructure where nothing is declared (display)", () => {
+    // The over-correction guard: the hide-sys heuristic is load-bearing for an
+    // unconstrained picker — offering ~70 seeded sys nodes makes it useless.
+    const nodes = withIncludeField();
+    const open = fuzzyNodeCandidates(nodes, "").map((c) => c.id);
+    expect(open.some(isSysPrefixed)).toBe(false);
+    expect(open).not.toContain(WORKSPACE_ROOT_ID);
+    expect(open).toContain("n.root-c");
+
+    // …and yields to the declaration when there is one.
+    const allowed = resolveAllowedRefIds(
+      nodes.get(SYSTEM_IDS.ontoIncludeField),
+      nodes,
+      null,
+    );
+    const offered = fuzzyNodeCandidates(nodes, "", { allowed }).map((c) => c.id);
+    expect(offered.slice().sort()).toEqual(TAG_NODES);
+  });
+
+  it("lets targetQuery win over targetTag, sys ids included", () => {
+    const edn = `[:find ?id :where [?n :node/id ?id] [?n :node/id "${SYSTEM_IDS.typeField}"]]`;
+    const wire = [
+      ...fixtureGraph.nodes,
+      fieldNode({
+        id: "field.onto-ish",
+        text: "onto-ish",
+        props: {
+          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+          [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
+          [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+          [SYSTEM_IDS.targetQueryField]: [{ t: "str", v: edn }],
+        },
+      }),
+    ];
+    const nodes = wireToOutlineMap(wire, new Set());
+    const allowed = resolveAllowedRefIds(
+      nodes.get("field.onto-ish"),
+      nodes,
+      buildQueryDb(wire, 1),
+    );
+    expect([...allowed!]).toEqual([SYSTEM_IDS.typeField]);
+    expect(allowed!.has("tag.todo")).toBe(false);
   });
 });

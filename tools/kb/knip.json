@@ -38,6 +38,9 @@
         ],
         "@kb/field-type": [
           "../src/foundation/field-type.ts"
+        ],
+        "@kb/queries": [
+          "../src/foundation/query/queries.ts"
         ]
       }
     }

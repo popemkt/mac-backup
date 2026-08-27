@@ -10,7 +10,7 @@ import {
   type KbContext,
 } from "../context.ts";
 import { exampleSeedNodes, isPristine } from "../foundation/example.ts";
-import { SYSTEM_IDS, currentIso } from "../foundation/model.ts";
+import { SYSTEM_IDS, currentIso, isSysPrefixed } from "../foundation/model.ts";
 import {
   ResolveError,
   resolveFieldId,
@@ -133,7 +133,7 @@ function ensureFieldsEffect(
   return Effect.gen(function* () {
     if (!create) return null;
     for (const name of fieldsNeedingCreate(plan)) {
-      if (name.startsWith("sys.") || name === "type" || name === "fields") {
+      if (isSysPrefixed(name) || name === "type" || name === "fields") {
         continue;
       }
       const outcome = yield* Effect.try({

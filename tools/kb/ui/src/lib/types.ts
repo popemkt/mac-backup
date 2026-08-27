@@ -35,6 +35,12 @@ export const SYSTEM_IDS = {
   queryTag: "sys.tag.query",
   queryField: "sys.f.query",
   queryLimitField: "sys.f.query.limit",
+  /**
+   * Contextual references: a node tagged #ref carrying `sys.f.ref.target`
+   * shows the target's text and owns its own children (see lib/contextual-ref).
+   */
+  refTag: "sys.tag.ref",
+  refTargetField: "sys.f.ref.target",
   /** View configuration field nodes (W7.0). */
   viewModeField: "sys.f.view.mode",
   viewSortField: "sys.f.view.sort",
@@ -101,13 +107,28 @@ export const SYSTEM_IDS = {
 /** Pre-fix id — migrated away by ensureSystemSeed. */
 export const LEGACY_LENS_ALL_MENTIONS = "sys.lens.all-mentions";
 
-/** Any reserved / seeded id under the `sys.` prefix. */
+/**
+ * Any reserved / seeded id under the `sys.` prefix — the browser's single owner
+ * of "this id is infrastructure" (core's is `isSysPrefixed` in
+ * src/foundation/model.ts; this file mirrors that table rather than aliasing the
+ * module, so the predicate is mirrored with it).
+ *
+ * It answers two questions and NOT a third. It gates **display** (an
+ * unconstrained ref picker, the outline forest, the canvas card picker: offering
+ * ~70 seeded nodes is useless) and it gates **writes** (`sys.*` nodes are
+ * write-protected; core enforces it, `--force` overrides). It must never gate
+ * **resolution** — a ref-target constraint, ontology membership, a datalog
+ * result or a validity check that hides seeded nodes reports the graph as
+ * something it is not. Referencing a `sys.*` node as a *value* is not a write.
+ */
 export function isSysPrefixed(id: string): boolean {
   return id.startsWith("sys.");
 }
 
 /** Node ids the user manually expanded (default is collapsed when expandable). */
 export const EXPANDED_STORAGE_KEY = "kb-expanded";
+/** Node ids revealing their hidden + `sys.` field rows (per-node debug). */
+export const DEBUG_FIELDS_STORAGE_KEY = "kb-debug-fields";
 /** @deprecated migrated into EXPANDED_STORAGE_KEY on read */
 export const LEGACY_COLLAPSED_STORAGE_KEY = "kb-ui:collapsed";
 /** @deprecated migrated into EXPANDED_STORAGE_KEY on read */

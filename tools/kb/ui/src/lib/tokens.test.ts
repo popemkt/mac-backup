@@ -149,4 +149,24 @@ describe("kb tokens", () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it("indent geometry has exactly one owner (lib/indent.ts reads --kb-indent)", () => {
+    // A token nothing reads is worse than no token. Every indent number in the
+    // UI — row indent and guide-line offset alike — is computed in one module
+    // from --kb-indent; nothing else multiplies the step or reads the var.
+    const offenders: string[] = [];
+    for (const file of collectSourceFiles(root)) {
+      const rel = path.relative(root, file);
+      if (rel === path.join("lib", "indent.ts")) continue;
+      if (/\.test\.(?:tsx?)$/.test(rel)) continue;
+      const text = stripComments(readFileSync(file, "utf8"));
+      if (/\*\s*24\b|\b24\s*\*/.test(text)) {
+        offenders.push(`${rel}: hardcoded 24px indent step`);
+      }
+      if (/var\(--kb-indent\)/.test(text)) {
+        offenders.push(`${rel}: reads --kb-indent outside lib/indent.ts`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 });

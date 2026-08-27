@@ -11,12 +11,10 @@ import {
   resolveTagFields,
   type TagFieldRef,
 } from "./tag-fields-config";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
 
-type TestNode = {
-  text: string;
-  props: Record<string, { t: string; v: unknown }[]>;
-};
+/** The real outline shape, narrowed — not a lookalike that can drift from it. */
+type TestNode = Pick<OutlineNode, "text" | "props">;
 
 const nodes = new Map<string, TestNode>([
   [

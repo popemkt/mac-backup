@@ -1,8 +1,10 @@
 import { MagnifyingGlass } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { BulletKind, BulletKindOverride } from "@/lib/bullet-mode";
-import { resolveBulletMode, typeRefsOf } from "@/lib/bullet-mode";
-import type { OutlineNode } from "@/lib/types";
+import { resolveBulletMode } from "@/lib/bullet-mode";
+import { typeRefsOf } from "@kb/ontology";
+import { nodeTagColors, tagColorAlpha, tagColorFill } from "@/lib/tag-color";
+import { isSysPrefixed, type OutlineNode } from "@/lib/types";
 
 interface BulletProps {
   node: OutlineNode;
@@ -12,8 +14,6 @@ interface BulletProps {
   isRef?: boolean;
   /** W6 stubs: force media/canvas glyph before those tags exist. */
   kindOverride?: BulletKindOverride | null;
-  /** Primary tag color for dot / halo (DESIGN-RESKIN §1.8). */
-  tagColor?: string | null;
   onClick: (e: React.MouseEvent) => void;
 }
 
@@ -26,12 +26,16 @@ const KIND_GLYPH: Partial<Record<BulletKind, string>> = {
   ontology: "\u2B21",
 };
 
+/** DESIGN-RESKIN §1.3 — collapsed halo is the tag color at 12.5% (was `20`). */
+const HALO_OPACITY = 12.5;
+/** Dashed reference ring stroke at 25% (was `40`). */
+const REF_RING_OPACITY = 25;
+
 export function Bullet({
   node,
   collapsible: collapsibleProp,
   isRef = false,
   kindOverride = null,
-  tagColor = null,
   onClick,
 }: BulletProps) {
   const hasChildren = node.children.length > 0;
@@ -39,13 +43,22 @@ export function Bullet({
     hasChildren,
     typeRefs: typeRefsOf(node),
     tagNames: node.tags.map((t) => t.name),
-    isSys: node.id.startsWith("sys."),
+    isSys: isSysPrefixed(node.id),
     text: node.text,
     kindOverride,
     collapsed: node.collapsed,
     childCount: node.children.length,
     isRef,
   });
+
+  // DESIGN-RESKIN §1.8 — a node's tag colouring is a list. Filled surfaces
+  // (halo, dot) divide equally from the center; a stroke or a glyph can only
+  // carry one color, so those take the first tag's.
+  const tagColors = nodeTagColors(node);
+  const tinted = tagColors.length > 0;
+  const haloFill = tagColorFill(tagColors, HALO_OPACITY);
+  const dotFill = tagColorFill(tagColors);
+  const strokeColor = tagColors[0] ?? null;
 
   const glyph = KIND_GLYPH[mode.kind];
   const collapsible =
@@ -89,7 +102,7 @@ export function Bullet({
           className="absolute rounded-full bg-foreground/8"
           style={{
             inset: "3px",
-            backgroundColor: tagColor ? `${tagColor}20` : undefined,
+            background: haloFill ?? undefined,
           }}
           data-bullet-halo
         />
@@ -99,14 +112,14 @@ export function Bullet({
         <span
           className={cn(
             "relative z-[1] block select-none text-[11px] font-bold leading-none",
-            !tagColor && "text-foreground/45",
-            !tagColor && hasChildren && "text-foreground/55",
+            !tinted && "text-foreground/45",
+            !tinted && hasChildren && "text-foreground/55",
             hasChildren &&
               !mode.collapsed &&
-              !tagColor &&
+              !tinted &&
               "group-hover/bullet:text-foreground/70",
           )}
-          style={tagColor ? { color: tagColor } : undefined}
+          style={strokeColor ? { color: strokeColor } : undefined}
           aria-hidden
         >
           #
@@ -115,27 +128,31 @@ export function Bullet({
         <MagnifyingGlass
           size={14}
           weight="bold"
-          className={cn("relative z-[1]", !tagColor && "text-foreground/45")}
-          style={tagColor ? { color: tagColor } : undefined}
+          className={cn("relative z-[1]", !tinted && "text-foreground/45")}
+          style={strokeColor ? { color: strokeColor } : undefined}
           data-bullet-query
         />
       ) : mode.isRef ? (
         <span
           className={cn(
             "relative z-[1] flex h-[18px] w-[18px] items-center justify-center rounded-full border border-dashed",
-            !tagColor && "border-foreground/20",
+            !tinted && "border-foreground/20",
           )}
-          style={tagColor ? { borderColor: `${tagColor}40` } : undefined}
+          style={
+            strokeColor
+              ? { borderColor: tagColorAlpha(strokeColor, REF_RING_OPACITY) }
+              : undefined
+          }
           data-bullet-ref-ring
         >
           <span
             className={cn(
               "block rounded-full",
               hasChildren ? "h-[5px] w-[5px]" : "h-[4px] w-[4px]",
-              !tagColor && "bg-foreground/40",
-              !tagColor && hasChildren && "bg-foreground/55",
+              !tinted && "bg-foreground/40",
+              !tinted && hasChildren && "bg-foreground/55",
             )}
-            style={tagColor ? { backgroundColor: tagColor } : undefined}
+            style={dotFill ? { background: dotFill } : undefined}
             data-bullet-dot
           />
         </span>
@@ -154,14 +171,14 @@ export function Bullet({
           className={cn(
             "relative z-[1] block rounded-full transition-all duration-100",
             hasChildren ? "h-[5px] w-[5px]" : "h-[4px] w-[4px]",
-            !tagColor && "bg-foreground/40",
-            !tagColor && hasChildren && "bg-foreground/50",
+            !tinted && "bg-foreground/40",
+            !tinted && hasChildren && "bg-foreground/50",
             hasChildren &&
               !mode.collapsed &&
-              !tagColor &&
+              !tinted &&
               "group-hover/bullet:bg-foreground/60",
           )}
-          style={tagColor ? { backgroundColor: tagColor } : undefined}
+          style={dotFill ? { background: dotFill } : undefined}
           data-bullet-dot
         />
       )}

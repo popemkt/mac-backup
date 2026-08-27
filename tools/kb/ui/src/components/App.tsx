@@ -108,6 +108,57 @@ function SharedChrome() {
   );
 }
 
+/**
+ * The one main region.
+ *
+ * It owns the scrollbar gutter, and reserves it whether or not this view
+ * happens to overflow (`::-webkit-scrollbar` is 6px wide and therefore takes
+ * layout width, see index.css). Without that, a long view had a scrollbar and
+ * a short one did not, the content box changed width by 6px between them, and
+ * the centered column — breadcrumb included — shifted ~3px. Fixing it here is
+ * what keeps every downstream element free of compensating offsets.
+ */
+function MainRegion({
+  scroll = true,
+  children,
+}: {
+  /** Canvas owns its own viewport and deliberately does not scroll. */
+  scroll?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <main
+      className={cn(
+        "min-h-0 flex-1",
+        // `overflow-y: scroll`, not `auto` + `scrollbar-gutter: stable`. Both
+        // reserve the 6px track so an overflowing view and a short one resolve
+        // to the same content width (that width difference is what moved the
+        // centered column, and the breadcrumb with it). Only this one works
+        // everywhere: scrollbar-gutter needs Safari 18.2+.
+        scroll ? "overflow-x-auto overflow-y-scroll" : "overflow-hidden",
+      )}
+      data-main-region={scroll ? "scroll" : "fixed"}
+    >
+      {children}
+    </main>
+  );
+}
+
+/** The one content column: centered 768px or fluid, per the width pref. */
+function OutlineColumn() {
+  const width = usePrefsStore((s) => s.width);
+  return (
+    <div
+      className={cn(
+        "kb-shell w-full",
+        width === "centered" ? "mx-auto max-w-3xl px-4" : "px-8",
+      )}
+    >
+      <OutlineEditor />
+    </div>
+  );
+}
+
 function OutlineShell({
   status,
   error,
@@ -129,7 +180,6 @@ function OutlineShell({
   const rev = useOutlineStore((s) => s.rev);
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
   const loadSource = useOutlineStore((s) => s.loadSource);
-  const width = usePrefsStore((s) => s.width);
   const prefsOpen = useUiStore((s) => s.prefsOpen);
   const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
@@ -166,7 +216,7 @@ function OutlineShell({
       {status === "error" ? (
         <LoadError error={error} onRetry={onRetry} />
       ) : ontology ? (
-        <main className="min-h-0 flex-1 overflow-auto">
+        <MainRegion>
           <ViewErrorBoundary
             title="Ontology crashed"
             resetKey={`${ontology.id}:${ontology.view}`}
@@ -182,19 +232,12 @@ function OutlineShell({
                 <OntologyPage ontologyId={ontology.id} />
               </Suspense>
             ) : (
-              <div
-                className={cn(
-                  "kb-shell w-full",
-                  width === "centered" ? "mx-auto max-w-3xl px-4" : "px-8",
-                )}
-              >
-                <OutlineEditor />
-              </div>
+              <OutlineColumn />
             )}
           </ViewErrorBoundary>
-        </main>
+        </MainRegion>
       ) : ontologyList ? (
-        <main className="min-h-0 flex-1 overflow-auto">
+        <MainRegion>
           <ViewErrorBoundary title="Ontologies crashed" resetKey="ontology-list">
             <Suspense
               fallback={
@@ -206,9 +249,9 @@ function OutlineShell({
               <OntologyListPage />
             </Suspense>
           </ViewErrorBoundary>
-        </main>
+        </MainRegion>
       ) : onCanvas ? (
-        <main className="min-h-0 flex-1 overflow-hidden">
+        <MainRegion scroll={false}>
           <ViewErrorBoundary
             title="Canvas crashed"
             resetKey={canvasId ?? "canvas-list"}
@@ -227,23 +270,16 @@ function OutlineShell({
               )}
             </Suspense>
           </ViewErrorBoundary>
-        </main>
+        </MainRegion>
       ) : (
-        <main className="min-h-0 flex-1 overflow-auto">
+        <MainRegion>
           <ViewErrorBoundary
             title="Outline crashed"
             resetKey={rootNodeId ?? "outline"}
           >
-            <div
-              className={cn(
-                "kb-shell w-full",
-                width === "centered" ? "mx-auto max-w-3xl px-4" : "px-8",
-              )}
-            >
-              <OutlineEditor />
-            </div>
+            <OutlineColumn />
           </ViewErrorBoundary>
-        </main>
+        </MainRegion>
       )}
     </div>
   );

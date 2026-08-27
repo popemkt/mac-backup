@@ -2,6 +2,20 @@ import * as d from "datascript";
 import type { KbNode, NodeId, PropValue } from "../model.ts";
 
 /**
+ * `:node/mentions` is THE reference relation — "this node references that one"
+ * — and it is carrier-independent by design.
+ *
+ * Two things carry a reference in this model: a `[[node-id]]` token in text and
+ * a `{t:"ref"}` prop value. Both are already first-class, so a question about
+ * the relation ("what references X?" — `kb backlinks`, the UI's References
+ * section) must not have to remember which carrier was used; asking twice and
+ * unioning at every call site is the second `if` on one distinction that Rule 1
+ * forbids. The carrier distinction survives only where it is genuinely a lens:
+ * the graph's `mention` / `ref-prop` edge kinds, which label provenance and
+ * scan text and props separately for exactly that reason.
+ */
+
+/**
  * Mention form in text: [[node-id|label]] or [[node-id]].
  *
  * The id group excludes `[` as well as `]`/`|`: a real id is ULID/`sys.*`
@@ -152,11 +166,19 @@ export function nodesToDatoms(nodes: KbNode[]): {
       datoms.push([eid, ":node/children", childEids]);
     }
 
+    // One mention datom per (source, target), whichever carrier produced it —
+    // `:node/mentions` is cardinality-many, so a duplicate would be a duplicate
+    // datom rather than a no-op.
+    const mentioned = new Set<number>();
+
     for (const [fieldId, values] of Object.entries(node.props)) {
       const attr = fieldAttr(fieldId);
       for (const pv of values) {
         const { value, isRef } = propDatomValue(pv, ids);
-        if (isRef) refAttrs.add(attr);
+        if (isRef) {
+          refAttrs.add(attr);
+          mentioned.add(value as number);
+        }
         datoms.push([eid, attr, value]);
       }
     }
@@ -164,11 +186,12 @@ export function nodesToDatoms(nodes: KbNode[]): {
     MENTION_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = MENTION_RE.exec(node.text)) !== null) {
-      const mentioned = m[1]!.trim();
-      const meid = ids.toEid.get(mentioned);
-      if (meid !== undefined) {
-        datoms.push([eid, ":node/mentions", meid]);
-      }
+      const meid = ids.toEid.get(m[1]!.trim());
+      if (meid !== undefined) mentioned.add(meid);
+    }
+
+    for (const meid of mentioned) {
+      datoms.push([eid, ":node/mentions", meid]);
     }
   }
 

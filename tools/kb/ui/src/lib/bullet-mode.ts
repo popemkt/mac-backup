@@ -1,5 +1,4 @@
 import { SYSTEM_IDS } from "@/lib/types";
-import type { OutlineNode } from "@/lib/types";
 import { textHasAssetRef } from "@/lib/md-inline";
 
 /** Glyph / shape family for the outline bullet (DESIGN-REFINE §2 W1). */
@@ -37,15 +36,6 @@ export interface BulletMode {
   isRef: boolean;
   isSys: boolean;
   childCount: number;
-}
-
-/** Collect `sys.f.type` ref targets from a node. */
-export function typeRefsOf(
-  node: Pick<OutlineNode, "props"> | undefined,
-): string[] {
-  if (!node) return [];
-  const vals = node.props[SYSTEM_IDS.typeField] ?? [];
-  return vals.filter((v) => v.t === "ref").map((v) => v.v);
 }
 
 /**

@@ -1,13 +1,20 @@
 import { memo, useCallback, useMemo } from "react";
+import {
+  contextualTargetOf,
+  isContextualRef,
+  rowText,
+} from "@/lib/contextual-ref";
 import { isQueryNode } from "@/lib/query-node";
 import { cn } from "@/lib/cn";
+import { guideLineStyle, indentStyle } from "@/lib/indent";
 import { childInstanceKey, outlineInstanceKey } from "@/lib/instance-key";
 import { resolveProps } from "@/lib/graph-view";
 import { useUiStore } from "@/stores/ui.store";
-import { usePrefsStore } from "@/stores/prefs.store";
+import { useDebugFields } from "@/stores/debug-fields.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { mutations } from "@/actions/mutations";
-import { applyViewFilters, getViewConfig, isProjectedViewMode } from "@/lib/view-config";
+import { frameListChildren } from "@/lib/frame-rows";
+import { getViewConfig, isProjectedViewMode } from "@/lib/view-config";
 import { Bullet } from "./bullet";
 import { FieldsSection } from "./fields-section";
 import { FrameChildrenView } from "./frame-children-view";
@@ -42,29 +49,38 @@ export const NodeBlock = memo(function NodeBlock({
   const selectNode = useOutlineStore((s) => s.selectNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
-  const showAllFields = usePrefsStore((s) => s.showAllFields);
+  const showDebugFields = useDebugFields(nodeId);
   const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
 
   const instanceKey = instanceKeyProp ?? outlineInstanceKey(nodeId, nodes);
 
-  const primaryTagColor = node?.tags[0]?.color ?? null;
-
+  // One rule for every row, reference rows included: plain click toggles,
+  // modifier click focuses. (Also the guide-line strip's handler.)
   const handleBulletClick = useCallback(
     (e: React.MouseEvent) => {
-      if (isRef || e.metaKey || e.ctrlKey) {
+      if (e.metaKey || e.ctrlKey) {
         zoomTo(nodeId);
       } else {
         toggleCollapse(nodeId);
       }
     },
-    [toggleCollapse, zoomTo, nodeId, isRef],
+    [toggleCollapse, zoomTo, nodeId],
   );
 
   const handleActivate = useCallback(
     (cursorPos?: number) => {
+      // A contextual reference shows the target's text, so "put my caret here"
+      // is answered where that text actually lives. Not a second gesture — the
+      // same activate intent, routed to the node that owns the string. (The
+      // bullet's ⌘-click still zooms this reference.)
+      const targetId = contextualTargetOf(node);
+      if (targetId) {
+        zoomTo(targetId);
+        return;
+      }
       activateNode(nodeId, cursorPos, instanceKey);
     },
-    [activateNode, nodeId, instanceKey],
+    [activateNode, zoomTo, node, nodeId, instanceKey],
   );
 
   const handleRowSelect = useCallback(
@@ -98,13 +114,15 @@ export const NodeBlock = memo(function NodeBlock({
 
   const viewConfig = getViewConfig(node?.props);
 
-  const listChildren = useMemo(() => {
-    if (!node || isProjectedViewMode(viewConfig.mode)) return [];
-    const kids = node.children
-      .map((id) => nodes.get(id))
-      .filter((n): n is NonNullable<typeof n> => n !== undefined);
-    return applyViewFilters(kids, viewConfig.filters, nodes);
-  }, [node, nodes, viewConfig.mode, viewConfig.filters]);
+  // Shared owner: the same rows the visible-instance walk will offer to
+  // keyboard navigation.
+  const listChildren = useMemo(
+    () =>
+      isProjectedViewMode(viewConfig.mode)
+        ? []
+        : frameListChildren(nodeId, nodes),
+    [nodeId, nodes, viewConfig.mode],
+  );
 
   if (!node) return null;
 
@@ -116,10 +134,26 @@ export const NodeBlock = memo(function NodeBlock({
       (activeNodeId === nodeId && activeInstanceKey === instanceKey));
   const hasChildren = node.children.length > 0;
   const isQuery = isQueryNode(node);
-  const hasFields = resolveProps(node, nodes, { showAllFields }).length > 0;
-  const isExpandable = hasChildren || isQuery || hasFields;
+  /*
+   * A contextual reference row IS a reference, so it takes the dashed ref ring
+   * the outline already uses for reference rows. It is only the *bullet* that
+   * is shared: `isRef` (the prop) means "this row renders a node whose home is
+   * elsewhere", which suppresses nested results and the create-child strip. A
+   * contextual reference's children are its own, so those gates keep reading
+   * the prop, not this.
+   */
+  const bulletIsRef = isRef || isContextualRef(node);
+  const hasFields = resolveProps(node, nodes, { showDebugFields }).length > 0;
+  // What this row actually renders when expanded — one derivation, read by the
+  // bullet's affordance and by every render gate below. A query node projects
+  // results instead of children, and a reference row does not re-run a nested
+  // query, so "expandable" must not promise more than the gates deliver.
+  const showsQueryResults = isQuery && !isRef;
+  const showsChildren = !isQuery && hasChildren;
+  const hasFrameRows = showsChildren || showsQueryResults;
+  const isExpandable = hasFrameRows || hasFields;
   // Tana model: list = no chrome; toolbar only when mode ≠ list AND expanded.
-  const showToolbar = (hasChildren || isQuery) && !node.collapsed && viewConfig.mode !== "list";
+  const showToolbar = hasFrameRows && !node.collapsed && viewConfig.mode !== "list";
   const projected = isProjectedViewMode(viewConfig.mode);
   const filterOpen = useUiStore((s) => s.filterPopoverFrameId === nodeId);
 
@@ -143,8 +177,7 @@ export const NodeBlock = memo(function NodeBlock({
               <Bullet
                 node={node}
                 collapsible={isExpandable}
-                isRef={isRef}
-                tagColor={primaryTagColor}
+                isRef={bulletIsRef}
                 onClick={handleBulletClick}
               />
             }
@@ -152,7 +185,7 @@ export const NodeBlock = memo(function NodeBlock({
               <NodeContent
                 nodeId={nodeId}
                 instanceKey={instanceKey}
-                content={node.text}
+                content={rowText(node, nodes)}
                 isActive={isActive}
                 tags={node.tags}
                 onActivate={handleActivate}
@@ -180,7 +213,7 @@ export const NodeBlock = memo(function NodeBlock({
         <div className="children-container relative">
           <div
             className="absolute top-0 bottom-2 w-5 cursor-pointer group/line"
-            style={{ left: `${depth * 24 + 2}px` }}
+            style={guideLineStyle(depth)}
             onClick={handleBulletClick}
           >
             <div className="absolute left-[9px] top-0 bottom-0 w-px bg-foreground/[0.06] group-hover/line:bg-foreground/15 transition-colors duration-200" />
@@ -188,7 +221,7 @@ export const NodeBlock = memo(function NodeBlock({
 
           <FieldsSection nodeId={nodeId} depth={depth} />
 
-          {!isRef && isQuery && (
+          {showsQueryResults && (
             <QueryResultsSection
               nodeId={nodeId}
               depth={depth}
@@ -206,10 +239,9 @@ export const NodeBlock = memo(function NodeBlock({
             />
           )}
 
-          {!isQuery &&
-            hasChildren &&
+          {showsChildren &&
             (projected ? (
-              <div style={{ paddingLeft: `${(depth + 1) * 24}px` }}>
+              <div style={indentStyle(depth + 1)}>
                 <FrameChildrenView frameId={nodeId} frameInstanceKey={instanceKey} />
               </div>
             ) : (
@@ -236,7 +268,7 @@ export const NodeBlock = memo(function NodeBlock({
                 "group/create relative flex h-6 cursor-pointer items-center rounded-sm",
                 "outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
               )}
-              style={{ paddingLeft: `${(depth + 1) * 24}px` }}
+              style={indentStyle(depth + 1)}
               onClick={handleCreateChild}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {

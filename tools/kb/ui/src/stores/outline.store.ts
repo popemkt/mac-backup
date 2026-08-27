@@ -8,6 +8,7 @@ import {
   searchNodes,
   wireToOutlineMap,
 } from "@/lib/graph-view";
+import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { isQueryNode } from "@/lib/query-node";
 import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
@@ -113,6 +114,9 @@ interface OutlineState {
   expandAncestors: (id: string) => void;
   jumpToNode: (id: string) => void;
   search: (query: string) => Array<{ id: string; text: string }>;
+  /** Pages revealed per frame in paginating view modes (frame id -> pages). */
+  framePages: Record<string, number>;
+  revealMorePages: (frameId: string) => void;
   getVisibleInstances: () => VisibleInstance[];
   getVisibleNodes: () => string[];
   getPreviousVisibleInstance: (instanceKey: string) => VisibleInstance | null;
@@ -344,6 +348,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
   return {
     nodes: new Map(),
     wireNodes: [],
+    framePages: {},
     queryDb: null,
     rev: 0,
     rootNodeId: WORKSPACE_ROOT_ID,
@@ -556,14 +561,16 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
 
   activateNode: (id, cursorPos, instanceKey, opts) => {
     if (!get().nodes.has(id)) return;
-    // System nodes are read-only at the DOM level: activation degrades to
-    // selection so no caret ever enters their content (r1 D20).
-    if (isSysPrefixed(id)) {
+    // A row whose text is not its own is read-only at the DOM level:
+    // activation degrades to selection so no caret ever enters it (r1 D20).
+    // `rowTextReadOnlyReason` owns which rows those are — sys.* nodes and
+    // contextual references, whose text belongs to the referenced node.
+    if (rowTextReadOnlyReason(id, get().nodes.get(id)) !== null) {
       pruneOutgoingTransient(id);
-      const sysKey = resolveActivateKey(id, instanceKey, get().nodes);
+      const roKey = resolveActivateKey(id, instanceKey, get().nodes);
       set({
         selectedNodeId: id,
-        selectedInstanceKey: sysKey,
+        selectedInstanceKey: roKey,
         activeNodeId: null,
         activeInstanceKey: null,
       });
@@ -755,9 +762,17 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     search: (query) => searchNodes(get().nodes, query),
 
     getVisibleInstances: () => {
-      const { nodes, rootNodeId, queryDb } = get();
-      return collectVisibleInstances(rootNodeId, nodes, queryDb);
+      const { nodes, rootNodeId, queryDb, framePages } = get();
+      return collectVisibleInstances(rootNodeId, nodes, queryDb, framePages);
     },
+
+    revealMorePages: (frameId) =>
+      set((s) => ({
+        framePages: {
+          ...s.framePages,
+          [frameId]: (s.framePages[frameId] ?? 1) + 1,
+        },
+      })),
 
     getVisibleNodes: () =>
       get()

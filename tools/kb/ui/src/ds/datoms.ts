@@ -7,6 +7,13 @@ import type { WireNode } from "@kb/protocol";
 export type NodeId = string;
 export type PropValue = WireNode["props"][string][number];
 
+/**
+ * `:node/mentions` is the carrier-independent reference relation: a
+ * `[[node-id]]` token in text and a `{t:"ref"}` prop value both produce one.
+ * See src/foundation/query/datascript.ts for the reasoning; this file is the
+ * documented browser fork of that builder and must mirror it.
+ */
+
 /** Mention form in text: [[node-id|label]] or [[node-id]] */
 const MENTION_RE = /\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g;
 
@@ -91,11 +98,18 @@ export function nodesToDatoms(
       datoms.push([eid, ":node/children", childEids]);
     }
 
+    // One mention datom per (source, target) whichever carrier produced it —
+    // the attr is cardinality-many, so a duplicate would be a duplicate datom.
+    const mentioned = new Set<number>();
+
     for (const [fieldId, values] of Object.entries(node.props)) {
       const attr = fieldAttr(fieldId);
       for (const pv of values) {
         const { value, isRef } = propDatomValue(pv, ids);
-        if (isRef) refAttrs.add(attr);
+        if (isRef) {
+          refAttrs.add(attr);
+          mentioned.add(value as number);
+        }
         datoms.push([eid, attr, value]);
       }
     }
@@ -103,11 +117,12 @@ export function nodesToDatoms(
     MENTION_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = MENTION_RE.exec(node.text)) !== null) {
-      const mentioned = m[1]!.trim();
-      const meid = ids.toEid.get(mentioned);
-      if (meid !== undefined) {
-        datoms.push([eid, ":node/mentions", meid]);
-      }
+      const meid = ids.toEid.get(m[1]!.trim());
+      if (meid !== undefined) mentioned.add(meid);
+    }
+
+    for (const meid of mentioned) {
+      datoms.push([eid, ":node/mentions", meid]);
     }
   }
 

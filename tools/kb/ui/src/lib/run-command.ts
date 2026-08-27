@@ -6,7 +6,8 @@ import { mutations } from "@/actions/mutations";
 import { listOntologyItems } from "@/lib/ontology-scope";
 import { navigate, ontologyPath } from "@/lib/router";
 import { toast } from "@/lib/toast";
-import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
+import { SYSTEM_IDS, WORKSPACE_ROOT_ID, isSysPrefixed } from "@/lib/types";
+import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, type ThemePref } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -22,7 +23,7 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
   switch (commandId) {
     case SYSTEM_IDS.cmdAddNode: {
       const selected = useOutlineStore.getState().selectedNodeId;
-      if (selected && !selected.startsWith("sys.")) {
+      if (selected && !isSysPrefixed(selected)) {
         await mutations.createNodeAfter(selected);
       } else {
         const newId = ulid();
@@ -103,7 +104,12 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
       return;
     }
     case SYSTEM_IDS.cmdDebugShowFields: {
-      usePrefsStore.getState().toggleShowAllFields();
+      const nodeId = commandTargetNodeId();
+      if (!nodeId) {
+        toast("select a node first");
+        return;
+      }
+      useDebugFieldsStore.getState().toggle(nodeId);
       return;
     }
     case SYSTEM_IDS.cmdExpandAll: {
@@ -150,6 +156,24 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
   }
 }
 
+/**
+ * The node a node-scoped command acts on: the selected row, else the zoomed
+ * root.
+ *
+ * Deliberately not `viewTargetFrameId`, which answers a different question —
+ * "which frame owns the view config" (frame first, `sys.*` excluded). This
+ * answers "which node is this command about", and `sys.*` schema nodes are
+ * exactly the ones whose hidden props are worth revealing.
+ */
+function commandTargetNodeId(): string | null {
+  const store = useOutlineStore.getState();
+  if (store.selectedNodeId) return store.selectedNodeId;
+  if (store.rootNodeId && store.rootNodeId !== WORKSPACE_ROOT_ID) {
+    return store.rootNodeId;
+  }
+  return null;
+}
+
 /** Zoomed root, else selected non-sys node, else null. */
 function viewTargetFrameId(): string | null {
   const store = useOutlineStore.getState();
@@ -157,6 +181,6 @@ function viewTargetFrameId(): string | null {
     return store.rootNodeId;
   }
   const sel = store.selectedNodeId;
-  if (sel && !sel.startsWith("sys.")) return sel;
+  if (sel && !isSysPrefixed(sel)) return sel;
   return null;
 }

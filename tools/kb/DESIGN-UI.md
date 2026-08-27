@@ -132,9 +132,10 @@ pane, persistent collapse state (localStorage), query page.
 
 ## Interaction model (as shipped, 2026-08-23 wave)
 
-The v1 list above is the original contract. Five implementation waves rebuilt
+The v1 list above is the original contract. Implementation waves rebuilt
 the interaction layer on top of it — i1 (editor), i2 (graph), i3 (canvas),
-i5 (cross-surface polish), i6 (ontology). The normative specs are
+i5 (cross-surface polish), i6 (ontology), i12 (contextual references). The
+normative specs are
 `docs/kb-waves/2026-08-23/reports/r1-editor.md`, `r2-graph.md`, `r3-canvas.md`,
 `r7-ux-sweep.md` and `r5-ontology.md`; each carries its own implementation
 handoff with the honest cut list.
@@ -201,6 +202,79 @@ faces the caret and serialization round-trips canonical markdown.
 **`sys.*` rows are read-only at the door.** `store.activateNode` degrades a
 `sys.*` id to selection so no caret ever enters one; the row shows a hover
 padlock instead of failing on write.
+
+### Contextual references (i12)
+
+Tana's *contextual content*, expressed with no new storage shape and no new
+widget: a **contextual reference is an ordinary node** tagged `#ref`
+(`sys.tag.ref`) carrying its target on the `sys.f.ref.target` ref field. Same
+anatomy as a query node (`#query` + `sys.f.query`), so children, tags, fields,
+collapse state, instance keys, both keymaps, undo and the transient rules are
+the ordinary ones — nothing in `visible-instances.ts`, `instance-key.ts` or
+`frame-rows.ts` changed to accommodate it.
+
+`ui/src/lib/contextual-ref.ts` owns the three rules that make it read as a
+reference:
+
+- **Display is the target's text, verbatim.** `rowText(node, nodes)` returns
+  `node.text` for an ordinary row and the *target's* text for a reference, so the
+  row renders through the same inline-markdown path as every other row: bold,
+  code, inline refs and `assets/` media all render as content. Returning a
+  `[[targetId|label]]` token instead was tried and rejected after looking at the
+  rendered page — a ref label is terminal in the inline grammar, so `**bold**`
+  showed up literally and the entire row went link-coloured. A missing target
+  renders as the `[[id]]` token, the way every other dangling ref renders, never
+  a blank row and never a throw. `ReferencesSection` calls the same function, so
+  a referrer whose own text is empty is not a blank line in a backlinks list.
+  What a ref *prop* buys over a hand-typed `[[id|label]]`: the hand-typed label
+  freezes at insert time, this resolves every render.
+- **The row's own text is read-only, and the click is answered at the target.**
+  The text is not what the row owns, so a caret in it would edit an invisible
+  second string. `rowTextReadOnlyReason(id, node)` is the single owner of that
+  rule — it absorbed the `sys.*` read-only check (r1 D20), which was previously
+  duplicated between `outlineStore.activateNode` and `NodeContent`, and it
+  supplies the padlock's wording. Rather than leaving the click dead, `NodeBlock`
+  routes the same activate intent to the node that owns the string: clicking a
+  reference opens the original. ⌘-click on the bullet still zooms the reference
+  itself, so the two destinations have two affordances.
+  **Deliberate deviation from Tana**, which edits the original *in place* through
+  the reference: redirecting the editor's write to a node other than the row's
+  `data-node-id` forks the one row↔node identity that instance keys, both
+  keymaps, optimistic mutations and undo are all built on.
+- **The bullet reuses the existing reference treatment** (dashed ring). Only the
+  bullet: `NodeBlock`'s `isRef` *prop* still means "this row renders a node
+  whose home is elsewhere" and keeps suppressing nested query results and the
+  create-child strip, because a contextual reference's children **are** its own
+  and creating them is the whole point. `bulletIsRef = isRef || isContextualRef(node)`.
+
+**Contextual children belong to the location, not the target** — the
+Tana-faithful default, and the one question the owner did not answer. Visiting
+the original shows only its own children; the contextual ones surface there
+through References/backlinks (which see the reference because `:node/mentions`
+counts ref props — see [DESIGN.md → Refs](./DESIGN.md#data-model--everything-is-a-node)).
+To change the default, the union goes in exactly one place:
+`frameListChildren` / `frameRows` in `ui/src/lib/frame-rows.ts`, the declared
+single owner of "which rows does this frame show".
+
+**Creation** is a node-⌘K step, next to *Turn into query*: **Turn into
+reference…** opens the picker, which is the same picker `Add tag` and `Add field`
+use — generalized from two kinds to three, with the candidate *source* as the
+only difference. A reference's candidates come from `fuzzyNodeCandidates`, the
+resolver the `[[` autocomplete and the typed ref field editor already share, so
+no fourth node picker was added. The gesture itself is `mutations.addTag` +
+`mutations.updateProp`, i.e. plain `node.update` — no new registry action, and
+the CLI/MCP form is in DESIGN.md.
+
+**Named gaps.** The target is repointable only with debug fields on for that row
+(node ⌘K → *Show debug fields*), because `sys.f.*` props are hidden from field
+rows by default — the identical
+limitation `#query`'s EDN prop has, deliberately not widened here. The
+References list shows a reference by its rendered target text rather than by the
+ancestor context it sits in, so on the original's own page a reference row reads
+as a copy of the original's text; a context breadcrumb (and rendering the
+contextual children inline under the backlink row) is the obvious next step and
+is not built. There is no global ⌘K entry: a contextual reference needs both a
+host row and a target, and the global palette has no two-step for that.
 
 ### Ontology scope (i6)
 
@@ -355,6 +429,39 @@ The rules that hold everywhere, so no surface re-invents them:
 Deferred from i5 and still open: query-subscription error routing, view-settings
 and Board setup flows, the Add-field flow, palette ranking/highlighting, URL and
 history handling, and a toast-model redesign.
+
+### Node-scoped commands: debug fields, pin
+
+Two questions that look like settings are actually questions about one node, and
+both are answered from the node ⌘K menu rather than from a device switch.
+
+- **Debug fields are per node.** "Show me the `sys.*` and hidden props" is asked
+  of the node you are inspecting. `stores/debug-fields.store.ts` owns the set of
+  node ids that answer yes, persisted with the same `loadIdSet`/`saveIdSet`
+  encoding the expanded rows use (key `kb-debug-fields`); it is the only reader
+  and writer, so no component touches `localStorage`. The old device-wide
+  `showAllFields` pref is **deleted**, not kept alongside — one switch that
+  turned every page into a schema dump was the bug. `sys.cmd.debug-show-fields`
+  in the global palette now toggles the selected row (or the zoomed root), the
+  way the view-mode commands target a frame.
+  - **Table and Board columns belong to the frame.** A header serves every row,
+    so "per node" there can only mean the frame node that owns the view; a
+    row's own field rows still follow the row's own flag. One flag, two
+    honest readings of "which node".
+  - *Migration (intentional breakage, same idiom as `loadExpandedIds`):* a
+    user who had the global switch on has no id set to migrate to, so debug
+    starts off and is re-armed per node. The stale key inside
+    `localStorage["kb-prefs"]` is ignored on read and dropped on next write.
+- **Pinning is tagging.** `lib/pinned.ts` owns it: a node is pinned when its
+  kind slot names a tag node whose text is `pinned`, read through `typeRefsOf`
+  and never off `node.tags` (a DISPLAY list — see `resolveTags`). Nothing is
+  seeded; the tag is minted on first pin through the same `defineTag` the ⌘K
+  picker's "Create tag" path uses, which is why there is no `sys.tag.pinned`.
+  `mutations.togglePin` is `addTag`/`removeTag` and nothing else, and the
+  sidebar's Pinned section reads the same predicate.
+  - **Naming collision, deliberately not merged:** an *ontology's* pins are
+    `sys.f.onto.member` props with their own Unpin control on the ontology
+    page. Same English word, different field, different mechanism.
 
 ## Layout
 

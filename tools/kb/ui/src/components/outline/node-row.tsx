@@ -1,4 +1,5 @@
 import { cn } from "@/lib/cn";
+import { indentStyle } from "@/lib/indent";
 
 export interface NodeRowProps {
   depth: number;
@@ -38,7 +39,7 @@ export function NodeRow({
         className,
       )}
       style={{
-        paddingLeft: `${depth * 24}px`,
+        ...indentStyle(depth),
         minHeight: "var(--kb-row-h)",
       }}
       data-node-id={nodeId}

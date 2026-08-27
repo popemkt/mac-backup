@@ -89,6 +89,18 @@ export const SYSTEM_IDS = {
   queryTag: "sys.tag.query",
   queryField: "sys.f.query",
   queryLimitField: "sys.f.query.limit",
+  /**
+   * Contextual references (Tana "contextual content"). A node tagged `#ref`
+   * carrying `sys.f.ref.target` displays the target's text; its own children
+   * are content local to *that* location. Same shape as a query node — a tag
+   * plus one templated field — so it is an ordinary node everywhere else.
+   *
+   * `sys.f.ref.target` is deliberately unconstrained: a reference may point at
+   * any node, and declaring a `targetTag` would be a constraint the feature
+   * does not have (cf. `sys.f.onto.member`, unconstrained for the same reason).
+   */
+  refTag: "sys.tag.ref",
+  refTargetField: "sys.f.ref.target",
   /** View configuration field nodes (W7.0). */
   viewModeField: "sys.f.view.mode",
   viewSortField: "sys.f.view.sort",

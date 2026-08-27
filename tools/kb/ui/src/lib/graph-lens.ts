@@ -4,9 +4,10 @@
  */
 import type { WireNode } from "@kb/protocol";
 import type { QueryDb } from "@/ds/db";
+import { extractMentions } from "@/ds/datoms";
 import { runQuery } from "@/ds/query";
 import { hashTagColor, resolveTagColor } from "@/lib/tag-color";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
 
 export type EdgeKind = "mention" | "child" | "ref-prop";
 
@@ -96,12 +97,6 @@ export const LENS_RENDERERS = [
 ] as const;
 
 const EDGE_KIND_SET = new Set<string>(["mention", "child", "ref-prop"]);
-
-const MENTIONS_Q = `[:find ?from ?to
-  :where
-  [?e :node/mentions ?m]
-  [?e :node/id ?from]
-  [?m :node/id ?to]]`;
 
 function strProp(node: WireNode, fieldId: string): string | null {
   const v = (node.props[fieldId] ?? []).find(
@@ -373,7 +368,7 @@ export function idsFromQueryRows(
  * nodes (schema), so default empty-query lenses paint content — not scaffolding.
  */
 export function isElidedSchemaNode(wire: WireNode): boolean {
-  if (wire.id.startsWith("sys.")) return true;
+  if (isSysPrefixed(wire.id)) return true;
   const types = wire.props[SYSTEM_IDS.typeField] ?? [];
   for (const v of types) {
     if (v.t !== "ref") continue;
@@ -425,7 +420,6 @@ function resolveNodeSet(
 }
 
 function collectEdges(
-  db: QueryDb,
   wireNodes: WireNode[],
   nodeSet: Set<string>,
   kinds: Set<EdgeKind>,
@@ -449,18 +443,19 @@ function collectEdges(
     edges.push({ source, target, kind, weight: 1 });
   };
 
+  /*
+   * The three edge kinds are provenance lenses over one relation, so each is
+   * read from its own carrier and they stay disjoint: text tokens here, the
+   * children array below, ref prop values after that. `:node/mentions` is
+   * deliberately NOT used — it is carrier-independent (see ds/datoms), so
+   * querying it would double every ref-prop edge as a mention as well.
+   */
   if (kinds.has("mention")) {
-    try {
-      const rows = runQuery(db, MENTIONS_Q);
-      for (const row of rows) {
-        const from = row[0];
-        const to = row[1];
-        if (typeof from === "string" && typeof to === "string") {
-          push(from, to, "mention");
-        }
+    for (const n of wireNodes) {
+      if (!nodeSet.has(n.id)) continue;
+      for (const to of new Set(extractMentions(n.text))) {
+        push(n.id, to, "mention");
       }
-    } catch {
-      // ignore malformed db
     }
   }
 
@@ -558,7 +553,7 @@ export function extractLensGraph(
   const byId = new Map(wireNodes.map((n) => [n.id, n]));
   const { nodeSet, queryError } = resolveNodeSet(db, wireNodes, perspective, opts);
   const kinds = new Set(perspective.edgeKinds);
-  const rawEdges = collectEdges(db, wireNodes, nodeSet, kinds);
+  const rawEdges = collectEdges(wireNodes, nodeSet, kinds);
   const candidateIds = [...nodeSet];
   const degrees = degreeMap(candidateIds, rawEdges);
   const { keep, dropped } = applyMaxNodesCap(

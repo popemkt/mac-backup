@@ -1,5 +1,6 @@
 /**
- * Field types, as nodes.
+ * What a field node declares: its value type, and — for ref fields — which
+ * nodes are allowed as values.
  *
  * A field whose value comes from a fixed list is an ordinary ref field pointing
  * at nodes that carry the list's tag. The type slot itself is that pattern:
@@ -10,8 +11,17 @@
  * This is the single source for the mapping. It used to exist three times: an
  * enum in the CLI mapper, a string-literal union in the UI, and the seed's
  * hardcoded prop values. The UI reads it through the `@kb/field-type` alias.
+ *
+ * Target-constraint resolution lives here for the same reason, and it moved
+ * here from the browser: it is *resolution*, not display. While it sat in the
+ * UI it could reach for a display-shaped list (the `#tag` badge array) and
+ * did — so `targetTag → sys.tag` resolved to nothing. This module is pure and
+ * isomorphic (no DOM, no datascript; the EDN runner is injected, exactly as in
+ * `ontology.ts`), and its node shape carries no badges at all, so that class of
+ * leak is not expressible here.
  */
-import { SYSTEM_IDS, type PropValue } from "./model.ts";
+import { SYSTEM_IDS, type NodeId, type PropValue } from "./model.ts";
+import { refValuesOf, strValueOf, typeRefsOf, type NodeLike } from "./ontology.ts";
 
 /** Declared type → option node id. */
 export const FIELD_TYPE_OPTION_IDS = {
@@ -60,6 +70,79 @@ export function fieldTypeOf(
   if (raw.t === "ref") return FIELD_TYPE_BY_OPTION_ID[String(raw.v)] ?? "text";
   if (raw.t === "str" && isFieldType(raw.v)) return raw.v;
   return "text";
+}
+
+// ── ref target constraints ─────────────────────────────────────────────────
+
+/** Target tag ids a ref field declares (`sys.f.targetTag`, multi = union). */
+export function targetTagsOf(fieldNode: NodeLike | undefined): NodeId[] {
+  return refValuesOf(fieldNode, SYSTEM_IDS.targetTagField);
+}
+
+/**
+ * The EDN constraint a ref field declares (`sys.f.targetQuery`), or null.
+ * Present ⇒ it wins over `targetTag`: the query is the general form and the
+ * tag is sugar for one shape of it, so honouring both would mean two answers
+ * to one question.
+ */
+export function targetQueryOf(
+  fieldNode: NodeLike | undefined,
+): string | null {
+  return strValueOf(fieldNode, SYSTEM_IDS.targetQueryField);
+}
+
+/**
+ * Allowed ref target ids — what the *field node declares*, nothing else.
+ *
+ *   targetQuery present ⇒ the query's row ids (targetTag ignored)
+ *   else targetTag      ⇒ union of nodes whose `sys.f.type` names a listed tag
+ *   else               ⇒ unrestricted (null)
+ *
+ * This is data, not display policy. No node is dropped for being seeded or
+ * `sys.`-prefixed: `sys.f.fieldType` legitimately targets six `sys.ft.*`
+ * options, and `sys.f.onto.include` legitimately targets every supertag,
+ * `sys.tag.*` ones included. Which of these a picker chooses to *show* is a
+ * separate decision, made once in the UI's `fuzzyNodeCandidates`, which takes
+ * this set as an input.
+ *
+ * `nodes` is typed as a map of {@link NodeLike} on purpose — a map, so the UI
+ * can pass its live node map without copying, and `NodeLike`, so nothing in
+ * here can see a rendered badge list even if someone tries.
+ *
+ * `runQuery` is the injected EDN runner (CLI/MCP: `foundation/query`; browser:
+ * `ds/query`). A declared query with no runner, or one that throws, yields the
+ * empty set rather than silently widening to "everything is allowed".
+ */
+export function allowedRefIdsOf(
+  fieldNode: NodeLike | undefined,
+  nodes: ReadonlyMap<NodeId, NodeLike>,
+  runQuery?: ((edn: string) => unknown[][]) | null,
+): Set<NodeId> | null {
+  const edn = targetQueryOf(fieldNode);
+  if (edn) {
+    if (!runQuery) return new Set();
+    try {
+      const ids = new Set<NodeId>();
+      for (const row of runQuery(edn)) {
+        for (const cell of Array.isArray(row) ? row : [row]) {
+          if (typeof cell === "string" && nodes.has(cell)) ids.add(cell);
+        }
+      }
+      return ids;
+    } catch {
+      return new Set();
+    }
+  }
+
+  const tags = targetTagsOf(fieldNode);
+  if (tags.length === 0) return null;
+
+  const tagSet = new Set(tags);
+  const allowed = new Set<NodeId>();
+  for (const node of nodes.values()) {
+    if (typeRefsOf(node).some((t) => tagSet.has(t))) allowed.add(node.id);
+  }
+  return allowed;
 }
 
 /**

@@ -15,14 +15,14 @@ import {
 import { cn } from "@/lib/cn";
 import { isQueryNode } from "@/lib/query-node";
 import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
+import { frameRows } from "@/lib/frame-rows";
 import {
-  applyViewFilters,
   getViewConfig,
   resolveTableColumns,
-  sortChildrenForTable,
   type SortSpec,
   type TableColumnSpec,
 } from "@/lib/view-config";
+import { useDebugFields } from "@/stores/debug-fields.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { Bullet } from "./bullet";
@@ -54,7 +54,9 @@ export function TableView({
   const storeNodes = useOutlineStore((s) => s.nodes);
   const nodes = nodesProp ?? storeNodes;
   const frameNode = nodes.get(frameId);
-  const showAllFields = usePrefsStore((s) => s.showAllFields);
+  // Columns are a property of the FRAME, not of any row: one header serves
+  // every row, so the frame node is the only thing "per-node" can mean here.
+  const debugColumns = useDebugFields(frameId);
   const storeWidth = usePrefsStore((s) => s.width);
   const widthPref = widthPrefProp ?? storeWidth;
 
@@ -66,40 +68,23 @@ export function TableView({
     [frameNode?.props],
   );
 
-  const children = useMemo(() => {
-    const ids = rowIds ?? frameNode?.children ?? [];
-    return ids
-      .map((id) => nodes.get(id))
-      .filter((n): n is OutlineNode => n !== undefined);
-  }, [frameNode, nodes, rowIds]);
+  const pages = useOutlineStore((s) => s.framePages[frameId] ?? 1);
+  const revealMorePages = useOutlineStore((s) => s.revealMorePages);
 
-  const filtered = useMemo(
-    () => applyViewFilters(children, viewConfig.filters, nodes),
-    [children, viewConfig.filters, nodes],
+  // Row order and pagination come from the shared owner, so the rows rendered
+  // here are exactly the rows keyboard navigation can reach.
+  const rows = useMemo(
+    () => frameRows({ frameId, nodes, rowIds, pages }),
+    [frameId, nodes, rowIds, pages],
   );
 
   const columns = useMemo(
-    () => resolveTableColumns(viewConfig, filtered, nodes, showAllFields),
-    [viewConfig, filtered, nodes, showAllFields],
+    () => resolveTableColumns(viewConfig, rows.ordered, nodes, debugColumns),
+    [viewConfig, rows.ordered, nodes, debugColumns],
   );
 
-  const sortedChildren = useMemo(
-    () => sortChildrenForTable(filtered, viewConfig.sort, nodes),
-    [filtered, viewConfig.sort, nodes],
-  );
-
-  const [visibleLimit, setVisibleLimit] = useState(viewConfig.pagesize);
-
-  useEffect(() => {
-    setVisibleLimit(viewConfig.pagesize);
-  }, [viewConfig.pagesize]);
-
-  const displayedChildren = useMemo(
-    () => sortedChildren.slice(0, visibleLimit),
-    [sortedChildren, visibleLimit],
-  );
-
-  const hasMore = sortedChildren.length > visibleLimit;
+  const displayedChildren = rows.rendered;
+  const hasMore = rows.hasMore;
 
   const [localColwidth, setLocalColwidth] = useState<Record<string, number>>(
     {},
@@ -237,7 +222,6 @@ export function TableView({
                 childKey={childKey}
                 columns={columns}
                 nodes={nodes}
-                showAllFields={showAllFields}
                 isRef={isQuerySource}
               />
             );
@@ -250,11 +234,10 @@ export function TableView({
           <button
             type="button"
             className="text-[11px] text-foreground/50 hover:text-foreground/80 font-medium px-3 py-1 rounded bg-foreground/[0.04] hover:bg-foreground/[0.08] cursor-pointer"
-            onClick={() =>
-              setVisibleLimit((prev) => prev + viewConfig.pagesize)
-            }
+            onClick={() => revealMorePages(frameId)}
           >
-            Show more ({sortedChildren.length - visibleLimit} remaining)
+            Show more ({rows.ordered.length - displayedChildren.length}{" "}
+            remaining)
           </button>
         </div>
       )}
@@ -267,14 +250,12 @@ const TableRow = memo(function TableRow({
   childKey,
   columns,
   nodes,
-  showAllFields,
   isRef = false,
 }: {
   child: OutlineNode;
   childKey: string;
   columns: TableColumnSpec[];
   nodes: NodeMap;
-  showAllFields: boolean;
   isRef?: boolean;
 }) {
   const isActive = useOutlineStore(
@@ -288,6 +269,7 @@ const TableRow = memo(function TableRow({
   const activateNode = useOutlineStore((s) => s.activateNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const rowDebug = useDebugFields(child.id);
 
   const handleKeyDown = useNodeKeyDown({
     nodeId: child.id,
@@ -296,10 +278,11 @@ const TableRow = memo(function TableRow({
     isRef,
   });
 
-  const primaryTagColor = child.tags[0]?.color ?? null;
   const isQuery = isQueryNode(child);
+  // A row's own field rows follow the row's own flag — the frame's debug
+  // columns say nothing about whether this node reveals its sys.* props.
   const hasFields =
-    resolveProps(child, nodes, { showAllFields }).length > 0;
+    resolveProps(child, nodes, { showDebugFields: rowDebug }).length > 0;
   const isExpandable =
     child.children.length > 0 || isQuery || hasFields;
 
@@ -325,7 +308,6 @@ const TableRow = memo(function TableRow({
               node={child}
               collapsible={isExpandable && !isRef}
               isRef={isRef}
-              tagColor={primaryTagColor}
               onClick={(e) => {
                 if (isRef || e.metaKey || e.ctrlKey) zoomTo(child.id);
                 else toggleCollapse(child.id);

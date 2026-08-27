@@ -19,7 +19,8 @@ import {
   resolveAllowedRefIds,
   resolveFieldType,
 } from "@/lib/field-type";
-import { SYSTEM_IDS, type PropValue } from "@/lib/types";
+import { typeRefsOf } from "@kb/ontology";
+import { SYSTEM_IDS, isSysPrefixed, type PropValue } from "@/lib/types";
 import type { OutlineNode } from "@/lib/types";
 import type { WireNode } from "@kb/protocol";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -42,9 +43,7 @@ export function listCanvasNodes(
 ): OutlineNode[] {
   const out: OutlineNode[] = [];
   for (const n of nodes.values()) {
-    const tagged = (n.props[SYSTEM_IDS.typeField] ?? []).some(
-      (v) => v.t === "ref" && v.v === SYSTEM_IDS.canvasTag,
-    );
+    const tagged = typeRefsOf(n).includes(SYSTEM_IDS.canvasTag);
     if (tagged) out.push(n);
   }
   return out.sort((a, b) => a.text.localeCompare(b.text));
@@ -235,11 +234,9 @@ export function listRefFields(
 ): { id: string; name: string; isRef: boolean }[] {
   const out: { id: string; name: string; isRef: boolean }[] = [];
   for (const n of nodes.values()) {
-    const isField = (n.props[SYSTEM_IDS.typeField] ?? []).some(
-      (v) => v.t === "ref" && v.v === SYSTEM_IDS.field,
-    );
-    if (!isField) continue;
-    if (n.id.startsWith("sys.")) continue;
+    if (!typeRefsOf(n).includes(SYSTEM_IDS.field)) continue;
+    // DISPLAY: the native-bind field menu lists a user's own ref fields.
+    if (isSysPrefixed(n.id)) continue;
     if (resolveFieldType(n) !== "ref") continue;
     out.push({ id: n.id, name: n.text, isRef: true });
   }

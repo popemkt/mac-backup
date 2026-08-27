@@ -1273,7 +1273,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           bullet={
             <Bullet
               node={canvasNode}
-              tagColor={canvasNode.tags[0]?.color ?? null}
               onClick={() => {}}
             />
           }

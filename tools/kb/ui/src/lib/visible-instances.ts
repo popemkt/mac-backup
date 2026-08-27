@@ -1,7 +1,9 @@
 /**
  * Render-order visible outline instances (tree + query-result rows).
- * Must stay aligned with NodeBlock / QueryResultsSection / OutlineEditor /
- * TableView / BoardCardsView.
+ *
+ * Row order is not decided here — every frame's rows come from
+ * {@link frameRows} / {@link frameListChildren}, the same functions the
+ * renderers call. This walk only assigns instance keys and recurses.
  */
 import type { QueryDb } from "@/ds/db";
 import { runQuery } from "@/ds/query";
@@ -10,62 +12,39 @@ import {
   outlineInstanceKey,
   queryResultInstanceKey,
 } from "@/lib/instance-key";
+import { frameListChildren, frameRows } from "@/lib/frame-rows";
 import {
   isQueryNode,
   queryDefOf,
   resultNodeIds,
 } from "@/lib/query-node";
-import type { NodeMap, OutlineNode } from "@/lib/types";
-import {
-  applyViewFilters,
-  flattenBoardOrder,
-  getViewConfig,
-  groupChildrenForBoard,
-  isProjectedViewMode,
-  sortChildrenForTable,
-} from "@/lib/view-config";
+import type { NodeMap } from "@/lib/types";
+import { getViewConfig, isProjectedViewMode } from "@/lib/view-config";
 
 export type VisibleInstance = {
   nodeId: string;
   instanceKey: string;
 };
 
-function childNodes(parent: OutlineNode, nodes: NodeMap): OutlineNode[] {
-  return parent.children
-    .map((id) => nodes.get(id))
-    .filter((n): n is OutlineNode => n !== undefined);
-}
-
-function projectFrameRows(
-  parent: OutlineNode,
-  nodes: NodeMap,
-  rowNodes: OutlineNode[],
-): OutlineNode[] {
-  const viewConfig = getViewConfig(parent.props);
-  const filtered = applyViewFilters(rowNodes, viewConfig.filters, nodes);
-  const sorted = sortChildrenForTable(filtered, viewConfig.sort, nodes);
-  if (viewConfig.mode === "board") {
-    return flattenBoardOrder(
-      groupChildrenForBoard(sorted, viewConfig.groupFieldId, nodes),
-    );
-  }
-  // table + cards: sorted flat order
-  return sorted;
-}
+/** Pages revealed per frame in paginating modes, keyed by frame node id. */
+export type FramePagesMap = Readonly<Record<string, number>>;
 
 function emitProjectedRows(
-  parentKey: string,
-  parent: OutlineNode,
+  frameId: string,
   nodes: NodeMap,
-  rowNodes: OutlineNode[],
+  rowIds: string[] | undefined,
+  pages: FramePagesMap,
   out: VisibleInstance[],
   keyFor: (nodeId: string) => string,
 ): void {
-  for (const child of projectFrameRows(parent, nodes, rowNodes)) {
-    out.push({
-      nodeId: child.id,
-      instanceKey: keyFor(child.id),
-    });
+  const { rendered } = frameRows({
+    frameId,
+    nodes,
+    rowIds,
+    pages: pages[frameId],
+  });
+  for (const child of rendered) {
+    out.push({ nodeId: child.id, instanceKey: keyFor(child.id) });
   }
 }
 
@@ -75,6 +54,7 @@ function walkVisibleInstances(
   isRef: boolean,
   nodes: NodeMap,
   queryDb: QueryDb | null,
+  pages: FramePagesMap,
   out: VisibleInstance[],
 ): void {
   const node = nodes.get(nodeId);
@@ -83,6 +63,7 @@ function walkVisibleInstances(
   if (node.collapsed) return;
 
   const viewConfig = getViewConfig(node.props);
+  const projected = isProjectedViewMode(viewConfig.mode);
 
   // Query results — list walks refs; projected modes emit flat result rows.
   if (!isRef && isQueryNode(node)) {
@@ -94,18 +75,10 @@ function walkVisibleInstances(
           limit: def.limit,
           excludeId: nodeId,
         });
-        const resultNodes = ids
-          .map((id) => nodes.get(id))
-          .filter((n): n is OutlineNode => n !== undefined);
 
-        if (isProjectedViewMode(viewConfig.mode)) {
-          emitProjectedRows(
-            instanceKey,
-            node,
-            nodes,
-            resultNodes,
-            out,
-            (id) => queryResultInstanceKey(nodeId, id),
+        if (projected) {
+          emitProjectedRows(nodeId, nodes, ids, pages, out, (id) =>
+            queryResultInstanceKey(nodeId, id),
           );
           return;
         }
@@ -117,6 +90,7 @@ function walkVisibleInstances(
             true,
             nodes,
             queryDb,
+            pages,
             out,
           );
         }
@@ -127,35 +101,22 @@ function walkVisibleInstances(
     // Non-projected query: also walk structural children below results.
   }
 
-  if (isProjectedViewMode(viewConfig.mode) && !isQueryNode(node)) {
-    emitProjectedRows(
-      instanceKey,
-      node,
-      nodes,
-      childNodes(node, nodes),
-      out,
-      (id) => childInstanceKey(instanceKey, id),
+  if (projected) {
+    if (isQueryNode(node)) return;
+    emitProjectedRows(nodeId, nodes, undefined, pages, out, (id) =>
+      childInstanceKey(instanceKey, id),
     );
     return;
   }
 
-  if (isProjectedViewMode(viewConfig.mode) && isQueryNode(node)) {
-    return;
-  }
-
-  // List mode — filtered structural children.
-  const kids = applyViewFilters(
-    childNodes(node, nodes),
-    viewConfig.filters,
-    nodes,
-  );
-  for (const child of kids) {
+  for (const child of frameListChildren(nodeId, nodes)) {
     walkVisibleInstances(
       child.id,
       childInstanceKey(instanceKey, child.id),
       false,
       nodes,
       queryDb,
+      pages,
       out,
     );
   }
@@ -165,32 +126,29 @@ export function collectVisibleInstances(
   rootNodeId: string,
   nodes: NodeMap,
   queryDb: QueryDb | null,
+  pages: FramePagesMap = {},
 ): VisibleInstance[] {
   const out: VisibleInstance[] = [];
   const root = nodes.get(rootNodeId);
   if (!root) return out;
 
-  const rootConfig = getViewConfig(root.props);
-  if (isProjectedViewMode(rootConfig.mode)) {
-    emitProjectedRows(
-      `tree/${rootNodeId}`,
-      root,
-      nodes,
-      childNodes(root, nodes),
-      out,
-      (id) => outlineInstanceKey(id, nodes),
+  if (isProjectedViewMode(getViewConfig(root.props).mode)) {
+    emitProjectedRows(rootNodeId, nodes, undefined, pages, out, (id) =>
+      outlineInstanceKey(id, nodes),
     );
     return out;
   }
 
-  const kids = applyViewFilters(
-    childNodes(root, nodes),
-    rootConfig.filters,
-    nodes,
-  );
-  for (const child of kids) {
-    const key = outlineInstanceKey(child.id, nodes);
-    walkVisibleInstances(child.id, key, false, nodes, queryDb, out);
+  for (const child of frameListChildren(rootNodeId, nodes)) {
+    walkVisibleInstances(
+      child.id,
+      outlineInstanceKey(child.id, nodes),
+      false,
+      nodes,
+      queryDb,
+      pages,
+      out,
+    );
   }
   return out;
 }

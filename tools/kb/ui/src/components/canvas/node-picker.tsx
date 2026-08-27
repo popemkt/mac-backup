@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useOutlineStore } from "@/stores/outline.store";
-import { SYSTEM_IDS } from "@/lib/types";
+import { typeRefsOf } from "@kb/ontology";
+import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
 interface NodePickerProps {
@@ -16,14 +17,13 @@ export function NodePicker({ onPick, onClose }: NodePickerProps) {
   const candidates = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const list = [...nodes.values()].filter((n) => {
-      if (n.id.startsWith("sys.")) return false;
-      const isTag = (n.props[SYSTEM_IDS.typeField] ?? []).some(
-        (v) => v.t === "ref" && v.v === SYSTEM_IDS.tag,
-      );
-      const isField = (n.props[SYSTEM_IDS.typeField] ?? []).some(
-        (v) => v.t === "ref" && v.v === SYSTEM_IDS.field,
-      );
-      if (isTag || isField) return false;
+      // DISPLAY: a free-form canvas card picker offers content, not the
+      // seeded ontology or schema nodes. Nothing here decides validity.
+      if (isSysPrefixed(n.id)) return false;
+      const types = typeRefsOf(n);
+      if (types.includes(SYSTEM_IDS.tag) || types.includes(SYSTEM_IDS.field)) {
+        return false;
+      }
       if (!needle) return true;
       return n.text.toLowerCase().includes(needle) || n.id.includes(needle);
     });

@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { X } from "@phosphor-icons/react";
 import type { WireNode } from "@kb/protocol";
 import {
-  ontologyRefs,
-  ontologyStr,
+  isOntologyNode,
+  refValuesOf,
+  strValueOf,
+  typeRefsOf,
   wouldCreateExtendsCycle,
 } from "@kb/ontology";
 import { mutations } from "@/actions/mutations";
@@ -67,18 +69,18 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
   );
 
   const includeTags = onto
-    ? ontologyRefs(onto, SYSTEM_IDS.ontoIncludeField)
+    ? refValuesOf(onto, SYSTEM_IDS.ontoIncludeField)
     : [];
   const extendsIds = onto
-    ? ontologyRefs(onto, SYSTEM_IDS.ontoExtendsField)
+    ? refValuesOf(onto, SYSTEM_IDS.ontoExtendsField)
     : [];
   const closure = onto
-    ? ontologyStr(onto, SYSTEM_IDS.ontoClosureField) === "descendants"
+    ? strValueOf(onto, SYSTEM_IDS.ontoClosureField) === "descendants"
       ? "descendants"
       : "none"
     : "none";
   const storedQuery = onto
-    ? (ontologyStr(onto, SYSTEM_IDS.ontoQueryField) ?? "")
+    ? (strValueOf(onto, SYSTEM_IDS.ontoQueryField) ?? "")
     : "";
 
   const tagCandidates = useMemo(() => {
@@ -97,13 +99,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
   const ontologyCandidates = useMemo(() => {
     const taken = new Set(extendsIds); // oxlint-disable-line react-hooks/exhaustive-deps -- extendsIds is a fresh array each render; the memo depends on its contents via the joined-key dep below
     return wireNodes
-      .filter(
-        (n) =>
-          n.id !== ontologyId &&
-          (n.props[SYSTEM_IDS.typeField] ?? []).some(
-            (v) => v.t === "ref" && v.v === SYSTEM_IDS.ontologyTag,
-          ),
-      )
+      .filter((n) => n.id !== ontologyId && isOntologyNode(n))
       .map((n) => {
         const cycles = wouldCreateExtendsCycle(wireNodes, ontologyId, n.id);
         return {
@@ -344,9 +340,7 @@ function OntologyTitle({ id, text }: { id: string; text: string }) {
 
 
 function isTagNode(node: WireNode): boolean {
-  return (node.props[SYSTEM_IDS.typeField] ?? []).some(
-    (v) => v.t === "ref" && v.v === SYSTEM_IDS.tag,
-  );
+  return typeRefsOf(node).includes(SYSTEM_IDS.tag);
 }
 
 function explicitTagColor(node: WireNode | undefined): string | undefined {

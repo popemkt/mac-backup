@@ -231,7 +231,7 @@ export function resolveTableColumns(
   viewConfig: ViewConfig,
   children: OutlineNode[],
   nodes: NodeMap,
-  showAllFields = false,
+  showDebugColumns = false,
 ): TableColumnSpec[] {
   let candidateFieldIds: string[] = [];
 
@@ -256,7 +256,7 @@ export function resolveTableColumns(
 
   const columns: TableColumnSpec[] = [];
   for (const fieldId of candidateFieldIds) {
-    if (!showAllFields) {
+    if (!showDebugColumns) {
       const isHidden =
         nodes.get(fieldId)?.props[SYSTEM_IDS.hiddenField]?.[0]?.v === true;
       if (viewConfig.display.length === 0) {

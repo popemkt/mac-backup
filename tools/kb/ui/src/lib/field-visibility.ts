@@ -1,5 +1,5 @@
 import type { NodeMap, OutlineNode, PropValue, ResolvedProp } from "@/lib/types";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
 
 /**
  * Schema props that live under sys.* but are meant to edit like ordinary
@@ -21,7 +21,7 @@ export const SCHEMA_SURFACE_FIELDS = new Set<string>([
 /** Prop keys that are system/metadata and hidden from normal field rows. */
 export function isIntrinsicSystemPropKey(fieldId: string): boolean {
   if (SCHEMA_SURFACE_FIELDS.has(fieldId)) return false;
-  return fieldId.startsWith("sys.");
+  return isSysPrefixed(fieldId);
 }
 
 /** True when the field definition node carries sys.f.hidden = true. */
@@ -42,8 +42,14 @@ export function isPropHiddenByDefault(
 }
 
 export interface ResolvePropsOptions {
-  /** Debug mode: reveal sys.* + hidden fields with muted styling. */
-  showAllFields?: boolean;
+  /**
+   * Reveal this node's `sys.*` + hidden fields with muted styling.
+   *
+   * Per node, per call — the caller reads it from
+   * `stores/debug-fields.store` for the node it is rendering. It was once a
+   * device-wide pref, which is why the option is worth naming precisely.
+   */
+  showDebugFields?: boolean;
 }
 
 export type VisibleProp = ResolvedProp & {
@@ -83,7 +89,7 @@ export function resolveVisibleProps(
   nodes: NodeMap,
   opts: ResolvePropsOptions = {},
 ): VisibleProp[] {
-  const showAll = opts.showAllFields ?? false;
+  const showAll = opts.showDebugFields ?? false;
   const out: VisibleProp[] = [];
   const seen = new Set<string>();
 

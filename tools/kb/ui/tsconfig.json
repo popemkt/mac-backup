@@ -22,6 +22,7 @@
       "@kb/ontology": ["../src/foundation/ontology.ts"]
       ,"@kb/order": ["../src/foundation/order.ts"]
       ,"@kb/field-type": ["../src/foundation/field-type.ts"]
+      ,"@kb/queries": ["../src/foundation/query/queries.ts"]
     }
   },
   "include": ["src", "vite.config.ts"]

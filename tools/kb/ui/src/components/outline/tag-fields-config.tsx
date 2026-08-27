@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { Plus, X } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
-import { SYSTEM_IDS } from "@/lib/types";
+import { typeRefsOf } from "@kb/ontology";
+import { SYSTEM_IDS, isSysPrefixed, type OutlineNode } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { FieldRow } from "./field-row";
 
@@ -139,7 +140,7 @@ export function TagFieldsConfigView({
 
 /** Split out so it can be exercised without a store or a live component. */
 export function resolveTagFields(
-  nodes: Map<string, { text: string; props: Record<string, { t: string; v: unknown }[]> }>,
+  nodes: ReadonlyMap<string, Pick<OutlineNode, "text" | "props">>,
   tagId: string,
 ): { template: TagFieldRef[]; suggestions: TagFieldRef[]; all: TagFieldRef[] } {
   const tag = nodes.get(tagId);
@@ -149,8 +150,7 @@ export function resolveTagFields(
 
   const all: TagFieldRef[] = [];
   for (const [id, node] of nodes) {
-    const types = node.props[SYSTEM_IDS.typeField] ?? [];
-    if (types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.field)) {
+    if (typeRefsOf(node).includes(SYSTEM_IDS.field)) {
       all.push({ id, name: node.text });
     }
   }
@@ -179,7 +179,7 @@ export function TagFieldsConfig({ tagId }: { tagId: string }) {
       tagId={tagId}
       template={template}
       suggestions={suggestions}
-      readOnly={tagId.startsWith("sys.")}
+      readOnly={isSysPrefixed(tagId)}
       onOpen={zoomTo}
       onRemove={(fieldId) => void mutations.removeTagField(tagId, fieldId)}
       onAdd={(name) => {

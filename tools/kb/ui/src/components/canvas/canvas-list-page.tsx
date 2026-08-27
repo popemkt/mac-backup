@@ -64,7 +64,6 @@ export function CanvasListPage() {
                 bullet={
                   <Bullet
                     node={n}
-                    tagColor={n.tags[0]?.color ?? null}
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(`/canvas/${n.id}`);

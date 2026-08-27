@@ -1,5 +1,5 @@
 import type { NodeMap } from "@/lib/types";
-import { WORKSPACE_ROOT_ID } from "@/lib/types";
+import { isSysPrefixed, WORKSPACE_ROOT_ID } from "@/lib/types";
 
 export interface RefCandidate {
   id: string;
@@ -7,17 +7,43 @@ export interface RefCandidate {
   score: number;
 }
 
-/** Fuzzy filter over node texts/ids for [[ref]] autocomplete. */
+/**
+ * Which nodes a ref picker may offer.
+ *
+ * One rule, one place. `allowed` is the field node's own declaration
+ * (`sys.f.targetTag` / `sys.f.targetQuery`, resolved by lib/field-type), and
+ * when a field declares its targets those targets *are* the candidate set —
+ * the "hide infrastructure nodes" heuristic below is not entitled to overrule
+ * data. That heuristic exists only to keep the seeded ontology out of
+ * open-ended search, so it applies only when nothing is declared.
+ *
+ * Getting this precedence backwards is what made `sys.f.fieldType` unfillable:
+ * it declares `#field-type`, whose every member is `sys.ft.*`, so a blanket
+ * sys skip left the picker with nothing to offer at all.
+ */
+function isOfferable(id: string, allowed: Set<string> | null): boolean {
+  if (allowed) return allowed.has(id);
+  return id !== WORKSPACE_ROOT_ID && !isSysPrefixed(id);
+}
+
+/**
+ * Fuzzy candidate resolution for every ref picker — the `[[ref]]` autocomplete
+ * in node text and the typed ref field editor both come through here.
+ *
+ * The declared constraint is an *input*, applied before ranking and the limit.
+ * Post-filtering the already-limited list was the other half of the same bug:
+ * an allowed node that ranked 13th disappeared.
+ */
 export function fuzzyNodeCandidates(
   nodes: NodeMap,
   query: string,
-  limit = 12,
+  options: { allowed?: Set<string> | null; limit?: number } = {},
 ): RefCandidate[] {
+  const { allowed = null, limit = 12 } = options;
   const q = query.trim().toLowerCase();
   const out: RefCandidate[] = [];
   for (const n of nodes.values()) {
-    if (n.id === WORKSPACE_ROOT_ID) continue;
-    if (n.id.startsWith("sys.")) continue;
+    if (!isOfferable(n.id, allowed)) continue;
     const text = n.text || n.id;
     const hay = `${text} ${n.id}`.toLowerCase();
     if (!q) {

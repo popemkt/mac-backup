@@ -6,7 +6,7 @@ import { wouldCreateExtendsCycle } from "@kb/ontology";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import type { PropValue } from "@/lib/types";
 import { fieldTypeValue, type FieldType } from "@kb/field-type";
-import { SYSTEM_IDS } from "@/lib/types";
+import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
 import { forestRootIds } from "@/lib/graph-view";
 import { cloneWire, findParentWire, nowIso, wireById } from "@/lib/tx";
 import { rankBetween } from "@kb/order";
@@ -945,7 +945,7 @@ export function planAddTagField(
   tagId: string,
   fieldId: string,
 ): PlannedMutation {
-  if (tagId.startsWith("sys.")) {
+  if (isSysPrefixed(tagId)) {
     throw new Error("sys.* tags are read-only");
   }
   return planSetProp(nodes, tagId, SYSTEM_IDS.fieldsField, {
@@ -959,7 +959,7 @@ export function planRemoveTagField(
   tagId: string,
   fieldId: string,
 ): PlannedMutation {
-  if (tagId.startsWith("sys.")) {
+  if (isSysPrefixed(tagId)) {
     throw new Error("sys.* tags are read-only");
   }
   return planUnsetProp(nodes, tagId, SYSTEM_IDS.fieldsField, {
@@ -973,7 +973,7 @@ export function planSetFieldHidden(
   fieldId: string,
   hidden: boolean,
 ): PlannedMutation {
-  if (fieldId.startsWith("sys.")) {
+  if (isSysPrefixed(fieldId)) {
     throw new Error("sys.* fields are read-only");
   }
   if (hidden) {
@@ -993,7 +993,7 @@ export function planSetTagColor(
   tagId: string,
   color: string | null,
 ): PlannedMutation {
-  if (tagId.startsWith("sys.")) {
+  if (isSysPrefixed(tagId)) {
     throw new Error("sys.* tags are read-only");
   }
   const trimmed = color?.trim();
@@ -1019,7 +1019,7 @@ export function planSetFieldType(
   fieldId: string,
   fieldType: FieldType,
 ): PlannedMutation {
-  if (fieldId.startsWith("sys.")) {
+  if (isSysPrefixed(fieldId)) {
     throw new Error("sys.* fields are read-only");
   }
   const node = requireNode(nodes, fieldId);
@@ -1041,7 +1041,7 @@ export function planAddFieldTargetTag(
   fieldId: string,
   tagId: string,
 ): PlannedMutation {
-  if (fieldId.startsWith("sys.")) {
+  if (isSysPrefixed(fieldId)) {
     throw new Error("sys.* fields are read-only");
   }
   return planSetProp(nodes, fieldId, SYSTEM_IDS.targetTagField, {
@@ -1055,7 +1055,7 @@ export function planRemoveFieldTargetTag(
   fieldId: string,
   tagId: string,
 ): PlannedMutation {
-  if (fieldId.startsWith("sys.")) {
+  if (isSysPrefixed(fieldId)) {
     throw new Error("sys.* fields are read-only");
   }
   return planUnsetProp(nodes, fieldId, SYSTEM_IDS.targetTagField, {
@@ -1070,7 +1070,7 @@ export function planSetFieldTargetQuery(
   fieldId: string,
   edn: string | null,
 ): PlannedMutation {
-  if (fieldId.startsWith("sys.")) {
+  if (isSysPrefixed(fieldId)) {
     throw new Error("sys.* fields are read-only");
   }
   const node = requireNode(nodes, fieldId);

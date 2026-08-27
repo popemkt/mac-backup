@@ -6,25 +6,20 @@ import type { WireNode } from "@kb/protocol";
 import { listCanvasNodes } from "@/lib/canvas-api";
 import { listPerspectiveNodes } from "@/lib/graph-lens";
 import { listOntologyItems } from "@/lib/ontology-scope";
-import type { OutlineNode } from "@/lib/types";
+import { listPinnedNodes } from "@/lib/pinned";
+import type { NodeMap, OutlineNode } from "@/lib/types";
 
 export interface SidebarNavItem {
   id: string;
   label: string;
 }
 
-/** Nodes tagged with a tag whose text is exactly `pinned` (runtime lookup). */
-export function listPinnedNodes(
-  nodes: Map<string, OutlineNode>,
-): SidebarNavItem[] {
-  const out: SidebarNavItem[] = [];
-  for (const n of nodes.values()) {
-    if (!n.tags.some((t) => t.name === "pinned")) continue;
-    out.push({ id: n.id, label: n.text || n.id });
-  }
-  return out.sort(
-    (a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id),
-  );
+/** `#pinned` nodes for the Pinned section — membership owned by lib/pinned. */
+export function listPinnedNavItems(nodes: NodeMap): SidebarNavItem[] {
+  return listPinnedNodes(nodes).map((n) => ({
+    id: n.id,
+    label: n.text || n.id,
+  }));
 }
 
 /** `#graph-perspective` nodes for the Graph section. */

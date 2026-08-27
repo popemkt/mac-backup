@@ -100,10 +100,24 @@ depth 1 │      ┆    │ ● Child …                                       
             13px   fg-35, 500
 ```
 
-- Field row = flex, `paddingLeft = (depth+1)*24`, type icon 24×24 slot at 13px
-  fg-25, label 120px, value flex-1.
+- Field row = flex, indented one step deeper than its node
+  (`marginLeft = (depth+1) × --kb-indent`), type icon 24×24 slot at 13px
+  fg-25, label 120px, value flex-1. Indent is space *before* a row, never
+  padding inside it — otherwise the hover separators (and a node row's
+  selection fill and focus ring) paint across the indent gutter and over the
+  guide lines. One owner: `ui/src/lib/indent.ts`.
 - Value editors become borderless contenteditable-style; boolean = 36×20 pill
   toggle; URL = primary underline; ref = chip (`primary/8` bg) or full node row.
+- **Focus belongs to the gesture that created the slot, not to the slot being
+  empty.** An unset field's slot exists so the field is editable without a
+  gesture, so it renders as the quiet `Empty` placeholder and opens its editor
+  when it *receives focus*; a slot minted by "+ value" is the continuation of
+  that click and opens focused. `FieldValueStack` is the only component that
+  knows which is which, so it threads that one boolean (`autoOpen`) down to the
+  editors that have an open/closed state (ref, date). Deriving it inside the
+  editor from "is my value empty?" is what made every unset option field on a
+  page mount open, with several `autoFocus` inputs fighting each other and
+  outline keyboard navigation for the caret.
 - Remove-field ×: hidden until row hover (opacity-0 → 100).
 - `>` at line start = add-field flow (Tana affordance, nxus has it too).
 

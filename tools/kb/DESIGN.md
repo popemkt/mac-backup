@@ -92,6 +92,27 @@ type PropValue =
 - **Tags (supertags) are nodes** typed `sys.tag`, holding a `sys.f.fields`
   prop listing field-node refs they template. Applying a tag = adding a
   `sys.f.type` ref prop. Multiple tags per node allowed.
+- **Ref targets are declared on the field node.** A ref field may carry
+  `sys.f.targetTag` (sugar — union of the listed tags' instances) or
+  `sys.f.targetQuery` (general form — parameter-free EDN whose rows name node
+  ids). `targetQuery` **wins** over `targetTag`: the tag is one shape of the
+  query, so honouring both would answer one question twice. Resolution lives in
+  `src/foundation/field-type.ts` (`allowedRefIdsOf`, EDN runner injected) and is
+  shared by CLI, MCP and the browser through the `@kb/field-type` alias — same
+  posture as the ontology resolver.
+- **Hiding `sys.*` is a display rule, never a resolution rule.** Resolution
+  surfaces — ref-target constraints, ontology membership, datalog, validity
+  checks — read the kind slot (`typeRefsOf`, i.e. `sys.f.type`) and return
+  everything it names, seeded ids included: `sys.f.fieldType` legitimately
+  targets six `sys.ft.*` options and `sys.f.onto.include` legitimately targets
+  every supertag. Display surfaces then decide what to *show*: an unconstrained
+  ref picker hides infrastructure (`fuzzyNodeCandidates` in `ui/src/lib/refs`),
+  and the outline's `#tag` badge list omits the kind refs so a tag's own page
+  shows no "#tag" chip. Those two lists are not interchangeable — reading the
+  badge list back as membership reports every supertag as untagged, which is
+  what once left `sys.f.onto.include` with an empty allowed set. Write
+  protection is a third, separate concern (`isSysPrefixed` + `--force`);
+  referencing a `sys.*` node as a *value* is not a write to it.
 - **System nodes**, seeded on init, are ordinary nodes with reserved ids:
   `sys.field` (the type of fields), `sys.tag` (the type of tags),
   `sys.f.type` (the "type/tag" field), `sys.f.fields` (tag→templated fields).
@@ -100,13 +121,18 @@ type PropValue =
   unique-text lookup among `sys.field`/`sys.tag` nodes (error on ambiguity,
   `--create` to mint). Resolution is dynamic at load — at our scale (\<\<100k
   nodes) caching is premature; revisit only if load profiling says so.
-- **Refs / `:node/mentions` (official ref relationship).** Wiki-links in
-  node `text` use `[[node-id|label]]` (or bare `[[node-id]]`). At datom
-  build time each target becomes a `:node/mentions` ref datom on the
-  source — same shape as Logseq `:block/refs` (parse-at-transact). The UI
-  renders inactive refs as accent links (click = zoom, ⌘/Ctrl-click =
-  jump); the relationship itself is queryable, not UI-only. Example —
-  nodes that mention a target:
+- **Refs / `:node/mentions` (the reference relationship, carrier-independent).**
+  Two things carry a reference in this model, and `:node/mentions` is emitted
+  from **both**:
+  1. a wiki-link in node `text` — `[[node-id|label]]` or bare `[[node-id]]`;
+  2. a `{t:"ref"}` **prop value** — a typed field pointing at a node.
+
+  At datom build time each distinct target of either kind becomes one
+  `:node/mentions` ref datom on the source (deduplicated per source→target,
+  since the attribute is cardinality-many) — same shape as Logseq
+  `:block/refs` (parse-at-transact). The UI renders inactive text refs as
+  accent links (click = zoom, ⌘/Ctrl-click = jump); the relationship itself is
+  queryable, not UI-only. Example — nodes that reference a target:
 
   ```
   [:find ?from ?text
@@ -116,9 +142,41 @@ type PropValue =
           [?e :node/text ?text]]
   ```
 
-  (`kb backlinks <id>` is the shorthand.) Optional Logseq-style
-  `:node/path-refs` (ancestor mentions) is backlog — add only when a
-  real query needs hierarchy-scoped reach.
+  (`kb backlinks <id>` is the shorthand; `src/foundation/query/queries.ts`
+  `backlinksQuery` is the single owner of that EDN, and the browser reads it
+  through the `@kb/queries` alias rather than keeping a copy.)
+
+  **Why both carriers, one attribute.** A ref prop *is* a relationship. When
+  only text tokens produced the datom, `kb backlinks` and the UI's References
+  section silently missed every prop-borne reference — a status value did not
+  know its tasks, a tag did not know its instances, and a contextual reference
+  did not appear on the node it referenced. The alternative (ask twice and
+  union at each call site) is the second `if` on one distinction that Rule 1
+  forbids, so the fix belongs in the relation, not in the question. The carrier
+  distinction survives exactly where it is a genuine lens: the graph's
+  `mention` / `child` / `ref-prop` edge kinds label provenance, and each is
+  therefore read from its own carrier (`collectEdges` in `ui/src/lib/graph-lens.ts`
+  scans text, children and props separately and never queries `:node/mentions`,
+  which would double every prop edge).
+
+  Optional Logseq-style `:node/path-refs` (ancestor mentions) is backlog —
+  add only when a real query needs hierarchy-scoped reach.
+- **Contextual references** (Tana "contextual content") are the node kind built
+  on that relation: an ordinary node tagged `#ref` (`sys.tag.ref`) whose
+  `sys.f.ref.target` ref prop names a target. It renders the target's *current*
+  text verbatim (so the target's markdown still renders); its own children are
+  content local to that location and stay on the
+  reference, so the original shows them only through References/backlinks — a
+  new node *kind*, not a new node *type*, exactly like `#query`. Anatomy, the
+  rendering rule and the deliberate deviations from Tana are in
+  [DESIGN-UI.md → Contextual references](./DESIGN-UI.md#contextual-references-i12).
+  Creating one needs no new action:
+
+  ```bash
+  kb action-invoke '{"id":"node.add","input":{"text":"","parent":"<host>",
+    "tags":["sys.tag.ref"],
+    "props":[{"field":"sys.f.ref.target","value":{"t":"ref","v":"<target>"}}]}}'
+  ```
 - Datom mapping: `[id :node/text v]`, `[id :node/child child]` (+order),
   `[id :f/<fieldId> v]` with ref values as entity refs → native datalog joins
   and graph traversal.

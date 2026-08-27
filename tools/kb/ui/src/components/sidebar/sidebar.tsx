@@ -18,7 +18,7 @@ import {
   listCanvasNavItems,
   listOntologyNavItems,
   listPerspectiveNavItems,
-  listPinnedNodes,
+  listPinnedNavItems,
 } from "./sidebar-nav";
 
 const SIDEBAR_WIDTH_PX = 220;
@@ -133,7 +133,7 @@ export function Sidebar() {
     () => listOntologyNavItems(wireNodes),
     [wireNodes],
   );
-  const pinned = useMemo(() => listPinnedNodes(nodes), [nodes]);
+  const pinned = useMemo(() => listPinnedNavItems(nodes), [nodes]);
 
   const onNewCanvas = async () => {
     if (creating) return;

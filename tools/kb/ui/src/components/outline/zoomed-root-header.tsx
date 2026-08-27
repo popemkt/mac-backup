@@ -4,6 +4,7 @@ import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
 import type { OutlineNode } from "@/lib/types";
 import { isSysPrefixed } from "@/lib/types";
+import { nodeTagColors, tagColorAlpha } from "@/lib/tag-color";
 import { getViewConfig } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { FieldsSection } from "./fields-section";
@@ -100,7 +101,9 @@ const TITLE_CLASS = cn(
 /** Zoomed root title + tag wash + fields at depth −1 (DESIGN-RESKIN §1.5). */
 export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
   const zoomTo = useOutlineStore((s) => s.zoomTo);
-  const gradientColor = node.tags[0]?.color ?? null;
+  // Ambient wash, not an identity readout: one color is enough, but which
+  // color and how it weakens both come from the tag-color owner.
+  const washColor = nodeTagColors(node)[0] ?? null;
   const viewConfig = getViewConfig(node.props);
 
   return (
@@ -110,7 +113,7 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
       data-frame-id={node.id}
     >
       <div className="relative pl-7 pt-1">
-        {gradientColor && (
+        {washColor && (
           <div
             className="pointer-events-none absolute"
             style={{
@@ -118,7 +121,10 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
               left: "-60px",
               right: "-60px",
               bottom: "-30px",
-              background: `radial-gradient(ellipse 60% 70% at 50% 35%, ${gradientColor}0c 0%, ${gradientColor}05 40%, transparent 80%)`,
+              background:
+                `radial-gradient(ellipse 60% 70% at 50% 35%, ` +
+                `${tagColorAlpha(washColor, 4.7)} 0%, ` +
+                `${tagColorAlpha(washColor, 2)} 40%, transparent 80%)`,
             }}
           />
         )}

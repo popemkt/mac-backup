@@ -4,7 +4,7 @@ import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
 import {
   listCanvasNavItems,
   listPerspectiveNavItems,
-  listPinnedNodes,
+  listPinnedNavItems,
 } from "./sidebar-nav";
 
 function outline(
@@ -23,16 +23,20 @@ function outline(
 }
 
 describe("sidebar-nav selectors", () => {
-  it("lists #pinned nodes by tag text (runtime lookup)", () => {
+  it("lists #pinned nodes from the kind slot, not from badges", () => {
+    // Props only, no badges — the shape the other nav selectors' fixtures use,
+    // and the case where a badge-name lookup silently returns nothing.
+    const pinnedRef = { [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: "tag.pinned" }] };
     const nodes = new Map<string, OutlineNode>([
       [
-        "a",
+        "tag.pinned",
         outline({
-          id: "a",
-          text: "Pinned A",
-          tags: [{ id: "tag.pinned", name: "pinned", color: "#fff" }],
+          id: "tag.pinned",
+          text: "pinned",
+          props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
         }),
       ],
+      ["a", outline({ id: "a", text: "Pinned A", props: pinnedRef })],
       [
         "b",
         outline({
@@ -41,16 +45,9 @@ describe("sidebar-nav selectors", () => {
           tags: [{ id: "tag.todo", name: "todo", color: "#fff" }],
         }),
       ],
-      [
-        "c",
-        outline({
-          id: "c",
-          text: "Pinned C",
-          tags: [{ id: "tag.pinned", name: "pinned", color: "#fff" }],
-        }),
-      ],
+      ["c", outline({ id: "c", text: "Pinned C", props: pinnedRef })],
     ]);
-    expect(listPinnedNodes(nodes)).toEqual([
+    expect(listPinnedNavItems(nodes)).toEqual([
       { id: "a", label: "Pinned A" },
       { id: "c", label: "Pinned C" },
     ]);

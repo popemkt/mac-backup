@@ -88,13 +88,23 @@ describe("loadPrefs", () => {
       theme: "dark",
       font: "inter",
       width: "full",
-      showAllFields: false,
       sidebarOpen: false,
     });
     expect(prefs.loadPrefs('{"theme":"neon","font":"comic","width":"wide"}', 1280)).toEqual({
       ...prefs.DEFAULT_PREFS,
       sidebarOpen: true,
     });
+  });
+
+  it("ignores a stale showAllFields key (debug visibility is per node now)", () => {
+    // The device-wide switch is gone; a payload written by an older build must
+    // not resurrect it as a pref, and must not fail to parse either.
+    const loaded = prefs.loadPrefs(
+      '{"theme":"dark","showAllFields":true}',
+      1280,
+    );
+    expect(loaded).toEqual({ ...prefs.DEFAULT_PREFS, theme: "dark" });
+    expect("showAllFields" in loaded).toBe(false);
   });
 
   it("defaults sidebarOpen from viewport when key is absent", () => {
@@ -128,7 +138,6 @@ describe("usePrefsStore", () => {
       theme: "dark",
       font: "inter",
       width: "full",
-      showAllFields: false,
       sidebarOpen: false,
     });
   });

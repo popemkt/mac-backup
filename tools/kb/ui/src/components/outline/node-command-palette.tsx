@@ -3,31 +3,52 @@ import { createPortal } from "react-dom";
 import {
   ArrowBendUpLeft,
   ArrowRight,
+  Eye,
+  EyeSlash,
   Hash,
+  LinkSimple,
   ListBullets,
   MagnifyingGlass,
   Plus,
+  PushPin,
+  PushPinSlash,
   SquaresFour,
   Table,
   TextT,
   Trash,
 } from "@phosphor-icons/react";
+import { typeRefsOf } from "@kb/ontology";
 import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
+import { isContextualRef } from "@/lib/contextual-ref";
 import { emptyValueForType, resolveFieldTypeById } from "@/lib/field-type";
+import { isPinned } from "@/lib/pinned";
 import { DEFAULT_QUERY_EDN, isQueryNode } from "@/lib/query-node";
+import { fuzzyNodeCandidates } from "@/lib/refs";
 import { SYSTEM_IDS } from "@/lib/types";
 import type { ViewMode } from "@/lib/view-config";
+import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 
 type PaletteStep =
   | { type: "commands" }
   | { type: "add-tag" }
-  | { type: "add-field" };
+  | { type: "add-field" }
+  | { type: "add-ref" };
 
 /** Sentinel row id for "no match — make one with what I typed". */
 const CREATE_ID = "\u0000create";
+
+interface PickOption {
+  id: string;
+  name: string;
+}
+
+function matchByName(options: PickOption[], query: string): PickOption[] {
+  const needle = query.toLowerCase();
+  return options.filter((o) => o.name.toLowerCase().includes(needle));
+}
 
 interface Command {
   id: string;
@@ -59,6 +80,10 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
 
   const targetNodeId = activeNodeId ?? selectedNodeId;
   const targetNode = targetNodeId ? nodes.get(targetNodeId) : undefined;
+  const debugOn = useDebugFieldsStore((s) =>
+    targetNodeId ? s.ids.has(targetNodeId) : false,
+  );
+  const pinned = targetNode ? isPinned(targetNode, nodes) : false;
 
   useEffect(() => {
     if (!open || !targetNodeId) {
@@ -154,6 +179,34 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         },
       },
       {
+        // Pinning is tagging (lib/pinned); the label is the current state so
+        // the row reads as a toggle rather than as a fire-and-hope command.
+        id: "toggle-pin",
+        label: pinned ? "Unpin" : "Pin",
+        icon: pinned ? (
+          <PushPinSlash size={14} weight="bold" />
+        ) : (
+          <PushPin size={14} weight="bold" />
+        ),
+        immediate: true,
+        action: () => {
+          if (targetNodeId) void mutations.togglePin(targetNodeId);
+          onClose();
+        },
+      },
+      {
+        // Per node, never global: the answer is about the node you are looking
+        // at (stores/debug-fields.store).
+        id: "toggle-debug-fields",
+        label: debugOn ? "Hide debug fields" : "Show debug fields",
+        icon: debugOn ? <EyeSlash size={14} /> : <Eye size={14} />,
+        immediate: true,
+        action: () => {
+          if (targetNodeId) useDebugFieldsStore.getState().toggle(targetNodeId);
+          onClose();
+        },
+      },
+      {
         id: "delete",
         label: "Delete node",
         icon: <Trash size={14} />,
@@ -212,7 +265,10 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       },
     );
 
-    const isTag = targetNode?.tags.some((t) => t.id === SYSTEM_IDS.tag) ?? false;
+    // Kind slot, not badges: `resolveTags` never emits `sys.tag`, so reading
+    // the display list made every node look like a non-tag and the menu offered
+    // "Make supertag" on nodes that already were one.
+    const isTag = typeRefsOf(targetNode).includes(SYSTEM_IDS.tag);
     if (targetNode && !isTag) {
       base.splice(2, 0, {
         id: "make-supertag",
@@ -230,6 +286,15 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
           })();
           onClose();
         },
+      });
+    }
+
+    if (targetNode && !isContextualRef(targetNode)) {
+      base.splice(1, 0, {
+        id: "turn-ref",
+        label: "Turn into reference…",
+        icon: <LinkSimple size={14} weight="bold" />,
+        step: "add-ref",
       });
     }
 
@@ -254,37 +319,62 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     }
 
     return base;
-  }, [onClose, setGlobalPaletteOpen, targetNode, targetNodeId]);
+  }, [
+    debugOn,
+    onClose,
+    pinned,
+    setGlobalPaletteOpen,
+    targetNode,
+    targetNodeId,
+  ]);
 
   const filteredCommands = commands.filter((c) =>
     c.label.toLowerCase().includes(query.toLowerCase()),
   );
 
+  const trimmed = query.trim();
+
   /**
-   * Add-tag and add-field are the same gesture over different node kinds:
-   * filter by name, and offer to mint one when nothing matches. Keeping them
-   * one code path is what stops them drifting into two pickers.
+   * Add-tag, add-field and add-ref are the same gesture over different node
+   * kinds: resolve candidates from the query, and — where minting makes sense —
+   * offer to create one when nothing matches. Only the candidate *source*
+   * varies, and a reference draws its candidates from `fuzzyNodeCandidates`,
+   * the resolver the `[[` autocomplete and the typed ref field editor already
+   * share. Keeping them one code path is what stops them drifting into three
+   * pickers.
    */
-  const picking =
+  const picking: {
+    match: (q: string) => PickOption[];
+    icon: React.ReactNode;
+    /** Absent ⇒ this kind cannot be minted from the picker. */
+    createLabel?: (name: string) => string;
+  } =
     step.type === "add-field"
       ? {
-          options: fieldOptions,
+          match: (q) => matchByName(fieldOptions, q),
           icon: <TextT size={12} weight="bold" />,
           createLabel: (name: string) => `Create field "${name}"`,
         }
-      : {
-          options: tagOptions,
-          icon: <Hash size={12} weight="bold" />,
-          createLabel: (name: string) => `Create tag "${name}"`,
-        };
+      : step.type === "add-ref"
+        ? {
+            match: (q) =>
+              fuzzyNodeCandidates(nodes, q)
+                // A reference to itself is not a reference.
+                .filter((c) => c.id !== targetNodeId)
+                .map((c) => ({ id: c.id, name: c.text })),
+            icon: <LinkSimple size={12} weight="bold" />,
+          }
+        : {
+            match: (q) => matchByName(tagOptions, q),
+            icon: <Hash size={12} weight="bold" />,
+            createLabel: (name: string) => `Create tag "${name}"`,
+          };
 
-  const trimmed = query.trim();
-  const filteredOptions = picking.options.filter((o) =>
-    o.name.toLowerCase().includes(query.toLowerCase()),
-  );
-  const exactMatch = picking.options.some(
+  const filteredOptions = picking.match(query);
+  const exactMatch = filteredOptions.some(
     (o) => o.name.toLowerCase() === trimmed.toLowerCase(),
   );
+  const createLabel = picking.createLabel;
 
   const pickerItems = [
     ...filteredOptions.map((o) => ({
@@ -292,11 +382,11 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       label: o.name,
       icon: picking.icon,
     })),
-    ...(trimmed && !exactMatch
+    ...(trimmed && !exactMatch && createLabel
       ? [
           {
             id: CREATE_ID,
-            label: picking.createLabel(trimmed),
+            label: createLabel(trimmed),
             icon: <Plus size={12} weight="bold" />,
           },
         ]
@@ -339,6 +429,16 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       const creating = item.id === CREATE_ID;
 
       void (async () => {
+        if (step.type === "add-ref") {
+          // The whole creation gesture, and nothing but existing primitives:
+          // apply the tag, point the target field at the picked node.
+          await mutations.addTag(targetNodeId, SYSTEM_IDS.refTag);
+          await mutations.updateProp(targetNodeId, SYSTEM_IDS.refTargetField, {
+            t: "ref",
+            v: item.id,
+          });
+          return;
+        }
         if (step.type === "add-field") {
           const fieldId = creating
             ? await mutations.defineField(trimmed)
@@ -410,13 +510,17 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       ? "Type a command..."
       : step.type === "add-field"
         ? "Search or name a field..."
-        : "Search or name a tag...";
+        : step.type === "add-ref"
+          ? "Search for a node to reference..."
+          : "Search or name a tag...";
   const stepLabel =
     step.type === "add-tag"
       ? "Add tag"
       : step.type === "add-field"
         ? "Add field"
-        : null;
+        : step.type === "add-ref"
+          ? "Reference a node"
+          : null;
 
   return createPortal(
     <>

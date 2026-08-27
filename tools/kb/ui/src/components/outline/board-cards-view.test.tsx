@@ -140,7 +140,6 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
         frameId: "frame1",
-        mode: "board",
         nodes: useOutlineStore.getState().nodes,
         widthPref: "full",
       }),
@@ -170,7 +169,6 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
         frameId: "frame1",
-        mode: "board",
         nodes: useOutlineStore.getState().nodes,
       }),
     );
@@ -181,10 +179,22 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   });
 
   it("cards mode renders ungrouped CSS grid (no board columns)", () => {
+    // Mode is read from the frame, not passed in: one source of truth.
+    const asCards = mockWire.map((n) =>
+      n.id === "frame1"
+        ? {
+            ...n,
+            props: {
+              ...n.props,
+              [SYSTEM_IDS.viewModeField]: [{ t: "str" as const, v: "cards" }],
+            },
+          }
+        : n,
+    );
+    useOutlineStore.getState().hydrateFromWire(asCards, 3, "fixtures");
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
         frameId: "frame1",
-        mode: "cards",
         nodes: useOutlineStore.getState().nodes,
       }),
     );
@@ -231,7 +241,6 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     const html = renderToStaticMarkup(
       createElement(BoardCardsView, {
         frameId: "frame1",
-        mode: "board",
         nodes: useOutlineStore.getState().nodes,
         rowIds: ["c1", "c2"],
         isQuerySource: true,

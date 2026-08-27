@@ -14,7 +14,7 @@ import {
   insertRefAtCursor,
   openRefQuery,
 } from "@/lib/refs";
-import { isSysPrefixed } from "@/lib/types";
+import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { MdView } from "@/components/outline/md-view";
@@ -68,7 +68,8 @@ export function NodeTextHost({
   /** D14: Escape dismisses the popup without blurring or leaving edit mode. */
   const [acDismissed, setAcDismissed] = useState(false);
   const [cursor, setCursor] = useState(0);
-  const readOnly = isSysPrefixed(nodeId);
+  const readOnlyReason = rowTextReadOnlyReason(nodeId, nodes.get(nodeId));
+  const readOnly = readOnlyReason !== null;
 
 
   const rawRefOpen = useMemo(() => {
@@ -328,7 +329,7 @@ export function NodeTextHost({
             {showPadlock && (
               <span
                 className="shrink-0 text-foreground/25 opacity-0 transition-opacity duration-150 group-hover/node:opacity-100"
-                title="System node — read-only"
+                title={readOnlyReason ?? undefined}
                 data-sys-lock="true"
               >
                 <LockSimple size={12} weight="bold" />

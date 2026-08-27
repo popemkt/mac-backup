@@ -128,7 +128,6 @@ export function KbNodeCard({
         bullet={
           <Bullet
             node={node}
-            tagColor={node.tags[0]?.color ?? null}
             onClick={(e) => {
               e.stopPropagation();
               selectNode(card.nodeId, instanceKey);

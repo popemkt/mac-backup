@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { queryBacklinks } from "@/ds/db";
+import { rowText } from "@/lib/contextual-ref";
 import { MdView } from "@/components/outline/md-view";
 import type { TagBadge } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -25,11 +26,16 @@ export function ReferencesSection({ nodeId }: { nodeId: string }) {
     if (!queryDb) return [];
     return queryBacklinks(queryDb, nodeId)
       .filter((b) => b.id !== nodeId)
-      .map((b) => ({
-        id: b.id,
-        text: b.text,
-        tags: nodes.get(b.id)?.tags ?? [],
-      }));
+      .map((b) => {
+        const node = nodes.get(b.id);
+        // Same display rule as the outline row, so a referrer whose own text
+        // is empty — a contextual reference — is not a blank line here.
+        return {
+          id: b.id,
+          text: node ? rowText(node, nodes) : b.text,
+          tags: node?.tags ?? [],
+        };
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryDb, nodeId, rev, nodes]);
 
@@ -61,7 +67,6 @@ function ShallowBacklinkRow({ row }: { row: BacklinkRow }) {
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const nodes = useOutlineStore((s) => s.nodes);
   const node = nodes.get(row.id);
-  const tagColor = row.tags[0]?.color ?? null;
 
   const bulletNode = node ?? {
     id: row.id,
@@ -85,7 +90,6 @@ function ShallowBacklinkRow({ row }: { row: BacklinkRow }) {
         <Bullet
           node={bulletNode}
           isRef
-          tagColor={tagColor}
           onClick={(e) => {
             e.stopPropagation();
             zoomTo(row.id);

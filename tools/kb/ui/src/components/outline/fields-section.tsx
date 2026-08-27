@@ -10,8 +10,8 @@ import {
 } from "@/lib/field-type";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
 import { isSysPrefixed, SYSTEM_IDS, type NodeMap, type PropValue } from "@/lib/types";
+import { useDebugFields } from "@/stores/debug-fields.store";
 import { useOutlineStore } from "@/stores/outline.store";
-import { usePrefsStore } from "@/stores/prefs.store";
 import { FieldRow } from "./field-row";
 import { EmptyTypedEditor, PropValueEditor } from "./field-value";
 
@@ -47,10 +47,19 @@ export function FieldValueStack({
   nodes,
   readOnly,
 }: FieldValueStackProps) {
-  // Slots the user has asked for but not filled yet. An unset field always
-  // offers one, so it is editable without a gesture.
+  /** Slots the user minted with "+ value" and has not filled yet. */
   const [pendingSlots, setPendingSlots] = useState(0);
-  const emptySlots = values.length === 0 ? 1 : pendingSlots;
+  /**
+   * The empty slots to render, each carrying *why it exists* — the one piece of
+   * knowledge only this component has, and the thing the editors need in order
+   * to decide whether they own the focus. A slot that exists only because the
+   * field is unset was nobody's gesture, so it opens closed; a slot minted by
+   * "+ value" is the continuation of that click and opens focused.
+   */
+  const emptySlots: boolean[] =
+    values.length === 0
+      ? [false]
+      : Array.from({ length: pendingSlots }, () => true);
 
   return (
     <div className="flex min-w-0 flex-col" data-field-values={fieldId}>
@@ -96,12 +105,13 @@ export function FieldValueStack({
         </div>
       ))}
 
-      {Array.from({ length: emptySlots }, (_, i) => (
+      {emptySlots.map((autoOpen, i) => (
         <EmptyTypedEditor
           key={`empty-${i}`}
           fieldType={fieldType}
           fieldId={fieldId}
           allowedRefIds={allowedRefIds}
+          autoOpen={autoOpen}
           nodes={nodes}
           onCommit={(next: PropValue) => {
             setPendingSlots(0);
@@ -136,10 +146,11 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
   const nodes = useOutlineStore((s) => s.nodes);
   const queryDb = useOutlineStore((s) => s.queryDb);
   const rev = useOutlineStore((s) => s.rev);
-  const showAllFields = usePrefsStore((s) => s.showAllFields);
+  // Debug rows are this node's own business (⌘K → "Show debug fields").
+  const showDebugFields = useDebugFields(nodeId);
 
   if (!node) return null;
-  const props = resolveProps(node, nodes, { showAllFields });
+  const props = resolveProps(node, nodes, { showDebugFields });
   if (props.length === 0) return null;
   const nodeReadOnly = isSysPrefixed(nodeId);
 

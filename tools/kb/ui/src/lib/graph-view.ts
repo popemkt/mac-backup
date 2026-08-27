@@ -1,4 +1,5 @@
 import type { WireNode } from "@kb/protocol";
+import { typeRefsOf } from "@kb/ontology";
 import { isQueryTagBadges } from "@/lib/query-node";
 import { resolveTagColor } from "@/lib/tag-color";
 import { compareWireNodeId } from "@/lib/tx";
@@ -13,6 +14,7 @@ import {
   LEGACY_EXPANDED_QUERIES_STORAGE_KEY,
   SYSTEM_IDS,
   WORKSPACE_ROOT_ID,
+  isSysPrefixed,
   type NodeMap,
   type OutlineNode,
   type ResolvedProp,
@@ -20,35 +22,39 @@ import {
 } from "@/lib/types";
 
 function isTagNode(node: WireNode | OutlineNode | undefined): boolean {
-  if (!node) return false;
-  const types = node.props[SYSTEM_IDS.typeField] ?? [];
-  return types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.tag);
+  return typeRefsOf(node).includes(SYSTEM_IDS.tag);
 }
 
 function isFieldNode(node: WireNode | OutlineNode | undefined): boolean {
-  if (!node) return false;
-  const types = node.props[SYSTEM_IDS.typeField] ?? [];
-  return types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.field);
+  return typeRefsOf(node).includes(SYSTEM_IDS.field);
 }
 
+/**
+ * DISPLAY: the `#tag` chips a row shows.
+ *
+ * Derived from the kind slot (`typeRefsOf` — the truth reader) minus the kind
+ * refs themselves: `sys.f.type → sys.tag` means "this node IS a supertag", so
+ * rendering it as a `#tag` chip on the tag's own page would be nonsense, and
+ * `sys.field` likewise. That subtraction is the whole reason this list is not
+ * the graph: read it back as membership and every supertag looks untagged. Any
+ * decision about what a node *is* must call `typeRefsOf` directly.
+ */
 function resolveTags(
   wire: WireNode,
   byId: Map<string, WireNode>,
 ): TagBadge[] {
-  const types = wire.props[SYSTEM_IDS.typeField] ?? [];
   const tags: TagBadge[] = [];
-  for (const pv of types) {
-    if (pv.t !== "ref") continue;
-    if (pv.v === SYSTEM_IDS.tag || pv.v === SYSTEM_IDS.field) continue;
-    const target = byId.get(pv.v);
+  for (const typeId of typeRefsOf(wire)) {
+    if (typeId === SYSTEM_IDS.tag || typeId === SYSTEM_IDS.field) continue;
+    const target = byId.get(typeId);
     if (!isTagNode(target)) continue;
     const colorProp = target?.props[SYSTEM_IDS.colorField]?.[0];
     const explicitColor =
       colorProp?.t === "str" ? String(colorProp.v) : undefined;
     tags.push({
-      id: pv.v,
-      name: target?.text || pv.v,
-      color: resolveTagColor(pv.v, explicitColor),
+      id: typeId,
+      name: target?.text || typeId,
+      color: resolveTagColor(typeId, explicitColor),
     });
   }
   return tags;
@@ -70,7 +76,7 @@ export function forestRootIds(nodes: WireNode[]): string[] {
   return nodes
     .filter((n) => {
       if (kids.has(n.id)) return false;
-      if (n.id.startsWith("sys.")) return false;
+      if (isSysPrefixed(n.id)) return false;
       if (isFieldNode(n) || isTagNode(n)) return false;
       // Keep orphaned content nodes even if they somehow look like fields
       void byId;
@@ -201,7 +207,12 @@ export function formatPropValue(
       return JSON.stringify(value);
   }
 }
-function loadIdSet(key: string): Set<string> {
+/**
+ * Persisted set of node ids in localStorage — the one storage shape for
+ * "which nodes has the user flagged for this?" (expanded rows, per-node debug
+ * fields). Callers own the key; this owns the encoding and the failure modes.
+ */
+export function loadIdSet(key: string): Set<string> {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return new Set();
@@ -213,7 +224,7 @@ function loadIdSet(key: string): Set<string> {
   }
 }
 
-function saveIdSet(key: string, ids: Set<string>): void {
+export function saveIdSet(key: string, ids: Set<string>): void {
   try {
     localStorage.setItem(key, JSON.stringify([...ids]));
   } catch {

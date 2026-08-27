@@ -27,7 +27,7 @@ describe("field visibility", () => {
   it("reveals hidden + sys props in debug mode with debug flag", () => {
     const nodes = mapFromFixture();
     const node = nodes.get("n.root-a")!;
-    const visible = resolveVisibleProps(node, nodes, { showAllFields: true });
+    const visible = resolveVisibleProps(node, nodes, { showDebugFields: true });
     expect(visible.map((p) => p.fieldId)).toEqual(
       expect.arrayContaining(["sys.f.type", "field.status", "field.noisy"]),
     );
