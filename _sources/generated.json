@@ -29,11 +29,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-co+1ahpF3DWQ3blK2iRzk+4tRksIkXBWJILPWE+ie8I=",
+            "sha256": "sha256-7jx8DdqwXW80jbzOkrwrH2362naqSr9A0SJU7dP9Xm4=",
             "type": "url",
-            "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.141/CLIProxyAPI_7.2.141_darwin_aarch64.tar.gz"
+            "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.143/CLIProxyAPI_7.2.143_darwin_aarch64.tar.gz"
         },
-        "version": "7.2.141"
+        "version": "7.2.143"
     },
     "cursor-cli": {
         "cargoLock": null,
@@ -47,11 +47,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-RgRNbXvL17SaDPHNAapMp5qqLqXyx6MpZfwOvimEF5A=",
+            "sha256": "sha256-gdTec0niCNTORBypwtTn0BnsL76xE3p5CZ/YxLhmL18=",
             "type": "url",
-            "url": "https://downloads.cursor.com/lab/2026.08.11-e8db854/darwin/arm64/agent-cli-package.tar.gz"
+            "url": "https://downloads.cursor.com/lab/2026.08.25-3e8eec8/darwin/arm64/agent-cli-package.tar.gz"
         },
-        "version": "2026.08.11-e8db854"
+        "version": "2026.08.25-3e8eec8"
     },
     "genoffice": {
         "cargoLock": null,
@@ -65,11 +65,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-dGdb/Qzs9ueoegN0Sa/F29nTw0i2nyXNwzKlYy84sDo=",
+            "sha256": "sha256-k2Cg0S0Z6MyaWgSDJ5mxuvbeJr9tldbcgTMCPk0iNI4=",
             "type": "url",
-            "url": "https://github.com/genspark-ai/genoffice/releases/download/v0.8.262/GenOffice-0.8.262-arm64.dmg"
+            "url": "https://github.com/genspark-ai/genoffice/releases/download/v0.8.358/GenOffice-0.8.358-arm64.dmg"
         },
-        "version": "0.8.262"
+        "version": "0.8.358"
     },
     "logseq-nightly": {
         "cargoLock": null,
@@ -83,11 +83,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-t4qialn6gSLvlVGUvVbDfFuF4+6rYJjL6/51OfqDlks=",
+            "sha256": "sha256-88uv8BfyBjpoWD2cqIWqHlLx4yTfmOpPyyTHX+4sJE0=",
             "type": "url",
-            "url": "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260819.zip"
+            "url": "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260826.zip"
         },
-        "version": "2.0.1-alpha+nightly.20260819"
+        "version": "2.0.1-alpha+nightly.20260826"
     },
     "vite-plus": {
         "cargoLock": null,
