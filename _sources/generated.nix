@@ -18,10 +18,10 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "7.2.143";
+    version = "7.2.145";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.143/CLIProxyAPI_7.2.143_darwin_aarch64.tar.gz";
-      sha256 = "sha256-7jx8DdqwXW80jbzOkrwrH2362naqSr9A0SJU7dP9Xm4=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.145/CLIProxyAPI_7.2.145_darwin_aarch64.tar.gz";
+      sha256 = "sha256-xxFyirbzQMaeoyJUSXD8KxN4Fq26UBQ41XZwNlyOUT0=";
     };
     github = "router-for-me/CLIProxyAPI";
     tagPrefix = "v";
@@ -38,10 +38,10 @@
   };
   genoffice = {
     pname = "genoffice";
-    version = "0.8.358";
+    version = "0.8.440";
     src = fetchurl {
-      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.8.358/GenOffice-0.8.358-arm64.dmg";
-      sha256 = "sha256-k2Cg0S0Z6MyaWgSDJ5mxuvbeJr9tldbcgTMCPk0iNI4=";
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.8.440/GenOffice-0.8.440-arm64.dmg";
+      sha256 = "sha256-Id8V08WESz4Q75ueshZWlsiIHf2X5eiycHd0lwAqLxc=";
     };
     github = "genspark-ai/genoffice";
     tagPrefix = "v";
