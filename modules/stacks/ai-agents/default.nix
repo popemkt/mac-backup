@@ -112,9 +112,10 @@ in
         "rowboat"
         # Use the fully-qualified tap path. Bare "orca" is the unrelated Plotly cask.
         "stablyai/orca/orca"
+        # T3 Code: agent harness control surface (mobile, web, Electron desktop). Official cask.
+        "t3-code"
         # Traycer Desktop: control surface for agentic coding (tap: traycerai/traycer).
         "traycerai/traycer/traycer-desktop"
-        # Modular menu-bar utility suite from vorssaint/vorssaint-utils.
         "vorssaint/tap/vorssaint"
       ]
       ++ cfg.extra.casks;
@@ -130,9 +131,9 @@ in
         "command-code" # Command Code agent (cmd)
         "gitnexus"
         "reasonix" # DeepSeek-native coding agent
+        "t3" # T3 Code CLI & headless backend
       ]
       ++ cfg.extra.npmGlobals;
-
       bunGlobals = [
         "@oh-my-pi/pi-coding-agent"
       ]

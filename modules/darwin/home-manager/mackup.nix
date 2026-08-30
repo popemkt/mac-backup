@@ -18,6 +18,7 @@
       claude-code
       kb
       snapzy
+      t3-code
       macosx
     '';
 
@@ -47,6 +48,18 @@
 
       [configuration_files]
       .dotfiles/.kb/assets
+    '';
+
+    # T3 Code: agent harness control surface (pingdotgg/t3code). Sync only
+    # portable config files; transient worktrees in ~/.t3/worktrees stay local.
+    file.".config/mackup/applications/t3-code.cfg".text = ''
+      [application]
+      name = T3 Code
+
+      [configuration_files]
+      Library/Application Support/t3-code/config.json
+      Library/Application Support/t3/config.json
+      .t3/config.json
     '';
   };
 }

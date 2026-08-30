@@ -12,6 +12,7 @@
 ### done
 
 - Migrate TODO.md items into kb (M5)
+- T3 Code: agent harness control surface (mobile, web, Electron desktop) https://github.com/pingdotgg/t3code
 
 ### parked
 
@@ -44,6 +45,9 @@
 - Look into performant DB as "rebuildable" index syncing to source-control committable JSONL, and how Epic's LORE VCS solves binary versioning performantly
 - Memgraph: In-Memory Graph Database (open source) https://github.com/memgraph/memgraph
 - per-viz demo seed + user test script (tree/cluster/3D/board/canvas)
+- Study AI Hardware Accelerators: Training vs Inference (Prefill & Decode bottlenecks)
+
+![AI Hardware Accelerators: Training vs Inference (Prefill & Decode)](assets/01M18ESWBQ9RMEMJ6HFKPA0R43.png)
 - views: toolbar tucked in hover/settings gear — never always-visible
 
 ### done
