@@ -131,7 +131,6 @@ in
         "command-code" # Command Code agent (cmd)
         "gitnexus"
         "reasonix" # DeepSeek-native coding agent
-        "t3" # T3 Code CLI & headless backend
       ]
       ++ cfg.extra.npmGlobals;
       bunGlobals = [
