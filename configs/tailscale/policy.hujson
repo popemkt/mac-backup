@@ -6,13 +6,14 @@
 {
   "tagOwners": {
     "tag:cognee-host": ["autogroup:admin"],
+    "tag:orca-host": ["autogroup:admin"],
   },
 
   "grants": [
-    // Orca Mobile connects directly to the personal host over MagicDNS.
+    // Orca Mobile connects directly to Orca hosts over MagicDNS.
     {
       "src": ["autogroup:member"],
-      "dst": ["tag:cognee-host"],
+      "dst": ["tag:orca-host"],
       "ip": ["tcp:6768"],
     },
 
