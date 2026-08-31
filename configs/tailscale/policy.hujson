@@ -5,7 +5,7 @@
 // rely on and let us remove the wildcard safely in a later tightening pass.
 {
   "tagOwners": {
-    "tag:cognee-host": ["autogroup:admin"],
+    "tag:home-server": ["autogroup:admin"],
     "tag:orca-host": ["autogroup:admin"],
   },
 
@@ -41,11 +41,11 @@
     },
   ],
 
-  // A tagged Cognee server can approve itself as a host for the service.
+  // A tagged home server can approve itself as a host for the service.
   "autoApprovers": {
     "services": {
-      "svc:adhoc": ["tag:cognee-host"],
-      "svc:cognee": ["tag:cognee-host"],
+      "svc:adhoc": ["tag:home-server"],
+      "svc:cognee": ["tag:home-server"],
     },
   },
 

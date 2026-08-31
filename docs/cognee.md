@@ -227,12 +227,11 @@ The host declaration configures the local `tailscale serve` endpoint, but the
 tailnet must also authorize the Service:
 
 1. create the `svc:cognee` Service in the Tailscale admin console
-2. assign the repo-owned `tag:cognee-host` tag to `popemkt-personal`;
+2. assign the repo-owned `tag:home-server` tag to `popemkt-personal`;
    Tailscale Service hosts must be tagged nodes
 3. enroll the Tailscale GitOps workflow described in
    [tailscale.md](./tailscale.md); the tracked policy owns the Service grant and
-   configures `tag:cognee-host` as an auto-approver for `svc:cognee`
-
+   configures `tag:home-server` as an auto-approver for `svc:cognee` and `svc:adhoc`
 Application login remains required even for clients allowed by Tailscale.
 Grant the work device or user access to `svc:cognee`; it does not host or
 advertise a Tailscale Service itself.

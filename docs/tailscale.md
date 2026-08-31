@@ -111,12 +111,12 @@ The remaining manual control-plane steps are:
 2. For a new tailnet, open **Services** in the Tailscale console and create
    `svc:cognee` and `svc:adhoc` once.
 3. Apply the tracked policy through the GitHub workflow so that
-   `tag:cognee-host`, its owner, grants, and the Service auto-approver exist.
+   `tag:home-server`, its owner, grants, and the Service auto-approver exist.
    Service auto-approvers are resolved against existing Service identities, so
    rerun this workflow whenever a Service was created after the last policy
    apply.
-4. Open **Machines**, select the Cognee server, edit its tags, and assign
-   `tag:cognee-host`.
+4. Open **Machines**, select the home server (`popemkt-personal`), edit its tags, and assign
+   `tag:home-server`.
 5. Rebuild the host. The `tailscale-services` launchd job advertises
    `svc:cognee` and `svc:adhoc`; policy automatically approves the tagged host.
 6. Confirm `tailscale status --json` reports the tag, `services/cognee`, and
@@ -133,7 +133,7 @@ ws://popemkt-personal.<tailnet-domain>:6768
 ```
 
 The policy explicitly grants tailnet members access to that port on
-`tag:cognee-host`.
+`tag:orca-host`.
 
 ### Orca Mobile Pairing
 
@@ -177,8 +177,8 @@ SSH, and shared-device flows and add a policy test for each intended path.
 
 Not started. Two pieces, in order.
 
-**1. Give Orca its own tag.** The Orca grant targets `tag:cognee-host`, which
-conflates "runs the Cognee server" with "runs Orca desktop". Only
+**1. Give Orca its own tag.** The Orca grant targets `tag:home-server`, which
+conflates "runs the home server" with "runs Orca desktop". Only
 `popemkt-personal` carries that tag, so Orca on `popemkt-work` reaches the
 tailnet solely through the wildcard and would break the moment it is removed.
 Add `tag:orca-host` to `tagOwners`, retarget the grant's `dst`, and assign the
@@ -219,9 +219,8 @@ new configuration path:
 | External state | Where it lives | Recreate/verify |
 |---|---|---|
 | Tailnet account and membership | Tailscale | Admin console **Users** |
-| Machine login and node keys | Each device + Tailscale | Menu-bar sign-in and **Machines** |
-| `tag:cognee-host` assignment | Tailscale machine record | **Machines > Edit tags** |
-| `svc:cognee` identity | Tailscale | Admin console **Services** |
+| `tag:home-server` assignment | Tailscale machine record | **Machines > Edit tags** |
+| `tag:orca-host` assignment | Tailscale machine record | **Machines > Edit tags** |
 | `svc:adhoc` identity | Tailscale | Admin console **Services** |
 | GitHub OIDC trust credential | Tailscale | **Settings > Trust credentials** |
 | Enrollment values | GitHub Actions secrets | `gh secret list --repo popemkt/mac-backup` |
