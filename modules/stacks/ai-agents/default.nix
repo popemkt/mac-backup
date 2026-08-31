@@ -107,6 +107,7 @@ in
         "claude"
         "claude-code@latest"
         "copilot-cli" # GitHub Copilot CLI (agentic terminal assistant)
+        "google-gemini" # Native desktop AI assistant from Google (Gemini.app)
         # Rowboat: desktop AI coworker with a local knowledge graph and
         # work surfaces (email, notes, browser, code mode). Official cask.
         "rowboat"
