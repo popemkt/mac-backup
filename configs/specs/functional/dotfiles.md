@@ -70,8 +70,7 @@ in version control and minimises what must be done manually.
 
 ## Always-On Services
 
-- The headroom context-compression proxy runs as a launchd user daemon on every
-  machine after rebuild, and RTK is installed for token-optimized shell output.
+- RTK is installed for token-optimized shell output.
 - CLIProxyAPI runs as a loopback-only launchd user daemon on every machine after
   rebuild; provider OAuth remains a manual credential step, and its no-key
   listener explicitly trusts processes that can reach the local loopback port.
@@ -87,10 +86,8 @@ in version control and minimises what must be done manually.
 - Remote Cognee credentials are unique per machine, remain mutable state, and
   are never committed. The work host uses a separate account when work data
   requires an authorization boundary.
-- The proxy starts automatically on login, restarts on failure, and logs to
-  `~/Library/Logs/headroom-proxy.{out,err}.log`.
-- `HEADROOM_PROXY` and `HEADROOM_PORT` are available to all apps and shells via
-  launchd environment variables.
+- The CLIProxyAPI listener starts automatically on login and restarts on
+  failure.
 
 ## Config Auditing
 
@@ -113,8 +110,8 @@ in version control and minimises what must be done manually.
   kept in-tree for potential future use but are not built or maintained.
 - Hermetic packaging of third-party Python services installed through uv.
   Repo-owned automation such as `system-setup` is locked by uv and built
-  hermetically with `uv2nix`; mutable Cognee and Headroom environments retain
-  their service-specific activation model.
+  hermetically with `uv2nix`; the mutable Cognee environment retains its
+  service-specific activation model.
 - Automatic credential rotation or secret management. Credentials are never
   tracked and must be set up manually on each machine.
 - Automatic login item restore. macOS 13+ has no public API for programmatic
@@ -130,8 +127,7 @@ in version control and minimises what must be done manually.
 - After running the bootstrap sequence (README §1-9), a new terminal session
   has: `rebuild`, `git`, `gh`, `nvim`, `node`, `uv`, `mackup`, starship prompt,
   zsh aliases, and all declared npm/Bun globals in PATH.
-- `headroom` and `rtk` are installed, and the `headroom-proxy` launchd agent is
-  loaded.
+- `rtk` is installed and wired into Claude Code's hook configuration.
 - `cli-proxy-api` is installed and its launchd agent is loaded on port 8317.
 - Cursor CLI is installed as both `agent` and `cursor-agent`; authentication is
   a manual `agent login` step.

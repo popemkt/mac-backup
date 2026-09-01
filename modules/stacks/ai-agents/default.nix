@@ -26,7 +26,7 @@ in
     # Alternative/companion: OmniRoute (https://github.com/diegosouzapw/OmniRoute)
     # npm i -g omniroute → dashboard/API :20128 — not installed; note only.
     ./cognee # server and remote-client roles, plus their agent plugins
-    ./headroom.nix # context compression: proxy (:8787), RTK, uv tool install
+    ./rtk.nix # token-optimized shell output (Homebrew + Claude hook)
     ./hermes.nix # agent runtime env (HERMES_HOME, Copilot ACP)
     ./semantica.nix # context graphs, decision intelligence, provenance CLI
   ];

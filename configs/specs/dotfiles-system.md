@@ -81,7 +81,7 @@ credentials, and databases remain backup concerns rather than repo content.
 `uv tool install` runs during home-manager activation (`home.activation`). Nix
 can't package arbitrary PyPI wheels, so the declaration is a manifest of intent,
 not a hermetic derivation. Repo-owned tools live with the behavior that needs
-them, for example Headroom in `modules/stacks/ai-agents/headroom.nix`, because
+them, for example Cognee in `modules/stacks/ai-agents/cognee/server.nix`, because
 each install needs its own extras, build environment, and `--with` resolution.
 Editable/local installs (browser-harness, etc.) are intentionally excluded —
 they belong to their own repos.

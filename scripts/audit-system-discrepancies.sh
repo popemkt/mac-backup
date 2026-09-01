@@ -302,7 +302,7 @@ normalize_brew_names() {
   awk -F/ '{ print $NF }' | sort -u | sed '/^$/d'
 }
 
-# Strip uv pin/extras: "pkg==1.2.3" / "headroom-ai[all]" -> bare name.
+# Strip uv pin/extras: "pkg==1.2.3" / "cognee[ollama]" -> bare name.
 normalize_uv_names() {
   sed -E 's/(\[|==).*$//' | sort -u | sed '/^$/d'
 }
