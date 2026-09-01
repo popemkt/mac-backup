@@ -47,11 +47,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-gdTec0niCNTORBypwtTn0BnsL76xE3p5CZ/YxLhmL18=",
+            "sha256": "sha256-qUSDz1oWB7/hLLNCFr4Mj5WJnw9pj7heUAuijXMy+7A=",
             "type": "url",
-            "url": "https://downloads.cursor.com/lab/2026.08.25-3e8eec8/darwin/arm64/agent-cli-package.tar.gz"
+            "url": "https://downloads.cursor.com/lab/2026.08.31-4057e58/darwin/arm64/agent-cli-package.tar.gz"
         },
-        "version": "2026.08.25-3e8eec8"
+        "version": "2026.08.31-4057e58"
     },
     "genoffice": {
         "cargoLock": null,
