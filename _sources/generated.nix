@@ -18,10 +18,10 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "7.2.146";
+    version = "7.2.147";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.146/CLIProxyAPI_7.2.146_darwin_aarch64.tar.gz";
-      sha256 = "sha256-+vTHNbKJy4g0T4f9bXRc+aEdKKIx0AAXPYBFkQUDtUM=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.2.147/CLIProxyAPI_7.2.147_darwin_aarch64.tar.gz";
+      sha256 = "sha256-SsHbg7AFkSZeu5OjJ32BKq9uReiyG7O0eGWYUgr99L4=";
     };
     github = "router-for-me/CLIProxyAPI";
     tagPrefix = "v";
