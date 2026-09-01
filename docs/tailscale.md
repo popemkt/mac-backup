@@ -175,18 +175,14 @@ SSH, and shared-device flows and add a policy test for each intended path.
 
 ### TODO: tightening pass
 
-Not started. Two pieces, in order.
+The tightening pass has two pieces, in order.
 
-**1. Give Orca its own tag.** The Orca grant targets `tag:home-server`, which
-conflates "runs the home server" with "runs Orca desktop". Only
-`popemkt-personal` carries that tag, so Orca on `popemkt-work` reaches the
-tailnet solely through the wildcard and would break the moment it is removed.
-Add `tag:orca-host` to `tagOwners`, retarget the grant's `dst`, and assign the
-tag to both Macs in the admin console.
+**1. Give Orca its own tag.** Completed on 2026-08-31. The policy grants
+`tcp:6768` to `tag:orca-host`, and both Macs carry that tag.
 
 Assigning a tag also removes a device's user owner, and `autogroup:self` does
 not match tagged devices. Confirm whether Tailscale SSH into `popemkt-work` is
-used before tagging it; if so, the `ssh` block needs widening in the same
+used before changing the tag; if so, the `ssh` block needs widening in the same
 change.
 
 **2. Remove the wildcard.** Flows observed on 2026-07-28, and whether a grant
@@ -194,7 +190,7 @@ already covers them:
 
 | Flow | Covered |
 |---|---|
-| Phones/tablet to either Mac, `tcp:6768` (Orca Mobile) | after step 1 |
+| Phones/tablet to either Mac, `tcp:6768` (Orca Mobile) | yes |
 | `popemkt-work` to `svc:cognee`, `tcp:443` | yes |
 | Any member to `svc:adhoc`, `tcp:443` | yes |
 | Member to own node, SSH | yes, `ssh` block |
@@ -209,9 +205,11 @@ them before the wildcard goes, and add a policy test for each path kept.
 
 The policy file is the primary reproducible Tailscale artifact. DNS resolver
 settings, user membership, device approvals, key expiry, and account-level
-preferences are not copied into dotfiles yet. Manage those in the control plane
-until there is a concrete need for the official Terraform provider. Device
-inventory should remain state, not declarative configuration.
+preferences remain external state managed in the control plane.
+
+Known device addresses used by host-local rules are different: the stable
+Tailscale IPv4 inventory is declared in `flake.nix` under
+`my.stacks.vpn.knownDevices`, so every Darwin host consumes the same map.
 
 This table is the manual-state inventory agents should check before inventing a
 new configuration path:
@@ -225,5 +223,6 @@ new configuration path:
 | GitHub OIDC trust credential | Tailscale | **Settings > Trust credentials** |
 | Enrollment values | GitHub Actions secrets | `gh secret list --repo popemkt/mac-backup` |
 | Policy, tag owner, grants, SSH, auto-approver | This repository | `configs/tailscale/policy.hujson` |
+| Known device IPv4 addresses | This repository | `flake.nix` → `my.stacks.vpn.knownDevices` |
 | Local app and Service advertisement | This repository | Nix VPN stack and host declaration |
 | DNS/account preferences | Tailscale | Admin console **DNS** and **Settings** |

@@ -27,6 +27,15 @@ in
         example = "example-tailnet.ts.net";
         description = "MagicDNS tailnet domain shared by service hosts and clients.";
       };
+      knownDevices = mkOption {
+        type = types.attrsOf types.str;
+        default = { };
+        example = {
+          phone = "100.64.0.2";
+          tablet = "100.64.0.3";
+        };
+        description = "Known Tailscale device names and stable IPv4 addresses.";
+      };
       services = mkOption {
         default = { };
         description = ''

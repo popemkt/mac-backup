@@ -123,7 +123,14 @@
             {
               my = {
                 inherit username hostname;
-                stacks.vpn.tailnetDomain = "taild98079.ts.net";
+                stacks.vpn = {
+                  tailnetDomain = "taild98079.ts.net";
+                  knownDevices = {
+                    work = "100.114.213.27";
+                    pocoF8Pro = "100.70.17.62";
+                    xiaomiPad7 = "100.124.163.25";
+                  };
+                };
               };
               nixpkgs.overlays = [ self.overlays.default ];
             }
