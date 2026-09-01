@@ -28,10 +28,10 @@
   };
   cursor-cli = {
     pname = "cursor-cli";
-    version = "2026.08.25-3e8eec8";
+    version = "2026.08.31-4057e58";
     src = fetchurl {
-      url = "https://downloads.cursor.com/lab/2026.08.25-3e8eec8/darwin/arm64/agent-cli-package.tar.gz";
-      sha256 = "sha256-gdTec0niCNTORBypwtTn0BnsL76xE3p5CZ/YxLhmL18=";
+      url = "https://downloads.cursor.com/lab/2026.08.31-4057e58/darwin/arm64/agent-cli-package.tar.gz";
+      sha256 = "sha256-qUSDz1oWB7/hLLNCFr4Mj5WJnw9pj7heUAuijXMy+7A=";
     };
     versionUrl = "https://cursor.com/install";
     versionRegex = "downloads.cursor.com/lab/([^/]+)/";
