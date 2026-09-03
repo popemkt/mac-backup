@@ -437,8 +437,8 @@ where, how rows become markdown, repo-specific output of any kind — lives in
 - `@kb/ext-docs` / `@kb/ext-canvas` are Effect-native
   bundled examples (`effect` handlers using `KbCtx` / `FileSystem` /
   `KbStore` Layers). Docs owns `ext.docs.materialize` / `ext.docs.check` and
-  the template `ext.docs.todos`, with the bare ids `docs.materialize`,
-  `docs.check` and `todos` as aliases. Core keeps
+  the templates `ext.docs.todos` / `ext.docs.rules`, with the bare ids
+  `docs.materialize`, `docs.check`, `todos` and `rules` as aliases. Core keeps
   only the render mechanism the extension calls into
   (`packages/operations/src/docs/`).
 - Extensions are loaded once per process; changing one requires restarting

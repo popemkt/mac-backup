@@ -10,6 +10,7 @@ import type {
   TemplateRegistry,
 } from "@kb/contracts";
 import { DocsError, loadViewsEffect, renderViewEffect } from "@kb/operations";
+import { rules } from "./rules.ts";
 import { todos } from "./todos.ts";
 
 /**
@@ -20,10 +21,10 @@ import { todos } from "./todos.ts";
  * written where. It is the reference for `.kb/extensions/*.ts` modules:
  * same shape, same loading path, just registered from inside the package.
  *
- * Registered as `ext.docs.materialize` / `ext.docs.check` and the template
- * `ext.docs.todos`; the bare ids `docs.materialize`, `docs.check` and `todos`
- * stay as aliases so pre-commit, existing callers and existing view specs
- * keep working.
+ * Registered as `ext.docs.materialize` / `ext.docs.check` and the templates
+ * `ext.docs.todos` / `ext.docs.rules`; the bare ids `docs.materialize`,
+ * `docs.check`, `todos` and `rules` stay as aliases so pre-commit, existing
+ * callers and existing view specs keep working.
  *
  * Handlers are Effect-native (`effect`) — no Promise nest under registry.
  */
@@ -123,8 +124,12 @@ const actions: ExtensionAction[] = [
   },
 ];
 
-const templates: ExtensionTemplate[] = [{ id: "todos", aliases: ["todos"], template: todos }];
+const templates: ExtensionTemplate[] = [
+  { id: "todos", aliases: ["todos"], template: todos },
+  { id: "rules", aliases: ["rules"], template: rules },
+];
 
 export const docsActions = actions;
 export const docsTemplates = templates;
+export { rules } from "./rules.ts";
 export { todos } from "./todos.ts";

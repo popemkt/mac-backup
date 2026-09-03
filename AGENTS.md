@@ -128,9 +128,10 @@ modules default-exporting an array of contributions — actions
 (`{...ActionDefinition, handler}`) and render templates (`{id, template}`) —
 each registered as `ext.<file>.<id>`; loader failures warn and skip, never
 crash core. The bundled example `@kb/ext-docs` (`tools/kb/packages/ext-docs`)
-owns `ext.docs.materialize`/`ext.docs.check` and the template
-`ext.docs.todos` (the bare ids `docs.materialize`, `docs.check` and `todos`
-remain as aliases, so pre-commit and existing view specs are unchanged).
+owns `ext.docs.materialize`/`ext.docs.check` and the templates
+`ext.docs.todos`/`ext.docs.rules` (the bare ids `docs.materialize`,
+`docs.check`, `todos` and `rules` remain as aliases, so pre-commit and
+existing view specs are unchanged).
 
 Rules for agents:
 - Prefer `kb` over ad-hoc TODO files for durable repo todos/notes; `--json` for machine output.
