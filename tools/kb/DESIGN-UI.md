@@ -38,9 +38,9 @@ browser ──HTTP GET /api/graph────────► kb ui server (bun)
 DataScript (client) ← re-run open queries on tx
 ```
 
-Server ownership lives behind the stable facade `src/surface/ui.ts`, which
+Server ownership lives behind the stable facade `packages/server/src/index.ts`, which
 re-exports the public CLI/server seam (`startUi`, `runUiCli`, …). The
-implementation modules under `src/surface/ui/` split by concern:
+implementation modules under `packages/server/src/` split by concern:
 
 | Module | Owns |
 |---|---|
@@ -213,7 +213,7 @@ collapse state, instance keys, both keymaps, undo and the transient rules are
 the ordinary ones — nothing in `visible-instances.ts`, `instance-key.ts` or
 `frame-rows.ts` changed to accommodate it.
 
-`ui/src/lib/contextual-ref.ts` owns the three rules that make it read as a
+`packages/ui/src/lib/contextual-ref.ts` owns the three rules that make it read as a
 reference:
 
 - **Display is the target's text, verbatim.** `rowText(node, nodes)` returns
@@ -253,7 +253,7 @@ the original shows only its own children; the contextual ones surface there
 through References/backlinks (which see the reference because `:node/mentions`
 counts ref props — see [DESIGN.md → Refs](./DESIGN.md#data-model--everything-is-a-node)).
 To change the default, the union goes in exactly one place:
-`frameListChildren` / `frameRows` in `ui/src/lib/frame-rows.ts`, the declared
+`frameListChildren` / `frameRows` in `packages/ui/src/lib/frame-rows.ts`, the declared
 single owner of "which rows does this frame show".
 
 **Creation** is a node-⌘K step, next to *Turn into query*: **Turn into
@@ -467,15 +467,15 @@ both are answered from the node ⌘K menu rather than from a device switch.
 
 ```
 tools/kb/
-  src/surface/ui.ts              # stable facade (re-exports startUi / runUiCli / …)
-  src/surface/ui/
+  packages/server/src/index.ts              # stable facade (re-exports startUi / runUiCli / …)
+  packages/server/src/
     server.ts                    # Bun.serve boundary + Effect Scope stop + fs-watch
     http.ts                      # Effect REST/API + asset GET + SPA fallback
     session.ts                   # Effect SubscriptionHub (WS protocol)
     assets.ts                    # Effect ui/dist static + .kb/assets
     saved-queries.ts             # Effect .kb/queries listing / virtual nodes
     paths.ts                     # KB_PKG_ROOT, UI_DIST
-  src/surface/protocol.ts        # WS/HTTP message types (zod) — shared contract
+  packages/contracts/src/protocol.ts        # WS/HTTP message types (zod) — shared contract
   ui/                            # Vite app (own package.json)
     src/{stores,components,ds}/ ...
     dist/                        # built assets, committed? → no: built on demand
@@ -495,7 +495,7 @@ stops when the child exits. No new global deps.
 
 Contract first, then two independent tracks, then join:
 
-- **U0 (me, small)**: `src/surface/protocol.ts` — zod types for HTTP/WS
+- **U0 (me, small)**: `packages/contracts/src/protocol.ts` — zod types for HTTP/WS
   messages + written API contract in DESIGN-UI.md. Everything else codes
   against this.
 - **U1 server (cursor)**: `kb ui` command — Bun.serve static+API, fs-watch,
@@ -516,7 +516,7 @@ diff with cavecrew-reviewer, I fix and merge).
 
 ## MCP Apps backbone (this wave), apps later
 
-New module `src/render/`: `render(queryRows, template, format: "html" | "md")`
+New module `packages/operations/src/render.ts`: `render(queryRows, template, format: "html" | "md")`
 — pure functions, no deps. Consumed by three surfaces from day 1:
 1. md materializer (existing templates migrate onto it),
 2. web UI's rendered-view panel (saved query → html block),
