@@ -21,9 +21,32 @@ Before writing code:
   for an enum that already has one.
 - If a token, option, or module exists for a purpose, make it actually apply.
   A declared abstraction that no code path reads is worse than none, because it
-  reads as covered.
+  reads as covered — **a dead seam is still a duplicate**. Wire it or delete it.
+- **Bridges over mirrors.** When two things turn out to be the same concept,
+  make one derive from or resolve to the other. Two copies kept in sync by hand
+  are drift waiting to happen.
 - If the clean version is too big for the moment, say so and stop. Do not ship
   the patch as a stopgap. A named gap is cheaper than a silent fork.
+
+**Restructure, then add — as separate commits.** When the current shape resists
+the change, first rework the structure so the change becomes a natural addition
+(behavior-preserving, proven by the tests that already pass), then add the
+behavior. Two clean commits beat one entangled one. The redesign radius is the
+unit whose contract the change touches, not the subsystem around it.
+
+Symptoms that this rule is being broken:
+
+- a new boolean parameter that forks an existing function's behavior;
+- a second, slightly-different copy of an existing path;
+- a guard clause that exempts one caller;
+- a wrapper that exists only to avoid touching the thing it wraps;
+- special-casing that grows at call sites instead of moving into the unit that
+  owns the distinction.
+
+**The reviewer test:** could a reader reconstruct why the code has this shape
+from the current requirement alone, without knowing the edit history? If the
+shape is only explainable by "it used to do X, then Y was added", it is a patch,
+not an implementation.
 
 Corollary for the knowledge base: **everything is a node.** New capability is
 expressed as nodes, fields, and tags behaving like every other node — never as
@@ -31,6 +54,47 @@ a bespoke surface standing beside them. A tag is a node that is tagged as a
 tag; a field is a node; a field's allowed values are nodes. If a feature needs
 its own widget, its own storage shape, or its own editing gesture, that is the
 signal the model is wrong, not that the widget is needed.
+
+## Canonical statements
+
+Every rule, principle, and decision has exactly one home. Other files link to
+it; they never restate the body. Restatement is drift — two copies diverge
+silently and a reader cannot tell which one is live.
+
+The index of rules is data, not a document: `#rule` nodes in kb, materialized
+to `docs/kb/rules.md`. Each rule names its `home` (the file that states it),
+`scope`, `principle`, `enforcement`, and `gate`.
+
+`enforcement` is honest, never aspirational. It is one of `prose`, `lint`,
+`tsc`, `harness`, `hook`, `ci`. **`prose` means nothing checks it** — the next
+agent can break that rule and nothing goes red. That is information worth
+seeing, not an embarrassment to paper over; `gate` names the check that will
+close it.
+
+## Drift markers and gaps
+
+The goal is not zero drift. The goal is *visible, intentional* drift.
+
+- **A workaround is a decision, and decisions are recorded.** When the clean
+  shape is deferred, the deferral site carries `// GAP [[<node-id>]]` and kb
+  carries the matching `#gap` node: `expected` (the canonical shape),
+  `current` (what is there instead), `impact` (what it costs or risks),
+  `closes` (what would close it), and `rule` when it bends a specific `#rule`.
+  An unlabelled workaround is drift.
+- Same for tests: every `.skip` / `.todo` names a `GAP [[<node-id>]]`. A
+  skipped test is a debt, not a solved problem.
+- **A soft lint rule uses exactly one of two mechanisms, chosen by count —
+  never both, never a third.** Up to roughly 30 sites: the rule is `error` and
+  each site carries `// oxlint-disable-next-line <rule> -- GAP [[<node-id>]]`.
+  More than that: the ratchet lane — `warn`, the count frozen in a committed
+  baseline, a rise fails the build, and the rule is promoted to `error` when
+  its count reaches 0. A second severity tier for the same rule in the same
+  config is a second quality stack wearing a disguise.
+
+```bash
+kb add "GAP: <one line>" --tag gap --create \
+  --prop expected="…" --prop current="…" --prop impact="…" --prop closes="…"
+```
 
 ## Gate (run first)
 
@@ -136,6 +200,12 @@ Rules for agents:
 - `[[id|label]]` in node text and any `{t:"ref"}` prop value are both the ref form; load extracts `:node/mentions` datoms from either (see `tools/kb/DESIGN.md`). Use `kb backlinks <id>` or the datalog example above.
 - `docs/kb/*.md` is generated (header marks it); edit data, then materialize.
   Pre-commit runs `docs.check` and blocks stale generated docs.
+- Rules and gaps are nodes like everything else: `#rule` (fields `home`,
+  `scope`, `principle`, `enforcement`, `gate`) and `#gap` (fields `expected`,
+  `current`, `impact`, `closes`, `rule`), rendered to `docs/kb/rules.md` by the
+  `rules` view. Add a gap with the `kb add` line under
+  [Drift markers and gaps](#drift-markers-and-gaps); never hand-edit
+  `docs/kb/rules.md`.
 - Runtime/tooling boundary: Bun is the production runtime (Bun APIs stay where
   appropriate); TS 7 + Vite+ (`vp` 0.2.8) own lint/check tooling. Run
   `npm run typecheck` (authoritative zero-error `tsc --noEmit`, also in
@@ -154,6 +224,28 @@ Rules for agents:
   may reach the backend only through the `@kb/*` seam — never a relative path
   into `src/`; `src/foundation` is a leaf (must not import surface/operations/
   render).
+
+### Effect
+
+`tools/kb` is written in Effect (v4). **Before writing any Effect code, read
+`tools/kb/node_modules/effect/AGENTS.md` completely** and follow the links in
+it; for APIs it does not cover, read the source under
+`tools/kb/node_modules/effect/src`. Never external docs or v3 muscle memory —
+both are wrong for v4. That file ships inside the `effect` tarball, so it is
+absent on a fresh clone until `bun install --cwd tools/kb`; the pre-commit hook
+already guards on the same path.
+
+v4 non-negotiables: `Effect.gen` for inline code; `Effect.fn("name")` (or
+`Effect.fnUntraced` on hot paths) for reusable functions, never a plain wrapper
+that just returns an `Effect.gen`; `Schema.TaggedError` for errors, not
+`Data.TaggedError`; `Context.Service` classes for services, not `Context.Tag`;
+`Effect.catch`, not `Effect.catchAll`; `Schema` imported from `"effect"` core,
+never `@effect/schema`; `return yield*` when raising, so control flow narrows.
+
+The official Effect skills (`effect-ts`, `effect-v3-to-v4`) are installed at
+repo scope by the skills CLI, with their lockfile committed; `effect-ts` is a
+setup skill and is redundant once the pointer above is followed, and
+`effect-v3-to-v4` is explicit-invoke only (kb was born on v4).
 
 ## Where To Edit
 
