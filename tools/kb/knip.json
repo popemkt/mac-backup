@@ -1,40 +1,19 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
-    "packages/*": {
-      "entry": [
-        "src/index.ts"
-      ],
-      "project": [
-        "src/**/*.ts",
-        "tests/**/*.ts"
-      ]
-    },
     "packages/cli": {
       "entry": [
-        "src/main.ts",
         "src/bin/*.ts"
-      ],
-      "project": [
-        "src/**/*.ts",
-        "tests/**/*.ts"
       ]
     },
     "packages/ext-sdk": {
       "entry": [
         "src/generate.ts"
-      ],
-      "project": [
-        "src/**/*.ts"
       ]
     },
     "packages/harness": {
       "entry": [
         "tests/*.test.ts"
-      ],
-      "project": [
-        "src/**/*.ts",
-        "tests/**/*.ts"
       ]
     },
     "packages/render-tests": {
@@ -43,29 +22,12 @@
         "tests-render/*.e2e.ts",
         "tests-render/global-setup.ts",
         "tests-render/server.ts"
-      ],
-      "project": [
-        "tests-render/**/*.ts"
       ]
     },
     "packages/test-kit": {
       "entry": [
         "tests/*.test.ts",
         "tests/run-many.ts"
-      ],
-      "project": [
-        "src/**/*.ts",
-        "tests/**/*.ts"
-      ]
-    },
-    "packages/ui": {
-      "entry": [
-        "src/main.tsx",
-        ".storybook/main.ts",
-        "vite.config.ts"
-      ],
-      "project": [
-        "src/**/*.{ts,tsx}"
       ]
     }
   },
@@ -75,12 +37,9 @@
     "packages/ui/src/components/canvas/index.tsx"
   ],
   "ignoreDependencies": [
-    "@effect/tsgo",
-    "@fontsource-variable/outfit",
     "graphology-communities-louvain",
     "graphology-layout",
     "graphology-layout-noverlap",
-    "tailwindcss",
     "zod"
   ]
 }

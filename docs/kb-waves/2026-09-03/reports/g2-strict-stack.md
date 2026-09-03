@@ -137,3 +137,97 @@ Total wall time: ~32 s (well under the 90 s threshold).
    `Rule <rule> count dropped to 0! Promote it to "error" in .oxlintrc.json, then run bun run harness:snapshot`.
    Promote each rule to `"error"` in `tools/kb/.oxlintrc.json` and re-snapshot with `bun run harness:snapshot`.
 3. **Owner data constraint:** `.kb/nodes.jsonl` was never modified. Temporary test writes to `tools/kb/.kb/nodes.jsonl` were reverted.
+
+---
+
+## 6. g2b follow-up — runtime presets and a hint-free knip
+
+Rule 1 pass over the `g2` tsconfig layout. At `cd6a5b9` the plugin-and-runtime
+block was authored **17 times**: `tsconfig.base.json` held the strictness
+contract, and every one of the 17 package tsconfigs then restated `target`,
+`module`, `moduleResolution`, `lib`, `types`, `allowImportingTsExtensions`,
+`noEmit`, and (for the 15 backend packages) a byte-identical 40-line
+`@effect/language-service` `plugins` block. That is one concept with 17 homes.
+
+### 6.1 What changed
+
+| Change | Why |
+|---|---|
+| **New `tools/kb/tsconfig.bun.json`** — extends the base; owns `target`, `module`, `moduleResolution`, `lib`, `types: ["bun"]`, `allowImportingTsExtensions`, `noEmit`, and the single authored copy of the `@effect/language-service` plugin block. | The Bun runtime delta, stated once. |
+| **New `tools/kb/tsconfig.browser.json`** — extends the base; owns the DOM `lib`, `jsx`, `isolatedModules`, `resolveJsonModule`, `esModuleInterop`, and the same module/emit keys. No Effect plugin. | The browser runtime delta, stated once. |
+| **`tsconfig.base.json` unchanged.** | It is the strictness contract; the DESIGN.md table it is checked against is untouched. |
+| **17 package tsconfigs reduced to `extends` + `include`** (881 lines deleted). Two keep a delta: `@kb/render-tests` `lib` (Playwright `page.evaluate` bodies typecheck against the browser realm) and `@kb/ui` `paths` (its intra-package `@/*` alias). | A package says where its sources are; it does not restate the runtime. |
+| **Preset choice derives from the `scope` tag, not from a package name.** `RUNTIME_PRESET_BY_SCOPE` in `@kb/harness/src/constraints.ts` maps `scope:browser` → browser preset and every other scope → Bun preset. | The browser/backend distinction already lives in the tag the boundary matrix reads. A second, name-keyed copy of it would be the parallel mechanism Rule 1 forbids. |
+| **`SANCTIONED_TSCONFIG_DELTAS`** records the two package overrides with the reason each cannot be inherited, and a check fails when a sanction outlives the declaration it excuses. | An exception with no stated reason is indistinguishable from drift; an exception nothing reads is worse than none. |
+| **`readTsconfig` moved into `@kb/harness/src/workspace.ts`** — the module whose docblock already claims to be the one reader of workspace shape. Its comment stripper is string-aware, so a `"$schema": "https://…"` value survives. | The handoff version parsed tsconfigs inline in the test file with a `//`-stripping regex that would corrupt any URL value. |
+| **`workspace-shape`'s "every package tsconfig extends the one base" test deleted.** | It had become a weaker, substring-matching duplicate of what `tsconfig-contract` now asserts exactly. Two owners for one rule. |
+| **`nx.json` `sharedGlobals` gained both presets.** | It listed only `tsconfig.base.json`. Editing a preset would not have invalidated a single cached `typecheck` result — a silently stale gate. |
+| **`datascript-shim-typechecks` given a 60 s timeout.** | It spawns a whole `tsc`; under the full harness run it shares the box with oxlint and effect-tsgo and intermittently crossed the 5 s default (observed at 5878 ms). |
+| **`knip.json`: 41 lines removed.** The `packages/*` block and every `project` array (knip infers both from the workspace manifests), the redundant `src/main.ts` / `src/index.ts` / `src/main.tsx` entries knip already resolves from each package's `exports`, and three stale `ignoreDependencies` (`@effect/tsgo`, `@fontsource-variable/outfit`, `tailwindcss`) that are now genuinely reachable. | Hint-free. |
+| **`DESIGN.md` prose updated** (the strictness table itself is byte-identical). | It still described a single base that packages extend with a runtime delta. |
+
+### 6.2 Red-then-green evidence
+
+`bun test packages/harness/tests/tsconfig-contract.test.ts`, one injected
+defect at a time, each reverted before the next:
+
+| # | Red case | Red output | Green |
+|---|---|---|---|
+| R1 | `"strict": false` added to `tsconfig.bun.json` | `7 pass, 1 fail` — `tsconfig.bun.json redeclares base compilerOptions.strict = false` | `8 pass, 0 fail` |
+| R2 | `"types": ["bun"]` added to `packages/model/tsconfig.json` | `7 pass, 1 fail` — `model: redeclares tsconfig.bun.json compilerOptions.types = bun` | `8 pass, 0 fail` |
+| R3 | the `@effect/language-service` plugin block copied into `tsconfig.browser.json` | `7 pass, 1 fail` — `@effect/language-service appears in: tsconfig.browser.json, tsconfig.bun.json` | `8 pass, 0 fail` |
+| R4 | `packages/model` switched to `../../tsconfig.browser.json` | `7 pass, 1 fail` — `model: extends '../../tsconfig.browser.json' (want '../../tsconfig.bun.json')` | `8 pass, 0 fail` |
+| R5 | `compilerOptions` dropped from `packages/render-tests/tsconfig.json` | `7 pass, 1 fail` — `render-tests: sanctioned delta 'lib' is no longer declared — drop the sanction` | `8 pass, 0 fail` |
+| R6 | `"lib": ["ESNext"]` added to `tsconfig.base.json` | `6 pass, 2 fail` — `tsconfig.base.json must not set 'lib'` **and** both presets reported as redeclaring it | `8 pass, 0 fail` |
+
+R1 and R2 are the two failures the brief required; R3 is what makes "authored
+ONCE" a checked fact rather than a claim.
+
+Effect diagnostics still run through the preset, both severity lanes, injected
+into `packages/model/src/model.ts` and reverted:
+
+| Red case | Result |
+|---|---|
+| `export const _testFail = Effect.fail(new Error("boom"));` | `src/model.ts(230,38): suggestion TS377023: Global 'Error' loses type safety … effect(globalErrorInEffectFailure)`; model's suggestion count 4 → 5. Exit stays 0 — `ignoreEffectSuggestionsInTscExitCode: true` keeps the suggestion lane advisory by design. (The `g2` §2 row claiming exit code 1 for this case is wrong; the row below is the case that actually gates.) |
+| a floating `Effect.succeed(1)` inside an `Effect.gen` | `src/model.ts(231,3): error TS377001: This Effect value is neither yielded nor used in an assignment. effect(floatingEffect)`, **exit code 1**. The `error`-severity lane fails the build. |
+
+### 6.3 Before / after diagnostics
+
+`tsc --noEmit -p tsconfig.json` per package, at `cd6a5b9` and at this commit.
+Every package's output is **byte-identical**, not merely equal in count:
+
+| package | before | after | package | before | after |
+|---|---|---|---|---|---|
+| canvas | 0 | 0 | operations | 6 | 6 |
+| cli | 98 | 98 | query | 0 | 0 |
+| contracts | 4 | 4 | render-tests | 29 | 29 |
+| ext-canvas | 0 | 0 | runtime | 125 | 125 |
+| ext-docs | 1 | 1 | server | 79 | 79 |
+| ext-sdk | 4 | 4 | store-jsonl | 8 | 8 |
+| harness | 6 | 6 | test-kit | 18 | 18 |
+| mcp | 23 | 23 | ui | 0 | 0 |
+| model | 4 | 4 | **total** | **405** | **405** |
+
+0 errors and 17/17 exit code 0 on both sides; the 405 are `@effect/language-service`
+suggestions. `@kb/ui` has 0 because the browser preset carries no Effect plugin,
+which is the intended split.
+
+### 6.4 knip
+
+| | before | after |
+|---|---|---|
+| Configuration hints | **20** | **0** |
+| Unused exports | 100 | 100 |
+| Unused exported types | 35 | 35 |
+| Duplicate exports | 1 | 1 |
+
+The 20 hints were 3 `Refine project pattern (no matches)`, 16
+`Remove redundant entry pattern`, and 1 `Remove from ignoreDependencies`. The
+advisory findings are unchanged, so nothing was hidden to reach zero.
+
+### 6.5 Gate
+
+`bun run verify` in `tools/kb`: exit 0 — typecheck 17/17, lint, `fmt:check`
+clean, knip hint-free, harness **39 pass / 0 fail across 15 files**.
+
+`.kb/nodes.jsonl` untouched, as at `g2`.
