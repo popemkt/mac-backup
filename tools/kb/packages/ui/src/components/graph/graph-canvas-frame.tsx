@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { LensNode, LensRenderer } from "@/lib/graph-lens";
+import type { LensNode, LensPerspective, LensRenderer } from "@/lib/graph-lens";
 import { GraphLegend } from "./graph-legend";
 import { GraphToolbar } from "./graph-toolbar";
 import { GraphCanvasError, GraphCanvasErrorBoundary } from "./graph-canvas-error";
@@ -38,7 +38,7 @@ export function GraphCanvasFrame({
   /** Surfaces resolveNodeSet failures inside the canvas (task 16c). */
   queryError?: string | null;
   resetKey?: string;
-  perspective?: import("@/lib/graph-lens").LensPerspective | null;
+  perspective?: LensPerspective | null;
 }) {
   const capabilities = capabilitiesFor(renderer);
   const clearRef = useRef(onClearSelection);

@@ -11,7 +11,11 @@ import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
 
 export type EdgeKind = "mention" | "child" | "ref-prop";
 
-export type LensRenderer = "force2d" | "tree" | "cluster" | "force3d" | string;
+/**
+ * The four renderers `LENS_RENDERERS` knows about, plus any other string:
+ * a perspective's renderer is a free-form kb prop, not a closed enum.
+ */
+export type LensRenderer = (typeof LENS_RENDERERS)[number] | (string & {});
 
 export type LensLayout = "force" | "radial" | "hierarchical" | "grid";
 export type LensLabelDensity = "low" | "medium" | "high";

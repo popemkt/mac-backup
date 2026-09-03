@@ -63,7 +63,7 @@ export function runQuery(qdb: QueryDb, edn: string): unknown[][] {
   const q = normalizeEdnQuery(edn);
   const raw = d.q(q, qdb.db);
   const revived = reviveValue(raw, qdb.ids);
-  if (revived == null) return [];
+  if (revived === null || revived === undefined) return [];
   const list = revived instanceof Set ? [...revived] : Array.isArray(revived) ? revived : [];
   return list.map((r) => (Array.isArray(r) ? r : [r]));
 }

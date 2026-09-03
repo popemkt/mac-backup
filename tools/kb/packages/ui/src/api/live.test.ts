@@ -53,7 +53,7 @@ function stubFetch(handler: (input: RequestInfo | URL) => Promise<Response>): {
 } {
   const calls: string[] = [];
   globalThis.fetch = async (input: RequestInfo | URL) => {
-    calls.push(String(input));
+    calls.push(input instanceof Request ? input.url : String(input));
     return handler(input);
   };
   return { calls };

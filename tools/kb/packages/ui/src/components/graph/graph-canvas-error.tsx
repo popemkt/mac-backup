@@ -8,6 +8,8 @@ interface GraphCanvasErrorBoundaryProps {
 
 interface GraphCanvasErrorBoundaryState {
   error: Error | null;
+  /** Last `resetKey` folded into state, so a change to it clears the error. */
+  resetKey: string | undefined;
 }
 
 /**
@@ -18,20 +20,22 @@ export class GraphCanvasErrorBoundary extends Component<
   GraphCanvasErrorBoundaryProps,
   GraphCanvasErrorBoundaryState
 > {
-  override state: GraphCanvasErrorBoundaryState = { error: null };
+  override state: GraphCanvasErrorBoundaryState = { error: null, resetKey: undefined };
 
-  static getDerivedStateFromError(error: Error): GraphCanvasErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): Pick<GraphCanvasErrorBoundaryState, "error"> {
     return { error };
+  }
+
+  static getDerivedStateFromProps(
+    props: GraphCanvasErrorBoundaryProps,
+    state: GraphCanvasErrorBoundaryState,
+  ): GraphCanvasErrorBoundaryState | null {
+    if (props.resetKey === state.resetKey) return null;
+    return { error: null, resetKey: props.resetKey };
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error("GraphCanvasErrorBoundary caught", error, info.componentStack);
-  }
-
-  override componentDidUpdate(prevProps: GraphCanvasErrorBoundaryProps): void {
-    if (this.state.error && prevProps.resetKey !== this.props.resetKey) {
-      this.setState({ error: null });
-    }
   }
 
   private retry = (): void => {

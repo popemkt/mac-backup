@@ -174,7 +174,7 @@ export function Sidebar() {
           <SidebarRow
             label="Graph"
             icon={<GraphIcon size={14} />}
-            active={route.name === "graph" && route.perspectiveId == null}
+            active={route.name === "graph" && route.perspectiveId === null}
             onClick={() => navigate(graphPath())}
           />
           {perspectives.map((p) => (

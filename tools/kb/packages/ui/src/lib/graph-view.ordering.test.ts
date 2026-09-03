@@ -37,7 +37,7 @@ describe("stable outline ordering", () => {
   });
 
   it("mergeTx preserves deterministic wire order (id ascending)", () => {
-    const shuffled = [...fixtureGraph.nodes].reverse();
+    const shuffled = fixtureGraph.nodes.toReversed();
     const merged = mergeTx(shuffled, [], []);
     expect(merged.map((n) => n.id)).toEqual(
       [...fixtureGraph.nodes].sort((a, b) => a.id.localeCompare(b.id)).map((n) => n.id),
