@@ -52,7 +52,7 @@ describe("result row render (W4)", () => {
     const db = buildQueryDb([...fixtureGraph.nodes, queryWire()], 1);
     const rows = runQuery(db, TODO_EDN);
     const ids = resultNodeIds(rows, nodes, { excludeId: "n.q1" });
-    expect(ids.sort()).toEqual(["n.root-a", "n.root-b"]);
+    expect(ids.toSorted()).toEqual(["n.root-a", "n.root-b"]);
 
     for (const id of ids) {
       const html = renderBullet(nodes.get(id)!, true);

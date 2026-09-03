@@ -24,11 +24,11 @@ export interface ClusterGraphProps {
 function topologyKey(nodes: LensNode[], edges: LensEdge[]): string {
   const n = nodes
     .map((x) => `${x.id}:${x.clusterKey}`)
-    .sort()
+    .toSorted()
     .join(",");
   const e = edges
     .map((x) => `${x.kind}:${x.source}->${x.target}`)
-    .sort()
+    .toSorted()
     .join(",");
   return `${n}|${e}`;
 }
@@ -77,12 +77,12 @@ export function ClusterGraph({
     sigmaRef.current = null;
 
     const graph = new Graph({ multi: true, type: "directed" });
-    const allClusters = [...new Set(nodes.map((n) => n.clusterKey))].sort();
+    const allClusters = [...new Set(nodes.map((n) => n.clusterKey))].toSorted();
     const clusterSizes = new Map<string, number>();
     for (const n of nodes)
       clusterSizes.set(n.clusterKey, (clusterSizes.get(n.clusterKey) ?? 0) + 1);
     const topClusters = allClusters
-      .sort((a, b) => (clusterSizes.get(b) ?? 0) - (clusterSizes.get(a) ?? 0))
+      .toSorted((a, b) => (clusterSizes.get(b) ?? 0) - (clusterSizes.get(a) ?? 0))
       .slice(0, 15);
     const clusterSet = new Set(topClusters);
     const hasOther = allClusters.some((k) => !clusterSet.has(k));

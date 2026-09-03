@@ -37,7 +37,7 @@ export function listOntologyItems(wireNodes: WireNode[]): OntologyNavItem[] {
       id: n.id,
       label: n.text.trim() || "Untitled ontology",
     }))
-    .sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
+    .toSorted((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
 }
 
 /**
@@ -150,7 +150,7 @@ export function memberRows(
       pinned: reasons.some((r) => r.kind === "member"),
     });
   }
-  return rows.sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
+  return rows.toSorted((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
 }
 
 /** Excluded rows for the ontology page ("restore" candidates). */
@@ -165,7 +165,7 @@ export function excludedRows(
       reasons: [] as MemberReason[],
       pinned: false,
     }))
-    .sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
+    .toSorted((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
 }
 
 export function labelOf(id: string, nodes: NodeMap): string {

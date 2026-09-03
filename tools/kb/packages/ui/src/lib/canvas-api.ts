@@ -41,7 +41,7 @@ export function listCanvasNodes(nodes: Map<string, OutlineNode>): OutlineNode[] 
     const tagged = typeRefsOf(n).includes(SYSTEM_IDS.canvasTag);
     if (tagged) out.push(n);
   }
-  return out.sort((a, b) => a.text.localeCompare(b.text));
+  return out.toSorted((a, b) => a.text.localeCompare(b.text));
 }
 
 export function propLookupFromStore(
@@ -222,5 +222,5 @@ export function listRefFields(
     if (resolveFieldType(n) !== "ref") continue;
     out.push({ id: n.id, name: n.text, isRef: true });
   }
-  return out.sort((a, b) => a.name.localeCompare(b.name));
+  return out.toSorted((a, b) => a.name.localeCompare(b.name));
 }

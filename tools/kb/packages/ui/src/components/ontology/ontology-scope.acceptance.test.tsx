@@ -159,7 +159,7 @@ describe("ontology scope (acceptance)", () => {
 
     const store = useOutlineStore.getState();
     expect(store.ontologyId).toBe(ONTO);
-    expect([...store.ontologyMembers!].sort()).toEqual([
+    expect([...store.ontologyMembers!].toSorted()).toEqual([
       "n.caddy",
       "n.notes",
       "n.oldvpn",
@@ -233,7 +233,7 @@ describe("ontology scope (acceptance)", () => {
       },
       { restrictTo: s.ontologyMembers! },
     );
-    expect(graph.nodes.map((n) => n.id).sort()).toEqual([
+    expect(graph.nodes.map((n) => n.id).toSorted()).toEqual([
       "n.caddy",
       "n.notes",
       "n.oldvpn",

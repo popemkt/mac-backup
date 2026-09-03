@@ -33,7 +33,7 @@ describe("graph-layouts", () => {
   it("radial is deterministic for a fixture", () => {
     const a = radialLayout(nodes(["c", "a", "b"]), size);
     const b = radialLayout(nodes(["b", "c", "a"]), size);
-    expect([...a.entries()].sort(byKey)).toEqual([...b.entries()].sort(byKey));
+    expect([...a.entries()].toSorted(byKey)).toEqual([...b.entries()].toSorted(byKey));
     expect(a.size).toBe(3);
   });
 

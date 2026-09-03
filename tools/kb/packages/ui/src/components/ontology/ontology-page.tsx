@@ -73,7 +73,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
         note: taken.has(n.id) ? "included" : undefined,
         disabled: taken.has(n.id),
       }))
-      .sort((a, b) => a.label.localeCompare(b.label));
+      .toSorted((a, b) => a.label.localeCompare(b.label));
   }, [wireNodes, includeTags.join(",")]); // oxlint-disable-line react-hooks/exhaustive-deps -- joined-key is a stable primitive dep for a fresh-array input; depends on the array's contents, not its identity
 
   const ontologyCandidates = useMemo(() => {
@@ -89,7 +89,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
           disabled: taken.has(n.id) || cycles,
         };
       })
-      .sort((a, b) => a.label.localeCompare(b.label));
+      .toSorted((a, b) => a.label.localeCompare(b.label));
   }, [wireNodes, ontologyId, extendsIds.join(",")]); // oxlint-disable-line react-hooks/exhaustive-deps -- joined-key is a stable primitive dep for a fresh-array input; depends on the array's contents, not its identity
 
   if (!onto) {

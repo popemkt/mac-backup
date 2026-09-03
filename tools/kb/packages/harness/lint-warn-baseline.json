@@ -38,7 +38,7 @@
       "typescript/consistent-type-imports": 1,
       "typescript/no-base-to-string": 2,
       "typescript/no-confusing-non-null-assertion": 2,
-      "typescript/no-explicit-any": 7,
+      "typescript/no-explicit-any": 1,
       "typescript/no-floating-promises": 1,
       "typescript/no-import-type-side-effects": 9,
       "typescript/no-non-null-assertion": 636,
@@ -56,7 +56,7 @@
       "typescript/triple-slash-reference": 1,
       "unicorn/consistent-function-scoping": 15,
       "unicorn/no-array-reverse": 2,
-      "unicorn/no-array-sort": 119,
+      "unicorn/no-array-sort": 58,
       "unicorn/prefer-add-event-listener": 4
     },
     "advisory": {

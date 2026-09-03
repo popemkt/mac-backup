@@ -45,11 +45,11 @@ function topologyKey(nodes: LensNode[], edges: LensEdge[]): string {
   if (nodes.length > 200) return `${nodes.length}:${edges.length}`;
   const n = nodes
     .map((x) => x.id)
-    .sort()
+    .toSorted()
     .join(",");
   const e = edges
     .map((x) => `${x.kind}:${x.source}->${x.target}`)
-    .sort()
+    .toSorted()
     .join(",");
   return `${n}|${e}`;
 }

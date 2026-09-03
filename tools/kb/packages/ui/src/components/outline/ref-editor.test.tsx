@@ -67,7 +67,7 @@ function fieldTypeOntology(): WireNode[] {
   ];
 }
 
-const OPTION_IDS = Object.values(FIELD_TYPE_OPTION_IDS).slice().sort();
+const OPTION_IDS = Object.values(FIELD_TYPE_OPTION_IDS).slice().toSorted();
 
 function ontology(): NodeMap {
   return wireToOutlineMap(fieldTypeOntology(), new Set());
@@ -104,7 +104,7 @@ describe("ref picker candidates (declared targets win)", () => {
     // The constraint is data on the field node; it is not display policy, so
     // it must survive verbatim even though every target is sys-prefixed.
     expect(allowed).not.toBeNull();
-    expect([...allowed!].sort()).toEqual(OPTION_IDS);
+    expect([...allowed!].toSorted()).toEqual(OPTION_IDS);
   });
 
   it("offers the declared targets in the picker for fieldType", () => {
@@ -126,7 +126,7 @@ describe("ref picker candidates (declared targets win)", () => {
     const nodes = ontology();
     const allowed = new Set(OPTION_IDS);
     const ids = fuzzyNodeCandidates(nodes, "", { allowed }).map((c) => c.id);
-    expect(ids.slice().sort()).toEqual(OPTION_IDS);
+    expect(ids.slice().toSorted()).toEqual(OPTION_IDS);
   });
 
   it("constrains before the limit, so a late-sorting target survives", () => {

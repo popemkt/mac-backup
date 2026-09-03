@@ -62,7 +62,7 @@ describe("scopedWireNodes", () => {
   it("drops non-members and strips non-member children", () => {
     const wire = graph();
     const scoped = scopedWireNodes(wire, new Set(["n.a", "n.b"]), "o.1");
-    const ids = scoped.map((n) => n.id).sort();
+    const ids = scoped.map((n) => n.id).toSorted();
     expect(ids).toEqual(["n.a", "n.b", "o.1"]);
     expect(scoped.find((n) => n.id === "n.a")!.children).toEqual(["n.b"]);
   });
@@ -108,7 +108,7 @@ describe("resolveScope", () => {
   it("resolves membership through the shared resolver", () => {
     const wire = graph();
     const r = resolveScope(wire, "o.1", buildQueryDb(wire, 1), 1);
-    expect([...r.members].sort()).toEqual(["n.a", "n.b"]);
+    expect([...r.members].toSorted()).toEqual(["n.a", "n.b"]);
     expect(r.warnings).toEqual([]);
   });
 

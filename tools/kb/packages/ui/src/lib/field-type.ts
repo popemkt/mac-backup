@@ -65,7 +65,7 @@ function constraintFingerprint(fieldNode: OutlineNode | undefined): string {
   if (edn) return `q:${edn}`;
   const tags = targetTagsOf(fieldNode);
   if (tags.length === 0) return "open";
-  return `t:${tags.slice().sort().join(",")}`;
+  return `t:${tags.slice().toSorted().join(",")}`;
 }
 
 /**

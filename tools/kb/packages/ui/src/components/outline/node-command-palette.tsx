@@ -117,7 +117,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         (n.props[SYSTEM_IDS.typeField] ?? []).some((v) => v.t === "ref" && v.v === SYSTEM_IDS.tag),
       )
       .map((n) => ({ id: n.id, name: n.text || n.id }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .toSorted((a, b) => a.name.localeCompare(b.name));
   }, [wireNodes]);
 
   const fieldOptions = useMemo(() => {
@@ -128,7 +128,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         ),
       )
       .map((n) => ({ id: n.id, name: n.text || n.id }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .toSorted((a, b) => a.name.localeCompare(b.name));
   }, [wireNodes]);
 
   const commands: Command[] = useMemo(() => {

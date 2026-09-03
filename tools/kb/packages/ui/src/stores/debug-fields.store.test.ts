@@ -56,7 +56,7 @@ describe("per-node debug fields", () => {
     useDebugFieldsStore.getState().toggle("a");
     useDebugFieldsStore.getState().toggle("b");
     const raw = (g.localStorage as Storage).getItem(DEBUG_FIELDS_STORAGE_KEY);
-    expect(JSON.parse(raw!).sort()).toEqual(["a", "b"]);
+    expect(JSON.parse(raw!).toSorted()).toEqual(["a", "b"]);
   });
 
   it("replaces the set rather than mutating it, so selectors re-fire", () => {

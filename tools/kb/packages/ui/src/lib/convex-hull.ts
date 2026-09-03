@@ -3,7 +3,7 @@ export function convexHull(
   points: Array<{ x: number; y: number }>,
 ): Array<{ x: number; y: number }> {
   if (points.length <= 1) return [...points];
-  const pts = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+  const pts = [...points].toSorted((a, b) => a.x - b.x || a.y - b.y);
   const cross = (
     o: { x: number; y: number },
     a: { x: number; y: number },

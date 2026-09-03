@@ -6,7 +6,7 @@ export function compareWireNodeId(a: WireNode, b: WireNode): number {
 }
 
 export function sortWireNodes(nodes: WireNode[]): WireNode[] {
-  return [...nodes].sort(compareWireNodeId);
+  return [...nodes].toSorted(compareWireNodeId);
 }
 
 /** Deep-clone a wire node list (snapshot for optimistic revert). */

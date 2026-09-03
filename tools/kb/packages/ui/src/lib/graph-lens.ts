@@ -147,7 +147,7 @@ export function isGraphPerspectiveNode(node: WireNode): boolean {
 export function listPerspectiveNodes(wireNodes: WireNode[]): WireNode[] {
   return wireNodes
     .filter(isGraphPerspectiveNode)
-    .sort((a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id));
+    .toSorted((a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id));
 }
 
 function boolProp(node: WireNode, fieldId: string): boolean | null {
@@ -316,7 +316,9 @@ export function buildTreeForest(
   }
 
   const parentOf = buildParentMap(wireNodes, nodeSet);
-  const roots = [...nodeSet].filter((id) => !parentOf.has(id)).sort((a, b) => a.localeCompare(b));
+  const roots = [...nodeSet]
+    .filter((id) => !parentOf.has(id))
+    .toSorted((a, b) => a.localeCompare(b));
   const forest: LensTreeNode[] = [];
   for (const id of roots) {
     const t = build(id);
@@ -466,7 +468,7 @@ function applyMaxNodesCap(
   if (nodeIds.length <= maxNodes) {
     return { keep: new Set(nodeIds), dropped: 0 };
   }
-  const ranked = [...nodeIds].sort((a, b) => {
+  const ranked = [...nodeIds].toSorted((a, b) => {
     const d = (degrees.get(b) ?? 0) - (degrees.get(a) ?? 0);
     if (d !== 0) return d;
     return a.localeCompare(b);

@@ -15,7 +15,7 @@ import {
 
 const sampleDoc: CanvasDoc = {
   nodes: [
-    { id: "a", type: "shape", shape: "rect", x: 0, y: 0, width: 100, height: 60, label: "" } as any,
+    { id: "a", type: "shape", shape: "rect", x: 0, y: 0, width: 100, height: 60, label: "" },
     {
       id: "b",
       type: "shape",
@@ -25,8 +25,8 @@ const sampleDoc: CanvasDoc = {
       width: 100,
       height: 60,
       label: "",
-    } as any,
-    { id: "c", type: "text", text: "", x: 0, y: 200, width: 100, height: 60 } as any,
+    },
+    { id: "c", type: "text", text: "", x: 0, y: 200, width: 100, height: 60 },
   ],
   edges: [
     { id: "e1", fromNode: "a", toNode: "b", toEnd: "arrow" },

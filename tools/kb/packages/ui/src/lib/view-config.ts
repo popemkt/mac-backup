@@ -366,7 +366,7 @@ export function groupChildrenForBoard(
     col.nodes.push(child);
   }
 
-  const ordered = [...columns.values()].sort((a, b) => a.label.localeCompare(b.label));
+  const ordered = [...columns.values()].toSorted((a, b) => a.label.localeCompare(b.label));
   ordered.push(empty);
   return ordered;
 }

@@ -78,7 +78,7 @@ export function forestRootIds(nodes: WireNode[]): string[] {
       void byId;
       return true;
     })
-    .sort((a, b) => {
+    .toSorted((a, b) => {
       if (a.order && b.order) return a.order.localeCompare(b.order);
       if (a.order) return -1;
       if (b.order) return 1;

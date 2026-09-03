@@ -108,7 +108,7 @@ describe("visible instances", () => {
     const texts = sortedKeys.map(
       (k) => useOutlineStore.getState().nodes.get(k.split("/").at(-1)!)?.text ?? "",
     );
-    const sortedTexts = [...texts].sort((a, b) =>
+    const sortedTexts = [...texts].toSorted((a, b) =>
       a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0,
     );
     expect(texts).toEqual(sortedTexts);

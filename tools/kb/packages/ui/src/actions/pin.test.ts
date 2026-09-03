@@ -63,7 +63,7 @@ describe("pin toggle", () => {
     expect(
       listPinnedNavItems(nodes())
         .map((i) => i.id)
-        .sort(),
+        .toSorted(),
     ).toEqual(["n.root-a", "n.root-b"]);
 
     await mutations.togglePin("n.root-a");
