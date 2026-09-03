@@ -27,43 +27,74 @@ per-invocation CLI (fresh db each run); if we later add watch-mode or a server,
 | Toolchain | **TypeScript 7 + Vite+ (`vp` 0.2.8)** | vp owns lint/check/fmt/UI test; authoritative typecheck is `tsc --noEmit` — see [Runtime/tooling boundary](#runtime-tooling-boundary) |
 | Model | **Everything is a node** — fields and tags included | Tana model; Logseq DB does the same (properties are first-class entities) |
 
+## Workspace shape
+
+`tools/kb` is a **Bun workspace**. Every concept is a package under
+`packages/<name>`, named `@kb/<name>`, private, `version 0.0.0`, publishing one
+curated barrel of named exports at `src/index.ts` (or `"exports": {}` when it
+has no importable surface), and carrying two tags in its `nx` key:
+
+| Axis | Values | Means |
+|---|---|---|
+| `layer:*` | `domain`, `contract`, `infrastructure`, `application`, `app`, `extension`, `test-support`, `tooling` | which way dependencies may point |
+| `scope:*` | `shared`, `backend`, `browser`, `test-support`, `tooling` | which runtime the code must survive |
+
+The direction rules live in exactly one place,
+`packages/harness/src/constraints.ts`, and `packages/harness` applies them to
+what the code imports. There is no alias map: `@kb/*` resolve as workspace
+packages through each package's `exports`.
+
+One restriction the package graph cannot see is the **isomorphism fence** — a
+`scope:shared` package runs in the browser too, so it may not import `node:*`,
+`bun:*`, or `@effect/platform-bun`. That is stated once, as a
+`no-restricted-imports` override in `.oxlintrc.json`.
+
 ## Runtime/tooling boundary
 
 The backend runs on **Bun** in production; the toolchain around it is **Vite+
 (`vp` 0.2.8) + TypeScript 7**. The two are deliberately separated:
 
 - **Bun is the production runtime.** `bin/kb` is a bash shim
-  (`#!/usr/bin/env bash`) that `exec`s Bun on `src/surface/cli.ts`; the
-  `kb ui` server uses `Bun.serve`/`Bun.ServerWebSocket` as the listen/WS/`Bun.file`
-  boundary while routing, assets, and the subscription hub are Effect programs;
-  the store streams with
-  `Bun.file`/`Bun.write`; `Bun.hash` powers change detection. These are
-  appropriate Bun APIs and stay.
-- **vp owns the tooling.** `tools/kb/package.json` scripts:
-  - `typecheck` → `tsc --noEmit` (TS 7, zero-error gate; also enforced by the
-    pre-commit hook when `tools/kb/` changes). This is the authoritative
-    typecheck — not `vp check`.
-  - `lint` → `vp lint` (oxlint)
-  - `check` → `vp check --no-fmt` (**lint-only** here: `lint.options.typeCheck`
-    is deliberately off in `tools/kb/vite.config.ts` because oxlint-tsgolint
-    is not verified as a meaningful gate for this Bun/Effect tree. `--no-fmt`
-    skips format; `vp fmt` remains available for incremental adoption)
-  - `test` → `bun test` (Bun-dependent backend integration tests keep running
-    under Bun). Note: recursive `bun test` from `tools/kb` also discovers many
-    `ui/**/*.test.ts(x)` files — only the Vitest-only paths in `bunfig.toml`
-    are ignored — so a full backend `bun test` still needs `tools/kb/ui`
-    deps installed. The dedicated UI suite is `cd ui && vp test` (Vitest).
-- **Backend lint/check never enter `ui/`.** `tools/kb/vite.config.ts` sets
-  `lint.ignorePatterns: ["ui/**", …]`. The browser app is its own Vite+
-  package (`tools/kb/ui`) with separate install, `vp` config, and gates.
-- **Tests are split by runtime need.** Tests that exercise Bun APIs
-  (`ui.test.ts`, `query-nodes.test.ts`, store round-trips) stay on `bun:test` —
-  forcing them through vp/Vitest would require Bun APIs to exist under a node
-  worker. UI component tests that need Vitest mock-hoist / happy-dom stay on
-  `vp test` (and are listed in `bunfig.toml` so recursive `bun test` skips them).
-- TypeScript 7 removed `baseUrl`; the UI tsconfig uses relative `paths`, and
-  the backend tsconfig scopes to backend sources (`src`, `tests`,
-  `extensions-bundled`) — it never compiles `ui/`.
+  (`#!/usr/bin/env bash`) that `exec`s Bun on `packages/cli/src/main.ts`, the
+  one process entrypoint; the `kb ui` server uses
+  `Bun.serve`/`Bun.ServerWebSocket` as the listen/WS/`Bun.file` boundary while
+  routing, assets, and the subscription hub are Effect programs; the store
+  streams with `Bun.file`/`Bun.write`; `Bun.hash` powers change detection.
+  These are appropriate Bun APIs and stay.
+- **Root scripts are the entrypoints.** A fresh shell can run each with no
+  prior setup:
+  - `bun run typecheck` → `nx run-many -t typecheck`, one `tsc --noEmit` per
+    package against `tsconfig.base.json`. This is the authoritative typecheck,
+    and the pre-commit hook runs it when `tools/kb/` changes.
+  - `bun run lint` → one `oxlint --config .oxlintrc.json --type-aware packages`
+    over the whole workspace. Type-aware linting is on: `oxlint-tsgolint` is a
+    declared devDependency, which is what makes its platform binary
+    (`@oxlint-tsgolint/darwin-arm64`) install.
+  - `bun run test` → `bun test packages`
+  - `bun run test:ui` → `bun run --filter @kb/ui test` (Vitest)
+  - `bun run test:dst` → the deterministic simulation sweep
+  - `bun run knip`, `bun run harness`, and `bun run verify` = typecheck + lint
+    + knip + harness
+- **Two runners, split by package, not by file.** Everything except `@kb/ui`
+  runs on `bun test`; the browser package runs on Vitest because its suite
+  needs happy-dom, `vi.mock` hoisting and fake timers. `bunfig.toml` states
+  that split once (`pathIgnorePatterns = ["**/packages/ui/**"]`) instead of
+  naming individual files.
+- TypeScript 7 removed `baseUrl`. `tsconfig.base.json` holds the flags; each
+  package declares only its delta and no `paths` beyond `@kb/ui`'s
+  intra-package `@/*`.
+
+## Supply chain
+
+- Every internal dependency is `workspace:*`; every external dependency is
+  `catalog:`. The catalog in the root `package.json` is the only file that
+  names a version. The single exception — `vite-plus` and its `vite` alias
+  twin, which cannot reference a catalog entry — is recorded in
+  `OFF_CATALOG_BY_DECISION` with its reason.
+- One `bun.lock`. CI installs with `--frozen-lockfile`.
+- `bunfig.toml` `[install]` sets `minimumReleaseAge` (3 days) and an explicit
+  `trustedDependencies` allowlist, which is empty: nothing in this tree runs
+  code at install time.
 
 ## Data model — everything is a node
 
@@ -97,7 +128,7 @@ type PropValue =
   `sys.f.targetQuery` (general form — parameter-free EDN whose rows name node
   ids). `targetQuery` **wins** over `targetTag`: the tag is one shape of the
   query, so honouring both would answer one question twice. Resolution lives in
-  `src/foundation/field-type.ts` (`allowedRefIdsOf`, EDN runner injected) and is
+  `@kb/model`'s `field-type.ts` (`allowedRefIdsOf`, EDN runner injected) and is
   shared by CLI, MCP and the browser through the `@kb/field-type` alias — same
   posture as the ontology resolver.
 - **Hiding `sys.*` is a display rule, never a resolution rule.** Resolution
@@ -142,7 +173,7 @@ type PropValue =
           [?e :node/text ?text]]
   ```
 
-  (`kb backlinks <id>` is the shorthand; `src/foundation/query/queries.ts`
+  (`kb backlinks <id>` is the shorthand; `@kb/query`'s `queries.ts`
   `backlinksQuery` is the single owner of that EDN, and the browser reads it
   through the `@kb/queries` alias rather than keeping a copy.)
 
@@ -200,7 +231,7 @@ interface Store {
   only the live `nodes.jsonl` is committed. The transient
   `nodes.jsonl.lock` is *not* yet gitignored (known gap).
 - **Write hardening** (r4 Stage-0 — on-disk format unchanged), two modules
-  under `src/foundation/storage/`:
+  in `@kb/store-jsonl`:
   - `write-lock.ts` — an exclusive `.kb/nodes.jsonl.lock` carrying the holder
     pid wraps the *whole* commit via `Effect.acquireRelease` inside
     `Effect.scoped`, so reload → merge → replace is one critical section and
@@ -295,9 +326,9 @@ members) all surface as `warnings` on the resolution instead of failing it —
 a broken definition must never make a page unopenable. Same posture as
 `buildTreeForest` in the graph lens.
 
-**One resolver, three surfaces.** `src/foundation/ontology.ts` is pure and
+**One resolver, three surfaces.** `@kb/model`'s `ontology.ts` is pure and
 isomorphic — no Node/Bun API, no `datascript` import; the EDN runner is
-*injected*. CLI and MCP pass `foundation/query`, the browser passes its own
+*injected*. CLI and MCP pass `@kb/query`, the browser passes its own
 `ds/query`, both reaching the same module through the `@kb/ontology` alias, so
 there is no fork (contrast `ds/datoms.ts`). Resolution is deterministic
 (input node order, then prop order) and carries per-member provenance —
@@ -362,7 +393,7 @@ output of any kind — lives in **extensions**:
   `ext.<file>.<action>`. A failing module or malformed action warns and is
   skipped — extension errors never crash core. `kb ext list` shows what
   loaded (and what didn't).
-- `tools/kb/extensions-bundled/docs.ts` / `canvas.ts` are Effect-native
+- `@kb/ext-docs` / `@kb/ext-canvas` are Effect-native
   bundled examples (`effect` handlers using `KbCtx` / `FileSystem` /
   `KbStore` Layers). Docs owns `ext.docs.materialize` / `ext.docs.check`,
   with legacy aliases `docs.materialize` / `docs.check`. Core keeps only the

@@ -106,11 +106,11 @@ by `.kb/assets/` (Mackup-owned backup, never committed; see
 `docs/backup-strategy.md`) and the `asset.upload` action, live WS updates);
 other apps
 can subscribe to live datalog queries over its `/ws` endpoint (see protocol in
-`tools/kb/src/surface/protocol.ts`). `sys.*` nodes are write-guarded (CLI
+`tools/kb/packages/contracts/src/protocol.ts`). `sys.*` nodes are write-guarded (CLI
 `--force` to override).
 
 ```bash
-kb add "Fix drift audit" --tag todo --prop status=doing   # alias for bun tools/kb/src/surface/cli.ts
+kb add "Fix drift audit" --tag todo --prop status=doing   # alias for bun tools/kb/packages/cli/src/main.ts
 kb search "drift" --json
 kb query '[:find ?id ?text :where [?n :f/sys.f.type ?t] [?t :node/text "todo"] [?n :node/id ?id] [?n :node/text ?text]]'
 kb query '[:find ?from ?text :where [?e :node/mentions ?m] [?m :node/id "n.root-a"] [?e :node/id ?from] [?e :node/text ?text]]'
@@ -126,7 +126,7 @@ Core is mechanism only (store, datalog, registry, subscriptions, render
 backbone). Repo-specific action policy lives in extensions: `.kb/extensions/*.ts`
 modules default-exporting `{...ActionDefinition, handler}` arrays, registered
 as `ext.<file>.<action>`; loader failures warn and skip, never crash core. The
-bundled example `tools/kb/extensions-bundled/docs.ts` owns
+bundled example `@kb/ext-docs` (`tools/kb/packages/ext-docs`) owns
 `ext.docs.materialize`/`ext.docs.check` (legacy ids `docs.materialize`/
 `docs.check` remain as aliases, so pre-commit is unchanged).
 
@@ -136,24 +136,25 @@ Rules for agents:
 - `[[id|label]]` in node text and any `{t:"ref"}` prop value are both the ref form; load extracts `:node/mentions` datoms from either (see `tools/kb/DESIGN.md`). Use `kb backlinks <id>` or the datalog example above.
 - `docs/kb/*.md` is generated (header marks it); edit data, then materialize.
   Pre-commit runs `docs.check` and blocks stale generated docs.
+- Workspace: `tools/kb` is a Bun workspace; every concept is a package under
+  `tools/kb/packages/<name>` named `@kb/<name>`, with one curated barrel at
+  `src/index.ts` and two tags (`layer:*`, `scope:*`) in its `nx` key. There is
+  no alias map — `@kb/*` resolve as workspace packages. Internal deps are
+  `workspace:*`, external deps are `catalog:`, and the catalog in the root
+  `package.json` is the only file that names a version.
 - Runtime/tooling boundary: Bun is the production runtime (Bun APIs stay where
-  appropriate); TS 7 + Vite+ (`vp` 0.2.8) own lint/check tooling. Run
-  `npm run typecheck` (authoritative zero-error `tsc --noEmit`, also in
-  pre-commit when `tools/kb/` changes), `npm run check` (`vp check --no-fmt`,
-  lint-only — `typeCheck` is off), `npm run lint`. Backend `vp` ignores
-  `tools/kb/ui`. Bun-dependent tests stay on `bun test` (recursive from
-  `tools/kb` also hits most `ui/` tests — needs UI deps); the dedicated UI
-  suite is `vp test`. See `tools/kb/DESIGN.md`.
-- Linting & boundaries (`tools/kb`): `tools/kb/.oxlintrc.json` is the single
-  oxlint ruleset (module boundaries via `eslint/no-restricted-imports`,
-  `import/no-cycle`, `react/exhaustive-deps`, `typescript/ban-ts-comment`,
-  `typescript/no-explicit-any`, plus a `**/*.css` override). `vp` does not
-  read it, so the whole-tree gate is `npm run lint:all` (oxlint over
-  `index.ts src ui/src extensions-bundled`); `npm run verify` = typecheck +
-  check + lint:all + `knip` and is the entry point a human or CI runs. The ui
-  may reach the backend only through the `@kb/*` seam — never a relative path
-  into `src/`; `src/foundation` is a leaf (must not import surface/operations/
-  render).
+  appropriate); TS 7 + Vite+ (`vp` 0.2.8) + oxlint + Nx own the tooling. Run
+  `bun run verify` (typecheck + lint + knip + harness — the entry point a human
+  or CI runs), `bun run typecheck` (authoritative zero-error `tsc --noEmit` per
+  package via Nx, also in pre-commit when `tools/kb/` changes), `bun run test`,
+  `bun run test:ui`. Two runners split by package: everything but `@kb/ui` runs
+  on `bun test`; the browser package runs on Vitest. See `tools/kb/DESIGN.md`.
+- Linting & boundaries (`tools/kb`): layer and scope direction are enforced by
+  `tools/kb/packages/harness` over what the code imports; the matrix is stated
+  once in `packages/harness/src/constraints.ts`. `tools/kb/.oxlintrc.json` is
+  the single oxlint ruleset and owns the one fence the package graph cannot
+  see: a `scope:shared` package may not import `node:*`, `bun:*`, or
+  `@effect/platform-bun`.
 
 ## Where To Edit
 
