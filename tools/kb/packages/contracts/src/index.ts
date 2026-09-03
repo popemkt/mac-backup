@@ -7,6 +7,7 @@ export type {
 } from "./actions.ts";
 export type {
   ExtensionAction,
+  ExtensionContribution,
   ExtensionFailure,
   ExtensionPromiseHandler,
   LoadedExtension,
@@ -27,5 +28,7 @@ export type {
   WireNode,
 } from "./protocol.ts";
 export { KbCtx, KbStore, kbCtxLayer, kbStoreLayer } from "./session.ts";
+export { TemplateRegistry, templateRegistryLayer } from "./template.ts";
+export type { ExtensionTemplate, TemplateContext, TemplateFn } from "./template.ts";
 export type { KbContext } from "./session.ts";
 export type { EffectStore, Store } from "./store.ts";

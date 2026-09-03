@@ -3,20 +3,27 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import { KbCtx } from "@kb/contracts";
-import type { ActionEffectHandler, ExtensionAction } from "@kb/contracts";
+import type {
+  ActionEffectHandler,
+  ExtensionAction,
+  ExtensionTemplate,
+  TemplateRegistry,
+} from "@kb/contracts";
 import { DocsError, loadViewsEffect, renderViewEffect } from "@kb/operations";
+import { todos } from "./todos.ts";
 
 /**
  * Bundled example extension: repo-doc materialization policy.
  *
- * Core ships the mechanism (view specs, templates, renderView); this
- * extension ships the policy — which md files get written where. It is
- * the reference for `.kb/extensions/*.ts` modules: same shape, same
- * loading path, just registered from inside the package.
+ * Core ships the mechanism (view specs, the render backbone, renderView);
+ * this extension ships the policy — the templates and which md files get
+ * written where. It is the reference for `.kb/extensions/*.ts` modules:
+ * same shape, same loading path, just registered from inside the package.
  *
- * Registered as `ext.docs.materialize` / `ext.docs.check`; the legacy ids
- * `docs.materialize` / `docs.check` stay as aliases so pre-commit and
- * existing callers keep working.
+ * Registered as `ext.docs.materialize` / `ext.docs.check` and the template
+ * `ext.docs.todos`; the bare ids `docs.materialize`, `docs.check` and `todos`
+ * stay as aliases so pre-commit, existing callers and existing view specs
+ * keep working.
  *
  * Handlers are Effect-native (`effect`) — no Promise nest under registry.
  */
@@ -40,7 +47,7 @@ const checkOutput = z.object({
   ),
 });
 
-type DocsEnv = KbCtx | FileSystem;
+type DocsEnv = KbCtx | FileSystem | TemplateRegistry;
 
 function mapDocsFs(err: unknown, message: string): DocsError {
   return new DocsError(
@@ -116,4 +123,8 @@ const actions: ExtensionAction[] = [
   },
 ];
 
+const templates: ExtensionTemplate[] = [{ id: "todos", aliases: ["todos"], template: todos }];
+
 export const docsActions = actions;
+export const docsTemplates = templates;
+export { todos } from "./todos.ts";

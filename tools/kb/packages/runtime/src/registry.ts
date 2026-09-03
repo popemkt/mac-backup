@@ -1,4 +1,4 @@
-import { Cause, Effect, Exit } from "effect";
+import { Effect } from "effect";
 import { type FileSystem } from "effect/FileSystem";
 import {
   type ActionDefinition,
@@ -11,9 +11,10 @@ import {
   KbCtx,
   KbStore,
   type KbContext,
+  TemplateRegistry,
+  type TemplateFn,
 } from "@kb/contracts";
 import { FailureCodeSchema } from "@kb/model";
-import { kbRuntimeLayer } from "./layers.ts";
 import { ResolveError } from "@kb/model";
 import {
   ActionSchemaError,
@@ -58,11 +59,11 @@ import type {
   ExtensionPromiseHandler,
   LoadedExtension,
 } from "@kb/contracts";
-import { docsActions } from "@kb/ext-docs";
+import { docsActions, docsTemplates } from "@kb/ext-docs";
 import { canvasActions } from "@kb/ext-canvas";
 
 /** Services Effect-native handlers may require; provided at the invoke tip. */
-export type ActionHandlerEnv = KbCtx | KbStore | FileSystem;
+export type ActionHandlerEnv = KbCtx | KbStore | FileSystem | TemplateRegistry;
 
 export interface RegisteredAction {
   def: ActionDefinition;
@@ -81,12 +82,24 @@ export interface RegisteredAction {
   aliases: readonly string[];
 }
 
+/** A render template as registered: namespaced id plus its compat aliases. */
+export interface RegisteredTemplate {
+  /** Namespaced `ext.<name>.<id>`. */
+  id: string;
+  template: TemplateFn;
+  /** "ext:<name>" */
+  source: string;
+  aliases: readonly string[];
+}
+
 export interface RegistryExtension {
   name: string;
   /** "bundled" or the source module path. */
   source: string;
   /** Registered actions; defs carry the namespaced `ext.<name>.<id>`. */
   actions: readonly RegisteredAction[];
+  /** Registered templates; ids carry the namespaced `ext.<name>.<id>`. */
+  templates: readonly RegisteredTemplate[];
 }
 
 export interface ManifestEntry {
@@ -103,6 +116,8 @@ export interface ManifestEntry {
 export interface Registry {
   actions: readonly RegisteredAction[];
   byId: ReadonlyMap<string, RegisteredAction>;
+  /** Render templates by namespaced id and by alias; fed to {@link TemplateRegistry}. */
+  templates: ReadonlyMap<string, TemplateFn>;
   extensions: readonly RegistryExtension[];
   failures: readonly ExtensionFailure[];
   manifestEntries: readonly ManifestEntry[];
@@ -129,8 +144,8 @@ const CORE_ACTIONS: readonly RegisteredAction[] = [
 
 /** Extensions shipped with kb itself; loaded like repo extensions. */
 const BUNDLED_EXTENSIONS: readonly LoadedExtension[] = [
-  { name: "docs", source: "bundled", actions: docsActions },
-  { name: "canvas", source: "bundled", actions: canvasActions },
+  { name: "docs", source: "bundled", actions: docsActions, templates: docsTemplates },
+  { name: "canvas", source: "bundled", actions: canvasActions, templates: [] },
 ];
 
 async function buildRegistry(root: string | null): Promise<Registry> {
@@ -138,11 +153,14 @@ async function buildRegistry(root: string | null): Promise<Registry> {
   const byId = new Map<string, RegisteredAction>();
   for (const action of CORE_ACTIONS) byId.set(action.def.id, action);
 
+  const templatesById = new Map<string, TemplateFn>();
+
   const extensions: RegistryExtension[] = [];
   const failures: ExtensionFailure[] = [];
 
   const register = (ext: LoadedExtension): void => {
     const registered: RegisteredAction[] = [];
+    const registeredTemplates: RegisteredTemplate[] = [];
     for (const action of ext.actions) {
       const id = namespacedId(ext.name, action.id);
       const aliases = action.aliases ?? [];
@@ -173,7 +191,33 @@ async function buildRegistry(root: string | null): Promise<Registry> {
       for (const alias of aliases) byId.set(alias, entry);
       registered.push(entry);
     }
-    extensions.push({ name: ext.name, source: ext.source, actions: registered });
+    for (const template of ext.templates) {
+      const id = namespacedId(ext.name, template.id);
+      const aliases = template.aliases ?? [];
+      const clash = [id, ...aliases].find((candidate) => templatesById.has(candidate));
+      if (clash !== undefined) {
+        failures.push({
+          file: ext.source,
+          error: `template id already registered: ${clash}`,
+        });
+        continue;
+      }
+      const entry: RegisteredTemplate = {
+        id,
+        template: template.template,
+        source: `ext:${ext.name}`,
+        aliases,
+      };
+      templatesById.set(id, template.template);
+      for (const alias of aliases) templatesById.set(alias, template.template);
+      registeredTemplates.push(entry);
+    }
+    extensions.push({
+      name: ext.name,
+      source: ext.source,
+      actions: registered,
+      templates: registeredTemplates,
+    });
   };
 
   for (const ext of BUNDLED_EXTENSIONS) register(ext);
@@ -197,7 +241,7 @@ async function buildRegistry(root: string | null): Promise<Registry> {
     })),
   ]);
 
-  return { actions, byId, extensions, failures, manifestEntries };
+  return { actions, byId, templates: templatesById, extensions, failures, manifestEntries };
 }
 
 const registryCache = new Map<string, Promise<Registry>>();
@@ -317,19 +361,7 @@ export const invokeReceiptEffect = Effect.fn("kb.invokeReceipt")(function* (
   );
 });
 
-/**
- * Invoke an action. Never throws across this boundary — failures become receipts.
- * Thin Promise compatibility edge over {@link invokeReceiptEffect} + live Layers.
- */
-export async function invoke(ctx: KbContext, invocation: ActionInvocation): Promise<ActionReceipt> {
-  const exit = await Effect.runPromiseExit(
-    invokeReceiptEffect(ctx, invocation).pipe(Effect.provide(kbRuntimeLayer(ctx))),
-  );
-  if (Exit.isSuccess(exit)) return exit.value;
-  return receiptFromError(invocation.id, Cause.squash(exit.cause));
-}
-
-function receiptFromError(id: string, err: unknown): ActionReceipt {
+export function receiptFromError(id: string, err: unknown): ActionReceipt {
   if (err instanceof ActionSchemaError) {
     return failed(id, "invalid_input", err.message, err.issues);
   }

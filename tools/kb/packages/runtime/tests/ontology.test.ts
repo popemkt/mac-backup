@@ -26,7 +26,7 @@ import { ensureSystemSeed, systemSeedNodes } from "@kb/model";
 import { ontologyMembersEffect } from "@kb/operations";
 import { runWithKb } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
-import { invoke } from "../src/registry.ts";
+import { invoke } from "../src/invoke.ts";
 import { canonicalJson } from "@kb/model";
 
 // ── fixtures ───────────────────────────────────────────────────────────────

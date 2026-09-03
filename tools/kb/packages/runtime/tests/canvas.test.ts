@@ -18,7 +18,8 @@ import {
 } from "@kb/canvas";
 import { openKb } from "../src/session.ts";
 import { SYSTEM_IDS, ensureSystemSeed, systemSeedNodes } from "@kb/model";
-import { invoke, resetRegistryCache } from "../src/registry.ts";
+import { invoke } from "../src/invoke.ts";
+import { resetRegistryCache } from "../src/registry.ts";
 
 let roots: string[] = [];
 

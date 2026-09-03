@@ -5,16 +5,40 @@ import { JsonlStore, asPromiseStore } from "@kb/store-jsonl";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { buildQueryDb } from "@kb/query";
 import type { DomainError } from "@kb/model";
-import { type KbCtx, KbStore, kbCtxLayer, kbStoreLayer, type KbContext } from "@kb/contracts";
+import {
+  type KbCtx,
+  KbStore,
+  kbCtxLayer,
+  kbStoreLayer,
+  type KbContext,
+  TemplateRegistry,
+} from "@kb/contracts";
+import { registryFor } from "./registry.ts";
 
 /** Layer that constructs a JsonlStore for `root` (still needs FileSystem at use). */
 export function jsonlStoreLayer(root: string): Layer.Layer<KbStore> {
   return Layer.succeed(KbStore, new JsonlStore(root));
 }
 
-/** Full runtime for a root: Bun FileSystem + EffectStore + opened KbCtx. */
-export function kbRuntimeLayer(ctx: KbContext): Layer.Layer<FileSystem | KbStore | KbCtx> {
-  return Layer.mergeAll(bunFileSystemLayer, kbStoreLayer(ctx.effectStore), kbCtxLayer(ctx));
+/**
+ * Full runtime for a root: Bun FileSystem + EffectStore + opened KbCtx +
+ * the render templates the registry resolved from core-bundled and
+ * `.kb/extensions` contributions.
+ */
+export function kbRuntimeLayer(
+  ctx: KbContext,
+): Layer.Layer<FileSystem | KbStore | KbCtx | TemplateRegistry> {
+  return Layer.mergeAll(
+    bunFileSystemLayer,
+    kbStoreLayer(ctx.effectStore),
+    kbCtxLayer(ctx),
+    Layer.effect(
+      TemplateRegistry,
+      Effect.promise(() => registryFor(ctx.root)).pipe(
+        Effect.map((registry) => registry.templates),
+      ),
+    ),
+  );
 }
 
 export const openKbEffect = Effect.fn("kb.open")(function* (
@@ -40,7 +64,7 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
 /** Run an Effect that needs KbCtx (+ Bun FileSystem) against a live session. */
 export function runWithKb<A, E>(
   ctx: KbContext,
-  effect: Effect.Effect<A, E, KbCtx | FileSystem | KbStore>,
+  effect: Effect.Effect<A, E, KbCtx | FileSystem | KbStore | TemplateRegistry>,
 ): Promise<A> {
   return Effect.runPromise(effect.pipe(Effect.provide(kbRuntimeLayer(ctx))));
 }

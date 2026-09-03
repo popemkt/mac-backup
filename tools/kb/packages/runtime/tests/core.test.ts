@@ -12,7 +12,8 @@ import {
 } from "@kb/model";
 import { JsonlStore } from "@kb/store-jsonl";
 import { openKb } from "../src/session.ts";
-import { invoke, manifest } from "../src/registry.ts";
+import { invoke } from "../src/invoke.ts";
+import { manifest } from "../src/registry.ts";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-test-"));

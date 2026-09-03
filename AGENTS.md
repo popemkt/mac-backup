@@ -123,12 +123,14 @@ kb ext list                     # loaded extensions + their actions
 ```
 
 Core is mechanism only (store, datalog, registry, subscriptions, render
-backbone). Repo-specific action policy lives in extensions: `.kb/extensions/*.ts`
-modules default-exporting `{...ActionDefinition, handler}` arrays, registered
-as `ext.<file>.<action>`; loader failures warn and skip, never crash core. The
-bundled example `@kb/ext-docs` (`tools/kb/packages/ext-docs`) owns
-`ext.docs.materialize`/`ext.docs.check` (legacy ids `docs.materialize`/
-`docs.check` remain as aliases, so pre-commit is unchanged).
+backbone). Repo-specific policy lives in extensions: `.kb/extensions/*.ts`
+modules default-exporting an array of contributions — actions
+(`{...ActionDefinition, handler}`) and render templates (`{id, template}`) —
+each registered as `ext.<file>.<id>`; loader failures warn and skip, never
+crash core. The bundled example `@kb/ext-docs` (`tools/kb/packages/ext-docs`)
+owns `ext.docs.materialize`/`ext.docs.check` and the template
+`ext.docs.todos` (the bare ids `docs.materialize`, `docs.check` and `todos`
+remain as aliases, so pre-commit and existing view specs are unchanged).
 
 Rules for agents:
 - Prefer `kb` over ad-hoc TODO files for durable repo todos/notes; `--json` for machine output.

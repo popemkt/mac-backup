@@ -19,7 +19,8 @@ import {
   schemaToJsonSchema,
 } from "@kb/model";
 import { DocsError, mapRenderErr } from "@kb/operations";
-import { invoke, invokeEffect, invokeReceiptEffect } from "../src/registry.ts";
+import { invoke } from "../src/invoke.ts";
+import { invokeEffect, invokeReceiptEffect } from "../src/registry.ts";
 import { z } from "zod";
 
 async function tempRoot(): Promise<string> {
