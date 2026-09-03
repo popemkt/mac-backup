@@ -306,14 +306,21 @@ ever close them — so turning them into `#gap` nodes would put eight lies in th
 store. The check needs to accept either a GAP ref or a `-- <justification>`,
 which is a doctrine decision (it slightly weakens D12), so it was not written.
 
-**m. Two ui tests are load-sensitive and fail intermittently.**
+**m. Three tests are load-sensitive and fail intermittently on wall-clock
+limits.**
 `palette-index.test.ts` "meets perf bar at 50k nodes" (asserts keystroke <10ms;
 observed 12–25ms under a loaded machine) and `editor-behavior.test.tsx` "§3.3: an
 empty transient node prunes when focus moves on". Both pass reliably in
 isolation and both were reproduced failing on the **unmodified** base file, so
-neither is caused by this wave — but a wall-clock assertion inside the shared
-suite will keep flaking in CI. Worth either a generous margin or moving the perf
-assertion to a dedicated serial run.
+neither is caused by this wave. A third, `packages/test-kit/tests/dst.test.ts`
+"same seed replays to a byte-identical store", times out at bun's 5000 ms
+default (it needs ~5.0-5.1 s under load and passes in ~1 s idle); it is backend
+code this wave never touched. All three are wall-clock limits inside the shared
+suites and will keep flaking in CI. Worth either generous margins or moving the
+timing-sensitive assertions to a dedicated serial run.
+
+`tests/benchmark.test.ts` "load + query well under 1s" also fails; the plan
+records it as known-red at base and not any worker's.
 
 **n. `bun.lock` was out of date at base.** g2 catalogued `@effect/tsgo` but
 committed the pre-catalog lockfile, so a fresh `bun install` rewrote it. Synced
