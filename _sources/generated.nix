@@ -8,10 +8,10 @@
 {
   chat2db = {
     pname = "chat2db";
-    version = "5.3.4";
+    version = "5.3.5";
     src = fetchurl {
-      url = "https://github.com/OtterMind/Chat2DB/releases/download/v5.3.4/Chat2DB-Community-5.3.4-arm64.dmg";
-      sha256 = "sha256-edkGPrsdHXIIBsWeaigSkWUdBthaAhe7Mw5Ylm8a0f0=";
+      url = "https://github.com/OtterMind/Chat2DB/releases/download/v5.3.5/Chat2DB-Community-5.3.5-arm64.dmg";
+      sha256 = "sha256-CzTtlxMAkMJi4uQTf+CEt5xtGto4NQ4IWi5z3po0Z0Y=";
     };
     github = "OtterMind/Chat2DB";
     tagPrefix = "v";
@@ -28,20 +28,20 @@
   };
   cursor-cli = {
     pname = "cursor-cli";
-    version = "2026.08.31-4057e58";
+    version = "2026.09.02-c22c1a3";
     src = fetchurl {
-      url = "https://downloads.cursor.com/lab/2026.08.31-4057e58/darwin/arm64/agent-cli-package.tar.gz";
-      sha256 = "sha256-qUSDz1oWB7/hLLNCFr4Mj5WJnw9pj7heUAuijXMy+7A=";
+      url = "https://downloads.cursor.com/lab/2026.09.02-c22c1a3/darwin/arm64/agent-cli-package.tar.gz";
+      sha256 = "sha256-PYFIYb4yJfyMOL4yD7IuNE2PcRokJ58fkRnnsxPqUec=";
     };
     versionUrl = "https://cursor.com/install";
     versionRegex = "downloads.cursor.com/lab/([^/]+)/";
   };
   genoffice = {
     pname = "genoffice";
-    version = "0.8.667";
+    version = "0.8.970";
     src = fetchurl {
-      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.8.667/GenOffice-0.8.667-arm64.dmg";
-      sha256 = "sha256-EhVgZeL+oLoRCWpr1DIYMgzn3ft6eqPenf5yB2PzeUU=";
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.8.970/GenOffice-0.8.970-arm64.dmg";
+      sha256 = "sha256-3dlfrd3IE7YCChEokUcujhmUtYhwXrD8paAabu3usUg=";
     };
     github = "genspark-ai/genoffice";
     tagPrefix = "v";
