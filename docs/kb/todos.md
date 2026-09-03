@@ -73,3 +73,9 @@
 - Graph database engines and query language comparison catalog — https://gdb-engines.com/
 - kb refine V-wave: viz surfaces beyond nxus (2D sigma, 3D force, stacked/folder views, JSON Canvas) — DESIGN-REFINE.md + .research/kb-refine/viz/report.md
 - kb ui server: datalog subscription limits (query complexity/time cap) + inline sub-error surfacing in query nodes
+
+## (other)
+
+### todo
+
+- Review reconcile_claude_direct_routing.py: retire or simplify once Headroom stops mutating global ~/.claude/settings.json

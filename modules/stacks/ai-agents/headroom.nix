@@ -86,5 +86,19 @@ lib.mkIf config.my.stacks.ai-agents.enable {
           fi
         done
       '';
+
+      # Headroom is available as an explicit opt-in proxy, never as Claude's
+      # global provider. Its plugin/installer can mutate settings.json, so
+      # restore the declared policy after both tool and plugin activation.
+      home.activation.reconcileClaudeDirectRouting =
+        lib.hm.dag.entryAfter
+          [
+            "installAgentPlugins"
+            "installHeadroomUvTools"
+          ]
+          ''
+            $DRY_RUN_CMD ${pkgs.python313}/bin/python3 \
+              ${../../../scripts/reconcile_claude_direct_routing.py}
+          '';
     };
 }
