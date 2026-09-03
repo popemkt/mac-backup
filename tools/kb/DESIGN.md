@@ -24,7 +24,7 @@ per-invocation CLI (fresh db each run); if we later add watch-mode or a server,
 | Query | **DataScript** in-memory, rebuilt per invocation | real datalog; Cozo persistent backends are binary |
 | Surfaces | **CLI + MCP over one action registry** | action is the abstraction (harman pattern) |
 | Runtime | **Bun**, no build step | the production `kb` tool (CLI, `kb ui` server, MCP) runs under Bun and may use Bun APIs (`Bun.serve`, `Bun.file`, …) where appropriate |
-| Toolchain | **TypeScript 7 + Vite+ (`vp` 0.2.8)** | vp owns lint/check/fmt/UI test; authoritative typecheck is `tsc --noEmit` — see [Runtime/tooling boundary](#runtime-tooling-boundary) |
+| Toolchain | **TypeScript 7 + Vite+ (`vp` 0.2.8)** | vp owns lint/check/fmt/UI test; authoritative typecheck is `tsc --noEmit` — see [Runtime/tooling boundary](#runtimetooling-boundary) |
 | Model | **Everything is a node** — fields and tags included | Tana model; Logseq DB does the same (properties are first-class entities) |
 
 ## Workspace shape
@@ -138,6 +138,98 @@ violations, style-only with no soundness gain).
 - `bunfig.toml` `[install]` sets `minimumReleaseAge` (3 days) and an explicit
   `trustedDependencies` allowlist, which is empty: nothing in this tree runs
   code at install time.
+
+## Spec-first changes
+
+This file is the spec; the code is one materialization of it. A change edits
+the spec section first, in the same change and earlier in commit order, then
+the code follows. If the section cannot be written, the code cannot be written:
+vagueness in prose is the cheapest place to discover an under-specified
+decision, and vagueness in code is the most expensive. When the implementation
+wants something the spec does not authorize, that is a signal to revise the
+spec — not a licence to expand intent quietly in the implementation.
+
+When the spec must temporarily lag the code, the lag is written down first: a
+`#gap` node and a `// GAP [[id]]` marker (see
+[Drift markers and gaps](../../CLAUDE.md#drift-markers-and-gaps)). The goal is
+not zero drift; the goal is visible, intentional drift.
+
+## Testing doctrine
+
+The long form of the evidence behind this section is
+`docs/kb-waves/2026-09-03/reports/recon-draiver.md` §4; what follows is the
+part that governs kb.
+
+**Properties are design artifacts, not test volume.** A property states a
+falsifiable domain claim, and falsifiability runs from the **rejecting** side:
+an accept-everything round-trip is not a property. Three anti-patterns are
+named so a reviewer can cite them:
+
+| anti-pattern | shape | why it has no power |
+|---|---|---|
+| TAUTOLOGY | the oracle re-implements the function under test | passes for every implementation, including a wrong one |
+| STRUCTURAL | asserts what the type system or `Schema` already guarantees | the negation is unrepresentable |
+| quantifier theatre | `fc.constantFrom` over two or three values, or a filtered generator wearing a `forall` | claims coverage it does not have |
+
+The keeper classes are metamorphic relations (idempotence, injectivity,
+invariance, erasure — `store-roundtrip`, `order`, `mentions` are all of this
+kind), fail-closed backstops, precedence, conservation/projection, and
+cross-function agreement. Mutate one field and assert the rejection *names the
+violated path*. Determinism is mandatory: no wall clock, no unseeded
+randomness, fixed seed in CI, and a failure prints seed plus counterexample. A
+pure function is not by itself a reason to write a property.
+
+**Coverage is a signal, never a gate.** It may be reported; there is no
+"fail below N%" check and there will not be one. Chasing a percentage
+manufactures exactly the noise this doctrine forbids.
+
+**The mutation score is advisory.** Stryker runs weekly over the pure core with
+no `thresholds` block, and its own workflow header records that the score is
+non-reproducible run to run. It is a sensor a human reads to find a missing
+test; a non-deterministic merge blocker erodes trust in every other gate.
+
+**Size is a signal; boundaries and branching are the gate (L1/L2/L3).**
+
+- **L1 — structural, hard (`error`).** Cross-unit coupling: import cycles,
+  layer direction, a unit reaching past another's public surface. Mechanical
+  and non-negotiable.
+- **L2 — within-unit sensors, two tiers.** *Branching* sensors (`complexity`,
+  `max-depth`, `max-nested-callbacks`) are hard, because they measure shape
+  directly. *Size* sensors (`max-lines`, `max-lines-per-function`,
+  `max-params`) only ever `warn`: a legitimately large cohesive unit is real,
+  and a length cap forces exactly the bad split a reviewer would have to
+  reverse. A long but flat body of well-named steps is good code.
+- **L3 — cohesion, advisory.** "Is this one responsibility?" is a review
+  judgement, never a merge blocker.
+
+A unit may be long; it may not be tangled.
+
+## Domain typing — Effect `Schema`
+
+Once a domain value is parsed, narrowing on its discriminator hands back the
+right field shape with no further checks: no `!`, no `as`, no field that
+"exists for one variant but not another".
+
+- **No optional-where-discriminated.** If a field is sometimes present and the
+  rule for when it appears is encodable, do not write `field?: T` — lift the
+  rule into a discriminator. The live violation is `KbNode.order?`: a
+  fractional sibling rank marked "optional during migration", absent from
+  `KbNodeSchema` altogether, surviving the round trip only because decode runs
+  with `onExcessProperty: "preserve"`. The one field the outline depends on for
+  ordering is invisible to the schema, and any backend with a real column or a
+  stricter decode drops it silently. Track 2 fixes it
+  (`briefs/p1-persistence.md`); this section records it until then.
+- **Discriminators are literals**, never `Schema.String`. `PropValue.t`,
+  `ActionReceipt.status`, `ServerMessage.op`, `MemberReason.kind` and
+  `DomainError.code` are the model's discriminators and each is a literal
+  union; a `switch` over one is exhaustive by construction.
+- **One canonical schema, never re-declared inline.** A shared shape is
+  declared once and referenced. An inline copy that drifts by one field is the
+  classic way to drop data on a round trip.
+- **Parse `unknown` at every boundary.** A boundary's parameter is `unknown`
+  and its first act is a decode; that is validation, not a cast. Finding
+  yourself writing `node.props[id]!` means the schema is too loose — tighten
+  the schema, do not bypass the type.
 
 ## Data model — everything is a node
 
@@ -266,12 +358,15 @@ interface Store {
 
 - **JsonlStore v1**: `.kb/nodes.jsonl`, one canonical-JSON node per line,
   sorted by id, sorted keys → stable bytes, mergeable diffs.
-- **Performance is a stated requirement**: streaming line parse (no
-  read-whole-string-then-split), single-pass datom build, durable whole-file
-  replace (below). Milestone 1 includes
-  a benchmark: 50k-node fixture must load+query well under 1s. (Will peek at
-  orca's jsonstore for tricks.) `.bak` / `nodes.jsonl.*.tmp` are gitignored —
-  only the live `nodes.jsonl` is committed. The transient
+- **Performance is a stated requirement**, and what the code does today is:
+  read the whole file into one string, split on newlines, decode each line
+  through `Schema`; single-pass datom build; durable whole-file replace
+  (below). Load is **not** a streaming line parse — this doc claimed one for a
+  while and the code never had it. The streaming parse is a target, not a
+  description, and the wave that owns it is `briefs/p1-persistence.md`.
+  `tests/benchmark.test.ts` holds the standing bar: a 50k-node fixture loads,
+  builds and queries well under a second. `.bak` / `nodes.jsonl.*.tmp` are
+  gitignored — only the live `nodes.jsonl` is committed. The transient
   `nodes.jsonl.lock` is *not* yet gitignored (known gap).
 - **Write hardening** (r4 Stage-0 — on-disk format unchanged), two modules
   in `@kb/store-jsonl`:
@@ -293,8 +388,13 @@ interface Store {
   JSON properties on otherwise-valid nodes are preserved across decode so a later
   commit cannot silently drop them.
 - Backend-agnostic by construction — operations/query/surfaces see only
-  `Store` + `KbNode`. Future backends (SQLite cache, dolt, md-outline) slot in
-  without touching upper layers.
+  `Store` + `KbNode`. The candidate second backends are **not** an open field
+  any more: `briefs/p1-persistence.md` §0 is the canonical record of what was
+  measured and rejected (Logseq's own fork — opaque Transit blobs, and their
+  answer to git is "export markdown" — plus Cozo, Kuzu, Mentat, Datahike/XTDB,
+  the server-backed graph databases, and the CRDT stores). What survives is a
+  `bun:sqlite` **index**: derived, gitignored, fingerprinted against the JSONL,
+  deletable at any time, and never authoritative — the type must say so.
 - No WAL, no leases — repo scale. The lock above is advisory, filesystem-local
   and process-scoped; it serializes writers but does not make a *reader's*
   snapshot binding. Conditional writes (an `expect` precondition carrying graph
