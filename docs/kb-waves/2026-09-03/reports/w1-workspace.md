@@ -234,6 +234,10 @@ Three further findings came from the checks' own first run, and are fixed:
 The first two commits exist so the big move is a pure `git mv`: `git log
 --follow` works for every moved file.
 
+`git log --follow` survives the move: `git log --follow --oneline --
+tools/kb/packages/model/src/model.ts` still reaches `57d9c53 feat: add kb M1
+core`.
+
 ## 9. Shared-file touches outside `tools/kb`
 
 | File | Change |
@@ -275,8 +279,8 @@ Final:
 | Command | Result |
 |---|---|
 | `bun run typecheck` (`nx run-many`, 17 projects) | **pass** |
-| `bun test packages` | **330 pass / 1 fail**, 41 files — see the wall-clock note below |
-| `bun run test:ui` (`vp test`) | **629 pass / 1 fail**, 89 files — same note |
+| `bun test packages` | **331 pass / 0 fail**, 41 files |
+| `bun run test:ui` (`vp test`) | **630 pass / 0 fail**, 89 files |
 | `bun run lint` (`oxlint --type-aware packages`) | **exit 0**, 64 warnings, 0 errors |
 | `bun run knip` | **exit 0**, config hints only |
 | `bun run harness` | **19 pass / 0 fail** |
@@ -284,8 +288,10 @@ Final:
 | `bin/kb --version` / `kb search` / `kb mcp --help` | **pass** |
 | `packages/cli/src/bin/docs-check.ts` | **pass** (`kb docs: clean (1 view)`) |
 
-**The two failures are wall-clock bars, not assertions about behaviour, and
-both pass in isolation on this machine.**
+Both suites are green on the branch head. **Two tests in them are wall-clock
+bars, not assertions about behaviour, and they fail intermittently while
+something heavy (a `nix build`) shares the machine.** Recorded because the next
+worker will see them flake, not because this wave broke them:
 
 - `benchmark 50k > load + query well under 1s` (`@kb/store-jsonl`) —
   `expect(totalMs).toBeLessThan(1000)` over a 50k-node write + load + index.
@@ -298,8 +304,9 @@ both pass in isolation on this machine.**
   (`@kb/ui`) — same class. `vp test src/lib/palette-index.test.ts` alone:
   **3 passed**.
 
-Neither is a regression this wave introduced, and neither is something a
-structural wave should "fix" by moving the number. Both belong with the
+Neither is a regression this wave introduced — both were green on the final
+run at load average 140, and red on an earlier run at load average 72 — and
+neither is something a structural wave should "fix" by moving the number. Both belong with the
 coverage/perf doctrine `r2` writes into `DESIGN.md`: a wall-clock bar inside a
 parallel suite is a flake generator, and these two should become advisory
 measurements rather than gates.
