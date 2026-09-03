@@ -80,17 +80,28 @@ The backend runs on **Bun** in production; the toolchain around it is **Vite+
   needs happy-dom, `vi.mock` hoisting and fake timers. `bunfig.toml` states
   that split once (`pathIgnorePatterns = ["**/packages/ui/**"]`) instead of
   naming individual files.
-- TypeScript 7 removed `baseUrl`. `tsconfig.base.json` holds the flags; each
-  package declares only its delta and no `paths` beyond `@kb/ui`'s
-  intra-package `@/*`.
+- TypeScript 7 removed `baseUrl`. `tsconfig.base.json` holds the flags, two
+  runtime presets hold the runtime keys, and each package declares only its
+  `include` and no `paths` beyond `@kb/ui`'s intra-package `@/*`.
 
 ### Compiler strictness contract
 
-One `tsconfig.base.json` owns compiler strictness; every package extends it
-and declares only its runtime delta (`target`, `module`, `moduleResolution`,
-`lib`, etc.). Packages may not redeclare any key the base owns. The table below
-is the single source of truth; harness check `tsconfig-contract` parses it live
-and asserts `tsconfig.base.json` matches it bit-for-bit.
+Three files, three jobs. `tsconfig.base.json` owns compiler strictness and
+nothing else — no `target`, `module`, `moduleResolution`, `lib`, `jsx`,
+`paths`, `types`, or `include`. Two runtime presets extend it and own the
+runtime keys: `tsconfig.bun.json` (Bun target/module/lib, `types: ["bun"]`,
+`allowImportingTsExtensions`, `noEmit`, and the one authored copy of the
+`@effect/language-service` plugin block) and `tsconfig.browser.json` (DOM lib,
+`jsx`, no Effect plugin). A package tsconfig names its `include` and the preset
+its `scope` tag selects — `scope:browser` gets the browser preset, every other
+scope gets the Bun one — and declares a compiler option only when
+`SANCTIONED_TSCONFIG_DELTAS` in `@kb/harness` records why it cannot be
+inherited (today: `@kb/render-tests`'s DOM `lib`, `@kb/ui`'s `@/*` `paths`).
+
+The table below is the single source of truth for strictness; harness check
+`tsconfig-contract` parses it live and asserts `tsconfig.base.json` matches it
+bit-for-bit, that neither preset redeclares a base flag, and that no package
+redeclares a key its base or preset already owns.
 
 | flag | value | status |
 |---|---|---|

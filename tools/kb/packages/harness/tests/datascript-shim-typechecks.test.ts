@@ -19,6 +19,8 @@ describe("datascript-shim-typechecks", () => {
   const shimPath = join(WORKSPACE_ROOT, "packages", "query", "src", "datascript.d.ts");
   const implPath = join(WORKSPACE_ROOT, "packages", "query", "src", "datascript.ts");
 
+  // Spawns a whole tsc; under the full harness run it shares the box with
+  // oxlint and effect-tsgo, so the 5 s default is not enough.
   test("datascript.d.ts exists and compiles under skipLibCheck: false in isolation", () => {
     expect(existsSync(shimPath)).toBe(true);
     expect(existsSync(implPath)).toBe(true);
@@ -59,5 +61,5 @@ describe("datascript-shim-typechecks", () => {
       exitCode,
       `Isolated tsc with skipLibCheck:false failed (code ${exitCode}):\n${output}`,
     ).toBe(0);
-  });
+  }, 60_000);
 });

@@ -50,3 +50,32 @@ export const OFF_CATALOG_BY_DECISION: Record<string, string> = {
   "vite-plus": "0.2.8",
   vite: "npm:@voidzero-dev/vite-plus-core@0.2.8",
 };
+
+/**
+ * `tsconfig.base.json` is the strictness contract and nothing else. Two runtime
+ * presets extend it, and a package picks one — by the `scope` tag it already
+ * carries, not by a name restated per package. `scope:browser` compiles against
+ * a DOM; every other scope compiles against Bun.
+ */
+export const RUNTIME_PRESET_BY_SCOPE: Record<string, string> = {
+  shared: "tsconfig.bun.json",
+  backend: "tsconfig.bun.json",
+  browser: "tsconfig.browser.json",
+  "test-support": "tsconfig.bun.json",
+  tooling: "tsconfig.bun.json",
+};
+
+/**
+ * The only compiler options a package tsconfig may declare on top of its
+ * preset, per package, each with the reason it cannot be inherited. Anything
+ * absent from this table is a redeclaration: fix the preset, not the package.
+ */
+export const SANCTIONED_TSCONFIG_DELTAS: Record<string, Record<string, string>> = {
+  "render-tests": {
+    lib: "Playwright `page.evaluate` bodies typecheck against the browser realm, so this one Bun package also needs the DOM lib. Widening the Bun preset would let backend code reference `document`.",
+  },
+  ui: {
+    paths:
+      "`@/*` is ui's own intra-package source alias, not a workspace alias map; `@kb/*` still resolve as real packages.",
+  },
+};

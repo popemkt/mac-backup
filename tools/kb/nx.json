@@ -3,6 +3,8 @@
   "namedInputs": {
     "sharedGlobals": [
       "{workspaceRoot}/tsconfig.base.json",
+      "{workspaceRoot}/tsconfig.bun.json",
+      "{workspaceRoot}/tsconfig.browser.json",
       "{workspaceRoot}/.oxlintrc.json",
       "{workspaceRoot}/bun.lock"
     ],

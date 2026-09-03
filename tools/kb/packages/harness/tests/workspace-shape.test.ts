@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { LAYER_ALLOWS, SCOPE_ALLOWS } from "../src/constraints.ts";
 import {
@@ -63,18 +63,6 @@ describe("workspace-shape", () => {
       else if (!(layers[0]! in LAYER_ALLOWS)) bad.push(`${dir}: unknown layer:${layers[0]}`);
       if (scopes.length !== 1) bad.push(`${dir}: scope tags ${JSON.stringify(scopes)}`);
       else if (!(scopes[0]! in SCOPE_ALLOWS)) bad.push(`${dir}: unknown scope:${scopes[0]}`);
-    }
-    expect(bad, bad.join("\n")).toEqual([]);
-  });
-
-  test("every package tsconfig extends the one base", () => {
-    const bad: string[] = [];
-    for (const { dir } of workspacePackages()) {
-      const path = join(PACKAGES_ROOT, dir, "tsconfig.json");
-      if (!existsSync(path)) continue;
-      if (!readFileSync(path, "utf8").includes('"extends": "../../tsconfig.base.json"')) {
-        bad.push(`${dir}: tsconfig does not extend ../../tsconfig.base.json`);
-      }
     }
     expect(bad, bad.join("\n")).toEqual([]);
   });

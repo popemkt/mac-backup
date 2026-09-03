@@ -115,3 +115,51 @@ export function tagsOf(manifest: PackageManifest): string[] {
 export function axisValues(tags: string[], axis: "layer" | "scope"): string[] {
   return tags.filter((t) => t.startsWith(`${axis}:`)).map((t) => t.slice(axis.length + 1));
 }
+
+export interface Tsconfig {
+  extends?: string;
+  include?: string[];
+  exclude?: string[];
+  compilerOptions?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+/**
+ * tsconfig files are JSONC. Comments are stripped outside of string literals,
+ * so a `"$schema": "https://…"` value survives the pass.
+ */
+export function readTsconfig(path: string): Tsconfig {
+  const src = readFileSync(path, "utf8");
+  let out = "";
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < src.length; i += 1) {
+    const ch = src.charAt(i);
+    if (inString) {
+      out += ch;
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      out += ch;
+      continue;
+    }
+    if (ch === "/" && src.charAt(i + 1) === "/") {
+      while (i < src.length && src.charAt(i) !== "\n") i += 1;
+      out += "\n";
+      continue;
+    }
+    if (ch === "/" && src.charAt(i + 1) === "*") {
+      i += 2;
+      while (i < src.length && !(src.charAt(i) === "*" && src.charAt(i + 1) === "/")) i += 1;
+      i += 1;
+      continue;
+    }
+    out += ch;
+  }
+  return JSON.parse(out) as Tsconfig;
+}

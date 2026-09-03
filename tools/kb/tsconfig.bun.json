@@ -1,0 +1,52 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext"],
+    "types": ["bun"],
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "includeSuggestionsInTsc": true,
+        "ignoreEffectSuggestionsInTscExitCode": true,
+        "diagnosticSeverity": {
+          "floatingEffect": "error",
+          "missingEffectError": "error",
+          "missingEffectContext": "error",
+          "missingLayerContext": "error",
+          "missingStarInYieldEffectGen": "error",
+          "missingReturnYieldStar": "error",
+          "outdatedApi": "error",
+          "classSelfMismatch": "error",
+          "duplicatePackage": "error",
+          "anyUnknownInErrorContext": "suggestion",
+          "unsupportedServiceAccessors": "error",
+          "tryCatchInEffectGen": "suggestion",
+          "runEffectInsideEffect": "suggestion",
+          "leakingRequirements": "suggestion",
+          "unknownInEffectCatch": "suggestion",
+          "globalErrorInEffectCatch": "suggestion",
+          "globalErrorInEffectFailure": "suggestion",
+          "multipleEffectProvide": "suggestion",
+          "scopeInLayerEffect": "suggestion",
+          "lazyEffect": "suggestion",
+          "schemaNumber": "suggestion",
+          "unnecessaryFailYieldableError": "suggestion",
+          "processEnv": "suggestion",
+          "globalDate": "suggestion",
+          "globalConsole": "suggestion",
+          "globalRandom": "suggestion",
+          "globalTimers": "suggestion",
+          "asyncFunction": "suggestion",
+          "missedPipeableOpportunity": "off",
+          "effectFnOpportunity": "off",
+          "importFromBarrel": "off"
+        }
+      }
+    ]
+  }
+}
