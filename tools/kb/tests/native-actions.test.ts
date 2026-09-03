@@ -18,7 +18,8 @@ import {
   resetRegistryCache,
 } from "../src/registry.ts";
 import type { ActionEffectHandler } from "../src/shared/contracts.ts";
-import type { EffectStore, StoreTx } from "../src/foundation/storage/index.ts";
+import type { EffectStore } from "../src/foundation/storage/index.ts";
+import type { StoreTx } from "../src/foundation/tx-validation.ts";
 import type { KbNode } from "../src/foundation/model.ts";
 
 /** Under tests/ so fixture extensions resolve zod via tools/kb/node_modules. */

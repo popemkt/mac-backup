@@ -1,5 +1,6 @@
 import type { Effect } from "effect";
 import { z } from "zod";
+import type { FailureCode } from "../foundation/failure.ts";
 import {
   type ActionSchema,
   schemaToJsonSchema,
@@ -7,18 +8,6 @@ import {
 
 export const ActionModeSchema = z.enum(["read", "apply"]);
 export type ActionMode = z.infer<typeof ActionModeSchema>;
-
-export const FailureCodeSchema = z.enum([
-  "not_found",
-  "invalid_input",
-  "ambiguous",
-  "conflict",
-  "invalid_move",
-  "forbidden",
-  "internal",
-  "unknown_action",
-]);
-export type FailureCode = z.infer<typeof FailureCodeSchema>;
 
 /**
  * Effect-native action handler. Input is already schema-parsed; services

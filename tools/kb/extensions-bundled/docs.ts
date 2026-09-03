@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import { KbCtx } from "../src/context.ts";
-import type { ExtensionAction } from "../src/extensions.ts";
+import type { ExtensionAction } from "../src/shared/extension.ts";
 import {
   DocsError,
   loadViewsEffect,

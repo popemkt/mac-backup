@@ -1,4 +1,4 @@
-import type { FailureCode } from "../shared/contracts.ts";
+import type { FailureCode } from "./failure.ts";
 import { SYSTEM_IDS, type KbNode, type NodeId } from "./model.ts";
 import { typeRefsOf } from "./ontology.ts";
 

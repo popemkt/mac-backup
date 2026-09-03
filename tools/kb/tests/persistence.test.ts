@@ -26,8 +26,8 @@ import {
   JsonlStore,
   canonicalJson,
   type EffectStore,
-  type StoreTx,
 } from "../src/foundation/storage/index.ts";
+import type { StoreTx } from "../src/foundation/tx-validation.ts";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-persist-"));

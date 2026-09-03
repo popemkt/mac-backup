@@ -1,12 +1,8 @@
 import type { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import type { DomainError } from "../errors.ts";
-import type { KbNode, NodeId } from "../model.ts";
-
-export interface StoreTx {
-  upserts: KbNode[];
-  deletes: NodeId[];
-}
+import type { KbNode } from "../model.ts";
+import type { StoreTx } from "../tx-validation.ts";
 
 /**
  * Promise-shaped Store retained for tests, benchmarks, and `KbContext.store`.

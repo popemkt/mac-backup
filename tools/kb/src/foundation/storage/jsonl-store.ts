@@ -7,7 +7,8 @@ import { bunFileSystemLayer } from "../platform.ts";
 import { canonicalJson } from "./canonical.ts";
 import { durableReplaceFile } from "./durable-replace.ts";
 import { KbNodeSchema, nodeParseOptions } from "./node-schema.ts";
-import type { EffectStore, Store, StoreTx } from "./store.ts";
+import type { EffectStore, Store } from "./store.ts";
+import type { StoreTx } from "../tx-validation.ts";
 import {
   acquireNodesWriteLockEffect,
   ensureDomainError,

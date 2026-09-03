@@ -1,29 +1,26 @@
 import { Effect } from "effect";
 import type { KbNode } from "./foundation/model.ts";
-import type { StoreTx } from "./foundation/storage/index.ts";
-import {
-  bunFileSystemLayer,
-  kbStoreLayer,
-  openKbEffect,
-  persistEffect,
-  reloadEffect,
-  type KbContext,
-} from "./foundation/services.ts";
+import type { StoreTx } from "./foundation/tx-validation.ts";
+import { bunFileSystemLayer } from "./foundation/platform.ts";
+import { kbStoreLayer, type KbContext } from "./foundation/session.ts";
+import { openKbEffect } from "./foundation/services.ts";
+import { persistEffect, reloadEffect } from "./operations/session.ts";
 
-export type { KbContext } from "./foundation/services.ts";
+export type { KbContext } from "./foundation/session.ts";
 export {
   KbCtx,
   KbStore,
-  bunFileSystemLayer,
-  jsonlStoreLayer,
   kbCtxLayer,
-  kbRuntimeLayer,
   kbStoreLayer,
+} from "./foundation/session.ts";
+export { bunFileSystemLayer } from "./foundation/platform.ts";
+export {
+  jsonlStoreLayer,
+  kbRuntimeLayer,
   openKbEffect,
-  persistEffect,
-  reloadEffect,
   runWithKb,
 } from "./foundation/services.ts";
+export { persistEffect, reloadEffect } from "./operations/session.ts";
 
 export async function openKb(root: string): Promise<KbContext> {
   return Effect.runPromise(

@@ -1,4 +1,4 @@
-export type { EffectStore, Store, StoreTx } from "./store.ts";
+export type { EffectStore, Store } from "./store.ts";
 export { JsonlStore, asPromiseStore } from "./jsonl-store.ts";
 export { canonicalJson } from "./canonical.ts";
 export { durableReplaceFile } from "./durable-replace.ts";

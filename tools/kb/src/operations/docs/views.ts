@@ -2,7 +2,7 @@ import { isAbsolute, join, normalize } from "node:path";
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import type { FailureCode } from "../../shared/contracts.ts";
+import type { FailureCode } from "../../foundation/failure.ts";
 
 /** Typed failure for docs operations; registry maps it to a receipt. */
 export class DocsError extends Error {

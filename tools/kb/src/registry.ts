@@ -5,11 +5,11 @@ import {
   type ActionEffectHandler,
   type ActionInvocation,
   type ActionReceipt,
-  FailureCodeSchema,
   actionToManifestEntry,
   failed,
   succeeded,
 } from "./shared/contracts.ts";
+import { FailureCodeSchema } from "./foundation/failure.ts";
 import {
   KbCtx,
   KbStore,
@@ -28,14 +28,13 @@ import {
   receiptCodeOf,
   type DomainError,
 } from "./foundation/errors.ts";
-import {
-  discoverExtensions,
-  namespacedId,
-  type ExtensionAction,
-  type ExtensionFailure,
-  type ExtensionPromiseHandler,
-  type LoadedExtension,
-} from "./extensions.ts";
+import { discoverExtensions, namespacedId } from "./extensions.ts";
+import type {
+  ExtensionAction,
+  ExtensionFailure,
+  ExtensionPromiseHandler,
+  LoadedExtension,
+} from "./shared/extension.ts";
 import bundledDocs from "../extensions-bundled/docs.ts";
 import bundledCanvas from "../extensions-bundled/canvas.ts";
 import {

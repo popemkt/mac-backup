@@ -1,58 +1,23 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import type {
-  ActionDefinition,
-  ActionEffectHandler,
-} from "./shared/contracts.ts";
-import type { KbContext } from "./context.ts";
 import { isActionSchema } from "./foundation/schema-seam.ts";
+import type {
+  ExtensionAction,
+  ExtensionFailure,
+  LoadedExtension,
+} from "./shared/extension.ts";
 
 /**
- * Extension seam: a TS module in `.kb/extensions/` (repo-local = trusted)
- * default-exports an array of harman-style actions — an `ActionDefinition`
- * plus either an Effect `effect` handler (preferred) or a legacy Promise
- * `handler`. The registry namespaces each action id as
- * `ext.<file>.<action>` at build time. Loader failures warn and skip the
- * offending file/action; they never crash core.
+ * Extension loader: discovers, imports and validates the TS modules in
+ * `.kb/extensions/` against the extension contract. The registry namespaces
+ * each action id as `ext.<file>.<action>` at build time. Loader failures warn
+ * and skip the offending file/action; they never crash core.
  *
  * Schemas accept Standard Schema v1 (`~standard`) or zod `.parse` (zod 4
  * implements both). Third-party extensions typically ship Promise handlers;
  * bundled extensions use Effect-native `effect`.
  */
-export type ExtensionPromiseHandler = (
-  ctx: KbContext,
-  input: never,
-) => Promise<unknown>;
-
-export type ExtensionAction = ActionDefinition & {
-  /** Extra top-level ids this action also answers to (compat shims). */
-  aliases?: readonly string[];
-} & (
-  | {
-      effect: ActionEffectHandler;
-      handler?: ExtensionPromiseHandler;
-    }
-  | {
-      handler: ExtensionPromiseHandler;
-      effect?: ActionEffectHandler;
-    }
-);
-
-export interface LoadedExtension {
-  /** File basename without `.ts`; becomes the `ext.<name>.` namespace. */
-  name: string;
-  /** "bundled" or the absolute path of the source module. */
-  source: string;
-  /** Actions as authored (ids still local, un-namespaced). */
-  actions: readonly ExtensionAction[];
-}
-
-export interface ExtensionFailure {
-  file: string;
-  error: string;
-}
-
 export function extensionsDir(root: string): string {
   return join(root, ".kb", "extensions");
 }

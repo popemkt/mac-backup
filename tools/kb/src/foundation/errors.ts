@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import type { FailureCode } from "../shared/contracts.ts";
+import type { FailureCode } from "./failure.ts";
 import { ResolveError } from "./resolve.ts";
 
 /**

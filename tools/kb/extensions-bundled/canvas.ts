@@ -3,7 +3,7 @@ import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import type { KbContext } from "../src/context.ts";
 import { KbCtx, KbStore, persistEffect } from "../src/context.ts";
-import type { ExtensionAction } from "../src/extensions.ts";
+import type { ExtensionAction } from "../src/shared/extension.ts";
 import {
   SYSTEM_IDS,
   isSysPrefixed,

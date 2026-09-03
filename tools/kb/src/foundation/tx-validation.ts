@@ -1,5 +1,14 @@
 import type { KbNode, NodeId } from "./model.ts";
-import type { StoreTx } from "./storage/store.ts";
+
+/**
+ * One store transaction: the nodes to write and the ids to drop. The shape
+ * the domain validates, so it is authored here rather than on the port that
+ * transports it.
+ */
+export interface StoreTx {
+  upserts: KbNode[];
+  deletes: NodeId[];
+}
 
 /** Validate the prospective outline before it can be persisted. */
 export function txIntegrityError(previous: KbNode[], tx: StoreTx): string | null {
