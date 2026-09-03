@@ -275,14 +275,34 @@ Final:
 | Command | Result |
 |---|---|
 | `bun run typecheck` (`nx run-many`, 17 projects) | **pass** |
-| `bun test packages` | **331 pass / 0 fail**, 41 files |
-| `bun run test:ui` (`vp test`) | **630 pass**, 89 files |
+| `bun test packages` | **330 pass / 1 fail**, 41 files — see the wall-clock note below |
+| `bun run test:ui` (`vp test`) | **629 pass / 1 fail**, 89 files — same note |
 | `bun run lint` (`oxlint --type-aware packages`) | **exit 0**, 64 warnings, 0 errors |
 | `bun run knip` | **exit 0**, config hints only |
 | `bun run harness` | **19 pass / 0 fail** |
-| `nix build .#kb` | see §12 |
+| `nix build .#kb` | **pass**; `result/bin/kb --version` → `0.1.0`, SPA at `result/lib/kb/packages/ui/dist/index.html` |
 | `bin/kb --version` / `kb search` / `kb mcp --help` | **pass** |
 | `packages/cli/src/bin/docs-check.ts` | **pass** (`kb docs: clean (1 view)`) |
+
+**The two failures are wall-clock bars, not assertions about behaviour, and
+both pass in isolation on this machine.**
+
+- `benchmark 50k > load + query well under 1s` (`@kb/store-jsonl`) —
+  `expect(totalMs).toBeLessThan(1000)` over a 50k-node write + load + index.
+  The plan already lists `tests/benchmark.test.ts` as known-red at base and
+  not any worker's (Track 2). Measured here: **892 ms run alone (passes)**,
+  1020–1120 ms inside the parallel suite, on a machine sitting at load average
+  **72**. To rule out D7 as the cause I re-pinned `datascript` to `1.7.8` and
+  re-measured: **1355–1538 ms** — the bump made it *faster*, not slower.
+- `palette index > meets perf bar at 50k nodes: open <50ms, keystroke <10ms`
+  (`@kb/ui`) — same class. `vp test src/lib/palette-index.test.ts` alone:
+  **3 passed**.
+
+Neither is a regression this wave introduced, and neither is something a
+structural wave should "fix" by moving the number. Both belong with the
+coverage/perf doctrine `r2` writes into `DESIGN.md`: a wall-clock bar inside a
+parallel suite is a flake generator, and these two should become advisory
+measurements rather than gates.
 
 The `bun test` count falls from 917 to 331 because `@kb/ui`'s suite no longer
 runs twice. At base, recursive `bun test` picked up most of `ui/**` (minus six
@@ -318,10 +338,18 @@ FOD hashes:
 | Derivation | Old | New |
 |---|---|---|
 | `kb-cli-js` | `sha256-xH5MWLjClFD8wkPPOYNmUIu/x/FJJbVXOEf/6AgnLfk=` | `sha256-8SvezBj2fh5lh9MKkUOgkV/EDKaoO6LG+gvWvm0oA+Q=` |
-| `kb-ui-dist` | `sha256-HSLgAbMWQSa8BIuOFlvEffztRs6HSSLnAKUIYG1T93E=` | _see below_ |
+| `kb-ui-dist` | `sha256-HSLgAbMWQSa8BIuOFlvEffztRs6HSSLnAKUIYG1T93E=` | `sha256-rS/ZKsgaQIdVZ7Pf+TQ3Z3rZWSvZIAHXU95JM5S0O2Y=` |
 
-STATUS: pending — the final `kb-ui-dist` hash and the `result/bin/kb
---version` smoke are filled in by the last commit on the branch.
+`nix build .#kb` passes. `./result/bin/kb --version` prints `0.1.0` and the
+baked SPA is at `result/lib/kb/packages/ui/dist/index.html`.
+
+**The `pkgs/` commit forced an unrelated one.** `intent/gate.sh` blocks any
+commit touching `nvfetcher.toml`, `_sources/` or `pkgs/` while GitHub release
+pins are stale, and two were (`cli-proxy-api` 7.2.147 → 7.2.149, `genoffice`
+0.8.970 → 0.8.1039). The gate's prescribed remedy is
+`nix run .#github-sources -- update`, which is what the scheduled updater
+workflow would have done on its own within two days. That refresh is its own
+commit on this branch and has nothing to do with w1 — call it out at merge.
 
 ## 13. Gaps (text for `r2` to file as `#gap` nodes)
 
