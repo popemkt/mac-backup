@@ -7,7 +7,7 @@
  * see `tests/ext-sdk-fresh.test.ts`.
  *
  * Authors: `kb ext sdk --write`, then
- * `import type { ExtensionAction } from "kb-ext-sdk"`.
+ * `import type { ExtensionAction, ExtensionTemplate } from "kb-ext-sdk"`.
  * Prefer Promise `handler`s; the `effect` branch is typed for completeness
  * but Effect v4 remains an internal/bundled concern.
  */
@@ -129,6 +129,31 @@ export type ExtensionAction = ActionDefinition & {
       }
   );
 
+/**
+ * Render templates: named functions (query rows -> markdown) that a view
+ * spec (`.kb/views/<name>.json`) references by id. Contributed exactly like
+ * an action — same default-exported array, same `ext.<file>.<id>`
+ * namespacing, same optional bare-id `aliases`. Must be deterministic.
+ */
+export interface TemplateContext {
+  nodes: Map<NodeId, KbNode>;
+  /** Unique-text lookup among sys.field nodes; undefined if absent or ambiguous. */
+  fieldIdByName(name: string): NodeId | undefined;
+}
+
+export type TemplateFn = (rows: unknown[][], ctx: TemplateContext) => string;
+
+export interface ExtensionTemplate {
+  /** Local id; the registry namespaces it as `ext.<file>.<id>`. */
+  id: string;
+  /** Extra top-level ids this template also answers to (compat shims). */
+  aliases?: readonly string[];
+  template: TemplateFn;
+}
+
+/** One entry of an extension module's default-exported array. */
+export type ExtensionContribution = ExtensionAction | ExtensionTemplate;
+
 export interface LoadedExtension {
   /** File basename without `.ts`; becomes the `ext.<name>.` namespace. */
   name: string;
@@ -136,6 +161,8 @@ export interface LoadedExtension {
   source: string;
   /** Actions as authored (ids still local, un-namespaced). */
   actions: readonly ExtensionAction[];
+  /** Templates as authored (ids still local, un-namespaced). */
+  templates: readonly ExtensionTemplate[];
 }
 
 export interface ExtensionFailure {

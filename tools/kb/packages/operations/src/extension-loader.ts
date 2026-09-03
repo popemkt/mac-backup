@@ -2,13 +2,18 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isActionSchema } from "@kb/model";
-import type { ExtensionAction, ExtensionFailure, LoadedExtension } from "@kb/contracts";
+import type {
+  ExtensionAction,
+  ExtensionFailure,
+  ExtensionTemplate,
+  LoadedExtension,
+} from "@kb/contracts";
 
 /**
  * Extension loader: discovers, imports and validates the TS modules in
  * `.kb/extensions/` against the extension contract. The registry namespaces
- * each action id as `ext.<file>.<action>` at build time. Loader failures warn
- * and skip the offending file/action; they never crash core.
+ * every contributed id as `ext.<file>.<id>` at build time. Loader failures
+ * warn and skip the offending file/contribution; they never crash core.
  *
  * Schemas accept Standard Schema v1 (`~standard`) or zod `.parse` (zod 4
  * implements both). Third-party extensions typically ship Promise handlers;
@@ -18,17 +23,35 @@ export function extensionsDir(root: string): string {
   return join(root, ".kb", "extensions");
 }
 
-export function namespacedId(extName: string, actionId: string): string {
-  return `ext.${extName}.${actionId}`;
+export function namespacedId(extName: string, localId: string): string {
+  return `ext.${extName}.${localId}`;
 }
 
 const NAME_RE = /^[\w][\w.-]*$/;
 
-function actionProblem(value: unknown): string | null {
-  if (typeof value !== "object" || value === null) {
-    return "action is not an object";
+/** The one narrowing seam: unknown module exports viewed as a plain record. */
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function aliasesProblem(a: Record<string, unknown>, label: string): string | null {
+  if (
+    a.aliases !== undefined &&
+    (!Array.isArray(a.aliases) || a.aliases.some((x) => typeof x !== "string"))
+  ) {
+    return `${label}: aliases must be a string array`;
   }
-  const a = value as Record<string, unknown>;
+  return null;
+}
+
+function templateProblem(t: Record<string, unknown>): string | null {
+  if (typeof t.id !== "string" || !NAME_RE.test(t.id)) {
+    return "template id must match /^[\\w][\\w.-]*$/";
+  }
+  return aliasesProblem(t, `template ${t.id}`);
+}
+
+function actionProblem(a: Record<string, unknown>): string | null {
   if (typeof a.id !== "string" || !NAME_RE.test(a.id)) {
     return "action id must match /^[\\w][\\w.-]*$/";
   }
@@ -48,18 +71,12 @@ function actionProblem(value: unknown): string | null {
   if (!hasEffect && !hasHandler) {
     return `action ${a.id}: effect or handler must be a function`;
   }
-  if (
-    a.aliases !== undefined &&
-    (!Array.isArray(a.aliases) || a.aliases.some((x) => typeof x !== "string"))
-  ) {
-    return `action ${a.id}: aliases must be a string array`;
-  }
-  return null;
+  return aliasesProblem(a, `action ${a.id}`);
 }
 
 /**
- * Discover and import `.kb/extensions/*.ts`. Per-file and per-action
- * failures are collected (and skipped), valid actions load normally.
+ * Discover and import `.kb/extensions/*.ts`. Per-file and per-contribution
+ * failures are collected (and skipped); valid contributions load normally.
  */
 export async function discoverExtensions(root: string): Promise<{
   extensions: LoadedExtension[];
@@ -92,25 +109,45 @@ export async function discoverExtensions(root: string): Promise<{
       });
       continue;
     }
-    const exported = (mod as { default?: unknown }).default;
+    const exported = asRecord(mod)?.default;
     if (!Array.isArray(exported)) {
       failures.push({
         file,
-        error: "default export must be an array of actions ({...ActionDefinition, effect|handler})",
+        error:
+          "default export must be an array of contributions " +
+          "({...ActionDefinition, effect|handler} or {id, template})",
       });
       continue;
     }
     const actions: ExtensionAction[] = [];
+    const templates: ExtensionTemplate[] = [];
     for (const candidate of exported) {
-      const problem = actionProblem(candidate);
-      if (problem) {
+      const contribution = asRecord(candidate);
+      if (contribution === null) {
+        failures.push({ file, error: "contribution is not an object" });
+        continue;
+      }
+      // A contribution carrying a `template` function is a render template.
+      // The loader already discriminates structurally (`effect` vs
+      // `handler`); this is the same distinction one level up.
+      if (typeof contribution.template === "function") {
+        const problem = templateProblem(contribution);
+        if (problem !== null) {
+          failures.push({ file, error: problem });
+          continue;
+        }
+        templates.push(contribution as unknown as ExtensionTemplate);
+        continue;
+      }
+      const problem = actionProblem(contribution);
+      if (problem !== null) {
         failures.push({ file, error: problem });
         continue;
       }
-      actions.push(candidate as ExtensionAction);
+      actions.push(contribution as unknown as ExtensionAction);
     }
-    if (actions.length > 0) {
-      extensions.push({ name, source: path, actions });
+    if (actions.length > 0 || templates.length > 0) {
+      extensions.push({ name, source: path, actions, templates });
     }
   }
   return { extensions, failures };

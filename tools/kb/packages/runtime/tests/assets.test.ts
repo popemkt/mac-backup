@@ -10,7 +10,8 @@ import {
   resolveAssetFile,
   textHasAssetRef,
 } from "@kb/operations";
-import { invoke, resetRegistryCache } from "../src/registry.ts";
+import { invoke } from "../src/invoke.ts";
+import { resetRegistryCache } from "../src/registry.ts";
 
 describe("resolveAssetFile traversal guard", () => {
   const root = "/tmp/kb-asset-root-fake";

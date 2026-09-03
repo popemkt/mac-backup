@@ -4,10 +4,10 @@ import { join } from "node:path";
 import { Effect, Exit, Fiber } from "effect";
 import { kbRuntimeLayer, openKbEffect } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
-import { KbCtx, KbStore } from "@kb/contracts";
+import { KbCtx, KbStore, templateRegistryLayer } from "@kb/contracts";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { invoke } from "../src/invoke.ts";
 import {
-  invoke,
   invokeReceiptEffect,
   isEffectNativeAction,
   registryFor,
@@ -141,6 +141,7 @@ export default actions;
         Effect.provideService(KbCtx, ctx),
         Effect.provideService(KbStore, fakeStore),
         Effect.provide(bunFileSystemLayer),
+        Effect.provide(templateRegistryLayer(new Map())),
       ),
     );
     expect(receipt.status).toBe("succeeded");

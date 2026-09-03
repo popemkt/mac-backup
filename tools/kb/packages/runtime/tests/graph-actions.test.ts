@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { DatalogError } from "@kb/query";
 import { openKb } from "../src/session.ts";
 import { classifyQueryError, graphRunEffect, graphSearchEffect } from "@kb/operations";
-import { invoke, manifest } from "../src/registry.ts";
+import { invoke } from "../src/invoke.ts";
+import { manifest } from "../src/registry.ts";
 
 /** Under tests/ so fixture extensions resolve zod via tools/kb/node_modules. */
 async function tempRoot(): Promise<string> {

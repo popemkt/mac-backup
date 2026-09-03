@@ -1,28 +1,12 @@
 import type { KbNode, NodeId } from "@kb/model";
+import type { TemplateContext } from "@kb/contracts";
+import { renderText } from "@kb/operations";
 
 /**
- * Templates are named TS functions (rows → markdown). No template-language
- * dependency: a view spec references a template by name, resolved here.
- * Every template must be deterministic — same rows + nodes, same bytes.
+ * The `todos` template: repo-doc policy, not core mechanism. Registered as
+ * `ext.docs.todos` with the bare id `todos` as an alias so existing view
+ * specs keep resolving.
  */
-export interface TemplateContext {
-  nodes: Map<NodeId, KbNode>;
-  /** Unique-text lookup among sys.field nodes; undefined if absent or ambiguous. */
-  fieldIdByName(name: string): NodeId | undefined;
-}
-
-export type TemplateFn = (rows: unknown[][], ctx: TemplateContext) => string;
-
-const MENTION_RE = /\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g;
-
-/** Render [[id|label]] as label, [[id]] as the target node's text (or the id). */
-export function renderText(text: string, ctx: TemplateContext): string {
-  return text.replace(MENTION_RE, (_m, id: string, label?: string) => {
-    if (label !== undefined && label.length > 0) return label;
-    return ctx.nodes.get(id.trim())?.text ?? id.trim();
-  });
-}
-
 const NO_STATUS = "(no status)";
 const STATUS_ORDER = ["doing", "in-progress", "todo", "blocked", "done"];
 
@@ -161,7 +145,3 @@ export function todos(rows: unknown[][], ctx: TemplateContext): string {
   }
   return lines.join("\n");
 }
-
-export const templates: Record<string, TemplateFn> = {
-  todos,
-};

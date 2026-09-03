@@ -4,8 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openKb } from "../src/session.ts";
 import type { KbContext } from "@kb/contracts";
-import { invoke } from "../src/registry.ts";
-import { todos, type TemplateContext, GENERATED_HEADER } from "@kb/operations";
+import { invoke } from "../src/invoke.ts";
+import type { TemplateContext } from "@kb/contracts";
+import { GENERATED_HEADER } from "@kb/operations";
+import { todos } from "@kb/ext-docs";
 import type { KbNode } from "@kb/model";
 
 const FIELD_ID = "01TESTFIELDSTATUS000000000";

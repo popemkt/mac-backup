@@ -24,7 +24,7 @@ import {
   systemSeedNodes,
 } from "@kb/model";
 import { backlinksQuery, buildQueryDb, query } from "@kb/query";
-import { invoke } from "../src/registry.ts";
+import { invoke } from "../src/invoke.ts";
 
 function refs(node: KbNode, field: string): string[] {
   return ((node.props[field] ?? []) as PropValue[])

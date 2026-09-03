@@ -26,8 +26,7 @@ export {
   textHasAssetRef,
 } from "./assets.ts";
 export { GENERATED_HEADER, renderViewEffect } from "./docs/docs.ts";
-export { todos } from "./docs/templates.ts";
-export type { TemplateContext } from "./docs/templates.ts";
+export { renderText } from "./docs/text.ts";
 export { DocsError, loadViewsEffect } from "./docs/views.ts";
 export { discoverExtensions, namespacedId } from "./extension-loader.ts";
 export {

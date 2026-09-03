@@ -1,13 +1,10 @@
 import { relative } from "node:path";
 import { Cause, Effect, Option } from "effect";
-import { type FileSystem } from "effect/FileSystem";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import { z } from "zod";
 import type { KbContext } from "@kb/contracts";
 import { reloadEffect } from "@kb/operations";
-import { kbStoreLayer, KbCtx, type KbStore } from "@kb/contracts";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
-import { invokeReceiptEffect, manifest } from "@kb/runtime";
+import { type ActionHandlerEnv, invokeReceiptEffect, kbRuntimeLayer, manifest } from "@kb/runtime";
 import * as assets from "./assets.ts";
 import { listSavedQueriesEffect } from "./saved-queries.ts";
 import type { SubscriptionHub } from "./session.ts";
@@ -64,7 +61,7 @@ function invalidInput(message: string): HttpServerResponse.HttpServerResponse {
 export const handleHttpRequestEffect = (
   req: Request,
   deps: UiHttpDeps,
-): Effect.Effect<HttpServerResponse.HttpServerResponse, never, FileSystem | KbStore | KbCtx> =>
+): Effect.Effect<HttpServerResponse.HttpServerResponse, never, ActionHandlerEnv> =>
   Effect.gen(function* () {
     const { root, ctx, hub } = deps;
     const url = new URL(req.url);
@@ -136,15 +133,14 @@ export const handleHttpRequestEffect = (
   );
 
 /**
- * Promise facade for the HTTP layer: runs the routing Effect with the
- * FileSystem/KbStore layers and converts the response to a Web `Response`.
+ * Promise facade for the HTTP layer: runs the routing Effect against the one
+ * runtime Layer (FileSystem + store + session + templates) and converts the
+ * response to a Web `Response`.
  */
 export function handleHttpRequest(req: Request, deps: UiHttpDeps): Promise<Response> {
   return Effect.runPromise(
     handleHttpRequestEffect(req, deps).pipe(
-      Effect.provide(bunFileSystemLayer),
-      Effect.provide(kbStoreLayer(deps.ctx.effectStore)),
-      Effect.provideService(KbCtx, deps.ctx),
+      Effect.provide(kbRuntimeLayer(deps.ctx)),
       Effect.map(HttpServerResponse.toWeb),
     ),
   );
