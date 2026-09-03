@@ -1,9 +1,9 @@
 import { Effect } from "effect";
-import { type FileSystem } from "effect/FileSystem";
+import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import { KbCtx } from "@kb/contracts";
 import type { ActionDefinition } from "@kb/contracts";
-import { DomainError, domainError } from "@kb/model";
+import { DomainError, domainError, present } from "@kb/model";
 import { DocsError, GENERATED_HEADER, loadViewsEffect, renderViewEffect } from "./docs/docs.ts";
 
 type RenderError = DomainError | DocsError;
@@ -53,14 +53,14 @@ function mdToHtml(md: string): string {
       inList = false;
     }
     if (h) {
-      const level = h[1]!.length;
-      out.push(`<h${level}>${escapeHtml(h[2]!)}</h${level}>`);
+      const level = present(h[1], "heading marks").length;
+      out.push(`<h${level}>${escapeHtml(present(h[2], "heading text"))}</h${level}>`);
     } else if (li) {
       if (!inList) {
         out.push("<ul>");
         inList = true;
       }
-      out.push(`<li>${escapeHtml(li[1]!)}</li>`);
+      out.push(`<li>${escapeHtml(present(li[1], "list text"))}</li>`);
     } else if (line.length > 0) {
       out.push(`<p>${escapeHtml(line)}</p>`);
     }
@@ -109,7 +109,7 @@ export const listViewNamesEffect = Effect.fn("render.listViews")(function* (): E
 > {
   const ctx = yield* KbCtx;
   const views = yield* loadViewsEffect(ctx.root);
-  return views.map((v) => v.name).sort();
+  return views.map((v) => v.name).toSorted();
 });
 
 // ── registry actions: the render backbone exposed over /api/action ──────

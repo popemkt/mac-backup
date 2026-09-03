@@ -1,4 +1,5 @@
 export { kbRuntimeLayer, openKbEffect } from "./layers.ts";
+export { writeErr, writeOut } from "./output.ts";
 export {
   invoke,
   invokeReceiptEffect,

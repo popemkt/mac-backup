@@ -14,7 +14,7 @@ import { join, relative, resolve } from "node:path";
  */
 
 /** Marker file inside `ui/dist` recording the source fingerprint it was built from. */
-export const BUILD_MARKER = ".kb-build-hash";
+const BUILD_MARKER = ".kb-build-hash";
 
 function uiRootBase(uiRoot: string): string {
   return resolve(uiRoot, "..");
@@ -26,7 +26,7 @@ function uiRootBase(uiRoot: string): string {
  * Missing inputs are simply skipped — a config file that does not exist yet
  * does not pin the fingerprint.
  */
-export function uiSourceInputs(uiRoot: string): string[] {
+function uiSourceInputs(uiRoot: string): string[] {
   const base = uiRootBase(uiRoot);
   return [
     join(uiRoot, "index.html"),
@@ -81,11 +81,10 @@ export async function uiSourceFingerprint(uiRoot: string): Promise<string> {
     }
     parts.push(`${relative(base, p)}\u0000${text}`);
   }
-  parts.sort();
-  return String(Bun.hash(parts.join("\u0001")));
+  return String(Bun.hash(parts.toSorted().join("\u0001")));
 }
 
-export function buildMarkerPath(distDir: string): string {
+function buildMarkerPath(distDir: string): string {
   return join(distDir, BUILD_MARKER);
 }
 
@@ -144,7 +143,7 @@ async function runChild(cwd: string, args: string[]): Promise<void> {
 }
 
 /** Real production build: install deps, run the UI's `build` script. */
-export async function runProductionBuild(uiRoot: string, _distDir: string): Promise<void> {
+async function runProductionBuild(uiRoot: string, _distDir: string): Promise<void> {
   await runChild(uiRoot, ["bun", "install"]);
   await runChild(uiRoot, ["bun", "run", "build"]);
 }

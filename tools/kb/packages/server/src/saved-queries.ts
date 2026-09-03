@@ -27,8 +27,7 @@ export const listSavedQueriesEffect = Effect.fn("kb.ui.listSavedQueries")(functi
     if (edn === null) continue;
     out.push({ name: stem, edn });
   }
-  out.sort((a, b) => a.name.localeCompare(b.name));
-  return out;
+  return out.toSorted((a, b) => a.name.localeCompare(b.name));
 });
 
 export function listSavedQueries(root: string): Promise<{ name: string; edn: string }[]> {

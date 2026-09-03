@@ -39,9 +39,6 @@ export const SCOPE_ALLOWS: Record<string, readonly string[]> = {
   tooling: [],
 };
 
-export const LAYERS = Object.keys(LAYER_ALLOWS);
-export const SCOPES = Object.keys(SCOPE_ALLOWS);
-
 /** Off-catalog dependency specifiers admitted by an explicit decision. */
 export const OFF_CATALOG_BY_DECISION: Record<string, string> = {
   // `vite-plus` and its `vite` alias twin must stay byte-identical, and an

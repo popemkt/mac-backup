@@ -161,8 +161,8 @@ describe("ontology resolver properties (fast-check)", () => {
 
           // Same ontology, but its own ref lists are reversed...
           const shuffled = ontologyNode("o", {
-            include: [...tagIds].reverse(),
-            exclude: [...excludeIds].reverse(),
+            include: [...tagIds].toReversed(),
+            exclude: [...excludeIds].toReversed(),
           });
           // ...and the node array itself is Fisher-Yates shuffled.
           const unshuffled = [...tags, ...tagged, shuffled];
@@ -174,8 +174,10 @@ describe("ontology resolver properties (fast-check)", () => {
 
           const shuffledRes = resolveOntology(shuffledNodes, "o");
 
-          expect([...shuffledRes.members].sort()).toEqual([...baselineRes.members].sort());
-          expect([...shuffledRes.excluded].sort()).toEqual([...baselineRes.excluded].sort());
+          expect([...shuffledRes.members].toSorted()).toEqual([...baselineRes.members].toSorted());
+          expect([...shuffledRes.excluded].toSorted()).toEqual(
+            [...baselineRes.excluded].toSorted(),
+          );
         },
       ),
       { numRuns: 1000 },
@@ -224,7 +226,7 @@ describe("ontology resolver properties (fast-check)", () => {
           const onto = ontologyNode("o", { member: seedIds, closure: "descendants" });
           const resolution = resolveOntology([...nodes, onto], "o");
 
-          expect([...resolution.members].sort()).toEqual([...expected].sort());
+          expect([...resolution.members].toSorted()).toEqual([...expected].toSorted());
         },
       ),
       { numRuns: 1000 },
@@ -260,7 +262,7 @@ describe("ontology resolver properties (fast-check)", () => {
 
           const resolution = resolveOntology([...members, bystander, onto], "o");
 
-          expect([...resolution.members].sort()).toEqual([...memberIds].sort());
+          expect([...resolution.members].toSorted()).toEqual([...memberIds].toSorted());
           expect(resolution.members.has(String(noise.v))).toBe(false);
         },
       ),
@@ -284,7 +286,7 @@ describe("ontology resolver properties (fast-check)", () => {
           const node: NodeLike = {
             id: "o",
             text: "o",
-            props: { [SYSTEM_IDS.ontoClosureField]: [raw as PropValue] },
+            props: { [SYSTEM_IDS.ontoClosureField]: [raw] },
             children: [],
           };
           const expectDescendants = raw.t === "str" && raw.v.trim() === "descendants";

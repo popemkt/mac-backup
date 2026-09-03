@@ -3,19 +3,15 @@
  * default "All mentions" perspective.
  */
 import { describe, expect, test } from "bun:test";
-import { LEGACY_LENS_ALL_MENTIONS, SYSTEM_IDS, type KbNode, type PropValue } from "../src/model.ts";
+import { LEGACY_LENS_ALL_MENTIONS, SYSTEM_IDS, type KbNode } from "../src/model.ts";
 import { ensureSystemSeed, systemSeedNodes } from "../src/seed.ts";
 
 function refs(node: KbNode, field: string): string[] {
-  return ((node.props[field] ?? []) as PropValue[])
-    .filter((v) => v.t === "ref")
-    .map((v) => String(v.v));
+  return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
 }
 
 function strs(node: KbNode, field: string): string[] {
-  return ((node.props[field] ?? []) as PropValue[])
-    .filter((v) => v.t === "str")
-    .map((v) => String(v.v));
+  return (node.props[field] ?? []).filter((v) => v.t === "str").map((v) => v.v);
 }
 
 describe("V0 seed: graph-perspective + lens fields", () => {

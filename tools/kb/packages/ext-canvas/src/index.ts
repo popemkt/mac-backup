@@ -1,8 +1,13 @@
 import { Effect } from "effect";
-import { type FileSystem } from "effect/FileSystem";
+import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { KbCtx, type KbStore } from "@kb/contracts";
-import type { ActionEffectHandler, ExtensionAction, KbContext } from "@kb/contracts";
+import {
+  KbCtx,
+  type KbStore,
+  type ActionEffectHandler,
+  type ExtensionAction,
+  type KbContext,
+} from "@kb/contracts";
 import { persistEffect } from "@kb/operations";
 import {
   SYSTEM_IDS,
@@ -12,6 +17,7 @@ import {
   resolveFieldId,
   domainError,
   domainFromResolve,
+  present,
   type DomainError,
   type KbNode,
   type NodeId,
@@ -119,7 +125,7 @@ function applySetProps(
   for (const e of entries) {
     const fieldId = resolveFieldId(ctx.nodes, e.field);
     const list = props[fieldId] ?? [];
-    list.push(e.value as PropValue);
+    list.push(e.value);
     props[fieldId] = list;
   }
 }
@@ -136,7 +142,7 @@ function applyUnsetProps(
     } else {
       const list = props[fieldId] ?? [];
       props[fieldId] = list.filter((pv) => JSON.stringify(pv) !== JSON.stringify(u.value));
-      if (props[fieldId]!.length === 0) delete props[fieldId];
+      if (props[fieldId].length === 0) delete props[fieldId];
     }
   }
 }
@@ -177,15 +183,16 @@ export const canvasTxApplyEffect = Effect.fn("ext.canvas.tx.apply")(function* (
     (input.unsetProps !== undefined && input.unsetProps.length > 0);
 
   if (hasPropOps) {
-    if (!input.propTargetId) {
+    if (input.propTargetId === undefined || input.propTargetId === "") {
       return yield* Effect.fail(
         new CanvasTxError("propTargetId required when setProps/unsetProps provided"),
       );
     }
     const target = yield* Effect.try({
       try: () => {
-        assertUserWritable(input.propTargetId!);
-        const t = cloneNode(requireNode(ctx, input.propTargetId!));
+        const propTargetId = present(input.propTargetId, "propTargetId");
+        assertUserWritable(propTargetId);
+        const t = cloneNode(requireNode(ctx, propTargetId));
         if (input.setProps) applySetProps(ctx, t.props, input.setProps);
         if (input.unsetProps) {
           applyUnsetProps(ctx, t.props, input.unsetProps);

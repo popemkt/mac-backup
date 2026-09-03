@@ -2,7 +2,7 @@
  * Typed fields seed: sys.f.fieldType / targetTag / targetQuery.
  */
 import { describe, expect, test } from "bun:test";
-import { SYSTEM_IDS, type KbNode, type PropValue } from "../src/model.ts";
+import { SYSTEM_IDS, type KbNode } from "../src/model.ts";
 import {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
@@ -14,9 +14,7 @@ import { resolveFieldId } from "../src/resolve.ts";
 import { ensureSystemSeed, systemSeedNodes } from "../src/seed.ts";
 
 function refs(node: KbNode, field: string): string[] {
-  return ((node.props[field] ?? []) as PropValue[])
-    .filter((v) => v.t === "ref")
-    .map((v) => String(v.v));
+  return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
 }
 
 describe("typed field seeds", () => {

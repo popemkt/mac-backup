@@ -38,7 +38,7 @@ export type FieldType = keyof typeof FIELD_TYPE_OPTION_IDS;
 export const FIELD_TYPES = Object.keys(FIELD_TYPE_OPTION_IDS) as FieldType[];
 
 /** Option node id → declared type. */
-export const FIELD_TYPE_BY_OPTION_ID: Record<string, FieldType> = Object.fromEntries(
+const FIELD_TYPE_BY_OPTION_ID: Record<string, FieldType> = Object.fromEntries(
   FIELD_TYPES.map((type) => [FIELD_TYPE_OPTION_IDS[type], type]),
 );
 
@@ -64,7 +64,7 @@ export function fieldTypeValue(type: FieldType): PropValue {
 export function fieldTypeOf(props: Record<string, readonly PropValue[]> | undefined): FieldType {
   const raw = props?.[SYSTEM_IDS.fieldTypeField]?.[0];
   if (!raw) return "text";
-  if (raw.t === "ref") return FIELD_TYPE_BY_OPTION_ID[String(raw.v)] ?? "text";
+  if (raw.t === "ref") return FIELD_TYPE_BY_OPTION_ID[raw.v] ?? "text";
   if (raw.t === "str" && isFieldType(raw.v)) return raw.v;
   return "text";
 }
@@ -114,8 +114,8 @@ export function allowedRefIdsOf(
   runQuery?: ((edn: string) => unknown[][]) | null,
 ): Set<NodeId> | null {
   const edn = targetQueryOf(fieldNode);
-  if (edn) {
-    if (!runQuery) return new Set();
+  if (typeof edn === "string" && edn !== "") {
+    if (runQuery === undefined || runQuery === null) return new Set();
     try {
       const ids = new Set<NodeId>();
       for (const row of runQuery(edn)) {
@@ -153,15 +153,19 @@ export function migrateFieldTypeValues<T extends { props: Record<string, PropVal
   nodes: T[],
 ): { nodes: T[]; changed: boolean } {
   let changed = false;
-  const out = nodes.map((node) => {
+  const out: T[] = [];
+  for (const node of nodes) {
     const values = node.props[SYSTEM_IDS.fieldTypeField];
-    if (!values?.some((v) => v.t === "str" && isFieldType(v.v))) return node;
+    if (values === undefined || !values.some((v) => v.t === "str" && isFieldType(v.v))) {
+      out.push(node);
+      continue;
+    }
     const next = values.map((v) => (v.t === "str" && isFieldType(v.v) ? fieldTypeValue(v.v) : v));
     changed = true;
-    return {
+    out.push({
       ...node,
       props: { ...node.props, [SYSTEM_IDS.fieldTypeField]: next },
-    };
-  });
+    });
+  }
   return { nodes: changed ? out : nodes, changed };
 }

@@ -1,6 +1,6 @@
 /// <reference path="./datascript.d.ts" />
 import * as d from "datascript";
-import type { KbNode, NodeId, PropValue } from "@kb/model";
+import { present, type KbNode, type NodeId, type PropValue } from "@kb/model";
 
 /**
  * `:node/mentions` is THE reference relation — "this node references that one"
@@ -26,7 +26,7 @@ import type { KbNode, NodeId, PropValue } from "@kb/model";
  */
 const MENTION_RE = /\[\[([^[\]|]+)(?:\|[^\]]*)?\]\]/g;
 
-export type Datom = [number | string, string, unknown, number?, boolean?];
+type Datom = [number | string, string, unknown, number?, boolean?];
 
 /**
  * A query that failed inside the datascript engine — parse or evaluation
@@ -41,7 +41,7 @@ export class DatalogError extends Error {
   }
 }
 
-export interface IdMap {
+interface IdMap {
   /** NodeId → integer eid */
   toEid: Map<NodeId, number>;
   /** integer eid → NodeId */
@@ -69,7 +69,7 @@ const QUERY_DIRECTIVES = new Set([
  * DataScript JS API stores attrs as strings; EDN queries use keywords.
  * Rewrite `:attr` → `":attr"` (quoted) except query directives.
  */
-export function normalizeEdnQuery(edn: string): string {
+function normalizeEdnQuery(edn: string): string {
   const keyword = /^:([A-Za-z*][\w./+*-]*)/;
   let out = "";
   let i = 0;
@@ -89,7 +89,8 @@ export function normalizeEdnQuery(edn: string): string {
     }
     const m = keyword.exec(edn.slice(i));
     if (m) {
-      out += QUERY_DIRECTIVES.has(m[1]!) ? m[0] : `"${m[0]}"`;
+      const directive = present(m[1], "edn keyword");
+      out += QUERY_DIRECTIVES.has(directive) ? m[0] : `"${m[0]}"`;
       i += m[0].length;
       continue;
     }
@@ -99,8 +100,8 @@ export function normalizeEdnQuery(edn: string): string {
   return out;
 }
 
-export function buildIdMap(nodes: KbNode[]): IdMap {
-  const sorted = [...nodes].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+function buildIdMap(nodes: KbNode[]): IdMap {
+  const sorted = [...nodes].toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const toEid = new Map<NodeId, number>();
   const toId = new Map<number, NodeId>();
   let eid = 1;
@@ -129,7 +130,7 @@ function propDatomValue(pv: PropValue, ids: IdMap): { value: unknown; isRef: boo
 }
 
 /** Single-pass nodes → datoms (+ schema entries for ref attrs). */
-export function nodesToDatoms(nodes: KbNode[]): {
+function nodesToDatoms(nodes: KbNode[]): {
   datoms: Datom[];
   schema: Record<string, Record<string, string>>;
   ids: IdMap;
@@ -139,7 +140,7 @@ export function nodesToDatoms(nodes: KbNode[]): {
   const refAttrs = new Set<string>([":node/child", ":node/mentions"]);
 
   for (const node of nodes) {
-    const eid = ids.toEid.get(node.id)!;
+    const eid = present(ids.toEid.get(node.id), `eid for ${node.id}`);
     datoms.push([eid, ":node/id", node.id]);
     datoms.push([eid, ":node/text", node.text]);
     datoms.push([eid, ":node/created-at", node.createdAt]);
@@ -148,7 +149,7 @@ export function nodesToDatoms(nodes: KbNode[]): {
     // ordered children vector (eids) + per-child ref for joins
     const childEids: number[] = [];
     for (let i = 0; i < node.children.length; i++) {
-      const childId = node.children[i]!;
+      const childId = present(node.children[i], `child ${i} of ${node.id}`);
       const childEid = ids.toEid.get(childId);
       if (childEid === undefined) continue;
       childEids.push(childEid);
@@ -179,7 +180,7 @@ export function nodesToDatoms(nodes: KbNode[]): {
     MENTION_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = MENTION_RE.exec(node.text)) !== null) {
-      const meid = ids.toEid.get(m[1]!.trim());
+      const meid = ids.toEid.get(present(m[1], "mention id").trim());
       if (meid !== undefined) mentioned.add(meid);
     }
 
@@ -231,7 +232,7 @@ export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
   const q = normalizeEdnQuery(edn);
   let raw: unknown;
   try {
-    raw = d.q(q, db.db, ...inputs) as unknown;
+    raw = d.q(q, db.db, ...inputs);
   } catch (err) {
     // Query parse/evaluation failures are the caller's datalog at fault, not
     // an internal defect — surface them as DatalogError so action surfaces can
@@ -246,12 +247,12 @@ export function pull(db: QueryDb, pattern: string, id: NodeId | number): unknown
   if (typeof id === "number") {
     eidOrLookup = id;
   } else if (db.ids.toEid.has(id)) {
-    eidOrLookup = db.ids.toEid.get(id)!;
+    eidOrLookup = present(db.ids.toEid.get(id), `eid for ${id}`);
   } else {
     eidOrLookup = [":node/id", id];
   }
   const pat = normalizeEdnQuery(pattern);
-  const raw = d.pull(db.db, pat, eidOrLookup) as unknown;
+  const raw = d.pull(db.db, pat, eidOrLookup);
   return revivePull(raw, db.ids);
 }
 
@@ -279,7 +280,7 @@ export function extractMentions(text: string): NodeId[] {
   MENTION_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = MENTION_RE.exec(text)) !== null) {
-    out.push(m[1]!.trim());
+    out.push(present(m[1], "mention id").trim());
   }
   return out;
 }

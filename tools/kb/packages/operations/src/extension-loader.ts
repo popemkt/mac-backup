@@ -14,7 +14,7 @@ import type { ExtensionAction, ExtensionFailure, LoadedExtension } from "@kb/con
  * implements both). Third-party extensions typically ship Promise handlers;
  * bundled extensions use Effect-native `effect`.
  */
-export function extensionsDir(root: string): string {
+function extensionsDir(root: string): string {
   return join(root, ".kb", "extensions");
 }
 
@@ -71,7 +71,7 @@ export async function discoverExtensions(root: string): Promise<{
   } catch {
     return { extensions: [], failures: [] };
   }
-  const files = entries.filter((e) => e.endsWith(".ts") && !e.endsWith(".d.ts")).sort();
+  const files = entries.filter((e) => e.endsWith(".ts") && !e.endsWith(".d.ts")).toSorted();
 
   const extensions: LoadedExtension[] = [];
   const failures: ExtensionFailure[] = [];
@@ -103,7 +103,7 @@ export async function discoverExtensions(root: string): Promise<{
     const actions: ExtensionAction[] = [];
     for (const candidate of exported) {
       const problem = actionProblem(candidate);
-      if (problem) {
+      if (problem !== null) {
         failures.push({ file, error: problem });
         continue;
       }

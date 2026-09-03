@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 
-export const DEFAULT_HARNESS_PORT = 4323;
+const DEFAULT_HARNESS_PORT = 4323;
 
 async function stop(server: ChildProcess): Promise<void> {
   if (server.exitCode !== null) return;

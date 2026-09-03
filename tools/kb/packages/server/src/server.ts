@@ -1,9 +1,9 @@
 import { watch, type FSWatcher } from "node:fs";
 import { join, relative } from "node:path";
 import { Effect, Exit, Scope } from "effect";
-import { kbStoreLayer, UI_DEFAULT_PORT } from "@kb/contracts";
+import { UI_DEFAULT_PORT } from "@kb/contracts";
 import { reloadEffect } from "@kb/operations";
-import { openKbEffect } from "@kb/runtime";
+import { kbRuntimeLayer, openKbEffect, writeErr } from "@kb/runtime";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { ensureUiBuilt, type UiEnsureResult } from "./build.ts";
 import {
@@ -13,7 +13,7 @@ import {
   type UiDevChild,
   type UiDevSpawn,
 } from "./dev.ts";
-import { UI_DIST, UI_ROOT } from "./paths.ts";
+import { childProcessEnv, UI_DIST, UI_ROOT } from "./paths.ts";
 import { handleHttpRequest } from "./http.ts";
 import { listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
 import { SubscriptionHub, type ClientSend, type WsData } from "./session.ts";
@@ -96,8 +96,7 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
           yield* reloadEffect(ctx);
           yield* hub.applyNodes(ctx.nodes);
         }).pipe(
-          Effect.provide(kbStoreLayer(ctx.effectStore)),
-          Effect.provide(bunFileSystemLayer),
+          Effect.provide(kbRuntimeLayer(ctx)),
           Effect.catchCause(() => Effect.void),
         ),
       );
@@ -111,7 +110,12 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
     // file may not exist yet — watch the .kb dir instead
     try {
       watcher = watch(join(opts.root, ".kb"), (_event, filename) => {
-        if (!filename || filename === "nodes.jsonl" || String(filename).endsWith("nodes.jsonl")) {
+        if (
+          typeof filename !== "string" ||
+          filename === "" ||
+          filename === "nodes.jsonl" ||
+          filename.endsWith("nodes.jsonl")
+        ) {
           onFsEvent();
         }
       });
@@ -127,12 +131,13 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
       const url = new URL(req.url);
 
       if (url.pathname === "/ws" && req.method === "GET") {
-        const clientId = url.searchParams.get("origin") || crypto.randomUUID();
+        const origin = url.searchParams.get("origin");
+        const clientId = origin !== null && origin !== "" ? origin : crypto.randomUUID();
         const ok = srv.upgrade(req, { data: { clientId } });
         if (!ok) {
           return new Response("WebSocket upgrade failed", { status: 400 });
         }
-        return undefined as unknown as Response;
+        return undefined;
       }
 
       return handleHttpRequest(req, { root: opts.root, ctx, hub });
@@ -158,7 +163,7 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
         stopped = true;
         if (debounceTimer) clearTimeout(debounceTimer);
         watcher?.close();
-        server.stop(true);
+        void server.stop(true);
       }),
     ),
   );
@@ -168,7 +173,10 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
 
   // server.port is `number | undefined` only for unix-socket listeners; we
   // always bind a TCP port, so it is defined here.
-  const boundPort = server.port!;
+  const boundPort = server.port;
+  if (boundPort === undefined) {
+    throw new Error("TCP listener missing port");
+  }
 
   return {
     port: boundPort,
@@ -212,11 +220,10 @@ export async function startDevServer(opts: {
       cmd: "bun",
       args: ["run", "dev", "--port", String(opts.devPort)],
       cwd: join(opts.uiRoot),
-      env: {
-        ...process.env,
+      env: childProcessEnv({
         // Vite proxy target: /api, /assets, /ws all route to the kb backend.
         KB_UI_API_PORT: String(backend.port),
-      },
+      }),
     });
     return {
       backend,
@@ -285,7 +292,7 @@ export async function runUiCli(opts: RunUiCliOptions): Promise<void> {
       uiRoot,
       spawn: opts.spawnDev,
     });
-    console.error(`kb ui dev server listening on ${dev.url}`);
+    writeErr(`kb ui dev server listening on ${dev.url}`);
     if (open) openBrowser(dev.url);
 
     const onSignal = () => {
@@ -299,7 +306,7 @@ export async function runUiCli(opts: RunUiCliOptions): Promise<void> {
       process.off("SIGINT", onSignal);
       process.off("SIGTERM", onSignal);
       if (exitCode !== 0 && exitCode !== null) {
-        console.error(`kb ui: vite dev server exited with code ${exitCode}`);
+        writeErr(`kb ui: vite dev server exited with code ${exitCode}`);
       }
     });
     process.exit(code === 0 ? 0 : 1);
@@ -313,8 +320,8 @@ export async function runUiCli(opts: RunUiCliOptions): Promise<void> {
     ensureBuilt: opts.ensureBuilt,
   });
   if (build.built) {
-    console.error(`kb ui: built UI at ${relative(process.cwd(), UI_DIST)} (${build.state})`);
+    writeErr(`kb ui: built UI at ${relative(process.cwd(), UI_DIST)} (${build.state})`);
   }
-  console.error(`kb ui listening on ${handle.url}`);
+  writeErr(`kb ui listening on ${handle.url}`);
   await new Promise(() => {});
 }

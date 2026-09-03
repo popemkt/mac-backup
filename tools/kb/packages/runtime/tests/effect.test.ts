@@ -226,7 +226,7 @@ describe("Standard Schema v1 seam", () => {
     };
     expect(isActionSchema(schema)).toBe(true);
     expect(await parseActionInput(schema, { n: 1 })).toEqual({ n: 1 });
-    await expect(parseActionInput(schema, { n: "x" })).rejects.toThrow(/expected/);
+    expect(parseActionInput(schema, { n: "x" })).rejects.toThrow(/expected/);
     // Non-zod vendors emit a permissive JSON Schema for manifests.
     expect(schemaToJsonSchema(schema)).toEqual({ type: "object" });
   });

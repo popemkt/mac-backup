@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 // Pre-commit entry: exit 0 when generated docs match .kb data, 1 when stale.
-import { openKb } from "@kb/runtime";
-import { invoke } from "@kb/runtime";
+import { openKb, invoke } from "@kb/runtime";
+import { kbDataRoot } from "@kb/server";
 
-const root = process.env.KB_ROOT ?? process.cwd();
+const root = kbDataRoot();
 const ctx = await openKb(root);
 const receipt = await invoke(ctx, { id: "docs.check", input: {} });
 

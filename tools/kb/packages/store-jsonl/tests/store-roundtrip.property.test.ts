@@ -71,7 +71,7 @@ describe("JsonlStore round trip (fast-check)", () => {
             await store.commit({ upserts: nodes, deletes: [] });
             const loaded = await store.load();
 
-            const sortedIds = nodes.map((n) => n.id).sort();
+            const sortedIds = nodes.map((n) => n.id).toSorted();
             expect(loaded.map((n) => n.id)).toEqual(sortedIds);
 
             const byId = new Map(nodes.map((n) => [n.id, n]));

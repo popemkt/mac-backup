@@ -82,8 +82,9 @@ describe("needsUiBuild decision", () => {
     await writeFile(join(distDir, "index.html"), "baked");
 
     const calls: string[] = [];
-    const runner: UiBuildRunner = async () => {
+    const runner: UiBuildRunner = () => {
       calls.push("build");
+      return Promise.resolve();
     };
     expect(await needsUiBuild(uiRoot, distDir)).toBe("fresh");
     const result = await ensureUiBuilt(uiRoot, distDir, runner);
@@ -100,8 +101,9 @@ describe("ensureUiBuilt", () => {
     await writeBuildMarker(distDir, await uiSourceFingerprint(uiRoot));
 
     const calls: string[] = [];
-    const runner: UiBuildRunner = async () => {
+    const runner: UiBuildRunner = () => {
       calls.push("build");
+      return Promise.resolve();
     };
     const result = await ensureUiBuilt(uiRoot, distDir, runner);
     expect(result).toEqual({ built: false, state: "fresh" });

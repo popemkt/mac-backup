@@ -72,7 +72,7 @@ describe("field-type properties (fast-check)", () => {
         ),
         (raw) => {
           const props: Record<string, PropValue[]> =
-            raw === undefined ? {} : { [SYSTEM_IDS.fieldTypeField]: [raw as PropValue] };
+            raw === undefined ? {} : { [SYSTEM_IDS.fieldTypeField]: [raw] };
           expect(fieldTypeOf(props)).toBe("text");
         },
       ),
@@ -132,7 +132,7 @@ describe("field-type properties (fast-check)", () => {
           };
           const { nodes, changed } = migrateFieldTypeValues([node]);
           expect(changed).toBe(true);
-          const migrated = nodes[0]!.props[SYSTEM_IDS.fieldTypeField]![0]!;
+          const migrated = nodes[0]!.props[SYSTEM_IDS.fieldTypeField][0]!;
           expect(migrated).toEqual(fieldTypeValue(t));
           expect(fieldTypeOf(nodes[0]!.props)).toBe(t);
         },
@@ -160,7 +160,7 @@ describe("field-type properties (fast-check)", () => {
         };
         const { nodes, changed } = migrateFieldTypeValues([node]);
         expect(changed).toBe(true);
-        const values = nodes[0]!.props[SYSTEM_IDS.fieldTypeField]!;
+        const values = nodes[0]!.props[SYSTEM_IDS.fieldTypeField];
         expect(values[0]).toEqual(fieldTypeValue(legacyType));
         expect(values[1]).toEqual(fieldTypeValue(refType));
 

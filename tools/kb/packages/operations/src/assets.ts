@@ -7,10 +7,10 @@ import { KbCtx } from "@kb/contracts";
 import { freshId, ResolveError, domainError, domainFromResolve, type DomainError } from "@kb/model";
 
 /** On-disk directory under the kb root (Logseq-style opaque files). */
-export const ASSETS_REL = ".kb/assets";
+const ASSETS_REL = ".kb/assets";
 
 /** Markdown / HTTP path prefix returned by upload and used in node text. */
-export const ASSETS_URL_PREFIX = "assets/";
+const ASSETS_URL_PREFIX = "assets/";
 
 const SAFE_EXT = /^[a-z0-9]{1,12}$/i;
 
@@ -76,10 +76,6 @@ export function mediaKindFromExt(ext: string): AssetMediaKind | null {
   return null;
 }
 
-export function mediaKindFromPath(pathOrHref: string): AssetMediaKind | null {
-  return mediaKindFromExt(extname(pathOrHref));
-}
-
 /**
  * True when node text embeds an asset via markdown image syntax
  * `![alt](assets/...)` (W6a media bullet).
@@ -94,15 +90,15 @@ const UPLOAD_EXT = new Set([...IMAGE_EXT, ...VIDEO_EXT, ...AUDIO_EXT, "pdf"]);
 
 function sanitizeExt(raw: string | undefined, filename: string | undefined): string {
   let ext = (raw ?? "").replace(/^\./, "").trim();
-  if (!ext && filename) {
+  if (ext === "" && filename !== undefined && filename !== "") {
     const fromName = extname(filename).replace(/^\./, "");
     ext = fromName;
   }
   ext = ext.toLowerCase();
-  if (!ext || !SAFE_EXT.test(ext) || !UPLOAD_EXT.has(ext)) {
+  if (ext === "" || !SAFE_EXT.test(ext) || !UPLOAD_EXT.has(ext)) {
     throw new ResolveError(
       "forbidden",
-      `unsupported asset extension: ${ext || "(none)"} — allowed: media types + pdf`,
+      `unsupported asset extension: ${ext === "" ? "(none)" : ext} — allowed: media types + pdf`,
       { ext },
     );
   }
@@ -159,13 +155,13 @@ export const assetUploadEffect = Effect.fn("asset.upload")(function* (
   const prepared = yield* Effect.try({
     try: () => {
       const ext = sanitizeExt(input.ext, input.filename);
-      const data = decodeBytes(input.bytes, input.encoding ?? "base64");
+      const data = decodeBytes(input.bytes, input.encoding);
       if (data.byteLength === 0) {
         throw new ResolveError("forbidden", "empty asset payload", {});
       }
       const filename = `${id}.${ext}`;
       const abs = resolveAssetFile(ctx.root, `assets/${filename}`);
-      if (!abs) {
+      if (abs === null) {
         throw new ResolveError("forbidden", "refusing to write outside assets dir", { filename });
       }
       return { ext, data, id, filename, abs };
@@ -178,10 +174,18 @@ export const assetUploadEffect = Effect.fn("asset.upload")(function* (
 
   yield* fs
     .makeDirectory(assetsDir(ctx.root), { recursive: true })
-    .pipe(Effect.mapError((err) => domainError("internal", err.message ?? String(err))));
+    .pipe(
+      Effect.mapError((err) =>
+        domainError("internal", err instanceof Error ? err.message : String(err)),
+      ),
+    );
   yield* fs
     .writeFile(prepared.abs, prepared.data)
-    .pipe(Effect.mapError((err) => domainError("internal", err.message ?? String(err))));
+    .pipe(
+      Effect.mapError((err) =>
+        domainError("internal", err instanceof Error ? err.message : String(err)),
+      ),
+    );
 
   return {
     path: `${ASSETS_URL_PREFIX}${prepared.filename}`,

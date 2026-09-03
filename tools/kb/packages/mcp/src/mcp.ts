@@ -12,11 +12,11 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { Cause, Effect, Exit, Schema } from "effect";
 import type { KbContext, ActionInvocation } from "@kb/contracts";
-import { reloadEffect } from "@kb/operations";
-import { kbRuntimeLayer, openKbEffect } from "@kb/runtime";
+import { domainError } from "@kb/model";
+import { reloadEffect, listViewNamesEffect, renderNamedViewEffect } from "@kb/operations";
+import { kbRuntimeLayer, openKbEffect, writeErr } from "@kb/runtime";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { invokeReceiptEffect, registryFor, type ManifestEntry } from "@kb/runtime";
-import { listViewNamesEffect, renderNamedViewEffect } from "@kb/operations";
 import { resolveRootEffect } from "@kb/runtime";
 
 const MANIFEST_TOOL = "kb_manifest";
@@ -88,11 +88,7 @@ export function containToolResult<R>(
       if (Cause.hasInterruptsOnly(exit.cause)) {
         // Re-raise interrupt; cast keeps the CallTool Promise edge typed as
         // never while still rejecting on cancellation.
-        return Effect.failCause(exit.cause) as unknown as Effect.Effect<
-          CallToolResult,
-          never,
-          never
-        >;
+        return Effect.failCause(exit.cause) as unknown as Effect.Effect<CallToolResult, never>;
       }
       return Effect.succeed(errorResult("internal", causeMessage(exit.cause)));
     }),
@@ -119,7 +115,7 @@ export function callToolEffect(
   name: string,
   args: unknown,
   tools: McpToolContext,
-): Effect.Effect<CallToolResult, never, never> {
+): Effect.Effect<CallToolResult, never> {
   return containToolResult(
     Effect.gen(function* () {
       if (name === MANIFEST_TOOL) {
@@ -162,7 +158,7 @@ export function callToolEffect(
   );
 }
 
-export const listResourcesEffect = Effect.fn("mcp.listResources")(function* (ctx: KbContext) {
+const listResourcesEffect = Effect.fn("mcp.listResources")(function* (ctx: KbContext) {
   yield* reloadEffect(ctx);
   const names = yield* listViewNamesEffect();
   return {
@@ -174,12 +170,9 @@ export const listResourcesEffect = Effect.fn("mcp.listResources")(function* (ctx
   };
 });
 
-export const readResourceEffect = Effect.fn("mcp.readResource")(function* (
-  ctx: KbContext,
-  uri: string,
-) {
+const readResourceEffect = Effect.fn("mcp.readResource")(function* (ctx: KbContext, uri: string) {
   if (!uri.startsWith(VIEW_URI_PREFIX)) {
-    return yield* Effect.fail(new Error(`unknown resource: ${uri}`));
+    return yield* domainError("not_found", `unknown resource: ${uri}`);
   }
   const name = uri.slice(VIEW_URI_PREFIX.length);
   yield* reloadEffect(ctx);
@@ -195,7 +188,7 @@ export const readResourceEffect = Effect.fn("mcp.readResource")(function* (
  * error. Interrupt-only causes propagate as FiberFailure rejects — they are
  * not rewritten into -32603.
  */
-export async function runResourceHandler<A>(effect: Effect.Effect<A, unknown, never>): Promise<A> {
+export async function runResourceHandler<A>(effect: Effect.Effect<A, unknown>): Promise<A> {
   const exit = await Effect.runPromiseExit(effect);
   if (Exit.isSuccess(exit)) return exit.value;
   if (Cause.hasInterruptsOnly(exit.cause)) {
@@ -276,7 +269,7 @@ export async function createMcpServer(root: string): Promise<Server> {
     { capabilities: { tools: {}, resources: {} } },
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
+  server.setRequestHandler(ListToolsRequestSchema, () => ({ tools }));
 
   // MCP Apps backbone: each saved view is a ui:// html resource.
   server.setRequestHandler(ListResourcesRequestSchema, async () =>
@@ -312,7 +305,7 @@ async function parseRoot(argv: string[]): Promise<string> {
   const idx = argv.indexOf("--root");
   if (idx >= 0) {
     const value = argv[idx + 1];
-    if (!value || value.startsWith("-")) {
+    if (value === undefined || value === "" || value.startsWith("-")) {
       throw new Error("missing value for --root");
     }
     return value;
@@ -327,7 +320,7 @@ if (import.meta.main) {
     await startMcp(root);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`kb mcp: ${message}`);
+    writeErr(`kb mcp: ${message}`);
     process.exit(1);
   }
 }

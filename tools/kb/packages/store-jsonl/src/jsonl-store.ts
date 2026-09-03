@@ -3,28 +3,22 @@ import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
 import {
   domainError,
+  ensureDomainError,
   type DomainError,
   canonicalJson,
   KbNodeSchema,
   nodeParseOptions,
+  type KbNode,
+  type StoreTx,
 } from "@kb/model";
-import type { KbNode } from "@kb/model";
 import { bunFileSystemLayer } from "./platform.ts";
 import { durableReplaceFile } from "./durable-replace.ts";
 import type { EffectStore, Store } from "@kb/contracts";
-import type { StoreTx } from "@kb/model";
-import {
-  acquireNodesWriteLockEffect,
-  ensureDomainError,
-  releaseNodesWriteLock,
-} from "./write-lock.ts";
+import { acquireNodesWriteLockEffect, releaseNodesWriteLock } from "./write-lock.ts";
 
 function mapFsError(err: { message?: string } | unknown): DomainError {
   const message =
-    typeof err === "object" &&
-    err !== null &&
-    "message" in err &&
-    typeof (err as { message: unknown }).message === "string"
+    typeof err === "object" && err !== null && "message" in err && typeof err.message === "string"
       ? (err as { message: string }).message
       : String(err);
   return domainError("internal", message);
@@ -104,7 +98,8 @@ export class JsonlStore implements Store, EffectStore {
       const nodes: KbNode[] = [];
       const lines = body.split("\n");
       for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]!;
+        const line = lines[i];
+        if (line === undefined) continue;
         if (line.trim().length === 0) continue;
         nodes.push(yield* decodeNodeLine(line, path, i + 1));
       }
@@ -127,7 +122,9 @@ export class JsonlStore implements Store, EffectStore {
         for (const id of tx.deletes) byId.delete(id);
         for (const node of tx.upserts) byId.set(node.id, node);
 
-        const sorted = [...byId.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+        const sorted = [...byId.values()].toSorted((a, b) =>
+          a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+        );
         const body =
           sorted.length === 0 ? "" : sorted.map((n) => canonicalJson(n)).join("\n") + "\n";
 

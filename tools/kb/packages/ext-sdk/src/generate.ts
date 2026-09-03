@@ -58,7 +58,7 @@ export async function generateExtSdkDts(opts: { version?: string } = {}): Promis
       encoding: "utf8",
     });
     if (result.status !== 0) {
-      throw new Error(`tsc emit failed:\n${result.stdout ?? ""}\n${result.stderr ?? ""}`);
+      throw new Error(`tsc emit failed:\n${result.stdout}\n${result.stderr}`);
     }
 
     const emitted = await readFile(join(work, "out/surface.d.ts"), "utf8");

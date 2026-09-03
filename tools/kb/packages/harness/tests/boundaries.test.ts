@@ -96,7 +96,7 @@ describe("boundaries", () => {
         missing.add(`${edge.source} imports ${edge.target} without declaring it`);
       }
     }
-    const list = [...missing].sort();
+    const list = [...missing].toSorted();
     expect(list, list.join("\n")).toEqual([]);
   });
 });

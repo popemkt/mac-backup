@@ -24,9 +24,7 @@ import {
   ONTOLOGY_TARGET_QUERY,
   typeRefsOf,
   type NodeLike,
-} from "@kb/model";
-import { systemSeedNodes } from "@kb/model";
-import {
+  systemSeedNodes,
   FIELD_TYPE_OPTION_IDS,
   allowedRefIdsOf,
   fieldTypeValue,
@@ -55,7 +53,7 @@ function node(id: string, text: string, props: Record<string, PropValue[]> = {})
 const seededTagIds = seed
   .filter((n) => typeRefsOf(n).includes(SYSTEM_IDS.tag))
   .map((n) => n.id)
-  .sort();
+  .toSorted();
 
 describe("sys.f.onto.include — targetTag → sys.tag", () => {
   test("the seed really declares sys.tag as the target, via targetTag", () => {
@@ -70,7 +68,7 @@ describe("sys.f.onto.include — targetTag → sys.tag", () => {
     const allowed = allowedRefIdsOf(seedMap.get(SYSTEM_IDS.ontoIncludeField), seedMap);
     expect(allowed).not.toBeNull();
     expect(allowed!.size).toBeGreaterThan(0);
-    expect([...allowed!].sort()).toEqual(seededTagIds);
+    expect([...allowed!].toSorted()).toEqual(seededTagIds);
   });
 
   test("and every one of those is sys.-prefixed, which is the whole point", () => {
@@ -102,14 +100,16 @@ describe("sys.f.onto.include — targetTag → sys.tag", () => {
     const nodes = new Map<string, KbNode>([...seedMap, [mine.id, mine]]);
     const allowed = allowedRefIdsOf(seedMap.get(SYSTEM_IDS.ontoIncludeField), nodes)!;
     expect(allowed.has("t.service")).toBe(true);
-    expect([...allowed].sort()).toEqual([...seededTagIds, "t.service"].sort());
+    expect([...allowed].toSorted()).toEqual([...seededTagIds, "t.service"].toSorted());
   });
 });
 
 describe("sys.f.fieldType — targetTag → #field-type", () => {
   test("resolves to the six seeded option nodes", () => {
     const allowed = allowedRefIdsOf(seedMap.get(SYSTEM_IDS.fieldTypeField), seedMap);
-    expect([...allowed!].sort()).toEqual(Object.values(FIELD_TYPE_OPTION_IDS).slice().sort());
+    expect([...allowed!].toSorted()).toEqual(
+      Object.values(FIELD_TYPE_OPTION_IDS).slice().toSorted(),
+    );
   });
 });
 
@@ -157,7 +157,9 @@ describe("sys.f.targetQuery — the general form", () => {
     });
     const nodes = [...seed, field];
     const allowed = allowedRefIdsOf(field, new Map(nodes.map((n) => [n.id, n])), runnerFor(nodes));
-    expect([...allowed!].sort()).toEqual(Object.values(FIELD_TYPE_OPTION_IDS).slice().sort());
+    expect([...allowed!].toSorted()).toEqual(
+      Object.values(FIELD_TYPE_OPTION_IDS).slice().toSorted(),
+    );
   });
 
   test("no runner, or broken EDN, yields empty — never 'unrestricted'", () => {
@@ -175,7 +177,7 @@ describe("sys.f.targetQuery — the general form", () => {
     });
     expect(targetQueryOf(field)).toBeNull();
     const allowed = allowedRefIdsOf(field, seedMap, runnerFor(seed));
-    expect([...allowed!].sort()).toEqual(seededTagIds);
+    expect([...allowed!].toSorted()).toEqual(seededTagIds);
   });
 });
 
@@ -196,6 +198,6 @@ describe("resolution reads the graph, not a rendered view of it", () => {
       seed.map((n) => [n.id, { id: n.id, text: n.text, props: n.props, children: n.children }]),
     );
     const allowed = allowedRefIdsOf(bare.get(SYSTEM_IDS.ontoIncludeField), bare);
-    expect([...allowed!].sort()).toEqual(seededTagIds);
+    expect([...allowed!].toSorted()).toEqual(seededTagIds);
   });
 });

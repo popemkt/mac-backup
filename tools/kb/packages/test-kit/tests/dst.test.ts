@@ -67,7 +67,7 @@ describe("DST — seeded histories over the real plan/apply path", () => {
 });
 
 describe("DST — dangling inbound refs are intended, not a violation", () => {
-  test("the decision is encoded and consistent with the invariant check", async () => {
+  test("the decision is encoded and consistent with the invariant check", () => {
     // The invariant checker must NOT flag content dangling refs; the store is
     // legal with them present (deleting a node never rewrites another node).
     expect(DANGLING_REF_DECISION).toMatch(/intended/);

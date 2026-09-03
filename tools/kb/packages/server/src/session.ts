@@ -35,7 +35,7 @@ function nodesToMap(nodes: KbNode[]): Map<string, KbNode> {
 }
 
 export function contentHash(nodes: KbNode[]): string {
-  const sorted = [...nodes].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const sorted = [...nodes].toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return String(Bun.hash(JSON.stringify(sorted)));
 }
 
@@ -44,7 +44,7 @@ export function rowsHash(rows: unknown[][]): string {
 }
 
 export function normalizeRows(raw: unknown): unknown[][] {
-  if (raw == null) return [];
+  if (raw === undefined || raw === null) return [];
   const list = raw instanceof Set ? [...raw] : Array.isArray(raw) ? raw : [];
   return list.map((r) => (Array.isArray(r) ? r : [r]));
 }
@@ -107,7 +107,7 @@ export class SubscriptionHub {
     return GraphSnapshotSchema.parse({
       rev: this.rev,
       nodes: [...this.nodeMap.values()]
-        .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+        .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
         .map(toWireNode),
     });
   }

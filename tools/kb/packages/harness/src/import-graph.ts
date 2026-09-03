@@ -57,14 +57,16 @@ let cached: ImportEdge[] | undefined;
 
 /** Every `@kb/*` import that crosses a package boundary. */
 export function importEdges(): ImportEdge[] {
-  if (cached) return cached;
+  if (cached !== undefined) return cached;
   const edges: ImportEdge[] = [];
   for (const dir of packageDirs()) {
     const source = `@kb/${dir}`;
     for (const file of sourceFiles(join(PACKAGES_ROOT, dir))) {
       const body = stripComments(readFileSync(file, "utf8"));
       for (const match of body.matchAll(SPECIFIER)) {
-        const target = match[2]!;
+        const captured = match[2];
+        if (captured === undefined) continue;
+        const target = captured;
         if (target === source) continue;
         edges.push({
           source,

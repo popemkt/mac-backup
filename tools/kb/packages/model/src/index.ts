@@ -3,9 +3,11 @@ export {
   DomainError,
   domainError,
   domainFromResolve,
+  ensureDomainError,
   isDomainError,
   receiptCodeOf,
 } from "./errors.ts";
+export { present } from "./present.ts";
 export { exampleSeedNodes, isPristine } from "./example.ts";
 export { FailureCodeSchema } from "./failure.ts";
 export type { FailureCode } from "./failure.ts";

@@ -153,14 +153,14 @@ describe("cli e2e (tmpdir)", () => {
     const stderr: string[] = [];
     const outWrite = process.stdout.write.bind(process.stdout);
     const errWrite = process.stderr.write.bind(process.stderr);
-    process.stdout.write = ((chunk: string | Uint8Array) => {
+    process.stdout.write = (chunk: string | Uint8Array) => {
       stdout.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString());
       return true;
-    }) as typeof process.stdout.write;
-    process.stderr.write = ((chunk: string | Uint8Array) => {
+    };
+    process.stderr.write = (chunk: string | Uint8Array) => {
       stderr.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString());
       return true;
-    }) as typeof process.stderr.write;
+    };
     try {
       process.exitCode = 0;
       const code = await main(["bun", "kb", "--root", root, "--json", ...args]);

@@ -23,7 +23,7 @@ export class DocsError extends Error {
  * (inline EDN datalog) or `savedQuery` (name under `.kb/queries/`) drives
  * the rows fed to the named template.
  */
-export const ViewSpecSchema = z
+const ViewSpecSchema = z
   .object({
     output: z.string().min(1),
     query: z.string().min(1).optional(),
@@ -38,14 +38,14 @@ export const ViewSpecSchema = z
     message: "output must be a repo-relative path without ..",
   });
 
-export type ViewSpec = z.infer<typeof ViewSpecSchema>;
+type ViewSpec = z.infer<typeof ViewSpecSchema>;
 
 export interface LoadedView {
   name: string;
   spec: ViewSpec;
 }
 
-export function viewsDir(root: string): string {
+function viewsDir(root: string): string {
   return join(root, ".kb", "views");
 }
 
@@ -114,7 +114,7 @@ export const loadViewsEffect = Effect.fn("docs.loadViews")(function* (
   const names = entries
     .filter((e) => e.endsWith(".json"))
     .map((e) => e.slice(0, -".json".length))
-    .sort();
+    .toSorted();
   const views: LoadedView[] = [];
   for (const n of names) {
     views.push(yield* loadViewEffect(root, n));

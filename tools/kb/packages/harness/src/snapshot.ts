@@ -20,7 +20,7 @@ import { WORKSPACE_ROOT, workspacePackages } from "./workspace.ts";
 
 export const BASELINE_PATH = join(WORKSPACE_ROOT, "packages", "harness", "lint-warn-baseline.json");
 
-export const ADVISORY_RULES = new Set(["typescript/no-deprecated"]);
+const ADVISORY_RULES = new Set(["typescript/no-deprecated"]);
 
 export interface BaselineLanes {
   lanes: {
@@ -47,10 +47,15 @@ function normalizeRuleName(code: string): string {
   return code;
 }
 
-export function collectLinterWarnings(root: string = WORKSPACE_ROOT): Record<string, number> {
-  const counts: Record<string, number> = {};
+function stdoutOf(err: unknown): string {
+  if (typeof err === "object" && err !== null && "stdout" in err) {
+    const s = err.stdout;
+    if (typeof s === "string") return s;
+  }
+  return "";
+}
 
-  // 1. Oxlint warnings
+function collectOxlintWarnings(root: string, counts: Record<string, number>): void {
   let oxlintOut = "";
   try {
     oxlintOut = execSync(
@@ -62,27 +67,24 @@ export function collectLinterWarnings(root: string = WORKSPACE_ROOT): Record<str
       },
     );
   } catch (err: unknown) {
-    if (typeof err === "object" && err !== null && "stdout" in err) {
-      const s = err.stdout;
-      if (typeof s === "string") oxlintOut = s;
-    }
+    oxlintOut = stdoutOf(err);
   }
 
-  if (oxlintOut.length > 0) {
-    try {
-      const parsed = JSON.parse(oxlintOut) as { diagnostics?: OxlintDiagnostic[] };
-      for (const d of parsed.diagnostics ?? []) {
-        if (d.severity === "warning" && d.code) {
-          const code = normalizeRuleName(d.code);
-          counts[code] = (counts[code] ?? 0) + 1;
-        }
+  if (oxlintOut.length === 0) return;
+  try {
+    const parsed = JSON.parse(oxlintOut) as { diagnostics?: OxlintDiagnostic[] };
+    for (const d of parsed.diagnostics ?? []) {
+      if (d.severity === "warning" && d.code !== undefined && d.code !== "") {
+        const code = normalizeRuleName(d.code);
+        counts[code] = (counts[code] ?? 0) + 1;
       }
-    } catch {
-      // ignore JSON parse errors
     }
+  } catch {
+    // ignore JSON parse errors
   }
+}
 
-  // 2. Ingest effect-tsgo diagnostics warnings across backend packages
+function collectTsgoWarnings(root: string, counts: Record<string, number>): void {
   const pkgs = workspacePackages();
   for (const { dir } of pkgs) {
     if (dir === "ui") continue;
@@ -96,39 +98,41 @@ export function collectLinterWarnings(root: string = WORKSPACE_ROOT): Record<str
         },
       );
     } catch (err: unknown) {
-      if (typeof err === "object" && err !== null && "stdout" in err) {
-        const s = err.stdout;
-        if (typeof s === "string") tsgoOut = s;
-      }
+      tsgoOut = stdoutOf(err);
     }
 
-    if (tsgoOut.length > 0) {
-      try {
-        const parsed = JSON.parse(tsgoOut) as { diagnostics?: TsgoDiagnostic[] };
-        for (const d of parsed.diagnostics ?? []) {
-          if (d.severity === "warning" || d.severity === "message") {
-            if (d.name) {
-              const rule = `effect/${d.name}`;
-              counts[rule] = (counts[rule] ?? 0) + 1;
-            }
+    if (tsgoOut.length === 0) continue;
+    try {
+      const parsed = JSON.parse(tsgoOut) as { diagnostics?: TsgoDiagnostic[] };
+      for (const d of parsed.diagnostics ?? []) {
+        if (d.severity === "warning" || d.severity === "message") {
+          if (d.name !== undefined && d.name !== "") {
+            const rule = `effect/${d.name}`;
+            counts[rule] = (counts[rule] ?? 0) + 1;
           }
         }
-      } catch {
-        // ignore parse error
       }
+    } catch {
+      // ignore parse error
     }
   }
+}
 
+export function collectLinterWarnings(root: string = WORKSPACE_ROOT): Record<string, number> {
+  const counts: Record<string, number> = {};
+  collectOxlintWarnings(root, counts);
+  collectTsgoWarnings(root, counts);
   return counts;
 }
 
-export function buildBaseline(counts: Record<string, number>): BaselineLanes {
+function buildBaseline(counts: Record<string, number>): BaselineLanes {
   const blocking: Record<string, number> = {};
   const advisory: Record<string, number> = {};
 
-  const sortedRules = Object.keys(counts).sort();
+  const sortedRules = Object.keys(counts).toSorted();
   for (const rule of sortedRules) {
-    const count = counts[rule]!;
+    const count = counts[rule];
+    if (count === undefined) continue;
     if (ADVISORY_RULES.has(rule)) {
       advisory[rule] = count;
     } else {

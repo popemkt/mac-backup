@@ -28,6 +28,7 @@
  * Out of core by design (r5 §2.9): `intersect` / `subtract` set algebra,
  * inference, auto-classification, validation enforcement, tag inheritance.
  */
+import { present } from "./present.ts";
 import { SYSTEM_IDS, type NodeId, type PropValue } from "./model.ts";
 
 /**
@@ -41,7 +42,7 @@ export interface NodeLike {
   readonly children: readonly NodeId[];
 }
 
-export type MemberReasonKind = "member" | "tag" | "query" | "extends" | "closure";
+type MemberReasonKind = "member" | "tag" | "query" | "extends" | "closure";
 
 export interface MemberReason {
   kind: MemberReasonKind;
@@ -73,9 +74,9 @@ export interface ResolveOptions {
 }
 
 export const DEFAULT_MAX_DEPTH = 32;
-export const DEFAULT_WARN_ABOVE = 5000;
+const DEFAULT_WARN_ABOVE = 5000;
 
-export const ONTOLOGY_CLOSURE_MODES = ["none", "descendants"] as const;
+const ONTOLOGY_CLOSURE_MODES = ["none", "descendants"] as const;
 export type OntologyClosureMode = (typeof ONTOLOGY_CLOSURE_MODES)[number];
 
 /** Ref-picker constraint for `sys.f.onto.extends`: only `#ontology` nodes. */
@@ -100,7 +101,7 @@ export const LIST_ONTOLOGIES_QUERY = `[:find ?id ?text
 export function refValuesOf(node: Pick<NodeLike, "props"> | undefined, fieldId: string): NodeId[] {
   return (node?.props[fieldId] ?? [])
     .filter((v) => v.t === "ref" && typeof v.v === "string")
-    .map((v) => String(v.v));
+    .map((v) => v.v);
 }
 
 /** First non-empty str value of a single-valued str field. */
@@ -143,7 +144,7 @@ export function listOntologyNodes<T extends NodeLike>(nodes: readonly T[]): T[] 
   return nodes
     .filter(isOntologyNode)
     .slice()
-    .sort((a, b) => (a.text || a.id).localeCompare(b.text || b.id) || a.id.localeCompare(b.id));
+    .toSorted((a, b) => (a.text || a.id).localeCompare(b.text || b.id) || a.id.localeCompare(b.id));
 }
 
 export function ontologyClosureMode(node: NodeLike): OntologyClosureMode {
@@ -165,7 +166,7 @@ export function wouldCreateExtendsCycle(
   const seen = new Set<NodeId>();
   const stack: NodeId[] = [parentId];
   while (stack.length > 0) {
-    const current = stack.pop()!;
+    const current = present(stack.pop(), "wouldCreateExtendsCycle: pop on non-empty stack");
     if (current === ontoId) return true;
     if (seen.has(current)) continue;
     seen.add(current);
@@ -250,24 +251,13 @@ function idsFromRows(rows: unknown[][], known: Set<NodeId>): NodeId[] {
   return out;
 }
 
-function resolveInto(state: ResolveState, ontologyId: NodeId, depth: number): PartialResolution {
-  const cached = state.cache.get(ontologyId);
-  if (cached) return cached;
-
-  const result: PartialResolution = {
-    members: new Set<NodeId>(),
-    reasons: new Map<NodeId, MemberReason[]>(),
-    excluded: new Set<NodeId>(),
-  };
-  const onto = state.byId.get(ontologyId);
-  if (!onto) {
-    warn(state, `missing:${ontologyId}`, `unknown ontology reference: ${ontologyId}`);
-    return result;
-  }
-
-  state.visiting.add(ontologyId);
-
-  // 1. extends — parent members are inherited (A extends B ⇒ A ⊇ B).
+function inheritExtends(
+  state: ResolveState,
+  onto: NodeLike,
+  ontologyId: NodeId,
+  depth: number,
+  result: PartialResolution,
+): void {
   for (const parentId of refValuesOf(onto, SYSTEM_IDS.ontoExtendsField)) {
     if (state.visiting.has(parentId)) {
       warn(
@@ -286,7 +276,7 @@ function resolveInto(state: ResolveState, ontologyId: NodeId, depth: number): Pa
       continue;
     }
     const parent = state.byId.get(parentId);
-    if (parent && !isOntologyNode(parent)) {
+    if (parent !== undefined && !isOntologyNode(parent)) {
       warn(state, `notonto:${parentId}`, `extends target is not an #ontology node: ${parentId}`);
       continue;
     }
@@ -296,20 +286,31 @@ function resolveInto(state: ResolveState, ontologyId: NodeId, depth: number): Pa
       addMember(result, id, { kind: "extends", via: parentId });
     }
   }
+}
 
-  // 2. include tags — every instance of each listed tag.
+function includeTagged(
+  state: ResolveState,
+  onto: NodeLike,
+  ontologyId: NodeId,
+  result: PartialResolution,
+): void {
   for (const tagId of refValuesOf(onto, SYSTEM_IDS.ontoIncludeField)) {
     if (!state.byId.has(tagId)) {
       warn(state, `unknowntag:${ontologyId}:${tagId}`, `include tag not found: ${tagId}`);
       continue;
     }
-    // A tag with zero instances is a legitimate state, not a warning.
     for (const id of state.byTag.get(tagId) ?? []) {
       addMember(result, id, { kind: "tag", via: tagId });
     }
   }
+}
 
-  // 3. explicit members ("pins") — survive the tag being removed.
+function pinMembers(
+  state: ResolveState,
+  onto: NodeLike,
+  ontologyId: NodeId,
+  result: PartialResolution,
+): void {
   for (const id of refValuesOf(onto, SYSTEM_IDS.ontoMemberField)) {
     if (!state.byId.has(id)) {
       warn(state, `unknownmember:${ontologyId}:${id}`, `explicit member not found: ${id}`);
@@ -317,65 +318,92 @@ function resolveInto(state: ResolveState, ontologyId: NodeId, depth: number): Pa
     }
     addMember(result, id, { kind: "member" });
   }
+}
 
-  // 4. query — parameter-free EDN; never throws across this boundary.
+function runOntoQuery(
+  state: ResolveState,
+  onto: NodeLike,
+  ontologyId: NodeId,
+  result: PartialResolution,
+): void {
   const edn = strValueOf(onto, SYSTEM_IDS.ontoQueryField);
-  if (edn) {
-    if (!state.runQuery) {
-      warn(
-        state,
-        `norunner:${ontologyId}`,
-        `onto.query skipped (no query runner supplied): ${ontologyId}`,
-      );
-    } else {
-      try {
-        const rows = state.runQuery(edn);
-        const known = new Set(state.byId.keys());
-        for (const id of idsFromRows(rows, known)) {
-          addMember(result, id, { kind: "query" });
-        }
-      } catch (err) {
-        warn(
-          state,
-          `badquery:${ontologyId}`,
-          `onto.query failed on ${ontologyId}: ${err instanceof Error ? err.message : String(err)}`,
-        );
+  if (typeof edn !== "string" || edn === "") return;
+  if (state.runQuery === undefined) {
+    warn(
+      state,
+      `norunner:${ontologyId}`,
+      `onto.query skipped (no query runner supplied): ${ontologyId}`,
+    );
+    return;
+  }
+  try {
+    const rows = state.runQuery(edn);
+    const known = new Set(state.byId.keys());
+    for (const id of idsFromRows(rows, known)) {
+      addMember(result, id, { kind: "query" });
+    }
+  } catch (err) {
+    warn(
+      state,
+      `badquery:${ontologyId}`,
+      `onto.query failed on ${ontologyId}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
+function closeDescendants(state: ResolveState, onto: NodeLike, result: PartialResolution): void {
+  if (ontologyClosureMode(onto) !== "descendants") return;
+  const seeds = [...result.members];
+  for (const seed of seeds) {
+    const visited = new Set<NodeId>([seed]);
+    const stack = [seed];
+    while (stack.length > 0) {
+      const current = present(stack.pop(), "resolveInto: pop on non-empty stack");
+      const node = state.byId.get(current);
+      if (node === undefined) continue;
+      for (const childId of node.children) {
+        if (visited.has(childId)) continue;
+        visited.add(childId);
+        if (!state.byId.has(childId)) continue;
+        addMember(result, childId, { kind: "closure", via: seed });
+        stack.push(childId);
       }
     }
   }
+}
 
-  // 5. closure — "descendants" pulls whole subtrees of existing members.
-  if (ontologyClosureMode(onto) === "descendants") {
-    const seeds = [...result.members];
-    for (const seed of seeds) {
-      const visited = new Set<NodeId>([seed]);
-      const stack = [seed];
-      while (stack.length > 0) {
-        const current = stack.pop()!;
-        const node = state.byId.get(current);
-        if (!node) continue;
-        for (const childId of node.children) {
-          if (visited.has(childId)) continue;
-          visited.add(childId);
-          if (!state.byId.has(childId)) continue;
-          addMember(result, childId, { kind: "closure", via: seed });
-          stack.push(childId);
-        }
-      }
-    }
-  }
-
-  // 6. exclude — absolute veto, applied last, wins over everything above.
+function applyExcludes(onto: NodeLike, ontologyId: NodeId, result: PartialResolution): void {
   for (const id of refValuesOf(onto, SYSTEM_IDS.ontoExcludeField)) {
     result.excluded.add(id);
     result.members.delete(id);
     result.reasons.delete(id);
   }
-
-  // 7. the ontology is never its own member.
   result.members.delete(ontologyId);
   result.reasons.delete(ontologyId);
+}
 
+function resolveInto(state: ResolveState, ontologyId: NodeId, depth: number): PartialResolution {
+  const cached = state.cache.get(ontologyId);
+  if (cached !== undefined) return cached;
+
+  const result: PartialResolution = {
+    members: new Set<NodeId>(),
+    reasons: new Map<NodeId, MemberReason[]>(),
+    excluded: new Set<NodeId>(),
+  };
+  const onto = state.byId.get(ontologyId);
+  if (onto === undefined) {
+    warn(state, `missing:${ontologyId}`, `unknown ontology reference: ${ontologyId}`);
+    return result;
+  }
+
+  state.visiting.add(ontologyId);
+  inheritExtends(state, onto, ontologyId, depth, result);
+  includeTagged(state, onto, ontologyId, result);
+  pinMembers(state, onto, ontologyId, result);
+  runOntoQuery(state, onto, ontologyId, result);
+  closeDescendants(state, onto, result);
+  applyExcludes(onto, ontologyId, result);
   state.visiting.delete(ontologyId);
   state.cache.set(ontologyId, result);
   return result;
@@ -437,13 +465,19 @@ export function describeReason(reason: MemberReason, labelOf: (id: NodeId) => st
     case "member":
       return "pinned";
     case "tag":
-      return reason.via ? `via #${labelOf(reason.via)}` : "via tag";
+      return reason.via !== undefined && reason.via !== ""
+        ? `via #${labelOf(reason.via)}`
+        : "via tag";
     case "extends":
-      return reason.via ? `via ⬡ ${labelOf(reason.via)}` : "inherited";
+      return reason.via !== undefined && reason.via !== ""
+        ? `via ⬡ ${labelOf(reason.via)}`
+        : "inherited";
     case "query":
       return "via query";
     case "closure":
-      return reason.via ? `under ${labelOf(reason.via)}` : "descendant";
+      return reason.via !== undefined && reason.via !== ""
+        ? `under ${labelOf(reason.via)}`
+        : "descendant";
     default:
       return reason.kind;
   }

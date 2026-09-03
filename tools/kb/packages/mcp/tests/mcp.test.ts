@@ -157,7 +157,7 @@ describe("MCP surface", () => {
     const read = await client.readResource({ uri: "ui://kb/view/todos" });
     const first = read.contents[0]!;
     expect(first.mimeType).toBe("text/html");
-    expect("text" in first && String(first.text)).toContain("<h1>Todos</h1>");
+    expect("text" in first && first.text).toContain("<h1>Todos</h1>");
 
     const rendered = await client.callTool({
       name: "render_view",
