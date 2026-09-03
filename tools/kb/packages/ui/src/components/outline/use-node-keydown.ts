@@ -26,6 +26,7 @@ export function useNodeKeyDown({ nodeId, instanceKey, isRef = false }: UseNodeKe
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
 
   return useCallback(
+    // oxlint-disable-next-line complexity -- GAP [[01M1MGCQKVQCG3H9YYCWQX0A0Y]]
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       const store = useOutlineStore.getState();
       const live = store.nodes.get(nodeId);

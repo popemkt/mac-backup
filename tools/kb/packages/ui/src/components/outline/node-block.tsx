@@ -29,6 +29,7 @@ interface NodeBlockProps {
   isRef?: boolean;
 }
 
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCGKSAJSB6GFR30SZNATJ]]
 export const NodeBlock = memo(function NodeBlock({
   nodeId,
   depth,

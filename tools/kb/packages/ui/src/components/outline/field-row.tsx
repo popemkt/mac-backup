@@ -66,6 +66,7 @@ function resolveIconKind(fieldType: FieldType | PropValue["t"]): PropValue["t"] 
  * Single source of alignment: label col top-aligned to first value line.
  * Icon + label slots use h-6 baseline; value slot is first-line-flex via items-start.
  */
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCHQH499KS0RV9J461F73]]
 export function FieldRow({
   depth = 0,
   icon,

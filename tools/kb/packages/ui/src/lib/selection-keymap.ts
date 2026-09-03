@@ -59,6 +59,7 @@ export function isEditableTarget(target: EventTarget | null): boolean {
  * Map a keydown to a selection action, or null if not handled.
  * Caller should preventDefault when a non-null action is returned.
  */
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCH7SD69CRSSV75X789QW]]
 export function mapSelectionKey(
   ev: SelectionKeyEvent,
   ctx: SelectionKeyContext,

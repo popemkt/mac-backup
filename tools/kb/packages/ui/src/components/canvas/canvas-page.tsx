@@ -254,6 +254,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const refFields = useMemo(() => listRefFields(nodes), [nodes]);
 
   useEffect(() => {
+    // oxlint-disable-next-line complexity -- GAP [[01M1MGCS6A29HT51G40W5TEEYK]]
     const onKeyDown = (e: KeyboardEvent) => {
       const inField =
         e.target instanceof HTMLInputElement ||
@@ -676,6 +677,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setSelection(selNode(card.id));
   };
 
+  // oxlint-disable-next-line complexity -- GAP [[01M1MGCSQY0M708HYYTWHP0XP2]]
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
     if (!d) return;
@@ -882,6 +884,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     }
   };
 
+  // oxlint-disable-next-line complexity -- GAP [[01M1MGCT80E1FMXMEAEATS1VER]]
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
     dragRef.current = null;
@@ -999,6 +1002,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       })()
     : null;
 
+  // oxlint-disable-next-line complexity -- GAP [[01M1MGCTRFEHBF15DSCNDXW0GZ]]
   const onModeChange = async (mode: KbLinkMode) => {
     if (!selectedEdgeObj) return;
     const from = byId.get(selectedEdgeObj.fromNode);

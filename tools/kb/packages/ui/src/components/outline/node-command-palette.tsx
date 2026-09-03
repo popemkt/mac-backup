@@ -64,6 +64,7 @@ export interface NodeCommandPaletteProps {
   onClose: () => void;
 }
 
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCF0ECBDEPTHPKMSQ4YFD]]
 export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const [step, setStep] = useState<PaletteStep>({ type: "commands" });
   const [query, setQuery] = useState("");

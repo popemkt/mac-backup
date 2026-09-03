@@ -34,6 +34,7 @@ interface PropValueEditorProps {
 const editableClass = cn("flex-1 outline-none rounded-sm px-1", KB_TEXT_CLASS);
 
 /** Borderless inline prop editors — picked by declared fieldType. */
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCND3KMDYJPSSMD2E4Q9J]]
 export function PropValueEditor({
   value,
   display,
@@ -414,6 +415,7 @@ function DateValue({
  * blur closes it — which is also what keeps the dropdown from rendering under
  * an input nobody is typing in.
  */
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCP1EF5GM8NA32JEJRJ9Q]]
 function RefEditor({
   refId,
   display,

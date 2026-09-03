@@ -31,6 +31,7 @@ const HALO_OPACITY = 12.5;
 /** Dashed reference ring stroke at 25% (was `40`). */
 const REF_RING_OPACITY = 25;
 
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCMX698XJ0VDCSVQBGSQB]]
 export function Bullet({
   node,
   collapsible: collapsibleProp,

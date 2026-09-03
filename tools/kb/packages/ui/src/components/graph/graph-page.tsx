@@ -45,6 +45,7 @@ export interface GraphPageProps {
   ontologyId?: string | null;
 }
 
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCFTMWY5EYHEWP9QVH8Z9]]
 export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPageProps) {
   const wireNodes = useOutlineStore((s) => s.wireNodes);
   const queryDb = useOutlineStore((s) => s.queryDb);

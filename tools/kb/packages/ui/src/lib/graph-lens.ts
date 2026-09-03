@@ -155,6 +155,7 @@ function boolProp(node: WireNode, fieldId: string): boolean | null {
   return v ? v.v : null;
 }
 
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCEBYDFRNJX1JKXXN825H]]
 export function parsePerspective(node: WireNode): LensPerspective {
   const kindsRaw = multiStrProp(node, SYSTEM_IDS.lensEdgeKindsField);
   const edgeKinds = kindsRaw.filter((k): k is EdgeKind => EDGE_KIND_SET.has(k));

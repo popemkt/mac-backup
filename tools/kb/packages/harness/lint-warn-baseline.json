@@ -19,7 +19,7 @@
       "effect/schemaNumber": 1,
       "effect/unknownInEffectCatch": 1,
       "effect/unnecessaryFailYieldableError": 2,
-      "eslint/complexity": 30,
+      "eslint/complexity": 7,
       "eslint/default-case": 2,
       "eslint/max-depth": 18,
       "eslint/max-lines": 2,

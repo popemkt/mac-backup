@@ -123,6 +123,7 @@ export function applyViewFilters(
   return children.filter((n) => filters.every((f) => matchesFilter(n, f, nodes)));
 }
 
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCJAKKST0C1R54VVX9HPX]]
 export function getViewConfig(props?: Record<string, PropValue[]>): ViewConfig {
   if (!props) return { ...DEFAULT_VIEW_CONFIG };
 
@@ -205,6 +206,7 @@ export interface TableColumnSpec {
   label: string;
 }
 
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCJYB7PZXM68T4AVBECYG]]
 export function resolveTableColumns(
   viewConfig: ViewConfig,
   children: OutlineNode[],
@@ -258,6 +260,7 @@ export function sortChildrenForTable(
   if (sortSpecs.length === 0) return children;
 
   const sorted = [...children];
+  // oxlint-disable-next-line complexity -- GAP [[01M1MGCKK69CQBZQYAKRMESW5S]]
   sorted.sort((a, b) => {
     for (const spec of sortSpecs) {
       const { fieldId, dir } = spec;

@@ -49,6 +49,7 @@ export function radialLayout(
  * Layer columns by BFS depth from lowest-in-degree roots (or first id).
  * Deterministic within a fixture.
  */
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCR50QEXX7R4JDJ51HQFY]]
 export function hierarchicalLayout(
   nodes: LensNode[],
   edges: LensEdge[],

@@ -4,6 +4,7 @@ import { isEditableTarget, mapSelectionKey, type SelectionKeyAction } from "@/li
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCDRS0K28YBF1Q86YY61S]]
 function applySelectionAction(action: SelectionKeyAction): void {
   const store = useOutlineStore.getState();
   switch (action.type) {

@@ -67,6 +67,7 @@ export function ClusterGraph({
   } | null>(null);
   const [isolatedCluster, setIsolatedCluster] = useState<string | null>(null);
 
+  // oxlint-disable-next-line complexity -- GAP [[01M1MGCQ3JT5GE3FY5XJ9EB67Q]]
   useEffect(() => {
     const el = containerRef.current;
     const hullCanvas = hullRef.current;

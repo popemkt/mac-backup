@@ -19,6 +19,7 @@ function nextTheme(current: ThemePref): ThemePref {
   return THEME_CYCLE[(i + 1) % THEME_CYCLE.length]!;
 }
 
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCRNVNBE5HW27Z83PK67B]]
 export async function runPaletteCommand(commandId: string): Promise<void> {
   switch (commandId) {
     case SYSTEM_IDS.cmdAddNode: {

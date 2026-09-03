@@ -153,6 +153,7 @@ export function SigmaGraph({
     refreshReducers();
   }, [selectedNodeId, refreshReducers]);
 
+  // oxlint-disable-next-line complexity -- GAP [[01M1MGCPJTV66QSFCR44XG29YM]]
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return undefined;
