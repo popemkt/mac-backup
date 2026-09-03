@@ -24,7 +24,7 @@ per-invocation CLI (fresh db each run); if we later add watch-mode or a server,
 | Query | **DataScript** in-memory, rebuilt per invocation | real datalog; Cozo persistent backends are binary |
 | Surfaces | **CLI + MCP over one action registry** | action is the abstraction (harman pattern) |
 | Runtime | **Bun**, no build step | the production `kb` tool (CLI, `kb ui` server, MCP) runs under Bun and may use Bun APIs (`Bun.serve`, `Bun.file`, …) where appropriate |
-| Toolchain | **TypeScript 7 + Vite+ (`vp` 0.2.8)** | vp owns lint/check/fmt/UI test; authoritative typecheck is `tsc --noEmit` — see [Runtime/tooling boundary](#runtime-tooling-boundary) |
+| Toolchain | **TypeScript 7 + Vite+ (`vp` 0.2.8)** | vp owns lint/check/fmt/UI test; authoritative typecheck is `tsc --noEmit` — see [Runtime/tooling boundary](#runtimetooling-boundary) |
 | Model | **Everything is a node** — fields and tags included | Tana model; Logseq DB does the same (properties are first-class entities) |
 
 ## Runtime/tooling boundary
@@ -45,25 +45,173 @@ The backend runs on **Bun** in production; the toolchain around it is **Vite+
     typecheck — not `vp check`.
   - `lint` → `vp lint` (oxlint)
   - `check` → `vp check --no-fmt` (**lint-only** here: `lint.options.typeCheck`
-    is deliberately off in `tools/kb/vite.config.ts` because oxlint-tsgolint
-    is not verified as a meaningful gate for this Bun/Effect tree. `--no-fmt`
-    skips format; `vp fmt` remains available for incremental adoption)
-  - `test` → `bun test` (Bun-dependent backend integration tests keep running
-    under Bun). Note: recursive `bun test` from `tools/kb` also discovers many
-    `ui/**/*.test.ts(x)` files — only the Vitest-only paths in `bunfig.toml`
-    are ignored — so a full backend `bun test` still needs `tools/kb/ui`
-    deps installed. The dedicated UI suite is `cd ui && vp test` (Vitest).
+    is off in `tools/kb/vite.config.ts`. That was once recorded as
+    "oxlint-tsgolint is not verified as a meaningful gate for this Bun/Effect
+    tree" — **superseded**: type-aware lint is measured and turned on by `g2`
+    (`briefs/g2-strict-stack.md`), because an Effect tree with `Effect.runFork`
+    inside `setTimeout` and WS callbacks is exactly what `no-floating-promises`
+    and `no-misused-promises` exist to police. `--no-fmt` skips format;
+    `vp fmt` remains available for incremental adoption)
+  - `test` → `bun test`.
+- **Two test runners, and only two.** `bun test` runs the backend packages and
+  the repo-shape harness, because those tests exercise Bun APIs (`Bun.serve`,
+  `Bun.file`, store round-trips) that would need to exist under a node worker
+  to run anywhere else. `vp test` (Vitest) runs `@kb/ui`, because component
+  tests need Vitest mock-hoisting and happy-dom. Neither runner is a fallback
+  for the other, and a third would be a second test stack wearing a disguise.
+  Recursive `bun test` from `tools/kb` also discovers `ui/**/*.test.ts(x)`
+  files — only the Vitest-only paths in `bunfig.toml` are ignored — so a full
+  backend `bun test` still needs the ui deps installed.
 - **Backend lint/check never enter `ui/`.** `tools/kb/vite.config.ts` sets
   `lint.ignorePatterns: ["ui/**", …]`. The browser app is its own Vite+
   package (`tools/kb/ui`) with separate install, `vp` config, and gates.
-- **Tests are split by runtime need.** Tests that exercise Bun APIs
-  (`ui.test.ts`, `query-nodes.test.ts`, store round-trips) stay on `bun:test` —
-  forcing them through vp/Vitest would require Bun APIs to exist under a node
-  worker. UI component tests that need Vitest mock-hoist / happy-dom stay on
-  `vp test` (and are listed in `bunfig.toml` so recursive `bun test` skips them).
 - TypeScript 7 removed `baseUrl`; the UI tsconfig uses relative `paths`, and
   the backend tsconfig scopes to backend sources (`src`, `tests`,
   `extensions-bundled`) — it never compiles `ui/`.
+- **Minimal valid entrypoints.** Every way to start kb is a named script in a
+  package manifest, complete enough that a fresh shell with no prior
+  environment can run it. No raw `bun path/to/thing.ts` with a hand-built
+  environment below that layer, and removing a way to start something is a
+  deletion of its script, never a deprecation comment.
+
+### Compiler strictness contract
+
+One `tsconfig.base.json` owns strictness; every package extends it and declares
+only its own delta (`include`, `paths`, `jsx`, `lib`). **This table is the
+contract** — `g2`'s `tsconfig-contract` harness check parses it and fails when
+the base config and this table disagree, so a flag is changed here first and in
+the config second.
+
+| flag | value | status |
+|---|---|---|
+| `strict` | `true` | on |
+| `noUncheckedIndexedAccess` | `true` | on |
+| `noImplicitOverride` | `true` | on |
+| `noFallthroughCasesInSwitch` | `true` | on |
+| `verbatimModuleSyntax` | `true` | on |
+| `exactOptionalPropertyTypes` | `true` | on |
+| `noUnusedLocals` | `true` | on |
+| `noUnusedParameters` | `true` | on |
+| `noImplicitReturns` | `true` | on |
+| `allowUnreachableCode` | `false` | on |
+| `allowUnusedLabels` | `false` | on |
+| `noUncheckedSideEffectImports` | `true` | on |
+| `erasableSyntaxOnly` | `true` | on |
+| `forceConsistentCasingInFileNames` | `true` | on |
+| `useUnknownInCatchVariables` | `true` | on |
+| `skipLibCheck` | `true` | exception |
+| `noPropertyAccessFromIndexSignature` | `false` | rejected (114 backend + 239 ui) |
+
+The two rows that are not plain `on`:
+
+- `skipLibCheck: true` is an **exception**, not a preference: three upstream
+  packages do not typecheck under TS 7 today. The one `.d.ts` most worth
+  checking is our own hand-written `datascript.d.ts`, so the harness
+  typechecks that shim in isolation under `skipLibCheck: false` instead
+  (`datascript-shim-typechecks`). Delete the exception when upstream is fixed.
+- `noPropertyAccessFromIndexSignature` is **rejected** on measurement, not on
+  taste: 114 backend and 239 ui sites, all of them index-signature reads that
+  the flag would only re-spell. Re-open it with new numbers, not a new opinion.
+
+`module`, `target`, `moduleResolution` and `paths` are deliberately **not** in
+the base: they are per-package facts (the ui builds for the browser, the
+backend runs under Bun) and a base that guesses them forces every package to
+re-declare a delta it does not mean. The `@effect/tsgo` plugin is configured
+alongside this contract for backend packages only, with
+`ignoreEffectSuggestionsInTscExitCode: false` so its correctness diagnostics
+fail `typecheck` rather than decorating it.
+
+## Spec-first changes
+
+This file is the spec; the code is one materialization of it. A change edits
+the spec section first, in the same change and earlier in commit order, then
+the code follows. If the section cannot be written, the code cannot be written:
+vagueness in prose is the cheapest place to discover an under-specified
+decision, and vagueness in code is the most expensive. When the implementation
+wants something the spec does not authorize, that is a signal to revise the
+spec — not a licence to expand intent quietly in the implementation.
+
+When the spec must temporarily lag the code, the lag is written down first: a
+`#gap` node and a `// GAP [[id]]` marker (see
+[Drift markers and gaps](../../CLAUDE.md#drift-markers-and-gaps)). The goal is
+not zero drift; the goal is visible, intentional drift.
+
+## Testing doctrine
+
+The long form of the evidence behind this section is
+`docs/kb-waves/2026-09-03/reports/recon-draiver.md` §4; what follows is the
+part that governs kb.
+
+**Properties are design artifacts, not test volume.** A property states a
+falsifiable domain claim, and falsifiability runs from the **rejecting** side:
+an accept-everything round-trip is not a property. Three anti-patterns are
+named so a reviewer can cite them:
+
+| anti-pattern | shape | why it has no power |
+|---|---|---|
+| TAUTOLOGY | the oracle re-implements the function under test | passes for every implementation, including a wrong one |
+| STRUCTURAL | asserts what the type system or `Schema` already guarantees | the negation is unrepresentable |
+| quantifier theatre | `fc.constantFrom` over two or three values, or a filtered generator wearing a `forall` | claims coverage it does not have |
+
+The keeper classes are metamorphic relations (idempotence, injectivity,
+invariance, erasure — `store-roundtrip`, `order`, `mentions` are all of this
+kind), fail-closed backstops, precedence, conservation/projection, and
+cross-function agreement. Mutate one field and assert the rejection *names the
+violated path*. Determinism is mandatory: no wall clock, no unseeded
+randomness, fixed seed in CI, and a failure prints seed plus counterexample. A
+pure function is not by itself a reason to write a property.
+
+**Coverage is a signal, never a gate.** It may be reported; there is no
+"fail below N%" check and there will not be one. Chasing a percentage
+manufactures exactly the noise this doctrine forbids.
+
+**The mutation score is advisory.** Stryker runs weekly over the pure core with
+no `thresholds` block, and its own workflow header records that the score is
+non-reproducible run to run. It is a sensor a human reads to find a missing
+test; a non-deterministic merge blocker erodes trust in every other gate.
+
+**Size is a signal; boundaries and branching are the gate (L1/L2/L3).**
+
+- **L1 — structural, hard (`error`).** Cross-unit coupling: import cycles,
+  layer direction, a unit reaching past another's public surface. Mechanical
+  and non-negotiable.
+- **L2 — within-unit sensors, two tiers.** *Branching* sensors (`complexity`,
+  `max-depth`, `max-nested-callbacks`) are hard, because they measure shape
+  directly. *Size* sensors (`max-lines`, `max-lines-per-function`,
+  `max-params`) only ever `warn`: a legitimately large cohesive unit is real,
+  and a length cap forces exactly the bad split a reviewer would have to
+  reverse. A long but flat body of well-named steps is good code.
+- **L3 — cohesion, advisory.** "Is this one responsibility?" is a review
+  judgement, never a merge blocker.
+
+A unit may be long; it may not be tangled.
+
+## Domain typing — Effect `Schema`
+
+Once a domain value is parsed, narrowing on its discriminator hands back the
+right field shape with no further checks: no `!`, no `as`, no field that
+"exists for one variant but not another".
+
+- **No optional-where-discriminated.** If a field is sometimes present and the
+  rule for when it appears is encodable, do not write `field?: T` — lift the
+  rule into a discriminator. The live violation is `KbNode.order?`: a
+  fractional sibling rank marked "optional during migration", absent from
+  `KbNodeSchema` altogether, surviving the round trip only because decode runs
+  with `onExcessProperty: "preserve"`. The one field the outline depends on for
+  ordering is invisible to the schema, and any backend with a real column or a
+  stricter decode drops it silently. Track 2 fixes it
+  (`briefs/p1-persistence.md`); this section records it until then.
+- **Discriminators are literals**, never `Schema.String`. `PropValue.t`,
+  `ActionReceipt.status`, `ServerMessage.op`, `MemberReason.kind` and
+  `DomainError.code` are the model's discriminators and each is a literal
+  union; a `switch` over one is exhaustive by construction.
+- **One canonical schema, never re-declared inline.** A shared shape is
+  declared once and referenced. An inline copy that drifts by one field is the
+  classic way to drop data on a round trip.
+- **Parse `unknown` at every boundary.** A boundary's parameter is `unknown`
+  and its first act is a decode; that is validation, not a cast. Finding
+  yourself writing `node.props[id]!` means the schema is too loose — tighten
+  the schema, do not bypass the type.
 
 ## Data model — everything is a node
 
@@ -192,12 +340,15 @@ interface Store {
 
 - **JsonlStore v1**: `.kb/nodes.jsonl`, one canonical-JSON node per line,
   sorted by id, sorted keys → stable bytes, mergeable diffs.
-- **Performance is a stated requirement**: streaming line parse (no
-  read-whole-string-then-split), single-pass datom build, durable whole-file
-  replace (below). Milestone 1 includes
-  a benchmark: 50k-node fixture must load+query well under 1s. (Will peek at
-  orca's jsonstore for tricks.) `.bak` / `nodes.jsonl.*.tmp` are gitignored —
-  only the live `nodes.jsonl` is committed. The transient
+- **Performance is a stated requirement**, and what the code does today is:
+  read the whole file into one string, split on newlines, decode each line
+  through `Schema`; single-pass datom build; durable whole-file replace
+  (below). Load is **not** a streaming line parse — this doc claimed one for a
+  while and the code never had it. The streaming parse is a target, not a
+  description, and the wave that owns it is `briefs/p1-persistence.md`.
+  `tests/benchmark.test.ts` holds the standing bar: a 50k-node fixture loads,
+  builds and queries well under a second. `.bak` / `nodes.jsonl.*.tmp` are
+  gitignored — only the live `nodes.jsonl` is committed. The transient
   `nodes.jsonl.lock` is *not* yet gitignored (known gap).
 - **Write hardening** (r4 Stage-0 — on-disk format unchanged), two modules
   under `src/foundation/storage/`:
@@ -219,8 +370,13 @@ interface Store {
   JSON properties on otherwise-valid nodes are preserved across decode so a later
   commit cannot silently drop them.
 - Backend-agnostic by construction — operations/query/surfaces see only
-  `Store` + `KbNode`. Future backends (SQLite cache, dolt, md-outline) slot in
-  without touching upper layers.
+  `Store` + `KbNode`. The candidate second backends are **not** an open field
+  any more: `briefs/p1-persistence.md` §0 is the canonical record of what was
+  measured and rejected (Logseq's own fork — opaque Transit blobs, and their
+  answer to git is "export markdown" — plus Cozo, Kuzu, Mentat, Datahike/XTDB,
+  the server-backed graph databases, and the CRDT stores). What survives is a
+  `bun:sqlite` **index**: derived, gitignored, fingerprinted against the JSONL,
+  deletable at any time, and never authoritative — the type must say so.
 - No WAL, no leases — repo scale. The lock above is advisory, filesystem-local
   and process-scoped; it serializes writers but does not make a *reader's*
   snapshot binding. Conditional writes (an `expect` precondition carrying graph
