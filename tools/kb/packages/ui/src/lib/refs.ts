@@ -52,8 +52,7 @@ export function fuzzyNodeCandidates(
     }
     if (!hay.includes(q) && !fuzzySubsequence(hay, q)) continue;
     const idx = text.toLowerCase().indexOf(q);
-    const score =
-      idx === 0 ? 0 : idx > 0 ? 1 : n.id.toLowerCase().includes(q) ? 2 : 3;
+    const score = idx === 0 ? 0 : idx > 0 ? 1 : n.id.toLowerCase().includes(q) ? 2 : 3;
     out.push({ id: n.id, text, score });
   }
   out.sort((a, b) => a.score - b.score || a.text.localeCompare(b.text));
@@ -71,7 +70,7 @@ function fuzzySubsequence(hay: string, q: string): boolean {
 
 /** Build the wiki-link token inserted on autocomplete select. */
 export function formatRefToken(id: string, label: string): string {
-  const clean = label.replace(/[\[\]]/g, "").trim() || id;
+  const clean = label.replace(/[[\]]/g, "").trim() || id;
   return `[[${id}|${clean}]]`;
 }
 
@@ -87,7 +86,7 @@ export function insertRefAtCursor(
 ): { text: string; cursor: number } | null {
   const before = text.slice(0, cursor);
   const after = text.slice(cursor);
-  const m = before.match(/\[\[([^\]\[]*?)$/);
+  const m = before.match(/\[\[([^\][]*?)$/);
   if (!m) return null;
   const start = before.length - m[0].length;
   const token = formatRefToken(id, label);
@@ -101,7 +100,7 @@ export function openRefQuery(
   cursor: number,
 ): { start: number; query: string } | null {
   const before = text.slice(0, cursor);
-  const m = before.match(/\[\[([^\]\[]*?)$/);
+  const m = before.match(/\[\[([^\][]*?)$/);
   if (!m) return null;
   return {
     start: before.length - m[0].length,

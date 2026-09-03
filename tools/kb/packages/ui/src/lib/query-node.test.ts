@@ -16,8 +16,7 @@ import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import type { WireNode } from "@kb/contracts";
 
-const EDN =
-  '[:find ?id ?text :where [?n :node/id ?id] [?n :node/text ?text]]';
+const EDN = "[:find ?id ?text :where [?n :node/id ?id] [?n :node/text ?text]]";
 
 function queryWire(id = "n.q1", extraProps: WireNode["props"] = {}): WireNode {
   return {
@@ -35,9 +34,7 @@ function queryWire(id = "n.q1", extraProps: WireNode["props"] = {}): WireNode {
 }
 
 function hydrate(extra: WireNode[] = []): void {
-  useOutlineStore
-    .getState()
-    .hydrateFromWire([...fixtureGraph.nodes, ...extra], 1, "fixtures");
+  useOutlineStore.getState().hydrateFromWire([...fixtureGraph.nodes, ...extra], 1, "fixtures");
 }
 
 class FakeSocket implements WsLike {
@@ -105,9 +102,10 @@ describe("resultNodeIds", () => {
       ["n.root-b", "Search jumps to matching nodes"],
       ["n.root-c", "over limit"],
     ];
-    expect(
-      resultNodeIds(rows, nodes, { limit: 2, excludeId: "n.q1" }),
-    ).toEqual(["n.root-a", "n.root-b"]);
+    expect(resultNodeIds(rows, nodes, { limit: 2, excludeId: "n.q1" })).toEqual([
+      "n.root-a",
+      "n.root-b",
+    ]);
     expect(resultNodeIds(rows, nodes, { excludeId: "n.q1" })).toEqual([
       "n.root-a",
       "n.root-b",
@@ -123,15 +121,11 @@ describe("query node collapse state (cheap-by-default)", () => {
     expect(store.nodes.get("n.q1")!.children).toEqual([]);
 
     store.toggleCollapse("n.q1");
-    expect(useOutlineStore.getState().nodes.get("n.q1")!.collapsed).toBe(
-      false,
-    );
+    expect(useOutlineStore.getState().nodes.get("n.q1")!.collapsed).toBe(false);
 
     // Non-query leaf nodes still cannot toggle.
     useOutlineStore.getState().toggleCollapse("n.root-c");
-    expect(useOutlineStore.getState().nodes.get("n.root-c")!.collapsed).toBe(
-      false,
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-c")!.collapsed).toBe(false);
 
     useOutlineStore.getState().toggleCollapse("n.q1");
     expect(useOutlineStore.getState().nodes.get("n.q1")!.collapsed).toBe(true);
@@ -140,9 +134,7 @@ describe("query node collapse state (cheap-by-default)", () => {
   it("expanded state survives a tx-driven map rebuild", () => {
     const store = useOutlineStore.getState();
     store.toggleCollapse("n.q1");
-    expect(useOutlineStore.getState().nodes.get("n.q1")!.collapsed).toBe(
-      false,
-    );
+    expect(useOutlineStore.getState().nodes.get("n.q1")!.collapsed).toBe(false);
     // Simulate an incoming WS tx touching an unrelated node.
     useOutlineStore.getState().applyTx(
       [
@@ -184,9 +176,7 @@ describe("subscribe/unsubscribe lifecycle over /ws", () => {
     const { client, socket } = openClient();
     const got: unknown[][][] = [];
 
-    const unsubscribe = subscribeQueryNode(client, "n.q1", EDN, (rows) =>
-      got.push(rows),
-    );
+    const unsubscribe = subscribeQueryNode(client, "n.q1", EDN, (rows) => got.push(rows));
     const subFrame = JSON.parse(socket.sent.at(-1)!) as Record<string, unknown>;
     expect(subFrame).toEqual({
       op: "subscribe",
@@ -205,10 +195,7 @@ describe("subscribe/unsubscribe lifecycle over /ws", () => {
     expect(got).toEqual([[["n.root-a", "Ship kb ui shell"]]]);
 
     unsubscribe();
-    const unsubFrame = JSON.parse(socket.sent.at(-1)!) as Record<
-      string,
-      unknown
-    >;
+    const unsubFrame = JSON.parse(socket.sent.at(-1)!) as Record<string, unknown>;
     expect(unsubFrame).toEqual({
       op: "unsubscribe",
       id: querySubscriptionId("n.q1"),
@@ -238,14 +225,10 @@ describe("subscribe/unsubscribe lifecycle over /ws", () => {
     client.connect();
     // connect() replaced the socket via makeSocket — same fake instance.
     socket.onopen?.();
-    const frames = socket.sent.map(
-      (f) => JSON.parse(f) as { op: string; id?: string },
+    const frames = socket.sent.map((f) => JSON.parse(f) as { op: string; id?: string });
+    expect(frames.some((f) => f.op === "subscribe" && f.id === querySubscriptionId("n.q1"))).toBe(
+      true,
     );
-    expect(
-      frames.some(
-        (f) => f.op === "subscribe" && f.id === querySubscriptionId("n.q1"),
-      ),
-    ).toBe(true);
     client.disconnect();
   });
 });

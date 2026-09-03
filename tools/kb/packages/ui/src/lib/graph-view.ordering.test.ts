@@ -28,89 +28,56 @@ describe("stable outline ordering", () => {
       loadSource: null,
       loadError: null,
     });
-    useOutlineStore
-      .getState()
-      .hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
   });
 
   it("forest roots are sorted by id ascending", () => {
     const roots = forestRootIds(fixtureGraph.nodes);
-    expect(roots).toEqual([
-      "lens.all-mentions",
-      "n.root-a",
-      "n.root-b",
-      "n.root-c",
-    ]);
+    expect(roots).toEqual(["lens.all-mentions", "n.root-a", "n.root-b", "n.root-c"]);
   });
 
   it("mergeTx preserves deterministic wire order (id ascending)", () => {
     const shuffled = [...fixtureGraph.nodes].reverse();
     const merged = mergeTx(shuffled, [], []);
     expect(merged.map((n) => n.id)).toEqual(
-      [...fixtureGraph.nodes]
-        .sort((a, b) => a.id.localeCompare(b.id))
-        .map((n) => n.id),
+      [...fixtureGraph.nodes].sort((a, b) => a.id.localeCompare(b.id)).map((n) => n.id),
     );
   });
 
   it("root and sibling order stay byte-identical across repeated text edits", () => {
-    const beforeRoots = [
-      ...useOutlineStore.getState().nodes.get("__kb_root__")!.children,
-    ];
-    const beforeChildren = [
-      ...useOutlineStore.getState().nodes.get("n.root-a")!.children,
-    ];
+    const beforeRoots = [...useOutlineStore.getState().nodes.get("__kb_root__")!.children];
+    const beforeChildren = [...useOutlineStore.getState().nodes.get("n.root-a")!.children];
 
     for (let i = 0; i < 25; i++) {
       mutations.updateNodeContent("n.root-a", `Ship kb ui shell v${i}`);
     }
 
-    const afterRoots = [
-      ...useOutlineStore.getState().nodes.get("__kb_root__")!.children,
-    ];
-    const afterChildren = [
-      ...useOutlineStore.getState().nodes.get("n.root-a")!.children,
-    ];
+    const afterRoots = [...useOutlineStore.getState().nodes.get("__kb_root__")!.children];
+    const afterChildren = [...useOutlineStore.getState().nodes.get("n.root-a")!.children];
 
     expect(afterRoots).toEqual(beforeRoots);
     expect(afterChildren).toEqual(beforeChildren);
   });
 
   it("order survives JsonlStore-shaped id-sorted reload and re-edit", () => {
-    const idSorted = [...fixtureGraph.nodes].sort((a, b) =>
-      a.id.localeCompare(b.id),
-    );
-    useOutlineStore
-      .getState()
-      .hydrateFromWire(idSorted, fixtureGraph.rev, "fixtures");
+    const idSorted = [...fixtureGraph.nodes].sort((a, b) => a.id.localeCompare(b.id));
+    useOutlineStore.getState().hydrateFromWire(idSorted, fixtureGraph.rev, "fixtures");
 
-    const beforeRoots = [
-      ...useOutlineStore.getState().nodes.get("__kb_root__")!.children,
-    ];
-    const beforeChildren = [
-      ...useOutlineStore.getState().nodes.get("n.root-a")!.children,
-    ];
+    const beforeRoots = [...useOutlineStore.getState().nodes.get("__kb_root__")!.children];
+    const beforeChildren = [...useOutlineStore.getState().nodes.get("n.root-a")!.children];
 
     mutations.updateNodeContent("n.root-a", "edited once");
 
     const wireAfterEdit = useOutlineStore.getState().wireNodes;
-    const idSortedReload = [...wireAfterEdit].sort((a, b) =>
-      a.id.localeCompare(b.id),
-    );
-    useOutlineStore
-      .getState()
-      .hydrateFromWire(idSortedReload, fixtureGraph.rev + 1, "api");
+    const idSortedReload = [...wireAfterEdit].sort((a, b) => a.id.localeCompare(b.id));
+    useOutlineStore.getState().hydrateFromWire(idSortedReload, fixtureGraph.rev + 1, "api");
 
     for (let i = 0; i < 10; i++) {
       mutations.updateNodeContent("n.root-a", `edited ${i}`);
     }
 
-    const afterRoots = [
-      ...useOutlineStore.getState().nodes.get("__kb_root__")!.children,
-    ];
-    const afterChildren = [
-      ...useOutlineStore.getState().nodes.get("n.root-a")!.children,
-    ];
+    const afterRoots = [...useOutlineStore.getState().nodes.get("__kb_root__")!.children];
+    const afterChildren = [...useOutlineStore.getState().nodes.get("n.root-a")!.children];
 
     expect(afterRoots).toEqual(beforeRoots);
     expect(afterChildren).toEqual(beforeChildren);

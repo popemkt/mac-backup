@@ -23,12 +23,7 @@ const MODES: Array<{ id: ViewMode; label: string; icon: string }> = [
   { id: "cards", label: "Cards", icon: "▦" },
 ];
 
-export function ViewToolbar({
-  frameId,
-  mode,
-  className,
-  tucked = false,
-}: ViewToolbarProps) {
+export function ViewToolbar({ frameId, mode, className, tucked = false }: ViewToolbarProps) {
   const filterOpen = useUiStore((s) => s.filterPopoverFrameId === frameId);
   const setFilterFrame = useUiStore((s) => s.setFilterPopoverFrameId);
   const [expanded, setExpanded] = useState(false);

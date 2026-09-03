@@ -8,10 +8,7 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { LensPerspective } from "@/lib/graph-lens";
-import {
-  CAPABILITY_REASONS,
-  type RendererCapabilities,
-} from "./graph-capabilities";
+import { CAPABILITY_REASONS, type RendererCapabilities } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import { GraphSettings } from "./graph-settings";
 
@@ -130,9 +127,7 @@ export function GraphToolbar({
               if (e.key === "Escape") handleSearchClose();
               if (e.key === "Enter" && searchQuery && controls) {
                 const q = searchQuery.toLowerCase();
-                const match = nodes.find((n) =>
-                  n.label.toLowerCase().includes(q),
-                );
+                const match = nodes.find((n) => n.label.toLowerCase().includes(q));
                 if (match && capabilities.focus) {
                   controls.focusNode(match.id);
                 }

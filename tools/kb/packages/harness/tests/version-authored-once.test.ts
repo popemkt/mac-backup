@@ -64,12 +64,8 @@ describe("version-authored-once", () => {
     const unused = Object.keys(catalog)
       .filter((n) => !used.has(n))
       .sort();
-    expect(missing, `catalog: with no catalog entry: ${missing.join(", ")}`).toEqual(
-      [],
-    );
-    expect(unused, `catalog entry nobody asks for: ${unused.join(", ")}`).toEqual(
-      [],
-    );
+    expect(missing, `catalog: with no catalog entry: ${missing.join(", ")}`).toEqual([]);
+    expect(unused, `catalog entry nobody asks for: ${unused.join(", ")}`).toEqual([]);
   });
 
   test("no catalog entry floats", () => {

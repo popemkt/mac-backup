@@ -13,20 +13,14 @@ describe("client datalog execution", () => {
   });
 
   it("runs a query and returns tuple rows", () => {
-    const rows = runQuery(
-      qdb,
-      "[:find ?id :where [?n :node/id ?id]]",
-    );
+    const rows = runQuery(qdb, "[:find ?id :where [?n :node/id ?id]]");
     const ids = rows.map((r) => r[0]);
     expect(ids).toContain("n.root-a");
     expect(ids).toContain("sys.tag");
   });
 
   it("revives entity ids in results to node ids", () => {
-    const rows = runQuery(
-      qdb,
-      '[:find ?n :where [?n :node/text "Ship kb ui shell"]]',
-    );
+    const rows = runQuery(qdb, '[:find ?n :where [?n :node/text "Ship kb ui shell"]]');
     expect(rows).toEqual([["n.root-a"]]);
   });
 

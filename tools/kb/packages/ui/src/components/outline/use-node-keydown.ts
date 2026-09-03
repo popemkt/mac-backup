@@ -21,11 +21,7 @@ export interface UseNodeKeyDownArgs {
  * Offsets are SERIALIZED character offsets (pills count as their token), and
  * vertical navigation reads visual-line geometry, never naive extremes.
  */
-export function useNodeKeyDown({
-  nodeId,
-  instanceKey,
-  isRef = false,
-}: UseNodeKeyDownArgs) {
+export function useNodeKeyDown({ nodeId, instanceKey, isRef = false }: UseNodeKeyDownArgs) {
   const activateNode = useOutlineStore((s) => s.activateNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
 
@@ -43,12 +39,9 @@ export function useNodeKeyDown({
         const structural =
           e.key === "Tab" ||
           (e.key === "Enter" && !e.shiftKey) ||
-          ((e.key === "Backspace" || e.key === "Delete") &&
-            (e.metaKey || e.ctrlKey)) ||
+          ((e.key === "Backspace" || e.key === "Delete") && (e.metaKey || e.ctrlKey)) ||
           (e.key === "Backspace" && cursor === 0) ||
-          ((e.key === "ArrowUp" || e.key === "ArrowDown") &&
-            e.metaKey &&
-            e.shiftKey);
+          ((e.key === "ArrowUp" || e.key === "ArrowDown") && e.metaKey && e.shiftKey);
         if (structural) {
           e.preventDefault();
           return;
@@ -58,17 +51,14 @@ export function useNodeKeyDown({
       const text = live?.text ?? "";
       const parentId = live?.parentId ?? null;
       const parentNode = parentId ? store.nodes.get(parentId) : null;
-      const siblingIdx = parentNode
-        ? parentNode.children.indexOf(nodeId)
-        : -1;
+      const siblingIdx = parentNode ? parentNode.children.indexOf(nodeId) : -1;
 
       switch (e.key) {
         case "Enter": {
           if (e.shiftKey) {
             // Soft line break inside the node — never a split (§3.2).
             e.preventDefault();
-            const next =
-              text.slice(0, cursor) + "\n" + text.slice(cursor);
+            const next = text.slice(0, cursor) + "\n" + text.slice(cursor);
             mutations.updateNodeContent(nodeId, next);
             renderEditableContent(el, next);
             setCaretSerializedOffset(el, cursor + 1);
@@ -101,14 +91,9 @@ export function useNodeKeyDown({
                 useOutlineStore.getState().selectNode(null);
                 return;
               }
-              const pickNode = useOutlineStore
-                .getState()
-                .nodes.get(pick.nodeId);
-              const at =
-                pick === prev ? (pickNode?.text.length ?? 0) : 0;
-              useOutlineStore
-                .getState()
-                .activateNode(pick.nodeId, at, pick.instanceKey);
+              const pickNode = useOutlineStore.getState().nodes.get(pick.nodeId);
+              const at = pick === prev ? (pickNode?.text.length ?? 0) : 0;
+              useOutlineStore.getState().activateNode(pick.nodeId, at, pick.instanceKey);
             });
             return;
           }
@@ -119,16 +104,10 @@ export function useNodeKeyDown({
             const prev = store.getPreviousVisibleInstance(instanceKey);
             void mutations.deleteNode(nodeId).then(() => {
               if (!prev) return;
-              const prevNode = useOutlineStore
-                .getState()
-                .nodes.get(prev.nodeId);
+              const prevNode = useOutlineStore.getState().nodes.get(prev.nodeId);
               useOutlineStore
                 .getState()
-                .activateNode(
-                  prev.nodeId,
-                  prevNode?.text.length ?? 0,
-                  prev.instanceKey,
-                );
+                .activateNode(prev.nodeId, prevNode?.text.length ?? 0, prev.instanceKey);
             });
             return;
           }
@@ -162,13 +141,9 @@ export function useNodeKeyDown({
                 useOutlineStore.getState().selectNode(null);
                 return;
               }
-              const pickNode = useOutlineStore
-                .getState()
-                .nodes.get(pick.nodeId);
+              const pickNode = useOutlineStore.getState().nodes.get(pick.nodeId);
               const at = pick === prev ? (pickNode?.text.length ?? 0) : 0;
-              useOutlineStore
-                .getState()
-                .activateNode(pick.nodeId, at, pick.instanceKey);
+              useOutlineStore.getState().activateNode(pick.nodeId, at, pick.instanceKey);
             });
             return;
           }
@@ -204,8 +179,7 @@ export function useNodeKeyDown({
             } else if (
               live &&
               live.collapsed &&
-              (live.children.length > 0 ||
-                live.tags.length > 0)
+              (live.children.length > 0 || live.tags.length > 0)
             ) {
               toggleCollapse(nodeId);
             }
@@ -225,16 +199,8 @@ export function useNodeKeyDown({
           if (!neighbor) return; // document edge: native no-op
           e.preventDefault();
           const nNode = store.nodes.get(neighbor.nodeId);
-          const fallbackCursor =
-            decision.direction === -1
-              ? (nNode?.text.length ?? 0)
-              : 0;
-          activateNode(
-            neighbor.nodeId,
-            fallbackCursor,
-            neighbor.instanceKey,
-            { x: decision.x },
-          );
+          const fallbackCursor = decision.direction === -1 ? (nNode?.text.length ?? 0) : 0;
+          activateNode(neighbor.nodeId, fallbackCursor, neighbor.instanceKey, { x: decision.x });
           return;
         }
 
@@ -249,12 +215,6 @@ export function useNodeKeyDown({
           return;
       }
     },
-    [
-      nodeId,
-      isRef,
-      instanceKey,
-      toggleCollapse,
-      activateNode,
-    ],
+    [nodeId, isRef, instanceKey, toggleCollapse, activateNode],
   );
 }

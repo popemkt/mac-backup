@@ -1,9 +1,5 @@
 import { memo, useCallback, useMemo } from "react";
-import {
-  contextualTargetOf,
-  isContextualRef,
-  rowText,
-} from "@/lib/contextual-ref";
+import { contextualTargetOf, isContextualRef, rowText } from "@/lib/contextual-ref";
 import { isQueryNode } from "@/lib/query-node";
 import { cn } from "@/lib/cn";
 import { guideLineStyle, indentStyle } from "@/lib/indent";
@@ -117,10 +113,7 @@ export const NodeBlock = memo(function NodeBlock({
   // Shared owner: the same rows the visible-instance walk will offer to
   // keyboard navigation.
   const listChildren = useMemo(
-    () =>
-      isProjectedViewMode(viewConfig.mode)
-        ? []
-        : frameListChildren(nodeId, nodes),
+    () => (isProjectedViewMode(viewConfig.mode) ? [] : frameListChildren(nodeId, nodes)),
     [nodeId, nodes, viewConfig.mode],
   );
 

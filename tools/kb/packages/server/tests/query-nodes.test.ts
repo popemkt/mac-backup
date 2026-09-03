@@ -8,8 +8,13 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SYSTEM_IDS, type KbNode, type PropValue } from "@kb/model";
-import { ensureSystemSeed, systemSeedNodes } from "@kb/model";
+import {
+  SYSTEM_IDS,
+  type KbNode,
+  type PropValue,
+  ensureSystemSeed,
+  systemSeedNodes,
+} from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { savedQueryNodes } from "../src/saved-queries.ts";
 import { startUi, type UiServerHandle } from "../src/server.ts";
@@ -95,7 +100,7 @@ describe("W4 saved-query surfacing via kb ui server", () => {
   });
 
   test("surfaces .kb/queries/*.edn as query nodes, not in jsonl", async () => {
-    const edn = '[:find ?id ?text :where [?n :node/id ?id] [?n :node/text ?text]]';
+    const edn = "[:find ?id ?text :where [?n :node/id ?id] [?n :node/text ?text]]";
     await writeFile(join(root, ".kb", "queries", "all-nodes.edn"), edn + "\n");
 
     handle = await startUi({ root, port: 0, openBrowser: false });
@@ -160,10 +165,7 @@ describe("W4 saved-query surfacing via kb ui server", () => {
       ws.addEventListener("error", () => reject(new Error("ws open failed")));
     });
     const rows = await new Promise<unknown[][]>((resolve, reject) => {
-      const timer = setTimeout(
-        () => reject(new Error("timeout waiting for rows")),
-        3000,
-      );
+      const timer = setTimeout(() => reject(new Error("timeout waiting for rows")), 3000);
       ws.addEventListener("message", (ev) => {
         const msg = JSON.parse(String(ev.data)) as {
           op: string;
@@ -179,8 +181,7 @@ describe("W4 saved-query surfacing via kb ui server", () => {
         JSON.stringify({
           op: "subscribe",
           id: "w4",
-          query:
-            '[:find ?id :where [?n :node/id ?id] [?n :node/text "all-nodes"]]',
+          query: '[:find ?id :where [?n :node/id ?id] [?n :node/text "all-nodes"]]',
         }),
       );
     });

@@ -27,9 +27,7 @@ function referrer(): WireNode {
 describe("inline References (W8a)", () => {
   it("queryBacklinks resolves [[ref]] mentions from node text", () => {
     const db = buildQueryDb([...fixtureGraph.nodes, referrer()], 1);
-    expect(queryBacklinks(db, "n.root-a").map((b) => b.id)).toEqual([
-      "n.referrer",
-    ]);
+    expect(queryBacklinks(db, "n.root-a").map((b) => b.id)).toEqual(["n.referrer"]);
     expect(queryBacklinks(db, "n.root-b")).toEqual([]);
   });
 

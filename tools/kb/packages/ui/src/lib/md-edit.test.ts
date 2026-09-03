@@ -3,12 +3,7 @@
  * The active editor must never expose raw ULIDs to the caret while the
  * stored text stays canonical markdown.
  */
-import {
-  beforeAll,
-  describe,
-  expect,
-  it,
-} from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
 import {
   findRefSpans,
@@ -49,9 +44,7 @@ describe("md-edit serialization", () => {
     const pills = el.querySelectorAll("[data-kb-ref]");
     expect(pills.length).toBe(2);
     expect(pills[0]!.getAttribute("contenteditable")).toBe("false");
-    expect(pills[0]!.getAttribute("data-kb-ref")).toBe(
-      "[[n.root-a|Ship kb]]",
-    );
+    expect(pills[0]!.getAttribute("data-kb-ref")).toBe("[[n.root-a|Ship kb]]");
     expect(pills[0]!.textContent).toBe("Ship kb"); // label only — no ULID
     expect(serializeEditable(el)).toBe(text);
   });
@@ -65,7 +58,7 @@ describe("md-edit serialization", () => {
 });
 
 describe("md-edit caret offsets", () => {
-  function selectAt(el: HTMLElement, node: Node, offset: number): void {
+  function selectAt(_el: HTMLElement, node: Node, offset: number): void {
     const range = document.createRange();
     range.setStart(node, offset);
     range.collapse(true);
@@ -80,9 +73,7 @@ describe("md-edit caret offsets", () => {
     const pill = el.querySelector("[data-kb-ref]")!;
     const tail = pill.nextSibling!;
     selectAt(el, tail, 3); // mid "tail" → after token
-    expect(getCaretSerializedOffset(el)).toBe(
-      "[[n.root-a|Ship kb]]".length + 3,
-    );
+    expect(getCaretSerializedOffset(el)).toBe("[[n.root-a|Ship kb]]".length + 3);
   });
 
   it("places the caret by serialized offset skipping over pills", () => {

@@ -20,8 +20,7 @@ import { PACKAGES_ROOT, packageDirs } from "./workspace.ts";
 const SKIP_DIRS = new Set(["node_modules", "dist", "storybook-static", ".nx"]);
 const SOURCE_EXT = [".ts", ".tsx"];
 
-const SPECIFIER =
-  /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\(\s*)(['"])(@kb\/[a-z0-9-]+)\1/g;
+const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\(\s*)(['"])(@kb\/[a-z0-9-]+)\1/g;
 
 const COMMENTS = /\/\*[\s\S]*?\*\/|(^|[^:\\])\/\/[^\n]*/g;
 

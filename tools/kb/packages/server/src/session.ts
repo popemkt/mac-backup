@@ -1,8 +1,6 @@
 import { Effect } from "effect";
-import type { KbContext } from "@kb/contracts";
-import type { KbNode } from "@kb/model";
-import { buildQueryDb, query } from "@kb/query";
 import {
+  type KbContext,
   ClientMessageSchema,
   GraphSnapshotSchema,
   WireNodeSchema,
@@ -10,6 +8,8 @@ import {
   type ServerMessage,
   type WireNode,
 } from "@kb/contracts";
+import type { KbNode } from "@kb/model";
+import { buildQueryDb, query } from "@kb/query";
 
 /** Bun.serve websocket attachment (server boundary only). */
 export type WsData = {
@@ -35,9 +35,7 @@ function nodesToMap(nodes: KbNode[]): Map<string, KbNode> {
 }
 
 export function contentHash(nodes: KbNode[]): string {
-  const sorted = [...nodes].sort((a, b) =>
-    a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
-  );
+  const sorted = [...nodes].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return String(Bun.hash(JSON.stringify(sorted)));
 }
 
@@ -47,8 +45,7 @@ export function rowsHash(rows: unknown[][]): string {
 
 export function normalizeRows(raw: unknown): unknown[][] {
   if (raw == null) return [];
-  const list =
-    raw instanceof Set ? [...raw] : Array.isArray(raw) ? raw : [];
+  const list = raw instanceof Set ? [...raw] : Array.isArray(raw) ? raw : [];
   return list.map((r) => (Array.isArray(r) ? r : [r]));
 }
 
@@ -171,9 +168,7 @@ export class SubscriptionHub {
           const rows = normalizeRows(query(this.ctx.qdb, msg.query));
           const hash = rowsHash(rows);
           client.subs.set(msg.id, { query: msg.query, lastHash: hash });
-          return client.send(
-            JSON.stringify({ op: "rows", id: msg.id, rev: this.rev, rows }),
-          );
+          return client.send(JSON.stringify({ op: "rows", id: msg.id, rev: this.rev, rows }));
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           return client.send(
@@ -234,16 +229,10 @@ export class SubscriptionHub {
           const subHash = rowsHash(rows);
           if (subHash === sub.lastHash) continue;
           sub.lastHash = subHash;
-          sends.push(
-            c.send(JSON.stringify({ op: "rows", id, rev: this.rev, rows })),
-          );
+          sends.push(c.send(JSON.stringify({ op: "rows", id, rev: this.rev, rows })));
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          sends.push(
-            c.send(
-              JSON.stringify({ op: "error", id, code: "query_error", message }),
-            ),
-          );
+          sends.push(c.send(JSON.stringify({ op: "error", id, code: "query_error", message })));
         }
       }
     }

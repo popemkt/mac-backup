@@ -31,9 +31,7 @@ export function CanvasListPage() {
           >
             ← outline
           </button>
-          <h2 className="text-[13px] font-medium text-foreground/80">
-            Canvases
-          </h2>
+          <h2 className="text-[13px] font-medium text-foreground/80">Canvases</h2>
         </div>
         <button
           type="button"

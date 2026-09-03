@@ -24,8 +24,7 @@ import { dirname } from "node:path";
 import { domainError, type DomainError } from "@kb/model";
 
 function mapErr(err: unknown, context: string): DomainError {
-  const message =
-    err instanceof Error ? err.message : String(err);
+  const message = err instanceof Error ? err.message : String(err);
   return domainError("internal", `${context}: ${message}`);
 }
 
@@ -55,11 +54,7 @@ function fsyncDir(dir: string): void {
  * Atomically replace `path` with `body`, keeping `backupPath` as the prior
  * live contents when a prior file existed.
  */
-export function durableReplaceFile(
-  path: string,
-  backupPath: string,
-  body: string,
-): void {
+export function durableReplaceFile(path: string, backupPath: string, body: string): void {
   const dir = dirname(path);
   try {
     mkdirSync(dir, { recursive: true });

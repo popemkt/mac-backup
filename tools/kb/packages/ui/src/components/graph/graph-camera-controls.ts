@@ -1,12 +1,6 @@
 import type Sigma from "sigma";
 import type { ForceGraph3DInstance } from "3d-force-graph";
-import {
-  fitView,
-  focusNode,
-  resetCamera,
-  zoomIn,
-  zoomOut,
-} from "./graph-camera";
+import { fitView, focusNode, resetCamera, zoomIn, zoomOut } from "./graph-camera";
 
 /**
  * Renderer-agnostic camera verbs the shared toolbar/keyboard drive.
@@ -22,9 +16,7 @@ export interface GraphCameraControls {
   labelOf?: (id: string) => string | undefined;
 }
 
-export function sigmaCameraControls(
-  getSigma: () => Sigma | null,
-): GraphCameraControls {
+export function sigmaCameraControls(getSigma: () => Sigma | null): GraphCameraControls {
   return {
     fit: () => {
       const s = getSigma();
@@ -62,9 +54,7 @@ export interface TreeViewHandle {
   reset: () => void;
 }
 
-export function treeCameraControls(
-  getHandle: () => TreeViewHandle | null,
-): GraphCameraControls {
+export function treeCameraControls(getHandle: () => TreeViewHandle | null): GraphCameraControls {
   return {
     fit: () => getHandle()?.fit(),
     zoomIn: () => getHandle()?.zoomIn(),
@@ -92,11 +82,7 @@ export function force3dCameraControls(
       if (!g) return;
       try {
         const cam = g.cameraPosition();
-        g.cameraPosition(
-          { x: cam.x * 0.7, y: cam.y * 0.7, z: cam.z * 0.7 },
-          undefined,
-          400,
-        );
+        g.cameraPosition({ x: cam.x * 0.7, y: cam.y * 0.7, z: cam.z * 0.7 }, undefined, 400);
       } catch {
         /* */
       }
@@ -106,11 +92,7 @@ export function force3dCameraControls(
       if (!g) return;
       try {
         const cam = g.cameraPosition();
-        g.cameraPosition(
-          { x: cam.x * 1.4, y: cam.y * 1.4, z: cam.z * 1.4 },
-          undefined,
-          400,
-        );
+        g.cameraPosition({ x: cam.x * 1.4, y: cam.y * 1.4, z: cam.z * 1.4 }, undefined, 400);
       } catch {
         /* */
       }

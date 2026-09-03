@@ -32,9 +32,7 @@ describe("parseInlineMd", () => {
       { t: "ref", id: "n.root-a", label: "Ship" },
       { t: "text", v: " ok" },
     ]);
-    expect(parseInlineMd("[[sys.tag]]")).toEqual([
-      { t: "ref", id: "sys.tag", label: "sys.tag" },
-    ]);
+    expect(parseInlineMd("[[sys.tag]]")).toEqual([{ t: "ref", id: "sys.tag", label: "sys.tag" }]);
   });
 
   it("parses ![alt](assets/…) into media segments by kind", () => {
@@ -99,23 +97,15 @@ describe("parseInlineMd", () => {
   });
 
   it("leaves unmatched markers as plain text", () => {
-    expect(parseInlineMd("a * lone star")).toEqual([
-      { t: "text", v: "a * lone star" },
-    ]);
+    expect(parseInlineMd("a * lone star")).toEqual([{ t: "text", v: "a * lone star" }]);
   });
 });
 
 describe("line-height consistency (edit vs view)", () => {
   it("edit and view share KB_TEXT_CLASS / .kb-text token", () => {
     const tokens = readFileSync(path.join(root, "tokens.css"), "utf8");
-    const content = readFileSync(
-      path.join(root, "components/outline/node-content.tsx"),
-      "utf8",
-    );
-    const mdView = readFileSync(
-      path.join(root, "components/outline/md-view.tsx"),
-      "utf8",
-    );
+    const content = readFileSync(path.join(root, "components/outline/node-content.tsx"), "utf8");
+    const mdView = readFileSync(path.join(root, "components/outline/md-view.tsx"), "utf8");
 
     expect(KB_TEXT_CLASS).toBe("kb-text");
     expect(tokens).toMatch(/\.kb-text\s*\{[^}]*var\(--kb-text-size\)/s);

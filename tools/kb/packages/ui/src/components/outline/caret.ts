@@ -132,9 +132,7 @@ export function verticalArrowDecision(input: {
       ? { kind: "cross", direction: -1, x: geometry.x }
       : { kind: "within" };
   }
-  return geometry.onLastLine
-    ? { kind: "cross", direction: 1, x: geometry.x }
-    : { kind: "within" };
+  return geometry.onLastLine ? { kind: "cross", direction: 1, x: geometry.x } : { kind: "within" };
 }
 
 /**
@@ -152,10 +150,7 @@ export function nearestOffsetForX(
     all.selectNodeContents(el);
     const rects = uniqueTops(all.getClientRects());
     if (rects.length === 0) return null;
-    const targetTop =
-      line === "first"
-        ? Math.min(...rects)
-        : Math.max(...rects);
+    const targetTop = line === "first" ? Math.min(...rects) : Math.max(...rects);
 
     let best: { offset: number; dist: number } | null = null;
     let serialized = 0;
@@ -205,18 +200,33 @@ export function nearestOffsetForX(
 }
 
 /** Serialized offset under viewport point (clientX/clientY). Null when no caret. F16. */
-export function offsetFromPoint(
-  el: HTMLElement,
-  clientX: number,
-  clientY: number,
-): number | null {
+export function offsetFromPoint(el: HTMLElement, clientX: number, clientY: number): number | null {
   try {
     let range: Range | null = null;
     const anyDoc = document as unknown as Record<string, unknown>;
     if (typeof anyDoc["caretRangeFromPoint"] === "function") {
-      range = (anyDoc["caretRangeFromPoint"] as (x:number,y:number)=>Range|null)(clientX, clientY);
-    } else if (typeof (document as unknown as { caretPositionFromPoint?: (x:number,y:number)=>{offsetNode:Node;offset:number}|null }).caretPositionFromPoint === "function") {
-      const pos = (document as unknown as { caretPositionFromPoint: (x:number,y:number)=>{offsetNode:Node;offset:number}|null }).caretPositionFromPoint!(clientX, clientY);
+      range = (anyDoc["caretRangeFromPoint"] as (x: number, y: number) => Range | null)(
+        clientX,
+        clientY,
+      );
+    } else if (
+      typeof (
+        document as unknown as {
+          caretPositionFromPoint?: (
+            x: number,
+            y: number,
+          ) => { offsetNode: Node; offset: number } | null;
+        }
+      ).caretPositionFromPoint === "function"
+    ) {
+      const pos = (
+        document as unknown as {
+          caretPositionFromPoint: (
+            x: number,
+            y: number,
+          ) => { offsetNode: Node; offset: number } | null;
+        }
+      ).caretPositionFromPoint!(clientX, clientY);
       if (pos) {
         const r = document.createRange();
         r.setStart(pos.offsetNode, pos.offset);
@@ -232,7 +242,7 @@ export function offsetFromPoint(
       if (done) return;
       if (node === range!.startContainer) {
         if (node.nodeType === Node.TEXT_NODE) {
-          total += Math.min(range!.startOffset, (node.textContent?.length ?? 0));
+          total += Math.min(range!.startOffset, node.textContent?.length ?? 0);
         } else if (node.nodeType === Node.ELEMENT_NODE) {
           const hel = node as HTMLElement;
           const token = hel.getAttribute(KB_REF_ATTR);

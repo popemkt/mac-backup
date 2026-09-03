@@ -9,12 +9,10 @@ import { computeFitTarget } from "./graph-camera";
  */
 describe("computeFitTarget", () => {
   it("centers on the framed bounding box", () => {
-    const target = computeFitTarget(
-      [
-        { x: 0.2, y: 0.4 },
-        { x: 0.8, y: 0.6 },
-      ],
-    );
+    const target = computeFitTarget([
+      { x: 0.2, y: 0.4 },
+      { x: 0.8, y: 0.6 },
+    ]);
     expect(target?.x).toBeCloseTo(0.5);
     expect(target?.y).toBeCloseTo(0.5);
   });
@@ -34,12 +32,10 @@ describe("computeFitTarget", () => {
 
   it("uses the larger span with CodeFlow's 0.8 fit padding", () => {
     // Wider than tall: the x span must drive the ratio.
-    const target = computeFitTarget(
-      [
-        { x: 0, y: 0.45 },
-        { x: 1, y: 0.55 },
-      ],
-    );
+    const target = computeFitTarget([
+      { x: 0, y: 0.45 },
+      { x: 1, y: 0.55 },
+    ]);
     // span 1 yields a 0.8 scale, represented as inverse Sigma ratio.
     expect(target?.ratio).toBeCloseTo(1.25);
   });

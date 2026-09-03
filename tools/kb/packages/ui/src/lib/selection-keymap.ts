@@ -41,12 +41,8 @@ export interface SelectionKeyContext {
   selectedNodeId: string | null;
   selectedInstanceKey: string | null;
   activeNodeId: string | null;
-  getPreviousVisibleInstance: (
-    instanceKey: string,
-  ) => VisibleInstance | null;
-  getNextVisibleInstance: (
-    instanceKey: string,
-  ) => VisibleInstance | null;
+  getPreviousVisibleInstance: (instanceKey: string) => VisibleInstance | null;
+  getNextVisibleInstance: (instanceKey: string) => VisibleInstance | null;
   getNode?: (id: string) => SelectionNodeInfo | undefined;
 }
 
@@ -112,18 +108,14 @@ export function mapSelectionKey(
       if (!info.collapsed && info.childIds.length > 0) {
         return { type: "collapse", nodeId: id };
       }
-      return info.parentId
-        ? { type: "selectParent", nodeId: id }
-        : null;
+      return info.parentId ? { type: "selectParent", nodeId: id } : null;
     }
     case "ArrowRight": {
       if (!info) return null;
       if (info.collapsed && info.childIds.length > 0) {
         return { type: "expand", nodeId: id };
       }
-      return info.childIds.length > 0
-        ? { type: "selectFirstChild", nodeId: id }
-        : null;
+      return info.childIds.length > 0 ? { type: "selectFirstChild", nodeId: id } : null;
     }
     case "Enter":
       return { type: "edit", nodeId: id, instanceKey: selectedInstanceKey };
@@ -132,9 +124,7 @@ export function mapSelectionKey(
     case "Spacebar":
       return { type: "toggleCollapse", nodeId: id };
     case "Tab":
-      return ev.shiftKey
-        ? { type: "outdent", nodeId: id }
-        : { type: "indent", nodeId: id };
+      return ev.shiftKey ? { type: "outdent", nodeId: id } : { type: "indent", nodeId: id };
     case "o":
       return { type: "createAfter", nodeId: id };
     case "O":
@@ -147,13 +137,7 @@ export function mapSelectionKey(
       return { type: "clear" };
     default: {
       const k = ev.key;
-      if (
-        k.length === 1 &&
-        !ev.metaKey &&
-        !ev.ctrlKey &&
-        !ev.altKey &&
-        k !== " "
-      ) {
+      if (k.length === 1 && !ev.metaKey && !ev.ctrlKey && !ev.altKey && k !== " ") {
         return {
           type: "append",
           nodeId: id,

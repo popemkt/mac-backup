@@ -35,12 +35,10 @@ export function OntologyListPage() {
           >
             ← outline
           </button>
-          <h2 className="text-[13px] font-medium text-foreground/80">
-            Ontologies
-          </h2>
+          <h2 className="text-[13px] font-medium text-foreground/80">Ontologies</h2>
           <p className="mt-0.5 max-w-md text-[12px] text-foreground/40">
-            A named set of nodes — tags, pins, a query, or other ontologies.
-            Enter one and you see only its members and how they connect.
+            A named set of nodes — tags, pins, a query, or other ontologies. Enter one and you see
+            only its members and how they connect.
           </p>
         </div>
         <button
@@ -54,9 +52,7 @@ export function OntologyListPage() {
       </div>
 
       {items.length === 0 ? (
-        <p className="text-[13px] text-foreground/40">
-          No ontologies yet.
-        </p>
+        <p className="text-[13px] text-foreground/40">No ontologies yet.</p>
       ) : (
         <div className="flex flex-col gap-0.5">
           {items.map((o) => (
@@ -72,9 +68,7 @@ export function OntologyListPage() {
               <span className="min-w-0 flex-1 truncate text-[13px] text-foreground/80">
                 {o.label}
               </span>
-              <span className="shrink-0 font-mono text-[10px] text-foreground/25">
-                {o.id}
-              </span>
+              <span className="shrink-0 font-mono text-[10px] text-foreground/25">{o.id}</span>
             </button>
           ))}
         </div>

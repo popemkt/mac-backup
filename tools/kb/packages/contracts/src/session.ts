@@ -21,9 +21,7 @@ export interface KbContext {
  * Effect-native Store port. Live consumers: `reloadEffect` / `persistEffect`
  * (yield* KbStore → loadEffect/commitEffect).
  */
-export class KbStore extends Context.Service<KbStore, EffectStore>()(
-  "kb/KbStore",
-) {}
+export class KbStore extends Context.Service<KbStore, EffectStore>()("kb/KbStore") {}
 
 /** Live kb session (nodes + qdb + store). */
 export class KbCtx extends Context.Service<KbCtx, KbContext>()("kb/KbCtx") {}

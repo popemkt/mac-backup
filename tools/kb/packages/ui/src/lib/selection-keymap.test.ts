@@ -36,10 +36,7 @@ function ctx(
   };
 }
 
-function key(
-  k: string,
-  mods: { metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean } = {},
-) {
+function key(k: string, mods: { metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean } = {}) {
   return { key: k, ...mods };
 }
 
@@ -76,10 +73,7 @@ describe("mapSelectionKey", () => {
     // the visible set; the keymap only emits the action.
     const action = mapSelectionKey(key("ArrowRight"), ctx("c"));
     expect(action).toBeNull(); // collapsed but no children
-    const expandAction = mapSelectionKey(
-      key("ArrowRight"),
-      ctx("a"),
-    );
+    const expandAction = mapSelectionKey(key("ArrowRight"), ctx("a"));
     expect(expandAction).toBeNull(); // no children at all
   });
 
@@ -95,15 +89,14 @@ describe("mapSelectionKey", () => {
   });
 
   it("Cmd+Shift+arrows reorder the row (D12)", () => {
-    expect(
-      mapSelectionKey(key("ArrowUp", { metaKey: true, shiftKey: true }), ctx("b")),
-    ).toEqual({ type: "moveUp", nodeId: "b" });
-    expect(
-      mapSelectionKey(
-        key("ArrowDown", { ctrlKey: true, shiftKey: true }),
-        ctx("b"),
-      ),
-    ).toEqual({ type: "moveDown", nodeId: "b" });
+    expect(mapSelectionKey(key("ArrowUp", { metaKey: true, shiftKey: true }), ctx("b"))).toEqual({
+      type: "moveUp",
+      nodeId: "b",
+    });
+    expect(mapSelectionKey(key("ArrowDown", { ctrlKey: true, shiftKey: true }), ctx("b"))).toEqual({
+      type: "moveDown",
+      nodeId: "b",
+    });
   });
 
   it("Cmd+. zooms into the selected node", () => {

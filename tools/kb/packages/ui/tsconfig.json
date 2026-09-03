@@ -1,21 +1,16 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "isolatedModules": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
-
-    // Deltas that record today's ui strictness, not a policy choice: the base
-    // is the backend's current flag set, and the browser tree has never been
-    // checked under these two. `g2` drains them (2 + 6 sites, measured) and
-    // deletes these lines; nothing else may be added here.
-    "noUncheckedIndexedAccess": false,
-    "noImplicitOverride": false,
-
-    // Intra-package self-alias only. The `@kb/*` packages resolve through the
-    // Bun workspace and each package's `exports`; there is no alias map.
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "paths": {
       "@/*": ["./src/*"]
     }

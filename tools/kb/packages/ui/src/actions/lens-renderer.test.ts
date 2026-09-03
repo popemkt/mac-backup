@@ -24,9 +24,7 @@ function seed() {
     loadSource: null,
     loadError: null,
   });
-  useOutlineStore
-    .getState()
-    .hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+  useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
 }
 
 describe("planSetLensRenderer", () => {
@@ -49,15 +47,11 @@ describe("planSetLensRenderer", () => {
     expect(
       action.input.setProps?.some(
         (s) =>
-          s.field === SYSTEM_IDS.lensRendererField &&
-          s.value.t === "str" &&
-          s.value.v === "tree",
+          s.field === SYSTEM_IDS.lensRendererField && s.value.t === "str" && s.value.v === "tree",
       ),
     ).toBe(true);
     const upserted = plan.upserts.find((n) => n.id === SYSTEM_IDS.lensAllMentions);
-    expect(upserted?.props[SYSTEM_IDS.lensRendererField]).toEqual([
-      { t: "str", v: "tree" },
-    ]);
+    expect(upserted?.props[SYSTEM_IDS.lensRendererField]).toEqual([{ t: "str", v: "tree" }]);
   });
 });
 
@@ -100,9 +94,9 @@ describe("planSetLensProp", () => {
     expect(twice.upserts[0]?.props[SYSTEM_IDS.lensClusterByField]).toEqual([
       { t: "str", v: "none" },
     ]);
-    expect(
-      (twice.actions[0] as { input: { unsetProps?: unknown[] } }).input.unsetProps,
-    ).toEqual([{ field: SYSTEM_IDS.lensClusterByField }]);
+    expect((twice.actions[0] as { input: { unsetProps?: unknown[] } }).input.unsetProps).toEqual([
+      { field: SYSTEM_IDS.lensClusterByField },
+    ]);
 
     const fixRenderer = planSetLensProp(
       corrupt,

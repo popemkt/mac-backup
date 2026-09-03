@@ -31,10 +31,7 @@ interface HierDatum {
   children?: HierDatum[];
 }
 
-function filterCollapsed(
-  n: LensTreeNode,
-  collapsed: Set<string>,
-): HierDatum {
+function filterCollapsed(n: LensTreeNode, collapsed: Set<string>): HierDatum {
   return {
     id: n.id,
     label: n.label,
@@ -121,11 +118,7 @@ export function TreeGraph({
     const pts = laid.descendants().filter((d) => d.data.id !== "__forest__");
     const edges = laid
       .links()
-      .filter(
-        (l) =>
-          l.source.data.id !== "__forest__" &&
-          l.target.data.id !== "__forest__",
-      );
+      .filter((l) => l.source.data.id !== "__forest__" && l.target.data.id !== "__forest__");
 
     let minX = Infinity;
     let maxX = -Infinity;
@@ -162,11 +155,7 @@ export function TreeGraph({
   const fitTreeView = useCallback(() => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const scale = Math.min(
-      1,
-      (rect.width - 48) / layout.width,
-      (rect.height - 48) / layout.height,
-    );
+    const scale = Math.min(1, (rect.width - 48) / layout.width, (rect.height - 48) / layout.height);
     setZoom(scale);
     setPan({
       x: Math.max(24, (rect.width - layout.width * scale) / 2),
@@ -223,21 +212,24 @@ export function TreeGraph({
     dragState.current = null;
   }, []);
 
-  const selectNode = useCallback((id: string) => {
-    if (dragState.current?.moved) return;
-    const node = forestFind(forest, id);
-    setSelected(id);
-    onSelRef.current?.(
-      node
-        ? {
-            nodeId: id,
-            label: node.label,
-            tags: [],
-            degree: degreeOf(node),
-          }
-        : { nodeId: id, label: id, tags: [], degree: 0 },
-    );
-  }, [forest]);
+  const selectNode = useCallback(
+    (id: string) => {
+      if (dragState.current?.moved) return;
+      const node = forestFind(forest, id);
+      setSelected(id);
+      onSelRef.current?.(
+        node
+          ? {
+              nodeId: id,
+              label: node.label,
+              tags: [],
+              degree: degreeOf(node),
+            }
+          : { nodeId: id, label: id, tags: [], degree: 0 },
+      );
+    },
+    [forest],
+  );
 
   const clearSelection = useCallback(() => {
     setSelected(null);
@@ -323,8 +315,7 @@ export function TreeGraph({
             />
           ))}
           {layout.nodes.map((d) => {
-            const hasKids =
-              (forestFind(forest, d.data.id)?.children.length ?? 0) > 0;
+            const hasKids = (forestFind(forest, d.data.id)?.children.length ?? 0) > 0;
             const isCollapsed = collapsed.has(d.data.id);
             const isSelected = selected === d.data.id;
             return (
@@ -367,13 +358,10 @@ export function TreeGraph({
                   fill={tokens.labelColor}
                   fontWeight={isSelected ? 600 : 400}
                   style={{
-                    fontFamily:
-                      "Outfit Variable, ui-sans-serif, system-ui, sans-serif",
+                    fontFamily: "Outfit Variable, ui-sans-serif, system-ui, sans-serif",
                   }}
                 >
-                  {d.data.label
-                    ? formatGraphLabel(d.data.label, d.data.size)
-                    : "untitled"}
+                  {d.data.label ? formatGraphLabel(d.data.label, d.data.size) : "untitled"}
                   {isCollapsed && hasKids ? " …" : ""}
                 </text>
               </g>

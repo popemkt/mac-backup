@@ -4,13 +4,7 @@ import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import type { ActionDefinition } from "@kb/contracts";
 import { KbCtx } from "@kb/contracts";
-import { freshId } from "@kb/model";
-import { ResolveError } from "@kb/model";
-import {
-  domainError,
-  domainFromResolve,
-  type DomainError,
-} from "@kb/model";
+import { freshId, ResolveError, domainError, domainFromResolve, type DomainError } from "@kb/model";
 
 /** On-disk directory under the kb root (Logseq-style opaque files). */
 export const ASSETS_REL = ".kb/assets";
@@ -20,16 +14,7 @@ export const ASSETS_URL_PREFIX = "assets/";
 
 const SAFE_EXT = /^[a-z0-9]{1,12}$/i;
 
-const IMAGE_EXT = new Set([
-  "png",
-  "jpg",
-  "jpeg",
-  "gif",
-  "webp",
-  "svg",
-  "avif",
-  "bmp",
-]);
+const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp"]);
 const VIDEO_EXT = new Set(["mp4", "webm", "mov", "ogv", "m4v"]);
 const AUDIO_EXT = new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac", "opus"]);
 
@@ -43,10 +28,7 @@ export function assetsDir(kbRoot: string): string {
  * Resolve `GET /assets/<name>` (or bare `assets/<name>`) to an absolute
  * file path under `.kb/assets`. Returns null on traversal / empty name.
  */
-export function resolveAssetFile(
-  kbRoot: string,
-  pathname: string,
-): string | null {
+export function resolveAssetFile(kbRoot: string, pathname: string): string | null {
   let rel = pathname.trim();
   if (rel.startsWith("/")) rel = rel.slice(1);
   if (rel.startsWith(ASSETS_URL_PREFIX)) {
@@ -147,8 +129,7 @@ function decodeBytes(input: string, encoding: "base64" | "utf8"): Uint8Array {
 export const assetUploadDef = {
   id: "asset.upload",
   title: "Upload asset",
-  description:
-    "Write opaque bytes to .kb/assets/<ulid>.<ext>; returns assets/… path for markdown",
+  description: "Write opaque bytes to .kb/assets/<ulid>.<ext>; returns assets/… path for markdown",
   mode: "apply" as const,
   inputSchema: z.object({
     /** File contents as base64 (default) or utf8. */
@@ -168,61 +149,44 @@ export const assetUploadDef = {
   }),
 } satisfies ActionDefinition;
 
-export const assetUploadEffect = Effect.fn("asset.upload")(
-  function* (
-    input: z.infer<typeof assetUploadDef.inputSchema>,
-  ): Effect.fn.Return<
-    z.infer<typeof assetUploadDef.outputSchema>,
-    DomainError,
-    KbCtx | FileSystem
-  > {
-    const ctx = yield* KbCtx;
-    const fs = yield* FileSystem;
-    const id = yield* freshId;
+export const assetUploadEffect = Effect.fn("asset.upload")(function* (
+  input: z.infer<typeof assetUploadDef.inputSchema>,
+): Effect.fn.Return<z.infer<typeof assetUploadDef.outputSchema>, DomainError, KbCtx | FileSystem> {
+  const ctx = yield* KbCtx;
+  const fs = yield* FileSystem;
+  const id = yield* freshId;
 
-    const prepared = yield* Effect.try({
-      try: () => {
-        const ext = sanitizeExt(input.ext, input.filename);
-        const data = decodeBytes(input.bytes, input.encoding ?? "base64");
-        if (data.byteLength === 0) {
-          throw new ResolveError("forbidden", "empty asset payload", {});
-        }
-        const filename = `${id}.${ext}`;
-        const abs = resolveAssetFile(ctx.root, `assets/${filename}`);
-        if (!abs) {
-          throw new ResolveError(
-            "forbidden",
-            "refusing to write outside assets dir",
-            { filename },
-          );
-        }
-        return { ext, data, id, filename, abs };
-      },
-      catch: (err) => {
-        if (err instanceof ResolveError) return domainFromResolve(err);
-        return domainError(
-          "internal",
-          err instanceof Error ? err.message : String(err),
-        );
-      },
-    });
+  const prepared = yield* Effect.try({
+    try: () => {
+      const ext = sanitizeExt(input.ext, input.filename);
+      const data = decodeBytes(input.bytes, input.encoding ?? "base64");
+      if (data.byteLength === 0) {
+        throw new ResolveError("forbidden", "empty asset payload", {});
+      }
+      const filename = `${id}.${ext}`;
+      const abs = resolveAssetFile(ctx.root, `assets/${filename}`);
+      if (!abs) {
+        throw new ResolveError("forbidden", "refusing to write outside assets dir", { filename });
+      }
+      return { ext, data, id, filename, abs };
+    },
+    catch: (err) => {
+      if (err instanceof ResolveError) return domainFromResolve(err);
+      return domainError("internal", err instanceof Error ? err.message : String(err));
+    },
+  });
 
-    yield* fs.makeDirectory(assetsDir(ctx.root), { recursive: true }).pipe(
-      Effect.mapError((err) =>
-        domainError("internal", err.message ?? String(err)),
-      ),
-    );
-    yield* fs.writeFile(prepared.abs, prepared.data).pipe(
-      Effect.mapError((err) =>
-        domainError("internal", err.message ?? String(err)),
-      ),
-    );
+  yield* fs
+    .makeDirectory(assetsDir(ctx.root), { recursive: true })
+    .pipe(Effect.mapError((err) => domainError("internal", err.message ?? String(err))));
+  yield* fs
+    .writeFile(prepared.abs, prepared.data)
+    .pipe(Effect.mapError((err) => domainError("internal", err.message ?? String(err))));
 
-    return {
-      path: `${ASSETS_URL_PREFIX}${prepared.filename}`,
-      id: prepared.id,
-      ext: prepared.ext,
-      bytes: prepared.data.byteLength,
-    };
-  },
-);
+  return {
+    path: `${ASSETS_URL_PREFIX}${prepared.filename}`,
+    id: prepared.id,
+    ext: prepared.ext,
+    bytes: prepared.data.byteLength,
+  };
+});

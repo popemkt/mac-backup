@@ -3,11 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { DatalogError } from "@kb/query";
 import { openKb } from "../src/session.ts";
-import {
-  classifyQueryError,
-  graphRunEffect,
-  graphSearchEffect,
-} from "@kb/operations";
+import { classifyQueryError, graphRunEffect, graphSearchEffect } from "@kb/operations";
 import { invoke, manifest } from "../src/registry.ts";
 
 /** Under tests/ so fixture extensions resolve zod via tools/kb/node_modules. */
@@ -93,9 +89,7 @@ describe("graph.run", () => {
     const out = ran.output as { name: string; query: string; rows: unknown[][] };
     expect(out.name).toBe("all-ids");
     expect(out.query).toContain(":where");
-    expect(out.rows.some((r) => r[0] === "n.run" && r[1] === "runnable")).toBe(
-      true,
-    );
+    expect(out.rows.some((r) => r[0] === "n.run" && r[1] === "runnable")).toBe(true);
   });
 
   test("saved query with :in inputs", async () => {
@@ -144,10 +138,7 @@ describe("graph.run", () => {
   test("malformed EDN inside a saved query → invalid_input, store intact", async () => {
     const ctx = await openKb(await makeRoot());
     await invoke(ctx, { id: "node.add", input: { text: "still-here", id: "n.ok" } });
-    await writeFile(
-      join(ctx.root, ".kb", "queries", "broken.edn"),
-      "not [valid",
-    );
+    await writeFile(join(ctx.root, ".kb", "queries", "broken.edn"), "not [valid");
     const ran = await invoke(ctx, { id: "graph.run", input: { name: "broken" } });
     expect(ran.status).toBe("failed");
     if (ran.status === "failed") {
@@ -163,15 +154,13 @@ describe("graph.query failure classification", () => {
   test("datalog engine errors stay invalid_input, genuine internal errors are internal", async () => {
     // The datascript engine rejecting the user's EDN is a malformed-datalog
     // input error — invalid_input, never internal.
-    expect(
-      classifyQueryError(new DatalogError("cannot compare"), "[:find ?e]").code,
-    ).toBe("invalid_input");
+    expect(classifyQueryError(new DatalogError("cannot compare"), "[:find ?e]").code).toBe(
+      "invalid_input",
+    );
 
     // A plain glue defect (normalization / revive bug) must not be hidden
     // behind invalid_input.
-    expect(
-      classifyQueryError(new TypeError("oops"), "[:find ?e]").code,
-    ).toBe("internal");
+    expect(classifyQueryError(new TypeError("oops"), "[:find ?e]").code).toBe("internal");
   });
 
   test("graph.query malformed EDN through invoke returns invalid_input", async () => {

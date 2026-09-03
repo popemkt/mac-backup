@@ -18,7 +18,19 @@ const cleanFragmentArb = fc.string({ maxLength: 15 }).filter((s) => !/[[\]]/.tes
 
 /** Noise that resembles marker syntax without ever completing `[[...]]`:
  * lone brackets/pipes, single/unbalanced brackets, empty. */
-const noiseFragmentArb = fc.constantFrom("", "[", "]", "|", "[]", "][", "|]", "[|", "]]", "a[b", "x]y");
+const noiseFragmentArb = fc.constantFrom(
+  "",
+  "[",
+  "]",
+  "|",
+  "[]",
+  "][",
+  "|]",
+  "[|",
+  "]]",
+  "a[b",
+  "x]y",
+);
 
 function withOptionalLabel(id: string, hasLabel: boolean, label: string): string {
   return hasLabel ? `[[${id}|${label}]]` : `[[${id}]]`;
@@ -29,7 +41,11 @@ describe("extractMentions properties (fast-check)", () => {
     fc.assert(
       fc.property(
         fc.array(
-          fc.tuple(idArb, fc.boolean(), fc.string({ maxLength: 8 }).filter((s) => !s.includes("]"))),
+          fc.tuple(
+            idArb,
+            fc.boolean(),
+            fc.string({ maxLength: 8 }).filter((s) => !s.includes("]")),
+          ),
           { minLength: 0, maxLength: 20 },
         ),
         fc.array(cleanFragmentArb, { minLength: 21, maxLength: 21 }),

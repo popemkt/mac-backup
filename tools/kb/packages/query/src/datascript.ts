@@ -100,9 +100,7 @@ export function normalizeEdnQuery(edn: string): string {
 }
 
 export function buildIdMap(nodes: KbNode[]): IdMap {
-  const sorted = [...nodes].sort((a, b) =>
-    a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
-  );
+  const sorted = [...nodes].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const toEid = new Map<NodeId, number>();
   const toId = new Map<number, NodeId>();
   let eid = 1;
@@ -118,10 +116,7 @@ function fieldAttr(fieldId: NodeId): string {
   return `:f/${fieldId}`;
 }
 
-function propDatomValue(
-  pv: PropValue,
-  ids: IdMap,
-): { value: unknown; isRef: boolean } {
+function propDatomValue(pv: PropValue, ids: IdMap): { value: unknown; isRef: boolean } {
   if (pv.t === "ref") {
     const eid = ids.toEid.get(pv.v);
     if (eid === undefined) {
@@ -141,10 +136,7 @@ export function nodesToDatoms(nodes: KbNode[]): {
 } {
   const ids = buildIdMap(nodes);
   const datoms: Datom[] = [];
-  const refAttrs = new Set<string>([
-    ":node/child",
-    ":node/mentions",
-  ]);
+  const refAttrs = new Set<string>([":node/child", ":node/mentions"]);
 
   for (const node of nodes) {
     const eid = ids.toEid.get(node.id)!;
@@ -244,18 +236,12 @@ export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
     // Query parse/evaluation failures are the caller's datalog at fault, not
     // an internal defect — surface them as DatalogError so action surfaces can
     // type them invalid_input while genuine glue bugs stay plain Error.
-    throw new DatalogError(
-      err instanceof Error ? err.message : String(err),
-    );
+    throw new DatalogError(err instanceof Error ? err.message : String(err));
   }
   return reviveValue(raw, db.ids);
 }
 
-export function pull(
-  db: QueryDb,
-  pattern: string,
-  id: NodeId | number,
-): unknown {
+export function pull(db: QueryDb, pattern: string, id: NodeId | number): unknown {
   let eidOrLookup: number | [string, string];
   if (typeof id === "number") {
     eidOrLookup = id;

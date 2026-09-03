@@ -75,9 +75,7 @@ export function framedPoints(sigma: Sigma): Point[] {
  * dividing the live ratio by it again on each fit walks the zoom inward
  * (0.75 → 0.5625 → 0.42 …) instead of settling. Fitting twice must be a no-op.
  */
-export function computeFitTarget(
-  points: readonly Point[],
-): Partial<CameraState> | null {
+export function computeFitTarget(points: readonly Point[]): Partial<CameraState> | null {
   if (points.length === 0) return null;
 
   let minX = Infinity;

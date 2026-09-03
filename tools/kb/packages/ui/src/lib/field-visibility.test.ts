@@ -42,9 +42,7 @@ describe("field visibility", () => {
     // and only for tag nodes, so adding a field to a supertag changed nothing
     // visible on anything tagged with it until someone set a value by hand.
     const wire = [
-      ...fixtureGraph.nodes.filter(
-        (n) => n.id !== "tag.todo" && n.id !== "n.root-b",
-      ),
+      ...fixtureGraph.nodes.filter((n) => n.id !== "tag.todo" && n.id !== "n.root-b"),
       {
         ...fixtureGraph.nodes.find((n) => n.id === "tag.todo")!,
         props: {
@@ -94,11 +92,7 @@ describe("field visibility", () => {
     const nodes = wireToOutlineMap(wire, new Set());
     const visible = resolveVisibleProps(nodes.get("field.status")!, nodes);
     expect(visible.map((p) => p.fieldId)).toEqual(
-      expect.arrayContaining([
-        "sys.f.fieldType",
-        "sys.f.targetTag",
-        "sys.f.targetQuery",
-      ]),
+      expect.arrayContaining(["sys.f.fieldType", "sys.f.targetTag", "sys.f.targetQuery"]),
     );
   });
 
@@ -115,21 +109,14 @@ describe("field visibility", () => {
   });
 
   it("planSetFieldHidden sets and unsets sys.f.hidden on field nodes", () => {
-    useOutlineStore
-      .getState()
-      .hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
     const wire = useOutlineStore.getState().wireNodes;
 
     const hide = planSetFieldHidden(wire, "field.status", true);
     const hiddenUpsert = hide.upserts.find((n) => n.id === "field.status");
-    expect(hiddenUpsert?.props["sys.f.hidden"]).toEqual([
-      { t: "bool", v: true },
-    ]);
+    expect(hiddenUpsert?.props["sys.f.hidden"]).toEqual([{ t: "bool", v: true }]);
 
-    const merged = [
-      ...wire.filter((n) => n.id !== "field.status"),
-      hiddenUpsert!,
-    ];
+    const merged = [...wire.filter((n) => n.id !== "field.status"), hiddenUpsert!];
     const show = planSetFieldHidden(merged, "field.status", false);
     const shownUpsert = show.upserts.find((n) => n.id === "field.status");
     expect(shownUpsert?.props["sys.f.hidden"]).toBeUndefined();

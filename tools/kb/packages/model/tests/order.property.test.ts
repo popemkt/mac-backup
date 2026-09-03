@@ -1,11 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import type { KbNode, NodeId } from "../src/model.ts";
-import {
-  migrateOrderKeys,
-  rankBetween,
-  ranksFor,
-} from "../src/order.ts";
+import { migrateOrderKeys, rankBetween, ranksFor } from "../src/order.ts";
 
 describe("order properties (fast-check)", () => {
   test("ranksFor strictly preserves input order and assigns distinct ranks", () => {
@@ -35,25 +31,22 @@ describe("order properties (fast-check)", () => {
   test("arbitrary sequence of insertions maintains strictly increasing ranks", () => {
     // Generate commands: insert at random index in the current list
     fc.assert(
-      fc.property(
-        fc.array(fc.nat(), { minLength: 1, maxLength: 50 }),
-        (indices) => {
-          const ranks: string[] = [];
+      fc.property(fc.array(fc.nat(), { minLength: 1, maxLength: 50 }), (indices) => {
+        const ranks: string[] = [];
 
-          for (const rawIndex of indices) {
-            const index = ranks.length === 0 ? 0 : rawIndex % (ranks.length + 1);
-            const before = index > 0 ? ranks[index - 1] : undefined;
-            const after = index < ranks.length ? ranks[index] : undefined;
+        for (const rawIndex of indices) {
+          const index = ranks.length === 0 ? 0 : rawIndex % (ranks.length + 1);
+          const before = index > 0 ? ranks[index - 1] : undefined;
+          const after = index < ranks.length ? ranks[index] : undefined;
 
-            const newRank = rankBetween(before, after);
-            ranks.splice(index, 0, newRank);
-          }
+          const newRank = rankBetween(before, after);
+          ranks.splice(index, 0, newRank);
+        }
 
-          for (let i = 0; i < ranks.length - 1; i++) {
-            expect(ranks[i]! < ranks[i + 1]!).toBe(true);
-          }
-        },
-      ),
+        for (let i = 0; i < ranks.length - 1; i++) {
+          expect(ranks[i]! < ranks[i + 1]!).toBe(true);
+        }
+      }),
       { numRuns: 500 },
     );
   });
@@ -71,7 +64,7 @@ describe("order properties (fast-check)", () => {
     }
 
     // 2. Repeated append
-    let appendList: string[] = [];
+    const appendList: string[] = [];
     for (let i = 0; i < 50; i++) {
       const last = appendList[appendList.length - 1];
       const next = rankBetween(last, undefined);
@@ -82,8 +75,8 @@ describe("order properties (fast-check)", () => {
     }
 
     // 3. Repeated insertion between the same two neighbors (suffix extension)
-    let left = rankBetween(undefined, undefined);
-    let right = rankBetween(left, undefined);
+    const left = rankBetween(undefined, undefined);
+    const right = rankBetween(left, undefined);
     const middleList: string[] = [left, right];
 
     for (let i = 0; i < 40; i++) {
@@ -104,12 +97,11 @@ describe("order properties (fast-check)", () => {
 
     fc.assert(
       fc.property(
-        fc.integer({ min: 2, max: 15 }).chain((n) =>
-          fc.tuple(
-            fc.constant(n),
-            fc.array(fc.boolean(), { minLength: n, maxLength: n }),
+        fc
+          .integer({ min: 2, max: 15 })
+          .chain((n) =>
+            fc.tuple(fc.constant(n), fc.array(fc.boolean(), { minLength: n, maxLength: n })),
           ),
-        ),
         ([n, hasOrderFlags]) => {
           const childIds = Array.from({ length: n }, (_, i) => `c${i}`);
           let counter = 0;
@@ -220,26 +212,23 @@ describe("order properties (fast-check)", () => {
 
   test("ranks are stable across a JSON serialize/parse round trip", () => {
     fc.assert(
-      fc.property(
-        fc.array(fc.nat(), { minLength: 2, maxLength: 30 }),
-        (indices) => {
-          const ranks: string[] = [];
-          for (const rawIndex of indices) {
-            const index = ranks.length === 0 ? 0 : rawIndex % (ranks.length + 1);
-            const before = index > 0 ? ranks[index - 1] : undefined;
-            const after = index < ranks.length ? ranks[index] : undefined;
-            ranks.splice(index, 0, rankBetween(before, after));
-          }
+      fc.property(fc.array(fc.nat(), { minLength: 2, maxLength: 30 }), (indices) => {
+        const ranks: string[] = [];
+        for (const rawIndex of indices) {
+          const index = ranks.length === 0 ? 0 : rawIndex % (ranks.length + 1);
+          const before = index > 0 ? ranks[index - 1] : undefined;
+          const after = index < ranks.length ? ranks[index] : undefined;
+          ranks.splice(index, 0, rankBetween(before, after));
+        }
 
-          // A rank's job is to sort correctly after living inside a JSON prop
-          // value on the wire and in storage — round trip it exactly there.
-          const roundTripped: string[] = JSON.parse(JSON.stringify(ranks));
-          expect(roundTripped).toEqual(ranks);
-          for (let i = 0; i < roundTripped.length - 1; i++) {
-            expect(roundTripped[i]! < roundTripped[i + 1]!).toBe(true);
-          }
-        },
-      ),
+        // A rank's job is to sort correctly after living inside a JSON prop
+        // value on the wire and in storage — round trip it exactly there.
+        const roundTripped: string[] = JSON.parse(JSON.stringify(ranks));
+        expect(roundTripped).toEqual(ranks);
+        for (let i = 0; i < roundTripped.length - 1; i++) {
+          expect(roundTripped[i]! < roundTripped[i + 1]!).toBe(true);
+        }
+      }),
       { numRuns: 500 },
     );
   });

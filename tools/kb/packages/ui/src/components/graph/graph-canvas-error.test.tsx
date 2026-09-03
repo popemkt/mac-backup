@@ -5,10 +5,7 @@ import { act, Component, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import {
-  GraphCanvasError,
-  GraphCanvasErrorBoundary,
-} from "./graph-canvas-error";
+import { GraphCanvasError, GraphCanvasErrorBoundary } from "./graph-canvas-error";
 
 class Boom extends Component<{ blow: boolean; children?: ReactNode }> {
   override render(): ReactNode {

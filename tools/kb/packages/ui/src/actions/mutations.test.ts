@@ -10,11 +10,7 @@ import { useOutlineStore } from "@/stores/outline.store";
 function seed(source: "api" | "fixtures" = "fixtures") {
   useOutlineStore
     .getState()
-    .hydrateFromWire(
-      structuredClone(fixtureGraph.nodes),
-      fixtureGraph.rev,
-      source,
-    );
+    .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, source);
 }
 
 describe("applyTx", () => {
@@ -76,16 +72,10 @@ describe("optimistic apply/revert", () => {
     }));
     setPostAction(post);
 
-    const plan = planUpdateText(
-      useOutlineStore.getState().wireNodes,
-      "n.root-a",
-      "optimistic ok",
-    );
+    const plan = planUpdateText(useOutlineStore.getState().wireNodes, "n.root-a", "optimistic ok");
     const result = await runOptimistic(plan);
     expect(result.ok).toBe(true);
-    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(
-      "optimistic ok",
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe("optimistic ok");
     expect(post).toHaveBeenCalledWith({
       id: "node.update",
       input: { id: "n.root-a", text: "optimistic ok" },
@@ -101,16 +91,10 @@ describe("optimistic apply/revert", () => {
     }));
 
     const before = useOutlineStore.getState().nodes.get("n.root-a")!.text;
-    const plan = planUpdateText(
-      useOutlineStore.getState().wireNodes,
-      "n.root-a",
-      "should bounce",
-    );
+    const plan = planUpdateText(useOutlineStore.getState().wireNodes, "n.root-a", "should bounce");
     const result = await runOptimistic(plan);
     expect(result.ok).toBe(false);
-    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(
-      before,
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(before);
   });
 });
 
@@ -144,9 +128,7 @@ describe("indent/outdent action mapping", () => {
 
 describe("autocomplete insertion", () => {
   it("formats [[id|label]] tokens", () => {
-    expect(formatRefToken("n.root-a", "Ship kb ui shell")).toBe(
-      "[[n.root-a|Ship kb ui shell]]",
-    );
+    expect(formatRefToken("n.root-a", "Ship kb ui shell")).toBe("[[n.root-a|Ship kb ui shell]]");
   });
 
   it("replaces open [[query at cursor", () => {

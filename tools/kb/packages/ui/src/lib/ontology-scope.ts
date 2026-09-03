@@ -89,10 +89,7 @@ export function scopedWireNodes(
  * include tag. Every store transition mints a fresh `wireNodes` array, which
  * makes the array itself the exact key; a WeakMap keeps it leak-free.
  */
-const scopeCache = new WeakMap<
-  readonly WireNode[],
-  Map<string, OntologyResolution>
->();
+const scopeCache = new WeakMap<readonly WireNode[], Map<string, OntologyResolution>>();
 
 /**
  * Resolve membership for a scope.
@@ -153,9 +150,7 @@ export function memberRows(
       pinned: reasons.some((r) => r.kind === "member"),
     });
   }
-  return rows.sort(
-    (a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id),
-  );
+  return rows.sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
 }
 
 /** Excluded rows for the ontology page ("restore" candidates). */

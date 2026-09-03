@@ -3,14 +3,16 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openKbEffect, kbRuntimeLayer } from "@kb/runtime";
+import { openKbEffect, kbRuntimeLayer, invokeReceiptEffect } from "@kb/runtime";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
-import { invokeReceiptEffect } from "@kb/runtime";
-import { txIntegrityError } from "@kb/model";
-import { isSysPrefixed, type KbNode } from "@kb/model";
-import { systemSeedNodes } from "@kb/model";
-import { migrateOrderKeys } from "@kb/model";
-import { canonicalJson } from "@kb/model";
+import {
+  txIntegrityError,
+  isSysPrefixed,
+  type KbNode,
+  systemSeedNodes,
+  migrateOrderKeys,
+  canonicalJson,
+} from "@kb/model";
 import {
   mapAdd,
   mapSet,
@@ -78,7 +80,7 @@ export function nodesPath(root: string): string {
  */
 export function seededClock(base: number, stepMs: number): Clock.Clock {
   let n = 0;
-  const millis = () => base + (n++) * stepMs;
+  const millis = () => base + n++ * stepMs;
   return {
     currentTimeMillisUnsafe: () => millis(),
     currentTimeMillis: Effect.sync(() => millis()),
@@ -99,7 +101,8 @@ export interface Rng {
 function seededRng(rnd: { nextDoubleUnsafe(): number }): Rng {
   return {
     nextDouble: () => rnd.nextDoubleUnsafe(),
-    choice: (arr) => arr[Math.min(arr.length - 1, Math.floor(rnd.nextDoubleUnsafe() * arr.length))]!,
+    choice: (arr) =>
+      arr[Math.min(arr.length - 1, Math.floor(rnd.nextDoubleUnsafe() * arr.length))]!,
   };
 }
 
@@ -131,22 +134,39 @@ function livestate(ctx: KbContext, fieldIds: string[], tagIds: string[]): Livest
   };
 }
 
-type OpKind =
-  | "add"
-  | "set"
-  | "unset"
-  | "move"
-  | "reorder"
-  | "delete"
-  | "field"
-  | "tag";
+type OpKind = "add" | "set" | "unset" | "move" | "reorder" | "delete" | "field" | "tag";
 const OP_KINDS: OpKind[] = [
-  "add", "add", "add", "add", "set", "set", "unset", "move", "reorder", "delete", "field", "tag",
+  "add",
+  "add",
+  "add",
+  "add",
+  "set",
+  "set",
+  "unset",
+  "move",
+  "reorder",
+  "delete",
+  "field",
+  "tag",
 ];
 
 const WORDS = [
-  "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta",
-  "iota", "kappa", "lambda", "mu", "nu", "xi", "omicron", "pi",
+  "alpha",
+  "beta",
+  "gamma",
+  "delta",
+  "epsilon",
+  "zeta",
+  "eta",
+  "theta",
+  "iota",
+  "kappa",
+  "lambda",
+  "mu",
+  "nu",
+  "xi",
+  "omicron",
+  "pi",
 ];
 const TAG_NAMES = ["todo", "doing", "done", "idea"];
 const FIELD_NAMES = ["status", "priority", "owner", "effort"];
@@ -163,7 +183,7 @@ function word(rng: Rng): string {
  */
 export function nextAction(
   rng: Rng,
-  ctx: KbContext,
+  _ctx: KbContext,
   live: Livestate,
   sequence: number,
 ): PlannedAction {
@@ -172,9 +192,7 @@ export function nextAction(
   switch (kind) {
     case "add": {
       const parent =
-        rng.nextDouble() < 0.4 && live.rootIds.length > 0
-          ? rng.choice(live.rootIds)
-          : undefined;
+        rng.nextDouble() < 0.4 && live.rootIds.length > 0 ? rng.choice(live.rootIds) : undefined;
       // Occasionally embed a mention ref to a live content node, so a later
       // delete of that node exercises the "inbound content ref dangles"
       // intended-behaviour path.
@@ -488,7 +506,9 @@ export async function runScenario(
       // nodes must reproduce the on-disk bytes exactly. A props key/phrase that
       // appears or vanishes on the reload path is a persist/load asymmetry.
       if (canonicalJsonl(snap.nodes) !== snap.json) {
-        violations.push(`op#${i} (seed ${seed}): store does not round-trip to identical canonical bytes`);
+        violations.push(
+          `op#${i} (seed ${seed}): store does not round-trip to identical canonical bytes`,
+        );
         return;
       }
       applied = i + 1;

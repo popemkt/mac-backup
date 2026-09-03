@@ -31,20 +31,14 @@ const USE_WORKER = detectWorkerSupport();
  * Create a worker-driven FA2 layout that settles automatically.
  * Falls back to rAF-chunked synchronous assign when workers are unavailable.
  */
-export function createFA2Layout(
-  graph: Graph,
-  opts?: { onConverged?: () => void },
-): FA2Controller {
+export function createFA2Layout(graph: Graph, opts?: { onConverged?: () => void }): FA2Controller {
   if (USE_WORKER && graph.order > 0) {
     return createWorkerLayout(graph, opts);
   }
   return createSyncFallbackLayout(graph, opts);
 }
 
-function createWorkerLayout(
-  graph: Graph,
-  opts?: { onConverged?: () => void },
-): FA2Controller {
+function createWorkerLayout(graph: Graph, opts?: { onConverged?: () => void }): FA2Controller {
   const settings = forceAtlas2.inferSettings(graph);
   const layout = new FA2Layout(graph, {
     settings: {
@@ -146,10 +140,7 @@ function createSyncFallbackLayout(
       this.stop();
     },
     reheat(durationMs = REHEAT_DURATION_MS) {
-      iterationsLeft = Math.max(
-        iterationsLeft,
-        Math.floor((durationMs / SETTLE_TIMEOUT_MS) * 60),
-      );
+      iterationsLeft = Math.max(iterationsLeft, Math.floor((durationMs / SETTLE_TIMEOUT_MS) * 60));
       if (!running) {
         running = true;
         raf = requestAnimationFrame(tick);

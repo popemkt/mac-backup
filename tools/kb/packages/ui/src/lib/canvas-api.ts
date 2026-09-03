@@ -15,13 +15,9 @@ import {
   type CanvasDoc,
   type CanvasEdge,
 } from "@kb/canvas";
-import {
-  resolveAllowedRefIds,
-  resolveFieldType,
-} from "@/lib/field-type";
+import { resolveAllowedRefIds, resolveFieldType } from "@/lib/field-type";
 import { typeRefsOf } from "@kb/model";
-import { SYSTEM_IDS, isSysPrefixed, type PropValue } from "@/lib/types";
-import type { OutlineNode } from "@/lib/types";
+import { SYSTEM_IDS, isSysPrefixed, type PropValue, type OutlineNode } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
 import { useOutlineStore } from "@/stores/outline.store";
 
@@ -38,9 +34,7 @@ export function readCanvasDoc(node: OutlineNode | undefined): CanvasDoc {
   }
 }
 
-export function listCanvasNodes(
-  nodes: Map<string, OutlineNode>,
-): OutlineNode[] {
+export function listCanvasNodes(nodes: Map<string, OutlineNode>): OutlineNode[] {
   const out: OutlineNode[] = [];
   for (const n of nodes.values()) {
     const tagged = typeRefsOf(n).includes(SYSTEM_IDS.canvasTag);
@@ -54,17 +48,12 @@ export function propLookupFromStore(
 ): (nodeId: string, fieldId: string) => ReadonlyArray<{ t: string; v: unknown }> | undefined {
   return (nodeId, fieldId) => {
     const n = nodes.get(nodeId);
-    return n?.props[fieldId] as
-      | ReadonlyArray<{ t: string; v: unknown }>
-      | undefined;
+    return n?.props[fieldId] as ReadonlyArray<{ t: string; v: unknown }> | undefined;
   };
 }
 
 /** Render-time: native edge whose prop is still present. */
-export function edgePropPresent(
-  edge: CanvasEdge,
-  nodes: Map<string, OutlineNode>,
-): boolean {
+export function edgePropPresent(edge: CanvasEdge, nodes: Map<string, OutlineNode>): boolean {
   return isNativeEdgeBound(edge, propLookupFromStore(nodes));
 }
 
@@ -157,9 +146,7 @@ export async function persistCanvasDoc(
         ...wire,
         props: {
           ...wire.props,
-          [SYSTEM_IDS.canvasField]: [
-            { t: "str", v: stringifyCanvasDoc(doc) },
-          ],
+          [SYSTEM_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(doc) }],
         },
         updatedAt: new Date().toISOString(),
       },
@@ -170,9 +157,7 @@ export async function persistCanvasDoc(
         const props: WireNode["props"] = { ...src.props };
         for (const u of opts.unsetProps ?? []) {
           const list = props[u.field] ?? [];
-          const nextList = list.filter(
-            (pv) => JSON.stringify(pv) !== JSON.stringify(u.value),
-          );
+          const nextList = list.filter((pv) => JSON.stringify(pv) !== JSON.stringify(u.value));
           if (nextList.length === 0) delete props[u.field];
           else props[u.field] = nextList;
         }
@@ -192,9 +177,7 @@ export async function persistCanvasDoc(
   return true;
 }
 
-export async function createCanvasNode(
-  text = "Untitled canvas",
-): Promise<string | null> {
+export async function createCanvasNode(text = "Untitled canvas"): Promise<string | null> {
   const id = ulid();
   const docStr = stringifyCanvasDoc(EMPTY_CANVAS_DOC);
   const at = new Date().toISOString();
@@ -216,9 +199,7 @@ export async function createCanvasNode(
     text,
     id,
     tags: [SYSTEM_IDS.canvasTag],
-    props: [
-      { field: SYSTEM_IDS.canvasField, value: { t: "str", v: docStr } },
-    ],
+    props: [{ field: SYSTEM_IDS.canvasField, value: { t: "str", v: docStr } }],
   });
   if (receipt.status === "failed") {
     console.error("[kb/canvas] create failed:", receipt.message);

@@ -21,12 +21,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { fixtureGraph } from "@/fixtures/graph";
 import { queryResultInstanceKey } from "@/lib/instance-key";
-import {
-  SYSTEM_IDS,
-  WORKSPACE_ROOT_ID,
-  type OutlineNode,
-  type TagBadge,
-} from "@/lib/types";
+import { SYSTEM_IDS, WORKSPACE_ROOT_ID, type OutlineNode, type TagBadge } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { Bullet } from "./bullet";
 import { NodeBlock } from "./node-block";
@@ -40,9 +35,7 @@ function tag(id: string, color: string): TagBadge {
 }
 
 function bulletHtml(node: OutlineNode, isRef = false): string {
-  return renderToStaticMarkup(
-    createElement(Bullet, { node, isRef, onClick: () => undefined }),
-  );
+  return renderToStaticMarkup(createElement(Bullet, { node, isRef, onClick: () => undefined }));
 }
 
 describe("bullet paint (a node's tag colors)", () => {
@@ -173,9 +166,7 @@ describe("bullet paint (a node's tag colors)", () => {
     );
     expect(html).toContain("data-bullet-ref-ring");
     expect(html).not.toContain("red40");
-    expect(html).toContain(
-      "border-color:color-mix(in oklab, red 25%, transparent)",
-    );
+    expect(html).toContain("border-color:color-mix(in oklab, red 25%, transparent)");
   });
 
   // --- surfaces that cannot be divided ----------------------------------
@@ -218,9 +209,7 @@ describe("reference-row bullet click parity", () => {
       loadSource: null,
       loadError: null,
     });
-    useOutlineStore
-      .getState()
-      .hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
   }
 
   beforeAll(() => {
@@ -249,9 +238,7 @@ describe("reference-row bullet click parity", () => {
 
   async function renderRefRow(): Promise<HTMLElement> {
     await act(async () => {
-      root.render(
-        <NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} isRef />,
-      );
+      root.render(<NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} isRef />);
     });
     const bullet = container.querySelector(
       `[data-instance-key="${refKey}"] [data-bullet-ref="true"]`,
@@ -274,16 +261,12 @@ describe("reference-row bullet click parity", () => {
 
   it("promises a toggle on a collapsible reference row", async () => {
     const bullet = await renderRefRow();
-    expect(bullet.getAttribute("title")).toBe(
-      "Click to toggle, Cmd+click to focus",
-    );
+    expect(bullet.getAttribute("title")).toBe("Click to toggle, Cmd+click to focus");
   });
 
   it("a plain click expands the reference row in place, never zooms", async () => {
     // n.root-a has children and hydrates collapsed.
-    expect(useOutlineStore.getState().nodes.get("n.root-a")!.collapsed).toBe(
-      true,
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-a")!.collapsed).toBe(true);
     const bullet = await renderRefRow();
 
     clickBullet(bullet);

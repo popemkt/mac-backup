@@ -26,25 +26,14 @@ import { runQuery } from "@/ds/query";
 import type { QueryDb } from "@/ds/db";
 import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
 
-export {
-  FIELD_TYPES,
-  FIELD_TYPE_OPTION_IDS,
-  fieldTypeValue,
-  isFieldType,
-  type FieldType,
-};
+export { FIELD_TYPES, FIELD_TYPE_OPTION_IDS, fieldTypeValue, isFieldType, type FieldType };
 
 /** Read declared type from a field definition node; default text. */
-export function resolveFieldType(
-  fieldNode: OutlineNode | undefined,
-): FieldType {
+export function resolveFieldType(fieldNode: OutlineNode | undefined): FieldType {
   return fieldTypeOf(fieldNode?.props);
 }
 
-export function resolveFieldTypeById(
-  fieldId: string,
-  nodes: NodeMap,
-): FieldType {
+export function resolveFieldTypeById(fieldId: string, nodes: NodeMap): FieldType {
   return resolveFieldType(nodes.get(fieldId));
 }
 
@@ -64,11 +53,7 @@ export function resolveAllowedRefIds(
   nodes: NodeMap,
   queryDb: QueryDb | null,
 ): Set<string> | null {
-  return allowedRefIdsOf(
-    fieldNode,
-    nodes,
-    queryDb ? (edn) => runQuery(queryDb, edn) : null,
-  );
+  return allowedRefIdsOf(fieldNode, nodes, queryDb ? (edn) => runQuery(queryDb, edn) : null);
 }
 
 /** Cache keyed by fieldId + rev + constraint fingerprint (EDN / tags). */
@@ -112,9 +97,7 @@ export function clearAllowedRefIdsCache(): void {
 }
 
 /** Expected wire PropValue.t for a declared FieldType (url/date use str). */
-export function expectedPropKind(
-  fieldType: FieldType,
-): PropValue["t"] | "str-url" | "str-date" {
+export function expectedPropKind(fieldType: FieldType): PropValue["t"] | "str-url" | "str-date" {
   switch (fieldType) {
     case "number":
       return "num";
@@ -133,10 +116,7 @@ export function expectedPropKind(
 }
 
 /** Subtle UI mismatch — core writes stay permissive. */
-export function isValueMismatch(
-  fieldType: FieldType,
-  value: PropValue,
-): boolean {
+export function isValueMismatch(fieldType: FieldType, value: PropValue): boolean {
   switch (fieldType) {
     case "number":
       return value.t !== "num";
@@ -174,9 +154,7 @@ export function emptyValueForType(fieldType: FieldType): PropValue {
 }
 
 /** Map FieldType → FieldRow icon key (legacy PropValue.t icons reused). */
-export function fieldTypeIconKind(
-  fieldType: FieldType,
-): PropValue["t"] {
+export function fieldTypeIconKind(fieldType: FieldType): PropValue["t"] {
   switch (fieldType) {
     case "number":
       return "num";

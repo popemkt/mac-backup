@@ -25,8 +25,7 @@ function render(values: PropValue[], readOnly = false) {
   );
 }
 
-const count = (html: string, needle: string) =>
-  html.split(needle).length - 1;
+const count = (html: string, needle: string) => html.split(needle).length - 1;
 
 describe("field value stack", () => {
   it("stacks every value under a single label slot", () => {

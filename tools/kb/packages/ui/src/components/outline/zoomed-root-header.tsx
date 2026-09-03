@@ -27,10 +27,7 @@ function EditableTitle({ node }: { node: OutlineNode }) {
     return (
       <h1
         title={`${text || "Untitled"} (system, read-only)`}
-        className={cn(
-          TITLE_CLASS,
-          "truncate text-foreground/60",
-        )}
+        className={cn(TITLE_CLASS, "truncate text-foreground/60")}
         data-zoom-title-readonly="true"
       >
         {text || "Untitled"}

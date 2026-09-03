@@ -43,10 +43,7 @@ describe("ui assets boundary", () => {
     await writeFile(join(root, ".kb", "assets", "ok.png"), "png-bytes");
     await writeFile(join(root, ".kb", "assets", "inner.png"), "inner");
     await writeFile(join(root, "outside.txt"), "secret");
-    await symlink(
-      join(root, "outside.txt"),
-      join(root, ".kb", "assets", "escape.png"),
-    );
+    await symlink(join(root, "outside.txt"), join(root, ".kb", "assets", "escape.png"));
     await symlink(
       join(root, ".kb", "assets", "inner.png"),
       join(root, ".kb", "assets", "alias.png"),
@@ -176,9 +173,7 @@ describe("ui session boundary", () => {
       code: "invalid_json",
     });
 
-    await Effect.runPromise(
-      hub.handleMessage("c1", JSON.stringify({ op: "subscribe" })),
-    );
+    await Effect.runPromise(hub.handleMessage("c1", JSON.stringify({ op: "subscribe" })));
     expect(JSON.parse(frames[2]!)).toMatchObject({
       op: "error",
       code: "invalid_message",
@@ -187,10 +182,7 @@ describe("ui session boundary", () => {
     // Malformed EDN on a valid subscribe yields a query_error frame, never a
     // crash or a bogus rows push (C4 datalog-input classification at the WS edge).
     await Effect.runPromise(
-      hub.handleMessage(
-        "c1",
-        JSON.stringify({ op: "subscribe", id: "s1", query: "not [valid" }),
-      ),
+      hub.handleMessage("c1", JSON.stringify({ op: "subscribe", id: "s1", query: "not [valid" })),
     );
     expect(JSON.parse(frames[3]!)).toMatchObject({
       op: "error",
@@ -218,31 +210,19 @@ describe("ui http boundary", () => {
     const deps = { root, ctx, hub };
     const jsonCt = "application/json;charset=utf-8";
 
-    const graph = await handleHttpRequest(
-      new Request("http://127.0.0.1/api/graph"),
-      deps,
-    );
+    const graph = await handleHttpRequest(new Request("http://127.0.0.1/api/graph"), deps);
     expect(graph.status).toBe(200);
     expect(graph.headers.get("Content-Type")).toBe(jsonCt);
 
-    const queries = await handleHttpRequest(
-      new Request("http://127.0.0.1/api/queries"),
-      deps,
-    );
+    const queries = await handleHttpRequest(new Request("http://127.0.0.1/api/queries"), deps);
     expect(queries.status).toBe(200);
     expect(queries.headers.get("Content-Type")).toBe(jsonCt);
 
-    const manifest = await handleHttpRequest(
-      new Request("http://127.0.0.1/api/manifest"),
-      deps,
-    );
+    const manifest = await handleHttpRequest(new Request("http://127.0.0.1/api/manifest"), deps);
     expect(manifest.status).toBe(200);
     expect(manifest.headers.get("Content-Type")).toBe(jsonCt);
 
-    const api404 = await handleHttpRequest(
-      new Request("http://127.0.0.1/api/nope"),
-      deps,
-    );
+    const api404 = await handleHttpRequest(new Request("http://127.0.0.1/api/nope"), deps);
     expect(api404.status).toBe(404);
     expect(api404.headers.get("Content-Type")).toBeNull();
     expect(await api404.text()).toBe("not found");
@@ -260,10 +240,7 @@ describe("ui http boundary", () => {
     const badBody = (await badJson.json()) as { code: string };
     expect(badBody.code).toBe("invalid_input");
 
-    const fallback = await handleHttpRequest(
-      new Request("http://127.0.0.1/"),
-      deps,
-    );
+    const fallback = await handleHttpRequest(new Request("http://127.0.0.1/"), deps);
     // Built UI → 200 SPA; unbuilt → 503 ui_not_built.
     if (fallback.status === 503) {
       expect(fallback.headers.get("Content-Type")).toBe(jsonCt);
@@ -280,18 +257,16 @@ describe("ui http boundary", () => {
     const ctx = await openKb(root);
     const hub = new SubscriptionHub(ctx);
 
-    const spy = spyOn(assets, "serveKbAssetEffect").mockImplementation(
-      (() => Effect.die(new Error("asset-read-failed"))) as typeof assets.serveKbAssetEffect,
-    );
+    const spy = spyOn(assets, "serveKbAssetEffect").mockImplementation((() =>
+      Effect.die(new Error("asset-read-failed"))) as typeof assets.serveKbAssetEffect);
     try {
-      const res = await handleHttpRequest(
-        new Request("http://127.0.0.1/assets/x.png"),
-        { root, ctx, hub },
-      );
+      const res = await handleHttpRequest(new Request("http://127.0.0.1/assets/x.png"), {
+        root,
+        ctx,
+        hub,
+      });
       expect(res.status).toBe(500);
-      expect(res.headers.get("Content-Type")).toBe(
-        "application/json;charset=utf-8",
-      );
+      expect(res.headers.get("Content-Type")).toBe("application/json;charset=utf-8");
       const body = (await res.json()) as {
         status: string;
         code: string;
@@ -314,10 +289,11 @@ describe("ui http boundary", () => {
     const ctx = await openKb(root);
     const hub = new SubscriptionHub(ctx);
 
-    const queries = await handleHttpRequest(
-      new Request("http://127.0.0.1/api/queries"),
-      { root, ctx, hub },
-    );
+    const queries = await handleHttpRequest(new Request("http://127.0.0.1/api/queries"), {
+      root,
+      ctx,
+      hub,
+    });
     expect(queries.status).toBe(200);
     const body = (await queries.json()) as { name: string }[];
     expect(body.map((q) => q.name)).toEqual(["good"]);

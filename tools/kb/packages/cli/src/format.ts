@@ -11,20 +11,14 @@ export function formatReceipt(
 
   if (receipt.status === "failed") {
     const details =
-      receipt.details !== undefined
-        ? `\n${JSON.stringify(receipt.details, null, 2)}`
-        : "";
+      receipt.details !== undefined ? `\n${JSON.stringify(receipt.details, null, 2)}` : "";
     return `error [${receipt.code}] ${receipt.message}${details}`;
   }
 
   return formatSuccess(receipt.id, receipt.output, opts.command);
 }
 
-function formatSuccess(
-  actionId: string,
-  output: unknown,
-  command?: string,
-): string {
+function formatSuccess(actionId: string, output: unknown, command?: string): string {
   if (command === "children" && output && typeof output === "object") {
     const node = (output as { node?: Record<string, unknown> }).node;
     if (node && Array.isArray(node.children)) {
@@ -38,9 +32,7 @@ function formatSuccess(
   }
 
   if (
-    (actionId === "graph.query" ||
-      actionId === "graph.run" ||
-      actionId === "graph.search") &&
+    (actionId === "graph.query" || actionId === "graph.run" || actionId === "graph.search") &&
     output &&
     typeof output === "object"
   ) {
@@ -81,13 +73,8 @@ function formatOutline(node: unknown, depth: number): string {
     props?: Record<string, unknown>;
   };
   if (n.missing) return `${"  ".repeat(depth)}- [${n.id}] (missing)`;
-  const props =
-    n.props && Object.keys(n.props).length > 0
-      ? `  ${compactProps(n.props)}`
-      : "";
-  const lines = [
-    `${"  ".repeat(depth)}- ${n.text ?? ""}  [${n.id ?? "?"}]${props}`,
-  ];
+  const props = n.props && Object.keys(n.props).length > 0 ? `  ${compactProps(n.props)}` : "";
+  const lines = [`${"  ".repeat(depth)}- ${n.text ?? ""}  [${n.id ?? "?"}]${props}`];
   if (Array.isArray(n.children)) {
     for (const c of n.children) {
       lines.push(formatOutline(c, depth + 1));
@@ -137,11 +124,7 @@ function formatTable(rows: unknown): string {
     });
   }
   return asRows
-    .map((row) =>
-      row
-        .map((cell, i) => cellString(cell).padEnd(widths[i] ?? 0))
-        .join("  "),
-    )
+    .map((row) => row.map((cell, i) => cellString(cell).padEnd(widths[i] ?? 0)).join("  "))
     .join("\n");
 }
 

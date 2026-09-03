@@ -54,11 +54,7 @@ function seed(extra: WireNode[]) {
   });
   useOutlineStore
     .getState()
-    .hydrateFromWire(
-      [...fixtureGraph.nodes, ...extra],
-      fixtureGraph.rev,
-      "fixtures",
-    );
+    .hydrateFromWire([...fixtureGraph.nodes, ...extra], fixtureGraph.rev, "fixtures");
 }
 
 describe("contextual reference row", () => {
@@ -91,10 +87,7 @@ describe("contextual reference row", () => {
   });
 
   async function render(nodeId: string) {
-    const key = outlineInstanceKey(
-      nodeId,
-      useOutlineStore.getState().nodes,
-    );
+    const key = outlineInstanceKey(nodeId, useOutlineStore.getState().nodes);
     await act(async () => {
       root.render(<NodeBlock nodeId={nodeId} instanceKey={key} depth={0} />);
     });
@@ -114,26 +107,19 @@ describe("contextual reference row", () => {
     useOutlineStore.getState().toggleCollapse("n.ctx");
     const refKey = await render("n.ctx");
     const childKey = childInstanceKey(refKey, "n.ctx-child");
-    expect(
-      container.querySelector(`[data-instance-key="${childKey}"]`),
-    ).toBeTruthy();
+    expect(container.querySelector(`[data-instance-key="${childKey}"]`)).toBeTruthy();
 
     // The original, rendered directly, knows nothing about the local child.
     const target = useOutlineStore.getState().nodes.get("n.root-a")!;
     expect(target.children).not.toContain("n.ctx-child");
     useOutlineStore.getState().toggleCollapse("n.root-a");
     await render("n.root-a");
-    expect(
-      container.querySelector('[data-node-id="n.ctx-child"]'),
-    ).toBeNull();
+    expect(container.querySelector('[data-node-id="n.ctx-child"]')).toBeNull();
   });
 
   it("is an ordinary row for instance keys and keyboard navigation", () => {
     useOutlineStore.getState().toggleCollapse("n.ctx");
-    const refKey = outlineInstanceKey(
-      "n.ctx",
-      useOutlineStore.getState().nodes,
-    );
+    const refKey = outlineInstanceKey("n.ctx", useOutlineStore.getState().nodes);
     expect(refKey).toBe("tree/n.ctx");
     const instances = useOutlineStore.getState().getVisibleInstances();
     expect(instances.some((i) => i.instanceKey === refKey)).toBe(true);
@@ -151,9 +137,7 @@ describe("contextual reference row", () => {
     expect(s.activeNodeId).toBeNull();
     expect(s.selectedNodeId).toBe("n.ctx");
     expect(
-      container.querySelector(
-        `[data-instance-key="${key}"] [contenteditable="true"]`,
-      ),
+      container.querySelector(`[data-instance-key="${key}"] [contenteditable="true"]`),
     ).toBeNull();
   });
 
@@ -165,10 +149,9 @@ describe("contextual reference row", () => {
     expect(text).toBeTruthy();
     await act(async () => {
       text!.dispatchEvent(
-        new (globalThis as unknown as { MouseEvent: typeof MouseEvent }).MouseEvent(
-          "click",
-          { bubbles: true },
-        ),
+        new (globalThis as unknown as { MouseEvent: typeof MouseEvent }).MouseEvent("click", {
+          bubbles: true,
+        }),
       );
     });
     expect(useOutlineStore.getState().rootNodeId).toBe("n.root-a");

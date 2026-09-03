@@ -82,33 +82,19 @@ export const DEFAULT_CURVED_LINKS = false;
 export const DEFAULT_AUTOROTATE = false;
 export const DEFAULT_LABEL_DENSITY: LensLabelDensity = "medium";
 
-export const LENS_LAYOUTS: LensLayout[] = [
-  "force",
-  "radial",
-  "hierarchical",
-  "grid",
-];
+export const LENS_LAYOUTS: LensLayout[] = ["force", "radial", "hierarchical", "grid"];
 
-export const LENS_RENDERERS = [
-  "force2d",
-  "tree",
-  "cluster",
-  "force3d",
-] as const;
+export const LENS_RENDERERS = ["force2d", "tree", "cluster", "force3d"] as const;
 
 const EDGE_KIND_SET = new Set<string>(["mention", "child", "ref-prop"]);
 
 function strProp(node: WireNode, fieldId: string): string | null {
-  const v = (node.props[fieldId] ?? []).find(
-    (p) => p.t === "str" && typeof p.v === "string",
-  );
+  const v = (node.props[fieldId] ?? []).find((p) => p.t === "str" && typeof p.v === "string");
   return v ? String(v.v).trim() : null;
 }
 
 function numProp(node: WireNode, fieldId: string): number | null {
-  const v = (node.props[fieldId] ?? []).find(
-    (p) => p.t === "num" && typeof p.v === "number",
-  );
+  const v = (node.props[fieldId] ?? []).find((p) => p.t === "num" && typeof p.v === "number");
   return v ? Number(v.v) : null;
 }
 
@@ -120,9 +106,7 @@ function multiStrProp(node: WireNode, fieldId: string): string[] {
 }
 
 function refProp(node: WireNode, fieldId: string): string | null {
-  const v = (node.props[fieldId] ?? []).find(
-    (p) => p.t === "ref" && typeof p.v === "string",
-  );
+  const v = (node.props[fieldId] ?? []).find((p) => p.t === "ref" && typeof p.v === "string");
   return v ? String(v.v) : null;
 }
 
@@ -144,8 +128,7 @@ export function firstTagOf(
     const target = byId.get(pv.v);
     if (!isTagNode(target)) continue;
     const colorProp = target?.props[SYSTEM_IDS.colorField]?.[0];
-    const explicit =
-      colorProp?.t === "str" ? String(colorProp.v) : undefined;
+    const explicit = colorProp?.t === "str" ? String(colorProp.v) : undefined;
     return { id: pv.v, color: resolveTagColor(pv.v, explicit) };
   }
   return null;
@@ -153,9 +136,7 @@ export function firstTagOf(
 
 export function isGraphPerspectiveNode(node: WireNode): boolean {
   const types = node.props[SYSTEM_IDS.typeField] ?? [];
-  return types.some(
-    (v) => v.t === "ref" && v.v === SYSTEM_IDS.graphPerspectiveTag,
-  );
+  return types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.graphPerspectiveTag);
 }
 
 export function listPerspectiveNodes(wireNodes: WireNode[]): WireNode[] {
@@ -165,16 +146,13 @@ export function listPerspectiveNodes(wireNodes: WireNode[]): WireNode[] {
 }
 
 function boolProp(node: WireNode, fieldId: string): boolean | null {
-  const v = (node.props[fieldId] ?? []).find(
-    (p) => p.t === "bool" && typeof p.v === "boolean",
-  );
+  const v = (node.props[fieldId] ?? []).find((p) => p.t === "bool" && typeof p.v === "boolean");
   return v ? Boolean(v.v) : null;
 }
 
 export function parsePerspective(node: WireNode): LensPerspective {
   const kindsRaw = multiStrProp(node, SYSTEM_IDS.lensEdgeKindsField);
-  const edgeKinds = kindsRaw
-    .filter((k): k is EdgeKind => EDGE_KIND_SET.has(k));
+  const edgeKinds = kindsRaw.filter((k): k is EdgeKind => EDGE_KIND_SET.has(k));
   const maxNodes = numProp(node, SYSTEM_IDS.lensMaxNodesField);
   const layoutRaw = strProp(node, SYSTEM_IDS.lensLayoutField);
   const layout: LensLayout =
@@ -206,14 +184,10 @@ export function parsePerspective(node: WireNode): LensPerspective {
       maxNodes !== null && Number.isFinite(maxNodes) && maxNodes > 0
         ? Math.floor(maxNodes)
         : DEFAULT_MAX_NODES,
-    clusterBy:
-      strProp(node, SYSTEM_IDS.lensClusterByField) ?? DEFAULT_CLUSTER_BY,
+    clusterBy: strProp(node, SYSTEM_IDS.lensClusterByField) ?? DEFAULT_CLUSTER_BY,
     focus: refProp(node, SYSTEM_IDS.lensFocusField),
     layout,
-    spread:
-      spread !== null && Number.isFinite(spread) && spread > 0
-        ? spread
-        : DEFAULT_SPREAD,
+    spread: spread !== null && Number.isFinite(spread) && spread > 0 ? spread : DEFAULT_SPREAD,
     linkDistance:
       linkDistance !== null && Number.isFinite(linkDistance) && linkDistance > 0
         ? linkDistance
@@ -226,10 +200,7 @@ export function parsePerspective(node: WireNode): LensPerspective {
 }
 
 /** parentOf map from children[] within an optional id set. */
-export function buildParentMap(
-  wireNodes: WireNode[],
-  nodeSet?: Set<string>,
-): Map<string, string> {
+export function buildParentMap(wireNodes: WireNode[], nodeSet?: Set<string>): Map<string, string> {
   const parentOf = new Map<string, string>();
   for (const n of wireNodes) {
     if (nodeSet && !nodeSet.has(n.id)) continue;
@@ -339,9 +310,7 @@ export function buildTreeForest(
   }
 
   const parentOf = buildParentMap(wireNodes, nodeSet);
-  const roots = [...nodeSet]
-    .filter((id) => !parentOf.has(id))
-    .sort((a, b) => a.localeCompare(b));
+  const roots = [...nodeSet].filter((id) => !parentOf.has(id)).sort((a, b) => a.localeCompare(b));
   const forest: LensTreeNode[] = [];
   for (const id of roots) {
     const t = build(id);
@@ -351,10 +320,7 @@ export function buildTreeForest(
 }
 
 /** Collect node ids from a datalog result set (first string column per row). */
-export function idsFromQueryRows(
-  rows: unknown[][],
-  known: Set<string>,
-): Set<string> {
+export function idsFromQueryRows(rows: unknown[][], known: Set<string>): Set<string> {
   const out = new Set<string>();
   for (const row of rows) {
     const id = row.find((v): v is string => typeof v === "string" && known.has(v));
@@ -372,11 +338,7 @@ export function isElidedSchemaNode(wire: WireNode): boolean {
   const types = wire.props[SYSTEM_IDS.typeField] ?? [];
   for (const v of types) {
     if (v.t !== "ref") continue;
-    if (
-      v.v === SYSTEM_IDS.command ||
-      v.v === SYSTEM_IDS.field ||
-      v.v === SYSTEM_IDS.tag
-    ) {
+    if (v.v === SYSTEM_IDS.command || v.v === SYSTEM_IDS.field || v.v === SYSTEM_IDS.tag) {
       return true;
     }
   }
@@ -433,9 +395,7 @@ function collectEdges(
     const existing = weights.get(key);
     if (existing !== undefined) {
       weights.set(key, existing + 1);
-      const edge = edges.find(
-        (e) => e.source === source && e.target === target && e.kind === kind,
-      );
+      const edge = edges.find((e) => e.source === source && e.target === target && e.kind === kind);
       if (edge) edge.weight = existing + 1;
       return;
     }
@@ -482,10 +442,7 @@ function collectEdges(
   return edges;
 }
 
-function degreeMap(
-  nodeIds: Iterable<string>,
-  edges: LensEdge[],
-): Map<string, number> {
+function degreeMap(nodeIds: Iterable<string>, edges: LensEdge[]): Map<string, number> {
   const deg = new Map<string, number>();
   for (const id of nodeIds) deg.set(id, 0);
   for (const e of edges) {
@@ -510,17 +467,11 @@ function applyMaxNodesCap(
   });
   const keep = new Set(ranked.slice(0, maxNodes));
   const dropped = nodeIds.length - maxNodes;
-  console.warn(
-    `[graph-lens] max-nodes=${maxNodes}: dropped ${dropped} lowest-degree nodes`,
-  );
+  console.warn(`[graph-lens] max-nodes=${maxNodes}: dropped ${dropped} lowest-degree nodes`);
   return { keep, dropped };
 }
 
-export function resolveColor(
-  wire: WireNode,
-  byId: Map<string, WireNode>,
-  colorBy: string,
-): string {
+export function resolveColor(wire: WireNode, byId: Map<string, WireNode>, colorBy: string): string {
   if (colorBy.startsWith("fixed:")) {
     const hex = colorBy.slice("fixed:".length).trim() || "#888888";
     return hex;
@@ -531,11 +482,7 @@ export function resolveColor(
   return hashTagColor("untagged");
 }
 
-export function resolveSize(
-  sizeBy: string,
-  degree: number,
-  childCount: number,
-): number {
+export function resolveSize(sizeBy: string, degree: number, childCount: number): number {
   if (sizeBy === "fixed") return 5;
   if (sizeBy === "children") {
     return Math.max(3, Math.min(20, 3 + Math.sqrt(childCount) * 2.5));
@@ -556,14 +503,8 @@ export function extractLensGraph(
   const rawEdges = collectEdges(wireNodes, nodeSet, kinds);
   const candidateIds = [...nodeSet];
   const degrees = degreeMap(candidateIds, rawEdges);
-  const { keep, dropped } = applyMaxNodesCap(
-    candidateIds,
-    degrees,
-    perspective.maxNodes,
-  );
-  const edges = rawEdges.filter(
-    (e) => keep.has(e.source) && keep.has(e.target),
-  );
+  const { keep, dropped } = applyMaxNodesCap(candidateIds, degrees, perspective.maxNodes);
+  const edges = rawEdges.filter((e) => keep.has(e.source) && keep.has(e.target));
   const finalDegrees = degreeMap(keep, edges);
 
   const parentOf = buildParentMap(wireNodes, keep);
@@ -572,17 +513,8 @@ export function extractLensGraph(
     const wire = byId.get(id);
     if (!wire) continue;
     const color = resolveColor(wire, byId, perspective.colorBy);
-    const clusterKey = resolveClusterKey(
-      wire,
-      byId,
-      parentOf,
-      perspective.clusterBy,
-    );
-    const size = resolveSize(
-      perspective.sizeBy,
-      finalDegrees.get(id) ?? 0,
-      wire.children.length,
-    );
+    const clusterKey = resolveClusterKey(wire, byId, parentOf, perspective.clusterBy);
+    const size = resolveSize(perspective.sizeBy, finalDegrees.get(id) ?? 0, wire.children.length);
     const wireTags: string[] = [];
     const types = wire.props[SYSTEM_IDS.typeField] ?? [];
     for (const pv of types) {

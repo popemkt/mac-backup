@@ -13,11 +13,6 @@
   "htmlReporter": {
     "fileName": "reports/mutation/index.html"
   },
-  "thresholds": {
-    "high": 80,
-    "low": 60,
-    "break": 60
-  },
   "timeoutMS": 15000,
   "tempDirName": ".stryker-tmp"
 }

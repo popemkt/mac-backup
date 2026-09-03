@@ -1,12 +1,8 @@
-import type { PropValue } from "@/lib/types";
-import type { NodeMap } from "@/lib/types";
+import type { PropValue, NodeMap } from "@/lib/types";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import {
-  emptyValueForType,
-  type FieldType,
-} from "@/lib/field-type";
+import { emptyValueForType, type FieldType } from "@/lib/field-type";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
 import { fuzzyNodeCandidates } from "@/lib/refs";
 import { TAG_PALETTE } from "@/lib/tag-color";
@@ -35,10 +31,7 @@ interface PropValueEditorProps {
   nodes: NodeMap;
 }
 
-const editableClass = cn(
-  "flex-1 outline-none rounded-sm px-1",
-  KB_TEXT_CLASS,
-);
+const editableClass = cn("flex-1 outline-none rounded-sm px-1", KB_TEXT_CLASS);
 
 /** Borderless inline prop editors — picked by declared fieldType. */
 export function PropValueEditor({
@@ -76,21 +69,13 @@ export function PropValueEditor({
             const n = Number(text.trim());
             if (!Number.isNaN(n)) onCommit({ t: "num", v: n });
           }}
-          empty={
-            value.t !== "num" ||
-            value.v === null ||
-            value.v === undefined
-          }
+          empty={value.t !== "num" || value.v === null || value.v === undefined}
         />
       );
     case "date":
       return (
         <DateValue
-          value={
-            value.t === "str" || value.t === "date"
-              ? String(value.v)
-              : ""
-          }
+          value={value.t === "str" || value.t === "date" ? String(value.v) : ""}
           autoOpen={autoOpen}
           onChange={(v) => onCommit({ t: "str", v })}
         />
@@ -145,12 +130,7 @@ export function EmptyTypedEditor({
   nodes: NodeMap;
 }) {
   if (fieldId === SYSTEM_IDS.colorField) {
-    return (
-      <ColorSwatchEditor
-        value=""
-        onCommit={(hex) => onCommit({ t: "str", v: hex })}
-      />
-    );
+    return <ColorSwatchEditor value="" onCommit={(hex) => onCommit({ t: "str", v: hex })} />;
   }
   const starter = emptyValueForType(fieldType);
   return (
@@ -283,12 +263,7 @@ function EditableText({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (
-        e.key === "Enter" &&
-        !e.shiftKey &&
-        !isComposing.current &&
-        !e.nativeEvent.isComposing
-      ) {
+      if (e.key === "Enter" && !e.shiftKey && !isComposing.current && !e.nativeEvent.isComposing) {
         e.preventDefault();
         ref.current?.blur();
       }
@@ -336,13 +311,7 @@ function EditableText({
   );
 }
 
-function BooleanValue({
-  value,
-  onChange,
-}: {
-  value: boolean;
-  onChange: (v: boolean) => void;
-}) {
+function BooleanValue({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
       type="button"
@@ -391,10 +360,7 @@ function DateValue({
     return (
       <input
         type="date"
-        className={cn(
-          editableClass,
-          "border-none bg-transparent text-foreground/70",
-        )}
+        className={cn(editableClass, "border-none bg-transparent text-foreground/70")}
         defaultValue={value ? String(value).slice(0, 10) : ""}
         autoFocus
         onChange={(e) => {
@@ -497,10 +463,7 @@ function RefEditor({
         content={
           <>
             <span
-              className={cn(
-                KB_TEXT_CLASS,
-                "min-w-0 flex-1 truncate text-foreground/70",
-              )}
+              className={cn(KB_TEXT_CLASS, "min-w-0 flex-1 truncate text-foreground/70")}
               onClick={(e) => {
                 e.stopPropagation();
                 setOpen(true);
@@ -538,7 +501,12 @@ function RefEditor({
         data-unresolved-ref={!hasDisplay ? "true" : undefined}
       >
         {!hasDisplay && <span className="text-warning text-[11px] leading-none">⚠</span>}
-        <span className={cn("h-1 w-1 shrink-0 rounded-full", hasDisplay ? "bg-foreground/35" : "bg-warning/60")} />
+        <span
+          className={cn(
+            "h-1 w-1 shrink-0 rounded-full",
+            hasDisplay ? "bg-foreground/35" : "bg-warning/60",
+          )}
+        />
         <span className="max-w-[200px] truncate">{hasDisplay ? display : refId}</span>
       </span>
     );
@@ -552,10 +520,7 @@ function RefEditor({
         tabIndex={0}
         role="button"
         aria-label="Set reference"
-        className={cn(
-          editableClass,
-          "cursor-text italic empty-placeholder text-foreground/25",
-        )}
+        className={cn(editableClass, "cursor-text italic empty-placeholder text-foreground/25")}
         data-empty-placeholder="true"
         data-ref-slot="closed"
         onFocus={() => setOpen(true)}
@@ -590,9 +555,7 @@ function RefEditor({
           }
           if (e.key === "ArrowUp" && candidates.length > 0) {
             e.preventDefault();
-            setAcIndex(
-              (i) => (i - 1 + candidates.length) % candidates.length,
-            );
+            setAcIndex((i) => (i - 1 + candidates.length) % candidates.length);
             return;
           }
           if (e.key === "Enter") {

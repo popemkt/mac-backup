@@ -5,40 +5,34 @@ import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { SYSTEM_IDS, type KbNode } from "@kb/model";
 import { isValidSavedQueryName } from "@kb/operations";
 
-export const listSavedQueriesEffect = Effect.fn("kb.ui.listSavedQueries")(
-  function* (root: string) {
-    const fs = yield* FileSystem;
-    const dir = join(root, ".kb", "queries");
-    // Platform I/O errors become defects; HTTP catchCause maps them to 500.
-    if (!(yield* fs.exists(dir).pipe(Effect.orDie))) return [];
-    const entries = yield* fs.readDirectory(dir).pipe(Effect.orDie);
-    const out: { name: string; edn: string }[] = [];
-    for (const name of entries) {
-      if (!name.endsWith(".edn")) continue;
-      const stem = name.slice(0, -4);
-      // Skip traversal/control/ambiguous stems — same rule as run/save/delete.
-      if (!isValidSavedQueryName(stem)) continue;
-      // Skip non-regular entries (directories, sockets, unreadable files) so
-      // a stray dir named *.edn can never brick GET /api/queries (C3).
-      const edn = yield* Effect.gen(function* () {
-        const stat = yield* fs.stat(join(dir, name));
-        if (stat.type !== "File") return null;
-        return yield* fs.readFileString(join(dir, name));
-      }).pipe(Effect.option, Effect.map(Option.getOrNull));
-      if (edn === null) continue;
-      out.push({ name: stem, edn });
-    }
-    out.sort((a, b) => a.name.localeCompare(b.name));
-    return out;
-  },
-);
+export const listSavedQueriesEffect = Effect.fn("kb.ui.listSavedQueries")(function* (root: string) {
+  const fs = yield* FileSystem;
+  const dir = join(root, ".kb", "queries");
+  // Platform I/O errors become defects; HTTP catchCause maps them to 500.
+  if (!(yield* fs.exists(dir).pipe(Effect.orDie))) return [];
+  const entries = yield* fs.readDirectory(dir).pipe(Effect.orDie);
+  const out: { name: string; edn: string }[] = [];
+  for (const name of entries) {
+    if (!name.endsWith(".edn")) continue;
+    const stem = name.slice(0, -4);
+    // Skip traversal/control/ambiguous stems — same rule as run/save/delete.
+    if (!isValidSavedQueryName(stem)) continue;
+    // Skip non-regular entries (directories, sockets, unreadable files) so
+    // a stray dir named *.edn can never brick GET /api/queries (C3).
+    const edn = yield* Effect.gen(function* () {
+      const stat = yield* fs.stat(join(dir, name));
+      if (stat.type !== "File") return null;
+      return yield* fs.readFileString(join(dir, name));
+    }).pipe(Effect.option, Effect.map(Option.getOrNull));
+    if (edn === null) continue;
+    out.push({ name: stem, edn });
+  }
+  out.sort((a, b) => a.name.localeCompare(b.name));
+  return out;
+});
 
-export function listSavedQueries(
-  root: string,
-): Promise<{ name: string; edn: string }[]> {
-  return Effect.runPromise(
-    listSavedQueriesEffect(root).pipe(Effect.provide(bunFileSystemLayer)),
-  );
+export function listSavedQueries(root: string): Promise<{ name: string; edn: string }[]> {
+  return Effect.runPromise(listSavedQueriesEffect(root).pipe(Effect.provide(bunFileSystemLayer)));
 }
 
 /** Stable timestamp keeps virtual nodes out of the content-hash noise. */
@@ -49,9 +43,7 @@ const SAVED_QUERY_ISO = "1970-01-01T00:00:00.000Z";
  * `sys.queries` root (DESIGN-REFINE §2 W4). Materialized at load into the
  * UI graph only — never duplicated into .kb/nodes.jsonl.
  */
-export function savedQueryNodes(
-  saved: { name: string; edn: string }[],
-): KbNode[] {
+export function savedQueryNodes(saved: { name: string; edn: string }[]): KbNode[] {
   if (saved.length === 0) return [];
   const mk = (id: string, text: string, props: KbNode["props"]): KbNode => ({
     id,

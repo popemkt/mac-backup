@@ -17,10 +17,7 @@ interface ShapeCardProps {
   onLabelChange: (label: string) => void;
   onMoveStart: (e: React.PointerEvent) => void;
   onResizeStart: (e: React.PointerEvent) => void;
-  onPortDown: (
-    side: "left" | "right" | "top" | "bottom",
-    e: React.PointerEvent,
-  ) => void;
+  onPortDown: (side: "left" | "right" | "top" | "bottom", e: React.PointerEvent) => void;
 }
 
 function ShapeChrome({
@@ -35,7 +32,8 @@ function ShapeChrome({
   children: React.ReactNode;
 }) {
   const tint = canvasColorStyle(color);
-  const stroke = resolveCanvasColor(color) ?? "color-mix(in oklab, var(--foreground) 18%, transparent)";
+  const stroke =
+    resolveCanvasColor(color) ?? "color-mix(in oklab, var(--foreground) 18%, transparent)";
 
   if (shape === "diamond") {
     return (
@@ -48,18 +46,13 @@ function ShapeChrome({
         >
           <polygon
             points="50,2 98,50 50,98 2,50"
-            fill={
-              tint.backgroundColor ??
-              "color-mix(in oklab, var(--foreground) 3%, transparent)"
-            }
+            fill={tint.backgroundColor ?? "color-mix(in oklab, var(--foreground) 3%, transparent)"}
             stroke={selected ? "var(--primary)" : stroke}
             strokeWidth={selected ? 2.2 : 1.5}
             vectorEffect="non-scaling-stroke"
           />
         </svg>
-        <div className="absolute inset-0 flex items-center justify-center px-4">
-          {children}
-        </div>
+        <div className="absolute inset-0 flex items-center justify-center px-4">{children}</div>
       </div>
     );
   }
@@ -74,8 +67,7 @@ function ShapeChrome({
       style={{
         borderColor: selected ? undefined : tint.borderColor,
         backgroundColor:
-          tint.backgroundColor ??
-          "color-mix(in oklab, var(--foreground) 2%, var(--background))",
+          tint.backgroundColor ?? "color-mix(in oklab, var(--foreground) 2%, var(--background))",
       }}
     >
       {children}
@@ -93,9 +85,7 @@ export function ShapeCard({
   onResizeStart,
   onPortDown,
 }: ShapeCardProps) {
-  const [edit, setEdit] = useState<LabelEditState>(() =>
-    startLabelEdit(""),
-  );
+  const [edit, setEdit] = useState<LabelEditState>(() => startLabelEdit(""));
   const editRef = useRef(edit);
   editRef.current = edit;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -161,9 +151,7 @@ export function ShapeCard({
             data-testid="shape-label-input"
             className="w-full truncate bg-transparent text-center text-[13px] text-foreground/85 outline-none"
             value={edit.draft}
-            onChange={(e) =>
-              setEdit((s) => typeLabelDraft(s, e.target.value))
-            }
+            onChange={(e) => setEdit((s) => typeLabelDraft(s, e.target.value))}
             onBlur={commit}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -197,14 +185,10 @@ export function ShapeCard({
           className={cn(
             "absolute z-10 h-2.5 w-2.5 rounded-full border border-foreground/20 bg-background",
             "opacity-0 transition-opacity group-hover/card:opacity-100",
-            side === "left" &&
-              "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
-            side === "right" &&
-              "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
-            side === "top" &&
-              "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
-            side === "bottom" &&
-              "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
+            side === "left" && "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
+            side === "right" && "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
+            side === "top" && "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
+            side === "bottom" && "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
           )}
           onPointerDown={(e) => {
             e.stopPropagation();

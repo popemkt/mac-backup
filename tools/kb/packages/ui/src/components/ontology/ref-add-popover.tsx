@@ -41,8 +41,7 @@ export function RefAddPopover({
     const q = filter.trim().toLowerCase();
     const list = q
       ? candidates.filter(
-          (c) =>
-            c.label.toLowerCase().includes(q) || c.id.toLowerCase().includes(q),
+          (c) => c.label.toLowerCase().includes(q) || c.id.toLowerCase().includes(q),
         )
       : candidates;
     return list.slice(0, 40);
@@ -126,9 +125,7 @@ export function RefAddPopover({
           />
           <div role="listbox" aria-label={title} className="max-h-56 overflow-auto">
             {hits.length === 0 ? (
-              <p className="px-2 py-1.5 text-[12px] text-foreground/30">
-                {emptyHint}
-              </p>
+              <p className="px-2 py-1.5 text-[12px] text-foreground/30">{emptyHint}</p>
             ) : (
               hits.map((c, i) => (
                 <button
@@ -150,9 +147,7 @@ export function RefAddPopover({
                 >
                   <span className="min-w-0 flex-1 truncate">{c.label}</span>
                   {c.note ? (
-                    <span className="shrink-0 text-[10px] text-foreground/25">
-                      {c.note}
-                    </span>
+                    <span className="shrink-0 text-[10px] text-foreground/25">{c.note}</span>
                   ) : null}
                 </button>
               ))

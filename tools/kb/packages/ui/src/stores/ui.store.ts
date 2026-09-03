@@ -48,8 +48,7 @@ export const useUiStore = create<UiState>((set) => ({
       nodePaletteOpen,
       globalPaletteOpen: nodePaletteOpen ? false : s.globalPaletteOpen,
     })),
-  setFilterPopoverFrameId: (filterPopoverFrameId) =>
-    set({ filterPopoverFrameId }),
+  setFilterPopoverFrameId: (filterPopoverFrameId) => set({ filterPopoverFrameId }),
 
   pushToast: (kind, text) => {
     const id = ++toastSeq;
@@ -59,6 +58,5 @@ export const useUiStore = create<UiState>((set) => ({
     }, 6000);
   },
 
-  dismissToast: (id) =>
-    set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+  dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));

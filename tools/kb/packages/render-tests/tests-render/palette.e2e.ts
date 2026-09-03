@@ -47,9 +47,7 @@ async function runCommand(page: Page, nodeId: string, label: string) {
   return palette;
 }
 
-test("Make supertag promotes the node and takes the user to its schema", async ({
-  page,
-}) => {
+test("Make supertag promotes the node and takes the user to its schema", async ({ page }) => {
   await page.goto(home());
   await expect(page.locator(`[data-node-id="${ROOT}"]`).first()).toBeVisible();
   // Not schema yet: no field-template editor anywhere.
@@ -69,13 +67,9 @@ test("Make supertag promotes the node and takes the user to its schema", async (
   await expect(page.locator(`[data-node-id="${ROOT}"]`)).toHaveCount(0);
 });
 
-test("Add field names a new field and gives the node an editable row for it", async ({
-  page,
-}) => {
+test("Add field names a new field and gives the node an editable row for it", async ({ page }) => {
   await page.goto(home());
-  await expect(
-    page.locator(`[data-node-id="${PERSPECTIVE}"]`).first(),
-  ).toBeVisible();
+  await expect(page.locator(`[data-node-id="${PERSPECTIVE}"]`).first()).toBeVisible();
 
   await runCommand(page, PERSPECTIVE, "Add field");
   // Same picker as add-tag: no match means offer to mint one from what was typed.
@@ -124,7 +118,5 @@ test("global search finds nodes on a freshly loaded store", async ({ page }) => 
   await page.keyboard.type("Fixture");
 
   await expect(search).not.toContainText("No matches");
-  await expect(
-    search.getByRole("button", { name: /Fixture/ }).first(),
-  ).toBeVisible();
+  await expect(search.getByRole("button", { name: /Fixture/ }).first()).toBeVisible();
 });

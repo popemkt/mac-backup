@@ -1,21 +1,9 @@
 import { useEffect, useRef } from "react";
-import {
-  ArrowsHorizontal,
-  CircleHalf,
-  TextAa,
-} from "@phosphor-icons/react";
-import {
-  usePrefsStore,
-  type FontPref,
-  type ThemePref,
-  type WidthPref,
-} from "@/stores/prefs.store";
+import { ArrowsHorizontal, CircleHalf, TextAa } from "@phosphor-icons/react";
+import { usePrefsStore, type FontPref, type ThemePref, type WidthPref } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "@/components/outline/fields-section";
-import {
-  POPOVER_VALUE_CLASS,
-  PopoverShell,
-} from "@/components/ui/popover-shell";
+import { POPOVER_VALUE_CLASS, PopoverShell } from "@/components/ui/popover-shell";
 
 export function PreferencesPopover() {
   const open = useUiStore((s) => s.prefsOpen);
@@ -44,11 +32,7 @@ export function PreferencesPopover() {
   if (!open) return null;
 
   return (
-    <PopoverShell
-      panelRef={panelRef}
-      title="Preferences"
-      className="absolute right-4 top-11 mt-1"
-    >
+    <PopoverShell panelRef={panelRef} title="Preferences" className="absolute right-4 top-11 mt-1">
       <ThemeRow />
       <FontRow />
       <WidthRow />
@@ -107,4 +91,3 @@ function WidthRow() {
     </PrefFieldRow>
   );
 }
-

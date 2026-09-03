@@ -25,13 +25,9 @@ describe("MCP surface", () => {
   test("lists action tools plus kb_manifest; node_add then graph_query", async () => {
     const server = await createMcpServer(root);
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
-    const [clientTransport, serverTransport] =
-      InMemoryTransport.createLinkedPair();
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
-    await Promise.all([
-      client.connect(clientTransport),
-      server.connect(serverTransport),
-    ]);
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
     const listed = await client.listTools();
     const names = new Set(listed.tools.map((t) => t.name));
@@ -80,13 +76,9 @@ describe("MCP surface", () => {
   test("failed action returns isError with code+message, never throws", async () => {
     const server = await createMcpServer(root);
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
-    const [clientTransport, serverTransport] =
-      InMemoryTransport.createLinkedPair();
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
-    await Promise.all([
-      client.connect(clientTransport),
-      server.connect(serverTransport),
-    ]);
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
     const result = await client.callTool({
       name: "node_get",
@@ -105,12 +97,8 @@ describe("MCP surface", () => {
   test("graph_query with malformed EDN returns isError invalid_input", async () => {
     const server = await createMcpServer(root);
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
-    const [clientTransport, serverTransport] =
-      InMemoryTransport.createLinkedPair();
-    await Promise.all([
-      client.connect(clientTransport),
-      server.connect(serverTransport),
-    ]);
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
     const result = await client.callTool({
       name: "graph_query",
@@ -128,12 +116,8 @@ describe("MCP surface", () => {
   test("node_add under a sys.* parent returns isError forbidden", async () => {
     const server = await createMcpServer(root);
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
-    const [clientTransport, serverTransport] =
-      InMemoryTransport.createLinkedPair();
-    await Promise.all([
-      client.connect(clientTransport),
-      server.connect(serverTransport),
-    ]);
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
     const result = await client.callTool({
       name: "node_add",
@@ -163,12 +147,8 @@ describe("MCP surface", () => {
 
     const server = await createMcpServer(root);
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
-    const [clientTransport, serverTransport] =
-      InMemoryTransport.createLinkedPair();
-    await Promise.all([
-      client.connect(clientTransport),
-      server.connect(serverTransport),
-    ]);
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
     const resources = await client.listResources();
     const uris = resources.resources.map((r) => r.uri);

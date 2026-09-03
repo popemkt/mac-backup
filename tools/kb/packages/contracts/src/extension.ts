@@ -9,10 +9,7 @@ import type { ActionDefinition, ActionEffectHandler } from "./actions.ts";
  * Types only. The loader that discovers, imports and validates such modules
  * is application behaviour and lives with the operations layer.
  */
-export type ExtensionPromiseHandler = (
-  ctx: KbContext,
-  input: never,
-) => Promise<unknown>;
+export type ExtensionPromiseHandler = (ctx: KbContext, input: never) => Promise<unknown>;
 
 export type ExtensionAction = ActionDefinition & {
   /** Extra top-level ids this action also answers to (compat shims). */

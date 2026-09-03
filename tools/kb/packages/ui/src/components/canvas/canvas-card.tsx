@@ -18,10 +18,7 @@ interface KbCardProps {
   onSelect: () => void;
   onMoveStart: (e: React.PointerEvent) => void;
   onResizeStart: (e: React.PointerEvent) => void;
-  onPortDown: (
-    side: "left" | "right" | "top" | "bottom",
-    e: React.PointerEvent,
-  ) => void;
+  onPortDown: (side: "left" | "right" | "top" | "bottom", e: React.PointerEvent) => void;
 }
 
 /** kb-node card: layout shell + shared NodeRow / NodeContent / TagChips. */
@@ -40,8 +37,7 @@ export function KbNodeCard({
   const selectNode = useOutlineStore((s) => s.selectNode);
   const cursorPosition = useOutlineStore((s) => s.cursorPosition);
   const instanceKey = canvasCardInstanceKey(card.id, card.nodeId);
-  const isActive =
-    activeNodeId === card.nodeId && activeInstanceKey === instanceKey;
+  const isActive = activeNodeId === card.nodeId && activeInstanceKey === instanceKey;
 
   const handleActivate = useCallback(
     (cursorPos?: number) => {
@@ -63,10 +59,7 @@ export function KbNodeCard({
         e.preventDefault();
         return;
       }
-      if (
-        (e.key === "Backspace" || e.key === "Delete") &&
-        (e.metaKey || e.ctrlKey)
-      ) {
+      if ((e.key === "Backspace" || e.key === "Delete") && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
       }
     },
@@ -93,9 +86,7 @@ export function KbNodeCard({
     <div
       className={cn(
         "group/card absolute overflow-hidden rounded-md border bg-background",
-        selected
-          ? "border-primary/40 shadow-sm"
-          : "border-foreground/[0.06]",
+        selected ? "border-primary/40 shadow-sm" : "border-foreground/[0.06]",
       )}
       style={{
         left: card.x,
@@ -157,14 +148,10 @@ export function KbNodeCard({
           className={cn(
             "absolute z-10 h-2.5 w-2.5 rounded-full border border-foreground/20 bg-background",
             "opacity-0 transition-opacity group-hover/card:opacity-100",
-            side === "left" &&
-              "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
-            side === "right" &&
-              "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
-            side === "top" &&
-              "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
-            side === "bottom" &&
-              "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
+            side === "left" && "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
+            side === "right" && "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
+            side === "top" && "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
+            side === "bottom" && "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
           )}
           onPointerDown={(e) => {
             e.stopPropagation();
@@ -191,10 +178,7 @@ interface TextCardProps {
   onChange: (text: string) => void;
   onMoveStart: (e: React.PointerEvent) => void;
   onResizeStart: (e: React.PointerEvent) => void;
-  onPortDown: (
-    side: "left" | "right" | "top" | "bottom",
-    e: React.PointerEvent,
-  ) => void;
+  onPortDown: (side: "left" | "right" | "top" | "bottom", e: React.PointerEvent) => void;
 }
 
 export function TextCard({
@@ -244,14 +228,10 @@ export function TextCard({
           className={cn(
             "absolute z-10 h-2.5 w-2.5 rounded-full border border-foreground/20 bg-background",
             "opacity-0 transition-opacity group-hover/card:opacity-100",
-            side === "left" &&
-              "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
-            side === "right" &&
-              "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
-            side === "top" &&
-              "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
-            side === "bottom" &&
-              "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
+            side === "left" && "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
+            side === "right" && "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
+            side === "top" && "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
+            side === "bottom" && "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
           )}
           onPointerDown={(e) => {
             e.stopPropagation();

@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  force3dColor,
-  isForce3dSafeColor,
-  oklchToRgb,
-  toRenderableColor,
-} from "./css-color";
+import { force3dColor, isForce3dSafeColor, oklchToRgb, toRenderableColor } from "./css-color";
 
 /**
  * These guard the 3D renderer: `three-render-objects` parses colors with
@@ -12,8 +7,7 @@ import {
  * token reaching it left the whole scene blank.
  */
 const POLISHED_RGB = /^rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$/;
-const POLISHED_RGBA =
-  /^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*[\d.]+\s*\)$/;
+const POLISHED_RGBA = /^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*[\d.]+\s*\)$/;
 const FORCE3D_RULE = /^(#|rgba?\()/i;
 
 describe("oklchToRgb", () => {
@@ -69,9 +63,7 @@ describe("toRenderableColor", () => {
     ]) {
       const out = toRenderableColor(input);
       expect(out, input).not.toBeNull();
-      expect(out!, input).toMatch(
-        out!.startsWith("rgba") ? POLISHED_RGBA : POLISHED_RGB,
-      );
+      expect(out!, input).toMatch(out!.startsWith("rgba") ? POLISHED_RGBA : POLISHED_RGB);
     }
   });
 

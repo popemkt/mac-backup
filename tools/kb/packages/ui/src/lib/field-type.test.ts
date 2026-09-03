@@ -20,22 +20,15 @@ import {
   type NodeMap,
   type OutlineNode,
 } from "@/lib/types";
-import { allowedRefIdsOf } from "@kb/model";
-import { typeRefsOf, type NodeLike } from "@kb/model";
+import { allowedRefIdsOf, typeRefsOf, type NodeLike } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
-import {
-  planAddFieldTargetTag,
-  planSetFieldTargetQuery,
-  planSetFieldType,
-} from "@/actions/plan";
+import { planAddFieldTargetTag, planSetFieldTargetQuery, planSetFieldType } from "@/actions/plan";
 
 function outline(): Map<string, OutlineNode> {
   return wireToOutlineMap(fixtureGraph.nodes, new Set());
 }
 
-function fieldNode(
-  partial: Partial<WireNode> & { id: string; text: string },
-): WireNode {
+function fieldNode(partial: Partial<WireNode> & { id: string; text: string }): WireNode {
   return {
     props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }] },
     children: [],
@@ -145,42 +138,19 @@ describe("field types", () => {
     ];
     const nodes = wireToOutlineMap(wire, new Set());
     const field = nodes.get("field.assignee");
-    const a = resolveAllowedRefIdsCached(
-      "field.assignee",
-      field,
-      nodes,
-      null,
-      1,
-    );
-    const b = resolveAllowedRefIdsCached(
-      "field.assignee",
-      field,
-      nodes,
-      null,
-      1,
-    );
+    const a = resolveAllowedRefIdsCached("field.assignee", field, nodes, null, 1);
+    const b = resolveAllowedRefIdsCached("field.assignee", field, nodes, null, 1);
     expect(a).toBe(b);
-    const c = resolveAllowedRefIdsCached(
-      "field.assignee",
-      field,
-      nodes,
-      null,
-      2,
-    );
+    const c = resolveAllowedRefIdsCached("field.assignee", field, nodes, null, 2);
     expect(c).not.toBe(a);
     expect([...c!].sort()).toEqual([...a!].sort());
   });
 
   it("plan helpers write fieldType / targetTag / targetQuery", () => {
-    const wire = [
-      ...fixtureGraph.nodes,
-      fieldNode({ id: "field.x", text: "x" }),
-    ];
+    const wire = [...fixtureGraph.nodes, fieldNode({ id: "field.x", text: "x" })];
     // The declared type is a ref to its option node — field types are nodes.
     const typed = planSetFieldType(wire, "field.x", "ref");
-    expect(typed.upserts[0]?.props[SYSTEM_IDS.fieldTypeField]).toEqual([
-      fieldTypeValue("ref"),
-    ]);
+    expect(typed.upserts[0]?.props[SYSTEM_IDS.fieldTypeField]).toEqual([fieldTypeValue("ref")]);
     // And the round trip still reads back as the declared type.
     expect(resolveFieldType(typed.upserts[0] as never)).toBe("ref");
 
@@ -254,11 +224,7 @@ describe("allowed ref targets: resolution vs display", () => {
 
   it("offers every supertag for targetTag → sys.tag", () => {
     const nodes = withIncludeField();
-    const allowed = resolveAllowedRefIds(
-      nodes.get(SYSTEM_IDS.ontoIncludeField),
-      nodes,
-      null,
-    );
+    const allowed = resolveAllowedRefIds(nodes.get(SYSTEM_IDS.ontoIncludeField), nodes, null);
     expect(allowed).not.toBeNull();
     expect(allowed!.size).toBeGreaterThan(0);
     expect([...allowed!].sort()).toEqual(TAG_NODES);
@@ -271,20 +237,14 @@ describe("allowed ref targets: resolution vs display", () => {
   it("does not read the badge list — those very nodes show no chips", () => {
     const nodes = withIncludeField();
     for (const id of TAG_NODES) {
-      expect(nodes.get(id)!.tags.map((t) => t.id)).not.toContain(
-        SYSTEM_IDS.tag,
-      );
+      expect(nodes.get(id)!.tags.map((t) => t.id)).not.toContain(SYSTEM_IDS.tag);
     }
     expect(nodes.get("tag.todo")!.tags).toEqual([]);
   });
 
   it("ignores badges even when they are wrong", () => {
     const nodes = withIncludeField();
-    const truth = resolveAllowedRefIds(
-      nodes.get(SYSTEM_IDS.ontoIncludeField),
-      nodes,
-      null,
-    );
+    const truth = resolveAllowedRefIds(nodes.get(SYSTEM_IDS.ontoIncludeField), nodes, null);
     // Guard the comparison below against being vacuously true.
     expect(truth!.size).toBeGreaterThan(0);
     // Strip every badge, and forge one on a node that is not a tag at all.
@@ -293,10 +253,7 @@ describe("allowed ref targets: resolution vs display", () => {
         id,
         {
           ...n,
-          tags:
-            id === "n.root-c"
-              ? [{ id: SYSTEM_IDS.tag, name: "tag", color: "#fff" }]
-              : [],
+          tags: id === "n.root-c" ? [{ id: SYSTEM_IDS.tag, name: "tag", color: "#fff" }] : [],
         },
       ]),
     );
@@ -319,15 +276,9 @@ describe("allowed ref targets: resolution vs display", () => {
     const bare: ReadonlyMap<string, NodeLike> = new Map<string, NodeLike>(
       [...nodes]
         .filter(([id]) => id !== WORKSPACE_ROOT_ID)
-        .map(([id, n]) => [
-          id,
-          { id, text: n.text, props: n.props, children: n.children },
-        ]),
+        .map(([id, n]) => [id, { id, text: n.text, props: n.props, children: n.children }]),
     );
-    const allowed = allowedRefIdsOf(
-      bare.get(SYSTEM_IDS.ontoIncludeField),
-      bare,
-    );
+    const allowed = allowedRefIdsOf(bare.get(SYSTEM_IDS.ontoIncludeField), bare);
     expect([...allowed!].sort()).toEqual(TAG_NODES);
   });
 
@@ -341,11 +292,7 @@ describe("allowed ref targets: resolution vs display", () => {
     expect(open).toContain("n.root-c");
 
     // …and yields to the declaration when there is one.
-    const allowed = resolveAllowedRefIds(
-      nodes.get(SYSTEM_IDS.ontoIncludeField),
-      nodes,
-      null,
-    );
+    const allowed = resolveAllowedRefIds(nodes.get(SYSTEM_IDS.ontoIncludeField), nodes, null);
     const offered = fuzzyNodeCandidates(nodes, "", { allowed }).map((c) => c.id);
     expect(offered.slice().sort()).toEqual(TAG_NODES);
   });
@@ -366,11 +313,7 @@ describe("allowed ref targets: resolution vs display", () => {
       }),
     ];
     const nodes = wireToOutlineMap(wire, new Set());
-    const allowed = resolveAllowedRefIds(
-      nodes.get("field.onto-ish"),
-      nodes,
-      buildQueryDb(wire, 1),
-    );
+    const allowed = resolveAllowedRefIds(nodes.get("field.onto-ish"), nodes, buildQueryDb(wire, 1));
     expect([...allowed!]).toEqual([SYSTEM_IDS.typeField]);
     expect(allowed!.has("tag.todo")).toBe(false);
   });

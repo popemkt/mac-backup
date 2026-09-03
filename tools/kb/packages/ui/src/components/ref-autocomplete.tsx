@@ -7,11 +7,7 @@ interface RefAutocompleteProps {
   onSelect: (c: RefCandidate) => void;
 }
 
-export function RefAutocomplete({
-  candidates,
-  activeIndex,
-  onSelect,
-}: RefAutocompleteProps) {
+export function RefAutocomplete({ candidates, activeIndex, onSelect }: RefAutocompleteProps) {
   return (
     <ul
       className={cn(
@@ -29,21 +25,15 @@ export function RefAutocomplete({
             aria-selected={i === activeIndex}
             className={cn(
               "flex w-full flex-col items-start gap-0.5 px-2.5 py-1.5 text-left",
-              i === activeIndex
-                ? "bg-foreground/[0.06]"
-                : "hover:bg-foreground/[0.03]",
+              i === activeIndex ? "bg-foreground/[0.06]" : "hover:bg-foreground/[0.03]",
             )}
             onMouseDown={(e) => {
               e.preventDefault();
               onSelect(c);
             }}
           >
-            <span className="truncate text-foreground/85">
-              {c.text || c.id}
-            </span>
-            <span className="font-mono text-[10px] text-foreground/30">
-              {c.id}
-            </span>
+            <span className="truncate text-foreground/85">{c.text || c.id}</span>
+            <span className="font-mono text-[10px] text-foreground/30">{c.id}</span>
           </button>
         </li>
       ))}

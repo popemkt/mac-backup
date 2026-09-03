@@ -38,9 +38,7 @@ export function SidebarToggle({ className }: { className?: string }) {
       aria-expanded={open}
       title={open ? "Collapse sidebar" : "Expand sidebar"}
       onClick={() => {
-        const focusedInSidebar = document.activeElement?.closest(
-          '[data-sidebar="true"]',
-        );
+        const focusedInSidebar = document.activeElement?.closest('[data-sidebar="true"]');
         toggle();
         if (open && focusedInSidebar) {
           requestAnimationFrame(() => ref.current?.focus());
@@ -84,22 +82,14 @@ function SidebarRow({
       )}
     >
       {icon ? (
-        <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-          {icon}
-        </span>
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center">{icon}</span>
       ) : null}
       <span className="min-w-0 truncate">{label}</span>
     </button>
   );
 }
 
-function SidebarSection({
-  title,
-  children,
-}: {
-  title?: string;
-  children: ReactNode;
-}) {
+function SidebarSection({ title, children }: { title?: string; children: ReactNode }) {
   return (
     <div className="mb-3">
       {title ? (
@@ -124,15 +114,9 @@ export function Sidebar() {
   const homeRootId = useOutlineStore((s) => s.homeRootId);
   const [creating, setCreating] = useState(false);
 
-  const perspectives = useMemo(
-    () => listPerspectiveNavItems(wireNodes),
-    [wireNodes],
-  );
+  const perspectives = useMemo(() => listPerspectiveNavItems(wireNodes), [wireNodes]);
   const canvases = useMemo(() => listCanvasNavItems(nodes), [nodes]);
-  const ontologies = useMemo(
-    () => listOntologyNavItems(wireNodes),
-    [wireNodes],
-  );
+  const ontologies = useMemo(() => listOntologyNavItems(wireNodes), [wireNodes]);
   const pinned = useMemo(() => listPinnedNavItems(nodes), [nodes]);
 
   const onNewCanvas = async () => {
@@ -198,9 +182,7 @@ export function Sidebar() {
               key={p.id}
               label={p.label}
               indented
-              active={
-                route.name === "graph" && route.perspectiveId === p.id
-              }
+              active={route.name === "graph" && route.perspectiveId === p.id}
               onClick={() => navigate(graphPath(p.id))}
             />
           ))}
@@ -258,9 +240,7 @@ export function Sidebar() {
 
         <SidebarSection title="Pinned">
           {pinned.length === 0 ? (
-            <p className="px-2 py-1 text-[11px] text-foreground/30">
-              Tag nodes #pinned
-            </p>
+            <p className="px-2 py-1 text-[11px] text-foreground/30">Tag nodes #pinned</p>
           ) : (
             pinned.map((f) => (
               <SidebarRow

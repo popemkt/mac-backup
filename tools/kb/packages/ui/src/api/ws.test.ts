@@ -121,9 +121,7 @@ describe("KbWsClient", () => {
     expect(h.client.status).toBe("connecting");
     h.server.accept(0);
     expect(h.client.status).toBe("open");
-    expect(h.server.received("watch-tx")).toEqual([
-      { op: "watch-tx", enabled: true },
-    ]);
+    expect(h.server.received("watch-tx")).toEqual([{ op: "watch-tx", enabled: true }]);
     expect(h.gaps).toEqual([]);
   });
 
@@ -181,11 +179,7 @@ describe("KbWsClient", () => {
     const rowsSeen: unknown[][][] = [];
     h.client.connect();
     h.server.accept(0);
-    h.client.subscribe(
-      "s1",
-      "[:find ?id :where [?n :node/id ?id]]",
-      (rows) => rowsSeen.push(rows),
-    );
+    h.client.subscribe("s1", "[:find ?id :where [?n :node/id ?id]]", (rows) => rowsSeen.push(rows));
     expect(h.server.received("subscribe")).toHaveLength(1);
     h.server.push({ op: "rows", id: "s1", rev: 0, rows: [["n.a"]] });
     h.server.push({ op: "rows", id: "other", rev: 0, rows: [["nope"]] });
@@ -197,9 +191,7 @@ describe("KbWsClient", () => {
     vi.advanceTimersByTime(100);
     expect(h.server.sockets).toHaveLength(2);
     h.server.accept(0);
-    expect(h.server.received("watch-tx")).toEqual([
-      { op: "watch-tx", enabled: true },
-    ]);
+    expect(h.server.received("watch-tx")).toEqual([{ op: "watch-tx", enabled: true }]);
     expect(h.server.received("subscribe")).toEqual([
       {
         op: "subscribe",
@@ -250,9 +242,7 @@ describe("KbWsClient", () => {
     h.server.socket.onmessage?.({
       data: JSON.stringify({ op: "tx", rev: "not-a-number" }),
     });
-    expect(h.errors.some((e) => e.code === "invalid_server_message")).toBe(
-      true,
-    );
+    expect(h.errors.some((e) => e.code === "invalid_server_message")).toBe(true);
     expect(h.txs).toEqual([]);
   });
 });

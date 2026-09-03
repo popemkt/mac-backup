@@ -80,12 +80,7 @@ export function exampleSeedNodes(at: string = nowIso()): KbNode[] {
     [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: typeId }],
   });
 
-  const tag = (
-    id: string,
-    text: string,
-    fieldIds: string[] = [],
-    children: string[] = [],
-  ) =>
+  const tag = (id: string, text: string, fieldIds: string[] = [], children: string[] = []) =>
     mk(
       id,
       text,
@@ -112,9 +107,7 @@ export function exampleSeedNodes(at: string = nowIso()): KbNode[] {
     mk(id, text, {
       ...typed(SYSTEM_IDS.field),
       [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue(type)],
-      ...(targetTag
-        ? { [SYSTEM_IDS.targetTagField]: [{ t: "ref" as const, v: targetTag }] }
-        : {}),
+      ...(targetTag ? { [SYSTEM_IDS.targetTagField]: [{ t: "ref" as const, v: targetTag }] } : {}),
     });
 
   const nodes: KbNode[] = [
@@ -125,11 +118,12 @@ export function exampleSeedNodes(at: string = nowIso()): KbNode[] {
     // on its page instead of cluttering the top-level outline with three loose
     // rows — a tag node is not part of the outline forest, so its children are
     // reached by opening it.
-    tag(EXAMPLE_IDS.statusOptionTag, "status-option", [], [
-      EXAMPLE_IDS.statusTodo,
-      EXAMPLE_IDS.statusDoing,
-      EXAMPLE_IDS.statusDone,
-    ]),
+    tag(
+      EXAMPLE_IDS.statusOptionTag,
+      "status-option",
+      [],
+      [EXAMPLE_IDS.statusTodo, EXAMPLE_IDS.statusDoing, EXAMPLE_IDS.statusDone],
+    ),
     mk(EXAMPLE_IDS.statusTodo, "todo", typed(EXAMPLE_IDS.statusOptionTag)),
     mk(EXAMPLE_IDS.statusDoing, "doing", typed(EXAMPLE_IDS.statusOptionTag)),
     mk(EXAMPLE_IDS.statusDone, "done", typed(EXAMPLE_IDS.statusOptionTag)),
@@ -152,15 +146,10 @@ export function exampleSeedNodes(at: string = nowIso()): KbNode[] {
     ]),
     tag(EXAMPLE_IDS.personTag, "person", [EXAMPLE_IDS.linkField]),
 
-    mk(EXAMPLE_IDS.people, "People", {}, [
-      EXAMPLE_IDS.ada,
-      EXAMPLE_IDS.linus,
-    ]),
+    mk(EXAMPLE_IDS.people, "People", {}, [EXAMPLE_IDS.ada, EXAMPLE_IDS.linus]),
     mk(EXAMPLE_IDS.ada, "Ada", {
       ...typed(EXAMPLE_IDS.personTag),
-      [EXAMPLE_IDS.linkField]: [
-        { t: "str", v: "https://en.wikipedia.org/wiki/Ada_Lovelace" },
-      ],
+      [EXAMPLE_IDS.linkField]: [{ t: "str", v: "https://en.wikipedia.org/wiki/Ada_Lovelace" }],
     }),
     mk(EXAMPLE_IDS.linus, "Linus", typed(EXAMPLE_IDS.personTag)),
 
@@ -180,16 +169,12 @@ export function exampleSeedNodes(at: string = nowIso()): KbNode[] {
     }),
     // `[[id|label]]` in text is the ref form, and it is what puts an edge in
     // the graph and a row in the target's backlinks.
-    mk(
-      EXAMPLE_IDS.task2,
-      `Review [[${EXAMPLE_IDS.task1}|the design doc]]`,
-      {
-        ...typed(EXAMPLE_IDS.taskTag),
-        [EXAMPLE_IDS.statusField]: [{ t: "ref", v: EXAMPLE_IDS.statusTodo }],
-        [EXAMPLE_IDS.ownerField]: [{ t: "ref", v: EXAMPLE_IDS.linus }],
-        [EXAMPLE_IDS.blockedField]: [{ t: "bool", v: true }],
-      },
-    ),
+    mk(EXAMPLE_IDS.task2, `Review [[${EXAMPLE_IDS.task1}|the design doc]]`, {
+      ...typed(EXAMPLE_IDS.taskTag),
+      [EXAMPLE_IDS.statusField]: [{ t: "ref", v: EXAMPLE_IDS.statusTodo }],
+      [EXAMPLE_IDS.ownerField]: [{ t: "ref", v: EXAMPLE_IDS.linus }],
+      [EXAMPLE_IDS.blockedField]: [{ t: "bool", v: true }],
+    }),
     mk(EXAMPLE_IDS.task3, "Ship it", {
       ...typed(EXAMPLE_IDS.taskTag),
       [EXAMPLE_IDS.statusField]: [{ t: "ref", v: EXAMPLE_IDS.statusDone }],
@@ -230,9 +215,7 @@ export function exampleSeedNodes(at: string = nowIso()): KbNode[] {
   const childIds = new Set(nodes.flatMap((n) => n.children));
   const rootIds = nodes.filter((n) => !childIds.has(n.id)).map((n) => n.id);
   const ranks = ranksFor(rootIds);
-  return nodes.map((n) =>
-    ranks.has(n.id) ? { ...n, order: ranks.get(n.id)! } : n,
-  );
+  return nodes.map((n) => (ranks.has(n.id) ? { ...n, order: ranks.get(n.id)! } : n));
 }
 
 /**

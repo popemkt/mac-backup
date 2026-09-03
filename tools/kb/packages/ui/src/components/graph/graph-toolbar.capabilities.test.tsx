@@ -83,9 +83,7 @@ describe("GraphToolbar capabilities", () => {
         }),
       );
     });
-    const fit = container.querySelector(
-      'button[aria-label="Fit view (f)"]',
-    ) as HTMLButtonElement;
+    const fit = container.querySelector('button[aria-label="Fit view (f)"]') as HTMLButtonElement;
     expect(fit.disabled).toBe(false);
     act(() => fit.click());
     expect(controls.fit).toHaveBeenCalledTimes(1);

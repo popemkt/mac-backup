@@ -30,11 +30,7 @@ import {
   planUpdateText,
   type PlannedMutation,
 } from "@/actions/plan";
-import {
-  findPinnedTagId,
-  pinnedTagIdsOn,
-  PINNED_TAG_TEXT,
-} from "@/lib/pinned";
+import { findPinnedTagId, pinnedTagIdsOn, PINNED_TAG_TEXT } from "@/lib/pinned";
 import { toast } from "@/lib/toast";
 import { isSysPrefixed, SYSTEM_IDS, WORKSPACE_ROOT_ID, type PropValue } from "@/lib/types";
 import { forestRootIds } from "@/lib/graph-view";
@@ -682,10 +678,7 @@ export const mutations = {
     await applyPlan(planOntologySetQuery(wire(), ontoId, edn));
   },
 
-  async ontologySetClosure(
-    ontoId: string,
-    mode: "none" | "descendants",
-  ): Promise<void> {
+  async ontologySetClosure(ontoId: string, mode: "none" | "descendants"): Promise<void> {
     if (!guardSysWrite(ontoId)) return;
     const { planOntologySetClosure } = await import("@/actions/plan");
     await applyPlan(planOntologySetClosure(wire(), ontoId, mode));

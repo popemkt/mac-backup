@@ -67,9 +67,7 @@ export function NodePicker({ onPick, onClose }: NodePickerProps) {
             </li>
           ))}
           {candidates.length === 0 && (
-            <li className="px-3 py-4 text-center text-[12px] text-foreground/40">
-              No nodes
-            </li>
+            <li className="px-3 py-4 text-center text-[12px] text-foreground/40">No nodes</li>
           )}
         </ul>
       </div>

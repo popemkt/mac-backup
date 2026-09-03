@@ -15,11 +15,7 @@ interface RendererSwitchProps {
 }
 
 /** Pill group matching ViewToolbar anatomy (DESIGN-RESKIN §0). */
-export function RendererSwitch({
-  value,
-  onChange,
-  className,
-}: RendererSwitchProps) {
+export function RendererSwitch({ value, onChange, className }: RendererSwitchProps) {
   return (
     <div
       className={cn(

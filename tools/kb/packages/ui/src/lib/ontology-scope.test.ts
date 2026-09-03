@@ -29,19 +29,10 @@ function tagDef(id: string, text: string): WireNode {
 }
 
 function tagged(id: string, text: string, tagId: string, children: string[] = []): WireNode {
-  return node(
-    id,
-    text,
-    { [SYSTEM_IDS.typeField]: [{ t: "ref", v: tagId }] },
-    children,
-  );
+  return node(id, text, { [SYSTEM_IDS.typeField]: [{ t: "ref", v: tagId }] }, children);
 }
 
-function onto(
-  id: string,
-  text: string,
-  props: WireNode["props"] = {},
-): WireNode {
+function onto(id: string, text: string, props: WireNode["props"] = {}): WireNode {
   return node(id, text, {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.ontologyTag }],
     ...props,
@@ -194,9 +185,7 @@ describe("member rows", () => {
     expect(rows.map((x) => x.label)).toEqual(["alpha", "pinned one", "zeta"]);
     expect(rows.find((x) => x.id === "n.p")!.pinned).toBe(true);
     expect(rows.find((x) => x.id === "n.a")!.pinned).toBe(false);
-    expect(rows.find((x) => x.id === "n.a")!.reasons).toEqual([
-      { kind: "tag", via: "t.svc" },
-    ]);
+    expect(rows.find((x) => x.id === "n.a")!.reasons).toEqual([{ kind: "tag", via: "t.svc" }]);
   });
 
   it("lists excluded ids separately", () => {
@@ -231,16 +220,12 @@ describe("member rows", () => {
       wire.filter((n) => n.id !== "n.a"),
       new Set(),
     );
-    expect(excludedRows(r, labelOf(scoped)).map((x) => x.label)).toEqual([
-      "n.a",
-    ]);
+    expect(excludedRows(r, labelOf(scoped)).map((x) => x.label)).toEqual(["n.a"]);
     // The page's resolver falls back to the unscoped nodes, so it recovers it.
     const unscoped = wireToOutlineMap(wire, new Set());
     const pageResolver = (id: string) =>
       unscoped.get(id)?.text?.trim() || scoped.get(id)?.text?.trim() || id;
-    expect(excludedRows(r, pageResolver).map((x) => x.label)).toEqual([
-      "alpha",
-    ]);
+    expect(excludedRows(r, pageResolver).map((x) => x.label)).toEqual(["alpha"]);
   });
 });
 

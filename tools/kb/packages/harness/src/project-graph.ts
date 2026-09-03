@@ -46,9 +46,7 @@ export function projectGraph(): ProjectGraph {
         `nx graph failed (${result.status}):\n${result.stdout ?? ""}\n${result.stderr ?? ""}`,
       );
     }
-    const parsed = JSON.parse(readFileSync(file, "utf8")) as
-      | ProjectGraph
-      | { graph: ProjectGraph };
+    const parsed = JSON.parse(readFileSync(file, "utf8")) as ProjectGraph | { graph: ProjectGraph };
     cached = "graph" in parsed ? parsed.graph : parsed;
     return cached;
   } finally {

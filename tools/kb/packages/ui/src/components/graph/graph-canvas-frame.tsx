@@ -2,10 +2,7 @@ import { useEffect, useRef } from "react";
 import type { LensNode, LensRenderer } from "@/lib/graph-lens";
 import { GraphLegend } from "./graph-legend";
 import { GraphToolbar } from "./graph-toolbar";
-import {
-  GraphCanvasError,
-  GraphCanvasErrorBoundary,
-} from "./graph-canvas-error";
+import { GraphCanvasError, GraphCanvasErrorBoundary } from "./graph-canvas-error";
 import { GraphSelectionCard } from "./graph-selection-card";
 import { capabilitiesFor } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";
@@ -60,10 +57,7 @@ export function GraphCanvasFrame({
   return (
     <>
       {queryError ? (
-        <GraphCanvasError
-          title="Graph query error"
-          message={queryError}
-        />
+        <GraphCanvasError title="Graph query error" message={queryError} />
       ) : (
         <GraphCanvasErrorBoundary resetKey={resetKey ?? renderer}>
           {children}
@@ -86,9 +80,7 @@ export function GraphCanvasFrame({
           onClose={onClearSelection}
           canFocus={capabilities.focus}
           onFocus={
-            capabilities.focus && controls
-              ? () => controls.focusNode(selection.nodeId)
-              : undefined
+            capabilities.focus && controls ? () => controls.focusNode(selection.nodeId) : undefined
           }
         />
       ) : null}

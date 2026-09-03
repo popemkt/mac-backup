@@ -9,11 +9,7 @@ import {
   serializeEditable,
   setCaretSerializedOffset,
 } from "@/lib/md-edit";
-import {
-  fuzzyNodeCandidates,
-  insertRefAtCursor,
-  openRefQuery,
-} from "@/lib/refs";
+import { fuzzyNodeCandidates, insertRefAtCursor, openRefQuery } from "@/lib/refs";
 import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -21,7 +17,6 @@ import { MdView } from "@/components/outline/md-view";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
 import { nearestOffsetForX, offsetFromPoint } from "./caret";
 import { TagChipGroup } from "./tag-chip";
-
 
 export interface NodeTextHostProps {
   nodeId: string;
@@ -71,17 +66,13 @@ export function NodeTextHost({
   const readOnlyReason = rowTextReadOnlyReason(nodeId, nodes.get(nodeId));
   const readOnly = readOnlyReason !== null;
 
-
   const rawRefOpen = useMemo(() => {
     if (!isActive || readOnly) return null;
     return openRefQuery(content, cursor);
   }, [isActive, readOnly, content, cursor]);
 
   // Dismissal survives until the query itself changes or typing resumes.
-  const refOpen =
-    acDismissed && rawRefOpen?.query === acDismissedQuery.current
-      ? null
-      : rawRefOpen;
+  const refOpen = acDismissed && rawRefOpen?.query === acDismissedQuery.current ? null : rawRefOpen;
 
   const candidates = useMemo(() => {
     if (!refOpen) return [];
@@ -100,8 +91,7 @@ export function NodeTextHost({
   }, [isActive, instanceKey]);
 
   useLayoutEffect(() => {
-    const intent =
-      instanceKey && pendingCaret?.instanceKey === instanceKey ? pendingCaret : null;
+    const intent = instanceKey && pendingCaret?.instanceKey === instanceKey ? pendingCaret : null;
     const localIntent =
       !intent && isActive && !wasActive.current && initialCaret
         ? { instanceKey: instanceKey ?? "local", at: initialCaret }
@@ -245,12 +235,20 @@ export function NodeTextHost({
       if (isComposing.current) return;
 
       // F15: '/' at offset 0 of an empty node opens the node palette (r1 Mode A MUST, before autocomplete).
-      if (e.key === "/" && !e.metaKey && !e.ctrlKey && content === "" && getCaretSerializedOffset(editorRef.current) === 0) {
+      if (
+        e.key === "/" &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        content === "" &&
+        getCaretSerializedOffset(editorRef.current) === 0
+      ) {
         e.preventDefault();
         // Select this row so palette can anchor, then open it
         useOutlineStore.getState().selectNode(nodeId, instanceKey);
         // rAF not available in happy-dom — fall back to sync
-        const raf = (globalThis as unknown as { requestAnimationFrame?: (cb: () => void) => number }).requestAnimationFrame;
+        const raf = (
+          globalThis as unknown as { requestAnimationFrame?: (cb: () => void) => number }
+        ).requestAnimationFrame;
         if (raf) raf(() => useUiStore.getState().setNodePaletteOpen(true));
         else useUiStore.getState().setNodePaletteOpen(true);
         return;
@@ -264,9 +262,7 @@ export function NodeTextHost({
         }
         if (e.key === "ArrowUp" && candidates.length > 0) {
           e.preventDefault();
-          setAcIndex(
-            (i) => (i - 1 + candidates.length) % candidates.length,
-          );
+          setAcIndex((i) => (i - 1 + candidates.length) % candidates.length);
           return;
         }
         if (e.key === "Enter" || e.key === "Tab") {
@@ -322,10 +318,7 @@ export function NodeTextHost({
           later line runs full width. As a flex sibling it narrowed all of them.
         */}
         {(showPadlock || tags.length > 0) && (
-          <span
-            className="kb-text-trailing flex items-center gap-1.5"
-            data-node-trailing="true"
-          >
+          <span className="kb-text-trailing flex items-center gap-1.5" data-node-trailing="true">
             {showPadlock && (
               <span
                 className="shrink-0 text-foreground/25 opacity-0 transition-opacity duration-150 group-hover/node:opacity-100"
@@ -365,11 +358,7 @@ export function NodeTextHost({
             suppressContentEditableWarning
             onInput={handleInput}
             onKeyDown={handleKeyDown}
-            onKeyUp={() =>
-              setCursor(
-                getCaretSerializedOffset(editorRef.current),
-              )
-            }
+            onKeyUp={() => setCursor(getCaretSerializedOffset(editorRef.current))}
             onClick={(e) => e.stopPropagation()}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}

@@ -32,13 +32,8 @@ export function isFieldNodeHidden(fieldId: string, nodes: NodeMap): boolean {
   return hidden?.t === "bool" && hidden.v === true;
 }
 
-export function isPropHiddenByDefault(
-  fieldId: string,
-  nodes: NodeMap,
-): boolean {
-  return (
-    isIntrinsicSystemPropKey(fieldId) || isFieldNodeHidden(fieldId, nodes)
-  );
+export function isPropHiddenByDefault(fieldId: string, nodes: NodeMap): boolean {
+  return isIntrinsicSystemPropKey(fieldId) || isFieldNodeHidden(fieldId, nodes);
 }
 
 export interface ResolvePropsOptions {

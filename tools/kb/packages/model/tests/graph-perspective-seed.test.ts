@@ -3,12 +3,7 @@
  * default "All mentions" perspective.
  */
 import { describe, expect, test } from "bun:test";
-import {
-  LEGACY_LENS_ALL_MENTIONS,
-  SYSTEM_IDS,
-  type KbNode,
-  type PropValue,
-} from "../src/model.ts";
+import { LEGACY_LENS_ALL_MENTIONS, SYSTEM_IDS, type KbNode, type PropValue } from "../src/model.ts";
 import { ensureSystemSeed, systemSeedNodes } from "../src/seed.ts";
 
 function refs(node: KbNode, field: string): string[] {
@@ -76,19 +71,10 @@ describe("V0 seed: graph-perspective + lens fields", () => {
     expect(perspective).toBeDefined();
     expect(SYSTEM_IDS.lensAllMentions.startsWith("sys.")).toBe(false);
     expect(perspective!.text).toBe("All mentions");
-    expect(refs(perspective!, SYSTEM_IDS.typeField)).toEqual([
-      SYSTEM_IDS.graphPerspectiveTag,
-    ]);
-    expect(strs(perspective!, SYSTEM_IDS.lensRendererField)).toEqual([
-      "force2d",
-    ]);
-    expect(strs(perspective!, SYSTEM_IDS.lensClusterByField)).toEqual([
-      "parent",
-    ]);
-    expect(strs(perspective!, SYSTEM_IDS.lensEdgeKindsField)).toEqual([
-      "mention",
-      "child",
-    ]);
+    expect(refs(perspective!, SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.graphPerspectiveTag]);
+    expect(strs(perspective!, SYSTEM_IDS.lensRendererField)).toEqual(["force2d"]);
+    expect(strs(perspective!, SYSTEM_IDS.lensClusterByField)).toEqual(["parent"]);
+    expect(strs(perspective!, SYSTEM_IDS.lensEdgeKindsField)).toEqual(["mention", "child"]);
   });
 
   test("ensureSystemSeed is idempotent over lens nodes", () => {
@@ -117,9 +103,7 @@ describe("V0 seed: graph-perspective + lens fields", () => {
     };
     const result = ensureSystemSeed([staleTag]);
     expect(result.seeded).toBe(true);
-    const tag = result.nodes.find(
-      (n) => n.id === SYSTEM_IDS.graphPerspectiveTag,
-    )!;
+    const tag = result.nodes.find((n) => n.id === SYSTEM_IDS.graphPerspectiveTag)!;
     const fieldIds = refs(tag, SYSTEM_IDS.fieldsField);
     expect(fieldIds).toContain(SYSTEM_IDS.lensClusterByField);
     expect(fieldIds).toContain(SYSTEM_IDS.lensFocusField);
@@ -135,9 +119,7 @@ describe("V0 seed: graph-perspective + lens fields", () => {
       id: LEGACY_LENS_ALL_MENTIONS,
       text: "All mentions (edited)",
       props: {
-        [SYSTEM_IDS.typeField]: [
-          { t: "ref", v: SYSTEM_IDS.graphPerspectiveTag },
-        ],
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.graphPerspectiveTag }],
         [SYSTEM_IDS.lensRendererField]: [{ t: "str", v: "force2d" }],
       },
       children: [],
@@ -149,8 +131,6 @@ describe("V0 seed: graph-perspective + lens fields", () => {
     expect(result.deletes).toEqual([LEGACY_LENS_ALL_MENTIONS]);
     const byId = new Map(result.nodes.map((n) => [n.id, n]));
     expect(byId.has(LEGACY_LENS_ALL_MENTIONS)).toBe(false);
-    expect(byId.get(SYSTEM_IDS.lensAllMentions)?.text).toBe(
-      "All mentions (edited)",
-    );
+    expect(byId.get(SYSTEM_IDS.lensAllMentions)?.text).toBe("All mentions (edited)");
   });
 });

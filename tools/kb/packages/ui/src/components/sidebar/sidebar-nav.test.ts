@@ -1,15 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
-import {
-  listCanvasNavItems,
-  listPerspectiveNavItems,
-  listPinnedNavItems,
-} from "./sidebar-nav";
+import { listCanvasNavItems, listPerspectiveNavItems, listPinnedNavItems } from "./sidebar-nav";
 
-function outline(
-  partial: Partial<OutlineNode> & Pick<OutlineNode, "id" | "text">,
-): OutlineNode {
+function outline(partial: Partial<OutlineNode> & Pick<OutlineNode, "id" | "text">): OutlineNode {
   return {
     parentId: null,
     children: [],
@@ -67,18 +61,14 @@ describe("sidebar-nav selectors", () => {
       ],
       ["x", outline({ id: "x", text: "plain" })],
     ]);
-    expect(listCanvasNavItems(nodes)).toEqual([
-      { id: "cv1", label: "My canvas" },
-    ]);
+    expect(listCanvasNavItems(nodes)).toEqual([{ id: "cv1", label: "My canvas" }]);
 
     const wire: WireNode[] = [
       {
         id: "p1",
         text: "Lens A",
         props: {
-          [SYSTEM_IDS.typeField]: [
-            { t: "ref", v: SYSTEM_IDS.graphPerspectiveTag },
-          ],
+          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.graphPerspectiveTag }],
         },
         children: [],
         createdAt: "",
@@ -93,8 +83,6 @@ describe("sidebar-nav selectors", () => {
         updatedAt: "",
       },
     ];
-    expect(listPerspectiveNavItems(wire)).toEqual([
-      { id: "p1", label: "Lens A" },
-    ]);
+    expect(listPerspectiveNavItems(wire)).toEqual([{ id: "p1", label: "Lens A" }]);
   });
 });

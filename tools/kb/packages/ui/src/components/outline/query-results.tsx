@@ -54,15 +54,10 @@ export function QueryResultsSection({
 
   useEffect(() => {
     if (!live || edn === null) return;
-    const unsubscribe = subscribeQueryNode(
-      getLiveClient(),
-      nodeId,
-      edn,
-      (rows) => {
-        setLiveRows(rows);
-        setLiveError(null);
-      },
-    );
+    const unsubscribe = subscribeQueryNode(getLiveClient(), nodeId, edn, (rows) => {
+      setLiveRows(rows);
+      setLiveError(null);
+    });
     return () => {
       unsubscribe();
       setLiveRows(null);
@@ -89,9 +84,7 @@ export function QueryResultsSection({
 
   const rows = live ? liveRows : local.rows;
   const error = live ? liveError : local.error;
-  const ids = rows
-    ? resultNodeIds(rows, nodes, { limit: def.limit, excludeId: nodeId })
-    : [];
+  const ids = rows ? resultNodeIds(rows, nodes, { limit: def.limit, excludeId: nodeId }) : [];
 
   const indent = indentStyle(depth + 1);
 
@@ -122,15 +115,9 @@ export function QueryResultsSection({
 
   if (isProjectedViewMode(viewMode)) {
     return (
-      <div
-        className="query-results"
-        data-query-results-for={nodeId}
-        style={indent}
-      >
+      <div className="query-results" data-query-results-for={nodeId} style={indent}>
         {ids.length === 0 ? (
-          <p className="px-1 py-0.5 text-[12px] text-foreground/50">
-            No results yet
-          </p>
+          <p className="px-1 py-0.5 text-[12px] text-foreground/50">No results yet</p>
         ) : (
           <FrameChildrenView
             frameId={nodeId}

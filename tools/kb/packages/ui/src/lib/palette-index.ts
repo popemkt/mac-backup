@@ -28,10 +28,7 @@ function isCommandNode(node: WireNode): boolean {
 }
 
 /** Build searchable entries for every node (fields, tags, sys, commands). */
-export function buildPaletteIndex(
-  nodes: WireNode[],
-  rev: number,
-): PaletteIndex {
+export function buildPaletteIndex(nodes: WireNode[], rev: number): PaletteIndex {
   const entries: PaletteEntry[] = new Array(nodes.length);
   for (let i = 0; i < nodes.length; i++) {
     const n = nodes[i]!;
@@ -69,9 +66,7 @@ export interface PaletteHit extends PaletteEntry {
 }
 
 function cmpHit(a: PaletteHit, b: PaletteHit): number {
-  return (
-    a.score - b.score || a.text.localeCompare(b.text) || a.id.localeCompare(b.id)
-  );
+  return a.score - b.score || a.text.localeCompare(b.text) || a.id.localeCompare(b.id);
 }
 
 /**
@@ -81,11 +76,7 @@ function cmpHit(a: PaletteHit, b: PaletteHit): number {
  * Two-pass: substring hits first (hot keystroke path); fuzzy subsequence
  * only fills remaining slots so 50k graphs stay under the 10ms bar.
  */
-export function searchPalette(
-  index: PaletteIndex,
-  query: string,
-  limit = 20,
-): PaletteHit[] {
+export function searchPalette(index: PaletteIndex, query: string, limit = 20): PaletteHit[] {
   const q = query.trim().toLowerCase();
   if (!q) {
     const slice = index.entries.slice(0, limit);

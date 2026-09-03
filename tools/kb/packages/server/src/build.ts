@@ -97,10 +97,7 @@ export async function readBuildMarker(distDir: string): Promise<string | null> {
   }
 }
 
-export async function writeBuildMarker(
-  distDir: string,
-  fingerprint: string,
-): Promise<void> {
+export async function writeBuildMarker(distDir: string, fingerprint: string): Promise<void> {
   await mkdir(distDir, { recursive: true });
   await writeFile(buildMarkerPath(distDir), fingerprint, "utf8");
 }
@@ -117,10 +114,7 @@ export type UiBuildState = "missing" | "stale" | "fresh";
  * runtime `bun install` there can never succeed (read-only, dep-free). Serve
  * the baked assets as-is.
  */
-export async function needsUiBuild(
-  uiRoot: string,
-  distDir: string,
-): Promise<UiBuildState> {
+export async function needsUiBuild(uiRoot: string, distDir: string): Promise<UiBuildState> {
   if (!(await pathExists(join(uiRoot, "package.json")))) return "fresh";
   if (!(await pathExists(join(distDir, "index.html")))) return "missing";
   const fp = await uiSourceFingerprint(uiRoot);
@@ -145,17 +139,12 @@ async function runChild(cwd: string, args: string[]): Promise<void> {
   });
   const code = await proc.exited;
   if (code !== 0) {
-    throw new Error(
-      `${args[0]} exited ${code} (cwd ${cwd})`,
-    );
+    throw new Error(`${args[0]} exited ${code} (cwd ${cwd})`);
   }
 }
 
 /** Real production build: install deps, run the UI's `build` script. */
-export async function runProductionBuild(
-  uiRoot: string,
-  _distDir: string,
-): Promise<void> {
+export async function runProductionBuild(uiRoot: string, _distDir: string): Promise<void> {
   await runChild(uiRoot, ["bun", "install"]);
   await runChild(uiRoot, ["bun", "run", "build"]);
 }

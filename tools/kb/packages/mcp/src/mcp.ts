@@ -11,20 +11,12 @@ import {
   type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import { Cause, Effect, Exit, Schema } from "effect";
-import { type KbContext } from "@kb/contracts";
+import type { KbContext, ActionInvocation } from "@kb/contracts";
 import { reloadEffect } from "@kb/operations";
 import { kbRuntimeLayer, openKbEffect } from "@kb/runtime";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
-import {
-  invokeReceiptEffect,
-  registryFor,
-  type ManifestEntry,
-} from "@kb/runtime";
-import type { ActionInvocation } from "@kb/contracts";
-import {
-  listViewNamesEffect,
-  renderNamedViewEffect,
-} from "@kb/operations";
+import { invokeReceiptEffect, registryFor, type ManifestEntry } from "@kb/runtime";
+import { listViewNamesEffect, renderNamedViewEffect } from "@kb/operations";
 import { resolveRootEffect } from "@kb/runtime";
 
 const MANIFEST_TOOL = "kb_manifest";
@@ -58,11 +50,7 @@ function jsonResult(value: unknown): CallToolResult {
   };
 }
 
-function errorResult(
-  code: string,
-  message: string,
-  details?: unknown,
-): CallToolResult {
+function errorResult(code: string, message: string, details?: unknown): CallToolResult {
   return {
     isError: true,
     content: [
@@ -139,14 +127,11 @@ export function callToolEffect(
       }
 
       if (name === RENDER_TOOL) {
-        const decoded = yield* Schema.decodeUnknownEffect(RenderViewArgs)(
-          args ?? {},
-        ).pipe(Effect.catch(() => Effect.succeed(null)));
+        const decoded = yield* Schema.decodeUnknownEffect(RenderViewArgs)(args ?? {}).pipe(
+          Effect.catch(() => Effect.succeed(null)),
+        );
         if (!decoded) {
-          return errorResult(
-            "invalid_input",
-            "expected {view: string, format?: 'html'|'md'}",
-          );
+          return errorResult("invalid_input", "expected {view: string, format?: 'html'|'md'}");
         }
         const format = decoded.format ?? "html";
         yield* reloadEffect(ctx);
@@ -177,33 +162,32 @@ export function callToolEffect(
   );
 }
 
-export const listResourcesEffect = Effect.fn("mcp.listResources")(
-  function* (ctx: KbContext) {
-    yield* reloadEffect(ctx);
-    const names = yield* listViewNamesEffect();
-    return {
-      resources: names.map((name) => ({
-        uri: `${VIEW_URI_PREFIX}${name}`,
-        name: `kb view: ${name}`,
-        mimeType: "text/html",
-      })),
-    };
-  },
-);
+export const listResourcesEffect = Effect.fn("mcp.listResources")(function* (ctx: KbContext) {
+  yield* reloadEffect(ctx);
+  const names = yield* listViewNamesEffect();
+  return {
+    resources: names.map((name) => ({
+      uri: `${VIEW_URI_PREFIX}${name}`,
+      name: `kb view: ${name}`,
+      mimeType: "text/html",
+    })),
+  };
+});
 
-export const readResourceEffect = Effect.fn("mcp.readResource")(
-  function* (ctx: KbContext, uri: string) {
-    if (!uri.startsWith(VIEW_URI_PREFIX)) {
-      return yield* Effect.fail(new Error(`unknown resource: ${uri}`));
-    }
-    const name = uri.slice(VIEW_URI_PREFIX.length);
-    yield* reloadEffect(ctx);
-    const rendered = yield* renderNamedViewEffect(name, "html");
-    return {
-      contents: [{ uri, mimeType: "text/html", text: rendered.content }],
-    };
-  },
-);
+export const readResourceEffect = Effect.fn("mcp.readResource")(function* (
+  ctx: KbContext,
+  uri: string,
+) {
+  if (!uri.startsWith(VIEW_URI_PREFIX)) {
+    return yield* Effect.fail(new Error(`unknown resource: ${uri}`));
+  }
+  const name = uri.slice(VIEW_URI_PREFIX.length);
+  yield* reloadEffect(ctx);
+  const rendered = yield* renderNamedViewEffect(name, "html");
+  return {
+    contents: [{ uri, mimeType: "text/html", text: rendered.content }],
+  };
+});
 
 /**
  * Run a resource Effect to an Exit, then throw {@link McpError} (-32603) on
@@ -211,9 +195,7 @@ export const readResourceEffect = Effect.fn("mcp.readResource")(
  * error. Interrupt-only causes propagate as FiberFailure rejects — they are
  * not rewritten into -32603.
  */
-export async function runResourceHandler<A>(
-  effect: Effect.Effect<A, unknown, never>,
-): Promise<A> {
+export async function runResourceHandler<A>(effect: Effect.Effect<A, unknown, never>): Promise<A> {
   const exit = await Effect.runPromiseExit(effect);
   if (Exit.isSuccess(exit)) return exit.value;
   if (Cause.hasInterruptsOnly(exit.cause)) {
@@ -227,13 +209,9 @@ export async function runResourceHandler<A>(
  * callers connect stdio (startMcp) or InMemoryTransport (tests).
  */
 export async function createMcpServer(root: string): Promise<Server> {
-  const ctx = await Effect.runPromise(
-    openKbEffect(root).pipe(Effect.provide(bunFileSystemLayer)),
-  );
+  const ctx = await Effect.runPromise(openKbEffect(root).pipe(Effect.provide(bunFileSystemLayer)));
   const actions = (await registryFor(root)).manifestEntries;
-  const byToolName = new Map(
-    actions.map((a) => [actionIdToToolName(a.id), a] as const),
-  );
+  const byToolName = new Map(actions.map((a) => [actionIdToToolName(a.id), a] as const));
   const toolsCtx: McpToolContext = { actions, byToolName };
 
   // Dedicated MCP tools own these names; skip colliding registry actions so the
@@ -278,10 +256,7 @@ export async function createMcpServer(root: string): Promise<Server> {
           view: { type: "string", description: "view name" },
           // Advertised shape matches runtime: null/absent → html (see RenderViewArgs).
           format: {
-            anyOf: [
-              { type: "string", enum: ["html", "md"] },
-              { type: "null" },
-            ],
+            anyOf: [{ type: "string", enum: ["html", "md"] }, { type: "null" }],
             default: "html",
             description: "html or md; null or omitted defaults to html",
           },
@@ -305,16 +280,12 @@ export async function createMcpServer(root: string): Promise<Server> {
 
   // MCP Apps backbone: each saved view is a ui:// html resource.
   server.setRequestHandler(ListResourcesRequestSchema, async () =>
-    runResourceHandler(
-      listResourcesEffect(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx))),
-    ),
+    runResourceHandler(listResourcesEffect(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx)))),
   );
 
   server.setRequestHandler(ReadResourceRequestSchema, async (request) =>
     runResourceHandler(
-      readResourceEffect(ctx, request.params.uri).pipe(
-        Effect.provide(kbRuntimeLayer(ctx)),
-      ),
+      readResourceEffect(ctx, request.params.uri).pipe(Effect.provide(kbRuntimeLayer(ctx))),
     ),
   );
 
@@ -347,9 +318,7 @@ async function parseRoot(argv: string[]): Promise<string> {
     return value;
   }
   // MCP clients launch with cwd = project dir; walk upward to find .kb/.
-  return Effect.runPromise(
-    resolveRootEffect().pipe(Effect.provide(bunFileSystemLayer)),
-  );
+  return Effect.runPromise(resolveRootEffect().pipe(Effect.provide(bunFileSystemLayer)));
 }
 
 if (import.meta.main) {

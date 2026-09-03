@@ -92,9 +92,7 @@ describe("W7 TableView & ViewToolbar", () => {
   });
 
   afterEach(() => {
-    useOutlineStore
-      .getState()
-      .hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
     usePrefsStore.getState().setWidth("centered");
   });
 
@@ -107,15 +105,11 @@ describe("W7 TableView & ViewToolbar", () => {
 
     await mutations.setViewMode("frame1", "table");
     const frame = useOutlineStore.getState().nodes.get("frame1");
-    expect(frame?.props[SYSTEM_IDS.viewModeField]).toEqual([
-      { t: "str", v: "table" },
-    ]);
+    expect(frame?.props[SYSTEM_IDS.viewModeField]).toEqual([{ t: "str", v: "table" }]);
 
     await mutations.setViewMode("frame1", "list");
     const frameAfter = useOutlineStore.getState().nodes.get("frame1");
-    expect(frameAfter?.props[SYSTEM_IDS.viewModeField]).toEqual([
-      { t: "str", v: "list" },
-    ]);
+    expect(frameAfter?.props[SYSTEM_IDS.viewModeField]).toEqual([{ t: "str", v: "list" }]);
   });
 
   it("renders TableView with fallback columns from tag fields and asserts NodeRow reuse via data-instance-key", () => {
@@ -176,14 +170,10 @@ describe("W7 TableView & ViewToolbar", () => {
   });
 
   it("sorts table render order without mutating children[] array in store", async () => {
-    const initialChildren = [
-      ...useOutlineStore.getState().nodes.get("frame1")!.children,
-    ];
+    const initialChildren = [...useOutlineStore.getState().nodes.get("frame1")!.children];
     expect(initialChildren).toEqual(["child1", "child2"]);
 
-    await mutations.setViewSort("frame1", [
-      { fieldId: "__name__", dir: "asc" },
-    ]);
+    await mutations.setViewSort("frame1", [{ fieldId: "__name__", dir: "asc" }]);
 
     const html = renderToStaticMarkup(
       createElement(TableView, { frameId: "frame1", nodes: getStoreNodes() }),
@@ -195,15 +185,12 @@ describe("W7 TableView & ViewToolbar", () => {
     expect(posBanana).toBeGreaterThan(-1);
     expect(posApple).toBeLessThan(posBanana);
 
-    const storeChildren = useOutlineStore.getState().nodes.get("frame1")!
-      .children;
+    const storeChildren = useOutlineStore.getState().nodes.get("frame1")!.children;
     expect(storeChildren).toEqual(["child1", "child2"]);
   });
 
   it("Enter split-at-cursor inserts after the edited node (visual row) and focuses with table instanceKey", async () => {
-    await mutations.setViewSort("frame1", [
-      { fieldId: "__name__", dir: "asc" },
-    ]);
+    await mutations.setViewSort("frame1", [{ fieldId: "__name__", dir: "asc" }]);
     // Visual first row is Apple (child2); split mid-text.
     await mutations.splitNode("child2", "Apple".length);
 
@@ -222,9 +209,7 @@ describe("W7 TableView & ViewToolbar", () => {
     // Focus lands on new node with outline/table instance key.
     const store = useOutlineStore.getState();
     expect(store.activeNodeId).toBe(insertedId);
-    expect(store.activeInstanceKey).toBe(
-      outlineInstanceKey(insertedId!, store.nodes),
-    );
+    expect(store.activeInstanceKey).toBe(outlineInstanceKey(insertedId!, store.nodes));
     expect(store.activeInstanceKey).toBe(`tree/frame1/${insertedId}`);
 
     // children[] still Banana then Apple then New — sort projection unchanged rule.
@@ -233,9 +218,7 @@ describe("W7 TableView & ViewToolbar", () => {
 
   it("getViewConfig rejects bad colwidth shapes used by table resize path", () => {
     const bad = getViewConfig({
-      [SYSTEM_IDS.viewColwidthField]: [
-        { t: "str", v: JSON.stringify({ a: "x", b: 0, c: 120 }) },
-      ],
+      [SYSTEM_IDS.viewColwidthField]: [{ t: "str", v: JSON.stringify({ a: "x", b: 0, c: 120 }) }],
     });
     expect(bad.colwidth).toEqual({ c: 120 });
   });

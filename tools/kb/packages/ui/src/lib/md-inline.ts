@@ -33,16 +33,7 @@ const parseCache = new Map<string, InlineSeg[]>();
  */
 const SAFE_HREF = /^(https?:\/\/|mailto:|#|\/|\.\/|\.\.\/|assets\/)/i;
 
-const IMAGE_EXT = new Set([
-  "png",
-  "jpg",
-  "jpeg",
-  "gif",
-  "webp",
-  "svg",
-  "avif",
-  "bmp",
-]);
+const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp"]);
 const VIDEO_EXT = new Set(["mp4", "webm", "mov", "ogv", "m4v"]);
 const AUDIO_EXT = new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac", "opus"]);
 
@@ -132,8 +123,7 @@ function parseOnce(text: string): InlineSeg[] {
           flush();
           const pipe = inner.indexOf("|");
           const id = (pipe >= 0 ? inner.slice(0, pipe) : inner).trim();
-          const label =
-            pipe >= 0 ? inner.slice(pipe + 1).trim() || id : id;
+          const label = pipe >= 0 ? inner.slice(pipe + 1).trim() || id : id;
           if (id) {
             out.push({ t: "ref", id, label });
             i = end + 2;
@@ -146,17 +136,11 @@ function parseOnce(text: string): InlineSeg[] {
     // ![alt](assets/…) media (W6a) — before plain links
     if (text[i] === "!" && text[i + 1] === "[") {
       const close = text.indexOf("]", i + 2);
-      if (
-        close > i + 1 &&
-        text[close + 1] === "(" &&
-        !text.slice(i + 2, close).includes("[")
-      ) {
+      if (close > i + 1 && text[close + 1] === "(" && !text.slice(i + 2, close).includes("[")) {
         const urlEnd = parseUrlAfterParen(text, close + 1);
         const href = urlEnd > close ? text.slice(close + 2, urlEnd) : "";
         const kind =
-          urlEnd > close &&
-          /^assets\//i.test(href.trim()) &&
-          isSafeHref(href)
+          urlEnd > close && /^assets\//i.test(href.trim()) && isSafeHref(href)
             ? mediaKindFromHref(href)
             : null;
         if (kind) {
@@ -176,11 +160,7 @@ function parseOnce(text: string): InlineSeg[] {
     // [label](url)
     if (text[i] === "[") {
       const close = text.indexOf("]", i + 1);
-      if (
-        close > i &&
-        text[close + 1] === "(" &&
-        !text.slice(i + 1, close).includes("[")
-      ) {
+      if (close > i && text[close + 1] === "(" && !text.slice(i + 1, close).includes("[")) {
         const urlEnd = parseUrlAfterParen(text, close + 1);
         const href = urlEnd > close ? text.slice(close + 2, urlEnd) : "";
         if (urlEnd > close && isSafeHref(href)) {
@@ -197,10 +177,7 @@ function parseOnce(text: string): InlineSeg[] {
     }
 
     // **bold** or __bold__
-    if (
-      (text[i] === "*" && text[i + 1] === "*") ||
-      (text[i] === "_" && text[i + 1] === "_")
-    ) {
+    if ((text[i] === "*" && text[i + 1] === "*") || (text[i] === "_" && text[i + 1] === "_")) {
       const mark = text[i]!;
       const end = text.indexOf(mark + mark, i + 2);
       if (end > i + 1) {
@@ -212,10 +189,7 @@ function parseOnce(text: string): InlineSeg[] {
     }
 
     // *italic* or _italic_ (single; not part of **)
-    if (
-      (text[i] === "*" || text[i] === "_") &&
-      text[i + 1] !== text[i]
-    ) {
+    if ((text[i] === "*" || text[i] === "_") && text[i + 1] !== text[i]) {
       const mark = text[i]!;
       const end = text.indexOf(mark, i + 1);
       if (end > i + 1 && text[end + 1] !== mark) {

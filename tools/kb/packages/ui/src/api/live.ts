@@ -18,9 +18,7 @@ export async function refetchGraph(): Promise<void> {
   refetching = true;
   try {
     const snapshot = await fetchGraphSnapshot();
-    useOutlineStore
-      .getState()
-      .refreshFromWire(snapshot.nodes, snapshot.rev);
+    useOutlineStore.getState().refreshFromWire(snapshot.nodes, snapshot.rev);
   } catch (err) {
     useUiStore
       .getState()
@@ -34,19 +32,17 @@ export async function refetchGraph(): Promise<void> {
 }
 
 /** Store-wired client; overrides let tests inject a fake socket. */
-export function createLiveClient(
-  overrides: Partial<KbWsClientOptions> = {},
-): KbWsClient {
+export function createLiveClient(overrides: Partial<KbWsClientOptions> = {}): KbWsClient {
   return new KbWsClient({
     getRev: () => useOutlineStore.getState().rev,
     onTx: (tx) =>
-      useOutlineStore.getState().applyTx(mergeRemoteUpserts(tx.upserts), tx.deletes, { rev: tx.rev }),
+      useOutlineStore
+        .getState()
+        .applyTx(mergeRemoteUpserts(tx.upserts), tx.deletes, { rev: tx.rev }),
     onGap: () => void refetchGraph(),
     onStatus: (status) => useUiStore.getState().setWsStatus(status),
     onServerError: (err) =>
-      useUiStore
-        .getState()
-        .pushToast("error", `ws ${err.code}: ${err.message}`),
+      useUiStore.getState().pushToast("error", `ws ${err.code}: ${err.message}`),
     ...overrides,
   });
 }

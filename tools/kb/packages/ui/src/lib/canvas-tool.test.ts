@@ -1,26 +1,18 @@
 import { describe, expect, test } from "vitest";
 import { parseCanvasDoc, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
 import { edgePath } from "@/components/canvas/edge-path";
-import {
-  createShapeNode,
-  placeWithTool,
-  reduceCanvasTool,
-} from "@/lib/canvas-tool";
+import { createShapeNode, placeWithTool, reduceCanvasTool } from "@/lib/canvas-tool";
 
 describe("canvas tool reducer", () => {
   test("set-tool switches active tool", () => {
-    expect(
-      reduceCanvasTool({ tool: "select" }, { type: "set-tool", tool: "rect" }),
-    ).toEqual({ tool: "rect" });
+    expect(reduceCanvasTool({ tool: "select" }, { type: "set-tool", tool: "rect" })).toEqual({
+      tool: "rect",
+    });
   });
 
   test("escape and placed revert to select", () => {
-    expect(
-      reduceCanvasTool({ tool: "diamond" }, { type: "escape" }),
-    ).toEqual({ tool: "select" });
-    expect(
-      reduceCanvasTool({ tool: "ellipse" }, { type: "placed" }),
-    ).toEqual({ tool: "select" });
+    expect(reduceCanvasTool({ tool: "diamond" }, { type: "escape" })).toEqual({ tool: "select" });
+    expect(reduceCanvasTool({ tool: "ellipse" }, { type: "placed" })).toEqual({ tool: "select" });
   });
 });
 

@@ -2,11 +2,11 @@
   "name": "@kb/cli",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
-  "exports": {},
   "bin": {
     "kb": "./src/main.ts"
   },
+  "type": "module",
+  "exports": {},
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "bun test"

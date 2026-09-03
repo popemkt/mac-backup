@@ -17,12 +17,7 @@ function node(
 const TAG = "t.svc";
 
 function tagged(id: string, text: string, children: string[] = []): WireNode {
-  return node(
-    id,
-    text,
-    { [SYSTEM_IDS.typeField]: [{ t: "ref", v: TAG }] },
-    children,
-  );
+  return node(id, text, { [SYSTEM_IDS.typeField]: [{ t: "ref", v: TAG }] }, children);
 }
 
 /**
@@ -90,7 +85,10 @@ describe("outline store — ontology scope", () => {
     useOutlineStore.getState().setOntologyScope("o.1");
     expect(useOutlineStore.getState().search("unrelated")).toEqual([]);
     expect(
-      useOutlineStore.getState().search("alpha").map((r) => r.id),
+      useOutlineStore
+        .getState()
+        .search("alpha")
+        .map((r) => r.id),
     ).toEqual(["n.a"]);
   });
 
@@ -131,15 +129,10 @@ describe("outline store — ontology scope", () => {
 
   it("re-resolves membership after a local optimistic edit at the same rev", () => {
     useOutlineStore.getState().setOntologyScope("o.1");
-    expect([...useOutlineStore.getState().ontologyMembers!].sort()).toEqual([
-      "n.a",
-      "n.b",
-    ]);
+    expect([...useOutlineStore.getState().ontologyMembers!].sort()).toEqual(["n.a", "n.b"]);
 
     // Exclude n.b with no rev bump — exactly what an optimistic tx looks like.
-    const onto = useOutlineStore
-      .getState()
-      .wireNodes.find((n) => n.id === "o.1")!;
+    const onto = useOutlineStore.getState().wireNodes.find((n) => n.id === "o.1")!;
     useOutlineStore.getState().applyTx(
       [
         {

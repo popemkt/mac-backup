@@ -2,10 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { CircleHalf } from "@phosphor-icons/react";
 import { loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
-import {
-  CommandPalette,
-  PaletteTrigger,
-} from "@/components/palette/command-palette";
+import { CommandPalette, PaletteTrigger } from "@/components/palette/command-palette";
 import { OutlineEditor } from "@/components/outline/outline-editor";
 import { ViewFilterPopoverHost } from "@/components/outline/view-filter-popover";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
@@ -68,10 +65,7 @@ function Toasts() {
   const dismiss = useUiStore((s) => s.dismissToast);
   if (toasts.length === 0) return null;
   return (
-    <div
-      className="fixed bottom-4 right-4 z-50 flex w-80 flex-col gap-2"
-      aria-live="polite"
-    >
+    <div className="fixed bottom-4 right-4 z-50 flex w-80 flex-col gap-2" aria-live="polite">
       {toasts.map((t) => (
         <button
           key={t.id}
@@ -99,10 +93,7 @@ function SharedChrome() {
     <>
       <PreferencesPopover />
       <ViewFilterPopoverHost />
-      <CommandPalette
-        open={globalPaletteOpen}
-        onClose={() => setGlobalPaletteOpen(false)}
-      />
+      <CommandPalette open={globalPaletteOpen} onClose={() => setGlobalPaletteOpen(false)} />
       <Toasts />
     </>
   );
@@ -149,10 +140,7 @@ function OutlineColumn() {
   const width = usePrefsStore((s) => s.width);
   return (
     <div
-      className={cn(
-        "kb-shell w-full",
-        width === "centered" ? "mx-auto max-w-3xl px-4" : "px-8",
-      )}
+      className={cn("kb-shell w-full", width === "centered" ? "mx-auto max-w-3xl px-4" : "px-8")}
     >
       <OutlineEditor />
     </div>
@@ -190,9 +178,7 @@ function OutlineShell({
         <SidebarToggle />
         <h1 className="text-[13px] font-medium text-foreground/50">kb</h1>
         <span className="text-[11px] text-foreground/30">
-          {status === "loading"
-            ? "loading…"
-            : `rev ${rev} · ${loadSource ?? "?"}`}
+          {status === "loading" ? "loading…" : `rev ${rev} · ${loadSource ?? "?"}`}
         </span>
         <ConnectionDot />
         <div className="flex-1" />
@@ -217,16 +203,11 @@ function OutlineShell({
         <LoadError error={error} onRetry={onRetry} />
       ) : ontology ? (
         <MainRegion>
-          <ViewErrorBoundary
-            title="Ontology crashed"
-            resetKey={`${ontology.id}:${ontology.view}`}
-          >
+          <ViewErrorBoundary title="Ontology crashed" resetKey={`${ontology.id}:${ontology.view}`}>
             {ontology.view === "page" ? (
               <Suspense
                 fallback={
-                  <div className="p-6 text-[13px] text-foreground/40">
-                    Loading ontology…
-                  </div>
+                  <div className="p-6 text-[13px] text-foreground/40">Loading ontology…</div>
                 }
               >
                 <OntologyPage ontologyId={ontology.id} />
@@ -241,9 +222,7 @@ function OutlineShell({
           <ViewErrorBoundary title="Ontologies crashed" resetKey="ontology-list">
             <Suspense
               fallback={
-                <div className="p-6 text-[13px] text-foreground/40">
-                  Loading ontologies…
-                </div>
+                <div className="p-6 text-[13px] text-foreground/40">Loading ontologies…</div>
               }
             >
               <OntologyListPage />
@@ -252,31 +231,17 @@ function OutlineShell({
         </MainRegion>
       ) : onCanvas ? (
         <MainRegion scroll={false}>
-          <ViewErrorBoundary
-            title="Canvas crashed"
-            resetKey={canvasId ?? "canvas-list"}
-          >
+          <ViewErrorBoundary title="Canvas crashed" resetKey={canvasId ?? "canvas-list"}>
             <Suspense
-              fallback={
-                <div className="p-6 text-[13px] text-foreground/40">
-                  Loading canvas…
-                </div>
-              }
+              fallback={<div className="p-6 text-[13px] text-foreground/40">Loading canvas…</div>}
             >
-              {canvasId ? (
-                <CanvasPage canvasId={canvasId} />
-              ) : (
-                <CanvasListPage />
-              )}
+              {canvasId ? <CanvasPage canvasId={canvasId} /> : <CanvasListPage />}
             </Suspense>
           </ViewErrorBoundary>
         </MainRegion>
       ) : (
         <MainRegion>
-          <ViewErrorBoundary
-            title="Outline crashed"
-            resetKey={rootNodeId ?? "outline"}
-          >
+          <ViewErrorBoundary title="Outline crashed" resetKey={rootNodeId ?? "outline"}>
             <OutlineColumn />
           </ViewErrorBoundary>
         </MainRegion>
@@ -286,18 +251,11 @@ function OutlineShell({
 }
 
 /** Scope chip fed from the store's resolved membership. */
-function OntologyChrome({
-  id,
-  view,
-}: {
-  id: string;
-  view: "page" | "outline" | "graph";
-}) {
+function OntologyChrome({ id, view }: { id: string; view: "page" | "outline" | "graph" }) {
   const members = useOutlineStore((s) => s.ontologyMembers);
   const warnings = useOutlineStore((s) => s.ontologyWarnings);
   const wireNodes = useOutlineStore((s) => s.wireNodes);
-  const label =
-    wireNodes.find((n) => n.id === id)?.text?.trim() || "Untitled ontology";
+  const label = wireNodes.find((n) => n.id === id)?.text?.trim() || "Untitled ontology";
   return (
     <OntologyScopeBar
       ontologyId={id}
@@ -310,19 +268,11 @@ function OntologyChrome({
   );
 }
 
-function LoadError({
-  error,
-  onRetry,
-}: {
-  error: string | null;
-  onRetry: () => void;
-}) {
+function LoadError({ error, onRetry }: { error: string | null; onRetry: () => void }) {
   return (
     <div className="mx-auto flex max-w-md flex-col gap-3 p-6" role="alert">
       <div>
-        <h2 className="kb-text font-medium text-foreground/80">
-          Couldn’t load your workspace
-        </h2>
+        <h2 className="kb-text font-medium text-foreground/80">Couldn’t load your workspace</h2>
         <p className="mt-1 text-[13px] text-foreground/50">
           Check that kb is running, then try again. Your local data has not been changed.
         </p>
@@ -351,9 +301,7 @@ function LoadError({
 export function App() {
   const hydrateFromWire = useOutlineStore((s) => s.hydrateFromWire);
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">(
-    "loading",
-  );
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const path = usePath();
   const route = matchRoute(path);
@@ -424,28 +372,20 @@ export function App() {
             <LoadError error={error} onRetry={() => void reload()} />
           ) : (
             <>
-              {route.name === "ontology" ? (
-                <OntologyChrome id={route.id} view="graph" />
-              ) : null}
+              {route.name === "ontology" ? <OntologyChrome id={route.id} view="graph" /> : null}
               <ViewErrorBoundary
                 title="Graph crashed"
                 resetKey={
-                  route.name === "ontology"
-                    ? `o:${route.id}`
-                    : (route.perspectiveId ?? "graph")
+                  route.name === "ontology" ? `o:${route.id}` : (route.perspectiveId ?? "graph")
                 }
               >
                 <Suspense
                   fallback={
-                    <div className="p-6 text-[13px] text-foreground/40">
-                      loading graph…
-                    </div>
+                    <div className="p-6 text-[13px] text-foreground/40">loading graph…</div>
                   }
                 >
                   <GraphPage
-                    perspectiveId={
-                      route.name === "graph" ? route.perspectiveId : null
-                    }
+                    perspectiveId={route.name === "graph" ? route.perspectiveId : null}
                     ontologyId={route.name === "ontology" ? route.id : null}
                   />
                 </Suspense>

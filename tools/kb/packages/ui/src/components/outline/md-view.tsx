@@ -34,7 +34,12 @@ export const MdView = memo(function MdView({ text, className, clamp }: MdViewPro
   if (!text) {
     return (
       <div
-        className={cn(KB_TEXT_CLASS, clamp ? "kb-text-clamp" : "kb-text-row", className, "text-foreground/25")}
+        className={cn(
+          KB_TEXT_CLASS,
+          clamp ? "kb-text-clamp" : "kb-text-row",
+          className,
+          "text-foreground/25",
+        )}
         role="presentation"
       >
         {"\u200B"}
@@ -44,7 +49,12 @@ export const MdView = memo(function MdView({ text, className, clamp }: MdViewPro
 
   return (
     <div
-      className={cn(KB_TEXT_CLASS, clamp ? "kb-text-clamp" : "kb-text-row", "kb-md-view flex-1 outline-none", className)}
+      className={cn(
+        KB_TEXT_CLASS,
+        clamp ? "kb-text-clamp" : "kb-text-row",
+        "kb-md-view flex-1 outline-none",
+        className,
+      )}
       role="presentation"
     >
       {segs.map((seg, i) => renderSeg(seg, i, onRefClick))}

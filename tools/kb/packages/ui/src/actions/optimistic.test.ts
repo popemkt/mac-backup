@@ -32,11 +32,7 @@ function seed(source: "api" | "fixtures" = "api") {
   });
   useOutlineStore
     .getState()
-    .hydrateFromWire(
-      structuredClone(fixtureGraph.nodes),
-      fixtureGraph.rev,
-      source,
-    );
+    .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, source);
   useUiStore.setState({ toasts: [] });
 }
 
@@ -66,13 +62,9 @@ describe("runOptimistic multi-action transactions", () => {
   });
 
   it("partial multi-action failure resyncs to authoritative server state", async () => {
-    const split = planSplit(
-      useOutlineStore.getState().wireNodes,
-      "n.root-a",
-      4,
-      "n.split-new",
-      { expandedIds: new Set() },
-    );
+    const split = planSplit(useOutlineStore.getState().wireNodes, "n.root-a", 4, "n.split-new", {
+      expandedIds: new Set(),
+    });
     expect(split.actions.length).toBe(2);
 
     const authoritative = structuredClone(fixtureGraph.nodes).map((n) =>
@@ -108,9 +100,7 @@ describe("runOptimistic multi-action transactions", () => {
     expect(store.nodes.get("n.root-a")?.text).toBe("Ship");
     expect(store.nodes.has("n.split-new")).toBe(false);
     expect(store.loadSource).toBe("api");
-    expect(useUiStore.getState().toasts.some((t) => t.text.includes("add failed"))).toBe(
-      true,
-    );
+    expect(useUiStore.getState().toasts.some((t) => t.text.includes("add failed"))).toBe(true);
   });
 
   it("does not rewind rev or clobber concurrent remote updates on failure", async () => {
@@ -119,9 +109,7 @@ describe("runOptimistic multi-action transactions", () => {
     useOutlineStore.getState().applyTx(
       [
         {
-          ...useOutlineStore
-            .getState()
-            .wireNodes.find((n) => n.id === "n.root-c")!,
+          ...useOutlineStore.getState().wireNodes.find((n) => n.id === "n.root-c")!,
           text: "remote-concurrent",
         },
       ],
@@ -132,9 +120,7 @@ describe("runOptimistic multi-action transactions", () => {
     const plan: PlannedMutation = {
       upserts: [
         {
-          ...useOutlineStore
-            .getState()
-            .wireNodes.find((n) => n.id === "n.root-a")!,
+          ...useOutlineStore.getState().wireNodes.find((n) => n.id === "n.root-a")!,
           text: "optimistic-a",
         },
         {
@@ -210,11 +196,7 @@ describe("runOptimistic multi-action transactions", () => {
       message: "boom",
     }));
 
-    const plan = planUpdateText(
-      useOutlineStore.getState().wireNodes,
-      "n.root-a",
-      "should bounce",
-    );
+    const plan = planUpdateText(useOutlineStore.getState().wireNodes, "n.root-a", "should bounce");
     const result = await runOptimistic(plan);
     expect(result.ok).toBe(false);
     expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(before);
@@ -224,13 +206,9 @@ describe("runOptimistic multi-action transactions", () => {
 
   it("partial failure with failed resync keeps server-applied sibling, no rev rewind", async () => {
     useOutlineStore.getState().applyTx([], [], { rev: 7 });
-    const split = planSplit(
-      useOutlineStore.getState().wireNodes,
-      "n.root-a",
-      4,
-      "n.split-keep",
-      { expandedIds: new Set() },
-    );
+    const split = planSplit(useOutlineStore.getState().wireNodes, "n.root-a", 4, "n.split-keep", {
+      expandedIds: new Set(),
+    });
 
     fetchGraph.mockRejectedValue(new Error("resync offline"));
     setPostAction(async (inv) => {
@@ -277,23 +255,13 @@ describe("runOptimistic multi-action transactions", () => {
       return { status: "succeeded", id: "node.update", output: {} };
     });
 
-    const failPlan = planUpdateText(
-      useOutlineStore.getState().wireNodes,
-      "n.root-a",
-      "first",
-    );
+    const failPlan = planUpdateText(useOutlineStore.getState().wireNodes, "n.root-a", "first");
     expect((await runOptimistic(failPlan)).ok).toBe(false);
     expect(useOutlineStore.getState().loadSource).toBe("api");
 
-    const okPlan = planUpdateText(
-      useOutlineStore.getState().wireNodes,
-      "n.root-a",
-      "retry-ok",
-    );
+    const okPlan = planUpdateText(useOutlineStore.getState().wireNodes, "n.root-a", "retry-ok");
     expect((await runOptimistic(okPlan)).ok).toBe(true);
-    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(
-      "retry-ok",
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe("retry-ok");
     expect(attempt).toBe(2);
   });
 
@@ -308,17 +276,11 @@ describe("runOptimistic multi-action transactions", () => {
       message: "boom",
     }));
 
-    const plan = planUpdateText(
-      useOutlineStore.getState().wireNodes,
-      "n.root-a",
-      "pending-resync",
-    );
+    const plan = planUpdateText(useOutlineStore.getState().wireNodes, "n.root-a", "pending-resync");
     const pending = runOptimistic(plan);
 
     // Still optimistic until refetch resolves.
-    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(
-      "pending-resync",
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe("pending-resync");
 
     gate.resolve({
       rev: 11,
@@ -336,10 +298,7 @@ describe("runOptimistic multi-action transactions", () => {
     useOutlineStore.getState().applyTx([], [], { rev: 8 });
     const a1Before = useOutlineStore.getState().nodes.get("n.child-a1")!.text;
     const a2Before = useOutlineStore.getState().nodes.get("n.child-a2")!.text;
-    const merge = planMergeWithPrevious(
-      useOutlineStore.getState().wireNodes,
-      "n.child-a2",
-    );
+    const merge = planMergeWithPrevious(useOutlineStore.getState().wireNodes, "n.child-a2");
     expect(merge).not.toBeNull();
     expect(merge!.actions.length).toBeGreaterThan(2);
     expect(merge!.deletes).toEqual(["n.child-a2"]);
@@ -367,14 +326,9 @@ describe("runOptimistic multi-action transactions", () => {
     // Confirmed text sibling kept; unconfirmed reparent/delete dropped.
     expect(store.nodes.get("n.child-a1")?.text).toBe(a1Before + a2Before);
     expect(store.nodes.get("n.child-a2")?.text).toBe(a2Before);
-    expect(store.nodes.get("n.root-a")?.children).toEqual([
-      "n.child-a1",
-      "n.child-a2",
-    ]);
+    expect(store.nodes.get("n.root-a")?.children).toEqual(["n.child-a1", "n.child-a2"]);
     expect(store.nodes.get("n.child-a2")?.children).toEqual(["n.grandchild"]);
-    expect(store.nodes.get("n.child-a1")?.children ?? []).not.toContain(
-      "n.grandchild",
-    );
+    expect(store.nodes.get("n.child-a1")?.children ?? []).not.toContain("n.grandchild");
     expect(findParentWire(wire, "n.child-a2")?.id).toBe("n.root-a");
     expect(findParentWire(wire, "n.grandchild")?.id).toBe("n.child-a2");
     // No orphan forest-root / duplicated descendant.
@@ -384,21 +338,12 @@ describe("runOptimistic multi-action transactions", () => {
   });
 
   it("merge partial failure + successful refetch adopts authoritative server state", async () => {
-    const merge = planMergeWithPrevious(
-      useOutlineStore.getState().wireNodes,
-      "n.child-a2",
-    )!;
-    const a1 = useOutlineStore.getState().wireNodes.find(
-      (n) => n.id === "n.child-a1",
-    )!;
-    const a2 = useOutlineStore.getState().wireNodes.find(
-      (n) => n.id === "n.child-a2",
-    )!;
+    const merge = planMergeWithPrevious(useOutlineStore.getState().wireNodes, "n.child-a2")!;
+    const a1 = useOutlineStore.getState().wireNodes.find((n) => n.id === "n.child-a1")!;
+    const a2 = useOutlineStore.getState().wireNodes.find((n) => n.id === "n.child-a2")!;
     // Server kept text update only — structure unchanged.
     const authoritative = structuredClone(fixtureGraph.nodes).map((n) =>
-      n.id === "n.child-a1"
-        ? { ...n, text: a1.text + a2.text }
-        : n,
+      n.id === "n.child-a1" ? { ...n, text: a1.text + a2.text } : n,
     );
     fetchGraph.mockResolvedValue({ rev: 12, nodes: authoritative });
 
@@ -420,26 +365,18 @@ describe("runOptimistic multi-action transactions", () => {
     const store = useOutlineStore.getState();
     expect(store.rev).toBe(12);
     expect(store.nodes.get("n.child-a1")?.text).toBe(a1.text + a2.text);
-    expect(store.nodes.get("n.root-a")?.children).toEqual([
-      "n.child-a1",
-      "n.child-a2",
-    ]);
+    expect(store.nodes.get("n.root-a")?.children).toEqual(["n.child-a1", "n.child-a2"]);
     expect(store.nodes.get("n.child-a2")?.children).toEqual(["n.grandchild"]);
     expect(fetchGraph).toHaveBeenCalledTimes(1);
   });
 
   it("merge double-failure preserves unrelated concurrent remote edits", async () => {
-    const merge = planMergeWithPrevious(
-      useOutlineStore.getState().wireNodes,
-      "n.child-a2",
-    )!;
+    const merge = planMergeWithPrevious(useOutlineStore.getState().wireNodes, "n.child-a2")!;
     // Interleaved remote update on an unrelated node during the plan.
     useOutlineStore.getState().applyTx(
       [
         {
-          ...useOutlineStore
-            .getState()
-            .wireNodes.find((n) => n.id === "n.root-b")!,
+          ...useOutlineStore.getState().wireNodes.find((n) => n.id === "n.root-b")!,
           text: "remote-unrelated",
         },
       ],
@@ -466,16 +403,11 @@ describe("runOptimistic multi-action transactions", () => {
     const store = useOutlineStore.getState();
     expect(store.nodes.get("n.root-b")?.text).toBe("remote-unrelated");
     expect(store.rev).toBeGreaterThanOrEqual(15);
-    expect(findParentWire(store.wireNodes, "n.grandchild")?.id).toBe(
-      "n.child-a2",
-    );
+    expect(findParentWire(store.wireNodes, "n.grandchild")?.id).toBe("n.child-a2");
   });
 
   it("retry after merge double-failure can succeed", async () => {
-    const merge = planMergeWithPrevious(
-      useOutlineStore.getState().wireNodes,
-      "n.child-a2",
-    )!;
+    const merge = planMergeWithPrevious(useOutlineStore.getState().wireNodes, "n.child-a2")!;
     fetchGraph.mockRejectedValue(new Error("resync offline"));
     let calls = 0;
     setPostAction(async () => {
@@ -498,10 +430,7 @@ describe("runOptimistic multi-action transactions", () => {
     expect((await runOptimistic(merge)).ok).toBe(false);
     expect(useOutlineStore.getState().loadSource).toBe("api");
 
-    const retry = planMergeWithPrevious(
-      useOutlineStore.getState().wireNodes,
-      "n.child-a2",
-    )!;
+    const retry = planMergeWithPrevious(useOutlineStore.getState().wireNodes, "n.child-a2")!;
     fetchGraph.mockReset();
     expect((await runOptimistic(retry)).ok).toBe(true);
     const store = useOutlineStore.getState();

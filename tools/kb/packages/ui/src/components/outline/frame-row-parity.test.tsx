@@ -28,9 +28,7 @@ function seed() {
     loadSource: null,
     loadError: null,
   });
-  useOutlineStore
-    .getState()
-    .hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+  useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
 }
 
 describe("frame row parity (render vs nav)", () => {

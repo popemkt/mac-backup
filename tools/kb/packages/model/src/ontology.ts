@@ -41,12 +41,7 @@ export interface NodeLike {
   readonly children: readonly NodeId[];
 }
 
-export type MemberReasonKind =
-  | "member"
-  | "tag"
-  | "query"
-  | "extends"
-  | "closure";
+export type MemberReasonKind = "member" | "tag" | "query" | "extends" | "closure";
 
 export interface MemberReason {
   kind: MemberReasonKind;
@@ -102,10 +97,7 @@ export const LIST_ONTOLOGIES_QUERY = `[:find ?id ?text
 // because this is the module that already owns the isomorphic node shape.)
 
 /** Ref values of a multi-valued ref field, in stored order. */
-export function refValuesOf(
-  node: Pick<NodeLike, "props"> | undefined,
-  fieldId: string,
-): NodeId[] {
+export function refValuesOf(node: Pick<NodeLike, "props"> | undefined, fieldId: string): NodeId[] {
   return (node?.props[fieldId] ?? [])
     .filter((v) => v.t === "ref" && typeof v.v === "string")
     .map((v) => String(v.v));
@@ -151,11 +143,7 @@ export function listOntologyNodes<T extends NodeLike>(nodes: readonly T[]): T[] 
   return nodes
     .filter(isOntologyNode)
     .slice()
-    .sort(
-      (a, b) =>
-        (a.text || a.id).localeCompare(b.text || b.id) ||
-        a.id.localeCompare(b.id),
-    );
+    .sort((a, b) => (a.text || a.id).localeCompare(b.text || b.id) || a.id.localeCompare(b.id));
 }
 
 export function ontologyClosureMode(node: NodeLike): OntologyClosureMode {
@@ -233,20 +221,14 @@ function buildTagIndex(nodes: readonly NodeLike[]): Map<NodeId, NodeId[]> {
   return byTag;
 }
 
-function addMember(
-  target: PartialResolution,
-  id: NodeId,
-  reason: MemberReason,
-): void {
+function addMember(target: PartialResolution, id: NodeId, reason: MemberReason): void {
   target.members.add(id);
   const existing = target.reasons.get(id);
   if (!existing) {
     target.reasons.set(id, [reason]);
     return;
   }
-  const dup = existing.some(
-    (r) => r.kind === reason.kind && r.via === reason.via,
-  );
+  const dup = existing.some((r) => r.kind === reason.kind && r.via === reason.via);
   if (!dup) existing.push(reason);
 }
 
@@ -268,11 +250,7 @@ function idsFromRows(rows: unknown[][], known: Set<NodeId>): NodeId[] {
   return out;
 }
 
-function resolveInto(
-  state: ResolveState,
-  ontologyId: NodeId,
-  depth: number,
-): PartialResolution {
+function resolveInto(state: ResolveState, ontologyId: NodeId, depth: number): PartialResolution {
   const cached = state.cache.get(ontologyId);
   if (cached) return cached;
 
@@ -283,11 +261,7 @@ function resolveInto(
   };
   const onto = state.byId.get(ontologyId);
   if (!onto) {
-    warn(
-      state,
-      `missing:${ontologyId}`,
-      `unknown ontology reference: ${ontologyId}`,
-    );
+    warn(state, `missing:${ontologyId}`, `unknown ontology reference: ${ontologyId}`);
     return result;
   }
 
@@ -313,11 +287,7 @@ function resolveInto(
     }
     const parent = state.byId.get(parentId);
     if (parent && !isOntologyNode(parent)) {
-      warn(
-        state,
-        `notonto:${parentId}`,
-        `extends target is not an #ontology node: ${parentId}`,
-      );
+      warn(state, `notonto:${parentId}`, `extends target is not an #ontology node: ${parentId}`);
       continue;
     }
     state.ancestors.add(parentId);
@@ -330,11 +300,7 @@ function resolveInto(
   // 2. include tags — every instance of each listed tag.
   for (const tagId of refValuesOf(onto, SYSTEM_IDS.ontoIncludeField)) {
     if (!state.byId.has(tagId)) {
-      warn(
-        state,
-        `unknowntag:${ontologyId}:${tagId}`,
-        `include tag not found: ${tagId}`,
-      );
+      warn(state, `unknowntag:${ontologyId}:${tagId}`, `include tag not found: ${tagId}`);
       continue;
     }
     // A tag with zero instances is a legitimate state, not a warning.
@@ -346,11 +312,7 @@ function resolveInto(
   // 3. explicit members ("pins") — survive the tag being removed.
   for (const id of refValuesOf(onto, SYSTEM_IDS.ontoMemberField)) {
     if (!state.byId.has(id)) {
-      warn(
-        state,
-        `unknownmember:${ontologyId}:${id}`,
-        `explicit member not found: ${id}`,
-      );
+      warn(state, `unknownmember:${ontologyId}:${id}`, `explicit member not found: ${id}`);
       continue;
     }
     addMember(result, id, { kind: "member" });
@@ -376,9 +338,7 @@ function resolveInto(
         warn(
           state,
           `badquery:${ontologyId}`,
-          `onto.query failed on ${ontologyId}: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
+          `onto.query failed on ${ontologyId}: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }
@@ -472,10 +432,7 @@ export function resolveOntology(
 }
 
 /** Human label for a provenance reason (shared by CLI receipts and the UI). */
-export function describeReason(
-  reason: MemberReason,
-  labelOf: (id: NodeId) => string,
-): string {
+export function describeReason(reason: MemberReason, labelOf: (id: NodeId) => string): string {
   switch (reason.kind) {
     case "member":
       return "pinned";

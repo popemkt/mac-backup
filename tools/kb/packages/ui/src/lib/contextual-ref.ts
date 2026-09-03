@@ -51,9 +51,7 @@ function hasRefTag(node: OutlineNode): boolean {
 }
 
 /** The node this reference points at, or null when it is not a reference. */
-export function contextualTargetOf(
-  node: OutlineNode | undefined,
-): string | null {
+export function contextualTargetOf(node: OutlineNode | undefined): string | null {
   if (!node || !hasRefTag(node)) return null;
   const value = (node.props[SYSTEM_IDS.refTargetField] ?? []).find(
     (v) => v.t === "ref" && typeof v.v === "string" && v.v !== "",
@@ -91,10 +89,7 @@ export function rowText(node: OutlineNode, nodes: NodeMap): string {
  * another node. Returning the reason rather than a bare boolean is what keeps
  * the tooltip from re-deriving the distinction at the call site.
  */
-export function rowTextReadOnlyReason(
-  id: string,
-  node: OutlineNode | undefined,
-): string | null {
+export function rowTextReadOnlyReason(id: string, node: OutlineNode | undefined): string | null {
   if (isSysPrefixed(id)) return "System node — read-only";
   if (isContextualRef(node)) return "Reference — edit the original";
   return null;

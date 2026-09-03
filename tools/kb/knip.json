@@ -22,7 +22,6 @@
     },
     "packages/ext-sdk": {
       "entry": [
-        "src/index.ts",
         "src/generate.ts"
       ],
       "project": [
@@ -34,6 +33,7 @@
         "tests/*.test.ts"
       ],
       "project": [
+        "src/**/*.ts",
         "tests/**/*.ts"
       ]
     },
@@ -50,7 +50,6 @@
     },
     "packages/test-kit": {
       "entry": [
-        "src/index.ts",
         "tests/*.test.ts",
         "tests/run-many.ts"
       ],
@@ -68,30 +67,6 @@
       "project": [
         "src/**/*.{ts,tsx}"
       ]
-    },
-    "packages/canvas": {
-      "entry": [
-        "src/index.ts"
-      ],
-      "project": [
-        "src/**/*.ts"
-      ]
-    },
-    "packages/ext-canvas": {
-      "entry": [
-        "src/index.ts"
-      ],
-      "project": [
-        "src/**/*.ts"
-      ]
-    },
-    "packages/ext-docs": {
-      "entry": [
-        "src/index.ts"
-      ],
-      "project": [
-        "src/**/*.ts"
-      ]
     }
   },
   "ignoreFiles": [
@@ -100,6 +75,7 @@
     "packages/ui/src/components/canvas/index.tsx"
   ],
   "ignoreDependencies": [
+    "@effect/tsgo",
     "@fontsource-variable/outfit",
     "graphology-communities-louvain",
     "graphology-layout",

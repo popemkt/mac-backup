@@ -15,18 +15,15 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openKb } from "../src/session.ts";
-import { fieldTypeOf } from "@kb/model";
 import {
+  fieldTypeOf,
   SYSTEM_IDS,
   type KbNode,
   type PropValue,
+  ensureSystemSeed,
+  systemSeedNodes,
 } from "@kb/model";
-import {
-  backlinksQuery,
-  buildQueryDb,
-  query,
-} from "@kb/query";
-import { ensureSystemSeed, systemSeedNodes } from "@kb/model";
+import { backlinksQuery, buildQueryDb, query } from "@kb/query";
 import { invoke } from "../src/registry.ts";
 
 function refs(node: KbNode, field: string): string[] {
@@ -58,9 +55,7 @@ describe("seed: #ref tag + ref.target field", () => {
     expect(tag).toBeDefined();
     expect(tag!.text).toBe("ref");
     expect(refs(tag!, SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
-    expect(refs(tag!, SYSTEM_IDS.fieldsField)).toEqual([
-      SYSTEM_IDS.refTargetField,
-    ]);
+    expect(refs(tag!, SYSTEM_IDS.fieldsField)).toEqual([SYSTEM_IDS.refTargetField]);
 
     const field = byId.get(SYSTEM_IDS.refTargetField);
     expect(field).toBeDefined();
@@ -85,9 +80,7 @@ describe("seed: #ref tag + ref.target field", () => {
     const healed = ensureSystemSeed(stale);
     expect(healed.seeded).toBe(true);
     const tag = healed.nodes.find((n) => n.id === SYSTEM_IDS.refTag)!;
-    expect(refs(tag, SYSTEM_IDS.fieldsField)).toEqual([
-      SYSTEM_IDS.refTargetField,
-    ]);
+    expect(refs(tag, SYSTEM_IDS.fieldsField)).toEqual([SYSTEM_IDS.refTargetField]);
   });
 });
 

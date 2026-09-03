@@ -1,8 +1,7 @@
 import { describe, expect, test, afterEach } from "bun:test";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { openKb } from "@kb/runtime";
-import { invoke, registryFor, resetRegistryCache } from "@kb/runtime";
+import { openKb, invoke, registryFor, resetRegistryCache } from "@kb/runtime";
 import { main } from "../src/cli.ts";
 
 // Roots live under tests/ (not os tmpdir) so fixture extensions resolve
@@ -37,11 +36,7 @@ const actions = [
 export default actions;
 `;
 
-async function writeExtension(
-  root: string,
-  file: string,
-  content: string,
-): Promise<void> {
+async function writeExtension(root: string, file: string, content: string): Promise<void> {
   const dir = join(root, ".kb", "extensions");
   await mkdir(dir, { recursive: true });
   await writeFile(join(dir, file), content, "utf8");
@@ -88,19 +83,12 @@ describe("extension loading", () => {
   test("broken extension warns + skips; core and other extensions survive", async () => {
     const root = await tempRoot();
     await writeExtension(root, "broken.ts", 'throw new Error("boom");\n');
-    await writeExtension(
-      root,
-      "shapeless.ts",
-      "export default { not: 'an array' };\n",
-    );
+    await writeExtension(root, "shapeless.ts", "export default { not: 'an array' };\n");
     await writeExtension(root, "hello.ts", HELLO_EXT);
     const ctx = await openKb(root);
 
     const registry = await registryFor(root);
-    expect(registry.failures.map((f) => f.file).sort()).toEqual([
-      "broken.ts",
-      "shapeless.ts",
-    ]);
+    expect(registry.failures.map((f) => f.file).sort()).toEqual(["broken.ts", "shapeless.ts"]);
 
     const greet = await invoke(ctx, { id: "ext.hello.greet", input: {} });
     expect(greet.status).toBe("succeeded");
@@ -143,9 +131,7 @@ describe("bundled docs extension", () => {
     expect(materialize.status).toBe("succeeded");
 
     const registry = await registryFor(root);
-    const alias = registry.manifestEntries.find(
-      (e) => e.id === "docs.check",
-    );
+    const alias = registry.manifestEntries.find((e) => e.id === "docs.check");
     expect(alias?.aliasOf).toBe("ext.docs.check");
   });
 });

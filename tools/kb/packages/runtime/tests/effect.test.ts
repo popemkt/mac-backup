@@ -12,16 +12,13 @@ import {
   DomainError,
   domainError,
   isDomainError,
-} from "@kb/model";
-import {
   ActionSchemaError,
   isActionSchema,
   isStandardSchemaV1,
   parseActionInput,
   schemaToJsonSchema,
 } from "@kb/model";
-import { DocsError } from "@kb/operations";
-import { mapRenderErr } from "@kb/operations";
+import { DocsError, mapRenderErr } from "@kb/operations";
 import { invoke, invokeEffect, invokeReceiptEffect } from "../src/registry.ts";
 import { z } from "zod";
 
@@ -229,9 +226,7 @@ describe("Standard Schema v1 seam", () => {
     };
     expect(isActionSchema(schema)).toBe(true);
     expect(await parseActionInput(schema, { n: 1 })).toEqual({ n: 1 });
-    await expect(parseActionInput(schema, { n: "x" })).rejects.toThrow(
-      /expected/,
-    );
+    await expect(parseActionInput(schema, { n: "x" })).rejects.toThrow(/expected/);
     // Non-zod vendors emit a permissive JSON Schema for manifests.
     expect(schemaToJsonSchema(schema)).toEqual({ type: "object" });
   });

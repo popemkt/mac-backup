@@ -64,11 +64,6 @@ export function runQuery(qdb: QueryDb, edn: string): unknown[][] {
   const raw = d.q(q, qdb.db) as unknown;
   const revived = reviveValue(raw, qdb.ids);
   if (revived == null) return [];
-  const list =
-    revived instanceof Set
-      ? [...revived]
-      : Array.isArray(revived)
-        ? revived
-        : [];
+  const list = revived instanceof Set ? [...revived] : Array.isArray(revived) ? revived : [];
   return list.map((r) => (Array.isArray(r) ? r : [r]));
 }

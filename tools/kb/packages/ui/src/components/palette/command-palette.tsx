@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MagnifyingGlass, Terminal } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
-import {
-  buildPaletteIndex,
-  searchPalette,
-  type PaletteHit,
-  type PaletteIndex,
-} from "@/lib/palette-index";
+import { buildPaletteIndex, searchPalette, type PaletteHit } from "@/lib/palette-index";
 import { runPaletteCommand } from "@/lib/run-command";
 import { schemaZoomKind } from "@/lib/schema-zoom";
 import { isSysPrefixed } from "@/lib/types";
@@ -44,21 +39,14 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
    * circuited forever and ⌘K matched nothing. useMemo already rebuilds exactly
    * when its inputs change, so the cache was only able to be wrong.
    */
-  const index = useMemo(
-    () => buildPaletteIndex(wireNodes, rev),
-    [wireNodes, rev],
-  );
+  const index = useMemo(() => buildPaletteIndex(wireNodes, rev), [wireNodes, rev]);
 
-  const hits = useMemo(
-    () => searchPalette(index, query, ROW_LIMIT),
-    [index, query],
-  );
+  const hits = useMemo(() => searchPalette(index, query, ROW_LIMIT), [index, query]);
 
   useEffect(() => {
     if (!open) return;
-    restoreFocusRef.current = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
+    restoreFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setQuery("");
     setActive(0);
     const t = requestAnimationFrame(() => inputRef.current?.focus());
@@ -75,9 +63,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   useEffect(() => {
     if (!open || !hits[active]) return;
-    const row = listRef.current?.querySelector<HTMLElement>(
-      '[data-palette-active="true"]',
-    );
+    const row = listRef.current?.querySelector<HTMLElement>('[data-palette-active="true"]');
     row?.scrollIntoView?.({ block: "nearest" });
   }, [active, hits, open]);
 
@@ -124,7 +110,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       if (e.key === "Tab") {
         const focusable = Array.from(
           e.currentTarget.querySelectorAll<HTMLElement>(
-            'input:not([disabled]), button:not([disabled]), [href]',
+            "input:not([disabled]), button:not([disabled]), [href]",
           ),
         );
         if (focusable.length === 0) return;
@@ -177,9 +163,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             className="kb-text w-full bg-transparent text-foreground/85 outline-none placeholder:text-foreground/25"
             aria-autocomplete="list"
             aria-controls="kb-palette-list"
-            aria-activedescendant={
-              hits[active] ? `kb-palette-${hits[active]!.id}` : undefined
-            }
+            aria-activedescendant={hits[active] ? `kb-palette-${hits[active]!.id}` : undefined}
           />
           <kbd className="hidden rounded border border-foreground/10 px-1.5 py-0.5 text-[10px] text-foreground/40 sm:inline">
             esc
@@ -192,9 +176,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           className="max-h-[min(20*2rem,50vh)] overflow-auto py-1"
         >
           {hits.length === 0 ? (
-            <li className="px-3 py-3 text-[13px] text-foreground/40">
-              No matches
-            </li>
+            <li className="px-3 py-3 text-[13px] text-foreground/40">No matches</li>
           ) : (
             hits.map((hit, i) => (
               <li key={hit.id} role="option" aria-selected={i === active}>
@@ -205,9 +187,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   type="button"
                   className={cn(
                     "flex w-full items-center gap-2 px-3 py-1.5 text-left",
-                    i === active
-                      ? "bg-foreground/[0.06]"
-                      : "hover:bg-foreground/[0.03]",
+                    i === active ? "bg-foreground/[0.06]" : "hover:bg-foreground/[0.03]",
                   )}
                   onMouseEnter={() => setActive(i)}
                   onClick={() => void selectHit(hit)}
@@ -243,9 +223,7 @@ export function PaletteTrigger({ onOpen }: { onOpen: () => void }) {
       aria-label="Open search palette"
     >
       <MagnifyingGlass size={14} className="shrink-0 text-foreground/25" />
-      <span className="flex-1 text-[13px] text-foreground/25">
-        Search and open…
-      </span>
+      <span className="flex-1 text-[13px] text-foreground/25">Search and open…</span>
       <kbd className="rounded border border-foreground/10 px-1.5 py-0.5 text-[10px] text-foreground/40">
         ⌘K
       </kbd>

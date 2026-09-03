@@ -51,9 +51,7 @@ describe("typed field seeds", () => {
       const option = byId.get(FIELD_TYPE_OPTION_IDS[type]);
       expect(option, type).toBeDefined();
       expect(option!.text).toBe(type);
-      expect(refs(option!, SYSTEM_IDS.typeField)).toEqual([
-        SYSTEM_IDS.fieldTypeTag,
-      ]);
+      expect(refs(option!, SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.fieldTypeTag]);
     }
   });
 
@@ -63,9 +61,7 @@ describe("typed field seeds", () => {
     const byId = new Map(systemSeedNodes().map((n) => [n.id, n]));
     const slot = byId.get(SYSTEM_IDS.fieldTypeField)!;
     expect(fieldTypeOf(slot.props)).toBe("ref");
-    expect(refs(slot, SYSTEM_IDS.targetTagField)).toEqual([
-      SYSTEM_IDS.fieldTypeTag,
-    ]);
+    expect(refs(slot, SYSTEM_IDS.targetTagField)).toEqual([SYSTEM_IDS.fieldTypeTag]);
   });
 
   test("a field node templates its own schema fields, like a tag does", () => {
@@ -82,18 +78,16 @@ describe("typed field seeds", () => {
   test("fieldTypeOf reads both the node form and the pre-option-node string", () => {
     // Older stores hold {t:"str"}. Both collapse here, so no migration runs
     // and no downstream code learns about two representations.
-    expect(fieldTypeOf({ [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("number")] })).toBe(
+    expect(fieldTypeOf({ [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("number")] })).toBe("number");
+    expect(fieldTypeOf({ [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "number" }] })).toBe(
       "number",
     );
-    expect(
-      fieldTypeOf({ [SYSTEM_IDS.fieldTypeField]: [{ t: "str", v: "number" }] }),
-    ).toBe("number");
     expect(fieldTypeOf({})).toBe("text");
     expect(fieldTypeOf(undefined)).toBe("text");
     // An unknown option id is not a crash and not a silent wrong type.
-    expect(
-      fieldTypeOf({ [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: "sys.ft.bogus" }] }),
-    ).toBe("text");
+    expect(fieldTypeOf({ [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: "sys.ft.bogus" }] })).toBe(
+      "text",
+    );
   });
 
   test("migration rewrites stored type strings to refs, and is idempotent", () => {
@@ -152,9 +146,7 @@ describe("typed field seeds", () => {
     ];
     const result = migrateFieldTypeValues(nodes);
     expect(result.changed).toBe(false);
-    expect(result.nodes[0]!.props[SYSTEM_IDS.fieldTypeField]).toEqual([
-      { t: "str", v: "colour" },
-    ]);
+    expect(result.nodes[0]!.props[SYSTEM_IDS.fieldTypeField]).toEqual([{ t: "str", v: "colour" }]);
   });
 
   test("ensureSystemSeed is idempotent over typed-field nodes", () => {
@@ -169,11 +161,7 @@ describe("typed field seeds", () => {
     const nodes = systemSeedNodes();
     expect(resolveFieldId(nodes, "fieldType")).toBe(SYSTEM_IDS.fieldTypeField);
     expect(resolveFieldId(nodes, "targetTag")).toBe(SYSTEM_IDS.targetTagField);
-    expect(resolveFieldId(nodes, "targetQuery")).toBe(
-      SYSTEM_IDS.targetQueryField,
-    );
-    expect(resolveFieldId(nodes, SYSTEM_IDS.fieldTypeField)).toBe(
-      SYSTEM_IDS.fieldTypeField,
-    );
+    expect(resolveFieldId(nodes, "targetQuery")).toBe(SYSTEM_IDS.targetQueryField);
+    expect(resolveFieldId(nodes, SYSTEM_IDS.fieldTypeField)).toBe(SYSTEM_IDS.fieldTypeField);
   });
 });

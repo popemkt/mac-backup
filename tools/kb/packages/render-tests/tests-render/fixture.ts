@@ -39,18 +39,10 @@ function node(
  * when renderer switching persists to this scratch data root.
  */
 export function renderFixtureNodes(): FixtureNode[] {
-  const leafIds = Array.from(
-    { length: 28 },
-    (_, index) => `render.fixture.node.${index + 1}`,
-  );
+  const leafIds = Array.from({ length: 28 }, (_, index) => `render.fixture.node.${index + 1}`);
   const rootId = "render.fixture.root";
   const leaves = leafIds.map((id, index) =>
-    node(
-      id,
-      `Fixture node ${index + 1} [[${rootId}|fixture root]]`,
-      [],
-      {},
-    ),
+    node(id, `Fixture node ${index + 1} [[${rootId}|fixture root]]`, [], {}),
   );
 
   return [

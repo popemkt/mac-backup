@@ -7,17 +7,13 @@ import { openKbEffect, runWithKb } from "../src/layers.ts";
 import { openKb, persist, reload } from "../src/session.ts";
 import { kbStoreLayer, KbStore } from "@kb/contracts";
 import { persistEffect, reloadEffect } from "@kb/operations";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
-import {
-  DomainError,
-  isDomainError,
-} from "@kb/model";
+import { bunFileSystemLayer, JsonlStore } from "@kb/store-jsonl";
+import { DomainError, isDomainError } from "@kb/model";
 import type { KbNode } from "@kb/model";
 import { SYSTEM_IDS } from "@kb/model";
 import { buildQueryDb } from "@kb/query";
 import { type EffectStore } from "@kb/contracts";
 import { canonicalJson } from "@kb/model";
-import { JsonlStore } from "@kb/store-jsonl";
 import type { StoreTx } from "@kb/model";
 
 async function tempRoot(): Promise<string> {
@@ -56,9 +52,7 @@ describe("JsonlStore Effect persistence", () => {
     const store = new JsonlStore(root);
     const nodes = [sampleNode("n.b", "b"), sampleNode("n.a", "a")];
     await Effect.runPromise(
-      store
-        .commitEffect({ upserts: nodes, deletes: [] })
-        .pipe(Effect.provide(bunFileSystemLayer)),
+      store.commitEffect({ upserts: nodes, deletes: [] }).pipe(Effect.provide(bunFileSystemLayer)),
     );
     const loaded = await Effect.runPromise(
       store.loadEffect().pipe(Effect.provide(bunFileSystemLayer)),
@@ -90,11 +84,7 @@ describe("JsonlStore Effect persistence", () => {
     root = await tempRoot();
     const store = new JsonlStore(root);
     await mkdir(join(root, ".kb"), { recursive: true });
-    await writeFile(
-      store.path,
-      `${JSON.stringify({ id: 1, text: "bad" })}\n`,
-      "utf8",
-    );
+    await writeFile(store.path, `${JSON.stringify({ id: 1, text: "bad" })}\n`, "utf8");
 
     const caught = await Effect.runPromise(
       store.loadEffect().pipe(
@@ -130,14 +120,10 @@ describe("JsonlStore Effect persistence", () => {
     );
     expect(loaded).toHaveLength(1);
     expect(loaded[0]!.id).toBe("n.extra");
-    expect((loaded[0] as KbNode & { legacyNote?: string }).legacyNote).toBe(
-      "keep-me",
-    );
+    expect((loaded[0] as KbNode & { legacyNote?: string }).legacyNote).toBe("keep-me");
 
     await Effect.runPromise(
-      store
-        .commitEffect({ upserts: loaded, deletes: [] })
-        .pipe(Effect.provide(bunFileSystemLayer)),
+      store.commitEffect({ upserts: loaded, deletes: [] }).pipe(Effect.provide(bunFileSystemLayer)),
     );
     const body = await readFile(store.path, "utf8");
     const rewritten = JSON.parse(body.trim()) as Record<string, unknown>;
@@ -172,12 +158,10 @@ describe("JsonlStore Effect persistence", () => {
     expect(afterLoad).toBe(original);
 
     const commitCaught = await Effect.runPromise(
-      store
-        .commitEffect({ upserts: [sampleNode("n.new")], deletes: [] })
-        .pipe(
-          Effect.provide(bunFileSystemLayer),
-          Effect.catch((e) => Effect.succeed(e)),
-        ),
+      store.commitEffect({ upserts: [sampleNode("n.new")], deletes: [] }).pipe(
+        Effect.provide(bunFileSystemLayer),
+        Effect.catch((e) => Effect.succeed(e)),
+      ),
     );
     expect(isDomainError(commitCaught)).toBe(true);
     const afterCommit = await readFile(store.path, "utf8");

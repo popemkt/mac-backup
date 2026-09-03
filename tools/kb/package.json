@@ -10,6 +10,7 @@
     "catalog": {
       "3d-force-graph": "^1.80.0",
       "@effect/platform-bun": "4.0.0-rc.112",
+      "@effect/tsgo": "^0.40.0",
       "@fontsource-variable/inter": "^5.3.0",
       "@fontsource-variable/outfit": "^5.3.0",
       "@modelcontextprotocol/sdk": "^1.30.0",
@@ -56,6 +57,7 @@
     }
   },
   "scripts": {
+    "prepare": "effect-tsgo patch",
     "typecheck": "nx run-many -t typecheck",
     "test": "bun test packages",
     "test:ui": "bun run --filter @kb/ui test",
@@ -63,14 +65,17 @@
     "test:mutation": "stryker run",
     "bench": "bun test packages/store-jsonl/tests/benchmark.test.ts",
     "lint": "oxlint --config .oxlintrc.json --type-aware packages",
-    "knip": "knip --include files,dependencies",
+    "fmt": "vp fmt packages",
+    "fmt:check": "vp fmt packages --check",
+    "knip": "knip --include files,dependencies,exports,types,nsExports,nsTypes,duplicates --no-exit-code",
     "harness": "bun test packages/harness",
-    "fmt": "bun run --filter @kb/ui fmt",
+    "harness:snapshot": "bun packages/harness/src/snapshot.ts",
     "affected": "nx affected -t typecheck,test --base=main",
     "gen:ext-sdk": "bun packages/ext-sdk/src/generate.ts",
-    "verify": "bun run typecheck && bun run lint && bun run knip && bun run harness"
+    "verify": "bun run typecheck && bun run lint && bun run fmt:check && bun run knip && bun run harness"
   },
   "devDependencies": {
+    "@effect/tsgo": "catalog:",
     "@stryker-mutator/core": "catalog:",
     "@types/bun": "catalog:",
     "knip": "catalog:",

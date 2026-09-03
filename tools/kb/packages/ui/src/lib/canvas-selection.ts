@@ -30,20 +30,14 @@ export function selectEdge(edgeId: string): CanvasSelection {
   return { nodeIds: new Set(), edgeIds: new Set([edgeId]) };
 }
 
-export function toggleNode(
-  sel: CanvasSelection,
-  nodeId: string,
-): CanvasSelection {
+export function toggleNode(sel: CanvasSelection, nodeId: string): CanvasSelection {
   const next = new Set(sel.nodeIds);
   if (next.has(nodeId)) next.delete(nodeId);
   else next.add(nodeId);
   return { nodeIds: next, edgeIds: new Set(sel.edgeIds) };
 }
 
-export function toggleEdge(
-  sel: CanvasSelection,
-  edgeId: string,
-): CanvasSelection {
+export function toggleEdge(sel: CanvasSelection, edgeId: string): CanvasSelection {
   const next = new Set(sel.edgeIds);
   if (next.has(edgeId)) next.delete(edgeId);
   else next.add(edgeId);
@@ -76,10 +70,7 @@ export function marqueeSelect(
 }
 
 /** Merge additive marquee results into existing selection. */
-export function addNodes(
-  sel: CanvasSelection,
-  ids: Set<string>,
-): CanvasSelection {
+export function addNodes(sel: CanvasSelection, ids: Set<string>): CanvasSelection {
   const merged = new Set(sel.nodeIds);
   for (const id of ids) merged.add(id);
   return { nodeIds: merged, edgeIds: new Set(sel.edgeIds) };
@@ -89,20 +80,14 @@ export function addNodes(
  * Delete all selected nodes + edges from doc.
  * Cascade: edges incident to deleted nodes are also removed.
  */
-export function deleteSelected(
-  doc: CanvasDoc,
-  sel: CanvasSelection,
-): CanvasDoc {
+export function deleteSelected(doc: CanvasDoc, sel: CanvasSelection): CanvasDoc {
   const deadNodes = sel.nodeIds;
   const deadEdges = sel.edgeIds;
   return {
     ...doc,
     nodes: doc.nodes.filter((n) => !deadNodes.has(n.id)),
     edges: doc.edges.filter(
-      (e) =>
-        !deadEdges.has(e.id) &&
-        !deadNodes.has(e.fromNode) &&
-        !deadNodes.has(e.toNode),
+      (e) => !deadEdges.has(e.id) && !deadNodes.has(e.fromNode) && !deadNodes.has(e.toNode),
     ),
   };
 }

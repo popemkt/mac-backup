@@ -71,17 +71,17 @@ export const RENDERER_CAPABILITIES: Record<string, RendererCapabilities> = {
   },
 };
 
-export function capabilitiesFor(
-  renderer: LensRenderer,
-): RendererCapabilities {
-  return RENDERER_CAPABILITIES[renderer] ?? {
-    fit: false,
-    zoom: false,
-    reset: false,
-    focus: false,
-    search: false,
-    selection: false,
-    dim: false,
-    drag: false,
-  };
+export function capabilitiesFor(renderer: LensRenderer): RendererCapabilities {
+  return (
+    RENDERER_CAPABILITIES[renderer] ?? {
+      fit: false,
+      zoom: false,
+      reset: false,
+      focus: false,
+      search: false,
+      selection: false,
+      dim: false,
+      drag: false,
+    }
+  );
 }

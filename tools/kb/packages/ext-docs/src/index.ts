@@ -49,61 +49,54 @@ function mapDocsFs(err: unknown, message: string): DocsError {
   );
 }
 
-export const docsMaterializeEffect = Effect.fn("ext.docs.materialize")(
-  function* (
-    input: z.infer<typeof viewInput>,
-  ): Effect.fn.Return<z.infer<typeof materializeOutput>, DocsError, DocsEnv> {
-    const ctx = yield* KbCtx;
-    const fs = yield* FileSystem;
-    const views = yield* loadViewsEffect(ctx.root, input.view);
-    const written: { view: string; output: string }[] = [];
-    for (const view of views) {
-      const content = yield* renderViewEffect(view);
-      const path = join(ctx.root, view.spec.output);
-      yield* fs.makeDirectory(dirname(path), { recursive: true }).pipe(
-        Effect.mapError((err) => mapDocsFs(err, `mkdir ${dirname(path)}`)),
-      );
-      yield* fs.writeFileString(path, content).pipe(
-        Effect.mapError((err) => mapDocsFs(err, `write ${path}`)),
-      );
-      written.push({ view: view.name, output: view.spec.output });
-    }
-    return { written };
-  },
-);
+export const docsMaterializeEffect = Effect.fn("ext.docs.materialize")(function* (
+  input: z.infer<typeof viewInput>,
+): Effect.fn.Return<z.infer<typeof materializeOutput>, DocsError, DocsEnv> {
+  const ctx = yield* KbCtx;
+  const fs = yield* FileSystem;
+  const views = yield* loadViewsEffect(ctx.root, input.view);
+  const written: { view: string; output: string }[] = [];
+  for (const view of views) {
+    const content = yield* renderViewEffect(view);
+    const path = join(ctx.root, view.spec.output);
+    yield* fs
+      .makeDirectory(dirname(path), { recursive: true })
+      .pipe(Effect.mapError((err) => mapDocsFs(err, `mkdir ${dirname(path)}`)));
+    yield* fs
+      .writeFileString(path, content)
+      .pipe(Effect.mapError((err) => mapDocsFs(err, `write ${path}`)));
+    written.push({ view: view.name, output: view.spec.output });
+  }
+  return { written };
+});
 
-export const docsCheckEffect = Effect.fn("ext.docs.check")(
-  function* (
-    input: z.infer<typeof viewInput>,
-  ): Effect.fn.Return<z.infer<typeof checkOutput>, DocsError, DocsEnv> {
-    const ctx = yield* KbCtx;
-    const fs = yield* FileSystem;
-    const views = yield* loadViewsEffect(ctx.root, input.view);
-    const results: z.infer<typeof checkOutput>["views"] = [];
-    for (const view of views) {
-      const expected = yield* renderViewEffect(view);
-      const path = join(ctx.root, view.spec.output);
-      const status = yield* fs.readFileString(path).pipe(
-        Effect.map((actual) =>
-          actual === expected ? ("clean" as const) : ("stale" as const),
-        ),
-        Effect.catch(() => Effect.succeed("missing" as const)),
-      );
-      results.push({ view: view.name, output: view.spec.output, status });
-    }
-    return {
-      clean: results.every((r) => r.status === "clean"),
-      views: results,
-    };
-  },
-);
+export const docsCheckEffect = Effect.fn("ext.docs.check")(function* (
+  input: z.infer<typeof viewInput>,
+): Effect.fn.Return<z.infer<typeof checkOutput>, DocsError, DocsEnv> {
+  const ctx = yield* KbCtx;
+  const fs = yield* FileSystem;
+  const views = yield* loadViewsEffect(ctx.root, input.view);
+  const results: z.infer<typeof checkOutput>["views"] = [];
+  for (const view of views) {
+    const expected = yield* renderViewEffect(view);
+    const path = join(ctx.root, view.spec.output);
+    const status = yield* fs.readFileString(path).pipe(
+      Effect.map((actual) => (actual === expected ? ("clean" as const) : ("stale" as const))),
+      Effect.catch(() => Effect.succeed("missing" as const)),
+    );
+    results.push({ view: view.name, output: view.spec.output, status });
+  }
+  return {
+    clean: results.every((r) => r.status === "clean"),
+    views: results,
+  };
+});
 
 const actions: ExtensionAction[] = [
   {
     id: "materialize",
     title: "Materialize docs",
-    description:
-      "Run view specs from .kb/views (all, or one by name) and write generated markdown",
+    description: "Run view specs from .kb/views (all, or one by name) and write generated markdown",
     mode: "apply",
     inputSchema: viewInput,
     outputSchema: materializeOutput,

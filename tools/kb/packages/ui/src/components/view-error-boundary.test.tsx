@@ -2,10 +2,7 @@ import { act, createElement, type ReactElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import {
-  ViewError,
-  ViewErrorBoundary,
-} from "@/components/view-error-boundary";
+import { ViewError, ViewErrorBoundary } from "@/components/view-error-boundary";
 
 function Boom({ fail }: { fail: boolean }): ReactElement {
   if (fail) throw new Error("webgl kaboom");
@@ -55,10 +52,7 @@ describe("ViewErrorBoundary", () => {
   it("renders children when healthy", () => {
     act(() => {
       root.render(
-        createElement(
-          ViewErrorBoundary,
-          { children: createElement(Boom, { fail: false }) },
-        ),
+        createElement(ViewErrorBoundary, { children: createElement(Boom, { fail: false }) }),
       );
     });
     expect(container.querySelector('[data-testid="ok"]')).not.toBeNull();
@@ -116,9 +110,7 @@ describe("ViewErrorBoundary", () => {
         }),
       );
     });
-    const btn = container.querySelector(
-      '[data-testid="view-error-retry"]',
-    ) as HTMLButtonElement;
+    const btn = container.querySelector('[data-testid="view-error-retry"]') as HTMLButtonElement;
     act(() => {
       btn.click();
     });

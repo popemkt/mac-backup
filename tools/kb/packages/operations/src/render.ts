@@ -1,15 +1,10 @@
 import { Effect } from "effect";
-import { FileSystem } from "effect/FileSystem";
+import { type FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import { KbCtx } from "@kb/contracts";
 import type { ActionDefinition } from "@kb/contracts";
 import { DomainError, domainError } from "@kb/model";
-import {
-  DocsError,
-  GENERATED_HEADER,
-  loadViewsEffect,
-  renderViewEffect,
-} from "./docs/docs.ts";
+import { DocsError, GENERATED_HEADER, loadViewsEffect, renderViewEffect } from "./docs/docs.ts";
 
 type RenderError = DomainError | DocsError;
 type RenderEnv = KbCtx | FileSystem;
@@ -18,10 +13,7 @@ type RenderEnv = KbCtx | FileSystem;
 export function mapRenderErr(err: unknown): RenderError {
   if (err instanceof DocsError) return err;
   if (err instanceof DomainError) return err;
-  return domainError(
-    "internal",
-    err instanceof Error ? err.message : String(err),
-  );
+  return domainError("internal", err instanceof Error ? err.message : String(err));
 }
 
 /**
@@ -84,49 +76,48 @@ const HTML_SHELL_STYLE =
  * Render a saved view (.kb/views/<name>.json) as md (materializer bytes,
  * including the generated header) or as a self-contained html page.
  */
-export const renderNamedViewEffect = Effect.fn("render.namedView")(
-  function* (
-    viewName: string,
-    format: RenderFormat,
-  ): Effect.fn.Return<RenderedView, RenderError, RenderEnv> {
-    const ctx = yield* KbCtx;
-    const views = yield* loadViewsEffect(ctx.root, viewName);
-    const view = views[0];
-    if (!view) {
-      return yield* Effect.fail(
-        new DocsError("not_found", `view not found: ${viewName}`, { viewName }),
-      );
-    }
-    const md = yield* renderViewEffect(view);
-    if (format === "md") {
-      return { name: viewName, format, content: md };
-    }
-    const body = md.replace(GENERATED_HEADER, "").trim();
-    const html = [
-      `<!doctype html><meta charset="utf-8"><title>kb: ${escapeHtml(viewName)}</title>`,
-      `<body style="${HTML_SHELL_STYLE}">`,
-      mdToHtml(body),
-      "</body>",
-    ].join("\n");
-    return { name: viewName, format, content: html };
-  },
-);
+export const renderNamedViewEffect = Effect.fn("render.namedView")(function* (
+  viewName: string,
+  format: RenderFormat,
+): Effect.fn.Return<RenderedView, RenderError, RenderEnv> {
+  const ctx = yield* KbCtx;
+  const views = yield* loadViewsEffect(ctx.root, viewName);
+  const view = views[0];
+  if (!view) {
+    return yield* Effect.fail(
+      new DocsError("not_found", `view not found: ${viewName}`, { viewName }),
+    );
+  }
+  const md = yield* renderViewEffect(view);
+  if (format === "md") {
+    return { name: viewName, format, content: md };
+  }
+  const body = md.replace(GENERATED_HEADER, "").trim();
+  const html = [
+    `<!doctype html><meta charset="utf-8"><title>kb: ${escapeHtml(viewName)}</title>`,
+    `<body style="${HTML_SHELL_STYLE}">`,
+    mdToHtml(body),
+    "</body>",
+  ].join("\n");
+  return { name: viewName, format, content: html };
+});
 
-export const listViewNamesEffect = Effect.fn("render.listViews")(
-  function* (): Effect.fn.Return<string[], RenderError, RenderEnv> {
-    const ctx = yield* KbCtx;
-    const views = yield* loadViewsEffect(ctx.root);
-    return views.map((v) => v.name).sort();
-  },
-);
+export const listViewNamesEffect = Effect.fn("render.listViews")(function* (): Effect.fn.Return<
+  string[],
+  RenderError,
+  RenderEnv
+> {
+  const ctx = yield* KbCtx;
+  const views = yield* loadViewsEffect(ctx.root);
+  return views.map((v) => v.name).sort();
+});
 
 // ── registry actions: the render backbone exposed over /api/action ──────
 
 export const renderViewDef = {
   id: "render.view",
   title: "Render view",
-  description:
-    "Render a saved view (.kb/views/<name>.json) to html or md and return the content",
+  description: "Render a saved view (.kb/views/<name>.json) to html or md and return the content",
   mode: "read" as const,
   inputSchema: z.object({
     name: z.string().min(1),
@@ -148,16 +139,16 @@ export const renderViewsDef = {
   outputSchema: z.object({ views: z.array(z.string()) }),
 } satisfies ActionDefinition;
 
-export const renderViewActionEffect = Effect.fn("render.view")(
-  function* (
-    input: z.infer<typeof renderViewDef.inputSchema>,
-  ): Effect.fn.Return<RenderedView, RenderError, RenderEnv> {
-    return yield* renderNamedViewEffect(input.name, input.format);
-  },
-);
+export const renderViewActionEffect = Effect.fn("render.view")(function* (
+  input: z.infer<typeof renderViewDef.inputSchema>,
+): Effect.fn.Return<RenderedView, RenderError, RenderEnv> {
+  return yield* renderNamedViewEffect(input.name, input.format);
+});
 
-export const renderViewsActionEffect = Effect.fn("render.views")(
-  function* (): Effect.fn.Return<{ views: string[] }, RenderError, RenderEnv> {
-    return { views: yield* listViewNamesEffect() };
-  },
-);
+export const renderViewsActionEffect = Effect.fn("render.views")(function* (): Effect.fn.Return<
+  { views: string[] },
+  RenderError,
+  RenderEnv
+> {
+  return { views: yield* listViewNamesEffect() };
+});

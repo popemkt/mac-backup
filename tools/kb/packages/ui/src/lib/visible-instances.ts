@@ -7,17 +7,9 @@
  */
 import type { QueryDb } from "@/ds/db";
 import { runQuery } from "@/ds/query";
-import {
-  childInstanceKey,
-  outlineInstanceKey,
-  queryResultInstanceKey,
-} from "@/lib/instance-key";
+import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
 import { frameListChildren, frameRows } from "@/lib/frame-rows";
-import {
-  isQueryNode,
-  queryDefOf,
-  resultNodeIds,
-} from "@/lib/query-node";
+import { isQueryNode, queryDefOf, resultNodeIds } from "@/lib/query-node";
 import type { NodeMap } from "@/lib/types";
 import { getViewConfig, isProjectedViewMode } from "@/lib/view-config";
 

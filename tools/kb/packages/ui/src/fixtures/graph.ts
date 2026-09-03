@@ -3,8 +3,7 @@ import type { GraphSnapshot, WireNode } from "@kb/contracts";
 const ISO = "2026-08-08T05:00:00.000Z";
 
 function node(
-  partial: Pick<WireNode, "id" | "text"> &
-    Partial<Omit<WireNode, "id" | "text">>,
+  partial: Pick<WireNode, "id" | "text"> & Partial<Omit<WireNode, "id" | "text">>,
 ): WireNode {
   return {
     props: {},

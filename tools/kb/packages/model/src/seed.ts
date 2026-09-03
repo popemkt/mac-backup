@@ -1,14 +1,5 @@
-import {
-  LEGACY_LENS_ALL_MENTIONS,
-  SYSTEM_IDS,
-  type KbNode,
-  nowIso,
-} from "./model.ts";
-import {
-  FIELD_TYPES,
-  FIELD_TYPE_OPTION_IDS,
-  fieldTypeValue,
-} from "./field-type.ts";
+import { LEGACY_LENS_ALL_MENTIONS, SYSTEM_IDS, type KbNode, nowIso } from "./model.ts";
+import { FIELD_TYPES, FIELD_TYPE_OPTION_IDS, fieldTypeValue } from "./field-type.ts";
 import { ONTOLOGY_TARGET_QUERY } from "./ontology.ts";
 
 /**
@@ -148,65 +139,21 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   // View configuration field nodes (W7.0)
   const viewModeField = mk(SYSTEM_IDS.viewModeField, "view.mode", fieldType);
   const viewSortField = mk(SYSTEM_IDS.viewSortField, "view.sort", fieldType);
-  const viewSortDirField = mk(
-    SYSTEM_IDS.viewSortDirField,
-    "view.sort.dir",
-    fieldType,
-  );
-  const viewDisplayField = mk(
-    SYSTEM_IDS.viewDisplayField,
-    "view.display",
-    fieldType,
-  );
-  const viewColwidthField = mk(
-    SYSTEM_IDS.viewColwidthField,
-    "view.colwidth",
-    fieldType,
-  );
-  const viewPagesizeField = mk(
-    SYSTEM_IDS.viewPagesizeField,
-    "view.pagesize",
-    fieldType,
-  );
+  const viewSortDirField = mk(SYSTEM_IDS.viewSortDirField, "view.sort.dir", fieldType);
+  const viewDisplayField = mk(SYSTEM_IDS.viewDisplayField, "view.display", fieldType);
+  const viewColwidthField = mk(SYSTEM_IDS.viewColwidthField, "view.colwidth", fieldType);
+  const viewPagesizeField = mk(SYSTEM_IDS.viewPagesizeField, "view.pagesize", fieldType);
   const viewGroupField = mk(SYSTEM_IDS.viewGroupField, "view.group", fieldType);
-  const viewFilterField = mk(
-    SYSTEM_IDS.viewFilterField,
-    "view.filter",
-    fieldType,
-  );
+  const viewFilterField = mk(SYSTEM_IDS.viewFilterField, "view.filter", fieldType);
 
   // Graph perspectives (V0): #graph-perspective tag + lens field template.
   const lensQueryField = mk(SYSTEM_IDS.lensQueryField, "lens.query", fieldType);
-  const lensRendererField = mk(
-    SYSTEM_IDS.lensRendererField,
-    "lens.renderer",
-    fieldType,
-  );
-  const lensColorByField = mk(
-    SYSTEM_IDS.lensColorByField,
-    "lens.color-by",
-    fieldType,
-  );
-  const lensSizeByField = mk(
-    SYSTEM_IDS.lensSizeByField,
-    "lens.size-by",
-    fieldType,
-  );
-  const lensEdgeKindsField = mk(
-    SYSTEM_IDS.lensEdgeKindsField,
-    "lens.edge-kinds",
-    fieldType,
-  );
-  const lensMaxNodesField = mk(
-    SYSTEM_IDS.lensMaxNodesField,
-    "lens.max-nodes",
-    fieldType,
-  );
-  const lensClusterByField = mk(
-    SYSTEM_IDS.lensClusterByField,
-    "lens.cluster-by",
-    fieldType,
-  );
+  const lensRendererField = mk(SYSTEM_IDS.lensRendererField, "lens.renderer", fieldType);
+  const lensColorByField = mk(SYSTEM_IDS.lensColorByField, "lens.color-by", fieldType);
+  const lensSizeByField = mk(SYSTEM_IDS.lensSizeByField, "lens.size-by", fieldType);
+  const lensEdgeKindsField = mk(SYSTEM_IDS.lensEdgeKindsField, "lens.edge-kinds", fieldType);
+  const lensMaxNodesField = mk(SYSTEM_IDS.lensMaxNodesField, "lens.max-nodes", fieldType);
+  const lensClusterByField = mk(SYSTEM_IDS.lensClusterByField, "lens.cluster-by", fieldType);
   const lensFocusField = mk(SYSTEM_IDS.lensFocusField, "lens.focus", fieldType);
   const lensLayoutField = mk(SYSTEM_IDS.lensLayoutField, "lens.layout", fieldType);
   const lensSpreadField = mk(SYSTEM_IDS.lensSpreadField, "lens.spread", fieldType);
@@ -215,21 +162,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     "lens.link-distance",
     fieldType,
   );
-  const lensShowLabelsField = mk(
-    SYSTEM_IDS.lensShowLabelsField,
-    "lens.show-labels",
-    fieldType,
-  );
-  const lensCurvedLinksField = mk(
-    SYSTEM_IDS.lensCurvedLinksField,
-    "lens.curved-links",
-    fieldType,
-  );
-  const lensAutorotateField = mk(
-    SYSTEM_IDS.lensAutorotateField,
-    "lens.autorotate",
-    fieldType,
-  );
+  const lensShowLabelsField = mk(SYSTEM_IDS.lensShowLabelsField, "lens.show-labels", fieldType);
+  const lensCurvedLinksField = mk(SYSTEM_IDS.lensCurvedLinksField, "lens.curved-links", fieldType);
+  const lensAutorotateField = mk(SYSTEM_IDS.lensAutorotateField, "lens.autorotate", fieldType);
   const lensLabelDensityField = mk(
     SYSTEM_IDS.lensLabelDensityField,
     "lens.label-density",
@@ -256,9 +191,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ],
   });
   const lensAllMentions = mk(SYSTEM_IDS.lensAllMentions, "All mentions", {
-    [SYSTEM_IDS.typeField]: [
-      { t: "ref", v: SYSTEM_IDS.graphPerspectiveTag },
-    ],
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.graphPerspectiveTag }],
     [SYSTEM_IDS.lensRendererField]: [{ t: "str", v: "force2d" }],
     [SYSTEM_IDS.lensClusterByField]: [{ t: "str", v: "parent" }],
     [SYSTEM_IDS.lensEdgeKindsField]: [
@@ -281,24 +214,16 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     mk(id, text, {
       ...fieldType,
       [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
-      ...(targetTag
-        ? { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: targetTag }] }
-        : {}),
+      ...(targetTag ? { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: targetTag }] } : {}),
     });
-  const ontoIncludeField = refField(
-    SYSTEM_IDS.ontoIncludeField,
-    "onto.include",
-    SYSTEM_IDS.tag,
-  );
+  const ontoIncludeField = refField(SYSTEM_IDS.ontoIncludeField, "onto.include", SYSTEM_IDS.tag);
   const ontoMemberField = refField(SYSTEM_IDS.ontoMemberField, "onto.member");
   const ontoExcludeField = refField(SYSTEM_IDS.ontoExcludeField, "onto.exclude");
   // targetQuery (not targetTag) so the ref picker offers only #ontology nodes.
   const ontoExtendsField = mk(SYSTEM_IDS.ontoExtendsField, "onto.extends", {
     ...fieldType,
     [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
-    [SYSTEM_IDS.targetQueryField]: [
-      { t: "str", v: ONTOLOGY_TARGET_QUERY },
-    ],
+    [SYSTEM_IDS.targetQueryField]: [{ t: "str", v: ONTOLOGY_TARGET_QUERY }],
   });
   const ontoQueryField = mk(SYSTEM_IDS.ontoQueryField, "onto.query", {
     ...fieldType,
@@ -445,12 +370,8 @@ export function ensureSystemSeed(
     if (!seedTag || !existingTag) continue;
     const want = seedTag.props[SYSTEM_IDS.fieldsField] ?? [];
     const have = existingTag.props[SYSTEM_IDS.fieldsField] ?? [];
-    const haveIds = new Set(
-      have.filter((v) => v.t === "ref").map((v) => String(v.v)),
-    );
-    const missing = want.filter(
-      (v) => v.t === "ref" && !haveIds.has(String(v.v)),
-    );
+    const haveIds = new Set(have.filter((v) => v.t === "ref").map((v) => String(v.v)));
+    const missing = want.filter((v) => v.t === "ref" && !haveIds.has(String(v.v)));
     if (missing.length === 0) continue;
     byId.set(tagId, {
       ...existingTag,

@@ -99,9 +99,7 @@ describe("per-node debug field rows", () => {
   }
 
   const debugRows = (nodeId: string) =>
-    container.querySelectorAll(
-      `[data-fields-for="${nodeId}"] [data-debug-field="true"]`,
-    ).length;
+    container.querySelectorAll(`[data-fields-for="${nodeId}"] [data-debug-field="true"]`).length;
 
   it("shows no debug rows until a node asks for them", async () => {
     await render();

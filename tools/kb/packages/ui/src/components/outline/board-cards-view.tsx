@@ -1,16 +1,8 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
 import { formatPropValue } from "@/lib/graph-view";
-import {
-  childInstanceKey,
-  outlineInstanceKey,
-  queryResultInstanceKey,
-} from "@/lib/instance-key";
-import {
-  emptyValueForType,
-  isValueMismatch,
-  resolveFieldTypeById,
-} from "@/lib/field-type";
+import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
+import { emptyValueForType, isValueMismatch, resolveFieldTypeById } from "@/lib/field-type";
 import { cn } from "@/lib/cn";
 import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
 import { frameRows } from "@/lib/frame-rows";
@@ -63,20 +55,13 @@ export function BoardCardsView({
   const storeWidth = usePrefsStore((s) => s.width);
   const widthPref = widthPrefProp ?? storeWidth;
 
-  const baseInstanceKey =
-    frameInstanceKey ?? outlineInstanceKey(frameId, nodes);
+  const baseInstanceKey = frameInstanceKey ?? outlineInstanceKey(frameId, nodes);
 
-  const viewConfig = useMemo(
-    () => getViewConfig(frameNode?.props),
-    [frameNode?.props],
-  );
+  const viewConfig = useMemo(() => getViewConfig(frameNode?.props), [frameNode?.props]);
 
   // Grouping and order come from the shared owner: board columns and the flat
   // nav order are two views of one computation.
-  const rows = useMemo(
-    () => frameRows({ frameId, nodes, rowIds }),
-    [frameId, nodes, rowIds],
-  );
+  const rows = useMemo(() => frameRows({ frameId, nodes, rowIds }), [frameId, nodes, rowIds]);
   const sorted = rows.ordered;
   const columns = rows.columns;
   const groupFieldId = rows.groupFieldId;
@@ -110,19 +95,10 @@ export function BoardCardsView({
       if (!node) return;
       const oldVal = node.props[groupFieldId]?.[0] ?? null;
       if (columnKey === EMPTY_GROUP_KEY && !oldVal) return;
-      if (
-        oldVal &&
-        columnValue &&
-        JSON.stringify(oldVal) === JSON.stringify(columnValue)
-      ) {
+      if (oldVal && columnValue && JSON.stringify(oldVal) === JSON.stringify(columnValue)) {
         return;
       }
-      void mutations.moveBoardCard(
-        dragNodeId,
-        groupFieldId,
-        oldVal,
-        columnValue,
-      );
+      void mutations.moveBoardCard(dragNodeId, groupFieldId, oldVal, columnValue);
       setDragNodeId(null);
     },
     [dragNodeId, groupFieldId, isQuerySource, nodes],
@@ -143,8 +119,7 @@ export function BoardCardsView({
         data-frame-id={frameId}
       >
         <p>
-          Set <code className="text-foreground/60">view.group</code> to use the
-          board.
+          Set <code className="text-foreground/60">view.group</code> to use the board.
         </p>
         <button
           type="button"
@@ -211,9 +186,7 @@ export function BoardCardsView({
             >
               <div className="px-2 py-1.5 text-[11px] font-medium text-foreground/35 border-b border-foreground/[0.06]">
                 {col.label || "All"}
-                <span className="ml-1 text-foreground/25">
-                  {col.nodes.length}
-                </span>
+                <span className="ml-1 text-foreground/25">{col.nodes.length}</span>
               </div>
               <div className="flex flex-col gap-2 p-2 min-h-16">
                 {col.nodes.map((child) => (
@@ -261,8 +234,7 @@ const ViewCard = memo(function ViewCard({
     (s) => s.activeNodeId === child.id && s.activeInstanceKey === instanceKey,
   );
   const isSelected = useOutlineStore(
-    (s) =>
-      s.selectedNodeId === child.id && s.selectedInstanceKey === instanceKey,
+    (s) => s.selectedNodeId === child.id && s.selectedInstanceKey === instanceKey,
   );
   const selectNode = useOutlineStore((s) => s.selectNode);
   const activateNode = useOutlineStore((s) => s.activateNode);
@@ -358,9 +330,7 @@ const ViewCard = memo(function ViewCard({
                     display=""
                     fieldType={fieldType}
                     nodes={nodes}
-                    onCommit={(next) =>
-                      void mutations.updateProp(child.id, col.fieldId, next)
-                    }
+                    onCommit={(next) => void mutations.updateProp(child.id, col.fieldId, next)}
                   />
                 </FieldRow>
               );
@@ -379,9 +349,7 @@ const ViewCard = memo(function ViewCard({
                   display={formatPropValue(v, nodes)}
                   fieldType={fieldType}
                   nodes={nodes}
-                  onCommit={(next) =>
-                    void mutations.updateProp(child.id, col.fieldId, next, v)
-                  }
+                  onCommit={(next) => void mutations.updateProp(child.id, col.fieldId, next, v)}
                 />
               </FieldRow>
             ));

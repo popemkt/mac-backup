@@ -27,9 +27,7 @@ export const PREFS_STORAGE_KEY = "kb-prefs";
 
 /** Default open on large viewports; closed on narrow (first visit / missing key). */
 export function defaultSidebarOpen(
-  widthPx: number | null = typeof window !== "undefined"
-    ? window.innerWidth
-    : null,
+  widthPx: number | null = typeof window !== "undefined" ? window.innerWidth : null,
 ): boolean {
   if (widthPx == null) return true;
   return widthPx >= 1024;
@@ -45,9 +43,7 @@ export const DEFAULT_PREFS: Prefs = {
 /** Parse a raw localStorage payload; unknown values fall back to defaults. */
 export function loadPrefs(
   raw: string | null,
-  viewportWidth: number | null = typeof window !== "undefined"
-    ? window.innerWidth
-    : null,
+  viewportWidth: number | null = typeof window !== "undefined" ? window.innerWidth : null,
 ): Prefs {
   if (!raw) {
     return { ...DEFAULT_PREFS, sidebarOpen: defaultSidebarOpen(viewportWidth) };
@@ -55,10 +51,7 @@ export function loadPrefs(
   try {
     const parsed = JSON.parse(raw) as Partial<Prefs> | null;
     return {
-      theme:
-        parsed?.theme === "light" || parsed?.theme === "dark"
-          ? parsed.theme
-          : "system",
+      theme: parsed?.theme === "light" || parsed?.theme === "dark" ? parsed.theme : "system",
       font: parsed?.font === "outfit" ? "outfit" : "inter",
       width: parsed?.width === "full" ? "full" : "centered",
       sidebarOpen:

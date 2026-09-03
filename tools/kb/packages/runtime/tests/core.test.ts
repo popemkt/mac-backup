@@ -2,13 +2,17 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { canonicalJson } from "@kb/model";
+import {
+  canonicalJson,
+  SYSTEM_IDS,
+  type KbNode,
+  ensureSystemSeed,
+  systemSeedNodes,
+  txIntegrityError,
+} from "@kb/model";
 import { JsonlStore } from "@kb/store-jsonl";
 import { openKb } from "../src/session.ts";
-import { SYSTEM_IDS, type KbNode } from "@kb/model";
-import { ensureSystemSeed, systemSeedNodes } from "@kb/model";
 import { invoke, manifest } from "../src/registry.ts";
-import { txIntegrityError } from "@kb/model";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-test-"));
@@ -124,9 +128,9 @@ describe("system seed", () => {
     );
 
     // A key the store already carries is the owner's, seed default or not.
-    expect(
-      byId.get(SYSTEM_IDS.lensAllMentions)!.props[SYSTEM_IDS.lensClusterByField],
-    ).toEqual([{ t: "str", v: "none" }]);
+    expect(byId.get(SYSTEM_IDS.lensAllMentions)!.props[SYSTEM_IDS.lensClusterByField]).toEqual([
+      { t: "str", v: "none" },
+    ]);
   });
 });
 
@@ -171,9 +175,7 @@ describe("registry + operations", () => {
       input: {
         text: "Ship M1 [[sys.tag|tag]]",
         tags: ["todo"],
-        props: [
-          { field: "status", value: { t: "str", v: "doing" } },
-        ],
+        props: [{ field: "status", value: { t: "str", v: "doing" } }],
       },
     });
     expect(added.status).toBe("succeeded");
@@ -214,9 +216,7 @@ describe("registry + operations", () => {
     expect(mq.status).toBe("succeeded");
     if (mq.status !== "succeeded") return;
     const mrows = (mq.output as { rows: unknown[][] }).rows;
-    expect(mrows.some((r) => r[0] === nodeId && r[1] === SYSTEM_IDS.tag)).toBe(
-      true,
-    );
+    expect(mrows.some((r) => r[0] === nodeId && r[1] === SYSTEM_IDS.tag)).toBe(true);
 
     // status field prop
     const sq = await invoke(ctx, {
@@ -230,9 +230,7 @@ describe("registry + operations", () => {
     expect(sq.status).toBe("succeeded");
     if (sq.status !== "succeeded") return;
     expect(
-      (sq.output as { rows: unknown[][] }).rows.some(
-        (r) => r[0] === nodeId && r[1] === "doing",
-      ),
+      (sq.output as { rows: unknown[][] }).rows.some((r) => r[0] === nodeId && r[1] === "doing"),
     ).toBe(true);
   });
 
@@ -310,16 +308,36 @@ describe("registry + operations", () => {
     const ctx = await openKb(root);
     const parent = await invoke(ctx, { id: "node.add", input: { id: "n.parent", text: "parent" } });
     expect(parent.status).toBe("succeeded");
-    await invoke(ctx, { id: "node.add", input: { id: "n.child", text: "child", parent: "n.parent" } });
-    await invoke(ctx, { id: "node.add", input: { id: "n.grandchild", text: "grandchild", parent: "n.child" } });
+    await invoke(ctx, {
+      id: "node.add",
+      input: { id: "n.child", text: "child", parent: "n.parent" },
+    });
+    await invoke(ctx, {
+      id: "node.add",
+      input: { id: "n.grandchild", text: "grandchild", parent: "n.child" },
+    });
 
-    const deleted = await invoke(ctx, { id: "node.update", input: { id: "n.parent", delete: true } });
+    const deleted = await invoke(ctx, {
+      id: "node.update",
+      input: { id: "n.parent", delete: true },
+    });
     expect(deleted.status).toBe("succeeded");
-    expect(ctx.nodes.some((node) => node.id === "n.child" || node.id === "n.grandchild")).toBe(false);
+    expect(ctx.nodes.some((node) => node.id === "n.child" || node.id === "n.grandchild")).toBe(
+      false,
+    );
 
-    const p: KbNode = { id: "p", text: "p", props: {}, children: ["c"], createdAt: "", updatedAt: "" };
+    const p: KbNode = {
+      id: "p",
+      text: "p",
+      props: {},
+      children: ["c"],
+      createdAt: "",
+      updatedAt: "",
+    };
     const c: KbNode = { id: "c", text: "c", props: {}, children: [], createdAt: "", updatedAt: "" };
-    expect(txIntegrityError([p, c], { upserts: [], deletes: ["p"] })).toContain("orphan descendant c");
+    expect(txIntegrityError([p, c], { upserts: [], deletes: ["p"] })).toContain(
+      "orphan descendant c",
+    );
   });
 
   test("graph.query keeps colons inside string literals intact", async () => {
@@ -347,9 +365,7 @@ describe("registry + operations", () => {
     if (blocked.status === "failed") {
       expect(blocked.code).toBe("forbidden");
     }
-    expect(ctx.nodes.find((n) => n.id === SYSTEM_IDS.tag)?.text).toBe(
-      "sys.tag",
-    );
+    expect(ctx.nodes.find((n) => n.id === SYSTEM_IDS.tag)?.text).toBe("sys.tag");
 
     const forced = await invoke(ctx, {
       id: "node.update",
@@ -407,11 +423,9 @@ describe("registry + operations", () => {
     if (reparent.status === "failed") {
       expect(reparent.code).toBe("forbidden");
     }
-    expect(
-      ctx.nodes.find((n) => n.id === SYSTEM_IDS.field)?.children.includes(
-        victimId,
-      ),
-    ).toBe(false);
+    expect(ctx.nodes.find((n) => n.id === SYSTEM_IDS.field)?.children.includes(victimId)).toBe(
+      false,
+    );
 
     // The documented admin escape (force) still works for mint + reparent.
     const forcedMint = await invoke(ctx, {
@@ -426,11 +440,9 @@ describe("registry + operations", () => {
       input: { id: victimId, parent: SYSTEM_IDS.field, force: true },
     });
     expect(forcedReparent.status).toBe("succeeded");
-    expect(
-      ctx.nodes.find((n) => n.id === SYSTEM_IDS.field)?.children.includes(
-        victimId,
-      ),
-    ).toBe(true);
+    expect(ctx.nodes.find((n) => n.id === SYSTEM_IDS.field)?.children.includes(victimId)).toBe(
+      true,
+    );
   });
 
   test("sys.* write-guard covers field.define / tag.define id-mint aliases", async () => {

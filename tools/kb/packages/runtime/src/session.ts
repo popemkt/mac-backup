@@ -10,9 +10,7 @@ import { openKbEffect } from "./layers.ts";
  * concrete platform: every caller above this line stays Effect-native.
  */
 export async function openKb(root: string): Promise<KbContext> {
-  return Effect.runPromise(
-    openKbEffect(root).pipe(Effect.provide(bunFileSystemLayer)),
-  );
+  return Effect.runPromise(openKbEffect(root).pipe(Effect.provide(bunFileSystemLayer)));
 }
 
 export async function reload(ctx: KbContext): Promise<void> {

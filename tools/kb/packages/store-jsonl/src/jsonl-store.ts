@@ -1,12 +1,16 @@
 import { Effect, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
-import { domainError, type DomainError } from "@kb/model";
+import {
+  domainError,
+  type DomainError,
+  canonicalJson,
+  KbNodeSchema,
+  nodeParseOptions,
+} from "@kb/model";
 import type { KbNode } from "@kb/model";
 import { bunFileSystemLayer } from "./platform.ts";
-import { canonicalJson } from "@kb/model";
 import { durableReplaceFile } from "./durable-replace.ts";
-import { KbNodeSchema, nodeParseOptions } from "@kb/model";
 import type { EffectStore, Store } from "@kb/contracts";
 import type { StoreTx } from "@kb/model";
 import {
@@ -50,11 +54,11 @@ function decodeNodeLine(
       nodeParseOptions,
     )(raw).pipe(
       Effect.mapError((err) =>
-        domainError(
-          "invalid_input",
-          `invalid node at ${path}:${lineNo}: ${err.message}`,
-          { path, lineNo, issue: err.issue },
-        ),
+        domainError("invalid_input", `invalid node at ${path}:${lineNo}: ${err.message}`, {
+          path,
+          lineNo,
+          issue: err.issue,
+        }),
       ),
     );
     return node as KbNode;
@@ -92,9 +96,7 @@ export class JsonlStore implements Store, EffectStore {
       const exists = yield* fs.exists(path).pipe(Effect.mapError(mapFsError));
       if (!exists) return [];
 
-      const body = yield* fs
-        .readFileString(path)
-        .pipe(Effect.mapError(mapFsError));
+      const body = yield* fs.readFileString(path).pipe(Effect.mapError(mapFsError));
       if (body.trim().length === 0) return [];
 
       // Accumulate only after every line validates — fail the whole load on the
@@ -116,9 +118,8 @@ export class JsonlStore implements Store, EffectStore {
     const loadEffect = this.loadEffect.bind(this);
     return Effect.scoped(
       Effect.gen(function* () {
-        yield* Effect.acquireRelease(
-          acquireNodesWriteLockEffect(path),
-          (lockPath) => Effect.sync(() => releaseNodesWriteLock(lockPath)),
+        yield* Effect.acquireRelease(acquireNodesWriteLockEffect(path), (lockPath) =>
+          Effect.sync(() => releaseNodesWriteLock(lockPath)),
         );
 
         const existing = yield* loadEffect();
@@ -126,13 +127,9 @@ export class JsonlStore implements Store, EffectStore {
         for (const id of tx.deletes) byId.delete(id);
         for (const node of tx.upserts) byId.set(node.id, node);
 
-        const sorted = [...byId.values()].sort((a, b) =>
-          a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
-        );
+        const sorted = [...byId.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
         const body =
-          sorted.length === 0
-            ? ""
-            : sorted.map((n) => canonicalJson(n)).join("\n") + "\n";
+          sorted.length === 0 ? "" : sorted.map((n) => canonicalJson(n)).join("\n") + "\n";
 
         yield* Effect.try({
           try: () => durableReplaceFile(path, backupPath, body),
@@ -143,15 +140,11 @@ export class JsonlStore implements Store, EffectStore {
   }
 
   load(): Promise<KbNode[]> {
-    return Effect.runPromise(
-      this.loadEffect().pipe(Effect.provide(bunFileSystemLayer)),
-    );
+    return Effect.runPromise(this.loadEffect().pipe(Effect.provide(bunFileSystemLayer)));
   }
 
   commit(tx: StoreTx): Promise<void> {
-    return Effect.runPromise(
-      this.commitEffect(tx).pipe(Effect.provide(bunFileSystemLayer)),
-    );
+    return Effect.runPromise(this.commitEffect(tx).pipe(Effect.provide(bunFileSystemLayer)));
   }
 }
 
@@ -159,13 +152,8 @@ export class JsonlStore implements Store, EffectStore {
 export function asPromiseStore(store: EffectStore): Store {
   return {
     path: store.path,
-    load: () =>
-      Effect.runPromise(
-        store.loadEffect().pipe(Effect.provide(bunFileSystemLayer)),
-      ),
+    load: () => Effect.runPromise(store.loadEffect().pipe(Effect.provide(bunFileSystemLayer))),
     commit: (tx) =>
-      Effect.runPromise(
-        store.commitEffect(tx).pipe(Effect.provide(bunFileSystemLayer)),
-      ),
+      Effect.runPromise(store.commitEffect(tx).pipe(Effect.provide(bunFileSystemLayer))),
   };
 }

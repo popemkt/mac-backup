@@ -1,15 +1,11 @@
 import { watch, type FSWatcher } from "node:fs";
 import { join, relative } from "node:path";
 import { Effect, Exit, Scope } from "effect";
-import { kbStoreLayer } from "@kb/contracts";
+import { kbStoreLayer, UI_DEFAULT_PORT } from "@kb/contracts";
 import { reloadEffect } from "@kb/operations";
 import { openKbEffect } from "@kb/runtime";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
-import { UI_DEFAULT_PORT } from "@kb/contracts";
-import {
-  ensureUiBuilt,
-  type UiEnsureResult,
-} from "./build.ts";
+import { ensureUiBuilt, type UiEnsureResult } from "./build.ts";
 import {
   UI_DEV_DEFAULT_PORT,
   bunSpawnDev,
@@ -20,11 +16,7 @@ import {
 import { UI_DIST, UI_ROOT } from "./paths.ts";
 import { handleHttpRequest } from "./http.ts";
 import { listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
-import {
-  SubscriptionHub,
-  type ClientSend,
-  type WsData,
-} from "./session.ts";
+import { SubscriptionHub, type ClientSend, type WsData } from "./session.ts";
 
 export interface UiServerOptions {
   root: string;
@@ -119,11 +111,7 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
     // file may not exist yet — watch the .kb dir instead
     try {
       watcher = watch(join(opts.root, ".kb"), (_event, filename) => {
-        if (
-          !filename ||
-          filename === "nodes.jsonl" ||
-          String(filename).endsWith("nodes.jsonl")
-        ) {
+        if (!filename || filename === "nodes.jsonl" || String(filename).endsWith("nodes.jsonl")) {
           onFsEvent();
         }
       });
@@ -154,10 +142,7 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
         Effect.runFork(hub.addClient(ws.data.clientId, clientSend(ws)));
       },
       message(ws, message) {
-        const text =
-          typeof message === "string"
-            ? message
-            : new TextDecoder().decode(message);
+        const text = typeof message === "string" ? message : new TextDecoder().decode(message);
         Effect.runFork(hub.handleMessage(ws.data.clientId, text));
       },
       close(ws) {
@@ -318,7 +303,6 @@ export async function runUiCli(opts: RunUiCliOptions): Promise<void> {
       }
     });
     process.exit(code === 0 ? 0 : 1);
-    return;
   }
 
   const { build, handle } = await startProductionUi({
@@ -329,9 +313,7 @@ export async function runUiCli(opts: RunUiCliOptions): Promise<void> {
     ensureBuilt: opts.ensureBuilt,
   });
   if (build.built) {
-    console.error(
-      `kb ui: built UI at ${relative(process.cwd(), UI_DIST)} (${build.state})`,
-    );
+    console.error(`kb ui: built UI at ${relative(process.cwd(), UI_DIST)} (${build.state})`);
   }
   console.error(`kb ui listening on ${handle.url}`);
   await new Promise(() => {});

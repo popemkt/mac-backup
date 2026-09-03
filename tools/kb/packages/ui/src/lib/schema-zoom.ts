@@ -8,14 +8,11 @@ import type { OutlineNode } from "@/lib/types";
 
 export type SchemaZoomKind = "tag" | "field" | null;
 
-export function schemaZoomKind(
-  node: OutlineNode | undefined,
-): SchemaZoomKind {
+export function schemaZoomKind(node: OutlineNode | undefined): SchemaZoomKind {
   if (!node) return null;
   const types = node.props[SYSTEM_IDS.typeField] ?? [];
   if (types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.tag)) return "tag";
-  if (types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.field))
-    return "field";
+  if (types.some((v) => v.t === "ref" && v.v === SYSTEM_IDS.field)) return "field";
   return null;
 }
 
@@ -25,10 +22,7 @@ export interface SchemaHit {
 }
 
 /** Everything tagged with this tag node (Tana schema page). */
-export function queryTaggedInstances(
-  qdb: QueryDb,
-  tagId: string,
-): SchemaHit[] {
+export function queryTaggedInstances(qdb: QueryDb, tagId: string): SchemaHit[] {
   const rows = runQuery(
     qdb,
     `[:find ?id ?text
@@ -41,10 +35,7 @@ export function queryTaggedInstances(
 }
 
 /** Nodes that carry this field as a prop key. */
-export function queryFieldCarriers(
-  qdb: QueryDb,
-  fieldId: string,
-): SchemaHit[] {
+export function queryFieldCarriers(qdb: QueryDb, fieldId: string): SchemaHit[] {
   const rows = runQuery(
     qdb,
     `[:find ?id ?text

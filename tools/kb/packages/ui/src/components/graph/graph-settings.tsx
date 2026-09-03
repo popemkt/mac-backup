@@ -78,9 +78,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
               className="w-full rounded border border-foreground/10 bg-transparent px-1.5 py-1 text-[12px]"
               value={perspective.clusterBy}
               data-testid="graph-settings-cluster-by"
-              onChange={(e) =>
-                setStr(SYSTEM_IDS.lensClusterByField, e.target.value)
-              }
+              onChange={(e) => setStr(SYSTEM_IDS.lensClusterByField, e.target.value)}
             >
               {CLUSTER_BY_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -89,9 +87,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
               ))}
               {perspective.clusterBy.startsWith("tag:") ||
               perspective.clusterBy.startsWith("prop:") ? (
-                <option value={perspective.clusterBy}>
-                  {perspective.clusterBy}
-                </option>
+                <option value={perspective.clusterBy}>{perspective.clusterBy}</option>
               ) : null}
             </select>
           </Field>
@@ -108,9 +104,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
                       ? "bg-foreground/[0.1] font-semibold text-foreground/80"
                       : "text-foreground/45 hover:bg-foreground/[0.05]",
                   )}
-                  onClick={() =>
-                    setStr(SYSTEM_IDS.lensLayoutField, layout as LensLayout)
-                  }
+                  onClick={() => setStr(SYSTEM_IDS.lensLayoutField, layout as LensLayout)}
                 >
                   {layout}
                 </button>
@@ -125,9 +119,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
               max={500}
               value={perspective.spread}
               className="w-full"
-              onChange={(e) =>
-                setNum(SYSTEM_IDS.lensSpreadField, Number(e.target.value))
-              }
+              onChange={(e) => setNum(SYSTEM_IDS.lensSpreadField, Number(e.target.value))}
             />
           </Field>
 
@@ -138,9 +130,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
               max={200}
               value={perspective.linkDistance}
               className="w-full"
-              onChange={(e) =>
-                setNum(SYSTEM_IDS.lensLinkDistanceField, Number(e.target.value))
-              }
+              onChange={(e) => setNum(SYSTEM_IDS.lensLinkDistanceField, Number(e.target.value))}
             />
           </Field>
 
@@ -185,13 +175,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="mb-2.5 flex flex-col gap-1">
       <span className="text-[11px] text-foreground/50">{label}</span>
@@ -212,11 +196,7 @@ function Toggle({
   return (
     <label className="mb-1.5 flex items-center justify-between gap-2 text-[12px] text-foreground/70">
       <span>{label}</span>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-      />
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
     </label>
   );
 }

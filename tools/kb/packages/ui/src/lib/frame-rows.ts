@@ -53,32 +53,18 @@ export function modePaginates(mode: ViewMode): boolean {
 }
 
 function nodesByIds(ids: readonly string[], nodes: NodeMap): OutlineNode[] {
-  return ids
-    .map((id) => nodes.get(id))
-    .filter((n): n is OutlineNode => n !== undefined);
+  return ids.map((id) => nodes.get(id)).filter((n): n is OutlineNode => n !== undefined);
 }
 
 /** List-mode structural children, view filters applied. */
-export function frameListChildren(
-  frameId: string,
-  nodes: NodeMap,
-): OutlineNode[] {
+export function frameListChildren(frameId: string, nodes: NodeMap): OutlineNode[] {
   const frame = nodes.get(frameId);
   if (!frame) return [];
   const config = getViewConfig(frame.props);
-  return applyViewFilters(
-    nodesByIds(frame.children, nodes),
-    config.filters,
-    nodes,
-  );
+  return applyViewFilters(nodesByIds(frame.children, nodes), config.filters, nodes);
 }
 
-export function frameRows({
-  frameId,
-  nodes,
-  rowIds,
-  pages,
-}: FrameRowsInput): FrameRows {
+export function frameRows({ frameId, nodes, rowIds, pages }: FrameRowsInput): FrameRows {
   const frame = nodes.get(frameId);
   const config = getViewConfig(frame?.props);
   const empty: FrameRows = {
@@ -99,9 +85,7 @@ export function frameRows({
   const grouped = config.mode === "board" || config.mode === "cards";
   // Only board groups by a field; cards is a single unlabelled column.
   const groupFieldId = config.mode === "board" ? config.groupFieldId : null;
-  const columns = grouped
-    ? groupChildrenForBoard(sorted, groupFieldId, nodes)
-    : [];
+  const columns = grouped ? groupChildrenForBoard(sorted, groupFieldId, nodes) : [];
   const ordered = grouped ? flattenBoardOrder(columns) : sorted;
 
   // Pages, not an absolute row count: a pagesize change re-derives the limit

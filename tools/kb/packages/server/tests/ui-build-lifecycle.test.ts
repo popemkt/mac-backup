@@ -28,7 +28,7 @@ async function makeUi(): Promise<{ uiRoot: string; distDir: string }> {
   roots.push(uiRoot);
   const distDir = join(uiRoot, "dist");
   await mkdir(join(uiRoot, "src"), { recursive: true });
-  await writeFile(join(uiRoot, "index.html"), "<div id=\"root\"></div>\n");
+  await writeFile(join(uiRoot, "index.html"), '<div id="root"></div>\n');
   await writeFile(join(uiRoot, "package.json"), "{}\n");
   await writeFile(join(uiRoot, "vite.config.ts"), "export default {}\n");
   await writeFile(join(uiRoot, "tsconfig.json"), "{}\n");
@@ -55,7 +55,7 @@ describe("needsUiBuild decision", () => {
     expect(await needsUiBuild(uiRoot, distDir)).toBe("missing");
 
     await mkdir(distDir, { recursive: true });
-    await writeFile(join(distDir, "index.html"), "<div id=\"root\"></div>\n");
+    await writeFile(join(distDir, "index.html"), '<div id="root"></div>\n');
     expect(await needsUiBuild(uiRoot, distDir)).toBe("stale");
 
     const fp = await uiSourceFingerprint(uiRoot);
@@ -90,7 +90,6 @@ describe("needsUiBuild decision", () => {
     expect(result).toEqual({ built: false, state: "fresh" });
     expect(calls).toEqual([]);
   });
-
 });
 
 describe("ensureUiBuilt", () => {
@@ -112,7 +111,7 @@ describe("ensureUiBuilt", () => {
   test("builds when missing/stale and records the post-build marker", async () => {
     const { uiRoot, distDir } = await makeUi();
     const calls: string[] = [];
-    const runner: UiBuildRunner = async (root, dist) => {
+    const runner: UiBuildRunner = async (_root, dist) => {
       calls.push("build");
       await mkdir(dist, { recursive: true });
       await writeFile(join(dist, "index.html"), "built");

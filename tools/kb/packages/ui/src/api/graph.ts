@@ -11,10 +11,7 @@ export interface GraphLoadResult {
 export type FetchGraphSnapshotFn = () => Promise<GraphSnapshot>;
 
 function useFixturesForced(): boolean {
-  return (
-    import.meta.env.VITE_USE_FIXTURES === "1" ||
-    import.meta.env.VITE_USE_FIXTURES === "true"
-  );
+  return import.meta.env.VITE_USE_FIXTURES === "1" || import.meta.env.VITE_USE_FIXTURES === "true";
 }
 
 function validatedFixtures(): GraphSnapshot {

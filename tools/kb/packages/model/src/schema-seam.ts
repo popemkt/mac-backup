@@ -23,9 +23,7 @@ export interface StandardSchemaV1Like<Input = unknown, Output = Input> {
     readonly vendor: string;
     readonly validate: (
       value: unknown,
-    ) =>
-      | StandardSchemaV1Result<Output>
-      | Promise<StandardSchemaV1Result<Output>>;
+    ) => StandardSchemaV1Result<Output> | Promise<StandardSchemaV1Result<Output>>;
     readonly types?: { readonly input: Input; readonly output: Output };
   };
 }
@@ -37,17 +35,13 @@ export interface ParsableSchema {
 /** Accept Standard Schema v1 or any object exposing `.parse` (zod). */
 export type ActionSchema = StandardSchemaV1Like | ParsableSchema;
 
-export function isStandardSchemaV1(
-  schema: unknown,
-): schema is StandardSchemaV1Like {
+export function isStandardSchemaV1(schema: unknown): schema is StandardSchemaV1Like {
   if (typeof schema !== "object" || schema === null) return false;
   const standard = (schema as { "~standard"?: unknown })["~standard"] as
     | { version?: unknown; validate?: unknown }
     | undefined;
   return (
-    standard !== undefined &&
-    standard.version === 1 &&
-    typeof standard.validate === "function"
+    standard !== undefined && standard.version === 1 && typeof standard.validate === "function"
   );
 }
 
@@ -65,11 +59,11 @@ export function isActionSchema(schema: unknown): schema is ActionSchema {
 
 export class ActionSchemaError extends Error {
   override readonly name = "ActionSchemaError";
-  constructor(
-    message: string,
-    readonly issues: ReadonlyArray<StandardSchemaV1Issue>,
-  ) {
+  readonly issues: ReadonlyArray<StandardSchemaV1Issue>;
+
+  constructor(message: string, issues: ReadonlyArray<StandardSchemaV1Issue>) {
     super(message);
+    this.issues = issues;
   }
 }
 
@@ -77,17 +71,11 @@ export class ActionSchemaError extends Error {
  * Parse action input via Standard Schema v1 when present, else `.parse`.
  * Throws ActionSchemaError (or the underlying zod ZodError) on failure.
  */
-export async function parseActionInput(
-  schema: ActionSchema,
-  input: unknown,
-): Promise<unknown> {
+export async function parseActionInput(schema: ActionSchema, input: unknown): Promise<unknown> {
   if (isStandardSchemaV1(schema)) {
     const result = await schema["~standard"].validate(input);
     if (result.issues && result.issues.length > 0) {
-      throw new ActionSchemaError(
-        result.issues.map((i) => i.message).join("; "),
-        result.issues,
-      );
+      throw new ActionSchemaError(result.issues.map((i) => i.message).join("; "), result.issues);
     }
     return result.value;
   }
@@ -104,8 +92,6 @@ export function schemaToJsonSchema(schema: ActionSchema): unknown {
 
 function isZodType(schema: unknown): schema is z.ZodType {
   return (
-    isStandardSchemaV1(schema) &&
-    schema["~standard"].vendor === "zod" &&
-    isParsableSchema(schema)
+    isStandardSchemaV1(schema) && schema["~standard"].vendor === "zod" && isParsableSchema(schema)
   );
 }

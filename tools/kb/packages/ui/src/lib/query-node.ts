@@ -14,9 +14,7 @@ export interface QueryNodeDef {
 
 /** Matches bullet-mode semantics: the sys query tag or any tag named "query". */
 export function isQueryTagBadges(tags: TagBadge[]): boolean {
-  return tags.some(
-    (t) => t.id === SYSTEM_IDS.queryTag || t.name.toLowerCase() === "query",
-  );
+  return tags.some((t) => t.id === SYSTEM_IDS.queryTag || t.name.toLowerCase() === "query");
 }
 
 export function isQueryNode(node: OutlineNode | undefined): boolean {
@@ -52,9 +50,7 @@ export function resultNodeIds(
   const seen = new Set<string>();
   const limit = opts.limit ?? null;
   for (const row of rows) {
-    const id = row.find(
-      (v): v is string => typeof v === "string" && nodes.has(v),
-    );
+    const id = row.find((v): v is string => typeof v === "string" && nodes.has(v));
     if (!id || seen.has(id) || id === opts.excludeId) continue;
     seen.add(id);
     out.push(id);
@@ -83,5 +79,4 @@ export function subscribeQueryNode(
 }
 
 /** Default definition for palette-minted query nodes. */
-export const DEFAULT_QUERY_EDN =
-  "[:find ?id ?text :where [?n :node/id ?id] [?n :node/text ?text]]";
+export const DEFAULT_QUERY_EDN = "[:find ?id ?text :where [?n :node/id ?id] [?n :node/text ?text]]";

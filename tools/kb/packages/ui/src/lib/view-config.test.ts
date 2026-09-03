@@ -67,9 +67,7 @@ describe("view-config", () => {
         { t: "ref", v: "f1" },
         { t: "ref", v: "f2" },
       ],
-      [SYSTEM_IDS.viewColwidthField]: [
-        { t: "str", v: JSON.stringify({ f1: 200, f2: 150 }) },
-      ],
+      [SYSTEM_IDS.viewColwidthField]: [{ t: "str", v: JSON.stringify({ f1: 200, f2: 150 }) }],
       [SYSTEM_IDS.viewPagesizeField]: [{ t: "num", v: 50 }],
     });
 
@@ -171,11 +169,7 @@ describe("view-config", () => {
     expect(colsDisplay).toEqual([{ fieldId: "f_status", label: "status" }]);
 
     // Case 2: fallback to tag fields
-    const colsFallback = resolveTableColumns(
-      DEFAULT_VIEW_CONFIG,
-      [childNode],
-      nodes,
-    );
+    const colsFallback = resolveTableColumns(DEFAULT_VIEW_CONFIG, [childNode], nodes);
     expect(colsFallback).toEqual([
       { fieldId: "f_status", label: "status" },
       { fieldId: "f_due", label: "due" },
@@ -357,12 +351,8 @@ describe("view-config", () => {
     };
     const cols = groupChildrenForBoard([doing, empty], "field.status", nodes);
     expect(cols.map((c) => c.key)).toContain("__empty__");
-    expect(cols.find((c) => c.label === "doing")?.nodes.map((n) => n.id)).toEqual([
-      "d",
-    ]);
-    expect(cols.find((c) => c.key === "__empty__")?.nodes.map((n) => n.id)).toEqual([
-      "e",
-    ]);
+    expect(cols.find((c) => c.label === "doing")?.nodes.map((n) => n.id)).toEqual(["d"]);
+    expect(cols.find((c) => c.key === "__empty__")?.nodes.map((n) => n.id)).toEqual(["e"]);
 
     const cards = groupChildrenForBoard([doing, empty], null, nodes);
     expect(cards).toHaveLength(1);

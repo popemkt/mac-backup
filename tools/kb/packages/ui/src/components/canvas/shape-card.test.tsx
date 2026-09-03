@@ -63,14 +63,10 @@ describe("ShapeCard label edit wiring", () => {
 
     const shell = container.querySelector(".group\\/card")!;
     act(() => {
-      shell.dispatchEvent(
-        new MouseEvent("dblclick", { bubbles: true, cancelable: true }),
-      );
+      shell.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
     });
 
-    const input = container.querySelector(
-      '[data-testid="shape-label-input"]',
-    ) as HTMLInputElement;
+    const input = container.querySelector('[data-testid="shape-label-input"]') as HTMLInputElement;
     expect(input).toBeTruthy();
     expect(input.value).toBe("Prior");
     expect(onLabelChange).not.toHaveBeenCalled();

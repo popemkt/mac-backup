@@ -53,9 +53,7 @@ function seed() {
     loadSource: null,
     loadError: null,
   });
-  useOutlineStore
-    .getState()
-    .hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+  useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
 }
 
 describe("GraphPage (smoke)", () => {
@@ -86,9 +84,7 @@ describe("GraphPage (smoke)", () => {
 
   beforeEach(() => {
     seed();
-    container = dom.document.createElement(
-      "div",
-    ) as unknown as HTMLDivElement;
+    container = dom.document.createElement("div") as unknown as HTMLDivElement;
     dom.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
   });

@@ -14,11 +14,7 @@ import { OntologyPage } from "./ontology-page";
 
 const ISO = "2026-08-23T00:00:00.000Z";
 
-function node(
-  id: string,
-  text: string,
-  props: WireNode["props"] = {},
-): WireNode {
+function node(id: string, text: string, props: WireNode["props"] = {}): WireNode {
   return { id, text, props, children: [], createdAt: ISO, updatedAt: ISO };
 }
 

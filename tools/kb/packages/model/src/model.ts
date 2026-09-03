@@ -208,10 +208,7 @@ export function isoFromMillis(ms: number): string {
  * TIME OWNER — the current instant as an Effect reading the `Clock` service.
  * Store-reachable Effect programs yield this; the harness overrides `Clock`.
  */
-export const currentIso: Effect.Effect<string> = Effect.map(
-  Clock.currentTimeMillis,
-  isoFromMillis,
-);
+export const currentIso: Effect.Effect<string> = Effect.map(Clock.currentTimeMillis, isoFromMillis);
 
 /** Holds the `Random` service as the single source of store identity entropy. */
 const randomService = Random.Random;

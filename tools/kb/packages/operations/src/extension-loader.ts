@@ -2,11 +2,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isActionSchema } from "@kb/model";
-import type {
-  ExtensionAction,
-  ExtensionFailure,
-  LoadedExtension,
-} from "@kb/contracts";
+import type { ExtensionAction, ExtensionFailure, LoadedExtension } from "@kb/contracts";
 
 /**
  * Extension loader: discovers, imports and validates the TS modules in
@@ -75,9 +71,7 @@ export async function discoverExtensions(root: string): Promise<{
   } catch {
     return { extensions: [], failures: [] };
   }
-  const files = entries
-    .filter((e) => e.endsWith(".ts") && !e.endsWith(".d.ts"))
-    .sort();
+  const files = entries.filter((e) => e.endsWith(".ts") && !e.endsWith(".d.ts")).sort();
 
   const extensions: LoadedExtension[] = [];
   const failures: ExtensionFailure[] = [];
@@ -102,8 +96,7 @@ export async function discoverExtensions(root: string): Promise<{
     if (!Array.isArray(exported)) {
       failures.push({
         file,
-        error:
-          "default export must be an array of actions ({...ActionDefinition, effect|handler})",
+        error: "default export must be an array of actions ({...ActionDefinition, effect|handler})",
       });
       continue;
     }

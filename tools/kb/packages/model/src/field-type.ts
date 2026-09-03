@@ -38,10 +38,9 @@ export type FieldType = keyof typeof FIELD_TYPE_OPTION_IDS;
 export const FIELD_TYPES = Object.keys(FIELD_TYPE_OPTION_IDS) as FieldType[];
 
 /** Option node id → declared type. */
-export const FIELD_TYPE_BY_OPTION_ID: Record<string, FieldType> =
-  Object.fromEntries(
-    FIELD_TYPES.map((type) => [FIELD_TYPE_OPTION_IDS[type], type]),
-  );
+export const FIELD_TYPE_BY_OPTION_ID: Record<string, FieldType> = Object.fromEntries(
+  FIELD_TYPES.map((type) => [FIELD_TYPE_OPTION_IDS[type], type]),
+);
 
 export function isFieldType(value: unknown): value is FieldType {
   // `Object.hasOwn`, not `in`: `in` also matches inherited names like
@@ -62,9 +61,7 @@ export function fieldTypeValue(type: FieldType): PropValue {
  * so that form still reads — there is no migration to run and no second code
  * path downstream, because both collapse to the same FieldType here.
  */
-export function fieldTypeOf(
-  props: Record<string, readonly PropValue[]> | undefined,
-): FieldType {
+export function fieldTypeOf(props: Record<string, readonly PropValue[]> | undefined): FieldType {
   const raw = props?.[SYSTEM_IDS.fieldTypeField]?.[0];
   if (!raw) return "text";
   if (raw.t === "ref") return FIELD_TYPE_BY_OPTION_ID[String(raw.v)] ?? "text";
@@ -85,9 +82,7 @@ export function targetTagsOf(fieldNode: NodeLike | undefined): NodeId[] {
  * tag is sugar for one shape of it, so honouring both would mean two answers
  * to one question.
  */
-export function targetQueryOf(
-  fieldNode: NodeLike | undefined,
-): string | null {
+export function targetQueryOf(fieldNode: NodeLike | undefined): string | null {
   return strValueOf(fieldNode, SYSTEM_IDS.targetQueryField);
 }
 
@@ -154,16 +149,14 @@ export function allowedRefIdsOf(
  * loss. Migrating on open keeps one representation in the store and one editor,
  * rather than teaching the editor a second form it would carry forever.
  */
-export function migrateFieldTypeValues<
-  T extends { props: Record<string, PropValue[]> },
->(nodes: T[]): { nodes: T[]; changed: boolean } {
+export function migrateFieldTypeValues<T extends { props: Record<string, PropValue[]> }>(
+  nodes: T[],
+): { nodes: T[]; changed: boolean } {
   let changed = false;
   const out = nodes.map((node) => {
     const values = node.props[SYSTEM_IDS.fieldTypeField];
     if (!values?.some((v) => v.t === "str" && isFieldType(v.v))) return node;
-    const next = values.map((v) =>
-      v.t === "str" && isFieldType(v.v) ? fieldTypeValue(v.v) : v,
-    );
+    const next = values.map((v) => (v.t === "str" && isFieldType(v.v) ? fieldTypeValue(v.v) : v));
     changed = true;
     return {
       ...node,

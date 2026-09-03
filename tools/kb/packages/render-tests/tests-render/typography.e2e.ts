@@ -68,15 +68,12 @@ test("node text and field labels resolve to one metric", async ({ page }) => {
   expect(metrics.node!.lineHeight).toBeCloseTo(metrics.label!.lineHeight, 1);
 });
 
-test("a trailing pill yields only the first line, and fills that line", async ({
-  page,
-}) => {
+test("a trailing pill yields only the first line, and fills that line", async ({ page }) => {
   await page.goto("/");
 
   const geometry = await page.evaluate(() => {
     const host = document.createElement("div");
-    host.style.cssText =
-      "position:fixed;left:0;top:0;width:400px;visibility:hidden;z-index:99999";
+    host.style.cssText = "position:fixed;left:0;top:0;width:400px;visibility:hidden;z-index:99999";
     host.innerHTML = `
       <div class="relative min-h-6 min-w-0" data-probe-wrap>
         <span class="kb-text-trailing flex items-center gap-1.5" data-probe-float>
@@ -103,12 +100,8 @@ sigma tau upsilon</div>
       lines,
       floatWidth: float.getBoundingClientRect().width,
       floatHeight: float.getBoundingClientRect().height,
-      chipHeight: host
-        .querySelector("[data-tag-chip]")!
-        .getBoundingClientRect().height,
-      containerWidth: host
-        .querySelector("[data-probe-wrap]")!
-        .getBoundingClientRect().width,
+      chipHeight: host.querySelector("[data-tag-chip]")!.getBoundingClientRect().height,
+      containerWidth: host.querySelector("[data-probe-wrap]")!.getBoundingClientRect().width,
     };
     host.remove();
     return out;

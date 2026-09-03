@@ -1,13 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { CanvasDoc } from "@kb/canvas";
-import {
-  canRedo,
-  canUndo,
-  initHistory,
-  pushHistory,
-  redo,
-  undo,
-} from "./canvas-history";
+import { canRedo, canUndo, initHistory, pushHistory, redo, undo } from "./canvas-history";
 
 const d0: CanvasDoc = { nodes: [], edges: [] };
 const d1: CanvasDoc = {
@@ -40,7 +33,7 @@ describe("canvas history", () => {
   });
 
   test("push same ref is a no-op", () => {
-    let h = initHistory(d0);
+    const h = initHistory(d0);
     const h2 = pushHistory(h, d0);
     expect(h2).toBe(h);
   });

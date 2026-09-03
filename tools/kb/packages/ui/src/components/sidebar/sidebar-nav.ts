@@ -23,9 +23,7 @@ export function listPinnedNavItems(nodes: NodeMap): SidebarNavItem[] {
 }
 
 /** `#graph-perspective` nodes for the Graph section. */
-export function listPerspectiveNavItems(
-  wireNodes: WireNode[],
-): SidebarNavItem[] {
+export function listPerspectiveNavItems(wireNodes: WireNode[]): SidebarNavItem[] {
   return listPerspectiveNodes(wireNodes).map((n) => ({
     id: n.id,
     label: n.text || n.id,
@@ -33,9 +31,7 @@ export function listPerspectiveNavItems(
 }
 
 /** `#canvas` nodes for the Canvases section. */
-export function listCanvasNavItems(
-  nodes: Map<string, OutlineNode>,
-): SidebarNavItem[] {
+export function listCanvasNavItems(nodes: Map<string, OutlineNode>): SidebarNavItem[] {
   return listCanvasNodes(nodes).map((n) => ({
     id: n.id,
     label: n.text || "Untitled canvas",
@@ -43,8 +39,6 @@ export function listCanvasNavItems(
 }
 
 /** `#ontology` nodes for the Ontologies section. */
-export function listOntologyNavItems(
-  wireNodes: WireNode[],
-): SidebarNavItem[] {
+export function listOntologyNavItems(wireNodes: WireNode[]): SidebarNavItem[] {
   return listOntologyItems(wireNodes);
 }

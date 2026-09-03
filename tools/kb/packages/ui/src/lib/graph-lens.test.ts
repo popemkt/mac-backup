@@ -21,8 +21,7 @@ import { SYSTEM_IDS } from "@/lib/types";
 const ISO = "2026-08-08T05:00:00.000Z";
 
 function node(
-  partial: Pick<WireNode, "id" | "text"> &
-    Partial<Omit<WireNode, "id" | "text">>,
+  partial: Pick<WireNode, "id" | "text"> & Partial<Omit<WireNode, "id" | "text">>,
 ): WireNode {
   return {
     props: {},
@@ -100,9 +99,7 @@ function baseGraph(): WireNode[] {
   ];
 }
 
-function perspective(
-  patch: Partial<LensPerspective> = {},
-): LensPerspective {
+function perspective(patch: Partial<LensPerspective> = {}): LensPerspective {
   return {
     id: SYSTEM_IDS.lensAllMentions,
     label: "All mentions",
@@ -191,11 +188,7 @@ describe("extractLensGraph", () => {
 
   it("selects only ref-prop edges when configured", () => {
     const db = buildQueryDb(nodes, 1);
-    const g = extractLensGraph(
-      db,
-      nodes,
-      perspective({ edgeKinds: ["ref-prop"] }),
-    );
+    const g = extractLensGraph(db, nodes, perspective({ edgeKinds: ["ref-prop"] }));
     expect(g.edges.every((e) => e.kind === "ref-prop")).toBe(true);
     expect(g.edges).toContainEqual({
       source: "n.b",
@@ -256,7 +249,11 @@ describe("extractLensGraph", () => {
 
   it("resolves color-by tag and fixed", () => {
     const byId = new Map(nodes.map((n) => [n.id, n]));
-    const tagged = resolveColor(nodes.find((n) => n.id === "n.a1")!, byId, "tag");
+    const tagged = resolveColor(
+      nodes.find((n) => n.id === "n.a1")!,
+      byId,
+      "tag",
+    );
     expect(tagged).toBe("#ff00aa");
     const fixed = resolveColor(
       nodes.find((n) => n.id === "n.c")!,
@@ -264,9 +261,12 @@ describe("extractLensGraph", () => {
       "fixed:#abcdef",
     );
     expect(fixed).toBe("#abcdef");
-    expect(firstTagOf(nodes.find((n) => n.id === "n.a")!, byId)?.id).toBe(
-      "tag.todo",
-    );
+    expect(
+      firstTagOf(
+        nodes.find((n) => n.id === "n.a")!,
+        byId,
+      )?.id,
+    ).toBe("tag.todo");
   });
 
   it("resolveClusterKey covers none / parent / tag / prop", () => {
@@ -279,15 +279,9 @@ describe("extractLensGraph", () => {
     expect(resolveClusterKey(a1, byId, parentOf, "parent")).toBe("n.a");
     expect(resolveClusterKey(a, byId, parentOf, "parent")).toBe("root");
     expect(resolveClusterKey(a, byId, parentOf, "tag:tag.todo")).toBe("tag.todo");
-    expect(resolveClusterKey(a1, byId, parentOf, "tag:tag.todo")).toBe(
-      "untagged",
-    );
-    expect(resolveClusterKey(b, byId, parentOf, "prop:field.depends")).toBe(
-      "n.c",
-    );
-    expect(resolveClusterKey(a, byId, parentOf, "prop:field.depends")).toBe(
-      "none",
-    );
+    expect(resolveClusterKey(a1, byId, parentOf, "tag:tag.todo")).toBe("untagged");
+    expect(resolveClusterKey(b, byId, parentOf, "prop:field.depends")).toBe("n.c");
+    expect(resolveClusterKey(a, byId, parentOf, "prop:field.depends")).toBe("none");
   });
 
   it("buildTreeForest: forest roots vs focus root, cycle-safe", () => {
@@ -303,9 +297,7 @@ describe("extractLensGraph", () => {
     expect(focused[0]!.children.some((c) => c.id === "n.a1")).toBe(true);
 
     // Cycle: a → a1 → a
-    const cyclic = nodes.map((n) =>
-      n.id === "n.a1" ? { ...n, children: ["n.a"] } : { ...n },
-    );
+    const cyclic = nodes.map((n) => (n.id === "n.a1" ? { ...n, children: ["n.a"] } : { ...n }));
     const g2 = extractLensGraph(
       buildQueryDb(cyclic, 1),
       cyclic,
@@ -319,24 +311,13 @@ describe("extractLensGraph", () => {
   it("resolves size-by degree / children / fixed", () => {
     expect(resolveSize("fixed", 10, 10)).toBe(5);
     expect(resolveSize("children", 0, 0)).toBe(3);
-    expect(resolveSize("children", 0, 16)).toBeGreaterThan(
-      resolveSize("children", 0, 1),
-    );
-    expect(resolveSize("degree", 16, 0)).toBeGreaterThan(
-      resolveSize("degree", 1, 0),
-    );
+    expect(resolveSize("children", 0, 16)).toBeGreaterThan(resolveSize("children", 0, 1));
+    expect(resolveSize("degree", 16, 0)).toBeGreaterThan(resolveSize("degree", 1, 0));
   });
 
   it("idsFromQueryRows picks known string ids", () => {
     const known = new Set(["n.a", "n.b"]);
-    const ids = idsFromQueryRows(
-      [
-        ["n.a", "Alpha"],
-        [1, "n.b"],
-        ["missing"],
-      ],
-      known,
-    );
+    const ids = idsFromQueryRows([["n.a", "Alpha"], [1, "n.b"], ["missing"]], known);
     expect([...ids].sort()).toEqual(["n.a", "n.b"]);
   });
 });

@@ -43,9 +43,7 @@ function outlineMap(): Map<string, OutlineNode> {
 }
 
 function renderBullet(node: OutlineNode, isRef: boolean): string {
-  return renderToStaticMarkup(
-    createElement(Bullet, { node, isRef, onClick: () => {} }),
-  );
+  return renderToStaticMarkup(createElement(Bullet, { node, isRef, onClick: () => {} }));
 }
 
 describe("result row render (W4)", () => {
@@ -93,10 +91,7 @@ describe("result row render (W4)", () => {
       id: "sys.query.open-todos",
       text: "open-todos",
     };
-    const nodes = wireToOutlineMap(
-      [...fixtureGraph.nodes, saved],
-      new Set(),
-    );
+    const nodes = wireToOutlineMap([...fixtureGraph.nodes, saved], new Set());
     const html = renderBullet(nodes.get("sys.query.open-todos")!, false);
     expect(html).toContain('data-bullet-kind="query"');
     expect(html).toContain('data-bullet-sys="true"');

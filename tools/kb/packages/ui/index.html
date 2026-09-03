@@ -34,8 +34,7 @@
           }
           var dark =
             theme === "dark" ||
-            (theme === "system" &&
-              window.matchMedia("(prefers-color-scheme: dark)").matches);
+            (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
           if (dark) document.documentElement.classList.add("dark");
           document.documentElement.setAttribute("data-font", font);
           document.documentElement.setAttribute("data-width", width);

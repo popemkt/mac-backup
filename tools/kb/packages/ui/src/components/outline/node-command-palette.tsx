@@ -80,9 +80,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
 
   const targetNodeId = activeNodeId ?? selectedNodeId;
   const targetNode = targetNodeId ? nodes.get(targetNodeId) : undefined;
-  const debugOn = useDebugFieldsStore((s) =>
-    targetNodeId ? s.ids.has(targetNodeId) : false,
-  );
+  const debugOn = useDebugFieldsStore((s) => (targetNodeId ? s.ids.has(targetNodeId) : false));
   const pinned = targetNode ? isPinned(targetNode, nodes) : false;
 
   useEffect(() => {
@@ -115,9 +113,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const tagOptions = useMemo(() => {
     return wireNodes
       .filter((n) =>
-        (n.props[SYSTEM_IDS.typeField] ?? []).some(
-          (v) => v.t === "ref" && v.v === SYSTEM_IDS.tag,
-        ),
+        (n.props[SYSTEM_IDS.typeField] ?? []).some((v) => v.t === "ref" && v.v === SYSTEM_IDS.tag),
       )
       .map((n) => ({ id: n.id, name: n.text || n.id }))
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -319,14 +315,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     }
 
     return base;
-  }, [
-    debugOn,
-    onClose,
-    pinned,
-    setGlobalPaletteOpen,
-    targetNode,
-    targetNodeId,
-  ]);
+  }, [debugOn, onClose, pinned, setGlobalPaletteOpen, targetNode, targetNodeId]);
 
   const filteredCommands = commands.filter((c) =>
     c.label.toLowerCase().includes(query.toLowerCase()),
@@ -371,9 +360,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
           };
 
   const filteredOptions = picking.match(query);
-  const exactMatch = filteredOptions.some(
-    (o) => o.name.toLowerCase() === trimmed.toLowerCase(),
-  );
+  const exactMatch = filteredOptions.some((o) => o.name.toLowerCase() === trimmed.toLowerCase());
   const createLabel = picking.createLabel;
 
   const pickerItems = [
@@ -403,9 +390,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   }, [query, step.type]);
 
   useEffect(() => {
-    const item = listRef.current?.children[highlightIndex] as
-      | HTMLElement
-      | undefined;
+    const item = listRef.current?.children[highlightIndex] as HTMLElement | undefined;
     item?.scrollIntoView({ block: "nearest" });
   }, [highlightIndex]);
 
@@ -440,9 +425,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
           return;
         }
         if (step.type === "add-field") {
-          const fieldId = creating
-            ? await mutations.defineField(trimmed)
-            : item.id;
+          const fieldId = creating ? await mutations.defineField(trimmed) : item.id;
           if (!fieldId) return;
           // An empty typed value is what makes the row appear and focusable;
           // the field's own declared type decides which editor that row gets.
@@ -554,9 +537,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
               Commands
             </button>
             <span className="text-[10px] text-foreground/20">›</span>
-            <span className="text-[10px] font-medium text-foreground/50">
-              {stepLabel}
-            </span>
+            <span className="text-[10px] font-medium text-foreground/50">{stepLabel}</span>
           </div>
         )}
 
@@ -597,9 +578,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
                 onClick={() => handleSelect(i)}
                 onMouseEnter={() => setHighlightIndex(i)}
               >
-                {item.icon && (
-                  <span className="shrink-0 opacity-50">{item.icon}</span>
-                )}
+                {item.icon && <span className="shrink-0 opacity-50">{item.icon}</span>}
                 <span className="truncate">{item.label}</span>
               </button>
             ))

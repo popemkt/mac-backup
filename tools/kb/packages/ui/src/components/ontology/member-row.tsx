@@ -37,8 +37,7 @@ export function MemberRow({
 }: MemberRowProps) {
   const provenance = excluded
     ? "excluded"
-    : row.reasons.map((r) => describeReason(r, labelOf)).join(" · ") ||
-      "member";
+    : row.reasons.map((r) => describeReason(r, labelOf)).join(" · ") || "member";
   const derived = row.reasons.some((r) => r.kind !== "member");
 
   return (
@@ -89,10 +88,7 @@ export function MemberRow({
 
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-100 group-hover/member:opacity-100 focus-within:opacity-100">
         {excluded ? (
-          <IconButton
-            label={`Restore ${row.label}`}
-            onClick={() => onRestore?.(row.id)}
-          >
+          <IconButton label={`Restore ${row.label}`} onClick={() => onRestore?.(row.id)}>
             <ArrowUUpLeft size={12} weight="bold" />
           </IconButton>
         ) : (

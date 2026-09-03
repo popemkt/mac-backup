@@ -17,8 +17,7 @@ import {
   type CanvasEdge,
 } from "@kb/canvas";
 import { openKb } from "../src/session.ts";
-import { SYSTEM_IDS } from "@kb/model";
-import { ensureSystemSeed, systemSeedNodes } from "@kb/model";
+import { SYSTEM_IDS, ensureSystemSeed, systemSeedNodes } from "@kb/model";
 import { invoke, resetRegistryCache } from "../src/registry.ts";
 
 let roots: string[] = [];
@@ -42,17 +41,11 @@ describe("C1 seed: canvas tag + field", () => {
     const tag = byId.get(SYSTEM_IDS.canvasTag);
     expect(tag).toBeDefined();
     expect(tag!.text).toBe("canvas");
-    expect(tag!.props[SYSTEM_IDS.typeField]).toEqual([
-      { t: "ref", v: SYSTEM_IDS.tag },
-    ]);
-    expect(tag!.props[SYSTEM_IDS.fieldsField]).toEqual([
-      { t: "ref", v: SYSTEM_IDS.canvasField },
-    ]);
+    expect(tag!.props[SYSTEM_IDS.typeField]).toEqual([{ t: "ref", v: SYSTEM_IDS.tag }]);
+    expect(tag!.props[SYSTEM_IDS.fieldsField]).toEqual([{ t: "ref", v: SYSTEM_IDS.canvasField }]);
     const field = byId.get(SYSTEM_IDS.canvasField);
     expect(field).toBeDefined();
-    expect(field!.props[SYSTEM_IDS.typeField]).toEqual([
-      { t: "ref", v: SYSTEM_IDS.field },
-    ]);
+    expect(field!.props[SYSTEM_IDS.typeField]).toEqual([{ t: "ref", v: SYSTEM_IDS.field }]);
   });
 
   test("ensureSystemSeed is idempotent over canvas nodes", () => {
@@ -189,10 +182,7 @@ describe("canvas doc parse/patch round-trip", () => {
 });
 
 describe("render-time bound check (no reconciler)", () => {
-  function mkEdge(
-    id: string,
-    link: Partial<NonNullable<CanvasEdge["kbLink"]>> = {},
-  ): CanvasEdge {
+  function mkEdge(id: string, link: Partial<NonNullable<CanvasEdge["kbLink"]>> = {}): CanvasEdge {
     return {
       id,
       fromNode: "a",
@@ -212,15 +202,10 @@ describe("render-time bound check (no reconciler)", () => {
     const props: Record<string, { t: string; v: unknown }[]> = {
       "n.a|f.rel": [{ t: "ref", v: "n.b" }],
     };
-    const lookup = (nodeId: string, fieldId: string) =>
-      props[`${nodeId}|${fieldId}`];
+    const lookup = (nodeId: string, fieldId: string) => props[`${nodeId}|${fieldId}`];
     expect(isNativeEdgeBound(mkEdge("ok"), lookup)).toBe(true);
-    expect(
-      isNativeEdgeBound(mkEdge("gone", { targetNodeId: "n.gone" }), lookup),
-    ).toBe(false);
-    expect(
-      isNativeEdgeBound(mkEdge("lay", { mode: "layout", fieldId: "" }), lookup),
-    ).toBe(true);
+    expect(isNativeEdgeBound(mkEdge("gone", { targetNodeId: "n.gone" }), lookup)).toBe(false);
+    expect(isNativeEdgeBound(mkEdge("lay", { mode: "layout", fieldId: "" }), lookup)).toBe(true);
   });
 });
 
@@ -335,9 +320,7 @@ describe("ext.canvas.tx.apply", () => {
         canvasId: "n.canvas",
         doc,
         propTargetId: "n.source",
-        setProps: [
-          { field: "f.related", value: { t: "ref", v: "n.target" } },
-        ],
+        setProps: [{ field: "f.related", value: { t: "ref", v: "n.target" } }],
       },
     });
     expect(receipt.status).toBe("succeeded");
@@ -348,9 +331,7 @@ describe("ext.canvas.tx.apply", () => {
     expect(parseCanvasDoc(String(stored!.v))).toEqual(doc);
 
     const source = ctx.nodes.find((n) => n.id === "n.source")!;
-    expect(source.props["f.related"]).toEqual([
-      { t: "ref", v: "n.target" },
-    ]);
+    expect(source.props["f.related"]).toEqual([{ t: "ref", v: "n.target" }]);
   });
 
   test("invalid doc fails without writing props", async () => {
@@ -371,9 +352,7 @@ describe("ext.canvas.tx.apply", () => {
         canvasId: "n.canvas",
         doc: "not-json{",
         propTargetId: "n.source",
-        setProps: [
-          { field: SYSTEM_IDS.typeField, value: { t: "ref", v: "n.source" } },
-        ],
+        setProps: [{ field: SYSTEM_IDS.typeField, value: { t: "ref", v: "n.source" } }],
       },
     });
     expect(receipt.status).toBe("failed");
@@ -468,9 +447,7 @@ describe("ext.canvas.tx.apply", () => {
         canvasId: "n.canvas",
         doc,
         propTargetId: "n.source",
-        setProps: [
-          { field: "f.related", value: { t: "ref", v: "n.target" } },
-        ],
+        setProps: [{ field: "f.related", value: { t: "ref", v: "n.target" } }],
       },
     });
     expect(first.status).toBe("succeeded");
@@ -528,9 +505,7 @@ describe("ext.canvas.tx.apply", () => {
           ],
         },
         propTargetId: "n.source",
-        setProps: [
-          { field: "f.related", value: { t: "ref", v: "n.target" } },
-        ],
+        setProps: [{ field: "f.related", value: { t: "ref", v: "n.target" } }],
       },
     });
 
@@ -540,9 +515,7 @@ describe("ext.canvas.tx.apply", () => {
         canvasId: "n.canvas",
         doc: { nodes: [], edges: [] },
         propTargetId: "n.source",
-        unsetProps: [
-          { field: "f.related", value: { t: "ref", v: "n.target" } },
-        ],
+        unsetProps: [{ field: "f.related", value: { t: "ref", v: "n.target" } }],
       },
     });
     expect(del.status).toBe("succeeded");

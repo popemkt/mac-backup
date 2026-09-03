@@ -17,7 +17,14 @@
  * regression is pinned to real data, not to a lookalike fixture.
  */
 import { describe, expect, test } from "bun:test";
-import { SYSTEM_IDS, type KbNode, type PropValue } from "@kb/model";
+import {
+  SYSTEM_IDS,
+  type KbNode,
+  type PropValue,
+  ONTOLOGY_TARGET_QUERY,
+  typeRefsOf,
+  type NodeLike,
+} from "@kb/model";
 import { systemSeedNodes } from "@kb/model";
 import {
   FIELD_TYPE_OPTION_IDS,
@@ -25,11 +32,6 @@ import {
   fieldTypeValue,
   targetQueryOf,
   targetTagsOf,
-} from "@kb/model";
-import {
-  ONTOLOGY_TARGET_QUERY,
-  typeRefsOf,
-  type NodeLike,
 } from "@kb/model";
 import { buildQueryDb, query } from "@kb/query";
 import { normalizeRows } from "../src/session.ts";
@@ -45,11 +47,7 @@ function runnerFor(nodes: KbNode[]): (edn: string) => unknown[][] {
   return (edn) => normalizeRows(query(db, edn));
 }
 
-function node(
-  id: string,
-  text: string,
-  props: Record<string, PropValue[]> = {},
-): KbNode {
+function node(id: string, text: string, props: Record<string, PropValue[]> = {}): KbNode {
   return { id, text, props, children: [], createdAt: AT, updatedAt: AT };
 }
 
@@ -65,16 +63,11 @@ describe("sys.f.onto.include — targetTag → sys.tag", () => {
     expect(field).toBeDefined();
     expect(targetTagsOf(field)).toEqual([SYSTEM_IDS.tag]);
     expect(targetQueryOf(field)).toBeNull();
-    expect(field!.props[SYSTEM_IDS.fieldTypeField]).toEqual([
-      fieldTypeValue("ref"),
-    ]);
+    expect(field!.props[SYSTEM_IDS.fieldTypeField]).toEqual([fieldTypeValue("ref")]);
   });
 
   test("resolves to every supertag in the graph — never the empty set", () => {
-    const allowed = allowedRefIdsOf(
-      seedMap.get(SYSTEM_IDS.ontoIncludeField),
-      seedMap,
-    );
+    const allowed = allowedRefIdsOf(seedMap.get(SYSTEM_IDS.ontoIncludeField), seedMap);
     expect(allowed).not.toBeNull();
     expect(allowed!.size).toBeGreaterThan(0);
     expect([...allowed!].sort()).toEqual(seededTagIds);
@@ -92,10 +85,7 @@ describe("sys.f.onto.include — targetTag → sys.tag", () => {
   });
 
   test("a kind is not an instance of itself, and fields are not tags", () => {
-    const allowed = allowedRefIdsOf(
-      seedMap.get(SYSTEM_IDS.ontoIncludeField),
-      seedMap,
-    )!;
+    const allowed = allowedRefIdsOf(seedMap.get(SYSTEM_IDS.ontoIncludeField), seedMap)!;
     // `sys.tag` is the kind named by the constraint; it carries no kind ref of
     // its own (seed comment: deliberately NOT self-typed), so it is correctly
     // absent rather than specially excluded.
@@ -110,10 +100,7 @@ describe("sys.f.onto.include — targetTag → sys.tag", () => {
       [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
     });
     const nodes = new Map<string, KbNode>([...seedMap, [mine.id, mine]]);
-    const allowed = allowedRefIdsOf(
-      seedMap.get(SYSTEM_IDS.ontoIncludeField),
-      nodes,
-    )!;
+    const allowed = allowedRefIdsOf(seedMap.get(SYSTEM_IDS.ontoIncludeField), nodes)!;
     expect(allowed.has("t.service")).toBe(true);
     expect([...allowed].sort()).toEqual([...seededTagIds, "t.service"].sort());
   });
@@ -121,13 +108,8 @@ describe("sys.f.onto.include — targetTag → sys.tag", () => {
 
 describe("sys.f.fieldType — targetTag → #field-type", () => {
   test("resolves to the six seeded option nodes", () => {
-    const allowed = allowedRefIdsOf(
-      seedMap.get(SYSTEM_IDS.fieldTypeField),
-      seedMap,
-    );
-    expect([...allowed!].sort()).toEqual(
-      Object.values(FIELD_TYPE_OPTION_IDS).slice().sort(),
-    );
+    const allowed = allowedRefIdsOf(seedMap.get(SYSTEM_IDS.fieldTypeField), seedMap);
+    expect([...allowed!].sort()).toEqual(Object.values(FIELD_TYPE_OPTION_IDS).slice().sort());
   });
 });
 
@@ -141,11 +123,7 @@ describe("sys.f.targetQuery — the general form", () => {
       [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.ontologyTag }],
     });
     const nodes = [...seed, onto];
-    const allowed = allowedRefIdsOf(
-      field,
-      new Map(nodes.map((n) => [n.id, n])),
-      runnerFor(nodes),
-    );
+    const allowed = allowedRefIdsOf(field, new Map(nodes.map((n) => [n.id, n])), runnerFor(nodes));
     expect([...allowed!]).toEqual(["o.infra"]);
   });
 
@@ -163,11 +141,7 @@ describe("sys.f.targetQuery — the general form", () => {
       ],
     });
     const nodes = [...seed, both];
-    const allowed = allowedRefIdsOf(
-      both,
-      new Map(nodes.map((n) => [n.id, n])),
-      runnerFor(nodes),
-    );
+    const allowed = allowedRefIdsOf(both, new Map(nodes.map((n) => [n.id, n])), runnerFor(nodes));
     expect([...allowed!]).toEqual([SYSTEM_IDS.typeField]);
     expect(allowed!.has(SYSTEM_IDS.ontologyTag)).toBe(false);
   });
@@ -182,14 +156,8 @@ describe("sys.f.targetQuery — the general form", () => {
       ],
     });
     const nodes = [...seed, field];
-    const allowed = allowedRefIdsOf(
-      field,
-      new Map(nodes.map((n) => [n.id, n])),
-      runnerFor(nodes),
-    );
-    expect([...allowed!].sort()).toEqual(
-      Object.values(FIELD_TYPE_OPTION_IDS).slice().sort(),
-    );
+    const allowed = allowedRefIdsOf(field, new Map(nodes.map((n) => [n.id, n])), runnerFor(nodes));
+    expect([...allowed!].sort()).toEqual(Object.values(FIELD_TYPE_OPTION_IDS).slice().sort());
   });
 
   test("no runner, or broken EDN, yields empty — never 'unrestricted'", () => {
@@ -225,15 +193,9 @@ describe("resolution reads the graph, not a rendered view of it", () => {
     // badge-free, so widening it back to the outline's badge-carrying node type
     // in order to read `n.tags` breaks the typecheck rather than the feature.
     const bare: ReadonlyMap<string, NodeLike> = new Map<string, NodeLike>(
-      seed.map((n) => [
-        n.id,
-        { id: n.id, text: n.text, props: n.props, children: n.children },
-      ]),
+      seed.map((n) => [n.id, { id: n.id, text: n.text, props: n.props, children: n.children }]),
     );
-    const allowed = allowedRefIdsOf(
-      bare.get(SYSTEM_IDS.ontoIncludeField),
-      bare,
-    );
+    const allowed = allowedRefIdsOf(bare.get(SYSTEM_IDS.ontoIncludeField), bare);
     expect([...allowed!].sort()).toEqual(seededTagIds);
   });
 });

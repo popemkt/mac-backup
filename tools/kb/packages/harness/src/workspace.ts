@@ -2,11 +2,47 @@
  * One reader for the workspace's own shape. Every repo-shape check in this
  * package reads the tree through here, so "what a package is" is stated once.
  */
+import { execSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
-
+import { join, relative } from "node:path";
 export const WORKSPACE_ROOT = join(import.meta.dir, "..", "..", "..");
 export const PACKAGES_ROOT = join(WORKSPACE_ROOT, "packages");
+export function gitWorkspaceFiles(
+  patterns: string[] = ["*.ts", "*.tsx"],
+  root: string = WORKSPACE_ROOT,
+): string[] {
+  const gitEnv = { ...process.env };
+  delete gitEnv.GIT_DIR;
+  delete gitEnv.GIT_WORK_TREE;
+  delete gitEnv.GIT_INDEX_FILE;
+  delete gitEnv.GIT_PREFIX;
+
+  const flags = patterns.filter((p) => p.startsWith("-")).join(" ");
+  const paths = patterns
+    .filter((p) => !p.startsWith("-"))
+    .map((p) => `"${p}"`)
+    .join(" ");
+  const raw = execSync(
+    `git ls-files --full-name ${flags} ${paths.length > 0 ? `-- ${paths}` : ""}`,
+    {
+      cwd: root,
+      encoding: "utf8",
+      env: gitEnv,
+    },
+  );
+  const repoRoot = execSync("git rev-parse --show-toplevel", {
+    cwd: root,
+    encoding: "utf8",
+    env: gitEnv,
+  }).trim();
+  return raw
+    .split("\n")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .map((f) => relative(root, join(repoRoot, f)))
+    .filter((f) => !f.startsWith("..") && f.length > 0)
+    .toSorted();
+}
 
 export interface PackageManifest {
   name?: string;
@@ -61,9 +97,7 @@ const DEP_FIELDS = [
 ] as const;
 
 /** [field, package name, version specifier] for every declared dependency. */
-export function dependencyEntries(
-  manifest: PackageManifest,
-): Array<[string, string, string]> {
+export function dependencyEntries(manifest: PackageManifest): Array<[string, string, string]> {
   const out: Array<[string, string, string]> = [];
   for (const field of DEP_FIELDS) {
     for (const [name, spec] of Object.entries(manifest[field] ?? {})) {
@@ -79,7 +113,5 @@ export function tagsOf(manifest: PackageManifest): string[] {
 
 /** Tag values on one axis, e.g. axisValues(tags, "layer") -> ["domain"]. */
 export function axisValues(tags: string[], axis: "layer" | "scope"): string[] {
-  return tags
-    .filter((t) => t.startsWith(`${axis}:`))
-    .map((t) => t.slice(axis.length + 1));
+  return tags.filter((t) => t.startsWith(`${axis}:`)).map((t) => t.slice(axis.length + 1));
 }

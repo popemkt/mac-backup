@@ -13,10 +13,7 @@ import type { NodeMap, OutlineNode } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "./fields-section";
-import {
-  POPOVER_VALUE_CLASS,
-  PopoverShell,
-} from "@/components/ui/popover-shell";
+import { POPOVER_VALUE_CLASS, PopoverShell } from "@/components/ui/popover-shell";
 
 function filterLabel(f: ViewFilter): string {
   if (f.kind === "text") return `text ∋ ${f.text}`;
@@ -53,17 +50,9 @@ function resolveAnchorRect(frameId: string): DOMRect | null {
         `[data-view-toolbar][data-frame-id="${id}"] [data-filter-button="true"]`,
       ),
     ) ??
-    elRect(
-      document.querySelector(`[data-view-toolbar][data-frame-id="${id}"]`),
-    ) ??
-    elRect(
-      document.querySelector(`[data-view-toolbar-gear][data-frame-id="${id}"]`),
-    ) ??
-    elRect(
-      document.querySelector(
-        `[data-zoomed-root-header][data-frame-id="${id}"]`,
-      ),
-    ) ??
+    elRect(document.querySelector(`[data-view-toolbar][data-frame-id="${id}"]`)) ??
+    elRect(document.querySelector(`[data-view-toolbar-gear][data-frame-id="${id}"]`)) ??
+    elRect(document.querySelector(`[data-zoomed-root-header][data-frame-id="${id}"]`)) ??
     elRect(document.querySelector(`[data-node-block][data-node-id="${id}"]`))
   );
 }
@@ -76,9 +65,7 @@ export function ViewFilterPopoverHost() {
   const frameId = useUiStore((s) => s.filterPopoverFrameId);
   const setOpenId = useUiStore((s) => s.setFilterPopoverFrameId);
   const rev = useOutlineStore((s) => s.rev);
-  const frame = useOutlineStore((s) =>
-    frameId ? s.nodes.get(frameId) : undefined,
-  );
+  const frame = useOutlineStore((s) => (frameId ? s.nodes.get(frameId) : undefined));
   const panelRef = useRef<HTMLDivElement>(null);
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
 
@@ -117,10 +104,7 @@ export function ViewFilterPopoverHost() {
       const panel = panelRef.current;
       if (panel && e.target instanceof Node && !panel.contains(e.target)) {
         const t = e.target;
-        if (
-          t instanceof Element &&
-          t.closest(`[data-filter-button="true"]`)
-        ) {
+        if (t instanceof Element && t.closest(`[data-filter-button="true"]`)) {
           return;
         }
         setOpenId(null);
@@ -152,10 +136,7 @@ export function ViewFilterPopoverHost() {
     if (kind === "text") {
       const text = value.trim();
       if (!text) return;
-      void mutations.addViewFilter(
-        frameId,
-        serializeViewFilter({ kind: "text", text, raw: "" }),
-      );
+      void mutations.addViewFilter(frameId, serializeViewFilter({ kind: "text", text, raw: "" }));
     } else {
       if (!fieldId || !value.trim()) return;
       void mutations.addViewFilter(
@@ -186,9 +167,7 @@ export function ViewFilterPopoverHost() {
     >
       <div data-view-filter-popover="true" data-frame-id={frameId}>
         {config.filters.length === 0 ? (
-          <p className="px-1.5 py-1 text-[12px] text-foreground/40">
-            No filters
-          </p>
+          <p className="px-1.5 py-1 text-[12px] text-foreground/40">No filters</p>
         ) : (
           <ul className="mb-1 flex flex-col gap-0.5">
             {config.filters.map((f) => {
@@ -198,15 +177,11 @@ export function ViewFilterPopoverHost() {
                   key={raw}
                   className="flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[12px] text-foreground/70 hover:bg-foreground/[0.04]"
                 >
-                  <span className="min-w-0 flex-1 truncate">
-                    {filterLabel(f)}
-                  </span>
+                  <span className="min-w-0 flex-1 truncate">{filterLabel(f)}</span>
                   <button
                     type="button"
                     className="flex h-5 w-5 items-center justify-center rounded-sm text-foreground/30 hover:text-foreground/60"
-                    onClick={() =>
-                      void mutations.removeViewFilter(frameId, raw)
-                    }
+                    onClick={() => void mutations.removeViewFilter(frameId, raw)}
                     aria-label="Remove filter"
                   >
                     <X size={11} weight="bold" />

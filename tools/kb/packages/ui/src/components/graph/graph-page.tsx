@@ -45,10 +45,7 @@ export interface GraphPageProps {
   ontologyId?: string | null;
 }
 
-export default function GraphPage({
-  perspectiveId,
-  ontologyId = null,
-}: GraphPageProps) {
+export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPageProps) {
   const wireNodes = useOutlineStore((s) => s.wireNodes);
   const queryDb = useOutlineStore((s) => s.queryDb);
   const rev = useOutlineStore((s) => s.rev);
@@ -70,7 +67,9 @@ export default function GraphPage({
   const toggleSys = () => {
     setIncludeSystemNodes((v) => {
       const next = !v;
-      try { localStorage.setItem(SYS_STORAGE_KEY, next ? "1" : "0"); } catch {}
+      try {
+        localStorage.setItem(SYS_STORAGE_KEY, next ? "1" : "0");
+      } catch {}
       return next;
     });
   };
@@ -86,10 +85,7 @@ export default function GraphPage({
       const hit = perspectives.find((p) => p.id === perspectiveId);
       if (hit) return hit;
     }
-    return (
-      perspectives.find((p) => p.id === SYSTEM_IDS.lensAllMentions) ??
-      perspectives[0]!
-    );
+    return perspectives.find((p) => p.id === SYSTEM_IDS.lensAllMentions) ?? perspectives[0]!;
   }, [perspectives, perspectiveId]);
 
   useEffect(() => {
@@ -107,10 +103,7 @@ export default function GraphPage({
 
   // An ontology decides WHICH nodes, a perspective decides how they look —
   // orthogonal, so both pickers sit in the header together (r5 §1.4).
-  const ontologies = useMemo(
-    () => listOntologyItems(wireNodes),
-    [wireNodes],
-  );
+  const ontologies = useMemo(() => listOntologyItems(wireNodes), [wireNodes]);
 
   const [lensGraph, setLensGraph] = useState(() =>
     queryDb && active
@@ -135,18 +128,18 @@ export default function GraphPage({
   }, [queryDb, wireNodes, active, rev, includeSystemNodes, restrictTo]);
 
   const forest = useMemo(
-    () =>
-      active
-        ? buildTreeForest(wireNodes, lensGraph.nodes, active.focus)
-        : [],
+    () => (active ? buildTreeForest(wireNodes, lensGraph.nodes, active.focus) : []),
     [wireNodes, lensGraph.nodes, active],
   );
 
   const themeKey = `${theme}:${dark ? "d" : "l"}`;
-  const onNodeOpen = useCallback((id: string) => {
-    navigate(ontologyId ? ontologyPath(ontologyId, "outline") : "/");
-    zoomTo(id);
-  }, [ontologyId, zoomTo]);
+  const onNodeOpen = useCallback(
+    (id: string) => {
+      navigate(ontologyId ? ontologyPath(ontologyId, "outline") : "/");
+      zoomTo(id);
+    },
+    [ontologyId, zoomTo],
+  );
 
   const renderer = active?.renderer ?? "force2d";
 
@@ -157,7 +150,9 @@ export default function GraphPage({
   const [filterIds, setFilterIds] = useState<Set<string> | null>(null);
   const [capDismissed, setCapDismissed] = useState(false);
 
-  useEffect(() => { setCapDismissed(false); }, [lensGraph.dropped]);
+  useEffect(() => {
+    setCapDismissed(false);
+  }, [lensGraph.dropped]);
   useEffect(() => {
     setSelection(null);
     // Deliberately not resetting `controls` here. Child effects run before
@@ -240,7 +235,11 @@ export default function GraphPage({
           <CircleHalf size={15} />
         </button>
       </header>
-      <div className="relative min-h-0 flex-1" key={renderer} style={{ animation: "graph-fade-in 200ms ease-out" }}>
+      <div
+        className="relative min-h-0 flex-1"
+        key={renderer}
+        style={{ animation: "graph-fade-in 200ms ease-out" }}
+      >
         {!active || !queryDb ? (
           <div className="flex h-full items-center justify-center">
             <p className="text-center text-[13px] text-foreground/40">
@@ -268,78 +267,74 @@ export default function GraphPage({
             resetKey={`${renderer}:${active.id}`}
             perspective={active}
           >
-          {renderer === "tree" ? (
-            <TreeGraph
-            forest={forest}
-            themeKey={themeKey}
-            selectedNodeId={selection?.nodeId ?? null}
-            onSelectionChange={setSelection}
-            onControlsReady={setControls}
-            />
-          ) : renderer === "cluster" ? (
-            <ClusterGraph
-            nodes={lensGraph.nodes}
-            edges={lensGraph.edges}
-            layoutKey={active.id}
-            themeKey={themeKey}
-            onNodeClick={onNodeOpen}
-            onControlsReady={setControls}
-            />
-          ) : renderer === "force3d" ? (
-            <Suspense
-            fallback={
-              <div className="p-6 text-[13px] text-foreground/40">
-                loading 3D…
-              </div>
-            }
-          >
-            <Force3dGraph
-              nodes={lensGraph.nodes}
-              edges={lensGraph.edges}
-              layoutKey={active.id}
-              themeKey={themeKey}
-              onSelectionChange={setSelection}
-              selectedNodeId={selection?.nodeId ?? null}
-              onControlsReady={setControls}
-              curvedLinks={active.curvedLinks}
-              autorotate={active.autorotate}
-              showLabels={active.showLabels}
-              labelTopN={
-                active.labelDensity === "low"
-                  ? 12
-                  : active.labelDensity === "high"
-                    ? 48
-                    : 24
-              }
-            />
-            </Suspense>
-          ) : (
-            <SigmaGraph
-              nodes={lensGraph.nodes}
-              edges={lensGraph.edges}
-              layoutKey={active.id}
-              themeKey={themeKey}
-              layout={active.layout}
-              onNodeOpen={onNodeOpen}
-              onSelectionChange={setSelection}
-              selectedNodeId={selection?.nodeId ?? null}
-              onControlsReady={setControls}
-              highlightIds={searchHighlight ?? undefined}
-              filterIds={filterIds ?? undefined}
-            />
-          )}
+            {renderer === "tree" ? (
+              <TreeGraph
+                forest={forest}
+                themeKey={themeKey}
+                selectedNodeId={selection?.nodeId ?? null}
+                onSelectionChange={setSelection}
+                onControlsReady={setControls}
+              />
+            ) : renderer === "cluster" ? (
+              <ClusterGraph
+                nodes={lensGraph.nodes}
+                edges={lensGraph.edges}
+                layoutKey={active.id}
+                themeKey={themeKey}
+                onNodeClick={onNodeOpen}
+                onControlsReady={setControls}
+              />
+            ) : renderer === "force3d" ? (
+              <Suspense
+                fallback={<div className="p-6 text-[13px] text-foreground/40">loading 3D…</div>}
+              >
+                <Force3dGraph
+                  nodes={lensGraph.nodes}
+                  edges={lensGraph.edges}
+                  layoutKey={active.id}
+                  themeKey={themeKey}
+                  onSelectionChange={setSelection}
+                  selectedNodeId={selection?.nodeId ?? null}
+                  onControlsReady={setControls}
+                  curvedLinks={active.curvedLinks}
+                  autorotate={active.autorotate}
+                  showLabels={active.showLabels}
+                  labelTopN={
+                    active.labelDensity === "low" ? 12 : active.labelDensity === "high" ? 48 : 24
+                  }
+                />
+              </Suspense>
+            ) : (
+              <SigmaGraph
+                nodes={lensGraph.nodes}
+                edges={lensGraph.edges}
+                layoutKey={active.id}
+                themeKey={themeKey}
+                layout={active.layout}
+                onNodeOpen={onNodeOpen}
+                onSelectionChange={setSelection}
+                selectedNodeId={selection?.nodeId ?? null}
+                onControlsReady={setControls}
+                highlightIds={searchHighlight ?? undefined}
+                filterIds={filterIds ?? undefined}
+              />
+            )}
           </GraphCanvasFrame>
         )}
         {lensGraph.dropped > 0 && !capDismissed && (
           <div className="absolute left-1/2 top-3 z-30 -translate-x-1/2 flex items-center gap-2 rounded-lg border border-foreground/8 bg-popover/95 px-3 py-1.5 shadow-md backdrop-blur-sm">
             <span className="text-[11px] text-foreground/60">
-              showing top {lensGraph.nodes.length} of {lensGraph.nodes.length + lensGraph.dropped} by degree
+              showing top {lensGraph.nodes.length} of {lensGraph.nodes.length + lensGraph.dropped}{" "}
+              by degree
             </span>
             <button
               type="button"
               className="rounded-md bg-foreground/[0.06] px-2 py-0.5 text-[10px] font-medium text-foreground/60 transition-colors hover:bg-foreground/[0.1] hover:text-foreground/80"
               onClick={() => {
-                if (active) { navigate("/"); zoomTo(active.id); }
+                if (active) {
+                  navigate("/");
+                  zoomTo(active.id);
+                }
               }}
             >
               edit max-nodes

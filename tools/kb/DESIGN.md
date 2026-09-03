@@ -84,6 +84,38 @@ The backend runs on **Bun** in production; the toolchain around it is **Vite+
   package declares only its delta and no `paths` beyond `@kb/ui`'s
   intra-package `@/*`.
 
+### Compiler strictness contract
+
+One `tsconfig.base.json` owns compiler strictness; every package extends it
+and declares only its runtime delta (`target`, `module`, `moduleResolution`,
+`lib`, etc.). Packages may not redeclare any key the base owns. The table below
+is the single source of truth; harness check `tsconfig-contract` parses it live
+and asserts `tsconfig.base.json` matches it bit-for-bit.
+
+| flag | value | status |
+|---|---|---|
+| strict | true | active |
+| noImplicitOverride | true | active |
+| noUncheckedIndexedAccess | true | active |
+| noFallthroughCasesInSwitch | true | active |
+| verbatimModuleSyntax | true | active |
+| noUnusedLocals | true | active |
+| noUnusedParameters | true | active |
+| noImplicitReturns | true | active |
+| allowUnreachableCode | false | active |
+| allowUnusedLabels | false | active |
+| noUncheckedSideEffectImports | true | active |
+| erasableSyntaxOnly | true | active |
+| forceConsistentCasingInFileNames | true | active |
+| useUnknownInCatchVariables | true | active |
+| skipLibCheck | true | active |
+| exactOptionalPropertyTypes | true | deferred |
+| noPropertyAccessFromIndexSignature | false | rejected |
+
+`exactOptionalPropertyTypes` is deferred to `d1`/`d2` code drains (17 backend +
+31 UI violations recorded in `reports/measurements.md`).
+`noPropertyAccessFromIndexSignature` is rejected (plan D9; 114 backend + 239 UI
+violations, style-only with no soundness gain).
 ## Supply chain
 
 - Every internal dependency is `workspace:*`; every external dependency is

@@ -64,10 +64,7 @@ describe("ontology resolver properties (fast-check)", () => {
           const pinIds = Array.from({ length: pinCount }, (_, i) => `pin${i}`);
           const pins = pinIds.map((id) => plainNode(id, []));
 
-          const exclude = [
-            ...(excludeTagged ? taggedIds : []),
-            ...(excludePinned ? pinIds : []),
-          ];
+          const exclude = [...(excludeTagged ? taggedIds : []), ...(excludePinned ? pinIds : [])];
 
           const b = ontologyNode("b", { include: ["tag"], member: pinIds });
           const a = viaExtends
@@ -95,9 +92,7 @@ describe("ontology resolver properties (fast-check)", () => {
         (parentMemberCount, excludeIndices) => {
           const parentIds = Array.from({ length: parentMemberCount }, (_, i) => `pm${i}`);
           const parentNodes = parentIds.map((id) => plainNode(id, []));
-          const excludeSet = new Set(
-            excludeIndices.map((i) => parentIds[i % parentIds.length]!),
-          );
+          const excludeSet = new Set(excludeIndices.map((i) => parentIds[i % parentIds.length]!));
 
           const parent = ontologyNode("parent", { member: parentIds });
           const child = ontologyNode("child", {
@@ -157,9 +152,7 @@ describe("ontology resolver properties (fast-check)", () => {
           const tagIds = Array.from({ length: tagCount }, (_, i) => `t${i}`);
           const tags = tagIds.map((id) => tagNode(id));
           const taggedIds = Array.from({ length: taggedCount }, (_, i) => `p${i}`);
-          const tagged = taggedIds.map((id, i) =>
-            plainNode(id, [tagIds[i % tagIds.length]!]),
-          );
+          const tagged = taggedIds.map((id, i) => plainNode(id, [tagIds[i % tagIds.length]!]));
           const excludeIds = taggedIds.slice(0, Math.min(excludeCount, taggedIds.length));
 
           const baseline = ontologyNode("o", { include: tagIds, exclude: excludeIds });
@@ -202,7 +195,8 @@ describe("ontology resolver properties (fast-check)", () => {
           const childrenOf = new Map<NodeId, NodeId[]>();
           for (let i = 0; i < ids.length; i++) {
             const laterCount = ids.length - i - 1;
-            const childCount = laterCount === 0 ? 0 : edgeSeed[i % edgeSeed.length]! % (laterCount + 1);
+            const childCount =
+              laterCount === 0 ? 0 : edgeSeed[i % edgeSeed.length]! % (laterCount + 1);
             childrenOf.set(ids[i]!, ids.slice(i + 1, i + 1 + childCount));
           }
           const nodes: NodeLike[] = ids.map((id) => ({
@@ -279,12 +273,20 @@ describe("ontology resolver properties (fast-check)", () => {
       fc.property(
         fc.oneof(
           fc.record({ t: fc.constant("str" as const), v: fc.constant(" descendants ") }),
-          fc.record({ t: fc.constant("str" as const), v: fc.string().filter((s) => s.trim() !== "descendants") }),
+          fc.record({
+            t: fc.constant("str" as const),
+            v: fc.string().filter((s) => s.trim() !== "descendants"),
+          }),
           fc.record({ t: fc.constant("num" as const), v: fc.double({ noNaN: true }) }),
           fc.record({ t: fc.constant("bool" as const), v: fc.boolean() }),
         ),
         (raw) => {
-          const node: NodeLike = { id: "o", text: "o", props: { [SYSTEM_IDS.ontoClosureField]: [raw as PropValue] }, children: [] };
+          const node: NodeLike = {
+            id: "o",
+            text: "o",
+            props: { [SYSTEM_IDS.ontoClosureField]: [raw as PropValue] },
+            children: [],
+          };
           const expectDescendants = raw.t === "str" && raw.v.trim() === "descendants";
           expect(ontologyClosureMode(node)).toBe(expectDescendants ? "descendants" : "none");
         },

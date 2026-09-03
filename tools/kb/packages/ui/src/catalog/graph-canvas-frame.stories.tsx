@@ -14,9 +14,33 @@ const controls: GraphCameraControls = {
 };
 
 const nodes: LensNode[] = [
-  { id: "n.a", label: "Alpha", color: "#3b82f6", size: 4, clusterKey: "todo", tags: ["todo"], degree: 3 },
-  { id: "n.b", label: "Beta", color: "#3b82f6", size: 4, clusterKey: "todo", tags: ["todo"], degree: 1 },
-  { id: "n.c", label: "Gamma", color: "#22c55e", size: 4, clusterKey: "work", tags: ["work"], degree: 2 },
+  {
+    id: "n.a",
+    label: "Alpha",
+    color: "#3b82f6",
+    size: 4,
+    clusterKey: "todo",
+    tags: ["todo"],
+    degree: 3,
+  },
+  {
+    id: "n.b",
+    label: "Beta",
+    color: "#3b82f6",
+    size: 4,
+    clusterKey: "todo",
+    tags: ["todo"],
+    degree: 1,
+  },
+  {
+    id: "n.c",
+    label: "Gamma",
+    color: "#22c55e",
+    size: 4,
+    clusterKey: "work",
+    tags: ["work"],
+    degree: 2,
+  },
 ];
 
 /** A stand-in for the renderer canvas (sigma / force3d / tree) — the frame
@@ -86,6 +110,6 @@ export const QueryError: Story = {
   args: {
     nodes,
     children: <FakeCanvas />,
-    queryError: "resolveNodeSet: unknown tag id \"#missing\"",
+    queryError: 'resolveNodeSet: unknown tag id "#missing"',
   },
 };

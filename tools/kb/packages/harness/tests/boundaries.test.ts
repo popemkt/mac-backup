@@ -21,11 +21,7 @@ describe("boundaries", () => {
     Object.entries(graph.nodes).map(([name, node]) => [name, node.data.tags ?? []]),
   );
 
-  function violation(
-    source: string,
-    target: string,
-    axis: "layer" | "scope",
-  ): string | null {
+  function violation(source: string, target: string, axis: "layer" | "scope"): string | null {
     const allows = axis === "layer" ? LAYER_ALLOWS : SCOPE_ALLOWS;
     const from = axisValues(tagsByProject.get(source) ?? [], axis)[0];
     const to = axisValues(tagsByProject.get(target) ?? [], axis)[0];
@@ -40,9 +36,7 @@ describe("boundaries", () => {
       const layers = axisValues(tags, "layer");
       const scopes = axisValues(tags, "scope");
       if (layers.length !== 1 || scopes.length !== 1) {
-        bad.push(
-          `${name}: layer=${JSON.stringify(layers)} scope=${JSON.stringify(scopes)}`,
-        );
+        bad.push(`${name}: layer=${JSON.stringify(layers)} scope=${JSON.stringify(scopes)}`);
       }
     }
     expect(bad, bad.join("\n")).toEqual([]);

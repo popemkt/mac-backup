@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { buildQueryDb } from "@/ds/db";
-import {
-  DEFAULT_MAX_NODES,
-  extractLensGraph,
-  type LensPerspective,
-} from "@/lib/graph-lens";
+import { DEFAULT_MAX_NODES, extractLensGraph, type LensPerspective } from "@/lib/graph-lens";
 
 const ISO = "2026-08-23T00:00:00.000Z";
 
@@ -35,11 +31,7 @@ const PERSPECTIVE: LensPerspective = {
 
 /** a → b (both members), b → c (c outside the scope). */
 function wire(): WireNode[] {
-  return [
-    node("n.a", "alpha", ["n.b"]),
-    node("n.b", "beta", ["n.c"]),
-    node("n.c", "gamma"),
-  ];
+  return [node("n.a", "alpha", ["n.b"]), node("n.b", "beta", ["n.c"]), node("n.c", "gamma")];
 }
 
 describe("extractLensGraph — restrictTo (ontology scope)", () => {
@@ -50,9 +42,7 @@ describe("extractLensGraph — restrictTo (ontology scope)", () => {
       restrictTo: new Set(["n.a", "n.b"]),
     });
     expect(graph.nodes.map((n) => n.id)).toEqual(["n.a", "n.b"]);
-    expect(graph.edges).toEqual([
-      { source: "n.a", target: "n.b", kind: "child", weight: 1 },
-    ]);
+    expect(graph.edges).toEqual([{ source: "n.a", target: "n.b", kind: "child", weight: 1 }]);
   });
 
   it("drops edges with either endpoint outside the set", () => {
@@ -63,9 +53,7 @@ describe("extractLensGraph — restrictTo (ontology scope)", () => {
     });
     expect(graph.nodes.map((n) => n.id)).toEqual(["n.b", "n.c"]);
     // a→b is gone (a is out); b→c survives (both in).
-    expect(graph.edges).toEqual([
-      { source: "n.b", target: "n.c", kind: "child", weight: 1 },
-    ]);
+    expect(graph.edges).toEqual([{ source: "n.b", target: "n.c", kind: "child", weight: 1 }]);
   });
 
   it("renders nothing for an empty member set", () => {

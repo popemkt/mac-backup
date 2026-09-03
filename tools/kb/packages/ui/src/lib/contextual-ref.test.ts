@@ -31,10 +31,7 @@ function wire(partial: Partial<WireNode> & Pick<WireNode, "id">): WireNode {
 }
 
 function mapWith(extra: WireNode[]): NodeMap {
-  return wireToOutlineMap(
-    [...fixtureGraph.nodes, ...REF_SEED_WIRES, ...extra],
-    new Set(),
-  );
+  return wireToOutlineMap([...fixtureGraph.nodes, ...REF_SEED_WIRES, ...extra], new Set());
 }
 
 describe("contextual reference model", () => {
@@ -71,13 +68,9 @@ describe("contextual reference model", () => {
       ctxRefWire("n.ctx", "n.md"),
       wire({ id: "n.md", text: "Original — **bold** and `code`" }),
     ]);
-    expect(rowText(nodes.get("n.ctx")!, nodes)).toBe(
-      "Original — **bold** and `code`",
-    );
+    expect(rowText(nodes.get("n.ctx")!, nodes)).toBe("Original — **bold** and `code`");
     // Ordinary rows are untouched — one function, one answer.
-    expect(rowText(nodes.get("n.root-b")!, nodes)).toBe(
-      "Search jumps to matching nodes",
-    );
+    expect(rowText(nodes.get("n.root-b")!, nodes)).toBe("Search jumps to matching nodes");
   });
 
   it("a dangling target renders as the [[id]] token, never blank or a throw", () => {
@@ -105,9 +98,9 @@ describe("contextual reference model", () => {
     expect(rowTextReadOnlyReason("n.ctx", nodes.get("n.ctx"))).toBe(
       "Reference — edit the original",
     );
-    expect(
-      rowTextReadOnlyReason("sys.tag.query", nodes.get("sys.tag.query")),
-    ).toBe("System node — read-only");
+    expect(rowTextReadOnlyReason("sys.tag.query", nodes.get("sys.tag.query"))).toBe(
+      "System node — read-only",
+    );
     expect(rowTextReadOnlyReason("n.root-a", nodes.get("n.root-a"))).toBeNull();
   });
 });
@@ -127,8 +120,6 @@ describe("references section reach", () => {
       text: "See [[n.root-a|Ship kb ui shell]] for context",
     });
     const db = buildQueryDb([...fixtureGraph.nodes, referrer], 1);
-    expect(queryBacklinks(db, "n.root-a").map((b) => b.id)).toEqual([
-      "n.referrer",
-    ]);
+    expect(queryBacklinks(db, "n.root-a").map((b) => b.id)).toEqual(["n.referrer"]);
   });
 });

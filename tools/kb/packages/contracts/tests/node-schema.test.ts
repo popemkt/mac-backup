@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Schema } from "effect";
-import {
-  KbNodeSchema,
-  PropValueSchema,
-  nodeParseOptions,
-} from "@kb/model";
+import { KbNodeSchema, PropValueSchema, nodeParseOptions } from "@kb/model";
 import { WireNodeSchema } from "../src/protocol.ts";
 
 const at = "2026-01-01T00:00:00.000Z";
@@ -59,9 +55,7 @@ describe("PropValueSchema discriminant", () => {
       createdAt: at,
       updatedAt: at,
     };
-    const decoded = Schema.decodeUnknownSync(KbNodeSchema, nodeParseOptions)(
-      node,
-    );
+    const decoded = Schema.decodeUnknownSync(KbNodeSchema, nodeParseOptions)(node);
     expect(WireNodeSchema.parse(decoded)).toMatchObject({ id: "n.1" });
   });
 
@@ -74,8 +68,6 @@ describe("PropValueSchema discriminant", () => {
       createdAt: at,
       updatedAt: at,
     };
-    expect(() =>
-      Schema.decodeUnknownSync(KbNodeSchema, nodeParseOptions)(node),
-    ).toThrow();
+    expect(() => Schema.decodeUnknownSync(KbNodeSchema, nodeParseOptions)(node)).toThrow();
   });
 });

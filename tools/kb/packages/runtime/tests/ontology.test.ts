@@ -9,10 +9,10 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SYSTEM_IDS, type KbNode, type PropValue } from "@kb/model";
-import { fieldTypeOf } from "@kb/model";
-import { ensureSystemSeed, systemSeedNodes } from "@kb/model";
 import {
+  SYSTEM_IDS,
+  type KbNode,
+  type PropValue,
   DEFAULT_MAX_DEPTH,
   isOntologyNode,
   listOntologyNodes,
@@ -21,6 +21,8 @@ import {
   wouldCreateExtendsCycle,
   type NodeLike,
 } from "@kb/model";
+import { fieldTypeOf } from "@kb/model";
+import { ensureSystemSeed, systemSeedNodes } from "@kb/model";
 import { ontologyMembersEffect } from "@kb/operations";
 import { runWithKb } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
@@ -61,8 +63,7 @@ function ontology(
   const props: Record<string, PropValue[]> = {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.ontologyTag }],
   };
-  const refs = (ids: string[]): PropValue[] =>
-    ids.map((v) => ({ t: "ref" as const, v }));
+  const refs = (ids: string[]): PropValue[] => ids.map((v) => ({ t: "ref" as const, v }));
   if (spec.include) props[SYSTEM_IDS.ontoIncludeField] = refs(spec.include);
   if (spec.member) props[SYSTEM_IDS.ontoMemberField] = refs(spec.member);
   if (spec.exclude) props[SYSTEM_IDS.ontoExcludeField] = refs(spec.exclude);
@@ -117,11 +118,7 @@ describe("resolveOntology — include tags", () => {
       }),
     ];
     const r = resolveOntology(nodes, "o.infra");
-    expect(sortedMembers(r.members)).toEqual([
-      "n.caddy",
-      "n.tailscaled",
-      "n.work",
-    ]);
+    expect(sortedMembers(r.members)).toEqual(["n.caddy", "n.tailscaled", "n.work"]);
   });
 
   test("a tag with zero instances is not a warning; an unknown tag ref is", () => {
@@ -132,9 +129,7 @@ describe("resolveOntology — include tags", () => {
       ontology("o.b", "B", { include: ["t.ghost"] }),
     ];
     expect(resolveOntology(nodes, "o.a").warnings).toEqual([]);
-    expect(resolveOntology(nodes, "o.b").warnings).toEqual([
-      "include tag not found: t.ghost",
-    ]);
+    expect(resolveOntology(nodes, "o.b").warnings).toEqual(["include tag not found: t.ghost"]);
   });
 });
 
@@ -233,12 +228,7 @@ describe("resolveOntology — extends", () => {
       ontology("o.c", "Child", { extends: ["o.p"], include: ["t.service"] }),
     ];
     const r = resolveOntology(nodes, "o.c");
-    expect(sortedMembers(r.members)).toEqual([
-      "n.caddy",
-      "n.notes",
-      "n.tailscaled",
-      "n.work",
-    ]);
+    expect(sortedMembers(r.members)).toEqual(["n.caddy", "n.notes", "n.tailscaled", "n.work"]);
   });
 
   test("parent ontologies are not themselves members", () => {
@@ -257,15 +247,10 @@ describe("resolveOntology — extends", () => {
   });
 
   test("extends target that is not an #ontology node warns and is skipped", () => {
-    const nodes = [
-      ...baseGraph(),
-      ontology("o", "O", { extends: ["n.notes"] }),
-    ];
+    const nodes = [...baseGraph(), ontology("o", "O", { extends: ["n.notes"] })];
     const r = resolveOntology(nodes, "o");
     expect(r.members.size).toBe(0);
-    expect(r.warnings).toEqual([
-      "extends target is not an #ontology node: n.notes",
-    ]);
+    expect(r.warnings).toEqual(["extends target is not an #ontology node: n.notes"]);
   });
 
   test("extends ref to a missing node warns", () => {
@@ -282,26 +267,15 @@ describe("resolveOntology — extends", () => {
       ontology("o.b", "B", { extends: ["o.a"], include: ["t.host"] }),
     ];
     const r = resolveOntology(nodes, "o.a");
-    expect(sortedMembers(r.members)).toEqual([
-      "n.caddy",
-      "n.tailscaled",
-      "n.work",
-    ]);
-    expect(r.warnings.some((w) => w.startsWith("extends cycle ignored:"))).toBe(
-      true,
-    );
+    expect(sortedMembers(r.members)).toEqual(["n.caddy", "n.tailscaled", "n.work"]);
+    expect(r.warnings.some((w) => w.startsWith("extends cycle ignored:"))).toBe(true);
   });
 
   test("self-extends terminates and warns", () => {
-    const nodes = [
-      ...baseGraph(),
-      ontology("o", "O", { extends: ["o"], include: ["t.host"] }),
-    ];
+    const nodes = [...baseGraph(), ontology("o", "O", { extends: ["o"], include: ["t.host"] })];
     const r = resolveOntology(nodes, "o");
     expect(sortedMembers(r.members)).toEqual(["n.work"]);
-    expect(r.warnings.some((w) => w.startsWith("extends cycle ignored:"))).toBe(
-      true,
-    );
+    expect(r.warnings.some((w) => w.startsWith("extends cycle ignored:"))).toBe(true);
   });
 
   test("depth cap: a 40-deep chain warns and stops", () => {
@@ -369,18 +343,14 @@ describe("resolveOntology — onto.query", () => {
       },
     });
     expect(r.members.size).toBe(0);
-    expect(r.warnings).toEqual([
-      "onto.query failed on o: EOF while reading",
-    ]);
+    expect(r.warnings).toEqual(["onto.query failed on o: EOF while reading"]);
   });
 
   test("absent runner warns and skips", () => {
     const nodes = [...baseGraph(), ontology("o", "O", { query: EDN })];
     const r = resolveOntology(nodes, "o");
     expect(r.members.size).toBe(0);
-    expect(r.warnings).toEqual([
-      "onto.query skipped (no query runner supplied): o",
-    ]);
+    expect(r.warnings).toEqual(["onto.query skipped (no query runner supplied): o"]);
   });
 });
 
@@ -390,9 +360,7 @@ describe("resolveOntology — closure", () => {
   function tree(): KbNode[] {
     return [
       tagged("t.host", "host", SYSTEM_IDS.tag),
-      node("n.root", "root", { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.host" }] }, [
-        "n.mid",
-      ]),
+      node("n.root", "root", { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.host" }] }, ["n.mid"]),
       node("n.mid", "mid", {}, ["n.leaf"]),
       node("n.leaf", "leaf"),
     ];
@@ -402,9 +370,7 @@ describe("resolveOntology — closure", () => {
     const nodes = [...tree(), ontology("o", "O", { include: ["t.host"], closure: "descendants" })];
     const r = resolveOntology(nodes, "o");
     expect(sortedMembers(r.members)).toEqual(["n.leaf", "n.mid", "n.root"]);
-    expect(r.reasons.get("n.leaf")).toEqual([
-      { kind: "closure", via: "n.root" },
-    ]);
+    expect(r.reasons.get("n.leaf")).toEqual([{ kind: "closure", via: "n.root" }]);
   });
 
   test('default ("none") pulls nothing', () => {
@@ -417,9 +383,7 @@ describe("resolveOntology — closure", () => {
   test("a children cycle terminates", () => {
     const nodes: KbNode[] = [
       tagged("t.host", "host", SYSTEM_IDS.tag),
-      node("n.a", "a", { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.host" }] }, [
-        "n.b",
-      ]),
+      node("n.a", "a", { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.host" }] }, ["n.b"]),
       node("n.b", "b", {}, ["n.a"]),
       ontology("o", "O", { include: ["t.host"], closure: "descendants" }),
     ];
@@ -443,14 +407,9 @@ describe("resolveOntology — provenance", () => {
   });
 
   test("a tag-derived member's reason names the tag", () => {
-    const nodes = [
-      ...baseGraph(),
-      ontology("o", "O", { include: ["t.service"] }),
-    ];
+    const nodes = [...baseGraph(), ontology("o", "O", { include: ["t.service"] })];
     const r = resolveOntology(nodes, "o");
-    expect(r.reasons.get("n.caddy")).toEqual([
-      { kind: "tag", via: "t.service" },
-    ]);
+    expect(r.reasons.get("n.caddy")).toEqual([{ kind: "tag", via: "t.service" }]);
   });
 
   test("a doubly-derived member carries both reasons", () => {
@@ -514,11 +473,7 @@ describe("resolveOntology — determinism and caps", () => {
 
 describe("ontology helpers", () => {
   test("isOntologyNode / listOntologyNodes sort by label then id", () => {
-    const nodes: NodeLike[] = [
-      ...baseGraph(),
-      ontology("o.z", "Alpha"),
-      ontology("o.a", "Beta"),
-    ];
+    const nodes: NodeLike[] = [...baseGraph(), ontology("o.z", "Alpha"), ontology("o.a", "Beta")];
     expect(isOntologyNode(nodes.find((n) => n.id === "o.z")!)).toBe(true);
     expect(isOntologyNode(nodes.find((n) => n.id === "n.notes")!)).toBe(false);
     expect(listOntologyNodes(nodes).map((n) => n.id)).toEqual(["o.z", "o.a"]);
@@ -569,15 +524,15 @@ describe("ontology seed", () => {
     // nodes now, and reading through the shared resolver is what keeps this
     // test honest across either representation.
     expect(fieldTypeOf(byId.get(SYSTEM_IDS.ontoIncludeField)!.props)).toBe("ref");
-    expect(refs(byId.get(SYSTEM_IDS.ontoIncludeField)!, SYSTEM_IDS.targetTagField)).toEqual([SYSTEM_IDS.tag]);
+    expect(refs(byId.get(SYSTEM_IDS.ontoIncludeField)!, SYSTEM_IDS.targetTagField)).toEqual([
+      SYSTEM_IDS.tag,
+    ]);
     expect(fieldTypeOf(byId.get(SYSTEM_IDS.ontoQueryField)!.props)).toBe("text");
 
     // extends uses targetQuery (not targetTag) so the picker offers ontologies.
     const ext = byId.get(SYSTEM_IDS.ontoExtendsField)!;
     expect(refs(ext, SYSTEM_IDS.targetTagField)).toEqual([]);
-    expect(strs(ext, SYSTEM_IDS.targetQueryField)[0]).toContain(
-      SYSTEM_IDS.ontologyTag,
-    );
+    expect(strs(ext, SYSTEM_IDS.targetQueryField)[0]).toContain(SYSTEM_IDS.ontologyTag);
 
     const tag = byId.get(SYSTEM_IDS.ontologyTag)!;
     expect(tag.text).toBe("ontology");
@@ -653,14 +608,9 @@ describe("ontology migration", () => {
     // own canonical form so any drift is the seed's fault, not the writer's.
     const legacy: KbNode[] = [
       tagged("01LEGACYTODOTAG00000000001", "todo", SYSTEM_IDS.tag),
-      tagged(
-        "01LEGACYTODO000000000000001",
-        "Fix drift audit",
-        "01LEGACYTODOTAG00000000001",
-      ),
+      tagged("01LEGACYTODO000000000000001", "Fix drift audit", "01LEGACYTODOTAG00000000001"),
     ];
-    const before =
-      legacy.map((n) => canonicalJson(n)).join("\n") + "\n";
+    const before = legacy.map((n) => canonicalJson(n)).join("\n") + "\n";
     writeFileSync(jsonl, before, "utf8");
 
     const ctx = await openKb(root);
@@ -683,15 +633,13 @@ describe("ontology migration", () => {
     expect(added.length).toBeGreaterThan(0);
     const seedIds = new Set(systemSeedNodes().map((n) => n.id));
     for (const line of added) {
-      expect(seedIds.has(String((JSON.parse(line) as { id: string }).id))).toBe(
-        true,
-      );
+      expect(seedIds.has(String((JSON.parse(line) as { id: string }).id))).toBe(true);
     }
     // The ontology seed landed, and TODO content is preserved.
     expect(ctx.nodes.some((n) => n.id === SYSTEM_IDS.ontologyTag)).toBe(true);
-    expect(
-      ctx.nodes.find((n) => n.id === "01LEGACYTODO000000000000001")?.text,
-    ).toBe("Fix drift audit");
+    expect(ctx.nodes.find((n) => n.id === "01LEGACYTODO000000000000001")?.text).toBe(
+      "Fix drift audit",
+    );
   });
 
   test("a node that never joins an ontology carries zero onto.* props", async () => {
@@ -730,17 +678,12 @@ describe("ontology.members action", () => {
     expect(out.members).toEqual(["n.notes", "n.tailscaled"]);
     expect(out.excluded).toEqual(["n.caddy"]);
     expect(out.warnings).toEqual([]);
-    expect(out.reasons?.["n.tailscaled"]).toEqual([
-      { kind: "tag", via: "t.service" },
-    ]);
+    expect(out.reasons?.["n.tailscaled"]).toEqual([{ kind: "tag", via: "t.service" }]);
     expect(out.reasons?.["n.notes"]).toEqual([{ kind: "member" }]);
   });
 
   test("reasons are omitted unless requested", async () => {
-    const ctx = await fixtureCtx([
-      ...baseGraph(),
-      ontology("o", "O", { include: ["t.host"] }),
-    ]);
+    const ctx = await fixtureCtx([...baseGraph(), ontology("o", "O", { include: ["t.host"] })]);
     const out = await runWithKb(ctx, ontologyMembersEffect({ id: "o" }));
     expect(out.reasons).toBeUndefined();
   });
@@ -768,9 +711,7 @@ describe("ontology.members action", () => {
     });
     expect(receipt.status).toBe("succeeded");
     const out = (receipt as { output: { warnings: string[] } }).output;
-    expect(out.warnings.some((w) => w.startsWith("onto.query failed"))).toBe(
-      true,
-    );
+    expect(out.warnings.some((w) => w.startsWith("onto.query failed"))).toBe(true);
   });
 
   test("not_found for a missing id; invalid_input for an untagged node", async () => {

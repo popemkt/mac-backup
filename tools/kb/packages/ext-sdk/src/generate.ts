@@ -23,9 +23,7 @@ export interface GenExtSdkResult {
 }
 
 /** Build the ambient `kb-ext-sdk` declaration string (no filesystem write). */
-export async function generateExtSdkDts(
-  opts: { version?: string } = {},
-): Promise<GenExtSdkResult> {
+export async function generateExtSdkDts(opts: { version?: string } = {}): Promise<GenExtSdkResult> {
   const pkg = JSON.parse(await readFile(PKG, "utf8")) as { version: string };
   const version = opts.version ?? pkg.version;
 
@@ -60,9 +58,7 @@ export async function generateExtSdkDts(
       encoding: "utf8",
     });
     if (result.status !== 0) {
-      throw new Error(
-        `tsc emit failed:\n${result.stdout ?? ""}\n${result.stderr ?? ""}`,
-      );
+      throw new Error(`tsc emit failed:\n${result.stdout ?? ""}\n${result.stderr ?? ""}`);
     }
 
     const emitted = await readFile(join(work, "out/surface.d.ts"), "utf8");
@@ -95,9 +91,7 @@ export async function generateExtSdkDts(
 }
 
 /** Write `sdk-dts.text.ts` with the regenerated string constant. */
-export async function writeExtSdkModule(
-  opts: { version?: string } = {},
-): Promise<GenExtSdkResult> {
+export async function writeExtSdkModule(opts: { version?: string } = {}): Promise<GenExtSdkResult> {
   const { dts, version } = await generateExtSdkDts(opts);
   const moduleSource = [
     "/**",

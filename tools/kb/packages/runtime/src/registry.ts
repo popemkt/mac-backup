@@ -1,5 +1,5 @@
 import { Cause, Effect, Exit } from "effect";
-import { FileSystem } from "effect/FileSystem";
+import { type FileSystem } from "effect/FileSystem";
 import {
   type ActionDefinition,
   type ActionEffectHandler,
@@ -8,36 +8,27 @@ import {
   actionToManifestEntry,
   failed,
   succeeded,
+  KbCtx,
+  KbStore,
+  type KbContext,
 } from "@kb/contracts";
 import { FailureCodeSchema } from "@kb/model";
-import { KbCtx, KbStore, type KbContext } from "@kb/contracts";
 import { kbRuntimeLayer } from "./layers.ts";
 import { ResolveError } from "@kb/model";
 import {
   ActionSchemaError,
   parseActionInput,
   type ActionSchema,
-} from "@kb/model";
-import {
   domainFromResolve,
   isDomainError,
   receiptCodeOf,
   type DomainError,
 } from "@kb/model";
-import { discoverExtensions, namespacedId } from "@kb/operations";
-import type {
-  ExtensionAction,
-  ExtensionFailure,
-  ExtensionPromiseHandler,
-  LoadedExtension,
-} from "@kb/contracts";
-import { docsActions } from "@kb/ext-docs";
-import { canvasActions } from "@kb/ext-canvas";
 import {
+  discoverExtensions,
+  namespacedId,
   assetUploadDef,
   assetUploadEffect,
-} from "@kb/operations";
-import {
   fieldDefineDef,
   fieldDefineEffect,
   graphQueryDef,
@@ -54,17 +45,21 @@ import {
   nodeUpdateEffect,
   tagDefineDef,
   tagDefineEffect,
-} from "@kb/operations";
-import {
   ontologyMembersDef,
   ontologyMembersEffect,
-} from "@kb/operations";
-import {
   renderViewActionEffect,
   renderViewDef,
   renderViewsActionEffect,
   renderViewsDef,
 } from "@kb/operations";
+import type {
+  ExtensionAction,
+  ExtensionFailure,
+  ExtensionPromiseHandler,
+  LoadedExtension,
+} from "@kb/contracts";
+import { docsActions } from "@kb/ext-docs";
+import { canvasActions } from "@kb/ext-canvas";
 
 /** Services Effect-native handlers may require; provided at the invoke tip. */
 export type ActionHandlerEnv = KbCtx | KbStore | FileSystem;
@@ -113,10 +108,7 @@ export interface Registry {
   manifestEntries: readonly ManifestEntry[];
 }
 
-function coreNative(
-  def: ActionDefinition,
-  effect: ActionEffectHandler,
-): RegisteredAction {
+function coreNative(def: ActionDefinition, effect: ActionEffectHandler): RegisteredAction {
   return { def, effect, source: "core", aliases: [] };
 }
 
@@ -235,9 +227,7 @@ export async function manifest(root?: string): Promise<readonly ManifestEntry[]>
   return (await registryFor(root ?? null)).manifestEntries;
 }
 
-export async function listDefinitions(
-  root?: string,
-): Promise<readonly ActionDefinition[]> {
+export async function listDefinitions(root?: string): Promise<readonly ActionDefinition[]> {
   return (await registryFor(root ?? null)).actions.map((a) => a.def);
 }
 
@@ -246,30 +236,25 @@ export function isEffectNativeAction(action: RegisteredAction): boolean {
   return typeof action.effect === "function";
 }
 
-const parseInputEffect = Effect.fn("kb.parseActionInput")(
-  function* (
-    schema: ActionSchema,
-    input: unknown,
-  ): Effect.fn.Return<unknown, ActionSchemaError | DomainError> {
-    return yield* Effect.tryPromise({
-      try: () => parseActionInput(schema, input),
-      catch: (err) => {
-        if (err instanceof ActionSchemaError) return err;
-        if (isZodError(err)) {
-          return new ActionSchemaError(err.message, [
-            { message: err.message },
-          ]);
-        }
-        if (err instanceof ResolveError) return domainFromResolve(err);
-        if (isDomainError(err)) return err;
-        return new ActionSchemaError(
-          err instanceof Error ? err.message : String(err),
-          [{ message: err instanceof Error ? err.message : String(err) }],
-        );
-      },
-    });
-  },
-);
+const parseInputEffect = Effect.fn("kb.parseActionInput")(function* (
+  schema: ActionSchema,
+  input: unknown,
+): Effect.fn.Return<unknown, ActionSchemaError | DomainError> {
+  return yield* Effect.tryPromise({
+    try: () => parseActionInput(schema, input),
+    catch: (err) => {
+      if (err instanceof ActionSchemaError) return err;
+      if (isZodError(err)) {
+        return new ActionSchemaError(err.message, [{ message: err.message }]);
+      }
+      if (err instanceof ResolveError) return domainFromResolve(err);
+      if (isDomainError(err)) return err;
+      return new ActionSchemaError(err instanceof Error ? err.message : String(err), [
+        { message: err instanceof Error ? err.message : String(err) },
+      ]);
+    },
+  });
+});
 
 function mapHandlerError(err: unknown): ActionSchemaError | DomainError | Error {
   if (err instanceof ResolveError) return domainFromResolve(err);
@@ -284,45 +269,38 @@ function mapHandlerError(err: unknown): ActionSchemaError | DomainError | Error 
  * Native handlers are composed directly (scoped); legacy Promise handlers are
  * the only path that uses `tryPromise`.
  */
-export const invokeEffect = Effect.fn("kb.invoke")(
-  function* (
-    ctx: KbContext,
-    invocation: ActionInvocation,
-  ): Effect.fn.Return<
-    ActionReceipt,
-    ActionSchemaError | DomainError | Error,
-    ActionHandlerEnv
-  > {
-    const { id, input } = invocation;
-    // Registry discovery still uses dynamic import (external boundary).
-    const registry = yield* Effect.tryPromise({
-      try: () => registryFor(ctx.root),
-      catch: (err) =>
-        err instanceof Error ? err : new Error(String(err)),
+export const invokeEffect = Effect.fn("kb.invoke")(function* (
+  ctx: KbContext,
+  invocation: ActionInvocation,
+): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError | Error, ActionHandlerEnv> {
+  const { id, input } = invocation;
+  // Registry discovery still uses dynamic import (external boundary).
+  const registry = yield* Effect.tryPromise({
+    try: () => registryFor(ctx.root),
+    catch: (err) => (err instanceof Error ? err : new Error(String(err))),
+  });
+  const entry = registry.byId.get(id);
+  if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
+
+  const parsed = yield* parseInputEffect(entry.def.inputSchema, input);
+
+  if (entry.effect) {
+    const output = yield* Effect.scoped(entry.effect(parsed as never)).pipe(
+      Effect.mapError(mapHandlerError),
+    );
+    return succeeded(id, output);
+  }
+
+  if (entry.handler) {
+    const output = yield* Effect.tryPromise({
+      try: () => entry.handler!(ctx, parsed as never),
+      catch: mapHandlerError,
     });
-    const entry = registry.byId.get(id);
-    if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
+    return succeeded(id, output);
+  }
 
-    const parsed = yield* parseInputEffect(entry.def.inputSchema, input);
-
-    if (entry.effect) {
-      const output = yield* Effect.scoped(
-        entry.effect(parsed as never),
-      ).pipe(Effect.mapError(mapHandlerError));
-      return succeeded(id, output);
-    }
-
-    if (entry.handler) {
-      const output = yield* Effect.tryPromise({
-        try: () => entry.handler!(ctx, parsed as never),
-        catch: mapHandlerError,
-      });
-      return succeeded(id, output);
-    }
-
-    return failed(id, "internal", `action has no effect or handler: ${id}`);
-  },
-);
+  return failed(id, "internal", `action has no effect or handler: ${id}`);
+});
 
 /**
  * Effect invoke that always succeeds with an {@link ActionReceipt}.
@@ -330,31 +308,22 @@ export const invokeEffect = Effect.fn("kb.invoke")(
  * {@link invokeEffect} are mapped through the canonical receipt mapper.
  * Requires {@link ActionHandlerEnv} so native handlers receive Layers.
  */
-export const invokeReceiptEffect = Effect.fn("kb.invokeReceipt")(
-  function* (
-    ctx: KbContext,
-    invocation: ActionInvocation,
-  ): Effect.fn.Return<ActionReceipt, never, ActionHandlerEnv> {
-    return yield* invokeEffect(ctx, invocation).pipe(
-      Effect.catch((err) =>
-        Effect.succeed(receiptFromError(invocation.id, err)),
-      ),
-    );
-  },
-);
+export const invokeReceiptEffect = Effect.fn("kb.invokeReceipt")(function* (
+  ctx: KbContext,
+  invocation: ActionInvocation,
+): Effect.fn.Return<ActionReceipt, never, ActionHandlerEnv> {
+  return yield* invokeEffect(ctx, invocation).pipe(
+    Effect.catch((err) => Effect.succeed(receiptFromError(invocation.id, err))),
+  );
+});
 
 /**
  * Invoke an action. Never throws across this boundary — failures become receipts.
  * Thin Promise compatibility edge over {@link invokeReceiptEffect} + live Layers.
  */
-export async function invoke(
-  ctx: KbContext,
-  invocation: ActionInvocation,
-): Promise<ActionReceipt> {
+export async function invoke(ctx: KbContext, invocation: ActionInvocation): Promise<ActionReceipt> {
   const exit = await Effect.runPromiseExit(
-    invokeReceiptEffect(ctx, invocation).pipe(
-      Effect.provide(kbRuntimeLayer(ctx)),
-    ),
+    invokeReceiptEffect(ctx, invocation).pipe(Effect.provide(kbRuntimeLayer(ctx))),
   );
   if (Exit.isSuccess(exit)) return exit.value;
   return receiptFromError(invocation.id, Cause.squash(exit.cause));
@@ -376,30 +345,17 @@ function receiptFromError(id: string, err: unknown): ActionReceipt {
   if (err instanceof Error) {
     // DocsError and extension errors alike: any Error carrying a valid
     // FailureCode `code` maps to a typed failure.
-    const parsed = FailureCodeSchema.safeParse(
-      (err as { code?: unknown }).code,
-    );
+    const parsed = FailureCodeSchema.safeParse((err as { code?: unknown }).code);
     if (parsed.success) {
-      return failed(
-        id,
-        parsed.data,
-        err.message,
-        (err as { details?: unknown }).details,
-      );
+      return failed(id, parsed.data, err.message, (err as { details?: unknown }).details);
     }
     return failed(id, "internal", err.message);
   }
   return failed(id, "internal", String(err));
 }
 
-function isZodError(
-  err: unknown,
-): err is Error & { issues: unknown } {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    (err as { name?: string }).name === "ZodError"
-  );
+function isZodError(err: unknown): err is Error & { issues: unknown } {
+  return typeof err === "object" && err !== null && (err as { name?: string }).name === "ZodError";
 }
 
 // Type-only reference keeps the public extension contract exported from

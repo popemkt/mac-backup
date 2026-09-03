@@ -1,13 +1,5 @@
 import type { ReactNode } from "react";
-import {
-  Circle,
-  Cursor,
-  Diamond,
-  FrameCorners,
-  Plus,
-  Square,
-  TextT,
-} from "@phosphor-icons/react";
+import { Circle, Cursor, Diamond, FrameCorners, Plus, Square, TextT } from "@phosphor-icons/react";
 import type { CanvasTool } from "@/lib/canvas-tool";
 import { cn } from "@/lib/cn";
 
@@ -32,7 +24,12 @@ interface CanvasToolbarProps {
   onToolDoubleClick: (tool: CanvasTool) => void;
 }
 
-export function CanvasToolbar({ tool, sticky, onToolChange, onToolDoubleClick }: CanvasToolbarProps) {
+export function CanvasToolbar({
+  tool,
+  sticky,
+  onToolChange,
+  onToolDoubleClick,
+}: CanvasToolbarProps) {
   return (
     <div
       className="absolute top-1/2 left-2 z-20 flex -translate-y-1/2 flex-col gap-0.5 rounded-lg border border-foreground/10 bg-popover/95 p-1 shadow-lg backdrop-blur-sm"

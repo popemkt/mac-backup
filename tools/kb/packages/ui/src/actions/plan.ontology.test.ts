@@ -13,11 +13,7 @@ import { SYSTEM_IDS } from "@/lib/types";
 
 const ISO = "2026-08-23T00:00:00.000Z";
 
-function node(
-  id: string,
-  text: string,
-  props: WireNode["props"] = {},
-): WireNode {
+function node(id: string, text: string, props: WireNode["props"] = {}): WireNode {
   return { id, text, props, children: [], createdAt: ISO, updatedAt: ISO };
 }
 
@@ -56,9 +52,7 @@ describe("planDefineOntology", () => {
 
 describe("planOntologyAddInclude", () => {
   it("appends a ref (multi-valued)", () => {
-    const nodes = [
-      onto("o", { [SYSTEM_IDS.ontoIncludeField]: [{ t: "ref", v: "t.a" }] }),
-    ];
+    const nodes = [onto("o", { [SYSTEM_IDS.ontoIncludeField]: [{ t: "ref", v: "t.a" }] })];
     const plan = planOntologyAddInclude(nodes, "o", "t.b");
     expect(propsOf(plan, "o", SYSTEM_IDS.ontoIncludeField)).toEqual([
       { t: "ref", v: "t.a" },
@@ -69,13 +63,9 @@ describe("planOntologyAddInclude", () => {
 
 describe("planOntologyExclude", () => {
   it("emits both the exclude-set and the member-unset in one plan", () => {
-    const nodes = [
-      onto("o", { [SYSTEM_IDS.ontoMemberField]: [{ t: "ref", v: "n.1" }] }),
-    ];
+    const nodes = [onto("o", { [SYSTEM_IDS.ontoMemberField]: [{ t: "ref", v: "n.1" }] })];
     const plan = planOntologyExclude(nodes, "o", "n.1");
-    expect(propsOf(plan, "o", SYSTEM_IDS.ontoExcludeField)).toEqual([
-      { t: "ref", v: "n.1" },
-    ]);
+    expect(propsOf(plan, "o", SYSTEM_IDS.ontoExcludeField)).toEqual([{ t: "ref", v: "n.1" }]);
     expect(propsOf(plan, "o", SYSTEM_IDS.ontoMemberField)).toEqual([]);
     expect(plan.actions).toHaveLength(2);
     expect(plan.actions[0]!.id).toBe("node.update");
@@ -85,19 +75,13 @@ describe("planOntologyExclude", () => {
   it("is a single action when the node was not pinned", () => {
     const plan = planOntologyExclude([onto("o")], "o", "n.1");
     expect(plan.actions).toHaveLength(1);
-    expect(propsOf(plan, "o", SYSTEM_IDS.ontoExcludeField)).toEqual([
-      { t: "ref", v: "n.1" },
-    ]);
+    expect(propsOf(plan, "o", SYSTEM_IDS.ontoExcludeField)).toEqual([{ t: "ref", v: "n.1" }]);
   });
 
   it("leaves an unrelated pin alone", () => {
-    const nodes = [
-      onto("o", { [SYSTEM_IDS.ontoMemberField]: [{ t: "ref", v: "n.2" }] }),
-    ];
+    const nodes = [onto("o", { [SYSTEM_IDS.ontoMemberField]: [{ t: "ref", v: "n.2" }] })];
     const plan = planOntologyExclude(nodes, "o", "n.1");
-    expect(propsOf(plan, "o", SYSTEM_IDS.ontoMemberField)).toEqual([
-      { t: "ref", v: "n.2" },
-    ]);
+    expect(propsOf(plan, "o", SYSTEM_IDS.ontoMemberField)).toEqual([{ t: "ref", v: "n.2" }]);
   });
 });
 
@@ -135,13 +119,9 @@ describe("planOntologySetQuery", () => {
   const edn = "[:find ?id :where [?n :node/id ?id]]";
 
   it("replaces the previous single value rather than appending", () => {
-    const nodes = [
-      onto("o", { [SYSTEM_IDS.ontoQueryField]: [{ t: "str", v: "old" }] }),
-    ];
+    const nodes = [onto("o", { [SYSTEM_IDS.ontoQueryField]: [{ t: "str", v: "old" }] })];
     const plan = planOntologySetQuery(nodes, "o", edn);
-    expect(propsOf(plan, "o", SYSTEM_IDS.ontoQueryField)).toEqual([
-      { t: "str", v: edn },
-    ]);
+    expect(propsOf(plan, "o", SYSTEM_IDS.ontoQueryField)).toEqual([{ t: "str", v: edn }]);
     const input = plan.actions[0]!.input as {
       unsetProps?: unknown[];
       setProps?: unknown[];
@@ -152,9 +132,7 @@ describe("planOntologySetQuery", () => {
   });
 
   it("clears the field when the query is blanked", () => {
-    const nodes = [
-      onto("o", { [SYSTEM_IDS.ontoQueryField]: [{ t: "str", v: "old" }] }),
-    ];
+    const nodes = [onto("o", { [SYSTEM_IDS.ontoQueryField]: [{ t: "str", v: "old" }] })];
     const plan = planOntologySetQuery(nodes, "o", "   ");
     expect(propsOf(plan, "o", SYSTEM_IDS.ontoQueryField)).toEqual([]);
   });

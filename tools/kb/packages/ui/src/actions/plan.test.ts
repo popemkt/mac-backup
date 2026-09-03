@@ -235,7 +235,11 @@ describe("inversePlanActions (D19 remote sync)", () => {
 
 describe("cascade delete (R9 B3)", () => {
   it("removes the complete subtree locally and declares cascade remotely", () => {
-    const nodes = [node("root", "root", ["parent"]), node("parent", "p", ["child"]), node("child", "c")];
+    const nodes = [
+      node("root", "root", ["parent"]),
+      node("parent", "p", ["child"]),
+      node("child", "c"),
+    ];
     const plan = planDelete(nodes, "parent");
     expect(plan.deletes).toEqual(["parent", "child"]);
     expect(plan.actions).toEqual([

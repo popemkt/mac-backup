@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  resolveBulletKind,
-  resolveBulletMode,
-  type BulletModeInput,
-} from "@/lib/bullet-mode";
+import { resolveBulletKind, resolveBulletMode, type BulletModeInput } from "@/lib/bullet-mode";
 import { SYSTEM_IDS } from "@/lib/types";
 
 function base(partial: Partial<BulletModeInput> = {}): BulletModeInput {
@@ -23,33 +19,19 @@ describe("resolveBulletKind", () => {
   });
 
   it("maps tag and field from type refs", () => {
-    expect(
-      resolveBulletKind(base({ typeRefs: [SYSTEM_IDS.tag] })),
-    ).toBe("tag");
-    expect(
-      resolveBulletKind(base({ typeRefs: [SYSTEM_IDS.field] })),
-    ).toBe("field");
+    expect(resolveBulletKind(base({ typeRefs: [SYSTEM_IDS.tag] }))).toBe("tag");
+    expect(resolveBulletKind(base({ typeRefs: [SYSTEM_IDS.field] }))).toBe("field");
   });
 
   it("maps query from #query tag and command from sys.command type", () => {
-    expect(
-      resolveBulletKind(base({ tagNames: ["query"] })),
-    ).toBe("query");
-    expect(
-      resolveBulletKind(base({ tagNames: ["Query"] })),
-    ).toBe("query");
-    expect(
-      resolveBulletKind(base({ typeRefs: [SYSTEM_IDS.command] })),
-    ).toBe("command");
+    expect(resolveBulletKind(base({ tagNames: ["query"] }))).toBe("query");
+    expect(resolveBulletKind(base({ tagNames: ["Query"] }))).toBe("query");
+    expect(resolveBulletKind(base({ typeRefs: [SYSTEM_IDS.command] }))).toBe("command");
   });
 
   it("maps canvas from #canvas tag or sys.tag.canvas type ref", () => {
-    expect(
-      resolveBulletKind(base({ tagNames: ["canvas"] })),
-    ).toBe("canvas");
-    expect(
-      resolveBulletKind(base({ typeRefs: [SYSTEM_IDS.canvasTag] })),
-    ).toBe("canvas");
+    expect(resolveBulletKind(base({ tagNames: ["canvas"] }))).toBe("canvas");
+    expect(resolveBulletKind(base({ typeRefs: [SYSTEM_IDS.canvasTag] }))).toBe("canvas");
   });
 
   it("prefers type ref over parent/query", () => {
@@ -65,19 +47,15 @@ describe("resolveBulletKind", () => {
   });
 
   it("accepts media/canvas kind overrides (W6 stubs)", () => {
-    expect(
-      resolveBulletKind(base({ kindOverride: "media", hasChildren: true })),
-    ).toBe("media");
-    expect(
-      resolveBulletKind(base({ kindOverride: "canvas", typeRefs: [SYSTEM_IDS.tag] })),
-    ).toBe("canvas");
+    expect(resolveBulletKind(base({ kindOverride: "media", hasChildren: true }))).toBe("media");
+    expect(resolveBulletKind(base({ kindOverride: "canvas", typeRefs: [SYSTEM_IDS.tag] }))).toBe(
+      "canvas",
+    );
   });
 
   it("uses media kind when text embeds ![…](assets/…)", () => {
     expect(
-      resolveBulletKind(
-        base({ text: "note ![shot](assets/01HABC.png)", hasChildren: true }),
-      ),
+      resolveBulletKind(base({ text: "note ![shot](assets/01HABC.png)", hasChildren: true })),
     ).toBe("media");
     expect(resolveBulletKind(base({ text: "no asset here" }))).toBe("plain");
   });

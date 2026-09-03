@@ -3,28 +3,15 @@
  * three stays in this chunk only (task 16a).
  */
 import { useEffect, useRef } from "react";
-import ForceGraph3D, {
-  type ForceGraph3DInstance,
-} from "3d-force-graph";
-import {
-  CanvasTexture,
-  Object3D,
-  Sprite,
-  SpriteMaterial,
-} from "./force3d-three";
+import ForceGraph3D, { type ForceGraph3DInstance } from "3d-force-graph";
+import { CanvasTexture, type Object3D, Sprite, SpriteMaterial } from "./force3d-three";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import { force3dColor, readTokenColor } from "@/lib/css-color";
 import { graphNodeAlpha, withGraphAlpha } from "@/lib/graph-dim";
 import { formatGraphLabel } from "@/lib/graph-label";
 import { fibonacciSphere } from "@/lib/convex-hull";
-import {
-  force3dCameraControls,
-  type GraphCameraControls,
-} from "./graph-camera-controls";
-import {
-  selectionFromNode,
-  type GraphSelection,
-} from "./graph-selection-card";
+import { force3dCameraControls, type GraphCameraControls } from "./graph-camera-controls";
+import { selectionFromNode, type GraphSelection } from "./graph-selection-card";
 
 export interface Force3dGraphProps {
   nodes: LensNode[];
@@ -132,7 +119,10 @@ export default function Force3dGraph({
     }
     graphRef.current = null;
 
-    const nodeSetKey = nodes.map((node) => node.id).sort().join("|");
+    const nodeSetKey = nodes
+      .map((node) => node.id)
+      .sort()
+      .join("|");
     if (layoutKeyRef.current !== layoutKey || nodeSetRef.current !== nodeSetKey) {
       positionsRef.current = new Map();
       cameraRef.current = null;
@@ -140,27 +130,20 @@ export default function Force3dGraph({
       nodeSetRef.current = nodeSetKey;
     }
 
-    const background = force3dColor(
-      readTokenColor("--background", { fallback: "rgb(20,20,20)" }),
-    );
+    const background = force3dColor(readTokenColor("--background", { fallback: "rgb(20,20,20)" }));
     const linkBase = force3dColor(
       readTokenColor("--foreground", {
         alpha: 0.35,
         fallback: "rgba(200,200,200,0.35)",
       }),
     );
-    const labelColor = force3dColor(
-      readTokenColor("--foreground", { fallback: "rgb(34,34,34)" }),
-    );
+    const labelColor = force3dColor(readTokenColor("--foreground", { fallback: "rgb(34,34,34)" }));
 
     const clusters = [...new Set(nodes.map((n) => n.clusterKey))].sort();
     const attractors = new Map<string, Vec3>();
     const radius = 120 + clusters.length * 20;
     clusters.forEach((key, i) => {
-      attractors.set(
-        key,
-        fibonacciSphere(i, Math.max(clusters.length, 1), radius),
-      );
+      attractors.set(key, fibonacciSphere(i, Math.max(clusters.length, 1), radius));
     });
 
     const prev = positionsRef.current;
@@ -237,31 +220,26 @@ export default function Force3dGraph({
         const tags = node.tags.slice(0, 3).join(", ");
         return `<div style="font:12px Outfit Variable,sans-serif"><b>${node.name}</b><br/>${tags ? `${tags}<br/>` : ""}${node.degree} connections</div>`;
       })
-      .nodeColor((n: object) =>
-        withGraphAlpha((n as FgNode).color, alphaFor((n as FgNode).id)),
-      )
+      .nodeColor((n: object) => withGraphAlpha((n as FgNode).color, alphaFor((n as FgNode).id)))
       .nodeVal((n: object) => (n as FgNode).val);
 
     if (showLabels) {
       Graph.nodeThreeObject((n: object) => {
         const node = n as FgNode;
         if (!labelIds.has(node.id)) return undefined as unknown as Object3D;
-        return makeLabelSprite(
-          formatGraphLabel(node.name, node.val),
-          labelColor,
-        );
+        return makeLabelSprite(formatGraphLabel(node.name, node.val), labelColor);
       }).nodeThreeObjectExtend(true);
     }
 
     Graph.linkWidth((l: object) => {
-        const link = l as FgLink;
-        const base = Math.max(0.8, Math.min(3, Math.sqrt(link.weight) * 0.4));
-        const sel = selectedRef.current;
-        if (!sel) return base;
-        const s = linkEndId(link.source);
-        const t = linkEndId(link.target);
-        return s === sel || t === sel ? base * 2 : base * 0.3;
-      })
+      const link = l as FgLink;
+      const base = Math.max(0.8, Math.min(3, Math.sqrt(link.weight) * 0.4));
+      const sel = selectedRef.current;
+      if (!sel) return base;
+      const s = linkEndId(link.source);
+      const t = linkEndId(link.target);
+      return s === sel || t === sel ? base * 2 : base * 0.3;
+    })
       .linkColor((l: object) => {
         const link = l as FgLink;
         const sel = selectedRef.current;
@@ -322,8 +300,7 @@ export default function Force3dGraph({
         );
         selectedRef.current = node.id;
         try {
-          const dist =
-            Math.hypot(node.x ?? 0, node.y ?? 0, node.z ?? 0) || 1;
+          const dist = Math.hypot(node.x ?? 0, node.y ?? 0, node.z ?? 0) || 1;
           const offset = 120;
           const lookAt = { x: node.x ?? 0, y: node.y ?? 0, z: node.z ?? 0 };
           Graph.cameraPosition(
@@ -441,27 +418,12 @@ export default function Force3dGraph({
       delete (el as HTMLDivElement & { __kbForceGraph?: ForceGraph3DInstance }).__kbForceGraph;
       el.replaceChildren();
     };
-  }, [
-    nodes,
-    edges,
-    layoutKey,
-    themeKey,
-    curvedLinks,
-    autorotate,
-    showLabels,
-    labelTopN,
-  ]);
+  }, [nodes, edges, layoutKey, themeKey, curvedLinks, autorotate, showLabels, labelTopN]);
 
   // Sync external clear — accessors read selectedRef each frame.
   useEffect(() => {
     selectedRef.current = selectedNodeId;
   }, [selectedNodeId]);
 
-  return (
-    <div
-      ref={containerRef}
-      className="h-full w-full min-h-0"
-      data-testid="force3d-graph"
-    />
-  );
+  return <div ref={containerRef} className="h-full w-full min-h-0" data-testid="force3d-graph" />;
 }

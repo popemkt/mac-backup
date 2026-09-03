@@ -18,17 +18,17 @@ export class GraphCanvasErrorBoundary extends Component<
   GraphCanvasErrorBoundaryProps,
   GraphCanvasErrorBoundaryState
 > {
-  state: GraphCanvasErrorBoundaryState = { error: null };
+  override state: GraphCanvasErrorBoundaryState = { error: null };
 
   static getDerivedStateFromError(error: Error): GraphCanvasErrorBoundaryState {
     return { error };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo): void {
+  override componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error("GraphCanvasErrorBoundary caught", error, info.componentStack);
   }
 
-  componentDidUpdate(prevProps: GraphCanvasErrorBoundaryProps): void {
+  override componentDidUpdate(prevProps: GraphCanvasErrorBoundaryProps): void {
     if (this.state.error && prevProps.resetKey !== this.props.resetKey) {
       this.setState({ error: null });
     }
@@ -67,9 +67,7 @@ export function GraphCanvasError({
       className="flex h-full min-h-0 flex-col items-start justify-center gap-3 p-6"
     >
       <h2 className="text-[13px] font-medium text-foreground/80">{title}</h2>
-      <p className="max-w-md whitespace-pre-wrap text-[13px] text-foreground/50">
-        {message}
-      </p>
+      <p className="max-w-md whitespace-pre-wrap text-[13px] text-foreground/50">{message}</p>
       {onRetry ? (
         <button
           type="button"

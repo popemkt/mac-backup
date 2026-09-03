@@ -110,9 +110,7 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
                 style={{ backgroundColor: b.color }}
               />
               <span className="truncate max-w-[120px]">{b.tag}</span>
-              <span className="ml-auto text-[10px] text-foreground/30">
-                {b.nodeIds.length}
-              </span>
+              <span className="ml-auto text-[10px] text-foreground/30">{b.nodeIds.length}</span>
             </button>
           ))}
         </div>

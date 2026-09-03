@@ -5,11 +5,7 @@ import { SYSTEM_IDS } from "@/lib/types";
 
 const ISO = "2026-08-08T00:00:00.000Z";
 
-function node(
-  id: string,
-  text: string,
-  props: WireNode["props"] = {},
-): WireNode {
+function node(id: string, text: string, props: WireNode["props"] = {}): WireNode {
   return {
     id,
     text,
@@ -42,12 +38,12 @@ describe("palette index", () => {
   });
 
   it("fuzzy-matches over prebuilt haystack and caps at 20", () => {
-    const nodes = Array.from({ length: 40 }, (_, i) =>
-      node(`n.${i}`, `Node alpha ${i}`),
+    const nodes = Array.from({ length: 40 }, (_, i) => node(`n.${i}`, `Node alpha ${i}`));
+    nodes.push(
+      node(SYSTEM_IDS.cmdGoQuery, "Go to query page", {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.command }],
+      }),
     );
-    nodes.push(node(SYSTEM_IDS.cmdGoQuery, "Go to query page", {
-      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.command }],
-    }));
     const index = buildPaletteIndex(nodes, 1);
     const hits = searchPalette(index, "query", 20);
     expect(hits.length).toBeGreaterThan(0);

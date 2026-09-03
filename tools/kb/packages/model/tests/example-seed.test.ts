@@ -8,11 +8,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { fieldTypeOf } from "../src/field-type.ts";
-import {
-  EXAMPLE_IDS,
-  exampleSeedNodes,
-  isPristine,
-} from "../src/example.ts";
+import { EXAMPLE_IDS, exampleSeedNodes, isPristine } from "../src/example.ts";
 import { SYSTEM_IDS, type KbNode } from "../src/model.ts";
 import { resolveOntology } from "../src/ontology.ts";
 import { systemSeedNodes } from "../src/seed.ts";
@@ -20,9 +16,7 @@ import { systemSeedNodes } from "../src/seed.ts";
 const byId = () => new Map(exampleSeedNodes().map((n) => [n.id, n]));
 
 function refs(node: KbNode, field: string): string[] {
-  return (node.props[field] ?? [])
-    .filter((v) => v.t === "ref")
-    .map((v) => String(v.v));
+  return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => String(v.v));
 }
 
 describe("example content", () => {
@@ -39,12 +33,7 @@ describe("example content", () => {
     // add them again, so deleting them makes them stay deleted.
     expect(isPristine(systemSeedNodes())).toBe(true);
     expect(isPristine([...systemSeedNodes(), ...exampleSeedNodes()])).toBe(false);
-    expect(
-      isPristine([
-        ...systemSeedNodes(),
-        { id: "01SOMETHINGTHEOWNERWROTE" },
-      ]),
-    ).toBe(false);
+    expect(isPristine([...systemSeedNodes(), { id: "01SOMETHINGTHEOWNERWROTE" }])).toBe(false);
   });
 
   test("#task templates a field of every type, and status is an option list", () => {
@@ -54,33 +43,25 @@ describe("example content", () => {
 
     const templated = refs(task, SYSTEM_IDS.fieldsField);
     const types = templated.map((id) => fieldTypeOf(nodes.get(id)!.props));
-    expect(new Set(types)).toEqual(
-      new Set(["ref", "date", "number", "checkbox"]),
-    );
+    expect(new Set(types)).toEqual(new Set(["ref", "date", "number", "checkbox"]));
 
     // status is a ref field constrained to the option tag, and the options are
     // just nodes carrying that tag — the pattern any user list follows.
     const status = nodes.get(EXAMPLE_IDS.statusField)!;
     expect(fieldTypeOf(status.props)).toBe("ref");
-    expect(refs(status, SYSTEM_IDS.targetTagField)).toEqual([
-      EXAMPLE_IDS.statusOptionTag,
-    ]);
+    expect(refs(status, SYSTEM_IDS.targetTagField)).toEqual([EXAMPLE_IDS.statusOptionTag]);
     for (const option of [
       EXAMPLE_IDS.statusTodo,
       EXAMPLE_IDS.statusDoing,
       EXAMPLE_IDS.statusDone,
     ]) {
-      expect(refs(nodes.get(option)!, SYSTEM_IDS.typeField)).toEqual([
-        EXAMPLE_IDS.statusOptionTag,
-      ]);
+      expect(refs(nodes.get(option)!, SYSTEM_IDS.typeField)).toEqual([EXAMPLE_IDS.statusOptionTag]);
     }
   });
 
   test("a task carries a value for its templated fields, including a ref", () => {
     const task = byId().get(EXAMPLE_IDS.task1)!;
-    expect(refs(task, EXAMPLE_IDS.statusField)).toEqual([
-      EXAMPLE_IDS.statusDoing,
-    ]);
+    expect(refs(task, EXAMPLE_IDS.statusField)).toEqual([EXAMPLE_IDS.statusDoing]);
     expect(refs(task, EXAMPLE_IDS.ownerField)).toEqual([EXAMPLE_IDS.ada]);
     expect(task.props[EXAMPLE_IDS.estimateField]).toEqual([{ t: "num", v: 3 }]);
   });
@@ -118,18 +99,13 @@ describe("example content", () => {
     expect(active.members.has(EXAMPLE_IDS.task3)).toBe(false);
     expect(active.excluded.has(EXAMPLE_IDS.task3)).toBe(true);
     expect(active.members.has(EXAMPLE_IDS.task1)).toBe(true);
-    expect(active.members.size).toBe(
-      resolveOntology(nodes, EXAMPLE_IDS.ontoWork).members.size - 1,
-    );
+    expect(active.members.size).toBe(resolveOntology(nodes, EXAMPLE_IDS.ontoWork).members.size - 1);
   });
 
   test("every ref in the example content points at something that exists", () => {
     // A dangling ref in demo content teaches the wrong thing about the model.
     const nodes = exampleSeedNodes();
-    const known = new Set([
-      ...nodes.map((n) => n.id),
-      ...systemSeedNodes().map((n) => n.id),
-    ]);
+    const known = new Set([...nodes.map((n) => n.id), ...systemSeedNodes().map((n) => n.id)]);
     for (const node of nodes) {
       for (const [field, values] of Object.entries(node.props)) {
         for (const value of values) {

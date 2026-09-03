@@ -7,11 +7,7 @@ import {
   type UiDevSpawn,
   type UiDevSpawnOpts,
 } from "../src/dev.ts";
-import {
-  startDevServer,
-  startProductionUi,
-  type UiDevServer,
-} from "../src/server.ts";
+import { startDevServer, startProductionUi, type UiDevServer } from "../src/server.ts";
 
 /**
  * `kb ui --dev` / production-wiring tests. Deterministic: fake spawn child, no
@@ -104,9 +100,7 @@ describe("kb ui --dev orchestration", () => {
     // stop() kills the child and tears down the backend listener.
     await dev.stop();
     expect(rec.killed.killed).toBe(true);
-    await expect(
-      fetch(`http://127.0.0.1:${dev.backend.port}/api/graph`),
-    ).rejects.toThrow();
+    await expect(fetch(`http://127.0.0.1:${dev.backend.port}/api/graph`)).rejects.toThrow();
   });
 
   test("backend port conflict fails fast with no orphaned listener", async () => {
@@ -155,9 +149,7 @@ describe("kb ui --dev orchestration", () => {
     expect(await pending).toBe(1);
     expect(exits).toEqual([1]);
     // Backend torn down once the vite child is gone.
-    await expect(
-      fetch(`http://127.0.0.1:${dev.backend.port}/api/graph`),
-    ).rejects.toThrow();
+    await expect(fetch(`http://127.0.0.1:${dev.backend.port}/api/graph`)).rejects.toThrow();
   });
 });
 

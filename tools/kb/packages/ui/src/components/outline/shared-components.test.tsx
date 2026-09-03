@@ -77,7 +77,6 @@ describe("shared outline components (W8b)", () => {
     expect(readOutlineSource("tag-chip.tsx")).not.toContain("onTagConfigure");
   });
 
-
   it("TagChipGroup wraps without fixed height", () => {
     const color = hashTagColor("tag.todo");
     const html = renderToStaticMarkup(
@@ -110,16 +109,13 @@ describe("shared outline components (W8b)", () => {
 
   it("FieldRow shows mismatch warning icon when flagged", () => {
     const html = renderToStaticMarkup(
-      createElement(
-        FieldRow,
-        {
-          depth: 0,
-          fieldType: "number",
-          label: "count",
-          mismatch: true,
-          children: createElement("span", null, "abc"),
-        },
-      ),
+      createElement(FieldRow, {
+        depth: 0,
+        fieldType: "number",
+        label: "count",
+        mismatch: true,
+        children: createElement("span", null, "abc"),
+      }),
     );
     expect(html).toContain('data-field-mismatch="true"');
     expect(html).toContain("data-mismatch-warning");
@@ -127,26 +123,20 @@ describe("shared outline components (W8b)", () => {
 
   it("FieldRow is reused by Preferences via PrefFieldRow depth −1 anatomy", () => {
     const outlineHtml = renderToStaticMarkup(
-      createElement(
-        FieldRow,
-        {
-          depth: 0,
-          fieldType: "text",
-          label: "status",
-          children: createElement("span", null, "doing"),
-        },
-      ),
+      createElement(FieldRow, {
+        depth: 0,
+        fieldType: "text",
+        label: "status",
+        children: createElement("span", null, "doing"),
+      }),
     );
     const prefHtml = renderToStaticMarkup(
-      createElement(
-        FieldRow,
-        {
-          depth: -1,
-          icon: CircleHalf,
-          label: "theme",
-          children: createElement("select", null, createElement("option", null, "system")),
-        },
-      ),
+      createElement(FieldRow, {
+        depth: -1,
+        icon: CircleHalf,
+        label: "theme",
+        children: createElement("select", null, createElement("option", null, "system")),
+      }),
     );
     expect(outlineHtml).toContain('data-field-row="true"');
     expect(outlineHtml).toContain("status");
@@ -195,10 +185,7 @@ describe("shared outline components (W8b)", () => {
     const src = readOutlineSource("node-block.tsx");
     // The offset itself lives with the rest of the indent geometry.
     expect(src).toMatch(/guideLineStyle\(depth\)/);
-    const indent = readFileSync(
-      path.join(outlineDir, "../../lib/indent.ts"),
-      "utf8",
-    );
+    const indent = readFileSync(path.join(outlineDir, "../../lib/indent.ts"), "utf8");
     expect(indent).toMatch(/var\(--kb-indent\)/);
     expect(indent).toMatch(/\+ 2px/);
     expect(src).toContain("left-[9px]");

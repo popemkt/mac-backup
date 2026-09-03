@@ -11,12 +11,8 @@
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
-import { type KbNode, type PropValue } from "../src/model.ts";
-import {
-  TEMPLATE_TAGS,
-  ensureSystemSeed,
-  systemSeedNodes,
-} from "../src/seed.ts";
+import type { KbNode, PropValue } from "../src/model.ts";
+import { TEMPLATE_TAGS, ensureSystemSeed, systemSeedNodes } from "../src/seed.ts";
 
 const AT = "2026-08-24T00:00:00.000Z";
 const EXCLUDED = new Set<string>(TEMPLATE_TAGS);

@@ -30,11 +30,7 @@ function seed() {
   });
   useOutlineStore
     .getState()
-    .hydrateFromWire(
-      structuredClone(fixtureGraph.nodes),
-      fixtureGraph.rev,
-      "fixtures",
-    );
+    .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
 }
 
 describe("undo / redo (D19)", () => {
@@ -50,9 +46,7 @@ describe("undo / redo (D19)", () => {
 
     const s = useOutlineStore.getState();
     expect(s.wireNodes.length).toBe(before);
-    expect(s.nodes.get("n.root-b")?.text).toBe(
-      "Search jumps to matching nodes",
-    );
+    expect(s.nodes.get("n.root-b")?.text).toBe("Search jumps to matching nodes");
     // Children of the deleted node come back too.
     expect(s.nodes.get(WORKSPACE_ROOT_ID)!.children).toContain("n.root-b");
   });
@@ -65,9 +59,7 @@ describe("undo / redo (D19)", () => {
     await mutations.undo();
     const undone = useOutlineStore.getState();
     expect(undone.wireNodes.length).toBe(fixtureGraph.nodes.length);
-    expect(undone.nodes.get("n.root-c")?.text).toBe(
-      "Read-only props panel resolves field names",
-    );
+    expect(undone.nodes.get("n.root-c")?.text).toBe("Read-only props panel resolves field names");
     void mid;
 
     await mutations.redo();
@@ -81,18 +73,13 @@ describe("undo / redo (D19)", () => {
       useOutlineStore.getState().toggleCollapse("n.root-a");
     });
     await mutations.indentNode("n.root-b");
-    expect(
-      useOutlineStore.getState().nodes.get("n.root-b")?.parentId,
-    ).toBe("n.root-a");
+    expect(useOutlineStore.getState().nodes.get("n.root-b")?.parentId).toBe("n.root-a");
 
     await mutations.undo();
     const s = useOutlineStore.getState();
     expect(s.nodes.get("n.root-b")?.parentId).toBe(WORKSPACE_ROOT_ID);
     expect(s.nodes.get("n.root-a")?.children).not.toContain("n.root-b");
-    expect(s.nodes.get("n.root-a")?.children).toEqual([
-      "n.child-a1",
-      "n.child-a2",
-    ]);
+    expect(s.nodes.get("n.root-a")?.children).toEqual(["n.child-a1", "n.child-a2"]);
   });
 
   it("undoes a visual merge into an expanded descendant (D09 pairing)", async () => {
@@ -109,19 +96,13 @@ describe("undo / redo (D19)", () => {
     await mutations.mergeWithPrevious("n.root-b", bKey);
     const merged = useOutlineStore.getState();
     expect(merged.nodes.has("n.root-b")).toBe(false);
-    expect(merged.nodes.get("n.grandchild")?.text).toContain(
-      "Search jumps to matching nodes",
-    );
+    expect(merged.nodes.get("n.grandchild")?.text).toContain("Search jumps to matching nodes");
 
     await mutations.undo();
     const undone = useOutlineStore.getState();
     expect(undone.nodes.has("n.root-b")).toBe(true);
-    expect(undone.nodes.get("n.root-b")?.text).toBe(
-      "Search jumps to matching nodes",
-    );
-    expect(undone.nodes.get("n.grandchild")?.text).toBe(
-      "Persist collapsed ids in localStorage",
-    );
+    expect(undone.nodes.get("n.root-b")?.text).toBe("Search jumps to matching nodes");
+    expect(undone.nodes.get("n.grandchild")?.text).toBe("Persist collapsed ids in localStorage");
   });
 
   it("a new structural mutation clears the redo stack", async () => {

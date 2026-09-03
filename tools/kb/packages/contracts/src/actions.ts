@@ -1,10 +1,6 @@
 import type { Effect } from "effect";
 import { z } from "zod";
-import type { FailureCode } from "@kb/model";
-import {
-  type ActionSchema,
-  schemaToJsonSchema,
-} from "@kb/model";
+import { type FailureCode, type ActionSchema, schemaToJsonSchema } from "@kb/model";
 
 export const ActionModeSchema = z.enum(["read", "apply"]);
 export type ActionMode = z.infer<typeof ActionModeSchema>;
@@ -14,9 +10,7 @@ export type ActionMode = z.infer<typeof ActionModeSchema>;
  * (`KbCtx` / `KbStore` / `FileSystem`) come from Layers at the invoke tip.
  * `R` is intentionally wide so built-ins with narrower requirements assign.
  */
-export type ActionEffectHandler = (
-  input: never,
-) => Effect.Effect<unknown, unknown, any>;
+export type ActionEffectHandler = (input: never) => Effect.Effect<unknown, unknown, any>;
 
 /**
  * Action contract. Schemas are Standard Schema v1–compatible (zod 4 satisfies
@@ -63,10 +57,7 @@ export type ActionReceipt =
       details?: unknown;
     };
 
-export function succeeded(
-  id: string,
-  output: unknown,
-): ActionReceipt {
+export function succeeded(id: string, output: unknown): ActionReceipt {
   return { status: "succeeded", id, output };
 }
 

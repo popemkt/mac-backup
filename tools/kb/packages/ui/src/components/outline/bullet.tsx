@@ -61,8 +61,7 @@ export function Bullet({
   const strokeColor = tagColors[0] ?? null;
 
   const glyph = KIND_GLYPH[mode.kind];
-  const collapsible =
-    collapsibleProp ?? (hasChildren || mode.kind === "query");
+  const collapsible = collapsibleProp ?? (hasChildren || mode.kind === "query");
   const showHalo = collapsible && mode.collapsed;
   const showCount = showHalo && mode.childCount > 0;
   const isQuery = mode.kind === "query";
@@ -82,11 +81,7 @@ export function Bullet({
       data-bullet-kind={mode.kind}
       data-bullet-ref={mode.isRef ? "true" : undefined}
       data-bullet-sys={mode.isSys ? "true" : undefined}
-      title={
-        collapsible
-          ? "Click to toggle, Cmd+click to focus"
-          : "Cmd+click to focus"
-      }
+      title={collapsible ? "Click to toggle, Cmd+click to focus" : "Cmd+click to focus"}
       aria-label={
         collapsible
           ? mode.collapsed
@@ -114,10 +109,7 @@ export function Bullet({
             "relative z-[1] block select-none text-[11px] font-bold leading-none",
             !tinted && "text-foreground/45",
             !tinted && hasChildren && "text-foreground/55",
-            hasChildren &&
-              !mode.collapsed &&
-              !tinted &&
-              "group-hover/bullet:text-foreground/70",
+            hasChildren && !mode.collapsed && !tinted && "group-hover/bullet:text-foreground/70",
           )}
           style={strokeColor ? { color: strokeColor } : undefined}
           aria-hidden
@@ -139,9 +131,7 @@ export function Bullet({
             !tinted && "border-foreground/20",
           )}
           style={
-            strokeColor
-              ? { borderColor: tagColorAlpha(strokeColor, REF_RING_OPACITY) }
-              : undefined
+            strokeColor ? { borderColor: tagColorAlpha(strokeColor, REF_RING_OPACITY) } : undefined
           }
           data-bullet-ref-ring
         >
@@ -173,10 +163,7 @@ export function Bullet({
             hasChildren ? "h-[5px] w-[5px]" : "h-[4px] w-[4px]",
             !tinted && "bg-foreground/40",
             !tinted && hasChildren && "bg-foreground/50",
-            hasChildren &&
-              !mode.collapsed &&
-              !tinted &&
-              "group-hover/bullet:bg-foreground/60",
+            hasChildren && !mode.collapsed && !tinted && "group-hover/bullet:bg-foreground/60",
           )}
           style={dotFill ? { background: dotFill } : undefined}
           data-bullet-dot

@@ -47,9 +47,7 @@ describe("ColorSwatchEditor (i10 item 4)", () => {
   });
 
   it("no bespoke TagConfigPanel — configure via node fields", () => {
-    expect(() =>
-      readFileSync(path.join(outlineDir, "tag-config-panel.tsx"), "utf8"),
-    ).toThrow();
+    expect(() => readFileSync(path.join(outlineDir, "tag-config-panel.tsx"), "utf8")).toThrow();
     const fields = readFileSync(path.join(outlineDir, "fields-section.tsx"), "utf8");
     expect(fields).toContain("fieldId={p.fieldId}");
     expect(fields).toContain("SYSTEM_IDS.hiddenField");

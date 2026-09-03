@@ -1,13 +1,8 @@
 import { useEffect } from "react";
 import { mutations } from "@/actions/mutations";
-import {
-  isEditableTarget,
-  mapSelectionKey,
-  type SelectionKeyAction,
-} from "@/lib/selection-keymap";
+import { isEditableTarget, mapSelectionKey, type SelectionKeyAction } from "@/lib/selection-keymap";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
-import { useUiStore } from "@/stores/ui.store";
 
 function applySelectionAction(action: SelectionKeyAction): void {
   const store = useOutlineStore.getState();
@@ -61,16 +56,11 @@ function applySelectionAction(action: SelectionKeyAction): void {
     case "createAfter": {
       // 'o': directly below = first child when expanded, else next sibling.
       const n = store.nodes.get(action.nodeId);
-      const expanded = Boolean(
-        n && !n.collapsed && n.children.length > 0,
-      );
+      const expanded = Boolean(n && !n.collapsed && n.children.length > 0);
       if (expanded) {
         void mutations.createTransientNode(action.nodeId, null);
       } else {
-        void mutations.createTransientNode(
-          n?.parentId ?? WORKSPACE_ROOT_ID,
-          action.nodeId,
-        );
+        void mutations.createTransientNode(n?.parentId ?? WORKSPACE_ROOT_ID, action.nodeId);
       }
       break;
     }
@@ -81,11 +71,7 @@ function applySelectionAction(action: SelectionKeyAction): void {
       // Printable char: activate at text end with the character appended.
       const node = store.nodes.get(action.nodeId);
       const nextText = (node?.text ?? "") + action.char;
-      store.activateNode(
-        action.nodeId,
-        nextText.length,
-        action.instanceKey,
-      );
+      store.activateNode(action.nodeId, nextText.length, action.instanceKey);
       mutations.updateNodeContent(action.nodeId, nextText);
       break;
     }
@@ -95,9 +81,7 @@ function applySelectionAction(action: SelectionKeyAction): void {
       void mutations.deleteNode(action.nodeId).then(() => {
         const pick = prev ?? next;
         if (pick) {
-          useOutlineStore
-            .getState()
-            .selectNode(pick.nodeId, pick.instanceKey);
+          useOutlineStore.getState().selectNode(pick.nodeId, pick.instanceKey);
         } else {
           useOutlineStore.getState().selectNode(null);
         }

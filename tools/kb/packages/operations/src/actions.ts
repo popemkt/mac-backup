@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import type { ActionDefinition } from "@kb/contracts";
+import type { ActionDefinition, KbContext } from "@kb/contracts";
 import {
   SYSTEM_IDS,
   currentIso,
@@ -11,24 +11,11 @@ import {
   type NodeId,
   type PropValue,
 } from "@kb/model";
-import {
-  ResolveError,
-  resolveFieldId,
-  resolveTagId,
-} from "@kb/model";
-import {
-  domainError,
-  domainFromResolve,
-  type DomainError,
-} from "@kb/model";
-import type { KbContext } from "@kb/contracts";
-import { KbCtx, KbStore } from "@kb/contracts";
+import { ResolveError, resolveFieldId, resolveTagId } from "@kb/model";
+import { domainError, domainFromResolve, type DomainError } from "@kb/model";
+import { KbCtx, type KbStore } from "@kb/contracts";
 import { persistEffect } from "./session.ts";
-import {
-  DatalogError,
-  pull,
-  query,
-} from "@kb/query";
+import { DatalogError, pull, query } from "@kb/query";
 import { resolveSavedQueryFile } from "./saved-query.ts";
 
 type KbWriteEnv = KbCtx | KbStore | FileSystem;
@@ -39,10 +26,7 @@ function syncDomain<A>(f: () => A): Effect.Effect<A, DomainError> {
     try: f,
     catch: (err) => {
       if (err instanceof ResolveError) return domainFromResolve(err);
-      return domainError(
-        "internal",
-        err instanceof Error ? err.message : String(err),
-      );
+      return domainError("internal", err instanceof Error ? err.message : String(err));
     },
   });
 }
@@ -89,9 +73,7 @@ export const nodeUpdateDef = {
     id: z.string(),
     text: z.string().optional(),
     setProps: z.array(PropInputSchema).optional(),
-    unsetProps: z
-      .array(z.object({ field: z.string(), value: z.unknown().optional() }))
-      .optional(),
+    unsetProps: z.array(z.object({ field: z.string(), value: z.unknown().optional() })).optional(),
     parent: z.string().nullable().optional(),
     position: z.number().int().nonnegative().optional(),
     order: z.string().optional(),
@@ -180,8 +162,7 @@ export const graphRunDef = {
 export const graphSearchDef = {
   id: "graph.search",
   title: "Search nodes",
-  description:
-    "Case-insensitive substring search over node text (id + text rows)",
+  description: "Case-insensitive substring search over node text (id + text rows)",
   mode: "read" as const,
   inputSchema: z.object({
     text: z.string(),
@@ -225,11 +206,7 @@ function applyProps(
   }
 }
 
-function isInSubtree(
-  nodes: KbNode[],
-  rootId: NodeId,
-  targetId: NodeId,
-): boolean {
+function isInSubtree(nodes: KbNode[], rootId: NodeId, targetId: NodeId): boolean {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const stack = [rootId];
   const seen = new Set<NodeId>();
@@ -244,11 +221,7 @@ function isInSubtree(
   return false;
 }
 
-function detachFromParents(
-  nodes: KbNode[],
-  childId: NodeId,
-  at: string,
-): KbNode[] {
+function detachFromParents(nodes: KbNode[], childId: NodeId, at: string): KbNode[] {
   const touched: KbNode[] = [];
   for (const n of nodes) {
     if (!n.children.includes(childId)) continue;
@@ -275,22 +248,10 @@ function collectSubtreeIds(nodes: KbNode[], rootId: NodeId): NodeId[] {
   return result;
 }
 
-function insertChild(
-  parent: KbNode,
-  childId: NodeId,
-  at: string,
-  position?: number,
-): KbNode {
+function insertChild(parent: KbNode, childId: NodeId, at: string, position?: number): KbNode {
   const c = cloneNode(parent);
-  const pos =
-    position === undefined || position > c.children.length
-      ? c.children.length
-      : position;
-  c.children = [
-    ...c.children.slice(0, pos),
-    childId,
-    ...c.children.slice(pos),
-  ];
+  const pos = position === undefined || position > c.children.length ? c.children.length : position;
+  c.children = [...c.children.slice(0, pos), childId, ...c.children.slice(pos)];
   c.updatedAt = at;
   return c;
 }
@@ -309,11 +270,7 @@ function subtreePattern(depth: number): string {
 }
 
 /** Prefer structured pull from our nodes map for reliable ordered depth. */
-export function pullSubtree(
-  ctx: KbContext,
-  id: NodeId,
-  depth: number,
-): unknown {
+export function pullSubtree(ctx: KbContext, id: NodeId, depth: number): unknown {
   const node = nodeById(ctx, id);
   if (!node) return null;
 
@@ -336,63 +293,54 @@ export function pullSubtree(
   return walk(node, depth);
 }
 
-export const nodeAddEffect = Effect.fn("node.add")(
-  function* (
-    input: z.infer<typeof nodeAddDef.inputSchema>,
-  ): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
-    const ctx = yield* KbCtx;
-    const at = yield* currentIso;
-    const id = input.id ?? (yield* freshId);
-    if (nodeById(ctx, id)) {
-      return yield* domainError("ambiguous", `node id already exists: ${id}`, {
-        id,
-      });
-    }
-
-    const props: Record<NodeId, PropValue[]> = {};
-    yield* syncDomain(() => {
-      if (input.props) applyProps(ctx, props, input.props);
-      if (input.tags) {
-        for (const tagName of input.tags) {
-          const tagId = resolveTagId(ctx.nodes, tagName);
-          const list = props[SYSTEM_IDS.typeField] ?? [];
-          list.push({ t: "ref", v: tagId });
-          props[SYSTEM_IDS.typeField] = list;
-        }
-      }
-    });
-
-    const node: KbNode = {
+export const nodeAddEffect = Effect.fn("node.add")(function* (
+  input: z.infer<typeof nodeAddDef.inputSchema>,
+): Effect.fn.Return<{ id: string; node: KbNode }, DomainError, KbWriteEnv> {
+  const ctx = yield* KbCtx;
+  const at = yield* currentIso;
+  const id = input.id ?? (yield* freshId);
+  if (nodeById(ctx, id)) {
+    return yield* domainError("ambiguous", `node id already exists: ${id}`, {
       id,
-      text: input.text,
-      props,
-      children: [],
-      ...(input.order ? { order: input.order } : {}),
-      createdAt: at,
-      updatedAt: at,
-    };
+    });
+  }
 
-    const upserts: KbNode[] = [node];
-    if (input.parent) {
-      const parent = yield* syncDomain(() =>
-        cloneNode(requireNode(ctx, input.parent!)),
-      );
-      upserts.push(insertChild(parent, id, at, input.position));
+  const props: Record<NodeId, PropValue[]> = {};
+  yield* syncDomain(() => {
+    if (input.props) applyProps(ctx, props, input.props);
+    if (input.tags) {
+      for (const tagName of input.tags) {
+        const tagId = resolveTagId(ctx.nodes, tagName);
+        const list = props[SYSTEM_IDS.typeField] ?? [];
+        list.push({ t: "ref", v: tagId });
+        props[SYSTEM_IDS.typeField] = list;
+      }
     }
+  });
 
-    yield* syncDomain(() =>
-      assertNoSysUpsert(upserts, input.force === true, "node.add"),
-    );
+  const node: KbNode = {
+    id,
+    text: input.text,
+    props,
+    children: [],
+    ...(input.order ? { order: input.order } : {}),
+    createdAt: at,
+    updatedAt: at,
+  };
 
-    yield* persistEffect(ctx, { upserts, deletes: [] });
-    return { id, node };
-  },
-);
+  const upserts: KbNode[] = [node];
+  if (input.parent) {
+    const parent = yield* syncDomain(() => cloneNode(requireNode(ctx, input.parent!)));
+    upserts.push(insertChild(parent, id, at, input.position));
+  }
 
-function assertSysWriteAllowed(
-  id: string,
-  input: z.infer<typeof nodeUpdateDef.inputSchema>,
-): void {
+  yield* syncDomain(() => assertNoSysUpsert(upserts, input.force === true, "node.add"));
+
+  yield* persistEffect(ctx, { upserts, deletes: [] });
+  return { id, node };
+});
+
+function assertSysWriteAllowed(id: string, input: z.infer<typeof nodeUpdateDef.inputSchema>): void {
   if (!isSysPrefixed(id) || input.force === true) return;
   const mutating =
     input.text !== undefined ||
@@ -417,11 +365,7 @@ function assertSysWriteAllowed(
  * node.add / node.update. Checked against the final computed upserts, so no
  * structural path can slip through without tripping it.
  */
-function assertNoSysUpsert(
-  upserts: readonly KbNode[],
-  force: boolean,
-  action: string,
-): void {
+function assertNoSysUpsert(upserts: readonly KbNode[], force: boolean, action: string): void {
   if (force) return;
   for (const n of upserts) {
     if (!isSysPrefixed(n.id)) continue;
@@ -433,183 +377,155 @@ function assertNoSysUpsert(
   }
 }
 
-export const nodeUpdateEffect = Effect.fn("node.update")(
-  function* (
-    input: z.infer<typeof nodeUpdateDef.inputSchema>,
-  ): Effect.fn.Return<
-    { id: string; deleted?: boolean; node?: KbNode },
-    DomainError,
-    KbWriteEnv
-  > {
-    const ctx = yield* KbCtx;
-    const at = yield* currentIso;
-    yield* syncDomain(() => assertSysWriteAllowed(input.id, input));
+export const nodeUpdateEffect = Effect.fn("node.update")(function* (
+  input: z.infer<typeof nodeUpdateDef.inputSchema>,
+): Effect.fn.Return<{ id: string; deleted?: boolean; node?: KbNode }, DomainError, KbWriteEnv> {
+  const ctx = yield* KbCtx;
+  const at = yield* currentIso;
+  yield* syncDomain(() => assertSysWriteAllowed(input.id, input));
 
-    if (input.delete) {
-      const deleteIds =
-        input.descendants === "reparent" ? [input.id] : collectSubtreeIds(ctx.nodes, input.id);
-      const upserts = detachFromParents(ctx.nodes, input.id, at);
-      yield* syncDomain(() =>
-        assertNoSysUpsert(upserts, input.force === true, "node.update"),
-      );
-      yield* persistEffect(ctx, { upserts, deletes: deleteIds });
-      return { id: input.id, deleted: true };
-    }
+  if (input.delete) {
+    const deleteIds =
+      input.descendants === "reparent" ? [input.id] : collectSubtreeIds(ctx.nodes, input.id);
+    const upserts = detachFromParents(ctx.nodes, input.id, at);
+    yield* syncDomain(() => assertNoSysUpsert(upserts, input.force === true, "node.update"));
+    yield* persistEffect(ctx, { upserts, deletes: deleteIds });
+    return { id: input.id, deleted: true };
+  }
 
-    const node = yield* syncDomain(() => cloneNode(requireNode(ctx, input.id)));
-    const upserts: KbNode[] = [];
+  const node = yield* syncDomain(() => cloneNode(requireNode(ctx, input.id)));
+  const upserts: KbNode[] = [];
 
-    yield* syncDomain(() => {
-      if (input.text !== undefined) node.text = input.text;
-      if (input.order !== undefined) node.order = input.order;
-      if (input.setProps) applyProps(ctx, node.props, input.setProps);
-      if (input.unsetProps) {
-        for (const u of input.unsetProps) {
-          const fieldId = resolveFieldId(ctx.nodes, u.field);
-          if (u.value === undefined) {
-            delete node.props[fieldId];
-          } else {
-            const list = node.props[fieldId] ?? [];
-            node.props[fieldId] = list.filter(
-              (pv) => JSON.stringify(pv) !== JSON.stringify(u.value),
-            );
-            if (node.props[fieldId]!.length === 0) delete node.props[fieldId];
-          }
+  yield* syncDomain(() => {
+    if (input.text !== undefined) node.text = input.text;
+    if (input.order !== undefined) node.order = input.order;
+    if (input.setProps) applyProps(ctx, node.props, input.setProps);
+    if (input.unsetProps) {
+      for (const u of input.unsetProps) {
+        const fieldId = resolveFieldId(ctx.nodes, u.field);
+        if (u.value === undefined) {
+          delete node.props[fieldId];
+        } else {
+          const list = node.props[fieldId] ?? [];
+          node.props[fieldId] = list.filter((pv) => JSON.stringify(pv) !== JSON.stringify(u.value));
+          if (node.props[fieldId]!.length === 0) delete node.props[fieldId];
         }
       }
+    }
+  });
+
+  if (input.parent !== undefined) {
+    if (input.parent !== null && isInSubtree(ctx.nodes, input.id, input.parent)) {
+      return yield* domainError(
+        "invalid_move",
+        `cannot move ${input.id} under itself or its own descendant ${input.parent}`,
+        { id: input.id, parent: input.parent },
+      );
+    }
+    upserts.push(...detachFromParents(ctx.nodes, input.id, at));
+    if (input.parent !== null) {
+      const parent = yield* syncDomain(
+        () =>
+          upserts.find((n) => n.id === input.parent) ?? cloneNode(requireNode(ctx, input.parent!)),
+      );
+      const updated = insertChild(parent, input.id, at, input.position);
+      const idx = upserts.findIndex((n) => n.id === parent.id);
+      if (idx >= 0) upserts[idx] = updated;
+      else upserts.push(updated);
+    }
+  } else if (input.position !== undefined) {
+    const parent = ctx.nodes.find((n) => n.children.includes(input.id));
+    if (parent) {
+      const c = cloneNode(parent);
+      c.children = c.children.filter((id) => id !== input.id);
+      const pos = Math.min(input.position, c.children.length);
+      c.children = [...c.children.slice(0, pos), input.id, ...c.children.slice(pos)];
+      // DELIBERATE BUG (t2-dst red demo): stamp a fixed fractional rank on
+      // the reordered parent so its sibling group ends up with two children
+      // sharing one `order` key. `migrateOrderKeys` never rewrites an
+      // existing rank, so the collision survives reopen — and the store's
+      // own tx-validation never inspects `order`, so only the DST harness's
+      // "strictly increasing order" invariant catches it.
+      c.order = "1000000000";
+      c.updatedAt = at;
+      upserts.push(c);
+    }
+  }
+
+  node.updatedAt = at;
+  upserts.push(node);
+  yield* syncDomain(() => assertNoSysUpsert(upserts, input.force === true, "node.update"));
+  yield* persistEffect(ctx, { upserts, deletes: [] });
+  return { id: input.id, node };
+});
+
+export const nodeGetEffect = Effect.fn("node.get")(function* (
+  input: z.infer<typeof nodeGetDef.inputSchema>,
+): Effect.fn.Return<{ node: unknown }, DomainError, KbCtx> {
+  const ctx = yield* KbCtx;
+  yield* syncDomain(() => requireNode(ctx, input.id));
+  const node = pullSubtree(ctx, input.id, input.depth);
+  if (input.depth <= 1) {
+    void pull(ctx.qdb, subtreePattern(input.depth), input.id);
+  }
+  return { node };
+});
+
+export const fieldDefineEffect = Effect.fn("field.define")(function* (
+  input: z.infer<typeof fieldDefineDef.inputSchema>,
+): Effect.fn.Return<{ id: string }, DomainError, KbWriteEnv> {
+  const ctx = yield* KbCtx;
+  const existing = ctx.nodes.filter(
+    (n) =>
+      n.text === input.name &&
+      (n.props[SYSTEM_IDS.typeField] ?? []).some((v) => v.t === "ref" && v.v === SYSTEM_IDS.field),
+  );
+  if (existing.length > 0 && !input.id) {
+    return yield* domainError("ambiguous", `field already exists: ${input.name}`, {
+      ids: existing.map((e) => e.id),
     });
-
-    if (input.parent !== undefined) {
-      if (
-        input.parent !== null &&
-        isInSubtree(ctx.nodes, input.id, input.parent)
-      ) {
-        return yield* domainError(
-          "invalid_move",
-          `cannot move ${input.id} under itself or its own descendant ${input.parent}`,
-          { id: input.id, parent: input.parent },
-        );
-      }
-      upserts.push(...detachFromParents(ctx.nodes, input.id, at));
-      if (input.parent !== null) {
-        const parent = yield* syncDomain(
-          () =>
-            upserts.find((n) => n.id === input.parent) ??
-            cloneNode(requireNode(ctx, input.parent!)),
-        );
-        const updated = insertChild(parent, input.id, at, input.position);
-        const idx = upserts.findIndex((n) => n.id === parent.id);
-        if (idx >= 0) upserts[idx] = updated;
-        else upserts.push(updated);
-      }
-    } else if (input.position !== undefined) {
-      const parent = ctx.nodes.find((n) => n.children.includes(input.id));
-      if (parent) {
-        const c = cloneNode(parent);
-        c.children = c.children.filter((id) => id !== input.id);
-        const pos = Math.min(input.position, c.children.length);
-        c.children = [
-          ...c.children.slice(0, pos),
-          input.id,
-          ...c.children.slice(pos),
-        ];
-        // DELIBERATE BUG (t2-dst red demo): stamp a fixed fractional rank on
-        // the reordered parent so its sibling group ends up with two children
-        // sharing one `order` key. `migrateOrderKeys` never rewrites an
-        // existing rank, so the collision survives reopen — and the store's
-        // own tx-validation never inspects `order`, so only the DST harness's
-        // "strictly increasing order" invariant catches it.
-        c.order = "1000000000";
-        c.updatedAt = at;
-        upserts.push(c);
-      }
-    }
-
-    node.updatedAt = at;
-    upserts.push(node);
-    yield* syncDomain(() =>
-      assertNoSysUpsert(upserts, input.force === true, "node.update"),
-    );
-    yield* persistEffect(ctx, { upserts, deletes: [] });
-    return { id: input.id, node };
-  },
-);
-
-export const nodeGetEffect = Effect.fn("node.get")(
-  function* (
-    input: z.infer<typeof nodeGetDef.inputSchema>,
-  ): Effect.fn.Return<{ node: unknown }, DomainError, KbCtx> {
-    const ctx = yield* KbCtx;
-    yield* syncDomain(() => requireNode(ctx, input.id));
-    const node = pullSubtree(ctx, input.id, input.depth);
-    if (input.depth <= 1) {
-      void pull(ctx.qdb, subtreePattern(input.depth), input.id);
-    }
-    return { node };
-  },
-);
-
-export const fieldDefineEffect = Effect.fn("field.define")(
-  function* (
-    input: z.infer<typeof fieldDefineDef.inputSchema>,
-  ): Effect.fn.Return<{ id: string }, DomainError, KbWriteEnv> {
-    const ctx = yield* KbCtx;
-    const existing = ctx.nodes.filter(
-      (n) =>
-        n.text === input.name &&
-        (n.props[SYSTEM_IDS.typeField] ?? []).some(
-          (v) => v.t === "ref" && v.v === SYSTEM_IDS.field,
-        ),
-    );
-    if (existing.length > 0 && !input.id) {
-      return yield* domainError("ambiguous", `field already exists: ${input.name}`, {
-        ids: existing.map((e) => e.id),
-      });
-    }
-    const result = yield* nodeAddEffect({
-      id: input.id,
-      text: input.name,
-      props: [
-        {
-          field: SYSTEM_IDS.typeField,
-          value: { t: "ref", v: SYSTEM_IDS.field },
-        },
-      ],
-    });
-    return { id: result.id };
-  },
-);
-
-export const tagDefineEffect = Effect.fn("tag.define")(
-  function* (
-    input: z.infer<typeof tagDefineDef.inputSchema>,
-  ): Effect.fn.Return<{ id: string }, DomainError, KbWriteEnv> {
-    const ctx = yield* KbCtx;
-    const props: z.infer<typeof PropInputSchema>[] = [
+  }
+  const result = yield* nodeAddEffect({
+    id: input.id,
+    text: input.name,
+    props: [
       {
         field: SYSTEM_IDS.typeField,
-        value: { t: "ref", v: SYSTEM_IDS.tag },
+        value: { t: "ref", v: SYSTEM_IDS.field },
       },
-    ];
-    yield* syncDomain(() => {
-      if (input.fields) {
-        for (const f of input.fields) {
-          const fieldId = resolveFieldId(ctx.nodes, f);
-          props.push({
-            field: SYSTEM_IDS.fieldsField,
-            value: { t: "ref", v: fieldId },
-          });
-        }
+    ],
+  });
+  return { id: result.id };
+});
+
+export const tagDefineEffect = Effect.fn("tag.define")(function* (
+  input: z.infer<typeof tagDefineDef.inputSchema>,
+): Effect.fn.Return<{ id: string }, DomainError, KbWriteEnv> {
+  const ctx = yield* KbCtx;
+  const props: z.infer<typeof PropInputSchema>[] = [
+    {
+      field: SYSTEM_IDS.typeField,
+      value: { t: "ref", v: SYSTEM_IDS.tag },
+    },
+  ];
+  yield* syncDomain(() => {
+    if (input.fields) {
+      for (const f of input.fields) {
+        const fieldId = resolveFieldId(ctx.nodes, f);
+        props.push({
+          field: SYSTEM_IDS.fieldsField,
+          value: { t: "ref", v: fieldId },
+        });
       }
-    });
-    const result = yield* nodeAddEffect({
-      id: input.id,
-      text: input.name,
-      props,
-    });
-    return { id: result.id };
-  },
-);
+    }
+  });
+  const result = yield* nodeAddEffect({
+    id: input.id,
+    text: input.name,
+    props,
+  });
+  return { id: result.id };
+});
 
 /**
  * Map a query-layer failure to a typed domain error. Datalog errors thrown by
@@ -619,11 +535,9 @@ export const tagDefineEffect = Effect.fn("tag.define")(
  */
 export function classifyQueryError(err: unknown, queryString: string): DomainError {
   if (err instanceof DatalogError) {
-    return domainError(
-      "invalid_input",
-      `invalid datalog query: ${err.message}`,
-      { query: queryString },
-    );
+    return domainError("invalid_input", `invalid datalog query: ${err.message}`, {
+      query: queryString,
+    });
   }
   return domainError(
     "internal",
@@ -644,15 +558,13 @@ function runDatalog(
   });
 }
 
-export const graphQueryEffect = Effect.fn("graph.query")(
-  function* (
-    input: z.infer<typeof graphQueryDef.inputSchema>,
-  ): Effect.fn.Return<{ rows: unknown }, DomainError, KbCtx> {
-    const ctx = yield* KbCtx;
-    const rows = yield* runDatalog(ctx, input.query, input.inputs);
-    return { rows };
-  },
-);
+export const graphQueryEffect = Effect.fn("graph.query")(function* (
+  input: z.infer<typeof graphQueryDef.inputSchema>,
+): Effect.fn.Return<{ rows: unknown }, DomainError, KbCtx> {
+  const ctx = yield* KbCtx;
+  const rows = yield* runDatalog(ctx, input.query, input.inputs);
+  return { rows };
+});
 
 /** True for FileSystem "not found" platform errors (ENOENT on read). */
 function isFsNotFound(err: unknown): boolean {
@@ -660,58 +572,49 @@ function isFsNotFound(err: unknown): boolean {
   return (err as { reason?: { _tag?: string } }).reason?._tag === "NotFound";
 }
 
-export const graphRunEffect = Effect.fn("graph.run")(
-  function* (
-    input: z.infer<typeof graphRunDef.inputSchema>,
-  ): Effect.fn.Return<
-    z.infer<typeof graphRunDef.outputSchema>,
-    DomainError,
-    KbCtx | FileSystem
-  > {
-    const ctx = yield* KbCtx;
-    const fs = yield* FileSystem;
-    const path = resolveSavedQueryFile(ctx.root, input.name);
-    if (!path) {
-      return yield* domainError(
-        "invalid_input",
-        `invalid saved query name: ${input.name} (letters, digits, ., _, - only)`,
-        { name: input.name },
-      );
-    }
-    const edn = yield* fs.readFileString(path).pipe(
-      Effect.mapError((err) => {
-        if (isFsNotFound(err)) {
-          return domainError(
-            "not_found",
-            `saved query not found: ${input.name}`,
-            { name: input.name, path },
-          );
-        }
-        return domainError(
-          "internal",
-          `read saved query failed: ${err instanceof Error ? err.message : String(err)}`,
-          { name: input.name, path },
-        );
-      }),
+export const graphRunEffect = Effect.fn("graph.run")(function* (
+  input: z.infer<typeof graphRunDef.inputSchema>,
+): Effect.fn.Return<z.infer<typeof graphRunDef.outputSchema>, DomainError, KbCtx | FileSystem> {
+  const ctx = yield* KbCtx;
+  const fs = yield* FileSystem;
+  const path = resolveSavedQueryFile(ctx.root, input.name);
+  if (!path) {
+    return yield* domainError(
+      "invalid_input",
+      `invalid saved query name: ${input.name} (letters, digits, ., _, - only)`,
+      { name: input.name },
     );
-    const rows = yield* runDatalog(ctx, edn, input.inputs);
-    return { name: input.name, query: edn.trim(), rows };
-  },
-);
+  }
+  const edn = yield* fs.readFileString(path).pipe(
+    Effect.mapError((err) => {
+      if (isFsNotFound(err)) {
+        return domainError("not_found", `saved query not found: ${input.name}`, {
+          name: input.name,
+          path,
+        });
+      }
+      return domainError(
+        "internal",
+        `read saved query failed: ${err instanceof Error ? err.message : String(err)}`,
+        { name: input.name, path },
+      );
+    }),
+  );
+  const rows = yield* runDatalog(ctx, edn, input.inputs);
+  return { name: input.name, query: edn.trim(), rows };
+});
 
-export const graphSearchEffect = Effect.fn("graph.search")(
-  function* (
-    input: z.infer<typeof graphSearchDef.inputSchema>,
-  ): Effect.fn.Return<{ rows: unknown[][] }, DomainError, KbCtx> {
-    const ctx = yield* KbCtx;
-    const needle = input.text.toLowerCase();
-    const rows = ctx.nodes
-      .filter((n) => n.text.toLowerCase().includes(needle))
-      .map((n) => [n.id, n.text])
-      .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
-    if (input.limit !== undefined && rows.length > input.limit) {
-      rows.length = input.limit;
-    }
-    return { rows };
-  },
-);
+export const graphSearchEffect = Effect.fn("graph.search")(function* (
+  input: z.infer<typeof graphSearchDef.inputSchema>,
+): Effect.fn.Return<{ rows: unknown[][] }, DomainError, KbCtx> {
+  const ctx = yield* KbCtx;
+  const needle = input.text.toLowerCase();
+  const rows = ctx.nodes
+    .filter((n) => n.text.toLowerCase().includes(needle))
+    .map((n) => [n.id, n.text])
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  if (input.limit !== undefined && rows.length > input.limit) {
+    rows.length = input.limit;
+  }
+  return { rows };
+});

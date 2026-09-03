@@ -51,8 +51,9 @@ describe("a node's tag colors (the list, not the first)", () => {
   });
 
   it("collapses repeats and tolerates a missing node", () => {
-    expect(nodeTagColors({ tags: [tag("a", "#ef4444"), tag("b", "#ef4444")] }))
-      .toEqual(["#ef4444"]);
+    expect(nodeTagColors({ tags: [tag("a", "#ef4444"), tag("b", "#ef4444")] })).toEqual([
+      "#ef4444",
+    ]);
     expect(nodeTagColors({ tags: [] })).toEqual([]);
     expect(nodeTagColors(null)).toEqual([]);
     expect(nodeTagColors(undefined)).toEqual([]);
@@ -62,12 +63,8 @@ describe("a node's tag colors (the list, not the first)", () => {
 describe("tag color as a paint value", () => {
   it("weakens any CSS color, not just a 6-digit hex", () => {
     // The bug this replaces: `"red" + "20"` is not a color.
-    expect(tagColorAlpha("red", 12.5)).toBe(
-      "color-mix(in oklab, red 12.5%, transparent)",
-    );
-    expect(tagColorAlpha("#ef4444", 25)).toBe(
-      "color-mix(in oklab, #ef4444 25%, transparent)",
-    );
+    expect(tagColorAlpha("red", 12.5)).toBe("color-mix(in oklab, red 12.5%, transparent)");
+    expect(tagColorAlpha("#ef4444", 25)).toBe("color-mix(in oklab, #ef4444 25%, transparent)");
   });
 
   it("paints one color solid and no colors at all", () => {
@@ -87,9 +84,7 @@ describe("tag color as a paint value", () => {
   });
 
   it("tints each wedge when the surface is a tint", () => {
-    expect(tagColorFill(["#ef4444"], 12.5)).toBe(
-      "color-mix(in oklab, #ef4444 12.5%, transparent)",
-    );
+    expect(tagColorFill(["#ef4444"], 12.5)).toBe("color-mix(in oklab, #ef4444 12.5%, transparent)");
     expect(tagColorFill(["#ef4444", "#22c55e"], 12.5)).toBe(
       "conic-gradient(from 0deg," +
         " color-mix(in oklab, #ef4444 12.5%, transparent) 0% 50%," +

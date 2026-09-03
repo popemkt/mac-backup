@@ -1,11 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
-import {
-  childInstanceKey,
-  outlineInstanceKey,
-  queryResultInstanceKey,
-} from "@/lib/instance-key";
+import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
 import {
   emptyValueForType,
   isValueMismatch,
@@ -60,13 +56,9 @@ export function TableView({
   const storeWidth = usePrefsStore((s) => s.width);
   const widthPref = widthPrefProp ?? storeWidth;
 
-  const baseInstanceKey =
-    frameInstanceKey ?? outlineInstanceKey(frameId, nodes);
+  const baseInstanceKey = frameInstanceKey ?? outlineInstanceKey(frameId, nodes);
 
-  const viewConfig = useMemo(
-    () => getViewConfig(frameNode?.props),
-    [frameNode?.props],
-  );
+  const viewConfig = useMemo(() => getViewConfig(frameNode?.props), [frameNode?.props]);
 
   const pages = useOutlineStore((s) => s.framePages[frameId] ?? 1);
   const revealMorePages = useOutlineStore((s) => s.revealMorePages);
@@ -86,9 +78,7 @@ export function TableView({
   const displayedChildren = rows.rendered;
   const hasMore = rows.hasMore;
 
-  const [localColwidth, setLocalColwidth] = useState<Record<string, number>>(
-    {},
-  );
+  const [localColwidth, setLocalColwidth] = useState<Record<string, number>>({});
   const [resizing, setResizing] = useState<string | null>(null);
 
   useEffect(() => {
@@ -147,10 +137,7 @@ export function TableView({
       data-frame-id={frameId}
       data-breakout={breakoutCentered ? "centered" : undefined}
     >
-      <table
-        className="w-full text-left border-collapse"
-        style={{ minWidth: "max-content" }}
-      >
+      <table className="w-full text-left border-collapse" style={{ minWidth: "max-content" }}>
         <thead>
           <tr className="border-b border-foreground/[0.06] bg-foreground/[0.02]">
             <th
@@ -170,9 +157,7 @@ export function TableView({
                 onMouseDown={(e) =>
                   handleResizeStart(
                     "__name__",
-                    localColwidth["__name__"] ??
-                      viewConfig.colwidth["__name__"] ??
-                      220,
+                    localColwidth["__name__"] ?? viewConfig.colwidth["__name__"] ?? 220,
                     e,
                   )
                 }
@@ -181,9 +166,7 @@ export function TableView({
 
             {columns.map((col) => {
               const currentWidth =
-                localColwidth[col.fieldId] ??
-                viewConfig.colwidth[col.fieldId] ??
-                160;
+                localColwidth[col.fieldId] ?? viewConfig.colwidth[col.fieldId] ?? 160;
               return (
                 <th
                   key={col.fieldId}
@@ -195,15 +178,10 @@ export function TableView({
                     onClick={() => handleHeaderSortClick(col.fieldId)}
                   >
                     <span className="truncate">{col.label}</span>
-                    <SortIndicator
-                      sort={viewConfig.sort}
-                      fieldId={col.fieldId}
-                    />
+                    <SortIndicator sort={viewConfig.sort} fieldId={col.fieldId} />
                   </div>
                   <ResizeHandle
-                    onMouseDown={(e) =>
-                      handleResizeStart(col.fieldId, currentWidth, e)
-                    }
+                    onMouseDown={(e) => handleResizeStart(col.fieldId, currentWidth, e)}
                   />
                 </th>
               );
@@ -236,8 +214,7 @@ export function TableView({
             className="text-[11px] text-foreground/50 hover:text-foreground/80 font-medium px-3 py-1 rounded bg-foreground/[0.04] hover:bg-foreground/[0.08] cursor-pointer"
             onClick={() => revealMorePages(frameId)}
           >
-            Show more ({rows.ordered.length - displayedChildren.length}{" "}
-            remaining)
+            Show more ({rows.ordered.length - displayedChildren.length} remaining)
           </button>
         </div>
       )}
@@ -262,8 +239,7 @@ const TableRow = memo(function TableRow({
     (s) => s.activeNodeId === child.id && s.activeInstanceKey === childKey,
   );
   const isSelected = useOutlineStore(
-    (s) =>
-      s.selectedNodeId === child.id && s.selectedInstanceKey === childKey,
+    (s) => s.selectedNodeId === child.id && s.selectedInstanceKey === childKey,
   );
   const selectNode = useOutlineStore((s) => s.selectNode);
   const activateNode = useOutlineStore((s) => s.activateNode);
@@ -281,10 +257,8 @@ const TableRow = memo(function TableRow({
   const isQuery = isQueryNode(child);
   // A row's own field rows follow the row's own flag — the frame's debug
   // columns say nothing about whether this node reveals its sys.* props.
-  const hasFields =
-    resolveProps(child, nodes, { showDebugFields: rowDebug }).length > 0;
-  const isExpandable =
-    child.children.length > 0 || isQuery || hasFields;
+  const hasFields = resolveProps(child, nodes, { showDebugFields: rowDebug }).length > 0;
+  const isExpandable = child.children.length > 0 || isQuery || hasFields;
 
   return (
     <tr
@@ -343,13 +317,7 @@ const TableRow = memo(function TableRow({
   );
 });
 
-function SortIndicator({
-  sort,
-  fieldId,
-}: {
-  sort: SortSpec[];
-  fieldId: string;
-}) {
+function SortIndicator({ sort, fieldId }: { sort: SortSpec[]; fieldId: string }) {
   const spec = sort.find((s) => s.fieldId === fieldId);
   if (!spec) return null;
   return (
@@ -359,11 +327,7 @@ function SortIndicator({
   );
 }
 
-function ResizeHandle({
-  onMouseDown,
-}: {
-  onMouseDown: (e: React.MouseEvent) => void;
-}) {
+function ResizeHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => void }) {
   return (
     <div
       className="absolute top-0 right-0 bottom-0 w-2 cursor-col-resize opacity-0 group-hover:opacity-100 flex items-center justify-center"
@@ -401,21 +365,14 @@ const TableCellField = memo(function TableCellField({
   if (values.length === 0) {
     const emptyVal = emptyValueForType(fieldType);
     return (
-      <FieldRow
-        valueOnly
-        fieldType={fieldType}
-        fieldId={fieldId}
-        label={label}
-      >
+      <FieldRow valueOnly fieldType={fieldType} fieldId={fieldId} label={label}>
         <PropValueEditor
           value={emptyVal}
           display=""
           fieldType={fieldType}
           allowedRefIds={allowedRefIds}
           nodes={nodes}
-          onCommit={(next: PropValue) =>
-            void mutations.updateProp(nodeId, fieldId, next)
-          }
+          onCommit={(next: PropValue) => void mutations.updateProp(nodeId, fieldId, next)}
         />
       </FieldRow>
     );
@@ -438,9 +395,7 @@ const TableCellField = memo(function TableCellField({
             fieldType={fieldType}
             allowedRefIds={allowedRefIds}
             nodes={nodes}
-            onCommit={(next: PropValue) =>
-              void mutations.updateProp(nodeId, fieldId, next, v)
-            }
+            onCommit={(next: PropValue) => void mutations.updateProp(nodeId, fieldId, next, v)}
           />
         </FieldRow>
       ))}

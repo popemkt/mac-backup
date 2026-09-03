@@ -18,8 +18,7 @@ async function selectRenderer(page: Page, renderer: string) {
 
 async function sigmaViewportCoverage(page: Page, host: string) {
   return page.locator(host).evaluate((element) => {
-    const sigma = (element as HTMLDivElement & { __kbSigma?: SigmaInspector })
-      .__kbSigma;
+    const sigma = (element as HTMLDivElement & { __kbSigma?: SigmaInspector }).__kbSigma;
     if (!sigma) return { total: 0, inBounds: 0 };
     const rect = element.getBoundingClientRect();
     let inBounds = 0;
@@ -28,12 +27,7 @@ async function sigmaViewportCoverage(page: Page, host: string) {
       const display = sigma.getNodeDisplayData(id);
       if (!display) continue;
       const point = sigma.framedGraphToViewport(display);
-      if (
-        point.x >= 0 &&
-        point.x <= rect.width &&
-        point.y >= 0 &&
-        point.y <= rect.height
-      ) {
+      if (point.x >= 0 && point.x <= rect.width && point.y >= 0 && point.y <= rect.height) {
         inBounds += 1;
       }
     }
@@ -82,30 +76,24 @@ test("force2d paints labels and frames settled nodes", async ({ page }) => {
   await expect
     .poll(() => alphaBoundingBox(page, "canvas.sigma-labels"))
     .toMatchObject({ pixels: expect.any(Number) });
-  expect(
-    (await alphaBoundingBox(page, "canvas.sigma-labels")).pixels,
-  ).toBeGreaterThan(0);
+  expect((await alphaBoundingBox(page, "canvas.sigma-labels")).pixels).toBeGreaterThan(0);
 });
 
 test("cluster paints labels and a hull spanning its members", async ({ page }) => {
   await selectRenderer(page, "cluster");
   const host = "[data-testid='cluster-graph'] > div";
   await expect(page.locator(`${host} canvas.sigma-labels`)).toBeVisible();
-  await expect.poll(() => sigmaViewportCoverage(page, host)).toEqual({
-    total: FIXTURE_SIZE,
-    inBounds: FIXTURE_SIZE,
-  });
-  expect(
-    (await alphaBoundingBox(page, `${host} canvas.sigma-labels`)).pixels,
-  ).toBeGreaterThan(0);
+  await expect
+    .poll(() => sigmaViewportCoverage(page, host))
+    .toEqual({
+      total: FIXTURE_SIZE,
+      inBounds: FIXTURE_SIZE,
+    });
+  expect((await alphaBoundingBox(page, `${host} canvas.sigma-labels`)).pixels).toBeGreaterThan(0);
 
-  const hull = await alphaBoundingBox(
-    page,
-    "[data-testid='cluster-graph'] > canvas",
-  );
+  const hull = await alphaBoundingBox(page, "[data-testid='cluster-graph'] > canvas");
   const members = await page.locator(host).evaluate((element) => {
-    const sigma = (element as HTMLDivElement & { __kbSigma?: SigmaInspector })
-      .__kbSigma;
+    const sigma = (element as HTMLDivElement & { __kbSigma?: SigmaInspector }).__kbSigma;
     if (!sigma) return { width: 0, height: 0 };
     const points = sigma
       .getGraph()
@@ -115,11 +103,9 @@ test("cluster paints labels and a hull spanning its members", async ({ page }) =
       .map((point) => sigma.framedGraphToViewport(point));
     return {
       width:
-        Math.max(...points.map((point) => point.x)) -
-        Math.min(...points.map((point) => point.x)),
+        Math.max(...points.map((point) => point.x)) - Math.min(...points.map((point) => point.x)),
       height:
-        Math.max(...points.map((point) => point.y)) -
-        Math.min(...points.map((point) => point.y)),
+        Math.max(...points.map((point) => point.y)) - Math.min(...points.map((point) => point.y)),
     };
   });
   expect(hull.width).toBeGreaterThanOrEqual(members.width * 0.6);
@@ -158,14 +144,18 @@ test("force3d receives all fixture nodes and settles to a non-degenerate volume"
   await selectRenderer(page, "force3d");
   const host = page.locator("[data-testid='force3d-graph']");
   await expect(host.locator("canvas")).toBeVisible();
-  await expect.poll(async () => host.evaluate((element) => {
-    const graph = (
-      element as HTMLDivElement & {
-        __kbForceGraph?: { graphData(): { nodes: unknown[] } };
-      }
-    ).__kbForceGraph;
-    return graph?.graphData().nodes.length ?? 0;
-  })).toBe(FIXTURE_SIZE);
+  await expect
+    .poll(async () =>
+      host.evaluate((element) => {
+        const graph = (
+          element as HTMLDivElement & {
+            __kbForceGraph?: { graphData(): { nodes: unknown[] } };
+          }
+        ).__kbForceGraph;
+        return graph?.graphData().nodes.length ?? 0;
+      }),
+    )
+    .toBe(FIXTURE_SIZE);
 
   // The historical uncooled cluster force contracts throughout the simulation;
   // sample after its default cooldown window rather than its initial spread.

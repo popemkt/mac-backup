@@ -3,9 +3,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { JsonlStore } from "../src/index.ts";
-import { systemSeedNodes } from "@kb/model";
+import { systemSeedNodes, SYSTEM_IDS, type KbNode, nowIso } from "@kb/model";
 import { buildQueryDb, query } from "@kb/query";
-import { SYSTEM_IDS, type KbNode, nowIso } from "@kb/model";
 
 const N = 50_000;
 
@@ -32,10 +31,7 @@ describe("benchmark 50k", () => {
         nodes.push({
           id,
           text: `node ${i}`,
-          props:
-            i % 10 === 0
-              ? { [SYSTEM_IDS.typeField]: [{ t: "ref", v: tagId }] }
-              : {},
+          props: i % 10 === 0 ? { [SYSTEM_IDS.typeField]: [{ t: "ref", v: tagId }] } : {},
           children: [],
           createdAt: at,
           updatedAt: at,

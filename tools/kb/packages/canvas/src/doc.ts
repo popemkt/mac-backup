@@ -88,9 +88,7 @@ export function isShapeNode(n: CanvasNode): n is CanvasShapeNode {
 const SHAPE_KINDS = new Set<string>(["rect", "ellipse", "diamond"]);
 
 export function normalizeShapeKind(raw: unknown): CanvasShapeKind {
-  return typeof raw === "string" && SHAPE_KINDS.has(raw)
-    ? (raw as CanvasShapeKind)
-    : "rect";
+  return typeof raw === "string" && SHAPE_KINDS.has(raw) ? (raw as CanvasShapeKind) : "rect";
 }
 
 export interface CanvasEdge {
@@ -312,11 +310,7 @@ function emitEdge(e: CanvasEdge): Record<string, unknown> {
 /** Parse a JSON Canvas document from a string or object. Throws on invalid JSON. */
 export function parseCanvasDoc(input: string | unknown): CanvasDoc {
   const raw: unknown =
-    typeof input === "string"
-      ? input.trim() === ""
-        ? {}
-        : JSON.parse(input)
-      : input;
+    typeof input === "string" ? (input.trim() === "" ? {} : JSON.parse(input)) : input;
   if (!isRecord(raw)) {
     throw new Error("canvas doc must be an object");
   }
@@ -382,10 +376,7 @@ export function removeCanvasEdge(doc: CanvasDoc, edgeId: string): CanvasDoc {
  */
 export function isNativeEdgeBound(
   edge: CanvasEdge,
-  lookup: (
-    nodeId: string,
-    fieldId: string,
-  ) => ReadonlyArray<{ t: string; v: unknown }> | undefined,
+  lookup: (nodeId: string, fieldId: string) => ReadonlyArray<{ t: string; v: unknown }> | undefined,
 ): boolean {
   const link = edge.kbLink;
   if (!link || link.mode !== "native" || !link.fieldId) return true;

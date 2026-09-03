@@ -1,17 +1,14 @@
 import type { ActionInvocation } from "@kb/contracts";
 import { isValidSavedQueryName } from "./saved-query.ts";
-import {
-  LIST_FIELDS_QUERY,
-  LIST_TAGS_QUERY,
-  backlinksQuery,
-} from "@kb/query";
+import { LIST_FIELDS_QUERY, LIST_TAGS_QUERY, backlinksQuery } from "@kb/query";
 import {
   FIELD_TYPES,
   fieldTypeValue,
   isFieldType,
+  SYSTEM_IDS,
+  type PropValue,
+  LIST_ONTOLOGIES_QUERY,
 } from "@kb/model";
-import { SYSTEM_IDS, type PropValue } from "@kb/model";
-import { LIST_ONTOLOGIES_QUERY } from "@kb/model";
 
 export type PropType = "str" | "num" | "bool" | "date" | "ref";
 
@@ -106,9 +103,7 @@ export function mapSet(opts: {
     id: "node.update",
     input: {
       id: opts.id,
-      setProps: [
-        { field: opts.field, value: parsePropValue(opts.value, opts.type) },
-      ],
+      setProps: [{ field: opts.field, value: parsePropValue(opts.value, opts.type) }],
       ...(opts.force === true ? { force: true } : {}),
     },
   };
@@ -170,10 +165,7 @@ export function mapMv(opts: {
   };
 }
 
-export function mapFieldDefine(opts: {
-  name: string;
-  id?: string;
-}): PlannedAction {
+export function mapFieldDefine(opts: { name: string; id?: string }): PlannedAction {
   return {
     id: "field.define",
     input: {
@@ -207,7 +199,6 @@ export function mapFieldList(): PlannedAction {
   };
 }
 
-
 /**
  * Replace sys.f.fieldType (caller must resolve field id + pass prior value to
  * unset). The written value is a ref to the type's option node — field types
@@ -220,9 +211,7 @@ export function mapFieldType(opts: {
   previous?: PropValue;
 }): PlannedAction {
   if (!isFieldType(opts.type)) {
-    throw new UsageError(
-      `invalid field type: ${opts.type} (expected ${FIELD_TYPES.join("|")})`,
-    );
+    throw new UsageError(`invalid field type: ${opts.type} (expected ${FIELD_TYPES.join("|")})`);
   }
   return {
     id: "node.update",
@@ -230,9 +219,7 @@ export function mapFieldType(opts: {
       id: opts.fieldId,
       ...(opts.previous
         ? {
-            unsetProps: [
-              { field: SYSTEM_IDS.fieldTypeField, value: opts.previous },
-            ],
+            unsetProps: [{ field: SYSTEM_IDS.fieldTypeField, value: opts.previous }],
           }
         : {}),
       setProps: [
@@ -245,17 +232,12 @@ export function mapFieldType(opts: {
   };
 }
 
-export function mapFieldTarget(opts: {
-  fieldId: string;
-  tagId: string;
-}): PlannedAction {
+export function mapFieldTarget(opts: { fieldId: string; tagId: string }): PlannedAction {
   return {
     id: "node.update",
     input: {
       id: opts.fieldId,
-      setProps: [
-        { field: "sys.f.targetTag", value: { t: "ref", v: opts.tagId } },
-      ],
+      setProps: [{ field: "sys.f.targetTag", value: { t: "ref", v: opts.tagId } }],
     },
   };
 }
@@ -271,9 +253,7 @@ export function mapFieldTargetQuery(opts: {
       id: opts.fieldId,
       ...(opts.previous
         ? {
-            unsetProps: [
-              { field: "sys.f.targetQuery", value: opts.previous },
-            ],
+            unsetProps: [{ field: "sys.f.targetQuery", value: opts.previous }],
           }
         : {}),
       setProps: [
@@ -306,10 +286,7 @@ export function mapOntologyList(): PlannedAction {
 }
 
 /** Resolve one ontology's membership, optionally with provenance. */
-export function mapOntologyMembers(opts: {
-  id: string;
-  reasons?: boolean;
-}): PlannedAction {
+export function mapOntologyMembers(opts: { id: string; reasons?: boolean }): PlannedAction {
   return {
     id: "ontology.members",
     input: {
@@ -319,10 +296,7 @@ export function mapOntologyMembers(opts: {
   };
 }
 
-export function mapQuery(opts: {
-  query: string;
-  inputs?: unknown[];
-}): PlannedAction {
+export function mapQuery(opts: { query: string; inputs?: unknown[] }): PlannedAction {
   return {
     id: "graph.query",
     input: {
@@ -339,9 +313,7 @@ export function mapQuery(opts: {
  */
 export function mapRun(name: string): PlannedAction {
   if (!isValidSavedQueryName(name)) {
-    throw new UsageError(
-      `invalid saved query name: ${name} (letters, digits, ., _, - only)`,
-    );
+    throw new UsageError(`invalid saved query name: ${name} (letters, digits, ., _, - only)`);
   }
   return {
     id: "graph.run",
@@ -379,9 +351,7 @@ export function mapActionInvoke(raw: unknown): ActionInvocation {
     !("id" in raw) ||
     typeof (raw as { id: unknown }).id !== "string"
   ) {
-    throw new UsageError(
-      'action-invoke expects JSON object with string "id" and optional "input"',
-    );
+    throw new UsageError('action-invoke expects JSON object with string "id" and optional "input"');
   }
   const obj = raw as { id: string; input?: unknown };
   return { id: obj.id, input: obj.input ?? {} };

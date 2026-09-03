@@ -33,17 +33,14 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
 
   if (!kind) return null;
 
-  const title =
-    kind === "tag" ? "Tagged instances" : "Nodes with this field";
+  const title = kind === "tag" ? "Tagged instances" : "Nodes with this field";
 
   return (
     <section className="mt-6 border-t border-foreground/[0.06] px-1 pt-4">
       {kind === "tag" && <TagFieldsConfig tagId={nodeId} />}
       <h2 className="mb-2 px-1 text-[12px] uppercase tracking-wide text-foreground/30">
         {title}
-        <span className="ml-1.5 font-normal normal-case tracking-normal">
-          ({hits.length})
-        </span>
+        <span className="ml-1.5 font-normal normal-case tracking-normal">({hits.length})</span>
       </h2>
       {hits.length === 0 ? (
         <p className="px-1 text-[13px] text-foreground/50" role="status">
@@ -110,14 +107,11 @@ function SchemaInstanceRow({
         }
         content={
           <>
-            <MdView
-              text={hit.text || "(empty)"}
-              className="min-w-0 flex-1 text-foreground/85"
-            />
+            <MdView text={hit.text || "(empty)"} className="min-w-0 flex-1 text-foreground/85" />
             {tags.length > 0 && (
               <TagChipGroup
                 tags={tags}
-                onTagClick={(tag, e) => {
+                onTagClick={(_tag, e) => {
                   e.stopPropagation();
                   onZoom();
                 }}

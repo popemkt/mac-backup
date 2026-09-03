@@ -64,9 +64,12 @@ describe("frameRows pagination", () => {
 
   it("reveals one further page per revealed page", () => {
     const nodes = graph(asTable(2));
-    expect(
-      frameRows({ frameId: "frame", nodes, pages: 2 }).rendered.map((n) => n.id),
-    ).toEqual(["r0", "r1", "r2", "r3"]);
+    expect(frameRows({ frameId: "frame", nodes, pages: 2 }).rendered.map((n) => n.id)).toEqual([
+      "r0",
+      "r1",
+      "r2",
+      "r3",
+    ]);
     const all = frameRows({ frameId: "frame", nodes, pages: 3 });
     expect(all.rendered).toHaveLength(5);
     expect(all.hasMore).toBe(false);
@@ -141,9 +144,7 @@ describe("frameRows sources", () => {
 describe("frameListChildren", () => {
   it("applies the frame's view filters", () => {
     const nodes = graph({
-      [SYSTEM_IDS.viewFilterField]: [
-        { t: "str", v: `{:field f_status :eq "s0"}` },
-      ],
+      [SYSTEM_IDS.viewFilterField]: [{ t: "str", v: `{:field f_status :eq "s0"}` }],
     });
     const kids = frameListChildren("frame", nodes);
     expect(kids.map((n) => n.id)).toEqual(["r0", "r2", "r4"]);

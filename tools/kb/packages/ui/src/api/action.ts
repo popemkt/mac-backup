@@ -15,9 +15,7 @@ export interface ActionInvocation {
   input: unknown;
 }
 
-export type PostActionFn = (
-  invocation: ActionInvocation,
-) => Promise<ActionReceipt>;
+export type PostActionFn = (invocation: ActionInvocation) => Promise<ActionReceipt>;
 
 let postActionImpl: PostActionFn = defaultPostAction;
 
@@ -31,9 +29,7 @@ export function getClientOrigin(): string {
   return clientOrigin;
 }
 
-async function defaultPostAction(
-  invocation: ActionInvocation,
-): Promise<ActionReceipt> {
+async function defaultPostAction(invocation: ActionInvocation): Promise<ActionReceipt> {
   const res = await fetch("/api/action", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-KB-Origin": getClientOrigin() },
@@ -44,8 +40,7 @@ async function defaultPostAction(
     json &&
     typeof json === "object" &&
     "status" in json &&
-    ((json as ActionReceipt).status === "succeeded" ||
-      (json as ActionReceipt).status === "failed")
+    ((json as ActionReceipt).status === "succeeded" || (json as ActionReceipt).status === "failed")
   ) {
     return json as ActionReceipt;
   }
@@ -62,18 +57,12 @@ export function setPostAction(fn: PostActionFn | null): void {
   postActionImpl = fn ?? defaultPostAction;
 }
 
-export function postAction(
-  id: string,
-  input: unknown,
-): Promise<ActionReceipt> {
+export function postAction(id: string, input: unknown): Promise<ActionReceipt> {
   return postActionImpl({ id, input });
 }
 
 /** Invoke and unwrap; throws on failed receipts. */
-export async function invokeAction<T>(
-  id: string,
-  input: unknown = {},
-): Promise<T> {
+export async function invokeAction<T>(id: string, input: unknown = {}): Promise<T> {
   const receipt = await postAction(id, input);
   if (receipt.status === "failed") {
     throw new Error(`${receipt.code}: ${receipt.message}`);

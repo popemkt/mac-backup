@@ -16,7 +16,16 @@ import {
 const sampleDoc: CanvasDoc = {
   nodes: [
     { id: "a", type: "shape", shape: "rect", x: 0, y: 0, width: 100, height: 60, label: "" } as any,
-    { id: "b", type: "shape", shape: "rect", x: 200, y: 0, width: 100, height: 60, label: "" } as any,
+    {
+      id: "b",
+      type: "shape",
+      shape: "rect",
+      x: 200,
+      y: 0,
+      width: 100,
+      height: 60,
+      label: "",
+    } as any,
     { id: "c", type: "text", text: "", x: 0, y: 200, width: 100, height: 60 } as any,
   ],
   edges: [

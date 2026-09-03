@@ -54,17 +54,12 @@ describe("component catalog smoke", () => {
       for (const variant of variantNames) {
         it(`renders ${variant}`, () => {
           const Story = composed[variant as keyof typeof composed];
-          expect(() =>
-            renderToStaticMarkup(createElement(Story)),
-          ).not.toThrow();
+          expect(() => renderToStaticMarkup(createElement(Story))).not.toThrow();
         });
       }
 
       it(`documents at least 2 variants`, () => {
-        expect(
-          variantNames.length,
-          `${name} needs \u22652 stories`,
-        ).toBeGreaterThanOrEqual(2);
+        expect(variantNames.length, `${name} needs \u22652 stories`).toBeGreaterThanOrEqual(2);
       });
     });
   }
@@ -72,10 +67,7 @@ describe("component catalog smoke", () => {
 
 describe("surface error-boundary wiring (App)", () => {
   it("wraps outline and sidebar so one crash cannot blank the shell", () => {
-    const appSrc = readFileSync(
-      path.join(catalogDir, "../components/App.tsx"),
-      "utf8",
-    );
+    const appSrc = readFileSync(path.join(catalogDir, "../components/App.tsx"), "utf8");
     expect(appSrc).toContain('title="Outline crashed"');
     expect(appSrc).toContain('title="Sidebar crashed"');
     expect(appSrc).toContain('title="Graph crashed"');

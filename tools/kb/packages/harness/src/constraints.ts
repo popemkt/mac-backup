@@ -26,22 +26,8 @@ export const LAYER_ALLOWS: Record<string, readonly string[]> = {
   infrastructure: ["domain", "contract"],
   application: ["domain", "contract", "application"],
   extension: ["domain", "contract", "application"],
-  app: [
-    "domain",
-    "contract",
-    "infrastructure",
-    "application",
-    "extension",
-    "app",
-  ],
-  "test-support": [
-    "domain",
-    "contract",
-    "application",
-    "extension",
-    "app",
-    "test-support",
-  ],
+  app: ["domain", "contract", "infrastructure", "application", "extension", "app"],
+  "test-support": ["domain", "contract", "application", "extension", "app", "test-support"],
   tooling: [],
 };
 

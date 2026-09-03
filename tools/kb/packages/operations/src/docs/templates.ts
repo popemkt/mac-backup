@@ -60,7 +60,8 @@ export function todos(rows: unknown[][], ctx: TemplateContext): string {
   const projectNodes = new Map<NodeId, KbNode>();
   if (projectTagIds.size > 0) {
     for (const [id, node] of ctx.nodes) {
-      const typeRefs = node.props["sys.f.type"]?.filter((pv) => pv.t === "ref").map((pv) => pv.v) ?? [];
+      const typeRefs =
+        node.props["sys.f.type"]?.filter((pv) => pv.t === "ref").map((pv) => pv.v) ?? [];
       if (typeRefs.some((ref) => projectTagIds.has(ref))) {
         projectNodes.set(id, node);
       }

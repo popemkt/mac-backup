@@ -93,9 +93,7 @@ describe("determinism seam guard", () => {
           if (!body.includes(token)) continue;
           const allowed = ALLOWED[token]!;
           if (allowed.has(rel)) continue;
-          violations.push(
-            `${token} in ${rel} (allowed only in: ${[...allowed].join(", ")})`,
-          );
+          violations.push(`${token} in ${rel} (allowed only in: ${[...allowed].join(", ")})`);
         }
       }
     }

@@ -31,9 +31,7 @@ export interface NodesToDatomsResult {
 }
 
 export function buildIdMap(nodes: Array<{ id: NodeId }>): IdMap {
-  const sorted = [...nodes].sort((a, b) =>
-    a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
-  );
+  const sorted = [...nodes].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const toEid = new Map<NodeId, number>();
   const toId = new Map<number, NodeId>();
   let eid = 1;
@@ -49,10 +47,7 @@ function fieldAttr(fieldId: NodeId): string {
   return `:f/${fieldId}`;
 }
 
-function propDatomValue(
-  pv: PropValue,
-  ids: IdMap,
-): { value: unknown; isRef: boolean } {
+function propDatomValue(pv: PropValue, ids: IdMap): { value: unknown; isRef: boolean } {
   if (pv.t === "ref") {
     const eid = ids.toEid.get(pv.v);
     if (eid === undefined) {

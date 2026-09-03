@@ -2,9 +2,7 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { SYSTEM_IDS, type NodeId } from "@kb/model";
 import { query } from "@kb/query";
-import {
-  resolveSavedQueryFile,
-} from "../saved-query.ts";
+import { resolveSavedQueryFile } from "../saved-query.ts";
 import type { KbContext } from "@kb/contracts";
 import { KbCtx } from "@kb/contracts";
 import { templates, type TemplateContext } from "./templates.ts";
@@ -32,64 +30,58 @@ function templateContext(ctx: KbContext): TemplateContext {
   };
 }
 
-const viewEdnEffect = Effect.fn("docs.viewEdn")(
-  function* (
-    view: LoadedView,
-  ): Effect.fn.Return<string, DocsError, KbCtx | FileSystem> {
-    if (view.spec.query !== undefined) return view.spec.query;
-    const ctx = yield* KbCtx;
-    const name = view.spec.savedQuery!;
-    const path = resolveSavedQueryFile(ctx.root, name);
-    if (!path) {
-      return yield* Effect.fail(
-        new DocsError(
-          "invalid_input",
-          `invalid saved query name: ${name}`,
-          { view: view.name, savedQuery: name },
-        ),
-      );
-    }
-    const fs = yield* FileSystem;
-    const edn = yield* fs.readFileString(path).pipe(
-      Effect.mapError(
-        () =>
-          new DocsError("not_found", `saved query not found: ${name}`, {
-            view: view.name,
-            path,
-          }),
-      ),
+const viewEdnEffect = Effect.fn("docs.viewEdn")(function* (
+  view: LoadedView,
+): Effect.fn.Return<string, DocsError, KbCtx | FileSystem> {
+  if (view.spec.query !== undefined) return view.spec.query;
+  const ctx = yield* KbCtx;
+  const name = view.spec.savedQuery!;
+  const path = resolveSavedQueryFile(ctx.root, name);
+  if (!path) {
+    return yield* Effect.fail(
+      new DocsError("invalid_input", `invalid saved query name: ${name}`, {
+        view: view.name,
+        savedQuery: name,
+      }),
     );
-    return edn;
-  },
-);
+  }
+  const fs = yield* FileSystem;
+  const edn = yield* fs.readFileString(path).pipe(
+    Effect.mapError(
+      () =>
+        new DocsError("not_found", `saved query not found: ${name}`, {
+          view: view.name,
+          path,
+        }),
+    ),
+  );
+  return edn;
+});
 
 /** Render one view to its final file content (header + template output). */
-export const renderViewEffect = Effect.fn("docs.renderView")(
-  function* (
-    view: LoadedView,
-  ): Effect.fn.Return<string, DocsError, KbCtx | FileSystem> {
-    const ctx = yield* KbCtx;
-    const template = templates[view.spec.template];
-    if (!template) {
-      return yield* Effect.fail(
-        new DocsError(
-          "invalid_input",
-          `unknown template: ${view.spec.template}`,
-          { view: view.name, known: Object.keys(templates).sort() },
-        ),
-      );
-    }
-    const edn = yield* viewEdnEffect(view);
-    const rows = yield* Effect.try({
-      try: () => query(ctx.qdb, edn) as unknown[][],
-      catch: (err) =>
-        new DocsError(
-          "invalid_input",
-          `invalid datalog query in view ${view.name}: ${err instanceof Error ? err.message : String(err)}`,
-          { view: view.name },
-        ),
-    });
-    const body = template(rows, templateContext(ctx));
-    return `${GENERATED_HEADER}\n\n${body.trimEnd()}\n`;
-  },
-);
+export const renderViewEffect = Effect.fn("docs.renderView")(function* (
+  view: LoadedView,
+): Effect.fn.Return<string, DocsError, KbCtx | FileSystem> {
+  const ctx = yield* KbCtx;
+  const template = templates[view.spec.template];
+  if (!template) {
+    return yield* Effect.fail(
+      new DocsError("invalid_input", `unknown template: ${view.spec.template}`, {
+        view: view.name,
+        known: Object.keys(templates).sort(),
+      }),
+    );
+  }
+  const edn = yield* viewEdnEffect(view);
+  const rows = yield* Effect.try({
+    try: () => query(ctx.qdb, edn) as unknown[][],
+    catch: (err) =>
+      new DocsError(
+        "invalid_input",
+        `invalid datalog query in view ${view.name}: ${err instanceof Error ? err.message : String(err)}`,
+        { view: view.name },
+      ),
+  });
+  const body = template(rows, templateContext(ctx));
+  return `${GENERATED_HEADER}\n\n${body.trimEnd()}\n`;
+});

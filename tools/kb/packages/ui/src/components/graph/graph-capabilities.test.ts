@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  CAPABILITY_REASONS,
-  capabilitiesFor,
-  RENDERER_CAPABILITIES,
-} from "./graph-capabilities";
+import { CAPABILITY_REASONS, capabilitiesFor, RENDERER_CAPABILITIES } from "./graph-capabilities";
 
 describe("renderer capabilities", () => {
   it("declares a descriptor for every built-in renderer", () => {
@@ -37,9 +33,7 @@ describe("renderer capabilities", () => {
   });
 
   it("every capability has a hover reason string", () => {
-    for (const key of Object.keys(CAPABILITY_REASONS) as Array<
-      keyof typeof CAPABILITY_REASONS
-    >) {
+    for (const key of Object.keys(CAPABILITY_REASONS) as Array<keyof typeof CAPABILITY_REASONS>) {
       expect(CAPABILITY_REASONS[key].length).toBeGreaterThan(10);
     }
   });

@@ -10,10 +10,7 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
-import {
-  fieldTypeIconKind,
-  type FieldType,
-} from "@/lib/field-type";
+import { fieldTypeIconKind, type FieldType } from "@/lib/field-type";
 import { indentStyle } from "@/lib/indent";
 import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 
@@ -46,9 +43,7 @@ export interface FieldRowProps {
   className?: string;
 }
 
-function resolveIconKind(
-  fieldType: FieldType | PropValue["t"],
-): PropValue["t"] {
+function resolveIconKind(fieldType: FieldType | PropValue["t"]): PropValue["t"] {
   switch (fieldType) {
     case "text":
     case "number":
@@ -90,7 +85,7 @@ export function FieldRow({
     icon ??
     (fieldId === SYSTEM_IDS.colorField
       ? Palette
-      : FIELD_ICON[resolveIconKind(fieldType)] ?? TextT);
+      : (FIELD_ICON[resolveIconKind(fieldType)] ?? TextT));
 
   return (
     <div
@@ -152,9 +147,7 @@ export function FieldRow({
         </span>
       )}
 
-      <div className={cn("min-w-0 flex-1 self-start", valueOnly ? "px-0" : "px-1")}>
-        {children}
-      </div>
+      <div className={cn("min-w-0 flex-1 self-start", valueOnly ? "px-0" : "px-1")}>{children}</div>
 
       {!valueOnly && onRemove && (
         <button

@@ -59,9 +59,7 @@ export interface StandardSchemaV1Like<Input = unknown, Output = Input> {
     readonly vendor: string;
     readonly validate: (
       value: unknown,
-    ) =>
-      | StandardSchemaV1Result<Output>
-      | Promise<StandardSchemaV1Result<Output>>;
+    ) => StandardSchemaV1Result<Output> | Promise<StandardSchemaV1Result<Output>>;
     readonly types?: { readonly input: Input; readonly output: Output };
   };
 }
@@ -115,24 +113,21 @@ export interface KbContext {
   nodes: KbNode[];
 }
 
-export type ExtensionPromiseHandler = (
-  ctx: KbContext,
-  input: never,
-) => Promise<unknown>;
+export type ExtensionPromiseHandler = (ctx: KbContext, input: never) => Promise<unknown>;
 
 export type ExtensionAction = ActionDefinition & {
   /** Extra top-level ids this action also answers to (compat shims). */
   aliases?: readonly string[];
 } & (
-  | {
-      effect: ActionEffectHandler;
-      handler?: ExtensionPromiseHandler;
-    }
-  | {
-      handler: ExtensionPromiseHandler;
-      effect?: ActionEffectHandler;
-    }
-);
+    | {
+        effect: ActionEffectHandler;
+        handler?: ExtensionPromiseHandler;
+      }
+    | {
+        handler: ExtensionPromiseHandler;
+        effect?: ActionEffectHandler;
+      }
+  );
 
 export interface LoadedExtension {
   /** File basename without `.ts`; becomes the `ext.<name>.` namespace. */

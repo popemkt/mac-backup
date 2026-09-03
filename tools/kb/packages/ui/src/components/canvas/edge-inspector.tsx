@@ -54,9 +54,7 @@ export function EdgeInspector({
       className="fixed z-50 w-64 rounded-lg border border-foreground/10 bg-popover p-3 shadow-xl"
       style={{ top: anchor.y + 8, left: Math.max(8, anchor.x - 128) }}
     >
-      <div className="mb-2 text-[11px] font-medium text-foreground/50">
-        Edge
-      </div>
+      <div className="mb-2 text-[11px] font-medium text-foreground/50">Edge</div>
 
       {/* Label */}
       {onLabelChange && (
@@ -86,12 +84,7 @@ export function EdgeInspector({
                   ? "border-primary/40 bg-primary/10 text-primary"
                   : "border-foreground/10 text-foreground/50 hover:bg-foreground/5",
               )}
-              onClick={() =>
-                onArrowChange(
-                  "fromEnd",
-                  edge.fromEnd === "arrow" ? "none" : "arrow",
-                )
-              }
+              onClick={() => onArrowChange("fromEnd", edge.fromEnd === "arrow" ? "none" : "arrow")}
             >
               ←
             </button>
@@ -105,10 +98,7 @@ export function EdgeInspector({
                   : "border-foreground/10 text-foreground/50 hover:bg-foreground/5",
               )}
               onClick={() =>
-                onArrowChange(
-                  "toEnd",
-                  (edge.toEnd ?? "arrow") === "arrow" ? "none" : "arrow",
-                )
+                onArrowChange("toEnd", (edge.toEnd ?? "arrow") === "arrow" ? "none" : "arrow")
               }
             >
               →

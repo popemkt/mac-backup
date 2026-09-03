@@ -1,11 +1,11 @@
 import { relative } from "node:path";
 import { Cause, Effect, Option } from "effect";
-import { FileSystem } from "effect/FileSystem";
+import { type FileSystem } from "effect/FileSystem";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import { z } from "zod";
-import { type KbContext } from "@kb/contracts";
+import type { KbContext } from "@kb/contracts";
 import { reloadEffect } from "@kb/operations";
-import { kbStoreLayer, KbCtx, KbStore } from "@kb/contracts";
+import { kbStoreLayer, KbCtx, type KbStore } from "@kb/contracts";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { invokeReceiptEffect, manifest } from "@kb/runtime";
 import * as assets from "./assets.ts";
@@ -37,19 +37,13 @@ function jsonResponse(
 }
 
 /** Match pre-Effect `new Response(body, { status })` — no Content-Type. */
-function plainStatus(
-  body: string,
-  status: number,
-): HttpServerResponse.HttpServerResponse {
+function plainStatus(body: string, status: number): HttpServerResponse.HttpServerResponse {
   return HttpServerResponse.raw(body, { status });
 }
 
 function internalFailure(err: unknown): HttpServerResponse.HttpServerResponse {
   const message = err instanceof Error ? err.message : String(err);
-  return jsonResponse(
-    { status: "failed", code: "internal", message },
-    { status: 500 },
-  );
+  return jsonResponse({ status: "failed", code: "internal", message }, { status: 500 });
 }
 
 function invalidInput(message: string): HttpServerResponse.HttpServerResponse {
@@ -70,11 +64,7 @@ function invalidInput(message: string): HttpServerResponse.HttpServerResponse {
 export const handleHttpRequestEffect = (
   req: Request,
   deps: UiHttpDeps,
-): Effect.Effect<
-  HttpServerResponse.HttpServerResponse,
-  never,
-  FileSystem | KbStore | KbCtx
-> =>
+): Effect.Effect<HttpServerResponse.HttpServerResponse, never, FileSystem | KbStore | KbCtx> =>
   Effect.gen(function* () {
     const { root, ctx, hub } = deps;
     const url = new URL(req.url);
@@ -92,18 +82,14 @@ export const handleHttpRequestEffect = (
     }
 
     if (url.pathname === "/api/action" && req.method === "POST") {
-      const body = yield* Effect.tryPromise(() => req.json()).pipe(
-        Effect.option,
-      );
+      const body = yield* Effect.tryPromise(() => req.json()).pipe(Effect.option);
       if (Option.isNone(body)) {
         return invalidInput("request body must be JSON");
       }
 
       const parsed = ActionInvocationSchema.safeParse(body.value);
       if (!parsed.success) {
-        return invalidInput(
-          parsed.error.issues.map((i) => i.message).join("; "),
-        );
+        return invalidInput(parsed.error.issues.map((i) => i.message).join("; "));
       }
 
       // Fresh load so we don't miss external writes, then invoke natively.
@@ -136,8 +122,7 @@ export const handleHttpRequestEffect = (
     return jsonResponse(
       {
         error: "ui_not_built",
-        message:
-          "kb UI assets not found; build tools/kb/ui (ui/dist) or use the API/WS endpoints",
+        message: "kb UI assets not found; build tools/kb/ui (ui/dist) or use the API/WS endpoints",
         hint: relative(process.cwd(), assets.UI_DIST),
       },
       { status: 503 },
@@ -154,10 +139,7 @@ export const handleHttpRequestEffect = (
  * Promise facade for the HTTP layer: runs the routing Effect with the
  * FileSystem/KbStore layers and converts the response to a Web `Response`.
  */
-export function handleHttpRequest(
-  req: Request,
-  deps: UiHttpDeps,
-): Promise<Response> {
+export function handleHttpRequest(req: Request, deps: UiHttpDeps): Promise<Response> {
   return Effect.runPromise(
     handleHttpRequestEffect(req, deps).pipe(
       Effect.provide(bunFileSystemLayer),

@@ -39,18 +39,14 @@ function isFieldNode(node: WireNode | OutlineNode | undefined): boolean {
  * the graph: read it back as membership and every supertag looks untagged. Any
  * decision about what a node *is* must call `typeRefsOf` directly.
  */
-function resolveTags(
-  wire: WireNode,
-  byId: Map<string, WireNode>,
-): TagBadge[] {
+function resolveTags(wire: WireNode, byId: Map<string, WireNode>): TagBadge[] {
   const tags: TagBadge[] = [];
   for (const typeId of typeRefsOf(wire)) {
     if (typeId === SYSTEM_IDS.tag || typeId === SYSTEM_IDS.field) continue;
     const target = byId.get(typeId);
     if (!isTagNode(target)) continue;
     const colorProp = target?.props[SYSTEM_IDS.colorField]?.[0];
-    const explicitColor =
-      colorProp?.t === "str" ? String(colorProp.v) : undefined;
+    const explicitColor = colorProp?.t === "str" ? String(colorProp.v) : undefined;
     tags.push({
       id: typeId,
       name: target?.text || typeId,
@@ -91,10 +87,7 @@ export function forestRootIds(nodes: WireNode[]): string[] {
     .map((n) => n.id);
 }
 
-function wireHasVisibleFields(
-  wire: WireNode,
-  byId: Map<string, WireNode>,
-): boolean {
+function wireHasVisibleFields(wire: WireNode, byId: Map<string, WireNode>): boolean {
   for (const [fieldId, values] of Object.entries(wire.props)) {
     if (values.length === 0) continue;
     if (fieldId === SYSTEM_IDS.typeField) continue;
@@ -118,10 +111,7 @@ function nodeDefaultsCollapsed(
   return false;
 }
 
-export function wireToOutlineMap(
-  nodes: WireNode[],
-  expandedIds: Set<string>,
-): NodeMap {
+export function wireToOutlineMap(nodes: WireNode[], expandedIds: Set<string>): NodeMap {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const parentOf = new Map<string, string>();
   for (const n of nodes) {
@@ -145,11 +135,9 @@ export function wireToOutlineMap(
 
   for (const wire of nodes) {
     const parentId = parentOf.get(wire.id) ?? null;
-    const outlineParent =
-      parentId ?? (roots.includes(wire.id) ? WORKSPACE_ROOT_ID : null);
+    const outlineParent = parentId ?? (roots.includes(wire.id) ? WORKSPACE_ROOT_ID : null);
     const tags = resolveTags(wire, byId);
-    const collapsed =
-      nodeDefaultsCollapsed(wire, tags, byId) && !expandedIds.has(wire.id);
+    const collapsed = nodeDefaultsCollapsed(wire, tags, byId) && !expandedIds.has(wire.id);
     map.set(wire.id, {
       id: wire.id,
       text: wire.text,
@@ -257,10 +245,7 @@ export function saveExpandedIds(ids: Set<string>): void {
   saveIdSet(EXPANDED_STORAGE_KEY, ids);
 }
 
-export function searchNodes(
-  nodes: NodeMap,
-  query: string,
-): Array<{ id: string; text: string }> {
+export function searchNodes(nodes: NodeMap, query: string): Array<{ id: string; text: string }> {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const hits: Array<{ id: string; text: string }> = [];

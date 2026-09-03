@@ -209,10 +209,7 @@ function projectWire(
   }
   const resolution = resolveScope(wire, ontologyId, queryDb, rev);
   return {
-    nodes: wireToOutlineMap(
-      scopedWireNodes(wire, resolution.members, ontologyId),
-      expanded,
-    ),
+    nodes: wireToOutlineMap(scopedWireNodes(wire, resolution.members, ontologyId), expanded),
     queryDb,
     ontologyMembers: resolution.members,
     ontologyWarnings: resolution.warnings,
@@ -306,10 +303,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
   /** Apply an inverse/forward tx; return the opposite-direction entry. */
   function applyHistoryEntry(entry: UndoEntry): UndoEntry {
     const st = get();
-    const touched = new Set<string>([
-      ...entry.inv.upserts.map((u) => u.id),
-      ...entry.inv.deletes,
-    ]);
+    const touched = new Set<string>([...entry.inv.upserts.map((u) => u.id), ...entry.inv.deletes]);
     // Capture the opposite-direction entry AGAINST THE PRE-APPLICATION
     // STATE: survivors revert to their pre-apply payload; ids this entry
     // restores (absent now) are removed again by the opposite pass.
@@ -522,8 +516,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
         ontologyId: id,
         ontologyMembers: projection.ontologyMembers,
         ontologyWarnings: projection.ontologyWarnings,
-        preScopeRootId:
-          st.ontologyId === null ? st.rootNodeId : st.preScopeRootId,
+        preScopeRootId: st.ontologyId === null ? st.rootNodeId : st.preScopeRootId,
         nodes: projection.nodes,
         queryDb: projection.queryDb,
         rootNodeId: id,
@@ -559,47 +552,45 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       });
     },
 
-  activateNode: (id, cursorPos, instanceKey, opts) => {
-    if (!get().nodes.has(id)) return;
-    // A row whose text is not its own is read-only at the DOM level:
-    // activation degrades to selection so no caret ever enters it (r1 D20).
-    // `rowTextReadOnlyReason` owns which rows those are — sys.* nodes and
-    // contextual references, whose text belongs to the referenced node.
-    if (rowTextReadOnlyReason(id, get().nodes.get(id)) !== null) {
+    activateNode: (id, cursorPos, instanceKey, opts) => {
+      if (!get().nodes.has(id)) return;
+      // A row whose text is not its own is read-only at the DOM level:
+      // activation degrades to selection so no caret ever enters it (r1 D20).
+      // `rowTextReadOnlyReason` owns which rows those are — sys.* nodes and
+      // contextual references, whose text belongs to the referenced node.
+      if (rowTextReadOnlyReason(id, get().nodes.get(id)) !== null) {
+        pruneOutgoingTransient(id);
+        const roKey = resolveActivateKey(id, instanceKey, get().nodes);
+        set({
+          selectedNodeId: id,
+          selectedInstanceKey: roKey,
+          activeNodeId: null,
+          activeInstanceKey: null,
+        });
+        return;
+      }
+      // Reveal the full parent chain before validating the instance. Creation,
+      // indent, and palette navigation therefore cannot focus a hidden row.
+      get().expandAncestors(id);
+      const revealed = get();
+      const key = resolveActivateKey(id, instanceKey, revealed.nodes);
+      // Reference instances are projected by query components, so their exact
+      // visibility is only knowable once that component mounts. The mounted-host
+      // half of the registry below validates them after React commits.
+      const isReferenceInstance = key.startsWith("ref:");
+      if (
+        !isReferenceInstance &&
+        !revealed.getVisibleInstances().some((item) => item.instanceKey === key)
+      ) {
+        if (import.meta.env.DEV) console.warn(`kb: refused unreachable focus target: ${key}`);
+        toast("That node is not visible in this outline");
+        return;
+      }
+      // Tana transient rule: an empty session-minted node prunes the moment
+      // focus moves to a different row (r1 §3.3).
       pruneOutgoingTransient(id);
-      const roKey = resolveActivateKey(id, instanceKey, get().nodes);
-      set({
-        selectedNodeId: id,
-        selectedInstanceKey: roKey,
-        activeNodeId: null,
-        activeInstanceKey: null,
-      });
-      return;
-    }
-    // Reveal the full parent chain before validating the instance. Creation,
-    // indent, and palette navigation therefore cannot focus a hidden row.
-    get().expandAncestors(id);
-    const revealed = get();
-    const key = resolveActivateKey(id, instanceKey, revealed.nodes);
-    // Reference instances are projected by query components, so their exact
-    // visibility is only knowable once that component mounts. The mounted-host
-    // half of the registry below validates them after React commits.
-    const isReferenceInstance = key.startsWith("ref:");
-    if (
-      !isReferenceInstance &&
-      !revealed.getVisibleInstances().some((item) => item.instanceKey === key)
-    ) {
-      if (import.meta.env.DEV) console.warn(`kb: refused unreachable focus target: ${key}`);
-      toast("That node is not visible in this outline");
-      return;
-    }
-    // Tana transient rule: an empty session-minted node prunes the moment
-    // focus moves to a different row (r1 §3.3).
-    pruneOutgoingTransient(id);
       const at: CaretIntent["at"] =
-        opts?.x !== null && opts?.x !== undefined
-          ? { x: opts.x }
-          : cursorPos ?? 0;
+        opts?.x !== null && opts?.x !== undefined ? { x: opts.x } : (cursorPos ?? 0);
       set({
         activeNodeId: id,
         activeInstanceKey: key,

@@ -3,15 +3,9 @@ import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generateExtSdkDts } from "@kb/ext-sdk";
-import {
-  KB_SDK_DTS,
-  KB_SDK_VERSION,
-  writeSdkDts,
-} from "@kb/ext-sdk";
+import { generateExtSdkDts, KB_SDK_DTS, KB_SDK_VERSION, writeSdkDts } from "@kb/ext-sdk";
 import { discoverExtensions } from "@kb/operations";
-import { openKb } from "@kb/runtime";
-import { invoke, registryFor, resetRegistryCache } from "@kb/runtime";
+import { openKb, invoke, registryFor, resetRegistryCache } from "@kb/runtime";
 import { main } from "../src/cli.ts";
 
 let roots: string[] = [];
@@ -139,18 +133,12 @@ export default actions;
       "--target",
       "ESNext",
     ];
-    const goodCheck = spawnSync(
-      tsc,
-      [...tscArgs, join(extDir, "greet.ts")],
-      { encoding: "utf8" },
-    );
+    const goodCheck = spawnSync(tsc, [...tscArgs, join(extDir, "greet.ts")], { encoding: "utf8" });
     expect(goodCheck.status).toBe(0);
 
-    const badCheck = spawnSync(
-      tsc,
-      [...tscArgs, join(extDir, "bad-mode.ts")],
-      { encoding: "utf8" },
-    );
+    const badCheck = spawnSync(tsc, [...tscArgs, join(extDir, "bad-mode.ts")], {
+      encoding: "utf8",
+    });
     expect(badCheck.status).not.toBe(0);
     expect(`${badCheck.stdout}\n${badCheck.stderr}`).toMatch(/reed/);
 

@@ -46,12 +46,10 @@ function snapshot(): GraphSnapshot {
       node(SVC, "service", {
         [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
       }),
-      node(
-        "n.tailscaled",
-        "tailscaled",
-        { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SVC }] },
-        ["n.caddy", "n.acl"],
-      ),
+      node("n.tailscaled", "tailscaled", { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SVC }] }, [
+        "n.caddy",
+        "n.acl",
+      ]),
       node("n.caddy", "caddy", {
         [SYSTEM_IDS.typeField]: [{ t: "ref", v: SVC }],
       }),
@@ -100,9 +98,7 @@ describe("ontology scope (acceptance)", () => {
       removeEventListener(): void {}
     };
     setFetchGraphSnapshot(() => Promise.resolve(snapshot()));
-    setPostAction(() =>
-      Promise.resolve({ status: "succeeded", id: "stub", output: {} }),
-    );
+    setPostAction(() => Promise.resolve({ status: "succeeded", id: "stub", output: {} }));
   });
 
   afterAll(() => {
@@ -142,9 +138,9 @@ describe("ontology scope (acceptance)", () => {
   }
 
   function rowTexts(): string[] {
-    return [
-      ...container.querySelectorAll("[data-instance-key]"),
-    ].map((el) => (el.textContent ?? "").trim());
+    return [...container.querySelectorAll("[data-instance-key]")].map((el) =>
+      (el.textContent ?? "").trim(),
+    );
   }
 
   it("loads the workspace unscoped, showing member and non-member nodes alike", () => {
@@ -205,7 +201,10 @@ describe("ontology scope (acceptance)", () => {
     await goto("/o/o.infra/outline");
     expect(useOutlineStore.getState().search("shopping")).toEqual([]);
     expect(
-      useOutlineStore.getState().search("caddy").map((r) => r.id),
+      useOutlineStore
+        .getState()
+        .search("caddy")
+        .map((r) => r.id),
     ).toEqual(["n.caddy"]);
 
     const { extractLensGraph } = await import("@/lib/graph-lens");

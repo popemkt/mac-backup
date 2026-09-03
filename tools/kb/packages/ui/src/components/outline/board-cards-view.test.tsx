@@ -95,9 +95,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   });
 
   afterEach(() => {
-    useOutlineStore
-      .getState()
-      .hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
   });
 
   it("ViewToolbar exposes list/table/board/cards mode buttons", () => {
@@ -114,9 +112,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   it("zoomed-header shows compact toolbar when mode ≠ list (no gear on list)", () => {
     const frame = useOutlineStore.getState().nodes.get("frame1")!;
     expect(getViewConfig(frame.props).mode).toBe("board");
-    const html = renderToStaticMarkup(
-      createElement(ZoomedRootHeader, { node: frame }),
-    );
+    const html = renderToStaticMarkup(createElement(ZoomedRootHeader, { node: frame }));
     expect(html).toContain('data-view-toolbar="true"');
     expect(html).toContain('data-mode-button="board"');
     expect(html).not.toContain('data-view-toolbar-gear="true"');
@@ -129,9 +125,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
         [SYSTEM_IDS.viewModeField]: [{ t: "str" as const, v: "list" }],
       },
     };
-    const listHtml = renderToStaticMarkup(
-      createElement(ZoomedRootHeader, { node: listFrame }),
-    );
+    const listHtml = renderToStaticMarkup(createElement(ZoomedRootHeader, { node: listFrame }));
     expect(listHtml).not.toContain("data-view-toolbar");
     expect(listHtml).not.toContain("data-view-toolbar-gear");
   });
@@ -221,9 +215,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
         : n,
     );
     useOutlineStore.getState().hydrateFromWire(multi, 3, "fixtures");
-    const before = [
-      ...useOutlineStore.getState().nodes.get("frame1")!.children,
-    ];
+    const before = [...useOutlineStore.getState().nodes.get("frame1")!.children];
     await mutations.moveBoardCard(
       "c1",
       "f_status",
@@ -232,9 +224,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     );
     const c1 = useOutlineStore.getState().nodes.get("c1")!;
     expect(c1.props.f_status).toEqual([{ t: "str", v: "done" }]);
-    expect(useOutlineStore.getState().nodes.get("frame1")!.children).toEqual(
-      before,
-    );
+    expect(useOutlineStore.getState().nodes.get("frame1")!.children).toEqual(before);
   });
 
   it("query-source board uses ref:query instance keys", () => {
@@ -247,47 +237,31 @@ describe("W7.1 BoardCardsView + toolbar", () => {
         widthPref: "full",
       }),
     );
-    expect(html).toContain(
-      `data-instance-key="${queryResultInstanceKey("frame1", "c1")}"`,
-    );
-    expect(html).toContain(
-      `data-instance-key="${queryResultInstanceKey("frame1", "c2")}"`,
-    );
+    expect(html).toContain(`data-instance-key="${queryResultInstanceKey("frame1", "c1")}"`);
+    expect(html).toContain(`data-instance-key="${queryResultInstanceKey("frame1", "c2")}"`);
   });
 
   it("setViewMode board/cards persists on frame", async () => {
     await mutations.setViewMode("frame1", "board");
-    expect(
-      useOutlineStore.getState().nodes.get("frame1")?.props[
-        SYSTEM_IDS.viewModeField
-      ],
-    ).toEqual([{ t: "str", v: "board" }]);
+    expect(useOutlineStore.getState().nodes.get("frame1")?.props[SYSTEM_IDS.viewModeField]).toEqual(
+      [{ t: "str", v: "board" }],
+    );
     await mutations.setViewMode("frame1", "cards");
-    expect(
-      useOutlineStore.getState().nodes.get("frame1")?.props[
-        SYSTEM_IDS.viewModeField
-      ],
-    ).toEqual([{ t: "str", v: "cards" }]);
+    expect(useOutlineStore.getState().nodes.get("frame1")?.props[SYSTEM_IDS.viewModeField]).toEqual(
+      [{ t: "str", v: "cards" }],
+    );
   });
 
   it("collectVisibleInstances board column order matches flattenBoardOrder", () => {
     const nodes = useOutlineStore.getState().nodes;
     const frame = nodes.get("frame1")!;
-    const kids = frame.children
-      .map((id) => nodes.get(id)!)
-      .filter(Boolean);
+    const kids = frame.children.map((id) => nodes.get(id)!).filter(Boolean);
     const cols = groupChildrenForBoard(kids, "f_status", nodes);
     const expected = flattenBoardOrder(cols).map((n) => n.id);
     useOutlineStore.getState().zoomTo("frame1");
-    const visible = collectVisibleInstances(
-      "frame1",
-      nodes,
-      useOutlineStore.getState().queryDb,
-    );
+    const visible = collectVisibleInstances("frame1", nodes, useOutlineStore.getState().queryDb);
     // zoomed root itself + projected cards in board order
-    const projected = visible
-      .filter((v) => v.nodeId !== "frame1")
-      .map((v) => v.nodeId);
+    const projected = visible.filter((v) => v.nodeId !== "frame1").map((v) => v.nodeId);
     expect(projected).toEqual(expected);
     expect(expected[0]).toBe("c1"); // doing
     expect(expected).toContain("c3"); // empty column last
@@ -304,21 +278,13 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     const kids = ["c1", "c2", "c3"].map((id) => nodes.get(id)!);
     const textF = parseViewFilterEdn('{:text "Alph"}')!;
     const eqF = parseViewFilterEdn('{:field f_status :eq "done"}')!;
-    expect(applyViewFilters(kids, [textF], nodes).map((n) => n.id)).toEqual([
-      "c1",
-    ]);
-    expect(applyViewFilters(kids, [eqF], nodes).map((n) => n.id)).toEqual([
-      "c2",
-    ]);
+    expect(applyViewFilters(kids, [textF], nodes).map((n) => n.id)).toEqual(["c1"]);
+    expect(applyViewFilters(kids, [eqF], nodes).map((n) => n.id)).toEqual(["c2"]);
     const cfg = getViewConfig({
-      [SYSTEM_IDS.viewFilterField]: [
-        { t: "str", v: '{:field f_status :eq "doing"}' },
-      ],
+      [SYSTEM_IDS.viewFilterField]: [{ t: "str", v: '{:field f_status :eq "doing"}' }],
     });
     expect(cfg.filters).toHaveLength(1);
-    expect(applyViewFilters(kids, cfg.filters, nodes).map((n) => n.id)).toEqual(
-      ["c1"],
-    );
+    expect(applyViewFilters(kids, cfg.filters, nodes).map((n) => n.id)).toEqual(["c1"]);
   });
 });
 
@@ -345,7 +311,7 @@ describe("Filter… host visibility", () => {
     g.window = win as unknown as Window & typeof globalThis.window;
     g.document = win.document as unknown as Document;
     Object.assign(g, {
-      CSS: { ...(g.CSS ?? {}), escape: (s: string) => s.replace(/"/g, '\\"') },
+      CSS: { ...g.CSS, escape: (s: string) => s.replace(/"/g, '\\"') },
     });
 
     const host = win.document.createElement("div");
@@ -366,9 +332,7 @@ describe("Filter… host visibility", () => {
     });
 
     expect(useUiStore.getState().filterPopoverFrameId).toBe("frame1");
-    expect(
-      win.document.querySelector('[data-view-filter-popover="true"]'),
-    ).toBeTruthy();
+    expect(win.document.querySelector('[data-view-filter-popover="true"]')).toBeTruthy();
 
     await act(async () => {
       root.unmount();
@@ -394,7 +358,7 @@ describe("Filter… host visibility", () => {
     g.window = win as unknown as Window & typeof globalThis.window;
     g.document = win.document as unknown as Document;
     Object.assign(g, {
-      CSS: { ...(g.CSS ?? {}), escape: (s: string) => s.replace(/"/g, '\\"') },
+      CSS: { ...g.CSS, escape: (s: string) => s.replace(/"/g, '\\"') },
     });
 
     const host = win.document.createElement("div");
@@ -411,9 +375,7 @@ describe("Filter… host visibility", () => {
 
     expect(useUiStore.getState().filterPopoverFrameId).toBeNull();
     expect(
-      useUiStore
-        .getState()
-        .toasts.some((t) => t.text.toLowerCase().includes("select a frame")),
+      useUiStore.getState().toasts.some((t) => t.text.toLowerCase().includes("select a frame")),
     ).toBe(true);
 
     await act(async () => {

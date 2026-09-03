@@ -9,14 +9,8 @@ import { formatGraphLabel } from "@/lib/graph-label";
 import { computeLayoutPositions } from "@/lib/graph-layouts";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
 import { fitView } from "./graph-camera";
-import {
-  sigmaCameraControls,
-  type GraphCameraControls,
-} from "./graph-camera-controls";
-import {
-  selectionFromNode,
-  type GraphSelection,
-} from "./graph-selection-card";
+import { sigmaCameraControls, type GraphCameraControls } from "./graph-camera-controls";
+import { selectionFromNode, type GraphSelection } from "./graph-selection-card";
 
 export type { GraphSelection };
 
@@ -49,7 +43,10 @@ const positionsCache = new Map<string, Map<string, { x: number; y: number }>>();
 
 function topologyKey(nodes: LensNode[], edges: LensEdge[]): string {
   if (nodes.length > 200) return `${nodes.length}:${edges.length}`;
-  const n = nodes.map((x) => x.id).sort().join(",");
+  const n = nodes
+    .map((x) => x.id)
+    .sort()
+    .join(",");
   const e = edges
     .map((x) => `${x.kind}:${x.source}->${x.target}`)
     .sort()
@@ -191,16 +188,11 @@ export function SigmaGraph({
       const e = edges[i]!;
       if (!graph.hasNode(e.source) || !graph.hasNode(e.target)) continue;
       try {
-        graph.addEdgeWithKey(
-          `${e.kind}:${e.source}->${e.target}:${i}`,
-          e.source,
-          e.target,
-          {
-            kind: e.kind,
-            size: Math.max(1, Math.sqrt(e.weight)),
-            forceLabel: false,
-          },
-        );
+        graph.addEdgeWithKey(`${e.kind}:${e.source}->${e.target}:${i}`, e.source, e.target, {
+          kind: e.kind,
+          size: Math.max(1, Math.sqrt(e.weight)),
+          forceLabel: false,
+        });
       } catch {
         // ignore duplicate keys
       }
@@ -282,12 +274,16 @@ export function SigmaGraph({
       selectedRef.current = node;
       setSelected(node);
       const meta = nodes.find((n) => n.id === node);
-      onSelRef.current?.(meta ? selectionFromNode(meta) : {
-        nodeId: node,
-        label: node,
-        tags: [],
-        degree: 0,
-      });
+      onSelRef.current?.(
+        meta
+          ? selectionFromNode(meta)
+          : {
+              nodeId: node,
+              label: node,
+              tags: [],
+              degree: 0,
+            },
+      );
       refreshReducers();
     });
 
@@ -305,9 +301,7 @@ export function SigmaGraph({
 
     // --- Node drag ---
     sigma.on("downNode", ({ node }) => {
-      const pos = sigma.graphToViewport(
-        graph.getNodeAttributes(node) as { x: number; y: number },
-      );
+      const pos = sigma.graphToViewport(graph.getNodeAttributes(node) as { x: number; y: number });
       dragRef.current = {
         node,
         dragging: false,
@@ -325,10 +319,7 @@ export function SigmaGraph({
       const viewX = e.clientX - rect.left;
       const viewY = e.clientY - rect.top;
 
-      if (
-        !drag.dragging &&
-        Math.hypot(viewX - drag.startX, viewY - drag.startY) > 3
-      ) {
+      if (!drag.dragging && Math.hypot(viewX - drag.startX, viewY - drag.startY) > 3) {
         drag.dragging = true;
       }
       if (!drag.dragging) return;
@@ -372,10 +363,10 @@ export function SigmaGraph({
           graph.forEachNode((id, attrs) => {
             nextPositions.set(id, { x: Number(attrs.x), y: Number(attrs.y) });
           });
-        positionsRef.current = nextPositions;
-        positionsCache.set(layoutKey, nextPositions);
-        sigma.refresh();
-        fitView(sigma, 400);
+          positionsRef.current = nextPositions;
+          positionsCache.set(layoutKey, nextPositions);
+          sigma.refresh();
+          fitView(sigma, 400);
         },
       });
       layoutRef.current = fa2;
@@ -421,7 +412,7 @@ export function SigmaGraph({
         selectedRef.current = null;
         setSelected(null);
         onSelRef.current?.(null);
-      refreshReducers();
+        refreshReducers();
       }
       if (e.key === "Enter" && selectedRef.current) {
         onOpenRef.current(selectedRef.current);
@@ -433,18 +424,9 @@ export function SigmaGraph({
 
   return (
     <div className="relative h-full w-full min-h-0">
-      <div
-        ref={containerRef}
-        className="h-full w-full min-h-0"
-        data-sigma-container="true"
-      />
+      <div ref={containerRef} className="h-full w-full min-h-0" data-sigma-container="true" />
       {tooltip && !selected && (
-        <HoverTooltip
-          nodeId={tooltip.id}
-          nodes={nodes}
-          x={tooltip.x}
-          y={tooltip.y}
-        />
+        <HoverTooltip nodeId={tooltip.id} nodes={nodes} x={tooltip.x} y={tooltip.y} />
       )}
     </div>
   );
@@ -466,9 +448,7 @@ function HoverTooltip({ nodeId, nodes, x, y }: HoverTooltipProps) {
       className="pointer-events-none absolute z-40 flex flex-col gap-0.5 rounded-md border border-foreground/10 bg-popover/95 px-2.5 py-1.5 shadow-lg backdrop-blur-sm"
       style={{ left: x + 12, top: y - 8, maxWidth: 220 }}
     >
-      <span className="truncate text-[11px] font-medium text-foreground/80">
-        {meta.label}
-      </span>
+      <span className="truncate text-[11px] font-medium text-foreground/80">{meta.label}</span>
       {meta.tags.length > 0 && (
         <span className="truncate text-[10px] text-foreground/50">
           {meta.tags.slice(0, 3).join(", ")}

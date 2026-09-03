@@ -2,14 +2,12 @@
  * Pure outline mutation planners — map UI intents to local tx + registry actions.
  */
 import type { WireNode } from "@kb/contracts";
-import { wouldCreateExtendsCycle } from "@kb/model";
+import { wouldCreateExtendsCycle, fieldTypeValue, type FieldType, rankBetween } from "@kb/model";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import type { PropValue } from "@/lib/types";
-import { fieldTypeValue, type FieldType } from "@kb/model";
 import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
 import { forestRootIds } from "@/lib/graph-view";
 import { cloneWire, findParentWire, nowIso, wireById } from "@/lib/tx";
-import { rankBetween } from "@kb/model";
 
 export interface PlannedMutation {
   upserts: WireNode[];
@@ -313,9 +311,17 @@ export function planMove(
     }));
     // Re-space the small root set in one transaction; the sequence is exactly
     // the requested visible move, independent of JSONL's id sort.
-    const rootRanks = ranks.map(({ node }, index) => ({ ...node, order: String(index).padStart(10, "0"), updatedAt: nowIso() }));
+    const rootRanks = ranks.map(({ node }, index) => ({
+      ...node,
+      order: String(index).padStart(10, "0"),
+      updatedAt: nowIso(),
+    }));
     const moved = rootRanks.find((node) => node.id === id)!;
-    return { upserts: rootRanks, deletes: [], actions: [{ id: "node.update", input: { id, order: moved.order } }] };
+    return {
+      upserts: rootRanks,
+      deletes: [],
+      actions: [{ id: "node.update", input: { id, order: moved.order } }],
+    };
   }
 
   const p = cloneWire(parent);
@@ -678,9 +684,9 @@ export function planOntologyExclude(
     t: "ref",
     v: nodeId,
   });
-  const pinned = (
-    wireById(nodes).get(ontoId)?.props[SYSTEM_IDS.ontoMemberField] ?? []
-  ).some((pv) => pv.t === "ref" && pv.v === nodeId);
+  const pinned = (wireById(nodes).get(ontoId)?.props[SYSTEM_IDS.ontoMemberField] ?? []).some(
+    (pv) => pv.t === "ref" && pv.v === nodeId,
+  );
   if (!pinned) return exclude;
   const unpin = planOntologyRemoveMember(exclude.upserts, ontoId, nodeId);
   return {
@@ -735,20 +741,12 @@ export function planOntologySetQuery(
   ontoId: string,
   edn: string,
 ): PlannedMutation {
-  const existing = wireById(nodes).get(ontoId)?.props[
-    SYSTEM_IDS.ontoQueryField
-  ]?.[0];
+  const existing = wireById(nodes).get(ontoId)?.props[SYSTEM_IDS.ontoQueryField]?.[0];
   const trimmed = edn.trim();
   if (!trimmed) {
     return planUnsetProp(nodes, ontoId, SYSTEM_IDS.ontoQueryField);
   }
-  return planSetProp(
-    nodes,
-    ontoId,
-    SYSTEM_IDS.ontoQueryField,
-    { t: "str", v: trimmed },
-    existing,
-  );
+  return planSetProp(nodes, ontoId, SYSTEM_IDS.ontoQueryField, { t: "str", v: trimmed }, existing);
 }
 
 export function planOntologySetClosure(
@@ -756,21 +754,13 @@ export function planOntologySetClosure(
   ontoId: string,
   mode: "none" | "descendants",
 ): PlannedMutation {
-  const existing = wireById(nodes).get(ontoId)?.props[
-    SYSTEM_IDS.ontoClosureField
-  ]?.[0];
+  const existing = wireById(nodes).get(ontoId)?.props[SYSTEM_IDS.ontoClosureField]?.[0];
   if (mode === "none") {
     return existing
       ? planUnsetProp(nodes, ontoId, SYSTEM_IDS.ontoClosureField, existing)
       : planUnsetProp(nodes, ontoId, SYSTEM_IDS.ontoClosureField);
   }
-  return planSetProp(
-    nodes,
-    ontoId,
-    SYSTEM_IDS.ontoClosureField,
-    { t: "str", v: mode },
-    existing,
-  );
+  return planSetProp(nodes, ontoId, SYSTEM_IDS.ontoClosureField, { t: "str", v: mode }, existing);
 }
 
 /** Insert a sibling after/before `anchorId` under its parent (never as child). F2. */
@@ -813,7 +803,12 @@ export function planInsertSibling(
   return {
     upserts: [p, child],
     deletes: [],
-    actions: [{ id: "node.add", input: { id: newId, text, parent: parent.id, position, order: child.order } }],
+    actions: [
+      {
+        id: "node.add",
+        input: { id: newId, text, parent: parent.id, position, order: child.order },
+      },
+    ],
     focusId: newId,
     focusCursor: text.length,
   };
@@ -837,8 +832,7 @@ export function planInsertChild(
     createdAt: at,
     updatedAt: at,
   };
-  const position =
-    index === "start" ? 0 : index === "end" ? parent.children.length : index;
+  const position = index === "start" ? 0 : index === "end" ? parent.children.length : index;
   parent.children = [
     ...parent.children.slice(0, position),
     newId,

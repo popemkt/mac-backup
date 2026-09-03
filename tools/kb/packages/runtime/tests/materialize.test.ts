@@ -3,10 +3,9 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openKb } from "../src/session.ts";
-import { type KbContext } from "@kb/contracts";
+import type { KbContext } from "@kb/contracts";
 import { invoke } from "../src/registry.ts";
-import { todos, type TemplateContext } from "@kb/operations";
-import { GENERATED_HEADER } from "@kb/operations";
+import { todos, type TemplateContext, GENERATED_HEADER } from "@kb/operations";
 import type { KbNode } from "@kb/model";
 
 const FIELD_ID = "01TESTFIELDSTATUS000000000";
@@ -20,11 +19,7 @@ const TODOS_QUERY =
 
 const at = "2026-01-01T00:00:00.000Z";
 
-function mkNode(
-  id: string,
-  text: string,
-  status?: string,
-): KbNode {
+function mkNode(id: string, text: string, status?: string): KbNode {
   return {
     id,
     text,
@@ -70,11 +65,7 @@ async function seedTodos(root: string): Promise<KbContext> {
   await mkdir(join(root, ".kb", "views"), { recursive: true });
   await writeFile(
     join(root, ".kb", "views", "todos.json"),
-    JSON.stringify(
-      { output: "docs/kb/todos.md", query: TODOS_QUERY, template: "todos" },
-      null,
-      2,
-    ),
+    JSON.stringify({ output: "docs/kb/todos.md", query: TODOS_QUERY, template: "todos" }, null, 2),
   );
   return ctx;
 }
@@ -203,9 +194,7 @@ describe("docs.materialize + docs.check", () => {
     const written = (await mustInvoke(ctx, "docs.materialize", {})) as {
       written: { view: string; output: string }[];
     };
-    expect(written.written).toEqual([
-      { view: "todos", output: "docs/kb/todos.md" },
-    ]);
+    expect(written.written).toEqual([{ view: "todos", output: "docs/kb/todos.md" }]);
 
     const content = await readFile(join(root, "docs/kb/todos.md"), "utf8");
     expect(content.startsWith(`${GENERATED_HEADER}\n`)).toBe(true);
@@ -217,9 +206,7 @@ describe("docs.materialize + docs.check", () => {
       views: { view: string; output: string; status: string }[];
     };
     expect(check.clean).toBe(true);
-    expect(check.views).toEqual([
-      { view: "todos", output: "docs/kb/todos.md", status: "clean" },
-    ]);
+    expect(check.views).toEqual([{ view: "todos", output: "docs/kb/todos.md", status: "clean" }]);
   });
 
   test("mutating a node makes check report stale; deleting output reports missing", async () => {

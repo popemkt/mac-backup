@@ -13,8 +13,7 @@ export function initScrollbarManager() {
       return;
     }
 
-    const element =
-      target === document ? document.documentElement : (target as HTMLElement);
+    const element = target === document ? document.documentElement : (target as HTMLElement);
 
     element.setAttribute("data-scrolling", "true");
 

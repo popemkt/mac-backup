@@ -120,9 +120,9 @@ describe("node command palette", () => {
   }
 
   const labels = () =>
-    [
-      ...dom.document.querySelectorAll('[data-palette-list="true"] button'),
-    ].map((b) => b.textContent?.trim() ?? "");
+    [...dom.document.querySelectorAll('[data-palette-list="true"] button')].map(
+      (b) => b.textContent?.trim() ?? "",
+    );
 
   it("offers Make supertag on a plain node", async () => {
     await open("n.plain");
@@ -142,9 +142,9 @@ describe("node command palette", () => {
 
   it("pins through the palette and flips the label", async () => {
     await open("n.plain");
-    const pin = [
-      ...dom.document.querySelectorAll('[data-palette-list="true"] button'),
-    ].find((b) => b.textContent?.trim() === "Pin") as HTMLElement | undefined;
+    const pin = [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
+      (b) => b.textContent?.trim() === "Pin",
+    ) as HTMLElement | undefined;
     expect(pin).toBeTruthy();
     await act(async () => {
       pin!.click();

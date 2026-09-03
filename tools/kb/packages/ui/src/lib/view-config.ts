@@ -38,9 +38,7 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
 const VIEW_MODES = new Set<ViewMode>(["list", "table", "board", "cards"]);
 
 /** Serialize a filter back to the EDN string stored on the frame. */
-export function serializeViewFilter(
-  filter: Exclude<ViewFilter, never> & { raw?: string },
-): string {
+export function serializeViewFilter(filter: Exclude<ViewFilter, never> & { raw?: string }): string {
   if (filter.kind === "text") {
     return `{:text ${JSON.stringify(filter.text)}}`;
   }
@@ -65,9 +63,7 @@ export function parseViewFilterEdn(edn: string): ViewFilter | null {
   }
 
   // {:field <id> :eq "value"} | {:field <id> :eq bare}
-  const eqMatch = raw.match(
-    /^\{:field\s+(\S+)\s+:eq\s+(?:"((?:\\.|[^"\\])*)"|(\S+))\s*\}$/,
-  );
+  const eqMatch = raw.match(/^\{:field\s+(\S+)\s+:eq\s+(?:"((?:\\.|[^"\\])*)"|(\S+))\s*\}$/);
   if (eqMatch) {
     const fieldId = eqMatch[1]!;
     const quoted = eqMatch[2];
@@ -82,7 +78,7 @@ export function parseViewFilterEdn(edn: string): ViewFilter | null {
   return null;
 }
 
-function propValueKey(v: PropValue, nodes: NodeMap): string {
+function propValueKey(v: PropValue, _nodes: NodeMap): string {
   if (v.t === "ref") return `ref:${v.v}`;
   if (v.t === "bool") return `bool:${v.v ? 1 : 0}`;
   if (v.t === "num") return `num:${v.v}`;
@@ -95,11 +91,7 @@ function propValueLabel(v: PropValue, nodes: NodeMap): string {
   return String(v.v);
 }
 
-function matchesFilter(
-  node: OutlineNode,
-  filter: ViewFilter,
-  nodes: NodeMap,
-): boolean {
+function matchesFilter(node: OutlineNode, filter: ViewFilter, nodes: NodeMap): boolean {
   if (filter.kind === "text") {
     const q = filter.text.toLowerCase();
     if (!q) return true;
@@ -127,14 +119,10 @@ export function applyViewFilters(
   nodes: NodeMap,
 ): OutlineNode[] {
   if (filters.length === 0) return children;
-  return children.filter((n) =>
-    filters.every((f) => matchesFilter(n, f, nodes)),
-  );
+  return children.filter((n) => filters.every((f) => matchesFilter(n, f, nodes)));
 }
 
-export function getViewConfig(
-  props?: Record<string, PropValue[]>,
-): ViewConfig {
+export function getViewConfig(props?: Record<string, PropValue[]>): ViewConfig {
   if (!props) return { ...DEFAULT_VIEW_CONFIG };
 
   let mode: ViewMode = "list";
@@ -150,8 +138,7 @@ export function getViewConfig(
     const ref = sortRefs[i];
     if (ref && ref.t === "ref") {
       const dirVal = sortDirs[i];
-      const dir: SortDir =
-        dirVal && dirVal.t === "str" && dirVal.v === "desc" ? "desc" : "asc";
+      const dir: SortDir = dirVal && dirVal.t === "str" && dirVal.v === "desc" ? "desc" : "asc";
       sort.push({ fieldId: ref.v, dir });
     }
   }
@@ -169,14 +156,8 @@ export function getViewConfig(
   if (rawColwidth && rawColwidth.t === "str") {
     try {
       const parsed = JSON.parse(rawColwidth.v);
-      if (
-        typeof parsed === "object" &&
-        parsed !== null &&
-        !Array.isArray(parsed)
-      ) {
-        for (const [key, value] of Object.entries(
-          parsed as Record<string, unknown>,
-        )) {
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
           if (typeof value === "number" && Number.isFinite(value) && value > 0) {
             colwidth[key] = value;
           }
@@ -190,11 +171,7 @@ export function getViewConfig(
   let pagesize = 100;
   const rawPagesize = props[SYSTEM_IDS.viewPagesizeField]?.[0];
   if (rawPagesize) {
-    if (
-      rawPagesize.t === "num" &&
-      typeof rawPagesize.v === "number" &&
-      rawPagesize.v > 0
-    ) {
+    if (rawPagesize.t === "num" && typeof rawPagesize.v === "number" && rawPagesize.v > 0) {
       pagesize = rawPagesize.v;
     } else if (rawPagesize.t === "str") {
       const num = parseInt(rawPagesize.v, 10);
@@ -257,8 +234,7 @@ export function resolveTableColumns(
   const columns: TableColumnSpec[] = [];
   for (const fieldId of candidateFieldIds) {
     if (!showDebugColumns) {
-      const isHidden =
-        nodes.get(fieldId)?.props[SYSTEM_IDS.hiddenField]?.[0]?.v === true;
+      const isHidden = nodes.get(fieldId)?.props[SYSTEM_IDS.hiddenField]?.[0]?.v === true;
       if (viewConfig.display.length === 0) {
         if (isSysPrefixed(fieldId) || isHidden) continue;
       } else {
@@ -386,17 +362,13 @@ export function groupChildrenForBoard(
     col.nodes.push(child);
   }
 
-  const ordered = [...columns.values()].sort((a, b) =>
-    a.label.localeCompare(b.label),
-  );
+  const ordered = [...columns.values()].sort((a, b) => a.label.localeCompare(b.label));
   ordered.push(empty);
   return ordered;
 }
 
 /** Flatten board columns to render-order node list (visible-instances). */
-export function flattenBoardOrder(
-  columns: BoardColumn[],
-): OutlineNode[] {
+export function flattenBoardOrder(columns: BoardColumn[]): OutlineNode[] {
   const out: OutlineNode[] = [];
   for (const col of columns) {
     out.push(...col.nodes);

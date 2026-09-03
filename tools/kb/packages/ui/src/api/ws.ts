@@ -9,11 +9,7 @@
  *  - live query subscriptions (rows pushed on change)
  *  - reconnect with capped exponential backoff, resubscribing on open
  */
-import {
-  ServerMessageSchema,
-  type ClientMessage,
-  type ServerMessage,
-} from "@kb/contracts";
+import { ServerMessageSchema, type ClientMessage, type ServerMessage } from "@kb/contracts";
 import { getClientOrigin } from "@/api/action";
 
 export type WsStatus = "idle" | "connecting" | "open" | "closed";
@@ -45,11 +41,7 @@ export interface KbWsClientOptions {
   /** Rev gap detected — caller must refetch /api/graph. */
   onGap: (info: { expected: number; got: number }) => void;
   /** Server-sent error (query_error, invalid_message, …). */
-  onServerError?: (err: {
-    id?: string;
-    code: string;
-    message: string;
-  }) => void;
+  onServerError?: (err: { id?: string; code: string; message: string }) => void;
   onStatus?: (status: WsStatus) => void;
   /** Backoff bounds in ms (initial doubles up to max). */
   backoffInitialMs?: number;
@@ -72,10 +64,7 @@ function defaultMakeSocket(url: string): WsLike {
 }
 
 export class KbWsClient {
-  private opts: Required<
-    Pick<KbWsClientOptions, "getRev" | "onTx" | "onGap">
-  > &
-    KbWsClientOptions;
+  private opts: Required<Pick<KbWsClientOptions, "getRev" | "onTx" | "onGap">> & KbWsClientOptions;
   private socket: WsLike | null = null;
   private subs = new Map<string, Subscription>();
   private attempts = 0;
@@ -109,11 +98,7 @@ export class KbWsClient {
   }
 
   /** Live query: rows pushed now and on every change. Survives reconnect. */
-  subscribe(
-    id: string,
-    query: string,
-    onRows: (rows: unknown[][], rev: number) => void,
-  ): void {
+  subscribe(id: string, query: string, onRows: (rows: unknown[][], rev: number) => void): void {
     this.subs.set(id, { query, onRows });
     this.send({ op: "subscribe", id, query });
   }

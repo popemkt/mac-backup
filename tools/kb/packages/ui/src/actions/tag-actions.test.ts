@@ -1,11 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { fixtureGraph } from "@/fixtures/graph";
 import { useOutlineStore } from "@/stores/outline.store";
-import {
-  planAddTagField,
-  planRemoveTag,
-  planSetTagColor,
-} from "@/actions/plan";
+import { planAddTagField, planRemoveTag, planSetTagColor } from "@/actions/plan";
 
 describe("tag chip actions (plan layer)", () => {
   beforeEach(() => {
@@ -24,17 +20,11 @@ describe("tag chip actions (plan layer)", () => {
       loadSource: null,
       loadError: null,
     });
-    useOutlineStore
-      .getState()
-      .hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
   });
 
   it("planRemoveTag drops a sys.f.type ref", () => {
-    const plan = planRemoveTag(
-      useOutlineStore.getState().wireNodes,
-      "n.root-a",
-      "tag.todo",
-    );
+    const plan = planRemoveTag(useOutlineStore.getState().wireNodes, "n.root-a", "tag.todo");
     expect(plan.actions[0]?.input).toMatchObject({
       id: "n.root-a",
       unsetProps: [{ field: "sys.f.type", value: { t: "ref", v: "tag.todo" } }],
@@ -42,23 +32,13 @@ describe("tag chip actions (plan layer)", () => {
   });
 
   it("planAddTagField appends template field on tag node", () => {
-    const plan = planAddTagField(
-      useOutlineStore.getState().wireNodes,
-      "tag.todo",
-      "field.status",
-    );
+    const plan = planAddTagField(useOutlineStore.getState().wireNodes, "tag.todo", "field.status");
     const upsert = plan.upserts.find((n) => n.id === "tag.todo");
-    expect(
-      upsert?.props["sys.f.fields"]?.some((v) => v.v === "field.status"),
-    ).toBe(true);
+    expect(upsert?.props["sys.f.fields"]?.some((v) => v.v === "field.status")).toBe(true);
   });
 
   it("planSetTagColor writes sys.f.color on tag node", () => {
-    const plan = planSetTagColor(
-      useOutlineStore.getState().wireNodes,
-      "tag.todo",
-      "#3b82f6",
-    );
+    const plan = planSetTagColor(useOutlineStore.getState().wireNodes, "tag.todo", "#3b82f6");
     const upsert = plan.upserts.find((n) => n.id === "tag.todo");
     expect(upsert?.props["sys.f.color"]).toEqual([{ t: "str", v: "#3b82f6" }]);
   });

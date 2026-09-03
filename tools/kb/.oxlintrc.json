@@ -1,23 +1,189 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["eslint", "typescript", "react", "import", "unicorn", "oxc"],
+  "plugins": [
+    "eslint",
+    "typescript",
+    "react",
+    "import",
+    "unicorn",
+    "oxc",
+    "promise",
+    "node"
+  ],
+  "env": {
+    "builtin": true
+  },
   "ignorePatterns": [
     "**/dist/**",
     "**/node_modules/**",
-    "**/storybook-static/**"
+    "**/storybook-static/**",
+    "packages/ext-sdk/generated/**"
   ],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
+  },
   "rules": {
-    "import/no-cycle": ["error", { "maxDepth": 8 }],
-    "react/exhaustive-deps": "error",
-    "typescript/ban-ts-comment": ["error", { "ts-expect-error": "allow-with-description" }],
-    "typescript/no-explicit-any": "warn"
+    "import/no-cycle": "error",
+    "import/no-duplicates": "warn",
+    "import/no-unassigned-import": [
+      "error",
+      {
+        "allow": [
+          "**/*.css"
+        ]
+      }
+    ],
+    "typescript/ban-ts-comment": [
+      "error",
+      {
+        "ts-expect-error": "allow-with-description"
+      }
+    ],
+    "typescript/no-explicit-any": "warn",
+    "typescript/consistent-type-imports": "warn",
+    "typescript/no-import-type-side-effects": "warn",
+    "typescript/consistent-type-assertions": "warn",
+    "typescript/no-non-null-assertion": "warn",
+    "typescript/no-misused-promises": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/strict-boolean-expressions": "warn",
+    "typescript/no-unnecessary-condition": "warn",
+    "typescript/require-await": "warn",
+    "typescript/no-deprecated": "warn",
+    "typescript/no-unnecessary-type-assertion": "warn",
+    "typescript/no-unsafe-type-assertion": "warn",
+    "typescript/no-unnecessary-type-conversion": "warn",
+    "typescript/no-unnecessary-type-arguments": "warn",
+    "typescript/no-unnecessary-boolean-literal-compare": "warn",
+    "typescript/no-redundant-type-constituents": "warn",
+    "typescript/no-base-to-string": "warn",
+    "typescript/require-array-sort-compare": "warn",
+    "typescript/await-thenable": "warn",
+    "typescript/consistent-return": "warn",
+    "typescript/no-confusing-non-null-assertion": "warn",
+    "typescript/restrict-template-expressions": "warn",
+    "typescript/no-floating-promises": "warn",
+    "typescript/triple-slash-reference": "warn",
+    "unicorn/no-array-sort": "warn",
+    "unicorn/consistent-function-scoping": "warn",
+    "unicorn/prefer-add-event-listener": "warn",
+    "unicorn/no-array-reverse": "warn",
+    "unicorn/no-new-array": "warn",
+    "unicorn/no-useless-spread": "warn",
+    "unicorn/no-useless-fallback-in-spread": "warn",
+    "oxc/no-map-spread": "warn",
+    "oxc/no-accumulating-spread": "warn",
+    "react/no-children-prop": "warn",
+    "react/no-array-index-key": "warn",
+    "react/only-export-components": "warn",
+    "react/no-did-update-set-state": "warn",
+    "promise/always-return": "warn",
+    "eslint/no-underscore-dangle": "off",
+    "import/no-named-as-default-member": "off",
+    "import/no-named-as-default": "off",
+    "react/react-in-jsx-scope": "off",
+    "eslint/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ],
+    "promise/catch-or-return": "error",
+    "eslint/no-var": "error",
+    "eslint/prefer-const": "error",
+    "eslint/no-eq-null": "warn",
+    "eslint/default-case": "warn",
+    "eslint/no-console": "warn",
+    "eslint/no-shadow": "warn",
+    "eslint/no-await-in-loop": "warn",
+    "eslint/complexity": "warn",
+    "eslint/max-depth": "warn",
+    "eslint/max-nested-callbacks": "warn",
+    "eslint/max-lines-per-function": [
+      "warn",
+      {
+        "max": 120
+      }
+    ],
+    "eslint/max-params": [
+      "warn",
+      5
+    ],
+    "eslint/max-lines": [
+      "warn",
+      {
+        "max": 900
+      }
+    ],
+    "unicorn/no-abusive-eslint-disable": "error",
+    "node/no-process-env": "warn",
+    "react/rules-of-hooks": "warn",
+    "react/button-has-type": "error",
+    "react/no-danger": "error"
   },
   "overrides": [
     {
       "files": [
-        "packages/model/src/**",
         "packages/canvas/src/**",
-        "packages/query/src/**",
+        "packages/contracts/src/**",
+        "packages/model/src/**",
+        "packages/query/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(bun:|node:|@effect/platform-bun)",
+                "message": "scope:shared packages are isomorphic; runtime access belongs in an infrastructure or app package."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/canvas/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@kb/(cli|contracts|ext-canvas|ext-docs|ext-sdk|harness|mcp|operations|render-tests|runtime|server|store-jsonl|test-kit|ui)(/.*)?$",
+                "message": "Boundary violation: package @kb/canvas (domain/shared) may not import forbidden target packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/cli/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@kb/(harness|render-tests|test-kit|ui)(/.*)?$",
+                "message": "Boundary violation: package @kb/cli (app/backend) may not import forbidden target packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
         "packages/contracts/src/**"
       ],
       "rules": {
@@ -26,8 +192,8 @@
           {
             "patterns": [
               {
-                "regex": "^(?:node:|bun:|@effect/platform-bun)",
-                "message": "Isomorphism fence: layer and scope direction are enforced by the package graph (packages/harness `boundaries`); this is the one restriction that graph cannot see. A scope:shared package runs in the browser as well as in Bun, so no node:*, bun:* or @effect/platform-bun — move the host-specific part to a scope:backend package."
+                "regex": "^@kb/(cli|ext-canvas|ext-docs|ext-sdk|harness|mcp|operations|render-tests|runtime|server|store-jsonl|test-kit|ui)(/.*)?$",
+                "message": "Boundary violation: package @kb/contracts (contract/shared) may not import forbidden target packages."
               }
             ]
           }
@@ -35,7 +201,293 @@
       }
     },
     {
-      "files": ["**/*.css"],
+      "files": [
+        "packages/ext-canvas/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@kb/(cli|ext-docs|harness|mcp|render-tests|runtime|server|store-jsonl|test-kit|ui)(/.*)?$",
+                "message": "Boundary violation: package @kb/ext-canvas (extension/backend) may not import forbidden target packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/ext-docs/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@kb/(cli|ext-canvas|harness|mcp|render-tests|runtime|server|store-jsonl|test-kit|ui)(/.*)?$",
+                "message": "Boundary violation: package @kb/ext-docs (extension/backend) may not import forbidden target packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/ext-sdk/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@kb/(cli|ext-canvas|ext-docs|harness|mcp|operations|render-tests|runtime|server|store-jsonl|test-kit|ui)(/.*)?$",
+                "message": "Boundary violation: package @kb/ext-sdk (contract/backend) may not import forbidden target packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/mcp/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@kb/(harness|render-tests|test-kit|ui)(/.*)?$",
+                "message": "Boundary violation: package @kb/mcp (app/backend) may not import forbidden target packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/model/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@kb/(cli|contracts|ext-canvas|ext-docs|ext-sdk|harness|mcp|operations|render-tests|runtime|server|store-jsonl|test-kit|ui)(/.*)?$",
+                "message": "Boundary violation: package @kb/model (domain/shared) may not import forbidden target packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/operations/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@kb/(cli|ext-canvas|ext-docs|harness|mcp|render-tests|runtime|server|store-jsonl|test-kit|ui)(/.*)?$",
+                "message": "Boundary violation: package @kb/operations (application/backend) may not import forbidden target packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/query/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@kb/(cli|contracts|ext-canvas|ext-docs|ext-sdk|harness|mcp|operations|render-tests|runtime|server|store-jsonl|test-kit|ui)(/.*)?$",
+                "message": "Boundary violation: package @kb/query (domain/shared) may not import forbidden target packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/render-tests/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@kb/(harness|store-jsonl|ui)(/.*)?$",
+                "message": "Boundary violation: package @kb/render-tests (test-support/test-support) may not import forbidden target packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/runtime/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@kb/(harness|render-tests|test-kit|ui)(/.*)?$",
+                "message": "Boundary violation: package @kb/runtime (app/backend) may not import forbidden target packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/server/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@kb/(harness|render-tests|test-kit|ui)(/.*)?$",
+                "message": "Boundary violation: package @kb/server (app/backend) may not import forbidden target packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/store-jsonl/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@kb/(cli|ext-canvas|ext-docs|harness|mcp|operations|render-tests|runtime|server|test-kit|ui)(/.*)?$",
+                "message": "Boundary violation: package @kb/store-jsonl (infrastructure/backend) may not import forbidden target packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/test-kit/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@kb/(harness|render-tests|ui)(/.*)?$",
+                "message": "Boundary violation: package @kb/test-kit (app/test-support) may not import forbidden target packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "packages/ui/src/**"
+      ],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^@kb/(cli|ext-canvas|ext-docs|ext-sdk|harness|mcp|operations|render-tests|runtime|server|store-jsonl|test-kit)(/.*)?$",
+                "message": "Boundary violation: package @kb/ui (app/browser) may not import forbidden target packages."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/tests/**",
+        "**/tests-render/**",
+        "packages/harness/**",
+        "**/*.stories.tsx",
+        "**/playwright.config.ts",
+        "**/vite.config.ts"
+      ],
+      "rules": {
+        "eslint/no-console": "off",
+        "eslint/no-await-in-loop": "off",
+        "node/no-process-env": "off",
+        "typescript/no-unsafe-type-assertion": "off",
+        "typescript/consistent-type-assertions": "off",
+        "typescript/no-extraneous-class": "off",
+        "react/no-children-prop": "off"
+      }
+    },
+    {
+      "files": [
+        "**/*.d.ts"
+      ],
+      "rules": {
+        "typescript/no-extraneous-class": "off",
+        "typescript/triple-slash-reference": "off"
+      }
+    },
+    {
+      "files": [
+        "packages/server/src/paths.ts"
+      ],
+      "rules": {
+        "node/no-process-env": "off"
+      }
+    },
+    {
+      "files": [
+        "packages/cli/src/output.ts",
+        "packages/cli/src/surface/cli.ts",
+        "packages/*/src/bin/**",
+        "packages/*/bin/**",
+        "packages/ext-sdk/src/generate.ts"
+      ],
+      "rules": {
+        "eslint/no-console": "off"
+      }
+    },
+    {
+      "files": [
+        "**/*.css"
+      ],
       "rules": {}
     }
   ]

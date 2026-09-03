@@ -7,10 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { fixtureGraph } from "@/fixtures/graph";
-import {
-  outlineInstanceKey,
-  queryResultInstanceKey,
-} from "@/lib/instance-key";
+import { outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -54,11 +51,7 @@ function seed(extra: WireNode[] = []) {
   });
   useOutlineStore
     .getState()
-    .hydrateFromWire(
-      [...fixtureGraph.nodes, ...extra],
-      fixtureGraph.rev,
-      "fixtures",
-    );
+    .hydrateFromWire([...fixtureGraph.nodes, ...extra], fixtureGraph.rev, "fixtures");
 }
 
 describe("instance identity (component)", () => {
@@ -82,9 +75,7 @@ describe("instance identity (component)", () => {
     seed([queryWire()]);
     // Expand query so result rows appear in the visible-instance walk.
     useOutlineStore.getState().toggleCollapse("n.q1");
-    container = dom.document.createElement(
-      "div",
-    ) as unknown as HTMLDivElement;
+    container = dom.document.createElement("div") as unknown as HTMLDivElement;
     dom.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
   });
@@ -102,24 +93,13 @@ describe("instance identity (component)", () => {
     await act(async () => {
       root.render(
         <div>
-          <NodeBlock
-            nodeId="n.root-a"
-            instanceKey={treeKey}
-            depth={0}
-          />
-          <NodeBlock
-            nodeId="n.root-a"
-            instanceKey={refKey}
-            depth={1}
-            isRef
-          />
+          <NodeBlock nodeId="n.root-a" instanceKey={treeKey} depth={0} />
+          <NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} isRef />
         </div>,
       );
     });
 
-    const treeBlock = container.querySelector(
-      `[data-instance-key="${treeKey}"]`,
-    );
+    const treeBlock = container.querySelector(`[data-instance-key="${treeKey}"]`);
     expect(treeBlock).toBeTruthy();
     const treeContent = treeBlock!.querySelector(
       "[contenteditable], .kb-text, [data-node-content]",
@@ -132,24 +112,13 @@ describe("instance identity (component)", () => {
     await act(async () => {
       root.render(
         <div>
-          <NodeBlock
-            nodeId="n.root-a"
-            instanceKey={treeKey}
-            depth={0}
-          />
-          <NodeBlock
-            nodeId="n.root-a"
-            instanceKey={refKey}
-            depth={1}
-            isRef
-          />
+          <NodeBlock nodeId="n.root-a" instanceKey={treeKey} depth={0} />
+          <NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} isRef />
         </div>,
       );
     });
 
-    const blocks = container.querySelectorAll(
-      `.node-block[data-node-id="n.root-a"]`,
-    );
+    const blocks = container.querySelectorAll(`.node-block[data-node-id="n.root-a"]`);
     expect(blocks.length).toBe(2);
     const s = useOutlineStore.getState();
     expect(s.activeNodeId).toBe("n.root-a");
@@ -180,9 +149,7 @@ describe("instance identity (component)", () => {
     // Next query result (children collapsed on ref rows by default).
     expect(next!.instanceKey).toBe(refB);
 
-    useOutlineStore
-      .getState()
-      .activateNode(next!.nodeId, 0, next!.instanceKey);
+    useOutlineStore.getState().activateNode(next!.nodeId, 0, next!.instanceKey);
     expect(useOutlineStore.getState().activeInstanceKey).toBe(refB);
     expect(useOutlineStore.getState().activeInstanceKey).not.toBe(
       outlineInstanceKey(next!.nodeId, useOutlineStore.getState().nodes),
@@ -196,13 +163,7 @@ describe("instance identity (component)", () => {
     expect(childKey).toBe("tree/n.root-a/n.child-a1");
 
     await act(async () => {
-      root.render(
-        <NodeBlock
-          nodeId="n.child-a1"
-          instanceKey={childKey}
-          depth={0}
-        />,
-      );
+      root.render(<NodeBlock nodeId="n.child-a1" instanceKey={childKey} depth={0} />);
     });
 
     act(() => {
@@ -211,21 +172,13 @@ describe("instance identity (component)", () => {
     });
 
     await act(async () => {
-      root.render(
-        <NodeBlock
-          nodeId="n.child-a1"
-          instanceKey={childKey}
-          depth={0}
-        />,
-      );
+      root.render(<NodeBlock nodeId="n.child-a1" instanceKey={childKey} depth={0} />);
     });
 
     const s = useOutlineStore.getState();
     expect(s.activeInstanceKey).toBe(childKey);
     expect(
-      container.querySelector(
-        `[data-instance-key="${childKey}"] [contenteditable="true"]`,
-      ),
+      container.querySelector(`[data-instance-key="${childKey}"] [contenteditable="true"]`),
     ).toBeTruthy();
   });
 
@@ -241,14 +194,7 @@ describe("instance identity (component)", () => {
     });
 
     await act(async () => {
-      root.render(
-        <NodeBlock
-          nodeId="n.root-a"
-          instanceKey={refKey}
-          depth={1}
-          isRef
-        />,
-      );
+      root.render(<NodeBlock nodeId="n.root-a" instanceKey={refKey} depth={1} isRef />);
     });
 
     const parentBullet = container.querySelector(
@@ -257,12 +203,8 @@ describe("instance identity (component)", () => {
     expect(parentBullet).toBeTruthy();
 
     const childKey = `${refKey}/n.child-a1`;
-    const childBlock = container.querySelector(
-      `[data-instance-key="${childKey}"]`,
-    );
+    const childBlock = container.querySelector(`[data-instance-key="${childKey}"]`);
     expect(childBlock).toBeTruthy();
-    expect(
-      childBlock!.querySelector('[data-bullet-ref="true"]'),
-    ).toBeNull();
+    expect(childBlock!.querySelector('[data-bullet-ref="true"]')).toBeNull();
   });
 });

@@ -47,12 +47,10 @@ describe("arg → invocation mapping", () => {
   });
 
   test("mapSet / mapUnset / mapRm / mapMv", () => {
-    expect(mapSet({ id: "n1", field: "status", value: "done" }).input).toEqual(
-      {
-        id: "n1",
-        setProps: [{ field: "status", value: { t: "str", v: "done" } }],
-      },
-    );
+    expect(mapSet({ id: "n1", field: "status", value: "done" }).input).toEqual({
+      id: "n1",
+      setProps: [{ field: "status", value: { t: "str", v: "done" } }],
+    });
     expect(mapUnset({ id: "n1", field: "status" }).input).toEqual({
       id: "n1",
       unsetProps: [{ field: "status" }],
@@ -111,9 +109,7 @@ describe("arg → invocation mapping", () => {
       input: { text: "todo" },
     });
     expect(mapBacklinks("sys.tag").id).toBe("graph.query");
-    expect(
-      (mapBacklinks("sys.tag").input as { query: string }).query,
-    ).toContain('"sys.tag"');
+    expect((mapBacklinks("sys.tag").input as { query: string }).query).toContain('"sys.tag"');
     expect(mapChildren("n1").input).toEqual({ id: "n1", depth: 1 });
   });
 
@@ -152,9 +148,7 @@ describe("cli e2e (tmpdir)", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  async function kb(
-    args: string[],
-  ): Promise<{ code: number; stdout: string; stderr: string }> {
+  async function kb(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
     const stdout: string[] = [];
     const stderr: string[] = [];
     const outWrite = process.stdout.write.bind(process.stdout);
@@ -224,14 +218,7 @@ describe("cli e2e (tmpdir)", () => {
     const tag = await kb(["tag", "define", "todo", "--field", "status"]);
     expect(tag.code).toBe(0);
 
-    const add = await kb([
-      "add",
-      "Ship M2 CLI",
-      "--tag",
-      "todo",
-      "--prop",
-      "status=doing",
-    ]);
+    const add = await kb(["add", "Ship M2 CLI", "--tag", "todo", "--prop", "status=doing"]);
     expect(add.code).toBe(0);
     const addOut = JSON.parse(add.stdout);
     expect(addOut.status).toBe("succeeded");
@@ -245,9 +232,7 @@ describe("cli e2e (tmpdir)", () => {
     const qOut = JSON.parse(query.stdout);
     expect(qOut.status).toBe("succeeded");
     const rows = qOut.output.rows as unknown[][];
-    expect(rows.some((r) => r[0] === nodeId && r[1] === "Ship M2 CLI")).toBe(
-      true,
-    );
+    expect(rows.some((r) => r[0] === nodeId && r[1] === "Ship M2 CLI")).toBe(true);
 
     const got = await kb(["get", nodeId, "--depth", "0"]);
     expect(got.code).toBe(0);
@@ -300,9 +285,7 @@ describe("cli e2e (tmpdir)", () => {
       [Symbol.asyncIterator]() {
         return {
           next() {
-            return Promise.reject(
-              new Error("EIO: simulated stdin failure"),
-            );
+            return Promise.reject(new Error("EIO: simulated stdin failure"));
           },
         };
       },
@@ -335,30 +318,15 @@ describe("cli e2e (tmpdir)", () => {
     expect(typeBad.code).toBe(1);
     expect(JSON.parse(typeBad.stdout).code).toBe("not_found");
 
-    const targetBadField = await kb([
-      "field",
-      "target",
-      "no-such-field",
-      "todo",
-    ]);
+    const targetBadField = await kb(["field", "target", "no-such-field", "todo"]);
     expect(targetBadField.code).toBe(1);
     expect(JSON.parse(targetBadField.stdout).code).toBe("not_found");
 
-    const targetBadTag = await kb([
-      "field",
-      "target",
-      "status",
-      "no-such-tag",
-    ]);
+    const targetBadTag = await kb(["field", "target", "status", "no-such-tag"]);
     expect(targetBadTag.code).toBe(1);
     expect(JSON.parse(targetBadTag.stdout).code).toBe("not_found");
 
-    const tqBad = await kb([
-      "field",
-      "target-query",
-      "no-such-field",
-      "[:find ?x]",
-    ]);
+    const tqBad = await kb(["field", "target-query", "no-such-field", "[:find ?x]"]);
     expect(tqBad.code).toBe(1);
     expect(JSON.parse(tqBad.stdout).code).toBe("not_found");
   });
@@ -383,10 +351,7 @@ describe("cli e2e (tmpdir)", () => {
     expect(`${badName.stderr}${badName.stdout}`).toContain("invalid saved query name");
 
     // Malformed EDN inside a valid saved query is invalid_input, not internal.
-    await writeFile(
-      join(root, ".kb", "queries", "broken.edn"),
-      "not [valid",
-    );
+    await writeFile(join(root, ".kb", "queries", "broken.edn"), "not [valid");
     const broken = await kb(["run", "broken"]);
     expect(broken.code).toBe(1);
     expect(JSON.parse(broken.stdout).code).toBe("invalid_input");

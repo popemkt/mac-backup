@@ -12,7 +12,9 @@ test("order-key migration is additive and preserves legacy root/child order", ()
   expect(migrated.changed).toBe(true);
   expect(migrated.nodes.map((node) => node.text)).toEqual(nodes.map((node) => node.text));
   const byId = new Map(migrated.nodes.map((node) => [node.id, node]));
-  expect(["z", "a"].sort((x, y) => byId.get(x)!.order!.localeCompare(byId.get(y)!.order!))).toEqual(["z", "a"]);
+  expect(["z", "a"].sort((x, y) => byId.get(x)!.order!.localeCompare(byId.get(y)!.order!))).toEqual(
+    ["z", "a"],
+  );
   expect(migrateOrderKeys(migrated.nodes).changed).toBe(false);
 });
 
@@ -21,8 +23,24 @@ test("migration never rewrites a stored rank, so reordering survives reopen", ()
   // the id and overwrote stored ranks, so every openKb silently reverted a
   // root reorder back to id order.
   const nodes = [
-    { id: "r-a", text: "a", props: {}, children: [], createdAt: "", updatedAt: "", order: "5000000000" },
-    { id: "r-b", text: "b", props: {}, children: [], createdAt: "", updatedAt: "", order: "1000000000" },
+    {
+      id: "r-a",
+      text: "a",
+      props: {},
+      children: [],
+      createdAt: "",
+      updatedAt: "",
+      order: "5000000000",
+    },
+    {
+      id: "r-b",
+      text: "b",
+      props: {},
+      children: [],
+      createdAt: "",
+      updatedAt: "",
+      order: "1000000000",
+    },
   ];
   const migrated = migrateOrderKeys(nodes);
   expect(migrated.changed).toBe(false);
@@ -35,9 +53,25 @@ test("migration never rewrites a stored rank, so reordering survives reopen", ()
 test("migration fills only the gaps in a partly ranked sibling group", () => {
   const nodes = [
     { id: "p", text: "p", props: {}, children: ["c1", "c2", "c3"], createdAt: "", updatedAt: "" },
-    { id: "c1", text: "c1", props: {}, children: [], createdAt: "", updatedAt: "", order: "1000000000" },
+    {
+      id: "c1",
+      text: "c1",
+      props: {},
+      children: [],
+      createdAt: "",
+      updatedAt: "",
+      order: "1000000000",
+    },
     { id: "c2", text: "c2", props: {}, children: [], createdAt: "", updatedAt: "" },
-    { id: "c3", text: "c3", props: {}, children: [], createdAt: "", updatedAt: "", order: "3000000000" },
+    {
+      id: "c3",
+      text: "c3",
+      props: {},
+      children: [],
+      createdAt: "",
+      updatedAt: "",
+      order: "3000000000",
+    },
   ];
   const migrated = migrateOrderKeys(nodes);
   expect(migrated.changed).toBe(true);

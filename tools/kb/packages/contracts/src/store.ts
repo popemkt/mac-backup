@@ -1,8 +1,6 @@
 import type { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import type { DomainError } from "@kb/model";
-import type { KbNode } from "@kb/model";
-import type { StoreTx } from "@kb/model";
+import type { DomainError, KbNode, StoreTx } from "@kb/model";
 
 /**
  * Promise-shaped Store retained for tests, benchmarks, and `KbContext.store`.

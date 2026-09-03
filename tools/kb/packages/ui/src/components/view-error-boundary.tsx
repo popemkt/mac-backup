@@ -19,10 +19,7 @@ export function ViewError({
     <div
       role="alert"
       data-testid="view-error"
-      className={cn(
-        "flex h-full min-h-0 flex-col items-start justify-center gap-3 p-6",
-        className,
-      )}
+      className={cn("flex h-full min-h-0 flex-col items-start justify-center gap-3 p-6", className)}
     >
       <h2 className="text-[13px] font-medium text-foreground/80">{title}</h2>
       <p className="max-w-md text-[13px] text-foreground/50">{message}</p>
@@ -56,25 +53,19 @@ interface ViewErrorBoundaryState {
  * Localized boundary for lazy Graph / Canvas chunks.
  * Shell chrome (sidebar, header, palette) stays outside this tree.
  */
-export class ViewErrorBoundary extends Component<
-  ViewErrorBoundaryProps,
-  ViewErrorBoundaryState
-> {
-  state: ViewErrorBoundaryState = { error: null };
+export class ViewErrorBoundary extends Component<ViewErrorBoundaryProps, ViewErrorBoundaryState> {
+  override state: ViewErrorBoundaryState = { error: null };
 
   static getDerivedStateFromError(error: Error): ViewErrorBoundaryState {
     return { error };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo): void {
+  override componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error("ViewErrorBoundary caught", error, info.componentStack);
   }
 
-  componentDidUpdate(prevProps: ViewErrorBoundaryProps): void {
-    if (
-      this.state.error &&
-      prevProps.resetKey !== this.props.resetKey
-    ) {
+  override componentDidUpdate(prevProps: ViewErrorBoundaryProps): void {
+    if (this.state.error && prevProps.resetKey !== this.props.resetKey) {
       this.setState({ error: null });
     }
   }

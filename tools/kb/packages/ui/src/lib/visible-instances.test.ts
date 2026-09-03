@@ -44,11 +44,7 @@ describe("visible instances", () => {
     });
     useOutlineStore
       .getState()
-      .hydrateFromWire(
-        [...fixtureGraph.nodes, queryWire()],
-        fixtureGraph.rev,
-        "fixtures",
-      );
+      .hydrateFromWire([...fixtureGraph.nodes, queryWire()], fixtureGraph.rev, "fixtures");
   });
 
   it("includes query-result instances when the query node is expanded", () => {
@@ -66,13 +62,9 @@ describe("visible instances", () => {
     useOutlineStore.getState().toggleCollapse("n.q1");
     const store = useOutlineStore.getState();
     const fromQuery = store.getNextVisibleInstance("tree/n.q1");
-    expect(fromQuery?.instanceKey).toBe(
-      queryResultInstanceKey("n.q1", "n.root-a"),
-    );
+    expect(fromQuery?.instanceKey).toBe(queryResultInstanceKey("n.q1", "n.root-a"));
     const across = store.getNextVisibleInstance(fromQuery!.instanceKey);
-    expect(across?.instanceKey).toBe(
-      queryResultInstanceKey("n.q1", "n.root-b"),
-    );
+    expect(across?.instanceKey).toBe(queryResultInstanceKey("n.q1", "n.root-b"));
   });
 
   it("zoomed children use full-chain outline keys", () => {
@@ -97,9 +89,7 @@ describe("visible instances", () => {
     useOutlineStore.getState().toggleCollapse("n.child-a2");
 
     await mutations.setViewMode("n.root-a", "table");
-    await mutations.setViewSort("n.root-a", [
-      { fieldId: "__name__", dir: "asc" },
-    ]);
+    await mutations.setViewSort("n.root-a", [{ fieldId: "__name__", dir: "asc" }]);
 
     const keys = useOutlineStore
       .getState()
@@ -114,19 +104,12 @@ describe("visible instances", () => {
 
     // Neighbor order follows sort projection, not children[] store order.
     const storeKids = useOutlineStore.getState().nodes.get("n.root-a")!.children;
-    const sortedKeys = keys.filter((k) =>
-      storeKids.some((id) => k.endsWith(`/${id}`)),
-    );
+    const sortedKeys = keys.filter((k) => storeKids.some((id) => k.endsWith(`/${id}`)));
     const texts = sortedKeys.map(
-      (k) =>
-        useOutlineStore.getState().nodes.get(k.split("/").at(-1)!)?.text ?? "",
+      (k) => useOutlineStore.getState().nodes.get(k.split("/").at(-1)!)?.text ?? "",
     );
     const sortedTexts = [...texts].sort((a, b) =>
-      a.toLowerCase() < b.toLowerCase()
-        ? -1
-        : a.toLowerCase() > b.toLowerCase()
-          ? 1
-          : 0,
+      a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0,
     );
     expect(texts).toEqual(sortedTexts);
   });

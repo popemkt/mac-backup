@@ -24,9 +24,6 @@ export function outlineInstanceKey(nodeId: string, nodes: NodeMap): string {
 }
 
 /** Query-result / reference-container instance. */
-export function queryResultInstanceKey(
-  queryNodeId: string,
-  nodeId: string,
-): string {
+export function queryResultInstanceKey(queryNodeId: string, nodeId: string): string {
   return `ref:query:${queryNodeId}/${nodeId}`;
 }

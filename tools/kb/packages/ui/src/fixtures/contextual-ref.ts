@@ -43,11 +43,7 @@ export const REF_SEED_WIRES: WireNode[] = [
 ];
 
 /** One contextual reference: `#ref` + a target, plus any extra wire fields. */
-export function ctxRefWire(
-  id: string,
-  targetId: string,
-  extra: Partial<WireNode> = {},
-): WireNode {
+export function ctxRefWire(id: string, targetId: string, extra: Partial<WireNode> = {}): WireNode {
   return wire({
     id,
     props: {

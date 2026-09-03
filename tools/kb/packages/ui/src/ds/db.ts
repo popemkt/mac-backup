@@ -81,10 +81,7 @@ export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
  * `@kb/queries` — one owner for "what references X", so the CLI's
  * `kb backlinks` and the UI's References section cannot answer it differently.
  */
-export function queryBacklinks(
-  db: QueryDb,
-  targetId: string,
-): Array<{ id: string; text: string }> {
+export function queryBacklinks(db: QueryDb, targetId: string): Array<{ id: string; text: string }> {
   const rows = query(db, backlinksQuery(targetId)) as Array<[string, string]>;
   if (!Array.isArray(rows)) return [];
   return rows.map(([id, text]) => ({ id, text }));

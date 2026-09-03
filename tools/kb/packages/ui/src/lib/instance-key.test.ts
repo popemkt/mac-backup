@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { fixtureGraph } from "@/fixtures/graph";
-import {
-  childInstanceKey,
-  outlineInstanceKey,
-  queryResultInstanceKey,
-} from "@/lib/instance-key";
+import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 
@@ -24,9 +20,7 @@ function seed() {
     loadSource: null,
     loadError: null,
   });
-  useOutlineStore
-    .getState()
-    .hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+  useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
 }
 
 describe("render-instance identity", () => {
@@ -39,9 +33,7 @@ describe("render-instance identity", () => {
     expect(treeKey).toBe("tree/n.root-a");
     expect(refKey).toBe("ref:query:n.q1/n.root-a");
     expect(treeKey).not.toBe(refKey);
-    expect(childInstanceKey(treeKey, "n.child-a1")).toBe(
-      "tree/n.root-a/n.child-a1",
-    );
+    expect(childInstanceKey(treeKey, "n.child-a1")).toBe("tree/n.root-a/n.child-a1");
   });
 
   it("activate binds editing to one instance when the same nodeId appears twice", () => {
@@ -54,19 +46,13 @@ describe("render-instance identity", () => {
     expect(s.activeInstanceKey).toBe(treeKey);
 
     // Real-instance match
-    expect(
-      s.activeNodeId === "n.root-a" && s.activeInstanceKey === treeKey,
-    ).toBe(true);
+    expect(s.activeNodeId === "n.root-a" && s.activeInstanceKey === treeKey).toBe(true);
     // Referenced-instance must NOT match
-    expect(
-      s.activeNodeId === "n.root-a" && s.activeInstanceKey === refKey,
-    ).toBe(false);
+    expect(s.activeNodeId === "n.root-a" && s.activeInstanceKey === refKey).toBe(false);
 
     useOutlineStore.getState().activateNode("n.root-a", 0, refKey);
     s = useOutlineStore.getState();
     expect(s.activeInstanceKey).toBe(refKey);
-    expect(
-      s.activeNodeId === "n.root-a" && s.activeInstanceKey === treeKey,
-    ).toBe(false);
+    expect(s.activeNodeId === "n.root-a" && s.activeInstanceKey === treeKey).toBe(false);
   });
 });

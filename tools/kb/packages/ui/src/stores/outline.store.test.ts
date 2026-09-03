@@ -4,9 +4,7 @@ import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "./outline.store";
 
 function seed() {
-  useOutlineStore
-    .getState()
-    .hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+  useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
 }
 
 describe("outline store (WireNode adaptation)", () => {
@@ -31,12 +29,7 @@ describe("outline store (WireNode adaptation)", () => {
   it("hydrates forest roots under virtual workspace root (id-sorted)", () => {
     seed();
     const root = useOutlineStore.getState().nodes.get(WORKSPACE_ROOT_ID)!;
-    expect(root.children).toEqual([
-      "lens.all-mentions",
-      "n.root-a",
-      "n.root-b",
-      "n.root-c",
-    ]);
+    expect(root.children).toEqual(["lens.all-mentions", "n.root-a", "n.root-b", "n.root-c"]);
     expect(root.children).not.toContain("sys.tag");
     expect(root.children).not.toContain("tag.todo");
   });
@@ -51,9 +44,7 @@ describe("outline store (WireNode adaptation)", () => {
   it("resolves tags from sys.f.type refs", () => {
     seed();
     const a = useOutlineStore.getState().nodes.get("n.root-a")!;
-    expect(a.tags).toEqual([
-      { id: "tag.todo", name: "todo", color: expect.any(String) },
-    ]);
+    expect(a.tags).toEqual([{ id: "tag.todo", name: "todo", color: expect.any(String) }]);
   });
 
   it("activate / select / deactivate", () => {
@@ -87,9 +78,7 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("defaults expandable nodes collapsed; visible list shows roots only", () => {
     seed();
-    expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(
-      true,
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(true);
     expect(useOutlineStore.getState().getVisibleNodes()).toEqual([
       "lens.all-mentions",
       "n.root-a",
@@ -120,25 +109,19 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("defaults field-only expandable nodes collapsed", () => {
     seed();
-    expect(useOutlineStore.getState().nodes.get("n.root-b")?.collapsed).toBe(
-      true,
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-b")?.collapsed).toBe(true);
   });
 
   it("toggleCollapse expands field-only nodes", () => {
     seed();
     useOutlineStore.getState().toggleCollapse("n.root-b");
-    expect(useOutlineStore.getState().nodes.get("n.root-b")?.collapsed).toBe(
-      false,
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-b")?.collapsed).toBe(false);
   });
 
   it("does nothing when toggling a leaf without fields or children", () => {
     seed();
     useOutlineStore.getState().toggleCollapse("n.root-c");
-    expect(useOutlineStore.getState().nodes.get("n.root-c")?.collapsed).toBe(
-      false,
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-c")?.collapsed).toBe(false);
   });
 
   it("expandAllInScope expands every expandable node in the forest", () => {
@@ -189,12 +172,8 @@ describe("outline store (WireNode adaptation)", () => {
   it("getPrevious / getNext respect collapsed subtrees", () => {
     seed();
     useOutlineStore.getState().toggleCollapse("n.root-a");
-    expect(useOutlineStore.getState().getNextVisibleNode("n.root-a")).toBe(
-      "n.child-a1",
-    );
-    expect(useOutlineStore.getState().getPreviousVisibleNode("n.root-b")).toBe(
-      "n.child-a2",
-    );
+    expect(useOutlineStore.getState().getNextVisibleNode("n.root-a")).toBe("n.child-a1");
+    expect(useOutlineStore.getState().getPreviousVisibleNode("n.root-b")).toBe("n.child-a2");
   });
 
   it("builds a DataScript query db on hydrate", () => {
@@ -228,15 +207,9 @@ describe("outline store (WireNode adaptation)", () => {
 
     it("updates existing node text in place", () => {
       seed();
-      const cur = useOutlineStore
-        .getState()
-        .wireNodes.find((n) => n.id === "n.root-b")!;
-      useOutlineStore
-        .getState()
-        .applyTx([{ ...cur, text: "renamed" }], [], { rev: 2 });
-      expect(useOutlineStore.getState().nodes.get("n.root-b")?.text).toBe(
-        "renamed",
-      );
+      const cur = useOutlineStore.getState().wireNodes.find((n) => n.id === "n.root-b")!;
+      useOutlineStore.getState().applyTx([{ ...cur, text: "renamed" }], [], { rev: 2 });
+      expect(useOutlineStore.getState().nodes.get("n.root-b")?.text).toBe("renamed");
     });
 
     it("deletes nodes", () => {
@@ -244,21 +217,15 @@ describe("outline store (WireNode adaptation)", () => {
       useOutlineStore.getState().applyTx([], ["n.root-c"], { rev: 2 });
       const s = useOutlineStore.getState();
       expect(s.nodes.has("n.root-c")).toBe(false);
-      expect(s.nodes.get(WORKSPACE_ROOT_ID)!.children).not.toContain(
-        "n.root-c",
-      );
+      expect(s.nodes.get(WORKSPACE_ROOT_ID)!.children).not.toContain("n.root-c");
     });
 
     it("preserves collapse state across deltas", () => {
       seed();
       useOutlineStore.getState().toggleCollapse("n.root-a");
-      expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(
-        false,
-      );
+      expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(false);
       useOutlineStore.getState().applyTx([wire("n.new", "x")], [], { rev: 2 });
-      expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(
-        false,
-      );
+      expect(useOutlineStore.getState().nodes.get("n.root-a")?.collapsed).toBe(false);
     });
 
     it("preserves zoom + selection when targets survive", () => {

@@ -33,11 +33,7 @@ function seed() {
   });
   useOutlineStore
     .getState()
-    .hydrateFromWire(
-      structuredClone(fixtureGraph.nodes),
-      fixtureGraph.rev,
-      "fixtures",
-    );
+    .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
 }
 
 const nodes = () => useOutlineStore.getState().nodes;
@@ -63,10 +59,11 @@ describe("pin toggle", () => {
     const tagId = findPinnedTagId(nodes());
     await mutations.togglePin("n.root-b");
     expect(findPinnedTagId(nodes())).toBe(tagId);
-    expect(listPinnedNavItems(nodes()).map((i) => i.id).sort()).toEqual([
-      "n.root-a",
-      "n.root-b",
-    ]);
+    expect(
+      listPinnedNavItems(nodes())
+        .map((i) => i.id)
+        .sort(),
+    ).toEqual(["n.root-a", "n.root-b"]);
 
     await mutations.togglePin("n.root-a");
     expect(isPinned(nodes().get("n.root-a"), nodes())).toBe(false);
@@ -76,9 +73,7 @@ describe("pin toggle", () => {
   it("pins by tagging — no bespoke flag on the node", async () => {
     await mutations.togglePin("n.root-a");
     const tagId = findPinnedTagId(nodes())!;
-    const wire = useOutlineStore
-      .getState()
-      .wireNodes.find((n) => n.id === "n.root-a")!;
+    const wire = useOutlineStore.getState().wireNodes.find((n) => n.id === "n.root-a")!;
     expect(wire.props[SYSTEM_IDS.typeField]).toEqual(
       expect.arrayContaining([{ t: "ref", v: tagId }]),
     );

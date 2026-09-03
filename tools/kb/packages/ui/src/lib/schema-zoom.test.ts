@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildQueryDb } from "@/ds/db";
 import { fixtureGraph } from "@/fixtures/graph";
-import {
-  queryFieldCarriers,
-  queryTaggedInstances,
-  schemaZoomKind,
-} from "@/lib/schema-zoom";
+import { queryFieldCarriers, queryTaggedInstances, schemaZoomKind } from "@/lib/schema-zoom";
 import { wireToOutlineMap } from "@/lib/graph-view";
 
 describe("schema zoom queries", () => {

@@ -40,10 +40,7 @@ describe("kb tokens", () => {
   const tokens = readFileSync(path.join(root, "tokens.css"), "utf8");
   const tokenDecls = stripComments(tokens);
   const index = readFileSync(path.join(root, "index.css"), "utf8");
-  const content = readFileSync(
-    path.join(root, "components/outline/node-content.tsx"),
-    "utf8",
-  );
+  const content = readFileSync(path.join(root, "components/outline/node-content.tsx"), "utf8");
 
   it("defines row metric tokens from DESIGN-REFINE W1", () => {
     expect(tokens).toMatch(/--kb-indent:\s*24px/);
@@ -65,10 +62,7 @@ describe("kb tokens", () => {
     expect(tokens).toMatch(/--tag-h:\s*calc\(var\(--kb-text-line\)/);
     expect(tokens).toMatch(/--tag-line:\s*var\(--tag-h\)/);
     expect(tokens).toMatch(/\.kb-tag\s*\{[^}]*height:\s*var\(--tag-h\)/s);
-    const chip = readFileSync(
-      path.join(root, "components/outline/tag-chip.tsx"),
-      "utf8",
-    );
+    const chip = readFileSync(path.join(root, "components/outline/tag-chip.tsx"), "utf8");
     expect(stripComments(chip)).not.toMatch(/h-\[\d+px\]/);
   });
 
@@ -78,9 +72,7 @@ describe("kb tokens", () => {
     // component, so the declaration was dropped whole and .kb-text inherited
     // the 16px body size for its entire life. Longhands only.
     expect(tokens).toMatch(/\.kb-text\s*\{[^}]*font-size:\s*var\(--kb-text-size\)/s);
-    expect(tokens).toMatch(
-      /\.kb-text\s*\{[^}]*line-height:\s*var\(--kb-text-leading\)/s,
-    );
+    expect(tokens).toMatch(/\.kb-text\s*\{[^}]*line-height:\s*var\(--kb-text-leading\)/s);
     expect(tokenDecls).not.toMatch(/\bfont:\s*var\(/);
     expect(tokenDecls).not.toMatch(/\binherit\b/);
     expect(content).toMatch(/KB_TEXT_CLASS|kb-text/);

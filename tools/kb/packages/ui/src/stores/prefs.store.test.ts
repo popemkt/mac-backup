@@ -80,10 +80,7 @@ describe("loadPrefs", () => {
 
   it("parses valid values and rejects unknown ones", () => {
     expect(
-      prefs.loadPrefs(
-        '{"theme":"dark","font":"inter","width":"full","sidebarOpen":false}',
-        1280,
-      ),
+      prefs.loadPrefs('{"theme":"dark","font":"inter","width":"full","sidebarOpen":false}', 1280),
     ).toEqual({
       theme: "dark",
       font: "inter",
@@ -99,10 +96,7 @@ describe("loadPrefs", () => {
   it("ignores a stale showAllFields key (debug visibility is per node now)", () => {
     // The device-wide switch is gone; a payload written by an older build must
     // not resurrect it as a pref, and must not fail to parse either.
-    const loaded = prefs.loadPrefs(
-      '{"theme":"dark","showAllFields":true}',
-      1280,
-    );
+    const loaded = prefs.loadPrefs('{"theme":"dark","showAllFields":true}', 1280);
     expect(loaded).toEqual({ ...prefs.DEFAULT_PREFS, theme: "dark" });
     expect("showAllFields" in loaded).toBe(false);
   });
@@ -153,7 +147,12 @@ describe("usePrefsStore", () => {
   it("applies theme class + font attribute to <html>", () => {
     prefs.usePrefsStore.getState().setTheme("dark");
     const root = (
-      g.document as { documentElement: { classList: { contains(n: string): boolean }; getAttribute(k: string): string | null } }
+      g.document as {
+        documentElement: {
+          classList: { contains(n: string): boolean };
+          getAttribute(k: string): string | null;
+        };
+      }
     ).documentElement;
     expect(root.classList.contains("dark")).toBe(true);
     expect(root.getAttribute("data-font")).toBe("inter");
@@ -191,7 +190,12 @@ describe("initPrefs cross-tab sync", () => {
     });
 
     const root = (
-      g.document as { documentElement: { classList: { contains(n: string): boolean }; getAttribute(k: string): string | null } }
+      g.document as {
+        documentElement: {
+          classList: { contains(n: string): boolean };
+          getAttribute(k: string): string | null;
+        };
+      }
     ).documentElement;
     expect(root.classList.contains("dark")).toBe(false);
     expect(root.getAttribute("data-font")).toBe("outfit");

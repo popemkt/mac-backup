@@ -7,8 +7,8 @@ import {
   fieldTypeValue,
   isFieldType,
   type FieldType,
+  migrateFieldTypeValues,
 } from "../src/field-type.ts";
-import { migrateFieldTypeValues } from "../src/field-type.ts";
 
 /** Any PropValue, including refs/strings unrelated to field types — noise. */
 const propValueArb: fc.Arbitrary<PropValue> = fc.oneof(
@@ -65,18 +65,14 @@ describe("field-type properties (fast-check)", () => {
             // through the function under test risks masking a mutation to
             // it, and fast-check's rejection-sampling can stall badly if the
             // predicate the filter calls is itself broken).
-            v: fc
-              .string()
-              .filter((s) => !(FIELD_TYPES as readonly string[]).includes(s)),
+            v: fc.string().filter((s) => !(FIELD_TYPES as readonly string[]).includes(s)),
           }),
           fc.record({ t: fc.constant("num" as const), v: fc.double({ noNaN: true }) }),
           fc.record({ t: fc.constant("bool" as const), v: fc.boolean() }),
         ),
         (raw) => {
           const props: Record<string, PropValue[]> =
-            raw === undefined
-              ? {}
-              : { [SYSTEM_IDS.fieldTypeField]: [raw as PropValue] };
+            raw === undefined ? {} : { [SYSTEM_IDS.fieldTypeField]: [raw as PropValue] };
           expect(fieldTypeOf(props)).toBe("text");
         },
       ),
@@ -121,7 +117,10 @@ describe("field-type properties (fast-check)", () => {
     fc.assert(
       fc.property(
         fieldTypeArb,
-        fc.dictionary(fc.string({ minLength: 1, maxLength: 10 }), fc.array(propValueArb, { maxLength: 2 })),
+        fc.dictionary(
+          fc.string({ minLength: 1, maxLength: 10 }),
+          fc.array(propValueArb, { maxLength: 2 }),
+        ),
         (t, otherProps) => {
           const node = {
             id: "n1",

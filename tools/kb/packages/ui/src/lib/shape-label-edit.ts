@@ -10,10 +10,7 @@ export function startLabelEdit(baseline: string): LabelEditState {
   return { editing: true, draft: baseline, baseline };
 }
 
-export function typeLabelDraft(
-  state: LabelEditState,
-  draft: string,
-): LabelEditState {
+export function typeLabelDraft(state: LabelEditState, draft: string): LabelEditState {
   return { ...state, draft };
 }
 

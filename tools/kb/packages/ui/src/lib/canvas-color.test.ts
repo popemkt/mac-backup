@@ -2,11 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
-import {
-  CANVAS_COLOR_PRESETS,
-  resolveCanvasColor,
-  canvasColorStyle,
-} from "./canvas-color";
+import { CANVAS_COLOR_PRESETS, resolveCanvasColor, canvasColorStyle } from "./canvas-color";
 
 const indexCss = readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "index.css"),

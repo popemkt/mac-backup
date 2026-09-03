@@ -23,9 +23,7 @@ import { PropValueEditor } from "./field-value";
 
 const ISO = "2026-08-08T00:00:00.000Z";
 
-function wire(
-  partial: Pick<WireNode, "id" | "text"> & Partial<WireNode>,
-): WireNode {
+function wire(partial: Pick<WireNode, "id" | "text"> & Partial<WireNode>): WireNode {
   return {
     props: {},
     children: [],
@@ -59,12 +57,8 @@ function fieldTypeOntology(): WireNode[] {
       text: "fieldType",
       props: {
         [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
-        [SYSTEM_IDS.fieldTypeField]: [
-          { t: "ref", v: FIELD_TYPE_OPTION_IDS.ref },
-        ],
-        [SYSTEM_IDS.targetTagField]: [
-          { t: "ref", v: SYSTEM_IDS.fieldTypeTag },
-        ],
+        [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: FIELD_TYPE_OPTION_IDS.ref }],
+        [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.fieldTypeTag }],
       },
     }),
     // One ordinary node, so "unconstrained search hides sys nodes" stays
@@ -86,11 +80,7 @@ function ontology(): NodeMap {
  * user minted with "+ value" (open, focused), `false` is the slot that exists
  * only because the field is unset (closed placeholder). Both are asserted.
  */
-function renderRefSlot(
-  nodes: NodeMap,
-  allowedRefIds: Set<string> | null,
-  autoOpen = true,
-) {
+function renderRefSlot(nodes: NodeMap, allowedRefIds: Set<string> | null, autoOpen = true) {
   return renderToStaticMarkup(
     createElement(PropValueEditor, {
       value: { t: "ref", v: "" },
@@ -110,11 +100,7 @@ const count = (html: string, needle: string) => html.split(needle).length - 1;
 describe("ref picker candidates (declared targets win)", () => {
   it("resolves declared sys option nodes as the allowed set", () => {
     const nodes = ontology();
-    const allowed = resolveAllowedRefIds(
-      nodes.get(SYSTEM_IDS.fieldTypeField),
-      nodes,
-      null,
-    );
+    const allowed = resolveAllowedRefIds(nodes.get(SYSTEM_IDS.fieldTypeField), nodes, null);
     // The constraint is data on the field node; it is not display policy, so
     // it must survive verbatim even though every target is sys-prefixed.
     expect(allowed).not.toBeNull();
@@ -123,11 +109,7 @@ describe("ref picker candidates (declared targets win)", () => {
 
   it("offers the declared targets in the picker for fieldType", () => {
     const nodes = ontology();
-    const allowed = resolveAllowedRefIds(
-      nodes.get(SYSTEM_IDS.fieldTypeField),
-      nodes,
-      null,
-    );
+    const allowed = resolveAllowedRefIds(nodes.get(SYSTEM_IDS.fieldTypeField), nodes, null);
     const html = renderRefSlot(nodes, allowed);
     expect(html).toContain('role="listbox"');
     for (const id of OPTION_IDS) expect(html).toContain(id);
@@ -180,7 +162,7 @@ describe("an unset ref slot opens on focus, not on mount", () => {
     expect(html).toContain('tabindex="0"');
   });
 
-  it("a slot the user minted with \"+ value\" opens focused", () => {
+  it('a slot the user minted with "+ value" opens focused', () => {
     const nodes = ontology();
     const html = renderRefSlot(nodes, new Set(OPTION_IDS), true);
     expect(html).toContain("autofocus");

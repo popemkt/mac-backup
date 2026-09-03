@@ -16,9 +16,7 @@ import {
 } from "@/lib/pinned";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 
-function outline(
-  partial: Partial<OutlineNode> & Pick<OutlineNode, "id" | "text">,
-): OutlineNode {
+function outline(partial: Partial<OutlineNode> & Pick<OutlineNode, "id" | "text">): OutlineNode {
   return {
     parentId: null,
     children: [],

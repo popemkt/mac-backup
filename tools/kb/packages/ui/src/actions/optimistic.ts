@@ -22,11 +22,7 @@ type ActionSpec = PlannedMutation["actions"][number];
  * authoritative refetch is down — they bundle unconfirmed children[] edits.
  */
 function isStructuralAction(action: ActionSpec): boolean {
-  if (
-    action.id === "node.add" ||
-    action.id === "field.define" ||
-    action.id === "tag.define"
-  ) {
+  if (action.id === "node.add" || action.id === "field.define" || action.id === "tag.define") {
     return true;
   }
   if (action.id !== "node.update") return false;
@@ -39,10 +35,7 @@ function isStructuralAction(action: ActionSpec): boolean {
 }
 
 /** Apply a confirmed non-structural action onto a wire set (text/props only). */
-function applySafeConfirmedAction(
-  nodes: WireNode[],
-  action: ActionSpec,
-): WireNode[] | null {
+function applySafeConfirmedAction(nodes: WireNode[], action: ActionSpec): WireNode[] | null {
   if (isStructuralAction(action)) return null;
   if (action.id !== "node.update") return null;
 
@@ -66,9 +59,7 @@ function applySafeConfirmedAction(
     for (const u of input.unsetProps) {
       if (u.value !== undefined) {
         const list = next.props[u.field] ?? [];
-        const filtered = list.filter(
-          (pv) => JSON.stringify(pv) !== JSON.stringify(u.value),
-        );
+        const filtered = list.filter((pv) => JSON.stringify(pv) !== JSON.stringify(u.value));
         if (filtered.length === 0) delete next.props[u.field];
         else next.props[u.field] = filtered;
       } else {
@@ -112,9 +103,7 @@ function restoreAfterFailedPlan(
   const revFloor = store.rev;
   const preById = new Map(preNodes.map((n) => [n.id, n]));
   const touched = planTouchedIds(plan);
-  const minted = plan.upserts
-    .map((u) => u.id)
-    .filter((id) => !preById.has(id));
+  const minted = plan.upserts.map((u) => u.id).filter((id) => !preById.has(id));
 
   // Preserve unrelated nodes from the live graph (concurrent remote updates).
   let next = cloneWireNodes(store.wireNodes);
@@ -149,9 +138,7 @@ async function recoverFailedPlan(
     const fresh = await fetchGraphSnapshot();
     useOutlineStore.getState().refreshFromWire(fresh.nodes, fresh.rev);
   } catch (err) {
-    toast(
-      `graph resync failed: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    toast(`graph resync failed: ${err instanceof Error ? err.message : String(err)}`);
     restoreAfterFailedPlan(plan, preNodes, serverApplied);
   }
 }
@@ -180,10 +167,7 @@ export async function runOptimistic(
     next.activateNode(plan.focusId, plan.focusCursor ?? 0, key);
   }
 
-  const skip =
-    opts?.skipRemote === true ||
-    source === "fixtures" ||
-    source === null;
+  const skip = opts?.skipRemote === true || source === "fixtures" || source === null;
 
   if (skip) {
     return {

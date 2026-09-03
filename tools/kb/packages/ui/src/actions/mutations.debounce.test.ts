@@ -4,10 +4,7 @@ import { setFetchGraphSnapshot } from "@/api/graph";
 import { fixtureGraph } from "@/fixtures/graph";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
-import {
-  __resetPendingContentForTests,
-  mutations,
-} from "@/actions/mutations";
+import { __resetPendingContentForTests, mutations } from "@/actions/mutations";
 
 vi.mock("@/lib/toast", () => ({
   toast: vi.fn(),
@@ -33,11 +30,7 @@ function seed(source: "api" | "fixtures" = "api") {
   });
   useOutlineStore
     .getState()
-    .hydrateFromWire(
-      structuredClone(fixtureGraph.nodes),
-      fixtureGraph.rev,
-      source,
-    );
+    .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, source);
 }
 
 describe("debounced text-save rollback", () => {
@@ -84,33 +77,20 @@ describe("debounced text-save rollback", () => {
     // B starts later so A's debounce fires first while B stays pending.
     mutations.updateNodeContent("n.root-b", "concurrent-pending");
 
-    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(
-      "failed-edit",
-    );
-    expect(useOutlineStore.getState().nodes.get("n.root-b")?.text).toBe(
-      "concurrent-pending",
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe("failed-edit");
+    expect(useOutlineStore.getState().nodes.get("n.root-b")?.text).toBe("concurrent-pending");
 
     await vi.advanceTimersByTimeAsync(80);
 
     expect(fetchGraphSnapshot).toHaveBeenCalled();
-    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(
-      originalA,
-    );
-    expect(useOutlineStore.getState().nodes.get("n.root-b")?.text).toBe(
-      "concurrent-pending",
-    );
-    expect(useOutlineStore.getState().nodes.get("n.root-b")?.text).not.toBe(
-      originalB,
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(originalA);
+    expect(useOutlineStore.getState().nodes.get("n.root-b")?.text).toBe("concurrent-pending");
+    expect(useOutlineStore.getState().nodes.get("n.root-b")?.text).not.toBe(originalB);
   });
 
   it("resync failure restores only the failed node, not the whole graph", async () => {
     const originalA = useOutlineStore.getState().nodes.get("n.root-a")!.text;
-    const restoreSpy = vi.spyOn(
-      useOutlineStore.getState(),
-      "restoreSnapshot",
-    );
+    const restoreSpy = vi.spyOn(useOutlineStore.getState(), "restoreSnapshot");
     const hydrateSpy = vi.spyOn(useOutlineStore.getState(), "hydrateFromWire");
     hydrateSpy.mockClear();
 
@@ -118,9 +98,7 @@ describe("debounced text-save rollback", () => {
     useOutlineStore.getState().applyTx(
       [
         {
-          ...useOutlineStore
-            .getState()
-            .wireNodes.find((n) => n.id === "n.root-c")!,
+          ...useOutlineStore.getState().wireNodes.find((n) => n.id === "n.root-c")!,
           text: "landed-elsewhere",
         },
       ],
@@ -150,15 +128,9 @@ describe("debounced text-save rollback", () => {
     expect(restoreSpy).not.toHaveBeenCalled();
     expect(hydrateSpy).not.toHaveBeenCalled();
     expect(useOutlineStore.getState().loadSource).toBe("api");
-    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(
-      originalA,
-    );
-    expect(useOutlineStore.getState().nodes.get("n.root-b")?.text).toBe(
-      "still-pending",
-    );
-    expect(useOutlineStore.getState().nodes.get("n.root-c")?.text).toBe(
-      "landed-elsewhere",
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(originalA);
+    expect(useOutlineStore.getState().nodes.get("n.root-b")?.text).toBe("still-pending");
+    expect(useOutlineStore.getState().nodes.get("n.root-c")?.text).toBe("landed-elsewhere");
 
     restoreSpy.mockRestore();
     hydrateSpy.mockRestore();
@@ -166,10 +138,7 @@ describe("debounced text-save rollback", () => {
 
   it("re-applies a same-node re-edit typed during in-flight resync", async () => {
     const originalA = useOutlineStore.getState().nodes.get("n.root-a")!.text;
-    let resolveResync!: (value: {
-      rev: number;
-      nodes: typeof fixtureGraph.nodes;
-    }) => void;
+    let resolveResync!: (value: { rev: number; nodes: typeof fixtureGraph.nodes }) => void;
     fetchGraphSnapshot.mockReturnValue(
       new Promise((resolve) => {
         resolveResync = resolve;
@@ -196,9 +165,7 @@ describe("debounced text-save rollback", () => {
 
     // User types a newer edit while resync is still in flight.
     mutations.updateNodeContent("n.root-a", "edit2");
-    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(
-      "edit2",
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe("edit2");
 
     resolveResync({
       rev: 2,
@@ -207,19 +174,13 @@ describe("debounced text-save rollback", () => {
     await vi.advanceTimersByTimeAsync(0);
 
     // Must keep the newer local edit — not the stale server original.
-    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe(
-      "edit2",
-    );
-    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).not.toBe(
-      originalA,
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).toBe("edit2");
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.text).not.toBe(originalA);
   });
 
   it("skips a missing pending node without aborting sibling re-applies", async () => {
     const originalC = useOutlineStore.getState().nodes.get("n.root-c")!.text;
-    const wireWithoutB = structuredClone(fixtureGraph.nodes).filter(
-      (n) => n.id !== "n.root-b",
-    );
+    const wireWithoutB = structuredClone(fixtureGraph.nodes).filter((n) => n.id !== "n.root-b");
 
     fetchGraphSnapshot.mockResolvedValue({
       rev: 3,
@@ -250,12 +211,8 @@ describe("debounced text-save rollback", () => {
 
     expect(fetchGraphSnapshot).toHaveBeenCalled();
     expect(useOutlineStore.getState().nodes.get("n.root-b")).toBeUndefined();
-    expect(useOutlineStore.getState().nodes.get("n.root-c")?.text).toBe(
-      "sibling-must-survive",
-    );
-    expect(useOutlineStore.getState().nodes.get("n.root-c")?.text).not.toBe(
-      originalC,
-    );
+    expect(useOutlineStore.getState().nodes.get("n.root-c")?.text).toBe("sibling-must-survive");
+    expect(useOutlineStore.getState().nodes.get("n.root-c")?.text).not.toBe(originalC);
   });
 
   it("never swaps live api data for demo fixtures on resync failure", async () => {
@@ -274,13 +231,9 @@ describe("debounced text-save rollback", () => {
     await vi.advanceTimersByTimeAsync(280);
 
     expect(hydrateSpy).not.toHaveBeenCalled();
-    expect(
-      hydrateSpy.mock.calls.some((call) => call[2] === "fixtures"),
-    ).toBe(false);
+    expect(hydrateSpy.mock.calls.some((call) => call[2] === "fixtures")).toBe(false);
     expect(useOutlineStore.getState().loadSource).toBe("api");
-    expect(
-      useOutlineStore.getState().nodes.has("n.root-a"),
-    ).toBe(true);
+    expect(useOutlineStore.getState().nodes.has("n.root-a")).toBe(true);
 
     hydrateSpy.mockRestore();
   });

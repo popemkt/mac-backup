@@ -24,14 +24,14 @@ if [ -d "$repo_root/.kb" ]; then
   "$repo_root/scripts/check-kb-assets-backup.sh" check
 fi
 
-# kb TS7 typecheck gate: zero-error `tsc --noEmit` for changed kb packages.
+# kb verify gate: typecheck + lint + fmt:check + knip + harness for kb workspace.
 # Dependencies may be absent on a fresh checkout, so report the recovery step.
 if git diff --cached --name-only --diff-filter=ACMRD | grep -q '^tools/kb/'; then
   if [ -x "$repo_root/tools/kb/node_modules/.bin/nx" ]; then
-    echo "==> typecheck (kb workspace)"
-    (cd "$repo_root/tools/kb" && bun run typecheck)
+    echo "==> verify (kb workspace)"
+    (cd "$repo_root/tools/kb" && bun run verify)
   else
-    echo "warning: kb typecheck skipped — dependencies are unavailable; run: bun install --cwd tools/kb" >&2
+    echo "warning: kb verify skipped — dependencies are unavailable; run: bun install --cwd tools/kb" >&2
   fi
 fi
 

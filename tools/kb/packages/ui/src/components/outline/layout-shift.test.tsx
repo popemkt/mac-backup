@@ -56,15 +56,12 @@ describe("layout-shift regressions (i10)", () => {
 
   it("FieldRow remove button reserves width via opacity (not display)", () => {
     const html = renderToStaticMarkup(
-      createElement(
-        FieldRow,
-        {
-          depth: 0,
-          label: "status",
-          onRemove: () => undefined,
-          children: createElement("span", null, "doing"),
-        },
-      ),
+      createElement(FieldRow, {
+        depth: 0,
+        label: "status",
+        onRemove: () => undefined,
+        children: createElement("span", null, "doing"),
+      }),
     );
     expect(html).toContain("opacity-0");
     expect(html).toContain("group-hover/field:opacity-100");
@@ -73,29 +70,20 @@ describe("layout-shift regressions (i10)", () => {
   });
 
   it("CommandPalette shell keeps fixed max width empty and matched", () => {
-    const src = readFileSync(
-      path.join(outlineDir, "../palette/command-palette.tsx"),
-      "utf8",
-    );
+    const src = readFileSync(path.join(outlineDir, "../palette/command-palette.tsx"), "utf8");
     expect(src).toMatch(/w-full max-w-\[520px\]/);
     expect(src).toMatch(/max-h-\[min\(20\*2rem,50vh\)\]/);
   });
 
   it("node command palette always occupies the list slot", () => {
-    const src = readFileSync(
-      path.join(outlineDir, "node-command-palette.tsx"),
-      "utf8",
-    );
+    const src = readFileSync(path.join(outlineDir, "node-command-palette.tsx"), "utf8");
     expect(src).toContain('data-palette-list="true"');
     expect(src).toContain("min-h-[2.5rem]");
     expect(src).not.toMatch(/items\.length > 0 && \(/);
   });
 
   it("the main scroll region reserves its scrollbar gutter", () => {
-    const src = readFileSync(
-      path.join(outlineDir, "../App.tsx"),
-      "utf8",
-    );
+    const src = readFileSync(path.join(outlineDir, "../App.tsx"), "utf8");
     // One owner of "the main region" — the className is not restated per route.
     expect(src).toMatch(/function MainRegion\(/);
     expect((src.match(/<main\b/g) ?? []).length).toBe(1);
@@ -114,10 +102,7 @@ describe("layout-shift regressions (i10)", () => {
     // `overflow-auto` (the unrelated `<pre>` in the error view may keep it).
     expect(src).toMatch(/scroll \? "overflow-x-auto overflow-y-scroll"/);
     // And the shift is fixed at the scroll region, not compensated downstream.
-    const crumbs = readFileSync(
-      path.join(outlineDir, "breadcrumbs.tsx"),
-      "utf8",
-    );
+    const crumbs = readFileSync(path.join(outlineDir, "breadcrumbs.tsx"), "utf8");
     expect(crumbs).not.toMatch(/scrollbar|margin-left|\bml-|padding-right|\bpr-/);
   });
 });

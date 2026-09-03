@@ -95,7 +95,7 @@ describe("kb ui server", () => {
       expect(hintBody.error).toBe("ui_not_built");
     } else {
       expect(uiRoot.status).toBe(200);
-      expect(await uiRoot.text()).toContain("<div id=\"root\">");
+      expect(await uiRoot.text()).toContain('<div id="root">');
     }
 
     const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/ws`);
@@ -107,15 +107,9 @@ describe("kb ui server", () => {
     const hello = await waitFor(ws, (m) => m.op === "hello");
     expect(hello).toEqual({ op: "hello", rev: 0 });
 
-    const subQuery =
-      '[:find ?id :where [?e :node/id ?id] [?e :node/text "ui-live-node"]]';
-    ws.send(
-      JSON.stringify({ op: "subscribe", id: "s1", query: subQuery }),
-    );
-    const initialRows = await waitFor(
-      ws,
-      (m) => m.op === "rows" && m.id === "s1",
-    );
+    const subQuery = '[:find ?id :where [?e :node/id ?id] [?e :node/text "ui-live-node"]]';
+    ws.send(JSON.stringify({ op: "subscribe", id: "s1", query: subQuery }));
+    const initialRows = await waitFor(ws, (m) => m.op === "rows" && m.id === "s1");
     expect(initialRows.op).toBe("rows");
     if (initialRows.op === "rows") {
       expect(initialRows.rows.length).toBe(0);
@@ -126,11 +120,7 @@ describe("kb ui server", () => {
     const txPromise = waitFor(ws, (m) => m.op === "tx");
     const rowsPromise = waitFor(
       ws,
-      (m) =>
-        m.op === "rows" &&
-        m.id === "s1" &&
-        Array.isArray(m.rows) &&
-        m.rows.length > 0,
+      (m) => m.op === "rows" && m.id === "s1" && Array.isArray(m.rows) && m.rows.length > 0,
     );
 
     const actionResp = await fetch(`${handle.url}/api/action`, {
@@ -171,10 +161,7 @@ describe("kb ui server", () => {
       expect(err.code).toBe("invalid_json");
     }
 
-    const badPromise = waitFor(
-      ws,
-      (m) => m.op === "error" && m.code === "invalid_message",
-    );
+    const badPromise = waitFor(ws, (m) => m.op === "error" && m.code === "invalid_message");
     ws.send(JSON.stringify({ op: "subscribe" }));
     const bad = await badPromise;
     expect(bad.op).toBe("error");
@@ -283,9 +270,7 @@ describe("kb ui server", () => {
     const missing = await fetch(`${handle.url}/assets/does-not-exist.png`);
     expect(missing.status).toBe(404);
 
-    const traversal = await fetch(
-      `${handle.url}/assets/..%2fnodes.jsonl`,
-    );
+    const traversal = await fetch(`${handle.url}/assets/..%2fnodes.jsonl`);
     expect(traversal.status).toBe(403);
 
     const man = await fetch(`${handle.url}/api/manifest`);

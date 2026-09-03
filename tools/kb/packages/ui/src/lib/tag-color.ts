@@ -45,10 +45,7 @@ export function hashTagColor(tagId: string): string {
 }
 
 /** Explicit tag-node `color` prop overrides the hash. */
-export function resolveTagColor(
-  tagId: string,
-  explicitColor?: string | null,
-): string {
+export function resolveTagColor(tagId: string, explicitColor?: string | null): string {
   const trimmed = explicitColor?.trim();
   if (trimmed) return trimmed;
   return hashTagColor(tagId);
@@ -61,9 +58,7 @@ export function resolveTagColor(
  * nothing more than one, and collapsing them keeps a same-colored multi-tag
  * node rendering exactly like a single-tag one.
  */
-export function nodeTagColors(
-  node: { tags: readonly TagBadge[] } | null | undefined,
-): string[] {
+export function nodeTagColors(node: { tags: readonly TagBadge[] } | null | undefined): string[] {
   if (!node) return [];
   const colors = new Set<string>();
   for (const tag of node.tags) {
@@ -97,19 +92,12 @@ function stop(value: number): string {
  * Only *filled* surfaces can take this. A stroke or a glyph carries one color;
  * those callers read `nodeTagColors(...)[0]`.
  */
-export function tagColorFill(
-  colors: readonly string[],
-  opacityPercent = 100,
-): string | null {
+export function tagColorFill(colors: readonly string[], opacityPercent = 100): string | null {
   if (colors.length === 0) return null;
   const paints =
-    opacityPercent >= 100
-      ? colors
-      : colors.map((color) => tagColorAlpha(color, opacityPercent));
+    opacityPercent >= 100 ? colors : colors.map((color) => tagColorAlpha(color, opacityPercent));
   if (paints.length === 1) return paints[0]!;
   const step = 100 / paints.length;
-  const wedges = paints.map(
-    (paint, i) => `${paint} ${stop(i * step)} ${stop((i + 1) * step)}`,
-  );
+  const wedges = paints.map((paint, i) => `${paint} ${stop(i * step)} ${stop((i + 1) * step)}`);
   return `conic-gradient(from 0deg, ${wedges.join(", ")})`;
 }

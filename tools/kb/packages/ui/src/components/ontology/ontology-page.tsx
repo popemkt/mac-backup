@@ -12,11 +12,7 @@ import { mutations } from "@/actions/mutations";
 import { MemberRow } from "@/components/ontology/member-row";
 import { RefAddPopover } from "@/components/ontology/ref-add-popover";
 import { cn } from "@/lib/cn";
-import {
-  excludedRows,
-  memberRows,
-  resolveScope,
-} from "@/lib/ontology-scope";
+import { excludedRows, memberRows, resolveScope } from "@/lib/ontology-scope";
 import { navigate } from "@/lib/router";
 import { resolveTagColor } from "@/lib/tag-color";
 import { SYSTEM_IDS } from "@/lib/types";
@@ -40,17 +36,13 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
   const rev = useOutlineStore((s) => s.rev);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);
 
-  const byId = useMemo(
-    () => new Map(wireNodes.map((n) => [n.id, n])),
-    [wireNodes],
-  );
+  const byId = useMemo(() => new Map(wireNodes.map((n) => [n.id, n])), [wireNodes]);
   const onto = byId.get(ontologyId);
 
   // Consults the unscoped wire nodes first, so a node the scope excludes still
   // resolves to its text instead of showing a raw id.
   const labelFor = useCallback(
-    (id: string): string =>
-      byId.get(id)?.text?.trim() || nodes.get(id)?.text?.trim() || id,
+    (id: string): string => byId.get(id)?.text?.trim() || nodes.get(id)?.text?.trim() || id,
     [byId, nodes],
   );
 
@@ -59,29 +51,17 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
     [wireNodes, ontologyId, queryDb, rev],
   );
 
-  const members = useMemo(
-    () => memberRows(resolution, labelFor),
-    [resolution, labelFor],
-  );
-  const excluded = useMemo(
-    () => excludedRows(resolution, labelFor),
-    [resolution, labelFor],
-  );
+  const members = useMemo(() => memberRows(resolution, labelFor), [resolution, labelFor]);
+  const excluded = useMemo(() => excludedRows(resolution, labelFor), [resolution, labelFor]);
 
-  const includeTags = onto
-    ? refValuesOf(onto, SYSTEM_IDS.ontoIncludeField)
-    : [];
-  const extendsIds = onto
-    ? refValuesOf(onto, SYSTEM_IDS.ontoExtendsField)
-    : [];
+  const includeTags = onto ? refValuesOf(onto, SYSTEM_IDS.ontoIncludeField) : [];
+  const extendsIds = onto ? refValuesOf(onto, SYSTEM_IDS.ontoExtendsField) : [];
   const closure = onto
     ? strValueOf(onto, SYSTEM_IDS.ontoClosureField) === "descendants"
       ? "descendants"
       : "none"
     : "none";
-  const storedQuery = onto
-    ? (strValueOf(onto, SYSTEM_IDS.ontoQueryField) ?? "")
-    : "";
+  const storedQuery = onto ? (strValueOf(onto, SYSTEM_IDS.ontoQueryField) ?? "") : "";
 
   const tagCandidates = useMemo(() => {
     const taken = new Set(includeTags); // oxlint-disable-line react-hooks/exhaustive-deps -- includeTags is a fresh array each render; the memo depends on its contents via the joined-key dep below
@@ -105,11 +85,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
         return {
           id: n.id,
           label: n.text || n.id,
-          note: taken.has(n.id)
-            ? "extended"
-            : cycles
-              ? "would cycle"
-              : undefined,
+          note: taken.has(n.id) ? "extended" : cycles ? "would cycle" : undefined,
           disabled: taken.has(n.id) || cycles,
         };
       })
@@ -119,12 +95,9 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
   if (!onto) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-6">
-        <h2 className="kb-text font-medium text-foreground/80">
-          Ontology not found
-        </h2>
+        <h2 className="kb-text font-medium text-foreground/80">Ontology not found</h2>
         <p className="mt-1 text-[13px] text-foreground/45">
-          <span className="font-mono text-[12px]">{ontologyId}</span> is not in
-          this workspace.
+          <span className="font-mono text-[12px]">{ontologyId}</span> is not in this workspace.
         </p>
         <button
           type="button"
@@ -167,17 +140,13 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
 
         <DefinitionRow label="extends">
           {extendsIds.length === 0 ? (
-            <EmptyHint>
-              no parents — extending an ontology inherits its members
-            </EmptyHint>
+            <EmptyHint>no parents — extending an ontology inherits its members</EmptyHint>
           ) : (
             extendsIds.map((parentId) => (
               <Chip
                 key={parentId}
                 label={`⬡ ${labelFor(parentId)}`}
-                onRemove={() =>
-                  void mutations.ontologyRemoveExtends(ontologyId, parentId)
-                }
+                onRemove={() => void mutations.ontologyRemoveExtends(ontologyId, parentId)}
                 removeLabel={`Remove extends ${labelFor(parentId)}`}
               />
             ))
@@ -195,9 +164,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
           <QueryEditor
             ontologyId={ontologyId}
             value={storedQuery}
-            warning={resolution.warnings.find((w) =>
-              w.startsWith("onto.query"),
-            )}
+            warning={resolution.warnings.find((w) => w.startsWith("onto.query"))}
           />
         </DefinitionRow>
 
@@ -209,15 +176,10 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
             ]}
             value={closure}
             onChange={(v) =>
-              void mutations.ontologySetClosure(
-                ontologyId,
-                v as "none" | "descendants",
-              )
+              void mutations.ontologySetClosure(ontologyId, v as "none" | "descendants")
             }
           />
-          <span className="text-[11px] text-foreground/30">
-            pull whole subtrees of members in
-          </span>
+          <span className="text-[11px] text-foreground/30">pull whole subtrees of members in</span>
         </DefinitionRow>
       </section>
 
@@ -238,8 +200,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
         <SectionTitle count={members.length}>Members</SectionTitle>
         {members.length === 0 ? (
           <p className="px-1.5 py-1 text-[12px] text-foreground/35">
-            Nothing here yet. Include a tag, extend another ontology, or pin
-            nodes from the outline.
+            Nothing here yet. Include a tag, extend another ontology, or pin nodes from the outline.
           </p>
         ) : (
           <div className="flex flex-col">
@@ -253,9 +214,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
                   jumpToNode(id);
                 }}
                 onPin={(id) => void mutations.ontologyAddMember(ontologyId, id)}
-                onUnpin={(id) =>
-                  void mutations.ontologyRemoveMember(ontologyId, id)
-                }
+                onUnpin={(id) => void mutations.ontologyRemoveMember(ontologyId, id)}
                 onExclude={(id) => void mutations.ontologyExclude(ontologyId, id)}
               />
             ))}
@@ -273,15 +232,12 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
                 row={row}
                 labelOf={labelFor}
                 excluded
-                onRestore={(id) =>
-                  void mutations.ontologyUnexclude(ontologyId, id)
-                }
+                onRestore={(id) => void mutations.ontologyUnexclude(ontologyId, id)}
               />
             ))}
           </div>
           <p className="mt-1 px-1.5 text-[11px] text-foreground/30">
-            Excluded nodes keep their tags — they are hidden from this ontology
-            only.
+            Excluded nodes keep their tags — they are hidden from this ontology only.
           </p>
         </section>
       ) : null}
@@ -338,7 +294,6 @@ function OntologyTitle({ id, text }: { id: string; text: string }) {
   );
 }
 
-
 function isTagNode(node: WireNode): boolean {
   return typeRefsOf(node).includes(SYSTEM_IDS.tag);
 }
@@ -358,12 +313,7 @@ function DefinitionRow({
   align?: "center" | "start";
 }) {
   return (
-    <div
-      className={cn(
-        "flex gap-3",
-        align === "center" ? "items-center" : "items-start",
-      )}
-    >
+    <div className={cn("flex gap-3", align === "center" ? "items-center" : "items-start")}>
       <span
         className={cn(
           "w-16 shrink-0 text-[11px] uppercase tracking-wide text-foreground/30",
@@ -372,9 +322,7 @@ function DefinitionRow({
       >
         {label}
       </span>
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-        {children}
-      </div>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">{children}</div>
     </div>
   );
 }
@@ -417,19 +365,11 @@ function Chip({
   );
 }
 
-function SectionTitle({
-  children,
-  count,
-}: {
-  children: React.ReactNode;
-  count: number;
-}) {
+function SectionTitle({ children, count }: { children: React.ReactNode; count: number }) {
   return (
     <h2 className="mb-1 flex items-center gap-1.5 px-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground/30">
       {children}
-      <span className="font-normal normal-case tracking-normal text-foreground/25">
-        {count}
-      </span>
+      <span className="font-normal normal-case tracking-normal text-foreground/25">{count}</span>
     </h2>
   );
 }
@@ -523,9 +463,7 @@ function QueryEditor({
           }
         }}
       />
-      {warning ? (
-        <span className="text-[11px] text-warning">{warning}</span>
-      ) : null}
+      {warning ? <span className="text-[11px] text-warning">{warning}</span> : null}
     </div>
   );
 }

@@ -47,17 +47,11 @@ export function findPinnedTagId(nodes: NodeMap): string | null {
  * a second one. Unpinning has to remove the ones the node carries, not the one
  * a graph-wide scan happened to pick first.
  */
-export function pinnedTagIdsOn(
-  node: OutlineNode | undefined,
-  nodes: NodeMap,
-): string[] {
+export function pinnedTagIdsOn(node: OutlineNode | undefined, nodes: NodeMap): string[] {
   return typeRefsOf(node).filter((id) => isPinnedTagNode(nodes.get(id)));
 }
 
-export function isPinned(
-  node: OutlineNode | undefined,
-  nodes: NodeMap,
-): boolean {
+export function isPinned(node: OutlineNode | undefined, nodes: NodeMap): boolean {
   return pinnedTagIdsOn(node, nodes).length > 0;
 }
 
@@ -65,9 +59,5 @@ export function isPinned(
 export function listPinnedNodes(nodes: NodeMap): OutlineNode[] {
   return [...nodes.values()]
     .filter((n) => isPinned(n, nodes))
-    .sort(
-      (a, b) =>
-        (a.text || a.id).localeCompare(b.text || b.id) ||
-        a.id.localeCompare(b.id),
-    );
+    .sort((a, b) => (a.text || a.id).localeCompare(b.text || b.id) || a.id.localeCompare(b.id));
 }

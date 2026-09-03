@@ -57,9 +57,7 @@ export function FieldValueStack({
    * "+ value" is the continuation of that click and opens focused.
    */
   const emptySlots: boolean[] =
-    values.length === 0
-      ? [false]
-      : Array.from({ length: pendingSlots }, () => true);
+    values.length === 0 ? [false] : Array.from({ length: pendingSlots }, () => true);
 
   return (
     <div className="flex min-w-0 flex-col" data-field-values={fieldId}>
@@ -164,13 +162,7 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
         const fieldNode = nodes.get(p.fieldId);
         const allowedRefIds =
           fieldType === "ref"
-            ? resolveAllowedRefIdsCached(
-                p.fieldId,
-                fieldNode,
-                nodes,
-                queryDb,
-                rev,
-              )
+            ? resolveAllowedRefIdsCached(p.fieldId, fieldNode, nodes, queryDb, rev)
             : null;
         const debug = "debug" in p ? Boolean(p.debug) : false;
         const values = p.values as PropValue[];

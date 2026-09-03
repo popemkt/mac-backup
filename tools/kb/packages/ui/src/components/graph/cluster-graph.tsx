@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Graph from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Sigma from "sigma";
@@ -7,10 +7,7 @@ import { hashTagColor } from "@/lib/tag-color";
 import { readTokenColor } from "@/lib/css-color";
 import { withGraphAlpha } from "@/lib/graph-dim";
 import { convexHull } from "@/lib/convex-hull";
-import {
-  sigmaCameraControls,
-  type GraphCameraControls,
-} from "./graph-camera-controls";
+import { sigmaCameraControls, type GraphCameraControls } from "./graph-camera-controls";
 
 type CameraSnap = { x: number; y: number; angle: number; ratio: number };
 
@@ -47,7 +44,7 @@ export function ClusterGraph({
   nodes,
   edges,
   onNodeClick,
-  onClusterFilter,
+  onClusterFilter: _onClusterFilter,
   layoutKey,
   themeKey,
   onControlsReady,
@@ -62,7 +59,12 @@ export function ClusterGraph({
   onClickRef.current = onNodeClick;
   const onControlsReadyRef = useRef(onControlsReady);
   onControlsReadyRef.current = onControlsReady;
-  const dragRef = useRef<{ node: string; dragging: boolean; startX: number; startY: number } | null>(null);
+  const dragRef = useRef<{
+    node: string;
+    dragging: boolean;
+    startX: number;
+    startY: number;
+  } | null>(null);
   const [isolatedCluster, setIsolatedCluster] = useState<string | null>(null);
 
   useEffect(() => {
@@ -76,7 +78,8 @@ export function ClusterGraph({
     const graph = new Graph({ multi: true, type: "directed" });
     const allClusters = [...new Set(nodes.map((n) => n.clusterKey))].sort();
     const clusterSizes = new Map<string, number>();
-    for (const n of nodes) clusterSizes.set(n.clusterKey, (clusterSizes.get(n.clusterKey) ?? 0) + 1);
+    for (const n of nodes)
+      clusterSizes.set(n.clusterKey, (clusterSizes.get(n.clusterKey) ?? 0) + 1);
     const topClusters = allClusters
       .sort((a, b) => (clusterSizes.get(b) ?? 0) - (clusterSizes.get(a) ?? 0))
       .slice(0, 15);
@@ -112,12 +115,10 @@ export function ClusterGraph({
       const e = edges[i]!;
       if (!graph.hasNode(e.source) || !graph.hasNode(e.target)) continue;
       try {
-        graph.addEdgeWithKey(
-          `${e.kind}:${e.source}->${e.target}:${i}`,
-          e.source,
-          e.target,
-          { kind: e.kind, size: 1 },
-        );
+        graph.addEdgeWithKey(`${e.kind}:${e.source}->${e.target}:${i}`, e.source, e.target, {
+          kind: e.kind,
+          size: 1,
+        });
       } catch {
         /* dup */
       }
@@ -200,12 +201,14 @@ export function ClusterGraph({
         });
         if (pts.length < 2) continue;
         const pad = 24;
-        const hull = convexHull(pts.flatMap((p) => [
-          { x: p.x - pad, y: p.y - pad },
-          { x: p.x + pad, y: p.y - pad },
-          { x: p.x + pad, y: p.y + pad },
-          { x: p.x - pad, y: p.y + pad },
-        ]));
+        const hull = convexHull(
+          pts.flatMap((p) => [
+            { x: p.x - pad, y: p.y - pad },
+            { x: p.x + pad, y: p.y - pad },
+            { x: p.x + pad, y: p.y + pad },
+            { x: p.x - pad, y: p.y + pad },
+          ]),
+        );
         const color = clusterColor(key);
         ctx.beginPath();
         if (hull.length === 2) {
@@ -217,10 +220,16 @@ export function ClusterGraph({
         } else {
           const PAD = 0;
           const padded = hull.map((p) => {
-            let cx = 0, cy = 0;
-            for (const q of hull) { cx += q.x; cy += q.y; }
-            cx /= hull.length; cy /= hull.length;
-            const dx = p.x - cx, dy = p.y - cy;
+            let cx = 0,
+              cy = 0;
+            for (const q of hull) {
+              cx += q.x;
+              cy += q.y;
+            }
+            cx /= hull.length;
+            cy /= hull.length;
+            const dx = p.x - cx,
+              dy = p.y - cy;
             const dist = Math.hypot(dx, dy) || 1;
             return { x: p.x + (dx / dist) * PAD, y: p.y + (dy / dist) * PAD };
           });
@@ -247,9 +256,14 @@ export function ClusterGraph({
         ctx.strokeStyle = withGraphAlpha(color, 0.25);
         ctx.lineWidth = 1.5;
         ctx.stroke();
-        let cx = 0, cy = 0;
-        for (const p of pts) { cx += p.x; cy += p.y; }
-        cx /= pts.length; cy /= pts.length;
+        let cx = 0,
+          cy = 0;
+        for (const p of pts) {
+          cx += p.x;
+          cy += p.y;
+        }
+        cx /= pts.length;
+        cy /= pts.length;
         ctx.fillStyle = labelColor;
         ctx.font = "bold 11px Outfit Variable, ui-sans-serif, system-ui, sans-serif";
         ctx.textAlign = "center";
@@ -266,10 +280,8 @@ export function ClusterGraph({
     });
 
     // --- Node drag (MUST 7) ---
-    sigma.on("downNode", ({ node, event }) => {
-      const pos = sigma.graphToViewport(
-        graph.getNodeAttributes(node) as { x: number; y: number },
-      );
+    sigma.on("downNode", ({ node, event: _event }) => {
+      const pos = sigma.graphToViewport(graph.getNodeAttributes(node) as { x: number; y: number });
       dragRef.current = { node, dragging: false, startX: pos.x, startY: pos.y };
       sigma.getCamera().disable();
     });
@@ -315,18 +327,20 @@ export function ClusterGraph({
         });
         if (pts.length < 3) continue;
         const pad = 24;
-        const hull = convexHull(pts.flatMap((p) => [
-          { x: p.x - pad, y: p.y - pad },
-          { x: p.x + pad, y: p.y - pad },
-          { x: p.x + pad, y: p.y + pad },
-          { x: p.x - pad, y: p.y + pad },
-        ]));
+        const hull = convexHull(
+          pts.flatMap((p) => [
+            { x: p.x - pad, y: p.y - pad },
+            { x: p.x + pad, y: p.y - pad },
+            { x: p.x + pad, y: p.y + pad },
+            { x: p.x - pad, y: p.y + pad },
+          ]),
+        );
         const path2d = new Path2D();
         path2d.moveTo(hull[0]!.x, hull[0]!.y);
         for (let i = 1; i < hull.length; i++) path2d.lineTo(hull[i]!.x, hull[i]!.y);
         path2d.closePath();
         if (ctx.isPointInPath(path2d, cx, cy)) {
-          setIsolatedCluster((prev) => prev === key ? null : key);
+          setIsolatedCluster((prev) => (prev === key ? null : key));
           return;
         }
       }
@@ -389,10 +403,7 @@ export function ClusterGraph({
   return (
     <div className="relative h-full w-full min-h-0" data-testid="cluster-graph">
       {/* Hull canvas between Sigma layers for fills + click targets. */}
-      <canvas
-        ref={hullRef}
-        className="absolute inset-0 z-20"
-      />
+      <canvas ref={hullRef} className="absolute inset-0 z-20" />
       <div ref={containerRef} className="absolute inset-0 z-10" />
       {isolatedCluster && (
         <button

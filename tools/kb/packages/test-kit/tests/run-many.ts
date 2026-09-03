@@ -22,5 +22,7 @@ for (const seed of all) {
   await cleanup(r);
 }
 
-console.log(failures === 0 ? `ALL ${all.length} SEEDS GREEN` : `${failures}/${all.length} SEEDS FAILED`);
+console.log(
+  failures === 0 ? `ALL ${all.length} SEEDS GREEN` : `${failures}/${all.length} SEEDS FAILED`,
+);
 process.exit(failures === 0 ? 0 : 1);

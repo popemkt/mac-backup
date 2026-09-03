@@ -119,9 +119,7 @@ function measureUpTo(node: Node, state: MeasureState): void {
  * Character offset of the caret in the SERIALIZED string. Pills count as
  * their full token, so offsets align with stored node text (D06/D16).
  */
-export function getCaretSerializedOffset(
-  el: HTMLElement | null | undefined,
-): number {
+export function getCaretSerializedOffset(el: HTMLElement | null | undefined): number {
   if (!el) return 0;
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) return 0;
@@ -138,11 +136,7 @@ export function getCaretSerializedOffset(
   return state.done ? state.total : serializeEditable(el).length;
 }
 
-function placeInTextNode(
-  tn: Text,
-  local: number,
-  remaining: { n: number },
-): boolean {
+function placeInTextNode(tn: Text, _local: number, remaining: { n: number }): boolean {
   const len = tn.data.length;
   if (remaining.n <= len) return true;
   remaining.n -= len;
@@ -150,10 +144,7 @@ function placeInTextNode(
 }
 
 /** Place the caret at a serialized offset, skipping over pills. */
-export function setCaretSerializedOffset(
-  el: HTMLElement,
-  pos: number,
-): void {
+export function setCaretSerializedOffset(el: HTMLElement, pos: number): void {
   const remaining = { n: Math.max(0, pos) };
   let placed = false;
 

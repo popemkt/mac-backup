@@ -285,9 +285,7 @@ describe("drag/dirty live-sync guard", () => {
           children: [],
           collapsed: false,
           props: {
-            [SYSTEM_IDS.canvasField]: [
-              { t: "str", v: stringifyCanvasDoc(foreign) },
-            ],
+            [SYSTEM_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(foreign) }],
           },
           createdAt: "",
           updatedAt: "",

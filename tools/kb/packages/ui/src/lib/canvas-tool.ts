@@ -12,14 +12,7 @@ import {
   type CanvasGroupNode,
 } from "@kb/canvas";
 
-export type CanvasTool =
-  | "select"
-  | "text"
-  | "rect"
-  | "ellipse"
-  | "diamond"
-  | "kb-node"
-  | "group";
+export type CanvasTool = "select" | "text" | "rect" | "ellipse" | "diamond" | "kb-node" | "group";
 
 export const DEFAULT_SHAPE_SIZE = { width: 160, height: 100 } as const;
 export const DEFAULT_TEXT_SIZE = { width: 220, height: 80 } as const;
@@ -64,9 +57,7 @@ export function createShapeNode(
   };
 }
 
-export function isShapeTool(
-  tool: CanvasTool,
-): tool is "rect" | "ellipse" | "diamond" {
+export function isShapeTool(tool: CanvasTool): tool is "rect" | "ellipse" | "diamond" {
   return tool === "rect" || tool === "ellipse" || tool === "diamond";
 }
 

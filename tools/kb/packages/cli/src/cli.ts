@@ -3,28 +3,15 @@ import { Command, CommanderError } from "commander";
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
-import { UI_DEFAULT_PORT, type KbContext } from "@kb/contracts";
+import { UI_DEFAULT_PORT, type KbContext, type ActionReceipt } from "@kb/contracts";
 import { kbRuntimeLayer, openKbEffect } from "@kb/runtime";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { exampleSeedNodes, isPristine } from "@kb/model";
 import { SYSTEM_IDS, currentIso, isSysPrefixed } from "@kb/model";
-import {
-  ResolveError,
-  resolveFieldId,
-  resolveTagId,
-} from "@kb/model";
+import { ResolveError, resolveFieldId, resolveTagId } from "@kb/model";
 import { receiptCodeOf } from "@kb/model";
-import {
-  invokeReceiptEffect,
-  registryFor,
-  type ActionHandlerEnv,
-} from "@kb/runtime";
-import type { ActionReceipt } from "@kb/contracts";
-import {
-  KB_SDK_VERSION,
-  readEmbeddedSdkDts,
-  writeSdkDts,
-} from "@kb/ext-sdk";
+import { invokeReceiptEffect, registryFor, type ActionHandlerEnv } from "@kb/runtime";
+import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
 import { formatReceipt } from "./format.ts";
 import {
   fieldsNeedingCreate,
@@ -55,7 +42,6 @@ import {
 } from "@kb/operations";
 import { resolveRootEffect, RootNotFoundError } from "@kb/runtime";
 
-
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
 const EXIT_USAGE = 2;
@@ -76,10 +62,7 @@ function getGlobals(cmd: Command): GlobalOpts {
  */
 function withCtx(
   cmd: Command,
-  body: (
-    ctx: KbContext,
-    globals: GlobalOpts,
-  ) => Effect.Effect<number, unknown, ActionHandlerEnv>,
+  body: (ctx: KbContext, globals: GlobalOpts) => Effect.Effect<number, unknown, ActionHandlerEnv>,
   allowCreateRoot = false,
 ): Promise<number> {
   const globals = getGlobals(cmd);
@@ -90,9 +73,7 @@ function withCtx(
         allowCreate: allowCreateRoot,
       });
       const ctx = yield* openKbEffect(root);
-      return yield* body(ctx, globals).pipe(
-        Effect.provide(kbRuntimeLayer(ctx)),
-      );
+      return yield* body(ctx, globals).pipe(Effect.provide(kbRuntimeLayer(ctx)));
     }).pipe(Effect.provide(bunFileSystemLayer)),
   ).catch((err) => handleCliError(err, globals.json === true));
 }
@@ -119,9 +100,7 @@ function ensureFieldsEffect(
           if (err instanceof ResolveError && err.code === "not_found") {
             return Effect.succeed("missing" as const);
           }
-          return Effect.fail(
-            err instanceof Error ? err : new Error(String(err)),
-          );
+          return Effect.fail(err instanceof Error ? err : new Error(String(err)));
         }),
       );
       if (outcome !== "missing") continue;
@@ -209,9 +188,7 @@ function handleCliError(err: unknown, json: boolean): number {
   }
   const message = err instanceof Error ? err.message : String(err);
   if (json) {
-    writeOut(
-      JSON.stringify({ status: "failed", code: "internal", message }),
-    );
+    writeOut(JSON.stringify({ status: "failed", code: "internal", message }));
   } else {
     process.stderr.write(`${message}\n`);
   }
@@ -228,9 +205,7 @@ function parseActionJson(text: string): Effect.Effect<unknown, UsageError> {
     catch: (err) =>
       err instanceof SyntaxError
         ? new UsageError(`invalid JSON: ${err.message}`)
-        : new UsageError(
-            `invalid JSON: ${err instanceof Error ? err.message : String(err)}`,
-          ),
+        : new UsageError(`invalid JSON: ${err instanceof Error ? err.message : String(err)}`),
   });
 }
 
@@ -239,9 +214,7 @@ function parseActionJson(text: string): Effect.Effect<unknown, UsageError> {
  * Empty stdin → UsageError (exit 2). Genuine stdin I/O failures stay plain
  * Error (exit 1), matching pre-Effect CLI behavior.
  */
-function readActionJsonEffect(
-  arg: string,
-): Effect.Effect<unknown, UsageError | Error> {
+function readActionJsonEffect(arg: string): Effect.Effect<unknown, UsageError | Error> {
   if (arg === "-") {
     return Effect.gen(function* () {
       const text = yield* Effect.tryPromise({
@@ -252,8 +225,7 @@ function readActionJsonEffect(
           }
           return Buffer.concat(chunks).toString("utf8").trim();
         },
-        catch: (err) =>
-          err instanceof Error ? err : new Error(String(err)),
+        catch: (err) => (err instanceof Error ? err : new Error(String(err))),
       });
       if (!text) {
         return yield* Effect.fail(new UsageError("action-invoke: empty stdin"));
@@ -282,9 +254,7 @@ export function buildProgram(): Command {
       const { startMcp } = await import("@kb/mcp");
       const globals = this.optsWithGlobals() as { root?: string };
       const root = await Effect.runPromise(
-        resolveRootEffect({ root: globals.root }).pipe(
-          Effect.provide(bunFileSystemLayer),
-        ),
+        resolveRootEffect({ root: globals.root }).pipe(Effect.provide(bunFileSystemLayer)),
       );
       await startMcp(root);
       // keep the process alive; the transport owns stdio from here
@@ -294,17 +264,9 @@ export function buildProgram(): Command {
   program
     .command("ui")
     .description("Serve the kb browser UI + subscription backend")
-    .option(
-      "--port <n>",
-      "backend listen port (default 4321)",
-      (v) => Number.parseInt(v, 10),
-    )
+    .option("--port <n>", "backend listen port (default 4321)", (v) => Number.parseInt(v, 10))
     .option("--dev", "spawn the Vite dev server (HMR) and proxy to the backend", false)
-    .option(
-      "--dev-port <n>",
-      "Vite dev server port (default 5173)",
-      (v) => Number.parseInt(v, 10),
-    )
+    .option("--dev-port <n>", "Vite dev server port (default 5173)", (v) => Number.parseInt(v, 10))
     .option("--no-open", "do not open a browser")
     .action(async function (this: Command) {
       const { runUiCli } = await import("@kb/server");
@@ -316,9 +278,7 @@ export function buildProgram(): Command {
         open?: boolean;
       };
       const root = await Effect.runPromise(
-        resolveRootEffect({ root: globals.root }).pipe(
-          Effect.provide(bunFileSystemLayer),
-        ),
+        resolveRootEffect({ root: globals.root }).pipe(Effect.provide(bunFileSystemLayer)),
       );
       await runUiCli({
         root,
@@ -332,10 +292,7 @@ export function buildProgram(): Command {
   program
     .command("init")
     .description("Initialize .kb/ at --root or cwd")
-    .option(
-      "--bare",
-      "skip the example content (supertags, fields, query, ontologies)",
-    )
+    .option("--bare", "skip the example content (supertags, fields, query, ontologies)")
     .action(async function (this: Command, opts: { bare?: boolean }) {
       const code = await withCtx(
         this,
@@ -348,10 +305,7 @@ export function buildProgram(): Command {
               })
               .pipe(
                 Effect.mapError(
-                  (err) =>
-                    new Error(
-                      err instanceof Error ? err.message : String(err),
-                    ),
+                  (err) => new Error(err instanceof Error ? err.message : String(err)),
                 ),
               );
 
@@ -430,13 +384,7 @@ export function buildProgram(): Command {
     .option("--type <t>", "str|num|bool|date|ref")
     .option("--create", "mint missing field", false)
     .option("--force", "allow edits on sys.* nodes", false)
-    .action(async function (
-      this: Command,
-      id: string,
-      field: string,
-      value: string,
-      opts,
-    ) {
+    .action(async function (this: Command, id: string, field: string, value: string, opts) {
       const code = await withCtx(this, (ctx, globals) =>
         runPlanEffect(
           ctx,
@@ -504,11 +452,7 @@ export function buildProgram(): Command {
     .option("--force", "allow deleting sys.* nodes", false)
     .action(async function (this: Command, id: string, opts) {
       const code = await withCtx(this, (ctx, globals) =>
-        runPlanEffect(
-          ctx,
-          mapRm({ id, force: opts.force === true }),
-          globals,
-        ),
+        runPlanEffect(ctx, mapRm({ id, force: opts.force === true }), globals),
       );
       process.exitCode = code;
     });
@@ -521,18 +465,11 @@ export function buildProgram(): Command {
     .option("--position <n>", "child index", (v) => Number.parseInt(v, 10))
     .option("--root-parent", "detach from parent", false)
     .option("--force", "allow moving under sys.* parents", false)
-    .action(async function (
-      this: Command,
-      id: string,
-      parent: string | undefined,
-      opts,
-    ) {
+    .action(async function (this: Command, id: string, parent: string | undefined, opts) {
       const code = await withCtx(this, (ctx, globals) =>
         Effect.gen(function* () {
           if (!opts.rootParent && parent === undefined) {
-            return yield* Effect.fail(
-              new UsageError("mv requires <parent> or --root-parent"),
-            );
+            return yield* Effect.fail(new UsageError("mv requires <parent> or --root-parent"));
           }
           return yield* runPlanEffect(
             ctx,
@@ -572,9 +509,7 @@ export function buildProgram(): Command {
     });
   field
     .command("type")
-    .description(
-      "Set sys.f.fieldType on a field (text|number|date|url|checkbox|ref)",
-    )
+    .description("Set sys.f.fieldType on a field (text|number|date|url|checkbox|ref)")
     .argument("<field>", "field name or id")
     .argument("<type>", "field type")
     .action(async function (this: Command, fieldName: string, type: string) {
@@ -585,11 +520,7 @@ export function buildProgram(): Command {
           // Props are multi-valued and set appends, so the prior value has to
           // be unset explicitly — whichever form it was stored in.
           const previous = node?.props[SYSTEM_IDS.fieldTypeField]?.[0];
-          return yield* runPlanEffect(
-            ctx,
-            mapFieldType({ fieldId, type, previous }),
-            globals,
-          );
+          return yield* runPlanEffect(ctx, mapFieldType({ fieldId, type, previous }), globals);
         }),
       );
       process.exitCode = code;
@@ -604,11 +535,7 @@ export function buildProgram(): Command {
         Effect.gen(function* () {
           const fieldId = resolveFieldId(ctx.nodes, fieldName);
           const tagId = resolveTagId(ctx.nodes, tag);
-          return yield* runPlanEffect(
-            ctx,
-            mapFieldTarget({ fieldId, tagId }),
-            globals,
-          );
+          return yield* runPlanEffect(ctx, mapFieldTarget({ fieldId, tagId }), globals);
         }),
       );
       process.exitCode = code;
@@ -624,10 +551,7 @@ export function buildProgram(): Command {
           const fieldId = resolveFieldId(ctx.nodes, fieldName);
           const node = ctx.nodes.find((n) => n.id === fieldId);
           const prev = node?.props[SYSTEM_IDS.targetQueryField]?.[0];
-          const previous =
-            prev?.t === "str"
-              ? { t: "str" as const, v: String(prev.v) }
-              : undefined;
+          const previous = prev?.t === "str" ? { t: "str" as const, v: String(prev.v) } : undefined;
           return yield* runPlanEffect(
             ctx,
             mapFieldTargetQuery({ fieldId, edn, previous }),
@@ -647,11 +571,7 @@ export function buildProgram(): Command {
     .option("--field <name>", "templated field (repeatable)", collect, [])
     .action(async function (this: Command, name: string, opts) {
       const code = await withCtx(this, (ctx, globals) =>
-        runPlanEffect(
-          ctx,
-          mapTagDefine({ name, id: opts.id, fields: opts.field }),
-          globals,
-        ),
+        runPlanEffect(ctx, mapTagDefine({ name, id: opts.id, fields: opts.field }), globals),
       );
       process.exitCode = code;
     });
@@ -659,15 +579,11 @@ export function buildProgram(): Command {
     .command("list")
     .description("List tag nodes")
     .action(async function (this: Command) {
-      const code = await withCtx(this, (ctx, globals) =>
-        runPlanEffect(ctx, mapTagList(), globals),
-      );
+      const code = await withCtx(this, (ctx, globals) => runPlanEffect(ctx, mapTagList(), globals));
       process.exitCode = code;
     });
 
-  const ontology = program
-    .command("ontology")
-    .description("Ontology operations (#ontology nodes)");
+  const ontology = program.command("ontology").description("Ontology operations (#ontology nodes)");
   ontology
     .command("list")
     .description("List #ontology nodes")
@@ -684,11 +600,7 @@ export function buildProgram(): Command {
     .option("--reasons", "include per-member provenance")
     .action(async function (this: Command, id: string, opts) {
       const code = await withCtx(this, (ctx, globals) =>
-        runPlanEffect(
-          ctx,
-          mapOntologyMembers({ id, reasons: opts.reasons === true }),
-          globals,
-        ),
+        runPlanEffect(ctx, mapOntologyMembers({ id, reasons: opts.reasons === true }), globals),
       );
       process.exitCode = code;
     });
@@ -709,9 +621,7 @@ export function buildProgram(): Command {
     .description("Execute a saved query from .kb/queries/<name>.edn")
     .argument("<name>", "saved query name (without .edn)")
     .action(async function (this: Command, name: string) {
-      const code = await withCtx(this, (ctx, globals) =>
-        runPlanEffect(ctx, mapRun(name), globals),
-      );
+      const code = await withCtx(this, (ctx, globals) => runPlanEffect(ctx, mapRun(name), globals));
       process.exitCode = code;
     });
 
@@ -751,16 +661,13 @@ export function buildProgram(): Command {
   const ext = program.command("ext").description("Extension operations");
   ext
     .command("list")
-    .description(
-      "List loaded extensions (bundled + .kb/extensions) and their actions",
-    )
+    .description("List loaded extensions (bundled + .kb/extensions) and their actions")
     .action(async function (this: Command) {
       const code = await withCtx(this, (ctx, globals) =>
         Effect.gen(function* () {
           const registry = yield* Effect.tryPromise({
             try: () => registryFor(ctx.root),
-            catch: (err) =>
-              err instanceof Error ? err : new Error(String(err)),
+            catch: (err) => (err instanceof Error ? err : new Error(String(err))),
           });
           if (globals.json === true) {
             writeOut(
@@ -788,13 +695,8 @@ export function buildProgram(): Command {
           for (const e of registry.extensions) {
             lines.push(`${e.name} (${e.source})`);
             for (const a of e.actions) {
-              const alias =
-                a.aliases.length > 0
-                  ? ` (alias: ${a.aliases.join(", ")})`
-                  : "";
-              lines.push(
-                `  ${a.def.id}${alias} — ${a.def.title} [${a.def.mode}]`,
-              );
+              const alias = a.aliases.length > 0 ? ` (alias: ${a.aliases.join(", ")})` : "";
+              lines.push(`  ${a.def.id}${alias} — ${a.def.title} [${a.def.mode}]`);
             }
           }
           for (const f of registry.failures) {
@@ -808,9 +710,7 @@ export function buildProgram(): Command {
     });
   ext
     .command("sdk")
-    .description(
-      "Print or write the ambient extension SDK types (kb-ext-sdk) for this binary",
-    )
+    .description("Print or write the ambient extension SDK types (kb-ext-sdk) for this binary")
     .option("--write", "write .kb/sdk.d.ts under the resolved root", false)
     .action(async function (this: Command) {
       const globals = getGlobals(this);
@@ -827,8 +727,7 @@ export function buildProgram(): Command {
           });
           const result = yield* Effect.tryPromise({
             try: () => writeSdkDts(root),
-            catch: (err) =>
-              err instanceof Error ? err : new Error(String(err)),
+            catch: (err) => (err instanceof Error ? err : new Error(String(err))),
           });
           if (globals.json === true) {
             writeOut(

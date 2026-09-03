@@ -33,19 +33,12 @@ const INDENT_PX = Number(
 
 function renderNodeRowAtDepth(depth: number): string {
   return renderToStaticMarkup(
-    createElement(
-      NodeRow,
-      {
-        depth,
-        nodeId: "n.x",
-        bullet: createElement("span", { className: "bullet-container h-6 w-6" }),
-        content: createElement(
-          "div",
-          { className: "kb-text min-h-6 min-w-0 flex-1" },
-          "text",
-        ),
-      },
-    ),
+    createElement(NodeRow, {
+      depth,
+      nodeId: "n.x",
+      bullet: createElement("span", { className: "bullet-container h-6 w-6" }),
+      content: createElement("div", { className: "kb-text min-h-6 min-w-0 flex-1" }, "text"),
+    }),
   );
 }
 
@@ -131,14 +124,11 @@ describe("Field row alignment (D18, §5.2)", () => {
 
   function markup(onRemove?: () => void): string {
     return renderToStaticMarkup(
-      createElement(
-        FieldRow,
-        {
-          ...base,
-          onRemove,
-          children: createElement("span", null, "value"),
-        },
-      ),
+      createElement(FieldRow, {
+        ...base,
+        onRemove,
+        children: createElement("span", null, "value"),
+      }),
     );
   }
 
@@ -155,9 +145,7 @@ describe("Field row alignment (D18, §5.2)", () => {
     const btnIdx = withBtn.indexOf("aria-label=");
     expect(btnIdx).toBeGreaterThan(iWith);
     // And the button no longer sits between label and value.
-    expect(withBtn.indexOf(btnIdx >= 0 ? "aria-label" : "")).toBeGreaterThan(
-      iWith,
-    );
+    expect(withBtn.indexOf(btnIdx >= 0 ? "aria-label" : "")).toBeGreaterThan(iWith);
   });
 });
 
@@ -208,12 +196,7 @@ describe("Row decorations start at the indent, not the container edge", () => {
   });
 
   it("every indented surface reads the one indent owner", () => {
-    for (const name of [
-      "node-row.tsx",
-      "field-row.tsx",
-      "node-block.tsx",
-      "query-results.tsx",
-    ]) {
+    for (const name of ["node-row.tsx", "field-row.tsx", "node-block.tsx", "query-results.tsx"]) {
       expect(readOutlineSource(name)).toMatch(/from "@\/lib\/indent"/);
     }
   });

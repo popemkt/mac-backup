@@ -1,11 +1,5 @@
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
-import {
-  isAbsolute,
-  join,
-  normalize,
-  relative,
-  resolve,
-} from "node:path";
+import { isAbsolute, join, normalize, relative, resolve } from "node:path";
 
 /**
  * Saved-query file names under `.kb/queries/<name>.edn`.
@@ -27,10 +21,7 @@ export function queriesDir(root: string): string {
  * Returns null for traversal / control / ambiguous names so callers never
  * touch a path outside the queries directory.
  */
-export function resolveSavedQueryFile(
-  root: string,
-  name: string,
-): string | null {
+export function resolveSavedQueryFile(root: string, name: string): string | null {
   if (!isValidSavedQueryName(name)) return null;
   const dir = queriesDir(root);
   const candidate = normalize(join(dir, `${name}.edn`));
@@ -42,10 +33,7 @@ export function resolveSavedQueryFile(
 }
 
 /** Read a saved query; null when the name is invalid or the file is missing. */
-export async function readSavedQuery(
-  root: string,
-  name: string,
-): Promise<string | null> {
+export async function readSavedQuery(root: string, name: string): Promise<string | null> {
   const path = resolveSavedQueryFile(root, name);
   if (!path) return null;
   try {
@@ -56,11 +44,7 @@ export async function readSavedQuery(
 }
 
 /** Create/overwrite a saved query file. Returns false when the name is invalid. */
-export async function saveSavedQuery(
-  root: string,
-  name: string,
-  edn: string,
-): Promise<boolean> {
+export async function saveSavedQuery(root: string, name: string, edn: string): Promise<boolean> {
   const path = resolveSavedQueryFile(root, name);
   if (!path) return false;
   await mkdir(queriesDir(root), { recursive: true });
@@ -69,10 +53,7 @@ export async function saveSavedQuery(
 }
 
 /** Delete a saved query file. Returns false when the name is invalid. */
-export async function deleteSavedQuery(
-  root: string,
-  name: string,
-): Promise<boolean> {
+export async function deleteSavedQuery(root: string, name: string): Promise<boolean> {
   const path = resolveSavedQueryFile(root, name);
   if (!path) return false;
   try {

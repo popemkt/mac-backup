@@ -84,51 +84,51 @@ function ensureLockDir(lockPath: string): void {
 }
 
 /** Effectful acquire — yields while spinning so other fibers can run. */
-export const acquireNodesWriteLockEffect = Effect.fn("kb.acquireWriteLock")(
-  function* (nodesPath: string): Effect.fn.Return<string, DomainError> {
-    const lockPath = lockPathFor(nodesPath);
-    yield* Effect.try({
-      try: () => ensureLockDir(lockPath),
+export const acquireNodesWriteLockEffect = Effect.fn("kb.acquireWriteLock")(function* (
+  nodesPath: string,
+): Effect.fn.Return<string, DomainError> {
+  const lockPath = lockPathFor(nodesPath);
+  yield* Effect.try({
+    try: () => ensureLockDir(lockPath),
+    catch: (err) =>
+      domainError(
+        "internal",
+        `failed to create lock directory for ${lockPath}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        { lockPath },
+      ),
+  });
+
+  const started = Date.now();
+  while (true) {
+    const got = yield* Effect.try({
+      try: () => tryCreateLock(lockPath) || stealIfStale(lockPath),
       catch: (err) =>
         domainError(
           "internal",
-          `failed to create lock directory for ${lockPath}: ${
+          `failed to acquire write lock ${lockPath}: ${
             err instanceof Error ? err.message : String(err)
           }`,
           { lockPath },
         ),
     });
+    if (got) return lockPath;
 
-    const started = Date.now();
-    while (true) {
-      const got = yield* Effect.try({
-        try: () => tryCreateLock(lockPath) || stealIfStale(lockPath),
-        catch: (err) =>
-          domainError(
-            "internal",
-            `failed to acquire write lock ${lockPath}: ${
-              err instanceof Error ? err.message : String(err)
-            }`,
-            { lockPath },
-          ),
-      });
-      if (got) return lockPath;
-
-      if (Date.now() - started > MAX_WAIT_MS) {
-        const holder = readLockPid(lockPath);
-        return yield* Effect.fail(
-          domainError(
-            "conflict",
-            `timed out waiting for write lock ${lockPath}` +
-              (holder !== null ? ` (held by pid ${holder})` : ""),
-            { lockPath, holder },
-          ),
-        );
-      }
-      yield* Effect.sleep(Duration.millis(SPIN_MS));
+    if (Date.now() - started > MAX_WAIT_MS) {
+      const holder = readLockPid(lockPath);
+      return yield* Effect.fail(
+        domainError(
+          "conflict",
+          `timed out waiting for write lock ${lockPath}` +
+            (holder !== null ? ` (held by pid ${holder})` : ""),
+          { lockPath, holder },
+        ),
+      );
     }
-  },
-);
+    yield* Effect.sleep(Duration.millis(SPIN_MS));
+  }
+});
 
 /** Release a lock acquired by {@link acquireNodesWriteLockEffect} (best-effort). */
 export function releaseNodesWriteLock(lockPath: string): void {
@@ -171,8 +171,5 @@ export function withNodesWriteLock<T>(nodesPath: string, fn: () => T): T {
 /** Map unknown lock/fs errors; pass DomainError through. */
 export function ensureDomainError(err: unknown): DomainError {
   if (isDomainError(err)) return err;
-  return domainError(
-    "internal",
-    err instanceof Error ? err.message : String(err),
-  );
+  return domainError("internal", err instanceof Error ? err.message : String(err));
 }

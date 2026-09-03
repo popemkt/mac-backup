@@ -58,9 +58,7 @@ export function TagFieldsConfigView({
     <div className="mb-4" data-tag-fields-config="true">
       <h2 className="mb-2 px-1 text-[12px] uppercase tracking-wide text-foreground/30">
         Fields
-        <span className="ml-1.5 font-normal normal-case tracking-normal">
-          ({template.length})
-        </span>
+        <span className="ml-1.5 font-normal normal-case tracking-normal">({template.length})</span>
       </h2>
 
       {template.length === 0 && (
@@ -101,12 +99,7 @@ export function TagFieldsConfigView({
 
       {!readOnly && (
         <div className="mt-1 flex items-center gap-1.5 px-1">
-          <Plus
-            size={10}
-            weight="bold"
-            className="text-foreground/40"
-            aria-hidden
-          />
+          <Plus size={10} weight="bold" className="text-foreground/40" aria-hidden />
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -187,9 +180,7 @@ export function TagFieldsConfig({ tagId }: { tagId: string }) {
           // Reuse an existing field with this name rather than minting a
           // duplicate; two fields called "status" would silently split every
           // query written against them.
-          const existing = all.find(
-            (f) => f.name.toLowerCase() === name.toLowerCase(),
-          );
+          const existing = all.find((f) => f.name.toLowerCase() === name.toLowerCase());
           const fieldId = existing?.id ?? (await mutations.defineField(name));
           if (!fieldId) return;
           if (!template.some((f) => f.id === fieldId)) {

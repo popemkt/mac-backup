@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { fixtureGraph } from "@/fixtures/graph";
-import {
-  fetchGraphSnapshot,
-  loadGraph,
-  setFetchGraphSnapshot,
-} from "@/api/graph";
+import { fetchGraphSnapshot, loadGraph, setFetchGraphSnapshot } from "@/api/graph";
 
 const origFetch = globalThis.fetch;
 

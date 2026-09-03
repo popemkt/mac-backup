@@ -97,9 +97,7 @@ function parseHex(color: string): { r: number; g: number; b: number } | null {
   };
 }
 
-function parseRgb(
-  color: string,
-): { r: number; g: number; b: number; alpha: number } | null {
+function parseRgb(color: string): { r: number; g: number; b: number; alpha: number } | null {
   const match = new RegExp(
     String.raw`^rgba?\(\s*(${CHANNEL})[\s,]+(${CHANNEL})[\s,]+(${CHANNEL})\s*(?:[,/]\s*(${CHANNEL})\s*)?\)$`,
     "i",
@@ -122,10 +120,7 @@ function parseRgb(
  * channels. Returns null for formats we do not handle, so the caller keeps
  * control of its own fallback.
  */
-export function toRenderableColor(
-  color: string,
-  alphaOverride?: number,
-): string | null {
+export function toRenderableColor(color: string, alphaOverride?: number): string | null {
   const parsed =
     oklchToRgb(color) ??
     parseRgb(color) ??
@@ -173,16 +168,10 @@ export function isForce3dSafeColor(color: string): boolean {
 }
 
 /** Normalize + assert a colour is safe for 3d-force-graph / polished. */
-export function force3dColor(
-  color: string,
-  fallback = "rgb(128, 128, 128)",
-): string {
+export function force3dColor(color: string, fallback = "rgb(128, 128, 128)"): string {
   const rendered = toRenderableColor(color) ?? toRenderableColor(fallback) ?? fallback;
   if (!isForce3dSafeColor(rendered)) {
-    throw new Error(
-      `force3dColor: refused unsafe colour "${rendered}" (from "${color}")`,
-    );
+    throw new Error(`force3dColor: refused unsafe colour "${rendered}" (from "${color}")`);
   }
   return rendered;
 }
-

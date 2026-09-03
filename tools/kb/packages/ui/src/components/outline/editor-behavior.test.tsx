@@ -37,11 +37,7 @@ function seed() {
   });
   useOutlineStore
     .getState()
-    .hydrateFromWire(
-      structuredClone(fixtureGraph.nodes),
-      fixtureGraph.rev,
-      "fixtures",
-    );
+    .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
 }
 
 describe("editor behavior scenarios (r1 §5.3)", () => {
@@ -63,9 +59,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
 
   beforeEach(() => {
     seed();
-    container = dom.document.createElement(
-      "div",
-    ) as unknown as HTMLDivElement;
+    container = dom.document.createElement("div") as unknown as HTMLDivElement;
     dom.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
   });
@@ -86,9 +80,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
   }
 
   function editorEl(instanceKey: string): HTMLElement | null {
-    return container.querySelector(
-      `[data-instance-key="${instanceKey}"] [contenteditable="true"]`,
-    );
+    return container.querySelector(`[data-instance-key="${instanceKey}"] [contenteditable="true"]`);
   }
 
   it("D05: Tab into a collapsed sibling expands it and keeps focus", async () => {
@@ -126,9 +118,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
       useOutlineStore.getState().activateNode("n.child-a1", 0, childKey);
     });
     await act(async () => {
-      root.render(
-        <NodeBlock nodeId="n.child-a1" instanceKey={childKey} depth={0} />,
-      );
+      root.render(<NodeBlock nodeId="n.child-a1" instanceKey={childKey} depth={0} />);
     });
 
     const freshEditor = editorEl(childKey);
@@ -158,9 +148,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
     });
 
     await act(async () => {
-      root.render(
-        <NodeBlock nodeId="n.root-c" instanceKey={cKey} depth={0} />,
-      );
+      root.render(<NodeBlock nodeId="n.root-c" instanceKey={cKey} depth={0} />);
     });
     const el = editorEl(cKey);
     expect(el).toBeTruthy();
@@ -187,15 +175,11 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
     });
 
     await act(async () => {
-      root.render(
-        <NodeBlock nodeId="n.root-c" instanceKey={cKey} depth={0} />,
-      );
+      root.render(<NodeBlock nodeId="n.root-c" instanceKey={cKey} depth={0} />);
     });
 
     // Popup open with candidates.
-    expect(
-      container.querySelector('[role="listbox"]'),
-    ).toBeTruthy();
+    expect(container.querySelector('[role="listbox"]')).toBeTruthy();
     const el = editorEl(cKey);
     expect(el).toBeTruthy();
 
@@ -203,9 +187,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
       fireKey(el!, "Escape");
     });
     await act(async () => {
-      root.render(
-        <NodeBlock nodeId="n.root-c" instanceKey={cKey} depth={0} />,
-      );
+      root.render(<NodeBlock nodeId="n.root-c" instanceKey={cKey} depth={0} />);
     });
 
     const s = useOutlineStore.getState();

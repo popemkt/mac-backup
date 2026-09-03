@@ -48,9 +48,9 @@ async function until(pred: () => boolean, timeoutMs = 1000): Promise<void> {
   }
 }
 
-function stubFetch(
-  handler: (input: RequestInfo | URL) => Promise<Response>,
-): { calls: Array<string> } {
+function stubFetch(handler: (input: RequestInfo | URL) => Promise<Response>): {
+  calls: Array<string>;
+} {
   const calls: string[] = [];
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     calls.push(String(input));

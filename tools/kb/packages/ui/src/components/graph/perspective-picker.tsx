@@ -13,11 +13,7 @@ interface PerspectivePickerProps {
  * Floating popover list — same anatomy as PreferencesPopover
  * (DESIGN-RESKIN §0 pattern economy: border/popover/shadow/11–12px type).
  */
-export function PerspectivePicker({
-  perspectives,
-  activeId,
-  onSelect,
-}: PerspectivePickerProps) {
+export function PerspectivePicker({ perspectives, activeId, onSelect }: PerspectivePickerProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const active = perspectives.find((p) => p.id === activeId) ?? null;

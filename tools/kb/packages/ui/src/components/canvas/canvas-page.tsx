@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ulid } from "ulid";
-import type {
-  CanvasDoc,
-  CanvasEdge,
-  CanvasNode,
-  CanvasSide,
-  KbLinkMode,
-} from "@kb/canvas";
+import type { CanvasDoc, CanvasEdge, CanvasNode, CanvasSide, KbLinkMode } from "@kb/canvas";
 import {
   isGroupNode,
   isKbNode,
@@ -142,11 +136,7 @@ type Drag =
       baseSel: CanvasSelection;
     };
 
-function closestPort(
-  node: CanvasNode,
-  px: number,
-  py: number,
-): { side: CanvasSide; dist: number } {
+function closestPort(node: CanvasNode, px: number, py: number): { side: CanvasSide; dist: number } {
   const sides: CanvasSide[] = ["top", "right", "bottom", "left"];
   let best: { side: CanvasSide; dist: number } = { side: "left", dist: Infinity };
   for (const s of sides) {
@@ -202,10 +192,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const docRef = useRef(doc);
   docRef.current = doc;
 
-  const isBusy = useCallback(
-    () => dragRef.current !== null || dirtyRef.current,
-    [],
-  );
+  const isBusy = useCallback(() => dragRef.current !== null || dirtyRef.current, []);
 
   const applyDoc = useCallback((next: CanvasDoc) => {
     setHistoryState((h) => pushHistory(h, next));
@@ -249,10 +236,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   );
 
   const flushPersist = useCallback(
-    async (
-      next: CanvasDoc,
-      opts?: Parameters<typeof persistCanvasDoc>[2],
-    ) => {
+    async (next: CanvasDoc, opts?: Parameters<typeof persistCanvasDoc>[2]) => {
       if (persistTimer.current) clearTimeout(persistTimer.current);
       dirtyRef.current = false;
       applyDoc(next);
@@ -286,10 +270,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         });
         return;
       }
-      if (
-        (e.metaKey || e.ctrlKey) &&
-        (e.key === "Z" || (e.key === "z" && e.shiftKey))
-      ) {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "Z" || (e.key === "z" && e.shiftKey))) {
         e.preventDefault();
         setHistoryState((h) => {
           const next = histRedo(h);
@@ -405,10 +386,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           });
         }
         for (const edge of docRef.current.edges) {
-          if (
-            sel.nodeIds.has(edge.fromNode) &&
-            sel.nodeIds.has(edge.toNode)
-          ) {
+          if (sel.nodeIds.has(edge.fromNode) && sel.nodeIds.has(edge.toNode)) {
             nextDoc = upsertCanvasEdge(nextDoc, {
               ...edge,
               id: ulid(),
@@ -447,10 +425,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         if (selectionEmpty(sel)) return;
         e.preventDefault();
         const step = e.shiftKey ? 10 : 1;
-        const dx =
-          e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
-        const dy =
-          e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+        const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+        const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
         let nextDoc = docRef.current;
         for (const nodeId of sel.nodeIds) {
           const node = byId.get(nodeId);
@@ -492,9 +468,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           setToolState({ tool: "select" });
           setPickerOpen(true);
         } else {
-          setToolState((s) =>
-            reduceCanvasTool(s, { type: "set-tool", tool: mapped }),
-          );
+          setToolState((s) => reduceCanvasTool(s, { type: "set-tool", tool: mapped }));
         }
         return;
       }
@@ -556,7 +530,10 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     if (!stageEl) return;
     const rect = stageEl.getBoundingClientRect();
     const PAD = 40;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
     for (const n of nodes) {
       minX = Math.min(minX, n.x);
       minY = Math.min(minY, n.y);
@@ -619,14 +596,9 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     return true;
   };
 
-  const startMoveForSelection = (
-    e: React.PointerEvent,
-    clickedId: string,
-  ) => {
+  const startMoveForSelection = (e: React.PointerEvent, clickedId: string) => {
     const sel = selRef.current;
-    const selectedIds = sel.nodeIds.has(clickedId)
-      ? sel.nodeIds
-      : new Set([clickedId]);
+    const selectedIds = sel.nodeIds.has(clickedId) ? sel.nodeIds : new Set([clickedId]);
     const origPositions = new Map<string, { x: number; y: number }>();
     for (const id of selectedIds) {
       const node = byId.get(id);
@@ -770,8 +742,9 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       const guides: { axis: "x" | "y"; pos: number }[] = [];
       const movingIds = new Set(d.origPositions.keys());
       const firstOrig = d.origPositions.values().next().value;
-      if (firstOrig && movingIds.size > 0) {
-        const movingNode = byId.get([...movingIds][0]);
+      const firstId = d.origPositions.keys().next().value;
+      if (firstOrig && firstId && movingIds.size > 0) {
+        const movingNode = byId.get(firstId);
         if (movingNode) {
           const myLeft = firstOrig.x + dx;
           const myTop = firstOrig.y + dy;
@@ -790,7 +763,13 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             const oCy = (oTop + oBottom) / 2;
 
             // X-axis snaps
-            for (const [myEdge, oEdge] of [[myLeft, oLeft], [myLeft, oRight], [myRight, oLeft], [myRight, oRight], [myCx, oCx]] as [number, number][]) {
+            for (const [myEdge, oEdge] of [
+              [myLeft, oLeft],
+              [myLeft, oRight],
+              [myRight, oLeft],
+              [myRight, oRight],
+              [myCx, oCx],
+            ] as [number, number][]) {
               if (Math.abs(myEdge - oEdge) < SNAP_TOL) {
                 dx += oEdge - myEdge;
                 guides.push({ axis: "x", pos: oEdge });
@@ -798,7 +777,13 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
               }
             }
             // Y-axis snaps
-            for (const [myEdge, oEdge] of [[myTop, oTop], [myTop, oBottom], [myBottom, oTop], [myBottom, oBottom], [myCy, oCy]] as [number, number][]) {
+            for (const [myEdge, oEdge] of [
+              [myTop, oTop],
+              [myTop, oBottom],
+              [myBottom, oTop],
+              [myBottom, oBottom],
+              [myCy, oCy],
+            ] as [number, number][]) {
               if (Math.abs(myEdge - oEdge) < SNAP_TOL) {
                 dy += oEdge - myEdge;
                 guides.push({ axis: "y", pos: oEdge });
@@ -998,14 +983,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   };
 
   // Derive selected edge/shape for inspectors
-  const selectedEdgeId =
-    selection.edgeIds.size === 1 ? [...selection.edgeIds][0] : null;
+  const selectedEdgeId = selection.edgeIds.size === 1 ? [...selection.edgeIds][0] : null;
   const selectedEdgeObj = selectedEdgeId
     ? (doc.edges.find((e) => e.id === selectedEdgeId) ?? null)
     : null;
 
-  const selectedShapeId =
-    selection.nodeIds.size === 1 ? [...selection.nodeIds][0] : null;
+  const selectedShapeId = selection.nodeIds.size === 1 ? [...selection.nodeIds][0] : null;
   const selectedShape = selectedShapeId
     ? (() => {
         const n = byId.get(selectedShapeId);
@@ -1027,7 +1010,10 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       const next = upsertCanvasEdge(docRef.current, {
         ...selectedEdgeObj,
         kbLink: selectedEdgeObj.kbLink
-          ? { ...selectedEdgeObj.kbLink, mode: mode === "native" && !selectedEdgeObj.kbLink.fieldId ? "layout" : mode }
+          ? {
+              ...selectedEdgeObj.kbLink,
+              mode: mode === "native" && !selectedEdgeObj.kbLink.fieldId ? "layout" : mode,
+            }
           : undefined,
       });
       await flushPersist(next);
@@ -1137,11 +1123,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     return (
       <div className="p-6 text-[13px] text-destructive">
         Canvas not found: {canvasId}{" "}
-        <button
-          type="button"
-          className="underline"
-          onClick={() => navigate("/canvas")}
-        >
+        <button type="button" className="underline" onClick={() => navigate("/canvas")}>
           back
         </button>
       </div>
@@ -1214,7 +1196,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   };
 
   const renderPorts = (
-    card: CanvasNode,
+    _card: CanvasNode,
     onPortDown: (side: CanvasSide, e: React.PointerEvent) => void,
   ) => (
     <>
@@ -1227,14 +1209,10 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           className={cn(
             "absolute z-10 h-4.5 w-4.5 rounded-full",
             "opacity-0 transition-opacity group-hover/card:opacity-100",
-            side === "left" &&
-              "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
-            side === "right" &&
-              "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
-            side === "top" &&
-              "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
-            side === "bottom" &&
-              "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
+            side === "left" && "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
+            side === "right" && "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
+            side === "top" && "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
+            side === "bottom" && "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
           )}
           onPointerDown={(e) => {
             e.stopPropagation();
@@ -1270,16 +1248,9 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         <NodeRow
           depth={0}
           nodeId={canvasId}
-          bullet={
-            <Bullet
-              node={canvasNode}
-              onClick={() => {}}
-            />
-          }
+          bullet={<Bullet node={canvasNode} onClick={() => {}} />}
           content={
-            <span className="truncate text-[13px] text-foreground/70">
-              {canvasNode.text}
-            </span>
+            <span className="truncate text-[13px] text-foreground/70">{canvasNode.text}</span>
           }
           className="min-w-0 flex-1"
         />
@@ -1290,9 +1261,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         >
           Add node
         </button>
-        <span className="text-[11px] text-foreground/30">
-          {Math.round(zoom * 100)}%
-        </span>
+        <span className="text-[11px] text-foreground/30">{Math.round(zoom * 100)}%</span>
       </div>
 
       <div
@@ -1316,7 +1285,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         onPointerUp={onPointerUp}
         onDoubleClick={onDoubleClickStage}
       >
-        <CanvasToolbar tool={toolState.tool} sticky={toolState.sticky} onToolChange={setTool} onToolDoubleClick={setToolSticky} />
+        <CanvasToolbar
+          tool={toolState.tool}
+          sticky={toolState.sticky}
+          onToolChange={setTool}
+          onToolDoubleClick={setToolSticky}
+        />
         <div
           className="absolute inset-0 origin-top-left"
           style={{
@@ -1351,10 +1325,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                   markerHeight="6"
                   orient="auto-start-reverse"
                 >
-                  <path
-                    d="M 0 0 L 10 5 L 0 10 z"
-                    fill={`var(--canvas-color-${cid})`}
-                  />
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill={`var(--canvas-color-${cid})`} />
                 </marker>
               ))}
               <marker
@@ -1379,10 +1350,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                   markerHeight="6"
                   orient="auto-start-reverse"
                 >
-                  <path
-                    d="M 10 0 L 0 5 L 10 10 z"
-                    fill={`var(--canvas-color-${cid})`}
-                  />
+                  <path d="M 10 0 L 0 5 L 10 10 z" fill={`var(--canvas-color-${cid})`} />
                 </marker>
               ))}
             </defs>
@@ -1398,14 +1366,18 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                   !!edge.kbLink.fieldId &&
                   !edgePropPresent(edge, nodes);
                 const edgeColor = resolveCanvasColor(edge.color);
-                const markerEnd = edge.toEnd === "none"
-                  ? undefined
-                  : edge.color
-                    ? `url(#kb-arrow-${edge.color})`
-                    : "url(#kb-arrow)";
-                const markerStart = edge.fromEnd === "arrow"
-                  ? (edge.color ? `url(#kb-arrow-rev-${edge.color})` : "url(#kb-arrow-rev)")
-                  : undefined;
+                const markerEnd =
+                  edge.toEnd === "none"
+                    ? undefined
+                    : edge.color
+                      ? `url(#kb-arrow-${edge.color})`
+                      : "url(#kb-arrow)";
+                const markerStart =
+                  edge.fromEnd === "arrow"
+                    ? edge.color
+                      ? `url(#kb-arrow-rev-${edge.color})`
+                      : "url(#kb-arrow-rev)"
+                    : undefined;
 
                 // Edge label midpoint
                 const labelEl = (() => {
@@ -1444,7 +1416,10 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                     <g
                       transform={`translate(${mx}, ${my})`}
                       className="cursor-pointer"
-                      onDoubleClick={(ev) => { ev.stopPropagation(); setEditingEdgeLabel(edge.id); }}
+                      onDoubleClick={(ev) => {
+                        ev.stopPropagation();
+                        setEditingEdgeLabel(edge.id);
+                      }}
                     >
                       <rect
                         x={-edge.label.length * 3.5 - 6}
@@ -1477,7 +1452,10 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                       strokeWidth={20}
                       className="cursor-pointer"
                       onClick={(ev) => handleEdgeClick(edge, ev)}
-                      onDoubleClick={(ev) => { ev.stopPropagation(); setEditingEdgeLabel(edge.id); }}
+                      onDoubleClick={(ev) => {
+                        ev.stopPropagation();
+                        setEditingEdgeLabel(edge.id);
+                      }}
                     />
                     {/* Visible stroke */}
                     <path
@@ -1496,9 +1474,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                       markerEnd={markerEnd}
                       markerStart={markerStart}
                     >
-                      {unbound && (
-                        <title>prop no longer present — rebind?</title>
-                      )}
+                      {unbound && <title>prop no longer present — rebind?</title>}
                     </path>
                     {labelEl}
                   </g>
@@ -1507,32 +1483,37 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             </g>
 
             {/* Ghost edge while creating connection */}
-            {ghostEdge && (() => {
-              const stageEl = document.querySelector("[data-canvas-stage]")?.parentElement;
-              if (!stageEl) return null;
-              const stageRect = stageEl.getBoundingClientRect();
-              const endWorld = {
-                x: (ghostEdge.endX - stageRect.left - pan.x) / zoom,
-                y: (ghostEdge.endY - stageRect.top - pan.y) / zoom,
-              };
-              const a = ghostEdge.start;
-              const b = endWorld;
-              const dx = Math.max(40, Math.abs(b.x - a.x) * 0.45);
-              const c1x = a.x + (ghostEdge.fromSide === "left" ? -dx : ghostEdge.fromSide === "right" ? dx : 0);
-              const c1y = a.y + (ghostEdge.fromSide === "top" ? -dx : ghostEdge.fromSide === "bottom" ? dx : 0);
-              const ghostD = `M ${a.x} ${a.y} C ${c1x} ${c1y}, ${b.x} ${b.y}, ${b.x} ${b.y}`;
-              return (
-                <path
-                  d={ghostD}
-                  fill="none"
-                  stroke="var(--primary)"
-                  strokeWidth={1.5}
-                  strokeDasharray="4 4"
-                  className="pointer-events-none"
-                  opacity={0.6}
-                />
-              );
-            })()}
+            {ghostEdge &&
+              (() => {
+                const stageEl = document.querySelector("[data-canvas-stage]")?.parentElement;
+                if (!stageEl) return null;
+                const stageRect = stageEl.getBoundingClientRect();
+                const endWorld = {
+                  x: (ghostEdge.endX - stageRect.left - pan.x) / zoom,
+                  y: (ghostEdge.endY - stageRect.top - pan.y) / zoom,
+                };
+                const a = ghostEdge.start;
+                const b = endWorld;
+                const dx = Math.max(40, Math.abs(b.x - a.x) * 0.45);
+                const c1x =
+                  a.x +
+                  (ghostEdge.fromSide === "left" ? -dx : ghostEdge.fromSide === "right" ? dx : 0);
+                const c1y =
+                  a.y +
+                  (ghostEdge.fromSide === "top" ? -dx : ghostEdge.fromSide === "bottom" ? dx : 0);
+                const ghostD = `M ${a.x} ${a.y} C ${c1x} ${c1y}, ${b.x} ${b.y}, ${b.x} ${b.y}`;
+                return (
+                  <path
+                    d={ghostD}
+                    fill="none"
+                    stroke="var(--primary)"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 4"
+                    className="pointer-events-none"
+                    opacity={0.6}
+                  />
+                );
+              })()}
           </svg>
 
           {/* Alignment snap guides */}
@@ -1577,9 +1558,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                     data-card-id={card.id}
                     className={cn(
                       "group/card absolute rounded-md border border-dashed bg-foreground/[0.02]",
-                      isSelected
-                        ? "border-primary/40"
-                        : "border-foreground/10",
+                      isSelected ? "border-primary/40" : "border-foreground/10",
                     )}
                     style={{
                       left: card.x,
@@ -1595,9 +1574,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                     }}
                   >
                     {card.label && (
-                      <div className="px-2 py-1 text-[11px] text-foreground/40">
-                        {card.label}
-                      </div>
+                      <div className="px-2 py-1 text-[11px] text-foreground/40">{card.label}</div>
                     )}
                     {renderResizeHandles(card, isSelected)}
                     {renderPorts(card, portHandler(card.id))}
@@ -1616,9 +1593,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                         }
                       }}
                       onChange={(text) =>
-                        schedulePersist(
-                          upsertCanvasNode(docRef.current, { ...card, text }),
-                        )
+                        schedulePersist(upsertCanvasNode(docRef.current, { ...card, text }))
                       }
                       onMoveStart={(e) => {
                         handleCardPointerDown(card, e);
@@ -1694,9 +1669,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                     data-card-id={card.id}
                     className={cn(
                       "group/card absolute rounded-md border bg-background px-2 py-1 text-[11px] text-foreground/40",
-                      isSelected
-                        ? "border-primary/40"
-                        : "border-foreground/[0.06]",
+                      isSelected ? "border-primary/40" : "border-foreground/[0.06]",
                     )}
                     style={{
                       left: card.x,
@@ -1847,12 +1820,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           }}
         />
       )}
-      {pickerOpen && (
-        <NodePicker
-          onPick={addKbNode}
-          onClose={() => setPickerOpen(false)}
-        />
-      )}
+      {pickerOpen && <NodePicker onPick={addKbNode} onClose={() => setPickerOpen(false)} />}
     </div>
   );
 }

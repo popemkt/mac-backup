@@ -13,10 +13,8 @@ import {
   registryFor,
   resetRegistryCache,
 } from "../src/registry.ts";
-import type { ActionEffectHandler } from "@kb/contracts";
-import type { EffectStore } from "@kb/contracts";
-import type { StoreTx } from "@kb/model";
-import type { KbNode } from "@kb/model";
+import type { ActionEffectHandler, EffectStore } from "@kb/contracts";
+import type { StoreTx, KbNode } from "@kb/model";
 
 /** Under tests/ so fixture extensions resolve zod via tools/kb/node_modules. */
 async function tempRoot(): Promise<string> {
@@ -41,10 +39,7 @@ describe("Effect-native action registry", () => {
   test("core + bundled actions register effect and no Promise handler", async () => {
     const registry = await registryFor(null);
     const owned = registry.actions.filter(
-      (a) =>
-        a.source === "core" ||
-        a.source === "ext:docs" ||
-        a.source === "ext:canvas",
+      (a) => a.source === "core" || a.source === "ext:docs" || a.source === "ext:canvas",
     );
     expect(owned.length).toBeGreaterThan(0);
     for (const action of owned) {
