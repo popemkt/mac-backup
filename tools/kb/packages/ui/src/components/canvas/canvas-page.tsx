@@ -357,7 +357,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             schedulePersist(nextDoc);
             setSelection({
               nodeIds: new Set(newNodes.map((n) => n.id)),
-              edgeIds: new Set(newEdges.map((e) => e.id)),
+              edgeIds: new Set(newEdges.map((edge) => edge.id)),
             });
           } catch {
             // not valid canvas JSON
@@ -524,8 +524,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   }, []);
 
   const zoomToFit = useCallback(() => {
-    const nodes = docRef.current.nodes;
-    if (nodes.length === 0) return;
+    const docNodes = docRef.current.nodes;
+    if (docNodes.length === 0) return;
     const stageEl = document.querySelector("[data-canvas-stage]")?.parentElement?.parentElement;
     if (!stageEl) return;
     const rect = stageEl.getBoundingClientRect();
@@ -534,7 +534,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       minY = Infinity,
       maxX = -Infinity,
       maxY = -Infinity;
-    for (const n of nodes) {
+    for (const n of docNodes) {
       minX = Math.min(minX, n.x);
       minY = Math.min(minY, n.y);
       maxX = Math.max(maxX, n.x + n.width);

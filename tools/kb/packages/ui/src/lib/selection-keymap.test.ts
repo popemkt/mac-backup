@@ -24,12 +24,12 @@ function ctx(
     selectedNodeId: selected,
     selectedInstanceKey: selectedKey,
     activeNodeId: active,
-    getPreviousVisibleInstance: (key: string) => {
-      const i = instances.findIndex((x) => x.instanceKey === key);
+    getPreviousVisibleInstance: (instanceKey: string) => {
+      const i = instances.findIndex((x) => x.instanceKey === instanceKey);
       return i > 0 ? instances[i - 1]! : null;
     },
-    getNextVisibleInstance: (key: string) => {
-      const i = instances.findIndex((x) => x.instanceKey === key);
+    getNextVisibleInstance: (instanceKey: string) => {
+      const i = instances.findIndex((x) => x.instanceKey === instanceKey);
       return i >= 0 && i < instances.length - 1 ? instances[i + 1]! : null;
     },
     getNode: (id: string) => nodeInfos[id],

@@ -476,6 +476,7 @@
       "files": [
         "packages/cli/src/output.ts",
         "packages/cli/src/surface/cli.ts",
+        "packages/ui/src/lib/log.ts",
         "packages/*/src/bin/**",
         "packages/*/bin/**",
         "packages/ext-sdk/src/generate.ts"

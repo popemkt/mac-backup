@@ -115,14 +115,14 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         );
         if (focusable.length === 0) return;
         const current = document.activeElement as HTMLElement | null;
-        const index = current ? focusable.indexOf(current) : -1;
+        const currentIndex = current ? focusable.indexOf(current) : -1;
         const next = e.shiftKey
-          ? index <= 0
+          ? currentIndex <= 0
             ? focusable.length - 1
-            : index - 1
-          : index === focusable.length - 1
+            : currentIndex - 1
+          : currentIndex === focusable.length - 1
             ? 0
-            : index + 1;
+            : currentIndex + 1;
         e.preventDefault();
         focusable[next]?.focus();
       }

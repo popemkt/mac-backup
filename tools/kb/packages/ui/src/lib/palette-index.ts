@@ -29,21 +29,22 @@ function isCommandNode(node: WireNode): boolean {
 
 /** Build searchable entries for every node (fields, tags, sys, commands). */
 export function buildPaletteIndex(nodes: WireNode[], rev: number): PaletteIndex {
-  const entries: PaletteEntry[] = [];
+  // oxlint-disable-next-line unicorn/no-new-array -- GAP [[01M1MFJXAQ8NVBMA6E6CZ7CY9W]]
+  const entries: PaletteEntry[] = new Array(nodes.length);
   for (let i = 0; i < nodes.length; i++) {
     const n = nodes[i]!;
     const text = n.text || n.id;
     const kind: PaletteEntryKind = isCommandNode(n) ? "command" : "node";
     const textLower = text.toLowerCase();
     const idLower = n.id.toLowerCase();
-    entries.push({
+    entries[i] = {
       id: n.id,
       text,
       kind,
       haystack: `${textLower}\0${idLower}`,
       textLower,
       idLower,
-    });
+    };
   }
   // Commands first for empty-query browsing, then stable by text.
   entries.sort((a, b) => {
@@ -80,9 +81,10 @@ export function searchPalette(index: PaletteIndex, query: string, limit = 20): P
   const q = query.trim().toLowerCase();
   if (!q) {
     const slice = index.entries.slice(0, limit);
-    const out: PaletteHit[] = [];
-    for (const entry of slice) {
-      out.push({ ...entry, score: 0 });
+    // oxlint-disable-next-line unicorn/no-new-array -- GAP [[01M1MFJXAQ8NVBMA6E6CZ7CY9W]]
+    const out: PaletteHit[] = new Array(slice.length);
+    for (let i = 0; i < slice.length; i++) {
+      out[i] = { ...slice[i]!, score: 0 };
     }
     return out;
   }

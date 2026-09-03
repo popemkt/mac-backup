@@ -46,7 +46,7 @@ function resolveTags(wire: WireNode, byId: Map<string, WireNode>): TagBadge[] {
     const target = byId.get(typeId);
     if (!isTagNode(target)) continue;
     const colorProp = target?.props[SYSTEM_IDS.colorField]?.[0];
-    const explicitColor = colorProp?.t === "str" ? String(colorProp.v) : undefined;
+    const explicitColor = colorProp?.t === "str" ? colorProp.v : undefined;
     tags.push({
       id: typeId,
       name: target?.text || typeId,
@@ -190,7 +190,7 @@ export function formatPropValue(
       return String(value.v);
     case "date":
     case "str":
-      return String(value.v);
+      return value.v;
     default:
       return JSON.stringify(value);
   }

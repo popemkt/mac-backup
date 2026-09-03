@@ -20,6 +20,7 @@ import { typeRefsOf } from "@kb/model";
 import { SYSTEM_IDS, isSysPrefixed, type PropValue, type OutlineNode } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
 import { useOutlineStore } from "@/stores/outline.store";
+import { logError } from "@/lib/log";
 
 export function readCanvasDoc(node: OutlineNode | undefined): CanvasDoc {
   if (!node) return { nodes: [], edges: [] };
@@ -135,7 +136,7 @@ export async function persistCanvasDoc(
     unsetProps: opts?.unsetProps,
   });
   if (receipt.status === "failed") {
-    console.error("[kb/canvas] tx.apply failed:", receipt.message);
+    logError("[kb/canvas] tx.apply failed:", receipt.message);
     return false;
   }
   const store = useOutlineStore.getState();
@@ -202,7 +203,7 @@ export async function createCanvasNode(text = "Untitled canvas"): Promise<string
     props: [{ field: SYSTEM_IDS.canvasField, value: { t: "str", v: docStr } }],
   });
   if (receipt.status === "failed") {
-    console.error("[kb/canvas] create failed:", receipt.message);
+    logError("[kb/canvas] create failed:", receipt.message);
     store.applyTx([], [id]);
     return null;
   }

@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { logError } from "@/lib/log";
 
 export interface ViewErrorProps {
   title?: string;
@@ -71,7 +72,7 @@ export class ViewErrorBoundary extends Component<ViewErrorBoundaryProps, ViewErr
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error("ViewErrorBoundary caught", error, info.componentStack);
+    logError("ViewErrorBoundary caught", error, info.componentStack);
   }
 
   private retry = (): void => {

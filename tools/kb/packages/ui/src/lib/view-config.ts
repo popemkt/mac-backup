@@ -1,5 +1,6 @@
 import type { NodeMap, OutlineNode, PropValue } from "./types";
 import { isSysPrefixed, SYSTEM_IDS } from "./types";
+import { logWarn } from "@/lib/log";
 
 export type ViewMode = "list" | "table" | "board" | "cards";
 export type SortDir = "asc" | "desc";
@@ -82,7 +83,7 @@ function propValueKey(v: PropValue, _nodes: NodeMap): string {
   if (v.t === "ref") return `ref:${v.v}`;
   if (v.t === "bool") return `bool:${v.v ? 1 : 0}`;
   if (v.t === "num") return `num:${v.v}`;
-  return `str:${String(v.v)}`;
+  return `str:${v.v}`;
 }
 
 function propValueLabel(v: PropValue, nodes: NodeMap): string {
@@ -192,7 +193,7 @@ export function getViewConfig(props?: Record<string, PropValue[]>): ViewConfig {
     if (parsed) {
       filters.push(parsed);
     } else {
-      console.warn(`[view-config] ignoring bad filter EDN: ${raw.v}`);
+      logWarn(`[view-config] ignoring bad filter EDN: ${raw.v}`);
     }
   }
 

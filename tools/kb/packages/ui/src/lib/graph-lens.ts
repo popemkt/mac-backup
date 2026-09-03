@@ -8,6 +8,7 @@ import { extractMentions } from "@/ds/datoms";
 import { runQuery } from "@/ds/query";
 import { hashTagColor, resolveTagColor } from "@/lib/tag-color";
 import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
+import { logWarn } from "@/lib/log";
 
 export type EdgeKind = "mention" | "child" | "ref-prop";
 
@@ -94,24 +95,24 @@ const EDGE_KIND_SET = new Set<string>(["mention", "child", "ref-prop"]);
 
 function strProp(node: WireNode, fieldId: string): string | null {
   const v = (node.props[fieldId] ?? []).find((p) => p.t === "str" && typeof p.v === "string");
-  return v ? String(v.v).trim() : null;
+  return v ? v.v.trim() : null;
 }
 
 function numProp(node: WireNode, fieldId: string): number | null {
   const v = (node.props[fieldId] ?? []).find((p) => p.t === "num" && typeof p.v === "number");
-  return v ? Number(v.v) : null;
+  return v ? v.v : null;
 }
 
 function multiStrProp(node: WireNode, fieldId: string): string[] {
   return (node.props[fieldId] ?? [])
     .filter((p) => p.t === "str" && typeof p.v === "string")
-    .map((p) => String(p.v).trim())
+    .map((p) => p.v.trim())
     .filter(Boolean);
 }
 
 function refProp(node: WireNode, fieldId: string): string | null {
   const v = (node.props[fieldId] ?? []).find((p) => p.t === "ref" && typeof p.v === "string");
-  return v ? String(v.v) : null;
+  return v ? v.v : null;
 }
 
 function isTagNode(node: WireNode | undefined): boolean {
@@ -132,7 +133,7 @@ export function firstTagOf(
     const target = byId.get(pv.v);
     if (!isTagNode(target)) continue;
     const colorProp = target?.props[SYSTEM_IDS.colorField]?.[0];
-    const explicit = colorProp?.t === "str" ? String(colorProp.v) : undefined;
+    const explicit = colorProp?.t === "str" ? colorProp.v : undefined;
     return { id: pv.v, color: resolveTagColor(pv.v, explicit) };
   }
   return null;
@@ -151,7 +152,7 @@ export function listPerspectiveNodes(wireNodes: WireNode[]): WireNode[] {
 
 function boolProp(node: WireNode, fieldId: string): boolean | null {
   const v = (node.props[fieldId] ?? []).find((p) => p.t === "bool" && typeof p.v === "boolean");
-  return v ? Boolean(v.v) : null;
+  return v ? v.v : null;
 }
 
 export function parsePerspective(node: WireNode): LensPerspective {
@@ -242,7 +243,7 @@ export function resolveClusterKey(
     if (!fieldId) return "none";
     const vals = wire.props[fieldId] ?? [];
     const ref = vals.find((v) => v.t === "ref");
-    if (ref) return String(ref.v);
+    if (ref) return ref.v;
     const other = vals[0];
     if (other && other.t !== "ref") return String(other.v);
     return "none";
@@ -380,7 +381,7 @@ function resolveNodeSet(
     return { nodeSet: idsFromQueryRows(rows, all), queryError: null };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn("[graph-lens] lens.query failed:", msg);
+    logWarn("[graph-lens] lens.query failed:", msg);
     return { nodeSet: new Set(), queryError: msg };
   }
 }
@@ -471,7 +472,7 @@ function applyMaxNodesCap(
   });
   const keep = new Set(ranked.slice(0, maxNodes));
   const dropped = nodeIds.length - maxNodes;
-  console.warn(`[graph-lens] max-nodes=${maxNodes}: dropped ${dropped} lowest-degree nodes`);
+  logWarn(`[graph-lens] max-nodes=${maxNodes}: dropped ${dropped} lowest-degree nodes`);
   return { keep, dropped };
 }
 

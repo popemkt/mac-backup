@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { logError } from "@/lib/log";
 
 interface GraphCanvasErrorBoundaryProps {
   children: ReactNode;
@@ -35,7 +36,7 @@ export class GraphCanvasErrorBoundary extends Component<
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error("GraphCanvasErrorBoundary caught", error, info.componentStack);
+    logError("GraphCanvasErrorBoundary caught", error, info.componentStack);
   }
 
   private retry = (): void => {

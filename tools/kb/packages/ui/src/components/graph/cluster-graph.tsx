@@ -340,7 +340,7 @@ export function ClusterGraph({
         for (let i = 1; i < hull.length; i++) path2d.lineTo(hull[i]!.x, hull[i]!.y);
         path2d.closePath();
         if (ctx.isPointInPath(path2d, cx, cy)) {
-          setIsolatedCluster((prev) => (prev === key ? null : key));
+          setIsolatedCluster((isolated) => (isolated === key ? null : key));
           return;
         }
       }

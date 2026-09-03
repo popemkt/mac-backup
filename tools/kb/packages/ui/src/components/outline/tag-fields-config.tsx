@@ -139,7 +139,7 @@ export function resolveTagFields(
   const tag = nodes.get(tagId);
   const templateIds = (tag?.props[SYSTEM_IDS.fieldsField] ?? [])
     .filter((v) => v.t === "ref")
-    .map((v) => String(v.v));
+    .map((v) => v.v);
 
   const all: TagFieldRef[] = [];
   for (const [id, node] of nodes) {

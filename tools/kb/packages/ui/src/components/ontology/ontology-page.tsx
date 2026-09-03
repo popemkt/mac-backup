@@ -300,7 +300,7 @@ function isTagNode(node: WireNode): boolean {
 
 function explicitTagColor(node: WireNode | undefined): string | undefined {
   const raw = node?.props[SYSTEM_IDS.colorField]?.[0];
-  return raw?.t === "str" ? String(raw.v) : undefined;
+  return raw?.t === "str" ? raw.v : undefined;
 }
 
 function DefinitionRow({

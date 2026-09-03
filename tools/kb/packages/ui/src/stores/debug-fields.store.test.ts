@@ -17,7 +17,7 @@ function fakeStorage() {
   const map = new Map<string, string>();
   return {
     getItem: (k: string) => map.get(k) ?? null,
-    setItem: (k: string, v: string) => void map.set(k, String(v)),
+    setItem: (k: string, v: string) => void map.set(k, v),
     removeItem: (k: string) => void map.delete(k),
     clear: () => map.clear(),
   };
