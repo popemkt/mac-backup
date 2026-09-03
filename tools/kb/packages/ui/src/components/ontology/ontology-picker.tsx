@@ -30,7 +30,7 @@ export function OntologyPicker({
   const active = ontologies.find((o) => o.id === activeId) ?? null;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };

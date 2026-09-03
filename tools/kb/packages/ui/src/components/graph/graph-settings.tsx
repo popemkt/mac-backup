@@ -25,7 +25,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     const onDoc = (e: MouseEvent) => {
       if (!panelRef.current?.contains(e.target as Node)) setOpen(false);
     };

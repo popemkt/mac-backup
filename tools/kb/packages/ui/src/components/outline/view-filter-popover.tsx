@@ -96,7 +96,7 @@ export function ViewFilterPopoverHost() {
   }, [frameId, setOpenId, rev]);
 
   useEffect(() => {
-    if (!frameId || !anchor) return;
+    if (!frameId || !anchor) return undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpenId(null);
     };

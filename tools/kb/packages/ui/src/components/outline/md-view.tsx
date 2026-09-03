@@ -151,5 +151,12 @@ function renderSeg(
         </audio>
       );
     }
+    default: {
+      // Unreachable: `never` makes the compiler prove the switch is exhaustive
+      // over InlineSeg. The clause exists because the switch must produce a
+      // value, so the function needs a terminating branch here.
+      const unhandled: never = seg;
+      throw new Error(`unhandled inline segment: ${JSON.stringify(unhandled)}`);
+    }
   }
 }

@@ -224,6 +224,8 @@ export class KbWsClient {
         break;
       case "pong":
         break;
+      // Exhaustive over ServerMessage['op']; switch-exhaustiveness-check guards it
+      // no default
     }
   }
 }

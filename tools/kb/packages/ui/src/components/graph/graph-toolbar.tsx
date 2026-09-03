@@ -80,6 +80,9 @@ export function GraphToolbar({
             cam.fit();
           }
           break;
+        default:
+          // Any other key belongs to the page, not the camera.
+          break;
       }
     };
     window.addEventListener("keydown", onKey);

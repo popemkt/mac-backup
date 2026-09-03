@@ -84,7 +84,7 @@ export function NodeTextHost({
   }, [refOpen?.query, refOpen?.start]);
 
   useLayoutEffect(() => {
-    if (!isActive || !instanceKey) return;
+    if (!isActive || !instanceKey) return undefined;
     const registry = useOutlineStore.getState();
     registry.registerTextHost(instanceKey);
     return () => registry.unregisterTextHost(instanceKey);

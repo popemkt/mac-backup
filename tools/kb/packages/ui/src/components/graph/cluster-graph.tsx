@@ -70,7 +70,7 @@ export function ClusterGraph({
   useEffect(() => {
     const el = containerRef.current;
     const hullCanvas = hullRef.current;
-    if (!el || !hullCanvas) return;
+    if (!el || !hullCanvas) return undefined;
 
     sigmaRef.current?.kill();
     sigmaRef.current = null;

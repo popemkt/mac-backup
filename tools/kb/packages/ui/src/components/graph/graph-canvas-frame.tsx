@@ -45,7 +45,7 @@ export function GraphCanvasFrame({
   clearRef.current = onClearSelection;
 
   useEffect(() => {
-    if (!capabilities.selection) return;
+    if (!capabilities.selection) return undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") clearRef.current();
       if (e.key === "Enter" && selectedNodeId) onOpenNode(selectedNodeId);

@@ -88,6 +88,8 @@ function applySelectionAction(action: SelectionKeyAction): void {
       });
       break;
     }
+    // Exhaustive over SelectionKeyAction; switch-exhaustiveness-check guards it
+    // no default
   }
 }
 
@@ -98,7 +100,7 @@ export function useSelectionKeymap(): void {
   const activeNodeId = useOutlineStore((s) => s.activeNodeId);
 
   useEffect(() => {
-    if (!selectedNodeId || !selectedInstanceKey || activeNodeId) return;
+    if (!selectedNodeId || !selectedInstanceKey || activeNodeId) return undefined;
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.altKey && !(e.metaKey || e.ctrlKey)) {

@@ -849,6 +849,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           newX = d.origX + d.origW - newW;
           newY = d.origY + d.origH - newH;
           break;
+        // Exhaustive over ResizeCorner; switch-exhaustiveness-check guards it
+        // no default
       }
 
       // Shift: lock aspect ratio

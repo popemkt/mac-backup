@@ -19,7 +19,7 @@ export function PerspectivePicker({ perspectives, activeId, onSelect }: Perspect
   const active = perspectives.find((p) => p.id === activeId) ?? null;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };

@@ -56,7 +56,7 @@ export function RefAddPopover({
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     const onPointerDown = (e: PointerEvent) => {
       const root = rootRef.current;
       if (root && e.target instanceof Node && !root.contains(e.target)) {

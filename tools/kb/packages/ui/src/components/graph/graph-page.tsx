@@ -115,7 +115,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   );
 
   useEffect(() => {
-    if (!queryDb || !active) return;
+    if (!queryDb || !active) return undefined;
     const handle = window.setTimeout(() => {
       setLensGraph(
         extractLensGraph(queryDb, wireNodes, active, {

@@ -44,7 +44,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const hits = useMemo(() => searchPalette(index, query, ROW_LIMIT), [index, query]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     restoreFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setQuery("");

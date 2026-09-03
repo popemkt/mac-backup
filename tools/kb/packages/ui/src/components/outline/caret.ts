@@ -55,6 +55,13 @@ export function mapOffset(step: CaretStep, offset: number): number {
       return step.side === "left" ? Math.min(at, step.offset) : Math.max(0, at - step.offset);
     case "merge":
       return step.source === "left" ? at : step.leftLength + at;
+    default: {
+      // Unreachable: `never` makes the compiler prove the switch is exhaustive
+      // over CaretStep. The clause exists because the switch must produce a
+      // value, so the function needs a terminating branch here.
+      const unhandled: never = step;
+      throw new Error(`unhandled caret step: ${JSON.stringify(unhandled)}`);
+    }
   }
 }
 
