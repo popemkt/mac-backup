@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { CircleHalf, Warning } from "@phosphor-icons/react";
+import { CircleHalfIcon, WarningIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, resolveDark } from "@/stores/prefs.store";
@@ -24,7 +24,7 @@ import { ClusterGraph } from "@/components/graph/cluster-graph";
 import { TreeGraph } from "@/components/graph/tree-graph";
 import { GraphCanvasFrame } from "@/components/graph/graph-canvas-frame";
 import type { GraphCameraControls } from "@/components/graph/graph-camera-controls";
-import type { GraphSelection } from "@/components/graph/graph-selection-card";
+import type { GraphSelection } from "@/components/graph/graph-selection";
 import { SidebarToggle } from "@/components/sidebar/sidebar";
 
 const Force3dGraph = lazy(() => import("@/components/graph/force3d-graph"));
@@ -45,6 +45,7 @@ export interface GraphPageProps {
   ontologyId?: string | null;
 }
 
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCFTMWY5EYHEWP9QVH8Z9]]
 export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPageProps) {
   const wireNodes = useOutlineStore((s) => s.wireNodes);
   const queryDb = useOutlineStore((s) => s.queryDb);
@@ -115,7 +116,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   );
 
   useEffect(() => {
-    if (!queryDb || !active) return;
+    if (!queryDb || !active) return undefined;
     const handle = window.setTimeout(() => {
       setLensGraph(
         extractLensGraph(queryDb, wireNodes, active, {
@@ -220,7 +221,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
             className="flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-600 dark:text-amber-400"
             title={lensGraph.queryError}
           >
-            <Warning size={12} /> query error
+            <WarningIcon size={12} /> query error
           </span>
         )}
         <div className="flex-1" />
@@ -232,7 +233,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setPrefsOpen(!prefsOpen)}
         >
-          <CircleHalf size={15} />
+          <CircleHalfIcon size={15} />
         </button>
       </header>
       <div

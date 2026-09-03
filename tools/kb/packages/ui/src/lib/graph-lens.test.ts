@@ -288,7 +288,7 @@ describe("extractLensGraph", () => {
     const db = buildQueryDb(nodes, 1);
     const g = extractLensGraph(db, nodes, perspective({ edgeKinds: ["child"] }));
     const forest = buildTreeForest(nodes, g.nodes, null);
-    const rootIds = forest.map((t) => t.id).sort();
+    const rootIds = forest.map((t) => t.id).toSorted();
     expect(rootIds).toContain("n.a");
     expect(rootIds).not.toContain("n.a1");
     const focused = buildTreeForest(nodes, g.nodes, "n.a");
@@ -318,6 +318,6 @@ describe("extractLensGraph", () => {
   it("idsFromQueryRows picks known string ids", () => {
     const known = new Set(["n.a", "n.b"]);
     const ids = idsFromQueryRows([["n.a", "Alpha"], [1, "n.b"], ["missing"]], known);
-    expect([...ids].sort()).toEqual(["n.a", "n.b"]);
+    expect([...ids].toSorted()).toEqual(["n.a", "n.b"]);
   });
 });

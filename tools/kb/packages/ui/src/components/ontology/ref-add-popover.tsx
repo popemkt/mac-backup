@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus } from "@phosphor-icons/react";
+import { PlusIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 
 export interface RefCandidateItem {
@@ -56,7 +56,7 @@ export function RefAddPopover({
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     const onPointerDown = (e: PointerEvent) => {
       const root = rootRef.current;
       if (root && e.target instanceof Node && !root.contains(e.target)) {
@@ -82,7 +82,7 @@ export function RefAddPopover({
         className="flex h-[18px] items-center gap-0.5 rounded-sm border border-dashed border-foreground/15 px-1.5 text-[11px] text-foreground/40 transition-colors duration-100 hover:border-foreground/30 hover:text-foreground/70"
         onClick={() => setOpen((v) => !v)}
       >
-        <Plus size={9} weight="bold" />
+        <PlusIcon size={9} weight="bold" />
         {trigger}
       </button>
       {open ? (

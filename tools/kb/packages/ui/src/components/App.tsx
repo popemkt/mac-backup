@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import { CircleHalf } from "@phosphor-icons/react";
+import { CircleHalfIcon } from "@phosphor-icons/react";
 import { loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
 import { CommandPalette, PaletteTrigger } from "@/components/palette/command-palette";
@@ -191,7 +191,7 @@ function OutlineShell({
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setPrefsOpen(!prefsOpen)}
         >
-          <CircleHalf size={15} />
+          <CircleHalfIcon size={15} />
         </button>
       </header>
 

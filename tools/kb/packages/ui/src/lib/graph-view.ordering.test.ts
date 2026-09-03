@@ -37,10 +37,10 @@ describe("stable outline ordering", () => {
   });
 
   it("mergeTx preserves deterministic wire order (id ascending)", () => {
-    const shuffled = [...fixtureGraph.nodes].reverse();
+    const shuffled = fixtureGraph.nodes.toReversed();
     const merged = mergeTx(shuffled, [], []);
     expect(merged.map((n) => n.id)).toEqual(
-      [...fixtureGraph.nodes].sort((a, b) => a.id.localeCompare(b.id)).map((n) => n.id),
+      [...fixtureGraph.nodes].toSorted((a, b) => a.id.localeCompare(b.id)).map((n) => n.id),
     );
   });
 
@@ -60,7 +60,7 @@ describe("stable outline ordering", () => {
   });
 
   it("order survives JsonlStore-shaped id-sorted reload and re-edit", () => {
-    const idSorted = [...fixtureGraph.nodes].sort((a, b) => a.id.localeCompare(b.id));
+    const idSorted = [...fixtureGraph.nodes].toSorted((a, b) => a.id.localeCompare(b.id));
     useOutlineStore.getState().hydrateFromWire(idSorted, fixtureGraph.rev, "fixtures");
 
     const beforeRoots = [...useOutlineStore.getState().nodes.get("__kb_root__")!.children];
@@ -69,7 +69,7 @@ describe("stable outline ordering", () => {
     mutations.updateNodeContent("n.root-a", "edited once");
 
     const wireAfterEdit = useOutlineStore.getState().wireNodes;
-    const idSortedReload = [...wireAfterEdit].sort((a, b) => a.id.localeCompare(b.id));
+    const idSortedReload = [...wireAfterEdit].toSorted((a, b) => a.id.localeCompare(b.id));
     useOutlineStore.getState().hydrateFromWire(idSortedReload, fixtureGraph.rev + 1, "api");
 
     for (let i = 0; i < 10; i++) {

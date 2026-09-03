@@ -16,10 +16,10 @@ import {
 beforeAll(() => {
   const dom = new Window();
   const g = globalThis as Record<string, unknown>;
-  g.window = dom as unknown;
-  g.document = dom.document as unknown;
-  g.Node = dom.Node as unknown;
-  g.HTMLElement = dom.HTMLElement as unknown;
+  g.window = dom;
+  g.document = dom.document;
+  g.Node = dom.Node;
+  g.HTMLElement = dom.HTMLElement;
   if (!("NodeFilter" in g)) {
     g.NodeFilter = dom.NodeFilter ?? { SHOW_TEXT: 4 };
   }

@@ -203,7 +203,7 @@ describe("invertPlan (D19)", () => {
     const applied = applyTxShim(nodes, plan);
     const inv = invertPlan(nodes, plan);
     const restored = applyInvShim(applied, inv);
-    expect(restored.map((n) => n.id).sort()).toEqual(nodes.map((n) => n.id).sort());
+    expect(restored.map((n) => n.id).toSorted()).toEqual(nodes.map((n) => n.id).toSorted());
     expect(restored.find((n) => n.id === "a")!.children).toEqual(["a1", "a2"]);
     expect(restored.find((n) => n.id === "root")!.children).toEqual(["a", "b"]);
   });

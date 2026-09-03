@@ -1,4 +1,4 @@
-import { MagnifyingGlass } from "@phosphor-icons/react";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { BulletKind, BulletKindOverride } from "@/lib/bullet-mode";
 import { resolveBulletMode } from "@/lib/bullet-mode";
@@ -31,6 +31,7 @@ const HALO_OPACITY = 12.5;
 /** Dashed reference ring stroke at 25% (was `40`). */
 const REF_RING_OPACITY = 25;
 
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCMX698XJ0VDCSVQBGSQB]]
 export function Bullet({
   node,
   collapsible: collapsibleProp,
@@ -117,7 +118,7 @@ export function Bullet({
           #
         </span>
       ) : isQuery ? (
-        <MagnifyingGlass
+        <MagnifyingGlassIcon
           size={14}
           weight="bold"
           className={cn("relative z-[1]", !tinted && "text-foreground/45")}

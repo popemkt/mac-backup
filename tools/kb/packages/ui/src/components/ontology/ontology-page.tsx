@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { X } from "@phosphor-icons/react";
+import { XIcon } from "@phosphor-icons/react";
 import type { WireNode } from "@kb/contracts";
 import {
   isOntologyNode,
@@ -73,7 +73,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
         note: taken.has(n.id) ? "included" : undefined,
         disabled: taken.has(n.id),
       }))
-      .sort((a, b) => a.label.localeCompare(b.label));
+      .toSorted((a, b) => a.label.localeCompare(b.label));
   }, [wireNodes, includeTags.join(",")]); // oxlint-disable-line react-hooks/exhaustive-deps -- joined-key is a stable primitive dep for a fresh-array input; depends on the array's contents, not its identity
 
   const ontologyCandidates = useMemo(() => {
@@ -89,7 +89,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
           disabled: taken.has(n.id) || cycles,
         };
       })
-      .sort((a, b) => a.label.localeCompare(b.label));
+      .toSorted((a, b) => a.label.localeCompare(b.label));
   }, [wireNodes, ontologyId, extendsIds.join(",")]); // oxlint-disable-line react-hooks/exhaustive-deps -- joined-key is a stable primitive dep for a fresh-array input; depends on the array's contents, not its identity
 
   if (!onto) {
@@ -300,7 +300,7 @@ function isTagNode(node: WireNode): boolean {
 
 function explicitTagColor(node: WireNode | undefined): string | undefined {
   const raw = node?.props[SYSTEM_IDS.colorField]?.[0];
-  return raw?.t === "str" ? String(raw.v) : undefined;
+  return raw?.t === "str" ? raw.v : undefined;
 }
 
 function DefinitionRow({
@@ -359,7 +359,7 @@ function Chip({
         className="ml-0.5 flex h-3 w-3 shrink-0 items-center justify-center rounded-sm opacity-0 transition-opacity group-hover/chip:opacity-60 hover:!opacity-100 focus-visible:opacity-100"
         onClick={onRemove}
       >
-        <X size={9} weight="bold" />
+        <XIcon size={9} weight="bold" />
       </button>
     </span>
   );

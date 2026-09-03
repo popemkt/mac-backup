@@ -80,13 +80,13 @@ describe("ontology scope (acceptance)", () => {
   beforeAll(() => {
     dom = new Window({ url: "http://localhost/" });
     const g = globalThis as Record<string, unknown>;
-    g.window = dom as unknown;
-    g.document = dom.document as unknown;
-    g.HTMLElement = dom.HTMLElement as unknown;
-    g.KeyboardEvent = dom.KeyboardEvent as unknown;
-    g.MouseEvent = dom.MouseEvent as unknown;
-    g.PointerEvent = dom.MouseEvent as unknown;
-    g.Node = dom.Node as unknown;
+    g.window = dom;
+    g.document = dom.document;
+    g.HTMLElement = dom.HTMLElement;
+    g.KeyboardEvent = dom.KeyboardEvent;
+    g.MouseEvent = dom.MouseEvent;
+    g.PointerEvent = dom.MouseEvent;
+    g.Node = dom.Node;
     g.CSS = { escape: (s: string) => s };
     g.IS_REACT_ACT_ENVIRONMENT = true;
     g.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
@@ -159,7 +159,7 @@ describe("ontology scope (acceptance)", () => {
 
     const store = useOutlineStore.getState();
     expect(store.ontologyId).toBe(ONTO);
-    expect([...store.ontologyMembers!].sort()).toEqual([
+    expect([...store.ontologyMembers!].toSorted()).toEqual([
       "n.caddy",
       "n.notes",
       "n.oldvpn",
@@ -233,7 +233,7 @@ describe("ontology scope (acceptance)", () => {
       },
       { restrictTo: s.ontologyMembers! },
     );
-    expect(graph.nodes.map((n) => n.id).sort()).toEqual([
+    expect(graph.nodes.map((n) => n.id).toSorted()).toEqual([
       "n.caddy",
       "n.notes",
       "n.oldvpn",

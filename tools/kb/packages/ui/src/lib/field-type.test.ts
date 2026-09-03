@@ -76,7 +76,7 @@ describe("field types", () => {
     const field = nodes.get("field.assignee");
     const allowed = resolveAllowedRefIds(field, nodes, null);
     expect(allowed).not.toBeNull();
-    expect([...allowed!].sort()).toEqual(["n.root-a", "n.root-b"]);
+    expect([...allowed!].toSorted()).toEqual(["n.root-a", "n.root-b"]);
     expect(allowed!.has("n.root-c")).toBe(false);
   });
 
@@ -143,7 +143,7 @@ describe("field types", () => {
     expect(a).toBe(b);
     const c = resolveAllowedRefIdsCached("field.assignee", field, nodes, null, 2);
     expect(c).not.toBe(a);
-    expect([...c!].sort()).toEqual([...a!].sort());
+    expect([...c!].toSorted()).toEqual([...a!].toSorted());
   });
 
   it("plan helpers write fieldType / targetTag / targetQuery", () => {
@@ -220,14 +220,14 @@ describe("allowed ref targets: resolution vs display", () => {
   const TAG_NODES = fixtureGraph.nodes
     .filter((n) => typeRefsOf(n).includes(SYSTEM_IDS.tag))
     .map((n) => n.id)
-    .sort();
+    .toSorted();
 
   it("offers every supertag for targetTag → sys.tag", () => {
     const nodes = withIncludeField();
     const allowed = resolveAllowedRefIds(nodes.get(SYSTEM_IDS.ontoIncludeField), nodes, null);
     expect(allowed).not.toBeNull();
     expect(allowed!.size).toBeGreaterThan(0);
-    expect([...allowed!].sort()).toEqual(TAG_NODES);
+    expect([...allowed!].toSorted()).toEqual(TAG_NODES);
     // Both kinds are present, and resolution hides neither: seeded supertags
     // are exactly the ones a sys.-skipping resolver used to drop.
     expect(TAG_NODES.some(isSysPrefixed)).toBe(true);
@@ -262,7 +262,7 @@ describe("allowed ref targets: resolution vs display", () => {
       forged,
       null,
     );
-    expect([...afterForgery!].sort()).toEqual([...truth!].sort());
+    expect([...afterForgery!].toSorted()).toEqual([...truth!].toSorted());
     expect(afterForgery!.has("n.root-c")).toBe(false);
   });
 
@@ -279,7 +279,7 @@ describe("allowed ref targets: resolution vs display", () => {
         .map(([id, n]) => [id, { id, text: n.text, props: n.props, children: n.children }]),
     );
     const allowed = allowedRefIdsOf(bare.get(SYSTEM_IDS.ontoIncludeField), bare);
-    expect([...allowed!].sort()).toEqual(TAG_NODES);
+    expect([...allowed!].toSorted()).toEqual(TAG_NODES);
   });
 
   it("still hides infrastructure where nothing is declared (display)", () => {
@@ -294,7 +294,7 @@ describe("allowed ref targets: resolution vs display", () => {
     // …and yields to the declaration when there is one.
     const allowed = resolveAllowedRefIds(nodes.get(SYSTEM_IDS.ontoIncludeField), nodes, null);
     const offered = fuzzyNodeCandidates(nodes, "", { allowed }).map((c) => c.id);
-    expect(offered.slice().sort()).toEqual(TAG_NODES);
+    expect(offered.slice().toSorted()).toEqual(TAG_NODES);
   });
 
   it("lets targetQuery win over targetTag, sys ids included", () => {

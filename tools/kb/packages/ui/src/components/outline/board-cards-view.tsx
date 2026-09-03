@@ -337,6 +337,7 @@ const ViewCard = memo(function ViewCard({
             }
             return values.map((v, i) => (
               <FieldRow
+                // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
                 key={`${col.fieldId}-${i}`}
                 depth={-1}
                 fieldType={fieldType}
@@ -361,6 +362,6 @@ const ViewCard = memo(function ViewCard({
 });
 
 /** Helper for callers that only have a ViewMode. */
-export function isBoardOrCards(mode: ViewMode): mode is "board" | "cards" {
+function isBoardOrCards(mode: ViewMode): mode is "board" | "cards" {
   return mode === "board" || mode === "cards";
 }

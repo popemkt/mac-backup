@@ -22,6 +22,7 @@ import {
 import { WORKSPACE_ROOT_ID, isSysPrefixed, type NodeMap, type OutlineNode } from "@/lib/types";
 import type { InverseTx } from "@/actions/plan";
 import type { WireNode } from "@kb/contracts";
+import { logWarn } from "@/lib/log";
 
 export type { VisibleInstance };
 
@@ -249,7 +250,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     const active = get();
     if (active.activeInstanceKey !== instanceKey || mountedTextHosts.has(instanceKey)) return;
     if (import.meta.env.DEV) {
-      console.warn(`kb: active text host did not mount: ${instanceKey}`);
+      logWarn(`kb: active text host did not mount: ${instanceKey}`);
     }
     set({
       activeNodeId: null,
@@ -582,7 +583,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
         !isReferenceInstance &&
         !revealed.getVisibleInstances().some((item) => item.instanceKey === key)
       ) {
-        if (import.meta.env.DEV) console.warn(`kb: refused unreachable focus target: ${key}`);
+        if (import.meta.env.DEV) logWarn(`kb: refused unreachable focus target: ${key}`);
         toast("That node is not visible in this outline");
         return;
       }

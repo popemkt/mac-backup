@@ -11,7 +11,7 @@ import { graphNodeAlpha, withGraphAlpha } from "@/lib/graph-dim";
 import { formatGraphLabel } from "@/lib/graph-label";
 import { fibonacciSphere } from "@/lib/convex-hull";
 import { force3dCameraControls, type GraphCameraControls } from "./graph-camera-controls";
-import { selectionFromNode, type GraphSelection } from "./graph-selection-card";
+import { selectionFromNode, type GraphSelection } from "./graph-selection";
 
 export interface Force3dGraphProps {
   nodes: LensNode[];
@@ -110,7 +110,7 @@ export default function Force3dGraph({
 
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el) return undefined;
 
     try {
       graphRef.current?._destructor();
@@ -121,7 +121,7 @@ export default function Force3dGraph({
 
     const nodeSetKey = nodes
       .map((node) => node.id)
-      .sort()
+      .toSorted()
       .join("|");
     if (layoutKeyRef.current !== layoutKey || nodeSetRef.current !== nodeSetKey) {
       positionsRef.current = new Map();
@@ -139,7 +139,7 @@ export default function Force3dGraph({
     );
     const labelColor = force3dColor(readTokenColor("--foreground", { fallback: "rgb(34,34,34)" }));
 
-    const clusters = [...new Set(nodes.map((n) => n.clusterKey))].sort();
+    const clusters = [...new Set(nodes.map((n) => n.clusterKey))].toSorted();
     const attractors = new Map<string, Vec3>();
     const radius = 120 + clusters.length * 20;
     clusters.forEach((key, i) => {
@@ -193,7 +193,7 @@ export default function Force3dGraph({
 
     const labelIds = new Set(
       [...nodes]
-        .sort((a, b) => b.size - a.size || a.id.localeCompare(b.id))
+        .toSorted((a, b) => b.size - a.size || a.id.localeCompare(b.id))
         .slice(0, showLabels ? labelTopN : 0)
         .map((n) => n.id),
     );

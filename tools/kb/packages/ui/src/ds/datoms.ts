@@ -31,7 +31,7 @@ export interface NodesToDatomsResult {
 }
 
 export function buildIdMap(nodes: Array<{ id: NodeId }>): IdMap {
-  const sorted = [...nodes].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const sorted = [...nodes].toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const toEid = new Map<NodeId, number>();
   const toId = new Map<number, NodeId>();
   let eid = 1;

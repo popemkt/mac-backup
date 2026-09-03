@@ -33,7 +33,7 @@ export function queryDefOf(node: OutlineNode | undefined): QueryNodeDef | null {
   );
   return {
     edn: String(ednVal.v).trim(),
-    limit: limitVal ? Number(limitVal.v) : null,
+    limit: limitVal ? limitVal.v : null,
   };
 }
 

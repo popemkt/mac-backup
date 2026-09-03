@@ -29,6 +29,7 @@ function isCommandNode(node: WireNode): boolean {
 
 /** Build searchable entries for every node (fields, tags, sys, commands). */
 export function buildPaletteIndex(nodes: WireNode[], rev: number): PaletteIndex {
+  // oxlint-disable-next-line unicorn/no-new-array -- GAP [[01M1MFJXAQ8NVBMA6E6CZ7CY9W]]
   const entries: PaletteEntry[] = new Array(nodes.length);
   for (let i = 0; i < nodes.length; i++) {
     const n = nodes[i]!;
@@ -80,6 +81,7 @@ export function searchPalette(index: PaletteIndex, query: string, limit = 20): P
   const q = query.trim().toLowerCase();
   if (!q) {
     const slice = index.entries.slice(0, limit);
+    // oxlint-disable-next-line unicorn/no-new-array -- GAP [[01M1MFJXAQ8NVBMA6E6CZ7CY9W]]
     const out: PaletteHit[] = new Array(slice.length);
     for (let i = 0; i < slice.length; i++) {
       out[i] = { ...slice[i]!, score: 0 };

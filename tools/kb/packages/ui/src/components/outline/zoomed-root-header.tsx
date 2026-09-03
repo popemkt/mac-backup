@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { LockSimple } from "@phosphor-icons/react";
+import { LockSimpleIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
 import type { OutlineNode } from "@/lib/types";
@@ -134,7 +134,7 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
               title="System node — read-only"
               data-sys-lock="true"
             >
-              <LockSimple size={14} weight="bold" />
+              <LockSimpleIcon size={14} weight="bold" />
             </span>
           )}
           {/* Tana model: no view chrome on list; compact toolbar only for ≠ list. */}

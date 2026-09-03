@@ -254,6 +254,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const refFields = useMemo(() => listRefFields(nodes), [nodes]);
 
   useEffect(() => {
+    // oxlint-disable-next-line complexity -- GAP [[01M1MGCS6A29HT51G40W5TEEYK]]
     const onKeyDown = (e: KeyboardEvent) => {
       const inField =
         e.target instanceof HTMLInputElement ||
@@ -334,6 +335,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       // Paste
       if ((e.metaKey || e.ctrlKey) && e.key === "v") {
         e.preventDefault();
+        // oxlint-disable-next-line promise/always-return -- GAP [[01M1MFS8RQ2BMQVZD02J4TQT7W]]
         void navigator.clipboard.readText().then((text) => {
           try {
             const parsed = parseCanvasDoc(text);
@@ -357,7 +359,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             schedulePersist(nextDoc);
             setSelection({
               nodeIds: new Set(newNodes.map((n) => n.id)),
-              edgeIds: new Set(newEdges.map((e) => e.id)),
+              edgeIds: new Set(newEdges.map((edge) => edge.id)),
             });
           } catch {
             // not valid canvas JSON
@@ -524,8 +526,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   }, []);
 
   const zoomToFit = useCallback(() => {
-    const nodes = docRef.current.nodes;
-    if (nodes.length === 0) return;
+    const docNodes = docRef.current.nodes;
+    if (docNodes.length === 0) return;
     const stageEl = document.querySelector("[data-canvas-stage]")?.parentElement?.parentElement;
     if (!stageEl) return;
     const rect = stageEl.getBoundingClientRect();
@@ -534,7 +536,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       minY = Infinity,
       maxX = -Infinity,
       maxY = -Infinity;
-    for (const n of nodes) {
+    for (const n of docNodes) {
       minX = Math.min(minX, n.x);
       minY = Math.min(minY, n.y);
       maxX = Math.max(maxX, n.x + n.width);
@@ -675,6 +677,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setSelection(selNode(card.id));
   };
 
+  // oxlint-disable-next-line complexity -- GAP [[01M1MGCSQY0M708HYYTWHP0XP2]]
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
     if (!d) return;
@@ -849,6 +852,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           newX = d.origX + d.origW - newW;
           newY = d.origY + d.origH - newH;
           break;
+        // Exhaustive over ResizeCorner; switch-exhaustiveness-check guards it
+        // no default
       }
 
       // Shift: lock aspect ratio
@@ -879,6 +884,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     }
   };
 
+  // oxlint-disable-next-line complexity -- GAP [[01M1MGCT80E1FMXMEAEATS1VER]]
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current;
     dragRef.current = null;
@@ -996,6 +1002,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       })()
     : null;
 
+  // oxlint-disable-next-line complexity -- GAP [[01M1MGCTRFEHBF15DSCNDXW0GZ]]
   const onModeChange = async (mode: KbLinkMode) => {
     if (!selectedEdgeObj) return;
     const from = byId.get(selectedEdgeObj.fromNode);
@@ -1520,12 +1527,14 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           {snapGuides.map((g, i) =>
             g.axis === "x" ? (
               <div
+                // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
                 key={`sg-${i}`}
                 className="absolute border-l border-dashed border-primary/40"
                 style={{ left: g.pos, top: -4000, height: 8000, pointerEvents: "none" }}
               />
             ) : (
               <div
+                // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
                 key={`sg-${i}`}
                 className="absolute border-t border-dashed border-primary/40"
                 style={{ top: g.pos, left: -4000, width: 8000, pointerEvents: "none" }}

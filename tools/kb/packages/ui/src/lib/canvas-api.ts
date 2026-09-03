@@ -20,6 +20,7 @@ import { typeRefsOf } from "@kb/model";
 import { SYSTEM_IDS, isSysPrefixed, type PropValue, type OutlineNode } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
 import { useOutlineStore } from "@/stores/outline.store";
+import { logError } from "@/lib/log";
 
 export function readCanvasDoc(node: OutlineNode | undefined): CanvasDoc {
   if (!node) return { nodes: [], edges: [] };
@@ -40,7 +41,7 @@ export function listCanvasNodes(nodes: Map<string, OutlineNode>): OutlineNode[] 
     const tagged = typeRefsOf(n).includes(SYSTEM_IDS.canvasTag);
     if (tagged) out.push(n);
   }
-  return out.sort((a, b) => a.text.localeCompare(b.text));
+  return out.toSorted((a, b) => a.text.localeCompare(b.text));
 }
 
 export function propLookupFromStore(
@@ -48,7 +49,7 @@ export function propLookupFromStore(
 ): (nodeId: string, fieldId: string) => ReadonlyArray<{ t: string; v: unknown }> | undefined {
   return (nodeId, fieldId) => {
     const n = nodes.get(nodeId);
-    return n?.props[fieldId] as ReadonlyArray<{ t: string; v: unknown }> | undefined;
+    return n?.props[fieldId];
   };
 }
 
@@ -135,7 +136,7 @@ export async function persistCanvasDoc(
     unsetProps: opts?.unsetProps,
   });
   if (receipt.status === "failed") {
-    console.error("[kb/canvas] tx.apply failed:", receipt.message);
+    logError("[kb/canvas] tx.apply failed:", receipt.message);
     return false;
   }
   const store = useOutlineStore.getState();
@@ -202,7 +203,7 @@ export async function createCanvasNode(text = "Untitled canvas"): Promise<string
     props: [{ field: SYSTEM_IDS.canvasField, value: { t: "str", v: docStr } }],
   });
   if (receipt.status === "failed") {
-    console.error("[kb/canvas] create failed:", receipt.message);
+    logError("[kb/canvas] create failed:", receipt.message);
     store.applyTx([], [id]);
     return null;
   }
@@ -221,5 +222,5 @@ export function listRefFields(
     if (resolveFieldType(n) !== "ref") continue;
     out.push({ id: n.id, name: n.text, isRef: true });
   }
-  return out.sort((a, b) => a.name.localeCompare(b.name));
+  return out.toSorted((a, b) => a.name.localeCompare(b.name));
 }

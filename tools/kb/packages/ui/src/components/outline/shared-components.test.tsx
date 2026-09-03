@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CircleHalf } from "@phosphor-icons/react";
+import { CircleHalfIcon } from "@phosphor-icons/react";
 import { FieldRow } from "./field-row";
 import { TagChip, TagChipGroup } from "./tag-chip";
 import { hashTagColor, resolveTagColor } from "@/lib/tag-color";
@@ -133,7 +133,7 @@ describe("shared outline components (W8b)", () => {
     const prefHtml = renderToStaticMarkup(
       createElement(FieldRow, {
         depth: -1,
-        icon: CircleHalf,
+        icon: CircleHalfIcon,
         label: "theme",
         children: createElement("select", null, createElement("option", null, "system")),
       }),

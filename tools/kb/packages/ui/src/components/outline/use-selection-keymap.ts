@@ -4,6 +4,7 @@ import { isEditableTarget, mapSelectionKey, type SelectionKeyAction } from "@/li
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCDRS0K28YBF1Q86YY61S]]
 function applySelectionAction(action: SelectionKeyAction): void {
   const store = useOutlineStore.getState();
   switch (action.type) {
@@ -78,6 +79,7 @@ function applySelectionAction(action: SelectionKeyAction): void {
     case "delete": {
       const prev = store.getPreviousVisibleInstance(action.instanceKey);
       const next = store.getNextVisibleInstance(action.instanceKey);
+      // oxlint-disable-next-line promise/always-return -- GAP [[01M1MFS8RQ2BMQVZD02J4TQT7W]]
       void mutations.deleteNode(action.nodeId).then(() => {
         const pick = prev ?? next;
         if (pick) {
@@ -88,6 +90,8 @@ function applySelectionAction(action: SelectionKeyAction): void {
       });
       break;
     }
+    // Exhaustive over SelectionKeyAction; switch-exhaustiveness-check guards it
+    // no default
   }
 }
 
@@ -98,7 +102,7 @@ export function useSelectionKeymap(): void {
   const activeNodeId = useOutlineStore((s) => s.activeNodeId);
 
   useEffect(() => {
-    if (!selectedNodeId || !selectedInstanceKey || activeNodeId) return;
+    if (!selectedNodeId || !selectedInstanceKey || activeNodeId) return undefined;
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.altKey && !(e.metaKey || e.ctrlKey)) {

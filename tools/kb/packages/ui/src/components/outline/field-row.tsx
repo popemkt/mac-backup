@@ -1,12 +1,12 @@
 import {
-  CalendarBlank,
-  Hash,
-  LinkSimple,
-  Palette,
-  TextT,
-  ToggleRight,
-  Warning,
-  X,
+  CalendarBlankIcon,
+  HashIcon,
+  LinkSimpleIcon,
+  PaletteIcon,
+  TextTIcon,
+  ToggleRightIcon,
+  WarningIcon,
+  XIcon,
   type Icon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
@@ -17,11 +17,11 @@ import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 export const FIELD_LABEL_WIDTH = 120;
 
 const FIELD_ICON: Record<PropValue["t"], Icon> = {
-  str: TextT,
-  num: Hash,
-  bool: ToggleRight,
-  date: CalendarBlank,
-  ref: LinkSimple,
+  str: TextTIcon,
+  num: HashIcon,
+  bool: ToggleRightIcon,
+  date: CalendarBlankIcon,
+  ref: LinkSimpleIcon,
 };
 
 export interface FieldRowProps {
@@ -66,6 +66,7 @@ function resolveIconKind(fieldType: FieldType | PropValue["t"]): PropValue["t"] 
  * Single source of alignment: label col top-aligned to first value line.
  * Icon + label slots use h-6 baseline; value slot is first-line-flex via items-start.
  */
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCHQH499KS0RV9J461F73]]
 export function FieldRow({
   depth = 0,
   icon,
@@ -84,8 +85,8 @@ export function FieldRow({
   const IconCmp =
     icon ??
     (fieldId === SYSTEM_IDS.colorField
-      ? Palette
-      : (FIELD_ICON[resolveIconKind(fieldType)] ?? TextT));
+      ? PaletteIcon
+      : (FIELD_ICON[resolveIconKind(fieldType)] ?? TextTIcon));
 
   return (
     <div
@@ -143,7 +144,7 @@ export function FieldRow({
           title="Value type does not match field type"
           data-mismatch-warning="true"
         >
-          <Warning size={11} weight="fill" />
+          <WarningIcon size={11} weight="fill" />
         </span>
       )}
 
@@ -165,7 +166,7 @@ export function FieldRow({
           title={`Remove ${label}`}
           aria-label={`Remove ${label}`}
         >
-          <X size={11} weight="bold" />
+          <XIcon size={11} weight="bold" />
         </button>
       )}
     </div>

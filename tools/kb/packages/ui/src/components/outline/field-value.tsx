@@ -34,6 +34,7 @@ interface PropValueEditorProps {
 const editableClass = cn("flex-1 outline-none rounded-sm px-1", KB_TEXT_CLASS);
 
 /** Borderless inline prop editors — picked by declared fieldType. */
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCND3KMDYJPSSMD2E4Q9J]]
 export function PropValueEditor({
   value,
   display,
@@ -47,7 +48,7 @@ export function PropValueEditor({
   if (fieldId === SYSTEM_IDS.colorField) {
     return (
       <ColorSwatchEditor
-        value={value.t === "str" ? String(value.v) : ""}
+        value={value.t === "str" ? value.v : ""}
         onCommit={(hex) => onCommit({ t: "str", v: hex })}
       />
     );
@@ -75,7 +76,7 @@ export function PropValueEditor({
     case "date":
       return (
         <DateValue
-          value={value.t === "str" || value.t === "date" ? String(value.v) : ""}
+          value={value.t === "str" || value.t === "date" ? value.v : ""}
           autoOpen={autoOpen}
           onChange={(v) => onCommit({ t: "str", v })}
         />
@@ -83,7 +84,7 @@ export function PropValueEditor({
     case "url":
       return (
         <EditableText
-          text={value.t === "str" ? String(value.v) : String(value.v ?? "")}
+          text={value.t === "str" ? value.v : String(value.v ?? "")}
           onCommit={(text) => onCommit({ t: "str", v: text })}
           empty={!value.v}
           underline
@@ -104,7 +105,7 @@ export function PropValueEditor({
     default:
       return (
         <EditableText
-          text={value.t === "str" ? String(value.v ?? "") : String(value.v ?? "")}
+          text={value.t === "str" ? (value.v ?? "") : String(value.v ?? "")}
           onCommit={(text) => onCommit({ t: "str", v: text })}
           empty={!value.v}
           underline={false}
@@ -349,7 +350,7 @@ function DateValue({
   const [editing, setEditing] = useState(autoOpen);
 
   const displayDate = value
-    ? new Date(String(value)).toLocaleDateString("en-US", {
+    ? new Date(value).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
@@ -361,7 +362,7 @@ function DateValue({
       <input
         type="date"
         className={cn(editableClass, "border-none bg-transparent text-foreground/70")}
-        defaultValue={value ? String(value).slice(0, 10) : ""}
+        defaultValue={value ? value.slice(0, 10) : ""}
         autoFocus
         onChange={(e) => {
           onChange(e.target.value);
@@ -414,6 +415,7 @@ function DateValue({
  * blur closes it — which is also what keeps the dropdown from rendering under
  * an input nobody is typing in.
  */
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCP1EF5GM8NA32JEJRJ9Q]]
 function RefEditor({
   refId,
   display,

@@ -8,7 +8,7 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { cn } from "@/lib/cn";
 
 /** Stable instance key for a kb-node card on a canvas. */
-export function canvasCardInstanceKey(cardId: string, nodeId: string): string {
+function canvasCardInstanceKey(cardId: string, nodeId: string): string {
   return `canvas:${cardId}:${nodeId}`;
 }
 

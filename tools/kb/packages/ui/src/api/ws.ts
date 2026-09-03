@@ -135,6 +135,7 @@ export class KbWsClient {
     }
     this.socket = socket;
 
+    // oxlint-disable-next-line unicorn/prefer-add-event-listener -- GAP [[01M1MHKS8EV3DD378TZSX44EJG]]
     socket.onopen = () => {
       if (socket !== this.socket) return;
       this.attempts = 0;
@@ -144,15 +145,18 @@ export class KbWsClient {
         this.send({ op: "subscribe", id, query: sub.query });
       }
     };
+    // oxlint-disable-next-line unicorn/prefer-add-event-listener -- GAP [[01M1MHKS8EV3DD378TZSX44EJG]]
     socket.onmessage = (ev) => {
       if (socket !== this.socket) return;
       this.handleMessage(String(ev.data));
     };
+    // oxlint-disable-next-line unicorn/prefer-add-event-listener -- GAP [[01M1MHKS8EV3DD378TZSX44EJG]]
     socket.onclose = () => {
       if (socket !== this.socket) return;
       this.socket = null;
       if (!this.closedByUser) this.scheduleReconnect();
     };
+    // oxlint-disable-next-line unicorn/prefer-add-event-listener -- GAP [[01M1MHKS8EV3DD378TZSX44EJG]]
     socket.onerror = () => {
       // onclose follows; nothing to do here
     };
@@ -224,6 +228,8 @@ export class KbWsClient {
         break;
       case "pong":
         break;
+      // Exhaustive over ServerMessage['op']; switch-exhaustiveness-check guards it
+      // no default
     }
   }
 }

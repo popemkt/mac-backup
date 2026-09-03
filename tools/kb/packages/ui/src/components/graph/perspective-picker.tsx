@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CaretDown } from "@phosphor-icons/react";
+import { CaretDownIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { LensPerspective } from "@/lib/graph-lens";
 
@@ -19,7 +19,7 @@ export function PerspectivePicker({ perspectives, activeId, onSelect }: Perspect
   const active = perspectives.find((p) => p.id === activeId) ?? null;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
@@ -49,7 +49,7 @@ export function PerspectivePicker({ perspectives, activeId, onSelect }: Perspect
         onClick={() => setOpen((v) => !v)}
       >
         <span className="truncate">{active?.label ?? "perspective"}</span>
-        <CaretDown size={12} className="shrink-0 text-foreground/40" />
+        <CaretDownIcon size={12} className="shrink-0 text-foreground/40" />
       </button>
       {open ? (
         <div

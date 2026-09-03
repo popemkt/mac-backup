@@ -18,7 +18,7 @@ describe("ColorSwatchEditor (i10 item 4)", () => {
   it("renders palette swatches and custom hex input", () => {
     const html = renderToStaticMarkup(
       createElement(ColorSwatchEditor, {
-        value: TAG_PALETTE[0]!,
+        value: TAG_PALETTE[0],
         onCommit: () => undefined,
       }),
     );

@@ -45,6 +45,7 @@ describe("pin toggle", () => {
     expect(findPinnedTagId(nodes())).toBeNull();
     expect(listPinnedNavItems(nodes())).toEqual([]);
 
+    // oxlint-disable-next-line promise/always-return -- GAP [[01M1MFS8RQ2BMQVZD02J4TQT7W]]
     return mutations.togglePin("n.root-a").then(() => {
       const tagId = findPinnedTagId(nodes());
       expect(tagId).not.toBeNull();
@@ -62,7 +63,7 @@ describe("pin toggle", () => {
     expect(
       listPinnedNavItems(nodes())
         .map((i) => i.id)
-        .sort(),
+        .toSorted(),
     ).toEqual(["n.root-a", "n.root-b"]);
 
     await mutations.togglePin("n.root-a");

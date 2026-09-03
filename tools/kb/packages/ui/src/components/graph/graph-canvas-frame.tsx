@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
-import type { LensNode, LensRenderer } from "@/lib/graph-lens";
+import type { LensNode, LensPerspective, LensRenderer } from "@/lib/graph-lens";
 import { GraphLegend } from "./graph-legend";
 import { GraphToolbar } from "./graph-toolbar";
 import { GraphCanvasError, GraphCanvasErrorBoundary } from "./graph-canvas-error";
 import { GraphSelectionCard } from "./graph-selection-card";
 import { capabilitiesFor } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";
-import type { GraphSelection } from "./graph-selection-card";
+import type { GraphSelection } from "./graph-selection";
 
 /** Shared graph chrome. Renderers only own pixels and renderer-specific input;
  * the frame owns the discoverable vocabulary that surrounds every graph. */
@@ -38,14 +38,14 @@ export function GraphCanvasFrame({
   /** Surfaces resolveNodeSet failures inside the canvas (task 16c). */
   queryError?: string | null;
   resetKey?: string;
-  perspective?: import("@/lib/graph-lens").LensPerspective | null;
+  perspective?: LensPerspective | null;
 }) {
   const capabilities = capabilitiesFor(renderer);
   const clearRef = useRef(onClearSelection);
   clearRef.current = onClearSelection;
 
   useEffect(() => {
-    if (!capabilities.selection) return;
+    if (!capabilities.selection) return undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") clearRef.current();
       if (e.key === "Enter" && selectedNodeId) onOpenNode(selectedNodeId);

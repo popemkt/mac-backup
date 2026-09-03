@@ -59,5 +59,5 @@ export function isPinned(node: OutlineNode | undefined, nodes: NodeMap): boolean
 export function listPinnedNodes(nodes: NodeMap): OutlineNode[] {
   return [...nodes.values()]
     .filter((n) => isPinned(n, nodes))
-    .sort((a, b) => (a.text || a.id).localeCompare(b.text || b.id) || a.id.localeCompare(b.id));
+    .toSorted((a, b) => (a.text || a.id).localeCompare(b.text || b.id) || a.id.localeCompare(b.id));
 }

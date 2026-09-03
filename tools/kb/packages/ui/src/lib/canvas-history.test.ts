@@ -4,13 +4,13 @@ import { canRedo, canUndo, initHistory, pushHistory, redo, undo } from "./canvas
 
 const d0: CanvasDoc = { nodes: [], edges: [] };
 const d1: CanvasDoc = {
-  nodes: [{ id: "a", type: "text", text: "", x: 0, y: 0, width: 100, height: 60 } as any],
+  nodes: [{ id: "a", type: "text", text: "", x: 0, y: 0, width: 100, height: 60 }],
   edges: [],
 };
 const d2: CanvasDoc = {
   nodes: [
-    { id: "a", type: "text", text: "", x: 0, y: 0, width: 100, height: 60 } as any,
-    { id: "b", type: "text", text: "", x: 100, y: 0, width: 100, height: 60 } as any,
+    { id: "a", type: "text", text: "", x: 0, y: 0, width: 100, height: 60 },
+    { id: "b", type: "text", text: "", x: 100, y: 0, width: 100, height: 60 },
   ],
   edges: [],
 };

@@ -1,40 +1,18 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Funnel, Plus, TextT, X } from "@phosphor-icons/react";
+import { FunnelIcon, PlusIcon, TextTIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { toast } from "@/lib/toast";
-import {
-  getViewConfig,
-  resolveTableColumns,
-  serializeViewFilter,
-  type ViewFilter,
-} from "@/lib/view-config";
-import type { NodeMap, OutlineNode } from "@/lib/types";
+import { getViewConfig, serializeViewFilter, type ViewFilter } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "./fields-section";
+import { listFilterFieldOptions } from "./view-filter-fields";
 import { POPOVER_VALUE_CLASS, PopoverShell } from "@/components/ui/popover-shell";
 
 function filterLabel(f: ViewFilter): string {
   if (f.kind === "text") return `text ∋ ${f.text}`;
   return `${f.fieldId} = ${f.value}`;
-}
-
-/** Field candidates from projected rows' tags — same source as resolveTableColumns. */
-export function listFilterFieldOptions(
-  frameId: string,
-  nodes: NodeMap,
-): Array<{ id: string; text: string }> {
-  const frame = nodes.get(frameId);
-  if (!frame) return [];
-  const children = frame.children
-    .map((id) => nodes.get(id))
-    .filter((n): n is OutlineNode => n !== undefined);
-  const config = getViewConfig(frame.props);
-  return resolveTableColumns(config, children, nodes, true).map((c) => ({
-    id: c.fieldId,
-    text: c.label,
-  }));
 }
 
 function elRect(el: Element | null): DOMRect | null {
@@ -96,7 +74,7 @@ export function ViewFilterPopoverHost() {
   }, [frameId, setOpenId, rev]);
 
   useEffect(() => {
-    if (!frameId || !anchor) return;
+    if (!frameId || !anchor) return undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpenId(null);
     };
@@ -184,7 +162,7 @@ export function ViewFilterPopoverHost() {
                     onClick={() => void mutations.removeViewFilter(frameId, raw)}
                     aria-label="Remove filter"
                   >
-                    <X size={11} weight="bold" />
+                    <XIcon size={11} weight="bold" />
                   </button>
                 </li>
               );
@@ -192,7 +170,7 @@ export function ViewFilterPopoverHost() {
           </ul>
         )}
 
-        <PrefFieldRow icon={Funnel} label="kind">
+        <PrefFieldRow icon={FunnelIcon} label="kind">
           <select
             className={POPOVER_VALUE_CLASS}
             value={kind}
@@ -204,7 +182,7 @@ export function ViewFilterPopoverHost() {
         </PrefFieldRow>
 
         {kind === "eq" && (
-          <PrefFieldRow icon={Funnel} label="field">
+          <PrefFieldRow icon={FunnelIcon} label="field">
             <select
               className={POPOVER_VALUE_CLASS}
               value={fieldId}
@@ -223,7 +201,7 @@ export function ViewFilterPopoverHost() {
           </PrefFieldRow>
         )}
 
-        <PrefFieldRow icon={TextT} label={kind === "text" ? "text" : "value"}>
+        <PrefFieldRow icon={TextTIcon} label={kind === "text" ? "text" : "value"}>
           <input
             className={POPOVER_VALUE_CLASS}
             value={value}
@@ -243,7 +221,7 @@ export function ViewFilterPopoverHost() {
           className="mt-1 flex w-full items-center justify-center gap-1 rounded-md bg-foreground/[0.04] px-2 py-1 text-[11px] font-medium text-foreground/60 hover:bg-foreground/[0.08] hover:text-foreground/80"
           onClick={add}
         >
-          <Plus size={12} weight="bold" />
+          <PlusIcon size={12} weight="bold" />
           Add filter
         </button>
       </div>

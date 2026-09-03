@@ -65,12 +65,12 @@ describe("contextual reference row", () => {
   beforeAll(() => {
     dom = new Window();
     const g = globalThis as Record<string, unknown>;
-    g.window = dom as unknown;
-    g.document = dom.document as unknown;
-    g.HTMLElement = dom.HTMLElement as unknown;
-    g.KeyboardEvent = dom.KeyboardEvent as unknown;
-    g.MouseEvent = dom.MouseEvent as unknown;
-    g.Node = dom.Node as unknown;
+    g.window = dom;
+    g.document = dom.document;
+    g.HTMLElement = dom.HTMLElement;
+    g.KeyboardEvent = dom.KeyboardEvent;
+    g.MouseEvent = dom.MouseEvent;
+    g.Node = dom.Node;
     g.CSS = { escape: (s: string) => s };
   });
 

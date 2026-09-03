@@ -29,8 +29,9 @@ export const PREFS_STORAGE_KEY = "kb-prefs";
 export function defaultSidebarOpen(
   widthPx: number | null = typeof window !== "undefined" ? window.innerWidth : null,
 ): boolean {
-  if (widthPx == null) return true;
-  return widthPx >= 1024;
+  // `?? 1024` (not `=== null`): happy-dom leaves window.innerWidth undefined,
+  // which the `number | null` annotation does not admit but the runtime does.
+  return (widthPx ?? 1024) >= 1024;
 }
 
 export const DEFAULT_PREFS: Prefs = {

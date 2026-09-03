@@ -13,7 +13,7 @@ import {
   type GraphCameraControls,
   type TreeViewHandle,
 } from "./graph-camera-controls";
-import type { GraphSelection } from "./graph-selection-card";
+import type { GraphSelection } from "./graph-selection";
 
 interface TreeGraphProps {
   forest: LensTreeNode[];
@@ -305,9 +305,9 @@ export function TreeGraph({
         onClick={() => clearSelection()}
       >
         <g transform={`translate(${-layout.originX},${-layout.originY})`}>
-          {layout.links.map((l, i) => (
+          {layout.links.map((l) => (
             <path
-              key={i}
+              key={`${l.source.data.id}->${l.target.data.id}`}
               d={`M${l.source.y},${l.source.x}C${(l.source.y + l.target.y) / 2},${l.source.x} ${(l.source.y + l.target.y) / 2},${l.target.x} ${l.target.y},${l.target.x}`}
               fill="none"
               stroke={tokens.linkColor}

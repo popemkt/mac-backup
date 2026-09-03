@@ -129,7 +129,7 @@ describe("outline store — ontology scope", () => {
 
   it("re-resolves membership after a local optimistic edit at the same rev", () => {
     useOutlineStore.getState().setOntologyScope("o.1");
-    expect([...useOutlineStore.getState().ontologyMembers!].sort()).toEqual(["n.a", "n.b"]);
+    expect([...useOutlineStore.getState().ontologyMembers!].toSorted()).toEqual(["n.a", "n.b"]);
 
     // Exclude n.b with no rev bump — exactly what an optimistic tx looks like.
     const onto = useOutlineStore.getState().wireNodes.find((n) => n.id === "o.1")!;

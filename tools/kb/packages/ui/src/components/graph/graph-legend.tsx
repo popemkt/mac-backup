@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Funnel, X } from "@phosphor-icons/react";
+import { FunnelIcon, XIcon } from "@phosphor-icons/react";
 import type { LensNode } from "@/lib/graph-lens";
 import { cn } from "@/lib/cn";
 
@@ -74,7 +74,7 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
         onClick={() => setCollapsed((v) => !v)}
         aria-label={collapsed ? "Expand legend" : "Collapse legend"}
       >
-        <Funnel size={12} />
+        <FunnelIcon size={12} />
         <span>Legend</span>
         {activeFilters.size > 0 && (
           <span className="rounded bg-foreground/[0.08] px-1 text-[10px]">
@@ -90,7 +90,7 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
               className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-foreground/50 hover:bg-foreground/5"
               onClick={clearFilters}
             >
-              <X size={10} /> Clear filters
+              <XIcon size={10} /> Clear filters
             </button>
           )}
           {buckets.map((b) => (

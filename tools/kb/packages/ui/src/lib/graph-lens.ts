@@ -8,10 +8,15 @@ import { extractMentions } from "@/ds/datoms";
 import { runQuery } from "@/ds/query";
 import { hashTagColor, resolveTagColor } from "@/lib/tag-color";
 import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
+import { logWarn } from "@/lib/log";
 
 export type EdgeKind = "mention" | "child" | "ref-prop";
 
-export type LensRenderer = "force2d" | "tree" | "cluster" | "force3d" | string;
+/**
+ * The four renderers `LENS_RENDERERS` knows about, plus any other string:
+ * a perspective's renderer is a free-form kb prop, not a closed enum.
+ */
+export type LensRenderer = (typeof LENS_RENDERERS)[number] | (string & {});
 
 export type LensLayout = "force" | "radial" | "hierarchical" | "grid";
 export type LensLabelDensity = "low" | "medium" | "high";
@@ -90,24 +95,24 @@ const EDGE_KIND_SET = new Set<string>(["mention", "child", "ref-prop"]);
 
 function strProp(node: WireNode, fieldId: string): string | null {
   const v = (node.props[fieldId] ?? []).find((p) => p.t === "str" && typeof p.v === "string");
-  return v ? String(v.v).trim() : null;
+  return v ? v.v.trim() : null;
 }
 
 function numProp(node: WireNode, fieldId: string): number | null {
   const v = (node.props[fieldId] ?? []).find((p) => p.t === "num" && typeof p.v === "number");
-  return v ? Number(v.v) : null;
+  return v ? v.v : null;
 }
 
 function multiStrProp(node: WireNode, fieldId: string): string[] {
   return (node.props[fieldId] ?? [])
     .filter((p) => p.t === "str" && typeof p.v === "string")
-    .map((p) => String(p.v).trim())
+    .map((p) => p.v.trim())
     .filter(Boolean);
 }
 
 function refProp(node: WireNode, fieldId: string): string | null {
   const v = (node.props[fieldId] ?? []).find((p) => p.t === "ref" && typeof p.v === "string");
-  return v ? String(v.v) : null;
+  return v ? v.v : null;
 }
 
 function isTagNode(node: WireNode | undefined): boolean {
@@ -128,7 +133,7 @@ export function firstTagOf(
     const target = byId.get(pv.v);
     if (!isTagNode(target)) continue;
     const colorProp = target?.props[SYSTEM_IDS.colorField]?.[0];
-    const explicit = colorProp?.t === "str" ? String(colorProp.v) : undefined;
+    const explicit = colorProp?.t === "str" ? colorProp.v : undefined;
     return { id: pv.v, color: resolveTagColor(pv.v, explicit) };
   }
   return null;
@@ -142,14 +147,15 @@ export function isGraphPerspectiveNode(node: WireNode): boolean {
 export function listPerspectiveNodes(wireNodes: WireNode[]): WireNode[] {
   return wireNodes
     .filter(isGraphPerspectiveNode)
-    .sort((a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id));
+    .toSorted((a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id));
 }
 
 function boolProp(node: WireNode, fieldId: string): boolean | null {
   const v = (node.props[fieldId] ?? []).find((p) => p.t === "bool" && typeof p.v === "boolean");
-  return v ? Boolean(v.v) : null;
+  return v ? v.v : null;
 }
 
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCEBYDFRNJX1JKXXN825H]]
 export function parsePerspective(node: WireNode): LensPerspective {
   const kindsRaw = multiStrProp(node, SYSTEM_IDS.lensEdgeKindsField);
   const edgeKinds = kindsRaw.filter((k): k is EdgeKind => EDGE_KIND_SET.has(k));
@@ -238,7 +244,7 @@ export function resolveClusterKey(
     if (!fieldId) return "none";
     const vals = wire.props[fieldId] ?? [];
     const ref = vals.find((v) => v.t === "ref");
-    if (ref) return String(ref.v);
+    if (ref) return ref.v;
     const other = vals[0];
     if (other && other.t !== "ref") return String(other.v);
     return "none";
@@ -310,7 +316,9 @@ export function buildTreeForest(
   }
 
   const parentOf = buildParentMap(wireNodes, nodeSet);
-  const roots = [...nodeSet].filter((id) => !parentOf.has(id)).sort((a, b) => a.localeCompare(b));
+  const roots = [...nodeSet]
+    .filter((id) => !parentOf.has(id))
+    .toSorted((a, b) => a.localeCompare(b));
   const forest: LensTreeNode[] = [];
   for (const id of roots) {
     const t = build(id);
@@ -376,7 +384,7 @@ function resolveNodeSet(
     return { nodeSet: idsFromQueryRows(rows, all), queryError: null };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn("[graph-lens] lens.query failed:", msg);
+    logWarn("[graph-lens] lens.query failed:", msg);
     return { nodeSet: new Set(), queryError: msg };
   }
 }
@@ -460,14 +468,14 @@ function applyMaxNodesCap(
   if (nodeIds.length <= maxNodes) {
     return { keep: new Set(nodeIds), dropped: 0 };
   }
-  const ranked = [...nodeIds].sort((a, b) => {
+  const ranked = [...nodeIds].toSorted((a, b) => {
     const d = (degrees.get(b) ?? 0) - (degrees.get(a) ?? 0);
     if (d !== 0) return d;
     return a.localeCompare(b);
   });
   const keep = new Set(ranked.slice(0, maxNodes));
   const dropped = nodeIds.length - maxNodes;
-  console.warn(`[graph-lens] max-nodes=${maxNodes}: dropped ${dropped} lowest-degree nodes`);
+  logWarn(`[graph-lens] max-nodes=${maxNodes}: dropped ${dropped} lowest-degree nodes`);
   return { keep, dropped };
 }
 

@@ -46,7 +46,7 @@ function resolveTags(wire: WireNode, byId: Map<string, WireNode>): TagBadge[] {
     const target = byId.get(typeId);
     if (!isTagNode(target)) continue;
     const colorProp = target?.props[SYSTEM_IDS.colorField]?.[0];
-    const explicitColor = colorProp?.t === "str" ? String(colorProp.v) : undefined;
+    const explicitColor = colorProp?.t === "str" ? colorProp.v : undefined;
     tags.push({
       id: typeId,
       name: target?.text || typeId,
@@ -78,7 +78,7 @@ export function forestRootIds(nodes: WireNode[]): string[] {
       void byId;
       return true;
     })
-    .sort((a, b) => {
+    .toSorted((a, b) => {
       if (a.order && b.order) return a.order.localeCompare(b.order);
       if (a.order) return -1;
       if (b.order) return 1;
@@ -94,7 +94,7 @@ function wireHasVisibleFields(wire: WireNode, byId: Map<string, WireNode>): bool
     if (isIntrinsicSystemPropKey(fieldId)) continue;
     const fieldNode = byId.get(fieldId);
     const hidden = fieldNode?.props[SYSTEM_IDS.hiddenField]?.[0];
-    if (hidden?.t === "bool" && hidden.v === true) continue;
+    if (hidden?.t === "bool" && hidden.v) continue;
     return true;
   }
   return false;
@@ -190,7 +190,7 @@ export function formatPropValue(
       return String(value.v);
     case "date":
     case "str":
-      return String(value.v);
+      return value.v;
     default:
       return JSON.stringify(value);
   }

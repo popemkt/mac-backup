@@ -1,3 +1,4 @@
+import type * as PrefsStore from "./prefs.store";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 /** Minimal localStorage + document stubs so the store persists in node. */
@@ -5,7 +6,7 @@ function fakeStorage() {
   const map = new Map<string, string>();
   return {
     getItem: (k: string) => map.get(k) ?? null,
-    setItem: (k: string, v: string) => void map.set(k, String(v)),
+    setItem: (k: string, v: string) => void map.set(k, v),
     removeItem: (k: string) => void map.delete(k),
     clear: () => map.clear(),
   };
@@ -56,7 +57,7 @@ function fakeWindow() {
 }
 
 const g = globalThis as Record<string, unknown>;
-let prefs: typeof import("./prefs.store");
+let prefs: typeof PrefsStore;
 
 beforeAll(async () => {
   g.localStorage = fakeStorage();

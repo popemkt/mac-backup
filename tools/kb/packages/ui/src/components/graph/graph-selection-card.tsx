@@ -1,21 +1,5 @@
 import type { LensNode } from "@/lib/graph-lens";
 
-export interface GraphSelection {
-  nodeId: string;
-  label: string;
-  tags: string[];
-  degree: number;
-}
-
-export function selectionFromNode(node: LensNode): GraphSelection {
-  return {
-    nodeId: node.id,
-    label: node.label,
-    tags: node.tags,
-    degree: node.degree,
-  };
-}
-
 interface GraphSelectionCardProps {
   nodeId: string;
   nodes: LensNode[];

@@ -90,6 +90,7 @@ function parseUrlAfterParen(text: string, openParenIdx: number): number {
   return -1;
 }
 
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCM9RWXE3CYANZK5K4KC0]]
 function parseOnce(text: string): InlineSeg[] {
   const out: InlineSeg[] = [];
   let i = 0;

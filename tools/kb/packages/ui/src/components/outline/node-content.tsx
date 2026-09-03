@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { LockSimple } from "@phosphor-icons/react";
+import { LockSimpleIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
@@ -84,7 +84,7 @@ export function NodeTextHost({
   }, [refOpen?.query, refOpen?.start]);
 
   useLayoutEffect(() => {
-    if (!isActive || !instanceKey) return;
+    if (!isActive || !instanceKey) return undefined;
     const registry = useOutlineStore.getState();
     registry.registerTextHost(instanceKey);
     return () => registry.unregisterTextHost(instanceKey);
@@ -325,7 +325,7 @@ export function NodeTextHost({
                 title={readOnlyReason ?? undefined}
                 data-sys-lock="true"
               >
-                <LockSimple size={12} weight="bold" />
+                <LockSimpleIcon size={12} weight="bold" />
               </span>
             )}
             <TagChipGroup

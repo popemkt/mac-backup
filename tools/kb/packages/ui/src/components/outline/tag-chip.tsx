@@ -1,4 +1,4 @@
-import { Hash, X } from "@phosphor-icons/react";
+import { HashIcon, XIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { TagBadge } from "@/lib/types";
 
@@ -25,7 +25,7 @@ export function TagChip({ tag, onClick, onRemove, className }: TagChipProps) {
       className="relative inline-flex h-[1em] w-[1em] shrink-0 items-center justify-center"
       data-tag-mark="true"
     >
-      <Hash
+      <HashIcon
         size="1em"
         weight="bold"
         className={cn(
@@ -52,7 +52,7 @@ export function TagChip({ tag, onClick, onRemove, className }: TagChipProps) {
           aria-label={`Remove tag ${tag.name}`}
           data-tag-remove="true"
         >
-          <X size="1em" weight="bold" />
+          <XIcon size="1em" weight="bold" />
         </button>
       ) : null}
     </span>

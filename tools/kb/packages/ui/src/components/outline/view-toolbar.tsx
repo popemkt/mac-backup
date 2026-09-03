@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { GearSix } from "@phosphor-icons/react";
+import { GearSixIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { ViewMode } from "@/lib/view-config";
 import { mutations } from "@/actions/mutations";
@@ -56,7 +56,7 @@ export function ViewToolbar({ frameId, mode, className, tucked = false }: ViewTo
           setExpanded(true);
         }}
       >
-        <GearSix size={14} />
+        <GearSixIcon size={14} />
       </button>
     );
   }
@@ -103,7 +103,7 @@ export function ViewToolbar({ frameId, mode, className, tucked = false }: ViewTo
           setFilterFrame(filterOpen ? null : frameId);
         }}
       >
-        <GearSix size={12} weight={filterOpen ? "fill" : "regular"} />
+        <GearSixIcon size={12} weight={filterOpen ? "fill" : "regular"} />
       </button>
       {tucked ? (
         <button

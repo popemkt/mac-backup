@@ -7,6 +7,10 @@ import {
   radialLayout,
 } from "./graph-layouts";
 
+function byKey(x: [string, unknown], y: [string, unknown]): number {
+  return x[0].localeCompare(y[0]);
+}
+
 function nodes(ids: string[]): LensNode[] {
   return ids.map((id, i) => ({
     id,
@@ -29,7 +33,7 @@ describe("graph-layouts", () => {
   it("radial is deterministic for a fixture", () => {
     const a = radialLayout(nodes(["c", "a", "b"]), size);
     const b = radialLayout(nodes(["b", "c", "a"]), size);
-    expect([...a.entries()].sort()).toEqual([...b.entries()].sort());
+    expect([...a.entries()].toSorted(byKey)).toEqual([...b.entries()].toSorted(byKey));
     expect(a.size).toBe(3);
   });
 

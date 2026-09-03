@@ -25,7 +25,7 @@ export function radialLayout(
   size: { width: number; height: number },
 ): Map<string, LayoutPoint> {
   const out = new Map<string, LayoutPoint>();
-  const sorted = [...nodes].sort((a, b) => a.id.localeCompare(b.id));
+  const sorted = [...nodes].toSorted((a, b) => a.id.localeCompare(b.id));
   const n = sorted.length;
   const cx = size.width / 2;
   const cy = size.height / 2;
@@ -49,13 +49,14 @@ export function radialLayout(
  * Layer columns by BFS depth from lowest-in-degree roots (or first id).
  * Deterministic within a fixture.
  */
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCR50QEXX7R4JDJ51HQFY]]
 export function hierarchicalLayout(
   nodes: LensNode[],
   edges: LensEdge[],
   size: { width: number; height: number },
 ): Map<string, LayoutPoint> {
   const out = new Map<string, LayoutPoint>();
-  const ids = nodes.map((n) => n.id).sort();
+  const ids = nodes.map((n) => n.id).toSorted();
   const idSet = new Set(ids);
   const children = new Map<string, string[]>();
   const indeg = new Map<string, number>();
@@ -115,7 +116,7 @@ export function gridLayout(
   size: { width: number; height: number },
 ): Map<string, LayoutPoint> {
   const out = new Map<string, LayoutPoint>();
-  const sorted = [...nodes].sort((a, b) => a.id.localeCompare(b.id));
+  const sorted = [...nodes].toSorted((a, b) => a.id.localeCompare(b.id));
   const n = sorted.length;
   if (n === 0) return out;
   const cols = Math.ceil(Math.sqrt(n));

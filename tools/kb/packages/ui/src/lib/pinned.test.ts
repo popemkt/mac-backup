@@ -36,7 +36,7 @@ const pinnedTag = outline({
 });
 
 function graph(...nodes: OutlineNode[]): NodeMap {
-  return new Map(nodes.map((n) => [n.id, n])) as NodeMap;
+  return new Map(nodes.map((n) => [n.id, n]));
 }
 
 describe("pinned membership", () => {

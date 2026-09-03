@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, X } from "@phosphor-icons/react";
+import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
 import {
@@ -63,6 +63,7 @@ export function FieldValueStack({
     <div className="flex min-w-0 flex-col" data-field-values={fieldId}>
       {values.map((value, i) => (
         <div
+          // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
           key={`${i}-${JSON.stringify(value)}`}
           className="group/value flex min-w-0 items-start gap-1"
           data-field-value="true"
@@ -97,7 +98,7 @@ export function FieldValueStack({
                 void mutations.removeProp(nodeId, fieldId, value);
               }}
             >
-              <X size={9} weight="bold" aria-hidden />
+              <XIcon size={9} weight="bold" aria-hidden />
             </button>
           )}
         </div>
@@ -105,6 +106,7 @@ export function FieldValueStack({
 
       {emptySlots.map((autoOpen, i) => (
         <EmptyTypedEditor
+          // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
           key={`empty-${i}`}
           fieldType={fieldType}
           fieldId={fieldId}
@@ -130,7 +132,7 @@ export function FieldValueStack({
           )}
           onClick={() => setPendingSlots((n) => n + 1)}
         >
-          <Plus size={9} weight="bold" aria-hidden />
+          <PlusIcon size={9} weight="bold" aria-hidden />
           value
         </button>
       )}
@@ -165,7 +167,7 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
             ? resolveAllowedRefIdsCached(p.fieldId, fieldNode, nodes, queryDb, rev)
             : null;
         const debug = "debug" in p ? Boolean(p.debug) : false;
-        const values = p.values as PropValue[];
+        const values = p.values;
 
         return (
           <FieldRow

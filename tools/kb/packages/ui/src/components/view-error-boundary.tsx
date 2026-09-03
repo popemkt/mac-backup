@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { logError } from "@/lib/log";
 
 export interface ViewErrorProps {
   title?: string;
@@ -47,6 +48,8 @@ interface ViewErrorBoundaryProps {
 
 interface ViewErrorBoundaryState {
   error: Error | null;
+  /** Last `resetKey` folded into state, so a change to it clears the error. */
+  resetKey: string | undefined;
 }
 
 /**
@@ -54,20 +57,22 @@ interface ViewErrorBoundaryState {
  * Shell chrome (sidebar, header, palette) stays outside this tree.
  */
 export class ViewErrorBoundary extends Component<ViewErrorBoundaryProps, ViewErrorBoundaryState> {
-  override state: ViewErrorBoundaryState = { error: null };
+  override state: ViewErrorBoundaryState = { error: null, resetKey: undefined };
 
-  static getDerivedStateFromError(error: Error): ViewErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): Pick<ViewErrorBoundaryState, "error"> {
     return { error };
   }
 
-  override componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error("ViewErrorBoundary caught", error, info.componentStack);
+  static getDerivedStateFromProps(
+    props: ViewErrorBoundaryProps,
+    state: ViewErrorBoundaryState,
+  ): ViewErrorBoundaryState | null {
+    if (props.resetKey === state.resetKey) return null;
+    return { error: null, resetKey: props.resetKey };
   }
 
-  override componentDidUpdate(prevProps: ViewErrorBoundaryProps): void {
-    if (this.state.error && prevProps.resetKey !== this.props.resetKey) {
-      this.setState({ error: null });
-    }
+  override componentDidCatch(error: Error, info: ErrorInfo): void {
+    logError("ViewErrorBoundary caught", error, info.componentStack);
   }
 
   private retry = (): void => {

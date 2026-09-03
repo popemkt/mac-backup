@@ -29,6 +29,7 @@ interface NodeBlockProps {
   isRef?: boolean;
 }
 
+// oxlint-disable-next-line complexity -- GAP [[01M1MGCGKSAJSB6GFR30SZNATJ]]
 export const NodeBlock = memo(function NodeBlock({
   nodeId,
   depth,
@@ -47,6 +48,7 @@ export const NodeBlock = memo(function NodeBlock({
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const showDebugFields = useDebugFields(nodeId);
   const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
+  const filterOpen = useUiStore((s) => s.filterPopoverFrameId === nodeId);
 
   const instanceKey = instanceKeyProp ?? outlineInstanceKey(nodeId, nodes);
 
@@ -148,7 +150,6 @@ export const NodeBlock = memo(function NodeBlock({
   // Tana model: list = no chrome; toolbar only when mode ≠ list AND expanded.
   const showToolbar = hasFrameRows && !node.collapsed && viewConfig.mode !== "list";
   const projected = isProjectedViewMode(viewConfig.mode);
-  const filterOpen = useUiStore((s) => s.filterPopoverFrameId === nodeId);
 
   return (
     <div
@@ -220,13 +221,18 @@ export const NodeBlock = memo(function NodeBlock({
               depth={depth}
               viewMode={viewConfig.mode}
               frameInstanceKey={instanceKey}
-              renderNode={({ nodeId: rid, instanceKey, depth: rDepth, isRef }) => (
+              renderNode={({
+                nodeId: rid,
+                instanceKey: rInstanceKey,
+                depth: rDepth,
+                isRef: rIsRef,
+              }) => (
                 <NodeBlock
-                  key={instanceKey}
+                  key={rInstanceKey}
                   nodeId={rid}
-                  instanceKey={instanceKey}
+                  instanceKey={rInstanceKey}
                   depth={rDepth}
-                  isRef={isRef}
+                  isRef={rIsRef}
                 />
               )}
             />

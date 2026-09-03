@@ -55,6 +55,13 @@ export function mapOffset(step: CaretStep, offset: number): number {
       return step.side === "left" ? Math.min(at, step.offset) : Math.max(0, at - step.offset);
     case "merge":
       return step.source === "left" ? at : step.leftLength + at;
+    default: {
+      // Unreachable: `never` makes the compiler prove the switch is exhaustive
+      // over CaretStep. The clause exists because the switch must produce a
+      // value, so the function needs a terminating branch here.
+      const unhandled: never = step;
+      throw new Error(`unhandled caret step: ${JSON.stringify(unhandled)}`);
+    }
   }
 }
 
@@ -226,7 +233,7 @@ export function offsetFromPoint(el: HTMLElement, clientX: number, clientY: numbe
             y: number,
           ) => { offsetNode: Node; offset: number } | null;
         }
-      ).caretPositionFromPoint!(clientX, clientY);
+      ).caretPositionFromPoint(clientX, clientY);
       if (pos) {
         const r = document.createRange();
         r.setStart(pos.offsetNode, pos.offset);
@@ -240,16 +247,16 @@ export function offsetFromPoint(el: HTMLElement, clientX: number, clientY: numbe
     let done = false;
     const measure = (node: Node): void => {
       if (done) return;
-      if (node === range!.startContainer) {
+      if (node === range.startContainer) {
         if (node.nodeType === Node.TEXT_NODE) {
-          total += Math.min(range!.startOffset, node.textContent?.length ?? 0);
+          total += Math.min(range.startOffset, node.textContent?.length ?? 0);
         } else if (node.nodeType === Node.ELEMENT_NODE) {
           const hel = node as HTMLElement;
           const token = hel.getAttribute(KB_REF_ATTR);
           if (token !== null) {
-            total += range!.startOffset > 0 ? token.length : 0;
+            total += range.startOffset > 0 ? token.length : 0;
           } else {
-            const kids = Array.from(hel.childNodes).slice(0, range!.startOffset);
+            const kids = Array.from(hel.childNodes).slice(0, range.startOffset);
             for (const kid of kids) measure(kid);
           }
         }

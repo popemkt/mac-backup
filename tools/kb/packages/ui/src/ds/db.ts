@@ -72,7 +72,7 @@ function reviveValue(v: unknown, ids: IdMap): unknown {
 /** Run raw EDN datalog; entity ids revived to NodeIds when known. */
 export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
   const q = normalizeEdnQuery(edn);
-  const raw = d.q(q, db.db, ...inputs) as unknown;
+  const raw = d.q(q, db.db, ...inputs);
   return reviveValue(raw, db.ids);
 }
 

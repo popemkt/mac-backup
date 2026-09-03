@@ -10,7 +10,7 @@ export interface GraphLoadResult {
 
 export type FetchGraphSnapshotFn = () => Promise<GraphSnapshot>;
 
-function useFixturesForced(): boolean {
+function fixturesForced(): boolean {
   return import.meta.env.VITE_USE_FIXTURES === "1" || import.meta.env.VITE_USE_FIXTURES === "true";
 }
 
@@ -19,7 +19,7 @@ function validatedFixtures(): GraphSnapshot {
 }
 
 async function defaultFetchGraphSnapshot(): Promise<GraphSnapshot> {
-  if (useFixturesForced()) {
+  if (fixturesForced()) {
     return validatedFixtures();
   }
 
@@ -47,7 +47,7 @@ export function fetchGraphSnapshot(): Promise<GraphSnapshot> {
 
 /** Cold-boot load: GET /api/graph, fall back to fixtures when offline. */
 export async function loadGraph(): Promise<GraphLoadResult> {
-  if (useFixturesForced()) {
+  if (fixturesForced()) {
     return { snapshot: validatedFixtures(), source: "fixtures" };
   }
 

@@ -1,4 +1,4 @@
-import { ArrowUUpLeft, PushPin, PushPinSlash, X } from "@phosphor-icons/react";
+import { ArrowUUpLeftIcon, PushPinIcon, PushPinSlashIcon, XIcon } from "@phosphor-icons/react";
 import { describeReason } from "@kb/model";
 import { cn } from "@/lib/cn";
 import { MdView } from "@/components/outline/md-view";
@@ -89,7 +89,7 @@ export function MemberRow({
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-100 group-hover/member:opacity-100 focus-within:opacity-100">
         {excluded ? (
           <IconButton label={`Restore ${row.label}`} onClick={() => onRestore?.(row.id)}>
-            <ArrowUUpLeft size={12} weight="bold" />
+            <ArrowUUpLeftIcon size={12} weight="bold" />
           </IconButton>
         ) : (
           <>
@@ -99,7 +99,7 @@ export function MemberRow({
                 title="Pinned explicitly — unpin to keep only derived membership"
                 onClick={() => onUnpin?.(row.id)}
               >
-                <PushPinSlash size={12} weight="bold" />
+                <PushPinSlashIcon size={12} weight="bold" />
               </IconButton>
             ) : (
               <IconButton
@@ -107,7 +107,7 @@ export function MemberRow({
                 title="Pin: stay a member even if the tag is removed"
                 onClick={() => onPin?.(row.id)}
               >
-                <PushPin size={12} weight="bold" />
+                <PushPinIcon size={12} weight="bold" />
               </IconButton>
             )}
             <IconButton
@@ -119,7 +119,7 @@ export function MemberRow({
               }
               onClick={() => onExclude?.(row.id)}
             >
-              <X size={12} weight="bold" />
+              <XIcon size={12} weight="bold" />
             </IconButton>
           </>
         )}
@@ -131,7 +131,7 @@ export function MemberRow({
           className="shrink-0 text-[10px] text-foreground/25 group-hover/member:hidden"
           title="Pinned"
         >
-          <PushPin size={11} weight="fill" />
+          <PushPinIcon size={11} weight="fill" />
         </span>
       ) : null}
     </div>

@@ -53,7 +53,7 @@ export function QueryResultsSection({
   const [liveError, setLiveError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!live || edn === null) return;
+    if (!live || edn === null) return undefined;
     const unsubscribe = subscribeQueryNode(getLiveClient(), nodeId, edn, (rows) => {
       setLiveRows(rows);
       setLiveError(null);

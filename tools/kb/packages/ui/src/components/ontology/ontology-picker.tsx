@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CaretDown } from "@phosphor-icons/react";
+import { CaretDownIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { OntologyNavItem } from "@/lib/ontology-scope";
 
@@ -30,7 +30,7 @@ export function OntologyPicker({
   const active = ontologies.find((o) => o.id === activeId) ?? null;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
@@ -63,7 +63,7 @@ export function OntologyPicker({
           ⬡
         </span>
         <span className="truncate">{active?.label ?? placeholder}</span>
-        <CaretDown size={12} className="shrink-0 text-foreground/40" />
+        <CaretDownIcon size={12} className="shrink-0 text-foreground/40" />
       </button>
       {open ? (
         <div

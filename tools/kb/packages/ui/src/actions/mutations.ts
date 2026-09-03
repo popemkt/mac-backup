@@ -3,6 +3,7 @@
  */
 import { ulid } from "ulid";
 import type { FieldType } from "@kb/model";
+import type { SortSpec, ViewMode } from "@/lib/view-config";
 import { postAction } from "@/api/action";
 import { fetchGraphSnapshot } from "@/api/graph";
 import { runOptimistic } from "@/actions/optimistic";
@@ -125,7 +126,7 @@ function enqueueContent(id: string, task: () => Promise<void>): Promise<void> {
  * timer fire, and any same-id entry present now is a newer in-flight re-edit.
  */
 function reapplyPendingLocalEdits(): void {
-  for (const [id, pending] of [...pendingContent]) {
+  for (const [id, pending] of Array.from(pendingContent)) {
     try {
       const store = useOutlineStore.getState();
       if (!store.wireNodes.some((n) => n.id === id)) {
@@ -198,7 +199,7 @@ function flushPendingContent(id: string, pending: PendingContent): Promise<void>
 async function prepareStructuralMutation(deleteIds: readonly string[] = []): Promise<void> {
   const deleting = new Set(deleteIds);
   const flushes: Promise<void>[] = [];
-  for (const [id, pending] of [...pendingContent]) {
+  for (const [id, pending] of Array.from(pendingContent)) {
     if (deleting.has(id)) {
       clearTimeout(pending.timer);
       if (pendingContent.get(id) === pending) pendingContent.delete(id);
@@ -210,7 +211,7 @@ async function prepareStructuralMutation(deleteIds: readonly string[] = []): Pro
   // If a text POST was already in flight for a deleting node, wait for it
   // before the delete action is planned/sent.  This is conservative (global
   // structural flushing) but gives every touched node a strict FIFO.
-  await Promise.all([...deleting].map((id) => contentTails.get(id)));
+  await Promise.all([...deleting].map((id) => contentTails.get(id) ?? Promise.resolve()));
 }
 
 /** @internal Clear debounce map between tests. */
@@ -684,7 +685,7 @@ export const mutations = {
     await applyPlan(planOntologySetClosure(wire(), ontoId, mode));
   },
 
-  async setViewMode(frameId: string, mode: import("@/lib/view-config").ViewMode): Promise<void> {
+  async setViewMode(frameId: string, mode: ViewMode): Promise<void> {
     if (!guardSysWrite(frameId)) return;
     const { planSetViewMode } = await import("@/actions/plan");
     await applyPlan(planSetViewMode(wire(), frameId, mode));
@@ -700,20 +701,13 @@ export const mutations = {
    * Persist a `sys.f.lens.*` prop. Unsets the field before set so multi-valued
    * append cannot accumulate (r10 §1.6).
    */
-  async setLensProp(
-    perspectiveId: string,
-    fieldId: string,
-    value: import("@/lib/types").PropValue,
-  ): Promise<void> {
+  async setLensProp(perspectiveId: string, fieldId: string, value: PropValue): Promise<void> {
     if (!guardSysWrite(perspectiveId)) return;
     const { planSetLensProp } = await import("@/actions/plan");
     await applyPlan(planSetLensProp(wire(), perspectiveId, fieldId, value));
   },
 
-  async setViewSort(
-    frameId: string,
-    sortSpecs: import("@/lib/view-config").SortSpec[],
-  ): Promise<void> {
+  async setViewSort(frameId: string, sortSpecs: SortSpec[]): Promise<void> {
     if (!guardSysWrite(frameId)) return;
     const { planSetViewSort } = await import("@/actions/plan");
     await applyPlan(planSetViewSort(wire(), frameId, sortSpecs));
@@ -728,7 +722,7 @@ export const mutations = {
     const current = config.sort;
     const existingIndex = current.findIndex((s) => s.fieldId === fieldId);
 
-    let nextSort: import("@/lib/view-config").SortSpec[];
+    let nextSort: SortSpec[];
     if (existingIndex === -1) {
       nextSort = [{ fieldId, dir: "asc" }, ...current];
     } else if (current[existingIndex]?.dir === "asc") {
@@ -812,8 +806,8 @@ export const mutations = {
   async moveBoardCard(
     nodeId: string,
     fieldId: string,
-    oldValue: import("@/lib/types").PropValue | null,
-    newValue: import("@/lib/types").PropValue | null,
+    oldValue: PropValue | null,
+    newValue: PropValue | null,
   ): Promise<void> {
     if (!guardSysWrite(nodeId)) return;
     const { planMoveBoardCard } = await import("@/actions/plan");

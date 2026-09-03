@@ -10,7 +10,7 @@ import { computeLayoutPositions } from "@/lib/graph-layouts";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
 import { fitView } from "./graph-camera";
 import { sigmaCameraControls, type GraphCameraControls } from "./graph-camera-controls";
-import { selectionFromNode, type GraphSelection } from "./graph-selection-card";
+import { selectionFromNode, type GraphSelection } from "./graph-selection";
 
 export type { GraphSelection };
 
@@ -45,11 +45,11 @@ function topologyKey(nodes: LensNode[], edges: LensEdge[]): string {
   if (nodes.length > 200) return `${nodes.length}:${edges.length}`;
   const n = nodes
     .map((x) => x.id)
-    .sort()
+    .toSorted()
     .join(",");
   const e = edges
     .map((x) => `${x.kind}:${x.source}->${x.target}`)
-    .sort()
+    .toSorted()
     .join(",");
   return `${n}|${e}`;
 }
@@ -153,9 +153,10 @@ export function SigmaGraph({
     refreshReducers();
   }, [selectedNodeId, refreshReducers]);
 
+  // oxlint-disable-next-line complexity -- GAP [[01M1MGCPJTV66QSFCR44XG29YM]]
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el) return undefined;
 
     sigmaRef.current?.kill();
     sigmaRef.current = null;
@@ -389,7 +390,7 @@ export function SigmaGraph({
       document.removeEventListener("mousemove", onHoverMove);
       document.removeEventListener("mouseup", onMouseUp);
       try {
-        cameraRef.current = sigma.getCamera().getState() as CameraSnap;
+        cameraRef.current = sigma.getCamera().getState();
       } catch {
         // already dead
       }
