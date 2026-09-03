@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Funnel, Plus, TextT, X } from "@phosphor-icons/react";
+import { FunnelIcon, PlusIcon, TextTIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { toast } from "@/lib/toast";
 import { getViewConfig, serializeViewFilter, type ViewFilter } from "@/lib/view-config";
@@ -162,7 +162,7 @@ export function ViewFilterPopoverHost() {
                     onClick={() => void mutations.removeViewFilter(frameId, raw)}
                     aria-label="Remove filter"
                   >
-                    <X size={11} weight="bold" />
+                    <XIcon size={11} weight="bold" />
                   </button>
                 </li>
               );
@@ -170,7 +170,7 @@ export function ViewFilterPopoverHost() {
           </ul>
         )}
 
-        <PrefFieldRow icon={Funnel} label="kind">
+        <PrefFieldRow icon={FunnelIcon} label="kind">
           <select
             className={POPOVER_VALUE_CLASS}
             value={kind}
@@ -182,7 +182,7 @@ export function ViewFilterPopoverHost() {
         </PrefFieldRow>
 
         {kind === "eq" && (
-          <PrefFieldRow icon={Funnel} label="field">
+          <PrefFieldRow icon={FunnelIcon} label="field">
             <select
               className={POPOVER_VALUE_CLASS}
               value={fieldId}
@@ -201,7 +201,7 @@ export function ViewFilterPopoverHost() {
           </PrefFieldRow>
         )}
 
-        <PrefFieldRow icon={TextT} label={kind === "text" ? "text" : "value"}>
+        <PrefFieldRow icon={TextTIcon} label={kind === "text" ? "text" : "value"}>
           <input
             className={POPOVER_VALUE_CLASS}
             value={value}
@@ -221,7 +221,7 @@ export function ViewFilterPopoverHost() {
           className="mt-1 flex w-full items-center justify-center gap-1 rounded-md bg-foreground/[0.04] px-2 py-1 text-[11px] font-medium text-foreground/60 hover:bg-foreground/[0.08] hover:text-foreground/80"
           onClick={add}
         >
-          <Plus size={12} weight="bold" />
+          <PlusIcon size={12} weight="bold" />
           Add filter
         </button>
       </div>

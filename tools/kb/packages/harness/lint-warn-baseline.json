@@ -60,7 +60,7 @@
       "unicorn/prefer-add-event-listener": 4
     },
     "advisory": {
-      "typescript/no-deprecated": 104
+      "typescript/no-deprecated": 12
     }
   }
 }

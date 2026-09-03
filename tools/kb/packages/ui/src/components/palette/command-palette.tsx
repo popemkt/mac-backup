@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MagnifyingGlass, Terminal } from "@phosphor-icons/react";
+import { MagnifyingGlassIcon, TerminalIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import { buildPaletteIndex, searchPalette, type PaletteHit } from "@/lib/palette-index";
 import { runPaletteCommand } from "@/lib/run-command";
@@ -153,7 +153,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         onKeyDown={onKeyDown}
       >
         <div className="flex items-center gap-2 border-b border-foreground/[0.06] px-3 py-2.5">
-          <MagnifyingGlass size={16} className="shrink-0 text-foreground/25" />
+          <MagnifyingGlassIcon size={16} className="shrink-0 text-foreground/25" />
           <input
             ref={inputRef}
             type="text"
@@ -193,7 +193,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   onClick={() => void selectHit(hit)}
                 >
                   {hit.kind === "command" ? (
-                    <Terminal size={14} className="shrink-0 text-primary" />
+                    <TerminalIcon size={14} className="shrink-0 text-primary" />
                   ) : (
                     <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-foreground/25" />
                   )}
@@ -222,7 +222,7 @@ export function PaletteTrigger({ onOpen }: { onOpen: () => void }) {
       className="flex w-full max-w-xs items-center gap-2 rounded-md bg-foreground/[0.03] px-2.5 py-1 text-left transition-colors duration-100 hover:bg-foreground/[0.06]"
       aria-label="Open search palette"
     >
-      <MagnifyingGlass size={14} className="shrink-0 text-foreground/25" />
+      <MagnifyingGlassIcon size={14} className="shrink-0 text-foreground/25" />
       <span className="flex-1 text-[13px] text-foreground/25">Search and open…</span>
       <kbd className="rounded border border-foreground/10 px-1.5 py-0.5 text-[10px] text-foreground/40">
         ⌘K

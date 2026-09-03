@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ArrowsHorizontal, CircleHalf, TextAa } from "@phosphor-icons/react";
+import { ArrowsHorizontalIcon, CircleHalfIcon, TextAaIcon } from "@phosphor-icons/react";
 import { usePrefsStore, type FontPref, type ThemePref, type WidthPref } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "@/components/outline/fields-section";
@@ -44,7 +44,7 @@ function ThemeRow() {
   const theme = usePrefsStore((s) => s.theme);
   const setTheme = usePrefsStore((s) => s.setTheme);
   return (
-    <PrefFieldRow icon={CircleHalf} label="theme">
+    <PrefFieldRow icon={CircleHalfIcon} label="theme">
       <select
         className={POPOVER_VALUE_CLASS}
         value={theme}
@@ -62,7 +62,7 @@ function FontRow() {
   const font = usePrefsStore((s) => s.font);
   const setFont = usePrefsStore((s) => s.setFont);
   return (
-    <PrefFieldRow icon={TextAa} label="font">
+    <PrefFieldRow icon={TextAaIcon} label="font">
       <select
         className={POPOVER_VALUE_CLASS}
         value={font}
@@ -79,7 +79,7 @@ function WidthRow() {
   const width = usePrefsStore((s) => s.width);
   const setWidth = usePrefsStore((s) => s.setWidth);
   return (
-    <PrefFieldRow icon={ArrowsHorizontal} label="width">
+    <PrefFieldRow icon={ArrowsHorizontalIcon} label="width">
       <select
         className={POPOVER_VALUE_CLASS}
         value={width}

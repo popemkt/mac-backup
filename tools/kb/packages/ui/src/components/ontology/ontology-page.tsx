@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { X } from "@phosphor-icons/react";
+import { XIcon } from "@phosphor-icons/react";
 import type { WireNode } from "@kb/contracts";
 import {
   isOntologyNode,
@@ -359,7 +359,7 @@ function Chip({
         className="ml-0.5 flex h-3 w-3 shrink-0 items-center justify-center rounded-sm opacity-0 transition-opacity group-hover/chip:opacity-60 hover:!opacity-100 focus-visible:opacity-100"
         onClick={onRemove}
       >
-        <X size={9} weight="bold" />
+        <XIcon size={9} weight="bold" />
       </button>
     </span>
   );

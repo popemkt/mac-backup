@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  Graph as GraphIcon,
-  Hexagon,
-  House,
-  List,
-  Plus,
-  PushPin,
-  Square,
+  GraphIcon,
+  HexagonIcon,
+  HouseIcon,
+  ListIcon,
+  PlusIcon,
+  PushPinIcon,
+  SquareIcon,
 } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { createCanvasNode } from "@/lib/canvas-api";
@@ -46,7 +46,7 @@ export function SidebarToggle({ className }: { className?: string }) {
       }}
       ref={ref}
     >
-      <List size={15} />
+      <ListIcon size={15} />
     </button>
   );
 }
@@ -161,7 +161,7 @@ export function Sidebar() {
         <SidebarSection>
           <SidebarRow
             label="Home"
-            icon={<House size={14} />}
+            icon={<HouseIcon size={14} />}
             active={route.name === "outline" && rootNodeId === homeRootId}
             onClick={() => {
               navigate("/");
@@ -191,7 +191,7 @@ export function Sidebar() {
         <SidebarSection>
           <SidebarRow
             label="Ontologies"
-            icon={<Hexagon size={14} />}
+            icon={<HexagonIcon size={14} />}
             active={route.name === "ontology-list"}
             onClick={() => navigate("/o")}
           />
@@ -206,7 +206,7 @@ export function Sidebar() {
           ))}
           <SidebarRow
             label={creating ? "Creating…" : "New ontology"}
-            icon={<Plus size={14} />}
+            icon={<PlusIcon size={14} />}
             indented
             muted
             onClick={() => void onNewOntology()}
@@ -216,7 +216,7 @@ export function Sidebar() {
         <SidebarSection>
           <SidebarRow
             label="Canvases"
-            icon={<Square size={14} />}
+            icon={<SquareIcon size={14} />}
             active={route.name === "canvas-list"}
             onClick={() => navigate("/canvas")}
           />
@@ -231,7 +231,7 @@ export function Sidebar() {
           ))}
           <SidebarRow
             label={creating ? "Creating…" : "New canvas"}
-            icon={<Plus size={14} />}
+            icon={<PlusIcon size={14} />}
             indented
             muted
             onClick={() => void onNewCanvas()}
@@ -246,7 +246,7 @@ export function Sidebar() {
               <SidebarRow
                 key={f.id}
                 label={f.label}
-                icon={<PushPin size={14} />}
+                icon={<PushPinIcon size={14} />}
                 active={route.name === "outline" && rootNodeId === f.id}
                 onClick={() => onPinned(f.id)}
               />

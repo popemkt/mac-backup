@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  MagnifyingGlass,
-  Minus,
-  Plus,
-  ArrowsIn,
-  ArrowCounterClockwise,
+  ArrowCounterClockwiseIcon,
+  ArrowsInIcon,
+  MagnifyingGlassIcon,
+  MinusIcon,
+  PlusIcon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { LensPerspective } from "@/lib/graph-lens";
@@ -149,7 +149,7 @@ export function GraphToolbar({
         </div>
       )}
       <ToolbarButton
-        icon={<MagnifyingGlass size={14} />}
+        icon={<MagnifyingGlassIcon size={14} />}
         label="Search (/)"
         disabled={!capabilities.search}
         disabledReason={CAPABILITY_REASONS.search}
@@ -160,28 +160,28 @@ export function GraphToolbar({
       />
       <div className="mx-0.5 h-4 w-px bg-foreground/8" />
       <ToolbarButton
-        icon={<Plus size={14} />}
+        icon={<PlusIcon size={14} />}
         label="Zoom in (+)"
         disabled={!capabilities.zoom || !controls}
         disabledReason={CAPABILITY_REASONS.zoom}
         onClick={() => runOrNoop(capabilities.zoom, () => controls!.zoomIn())}
       />
       <ToolbarButton
-        icon={<Minus size={14} />}
+        icon={<MinusIcon size={14} />}
         label="Zoom out (-)"
         disabled={!capabilities.zoom || !controls}
         disabledReason={CAPABILITY_REASONS.zoom}
         onClick={() => runOrNoop(capabilities.zoom, () => controls!.zoomOut())}
       />
       <ToolbarButton
-        icon={<ArrowsIn size={14} />}
+        icon={<ArrowsInIcon size={14} />}
         label="Fit view (f)"
         disabled={!capabilities.fit || !controls}
         disabledReason={CAPABILITY_REASONS.fit}
         onClick={() => runOrNoop(capabilities.fit, () => controls!.fit())}
       />
       <ToolbarButton
-        icon={<ArrowCounterClockwise size={14} />}
+        icon={<ArrowCounterClockwiseIcon size={14} />}
         label="Reset (0)"
         disabled={!capabilities.reset || !controls}
         disabledReason={CAPABILITY_REASONS.reset}

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { CaretRight, House } from "@phosphor-icons/react";
+import { CaretRightIcon, HouseIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -34,13 +34,13 @@ export function Breadcrumbs() {
         onClick={() => zoomHome()}
         aria-current={isAtRoot ? "page" : undefined}
       >
-        <House size={14} weight="bold" />
+        <HouseIcon size={14} weight="bold" />
         <span>Home</span>
       </button>
 
       {crumbs.map((item) => (
         <div key={item.id} className="flex items-center gap-1">
-          <CaretRight size={10} weight="bold" className="text-foreground/25" />
+          <CaretRightIcon size={10} weight="bold" className="text-foreground/25" />
           <button
             type="button"
             title={item.text}

@@ -1,4 +1,4 @@
-import { MagnifyingGlass } from "@phosphor-icons/react";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { BulletKind, BulletKindOverride } from "@/lib/bullet-mode";
 import { resolveBulletMode } from "@/lib/bullet-mode";
@@ -118,7 +118,7 @@ export function Bullet({
           #
         </span>
       ) : isQuery ? (
-        <MagnifyingGlass
+        <MagnifyingGlassIcon
           size={14}
           weight="bold"
           className={cn("relative z-[1]", !tinted && "text-foreground/45")}

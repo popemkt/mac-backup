@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { GearSix } from "@phosphor-icons/react";
+import { GearSixIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { SYSTEM_IDS } from "@/lib/types";
 import { LENS_LAYOUTS, type LensLabelDensity, type LensPerspective } from "@/lib/graph-lens";
@@ -57,7 +57,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
         data-testid="graph-settings-toggle"
         onClick={() => setOpen((o) => !o)}
       >
-        <GearSix size={14} />
+        <GearSixIcon size={14} />
       </button>
       {open ? (
         <div

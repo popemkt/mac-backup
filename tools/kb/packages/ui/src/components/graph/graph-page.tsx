@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { CircleHalf, Warning } from "@phosphor-icons/react";
+import { CircleHalfIcon, WarningIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, resolveDark } from "@/stores/prefs.store";
@@ -221,7 +221,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
             className="flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-600 dark:text-amber-400"
             title={lensGraph.queryError}
           >
-            <Warning size={12} /> query error
+            <WarningIcon size={12} /> query error
           </span>
         )}
         <div className="flex-1" />
@@ -233,7 +233,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setPrefsOpen(!prefsOpen)}
         >
-          <CircleHalf size={15} />
+          <CircleHalfIcon size={15} />
         </button>
       </header>
       <div

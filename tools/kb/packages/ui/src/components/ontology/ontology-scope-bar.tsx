@@ -1,4 +1,4 @@
-import { Warning } from "@phosphor-icons/react";
+import { WarningIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import { navigate, ontologyPath, type OntologyView } from "@/lib/router";
 
@@ -56,7 +56,7 @@ export function OntologyScopeBar({
           title={warnings.join("\n")}
           data-ontology-warnings={String(warnings.length)}
         >
-          <Warning size={12} weight="bold" />
+          <WarningIcon size={12} weight="bold" />
           {warnings.length}
         </span>
       ) : null}

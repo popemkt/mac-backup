@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, X } from "@phosphor-icons/react";
+import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
 import {
@@ -98,7 +98,7 @@ export function FieldValueStack({
                 void mutations.removeProp(nodeId, fieldId, value);
               }}
             >
-              <X size={9} weight="bold" aria-hidden />
+              <XIcon size={9} weight="bold" aria-hidden />
             </button>
           )}
         </div>
@@ -132,7 +132,7 @@ export function FieldValueStack({
           )}
           onClick={() => setPendingSlots((n) => n + 1)}
         >
-          <Plus size={9} weight="bold" aria-hidden />
+          <PlusIcon size={9} weight="bold" aria-hidden />
           value
         </button>
       )}

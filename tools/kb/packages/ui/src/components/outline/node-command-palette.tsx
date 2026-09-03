@@ -1,21 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  ArrowBendUpLeft,
-  ArrowRight,
-  Eye,
-  EyeSlash,
-  Hash,
-  LinkSimple,
-  ListBullets,
-  MagnifyingGlass,
-  Plus,
-  PushPin,
-  PushPinSlash,
-  SquaresFour,
-  Table,
-  TextT,
-  Trash,
+  ArrowBendUpLeftIcon,
+  ArrowRightIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  HashIcon,
+  LinkSimpleIcon,
+  ListBulletsIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  PushPinIcon,
+  PushPinSlashIcon,
+  SquaresFourIcon,
+  TableIcon,
+  TextTIcon,
+  TrashIcon,
 } from "@phosphor-icons/react";
 import { typeRefsOf } from "@kb/model";
 import { mutations } from "@/actions/mutations";
@@ -136,19 +136,19 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       {
         id: "add-tag",
         label: "Add tag",
-        icon: <Hash size={14} weight="bold" />,
+        icon: <HashIcon size={14} weight="bold" />,
         step: "add-tag",
       },
       {
         id: "add-field",
         label: "Add field",
-        icon: <TextT size={14} weight="bold" />,
+        icon: <TextTIcon size={14} weight="bold" />,
         step: "add-field",
       },
       {
         id: "search-all",
         label: "Search everything… ⌘S",
-        icon: <MagnifyingGlass size={14} />,
+        icon: <MagnifyingGlassIcon size={14} />,
         immediate: true,
         action: () => {
           onClose();
@@ -158,7 +158,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       {
         id: "indent",
         label: "Indent",
-        icon: <ArrowRight size={14} />,
+        icon: <ArrowRightIcon size={14} />,
         immediate: true,
         action: () => {
           if (targetNodeId) void mutations.indentNode(targetNodeId);
@@ -168,7 +168,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       {
         id: "outdent",
         label: "Outdent",
-        icon: <ArrowBendUpLeft size={14} />,
+        icon: <ArrowBendUpLeftIcon size={14} />,
         immediate: true,
         action: () => {
           if (targetNodeId) void mutations.outdentNode(targetNodeId);
@@ -181,9 +181,9 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         id: "toggle-pin",
         label: pinned ? "Unpin" : "Pin",
         icon: pinned ? (
-          <PushPinSlash size={14} weight="bold" />
+          <PushPinSlashIcon size={14} weight="bold" />
         ) : (
-          <PushPin size={14} weight="bold" />
+          <PushPinIcon size={14} weight="bold" />
         ),
         immediate: true,
         action: () => {
@@ -196,7 +196,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         // at (stores/debug-fields.store).
         id: "toggle-debug-fields",
         label: debugOn ? "Hide debug fields" : "Show debug fields",
-        icon: debugOn ? <EyeSlash size={14} /> : <Eye size={14} />,
+        icon: debugOn ? <EyeSlashIcon size={14} /> : <EyeIcon size={14} />,
         immediate: true,
         action: () => {
           if (targetNodeId) useDebugFieldsStore.getState().toggle(targetNodeId);
@@ -206,7 +206,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       {
         id: "delete",
         label: "Delete node",
-        icon: <Trash size={14} />,
+        icon: <TrashIcon size={14} />,
         immediate: true,
         action: () => {
           if (targetNodeId) void mutations.deleteNode(targetNodeId);
@@ -224,35 +224,35 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       {
         id: "view-as-list",
         label: "View as: List",
-        icon: <ListBullets size={14} />,
+        icon: <ListBulletsIcon size={14} />,
         immediate: true,
         action: () => setMode("list"),
       },
       {
         id: "view-as-table",
         label: "View as: Table",
-        icon: <Table size={14} />,
+        icon: <TableIcon size={14} />,
         immediate: true,
         action: () => setMode("table"),
       },
       {
         id: "view-as-board",
         label: "View as: Board",
-        icon: <SquaresFour size={14} />,
+        icon: <SquaresFourIcon size={14} />,
         immediate: true,
         action: () => setMode("board"),
       },
       {
         id: "view-as-cards",
         label: "View as: Cards",
-        icon: <SquaresFour size={14} weight="duotone" />,
+        icon: <SquaresFourIcon size={14} weight="duotone" />,
         immediate: true,
         action: () => setMode("cards"),
       },
       {
         id: "view-filter",
         label: "Filter…",
-        icon: <MagnifyingGlass size={14} />,
+        icon: <MagnifyingGlassIcon size={14} />,
         immediate: true,
         action: () => {
           if (!targetNodeId) return;
@@ -270,7 +270,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       base.splice(2, 0, {
         id: "make-supertag",
         label: "Make supertag",
-        icon: <Hash size={14} weight="fill" />,
+        icon: <HashIcon size={14} weight="fill" />,
         immediate: true,
         action: () => {
           if (!targetNodeId) return;
@@ -290,7 +290,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       base.splice(1, 0, {
         id: "turn-ref",
         label: "Turn into reference…",
-        icon: <LinkSimple size={14} weight="bold" />,
+        icon: <LinkSimpleIcon size={14} weight="bold" />,
         step: "add-ref",
       });
     }
@@ -299,7 +299,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       base.splice(1, 0, {
         id: "turn-query",
         label: "Turn into query",
-        icon: <MagnifyingGlass size={14} weight="bold" />,
+        icon: <MagnifyingGlassIcon size={14} weight="bold" />,
         immediate: true,
         action: () => {
           if (!targetNodeId) return;
@@ -342,7 +342,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     step.type === "add-field"
       ? {
           match: (q) => matchByName(fieldOptions, q),
-          icon: <TextT size={12} weight="bold" />,
+          icon: <TextTIcon size={12} weight="bold" />,
           createLabel: (name: string) => `Create field "${name}"`,
         }
       : step.type === "add-ref"
@@ -352,11 +352,11 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
                 // A reference to itself is not a reference.
                 .filter((c) => c.id !== targetNodeId)
                 .map((c) => ({ id: c.id, name: c.text })),
-            icon: <LinkSimple size={12} weight="bold" />,
+            icon: <LinkSimpleIcon size={12} weight="bold" />,
           }
         : {
             match: (q) => matchByName(tagOptions, q),
-            icon: <Hash size={12} weight="bold" />,
+            icon: <HashIcon size={12} weight="bold" />,
             createLabel: (name: string) => `Create tag "${name}"`,
           };
 
@@ -375,7 +375,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
           {
             id: CREATE_ID,
             label: createLabel(trimmed),
-            icon: <Plus size={12} weight="bold" />,
+            icon: <PlusIcon size={12} weight="bold" />,
           },
         ]
       : []),

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, X } from "@phosphor-icons/react";
+import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
 import { isSysPrefixed } from "@/lib/types";
@@ -85,7 +85,7 @@ export function TagFieldsConfigView({
                 aria-label={`Remove field ${field.name} from this tag`}
                 onClick={() => onRemove(field.id)}
               >
-                <X size={9} weight="bold" aria-hidden />
+                <XIcon size={9} weight="bold" aria-hidden />
               </button>
             )}
           </div>
@@ -94,7 +94,7 @@ export function TagFieldsConfigView({
 
       {!readOnly && (
         <div className="mt-1 flex items-center gap-1.5 px-1">
-          <Plus size={10} weight="bold" className="text-foreground/40" aria-hidden />
+          <PlusIcon size={10} weight="bold" className="text-foreground/40" aria-hidden />
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}

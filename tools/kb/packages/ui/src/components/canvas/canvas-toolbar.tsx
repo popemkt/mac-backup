@@ -1,5 +1,13 @@
 import type { ReactNode } from "react";
-import { Circle, Cursor, Diamond, FrameCorners, Plus, Square, TextT } from "@phosphor-icons/react";
+import {
+  CircleIcon,
+  CursorIcon,
+  DiamondIcon,
+  FrameCornersIcon,
+  PlusIcon,
+  SquareIcon,
+  TextTIcon,
+} from "@phosphor-icons/react";
 import type { CanvasTool } from "@/lib/canvas-tool";
 import { cn } from "@/lib/cn";
 
@@ -8,13 +16,13 @@ const TOOLS: {
   label: string;
   icon: ReactNode;
 }[] = [
-  { id: "select", label: "Select (V)", icon: <Cursor size={16} /> },
-  { id: "text", label: "Text (T)", icon: <TextT size={16} /> },
-  { id: "rect", label: "Rectangle (R)", icon: <Square size={16} /> },
-  { id: "ellipse", label: "Ellipse (O)", icon: <Circle size={16} /> },
-  { id: "diamond", label: "Diamond (D)", icon: <Diamond size={16} /> },
-  { id: "group", label: "Group / Frame (G)", icon: <FrameCorners size={16} /> },
-  { id: "kb-node", label: "Add kb node (N)", icon: <Plus size={16} /> },
+  { id: "select", label: "Select (V)", icon: <CursorIcon size={16} /> },
+  { id: "text", label: "Text (T)", icon: <TextTIcon size={16} /> },
+  { id: "rect", label: "Rectangle (R)", icon: <SquareIcon size={16} /> },
+  { id: "ellipse", label: "Ellipse (O)", icon: <CircleIcon size={16} /> },
+  { id: "diamond", label: "Diamond (D)", icon: <DiamondIcon size={16} /> },
+  { id: "group", label: "Group / Frame (G)", icon: <FrameCornersIcon size={16} /> },
+  { id: "kb-node", label: "Add kb node (N)", icon: <PlusIcon size={16} /> },
 ];
 
 interface CanvasToolbarProps {
