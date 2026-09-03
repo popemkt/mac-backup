@@ -50,7 +50,7 @@
       "typescript/no-unnecessary-type-conversion": 19,
       "typescript/no-unsafe-type-assertion": 143,
       "typescript/require-array-sort-compare": 1,
-      "typescript/require-await": 81,
+      "typescript/require-await": 1,
       "typescript/restrict-template-expressions": 2,
       "typescript/strict-boolean-expressions": 346,
       "typescript/triple-slash-reference": 1,
