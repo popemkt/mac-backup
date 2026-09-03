@@ -1,0 +1,29 @@
+{
+  "name": "@kb/ext-canvas",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@kb/canvas": "workspace:*",
+    "@kb/contracts": "workspace:*",
+    "@kb/model": "workspace:*",
+    "@kb/operations": "workspace:*",
+    "effect": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "layer:extension",
+      "scope:backend"
+    ]
+  }
+}

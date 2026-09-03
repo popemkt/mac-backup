@@ -1,0 +1,34 @@
+{
+  "name": "@kb/runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@kb/contracts": "workspace:*",
+    "@kb/ext-canvas": "workspace:*",
+    "@kb/ext-docs": "workspace:*",
+    "@kb/model": "workspace:*",
+    "@kb/operations": "workspace:*",
+    "@kb/query": "workspace:*",
+    "@kb/store-jsonl": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@kb/canvas": "workspace:*",
+    "@types/bun": "catalog:",
+    "zod": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "layer:app",
+      "scope:backend"
+    ]
+  }
+}

@@ -1,56 +1,36 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
-    ".": {
-      "entry": [
-        "src/surface/cli.ts",
-        "src/surface/ui.ts",
-        "src/surface/mcp.ts"
-      ],
-      "project": [
-        "src/**/*.ts",
-        "extensions-bundled/**/*.ts"
-      ]
+    "packages/*": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"]
     },
-    "ui": {
-      "entry": [
-        "src/main.tsx"
-      ],
-      "project": [
-        "src/**/*.{ts,tsx}"
-      ],
-      "paths": {
-        "@/*": [
-          "src/*"
-        ],
-        "@kb/protocol": [
-          "../src/surface/protocol.ts"
-        ],
-        "@kb/canvas": [
-          "../src/canvas/doc.ts"
-        ],
-        "@kb/ontology": [
-          "../src/foundation/ontology.ts"
-        ],
-        "@kb/order": [
-          "../src/foundation/order.ts"
-        ],
-        "@kb/field-type": [
-          "../src/foundation/field-type.ts"
-        ],
-        "@kb/queries": [
-          "../src/foundation/query/queries.ts"
-        ]
-      }
+    "packages/cli": {
+      "entry": ["src/main.ts", "src/bin/*.ts"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"]
+    },
+    "packages/ext-sdk": {
+      "entry": ["src/index.ts", "src/generate.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/harness": {
+      "entry": ["tests/*.test.ts"],
+      "project": ["tests/**/*.ts"]
+    },
+    "packages/render-tests": {
+      "entry": ["playwright.config.ts", "tests-render/*.e2e.ts"],
+      "project": ["tests-render/**/*.ts"]
+    },
+    "packages/test-kit": {
+      "entry": ["src/index.ts", "tests/*.test.ts", "tests/run-many.ts"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"]
+    },
+    "packages/ui": {
+      "entry": ["src/main.tsx", ".storybook/main.ts", "vite.config.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
     }
   },
-  "ignoreFiles": [
-    "src/bin/docs-check.ts",
-    "src/bin/docs-materialize.ts",
-    "src/ext-sdk/surface.ts",
-    "ui/src/api/queries.ts",
-    "ui/src/components/canvas/index.tsx"
-  ],
+  "ignoreFiles": ["packages/ext-sdk/src/surface.ts"],
   "ignoreDependencies": [
     "@fontsource-variable/outfit",
     "graphology-communities-louvain",

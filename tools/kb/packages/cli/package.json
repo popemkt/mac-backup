@@ -1,0 +1,37 @@
+{
+  "name": "@kb/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "kb": "./src/main.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@kb/contracts": "workspace:*",
+    "@kb/ext-sdk": "workspace:*",
+    "@kb/mcp": "workspace:*",
+    "@kb/model": "workspace:*",
+    "@kb/operations": "workspace:*",
+    "@kb/runtime": "workspace:*",
+    "@kb/server": "workspace:*",
+    "@kb/store-jsonl": "workspace:*",
+    "commander": "catalog:",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "catalog:",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:",
+    "zod": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "layer:app",
+      "scope:backend"
+    ]
+  }
+}
