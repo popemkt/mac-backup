@@ -29,7 +29,7 @@ export function isFieldNodeHidden(fieldId: string, nodes: NodeMap): boolean {
   const fieldNode = nodes.get(fieldId);
   if (!fieldNode) return false;
   const hidden = fieldNode.props[SYSTEM_IDS.hiddenField]?.[0];
-  return hidden?.t === "bool" && hidden.v === true;
+  return hidden?.t === "bool" && hidden.v;
 }
 
 export function isPropHiddenByDefault(fieldId: string, nodes: NodeMap): boolean {

@@ -12,7 +12,7 @@ export interface CanvasSelection {
 export const EMPTY_SELECTION: CanvasSelection = Object.freeze({
   nodeIds: new Set<string>(),
   edgeIds: new Set<string>(),
-}) as CanvasSelection;
+});
 
 export function selectionEmpty(sel: CanvasSelection): boolean {
   return sel.nodeIds.size === 0 && sel.edgeIds.size === 0;

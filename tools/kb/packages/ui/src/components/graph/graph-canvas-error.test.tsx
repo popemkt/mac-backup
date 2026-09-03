@@ -23,9 +23,9 @@ describe("GraphCanvasErrorBoundary", () => {
   beforeAll(() => {
     dom = new Window();
     const g = globalThis as Record<string, unknown>;
-    g.window = dom as unknown;
-    g.document = dom.document as unknown;
-    g.HTMLElement = dom.HTMLElement as unknown;
+    g.window = dom;
+    g.document = dom.document;
+    g.HTMLElement = dom.HTMLElement;
   });
 
   beforeEach(() => {

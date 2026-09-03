@@ -163,7 +163,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             className="kb-text w-full bg-transparent text-foreground/85 outline-none placeholder:text-foreground/25"
             aria-autocomplete="list"
             aria-controls="kb-palette-list"
-            aria-activedescendant={hits[active] ? `kb-palette-${hits[active]!.id}` : undefined}
+            aria-activedescendant={hits[active] ? `kb-palette-${hits[active].id}` : undefined}
           />
           <kbd className="hidden rounded border border-foreground/10 px-1.5 py-0.5 text-[10px] text-foreground/40 sm:inline">
             esc

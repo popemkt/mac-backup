@@ -64,17 +64,16 @@ describe("GraphPage (smoke)", () => {
   beforeAll(() => {
     dom = new Window();
     const g = globalThis as Record<string, unknown>;
-    g.window = dom as unknown;
-    g.document = dom.document as unknown;
-    g.HTMLElement = dom.HTMLElement as unknown;
-    g.KeyboardEvent = dom.KeyboardEvent as unknown;
-    g.Node = dom.Node as unknown;
-    g.PointerEvent = (dom.PointerEvent ?? dom.MouseEvent) as unknown;
-    g.requestAnimationFrame = ((cb: FrameRequestCallback) =>
-      Number(dom.setTimeout(() => cb(0), 0))) as unknown;
-    g.cancelAnimationFrame = ((id: number) => {
+    g.window = dom;
+    g.document = dom.document;
+    g.HTMLElement = dom.HTMLElement;
+    g.KeyboardEvent = dom.KeyboardEvent;
+    g.Node = dom.Node;
+    g.PointerEvent = dom.PointerEvent ?? dom.MouseEvent;
+    g.requestAnimationFrame = (cb: FrameRequestCallback) => Number(dom.setTimeout(() => cb(0), 0));
+    g.cancelAnimationFrame = (id: number) => {
       dom.clearTimeout(id as unknown as ReturnType<typeof dom.setTimeout>);
-    }) as unknown;
+    };
     g.ResizeObserver = class {
       observe() {}
       unobserve() {}

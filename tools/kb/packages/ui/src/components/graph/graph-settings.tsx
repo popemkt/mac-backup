@@ -2,12 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { GearSix } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { SYSTEM_IDS } from "@/lib/types";
-import {
-  LENS_LAYOUTS,
-  type LensLabelDensity,
-  type LensLayout,
-  type LensPerspective,
-} from "@/lib/graph-lens";
+import { LENS_LAYOUTS, type LensLabelDensity, type LensPerspective } from "@/lib/graph-lens";
 import { cn } from "@/lib/cn";
 
 const CLUSTER_BY_OPTIONS: Array<{ value: string; label: string }> = [
@@ -104,7 +99,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
                       ? "bg-foreground/[0.1] font-semibold text-foreground/80"
                       : "text-foreground/45 hover:bg-foreground/[0.05]",
                   )}
-                  onClick={() => setStr(SYSTEM_IDS.lensLayoutField, layout as LensLayout)}
+                  onClick={() => setStr(SYSTEM_IDS.lensLayoutField, layout)}
                 >
                   {layout}
                 </button>

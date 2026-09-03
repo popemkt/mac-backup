@@ -389,7 +389,7 @@ export function SigmaGraph({
       document.removeEventListener("mousemove", onHoverMove);
       document.removeEventListener("mouseup", onMouseUp);
       try {
-        cameraRef.current = sigma.getCamera().getState() as CameraSnap;
+        cameraRef.current = sigma.getCamera().getState();
       } catch {
         // already dead
       }

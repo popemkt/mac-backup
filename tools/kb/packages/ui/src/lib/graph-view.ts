@@ -94,7 +94,7 @@ function wireHasVisibleFields(wire: WireNode, byId: Map<string, WireNode>): bool
     if (isIntrinsicSystemPropKey(fieldId)) continue;
     const fieldNode = byId.get(fieldId);
     const hidden = fieldNode?.props[SYSTEM_IDS.hiddenField]?.[0];
-    if (hidden?.t === "bool" && hidden.v === true) continue;
+    if (hidden?.t === "bool" && hidden.v) continue;
     return true;
   }
   return false;

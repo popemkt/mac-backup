@@ -52,10 +52,10 @@ function stubFetch(handler: (input: RequestInfo | URL) => Promise<Response>): {
   calls: Array<string>;
 } {
   const calls: string[] = [];
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
+  globalThis.fetch = async (input: RequestInfo | URL) => {
     calls.push(String(input));
     return handler(input);
-  }) as typeof fetch;
+  };
   return { calls };
 }
 

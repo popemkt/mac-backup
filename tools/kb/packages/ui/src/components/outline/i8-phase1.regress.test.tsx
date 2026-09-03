@@ -57,15 +57,15 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
   beforeAll(() => {
     dom = new Window();
     const g = globalThis as Record<string, unknown>;
-    g.window = dom as unknown;
-    g.document = dom.document as unknown;
-    g.HTMLElement = dom.HTMLElement as unknown;
-    g.KeyboardEvent = dom.KeyboardEvent as unknown;
-    g.MouseEvent = dom.MouseEvent as unknown;
-    g.Node = dom.Node as unknown;
+    g.window = dom;
+    g.document = dom.document;
+    g.HTMLElement = dom.HTMLElement;
+    g.KeyboardEvent = dom.KeyboardEvent;
+    g.MouseEvent = dom.MouseEvent;
+    g.Node = dom.Node;
     g.CSS = { escape: (s: string) => s };
-    if (!(g as Record<string, unknown>).NodeFilter) {
-      (g as Record<string, unknown>).NodeFilter = { SHOW_TEXT: 4 };
+    if (!g.NodeFilter) {
+      g.NodeFilter = { SHOW_TEXT: 4 };
     }
     // jsdom-like caret APIs are absent in happy-dom — that's fine; code falls back.
   });

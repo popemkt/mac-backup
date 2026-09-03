@@ -165,7 +165,7 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
             ? resolveAllowedRefIdsCached(p.fieldId, fieldNode, nodes, queryDb, rev)
             : null;
         const debug = "debug" in p ? Boolean(p.debug) : false;
-        const values = p.values as PropValue[];
+        const values = p.values;
 
         return (
           <FieldRow

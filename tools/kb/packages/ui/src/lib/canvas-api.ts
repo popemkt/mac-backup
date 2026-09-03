@@ -48,7 +48,7 @@ export function propLookupFromStore(
 ): (nodeId: string, fieldId: string) => ReadonlyArray<{ t: string; v: unknown }> | undefined {
   return (nodeId, fieldId) => {
     const n = nodes.get(nodeId);
-    return n?.props[fieldId] as ReadonlyArray<{ t: string; v: unknown }> | undefined;
+    return n?.props[fieldId];
   };
 }
 

@@ -157,14 +157,14 @@ describe("multi-valued prop semantics", () => {
 
     const plan = planSetProp(nodes, target.id, fieldId, next, oldValue);
     expect(plan).not.toBeNull();
-    const input = plan!.actions[0]!.input as {
+    const input = plan.actions[0]!.input as {
       setProps?: unknown[];
       unsetProps?: unknown[];
     };
     expect(input.unsetProps?.length ?? 0).toBeGreaterThan(0);
     expect(input.setProps?.length ?? 0).toBeGreaterThan(0);
 
-    const upsert = plan!.upserts.find((n) => n.id === target.id)!;
+    const upsert = plan.upserts.find((n) => n.id === target.id)!;
     const values = upsert.props[fieldId]!;
     expect(values).toContainEqual(next);
     expect(values).not.toContainEqual(oldValue);

@@ -11,9 +11,9 @@ describe("graph load vs strict resync", () => {
   });
 
   it("loadGraph falls back to fixtures on network failure (cold boot only)", async () => {
-    globalThis.fetch = (async () => {
+    globalThis.fetch = async () => {
       throw new Error("offline");
-    }) as typeof fetch;
+    };
 
     const result = await loadGraph();
     expect(result.source).toBe("fixtures");
@@ -21,18 +21,18 @@ describe("graph load vs strict resync", () => {
   });
 
   it("fetchGraphSnapshot throws and never returns fixtures on failure", async () => {
-    globalThis.fetch = (async () => {
+    globalThis.fetch = async () => {
       throw new Error("offline");
-    }) as typeof fetch;
+    };
 
     await expect(fetchGraphSnapshot()).rejects.toThrow(/offline|GET \/api\/graph/);
   });
 
   it("fetchGraphSnapshot returns parsed api snapshot when ok", async () => {
-    globalThis.fetch = (async () =>
+    globalThis.fetch = async () =>
       new Response(JSON.stringify(fixtureGraph), {
         headers: { "content-type": "application/json" },
-      })) as typeof fetch;
+      });
 
     const snap = await fetchGraphSnapshot();
     expect(snap.rev).toBe(fixtureGraph.rev);
