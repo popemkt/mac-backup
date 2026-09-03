@@ -56,8 +56,7 @@
       "typescript/triple-slash-reference": 1,
       "unicorn/consistent-function-scoping": 15,
       "unicorn/no-array-reverse": 2,
-      "unicorn/no-array-sort": 58,
-      "unicorn/prefer-add-event-listener": 4
+      "unicorn/no-array-sort": 58
     },
     "advisory": {
       "typescript/no-deprecated": 12

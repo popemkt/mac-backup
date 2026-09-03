@@ -68,7 +68,7 @@
     "typescript/triple-slash-reference": "warn",
     "unicorn/no-array-sort": "warn",
     "unicorn/consistent-function-scoping": "warn",
-    "unicorn/prefer-add-event-listener": "warn",
+    "unicorn/prefer-add-event-listener": "error",
     "unicorn/no-array-reverse": "warn",
     "unicorn/no-new-array": "error",
     "unicorn/no-useless-spread": "error",
