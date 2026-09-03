@@ -23,7 +23,7 @@
   },
   "nx": {
     "tags": [
-      "layer:test-support",
+      "layer:app",
       "scope:test-support"
     ]
   }

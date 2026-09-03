@@ -17,6 +17,7 @@
     "fmt": "vp fmt"
   },
   "dependencies": {
+    "3d-force-graph": "catalog:",
     "@fontsource-variable/inter": "catalog:",
     "@fontsource-variable/outfit": "catalog:",
     "@kb/canvas": "workspace:*",
@@ -25,7 +26,6 @@
     "@kb/query": "workspace:*",
     "@phosphor-icons/react": "catalog:",
     "@tailwindcss/vite": "catalog:",
-    "3d-force-graph": "catalog:",
     "clsx": "catalog:",
     "d3-hierarchy": "catalog:",
     "datascript": "catalog:",
@@ -39,6 +39,7 @@
     "sigma": "catalog:",
     "tailwind-merge": "catalog:",
     "tailwindcss": "catalog:",
+    "three": "catalog:",
     "ulid": "catalog:",
     "zod": "catalog:",
     "zustand": "catalog:"
