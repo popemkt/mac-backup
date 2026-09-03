@@ -6,12 +6,12 @@
 
 ### todo
 
-- Package kb as nix app in pkgs/ (pinned bun deps, vp build in sandbox, wrapper bin) — replaces checkout-based wrapper
 - Study production nix repo shape before adopting
 
 ### done
 
 - Migrate TODO.md items into kb (M5)
+- Package kb as nix app in pkgs/ (pinned bun deps, vp build in sandbox, wrapper bin) — replaces checkout-based wrapper
 - T3 Code: agent harness control surface (mobile, web, Electron desktop) https://github.com/pingdotgg/t3code
 
 ### parked
