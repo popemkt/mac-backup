@@ -47,6 +47,46 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way draiver does before adding more skills.
 - **node** — `01M1M08W6Z70XV3KCQB5CWH3ZR`
 
+### GAP: applySelectionAction dispatches selection actions with a 30-branch switch
+
+- **expected** — A SelectionKeyAction is dispatched through one table keyed by action type, each entry a named, separately testable step, so adding an action adds a row rather than a branch.
+- **current** — applySelectionAction is a single switch with 30 branches; several cases inline multi-statement store choreography (parent lookup + scrollIntoView, child pick, create-after placement).
+- **impact** — Every new selection action grows one function, and the store choreography inside a case cannot be exercised without going through the whole dispatcher.
+- **closes** — SLAP-extract each case body into a named step, then replace the switch with a Record<SelectionKeyAction['type'], (a) => void>. Behaviour-preserving but not mechanical: the cases share narrowed action fields.
+- **node** — `01M1MGCDRS0K28YBF1Q86YY61S`
+
+### GAP: Bullet computes its appearance with 46 branches
+
+- **expected** — The bullet's appearance is one derived value (shape, ring, halo, affordance) computed by a pure function from node state, and the component renders it.
+- **current** — Bullet branches on collapsed, children, query, ref, zoom target, drag state and hover inside the component body and in class strings.
+- **impact** — The visual contract of a bullet is untestable without rendering, and it is the single most-read affordance in the outline.
+- **closes** — Extract bulletAppearance(node, state) returning a small record, and drive both the element and its classes from it.
+- **node** — `01M1MGCMX698XJ0VDCSVQBGSQB`
+
+### GAP: canvas onModeChange rewrites edge links with 22 inline branches
+
+- **expected** — Edge link-mode changes go through one named transformation from (edge, mode) to a plan, the way node mutations already go through actions/plan.ts.
+- **current** — onModeChange resolves endpoints, branches over KbLinkMode and writes props inline in the component.
+- **impact** — Canvas edge semantics live in a component rather than beside the other planners, so they are invisible to the plan tests.
+- **closes** — Move it into the canvas action layer next to the other canvas mutations.
+- **node** — `01M1MGCTRFEHBF15DSCNDXW0GZ`
+
+### GAP: canvas onPointerMove is a 36-branch drag state machine
+
+- **expected** — An explicit drag state machine: one transition function over a discriminated drag state, tested without a DOM.
+- **current** — onPointerMove branches on drag kind (move, resize, marquee, edge-draw, pan) and computes snapping inline.
+- **impact** — Snapping and resize geometry - pure maths with real edge cases - can only be exercised through pointer events.
+- **closes** — Extract nextDragState(state, pointer) as a pure function and leave the handler as event plumbing.
+- **node** — `01M1MGCSQY0M708HYYTWHP0XP2`
+
+### GAP: canvas onPointerUp commits every drag kind in one 21-branch handler
+
+- **expected** — The same drag state machine as onPointerMove, with commit as its terminal transition.
+- **current** — onPointerUp branches on drag kind again to decide what to persist.
+- **impact** — The move and up handlers each re-derive the drag kind's meaning, so they can disagree.
+- **closes** — Falls out of the onPointerMove gap: one state machine owns both.
+- **node** — `01M1MGCT80E1FMXMEAEATS1VER`
+
 ### GAP: CLI pays full cold start on every invocation
 
 - **expected** — Interactive commands reach a running kb ui process instead of rebuilding the world per invocation.
@@ -54,6 +94,38 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Interactive use is bounded by cold start, and the derived snapshot cache exists mostly to work around it.
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
+
+### GAP: FieldRow branches 27 ways over field type and edit state
+
+- **expected** — One editor component per field type, selected through a registry keyed by FieldType, so a new type adds an entry.
+- **current** — FieldRow branches on field type, read-only, value presence and edit state inside a single component.
+- **impact** — Adding a field type means editing a shared component, and the per-type behaviour cannot be tested in isolation.
+- **closes** — Introduce the editor registry (it already half-exists in field-value.tsx) and have FieldRow look up rather than branch.
+- **node** — `01M1MGCHQH499KS0RV9J461F73`
+
+### GAP: getViewConfig decodes view props with 45 branches
+
+- **expected** — View configuration decodes through one Schema with declared defaults, the same way every other node-backed config should.
+- **current** — getViewConfig reads roughly a dozen props, each with its own presence check, type check and default.
+- **impact** — Defaults are duplicated between this function and the ontology, and a bad prop silently falls back per field.
+- **closes** — Track 2 domain typing: a ViewConfig Schema decoded once. Same gap as parsePerspective in graph-lens.
+- **node** — `01M1MGCJAKKST0C1R54VVX9HPX`
+
+### GAP: GraphPage carries 35 branches of renderer and perspective selection
+
+- **expected** — GraphPage picks a renderer and hands it a resolved lens; renderer capability differences live in graph-capabilities.ts, not in the page.
+- **current** — The page branches on renderer, perspective presence, query error, selection and capability flags in one component body.
+- **impact** — Adding a renderer means editing the page, which is exactly the coupling capabilitiesFor was introduced to remove.
+- **closes** — Move the remaining renderer-specific branches behind RendererCapabilities and render one <GraphCanvasFrame> for every renderer.
+- **node** — `01M1MGCFTMWY5EYHEWP9QVH8Z9`
+
+### GAP: hierarchicalLayout mixes forest construction with placement in 21 branches
+
+- **expected** — Forest construction (from edges) and placement (from a forest) are separate pure functions, as they already are for the tree renderer.
+- **current** — hierarchicalLayout derives roots, walks children and assigns coordinates in one pass with cycle guards inline.
+- **impact** — The cycle guard - the subtle part - is not separately testable, and the same forest logic exists again in tree-graph.
+- **closes** — Reuse the forest builder tree-graph already has and leave this function as placement only.
+- **node** — `01M1MGCR50QEXX7R4JDJ51HQFY`
 
 ### GAP: KbNode.order is optional and undeclared
 
@@ -64,6 +136,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Domain typing — discriminator over optional
 - **node** — `01M1M08XNE3SBGY1MMNA1A73VX`
 
+### GAP: mapSelectionKey maps keys to actions through a 46-branch chain
+
+- **expected** — A declarative keymap table (chord -> action factory) that the mapper looks up, so the binding set is data and can be listed, documented and rebound.
+- **current** — mapSelectionKey is a 46-branch if/switch chain over key plus modifier combinations.
+- **impact** — The binding set exists only as control flow: nothing can render a shortcuts list, and two bindings can silently overlap.
+- **closes** — Turn the chain into a table of {key, mods, toAction} entries. Behaviour-preserving only if the current first-match order is reproduced exactly, so it needs its own change with the keymap tests as the gate.
+- **node** — `01M1MGCH7SD69CRSSV75X789QW`
+
 ### GAP: no SQLite index behind the store port
 
 - **expected** — A second Store implementation backed by SQLite for O(1) writes and point reads, typed as a derived cache with committed JSONL as the truth.
@@ -72,6 +152,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Track 2 phase work in briefs/p1-persistence.md. Trigger: measured commit latency at real node counts hurts, or node.get needs to stop materializing everything.
 - **node** — `01M1M08WEYJNEFDZVECN9QKEWT`
 
+### GAP: NodeBlock decides row chrome with 28 branches
+
+- **expected** — A row's chrome (toolbar, fields, children, query results, projected frame) is chosen by one view-mode resolver, and NodeBlock renders what it returns.
+- **current** — NodeBlock computes showsChildren, showsQueryResults, hasFrameRows, isExpandable, showToolbar and projected inline, then branches on all of them in JSX.
+- **impact** — The rules for what a row shows are spread across a component body, so a view-mode change is a hunt rather than one edit.
+- **closes** — Extract resolveRowChrome(node, viewConfig) returning the flags as one value, then render from it. Mechanical in shape but it moves logic the outline tests reach through the DOM.
+- **node** — `01M1MGCGKSAJSB6GFR30SZNATJ`
+
+### GAP: NodeCommandPalette mixes command assembly and rendering in one 24-branch component
+
+- **expected** — The command list for a node is computed by a pure function the component calls, so the component is layout only.
+- **current** — NodeCommandPalette builds the applicable command set inline while rendering, with the availability conditions as JSX-level branches.
+- **impact** — Which commands a node offers cannot be tested without rendering, and the same availability rules are re-derived in run-command.ts.
+- **closes** — Extract listNodeCommands(node, store) beside run-command.ts and have both the palette and the runner read it. Touches the command surface, so it is an owner call.
+- **node** — `01M1MGCF0ECBDEPTHPKMSQ4YFD`
+
 ### GAP: nodes.jsonl has no merge driver
 
 - **expected** — A git merge driver that parses both sides as JSONL and merges by node id, conflicting only when the same node diverges.
@@ -79,6 +175,46 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Routine parallel work produces textual conflicts in owner data that are not semantic conflicts, which invites hand-editing the store.
 - **closes** — About 40 lines of Bun plus a .gitattributes entry; recorded in briefs/p1-persistence.md section 4.
 - **node** — `01M1M08WYY9X6HFNN5GKDCC47E`
+
+### GAP: OutlineNode.cursorPosition is deprecated but is still the canvas editor's caret channel
+
+- **expected** — One caret mechanism for both hosts: the outline's CaretIntent, with the canvas card reading the same channel, and cursorPosition gone from the store.
+- **current** — cursorPosition is declared @deprecated on the store node, initialised in the store, written on activate, and read by canvas-card - two caret mechanisms for the same concept, with a deprecation marking one of them.
+- **impact** — Exactly the parallel-mechanism shape Rule 1 forbids: a change to caret behaviour has to be made twice, and the deprecation says which one is wrong without removing it.
+- **closes** — Move the canvas card onto CaretIntent and delete cursorPosition from OutlineNode. Public store shape change, so it is an owner call, not a drain.
+- **node** — `01M1MGT307N4K243CBPJTXNG5X`
+
+### GAP: parsePerspective decodes a perspective node with 27 hand-written branches
+
+- **expected** — A #graph-perspective node decodes through one Schema (effect Schema, as DESIGN.md's domain-typing section states), so defaults, coercion and validation live in the schema rather than in per-field ternaries.
+- **current** — parsePerspective reads each lens prop with its own str/num/bool helper plus a fallback ternary, 27 branches in one function.
+- **impact** — Field defaults are stated once per field in code and again in the ontology, and a malformed prop degrades silently per field instead of failing the decode.
+- **closes** — Track 2 domain-typing work: express LensPerspective as a Schema and decode props through it. Not mechanical - it changes what happens on malformed input.
+- **node** — `01M1MGCEBYDFRNJX1JKXXN825H`
+
+### GAP: PropValueEditor branches 24 ways over prop value type
+
+- **expected** — One editor per PropValue variant, selected through a registry keyed by the variant tag.
+- **current** — PropValueEditor switches on value.t and on edit state within one component.
+- **impact** — Adding a value type edits a shared component; the per-type editors cannot be story-tested alone.
+- **closes** — Same registry as the FieldRow gap: one place maps a field type to its editor.
+- **node** — `01M1MGCND3KMDYJPSSMD2E4Q9J`
+
+### GAP: RefEditor mixes candidate search, keyboard handling and rendering in 22 branches
+
+- **expected** — Ref candidate search and keyboard navigation are a hook (useRefCandidates) the editor renders from.
+- **current** — RefEditor computes candidates, tracks the highlighted index, handles keys and renders in one function.
+- **impact** — The candidate ranking - the part with real rules - can only be tested through the DOM.
+- **closes** — Lift candidate search into a hook beside fuzzyNodeCandidates and leave RefEditor as presentation.
+- **node** — `01M1MGCP1EF5GM8NA32JEJRJ9Q`
+
+### GAP: resolveTableColumns resolves table columns in one 21-branch function
+
+- **expected** — Column resolution splits into explicit columns, tag-derived columns and the merge between them, each named.
+- **current** — One function walks explicit config, projected rows' tags and dedup rules together.
+- **impact** — The precedence between explicit and derived columns is implicit in statement order.
+- **closes** — SLAP-extract explicitColumns / derivedColumns / mergeColumns and keep the existing view-config tests green.
+- **node** — `01M1MGCJYB7PZXM68T4AVBECYG`
 
 ### GAP: rules view needs a template the docs extension cannot own
 
@@ -89,6 +225,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1M08VXGJ5RTQJ3AJNK12G79`
 
+### GAP: runPaletteCommand dispatches palette commands with a 37-branch chain
+
+- **expected** — Palette commands are registry entries ({id, isAvailable, run}), the same shape kb actions already use, and the runner looks one up.
+- **current** — runPaletteCommand is one async function branching over every command id.
+- **impact** — The palette command set is not enumerable, so the palette and the runner each re-derive availability, and a command cannot be tested without the runner.
+- **closes** — Introduce a ui command registry and register each command beside its implementation. Pairs with the NodeCommandPalette gap - one registry serves both.
+- **node** — `01M1MGCRNVNBE5HW27Z83PK67B`
+
 ### GAP: search is a substring scan, no text index
 
 - **expected** — Full-text search as an additive derived index (FTS5, and sqlite-vec for semantic search) rebuilt from the JSONL like any other index.
@@ -97,6 +241,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
 - **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
 
+### GAP: seven terminal .then callbacks disable promise/always-return
+
+- **expected** — promise/always-return runs with ignoreLastCallback:true, so the rule guards mid-chain callbacks (where a missing return really does break the chain) and says nothing about a terminal fire-and-forget callback.
+- **current** — oxlint 1.76 parses the options object but does not implement ignoreLastCallback, so all seven terminal callbacks in @kb/ui carry // oxlint-disable-next-line promise/always-return.
+- **impact** — Seven pinpoint disables of a rule that is error everywhere else. A genuinely broken mid-chain callback in one of these files would now need the disable removed to be seen.
+- **closes** — oxlint implements the ignoreLastCallback option for promise/always-return (verified against eslint-plugin-promise, which has it). Then set the option in .oxlintrc.json and delete all seven disables.
+- **node** — `01M1MFS8RQ2BMQVZD02J4TQT7W`
+
+### GAP: six React lists key by array index because the index is the identity
+
+- **expected** — Every keyed list keys by a stable domain id, so react/no-array-index-key holds with no exception.
+- **current** — Four multi-value field lists (board-cards-view, fields-section x2, table-view) and the two canvas snap-guide branches key by index behind // oxlint-disable-next-line react/no-array-index-key.
+- **impact** — Six pinpoint disables of a rule that is error everywhere else. If any of these lists later gains a real id, the disable will read as blessed rather than as a question.
+- **closes** — A node prop is an ordered multi-value: slot 2 is slot 2, and two slots can hold equal values, so position is the only identity available and a content key would collide and remount live editors. Snap guides are a transient two-element overlay with no domain object at all. Close it by giving multi-values an id in the data model (Track 2 KbNode/prop schema work), then key on that.
+- **node** — `01M1MFP33RDP5MVB4827DR5RE7`
+
 ### GAP: the browser holds the whole graph
 
 - **expected** — The UI reads through the protocol: subscriptions plus a scoped, paged snapshot, with ui/src/ds as an optional client cache behind one interface or deleted.
@@ -104,6 +264,86 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Snapshot size is unbounded in the browser, and the two datom builders already differ (the mention regexes are not the same), so a query can answer differently on each side.
 - **closes** — briefs/u1-ui-through-protocol.md, written by p1 and executed by the u1 wave.
 - **node** — `01M1M08XEH901FXF4MRKJKCSQA`
+
+### GAP: the canvas keydown effect is a 66-branch handler
+
+- **expected** — A canvas keymap table (chord -> canvas intent) plus one applier, mirroring what the outline keymaps should be.
+- **current** — One effect-scoped onKeyDown covers copy, paste, delete, duplicate, nudge, select-all, zoom and escape, with clipboard parsing inline.
+- **impact** — Highest-complexity handler in the canvas; clipboard parsing and selection maths are unreachable from tests.
+- **closes** — Same treatment as the outline keydown gap: pure chord mapping, separate appliers, clipboard parsing already has parseCanvasDoc to lean on.
+- **node** — `01M1MGCS6A29HT51G40W5TEEYK`
+
+### GAP: the cluster renderer's lifecycle effect carries 28 branches
+
+- **expected** — Same shape as the sigma gap: a renderer object with update/destroy, and hull drawing as its own pure geometry function.
+- **current** — One useEffect builds the graph, runs the community layout, draws hulls on a canvas, wires pointer hit-testing and tears down.
+- **impact** — Hull geometry and hit-testing - pure maths - are trapped inside an effect.
+- **closes** — Extract the hull geometry first (it is pure and testable), then the renderer object.
+- **node** — `01M1MGCQ3JT5GE3FY5XJ9EB67Q`
+
+### GAP: the inline markdown parser is a 41-branch hand-rolled scanner
+
+- **expected** — Inline markdown parses through a table of segment recognizers tried in order, each recognizer a named, separately tested function.
+- **current** — parseOnce is one scanner with 41 branches covering bold, italic, code, links, refs and their escapes.
+- **impact** — Every new inline form is another branch in the same function, and the interaction between forms (a ref inside bold, an escape inside code) is only tested end to end.
+- **closes** — Split into recognizers over a cursor and drive them from a list. The existing md-inline tests are the gate; this is a rewrite, not a mechanical move.
+- **node** — `01M1MGCM9RWXE3CYANZK5K4KC0`
+
+### GAP: the legacy localStorage migration in loadExpandedIds has no end date
+
+- **expected** — Outline expansion state reads one key. The one-shot migration from kb-ui:collapsed and kb-ui:expanded-queries is deleted once every machine that could still hold those keys has run a build that migrated them.
+- **current** — loadExpandedIds still reads both LEGACY_* keys on every cold start, and both constants are marked @deprecated, so typescript/no-deprecated reports two hits that nothing can clear.
+- **impact** — A deprecation with no removal condition reads as permanent. The migration also silently drops the collapsed-id set (the inversion needs node metadata that is not available at load), so it is half a migration kept alive indefinitely.
+- **closes** — Decide the removal date (or a version gate) for the migration, delete loadExpandedIds' legacy branch and the two constants. Data decision, not a mechanical one - it strands whatever those keys still hold.
+- **node** — `01M1MGT2A6Y9ZVG5J1CGJMJ2AH`
+
+### GAP: the multi-key view sort comparator is a 29-branch inline function
+
+- **expected** — One comparator per sort spec, composed left to right by a small combinator, so a value type's ordering is defined once.
+- **current** — A single inline comparator loops the sort specs and branches on prop presence and value type inside the loop.
+- **impact** — Ordering rules per value type (str/num/date/bool/ref/missing) are only visible by reading the whole comparator, and are not directly testable.
+- **closes** — Extract compareByField(fieldId, dir) and fold the specs with a compose helper.
+- **node** — `01M1MGCKK69CQBZQYAKRMESW5S`
+
+### GAP: the outline keydown handler is a 64-branch callback
+
+- **expected** — The editing keymap is a table like the selection keymap should be: chord -> intent, with the intents applied by one dispatcher.
+- **current** — One useCallback handles Enter, Tab, Backspace, Delete, arrows, modifiers and their merge/split/indent choreography inline. Highest complexity in the package.
+- **impact** — The outline's entire editing contract lives in one function; every editing bug fix lands in the same place, and the merge/split rules cannot be tested without a live editor.
+- **closes** — Split into mapEditingKey (pure, chord -> intent) and applyEditingIntent, mirroring selection-keymap. Do it with the same wave that tables mapSelectionKey so the outline ends with one keymap mechanism, not two.
+- **node** — `01M1MGCQKVQCG3H9YYCWQX0A0Y`
+
+### GAP: the palette index pre-sizes its arrays with new Array(n)
+
+- **expected** — buildPaletteIndex and searchPalette allocate their result arrays the way unicorn/no-new-array wants (Array.from({ length: n }) or push), with no pinpoint disable.
+- **current** — Both keep new Array(n) plus index assignment, each carrying // oxlint-disable-next-line unicorn/no-new-array.
+- **impact** — Two pinpoint disables of a rule that is error everywhere else, on the one ui path with a measured latency bar.
+- **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
+- **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
+
+### GAP: the sigma renderer's lifecycle effect carries 32 branches
+
+- **expected** — Renderer setup, event wiring and teardown are three named steps, with the graph-building step shared across renderers.
+- **current** — One useEffect constructs the sigma instance, wires every event, applies reducers and tears down, branching on capability and selection state throughout.
+- **impact** — The effect is the renderer, so nothing about it can be tested without a DOM and a real sigma instance.
+- **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
+- **node** — `01M1MGCPJTV66QSFCR44XG29YM`
+
+### GAP: the store still exposes getPreviousVisibleNode / getNextVisibleNode by node id
+
+- **expected** — Visible-neighbour lookup exists once, keyed by instance key, because a node id can appear in the outline more than once.
+- **current** — getPreviousVisibleInstance / getNextVisibleInstance are the real accessors; the two by-id versions remain @deprecated on the store and are exercised by outline.store.test.ts. Four of the ten remaining no-deprecated hits are these.
+- **impact** — Two ways to ask the same question, one of them known-ambiguous when a node id repeats. Callers can still reach the wrong one.
+- **closes** — Confirm no caller outside the test uses them (none does today), delete both methods and the two test assertions. Store API change, so it is an owner call.
+- **node** — `01M1MGT3K0DNGEQFXQNZYE83NY`
+
+### GAP: the ws client assigns on* handlers instead of addEventListener
+
+- **expected** — KbWsClient wires its socket with addEventListener, so a second listener can be added without clobbering the first and unicorn/prefer-add-event-listener holds.
+- **current** — WsLike is a four-property on*-handler port (onopen/onclose/onerror/onmessage) and the client assigns all four; each assignment carries // oxlint-disable-next-line unicorn/prefer-add-event-listener.
+- **impact** — Four pinpoint disables, and a port shaped so only one listener per event can ever exist. Today that is true by construction (the client owns the socket), which is why this is deferred rather than wrong.
+- **closes** — Widen WsLike to {addEventListener, removeEventListener, send, close} and update every injected fake (api/live.test.ts and the ws tests). That is a test-double contract change across the package, not a mechanical edit, so it needs its own commit.
+- **node** — `01M1MHKS8EV3DD378TZSX44EJG`
 
 ### GAP: two launch paths for the kb binary
 
