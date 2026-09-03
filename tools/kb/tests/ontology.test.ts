@@ -21,8 +21,8 @@ import {
   wouldCreateExtendsCycle,
   type NodeLike,
 } from "../src/foundation/ontology.ts";
-import { ontologyMembers } from "../src/operations/ontology.ts";
-import { openKb } from "../src/context.ts";
+import { ontologyMembersEffect } from "../src/operations/ontology.ts";
+import { openKb, runWithKb } from "../src/context.ts";
 import { invoke } from "../src/registry.ts";
 import { canonicalJson } from "../src/foundation/storage/canonical.ts";
 
@@ -725,7 +725,7 @@ describe("ontology.members action", () => {
         exclude: ["n.caddy"],
       }),
     ]);
-    const out = await ontologyMembers(ctx, { id: "o.infra", reasons: true });
+    const out = await runWithKb(ctx, ontologyMembersEffect({ id: "o.infra", reasons: true }));
     expect(out.members).toEqual(["n.notes", "n.tailscaled"]);
     expect(out.excluded).toEqual(["n.caddy"]);
     expect(out.warnings).toEqual([]);
@@ -740,7 +740,7 @@ describe("ontology.members action", () => {
       ...baseGraph(),
       ontology("o", "O", { include: ["t.host"] }),
     ]);
-    const out = await ontologyMembers(ctx, { id: "o" });
+    const out = await runWithKb(ctx, ontologyMembersEffect({ id: "o" }));
     expect(out.reasons).toBeUndefined();
   });
 
@@ -751,7 +751,7 @@ describe("ontology.members action", () => {
         query: '[:find ?id :where [?n :node/text "old vpn doc"] [?n :node/id ?id]]',
       }),
     ]);
-    const out = await ontologyMembers(ctx, { id: "o" });
+    const out = await runWithKb(ctx, ontologyMembersEffect({ id: "o" }));
     expect(out.members).toEqual(["n.oldvpn"]);
     expect(out.warnings).toEqual([]);
   });

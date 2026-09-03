@@ -3,7 +3,6 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import type { FailureCode } from "../../shared/contracts.ts";
-import { bunFileSystemLayer } from "../../foundation/platform.ts";
 
 /** Typed failure for docs operations; registry maps it to a receipt. */
 export class DocsError extends Error {
@@ -129,13 +128,3 @@ export const loadViewsEffect = Effect.fn("docs.loadViews")(
     return views;
   },
 );
-
-/** Promise facade over {@link loadViewsEffect} for non-action callers. */
-export async function loadViews(
-  root: string,
-  name?: string,
-): Promise<LoadedView[]> {
-  return Effect.runPromise(
-    loadViewsEffect(root, name).pipe(Effect.provide(bunFileSystemLayer)),
-  );
-}

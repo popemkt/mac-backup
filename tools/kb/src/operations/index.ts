@@ -22,7 +22,7 @@ import {
   type DomainError,
 } from "../foundation/errors.ts";
 import type { KbContext } from "../context.ts";
-import { KbCtx, KbStore, persistEffect, runWithKb } from "../context.ts";
+import { KbCtx, KbStore, persistEffect } from "../context.ts";
 import {
   DatalogError,
   pull,
@@ -388,13 +388,6 @@ export const nodeAddEffect = Effect.fn("node.add")(
   },
 );
 
-export async function nodeAdd(
-  ctx: KbContext,
-  input: z.infer<typeof nodeAddDef.inputSchema>,
-): Promise<{ id: string; node: KbNode }> {
-  return runWithKb(ctx, nodeAddEffect(input));
-}
-
 function assertSysWriteAllowed(
   id: string,
   input: z.infer<typeof nodeUpdateDef.inputSchema>,
@@ -541,13 +534,6 @@ export const nodeUpdateEffect = Effect.fn("node.update")(
   },
 );
 
-export async function nodeUpdate(
-  ctx: KbContext,
-  input: z.infer<typeof nodeUpdateDef.inputSchema>,
-): Promise<{ id: string; deleted?: boolean; node?: KbNode }> {
-  return runWithKb(ctx, nodeUpdateEffect(input));
-}
-
 export const nodeGetEffect = Effect.fn("node.get")(
   function* (
     input: z.infer<typeof nodeGetDef.inputSchema>,
@@ -561,13 +547,6 @@ export const nodeGetEffect = Effect.fn("node.get")(
     return { node };
   },
 );
-
-export async function nodeGet(
-  ctx: KbContext,
-  input: z.infer<typeof nodeGetDef.inputSchema>,
-): Promise<{ node: unknown }> {
-  return runWithKb(ctx, nodeGetEffect(input));
-}
 
 export const fieldDefineEffect = Effect.fn("field.define")(
   function* (
@@ -600,13 +579,6 @@ export const fieldDefineEffect = Effect.fn("field.define")(
   },
 );
 
-export async function fieldDefine(
-  ctx: KbContext,
-  input: z.infer<typeof fieldDefineDef.inputSchema>,
-): Promise<{ id: string }> {
-  return runWithKb(ctx, fieldDefineEffect(input));
-}
-
 export const tagDefineEffect = Effect.fn("tag.define")(
   function* (
     input: z.infer<typeof tagDefineDef.inputSchema>,
@@ -637,13 +609,6 @@ export const tagDefineEffect = Effect.fn("tag.define")(
     return { id: result.id };
   },
 );
-
-export async function tagDefine(
-  ctx: KbContext,
-  input: z.infer<typeof tagDefineDef.inputSchema>,
-): Promise<{ id: string }> {
-  return runWithKb(ctx, tagDefineEffect(input));
-}
 
 /**
  * Map a query-layer failure to a typed domain error. Datalog errors thrown by
@@ -687,13 +652,6 @@ export const graphQueryEffect = Effect.fn("graph.query")(
     return { rows };
   },
 );
-
-export async function graphQuery(
-  ctx: KbContext,
-  input: z.infer<typeof graphQueryDef.inputSchema>,
-): Promise<{ rows: unknown }> {
-  return runWithKb(ctx, graphQueryEffect(input));
-}
 
 /** True for FileSystem "not found" platform errors (ENOENT on read). */
 function isFsNotFound(err: unknown): boolean {
@@ -740,13 +698,6 @@ export const graphRunEffect = Effect.fn("graph.run")(
   },
 );
 
-export async function graphRun(
-  ctx: KbContext,
-  input: z.infer<typeof graphRunDef.inputSchema>,
-): Promise<z.infer<typeof graphRunDef.outputSchema>> {
-  return runWithKb(ctx, graphRunEffect(input));
-}
-
 export const graphSearchEffect = Effect.fn("graph.search")(
   function* (
     input: z.infer<typeof graphSearchDef.inputSchema>,
@@ -763,10 +714,3 @@ export const graphSearchEffect = Effect.fn("graph.search")(
     return { rows };
   },
 );
-
-export async function graphSearch(
-  ctx: KbContext,
-  input: z.infer<typeof graphSearchDef.inputSchema>,
-): Promise<{ rows: unknown[][] }> {
-  return runWithKb(ctx, graphSearchEffect(input));
-}

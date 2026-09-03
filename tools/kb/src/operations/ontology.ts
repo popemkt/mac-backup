@@ -14,7 +14,7 @@ import { Effect } from "effect";
 import { z } from "zod";
 import type { ActionDefinition } from "../shared/contracts.ts";
 import { domainError, type DomainError } from "../foundation/errors.ts";
-import { KbCtx, runWithKb } from "../context.ts";
+import { KbCtx } from "../context.ts";
 import type { KbContext } from "../context.ts";
 import { query } from "../foundation/query/index.ts";
 import {
@@ -101,10 +101,3 @@ export const ontologyMembersEffect = Effect.fn("ontology.members")(
     return out;
   },
 );
-
-export async function ontologyMembers(
-  ctx: KbContext,
-  input: z.infer<typeof ontologyMembersDef.inputSchema>,
-): Promise<z.infer<typeof ontologyMembersDef.outputSchema>> {
-  return runWithKb(ctx, ontologyMembersEffect(input));
-}

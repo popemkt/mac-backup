@@ -6,11 +6,11 @@ import {
   resolveSavedQueryFile,
 } from "../../foundation/saved-query.ts";
 import type { KbContext } from "../../context.ts";
-import { KbCtx, runWithKb } from "../../context.ts";
+import { KbCtx } from "../../context.ts";
 import { templates, type TemplateContext } from "./templates.ts";
 import { DocsError, type LoadedView } from "./views.ts";
 
-export { DocsError, ViewSpecSchema, loadViews, loadViewsEffect } from "./views.ts";
+export { DocsError, ViewSpecSchema, loadViewsEffect } from "./views.ts";
 export { templates, renderText } from "./templates.ts";
 export type { TemplateContext, TemplateFn } from "./templates.ts";
 
@@ -93,11 +93,3 @@ export const renderViewEffect = Effect.fn("docs.renderView")(
     return `${GENERATED_HEADER}\n\n${body.trimEnd()}\n`;
   },
 );
-
-/** Promise facade over {@link renderViewEffect} for non-action callers. */
-export async function renderView(
-  ctx: KbContext,
-  view: LoadedView,
-): Promise<string> {
-  return runWithKb(ctx, renderViewEffect(view));
-}

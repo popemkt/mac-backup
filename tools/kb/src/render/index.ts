@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import type { KbContext } from "../context.ts";
-import { KbCtx, runWithKb } from "../context.ts";
+import { KbCtx } from "../context.ts";
 import type { ActionDefinition } from "../shared/contracts.ts";
 import { DomainError, domainError } from "../foundation/errors.ts";
 import {
@@ -113,14 +113,6 @@ export const renderNamedViewEffect = Effect.fn("render.namedView")(
   },
 );
 
-export async function renderNamedView(
-  ctx: KbContext,
-  viewName: string,
-  format: RenderFormat,
-): Promise<RenderedView> {
-  return runWithKb(ctx, renderNamedViewEffect(viewName, format));
-}
-
 export const listViewNamesEffect = Effect.fn("render.listViews")(
   function* (): Effect.fn.Return<string[], RenderError, RenderEnv> {
     const ctx = yield* KbCtx;
@@ -128,10 +120,6 @@ export const listViewNamesEffect = Effect.fn("render.listViews")(
     return views.map((v) => v.name).sort();
   },
 );
-
-export async function listViewNames(ctx: KbContext): Promise<string[]> {
-  return runWithKb(ctx, listViewNamesEffect());
-}
 
 // ── registry actions: the render backbone exposed over /api/action ──────
 
@@ -169,21 +157,8 @@ export const renderViewActionEffect = Effect.fn("render.view")(
   },
 );
 
-export async function renderViewAction(
-  ctx: KbContext,
-  input: z.infer<typeof renderViewDef.inputSchema>,
-): Promise<RenderedView> {
-  return runWithKb(ctx, renderViewActionEffect(input));
-}
-
 export const renderViewsActionEffect = Effect.fn("render.views")(
   function* (): Effect.fn.Return<{ views: string[] }, RenderError, RenderEnv> {
     return { views: yield* listViewNamesEffect() };
   },
 );
-
-export async function renderViewsAction(
-  ctx: KbContext,
-): Promise<{ views: string[] }> {
-  return runWithKb(ctx, renderViewsActionEffect());
-}

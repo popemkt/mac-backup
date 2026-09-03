@@ -3,7 +3,6 @@
   "workspaces": {
     ".": {
       "entry": [
-        "index.ts",
         "src/surface/cli.ts",
         "src/surface/ui.ts",
         "src/surface/mcp.ts"

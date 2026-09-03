@@ -4,7 +4,7 @@ import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import type { ActionDefinition } from "../shared/contracts.ts";
 import type { KbContext } from "../context.ts";
-import { KbCtx, runWithKb } from "../context.ts";
+import { KbCtx } from "../context.ts";
 import { freshId } from "../foundation/model.ts";
 import { ResolveError } from "../foundation/resolve.ts";
 import {
@@ -227,10 +227,3 @@ export const assetUploadEffect = Effect.fn("asset.upload")(
     };
   },
 );
-
-export async function assetUpload(
-  ctx: KbContext,
-  input: z.infer<typeof assetUploadDef.inputSchema>,
-): Promise<z.infer<typeof assetUploadDef.outputSchema>> {
-  return runWithKb(ctx, assetUploadEffect(input));
-}

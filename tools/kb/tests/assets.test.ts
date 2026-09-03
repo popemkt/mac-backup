@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openKb } from "../src/context.ts";
+import { openKb, runWithKb } from "../src/context.ts";
 import {
-  assetUpload,
+  assetUploadEffect,
   mediaKindFromExt,
   resolveAssetFile,
   textHasAssetRef,
@@ -114,11 +114,14 @@ describe("asset.upload action", () => {
     root = await mkdtemp(join(tmpdir(), "kb-asset-h-"));
     await mkdir(join(root, ".kb"), { recursive: true });
     const ctx = await openKb(root);
-    const out = await assetUpload(ctx, {
-      bytes: Buffer.from([1, 2, 3]).toString("base64"),
-      encoding: "base64",
-      filename: "clip.webm",
-    });
+    const out = await runWithKb(
+      ctx,
+      assetUploadEffect({
+        bytes: Buffer.from([1, 2, 3]).toString("base64"),
+        encoding: "base64",
+        filename: "clip.webm",
+      }),
+    );
     expect(out.path).toMatch(/^assets\/[0-9A-HJKMNP-TV-Z]{26}\.webm$/i);
     expect(out.bytes).toBe(3);
     await rm(root, { recursive: true, force: true });
