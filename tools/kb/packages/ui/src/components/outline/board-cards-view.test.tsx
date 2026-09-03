@@ -11,7 +11,7 @@ import type { WireNode } from "@kb/contracts";
 import { BoardCardsView } from "./board-cards-view";
 import { ViewToolbar } from "./view-toolbar";
 import { ZoomedRootHeader } from "./zoomed-root-header";
-import { listFilterFieldOptions } from "./view-filter-popover";
+import { listFilterFieldOptions } from "./view-filter-fields";
 import {
   applyViewFilters,
   flattenBoardOrder,

@@ -6,7 +6,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { TagFieldsConfigView, resolveTagFields, type TagFieldRef } from "./tag-fields-config";
+import { TagFieldsConfigView } from "./tag-fields-config";
+import { resolveTagFields, type TagFieldRef } from "./tag-fields";
 import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
 
 /** The real outline shape, narrowed — not a lookalike that can drift from it. */

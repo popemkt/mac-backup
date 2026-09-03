@@ -24,7 +24,7 @@ import { ClusterGraph } from "@/components/graph/cluster-graph";
 import { TreeGraph } from "@/components/graph/tree-graph";
 import { GraphCanvasFrame } from "@/components/graph/graph-canvas-frame";
 import type { GraphCameraControls } from "@/components/graph/graph-camera-controls";
-import type { GraphSelection } from "@/components/graph/graph-selection-card";
+import type { GraphSelection } from "@/components/graph/graph-selection";
 import { SidebarToggle } from "@/components/sidebar/sidebar";
 
 const Force3dGraph = lazy(() => import("@/components/graph/force3d-graph"));

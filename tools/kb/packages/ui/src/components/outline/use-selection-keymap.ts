@@ -78,6 +78,7 @@ function applySelectionAction(action: SelectionKeyAction): void {
     case "delete": {
       const prev = store.getPreviousVisibleInstance(action.instanceKey);
       const next = store.getNextVisibleInstance(action.instanceKey);
+      // oxlint-disable-next-line promise/always-return -- GAP [[01M1MFS8RQ2BMQVZD02J4TQT7W]]
       void mutations.deleteNode(action.nodeId).then(() => {
         const pick = prev ?? next;
         if (pick) {

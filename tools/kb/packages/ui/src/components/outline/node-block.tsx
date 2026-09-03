@@ -47,6 +47,7 @@ export const NodeBlock = memo(function NodeBlock({
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const showDebugFields = useDebugFields(nodeId);
   const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
+  const filterOpen = useUiStore((s) => s.filterPopoverFrameId === nodeId);
 
   const instanceKey = instanceKeyProp ?? outlineInstanceKey(nodeId, nodes);
 
@@ -148,7 +149,6 @@ export const NodeBlock = memo(function NodeBlock({
   // Tana model: list = no chrome; toolbar only when mode ≠ list AND expanded.
   const showToolbar = hasFrameRows && !node.collapsed && viewConfig.mode !== "list";
   const projected = isProjectedViewMode(viewConfig.mode);
-  const filterOpen = useUiStore((s) => s.filterPopoverFrameId === nodeId);
 
   return (
     <div

@@ -2,15 +2,10 @@ import { useMemo, useState } from "react";
 import { Plus, X } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
-import { typeRefsOf } from "@kb/model";
-import { SYSTEM_IDS, isSysPrefixed, type OutlineNode } from "@/lib/types";
+import { isSysPrefixed } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { FieldRow } from "./field-row";
-
-export interface TagFieldRef {
-  id: string;
-  name: string;
-}
+import { resolveTagFields, type TagFieldRef } from "./tag-fields";
 
 export interface TagFieldsConfigViewProps {
   tagId: string;
@@ -129,33 +124,6 @@ export function TagFieldsConfigView({
       )}
     </div>
   );
-}
-
-/** Split out so it can be exercised without a store or a live component. */
-export function resolveTagFields(
-  nodes: ReadonlyMap<string, Pick<OutlineNode, "text" | "props">>,
-  tagId: string,
-): { template: TagFieldRef[]; suggestions: TagFieldRef[]; all: TagFieldRef[] } {
-  const tag = nodes.get(tagId);
-  const templateIds = (tag?.props[SYSTEM_IDS.fieldsField] ?? [])
-    .filter((v) => v.t === "ref")
-    .map((v) => v.v);
-
-  const all: TagFieldRef[] = [];
-  for (const [id, node] of nodes) {
-    if (typeRefsOf(node).includes(SYSTEM_IDS.field)) {
-      all.push({ id, name: node.text });
-    }
-  }
-  all.sort((a, b) => a.name.localeCompare(b.name));
-
-  const byId = new Map(all.map((f) => [f.id, f]));
-  return {
-    // Keep the tag's own order, and still show a ref whose field node is gone.
-    template: templateIds.map((id) => byId.get(id) ?? { id, name: id }),
-    suggestions: all.filter((f) => !templateIds.includes(f.id)),
-    all,
-  };
 }
 
 export function TagFieldsConfig({ tagId }: { tagId: string }) {

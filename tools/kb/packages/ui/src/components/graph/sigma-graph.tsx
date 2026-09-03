@@ -10,7 +10,7 @@ import { computeLayoutPositions } from "@/lib/graph-layouts";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
 import { fitView } from "./graph-camera";
 import { sigmaCameraControls, type GraphCameraControls } from "./graph-camera-controls";
-import { selectionFromNode, type GraphSelection } from "./graph-selection-card";
+import { selectionFromNode, type GraphSelection } from "./graph-selection";
 
 export type { GraphSelection };
 

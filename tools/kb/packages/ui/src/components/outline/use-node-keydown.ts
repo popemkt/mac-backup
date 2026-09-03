@@ -85,6 +85,7 @@ export function useNodeKeyDown({ nodeId, instanceKey, isRef = false }: UseNodeKe
             e.preventDefault();
             const prev = store.getPreviousVisibleInstance(instanceKey);
             const nextInst = store.getNextVisibleInstance(instanceKey);
+            // oxlint-disable-next-line promise/always-return -- GAP [[01M1MFS8RQ2BMQVZD02J4TQT7W]]
             void mutations.deleteNode(nodeId).then(() => {
               const pick = prev ?? nextInst;
               if (!pick) {
@@ -102,6 +103,7 @@ export function useNodeKeyDown({ nodeId, instanceKey, isRef = false }: UseNodeKe
           if (text === "" && (live?.children.length ?? 0) === 0) {
             e.preventDefault();
             const prev = store.getPreviousVisibleInstance(instanceKey);
+            // oxlint-disable-next-line promise/always-return -- GAP [[01M1MFS8RQ2BMQVZD02J4TQT7W]]
             void mutations.deleteNode(nodeId).then(() => {
               if (!prev) return;
               const prevNode = useOutlineStore.getState().nodes.get(prev.nodeId);
@@ -135,6 +137,7 @@ export function useNodeKeyDown({ nodeId, instanceKey, isRef = false }: UseNodeKe
             e.preventDefault();
             const prev = store.getPreviousVisibleInstance(instanceKey);
             const nextInst = store.getNextVisibleInstance(instanceKey);
+            // oxlint-disable-next-line promise/always-return -- GAP [[01M1MFS8RQ2BMQVZD02J4TQT7W]]
             void mutations.deleteNode(nodeId).then(() => {
               const pick = prev ?? nextInst;
               if (!pick) {
@@ -153,6 +156,7 @@ export function useNodeKeyDown({ nodeId, instanceKey, isRef = false }: UseNodeKe
           if (!nextInst || nextInst.nodeId === nodeId) return;
           e.preventDefault();
           // Merge next row's text/children into this row.
+          // oxlint-disable-next-line promise/always-return -- GAP [[01M1MFS8RQ2BMQVZD02J4TQT7W]]
           void mutations.mergeNextIntoThis(nodeId, nextInst.nodeId).then(() => {
             useOutlineStore.getState().activateNode(nodeId, text.length, instanceKey);
           });

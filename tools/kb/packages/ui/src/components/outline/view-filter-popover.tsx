@@ -3,38 +3,16 @@ import { createPortal } from "react-dom";
 import { Funnel, Plus, TextT, X } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { toast } from "@/lib/toast";
-import {
-  getViewConfig,
-  resolveTableColumns,
-  serializeViewFilter,
-  type ViewFilter,
-} from "@/lib/view-config";
-import type { NodeMap, OutlineNode } from "@/lib/types";
+import { getViewConfig, serializeViewFilter, type ViewFilter } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "./fields-section";
+import { listFilterFieldOptions } from "./view-filter-fields";
 import { POPOVER_VALUE_CLASS, PopoverShell } from "@/components/ui/popover-shell";
 
 function filterLabel(f: ViewFilter): string {
   if (f.kind === "text") return `text ∋ ${f.text}`;
   return `${f.fieldId} = ${f.value}`;
-}
-
-/** Field candidates from projected rows' tags — same source as resolveTableColumns. */
-export function listFilterFieldOptions(
-  frameId: string,
-  nodes: NodeMap,
-): Array<{ id: string; text: string }> {
-  const frame = nodes.get(frameId);
-  if (!frame) return [];
-  const children = frame.children
-    .map((id) => nodes.get(id))
-    .filter((n): n is OutlineNode => n !== undefined);
-  const config = getViewConfig(frame.props);
-  return resolveTableColumns(config, children, nodes, true).map((c) => ({
-    id: c.fieldId,
-    text: c.label,
-  }));
 }
 
 function elRect(el: Element | null): DOMRect | null {

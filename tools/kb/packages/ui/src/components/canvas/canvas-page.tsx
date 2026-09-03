@@ -334,6 +334,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       // Paste
       if ((e.metaKey || e.ctrlKey) && e.key === "v") {
         e.preventDefault();
+        // oxlint-disable-next-line promise/always-return -- GAP [[01M1MFS8RQ2BMQVZD02J4TQT7W]]
         void navigator.clipboard.readText().then((text) => {
           try {
             const parsed = parseCanvasDoc(text);
@@ -1522,12 +1523,14 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           {snapGuides.map((g, i) =>
             g.axis === "x" ? (
               <div
+                // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
                 key={`sg-${i}`}
                 className="absolute border-l border-dashed border-primary/40"
                 style={{ left: g.pos, top: -4000, height: 8000, pointerEvents: "none" }}
               />
             ) : (
               <div
+                // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
                 key={`sg-${i}`}
                 className="absolute border-t border-dashed border-primary/40"
                 style={{ top: g.pos, left: -4000, width: 8000, pointerEvents: "none" }}

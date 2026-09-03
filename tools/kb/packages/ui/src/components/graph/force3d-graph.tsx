@@ -11,7 +11,7 @@ import { graphNodeAlpha, withGraphAlpha } from "@/lib/graph-dim";
 import { formatGraphLabel } from "@/lib/graph-label";
 import { fibonacciSphere } from "@/lib/convex-hull";
 import { force3dCameraControls, type GraphCameraControls } from "./graph-camera-controls";
-import { selectionFromNode, type GraphSelection } from "./graph-selection-card";
+import { selectionFromNode, type GraphSelection } from "./graph-selection";
 
 export interface Force3dGraphProps {
   nodes: LensNode[];

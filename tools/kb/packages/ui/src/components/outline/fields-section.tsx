@@ -63,6 +63,7 @@ export function FieldValueStack({
     <div className="flex min-w-0 flex-col" data-field-values={fieldId}>
       {values.map((value, i) => (
         <div
+          // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
           key={`${i}-${JSON.stringify(value)}`}
           className="group/value flex min-w-0 items-start gap-1"
           data-field-value="true"
@@ -105,6 +106,7 @@ export function FieldValueStack({
 
       {emptySlots.map((autoOpen, i) => (
         <EmptyTypedEditor
+          // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
           key={`empty-${i}`}
           fieldType={fieldType}
           fieldId={fieldId}

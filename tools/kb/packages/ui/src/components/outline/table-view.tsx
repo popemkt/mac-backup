@@ -382,6 +382,7 @@ const TableCellField = memo(function TableCellField({
     <div className="flex flex-col gap-1">
       {values.map((v, i) => (
         <FieldRow
+          // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
           key={`${fieldId}-${i}`}
           valueOnly
           fieldType={fieldType}

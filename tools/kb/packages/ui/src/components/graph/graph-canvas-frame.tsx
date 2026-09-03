@@ -6,7 +6,7 @@ import { GraphCanvasError, GraphCanvasErrorBoundary } from "./graph-canvas-error
 import { GraphSelectionCard } from "./graph-selection-card";
 import { capabilitiesFor } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";
-import type { GraphSelection } from "./graph-selection-card";
+import type { GraphSelection } from "./graph-selection";
 
 /** Shared graph chrome. Renderers only own pixels and renderer-specific input;
  * the frame owns the discoverable vocabulary that surrounds every graph. */
