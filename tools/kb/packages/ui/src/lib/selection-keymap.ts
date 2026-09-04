@@ -67,18 +67,18 @@ export function mapSelectionKey(
   const { selectedNodeId, selectedInstanceKey, activeNodeId } = ctx;
   if (!selectedNodeId || !selectedInstanceKey || activeNodeId) return null;
 
-  const mod = ev.metaKey || ev.ctrlKey;
+  const mod = ev.metaKey === true || ev.ctrlKey === true;
   const info = ctx.getNode?.(selectedNodeId);
   const id = selectedNodeId;
 
   // Modifier combos first.
-  if (mod && ev.shiftKey && ev.key === "ArrowUp") {
+  if (mod && ev.shiftKey === true && ev.key === "ArrowUp") {
     return { type: "moveUp", nodeId: id };
   }
-  if (mod && ev.shiftKey && ev.key === "ArrowDown") {
+  if (mod && ev.shiftKey === true && ev.key === "ArrowDown") {
     return { type: "moveDown", nodeId: id };
   }
-  if ((ev.metaKey || ev.ctrlKey) && ev.key === ".") {
+  if (mod && ev.key === ".") {
     return { type: "zoom", nodeId: id };
   }
   if (mod) return null;
@@ -125,7 +125,9 @@ export function mapSelectionKey(
     case "Spacebar":
       return { type: "toggleCollapse", nodeId: id };
     case "Tab":
-      return ev.shiftKey ? { type: "outdent", nodeId: id } : { type: "indent", nodeId: id };
+      return ev.shiftKey === true
+        ? { type: "outdent", nodeId: id }
+        : { type: "indent", nodeId: id };
     case "o":
       return { type: "createAfter", nodeId: id };
     case "O":
@@ -138,7 +140,7 @@ export function mapSelectionKey(
       return { type: "clear" };
     default: {
       const k = ev.key;
-      if (k.length === 1 && !ev.metaKey && !ev.ctrlKey && !ev.altKey && k !== " ") {
+      if (k.length === 1 && ev.altKey !== true && k !== " ") {
         return {
           type: "append",
           nodeId: id,

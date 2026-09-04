@@ -27,7 +27,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
   useEffect(() => {
     if (!open) return undefined;
     const onDoc = (e: MouseEvent) => {
-      if (!panelRef.current?.contains(e.target as Node)) setOpen(false);
+      if (panelRef.current?.contains(e.target as Node) !== true) setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);

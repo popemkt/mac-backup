@@ -38,7 +38,7 @@
       "typescript/no-unnecessary-type-arguments": 2,
       "typescript/no-unsafe-type-assertion": 143,
       "typescript/require-array-sort-compare": 1,
-      "typescript/strict-boolean-expressions": 272,
+      "typescript/strict-boolean-expressions": 229,
       "typescript/triple-slash-reference": 1,
       "unicorn/consistent-function-scoping": 15
     },

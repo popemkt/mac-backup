@@ -266,7 +266,7 @@ export function SigmaGraph({
 
     // --- Selection ---
     sigma.on("clickNode", ({ node, event }) => {
-      if (dragRef.current?.dragging) return;
+      if (dragRef.current?.dragging === true) return;
       const nativeEvent = event.original as MouseEvent;
       if (nativeEvent.metaKey || nativeEvent.ctrlKey) {
         onOpenRef.current(node);
@@ -289,7 +289,7 @@ export function SigmaGraph({
     });
 
     sigma.on("clickStage", () => {
-      if (dragRef.current?.dragging) return;
+      if (dragRef.current?.dragging === true) return;
       selectedRef.current = null;
       setSelected(null);
       onSelRef.current?.(null);
@@ -332,7 +332,7 @@ export function SigmaGraph({
     };
 
     const onMouseUp = (event: MouseEvent) => {
-      if (dragRef.current?.dragging) {
+      if (dragRef.current?.dragging === true) {
         layoutRef.current?.reheat(600);
       }
       if (dragRef.current && !event.altKey) {

@@ -36,7 +36,7 @@ export const MdView = memo(function MdView({ text, className, clamp }: MdViewPro
       <div
         className={cn(
           KB_TEXT_CLASS,
-          clamp ? "kb-text-clamp" : "kb-text-row",
+          clamp === true ? "kb-text-clamp" : "kb-text-row",
           className,
           "text-foreground/25",
         )}
@@ -51,7 +51,7 @@ export const MdView = memo(function MdView({ text, className, clamp }: MdViewPro
     <div
       className={cn(
         KB_TEXT_CLASS,
-        clamp ? "kb-text-clamp" : "kb-text-row",
+        clamp === true ? "kb-text-clamp" : "kb-text-row",
         "kb-md-view flex-1 outline-none",
         className,
       )}

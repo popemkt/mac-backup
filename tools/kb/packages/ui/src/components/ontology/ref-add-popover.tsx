@@ -68,7 +68,7 @@ export function RefAddPopover({
   }, [open]);
 
   const commit = (item: RefCandidateItem | undefined) => {
-    if (!item || item.disabled) return;
+    if (!item || item.disabled === true) return;
     onPick(item.id);
     setOpen(false);
   };
@@ -137,10 +137,10 @@ export function RefAddPopover({
                   className={cn(
                     "flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[12px]",
                     "transition-colors duration-75",
-                    c.disabled
+                    c.disabled === true
                       ? "cursor-not-allowed text-foreground/25"
                       : "text-foreground/75 hover:bg-foreground/5 hover:text-foreground/90",
-                    i === active && !c.disabled && "bg-foreground/[0.05]",
+                    i === active && c.disabled !== true && "bg-foreground/[0.05]",
                   )}
                   onMouseEnter={() => setActive(i)}
                   onClick={() => commit(c)}

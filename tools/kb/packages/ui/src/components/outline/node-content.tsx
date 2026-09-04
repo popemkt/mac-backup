@@ -364,7 +364,7 @@ export function NodeTextHost({
             onCompositionEnd={handleCompositionEnd}
             onBlur={onBlur}
             role="textbox"
-            data-zoom-title-editor={zoomTitleEditor ? "true" : undefined}
+            data-zoom-title-editor={zoomTitleEditor === true ? "true" : undefined}
           />
         ) : (
           <div ref={mdViewRef} className="min-h-6 min-w-0">

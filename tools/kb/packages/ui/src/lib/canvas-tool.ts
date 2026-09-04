@@ -32,7 +32,7 @@ export type ToolAction =
 export function reduceCanvasTool(state: ToolState, action: ToolAction): ToolState {
   if (action.type === "escape") return { tool: "select" };
   if (action.type === "placed") {
-    return state.sticky ? state : { tool: "select" };
+    return state.sticky === true ? state : { tool: "select" };
   }
   if (action.type === "set-tool-sticky") {
     return { tool: action.tool, sticky: true };

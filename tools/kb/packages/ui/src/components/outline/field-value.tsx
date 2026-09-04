@@ -277,7 +277,7 @@ function EditableText({
     [text],
   );
 
-  const showEmpty = empty && !text;
+  const showEmpty = empty === true && !text;
 
   return (
     <div
