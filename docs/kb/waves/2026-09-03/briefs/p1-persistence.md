@@ -1,5 +1,7 @@
 # p1-persistence — one owner for "the current graph", JSONL stays the truth
 
+> **Amended 2026-09-04.** r4-backend-recon (`../reports/backend-recon/README.md` §9) supersedes three parts of this brief: the §0 revisit trigger (latency, not memory), two §0 rejections (DuckDB, Kuzu→LadybugDB; TerminusDB added to the daemon bucket), and Phase 3 (`SqliteIndex` replaces the snapshot cache). File paths below predate the workspace restructure (w1, t3); the operative briefs with current paths are in `docs/kb/waves/2026-09-05/`.
+
 Wave `p1` of `docs/kb/waves/2026-09-03/plan.md`. Runs after `g2` (wants the
 strict flags and the Effect diagnostics) and after `d1` (does not want to
 collide in `src/foundation`).
