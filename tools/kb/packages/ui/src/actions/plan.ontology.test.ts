@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
+import { present } from "@kb/model";
 import {
   planDefineOntology,
   planOntologyAddExtends,
@@ -68,8 +69,10 @@ describe("planOntologyExclude", () => {
     expect(propsOf(plan, "o", SYSTEM_IDS.ontoExcludeField)).toEqual([{ t: "ref", v: "n.1" }]);
     expect(propsOf(plan, "o", SYSTEM_IDS.ontoMemberField)).toEqual([]);
     expect(plan.actions).toHaveLength(2);
-    expect(plan.actions[0]!.id).toBe("node.update");
-    expect(plan.actions[1]!.id).toBe("node.update");
+    const exclude = present(plan.actions.at(0), "exclude action");
+    const unset = present(plan.actions.at(1), "member-unset action");
+    expect(exclude.id).toBe("node.update");
+    expect(unset.id).toBe("node.update");
   });
 
   it("is a single action when the node was not pinned", () => {
@@ -101,9 +104,8 @@ describe("planOntologyAddExtends", () => {
   });
 
   it("plans the ref for an acyclic edge", () => {
-    const plan = planOntologyAddExtends(nodes, "o.a", "o.c");
-    expect(plan).not.toBeNull();
-    expect(propsOf(plan!, "o.a", SYSTEM_IDS.ontoExtendsField)).toEqual([
+    const plan = present(planOntologyAddExtends(nodes, "o.a", "o.c"), "acyclic extends");
+    expect(propsOf(plan, "o.a", SYSTEM_IDS.ontoExtendsField)).toEqual([
       { t: "ref", v: "o.b" },
       { t: "ref", v: "o.c" },
     ]);
@@ -122,7 +124,7 @@ describe("planOntologySetQuery", () => {
     const nodes = [onto("o", { [SYSTEM_IDS.ontoQueryField]: [{ t: "str", v: "old" }] })];
     const plan = planOntologySetQuery(nodes, "o", edn);
     expect(propsOf(plan, "o", SYSTEM_IDS.ontoQueryField)).toEqual([{ t: "str", v: edn }]);
-    const input = plan.actions[0]!.input as {
+    const input = present(plan.actions.at(0), "set-query action").input as {
       unsetProps?: unknown[];
       setProps?: unknown[];
     };

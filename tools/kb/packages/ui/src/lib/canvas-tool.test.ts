@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { present } from "@kb/model";
 import { parseCanvasDoc, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
 import { edgePath } from "@/components/canvas/edge-path";
 import { createShapeNode, placeWithTool, reduceCanvasTool } from "@/lib/canvas-tool";
@@ -21,9 +22,9 @@ describe("placeWithTool", () => {
 
   test("places rect and reverts tool", () => {
     const result = placeWithTool(empty, "rect", { x: 12, y: 34 }, "id-1");
-    expect(result).not.toBeNull();
-    expect(result!.nextTool).toBe("select");
-    expect(result!.node).toMatchObject({
+    const placed = present(result, "placed rect");
+    expect(placed.nextTool).toBe("select");
+    expect(placed.node).toMatchObject({
       id: "id-1",
       type: "shape",
       shape: "rect",
@@ -32,12 +33,13 @@ describe("placeWithTool", () => {
       width: 160,
       height: 100,
     });
-    expect(result!.doc.nodes).toHaveLength(1);
+    expect(placed.doc.nodes).toHaveLength(1);
   });
 
   test("places text card", () => {
     const result = placeWithTool(empty, "text", { x: 0, y: 0 }, "t1");
-    expect(result!.node).toMatchObject({ type: "text", text: "" });
+    const placed = present(result, "placed text");
+    expect(placed.node).toMatchObject({ type: "text", text: "" });
   });
 
   test("select and kb-node return null", () => {

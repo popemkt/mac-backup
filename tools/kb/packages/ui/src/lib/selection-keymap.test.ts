@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { mapSelectionKey, type SelectionNodeInfo } from "@/lib/selection-keymap";
 import type { VisibleInstance } from "@/lib/visible-instances";
 
@@ -18,7 +19,7 @@ const nodeInfos: Record<string, SelectionNodeInfo> = {
 function ctx(
   selected: string | null,
   active: string | null = null,
-  selectedKey: string | null = selected ? `tree/${selected}` : null,
+  selectedKey: string | null = selected !== null && selected !== "" ? `tree/${selected}` : null,
 ) {
   return {
     selectedNodeId: selected,
@@ -26,11 +27,13 @@ function ctx(
     activeNodeId: active,
     getPreviousVisibleInstance: (instanceKey: string) => {
       const i = instances.findIndex((x) => x.instanceKey === instanceKey);
-      return i > 0 ? instances[i - 1]! : null;
+      return i > 0 ? present(instances.at(i - 1), "previous instance") : null;
     },
     getNextVisibleInstance: (instanceKey: string) => {
       const i = instances.findIndex((x) => x.instanceKey === instanceKey);
-      return i >= 0 && i < instances.length - 1 ? instances[i + 1]! : null;
+      return i >= 0 && i < instances.length - 1
+        ? present(instances.at(i + 1), "next instance")
+        : null;
     },
     getNode: (id: string) => nodeInfos[id],
   };

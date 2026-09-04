@@ -5,6 +5,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { present } from "@kb/model";
 import { GraphToolbar } from "./graph-toolbar";
 import { RENDERER_CAPABILITIES } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";
@@ -43,7 +44,7 @@ describe("GraphToolbar capabilities", () => {
       reset: vi.fn(),
       focusNode: vi.fn(),
     };
-    const caps = { ...RENDERER_CAPABILITIES.tree!, zoom: false };
+    const caps = { ...present(RENDERER_CAPABILITIES.tree, "tree caps"), zoom: false };
     act(() => {
       root.render(
         createElement(GraphToolbar, {
@@ -76,7 +77,7 @@ describe("GraphToolbar capabilities", () => {
     act(() => {
       root.render(
         createElement(GraphToolbar, {
-          capabilities: RENDERER_CAPABILITIES.force2d!,
+          capabilities: present(RENDERER_CAPABILITIES.force2d, "force2d caps"),
           controls,
           selectedNodeId: null,
           nodes: [],

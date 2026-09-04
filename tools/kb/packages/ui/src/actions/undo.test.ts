@@ -2,6 +2,7 @@
  * r1 D19 — action-level undo/redo across destructive outline operations.
  */
 import { beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/fixtures/graph";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
@@ -48,7 +49,9 @@ describe("undo / redo (D19)", () => {
     expect(s.wireNodes.length).toBe(before);
     expect(s.nodes.get("n.root-b")?.text).toBe("Search jumps to matching nodes");
     // Children of the deleted node come back too.
-    expect(s.nodes.get(WORKSPACE_ROOT_ID)!.children).toContain("n.root-b");
+    expect(present(s.nodes.get(WORKSPACE_ROOT_ID), WORKSPACE_ROOT_ID).children).toContain(
+      "n.root-b",
+    );
   });
 
   it("undoes a split: minted sibling disappears again", async () => {

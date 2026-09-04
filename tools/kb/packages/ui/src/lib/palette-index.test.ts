@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { buildPaletteIndex, searchPalette } from "@/lib/palette-index";
 import { SYSTEM_IDS } from "@/lib/types";
@@ -47,8 +48,9 @@ describe("palette index", () => {
     const index = buildPaletteIndex(nodes, 1);
     const hits = searchPalette(index, "query", 20);
     expect(hits.length).toBeGreaterThan(0);
-    expect(hits[0]!.kind).toBe("command");
-    expect(hits[0]!.id).toBe(SYSTEM_IDS.cmdGoQuery);
+    const hit = present(hits.at(0), "first hit");
+    expect(hit.kind).toBe("command");
+    expect(hit.id).toBe(SYSTEM_IDS.cmdGoQuery);
 
     const many = searchPalette(index, "alpha", 20);
     expect(many).toHaveLength(20);
@@ -79,7 +81,7 @@ describe("palette index", () => {
     }
 
     expect(openHits).toHaveLength(20);
-    expect(openHits[0]!.kind).toBe("command");
+    expect(present(openHits.at(0), "first hit").kind).toBe("command");
     expect(openMs).toBeLessThan(50);
 
     let keyMs = Infinity;

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { fixtureGraph } from "@/fixtures/graph";
 import { forestRootIds, wireToOutlineMap } from "@/lib/graph-view";
 import { mergeTx } from "@/lib/tx";
@@ -45,15 +46,17 @@ describe("stable outline ordering", () => {
   });
 
   it("root and sibling order stay byte-identical across repeated text edits", () => {
-    const beforeRoots = [...useOutlineStore.getState().nodes.get("__kb_root__")!.children];
-    const beforeChildren = [...useOutlineStore.getState().nodes.get("n.root-a")!.children];
+    const before = useOutlineStore.getState().nodes;
+    const beforeRoots = [...present(before.get("__kb_root__"), "__kb_root__").children];
+    const beforeChildren = [...present(before.get("n.root-a"), "n.root-a").children];
 
     for (let i = 0; i < 25; i++) {
       mutations.updateNodeContent("n.root-a", `Ship kb ui shell v${i}`);
     }
 
-    const afterRoots = [...useOutlineStore.getState().nodes.get("__kb_root__")!.children];
-    const afterChildren = [...useOutlineStore.getState().nodes.get("n.root-a")!.children];
+    const after = useOutlineStore.getState().nodes;
+    const afterRoots = [...present(after.get("__kb_root__"), "__kb_root__").children];
+    const afterChildren = [...present(after.get("n.root-a"), "n.root-a").children];
 
     expect(afterRoots).toEqual(beforeRoots);
     expect(afterChildren).toEqual(beforeChildren);
@@ -63,8 +66,9 @@ describe("stable outline ordering", () => {
     const idSorted = [...fixtureGraph.nodes].toSorted((a, b) => a.id.localeCompare(b.id));
     useOutlineStore.getState().hydrateFromWire(idSorted, fixtureGraph.rev, "fixtures");
 
-    const beforeRoots = [...useOutlineStore.getState().nodes.get("__kb_root__")!.children];
-    const beforeChildren = [...useOutlineStore.getState().nodes.get("n.root-a")!.children];
+    const before = useOutlineStore.getState().nodes;
+    const beforeRoots = [...present(before.get("__kb_root__"), "__kb_root__").children];
+    const beforeChildren = [...present(before.get("n.root-a"), "n.root-a").children];
 
     mutations.updateNodeContent("n.root-a", "edited once");
 
@@ -76,8 +80,9 @@ describe("stable outline ordering", () => {
       mutations.updateNodeContent("n.root-a", `edited ${i}`);
     }
 
-    const afterRoots = [...useOutlineStore.getState().nodes.get("__kb_root__")!.children];
-    const afterChildren = [...useOutlineStore.getState().nodes.get("n.root-a")!.children];
+    const after = useOutlineStore.getState().nodes;
+    const afterRoots = [...present(after.get("__kb_root__"), "__kb_root__").children];
+    const afterChildren = [...present(after.get("n.root-a"), "n.root-a").children];
 
     expect(afterRoots).toEqual(beforeRoots);
     expect(afterChildren).toEqual(beforeChildren);
@@ -86,12 +91,11 @@ describe("stable outline ordering", () => {
   it("expanded ids persist in kb-expanded localStorage", () => {
     if (typeof localStorage === "undefined") return;
     useOutlineStore.getState().toggleCollapse("n.root-a");
-    const raw = localStorage.getItem(EXPANDED_STORAGE_KEY);
-    expect(raw).toBeTruthy();
-    const ids: string[] = JSON.parse(raw!);
+    const raw = present(localStorage.getItem(EXPANDED_STORAGE_KEY), "expanded ids");
+    const ids: string[] = JSON.parse(raw);
     expect(ids).toContain("n.root-a");
 
     const remapped = wireToOutlineMap(fixtureGraph.nodes, new Set(ids));
-    expect(remapped.get("n.root-a")!.collapsed).toBe(false);
+    expect(present(remapped.get("n.root-a"), "n.root-a").collapsed).toBe(false);
   });
 });

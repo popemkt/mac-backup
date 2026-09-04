@@ -20,7 +20,7 @@ import {
   type NodeMap,
   type OutlineNode,
 } from "@/lib/types";
-import { allowedRefIdsOf, typeRefsOf, type NodeLike } from "@kb/model";
+import { allowedRefIdsOf, present, typeRefsOf, type NodeLike } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { planAddFieldTargetTag, planSetFieldTargetQuery, planSetFieldType } from "@/actions/plan";
 
@@ -75,9 +75,9 @@ describe("field types", () => {
     const nodes = wireToOutlineMap(wire, new Set());
     const field = nodes.get("field.assignee");
     const allowed = resolveAllowedRefIds(field, nodes, null);
-    expect(allowed).not.toBeNull();
-    expect([...allowed!].toSorted()).toEqual(["n.root-a", "n.root-b"]);
-    expect(allowed!.has("n.root-c")).toBe(false);
+    const set = present(allowed, "allowed refs");
+    expect([...set].toSorted()).toEqual(["n.root-a", "n.root-b"]);
+    expect(set.has("n.root-c")).toBe(false);
   });
 
   it("filters ref suggestions by targetQuery result set", () => {
@@ -97,7 +97,8 @@ describe("field types", () => {
     const nodes = wireToOutlineMap(wire, new Set());
     const qdb = buildQueryDb(wire, 1);
     const allowed = resolveAllowedRefIds(nodes.get("field.pick"), nodes, qdb);
-    expect([...allowed!]).toEqual(["n.root-a"]);
+    const set = present(allowed, "allowed refs");
+    expect([...set]).toEqual(["n.root-a"]);
   });
 
   it("query wins over tag when both are set", () => {
@@ -118,8 +119,9 @@ describe("field types", () => {
     const nodes = wireToOutlineMap(wire, new Set());
     const qdb = buildQueryDb(wire, 1);
     const allowed = resolveAllowedRefIds(nodes.get("field.both"), nodes, qdb);
+    const set = present(allowed, "allowed refs");
     // Query matches n.root-c only; tag.todo would have included a/b — query wins.
-    expect([...allowed!]).toEqual(["n.root-c"]);
+    expect([...set]).toEqual(["n.root-c"]);
   });
 
   it("resolveAllowedRefIdsCached reuses the set for the same fieldId+rev", () => {
@@ -143,7 +145,9 @@ describe("field types", () => {
     expect(a).toBe(b);
     const c = resolveAllowedRefIdsCached("field.assignee", field, nodes, null, 2);
     expect(c).not.toBe(a);
-    expect([...c!].toSorted()).toEqual([...a!].toSorted());
+    const aSet = present(a, "cached allowed refs");
+    const cSet = present(c, "cached allowed refs rev 2");
+    expect([...cSet].toSorted()).toEqual([...aSet].toSorted());
   });
 
   it("plan helpers write fieldType / targetTag / targetQuery", () => {
@@ -225,9 +229,9 @@ describe("allowed ref targets: resolution vs display", () => {
   it("offers every supertag for targetTag → sys.tag", () => {
     const nodes = withIncludeField();
     const allowed = resolveAllowedRefIds(nodes.get(SYSTEM_IDS.ontoIncludeField), nodes, null);
-    expect(allowed).not.toBeNull();
-    expect(allowed!.size).toBeGreaterThan(0);
-    expect([...allowed!].toSorted()).toEqual(TAG_NODES);
+    const set = present(allowed, "allowed refs");
+    expect(set.size).toBeGreaterThan(0);
+    expect([...set].toSorted()).toEqual(TAG_NODES);
     // Both kinds are present, and resolution hides neither: seeded supertags
     // are exactly the ones a sys.-skipping resolver used to drop.
     expect(TAG_NODES.some(isSysPrefixed)).toBe(true);
@@ -237,16 +241,19 @@ describe("allowed ref targets: resolution vs display", () => {
   it("does not read the badge list — those very nodes show no chips", () => {
     const nodes = withIncludeField();
     for (const id of TAG_NODES) {
-      expect(nodes.get(id)!.tags.map((t) => t.id)).not.toContain(SYSTEM_IDS.tag);
+      expect(present(nodes.get(id), id).tags.map((t) => t.id)).not.toContain(SYSTEM_IDS.tag);
     }
-    expect(nodes.get("tag.todo")!.tags).toEqual([]);
+    expect(present(nodes.get("tag.todo"), "tag.todo").tags).toEqual([]);
   });
 
   it("ignores badges even when they are wrong", () => {
     const nodes = withIncludeField();
-    const truth = resolveAllowedRefIds(nodes.get(SYSTEM_IDS.ontoIncludeField), nodes, null);
+    const truth = present(
+      resolveAllowedRefIds(nodes.get(SYSTEM_IDS.ontoIncludeField), nodes, null),
+      "allowed refs",
+    );
     // Guard the comparison below against being vacuously true.
-    expect(truth!.size).toBeGreaterThan(0);
+    expect(truth.size).toBeGreaterThan(0);
     // Strip every badge, and forge one on a node that is not a tag at all.
     const forged: NodeMap = new Map(
       [...nodes].map(([id, n]) => [
@@ -257,13 +264,12 @@ describe("allowed ref targets: resolution vs display", () => {
         },
       ]),
     );
-    const afterForgery = resolveAllowedRefIds(
-      forged.get(SYSTEM_IDS.ontoIncludeField),
-      forged,
-      null,
+    const afterForgery = present(
+      resolveAllowedRefIds(forged.get(SYSTEM_IDS.ontoIncludeField), forged, null),
+      "allowed refs after forgery",
     );
-    expect([...afterForgery!].toSorted()).toEqual([...truth!].toSorted());
-    expect(afterForgery!.has("n.root-c")).toBe(false);
+    expect([...afterForgery].toSorted()).toEqual([...truth].toSorted());
+    expect(afterForgery.has("n.root-c")).toBe(false);
   });
 
   it("resolves from a badge-free node shape (structural pin)", () => {
@@ -279,7 +285,8 @@ describe("allowed ref targets: resolution vs display", () => {
         .map(([id, n]) => [id, { id, text: n.text, props: n.props, children: n.children }]),
     );
     const allowed = allowedRefIdsOf(bare.get(SYSTEM_IDS.ontoIncludeField), bare);
-    expect([...allowed!].toSorted()).toEqual(TAG_NODES);
+    const set = present(allowed, "allowed refs");
+    expect([...set].toSorted()).toEqual(TAG_NODES);
   });
 
   it("still hides infrastructure where nothing is declared (display)", () => {
@@ -314,7 +321,8 @@ describe("allowed ref targets: resolution vs display", () => {
     ];
     const nodes = wireToOutlineMap(wire, new Set());
     const allowed = resolveAllowedRefIds(nodes.get("field.onto-ish"), nodes, buildQueryDb(wire, 1));
-    expect([...allowed!]).toEqual([SYSTEM_IDS.typeField]);
-    expect(allowed!.has("tag.todo")).toBe(false);
+    const set = present(allowed, "allowed refs");
+    expect([...set]).toEqual([SYSTEM_IDS.typeField]);
+    expect(set.has("tag.todo")).toBe(false);
   });
 });

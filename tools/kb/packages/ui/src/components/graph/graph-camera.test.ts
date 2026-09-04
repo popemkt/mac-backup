@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { computeFitTarget } from "./graph-camera";
 
 /**
@@ -23,11 +24,12 @@ describe("computeFitTarget", () => {
       y: Math.floor(i / 10) / 10,
     }));
     const target = computeFitTarget(points);
+    const fit = present(target, "fit target");
     // The old implementation returned raw centroids far outside [0,1].
-    expect(target!.x).toBeGreaterThanOrEqual(0);
-    expect(target!.x).toBeLessThanOrEqual(1);
-    expect(target!.y).toBeGreaterThanOrEqual(0);
-    expect(target!.y).toBeLessThanOrEqual(1);
+    expect(fit.x).toBeGreaterThanOrEqual(0);
+    expect(fit.x).toBeLessThanOrEqual(1);
+    expect(fit.y).toBeGreaterThanOrEqual(0);
+    expect(fit.y).toBeLessThanOrEqual(1);
   });
 
   it("uses the larger span with CodeFlow's 0.8 fit padding", () => {
@@ -42,8 +44,9 @@ describe("computeFitTarget", () => {
 
   it("caps zoom-in at 2x for a single-node lens", () => {
     const target = computeFitTarget([{ x: 0.5, y: 0.5 }]);
-    expect(target?.ratio).toBeCloseTo(0.5);
-    expect(Number.isFinite(target!.ratio!)).toBe(true);
+    const fit = present(target, "fit target");
+    expect(fit.ratio).toBeCloseTo(0.5);
+    expect(Number.isFinite(present(fit.ratio, "fit ratio"))).toBe(true);
   });
 
   it("is idempotent — fitting twice must not walk the zoom inward", () => {
@@ -68,7 +71,8 @@ describe("computeFitTarget", () => {
       { x: 0.25, y: 0.25 },
       { x: 0.75, y: 0.75 },
     ]);
-    expect(target?.x).toBeCloseTo(0.5);
-    expect(Number.isFinite(target!.ratio!)).toBe(true);
+    const fit = present(target, "fit target");
+    expect(fit.x).toBeCloseTo(0.5);
+    expect(Number.isFinite(present(fit.ratio, "fit ratio"))).toBe(true);
   });
 });

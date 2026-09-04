@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
+import { present } from "@kb/model";
 import { buildQueryDb } from "@/ds/db";
 import {
   DEFAULT_EDGE_KINDS,
@@ -127,7 +128,7 @@ describe("parsePerspective / listPerspectiveNodes", () => {
     const nodes = baseGraph();
     const listed = listPerspectiveNodes(nodes);
     expect(listed.map((n) => n.id)).toEqual([SYSTEM_IDS.lensAllMentions]);
-    const p = parsePerspective(listed[0]!);
+    const p = parsePerspective(present(listed[0], "listed perspective"));
     expect(p.renderer).toBe("force2d");
     expect(p.edgeKinds).toEqual(["mention", "child"]);
     expect(p.colorBy).toBe("tag");
@@ -249,32 +250,40 @@ describe("extractLensGraph", () => {
 
   it("resolves color-by tag and fixed", () => {
     const byId = new Map(nodes.map((n) => [n.id, n]));
-    const tagged = resolveColor(
-      nodes.find((n) => n.id === "n.a1")!,
-      byId,
-      "tag",
+    const a1 = present(
+      nodes.find((n) => n.id === "n.a1"),
+      "n.a1",
     );
+    const tagged = resolveColor(a1, byId, "tag");
     expect(tagged).toBe("#ff00aa");
-    const fixed = resolveColor(
-      nodes.find((n) => n.id === "n.c")!,
-      byId,
-      "fixed:#abcdef",
+    const c = present(
+      nodes.find((n) => n.id === "n.c"),
+      "n.c",
     );
+    const fixed = resolveColor(c, byId, "fixed:#abcdef");
     expect(fixed).toBe("#abcdef");
-    expect(
-      firstTagOf(
-        nodes.find((n) => n.id === "n.a")!,
-        byId,
-      )?.id,
-    ).toBe("tag.todo");
+    const a = present(
+      nodes.find((n) => n.id === "n.a"),
+      "n.a",
+    );
+    expect(firstTagOf(a, byId)?.id).toBe("tag.todo");
   });
 
   it("resolveClusterKey covers none / parent / tag / prop", () => {
     const byId = new Map(nodes.map((n) => [n.id, n]));
     const parentOf = buildParentMap(nodes);
-    const a = nodes.find((n) => n.id === "n.a")!;
-    const a1 = nodes.find((n) => n.id === "n.a1")!;
-    const b = nodes.find((n) => n.id === "n.b")!;
+    const a = present(
+      nodes.find((n) => n.id === "n.a"),
+      "n.a",
+    );
+    const a1 = present(
+      nodes.find((n) => n.id === "n.a1"),
+      "n.a1",
+    );
+    const b = present(
+      nodes.find((n) => n.id === "n.b"),
+      "n.b",
+    );
     expect(resolveClusterKey(a, byId, parentOf, "none")).toBe("none");
     expect(resolveClusterKey(a1, byId, parentOf, "parent")).toBe("n.a");
     expect(resolveClusterKey(a, byId, parentOf, "parent")).toBe("root");
@@ -293,8 +302,9 @@ describe("extractLensGraph", () => {
     expect(rootIds).not.toContain("n.a1");
     const focused = buildTreeForest(nodes, g.nodes, "n.a");
     expect(focused).toHaveLength(1);
-    expect(focused[0]!.id).toBe("n.a");
-    expect(focused[0]!.children.some((c) => c.id === "n.a1")).toBe(true);
+    const focusedRoot = present(focused[0], "focus root");
+    expect(focusedRoot.id).toBe("n.a");
+    expect(focusedRoot.children.some((c) => c.id === "n.a1")).toBe(true);
 
     // Cycle: a → a1 → a
     const cyclic = nodes.map((n) => (n.id === "n.a1" ? { ...n, children: ["n.a"] } : { ...n }));
@@ -305,7 +315,7 @@ describe("extractLensGraph", () => {
     );
     expect(() => buildTreeForest(cyclic, g2.nodes, "n.a")).not.toThrow();
     const cyc = buildTreeForest(cyclic, g2.nodes, "n.a");
-    expect(cyc[0]!.id).toBe("n.a");
+    expect(present(cyc[0], "cycle root").id).toBe("n.a");
   });
 
   it("resolves size-by degree / children / fixed", () => {

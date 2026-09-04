@@ -1,5 +1,6 @@
 import type * as PrefsStore from "./prefs.store";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 
 /** Minimal localStorage + document stubs so the store persists in node. */
 function fakeStorage() {
@@ -129,7 +130,7 @@ describe("usePrefsStore", () => {
     prefs.usePrefsStore.getState().setWidth("full");
     prefs.usePrefsStore.getState().setSidebarOpen(false);
     const raw = (g.localStorage as Storage).getItem(prefs.PREFS_STORAGE_KEY);
-    expect(JSON.parse(raw!)).toEqual({
+    expect(JSON.parse(present(raw, "raw json"))).toEqual({
       theme: "dark",
       font: "inter",
       width: "full",
@@ -142,7 +143,7 @@ describe("usePrefsStore", () => {
     prefs.usePrefsStore.getState().toggleSidebar();
     expect(prefs.usePrefsStore.getState().sidebarOpen).toBe(false);
     const raw = (g.localStorage as Storage).getItem(prefs.PREFS_STORAGE_KEY);
-    expect(JSON.parse(raw!).sidebarOpen).toBe(false);
+    expect(JSON.parse(present(raw, "raw json")).sidebarOpen).toBe(false);
   });
 
   it("applies theme class + font attribute to <html>", () => {

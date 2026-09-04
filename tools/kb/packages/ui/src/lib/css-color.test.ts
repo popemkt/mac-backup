@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { force3dColor, isForce3dSafeColor, oklchToRgb, toRenderableColor } from "./css-color";
 
 /**
@@ -19,10 +20,10 @@ describe("oklchToRgb", () => {
   it("round-trips a chromatic token close to its sRGB original", () => {
     // oklch(0.62 0.15 145) is the authored canvas green.
     const rgb = oklchToRgb("oklch(0.62 0.15 145)");
-    expect(rgb).not.toBeNull();
-    expect(rgb!.g).toBeGreaterThan(rgb!.r);
-    expect(rgb!.g).toBeGreaterThan(rgb!.b);
-    for (const channel of [rgb!.r, rgb!.g, rgb!.b]) {
+    const color = present(rgb, "oklch rgb");
+    expect(color.g).toBeGreaterThan(color.r);
+    expect(color.g).toBeGreaterThan(color.b);
+    for (const channel of [color.r, color.g, color.b]) {
       expect(Number.isInteger(channel)).toBe(true);
       expect(channel).toBeGreaterThanOrEqual(0);
       expect(channel).toBeLessThanOrEqual(255);
@@ -37,8 +38,8 @@ describe("oklchToRgb", () => {
 
   it("clamps out-of-gamut conversions into byte range", () => {
     const rgb = oklchToRgb("oklch(0.9 0.4 20)");
-    expect(rgb).not.toBeNull();
-    for (const channel of [rgb!.r, rgb!.g, rgb!.b]) {
+    const color = present(rgb, "oklch rgb");
+    for (const channel of [color.r, color.g, color.b]) {
       expect(channel).toBeGreaterThanOrEqual(0);
       expect(channel).toBeLessThanOrEqual(255);
     }
@@ -62,8 +63,8 @@ describe("toRenderableColor", () => {
       "#fff",
     ]) {
       const out = toRenderableColor(input);
-      expect(out, input).not.toBeNull();
-      expect(out!, input).toMatch(out!.startsWith("rgba") ? POLISHED_RGBA : POLISHED_RGB);
+      const color = present(out, "renderable color");
+      expect(color, input).toMatch(color.startsWith("rgba") ? POLISHED_RGBA : POLISHED_RGB);
     }
   });
 

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { present } from "@kb/model";
 import {
   ClientMessageSchema,
   ServerMessageSchema,
@@ -42,7 +43,7 @@ class MockServer {
   };
 
   get socket(): FakeSocket {
-    return this.sockets[this.sockets.length - 1]!;
+    return present(this.sockets.at(-1), "latest socket");
   }
 
   /** Accept the connection and send the protocol hello. */
@@ -142,8 +143,11 @@ describe("KbWsClient", () => {
       deletes: ["n.a"],
     });
     expect(h.txs.map((t) => t.rev)).toEqual([1, 2]);
-    expect(h.txs[0]!.upserts[0]!.id).toBe("n.a");
-    expect(h.txs[1]!.deletes).toEqual(["n.a"]);
+    const tx0 = present(h.txs.at(0), "first tx");
+    const upsert0 = present(tx0.upserts.at(0), "first upsert");
+    expect(upsert0.id).toBe("n.a");
+    const tx1 = present(h.txs.at(1), "second tx");
+    expect(tx1.deletes).toEqual(["n.a"]);
     expect(h.rev.current).toBe(2);
     expect(h.gaps).toEqual([]);
   });

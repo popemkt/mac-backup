@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/fixtures/graph";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
@@ -31,9 +32,10 @@ describe("sys.* UI write-guard", () => {
   });
 
   it("blocks text edits on sys.* with a toast", () => {
-    const before = useOutlineStore.getState().nodes.get("sys.tag")!.text;
+    const sysTag = present(useOutlineStore.getState().nodes.get("sys.tag"), "sys.tag");
+    const before = sysTag.text;
     mutations.updateNodeContent("sys.tag", "hacked");
-    expect(useOutlineStore.getState().nodes.get("sys.tag")!.text).toBe(before);
+    expect(present(useOutlineStore.getState().nodes.get("sys.tag"), "sys.tag").text).toBe(before);
     expect(useUiStore.getState().toasts.some((t) => /sys\.\*/.test(t.text))).toBe(true);
   });
 
@@ -45,7 +47,9 @@ describe("sys.* UI write-guard", () => {
 
   it("allows edits on normal nodes", () => {
     mutations.updateNodeContent("n.root-c", "edited");
-    expect(useOutlineStore.getState().nodes.get("n.root-c")!.text).toBe("edited");
+    expect(present(useOutlineStore.getState().nodes.get("n.root-c"), "n.root-c").text).toBe(
+      "edited",
+    );
   });
 
   it("transient create under a sys.* parent returns null with a toast", async () => {
@@ -66,7 +70,7 @@ describe("sys.* UI write-guard", () => {
       createdAt: at,
       updatedAt: at,
     };
-    const sysTag = cloneWire(useOutlineStore.getState().nodes.get("sys.tag")!);
+    const sysTag = cloneWire(present(useOutlineStore.getState().nodes.get("sys.tag"), "sys.tag"));
     sysTag.children = [child.id];
     useOutlineStore
       .getState()
@@ -91,7 +95,7 @@ describe("sys.* UI write-guard", () => {
       createdAt: at,
       updatedAt: at,
     };
-    const sysTag = cloneWire(useOutlineStore.getState().nodes.get("sys.tag")!);
+    const sysTag = cloneWire(present(useOutlineStore.getState().nodes.get("sys.tag"), "sys.tag"));
     sysTag.children = [child.id];
     useOutlineStore
       .getState()
@@ -101,26 +105,26 @@ describe("sys.* UI write-guard", () => {
     const store = useOutlineStore.getState();
     // No new row minted, no children[] fragment on the sys.* parent.
     expect(store.nodes.has("n.under-sys-2")).toBe(true);
-    expect(store.nodes.get("sys.tag")!.children).toEqual([child.id]);
+    expect(present(store.nodes.get("sys.tag"), "sys.tag").children).toEqual([child.id]);
     expect([...store.nodes.values()].filter((n) => n.text === "").length).toBe(0);
     expect(useUiStore.getState().toasts.some((t) => /sys\.\*/.test(t.text))).toBe(true);
   });
 
   it("createNodeAfter a sibling under a normal parent still works", async () => {
     const store = useOutlineStore.getState();
-    const parent = store.nodes.get("n.root-a")!;
+    const parent = present(store.nodes.get("n.root-a"), "n.root-a");
     const before = parent.children;
     await mutations.createNodeAfter("n.child-a1");
-    const after = useOutlineStore.getState().nodes.get("n.root-a")!.children;
+    const after = present(useOutlineStore.getState().nodes.get("n.root-a"), "n.root-a").children;
     expect(after.length).toBe(before.length + 1);
     expect(after).toEqual(["n.child-a1", expect.any(String), "n.child-a2"]);
   });
 
   it("transient create under a normal parent still works", async () => {
-    const before = useOutlineStore.getState().nodes.get("n.root-c")!.children;
+    const before = present(useOutlineStore.getState().nodes.get("n.root-c"), "n.root-c").children;
     const newId = await mutations.createTransientNode("n.root-c", null);
     expect(newId).not.toBeNull();
-    const after = useOutlineStore.getState().nodes.get("n.root-c")!.children;
+    const after = present(useOutlineStore.getState().nodes.get("n.root-c"), "n.root-c").children;
     expect(after.length).toBe(before.length + 1);
   });
 });

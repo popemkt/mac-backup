@@ -5,6 +5,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { present } from "@kb/model";
 import { fixtureGraph } from "@/fixtures/graph";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -69,7 +70,7 @@ describe("GraphPage (smoke)", () => {
     g.HTMLElement = dom.HTMLElement;
     g.KeyboardEvent = dom.KeyboardEvent;
     g.Node = dom.Node;
-    g.PointerEvent = dom.PointerEvent ?? dom.MouseEvent;
+    g.PointerEvent = dom.PointerEvent;
     g.requestAnimationFrame = (cb: FrameRequestCallback) => Number(dom.setTimeout(() => cb(0), 0));
     g.cancelAnimationFrame = (id: number) => {
       dom.clearTimeout(id as unknown as ReturnType<typeof dom.setTimeout>);
@@ -107,8 +108,7 @@ describe("GraphPage (smoke)", () => {
     expect(container.textContent).toContain("All mentions");
     expect(container.textContent).toMatch(/\d+ nodes/);
     expect(container.querySelector('[data-renderer-switch="true"]')).not.toBeNull();
-    const canvas = container.querySelector('[data-testid="sigma-graph"]');
-    expect(canvas).not.toBeNull();
-    expect(Number(canvas!.getAttribute("data-node-count"))).toBeGreaterThan(0);
+    const canvas = present(container.querySelector('[data-testid="sigma-graph"]'), "sigma graph");
+    expect(Number(canvas.getAttribute("data-node-count"))).toBeGreaterThan(0);
   });
 });

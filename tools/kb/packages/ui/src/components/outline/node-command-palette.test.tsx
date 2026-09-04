@@ -14,6 +14,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { isPinned } from "@/lib/pinned";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
@@ -120,8 +121,8 @@ describe("node command palette", () => {
   }
 
   const labels = () =>
-    [...dom.document.querySelectorAll('[data-palette-list="true"] button')].map(
-      (b) => b.textContent?.trim() ?? "",
+    [...dom.document.querySelectorAll('[data-palette-list="true"] button')].map((b) =>
+      b.textContent.trim(),
     );
 
   it("offers Make supertag on a plain node", async () => {
@@ -143,11 +144,10 @@ describe("node command palette", () => {
   it("pins through the palette and flips the label", async () => {
     await open("n.plain");
     const pin = [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
-      (b) => b.textContent?.trim() === "Pin",
+      (b) => b.textContent.trim() === "Pin",
     ) as HTMLElement | undefined;
-    expect(pin).toBeTruthy();
     await act(async () => {
-      pin!.click();
+      present(pin, "pin").click();
     });
     const nodes = useOutlineStore.getState().nodes;
     expect(isPinned(nodes.get("n.plain"), nodes)).toBe(true);

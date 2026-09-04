@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { SYSTEM_IDS } from "./types";
 import type { NodeMap, OutlineNode } from "./types";
 import {
@@ -356,6 +357,6 @@ describe("view-config", () => {
 
     const cards = groupChildrenForBoard([doing, empty], null, nodes);
     expect(cards).toHaveLength(1);
-    expect(cards[0]!.nodes.map((n) => n.id)).toEqual(["d", "e"]);
+    expect(present(cards[0], "cards column").nodes.map((n) => n.id)).toEqual(["d", "e"]);
   });
 });

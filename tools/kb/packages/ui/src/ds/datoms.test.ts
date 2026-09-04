@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { fixtureGraph } from "@/fixtures/graph";
 import { buildIdMap, nodesToDatoms, extractMentions } from "./datoms";
 import { buildQueryDb } from "./db";
@@ -13,7 +14,7 @@ describe("nodesToDatoms", () => {
 
   it("emits ordered children vector + child refs", () => {
     const { datoms, ids } = nodesToDatoms(fixtureGraph.nodes);
-    const parentEid = ids.toEid.get("n.root-a")!;
+    const parentEid = present(ids.toEid.get("n.root-a"), "n.root-a");
     const childVec = datoms.find((d) => d[0] === parentEid && d[1] === ":node/children");
     expect(childVec?.[2]).toEqual([ids.toEid.get("n.child-a1"), ids.toEid.get("n.child-a2")]);
     const childRefs = datoms.filter((d) => d[0] === parentEid && d[1] === ":node/child");
@@ -22,8 +23,8 @@ describe("nodesToDatoms", () => {
 
   it("maps prop refs to eids when target exists", () => {
     const { datoms, ids, schema } = nodesToDatoms(fixtureGraph.nodes);
-    const nodeEid = ids.toEid.get("n.root-a")!;
-    const tagEid = ids.toEid.get("tag.todo")!;
+    const nodeEid = present(ids.toEid.get("n.root-a"), "n.root-a");
+    const tagEid = present(ids.toEid.get("tag.todo"), "tag.todo");
     const typeDatom = datoms.find((d) => d[0] === nodeEid && d[1] === ":f/sys.f.type");
     expect(typeDatom?.[2]).toBe(tagEid);
     expect(schema[":f/sys.f.type"]).toEqual({

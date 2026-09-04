@@ -7,6 +7,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { fixtureGraph } from "@/fixtures/graph";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
@@ -40,6 +41,16 @@ function seed() {
     .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
 }
 
+function fireKey(el: Element, key: string): boolean {
+  const ev = new KeyboardEvent("keydown", {
+    key,
+    bubbles: true,
+    cancelable: true,
+  });
+  el.dispatchEvent(ev);
+  return ev.defaultPrevented;
+}
+
 describe("editor behavior scenarios (r1 §5.3)", () => {
   let dom: Window;
   let container: HTMLDivElement;
@@ -68,16 +79,6 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
     act(() => root.unmount());
     container.remove();
   });
-
-  function fireKey(el: Element, key: string): boolean {
-    const ev = new KeyboardEvent("keydown", {
-      key,
-      bubbles: true,
-      cancelable: true,
-    });
-    el.dispatchEvent(ev);
-    return ev.defaultPrevented;
-  }
 
   function editorEl(instanceKey: string): HTMLElement | null {
     return container.querySelector(`[data-instance-key="${instanceKey}"] [contenteditable="true"]`);
@@ -121,11 +122,10 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
       root.render(<NodeBlock nodeId="n.child-a1" instanceKey={childKey} depth={0} />);
     });
 
-    const freshEditor = editorEl(childKey);
-    expect(freshEditor).toBeTruthy();
+    const freshEditor = present(editorEl(childKey), "editor");
     let prevented = false;
     await act(async () => {
-      prevented = fireKey(freshEditor!, "Backspace");
+      prevented = fireKey(freshEditor, "Backspace");
     });
 
     const s = useOutlineStore.getState();
@@ -133,7 +133,9 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
     expect(prevented).toBe(true);
     // …node outdented to forest-root level (virtual workspace parent)…
     expect(s.nodes.get("n.child-a1")?.parentId).toBe(WORKSPACE_ROOT_ID);
-    expect(s.nodes.get(WORKSPACE_ROOT_ID)!.children).toContain("n.child-a1");
+    expect(present(s.nodes.get(WORKSPACE_ROOT_ID), "workspace root").children).toContain(
+      "n.child-a1",
+    );
     // …still present, still focused.
     expect(s.nodes.has("n.child-a1")).toBe(true);
     expect(s.activeNodeId).toBe("n.child-a1");
@@ -150,12 +152,11 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
     await act(async () => {
       root.render(<NodeBlock nodeId="n.root-c" instanceKey={cKey} depth={0} />);
     });
-    const el = editorEl(cKey);
-    expect(el).toBeTruthy();
+    const el = present(editorEl(cKey), "editor");
 
     let prevented = false;
     await act(async () => {
-      prevented = fireKey(el!, "ArrowUp");
+      prevented = fireKey(el, "ArrowUp");
     });
 
     const s = useOutlineStore.getState();
@@ -180,11 +181,10 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
 
     // Popup open with candidates.
     expect(container.querySelector('[role="listbox"]')).toBeTruthy();
-    const el = editorEl(cKey);
-    expect(el).toBeTruthy();
+    const el = present(editorEl(cKey), "editor");
 
     await act(async () => {
-      fireKey(el!, "Escape");
+      fireKey(el, "Escape");
     });
     await act(async () => {
       root.render(<NodeBlock nodeId="n.root-c" instanceKey={cKey} depth={0} />);
@@ -201,8 +201,8 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
   it("§3.3: an empty transient node prunes when focus moves on", async () => {
     const before = useOutlineStore.getState().wireNodes.length;
     const newId = await mutations.createTransientNode("n.root-c", null);
-    expect(newId).not.toBeNull();
-    expect(useOutlineStore.getState().activeNodeId).toBe(newId);
+    const id = present(newId, "minted node");
+    expect(useOutlineStore.getState().activeNodeId).toBe(id);
     expect(useOutlineStore.getState().wireNodes.length).toBe(before + 1);
 
     // Focus elsewhere → silent prune.
@@ -212,7 +212,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
 
     const s = useOutlineStore.getState();
     expect(s.wireNodes.length).toBe(before);
-    expect(s.nodes.has(newId!)).toBe(false);
+    expect(s.nodes.has(id)).toBe(false);
     expect(s.activeNodeId).toBe("n.root-b");
   });
 });

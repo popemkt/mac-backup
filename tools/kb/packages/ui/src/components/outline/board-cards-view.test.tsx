@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/fixtures/graph";
 import { queryResultInstanceKey } from "@/lib/instance-key";
@@ -110,7 +111,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
   });
 
   it("zoomed-header shows compact toolbar when mode ≠ list (no gear on list)", () => {
-    const frame = useOutlineStore.getState().nodes.get("frame1")!;
+    const frame = present(useOutlineStore.getState().nodes.get("frame1"), "frame1");
     expect(getViewConfig(frame.props).mode).toBe("board");
     const html = renderToStaticMarkup(createElement(ZoomedRootHeader, { node: frame }));
     expect(html).toContain('data-view-toolbar="true"');
@@ -215,16 +216,17 @@ describe("W7.1 BoardCardsView + toolbar", () => {
         : n,
     );
     useOutlineStore.getState().hydrateFromWire(multi, 3, "fixtures");
-    const before = [...useOutlineStore.getState().nodes.get("frame1")!.children];
+    const before = [...present(useOutlineStore.getState().nodes.get("frame1"), "frame1").children];
     await mutations.moveBoardCard(
       "c1",
       "f_status",
       { t: "str", v: "doing" },
       { t: "str", v: "done" },
     );
-    const c1 = useOutlineStore.getState().nodes.get("c1")!;
+    const after = useOutlineStore.getState().nodes;
+    const c1 = present(after.get("c1"), "c1");
     expect(c1.props.f_status).toEqual([{ t: "str", v: "done" }]);
-    expect(useOutlineStore.getState().nodes.get("frame1")!.children).toEqual(before);
+    expect(present(after.get("frame1"), "frame1").children).toEqual(before);
   });
 
   it("query-source board uses ref:query instance keys", () => {
@@ -254,8 +256,8 @@ describe("W7.1 BoardCardsView + toolbar", () => {
 
   it("collectVisibleInstances board column order matches flattenBoardOrder", () => {
     const nodes = useOutlineStore.getState().nodes;
-    const frame = nodes.get("frame1")!;
-    const kids = frame.children.map((id) => nodes.get(id)!).filter(Boolean);
+    const frame = present(nodes.get("frame1"), "frame1");
+    const kids = frame.children.map((id) => present(nodes.get(id), id));
     const cols = groupChildrenForBoard(kids, "f_status", nodes);
     const expected = flattenBoardOrder(cols).map((n) => n.id);
     useOutlineStore.getState().zoomTo("frame1");
@@ -275,9 +277,9 @@ describe("W7.1 BoardCardsView + toolbar", () => {
 
   it("list/table filter smoke: text + eq filters apply", () => {
     const nodes = useOutlineStore.getState().nodes;
-    const kids = ["c1", "c2", "c3"].map((id) => nodes.get(id)!);
-    const textF = parseViewFilterEdn('{:text "Alph"}')!;
-    const eqF = parseViewFilterEdn('{:field f_status :eq "done"}')!;
+    const kids = ["c1", "c2", "c3"].map((id) => present(nodes.get(id), id));
+    const textF = present(parseViewFilterEdn('{:text "Alph"}'), "text filter");
+    const eqF = present(parseViewFilterEdn('{:field f_status :eq "done"}'), "eq filter");
     expect(applyViewFilters(kids, [textF], nodes).map((n) => n.id)).toEqual(["c1"]);
     expect(applyViewFilters(kids, [eqF], nodes).map((n) => n.id)).toEqual(["c2"]);
     const cfg = getViewConfig({

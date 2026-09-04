@@ -3,6 +3,7 @@
  * semantics (D05, D07, D08, D09) plus undo inverse machinery (D19).
  */
 import { describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import {
   invertPlan,
   inversePlanActions,
@@ -28,6 +29,13 @@ function node(id: string, text: string, children: string[] = []): WireNode {
   };
 }
 
+function upsertOf(plan: { upserts: WireNode[] }, id: string): WireNode {
+  return present(
+    plan.upserts.find((n) => n.id === id),
+    `upsert ${id}`,
+  );
+}
+
 /** Tree: root → [a (expanded, kids [a1, a2] where a2 has kid a2k), b (leaf)] */
 function fixture(): WireNode[] {
   return [
@@ -46,11 +54,11 @@ describe("planSplit (D07)", () => {
     const expandedIds = new Set(["root", "a"]);
     const plan = planSplit(nodes, "a", 5, "new", { expandedIds });
 
-    const a = plan.upserts.find((n) => n.id === "a")!;
+    const a = upsertOf(plan, "a");
     expect(a.text).toBe("Alpha");
     expect(a.children).toEqual(["new", "a1", "a2"]);
 
-    const created = plan.upserts.find((n) => n.id === "new")!;
+    const created = upsertOf(plan, "new");
     expect(created.text).toBe("");
     expect(plan.focusId).toBe("new");
     expect(plan.focusCursor).toBe(0);
@@ -64,10 +72,10 @@ describe("planSplit (D07)", () => {
     const nodes = fixture();
     const expandedIds = new Set(["root", "a"]);
     const plan = planSplit(nodes, "a", 2, "new", { expandedIds });
-    const a = plan.upserts.find((n) => n.id === "a")!;
+    const a = upsertOf(plan, "a");
     expect(a.text).toBe("Al");
     expect(a.children[0]).toBe("new");
-    const created = plan.upserts.find((n) => n.id === "new")!;
+    const created = upsertOf(plan, "new");
     expect(created.text).toBe("pha");
   });
 
@@ -76,16 +84,16 @@ describe("planSplit (D07)", () => {
     // "a" has children but is NOT in the expanded set.
     const expandedIds = new Set<string>(["root"]);
     const plan = planSplit(nodes, "a", 5, "new", { expandedIds });
-    const root = plan.upserts.find((n) => n.id === "root")!;
+    const root = upsertOf(plan, "root");
     expect(root.children).toEqual(["a", "new", "b"]);
-    const a = plan.upserts.find((n) => n.id === "a")!;
+    const a = upsertOf(plan, "a");
     expect(a.children).toEqual(["a1", "a2"]);
   });
 
   it("splitting a leaf inserts a sibling after it (legacy path)", () => {
     const nodes = fixture();
     const plan = planSplit(nodes, "b", 1, "new", { expandedIds: new Set() });
-    const root = plan.upserts.find((n) => n.id === "root")!;
+    const root = upsertOf(plan, "root");
     expect(root.children).toEqual(["a", "b", "new"]);
   });
 });
@@ -93,19 +101,17 @@ describe("planSplit (D07)", () => {
 describe("planIndent / collapse safety (D05)", () => {
   it("reparents under the previous sibling and reports the reveal target", () => {
     const nodes = fixture();
-    const plan = planIndent(nodes, "b");
-    expect(plan).not.toBeNull();
-    const prev = plan!.upserts.find((n) => n.id === "a")!;
+    const plan = present(planIndent(nodes, "b"), "indent b");
+    const prev = upsertOf(plan, "a");
     expect(prev.children).toEqual(["a1", "a2", "b"]);
-    const root = plan!.upserts.find((n) => n.id === "root")!;
+    const root = upsertOf(plan, "root");
     expect(root.children).toEqual(["a"]);
   });
 
   it("indenting a forest root uses forest order", () => {
     const roots: WireNode[] = [node("r1", "one"), node("r2", "two")];
-    const plan = planIndent(roots, "r2");
-    expect(plan).not.toBeNull();
-    expect(plan!.upserts.find((n) => n.id === "r1")!.children).toEqual(["r2"]);
+    const plan = present(planIndent(roots, "r2"), "indent r2");
+    expect(upsertOf(plan, "r1").children).toEqual(["r2"]);
   });
 });
 
@@ -121,30 +127,28 @@ describe("planMergeWithPrevious / planMergeInto (D08, D09)", () => {
   });
 
   it("merges into the array-level previous sibling by default", () => {
-    const plan = planMergeWithPrevious(fixture(), "b");
-    expect(plan).not.toBeNull();
-    expect(plan!.focusId).toBe("a");
-    expect(plan!.focusCursor).toBe("Alpha".length);
-    const a = plan!.upserts.find((n) => n.id === "a")!;
+    const plan = present(planMergeWithPrevious(fixture(), "b"), "merge b");
+    expect(plan.focusId).toBe("a");
+    expect(plan.focusCursor).toBe("Alpha".length);
+    const a = upsertOf(plan, "a");
     expect(a.text).toBe("AlphaBeta");
-    expect(plan!.deletes).toEqual(["b"]);
+    expect(plan.deletes).toEqual(["b"]);
   });
 
   it("merging into an expanded sibling's deepest last descendant (D09)", () => {
     // Visual predecessor of b is a2k (a expanded: a→a1→a2→a2k).
-    const plan = planMergeInto(fixture(), "b", "a2k");
-    expect(plan).not.toBeNull();
-    const target = plan!.upserts.find((n) => n.id === "a2k")!;
+    const plan = present(planMergeInto(fixture(), "b", "a2k"), "merge b into a2k");
+    const target = upsertOf(plan, "a2k");
     expect(target.text).toBe("A-two-kidBeta");
     // b removed from root; cross-parent structure handled.
-    const root = plan!.upserts.find((n) => n.id === "root")!;
+    const root = upsertOf(plan, "root");
     expect(root.children).toEqual(["a"]);
-    expect(plan!.focusCursor).toBe("A-two-kid".length);
+    expect(plan.focusCursor).toBe("A-two-kid".length);
   });
 
   it("merging adopts the source's children at the tail", () => {
-    const plan = planMergeInto(fixture(), "a2", "a1");
-    const a1 = plan!.upserts.find((n) => n.id === "a1")!;
+    const plan = present(planMergeInto(fixture(), "a2", "a1"), "merge a2 into a1");
+    const a1 = upsertOf(plan, "a1");
     expect(a1.children).toEqual(["a2k"]);
     expect(a1.text).toBe("A-oneA-two");
   });
@@ -180,7 +184,7 @@ describe("invertPlan (D19)", () => {
     const inv = invertPlan(nodes, plan);
     expect(inv.deletes).toEqual(["minted"]);
     expect(inv.upserts.map((u) => u.id)).toContain("root");
-    expect(inv.upserts.find((u) => u.id === "root")!.children).toEqual(["a", "b"]);
+    expect(upsertOf(inv, "root").children).toEqual(["a", "b"]);
   });
 
   it("inverts a text edit to the prior payload", () => {
@@ -191,7 +195,7 @@ describe("invertPlan (D19)", () => {
       actions: [],
     };
     const inv = invertPlan(nodes, plan);
-    expect(inv.upserts.find((u) => u.id === "b")!.text).toBe("Beta");
+    expect(upsertOf(inv, "b").text).toBe("Beta");
   });
 
   it("round-trips: apply plan then inverse restores original wire", () => {
@@ -204,8 +208,18 @@ describe("invertPlan (D19)", () => {
     const inv = invertPlan(nodes, plan);
     const restored = applyInvShim(applied, inv);
     expect(restored.map((n) => n.id).toSorted()).toEqual(nodes.map((n) => n.id).toSorted());
-    expect(restored.find((n) => n.id === "a")!.children).toEqual(["a1", "a2"]);
-    expect(restored.find((n) => n.id === "root")!.children).toEqual(["a", "b"]);
+    expect(
+      present(
+        restored.find((n) => n.id === "a"),
+        "restored a",
+      ).children,
+    ).toEqual(["a1", "a2"]);
+    expect(
+      present(
+        restored.find((n) => n.id === "root"),
+        "restored root",
+      ).children,
+    ).toEqual(["a", "b"]);
   });
 });
 
