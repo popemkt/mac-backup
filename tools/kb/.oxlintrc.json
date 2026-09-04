@@ -73,11 +73,16 @@
     "unicorn/no-new-array": "error",
     "unicorn/no-useless-spread": "error",
     "unicorn/no-useless-fallback-in-spread": "error",
-    "oxc/no-map-spread": "warn",
+    "oxc/no-map-spread": "off",
     "oxc/no-accumulating-spread": "error",
     "react/no-children-prop": "error",
     "react/no-array-index-key": "error",
-    "react/only-export-components": ["error", { "allowConstantExport": true }],
+    "react/only-export-components": [
+      "error",
+      {
+        "allowConstantExport": true
+      }
+    ],
     "react/no-did-update-set-state": "error",
     "promise/always-return": "error",
     "eslint/no-underscore-dangle": "off",
@@ -100,8 +105,14 @@
     "eslint/no-shadow": "error",
     "eslint/no-await-in-loop": "warn",
     "eslint/complexity": "error",
-    "eslint/max-depth": "warn",
-    "eslint/max-nested-callbacks": "warn",
+    "eslint/max-depth": [
+      "warn",
+      5
+    ],
+    "eslint/max-nested-callbacks": [
+      "warn",
+      4
+    ],
     "eslint/max-lines-per-function": [
       "warn",
       {
@@ -500,7 +511,9 @@
         "typescript/no-unsafe-type-assertion": "off",
         "typescript/consistent-type-assertions": "off",
         "typescript/no-extraneous-class": "off",
-        "react/no-children-prop": "off"
+        "react/no-children-prop": "off",
+        "eslint/max-lines-per-function": "off",
+        "eslint/max-nested-callbacks": "off"
       }
     },
     {

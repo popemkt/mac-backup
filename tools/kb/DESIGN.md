@@ -144,6 +144,12 @@ sets on purpose.
   `processEnv`, `globalRandom`), emitted by tsgo as `message` — count only
   under a package's `src/`.
 
+Rejected rules are recorded here with their measured count, like rejected
+compiler flags: `oxc/no-map-spread` (14 sites) — a micro-optimisation for
+`Array.prototype.map` callbacks that spread; kb's arrays are small, the
+rewrite (`Object.assign` or field-by-field copies) is less readable, and
+draiver keeps it at `warn` only because it never measured it.
+
 The reason is what the suggestion lane claims. `asyncFunction` says "model this
 control flow as an Effect"; that is a statement about how kb is written, and a
 `test("…", async () => …)` callback is a test-runner calling convention, not kb
@@ -226,10 +232,14 @@ test; a non-deterministic merge blocker erodes trust in every other gate.
   and non-negotiable.
 - **L2 — within-unit sensors, two tiers.** *Branching* sensors (`complexity`,
   `max-depth`, `max-nested-callbacks`) are hard, because they measure shape
-  directly. *Size* sensors (`max-lines`, `max-lines-per-function`,
-  `max-params`) only ever `warn`: a legitimately large cohesive unit is real,
-  and a length cap forces exactly the bad split a reviewer would have to
-  reverse. A long but flat body of well-named steps is good code.
+  directly; the caps are draiver's (`complexity` 20, `max-depth` 5,
+  `max-nested-callbacks` 4). *Size* sensors (`max-lines` 900,
+  `max-lines-per-function` 120, `max-params` 5) only ever `warn`: a
+  legitimately large cohesive unit is real, and a length cap forces exactly
+  the bad split a reviewer would have to reverse. A long but flat body of
+  well-named steps is good code. Function-length and callback-nesting are
+  measured over `src` only: a `describe`/`test`/`fc.property` body is the
+  runner's structure, not a unit kb wrote.
 - **L3 — cohesion, advisory.** "Is this one responsibility?" is a review
   judgement, never a merge blocker.
 
