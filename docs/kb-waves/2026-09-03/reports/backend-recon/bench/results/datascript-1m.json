@@ -1,0 +1,105 @@
+{
+  "candidate": "datascript",
+  "scale": "1m",
+  "versions": {
+    "bun": "1.3.14",
+    "datascript": "1.8.1"
+  },
+  "nodes": 117866,
+  "datoms": 1000004,
+  "coldLoadMs": {
+    "read": 28.3,
+    "jsonParse": 111.3,
+    "nodesToDatoms": 208.4,
+    "initDb": 1243,
+    "nodeMap": 27.6,
+    "total": 1618.6
+  },
+  "rssDeltaMB": 823.9,
+  "heapDeltaMB": 319.9,
+  "queries": [
+    {
+      "label": "Q1 all todos",
+      "rows": 52162,
+      "p50": 260.234,
+      "p90": 458.54,
+      "min": 183.236,
+      "runs": 20
+    },
+    {
+      "label": "Q2 todos status=doing",
+      "rows": 8725,
+      "p50": 162.799,
+      "p90": 351.329,
+      "min": 89.655,
+      "runs": 20
+    },
+    {
+      "label": "Q3 backlinks to hub",
+      "rows": 500,
+      "p50": 13.331,
+      "p90": 16.124,
+      "min": 10.429,
+      "runs": 20
+    },
+    {
+      "label": "Q4 tag inheritance",
+      "rows": 65391,
+      "p50": 385.733,
+      "p90": 570.232,
+      "min": 256.854,
+      "runs": 20
+    },
+    {
+      "label": "Q5 children of parent",
+      "rows": 36,
+      "p50": 15.798,
+      "p90": 25.89,
+      "min": 11.384,
+      "runs": 20
+    },
+    {
+      "label": "Q6 count per status",
+      "rows": 8,
+      "p50": 199.177,
+      "p90": 300.051,
+      "min": 170.307,
+      "runs": 20
+    },
+    {
+      "label": "BL backlinks (=Q3)",
+      "rows": 500,
+      "p50": 10.998,
+      "p90": 14.056,
+      "min": 9.372,
+      "runs": 20
+    },
+    {
+      "label": "CL closure of mentions",
+      "rows": 2059,
+      "p50": 1570.459,
+      "p90": 2002.106,
+      "min": 1228.696,
+      "runs": 20
+    },
+    {
+      "label": "PULL subtree",
+      "rows": 36,
+      "p50": 0.186,
+      "p90": 0.604,
+      "min": 0.141,
+      "runs": 20
+    }
+  ],
+  "incrementalMs": {
+    "label": "incremental upsert",
+    "rows": 1,
+    "p50": 0.218,
+    "p90": 1.682,
+    "min": 0.082,
+    "runs": 20
+  },
+  "notes": [
+    "incremental upsert = one d.db_with with a retract+add pair on an existing string attr; a first-seen ref attr still forces a full rebuild (p1 2b)"
+  ]
+}
