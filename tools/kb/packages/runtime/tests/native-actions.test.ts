@@ -127,7 +127,7 @@ export default actions;
     const commits: StoreTx[] = [];
     const fakeStore: EffectStore = {
       path: join(root, ".kb", "nodes.jsonl"),
-      loadEffect: () => Effect.succeed(ctx.nodes),
+      loadEffect: Effect.succeed(ctx.nodes),
       commitEffect: (tx) =>
         Effect.sync(() => {
           commits.push(tx);

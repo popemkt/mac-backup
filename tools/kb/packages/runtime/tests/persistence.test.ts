@@ -45,7 +45,7 @@ describe("JsonlStore Effect persistence", () => {
     root = await tempRoot();
     const store = new JsonlStore(root);
     const nodes = await Effect.runPromise(
-      store.loadEffect().pipe(Effect.provide(bunFileSystemLayer)),
+      store.loadEffect.pipe(Effect.provide(bunFileSystemLayer)),
     );
     expect(nodes).toEqual([]);
   });
@@ -58,7 +58,7 @@ describe("JsonlStore Effect persistence", () => {
       store.commitEffect({ upserts: nodes, deletes: [] }).pipe(Effect.provide(bunFileSystemLayer)),
     );
     const loaded = await Effect.runPromise(
-      store.loadEffect().pipe(Effect.provide(bunFileSystemLayer)),
+      store.loadEffect.pipe(Effect.provide(bunFileSystemLayer)),
     );
     expect(loaded.map((n) => n.id)).toEqual(["n.a", "n.b"]);
   });
@@ -70,7 +70,7 @@ describe("JsonlStore Effect persistence", () => {
     await writeFile(store.path, "{not-json\n", "utf8");
 
     const caught = await Effect.runPromise(
-      store.loadEffect().pipe(
+      store.loadEffect.pipe(
         Effect.provide(bunFileSystemLayer),
         Effect.catch((e) => Effect.succeed(e)),
       ),
@@ -90,7 +90,7 @@ describe("JsonlStore Effect persistence", () => {
     await writeFile(store.path, `${JSON.stringify({ id: 1, text: "bad" })}\n`, "utf8");
 
     const caught = await Effect.runPromise(
-      store.loadEffect().pipe(
+      store.loadEffect.pipe(
         Effect.provide(bunFileSystemLayer),
         Effect.catch((e) => Effect.succeed(e)),
       ),
@@ -119,7 +119,7 @@ describe("JsonlStore Effect persistence", () => {
     await writeFile(store.path, `${JSON.stringify(withExtra)}\n`, "utf8");
 
     const loaded = await Effect.runPromise(
-      store.loadEffect().pipe(Effect.provide(bunFileSystemLayer)),
+      store.loadEffect.pipe(Effect.provide(bunFileSystemLayer)),
     );
     expect(loaded).toHaveLength(1);
     expect(present(loaded[0], "expected loaded[0]").id).toBe("n.extra");
@@ -143,7 +143,7 @@ describe("JsonlStore Effect persistence", () => {
     await writeFile(store.path, original, "utf8");
 
     const caught = await Effect.runPromise(
-      store.loadEffect().pipe(
+      store.loadEffect.pipe(
         Effect.provide(bunFileSystemLayer),
         Effect.catch((e) => Effect.succeed(e)),
       ),
@@ -262,11 +262,10 @@ describe("reload / persist via KbStore Layer substitution", () => {
     let loads = 0;
     const mock: EffectStore = {
       path: join(root, ".kb", "nodes.jsonl"),
-      loadEffect: () =>
-        Effect.sync(() => {
-          loads += 1;
-          return injected;
-        }),
+      loadEffect: Effect.sync(() => {
+        loads += 1;
+        return injected;
+      }),
       commitEffect: () => Effect.void,
     };
 
@@ -285,7 +284,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
     const commits: StoreTx[] = [];
     const mock: EffectStore = {
       path: ctx.effectStore.path,
-      loadEffect: () => Effect.succeed([]),
+      loadEffect: Effect.succeed([]),
       commitEffect: (tx) =>
         Effect.sync(() => {
           commits.push(tx);

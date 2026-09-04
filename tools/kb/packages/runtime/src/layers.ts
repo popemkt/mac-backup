@@ -40,7 +40,7 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   root: string,
 ): Effect.fn.Return<KbContext, DomainError, FileSystem> {
   const effectStore = new JsonlStore(root);
-  let nodes = yield* effectStore.loadEffect();
+  let nodes = yield* effectStore.loadEffect;
   const at = yield* currentIso;
   const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(nodes, at);
   const typed = migrateFieldTypeValues(seeded);

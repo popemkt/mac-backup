@@ -21,7 +21,9 @@ const StrPropValue = Schema.Struct({
 
 const NumPropValue = Schema.Struct({
   t: Schema.Literal("num"),
-  v: Schema.Number,
+  // A stored number must survive a JSONL round-trip: NaN and ±Infinity
+  // serialise to `null`, so a `num` prop means a finite number.
+  v: Schema.Finite,
 });
 
 const BoolPropValue = Schema.Struct({

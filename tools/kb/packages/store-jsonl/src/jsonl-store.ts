@@ -71,53 +71,32 @@ function decodeNodeLine(
  * line-numbered DomainError and returns no nodes — the file is never rewritten
  * by load (compatible with the pre-Schema loader, which threw mid-parse).
  *
- * Effect-native I/O: {@link loadEffect}/{@link commitEffect} (yield* FileSystem).
- * Promise {@link load}/{@link commit} are public adapters for tests/context.
+ * Effect-native I/O: {@link JsonlStore.loadEffect}/{@link JsonlStore.commitEffect}.
+ * The Bun FileSystem is provided here, not asked of callers.
+ * Promise `load`/`commit` are public adapters for tests/context.
  */
 export class JsonlStore implements Store, EffectStore {
   readonly path: string;
   readonly backupPath: string;
+  readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
 
   constructor(root: string) {
     this.path = join(root, ".kb", "nodes.jsonl");
     this.backupPath = `${this.path}.bak`;
+    this.loadEffect = loadNodes(this.path);
   }
 
-  loadEffect(): Effect.Effect<KbNode[], DomainError, FileSystem> {
-    const path = this.path;
-    return Effect.gen(function* () {
-      const fs = yield* FileSystem;
-      const exists = yield* fs.exists(path).pipe(Effect.mapError(mapFsError));
-      if (!exists) return [];
-
-      const body = yield* fs.readFileString(path).pipe(Effect.mapError(mapFsError));
-      if (body.trim().length === 0) return [];
-
-      // Accumulate only after every line validates — fail the whole load on the
-      // first bad line (no partial KbNode[] for callers; no file mutation here).
-      const nodes: KbNode[] = [];
-      const lines = body.split("\n");
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (line === undefined) continue;
-        if (line.trim().length === 0) continue;
-        nodes.push(yield* decodeNodeLine(line, path, i + 1));
-      }
-      return nodes;
-    });
-  }
-
-  commitEffect(tx: StoreTx): Effect.Effect<void, DomainError, FileSystem> {
+  commitEffect(tx: StoreTx): Effect.Effect<void, DomainError> {
     const path = this.path;
     const backupPath = this.backupPath;
-    const loadEffect = this.loadEffect.bind(this);
+    const loadEffect = this.loadEffect;
     return Effect.scoped(
       Effect.gen(function* () {
         yield* Effect.acquireRelease(acquireNodesWriteLockEffect(path), (lockPath) =>
           Effect.sync(() => releaseNodesWriteLock(lockPath)),
         );
 
-        const existing = yield* loadEffect();
+        const existing = yield* loadEffect;
         const byId = new Map(existing.map((n) => [n.id, n]));
         for (const id of tx.deletes) byId.delete(id);
         for (const node of tx.upserts) byId.set(node.id, node);
@@ -133,24 +112,47 @@ export class JsonlStore implements Store, EffectStore {
           catch: (err) => ensureDomainError(err),
         });
       }),
-    );
+    ).pipe(Effect.provide(bunFileSystemLayer));
   }
 
   load(): Promise<KbNode[]> {
-    return Effect.runPromise(this.loadEffect().pipe(Effect.provide(bunFileSystemLayer)));
+    return Effect.runPromise(this.loadEffect);
   }
 
   commit(tx: StoreTx): Promise<void> {
-    return Effect.runPromise(this.commitEffect(tx).pipe(Effect.provide(bunFileSystemLayer)));
+    return Effect.runPromise(this.commitEffect(tx));
   }
+}
+
+/** The store's own platform boundary: JSONL on the Bun filesystem. */
+function loadNodes(path: string): Effect.Effect<KbNode[], DomainError> {
+  return Effect.gen(function* () {
+    const fs = yield* FileSystem;
+    const exists = yield* fs.exists(path).pipe(Effect.mapError(mapFsError));
+    if (!exists) return [];
+
+    const body = yield* fs.readFileString(path).pipe(Effect.mapError(mapFsError));
+    if (body.trim().length === 0) return [];
+
+    // Accumulate only after every line validates — fail the whole load on the
+    // first bad line (no partial KbNode[] for callers; no file mutation here).
+    const nodes: KbNode[] = [];
+    const lines = body.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line === undefined) continue;
+      if (line.trim().length === 0) continue;
+      nodes.push(yield* decodeNodeLine(line, path, i + 1));
+    }
+    return nodes;
+  }).pipe(Effect.provide(bunFileSystemLayer));
 }
 
 /** Promise facade over any {@link EffectStore} (e.g. in-memory test doubles). */
 export function asPromiseStore(store: EffectStore): Store {
   return {
     path: store.path,
-    load: () => Effect.runPromise(store.loadEffect().pipe(Effect.provide(bunFileSystemLayer))),
-    commit: (tx) =>
-      Effect.runPromise(store.commitEffect(tx).pipe(Effect.provide(bunFileSystemLayer))),
+    load: () => Effect.runPromise(store.loadEffect),
+    commit: (tx) => Effect.runPromise(store.commitEffect(tx)),
   };
 }
