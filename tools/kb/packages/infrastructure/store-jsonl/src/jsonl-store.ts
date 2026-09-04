@@ -24,57 +24,43 @@ function mapFsError(err: unknown): DomainError {
   return domainError("internal", message);
 }
 
-function decodeNodeLine(
-  line: string,
-  path: string,
-  lineNo: number,
-): Effect.Effect<KbNode, DomainError> {
-  return Effect.gen(function* () {
-    const raw = yield* Effect.try({
-      try: () => JSON.parse(line) as unknown,
-      catch: (err) =>
-        domainError(
-          "invalid_input",
-          `malformed JSONL at ${path}:${lineNo}: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-          { path, lineNo },
-        ),
-    });
-    // Preserve unknown own keys (prior JSON.parse cast kept them). Strip would
-    // silently drop data on the next commit rewrite.
-    const node = yield* Schema.decodeUnknownEffect(
-      KbNodeSchema,
-      nodeParseOptions,
-    )(raw).pipe(
-      Effect.mapError((err) =>
-        domainError("invalid_input", `invalid node at ${path}:${lineNo}: ${err.message}`, {
+const decodeKbNode = Schema.decodeUnknownSync(KbNodeSchema, nodeParseOptions);
+
+/** Decode a complete JSONL document without performing filesystem I/O. */
+export const decodeNodes = Effect.fn("decodeNodes")(function* (body: string, path: string) {
+  let lineNo = 0;
+
+  return yield* Effect.try({
+    try: () => {
+      // Accumulate only after every line validates — fail the whole load on the
+      // first bad line (no partial KbNode[] for callers; no file mutation here).
+      const nodes: KbNode[] = [];
+      const lines = body.split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line === undefined || line.trim().length === 0) continue;
+        lineNo = i + 1;
+        const raw = JSON.parse(line) as unknown;
+        nodes.push(decodeKbNode(raw));
+      }
+      return nodes;
+    },
+    catch: (err) => {
+      if (Schema.isSchemaError(err)) {
+        return domainError("invalid_input", `invalid node at ${path}:${lineNo}: ${err.message}`, {
           path,
           lineNo,
           issue: err.issue,
-        }),
-      ),
-    );
-    return node;
+        });
+      }
+      return domainError(
+        "invalid_input",
+        `malformed JSONL at ${path}:${lineNo}: ${err instanceof Error ? err.message : String(err)}`,
+        { path, lineNo },
+      );
+    },
   });
-}
-
-/** Decode a complete JSONL document without performing filesystem I/O. */
-export function decodeNodes(body: string, path: string): Effect.Effect<KbNode[], DomainError> {
-  return Effect.gen(function* () {
-    // Accumulate only after every line validates — fail the whole load on the
-    // first bad line (no partial KbNode[] for callers; no file mutation here).
-    const nodes: KbNode[] = [];
-    const lines = body.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (line === undefined) continue;
-      if (line.trim().length === 0) continue;
-      nodes.push(yield* decodeNodeLine(line, path, i + 1));
-    }
-    return nodes;
-  });
-}
+});
 
 /**
  * JSONL backend: `<root>/.kb/nodes.jsonl`

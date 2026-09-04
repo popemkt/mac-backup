@@ -45,9 +45,10 @@ const nodeArb = fc
       fc.array(propValueArb, { minLength: 0, maxLength: 3 }),
     ),
     children: fc.array(fc.string({ minLength: 1, maxLength: 8 }), { maxLength: 4 }),
+    order: fc.option(fc.string(), { nil: undefined }),
     extra: fc.option(fc.string(), { nil: undefined }),
   })
-  .map(({ id, text, props, children, extra }) => {
+  .map(({ id, text, props, children, order, extra }) => {
     const node: KbNode & { legacyField?: string } = {
       id,
       text,
@@ -56,6 +57,7 @@ const nodeArb = fc
       createdAt: AT,
       updatedAt: AT,
     };
+    if (order !== undefined) node.order = order;
     if (extra !== undefined) node.legacyField = extra;
     return node;
   });
