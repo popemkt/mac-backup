@@ -66,8 +66,6 @@ interface OutlineState {
    * is not editor state: ordinary store writes cannot make a host move.
    */
   pendingCaret: CaretIntent | null;
-  /** @deprecated Canvas compatibility only; text hosts must not read this. */
-  cursorPosition: number;
   loadSource: "api" | "fixtures" | null;
   loadError: string | null;
   /**
@@ -349,7 +347,6 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     selectedNodeId: null,
     selectedInstanceKey: null,
     pendingCaret: null,
-    cursorPosition: 0,
     loadSource: null,
     loadError: null,
     ontologyId: null,
@@ -594,10 +591,6 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
         selectedNodeId: id,
         selectedInstanceKey: key,
         pendingCaret: { instanceKey: key, at },
-        // Keep this projection for the canvas wave, which has not yet
-        // migrated to CaretIntent. It is deliberately not observed by any
-        // outline text host.
-        cursorPosition: cursorPos ?? 0,
         focusX: null,
       });
       if (typeof window !== "undefined") {

@@ -25,8 +25,6 @@ export interface NodeTextHostProps {
   content: string;
   isActive: boolean;
   tags: Parameters<typeof TagChipGroup>[0]["tags"];
-  /** @deprecated compatibility for the canvas editor; outline uses CaretIntent. */
-  cursorPosition?: number;
   /** Explicit local placement for non-outline hosts such as a page title. */
   initialCaret?: "end";
   textClassName?: string;

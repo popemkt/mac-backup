@@ -281,9 +281,46 @@ export function isEffectNativeAction(action: RegisteredAction): boolean {
   return typeof action.effect === "function";
 }
 
+/**
+ * An extension's `effect` handler may be authored outside kb, so its declared
+ * {@link ActionHandlerError} is a promise the module boundary cannot verify.
+ * This is the runtime half of that promise: a failure outside the vocabulary
+ * becomes an `internal` DomainError instead of escaping as a defect.
+ */
 function mapHandlerError(err: unknown): ActionSchemaError | DomainError {
   if (err instanceof ActionSchemaError) return err;
   return ensureDomainError(err);
+}
+
+/**
+ * The one place a parsed input meets a handler that declared its own input
+ * type. `(input: never)` is the standard encoding for "accepts whatever this
+ * action's `inputSchema` produces", and `parsed` is what that very schema just
+ * produced. A runtime check can confirm a contributed handler is a function
+ * (the extension SDK's `decodeContribution` does) but never its signature, so
+ * the two are joined here once rather than asserted at each call site.
+ */
+function asDeclaredInput(parsed: unknown): never {
+  return parsed as never;
+}
+
+/** Pair an action's handler with its parsed input; `null` when it has neither. */
+function dispatch(
+  entry: RegisteredAction,
+  ctx: KbContext,
+  parsed: unknown,
+): Effect.Effect<unknown, ActionSchemaError | DomainError, ActionHandlerEnv> | null {
+  const { effect, handler } = entry;
+  if (effect) {
+    return Effect.scoped(effect(asDeclaredInput(parsed))).pipe(Effect.mapError(mapHandlerError));
+  }
+  if (handler) {
+    return Effect.tryPromise({
+      try: () => handler(ctx, asDeclaredInput(parsed)),
+      catch: mapHandlerError,
+    });
+  }
+  return null;
 }
 
 /**
@@ -302,24 +339,10 @@ export const invokeEffect = Effect.fn("kb.invoke")(function* (
   if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
 
   const parsed = yield* parseActionInput(entry.def.inputSchema, input);
+  const run = dispatch(entry, ctx, parsed);
+  if (run === null) return failed(id, "internal", `action has no effect or handler: ${id}`);
 
-  if (entry.effect) {
-    const output = yield* Effect.scoped(entry.effect(parsed as never)).pipe(
-      Effect.mapError(mapHandlerError),
-    );
-    return succeeded(id, output);
-  }
-
-  const handler = entry.handler;
-  if (handler) {
-    const output = yield* Effect.tryPromise({
-      try: () => handler(ctx, parsed as never),
-      catch: mapHandlerError,
-    });
-    return succeeded(id, output);
-  }
-
-  return failed(id, "internal", `action has no effect or handler: ${id}`);
+  return succeeded(id, yield* run);
 });
 
 /**

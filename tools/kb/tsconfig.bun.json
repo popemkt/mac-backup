@@ -4,8 +4,12 @@
     "target": "ESNext",
     "module": "Preserve",
     "moduleResolution": "bundler",
-    "lib": ["ESNext"],
-    "types": ["bun"],
+    "lib": [
+      "ESNext"
+    ],
+    "types": [
+      "bun"
+    ],
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "plugins": [
@@ -23,7 +27,7 @@
           "outdatedApi": "error",
           "classSelfMismatch": "error",
           "duplicatePackage": "error",
-          "anyUnknownInErrorContext": "suggestion",
+          "anyUnknownInErrorContext": "error",
           "unsupportedServiceAccessors": "error",
           "tryCatchInEffectGen": "suggestion",
           "runEffectInsideEffect": "suggestion",
@@ -49,7 +53,35 @@
           "missedPipeableOpportunity": "off",
           "effectFnOpportunity": "off",
           "importFromBarrel": "off"
-        }
+        },
+        "overrides": [
+          {
+            "include": [
+              "packages/*/src/**/*"
+            ],
+            "exclude": [
+              "packages/harness/src/**/*"
+            ],
+            "options": {
+              "diagnosticSeverity": {
+                "asyncFunction": "error",
+                "globalConsole": "error",
+                "globalDate": "error",
+                "globalErrorInEffectCatch": "error",
+                "globalErrorInEffectFailure": "error",
+                "globalRandom": "error",
+                "globalTimers": "error",
+                "lazyEffect": "error",
+                "leakingRequirements": "error",
+                "processEnv": "error",
+                "runEffectInsideEffect": "error",
+                "schemaNumber": "error",
+                "scopeInLayerEffect": "error",
+                "tryCatchInEffectGen": "error"
+              }
+            }
+          }
+        ]
       }
     ]
   }

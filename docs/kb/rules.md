@@ -39,6 +39,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ## Gaps
 
+### GAP: 23 ui test files hand-copy the outline store reset literal
+
+- **expected** — One shared reset fixture — resetOutlineStore() in @kb/ui's test support — that every suite calls, so the store's shape is stated once.
+- **current** — 23 files under packages/ui/src (actions/*.test.ts, lib/*.test.ts, components/outline/*.test.tsx, graph-page.component.test.tsx, stores/outline.store.test.ts) each open with their own useOutlineStore.setState({...}) literal listing 10-12 OutlineState fields by hand.
+- **impact** — Any change to the store's shape fans out to 23 files: f2 §4 deleting one dead field required 23 one-line edits, and TypeScript's excess-property check makes them mandatory rather than optional. It also hides drift — the literals already differ in which fields they list.
+- **closes** — Extract the reset into one exported fixture and have every suite call it. Mechanical but wide; it is a packages/ui change and wants its own wave.
+- **node** — `01M1P63E3Y5KVHV3XMM6TBV2BM`
+
 ### GAP: 3d-force-graph constructor and nodeThreeObject typings force two assertions
 
 - **expected** — createForceGraph and nodeThreeObject are typed to kb's FgNode/FgLink and to a falsy-means-default Object3D accessor, with no assertions at the call sites.
@@ -195,9 +203,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: OutlineNode.cursorPosition is deprecated but is still the canvas editor's caret channel
 
 - **expected** — One caret mechanism for both hosts: the outline's CaretIntent, with the canvas card reading the same channel, and cursorPosition gone from the store.
-- **current** — cursorPosition is declared @deprecated on the store node, initialised in the store, written on activate, and read by canvas-card - two caret mechanisms for the same concept, with a deprecation marking one of them.
+- **current** — Closed in f2. cursorPosition turned out to be read by nothing: NodeTextHost declared the prop and never read it, so the canvas card was subscribing only to feed a dead prop. The field, its initial value, its activateNode write, the prop, and the 23 hand-copied test literals are gone; every host including the canvas takes its caret from pendingCaret.
 - **impact** — Exactly the parallel-mechanism shape Rule 1 forbids: a change to caret behaviour has to be made twice, and the deprecation says which one is wrong without removing it.
-- **closes** — Move the canvas card onto CaretIntent and delete cursorPosition from OutlineNode. Public store shape change, so it is an owner call, not a drain.
+- **closes** — Delete cursorPosition from OutlineState, its initial value, its activateNode write, and the unread NodeTextHost prop. TypeScript excess-property checks then require removing 'cursorPosition: 0,' from the hand-copied store-reset literal in 24 ui test files, which is the whole remaining cost - one line each. The reset duplication itself is the obstacle; a shared resetOutlineStore() helper would make this a three-line change.
 - **node** — `01M1MGT307N4K243CBPJTXNG5X`
 
 ### GAP: parsePerspective decodes a perspective node with 27 hand-written branches

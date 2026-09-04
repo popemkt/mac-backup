@@ -37,7 +37,6 @@ export function KbNodeCard({
   const activeInstanceKey = useOutlineStore((s) => s.activeInstanceKey);
   const activateNode = useOutlineStore((s) => s.activateNode);
   const selectNode = useOutlineStore((s) => s.selectNode);
-  const cursorPosition = useOutlineStore((s) => s.cursorPosition);
   const instanceKey = canvasCardInstanceKey(card.id, card.nodeId);
   const isActive = activeNodeId === card.nodeId && activeInstanceKey === instanceKey;
 
@@ -134,7 +133,6 @@ export function KbNodeCard({
             content={node.text}
             isActive={isActive}
             tags={node.tags}
-            cursorPosition={cursorPosition}
             onActivate={handleActivate}
             onChange={(text) => mutations.updateNodeContent(card.nodeId, text)}
             onKeyDown={handleKeyDown}

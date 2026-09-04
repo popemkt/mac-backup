@@ -3,8 +3,10 @@ import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import {
   FailureCodeSchema,
-  type FailureCode,
   type ActionSchema,
+  type ActionSchemaError,
+  type CodedError,
+  type FailureCode,
   schemaToJsonSchema,
 } from "@kb/model";
 import type { KbCtx, KbStore } from "./session.ts";
@@ -21,12 +23,28 @@ type ActionMode = z.infer<typeof ActionModeSchema>;
 export type ActionHandlerEnv = KbCtx | KbStore | FileSystem | TemplateRegistry;
 
 /**
+ * What an action handler may fail with. A closed vocabulary, not `unknown`:
+ * every surface turns a failure into an {@link ActionReceipt}, and a receipt
+ * needs a {@link FailureCode} — so a handler either fails with a schema
+ * failure or with an error that names its code. `DomainError` and a bundled
+ * extension's own error class both satisfy `CodedError`. Anything outside the
+ * vocabulary is a defect; the one place an untyped handler crosses into this
+ * channel is the extension module boundary, and `@kb/runtime`'s registry maps
+ * it there.
+ */
+export type ActionHandlerError = ActionSchemaError | CodedError;
+
+/**
  * Effect-native action handler. Input is already schema-parsed; the services
  * in {@link ActionHandlerEnv} come from Layers at the invoke tip.
+ *
+ * `input: never` is the standard encoding for "accepts whatever this action's
+ * `inputSchema` produces": a handler declaring a concrete input type is
+ * assignable, and the registry pairs the two at the one seam that knows both.
  */
 export type ActionEffectHandler = (
   input: never,
-) => Effect.Effect<unknown, unknown, ActionHandlerEnv>;
+) => Effect.Effect<unknown, ActionHandlerError, ActionHandlerEnv>;
 
 /**
  * Action contract. Schemas are Standard Schema v1–compatible (zod 4 satisfies

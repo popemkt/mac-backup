@@ -1,8 +1,8 @@
-import { Effect, Predicate } from "effect";
+import { Effect, Predicate, Result } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { isActionSchema } from "@kb/model";
+import { decodeContribution, isTemplateContribution } from "@kb/ext-sdk";
 import type {
   ExtensionAction,
   ExtensionFailure,
@@ -16,9 +16,9 @@ import type {
  * every contributed id as `ext.<file>.<id>` at build time. Loader failures
  * warn and skip the offending file/contribution; they never crash core.
  *
- * Schemas accept Standard Schema v1 (`~standard`) or zod `.parse` (zod 4
- * implements both). Third-party extensions typically ship Promise handlers;
- * bundled extensions use Effect-native `effect`.
+ * What a contribution must look like is @kb/ext-sdk's contract, decoded by
+ * `decodeContribution` — this file's job is discovery and the per-file error
+ * report, not a second copy of the shape.
  */
 function extensionsDir(root: string): string {
   return join(root, ".kb", "extensions");
@@ -29,46 +29,6 @@ export function namespacedId(extName: string, localId: string): string {
 }
 
 const NAME_RE = /^[\w][\w.-]*$/;
-
-function aliasesProblem(a: Record<string, unknown>, label: string): string | null {
-  if (
-    a.aliases !== undefined &&
-    (!Array.isArray(a.aliases) || a.aliases.some((x) => typeof x !== "string"))
-  ) {
-    return `${label}: aliases must be a string array`;
-  }
-  return null;
-}
-
-function templateProblem(t: Record<string, unknown>): string | null {
-  if (typeof t.id !== "string" || !NAME_RE.test(t.id)) {
-    return "template id must match /^[\\w][\\w.-]*$/";
-  }
-  return aliasesProblem(t, `template ${t.id}`);
-}
-
-function actionProblem(a: Record<string, unknown>): string | null {
-  if (typeof a.id !== "string" || !NAME_RE.test(a.id)) {
-    return "action id must match /^[\\w][\\w.-]*$/";
-  }
-  for (const key of ["title", "description"] as const) {
-    if (typeof a[key] !== "string") return `action ${a.id}: ${key} must be a string`;
-  }
-  if (a.mode !== "read" && a.mode !== "apply") {
-    return `action ${a.id}: mode must be "read" or "apply"`;
-  }
-  for (const key of ["inputSchema", "outputSchema"] as const) {
-    if (!isActionSchema(a[key])) {
-      return `action ${a.id}: ${key} must be a Standard Schema v1 or zod schema`;
-    }
-  }
-  const hasEffect = typeof a.effect === "function";
-  const hasHandler = typeof a.handler === "function";
-  if (!hasEffect && !hasHandler) {
-    return `action ${a.id}: effect or handler must be a function`;
-  }
-  return aliasesProblem(a, `action ${a.id}`);
-}
 
 /**
  * Discover and import `.kb/extensions/*.ts`. Per-file and per-contribution
@@ -121,29 +81,14 @@ export const discoverExtensions = Effect.fn("kb.discoverExtensions")(function* (
     const actions: ExtensionAction[] = [];
     const templates: ExtensionTemplate[] = [];
     for (const candidate of exported) {
-      if (!Predicate.isObject(candidate)) {
-        failures.push({ file, error: "contribution is not an object" });
+      const decoded = decodeContribution(candidate);
+      if (Result.isFailure(decoded)) {
+        failures.push({ file, error: decoded.failure });
         continue;
       }
-      const contribution = candidate;
-      // A contribution carrying a `template` function is a render template.
-      // The loader already discriminates structurally (`effect` vs
-      // `handler`); this is the same distinction one level up.
-      if (typeof contribution.template === "function") {
-        const problem = templateProblem(contribution);
-        if (problem !== null) {
-          failures.push({ file, error: problem });
-          continue;
-        }
-        templates.push(contribution as unknown as ExtensionTemplate);
-        continue;
-      }
-      const problem = actionProblem(contribution);
-      if (problem !== null) {
-        failures.push({ file, error: problem });
-        continue;
-      }
-      actions.push(contribution as unknown as ExtensionAction);
+      const contribution = decoded.success;
+      if (isTemplateContribution(contribution)) templates.push(contribution);
+      else actions.push(contribution);
     }
     if (actions.length > 0 || templates.length > 0) {
       extensions.push({ name, source: path, actions, templates });

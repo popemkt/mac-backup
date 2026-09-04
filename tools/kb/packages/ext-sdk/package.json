@@ -7,9 +7,12 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test"
   },
   "dependencies": {
+    "@kb/contracts": "workspace:*",
+    "@kb/model": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

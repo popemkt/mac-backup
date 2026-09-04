@@ -2,7 +2,10 @@
  * Generate the embedded extension SDK ambient declaration text from
  * `packages/ext-sdk/src/surface.ts` via `tsc --emitDeclarationOnly`.
  *
- * Run: `bun tools/kb/packages/ext-sdk/src/generate.ts`
+ * Build tooling, not part of the package surface: `src/` is the contract
+ * @kb/ext-sdk ships, and a generator that shells out to `tsc` is not that.
+ *
+ * Run: `bun tools/kb/packages/ext-sdk/scripts/generate.ts`
  * Writes: `packages/ext-sdk/src/sdk-dts.text.ts`
  */
 import { Effect, Schema } from "effect";
@@ -15,9 +18,10 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const KB_ROOT = join(SCRIPT_DIR, "..", "..", "..");
-const SURFACE = join(SCRIPT_DIR, "surface.ts");
-const OUT_MODULE = join(SCRIPT_DIR, "sdk-dts.text.ts");
+const PKG_ROOT = join(SCRIPT_DIR, "..");
+const KB_ROOT = join(PKG_ROOT, "..", "..");
+const SURFACE = join(PKG_ROOT, "src", "surface.ts");
+const OUT_MODULE = join(PKG_ROOT, "src", "sdk-dts.text.ts");
 const PKG = join(KB_ROOT, "package.json");
 
 export interface GenExtSdkResult {
@@ -79,7 +83,7 @@ export const generateExtSdkDts = Effect.fn("kb.generateExtSdkDts")(function* (
       "/**",
       ` * kb extension SDK — ambient types for .kb/extensions/*.ts`,
       ` * kb ${version}`,
-      " * Regenerate: bun tools/kb/packages/ext-sdk/src/generate.ts",
+      " * Regenerate: bun tools/kb/packages/ext-sdk/scripts/generate.ts",
       " * Emit to a repo: kb ext sdk --write",
       " *",
       " * Usage:",
@@ -116,7 +120,7 @@ export const writeExtSdkModule = Effect.fn("kb.writeExtSdkModule")(function* (
   const moduleSource = [
     "/**",
     " * GENERATED — do not edit by hand.",
-    " * Regenerate: bun tools/kb/packages/ext-sdk/src/generate.ts",
+    " * Regenerate: bun tools/kb/packages/ext-sdk/scripts/generate.ts",
     " */",
     `export const KB_SDK_VERSION = ${JSON.stringify(version)} as const;`,
     "export const KB_SDK_DTS: string = " + JSON.stringify(dts) + ";",

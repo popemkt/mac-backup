@@ -10,11 +10,14 @@ import {
   PACKAGES_ROOT,
   WORKSPACE_ROOT,
   axisValues,
+  effectPluginConfig,
   gitWorkspaceFiles,
   readTsconfig,
+  srcGlobsForScope,
   tagsOf,
   workspacePackages,
 } from "../src/workspace.ts";
+import { BASELINE_PATH, type BaselineLanes } from "../src/snapshot.ts";
 
 /**
  * Harness check 3: the tsconfig contract (spec 11 / plan D9 / wave g2b).
@@ -270,5 +273,74 @@ describe("tsconfig-presets", () => {
       }
     }
     expect(stale, stale.join("\n")).toEqual([]);
+  });
+});
+
+/**
+ * The Effect diagnostics have two lanes and a rule is in exactly one of them:
+ * counted by the ratchet at `suggestion`, or promoted to `error`. Promotion
+ * carries a file scope — the Effect-native preference group describes how kb's
+ * production code is written, so it is an error under a package's `src/` and a
+ * suggestion everywhere else — and that scope is stated once, in the plugin's
+ * `overrides`, next to the severities it changes.
+ *
+ * The `exclude` is not a second list: it must equal the `src/` glob of every
+ * `scope:tooling` package, computed from the tags those packages already
+ * carry. Tag a new package `scope:tooling` and this goes red until the glob
+ * follows.
+ *
+ * Red cases: promote a rule that is still in the ratchet ledger; relax a rule
+ * in the override instead of promoting it; add a second `overrides` entry;
+ * tag a package `scope:tooling` without extending the exclude.
+ */
+describe("effect-severity-lanes", () => {
+  const plugin = effectPluginConfig();
+  const [override] = plugin.overrides;
+
+  test("the preference lane has exactly one file scope, derived from the scope tags", () => {
+    expect(plugin.overrides.length, "the Effect file scope is stated once").toBe(1);
+    expect(override?.include).toEqual(["packages/*/src/**/*"]);
+    expect(
+      override?.exclude,
+      "exclude must be exactly the src/ of every scope:tooling package",
+    ).toEqual(srcGlobsForScope("tooling"));
+  });
+
+  test("an override only ever promotes a suggestion to an error", () => {
+    const bad: string[] = [];
+    for (const [rule, severity] of Object.entries(override?.options?.diagnosticSeverity ?? {})) {
+      if (severity !== "error") {
+        bad.push(`${rule}: override severity is '${severity}' (an override only promotes)`);
+      }
+      const base = plugin.diagnosticSeverity[rule];
+      if (base !== "suggestion") {
+        bad.push(`${rule}: base severity is '${String(base)}' (want 'suggestion')`);
+      }
+    }
+    expect(bad, bad.join("\n")).toEqual([]);
+  });
+
+  test("an effect rule is counted by the ratchet or promoted, never both", () => {
+    const ledger = JSON.parse(readFileSync(BASELINE_PATH, "utf8")) as BaselineLanes;
+    const counted = new Set(
+      Object.keys(ledger.lanes.blocking)
+        .filter((rule) => rule.startsWith("effect/"))
+        .map((rule) => rule.slice("effect/".length)),
+    );
+    const promoted = new Set(Object.keys(override?.options?.diagnosticSeverity ?? {}));
+
+    const bad: string[] = [];
+    for (const rule of promoted) {
+      if (counted.has(rule)) {
+        bad.push(`effect/${rule} is promoted to error and still in the ratchet ledger`);
+      }
+    }
+    for (const rule of counted) {
+      const base = plugin.diagnosticSeverity[rule];
+      if (base !== "suggestion") {
+        bad.push(`effect/${rule} is in the ratchet ledger but its severity is '${String(base)}'`);
+      }
+    }
+    expect(bad, bad.join("\n")).toEqual([]);
   });
 });

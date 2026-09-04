@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generateExtSdkDts, KB_SDK_DTS, KB_SDK_VERSION, writeSdkDts } from "@kb/ext-sdk";
+import { KB_SDK_DTS, KB_SDK_VERSION, writeSdkDts } from "@kb/ext-sdk";
 import { discoverExtensions } from "@kb/operations";
 import { openKb, invoke, registryFor, resetRegistryCache } from "@kb/runtime";
 import { main } from "../src/cli.ts";
@@ -40,15 +40,7 @@ async function runCli(args: string[]): Promise<{ code: number; out: string }> {
   }
 }
 
-describe("extension SDK freshness", () => {
-  test("committed KB_SDK_DTS matches regeneration from surface.ts", async () => {
-    const { dts, version } = await Effect.runPromise(
-      Effect.scoped(generateExtSdkDts()).pipe(Effect.provide(bunFileSystemLayer)),
-    );
-    expect(version).toBe(KB_SDK_VERSION);
-    expect(dts).toBe(KB_SDK_DTS);
-  });
-
+describe("extension SDK surface", () => {
   test("ActionMode + FailureCode from SDK match runtime contracts", () => {
     // Belt-and-braces: ambient module must declare the same string unions.
     expect(KB_SDK_DTS).toContain('"read" | "apply"');

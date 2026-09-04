@@ -10,7 +10,7 @@ export {
 export { present } from "./present.ts";
 export { exampleSeedNodes, isPristine } from "./example.ts";
 export { FailureCodeSchema } from "./failure.ts";
-export type { FailureCode } from "./failure.ts";
+export type { CodedError, FailureCode } from "./failure.ts";
 export {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,

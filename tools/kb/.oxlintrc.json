@@ -521,7 +521,7 @@
       "files": [
         "packages/runtime/src/output.ts",
         "packages/ui/src/lib/log.ts",
-        "packages/ext-sdk/src/generate.ts"
+        "packages/ext-sdk/scripts/generate.ts"
       ],
       "rules": {
         "eslint/no-console": "off"

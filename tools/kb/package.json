@@ -71,7 +71,7 @@
     "harness": "bun test packages/harness",
     "harness:snapshot": "bun packages/harness/src/snapshot.ts",
     "affected": "nx affected -t typecheck,test --base=main",
-    "gen:ext-sdk": "bun packages/ext-sdk/src/generate.ts",
+    "gen:ext-sdk": "bun packages/ext-sdk/scripts/generate.ts",
     "verify": "bun run typecheck && bun run lint && bun run fmt:check && bun run knip && bun run harness"
   },
   "devDependencies": {

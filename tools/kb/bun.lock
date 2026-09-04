@@ -96,6 +96,8 @@
       "name": "@kb/ext-sdk",
       "version": "0.0.0",
       "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
         "effect": "catalog:",
       },
       "devDependencies": {
@@ -147,6 +149,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/ext-sdk": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/query": "workspace:*",
         "effect": "catalog:",

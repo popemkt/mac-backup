@@ -16,7 +16,6 @@ describe("tag chip actions (plan layer)", () => {
       activeInstanceKey: null,
       selectedNodeId: null,
       selectedInstanceKey: null,
-      cursorPosition: 0,
       loadSource: null,
       loadError: null,
     });
