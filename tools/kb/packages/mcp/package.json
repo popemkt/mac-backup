@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@kb/contracts": "workspace:*",
+    "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",
     "@kb/runtime": "workspace:*",
     "@kb/store-jsonl": "workspace:*",

@@ -12,9 +12,9 @@ test("order-key migration is additive and preserves legacy root/child order", ()
   expect(migrated.changed).toBe(true);
   expect(migrated.nodes.map((node) => node.text)).toEqual(nodes.map((node) => node.text));
   const byId = new Map(migrated.nodes.map((node) => [node.id, node]));
-  expect(["z", "a"].sort((x, y) => byId.get(x)!.order!.localeCompare(byId.get(y)!.order!))).toEqual(
-    ["z", "a"],
-  );
+  expect(
+    ["z", "a"].toSorted((x, y) => byId.get(x)!.order!.localeCompare(byId.get(y)!.order!)),
+  ).toEqual(["z", "a"]);
   expect(migrateOrderKeys(migrated.nodes).changed).toBe(false);
 });
 

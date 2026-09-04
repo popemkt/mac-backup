@@ -63,11 +63,6 @@ export class UsageError extends Error {
   }
 }
 
-export function mapInit(): PlannedAction[] {
-  // init is openKb/seed — no registry action; empty plan signals side-effect only
-  return [];
-}
-
 export function mapAdd(opts: {
   text: string;
   parent?: string;
@@ -345,12 +340,7 @@ export function mapChildren(id: string): PlannedAction {
 }
 
 export function mapActionInvoke(raw: unknown): ActionInvocation {
-  if (
-    typeof raw !== "object" ||
-    raw === null ||
-    !("id" in raw) ||
-    typeof (raw as { id: unknown }).id !== "string"
-  ) {
+  if (typeof raw !== "object" || raw === null || !("id" in raw) || typeof raw.id !== "string") {
     throw new UsageError('action-invoke expects JSON object with string "id" and optional "input"');
   }
   const obj = raw as { id: string; input?: unknown };
@@ -360,19 +350,19 @@ export function mapActionInvoke(raw: unknown): ActionInvocation {
 /** Fields referenced by a planned apply that may need --create minting. */
 export function fieldsNeedingCreate(plan: PlannedAction): string[] {
   const input = plan.input as Record<string, unknown> | null;
-  if (!input || typeof input !== "object") return [];
+  if (input === null || typeof input !== "object") return [];
   const names: string[] = [];
   if (Array.isArray(input.props)) {
     for (const p of input.props) {
-      if (p && typeof p === "object" && "field" in p) {
-        names.push(String((p as { field: string }).field));
+      if (typeof p === "object" && p !== null && "field" in p) {
+        names.push((p as { field: string }).field);
       }
     }
   }
   if (Array.isArray(input.setProps)) {
     for (const p of input.setProps) {
-      if (p && typeof p === "object" && "field" in p) {
-        names.push(String((p as { field: string }).field));
+      if (typeof p === "object" && p !== null && "field" in p) {
+        names.push((p as { field: string }).field);
       }
     }
   }

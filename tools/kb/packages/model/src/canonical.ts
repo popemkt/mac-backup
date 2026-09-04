@@ -12,7 +12,7 @@ function sortKeys(value: unknown): unknown {
   // prototype instead of an own key, silently dropping that key's value.
   return Object.fromEntries(
     Object.keys(obj)
-      .sort()
+      .toSorted()
       .map((key) => [key, sortKeys(obj[key])]),
   );
 }

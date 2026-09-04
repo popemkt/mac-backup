@@ -12,7 +12,7 @@ export interface StandardSchemaV1Issue {
   readonly path?: ReadonlyArray<PropertyKey | { readonly key: PropertyKey }>;
 }
 
-export interface StandardSchemaV1Result<Output> {
+interface StandardSchemaV1Result<Output> {
   readonly value?: Output;
   readonly issues?: ReadonlyArray<StandardSchemaV1Issue>;
 }
@@ -28,7 +28,7 @@ export interface StandardSchemaV1Like<Input = unknown, Output = Input> {
   };
 }
 
-export interface ParsableSchema {
+interface ParsableSchema {
   readonly parse: (input: unknown) => unknown;
 }
 
@@ -45,7 +45,7 @@ export function isStandardSchemaV1(schema: unknown): schema is StandardSchemaV1L
   );
 }
 
-export function isParsableSchema(schema: unknown): schema is ParsableSchema {
+function isParsableSchema(schema: unknown): schema is ParsableSchema {
   return (
     typeof schema === "object" &&
     schema !== null &&

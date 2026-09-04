@@ -8,12 +8,10 @@ import { openKb, persist, reload } from "../src/session.ts";
 import { kbStoreLayer, KbStore } from "@kb/contracts";
 import { persistEffect, reloadEffect } from "@kb/operations";
 import { bunFileSystemLayer, JsonlStore } from "@kb/store-jsonl";
-import { DomainError, isDomainError } from "@kb/model";
+import { DomainError, isDomainError, SYSTEM_IDS, canonicalJson } from "@kb/model";
 import type { KbNode } from "@kb/model";
-import { SYSTEM_IDS } from "@kb/model";
 import { buildQueryDb } from "@kb/query";
 import { type EffectStore } from "@kb/contracts";
-import { canonicalJson } from "@kb/model";
 import type { StoreTx } from "@kb/model";
 
 async function tempRoot(): Promise<string> {

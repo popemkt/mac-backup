@@ -58,7 +58,7 @@ function invalidInput(message: string): HttpServerResponse.HttpServerResponse {
  * store reloads and hub broadcasts are all Effect programs. Content-Type
  * matches the pre-Effect surface (`Response.json` charset + bare text bodies).
  */
-export const handleHttpRequestEffect = (
+const handleHttpRequestEffect = (
   req: Request,
   deps: UiHttpDeps,
 ): Effect.Effect<HttpServerResponse.HttpServerResponse, never, ActionHandlerEnv> =>

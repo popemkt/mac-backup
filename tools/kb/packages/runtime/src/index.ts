@@ -1,5 +1,6 @@
 export { invoke } from "./invoke.ts";
 export { kbRuntimeLayer, openKbEffect } from "./layers.ts";
+export { writeErr, writeOut } from "./output.ts";
 export { invokeReceiptEffect, manifest, registryFor, resetRegistryCache } from "./registry.ts";
 export type { ActionHandlerEnv, ManifestEntry, RegisteredTemplate } from "./registry.ts";
 export { RootNotFoundError, resolveRootEffect } from "./root.ts";

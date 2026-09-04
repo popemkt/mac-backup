@@ -181,12 +181,6 @@ export const SYSTEM_IDS = {
 /** Pre-fix id — migrated away by ensureSystemSeed. */
 export const LEGACY_LENS_ALL_MENTIONS = "sys.lens.all-mentions";
 
-export type SystemId = (typeof SYSTEM_IDS)[keyof typeof SYSTEM_IDS];
-
-export function isSystemId(id: string): id is SystemId {
-  return (Object.values(SYSTEM_IDS) as string[]).includes(id);
-}
-
 /** Any reserved / seeded id under the `sys.` prefix (browse yes, break no). */
 export function isSysPrefixed(id: string): boolean {
   return id.startsWith("sys.");
@@ -200,7 +194,7 @@ export function nowIso(): string {
  * Milliseconds since epoch → the store's canonical ISO timestamp. Kept as the
  * single formatting point so the store's time shape is owned here.
  */
-export function isoFromMillis(ms: number): string {
+function isoFromMillis(ms: number): string {
   return new Date(ms).toISOString();
 }
 

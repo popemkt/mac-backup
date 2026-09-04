@@ -13,10 +13,15 @@
 import { Effect } from "effect";
 import { z } from "zod";
 import type { ActionDefinition, KbContext } from "@kb/contracts";
-import { domainError, type DomainError } from "@kb/model";
+import {
+  domainError,
+  type DomainError,
+  isOntologyNode,
+  resolveOntology,
+  type MemberReason,
+} from "@kb/model";
 import { KbCtx } from "@kb/contracts";
 import { query } from "@kb/query";
-import { isOntologyNode, resolveOntology, type MemberReason } from "@kb/model";
 
 const MemberReasonSchema = z.object({
   kind: z.enum(["member", "tag", "query", "extends", "closure"]),
@@ -71,11 +76,11 @@ export const ontologyMembersEffect = Effect.fn("ontology.members")(function* (
   const resolution = resolveOntology(ctx.nodes, input.id, {
     runQuery: ednRunner(ctx),
   });
-  const members = [...resolution.members].sort();
+  const members = [...resolution.members].toSorted();
   const out: z.infer<typeof ontologyMembersDef.outputSchema> = {
     id: input.id,
     members,
-    excluded: [...resolution.excluded].sort(),
+    excluded: [...resolution.excluded].toSorted(),
     warnings: resolution.warnings,
   };
   if (input.reasons === true) {

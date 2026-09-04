@@ -194,11 +194,11 @@ describe("order properties (fast-check)", () => {
             order: hasOrderFlags[i] ? String((counter += 100)).padStart(10, "0") : undefined,
           }));
           const before = nodes.map((node) => ({ id: node.id, order: node.order }));
-          const expectedOrder = [...before].sort(referenceRootCompare).map((n) => n.id);
+          const expectedOrder = [...before].toSorted(referenceRootCompare).map((n) => n.id);
 
           const { nodes: migrated } = migrateOrderKeys(nodes);
           const byId = new Map(migrated.map((node) => [node.id, node]));
-          const actualOrder = [...ids].sort((a, b) =>
+          const actualOrder = [...ids].toSorted((a, b) =>
             byId.get(a)!.order!.localeCompare(byId.get(b)!.order!),
           );
 

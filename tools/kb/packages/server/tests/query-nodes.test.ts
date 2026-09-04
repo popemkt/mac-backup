@@ -8,21 +8,13 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  SYSTEM_IDS,
-  type KbNode,
-  type PropValue,
-  ensureSystemSeed,
-  systemSeedNodes,
-} from "@kb/model";
+import { SYSTEM_IDS, type KbNode, ensureSystemSeed, systemSeedNodes } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { savedQueryNodes } from "../src/saved-queries.ts";
 import { startUi, type UiServerHandle } from "../src/server.ts";
 
 function refs(node: KbNode | WireNode, field: string): string[] {
-  return ((node.props[field] ?? []) as PropValue[])
-    .filter((v) => v.t === "ref")
-    .map((v) => String(v.v));
+  return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
 }
 
 describe("W4 seed: query tag + fields", () => {

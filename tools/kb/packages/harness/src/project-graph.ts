@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { WORKSPACE_ROOT } from "./workspace.ts";
 
-export interface GraphNode {
+interface GraphNode {
   name: string;
   type: string;
   data: { root: string; tags?: string[] };
@@ -42,9 +42,7 @@ export function projectGraph(): ProjectGraph {
       { cwd: WORKSPACE_ROOT, encoding: "utf8" },
     );
     if (result.status !== 0) {
-      throw new Error(
-        `nx graph failed (${result.status}):\n${result.stdout ?? ""}\n${result.stderr ?? ""}`,
-      );
+      throw new Error(`nx graph failed (${result.status}):\n${result.stdout}\n${result.stderr}`);
     }
     const parsed = JSON.parse(readFileSync(file, "utf8")) as ProjectGraph | { graph: ProjectGraph };
     cached = "graph" in parsed ? parsed.graph : parsed;

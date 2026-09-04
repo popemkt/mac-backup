@@ -28,7 +28,7 @@ function hasType(node: KbNode, typeId: NodeId): boolean {
  * Unique-text lookup among nodes typed as `sys.field` or `sys.tag`.
  * Accepts an id (sys.* or ULID) as a passthrough when it exists.
  */
-export function resolveNamed(nodes: KbNode[], nameOrId: string, kind: "field" | "tag"): NodeId {
+function resolveNamed(nodes: KbNode[], nameOrId: string, kind: "field" | "tag"): NodeId {
   const typeId = kind === "field" ? SYSTEM_IDS.field : SYSTEM_IDS.tag;
   // An explicit id always wins, typed or not: `hasType` and the old sys.*
   // special case both fell through to the same answer, so neither ever
@@ -47,44 +47,31 @@ export function resolveNamed(nodes: KbNode[], nameOrId: string, kind: "field" | 
       ids: matches.map((m) => m.id),
     });
   }
-  return matches[0]!.id;
+  const match = matches[0];
+  if (match === undefined) {
+    throw new ResolveError("not_found", `${kind} not found: ${nameOrId}`, { nameOrId, kind });
+  }
+  return match.id;
 }
 
+const FIELD_ID_ALIASES: Record<string, NodeId> = {
+  type: SYSTEM_IDS.typeField,
+  [SYSTEM_IDS.typeField]: SYSTEM_IDS.typeField,
+  fields: SYSTEM_IDS.fieldsField,
+  [SYSTEM_IDS.fieldsField]: SYSTEM_IDS.fieldsField,
+  hidden: SYSTEM_IDS.hiddenField,
+  [SYSTEM_IDS.hiddenField]: SYSTEM_IDS.hiddenField,
+  fieldType: SYSTEM_IDS.fieldTypeField,
+  [SYSTEM_IDS.fieldTypeField]: SYSTEM_IDS.fieldTypeField,
+  targetTag: SYSTEM_IDS.targetTagField,
+  [SYSTEM_IDS.targetTagField]: SYSTEM_IDS.targetTagField,
+  targetQuery: SYSTEM_IDS.targetQueryField,
+  [SYSTEM_IDS.targetQueryField]: SYSTEM_IDS.targetQueryField,
+};
+
 export function resolveFieldId(nodes: KbNode[], nameOrId: string): NodeId {
-  // system field ids resolve directly (short aliases + full sys.* ids)
-  if (
-    nameOrId === SYSTEM_IDS.typeField ||
-    nameOrId === SYSTEM_IDS.fieldsField ||
-    nameOrId === SYSTEM_IDS.hiddenField ||
-    nameOrId === SYSTEM_IDS.fieldTypeField ||
-    nameOrId === SYSTEM_IDS.targetTagField ||
-    nameOrId === SYSTEM_IDS.targetQueryField ||
-    nameOrId === "type" ||
-    nameOrId === "fields" ||
-    nameOrId === "hidden" ||
-    nameOrId === "fieldType" ||
-    nameOrId === "targetTag" ||
-    nameOrId === "targetQuery"
-  ) {
-    if (nameOrId === "type" || nameOrId === SYSTEM_IDS.typeField) {
-      return SYSTEM_IDS.typeField;
-    }
-    if (nameOrId === "fields" || nameOrId === SYSTEM_IDS.fieldsField) {
-      return SYSTEM_IDS.fieldsField;
-    }
-    if (nameOrId === "hidden" || nameOrId === SYSTEM_IDS.hiddenField) {
-      return SYSTEM_IDS.hiddenField;
-    }
-    if (nameOrId === "fieldType" || nameOrId === SYSTEM_IDS.fieldTypeField) {
-      return SYSTEM_IDS.fieldTypeField;
-    }
-    if (nameOrId === "targetTag" || nameOrId === SYSTEM_IDS.targetTagField) {
-      return SYSTEM_IDS.targetTagField;
-    }
-    if (nameOrId === "targetQuery" || nameOrId === SYSTEM_IDS.targetQueryField) {
-      return SYSTEM_IDS.targetQueryField;
-    }
-  }
+  const aliased = FIELD_ID_ALIASES[nameOrId];
+  if (aliased !== undefined) return aliased;
   return resolveNamed(nodes, nameOrId, "field");
 }
 

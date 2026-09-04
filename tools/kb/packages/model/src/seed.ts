@@ -214,7 +214,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     mk(id, text, {
       ...fieldType,
       [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
-      ...(targetTag ? { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: targetTag }] } : {}),
+      ...(targetTag !== undefined && targetTag !== ""
+        ? { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: targetTag }] }
+        : {}),
     });
   const ontoIncludeField = refField(SYSTEM_IDS.ontoIncludeField, "onto.include", SYSTEM_IDS.tag);
   const ontoMemberField = refField(SYSTEM_IDS.ontoMemberField, "onto.member");
@@ -370,8 +372,8 @@ export function ensureSystemSeed(
     if (!seedTag || !existingTag) continue;
     const want = seedTag.props[SYSTEM_IDS.fieldsField] ?? [];
     const have = existingTag.props[SYSTEM_IDS.fieldsField] ?? [];
-    const haveIds = new Set(have.filter((v) => v.t === "ref").map((v) => String(v.v)));
-    const missing = want.filter((v) => v.t === "ref" && !haveIds.has(String(v.v)));
+    const haveIds = new Set(have.filter((v) => v.t === "ref").map((v) => v.v));
+    const missing = want.filter((v) => v.t === "ref" && !haveIds.has(v.v));
     if (missing.length === 0) continue;
     byId.set(tagId, {
       ...existingTag,
@@ -397,10 +399,8 @@ export function ensureSystemSeed(
    */
   for (const seed of seedById.values()) {
     const existing = byId.get(seed.id);
-    if (!existing || existing === seed) continue;
-    const absent = Object.entries(seed.props ?? {}).filter(
-      ([field]) => !(field in (existing.props ?? {})),
-    );
+    if (existing === undefined || existing === seed) continue;
+    const absent = Object.entries(seed.props).filter(([field]) => !(field in existing.props));
     if (absent.length === 0) continue;
     byId.set(seed.id, {
       ...existing,

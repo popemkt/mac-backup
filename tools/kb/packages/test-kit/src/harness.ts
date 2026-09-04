@@ -12,6 +12,7 @@ import {
   systemSeedNodes,
   migrateOrderKeys,
   canonicalJson,
+  present,
 } from "@kb/model";
 import {
   mapAdd,
@@ -38,7 +39,7 @@ import type { KbContext } from "@kb/contracts";
  */
 
 /** Fixed epoch for the deterministic clock (never epoch-0; see model.ts note). */
-export const BASE_EPOCH = Date.parse("2026-01-01T00:00:00.000Z");
+const BASE_EPOCH = Date.parse("2026-01-01T00:00:00.000Z");
 
 /**
  * Dangling inbound refs decision (t2-dst).
@@ -66,10 +67,10 @@ export const DANGLING_REF_DECISION =
   "dangling structural children are a violation";
 
 /** One owner for "this id is infrastructure" — see foundation/model. */
-export const isSysNode = isSysPrefixed;
+const isSysNode = isSysPrefixed;
 
 /** The store's canonical nodes.jsonl file. */
-export function nodesPath(root: string): string {
+function nodesPath(root: string): string {
   return join(root, ".kb", "nodes.jsonl");
 }
 
@@ -78,7 +79,7 @@ export function nodesPath(root: string): string {
  * strictly increasing across the run. The harness installs it as the active
  * `Clock` service; replay with the same base/step reproduces the same stamps.
  */
-export function seededClock(base: number, stepMs: number): Clock.Clock {
+function seededClock(base: number, stepMs: number): Clock.Clock {
   let n = 0;
   const millis = () => base + n++ * stepMs;
   return {
@@ -93,7 +94,7 @@ export function seededClock(base: number, stepMs: number): Clock.Clock {
 }
 
 /** `nextDouble`-shaped rng backed by the seeded Effect Random service. */
-export interface Rng {
+interface Rng {
   nextDouble(): number;
   choice<T>(arr: readonly T[]): T;
 }
@@ -101,8 +102,13 @@ export interface Rng {
 function seededRng(rnd: { nextDoubleUnsafe(): number }): Rng {
   return {
     nextDouble: () => rnd.nextDoubleUnsafe(),
-    choice: (arr) =>
-      arr[Math.min(arr.length - 1, Math.floor(rnd.nextDoubleUnsafe() * arr.length))]!,
+    choice: (arr) => {
+      if (arr.length === 0) {
+        throw new Error("choice of empty array");
+      }
+      const index = Math.min(arr.length - 1, Math.floor(rnd.nextDoubleUnsafe() * arr.length));
+      return present(arr[index], "rng choice");
+    },
   };
 }
 
@@ -181,69 +187,88 @@ function word(rng: Rng): string {
  * reorder, delete of a random node) so the invariants are tested against real
  * edge cases, not a happy path.
  */
-export function nextAction(
-  rng: Rng,
-  _ctx: KbContext,
-  live: Livestate,
-  sequence: number,
-): PlannedAction {
+function planAdd(rng: Rng, live: Livestate, text: string): PlannedAction {
+  const parent =
+    rng.nextDouble() < 0.4 && live.rootIds.length > 0 ? rng.choice(live.rootIds) : undefined;
+  let body = text;
+  if (rng.nextDouble() < 0.2 && live.contentIds.length > 0) {
+    const target = rng.choice(live.contentIds);
+    body = `${text} [[${target}|ref]]`;
+  }
+  return mapAdd({
+    text: body,
+    parent,
+    tags: rng.nextDouble() < 0.3 ? [rng.choice(TAG_NAMES)] : undefined,
+  });
+}
+
+function planSet(rng: Rng, live: Livestate, text: string): PlannedAction {
+  if (live.contentIds.length === 0) return mapAdd({ text });
+  return mapSet({
+    id: rng.choice(live.contentIds),
+    field: live.fieldIds.length > 0 ? rng.choice(live.fieldIds) : "status",
+    value: word(rng),
+  });
+}
+
+function planUnset(rng: Rng, live: Livestate, text: string): PlannedAction {
+  if (live.contentIds.length === 0) return mapAdd({ text });
+  return mapUnset({
+    id: rng.choice(live.contentIds),
+    field: live.fieldIds.length > 0 ? rng.choice(live.fieldIds) : "status",
+  });
+}
+
+function planMove(rng: Rng, live: Livestate, text: string): PlannedAction {
+  if (live.childIds.length === 0) return mapAdd({ text });
+  return mapMv({
+    id: rng.choice(live.childIds),
+    parent: rng.choice(live.allIds),
+  });
+}
+
+function planReorder(rng: Rng, live: Livestate, text: string): PlannedAction {
+  if (live.rootIds.length === 0) return mapAdd({ text });
+  return mapMv({
+    id: rng.choice(live.rootIds),
+    parent: null,
+    position: Math.floor(rng.nextDouble() * 8),
+  });
+}
+
+function planDelete(rng: Rng, live: Livestate, text: string): PlannedAction {
+  if (live.contentIds.length === 0) return mapAdd({ text });
+  return mapRm({ id: rng.choice(live.contentIds) });
+}
+
+function cycleName(names: readonly string[], sequence: number): string {
+  const name = names[sequence % names.length];
+  if (name === undefined) {
+    throw new Error("DST name table is empty");
+  }
+  return name;
+}
+
+function nextAction(rng: Rng, _ctx: KbContext, live: Livestate, sequence: number): PlannedAction {
   const kind = rng.choice(OP_KINDS);
   const text = word(rng);
   switch (kind) {
-    case "add": {
-      const parent =
-        rng.nextDouble() < 0.4 && live.rootIds.length > 0 ? rng.choice(live.rootIds) : undefined;
-      // Occasionally embed a mention ref to a live content node, so a later
-      // delete of that node exercises the "inbound content ref dangles"
-      // intended-behaviour path.
-      let body = text;
-      if (rng.nextDouble() < 0.2 && live.contentIds.length > 0) {
-        const target = rng.choice(live.contentIds);
-        body = `${text} [[${target}|ref]]`;
-      }
-      return mapAdd({
-        text: body,
-        parent,
-        tags: rng.nextDouble() < 0.3 ? [rng.choice(TAG_NAMES)] : undefined,
-      });
-    }
+    case "add":
+      return planAdd(rng, live, text);
     case "set":
-      if (live.contentIds.length === 0) return mapAdd({ text });
-      return mapSet({
-        id: rng.choice(live.contentIds),
-        field: live.fieldIds.length > 0 ? rng.choice(live.fieldIds) : "status",
-        value: word(rng),
-      });
+      return planSet(rng, live, text);
     case "unset":
-      if (live.contentIds.length === 0) return mapAdd({ text });
-      return mapUnset({
-        id: rng.choice(live.contentIds),
-        field: live.fieldIds.length > 0 ? rng.choice(live.fieldIds) : "status",
-      });
+      return planUnset(rng, live, text);
     case "move":
-      if (live.childIds.length === 0) return mapAdd({ text });
-      return mapMv({
-        id: rng.choice(live.childIds),
-        parent: rng.choice(live.allIds),
-      });
+      return planMove(rng, live, text);
     case "reorder":
-      if (live.rootIds.length === 0) return mapAdd({ text });
-      return mapMv({
-        id: rng.choice(live.rootIds),
-        parent: null,
-        position: Math.floor(rng.nextDouble() * 8),
-      });
+      return planReorder(rng, live, text);
     case "delete":
-      if (live.contentIds.length === 0) return mapAdd({ text });
-      return mapRm({ id: rng.choice(live.contentIds) });
-    case "field": {
-      const name = FIELD_NAMES[sequence % FIELD_NAMES.length]!;
-      return mapFieldDefine({ name: `${name}.${sequence}` });
-    }
-    case "tag": {
-      const name = TAG_NAMES[sequence % TAG_NAMES.length]!;
-      return mapTagDefine({ name: `${name}.${sequence}` });
-    }
+      return planDelete(rng, live, text);
+    case "field":
+      return mapFieldDefine({ name: `${cycleName(FIELD_NAMES, sequence)}.${sequence}` });
+    case "tag":
+      return mapTagDefine({ name: `${cycleName(TAG_NAMES, sequence)}.${sequence}` });
   }
 }
 
@@ -251,14 +276,14 @@ export function nextAction(
 // Invariants — asserted continuously, must hold at every step
 // ---------------------------------------------------------------------------
 
-export interface StoreSnapshot {
+interface StoreSnapshot {
   root: string;
   json: string;
   nodes: KbNode[];
 }
 
 /** Read the store back off disk; the JSONL must parse into nodes (sync). */
-export function snapshotSync(root: string): StoreSnapshot {
+function snapshotSync(root: string): StoreSnapshot {
   const json = readFileSync(nodesPath(root), "utf8");
   if (json.trim().length === 0) return { root, json, nodes: [] };
   const nodes = JSON.parse(`[${json.trim().split("\n").join(",")}]`) as KbNode[];
@@ -267,7 +292,7 @@ export function snapshotSync(root: string): StoreSnapshot {
 
 /** Bring a parsed JSONL body back to canonical bytes; a real store round-trips. */
 export function canonicalJsonl(nodes: KbNode[]): string {
-  const sorted = [...nodes].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const sorted = [...nodes].toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return sorted.length === 0 ? "" : sorted.map((n) => canonicalJson(n)).join("\n") + "\n";
 }
 
@@ -279,34 +304,32 @@ export function canonicalJsonl(nodes: KbNode[]): string {
  * Per the dangling-ref decision, only *structural* edges are checked: content
  * refs (ref prop values / mentions to a deleted id) are intentionally allowed.
  */
-export function invariantViolations(nodes: KbNode[]): string[] {
+function missingChildErrors(nodes: KbNode[], byId: Map<string, KbNode>): string[] {
   const out: string[] = [];
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-
-  // 1. No node references a parent that does not exist (children resolve).
   for (const n of nodes) {
     for (const c of n.children) {
       if (!byId.has(c)) out.push(`node ${n.id} references missing child ${c}`);
     }
   }
+  return out;
+}
 
-  // 2. Single parent (every child referenced by exactly one parent).
-  const parentOf = new Map<string, string>();
+function multipleParentErrors(nodes: KbNode[]): string[] {
+  const out: string[] = [];
+  const parentOfNode = new Map<string, string>();
   for (const n of nodes) {
     for (const c of n.children) {
-      const prior = parentOf.get(c);
-      if (prior && prior !== n.id) out.push(`node ${c} has multiple parents (${prior}, ${n.id})`);
-      parentOf.set(c, n.id);
+      const prior = parentOfNode.get(c);
+      if (prior !== undefined && prior !== n.id)
+        out.push(`node ${c} has multiple parents (${prior}, ${n.id})`);
+      parentOfNode.set(c, n.id);
     }
   }
+  return out;
+}
 
-  // 3. Ordering total + strictly increasing within each sibling group and the
-  //    forest root set. `order` is a fractional rank the store materialises on
-  //    open via migrateOrderKeys (it never reorders the visible array). The
-  //    invariant the store guarantees: after migration each group's ranks are
-  //    unique and strictly increasing when sorted — a delete/reorder bug that
-  //    collides or inverts ranks is caught here. We do NOT assume array order;
-  //    only that the rank sequence is a strict total order.
+function orderingErrors(nodes: KbNode[]): string[] {
+  const out: string[] = [];
   const migrated = migrateOrderKeys(nodes).nodes;
   const migratedById = new Map(migrated.map((n) => [n.id, n]));
   const migratedChildrenSet = new Set(migrated.flatMap((n) => n.children));
@@ -319,43 +342,58 @@ export function invariantViolations(nodes: KbNode[]): string[] {
   ];
   for (const group of migratedGroups) {
     const members = group.ids.map((id) => migratedById.get(id));
-    if (members.some((m) => !m)) continue; // handled by invariant #1
-    const ranks = members.map((m) => m!.order);
-    if (ranks.some((r) => r === undefined)) continue; // legacy — optional
+    const defined = members.filter(
+      (m): m is NonNullable<(typeof members)[number]> => m !== undefined,
+    );
+    if (defined.length !== members.length) continue;
+    const ranks = defined.map((m) => m.order);
+    if (ranks.some((r) => r === undefined)) continue;
     const unique = new Set(ranks);
     if (unique.size !== ranks.length) {
       out.push(`ordering ranks collide at ${group.label}: ${ranks.join(", ")}`);
       continue;
     }
-    const sorted = [...ranks].sort();
+    const sorted = [...ranks].toSorted();
     for (let i = 1; i < sorted.length; i++) {
-      if (sorted[i - 1]! >= sorted[i]!) {
+      const prev = sorted[i - 1];
+      const cur = sorted[i];
+      if (prev === undefined || cur === undefined) continue;
+      if (prev >= cur) {
         out.push(`ordering not strictly increasing at ${group.label}: ${sorted.join(", ")}`);
         break;
       }
     }
   }
+  return out;
+}
 
-  // 4. txIntegrityError agrees the graph is legal (no orphan-on-delete, no cycle).
-  const txErr = txIntegrityError(nodes, { upserts: [], deletes: [] });
-  if (txErr) out.push(txErr);
-
-  // 5. sys.* write guards hold: the harness never sets `force`, so no new
-  //    sys.* node may appear and none may have been added by the sim.
+function mintedSysErrors(nodes: KbNode[]): string[] {
+  const out: string[] = [];
   const seedIds = new Set(systemSeedNodes().map((n) => n.id));
   for (const n of nodes) {
     if (isSysPrefixed(n.id) && !seedIds.has(n.id)) {
       out.push(`sys node ${n.id} was minted during simulation`);
     }
   }
-
   return out;
 }
 
+function invariantViolations(nodes: KbNode[]): string[] {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const txErr = txIntegrityError(nodes, { upserts: [], deletes: [] });
+  return [
+    ...missingChildErrors(nodes, byId),
+    ...multipleParentErrors(nodes),
+    ...orderingErrors(nodes),
+    ...(txErr !== null && txErr !== "" ? [txErr] : []),
+    ...mintedSysErrors(nodes),
+  ];
+}
+
 /** Re-running migrateOrderKeys must be a no-op (re-open won't reorder siblings). */
-export function orderingIdempotent(nodes: KbNode[]): boolean {
+function orderingIdempotent(nodes: KbNode[]): boolean {
   const first = migrateOrderKeys(nodes);
-  return migrateOrderKeys(first.nodes).changed === false;
+  return !migrateOrderKeys(first.nodes).changed;
 }
 
 /** Structural owners: map every child id → its (single) parent, or null for roots. */
@@ -406,7 +444,7 @@ export function contentDanglingRefs(nodes: KbNode[]): string[] {
     mentionRe.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = mentionRe.exec(n.text)) !== null) {
-      const target = m[1]!.trim();
+      const target = present(m[1], "mention id").trim();
       if (!byId.has(target)) out.push(`mention ${n.id} -> ${target}`);
     }
   }

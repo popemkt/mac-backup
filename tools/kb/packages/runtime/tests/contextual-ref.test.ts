@@ -15,21 +15,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openKb } from "../src/session.ts";
-import {
-  fieldTypeOf,
-  SYSTEM_IDS,
-  type KbNode,
-  type PropValue,
-  ensureSystemSeed,
-  systemSeedNodes,
-} from "@kb/model";
+import { fieldTypeOf, SYSTEM_IDS, type KbNode, ensureSystemSeed, systemSeedNodes } from "@kb/model";
 import { backlinksQuery, buildQueryDb, query } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
 
 function refs(node: KbNode, field: string): string[] {
-  return ((node.props[field] ?? []) as PropValue[])
-    .filter((v) => v.t === "ref")
-    .map((v) => String(v.v));
+  return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
 }
 
 const AT = "2026-01-01T00:00:00.000Z";

@@ -21,12 +21,11 @@
  * The `ex.` id prefix is deliberate: it makes every example node obvious in
  * `nodes.jsonl` and trivially greppable when clearing them out.
  */
+import { present } from "./present.ts";
 import { fieldTypeValue } from "./field-type.ts";
 import { SYSTEM_IDS, type KbNode, nowIso } from "./model.ts";
 import { ranksFor } from "./order.ts";
 import { systemSeedNodes } from "./seed.ts";
-
-export const EXAMPLE_ID_PREFIX = "ex.";
 
 export const EXAMPLE_IDS = {
   project: "ex.project",
@@ -62,7 +61,7 @@ export const EXAMPLE_IDS = {
 } as const;
 
 /** Nodes tagged #task, which the query node and the Work ontology both use. */
-export const EXAMPLE_OPEN_TASKS_EDN = `[:find ?id ?text
+const EXAMPLE_OPEN_TASKS_EDN = `[:find ?id ?text
  :where [?n :f/${SYSTEM_IDS.typeField} ?t]
         [?t :node/id "${EXAMPLE_IDS.taskTag}"]
         [?n :node/id ?id]
@@ -107,7 +106,9 @@ export function exampleSeedNodes(at: string = nowIso()): KbNode[] {
     mk(id, text, {
       ...typed(SYSTEM_IDS.field),
       [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue(type)],
-      ...(targetTag ? { [SYSTEM_IDS.targetTagField]: [{ t: "ref" as const, v: targetTag }] } : {}),
+      ...(targetTag !== undefined && targetTag !== ""
+        ? { [SYSTEM_IDS.targetTagField]: [{ t: "ref" as const, v: targetTag }] }
+        : {}),
     });
 
   const nodes: KbNode[] = [
@@ -215,7 +216,9 @@ export function exampleSeedNodes(at: string = nowIso()): KbNode[] {
   const childIds = new Set(nodes.flatMap((n) => n.children));
   const rootIds = nodes.filter((n) => !childIds.has(n.id)).map((n) => n.id);
   const ranks = ranksFor(rootIds);
-  return nodes.map((n) => (ranks.has(n.id) ? { ...n, order: ranks.get(n.id)! } : n));
+  return nodes.map((n) =>
+    ranks.has(n.id) ? Object.assign(n, { order: present(ranks.get(n.id), `rank for ${n.id}`) }) : n,
+  );
 }
 
 /**

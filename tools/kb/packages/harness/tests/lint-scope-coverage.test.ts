@@ -52,7 +52,7 @@ export function parseLintScopes(lintScript: string): string[] {
 export function allWorkspaceTsFiles(root: string = WORKSPACE_ROOT): string[] {
   const tracked = gitWorkspaceFiles(["*.ts", "*.tsx"], root);
   const untracked = gitWorkspaceFiles(["--others", "--exclude-standard", "*.ts", "*.tsx"], root);
-  return [...new Set([...tracked, ...untracked])].sort();
+  return [...new Set([...tracked, ...untracked])].toSorted();
 }
 
 describe("lint-scope-coverage", () => {

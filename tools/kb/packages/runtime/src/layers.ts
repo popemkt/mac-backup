@@ -1,24 +1,18 @@
 import { Effect, Layer } from "effect";
-import { type FileSystem } from "effect/FileSystem";
+import type { FileSystem } from "effect/FileSystem";
 import { currentIso, ensureSystemSeed, migrateFieldTypeValues, migrateOrderKeys } from "@kb/model";
-import { JsonlStore, asPromiseStore } from "@kb/store-jsonl";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { JsonlStore, asPromiseStore, bunFileSystemLayer } from "@kb/store-jsonl";
 import { buildQueryDb } from "@kb/query";
 import type { DomainError } from "@kb/model";
 import {
   type KbCtx,
-  KbStore,
+  type KbStore,
   kbCtxLayer,
   kbStoreLayer,
   type KbContext,
   TemplateRegistry,
 } from "@kb/contracts";
 import { registryFor } from "./registry.ts";
-
-/** Layer that constructs a JsonlStore for `root` (still needs FileSystem at use). */
-export function jsonlStoreLayer(root: string): Layer.Layer<KbStore> {
-  return Layer.succeed(KbStore, new JsonlStore(root));
-}
 
 /**
  * Full runtime for a root: Bun FileSystem + EffectStore + opened KbCtx +

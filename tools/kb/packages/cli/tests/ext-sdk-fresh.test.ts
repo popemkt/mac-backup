@@ -25,10 +25,10 @@ afterEach(async () => {
 async function runCli(args: string[]): Promise<{ code: number; out: string }> {
   const chunks: string[] = [];
   const original = process.stdout.write.bind(process.stdout);
-  process.stdout.write = ((chunk: unknown) => {
+  process.stdout.write = (chunk: unknown) => {
     chunks.push(String(chunk));
     return true;
-  }) as typeof process.stdout.write;
+  };
   try {
     const code = await main(["bun", "kb", ...args]);
     return { code, out: chunks.join("") };
@@ -45,7 +45,7 @@ describe("extension SDK freshness", () => {
     expect(dts).toBe(KB_SDK_DTS);
   });
 
-  test("ActionMode + FailureCode from SDK match runtime contracts", async () => {
+  test("ActionMode + FailureCode from SDK match runtime contracts", () => {
     // Belt-and-braces: ambient module must declare the same string unions.
     expect(KB_SDK_DTS).toContain('"read" | "apply"');
     expect(KB_SDK_DTS).toContain('"unknown_action"');

@@ -2,8 +2,8 @@ import type { Effect } from "effect";
 import { z } from "zod";
 import { type FailureCode, type ActionSchema, schemaToJsonSchema } from "@kb/model";
 
-export const ActionModeSchema = z.enum(["read", "apply"]);
-export type ActionMode = z.infer<typeof ActionModeSchema>;
+const ActionModeSchema = z.enum(["read", "apply"]);
+type ActionMode = z.infer<typeof ActionModeSchema>;
 
 /**
  * Effect-native action handler. Input is already schema-parsed; services

@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { type FileSystem } from "effect/FileSystem";
+import type { FileSystem } from "effect/FileSystem";
 import {
   type ActionDefinition,
   type ActionEffectHandler,
@@ -8,11 +8,14 @@ import {
   actionToManifestEntry,
   failed,
   succeeded,
-  KbCtx,
-  KbStore,
+  type KbCtx,
+  type KbStore,
   type KbContext,
-  TemplateRegistry,
+  type TemplateRegistry,
   type TemplateFn,
+  type ExtensionFailure,
+  type ExtensionPromiseHandler,
+  type LoadedExtension,
 } from "@kb/contracts";
 import { FailureCodeSchema } from "@kb/model";
 import { ResolveError } from "@kb/model";
@@ -21,6 +24,7 @@ import {
   parseActionInput,
   type ActionSchema,
   domainFromResolve,
+  ensureDomainError,
   isDomainError,
   receiptCodeOf,
   type DomainError,
@@ -53,12 +57,7 @@ import {
   renderViewsActionEffect,
   renderViewsDef,
 } from "@kb/operations";
-import type {
-  ExtensionAction,
-  ExtensionFailure,
-  ExtensionPromiseHandler,
-  LoadedExtension,
-} from "@kb/contracts";
+import { writeErr } from "./output.ts";
 import { docsActions, docsTemplates } from "@kb/ext-docs";
 import { canvasActions } from "@kb/ext-canvas";
 
@@ -92,7 +91,7 @@ export interface RegisteredTemplate {
   aliases: readonly string[];
 }
 
-export interface RegistryExtension {
+interface RegistryExtension {
   name: string;
   /** "bundled" or the source module path. */
   source: string;
@@ -229,7 +228,7 @@ async function buildRegistry(root: string | null): Promise<Registry> {
   }
 
   for (const failure of failures) {
-    console.error(`kb: extension ${failure.file}: ${failure.error} (skipped)`);
+    writeErr(`kb: extension ${failure.file}: ${failure.error} (skipped)`);
   }
 
   const manifestEntries: ManifestEntry[] = actions.flatMap((action) => [
@@ -271,10 +270,6 @@ export async function manifest(root?: string): Promise<readonly ManifestEntry[]>
   return (await registryFor(root ?? null)).manifestEntries;
 }
 
-export async function listDefinitions(root?: string): Promise<readonly ActionDefinition[]> {
-  return (await registryFor(root ?? null)).actions.map((a) => a.def);
-}
-
 /** True when the registered action dispatches through an Effect handler. */
 export function isEffectNativeAction(action: RegisteredAction): boolean {
   return typeof action.effect === "function";
@@ -300,12 +295,9 @@ const parseInputEffect = Effect.fn("kb.parseActionInput")(function* (
   });
 });
 
-function mapHandlerError(err: unknown): ActionSchemaError | DomainError | Error {
-  if (err instanceof ResolveError) return domainFromResolve(err);
-  if (isDomainError(err)) return err;
+function mapHandlerError(err: unknown): ActionSchemaError | DomainError {
   if (err instanceof ActionSchemaError) return err;
-  if (err instanceof Error) return err;
-  return new Error(String(err));
+  return ensureDomainError(err);
 }
 
 /**
@@ -316,12 +308,12 @@ function mapHandlerError(err: unknown): ActionSchemaError | DomainError | Error 
 export const invokeEffect = Effect.fn("kb.invoke")(function* (
   ctx: KbContext,
   invocation: ActionInvocation,
-): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError | Error, ActionHandlerEnv> {
+): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, ActionHandlerEnv> {
   const { id, input } = invocation;
   // Registry discovery still uses dynamic import (external boundary).
   const registry = yield* Effect.tryPromise({
     try: () => registryFor(ctx.root),
-    catch: (err) => (err instanceof Error ? err : new Error(String(err))),
+    catch: (err) => ensureDomainError(err),
   });
   const entry = registry.byId.get(id);
   if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
@@ -335,9 +327,10 @@ export const invokeEffect = Effect.fn("kb.invoke")(function* (
     return succeeded(id, output);
   }
 
-  if (entry.handler) {
+  const handler = entry.handler;
+  if (handler) {
     const output = yield* Effect.tryPromise({
-      try: () => entry.handler!(ctx, parsed as never),
+      try: () => handler(ctx, parsed as never),
       catch: mapHandlerError,
     });
     return succeeded(id, output);
@@ -389,7 +382,3 @@ export function receiptFromError(id: string, err: unknown): ActionReceipt {
 function isZodError(err: unknown): err is Error & { issues: unknown } {
   return typeof err === "object" && err !== null && (err as { name?: string }).name === "ZodError";
 }
-
-// Type-only reference keeps the public extension contract exported from
-// one place; see extensions.ts for the module shape.
-export type { ExtensionAction, ExtensionFailure };

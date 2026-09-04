@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import type { ActionDefinition, KbContext } from "@kb/contracts";
+import { type ActionDefinition, type KbContext, KbCtx, type KbStore } from "@kb/contracts";
 import {
   SYSTEM_IDS,
   currentIso,
@@ -13,7 +13,6 @@ import {
 } from "@kb/model";
 import { ResolveError, resolveFieldId, resolveTagId } from "@kb/model";
 import { domainError, domainFromResolve, type DomainError } from "@kb/model";
-import { KbCtx, type KbStore } from "@kb/contracts";
 import { persistEffect } from "./session.ts";
 import { DatalogError, pull, query } from "@kb/query";
 import { resolveSavedQueryFile } from "./saved-query.ts";
@@ -201,7 +200,7 @@ function applyProps(
   for (const e of entries) {
     const fieldId = resolveFieldId(ctx.nodes, e.field);
     const list = props[fieldId] ?? [];
-    list.push(e.value as PropValue);
+    list.push(e.value);
     props[fieldId] = list;
   }
 }
@@ -211,7 +210,8 @@ function isInSubtree(nodes: KbNode[], rootId: NodeId, targetId: NodeId): boolean
   const stack = [rootId];
   const seen = new Set<NodeId>();
   while (stack.length > 0) {
-    const id = stack.pop()!;
+    const id = stack.pop();
+    if (id === undefined) break;
     if (id === targetId) return true;
     if (seen.has(id)) continue;
     seen.add(id);
@@ -239,7 +239,8 @@ function collectSubtreeIds(nodes: KbNode[], rootId: NodeId): NodeId[] {
   const seen = new Set<NodeId>();
   const stack = [rootId];
   while (stack.length > 0) {
-    const id = stack.pop()!;
+    const id = stack.pop();
+    if (id === undefined) break;
     if (seen.has(id)) continue;
     seen.add(id);
     result.push(id);
@@ -270,7 +271,7 @@ function subtreePattern(depth: number): string {
 }
 
 /** Prefer structured pull from our nodes map for reliable ordered depth. */
-export function pullSubtree(ctx: KbContext, id: NodeId, depth: number): unknown {
+function pullSubtree(ctx: KbContext, id: NodeId, depth: number): unknown {
   const node = nodeById(ctx, id);
   if (!node) return null;
 
@@ -323,14 +324,15 @@ export const nodeAddEffect = Effect.fn("node.add")(function* (
     text: input.text,
     props,
     children: [],
-    ...(input.order ? { order: input.order } : {}),
+    ...(input.order !== undefined && input.order !== "" ? { order: input.order } : {}),
     createdAt: at,
     updatedAt: at,
   };
 
+  const parentId = input.parent;
   const upserts: KbNode[] = [node];
-  if (input.parent) {
-    const parent = yield* syncDomain(() => cloneNode(requireNode(ctx, input.parent!)));
+  if (parentId !== undefined && parentId !== "") {
+    const parent = yield* syncDomain(() => cloneNode(requireNode(ctx, parentId)));
     upserts.push(insertChild(parent, id, at, input.position));
   }
 
@@ -384,7 +386,7 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
   const at = yield* currentIso;
   yield* syncDomain(() => assertSysWriteAllowed(input.id, input));
 
-  if (input.delete) {
+  if (input.delete === true) {
     const deleteIds =
       input.descendants === "reparent" ? [input.id] : collectSubtreeIds(ctx.nodes, input.id);
     const upserts = detachFromParents(ctx.nodes, input.id, at);
@@ -408,25 +410,25 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
         } else {
           const list = node.props[fieldId] ?? [];
           node.props[fieldId] = list.filter((pv) => JSON.stringify(pv) !== JSON.stringify(u.value));
-          if (node.props[fieldId]!.length === 0) delete node.props[fieldId];
+          if (node.props[fieldId].length === 0) delete node.props[fieldId];
         }
       }
     }
   });
 
-  if (input.parent !== undefined) {
-    if (input.parent !== null && isInSubtree(ctx.nodes, input.id, input.parent)) {
+  const newParentId = input.parent;
+  if (newParentId !== undefined) {
+    if (newParentId !== null && isInSubtree(ctx.nodes, input.id, newParentId)) {
       return yield* domainError(
         "invalid_move",
-        `cannot move ${input.id} under itself or its own descendant ${input.parent}`,
-        { id: input.id, parent: input.parent },
+        `cannot move ${input.id} under itself or its own descendant ${newParentId}`,
+        { id: input.id, parent: newParentId },
       );
     }
     upserts.push(...detachFromParents(ctx.nodes, input.id, at));
-    if (input.parent !== null) {
+    if (newParentId !== null) {
       const parent = yield* syncDomain(
-        () =>
-          upserts.find((n) => n.id === input.parent) ?? cloneNode(requireNode(ctx, input.parent!)),
+        () => upserts.find((n) => n.id === newParentId) ?? cloneNode(requireNode(ctx, newParentId)),
       );
       const updated = insertChild(parent, input.id, at, input.position);
       const idx = upserts.findIndex((n) => n.id === parent.id);
@@ -480,7 +482,7 @@ export const fieldDefineEffect = Effect.fn("field.define")(function* (
       n.text === input.name &&
       (n.props[SYSTEM_IDS.typeField] ?? []).some((v) => v.t === "ref" && v.v === SYSTEM_IDS.field),
   );
-  if (existing.length > 0 && !input.id) {
+  if (existing.length > 0 && (input.id === undefined || input.id === "")) {
     return yield* domainError("ambiguous", `field already exists: ${input.name}`, {
       ids: existing.map((e) => e.id),
     });
@@ -551,7 +553,7 @@ function runDatalog(
   ctx: KbContext,
   edn: string,
   inputs?: unknown[],
-): Effect.Effect<unknown, DomainError, never> {
+): Effect.Effect<unknown, DomainError> {
   return Effect.try({
     try: () => query(ctx.qdb, edn, ...(inputs ?? [])),
     catch: (err) => classifyQueryError(err, edn),
@@ -578,7 +580,7 @@ export const graphRunEffect = Effect.fn("graph.run")(function* (
   const ctx = yield* KbCtx;
   const fs = yield* FileSystem;
   const path = resolveSavedQueryFile(ctx.root, input.name);
-  if (!path) {
+  if (path === null) {
     return yield* domainError(
       "invalid_input",
       `invalid saved query name: ${input.name} (letters, digits, ., _, - only)`,
@@ -612,7 +614,7 @@ export const graphSearchEffect = Effect.fn("graph.search")(function* (
   const rows = ctx.nodes
     .filter((n) => n.text.toLowerCase().includes(needle))
     .map((n) => [n.id, n.text])
-    .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    .toSorted((a, b) => String(a[0]).localeCompare(String(b[0])));
   if (input.limit !== undefined && rows.length > input.limit) {
     rows.length = input.limit;
   }

@@ -1,6 +1,6 @@
 import { Schema } from "effect";
-import type { FailureCode } from "./failure.ts";
-import { type ResolveError } from "./resolve.ts";
+import { FailureCodeSchema, type FailureCode } from "./failure.ts";
+import { ResolveError } from "./resolve.ts";
 
 /**
  * Typed domain failure for Effect programs. Maps onto ActionReceipt codes at
@@ -23,6 +23,16 @@ export class DomainError extends Schema.TaggedError<DomainError>()("Kb/DomainErr
 
 export type DomainErrorCode = DomainError["code"] & FailureCode;
 
+const DOMAIN_ERROR_CODES = new Set<string>([
+  "not_found",
+  "ambiguous",
+  "invalid_move",
+  "forbidden",
+  "invalid_input",
+  "conflict",
+  "internal",
+]);
+
 export function domainError(
   code: DomainErrorCode,
   message: string,
@@ -39,6 +49,24 @@ export function isDomainError(err: unknown): err is DomainError {
   return (
     typeof err === "object" && err !== null && (err as { _tag?: unknown })._tag === "Kb/DomainError"
   );
+}
+
+function isDomainErrorCode(code: FailureCode): code is DomainErrorCode {
+  return DOMAIN_ERROR_CODES.has(code);
+}
+
+/** Fold a foreign failure into {@link DomainError}; pass DomainError through. */
+export function ensureDomainError(err: unknown): DomainError {
+  if (isDomainError(err)) return err;
+  if (err instanceof ResolveError) return domainFromResolve(err);
+  if (typeof err === "object" && err !== null) {
+    const parsed = FailureCodeSchema.safeParse((err as { code?: unknown }).code);
+    if (parsed.success && isDomainErrorCode(parsed.data)) {
+      const message = err instanceof Error ? err.message : String(err);
+      return domainError(parsed.data, message, (err as { details?: unknown }).details);
+    }
+  }
+  return domainError("internal", err instanceof Error ? err.message : String(err));
 }
 
 /** Receipt code for domain/resolve failures — always a FailureCode. */

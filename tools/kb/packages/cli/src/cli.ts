@@ -4,13 +4,29 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
 import { UI_DEFAULT_PORT, type KbContext, type ActionReceipt } from "@kb/contracts";
-import { kbRuntimeLayer, openKbEffect } from "@kb/runtime";
+import {
+  kbRuntimeLayer,
+  openKbEffect,
+  invokeReceiptEffect,
+  registryFor,
+  type ActionHandlerEnv,
+  resolveRootEffect,
+  RootNotFoundError,
+  writeOut,
+  writeErr,
+} from "@kb/runtime";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { exampleSeedNodes, isPristine } from "@kb/model";
 import { SYSTEM_IDS, currentIso, isSysPrefixed } from "@kb/model";
-import { ResolveError, resolveFieldId, resolveTagId } from "@kb/model";
-import { receiptCodeOf } from "@kb/model";
-import { invokeReceiptEffect, registryFor, type ActionHandlerEnv } from "@kb/runtime";
+import {
+  type DomainError,
+  ResolveError,
+  ensureDomainError,
+  isDomainError,
+  receiptCodeOf,
+  resolveFieldId,
+  resolveTagId,
+} from "@kb/model";
 import { KB_SDK_VERSION, readEmbeddedSdkDts, writeSdkDts } from "@kb/ext-sdk";
 import { formatReceipt } from "./format.ts";
 import {
@@ -40,7 +56,6 @@ import {
   type PlannedAction,
   type PropType,
 } from "@kb/operations";
-import { resolveRootEffect, RootNotFoundError } from "@kb/runtime";
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
@@ -82,7 +97,7 @@ function ensureFieldsEffect(
   ctx: KbContext,
   plan: PlannedAction,
   create: boolean,
-): Effect.Effect<ActionReceipt | null, Error, ActionHandlerEnv> {
+): Effect.Effect<ActionReceipt | null, DomainError, ActionHandlerEnv> {
   return Effect.gen(function* () {
     if (!create) return null;
     for (const name of fieldsNeedingCreate(plan)) {
@@ -94,14 +109,12 @@ function ensureFieldsEffect(
           resolveFieldId(ctx.nodes, name);
           return "ok" as const;
         },
-        catch: (err) => err,
+        catch: (err) => ensureDomainError(err),
       }).pipe(
-        Effect.catch((err) => {
-          if (err instanceof ResolveError && err.code === "not_found") {
-            return Effect.succeed("missing" as const);
-          }
-          return Effect.fail(err instanceof Error ? err : new Error(String(err)));
-        }),
+        Effect.catchIf(
+          (err) => err.code === "not_found",
+          () => Effect.succeed("missing" as const),
+        ),
       );
       if (outcome !== "missing") continue;
       const receipt = yield* invokeReceiptEffect(ctx, {
@@ -143,10 +156,6 @@ export function runPlanEffect(
   });
 }
 
-function writeOut(text: string): void {
-  process.stdout.write(text.endsWith("\n") ? text : `${text}\n`);
-}
-
 function handleCliError(err: unknown, json: boolean): number {
   if (err instanceof UsageError || err instanceof RootNotFoundError) {
     const msg = err.message;
@@ -159,7 +168,7 @@ function handleCliError(err: unknown, json: boolean): number {
         }),
       );
     } else {
-      process.stderr.write(`${msg}\n`);
+      writeErr(msg);
     }
     return EXIT_USAGE;
   }
@@ -176,21 +185,36 @@ function handleCliError(err: unknown, json: boolean): number {
         }),
       );
     } else {
-      process.stderr.write(`${msg}\n`);
+      writeErr(msg);
+    }
+    return EXIT_FAILED;
+  }
+  if (isDomainError(err)) {
+    const msg = err.message;
+    if (json) {
+      writeOut(
+        JSON.stringify({
+          status: "failed",
+          code: receiptCodeOf(err),
+          message: msg,
+        }),
+      );
+    } else {
+      writeErr(msg);
     }
     return EXIT_FAILED;
   }
   if (err instanceof CommanderError) {
     if (err.code === "commander.helpDisplayed") return EXIT_OK;
     if (err.code === "commander.version") return EXIT_OK;
-    process.stderr.write(`${err.message}\n`);
+    writeErr(err.message);
     return EXIT_USAGE;
   }
   const message = err instanceof Error ? err.message : String(err);
   if (json) {
     writeOut(JSON.stringify({ status: "failed", code: "internal", message }));
   } else {
-    process.stderr.write(`${message}\n`);
+    writeErr(message);
   }
   return EXIT_FAILED;
 }
@@ -236,7 +260,7 @@ function readActionJsonEffect(arg: string): Effect.Effect<unknown, UsageError | 
   return parseActionJson(arg);
 }
 
-export function buildProgram(): Command {
+function buildProgram(): Command {
   const program = new Command();
   program
     .name("kb")
@@ -327,15 +351,16 @@ export function buildProgram(): Command {
               examples = nodes.length;
             }
 
-            const msg = globals.json
-              ? JSON.stringify({
-                  status: "succeeded",
-                  id: "init",
-                  output: { root: ctx.root, exampleNodes: examples },
-                })
-              : examples > 0
-                ? `initialized ${join(ctx.root, ".kb")} with ${examples} example nodes (ordinary nodes — delete any of them)`
-                : `initialized ${join(ctx.root, ".kb")}`;
+            const msg =
+              globals.json === true
+                ? JSON.stringify({
+                    status: "succeeded",
+                    id: "init",
+                    output: { root: ctx.root, exampleNodes: examples },
+                  })
+                : examples > 0
+                  ? `initialized ${join(ctx.root, ".kb")} with ${examples} example nodes (ordinary nodes — delete any of them)`
+                  : `initialized ${join(ctx.root, ".kb")}`;
             writeOut(msg);
             return EXIT_OK;
           }),
@@ -468,14 +493,15 @@ export function buildProgram(): Command {
     .action(async function (this: Command, id: string, parent: string | undefined, opts) {
       const code = await withCtx(this, (ctx, globals) =>
         Effect.gen(function* () {
-          if (!opts.rootParent && parent === undefined) {
+          const parentArg = opts.rootParent === true ? null : parent;
+          if (parentArg === undefined) {
             return yield* Effect.fail(new UsageError("mv requires <parent> or --root-parent"));
           }
           return yield* runPlanEffect(
             ctx,
             mapMv({
               id,
-              parent: opts.rootParent ? null : parent!,
+              parent: parentArg,
               position: opts.position,
               force: opts.force === true,
             }),
@@ -551,7 +577,7 @@ export function buildProgram(): Command {
           const fieldId = resolveFieldId(ctx.nodes, fieldName);
           const node = ctx.nodes.find((n) => n.id === fieldId);
           const prev = node?.props[SYSTEM_IDS.targetQueryField]?.[0];
-          const previous = prev?.t === "str" ? { t: "str" as const, v: String(prev.v) } : undefined;
+          const previous = prev?.t === "str" ? { t: "str" as const, v: prev.v } : undefined;
           return yield* runPlanEffect(
             ctx,
             mapFieldTargetQuery({ fieldId, edn, previous }),
@@ -714,7 +740,7 @@ export function buildProgram(): Command {
     .option("--write", "write .kb/sdk.d.ts under the resolved root", false)
     .action(async function (this: Command) {
       const globals = getGlobals(this);
-      const write = (this.opts() as { write?: boolean }).write === true;
+      const write = this.opts().write === true;
       const code = await Effect.runPromise(
         Effect.gen(function* () {
           if (!write) {

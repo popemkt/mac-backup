@@ -300,7 +300,7 @@ describe("kb ui server", () => {
     await handle.stop();
     handle = null;
 
-    await expect(fetch(`${url}/api/graph`)).rejects.toThrow();
+    expect(fetch(`${url}/api/graph`)).rejects.toThrow();
   });
 
   test("malformed action body is 400 invalid_input", async () => {

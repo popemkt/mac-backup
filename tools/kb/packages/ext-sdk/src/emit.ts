@@ -2,10 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { KB_SDK_DTS, KB_SDK_VERSION } from "./sdk-dts.text.ts";
 
-export { KB_SDK_DTS, KB_SDK_VERSION };
-
-/** Absolute path of the emitted ambient types file for a kb root. */
-export function sdkDtsPath(root: string): string {
+function sdkDtsPath(root: string): string {
   return join(root, ".kb", "sdk.d.ts");
 }
 

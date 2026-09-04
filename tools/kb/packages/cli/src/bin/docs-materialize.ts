@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 // Regenerate all (or one: pass a view name) generated markdown docs from .kb data.
-import { openKb } from "@kb/runtime";
-import { invoke } from "@kb/runtime";
+import { openKb, invoke } from "@kb/runtime";
+import { kbDataRoot } from "@kb/server";
 
-const root = process.env.KB_ROOT ?? process.cwd();
+const root = kbDataRoot();
 const view = process.argv[2];
 const ctx = await openKb(root);
 const receipt = await invoke(ctx, {

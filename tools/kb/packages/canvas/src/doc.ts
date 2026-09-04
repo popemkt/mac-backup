@@ -6,12 +6,12 @@
  */
 
 export type CanvasSide = "top" | "right" | "bottom" | "left";
-export type CanvasEdgeEnd = "none" | "arrow";
+type CanvasEdgeEnd = "none" | "arrow";
 
 export type KbLinkMode = "native" | "layout";
 
 /** Binding from a canvas edge to a kb ref prop (directed: source → target). */
-export interface KbLink {
+interface KbLink {
   mode: KbLinkMode;
   via: "prop";
   fieldId: string;
@@ -20,7 +20,7 @@ export interface KbLink {
   bindingId: string;
 }
 
-export interface CanvasNodeBase {
+interface CanvasNodeBase {
   id: string;
   type: string;
   x: number;
@@ -58,7 +58,7 @@ export interface CanvasShapeNode extends CanvasNodeBase {
 }
 
 /** Opaque passthrough for file/link/future types. */
-export interface CanvasUnknownNode extends CanvasNodeBase {
+interface CanvasUnknownNode extends CanvasNodeBase {
   type: string;
 }
 
@@ -87,7 +87,7 @@ export function isShapeNode(n: CanvasNode): n is CanvasShapeNode {
 
 const SHAPE_KINDS = new Set<string>(["rect", "ellipse", "diamond"]);
 
-export function normalizeShapeKind(raw: unknown): CanvasShapeKind {
+function normalizeShapeKind(raw: unknown): CanvasShapeKind {
   return typeof raw === "string" && SHAPE_KINDS.has(raw) ? (raw as CanvasShapeKind) : "rect";
 }
 
@@ -114,7 +114,7 @@ export interface CanvasDoc {
 export const EMPTY_CANVAS_DOC: CanvasDoc = Object.freeze({
   nodes: [],
   edges: [],
-}) as CanvasDoc;
+});
 
 const SIDES = new Set(["top", "right", "bottom", "left"]);
 const ENDS = new Set(["none", "arrow"]);
@@ -228,7 +228,7 @@ function parseNode(raw: unknown): CanvasNode | null {
     };
   }
   // file / link / future — opaque passthrough
-  return base as CanvasUnknownNode;
+  return base;
 }
 
 function parseEdge(raw: unknown): CanvasEdge | null {
@@ -348,14 +348,6 @@ export function upsertCanvasNode(doc: CanvasDoc, node: CanvasNode): CanvasDoc {
   if (idx >= 0) nodes[idx] = node;
   else nodes.push(node);
   return { ...doc, nodes };
-}
-
-export function removeCanvasNode(doc: CanvasDoc, nodeId: string): CanvasDoc {
-  return {
-    ...doc,
-    nodes: doc.nodes.filter((n) => n.id !== nodeId),
-    edges: doc.edges.filter((e) => e.fromNode !== nodeId && e.toNode !== nodeId),
-  };
 }
 
 export function upsertCanvasEdge(doc: CanvasDoc, edge: CanvasEdge): CanvasDoc {

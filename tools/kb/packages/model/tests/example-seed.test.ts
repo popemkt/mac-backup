@@ -16,7 +16,7 @@ import { systemSeedNodes } from "../src/seed.ts";
 const byId = () => new Map(exampleSeedNodes().map((n) => [n.id, n]));
 
 function refs(node: KbNode, field: string): string[] {
-  return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => String(v.v));
+  return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
 }
 
 describe("example content", () => {
@@ -75,7 +75,7 @@ describe("example content", () => {
     const nodes = exampleSeedNodes();
     const work = resolveOntology(nodes, EXAMPLE_IDS.ontoWork);
     expect(work.warnings).toEqual([]);
-    expect([...work.members].sort()).toEqual(
+    expect([...work.members].toSorted()).toEqual(
       [
         EXAMPLE_IDS.ada,
         EXAMPLE_IDS.linus,
@@ -83,7 +83,7 @@ describe("example content", () => {
         EXAMPLE_IDS.task1,
         EXAMPLE_IDS.task2,
         EXAMPLE_IDS.task3,
-      ].sort(),
+      ].toSorted(),
     );
     expect(work.reasons.get(EXAMPLE_IDS.task1)).toEqual([
       { kind: "tag", via: EXAMPLE_IDS.taskTag },
@@ -110,7 +110,7 @@ describe("example content", () => {
       for (const [field, values] of Object.entries(node.props)) {
         for (const value of values) {
           if (value.t !== "ref") continue;
-          expect(known.has(String(value.v)), `${node.id}.${field}`).toBe(true);
+          expect(known.has(value.v), `${node.id}.${field}`).toBe(true);
         }
       }
       for (const child of node.children) {

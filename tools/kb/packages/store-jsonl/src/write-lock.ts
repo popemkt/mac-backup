@@ -20,7 +20,7 @@ import {
 } from "node:fs";
 import { dirname } from "node:path";
 import { Duration, Effect } from "effect";
-import { domainError, isDomainError, type DomainError } from "@kb/model";
+import { domainError, type DomainError } from "@kb/model";
 
 const LOCK_SUFFIX = ".lock";
 const SPIN_MS = 25;
@@ -101,7 +101,7 @@ export const acquireNodesWriteLockEffect = Effect.fn("kb.acquireWriteLock")(func
   });
 
   const started = Date.now();
-  while (true) {
+  for (;;) {
     const got = yield* Effect.try({
       try: () => tryCreateLock(lockPath) || stealIfStale(lockPath),
       catch: (err) =>
@@ -117,13 +117,11 @@ export const acquireNodesWriteLockEffect = Effect.fn("kb.acquireWriteLock")(func
 
     if (Date.now() - started > MAX_WAIT_MS) {
       const holder = readLockPid(lockPath);
-      return yield* Effect.fail(
-        domainError(
-          "conflict",
-          `timed out waiting for write lock ${lockPath}` +
-            (holder !== null ? ` (held by pid ${holder})` : ""),
-          { lockPath, holder },
-        ),
+      return yield* domainError(
+        "conflict",
+        `timed out waiting for write lock ${lockPath}` +
+          (holder !== null ? ` (held by pid ${holder})` : ""),
+        { lockPath, holder },
       );
     }
     yield* Effect.sleep(Duration.millis(SPIN_MS));
@@ -148,7 +146,7 @@ export function withNodesWriteLock<T>(nodesPath: string, fn: () => T): T {
   const lockPath = lockPathFor(nodesPath);
   ensureLockDir(lockPath);
   const started = Date.now();
-  while (true) {
+  for (;;) {
     if (tryCreateLock(lockPath) || stealIfStale(lockPath)) break;
     if (Date.now() - started > MAX_WAIT_MS) {
       const holder = readLockPid(lockPath);
@@ -166,10 +164,4 @@ export function withNodesWriteLock<T>(nodesPath: string, fn: () => T): T {
   } finally {
     releaseNodesWriteLock(lockPath);
   }
-}
-
-/** Map unknown lock/fs errors; pass DomainError through. */
-export function ensureDomainError(err: unknown): DomainError {
-  if (isDomainError(err)) return err;
-  return domainError("internal", err instanceof Error ? err.message : String(err));
 }

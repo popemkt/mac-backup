@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { Effect, Exit, Fiber } from "effect";
+import { Effect, Exit, Fiber, Layer } from "effect";
 import { kbRuntimeLayer, openKbEffect } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
 import { KbCtx, KbStore, templateRegistryLayer } from "@kb/contracts";
@@ -14,7 +14,7 @@ import {
   resetRegistryCache,
 } from "../src/registry.ts";
 import type { ActionEffectHandler, EffectStore } from "@kb/contracts";
-import type { StoreTx, KbNode } from "@kb/model";
+import type { StoreTx } from "@kb/model";
 
 /** Under tests/ so fixture extensions resolve zod via tools/kb/node_modules. */
 async function tempRoot(): Promise<string> {
@@ -122,7 +122,7 @@ export default actions;
     const commits: StoreTx[] = [];
     const fakeStore: EffectStore = {
       path: join(root, ".kb", "nodes.jsonl"),
-      loadEffect: () => Effect.succeed(ctx.nodes as KbNode[]),
+      loadEffect: () => Effect.succeed(ctx.nodes),
       commitEffect: (tx) =>
         Effect.sync(() => {
           commits.push(tx);
@@ -140,8 +140,7 @@ export default actions;
       }).pipe(
         Effect.provideService(KbCtx, ctx),
         Effect.provideService(KbStore, fakeStore),
-        Effect.provide(bunFileSystemLayer),
-        Effect.provide(templateRegistryLayer(new Map())),
+        Effect.provide(Layer.mergeAll(bunFileSystemLayer, templateRegistryLayer(new Map()))),
       ),
     );
     expect(receipt.status).toBe("succeeded");

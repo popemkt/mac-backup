@@ -79,7 +79,7 @@ export function rootManifest(): PackageManifest {
 export function packageDirs(): string[] {
   return readdirSync(PACKAGES_ROOT)
     .filter((name) => statSync(join(PACKAGES_ROOT, name)).isDirectory())
-    .sort();
+    .toSorted();
 }
 
 export function workspacePackages(): WorkspacePackage[] {

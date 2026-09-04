@@ -1,3 +1,4 @@
+import { present } from "./present.ts";
 import type { KbNode, NodeId } from "./model.ts";
 
 const WIDTH = 10;
@@ -27,8 +28,8 @@ export function ranksFor(ids: readonly NodeId[]): Map<NodeId, string> {
 }
 
 export function rankBetween(before?: string, after?: string): string {
-  const low = before ? decode(before) : 0n;
-  const high = after ? decode(after) : MAX;
+  const low = before !== undefined && before !== "" ? decode(before) : 0n;
+  const high = after !== undefined && after !== "" ? decode(after) : MAX;
   if (high - low > 1n) return encode((low + high) / 2n);
   // Exhausting a rank gap is exceptionally rare at this width. Appending a
   // sortable suffix avoids moving existing siblings; a later maintenance pass
@@ -58,54 +59,62 @@ export function migrateOrderKeys(nodes: KbNode[]): { nodes: KbNode[]; changed: b
   }
   // Forest roots: respect any ranks already stored, and fall back to the id
   // sequence only for roots that have never been ranked.
-  const rootIds = nodes.filter((node) => !children.has(node.id)).map((node) => node.id);
-  rootIds.sort((a, b) => {
-    const oa = byId.get(a)?.order;
-    const ob = byId.get(b)?.order;
-    if (oa && ob) return oa < ob ? -1 : oa > ob ? 1 : 0;
-    if (oa) return -1;
-    if (ob) return 1;
-    return a < b ? -1 : a > b ? 1 : 0;
-  });
+  const rootIds = nodes
+    .filter((node) => !children.has(node.id))
+    .map((node) => node.id)
+    .toSorted((a, b) => {
+      const oa = byId.get(a)?.order;
+      const ob = byId.get(b)?.order;
+      if (oa !== undefined && oa !== "" && ob !== undefined && ob !== "") {
+        return oa < ob ? -1 : oa > ob ? 1 : 0;
+      }
+      if (oa !== undefined && oa !== "") return -1;
+      if (ob !== undefined && ob !== "") return 1;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
   orderedGroups.push(rootIds);
 
   const ranks = new Map<NodeId, string>();
   for (const ids of orderedGroups) {
     if (ids.length === 0) continue;
     const stored = ids.map((id) => byId.get(id)?.order);
-    if (stored.every(Boolean)) continue; // fully ranked already — leave it alone
-    if (!stored.some(Boolean)) {
+    if (stored.every((rank) => rank !== undefined && rank !== "")) continue; // fully ranked already — leave it alone
+    if (!stored.some((rank) => rank !== undefined && rank !== "")) {
       for (const [id, rank] of ranksFor(ids)) ranks.set(id, rank);
       continue;
     }
     // Mixed: rank only the gaps, between their already-ranked neighbours, so
     // the visible sequence of this group is unchanged.
     for (let i = 0; i < ids.length; i++) {
-      if (stored[i]) continue;
+      if (stored[i] !== undefined && stored[i] !== "") continue;
       let before: string | undefined;
       for (let j = i - 1; j >= 0; j--) {
-        const prior = stored[j] ?? ranks.get(ids[j]!);
-        if (prior) {
+        const neighbour = ids[j];
+        if (neighbour === undefined) continue;
+        const prior = stored[j] ?? ranks.get(neighbour);
+        if (prior !== undefined && prior !== "") {
           before = prior;
           break;
         }
       }
       let after: string | undefined;
       for (let j = i + 1; j < ids.length; j++) {
-        if (stored[j]) {
-          after = stored[j];
+        const storedAfter = stored[j];
+        if (storedAfter !== undefined && storedAfter !== "") {
+          after = storedAfter;
           break;
         }
       }
-      ranks.set(ids[i]!, rankBetween(before, after));
+      const gapId = present(ids[i], "order gap id");
+      ranks.set(gapId, rankBetween(before, after));
     }
   }
 
   let changed = false;
   const migrated = nodes.map((node) => {
-    if (node.order) return node; // never overwrite an existing rank
+    if (node.order !== undefined && node.order !== "") return node; // never overwrite an existing rank
     const order = ranks.get(node.id);
-    if (!order) return node;
+    if (order === undefined || order === "") return node;
     changed = true;
     return { ...node, order };
   });

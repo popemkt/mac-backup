@@ -18,53 +18,82 @@ export function formatReceipt(
   return formatSuccess(receipt.id, receipt.output, opts.command);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asObject(output: unknown): Record<string, unknown> | null {
+  return isRecord(output) ? output : null;
+}
+
+function formatChildrenCommand(output: unknown): string | null {
+  const obj = asObject(output);
+  const node = obj?.node;
+  if (
+    typeof node !== "object" ||
+    node === null ||
+    !Array.isArray((node as { children?: unknown }).children)
+  ) {
+    return null;
+  }
+  return formatOutlineChildren(node as Record<string, unknown>);
+}
+
+function formatNodeGet(output: unknown): string {
+  const node = asObject(output)?.node;
+  return formatOutline(node, 0);
+}
+
+function formatGraphResult(output: unknown): string {
+  return formatTable(asObject(output)?.rows);
+}
+
+function asString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function formatNodeAdd(output: unknown): string {
+  const o = asObject(output);
+  const node = o?.node;
+  const text =
+    typeof node === "object" &&
+    node !== null &&
+    typeof (node as { text?: unknown }).text === "string"
+      ? (node as { text: string }).text
+      : undefined;
+  const suffix = text !== undefined && text !== "" ? `  ${text}` : "";
+  return `added ${asString(o?.id)}${suffix}`;
+}
+
+function formatNodeUpdate(output: unknown): string {
+  const o = asObject(output);
+  if (o?.deleted === true) return `deleted ${asString(o.id)}`;
+  return `updated ${asString(o?.id)}`;
+}
+
+function formatDefine(actionId: string, output: unknown): string {
+  const kind = actionId.startsWith("field") ? "field" : "tag";
+  return `defined ${kind} ${asString(asObject(output)?.id)}`;
+}
+
 function formatSuccess(actionId: string, output: unknown, command?: string): string {
-  if (command === "children" && output && typeof output === "object") {
-    const node = (output as { node?: Record<string, unknown> }).node;
-    if (node && Array.isArray(node.children)) {
-      return formatOutlineChildren(node);
-    }
+  if (command === "children") {
+    const formatted = formatChildrenCommand(output);
+    if (formatted !== null) return formatted;
   }
-
-  if (actionId === "node.get" && output && typeof output === "object") {
-    const node = (output as { node?: unknown }).node;
-    return formatOutline(node, 0);
+  if (actionId === "node.get") return formatNodeGet(output);
+  if (actionId === "graph.query" || actionId === "graph.run" || actionId === "graph.search") {
+    return formatGraphResult(output);
   }
-
-  if (
-    (actionId === "graph.query" || actionId === "graph.run" || actionId === "graph.search") &&
-    output &&
-    typeof output === "object"
-  ) {
-    const rows = (output as { rows?: unknown }).rows;
-    return formatTable(rows);
-  }
-
-  if (actionId === "node.add" && output && typeof output === "object") {
-    const o = output as { id?: string; node?: { text?: string } };
-    return `added ${o.id}${o.node?.text ? `  ${o.node.text}` : ""}`;
-  }
-
-  if (actionId === "node.update" && output && typeof output === "object") {
-    const o = output as { id?: string; deleted?: boolean };
-    if (o.deleted) return `deleted ${o.id}`;
-    return `updated ${o.id}`;
-  }
-
-  if (
-    (actionId === "field.define" || actionId === "tag.define") &&
-    output &&
-    typeof output === "object"
-  ) {
-    const o = output as { id?: string };
-    return `defined ${actionId.startsWith("field") ? "field" : "tag"} ${o.id}`;
-  }
-
+  if (actionId === "node.add") return formatNodeAdd(output);
+  if (actionId === "node.update") return formatNodeUpdate(output);
+  if (actionId === "field.define" || actionId === "tag.define")
+    return formatDefine(actionId, output);
   return JSON.stringify(output, null, 2);
 }
 
 function formatOutline(node: unknown, depth: number): string {
-  if (!node || typeof node !== "object") return String(node);
+  if (typeof node !== "object" || node === null) return String(node);
   const n = node as {
     id?: string;
     text?: string;
@@ -72,8 +101,9 @@ function formatOutline(node: unknown, depth: number): string {
     children?: unknown[];
     props?: Record<string, unknown>;
   };
-  if (n.missing) return `${"  ".repeat(depth)}- [${n.id}] (missing)`;
-  const props = n.props && Object.keys(n.props).length > 0 ? `  ${compactProps(n.props)}` : "";
+  if (n.missing === true) return `${"  ".repeat(depth)}- [${n.id}] (missing)`;
+  const props =
+    n.props !== undefined && Object.keys(n.props).length > 0 ? `  ${compactProps(n.props)}` : "";
   const lines = [`${"  ".repeat(depth)}- ${n.text ?? ""}  [${n.id ?? "?"}]${props}`];
   if (Array.isArray(n.children)) {
     for (const c of n.children) {
@@ -84,15 +114,15 @@ function formatOutline(node: unknown, depth: number): string {
 }
 
 function formatOutlineChildren(node: Record<string, unknown>): string {
-  const id = node.id ?? "?";
-  const text = node.text ?? "";
+  const id = asString(node.id, "?");
+  const text = asString(node.text);
   const kids = Array.isArray(node.children) ? node.children : [];
   const lines = [`${text}  [${id}]`];
   for (const c of kids) {
-    if (c && typeof c === "object") {
+    if (typeof c === "object" && c !== null) {
       const child = c as { id?: string; text?: string; missing?: boolean };
-      if (child.missing) lines.push(`  - [${child.id}] (missing)`);
-      else lines.push(`  - ${child.text ?? ""}  [${child.id ?? "?"}]`);
+      if (child.missing === true) lines.push(`  - [${asString(child.id)}] (missing)`);
+      else lines.push(`  - ${asString(child.text)}  [${asString(child.id, "?")}]`);
     }
   }
   if (kids.length === 0) lines.push("  (no children)");

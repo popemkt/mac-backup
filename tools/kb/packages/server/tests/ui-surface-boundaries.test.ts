@@ -149,7 +149,7 @@ describe("ui session boundary", () => {
     ]);
     const { upserts, deletes } = diffNodes(oldMap, newMap);
     expect(deletes).toEqual(["gone"]);
-    expect(upserts.map((n) => n.id).sort()).toEqual(["add", "chg"]);
+    expect(upserts.map((n) => n.id).toSorted()).toEqual(["add", "chg"]);
   });
 
   test("session cleanup removes client; malformed messages become error frames", async () => {
@@ -257,8 +257,9 @@ describe("ui http boundary", () => {
     const ctx = await openKb(root);
     const hub = new SubscriptionHub(ctx);
 
-    const spy = spyOn(assets, "serveKbAssetEffect").mockImplementation((() =>
-      Effect.die(new Error("asset-read-failed"))) as typeof assets.serveKbAssetEffect);
+    const spy = spyOn(assets, "serveKbAssetEffect").mockImplementation(() =>
+      Effect.die(new Error("asset-read-failed")),
+    );
     try {
       const res = await handleHttpRequest(new Request("http://127.0.0.1/assets/x.png"), {
         root,

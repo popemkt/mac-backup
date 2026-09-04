@@ -60,10 +60,10 @@ describe("version-authored-once", () => {
         if (spec === "catalog:") used.add(name);
       }
     }
-    const missing = [...used].filter((n) => !(n in catalog)).sort();
+    const missing = [...used].filter((n) => !(n in catalog)).toSorted();
     const unused = Object.keys(catalog)
       .filter((n) => !used.has(n))
-      .sort();
+      .toSorted();
     expect(missing, `catalog: with no catalog entry: ${missing.join(", ")}`).toEqual([]);
     expect(unused, `catalog entry nobody asks for: ${unused.join(", ")}`).toEqual([]);
   });

@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
   type DomainError,
+  domainError,
   SYSTEM_IDS,
   type KbNode,
   txIntegrityError,
@@ -27,11 +28,9 @@ function isVirtualQueryNode(n: KbNode): boolean {
 function rebuildQdb(ctx: KbContext, nodes: KbNode[], previousRealIds: Set<string>): QueryDb {
   const realIds = new Set(nodes.map((n) => n.id));
   const virtual: KbNode[] = [];
-  if (ctx.qdb) {
-    for (const n of ctx.qdb.nodes.values()) {
-      if (!realIds.has(n.id) && isVirtualQueryNode(n) && !previousRealIds.has(n.id)) {
-        virtual.push(n);
-      }
+  for (const n of ctx.qdb.nodes.values()) {
+    if (!realIds.has(n.id) && isVirtualQueryNode(n) && !previousRealIds.has(n.id)) {
+      virtual.push(n);
     }
   }
   return buildQueryDb(virtual.length > 0 ? [...nodes, ...virtual] : nodes);
@@ -52,12 +51,8 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
 ): Effect.fn.Return<void, DomainError, KbStore | FileSystem> {
   const store = yield* KbStore;
   const integrityError = txIntegrityError(ctx.nodes, tx);
-  if (integrityError) {
-    return yield* Effect.fail({
-      _tag: "Kb/DomainError",
-      code: "invalid_input",
-      message: `invalid graph transaction: ${integrityError}`,
-    } as DomainError);
+  if (integrityError !== null && integrityError !== "") {
+    return yield* domainError("invalid_input", `invalid graph transaction: ${integrityError}`);
   }
   const previousRealIds = new Set(ctx.nodes.map((n) => n.id));
   yield* store.commitEffect(tx);

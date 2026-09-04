@@ -94,12 +94,7 @@ export function durableReplaceFile(path: string, backupPath: string, body: strin
 
     fsyncDir(dir);
   } catch (err) {
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      "code" in err &&
-      (err as { code: unknown }).code === "internal"
-    ) {
+    if (typeof err === "object" && err !== null && "code" in err && err.code === "internal") {
       throw err;
     }
     throw mapErr(err, `durable replace ${path}`);

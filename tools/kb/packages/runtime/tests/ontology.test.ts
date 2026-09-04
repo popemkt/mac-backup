@@ -20,14 +20,15 @@ import {
   resolveOntology,
   wouldCreateExtendsCycle,
   type NodeLike,
+  fieldTypeOf,
+  ensureSystemSeed,
+  systemSeedNodes,
+  canonicalJson,
 } from "@kb/model";
-import { fieldTypeOf } from "@kb/model";
-import { ensureSystemSeed, systemSeedNodes } from "@kb/model";
 import { ontologyMembersEffect } from "@kb/operations";
 import { runWithKb } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
-import { canonicalJson } from "@kb/model";
 
 // ── fixtures ───────────────────────────────────────────────────────────────
 
@@ -93,7 +94,7 @@ function baseGraph(): KbNode[] {
 }
 
 function sortedMembers(members: Set<string>): string[] {
-  return [...members].sort();
+  return [...members].toSorted();
 }
 
 // ── 1. include tags ────────────────────────────────────────────────────────
@@ -496,11 +497,11 @@ describe("ontology helpers", () => {
 // ── 9. seed ────────────────────────────────────────────────────────────────
 
 function refs(n: KbNode, field: string): string[] {
-  return (n.props[field] ?? []).filter((v) => v.t === "ref").map((v) => String(v.v));
+  return (n.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
 }
 
 function strs(n: KbNode, field: string): string[] {
-  return (n.props[field] ?? []).filter((v) => v.t === "str").map((v) => String(v.v));
+  return (n.props[field] ?? []).filter((v) => v.t === "str").map((v) => v.v);
 }
 
 describe("ontology seed", () => {
@@ -633,7 +634,7 @@ describe("ontology migration", () => {
     expect(added.length).toBeGreaterThan(0);
     const seedIds = new Set(systemSeedNodes().map((n) => n.id));
     for (const line of added) {
-      expect(seedIds.has(String((JSON.parse(line) as { id: string }).id))).toBe(true);
+      expect(seedIds.has((JSON.parse(line) as { id: string }).id)).toBe(true);
     }
     // The ontology seed landed, and TODO content is preserved.
     expect(ctx.nodes.some((n) => n.id === SYSTEM_IDS.ontologyTag)).toBe(true);

@@ -152,7 +152,7 @@ describe("graph.run", () => {
 });
 
 describe("graph.query failure classification", () => {
-  test("datalog engine errors stay invalid_input, genuine internal errors are internal", async () => {
+  test("datalog engine errors stay invalid_input, genuine internal errors are internal", () => {
     // The datascript engine rejecting the user's EDN is a malformed-datalog
     // input error — invalid_input, never internal.
     expect(classifyQueryError(new DatalogError("cannot compare"), "[:find ?e]").code).toBe(
@@ -189,7 +189,7 @@ describe("graph.run / graph.search surface availability", () => {
     expect(search.inputSchema).toBeTruthy();
   });
 
-  test("Effect handlers are registered natively (no Promise handler)", async () => {
+  test("Effect handlers are registered natively (no Promise handler)", () => {
     // graphRunEffect / graphSearchEffect are Effect programs — invoking through
     // the registry dispatches the effect seam, never tryPromise.
     expect(typeof graphRunEffect).toBe("function");

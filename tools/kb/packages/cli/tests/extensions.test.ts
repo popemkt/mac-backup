@@ -45,10 +45,10 @@ async function writeExtension(root: string, file: string, content: string): Prom
 async function runCli(args: string[]): Promise<{ code: number; out: string }> {
   const chunks: string[] = [];
   const original = process.stdout.write.bind(process.stdout);
-  process.stdout.write = ((chunk: unknown) => {
+  process.stdout.write = (chunk: unknown) => {
     chunks.push(String(chunk));
     return true;
-  }) as typeof process.stdout.write;
+  };
   try {
     const code = await main(["bun", "kb", ...args]);
     return { code, out: chunks.join("") };
@@ -88,7 +88,7 @@ describe("extension loading", () => {
     const ctx = await openKb(root);
 
     const registry = await registryFor(root);
-    expect(registry.failures.map((f) => f.file).sort()).toEqual(["broken.ts", "shapeless.ts"]);
+    expect(registry.failures.map((f) => f.file).toSorted()).toEqual(["broken.ts", "shapeless.ts"]);
 
     const greet = await invoke(ctx, { id: "ext.hello.greet", input: {} });
     expect(greet.status).toBe("succeeded");
@@ -162,7 +162,7 @@ describe("kb ext list", () => {
       };
     };
     expect(parsed.status).toBe("succeeded");
-    const names = parsed.output.extensions.map((e) => e.name).sort();
+    const names = parsed.output.extensions.map((e) => e.name).toSorted();
     expect(names).toEqual(["canvas", "docs", "hello"]);
     expect(parsed.output.failures.map((f) => f.file)).toEqual(["broken.ts"]);
   });

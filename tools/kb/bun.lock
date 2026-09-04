@@ -110,6 +110,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
         "@kb/runtime": "workspace:*",
         "@kb/store-jsonl": "workspace:*",

@@ -99,7 +99,7 @@ export const serveKbAssetEffect = Effect.fn("kb.ui.serveKbAsset")(function* (
   pathname: string,
 ): Effect.fn.Return<HttpServerResponse.HttpServerResponse, never, FileSystem> {
   const abs = resolveAssetFile(kbRoot, pathname);
-  if (!abs) {
+  if (abs === null) {
     return plainStatus("forbidden", 403);
   }
   const contained = yield* resolveContainedFile(assetsDir(kbRoot), abs);
