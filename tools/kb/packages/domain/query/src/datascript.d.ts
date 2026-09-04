@@ -11,4 +11,11 @@ declare module "datascript" {
   export function init_db(datoms: unknown[], schema?: unknown): unknown;
   export function q(query: string, ...inputs: unknown[]): unknown;
   export function pull(db: unknown, pattern: string, eid: unknown): unknown;
+  export function db_with(db: unknown, txData: unknown[]): unknown;
+  /** Datoms of one index, as datascript hands them to JS: entity, attr, value. */
+  export function datoms(
+    db: unknown,
+    index: string,
+    ...components: unknown[]
+  ): Array<{ e: number; a: string; v: unknown }>;
 }

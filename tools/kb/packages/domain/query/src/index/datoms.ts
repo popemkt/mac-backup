@@ -27,7 +27,7 @@ import { present, type KbNode, type NodeId, type PropValue } from "@kb/model";
  */
 const MENTION_RE = /\[\[([^[\]|]+)(?:\|[^\]]*)?\]\]/g;
 
-type Datom = [number | string, string, unknown, number?, boolean?];
+export type Datom = [number | string, string, unknown, number?, boolean?];
 
 export interface IdMap {
   /** NodeId → integer eid */
@@ -74,7 +74,110 @@ function propDatomValue(pv: PropValue, ids: IdMap): DatomValue {
   return { isRef: false, value: pv.v };
 }
 
-/** Single-pass nodes → datoms (+ schema entries for ref attrs). */
+/** One node's datoms, the schema it needs, and everything it points at. */
+export interface NodeDatoms {
+  datoms: Datom[];
+  /** attr → does it ever carry a ref value (`:db.type/ref`)? */
+  attrs: Map<string, boolean>;
+  /**
+   * Every node id this node points at through any carrier — child, `{t:"ref"}`
+   * prop, or `[[id]]` in text — whether or not the target resolves today. An
+   * unresolved target degrades to a string sentinel (props) or is dropped
+   * (children, mentions), so the datoms of this node change the moment that
+   * target starts or stops existing. The index keeps the reverse of this set
+   * and re-derives the referrers on exactly those transitions.
+   */
+  refs: Set<NodeId>;
+}
+
+/** One node → its datoms. Pure in (node, ids): the index owns both. */
+export function nodeToDatoms(node: KbNode, ids: IdMap): NodeDatoms {
+  const eid = present(ids.toEid.get(node.id), `eid for ${node.id}`);
+  const datoms: Datom[] = [];
+  const attrs = new Map<string, boolean>();
+  const refs = new Set<NodeId>();
+
+  datoms.push([eid, ":node/id", node.id]);
+  datoms.push([eid, ":node/text", node.text]);
+  datoms.push([eid, ":node/created-at", node.createdAt]);
+  datoms.push([eid, ":node/updated-at", node.updatedAt]);
+
+  // ordered children vector (eids) + per-child ref for joins
+  const childEids: number[] = [];
+  for (let i = 0; i < node.children.length; i++) {
+    const childId = present(node.children[i], `child ${i} of ${node.id}`);
+    refs.add(childId);
+    const childEid = ids.toEid.get(childId);
+    if (childEid === undefined) continue;
+    childEids.push(childEid);
+    datoms.push([eid, ":node/child", childEid]);
+    datoms.push([eid, ":node/child-order", i]);
+  }
+  if (childEids.length > 0) {
+    datoms.push([eid, ":node/children", childEids]);
+  }
+
+  // One mention datom per (source, target), whichever carrier produced it —
+  // `:node/mentions` is cardinality-many, so a duplicate would be a duplicate
+  // datom rather than a no-op.
+  const mentioned = new Set<number>();
+
+  for (const [fieldId, values] of Object.entries(node.props)) {
+    const attr = fieldAttr(fieldId);
+    for (const pv of values) {
+      if (pv.t === "ref") refs.add(pv.v);
+      const datomValue = propDatomValue(pv, ids);
+      attrs.set(attr, (attrs.get(attr) ?? false) || datomValue.isRef);
+      if (datomValue.isRef) mentioned.add(datomValue.value);
+      datoms.push([eid, attr, datomValue.value]);
+    }
+  }
+
+  MENTION_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = MENTION_RE.exec(node.text)) !== null) {
+    const mentionId = present(m[1], "mention id").trim();
+    refs.add(mentionId);
+    const meid = ids.toEid.get(mentionId);
+    if (meid !== undefined) mentioned.add(meid);
+  }
+
+  for (const meid of mentioned) {
+    datoms.push([eid, ":node/mentions", meid]);
+  }
+
+  return { datoms, attrs, refs };
+}
+
+/**
+ * Datascript schema for a set of field attrs.
+ *
+ * Every attr a node can carry more than once is `:db.cardinality/many`. Under
+ * `init_db` that is decoration — raw datoms bypass cardinality — but the
+ * incremental path transacts, and a cardinality-one `:db/add` *replaces* the
+ * previous value instead of accumulating. Props are multi-valued and a parent
+ * has one `:node/child-order` datom per child, so the two paths only agree
+ * when the schema says so. One derivation, both paths.
+ */
+export function schemaFor(
+  attrs: ReadonlyMap<string, boolean>,
+): Record<string, Record<string, string>> {
+  const many = { ":db/cardinality": ":db.cardinality/many" };
+  const refMany = { ":db/valueType": ":db.type/ref", ...many };
+  const schema: Record<string, Record<string, string>> = {
+    ":node/id": { ":db/unique": ":db.unique/identity" },
+    ":node/child": { ...refMany },
+    ":node/mentions": { ...refMany },
+    ":node/child-order": { ...many },
+  };
+  for (const [attr, isRef] of attrs) {
+    if (attr in schema) continue;
+    schema[attr] = isRef ? { ...refMany } : { ...many };
+  }
+  return schema;
+}
+
+/** Single-pass nodes → datoms (+ the schema those datoms need). */
 function nodesToDatoms(nodes: KbNode[]): {
   datoms: Datom[];
   schema: Record<string, Record<string, string>>;
@@ -82,78 +185,17 @@ function nodesToDatoms(nodes: KbNode[]): {
 } {
   const ids = buildIdMap(nodes);
   const datoms: Datom[] = [];
-  const refAttrs = new Set<string>([":node/child", ":node/mentions"]);
+  const attrs = new Map<string, boolean>();
 
   for (const node of nodes) {
-    const eid = present(ids.toEid.get(node.id), `eid for ${node.id}`);
-    datoms.push([eid, ":node/id", node.id]);
-    datoms.push([eid, ":node/text", node.text]);
-    datoms.push([eid, ":node/created-at", node.createdAt]);
-    datoms.push([eid, ":node/updated-at", node.updatedAt]);
-
-    // ordered children vector (eids) + per-child ref for joins
-    const childEids: number[] = [];
-    for (let i = 0; i < node.children.length; i++) {
-      const childId = present(node.children[i], `child ${i} of ${node.id}`);
-      const childEid = ids.toEid.get(childId);
-      if (childEid === undefined) continue;
-      childEids.push(childEid);
-      datoms.push([eid, ":node/child", childEid]);
-      datoms.push([eid, ":node/child-order", i]);
-    }
-    if (childEids.length > 0) {
-      datoms.push([eid, ":node/children", childEids]);
-    }
-
-    // One mention datom per (source, target), whichever carrier produced it —
-    // `:node/mentions` is cardinality-many, so a duplicate would be a duplicate
-    // datom rather than a no-op.
-    const mentioned = new Set<number>();
-
-    for (const [fieldId, values] of Object.entries(node.props)) {
-      const attr = fieldAttr(fieldId);
-      for (const pv of values) {
-        const datomValue = propDatomValue(pv, ids);
-        if (datomValue.isRef) {
-          refAttrs.add(attr);
-          mentioned.add(datomValue.value);
-        }
-        datoms.push([eid, attr, datomValue.value]);
-      }
-    }
-
-    MENTION_RE.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = MENTION_RE.exec(node.text)) !== null) {
-      const meid = ids.toEid.get(present(m[1], "mention id").trim());
-      if (meid !== undefined) mentioned.add(meid);
-    }
-
-    for (const meid of mentioned) {
-      datoms.push([eid, ":node/mentions", meid]);
+    const built = nodeToDatoms(node, ids);
+    datoms.push(...built.datoms);
+    for (const [attr, isRef] of built.attrs) {
+      attrs.set(attr, (attrs.get(attr) ?? false) || isRef);
     }
   }
 
-  const schema: Record<string, Record<string, string>> = {
-    ":node/id": { ":db/unique": ":db.unique/identity" },
-    ":node/child": {
-      ":db/valueType": ":db.type/ref",
-      ":db/cardinality": ":db.cardinality/many",
-    },
-    ":node/mentions": {
-      ":db/valueType": ":db.type/ref",
-      ":db/cardinality": ":db.cardinality/many",
-    },
-  };
-  for (const attr of refAttrs) {
-    if (attr === ":node/child" || attr === ":node/mentions") continue;
-    schema[attr] = {
-      ":db/valueType": ":db.type/ref",
-      ":db/cardinality": ":db.cardinality/many",
-    };
-  }
-
-  return { datoms, schema, ids };
+  return { datoms, schema: schemaFor(attrs), ids };
 }
 
 export function buildQueryDb(nodes: KbNode[]): QueryDb {

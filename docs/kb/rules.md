@@ -151,6 +151,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Reuse the forest builder tree-graph already has and leave this function as placement only.
 - **node** — `01M1MGCR50QEXX7R4JDJ51HQFY`
 
+### GAP: KbIndex reads are synchronous
+
+- **expected** — A KbIndex whose reads are Effects, so an implementation with async point reads (SqliteIndex, r4 §9.3) can satisfy the port.
+- **current** — rebuild/applyTx/runDatalog/pull/getNode/allNodes/search are all synchronous; every caller wraps them in Effect.try and depends on a synchronous throw.
+- **impact** — A second KbIndex implementation that cannot answer synchronously does not fit the port. Making reads Effects later is a wide mechanical change across the ontology runner's injected row function, the WS subscription hub and the docs renderer — three surfaces, no consumer asking for it today.
+- **closes** — p1 Phase 3 (SqliteIndex): change the port's read signatures to Effect and the three injected-runner signatures with it.
+- **node** — `01M1PH06G67A9HHTTXFZVAZ3YF`
+
 ### GAP: KbNode.order is optional and undeclared
 
 - **expected** — Sibling rank is part of the node schema, declared once, with the presence rule encoded rather than left optional.

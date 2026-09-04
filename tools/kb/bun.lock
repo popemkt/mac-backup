@@ -232,6 +232,7 @@
       "dependencies": {
         "@kb/model": "workspace:*",
         "datascript": "catalog:",
+        "effect": "catalog:",
       },
       "devDependencies": {
         "@kb/test-kit": "workspace:*",
