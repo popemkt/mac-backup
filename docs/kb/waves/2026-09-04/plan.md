@@ -31,7 +31,7 @@ Layer folders (t3): `domain/{model,query,canvas}` `contract/{contracts,ext-sdk}`
 |---|---|---|---|---|
 | t1 | `briefs/t1-catalog-alias.md` | omp | — | merged `a821ecc` |
 | t2 | `briefs/t2-harness-root.md` | claude | — | merged `585c17c` (5 commits + report) |
-| t3 | `briefs/t3-layer-folders.md` | claude | t2 merged | started 2026-09-04 evening |
+| t3 | `briefs/t3-layer-folders.md` | claude | t2 merged | merged `144baf0` (3 commits + report) |
 | t4 | `briefs/t4-favicon.md` | omp | — | merged `0e96750`; 9 alternates + gallery left on `feature/t4-favicon` for the owner to pick |
 
 Standing rules for every worker: `intent/gate.sh session <harness>` first;
@@ -40,3 +40,38 @@ Standing rules for every worker: `intent/gate.sh session <harness>` first;
 `lint-warn-baseline.json` (`bun run harness:snapshot`); regenerate docs with
 `action-invoke '{"id":"docs.materialize","input":{}}'`; no push; commit in
 `<type>: <description>` style; report to `reports/<id>.md`.
+
+## Close-out (2026-09-04, late evening)
+
+All four waves merged to `main` (`144baf0`). Every worker ran `bun run
+verify`, `bun test packages` and `bun run test:ui` green in its worktree; the
+merge commits ran the pre-commit verify again on `main`.
+
+What changed shape:
+
+- `packages/<layer>/<pkg>` is the tree; `layer:*` tags are gone and the
+  harness reads layer from the path, scope from the manifest. The Nx project
+  graph left the harness with them (`bun run harness` 20.9 s → 13.6 s).
+- The harness lives at `tools/kb/harness/` as root tooling; no `tooling` row
+  anywhere. Imports and barrels are parsed with `oxc-parser`; `bunfig.toml` is
+  read as TOML.
+- The catalog names every version; the vite alias twin is a harness invariant.
+- The kb CLI moved: `bun tools/kb/packages/app/cli/src/main.ts …` (the
+  `tools/kb/bin/kb` shim and `.mcp.json` are unchanged).
+
+Findings for the owner (not regressions of this wave):
+
+- **`nix build .#kb` was red on `main` before t3.** Both fixed-output hashes
+  were stale; t3 refreshed them (`3543fc1`). Root cause is structural: the
+  FODs run `bun install` and a `vp` build with the ambient `bun`, so a
+  toolchain bump moves the output without moving any input Nix knows about.
+  A `#gap` is the right home for that once the owner decides between pinning
+  `bun` inside the FOD and dropping the FOD shape.
+- The t4 omp worker also produced nine alternative favicons plus a
+  `preview.html` gallery on `feature/t4-favicon` (`8bce750`); not merged
+  because `public/` ships in `dist`. Owner picks or says "keep current".
+- A todo was filed for `canvas.test.ts` creating its temp dir inside
+  `packages/runtime/tests` (leaks `kb-canvas-*` on an aborted run).
+- An untracked `reports/kb-comprehensive-architecture-governance-review.md`
+  (38 KB, audited snapshot `3d86c5c`) appeared in the `main` checkout at 21:41
+  from outside this run; left untracked for the owner.
