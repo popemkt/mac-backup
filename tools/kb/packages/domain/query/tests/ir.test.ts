@@ -115,20 +115,121 @@ describe("compile(parse(edn)) is query-equivalent", () => {
       sameRows(query(db, compiled.query), query(db, q.edn));
     }
   });
+});
 
-  test("generated corpus: pattern queries round-trip by rows", () => {
-    const corpus = [
-      "[:find ?id :where [?n :node/id ?id]]",
-      "[:find ?id ?text :where [?n :node/id ?id] [?n :node/text ?text]]",
-      '[:find ?id :where [?n :node/id ?id] [?n :node/text "a todo"]]',
-      "[:find ?id :where [?n :f/sys.f.type ?t] [?t :node/id ?tid] [?n :node/id ?id]]",
+type GenClause = IrQuery["where"][number];
+
+function boundNames(where: readonly GenClause[]): string[] {
+  const bound = new Set<string>();
+  for (const c of where) {
+    if (c.kind === "pattern") {
+      bound.add(c.entity);
+      if (c.value.t === "var") bound.add(c.value.name);
+    } else if (c.kind === "children") {
+      bound.add(c.parent);
+      bound.add(c.child);
+    } else if (c.kind === "reach") {
+      bound.add(c.from);
+      bound.add(c.to);
+    }
+  }
+  return [...bound];
+}
+
+function pattern(
+  entity: string,
+  attr: string,
+  value: { t: "var"; name: string } | { t: "str"; value: string },
+): GenClause {
+  return { kind: "pattern", entity, attr, value };
+}
+
+const irArb: fc.Arbitrary<IrQuery> = fc
+  .record({
+    idLiteral: fc.option(fc.constantFrom("n.todo", "p", "a"), { nil: null }),
+    text: fc.constantFrom("omit", "var", "a todo", "leaf"),
+    typeJoin: fc.boolean(),
+    mentionsJoin: fc.boolean(),
+    children: fc.boolean(),
+    reach: fc.boolean(),
+  })
+  .chain((shape) => {
+    const where: GenClause[] = [
+      pattern(
+        "n",
+        ":node/id",
+        shape.idLiteral === null ? { t: "var", name: "id" } : { t: "str", value: shape.idLiteral },
+      ),
     ];
+    if (shape.text === "var") where.push(pattern("n", ":node/text", { t: "var", name: "text" }));
+    else if (shape.text !== "omit")
+      where.push(pattern("n", ":node/text", { t: "str", value: shape.text }));
+    if (shape.typeJoin) {
+      where.push(pattern("n", ":f/sys.f.type", { t: "var", name: "t" }));
+      where.push(pattern("t", ":node/id", { t: "var", name: "tid" }));
+    }
+    if (shape.mentionsJoin) {
+      where.push(pattern("n", ":node/mentions", { t: "var", name: "m" }));
+      where.push(pattern("m", ":node/id", { t: "var", name: "mid" }));
+    }
+    if (shape.children) {
+      where.push(pattern("p", ":node/id", { t: "str", value: "p" }));
+      where.push({ kind: "children", parent: "p", child: "c" });
+      where.push(pattern("c", ":node/id", { t: "var", name: "cid" }));
+    }
+    if (shape.reach) {
+      where.push(pattern("root", ":node/id", { t: "str", value: "a" }));
+      where.push({ kind: "reach", from: "root", to: "reached", edge: ":node/mentions" });
+      where.push(pattern("reached", ":node/id", { t: "var", name: "rid" }));
+    }
+    const names = boundNames(where);
+    return fc
+      .uniqueArray(fc.constantFrom(...names), {
+        minLength: 1,
+        maxLength: Math.min(2, names.length),
+      })
+      .map((findNames) => ({
+        kind: "query" as const,
+        find: findNames.map((name) => ({
+          kind: "var" as const,
+          name,
+          type: name === "text" ? ("scalar" as const) : ("node-ref" as const),
+        })),
+        where,
+      }));
+  });
+
+describe("generated IR round-trips through compile(parseEdn(compile(ir)))", () => {
+  const db = handleFor([
+    node("sys.tag", { text: "tag" }),
+    node("n.todo", {
+      text: "a todo",
+      props: { "sys.f.type": [{ t: "ref", v: "sys.tag" }] },
+    }),
+    node("p", { children: ["c1", "c2"] }),
+    node("c1", { text: "[[c2]]" }),
+    node("c2"),
+    node("a", { text: "[[b]]" }),
+    node("b", { text: "[[c]]" }),
+    node("c", { text: "leaf" }),
+  ]);
+
+  test("rows match query(edn) on the fixture", () => {
+    const outcome = (edn: string, extra: unknown[]) => {
+      try {
+        return { rows: sortedRows(query(db, edn, ...extra)) };
+      } catch (e) {
+        return { error: e instanceof Error ? e.message : String(e) };
+      }
+    };
     fc.assert(
-      fc.property(fc.constantFrom(...corpus), (edn) => {
-        const compiled = compile(parseEdn(edn));
-        expect(sortedRows(query(db, compiled.query))).toEqual(sortedRows(query(db, edn)));
+      fc.property(irArb, (ir) => {
+        const compiled = compile(ir);
+        const roundTripped = compile(parseEdn(compiled.query));
+        const extra = compiled.rules !== undefined ? [compiled.rules] : [];
+        expect(outcome(roundTripped.query, extra)).toEqual(outcome(compiled.query, extra));
       }),
-      { numRuns: 20 },
+      { numRuns: 50 },
     );
   });
 });
@@ -195,5 +296,55 @@ describe("children clause replaces the cartesian join", () => {
     expect(ir.where.some((c) => c.kind === "children")).toBe(true);
     const rows = runIr(datascriptExecutor(db), ir, db.ids);
     expect(sortedRows(rows)).toHaveLength(3);
+  });
+
+  test("child-order as the last clause still collapses", () => {
+    const lastClause = `[:find ?id ?i :where [?p :node/id "p"] [?p :node/child ?c] [?c :node/id ?id] [?p :node/child-order ?i]]`;
+    const ir = parseEdn(lastClause);
+    expect(ir.kind).toBe("query");
+    if (ir.kind !== "query") return;
+    expect(ir.where.some((c) => c.kind === "children")).toBe(true);
+    expect(ir.find.some((p) => p.kind === "var" && p.name === "i")).toBe(false);
+    expect(sortedRows(query(db, lastClause))).toHaveLength(3);
+  });
+});
+
+const RULES_SUBTAG = `[[(subtag ?child ?parent) [?child :f/sys.f.onto.extends ?parent]]
+                       [(subtag ?child ?parent) [?child :f/sys.f.onto.extends ?mid] (subtag ?mid ?parent)]
+                       [(has-tag ?n ?tag) [?n :f/sys.f.type ?tag]]
+                       [(has-tag ?n ?tag) [?n :f/sys.f.type ?sub] (subtag ?sub ?tag)]]`;
+
+describe("rule-call args are node-ref unless bound as a scalar", () => {
+  const db = handleFor([
+    node("tag-root", { text: "root-tag" }),
+    node("tag-child", {
+      text: "child-tag",
+      props: { "sys.f.onto.extends": [{ t: "ref", v: "tag-root" }] },
+    }),
+    node("n-tagged", {
+      text: "tagged",
+      props: { "sys.f.type": [{ t: "ref", v: "tag-child" }] },
+    }),
+    node("n-direct", {
+      text: "direct",
+      props: { "sys.f.type": [{ t: "ref", v: "tag-root" }] },
+    }),
+  ]);
+
+  test("has-tag bound only by the rule revives through runIr", () => {
+    const edn = `[:find ?n :in $ % ?tagId :where [?tag :node/id ?tagId] (has-tag ?n ?tag)]`;
+    const ir = parseEdn(edn);
+    expect(ir.kind).toBe("query");
+    if (ir.kind !== "query") return;
+    expect(ir.find).toEqual([{ kind: "var", name: "n", type: "node-ref" }]);
+    const rows = runIr(datascriptExecutor(db), ir, db.ids, RULES_SUBTAG, "tag-root");
+    expect(sortedRows(rows)).toEqual([["n-direct"], ["n-tagged"]]);
+  });
+
+  test("a rule arg bound as :node/text stays scalar", () => {
+    const ir = parseEdn(`[:find ?text :in $ % :where (has-tag ?n ?tag) [?n :node/text ?text]]`);
+    expect(ir.kind).toBe("query");
+    if (ir.kind !== "query") return;
+    expect(ir.find).toEqual([{ kind: "var", name: "text", type: "scalar" }]);
   });
 });
