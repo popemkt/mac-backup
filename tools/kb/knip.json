@@ -1,6 +1,12 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
+    ".": {
+      "entry": [
+        "harness/tests/*.test.ts",
+        "harness/src/snapshot.ts"
+      ]
+    },
     "packages/cli": {
       "entry": [
         "src/bin/*.ts"
@@ -9,11 +15,6 @@
     "packages/ext-sdk": {
       "entry": [
         "scripts/generate.ts",
-        "tests/*.test.ts"
-      ]
-    },
-    "packages/harness": {
-      "entry": [
         "tests/*.test.ts"
       ]
     },

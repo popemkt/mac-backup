@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { present } from "../../model/src/present.ts";
+import { present } from "../src/present.ts";
 import {
   LAYER_ALLOWS,
   RUNTIME_ONLY_SPECIFIERS,
@@ -25,8 +25,13 @@ import { axisValues, dependencyEntries, workspacePackages } from "../src/workspa
  */
 describe("boundaries", () => {
   const graph = projectGraph();
+  // The two axes describe workspace members. The root project carries the
+  // harness's typecheck target and is not one, so it is not tagged and not
+  // asked to be.
   const tagsByProject = new Map(
-    Object.entries(graph.nodes).map(([name, node]) => [name, node.data.tags ?? []]),
+    Object.entries(graph.nodes)
+      .filter(([, node]) => node.data.root.startsWith("packages/"))
+      .map(([name, node]) => [name, node.data.tags ?? []]),
   );
 
   function violation(source: string, target: string, axis: "layer" | "scope"): string | null {

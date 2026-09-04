@@ -16,9 +16,15 @@
 import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { axisValues, tagsOf, WORKSPACE_ROOT, workspacePackages } from "./workspace.ts";
+import {
+  axisValues,
+  HARNESS_ROOT,
+  tagsOf,
+  WORKSPACE_ROOT,
+  workspacePackages,
+} from "./workspace.ts";
 
-export const BASELINE_PATH = join(WORKSPACE_ROOT, "packages", "harness", "lint-warn-baseline.json");
+export const BASELINE_PATH = join(HARNESS_ROOT, "lint-warn-baseline.json");
 
 const ADVISORY_RULES = new Set(["typescript/no-deprecated"]);
 

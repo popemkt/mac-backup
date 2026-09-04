@@ -7,21 +7,18 @@ import { countsTowardRatchet, tsgoDiagnosticCounts } from "../src/snapshot.ts";
  *
  * Correctness-severity diagnostics are counted wherever they appear.
  * Suggestion-severity ones — the Effect-native preference lane, emitted by
- * tsgo as `message` — are counted only under the `src/` of a package that is
- * kb, because they state how production code should be written. A test
- * callback that says `async () => { ... }` is a test-runner contract, and a
- * `scope:tooling` package's `src/` is a build script; neither is a claim
- * about how kb models control flow, so neither moves the ledger.
+ * tsgo as `message` — are counted only under a package's `src/`, because they
+ * state how production code should be written. A test callback that says
+ * `async () => { ... }` is a test-runner contract, not a claim about how kb
+ * models control flow, so it does not move the ledger.
  *
  * Red case: drop the `src/` test from `countsTowardRatchet` and the
- * "test-file suggestion is not counted" expectations below fail; drop the
- * `scope:tooling` test and the harness expectation below fails.
+ * "test-file suggestion is not counted" expectations below fail.
  */
 describe("ratchet-scope", () => {
   const srcFile = "/abs/tools/kb/packages/server/src/server.ts";
   const testFile = "/abs/tools/kb/packages/server/tests/ui.test.ts";
   const rootFile = "/abs/tools/kb/packages/render-tests/playwright.config.ts";
-  const toolingFile = "/abs/tools/kb/packages/harness/src/snapshot.ts";
 
   test("suggestion under src/ is counted", () => {
     expect(countsTowardRatchet({ severity: "message", name: "asyncFunction", file: srcFile })).toBe(
@@ -36,16 +33,6 @@ describe("ratchet-scope", () => {
     expect(countsTowardRatchet({ severity: "message", name: "processEnv", file: rootFile })).toBe(
       false,
     );
-  });
-
-  test("a scope:tooling package's src/ is not counted in the suggestion lane", () => {
-    expect(
-      countsTowardRatchet({ severity: "message", name: "globalConsole", file: toolingFile }),
-    ).toBe(false);
-    // Correctness severity still counts there.
-    expect(
-      countsTowardRatchet({ severity: "warning", name: "floatingEffect", file: toolingFile }),
-    ).toBe(true);
   });
 
   test("correctness severity is counted everywhere", () => {

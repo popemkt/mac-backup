@@ -106,13 +106,6 @@
         "typescript": "catalog:",
       },
     },
-    "packages/harness": {
-      "name": "@kb/harness",
-      "version": "0.0.0",
-      "devDependencies": {
-        "@types/bun": "catalog:",
-      },
-    },
     "packages/mcp": {
       "name": "@kb/mcp",
       "version": "0.0.0",
@@ -588,8 +581,6 @@
     "@kb/ext-docs": ["@kb/ext-docs@workspace:packages/ext-docs"],
 
     "@kb/ext-sdk": ["@kb/ext-sdk@workspace:packages/ext-sdk"],
-
-    "@kb/harness": ["@kb/harness@workspace:packages/harness"],
 
     "@kb/mcp": ["@kb/mcp@workspace:packages/mcp"],
 

@@ -5,8 +5,10 @@
 import { execSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-export const WORKSPACE_ROOT = join(import.meta.dir, "..", "..", "..");
+export const WORKSPACE_ROOT = join(import.meta.dir, "..", "..");
 export const PACKAGES_ROOT = join(WORKSPACE_ROOT, "packages");
+/** The harness itself: root tooling, outside the workspace members. */
+export const HARNESS_ROOT = join(WORKSPACE_ROOT, "harness");
 export function gitWorkspaceFiles(
   patterns: string[] = ["*.ts", "*.tsx"],
   root: string = WORKSPACE_ROOT,
@@ -200,12 +202,4 @@ export function effectPluginConfig(preset = "tsconfig.bun.json"): EffectPluginCo
     };
   }
   throw new Error(`${preset}: no ${EFFECT_PLUGIN_NAME} plugin block`);
-}
-
-/** `packages/<dir>/src/**\/*` for every package carrying the given scope tag. */
-export function srcGlobsForScope(scope: string): string[] {
-  return workspacePackages()
-    .filter(({ manifest }) => axisValues(tagsOf(manifest), "scope").includes(scope))
-    .map(({ dir }) => `packages/${dir}/src/**/*`)
-    .toSorted();
 }

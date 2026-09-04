@@ -13,7 +13,6 @@ import {
   effectPluginConfig,
   gitWorkspaceFiles,
   readTsconfig,
-  srcGlobsForScope,
   tagsOf,
   workspacePackages,
 } from "../src/workspace.ts";
@@ -284,26 +283,25 @@ describe("tsconfig-presets", () => {
  * suggestion everywhere else — and that scope is stated once, in the plugin's
  * `overrides`, next to the severities it changes.
  *
- * The `exclude` is not a second list: it must equal the `src/` glob of every
- * `scope:tooling` package, computed from the tags those packages already
- * carry. Tag a new package `scope:tooling` and this goes red until the glob
- * follows.
+ * The scope is one `include` and nothing else. The harness lives outside
+ * `packages/`, so `packages/*\/src/**\/*` already excludes it; an `exclude`
+ * beside the include would be a second list to keep in sync.
  *
  * Red cases: promote a rule that is still in the ratchet ledger; relax a rule
  * in the override instead of promoting it; add a second `overrides` entry;
- * tag a package `scope:tooling` without extending the exclude.
+ * carve a path out of the promoted lane with an `exclude`.
  */
 describe("effect-severity-lanes", () => {
   const plugin = effectPluginConfig();
   const [override] = plugin.overrides;
 
-  test("the preference lane has exactly one file scope, derived from the scope tags", () => {
+  test("the preference lane has exactly one file scope", () => {
     expect(plugin.overrides.length, "the Effect file scope is stated once").toBe(1);
     expect(override?.include).toEqual(["packages/*/src/**/*"]);
     expect(
       override?.exclude,
-      "exclude must be exactly the src/ of every scope:tooling package",
-    ).toEqual(srcGlobsForScope("tooling"));
+      "the include is the whole scope; a carve-out would be a second list",
+    ).toBeUndefined();
   });
 
   test("an override only ever promotes a suggestion to an error", () => {

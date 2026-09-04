@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { present } from "../../model/src/present.ts";
+import { present } from "../src/present.ts";
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
+import { PACKAGES_ROOT } from "../src/workspace.ts";
 
 /**
  * Determinism seam guard (t2-dst).
@@ -30,7 +31,6 @@ import { join, relative, sep } from "node:path";
  * (b6; the bypass was recorded in
  * docs/kb/waves/2026-09-03/reports/w1-workspace.md).
  */
-const PACKAGES_ROOT = join(import.meta.dir, "..", "..");
 const NOT_STORE_REACHABLE = new Set(["ui", "render-tests"]);
 
 // token → the workspace-relative files where it is permitted. Anything not
