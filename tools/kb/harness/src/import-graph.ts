@@ -85,6 +85,40 @@ export function specifiersOf(file: string, source: string): string[] {
   return out;
 }
 
+/** One `export … from` statement: where it forwards from, and in what form. */
+export interface ReExport {
+  specifier: string;
+  /** `export * from "x"` — a whole module under no name of its own. */
+  star: boolean;
+}
+
+/**
+ * Every `export … from` in one file. `export * from` and `export * as ns from`
+ * differ by one token, and the whole `public-surface` rule turns on that
+ * difference — the module record names it (`importName.kind`), a line pattern
+ * has to re-derive it.
+ */
+export function reExportsOf(file: string, source: string): ReExport[] {
+  const parsed = parseSync(file, source);
+  if (parsed.errors.length > 0) {
+    throw new Error(`${file}: ${parsed.errors.map((e) => e.message).join("; ")}`);
+  }
+  const out: ReExport[] = [];
+  for (const statement of parsed.module.staticExports) {
+    for (const entry of statement.entries) {
+      if (entry.moduleRequest === null) continue;
+      out.push({
+        specifier: entry.moduleRequest.value,
+        // Of the three forwarding forms, only `export * from` names nothing on
+        // either side: `export * as ns from` names `ns`, `export { x } from`
+        // names `x` twice.
+        star: entry.importName.name === null && entry.exportName.name === null,
+      });
+    }
+  }
+  return out;
+}
+
 let cached: ImportSite[] | undefined;
 
 /** Every import statement in every package. */

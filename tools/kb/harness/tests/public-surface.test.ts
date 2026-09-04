@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { reExportsOf } from "../src/import-graph.ts";
 import { PACKAGES_ROOT, workspacePackages } from "../src/workspace.ts";
 
 /**
@@ -40,18 +41,20 @@ describe("public-surface", () => {
     expect(bad, bad.join("\n")).toEqual([]);
   });
 
+  /** The `src/index.ts` of every package that claims a surface. */
+  function barrels(): Array<{ dir: string; path: string }> {
+    return packages
+      .filter(({ manifest }) => JSON.stringify(manifest.exports) !== "{}")
+      .map(({ dir }) => ({ dir, path: join(PACKAGES_ROOT, dir, "src", "index.ts") }))
+      .filter(({ path }) => existsSync(path));
+  }
+
   test("no barrel re-exports a whole module", () => {
     const bad: string[] = [];
-    for (const { dir, manifest } of packages) {
-      if (JSON.stringify(manifest.exports) === "{}") continue;
-      const barrel = join(PACKAGES_ROOT, dir, "src", "index.ts");
-      if (!existsSync(barrel)) continue;
-      const body = readFileSync(barrel, "utf8");
-      for (const [index, line] of body.split("\n").entries()) {
+    for (const { dir, path } of barrels()) {
+      for (const { specifier, star } of reExportsOf(path, readFileSync(path, "utf8"))) {
         // `export * as ns from` names one thing; bare `export * from` does not.
-        if (/^\s*export\s+\*\s+from\s/.test(line)) {
-          bad.push(`${dir}/src/index.ts:${index + 1}: ${line.trim()}`);
-        }
+        if (star) bad.push(`${dir}/src/index.ts: export * from "${specifier}"`);
       }
     }
     expect(bad, bad.join("\n")).toEqual([]);
@@ -61,14 +64,10 @@ describe("public-surface", () => {
     // A barrel that forwards @kb/other is a second name for someone else's
     // surface: two places to change, and the graph edge lies about why.
     const bad: string[] = [];
-    for (const { dir, manifest } of packages) {
-      if (JSON.stringify(manifest.exports) === "{}") continue;
-      const barrel = join(PACKAGES_ROOT, dir, "src", "index.ts");
-      if (!existsSync(barrel)) continue;
-      const body = readFileSync(barrel, "utf8");
-      for (const [index, line] of body.split("\n").entries()) {
-        if (/^\s*export\s.*\sfrom\s+["']@kb\//.test(line)) {
-          bad.push(`${dir}/src/index.ts:${index + 1}: ${line.trim()}`);
+    for (const { dir, path } of barrels()) {
+      for (const { specifier } of reExportsOf(path, readFileSync(path, "utf8"))) {
+        if (specifier.startsWith("@kb/")) {
+          bad.push(`${dir}/src/index.ts: re-exports from "${specifier}"`);
         }
       }
     }
