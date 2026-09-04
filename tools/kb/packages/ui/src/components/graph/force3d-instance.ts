@@ -54,6 +54,7 @@ export function linkEndId(end: string | FgNode): string {
  * GAP [[01M1P2RAJVTB4CESYGEVF7NDE1]]
  */
 export function createForceGraph(el: HTMLElement): KbForceGraph {
+  // eslint-disable-next-line typescript/no-unsafe-type-assertion -- GAP [[01M1P2RAJVTB4CESYGEVF7NDE1]] non-generic vendor constructor
   const Ctor = ForceGraph3D as unknown as new (element: HTMLElement) => KbForceGraph;
   return new Ctor(el);
 }

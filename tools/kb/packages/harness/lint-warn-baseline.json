@@ -2,8 +2,7 @@
   "lanes": {
     "blocking": {
       "eslint/max-lines": 2,
-      "eslint/max-lines-per-function": 40,
-      "typescript/no-unsafe-type-assertion": 4
+      "eslint/max-lines-per-function": 40
     },
     "advisory": {}
   }

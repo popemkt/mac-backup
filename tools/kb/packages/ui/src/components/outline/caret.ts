@@ -219,6 +219,7 @@ export function offsetFromPoint(el: HTMLElement, clientX: number, clientY: numbe
     // GAP [[01M1P2R0XMSK1MRVQ8P2JH5V0Z]]: lib.dom marks caretRangeFromPoint
     // @deprecated, so a direct Document call is typescript/no-deprecated. This
     // one cast keeps the probe off that type and the method call bound.
+    // eslint-disable-next-line typescript/no-unsafe-type-assertion -- GAP [[01M1P2R0XMSK1MRVQ8P2JH5V0Z]]
     const doc = document as unknown as CaretDocument;
     if (typeof doc.caretRangeFromPoint === "function") {
       range = doc.caretRangeFromPoint(clientX, clientY);

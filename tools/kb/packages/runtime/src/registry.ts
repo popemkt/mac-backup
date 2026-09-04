@@ -301,6 +301,7 @@ function mapHandlerError(err: unknown): ActionSchemaError | DomainError {
  * the two are joined here once rather than asserted at each call site.
  */
 function asDeclaredInput(parsed: unknown): never {
+  // eslint-disable-next-line typescript/no-unsafe-type-assertion -- the one sanctioned boundary trust: the SDK decodes the shape, the registry joins it to the handler signature here, once
   return parsed as never;
 }
 

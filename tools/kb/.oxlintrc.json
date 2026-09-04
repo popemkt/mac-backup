@@ -49,11 +49,11 @@
     "typescript/no-misused-promises": "error",
     "typescript/switch-exhaustiveness-check": "error",
     "typescript/strict-boolean-expressions": "error",
-    "typescript/no-unnecessary-condition": "warn",
+    "typescript/no-unnecessary-condition": "error",
     "typescript/require-await": "error",
-    "typescript/no-deprecated": "warn",
+    "typescript/no-deprecated": "error",
     "typescript/no-unnecessary-type-assertion": "error",
-    "typescript/no-unsafe-type-assertion": "warn",
+    "typescript/no-unsafe-type-assertion": "error",
     "typescript/no-unnecessary-type-conversion": "error",
     "typescript/no-unnecessary-type-arguments": "error",
     "typescript/no-unnecessary-boolean-literal-compare": "error",
@@ -443,29 +443,6 @@
             ]
           }
         ]
-      }
-    },
-    {
-      "files": [
-        "packages/canvas/src/**",
-        "packages/cli/src/**",
-        "packages/contracts/src/**",
-        "packages/ext-canvas/src/**",
-        "packages/ext-docs/src/**",
-        "packages/ext-sdk/src/**",
-        "packages/harness/src/**",
-        "packages/mcp/src/**",
-        "packages/model/src/**",
-        "packages/operations/src/**",
-        "packages/query/src/**",
-        "packages/render-tests/src/**",
-        "packages/runtime/src/**",
-        "packages/server/src/**",
-        "packages/store-jsonl/src/**",
-        "packages/test-kit/src/**"
-      ],
-      "rules": {
-        "typescript/no-unnecessary-condition": "error"
       }
     },
     {
