@@ -29,10 +29,10 @@ Layer folders (t3): `domain/{model,query,canvas}` `contract/{contracts,ext-sdk}`
 
 | id | brief | harness | depends on | status |
 |---|---|---|---|---|
-| t1 | `briefs/t1-catalog-alias.md` | omp | — | |
-| t2 | `briefs/t2-harness-root.md` | claude | — | |
-| t3 | `briefs/t3-layer-folders.md` | claude | t2 merged | queued |
-| t4 | `briefs/t4-favicon.md` | omp | — | |
+| t1 | `briefs/t1-catalog-alias.md` | omp | — | merged `a821ecc` |
+| t2 | `briefs/t2-harness-root.md` | claude | — | merged `585c17c` (5 commits + report) |
+| t3 | `briefs/t3-layer-folders.md` | claude | t2 merged | started 2026-09-04 evening |
+| t4 | `briefs/t4-favicon.md` | omp | — | merged `0e96750`; 9 alternates + gallery left on `feature/t4-favicon` for the owner to pick |
 
 Standing rules for every worker: `intent/gate.sh session <harness>` first;
 `.kb/nodes.jsonl` only through `bun tools/kb/packages/cli/src/main.ts …`
