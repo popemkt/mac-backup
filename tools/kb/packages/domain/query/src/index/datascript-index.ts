@@ -3,7 +3,7 @@
 import * as d from "datascript";
 import { present, type KbNode, type NodeId, type StoreTx } from "@kb/model";
 import { pull as dsPull, query as dsQuery } from "../datascript.ts";
-import { type Datom, type IdMap, nodeToDatoms, schemaFor } from "./datoms.ts";
+import { type Datom, type DatascriptDb, type IdMap, nodeToDatoms, schemaFor } from "./datoms.ts";
 import type { KbIndex } from "./index.ts";
 
 /** Identity of a datom within one entity — attr plus value, compared structurally. */
@@ -182,8 +182,8 @@ export class DatascriptIndex implements KbIndex {
   }
 
   /** The engine handle the query half takes. Nothing outside this class holds one. */
-  #handle(): { db: unknown; ids: IdMap; nodes: Map<NodeId, KbNode> } {
-    return { db: this.#db, ids: this.#ids, nodes: this.#nodes };
+  #handle(): DatascriptDb {
+    return { db: this.#db, ids: this.#ids };
   }
 
   #currentStored(): KbNode[] {

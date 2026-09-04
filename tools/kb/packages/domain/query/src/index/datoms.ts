@@ -36,10 +36,14 @@ export interface IdMap {
   toId: Map<number, NodeId>;
 }
 
-export interface QueryDb {
+/**
+ * A datascript db plus the eid map needed to read it back as node ids. The
+ * engine handle, and nothing else: the node set, the virtual set and the
+ * generation belong to the index that owns this handle.
+ */
+export interface DatascriptDb {
   db: unknown;
   ids: IdMap;
-  nodes: Map<NodeId, KbNode>;
 }
 
 function buildIdMap(nodes: KbNode[]): IdMap {
@@ -203,14 +207,9 @@ function nodesToDatoms(nodes: KbNode[]): {
   return { datoms, schema: schemaFor(attrs), ids };
 }
 
-export function buildQueryDb(nodes: KbNode[]): QueryDb {
+export function buildQueryDb(nodes: KbNode[]): DatascriptDb {
   const { datoms, schema, ids } = nodesToDatoms(nodes);
-  const db = d.init_db(datoms, schema);
-  return {
-    db,
-    ids,
-    nodes: new Map(nodes.map((n) => [n.id, n])),
-  };
+  return { db: d.init_db(datoms, schema), ids };
 }
 
 /** Extract [[id|label]] mentions from text. */

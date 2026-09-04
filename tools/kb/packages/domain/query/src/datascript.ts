@@ -2,7 +2,7 @@
 /// <reference path="./datascript.d.ts" />
 import * as d from "datascript";
 import { present, type NodeId } from "@kb/model";
-import type { IdMap, QueryDb } from "./index/datoms.ts";
+import type { DatascriptDb, IdMap } from "./index/datoms.ts";
 
 /**
  * A query that failed inside the datascript engine — parse or evaluation
@@ -70,7 +70,7 @@ function reviveValue(v: unknown, ids: IdMap): unknown {
 }
 
 /** Run raw EDN datalog; entity ids in results are revived to NodeIds when known. */
-export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
+export function query(db: DatascriptDb, edn: string, ...inputs: unknown[]): unknown {
   const q = normalizeEdnQuery(edn);
   let raw: unknown;
   try {
@@ -89,7 +89,7 @@ export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
  * is whatever the query asked for; every row-shaped caller went through the
  * same cast, so the check lives here instead.
  */
-export function queryRows(db: QueryDb, edn: string, ...inputs: unknown[]): unknown[][] {
+export function queryRows(db: DatascriptDb, edn: string, ...inputs: unknown[]): unknown[][] {
   const raw = query(db, edn, ...inputs);
   if (!Array.isArray(raw) || !raw.every((row) => Array.isArray(row))) {
     throw new DatalogError(`datalog query did not return rows: ${edn}`);
@@ -97,7 +97,7 @@ export function queryRows(db: QueryDb, edn: string, ...inputs: unknown[]): unkno
   return raw;
 }
 
-export function pull(db: QueryDb, pattern: string, id: NodeId | number): unknown {
+export function pull(db: DatascriptDb, pattern: string, id: NodeId | number): unknown {
   let eidOrLookup: number | [string, string];
   if (typeof id === "number") {
     eidOrLookup = id;

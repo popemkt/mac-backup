@@ -505,13 +505,13 @@ interface Store {
 - **Performance is a stated requirement**, and what the code does today is:
   read the whole file into one string, split on newlines, decode each line
   through `Schema`; single-pass datom build; durable whole-file replace
-  (below). Load is **not** a streaming line parse — this doc claimed one for a
-  while and the code never had it. The streaming parse is a target, not a
-  description, and the wave that owns it is `briefs/p1-persistence.md`.
-  `tests/benchmark.test.ts` holds the standing bar: a 50k-node fixture loads,
-  builds and queries well under a second. `.bak` / `nodes.jsonl.*.tmp` are
-  gitignored — only the live `nodes.jsonl` is committed. The transient
-  `nodes.jsonl.lock` is _not_ yet gitignored (known gap).
+  (below). Incremental file reading is a target owned by
+  `briefs/p1-persistence.md`, not a description of the current implementation.
+  `tests/benchmark.test.ts` records the 50k-node read, decode, datom-build,
+  query, set-shaped commit, and interactive-edit timings without gating them;
+  measured gates belong to Phase 4. `.bak`, `nodes.jsonl.lock`,
+  `nodes.jsonl.*.tmp`, and `.kb/cache/` are gitignored — only the live
+  `nodes.jsonl` is committed.
 - **Write hardening** (r4 Stage-0 — on-disk format unchanged), two modules
   in `@kb/store-jsonl`:
   - `write-lock.ts` — an exclusive `.kb/nodes.jsonl.lock` carrying the holder
@@ -548,7 +548,8 @@ interface Store {
 
 ## Query layer (horizontal)
 
-- `datascript` npm. Load → datoms → `conn` → query.
+- `datascript` npm. Every load rebuilds a DataScript database from the current
+  nodes, then queries that value.
 - `kb query '<edn datalog>'` for raw power; pull API via `kb get <id> --depth N`.
 - Query failures are typed at the action boundary: errors thrown by the
   datascript engine on the caller's EDN become `DatalogError`

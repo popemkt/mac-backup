@@ -29,11 +29,15 @@ Base: `main` after the t3 merge (`144baf0` or later).
 | p1b | `briefs/p1b-kbindex-port.md` | claude (opus, high) | — (its commit 1 unblocks p1c) | new `packages/domain/query/src/index/**`; the **builder half** of `packages/domain/query/src/datascript.ts` (moved out in commit 1); `packages/contract/contracts/src/session.ts`; `packages/application/operations/**`; `packages/app/runtime/**`; `packages/app/server/src/{session,http}.ts`; `packages/app/cli/**`; `packages/app/mcp/**`; `packages/app/test-kit/**` and the tests that build a `QueryDb` |
 | p1c | `briefs/p1c-query-ir.md` | cursor (grok 4.6 high) | p1b commit 1 merged to the integration branch | new `packages/domain/query/src/ir/**`; the **query-execution half** of `datascript.ts` (`normalizeEdnQuery`, `query`, `queryRows`, `pull`, revival, rules); `packages/app/ui/src/ds/query.ts` + its test |
 
+| r1 | `briefs/r1-review-cleanup.md` | codex | — (base `main`; merges after p1c) | `tools/kb/harness/**`, `tools/kb/package.json` scripts, knip config, `.oxlintrc.json`, `server/src/build.ts`, `ui/ARCHITECTURE.md`, three UI files' directive lines, `ext-docs/**`, DESIGN.md non-Performance wording, `docs/ci.md`, kb nodes via CLI |
+
 Sequencing: p1a and p1b start together. p1b's first commit is a
 behaviour-preserving split of `datascript.ts` into builder (`index/datoms.ts`)
 and execution (`datascript.ts`); the coordinator merges that commit to the
 integration branch `kb-wave/2026-09-05` and starts p1c from it. Everything
-else merges as it lands; p1b last.
+else merges as it lands; p1b last. `r1` (added 2026-09-04 after the owner
+verified the codex governance review) acts on that review; its two items in
+p1b's tree (registry output parse, `http.ts:122`) are gaps for the next wave.
 
 Standing rules: `intent/gate.sh session <harness>` first; the kb CLI is
 `bun tools/kb/packages/app/cli/src/main.ts …` (never the `kb` shim on PATH);
