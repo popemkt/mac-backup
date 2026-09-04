@@ -127,6 +127,37 @@ redeclares a key its base or preset already owns.
 31 UI violations recorded in `reports/measurements.md`).
 `noPropertyAccessFromIndexSignature` is rejected (plan D9; 114 backend + 239 UI
 violations, style-only with no soundness gain).
+
+### Ratchet scope
+
+The ratchet ledger (`packages/harness/lint-warn-baseline.json`, harness check
+`lint-warn-ratchet`) ingests two collectors, and they measure different file
+sets on purpose.
+
+- **oxlint** counts every warning over every linted file. Where a rule means
+  something different in a test, that is said once in `.oxlintrc.json`
+  `overrides` — the file glob is the scope, and the ledger just follows it.
+- **`@effect/tsgo`** has no per-file severity, so the scope lives in the
+  collector instead. Correctness-severity diagnostics count wherever they
+  appear. Suggestion-severity ones — the Effect-native preference group
+  (`asyncFunction`, `globalConsole`, `globalDate`, `globalTimers`,
+  `processEnv`, `globalRandom`), emitted by tsgo as `message` — count only
+  under a package's `src/`.
+
+The reason is what the suggestion lane claims. `asyncFunction` says "model this
+control flow as an Effect"; that is a statement about how kb is written, and a
+`test("…", async () => …)` callback is a test-runner calling convention, not kb
+modelling anything. Counting those made 235 of 303 `asyncFunction` hits
+untouchable-by-design, so the ledger's largest number could only ever move by
+re-snapshotting — a rule nothing can satisfy is a rule nothing enforces.
+`countsTowardRatchet` in `@kb/harness` states the split once, and
+`ratchet-scope` is its red case.
+
+The consequence is stated plainly: a suggestion rule that reaches 0 in `src`
+but still has hits outside it cannot be promoted, because promotion is a
+severity flip in `tsconfig.bun.json` and that flip has no file scope. Such a
+rule leaves the ledger without a promotion; the drain report says which sites
+remain and why.
 ## Supply chain
 
 - Every internal dependency is `workspace:*`; every external dependency is

@@ -34,9 +34,40 @@ interface OxlintDiagnostic {
   code?: string;
 }
 
-interface TsgoDiagnostic {
+export interface TsgoDiagnostic {
   severity?: string;
   name?: string;
+  file?: string;
+}
+
+/** `packages/<name>/src/**` — the files the Effect suggestion lane governs. */
+const SRC_FILE = /(?:^|\/)packages\/[^/]+\/src\//;
+
+/**
+ * Which `@effect/tsgo` diagnostics the ratchet counts (DESIGN.md, "Ratchet
+ * scope"). Correctness-severity diagnostics count wherever they appear;
+ * suggestion-severity ones (Effect-native preferences, emitted as `message`)
+ * count only under a package's `src/`, because they describe how production
+ * code should be written and a test callback is not that code.
+ */
+export function countsTowardRatchet(diagnostic: TsgoDiagnostic): boolean {
+  if (diagnostic.name === undefined || diagnostic.name === "") return false;
+  if (diagnostic.severity === "warning") return true;
+  if (diagnostic.severity !== "message") return false;
+  return diagnostic.file !== undefined && SRC_FILE.test(diagnostic.file);
+}
+
+/** Group one project's tsgo diagnostics into `effect/<name>` ratchet counts. */
+export function tsgoDiagnosticCounts(
+  diagnostics: readonly TsgoDiagnostic[],
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const d of diagnostics) {
+    if (!countsTowardRatchet(d)) continue;
+    const rule = `effect/${String(d.name)}`;
+    counts[rule] = (counts[rule] ?? 0) + 1;
+  }
+  return counts;
 }
 
 function normalizeRuleName(code: string): string {
@@ -104,13 +135,8 @@ function collectTsgoWarnings(root: string, counts: Record<string, number>): void
     if (tsgoOut.length === 0) continue;
     try {
       const parsed = JSON.parse(tsgoOut) as { diagnostics?: TsgoDiagnostic[] };
-      for (const d of parsed.diagnostics ?? []) {
-        if (d.severity === "warning" || d.severity === "message") {
-          if (d.name !== undefined && d.name !== "") {
-            const rule = `effect/${d.name}`;
-            counts[rule] = (counts[rule] ?? 0) + 1;
-          }
-        }
+      for (const [rule, n] of Object.entries(tsgoDiagnosticCounts(parsed.diagnostics ?? []))) {
+        counts[rule] = (counts[rule] ?? 0) + n;
       }
     } catch {
       // ignore parse error
