@@ -54,6 +54,27 @@ function cell(value: string | undefined): string {
   return value.replaceAll("|", "\\|").replaceAll(/\s*\n\s*/g, " ");
 }
 
+function appendGapSection(
+  lines: string[],
+  heading: string,
+  gapNodes: KbNode[],
+  emptyMessage: string,
+  ctx: TemplateContext,
+): void {
+  lines.push("", `## ${heading}`, "");
+  if (gapNodes.length === 0) lines.push(emptyMessage);
+  for (const node of gapNodes) {
+    lines.push(`### ${renderText(node.text, ctx)}`, "");
+    for (const field of ["expected", "current", "impact", "closes", "rule"]) {
+      const value = propText(ctx, node, field);
+      if (value !== undefined && value !== "") {
+        lines.push(`- **${field}** — ${value.replaceAll(/\s*\n\s*/g, " ")}`);
+      }
+    }
+    lines.push(`- **node** — \`${node.id}\``, "");
+  }
+}
+
 /**
  * `#rule` nodes as a table with an honest enforcement column, then the
  * `#gap` nodes. Rows: `[[nodeId], …]` — the gaps come from the graph, so
@@ -95,23 +116,13 @@ export function rules(rows: unknown[][], ctx: TemplateContext): string {
     );
   }
 
-  const gapNodes = nodesTagged(ctx, tagIdsNamed(ctx, "gap")).toSorted(
+  const allGapNodes = nodesTagged(ctx, tagIdsNamed(ctx, "gap")).toSorted(
     (a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id),
   );
-  lines.push("", "## Gaps", "");
-  if (gapNodes.length === 0) {
-    lines.push("_No gaps recorded._");
-  }
-  for (const node of gapNodes) {
-    lines.push(`### ${renderText(node.text, ctx)}`, "");
-    for (const field of ["expected", "current", "impact", "closes", "rule"]) {
-      const value = propText(ctx, node, field);
-      if (value !== undefined && value !== "") {
-        lines.push(`- **${field}** — ${value.replaceAll(/\s*\n\s*/g, " ")}`);
-      }
-    }
-    lines.push(`- **node** — \`${node.id}\``, "");
-  }
+  const activeGapNodes = allGapNodes.filter((node) => propText(ctx, node, "status") !== "done");
+  const closedGapNodes = allGapNodes.filter((node) => propText(ctx, node, "status") === "done");
+  appendGapSection(lines, "Gaps", activeGapNodes, "_No gaps recorded._", ctx);
+  appendGapSection(lines, "Closed", closedGapNodes, "_No closed gaps recorded._", ctx);
 
   return lines.join("\n");
 }

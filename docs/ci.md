@@ -15,21 +15,15 @@ independent jobs that run in parallel because they share nothing:
 - **`nix`** — `shellcheck`, `actionlint`, `nixfmt --check`, `statix`, `deadnix`,
   `nix flake check` (eval, then build), and release-pin verification. Runs
   inside `nix develop`, so the tool versions are the repo's own.
-- **`kb`** — `npm run verify` (typecheck + `vp check` + `lint:all` + `knip`),
-  the `ui` typecheck, the core suite (`bun test`), the UI suite (`vp test`), a
-  25-seed deterministic-simulation sweep, the generated-docs check, and the
-  `.kb/assets` backup-ownership check.
+- **`kb`** — `bun run verify`, `bun run test`, `bun run test:ui`, and
+  `bun run test:dst`, followed by the generated-docs check and the `.kb/assets`
+  backup-ownership check.
 
 ## Why the kb job looks the way it does
 
-- **It calls `npm run verify`, not its four parts.** `verify` exists precisely
-  so there is one name for "the kb toolchain is clean". Inlining its steps would
-  create a second definition that drifts.
-- **`ui` typecheck is separate.** `verify` typechecks the root package only; the
-  `ui` package has its own `tsconfig.json`, and `.githooks/pre-commit` gates
-  both. It is invoked as `./node_modules/.bin/tsc` rather than through npm
-  because `ui/package.json` declares `devEngines` npm 12, and `npm run` there
-  fails `EBADDEVENGINES` on the runner's npm.
+- **It calls `bun run verify`, not its constituent tools.** `verify` is the one
+  name for the complete KB toolchain gate: workspace typechecks, type-aware
+  lint, dead-code analysis, and the repository harness.
 - **`macos-15`, not `ubuntu-latest`.** The kb suite has only ever run on Darwin.
   Linux would be faster and cheaper, but a first-ever Linux run would mix real
   regressions with portability noise. Moving it is a worthwhile follow-up on its

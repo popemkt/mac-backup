@@ -1,6 +1,6 @@
 # kb UI — component architecture
 
-Conventions for `tools/kb/ui`. CLI/backend remains the source of truth; the UI
+Conventions for `tools/kb/packages/app/ui`. CLI/backend remains the source of truth; the UI
 is a projection. This file is the encapsulation contract for new work.
 
 ## Tree (App → surfaces)
@@ -74,20 +74,16 @@ stores/, lib/, ds/, api/, actions/
 ```
 
 Colocate tests as `*.test.ts(x)` next to the unit. Catalog stories are
-`catalog/<name>.stories.tsx` — not Storybook CSF runners.
+`catalog/<name>.stories.tsx` in Storybook CSF3 format.
 
-## Catalog decision (i9-arch)
+## Component catalog
 
-| Option                        | Verdict                                                                  |
-| ----------------------------- | ------------------------------------------------------------------------ |
-| Storybook 8                   | **Reject** — heavy deps, separate Vite graph, CI tax; fights `vite-plus` |
-| Ladle / Histoire              | **Reject** — still a second app + lockfile surface for ~6 primitives     |
-| In-app `/__catalog` route     | **Defer** — needs router/App shared edits; low ROI vs tests              |
-| Colocated stories + `vp test` | **Adopt** — see `src/catalog/`                                           |
+Storybook 10 is the component viewer. The CSF3 modules in `src/catalog/` are
+also consumed by the Vitest smoke suite through Storybook portable stories, so
+the viewer and the admission test share one set of variants.
 
-Story modules export named variants; `catalog.smoke.test.tsx` renders each via
-`renderToStaticMarkup` (or happy-dom when interaction is required). Existing
-`*.test.tsx` next to components remain the behavioral source of truth.
+Existing `*.test.tsx` files next to components remain the behavioral source of
+truth.
 
 ## God components (audit → future waves)
 

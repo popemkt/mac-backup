@@ -210,7 +210,6 @@ export interface TableColumnSpec {
   label: string;
 }
 
-// oxlint-disable-next-line complexity -- GAP [[01M1MGCJYB7PZXM68T4AVBECYG]]
 export function resolveTableColumns(
   viewConfig: ViewConfig,
   children: OutlineNode[],

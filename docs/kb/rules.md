@@ -13,7 +13,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Admission gate | CLAUDE.md#gate-run-first | repo | Every session and every commit records admission through the one gate script; a missing tool is restored, never worked around. | hook | .githooks/pre-commit runs intent/gate.sh record git-commit |
 | Generated docs are data | CLAUDE.md#kb--repo-knowledge-base | repo | Files under docs/kb are materialized from kb nodes; the data is edited and the file is regenerated, never the other way round. | hook | .githooks/pre-commit runs docs.check |
 | Isomorphism fence | docs/kb/waves/2026-09-03/plan.md | tools/kb shared packages | Shared packages run in the browser too: no runtime-only imports. Platform access belongs to an infrastructure or app package. | harness | harness boundaries — isomorphism fence test (2026-09-04) |
-| Module boundaries | tools/kb/.oxlintrc.json | tools/kb | Layer direction is enforced mechanically, not by convention: the UI reaches the backend only through the published seam, and foundation is a leaf. After w1 the two-axis package tag matrix in briefs/w1-workspace.md is the statement. | lint | oxlint no-restricted-imports; harness boundaries over nx graph (w1) |
+| Module boundaries | tools/kb/harness/src/constraints.ts | tools/kb | Layer and scope direction are enforced mechanically from package folders, manifest scope tags, and source imports; shared packages remain runtime-isomorphic. | harness | bun run harness (boundaries.test.ts) |
 | Abstraction before addition (Rule 1) | CLAUDE.md#rule-1--abstraction-before-addition | repo | Every change lands in the shape it would have had if the requirement had always existed; when the model does not fit, the model gets fixed, not special-cased. | prose | — |
 | Canonical statements | CLAUDE.md#canonical-statements | repo | Every rule, principle and decision has exactly one home; other files link to it and never restate it. Restatement is drift. | prose | — |
 | Code-unit cohesion (L1/L2/L3) | tools/kb/DESIGN.md#testing-doctrine | tools/kb | Boundaries and branching gate; size only warns; semantic cohesion is a reviewer verdict. A unit may be long, it may not be tangled. | prose | oxlint complexity + max-depth (g2); harness boundaries (w1) |
@@ -54,6 +54,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two typescript/no-unsafe-type-assertion hits remain in ui src. One of them is the seam that deleted fourteen per-callback assertions; the other is the labelled-node sprite accessor.
 - **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
 - **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
+
+### GAP: action registry does not validate output schemas
+
+- **expected** — Every action result is parsed once through its declared output schema before a successful receipt crosses a surface.
+- **current** — The registry validates action inputs but wraps raw handler results without applying outputSchema.
+- **impact** — Malformed built-in or extension output can be published as success while the manifest promises a stricter contract.
+- **closes** — Add one registry output parser for Effect-native and Promise handlers, map mismatch to an internal contract failure, and add invalid-output tests.
+- **rule** — Domain typing — parse unknown at the boundary
+- **node** — `01M1PJSSQYFV2E160JANGBPKCK`
 
 ### GAP: agent-prompt review rules are not ported to this repo
 
@@ -119,6 +128,24 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
+### GAP: core action definitions and handlers are hand-paired
+
+- **expected** — Operations exports one canonical coreActions contribution collection consumed through the same registration interface as extensions.
+- **current** — Definitions and Effect handlers are exported separately, then manually paired in runtime CORE_ACTIONS.
+- **impact** — A new action can be declared but remain unwired, and the core follows a parallel registration mechanism.
+- **closes** — Define each core action once as a contribution and make the registry consume that canonical collection.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M1PJW3WHWPCBT5BYNEQMYG98`
+
+### GAP: extension SDK mirror is not bidirectionally typed
+
+- **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.
+- **current** — Freshness tests compare generated text to a maintained mirror, while runtime checks cover only selected substrings.
+- **impact** — The public SDK and runtime can drift while both local freshness checks remain green.
+- **closes** — Add bidirectional compile-time exactness fixtures or generate both surfaces from one dependency-free canonical contract.
+- **rule** — Domain typing — one canonical schema
+- **node** — `01M1PJWF4G6W4122ZE4K67319V`
+
 ### GAP: FieldRow branches 27 ways over field type and edit state
 
 - **expected** — One editor component per field type, selected through a registry keyed by FieldType, so a new type adds an entry.
@@ -151,6 +178,24 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Reuse the forest builder tree-graph already has and leave this function as placement only.
 - **node** — `01M1MGCR50QEXX7R4JDJ51HQFY`
 
+### GAP: import graph misses package-entry bypasses
+
+- **expected** — One import resolver maps every supported specifier to its owning package, rejects relative imports across package roots and @kb package subpaths, and explicitly governs every JavaScript-family source extension.
+- **current** — importEdges creates workspace edges only for exact bare @kb/<package> specifiers and scans only TypeScript source extensions.
+- **impact** — Consumers can bypass layer, scope, isomorphism, and public-surface boundaries through subpath or cross-package relative imports.
+- **closes** — Resolve relative and subpath specifiers to package ownership, govern .js, .jsx, .mts, and .cts, and add red tests for every bypass.
+- **rule** — Module boundaries
+- **node** — `01M1PJV94AJP2SAQT50KNKNHA2`
+
+### GAP: KbContext carries two persistence interfaces
+
+- **expected** — KbContext exposes one Effect-native storage capability used by all core and extension handlers.
+- **current** — Both Promise Store and Effect-native EffectStore remain live on KbContext.
+- **impact** — Callers choose between parallel persistence seams, increasing adapter code and divergence risk.
+- **closes** — Migrate legacy Promise handlers to EffectStore, remove Store from KbContext, and delete the Promise facade.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M1PJVW0VZ283V1N3PDXFSHTC`
+
 ### GAP: KbNode.order is optional and undeclared
 
 - **expected** — Sibling rank is part of the node schema, declared once, with the presence rule encoded rather than left optional.
@@ -159,6 +204,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Track 2: declare order in the schema and encode the migration state as a discriminator instead of an optional field, keeping the byte-exact round trip test green.
 - **rule** — Domain typing — discriminator over optional
 - **node** — `01M1M08XNE3SBGY1MMNA1A73VX`
+
+### GAP: main has no required branch protection
+
+- **expected** — Branch protection requires the Nix and KB validation checks before main can advance.
+- **current** — CI runs the checks, but enabling required branch protection remains a manual control-plane step.
+- **impact** — A failed or skipped check does not necessarily prevent direct progression of main.
+- **closes** — Enable branch protection for main with the documented Nix and KB checks required and verify the policy.
+- **rule** — Admission gate
+- **node** — `01M1PJXGKQ0HAYEWY2V0QPWVX1`
 
 ### GAP: mapSelectionKey maps keys to actions through a 46-branch chain
 
@@ -200,14 +254,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — About 40 lines of Bun plus a .gitattributes entry; recorded in briefs/p1-persistence.md section 4.
 - **node** — `01M1M08WYY9X6HFNN5GKDCC47E`
 
-### GAP: OutlineNode.cursorPosition is deprecated but is still the canvas editor's caret channel
-
-- **expected** — One caret mechanism for both hosts: the outline's CaretIntent, with the canvas card reading the same channel, and cursorPosition gone from the store.
-- **current** — Closed in f2. cursorPosition turned out to be read by nothing: NodeTextHost declared the prop and never read it, so the canvas card was subscribing only to feed a dead prop. The field, its initial value, its activateNode write, the prop, and the 23 hand-copied test literals are gone; every host including the canvas takes its caret from pendingCaret.
-- **impact** — Exactly the parallel-mechanism shape Rule 1 forbids: a change to caret behaviour has to be made twice, and the deprecation says which one is wrong without removing it.
-- **closes** — Delete cursorPosition from OutlineState, its initial value, its activateNode write, and the unread NodeTextHost prop. TypeScript excess-property checks then require removing 'cursorPosition: 0,' from the hand-copied store-reset literal in 24 ui test files, which is the whole remaining cost - one line each. The reset duplication itself is the obstacle; a shared resetOutlineStore() helper would make this a three-line change.
-- **node** — `01M1MGT307N4K243CBPJTXNG5X`
-
 ### GAP: parsePerspective decodes a perspective node with 27 hand-written branches
 
 - **expected** — A #graph-perspective node decodes through one Schema (effect Schema, as DESIGN.md's domain-typing section states), so defaults, coercion and validation live in the schema rather than in per-field ternaries.
@@ -215,6 +261,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Field defaults are stated once per field in code and again in the ontology, and a malformed prop degrades silently per field instead of failing the decode.
 - **closes** — Track 2 domain-typing work: express LensPerspective as a Schema and decode props through it. Not mechanical - it changes what happens on malformed input.
 - **node** — `01M1MGCEBYDFRNJX1JKXXN825H`
+
+### GAP: pre-commit admission reads the working tree
+
+- **expected** — Pre-commit reconstructs and verifies the staged snapshot for every governed path so unstaged content cannot affect the decision.
+- **current** — The hook runs checks against the working tree and its KB trigger coverage is narrower than the governed repository surfaces.
+- **impact** — An unstaged fix can mask a staged defect, and governed extension or policy changes can evade local admission.
+- **closes** — Verify a reconstructed index snapshot and trigger on .kb, .kb/extensions, AGENTS.md, governance docs, tools/kb, the hook, and the workflow.
+- **rule** — Admission gate
+- **node** — `01M1PJWWSSRV3JGADQVYTMRGPB`
 
 ### GAP: PropValueEditor branches 24 ways over prop value type
 
@@ -232,6 +287,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Lift candidate search into a hook beside fuzzyNodeCandidates and leave RefEditor as presentation.
 - **node** — `01M1MGCP1EF5GM8NA32JEJRJ9Q`
 
+### GAP: repository extensions have no fail-closed admission
+
+- **expected** — Repository-owned extensions pass one explicit admission operation that compiles and decodes contributions, rejects duplicate IDs, validates handlers against definitions, and reports zero loader failures.
+- **current** — Runtime discovery warns and skips invalid .kb/extensions modules, while verification does not validate that directory.
+- **impact** — A malformed repository extension can land and silently disappear even though runtime remains available.
+- **closes** — Implement ext validate over the real repository extensions and invoke it from verify, pre-commit, and CI.
+- **rule** — Admission gate
+- **node** — `01M1PJVJX84AZCRVJ82R20WTK3`
+
 ### GAP: resolveTableColumns resolves table columns in one 21-branch function
 
 - **expected** — Column resolution splits into explicit columns, tag-derived columns and the merge between them, each named.
@@ -240,14 +304,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — SLAP-extract explicitColumns / derivedColumns / mergeColumns and keep the existing view-config tests green.
 - **node** — `01M1MGCJYB7PZXM68T4AVBECYG`
 
-### GAP: rules view needs a template the docs extension cannot own
+### GAP: rule enforcement is hand-typed instead of derived
 
-- **expected** — A view spec can name a template shipped by the extension that owns the view; core resolves templates through one declared registration seam.
-- **current** — templates in src/operations/docs/templates.ts is a plain exported record with no registration API, so extensions-bundled/docs.ts writes its rules template into that record at module load.
-- **impact** — Template ownership has two homes: the core record and an extension mutating it. The mutation is invisible to a reader of core and unavailable to third-party .kb/extensions, which cannot import core internals.
-- **closes** — Give the render backbone a real template-registration seam (extension actions contribute templates alongside actions), then move the rules template onto it and drop the mutation.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M1M08VXGJ5RTQJ3AJNK12G79`
+- **expected** — Each rule references a machine-readable #check node, and enforcement plus gate are derived from a verified execution surface.
+- **current** — Rule enforcement and gate are free-text fields maintained by hand, so recorded prose can contradict the live harness, lint, hook, or CI path.
+- **impact** — The canonical rule index cannot reliably answer what is checked, where it runs, or which rules remain prose-only.
+- **closes** — Model checks as nodes, make rule gate a reference, derive enforcement, and validate checker existence plus invocation from verify, hook, and CI.
+- **rule** — Canonical statements
+- **node** — `01M1PJXPBSJ6J25ZCEAX0G0AN7`
 
 ### GAP: runPaletteCommand dispatches palette commands with a 37-branch chain
 
@@ -281,6 +345,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A node prop is an ordered multi-value: slot 2 is slot 2, and two slots can hold equal values, so position is the only identity available and a content key would collide and remount live editors. Snap guides are a transient two-element overlay with no domain object at all. Close it by giving multi-values an id in the data model (Track 2 KbNode/prop schema work), then key on that.
 - **node** — `01M1MFP33RDP5MVB4827DR5RE7`
 
+### GAP: suppression grammar still includes legacy eslint directives
+
+- **expected** — Every TypeScript suppression uses // oxlint-disable-next-line <rule> -- GAP id or // oxlint-disable-next-line <rule> -- <reason>.
+- **current** — Legacy eslint-disable-next-line directives remain in packages/app/mcp/src/mcp.ts, packages/app/runtime/src/registry.ts, and UI board-cards-view.tsx, breadcrumbs.tsx, caret.ts, force3d-graph.tsx, force3d-instance.ts, query-results.tsx, and references-section.tsx; those files are outside r1 ownership.
+- **impact** — The suppression checker cannot be admitted without failing files owned by concurrent or later work.
+- **closes** — Rewrite every listed directive to the oxlint grammar, then unskip suppression-grammar.test.ts.
+- **rule** — Lint scope coverage
+- **node** — `01M1PHTZDZCKMXYP6HW109M3DT`
+
 ### GAP: the browser holds the whole graph
 
 - **expected** — The UI reads through the protocol: subscriptions plus a scoped, paged snapshot, with ui/src/ds as an optional client cache behind one interface or deleted.
@@ -312,14 +385,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Every new inline form is another branch in the same function, and the interaction between forms (a ref inside bold, an escape inside code) is only tested end to end.
 - **closes** — Split into recognizers over a cursor and drive them from a list. The existing md-inline tests are the gate; this is a rewrite, not a mechanical move.
 - **node** — `01M1MGCM9RWXE3CYANZK5K4KC0`
-
-### GAP: the legacy localStorage migration in loadExpandedIds has no end date
-
-- **expected** — Outline expansion state reads one key. The one-shot migration from kb-ui:collapsed and kb-ui:expanded-queries is deleted once every machine that could still hold those keys has run a build that migrated them.
-- **current** — loadExpandedIds still reads both LEGACY_* keys on every cold start, and both constants are marked @deprecated, so typescript/no-deprecated reports two hits that nothing can clear.
-- **impact** — A deprecation with no removal condition reads as permanent. The migration also silently drops the collapsed-id set (the inversion needs node metadata that is not available at load), so it is half a migration kept alive indefinitely.
-- **closes** — Decide the removal date (or a version gate) for the migration, delete loadExpandedIds' legacy branch and the two constants. Data decision, not a mechanical one - it strands whatever those keys still hold.
-- **node** — `01M1MGT2A6Y9ZVG5J1CGJMJ2AH`
 
 ### GAP: the multi-key view sort comparator is a 29-branch inline function
 
@@ -377,3 +442,40 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide shim versus store binary (the shim is the dev-loop affordance; the package is the artifact), then point .mcp.json at the winner and delete the loser.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1M08VKDXG6AFZHQPW5M2GRF`
+
+### GAP: UI ownership boundaries are prose-only and already crossed
+
+- **expected** — UI imports follow a machine-checked path matrix: non-component layers do not import components, and surfaces reuse only sanctioned shared primitives or lib modules.
+- **current** — Seven live imports cross ownership lines: graph-page to ontology-picker; graph-page to sidebar; ontology/member-row to outline/md-view; canvas/canvas-card to outline/node-content; prefs/preferences-popover to outline/fields-section; actions/pin.test to sidebar/sidebar-nav; and lib/canvas-tool.test to canvas/edge-path. Bullet and NodeRow imports are sanctioned primitives and excluded.
+- **impact** — Surface internals become shared accidentally, coupling lazy chunks and making ownership prose unreliable.
+- **closes** — Promote intentional shared concepts to primitives or lib, remove the seven internal imports, and add path-level UI dependency tests.
+- **rule** — Module boundaries
+- **node** — `01M1PJWP9Q3RGJ4SNV88R690TE`
+
+
+## Closed
+
+### GAP: OutlineNode.cursorPosition is deprecated but is still the canvas editor's caret channel
+
+- **expected** — One caret mechanism for both hosts: the outline's CaretIntent, with the canvas card reading the same channel, and cursorPosition gone from the store.
+- **current** — Closed in f2. cursorPosition turned out to be read by nothing: NodeTextHost declared the prop and never read it, so the canvas card was subscribing only to feed a dead prop. The field, its initial value, its activateNode write, the prop, and the 23 hand-copied test literals are gone; every host including the canvas takes its caret from pendingCaret.
+- **impact** — Exactly the parallel-mechanism shape Rule 1 forbids: a change to caret behaviour has to be made twice, and the deprecation says which one is wrong without removing it.
+- **closes** — Delete cursorPosition from OutlineState, its initial value, its activateNode write, and the unread NodeTextHost prop. TypeScript excess-property checks then require removing 'cursorPosition: 0,' from the hand-copied store-reset literal in 24 ui test files, which is the whole remaining cost - one line each. The reset duplication itself is the obstacle; a shared resetOutlineStore() helper would make this a three-line change.
+- **node** — `01M1MGT307N4K243CBPJTXNG5X`
+
+### GAP: rules view needs a template the docs extension cannot own
+
+- **expected** — A view spec can name a template shipped by the extension that owns the view; core resolves templates through one declared registration seam.
+- **current** — templates in src/operations/docs/templates.ts is a plain exported record with no registration API, so extensions-bundled/docs.ts writes its rules template into that record at module load.
+- **impact** — Template ownership has two homes: the core record and an extension mutating it. The mutation is invisible to a reader of core and unavailable to third-party .kb/extensions, which cannot import core internals.
+- **closes** — Give the render backbone a real template-registration seam (extension actions contribute templates alongside actions), then move the rules template onto it and drop the mutation.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M1M08VXGJ5RTQJ3AJNK12G79`
+
+### GAP: the legacy localStorage migration in loadExpandedIds has no end date
+
+- **expected** — Outline expansion state reads one key. The one-shot migration from kb-ui:collapsed and kb-ui:expanded-queries is deleted once every machine that could still hold those keys has run a build that migrated them.
+- **current** — loadExpandedIds still reads both LEGACY_* keys on every cold start, and both constants are marked @deprecated, so typescript/no-deprecated reports two hits that nothing can clear.
+- **impact** — A deprecation with no removal condition reads as permanent. The migration also silently drops the collapsed-id set (the inversion needs node metadata that is not available at load), so it is half a migration kept alive indefinitely.
+- **closes** — Decide the removal date (or a version gate) for the migration, delete loadExpandedIds' legacy branch and the two constants. Data decision, not a mechanical one - it strands whatever those keys still hold.
+- **node** — `01M1MGT2A6Y9ZVG5J1CGJMJ2AH`

@@ -66,7 +66,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
   const storedQuery = onto ? (strValueOf(onto, SYSTEM_IDS.ontoQueryField) ?? "") : "";
 
   const tagCandidates = useMemo(() => {
-    const taken = new Set(includeTags); // oxlint-disable-line react-hooks/exhaustive-deps -- includeTags is a fresh array each render; the memo depends on its contents via the joined-key dep below
+    const taken = new Set(includeTags);
     return wireNodes
       .filter((n) => isTagNode(n))
       .map((n) => ({
@@ -79,7 +79,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
   }, [wireNodes, includeTags.join(",")]); // oxlint-disable-line react-hooks/exhaustive-deps -- joined-key is a stable primitive dep for a fresh-array input; depends on the array's contents, not its identity
 
   const ontologyCandidates = useMemo(() => {
-    const taken = new Set(extendsIds); // oxlint-disable-line react-hooks/exhaustive-deps -- extendsIds is a fresh array each render; the memo depends on its contents via the joined-key dep below
+    const taken = new Set(extendsIds);
     return wireNodes
       .filter((n) => n.id !== ontologyId && isOntologyNode(n))
       .map((n) => {
