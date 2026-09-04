@@ -62,7 +62,6 @@
   },
   "nx": {
     "tags": [
-      "layer:app",
       "scope:browser"
     ]
   }

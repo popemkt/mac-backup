@@ -1,17 +1,19 @@
 /**
  * Import-derived package edges.
  *
- * Measured on this workspace: `nx graph` gives us the projects and their tags,
- * but its dependency edges are **manifest-derived only** — dropping
- * `@kb/query` from @kb/operations' package.json removed the edge even though
- * every other file in that package imports it, and adding an import without a
- * manifest entry added no edge. Nx's TypeScript locator needs `@nx/js`, which
- * would drag a plugin stack in for one job.
+ * Measured on this workspace: `nx graph`'s dependency edges are
+ * **manifest-derived only** — dropping `@kb/query` from @kb/operations'
+ * package.json removed the edge even though every other file in that package
+ * imports it, and adding an import without a manifest entry added no edge.
+ * Nx's TypeScript locator needs `@nx/js`, which would drag a plugin stack in
+ * for one job.
  *
- * So the boundary check reads both: Nx for projects and tags, this scanner for
- * what the code actually does. The scan is the authority on edges; the
- * manifests are checked against it separately, because a package that imports
- * something it does not declare only resolves by accident of hoisting.
+ * So this scanner is the authority on edges. `boundaries` reads the manifests
+ * directly for the edges packages *claim* — the same list Nx was returning —
+ * and checks them against the scan, because a package that imports something
+ * it does not declare only resolves by accident of hoisting. Nothing in the
+ * harness spawns `nx graph` any more: tags no longer carry the layer, and the
+ * project graph had nothing else to say.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";

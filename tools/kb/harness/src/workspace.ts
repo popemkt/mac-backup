@@ -148,7 +148,13 @@ export function tagsOf(manifest: PackageManifest): string[] {
   return manifest.nx?.tags ?? [];
 }
 
-/** Tag values on one axis, e.g. axisValues(tags, "layer") -> ["domain"]. */
+/**
+ * Tag values on one axis, e.g. axisValues(tags, "scope") -> ["backend"].
+ *
+ * `scope` is the only axis tags carry: a package's layer is the folder it sits
+ * in. `layer` stays a legal argument for the one caller that asks in order to
+ * assert the tag is absent (`workspace-shape`).
+ */
 export function axisValues(tags: string[], axis: "layer" | "scope"): string[] {
   return tags.filter((t) => t.startsWith(`${axis}:`)).map((t) => t.slice(axis.length + 1));
 }

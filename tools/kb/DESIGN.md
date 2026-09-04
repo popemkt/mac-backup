@@ -30,18 +30,45 @@ per-invocation CLI (fresh db each run); if we later add watch-mode or a server,
 ## Workspace shape
 
 `tools/kb` is a **Bun workspace**. Every concept is a package under
-`packages/<name>`, named `@kb/<name>`, private, `version 0.0.0`, publishing one
-curated barrel of named exports at `src/index.ts` (or `"exports": {}` when it
-has no importable surface), and carrying two tags in its `nx` key:
+`packages/<layer>/<name>`, named `@kb/<name>`, private, `version 0.0.0`,
+publishing one curated barrel of named exports at `src/index.ts` (or
+`"exports": {}` when it has no importable surface). It has two axes, and each
+axis is stated in exactly one place:
 
-| Axis      | Values                                                                                               | Means                               |
-| --------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| `layer:*` | `domain`, `contract`, `infrastructure`, `application`, `app`, `extension`, `test-support` | which way dependencies may point    |
-| `scope:*` | `shared`, `backend`, `browser`, `test-support`                                            | which runtime the code must survive |
+| Axis    | Where it lives                          | Values                                                                                    | Means                               |
+| ------- | --------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------- |
+| layer   | the folder under `packages/`            | `domain`, `contract`, `infrastructure`, `application`, `app`, `extension`, `test-support` | which way dependencies may point    |
+| `scope:*` | one tag in the package's `nx` key     | `shared`, `backend`, `browser`, `test-support`                                            | which runtime the code must survive |
+
+Placement carries the layer because the layer is the thing a reader wants to
+see without opening a manifest, and a `layer:*` tag beside the folder would be
+a second copy free to disagree with it. Scope stays a tag: which runtime the
+code must survive is orthogonal to where the code sits, and one package's
+answer does not group it with its neighbours. `packages/`'s subdirectories are
+exactly the `LAYER_ALLOWS` keys — `workspace-shape` fails on a folder that is
+not one, and on any manifest that still declares `layer:*`.
+
+```
+packages/
+  domain/          model  query  canvas
+  contract/        contracts  ext-sdk
+  infrastructure/  store-jsonl
+  application/     operations
+  extension/       ext-canvas  ext-docs
+  app/             runtime  server  cli  mcp  ui  test-kit
+  test-support/    render-tests
+```
 
 The direction rules live in exactly one place, `harness/src/constraints.ts`,
 and the harness applies them to what the code imports. There is no alias map:
-`@kb/*` resolve as workspace packages through each package's `exports`.
+`@kb/*` resolve as workspace packages through each package's `exports`, and a
+package name never encodes its layer — moving a package between folders is a
+`git mv` plus one `extends` path.
+
+Nothing in the harness reads the Nx project graph. It supplied the tags, and
+its dependency edges were measured to be manifest-derived only; the workspace
+reader answers both questions without spawning `nx graph`. Nx remains the task
+runner (`nx run-many -t typecheck`, `nx affected`).
 
 The harness is **not** one of these packages. It checks the workspace's shape,
 so it lives at `tools/kb/harness` — root tooling, outside `packages/`, typed by
@@ -77,7 +104,7 @@ The backend runs on **Bun** in production; the toolchain around it is **Vite+
 (`vp` 0.2.8) + TypeScript 7**. The two are deliberately separated:
 
 - **Bun is the production runtime.** `bin/kb` is a bash shim
-  (`#!/usr/bin/env bash`) that `exec`s Bun on `packages/cli/src/main.ts`, the
+  (`#!/usr/bin/env bash`) that `exec`s Bun on `packages/app/cli/src/main.ts`, the
   one process entrypoint; the `kb ui` server uses
   `Bun.serve`/`Bun.ServerWebSocket` as the listen/WS/`Bun.file` boundary while
   routing, assets, and the subscription hub are Effect programs; the store
@@ -101,7 +128,7 @@ The backend runs on **Bun** in production; the toolchain around it is **Vite+
 - **Two runners, split by package, not by file.** Everything except `@kb/ui`
   runs on `bun test`; the browser package runs on Vitest because its suite
   needs happy-dom, `vi.mock` hoisting and fake timers. `bunfig.toml` states
-  that split once (`pathIgnorePatterns = ["**/packages/ui/**"]`) instead of
+  that split once (`pathIgnorePatterns = ["**/packages/app/ui/**"]`) instead of
   naming individual files.
 - TypeScript 7 removed `baseUrl`. `tsconfig.base.json` holds the flags, two
   runtime presets hold the runtime keys, and each package declares only its
@@ -137,7 +164,7 @@ statement about how kb's production code is written; a `test("…", async () =>
 …)` callback is a test-runner calling convention, not kb modelling anything. So
 a promoted rule is an `error` under a package's `src/` and stays a `suggestion`
 everywhere else, expressed as the plugin's single `overrides` entry:
-`include: ["packages/*/src/**/*"]` and no `exclude`. The harness lives outside
+`include: ["packages/*/*/src/**/*"]` and no `exclude`. The harness lives outside
 `packages/`, so that file scope already excludes it; a carve-out beside the
 include would be a second list to keep in sync. That is the same scope
 `countsTowardRatchet` applies while a rule is still counted — see "Ratchet
@@ -668,14 +695,14 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   the templates `ext.docs.todos` / `ext.docs.rules`, with the bare ids
   `docs.materialize`, `docs.check`, `todos` and `rules` as aliases. Core keeps
   only the render mechanism the extension calls into
-  (`packages/operations/src/docs/`).
+  (`packages/application/operations/src/docs/`).
 - Extensions are loaded once per process; changing one requires restarting
   long-lived surfaces (`kb ui`, `kb mcp`).
 - **Extension SDK:** external `.kb/extensions/*.ts` authors get types from
   the running binary — `kb ext sdk --write` emits `.kb/sdk.d.ts` (ambient
   module `kb-ext-sdk`), then `import type { ExtensionAction, ExtensionTemplate }
-from "kb-ext-sdk"`. Types are generated from `packages/ext-sdk/src/surface.ts` and
-  embedded in the CLI bundle; `bun packages/ext-sdk/src/generate.ts` refreshes the
+from "kb-ext-sdk"`. Types are generated from `packages/contract/ext-sdk/src/surface.ts` and
+  embedded in the CLI bundle; `bun packages/contract/ext-sdk/scripts/generate.ts` refreshes the
   committed string (freshness-tested). Prefer Promise `handler`s; schemas
   may be zod, Standard Schema v1, or a bare `{ parse }`. Helper siblings
   should `export default []` so discovery stays quiet.

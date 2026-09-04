@@ -22,7 +22,6 @@
   },
   "nx": {
     "tags": [
-      "layer:extension",
       "scope:backend"
     ]
   }

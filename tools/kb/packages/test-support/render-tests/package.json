@@ -19,7 +19,6 @@
   },
   "nx": {
     "tags": [
-      "layer:test-support",
       "scope:test-support"
     ]
   }

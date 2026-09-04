@@ -25,7 +25,6 @@
   },
   "nx": {
     "tags": [
-      "layer:app",
       "scope:backend"
     ]
   }

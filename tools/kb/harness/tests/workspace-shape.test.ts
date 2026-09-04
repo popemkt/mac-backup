@@ -20,7 +20,9 @@ import {
  *
  * The tree is two levels deep and the first level is the layer: a package's
  * layer is where it sits, so `packages/misc/<pkg>` fails here rather than
- * inventing a layer the matrix has never heard of.
+ * inventing a layer the matrix has never heard of, and a `layer:*` tag beside
+ * the folder fails as the duplicate it is. `scope:*` stays a tag — it names
+ * the runtime the code must survive, which placement cannot say.
  */
 describe("workspace-shape", () => {
   const root = rootManifest();
@@ -62,15 +64,15 @@ describe("workspace-shape", () => {
     expect(bad, bad.join("\n")).toEqual([]);
   });
 
-  test("every member sits in the layer folder its layer tag names", () => {
-    // Transitional bridge: the folder and the tag are two statements of one
-    // fact for exactly as long as both exist. The tag goes next; this
-    // assertion is what proves the move put every package where its tag said.
+  test("no member declares a layer tag", () => {
+    // The folder is the layer. A `layer:*` tag beside it is a second copy of
+    // the same fact, free to disagree with where the package actually sits.
+    // Red case: add `"layer:domain"` back to any manifest's `nx.tags`.
     const bad: string[] = [];
-    for (const { dir, layer, manifest } of workspacePackages()) {
+    for (const { dir, manifest } of workspacePackages()) {
       const tagged = axisValues(tagsOf(manifest), "layer");
-      if (tagged.length !== 1 || tagged[0] !== layer) {
-        bad.push(`${dir}: sits in layer:${layer} but is tagged ${JSON.stringify(tagged)}`);
+      if (tagged.length > 0) {
+        bad.push(`${dir}: declares ${JSON.stringify(tagged)}; the folder is the layer`);
       }
     }
     expect(bad, bad.join("\n")).toEqual([]);

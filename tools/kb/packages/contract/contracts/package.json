@@ -21,7 +21,6 @@
   },
   "nx": {
     "tags": [
-      "layer:contract",
       "scope:shared"
     ]
   }
