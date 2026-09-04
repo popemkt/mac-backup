@@ -5,6 +5,7 @@
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
+import { present } from "@kb/model";
 import {
   findRefSpans,
   getCaretSerializedOffset,
@@ -21,12 +22,21 @@ beforeAll(() => {
   g.Node = dom.Node;
   g.HTMLElement = dom.HTMLElement;
   if (!("NodeFilter" in g)) {
-    g.NodeFilter = dom.NodeFilter ?? { SHOW_TEXT: 4 };
+    g.NodeFilter = dom.NodeFilter;
   }
 });
 
 function makeEl(): HTMLDivElement {
   return document.createElement("div");
+}
+
+function selectAt(_el: HTMLElement, node: Node, offset: number): void {
+  const range = document.createRange();
+  range.setStart(node, offset);
+  range.collapse(true);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
 }
 
 describe("md-edit serialization", () => {
@@ -43,35 +53,29 @@ describe("md-edit serialization", () => {
     // Pills are non-editable spans carrying the full token.
     const pills = el.querySelectorAll("[data-kb-ref]");
     expect(pills.length).toBe(2);
-    expect(pills[0]!.getAttribute("contenteditable")).toBe("false");
-    expect(pills[0]!.getAttribute("data-kb-ref")).toBe("[[n.root-a|Ship kb]]");
-    expect(pills[0]!.textContent).toBe("Ship kb"); // label only — no ULID
+    const pill = present(pills.item(0), "first pill");
+    expect(pill.getAttribute("contenteditable")).toBe("false");
+    expect(pill.getAttribute("data-kb-ref")).toBe("[[n.root-a|Ship kb]]");
+    expect(pill.textContent).toBe("Ship kb"); // label only — no ULID
     expect(serializeEditable(el)).toBe(text);
   });
 
   it("finds ordered ref spans with ids/labels", () => {
     const spans = findRefSpans("a [[id1|x]] b [[id2]] c");
     expect(spans.map((s) => s.id)).toEqual(["id1", "id2"]);
-    expect(spans[1]!.label).toBe("id2");
-    expect(spans[0]!.index).toBe(2);
+    const first = present(spans.at(0), "first span");
+    const second = present(spans.at(1), "second span");
+    expect(second.label).toBe("id2");
+    expect(first.index).toBe(2);
   });
 });
 
 describe("md-edit caret offsets", () => {
-  function selectAt(_el: HTMLElement, node: Node, offset: number): void {
-    const range = document.createRange();
-    range.setStart(node, offset);
-    range.collapse(true);
-    const sel = window.getSelection();
-    sel?.removeAllRanges();
-    sel?.addRange(range);
-  }
-
   it("counts pill tokens at full serialized length (D06)", () => {
     const el = makeEl();
     renderEditableContent(el, "[[n.root-a|Ship kb]] tail");
-    const pill = el.querySelector("[data-kb-ref]")!;
-    const tail = pill.nextSibling!;
+    const pill = present(el.querySelector("[data-kb-ref]"), "ref pill");
+    const tail = present(pill.nextSibling, "pill tail");
     selectAt(el, tail, 3); // mid "tail" → after token
     expect(getCaretSerializedOffset(el)).toBe("[[n.root-a|Ship kb]]".length + 3);
   });
@@ -81,7 +85,7 @@ describe("md-edit caret offsets", () => {
     const text = "pre [[n.a|L]] post";
     renderEditableContent(el, text);
     setCaretSerializedOffset(el, text.length);
-    const sel = window.getSelection()!;
+    const sel = present(window.getSelection(), "selection");
     expect(sel.rangeCount).toBe(1);
     expect(getCaretSerializedOffset(el)).toBe(text.length);
   });

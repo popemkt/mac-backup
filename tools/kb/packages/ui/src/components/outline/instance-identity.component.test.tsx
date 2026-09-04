@@ -6,6 +6,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { fixtureGraph } from "@/fixtures/graph";
 import { outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
@@ -99,11 +100,11 @@ describe("instance identity (component)", () => {
       );
     });
 
-    const treeBlock = container.querySelector(`[data-instance-key="${treeKey}"]`);
-    expect(treeBlock).toBeTruthy();
-    const treeContent = treeBlock!.querySelector(
-      "[contenteditable], .kb-text, [data-node-content]",
+    const treeBlock = present(
+      container.querySelector(`[data-instance-key="${treeKey}"]`),
+      "tree block",
     );
+    const treeContent = treeBlock.querySelector("[contenteditable], .kb-text, [data-node-content]");
     // Activate via store path used by NodeContent click
     act(() => {
       useOutlineStore.getState().activateNode("n.root-a", 0, treeKey);
@@ -144,15 +145,14 @@ describe("instance identity (component)", () => {
     expect(instances.some((i) => i.instanceKey === refA)).toBe(true);
 
     useOutlineStore.getState().activateNode("n.root-a", 0, refA);
-    const next = useOutlineStore.getState().getNextVisibleInstance(refA);
-    expect(next).not.toBeNull();
+    const next = present(useOutlineStore.getState().getNextVisibleInstance(refA), "next instance");
     // Next query result (children collapsed on ref rows by default).
-    expect(next!.instanceKey).toBe(refB);
+    expect(next.instanceKey).toBe(refB);
 
-    useOutlineStore.getState().activateNode(next!.nodeId, 0, next!.instanceKey);
+    useOutlineStore.getState().activateNode(next.nodeId, 0, next.instanceKey);
     expect(useOutlineStore.getState().activeInstanceKey).toBe(refB);
     expect(useOutlineStore.getState().activeInstanceKey).not.toBe(
-      outlineInstanceKey(next!.nodeId, useOutlineStore.getState().nodes),
+      outlineInstanceKey(next.nodeId, useOutlineStore.getState().nodes),
     );
   });
 
@@ -203,8 +203,10 @@ describe("instance identity (component)", () => {
     expect(parentBullet).toBeTruthy();
 
     const childKey = `${refKey}/n.child-a1`;
-    const childBlock = container.querySelector(`[data-instance-key="${childKey}"]`);
-    expect(childBlock).toBeTruthy();
-    expect(childBlock!.querySelector('[data-bullet-ref="true"]')).toBeNull();
+    const childBlock = present(
+      container.querySelector(`[data-instance-key="${childKey}"]`),
+      "child block",
+    );
+    expect(childBlock.querySelector('[data-bullet-ref="true"]')).toBeNull();
   });
 });

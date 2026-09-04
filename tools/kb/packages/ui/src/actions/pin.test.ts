@@ -6,6 +6,7 @@
  * where the sidebar reads it, and toggling again removes it.
  */
 import { beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/fixtures/graph";
 import { listPinnedNavItems } from "@/components/sidebar/sidebar-nav";
@@ -47,9 +48,8 @@ describe("pin toggle", () => {
 
     // oxlint-disable-next-line promise/always-return -- GAP [[01M1MFS8RQ2BMQVZD02J4TQT7W]]
     return mutations.togglePin("n.root-a").then(() => {
-      const tagId = findPinnedTagId(nodes());
-      expect(tagId).not.toBeNull();
-      expect(nodes().get(tagId!)?.text).toBe(PINNED_TAG_TEXT);
+      const tagId = present(findPinnedTagId(nodes()), "pinned tag");
+      expect(nodes().get(tagId)?.text).toBe(PINNED_TAG_TEXT);
       expect(isPinned(nodes().get("n.root-a"), nodes())).toBe(true);
       expect(listPinnedNavItems(nodes()).map((i) => i.id)).toEqual(["n.root-a"]);
     });
@@ -73,8 +73,11 @@ describe("pin toggle", () => {
 
   it("pins by tagging — no bespoke flag on the node", async () => {
     await mutations.togglePin("n.root-a");
-    const tagId = findPinnedTagId(nodes())!;
-    const wire = useOutlineStore.getState().wireNodes.find((n) => n.id === "n.root-a")!;
+    const tagId = present(findPinnedTagId(nodes()), "pinned tag");
+    const wire = present(
+      useOutlineStore.getState().wireNodes.find((n) => n.id === "n.root-a"),
+      "n.root-a",
+    );
     expect(wire.props[SYSTEM_IDS.typeField]).toEqual(
       expect.arrayContaining([{ t: "ref", v: tagId }]),
     );

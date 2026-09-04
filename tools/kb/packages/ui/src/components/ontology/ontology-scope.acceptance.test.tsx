@@ -11,6 +11,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { GraphSnapshot, WireNode } from "@kb/contracts";
+import { present } from "@kb/model";
 import { setFetchGraphSnapshot } from "@/api/graph";
 import { setPostAction } from "@/api/action";
 import { App } from "@/components/App";
@@ -72,6 +73,13 @@ function snapshot(): GraphSnapshot {
   };
 }
 
+/** Flush pending microtasks (async effects, Suspense commits). */
+async function settle(): Promise<void> {
+  await act(async () => {
+    await Promise.resolve();
+  });
+}
+
 describe("ontology scope (acceptance)", () => {
   let dom: Window;
   let container: HTMLDivElement;
@@ -123,13 +131,6 @@ describe("ontology scope (acceptance)", () => {
     container.remove();
   });
 
-  /** Flush pending microtasks (async effects, Suspense commits). */
-  async function settle(): Promise<void> {
-    await act(async () => {
-      await Promise.resolve();
-    });
-  }
-
   async function goto(path: string): Promise<void> {
     await act(async () => {
       navigate(path);
@@ -139,7 +140,7 @@ describe("ontology scope (acceptance)", () => {
 
   function rowTexts(): string[] {
     return [...container.querySelectorAll("[data-instance-key]")].map((el) =>
-      (el.textContent ?? "").trim(),
+      el.textContent.trim(),
     );
   }
 
@@ -159,16 +160,12 @@ describe("ontology scope (acceptance)", () => {
 
     const store = useOutlineStore.getState();
     expect(store.ontologyId).toBe(ONTO);
-    expect([...store.ontologyMembers!].toSorted()).toEqual([
-      "n.caddy",
-      "n.notes",
-      "n.oldvpn",
-      "n.tailscaled",
-    ]);
+    const members = present(store.ontologyMembers, "ontology members");
+    expect([...members].toSorted()).toEqual(["n.caddy", "n.notes", "n.oldvpn", "n.tailscaled"]);
 
     // Every rendered row is a member (the ontology itself is the scope root).
     for (const id of store.getVisibleNodes()) {
-      expect(store.ontologyMembers!.has(id)).toBe(true);
+      expect(members.has(id)).toBe(true);
     }
 
     const texts = rowTexts().join("\n");
@@ -180,19 +177,20 @@ describe("ontology scope (acceptance)", () => {
     expect(texts).not.toContain("acl file");
 
     // The scope chip states identity, size, and an exit path.
-    const bar = container.querySelector("[data-ontology-scope-bar]");
-    expect(bar).not.toBeNull();
-    expect(bar!.textContent).toContain("Infrastructure");
-    expect(bar!.textContent).toContain("4 members");
-    expect(bar!.textContent).toContain("Exit");
+    const bar = present(container.querySelector("[data-ontology-scope-bar]"), "scope bar");
+    expect(bar.textContent).toContain("Infrastructure");
+    expect(bar.textContent).toContain("4 members");
+    expect(bar.textContent).toContain("Exit");
   });
 
   it("keeps a member's internal parent/child link inside the scope", async () => {
     await goto("/o/o.infra/outline");
     const nodes = useOutlineStore.getState().nodes;
     // caddy was tailscaled's child and both are members: the link survives.
-    expect(nodes.get("n.tailscaled")!.children).toEqual(["n.caddy"]);
-    expect(nodes.get("n.caddy")!.parentId).toBe("n.tailscaled");
+    const tailscaled = present(nodes.get("n.tailscaled"), "n.tailscaled");
+    const caddy = present(nodes.get("n.caddy"), "n.caddy");
+    expect(tailscaled.children).toEqual(["n.caddy"]);
+    expect(caddy.parentId).toBe("n.tailscaled");
     // The non-member child is not merely hidden — it is absent.
     expect(nodes.has("n.acl")).toBe(false);
   });
@@ -210,7 +208,7 @@ describe("ontology scope (acceptance)", () => {
     const { extractLensGraph } = await import("@/lib/graph-lens");
     const s = useOutlineStore.getState();
     const graph = extractLensGraph(
-      s.queryDb!,
+      present(s.queryDb, "query db"),
       s.wireNodes,
       {
         id: "p",
@@ -231,7 +229,7 @@ describe("ontology scope (acceptance)", () => {
         autorotate: false,
         labelDensity: "medium",
       },
-      { restrictTo: s.ontologyMembers! },
+      { restrictTo: present(s.ontologyMembers, "ontology members") },
     );
     expect(graph.nodes.map((n) => n.id).toSorted()).toEqual([
       "n.caddy",

@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
+import { present } from "@kb/model";
 import { buildQueryDb, queryBacklinks } from "@/ds/db";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { fixtureGraph } from "@/fixtures/graph";
@@ -37,7 +38,7 @@ function mapWith(extra: WireNode[]): NodeMap {
 describe("contextual reference model", () => {
   it("recognises a #ref-tagged node carrying a target", () => {
     const nodes = mapWith([ctxRefWire("n.ctx", "n.root-a")]);
-    const ref = nodes.get("n.ctx")!;
+    const ref = present(nodes.get("n.ctx"), "n.ctx");
     expect(isContextualRef(ref)).toBe(true);
     expect(contextualTargetOf(ref)).toBe("n.root-a");
   });
@@ -68,14 +69,18 @@ describe("contextual reference model", () => {
       ctxRefWire("n.ctx", "n.md"),
       wire({ id: "n.md", text: "Original — **bold** and `code`" }),
     ]);
-    expect(rowText(nodes.get("n.ctx")!, nodes)).toBe("Original — **bold** and `code`");
+    expect(rowText(present(nodes.get("n.ctx"), "n.ctx"), nodes)).toBe(
+      "Original — **bold** and `code`",
+    );
     // Ordinary rows are untouched — one function, one answer.
-    expect(rowText(nodes.get("n.root-b")!, nodes)).toBe("Search jumps to matching nodes");
+    expect(rowText(present(nodes.get("n.root-b"), "n.root-b"), nodes)).toBe(
+      "Search jumps to matching nodes",
+    );
   });
 
   it("a dangling target renders as the [[id]] token, never blank or a throw", () => {
     const nodes = mapWith([ctxRefWire("n.ctx", "n.gone")]);
-    expect(rowText(nodes.get("n.ctx")!, nodes)).toBe("[[n.gone]]");
+    expect(rowText(present(nodes.get("n.ctx"), "n.ctx"), nodes)).toBe("[[n.gone]]");
   });
 
   it("reads the kind slot, not the badge list, to decide it is a reference", () => {
@@ -87,7 +92,7 @@ describe("contextual reference model", () => {
       [...fixtureGraph.nodes, ctxRefWire("n.ctx", "n.root-a")],
       new Set(),
     );
-    const ref = nodes.get("n.ctx")!;
+    const ref = present(nodes.get("n.ctx"), "n.ctx");
     expect(ref.tags.map((t) => t.id)).not.toContain(SYSTEM_IDS.refTag);
     expect(isContextualRef(ref)).toBe(true);
     expect(contextualTargetOf(ref)).toBe("n.root-a");

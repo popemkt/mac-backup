@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { present } from "@kb/model";
 import { setPostAction } from "@/api/action";
 import { setFetchGraphSnapshot } from "@/api/graph";
 import { fixtureGraph } from "@/fixtures/graph";
@@ -51,8 +52,8 @@ describe("debounced text-save rollback", () => {
   });
 
   it("resync-first recovery re-applies concurrent pending edits", async () => {
-    const originalA = useOutlineStore.getState().nodes.get("n.root-a")!.text;
-    const originalB = useOutlineStore.getState().nodes.get("n.root-b")!.text;
+    const originalA = present(useOutlineStore.getState().nodes.get("n.root-a"), "n.root-a").text;
+    const originalB = present(useOutlineStore.getState().nodes.get("n.root-b"), "n.root-b").text;
 
     fetchGraphSnapshot.mockResolvedValue({
       rev: 2,
@@ -89,7 +90,7 @@ describe("debounced text-save rollback", () => {
   });
 
   it("resync failure restores only the failed node, not the whole graph", async () => {
-    const originalA = useOutlineStore.getState().nodes.get("n.root-a")!.text;
+    const originalA = present(useOutlineStore.getState().nodes.get("n.root-a"), "n.root-a").text;
     const restoreSpy = vi.spyOn(useOutlineStore.getState(), "restoreSnapshot");
     const hydrateSpy = vi.spyOn(useOutlineStore.getState(), "hydrateFromWire");
     hydrateSpy.mockClear();
@@ -98,7 +99,10 @@ describe("debounced text-save rollback", () => {
     useOutlineStore.getState().applyTx(
       [
         {
-          ...useOutlineStore.getState().wireNodes.find((n) => n.id === "n.root-c")!,
+          ...present(
+            useOutlineStore.getState().wireNodes.find((n) => n.id === "n.root-c"),
+            "n.root-c",
+          ),
           text: "landed-elsewhere",
         },
       ],
@@ -137,7 +141,7 @@ describe("debounced text-save rollback", () => {
   });
 
   it("re-applies a same-node re-edit typed during in-flight resync", async () => {
-    const originalA = useOutlineStore.getState().nodes.get("n.root-a")!.text;
+    const originalA = present(useOutlineStore.getState().nodes.get("n.root-a"), "n.root-a").text;
     let resolveResync!: (value: { rev: number; nodes: typeof fixtureGraph.nodes }) => void;
     fetchGraphSnapshot.mockReturnValue(
       new Promise((resolve) => {
@@ -179,7 +183,7 @@ describe("debounced text-save rollback", () => {
   });
 
   it("skips a missing pending node without aborting sibling re-applies", async () => {
-    const originalC = useOutlineStore.getState().nodes.get("n.root-c")!.text;
+    const originalC = present(useOutlineStore.getState().nodes.get("n.root-c"), "n.root-c").text;
     const wireWithoutB = structuredClone(fixtureGraph.nodes).filter((n) => n.id !== "n.root-b");
 
     fetchGraphSnapshot.mockResolvedValue({

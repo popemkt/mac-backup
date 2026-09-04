@@ -12,6 +12,7 @@
  * rule for the ref editing slot.
  */
 import { describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { WireNode } from "@kb/contracts";
@@ -100,11 +101,13 @@ const count = (html: string, needle: string) => html.split(needle).length - 1;
 describe("ref picker candidates (declared targets win)", () => {
   it("resolves declared sys option nodes as the allowed set", () => {
     const nodes = ontology();
-    const allowed = resolveAllowedRefIds(nodes.get(SYSTEM_IDS.fieldTypeField), nodes, null);
+    const allowed = present(
+      resolveAllowedRefIds(nodes.get(SYSTEM_IDS.fieldTypeField), nodes, null),
+      "allowed refs",
+    );
     // The constraint is data on the field node; it is not display policy, so
     // it must survive verbatim even though every target is sys-prefixed.
-    expect(allowed).not.toBeNull();
-    expect([...allowed!].toSorted()).toEqual(OPTION_IDS);
+    expect([...allowed].toSorted()).toEqual(OPTION_IDS);
   });
 
   it("offers the declared targets in the picker for fieldType", () => {

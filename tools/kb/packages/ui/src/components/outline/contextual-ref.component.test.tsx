@@ -10,6 +10,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { fixtureGraph } from "@/fixtures/graph";
@@ -96,11 +97,10 @@ describe("contextual reference row", () => {
 
   it("renders the target's text and a dashed reference bullet", async () => {
     const key = await render("n.ctx");
-    const block = container.querySelector(`[data-instance-key="${key}"]`);
-    expect(block).toBeTruthy();
-    expect(block!.textContent).toContain("Ship kb ui shell");
-    expect(block!.querySelector('[data-bullet-ref="true"]')).toBeTruthy();
-    expect(block!.querySelector("[data-bullet-ref-ring]")).toBeTruthy();
+    const block = present(container.querySelector(`[data-instance-key="${key}"]`), "block");
+    expect(block.textContent).toContain("Ship kb ui shell");
+    expect(block.querySelector('[data-bullet-ref="true"]')).toBeTruthy();
+    expect(block.querySelector("[data-bullet-ref-ring]")).toBeTruthy();
   });
 
   it("its children are its own and never appear under the target", async () => {
@@ -110,7 +110,7 @@ describe("contextual reference row", () => {
     expect(container.querySelector(`[data-instance-key="${childKey}"]`)).toBeTruthy();
 
     // The original, rendered directly, knows nothing about the local child.
-    const target = useOutlineStore.getState().nodes.get("n.root-a")!;
+    const target = present(useOutlineStore.getState().nodes.get("n.root-a"), "n.root-a");
     expect(target.children).not.toContain("n.ctx-child");
     useOutlineStore.getState().toggleCollapse("n.root-a");
     await render("n.root-a");
@@ -143,12 +143,14 @@ describe("contextual reference row", () => {
 
   it("clicking the reference's text opens the original instead of dying", async () => {
     const key = await render("n.ctx");
-    const text = container.querySelector(
-      `[data-instance-key="${key}"] .kb-md-view, [data-instance-key="${key}"] .kb-text-row`,
+    const text = present(
+      container.querySelector(
+        `[data-instance-key="${key}"] .kb-md-view, [data-instance-key="${key}"] .kb-text-row`,
+      ),
+      "text",
     );
-    expect(text).toBeTruthy();
     await act(async () => {
-      text!.dispatchEvent(
+      text.dispatchEvent(
         new (globalThis as unknown as { MouseEvent: typeof MouseEvent }).MouseEvent("click", {
           bubbles: true,
         }),

@@ -18,6 +18,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { fixtureGraph } from "@/fixtures/graph";
 import { queryResultInstanceKey } from "@/lib/instance-key";
@@ -186,31 +187,31 @@ describe("bullet paint (a node's tag colors)", () => {
   });
 });
 
+function seedRefRow() {
+  useOutlineStore.setState({
+    nodes: new Map(),
+    wireNodes: [],
+    queryDb: null,
+    rev: 0,
+    rootNodeId: WORKSPACE_ROOT_ID,
+    homeRootId: WORKSPACE_ROOT_ID,
+    activeNodeId: null,
+    activeInstanceKey: null,
+    selectedNodeId: null,
+    selectedInstanceKey: null,
+    cursorPosition: 0,
+    loadSource: null,
+    loadError: null,
+  });
+  useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+}
+
 describe("reference-row bullet click parity", () => {
   let dom: Window;
   let container: HTMLDivElement;
   let root: Root;
 
   const refKey = queryResultInstanceKey("n.q1", "n.root-a");
-
-  function seed() {
-    useOutlineStore.setState({
-      nodes: new Map(),
-      wireNodes: [],
-      queryDb: null,
-      rev: 0,
-      rootNodeId: WORKSPACE_ROOT_ID,
-      homeRootId: WORKSPACE_ROOT_ID,
-      activeNodeId: null,
-      activeInstanceKey: null,
-      selectedNodeId: null,
-      selectedInstanceKey: null,
-      cursorPosition: 0,
-      loadSource: null,
-      loadError: null,
-    });
-    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
-  }
 
   beforeAll(() => {
     dom = new Window();
@@ -225,7 +226,7 @@ describe("reference-row bullet click parity", () => {
   });
 
   beforeEach(() => {
-    seed();
+    seedRefRow();
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
     dom.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
@@ -243,8 +244,7 @@ describe("reference-row bullet click parity", () => {
     const bullet = container.querySelector(
       `[data-instance-key="${refKey}"] [data-bullet-ref="true"]`,
     ) as HTMLElement | null;
-    expect(bullet).toBeTruthy();
-    return bullet!;
+    return present(bullet, "ref bullet");
   }
 
   function clickBullet(bullet: HTMLElement, modifier = false): void {
@@ -266,13 +266,15 @@ describe("reference-row bullet click parity", () => {
 
   it("a plain click expands the reference row in place, never zooms", async () => {
     // n.root-a has children and hydrates collapsed.
-    expect(useOutlineStore.getState().nodes.get("n.root-a")!.collapsed).toBe(true);
+    expect(present(useOutlineStore.getState().nodes.get("n.root-a"), "n.root-a").collapsed).toBe(
+      true,
+    );
     const bullet = await renderRefRow();
 
     clickBullet(bullet);
 
     const s = useOutlineStore.getState();
-    expect(s.nodes.get("n.root-a")!.collapsed).toBe(false);
+    expect(present(s.nodes.get("n.root-a"), "n.root-a").collapsed).toBe(false);
     expect(s.rootNodeId).toBe(WORKSPACE_ROOT_ID);
   });
 
@@ -283,6 +285,6 @@ describe("reference-row bullet click parity", () => {
 
     const s = useOutlineStore.getState();
     expect(s.rootNodeId).toBe("n.root-a");
-    expect(s.nodes.get("n.root-a")!.collapsed).toBe(true);
+    expect(present(s.nodes.get("n.root-a"), "n.root-a").collapsed).toBe(true);
   });
 });

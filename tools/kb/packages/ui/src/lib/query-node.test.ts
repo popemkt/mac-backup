@@ -3,6 +3,7 @@
  * subscribe/unsubscribe lifecycle over the /ws client.
  */
 import { beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { KbWsClient, type WsLike } from "@/api/ws";
 import { fixtureGraph } from "@/fixtures/graph";
 import {
@@ -117,24 +118,27 @@ describe("resultNodeIds", () => {
 describe("query node collapse state (cheap-by-default)", () => {
   it("defaults collapsed, toggles without children, others still gated", () => {
     const store = useOutlineStore.getState();
-    expect(store.nodes.get("n.q1")!.collapsed).toBe(true);
-    expect(store.nodes.get("n.q1")!.children).toEqual([]);
+    const q1 = present(store.nodes.get("n.q1"), "n.q1");
+    expect(q1.collapsed).toBe(true);
+    expect(q1.children).toEqual([]);
 
     store.toggleCollapse("n.q1");
-    expect(useOutlineStore.getState().nodes.get("n.q1")!.collapsed).toBe(false);
+    expect(present(useOutlineStore.getState().nodes.get("n.q1"), "n.q1").collapsed).toBe(false);
 
     // Non-query leaf nodes still cannot toggle.
     useOutlineStore.getState().toggleCollapse("n.root-c");
-    expect(useOutlineStore.getState().nodes.get("n.root-c")!.collapsed).toBe(false);
+    expect(present(useOutlineStore.getState().nodes.get("n.root-c"), "n.root-c").collapsed).toBe(
+      false,
+    );
 
     useOutlineStore.getState().toggleCollapse("n.q1");
-    expect(useOutlineStore.getState().nodes.get("n.q1")!.collapsed).toBe(true);
+    expect(present(useOutlineStore.getState().nodes.get("n.q1"), "n.q1").collapsed).toBe(true);
   });
 
   it("expanded state survives a tx-driven map rebuild", () => {
     const store = useOutlineStore.getState();
     store.toggleCollapse("n.q1");
-    expect(useOutlineStore.getState().nodes.get("n.q1")!.collapsed).toBe(false);
+    expect(present(useOutlineStore.getState().nodes.get("n.q1"), "n.q1").collapsed).toBe(false);
     // Simulate an incoming WS tx touching an unrelated node.
     useOutlineStore.getState().applyTx(
       [
@@ -152,7 +156,7 @@ describe("query node collapse state (cheap-by-default)", () => {
     );
     const after = useOutlineStore.getState();
     expect(after.nodes.get("n.new")).toBeDefined();
-    expect(after.nodes.get("n.q1")!.collapsed).toBe(false);
+    expect(present(after.nodes.get("n.q1"), "n.q1").collapsed).toBe(false);
     expect(after.rootNodeId).toBe(WORKSPACE_ROOT_ID);
   });
 });
@@ -177,7 +181,10 @@ describe("subscribe/unsubscribe lifecycle over /ws", () => {
     const got: unknown[][][] = [];
 
     const unsubscribe = subscribeQueryNode(client, "n.q1", EDN, (rows) => got.push(rows));
-    const subFrame = JSON.parse(socket.sent.at(-1)!) as Record<string, unknown>;
+    const subFrame = JSON.parse(present(socket.sent.at(-1), "last frame")) as Record<
+      string,
+      unknown
+    >;
     expect(subFrame).toEqual({
       op: "subscribe",
       id: querySubscriptionId("n.q1"),
@@ -195,7 +202,10 @@ describe("subscribe/unsubscribe lifecycle over /ws", () => {
     expect(got).toEqual([[["n.root-a", "Ship kb ui shell"]]]);
 
     unsubscribe();
-    const unsubFrame = JSON.parse(socket.sent.at(-1)!) as Record<string, unknown>;
+    const unsubFrame = JSON.parse(present(socket.sent.at(-1), "last frame")) as Record<
+      string,
+      unknown
+    >;
     expect(unsubFrame).toEqual({
       op: "unsubscribe",
       id: querySubscriptionId("n.q1"),

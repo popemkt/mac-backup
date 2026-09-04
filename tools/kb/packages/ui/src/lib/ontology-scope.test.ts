@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
+import { present } from "@kb/model";
 import { buildQueryDb } from "@/ds/db";
 import {
   excludedRows,
@@ -64,7 +65,12 @@ describe("scopedWireNodes", () => {
     const scoped = scopedWireNodes(wire, new Set(["n.a", "n.b"]), "o.1");
     const ids = scoped.map((n) => n.id).toSorted();
     expect(ids).toEqual(["n.a", "n.b", "o.1"]);
-    expect(scoped.find((n) => n.id === "n.a")!.children).toEqual(["n.b"]);
+    expect(
+      present(
+        scoped.find((n) => n.id === "n.a"),
+        "n.a scoped",
+      ).children,
+    ).toEqual(["n.b"]);
   });
 
   it("leaves no dangling child ids in the outline map", () => {
@@ -82,20 +88,23 @@ describe("scopedWireNodes", () => {
     const wire = graph();
     const scoped = scopedWireNodes(wire, new Set(["n.a", "n.b"]), "o.1");
     // n.b is nested under n.a, so only n.a hangs off the scope root.
-    expect(scoped[0]!.id).toBe("o.1");
-    expect(scoped[0]!.children).toEqual(["n.a"]);
+    const first = present(scoped.at(0), "first scoped");
+    expect(first.id).toBe("o.1");
+    expect(first.children).toEqual(["n.a"]);
   });
 
   it("never emits the ontology node as its own member", () => {
     const scoped = scopedWireNodes(graph(), new Set(["o.1", "n.b"]), "o.1");
     expect(scoped.filter((n) => n.id === "o.1")).toHaveLength(1);
-    expect(scoped[0]!.children).toEqual(["n.b"]);
+    const first = present(scoped.at(0), "first scoped");
+    expect(first.children).toEqual(["n.b"]);
   });
 
   it("returns nothing but the root for an empty member set", () => {
     const scoped = scopedWireNodes(graph(), new Set(), "o.2");
     expect(scoped.map((n) => n.id)).toEqual(["o.2"]);
-    expect(scoped[0]!.children).toEqual([]);
+    const first = present(scoped.at(0), "first scoped");
+    expect(first.children).toEqual([]);
   });
 
   it("omits the root entirely when the ontology node is gone", () => {
@@ -164,8 +173,10 @@ describe("resolveScope", () => {
 });
 
 /** Adapts a node map to the resolver the row builders now take. */
-const labelOf = (map: ReturnType<typeof wireToOutlineMap>) => (id: string) =>
-  map.get(id)?.text.trim() || id;
+const labelOf = (map: ReturnType<typeof wireToOutlineMap>) => (id: string) => {
+  const text = map.get(id)?.text.trim();
+  return text !== undefined && text !== "" ? text : id;
+};
 
 describe("member rows", () => {
   it("labels provenance and flags pins, sorted by label", () => {
@@ -183,9 +194,17 @@ describe("member rows", () => {
     const r = resolveScope(wire, "o", buildQueryDb(wire, 1), 1);
     const rows = memberRows(r, labelOf(map));
     expect(rows.map((x) => x.label)).toEqual(["alpha", "pinned one", "zeta"]);
-    expect(rows.find((x) => x.id === "n.p")!.pinned).toBe(true);
-    expect(rows.find((x) => x.id === "n.a")!.pinned).toBe(false);
-    expect(rows.find((x) => x.id === "n.a")!.reasons).toEqual([{ kind: "tag", via: "t.svc" }]);
+    const pinned = present(
+      rows.find((x) => x.id === "n.p"),
+      "pinned row",
+    );
+    const aRow = present(
+      rows.find((x) => x.id === "n.a"),
+      "n.a row",
+    );
+    expect(pinned.pinned).toBe(true);
+    expect(aRow.pinned).toBe(false);
+    expect(aRow.reasons).toEqual([{ kind: "tag", via: "t.svc" }]);
   });
 
   it("lists excluded ids separately", () => {
@@ -223,8 +242,13 @@ describe("member rows", () => {
     expect(excludedRows(r, labelOf(scoped)).map((x) => x.label)).toEqual(["n.a"]);
     // The page's resolver falls back to the unscoped nodes, so it recovers it.
     const unscoped = wireToOutlineMap(wire, new Set());
-    const pageResolver = (id: string) =>
-      unscoped.get(id)?.text.trim() || scoped.get(id)?.text.trim() || id;
+    const pageResolver = (id: string) => {
+      const a = unscoped.get(id)?.text.trim();
+      if (a !== undefined && a !== "") return a;
+      const b = scoped.get(id)?.text.trim();
+      if (b !== undefined && b !== "") return b;
+      return id;
+    };
     expect(excludedRows(r, pageResolver).map((x) => x.label)).toEqual(["alpha"]);
   });
 });

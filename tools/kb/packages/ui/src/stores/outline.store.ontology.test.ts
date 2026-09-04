@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
+import { present } from "@kb/model";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "./outline.store";
 
@@ -129,10 +130,15 @@ describe("outline store — ontology scope", () => {
 
   it("re-resolves membership after a local optimistic edit at the same rev", () => {
     useOutlineStore.getState().setOntologyScope("o.1");
-    expect([...useOutlineStore.getState().ontologyMembers!].toSorted()).toEqual(["n.a", "n.b"]);
+    expect(
+      [...present(useOutlineStore.getState().ontologyMembers, "ontology members")].toSorted(),
+    ).toEqual(["n.a", "n.b"]);
 
     // Exclude n.b with no rev bump — exactly what an optimistic tx looks like.
-    const onto = useOutlineStore.getState().wireNodes.find((n) => n.id === "o.1")!;
+    const onto = present(
+      useOutlineStore.getState().wireNodes.find((n) => n.id === "o.1"),
+      "ontology wire",
+    );
     useOutlineStore.getState().applyTx(
       [
         {
@@ -148,7 +154,7 @@ describe("outline store — ontology scope", () => {
 
     const s = useOutlineStore.getState();
     expect(s.rev).toBe(7);
-    expect([...s.ontologyMembers!]).toEqual(["n.a"]);
+    expect([...present(s.ontologyMembers, "ontology members")]).toEqual(["n.a"]);
     expect(s.getVisibleNodes()).not.toContain("n.b");
   });
 

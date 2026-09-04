@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { fixtureGraph } from "@/fixtures/graph";
 import {
   isFieldNodeHidden,
@@ -16,7 +17,7 @@ function mapFromFixture() {
 describe("field visibility", () => {
   it("hides sys.* prop keys and user-hidden fields by default", () => {
     const nodes = mapFromFixture();
-    const node = nodes.get("n.root-a")!;
+    const node = present(nodes.get("n.root-a"), "n.root-a");
     const visible = resolveVisibleProps(node, nodes);
     expect(visible.map((p) => p.fieldId)).toEqual(["field.status"]);
     expect(isIntrinsicSystemPropKey("sys.f.type")).toBe(true);
@@ -26,7 +27,7 @@ describe("field visibility", () => {
 
   it("reveals hidden + sys props in debug mode with debug flag", () => {
     const nodes = mapFromFixture();
-    const node = nodes.get("n.root-a")!;
+    const node = present(nodes.get("n.root-a"), "n.root-a");
     const visible = resolveVisibleProps(node, nodes, { showDebugFields: true });
     expect(visible.map((p) => p.fieldId)).toEqual(
       expect.arrayContaining(["sys.f.type", "field.status", "field.noisy"]),
@@ -44,7 +45,10 @@ describe("field visibility", () => {
     const wire = [
       ...fixtureGraph.nodes.filter((n) => n.id !== "tag.todo" && n.id !== "n.root-b"),
       {
-        ...fixtureGraph.nodes.find((n) => n.id === "tag.todo")!,
+        ...present(
+          fixtureGraph.nodes.find((n) => n.id === "tag.todo"),
+          "tag.todo",
+        ),
         props: {
           "sys.f.type": [{ t: "ref" as const, v: "sys.tag" }],
           "sys.f.fields": [{ t: "ref" as const, v: "field.status" }],
@@ -60,12 +64,14 @@ describe("field visibility", () => {
       },
     ];
     const nodes = wireToOutlineMap(wire, new Set());
-    const visible = resolveVisibleProps(nodes.get("n.member")!, nodes);
+    const visible = resolveVisibleProps(present(nodes.get("n.member"), "n.member"), nodes);
 
-    const status = visible.find((p) => p.fieldId === "field.status");
-    expect(status).toBeTruthy();
-    expect(status!.empty).toBe(true);
-    expect(status!.values).toEqual([]);
+    const status = present(
+      visible.find((p) => p.fieldId === "field.status"),
+      "field.status",
+    );
+    expect(status.empty).toBe(true);
+    expect(status.values).toEqual([]);
   });
 
   it("surfaces a field node's own type and constraints, so no panel is needed", () => {
@@ -90,7 +96,7 @@ describe("field visibility", () => {
       },
     ];
     const nodes = wireToOutlineMap(wire, new Set());
-    const visible = resolveVisibleProps(nodes.get("field.status")!, nodes);
+    const visible = resolveVisibleProps(present(nodes.get("field.status"), "field.status"), nodes);
     expect(visible.map((p) => p.fieldId)).toEqual(
       expect.arrayContaining(["sys.f.fieldType", "sys.f.targetTag", "sys.f.targetQuery"]),
     );
@@ -98,9 +104,8 @@ describe("field visibility", () => {
 
   it("surfaces color/hidden template slots on tag nodes even when unset", () => {
     const nodes = mapFromFixture();
-    const tag = nodes.get("tag.todo");
-    expect(tag).toBeTruthy();
-    const visible = resolveVisibleProps(tag!, nodes);
+    const tag = present(nodes.get("tag.todo"), "tag.todo");
+    const visible = resolveVisibleProps(tag, nodes);
     expect(visible.map((p) => p.fieldId)).toEqual(
       expect.arrayContaining(["sys.f.color", "sys.f.hidden"]),
     );
@@ -113,10 +118,13 @@ describe("field visibility", () => {
     const wire = useOutlineStore.getState().wireNodes;
 
     const hide = planSetFieldHidden(wire, "field.status", true);
-    const hiddenUpsert = hide.upserts.find((n) => n.id === "field.status");
-    expect(hiddenUpsert?.props["sys.f.hidden"]).toEqual([{ t: "bool", v: true }]);
+    const hiddenUpsert = present(
+      hide.upserts.find((n) => n.id === "field.status"),
+      "field.status upsert",
+    );
+    expect(hiddenUpsert.props["sys.f.hidden"]).toEqual([{ t: "bool", v: true }]);
 
-    const merged = [...wire.filter((n) => n.id !== "field.status"), hiddenUpsert!];
+    const merged = [...wire.filter((n) => n.id !== "field.status"), hiddenUpsert];
     const show = planSetFieldHidden(merged, "field.status", false);
     const shownUpsert = show.upserts.find((n) => n.id === "field.status");
     expect(shownUpsert?.props["sys.f.hidden"]).toBeUndefined();

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { present } from "@kb/model";
 import { setPostAction } from "@/api/action";
 import { runOptimistic } from "@/actions/optimistic";
 import { planIndent, planOutdent, planUpdateText } from "@/actions/plan";
@@ -90,7 +91,7 @@ describe("optimistic apply/revert", () => {
       message: "boom",
     }));
 
-    const before = useOutlineStore.getState().nodes.get("n.root-a")!.text;
+    const before = present(useOutlineStore.getState().nodes.get("n.root-a"), "n.root-a").text;
     const plan = planUpdateText(useOutlineStore.getState().wireNodes, "n.root-a", "should bounce");
     const result = await runOptimistic(plan);
     expect(result.ok).toBe(false);
@@ -100,24 +101,22 @@ describe("optimistic apply/revert", () => {
 
 describe("indent/outdent action mapping", () => {
   it("indent maps to node.update parent=prevSibling", () => {
-    const plan = planIndent(fixtureGraph.nodes, "n.child-a2");
-    expect(plan).not.toBeNull();
-    expect(plan!.actions).toEqual([
+    const plan = present(planIndent(fixtureGraph.nodes, "n.child-a2"), "indent plan");
+    expect(plan.actions).toEqual([
       {
         id: "node.update",
         input: { id: "n.child-a2", parent: "n.child-a1", position: 0 },
       },
     ]);
-    const parent = plan!.upserts.find((n) => n.id === "n.child-a1");
+    const parent = plan.upserts.find((n) => n.id === "n.child-a1");
     expect(parent?.children).toContain("n.child-a2");
-    const old = plan!.upserts.find((n) => n.id === "n.root-a");
+    const old = plan.upserts.find((n) => n.id === "n.root-a");
     expect(old?.children).toEqual(["n.child-a1"]);
   });
 
   it("outdent maps to node.update under grandparent after parent", () => {
-    const plan = planOutdent(fixtureGraph.nodes, "n.grandchild");
-    expect(plan).not.toBeNull();
-    expect(plan!.actions).toEqual([
+    const plan = present(planOutdent(fixtureGraph.nodes, "n.grandchild"), "outdent plan");
+    expect(plan.actions).toEqual([
       {
         id: "node.update",
         input: { id: "n.grandchild", parent: "n.root-a", position: 2 },
@@ -150,22 +149,28 @@ describe("multi-valued prop semantics", () => {
     const { planSetProp } = await import("@/actions/plan");
     const store = useOutlineStore.getState();
     const nodes = store.wireNodes;
-    const target = nodes.find((n) => Object.keys(n.props).length > 0)!;
-    const fieldId = Object.keys(target.props)[0]!;
-    const oldValue = target.props[fieldId]![0]!;
+    const target = present(
+      nodes.find((n) => Object.keys(n.props).length > 0),
+      "node with props",
+    );
+    const fieldId = present(Object.keys(target.props).at(0), "first prop field");
+    const fieldValues = present(target.props[fieldId], fieldId);
+    const oldValue = present(fieldValues.at(0), "first prop value");
     const next = { t: "str" as const, v: "changed-value" };
 
-    const plan = planSetProp(nodes, target.id, fieldId, next, oldValue);
-    expect(plan).not.toBeNull();
-    const input = plan.actions[0]!.input as {
+    const plan = present(planSetProp(nodes, target.id, fieldId, next, oldValue), "set-prop plan");
+    const input = present(plan.actions.at(0), "set-prop action").input as {
       setProps?: unknown[];
       unsetProps?: unknown[];
     };
     expect(input.unsetProps?.length ?? 0).toBeGreaterThan(0);
     expect(input.setProps?.length ?? 0).toBeGreaterThan(0);
 
-    const upsert = plan.upserts.find((n) => n.id === target.id)!;
-    const values = upsert.props[fieldId]!;
+    const upsert = present(
+      plan.upserts.find((n) => n.id === target.id),
+      `upsert ${target.id}`,
+    );
+    const values = present(upsert.props[fieldId], fieldId);
     expect(values).toContainEqual(next);
     expect(values).not.toContainEqual(oldValue);
   });

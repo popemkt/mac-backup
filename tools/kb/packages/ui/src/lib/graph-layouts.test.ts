@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import {
   computeLayoutPositions,
@@ -51,8 +52,11 @@ describe("graph-layouts", () => {
       { source: "mid", target: "leaf", kind: "child", weight: 1 },
     ];
     const pos = hierarchicalLayout(ns, edges, size);
-    expect(pos.get("root")!.x).toBeLessThan(pos.get("mid")!.x);
-    expect(pos.get("mid")!.x).toBeLessThan(pos.get("leaf")!.x);
+    const root = present(pos.get("root"), "root");
+    const mid = present(pos.get("mid"), "mid");
+    const leaf = present(pos.get("leaf"), "leaf");
+    expect(root.x).toBeLessThan(mid.x);
+    expect(mid.x).toBeLessThan(leaf.x);
   });
 
   it("snapshots positions for regression", () => {

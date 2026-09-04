@@ -7,6 +7,7 @@
  * lib/query-node.test.ts + instance-identity.component.test.tsx).
  */
 import { describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { runQuery } from "@/ds/query";
@@ -55,7 +56,7 @@ describe("result row render (W4)", () => {
     expect(ids.toSorted()).toEqual(["n.root-a", "n.root-b"]);
 
     for (const id of ids) {
-      const html = renderBullet(nodes.get(id)!, true);
+      const html = renderBullet(present(nodes.get(id), id), true);
       // dashed reference ring marks a result row
       expect(html).toContain('data-bullet-ref="true"');
       expect(html).toContain("data-bullet-ref-ring");
@@ -63,14 +64,14 @@ describe("result row render (W4)", () => {
     }
 
     // Same node rendered as a normal outline row has no ref ring.
-    const plain = renderBullet(nodes.get("n.root-b")!, false);
+    const plain = renderBullet(present(nodes.get("n.root-b"), "n.root-b"), false);
     expect(plain).not.toContain("data-bullet-ref");
     expect(plain).not.toContain("data-bullet-ref-ring");
   });
 
   it("query node bullet renders the ⌕ kind with an expand affordance", () => {
     const nodes = outlineMap();
-    const q = nodes.get("n.q1")!;
+    const q = present(nodes.get("n.q1"), "n.q1");
     expect(q.collapsed).toBe(true); // cheap-by-default
     expect(q.children).toEqual([]);
 
@@ -92,7 +93,10 @@ describe("result row render (W4)", () => {
       text: "open-todos",
     };
     const nodes = wireToOutlineMap([...fixtureGraph.nodes, saved], new Set());
-    const html = renderBullet(nodes.get("sys.query.open-todos")!, false);
+    const html = renderBullet(
+      present(nodes.get("sys.query.open-todos"), "sys.query.open-todos"),
+      false,
+    );
     expect(html).toContain('data-bullet-kind="query"');
     expect(html).toContain('data-bullet-sys="true"');
   });
@@ -101,9 +105,9 @@ describe("result row render (W4)", () => {
     // Render assertion: parent ref bullet vs child ordinary bullet.
     // Full NodeBlock cascade covered in instance-identity.component.test.tsx.
     const nodes = outlineMap();
-    const top = renderBullet(nodes.get("n.root-a")!, true);
+    const top = renderBullet(present(nodes.get("n.root-a"), "n.root-a"), true);
     expect(top).toContain('data-bullet-ref="true"');
-    const child = renderBullet(nodes.get("n.child-a1")!, false);
+    const child = renderBullet(present(nodes.get("n.child-a1"), "n.child-a1"), false);
     expect(child).not.toContain("data-bullet-ref");
   });
 });

@@ -6,6 +6,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { present } from "@kb/model";
 import type { CanvasShapeNode } from "@kb/canvas";
 import { ShapeCard } from "./shape-card";
 
@@ -61,7 +62,7 @@ describe("ShapeCard label edit wiring", () => {
       );
     });
 
-    const shell = container.querySelector(".group\\/card")!;
+    const shell = present(container.querySelector(".group\\/card"), "card shell");
     act(() => {
       shell.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
     });

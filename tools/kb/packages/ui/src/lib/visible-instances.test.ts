@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { fixtureGraph } from "@/fixtures/graph";
 import { queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
@@ -61,9 +62,9 @@ describe("visible instances", () => {
   it("arrow neighbors move from tree into query results and across refs", () => {
     useOutlineStore.getState().toggleCollapse("n.q1");
     const store = useOutlineStore.getState();
-    const fromQuery = store.getNextVisibleInstance("tree/n.q1");
-    expect(fromQuery?.instanceKey).toBe(queryResultInstanceKey("n.q1", "n.root-a"));
-    const across = store.getNextVisibleInstance(fromQuery!.instanceKey);
+    const fromQuery = present(store.getNextVisibleInstance("tree/n.q1"), "next from query");
+    expect(fromQuery.instanceKey).toBe(queryResultInstanceKey("n.q1", "n.root-a"));
+    const across = store.getNextVisibleInstance(fromQuery.instanceKey);
     expect(across?.instanceKey).toBe(queryResultInstanceKey("n.q1", "n.root-b"));
   });
 
@@ -103,10 +104,15 @@ describe("visible instances", () => {
     expect(keys).toContain("tree/n.root-a/n.child-a2");
 
     // Neighbor order follows sort projection, not children[] store order.
-    const storeKids = useOutlineStore.getState().nodes.get("n.root-a")!.children;
+    const storeKids = present(
+      useOutlineStore.getState().nodes.get("n.root-a"),
+      "n.root-a",
+    ).children;
     const sortedKeys = keys.filter((k) => storeKids.some((id) => k.endsWith(`/${id}`)));
     const texts = sortedKeys.map(
-      (k) => useOutlineStore.getState().nodes.get(k.split("/").at(-1)!)?.text ?? "",
+      (k) =>
+        useOutlineStore.getState().nodes.get(present(k.split("/").at(-1), "instance id"))?.text ??
+        "",
     );
     const sortedTexts = [...texts].toSorted((a, b) =>
       a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0,

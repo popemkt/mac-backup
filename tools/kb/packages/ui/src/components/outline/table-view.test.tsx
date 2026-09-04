@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/fixtures/graph";
 import { outlineInstanceKey } from "@/lib/instance-key";
@@ -170,7 +171,9 @@ describe("W7 TableView & ViewToolbar", () => {
   });
 
   it("sorts table render order without mutating children[] array in store", async () => {
-    const initialChildren = [...useOutlineStore.getState().nodes.get("frame1")!.children];
+    const initialChildren = [
+      ...present(useOutlineStore.getState().nodes.get("frame1"), "frame1").children,
+    ];
     expect(initialChildren).toEqual(["child1", "child2"]);
 
     await mutations.setViewSort("frame1", [{ fieldId: "__name__", dir: "asc" }]);
@@ -185,7 +188,10 @@ describe("W7 TableView & ViewToolbar", () => {
     expect(posBanana).toBeGreaterThan(-1);
     expect(posApple).toBeLessThan(posBanana);
 
-    const storeChildren = useOutlineStore.getState().nodes.get("frame1")!.children;
+    const storeChildren = present(
+      useOutlineStore.getState().nodes.get("frame1"),
+      "frame1",
+    ).children;
     expect(storeChildren).toEqual(["child1", "child2"]);
   });
 
@@ -194,22 +200,21 @@ describe("W7 TableView & ViewToolbar", () => {
     // Visual first row is Apple (child2); split mid-text.
     await mutations.splitNode("child2", "Apple".length);
 
-    const frame = useOutlineStore.getState().nodes.get("frame1")!;
+    const frame = present(useOutlineStore.getState().nodes.get("frame1"), "frame1");
     const appleIdx = frame.children.indexOf("child2");
     expect(appleIdx).toBeGreaterThanOrEqual(0);
-    const insertedId = frame.children[appleIdx + 1];
-    expect(insertedId).toBeTruthy();
+    const insertedId = present(frame.children[appleIdx + 1], "inserted id");
     expect(insertedId).not.toBe("child1");
 
-    const apple = useOutlineStore.getState().nodes.get("child2")!;
-    const created = useOutlineStore.getState().nodes.get(insertedId!)!;
+    const apple = present(useOutlineStore.getState().nodes.get("child2"), "child2");
+    const created = present(useOutlineStore.getState().nodes.get(insertedId), "inserted");
     expect(apple.text).toBe("Apple");
     expect(created.text).toBe(" Task");
 
     // Focus lands on new node with outline/table instance key.
     const store = useOutlineStore.getState();
     expect(store.activeNodeId).toBe(insertedId);
-    expect(store.activeInstanceKey).toBe(outlineInstanceKey(insertedId!, store.nodes));
+    expect(store.activeInstanceKey).toBe(outlineInstanceKey(insertedId, store.nodes));
     expect(store.activeInstanceKey).toBe(`tree/frame1/${insertedId}`);
 
     // children[] still Banana then Apple then New — sort projection unchanged rule.

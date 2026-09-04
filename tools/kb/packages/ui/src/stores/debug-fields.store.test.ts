@@ -7,6 +7,7 @@
  * id-set encoding the expanded rows use).
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import { DEBUG_FIELDS_STORAGE_KEY } from "@/lib/types";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 
@@ -56,7 +57,7 @@ describe("per-node debug fields", () => {
     useDebugFieldsStore.getState().toggle("a");
     useDebugFieldsStore.getState().toggle("b");
     const raw = (g.localStorage as Storage).getItem(DEBUG_FIELDS_STORAGE_KEY);
-    expect(JSON.parse(raw!).toSorted()).toEqual(["a", "b"]);
+    expect(JSON.parse(present(raw, "raw json")).toSorted()).toEqual(["a", "b"]);
   });
 
   it("replaces the set rather than mutating it, so selectors re-fire", () => {

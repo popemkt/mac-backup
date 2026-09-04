@@ -9,6 +9,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { WORKSPACE_ROOT_ID, type PropValue } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -110,7 +111,7 @@ describe("ref slot focus behaviour", () => {
   it("focusing the placeholder opens the search and its suggestions", async () => {
     await render([]);
     await act(async () => {
-      placeholder()!.dispatchEvent(
+      present(placeholder(), "placeholder").dispatchEvent(
         new dom.FocusEvent("focusin", { bubbles: true }) as unknown as Event,
       );
     });
@@ -123,11 +124,10 @@ describe("ref slot focus behaviour", () => {
     await render([{ t: "ref", v: "n.target" }]);
     expect(inputs().length).toBe(0);
     const addValue = [...container.querySelectorAll("button")].find(
-      (b) => b.textContent?.trim() === "value",
+      (b) => b.textContent.trim() === "value",
     ) as HTMLElement | undefined;
-    expect(addValue).toBeTruthy();
     await act(async () => {
-      addValue!.click();
+      present(addValue, "+ value").click();
     });
     expect(inputs().length).toBe(1);
     expect(listboxes().length).toBe(1);
@@ -135,12 +135,10 @@ describe("ref slot focus behaviour", () => {
 
   it("a filled ref still opens the search when its value is clicked", async () => {
     await render([{ t: "ref", v: "n.target" }]);
-    const row = container.querySelector(
-      '[data-node-row="true"][data-node-id="n.target"]',
-    ) as HTMLElement | null;
-    expect(row).toBeTruthy();
+    const found = container.querySelector('[data-node-row="true"][data-node-id="n.target"]');
+    const row = present(found instanceof HTMLElement ? found : null, "row");
     await act(async () => {
-      row!.click();
+      row.click();
     });
     expect(inputs().length).toBe(1);
   });

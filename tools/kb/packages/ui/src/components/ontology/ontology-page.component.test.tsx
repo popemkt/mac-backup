@@ -8,6 +8,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
+import { present } from "@kb/model";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { OntologyPage } from "./ontology-page";
@@ -90,11 +91,11 @@ describe("OntologyPage (component)", () => {
 
   it("offers inline rename of the ontology itself", async () => {
     await render("o.1");
-    const input = container.querySelector(
-      'input[aria-label="Ontology name"]',
-    ) as HTMLInputElement | null;
-    expect(input).not.toBeNull();
-    expect(input!.value).toBe("Infrastructure");
+    const input = present(
+      container.querySelector<HTMLInputElement>('input[aria-label="Ontology name"]'),
+      "name input",
+    );
+    expect(input.value).toBe("Infrastructure");
   });
 
   it("renders include and extends chips from the definition props", async () => {
