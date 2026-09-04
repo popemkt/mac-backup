@@ -1,15 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "eslint",
-    "typescript",
-    "react",
-    "import",
-    "unicorn",
-    "oxc",
-    "promise",
-    "node"
-  ],
+  "plugins": ["eslint", "typescript", "react", "import", "unicorn", "oxc", "promise", "node"],
   "env": {
     "builtin": true
   },
@@ -30,9 +21,7 @@
     "import/no-unassigned-import": [
       "error",
       {
-        "allow": [
-          "**/*.css"
-        ]
+        "allow": ["**/*.css"]
       }
     ],
     "typescript/ban-ts-comment": [
@@ -105,24 +94,15 @@
     "eslint/no-shadow": "error",
     "eslint/no-await-in-loop": "warn",
     "eslint/complexity": "error",
-    "eslint/max-depth": [
-      "warn",
-      5
-    ],
-    "eslint/max-nested-callbacks": [
-      "warn",
-      4
-    ],
+    "eslint/max-depth": ["warn", 5],
+    "eslint/max-nested-callbacks": ["warn", 4],
     "eslint/max-lines-per-function": [
       "warn",
       {
         "max": 120
       }
     ],
-    "eslint/max-params": [
-      "warn",
-      5
-    ],
+    "eslint/max-params": ["warn", 5],
     "eslint/max-lines": [
       "warn",
       {
@@ -158,9 +138,7 @@
       }
     },
     {
-      "files": [
-        "packages/canvas/src/**"
-      ],
+      "files": ["packages/canvas/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -176,9 +154,7 @@
       }
     },
     {
-      "files": [
-        "packages/cli/src/**"
-      ],
+      "files": ["packages/cli/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -194,9 +170,7 @@
       }
     },
     {
-      "files": [
-        "packages/contracts/src/**"
-      ],
+      "files": ["packages/contracts/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -212,9 +186,7 @@
       }
     },
     {
-      "files": [
-        "packages/ext-canvas/src/**"
-      ],
+      "files": ["packages/ext-canvas/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -230,9 +202,7 @@
       }
     },
     {
-      "files": [
-        "packages/ext-docs/src/**"
-      ],
+      "files": ["packages/ext-docs/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -248,9 +218,7 @@
       }
     },
     {
-      "files": [
-        "packages/ext-sdk/src/**"
-      ],
+      "files": ["packages/ext-sdk/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -266,9 +234,7 @@
       }
     },
     {
-      "files": [
-        "packages/mcp/src/**"
-      ],
+      "files": ["packages/mcp/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -284,9 +250,7 @@
       }
     },
     {
-      "files": [
-        "packages/model/src/**"
-      ],
+      "files": ["packages/model/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -302,9 +266,7 @@
       }
     },
     {
-      "files": [
-        "packages/operations/src/**"
-      ],
+      "files": ["packages/operations/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -320,9 +282,7 @@
       }
     },
     {
-      "files": [
-        "packages/query/src/**"
-      ],
+      "files": ["packages/query/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -338,9 +298,7 @@
       }
     },
     {
-      "files": [
-        "packages/render-tests/src/**"
-      ],
+      "files": ["packages/render-tests/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -356,9 +314,7 @@
       }
     },
     {
-      "files": [
-        "packages/runtime/src/**"
-      ],
+      "files": ["packages/runtime/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -374,9 +330,7 @@
       }
     },
     {
-      "files": [
-        "packages/server/src/**"
-      ],
+      "files": ["packages/server/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -392,9 +346,7 @@
       }
     },
     {
-      "files": [
-        "packages/store-jsonl/src/**"
-      ],
+      "files": ["packages/store-jsonl/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -410,9 +362,7 @@
       }
     },
     {
-      "files": [
-        "packages/test-kit/src/**"
-      ],
+      "files": ["packages/test-kit/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -428,9 +378,7 @@
       }
     },
     {
-      "files": [
-        "packages/ui/src/**"
-      ],
+      "files": ["packages/ui/src/**"],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",
@@ -517,26 +465,20 @@
       }
     },
     {
-      "files": [
-        "**/*.d.ts"
-      ],
+      "files": ["**/*.d.ts"],
       "rules": {
         "typescript/no-extraneous-class": "off",
         "typescript/triple-slash-reference": "off"
       }
     },
     {
-      "files": [
-        "packages/server/src/paths.ts"
-      ],
+      "files": ["packages/server/src/paths.ts"],
       "rules": {
         "node/no-process-env": "off"
       }
     },
     {
-      "files": [
-        "packages/query/src/datascript.ts"
-      ],
+      "files": ["packages/query/src/datascript.ts"],
       "rules": {
         "typescript/triple-slash-reference": "off"
       }
@@ -552,9 +494,7 @@
       }
     },
     {
-      "files": [
-        "**/*.css"
-      ],
+      "files": ["**/*.css"],
       "rules": {}
     }
   ]

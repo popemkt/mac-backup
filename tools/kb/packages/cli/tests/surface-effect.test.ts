@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { present } from "@kb/model";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -27,7 +28,6 @@ import {
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
-import { expectDefined } from "@kb/test-kit";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-surface-effect-"));
@@ -109,7 +109,10 @@ describe("MCP Effect surface", () => {
     const unknown = await Effect.runPromise(callToolEffect(ctx, "no_such_tool", {}, tools));
     expect(unknown.isError).toBe(true);
     const unknownBody = JSON.parse(
-      expectDefined((unknown.content as { text: string }[])[0]).text,
+      present(
+        (unknown.content as { text: string }[])[0],
+        "expected (unknown.content as { text: string }[])[0]",
+      ).text,
     ) as {
       code: string;
     };
@@ -143,7 +146,10 @@ describe("MCP Effect surface", () => {
     );
     expect(failed.isError).toBe(true);
     const failedBody = JSON.parse(
-      expectDefined((failed.content as { text: string }[])[0]).text,
+      present(
+        (failed.content as { text: string }[])[0],
+        "expected (failed.content as { text: string }[])[0]",
+      ).text,
     ) as {
       code: string;
     };
@@ -156,7 +162,12 @@ describe("MCP Effect surface", () => {
     const tools: McpToolContext = { actions: [], byToolName: new Map() };
     const bad = await Effect.runPromise(callToolEffect(ctx, "render_view", { view: 1 }, tools));
     expect(bad.isError).toBe(true);
-    const body = JSON.parse(expectDefined((bad.content as { text: string }[])[0]).text) as {
+    const body = JSON.parse(
+      present(
+        (bad.content as { text: string }[])[0],
+        "expected (bad.content as { text: string }[])[0]",
+      ).text,
+    ) as {
       message: string;
     };
     expect(body.message).toContain("expected {view: string");
@@ -180,7 +191,10 @@ describe("MCP Effect surface", () => {
       callToolEffect(ctx, "render_view", { view: "todos", format: null }, tools),
     );
     expect(rendered.isError).toBeFalsy();
-    const text = expectDefined((rendered.content as { text: string }[])[0]).text;
+    const text = present(
+      (rendered.content as { text: string }[])[0],
+      "expected (rendered.content as { text: string }[])[0]",
+    ).text;
     expect(text).toContain("<h1>Todos</h1>");
     expect(text).not.toMatch(/^# Todos/m);
   });
@@ -190,7 +204,12 @@ describe("MCP Effect surface", () => {
       containToolResult(Effect.die(new Error("injected-defect"))),
     );
     expect(result.isError).toBe(true);
-    const body = JSON.parse(expectDefined((result.content as { text: string }[])[0]).text) as {
+    const body = JSON.parse(
+      present(
+        (result.content as { text: string }[])[0],
+        "expected (result.content as { text: string }[])[0]",
+      ).text,
+    ) as {
       code: string;
       message: string;
     };
@@ -267,7 +286,12 @@ export default [{
       arguments: {},
     });
     expect(result.isError).toBe(true);
-    const body = JSON.parse(expectDefined((result.content as { text: string }[])[0]).text) as {
+    const body = JSON.parse(
+      present(
+        (result.content as { text: string }[])[0],
+        "expected (result.content as { text: string }[])[0]",
+      ).text,
+    ) as {
       code: string;
       message: string;
     };
@@ -289,14 +313,14 @@ export default [{
     const renders = listed.tools.filter((t) => t.name === "render_view");
     expect(renders).toHaveLength(1);
     const format = (
-      expectDefined(renders[0]).inputSchema as {
+      present(renders[0], "expected renders[0]").inputSchema as {
         properties?: {
           format?: { anyOf?: unknown[]; default?: unknown };
         };
         required?: string[];
       }
     ).properties?.format;
-    expect(expectDefined(renders[0]).inputSchema).toMatchObject({
+    expect(present(renders[0], "expected renders[0]").inputSchema).toMatchObject({
       required: ["view"],
     });
     expect(format?.default).toBe("html");
@@ -327,7 +351,10 @@ export default [{
       },
     });
     expect(q.isError).toBeFalsy();
-    const text = expectDefined((q.content as { type: string; text: string }[])[0]).text;
+    const text = present(
+      (q.content as { type: string; text: string }[])[0],
+      "expected (q.content as { type: string; text: string }[])[0]",
+    ).text;
     const body = JSON.parse(text) as { rows: unknown[][] };
     expect(body.rows.some((r) => r[0] === "n.cli")).toBe(true);
 

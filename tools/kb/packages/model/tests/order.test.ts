@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
+import { present } from "../src/present.ts";
 import { migrateOrderKeys } from "../src/order.ts";
-import { expectDefined } from "@kb/test-kit";
 
 test("order-key migration is additive and preserves legacy root/child order", () => {
   const nodes = [
@@ -15,8 +15,11 @@ test("order-key migration is additive and preserves legacy root/child order", ()
   const byId = new Map(migrated.nodes.map((node) => [node.id, node]));
   expect(
     ["z", "a"].toSorted((x, y) =>
-      expectDefined(expectDefined(byId.get(x)).order).localeCompare(
-        expectDefined(expectDefined(byId.get(y)).order),
+      present(
+        present(byId.get(x), "expected byId.get(x)").order,
+        "expected byId.get(x).order",
+      ).localeCompare(
+        present(present(byId.get(y), "expected byId.get(y)").order, "expected byId.get(y).order"),
       ),
     ),
   ).toEqual(["z", "a"]);
@@ -51,8 +54,8 @@ test("migration never rewrites a stored rank, so reordering survives reopen", ()
   expect(migrated.changed).toBe(false);
   const byId = new Map(migrated.nodes.map((n) => [n.id, n]));
   // b was deliberately moved above a; that must stand.
-  expect(expectDefined(byId.get("r-b")).order).toBe("1000000000");
-  expect(expectDefined(byId.get("r-a")).order).toBe("5000000000");
+  expect(present(byId.get("r-b"), 'expected byId.get("r-b")').order).toBe("1000000000");
+  expect(present(byId.get("r-a"), 'expected byId.get("r-a")').order).toBe("5000000000");
 });
 
 test("migration fills only the gaps in a partly ranked sibling group", () => {
@@ -81,10 +84,13 @@ test("migration fills only the gaps in a partly ranked sibling group", () => {
   const migrated = migrateOrderKeys(nodes);
   expect(migrated.changed).toBe(true);
   const byId = new Map(migrated.nodes.map((n) => [n.id, n]));
-  expect(expectDefined(byId.get("c1")).order).toBe("1000000000");
-  expect(expectDefined(byId.get("c3")).order).toBe("3000000000");
+  expect(present(byId.get("c1"), 'expected byId.get("c1")').order).toBe("1000000000");
+  expect(present(byId.get("c3"), 'expected byId.get("c3")').order).toBe("3000000000");
   // The new rank must land between its neighbours, keeping c1 < c2 < c3.
-  const c2 = expectDefined(expectDefined(byId.get("c2")).order);
+  const c2 = present(
+    present(byId.get("c2"), 'expected byId.get("c2")').order,
+    'expected byId.get("c2").order',
+  );
   expect(c2 > "1000000000").toBe(true);
   expect(c2 < "3000000000").toBe(true);
   expect(migrateOrderKeys(migrated.nodes).changed).toBe(false);

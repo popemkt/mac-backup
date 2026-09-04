@@ -9,7 +9,7 @@
 // which is the mismatch the owner could see. A source-text assertion cannot
 // catch that class of bug; only a real engine computing real styles can.
 import { expect, test } from "playwright/test";
-import { expectDefined } from "@kb/test-kit";
+import { present } from "@kb/model";
 
 /** --kb-text-size × --kb-text-leading, resolved. */
 const TEXT_SIZE = 14.5;
@@ -65,8 +65,8 @@ test("node text and field labels resolve to one metric", async ({ page }) => {
   });
 
   expect(metrics.node).not.toBeNull();
-  const node = expectDefined(metrics.node, "node .kb-text metrics");
-  const label = expectDefined(metrics.label, "label .kb-text metrics");
+  const node = present(metrics.node, "node .kb-text metrics");
+  const label = present(metrics.label, "label .kb-text metrics");
   expect(node.fontSize).toBeCloseTo(label.fontSize, 1);
   expect(node.lineHeight).toBeCloseTo(label.lineHeight, 1);
 });
@@ -123,7 +123,7 @@ sigma tau upsilon</div>
   // The whole point of the float: line one gives up the pill's width, and the
   // lines the pill never touches stay full width. A flex sibling — the previous
   // shape — narrows every line equally, so `first === later` is the red state.
-  expect(expectDefined(first, "first line width")).toBeLessThan(later - 10);
+  expect(present(first, "first line width")).toBeLessThan(later - 10);
   expect(later).toBeGreaterThan(geometry.containerWidth * 0.9);
   expect(geometry.containerWidth - later).toBeLessThan(geometry.floatWidth);
 

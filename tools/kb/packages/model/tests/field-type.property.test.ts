@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { present } from "../src/present.ts";
 import fc from "fast-check";
 import { SYSTEM_IDS, type PropValue } from "../src/model.ts";
 import {
@@ -9,7 +10,6 @@ import {
   type FieldType,
   migrateFieldTypeValues,
 } from "../src/field-type.ts";
-import { expectDefined } from "@kb/test-kit";
 
 /** Any PropValue, including refs/strings unrelated to field types — noise. */
 const propValueArb: fc.Arbitrary<PropValue> = fc.oneof(
@@ -133,11 +133,12 @@ describe("field-type properties (fast-check)", () => {
           };
           const { nodes, changed } = migrateFieldTypeValues([node]);
           expect(changed).toBe(true);
-          const migrated = expectDefined(
-            expectDefined(nodes[0]).props[SYSTEM_IDS.fieldTypeField][0],
+          const migrated = present(
+            present(nodes[0], "expected nodes[0]").props[SYSTEM_IDS.fieldTypeField][0],
+            "expected nodes[0].props[SYSTEM_IDS.fieldTypeField][0]",
           );
           expect(migrated).toEqual(fieldTypeValue(t));
-          expect(fieldTypeOf(expectDefined(nodes[0]).props)).toBe(t);
+          expect(fieldTypeOf(present(nodes[0], "expected nodes[0]").props)).toBe(t);
         },
       ),
       { numRuns: 500 },
@@ -163,7 +164,7 @@ describe("field-type properties (fast-check)", () => {
         };
         const { nodes, changed } = migrateFieldTypeValues([node]);
         expect(changed).toBe(true);
-        const values = expectDefined(nodes[0]).props[SYSTEM_IDS.fieldTypeField];
+        const values = present(nodes[0], "expected nodes[0]").props[SYSTEM_IDS.fieldTypeField];
         expect(values[0]).toEqual(fieldTypeValue(legacyType));
         expect(values[1]).toEqual(fieldTypeValue(refType));
 

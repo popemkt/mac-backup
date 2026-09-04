@@ -10,26 +10,26 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  SYSTEM_IDS,
-  type KbNode,
-  type PropValue,
+  canonicalJson,
   DEFAULT_MAX_DEPTH,
+  ensureSystemSeed,
+  fieldTypeOf,
   isOntologyNode,
   listOntologyNodes,
   ontologyClosureMode,
+  present,
   resolveOntology,
-  wouldCreateExtendsCycle,
-  type NodeLike,
-  fieldTypeOf,
-  ensureSystemSeed,
+  SYSTEM_IDS,
   systemSeedNodes,
-  canonicalJson,
+  type KbNode,
+  type NodeLike,
+  type PropValue,
+  wouldCreateExtendsCycle,
 } from "@kb/model";
 import { ontologyMembersEffect } from "@kb/operations";
 import { runWithKb } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
-import { expectDefined } from "@kb/test-kit";
 
 // ── fixtures ───────────────────────────────────────────────────────────────
 
@@ -379,7 +379,9 @@ describe("resolveOntology — closure", () => {
     const nodes = [...tree(), ontology("o", "O", { include: ["t.host"] })];
     const r = resolveOntology(nodes, "o");
     expect(sortedMembers(r.members)).toEqual(["n.root"]);
-    expect(ontologyClosureMode(expectDefined(nodes[nodes.length - 1]))).toBe("none");
+    expect(
+      ontologyClosureMode(present(nodes[nodes.length - 1], "expected nodes[nodes.length - 1]")),
+    ).toBe("none");
   });
 
   test("a children cycle terminates", () => {
@@ -476,8 +478,22 @@ describe("resolveOntology — determinism and caps", () => {
 describe("ontology helpers", () => {
   test("isOntologyNode / listOntologyNodes sort by label then id", () => {
     const nodes: NodeLike[] = [...baseGraph(), ontology("o.z", "Alpha"), ontology("o.a", "Beta")];
-    expect(isOntologyNode(expectDefined(nodes.find((n) => n.id === "o.z")))).toBe(true);
-    expect(isOntologyNode(expectDefined(nodes.find((n) => n.id === "n.notes")))).toBe(false);
+    expect(
+      isOntologyNode(
+        present(
+          nodes.find((n) => n.id === "o.z"),
+          'expected nodes.find((n) => n.id === "o.z")',
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      isOntologyNode(
+        present(
+          nodes.find((n) => n.id === "n.notes"),
+          'expected nodes.find((n) => n.id === "n.notes")',
+        ),
+      ),
+    ).toBe(false);
     expect(listOntologyNodes(nodes).map((n) => n.id)).toEqual(["o.z", "o.a"]);
   });
 
@@ -519,24 +535,50 @@ describe("ontology seed", () => {
     ]) {
       const field = byId.get(id);
       expect(field).toBeDefined();
-      expect(refs(expectDefined(field), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.field]);
+      expect(refs(present(field, "expected field"), SYSTEM_IDS.typeField)).toEqual([
+        SYSTEM_IDS.field,
+      ]);
     }
 
     // Assert the declared type, not its storage form: field types are option
     // nodes now, and reading through the shared resolver is what keeps this
     // test honest across either representation.
-    expect(fieldTypeOf(expectDefined(byId.get(SYSTEM_IDS.ontoIncludeField)).props)).toBe("ref");
     expect(
-      refs(expectDefined(byId.get(SYSTEM_IDS.ontoIncludeField)), SYSTEM_IDS.targetTagField),
+      fieldTypeOf(
+        present(
+          byId.get(SYSTEM_IDS.ontoIncludeField),
+          "expected byId.get(SYSTEM_IDS.ontoIncludeField)",
+        ).props,
+      ),
+    ).toBe("ref");
+    expect(
+      refs(
+        present(
+          byId.get(SYSTEM_IDS.ontoIncludeField),
+          "expected byId.get(SYSTEM_IDS.ontoIncludeField)",
+        ),
+        SYSTEM_IDS.targetTagField,
+      ),
     ).toEqual([SYSTEM_IDS.tag]);
-    expect(fieldTypeOf(expectDefined(byId.get(SYSTEM_IDS.ontoQueryField)).props)).toBe("text");
+    expect(
+      fieldTypeOf(
+        present(byId.get(SYSTEM_IDS.ontoQueryField), "expected byId.get(SYSTEM_IDS.ontoQueryField)")
+          .props,
+      ),
+    ).toBe("text");
 
     // extends uses targetQuery (not targetTag) so the picker offers ontologies.
-    const ext = expectDefined(byId.get(SYSTEM_IDS.ontoExtendsField));
+    const ext = present(
+      byId.get(SYSTEM_IDS.ontoExtendsField),
+      "expected byId.get(SYSTEM_IDS.ontoExtendsField)",
+    );
     expect(refs(ext, SYSTEM_IDS.targetTagField)).toEqual([]);
     expect(strs(ext, SYSTEM_IDS.targetQueryField)[0]).toContain(SYSTEM_IDS.ontologyTag);
 
-    const tag = expectDefined(byId.get(SYSTEM_IDS.ontologyTag));
+    const tag = present(
+      byId.get(SYSTEM_IDS.ontologyTag),
+      "expected byId.get(SYSTEM_IDS.ontologyTag)",
+    );
     expect(tag.text).toBe("ontology");
     expect(refs(tag, SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
     expect(refs(tag, SYSTEM_IDS.fieldsField)).toEqual([
@@ -555,7 +597,9 @@ describe("ontology seed", () => {
     ]) {
       const cmd = byId.get(id);
       expect(cmd).toBeDefined();
-      expect(refs(expectDefined(cmd), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.command]);
+      expect(refs(present(cmd, "expected cmd"), SYSTEM_IDS.typeField)).toEqual([
+        SYSTEM_IDS.command,
+      ]);
     }
   });
 
@@ -579,7 +623,10 @@ describe("ontology seed", () => {
     );
     const healed = ensureSystemSeed(stale);
     expect(healed.seeded).toBe(true);
-    const tag = expectDefined(healed.nodes.find((n) => n.id === SYSTEM_IDS.ontologyTag));
+    const tag = present(
+      healed.nodes.find((n) => n.id === SYSTEM_IDS.ontologyTag),
+      "expected healed.nodes.find((n) => n.id === SYSTEM_IDS.ontologyTag)",
+    );
     expect(tag.text).toBe("my-ontology");
     expect(refs(tag, SYSTEM_IDS.fieldsField)).toHaveLength(6);
   });

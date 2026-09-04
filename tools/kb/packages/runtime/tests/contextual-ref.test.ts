@@ -15,10 +15,16 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openKb } from "../src/session.ts";
-import { fieldTypeOf, SYSTEM_IDS, type KbNode, ensureSystemSeed, systemSeedNodes } from "@kb/model";
+import {
+  ensureSystemSeed,
+  fieldTypeOf,
+  present,
+  SYSTEM_IDS,
+  systemSeedNodes,
+  type KbNode,
+} from "@kb/model";
 import { backlinksQuery, buildQueryDb, query } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
-import { expectDefined } from "@kb/test-kit";
 
 function refs(node: KbNode, field: string): string[] {
   return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
@@ -45,16 +51,20 @@ describe("seed: #ref tag + ref.target field", () => {
 
     const tag = byId.get(SYSTEM_IDS.refTag);
     expect(tag).toBeDefined();
-    expect(expectDefined(tag).text).toBe("ref");
-    expect(refs(expectDefined(tag), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
-    expect(refs(expectDefined(tag), SYSTEM_IDS.fieldsField)).toEqual([SYSTEM_IDS.refTargetField]);
+    expect(present(tag, "expected tag").text).toBe("ref");
+    expect(refs(present(tag, "expected tag"), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
+    expect(refs(present(tag, "expected tag"), SYSTEM_IDS.fieldsField)).toEqual([
+      SYSTEM_IDS.refTargetField,
+    ]);
 
     const field = byId.get(SYSTEM_IDS.refTargetField);
     expect(field).toBeDefined();
-    expect(expectDefined(field).text).toBe("ref.target");
-    expect(refs(expectDefined(field), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.field]);
+    expect(present(field, "expected field").text).toBe("ref.target");
+    expect(refs(present(field, "expected field"), SYSTEM_IDS.typeField)).toEqual([
+      SYSTEM_IDS.field,
+    ]);
     // The type is DECLARED through the normal fieldType mechanism, never assumed.
-    expect(fieldTypeOf(expectDefined(field).props)).toBe("ref");
+    expect(fieldTypeOf(present(field, "expected field").props)).toBe("ref");
   });
 
   test("ensureSystemSeed stays idempotent and syncs the #ref template", () => {
@@ -71,7 +81,10 @@ describe("seed: #ref tag + ref.target field", () => {
     );
     const healed = ensureSystemSeed(stale);
     expect(healed.seeded).toBe(true);
-    const tag = expectDefined(healed.nodes.find((n) => n.id === SYSTEM_IDS.refTag));
+    const tag = present(
+      healed.nodes.find((n) => n.id === SYSTEM_IDS.refTag),
+      "expected healed.nodes.find((n) => n.id === SYSTEM_IDS.refTag)",
+    );
     expect(refs(tag, SYSTEM_IDS.fieldsField)).toEqual([SYSTEM_IDS.refTargetField]);
   });
 });

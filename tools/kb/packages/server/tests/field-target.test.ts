@@ -18,22 +18,22 @@
  */
 import { describe, expect, test } from "bun:test";
 import {
-  SYSTEM_IDS,
-  type KbNode,
-  type PropValue,
-  ONTOLOGY_TARGET_QUERY,
-  typeRefsOf,
-  type NodeLike,
-  systemSeedNodes,
-  FIELD_TYPE_OPTION_IDS,
   allowedRefIdsOf,
+  FIELD_TYPE_OPTION_IDS,
   fieldTypeValue,
+  ONTOLOGY_TARGET_QUERY,
+  present,
+  SYSTEM_IDS,
+  systemSeedNodes,
   targetQueryOf,
   targetTagsOf,
+  type KbNode,
+  type NodeLike,
+  type PropValue,
+  typeRefsOf,
 } from "@kb/model";
 import { buildQueryDb, query } from "@kb/query";
 import { normalizeRows } from "../src/session.ts";
-import { expectDefined } from "@kb/test-kit";
 
 const AT = "2026-08-24T00:00:00.000Z";
 
@@ -62,14 +62,16 @@ describe("sys.f.onto.include — targetTag → sys.tag", () => {
     expect(field).toBeDefined();
     expect(targetTagsOf(field)).toEqual([SYSTEM_IDS.tag]);
     expect(targetQueryOf(field)).toBeNull();
-    expect(expectDefined(field).props[SYSTEM_IDS.fieldTypeField]).toEqual([fieldTypeValue("ref")]);
+    expect(present(field, "expected field").props[SYSTEM_IDS.fieldTypeField]).toEqual([
+      fieldTypeValue("ref"),
+    ]);
   });
 
   test("resolves to every supertag in the graph — never the empty set", () => {
     const allowed = allowedRefIdsOf(seedMap.get(SYSTEM_IDS.ontoIncludeField), seedMap);
     expect(allowed).not.toBeNull();
-    expect(expectDefined(allowed).size).toBeGreaterThan(0);
-    expect([...expectDefined(allowed)].toSorted()).toEqual(seededTagIds);
+    expect(present(allowed, "expected allowed").size).toBeGreaterThan(0);
+    expect([...present(allowed, "expected allowed")].toSorted()).toEqual(seededTagIds);
   });
 
   test("and every one of those is sys.-prefixed, which is the whole point", () => {
@@ -84,8 +86,9 @@ describe("sys.f.onto.include — targetTag → sys.tag", () => {
   });
 
   test("a kind is not an instance of itself, and fields are not tags", () => {
-    const allowed = expectDefined(
+    const allowed = present(
       allowedRefIdsOf(seedMap.get(SYSTEM_IDS.ontoIncludeField), seedMap),
+      "expected allowedRefIdsOf(seedMap.get(SYSTEM_IDS.ontoIncludeField), seedMap)",
     );
     // `sys.tag` is the kind named by the constraint; it carries no kind ref of
     // its own (seed comment: deliberately NOT self-typed), so it is correctly
@@ -101,7 +104,10 @@ describe("sys.f.onto.include — targetTag → sys.tag", () => {
       [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
     });
     const nodes = new Map<string, KbNode>([...seedMap, [mine.id, mine]]);
-    const allowed = expectDefined(allowedRefIdsOf(seedMap.get(SYSTEM_IDS.ontoIncludeField), nodes));
+    const allowed = present(
+      allowedRefIdsOf(seedMap.get(SYSTEM_IDS.ontoIncludeField), nodes),
+      "expected allowedRefIdsOf(seedMap.get(SYSTEM_IDS.ontoIncludeField), nodes)",
+    );
     expect(allowed.has("t.service")).toBe(true);
     expect([...allowed].toSorted()).toEqual([...seededTagIds, "t.service"].toSorted());
   });
@@ -110,7 +116,7 @@ describe("sys.f.onto.include — targetTag → sys.tag", () => {
 describe("sys.f.fieldType — targetTag → #field-type", () => {
   test("resolves to the six seeded option nodes", () => {
     const allowed = allowedRefIdsOf(seedMap.get(SYSTEM_IDS.fieldTypeField), seedMap);
-    expect([...expectDefined(allowed)].toSorted()).toEqual(
+    expect([...present(allowed, "expected allowed")].toSorted()).toEqual(
       Object.values(FIELD_TYPE_OPTION_IDS).slice().toSorted(),
     );
   });
@@ -127,7 +133,7 @@ describe("sys.f.targetQuery — the general form", () => {
     });
     const nodes = [...seed, onto];
     const allowed = allowedRefIdsOf(field, new Map(nodes.map((n) => [n.id, n])), runnerFor(nodes));
-    expect([...expectDefined(allowed)]).toEqual(["o.infra"]);
+    expect([...present(allowed, "expected allowed")]).toEqual(["o.infra"]);
   });
 
   test("wins over targetTag when a field declares both", () => {
@@ -145,8 +151,8 @@ describe("sys.f.targetQuery — the general form", () => {
     });
     const nodes = [...seed, both];
     const allowed = allowedRefIdsOf(both, new Map(nodes.map((n) => [n.id, n])), runnerFor(nodes));
-    expect([...expectDefined(allowed)]).toEqual([SYSTEM_IDS.typeField]);
-    expect(expectDefined(allowed).has(SYSTEM_IDS.ontologyTag)).toBe(false);
+    expect([...present(allowed, "expected allowed")]).toEqual([SYSTEM_IDS.typeField]);
+    expect(present(allowed, "expected allowed").has(SYSTEM_IDS.ontologyTag)).toBe(false);
   });
 
   test("honours rows naming sys.* ids", () => {
@@ -160,7 +166,7 @@ describe("sys.f.targetQuery — the general form", () => {
     });
     const nodes = [...seed, field];
     const allowed = allowedRefIdsOf(field, new Map(nodes.map((n) => [n.id, n])), runnerFor(nodes));
-    expect([...expectDefined(allowed)].toSorted()).toEqual(
+    expect([...present(allowed, "expected allowed")].toSorted()).toEqual(
       Object.values(FIELD_TYPE_OPTION_IDS).slice().toSorted(),
     );
   });
@@ -180,7 +186,7 @@ describe("sys.f.targetQuery — the general form", () => {
     });
     expect(targetQueryOf(field)).toBeNull();
     const allowed = allowedRefIdsOf(field, seedMap, runnerFor(seed));
-    expect([...expectDefined(allowed)].toSorted()).toEqual(seededTagIds);
+    expect([...present(allowed, "expected allowed")].toSorted()).toEqual(seededTagIds);
   });
 });
 
@@ -201,6 +207,6 @@ describe("resolution reads the graph, not a rendered view of it", () => {
       seed.map((n) => [n.id, { id: n.id, text: n.text, props: n.props, children: n.children }]),
     );
     const allowed = allowedRefIdsOf(bare.get(SYSTEM_IDS.ontoIncludeField), bare);
-    expect([...expectDefined(allowed)].toSorted()).toEqual(seededTagIds);
+    expect([...present(allowed, "expected allowed")].toSorted()).toEqual(seededTagIds);
   });
 });

@@ -7,7 +7,7 @@ Your two rules, made mechanical:
 1. **Element identity invariance.** A node row, tag chip, or field row renders
    IDENTICALLY everywhere it appears — outline, References section, query results,
    ref-valued fields, config popovers, settings (Tana pic: outline nodes inside a
-   settings input are normal-size node rows). Context may change the *container*
+   settings input are normal-size node rows). Context may change the _container_
    (border, background, width), never the element. Enforced structurally: exactly
    ONE `<NodeRow>`, ONE `<TagChip>`, ONE `<FieldRow>` component exported from
    `components/outline/`, imported by every surface — no local re-implementations
@@ -20,7 +20,7 @@ Your two rules, made mechanical:
 Scope rule from your annotation: **`apps/nxus-editor` is the only reference.**
 nxus-core/gallery patterns (18 alt palettes, card radii etc.) are out.
 
-Verdict on current UI: agreed, it regressed. W1 added *metrics* (indent, row height)
+Verdict on current UI: agreed, it regressed. W1 added _metrics_ (indent, row height)
 but never replaced the old "warm paper" skin: body font is still the serif stack in
 `index.css`, field values render as full-width bordered `<input>`s (the "lines
 everywhere"), background is a radial gradient, content is full-span, and the right
@@ -102,7 +102,7 @@ depth 1 │      ┆    │ ● Child …                                       
 
 - Field row = flex, indented one step deeper than its node
   (`marginLeft = (depth+1) × --kb-indent`), type icon 24×24 slot at 13px
-  fg-25, label 120px, value flex-1. Indent is space *before* a row, never
+  fg-25, label 120px, value flex-1. Indent is space _before_ a row, never
   padding inside it — otherwise the hover separators (and a node row's
   selection fill and focus ring) paint across the indent gutter and over the
   guide lines. One owner: `packages/ui/src/lib/indent.ts`.
@@ -111,7 +111,7 @@ depth 1 │      ┆    │ ● Child …                                       
 - **Focus belongs to the gesture that created the slot, not to the slot being
   empty.** An unset field's slot exists so the field is editable without a
   gesture, so it renders as the quiet `Empty` placeholder and opens its editor
-  when it *receives focus*; a slot minted by "+ value" is the continuation of
+  when it _receives focus_; a slot minted by "+ value" is the continuation of
   that click and opens focused. `FieldValueStack` is the only component that
   knows which is which, so it threads that one boolean (`autoOpen`) down to the
   editors that have an open/closed state (ref, date). Deriving it inside the
@@ -148,11 +148,11 @@ depth 1 │      ┆    │ ● Child …                                       
   moves to chip interactions (hover ×, autocomplete popover) + palette.
 - **DELETE Query tab.** Query nodes + palette cover it. Saved queries stay reachable
   as `sys.query.*` nodes.
-- Zoomed root: title row + tag-colored radial *wash* (no border), fields at
+- Zoomed root: title row + tag-colored radial _wash_ (no border), fields at
   depth −1, children below.
 - Floating surfaces only: command palette (`max-w-520, rounded-xl, shadow-2xl,
-  backdrop black/30, pt-15vh`), tag-config popover (`w-320, rounded-lg, shadow-xl,
-  border fg/10`), dropdowns. All borders `foreground/10`.
+backdrop black/30, pt-15vh`), tag-config popover (`w-320, rounded-lg, shadow-xl,
+border fg/10`), dropdowns. All borders `foreground/10`.
 
 ### 1.6 Borders policy
 

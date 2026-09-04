@@ -2,19 +2,13 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
     "packages/cli": {
-      "entry": [
-        "src/bin/*.ts"
-      ]
+      "entry": ["src/bin/*.ts"]
     },
     "packages/ext-sdk": {
-      "entry": [
-        "src/generate.ts"
-      ]
+      "entry": ["src/generate.ts"]
     },
     "packages/harness": {
-      "entry": [
-        "tests/*.test.ts"
-      ]
+      "entry": ["tests/*.test.ts"]
     },
     "packages/render-tests": {
       "entry": [
@@ -25,10 +19,7 @@
       ]
     },
     "packages/test-kit": {
-      "entry": [
-        "tests/*.test.ts",
-        "tests/run-many.ts"
-      ]
+      "entry": ["tests/*.test.ts", "tests/run-many.ts"]
     }
   },
   "ignoreFiles": [

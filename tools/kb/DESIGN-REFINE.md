@@ -12,15 +12,15 @@ Governing constraint (your 1.1): **core = outliner/db + subscription infra + a f
 
 ## 0. What research settled (decisions locked into this plan)
 
-| Question | Answer | Source |
-|---|---|---|
-| Editor tech for md nodes | **Plain-text edit + rendered md view swap** (Logseq pattern). No Lexical (history plugin leaked to 3.9GB in stress test), no ProseMirror unless live-WYSIWYG becomes hard requirement. We already have the swap architecture (contentEditable ↔ static div). | R4, R2 §6 |
-| Refs as relationship | Already correct: `[[id\|label]]` parsed → `:node/mentions` datom at load — same design as Logseq `:block/refs` (parse-at-transact). Missing piece is **UI rendering + docs**, not model. | R4 §3, R3 gap table |
-| `:node/path-refs` (asked in annotation) | Logseq extra: a block also gets ref-datoms for everything its **ancestors** reference — so "show me everything about X" catches nodes nested *under* a node that mentions X, not just direct mentions. Costs index size, pays off in hierarchy-scoped queries. Optional; add only when a real query needs it. | R4 §3 |
-| Query-as-node semantics | Query def stored **as a prop on the node** (Tana style, fits props-are-nodes), results rendered as **references to real nodes** (edits hit source), re-run **only while expanded** (Tana cheap-by-default). | R4 §2, R2 §8 |
-| Metric system | Adopt nxus numbers wholesale — they're a proven Tana-alike: **24px indent/level, 24×24 bullet hit, 14.5px/1.6 content, 11px chips, 120px field labels, min-h-24px rows**. Tana's own measured baseline (Inter 15/21 = 1.47, bullet 15/5) confirms the ballpark. | R2 §1, R1 §1 |
-| Palette shape | Tana = "Search and open" (nodes + commands in one overlay) + small insert menu. nxus palette is app-launcher chrome only — borrow visuals, not model. | R1 §2.5–2.6, R2 §3 |
-| Fields UX | Tana: `Name::value`, schema page IS a live query ("Everything tagged #todo"). nxus: field rows under node, type-specific editors, 120px labels. Both point at: **fields inline under node, schema views = query nodes over tags**. | R1 §2.3–2.4, R2 §4 |
+| Question                                | Answer                                                                                                                                                                                                                                                                                                        | Source              |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Editor tech for md nodes                | **Plain-text edit + rendered md view swap** (Logseq pattern). No Lexical (history plugin leaked to 3.9GB in stress test), no ProseMirror unless live-WYSIWYG becomes hard requirement. We already have the swap architecture (contentEditable ↔ static div).                                                  | R4, R2 §6           |
+| Refs as relationship                    | Already correct: `[[id\|label]]` parsed → `:node/mentions` datom at load — same design as Logseq `:block/refs` (parse-at-transact). Missing piece is **UI rendering + docs**, not model.                                                                                                                      | R4 §3, R3 gap table |
+| `:node/path-refs` (asked in annotation) | Logseq extra: a block also gets ref-datoms for everything its **ancestors** reference — so "show me everything about X" catches nodes nested _under_ a node that mentions X, not just direct mentions. Costs index size, pays off in hierarchy-scoped queries. Optional; add only when a real query needs it. | R4 §3               |
+| Query-as-node semantics                 | Query def stored **as a prop on the node** (Tana style, fits props-are-nodes), results rendered as **references to real nodes** (edits hit source), re-run **only while expanded** (Tana cheap-by-default).                                                                                                   | R4 §2, R2 §8        |
+| Metric system                           | Adopt nxus numbers wholesale — they're a proven Tana-alike: **24px indent/level, 24×24 bullet hit, 14.5px/1.6 content, 11px chips, 120px field labels, min-h-24px rows**. Tana's own measured baseline (Inter 15/21 = 1.47, bullet 15/5) confirms the ballpark.                                               | R2 §1, R1 §1        |
+| Palette shape                           | Tana = "Search and open" (nodes + commands in one overlay) + small insert menu. nxus palette is app-launcher chrome only — borrow visuals, not model.                                                                                                                                                         | R1 §2.5–2.6, R2 §3  |
+| Fields UX                               | Tana: `Name::value`, schema page IS a live query ("Everything tagged #todo"). nxus: field rows under node, type-specific editors, 120px labels. Both point at: **fields inline under node, schema views = query nodes over tags**.                                                                            | R1 §2.3–2.4, R2 §4  |
 
 Current kb UI baseline (R3): solid v1 — full keyboard editing, collapse/zoom/breadcrumbs, `[[` autocomplete, backlinks panel (`:node/mentions` already queried!), props/tags side panel with correct multi-value semantics, query page with live WS sub, optimistic mutations. 76 backend + 47 UI tests green.
 
@@ -58,11 +58,12 @@ Current kb UI baseline (R3): solid v1 — full keyboard editing, collapse/zoom/b
 
 - **Move `docs.materialize` / `docs.check` out of core** into the first bundled extension (`ext.docs`) — proof the seam works; pre-commit keeps calling it, path unchanged.
 - Extension = TS module in `.kb/extensions/` exporting harman-style actions; registry loads them at startup (repo-local = trusted). CLI: `kb ext list`, `kb action-invoke '{"id":"ext.docs.materialize"}'`.
-- Core keeps `render.view` (rows→md/html templates) as *mechanism* — extensions and MCP resources both feed on it.
+- Core keeps `render.view` (rows→md/html templates) as _mechanism_ — extensions and MCP resources both feed on it.
 
 ## 2. Wave plan
 
 ### W1 — Token system + row anatomy (S, cursor)
+
 Replace hardcoded Tailwind sizes with a row token sheet; restructure row to nxus anatomy.
 
 ```
@@ -103,6 +104,7 @@ Replace hardcoded Tailwind sizes with a row token sheet; restructure row to nxus
 - Tree guide lines, click-to-navigate.
 
 ### W2 — Markdown render-swap + ref links (M, cursor)
+
 Logseq pattern on top of existing swap:
 
 ```
@@ -124,13 +126,15 @@ Logseq pattern on top of existing swap:
 - Document `:node/mentions` as the official ref relationship in DESIGN.md + AGENTS.md w/ query examples (your 2.4 — closes the loop; model already right).
 
 ### W3 — Command palette + everything-is-a-node surfacing (M, cursor)
+
 - ⌘K "Search and open": one overlay, fuzzy over **all nodes incl. field/tag/system nodes** + commands (add node, add tag, define field, toggle theme, go to query page…). Tana model, nxus chrome (backdrop-blur, single list, ↑↓/Enter).
 - **Perf bar** (your annotation): index built once per graph rev (not per keystroke), fuzzy match over prebuilt lowercase haystack, results virtualized (render ≤ 20 rows), open-to-first-paint < 50ms and per-keystroke < 10ms at 50k nodes — measured in a test against the benchmark graph.
 - Commands modeled **as nodes** (`sys.command` type) so palette content is itself queryable — your 2.1/2.2.
 - Schema section: zooming a **tag node** shows its instances (live query "everything tagged X" — Tana schema page); zooming a **field node** shows nodes carrying it. Fields/tags stop being invisible pick-lists (R3 gap).
-- `sys.*` write-guard: core actions refuse any commit that writes a `sys.*` node — text/prop edits, delete, reparenting a node *under* a `sys.*` parent (`node.update parent`), and minting/placing nodes via `node.add` (`id` or `parent` pointing at `sys.*`) — unless `force` (`--force` on `kb add`/`kb set`/`kb rm`/`kb mv`; `force: true` on `node.add`/`node.update`). Browse stays open (`node.get`, `graph.query`). (browse yes, break no).
+- `sys.*` write-guard: core actions refuse any commit that writes a `sys.*` node — text/prop edits, delete, reparenting a node _under_ a `sys.*` parent (`node.update parent`), and minting/placing nodes via `node.add` (`id` or `parent` pointing at `sys.*`) — unless `force` (`--force` on `kb add`/`kb set`/`kb rm`/`kb mv`; `force: true` on `node.add`/`node.update`). Browse stays open (`node.get`, `graph.query`). (browse yes, break no).
 
 ### W4 — Query nodes (L, claude)
+
 Pure system-node modeling (your annotation — no special node type, just more system nodes):
 
 ```
@@ -158,9 +162,11 @@ A query node = ordinary node + `#query` tag + `sys.f.query` prop. Tag templates 
 - Palette command "New query node".
 
 ### W5 — Core/extension split (M, claude)
+
 Architecture in §1: extension loader (`.kb/extensions/*.ts`), `docs.*` → bundled `ext.docs`, `kb ext list`, AGENTS.md + DESIGN.md updated to state the core boundary explicitly. Pre-commit hook path stays working.
 
 ### W6 — Multimedia + viz surfaces (M–L, staged; from R5 research)
+
 Your annotation: images/media like Logseq + infinite canvas + graph view — "as many viz options as possible." R5 verdicts (full report: `.research/kb-refine/viz/report.md`):
 
 ```
@@ -192,6 +198,7 @@ Your annotation: images/media like Logseq + infinite canvas + graph view — "as
 - Bullet catalog ties in: `▣` media node, `◇` canvas node (W1 matrix).
 
 ### Backlog (kb todos, not this wave)
+
 Drag handles + DnD · multi-select · undo/redo · `:node/path-refs` · md block elements (headings/checkbox render) · insert menu (`/` commands) · theme palettes · nix packaging · portless/UDS.
 
 ## 3. Execution

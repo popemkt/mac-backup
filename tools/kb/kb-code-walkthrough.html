@@ -1,49 +1,366 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>kb — Current Code Walkthrough</title>
-  <style>
-    :root{--bg:#0f172a;--panel:#1e293b;--border:#334155;--text:#f8fafc;--muted:#94a3b8;--accent:#38bdf8;--code:#090d16;--ok:#4ade80;--warn:#fbbf24;}
-    *{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;display:flex;height:100vh;overflow:hidden}
-    nav{width:320px;flex:0 0 320px;background:#090d16;border-right:1px solid var(--border);display:flex;flex-direction:column}.nav-header{padding:20px;border-bottom:1px solid var(--border)}.nav-header h1{font-size:1.1rem;margin:0 0 6px;color:var(--accent)}.nav-header p{font-size:.8rem;color:var(--muted);margin:0}.nav-links{overflow-y:auto;padding:12px;flex:1}.nav-section{margin-bottom:16px}.nav-section-title{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:6px 10px}.nav-link{display:block;padding:8px 10px;color:var(--text);text-decoration:none;font-size:.85rem;border-radius:6px}.nav-link:hover{background:var(--panel);color:var(--accent)}
-    main{flex:1;overflow-y:auto;padding:40px 60px}.container{max-width:1050px;margin:0 auto}header.doc-title{border-bottom:1px solid var(--border);padding-bottom:24px;margin-bottom:40px}header.doc-title h1{font-size:2.2rem;margin:0 0 10px}header.doc-title p{font-size:1.05rem;color:var(--muted);margin:0}.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:24px;margin-bottom:32px;box-shadow:0 4px 6px -1px rgba(0,0,0,.3)}.card h2{margin-top:0;font-size:1.5rem;color:var(--accent);border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:10px}.card h3{font-size:1.08rem;color:#bae6fd;margin-top:24px}.badge{background:rgba(56,189,248,.1);color:var(--accent);font-size:.75rem;padding:2px 8px;border-radius:4px;border:1px solid rgba(56,189,248,.3)}.status{border-left:4px solid var(--ok);background:rgba(74,222,128,.06);padding:12px 16px;margin:16px 0;border-radius:0 6px 6px 0}.warning{border-left-color:var(--warn);background:rgba(251,191,36,.06)}
-    .file-ref{background:#0f172a;border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin:14px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;font-family:monospace;font-size:.88rem}.path{color:var(--accent);font-weight:600;overflow-wrap:anywhere}.actions{display:flex;gap:8px;flex:0 0 auto}.btn-link{color:var(--text);background:#1e293b;border:1px solid var(--border);padding:4px 10px;border-radius:4px;text-decoration:none;font-size:.75rem}.btn-link:hover{background:#334155}.diagram{background:var(--code);border:1px solid var(--border);border-radius:8px;padding:20px;font-family:monospace;color:#7dd3fc;white-space:pre;overflow-x:auto;margin:16px 0}pre{background:var(--code);border:1px solid var(--border);border-radius:6px;padding:16px;overflow-x:auto;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.84rem;color:#e2e8f0;line-height:1.5}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--accent);background:rgba(56,189,248,.1);padding:2px 6px;border-radius:4px}pre code{background:none;padding:0;color:#e2e8f0}li{margin-bottom:8px}.small{color:var(--muted);font-size:.9rem}
-    @media(max-width:900px){nav{width:240px;flex-basis:240px}main{padding:24px}.file-ref{align-items:flex-start;flex-direction:column}.actions{width:100%}}
-  </style>
-</head>
-<body>
-<nav>
-  <div class="nav-header"><h1>kb — current walkthrough</h1><p>Top-down architecture, current as of 2026-08-10</p></div>
-  <div class="nav-links">
-    <div class="nav-section"><div class="nav-section-title">Orientation</div><a href="#current" class="nav-link">1. Current State & Changes</a><a href="#model" class="nav-link">2. Model & Design</a><a href="#flow" class="nav-link">3. End-to-End Flow</a></div>
-    <div class="nav-section"><div class="nav-section-title">Backend</div><a href="#foundation" class="nav-link">4. Foundation & Effect Services</a><a href="#registry" class="nav-link">5. Action Registry</a><a href="#operations" class="nav-link">6. Operations & Extensions</a><a href="#surfaces" class="nav-link">7. CLI / MCP / UI Surfaces</a><a href="#ui-backend" class="nav-link">8. UI Backend Modules</a></div>
-    <div class="nav-section"><div class="nav-section-title">Frontend</div><a href="#frontend-shell" class="nav-link">9. React Shell & Routing</a><a href="#frontend-state" class="nav-link">10. Zustand State</a><a href="#frontend-sync" class="nav-link">11. Sync & API</a><a href="#frontend-mutations" class="nav-link">12. Optimistic Mutations</a></div>
-    <div class="nav-section"><div class="nav-section-title">Verification</div><a href="#reading" class="nav-link">13. Reading Sequence</a><a href="#verification" class="nav-link">14. Verification & Failure Note</a></div>
-  </div>
-</nav>
-<main><div class="container">
-<header class="doc-title"><h1><code>kb</code> Codebase Guided Tour</h1><p>A current, clickable map of the Bun/TypeScript datastore, Effect backend, Bun HTTP/WebSocket server, and React/Zustand UI.</p></header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>kb — Current Code Walkthrough</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #1e293b;
+        --border: #334155;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #38bdf8;
+        --code: #090d16;
+        --ok: #4ade80;
+        --warn: #fbbf24;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+      nav {
+        width: 320px;
+        flex: 0 0 320px;
+        background: #090d16;
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+      }
+      .nav-header {
+        padding: 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .nav-header h1 {
+        font-size: 1.1rem;
+        margin: 0 0 6px;
+        color: var(--accent);
+      }
+      .nav-header p {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin: 0;
+      }
+      .nav-links {
+        overflow-y: auto;
+        padding: 12px;
+        flex: 1;
+      }
+      .nav-section {
+        margin-bottom: 16px;
+      }
+      .nav-section-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        padding: 6px 10px;
+      }
+      .nav-link {
+        display: block;
+        padding: 8px 10px;
+        color: var(--text);
+        text-decoration: none;
+        font-size: 0.85rem;
+        border-radius: 6px;
+      }
+      .nav-link:hover {
+        background: var(--panel);
+        color: var(--accent);
+      }
+      main {
+        flex: 1;
+        overflow-y: auto;
+        padding: 40px 60px;
+      }
+      .container {
+        max-width: 1050px;
+        margin: 0 auto;
+      }
+      header.doc-title {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 24px;
+        margin-bottom: 40px;
+      }
+      header.doc-title h1 {
+        font-size: 2.2rem;
+        margin: 0 0 10px;
+      }
+      header.doc-title p {
+        font-size: 1.05rem;
+        color: var(--muted);
+        margin: 0;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 24px;
+        margin-bottom: 32px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+      }
+      .card h2 {
+        margin-top: 0;
+        font-size: 1.5rem;
+        color: var(--accent);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        padding-bottom: 10px;
+      }
+      .card h3 {
+        font-size: 1.08rem;
+        color: #bae6fd;
+        margin-top: 24px;
+      }
+      .badge {
+        background: rgba(56, 189, 248, 0.1);
+        color: var(--accent);
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 4px;
+        border: 1px solid rgba(56, 189, 248, 0.3);
+      }
+      .status {
+        border-left: 4px solid var(--ok);
+        background: rgba(74, 222, 128, 0.06);
+        padding: 12px 16px;
+        margin: 16px 0;
+        border-radius: 0 6px 6px 0;
+      }
+      .warning {
+        border-left-color: var(--warn);
+        background: rgba(251, 191, 36, 0.06);
+      }
+      .file-ref {
+        background: #0f172a;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px 14px;
+        margin: 14px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        font-family: monospace;
+        font-size: 0.88rem;
+      }
+      .path {
+        color: var(--accent);
+        font-weight: 600;
+        overflow-wrap: anywhere;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        flex: 0 0 auto;
+      }
+      .btn-link {
+        color: var(--text);
+        background: #1e293b;
+        border: 1px solid var(--border);
+        padding: 4px 10px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 0.75rem;
+      }
+      .btn-link:hover {
+        background: #334155;
+      }
+      .diagram {
+        background: var(--code);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 20px;
+        font-family: monospace;
+        color: #7dd3fc;
+        white-space: pre;
+        overflow-x: auto;
+        margin: 16px 0;
+      }
+      pre {
+        background: var(--code);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 16px;
+        overflow-x: auto;
+        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+        font-size: 0.84rem;
+        color: #e2e8f0;
+        line-height: 1.5;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+        color: var(--accent);
+        background: rgba(56, 189, 248, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+      pre code {
+        background: none;
+        padding: 0;
+        color: #e2e8f0;
+      }
+      li {
+        margin-bottom: 8px;
+      }
+      .small {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      @media (max-width: 900px) {
+        nav {
+          width: 240px;
+          flex-basis: 240px;
+        }
+        main {
+          padding: 24px;
+        }
+        .file-ref {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+        .actions {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <div class="nav-header">
+        <h1>kb — current walkthrough</h1>
+        <p>Top-down architecture, current as of 2026-08-10</p>
+      </div>
+      <div class="nav-links">
+        <div class="nav-section">
+          <div class="nav-section-title">Orientation</div>
+          <a href="#current" class="nav-link">1. Current State & Changes</a
+          ><a href="#model" class="nav-link">2. Model & Design</a
+          ><a href="#flow" class="nav-link">3. End-to-End Flow</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-title">Backend</div>
+          <a href="#foundation" class="nav-link">4. Foundation & Effect Services</a
+          ><a href="#registry" class="nav-link">5. Action Registry</a
+          ><a href="#operations" class="nav-link">6. Operations & Extensions</a
+          ><a href="#surfaces" class="nav-link">7. CLI / MCP / UI Surfaces</a
+          ><a href="#ui-backend" class="nav-link">8. UI Backend Modules</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-title">Frontend</div>
+          <a href="#frontend-shell" class="nav-link">9. React Shell & Routing</a
+          ><a href="#frontend-state" class="nav-link">10. Zustand State</a
+          ><a href="#frontend-sync" class="nav-link">11. Sync & API</a
+          ><a href="#frontend-mutations" class="nav-link">12. Optimistic Mutations</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-title">Verification</div>
+          <a href="#reading" class="nav-link">13. Reading Sequence</a
+          ><a href="#verification" class="nav-link">14. Verification & Failure Note</a>
+        </div>
+      </div>
+    </nav>
+    <main>
+      <div class="container">
+        <header class="doc-title">
+          <h1><code>kb</code> Codebase Guided Tour</h1>
+          <p>
+            A current, clickable map of the Bun/TypeScript datastore, Effect backend, Bun
+            HTTP/WebSocket server, and React/Zustand UI.
+          </p>
+        </header>
 
-<section id="current" class="card"><h2>1. Current State & Changes <span class="badge">Important</span></h2>
-  <div class="status"><strong>The previous walkthrough was stale.</strong> The code has since adopted Effect on the backend, split the UI server into focused modules, extracted shared DataScript queries, added localized view error boundaries, and localized debounced text rollback.</div>
-  <ul>
-    <li><strong>Backend Effect port:</strong> <code>effect</code> and <code>@effect/platform-bun</code> are dependencies. Core I/O, services, action handlers, registry invocation, HTTP routing, and UI session sends now use Effect programs or Layers.</li>
-    <li><strong>UI backend split:</strong> <code>surface/ui.ts</code> is now a stable facade. Implementation lives under <code>surface/ui/</code>: server lifecycle, HTTP routing, session hub, assets, build, dev orchestration, saved queries, and paths.</li>
-    <li><strong>Query extraction:</strong> standard field/tag/backlink queries live in <code>foundation/query/queries.ts</code>; <code>surface/map.ts</code> imports them.</li>
-    <li><strong>Frontend containment:</strong> <code>ViewErrorBoundary</code> wraps lazy Graph and Canvas views while shell chrome remains outside the boundary.</li>
-    <li><strong>Rollback localization:</strong> debounced text edits retain a per-node pre-edit payload and reapply pending edits after a resync.</li>
-  </ul>
-  <div class="file-ref"><span class="path">tools/kb/package.json</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/package.json">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/package.json">VS Code</a></span></div>
-</section>
+        <section id="current" class="card">
+          <h2>1. Current State & Changes <span class="badge">Important</span></h2>
+          <div class="status">
+            <strong>The previous walkthrough was stale.</strong> The code has since adopted Effect
+            on the backend, split the UI server into focused modules, extracted shared DataScript
+            queries, added localized view error boundaries, and localized debounced text rollback.
+          </div>
+          <ul>
+            <li>
+              <strong>Backend Effect port:</strong> <code>effect</code> and
+              <code>@effect/platform-bun</code> are dependencies. Core I/O, services, action
+              handlers, registry invocation, HTTP routing, and UI session sends now use Effect
+              programs or Layers.
+            </li>
+            <li>
+              <strong>UI backend split:</strong> <code>surface/ui.ts</code> is now a stable facade.
+              Implementation lives under <code>surface/ui/</code>: server lifecycle, HTTP routing,
+              session hub, assets, build, dev orchestration, saved queries, and paths.
+            </li>
+            <li>
+              <strong>Query extraction:</strong> standard field/tag/backlink queries live in
+              <code>foundation/query/queries.ts</code>; <code>surface/map.ts</code> imports them.
+            </li>
+            <li>
+              <strong>Frontend containment:</strong> <code>ViewErrorBoundary</code> wraps lazy Graph
+              and Canvas views while shell chrome remains outside the boundary.
+            </li>
+            <li>
+              <strong>Rollback localization:</strong> debounced text edits retain a per-node
+              pre-edit payload and reapply pending edits after a resync.
+            </li>
+          </ul>
+          <div class="file-ref">
+            <span class="path">tools/kb/package.json</span
+            ><span class="actions"
+              ><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/package.json"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/package.json"
+                >VS Code</a
+              ></span
+            >
+          </div>
+        </section>
 
-<section id="model" class="card"><h2>2. Model & Design</h2>
-  <p><code>kb</code> is a repo-native outliner datastore. Everything is a node: user nodes, fields, tags, commands, saved-query virtual nodes, and canvas/graph configuration. JSONL is the persisted source; DataScript is rebuilt in memory for queries.</p>
-  <div class="highlight-box status"><strong>Core invariant:</strong> fields and tags are graph nodes. Node properties are keyed by field-node IDs, while references point to other node IDs.</div>
-  <div class="file-ref"><span class="path">tools/kb/DESIGN.md</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/DESIGN.md">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/DESIGN.md">VS Code</a></span></div>
-  <div class="file-ref"><span class="path">tools/kb/src/foundation/model.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/foundation/model.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/foundation/model.ts">VS Code</a></span></div>
-  <pre><code>interface KbNode {
+        <section id="model" class="card">
+          <h2>2. Model & Design</h2>
+          <p>
+            <code>kb</code> is a repo-native outliner datastore. Everything is a node: user nodes,
+            fields, tags, commands, saved-query virtual nodes, and canvas/graph configuration. JSONL
+            is the persisted source; DataScript is rebuilt in memory for queries.
+          </p>
+          <div class="highlight-box status">
+            <strong>Core invariant:</strong> fields and tags are graph nodes. Node properties are
+            keyed by field-node IDs, while references point to other node IDs.
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/DESIGN.md</span
+            ><span class="actions"
+              ><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/DESIGN.md">Open</a
+              ><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/DESIGN.md"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/foundation/model.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/src/foundation/model.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/foundation/model.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <pre><code>interface KbNode {
   id: NodeId;
   text: string;
   props: Record&lt;NodeId, PropValue[]&gt;; // field-node id → values
@@ -51,81 +368,322 @@
   createdAt: string;
   updatedAt: string;
 }</code></pre>
-</section>
+        </section>
 
-<section id="flow" class="card"><h2>3. End-to-End Flow</h2>
-  <div class="diagram">CLI / MCP / Browser UI
-        │
-        ▼
-Action Registry ── schema seam ── Effect-native handler
-        │                          │
-        │                          ▼
-        │                    KbCtx / KbStore / FileSystem Layers
-        │                          │
-        └──────────────────────────┼──────────────┐
-                                   ▼              ▼
-                              JSONL Store     DataScript QueryDb
-                                   │              │
-                                   └──────┬───────┘
-                                          ▼
-                              ActionReceipt / WS tx / UI state</div>
-  <p>For a browser mutation, the UI applies a planned local transaction, posts one or more action invocations to <code>/api/action</code>, and receives WebSocket or HTTP authority. On failure, the mutation layer refetches or performs a bounded local recovery.</p>
-</section>
+        <section id="flow" class="card">
+          <h2>3. End-to-End Flow</h2>
+          <div class="diagram">
+            CLI / MCP / Browser UI │ ▼ Action Registry ── schema seam ── Effect-native handler │ │ │
+            ▼ │ KbCtx / KbStore / FileSystem Layers │ │ └──────────────────────────┼──────────────┐
+            ▼ ▼ JSONL Store DataScript QueryDb │ │ └──────┬───────┘ ▼ ActionReceipt / WS tx / UI
+            state
+          </div>
+          <p>
+            For a browser mutation, the UI applies a planned local transaction, posts one or more
+            action invocations to <code>/api/action</code>, and receives WebSocket or HTTP
+            authority. On failure, the mutation layer refetches or performs a bounded local
+            recovery.
+          </p>
+        </section>
 
-<section id="foundation" class="card"><h2>4. Foundation & Effect Services</h2>
-  <p><code>foundation/services.ts</code> is the dependency composition point. <code>KbCtx</code> exposes the live session, <code>KbStore</code> exposes the Effect-native store, and Layers provide the store, filesystem, and context at the invocation tip. Promise facades remain available for compatibility and tests.</p>
-  <div class="file-ref"><span class="path">tools/kb/src/context.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/context.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/context.ts">VS Code</a></span></div>
-  <div class="file-ref"><span class="path">tools/kb/src/foundation/services.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/foundation/services.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/foundation/services.ts">VS Code</a></span></div>
-  <div class="file-ref"><span class="path">tools/kb/src/foundation/storage/jsonl-store.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/foundation/storage/jsonl-store.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/foundation/storage/jsonl-store.ts">VS Code</a></span></div>
-  <pre><code>export class KbStore extends Context.Service&lt;KbStore, EffectStore&gt;()("kb/KbStore") {}
+        <section id="foundation" class="card">
+          <h2>4. Foundation & Effect Services</h2>
+          <p>
+            <code>foundation/services.ts</code> is the dependency composition point.
+            <code>KbCtx</code> exposes the live session, <code>KbStore</code> exposes the
+            Effect-native store, and Layers provide the store, filesystem, and context at the
+            invocation tip. Promise facades remain available for compatibility and tests.
+          </p>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/context.ts</span
+            ><span class="actions"
+              ><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/context.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/context.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/foundation/services.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/src/foundation/services.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/foundation/services.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/foundation/storage/jsonl-store.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/src/foundation/storage/jsonl-store.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/foundation/storage/jsonl-store.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <pre><code>export class KbStore extends Context.Service&lt;KbStore, EffectStore&gt;()("kb/KbStore") {}
 export class KbCtx extends Context.Service&lt;KbCtx, KbContext&gt;()("kb/KbCtx") {}
 
 export function runWithKb&lt;A, E&gt;(ctx: KbContext, effect: Effect.Effect&lt;A, E, ...&gt;): Promise&lt;A&gt; {
   return Effect.runPromise(effect.pipe(Effect.provide(kbRuntimeLayer(ctx))));
 }</code></pre>
-</section>
+        </section>
 
-<section id="registry" class="card"><h2>5. Action Registry & Error Boundary</h2>
-  <p>The registry remains the shared control boundary for CLI, MCP, and UI. Built-ins use Effect-native handlers. Third-party repository extensions may still expose legacy Promise handlers; those are the only handlers lifted through <code>tryPromise</code>. Typed Effect failures are mapped into the existing <code>ActionReceipt</code> boundary.</p>
-  <div class="file-ref"><span class="path">tools/kb/src/registry.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/registry.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/registry.ts">VS Code</a></span></div>
-  <div class="file-ref"><span class="path">tools/kb/src/shared/contracts.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/shared/contracts.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/shared/contracts.ts">VS Code</a></span></div>
-  <div class="file-ref"><span class="path">tools/kb/src/foundation/errors.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/foundation/errors.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/foundation/errors.ts">VS Code</a></span></div>
-  <pre><code>export const invokeEffect = Effect.fn("kb.invoke")(...)
+        <section id="registry" class="card">
+          <h2>5. Action Registry & Error Boundary</h2>
+          <p>
+            The registry remains the shared control boundary for CLI, MCP, and UI. Built-ins use
+            Effect-native handlers. Third-party repository extensions may still expose legacy
+            Promise handlers; those are the only handlers lifted through <code>tryPromise</code>.
+            Typed Effect failures are mapped into the existing <code>ActionReceipt</code> boundary.
+          </p>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/registry.ts</span
+            ><span class="actions"
+              ><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/registry.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/registry.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/shared/contracts.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/src/shared/contracts.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/shared/contracts.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/foundation/errors.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/src/foundation/errors.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/foundation/errors.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <pre><code>export const invokeEffect = Effect.fn("kb.invoke")(...)
 
 // Surface-friendly facade: typed Effect failures become ActionReceipt values.
 export async function invoke(ctx, invocation): Promise&lt;ActionReceipt&gt; {
   return Effect.runPromise(invokeReceiptEffect(ctx, invocation));
 }</code></pre>
-</section>
+        </section>
 
-<section id="operations" class="card"><h2>6. Operations, Queries & Extensions</h2>
-  <p>Core operations define node, field, tag, graph query/run/search, asset, and render behavior. Effects are defined near the operation and receive services from Layers. Extensions remain namespaced and isolated at registry discovery.</p>
-  <div class="file-ref"><span class="path">tools/kb/src/operations/index.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/operations/index.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/operations/index.ts">VS Code</a></span></div>
-  <div class="file-ref"><span class="path">tools/kb/src/extensions.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/extensions.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/extensions.ts">VS Code</a></span></div>
-  <div class="file-ref"><span class="path">tools/kb/src/foundation/query/queries.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/foundation/query/queries.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/foundation/query/queries.ts">VS Code</a></span></div>
-  <pre><code>export const LIST_FIELDS_QUERY = `[:find ?id ?text ...]`;
+        <section id="operations" class="card">
+          <h2>6. Operations, Queries & Extensions</h2>
+          <p>
+            Core operations define node, field, tag, graph query/run/search, asset, and render
+            behavior. Effects are defined near the operation and receive services from Layers.
+            Extensions remain namespaced and isolated at registry discovery.
+          </p>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/operations/index.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/src/operations/index.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/operations/index.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/extensions.ts</span
+            ><span class="actions"
+              ><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/extensions.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/extensions.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/foundation/query/queries.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/src/foundation/query/queries.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/foundation/query/queries.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <pre><code>export const LIST_FIELDS_QUERY = `[:find ?id ?text ...]`;
 export const LIST_TAGS_QUERY = `[:find ?id ?text ...]`;
 
 // surface/map.ts is now a CLI flag → action adapter.
 import { LIST_FIELDS_QUERY, LIST_TAGS_QUERY } from "../foundation/query/queries.ts";</code></pre>
-</section>
+        </section>
 
-<section id="surfaces" class="card"><h2>7. CLI / MCP / UI Surfaces</h2>
-  <h3>CLI</h3><p><code>surface/cli.ts</code> owns Commander parsing, root resolution, output formatting, and conversion of commands into action plans. It invokes Effect programs through a surface boundary. <code>surface/map.ts</code> owns argument-to-action translation.</p>
-  <div class="file-ref"><span class="path">tools/kb/src/surface/cli.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/surface/cli.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/surface/cli.ts">VS Code</a></span></div>
-  <h3>MCP</h3><p><code>surface/mcp.ts</code> turns the registry manifest into MCP tools and runs invocation Effects with the same runtime layers.</p>
-  <div class="file-ref"><span class="path">tools/kb/src/surface/mcp.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/surface/mcp.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/surface/mcp.ts">VS Code</a></span></div>
-  <h3>UI entry</h3><p><code>surface/ui.ts</code> is intentionally a stable export facade. The prior monolith has been removed.</p>
-  <div class="file-ref"><span class="path">tools/kb/src/surface/ui.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/surface/ui.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/surface/ui.ts">VS Code</a></span></div>
-</section>
+        <section id="surfaces" class="card">
+          <h2>7. CLI / MCP / UI Surfaces</h2>
+          <h3>CLI</h3>
+          <p>
+            <code>surface/cli.ts</code> owns Commander parsing, root resolution, output formatting,
+            and conversion of commands into action plans. It invokes Effect programs through a
+            surface boundary. <code>surface/map.ts</code> owns argument-to-action translation.
+          </p>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/surface/cli.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/src/surface/cli.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/surface/cli.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <h3>MCP</h3>
+          <p>
+            <code>surface/mcp.ts</code> turns the registry manifest into MCP tools and runs
+            invocation Effects with the same runtime layers.
+          </p>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/surface/mcp.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/src/surface/mcp.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/surface/mcp.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <h3>UI entry</h3>
+          <p>
+            <code>surface/ui.ts</code> is intentionally a stable export facade. The prior monolith
+            has been removed.
+          </p>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/surface/ui.ts</span
+            ><span class="actions"
+              ><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/surface/ui.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/surface/ui.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+        </section>
 
-<section id="ui-backend" class="card"><h2>8. UI Backend Modules</h2>
-  <p>The UI backend has explicit module boundaries:</p>
-  <ul><li><code>ui/server.ts</code> — Bun.serve lifecycle, WebSocket upgrade callbacks, filesystem watch lifecycle, production/dev orchestration.</li><li><code>ui/http.ts</code> — Effect REST/API routing, JSON/plain responses, action invocation, assets/static fallback.</li><li><code>ui/session.ts</code> — Effect-valued <code>SubscriptionHub</code>, clients, tx broadcasts, query subscriptions, virtual saved-query nodes.</li><li><code>ui/assets.ts</code> — static UI and opaque <code>.kb/assets</code> serving.</li><li><code>ui/build.ts</code> — stale/missing UI build detection and production build markers.</li><li><code>ui/dev.ts</code> — Vite child process and exit handling.</li><li><code>ui/saved-queries.ts</code> and <code>ui/paths.ts</code> — saved-query materialization and path constants.</li></ul>
-  <div class="file-ref"><span class="path">tools/kb/src/surface/ui/server.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/surface/ui/server.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/surface/ui/server.ts">VS Code</a></span></div>
-  <div class="file-ref"><span class="path">tools/kb/src/surface/ui/http.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/surface/ui/http.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/surface/ui/http.ts">VS Code</a></span></div>
-  <div class="file-ref"><span class="path">tools/kb/src/surface/ui/session.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/src/surface/ui/session.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/surface/ui/session.ts">VS Code</a></span></div>
-  <pre><code>// ui/server.ts: Bun is the transport boundary; routing and session logic are delegated.
+        <section id="ui-backend" class="card">
+          <h2>8. UI Backend Modules</h2>
+          <p>The UI backend has explicit module boundaries:</p>
+          <ul>
+            <li>
+              <code>ui/server.ts</code> — Bun.serve lifecycle, WebSocket upgrade callbacks,
+              filesystem watch lifecycle, production/dev orchestration.
+            </li>
+            <li>
+              <code>ui/http.ts</code> — Effect REST/API routing, JSON/plain responses, action
+              invocation, assets/static fallback.
+            </li>
+            <li>
+              <code>ui/session.ts</code> — Effect-valued <code>SubscriptionHub</code>, clients, tx
+              broadcasts, query subscriptions, virtual saved-query nodes.
+            </li>
+            <li>
+              <code>ui/assets.ts</code> — static UI and opaque <code>.kb/assets</code> serving.
+            </li>
+            <li>
+              <code>ui/build.ts</code> — stale/missing UI build detection and production build
+              markers.
+            </li>
+            <li><code>ui/dev.ts</code> — Vite child process and exit handling.</li>
+            <li>
+              <code>ui/saved-queries.ts</code> and <code>ui/paths.ts</code> — saved-query
+              materialization and path constants.
+            </li>
+          </ul>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/surface/ui/server.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/src/surface/ui/server.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/surface/ui/server.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/surface/ui/http.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/src/surface/ui/http.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/surface/ui/http.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/src/surface/ui/session.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/src/surface/ui/session.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/src/surface/ui/session.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <pre><code>// ui/server.ts: Bun is the transport boundary; routing and session logic are delegated.
 return handleHttpRequest(req, { root: opts.root, ctx, hub });
 
 // ui/http.ts: route dispatch is an Effect program.
@@ -134,55 +692,272 @@ const receipt = yield* invokeReceiptEffect(ctx, {
   input: parsed.data.input ?? {},
 });
 yield* hub.applyNodes(ctx.nodes);</code></pre>
-</section>
+        </section>
 
-<section id="frontend-shell" class="card"><h2>9. React Shell & Routing</h2>
-  <p>The browser remains standard React/Zustand; Effect was not added to the frontend. <code>App.tsx</code> owns shell chrome, initial graph loading, route selection, keyboard shortcuts, and lazy loading. Canvas and graph are separate chunks.</p>
-  <div class="file-ref"><span class="path">tools/kb/ui/src/components/App.tsx</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/components/App.tsx">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/components/App.tsx">VS Code</a></span></div>
-  <div class="file-ref"><span class="path">tools/kb/ui/src/components/view-error-boundary.tsx</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/components/view-error-boundary.tsx">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/components/view-error-boundary.tsx">VS Code</a></span></div>
-  <pre><code>&lt;ViewErrorBoundary title="Graph crashed" resetKey={route.perspectiveId ?? "graph"}&gt;
+        <section id="frontend-shell" class="card">
+          <h2>9. React Shell & Routing</h2>
+          <p>
+            The browser remains standard React/Zustand; Effect was not added to the frontend.
+            <code>App.tsx</code> owns shell chrome, initial graph loading, route selection, keyboard
+            shortcuts, and lazy loading. Canvas and graph are separate chunks.
+          </p>
+          <div class="file-ref">
+            <span class="path">tools/kb/ui/src/components/App.tsx</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/components/App.tsx"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/components/App.tsx"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/ui/src/components/view-error-boundary.tsx</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/components/view-error-boundary.tsx"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/components/view-error-boundary.tsx"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <pre><code>&lt;ViewErrorBoundary title="Graph crashed" resetKey={route.perspectiveId ?? "graph"}&gt;
   &lt;Suspense fallback={...}&gt;
     &lt;GraphPage perspectiveId={route.perspectiveId} /&gt;
   &lt;/Suspense&gt;
 &lt;/ViewErrorBoundary&gt;</code></pre>
-</section>
+        </section>
 
-<section id="frontend-state" class="card"><h2>10. Zustand State</h2>
-  <ul><li><code>outline.store.ts</code> — wire nodes, outline map, query DB, revision, zoom, selection, editing, visible instances.</li><li><code>ui.store.ts</code> — palettes, popovers, toasts, WebSocket status.</li><li><code>prefs.store.ts</code> — persisted theme/font/width preferences.</li></ul>
-  <div class="file-ref"><span class="path">tools/kb/ui/src/stores/outline.store.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/stores/outline.store.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/stores/outline.store.ts">VS Code</a></span></div>
-</section>
+        <section id="frontend-state" class="card">
+          <h2>10. Zustand State</h2>
+          <ul>
+            <li>
+              <code>outline.store.ts</code> — wire nodes, outline map, query DB, revision, zoom,
+              selection, editing, visible instances.
+            </li>
+            <li><code>ui.store.ts</code> — palettes, popovers, toasts, WebSocket status.</li>
+            <li><code>prefs.store.ts</code> — persisted theme/font/width preferences.</li>
+          </ul>
+          <div class="file-ref">
+            <span class="path">tools/kb/ui/src/stores/outline.store.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/stores/outline.store.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/stores/outline.store.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+        </section>
 
-<section id="frontend-sync" class="card"><h2>11. Sync & API</h2>
-  <p><code>api/live.ts</code> wires the singleton WebSocket client to Zustand. <code>api/ws.ts</code> handles status, tx frames, query rows, server errors, reconnects, and revision gaps. A revision gap refetches the full graph through <code>api/graph.ts</code>.</p>
-  <div class="file-ref"><span class="path">tools/kb/ui/src/api/live.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/api/live.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/api/live.ts">VS Code</a></span></div>
-  <div class="file-ref"><span class="path">tools/kb/ui/src/api/ws.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/api/ws.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/api/ws.ts">VS Code</a></span></div>
-  <div class="file-ref"><span class="path">tools/kb/ui/src/api/action.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/api/action.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/api/action.ts">VS Code</a></span></div>
-</section>
+        <section id="frontend-sync" class="card">
+          <h2>11. Sync & API</h2>
+          <p>
+            <code>api/live.ts</code> wires the singleton WebSocket client to Zustand.
+            <code>api/ws.ts</code> handles status, tx frames, query rows, server errors, reconnects,
+            and revision gaps. A revision gap refetches the full graph through
+            <code>api/graph.ts</code>.
+          </p>
+          <div class="file-ref">
+            <span class="path">tools/kb/ui/src/api/live.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/api/live.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/api/live.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/ui/src/api/ws.ts</span
+            ><span class="actions"
+              ><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/api/ws.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/api/ws.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/ui/src/api/action.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/api/action.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/api/action.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+        </section>
 
-<section id="frontend-mutations" class="card"><h2>12. Optimistic Mutations</h2>
-  <p><code>actions/plan.ts</code> creates pure mutation plans. <code>actions/mutations.ts</code> is the UI command facade. <code>actions/optimistic.ts</code> applies the local transaction, posts actions, and recovers from failure.</p>
-  <div class="status"><strong>Current rollback design:</strong> structural or partial-plan failure prefers an authoritative graph refetch. If that fails, recovery removes minted nodes, restores only touched pre-plan nodes, reapplies confirmed non-structural actions, preserves unrelated concurrent nodes, and never rewinds the revision.</div>
-  <p>Debounced text editing is narrower: it captures the edited node's pre-edit wire payload, refetches without flipping to fixture mode, then reapplies pending local edits. If refetch fails, it restores only that node.</p>
-  <div class="file-ref"><span class="path">tools/kb/ui/src/actions/plan.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/actions/plan.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/actions/plan.ts">VS Code</a></span></div>
-  <div class="file-ref"><span class="path">tools/kb/ui/src/actions/optimistic.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/actions/optimistic.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/actions/optimistic.ts">VS Code</a></span></div>
-  <div class="file-ref"><span class="path">tools/kb/ui/src/actions/mutations.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/actions/mutations.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/actions/mutations.ts">VS Code</a></span></div>
-</section>
+        <section id="frontend-mutations" class="card">
+          <h2>12. Optimistic Mutations</h2>
+          <p>
+            <code>actions/plan.ts</code> creates pure mutation plans.
+            <code>actions/mutations.ts</code> is the UI command facade.
+            <code>actions/optimistic.ts</code> applies the local transaction, posts actions, and
+            recovers from failure.
+          </p>
+          <div class="status">
+            <strong>Current rollback design:</strong> structural or partial-plan failure prefers an
+            authoritative graph refetch. If that fails, recovery removes minted nodes, restores only
+            touched pre-plan nodes, reapplies confirmed non-structural actions, preserves unrelated
+            concurrent nodes, and never rewinds the revision.
+          </div>
+          <p>
+            Debounced text editing is narrower: it captures the edited node's pre-edit wire payload,
+            refetches without flipping to fixture mode, then reapplies pending local edits. If
+            refetch fails, it restores only that node.
+          </p>
+          <div class="file-ref">
+            <span class="path">tools/kb/ui/src/actions/plan.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/actions/plan.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/actions/plan.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/ui/src/actions/optimistic.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/actions/optimistic.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/actions/optimistic.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/ui/src/actions/mutations.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/actions/mutations.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/actions/mutations.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+        </section>
 
-<section id="reading" class="card"><h2>13. Recommended Reading Sequence</h2>
-  <ol><li>Read <code>DESIGN.md</code> for the model and boundary decisions.</li><li>Read <code>foundation/model.ts</code>, <code>seed.ts</code>, then <code>storage/store.ts</code> and <code>jsonl-store.ts</code>.</li><li>Read <code>foundation/query/index.ts</code>, <code>datascript.ts</code>, and <code>queries.ts</code>.</li><li>Read <code>foundation/services.ts</code> and <code>context.ts</code> to understand Effect Layers and compatibility facades.</li><li>Read <code>shared/contracts.ts</code>, <code>foundation/errors.ts</code>, and <code>registry.ts</code>.</li><li>Read one operation, then <code>surface/cli.ts</code>, <code>surface/mcp.ts</code>, and the <code>surface/ui/</code> modules.</li><li>For the browser: <code>App.tsx</code> → <code>stores/outline.store.ts</code> → <code>api/live.ts</code>/<code>ws.ts</code> → <code>actions/plan.ts</code>/<code>optimistic.ts</code> → outline/canvas/graph components.</li></ol>
-</section>
+        <section id="reading" class="card">
+          <h2>13. Recommended Reading Sequence</h2>
+          <ol>
+            <li>Read <code>DESIGN.md</code> for the model and boundary decisions.</li>
+            <li>
+              Read <code>foundation/model.ts</code>, <code>seed.ts</code>, then
+              <code>storage/store.ts</code> and <code>jsonl-store.ts</code>.
+            </li>
+            <li>
+              Read <code>foundation/query/index.ts</code>, <code>datascript.ts</code>, and
+              <code>queries.ts</code>.
+            </li>
+            <li>
+              Read <code>foundation/services.ts</code> and <code>context.ts</code> to understand
+              Effect Layers and compatibility facades.
+            </li>
+            <li>
+              Read <code>shared/contracts.ts</code>, <code>foundation/errors.ts</code>, and
+              <code>registry.ts</code>.
+            </li>
+            <li>
+              Read one operation, then <code>surface/cli.ts</code>, <code>surface/mcp.ts</code>, and
+              the <code>surface/ui/</code> modules.
+            </li>
+            <li>
+              For the browser: <code>App.tsx</code> → <code>stores/outline.store.ts</code> →
+              <code>api/live.ts</code>/<code>ws.ts</code> → <code>actions/plan.ts</code>/<code
+                >optimistic.ts</code
+              >
+              → outline/canvas/graph components.
+            </li>
+          </ol>
+        </section>
 
-<section id="verification" class="card"><h2>14. Verification & Failure Note</h2>
-  <div class="status"><strong>Current verification:</strong> a fresh production UI process was started successfully as <code>kb-ui-current</code> on <code>http://127.0.0.1:4321</code>; the root endpoint returned HTTP <code>200</code>.</div>
-  <div class="warning status"><strong>Historical supervisor event:</strong> the earlier supervised process <code>kb-ui</code> is recorded as failed with exit code <code>1</code>. Its retained log contained only the earlier “listening” line and no root-cause diagnostic, so this document records the observed failure without inventing a cause. The replacement process is the one currently verified.</div>
-  <p>Relevant executable checks:</p>
-  <pre><code>bun tools/kb/src/surface/cli.ts --help
+        <section id="verification" class="card">
+          <h2>14. Verification & Failure Note</h2>
+          <div class="status">
+            <strong>Current verification:</strong> a fresh production UI process was started
+            successfully as <code>kb-ui-current</code> on <code>http://127.0.0.1:4321</code>; the
+            root endpoint returned HTTP <code>200</code>.
+          </div>
+          <div class="warning status">
+            <strong>Historical supervisor event:</strong> the earlier supervised process
+            <code>kb-ui</code> is recorded as failed with exit code <code>1</code>. Its retained log
+            contained only the earlier “listening” line and no root-cause diagnostic, so this
+            document records the observed failure without inventing a cause. The replacement process
+            is the one currently verified.
+          </div>
+          <p>Relevant executable checks:</p>
+          <pre><code>bun tools/kb/src/surface/cli.ts --help
 bun tools/kb/src/surface/cli.ts tag list
 bun run --cwd tools/kb/ui build
 curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:4321/</code></pre>
-  <div class="file-ref"><span class="path">tools/kb/ui/src/components/view-error-boundary.test.tsx</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/components/view-error-boundary.test.tsx">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/components/view-error-boundary.test.tsx">VS Code</a></span></div>
-  <div class="file-ref"><span class="path">tools/kb/ui/src/actions/mutations.debounce.test.ts</span><span class="actions"><a class="btn-link" href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/actions/mutations.debounce.test.ts">Open</a><a class="btn-link" href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/actions/mutations.debounce.test.ts">VS Code</a></span></div>
-</section>
-</div></main>
-</body>
+          <div class="file-ref">
+            <span class="path">tools/kb/ui/src/components/view-error-boundary.test.tsx</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/components/view-error-boundary.test.tsx"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/components/view-error-boundary.test.tsx"
+                >VS Code</a
+              ></span
+            >
+          </div>
+          <div class="file-ref">
+            <span class="path">tools/kb/ui/src/actions/mutations.debounce.test.ts</span
+            ><span class="actions"
+              ><a
+                class="btn-link"
+                href="file:///Users/popemkt/.dotfiles/tools/kb/ui/src/actions/mutations.debounce.test.ts"
+                >Open</a
+              ><a
+                class="btn-link"
+                href="vscode://file/Users/popemkt/.dotfiles/tools/kb/ui/src/actions/mutations.debounce.test.ts"
+                >VS Code</a
+              ></span
+            >
+          </div>
+        </section>
+      </div>
+    </main>
+  </body>
 </html>

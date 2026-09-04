@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { present } from "@kb/model";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -8,7 +9,6 @@ import {
   type UiDevSpawnOpts,
 } from "../src/dev.ts";
 import { startDevServer, startProductionUi, type UiDevServer } from "../src/server.ts";
-import { expectDefined } from "@kb/test-kit";
 
 /**
  * `kb ui --dev` / production-wiring tests. Deterministic: fake spawn child, no
@@ -87,7 +87,7 @@ describe("kb ui --dev orchestration", () => {
 
     expect(dev.url).toBe("http://127.0.0.1:5173");
     expect(spawnCalls).toHaveLength(1);
-    const args = expectDefined(spawnCalls[0]);
+    const args = present(spawnCalls[0], "expected spawnCalls[0]");
     expect(args.cmd).toBe("bun");
     expect(args.args).toEqual(["run", "dev", "--port", "5173"]);
     expect(args.cwd).toBe("/tmp/fake-ui");

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { present } from "../../model/src/present.ts";
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
-import { expectDefined } from "../../test-kit/src/expect-defined.ts";
 
 /**
  * Determinism seam guard (t2-dst).
@@ -92,7 +92,7 @@ describe("determinism seam guard", () => {
         const rel = relative(PACKAGES_ROOT, file).split(sep).join("/");
         for (const token of tokens) {
           if (!body.includes(token)) continue;
-          const allowed = expectDefined(ALLOWED[token]);
+          const allowed = present(ALLOWED[token], "expected ALLOWED[token]");
           if (allowed.has(rel)) continue;
           violations.push(`${token} in ${rel} (allowed only in: ${[...allowed].join(", ")})`);
         }

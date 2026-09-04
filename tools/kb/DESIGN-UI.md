@@ -7,16 +7,16 @@ subscribe to live queries later. MCP Apps generative UI is phase 2.
 
 ## Decisions (from Q&A)
 
-| Decision | Choice |
-|---|---|
-| Shell | Browser app served by `kb ui` (no Electron/Tauri). **Why not Electron for "local ops like materialization":** those ops run in the `kb ui` bun server, which has full fs access — the browser only calls actions. Electron's sole trick is bundling Chromium+Node to get fs in one process; we already have a local server process. Zero gain, +200MB. |
-| Frontend build | **Vite+ (`vite-plus@0.2.8`, on npm, Evan You et al — confirmed installable)** + React 19 + Tailwind 4 + Zustand — same stack as nxus, so its outliner forks in cleanly. If vp misbehaves anywhere, its config is Vite config; plain-Vite fallback is a dependency swap. |
-| Bun's role | Runtime for the server only (`kb ui` = Bun.serve listen + WS upgrade + `Bun.file` bodies). HTTP routing, asset/static reads, SubscriptionHub message/broadcast/cleanup, and fs-watch reloads are Effect v4 programs (`@effect/platform-bun` FileSystem). **Not** `@effect/platform-bun` `BunHttpServer` as the outer server: on effect@4.0.0-beta.106 its `HttpServerRequest.upgrade` path deadlocks on the request fiber when awaiting the open deferred / forking `socket.runRaw` from that fiber (empirically verified). Protocol-preserving Bun.serve WS + Effect hub is the working single boundary. Bun ≠ bundler here; Vite builds the frontend. No Effect in the browser bundle. |
-| Reactivity | Client-side DataScript (Logseq architecture) **plus** backend subscription hub designed for third-party consumers |
-| Edit scope v1 | Solid basics (outline CRUD, props/tags panel, [[ref]] autocomplete, query page, backlinks) |
-| MCP Apps | **Backbone now, apps later**: shared render layer (query + template → HTML) ships in this wave and kb MCP serves one `ui://` resource through it. Adding an "app" later = adding a template + query, nothing structural. |
+| Decision       | Choice                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shell          | Browser app served by `kb ui` (no Electron/Tauri). **Why not Electron for "local ops like materialization":** those ops run in the `kb ui` bun server, which has full fs access — the browser only calls actions. Electron's sole trick is bundling Chromium+Node to get fs in one process; we already have a local server process. Zero gain, +200MB.                                                                                                                                                                                                                                                                                                                                   |
+| Frontend build | **Vite+ (`vite-plus@0.2.8`, on npm, Evan You et al — confirmed installable)** + React 19 + Tailwind 4 + Zustand — same stack as nxus, so its outliner forks in cleanly. If vp misbehaves anywhere, its config is Vite config; plain-Vite fallback is a dependency swap.                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Bun's role     | Runtime for the server only (`kb ui` = Bun.serve listen + WS upgrade + `Bun.file` bodies). HTTP routing, asset/static reads, SubscriptionHub message/broadcast/cleanup, and fs-watch reloads are Effect v4 programs (`@effect/platform-bun` FileSystem). **Not** `@effect/platform-bun` `BunHttpServer` as the outer server: on effect@4.0.0-beta.106 its `HttpServerRequest.upgrade` path deadlocks on the request fiber when awaiting the open deferred / forking `socket.runRaw` from that fiber (empirically verified). Protocol-preserving Bun.serve WS + Effect hub is the working single boundary. Bun ≠ bundler here; Vite builds the frontend. No Effect in the browser bundle. |
+| Reactivity     | Client-side DataScript (Logseq architecture) **plus** backend subscription hub designed for third-party consumers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Edit scope v1  | Solid basics (outline CRUD, props/tags panel, [[ref]] autocomplete, query page, backlinks)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| MCP Apps       | **Backbone now, apps later**: shared render layer (query + template → HTML) ships in this wave and kb MCP serves one `ui://` resource through it. Adding an "app" later = adding a template + query, nothing structural.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
-## Why bun *and* vite (your question)
+## Why bun _and_ vite (your question)
 
 The backend must be bun — kb's store/query/registry code is bun TS, and
 `kb ui` is just another surface over the same registry. The frontend is a
@@ -42,14 +42,14 @@ Server ownership lives behind the stable facade `packages/server/src/index.ts`, 
 re-exports the public CLI/server seam (`startUi`, `runUiCli`, …). The
 implementation modules under `packages/server/src/` split by concern:
 
-| Module | Owns |
-|---|---|
-| `server.ts` | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown |
-| `http.ts` | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback |
-| `session.ts` | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup) |
-| `assets.ts` | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary) |
-| `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn` |
-| `paths.ts` | `KB_PKG_ROOT`, `UI_DIST` |
+| Module             | Owns                                                                             |
+| ------------------ | -------------------------------------------------------------------------------- |
+| `server.ts`        | Bun.serve / Effect runtime boundary, fs-watch, CLI entry, Scope shutdown         |
+| `http.ts`          | Effect REST/API routing, failure mapping, kb asset GET, SPA static fallback      |
+| `session.ts`       | Effect `SubscriptionHub` (clients, message processing, broadcast, cleanup)       |
+| `assets.ts`        | Effect SPA `ui/dist` static + `.kb/assets` serving (`Bun.file` body at boundary) |
+| `saved-queries.ts` | Effect list/materialize `.kb/queries/*.edn`                                      |
+| `paths.ts`         | `KB_PKG_ROOT`, `UI_DIST`                                                         |
 
 - **Client DataScript**: browser loads all nodes once, builds the same datom
   set the CLI builds (shared `foundation/query` code — it's isomorphic TS, no
@@ -99,6 +99,7 @@ helper; the tree algebra is a pure store over `Map<id,node>`; all data
 coupling sits in two seam files we replace with kb calls.
 
 Taking:
+
 - `outline.store.ts` (419 LOC + tests) — indent/outdent/move/fractional
   order/visible-node flattening. Adapt node shape to kb (`children` array
   instead of fractional order props — simpler, kb owns order).
@@ -151,7 +152,7 @@ Pre-existing nodes remain ineligible for this cleanup.
 **Transient nodes replace ghost rows.** There is no permanent phantom bullet at
 the end of a list: `GhostNodeRow`, with its async character buffering and
 `beforeinput` interception, is deleted outright. Tana semantics instead —
-`mutations.createTransientNode` mints a *real* node synchronously through the
+`mutations.createTransientNode` mints a _real_ node synchronously through the
 normal optimistic path, records it in `outlineStore.transientIds`, and activates
 it at offset 0. The click-to-create affordance is a whitespace strip
 (`data-create-child-zone`) rendered at the end of every expanded container and
@@ -162,9 +163,9 @@ this session is never pruned, so committed content cannot evaporate.
 **Two keymaps, one row.** The authoritative tables are r1-editor.md §3.2; the
 split is what matters here:
 
-| Mode | When | Owner |
-|---|---|---|
-| **A — active edit** (caret inside node text) | typing | `components/outline/use-node-keydown.ts` |
+| Mode                                             | When                         | Owner                                                                    |
+| ------------------------------------------------ | ---------------------------- | ------------------------------------------------------------------------ |
+| **A — active edit** (caret inside node text)     | typing                       | `components/outline/use-node-keydown.ts`                                 |
 | **B — selection** (row selected, caret inactive) | after `Escape`, or arrow-nav | `lib/selection-keymap.ts` + `components/outline/use-selection-keymap.ts` |
 
 Mode A owns split/merge/indent/outdent, soft line break (`Shift+Enter`),
@@ -179,7 +180,7 @@ neighbour) and tested.
 exposes `readCaretGeometry` (range rects → real line detection),
 `verticalArrowDecision` (pure: is this arrow a line move or a row move?) and
 `nearestOffsetForX` (column restoration), fed by `outlineStore.focusX`. Offsets
-into the *serialized markdown* — not the DOM text — come from
+into the _serialized markdown_ — not the DOM text — come from
 `lib/md-edit.ts` (`getCaretSerializedOffset` / `setCaretSerializedOffset`), a
 recursive measure that survives element boundaries and counts an atomic ref
 pill at its full token length. A layout-free environment (unit tests, headless)
@@ -187,7 +188,7 @@ degrades to offset-based behaviour rather than breaking. `focusSeq` forces
 caret re-placement when a row remounts.
 
 **Undo/redo is action-level, not keystroke-level.** `actions/plan.ts`
-`invertPlan` computes an inverse transaction against the *pre-application*
+`invertPlan` computes an inverse transaction against the _pre-application_
 state; `inversePlanActions` derives the compensating registry actions.
 `outlineStore` keeps bounded `undoStack` / `redoStack` of `{ inv, actions }`
 (`HISTORY_LIMIT` = 50). `Cmd/Ctrl+Z` binds outside editable targets, and in api
@@ -205,7 +206,7 @@ padlock instead of failing on write.
 
 ### Contextual references (i12)
 
-Tana's *contextual content*, expressed with no new storage shape and no new
+Tana's _contextual content_, expressed with no new storage shape and no new
 widget: a **contextual reference is an ordinary node** tagged `#ref`
 (`sys.tag.ref`) carrying its target on the `sys.f.ref.target` ref field. Same
 anatomy as a query node (`#query` + `sys.f.query`), so children, tags, fields,
@@ -217,7 +218,7 @@ the ordinary ones — nothing in `visible-instances.ts`, `instance-key.ts` or
 reference:
 
 - **Display is the target's text, verbatim.** `rowText(node, nodes)` returns
-  `node.text` for an ordinary row and the *target's* text for a reference, so the
+  `node.text` for an ordinary row and the _target's_ text for a reference, so the
   row renders through the same inline-markdown path as every other row: bold,
   code, inline refs and `assets/` media all render as content. Returning a
   `[[targetId|label]]` token instead was tried and rejected after looking at the
@@ -226,7 +227,7 @@ reference:
   renders as the `[[id]]` token, the way every other dangling ref renders, never
   a blank row and never a throw. `ReferencesSection` calls the same function, so
   a referrer whose own text is empty is not a blank line in a backlinks list.
-  What a ref *prop* buys over a hand-typed `[[id|label]]`: the hand-typed label
+  What a ref _prop_ buys over a hand-typed `[[id|label]]`: the hand-typed label
   freezes at insert time, this resolves every render.
 - **The row's own text is read-only, and the click is answered at the target.**
   The text is not what the row owns, so a caret in it would edit an invisible
@@ -237,12 +238,12 @@ reference:
   routes the same activate intent to the node that owns the string: clicking a
   reference opens the original. ⌘-click on the bullet still zooms the reference
   itself, so the two destinations have two affordances.
-  **Deliberate deviation from Tana**, which edits the original *in place* through
+  **Deliberate deviation from Tana**, which edits the original _in place_ through
   the reference: redirecting the editor's write to a node other than the row's
   `data-node-id` forks the one row↔node identity that instance keys, both
   keymaps, optimistic mutations and undo are all built on.
 - **The bullet reuses the existing reference treatment** (dashed ring). Only the
-  bullet: `NodeBlock`'s `isRef` *prop* still means "this row renders a node
+  bullet: `NodeBlock`'s `isRef` _prop_ still means "this row renders a node
   whose home is elsewhere" and keeps suppressing nested query results and the
   create-child strip, because a contextual reference's children **are** its own
   and creating them is the whole point. `bulletIsRef = isRef || isContextualRef(node)`.
@@ -256,9 +257,9 @@ To change the default, the union goes in exactly one place:
 `frameListChildren` / `frameRows` in `packages/ui/src/lib/frame-rows.ts`, the declared
 single owner of "which rows does this frame show".
 
-**Creation** is a node-⌘K step, next to *Turn into query*: **Turn into
+**Creation** is a node-⌘K step, next to _Turn into query_: **Turn into
 reference…** opens the picker, which is the same picker `Add tag` and `Add field`
-use — generalized from two kinds to three, with the candidate *source* as the
+use — generalized from two kinds to three, with the candidate _source_ as the
 only difference. A reference's candidates come from `fuzzyNodeCandidates`, the
 resolver the `[[` autocomplete and the typed ref field editor already share, so
 no fourth node picker was added. The gesture itself is `mutations.addTag` +
@@ -266,7 +267,7 @@ no fourth node picker was added. The gesture itself is `mutations.addTag` +
 the CLI/MCP form is in DESIGN.md.
 
 **Named gaps.** The target is repointable only with debug fields on for that row
-(node ⌘K → *Show debug fields*), because `sys.f.*` props are hidden from field
+(node ⌘K → _Show debug fields_), because `sys.f.*` props are hidden from field
 rows by default — the identical
 limitation `#query`'s EDN prop has, deliberately not widened here. The
 References list shows a reference by its rendered target text rather than by the
@@ -299,14 +300,14 @@ under optimistic local edits where `rev` does not move.
 toast rather than silently doing nothing, and the scope chip
 (`⬡ Name · N members · Members/Outline/Graph · Exit`) always offers the exit.
 Members whose real parent is a non-member hang off the ontology node itself, so
-displayed depth inside a scope is *synthetic* — structural editing
+displayed depth inside a scope is _synthetic_ — structural editing
 (Tab/Shift-Tab/move) still operates on the real graph. That mismatch is a named
 follow-up, not a fixed contract.
 
 **Graph under scope** is one additive `restrictTo?: Set<string>` on
 `ExtractLensOptions`, intersected in `resolveNodeSet`; internal-edges-only falls
 out of the existing endpoint check. Ontology and perspective are orthogonal —
-the ontology picks *which nodes*, the perspective picks renderer/color-by/
+the ontology picks _which nodes_, the perspective picks renderer/color-by/
 cluster-by — and both pickers sit in the graph header.
 
 Elsewhere: an **Ontologies** sidebar section, the `⬡` bullet kind, three
@@ -316,7 +317,7 @@ Elsewhere: an **Ontologies** sidebar section, the `⬡` bullet kind, three
 ### Graph (i2)
 
 The graph is the CodeFlow-parity surface: every renderer is
-`datalog query → {nodes, edges} → renderer`, and interaction happens *in place*
+`datalog query → {nodes, edges} → renderer`, and interaction happens _in place_
 rather than by navigation.
 
 - **Select-in-place.** A single click selects: the neighbourhood stays lit,
@@ -367,7 +368,7 @@ manipulation feel professional rather than merely functional.
   `CanvasSelection { nodeIds, edgeIds }` with single / Shift-toggle /
   rubber-band marquee / `Cmd+A`. Dragging any card in a multi-selection
   translates all of them. Delete/Backspace removes every selected node and edge
-  with cascade edge removal — and deleting a kb-node *card* never touches the
+  with cascade edge removal — and deleting a kb-node _card_ never touches the
   underlying graph node.
 - **Undo/redo.** `lib/canvas-history.ts` is an immutable ring buffer
   (`MAX_HISTORY` = 30) with reference-equality skip; `Cmd+Z` /
@@ -410,7 +411,7 @@ The rules that hold everywhere, so no surface re-invents them:
   records `document.activeElement` on open and restores focus on close, traps
   `Tab` inside itself, and keeps the active result scrolled into view.
 - **IME composition is never interrupted.** Field editors track
-  `compositionstart`/`compositionend` *and* check `nativeEvent.isComposing`
+  `compositionstart`/`compositionend` _and_ check `nativeEvent.isComposing`
   before treating a key as a commit, so a composing CJK/dead-key sequence is not
   swallowed by Enter.
 - **Load failures are recoverable, not raw.** An initial graph/workspace error
@@ -418,7 +419,7 @@ The rules that hold everywhere, so no surface re-invents them:
   behind a disclosure, rather than dumping the error.
 - **Motion is a preference.** `index.css` carries one global
   `@media (prefers-reduced-motion: reduce)` block that flattens animation,
-  transition and scroll behaviour across *every* surface — the graph cross-fade,
+  transition and scroll behaviour across _every_ surface — the graph cross-fade,
   the canvas, the outline — so an animated surface added later inherits the
   policy for free rather than opting in.
 - Navigation affordances are keyboard-reachable: sidebar Home exits zoom, a
@@ -448,7 +449,7 @@ both are answered from the node ⌘K menu rather than from a device switch.
     so "per node" there can only mean the frame node that owns the view; a
     row's own field rows still follow the row's own flag. One flag, two
     honest readings of "which node".
-  - *Migration (intentional breakage, same idiom as `loadExpandedIds`):* a
+  - _Migration (intentional breakage, same idiom as `loadExpandedIds`):_ a
     user who had the global switch on has no id set to migrate to, so debug
     starts off and is re-armed per node. The stale key inside
     `localStorage["kb-prefs"]` is ignored on read and dropped on next write.
@@ -459,7 +460,7 @@ both are answered from the node ⌘K menu rather than from a device switch.
   picker's "Create tag" path uses, which is why there is no `sys.tag.pinned`.
   `mutations.togglePin` is `addTag`/`removeTag` and nothing else, and the
   sidebar's Pinned section reads the same predicate.
-  - **Naming collision, deliberately not merged:** an *ontology's* pins are
+  - **Naming collision, deliberately not merged:** an _ontology's_ pins are
     `sys.f.onto.member` props with their own Unpin control on the ontology
     page. Same English word, different field, different mechanism.
 
@@ -518,18 +519,20 @@ diff with cavecrew-reviewer, I fix and merge).
 
 New module `packages/operations/src/render.ts`: `render(queryRows, template, format: "html" | "md")`
 — pure functions, no deps. Consumed by three surfaces from day 1:
+
 1. md materializer (existing templates migrate onto it),
 2. web UI's rendered-view panel (saved query → html block),
 3. kb MCP registers `ui://kb/view/<name>` resources + a `render_view` tool
    returning the html (MCP Apps extension shape).
-Later "apps" = new template + query pair, registered by name. On-the-fly
-generative UI (model writes the template at answer time) also lands on this
-API — the client just passes a template string instead of a name.
+   Later "apps" = new template + query pair, registered by name. On-the-fly
+   generative UI (model writes the template at answer time) also lands on this
+   API — the client just passes a template string instead of a name.
 
 ## Packaging ("app like other apps") and dist
 
 Decision: **don't commit `ui/dist`** — built artifacts in git churn every
 diff. Instead, two install shapes:
+
 - Now: checkout-based (global `kb` wrapper already installed by HM); first
   `kb ui` run builds `ui/dist` into a gitignored dir, cached until sources
   change (source fingerprint vs `ui/dist/.kb-build-hash`). Fresh machine cost:

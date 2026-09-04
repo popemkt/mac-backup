@@ -1,4 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { present } from "@kb/model";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,7 +9,6 @@ import { invoke } from "../src/invoke.ts";
 import { GENERATED_HEADER } from "@kb/operations";
 import { todos } from "@kb/ext-docs";
 import type { KbNode } from "@kb/model";
-import { expectDefined } from "@kb/test-kit";
 
 const FIELD_ID = "01TESTFIELDSTATUS000000000";
 const TAG_ID = "01TESTTAGTODO0000000000000";
@@ -221,7 +221,7 @@ describe("docs.materialize + docs.check", () => {
       views: { status: string }[];
     };
     expect(stale.clean).toBe(false);
-    expect(expectDefined(stale.views[0]).status).toBe("stale");
+    expect(present(stale.views[0], "expected stale.views[0]").status).toBe("stale");
 
     await mustInvoke(ctx, "docs.materialize", { view: "todos" });
     const clean = (await mustInvoke(ctx, "docs.check", {})) as { clean: boolean };
@@ -233,7 +233,7 @@ describe("docs.materialize + docs.check", () => {
       views: { status: string }[];
     };
     expect(missing.clean).toBe(false);
-    expect(expectDefined(missing.views[0]).status).toBe("missing");
+    expect(present(missing.views[0], "expected missing.views[0]").status).toBe("missing");
   });
 
   test("savedQuery views resolve from .kb/queries", async () => {

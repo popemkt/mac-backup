@@ -171,6 +171,7 @@
         "@kb/server": "workspace:*",
       },
       "devDependencies": {
+        "@kb/model": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "playwright": "catalog:",

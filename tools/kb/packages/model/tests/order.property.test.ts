@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { present } from "../src/present.ts";
 import fc from "fast-check";
 import type { KbNode, NodeId } from "../src/model.ts";
 import { migrateOrderKeys, rankBetween, ranksFor } from "../src/order.ts";
-import { expectDefined } from "@kb/test-kit";
 
 describe("order properties (fast-check)", () => {
   test("ranksFor strictly preserves input order and assigns distinct ranks", () => {
@@ -16,9 +16,12 @@ describe("order properties (fast-check)", () => {
           const ranks = ranksFor(ids);
           expect(ranks.size).toBe(ids.length);
 
-          const rankList = ids.map((id) => expectDefined(ranks.get(id)));
+          const rankList = ids.map((id) => present(ranks.get(id), "expected ranks.get(id)"));
           for (let i = 0; i < rankList.length - 1; i++) {
-            expect(expectDefined(rankList[i]) < expectDefined(rankList[i + 1])).toBe(true);
+            expect(
+              present(rankList[i], "expected rankList[i]") <
+                present(rankList[i + 1], "expected rankList[i + 1]"),
+            ).toBe(true);
           }
 
           const uniqueRanks = new Set(rankList);
@@ -45,7 +48,9 @@ describe("order properties (fast-check)", () => {
         }
 
         for (let i = 0; i < ranks.length - 1; i++) {
-          expect(expectDefined(ranks[i]) < expectDefined(ranks[i + 1])).toBe(true);
+          expect(
+            present(ranks[i], "expected ranks[i]") < present(ranks[i + 1], "expected ranks[i + 1]"),
+          ).toBe(true);
         }
       }),
       { numRuns: 500 },
@@ -61,7 +66,10 @@ describe("order properties (fast-check)", () => {
       prependList.unshift(next);
     }
     for (let i = 0; i < prependList.length - 1; i++) {
-      expect(expectDefined(prependList[i]) < expectDefined(prependList[i + 1])).toBe(true);
+      expect(
+        present(prependList[i], "expected prependList[i]") <
+          present(prependList[i + 1], "expected prependList[i + 1]"),
+      ).toBe(true);
     }
 
     // 2. Repeated append
@@ -72,7 +80,10 @@ describe("order properties (fast-check)", () => {
       appendList.push(next);
     }
     for (let i = 0; i < appendList.length - 1; i++) {
-      expect(expectDefined(appendList[i]) < expectDefined(appendList[i + 1])).toBe(true);
+      expect(
+        present(appendList[i], "expected appendList[i]") <
+          present(appendList[i + 1], "expected appendList[i + 1]"),
+      ).toBe(true);
     }
 
     // 3. Repeated insertion between the same two neighbors (suffix extension)
@@ -82,14 +93,23 @@ describe("order properties (fast-check)", () => {
 
     for (let i = 0; i < 40; i++) {
       // Always insert right before the last element (between middleList[middleList.length-2] and middleList[middleList.length-1])
-      const prev = expectDefined(middleList[middleList.length - 2]);
-      const last = expectDefined(middleList[middleList.length - 1]);
+      const prev = present(
+        middleList[middleList.length - 2],
+        "expected middleList[middleList.length - 2]",
+      );
+      const last = present(
+        middleList[middleList.length - 1],
+        "expected middleList[middleList.length - 1]",
+      );
       const mid = rankBetween(prev, last);
       middleList.splice(middleList.length - 1, 0, mid);
     }
 
     for (let i = 0; i < middleList.length - 1; i++) {
-      expect(expectDefined(middleList[i]) < expectDefined(middleList[i + 1])).toBe(true);
+      expect(
+        present(middleList[i], "expected middleList[i]") <
+          present(middleList[i + 1], "expected middleList[i + 1]"),
+      ).toBe(true);
     }
   });
 
@@ -132,21 +152,34 @@ describe("order properties (fast-check)", () => {
           const byId = new Map(migrated.map((node) => [node.id, node]));
 
           // Every child now has an order.
-          for (const id of childIds) expect(expectDefined(byId.get(id)).order).toBeDefined();
+          for (const id of childIds)
+            expect(present(byId.get(id), "expected byId.get(id)").order).toBeDefined();
 
           // Pre-existing orders are byte-for-byte untouched.
           childIds.forEach((id, i) => {
             const existing = orders[i];
             if (existing !== undefined && existing !== "") {
-              expect(expectDefined(byId.get(id)).order).toBe(existing);
+              expect(present(byId.get(id), "expected byId.get(id)").order).toBe(existing);
             }
           });
 
           // Final order strictly increases along the ORIGINAL children[] sequence,
           // regardless of how many consecutive gaps sit between ranked neighbours.
           for (let i = 0; i < childIds.length - 1; i++) {
-            const a = expectDefined(expectDefined(byId.get(expectDefined(childIds[i]))).order);
-            const b = expectDefined(expectDefined(byId.get(expectDefined(childIds[i + 1]))).order);
+            const a = present(
+              present(
+                byId.get(present(childIds[i], "expected childIds[i]")),
+                "expected byId.get(childIds[i])",
+              ).order,
+              "expected byId.get(childIds[i]).order",
+            );
+            const b = present(
+              present(
+                byId.get(present(childIds[i + 1], "expected childIds[i + 1]")),
+                "expected byId.get(childIds[i + 1])",
+              ).order,
+              "expected byId.get(childIds[i + 1]).order",
+            );
             expect(a < b).toBe(true);
           }
 
@@ -206,8 +239,14 @@ describe("order properties (fast-check)", () => {
           const { nodes: migrated } = migrateOrderKeys(nodes);
           const byId = new Map(migrated.map((node) => [node.id, node]));
           const actualOrder = [...ids].toSorted((a, b) =>
-            expectDefined(expectDefined(byId.get(a)).order).localeCompare(
-              expectDefined(expectDefined(byId.get(b)).order),
+            present(
+              present(byId.get(a), "expected byId.get(a)").order,
+              "expected byId.get(a).order",
+            ).localeCompare(
+              present(
+                present(byId.get(b), "expected byId.get(b)").order,
+                "expected byId.get(b).order",
+              ),
             ),
           );
 
@@ -235,7 +274,10 @@ describe("order properties (fast-check)", () => {
         const roundTripped: string[] = JSON.parse(JSON.stringify(ranks));
         expect(roundTripped).toEqual(ranks);
         for (let i = 0; i < roundTripped.length - 1; i++) {
-          expect(expectDefined(roundTripped[i]) < expectDefined(roundTripped[i + 1])).toBe(true);
+          expect(
+            present(roundTripped[i], "expected roundTripped[i]") <
+              present(roundTripped[i + 1], "expected roundTripped[i + 1]"),
+          ).toBe(true);
         }
       }),
       { numRuns: 500 },

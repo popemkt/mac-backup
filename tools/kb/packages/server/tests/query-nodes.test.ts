@@ -8,11 +8,10 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SYSTEM_IDS, type KbNode, ensureSystemSeed, systemSeedNodes } from "@kb/model";
+import { ensureSystemSeed, present, SYSTEM_IDS, systemSeedNodes, type KbNode } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { savedQueryNodes } from "../src/saved-queries.ts";
 import { startUi, type UiServerHandle } from "../src/server.ts";
-import { expectDefined } from "@kb/test-kit";
 
 function refs(node: KbNode | WireNode, field: string): string[] {
   return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
@@ -25,9 +24,9 @@ describe("W4 seed: query tag + fields", () => {
 
     const tag = byId.get(SYSTEM_IDS.queryTag);
     expect(tag).toBeDefined();
-    expect(expectDefined(tag).text).toBe("query");
-    expect(refs(expectDefined(tag), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
-    expect(refs(expectDefined(tag), SYSTEM_IDS.fieldsField)).toEqual([
+    expect(present(tag, "expected tag").text).toBe("query");
+    expect(refs(present(tag, "expected tag"), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
+    expect(refs(present(tag, "expected tag"), SYSTEM_IDS.fieldsField)).toEqual([
       SYSTEM_IDS.queryField,
       SYSTEM_IDS.queryLimitField,
     ]);
@@ -35,7 +34,9 @@ describe("W4 seed: query tag + fields", () => {
     for (const id of [SYSTEM_IDS.queryField, SYSTEM_IDS.queryLimitField]) {
       const field = byId.get(id);
       expect(field).toBeDefined();
-      expect(refs(expectDefined(field), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.field]);
+      expect(refs(present(field, "expected field"), SYSTEM_IDS.typeField)).toEqual([
+        SYSTEM_IDS.field,
+      ]);
     }
 
     // sys.queries is virtual (ui-server materialized) — never seeded.
@@ -59,13 +60,13 @@ describe("W4 savedQueryNodes", () => {
     const byId = new Map(nodes.map((n) => [n.id, n]));
     const root = byId.get(SYSTEM_IDS.queriesRoot);
     expect(root).toBeDefined();
-    expect(expectDefined(root).children).toEqual(["sys.query.open-todos"]);
+    expect(present(root, "expected root").children).toEqual(["sys.query.open-todos"]);
 
     const q = byId.get("sys.query.open-todos");
     expect(q).toBeDefined();
-    expect(expectDefined(q).text).toBe("open-todos");
-    expect(refs(expectDefined(q), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.queryTag]);
-    expect(expectDefined(q).props[SYSTEM_IDS.queryField]).toEqual([
+    expect(present(q, "expected q").text).toBe("open-todos");
+    expect(refs(present(q, "expected q"), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.queryTag]);
+    expect(present(q, "expected q").props[SYSTEM_IDS.queryField]).toEqual([
       { t: "str", v: "[:find ?id :where [?e :node/id ?id]]" },
     ]);
   });
@@ -105,12 +106,12 @@ describe("W4 saved-query surfacing via kb ui server", () => {
 
     const queriesRoot = byId.get(SYSTEM_IDS.queriesRoot);
     expect(queriesRoot).toBeDefined();
-    expect(expectDefined(queriesRoot).children).toEqual(["sys.query.all-nodes"]);
+    expect(present(queriesRoot, "expected queriesRoot").children).toEqual(["sys.query.all-nodes"]);
 
     const q = byId.get("sys.query.all-nodes");
     expect(q).toBeDefined();
-    expect(refs(expectDefined(q), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.queryTag]);
-    expect(expectDefined(q).props[SYSTEM_IDS.queryField]).toEqual([{ t: "str", v: edn }]);
+    expect(refs(present(q, "expected q"), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.queryTag]);
+    expect(present(q, "expected q").props[SYSTEM_IDS.queryField]).toEqual([{ t: "str", v: edn }]);
 
     // Materialized at load only — never duplicated into nodes.jsonl.
     const jsonl = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { present } from "@kb/model";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,7 +11,6 @@ import {
   saveSavedQuery,
 } from "@kb/operations";
 import { listSavedQueries } from "../src/saved-queries.ts";
-import { expectDefined } from "@kb/test-kit";
 
 describe("saved-query name validation", () => {
   test("accepts compatibility names used by kb run / views", () => {
@@ -46,7 +46,7 @@ describe("saved-query name validation", () => {
 
     expect(await saveSavedQuery(root, "../escape", "[:find ?x]")).toBe(false);
     expect(await saveSavedQuery(root, "ok-name", "[:find ?x]")).toBe(true);
-    expect(await readFile(expectDefined(path), "utf8")).toBe("[:find ?x]");
+    expect(await readFile(present(path, "expected path"), "utf8")).toBe("[:find ?x]");
     expect(await readSavedQuery(root, "ok-name")).toBe("[:find ?x]");
     expect(await readSavedQuery(root, "../escape")).toBeNull();
     expect(await deleteSavedQuery(root, "../escape")).toBe(false);
