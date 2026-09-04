@@ -179,9 +179,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: OutlineNode.cursorPosition is deprecated but is still the canvas editor's caret channel
 
 - **expected** — One caret mechanism for both hosts: the outline's CaretIntent, with the canvas card reading the same channel, and cursorPosition gone from the store.
-- **current** — cursorPosition is declared @deprecated on the store node, initialised in the store, written on activate, and read by canvas-card - two caret mechanisms for the same concept, with a deprecation marking one of them.
+- **current** — cursorPosition is read by nothing: NodeTextHost declares the prop and never reads it, and f2 removed the canvas card's subscription, so every host including the canvas takes its caret from pendingCaret. The field is now written by activateNode and observed by no one - a dead seam rather than a second mechanism.
 - **impact** — Exactly the parallel-mechanism shape Rule 1 forbids: a change to caret behaviour has to be made twice, and the deprecation says which one is wrong without removing it.
-- **closes** — Move the canvas card onto CaretIntent and delete cursorPosition from OutlineNode. Public store shape change, so it is an owner call, not a drain.
+- **closes** — Delete cursorPosition from OutlineState, its initial value, its activateNode write, and the unread NodeTextHost prop. TypeScript excess-property checks then require removing 'cursorPosition: 0,' from the hand-copied store-reset literal in 24 ui test files, which is the whole remaining cost - one line each. The reset duplication itself is the obstacle; a shared resetOutlineStore() helper would make this a three-line change.
 - **node** — `01M1MGT307N4K243CBPJTXNG5X`
 
 ### GAP: parsePerspective decodes a perspective node with 27 hand-written branches
