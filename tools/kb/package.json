@@ -51,6 +51,8 @@
       "typescript": "~7.0.2",
       "ulid": "^3.0.2",
       "vitest": "4.1.10",
+      "vite": "npm:@voidzero-dev/vite-plus-core@0.2.8",
+      "vite-plus": "0.2.8",
       "zod": "^4.4.3",
       "zustand": "^5.0.9"
     }
@@ -83,7 +85,8 @@
     "oxlint": "catalog:",
     "oxlint-tsgolint": "catalog:",
     "typescript": "catalog:",
-    "vite-plus": "0.2.8"
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
   },
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@0.2.8",

@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { OFF_CATALOG_BY_DECISION } from "../src/constraints.ts";
 import {
   WORKSPACE_ROOT,
   dependencyEntries,
@@ -13,9 +12,8 @@ import {
  * Every version is authored in exactly one place (plan D1).
  *
  * Internal deps say `workspace:*`, external deps say `catalog:`, and the
- * catalog in the root manifest is the only file that names a version. The
- * exceptions live in OFF_CATALOG_BY_DECISION with the reason attached, so an
- * exception is a decision rather than a slip.
+ * catalog in the root manifest is the only file that names a version, with
+ * no exceptions.
  * Red case (demonstrated in the w1 report): add `"zod": "^4"` to a package.
  */
 const MIN_RELEASE_AGE_MINUTES = 4320;
@@ -36,18 +34,16 @@ describe("version-authored-once", () => {
           continue;
         }
         if (spec === "catalog:") continue;
-        if (OFF_CATALOG_BY_DECISION[name] === spec) continue;
         bad.push(`${dir} ${field}.${name} = ${spec} (want catalog:)`);
       }
     }
     expect(bad, bad.join("\n")).toEqual([]);
   });
 
-  test("the root manifest only uses catalog: or a recorded exception", () => {
+  test("the root manifest only uses catalog:", () => {
     const bad: string[] = [];
     for (const [field, name, spec] of dependencyEntries(root)) {
       if (spec === "catalog:") continue;
-      if (OFF_CATALOG_BY_DECISION[name] === spec) continue;
       bad.push(`root ${field}.${name} = ${spec}`);
     }
     expect(bad, bad.join("\n")).toEqual([]);
@@ -73,6 +69,26 @@ describe("version-authored-once", () => {
       .filter(([, spec]) => FLOATING.has(spec.trim()))
       .map(([name, spec]) => `${name} = ${spec}`);
     expect(floating, floating.join("\n")).toEqual([]);
+  });
+
+  /**
+   * The vite alias pins the same version as vite-plus.
+   * Red case: bump one of the two in the catalog without bumping the other.
+   */
+  test("the vite alias pins the same version as vite-plus", () => {
+    const viteSpec = catalog.vite;
+    const vitePlusSpec = catalog["vite-plus"];
+    expect(typeof viteSpec).toBe("string");
+    expect(typeof vitePlusSpec).toBe("string");
+    if (typeof viteSpec !== "string" || typeof vitePlusSpec !== "string") {
+      throw new Error("catalog.vite or catalog['vite-plus'] is not a string");
+    }
+    const match = /^npm:@voidzero-dev\/vite-plus-core@(.+)$/.exec(viteSpec);
+    expect(
+      match,
+      `catalog.vite (${viteSpec}) is not an npm:@voidzero-dev/vite-plus-core@<version> alias`,
+    ).not.toBeNull();
+    expect(match?.[1]).toBe(vitePlusSpec);
   });
 
   test("bunfig sets minimumReleaseAge and an explicit trustedDependencies", () => {
