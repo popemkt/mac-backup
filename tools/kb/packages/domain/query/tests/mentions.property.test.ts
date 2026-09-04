@@ -7,7 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { present } from "@kb/model";
 import fc from "fast-check";
-import { extractMentions } from "../src/datascript.ts";
+import { extractMentions } from "../src/index/datoms.ts";
 
 /** A mention id: no bracket/pipe chars, so it can never be mistaken for
  * marker syntax or a label boundary. Real ids are ULID/sys.* shaped anyway. */

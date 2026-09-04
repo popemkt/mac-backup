@@ -1,33 +1,10 @@
 // oxlint-disable-next-line typescript/triple-slash-reference -- datascript ships no types; the shim must travel with this module (see datascript.d.ts)
 /// <reference path="./datascript.d.ts" />
 import * as d from "datascript";
-import { present, type KbNode, type NodeId, type PropValue } from "@kb/model";
-
-/**
- * `:node/mentions` is THE reference relation — "this node references that one"
- * — and it is carrier-independent by design.
- *
- * Two things carry a reference in this model: a `[[node-id]]` token in text and
- * a `{t:"ref"}` prop value. Both are already first-class, so a question about
- * the relation ("what references X?" — `kb backlinks`, the UI's References
- * section) must not have to remember which carrier was used; asking twice and
- * unioning at every call site is the second `if` on one distinction that Rule 1
- * forbids. The carrier distinction survives only where it is genuinely a lens:
- * the graph's `mention` / `ref-prop` edge kinds, which label provenance and
- * scan text and props separately for exactly that reason.
- */
-
-/**
- * Mention form in text: [[node-id|label]] or [[node-id]].
- *
- * The id group excludes `[` as well as `]`/`|`: a real id is ULID/`sys.*`
- * shaped and never contains one, and excluding it lets the regex re-sync to
- * a genuine `[[id]]` marker after a stray extra `[` in surrounding prose
- * (e.g. `[[[id]]`) instead of swallowing that `[` into the captured id.
- */
-const MENTION_RE = /\[\[([^[\]|]+)(?:\|[^\]]*)?\]\]/g;
-
-type Datom = [number | string, string, unknown, number?, boolean?];
+import { present, type NodeId } from "@kb/model";
+import type { IdMap, QueryDb } from "./index/datoms.ts";
+import { compile, normalizeEdnQuery } from "./ir/compile.ts";
+import type { FindPos, Ir } from "./ir/ir.ts";
 
 /**
  * A query that failed inside the datascript engine — parse or evaluation
@@ -42,187 +19,46 @@ export class DatalogError extends Error {
   }
 }
 
-interface IdMap {
-  /** NodeId → integer eid */
-  toEid: Map<NodeId, number>;
-  /** integer eid → NodeId */
-  toId: Map<number, NodeId>;
-}
-
-export interface QueryDb {
-  db: unknown;
-  ids: IdMap;
-  nodes: Map<NodeId, KbNode>;
-}
-
-const QUERY_DIRECTIVES = new Set([
-  "find",
-  "where",
-  "in",
-  "with",
-  "keys",
-  "limit",
-  "offset",
-  "rules",
-]);
-
 /**
- * DataScript JS API stores attrs as strings; EDN queries use keywords.
- * Rewrite `:attr` → `":attr"` (quoted) except query directives.
+ * `[?p :node/child ?c] [?p :node/child-order ?ord]` is a cartesian product:
+ * both attrs are cardinality-many on the parent, so N children × N orders
+ * rows. The child *set* is `:node/child` alone; order lives on the
+ * `:node/children` vector. Drop the unusable join.
  */
-function normalizeEdnQuery(edn: string): string {
-  const keyword = /^:([A-Za-z*][\w./+*-]*)/;
-  let out = "";
-  let i = 0;
-  while (i < edn.length) {
-    if (edn[i] === '"') {
-      let j = i + 1;
-      while (j < edn.length) {
-        if (edn[j] === "\\") j += 2;
-        else if (edn[j] === '"') {
-          j += 1;
-          break;
-        } else j += 1;
-      }
-      out += edn.slice(i, j);
-      i = j;
-      continue;
+function rewriteChildOrderCartesian(edn: string): string {
+  const childClause = /\[\s*(\?\S+)\s+:node\/child\s+\?\S+\s*\]/g;
+  const childEntities = new Set<string>();
+  for (const m of edn.matchAll(childClause)) {
+    childEntities.add(present(m[1], "child-clause entity"));
+  }
+  if (childEntities.size === 0) return edn;
+
+  const droppedOrd: string[] = [];
+  const orderClause = /\[\s*(\?\S+)\s+:node\/child-order\s+(\?\S+)\s*\]/g;
+  const withoutOrder = edn.replace(orderClause, (full, entity: string, ord: string) => {
+    if (!childEntities.has(entity)) return full;
+    droppedOrd.push(ord);
+    return "";
+  });
+  return dropUnusedFindVars(withoutOrder, droppedOrd);
+}
+
+function dropUnusedFindVars(edn: string, vars: readonly string[]): string {
+  let out = edn;
+  for (const v of vars) {
+    const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const occurrences = out.match(new RegExp(escaped, "g"));
+    if (occurrences !== null && occurrences.length === 1) {
+      out = out.replace(new RegExp(`\\s*${escaped}\\b`), "");
     }
-    const m = keyword.exec(edn.slice(i));
-    if (m) {
-      const directive = present(m[1], "edn keyword");
-      out += QUERY_DIRECTIVES.has(directive) ? m[0] : `"${m[0]}"`;
-      i += m[0].length;
-      continue;
-    }
-    out += edn[i];
-    i += 1;
   }
   return out;
 }
 
-function buildIdMap(nodes: KbNode[]): IdMap {
-  const sorted = [...nodes].toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  const toEid = new Map<NodeId, number>();
-  const toId = new Map<number, NodeId>();
-  let eid = 1;
-  for (const n of sorted) {
-    toEid.set(n.id, eid);
-    toId.set(eid, n.id);
-    eid += 1;
-  }
-  return { toEid, toId };
-}
-
-function fieldAttr(fieldId: NodeId): string {
-  return `:f/${fieldId}`;
-}
-
-/** Discriminated so a ref's value is known to be the entity id it is. */
-type DatomValue = { isRef: true; value: number } | { isRef: false; value: unknown };
-
-function propDatomValue(pv: PropValue, ids: IdMap): DatomValue {
-  if (pv.t === "ref") {
-    const eid = ids.toEid.get(pv.v);
-    if (eid === undefined) {
-      // dangling ref — store as string sentinel, not a ref join
-      return { isRef: false, value: pv.v };
-    }
-    return { isRef: true, value: eid };
-  }
-  return { isRef: false, value: pv.v };
-}
-
-/** Single-pass nodes → datoms (+ schema entries for ref attrs). */
-function nodesToDatoms(nodes: KbNode[]): {
-  datoms: Datom[];
-  schema: Record<string, Record<string, string>>;
-  ids: IdMap;
-} {
-  const ids = buildIdMap(nodes);
-  const datoms: Datom[] = [];
-  const refAttrs = new Set<string>([":node/child", ":node/mentions"]);
-
-  for (const node of nodes) {
-    const eid = present(ids.toEid.get(node.id), `eid for ${node.id}`);
-    datoms.push([eid, ":node/id", node.id]);
-    datoms.push([eid, ":node/text", node.text]);
-    datoms.push([eid, ":node/created-at", node.createdAt]);
-    datoms.push([eid, ":node/updated-at", node.updatedAt]);
-
-    // ordered children vector (eids) + per-child ref for joins
-    const childEids: number[] = [];
-    for (let i = 0; i < node.children.length; i++) {
-      const childId = present(node.children[i], `child ${i} of ${node.id}`);
-      const childEid = ids.toEid.get(childId);
-      if (childEid === undefined) continue;
-      childEids.push(childEid);
-      datoms.push([eid, ":node/child", childEid]);
-      datoms.push([eid, ":node/child-order", i]);
-    }
-    if (childEids.length > 0) {
-      datoms.push([eid, ":node/children", childEids]);
-    }
-
-    // One mention datom per (source, target), whichever carrier produced it —
-    // `:node/mentions` is cardinality-many, so a duplicate would be a duplicate
-    // datom rather than a no-op.
-    const mentioned = new Set<number>();
-
-    for (const [fieldId, values] of Object.entries(node.props)) {
-      const attr = fieldAttr(fieldId);
-      for (const pv of values) {
-        const datomValue = propDatomValue(pv, ids);
-        if (datomValue.isRef) {
-          refAttrs.add(attr);
-          mentioned.add(datomValue.value);
-        }
-        datoms.push([eid, attr, datomValue.value]);
-      }
-    }
-
-    MENTION_RE.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = MENTION_RE.exec(node.text)) !== null) {
-      const meid = ids.toEid.get(present(m[1], "mention id").trim());
-      if (meid !== undefined) mentioned.add(meid);
-    }
-
-    for (const meid of mentioned) {
-      datoms.push([eid, ":node/mentions", meid]);
-    }
-  }
-
-  const schema: Record<string, Record<string, string>> = {
-    ":node/id": { ":db/unique": ":db.unique/identity" },
-    ":node/child": {
-      ":db/valueType": ":db.type/ref",
-      ":db/cardinality": ":db.cardinality/many",
-    },
-    ":node/mentions": {
-      ":db/valueType": ":db.type/ref",
-      ":db/cardinality": ":db.cardinality/many",
-    },
-  };
-  for (const attr of refAttrs) {
-    if (attr === ":node/child" || attr === ":node/mentions") continue;
-    schema[attr] = {
-      ":db/valueType": ":db.type/ref",
-      ":db/cardinality": ":db.cardinality/many",
-    };
-  }
-
-  return { datoms, schema, ids };
-}
-
-export function buildQueryDb(nodes: KbNode[]): QueryDb {
-  const { datoms, schema, ids } = nodesToDatoms(nodes);
-  const db = d.init_db(datoms, schema);
-  return {
-    db,
-    ids,
-    nodes: new Map(nodes.map((n) => [n.id, n])),
-  };
+function normalizeQueryInput(input: unknown): unknown {
+  if (typeof input === "string") return normalizeEdnQuery(input);
+  if (Array.isArray(input)) return input.map(normalizeQueryInput);
+  return input;
 }
 
 function reviveValue(v: unknown, ids: IdMap): unknown {
@@ -231,18 +67,58 @@ function reviveValue(v: unknown, ids: IdMap): unknown {
   return v;
 }
 
-/** Run raw EDN datalog; entity ids in results are revived to NodeIds when known. */
-export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
-  const q = normalizeEdnQuery(edn);
-  let raw: unknown;
+function reviveTyped(raw: unknown, find: readonly FindPos[], ids: IdMap): unknown {
+  if (!Array.isArray(raw)) return raw;
+  return raw.map((row) => reviveTypedRow(row, find, ids));
+}
+
+function reviveTypedRow(row: unknown, find: readonly FindPos[], ids: IdMap): unknown {
+  if (!Array.isArray(row)) return row;
+  return row.map((val, i) => {
+    const pos = find[i];
+    if (pos?.type === "node-ref") return reviveValue(val, ids);
+    return val;
+  });
+}
+
+function executeEdn(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
   try {
-    raw = d.q(q, db.db, ...inputs);
+    return d.q(edn, db.db, ...inputs);
   } catch (err) {
-    // Query parse/evaluation failures are the caller's datalog at fault, not
-    // an internal defect — surface them as DatalogError so action surfaces can
-    // type them invalid_input while genuine glue bugs stay plain Error.
     throw new DatalogError(err instanceof Error ? err.message : String(err));
   }
+}
+
+/** `(edn, ...inputs) => raw rows` — no revival. `runIr` supplies typed revival. */
+export type EdnExecutor = (edn: string, ...inputs: unknown[]) => unknown;
+
+export function datascriptExecutor(db: QueryDb): EdnExecutor {
+  return (edn, ...inputs) => executeEdn(db, edn, ...inputs);
+}
+
+/**
+ * Compile `ir`, run it through `exec`, revive **only** `node-ref` find positions.
+ * Aggregate counts that collide with live eids stay numbers — the r4 red case.
+ */
+export function runIr(exec: EdnExecutor, ir: Ir, ids: IdMap, ...inputs: unknown[]): unknown {
+  const compiled = compile(ir);
+  const extra = compiled.rules !== undefined ? [compiled.rules, ...inputs] : inputs;
+  const raw = exec(compiled.query, ...extra);
+  if (ir.kind === "raw") return reviveValue(raw, ids);
+  return reviveTyped(raw, ir.find, ids);
+}
+
+/**
+ * Run raw EDN datalog; entity ids in results are revived to NodeIds when known.
+ *
+ * This is the engine-specific surface: every integer that matches a live eid
+ * is revived, including aggregate counts that happen to collide. String
+ * inputs (rules vectors included) are normalised the same way as the query.
+ * Typed revival lives on `runIr`.
+ */
+export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
+  const q = normalizeEdnQuery(rewriteChildOrderCartesian(edn));
+  const raw = executeEdn(db, q, ...inputs.map(normalizeQueryInput));
   return reviveValue(raw, db.ids);
 }
 
@@ -286,17 +162,6 @@ function revivePull(raw: unknown, ids: IdMap): unknown {
       continue;
     }
     out[k] = revivePull(v, ids);
-  }
-  return out;
-}
-
-/** Extract [[id|label]] mentions from text. */
-export function extractMentions(text: string): NodeId[] {
-  const out: NodeId[] = [];
-  MENTION_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = MENTION_RE.exec(text)) !== null) {
-    out.push(present(m[1], "mention id").trim());
   }
   return out;
 }
