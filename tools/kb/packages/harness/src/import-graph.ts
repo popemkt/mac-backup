@@ -20,7 +20,7 @@ import { PACKAGES_ROOT, packageDirs } from "./workspace.ts";
 const SKIP_DIRS = new Set(["node_modules", "dist", "storybook-static", ".nx"]);
 const SOURCE_EXT = [".ts", ".tsx"];
 
-const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\(\s*)(['"])(@kb\/[a-z0-9-]+)\1/g;
+const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\(\s*)(['"])([^'"\n]+)\1/g;
 
 const COMMENTS = /\/\*[\s\S]*?\*\/|(^|[^:\\])\/\/[^\n]*/g;
 
@@ -34,10 +34,18 @@ function stripComments(source: string): string {
   );
 }
 
+/** One import statement: the package it sits in, the raw specifier, the file. */
+export interface ImportSite {
+  source: string;
+  specifier: string;
+  /** Package-relative file that carries the import (`<dir>/src/…`). */
+  file: string;
+}
+
 export interface ImportEdge {
   source: string;
   target: string;
-  /** Workspace-relative file that carries the import. */
+  /** Package-relative file that carries the import. */
   file: string;
 }
 
@@ -53,29 +61,33 @@ function* sourceFiles(dir: string): Generator<string> {
   }
 }
 
-let cached: ImportEdge[] | undefined;
+let cached: ImportSite[] | undefined;
 
-/** Every `@kb/*` import that crosses a package boundary. */
-export function importEdges(): ImportEdge[] {
+/** Every import statement in every package, comments stripped. */
+export function importSites(): ImportSite[] {
   if (cached !== undefined) return cached;
-  const edges: ImportEdge[] = [];
+  const sites: ImportSite[] = [];
   for (const dir of packageDirs()) {
     const source = `@kb/${dir}`;
     for (const file of sourceFiles(join(PACKAGES_ROOT, dir))) {
       const body = stripComments(readFileSync(file, "utf8"));
       for (const match of body.matchAll(SPECIFIER)) {
-        const captured = match[2];
-        if (captured === undefined) continue;
-        const target = captured;
-        if (target === source) continue;
-        edges.push({
-          source,
-          target,
-          file: file.slice(PACKAGES_ROOT.length + 1),
-        });
+        const specifier = match[2];
+        if (specifier === undefined) continue;
+        sites.push({ source, specifier, file: file.slice(PACKAGES_ROOT.length + 1) });
       }
     }
   }
-  cached = edges;
+  cached = sites;
+  return sites;
+}
+
+/** Every `@kb/*` import that crosses a package boundary. */
+export function importEdges(): ImportEdge[] {
+  const edges: ImportEdge[] = [];
+  for (const { source, specifier, file } of importSites()) {
+    if (!/^@kb\/[a-z0-9-]+$/.test(specifier) || specifier === source) continue;
+    edges.push({ source, target: specifier, file });
+  }
   return edges;
 }

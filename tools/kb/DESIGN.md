@@ -46,8 +46,11 @@ packages through each package's `exports`.
 
 One restriction the package graph cannot see is the **isomorphism fence** — a
 `scope:shared` package runs in the browser too, so it may not import `node:*`,
-`bun:*`, or `@effect/platform-bun`. That is stated once, as a
-`no-restricted-imports` override in `.oxlintrc.json`.
+`bun:*`, or `@effect/platform-bun`. It is stated once, beside the matrix in
+`constraints.ts`, and the same `boundaries` check applies it to every import
+under a shared package's `src/`. `.oxlintrc.json` carries no boundary knowledge:
+it is categories plus the rules beyond them, and the only `overrides` are the
+test-file and `.d.ts` file classes.
 
 ## Runtime/tooling boundary
 

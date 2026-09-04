@@ -40,6 +40,18 @@ export const SCOPE_ALLOWS: Record<string, readonly string[]> = {
 };
 
 /**
+ * The isomorphism fence. A `scope:shared` package runs in the browser too, so
+ * it may not import a runtime-only module; platform access belongs to an
+ * infrastructure or app package. It sits beside the matrix because it is the
+ * one boundary the package graph cannot see — the target is not a package.
+ */
+export const RUNTIME_ONLY_SPECIFIERS = /^(bun:|node:|@effect\/platform-bun)/;
+
+export function isIsomorphicScope(scope: string): boolean {
+  return scope === "shared";
+}
+
+/**
  * Test files may import `@kb/test-kit` without inverting the production
  * matrix. The DST harness and scenario runners live there; a domain package
  * depending on test-kit as a production edge would be domain → app.

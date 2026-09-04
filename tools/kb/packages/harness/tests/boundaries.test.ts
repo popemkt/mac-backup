@@ -2,11 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { present } from "../../model/src/present.ts";
 import {
   LAYER_ALLOWS,
+  RUNTIME_ONLY_SPECIFIERS,
   SCOPE_ALLOWS,
+  isIsomorphicScope,
   isTestKitDevDependency,
   testMayImportTestKit,
 } from "../src/constraints.ts";
-import { importEdges } from "../src/import-graph.ts";
+import { importEdges, importSites } from "../src/import-graph.ts";
 import { internalEdges, projectGraph } from "../src/project-graph.ts";
 import { axisValues, dependencyEntries, workspacePackages } from "../src/workspace.ts";
 
@@ -68,6 +70,20 @@ describe("boundaries", () => {
       for (const axis of ["layer", "scope"] as const) {
         const problem = violation(edge.source, edge.target, axis);
         if (problem !== null) violations.push(`${problem}  [${edge.file}]`);
+      }
+    }
+    expect(violations, violations.join("\n")).toEqual([]);
+  });
+
+  test("scope:shared source imports no runtime-only module (the isomorphism fence)", () => {
+    // Red case: add `import { readFileSync } from "node:fs"` to packages/model/src.
+    const violations: string[] = [];
+    for (const { source, specifier, file } of importSites()) {
+      const scope = axisValues(tagsByProject.get(source) ?? [], "scope")[0];
+      if (scope === undefined || !isIsomorphicScope(scope)) continue;
+      if (!/^[^/]+\/src\//.test(file)) continue;
+      if (RUNTIME_ONLY_SPECIFIERS.test(specifier)) {
+        violations.push(`${source} (scope:${scope}) -> ${specifier}  [${file}]`);
       }
     }
     expect(violations, violations.join("\n")).toEqual([]);

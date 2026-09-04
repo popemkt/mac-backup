@@ -222,12 +222,15 @@ Rules for agents:
   package via Nx, also in pre-commit when `tools/kb/` changes), `bun run test`,
   `bun run test:ui`. Two runners split by package: everything but `@kb/ui` runs
   on `bun test`; the browser package runs on Vitest. See `tools/kb/DESIGN.md`.
-- Linting & boundaries (`tools/kb`): layer and scope direction are enforced by
-  `tools/kb/packages/harness` over what the code imports; the matrix is stated
-  once in `packages/harness/src/constraints.ts`. `tools/kb/.oxlintrc.json` is
-  the single oxlint ruleset and owns the one fence the package graph cannot
-  see: a `scope:shared` package may not import `node:*`, `bun:*`, or
-  `@effect/platform-bun`.
+- Linting & boundaries (`tools/kb`): every boundary — layer and scope
+  direction, and the isomorphism fence (a `scope:shared` package may not import
+  `node:*`, `bun:*`, or `@effect/platform-bun`) — is stated once in
+  `packages/harness/src/constraints.ts` and enforced by
+  `tools/kb/packages/harness` over what the code imports. `tools/kb/.oxlintrc.json`
+  is the single oxlint ruleset: the three categories at `error`, the rules
+  beyond them, and overrides only for the test-file and `.d.ts` file classes.
+  A file that legitimately breaks a rule carries a pinpoint
+  `// oxlint-disable-next-line <rule> -- <reason>`, not an override.
 
 ### Effect
 
