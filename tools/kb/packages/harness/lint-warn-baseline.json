@@ -11,20 +11,18 @@
       "effect/lazyEffect": 2,
       "effect/leakingRequirements": 1,
       "effect/schemaNumber": 1,
-      "eslint/max-depth": 2,
       "eslint/max-lines": 2,
       "eslint/max-lines-per-function": 40,
       "eslint/max-nested-callbacks": 1,
-      "eslint/max-params": 2,
-      "eslint/no-await-in-loop": 7,
+      "eslint/no-await-in-loop": 3,
       "typescript/no-non-null-assertion": 300,
-      "typescript/no-unnecessary-condition": 14,
+      "typescript/no-unnecessary-condition": 8,
       "typescript/no-unsafe-type-assertion": 53,
       "typescript/strict-boolean-expressions": 5,
-      "unicorn/consistent-function-scoping": 14
+      "unicorn/consistent-function-scoping": 12
     },
     "advisory": {
-      "typescript/no-deprecated": 12
+      "typescript/no-deprecated": 8
     }
   }
 }

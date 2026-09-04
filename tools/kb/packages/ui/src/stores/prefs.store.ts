@@ -165,7 +165,7 @@ export function initPrefs() {
 
   if (typeof window.matchMedia === "function") {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    mq.addEventListener?.("change", (e) => {
+    mq.addEventListener("change", (e) => {
       applyPrefs(current(), e.matches);
     });
   }

@@ -22,14 +22,22 @@ export type VisibleInstance = {
 /** Pages revealed per frame in paginating modes, keyed by frame node id. */
 export type FramePagesMap = Readonly<Record<string, number>>;
 
+/** What a walk carries all the way down: the graph, the query db, the
+ * per-frame page counts, and the list it appends to. */
+interface WalkContext {
+  nodes: NodeMap;
+  queryDb: QueryDb | null;
+  pages: FramePagesMap;
+  out: VisibleInstance[];
+}
+
 function emitProjectedRows(
+  ctx: WalkContext,
   frameId: string,
-  nodes: NodeMap,
   rowIds: string[] | undefined,
-  pages: FramePagesMap,
-  out: VisibleInstance[],
   keyFor: (nodeId: string) => string,
 ): void {
+  const { nodes, pages, out } = ctx;
   const { rendered } = frameRows({
     frameId,
     nodes,
@@ -42,14 +50,12 @@ function emitProjectedRows(
 }
 
 function walkVisibleInstances(
+  ctx: WalkContext,
   nodeId: string,
   instanceKey: string,
   isRef: boolean,
-  nodes: NodeMap,
-  queryDb: QueryDb | null,
-  pages: FramePagesMap,
-  out: VisibleInstance[],
 ): void {
+  const { nodes, queryDb, out } = ctx;
   const node = nodes.get(nodeId);
   if (!node) return;
   out.push({ nodeId, instanceKey });
@@ -70,22 +76,12 @@ function walkVisibleInstances(
         });
 
         if (projected) {
-          emitProjectedRows(nodeId, nodes, ids, pages, out, (id) =>
-            queryResultInstanceKey(nodeId, id),
-          );
+          emitProjectedRows(ctx, nodeId, ids, (id) => queryResultInstanceKey(nodeId, id));
           return;
         }
 
         for (const id of ids) {
-          walkVisibleInstances(
-            id,
-            queryResultInstanceKey(nodeId, id),
-            true,
-            nodes,
-            queryDb,
-            pages,
-            out,
-          );
+          walkVisibleInstances(ctx, id, queryResultInstanceKey(nodeId, id), true);
         }
       } catch {
         // Broken EDN: skip results
@@ -96,22 +92,12 @@ function walkVisibleInstances(
 
   if (projected) {
     if (isQueryNode(node)) return;
-    emitProjectedRows(nodeId, nodes, undefined, pages, out, (id) =>
-      childInstanceKey(instanceKey, id),
-    );
+    emitProjectedRows(ctx, nodeId, undefined, (id) => childInstanceKey(instanceKey, id));
     return;
   }
 
   for (const child of frameListChildren(nodeId, nodes)) {
-    walkVisibleInstances(
-      child.id,
-      childInstanceKey(instanceKey, child.id),
-      false,
-      nodes,
-      queryDb,
-      pages,
-      out,
-    );
+    walkVisibleInstances(ctx, child.id, childInstanceKey(instanceKey, child.id), false);
   }
 }
 
@@ -124,24 +110,15 @@ export function collectVisibleInstances(
   const out: VisibleInstance[] = [];
   const root = nodes.get(rootNodeId);
   if (!root) return out;
+  const ctx: WalkContext = { nodes, queryDb, pages, out };
 
   if (isProjectedViewMode(getViewConfig(root.props).mode)) {
-    emitProjectedRows(rootNodeId, nodes, undefined, pages, out, (id) =>
-      outlineInstanceKey(id, nodes),
-    );
+    emitProjectedRows(ctx, rootNodeId, undefined, (id) => outlineInstanceKey(id, nodes));
     return out;
   }
 
   for (const child of frameListChildren(rootNodeId, nodes)) {
-    walkVisibleInstances(
-      child.id,
-      outlineInstanceKey(child.id, nodes),
-      false,
-      nodes,
-      queryDb,
-      pages,
-      out,
-    );
+    walkVisibleInstances(ctx, child.id, outlineInstanceKey(child.id, nodes), false);
   }
   return out;
 }

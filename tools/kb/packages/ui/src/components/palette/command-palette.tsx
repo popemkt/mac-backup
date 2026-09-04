@@ -65,7 +65,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   useEffect(() => {
     if (!open || !hits[active]) return;
     const row = listRef.current?.querySelector<HTMLElement>('[data-palette-active="true"]');
-    row?.scrollIntoView?.({ block: "nearest" });
+    row?.scrollIntoView({ block: "nearest" });
   }, [active, hits, open]);
 
   const selectHit = useCallback(

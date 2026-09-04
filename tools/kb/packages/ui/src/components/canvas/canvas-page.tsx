@@ -150,6 +150,57 @@ function closestPort(node: CanvasNode, px: number, py: number): { side: CanvasSi
   return best;
 }
 
+/** A press that landed on the stage itself, not on a card, the toolbar or an edge. */
+const isEmptyStageTarget = (target: EventTarget | null) => {
+  const el = asElement(target);
+  if (el === undefined) return false;
+  if (el.closest("[data-card-id]") !== null) return false;
+  if (el.closest("[data-testid='canvas-toolbar']") !== null) return false;
+  if (el.closest("path") !== null) return false;
+  return true;
+};
+
+/** The four connect handles a card shows on hover. */
+const renderPorts = (
+  _card: CanvasNode,
+  onPortDown: (side: CanvasSide, e: React.PointerEvent) => void,
+) => (
+  <>
+    {(["left", "right", "top", "bottom"] as const).map((side) => (
+      <button
+        key={side}
+        type="button"
+        data-port={side}
+        aria-label={`Connect ${side}`}
+        className={cn(
+          "absolute z-10 h-4.5 w-4.5 rounded-full",
+          "opacity-0 transition-opacity group-hover/card:opacity-100",
+          side === "left" && "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
+          side === "right" && "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
+          side === "top" && "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
+          side === "bottom" && "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
+        )}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          onPortDown(side, e);
+        }}
+      >
+        <span className="block h-2 w-2 rounded-full border border-foreground/20 bg-background mx-auto mt-[5px]" />
+      </button>
+    ))}
+  </>
+);
+
+const SNAP_TOL = 5;
+
+/** The first edge pair within `SNAP_TOL`, as the offset that closes the gap. */
+function snapOffset(pairs: readonly (readonly [number, number])[]) {
+  for (const [mine, theirs] of pairs) {
+    if (Math.abs(mine - theirs) < SNAP_TOL) return { delta: theirs - mine, pos: theirs };
+  }
+  return undefined;
+}
+
 export function CanvasPage({ canvasId }: CanvasPageProps) {
   const nodes = useOutlineStore((s) => s.nodes);
   const queryDb = useOutlineStore((s) => s.queryDb);
@@ -587,15 +638,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
   };
 
-  const isEmptyStageTarget = (target: EventTarget | null) => {
-    const el = asElement(target);
-    if (el === undefined) return false;
-    if (el.closest("[data-card-id]") !== null) return false;
-    if (el.closest("[data-testid='canvas-toolbar']") !== null) return false;
-    if (el.closest("path") !== null) return false;
-    return true;
-  };
-
   const startMoveForSelection = (e: React.PointerEvent, clickedId: string) => {
     const sel = selRef.current;
     const selectedIds = sel.nodeIds.has(clickedId) ? sel.nodeIds : new Set([clickedId]);
@@ -739,7 +781,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       let dy = (e.clientY - d.startY) / zoom;
 
       // Alignment snapping (5px tolerance)
-      const SNAP_TOL = 5;
       const guides: { axis: "x" | "y"; pos: number }[] = [];
       const movingIds = new Set(d.origPositions.keys());
       const firstOrig = d.origPositions.values().next().value;
@@ -763,33 +804,27 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             const oCx = (oLeft + oRight) / 2;
             const oCy = (oTop + oBottom) / 2;
 
-            // X-axis snaps
-            for (const [myEdge, oEdge] of [
+            const xSnap = snapOffset([
               [myLeft, oLeft],
               [myLeft, oRight],
               [myRight, oLeft],
               [myRight, oRight],
               [myCx, oCx],
-            ] as [number, number][]) {
-              if (Math.abs(myEdge - oEdge) < SNAP_TOL) {
-                dx += oEdge - myEdge;
-                guides.push({ axis: "x", pos: oEdge });
-                break;
-              }
+            ]);
+            if (xSnap) {
+              dx += xSnap.delta;
+              guides.push({ axis: "x", pos: xSnap.pos });
             }
-            // Y-axis snaps
-            for (const [myEdge, oEdge] of [
+            const ySnap = snapOffset([
               [myTop, oTop],
               [myTop, oBottom],
               [myBottom, oTop],
               [myBottom, oBottom],
               [myCy, oCy],
-            ] as [number, number][]) {
-              if (Math.abs(myEdge - oEdge) < SNAP_TOL) {
-                dy += oEdge - myEdge;
-                guides.push({ axis: "y", pos: oEdge });
-                break;
-              }
+            ]);
+            if (ySnap) {
+              dy += ySnap.delta;
+              guides.push({ axis: "y", pos: ySnap.pos });
             }
             if (guides.length >= 2) break;
           }
@@ -1095,7 +1130,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       link?.mode === "native" &&
       !!link.fieldId &&
       window.confirm("Also remove the bound prop from the source node?");
-    if (offerUnset && link !== undefined) {
+    if (offerUnset) {
       await flushPersist(next, {
         propTargetId: link.sourceNodeId,
         unsetProps: [
@@ -1197,36 +1232,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       />
     ));
   };
-
-  const renderPorts = (
-    _card: CanvasNode,
-    onPortDown: (side: CanvasSide, e: React.PointerEvent) => void,
-  ) => (
-    <>
-      {(["left", "right", "top", "bottom"] as const).map((side) => (
-        <button
-          key={side}
-          type="button"
-          data-port={side}
-          aria-label={`Connect ${side}`}
-          className={cn(
-            "absolute z-10 h-4.5 w-4.5 rounded-full",
-            "opacity-0 transition-opacity group-hover/card:opacity-100",
-            side === "left" && "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
-            side === "right" && "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
-            side === "top" && "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
-            side === "bottom" && "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
-          )}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            onPortDown(side, e);
-          }}
-        >
-          <span className="block h-2 w-2 rounded-full border border-foreground/20 bg-background mx-auto mt-[5px]" />
-        </button>
-      ))}
-    </>
-  );
 
   const portHandler = (cardId: string) => (side: CanvasSide, e: React.PointerEvent) => {
     dragRef.current = {

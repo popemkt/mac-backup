@@ -157,14 +157,16 @@ function placeInTextNode(tn: Text, _local: number, remaining: { n: number }): bo
 /** Place the caret at a serialized offset, skipping over pills. */
 export function setCaretSerializedOffset(el: HTMLElement, pos: number): void {
   const remaining = { n: Math.max(0, pos) };
-  let placed = false;
+  // A holder, not a `let`: `visit` writes it, and control-flow analysis
+  // cannot see through the closure.
+  const state = { placed: false };
 
   const visit = (node: Node): boolean => {
-    if (placed) return true;
+    if (state.placed) return true;
     if (isTextNode(node)) {
       if (placeInTextNode(node, remaining.n, remaining)) {
         selectRange(node, Math.min(remaining.n, node.data.length));
-        placed = true;
+        state.placed = true;
         return true;
       }
       return false;
@@ -186,7 +188,7 @@ export function setCaretSerializedOffset(el: HTMLElement, pos: number): void {
     if (visit(child)) break;
   }
 
-  if (!placed) {
+  if (!state.placed) {
     // Past the end: park the caret after the last content.
     const lastText = lastDescendantText(el);
     if (lastText) selectRange(lastText, lastText.data.length);

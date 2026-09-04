@@ -172,8 +172,11 @@ describe("outline store (WireNode adaptation)", () => {
   it("getPrevious / getNext respect collapsed subtrees", () => {
     seed();
     useOutlineStore.getState().toggleCollapse("n.root-a");
-    expect(useOutlineStore.getState().getNextVisibleNode("n.root-a")).toBe("n.child-a1");
-    expect(useOutlineStore.getState().getPreviousVisibleNode("n.root-b")).toBe("n.child-a2");
+    const instances = useOutlineStore.getState().getVisibleInstances();
+    const keyA = instances.find((i) => i.nodeId === "n.root-a")?.instanceKey ?? "";
+    const keyB = instances.find((i) => i.nodeId === "n.root-b")?.instanceKey ?? "";
+    expect(useOutlineStore.getState().getNextVisibleInstance(keyA)?.nodeId).toBe("n.child-a1");
+    expect(useOutlineStore.getState().getPreviousVisibleInstance(keyB)?.nodeId).toBe("n.child-a2");
   });
 
   it("builds a DataScript query db on hydrate", () => {

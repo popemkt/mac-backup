@@ -122,10 +122,6 @@ interface OutlineState {
   getVisibleNodes: () => string[];
   getPreviousVisibleInstance: (instanceKey: string) => VisibleInstance | null;
   getNextVisibleInstance: (instanceKey: string) => VisibleInstance | null;
-  /** @deprecated Prefer getPreviousVisibleInstance — ambiguous when nodeId repeats. */
-  getPreviousVisibleNode: (id: string) => string | null;
-  /** @deprecated Prefer getNextVisibleInstance — ambiguous when nodeId repeats. */
-  getNextVisibleNode: (id: string) => string | null;
   getBreadcrumbs: () => Array<{ id: string; text: string }>;
   /** Register a session-minted transient node id (auto-prune candidate). */
   markTransient: (ids: string | string[]) => void;
@@ -776,18 +772,6 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
 
     getNextVisibleInstance: (instanceKey) =>
       neighborVisibleInstance(get().getVisibleInstances(), instanceKey, 1),
-
-    getPreviousVisibleNode: (id) => {
-      const instances = get().getVisibleInstances();
-      const idx = instances.findIndex((i) => i.nodeId === id);
-      return idx > 0 ? (instances[idx - 1]?.nodeId ?? null) : null;
-    },
-
-    getNextVisibleNode: (id) => {
-      const instances = get().getVisibleInstances();
-      const idx = instances.findIndex((i) => i.nodeId === id);
-      return idx >= 0 && idx < instances.length - 1 ? (instances[idx + 1]?.nodeId ?? null) : null;
-    },
 
     getBreadcrumbs: () => {
       const { nodes, rootNodeId, homeRootId } = get();

@@ -260,7 +260,7 @@ function EditableText({
     if (!ref.current) return;
     isEditing.current = false;
     ref.current.contentEditable = "false";
-    const next = ref.current.textContent ?? "";
+    const next = ref.current.textContent;
     if (next !== text) onCommit(next);
   }, [text, onCommit]);
 

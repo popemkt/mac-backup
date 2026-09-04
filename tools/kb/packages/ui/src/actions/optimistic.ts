@@ -193,8 +193,13 @@ export async function runOptimistic(
   let serverApplied = 0;
   try {
     for (const action of plan.actions) {
+      // Sequential by contract: a plan's actions are ordered, and
+      // `serverApplied` counts how far the server got before a failure.
+      // oxlint-disable-next-line eslint/no-await-in-loop
       const receipt = await postAction(action.id, action.input);
       if (receipt.status === "failed") {
+        // Recovery ends the loop; it runs at most once.
+        // oxlint-disable-next-line eslint/no-await-in-loop
         await recoverFailedPlan(
           plan,
           snapshot,

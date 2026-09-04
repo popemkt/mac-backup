@@ -72,6 +72,8 @@ async function postCompensations(actions: Array<{ id: string; input: unknown }>)
   if (source !== "api") return;
   for (const action of actions) {
     try {
+      // Sequential by contract: compensating actions undo each other in order.
+      // oxlint-disable-next-line eslint/no-await-in-loop
       await postAction(action.id, action.input);
     } catch {
       // Server resync (WS / next refetch) heals divergence; never block UI.
@@ -553,7 +555,11 @@ export const mutations = {
     const nodes = useOutlineStore.getState().nodes;
     const carried = pinnedTagIdsOn(nodes.get(nodeId), nodes);
     if (carried.length > 0) {
-      for (const tagId of carried) await mutations.removeTag(nodeId, tagId);
+      for (const tagId of carried) {
+        // Sequential by contract: each removeTag reads the store the last wrote.
+        // oxlint-disable-next-line eslint/no-await-in-loop
+        await mutations.removeTag(nodeId, tagId);
+      }
       return true;
     }
     const existing = findPinnedTagId(nodes);
