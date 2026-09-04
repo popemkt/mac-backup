@@ -1,0 +1,117 @@
+{
+  "candidate": "typed-maps",
+  "scale": "100k",
+  "versions": {
+    "bun": "1.3.14"
+  },
+  "nodes": 11889,
+  "datoms": 100007,
+  "coldLoadMs": {
+    "read": 1.7,
+    "jsonParse": 8.4,
+    "buildMaps": 17.8,
+    "buildForwardAdjacency": 3.2,
+    "total": 31.1
+  },
+  "rssDeltaMB": 60.6,
+  "heapDeltaMB": 31.9,
+  "queries": [
+    {
+      "label": "Q1 all todos",
+      "rows": 4533,
+      "p50": 0,
+      "p90": 0.003,
+      "min": 0,
+      "runs": 20
+    },
+    {
+      "label": "Q2 todos status=doing",
+      "rows": 733,
+      "p50": 0.043,
+      "p90": 0.056,
+      "min": 0.011,
+      "runs": 20
+    },
+    {
+      "label": "Q3 backlinks to hub",
+      "rows": 500,
+      "p50": 0,
+      "p90": 0,
+      "min": 0,
+      "runs": 20
+    },
+    {
+      "label": "Q4 tag inheritance",
+      "rows": 7043,
+      "p50": 0.072,
+      "p90": 0.082,
+      "min": 0.021,
+      "runs": 20
+    },
+    {
+      "label": "Q5 children of parent",
+      "rows": 36,
+      "p50": 0,
+      "p90": 0,
+      "min": 0,
+      "runs": 20
+    },
+    {
+      "label": "Q6 count per status",
+      "rows": 8,
+      "p50": 0.001,
+      "p90": 0.003,
+      "min": 0.001,
+      "runs": 20
+    },
+    {
+      "label": "BL backlinks (=Q3)",
+      "rows": 500,
+      "p50": 0,
+      "p90": 0,
+      "min": 0,
+      "runs": 20
+    },
+    {
+      "label": "CL closure of mentions",
+      "rows": 2059,
+      "p50": 0.146,
+      "p90": 0.334,
+      "min": 0.134,
+      "runs": 20
+    },
+    {
+      "label": "PULL subtree",
+      "rows": 36,
+      "p50": 0.006,
+      "p90": 0.008,
+      "min": 0.004,
+      "runs": 20
+    },
+    {
+      "label": "substring search 'ratchet'",
+      "rows": 50,
+      "p50": 0.036,
+      "p90": 0.108,
+      "min": 0.034,
+      "runs": 20
+    }
+  ],
+  "incrementalMs": {
+    "label": "incremental upsert",
+    "rows": 1,
+    "p50": 0.001,
+    "p90": 0.008,
+    "min": 0.001,
+    "runs": 20
+  },
+  "persistence": {
+    "mode": "none (rebuild only)"
+  },
+  "notes": [
+    "Q1/Q2/Q3/Q5/Q6 are one-line hash lookups; Q4 and CL are the 40 hand-written lines of traversal in this file, and they are the option's real cost",
+    "Q2's intersection order is hand-chosen (status bucket driving, tag set probing). DataScript and SQLite pick a join order from statistics; here every new question is a new hand-optimised plan",
+    "no persistence: these maps have no snapshot format, so cold start is always a full rebuild from JSONL",
+    "`:node/mentions` unions both carriers as one relation, matching the builder — but the forward adjacency has to be materialised separately (charged to load above), because a reverse index alone cannot answer closure"
+  ]
+}

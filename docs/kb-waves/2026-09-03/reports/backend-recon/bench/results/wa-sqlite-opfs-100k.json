@@ -1,0 +1,99 @@
+{
+  "candidate": "wa-sqlite-opfs",
+  "scale": "100k",
+  "versions": {
+    "chromium": "149.0.7827.55",
+    "playwright": "1.62.1",
+    "sql.js": "1.14.2",
+    "wa-sqlite": "1.0.0"
+  },
+  "nodes": 11889,
+  "datoms": 100007,
+  "coldLoadMs": {
+    "wasmInit": 9.2,
+    "vfsCreate": 13.6,
+    "openDb": 1.8,
+    "fetchJsonl": 13.2,
+    "jsonParse": 12,
+    "nodesToDatoms": 19,
+    "insertDatoms": 721.7,
+    "createIndexes": 1911,
+    "buildFts5": "unavailable: no such module: fts5",
+    "total": 2701.5
+  },
+  "rssDeltaMB": -1,
+  "heapDeltaMB": -1,
+  "queries": [
+    {
+      "label": "Q1 all todos",
+      "rows": 4533,
+      "p50": 2.91,
+      "runs": 20
+    },
+    {
+      "label": "Q2 todos status=doing",
+      "rows": 733,
+      "p50": 2.185,
+      "runs": 20
+    },
+    {
+      "label": "Q3 backlinks to hub",
+      "rows": 500,
+      "p50": 0.425,
+      "runs": 20
+    },
+    {
+      "label": "Q4 tag inheritance",
+      "rows": 7043,
+      "p50": 5.155,
+      "runs": 20
+    },
+    {
+      "label": "Q5 children of parent",
+      "rows": 36,
+      "p50": 0.18,
+      "runs": 20
+    },
+    {
+      "label": "Q6 count per status",
+      "rows": 8,
+      "p50": 0.905,
+      "runs": 20
+    },
+    {
+      "label": "BL backlinks (=Q3)",
+      "rows": 500,
+      "p50": 0.425,
+      "runs": 20
+    },
+    {
+      "label": "CL closure of mentions",
+      "rows": 2059,
+      "p50": 4.71,
+      "runs": 20
+    },
+    {
+      "label": "PULL subtree",
+      "rows": 36,
+      "p50": 0.205,
+      "runs": 20
+    }
+  ],
+  "persistence": {
+    "mode": "OPFS (AccessHandlePoolVFS), durable across reloads",
+    "reopenAndCountMs": 72,
+    "datomRowsAfterReopen": 100007,
+    "q1AfterReopenMs": 12.3,
+    "q1RowsAfterReopen": 4533,
+    "bundleRawBytes": 67705,
+    "bundleGzipBytes": 22820,
+    "wasmRawBytes": 558343,
+    "wasmGzipBytes": 276426,
+    "pageWallMs": 3263,
+    "crossOriginIsolated": "true"
+  },
+  "notes": [
+    "measured in headless Chromium via playwright-core; rssDeltaMB is -1 because the process boundary makes an in-page RSS figure meaningless — heapDeltaMB is performance.memory.usedJSHeapSize where the browser exposes it",
+    "bundle bytes are Bun.build minified output for this candidate's entrypoint; wasm bytes are the vendored binary it fetches"
+  ]
+}

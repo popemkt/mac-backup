@@ -1,0 +1,99 @@
+{
+  "candidate": "wa-sqlite-opfs",
+  "scale": "1m",
+  "versions": {
+    "chromium": "149.0.7827.55",
+    "playwright": "1.62.1",
+    "sql.js": "1.14.2",
+    "wa-sqlite": "1.0.0"
+  },
+  "nodes": 117866,
+  "datoms": 1000004,
+  "coldLoadMs": {
+    "wasmInit": 8.2,
+    "vfsCreate": 13.9,
+    "openDb": 1.9,
+    "fetchJsonl": 67.5,
+    "jsonParse": 103.4,
+    "nodesToDatoms": 130.2,
+    "insertDatoms": 5111.9,
+    "createIndexes": 24920.1,
+    "buildFts5": "unavailable: no such module: fts5",
+    "total": 30357.1
+  },
+  "rssDeltaMB": -1,
+  "heapDeltaMB": -1,
+  "queries": [
+    {
+      "label": "Q1 all todos",
+      "rows": 52162,
+      "p50": 146.305,
+      "runs": 20
+    },
+    {
+      "label": "Q2 todos status=doing",
+      "rows": 8725,
+      "p50": 181.76,
+      "runs": 20
+    },
+    {
+      "label": "Q3 backlinks to hub",
+      "rows": 500,
+      "p50": 0.48,
+      "runs": 20
+    },
+    {
+      "label": "Q4 tag inheritance",
+      "rows": 65391,
+      "p50": 454.345,
+      "runs": 20
+    },
+    {
+      "label": "Q5 children of parent",
+      "rows": 36,
+      "p50": 0.195,
+      "runs": 20
+    },
+    {
+      "label": "Q6 count per status",
+      "rows": 8,
+      "p50": 90.025,
+      "runs": 20
+    },
+    {
+      "label": "BL backlinks (=Q3)",
+      "rows": 500,
+      "p50": 0.625,
+      "runs": 20
+    },
+    {
+      "label": "CL closure of mentions",
+      "rows": 2059,
+      "p50": 107.015,
+      "runs": 20
+    },
+    {
+      "label": "PULL subtree",
+      "rows": 36,
+      "p50": 0.27,
+      "runs": 20
+    }
+  ],
+  "persistence": {
+    "mode": "OPFS (AccessHandlePoolVFS), durable across reloads",
+    "reopenAndCountMs": 700.3,
+    "datomRowsAfterReopen": 1000004,
+    "q1AfterReopenMs": 150.3,
+    "q1RowsAfterReopen": 52162,
+    "bundleRawBytes": 67705,
+    "bundleGzipBytes": 22820,
+    "wasmRawBytes": 558343,
+    "wasmGzipBytes": 276426,
+    "pageWallMs": 51434,
+    "crossOriginIsolated": "true"
+  },
+  "notes": [
+    "measured in headless Chromium via playwright-core; rssDeltaMB is -1 because the process boundary makes an in-page RSS figure meaningless — heapDeltaMB is performance.memory.usedJSHeapSize where the browser exposes it",
+    "bundle bytes are Bun.build minified output for this candidate's entrypoint; wasm bytes are the vendored binary it fetches"
+  ]
+}
