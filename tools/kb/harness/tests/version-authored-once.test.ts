@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import {
-  WORKSPACE_ROOT,
+  bunfigInstall,
   dependencyEntries,
   rootManifest,
   workspacePackages,
@@ -92,12 +90,13 @@ describe("version-authored-once", () => {
   });
 
   test("bunfig sets minimumReleaseAge and an explicit trustedDependencies", () => {
-    const bunfig = readFileSync(join(WORKSPACE_ROOT, "bunfig.toml"), "utf8");
-    const age = /^\s*minimumReleaseAge\s*=\s*(\d+)\s*$/m.exec(bunfig);
-    expect(age, "bunfig.toml [install] has no minimumReleaseAge").not.toBeNull();
-    expect(Number(age?.[1])).toBeGreaterThanOrEqual(MIN_RELEASE_AGE_MINUTES);
+    const install = bunfigInstall();
     expect(
-      /^\s*trustedDependencies\s*=\s*\[/m.test(bunfig),
+      install.minimumReleaseAge,
+      "bunfig.toml [install] has no minimumReleaseAge",
+    ).toBeGreaterThanOrEqual(MIN_RELEASE_AGE_MINUTES);
+    expect(
+      Array.isArray(install.trustedDependencies),
       "bunfig.toml [install] has no explicit trustedDependencies allowlist",
     ).toBe(true);
   });
