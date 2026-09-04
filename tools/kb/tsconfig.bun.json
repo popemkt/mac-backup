@@ -57,7 +57,7 @@
         "overrides": [
           {
             "include": [
-              "packages/*/src/**/*"
+              "packages/*/*/src/**/*"
             ],
             "options": {
               "diagnosticSeverity": {

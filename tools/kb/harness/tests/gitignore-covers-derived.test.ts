@@ -15,7 +15,7 @@ import { WORKSPACE_ROOT } from "../src/workspace.ts";
  *     - reports/mutation/* (Stryker mutation test reports)
  *     - .stryker-tmp/* (Stryker temp files)
  *
- * Red case: check an unignored file (e.g. packages/model/src/model.ts).
+ * Red case: check an unignored file (e.g. packages/domain/model/src/model.ts).
  */
 
 const REPO_ROOT = join(WORKSPACE_ROOT, "..", "..");

@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { present } from "../src/present.ts";
 import {
   LAYER_ALLOWS,
   RUNTIME_ONLY_SPECIFIERS,
@@ -89,12 +88,14 @@ describe("boundaries", () => {
   });
 
   test("scope:shared source imports no runtime-only module (the isomorphism fence)", () => {
-    // Red case: add `import { readFileSync } from "node:fs"` to packages/model/src.
+    // Red case: add `import { readFileSync } from "node:fs"` to
+    // packages/domain/model/src.
     const violations: string[] = [];
     for (const { source, specifier, file } of importSites()) {
       const scope = axisValues(tagsByProject.get(source) ?? [], "scope")[0];
       if (scope === undefined || !isIsomorphicScope(scope)) continue;
-      if (!/^[^/]+\/src\//.test(file)) continue;
+      // `file` is package-relative, so the production tree is one prefix.
+      if (!file.startsWith("src/")) continue;
       if (RUNTIME_ONLY_SPECIFIERS.test(specifier)) {
         violations.push(`${source} (scope:${scope}) -> ${specifier}  [${file}]`);
       }
@@ -118,7 +119,7 @@ describe("boundaries", () => {
     // The harness checks the workspace from outside it. An import of `@kb/*`,
     // or a relative path that climbs out of `harness/`, would make the checker
     // a member of the thing it checks — and would put it back in the matrix.
-    // Red case: `import { present } from "../../packages/model/src/present.ts"`.
+    // Red case: `import { present } from "../../packages/domain/model/src/present.ts"`.
     const violations: string[] = [];
     for (const file of sourceFilesUnder(HARNESS_ROOT)) {
       for (const specifier of specifiersOf(file, readFileSync(file, "utf8"))) {
@@ -140,11 +141,11 @@ describe("boundaries", () => {
     // Hoisting makes an undeclared import work until it does not: the nix
     // build of @kb/ui failed on exactly this for `three`.
     const declared = new Map(
-      workspacePackages().map(({ manifest }) => [
-        present(manifest.name, "expected manifest.name"),
+      workspacePackages().map(({ name, manifest }) => [
+        name,
         new Set(
           dependencyEntries(manifest)
-            .map(([, name]) => name)
+            .map(([, dep]) => dep)
             .filter((n) => n.startsWith("@kb/")),
         ),
       ]),

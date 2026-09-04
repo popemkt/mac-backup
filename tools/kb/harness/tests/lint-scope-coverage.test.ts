@@ -5,7 +5,7 @@ import {
   missingScopes,
   type PathScope,
 } from "../src/scopes.ts";
-import { rootManifest } from "../src/workspace.ts";
+import { rootManifest, workspacePackages } from "../src/workspace.ts";
 
 /**
  * Harness check 1: Lint scope coverage (spec 11 / plan A.9 #1).
@@ -19,11 +19,21 @@ import { rootManifest } from "../src/workspace.ts";
  * Red case: add an unlinted file outside the scopes (e.g. tools/kb/unlinted.ts).
  */
 
-const EXCLUDED_BY_DECISION = [
-  "packages/ext-sdk/generated",
-  "packages/ui/dist",
-  "packages/ui/storybook-static",
+/**
+ * Derived trees inside a package that no linter should see, as
+ * `[package name, package-relative directory]`. Named by package rather than
+ * by path so the exclusion does not restate where the package sits.
+ */
+const DERIVED_BY_DECISION: Array<[string, string]> = [
+  ["@kb/ext-sdk", "generated"],
+  ["@kb/ui", "dist"],
+  ["@kb/ui", "storybook-static"],
 ];
+
+function excludedByDecision(): string[] {
+  const dirByName = new Map(workspacePackages().map((pkg) => [pkg.name, pkg.dir]));
+  return DERIVED_BY_DECISION.map(([name, sub]) => `packages/${dirByName.get(name) ?? name}/${sub}`);
+}
 
 export function parseLintScopes(lintScript: string): string[] {
   // Parse command arguments, skipping flags and options like --config <file>
@@ -71,7 +81,7 @@ describe("lint-scope-coverage", () => {
     const tsFiles = allWorkspaceTsFiles();
     expect(tsFiles.length).toBeGreaterThan(50);
 
-    const { unassigned, multiple } = assignToScopes(tsFiles, scopes, EXCLUDED_BY_DECISION);
+    const { unassigned, multiple } = assignToScopes(tsFiles, scopes, excludedByDecision());
 
     expect(
       unassigned,

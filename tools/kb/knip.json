@@ -7,18 +7,18 @@
         "harness/src/snapshot.ts"
       ]
     },
-    "packages/cli": {
+    "packages/app/cli": {
       "entry": [
         "src/bin/*.ts"
       ]
     },
-    "packages/ext-sdk": {
+    "packages/contract/ext-sdk": {
       "entry": [
         "scripts/generate.ts",
         "tests/*.test.ts"
       ]
     },
-    "packages/render-tests": {
+    "packages/test-support/render-tests": {
       "entry": [
         "playwright.config.ts",
         "tests-render/*.e2e.ts",
@@ -26,7 +26,7 @@
         "tests-render/server.ts"
       ]
     },
-    "packages/test-kit": {
+    "packages/app/test-kit": {
       "entry": [
         "tests/*.test.ts",
         "tests/run-many.ts"
@@ -34,9 +34,9 @@
     }
   },
   "ignoreFiles": [
-    "packages/ext-sdk/src/surface.ts",
-    "packages/ui/src/api/queries.ts",
-    "packages/ui/src/components/canvas/index.tsx"
+    "packages/contract/ext-sdk/src/surface.ts",
+    "packages/app/ui/src/api/queries.ts",
+    "packages/app/ui/src/components/canvas/index.tsx"
   ],
   "ignoreDependencies": [
     "graphology-communities-louvain",

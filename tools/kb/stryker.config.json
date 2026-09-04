@@ -3,12 +3,12 @@
   "_comment": "Command runner, not vitest: `bun:test` cannot load under vitest unchanged (see t1-property-mutation report). tsconfigFile points at a name that does not exist so Stryker's TSConfigPreprocessor finds nothing to parse — TS 7's native port dropped `ts.parseConfigFileTextToJson`, which that preprocessor calls unconditionally on any tracked tsconfig.json and crashes on.",
   "testRunner": "command",
   "commandRunner": {
-    "command": "bun test packages/model packages/query"
+    "command": "bun test packages/domain/model packages/domain/query"
   },
   "coverageAnalysis": "off",
   "tsconfigFile": "stryker-tsconfig-workaround-none.json",
-  "mutate": ["packages/model/src/**/*.ts"],
-  "ignorePatterns": ["packages/ui/**"],
+  "mutate": ["packages/domain/model/src/**/*.ts"],
+  "ignorePatterns": ["packages/app/ui/**"],
   "reporters": ["clear-text", "progress", "html"],
   "htmlReporter": {
     "fileName": "reports/mutation/index.html"

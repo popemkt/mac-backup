@@ -1,9 +1,0 @@
-{
-  "extends": "../../tsconfig.browser.json",
-  "compilerOptions": {
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  },
-  "include": [".storybook", "src", "vite.config.ts"]
-}

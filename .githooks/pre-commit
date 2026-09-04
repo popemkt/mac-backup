@@ -11,7 +11,7 @@ repo_root="$(git rev-parse --show-toplevel)"
 # local dependencies yet; say exactly how to restore this optional check.
 if [ -d "$repo_root/tools/kb" ] && [ -d "$repo_root/.kb" ]; then
   if command -v bun >/dev/null 2>&1 && [ -x "$repo_root/tools/kb/node_modules/.bin/nx" ]; then
-    (cd "$repo_root" && bun tools/kb/packages/cli/src/bin/docs-check.ts)
+    (cd "$repo_root" && bun tools/kb/packages/app/cli/src/bin/docs-check.ts)
   else
     echo "warning: kb docs check skipped — tools/kb dependencies are unavailable; run: bun install --cwd tools/kb" >&2
   fi

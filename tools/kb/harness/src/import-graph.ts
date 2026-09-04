@@ -16,7 +16,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseSync } from "oxc-parser";
-import { PACKAGES_ROOT, packageDirs } from "./workspace.ts";
+import { PACKAGES_ROOT, workspacePackages } from "./workspace.ts";
 
 const SKIP_DIRS = new Set(["node_modules", "dist", "storybook-static", ".nx"]);
 const SOURCE_EXT = [".ts", ".tsx"];
@@ -26,16 +26,21 @@ const QUOTED = /^(['"])(.*)\1$/s;
 
 /** One import statement: the package it sits in, the raw specifier, the file. */
 export interface ImportSite {
+  /** Manifest name of the package the file belongs to. */
   source: string;
   specifier: string;
-  /** Package-relative file that carries the import (`<dir>/src/…`). */
+  /**
+   * File that carries the import, relative to its own package (`src/…`).
+   * Package-relative rather than packages-relative so no rule has to know how
+   * deep a package sits — the owning package is already named by `source`.
+   */
   file: string;
 }
 
 export interface ImportEdge {
   source: string;
   target: string;
-  /** Package-relative file that carries the import. */
+  /** File that carries the import, relative to its own package. */
   file: string;
 }
 
@@ -125,11 +130,11 @@ let cached: ImportSite[] | undefined;
 export function importSites(): ImportSite[] {
   if (cached !== undefined) return cached;
   const sites: ImportSite[] = [];
-  for (const dir of packageDirs()) {
-    const source = `@kb/${dir}`;
-    for (const file of sourceFilesUnder(join(PACKAGES_ROOT, dir))) {
+  for (const { dir, name } of workspacePackages()) {
+    const root = join(PACKAGES_ROOT, dir);
+    for (const file of sourceFilesUnder(root)) {
       for (const specifier of specifiersOf(file, readFileSync(file, "utf8"))) {
-        sites.push({ source, specifier, file: file.slice(PACKAGES_ROOT.length + 1) });
+        sites.push({ source: name, specifier, file: file.slice(root.length + 1) });
       }
     }
   }

@@ -12,13 +12,19 @@
  */
 import { existsSync } from "node:fs";
 import { join, normalize } from "node:path";
-import { WORKSPACE_ROOT, gitWorkspaceFiles, readTsconfig, workspacePackages } from "./workspace.ts";
+import {
+  type WorkspacePackage,
+  WORKSPACE_ROOT,
+  gitWorkspaceFiles,
+  readTsconfig,
+  workspacePackages,
+} from "./workspace.ts";
 
 /** One scope plus the config line that authored it, for the failure message. */
 export interface PathScope {
   /** Workspace-relative directory or file path. */
   path: string;
-  /** Where the scope was declared, e.g. `packages/cli/tsconfig.json`. */
+  /** Where the scope was declared, e.g. `packages/app/cli/tsconfig.json`. */
   source: string;
 }
 
@@ -82,7 +88,12 @@ export function missingScopes(scopes: readonly PathScope[]): string[] {
  * the list instead of assuming everything lives under `packages/`.
  */
 export function typecheckProjectDirs(): string[] {
-  return [...workspacePackages().map(({ dir }) => `packages/${dir}`), "harness"];
+  return [...workspacePackages().map(projectDirOf), "harness"];
+}
+
+/** Where one package's `tsc -p` project lives, workspace-relative. */
+export function projectDirOf(pkg: Pick<WorkspacePackage, "dir">): string {
+  return `packages/${pkg.dir}`;
 }
 
 /**

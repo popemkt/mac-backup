@@ -63,8 +63,16 @@ export interface PackageManifest {
 }
 
 export interface WorkspacePackage {
-  /** Directory name under packages/. */
+  /** Path under packages/, `<layer>/<name>`. */
   dir: string;
+  /** The layer folder this package sits in. The folder *is* the layer. */
+  layer: string;
+  /**
+   * The manifest's own `name`. `""` when the manifest declares none — that is
+   * a `workspace-shape` failure, and an empty name matches no import specifier
+   * and no declared dependency, so every other gate goes red rather than quiet.
+   */
+  name: string;
   manifestPath: string;
   manifest: PackageManifest;
 }
@@ -77,17 +85,44 @@ export function rootManifest(): PackageManifest {
   return readJson(join(WORKSPACE_ROOT, "package.json"));
 }
 
-/** Every directory under packages/, whether or not it is a valid member. */
+function subdirectories(dir: string): string[] {
+  return readdirSync(dir)
+    .filter((name) => statSync(join(dir, name)).isDirectory())
+    .toSorted();
+}
+
+/**
+ * Every directory directly under packages/. Each one names a layer, which is
+ * what makes `layer` a property of placement rather than a tag repeating it;
+ * `workspace-shape` is where "and it is a layer the matrix knows" is asserted.
+ */
+export function layerDirs(): string[] {
+  return subdirectories(PACKAGES_ROOT);
+}
+
+/**
+ * Every `<layer>/<name>` directory under packages/, whether or not it is a
+ * valid member.
+ */
 export function packageDirs(): string[] {
-  return readdirSync(PACKAGES_ROOT)
-    .filter((name) => statSync(join(PACKAGES_ROOT, name)).isDirectory())
+  return layerDirs()
+    .flatMap((layer) =>
+      subdirectories(join(PACKAGES_ROOT, layer)).map((name) => `${layer}/${name}`),
+    )
     .toSorted();
 }
 
 export function workspacePackages(): WorkspacePackage[] {
   return packageDirs().map((dir) => {
     const manifestPath = join(PACKAGES_ROOT, dir, "package.json");
-    return { dir, manifestPath, manifest: readJson(manifestPath) };
+    const manifest = readJson(manifestPath);
+    return {
+      dir,
+      layer: dir.slice(0, dir.indexOf("/")),
+      name: manifest.name ?? "",
+      manifestPath,
+      manifest,
+    };
   });
 }
 

@@ -7,7 +7,7 @@
 
 # Single entry point: one `kb` binary with the SPA baked beside it.
 # Operator never minds KB_UI_DIST — the wrapper sets KB_PKG_ROOT so
-# paths.ts resolves `$out/lib/kb/packages/ui/dist` the same as a checkout.
+# paths.ts resolves `$out/lib/kb/packages/app/ui/dist` the same as a checkout.
 #
 # UI and CLI bundles are fixed-output derivations (network for bun install).
 # Unchanged inputs → same output hash → Nix reuses the store path.
@@ -43,7 +43,7 @@ let
       # One workspace, one lockfile: @kb/* resolve as linked workspace packages.
       bun install --frozen-lockfile
       (
-        cd packages/ui
+        cd packages/app/ui
         bun run build
       )
       runHook postBuild
@@ -51,7 +51,7 @@ let
     installPhase = ''
       runHook preInstall
       mkdir -p "$out"
-      cp -a packages/ui/dist/. "$out/"
+      cp -a packages/app/ui/dist/. "$out/"
       runHook postInstall
     '';
   };
@@ -70,7 +70,7 @@ let
       export HOME=$TMPDIR
       bun install --frozen-lockfile
       mkdir -p "$TMPDIR/bundle"
-      bun build ./packages/cli/src/main.ts \
+      bun build ./packages/app/cli/src/main.ts \
         --outdir="$TMPDIR/bundle" \
         --target=bun \
         --sourcemap=none
@@ -97,9 +97,9 @@ stdenvNoCC.mkDerivation {
 
   installPhase = ''
     runHook preInstall
-    mkdir -p "$out/lib/kb/packages/ui" "$out/bin"
+    mkdir -p "$out/lib/kb/packages/app/ui" "$out/bin"
     cp -a ${cliJs}/cli.js "$out/lib/kb/cli.js"
-    cp -a ${uiDist} "$out/lib/kb/packages/ui/dist"
+    cp -a ${uiDist} "$out/lib/kb/packages/app/ui/dist"
     makeBinaryWrapper ${lib.getExe bun} "$out/bin/kb" \
       --set KB_PKG_ROOT "$out/lib/kb" \
       --add-flags "$out/lib/kb/cli.js"

@@ -89,7 +89,7 @@ jobs:
         working-directory: tools/kb
 
       - name: Generated docs match .kb data
-        run: bun tools/kb/packages/cli/src/bin/docs-check.ts
+        run: bun tools/kb/packages/app/cli/src/bin/docs-check.ts
 
       - name: kb media backup ownership
         run: ./scripts/check-kb-assets-backup.sh check
