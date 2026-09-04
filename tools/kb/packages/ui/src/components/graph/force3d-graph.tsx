@@ -206,7 +206,7 @@ export default function Force3dGraph({
 
     if (showLabels) {
       Graph.nodeThreeObject((node: FgNode) => {
-        if (!labelIds.has(node.id)) return undefined as unknown as Object3D;
+        if (!labelIds.has(node.id)) return undefined as unknown as Object3D; // GAP [[01M1P2RAJVTB4CESYGEVF7NDE1]]
         return makeLabelSprite(formatGraphLabel(node.name, node.val), labelColor);
       }).nodeThreeObjectExtend(true);
     }
