@@ -7,6 +7,9 @@ import {
   collectOxlintWarnings,
   type BaselineLanes,
 } from "../src/snapshot.ts";
+import { ratchetMismatches, unpromotedWarnRules, type OxlintRuleSetting } from "../src/ratchet.ts";
+import { WORKSPACE_ROOT } from "../src/workspace.ts";
+import { join } from "node:path";
 
 /**
  * Harness check 2: deterministic-debt ratchet.
@@ -14,32 +17,10 @@ import {
  * Blocking lint warnings and Knip findings use one mechanism: the committed
  * ledger must equal complete collector output. Any change requires an explicit
  * `bun run harness:snapshot`; a zero count disappears from the regenerated
- * ledger. Advisory lint diagnostics remain non-blocking.
+ * ledger — and a `warn` rule with no debt left is promoted to `error`, so the
+ * ledger never hides an unchecked lane. Advisory lint diagnostics remain
+ * non-blocking.
  */
-
-export function ratchetMismatches(
-  baseline: Record<string, number>,
-  current: Record<string, number>,
-  lane: string,
-): string[] {
-  const mismatches: string[] = [];
-  for (const [identity, baselineCount] of Object.entries(baseline)) {
-    const currentCount = current[identity] ?? 0;
-    if (currentCount !== baselineCount) {
-      mismatches.push(
-        `${lane} ${identity} count changed from ${baselineCount} to ${currentCount}; run bun run harness:snapshot`,
-      );
-    }
-  }
-  for (const [identity, currentCount] of Object.entries(current)) {
-    if (!(identity in baseline) && currentCount > 0) {
-      mismatches.push(
-        `${lane} ${identity} appeared with count ${currentCount}; run bun run harness:snapshot`,
-      );
-    }
-  }
-  return mismatches.toSorted();
-}
 
 describe("lint-warn-ratchet", () => {
   test("baseline file exists and contains valid lanes", () => {
@@ -63,6 +44,28 @@ describe("lint-warn-ratchet", () => {
     expect(ratchetMismatches({ "eslint/example": 3 }, { "eslint/example": 1 }, "lint")).toEqual([
       "lint eslint/example count changed from 3 to 1; run bun run harness:snapshot",
     ]);
+  });
+
+  test("a warn rule with no debt left must be promoted to error", () => {
+    expect(unpromotedWarnRules({ "eslint/example": "warn" }, {})).toEqual([
+      'eslint/example is "warn" with no debt in the ledger; promote it to "error" in .oxlintrc.json',
+    ]);
+    expect(
+      unpromotedWarnRules({ "eslint/example": ["warn", {}] }, { "eslint/example": 3 }),
+    ).toEqual([]);
+    expect(unpromotedWarnRules({ "eslint/example": "error" }, {})).toEqual([]);
+  });
+
+  test("every warn rule in .oxlintrc.json still has debt in the blocking lane", () => {
+    const baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf8")) as BaselineLanes;
+    const config = JSON.parse(readFileSync(join(WORKSPACE_ROOT, ".oxlintrc.json"), "utf8")) as {
+      rules?: Record<string, OxlintRuleSetting>;
+    };
+    const unpromoted = unpromotedWarnRules(config.rules ?? {}, {
+      ...baseline.lanes.blocking,
+      ...baseline.lanes.advisory,
+    });
+    expect(unpromoted, unpromoted.join("\n")).toEqual([]);
   });
 
   test("non-JSON collector output is unhealthy, not an empty finding set", () => {
