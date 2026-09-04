@@ -7,6 +7,7 @@ import { KB_TEXT_CLASS } from "@/lib/md-inline";
 import { fuzzyNodeCandidates } from "@/lib/refs";
 import { TAG_PALETTE } from "@/lib/tag-color";
 import { useOutlineStore } from "@/stores/outline.store";
+import { asInstance } from "@/lib/dom";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
 import { Bullet } from "./bullet";
 import { NodeRow } from "./node-row";
@@ -217,7 +218,7 @@ export function ColorSwatchEditor({
           e.stopPropagation();
           if (e.key === "Enter") {
             e.preventDefault();
-            (e.target as HTMLInputElement).blur();
+            asInstance(e.target, HTMLElement)?.blur();
           }
         }}
       />

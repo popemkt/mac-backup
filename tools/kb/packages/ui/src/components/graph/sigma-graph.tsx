@@ -7,6 +7,7 @@ import { readTokenColor } from "@/lib/css-color";
 import { graphNodeAlpha, withGraphAlpha } from "@/lib/graph-dim";
 import { formatGraphLabel } from "@/lib/graph-label";
 import { computeLayoutPositions } from "@/lib/graph-layouts";
+import { asInstance } from "@/lib/dom";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
 import { fitView } from "./graph-camera";
 import { sigmaCameraControls, type GraphCameraControls } from "./graph-camera-controls";
@@ -267,8 +268,8 @@ export function SigmaGraph({
     // --- Selection ---
     sigma.on("clickNode", ({ node, event }) => {
       if (dragRef.current?.dragging === true) return;
-      const nativeEvent = event.original as MouseEvent;
-      if (nativeEvent.metaKey || nativeEvent.ctrlKey) {
+      const nativeEvent = asInstance(event.original, MouseEvent);
+      if (nativeEvent?.metaKey === true || nativeEvent?.ctrlKey === true) {
         onOpenRef.current(node);
         return;
       }

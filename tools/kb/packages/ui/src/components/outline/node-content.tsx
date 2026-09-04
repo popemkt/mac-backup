@@ -14,6 +14,7 @@ import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { MdView } from "@/components/outline/md-view";
+import { asElement } from "@/lib/dom";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
 import { nearestOffsetForX, offsetFromPoint } from "./caret";
 import { TagChipGroup } from "./tag-chip";
@@ -179,9 +180,9 @@ export function NodeTextHost({
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       if (!isActive) {
-        const t = e.target as HTMLElement;
+        const t = asElement(e.target);
         if (
-          t.closest(
+          t?.closest(
             "a.kb-md-ref, a.kb-md-link, .kb-md-media, img.kb-md-media, video.kb-md-media, audio.kb-md-media",
           )
         ) {

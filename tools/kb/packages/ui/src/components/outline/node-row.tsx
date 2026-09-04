@@ -1,4 +1,5 @@
 import { cn } from "@/lib/cn";
+import { asInstance } from "@/lib/dom";
 import { indentStyle } from "@/lib/indent";
 
 export interface NodeRowProps {
@@ -56,14 +57,14 @@ export function NodeRow({
           ? (e) => {
               if (e.key === "Enter" || e.key === " ") {
                 // Don't steal keys from nested editors / buttons.
-                const t = e.target as HTMLElement | null;
+                const t = asInstance(e.target, HTMLElement);
                 if (
-                  t &&
+                  t !== undefined &&
                   (t.isContentEditable ||
                     t.tagName === "INPUT" ||
                     t.tagName === "TEXTAREA" ||
                     t.tagName === "BUTTON" ||
-                    t.closest("button,[contenteditable='true'],input,textarea"))
+                    t.closest("button,[contenteditable='true'],input,textarea") !== null)
                 ) {
                   return;
                 }

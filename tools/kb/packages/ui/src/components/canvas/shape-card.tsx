@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CanvasShapeNode } from "@kb/canvas";
 import { canvasColorStyle, resolveCanvasColor } from "@/lib/canvas-color";
+import { classifyCardPointer } from "@/lib/card-pointer";
 import { cn } from "@/lib/cn";
 import {
   cancelLabelEdit,
@@ -128,10 +129,9 @@ export function ShapeCard({
         height: card.height,
       }}
       onPointerDown={(e) => {
-        const target = e.target as HTMLElement;
-        if (target.closest("[data-port]")) return;
-        if (target.closest("[data-resize]")) return;
-        if (target.closest("input")) {
+        const intent = classifyCardPointer(e.target, "input");
+        if (intent === "chrome") return;
+        if (intent === "edit") {
           onSelect({ x: e.clientX, y: e.clientY });
           return;
         }

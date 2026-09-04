@@ -56,6 +56,8 @@ import {
   redo as histRedo,
 } from "@/lib/canvas-history";
 import { resolveCanvasColor } from "@/lib/canvas-color";
+import { classifyCardPointer } from "@/lib/card-pointer";
+import { asElement, asInstance, isTextEntry } from "@/lib/dom";
 import { navigate } from "@/lib/router";
 import { toast } from "@/lib/toast";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -256,10 +258,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   useEffect(() => {
     // oxlint-disable-next-line complexity -- GAP [[01M1MGCS6A29HT51G40W5TEEYK]]
     const onKeyDown = (e: KeyboardEvent) => {
-      const inField =
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        (e.target as HTMLElement).isContentEditable;
+      const inField = isTextEntry(e.target);
 
       // Undo / Redo (works even when in field)
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
@@ -590,11 +589,11 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   };
 
   const isEmptyStageTarget = (target: EventTarget | null) => {
-    const el = target as HTMLElement | null;
-    if (!el?.closest) return false;
-    if (el.closest("[data-card-id]")) return false;
-    if (el.closest("[data-testid='canvas-toolbar']")) return false;
-    if (el.closest("path")) return false;
+    const el = asElement(target);
+    if (el === undefined) return false;
+    if (el.closest("[data-card-id]") !== null) return false;
+    if (el.closest("[data-testid='canvas-toolbar']") !== null) return false;
+    if (el.closest("path") !== null) return false;
     return true;
   };
 
@@ -613,7 +612,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       startY: e.clientY,
       origPositions,
     };
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    asElement(e.target)?.setPointerCapture(e.pointerId);
   };
 
   const onPointerDownStage = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -625,7 +624,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         ox: pan.x,
         oy: pan.y,
       };
-      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      asElement(e.target)?.setPointerCapture(e.pointerId);
       return;
     }
     if (e.button === 0 && isEmptyStageTarget(e.target)) {
@@ -656,7 +655,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         worldY: world.y,
         additive: e.shiftKey,
       };
-      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      asElement(e.target)?.setPointerCapture(e.pointerId);
     }
   };
 
@@ -938,8 +937,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
     if (d.kind !== "edge") return;
 
-    const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
-    const cardEl = el?.closest("[data-card-id]") as HTMLElement | null;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const cardEl = asInstance(el?.closest("[data-card-id]"), HTMLElement);
     const toCardId = cardEl?.dataset.cardId;
     if (!toCardId || toCardId === d.fromCardId) return;
     const from = byId.get(d.fromCardId);
@@ -1194,7 +1193,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             origW: card.width,
             origH: card.height,
           };
-          (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+          asElement(e.target)?.setPointerCapture(e.pointerId);
         }}
       />
     ));
@@ -1574,9 +1573,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                       height: card.height,
                     }}
                     onPointerDown={(e) => {
-                      const target = e.target as HTMLElement;
-                      if (target.closest("[data-port]")) return;
-                      if (target.closest("[data-resize]")) return;
+                      if (classifyCardPointer(e.target, undefined) === "chrome") return;
                       e.stopPropagation();
                       handleCardPointerDown(card, e);
                     }}
@@ -1618,7 +1615,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                           origW: card.width,
                           origH: card.height,
                         };
-                        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+                        asElement(e.target)?.setPointerCapture(e.pointerId);
                       }}
                       onPortDown={portHandler(card.id)}
                     />
@@ -1663,7 +1660,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                           origW: card.width,
                           origH: card.height,
                         };
-                        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+                        asElement(e.target)?.setPointerCapture(e.pointerId);
                       }}
                       onPortDown={portHandler(card.id)}
                     />
@@ -1723,7 +1720,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                         origW: card.width,
                         origH: card.height,
                       };
-                      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+                      asElement(e.target)?.setPointerCapture(e.pointerId);
                     }}
                     onPortDown={portHandler(card.id)}
                   />

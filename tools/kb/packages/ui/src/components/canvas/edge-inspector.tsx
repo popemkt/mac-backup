@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { CanvasEdge, KbLinkMode } from "@kb/canvas";
 import { CANVAS_COLOR_PRESETS } from "@/lib/canvas-color";
 import { cn } from "@/lib/cn";
+import { isOutside } from "@/lib/dom";
 
 export interface EdgeInspectorProps {
   edge: CanvasEdge;
@@ -38,7 +39,7 @@ export function EdgeInspector({
       if (e.key === "Escape") onClose();
     };
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      if (isOutside(ref.current, e.target)) onClose();
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("mousedown", onDown);

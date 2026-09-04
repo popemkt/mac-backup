@@ -7,6 +7,7 @@
  * markdown, so the store keeps plain text; the pill layer is purely
  * presentational and rebuilt from the authoritative string.
  */
+import { isElementNode, isTextNode } from "@/lib/dom";
 export const KB_REF_ATTR = "data-kb-ref";
 
 /** Complete wiki-link token: [[id]] or [[id|label]]. */
@@ -50,14 +51,13 @@ export function renderEditableContent(el: HTMLElement, text: string): void {
 }
 
 function serializeNode(node: Node): string {
-  if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
-  if (node.nodeType === Node.ELEMENT_NODE) {
-    const el = node as HTMLElement;
-    const token = el.getAttribute(KB_REF_ATTR);
+  if (isTextNode(node)) return node.data;
+  if (isElementNode(node)) {
+    const token = node.getAttribute(KB_REF_ATTR);
     if (token !== null) return token;
-    if (el.tagName === "BR") return "\n";
+    if (node.tagName === "BR") return "\n";
     let out = "";
-    for (const child of Array.from(el.childNodes)) out += serializeNode(child);
+    for (const child of Array.from(node.childNodes)) out += serializeNode(child);
     return out;
   }
   return "";
@@ -77,41 +77,39 @@ interface MeasureState {
   total: number;
 }
 
-function tokenLengthOf(el: HTMLElement): number {
+function tokenLengthOf(el: Element): number {
   return el.getAttribute(KB_REF_ATTR)?.length ?? 0;
 }
 
 function measureUpTo(node: Node, state: MeasureState): void {
   if (state.done) return;
   if (node === state.target) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      state.total += Math.min(state.offset, node.textContent?.length ?? 0);
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
-      const el = node as HTMLElement;
-      const token = el.getAttribute(KB_REF_ATTR);
+    if (isTextNode(node)) {
+      state.total += Math.min(state.offset, node.data.length);
+    } else if (isElementNode(node)) {
+      const token = node.getAttribute(KB_REF_ATTR);
       if (token !== null) {
         // Boundary inside an atomic pill: clamp to token edges.
         state.total += state.offset > 0 ? token.length : 0;
       } else {
-        const kids = Array.from(el.childNodes).slice(0, state.offset);
+        const kids = Array.from(node.childNodes).slice(0, state.offset);
         for (const kid of kids) measureUpTo(kid, state);
       }
     }
     state.done = true;
     return;
   }
-  if (node.nodeType === Node.TEXT_NODE) {
-    state.total += node.textContent?.length ?? 0;
+  if (isTextNode(node)) {
+    state.total += node.data.length;
     return;
   }
-  if (node.nodeType === Node.ELEMENT_NODE) {
-    const el = node as HTMLElement;
-    const token = el.getAttribute(KB_REF_ATTR);
+  if (isElementNode(node)) {
+    const token = node.getAttribute(KB_REF_ATTR);
     if (token !== null) {
-      state.total += tokenLengthOf(el);
+      state.total += tokenLengthOf(node);
       return;
     }
-    for (const kid of Array.from(el.childNodes)) measureUpTo(kid, state);
+    for (const kid of Array.from(node.childNodes)) measureUpTo(kid, state);
   }
 }
 
@@ -119,6 +117,21 @@ function measureUpTo(node: Node, state: MeasureState): void {
  * Character offset of the caret in the SERIALIZED string. Pills count as
  * their full token, so offsets align with stored node text (D06/D16).
  */
+/**
+ * Serialized offset of the DOM boundary (`container`, `offset`) inside `el`,
+ * or null when the walk never reaches it. Pills count as their whole token,
+ * so the result indexes the stored node text.
+ */
+export function serializedOffsetOfBoundary(
+  el: HTMLElement,
+  container: Node,
+  offset: number,
+): number | null {
+  const state: MeasureState = { target: container, offset, done: false, total: 0 };
+  for (const child of Array.from(el.childNodes)) measureUpTo(child, state);
+  return state.done ? state.total : null;
+}
+
 export function getCaretSerializedOffset(el: HTMLElement | null | undefined): number {
   if (!el) return 0;
   const sel = window.getSelection();
@@ -126,14 +139,9 @@ export function getCaretSerializedOffset(el: HTMLElement | null | undefined): nu
   const range = sel.getRangeAt(0);
   const endContainer = range.endContainer;
   if (!el.contains(endContainer)) return 0;
-  const state: MeasureState = {
-    target: endContainer,
-    offset: range.endOffset,
-    done: false,
-    total: 0,
-  };
-  for (const child of Array.from(el.childNodes)) measureUpTo(child, state);
-  return state.done ? state.total : serializeEditable(el).length;
+  return (
+    serializedOffsetOfBoundary(el, endContainer, range.endOffset) ?? serializeEditable(el).length
+  );
 }
 
 function placeInTextNode(tn: Text, _local: number, remaining: { n: number }): boolean {
@@ -150,22 +158,20 @@ export function setCaretSerializedOffset(el: HTMLElement, pos: number): void {
 
   const visit = (node: Node): boolean => {
     if (placed) return true;
-    if (node.nodeType === Node.TEXT_NODE) {
-      const tn = node as Text;
-      if (placeInTextNode(tn, remaining.n, remaining)) {
-        selectRange(tn, Math.min(remaining.n, tn.data.length));
+    if (isTextNode(node)) {
+      if (placeInTextNode(node, remaining.n, remaining)) {
+        selectRange(node, Math.min(remaining.n, node.data.length));
         placed = true;
         return true;
       }
       return false;
     }
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const hel = node as HTMLElement;
-      if (hel.getAttribute(KB_REF_ATTR) !== null) {
-        remaining.n -= tokenLengthOf(hel);
+    if (isElementNode(node)) {
+      if (node.getAttribute(KB_REF_ATTR) !== null) {
+        remaining.n -= tokenLengthOf(node);
         return false;
       }
-      for (const kid of Array.from(hel.childNodes)) {
+      for (const kid of Array.from(node.childNodes)) {
         if (visit(kid)) return true;
       }
       return false;
@@ -194,17 +200,14 @@ function selectRange(tn: Text, offset: number): void {
   sel.addRange(range);
 }
 
+/** `NodeFilter.SHOW_TEXT` — the global is not present in every test DOM. */
+const SHOW_TEXT = 0x4;
+
 function lastDescendantText(el: HTMLElement): Text | null {
-  const { NodeFilter: nf } = globalThis as unknown as {
-    NodeFilter?: { SHOW_TEXT: number };
-  };
-  const whatToShow = nf?.SHOW_TEXT ?? 4;
-  const walker = document.createTreeWalker(el, whatToShow);
+  const walker = document.createTreeWalker(el, SHOW_TEXT);
   let last: Text | null = null;
-  let cur = walker.nextNode();
-  while (cur) {
-    last = cur as Text;
-    cur = walker.nextNode();
+  for (let cur = walker.nextNode(); cur !== null; cur = walker.nextNode()) {
+    if (isTextNode(cur)) last = cur;
   }
   return last;
 }

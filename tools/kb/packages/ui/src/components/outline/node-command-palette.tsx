@@ -26,6 +26,7 @@ import { isPinned } from "@/lib/pinned";
 import { DEFAULT_QUERY_EDN, isQueryNode } from "@/lib/query-node";
 import { fuzzyNodeCandidates } from "@/lib/refs";
 import { SYSTEM_IDS } from "@/lib/types";
+import { asInstance } from "@/lib/dom";
 import type { ViewMode } from "@/lib/view-config";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -391,7 +392,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   }, [query, step.type]);
 
   useEffect(() => {
-    const item = listRef.current?.children[highlightIndex] as HTMLElement | undefined;
+    const item = asInstance(listRef.current?.children[highlightIndex], HTMLElement);
     item?.scrollIntoView({ block: "nearest" });
   }, [highlightIndex]);
 

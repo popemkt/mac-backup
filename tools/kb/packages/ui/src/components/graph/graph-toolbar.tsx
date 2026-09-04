@@ -7,6 +7,7 @@ import {
   PlusIcon,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
+import { isTextEntry } from "@/lib/dom";
 import type { LensPerspective } from "@/lib/graph-lens";
 import { CAPABILITY_REASONS, type RendererCapabilities } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";
@@ -42,8 +43,7 @@ export function GraphToolbar({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+      if (isTextEntry(e.target)) return;
       const caps = capsRef.current;
       const cam = controlsRef.current;
 

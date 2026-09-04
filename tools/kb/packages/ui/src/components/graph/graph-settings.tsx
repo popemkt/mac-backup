@@ -4,6 +4,7 @@ import { mutations } from "@/actions/mutations";
 import { SYSTEM_IDS } from "@/lib/types";
 import { LENS_LAYOUTS, type LensLabelDensity, type LensPerspective } from "@/lib/graph-lens";
 import { cn } from "@/lib/cn";
+import { isOutside } from "@/lib/dom";
 
 const CLUSTER_BY_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "parent", label: "Parent" },
@@ -27,7 +28,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
   useEffect(() => {
     if (!open) return undefined;
     const onDoc = (e: MouseEvent) => {
-      if (panelRef.current?.contains(e.target as Node) !== true) setOpen(false);
+      if (isOutside(panelRef.current, e.target)) setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);

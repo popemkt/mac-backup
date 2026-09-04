@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PlusIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
+import { isOutside } from "@/lib/dom";
 
 export interface RefCandidateItem {
   id: string;
@@ -58,10 +59,7 @@ export function RefAddPopover({
   useEffect(() => {
     if (!open) return undefined;
     const onPointerDown = (e: PointerEvent) => {
-      const root = rootRef.current;
-      if (root && e.target instanceof Node && !root.contains(e.target)) {
-        setOpen(false);
-      }
+      if (isOutside(rootRef.current, e.target)) setOpen(false);
     };
     window.addEventListener("pointerdown", onPointerDown);
     return () => window.removeEventListener("pointerdown", onPointerDown);

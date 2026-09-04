@@ -12,6 +12,7 @@ import { NodeBlock } from "./node-block";
 import { NodeCommandPalette } from "./node-command-palette";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
+import { isTextEntry } from "@/lib/dom";
 import { ZoomedRootHeader } from "./zoomed-root-header";
 import { useSelectionKeymap } from "./use-selection-keymap";
 
@@ -142,13 +143,7 @@ function useUndoRedoKeymap(): void {
     const onKeyDown = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
       if (!mod || e.key.toLowerCase() !== "z") return;
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
-      ) {
-        return;
-      }
+      if (isTextEntry(e.target)) return;
       e.preventDefault();
       if (e.shiftKey) void mutations.redo();
       else void mutations.undo();

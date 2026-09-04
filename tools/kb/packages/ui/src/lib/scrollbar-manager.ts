@@ -2,6 +2,7 @@
  * Auto-hiding scrollbar thumbs (DESIGN-RESKIN §1.1) — ported from nxus
  * apps/nxus-editor/src/routes/__root.tsx ScrollbarManager.
  */
+import { asInstance } from "@/lib/dom";
 export function initScrollbarManager() {
   if (typeof window === "undefined") return;
 
@@ -9,11 +10,9 @@ export function initScrollbarManager() {
 
   const handleScroll = (e: Event) => {
     const target = e.target;
-    if (!target || !(target instanceof HTMLElement || target === document)) {
-      return;
-    }
-
-    const element = target === document ? document.documentElement : (target as HTMLElement);
+    const element =
+      target === document ? document.documentElement : asInstance(target, HTMLElement);
+    if (element === undefined) return;
 
     element.setAttribute("data-scrolling", "true");
 

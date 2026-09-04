@@ -4,6 +4,7 @@ import type { CanvasShapeNode } from "@kb/canvas";
 import { PopoverShell } from "@/components/ui/popover-shell";
 import { CANVAS_COLOR_PRESETS } from "@/lib/canvas-color";
 import { cn } from "@/lib/cn";
+import { isOutside } from "@/lib/dom";
 
 export interface ShapeInspectorProps {
   card: CanvasShapeNode;
@@ -20,7 +21,7 @@ export function ShapeInspector({ card, anchor, onClose, onColorChange }: ShapeIn
       if (e.key === "Escape") onClose();
     };
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      if (isOutside(ref.current, e.target)) onClose();
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("mousedown", onDown);
