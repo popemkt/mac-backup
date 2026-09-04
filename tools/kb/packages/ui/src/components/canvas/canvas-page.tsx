@@ -11,6 +11,7 @@ import {
   upsertCanvasEdge,
   upsertCanvasNode,
 } from "@kb/canvas";
+import { hasText } from "@/lib/text";
 import { Bullet } from "@/components/outline/bullet";
 import { NodeRow } from "@/components/outline/node-row";
 import { KbNodeCard, TextCard } from "@/components/canvas/canvas-card";
@@ -56,6 +57,8 @@ import {
   redo as histRedo,
 } from "@/lib/canvas-history";
 import { resolveCanvasColor } from "@/lib/canvas-color";
+import { classifyCardPointer } from "@/lib/card-pointer";
+import { asElement, asInstance, isTextEntry } from "@/lib/dom";
 import { navigate } from "@/lib/router";
 import { toast } from "@/lib/toast";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -145,6 +148,57 @@ function closestPort(node: CanvasNode, px: number, py: number): { side: CanvasSi
     if (d < best.dist) best = { side: s, dist: d };
   }
   return best;
+}
+
+/** A press that landed on the stage itself, not on a card, the toolbar or an edge. */
+const isEmptyStageTarget = (target: EventTarget | null) => {
+  const el = asElement(target);
+  if (el === undefined) return false;
+  if (el.closest("[data-card-id]") !== null) return false;
+  if (el.closest("[data-testid='canvas-toolbar']") !== null) return false;
+  if (el.closest("path") !== null) return false;
+  return true;
+};
+
+/** The four connect handles a card shows on hover. */
+const renderPorts = (
+  _card: CanvasNode,
+  onPortDown: (side: CanvasSide, e: React.PointerEvent) => void,
+) => (
+  <>
+    {(["left", "right", "top", "bottom"] as const).map((side) => (
+      <button
+        key={side}
+        type="button"
+        data-port={side}
+        aria-label={`Connect ${side}`}
+        className={cn(
+          "absolute z-10 h-4.5 w-4.5 rounded-full",
+          "opacity-0 transition-opacity group-hover/card:opacity-100",
+          side === "left" && "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
+          side === "right" && "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
+          side === "top" && "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
+          side === "bottom" && "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
+        )}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          onPortDown(side, e);
+        }}
+      >
+        <span className="block h-2 w-2 rounded-full border border-foreground/20 bg-background mx-auto mt-[5px]" />
+      </button>
+    ))}
+  </>
+);
+
+const SNAP_TOL = 5;
+
+/** The first edge pair within `SNAP_TOL`, as the offset that closes the gap. */
+function snapOffset(pairs: readonly (readonly [number, number])[]) {
+  for (const [mine, theirs] of pairs) {
+    if (Math.abs(mine - theirs) < SNAP_TOL) return { delta: theirs - mine, pos: theirs };
+  }
+  return undefined;
 }
 
 export function CanvasPage({ canvasId }: CanvasPageProps) {
@@ -256,10 +310,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   useEffect(() => {
     // oxlint-disable-next-line complexity -- GAP [[01M1MGCS6A29HT51G40W5TEEYK]]
     const onKeyDown = (e: KeyboardEvent) => {
-      const inField =
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        (e.target as HTMLElement).isContentEditable;
+      const inField = isTextEntry(e.target);
 
       // Undo / Redo (works even when in field)
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
@@ -345,14 +396,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
               idMap.set(n.id, newId);
               return { ...n, id: newId, x: n.x + 24, y: n.y + 24 };
             });
-            const newEdges: CanvasEdge[] = parsed.edges
-              .filter((edge) => idMap.has(edge.fromNode) && idMap.has(edge.toNode))
-              .map((edge) => ({
-                ...edge,
-                id: ulid(),
-                fromNode: idMap.get(edge.fromNode)!,
-                toNode: idMap.get(edge.toNode)!,
-              }));
+            const newEdges: CanvasEdge[] = parsed.edges.flatMap((edge) => {
+              const fromNode = idMap.get(edge.fromNode);
+              const toNode = idMap.get(edge.toNode);
+              if (fromNode === undefined || toNode === undefined) return [];
+              return [{ ...edge, id: ulid(), fromNode, toNode }];
+            });
             let nextDoc = docRef.current;
             for (const n of newNodes) nextDoc = upsertCanvasNode(nextDoc, n);
             for (const edge of newEdges) nextDoc = upsertCanvasEdge(nextDoc, edge);
@@ -589,15 +638,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
   };
 
-  const isEmptyStageTarget = (target: EventTarget | null) => {
-    const el = target as HTMLElement | null;
-    if (!el?.closest) return false;
-    if (el.closest("[data-card-id]")) return false;
-    if (el.closest("[data-testid='canvas-toolbar']")) return false;
-    if (el.closest("path")) return false;
-    return true;
-  };
-
   const startMoveForSelection = (e: React.PointerEvent, clickedId: string) => {
     const sel = selRef.current;
     const selectedIds = sel.nodeIds.has(clickedId) ? sel.nodeIds : new Set([clickedId]);
@@ -613,7 +653,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       startY: e.clientY,
       origPositions,
     };
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    asElement(e.target)?.setPointerCapture(e.pointerId);
   };
 
   const onPointerDownStage = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -625,7 +665,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         ox: pan.x,
         oy: pan.y,
       };
-      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      asElement(e.target)?.setPointerCapture(e.pointerId);
       return;
     }
     if (e.button === 0 && isEmptyStageTarget(e.target)) {
@@ -656,7 +696,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         worldY: world.y,
         additive: e.shiftKey,
       };
-      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      asElement(e.target)?.setPointerCapture(e.pointerId);
     }
   };
 
@@ -741,12 +781,11 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       let dy = (e.clientY - d.startY) / zoom;
 
       // Alignment snapping (5px tolerance)
-      const SNAP_TOL = 5;
       const guides: { axis: "x" | "y"; pos: number }[] = [];
       const movingIds = new Set(d.origPositions.keys());
       const firstOrig = d.origPositions.values().next().value;
       const firstId = d.origPositions.keys().next().value;
-      if (firstOrig && firstId && movingIds.size > 0) {
+      if (firstOrig && firstId !== undefined && movingIds.size > 0) {
         const movingNode = byId.get(firstId);
         if (movingNode) {
           const myLeft = firstOrig.x + dx;
@@ -765,33 +804,27 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             const oCx = (oLeft + oRight) / 2;
             const oCy = (oTop + oBottom) / 2;
 
-            // X-axis snaps
-            for (const [myEdge, oEdge] of [
+            const xSnap = snapOffset([
               [myLeft, oLeft],
               [myLeft, oRight],
               [myRight, oLeft],
               [myRight, oRight],
               [myCx, oCx],
-            ] as [number, number][]) {
-              if (Math.abs(myEdge - oEdge) < SNAP_TOL) {
-                dx += oEdge - myEdge;
-                guides.push({ axis: "x", pos: oEdge });
-                break;
-              }
+            ]);
+            if (xSnap) {
+              dx += xSnap.delta;
+              guides.push({ axis: "x", pos: xSnap.pos });
             }
-            // Y-axis snaps
-            for (const [myEdge, oEdge] of [
+            const ySnap = snapOffset([
               [myTop, oTop],
               [myTop, oBottom],
               [myBottom, oTop],
               [myBottom, oBottom],
               [myCy, oCy],
-            ] as [number, number][]) {
-              if (Math.abs(myEdge - oEdge) < SNAP_TOL) {
-                dy += oEdge - myEdge;
-                guides.push({ axis: "y", pos: oEdge });
-                break;
-              }
+            ]);
+            if (ySnap) {
+              dy += ySnap.delta;
+              guides.push({ axis: "y", pos: ySnap.pos });
             }
             if (guides.length >= 2) break;
           }
@@ -938,10 +971,10 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
     if (d.kind !== "edge") return;
 
-    const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
-    const cardEl = el?.closest("[data-card-id]") as HTMLElement | null;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const cardEl = asInstance(el?.closest("[data-card-id]"), HTMLElement);
     const toCardId = cardEl?.dataset.cardId;
-    if (!toCardId || toCardId === d.fromCardId) return;
+    if (toCardId === undefined || toCardId === d.fromCardId) return;
     const from = byId.get(d.fromCardId);
     const to = byId.get(toCardId);
     if (!from || !to) return;
@@ -988,17 +1021,17 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
   // Derive selected edge/shape for inspectors
   const selectedEdgeId = selection.edgeIds.size === 1 ? [...selection.edgeIds][0] : null;
-  const selectedEdgeObj = selectedEdgeId
-    ? (doc.edges.find((e) => e.id === selectedEdgeId) ?? null)
-    : null;
+  const selectedEdgeObj =
+    selectedEdgeId !== undefined ? (doc.edges.find((e) => e.id === selectedEdgeId) ?? null) : null;
 
-  const selectedShapeId = selection.nodeIds.size === 1 ? [...selection.nodeIds][0] : null;
-  const selectedShape = selectedShapeId
-    ? (() => {
-        const n = byId.get(selectedShapeId);
-        return n && isShapeNode(n) ? n : null;
-      })()
-    : null;
+  const selectedShapeId = selection.nodeIds.size === 1 ? ([...selection.nodeIds][0] ?? null) : null;
+  const selectedShape =
+    selectedShapeId !== null
+      ? (() => {
+          const n = byId.get(selectedShapeId);
+          return n && isShapeNode(n) ? n : null;
+        })()
+      : null;
 
   // oxlint-disable-next-line complexity -- GAP [[01M1MGCTRFEHBF15DSCNDXW0GZ]]
   const onModeChange = async (mode: KbLinkMode) => {
@@ -1006,7 +1039,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     const from = byId.get(selectedEdgeObj.fromNode);
     const to = byId.get(selectedEdgeObj.toNode);
 
-    if (mode === "native" && !selectedEdgeObj.kbLink?.fieldId) {
+    if (mode === "native" && selectedEdgeObj.kbLink?.fieldId === undefined) {
       toast("Pick a ref field before enabling native mode");
       return;
     }
@@ -1097,7 +1130,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       link?.mode === "native" &&
       !!link.fieldId &&
       window.confirm("Also remove the bound prop from the source node?");
-    if (offerUnset && link) {
+    if (offerUnset) {
       await flushPersist(next, {
         propTargetId: link.sourceNodeId,
         unsetProps: [
@@ -1194,41 +1227,11 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
             origW: card.width,
             origH: card.height,
           };
-          (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+          asElement(e.target)?.setPointerCapture(e.pointerId);
         }}
       />
     ));
   };
-
-  const renderPorts = (
-    _card: CanvasNode,
-    onPortDown: (side: CanvasSide, e: React.PointerEvent) => void,
-  ) => (
-    <>
-      {(["left", "right", "top", "bottom"] as const).map((side) => (
-        <button
-          key={side}
-          type="button"
-          data-port={side}
-          aria-label={`Connect ${side}`}
-          className={cn(
-            "absolute z-10 h-4.5 w-4.5 rounded-full",
-            "opacity-0 transition-opacity group-hover/card:opacity-100",
-            side === "left" && "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
-            side === "right" && "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
-            side === "top" && "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
-            side === "bottom" && "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
-          )}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            onPortDown(side, e);
-          }}
-        >
-          <span className="block h-2 w-2 rounded-full border border-foreground/20 bg-background mx-auto mt-[5px]" />
-        </button>
-      ))}
-    </>
-  );
 
   const portHandler = (cardId: string) => (side: CanvasSide, e: React.PointerEvent) => {
     dragRef.current = {
@@ -1374,12 +1377,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                 const markerEnd =
                   edge.toEnd === "none"
                     ? undefined
-                    : edge.color
+                    : hasText(edge.color)
                       ? `url(#kb-arrow-${edge.color})`
                       : "url(#kb-arrow)";
                 const markerStart =
                   edge.fromEnd === "arrow"
-                    ? edge.color
+                    ? hasText(edge.color)
                       ? `url(#kb-arrow-rev-${edge.color})`
                       : "url(#kb-arrow-rev)"
                     : undefined;
@@ -1416,7 +1419,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                       </foreignObject>
                     );
                   }
-                  if (!edge.label) return null;
+                  if (!hasText(edge.label)) return null;
                   return (
                     <g
                       transform={`translate(${mx}, ${my})`}
@@ -1574,14 +1577,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                       height: card.height,
                     }}
                     onPointerDown={(e) => {
-                      const target = e.target as HTMLElement;
-                      if (target.closest("[data-port]")) return;
-                      if (target.closest("[data-resize]")) return;
+                      if (classifyCardPointer(e.target, undefined) === "chrome") return;
                       e.stopPropagation();
                       handleCardPointerDown(card, e);
                     }}
                   >
-                    {card.label && (
+                    {hasText(card.label) && (
                       <div className="px-2 py-1 text-[11px] text-foreground/40">{card.label}</div>
                     )}
                     {renderResizeHandles(card, isSelected)}
@@ -1618,7 +1619,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                           origW: card.width,
                           origH: card.height,
                         };
-                        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+                        asElement(e.target)?.setPointerCapture(e.pointerId);
                       }}
                       onPortDown={portHandler(card.id)}
                     />
@@ -1663,7 +1664,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                           origW: card.width,
                           origH: card.height,
                         };
-                        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+                        asElement(e.target)?.setPointerCapture(e.pointerId);
                       }}
                       onPortDown={portHandler(card.id)}
                     />
@@ -1723,7 +1724,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                         origW: card.width,
                         origH: card.height,
                       };
-                      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+                      asElement(e.target)?.setPointerCapture(e.pointerId);
                     }}
                     onPortDown={portHandler(card.id)}
                   />

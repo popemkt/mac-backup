@@ -1,5 +1,5 @@
 import type Sigma from "sigma";
-import type { ForceGraph3DInstance } from "3d-force-graph";
+import type { KbForceGraph } from "./force3d-instance";
 import { fitView, focusNode, resetCamera, zoomIn, zoomOut } from "./graph-camera";
 
 /**
@@ -66,9 +66,7 @@ export function treeCameraControls(getHandle: () => TreeViewHandle | null): Grap
   };
 }
 
-export function force3dCameraControls(
-  getGraph: () => ForceGraph3DInstance | null,
-): GraphCameraControls {
+export function force3dCameraControls(getGraph: () => KbForceGraph | null): GraphCameraControls {
   return {
     fit: () => {
       try {
@@ -108,10 +106,7 @@ export function force3dCameraControls(
       const g = getGraph();
       if (!g) return;
       try {
-        const data = g.graphData() as {
-          nodes?: Array<{ id?: string; x?: number; y?: number; z?: number }>;
-        };
-        const node = data.nodes?.find((n) => n.id === id);
+        const node = g.graphData().nodes.find((n) => n.id === id);
         if (
           !node ||
           typeof node.x !== "number" ||

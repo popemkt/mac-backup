@@ -72,7 +72,7 @@ export const NodeBlock = memo(function NodeBlock({
       // same activate intent, routed to the node that owns the string. (The
       // bullet's ⌘-click still zooms this reference.)
       const targetId = contextualTargetOf(node);
-      if (targetId) {
+      if (targetId !== null) {
         zoomTo(targetId);
         return;
       }
@@ -82,7 +82,7 @@ export const NodeBlock = memo(function NodeBlock({
   );
 
   const handleRowSelect = useCallback(
-    (e: React.MouseEvent) => {
+    (e: React.SyntheticEvent) => {
       if (e.target === e.currentTarget) {
         selectNode(nodeId, instanceKey);
       }

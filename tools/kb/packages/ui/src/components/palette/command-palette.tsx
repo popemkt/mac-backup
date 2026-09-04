@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MagnifyingGlassIcon, TerminalIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import { buildPaletteIndex, searchPalette, type PaletteHit } from "@/lib/palette-index";
+import { asInstance } from "@/lib/dom";
 import { runPaletteCommand } from "@/lib/run-command";
 import { schemaZoomKind } from "@/lib/schema-zoom";
 import { isSysPrefixed } from "@/lib/types";
@@ -64,7 +65,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   useEffect(() => {
     if (!open || !hits[active]) return;
     const row = listRef.current?.querySelector<HTMLElement>('[data-palette-active="true"]');
-    row?.scrollIntoView?.({ block: "nearest" });
+    row?.scrollIntoView({ block: "nearest" });
   }, [active, hits, open]);
 
   const selectHit = useCallback(
@@ -114,8 +115,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           ),
         );
         if (focusable.length === 0) return;
-        const current = document.activeElement as HTMLElement | null;
-        const currentIndex = current ? focusable.indexOf(current) : -1;
+        const current = asInstance(document.activeElement, HTMLElement);
+        const currentIndex = current === undefined ? -1 : focusable.indexOf(current);
         const next = e.shiftKey
           ? currentIndex <= 0
             ? focusable.length - 1

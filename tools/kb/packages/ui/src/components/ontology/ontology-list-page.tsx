@@ -18,7 +18,7 @@ export function OntologyListPage() {
     setBusy(true);
     try {
       const id = await mutations.defineOntology();
-      if (id) navigate(ontologyPath(id));
+      if (id !== null) navigate(ontologyPath(id));
     } finally {
       setBusy(false);
     }

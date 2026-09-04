@@ -22,6 +22,7 @@ import {
   targetTagsOf,
   type FieldType,
 } from "@kb/model";
+import { hasText } from "@/lib/text";
 import { runQuery } from "@/ds/query";
 import type { QueryDb } from "@/ds/db";
 import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
@@ -62,7 +63,7 @@ let allowedRefCacheRev = -1;
 
 function constraintFingerprint(fieldNode: OutlineNode | undefined): string {
   const edn = targetQueryOf(fieldNode);
-  if (edn) return `q:${edn}`;
+  if (hasText(edn)) return `q:${edn}`;
   const tags = targetTagsOf(fieldNode);
   if (tags.length === 0) return "open";
   return `t:${tags.slice().toSorted().join(",")}`;
@@ -84,7 +85,8 @@ export function resolveAllowedRefIdsCached(
     allowedRefCacheRev = rev;
   }
   const key = `${fieldId}\0${constraintFingerprint(fieldNode)}`;
-  if (allowedRefCache.has(key)) return allowedRefCache.get(key)!;
+  const cached = allowedRefCache.get(key);
+  if (cached !== undefined || allowedRefCache.has(key)) return cached ?? null;
   const value = resolveAllowedRefIds(fieldNode, nodes, queryDb);
   allowedRefCache.set(key, value);
   return value;

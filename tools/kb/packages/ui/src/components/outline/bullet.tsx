@@ -5,6 +5,7 @@ import { resolveBulletMode } from "@/lib/bullet-mode";
 import { typeRefsOf } from "@kb/model";
 import { nodeTagColors, tagColorAlpha, tagColorFill } from "@/lib/tag-color";
 import { isSysPrefixed, type OutlineNode } from "@/lib/types";
+import { hasText } from "@/lib/text";
 
 interface BulletProps {
   node: OutlineNode;
@@ -112,7 +113,7 @@ export function Bullet({
             !tinted && hasChildren && "text-foreground/55",
             hasChildren && !mode.collapsed && !tinted && "group-hover/bullet:text-foreground/70",
           )}
-          style={strokeColor ? { color: strokeColor } : undefined}
+          style={hasText(strokeColor) ? { color: strokeColor } : undefined}
           aria-hidden
         >
           #
@@ -122,7 +123,7 @@ export function Bullet({
           size={14}
           weight="bold"
           className={cn("relative z-[1]", !tinted && "text-foreground/45")}
-          style={strokeColor ? { color: strokeColor } : undefined}
+          style={hasText(strokeColor) ? { color: strokeColor } : undefined}
           data-bullet-query
         />
       ) : mode.isRef ? (
@@ -132,7 +133,9 @@ export function Bullet({
             !tinted && "border-foreground/20",
           )}
           style={
-            strokeColor ? { borderColor: tagColorAlpha(strokeColor, REF_RING_OPACITY) } : undefined
+            hasText(strokeColor)
+              ? { borderColor: tagColorAlpha(strokeColor, REF_RING_OPACITY) }
+              : undefined
           }
           data-bullet-ref-ring
         >
@@ -143,11 +146,11 @@ export function Bullet({
               !tinted && "bg-foreground/40",
               !tinted && hasChildren && "bg-foreground/55",
             )}
-            style={dotFill ? { background: dotFill } : undefined}
+            style={hasText(dotFill) ? { background: dotFill } : undefined}
             data-bullet-dot
           />
         </span>
-      ) : glyph ? (
+      ) : hasText(glyph) ? (
         <span
           className={cn(
             "relative z-[1] select-none text-[11px] font-bold leading-none",
@@ -166,7 +169,7 @@ export function Bullet({
             !tinted && hasChildren && "bg-foreground/50",
             hasChildren && !mode.collapsed && !tinted && "group-hover/bullet:bg-foreground/60",
           )}
-          style={dotFill ? { background: dotFill } : undefined}
+          style={hasText(dotFill) ? { background: dotFill } : undefined}
           data-bullet-dot
         />
       )}

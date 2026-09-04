@@ -2,6 +2,7 @@
  * Mutation action layer — optimistic local tx → POST /api/action.
  */
 import { ulid } from "ulid";
+import { z } from "zod";
 import type { FieldType } from "@kb/model";
 import type { SortSpec, ViewMode } from "@/lib/view-config";
 import { postAction } from "@/api/action";
@@ -33,6 +34,10 @@ import {
 } from "@/actions/plan";
 import { findPinnedTagId, pinnedTagIdsOn, PINNED_TAG_TEXT } from "@/lib/pinned";
 import { toast } from "@/lib/toast";
+
+/** `asset.upload` answers with the repo-relative path it stored the bytes at. */
+const AssetUploadOutputSchema = z.object({ path: z.string() });
+
 import { isSysPrefixed, SYSTEM_IDS, WORKSPACE_ROOT_ID, type PropValue } from "@/lib/types";
 import { forestRootIds } from "@/lib/graph-view";
 import { outlineInstanceKey } from "@/lib/instance-key";
@@ -67,6 +72,8 @@ async function postCompensations(actions: Array<{ id: string; input: unknown }>)
   if (source !== "api") return;
   for (const action of actions) {
     try {
+      // Sequential by contract: compensating actions undo each other in order.
+      // oxlint-disable-next-line eslint/no-await-in-loop
       await postAction(action.id, action.input);
     } catch {
       // Server resync (WS / next refetch) heals divergence; never block UI.
@@ -229,8 +236,8 @@ export const mutations = {
     const store = useOutlineStore.getState();
     const prev = pendingContent.get(id);
     const existing = store.wireNodes.find((n) => n.id === id);
-    if (!existing && !prev) return;
-    const preEdit = prev?.preEdit ?? cloneWire(existing!);
+    const preEdit = prev?.preEdit ?? (existing === undefined ? undefined : cloneWire(existing));
+    if (preEdit === undefined) return;
 
     const plan = planUpdateText(store.wireNodes, id, content);
     store.applyTx(plan.upserts, plan.deletes);
@@ -279,7 +286,7 @@ export const mutations = {
     let ok = false;
     if (parentId === WORKSPACE_ROOT_ID) {
       ok = await applyPlan(planAddRootNode("", newId));
-    } else if (afterSiblingId) {
+    } else if (afterSiblingId !== null) {
       // Inserting after a sibling lands under the sibling's parent — guard
       // that parent, not just the sibling id (sys.* write-guard).
       const siblingParent = findParentWire(wire(), afterSiblingId);
@@ -305,10 +312,10 @@ export const mutations = {
     if (!guardSysWrite(parent.id)) return null;
     const siblings = parent.children;
     const idx = siblings.indexOf(beforeId);
-    const prevSibling = idx > 0 ? siblings[idx - 1]! : null;
+    const prevSibling = idx > 0 ? (siblings[idx - 1] ?? null) : null;
     const newId = ulid();
     let plan: PlannedMutation | null;
-    if (prevSibling) {
+    if (prevSibling !== null) {
       plan = planInsertSibling(wire(), prevSibling, "after", newId);
     } else {
       plan = planPrependChild(wire(), parent.id, newId);
@@ -402,7 +409,7 @@ export const mutations = {
     if (!guardSysWrite(id)) return;
     await prepareStructuralMutation([id]);
     let plan: PlannedMutation | null = null;
-    if (instanceKey) {
+    if (instanceKey !== undefined) {
       const prevInst = useOutlineStore.getState().getPreviousVisibleInstance(instanceKey);
       if (prevInst && prevInst.nodeId !== id) {
         plan = planMergeInto(wire(), id, prevInst.nodeId);
@@ -424,8 +431,8 @@ export const mutations = {
     const siblings = parent ? parent.children : forestRootIds(store.wireNodes);
     const idx = siblings.indexOf(id);
     if (idx <= 0) return;
-    const prevId = siblings[idx - 1]!;
-    if (!guardSysWrite(prevId)) return;
+    const prevId = siblings[idx - 1];
+    if (prevId === undefined || !guardSysWrite(prevId)) return;
 
     const preWire = store.wireNodes;
     const plan = planIndent(preWire, id);
@@ -548,12 +555,16 @@ export const mutations = {
     const nodes = useOutlineStore.getState().nodes;
     const carried = pinnedTagIdsOn(nodes.get(nodeId), nodes);
     if (carried.length > 0) {
-      for (const tagId of carried) await mutations.removeTag(nodeId, tagId);
+      for (const tagId of carried) {
+        // Sequential by contract: each removeTag reads the store the last wrote.
+        // oxlint-disable-next-line eslint/no-await-in-loop
+        await mutations.removeTag(nodeId, tagId);
+      }
       return true;
     }
     const existing = findPinnedTagId(nodes);
     const tagId = existing ?? (await mutations.defineTag(PINNED_TAG_TEXT));
-    if (!tagId) return false;
+    if (tagId === null) return false;
     await mutations.addTag(nodeId, tagId);
     return true;
   },
@@ -573,9 +584,7 @@ export const mutations = {
     try {
       const buf = new Uint8Array(await file.arrayBuffer());
       let binary = "";
-      for (let i = 0; i < buf.length; i++) {
-        binary += String.fromCharCode(buf[i]!);
-      }
+      for (const byte of buf) binary += String.fromCharCode(byte);
       const bytes = btoa(binary);
       const receipt = await postAction("asset.upload", {
         bytes,
@@ -585,10 +594,14 @@ export const mutations = {
         toast(receipt.message);
         return false;
       }
-      const out = receipt.output as { path: string };
+      const out = AssetUploadOutputSchema.safeParse(receipt.output);
+      if (!out.success) {
+        toast("asset.upload returned no path");
+        return false;
+      }
       const node = store.nodes.get(nodeId);
       const alt = file.name.replace(/\.[^.]+$/, "") || "file";
-      const md = `![${alt}](${out.path})`;
+      const md = `![${alt}](${out.data.path})`;
       const next =
         node === undefined || node.text.trim() === ""
           ? md

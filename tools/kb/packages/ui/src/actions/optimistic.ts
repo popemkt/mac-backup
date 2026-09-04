@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { postAction } from "@/api/action";
 import type { PlannedMutation } from "@/actions/plan";
 import { fetchGraphSnapshot } from "@/api/graph";
@@ -17,6 +18,29 @@ export type RunOptimisticResult = {
 type ActionSpec = PlannedMutation["actions"][number];
 
 /**
+ * `node.update` input, as the planner emits it. The plan types `input` as
+ * `unknown`, so this is the one place that decides what the two readers below
+ * are allowed to see; an input that does not match is simply not optimistic.
+ */
+const NodeUpdateInputSchema = z.looseObject({
+  id: z.string().optional(),
+  text: z.string().optional(),
+  delete: z.boolean().optional(),
+  parent: z.string().optional(),
+  position: z.number().optional(),
+  setProps: z.array(z.object({ field: z.string(), value: z.custom<PropValue>() })).optional(),
+  unsetProps: z.array(z.looseObject({ field: z.string() })).optional(),
+});
+
+type NodeUpdateInput = z.infer<typeof NodeUpdateInputSchema>;
+
+function nodeUpdateInput(action: ActionSpec): NodeUpdateInput | undefined {
+  if (action.id !== "node.update") return undefined;
+  const parsed = NodeUpdateInputSchema.safeParse(action.input);
+  return parsed.success ? parsed.data : undefined;
+}
+
+/**
  * Structural mutations reshape the tree (reparent / reorder / delete / mint).
  * Their optimistic upserts must not be kept after a partial failure when
  * authoritative refetch is down — they bundle unconfirmed children[] edits.
@@ -25,27 +49,16 @@ function isStructuralAction(action: ActionSpec): boolean {
   if (action.id === "node.add" || action.id === "field.define" || action.id === "tag.define") {
     return true;
   }
-  if (action.id !== "node.update") return false;
-  const input = action.input as Record<string, unknown>;
-  return (
-    input.delete === true ||
-    Object.prototype.hasOwnProperty.call(input, "parent") ||
-    Object.prototype.hasOwnProperty.call(input, "position")
-  );
+  const input = nodeUpdateInput(action);
+  if (input === undefined) return false;
+  return input.delete === true || input.parent !== undefined || input.position !== undefined;
 }
 
 /** Apply a confirmed non-structural action onto a wire set (text/props only). */
 function applySafeConfirmedAction(nodes: WireNode[], action: ActionSpec): WireNode[] | null {
   if (isStructuralAction(action)) return null;
-  if (action.id !== "node.update") return null;
-
-  const input = action.input as {
-    id?: string;
-    text?: string;
-    setProps?: Array<{ field: string; value: PropValue }>;
-    unsetProps?: Array<{ field: string; value?: unknown }>;
-  };
-  if (typeof input.id !== "string") return null;
+  const input = nodeUpdateInput(action);
+  if (input?.id === undefined) return null;
   const existing = nodes.find((n) => n.id === input.id);
   if (!existing) return null;
 
@@ -161,7 +174,7 @@ export async function runOptimistic(
 
   store.applyTx(plan.upserts, plan.deletes);
 
-  if (plan.focusId) {
+  if (plan.focusId !== undefined) {
     const next = useOutlineStore.getState();
     const key = outlineInstanceKey(plan.focusId, next.nodes);
     next.activateNode(plan.focusId, plan.focusCursor ?? 0, key);
@@ -180,8 +193,13 @@ export async function runOptimistic(
   let serverApplied = 0;
   try {
     for (const action of plan.actions) {
+      // Sequential by contract: a plan's actions are ordered, and
+      // `serverApplied` counts how far the server got before a failure.
+      // oxlint-disable-next-line eslint/no-await-in-loop
       const receipt = await postAction(action.id, action.input);
       if (receipt.status === "failed") {
+        // Recovery ends the loop; it runs at most once.
+        // oxlint-disable-next-line eslint/no-await-in-loop
         await recoverFailedPlan(
           plan,
           snapshot,

@@ -14,6 +14,7 @@ import { isProjectedViewMode } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { FrameChildrenView } from "./frame-children-view";
+import { hasText } from "@/lib/text";
 
 interface QueryResultItem {
   nodeId: string;
@@ -47,14 +48,14 @@ export function QueryResultsSection({
 
   const def = queryDefOf(node);
   const edn = def?.edn ?? null;
-  const live = wsStatus === "open" && edn !== null;
+  const liveEdn = wsStatus === "open" ? edn : null;
 
   const [liveRows, setLiveRows] = useState<unknown[][] | null>(null);
   const [liveError, setLiveError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!live || edn === null) return undefined;
-    const unsubscribe = subscribeQueryNode(getLiveClient(), nodeId, edn, (rows) => {
+    if (liveEdn === null) return undefined;
+    const unsubscribe = subscribeQueryNode(getLiveClient(), nodeId, liveEdn, (rows) => {
       setLiveRows(rows);
       setLiveError(null);
     });
@@ -62,13 +63,13 @@ export function QueryResultsSection({
       unsubscribe();
       setLiveRows(null);
     };
-  }, [live, edn, nodeId]);
+  }, [liveEdn, nodeId]);
 
   const local = useMemo((): {
     rows: unknown[][] | null;
     error: string | null;
   } => {
-    if (live || edn === null || !queryDb) return { rows: null, error: null };
+    if (liveEdn !== null || edn === null || !queryDb) return { rows: null, error: null };
     try {
       return { rows: runQuery(queryDb, edn), error: null };
     } catch (err) {
@@ -78,17 +79,17 @@ export function QueryResultsSection({
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live, edn, queryDb, rev]);
+  }, [liveEdn, edn, queryDb, rev]);
 
   if (!def || edn === null) return null;
 
-  const rows = live ? liveRows : local.rows;
-  const error = live ? liveError : local.error;
+  const rows = liveEdn === null ? local.rows : liveRows;
+  const error = liveEdn === null ? local.error : liveError;
   const ids = rows ? resultNodeIds(rows, nodes, { limit: def.limit, excludeId: nodeId }) : [];
 
   const indent = indentStyle(depth + 1);
 
-  if (error) {
+  if (hasText(error)) {
     return (
       <div className="query-results" data-query-results-for={nodeId}>
         <p className="px-1 py-0.5 text-[12px] text-destructive" style={indent}>

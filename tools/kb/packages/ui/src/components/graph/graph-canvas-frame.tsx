@@ -7,6 +7,7 @@ import { GraphSelectionCard } from "./graph-selection-card";
 import { capabilitiesFor } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import type { GraphSelection } from "./graph-selection";
+import { hasText } from "@/lib/text";
 
 /** Shared graph chrome. Renderers only own pixels and renderer-specific input;
  * the frame owns the discoverable vocabulary that surrounds every graph. */
@@ -48,7 +49,7 @@ export function GraphCanvasFrame({
     if (!capabilities.selection) return undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") clearRef.current();
-      if (e.key === "Enter" && selectedNodeId) onOpenNode(selectedNodeId);
+      if (e.key === "Enter" && selectedNodeId !== null) onOpenNode(selectedNodeId);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -56,7 +57,7 @@ export function GraphCanvasFrame({
 
   return (
     <>
-      {queryError ? (
+      {hasText(queryError) ? (
         <GraphCanvasError title="Graph query error" message={queryError} />
       ) : (
         <GraphCanvasErrorBoundary resetKey={resetKey ?? renderer}>

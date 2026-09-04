@@ -6,6 +6,7 @@ import {
   type HierarchyPointNode,
 } from "d3-hierarchy";
 import type { LensTreeNode } from "@/lib/graph-lens";
+import { asElement } from "@/lib/dom";
 import { readTokenColor } from "@/lib/css-color";
 import { formatGraphLabel } from "@/lib/graph-label";
 import {
@@ -101,9 +102,10 @@ export function TreeGraph({
       };
     }
 
+    const [onlyRoot] = forest;
     const rootData: HierDatum =
-      forest.length === 1
-        ? filterCollapsed(forest[0]!, collapsed)
+      forest.length === 1 && onlyRoot !== undefined
+        ? filterCollapsed(onlyRoot, collapsed)
         : {
             id: "__forest__",
             label: "",
@@ -192,7 +194,7 @@ export function TreeGraph({
         panY: pan.y,
         moved: false,
       };
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      asElement(e.target)?.setPointerCapture(e.pointerId);
     },
     [pan],
   );

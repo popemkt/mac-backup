@@ -2,6 +2,10 @@
  * Client-side datalog execution — pure parts copied from
  * tools/kb/src/foundation/query/datascript.ts (isomorphic; no Node APIs).
  * Same EDN dialect as `kb query` / graph.query / WS subscriptions.
+ *
+ * This module owns the EDN dialect and the runner; `ds/db` owns the store and
+ * imports them, so there is one place that rewrites a keyword and one that
+ * revives an entity id.
  */
 import * as d from "datascript";
 import type { QueryDb } from "./db";
@@ -42,7 +46,8 @@ export function normalizeEdnQuery(edn: string): string {
     }
     const m = keyword.exec(edn.slice(i));
     if (m) {
-      out += QUERY_DIRECTIVES.has(m[1]!) ? m[0] : `"${m[0]}"`;
+      const [, keywordName] = m;
+      out += keywordName !== undefined && QUERY_DIRECTIVES.has(keywordName) ? m[0] : `"${m[0]}"`;
       i += m[0].length;
       continue;
     }

@@ -1,3 +1,4 @@
+import { hasText } from "@/lib/text";
 /**
  * JSON Canvas color presets ("1"–"6") → theme CSS custom properties
  * (`--canvas-color-N` on :root / .dark). Hex and other literals pass through.
@@ -20,9 +21,9 @@ const PRESET_CSS: Record<string, string> = Object.fromEntries(
 
 /** Resolve a canvas color string to a CSS color, or undefined if unset. */
 export function resolveCanvasColor(color?: string): string | undefined {
-  if (!color) return undefined;
+  if (!hasText(color)) return undefined;
   const preset = PRESET_CSS[color];
-  if (preset) return preset;
+  if (preset !== undefined) return preset;
   return color;
 }
 
@@ -33,7 +34,7 @@ export function canvasColorStyle(color?: string): {
   color?: string;
 } {
   const resolved = resolveCanvasColor(color);
-  if (!resolved) return {};
+  if (resolved === undefined) return {};
   return {
     borderColor: resolved,
     backgroundColor: `color-mix(in oklab, ${resolved} 14%, transparent)`,

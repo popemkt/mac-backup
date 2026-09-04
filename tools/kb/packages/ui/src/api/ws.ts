@@ -59,8 +59,27 @@ function defaultUrl(): string {
   return `${proto}//${loc.host}/ws?origin=${encodeURIComponent(getClientOrigin())}`;
 }
 
+/**
+ * The browser class is not structurally a `WsLike` — its handlers take the
+ * event objects `lib.dom` declares. This is the port, not a restatement: the
+ * socket's handlers read `port`'s at fire time, so a caller may still assign
+ * them after construction.
+ */
 function defaultMakeSocket(url: string): WsLike {
-  return new WebSocket(url) as unknown as WsLike;
+  const ws = new WebSocket(url);
+  const port: WsLike = {
+    send: (data) => ws.send(data),
+    close: () => ws.close(),
+    onopen: null,
+    onclose: null,
+    onerror: null,
+    onmessage: null,
+  };
+  ws.addEventListener("open", () => port.onopen?.());
+  ws.addEventListener("close", () => port.onclose?.());
+  ws.addEventListener("error", () => port.onerror?.());
+  ws.addEventListener("message", (ev) => port.onmessage?.({ data: ev.data }));
+  return port;
 }
 
 export class KbWsClient {

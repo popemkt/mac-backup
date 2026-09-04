@@ -16,6 +16,7 @@ import {
   type MemberReason,
   type OntologyResolution,
 } from "@kb/model";
+import { textOr } from "@/lib/text";
 import type { QueryDb } from "@/ds/db";
 import { runQuery } from "@/ds/query";
 import type { NodeMap, OutlineNode } from "@/lib/types";
@@ -170,6 +171,5 @@ export function excludedRows(
 
 export function labelOf(id: string, nodes: NodeMap): string {
   const node: OutlineNode | undefined = nodes.get(id);
-  const text = node?.text.trim();
-  return text ? text : id;
+  return textOr(node?.text.trim(), id);
 }

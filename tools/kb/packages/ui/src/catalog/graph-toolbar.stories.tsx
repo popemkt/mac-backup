@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { GraphToolbar } from "@/components/graph/graph-toolbar";
-import { RENDERER_CAPABILITIES } from "@/components/graph/graph-capabilities";
+import { capabilitiesFor } from "@/components/graph/graph-capabilities";
 import type { GraphCameraControls } from "@/components/graph/graph-camera-controls";
+
+const FORCE2D = capabilitiesFor("force2d");
+const TREE = capabilitiesFor("tree");
 
 const noopControls: GraphCameraControls = {
   fit: () => {},
@@ -21,7 +24,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Idle: Story = {
   args: {
-    capabilities: RENDERER_CAPABILITIES.force2d!,
+    capabilities: FORCE2D,
     controls: noopControls,
     selectedNodeId: null,
     nodes: [
@@ -34,7 +37,7 @@ export const Idle: Story = {
 
 export const WithSelection: Story = {
   args: {
-    capabilities: RENDERER_CAPABILITIES.force2d!,
+    capabilities: FORCE2D,
     controls: noopControls,
     selectedNodeId: "n.a",
     nodes: [
@@ -47,7 +50,7 @@ export const WithSelection: Story = {
 /** Tree renderer: fewer capabilities (no focus, no dim). */
 export const TreePartial: Story = {
   args: {
-    capabilities: RENDERER_CAPABILITIES.tree!,
+    capabilities: TREE,
     controls: noopControls,
     selectedNodeId: null,
     nodes: [],
@@ -57,7 +60,7 @@ export const TreePartial: Story = {
 /** No renderer camera yet — every control disabled with a reason, never a no-op. */
 export const EmptyGraph: Story = {
   args: {
-    capabilities: RENDERER_CAPABILITIES.force2d!,
+    capabilities: FORCE2D,
     controls: null,
     selectedNodeId: null,
     nodes: [],

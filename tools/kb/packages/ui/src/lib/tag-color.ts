@@ -12,7 +12,9 @@
  *    `resolveTagColor` verbatim, so the value may be `red`, `#f00` or
  *    `oklch(…)`, and appending hex-alpha digits to those produces garbage.
  */
+import { present } from "@kb/model";
 import type { TagBadge } from "@/lib/types";
+import { textOr } from "@/lib/text";
 
 /** Deterministic 12-color hash (djb2 % 12). */
 export const TAG_PALETTE = [
@@ -41,14 +43,12 @@ export function djb2Hash(input: string): number {
 
 export function hashTagColor(tagId: string): string {
   const index = Math.abs(djb2Hash(tagId)) % TAG_PALETTE.length;
-  return TAG_PALETTE[index]!;
+  return present(TAG_PALETTE[index], "tag palette index is a modulo of its length");
 }
 
 /** Explicit tag-node `color` prop overrides the hash. */
 export function resolveTagColor(tagId: string, explicitColor?: string | null): string {
-  const trimmed = explicitColor?.trim();
-  if (trimmed) return trimmed;
-  return hashTagColor(tagId);
+  return textOr(explicitColor?.trim(), hashTagColor(tagId));
 }
 
 /**
@@ -96,7 +96,8 @@ export function tagColorFill(colors: readonly string[], opacityPercent = 100): s
   if (colors.length === 0) return null;
   const paints =
     opacityPercent >= 100 ? colors : colors.map((color) => tagColorAlpha(color, opacityPercent));
-  if (paints.length === 1) return paints[0]!;
+  const [onlyPaint] = paints;
+  if (paints.length === 1 && onlyPaint !== undefined) return onlyPaint;
   const step = 100 / paints.length;
   const wedges = paints.map((paint, i) => `${paint} ${stop(i * step)} ${stop((i + 1) * step)}`);
   return `conic-gradient(from 0deg, ${wedges.join(", ")})`;

@@ -8,6 +8,7 @@ import {
   typeRefsOf,
   wouldCreateExtendsCycle,
 } from "@kb/model";
+import { hasText, textOr } from "@/lib/text";
 import { mutations } from "@/actions/mutations";
 import { MemberRow } from "@/components/ontology/member-row";
 import { RefAddPopover } from "@/components/ontology/ref-add-popover";
@@ -42,7 +43,8 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
   // Consults the unscoped wire nodes first, so a node the scope excludes still
   // resolves to its text instead of showing a raw id.
   const labelFor = useCallback(
-    (id: string): string => byId.get(id)?.text.trim() || nodes.get(id)?.text.trim() || id,
+    (id: string): string =>
+      textOr(byId.get(id)?.text.trim(), textOr(nodes.get(id)?.text.trim(), id)),
     [byId, nodes],
   );
 
@@ -175,9 +177,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
               { key: "descendants", label: "descendants" },
             ]}
             value={closure}
-            onChange={(v) =>
-              void mutations.ontologySetClosure(ontologyId, v as "none" | "descendants")
-            }
+            onChange={(v) => void mutations.ontologySetClosure(ontologyId, v)}
           />
           <span className="text-[11px] text-foreground/30">pull whole subtrees of members in</span>
         </DefinitionRow>
@@ -346,7 +346,7 @@ function Chip({
     <span
       className="group/chip inline-flex h-[18px] max-w-full items-center gap-0.5 rounded-sm px-1.5 text-[11px] font-medium leading-[18px]"
       style={
-        color
+        hasText(color)
           ? { backgroundColor: `${color}18`, color }
           : { backgroundColor: "color-mix(in oklab, currentColor 8%, transparent)" }
       }
@@ -374,14 +374,14 @@ function SectionTitle({ children, count }: { children: React.ReactNode; count: n
   );
 }
 
-function Segmented({
+function Segmented<T extends string>({
   options,
   value,
   onChange,
 }: {
-  options: Array<{ key: string; label: string }>;
-  value: string;
-  onChange: (key: string) => void;
+  options: Array<{ key: T; label: string }>;
+  value: T;
+  onChange: (key: T) => void;
 }) {
   return (
     <div className="flex items-center gap-0.5 rounded-md bg-foreground/[0.04] p-0.5">
@@ -443,7 +443,7 @@ function QueryEditor({
           "w-full resize-y rounded-md bg-foreground/[0.03] px-2 py-1",
           "font-mono text-[11px] leading-[1.5] text-foreground/75 outline-none",
           "placeholder:text-foreground/25 focus:bg-foreground/[0.05]",
-          warning && "ring-1 ring-warning/40",
+          hasText(warning) && "ring-1 ring-warning/40",
         )}
         onFocus={() => setEditing(true)}
         onChange={(e) => setDraft(e.target.value)}
@@ -463,7 +463,7 @@ function QueryEditor({
           }
         }}
       />
-      {warning ? <span className="text-[11px] text-warning">{warning}</span> : null}
+      {hasText(warning) ? <span className="text-[11px] text-warning">{warning}</span> : null}
     </div>
   );
 }

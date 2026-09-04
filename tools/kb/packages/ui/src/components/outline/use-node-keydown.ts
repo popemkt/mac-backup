@@ -51,7 +51,7 @@ export function useNodeKeyDown({ nodeId, instanceKey, isRef = false }: UseNodeKe
 
       const text = live?.text ?? "";
       const parentId = live?.parentId ?? null;
-      const parentNode = parentId ? store.nodes.get(parentId) : null;
+      const parentNode = parentId !== null ? store.nodes.get(parentId) : null;
       const siblingIdx = parentNode ? parentNode.children.indexOf(nodeId) : -1;
 
       switch (e.key) {
@@ -177,7 +177,7 @@ export function useNodeKeyDown({ nodeId, instanceKey, isRef = false }: UseNodeKe
             if (e.key === "ArrowUp") {
               if (live && live.children.length > 0 && !live.collapsed) {
                 toggleCollapse(nodeId);
-              } else if (parentId) {
+              } else if (parentId !== null) {
                 // Collapsed / leaf: jump to enclosing page (zoomed root).
                 store.zoomTo(parentId);
               }

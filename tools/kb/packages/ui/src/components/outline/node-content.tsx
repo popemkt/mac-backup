@@ -14,6 +14,7 @@ import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { MdView } from "@/components/outline/md-view";
+import { asElement } from "@/lib/dom";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
 import { nearestOffsetForX, offsetFromPoint } from "./caret";
 import { TagChipGroup } from "./tag-chip";
@@ -84,14 +85,15 @@ export function NodeTextHost({
   }, [refOpen?.query, refOpen?.start]);
 
   useLayoutEffect(() => {
-    if (!isActive || !instanceKey) return undefined;
+    if (!isActive || instanceKey === undefined) return undefined;
     const registry = useOutlineStore.getState();
     registry.registerTextHost(instanceKey);
     return () => registry.unregisterTextHost(instanceKey);
   }, [isActive, instanceKey]);
 
   useLayoutEffect(() => {
-    const intent = instanceKey && pendingCaret?.instanceKey === instanceKey ? pendingCaret : null;
+    const intent =
+      instanceKey !== undefined && pendingCaret?.instanceKey === instanceKey ? pendingCaret : null;
     const localIntent =
       !intent && isActive && !wasActive.current && initialCaret
         ? { instanceKey: instanceKey ?? "local", at: initialCaret }
@@ -147,7 +149,8 @@ export function NodeTextHost({
         setCaretSerializedOffset(editorRef.current, inserted.cursor);
       }
       setCursor(inserted.cursor);
-      if (instanceKey) useOutlineStore.getState().placeCaret(instanceKey, inserted.cursor);
+      if (instanceKey !== undefined)
+        useOutlineStore.getState().placeCaret(instanceKey, inserted.cursor);
     },
     [content, cursor, instanceKey, onChange],
   );
@@ -163,7 +166,7 @@ export function NodeTextHost({
     renderEditableContent(editorRef.current, next);
     setCaretSerializedOffset(editorRef.current, cursor + 2);
     setCursor(cursor + 2);
-    if (instanceKey) useOutlineStore.getState().placeCaret(instanceKey, cursor + 2);
+    if (instanceKey !== undefined) useOutlineStore.getState().placeCaret(instanceKey, cursor + 2);
   }, [content, cursor, instanceKey, onChange]);
 
   const handleInput = useCallback(() => {
@@ -179,9 +182,9 @@ export function NodeTextHost({
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       if (!isActive) {
-        const t = e.target as HTMLElement;
+        const t = asElement(e.target);
         if (
-          t.closest(
+          t?.closest(
             "a.kb-md-ref, a.kb-md-link, .kb-md-media, img.kb-md-media, video.kb-md-media, audio.kb-md-media",
           )
         ) {
@@ -212,7 +215,7 @@ export function NodeTextHost({
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       const files = e.dataTransfer.files;
-      if (!files || files.length === 0) return;
+      if (files.length === 0) return;
       e.preventDefault();
       e.stopPropagation();
       const file = files[0];
@@ -246,11 +249,11 @@ export function NodeTextHost({
         // Select this row so palette can anchor, then open it
         useOutlineStore.getState().selectNode(nodeId, instanceKey);
         // rAF not available in happy-dom — fall back to sync
-        const raf = (
-          globalThis as unknown as { requestAnimationFrame?: (cb: () => void) => number }
-        ).requestAnimationFrame;
-        if (raf) raf(() => useUiStore.getState().setNodePaletteOpen(true));
-        else useUiStore.getState().setNodePaletteOpen(true);
+        if (typeof requestAnimationFrame === "function") {
+          requestAnimationFrame(() => useUiStore.getState().setNodePaletteOpen(true));
+        } else {
+          useUiStore.getState().setNodePaletteOpen(true);
+        }
         return;
       }
 

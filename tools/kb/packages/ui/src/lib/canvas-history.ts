@@ -28,9 +28,9 @@ export function pushHistory(h: CanvasHistory, next: CanvasDoc): CanvasHistory {
 }
 
 export function undo(h: CanvasHistory): CanvasHistory {
-  if (h.past.length === 0) return h;
   const past = [...h.past];
-  const prev = past.pop()!;
+  const prev = past.pop();
+  if (prev === undefined) return h;
   return { past, present: prev, future: [h.present, ...h.future] };
 }
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Graph from "graphology";
+import { nodePosition } from "./graph-attributes";
 import Sigma from "sigma";
 import { EdgeArrowProgram } from "sigma/rendering";
 import type { LensEdge, LensNode, LensLayout } from "@/lib/graph-lens";
@@ -7,6 +8,7 @@ import { readTokenColor } from "@/lib/css-color";
 import { graphNodeAlpha, withGraphAlpha } from "@/lib/graph-dim";
 import { formatGraphLabel } from "@/lib/graph-label";
 import { computeLayoutPositions } from "@/lib/graph-layouts";
+import { asInstance } from "@/lib/dom";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
 import { fitView } from "./graph-camera";
 import { sigmaCameraControls, type GraphCameraControls } from "./graph-camera-controls";
@@ -109,7 +111,7 @@ export function SigmaGraph({
 
     const activeNode = sel ?? hovered;
     const neighborSet = new Set<string>();
-    if (activeNode && graph.hasNode(activeNode)) {
+    if (activeNode !== null && graph.hasNode(activeNode)) {
       graph.forEachNeighbor(activeNode, (neighbor) => neighborSet.add(neighbor));
       neighborSet.add(activeNode);
     }
@@ -117,7 +119,7 @@ export function SigmaGraph({
     sigma.setSetting("nodeReducer", (node, data) => {
       const filterMatch = !filter || filter.has(node);
       const searchMatch = !highlight || highlight.size === 0 || highlight.has(node);
-      const focusMatch = !activeNode || neighborSet.has(node);
+      const focusMatch = activeNode === null || neighborSet.has(node);
       const alpha = graphNodeAlpha({
         includedByFilter: filterMatch,
         includedBySearch: searchMatch,
@@ -136,7 +138,7 @@ export function SigmaGraph({
     });
 
     sigma.setSetting("edgeReducer", (edge, data) => {
-      if (!activeNode) return { ...data, hidden: false };
+      if (activeNode === null) return { ...data, hidden: false };
       const extremities = graph.extremities(edge);
       if (extremities.includes(activeNode)) {
         return { ...data, hidden: false, zIndex: 1 };
@@ -185,8 +187,7 @@ export function SigmaGraph({
       });
     }
 
-    for (let i = 0; i < edges.length; i++) {
-      const e = edges[i]!;
+    for (const [i, e] of edges.entries()) {
       if (!graph.hasNode(e.source) || !graph.hasNode(e.target)) continue;
       try {
         graph.addEdgeWithKey(`${e.kind}:${e.source}->${e.target}:${i}`, e.source, e.target, {
@@ -267,8 +268,8 @@ export function SigmaGraph({
     // --- Selection ---
     sigma.on("clickNode", ({ node, event }) => {
       if (dragRef.current?.dragging === true) return;
-      const nativeEvent = event.original as MouseEvent;
-      if (nativeEvent.metaKey || nativeEvent.ctrlKey) {
+      const nativeEvent = asInstance(event.original, MouseEvent);
+      if (nativeEvent?.metaKey === true || nativeEvent?.ctrlKey === true) {
         onOpenRef.current(node);
         return;
       }
@@ -302,7 +303,7 @@ export function SigmaGraph({
 
     // --- Node drag ---
     sigma.on("downNode", ({ node }) => {
-      const pos = sigma.graphToViewport(graph.getNodeAttributes(node) as { x: number; y: number });
+      const pos = sigma.graphToViewport(nodePosition(graph, node));
       dragRef.current = {
         node,
         dragging: false,
@@ -343,7 +344,7 @@ export function SigmaGraph({
     };
 
     const onHoverMove = (e: MouseEvent) => {
-      if (hoveredRef.current) {
+      if (hoveredRef.current !== null) {
         const rect = el.getBoundingClientRect();
         setTooltip({
           id: hoveredRef.current,
@@ -415,7 +416,7 @@ export function SigmaGraph({
         onSelRef.current?.(null);
         refreshReducers();
       }
-      if (e.key === "Enter" && selectedRef.current) {
+      if (e.key === "Enter" && selectedRef.current !== null) {
         onOpenRef.current(selectedRef.current);
       }
     };
@@ -426,7 +427,7 @@ export function SigmaGraph({
   return (
     <div className="relative h-full w-full min-h-0">
       <div ref={containerRef} className="h-full w-full min-h-0" data-sigma-container="true" />
-      {tooltip && !selected && (
+      {tooltip && selected === null && (
         <HoverTooltip nodeId={tooltip.id} nodes={nodes} x={tooltip.x} y={tooltip.y} />
       )}
     </div>

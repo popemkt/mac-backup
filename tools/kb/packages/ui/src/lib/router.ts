@@ -52,19 +52,19 @@ export type AppRoute =
 export function matchRoute(path: string): AppRoute {
   if (path === "/canvas" || path === "/canvas/") return { name: "canvas-list" };
   const canvas = path.match(/^\/canvas\/([^/]+)\/?$/);
-  if (canvas?.[1]) {
+  if (canvas?.[1] !== undefined) {
     return { name: "canvas", id: decodeURIComponent(canvas[1]) };
   }
   if (path === "/graph" || path === "/graph/") {
     return { name: "graph", perspectiveId: null };
   }
   const graph = path.match(/^\/graph\/([^/]+)\/?$/);
-  if (graph?.[1]) {
+  if (graph?.[1] !== undefined) {
     return { name: "graph", perspectiveId: decodeURIComponent(graph[1]) };
   }
   if (path === "/o" || path === "/o/") return { name: "ontology-list" };
   const onto = path.match(/^\/o\/([^/]+)(?:\/(outline|graph))?\/?$/);
-  if (onto?.[1]) {
+  if (onto?.[1] !== undefined) {
     return {
       name: "ontology",
       id: decodeURIComponent(onto[1]),
@@ -75,7 +75,9 @@ export function matchRoute(path: string): AppRoute {
 }
 
 export function graphPath(perspectiveId?: string | null): string {
-  if (perspectiveId) return `/graph/${encodeURIComponent(perspectiveId)}`;
+  if (perspectiveId !== null && perspectiveId !== undefined) {
+    return `/graph/${encodeURIComponent(perspectiveId)}`;
+  }
   return "/graph";
 }
 

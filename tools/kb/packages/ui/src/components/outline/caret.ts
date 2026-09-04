@@ -6,7 +6,8 @@
  * caret at BOTH line extremes and x = null, so keyboard decisions fall
  * back to offset-based behaviour that is always safe.
  */
-import { KB_REF_ATTR } from "@/lib/md-edit";
+import { isElementNode, isTextNode } from "@/lib/dom";
+import { KB_REF_ATTR, serializedOffsetOfBoundary } from "@/lib/md-edit";
 
 export interface CaretGeometry {
   /** Caret sits on the first rendered visual line of the element. */
@@ -74,7 +75,7 @@ const PERMISSIVE: CaretGeometry = {
 function uniqueTops(rects: DOMRectList | DOMRect[]): number[] {
   const tops: number[] = [];
   for (const r of Array.from(rects)) {
-    if (!r || (r.width === 0 && r.height === 0)) continue;
+    if (r.width === 0 && r.height === 0) continue;
     const top = Math.round(r.top);
     if (!tops.includes(top)) tops.push(top);
   }
@@ -101,12 +102,8 @@ export function readCaretGeometry(el: HTMLElement): CaretGeometry {
     before.setEnd(range.endContainer, range.endOffset);
     const after = childIndexEndRange(el, range);
 
-    const caretRects = range.getClientRects();
-    let x: number | null = null;
-    if (caretRects.length > 0) {
-      const lastRect = caretRects[caretRects.length - 1]!;
-      x = lastRect.left;
-    }
+    const lastCaretRect = [...range.getClientRects()].at(-1);
+    const x: number | null = lastCaretRect?.left ?? null;
 
     return {
       onFirstLine: uniqueTops(before.getClientRects()).length <= 1,
@@ -159,63 +156,63 @@ export function nearestOffsetForX(
     if (rects.length === 0) return null;
     const targetTop = line === "first" ? Math.min(...rects) : Math.max(...rects);
 
-    let best: { offset: number; dist: number } | null = null;
+    // `best` is a holder, not a `let`: it is written from inside `visit`, and
+    // control-flow analysis cannot see through the closure.
+    const best = { offset: 0, dist: Number.POSITIVE_INFINITY };
+    const consider = (offset: number, left: number): void => {
+      const dist = Math.abs(left - x);
+      if (dist < best.dist) {
+        best.offset = offset;
+        best.dist = dist;
+      }
+    };
     let serialized = 0;
 
     const visit = (node: Node): void => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        const tn = node as Text;
-        for (let i = 0; i <= tn.data.length; i++) {
-          const r = charRect(tn, i);
+      if (isTextNode(node)) {
+        for (let i = 0; i <= node.data.length; i++) {
+          const r = charRect(node, i);
           if (!r) continue;
           if (Math.round(r.top) !== targetTop) continue;
-          const dist = Math.abs(r.left - x);
-          if (!best || dist < best.dist) {
-            best = { offset: serialized + i, dist };
-          }
+          consider(serialized + i, r.left);
         }
-        serialized += tn.data.length;
+        serialized += node.data.length;
         return;
       }
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        const hel = node as HTMLElement;
-        const token = hel.getAttribute(KB_REF_ATTR);
+      if (isElementNode(node)) {
+        const token = node.getAttribute(KB_REF_ATTR);
         if (token !== null) {
-          const r = hel.getBoundingClientRect();
-          if (r && Math.round(r.top) === targetTop) {
-            const edges: Array<[number, number]> = [
-              [serialized, r.left],
-              [serialized + token.length, r.right],
-            ];
-            for (const [offset, left] of edges) {
-              const dist = Math.abs(left - x);
-              if (!best || dist < best.dist) best = { offset, dist };
-            }
+          const r = node.getBoundingClientRect();
+          if (Math.round(r.top) === targetTop) {
+            consider(serialized, r.left);
+            consider(serialized + token.length, r.right);
           }
           serialized += token.length;
           return;
         }
-        for (const kid of Array.from(hel.childNodes)) visit(kid);
+        for (const kid of Array.from(node.childNodes)) visit(kid);
       }
     };
 
     for (const child of Array.from(el.childNodes)) visit(child);
-    return best ? (best as { offset: number }).offset : null;
+    return Number.isFinite(best.dist) ? best.offset : null;
   } catch {
     return null;
   }
 }
 
+/** Serialized offset under viewport point (clientX/clientY). Null when no caret. F16. */
 /**
- * The two vendor spellings of "what caret is under this point". Neither is in
- * lib.dom for every target, so this is the one place that names their shape.
+ * The two vendor spellings of "what caret is under this point". `lib.dom`
+ * declares both, one of them deprecated, and neither is present on every
+ * target this app runs on; naming them here keeps the probe a probe rather
+ * than a deprecated call site.
  */
 interface CaretDocument {
   caretRangeFromPoint?: (x: number, y: number) => Range | null;
   caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
 }
 
-/** Serialized offset under viewport point (clientX/clientY). Null when no caret. F16. */
 export function offsetFromPoint(el: HTMLElement, clientX: number, clientY: number): number | null {
   try {
     let range: Range | null = null;
@@ -235,46 +232,7 @@ export function offsetFromPoint(el: HTMLElement, clientX: number, clientY: numbe
       }
     }
     if (!range || !el.contains(range.startContainer)) return null;
-    // Measure serialized offset up to range start
-    let total = 0;
-    let done = false;
-    const measure = (node: Node): void => {
-      if (done) return;
-      if (node === range.startContainer) {
-        if (node.nodeType === Node.TEXT_NODE) {
-          total += Math.min(range.startOffset, node.textContent?.length ?? 0);
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-          const hel = node as HTMLElement;
-          const token = hel.getAttribute(KB_REF_ATTR);
-          if (token !== null) {
-            total += range.startOffset > 0 ? token.length : 0;
-          } else {
-            const kids = Array.from(hel.childNodes).slice(0, range.startOffset);
-            for (const kid of kids) measure(kid);
-          }
-        }
-        done = true;
-        return;
-      }
-      if (node.nodeType === Node.TEXT_NODE) {
-        total += node.textContent?.length ?? 0;
-        return;
-      }
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        const hel = node as HTMLElement;
-        const token = hel.getAttribute(KB_REF_ATTR);
-        if (token !== null) {
-          total += token.length;
-          return;
-        }
-        for (const kid of Array.from(hel.childNodes)) measure(kid);
-      }
-    };
-    for (const child of Array.from(el.childNodes)) {
-      measure(child);
-      if (done) break;
-    }
-    return done ? total : null;
+    return serializedOffsetOfBoundary(el, range.startContainer, range.startOffset);
   } catch {
     return null;
   }
@@ -286,7 +244,7 @@ function charRect(tn: Text, index: number): DOMRect | null {
     r.setStart(tn, index);
     r.setEnd(tn, index);
     const rects = r.getClientRects();
-    return rects.length > 0 ? rects[0]! : null;
+    return rects[0] ?? null;
   } catch {
     return null;
   }

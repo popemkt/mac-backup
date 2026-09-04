@@ -2,6 +2,7 @@
  * Run a palette command node (typed sys.command).
  */
 import { ulid } from "ulid";
+import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { listOntologyItems } from "@/lib/ontology-scope";
 import { navigate, ontologyPath } from "@/lib/router";
@@ -16,7 +17,7 @@ const THEME_CYCLE: ThemePref[] = ["light", "dark", "system"];
 
 function nextTheme(current: ThemePref): ThemePref {
   const i = THEME_CYCLE.indexOf(current);
-  return THEME_CYCLE[(i + 1) % THEME_CYCLE.length]!;
+  return present(THEME_CYCLE[(i + 1) % THEME_CYCLE.length], "theme cycle index is a modulo");
 }
 
 // oxlint-disable-next-line complexity -- GAP [[01M1MGCRNVNBE5HW27Z83PK67B]]
@@ -24,7 +25,7 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
   switch (commandId) {
     case SYSTEM_IDS.cmdAddNode: {
       const selected = useOutlineStore.getState().selectedNodeId;
-      if (selected && !isSysPrefixed(selected)) {
+      if (selected !== null && !isSysPrefixed(selected)) {
         await mutations.createNodeAfter(selected);
       } else {
         const newId = ulid();
@@ -37,14 +38,14 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
     }
     case SYSTEM_IDS.cmdAddTag: {
       const id = await mutations.defineTag("untitled-tag");
-      if (id) {
+      if (id !== null) {
         useOutlineStore.getState().zoomTo(id);
       }
       return;
     }
     case SYSTEM_IDS.cmdDefineField: {
       const id = await mutations.defineField("untitled-field");
-      if (id) {
+      if (id !== null) {
         useOutlineStore.getState().zoomTo(id);
       }
       return;
@@ -57,14 +58,14 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
     case SYSTEM_IDS.cmdNewQuery: {
       // W4: #query tag + sys.f.query starter EDN, zoomed for editing.
       const newId = await mutations.newQueryNode();
-      if (newId) {
+      if (newId !== null) {
         useOutlineStore.getState().zoomTo(newId);
       }
       return;
     }
     case SYSTEM_IDS.cmdNewOntology: {
       const id = await mutations.defineOntology();
-      if (id) navigate(ontologyPath(id));
+      if (id !== null) navigate(ontologyPath(id));
       return;
     }
     case SYSTEM_IDS.cmdEnterOntology: {
@@ -78,12 +79,13 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
       const preferred =
         [store.selectedNodeId, store.rootNodeId].find((id) =>
           candidates.some((c) => c.id === id),
-        ) ?? candidates[0]!.id;
+        ) ?? candidates[0]?.id;
+      if (preferred === undefined) return;
       navigate(ontologyPath(preferred));
       return;
     }
     case SYSTEM_IDS.cmdExitOntology: {
-      if (!useOutlineStore.getState().ontologyId) {
+      if (useOutlineStore.getState().ontologyId === null) {
         toast("Not inside an ontology");
         return;
       }
@@ -106,7 +108,7 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
     }
     case SYSTEM_IDS.cmdDebugShowFields: {
       const nodeId = commandTargetNodeId();
-      if (!nodeId) {
+      if (nodeId === null) {
         toast("select a node first");
         return;
       }
@@ -134,7 +136,7 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
               ? "board"
               : "cards";
       const frameId = viewTargetFrameId();
-      if (!frameId) {
+      if (frameId === null) {
         toast("select a frame first");
         return;
       }
@@ -143,7 +145,7 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
     }
     case SYSTEM_IDS.cmdViewFilter: {
       const frameId = viewTargetFrameId();
-      if (!frameId) {
+      if (frameId === null) {
         toast("select a frame first");
         return;
       }
@@ -168,7 +170,7 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
  */
 function commandTargetNodeId(): string | null {
   const store = useOutlineStore.getState();
-  if (store.selectedNodeId) return store.selectedNodeId;
+  if (store.selectedNodeId !== null) return store.selectedNodeId;
   if (store.rootNodeId && store.rootNodeId !== WORKSPACE_ROOT_ID) {
     return store.rootNodeId;
   }
@@ -182,6 +184,6 @@ function viewTargetFrameId(): string | null {
     return store.rootNodeId;
   }
   const sel = store.selectedNodeId;
-  if (sel && !isSysPrefixed(sel)) return sel;
+  if (sel !== null && !isSysPrefixed(sel)) return sel;
   return null;
 }

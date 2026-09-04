@@ -31,8 +31,7 @@ function isCommandNode(node: WireNode): boolean {
 export function buildPaletteIndex(nodes: WireNode[], rev: number): PaletteIndex {
   // oxlint-disable-next-line unicorn/no-new-array -- GAP [[01M1MFJXAQ8NVBMA6E6CZ7CY9W]]
   const entries: PaletteEntry[] = new Array(nodes.length);
-  for (let i = 0; i < nodes.length; i++) {
-    const n = nodes[i]!;
+  for (const [i, n] of nodes.entries()) {
     const text = n.text || n.id;
     const kind: PaletteEntryKind = isCommandNode(n) ? "command" : "node";
     const textLower = text.toLowerCase();
@@ -83,8 +82,8 @@ export function searchPalette(index: PaletteIndex, query: string, limit = 20): P
     const slice = index.entries.slice(0, limit);
     // oxlint-disable-next-line unicorn/no-new-array -- GAP [[01M1MFJXAQ8NVBMA6E6CZ7CY9W]]
     const out: PaletteHit[] = new Array(slice.length);
-    for (let i = 0; i < slice.length; i++) {
-      out[i] = { ...slice[i]!, score: 0 };
+    for (const [i, e] of slice.entries()) {
+      out[i] = { ...e, score: 0 };
     }
     return out;
   }
@@ -92,8 +91,7 @@ export function searchPalette(index: PaletteIndex, query: string, limit = 20): P
   const hits: PaletteHit[] = [];
   const { entries } = index;
 
-  for (let i = 0; i < entries.length; i++) {
-    const e = entries[i]!;
+  for (const e of entries) {
     const idx = e.textLower.indexOf(q);
     let score: number;
     if (idx === 0) score = 0;
@@ -117,8 +115,8 @@ export function searchPalette(index: PaletteIndex, query: string, limit = 20): P
     return hits.slice(0, limit);
   }
 
-  for (let i = 0; i < entries.length && hits.length < limit; i++) {
-    const e = entries[i]!;
+  for (const e of entries) {
+    if (hits.length >= limit) break;
     if (!fuzzySubsequence(e.haystack, q)) continue;
     hits.push({
       ...e,

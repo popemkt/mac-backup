@@ -6,6 +6,8 @@ import { NodeRow } from "@/components/outline/node-row";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
 import { cn } from "@/lib/cn";
+import { classifyCardPointer } from "@/lib/card-pointer";
+import { asInstance } from "@/lib/dom";
 
 /** Stable instance key for a kb-node card on a canvas. */
 function canvasCardInstanceKey(cardId: string, nodeId: string): string {
@@ -51,7 +53,7 @@ export function KbNodeCard({
       // Canvas-safe subset: no structural outline ops (indent/split/merge).
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        (e.target as HTMLElement).blur();
+        asInstance(e.target, HTMLElement)?.blur();
         useOutlineStore.getState().selectNode(card.nodeId, instanceKey);
         return;
       }
@@ -95,10 +97,9 @@ export function KbNodeCard({
         height: card.height,
       }}
       onPointerDown={(e) => {
-        const target = e.target as HTMLElement;
-        if (target.closest("[data-port]")) return;
-        if (target.closest("[data-resize]")) return;
-        if (target.closest(".node-content")) {
+        const intent = classifyCardPointer(e.target, ".node-content");
+        if (intent === "chrome") return;
+        if (intent === "edit") {
           onSelect();
           return;
         }
@@ -204,10 +205,9 @@ export function TextCard({
         height: card.height,
       }}
       onPointerDown={(e) => {
-        const target = e.target as HTMLElement;
-        if (target.closest("[data-port]")) return;
-        if (target.closest("[data-resize]")) return;
-        if (target.tagName === "TEXTAREA") {
+        const intent = classifyCardPointer(e.target, "textarea");
+        if (intent === "chrome") return;
+        if (intent === "edit") {
           onSelect();
           return;
         }

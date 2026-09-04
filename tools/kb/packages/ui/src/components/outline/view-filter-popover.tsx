@@ -8,7 +8,15 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "./fields-section";
 import { listFilterFieldOptions } from "./view-filter-fields";
+import { EnumSelect, type EnumOption } from "@/components/ui/enum-select";
 import { POPOVER_VALUE_CLASS, PopoverShell } from "@/components/ui/popover-shell";
+
+type FilterKind = "eq" | "text";
+
+const FILTER_KIND_OPTIONS: readonly EnumOption<FilterKind>[] = [
+  { value: "eq", label: "field equals" },
+  { value: "text", label: "text contains" },
+];
 
 function filterLabel(f: ViewFilter): string {
   if (f.kind === "text") return `text ∋ ${f.text}`;
@@ -43,23 +51,23 @@ export function ViewFilterPopoverHost() {
   const frameId = useUiStore((s) => s.filterPopoverFrameId);
   const setOpenId = useUiStore((s) => s.setFilterPopoverFrameId);
   const rev = useOutlineStore((s) => s.rev);
-  const frame = useOutlineStore((s) => (frameId ? s.nodes.get(frameId) : undefined));
+  const frame = useOutlineStore((s) => (frameId !== null ? s.nodes.get(frameId) : undefined));
   const panelRef = useRef<HTMLDivElement>(null);
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
 
   const fields = useMemo(() => {
-    if (!frameId) return [];
+    if (frameId === null) return [];
     return listFilterFieldOptions(frameId, useOutlineStore.getState().nodes);
   }, [frameId, rev]); // oxlint-disable-line react-hooks/exhaustive-deps -- rev is the reactive invalidation key: the body reads the store imperatively via getState(), so rev drives recomputation
 
   const config = getViewConfig(frame?.props);
 
-  const [kind, setKind] = useState<"eq" | "text">("eq");
+  const [kind, setKind] = useState<FilterKind>("eq");
   const [fieldId, setFieldId] = useState("");
   const [value, setValue] = useState("");
 
   useLayoutEffect(() => {
-    if (!frameId) {
+    if (frameId === null) {
       setAnchor(null);
       return;
     }
@@ -74,7 +82,7 @@ export function ViewFilterPopoverHost() {
   }, [frameId, setOpenId, rev]);
 
   useEffect(() => {
-    if (!frameId || !anchor) return undefined;
+    if (frameId === null || !anchor) return undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpenId(null);
     };
@@ -108,7 +116,7 @@ export function ViewFilterPopoverHost() {
     if (!fieldId && fields[0]) setFieldId(fields[0].id);
   }, [fields, fieldId]);
 
-  if (!frameId || !anchor) return null;
+  if (frameId === null || !anchor) return null;
 
   const add = () => {
     if (kind === "text") {
@@ -171,14 +179,12 @@ export function ViewFilterPopoverHost() {
         )}
 
         <PrefFieldRow icon={FunnelIcon} label="kind">
-          <select
+          <EnumSelect
             className={POPOVER_VALUE_CLASS}
             value={kind}
-            onChange={(e) => setKind(e.target.value as "eq" | "text")}
-          >
-            <option value="eq">field equals</option>
-            <option value="text">text contains</option>
-          </select>
+            options={FILTER_KIND_OPTIONS}
+            onChange={setKind}
+          />
         </PrefFieldRow>
 
         {kind === "eq" && (

@@ -8,6 +8,7 @@ import {
   resolveAllowedRefIdsCached,
   resolveFieldTypeById,
 } from "@/lib/field-type";
+import { textOr } from "@/lib/text";
 import { cn } from "@/lib/cn";
 import { isQueryNode } from "@/lib/query-node";
 import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
@@ -82,7 +83,7 @@ export function TableView({
   const [resizing, setResizing] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!resizing) {
+    if (resizing === null) {
       setLocalColwidth(viewConfig.colwidth);
     }
   }, [viewConfig.colwidth, resizing]);
@@ -360,7 +361,7 @@ const TableCellField = memo(function TableCellField({
       ? resolveAllowedRefIdsCached(fieldId, fieldNode, nodes, queryDb, rev)
       : null;
 
-  const label = fieldNode?.text || fieldId;
+  const label = textOr(fieldNode?.text, fieldId);
 
   if (values.length === 0) {
     const emptyVal = emptyValueForType(fieldType);

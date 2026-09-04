@@ -7,10 +7,12 @@ import { KB_TEXT_CLASS } from "@/lib/md-inline";
 import { fuzzyNodeCandidates } from "@/lib/refs";
 import { TAG_PALETTE } from "@/lib/tag-color";
 import { useOutlineStore } from "@/stores/outline.store";
+import { asInstance } from "@/lib/dom";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
 import { Bullet } from "./bullet";
 import { NodeRow } from "./node-row";
 import { TagChipGroup } from "./tag-chip";
+import { hasText } from "@/lib/text";
 
 interface PropValueEditorProps {
   value: PropValue;
@@ -86,7 +88,7 @@ export function PropValueEditor({
         <EditableText
           text={value.t === "str" ? value.v : String(value.v)}
           onCommit={(text) => onCommit({ t: "str", v: text })}
-          empty={!value.v}
+          empty={value.v === "" || value.v === 0 || value.v === false}
           underline
         />
       );
@@ -107,7 +109,7 @@ export function PropValueEditor({
         <EditableText
           text={value.t === "str" ? value.v : String(value.v)}
           onCommit={(text) => onCommit({ t: "str", v: text })}
-          empty={!value.v}
+          empty={value.v === "" || value.v === 0 || value.v === false}
           underline={false}
         />
       );
@@ -217,7 +219,7 @@ export function ColorSwatchEditor({
           e.stopPropagation();
           if (e.key === "Enter") {
             e.preventDefault();
-            (e.target as HTMLInputElement).blur();
+            asInstance(e.target, HTMLElement)?.blur();
           }
         }}
       />
@@ -258,7 +260,7 @@ function EditableText({
     if (!ref.current) return;
     isEditing.current = false;
     ref.current.contentEditable = "false";
-    const next = ref.current.textContent ?? "";
+    const next = ref.current.textContent;
     if (next !== text) onCommit(next);
   }, [text, onCommit]);
 
@@ -379,9 +381,9 @@ function DateValue({
       className={cn(
         editableClass,
         "cursor-text",
-        !displayDate && "empty-placeholder text-foreground/25 italic",
+        !hasText(displayDate) && "empty-placeholder text-foreground/25 italic",
       )}
-      data-empty-placeholder={!displayDate ? "true" : undefined}
+      data-empty-placeholder={!hasText(displayDate) ? "true" : undefined}
       onClick={() => setEditing(true)}
     >
       {displayDate ?? ""}

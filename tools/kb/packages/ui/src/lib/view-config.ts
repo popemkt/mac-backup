@@ -1,6 +1,7 @@
 import type { NodeMap, OutlineNode, PropValue } from "./types";
 import { isSysPrefixed, SYSTEM_IDS } from "./types";
 import { logWarn } from "@/lib/log";
+import { textOr } from "@/lib/text";
 
 export type ViewMode = "list" | "table" | "board" | "cards";
 export type SortDir = "asc" | "desc";
@@ -36,7 +37,12 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
   filters: [],
 };
 
-const VIEW_MODES = new Set<ViewMode>(["list", "table", "board", "cards"]);
+const VIEW_MODES: readonly ViewMode[] = ["list", "table", "board", "cards"];
+
+/** The stored `sys.f.view.mode` string, when it names a mode kb renders. */
+function toViewMode(raw: string): ViewMode | undefined {
+  return VIEW_MODES.find((m) => m === raw);
+}
 
 /** Serialize a filter back to the EDN string stored on the frame. */
 export function serializeViewFilter(filter: Exclude<ViewFilter, never> & { raw?: string }): string {
@@ -54,11 +60,11 @@ export function parseViewFilterEdn(edn: string): ViewFilter | null {
   const raw = edn.trim();
   if (!raw.startsWith("{") || !raw.endsWith("}")) return null;
 
-  const textMatch = raw.match(/^\{:text\s+"((?:\\.|[^"\\])*)"\s*\}$/);
-  if (textMatch) {
+  const textValue = raw.match(/^\{:text\s+"((?:\\.|[^"\\])*)"\s*\}$/)?.[1];
+  if (textValue !== undefined) {
     return {
       kind: "text",
-      text: textMatch[1]!.replace(/\\"/g, '"').replace(/\\\\/g, "\\"),
+      text: textValue.replace(/\\"/g, '"').replace(/\\\\/g, "\\"),
       raw,
     };
   }
@@ -66,14 +72,14 @@ export function parseViewFilterEdn(edn: string): ViewFilter | null {
   // {:field <id> :eq "value"} | {:field <id> :eq bare}
   const eqMatch = raw.match(/^\{:field\s+(\S+)\s+:eq\s+(?:"((?:\\.|[^"\\])*)"|(\S+))\s*\}$/);
   if (eqMatch) {
-    const fieldId = eqMatch[1]!;
-    const quoted = eqMatch[2];
-    const bare = eqMatch[3];
+    const [, fieldId, quoted, bare] = eqMatch;
     const value =
-      quoted !== undefined
-        ? quoted.replace(/\\"/g, '"').replace(/\\\\/g, "\\")
-        : bare!.replace(/^:/, "");
-    return { kind: "eq", fieldId, value, raw };
+      quoted === undefined
+        ? bare?.replace(/^:/, "")
+        : quoted.replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+    if (fieldId !== undefined && value !== undefined) {
+      return { kind: "eq", fieldId, value, raw };
+    }
   }
 
   return null;
@@ -87,7 +93,7 @@ function propValueKey(v: PropValue, _nodes: NodeMap): string {
 }
 
 function propValueLabel(v: PropValue, nodes: NodeMap): string {
-  if (v.t === "ref") return nodes.get(v.v)?.text || v.v;
+  if (v.t === "ref") return textOr(nodes.get(v.v)?.text, v.v);
   if (v.t === "bool") return v.v ? "true" : "false";
   return String(v.v);
 }
@@ -127,11 +133,9 @@ export function applyViewFilters(
 export function getViewConfig(props?: Record<string, PropValue[]>): ViewConfig {
   if (!props) return { ...DEFAULT_VIEW_CONFIG };
 
-  let mode: ViewMode = "list";
   const rawMode = props[SYSTEM_IDS.viewModeField]?.[0];
-  if (rawMode && rawMode.t === "str" && VIEW_MODES.has(rawMode.v as ViewMode)) {
-    mode = rawMode.v as ViewMode;
-  }
+  const mode: ViewMode =
+    (rawMode && rawMode.t === "str" ? toViewMode(rawMode.v) : undefined) ?? "list";
 
   const sortRefs = props[SYSTEM_IDS.viewSortField] ?? [];
   const sortDirs = props[SYSTEM_IDS.viewSortDirField] ?? [];
@@ -157,9 +161,9 @@ export function getViewConfig(props?: Record<string, PropValue[]>): ViewConfig {
   const rawColwidth = props[SYSTEM_IDS.viewColwidthField]?.[0];
   if (rawColwidth && rawColwidth.t === "str") {
     try {
-      const parsed = JSON.parse(rawColwidth.v);
+      const parsed: unknown = JSON.parse(rawColwidth.v);
       if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-        for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+        for (const [key, value] of Object.entries(parsed)) {
           if (typeof value === "number" && Number.isFinite(value) && value > 0) {
             colwidth[key] = value;
           }
@@ -245,7 +249,7 @@ export function resolveTableColumns(
       }
     }
     const fieldNode = nodes.get(fieldId);
-    const label = fieldNode?.text || fieldId;
+    const label = textOr(fieldNode?.text, fieldId);
     columns.push({ fieldId, label });
   }
 
@@ -285,8 +289,8 @@ export function sortChildrenForTable(
         } else if (valA.t === "bool" && valB.t === "bool") {
           cmp = (valA.v ? 1 : 0) - (valB.v ? 1 : 0);
         } else if (valA.t === "ref" && valB.t === "ref") {
-          const textA = (nodes.get(valA.v)?.text || valA.v).toLowerCase();
-          const textB = (nodes.get(valB.v)?.text || valB.v).toLowerCase();
+          const textA = textOr(nodes.get(valA.v)?.text, valA.v).toLowerCase();
+          const textB = textOr(nodes.get(valB.v)?.text, valB.v).toLowerCase();
           cmp = textA < textB ? -1 : textA > textB ? 1 : 0;
         } else {
           const strA = String(valA.v).toLowerCase();
@@ -324,7 +328,7 @@ export function groupChildrenForBoard(
   groupFieldId: string | null,
   nodes: NodeMap,
 ): BoardColumn[] {
-  if (!groupFieldId) {
+  if (groupFieldId === null) {
     return [
       {
         key: "__all__",
@@ -335,7 +339,7 @@ export function groupChildrenForBoard(
     ];
   }
 
-  const fieldLabel = nodes.get(groupFieldId)?.text || groupFieldId;
+  const fieldLabel = textOr(nodes.get(groupFieldId)?.text, groupFieldId);
   const columns = new Map<string, BoardColumn>();
   const empty: BoardColumn = {
     key: EMPTY_GROUP_KEY,
@@ -351,7 +355,8 @@ export function groupChildrenForBoard(
       continue;
     }
     // Display: first value wins. Drag clears all values then sets one.
-    const v = vals[0]!;
+    const [v] = vals;
+    if (v === undefined) continue;
     const key = propValueKey(v, nodes);
     let col = columns.get(key);
     if (!col) {

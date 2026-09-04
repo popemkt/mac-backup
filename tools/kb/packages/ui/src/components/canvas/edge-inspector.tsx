@@ -2,7 +2,10 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { CanvasEdge, KbLinkMode } from "@kb/canvas";
 import { CANVAS_COLOR_PRESETS } from "@/lib/canvas-color";
+import { EnumSelect, type EnumOption } from "@/components/ui/enum-select";
 import { cn } from "@/lib/cn";
+import { isOutside } from "@/lib/dom";
+import { hasText } from "@/lib/text";
 
 export interface EdgeInspectorProps {
   edge: CanvasEdge;
@@ -16,6 +19,11 @@ export interface EdgeInspectorProps {
   onColorChange?: (color: string | undefined) => void;
   onLabelChange?: (label: string) => void;
 }
+
+const LINK_MODE_OPTIONS: readonly EnumOption<KbLinkMode>[] = [
+  { value: "layout", label: "layout" },
+  { value: "native", label: "native" },
+];
 
 export function EdgeInspector({
   edge,
@@ -38,7 +46,7 @@ export function EdgeInspector({
       if (e.key === "Escape") onClose();
     };
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      if (isOutside(ref.current, e.target)) onClose();
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("mousedown", onDown);
@@ -118,7 +126,7 @@ export function EdgeInspector({
               title="None"
               className={cn(
                 "h-5 w-5 rounded-full border border-foreground/15 bg-background",
-                !edge.color && "ring-2 ring-primary/50",
+                !hasText(edge.color) && "ring-2 ring-primary/50",
               )}
               onClick={() => onColorChange(undefined)}
             />
@@ -142,14 +150,12 @@ export function EdgeInspector({
 
       <label className="mb-2 flex items-center justify-between gap-2 text-[12px]">
         <span className="text-foreground/60">Mode</span>
-        <select
+        <EnumSelect
           className="rounded-md border border-foreground/10 bg-background px-2 py-1 text-[12px]"
           value={mode}
-          onChange={(e) => onModeChange(e.target.value as KbLinkMode)}
-        >
-          <option value="layout">layout</option>
-          <option value="native">native</option>
-        </select>
+          options={LINK_MODE_OPTIONS}
+          onChange={onModeChange}
+        />
       </label>
       {mode === "native" && (
         <label className="mb-2 flex flex-col gap-1 text-[12px]">

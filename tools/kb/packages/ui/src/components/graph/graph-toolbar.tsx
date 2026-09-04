@@ -6,7 +6,9 @@ import {
   MinusIcon,
   PlusIcon,
 } from "@phosphor-icons/react";
+import { hasText } from "@/lib/text";
 import { cn } from "@/lib/cn";
+import { isTextEntry } from "@/lib/dom";
 import type { LensPerspective } from "@/lib/graph-lens";
 import { CAPABILITY_REASONS, type RendererCapabilities } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";
@@ -42,8 +44,7 @@ export function GraphToolbar({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+      if (isTextEntry(e.target)) return;
       const caps = capsRef.current;
       const cam = controlsRef.current;
 
@@ -74,7 +75,7 @@ export function GraphToolbar({
           break;
         case "f":
           e.preventDefault();
-          if (selectedRef.current && caps.focus) {
+          if (selectedRef.current !== null && caps.focus) {
             cam.focusNode(selectedRef.current);
           } else if (caps.fit) {
             cam.fit();
@@ -112,9 +113,10 @@ export function GraphToolbar({
     onSearchChange?.(null);
   };
 
-  const runOrNoop = (enabled: boolean, fn: () => void) => {
+  /** A camera verb fires only when the renderer allows it and controls exist. */
+  const cameraVerb = (enabled: boolean, verb: (c: GraphCameraControls) => void) => () => {
     if (!enabled || !controls) return;
-    fn();
+    verb(controls);
   };
 
   return (
@@ -164,28 +166,28 @@ export function GraphToolbar({
         label="Zoom in (+)"
         disabled={!capabilities.zoom || !controls}
         disabledReason={CAPABILITY_REASONS.zoom}
-        onClick={() => runOrNoop(capabilities.zoom, () => controls!.zoomIn())}
+        onClick={cameraVerb(capabilities.zoom, (c) => c.zoomIn())}
       />
       <ToolbarButton
         icon={<MinusIcon size={14} />}
         label="Zoom out (-)"
         disabled={!capabilities.zoom || !controls}
         disabledReason={CAPABILITY_REASONS.zoom}
-        onClick={() => runOrNoop(capabilities.zoom, () => controls!.zoomOut())}
+        onClick={cameraVerb(capabilities.zoom, (c) => c.zoomOut())}
       />
       <ToolbarButton
         icon={<ArrowsInIcon size={14} />}
         label="Fit view (f)"
         disabled={!capabilities.fit || !controls}
         disabledReason={CAPABILITY_REASONS.fit}
-        onClick={() => runOrNoop(capabilities.fit, () => controls!.fit())}
+        onClick={cameraVerb(capabilities.fit, (c) => c.fit())}
       />
       <ToolbarButton
         icon={<ArrowCounterClockwiseIcon size={14} />}
         label="Reset (0)"
         disabled={!capabilities.reset || !controls}
         disabledReason={CAPABILITY_REASONS.reset}
-        onClick={() => runOrNoop(capabilities.reset, () => controls!.reset())}
+        onClick={cameraVerb(capabilities.reset, (c) => c.reset())}
       />
       {perspective ? (
         <>
@@ -212,7 +214,7 @@ function ToolbarButton({
   disabled?: boolean;
   disabledReason?: string;
 }) {
-  const title = disabled === true && disabledReason ? disabledReason : label;
+  const title = disabled === true && hasText(disabledReason) ? disabledReason : label;
   return (
     <button
       type="button"

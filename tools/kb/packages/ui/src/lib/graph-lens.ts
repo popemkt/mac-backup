@@ -285,7 +285,8 @@ export function buildTreeForest(
   const built = new Map<string, LensTreeNode>();
 
   function build(id: string): LensTreeNode | null {
-    if (built.has(id)) return built.get(id)!;
+    const done = built.get(id);
+    if (done !== undefined) return done;
     if (visiting.has(id)) return null; // cycle
     visiting.add(id);
     const meta = byLens.get(id);
@@ -310,7 +311,7 @@ export function buildTreeForest(
     return node;
   }
 
-  if (focusId && nodeSet.has(focusId)) {
+  if (focusId !== null && nodeSet.has(focusId)) {
     const root = build(focusId);
     return root ? [root] : [];
   }
@@ -332,7 +333,7 @@ export function idsFromQueryRows(rows: unknown[][], known: Set<string>): Set<str
   const out = new Set<string>();
   for (const row of rows) {
     const id = row.find((v): v is string => typeof v === "string" && known.has(v));
-    if (id) out.add(id);
+    if (id !== undefined) out.add(id);
   }
   return out;
 }
