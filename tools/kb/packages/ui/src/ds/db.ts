@@ -82,7 +82,11 @@ export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
  * `kb backlinks` and the UI's References section cannot answer it differently.
  */
 export function queryBacklinks(db: QueryDb, targetId: string): Array<{ id: string; text: string }> {
-  const rows = query(db, backlinksQuery(targetId)) as Array<[string, string]>;
+  const rows = query(db, backlinksQuery(targetId));
   if (!Array.isArray(rows)) return [];
-  return rows.map(([id, text]) => ({ id, text }));
+  return rows.flatMap((row: unknown) =>
+    Array.isArray(row) && typeof row[0] === "string" && typeof row[1] === "string"
+      ? [{ id: row[0], text: row[1] }]
+      : [],
+  );
 }

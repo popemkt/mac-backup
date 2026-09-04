@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { create } from "zustand";
 
 /**
@@ -41,6 +42,17 @@ export const DEFAULT_PREFS: Prefs = {
   sidebarOpen: true,
 };
 
+/**
+ * The stored payload is untrusted text. Each field falls back on its own, so
+ * one unreadable value cannot reset the rest.
+ */
+const StoredPrefsSchema = z.object({
+  theme: z.enum(["light", "dark", "system"]).catch(DEFAULT_PREFS.theme),
+  font: z.enum(["outfit", "inter"]).catch(DEFAULT_PREFS.font),
+  width: z.enum(["centered", "full"]).catch(DEFAULT_PREFS.width),
+  sidebarOpen: z.boolean().optional().catch(undefined),
+});
+
 /** Parse a raw localStorage payload; unknown values fall back to defaults. */
 export function loadPrefs(
   raw: string | null,
@@ -50,15 +62,15 @@ export function loadPrefs(
     return { ...DEFAULT_PREFS, sidebarOpen: defaultSidebarOpen(viewportWidth) };
   }
   try {
-    const parsed = JSON.parse(raw) as Partial<Prefs> | null;
+    const parsed = StoredPrefsSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) {
+      return { ...DEFAULT_PREFS, sidebarOpen: defaultSidebarOpen(viewportWidth) };
+    }
     return {
-      theme: parsed?.theme === "light" || parsed?.theme === "dark" ? parsed.theme : "system",
-      font: parsed?.font === "outfit" ? "outfit" : "inter",
-      width: parsed?.width === "full" ? "full" : "centered",
-      sidebarOpen:
-        typeof parsed?.sidebarOpen === "boolean"
-          ? parsed.sidebarOpen
-          : defaultSidebarOpen(viewportWidth),
+      theme: parsed.data.theme,
+      font: parsed.data.font,
+      width: parsed.data.width,
+      sidebarOpen: parsed.data.sidebarOpen ?? defaultSidebarOpen(viewportWidth),
     };
   } catch {
     return { ...DEFAULT_PREFS, sidebarOpen: defaultSidebarOpen(viewportWidth) };

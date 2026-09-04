@@ -247,11 +247,11 @@ export function NodeTextHost({
         // Select this row so palette can anchor, then open it
         useOutlineStore.getState().selectNode(nodeId, instanceKey);
         // rAF not available in happy-dom — fall back to sync
-        const raf = (
-          globalThis as unknown as { requestAnimationFrame?: (cb: () => void) => number }
-        ).requestAnimationFrame;
-        if (raf) raf(() => useUiStore.getState().setNodePaletteOpen(true));
-        else useUiStore.getState().setNodePaletteOpen(true);
+        if (typeof requestAnimationFrame === "function") {
+          requestAnimationFrame(() => useUiStore.getState().setNodePaletteOpen(true));
+        } else {
+          useUiStore.getState().setNodePaletteOpen(true);
+        }
         return;
       }
 

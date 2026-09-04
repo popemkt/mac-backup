@@ -205,16 +205,18 @@ export function nearestOffsetForX(
   }
 }
 
+/** Serialized offset under viewport point (clientX/clientY). Null when no caret. F16. */
 /**
- * The two vendor spellings of "what caret is under this point". Neither is in
- * lib.dom for every target, so this is the one place that names their shape.
+ * The two vendor spellings of "what caret is under this point". `lib.dom`
+ * declares both, one of them deprecated, and neither is present on every
+ * target this app runs on; naming them here keeps the probe a probe rather
+ * than a deprecated call site.
  */
 interface CaretDocument {
   caretRangeFromPoint?: (x: number, y: number) => Range | null;
   caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
 }
 
-/** Serialized offset under viewport point (clientX/clientY). Null when no caret. F16. */
 export function offsetFromPoint(el: HTMLElement, clientX: number, clientY: number): number | null {
   try {
     let range: Range | null = null;

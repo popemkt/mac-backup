@@ -82,7 +82,7 @@ export const NodeBlock = memo(function NodeBlock({
   );
 
   const handleRowSelect = useCallback(
-    (e: React.MouseEvent) => {
+    (e: React.SyntheticEvent) => {
       if (e.target === e.currentTarget) {
         selectNode(nodeId, instanceKey);
       }

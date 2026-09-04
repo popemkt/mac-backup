@@ -6,7 +6,12 @@ export interface NodeRowProps {
   depth: number;
   isSelected?: boolean;
   isActive?: boolean;
-  onRowClick?: (e: React.MouseEvent) => void;
+  /**
+   * Row activation — click or Enter/Space. `SyntheticEvent`, not
+   * `MouseEvent`: the keyboard path is the same activation, and the only
+   * caller that reads the event asks `target === currentTarget`.
+   */
+  onRowClick?: (e: React.SyntheticEvent) => void;
   bullet: React.ReactNode;
   /** Full node-content area (text + optional trailing chips). */
   content: React.ReactNode;
@@ -69,7 +74,7 @@ export function NodeRow({
                   return;
                 }
                 e.preventDefault();
-                onRowClick?.(e as unknown as React.MouseEvent);
+                onRowClick?.(e);
               }
             }
           : undefined

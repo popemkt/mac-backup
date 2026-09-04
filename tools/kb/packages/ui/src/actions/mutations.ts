@@ -2,6 +2,7 @@
  * Mutation action layer — optimistic local tx → POST /api/action.
  */
 import { ulid } from "ulid";
+import { z } from "zod";
 import type { FieldType } from "@kb/model";
 import type { SortSpec, ViewMode } from "@/lib/view-config";
 import { postAction } from "@/api/action";
@@ -33,6 +34,10 @@ import {
 } from "@/actions/plan";
 import { findPinnedTagId, pinnedTagIdsOn, PINNED_TAG_TEXT } from "@/lib/pinned";
 import { toast } from "@/lib/toast";
+
+/** `asset.upload` answers with the repo-relative path it stored the bytes at. */
+const AssetUploadOutputSchema = z.object({ path: z.string() });
+
 import { isSysPrefixed, SYSTEM_IDS, WORKSPACE_ROOT_ID, type PropValue } from "@/lib/types";
 import { forestRootIds } from "@/lib/graph-view";
 import { outlineInstanceKey } from "@/lib/instance-key";
@@ -585,10 +590,14 @@ export const mutations = {
         toast(receipt.message);
         return false;
       }
-      const out = receipt.output as { path: string };
+      const out = AssetUploadOutputSchema.safeParse(receipt.output);
+      if (!out.success) {
+        toast("asset.upload returned no path");
+        return false;
+      }
       const node = store.nodes.get(nodeId);
       const alt = file.name.replace(/\.[^.]+$/, "") || "file";
-      const md = `![${alt}](${out.path})`;
+      const md = `![${alt}](${out.data.path})`;
       const next =
         node === undefined || node.text.trim() === ""
           ? md

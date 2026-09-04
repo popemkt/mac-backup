@@ -36,7 +36,12 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
   filters: [],
 };
 
-const VIEW_MODES = new Set<ViewMode>(["list", "table", "board", "cards"]);
+const VIEW_MODES: readonly ViewMode[] = ["list", "table", "board", "cards"];
+
+/** The stored `sys.f.view.mode` string, when it names a mode kb renders. */
+function toViewMode(raw: string): ViewMode | undefined {
+  return VIEW_MODES.find((m) => m === raw);
+}
 
 /** Serialize a filter back to the EDN string stored on the frame. */
 export function serializeViewFilter(filter: Exclude<ViewFilter, never> & { raw?: string }): string {
@@ -127,11 +132,9 @@ export function applyViewFilters(
 export function getViewConfig(props?: Record<string, PropValue[]>): ViewConfig {
   if (!props) return { ...DEFAULT_VIEW_CONFIG };
 
-  let mode: ViewMode = "list";
   const rawMode = props[SYSTEM_IDS.viewModeField]?.[0];
-  if (rawMode && rawMode.t === "str" && VIEW_MODES.has(rawMode.v as ViewMode)) {
-    mode = rawMode.v as ViewMode;
-  }
+  const mode: ViewMode =
+    (rawMode && rawMode.t === "str" ? toViewMode(rawMode.v) : undefined) ?? "list";
 
   const sortRefs = props[SYSTEM_IDS.viewSortField] ?? [];
   const sortDirs = props[SYSTEM_IDS.viewSortDirField] ?? [];
@@ -157,9 +160,9 @@ export function getViewConfig(props?: Record<string, PropValue[]>): ViewConfig {
   const rawColwidth = props[SYSTEM_IDS.viewColwidthField]?.[0];
   if (rawColwidth && rawColwidth.t === "str") {
     try {
-      const parsed = JSON.parse(rawColwidth.v);
+      const parsed: unknown = JSON.parse(rawColwidth.v);
       if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-        for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+        for (const [key, value] of Object.entries(parsed)) {
           if (typeof value === "number" && Number.isFinite(value) && value > 0) {
             colwidth[key] = value;
           }

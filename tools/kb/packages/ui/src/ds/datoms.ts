@@ -47,15 +47,22 @@ function fieldAttr(fieldId: NodeId): string {
   return `:f/${fieldId}`;
 }
 
-function propDatomValue(pv: PropValue, ids: IdMap): { value: unknown; isRef: boolean } {
+/**
+ * A ref that resolved carries an entity id; everything else carries the raw
+ * value. Discriminating on `isRef` is what makes the entity id a `number`
+ * without anyone restating it.
+ */
+type PropDatom = { isRef: true; value: number } | { isRef: false; value: PropValue["v"] };
+
+function propDatomValue(pv: PropValue, ids: IdMap): PropDatom {
   if (pv.t === "ref") {
     const eid = ids.toEid.get(pv.v);
     if (eid === undefined) {
-      return { value: pv.v, isRef: false };
+      return { isRef: false, value: pv.v };
     }
-    return { value: eid, isRef: true };
+    return { isRef: true, value: eid };
   }
-  return { value: pv.v, isRef: false };
+  return { isRef: false, value: pv.v };
 }
 
 /** Single-pass nodes → datoms (+ schema entries for ref attrs). */
@@ -100,12 +107,12 @@ export function nodesToDatoms(
     for (const [fieldId, values] of Object.entries(node.props)) {
       const attr = fieldAttr(fieldId);
       for (const pv of values) {
-        const { value, isRef } = propDatomValue(pv, ids);
-        if (isRef) {
+        const datom = propDatomValue(pv, ids);
+        if (datom.isRef) {
           refAttrs.add(attr);
-          mentioned.add(value as number);
+          mentioned.add(datom.value);
         }
-        datoms.push([eid, attr, value]);
+        datoms.push([eid, attr, datom.value]);
       }
     }
 

@@ -19,7 +19,7 @@
       "eslint/no-await-in-loop": 7,
       "typescript/no-non-null-assertion": 391,
       "typescript/no-unnecessary-condition": 20,
-      "typescript/no-unsafe-type-assertion": 66,
+      "typescript/no-unsafe-type-assertion": 53,
       "typescript/strict-boolean-expressions": 198,
       "unicorn/consistent-function-scoping": 15
     },
