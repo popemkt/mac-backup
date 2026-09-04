@@ -36,9 +36,10 @@ export interface Force3dGraphProps {
 
 type Vec3 = { x: number; y: number; z: number };
 
-function makeLabelSprite(text: string, color: string): Sprite {
+function makeLabelSprite(text: string, color: string): Sprite | undefined {
   const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
+  if (ctx === null) return undefined;
   const fontSize = 28;
   ctx.font = `600 ${fontSize}px Outfit Variable, ui-sans-serif, system-ui, sans-serif`;
   const w = Math.ceil(ctx.measureText(text).width) + 16;

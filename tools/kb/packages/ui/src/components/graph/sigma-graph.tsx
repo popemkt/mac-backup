@@ -187,8 +187,7 @@ export function SigmaGraph({
       });
     }
 
-    for (let i = 0; i < edges.length; i++) {
-      const e = edges[i]!;
+    for (const [i, e] of edges.entries()) {
       if (!graph.hasNode(e.source) || !graph.hasNode(e.target)) continue;
       try {
         graph.addEdgeWithKey(`${e.kind}:${e.source}->${e.target}:${i}`, e.source, e.target, {

@@ -285,7 +285,8 @@ export function buildTreeForest(
   const built = new Map<string, LensTreeNode>();
 
   function build(id: string): LensTreeNode | null {
-    if (built.has(id)) return built.get(id)!;
+    const done = built.get(id);
+    if (done !== undefined) return done;
     if (visiting.has(id)) return null; // cycle
     visiting.add(id);
     const meta = byLens.get(id);

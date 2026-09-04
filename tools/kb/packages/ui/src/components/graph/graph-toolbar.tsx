@@ -113,9 +113,10 @@ export function GraphToolbar({
     onSearchChange?.(null);
   };
 
-  const runOrNoop = (enabled: boolean, fn: () => void) => {
+  /** A camera verb fires only when the renderer allows it and controls exist. */
+  const cameraVerb = (enabled: boolean, verb: (c: GraphCameraControls) => void) => () => {
     if (!enabled || !controls) return;
-    fn();
+    verb(controls);
   };
 
   return (
@@ -165,28 +166,28 @@ export function GraphToolbar({
         label="Zoom in (+)"
         disabled={!capabilities.zoom || !controls}
         disabledReason={CAPABILITY_REASONS.zoom}
-        onClick={() => runOrNoop(capabilities.zoom, () => controls!.zoomIn())}
+        onClick={cameraVerb(capabilities.zoom, (c) => c.zoomIn())}
       />
       <ToolbarButton
         icon={<MinusIcon size={14} />}
         label="Zoom out (-)"
         disabled={!capabilities.zoom || !controls}
         disabledReason={CAPABILITY_REASONS.zoom}
-        onClick={() => runOrNoop(capabilities.zoom, () => controls!.zoomOut())}
+        onClick={cameraVerb(capabilities.zoom, (c) => c.zoomOut())}
       />
       <ToolbarButton
         icon={<ArrowsInIcon size={14} />}
         label="Fit view (f)"
         disabled={!capabilities.fit || !controls}
         disabledReason={CAPABILITY_REASONS.fit}
-        onClick={() => runOrNoop(capabilities.fit, () => controls!.fit())}
+        onClick={cameraVerb(capabilities.fit, (c) => c.fit())}
       />
       <ToolbarButton
         icon={<ArrowCounterClockwiseIcon size={14} />}
         label="Reset (0)"
         disabled={!capabilities.reset || !controls}
         disabledReason={CAPABILITY_REASONS.reset}
-        onClick={() => runOrNoop(capabilities.reset, () => controls!.reset())}
+        onClick={cameraVerb(capabilities.reset, (c) => c.reset())}
       />
       {perspective ? (
         <>

@@ -39,7 +39,7 @@ export const LaterHighlighted: Story = {
 /** A single fuzzy match. */
 export const OneCandidate: Story = {
   args: {
-    candidates: [candidates[0]!],
+    candidates: candidates.slice(0, 1),
     activeIndex: 0,
   },
 };

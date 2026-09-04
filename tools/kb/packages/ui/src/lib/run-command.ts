@@ -2,6 +2,7 @@
  * Run a palette command node (typed sys.command).
  */
 import { ulid } from "ulid";
+import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { listOntologyItems } from "@/lib/ontology-scope";
 import { navigate, ontologyPath } from "@/lib/router";
@@ -16,7 +17,7 @@ const THEME_CYCLE: ThemePref[] = ["light", "dark", "system"];
 
 function nextTheme(current: ThemePref): ThemePref {
   const i = THEME_CYCLE.indexOf(current);
-  return THEME_CYCLE[(i + 1) % THEME_CYCLE.length]!;
+  return present(THEME_CYCLE[(i + 1) % THEME_CYCLE.length], "theme cycle index is a modulo");
 }
 
 // oxlint-disable-next-line complexity -- GAP [[01M1MGCRNVNBE5HW27Z83PK67B]]
@@ -78,7 +79,8 @@ export async function runPaletteCommand(commandId: string): Promise<void> {
       const preferred =
         [store.selectedNodeId, store.rootNodeId].find((id) =>
           candidates.some((c) => c.id === id),
-        ) ?? candidates[0]!.id;
+        ) ?? candidates[0]?.id;
+      if (preferred === undefined) return;
       navigate(ontologyPath(preferred));
       return;
     }

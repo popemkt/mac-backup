@@ -87,7 +87,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
       const hit = perspectives.find((p) => p.id === perspectiveId);
       if (hit) return hit;
     }
-    return perspectives.find((p) => p.id === SYSTEM_IDS.lensAllMentions) ?? perspectives[0]!;
+    return perspectives.find((p) => p.id === SYSTEM_IDS.lensAllMentions) ?? perspectives[0] ?? null;
   }, [perspectives, perspectiveId]);
 
   useEffect(() => {

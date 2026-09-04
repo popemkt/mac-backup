@@ -234,8 +234,8 @@ export const mutations = {
     const store = useOutlineStore.getState();
     const prev = pendingContent.get(id);
     const existing = store.wireNodes.find((n) => n.id === id);
-    if (!existing && !prev) return;
-    const preEdit = prev?.preEdit ?? cloneWire(existing!);
+    const preEdit = prev?.preEdit ?? (existing === undefined ? undefined : cloneWire(existing));
+    if (preEdit === undefined) return;
 
     const plan = planUpdateText(store.wireNodes, id, content);
     store.applyTx(plan.upserts, plan.deletes);
@@ -310,7 +310,7 @@ export const mutations = {
     if (!guardSysWrite(parent.id)) return null;
     const siblings = parent.children;
     const idx = siblings.indexOf(beforeId);
-    const prevSibling = idx > 0 ? siblings[idx - 1]! : null;
+    const prevSibling = idx > 0 ? (siblings[idx - 1] ?? null) : null;
     const newId = ulid();
     let plan: PlannedMutation | null;
     if (prevSibling !== null) {
@@ -429,8 +429,8 @@ export const mutations = {
     const siblings = parent ? parent.children : forestRootIds(store.wireNodes);
     const idx = siblings.indexOf(id);
     if (idx <= 0) return;
-    const prevId = siblings[idx - 1]!;
-    if (!guardSysWrite(prevId)) return;
+    const prevId = siblings[idx - 1];
+    if (prevId === undefined || !guardSysWrite(prevId)) return;
 
     const preWire = store.wireNodes;
     const plan = planIndent(preWire, id);
@@ -578,9 +578,7 @@ export const mutations = {
     try {
       const buf = new Uint8Array(await file.arrayBuffer());
       let binary = "";
-      for (let i = 0; i < buf.length; i++) {
-        binary += String.fromCharCode(buf[i]!);
-      }
+      for (const byte of buf) binary += String.fromCharCode(byte);
       const bytes = btoa(binary);
       const receipt = await postAction("asset.upload", {
         bytes,

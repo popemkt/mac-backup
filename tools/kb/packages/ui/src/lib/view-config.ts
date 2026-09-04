@@ -60,11 +60,11 @@ export function parseViewFilterEdn(edn: string): ViewFilter | null {
   const raw = edn.trim();
   if (!raw.startsWith("{") || !raw.endsWith("}")) return null;
 
-  const textMatch = raw.match(/^\{:text\s+"((?:\\.|[^"\\])*)"\s*\}$/);
-  if (textMatch) {
+  const textValue = raw.match(/^\{:text\s+"((?:\\.|[^"\\])*)"\s*\}$/)?.[1];
+  if (textValue !== undefined) {
     return {
       kind: "text",
-      text: textMatch[1]!.replace(/\\"/g, '"').replace(/\\\\/g, "\\"),
+      text: textValue.replace(/\\"/g, '"').replace(/\\\\/g, "\\"),
       raw,
     };
   }
@@ -72,14 +72,14 @@ export function parseViewFilterEdn(edn: string): ViewFilter | null {
   // {:field <id> :eq "value"} | {:field <id> :eq bare}
   const eqMatch = raw.match(/^\{:field\s+(\S+)\s+:eq\s+(?:"((?:\\.|[^"\\])*)"|(\S+))\s*\}$/);
   if (eqMatch) {
-    const fieldId = eqMatch[1]!;
-    const quoted = eqMatch[2];
-    const bare = eqMatch[3];
+    const [, fieldId, quoted, bare] = eqMatch;
     const value =
-      quoted !== undefined
-        ? quoted.replace(/\\"/g, '"').replace(/\\\\/g, "\\")
-        : bare!.replace(/^:/, "");
-    return { kind: "eq", fieldId, value, raw };
+      quoted === undefined
+        ? bare?.replace(/^:/, "")
+        : quoted.replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+    if (fieldId !== undefined && value !== undefined) {
+      return { kind: "eq", fieldId, value, raw };
+    }
   }
 
   return null;
@@ -355,7 +355,8 @@ export function groupChildrenForBoard(
       continue;
     }
     // Display: first value wins. Drag clears all values then sets one.
-    const v = vals[0]!;
+    const [v] = vals;
+    if (v === undefined) continue;
     const key = propValueKey(v, nodes);
     let col = columns.get(key);
     if (!col) {

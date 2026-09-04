@@ -7,7 +7,7 @@ import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import { hashTagColor } from "@/lib/tag-color";
 import { readTokenColor } from "@/lib/css-color";
 import { withGraphAlpha } from "@/lib/graph-dim";
-import { convexHull } from "@/lib/convex-hull";
+import { clusterHull, clusterHullPath, HULL_PAD } from "./cluster-hull";
 import { sigmaCameraControls, type GraphCameraControls } from "./graph-camera-controls";
 
 type CameraSnap = { x: number; y: number; angle: number; ratio: number };
@@ -113,8 +113,7 @@ export function ClusterGraph({
         y,
       });
     }
-    for (let i = 0; i < edges.length; i++) {
-      const e = edges[i]!;
+    for (const [i, e] of edges.entries()) {
       if (!graph.hasNode(e.source) || !graph.hasNode(e.target)) continue;
       try {
         graph.addEdgeWithKey(`${e.kind}:${e.source}->${e.target}:${i}`, e.source, e.target, {
@@ -202,62 +201,14 @@ export function ClusterGraph({
           pts.push(vp);
         });
         if (pts.length < 2) continue;
-        const pad = 24;
-        const hull = convexHull(
-          pts.flatMap((p) => [
-            { x: p.x - pad, y: p.y - pad },
-            { x: p.x + pad, y: p.y - pad },
-            { x: p.x + pad, y: p.y + pad },
-            { x: p.x - pad, y: p.y + pad },
-          ]),
-        );
+        const path = clusterHullPath(clusterHull(pts));
+        if (!path) continue;
         const color = clusterColor(key);
-        ctx.beginPath();
-        if (hull.length === 2) {
-          const [a, b] = hull;
-          const mx = (a!.x + b!.x) / 2;
-          const my = (a!.y + b!.y) / 2;
-          const r = Math.hypot(a!.x - b!.x, a!.y - b!.y) / 2 + 22;
-          ctx.arc(mx, my, r, 0, Math.PI * 2);
-        } else {
-          const PAD = 0;
-          const padded = hull.map((p) => {
-            let cx = 0,
-              cy = 0;
-            for (const q of hull) {
-              cx += q.x;
-              cy += q.y;
-            }
-            cx /= hull.length;
-            cy /= hull.length;
-            const dx = p.x - cx,
-              dy = p.y - cy;
-            const dist = Math.hypot(dx, dy) || 1;
-            return { x: p.x + (dx / dist) * PAD, y: p.y + (dy / dist) * PAD };
-          });
-          if (padded.length >= 3) {
-            ctx.moveTo(
-              (padded[padded.length - 1]!.x + padded[0]!.x) / 2,
-              (padded[padded.length - 1]!.y + padded[0]!.y) / 2,
-            );
-            for (let i = 0; i < padded.length; i++) {
-              const next = padded[(i + 1) % padded.length]!;
-              const curr = padded[i]!;
-              ctx.quadraticCurveTo(curr.x, curr.y, (curr.x + next.x) / 2, (curr.y + next.y) / 2);
-            }
-          } else {
-            ctx.moveTo(padded[0]!.x, padded[0]!.y);
-            for (let i = 1; i < padded.length; i++) {
-              ctx.lineTo(padded[i]!.x, padded[i]!.y);
-            }
-          }
-          ctx.closePath();
-        }
         ctx.fillStyle = withGraphAlpha(color, 0.04);
-        ctx.fill();
+        ctx.fill(path);
         ctx.strokeStyle = withGraphAlpha(color, 0.25);
         ctx.lineWidth = 1.5;
-        ctx.stroke();
+        ctx.stroke(path);
         let cx = 0,
           cy = 0;
         for (const p of pts) {
@@ -271,7 +222,7 @@ export function ClusterGraph({
         ctx.textAlign = "center";
         const count = clusterCounts.get(key) ?? pts.length;
         const minY = Math.min(...pts.map((p) => p.y));
-        ctx.fillText(`${key} (${count})`, cx, minY - pad - 8);
+        ctx.fillText(`${key} (${count})`, cx, minY - HULL_PAD - 8);
       }
     };
 
@@ -328,20 +279,8 @@ export function ClusterGraph({
           pts.push(sigma.framedGraphToViewport({ x: display.x, y: display.y }));
         });
         if (pts.length < 3) continue;
-        const pad = 24;
-        const hull = convexHull(
-          pts.flatMap((p) => [
-            { x: p.x - pad, y: p.y - pad },
-            { x: p.x + pad, y: p.y - pad },
-            { x: p.x + pad, y: p.y + pad },
-            { x: p.x - pad, y: p.y + pad },
-          ]),
-        );
-        const path2d = new Path2D();
-        path2d.moveTo(hull[0]!.x, hull[0]!.y);
-        for (let i = 1; i < hull.length; i++) path2d.lineTo(hull[i]!.x, hull[i]!.y);
-        path2d.closePath();
-        if (ctx.isPointInPath(path2d, cx, cy)) {
+        const path = clusterHullPath(clusterHull(pts));
+        if (path && ctx.isPointInPath(path, cx, cy)) {
           setIsolatedCluster((isolated) => (isolated === key ? null : key));
           return;
         }

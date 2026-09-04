@@ -81,15 +81,15 @@ export function nodesToDatoms(
   const refAttrs = new Set<string>([":node/child", ":node/mentions"]);
 
   for (const node of nodes) {
-    const eid = ids.toEid.get(node.id)!;
+    const eid = ids.toEid.get(node.id);
+    if (eid === undefined) continue;
     datoms.push([eid, ":node/id", node.id]);
     datoms.push([eid, ":node/text", node.text]);
     datoms.push([eid, ":node/created-at", node.createdAt]);
     datoms.push([eid, ":node/updated-at", node.updatedAt]);
 
     const childEids: number[] = [];
-    for (let i = 0; i < node.children.length; i++) {
-      const childId = node.children[i]!;
+    for (const [i, childId] of node.children.entries()) {
       const childEid = ids.toEid.get(childId);
       if (childEid === undefined) continue;
       childEids.push(childEid);
@@ -119,7 +119,9 @@ export function nodesToDatoms(
     MENTION_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = MENTION_RE.exec(node.text)) !== null) {
-      const meid = ids.toEid.get(m[1]!.trim());
+      const [, target] = m;
+      if (target === undefined) continue;
+      const meid = ids.toEid.get(target.trim());
       if (meid !== undefined) mentioned.add(meid);
     }
 
@@ -155,7 +157,8 @@ export function extractMentions(text: string): NodeId[] {
   MENTION_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = MENTION_RE.exec(text)) !== null) {
-    out.push(m[1]!.trim());
+    const [, target] = m;
+    if (target !== undefined) out.push(target.trim());
   }
   return out;
 }

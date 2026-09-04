@@ -1,33 +1,37 @@
+interface Point {
+  x: number;
+  y: number;
+}
+
+/** > 0 when o -> a -> b turns counter-clockwise. */
+function cross(o: Point, a: Point, b: Point): number {
+  return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+}
+
+/**
+ * One side of the monotone chain over already-sorted points. Both hull halves
+ * are this walk; the upper half is the same walk over the reversed order.
+ */
+function halfChain(pts: readonly Point[]): Point[] {
+  const chain: Point[] = [];
+  for (const p of pts) {
+    for (;;) {
+      const a = chain.at(-1);
+      const o = chain.at(-2);
+      if (o === undefined || a === undefined || cross(o, a, p) > 0) break;
+      chain.pop();
+    }
+    chain.push(p);
+  }
+  chain.pop();
+  return chain;
+}
+
 /** Monotone-chain convex hull. Returns points in CCW order. */
-export function convexHull(
-  points: Array<{ x: number; y: number }>,
-): Array<{ x: number; y: number }> {
+export function convexHull(points: Point[]): Point[] {
   if (points.length <= 1) return [...points];
   const pts = [...points].toSorted((a, b) => a.x - b.x || a.y - b.y);
-  const cross = (
-    o: { x: number; y: number },
-    a: { x: number; y: number },
-    b: { x: number; y: number },
-  ) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-
-  const lower: Array<{ x: number; y: number }> = [];
-  for (const p of pts) {
-    while (lower.length >= 2 && cross(lower[lower.length - 2]!, lower[lower.length - 1]!, p) <= 0) {
-      lower.pop();
-    }
-    lower.push(p);
-  }
-  const upper: Array<{ x: number; y: number }> = [];
-  for (let i = pts.length - 1; i >= 0; i--) {
-    const p = pts[i]!;
-    while (upper.length >= 2 && cross(upper[upper.length - 2]!, upper[upper.length - 1]!, p) <= 0) {
-      upper.pop();
-    }
-    upper.push(p);
-  }
-  lower.pop();
-  upper.pop();
-  return lower.concat(upper);
+  return [...halfChain(pts), ...halfChain(pts.toReversed())];
 }
 
 /** Fibonacci sphere point i of n on a sphere of given radius. */

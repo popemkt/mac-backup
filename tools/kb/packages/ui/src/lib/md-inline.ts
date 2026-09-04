@@ -45,7 +45,9 @@ export function textHasAssetRef(text: string): boolean {
 export function mediaKindFromHref(href: string): AssetMediaKind | null {
   const m = /\.([a-z0-9]{1,12})(?:$|[?#])/i.exec(href.trim());
   if (!m) return null;
-  const e = m[1]!.toLowerCase();
+  const [, ext] = m;
+  if (ext === undefined) return null;
+  const e = ext.toLowerCase();
   if (IMAGE_EXT.has(e)) return "image";
   if (VIDEO_EXT.has(e)) return "video";
   if (AUDIO_EXT.has(e)) return "audio";
@@ -179,7 +181,7 @@ function parseOnce(text: string): InlineSeg[] {
 
     // **bold** or __bold__
     if ((text[i] === "*" && text[i + 1] === "*") || (text[i] === "_" && text[i + 1] === "_")) {
-      const mark = text[i]!;
+      const mark = text.charAt(i);
       const end = text.indexOf(mark + mark, i + 2);
       if (end > i + 1) {
         flush();
@@ -191,7 +193,7 @@ function parseOnce(text: string): InlineSeg[] {
 
     // *italic* or _italic_ (single; not part of **)
     if ((text[i] === "*" || text[i] === "_") && text[i + 1] !== text[i]) {
-      const mark = text[i]!;
+      const mark = text.charAt(i);
       const end = text.indexOf(mark, i + 1);
       if (end > i + 1 && text[end + 1] !== mark) {
         flush();

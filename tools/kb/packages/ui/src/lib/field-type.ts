@@ -85,7 +85,8 @@ export function resolveAllowedRefIdsCached(
     allowedRefCacheRev = rev;
   }
   const key = `${fieldId}\0${constraintFingerprint(fieldNode)}`;
-  if (allowedRefCache.has(key)) return allowedRefCache.get(key)!;
+  const cached = allowedRefCache.get(key);
+  if (cached !== undefined || allowedRefCache.has(key)) return cached ?? null;
   const value = resolveAllowedRefIds(fieldNode, nodes, queryDb);
   allowedRefCache.set(key, value);
   return value;

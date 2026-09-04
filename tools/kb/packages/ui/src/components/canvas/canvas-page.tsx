@@ -345,14 +345,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
               idMap.set(n.id, newId);
               return { ...n, id: newId, x: n.x + 24, y: n.y + 24 };
             });
-            const newEdges: CanvasEdge[] = parsed.edges
-              .filter((edge) => idMap.has(edge.fromNode) && idMap.has(edge.toNode))
-              .map((edge) => ({
-                ...edge,
-                id: ulid(),
-                fromNode: idMap.get(edge.fromNode)!,
-                toNode: idMap.get(edge.toNode)!,
-              }));
+            const newEdges: CanvasEdge[] = parsed.edges.flatMap((edge) => {
+              const fromNode = idMap.get(edge.fromNode);
+              const toNode = idMap.get(edge.toNode);
+              if (fromNode === undefined || toNode === undefined) return [];
+              return [{ ...edge, id: ulid(), fromNode, toNode }];
+            });
             let nextDoc = docRef.current;
             for (const n of newNodes) nextDoc = upsertCanvasNode(nextDoc, n);
             for (const edge of newEdges) nextDoc = upsertCanvasEdge(nextDoc, edge);

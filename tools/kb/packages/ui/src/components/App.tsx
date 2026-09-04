@@ -13,6 +13,7 @@ import { OntologyScopeBar } from "@/components/ontology/ontology-scope-bar";
 import { matchRoute, navigate, usePath } from "@/lib/router";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
+import type { WsStatus } from "@/api/ws";
 import { useUiStore } from "@/stores/ui.store";
 import { cn } from "@/lib/cn";
 import { hasText, textOr } from "@/lib/text";
@@ -40,7 +41,8 @@ const OntologyListPage = lazy(() =>
   })),
 );
 
-const WS_DOT: Record<string, { className: string; label: string }> = {
+/** Total over `WsStatus`: every status has a dot, so the lookup cannot miss. */
+const WS_DOT: Record<WsStatus, { className: string; label: string }> = {
   open: { className: "bg-success", label: "live" },
   connecting: { className: "bg-warning", label: "connecting" },
   closed: { className: "bg-destructive", label: "offline" },
@@ -49,7 +51,7 @@ const WS_DOT: Record<string, { className: string; label: string }> = {
 
 function ConnectionDot() {
   const wsStatus = useUiStore((s) => s.wsStatus);
-  const dot = WS_DOT[wsStatus] ?? WS_DOT.idle!;
+  const dot = WS_DOT[wsStatus];
   return (
     <span
       className="flex items-center gap-1.5 text-[11px] text-foreground/40"

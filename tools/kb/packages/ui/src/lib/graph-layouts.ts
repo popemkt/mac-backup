@@ -30,8 +30,9 @@ export function radialLayout(
   const cy = size.height / 2;
   const R = Math.min(size.width, size.height) * 0.38;
   if (n === 0) return out;
-  if (n === 1) {
-    out.set(sorted[0]!.id, { x: cx, y: cy });
+  const [only] = sorted;
+  if (n === 1 && only !== undefined) {
+    out.set(only.id, { x: cx, y: cy });
     return out;
   }
   sorted.forEach((node, i) => {
@@ -65,19 +66,19 @@ export function hierarchicalLayout(
   }
   for (const e of edges) {
     if (!idSet.has(e.source) || !idSet.has(e.target)) continue;
-    children.get(e.source)!.push(e.target);
+    children.get(e.source)?.push(e.target);
     indeg.set(e.target, (indeg.get(e.target) ?? 0) + 1);
   }
   for (const [, kids] of children) kids.sort();
 
   let roots = ids.filter((id) => (indeg.get(id) ?? 0) === 0);
-  if (roots.length === 0 && ids.length > 0) roots = [ids[0]!];
+  const [firstId] = ids;
+  if (roots.length === 0 && firstId !== undefined) roots = [firstId];
 
   const depth = new Map<string, number>();
   const queue = [...roots];
   for (const r of roots) depth.set(r, 0);
-  while (queue.length > 0) {
-    const cur = queue.shift()!;
+  for (let cur = queue.shift(); cur !== undefined; cur = queue.shift()) {
     const d = depth.get(cur) ?? 0;
     for (const kid of children.get(cur) ?? []) {
       if (depth.has(kid)) continue;

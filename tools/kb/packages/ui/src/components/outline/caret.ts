@@ -102,12 +102,8 @@ export function readCaretGeometry(el: HTMLElement): CaretGeometry {
     before.setEnd(range.endContainer, range.endOffset);
     const after = childIndexEndRange(el, range);
 
-    const caretRects = range.getClientRects();
-    let x: number | null = null;
-    if (caretRects.length > 0) {
-      const lastRect = caretRects[caretRects.length - 1]!;
-      x = lastRect.left;
-    }
+    const lastCaretRect = [...range.getClientRects()].at(-1);
+    const x: number | null = lastCaretRect?.left ?? null;
 
     return {
       onFirstLine: uniqueTops(before.getClientRects()).length <= 1,
@@ -248,7 +244,7 @@ function charRect(tn: Text, index: number): DOMRect | null {
     r.setStart(tn, index);
     r.setEnd(tn, index);
     const rects = r.getClientRects();
-    return rects.length > 0 ? rects[0]! : null;
+    return rects[0] ?? null;
   } catch {
     return null;
   }

@@ -25,7 +25,9 @@ export interface RefSpan {
 export function findRefSpans(text: string): RefSpan[] {
   const out: RefSpan[] = [];
   for (const m of text.matchAll(REF_TOKEN)) {
-    const id = m[1]!.trim();
+    const [, target] = m;
+    if (target === undefined) continue;
+    const id = target.trim();
     const label = textOr(m[2]?.trim(), id);
     out.push({ token: m[0], id, label, index: m.index });
   }

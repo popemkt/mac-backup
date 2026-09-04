@@ -209,8 +209,9 @@ export function planMergeWithPrevious(nodes: WireNode[], id: string): PlannedMut
   const parent = findParentWire(nodes, id);
   if (!parent) return null;
   const idx = parent.children.indexOf(id);
-  if (idx <= 0) return null;
-  return planMergeInto(nodes, id, parent.children[idx - 1]!);
+  const prevId = idx > 0 ? parent.children[idx - 1] : undefined;
+  if (prevId === undefined) return null;
+  return planMergeInto(nodes, id, prevId);
 }
 
 export function planIndent(nodes: WireNode[], id: string): PlannedMutation | null {
@@ -225,8 +226,8 @@ export function planIndent(nodes: WireNode[], id: string): PlannedMutation | nul
   }
 
   const idx = sibs.indexOf(id);
-  if (idx <= 0) return null;
-  const prevId = sibs[idx - 1]!;
+  const prevId = idx > 0 ? sibs[idx - 1] : undefined;
+  if (prevId === undefined) return null;
   const prev = cloneWire(requireNode(nodes, prevId));
   const position = prev.children.length;
   prev.children = [...prev.children, id];
@@ -317,7 +318,8 @@ export function planMove(
       order: String(index).padStart(10, "0"),
       updatedAt: nowIso(),
     }));
-    const moved = rootRanks.find((node) => node.id === id)!;
+    const moved = rootRanks.find((node) => node.id === id);
+    if (moved === undefined) return null;
     return {
       upserts: rootRanks,
       deletes: [],

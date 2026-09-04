@@ -102,9 +102,10 @@ export function TreeGraph({
       };
     }
 
+    const [onlyRoot] = forest;
     const rootData: HierDatum =
-      forest.length === 1
-        ? filterCollapsed(forest[0]!, collapsed)
+      forest.length === 1 && onlyRoot !== undefined
+        ? filterCollapsed(onlyRoot, collapsed)
         : {
             id: "__forest__",
             label: "",

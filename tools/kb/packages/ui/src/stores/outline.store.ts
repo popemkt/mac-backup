@@ -780,13 +780,13 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     getPreviousVisibleNode: (id) => {
       const instances = get().getVisibleInstances();
       const idx = instances.findIndex((i) => i.nodeId === id);
-      return idx > 0 ? instances[idx - 1]!.nodeId : null;
+      return idx > 0 ? (instances[idx - 1]?.nodeId ?? null) : null;
     },
 
     getNextVisibleNode: (id) => {
       const instances = get().getVisibleInstances();
       const idx = instances.findIndex((i) => i.nodeId === id);
-      return idx >= 0 && idx < instances.length - 1 ? instances[idx + 1]!.nodeId : null;
+      return idx >= 0 && idx < instances.length - 1 ? (instances[idx + 1]?.nodeId ?? null) : null;
     },
 
     getBreadcrumbs: () => {

@@ -54,9 +54,11 @@ export function oklchToRgb(
   ).exec(color.trim());
   if (!match) return null;
 
-  const lightness = component(match[1]!, 1);
-  const chroma = component(match[2]!, 0.4);
-  const hueRaw = match[3]!.trim();
+  const [, lightnessRaw, chromaRaw, hueGroup] = match;
+  if (lightnessRaw === undefined || chromaRaw === undefined || hueGroup === undefined) return null;
+  const lightness = component(lightnessRaw, 1);
+  const chroma = component(chromaRaw, 0.4);
+  const hueRaw = hueGroup.trim();
   const hue = hueRaw === "none" ? 0 : Number.parseFloat(hueRaw);
   const alphaRaw = match[4];
   const alpha = alphaRaw === undefined ? 1 : component(alphaRaw, 1);
@@ -82,7 +84,8 @@ export function oklchToRgb(
 function parseHex(color: string): { r: number; g: number; b: number } | null {
   const hex = /^#([a-f\d]{3}|[a-f\d]{6})$/i.exec(color.trim());
   if (!hex) return null;
-  const digits = hex[1]!;
+  const [, digits] = hex;
+  if (digits === undefined) return null;
   const full =
     digits.length === 3
       ? digits
@@ -106,10 +109,12 @@ function parseRgb(color: string): { r: number; g: number; b: number; alpha: numb
   const channel = (raw: string) => component(raw, 255);
   const alphaRaw = match[4];
   const alpha = alphaRaw === undefined ? 1 : component(alphaRaw, 1);
+  const [, rRaw, gRaw, bRaw] = match;
+  if (rRaw === undefined || gRaw === undefined || bRaw === undefined) return null;
   const parsed = {
-    r: Math.round(channel(match[1]!)),
-    g: Math.round(channel(match[2]!)),
-    b: Math.round(channel(match[3]!)),
+    r: Math.round(channel(rRaw)),
+    g: Math.round(channel(gRaw)),
+    b: Math.round(channel(bRaw)),
     alpha: clamp01(alpha),
   };
   return Object.values(parsed).some(Number.isNaN) ? null : parsed;
