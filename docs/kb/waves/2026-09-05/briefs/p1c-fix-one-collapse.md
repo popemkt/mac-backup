@@ -19,7 +19,15 @@ the `children` clause in `ir/compile.ts` (AST transform, used by
 `compile(parseEdn())`) solve the same defect with two mechanisms. The regex
 one is also fragile: `dropUnusedFindVars` counts occurrences without a word
 boundary, so `?ord` inside `?ordinal` inflates the count and the `:find` var
-survives while its binding clause is gone.
+survives while its binding clause is gone. p1b found a second one: the order
+variable is captured with `(\?\S+)`, so when the `:node/child-order` clause
+is the **last** clause the capture swallows the closing bracket and the
+rewrite emits unbalanced EDN (`DatalogError: Unexpected EOF`). Add that query
+as a red case through `query()`:
+
+```
+[:find ?id ?i :where [?p :node/id "p"] [?p :node/child ?c] [?c :node/id ?id] [?p :node/child-order ?i]]
+```
 
 Required shape: **one mechanism.** `query(edn)` routes through
 `compile(parseEdn(edn))` (structured IR when the subset parses, `raw` when it
