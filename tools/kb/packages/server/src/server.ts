@@ -76,10 +76,9 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
 
   const { ctx, hub } = await Effect.runPromise(
     Effect.gen(function* () {
-      const ctx = yield* openKbEffect(opts.root);
+      const opened = yield* openKbEffect(opts.root);
       const saved = yield* listSavedQueriesEffect(opts.root);
-      const hub = new SubscriptionHub(ctx, savedQueryNodes(saved));
-      return { ctx, hub };
+      return { ctx: opened, hub: new SubscriptionHub(opened, savedQueryNodes(saved)) };
     }).pipe(Effect.provide(bunFileSystemLayer)),
   );
 

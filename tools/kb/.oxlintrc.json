@@ -26,7 +26,7 @@
   },
   "rules": {
     "import/no-cycle": "error",
-    "import/no-duplicates": "warn",
+    "import/no-duplicates": "error",
     "import/no-unassigned-import": [
       "error",
       {
@@ -41,9 +41,9 @@
         "ts-expect-error": "allow-with-description"
       }
     ],
-    "typescript/no-explicit-any": "warn",
+    "typescript/no-explicit-any": "error",
     "typescript/consistent-type-imports": "error",
-    "typescript/no-import-type-side-effects": "warn",
+    "typescript/no-import-type-side-effects": "error",
     "typescript/consistent-type-assertions": "error",
     "typescript/no-non-null-assertion": "warn",
     "typescript/no-misused-promises": "error",
@@ -55,17 +55,17 @@
     "typescript/no-unnecessary-type-assertion": "error",
     "typescript/no-unsafe-type-assertion": "warn",
     "typescript/no-unnecessary-type-conversion": "error",
-    "typescript/no-unnecessary-type-arguments": "warn",
+    "typescript/no-unnecessary-type-arguments": "error",
     "typescript/no-unnecessary-boolean-literal-compare": "error",
-    "typescript/no-redundant-type-constituents": "warn",
-    "typescript/no-base-to-string": "warn",
-    "typescript/require-array-sort-compare": "warn",
+    "typescript/no-redundant-type-constituents": "error",
+    "typescript/no-base-to-string": "error",
+    "typescript/require-array-sort-compare": "error",
     "typescript/await-thenable": "error",
-    "typescript/consistent-return": "warn",
-    "typescript/no-confusing-non-null-assertion": "warn",
+    "typescript/consistent-return": "error",
+    "typescript/no-confusing-non-null-assertion": "error",
     "typescript/restrict-template-expressions": "error",
     "typescript/no-floating-promises": "error",
-    "typescript/triple-slash-reference": "warn",
+    "typescript/triple-slash-reference": "error",
     "unicorn/no-array-sort": "error",
     "unicorn/consistent-function-scoping": "warn",
     "unicorn/prefer-add-event-listener": "error",
@@ -74,7 +74,7 @@
     "unicorn/no-useless-spread": "error",
     "unicorn/no-useless-fallback-in-spread": "error",
     "oxc/no-map-spread": "warn",
-    "oxc/no-accumulating-spread": "warn",
+    "oxc/no-accumulating-spread": "error",
     "react/no-children-prop": "error",
     "react/no-array-index-key": "error",
     "react/only-export-components": ["error", { "allowConstantExport": true }],
@@ -95,9 +95,9 @@
     "eslint/no-var": "error",
     "eslint/prefer-const": "error",
     "eslint/no-eq-null": "error",
-    "eslint/default-case": "warn",
+    "eslint/default-case": "error",
     "eslint/no-console": "error",
-    "eslint/no-shadow": "warn",
+    "eslint/no-shadow": "error",
     "eslint/no-await-in-loop": "warn",
     "eslint/complexity": "error",
     "eslint/max-depth": "warn",
@@ -496,6 +496,14 @@
       ],
       "rules": {
         "node/no-process-env": "off"
+      }
+    },
+    {
+      "files": [
+        "packages/query/src/datascript.ts"
+      ],
+      "rules": {
+        "typescript/triple-slash-reference": "off"
       }
     },
     {

@@ -1,16 +1,27 @@
 import type { Effect } from "effect";
+import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import { type FailureCode, type ActionSchema, schemaToJsonSchema } from "@kb/model";
+import type { KbCtx, KbStore } from "./session.ts";
+import type { TemplateRegistry } from "./template.ts";
 
 const ActionModeSchema = z.enum(["read", "apply"]);
 type ActionMode = z.infer<typeof ActionModeSchema>;
 
 /**
- * Effect-native action handler. Input is already schema-parsed; services
- * (`KbCtx` / `KbStore` / `FileSystem`) come from Layers at the invoke tip.
- * `R` is intentionally wide so built-ins with narrower requirements assign.
+ * Services a native action handler may require. Provided as one merged Layer
+ * at the invoke tip (`kbRuntimeLayer`); a handler that needs fewer of them
+ * still assigns, because Effect's requirement channel is covariant.
  */
-export type ActionEffectHandler = (input: never) => Effect.Effect<unknown, unknown, any>;
+export type ActionHandlerEnv = KbCtx | KbStore | FileSystem | TemplateRegistry;
+
+/**
+ * Effect-native action handler. Input is already schema-parsed; the services
+ * in {@link ActionHandlerEnv} come from Layers at the invoke tip.
+ */
+export type ActionEffectHandler = (
+  input: never,
+) => Effect.Effect<unknown, unknown, ActionHandlerEnv>;
 
 /**
  * Action contract. Schemas are Standard Schema v1–compatible (zod 4 satisfies

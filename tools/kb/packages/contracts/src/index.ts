@@ -2,6 +2,7 @@ export { actionToManifestEntry, failed, succeeded } from "./actions.ts";
 export type {
   ActionDefinition,
   ActionEffectHandler,
+  ActionHandlerEnv,
   ActionInvocation,
   ActionReceipt,
 } from "./actions.ts";

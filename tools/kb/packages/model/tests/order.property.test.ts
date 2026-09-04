@@ -53,11 +53,11 @@ describe("order properties (fast-check)", () => {
 
   test("adversarial insertion chains: repeated prepend, append, and bisect", () => {
     // 1. Repeated prepend
-    let prependList: string[] = [];
+    const prependList: string[] = [];
     for (let i = 0; i < 50; i++) {
       const first = prependList[0];
       const next = rankBetween(undefined, first);
-      prependList = [next, ...prependList];
+      prependList.unshift(next);
     }
     for (let i = 0; i < prependList.length - 1; i++) {
       expect(prependList[i]! < prependList[i + 1]!).toBe(true);

@@ -64,11 +64,11 @@ function ontology(
   const props: Record<string, PropValue[]> = {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.ontologyTag }],
   };
-  const refs = (ids: string[]): PropValue[] => ids.map((v) => ({ t: "ref" as const, v }));
-  if (spec.include) props[SYSTEM_IDS.ontoIncludeField] = refs(spec.include);
-  if (spec.member) props[SYSTEM_IDS.ontoMemberField] = refs(spec.member);
-  if (spec.exclude) props[SYSTEM_IDS.ontoExcludeField] = refs(spec.exclude);
-  if (spec.extends) props[SYSTEM_IDS.ontoExtendsField] = refs(spec.extends);
+  const refValues = (ids: string[]): PropValue[] => ids.map((v) => ({ t: "ref" as const, v }));
+  if (spec.include) props[SYSTEM_IDS.ontoIncludeField] = refValues(spec.include);
+  if (spec.member) props[SYSTEM_IDS.ontoMemberField] = refValues(spec.member);
+  if (spec.exclude) props[SYSTEM_IDS.ontoExcludeField] = refValues(spec.exclude);
+  if (spec.extends) props[SYSTEM_IDS.ontoExtendsField] = refValues(spec.extends);
   if (spec.query) {
     props[SYSTEM_IDS.ontoQueryField] = [{ t: "str", v: spec.query }];
   }

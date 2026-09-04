@@ -59,10 +59,14 @@ describe("workspace-shape", () => {
       const tags = tagsOf(manifest);
       const layers = axisValues(tags, "layer");
       const scopes = axisValues(tags, "scope");
-      if (layers.length !== 1) bad.push(`${dir}: layer tags ${JSON.stringify(layers)}`);
-      else if (!(layers[0]! in LAYER_ALLOWS)) bad.push(`${dir}: unknown layer:${layers[0]}`);
-      if (scopes.length !== 1) bad.push(`${dir}: scope tags ${JSON.stringify(scopes)}`);
-      else if (!(scopes[0]! in SCOPE_ALLOWS)) bad.push(`${dir}: unknown scope:${scopes[0]}`);
+      const [layer] = layers;
+      const [scope] = scopes;
+      if (layers.length !== 1 || layer === undefined) {
+        bad.push(`${dir}: layer tags ${JSON.stringify(layers)}`);
+      } else if (!(layer in LAYER_ALLOWS)) bad.push(`${dir}: unknown layer:${layer}`);
+      if (scopes.length !== 1 || scope === undefined) {
+        bad.push(`${dir}: scope tags ${JSON.stringify(scopes)}`);
+      } else if (!(scope in SCOPE_ALLOWS)) bad.push(`${dir}: unknown scope:${scope}`);
     }
     expect(bad, bad.join("\n")).toEqual([]);
   });

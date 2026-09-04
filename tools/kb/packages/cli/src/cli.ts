@@ -16,13 +16,16 @@ import {
   writeErr,
 } from "@kb/runtime";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
-import { exampleSeedNodes, isPristine } from "@kb/model";
-import { SYSTEM_IDS, currentIso, isSysPrefixed } from "@kb/model";
 import {
   type DomainError,
   ResolveError,
+  SYSTEM_IDS,
+  currentIso,
   ensureDomainError,
+  exampleSeedNodes,
   isDomainError,
+  isPristine,
+  isSysPrefixed,
   receiptCodeOf,
   resolveFieldId,
   resolveTagId,

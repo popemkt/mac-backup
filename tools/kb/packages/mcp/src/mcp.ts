@@ -14,10 +14,16 @@ import { Cause, Effect, Exit, Schema } from "effect";
 import type { KbContext, ActionInvocation } from "@kb/contracts";
 import { domainError } from "@kb/model";
 import { reloadEffect, listViewNamesEffect, renderNamedViewEffect } from "@kb/operations";
-import { kbRuntimeLayer, openKbEffect, writeErr } from "@kb/runtime";
+import {
+  invokeReceiptEffect,
+  kbRuntimeLayer,
+  openKbEffect,
+  registryFor,
+  resolveRootEffect,
+  writeErr,
+  type ManifestEntry,
+} from "@kb/runtime";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
-import { invokeReceiptEffect, registryFor, type ManifestEntry } from "@kb/runtime";
-import { resolveRootEffect } from "@kb/runtime";
 
 const MANIFEST_TOOL = "kb_manifest";
 const RENDER_TOOL = "render_view";
@@ -88,7 +94,7 @@ export function containToolResult<R>(
       if (Cause.hasInterruptsOnly(exit.cause)) {
         // Re-raise interrupt; cast keeps the CallTool Promise edge typed as
         // never while still rejecting on cancellation.
-        return Effect.failCause(exit.cause) as unknown as Effect.Effect<CallToolResult, never>;
+        return Effect.failCause(exit.cause) as unknown as Effect.Effect<CallToolResult>;
       }
       return Effect.succeed(errorResult("internal", causeMessage(exit.cause)));
     }),
@@ -115,7 +121,7 @@ export function callToolEffect(
   name: string,
   args: unknown,
   tools: McpToolContext,
-): Effect.Effect<CallToolResult, never> {
+): Effect.Effect<CallToolResult> {
   return containToolResult(
     Effect.gen(function* () {
       if (name === MANIFEST_TOOL) {

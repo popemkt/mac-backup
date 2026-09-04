@@ -1,32 +1,29 @@
 import { Effect } from "effect";
-import type { FileSystem } from "effect/FileSystem";
 import {
   type ActionDefinition,
   type ActionEffectHandler,
+  type ActionHandlerEnv,
   type ActionInvocation,
   type ActionReceipt,
   actionToManifestEntry,
   failed,
   succeeded,
-  type KbCtx,
-  type KbStore,
   type KbContext,
-  type TemplateRegistry,
   type TemplateFn,
   type ExtensionFailure,
   type ExtensionPromiseHandler,
   type LoadedExtension,
 } from "@kb/contracts";
-import { FailureCodeSchema } from "@kb/model";
-import { ResolveError } from "@kb/model";
 import {
   ActionSchemaError,
-  parseActionInput,
-  type ActionSchema,
+  FailureCodeSchema,
+  ResolveError,
   domainFromResolve,
   ensureDomainError,
   isDomainError,
+  parseActionInput,
   receiptCodeOf,
+  type ActionSchema,
   type DomainError,
 } from "@kb/model";
 import {
@@ -62,7 +59,7 @@ import { docsActions, docsTemplates } from "@kb/ext-docs";
 import { canvasActions } from "@kb/ext-canvas";
 
 /** Services Effect-native handlers may require; provided at the invoke tip. */
-export type ActionHandlerEnv = KbCtx | KbStore | FileSystem | TemplateRegistry;
+export type { ActionHandlerEnv } from "@kb/contracts";
 
 export interface RegisteredAction {
   def: ActionDefinition;
@@ -115,7 +112,7 @@ export interface ManifestEntry {
 export interface Registry {
   actions: readonly RegisteredAction[];
   byId: ReadonlyMap<string, RegisteredAction>;
-  /** Render templates by namespaced id and by alias; fed to {@link TemplateRegistry}. */
+  /** Render templates by namespaced id and by alias; fed to the TemplateRegistry service. */
   templates: ReadonlyMap<string, TemplateFn>;
   extensions: readonly RegistryExtension[];
   failures: readonly ExtensionFailure[];
@@ -127,18 +124,18 @@ function coreNative(def: ActionDefinition, effect: ActionEffectHandler): Registe
 }
 
 const CORE_ACTIONS: readonly RegisteredAction[] = [
-  coreNative(nodeAddDef, nodeAddEffect as ActionEffectHandler),
-  coreNative(nodeUpdateDef, nodeUpdateEffect as ActionEffectHandler),
-  coreNative(nodeGetDef, nodeGetEffect as ActionEffectHandler),
-  coreNative(fieldDefineDef, fieldDefineEffect as ActionEffectHandler),
-  coreNative(tagDefineDef, tagDefineEffect as ActionEffectHandler),
-  coreNative(graphQueryDef, graphQueryEffect as ActionEffectHandler),
-  coreNative(graphRunDef, graphRunEffect as ActionEffectHandler),
-  coreNative(graphSearchDef, graphSearchEffect as ActionEffectHandler),
-  coreNative(assetUploadDef, assetUploadEffect as ActionEffectHandler),
-  coreNative(renderViewDef, renderViewActionEffect as ActionEffectHandler),
-  coreNative(renderViewsDef, renderViewsActionEffect as ActionEffectHandler),
-  coreNative(ontologyMembersDef, ontologyMembersEffect as ActionEffectHandler),
+  coreNative(nodeAddDef, nodeAddEffect),
+  coreNative(nodeUpdateDef, nodeUpdateEffect),
+  coreNative(nodeGetDef, nodeGetEffect),
+  coreNative(fieldDefineDef, fieldDefineEffect),
+  coreNative(tagDefineDef, tagDefineEffect),
+  coreNative(graphQueryDef, graphQueryEffect),
+  coreNative(graphRunDef, graphRunEffect),
+  coreNative(graphSearchDef, graphSearchEffect),
+  coreNative(assetUploadDef, assetUploadEffect),
+  coreNative(renderViewDef, renderViewActionEffect),
+  coreNative(renderViewsDef, renderViewsActionEffect),
+  coreNative(ontologyMembersDef, ontologyMembersEffect),
 ];
 
 /** Extensions shipped with kb itself; loaded like repo extensions. */

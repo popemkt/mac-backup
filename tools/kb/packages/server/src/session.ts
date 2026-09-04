@@ -181,6 +181,20 @@ export class SubscriptionHub {
           );
         }
       }
+      default: {
+        // Unreachable: `never` makes the compiler prove the switch is
+        // exhaustive over ClientMessage. The clause exists because the switch
+        // must produce a value, and it answers with a frame rather than a
+        // throw so this method keeps its "never throws" contract.
+        const unhandled: never = msg;
+        return client.send(
+          JSON.stringify({
+            op: "error",
+            code: "invalid_message",
+            message: `unsupported op: ${JSON.stringify(unhandled)}`,
+          }),
+        );
+      }
     }
   }
 
