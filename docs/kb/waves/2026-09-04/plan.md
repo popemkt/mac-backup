@@ -32,6 +32,7 @@ Layer folders (t3): `domain/{model,query,canvas}` `contract/{contracts,ext-sdk}`
 | t1 | `briefs/t1-catalog-alias.md` | omp | — | |
 | t2 | `briefs/t2-harness-root.md` | claude | — | |
 | t3 | `briefs/t3-layer-folders.md` | claude | t2 merged | queued |
+| t4 | `briefs/t4-favicon.md` | omp | — | |
 
 Standing rules for every worker: `intent/gate.sh session <harness>` first;
 `.kb/nodes.jsonl` only through `bun tools/kb/packages/cli/src/main.ts …`
