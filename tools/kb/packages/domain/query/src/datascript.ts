@@ -31,8 +31,12 @@ const QUERY_DIRECTIVES = new Set([
 /**
  * DataScript JS API stores attrs as strings; EDN queries use keywords.
  * Rewrite `:attr` → `":attr"` (quoted) except query directives.
+ *
+ * Rules vectors (`:in $ %`) are the same dialect and must go through this
+ * too — an unquoted `:f/…` inside a rule stays a keyword while datoms hold
+ * strings, and DataScript throws mid-fixpoint.
  */
-function normalizeEdnQuery(edn: string): string {
+export function normalizeEdnQuery(edn: string): string {
   const keyword = /^:([A-Za-z*][\w./+*-]*)/;
   let out = "";
   let i = 0;
@@ -63,18 +67,67 @@ function normalizeEdnQuery(edn: string): string {
   return out;
 }
 
+/**
+ * `[?p :node/child ?c] [?p :node/child-order ?ord]` is a cartesian product:
+ * both attrs are cardinality-many on the parent, so N children × N orders
+ * rows. The child *set* is `:node/child` alone; order lives on the
+ * `:node/children` vector. Drop the unusable join.
+ */
+function rewriteChildOrderCartesian(edn: string): string {
+  const childClause = /\[\s*(\?\S+)\s+:node\/child\s+\?\S+\s*\]/g;
+  const childEntities = new Set<string>();
+  for (const m of edn.matchAll(childClause)) {
+    childEntities.add(present(m[1], "child-clause entity"));
+  }
+  if (childEntities.size === 0) return edn;
+
+  const droppedOrd: string[] = [];
+  const orderClause = /\[\s*(\?\S+)\s+:node\/child-order\s+(\?\S+)\s*\]/g;
+  const withoutOrder = edn.replace(orderClause, (full, entity: string, ord: string) => {
+    if (!childEntities.has(entity)) return full;
+    droppedOrd.push(ord);
+    return "";
+  });
+  return dropUnusedFindVars(withoutOrder, droppedOrd);
+}
+
+function dropUnusedFindVars(edn: string, vars: readonly string[]): string {
+  let out = edn;
+  for (const v of vars) {
+    const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const occurrences = out.match(new RegExp(escaped, "g"));
+    if (occurrences !== null && occurrences.length === 1) {
+      out = out.replace(new RegExp(`\\s*${escaped}\\b`), "");
+    }
+  }
+  return out;
+}
+
+function normalizeQueryInput(input: unknown): unknown {
+  if (typeof input === "string") return normalizeEdnQuery(input);
+  if (Array.isArray(input)) return input.map(normalizeQueryInput);
+  return input;
+}
+
 function reviveValue(v: unknown, ids: IdMap): unknown {
   if (typeof v === "number" && ids.toId.has(v)) return ids.toId.get(v);
   if (Array.isArray(v)) return v.map((x) => reviveValue(x, ids));
   return v;
 }
 
-/** Run raw EDN datalog; entity ids in results are revived to NodeIds when known. */
+/**
+ * Run raw EDN datalog; entity ids in results are revived to NodeIds when known.
+ *
+ * This is the engine-specific surface: every integer that matches a live eid
+ * is revived, including aggregate counts that happen to collide. String
+ * inputs (rules vectors included) are normalised the same way as the query.
+ */
 export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
-  const q = normalizeEdnQuery(edn);
+  const q = normalizeEdnQuery(rewriteChildOrderCartesian(edn));
+  const normalizedInputs = inputs.map(normalizeQueryInput);
   let raw: unknown;
   try {
-    raw = d.q(q, db.db, ...inputs);
+    raw = d.q(q, db.db, ...normalizedInputs);
   } catch (err) {
     // Query parse/evaluation failures are the caller's datalog at fault, not
     // an internal defect — surface them as DatalogError so action surfaces can
