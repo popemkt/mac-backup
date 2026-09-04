@@ -6,7 +6,7 @@ import {
   LIST_FIELDS_QUERY,
   LIST_TAGS_QUERY,
   backlinksQuery,
-  buildQueryDb,
+  DatascriptIndex,
   compile,
   datascriptExecutor,
   parseEdn,
@@ -17,6 +17,11 @@ import {
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import { systemSeedNodes, type KbNode } from "@kb/model";
+
+/** The engine handle these tests drive directly, built the one way there is. */
+function handleFor(nodes: KbNode[]) {
+  return new DatascriptIndex(nodes).handle;
+}
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -96,7 +101,7 @@ describe("parseEdn subset vs raw", () => {
 });
 
 describe("compile(parse(edn)) is query-equivalent", () => {
-  const db = buildQueryDb([
+  const db = handleFor([
     ...systemSeedNodes(AT),
     node("n.todo", {
       text: "a todo",
@@ -129,7 +134,7 @@ describe("compile(parse(edn)) is query-equivalent", () => {
 });
 
 describe("runIr revives only node-ref positions", () => {
-  const db = buildQueryDb([
+  const db = handleFor([
     node("a", { props: { "fld.status": [{ t: "str", v: "doing" }] } }),
     node("b", { props: { "fld.status": [{ t: "str", v: "doing" }] } }),
     node("c", { props: { "fld.status": [{ t: "str", v: "doing" }] } }),
@@ -147,7 +152,7 @@ describe("runIr revives only node-ref positions", () => {
 });
 
 describe("reach compiles to a recursive DataScript rule", () => {
-  const db = buildQueryDb([
+  const db = handleFor([
     node("a", { text: "[[b]]" }),
     node("b", { text: "[[c]]" }),
     node("c", { text: "leaf" }),
@@ -175,7 +180,7 @@ describe("reach compiles to a recursive DataScript rule", () => {
 });
 
 describe("children clause replaces the cartesian join", () => {
-  const db = buildQueryDb([
+  const db = handleFor([
     node("p", { children: ["c1", "c2", "c3"] }),
     node("c1"),
     node("c2"),

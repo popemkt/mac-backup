@@ -1,6 +1,3 @@
-// oxlint-disable-next-line typescript/triple-slash-reference -- datascript ships no types; the shim travels with the query package (see ../datascript.d.ts)
-/// <reference path="../datascript.d.ts" />
-import * as d from "datascript";
 import { present, type KbNode, type NodeId, type PropValue } from "@kb/model";
 
 /**
@@ -44,19 +41,6 @@ export interface IdMap {
 export interface DatascriptDb {
   db: unknown;
   ids: IdMap;
-}
-
-function buildIdMap(nodes: KbNode[]): IdMap {
-  const sorted = [...nodes].toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  const toEid = new Map<NodeId, number>();
-  const toId = new Map<number, NodeId>();
-  let eid = 1;
-  for (const n of sorted) {
-    toEid.set(n.id, eid);
-    toId.set(eid, n.id);
-    eid += 1;
-  }
-  return { toEid, toId };
 }
 
 function fieldAttr(fieldId: NodeId): string {
@@ -186,30 +170,6 @@ export function schemaFor(attrs: ReadonlySet<string>): Record<string, Record<str
     schema[attr] = { ...many };
   }
   return schema;
-}
-
-/** Single-pass nodes → datoms (+ the schema those datoms need). */
-function nodesToDatoms(nodes: KbNode[]): {
-  datoms: Datom[];
-  schema: Record<string, Record<string, string>>;
-  ids: IdMap;
-} {
-  const ids = buildIdMap(nodes);
-  const datoms: Datom[] = [];
-  const attrs = new Set<string>();
-
-  for (const node of nodes) {
-    const built = nodeToDatoms(node, ids);
-    datoms.push(...built.datoms);
-    for (const attr of built.attrs) attrs.add(attr);
-  }
-
-  return { datoms, schema: schemaFor(attrs), ids };
-}
-
-export function buildQueryDb(nodes: KbNode[]): DatascriptDb {
-  const { datoms, schema, ids } = nodesToDatoms(nodes);
-  return { db: d.init_db(datoms, schema), ids };
 }
 
 /** Extract [[id|label]] mentions from text. */

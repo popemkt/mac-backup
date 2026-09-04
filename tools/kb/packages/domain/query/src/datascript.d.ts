@@ -1,6 +1,6 @@
 /** datascript ships no types; the js-facing API surface kb uses is tiny.
  * One shim for the whole workspace: it travels with the two modules that
- * import `datascript` (`datascript.ts`, `index/datoms.ts`) through a
+ * import `datascript` (`datascript.ts`, `index/datascript-index.ts`) through a
  * triple-slash reference, so every project that type-checks @kb/query gets it.
  *
  * The reference is the seam: this file is an ambient script (`declare module`),

@@ -4,7 +4,12 @@
  */
 import { describe, expect, test } from "bun:test";
 import type { KbNode } from "@kb/model";
-import { buildQueryDb, normalizeEdnQuery, query, queryRows } from "@kb/query";
+import { DatascriptIndex, normalizeEdnQuery, query, queryRows } from "@kb/query";
+
+/** The engine handle these tests drive directly, built the one way there is. */
+function handleFor(nodes: KbNode[]) {
+  return new DatascriptIndex(nodes).handle;
+}
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -31,7 +36,7 @@ const CARTESIAN_CHILDREN = `[:find ?cId ?ord :in $ ?parentId
   :where [?p :node/id ?parentId] [?p :node/child ?c] [?p :node/child-order ?ord] [?c :node/id ?cId]]`;
 
 describe("query() normalises rules inputs", () => {
-  const db = buildQueryDb([
+  const db = handleFor([
     node("tag-root", { text: "root-tag" }),
     node("tag-child", {
       text: "child-tag",
@@ -57,7 +62,7 @@ describe("query() normalises rules inputs", () => {
 });
 
 describe("query() stops the child-order cartesian", () => {
-  const db = buildQueryDb([
+  const db = handleFor([
     node("p", { text: "parent", children: ["c1", "c2", "c3"] }),
     node("c1", { text: "one" }),
     node("c2", { text: "two" }),
@@ -85,7 +90,7 @@ describe("query() stops the child-order cartesian", () => {
 });
 
 describe("query() still revives eids on the raw surface", () => {
-  const db = buildQueryDb([node("a", { text: "alpha" })]);
+  const db = handleFor([node("a", { text: "alpha" })]);
 
   test("entity find positions revive to NodeId", () => {
     const rows = query(db, '[:find ?n :where [?n :node/text "alpha"]]');

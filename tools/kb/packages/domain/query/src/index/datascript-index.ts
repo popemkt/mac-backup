@@ -50,7 +50,6 @@ export class DatascriptIndex implements KbIndex {
   #storedCache: { generation: number; nodes: KbNode[] } | null = null;
 
   constructor(nodes: ReadonlyArray<KbNode> = []) {
-    this.#db = d.init_db([], schemaFor(this.#attrs));
     this.rebuild(nodes);
   }
 
@@ -61,6 +60,17 @@ export class DatascriptIndex implements KbIndex {
   /** Full index builds since construction — the number Phase 4 gates on. */
   get rebuilds(): number {
     return this.#rebuilds;
+  }
+
+  /**
+   * The engine handle: this db plus the eid map that reads its integers back
+   * as node ids. Exposed because the datascript half still takes it as an
+   * argument — `runIr(exec, ir, ids)` and the tests that exercise the engine
+   * directly. It closes when `run(ir)` moves onto the port and the index is
+   * the only thing that ever holds a db.
+   */
+  get handle(): DatascriptDb {
+    return { db: this.#db, ids: this.#ids };
   }
 
   rebuild(nodes: ReadonlyArray<KbNode>): void {
@@ -141,11 +151,11 @@ export class DatascriptIndex implements KbIndex {
   }
 
   runDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): Array<Array<unknown>> {
-    return normalizeRows(dsQuery(this.#handle(), edn, ...inputs));
+    return normalizeRows(dsQuery(this.handle, edn, ...inputs));
   }
 
   pull(pattern: string, id: NodeId): unknown {
-    return dsPull(this.#handle(), pattern, id);
+    return dsPull(this.handle, pattern, id);
   }
 
   getNode(id: NodeId): KbNode | undefined {
@@ -179,11 +189,6 @@ export class DatascriptIndex implements KbIndex {
     this.#virtual = nodes.filter((n) => !storedIds.has(n.id));
     this.#virtualIds = new Set(this.#virtual.map((n) => n.id));
     this.rebuild(stored);
-  }
-
-  /** The engine handle the query half takes. Nothing outside this class holds one. */
-  #handle(): DatascriptDb {
-    return { db: this.#db, ids: this.#ids };
   }
 
   #currentStored(): KbNode[] {
