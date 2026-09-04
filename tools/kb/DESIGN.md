@@ -123,8 +123,11 @@ The backend runs on **Bun** in production; the toolchain around it is **Vite+
   - `bun run test` → `bun test packages`
   - `bun run test:ui` → `bun run --filter @kb/ui test` (Vitest)
   - `bun run test:dst` → the deterministic simulation sweep
-  - `bun run knip`, `bun run harness`, and `bun run verify` = typecheck + lint
-    - knip + harness
+  - `bun run knip` → the hard, unbaselined dead-code report for cleanup work
+  - `bun run harness` → repository constraints plus the shared lint/Knip debt
+    ratchet
+  - `bun run verify` → typecheck + lint + format check + harness; Knip admission
+    runs through the harness ratchet until its lane reaches zero
 - **Two runners, split by package, not by file.** Everything except `@kb/ui`
   runs on `bun test`; the browser package runs on Vitest because its suite
   needs happy-dom, `vi.mock` hoisting and fake timers. `bunfig.toml` states
@@ -223,8 +226,10 @@ violations, style-only with no soundness gain).
 ### Ratchet scope
 
 The ratchet ledger (`harness/lint-warn-baseline.json`, harness check
-`lint-warn-ratchet`) ingests two collectors, and they measure different file
-sets on purpose.
+`lint-warn-ratchet`) ingests oxlint, Effect diagnostics, and Knip. Every
+collector reports health alongside findings; an execution or decode failure is
+a gate failure, never an empty result. The lint collectors measure different
+file sets on purpose.
 
 - **oxlint** counts every warning over every linted file: the collector runs
   the root `lint` script itself, so the lint scope is authored once and the
@@ -237,6 +242,11 @@ sets on purpose.
   (`asyncFunction`, `globalConsole`, `globalDate`, `globalTimers`,
   `processEnv`, `globalRandom`), emitted by tsgo as `message` — count only
   under a package's `src/`, which is kb's production code.
+- **Knip** contributes one stable identity per dead-code finding to the same
+  blocking ledger. Its raw script remains a hard report for cleanup work;
+  normal admission compares the complete decoded finding set with the
+  committed lane, so both rises and partial improvements require an explicit
+  `bun run harness:snapshot` update.
 
 Rejected rules are recorded here with their measured count, like rejected
 compiler flags: `oxc/no-map-spread` (14 sites) — a micro-optimisation for

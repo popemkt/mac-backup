@@ -1,97 +1,89 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
-import { BASELINE_PATH, collectLinterWarnings, type BaselineLanes } from "../src/snapshot.ts";
+import {
+  BASELINE_PATH,
+  collectKnipFindings,
+  collectLinterWarnings,
+  collectOxlintWarnings,
+  type BaselineLanes,
+} from "../src/snapshot.ts";
 
 /**
- * Harness check 2: Lint warning ratchet (plan A.9 #2 / spec 11).
+ * Harness check 2: deterministic-debt ratchet.
  *
- * Enforces the ratchet mechanism:
- *   1. Reads harness/lint-warn-baseline.json.
- *   2. Any blocking rule count rise -> FAILS.
- *   3. Any new warning rule absent from baseline -> FAILS (treated as rise from 0).
- *   4. Any blocking rule count dropping to 0 -> FAILS: "promote to error in .oxlintrc.json".
- *   5. Advisory lane rules (typescript/no-deprecated) are reported but never block.
- *
- * Red case: add an artificial warning that increases a blocking rule count.
+ * Blocking lint warnings and Knip findings use one mechanism: the committed
+ * ledger must equal complete collector output. Any change requires an explicit
+ * `bun run harness:snapshot`; a zero count disappears from the regenerated
+ * ledger. Advisory lint diagnostics remain non-blocking.
  */
+
+export function ratchetMismatches(
+  baseline: Record<string, number>,
+  current: Record<string, number>,
+  lane: string,
+): string[] {
+  const mismatches: string[] = [];
+  for (const [identity, baselineCount] of Object.entries(baseline)) {
+    const currentCount = current[identity] ?? 0;
+    if (currentCount !== baselineCount) {
+      mismatches.push(
+        `${lane} ${identity} count changed from ${baselineCount} to ${currentCount}; run bun run harness:snapshot`,
+      );
+    }
+  }
+  for (const [identity, currentCount] of Object.entries(current)) {
+    if (!(identity in baseline) && currentCount > 0) {
+      mismatches.push(
+        `${lane} ${identity} appeared with count ${currentCount}; run bun run harness:snapshot`,
+      );
+    }
+  }
+  return mismatches.toSorted();
+}
+
 describe("lint-warn-ratchet", () => {
   test("baseline file exists and contains valid lanes", () => {
     expect(existsSync(BASELINE_PATH)).toBe(true);
-    const raw = readFileSync(BASELINE_PATH, "utf8");
-    const parsed = JSON.parse(raw) as BaselineLanes;
+    const baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf8")) as BaselineLanes;
 
-    expect(typeof parsed.lanes).toBe("object");
-    expect(typeof parsed.lanes.blocking).toBe("object");
-    expect(typeof parsed.lanes.advisory).toBe("object");
+    expect(typeof baseline.lanes).toBe("object");
+    expect(typeof baseline.lanes.blocking).toBe("object");
+    expect(typeof baseline.lanes.advisory).toBe("object");
+    expect(typeof baseline.lanes.knip).toBe("object");
 
-    // The ledger may be empty — that is the goal — but every entry must be a
-    // positive count: a zero-count rule belongs in the promotion, not here.
-    for (const lane of [parsed.lanes.blocking, parsed.lanes.advisory]) {
-      for (const [rule, count] of Object.entries(lane)) {
-        expect(rule).toMatch(/^[a-z-]+\/[A-Za-z-]+$/);
+    for (const lane of [baseline.lanes.blocking, baseline.lanes.advisory, baseline.lanes.knip]) {
+      for (const [identity, count] of Object.entries(lane)) {
+        expect(identity.length).toBeGreaterThan(0);
         expect(Number.isInteger(count) && count > 0).toBe(true);
       }
     }
   });
-  test("no blocking rule count rose above baseline, and zero-count rules are promoted", () => {
-    const raw = readFileSync(BASELINE_PATH, "utf8");
-    const baseline = JSON.parse(raw) as BaselineLanes;
-    const current = collectLinterWarnings();
 
-    const rises: string[] = [];
-    const promoteCandidates: string[] = [];
-    const drops: string[] = [];
-
-    // Check every rule in blocking baseline
-    for (const [rule, baselineCount] of Object.entries(baseline.lanes.blocking)) {
-      const currentCount = current[rule] ?? 0;
-
-      if (currentCount > baselineCount) {
-        rises.push(
-          `Rule ${rule} count rose from ${baselineCount} to ${currentCount} (+${currentCount - baselineCount})`,
-        );
-      } else if (currentCount === 0) {
-        promoteCandidates.push(
-          `Rule ${rule} count dropped to 0! Promote it to "error" in .oxlintrc.json, then run bun run harness:snapshot`,
-        );
-      } else if (currentCount < baselineCount) {
-        drops.push(
-          `Rule ${rule} count dropped from ${baselineCount} to ${currentCount} (-${baselineCount - currentCount})`,
-        );
-      }
-    }
-
-    // Check for new warning rules not present in baseline at all
-    const knownRules = new Set([
-      ...Object.keys(baseline.lanes.blocking),
-      ...Object.keys(baseline.lanes.advisory),
+  test("a partial improvement fails until the baseline is updated", () => {
+    expect(ratchetMismatches({ "eslint/example": 3 }, { "eslint/example": 1 }, "lint")).toEqual([
+      "lint eslint/example count changed from 3 to 1; run bun run harness:snapshot",
     ]);
+  });
 
-    const newRules: string[] = [];
-    for (const [rule, count] of Object.entries(current)) {
-      if (!knownRules.has(rule) && count > 0) {
-        newRules.push(
-          `New warning rule ${rule} appeared (${count} violations); add to baseline or fix`,
-        );
-      }
-    }
+  test("non-JSON collector output is unhealthy, not an empty finding set", () => {
+    expect(collectOxlintWarnings(undefined, () => "not-json")).toEqual({
+      ok: false,
+      findings: {},
+    });
+  });
 
-    if (drops.length > 0) {
-      console.log(`[ratchet progress] ${drops.join("\n")}`);
-    }
+  test("blocking lint and Knip lanes exactly match healthy collector output", () => {
+    const baseline = JSON.parse(readFileSync(BASELINE_PATH, "utf8")) as BaselineLanes;
+    const lint = collectLinterWarnings();
+    const knip = collectKnipFindings();
 
-    expect(rises, `Blocking lint rule counts rose above baseline:\n${rises.join("\n")}`).toEqual(
-      [],
-    );
+    expect(lint.ok, "oxlint or effect-tsgo failed to execute or decode").toBe(true);
+    expect(knip.ok, "Knip failed to execute or decode").toBe(true);
 
-    expect(
-      newRules,
-      `New warning rules appeared without baseline entries:\n${newRules.join("\n")}`,
-    ).toEqual([]);
-
-    expect(
-      promoteCandidates,
-      `Rules reached 0 violations and must be promoted to "error":\n${promoteCandidates.join("\n")}`,
-    ).toEqual([]);
-  }, 60000);
+    const mismatches = [
+      ...ratchetMismatches(baseline.lanes.blocking, lint.findings, "lint"),
+      ...ratchetMismatches(baseline.lanes.knip, knip.findings, "knip"),
+    ];
+    expect(mismatches, mismatches.join("\n")).toEqual([]);
+  }, 120000);
 });

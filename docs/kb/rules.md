@@ -281,6 +281,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A node prop is an ordered multi-value: slot 2 is slot 2, and two slots can hold equal values, so position is the only identity available and a content key would collide and remount live editors. Snap guides are a transient two-element overlay with no domain object at all. Close it by giving multi-values an id in the data model (Track 2 KbNode/prop schema work), then key on that.
 - **node** — `01M1MFP33RDP5MVB4827DR5RE7`
 
+### GAP: suppression grammar still includes legacy eslint directives
+
+- **expected** — Every TypeScript suppression uses // oxlint-disable-next-line <rule> -- GAP id or // oxlint-disable-next-line <rule> -- <reason>.
+- **current** — Legacy eslint-disable-next-line directives remain in packages/app/mcp/src/mcp.ts, packages/app/runtime/src/registry.ts, and UI board-cards-view.tsx, breadcrumbs.tsx, caret.ts, force3d-graph.tsx, force3d-instance.ts, query-results.tsx, and references-section.tsx; those files are outside r1 ownership.
+- **impact** — The suppression checker cannot be admitted without failing files owned by concurrent or later work.
+- **closes** — Rewrite every listed directive to the oxlint grammar, then unskip suppression-grammar.test.ts.
+- **rule** — Lint scope coverage
+- **node** — `01M1PHTZDZCKMXYP6HW109M3DT`
+
 ### GAP: the browser holds the whole graph
 
 - **expected** — The UI reads through the protocol: subscriptions plus a scoped, paged snapshot, with ui/src/ds as an optional client cache behind one interface or deleted.

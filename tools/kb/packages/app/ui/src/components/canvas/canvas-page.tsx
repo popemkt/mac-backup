@@ -1397,7 +1397,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                     return (
                       <foreignObject x={mx - 60} y={my - 12} width={120} height={24}>
                         <input
-                          // eslint-disable-next-line jsx-a11y/no-autofocus
                           autoFocus
                           type="text"
                           className="h-full w-full rounded border border-primary/40 bg-popover px-1 text-center text-[11px]"
