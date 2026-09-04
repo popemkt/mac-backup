@@ -206,6 +206,7 @@ export function runResourceHandler<A, E>(effect: Effect.Effect<A, E>): Promise<A
  */
 export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
   root: string,
+  // eslint-disable-next-line typescript/no-deprecated -- registry-built tool list; McpServer cannot express it (SDK docs)
 ): Effect.fn.Return<Server, DomainError, FileSystem> {
   const ctx = yield* openKbEffect(root);
   const actions = (yield* registryFor(root)).manifestEntries;
@@ -278,6 +279,7 @@ export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
  * not inside it.
  */
 function bindMcpHandlers(ctx: KbContext, tools: Tool[], toolsCtx: McpToolContext) {
+  // eslint-disable-next-line typescript/no-deprecated -- registry-built tool list; McpServer cannot express it (SDK docs)
   const server = new Server(
     { name: "kb", version: "0.1.0" },
     { capabilities: { tools: {}, resources: {} } },
