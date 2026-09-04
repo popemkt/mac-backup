@@ -7,7 +7,7 @@
       "typescript/no-unsafe-type-assertion": 5
     },
     "advisory": {
-      "typescript/no-deprecated": 5
+      "typescript/no-deprecated": 4
     }
   }
 }
