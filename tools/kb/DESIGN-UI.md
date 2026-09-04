@@ -66,8 +66,8 @@ implementation modules under `packages/app/server/src/` split by concern:
   pain): client mints final ULIDs, server accepts explicit ids (already
   supported by `node.add`).
 - **Change flow**: server fs-watches `.kb/` (catches CLI/MCP/agent writes
-  too) → diffs old/new node sets → broadcasts node-level deltas on WS →
-  client transacts deltas into DataScript → open queries re-run.
+  too) → reloads nodes → rebuilds a DataScript database → broadcasts node-level
+  deltas on WS → the client applies deltas → open queries re-run.
 
 ## SubscriptionHub — the "other apps can subscribe" layer
 
@@ -82,10 +82,10 @@ WS protocol (JSON):
 ← {op:"tx",    datoms:[...], rev:N}           // broadcast to graph subscribers
 ```
 
-- v1 implementation: hub keeps a server-side DataScript conn (reusing the
-  query layer); on fs change it re-runs each subscription's query and pushes
-  rows if the result hash changed. Coarse but correct; 50k nodes re-query in
-  ~20ms, fine for tens of subscriptions.
+- v1 implementation: on every load, the server rebuilds a DataScript database
+  from the current nodes; on fs change it re-runs each subscription's query and
+  pushes rows if the result hash changed. Coarse but correct; 50k nodes re-query
+  in ~20ms, fine for tens of subscriptions.
 - The browser UI is just subscriber #0 (it mostly uses `tx` events + local
   re-run; thin clients use `rows` subscriptions and need no DataScript).
 - Growth path kept open, not built: result diffing, per-query dependency

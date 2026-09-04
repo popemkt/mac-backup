@@ -59,6 +59,23 @@ function decodeNodeLine(
   });
 }
 
+/** Decode a complete JSONL document without performing filesystem I/O. */
+export function decodeNodes(body: string, path: string): Effect.Effect<KbNode[], DomainError> {
+  return Effect.gen(function* () {
+    // Accumulate only after every line validates — fail the whole load on the
+    // first bad line (no partial KbNode[] for callers; no file mutation here).
+    const nodes: KbNode[] = [];
+    const lines = body.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line === undefined) continue;
+      if (line.trim().length === 0) continue;
+      nodes.push(yield* decodeNodeLine(line, path, i + 1));
+    }
+    return nodes;
+  });
+}
+
 /**
  * JSONL backend: `<root>/.kb/nodes.jsonl`
  * One canonical-JSON node per line, sorted by id.
@@ -134,17 +151,7 @@ function loadNodes(path: string): Effect.Effect<KbNode[], DomainError> {
     const body = yield* fs.readFileString(path).pipe(Effect.mapError(mapFsError));
     if (body.trim().length === 0) return [];
 
-    // Accumulate only after every line validates — fail the whole load on the
-    // first bad line (no partial KbNode[] for callers; no file mutation here).
-    const nodes: KbNode[] = [];
-    const lines = body.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (line === undefined) continue;
-      if (line.trim().length === 0) continue;
-      nodes.push(yield* decodeNodeLine(line, path, i + 1));
-    }
-    return nodes;
+    return yield* decodeNodes(body, path);
   }).pipe(Effect.provide(bunFileSystemLayer));
 }
 
