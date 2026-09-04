@@ -163,3 +163,49 @@ export function readTsconfig(path: string): Tsconfig {
   }
   return JSON.parse(out) as Tsconfig;
 }
+
+/** One `overrides` entry of the `@effect/language-service` plugin block. */
+export interface EffectPluginOverride {
+  include?: string[];
+  exclude?: string[];
+  options?: { diagnosticSeverity?: Record<string, string> };
+}
+
+export interface EffectPluginConfig {
+  /** Severity that holds everywhere, before any file-scoped override. */
+  diagnosticSeverity: Record<string, string>;
+  /** Ordered per-file severity overrides. */
+  overrides: EffectPluginOverride[];
+}
+
+const EFFECT_PLUGIN_NAME = "@effect/language-service";
+
+/**
+ * The one authored copy of the Effect language service plugin block. Both the
+ * Effect severities and their file scope live there, so every gate that reads
+ * them reads this.
+ */
+export function effectPluginConfig(preset = "tsconfig.bun.json"): EffectPluginConfig {
+  const plugins = readTsconfig(join(WORKSPACE_ROOT, preset)).compilerOptions?.plugins;
+  if (!Array.isArray(plugins)) {
+    throw new Error(`${preset}: compilerOptions.plugins is not an array`);
+  }
+  for (const plugin of plugins) {
+    if (typeof plugin !== "object" || plugin === null) continue;
+    const block: Partial<EffectPluginConfig> & { name?: unknown } = plugin;
+    if (block.name !== EFFECT_PLUGIN_NAME) continue;
+    return {
+      diagnosticSeverity: block.diagnosticSeverity ?? {},
+      overrides: block.overrides ?? [],
+    };
+  }
+  throw new Error(`${preset}: no ${EFFECT_PLUGIN_NAME} plugin block`);
+}
+
+/** `packages/<dir>/src/**\/*` for every package carrying the given scope tag. */
+export function srcGlobsForScope(scope: string): string[] {
+  return workspacePackages()
+    .filter(({ manifest }) => axisValues(tagsOf(manifest), "scope").includes(scope))
+    .map(({ dir }) => `packages/${dir}/src/**/*`)
+    .toSorted();
+}

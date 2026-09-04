@@ -98,6 +98,40 @@ scope gets the Bun one — and declares a compiler option only when
 `SANCTIONED_TSCONFIG_DELTAS` in `@kb/harness` records why it cannot be
 inherited (today: `@kb/render-tests`'s DOM `lib`, `@kb/ui`'s `@/*` `paths`).
 
+#### Effect diagnostic severities and their file scope
+
+The `@effect/language-service` plugin block in `tsconfig.bun.json` is the one
+place both the Effect severities and their file scope are authored, and every
+`effect/*` rule sits in exactly one of two lanes:
+
+- **counted** — `suggestion` in `diagnosticSeverity`, tallied by the ratchet
+  ledger, promoted when its count reaches 0;
+- **promoted** — `error`, so a new occurrence fails `bun run typecheck`.
+
+Promotion carries a file scope, because the claim does. The Effect-native
+preference group says "model this control flow as an Effect", which is a
+statement about how kb's production code is written; a `test("…", async () =>
+…)` callback is a test-runner calling convention and a `scope:tooling`
+package's `src/` is a build script, and neither is kb modelling anything. So a
+promoted rule is an `error` under a package's `src/` and stays a `suggestion`
+everywhere else, expressed as the plugin's single `overrides` entry:
+`include: ["packages/*/src/**/*"]`, `exclude` the `src/` of every
+`scope:tooling` package. That is the same scope `countsTowardRatchet` applies
+while a rule is still counted — see "Ratchet scope" — so a rule keeps its
+meaning as it crosses lanes.
+
+The alternative — a second `tsconfig.bun.test.json` preset with a
+`tsconfig.test.json` per package — was rejected: `plugins` does not merge
+across `extends`, so the test preset would have to restate the whole plugin
+block, and two hand-synced copies of the severity map is exactly the mirror
+[Rule 1](../../CLAUDE.md) forbids. The per-path `overrides` keep one authored
+block, one tsconfig per package, and one `nx typecheck` target per project.
+
+Harness check `effect-severity-lanes` holds the shape: exactly one override,
+whose `exclude` equals the `scope:tooling` `src/` globs *computed from the nx
+tags*; an override that only ever promotes `suggestion` to `error`, never
+relaxes; and no rule both promoted and present in the ratchet ledger.
+
 The contract only reaches a file some `tsc -p` project includes, so harness
 check `typecheck-scope` asserts that every TypeScript file under `tools/kb`
 falls in exactly one package tsconfig `include` — the same question
@@ -168,11 +202,12 @@ re-snapshotting — a rule nothing can satisfy is a rule nothing enforces.
 `countsTowardRatchet` in `@kb/harness` states the split once, and
 `ratchet-scope` is its red case.
 
-The consequence is stated plainly: a suggestion rule that reaches 0 in `src`
-but still has hits outside it cannot be promoted, because promotion is a
-severity flip in `tsconfig.bun.json` and that flip has no file scope. Such a
-rule leaves the ledger without a promotion; the drain report says which sites
-remain and why.
+Promotion carries the same scope. A suggestion rule that reaches 0 in `src`
+but still has hits outside it *is* promotable, because the severity flip in
+`tsconfig.bun.json` is file-scoped too — see "Effect diagnostic severities and
+their file scope". The collector and the plugin state one scope, not two:
+`effect-severity-lanes` asserts the plugin's `exclude` is the `scope:tooling`
+globs the collector derives from the same tags.
 
 ## Supply chain
 
