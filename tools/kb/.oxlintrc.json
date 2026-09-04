@@ -45,10 +45,10 @@
     "typescript/consistent-type-imports": "error",
     "typescript/no-import-type-side-effects": "error",
     "typescript/consistent-type-assertions": "error",
-    "typescript/no-non-null-assertion": "warn",
+    "typescript/no-non-null-assertion": "error",
     "typescript/no-misused-promises": "error",
     "typescript/switch-exhaustiveness-check": "error",
-    "typescript/strict-boolean-expressions": "warn",
+    "typescript/strict-boolean-expressions": "error",
     "typescript/no-unnecessary-condition": "warn",
     "typescript/require-await": "error",
     "typescript/no-deprecated": "warn",
@@ -106,7 +106,7 @@
     "eslint/no-await-in-loop": "warn",
     "eslint/complexity": "error",
     "eslint/max-depth": [
-      "warn",
+      "error",
       5
     ],
     "eslint/max-nested-callbacks": [
@@ -120,7 +120,7 @@
       }
     ],
     "eslint/max-params": [
-      "warn",
+      "error",
       5
     ],
     "eslint/max-lines": [
@@ -447,30 +447,6 @@
     },
     {
       "files": [
-        "packages/canvas/**",
-        "packages/cli/**",
-        "packages/contracts/**",
-        "packages/ext-canvas/**",
-        "packages/ext-docs/**",
-        "packages/ext-sdk/**",
-        "packages/harness/**",
-        "packages/mcp/**",
-        "packages/model/**",
-        "packages/operations/**",
-        "packages/query/**",
-        "packages/render-tests/**",
-        "packages/runtime/**",
-        "packages/server/**",
-        "packages/store-jsonl/**",
-        "packages/test-kit/**"
-      ],
-      "rules": {
-        "typescript/no-non-null-assertion": "error",
-        "typescript/strict-boolean-expressions": "error"
-      }
-    },
-    {
-      "files": [
         "packages/canvas/src/**",
         "packages/cli/src/**",
         "packages/contracts/src/**",
@@ -550,12 +526,6 @@
       "rules": {
         "eslint/no-console": "off"
       }
-    },
-    {
-      "files": [
-        "**/*.css"
-      ],
-      "rules": {}
     }
   ]
 }
