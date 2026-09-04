@@ -1,11 +1,10 @@
 {
   "lanes": {
     "blocking": {
-      "effect/anyUnknownInErrorContext": 1,
       "eslint/max-lines": 2,
       "eslint/max-lines-per-function": 40,
       "typescript/no-unnecessary-condition": 1,
-      "typescript/no-unsafe-type-assertion": 8
+      "typescript/no-unsafe-type-assertion": 5
     },
     "advisory": {
       "typescript/no-deprecated": 7

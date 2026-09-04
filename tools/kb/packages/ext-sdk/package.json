@@ -11,6 +11,8 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@kb/contracts": "workspace:*",
+    "@kb/model": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

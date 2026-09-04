@@ -27,7 +27,7 @@
           "outdatedApi": "error",
           "classSelfMismatch": "error",
           "duplicatePackage": "error",
-          "anyUnknownInErrorContext": "suggestion",
+          "anyUnknownInErrorContext": "error",
           "unsupportedServiceAccessors": "error",
           "tryCatchInEffectGen": "suggestion",
           "runEffectInsideEffect": "suggestion",

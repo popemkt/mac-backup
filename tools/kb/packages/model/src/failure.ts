@@ -16,3 +16,15 @@ export const FailureCodeSchema = z.enum([
   "unknown_action",
 ]);
 export type FailureCode = z.infer<typeof FailureCodeSchema>;
+
+/**
+ * An error that names its own {@link FailureCode}. This is the shape every
+ * surface can turn into a receipt without guessing — `receiptFromError` reads
+ * exactly these two fields, and `ensureDomainError` folds anything else into
+ * `internal`. {@link DomainError} is one; a bundled extension's own error class
+ * is another.
+ */
+export interface CodedError extends Error {
+  readonly code: FailureCode;
+  readonly details?: unknown;
+}
