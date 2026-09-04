@@ -50,6 +50,8 @@ export function linkEndId(end: string | FgNode): string {
  * `strictFunctionTypes` even though the runtime object is identical. Naming
  * the types here is what deletes the fourteen per-callback assertions that
  * used to stand downstream.
+ *
+ * GAP [[01M1P2RAJVTB4CESYGEVF7NDE1]]
  */
 export function createForceGraph(el: HTMLElement): KbForceGraph {
   const Ctor = ForceGraph3D as unknown as new (element: HTMLElement) => KbForceGraph;

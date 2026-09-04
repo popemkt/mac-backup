@@ -30,7 +30,7 @@ describe("boundaries-oxlint", () => {
     };
 
     const committedBoundaryOverrides = (rc.overrides ?? []).filter(
-      (o) => o.rules?.["eslint/no-restricted-imports"] !== undefined,
+      (o) => o.rules["eslint/no-restricted-imports"] !== undefined,
     );
 
     const generated = generateBoundaryOverrides(workspacePackages());

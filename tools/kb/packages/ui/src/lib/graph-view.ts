@@ -11,8 +11,6 @@ import {
 import { hasText, textOr } from "@/lib/text";
 import {
   EXPANDED_STORAGE_KEY,
-  LEGACY_COLLAPSED_STORAGE_KEY,
-  LEGACY_EXPANDED_QUERIES_STORAGE_KEY,
   SYSTEM_IDS,
   WORKSPACE_ROOT_ID,
   isSysPrefixed,
@@ -221,25 +219,9 @@ export function saveIdSet(key: string, ids: Set<string>): void {
   }
 }
 
-/** Load expanded ids, migrating legacy collapsed / query-expanded keys once. */
+/** Load expanded ids from the one key outline expansion state reads. */
 export function loadExpandedIds(): Set<string> {
-  const expanded = loadIdSet(EXPANDED_STORAGE_KEY);
-  if (expanded.size > 0) return expanded;
-
-  const migrated = new Set<string>();
-  try {
-    const legacyCollapsed = loadIdSet(LEGACY_COLLAPSED_STORAGE_KEY);
-    const legacyQueries = loadIdSet(LEGACY_EXPANDED_QUERIES_STORAGE_KEY);
-    for (const id of legacyQueries) migrated.add(id);
-    // Intentional breakage: kb-ui:collapsed stored *collapsed* ids; inverting
-    // to expanded requires node metadata we don't have at load time — drop it.
-    // Only legacy query-expanded ids are worth preserving on first migration.
-    if (migrated.size > 0) saveExpandedIds(migrated);
-    void legacyCollapsed;
-  } catch {
-    // ignore
-  }
-  return migrated;
+  return loadIdSet(EXPANDED_STORAGE_KEY);
 }
 
 export function saveExpandedIds(ids: Set<string>): void {

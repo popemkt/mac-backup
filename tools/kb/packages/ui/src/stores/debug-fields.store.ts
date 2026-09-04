@@ -11,7 +11,7 @@
  * a set of node ids under its own key. This store is its only reader and
  * writer, so no component touches localStorage.
  *
- * Migration note (intentional breakage, same idiom as `loadExpandedIds`): a
+ * Migration note (intentional breakage): a
  * user who had the old global switch ON has no set of ids to migrate to, so
  * debug starts off everywhere and is re-armed per node. The stale
  * `showAllFields` key inside `localStorage["kb-prefs"]` is ignored on read and

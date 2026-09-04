@@ -1,19 +1,8 @@
 /** POST /api/action — registry.invoke receipt shape (mirrors shared/contracts). */
 
-export type ActionReceipt =
-  | { status: "succeeded"; id: string; output: unknown }
-  | {
-      status: "failed";
-      id: string;
-      code: string;
-      message: string;
-      details?: unknown;
-    };
+import { ActionReceiptSchema, type ActionInvocation, type ActionReceipt } from "@kb/contracts";
 
-export interface ActionInvocation {
-  id: string;
-  input: unknown;
-}
+export type { ActionInvocation, ActionReceipt };
 
 export type PostActionFn = (invocation: ActionInvocation) => Promise<ActionReceipt>;
 
@@ -36,11 +25,8 @@ async function defaultPostAction(invocation: ActionInvocation): Promise<ActionRe
     body: JSON.stringify(invocation),
   });
   const json: unknown = await res.json().catch(() => null);
-  if (json !== null && typeof json === "object" && "status" in json) {
-    // `json` is unparsed: the union narrows `.status` to `unknown`, so this
-    // stays a real check rather than a restatement of `ActionReceipt`.
-    if (json.status === "succeeded" || json.status === "failed") return json as ActionReceipt;
-  }
+  const parsed = ActionReceiptSchema.safeParse(json);
+  if (parsed.success) return parsed.data;
   return {
     status: "failed",
     id: invocation.id,

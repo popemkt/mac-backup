@@ -216,12 +216,12 @@ interface CaretDocument {
 export function offsetFromPoint(el: HTMLElement, clientX: number, clientY: number): number | null {
   try {
     let range: Range | null = null;
+    // GAP [[01M1P2R0XMSK1MRVQ8P2JH5V0Z]]: lib.dom marks caretRangeFromPoint
+    // @deprecated, so a direct Document call is typescript/no-deprecated. This
+    // one cast keeps the probe off that type and the method call bound.
     const doc = document as unknown as CaretDocument;
-    // Kept verbatim: the first branch calls the vendor function unbound and the
-    // second calls it on `document`. See the wave report before unifying them.
-    const rangeFromPoint = doc.caretRangeFromPoint;
-    if (typeof rangeFromPoint === "function") {
-      range = rangeFromPoint(clientX, clientY);
+    if (typeof doc.caretRangeFromPoint === "function") {
+      range = doc.caretRangeFromPoint(clientX, clientY);
     } else if (typeof doc.caretPositionFromPoint === "function") {
       const pos = doc.caretPositionFromPoint(clientX, clientY);
       if (pos) {
