@@ -36,7 +36,7 @@
       "typescript/no-redundant-type-constituents": 2,
       "typescript/no-unnecessary-condition": 31,
       "typescript/no-unnecessary-type-arguments": 2,
-      "typescript/no-unsafe-type-assertion": 136,
+      "typescript/no-unsafe-type-assertion": 127,
       "typescript/require-array-sort-compare": 1,
       "typescript/strict-boolean-expressions": 227,
       "typescript/triple-slash-reference": 1,

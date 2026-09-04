@@ -186,8 +186,10 @@ export default function Force3dGraph({
     const neighbors = new Map<string, Set<string>>();
     for (const n of fgNodes) neighbors.set(n.id, new Set());
     for (const e of fgLinks) {
-      neighbors.get(e.source as string)?.add(e.target as string);
-      neighbors.get(e.target as string)?.add(e.source as string);
+      const source = e.source as string;
+      const target = e.target as string;
+      neighbors.get(source)?.add(target);
+      neighbors.get(target)?.add(source);
     }
     neighborsRef.current = neighbors;
 

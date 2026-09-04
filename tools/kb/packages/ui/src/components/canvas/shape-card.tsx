@@ -128,9 +128,10 @@ export function ShapeCard({
         height: card.height,
       }}
       onPointerDown={(e) => {
-        if ((e.target as HTMLElement).closest("[data-port]")) return;
-        if ((e.target as HTMLElement).closest("[data-resize]")) return;
-        if ((e.target as HTMLElement).closest("input")) {
+        const target = e.target as HTMLElement;
+        if (target.closest("[data-port]")) return;
+        if (target.closest("[data-resize]")) return;
+        if (target.closest("input")) {
           onSelect({ x: e.clientX, y: e.clientY });
           return;
         }

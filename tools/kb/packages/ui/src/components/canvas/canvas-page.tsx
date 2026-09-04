@@ -1574,8 +1574,9 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                       height: card.height,
                     }}
                     onPointerDown={(e) => {
-                      if ((e.target as HTMLElement).closest("[data-port]")) return;
-                      if ((e.target as HTMLElement).closest("[data-resize]")) return;
+                      const target = e.target as HTMLElement;
+                      if (target.closest("[data-port]")) return;
+                      if (target.closest("[data-resize]")) return;
                       e.stopPropagation();
                       handleCardPointerDown(card, e);
                     }}
