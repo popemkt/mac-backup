@@ -3,12 +3,7 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import { KbCtx } from "@kb/contracts";
-import type {
-  ActionEffectHandler,
-  ExtensionAction,
-  ExtensionTemplate,
-  TemplateRegistry,
-} from "@kb/contracts";
+import type { ExtensionAction, ExtensionTemplate, TemplateRegistry } from "@kb/contracts";
 import { DocsError, loadViewsEffect, renderViewEffect } from "@kb/operations";
 import { rules } from "./rules.ts";
 import { todos } from "./todos.ts";
@@ -90,7 +85,7 @@ export const docsCheckEffect = Effect.fn("ext.docs.check")(function* (
     const path = join(ctx.root, view.spec.output);
     const status = yield* fs.readFileString(path).pipe(
       Effect.map((actual) => (actual === expected ? ("clean" as const) : ("stale" as const))),
-      Effect.catch(() => Effect.succeed("missing" as const)),
+      Effect.orElseSucceed(() => "missing" as const),
     );
     results.push({ view: view.name, output: view.spec.output, status });
   }
@@ -109,7 +104,7 @@ const actions: ExtensionAction[] = [
     inputSchema: viewInput,
     outputSchema: materializeOutput,
     aliases: ["docs.materialize"],
-    effect: docsMaterializeEffect as ActionEffectHandler,
+    effect: docsMaterializeEffect,
   },
   {
     id: "check",
@@ -120,7 +115,7 @@ const actions: ExtensionAction[] = [
     inputSchema: viewInput,
     outputSchema: checkOutput,
     aliases: ["docs.check"],
-    effect: docsCheckEffect as ActionEffectHandler,
+    effect: docsCheckEffect,
   },
 ];
 

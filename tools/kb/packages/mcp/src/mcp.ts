@@ -14,10 +14,16 @@ import { Cause, Effect, Exit, Schema } from "effect";
 import type { KbContext, ActionInvocation } from "@kb/contracts";
 import { domainError } from "@kb/model";
 import { reloadEffect, listViewNamesEffect, renderNamedViewEffect } from "@kb/operations";
-import { kbRuntimeLayer, openKbEffect, writeErr } from "@kb/runtime";
+import {
+  invokeReceiptEffect,
+  kbRuntimeLayer,
+  openKbEffect,
+  registryFor,
+  resolveRootEffect,
+  writeErr,
+  type ManifestEntry,
+} from "@kb/runtime";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
-import { invokeReceiptEffect, registryFor, type ManifestEntry } from "@kb/runtime";
-import { resolveRootEffect } from "@kb/runtime";
 
 const MANIFEST_TOOL = "kb_manifest";
 const RENDER_TOOL = "render_view";
@@ -79,8 +85,8 @@ function causeMessage(cause: Cause.Cause<unknown>): string {
  * Pure interrupt-only causes are re-raised so we do not pretend MCP can
  * turn cancellation into a normal tool result.
  */
-export function containToolResult<R>(
-  effect: Effect.Effect<CallToolResult, unknown, R>,
+export function containToolResult<E, R>(
+  effect: Effect.Effect<CallToolResult, E, R>,
 ): Effect.Effect<CallToolResult, never, R> {
   return Effect.exit(effect).pipe(
     Effect.flatMap((exit) => {
@@ -88,7 +94,7 @@ export function containToolResult<R>(
       if (Cause.hasInterruptsOnly(exit.cause)) {
         // Re-raise interrupt; cast keeps the CallTool Promise edge typed as
         // never while still rejecting on cancellation.
-        return Effect.failCause(exit.cause) as unknown as Effect.Effect<CallToolResult, never>;
+        return Effect.failCause(exit.cause) as unknown as Effect.Effect<CallToolResult>;
       }
       return Effect.succeed(errorResult("internal", causeMessage(exit.cause)));
     }),
@@ -115,7 +121,7 @@ export function callToolEffect(
   name: string,
   args: unknown,
   tools: McpToolContext,
-): Effect.Effect<CallToolResult, never> {
+): Effect.Effect<CallToolResult> {
   return containToolResult(
     Effect.gen(function* () {
       if (name === MANIFEST_TOOL) {
@@ -124,7 +130,7 @@ export function callToolEffect(
 
       if (name === RENDER_TOOL) {
         const decoded = yield* Schema.decodeUnknownEffect(RenderViewArgs)(args ?? {}).pipe(
-          Effect.catch(() => Effect.succeed(null)),
+          Effect.orElseSucceed(() => null),
         );
         if (!decoded) {
           return errorResult("invalid_input", "expected {view: string, format?: 'html'|'md'}");
@@ -188,7 +194,7 @@ const readResourceEffect = Effect.fn("mcp.readResource")(function* (ctx: KbConte
  * error. Interrupt-only causes propagate as FiberFailure rejects — they are
  * not rewritten into -32603.
  */
-export async function runResourceHandler<A>(effect: Effect.Effect<A, unknown>): Promise<A> {
+export async function runResourceHandler<A, E>(effect: Effect.Effect<A, E>): Promise<A> {
   const exit = await Effect.runPromiseExit(effect);
   if (Exit.isSuccess(exit)) return exit.value;
   if (Cause.hasInterruptsOnly(exit.cause)) {

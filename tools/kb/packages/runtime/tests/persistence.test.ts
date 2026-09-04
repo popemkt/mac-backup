@@ -1,18 +1,22 @@
 import { describe, expect, test, afterEach } from "bun:test";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openKbEffect, runWithKb } from "../src/layers.ts";
 import { openKb, persist, reload } from "../src/session.ts";
-import { kbStoreLayer, KbStore } from "@kb/contracts";
+import { KbStore, kbStoreLayer, type EffectStore } from "@kb/contracts";
 import { persistEffect, reloadEffect } from "@kb/operations";
 import { bunFileSystemLayer, JsonlStore } from "@kb/store-jsonl";
-import { DomainError, isDomainError, SYSTEM_IDS, canonicalJson } from "@kb/model";
-import type { KbNode } from "@kb/model";
+import {
+  DomainError,
+  SYSTEM_IDS,
+  canonicalJson,
+  isDomainError,
+  type KbNode,
+  type StoreTx,
+} from "@kb/model";
 import { buildQueryDb } from "@kb/query";
-import { type EffectStore } from "@kb/contracts";
-import type { StoreTx } from "@kb/model";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-persist-"));
@@ -267,8 +271,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
 
     await Effect.runPromise(
       reloadEffect(ctx).pipe(
-        Effect.provide(kbStoreLayer(mock)),
-        Effect.provide(bunFileSystemLayer),
+        Effect.provide(Layer.mergeAll(kbStoreLayer(mock), bunFileSystemLayer)),
       ),
     );
     expect(loads).toBe(1);
@@ -291,8 +294,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
     const node = sampleNode("n.via-layer", "layer");
     await Effect.runPromise(
       persistEffect(ctx, { upserts: [node], deletes: [] }).pipe(
-        Effect.provide(kbStoreLayer(mock)),
-        Effect.provide(bunFileSystemLayer),
+        Effect.provide(Layer.mergeAll(kbStoreLayer(mock), bunFileSystemLayer)),
       ),
     );
     expect(commits).toHaveLength(1);

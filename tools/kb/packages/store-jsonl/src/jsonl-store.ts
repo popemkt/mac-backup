@@ -16,7 +16,7 @@ import { durableReplaceFile } from "./durable-replace.ts";
 import type { EffectStore, Store } from "@kb/contracts";
 import { acquireNodesWriteLockEffect, releaseNodesWriteLock } from "./write-lock.ts";
 
-function mapFsError(err: { message?: string } | unknown): DomainError {
+function mapFsError(err: unknown): DomainError {
   const message =
     typeof err === "object" && err !== null && "message" in err && typeof err.message === "string"
       ? (err as { message: string }).message

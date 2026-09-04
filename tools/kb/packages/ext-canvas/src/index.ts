@@ -1,13 +1,7 @@
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import {
-  KbCtx,
-  type KbStore,
-  type ActionEffectHandler,
-  type ExtensionAction,
-  type KbContext,
-} from "@kb/contracts";
+import { KbCtx, type KbStore, type ExtensionAction, type KbContext } from "@kb/contracts";
 import { persistEffect } from "@kb/operations";
 import {
   SYSTEM_IDS,
@@ -190,9 +184,9 @@ export const canvasTxApplyEffect = Effect.fn("ext.canvas.tx.apply")(function* (
     }
     const target = yield* Effect.try({
       try: () => {
-        const propTargetId = present(input.propTargetId, "propTargetId");
-        assertUserWritable(propTargetId);
-        const t = cloneNode(requireNode(ctx, propTargetId));
+        const targetId = present(input.propTargetId, "propTargetId");
+        assertUserWritable(targetId);
+        const t = cloneNode(requireNode(ctx, targetId));
         if (input.setProps) applySetProps(ctx, t.props, input.setProps);
         if (input.unsetProps) {
           applyUnsetProps(ctx, t.props, input.unsetProps);
@@ -222,7 +216,7 @@ const actions: ExtensionAction[] = [
     mode: "apply",
     inputSchema: applyInput,
     outputSchema: applyOutput,
-    effect: canvasTxApplyEffect as ActionEffectHandler,
+    effect: canvasTxApplyEffect,
   },
 ];
 

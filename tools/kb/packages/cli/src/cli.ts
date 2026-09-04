@@ -16,13 +16,16 @@ import {
   writeErr,
 } from "@kb/runtime";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
-import { exampleSeedNodes, isPristine } from "@kb/model";
-import { SYSTEM_IDS, currentIso, isSysPrefixed } from "@kb/model";
 import {
   type DomainError,
   ResolveError,
+  SYSTEM_IDS,
+  currentIso,
   ensureDomainError,
+  exampleSeedNodes,
   isDomainError,
+  isPristine,
+  isSysPrefixed,
   receiptCodeOf,
   resolveFieldId,
   resolveTagId,
@@ -75,9 +78,9 @@ function getGlobals(cmd: Command): GlobalOpts {
  * Open a kb session and run a command Effect with {@link kbRuntimeLayer}.
  * Single `Effect.runPromise` boundary for Commander actions.
  */
-function withCtx(
+function withCtx<E>(
   cmd: Command,
-  body: (ctx: KbContext, globals: GlobalOpts) => Effect.Effect<number, unknown, ActionHandlerEnv>,
+  body: (ctx: KbContext, globals: GlobalOpts) => Effect.Effect<number, E, ActionHandlerEnv>,
   allowCreateRoot = false,
 ): Promise<number> {
   const globals = getGlobals(cmd);
@@ -235,10 +238,10 @@ function parseActionJson(text: string): Effect.Effect<unknown, UsageError> {
 
 /**
  * Read action-invoke JSON from an argv blob or stdin ("-").
- * Empty stdin → UsageError (exit 2). Genuine stdin I/O failures stay plain
- * Error (exit 1), matching pre-Effect CLI behavior.
+ * Empty stdin → UsageError (exit 2). Genuine stdin I/O failures fold through
+ * the one DomainError mapper and stay exit 1, matching pre-Effect CLI behavior.
  */
-function readActionJsonEffect(arg: string): Effect.Effect<unknown, UsageError | Error> {
+function readActionJsonEffect(arg: string): Effect.Effect<unknown, UsageError | DomainError> {
   if (arg === "-") {
     return Effect.gen(function* () {
       const text = yield* Effect.tryPromise({
@@ -249,7 +252,7 @@ function readActionJsonEffect(arg: string): Effect.Effect<unknown, UsageError | 
           }
           return Buffer.concat(chunks).toString("utf8").trim();
         },
-        catch: (err) => (err instanceof Error ? err : new Error(String(err))),
+        catch: ensureDomainError,
       });
       if (!text) {
         return yield* Effect.fail(new UsageError("action-invoke: empty stdin"));
@@ -327,11 +330,7 @@ function buildProgram(): Command {
               .makeDirectory(join(ctx.root, ".kb", "queries"), {
                 recursive: true,
               })
-              .pipe(
-                Effect.mapError(
-                  (err) => new Error(err instanceof Error ? err.message : String(err)),
-                ),
-              );
+              .pipe(Effect.mapError(ensureDomainError));
 
             /*
              * Example content lands here rather than in the system seed on
@@ -693,7 +692,7 @@ function buildProgram(): Command {
         Effect.gen(function* () {
           const registry = yield* Effect.tryPromise({
             try: () => registryFor(ctx.root),
-            catch: (err) => (err instanceof Error ? err : new Error(String(err))),
+            catch: ensureDomainError,
           });
           if (globals.json === true) {
             writeOut(
@@ -753,7 +752,7 @@ function buildProgram(): Command {
           });
           const result = yield* Effect.tryPromise({
             try: () => writeSdkDts(root),
-            catch: (err) => (err instanceof Error ? err : new Error(String(err))),
+            catch: ensureDomainError,
           });
           if (globals.json === true) {
             writeOut(

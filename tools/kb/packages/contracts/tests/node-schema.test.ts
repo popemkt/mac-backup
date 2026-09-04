@@ -16,7 +16,7 @@ describe("PropValueSchema discriminant", () => {
 
   for (const value of good) {
     test(`accepts ${value.t}`, () => {
-      expect(Schema.decodeUnknownSync(PropValueSchema)(value)).toEqual(value);
+      expect(Schema.decodeSync(PropValueSchema)(value)).toEqual(value);
     });
   }
 

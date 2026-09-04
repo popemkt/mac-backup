@@ -308,7 +308,7 @@ function emitEdge(e: CanvasEdge): Record<string, unknown> {
 }
 
 /** Parse a JSON Canvas document from a string or object. Throws on invalid JSON. */
-export function parseCanvasDoc(input: string | unknown): CanvasDoc {
+export function parseCanvasDoc(input: unknown): CanvasDoc {
   const raw: unknown =
     typeof input === "string" ? (input.trim() === "" ? {} : JSON.parse(input)) : input;
   if (!isRecord(raw)) {

@@ -59,14 +59,14 @@ function isDomainErrorCode(code: FailureCode): code is DomainErrorCode {
 export function ensureDomainError(err: unknown): DomainError {
   if (isDomainError(err)) return err;
   if (err instanceof ResolveError) return domainFromResolve(err);
+  const message = err instanceof Error ? err.message : String(err);
   if (typeof err === "object" && err !== null) {
     const parsed = FailureCodeSchema.safeParse((err as { code?: unknown }).code);
     if (parsed.success && isDomainErrorCode(parsed.data)) {
-      const message = err instanceof Error ? err.message : String(err);
       return domainError(parsed.data, message, (err as { details?: unknown }).details);
     }
   }
-  return domainError("internal", err instanceof Error ? err.message : String(err));
+  return domainError("internal", message);
 }
 
 /** Receipt code for domain/resolve failures — always a FailureCode. */

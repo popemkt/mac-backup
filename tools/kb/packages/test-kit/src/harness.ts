@@ -269,6 +269,10 @@ function nextAction(rng: Rng, _ctx: KbContext, live: Livestate, sequence: number
       return mapFieldDefine({ name: `${cycleName(FIELD_NAMES, sequence)}.${sequence}` });
     case "tag":
       return mapTagDefine({ name: `${cycleName(TAG_NAMES, sequence)}.${sequence}` });
+    default: {
+      const unhandled: never = kind;
+      throw new Error(`unhandled DST op kind: ${JSON.stringify(unhandled)}`);
+    }
   }
 }
 
@@ -346,14 +350,14 @@ function orderingErrors(nodes: KbNode[]): string[] {
       (m): m is NonNullable<(typeof members)[number]> => m !== undefined,
     );
     if (defined.length !== members.length) continue;
-    const ranks = defined.map((m) => m.order);
-    if (ranks.some((r) => r === undefined)) continue;
+    const ranks = defined.map((m) => m.order).filter((r): r is string => r !== undefined);
+    if (ranks.length !== defined.length) continue;
     const unique = new Set(ranks);
     if (unique.size !== ranks.length) {
       out.push(`ordering ranks collide at ${group.label}: ${ranks.join(", ")}`);
       continue;
     }
-    const sorted = [...ranks].toSorted();
+    const sorted = [...ranks].toSorted((a, b) => (a < b ? -1 : a > b ? 1 : 0));
     for (let i = 1; i < sorted.length; i++) {
       const prev = sorted[i - 1];
       const cur = sorted[i];
@@ -503,7 +507,7 @@ export async function runScenario(
     const rnd = yield* Random.Random;
     const rng = seededRng(rnd);
     let fieldIds: string[] = [];
-    let tagIds: string[] = [];
+    const tagIds: string[] = [];
 
     for (let i = 0; i < opsCount; i++) {
       // Discover fields/tags from the live nodes so mapSet/mapUnset can target
@@ -522,10 +526,10 @@ export async function runScenario(
       }).pipe(Effect.provide(kbRuntimeLayer(ctx)));
 
       if (action.id === "field.define" && receipt.status === "succeeded") {
-        fieldIds = [...fieldIds, (receipt.output as { id: string }).id];
+        fieldIds.push((receipt.output as { id: string }).id);
       }
       if (action.id === "tag.define" && receipt.status === "succeeded") {
-        tagIds = [...tagIds, (receipt.output as { id: string }).id];
+        tagIds.push((receipt.output as { id: string }).id);
       }
 
       // Continuous invariant check on the on-disk store after this op. The

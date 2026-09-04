@@ -61,4 +61,5 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
   for (const n of tx.upserts) byId.set(n.id, n);
   ctx.nodes = [...byId.values()];
   ctx.qdb = rebuildQdb(ctx, ctx.nodes, previousRealIds);
+  return undefined;
 });
