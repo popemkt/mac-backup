@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/nx/schemas/project-schema.json",
+  "name": "kb-workspace",
+  "targets": {
+    "typecheck": {
+      "command": "tsc --noEmit -p harness/tsconfig.json",
+      "inputs": ["default"]
+    }
+  }
+}

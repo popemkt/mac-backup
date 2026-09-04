@@ -64,7 +64,7 @@ export function findAllGapMarkers(root: string = WORKSPACE_ROOT): Array<{
   const markers: Array<{ file: string; line: number; id: string }> = [];
 
   for (const relFile of files) {
-    if (relFile.includes("packages/harness/")) continue;
+    if (relFile.startsWith("harness/")) continue;
     const absPath = join(root, relFile);
     if (!existsSync(absPath)) continue;
 

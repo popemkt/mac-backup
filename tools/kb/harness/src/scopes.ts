@@ -3,7 +3,7 @@
  * and a gate that owns a scope list claims every TypeScript file under
  * `tools/kb` falls in exactly one of them. Two gates ask that same question:
  * `lint-scope-coverage` of the `lint` script's arguments, and
- * `typecheck-scope` of the package tsconfig `include` lists. The question is
+ * `typecheck-scope` of the typecheck projects' tsconfig `include` lists. The question is
  * answered here once, so a third gate adds a scope list rather than a third
  * copy of the loop.
  *
@@ -12,13 +12,7 @@
  */
 import { existsSync } from "node:fs";
 import { join, normalize } from "node:path";
-import {
-  PACKAGES_ROOT,
-  WORKSPACE_ROOT,
-  gitWorkspaceFiles,
-  readTsconfig,
-  workspacePackages,
-} from "./workspace.ts";
+import { WORKSPACE_ROOT, gitWorkspaceFiles, readTsconfig, workspacePackages } from "./workspace.ts";
 
 /** One scope plus the config line that authored it, for the failure message. */
 export interface PathScope {
@@ -82,8 +76,18 @@ export function missingScopes(scopes: readonly PathScope[]): string[] {
 }
 
 /**
- * The typecheck scopes: every package tsconfig's `include` entries, resolved
- * against the package directory. `tsc -p` is the only thing that reads them,
+ * Every directory `nx run-many -t typecheck` compiles, workspace-relative: one
+ * per workspace package, plus the harness, which is root tooling rather than a
+ * member. Stated as data so a gate asking "which files does `tsc -p` see" reads
+ * the list instead of assuming everything lives under `packages/`.
+ */
+export function typecheckProjectDirs(): string[] {
+  return [...workspacePackages().map(({ dir }) => `packages/${dir}`), "harness"];
+}
+
+/**
+ * The typecheck scopes: every typecheck project's tsconfig `include` entries,
+ * resolved against its directory. `tsc -p` is the only thing that reads them,
  * so a file outside every one of them is typechecked by nothing — no strict
  * flag, no Effect diagnostic, no promotion reaches it.
  *
@@ -93,9 +97,9 @@ export function missingScopes(scopes: readonly PathScope[]): string[] {
  */
 export function typecheckScopes(): PathScope[] {
   const scopes: PathScope[] = [];
-  for (const { dir } of workspacePackages()) {
-    const source = `packages/${dir}/tsconfig.json`;
-    const path = join(PACKAGES_ROOT, dir, "tsconfig.json");
+  for (const dir of typecheckProjectDirs()) {
+    const source = `${dir}/tsconfig.json`;
+    const path = join(WORKSPACE_ROOT, dir, "tsconfig.json");
     if (!existsSync(path)) continue;
     for (const include of readTsconfig(path).include ?? []) {
       if (/[*?[\]]/.test(include)) {
@@ -103,7 +107,7 @@ export function typecheckScopes(): PathScope[] {
           `${source}: include entry '${include}' is a glob; typecheckScopes reads plain paths`,
         );
       }
-      scopes.push({ path: `packages/${dir}/${include}`, source });
+      scopes.push({ path: `${dir}/${include}`, source });
     }
   }
   return scopes;

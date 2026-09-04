@@ -59,9 +59,6 @@
             "include": [
               "packages/*/src/**/*"
             ],
-            "exclude": [
-              "packages/harness/src/**/*"
-            ],
             "options": {
               "diagnosticSeverity": {
                 "asyncFunction": "error",

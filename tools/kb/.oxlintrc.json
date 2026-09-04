@@ -114,7 +114,7 @@
         "**/*.test.tsx",
         "**/tests/**",
         "**/tests-render/**",
-        "packages/harness/**",
+        "harness/**",
         "**/*.stories.tsx",
         "**/playwright.config.ts",
         "**/vite.config.ts"

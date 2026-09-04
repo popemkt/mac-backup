@@ -15,8 +15,9 @@
  *   harness (@kb/test-kit) builds the runtime Layer itself, so it is tagged
  *   `layer:app` — a composition root, whatever its audience — rather than
  *   widening this row to everything.
- * - `layer:tooling` / `scope:tooling` are the harness's own row: no workspace
- *   dependencies at all.
+ * - There is no `tooling` row on either axis. The harness is the only thing
+ *   that would have carried one, and it lives outside `packages/` as root
+ *   tooling; the matrix describes workspace members.
  * - There is no `scope:extension` row: no package carries it, and a row
  *   nothing reads is worse than no row.
  */
@@ -28,7 +29,6 @@ export const LAYER_ALLOWS: Record<string, readonly string[]> = {
   extension: ["domain", "contract", "application"],
   app: ["domain", "contract", "infrastructure", "application", "extension", "app"],
   "test-support": ["domain", "contract", "application", "extension", "app", "test-support"],
-  tooling: [],
 };
 
 export const SCOPE_ALLOWS: Record<string, readonly string[]> = {
@@ -36,7 +36,6 @@ export const SCOPE_ALLOWS: Record<string, readonly string[]> = {
   backend: ["shared", "backend"],
   browser: ["shared", "browser"],
   "test-support": ["shared", "backend", "test-support"],
-  tooling: [],
 };
 
 /**
@@ -82,7 +81,6 @@ export const RUNTIME_PRESET_BY_SCOPE: Record<string, string> = {
   backend: "tsconfig.bun.json",
   browser: "tsconfig.browser.json",
   "test-support": "tsconfig.bun.json",
-  tooling: "tsconfig.bun.json",
 };
 
 /**

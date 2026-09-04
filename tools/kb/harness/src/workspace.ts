@@ -5,8 +5,10 @@
 import { execSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-export const WORKSPACE_ROOT = join(import.meta.dir, "..", "..", "..");
+export const WORKSPACE_ROOT = join(import.meta.dir, "..", "..");
 export const PACKAGES_ROOT = join(WORKSPACE_ROOT, "packages");
+/** The harness itself: root tooling, outside the workspace members. */
+export const HARNESS_ROOT = join(WORKSPACE_ROOT, "harness");
 export function gitWorkspaceFiles(
   patterns: string[] = ["*.ts", "*.tsx"],
   root: string = WORKSPACE_ROOT,
@@ -116,6 +118,32 @@ export function axisValues(tags: string[], axis: "layer" | "scope"): string[] {
   return tags.filter((t) => t.startsWith(`${axis}:`)).map((t) => t.slice(axis.length + 1));
 }
 
+/** `bunfig.toml`'s `[install]` table: the supply-chain half of the config. */
+export interface BunfigInstall {
+  minimumReleaseAge?: number;
+  trustedDependencies?: string[];
+}
+
+/**
+ * `bunfig.toml`, parsed. A pattern over the text would answer a different
+ * question than Bun does — it cannot tell `[install]` from any other table,
+ * and it reads a commented-out line as a setting.
+ */
+function table(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+}
+
+export function bunfigInstall(): BunfigInstall {
+  const parsed: unknown = Bun.TOML.parse(readFileSync(join(WORKSPACE_ROOT, "bunfig.toml"), "utf8"));
+  const install = table(table(parsed)["install"]);
+  const age = install["minimumReleaseAge"];
+  const trusted = install["trustedDependencies"];
+  return {
+    ...(typeof age === "number" ? { minimumReleaseAge: age } : {}),
+    ...(Array.isArray(trusted) ? { trustedDependencies: trusted.map(String) } : {}),
+  };
+}
+
 export interface Tsconfig {
   extends?: string;
   include?: string[];
@@ -200,12 +228,4 @@ export function effectPluginConfig(preset = "tsconfig.bun.json"): EffectPluginCo
     };
   }
   throw new Error(`${preset}: no ${EFFECT_PLUGIN_NAME} plugin block`);
-}
-
-/** `packages/<dir>/src/**\/*` for every package carrying the given scope tag. */
-export function srcGlobsForScope(scope: string): string[] {
-  return workspacePackages()
-    .filter(({ manifest }) => axisValues(tagsOf(manifest), "scope").includes(scope))
-    .map(({ dir }) => `packages/${dir}/src/**/*`)
-    .toSorted();
 }

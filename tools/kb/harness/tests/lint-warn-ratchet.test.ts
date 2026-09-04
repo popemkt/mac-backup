@@ -6,7 +6,7 @@ import { BASELINE_PATH, collectLinterWarnings, type BaselineLanes } from "../src
  * Harness check 2: Lint warning ratchet (plan A.9 #2 / spec 11).
  *
  * Enforces the ratchet mechanism:
- *   1. Reads packages/harness/lint-warn-baseline.json.
+ *   1. Reads harness/lint-warn-baseline.json.
  *   2. Any blocking rule count rise -> FAILS.
  *   3. Any new warning rule absent from baseline -> FAILS (treated as rise from 0).
  *   4. Any blocking rule count dropping to 0 -> FAILS: "promote to error in .oxlintrc.json".
