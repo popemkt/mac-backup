@@ -1,6 +1,6 @@
 /**
  * The two-axis constraint matrix (plan D11). One statement of the rule; the
- * `boundaries` check applies it to the Nx project graph.
+ * `boundaries` check applies it to the import-derived package graph.
  *
  * Deviations from the brief's table, each recorded in
  * docs/kb/waves/2026-09-03/reports/w1-workspace.md:
@@ -10,11 +10,11 @@
  *   party code; the fences that matter (extension ↛ infrastructure,
  *   extension ↛ app) still hold. Third-party `.kb/extensions/*.ts` are fenced
  *   by @kb/ext-sdk's ambient d.ts, which is not a package edge at all.
- * - `layer:test-support` may reach `app`. @kb/render-tests drives the server
+ * - `test-support` may reach `app`. @kb/render-tests drives the server
  *   through its public surface; it still may not reach infrastructure. The DST
- *   harness (@kb/test-kit) builds the runtime Layer itself, so it is tagged
- *   `layer:app` — a composition root, whatever its audience — rather than
- *   widening this row to everything.
+ *   harness (`@kb/test-kit`) builds the runtime Layer itself, so it sits under
+ *   `app/` as a composition root, whatever its audience, rather than widening
+ *   this row to everything.
  * - There is no `tooling` row on either axis. The harness is the only thing
  *   that would have carried one, and it lives outside `packages/` as root
  *   tooling; the matrix describes workspace members.
@@ -22,6 +22,8 @@
  * The keys of `LAYER_ALLOWS` are also the layer folder names under
  * `packages/`: a package's layer is where it sits, so this table is the one
  * place the set of layers is written down.
+ * `application/` owns infrastructure-free use cases; `app/` owns composition
+ * roots and delivery surfaces that wire the lower layers together.
  * - There is no `scope:extension` row: no package carries it, and a row
  *   nothing reads is worse than no row.
  */

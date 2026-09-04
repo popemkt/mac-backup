@@ -4,7 +4,7 @@ import type { PlatformError } from "effect/PlatformError";
 import { join, relative, resolve } from "node:path";
 
 /**
- * Fresh-checkout lifecycle for the built UI (`tools/kb/ui/dist`).
+ * Fresh-checkout lifecycle for the built UI (`tools/kb/packages/app/ui/dist`).
  *
  * Production `kb ui` must not depend on a human remembering to build the SPA.
  * On startup it checks whether `ui/dist` is present and meaningfully fresh

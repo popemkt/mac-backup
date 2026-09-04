@@ -511,7 +511,7 @@ interface Store {
   `tests/benchmark.test.ts` holds the standing bar: a 50k-node fixture loads,
   builds and queries well under a second. `.bak` / `nodes.jsonl.*.tmp` are
   gitignored — only the live `nodes.jsonl` is committed. The transient
-  `nodes.jsonl.lock` is _not_ yet gitignored (known gap).
+  `nodes.jsonl.lock` is gitignored too.
 - **Write hardening** (r4 Stage-0 — on-disk format unchanged), two modules
   in `@kb/store-jsonl`:
   - `write-lock.ts` — an exclusive `.kb/nodes.jsonl.lock` carrying the holder
