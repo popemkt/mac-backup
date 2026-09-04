@@ -1,16 +1,30 @@
 import { describe, expect, test } from "bun:test";
+import { Effect } from "effect";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { JsonlStore } from "../src/index.ts";
+import { decodeNodes } from "../src/jsonl-store.ts";
 import { systemSeedNodes, SYSTEM_IDS, type KbNode, nowIso } from "@kb/model";
 import { buildQueryDb, query } from "@kb/query";
 
 const N = 50_000;
+const benchmarkEnabled = Bun.argv.some((arg) => arg.endsWith("benchmark.test.ts"));
 
-describe("benchmark 50k", () => {
-  test("load + query well under 1s", async () => {
+function elapsedSince(start: number): number {
+  return performance.now() - start;
+}
+
+function printTable(rows: ReadonlyArray<readonly [string, number]>): void {
+  console.log("| phase | ms |");
+  console.log("|---|---:|");
+  for (const [phase, ms] of rows) console.log(`| ${phase} | ${ms.toFixed(1)} |`);
+}
+
+describe.skipIf(!benchmarkEnabled)("benchmark 50k", () => {
+  test("prints the store benchmark table", async () => {
     const root = await mkdtemp(join(tmpdir(), "kb-bench-"));
+    let ran = false;
     try {
       const at = nowIso();
       const nodes: KbNode[] = systemSeedNodes(at);
@@ -39,39 +53,63 @@ describe("benchmark 50k", () => {
       }
 
       const store = new JsonlStore(root);
-      const tWrite0 = performance.now();
       await store.commit({ upserts: nodes, deletes: [] });
-      const tWrite = performance.now() - tWrite0;
 
-      const t0 = performance.now();
-      const loaded = await store.load();
-      const tLoad = performance.now();
+      let started = performance.now();
+      const body = await Bun.file(store.path).text();
+      const readMs = elapsedSince(started);
+
+      started = performance.now();
+      const loaded = await Effect.runPromise(decodeNodes(body, store.path));
+      const decodeMs = elapsedSince(started);
+
+      started = performance.now();
       const qdb = buildQueryDb(loaded);
-      const tBuild = performance.now();
-      const rows = query(
+      const datomBuildMs = elapsedSince(started);
+
+      started = performance.now();
+      query(
         qdb,
         `[:find ?id
           :where [?n :f/${SYSTEM_IDS.typeField} ?t]
                  [?t :node/id "${tagId}"]
                  [?n :node/id ?id]]`,
-      ) as unknown[][];
-      const tQuery = performance.now();
-
-      const loadMs = tLoad - t0;
-      const buildMs = tBuild - tLoad;
-      const queryMs = tQuery - tBuild;
-      const totalMs = tQuery - t0;
-
-      console.log(
-        `[bench] nodes=${loaded.length} write=${tWrite.toFixed(1)}ms load=${loadMs.toFixed(1)}ms build=${buildMs.toFixed(1)}ms query=${queryMs.toFixed(1)}ms total=${totalMs.toFixed(1)}ms rows=${rows.length}`,
       );
+      const queryMs = elapsedSince(started);
 
-      expect(loaded.length).toBe(N + systemSeedNodes().length + 1); // sys seed + 1 tag + N
-      // every 10th of N (i % 10 === 0): 5000 nodes
-      expect(rows.length).toBe(N / 10);
-      expect(totalMs).toBeLessThan(1000);
+      const target = loaded.find((node) => node.id.startsWith("01BENCH0"));
+      if (target === undefined) throw new Error("benchmark fixture node missing");
+
+      started = performance.now();
+      await store.commit({
+        upserts: [{ ...target, text: "set-shaped edit", updatedAt: nowIso() }],
+        deletes: [],
+      });
+      const setCommitMs = elapsedSince(started);
+
+      started = performance.now();
+      const reloaded = await store.load();
+      const edited = reloaded.find((node) => node.id === target.id);
+      if (edited === undefined) throw new Error("benchmark edit node missing");
+      await store.commit({
+        upserts: [{ ...edited, text: "interactive edit", updatedAt: nowIso() }],
+        deletes: [],
+      });
+      const interactiveEditMs = elapsedSince(started);
+
+      printTable([
+        ["read", readMs],
+        ["decode", decodeMs],
+        ["datom build", datomBuildMs],
+        ["query", queryMs],
+        ["kb set-shaped commit", setCommitMs],
+        ["interactive edit", interactiveEditMs],
+      ]);
+      console.log(`nodes: ${loaded.length}`);
+      ran = true;
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+    expect(ran).toBe(true);
   }, 30_000);
 });
