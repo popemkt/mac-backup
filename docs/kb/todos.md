@@ -30,7 +30,7 @@
 - F ontology design ambitious + core impl
 - H whole-surface UX audit -> i5 polish wave
 
-- kb-refine wave 2026-08-23: plan at docs/kb-waves/2026-08-23/plan.md
+- kb-refine wave 2026-08-23: plan at docs/kb/waves/2026-08-23/plan.md
 
 ### todo
 
@@ -78,5 +78,5 @@
 
 ### todo
 
-- bug: graph.query reviveValue turns aggregate results into node ids — [:find ?v (count ?n) …] returns a NodeId where the count should be (any integer 1..N matching an eid is revived). Fix in p1 Phase 2f: typed projection per :find position in the query IR; DataScript adapter revives only ref-typed positions. Found by r3 (docs/kb-waves/2026-09-03/reports/datalog-vs-cypher/README.md §8)
+- bug: graph.query reviveValue turns aggregate results into node ids — [:find ?v (count ?n) …] returns a NodeId where the count should be (any integer 1..N matching an eid is revived). Fix in p1 Phase 2f: typed projection per :find position in the query IR; DataScript adapter revives only ref-typed positions. Found by r3 (docs/kb/waves/2026-09-03/reports/datalog-vs-cypher/README.md §8)
 - Review reconcile_claude_direct_routing.py: retire or simplify once Headroom stops mutating global ~/.claude/settings.json

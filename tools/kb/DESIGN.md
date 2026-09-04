@@ -191,7 +191,7 @@ Rejected rules are recorded here with their measured count, like rejected
 compiler flags: `oxc/no-map-spread` (14 sites) — a micro-optimisation for
 `Array.prototype.map` callbacks that spread; kb's arrays are small, the
 rewrite (`Object.assign` or field-by-field copies) is less readable, and
-draiver keeps it at `warn` only because it never measured it.
+refrepo keeps it at `warn` only because it never measured it.
 
 The reason is what the suggestion lane claims. `asyncFunction` says "model this
 control flow as an Effect"; that is a statement about how kb is written, and a
@@ -239,7 +239,7 @@ not zero drift; the goal is visible, intentional drift.
 ## Testing doctrine
 
 The long form of the evidence behind this section is
-`docs/kb-waves/2026-09-03/reports/recon-draiver.md` §4; what follows is the
+`docs/kb/waves/2026-09-03/reports/recon-refrepo.md` §4; what follows is the
 part that governs kb.
 
 **Properties are design artifacts, not test volume.** A property states a
@@ -277,7 +277,7 @@ test; a non-deterministic merge blocker erodes trust in every other gate.
   and non-negotiable.
 - **L2 — within-unit sensors, two tiers.** _Branching_ sensors (`complexity`,
   `max-depth`, `max-nested-callbacks`) are hard, because they measure shape
-  directly; the caps are draiver's (`complexity` 20, `max-depth` 5,
+  directly; the caps are refrepo's (`complexity` 20, `max-depth` 5,
   `max-nested-callbacks` 4). _Size_ sensors (`max-lines` 900,
   `max-lines-per-function` 120, `max-params` 5) only ever `warn`: a
   legitimately large cohesive unit is real, and a length cap forces exactly
@@ -494,7 +494,7 @@ interface Store {
   and process-scoped; it serializes writers but does not make a _reader's_
   snapshot binding. Conditional writes (an `expect` precondition carrying graph
   identity / node hash, returning the existing `conflict` receipt) are designed
-  in `docs/kb-waves/2026-08-23/reports/r8-zerolang.md` §1 and **parked** — no
+  in `docs/kb/waves/2026-08-23/reports/r8-zerolang.md` §1 and **parked** — no
   action input accepts `expect` today.
 
 ## Query layer (horizontal)
@@ -523,7 +523,7 @@ the graph. It is a new node _kind_, not a new node _type_: nothing in the data
 model changes, and membership bookkeeping lives on the ontology, never on the
 member — a node that never joins one carries zero ontology props. Full design
 (including the parts deliberately left out) is
-`docs/kb-waves/2026-08-23/reports/r5-ontology.md`.
+`docs/kb/waves/2026-08-23/reports/r5-ontology.md`.
 
 Six seeded fields carry the definition, all templated by the `#ontology` tag:
 

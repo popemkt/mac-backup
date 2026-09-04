@@ -1,5 +1,5 @@
 # Cohesion review workflow — general-purpose template.
-# Adapted from Draiver.Application + llm-intro harnesses.
+# Adapted from RefRepo.Application + llm-intro harnesses.
 # Rubric lives in specs/code-unit-cohesion.md (or equivalent in the target repo).
 # Advisory only — never edits files, never gates by itself.
 # Consumer (CI wrapper, human) decides whether ISSUES(<n>) blocks.

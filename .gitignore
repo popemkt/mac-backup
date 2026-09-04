@@ -38,3 +38,6 @@ tools/kb/ui/node_modules/
 .kb/nodes.jsonl.lock
 .kb/nodes.jsonl.*.tmp
 .kb/cache/
+
+# Claude Code agent worktrees
+.claude/worktrees/

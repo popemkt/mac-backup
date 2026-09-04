@@ -24,18 +24,18 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Domain typing — parse unknown at the boundary | tools/kb/DESIGN.md#domain-typing--effect-schema | tools/kb | Every boundary parses unknown into the domain type. A cast or a non-null assertion on a domain value means the schema is too loose; tighten the schema instead. | prose | oxlint no-explicit-any + consistent-type-assertions (g2) |
 | Drift markers | CLAUDE.md#drift-markers-and-gaps | repo | A deferred clean shape carries a GAP marker at the deferral site and a matching gap node naming expected, current, impact and closes. An unlabelled workaround is drift. | prose | harness gap-markers-resolve (g2) |
 | Effect v4 idiom | CLAUDE.md#effect | tools/kb | Read the shipped Effect AGENTS.md before writing Effect code; the v4 non-negotiables listed there are not optional and v3 memory is wrong. | prose | @effect/tsgo diagnostics through tsc (g2) |
-| Isomorphism fence | docs/kb-waves/2026-09-03/plan.md | tools/kb shared packages | Shared packages run in the browser too: no runtime-only imports. Platform access belongs to an infrastructure or app package. | prose | oxlint no-restricted-imports override (g2) |
-| Lint scope coverage | docs/kb-waves/2026-09-03/briefs/g2-strict-stack.md | tools/kb | Every TS file, tracked or merely untracked-and-not-ignored, falls in exactly one lint scope. A second severity tier for the same rules is a second quality stack wearing a disguise. | prose | harness lint-scope-coverage (g2) |
+| Isomorphism fence | docs/kb/waves/2026-09-03/plan.md | tools/kb shared packages | Shared packages run in the browser too: no runtime-only imports. Platform access belongs to an infrastructure or app package. | prose | oxlint no-restricted-imports override (g2) |
+| Lint scope coverage | docs/kb/waves/2026-09-03/briefs/g2-strict-stack.md | tools/kb | Every TS file, tracked or merely untracked-and-not-ignored, falls in exactly one lint scope. A second severity tier for the same rules is a second quality stack wearing a disguise. | prose | harness lint-scope-coverage (g2) |
 | Minimal valid entrypoints | tools/kb/DESIGN.md#runtimetooling-boundary | tools/kb | Every way to start the system is a named script that a fresh shell can run; no raw invocation below the entrypoint layer, and removal is a deletion, not a deprecation. | prose | harness scripts-chain-exists (g2) |
 | Mutation score is advisory | tools/kb/DESIGN.md#testing-doctrine | tools/kb | The kill score is a sensor a human reads to find a missing test; it never blocks a merge, and kb's own weekly run declares itself non-reproducible. | prose | — |
-| No conflict markers | docs/kb-waves/2026-09-03/briefs/g2-strict-stack.md | repo | A committed merge-conflict marker fails the build. | prose | harness no-conflict-markers (g2) |
+| No conflict markers | docs/kb/waves/2026-09-03/briefs/g2-strict-stack.md | repo | A committed merge-conflict marker fails the build. | prose | harness no-conflict-markers (g2) |
 | Property selection | tools/kb/DESIGN.md#testing-doctrine | tools/kb tests | A property states a falsifiable domain claim and is exercised from the rejecting side. TAUTOLOGY, STRUCTURAL and quantifier theatre are review verdicts cited by name. | prose | — |
-| Public surface | docs/kb-waves/2026-09-03/briefs/w1-workspace.md | tools/kb packages | Every package exposes exactly one barrel of named exports; no star re-exports and no deep imports past it. | prose | harness public-surface (w1) |
+| Public surface | docs/kb/waves/2026-09-03/briefs/w1-workspace.md | tools/kb packages | Every package exposes exactly one barrel of named exports; no star re-exports and no deep imports past it. | prose | harness public-surface (w1) |
 | Skip pairing | CLAUDE.md#drift-markers-and-gaps | tools/kb tests | Every skip or todo test names a GAP node within three lines. A skipped test is a debt, not a solved problem. | prose | harness skip-pairing (g2) |
 | Spec-first changes | tools/kb/DESIGN.md#spec-first-changes | tools/kb | The design doc is edited before the code it describes, in the same change and earlier in commit order. If the section cannot be written, the code cannot be written. | prose | — |
 | Two-mechanism soft rules | CLAUDE.md#drift-markers-and-gaps | tools/kb | A soft lint rule is either error plus pinpoint GAP disables (up to about 30 sites) or a frozen ratchet lane; never both, never a third. | prose | harness lint-warn-ratchet + gap-markers-resolve (g2) |
-| Version authored once | docs/kb-waves/2026-09-03/briefs/w1-workspace.md | tools/kb workspace | Internal deps are workspace refs and external deps are catalog refs; no literal, floating or latest specifier appears in any manifest. | prose | harness version-authored-once (w1) |
-| Warn ratchet | docs/kb-waves/2026-09-03/briefs/g2-strict-stack.md | tools/kb | Warn-lane counts are frozen per rule whole-repo: a rise fails, a drop prompts a re-snapshot, a rule at zero must be promoted. A newly enabled rule cannot arrive pre-forgiven. | prose | harness lint-warn-ratchet (g2) |
+| Version authored once | docs/kb/waves/2026-09-03/briefs/w1-workspace.md | tools/kb workspace | Internal deps are workspace refs and external deps are catalog refs; no literal, floating or latest specifier appears in any manifest. | prose | harness version-authored-once (w1) |
+| Warn ratchet | docs/kb/waves/2026-09-03/briefs/g2-strict-stack.md | tools/kb | Warn-lane counts are frozen per rule whole-repo: a rise fails, a drop prompts a re-snapshot, a rule at zero must be promoted. A newly enabled rule cannot arrive pre-forgiven. | prose | harness lint-warn-ratchet (g2) |
 
 ## Gaps
 
@@ -58,9 +58,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: agent-prompt review rules are not ported to this repo
 
 - **expected** — The dotfiles skills and agent directory has a stated review checklist for every prompt or skill change, with the mechanical half actually checked.
-- **current** — Nothing reviews agent prompts here. Draiver's PROMPT_REVIEW_RULES.md (R1-R20) was measured as directly portable and deliberately left out of this wave.
+- **current** — Nothing reviews agent prompts here. The reference repo's PROMPT_REVIEW_RULES.md (R1-R20) was measured as directly portable and deliberately left out of this wave.
 - **impact** — Prompt and skill files accrete unreviewed; the load-bearing rules (do not compensate in prose for missing implementation; push determinism into code) are exactly the ones an agent breaks silently.
-- **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way draiver does before adding more skills.
+- **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way the reference repo does before adding more skills.
 - **node** — `01M1M08W6Z70XV3KCQB5CWH3ZR`
 
 ### GAP: applySelectionAction dispatches selection actions with a 30-branch switch

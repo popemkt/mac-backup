@@ -136,7 +136,7 @@ The v1 list above is the original contract. Implementation waves rebuilt
 the interaction layer on top of it — i1 (editor), i2 (graph), i3 (canvas),
 i5 (cross-surface polish), i6 (ontology), i12 (contextual references). The
 normative specs are
-`docs/kb-waves/2026-08-23/reports/r1-editor.md`, `r2-graph.md`, `r3-canvas.md`,
+`docs/kb/waves/2026-08-23/reports/r1-editor.md`, `r2-graph.md`, `r3-canvas.md`,
 `r7-ux-sweep.md` and `r5-ontology.md`; each carries its own implementation
 handoff with the honest cut list.
 

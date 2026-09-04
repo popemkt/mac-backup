@@ -3,7 +3,7 @@
  * `boundaries` check applies it to the Nx project graph.
  *
  * Deviations from the brief's table, each recorded in
- * docs/kb-waves/2026-09-03/reports/w1-workspace.md:
+ * docs/kb/waves/2026-09-03/reports/w1-workspace.md:
  *
  * - `layer:extension` may reach `application`. The bundled extensions are
  *   policy modules registered from inside the package, not sandboxed third

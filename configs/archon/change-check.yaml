@@ -1,5 +1,5 @@
 # Change-check workflow — general-purpose template.
-# Adapted from llm-intro harness (itself adapted from Draiver.Application).
+# Adapted from llm-intro harness (itself adapted from RefRepo.Application).
 # Advisory: scopes a diff, reads harness specs, recommends validation commands.
 # Never edits files, never gates.
 #
