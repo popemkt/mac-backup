@@ -54,11 +54,14 @@ constraint. `boundaries` asserts the reverse — no file under `harness/` import
 checks.
 
 Import edges are extracted with a parser (`oxc-parser`), not a regex: a
-side-effect `import "@kb/x"` and an `export … from "@kb/y"` are edges, and a
-scanner that keys on the word `from` sees one of them by accident and the other
-not at all. dependency-cruiser and `@nx/enforce-module-boundaries` were both
-rejected for the fence itself: they take path-pattern rules, which would mean
-generating a mirror of the tag matrix — the thing `4b63dff` removed.
+side-effect `import "@kb/x"` and an `export … from "@kb/y"` are both edges, and
+a scanner that keys on the word `from` sees the second by accident and the
+first not at all — a fence you can cross by choosing a syntax is not a fence.
+The installed TypeScript is 7, whose native port exports only `version` and
+`versionMajorMinor`, so `ts.preProcessFile` is not available to do the job.
+dependency-cruiser and `@nx/enforce-module-boundaries` were both rejected for
+the fence itself: they take path-pattern rules, which would mean generating a
+mirror of the tag matrix — the thing `4b63dff` removed.
 
 One restriction the package graph cannot see is the **isomorphism fence** — a
 `scope:shared` package runs in the browser too, so it may not import `node:*`,

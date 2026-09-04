@@ -15,24 +15,14 @@
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { parseSync } from "oxc-parser";
 import { PACKAGES_ROOT, packageDirs } from "./workspace.ts";
 
 const SKIP_DIRS = new Set(["node_modules", "dist", "storybook-static", ".nx"]);
 const SOURCE_EXT = [".ts", ".tsx"];
 
-const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\(\s*)(['"])([^'"\n]+)\1/g;
-
-const COMMENTS = /\/\*[\s\S]*?\*\/|(^|[^:\\])\/\/[^\n]*/g;
-
-/**
- * Comments talk about imports — every red-case docstring in this package
- * names one — so a scanner that reads them reports edges nobody wrote.
- */
-function stripComments(source: string): string {
-  return source.replace(COMMENTS, (_match, prefix?: string) =>
-    prefix === undefined ? "" : prefix,
-  );
-}
+/** A dynamic `import()` argument that is a plain quoted string. */
+const QUOTED = /^(['"])(.*)\1$/s;
 
 /** One import statement: the package it sits in, the raw specifier, the file. */
 export interface ImportSite {
@@ -62,26 +52,49 @@ export function* sourceFilesUnder(dir: string): Generator<string> {
   }
 }
 
-/** Every module specifier one source file imports from. */
-export function specifiersOf(source: string): string[] {
+/**
+ * Every module specifier one source file imports from, read off a parse.
+ *
+ * The regex this replaced keyed on the word `from`, so a side-effect
+ * `import "@kb/x"` was invisible to it and `export * from "@kb/y"` only
+ * matched by accident of that word. `oxc-parser`'s module record answers the
+ * question directly: static imports, side-effect ones included; every
+ * `export … from` specifier; and dynamic `import()` where the argument is a
+ * literal. `require()` is absent from that record and does not need to be —
+ * the workspace is ESM and no source calls it. Comments cannot produce an
+ * entry either, so nothing strips them any more.
+ */
+export function specifiersOf(file: string, source: string): string[] {
+  const parsed = parseSync(file, source);
+  if (parsed.errors.length > 0) {
+    throw new Error(`${file}: ${parsed.errors.map((e) => e.message).join("; ")}`);
+  }
   const out: string[] = [];
-  for (const match of stripComments(source).matchAll(SPECIFIER)) {
-    const specifier = match[2];
-    if (specifier !== undefined) out.push(specifier);
+  for (const entry of parsed.module.staticImports) {
+    out.push(entry.moduleRequest.value);
+  }
+  for (const statement of parsed.module.staticExports) {
+    for (const entry of statement.entries) {
+      if (entry.moduleRequest !== null) out.push(entry.moduleRequest.value);
+    }
+  }
+  for (const entry of parsed.module.dynamicImports) {
+    const literal = QUOTED.exec(source.slice(entry.moduleRequest.start, entry.moduleRequest.end));
+    if (literal?.[2] !== undefined) out.push(literal[2]);
   }
   return out;
 }
 
 let cached: ImportSite[] | undefined;
 
-/** Every import statement in every package, comments stripped. */
+/** Every import statement in every package. */
 export function importSites(): ImportSite[] {
   if (cached !== undefined) return cached;
   const sites: ImportSite[] = [];
   for (const dir of packageDirs()) {
     const source = `@kb/${dir}`;
     for (const file of sourceFilesUnder(join(PACKAGES_ROOT, dir))) {
-      for (const specifier of specifiersOf(readFileSync(file, "utf8"))) {
+      for (const specifier of specifiersOf(file, readFileSync(file, "utf8"))) {
         sites.push({ source, specifier, file: file.slice(PACKAGES_ROOT.length + 1) });
       }
     }

@@ -121,7 +121,7 @@ describe("boundaries", () => {
     // Red case: `import { present } from "../../packages/model/src/present.ts"`.
     const violations: string[] = [];
     for (const file of sourceFilesUnder(HARNESS_ROOT)) {
-      for (const specifier of specifiersOf(readFileSync(file, "utf8"))) {
+      for (const specifier of specifiersOf(file, readFileSync(file, "utf8"))) {
         const rel = relative(WORKSPACE_ROOT, file);
         if (specifier.startsWith("@kb/")) {
           violations.push(`${rel} imports ${specifier}`);
