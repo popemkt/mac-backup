@@ -27,7 +27,6 @@ function seed(source: "api" | "fixtures" = "api") {
     activeInstanceKey: null,
     selectedNodeId: null,
     selectedInstanceKey: null,
-    cursorPosition: 0,
     loadSource: null,
     loadError: null,
   });

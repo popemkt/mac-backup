@@ -31,7 +31,6 @@ describe("outline store (WireNode adaptation)", () => {
       activeInstanceKey: null,
       selectedNodeId: null,
       selectedInstanceKey: null,
-      cursorPosition: 0,
       loadSource: null,
       loadError: null,
     });

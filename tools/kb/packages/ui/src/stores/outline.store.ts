@@ -66,13 +66,6 @@ interface OutlineState {
    * is not editor state: ordinary store writes cannot make a host move.
    */
   pendingCaret: CaretIntent | null;
-  /**
-   * @deprecated Read by nothing. The canvas card is on `pendingCaret` like
-   * every other host; this field is written and never observed.
-   * GAP [[01M1MGT307N4K243CBPJTXNG5X]] — deleting it is a public store shape
-   * change that also edits the hand-copied reset literal in 24 ui test files.
-   */
-  cursorPosition: number;
   loadSource: "api" | "fixtures" | null;
   loadError: string | null;
   /**
@@ -354,7 +347,6 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     selectedNodeId: null,
     selectedInstanceKey: null,
     pendingCaret: null,
-    cursorPosition: 0,
     loadSource: null,
     loadError: null,
     ontologyId: null,
@@ -599,9 +591,6 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
         selectedNodeId: id,
         selectedInstanceKey: key,
         pendingCaret: { instanceKey: key, at },
-        // Dead write. Every host, canvas included, takes its caret from
-        // `pendingCaret`. GAP [[01M1MGT307N4K243CBPJTXNG5X]].
-        cursorPosition: cursorPos ?? 0,
         focusX: null,
       });
       if (typeof window !== "undefined") {

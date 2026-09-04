@@ -21,7 +21,6 @@ describe("sys.* UI write-guard", () => {
       activeInstanceKey: null,
       selectedNodeId: null,
       selectedInstanceKey: null,
-      cursorPosition: 0,
       loadSource: null,
       loadError: null,
     });
