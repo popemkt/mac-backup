@@ -29,13 +29,20 @@ let
   };
 
   # FOD: install + vp build → SPA only.
+  #
+  # Both hashes below were stale before the layer-folder move: at the previous
+  # commit this derivation already produced `A3QUQ1…` and cliJs already
+  # produced `cGU7Eu…`, so `nix build .#kb` was red on `main`. The SPA bytes are
+  # unchanged by the move (same hash before and after); the CLI bundle's hash
+  # does move with it, because the bundle inlines the generated extension-SDK
+  # header, which names the generator's path.
   uiDist = stdenvNoCC.mkDerivation {
     name = "kb-ui-dist-${version}";
     inherit src;
     nativeBuildInputs = [ bun ];
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-rS/ZKsgaQIdVZ7Pf+TQ3Z3rZWSvZIAHXU95JM5S0O2Y=";
+    outputHash = "sha256-A3QUQ19vUSzR6QoBdrJHnm5vatMrg+jQufzQeDuPRjU=";
     dontConfigure = true;
     buildPhase = ''
       runHook preBuild
@@ -63,7 +70,7 @@ let
     nativeBuildInputs = [ bun ];
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-8SvezBj2fh5lh9MKkUOgkV/EDKaoO6LG+gvWvm0oA+Q=";
+    outputHash = "sha256-LZZqPSX1z34a6sISvLeTpd+AdZNwwtgdGvujciP2LZU=";
     dontConfigure = true;
     buildPhase = ''
       runHook preBuild
