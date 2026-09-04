@@ -11,6 +11,7 @@
     "@kb/server": "workspace:*"
   },
   "devDependencies": {
+    "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:",
     "playwright": "catalog:"
   },

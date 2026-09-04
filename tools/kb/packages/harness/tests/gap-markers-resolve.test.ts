@@ -72,12 +72,12 @@ export function findAllGapMarkers(root: string = WORKSPACE_ROOT): Array<{
     const lines = content.split("\n");
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (!line) continue;
+      if (line === undefined || line === "") continue;
       GAP_PATTERN.lastIndex = 0;
       let match: RegExpExecArray | null;
       while ((match = GAP_PATTERN.exec(line)) !== null) {
         const id = match[1]?.trim();
-        if (id) {
+        if (id !== undefined && id !== "") {
           markers.push({
             file: relFile,
             line: i + 1,
@@ -114,7 +114,7 @@ describe("gap-markers-resolve", () => {
         continue;
       }
 
-      if (gapTagId) {
+      if (gapTagId !== null && gapTagId !== "") {
         const types = node.props?.["sys.f.type"] ?? [];
         const hasGapTag = types.some((ref) => ref.t === "ref" && ref.v === gapTagId);
         if (!hasGapTag) {

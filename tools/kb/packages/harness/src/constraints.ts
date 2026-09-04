@@ -39,6 +39,26 @@ export const SCOPE_ALLOWS: Record<string, readonly string[]> = {
   tooling: [],
 };
 
+/**
+ * Test files may import `@kb/test-kit` without inverting the production
+ * matrix. The assertion helper `expectDefined` lives there; a domain package
+ * depending on test-kit as a production edge would be domain → app.
+ */
+export function isPackageTestFile(file: string): boolean {
+  return (
+    /(^|\/)tests\//.test(file) || /(^|\/)tests-render\//.test(file) || /\.test\.tsx?$/.test(file)
+  );
+}
+
+export function testMayImportTestKit(file: string, target: string): boolean {
+  return target === "@kb/test-kit" && isPackageTestFile(file);
+}
+
+/** Listing `@kb/test-kit` as a devDependency is the test-file reachability edge. */
+export function isTestKitDevDependency(target: string): boolean {
+  return target === "@kb/test-kit" || target.endsWith("/test-kit");
+}
+
 /** Off-catalog dependency specifiers admitted by an explicit decision. */
 export const OFF_CATALOG_BY_DECISION: Record<string, string> = {
   // `vite-plus` and its `vite` alias twin must stay byte-identical, and an

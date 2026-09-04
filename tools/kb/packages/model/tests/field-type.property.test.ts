@@ -9,6 +9,7 @@ import {
   type FieldType,
   migrateFieldTypeValues,
 } from "../src/field-type.ts";
+import { expectDefined } from "@kb/test-kit";
 
 /** Any PropValue, including refs/strings unrelated to field types — noise. */
 const propValueArb: fc.Arbitrary<PropValue> = fc.oneof(
@@ -106,7 +107,7 @@ describe("field-type properties (fast-check)", () => {
         nodes.forEach((original, i) => {
           const values = original.props[SYSTEM_IDS.fieldTypeField];
           const hasLegacy = values?.some((v) => v.t === "str" && isFieldType(v.v));
-          if (!hasLegacy) expect(first.nodes[i]).toBe(original);
+          if (hasLegacy !== true) expect(first.nodes[i]).toBe(original);
         });
       }),
       { numRuns: 500 },
@@ -132,9 +133,11 @@ describe("field-type properties (fast-check)", () => {
           };
           const { nodes, changed } = migrateFieldTypeValues([node]);
           expect(changed).toBe(true);
-          const migrated = nodes[0]!.props[SYSTEM_IDS.fieldTypeField][0]!;
+          const migrated = expectDefined(
+            expectDefined(nodes[0]).props[SYSTEM_IDS.fieldTypeField][0],
+          );
           expect(migrated).toEqual(fieldTypeValue(t));
-          expect(fieldTypeOf(nodes[0]!.props)).toBe(t);
+          expect(fieldTypeOf(expectDefined(nodes[0]).props)).toBe(t);
         },
       ),
       { numRuns: 500 },
@@ -160,7 +163,7 @@ describe("field-type properties (fast-check)", () => {
         };
         const { nodes, changed } = migrateFieldTypeValues([node]);
         expect(changed).toBe(true);
-        const values = nodes[0]!.props[SYSTEM_IDS.fieldTypeField];
+        const values = expectDefined(nodes[0]).props[SYSTEM_IDS.fieldTypeField];
         expect(values[0]).toEqual(fieldTypeValue(legacyType));
         expect(values[1]).toEqual(fieldTypeValue(refType));
 

@@ -7,6 +7,7 @@ import {
   type NodeLike,
   type OntologyResolution,
 } from "../src/ontology.ts";
+import { expectDefined } from "@kb/test-kit";
 
 function ref(id: NodeId): PropValue {
   return { t: "ref", v: id };
@@ -38,10 +39,18 @@ function ontologyNode(
   const props: Record<string, PropValue[]> = {
     [SYSTEM_IDS.typeField]: [ref(SYSTEM_IDS.ontologyTag)],
   };
-  if (opts.include?.length) props[SYSTEM_IDS.ontoIncludeField] = opts.include.map(ref);
-  if (opts.member?.length) props[SYSTEM_IDS.ontoMemberField] = opts.member.map(ref);
-  if (opts.exclude?.length) props[SYSTEM_IDS.ontoExcludeField] = opts.exclude.map(ref);
-  if (opts.extends?.length) props[SYSTEM_IDS.ontoExtendsField] = opts.extends.map(ref);
+  if (opts.include !== undefined && opts.include.length > 0) {
+    props[SYSTEM_IDS.ontoIncludeField] = opts.include.map(ref);
+  }
+  if (opts.member !== undefined && opts.member.length > 0) {
+    props[SYSTEM_IDS.ontoMemberField] = opts.member.map(ref);
+  }
+  if (opts.exclude !== undefined && opts.exclude.length > 0) {
+    props[SYSTEM_IDS.ontoExcludeField] = opts.exclude.map(ref);
+  }
+  if (opts.extends !== undefined && opts.extends.length > 0) {
+    props[SYSTEM_IDS.ontoExtendsField] = opts.extends.map(ref);
+  }
   if (opts.closure) {
     props[SYSTEM_IDS.ontoClosureField] = [{ t: "str", v: opts.closure }];
   }
@@ -92,7 +101,9 @@ describe("ontology resolver properties (fast-check)", () => {
         (parentMemberCount, excludeIndices) => {
           const parentIds = Array.from({ length: parentMemberCount }, (_, i) => `pm${i}`);
           const parentNodes = parentIds.map((id) => plainNode(id, []));
-          const excludeSet = new Set(excludeIndices.map((i) => parentIds[i % parentIds.length]!));
+          const excludeSet = new Set(
+            excludeIndices.map((i) => expectDefined(parentIds[i % parentIds.length])),
+          );
 
           const parent = ontologyNode("parent", { member: parentIds });
           const child = ontologyNode("child", {
@@ -124,17 +135,17 @@ describe("ontology resolver properties (fast-check)", () => {
         (length) => {
           const ids = Array.from({ length }, (_, i) => `cy${i}`);
           const nodes = ids.map((id, i) =>
-            ontologyNode(id, { extends: [ids[(i + 1) % ids.length]!] }),
+            ontologyNode(id, { extends: [expectDefined(ids[(i + 1) % ids.length])] }),
           );
 
           let resolution: OntologyResolution | undefined;
           expect(() => {
-            resolution = resolveOntology(nodes, ids[0]!);
+            resolution = resolveOntology(nodes, expectDefined(ids[0]));
           }).not.toThrow();
 
-          expect(resolution!.warnings.some((w) => w.includes("cycle"))).toBe(true);
+          expect(expectDefined(resolution).warnings.some((w) => w.includes("cycle"))).toBe(true);
           // The ontology never lists itself, even transitively through the loop.
-          expect(resolution!.members.has(ids[0]!)).toBe(false);
+          expect(expectDefined(resolution).members.has(expectDefined(ids[0]))).toBe(false);
         },
       ),
       { numRuns: 1000 },
@@ -152,7 +163,9 @@ describe("ontology resolver properties (fast-check)", () => {
           const tagIds = Array.from({ length: tagCount }, (_, i) => `t${i}`);
           const tags = tagIds.map((id) => tagNode(id));
           const taggedIds = Array.from({ length: taggedCount }, (_, i) => `p${i}`);
-          const tagged = taggedIds.map((id, i) => plainNode(id, [tagIds[i % tagIds.length]!]));
+          const tagged = taggedIds.map((id, i) =>
+            plainNode(id, [expectDefined(tagIds[i % tagIds.length])]),
+          );
           const excludeIds = taggedIds.slice(0, Math.min(excludeCount, taggedIds.length));
 
           const baseline = ontologyNode("o", { include: tagIds, exclude: excludeIds });
@@ -168,8 +181,11 @@ describe("ontology resolver properties (fast-check)", () => {
           const unshuffled = [...tags, ...tagged, shuffled];
           const shuffledNodes = [...unshuffled];
           for (let i = shuffledNodes.length - 1; i > 0; i--) {
-            const j = shuffleSeed[i % shuffleSeed.length]! % (i + 1);
-            [shuffledNodes[i], shuffledNodes[j]] = [shuffledNodes[j]!, shuffledNodes[i]!];
+            const j = expectDefined(shuffleSeed[i % shuffleSeed.length]) % (i + 1);
+            [shuffledNodes[i], shuffledNodes[j]] = [
+              expectDefined(shuffledNodes[j]),
+              expectDefined(shuffledNodes[i]),
+            ];
           }
 
           const shuffledRes = resolveOntology(shuffledNodes, "o");
@@ -198,8 +214,10 @@ describe("ontology resolver properties (fast-check)", () => {
           for (let i = 0; i < ids.length; i++) {
             const laterCount = ids.length - i - 1;
             const childCount =
-              laterCount === 0 ? 0 : edgeSeed[i % edgeSeed.length]! % (laterCount + 1);
-            childrenOf.set(ids[i]!, ids.slice(i + 1, i + 1 + childCount));
+              laterCount === 0
+                ? 0
+                : expectDefined(edgeSeed[i % edgeSeed.length]) % (laterCount + 1);
+            childrenOf.set(expectDefined(ids[i]), ids.slice(i + 1, i + 1 + childCount));
           }
           const nodes: NodeLike[] = ids.map((id) => ({
             id,
@@ -208,14 +226,14 @@ describe("ontology resolver properties (fast-check)", () => {
             children: childrenOf.get(id) ?? [],
           }));
 
-          const seedIds = ids.filter((_, i) => seedFlags[i % seedFlags.length]!);
+          const seedIds = ids.filter((_, i) => expectDefined(seedFlags[i % seedFlags.length]));
           if (seedIds.length === 0) return; // need at least one seed to say anything
 
           // Reference: transitive closure over the same children edges.
           const expected = new Set(seedIds);
           const stack = [...seedIds];
           while (stack.length > 0) {
-            const current = stack.pop()!;
+            const current = expectDefined(stack.pop());
             for (const childId of childrenOf.get(current) ?? []) {
               if (expected.has(childId)) continue;
               expected.add(childId);

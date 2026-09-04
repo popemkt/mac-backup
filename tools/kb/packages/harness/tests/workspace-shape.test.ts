@@ -10,6 +10,7 @@ import {
   tagsOf,
   workspacePackages,
 } from "../src/workspace.ts";
+import { expectDefined } from "../../test-kit/src/expect-defined.ts";
 
 /**
  * Every directory under packages/ is a workspace member, and every workspace
@@ -60,9 +61,11 @@ describe("workspace-shape", () => {
       const layers = axisValues(tags, "layer");
       const scopes = axisValues(tags, "scope");
       if (layers.length !== 1) bad.push(`${dir}: layer tags ${JSON.stringify(layers)}`);
-      else if (!(layers[0]! in LAYER_ALLOWS)) bad.push(`${dir}: unknown layer:${layers[0]}`);
+      else if (!(expectDefined(layers[0]) in LAYER_ALLOWS))
+        bad.push(`${dir}: unknown layer:${layers[0]}`);
       if (scopes.length !== 1) bad.push(`${dir}: scope tags ${JSON.stringify(scopes)}`);
-      else if (!(scopes[0]! in SCOPE_ALLOWS)) bad.push(`${dir}: unknown scope:${scopes[0]}`);
+      else if (!(expectDefined(scopes[0]) in SCOPE_ALLOWS))
+        bad.push(`${dir}: unknown scope:${scopes[0]}`);
     }
     expect(bad, bad.join("\n")).toEqual([]);
   });

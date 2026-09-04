@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@kb/canvas": "workspace:*",
+    "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:",
     "zod": "catalog:"
   },

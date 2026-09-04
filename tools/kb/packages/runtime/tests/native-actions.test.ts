@@ -15,6 +15,7 @@ import {
 } from "../src/registry.ts";
 import type { ActionEffectHandler, EffectStore } from "@kb/contracts";
 import type { StoreTx } from "@kb/model";
+import { expectDefined } from "@kb/test-kit";
 
 /** Under tests/ so fixture extensions resolve zod via tools/kb/node_modules. */
 async function tempRoot(): Promise<string> {
@@ -49,7 +50,7 @@ describe("Effect-native action registry", () => {
     }
 
     // Compile-time seam: ActionEffectHandler is the Effect form.
-    const sample: ActionEffectHandler | undefined = owned[0]!.effect;
+    const sample: ActionEffectHandler | undefined = expectDefined(owned[0]).effect;
     expect(sample).toBeDefined();
   });
 
@@ -110,7 +111,7 @@ export default actions;
     const legacy = registry.byId.get("ext.legacy.ok");
     expect(legacy?.effect).toBeUndefined();
     expect(legacy?.handler).toBeTypeOf("function");
-    expect(isEffectNativeAction(legacy!)).toBe(false);
+    expect(isEffectNativeAction(expectDefined(legacy))).toBe(false);
   });
 
   test("Layer substitution: native write uses provided KbStore", async () => {
@@ -145,7 +146,7 @@ export default actions;
     );
     expect(receipt.status).toBe("succeeded");
     expect(commits.length).toBe(1);
-    expect(commits[0]!.upserts.some((n) => n.id === "n.layer-sub")).toBe(true);
+    expect(expectDefined(commits[0]).upserts.some((n) => n.id === "n.layer-sub")).toBe(true);
 
     // Reloading through the live store must not see the fake commit.
     const live = await openKb(root);

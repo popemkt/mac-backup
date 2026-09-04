@@ -6,6 +6,7 @@ import { openKb } from "../src/session.ts";
 import { classifyQueryError, graphRunEffect, graphSearchEffect } from "@kb/operations";
 import { invoke } from "../src/invoke.ts";
 import { manifest } from "../src/registry.ts";
+import { expectDefined } from "@kb/test-kit";
 
 /** Under tests/ so fixture extensions resolve zod via tools/kb/node_modules. */
 async function tempRoot(): Promise<string> {
@@ -181,10 +182,10 @@ describe("graph.query failure classification", () => {
 describe("graph.run / graph.search surface availability", () => {
   test("manifest exposes both as read actions with JSON schemas", async () => {
     const m = await manifest();
-    const run = m.find((a) => a.id === "graph.run")!;
+    const run = expectDefined(m.find((a) => a.id === "graph.run"));
     expect(run.mode).toBe("read");
     expect(run.inputSchema).toBeTruthy();
-    const search = m.find((a) => a.id === "graph.search")!;
+    const search = expectDefined(m.find((a) => a.id === "graph.search"));
     expect(search.mode).toBe("read");
     expect(search.inputSchema).toBeTruthy();
   });

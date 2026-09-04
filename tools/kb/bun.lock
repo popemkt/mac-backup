@@ -42,6 +42,7 @@
         "effect": "catalog:",
       },
       "devDependencies": {
+        "@kb/test-kit": "workspace:*",
         "@modelcontextprotocol/sdk": "catalog:",
         "@types/bun": "catalog:",
         "typescript": "catalog:",
@@ -118,6 +119,7 @@
         "effect": "catalog:",
       },
       "devDependencies": {
+        "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
@@ -130,6 +132,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "fast-check": "catalog:",
       },
@@ -156,6 +159,7 @@
         "datascript": "catalog:",
       },
       "devDependencies": {
+        "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "fast-check": "catalog:",
       },
@@ -167,6 +171,7 @@
         "@kb/server": "workspace:*",
       },
       "devDependencies": {
+        "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "playwright": "catalog:",
       },
@@ -186,6 +191,7 @@
       },
       "devDependencies": {
         "@kb/canvas": "workspace:*",
+        "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "zod": "catalog:",
       },
@@ -204,6 +210,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
@@ -218,6 +225,7 @@
       },
       "devDependencies": {
         "@kb/query": "workspace:*",
+        "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "fast-check": "catalog:",
       },

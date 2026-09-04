@@ -9,6 +9,7 @@
 // which is the mismatch the owner could see. A source-text assertion cannot
 // catch that class of bug; only a real engine computing real styles can.
 import { expect, test } from "playwright/test";
+import { expectDefined } from "@kb/test-kit";
 
 /** --kb-text-size × --kb-text-leading, resolved. */
 const TEXT_SIZE = 14.5;
@@ -64,8 +65,10 @@ test("node text and field labels resolve to one metric", async ({ page }) => {
   });
 
   expect(metrics.node).not.toBeNull();
-  expect(metrics.node!.fontSize).toBeCloseTo(metrics.label!.fontSize, 1);
-  expect(metrics.node!.lineHeight).toBeCloseTo(metrics.label!.lineHeight, 1);
+  const node = expectDefined(metrics.node, "node .kb-text metrics");
+  const label = expectDefined(metrics.label, "label .kb-text metrics");
+  expect(node.fontSize).toBeCloseTo(label.fontSize, 1);
+  expect(node.lineHeight).toBeCloseTo(label.lineHeight, 1);
 });
 
 test("a trailing pill yields only the first line, and fills that line", async ({ page }) => {
@@ -86,8 +89,14 @@ sigma tau upsilon</div>
       </div>`;
     document.body.appendChild(host);
 
-    const text = host.querySelector("[data-probe-text]")!;
-    const float = host.querySelector("[data-probe-float]")!;
+    const text = host.querySelector("[data-probe-text]");
+    if (text === null) throw new Error("missing [data-probe-text]");
+    const float = host.querySelector("[data-probe-float]");
+    if (float === null) throw new Error("missing [data-probe-float]");
+    const chip = host.querySelector("[data-tag-chip]");
+    if (chip === null) throw new Error("missing [data-tag-chip]");
+    const wrap = host.querySelector("[data-probe-wrap]");
+    if (wrap === null) throw new Error("missing [data-probe-wrap]");
     const range = document.createRange();
     range.selectNodeContents(text);
     // Whitespace at a wrap point can produce its own narrow rect; only the
@@ -100,8 +109,8 @@ sigma tau upsilon</div>
       lines,
       floatWidth: float.getBoundingClientRect().width,
       floatHeight: float.getBoundingClientRect().height,
-      chipHeight: host.querySelector("[data-tag-chip]")!.getBoundingClientRect().height,
-      containerWidth: host.querySelector("[data-probe-wrap]")!.getBoundingClientRect().width,
+      chipHeight: chip.getBoundingClientRect().height,
+      containerWidth: wrap.getBoundingClientRect().width,
     };
     host.remove();
     return out;
@@ -114,7 +123,7 @@ sigma tau upsilon</div>
   // The whole point of the float: line one gives up the pill's width, and the
   // lines the pill never touches stay full width. A flex sibling — the previous
   // shape — narrows every line equally, so `first === later` is the red state.
-  expect(first!).toBeLessThan(later - 10);
+  expect(expectDefined(first, "first line width")).toBeLessThan(later - 10);
   expect(later).toBeGreaterThan(geometry.containerWidth * 0.9);
   expect(geometry.containerWidth - later).toBeLessThan(geometry.floatWidth);
 

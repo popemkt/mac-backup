@@ -1,8 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { LAYER_ALLOWS, SCOPE_ALLOWS } from "../src/constraints.ts";
+import {
+  LAYER_ALLOWS,
+  SCOPE_ALLOWS,
+  isTestKitDevDependency,
+  testMayImportTestKit,
+} from "../src/constraints.ts";
 import { importEdges } from "../src/import-graph.ts";
 import { internalEdges, projectGraph } from "../src/project-graph.ts";
 import { axisValues, dependencyEntries, workspacePackages } from "../src/workspace.ts";
+import { expectDefined } from "../../test-kit/src/expect-defined.ts";
 
 /**
  * Layer and scope direction (plan D11), over what the code actually imports.
@@ -58,9 +64,10 @@ describe("boundaries", () => {
   test("every cross-package import satisfies both axes of the matrix", () => {
     const violations: string[] = [];
     for (const edge of importEdges()) {
+      if (testMayImportTestKit(edge.file, edge.target)) continue;
       for (const axis of ["layer", "scope"] as const) {
         const problem = violation(edge.source, edge.target, axis);
-        if (problem) violations.push(`${problem}  [${edge.file}]`);
+        if (problem !== null) violations.push(`${problem}  [${edge.file}]`);
       }
     }
     expect(violations, violations.join("\n")).toEqual([]);
@@ -69,9 +76,10 @@ describe("boundaries", () => {
   test("every manifest edge satisfies both axes of the matrix", () => {
     const violations: string[] = [];
     for (const edge of internalEdges(graph)) {
+      if (isTestKitDevDependency(edge.target)) continue;
       for (const axis of ["layer", "scope"] as const) {
         const problem = violation(edge.source, edge.target, axis);
-        if (problem) violations.push(`${problem}  [manifest]`);
+        if (problem !== null) violations.push(`${problem}  [manifest]`);
       }
     }
     expect(violations, violations.join("\n")).toEqual([]);
@@ -82,7 +90,7 @@ describe("boundaries", () => {
     // build of @kb/ui failed on exactly this for `three`.
     const declared = new Map(
       workspacePackages().map(({ manifest }) => [
-        manifest.name!,
+        expectDefined(manifest.name),
         new Set(
           dependencyEntries(manifest)
             .map(([, name]) => name)
@@ -92,7 +100,8 @@ describe("boundaries", () => {
     );
     const missing = new Set<string>();
     for (const edge of importEdges()) {
-      if (!declared.get(edge.source)?.has(edge.target)) {
+      if (testMayImportTestKit(edge.file, edge.target)) continue;
+      if (declared.get(edge.source)?.has(edge.target) !== true) {
         missing.add(`${edge.source} imports ${edge.target} without declaring it`);
       }
     }

@@ -62,7 +62,7 @@
     "typescript/require-array-sort-compare": "warn",
     "typescript/await-thenable": "error",
     "typescript/consistent-return": "warn",
-    "typescript/no-confusing-non-null-assertion": "warn",
+    "typescript/no-confusing-non-null-assertion": "error",
     "typescript/restrict-template-expressions": "error",
     "typescript/no-floating-promises": "error",
     "typescript/triple-slash-reference": "warn",
@@ -436,6 +436,30 @@
     },
     {
       "files": [
+        "packages/canvas/**",
+        "packages/cli/**",
+        "packages/contracts/**",
+        "packages/ext-canvas/**",
+        "packages/ext-docs/**",
+        "packages/ext-sdk/**",
+        "packages/harness/**",
+        "packages/mcp/**",
+        "packages/model/**",
+        "packages/operations/**",
+        "packages/query/**",
+        "packages/render-tests/**",
+        "packages/runtime/**",
+        "packages/server/**",
+        "packages/store-jsonl/**",
+        "packages/test-kit/**"
+      ],
+      "rules": {
+        "typescript/no-non-null-assertion": "error",
+        "typescript/strict-boolean-expressions": "error"
+      }
+    },
+    {
+      "files": [
         "packages/canvas/src/**",
         "packages/cli/src/**",
         "packages/contracts/src/**",
@@ -454,8 +478,6 @@
         "packages/test-kit/src/**"
       ],
       "rules": {
-        "typescript/no-non-null-assertion": "error",
-        "typescript/strict-boolean-expressions": "error",
         "typescript/no-unnecessary-condition": "error"
       }
     },

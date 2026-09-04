@@ -9,6 +9,7 @@ import type { TemplateContext } from "@kb/contracts";
 import { GENERATED_HEADER } from "@kb/operations";
 import { todos } from "@kb/ext-docs";
 import type { KbNode } from "@kb/model";
+import { expectDefined } from "@kb/test-kit";
 
 const FIELD_ID = "01TESTFIELDSTATUS000000000";
 const TAG_ID = "01TESTTAGTODO0000000000000";
@@ -221,7 +222,7 @@ describe("docs.materialize + docs.check", () => {
       views: { status: string }[];
     };
     expect(stale.clean).toBe(false);
-    expect(stale.views[0]!.status).toBe("stale");
+    expect(expectDefined(stale.views[0]).status).toBe("stale");
 
     await mustInvoke(ctx, "docs.materialize", { view: "todos" });
     const clean = (await mustInvoke(ctx, "docs.check", {})) as { clean: boolean };
@@ -233,7 +234,7 @@ describe("docs.materialize + docs.check", () => {
       views: { status: string }[];
     };
     expect(missing.clean).toBe(false);
-    expect(missing.views[0]!.status).toBe("missing");
+    expect(expectDefined(missing.views[0]).status).toBe("missing");
   });
 
   test("savedQuery views resolve from .kb/queries", async () => {

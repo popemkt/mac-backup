@@ -18,6 +18,7 @@ import { openKb } from "../src/session.ts";
 import { fieldTypeOf, SYSTEM_IDS, type KbNode, ensureSystemSeed, systemSeedNodes } from "@kb/model";
 import { backlinksQuery, buildQueryDb, query } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
+import { expectDefined } from "@kb/test-kit";
 
 function refs(node: KbNode, field: string): string[] {
   return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
@@ -44,16 +45,16 @@ describe("seed: #ref tag + ref.target field", () => {
 
     const tag = byId.get(SYSTEM_IDS.refTag);
     expect(tag).toBeDefined();
-    expect(tag!.text).toBe("ref");
-    expect(refs(tag!, SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
-    expect(refs(tag!, SYSTEM_IDS.fieldsField)).toEqual([SYSTEM_IDS.refTargetField]);
+    expect(expectDefined(tag).text).toBe("ref");
+    expect(refs(expectDefined(tag), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
+    expect(refs(expectDefined(tag), SYSTEM_IDS.fieldsField)).toEqual([SYSTEM_IDS.refTargetField]);
 
     const field = byId.get(SYSTEM_IDS.refTargetField);
     expect(field).toBeDefined();
-    expect(field!.text).toBe("ref.target");
-    expect(refs(field!, SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.field]);
+    expect(expectDefined(field).text).toBe("ref.target");
+    expect(refs(expectDefined(field), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.field]);
     // The type is DECLARED through the normal fieldType mechanism, never assumed.
-    expect(fieldTypeOf(field!.props)).toBe("ref");
+    expect(fieldTypeOf(expectDefined(field).props)).toBe("ref");
   });
 
   test("ensureSystemSeed stays idempotent and syncs the #ref template", () => {
@@ -70,7 +71,7 @@ describe("seed: #ref tag + ref.target field", () => {
     );
     const healed = ensureSystemSeed(stale);
     expect(healed.seeded).toBe(true);
-    const tag = healed.nodes.find((n) => n.id === SYSTEM_IDS.refTag)!;
+    const tag = expectDefined(healed.nodes.find((n) => n.id === SYSTEM_IDS.refTag));
     expect(refs(tag, SYSTEM_IDS.fieldsField)).toEqual([SYSTEM_IDS.refTargetField]);
   });
 });

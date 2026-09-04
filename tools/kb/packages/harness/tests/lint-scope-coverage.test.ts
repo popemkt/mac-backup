@@ -31,7 +31,7 @@ export function parseLintScopes(lintScript: string): string[] {
   let skipNext = false;
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
-    if (!token) continue;
+    if (token === undefined || token === "") continue;
     if (skipNext) {
       skipNext = false;
       continue;

@@ -12,6 +12,7 @@ import {
 } from "../src/field-type.ts";
 import { resolveFieldId } from "../src/resolve.ts";
 import { ensureSystemSeed, systemSeedNodes } from "../src/seed.ts";
+import { expectDefined } from "@kb/test-kit";
 
 function refs(node: KbNode, field: string): string[] {
   return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
@@ -29,12 +30,12 @@ describe("typed field seeds", () => {
     ]) {
       const field = byId.get(id);
       expect(field).toBeDefined();
-      expect(refs(field!, SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.field]);
+      expect(refs(expectDefined(field), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.field]);
     }
 
-    expect(byId.get(SYSTEM_IDS.fieldTypeField)!.text).toBe("fieldType");
-    expect(byId.get(SYSTEM_IDS.targetTagField)!.text).toBe("targetTag");
-    expect(byId.get(SYSTEM_IDS.targetQueryField)!.text).toBe("targetQuery");
+    expect(expectDefined(byId.get(SYSTEM_IDS.fieldTypeField)).text).toBe("fieldType");
+    expect(expectDefined(byId.get(SYSTEM_IDS.targetTagField)).text).toBe("targetTag");
+    expect(expectDefined(byId.get(SYSTEM_IDS.targetQueryField)).text).toBe("targetQuery");
   });
 
   test("every field type is a node tagged #field-type", () => {
@@ -42,14 +43,14 @@ describe("typed field seeds", () => {
 
     const tag = byId.get(SYSTEM_IDS.fieldTypeTag);
     expect(tag).toBeDefined();
-    expect(tag!.text).toBe("field-type");
-    expect(refs(tag!, SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
+    expect(expectDefined(tag).text).toBe("field-type");
+    expect(refs(expectDefined(tag), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
 
     for (const type of FIELD_TYPES) {
       const option = byId.get(FIELD_TYPE_OPTION_IDS[type]);
       expect(option, type).toBeDefined();
-      expect(option!.text).toBe(type);
-      expect(refs(option!, SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.fieldTypeTag]);
+      expect(expectDefined(option).text).toBe(type);
+      expect(refs(expectDefined(option), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.fieldTypeTag]);
     }
   });
 
@@ -57,7 +58,7 @@ describe("typed field seeds", () => {
     // This is what lets the normal ref editor render it: nothing about the
     // type slot is special-cased, it is a ref field with a target tag.
     const byId = new Map(systemSeedNodes().map((n) => [n.id, n]));
-    const slot = byId.get(SYSTEM_IDS.fieldTypeField)!;
+    const slot = expectDefined(byId.get(SYSTEM_IDS.fieldTypeField));
     expect(fieldTypeOf(slot.props)).toBe("ref");
     expect(refs(slot, SYSTEM_IDS.targetTagField)).toEqual([SYSTEM_IDS.fieldTypeTag]);
   });
@@ -66,7 +67,7 @@ describe("typed field seeds", () => {
     // One rule — surface the fields your kinds and tags template — has to cover
     // field pages too, or they need a bespoke configurator panel.
     const byId = new Map(systemSeedNodes().map((n) => [n.id, n]));
-    expect(refs(byId.get(SYSTEM_IDS.field)!, SYSTEM_IDS.fieldsField)).toEqual([
+    expect(refs(expectDefined(byId.get(SYSTEM_IDS.field)), SYSTEM_IDS.fieldsField)).toEqual([
       SYSTEM_IDS.fieldTypeField,
       SYSTEM_IDS.targetTagField,
       SYSTEM_IDS.targetQueryField,
@@ -119,7 +120,7 @@ describe("typed field seeds", () => {
     const first = migrateFieldTypeValues(nodes);
     expect(first.changed).toBe(true);
     const byId = new Map(first.nodes.map((n) => [n.id, n]));
-    expect(byId.get("field.a")!.props[SYSTEM_IDS.fieldTypeField]).toEqual([
+    expect(expectDefined(byId.get("field.a")).props[SYSTEM_IDS.fieldTypeField]).toEqual([
       fieldTypeValue("number"),
     ]);
     // Already-migrated and unrelated nodes are untouched, by identity.
@@ -144,7 +145,9 @@ describe("typed field seeds", () => {
     ];
     const result = migrateFieldTypeValues(nodes);
     expect(result.changed).toBe(false);
-    expect(result.nodes[0]!.props[SYSTEM_IDS.fieldTypeField]).toEqual([{ t: "str", v: "colour" }]);
+    expect(expectDefined(result.nodes[0]).props[SYSTEM_IDS.fieldTypeField]).toEqual([
+      { t: "str", v: "colour" },
+    ]);
   });
 
   test("ensureSystemSeed is idempotent over typed-field nodes", () => {
