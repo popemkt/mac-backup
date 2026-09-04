@@ -1,18 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
-import { isAbsolute, join, normalize } from "node:path";
-import { WORKSPACE_ROOT, gitWorkspaceFiles, rootManifest } from "../src/workspace.ts";
+import {
+  allWorkspaceTsFiles,
+  assignToScopes,
+  missingScopes,
+  type PathScope,
+} from "../src/scopes.ts";
+import { rootManifest } from "../src/workspace.ts";
 
 /**
  * Harness check 1: Lint scope coverage (spec 11 / plan A.9 #1).
  *
- * Asserts:
- *   1. The `lint` script in tools/kb/package.json defines lint scopes.
- *   2. Every scope path extracted from the script exists on disk.
- *   3. Every tracked and untracked-not-ignored `*.ts` / `*.tsx` file under
- *      tools/kb falls in *exactly one* lint scope.
- *   4. Any excluded paths in EXCLUDED_BY_DECISION are documented and
- *      stale-checked.
+ * The `lint` script's positional arguments are the lint scopes. Every
+ * TypeScript file under tools/kb must fall in exactly one of them, so no file
+ * is linted twice under different configs and none is linted by nothing.
+ * Scope assignment itself lives in `@kb/harness`'s `scopes` reader, shared
+ * with `typecheck-scope`.
  *
  * Red case: add an unlinted file outside the scopes (e.g. tools/kb/unlinted.ts).
  */
@@ -49,53 +51,27 @@ export function parseLintScopes(lintScript: string): string[] {
   return scopes;
 }
 
-export function allWorkspaceTsFiles(root: string = WORKSPACE_ROOT): string[] {
-  const tracked = gitWorkspaceFiles(["*.ts", "*.tsx"], root);
-  const untracked = gitWorkspaceFiles(["--others", "--exclude-standard", "*.ts", "*.tsx"], root);
-  return [...new Set([...tracked, ...untracked])].toSorted();
-}
-
 describe("lint-scope-coverage", () => {
   const manifest = rootManifest();
   const lintScript = manifest.scripts?.lint;
+  const scopes: PathScope[] = parseLintScopes(lintScript ?? "").map((path) => ({
+    path,
+    source: "package.json scripts.lint",
+  }));
 
   test("the lint script specifies at least one valid scope", () => {
     expect(typeof lintScript).toBe("string");
-    const scopes = parseLintScopes(lintScript ?? "");
     expect(scopes.length).toBeGreaterThanOrEqual(1);
 
-    for (const scope of scopes) {
-      const abs = isAbsolute(scope) ? scope : join(WORKSPACE_ROOT, scope);
-      expect(existsSync(abs)).toBe(true);
-    }
+    const missing = missingScopes(scopes);
+    expect(missing, missing.join("\n")).toEqual([]);
   });
 
   test("every TypeScript file under tools/kb falls in exactly one lint scope", () => {
-    const scopes = parseLintScopes(lintScript ?? "").map((s) => normalize(s).replace(/\/$/, ""));
-
-    const tsFiles = allWorkspaceTsFiles(WORKSPACE_ROOT);
+    const tsFiles = allWorkspaceTsFiles();
     expect(tsFiles.length).toBeGreaterThan(50);
 
-    const unassigned: string[] = [];
-    const multipleAssigned: string[] = [];
-
-    for (const file of tsFiles) {
-      const norm = normalize(file);
-
-      // Check if excluded
-      const isExcluded = EXCLUDED_BY_DECISION.some(
-        (ex) => norm === ex || norm.startsWith(`${ex}/`),
-      );
-      if (isExcluded) continue;
-
-      const matchingScopes = scopes.filter((s) => norm === s || norm.startsWith(`${s}/`));
-
-      if (matchingScopes.length === 0) {
-        unassigned.push(norm);
-      } else if (matchingScopes.length > 1) {
-        multipleAssigned.push(`${norm} matches: ${matchingScopes.join(", ")}`);
-      }
-    }
+    const { unassigned, multiple } = assignToScopes(tsFiles, scopes, EXCLUDED_BY_DECISION);
 
     expect(
       unassigned,
@@ -103,8 +79,8 @@ describe("lint-scope-coverage", () => {
     ).toEqual([]);
 
     expect(
-      multipleAssigned,
-      `TypeScript files matching multiple lint scopes: ${multipleAssigned.join("\n")}`,
+      multiple,
+      `TypeScript files matching multiple lint scopes: ${multiple.join("\n")}`,
     ).toEqual([]);
   });
 });
