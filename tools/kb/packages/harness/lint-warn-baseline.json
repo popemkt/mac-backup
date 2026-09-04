@@ -2,7 +2,6 @@
   "lanes": {
     "blocking": {
       "effect/anyUnknownInErrorContext": 1,
-      "effect/globalConsole": 1,
       "eslint/max-lines": 2,
       "eslint/max-lines-per-function": 40,
       "typescript/no-unnecessary-condition": 1,

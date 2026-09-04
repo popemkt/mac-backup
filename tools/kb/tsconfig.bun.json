@@ -65,6 +65,7 @@
             "options": {
               "diagnosticSeverity": {
                 "asyncFunction": "error",
+                "globalConsole": "error",
                 "globalDate": "error",
                 "globalErrorInEffectCatch": "error",
                 "globalErrorInEffectFailure": "error",
