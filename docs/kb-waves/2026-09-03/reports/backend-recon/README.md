@@ -62,6 +62,15 @@ crash issue is closed and it now runs) and **Kuzu/LadybugDB** (the fork is at
 0.20.2, MIT, with a prebuilt darwin-arm64 addon that loads under Bun). Both were
 benchmarked. Neither displaces `bun:sqlite`, and §5.6 / §5.7 say why.
 
+**TerminusDB** was checked at the owner's request and not benchmarked, because
+it has no in-process mode: SWI-Prolog core, daemon only, HTTP client only
+(§5.8). It is well maintained — DFRNT, v12.0.7 on 2026-08-10, Apache-2.0 — so
+it belongs in p1 §0's *daemon* bucket, not the dead one. The deeper reason to
+decline it is that the git-like history it sells is the history kb already gets
+from git over line-per-node JSONL: as a derived cache that history would be one
+commit deep, and as truth it would be a second commit graph with no mechanical
+bridge to git's.
+
 ---
 
 ## 1. Findings table
@@ -81,9 +90,14 @@ what this report recommends doing, not a score.
 | LadybugDB 0.20.2 (Cypher) | poor — fixed schema forces full reification | 2 527 ms | 21.5 ms | 481 ms | 23 ms | 1 288 MB | **10.0 ms** | yes | wasm build exists | **reject for now; the destination for path queries** |
 | `sql.js` 1.14.2 (browser) | same as `bun:sqlite` | 4 406 ms | — | 25 ms | 9.8 ms | 1 020 MB JS heap | — | no | — | browser: **memory-only tier** |
 | `wa-sqlite` 1.0.0 + OPFS (browser) | same as `bun:sqlite` | **30 357 ms** | **700 ms** (all 1 000 004 rows) | 146 ms | 107 ms | in wasm + OPFS | — | **yes** | — | browser: **the only durable option** |
+| TerminusDB 12.0.7 | n/a — daemon only, no in-process mode | **not benchmarked** | — | — | — | — | — | server-side | **no** (HTTP client only) | **reject** — daemon bucket; its git-for-data is what kb already gets from git (§5.8) |
 
 Read the two columns that discriminate: **closure** and **reopen**. Everything
 else sits within an order of magnitude across the field; those two do not.
+
+TerminusDB's row is empty on purpose: the addendum's own precondition is "no
+benchmark unless an in-process mode exists", and there is none (§5.8). It is
+listed so the next reader does not have to re-derive that.
 
 ---
 
@@ -583,6 +597,98 @@ as *the* candidate to re-open if path-as-value becomes a product need — it is
 the only one measured here that delivers it, and it delivers it in single-digit
 milliseconds.
 
+### 5.8 TerminusDB — daemon only; the versioning it sells is the versioning kb already has
+
+Status check per the brief's addendum. **Not benchmarked**, because the
+precondition ("no benchmark unless an in-process mode exists") is not met.
+All facts dated, checked 2026-09-04.
+
+**(a) Embeddable / in-process / wasm? No. Daemon only.**
+
+- The core is **SWI-Prolog**, and still is: release **v12.0.7 (2026-08-10)**
+  lists "upgrade SWI-Prolog to 10.0.2" among its maintenance changes. WOQL —
+  the datalog-flavoured query language — is evaluated in Prolog.
+- The Rust in the tree is not an embeddable database. `src/rust/Cargo.toml` is
+  a workspace of `terminusdb-community`, **`terminusdb-store-prolog`** and
+  `terminusdb-dylib`, pinned to `terminusdb-org/swipl-rs` — i.e. the storage
+  layer is wired into SWI-Prolog through its foreign-language interface. There
+  is no path that gives you the store without the Prolog runtime.
+- **The published crate is stale, and the live one is unpublished.**
+  `terminus-store` on crates.io is **0.21.5, 2024-03-11**, and its repo
+  `terminusdb/terminusdb-store` was last pushed the same day
+  (**2024-03-11**, not archived, Apache-2.0). The server does not use it: it
+  git-pins `terminusdb-org/terminusdb-store` (last push **2026-07-30**) and
+  `terminusdb-org/tdb-succinct` (**2026-07-04**), neither published to
+  crates.io. So the piece that *looks* embeddable is a git-pinned fork consumed
+  only through Prolog's FLI.
+- Even if it were reachable, `terminus-store` is **storage only** — its own
+  README says it "makes very few assumptions on what valid data is, only
+  focusing on the actual storage aspect". No WOQL, no GraphQL, no path queries.
+  Taking it would mean writing the query engine ourselves, which is Option B
+  from `reports/recon-persistence.md` §3.2 wearing a different hat.
+- **No wasm, no Bun binding.** The only JS artefact is
+  **`@terminusdb/terminusdb-client@12.0.0`** (Apache-2.0), whose dependency list
+  is `axios`, `form-data`, `follow-redirects`, `node-forge`, `pako` — an HTTP
+  client. "Browser and Node.js support" in its README means it can *call* a
+  server from either, not run one.
+- Deployment in the v12 documentation is Docker Compose, exclusively.
+
+**Consequence, stated as the addendum asks: TerminusDB lands in the
+Memgraph / Neo4j / TypeDB / SurrealDB bucket of p1 §0** — a daemon that cannot
+run inside the browser UI, and cannot be reached from kb's synchronous
+`KbIndex` reads without the wide async change p1 2a explicitly defers and files
+as a `#gap`. Every read would be an axios round trip.
+
+**(b) Maintenance 2025–26: healthy, and that is not the problem.**
+
+- **DFRNT assumed maintainership during 2025** (stated in the
+  2025-12-08 "TerminusDB 12" post), after the company's pivot to TerminusCMS.
+  Commercial support is sold by DFRNT.
+- Release cadence is real: v12.0.0 (2026-02-24) through **v12.0.7
+  (2026-08-10)**, with v12.0.6 on 2026-06-24; the repo was last pushed
+  **2026-09-03**. v12.0.7 credits three new contributors and ships explicit
+  diffs plus an `unfold` parameter on the diff API.
+- **License: Apache-2.0** for the server, the JS client and the store crate.
+- This is the one rejected candidate in this report that is *not* rejected for
+  being dead. It is rejected for shape.
+
+**(c) The versioning overlap — and why it cannot be a derived cache.**
+
+TerminusDB's pitch is a commit graph over the data: branch, diff, merge, push,
+pull, time travel, stored as immutable delta layers with their own `_commits`
+graph. kb already has every one of those, from git over a line-per-node
+canonical JSONL — with per-node line diffs, authorship, real 3-way merge, and
+`reports/recon-persistence.md` §4's analysis of why that layout is the right
+one. The overlap is not partial; it is the whole feature.
+
+That produces a fork with no good branch:
+
+- **As a derived, rebuildable cache** (the only thing p1 §0 allows beside the
+  JSONL) it is *technically* possible — gitignore the store, fingerprint it,
+  rebuild on mismatch — and **pointless**, because a rebuilt store has a commit
+  graph one commit deep. Branch, diff and merge would all be answering
+  questions about the rebuild, not about the data's history. You would be
+  running a versioned database whose version history is a rounding artefact,
+  and paying a daemon for it.
+- **As truth** it violates p1 §0's first bullet outright ("JSONL is the only
+  committed source of truth"), and leaves **two commit graphs with no
+  mechanical bridge** — git's and TerminusDB's — which is precisely the
+  "two copies kept in sync by hand" that Rule 1 names as drift waiting to
+  happen. "Double persistence" here is not two stores; it is **two
+  histories**, and there is no `git merge` that understands the other one.
+- A third option — TerminusDB as truth with a JSONL *export* for git — is what
+  Logseq DB ended up doing (`recon-persistence.md` §2.4), and the report
+  already records why that is the half of Logseq's architecture they had to
+  work around.
+
+**Verdict: reject, and record it in the daemon bucket of p1 §0 rather than the
+dead bucket.** The right note for a future reader is not "TerminusDB is
+unmaintained" — it is well maintained — but "TerminusDB's git-for-data is the
+feature kb already gets from git, and taking it means either a second history
+or a hollow one." Re-open only if kb ever wants versioning semantics git cannot
+express — per-branch schema migration, or diffs *as query results* — and even
+then the daemon and the browser story have to be solved first.
+
 ---
 
 ## 6. The browser story
@@ -850,6 +956,20 @@ diff it proposes.
 +    it is the destination for that trigger.
 +  - **CozoDB re-verified 2026-09-04: still v0.7.6 (2023-12-11), no later
 +    release. Rejection stands unchanged.**
++  - **TerminusDB added to the daemon bucket, not the dead one
++    (r4-backend-recon §5.8).** Well maintained — DFRNT took over
++    maintainership in 2025, v12.0.7 shipped 2026-08-10, Apache-2.0 — but the
++    core is SWI-Prolog and there is no embeddable or wasm mode: the Rust
++    storage layer is bound in through Prolog's FLI
++    (`terminusdb-store-prolog` + `swipl-rs`), the published `terminus-store`
++    crate is stale at 0.21.5 / 2024-03-11, and `@terminusdb/terminusdb-client`
++    is an axios HTTP client. So it cannot run in the browser UI and cannot
++    serve kb's synchronous `KbIndex` reads. Separately and independently: its
++    git-like commit graph is the feature kb already gets from git over
++    line-per-node JSONL, so as a *derived rebuildable* cache its history would
++    be one commit deep (hollow), and as truth it would be a second commit
++    graph with no mechanical bridge to git's — the hand-synced mirror Rule 1
++    forbids. Re-open only for versioning semantics git cannot express.
 +  - `bun:sqlite` moves from "index + write sidecar" to **the recommended
 +    second `KbIndex` implementation** — see §9.3.
 ```
@@ -951,6 +1071,7 @@ regenerated deterministically and are **not committed** — see
 - Oxigraph — <https://github.com/oxigraph/oxigraph> · npm <https://www.npmjs.com/package/oxigraph> · changelog <https://github.com/oxigraph/oxigraph/blob/main/CHANGELOG.md>
 - LadybugDB — <https://github.com/LadybugDB/ladybug> · <https://github.com/LadybugDB/ladybug-nodejs> · <https://github.com/LadybugDB/ladybug-wasm> · npm <https://www.npmjs.com/package/@ladybugdb/core> · <https://www.npmjs.com/package/@ladybugdb/wasm-core> · docs <https://docs.ladybugdb.com/installation/> · v0.12.0 release <https://github.com/LadybugDB/ladybug/releases/tag/v0.12.0> · Kuzu archival context <https://gdotv.com/blog/kuzu-legacy-embedded-graph-database-landscape/>
 - CozoDB, **re-verified still v0.7.6 / 2023-12-11** — <https://github.com/cozodb/cozo/releases> · maintenance issue <https://github.com/cozodb/cozo/issues/301>
+- TerminusDB — <https://github.com/terminusdb/terminusdb> (Apache-2.0, last push 2026-09-03) · v12.0.7 release 2026-08-10 <https://github.com/terminusdb/terminusdb/releases> · "TerminusDB 12" / DFRNT maintainership 2025-12-08 <https://terminusdb.org/blog/2025-12-08-terminusdb-12-release/> · docs <https://terminusdb.org/docs/> · JS HTTP client <https://www.npmjs.com/package/@terminusdb/terminusdb-client> · store crate (stale, 0.21.5 / 2024-03-11) <https://crates.io/crates/terminus-store> · <https://github.com/terminusdb/terminusdb-store> · live unpublished fork <https://github.com/terminusdb-org/terminusdb-store> (last push 2026-07-30) · <https://github.com/terminusdb-org/tdb-succinct> · <https://github.com/terminusdb-org/swipl-rs>
 - `sql.js` — <https://github.com/sql-js/sql.js>
 - `wa-sqlite` + OPFS `AccessHandlePoolVFS` — <https://github.com/rhashimoto/wa-sqlite> · <https://github.com/rhashimoto/wa-sqlite/discussions/67>
 - Cross-origin isolation for OPFS sync access handles — <https://developer.mozilla.org/en-US/docs/Web/API/FileSystemSyncAccessHandle>
