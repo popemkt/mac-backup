@@ -18,6 +18,7 @@ import {
   type KbContext,
   TemplateRegistry,
 } from "@kb/contracts";
+import { noteStoreSynced } from "@kb/operations";
 import { registryFor } from "./registry.ts";
 
 /**
@@ -60,7 +61,7 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   }
   const index = new DatascriptIndex(nodes);
   const store = asPromiseStore(effectStore);
-  return {
+  const ctx: KbContext = {
     root,
     store,
     effectStore,
@@ -69,6 +70,8 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
       return index.storedNodes();
     },
   };
+  yield* noteStoreSynced(ctx, effectStore.path);
+  return ctx;
 });
 
 /** Run an Effect that needs KbCtx (+ Bun FileSystem) against a live session. */
