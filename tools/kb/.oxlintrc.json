@@ -67,7 +67,7 @@
     "typescript/no-floating-promises": "error",
     "typescript/triple-slash-reference": "error",
     "unicorn/no-array-sort": "error",
-    "unicorn/consistent-function-scoping": "warn",
+    "unicorn/consistent-function-scoping": "error",
     "unicorn/prefer-add-event-listener": "error",
     "unicorn/no-array-reverse": "error",
     "unicorn/no-new-array": "error",
@@ -103,14 +103,14 @@
     "eslint/default-case": "error",
     "eslint/no-console": "error",
     "eslint/no-shadow": "error",
-    "eslint/no-await-in-loop": "warn",
+    "eslint/no-await-in-loop": "error",
     "eslint/complexity": "error",
     "eslint/max-depth": [
       "error",
       5
     ],
     "eslint/max-nested-callbacks": [
-      "warn",
+      "error",
       4
     ],
     "eslint/max-lines-per-function": [
