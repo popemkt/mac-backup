@@ -2,11 +2,9 @@
   "lanes": {
     "blocking": {
       "effect/anyUnknownInErrorContext": 1,
-      "effect/asyncFunction": 68,
+      "effect/asyncFunction": 40,
       "effect/globalConsole": 3,
       "effect/globalDate": 5,
-      "effect/globalErrorInEffectCatch": 1,
-      "effect/globalErrorInEffectFailure": 5,
       "effect/globalTimers": 1,
       "effect/lazyEffect": 2,
       "effect/leakingRequirements": 1,
@@ -14,12 +12,11 @@
       "eslint/max-depth": 2,
       "eslint/max-lines": 2,
       "eslint/max-lines-per-function": 40,
-      "eslint/max-nested-callbacks": 1,
       "eslint/max-params": 2,
       "eslint/no-await-in-loop": 7,
       "typescript/no-non-null-assertion": 391,
       "typescript/no-unnecessary-condition": 31,
-      "typescript/no-unsafe-type-assertion": 127,
+      "typescript/no-unsafe-type-assertion": 120,
       "typescript/strict-boolean-expressions": 200,
       "unicorn/consistent-function-scoping": 15
     },

@@ -54,6 +54,7 @@ export {
   mapTagList,
   mapUnset,
   parsePropArg,
+  parsePropType,
   parsePropValue,
 } from "./map.ts";
 export type { PlannedAction, PropType } from "./map.ts";
