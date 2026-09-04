@@ -2,6 +2,7 @@
 // Pre-commit entry: exit 0 when generated docs match .kb data, 1 when stale.
 import { invoke, openKb, writeErr, writeOut } from "@kb/runtime";
 import { kbDataRoot } from "@kb/server";
+import { checkOutput } from "@kb/ext-docs";
 
 const root = kbDataRoot();
 const ctx = await openKb(root);
@@ -12,10 +13,8 @@ if (receipt.status !== "succeeded") {
   process.exit(2);
 }
 
-const out = receipt.output as {
-  clean: boolean;
-  views: { view: string; output: string; status: string }[];
-};
+// The action declares this shape; parse it rather than assert it.
+const out = checkOutput.parse(receipt.output);
 
 if (out.clean) {
   writeOut(`kb docs: clean (${out.views.length} view${out.views.length === 1 ? "" : "s"})`);

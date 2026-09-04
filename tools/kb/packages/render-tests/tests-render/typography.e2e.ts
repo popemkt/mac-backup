@@ -46,22 +46,21 @@ test("node text and field labels resolve to one metric", async ({ page }) => {
   await expect(row).toBeVisible();
 
   const metrics = await page.evaluate(() => {
-    const read = (el: Element | null) => {
+    // A FieldRow label is a .kb-text span; render one the same way the outline
+    // does so the comparison holds even on a fixture with no props set.
+    const probe = document.createElement("span");
+    probe.className = "kb-text";
+    document.body.appendChild(probe);
+    const [node, label] = [document.querySelector(".node-content .kb-text"), probe].map((el) => {
       if (!el) return null;
       const style = getComputedStyle(el);
       return {
         fontSize: Number.parseFloat(style.fontSize),
         lineHeight: Number.parseFloat(style.lineHeight),
       };
-    };
-    // A FieldRow label is a .kb-text span; render one the same way the outline
-    // does so the comparison holds even on a fixture with no props set.
-    const probe = document.createElement("span");
-    probe.className = "kb-text";
-    document.body.appendChild(probe);
-    const label = read(probe);
+    });
     probe.remove();
-    return { node: read(document.querySelector(".node-content .kb-text")), label };
+    return { node: node ?? null, label: label ?? null };
   });
 
   expect(metrics.node).not.toBeNull();

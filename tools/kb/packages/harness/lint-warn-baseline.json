@@ -10,9 +10,9 @@
       "eslint/no-await-in-loop": 4,
       "typescript/no-non-null-assertion": 391,
       "typescript/no-unnecessary-condition": 31,
-      "typescript/no-unsafe-type-assertion": 120,
+      "typescript/no-unsafe-type-assertion": 82,
       "typescript/strict-boolean-expressions": 200,
-      "unicorn/consistent-function-scoping": 15
+      "unicorn/consistent-function-scoping": 8
     },
     "advisory": {
       "typescript/no-deprecated": 12

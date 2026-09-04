@@ -4,6 +4,21 @@ import fc from "fast-check";
 import type { KbNode, NodeId } from "../src/model.ts";
 import { migrateOrderKeys, rankBetween, ranksFor } from "../src/order.ts";
 
+/** Mirrors the comparator documented in order.ts's forest-root sort. */
+function referenceRootCompare(
+  a: { id: NodeId; order?: string },
+  b: { id: NodeId; order?: string },
+): number {
+  const oa = a.order;
+  const ob = b.order;
+  if (oa !== undefined && oa !== "" && ob !== undefined && ob !== "") {
+    return oa < ob ? -1 : oa > ob ? 1 : 0;
+  }
+  if (oa !== undefined && oa !== "") return -1;
+  if (ob !== undefined && ob !== "") return 1;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
 describe("order properties (fast-check)", () => {
   test("ranksFor strictly preserves input order and assigns distinct ranks", () => {
     fc.assert(
@@ -192,21 +207,6 @@ describe("order properties (fast-check)", () => {
 
   test("migrateOrderKeys assigns root order matching the documented has-order-first, then-id fallback", () => {
     const NOW = "2026-08-24T00:00:00.000Z";
-
-    /** Mirrors the comparator documented in order.ts's forest-root sort. */
-    function referenceRootCompare(
-      a: { id: NodeId; order?: string },
-      b: { id: NodeId; order?: string },
-    ): number {
-      const oa = a.order;
-      const ob = b.order;
-      if (oa !== undefined && oa !== "" && ob !== undefined && ob !== "") {
-        return oa < ob ? -1 : oa > ob ? 1 : 0;
-      }
-      if (oa !== undefined && oa !== "") return -1;
-      if (ob !== undefined && ob !== "") return 1;
-      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-    }
 
     fc.assert(
       fc.property(

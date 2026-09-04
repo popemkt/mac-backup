@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Predicate } from "effect";
 import { z } from "zod";
 import { type DomainError, domainFromResolve, isDomainError } from "./errors.ts";
 import { ResolveError } from "./resolve.ts";
@@ -39,21 +39,17 @@ interface ParsableSchema {
 export type ActionSchema = StandardSchemaV1Like | ParsableSchema;
 
 export function isStandardSchemaV1(schema: unknown): schema is StandardSchemaV1Like {
-  if (typeof schema !== "object" || schema === null) return false;
-  const standard = (schema as { "~standard"?: unknown })["~standard"] as
-    | { version?: unknown; validate?: unknown }
-    | undefined;
+  if (!Predicate.hasProperty(schema, "~standard")) return false;
+  const standard = schema["~standard"];
   return (
-    standard !== undefined && standard.version === 1 && typeof standard.validate === "function"
+    Predicate.isObject(standard) &&
+    standard.version === 1 &&
+    typeof standard.validate === "function"
   );
 }
 
 function isParsableSchema(schema: unknown): schema is ParsableSchema {
-  return (
-    typeof schema === "object" &&
-    schema !== null &&
-    typeof (schema as { parse?: unknown }).parse === "function"
-  );
+  return Predicate.hasProperty(schema, "parse") && typeof schema.parse === "function";
 }
 
 export function isActionSchema(schema: unknown): schema is ActionSchema {

@@ -50,6 +50,14 @@ function tagged(id: string, text: string, ...tagIds: string[]): KbNode {
   });
 }
 
+/** A stored line minus the one-time additive `order` key. */
+const strip = (line: string): string => {
+  const { order: _order, ...rest } = JSON.parse(line) as Record<string, unknown>;
+  return canonicalJson(rest);
+};
+
+const refValues = (ids: string[]): PropValue[] => ids.map((v) => ({ t: "ref" as const, v }));
+
 function ontology(
   id: string,
   text: string,
@@ -65,7 +73,6 @@ function ontology(
   const props: Record<string, PropValue[]> = {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.ontologyTag }],
   };
-  const refValues = (ids: string[]): PropValue[] => ids.map((v) => ({ t: "ref" as const, v }));
   if (spec.include) props[SYSTEM_IDS.ontoIncludeField] = refValues(spec.include);
   if (spec.member) props[SYSTEM_IDS.ontoMemberField] = refValues(spec.member);
   if (spec.exclude) props[SYSTEM_IDS.ontoExcludeField] = refValues(spec.exclude);
@@ -137,9 +144,9 @@ describe("resolveOntology — include tags", () => {
 
 // ── 2. exclude beats everything ────────────────────────────────────────────
 
-describe("resolveOntology — exclude is absolute", () => {
-  const rows = (): unknown[][] => [["n.notes"]];
+const rows = (): unknown[][] => [["n.notes"]];
 
+describe("resolveOntology — exclude is absolute", () => {
   test("exclude beats include", () => {
     const nodes = [
       ...baseGraph(),
@@ -668,10 +675,6 @@ describe("ontology migration", () => {
 
     // Every original line survives, modulo the one-time additive `order` key
     // stamped by the sibling-order migration (nothing else may change).
-    const strip = (line: string) => {
-      const { order: _order, ...rest } = JSON.parse(line) as Record<string, unknown>;
-      return canonicalJson(rest);
-    };
     const afterStripped = afterLines.map(strip);
     for (const line of beforeLines) {
       expect(afterStripped).toContain(strip(line));

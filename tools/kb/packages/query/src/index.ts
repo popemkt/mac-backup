@@ -1,4 +1,4 @@
-export { DatalogError, buildQueryDb, pull, query } from "./datascript.ts";
+export { DatalogError, buildQueryDb, pull, query, queryRows } from "./datascript.ts";
 export type { QueryDb } from "./datascript.ts";
 export {
   LIST_ALL_NODES_QUERY,

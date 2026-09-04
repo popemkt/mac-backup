@@ -10,7 +10,7 @@ import {
   type CallToolResult,
   type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-import { Cause, Effect, Exit, Schema } from "effect";
+import { Cause, Effect, Exit, Predicate, Schema } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import type { KbContext, ActionInvocation } from "@kb/contracts";
 import { type DomainError, domainError, ensureDomainError } from "@kb/model";
@@ -42,12 +42,8 @@ function actionIdToToolName(actionId: string): string {
 }
 
 function asObjectSchema(schema: unknown): Tool["inputSchema"] {
-  if (
-    typeof schema === "object" &&
-    schema !== null &&
-    (schema as { type?: unknown }).type === "object"
-  ) {
-    return schema as Tool["inputSchema"];
+  if (Predicate.isObject(schema) && schema.type === "object") {
+    return { ...schema, type: "object" as const };
   }
   return { type: "object" as const, properties: {} };
 }
@@ -93,11 +89,9 @@ export function containToolResult<E, R>(
   return Effect.exit(effect).pipe(
     Effect.flatMap((exit) => {
       if (Exit.isSuccess(exit)) return Effect.succeed(exit.value);
-      if (Cause.hasInterruptsOnly(exit.cause)) {
-        // Re-raise interrupt; cast keeps the CallTool Promise edge typed as
-        // never while still rejecting on cancellation.
-        return Effect.failCause(exit.cause) as unknown as Effect.Effect<CallToolResult>;
-      }
+      // Cancellation is not a tool failure: re-interrupt rather than
+      // reporting `isError`, and the CallTool edge rejects as before.
+      if (Cause.hasInterruptsOnly(exit.cause)) return Effect.interrupt;
       return Effect.succeed(errorResult("internal", causeMessage(exit.cause)));
     }),
   );

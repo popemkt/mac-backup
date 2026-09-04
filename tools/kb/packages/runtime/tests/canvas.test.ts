@@ -188,23 +188,23 @@ describe("canvas doc parse/patch round-trip", () => {
   });
 });
 
-describe("render-time bound check (no reconciler)", () => {
-  function mkEdge(id: string, link: Partial<NonNullable<CanvasEdge["kbLink"]>> = {}): CanvasEdge {
-    return {
-      id,
-      fromNode: "a",
-      toNode: "b",
-      kbLink: {
-        mode: link.mode ?? "native",
-        via: "prop",
-        fieldId: link.fieldId ?? "f.rel",
-        sourceNodeId: link.sourceNodeId ?? "n.a",
-        targetNodeId: link.targetNodeId ?? "n.b",
-        bindingId: link.bindingId ?? "b1",
-      },
-    };
-  }
+function mkEdge(id: string, link: Partial<NonNullable<CanvasEdge["kbLink"]>> = {}): CanvasEdge {
+  return {
+    id,
+    fromNode: "a",
+    toNode: "b",
+    kbLink: {
+      mode: link.mode ?? "native",
+      via: "prop",
+      fieldId: link.fieldId ?? "f.rel",
+      sourceNodeId: link.sourceNodeId ?? "n.a",
+      targetNodeId: link.targetNodeId ?? "n.b",
+      bindingId: link.bindingId ?? "b1",
+    },
+  };
+}
 
+describe("render-time bound check (no reconciler)", () => {
   test("isNativeEdgeBound reflects prop presence without mutating doc", () => {
     const props: Record<string, { t: string; v: unknown }[]> = {
       "n.a|f.rel": [{ t: "ref", v: "n.b" }],

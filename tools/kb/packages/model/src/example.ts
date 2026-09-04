@@ -67,6 +67,11 @@ const EXAMPLE_OPEN_TASKS_EDN = `[:find ?id ?text
         [?n :node/id ?id]
         [?n :node/text ?text]]`;
 
+/** The `sys.f.type` prop for one tag — the shape every example node repeats. */
+function typed(typeId: string): KbNode["props"] {
+  return { [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: typeId }] };
+}
+
 export function exampleSeedNodes(at: string = nowIso()): KbNode[] {
   const mk = (
     id: string,
@@ -74,10 +79,6 @@ export function exampleSeedNodes(at: string = nowIso()): KbNode[] {
     props: KbNode["props"] = {},
     children: string[] = [],
   ): KbNode => ({ id, text, props, children, createdAt: at, updatedAt: at });
-
-  const typed = (typeId: string) => ({
-    [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: typeId }],
-  });
 
   const tag = (id: string, text: string, fieldIds: string[] = [], children: string[] = []) =>
     mk(

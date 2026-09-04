@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@kb/contracts": "workspace:*",
+    "@kb/ext-docs": "workspace:*",
     "@kb/ext-sdk": "workspace:*",
     "@kb/mcp": "workspace:*",
     "@kb/model": "workspace:*",

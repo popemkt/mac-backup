@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Predicate } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -29,11 +29,6 @@ export function namespacedId(extName: string, localId: string): string {
 }
 
 const NAME_RE = /^[\w][\w.-]*$/;
-
-/** The one narrowing seam: unknown module exports viewed as a plain record. */
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
-}
 
 function aliasesProblem(a: Record<string, unknown>, label: string): string | null {
   if (
@@ -113,7 +108,7 @@ export const discoverExtensions = Effect.fn("kb.discoverExtensions")(function* (
       failures.push({ file, error: loaded.error });
       continue;
     }
-    const exported = asRecord(loaded.mod)?.default;
+    const exported = Predicate.isObject(loaded.mod) ? loaded.mod.default : undefined;
     if (!Array.isArray(exported)) {
       failures.push({
         file,
@@ -126,11 +121,11 @@ export const discoverExtensions = Effect.fn("kb.discoverExtensions")(function* (
     const actions: ExtensionAction[] = [];
     const templates: ExtensionTemplate[] = [];
     for (const candidate of exported) {
-      const contribution = asRecord(candidate);
-      if (contribution === null) {
+      if (!Predicate.isObject(candidate)) {
         failures.push({ file, error: "contribution is not an object" });
         continue;
       }
+      const contribution = candidate;
       // A contribution carrying a `template` function is a render template.
       // The loader already discriminates structurally (`effect` vs
       // `handler`); this is the same distinction one level up.

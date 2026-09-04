@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Predicate } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
   type ActionDefinition,
@@ -353,9 +353,12 @@ export function receiptFromError(id: string, err: unknown): ActionReceipt {
   if (err instanceof Error) {
     // DocsError and extension errors alike: any Error carrying a valid
     // FailureCode `code` maps to a typed failure.
-    const parsed = FailureCodeSchema.safeParse((err as { code?: unknown }).code);
+    const parsed = FailureCodeSchema.safeParse(
+      Predicate.hasProperty(err, "code") ? err.code : undefined,
+    );
     if (parsed.success) {
-      return failed(id, parsed.data, err.message, (err as { details?: unknown }).details);
+      const details = Predicate.hasProperty(err, "details") ? err.details : undefined;
+      return failed(id, parsed.data, err.message, details);
     }
     return failed(id, "internal", err.message);
   }

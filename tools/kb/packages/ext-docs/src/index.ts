@@ -28,11 +28,11 @@ const viewInput = z.object({
   view: z.string().optional(),
 });
 
-const materializeOutput = z.object({
+export const materializeOutput = z.object({
   written: z.array(z.object({ view: z.string(), output: z.string() })),
 });
 
-const checkOutput = z.object({
+export const checkOutput = z.object({
   clean: z.boolean(),
   views: z.array(
     z.object({

@@ -50,11 +50,15 @@ export const PropValueSchema = Schema.Union([
   RefPropValue,
 ]);
 
+/**
+ * Mutable on purpose: `KbNode` is the in-memory node the session mutates, and
+ * a decode that produced its deep-readonly twin would only be castable back.
+ */
 export const KbNodeSchema = Schema.Struct({
   id: Schema.String,
   text: Schema.String,
-  props: Schema.Record(Schema.String, Schema.Array(PropValueSchema)),
-  children: Schema.Array(Schema.String),
+  props: Schema.Record(Schema.String, Schema.mutable(Schema.Array(PropValueSchema))),
+  children: Schema.mutable(Schema.Array(Schema.String)),
   createdAt: Schema.String,
   updatedAt: Schema.String,
 });

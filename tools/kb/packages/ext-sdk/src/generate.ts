@@ -100,9 +100,11 @@ export const generateExtSdkDts = Effect.fn("kb.generateExtSdkDts")(function* (
   }
 });
 
+const PackageJson = Schema.Struct({ version: Schema.String });
+
 /** The kb version stamped into the generated header. */
 function parsePackageVersion(text: string): string {
-  return (JSON.parse(text) as { version: string }).version;
+  return Schema.decodeUnknownSync(PackageJson)(JSON.parse(text)).version;
 }
 
 /** Write `sdk-dts.text.ts` with the regenerated string constant. */

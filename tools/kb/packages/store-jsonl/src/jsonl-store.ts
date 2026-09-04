@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect";
+import { Effect, Predicate, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
 import {
@@ -18,8 +18,8 @@ import { acquireNodesWriteLockEffect, releaseNodesWriteLock } from "./write-lock
 
 function mapFsError(err: unknown): DomainError {
   const message =
-    typeof err === "object" && err !== null && "message" in err && typeof err.message === "string"
-      ? (err as { message: string }).message
+    Predicate.hasProperty(err, "message") && typeof err.message === "string"
+      ? err.message
       : String(err);
   return domainError("internal", message);
 }
@@ -55,7 +55,7 @@ function decodeNodeLine(
         }),
       ),
     );
-    return node as KbNode;
+    return node;
   });
 }
 

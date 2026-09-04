@@ -1,4 +1,4 @@
-import { Effect, Random, Clock } from "effect";
+import { Clock, Effect, Predicate, Random, Schema } from "effect";
 import { mkdtemp, rm } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -14,6 +14,8 @@ import {
   canonicalJson,
   present,
   type DomainError,
+  KbNodeSchema,
+  nodeParseOptions,
 } from "@kb/model";
 import {
   mapAdd,
@@ -287,11 +289,24 @@ interface StoreSnapshot {
   nodes: KbNode[];
 }
 
+/** The `id` a define action minted, when the receipt output carries one. */
+function mintedNodeId(output: unknown): string | undefined {
+  return Predicate.hasProperty(output, "id") && typeof output.id === "string"
+    ? output.id
+    : undefined;
+}
+
+/** The store's own node schema, applied to a whole JSONL body at once. */
+const decodeNodes = Schema.decodeUnknownSync(
+  Schema.mutable(Schema.Array(KbNodeSchema)),
+  nodeParseOptions,
+);
+
 /** Read the store back off disk; the JSONL must parse into nodes (sync). */
 function snapshotSync(root: string): StoreSnapshot {
   const json = readFileSync(nodesPath(root), "utf8");
   if (json.trim().length === 0) return { root, json, nodes: [] };
-  const nodes = JSON.parse(`[${json.trim().split("\n").join(",")}]`) as KbNode[];
+  const nodes = decodeNodes(JSON.parse(`[${json.trim().split("\n").join(",")}]`));
   return { root, json, nodes };
 }
 
@@ -526,11 +541,12 @@ export const runScenario = Effect.fn("kb.runScenario")(function* (
         input: action.input,
       }).pipe(Effect.provide(kbRuntimeLayer(ctx)));
 
-      if (action.id === "field.define" && receipt.status === "succeeded") {
-        fieldIds.push((receipt.output as { id: string }).id);
-      }
-      if (action.id === "tag.define" && receipt.status === "succeeded") {
-        tagIds.push((receipt.output as { id: string }).id);
+      if (receipt.status === "succeeded") {
+        const mintedId = mintedNodeId(receipt.output);
+        if (mintedId !== undefined) {
+          if (action.id === "field.define") fieldIds.push(mintedId);
+          if (action.id === "tag.define") tagIds.push(mintedId);
+        }
       }
 
       // Continuous invariant check on the on-disk store after this op. The

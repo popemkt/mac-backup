@@ -19,7 +19,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname } from "node:path";
-import { Clock, Duration, Effect } from "effect";
+import { Clock, Duration, Effect, Predicate } from "effect";
 import { domainError, type DomainError } from "@kb/model";
 
 const LOCK_SUFFIX = ".lock";
@@ -30,15 +30,19 @@ export function lockPathFor(nodesPath: string): string {
   return `${nodesPath}${LOCK_SUFFIX}`;
 }
 
+/** The `code` of a thrown node fs/process error, when it carries one. */
+function errnoCode(err: unknown): string | undefined {
+  return Predicate.hasProperty(err, "code") && typeof err.code === "string" ? err.code : undefined;
+}
+
 function pidAlive(pid: number): boolean {
   if (!Number.isFinite(pid) || pid <= 0) return false;
   try {
     process.kill(pid, 0);
     return true;
   } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code;
     // EPERM: process exists but we can't signal it — treat as alive.
-    return code === "EPERM";
+    return errnoCode(err) === "EPERM";
   }
 }
 
@@ -62,7 +66,7 @@ function tryCreateLock(lockPath: string): boolean {
     }
     return true;
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "EEXIST") return false;
+    if (errnoCode(err) === "EEXIST") return false;
     throw err;
   }
 }

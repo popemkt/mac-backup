@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Predicate, Schema } from "effect";
 import type { ActionInvocation } from "@kb/contracts";
 import { isValidSavedQueryName } from "./saved-query.ts";
 import { LIST_FIELDS_QUERY, LIST_TAGS_QUERY, backlinksQuery } from "@kb/query";
@@ -364,27 +364,20 @@ export function mapActionInvoke(raw: unknown): ActionInvocation {
       message: 'action-invoke expects JSON object with string "id" and optional "input"',
     });
   }
-  const obj = raw as { id: string; input?: unknown };
-  return { id: obj.id, input: obj.input ?? {} };
+  return { id: raw.id, input: "input" in raw ? (raw.input ?? {}) : {} };
 }
 
 /** Fields referenced by a planned apply that may need --create minting. */
 export function fieldsNeedingCreate(plan: PlannedAction): string[] {
-  const input = plan.input as Record<string, unknown> | null;
-  if (input === null || typeof input !== "object") return [];
+  const input = plan.input;
+  if (!Predicate.isObject(input)) return [];
+  const entries = [input.props, input.setProps].flatMap((list) =>
+    Array.isArray(list) ? (list as unknown[]) : [],
+  );
   const names: string[] = [];
-  if (Array.isArray(input.props)) {
-    for (const p of input.props) {
-      if (typeof p === "object" && p !== null && "field" in p) {
-        names.push((p as { field: string }).field);
-      }
-    }
-  }
-  if (Array.isArray(input.setProps)) {
-    for (const p of input.setProps) {
-      if (typeof p === "object" && p !== null && "field" in p) {
-        names.push((p as { field: string }).field);
-      }
+  for (const entry of entries) {
+    if (Predicate.hasProperty(entry, "field") && typeof entry.field === "string") {
+      names.push(entry.field);
     }
   }
   return names;
