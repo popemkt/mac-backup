@@ -150,5 +150,6 @@ if (import.meta.main) {
   const { version } = await Effect.runPromise(
     Effect.scoped(writeExtSdkModule()).pipe(Effect.provide(BunFileSystem.layer)),
   );
+  // oxlint-disable-next-line eslint/no-console -- build script progress line
   console.log(`wrote packages/ext-sdk/src/sdk-dts.text.ts (kb ${version})`);
 }

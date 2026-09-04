@@ -8,9 +8,11 @@
  */
 
 export function logWarn(...args: readonly unknown[]): void {
+  // oxlint-disable-next-line eslint/no-console -- this module is the browser log seam
   console.warn(...args);
 }
 
 export function logError(...args: readonly unknown[]): void {
+  // oxlint-disable-next-line eslint/no-console -- this module is the browser log seam
   console.error(...args);
 }

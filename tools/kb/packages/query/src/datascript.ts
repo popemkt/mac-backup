@@ -1,3 +1,4 @@
+// oxlint-disable-next-line typescript/triple-slash-reference -- datascript ships no types; the shim must travel with this module (see datascript.d.ts)
 /// <reference path="./datascript.d.ts" />
 import * as d from "datascript";
 import { present, type KbNode, type NodeId, type PropValue } from "@kb/model";

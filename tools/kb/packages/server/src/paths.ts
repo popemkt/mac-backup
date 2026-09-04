@@ -1,7 +1,7 @@
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-/** Single process.env read for this module — the config seam's only env access. */
+// oxlint-disable-next-line node/no-process-env -- the config seam's single env read; every other module goes through it
 const PROCESS_ENV = process.env;
 
 /**

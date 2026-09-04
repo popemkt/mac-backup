@@ -52,39 +52,13 @@
     "typescript/no-unnecessary-condition": "error",
     "typescript/require-await": "error",
     "typescript/no-deprecated": "error",
-    "typescript/no-unnecessary-type-assertion": "error",
-    "typescript/no-unsafe-type-assertion": "error",
-    "typescript/no-unnecessary-type-conversion": "error",
-    "typescript/no-unnecessary-type-arguments": "error",
-    "typescript/no-unnecessary-boolean-literal-compare": "error",
-    "typescript/no-redundant-type-constituents": "error",
-    "typescript/no-base-to-string": "error",
-    "typescript/require-array-sort-compare": "error",
-    "typescript/await-thenable": "error",
-    "typescript/consistent-return": "error",
-    "typescript/no-confusing-non-null-assertion": "error",
-    "typescript/restrict-template-expressions": "error",
-    "typescript/no-floating-promises": "error",
-    "typescript/triple-slash-reference": "error",
-    "unicorn/no-array-sort": "error",
-    "unicorn/consistent-function-scoping": "error",
-    "unicorn/prefer-add-event-listener": "error",
-    "unicorn/no-array-reverse": "error",
-    "unicorn/no-new-array": "error",
-    "unicorn/no-useless-spread": "error",
-    "unicorn/no-useless-fallback-in-spread": "error",
     "oxc/no-map-spread": "off",
-    "oxc/no-accumulating-spread": "error",
-    "react/no-children-prop": "error",
-    "react/no-array-index-key": "error",
     "react/only-export-components": [
       "error",
       {
         "allowConstantExport": true
       }
     ],
-    "react/no-did-update-set-state": "error",
-    "promise/always-return": "error",
     "eslint/no-underscore-dangle": "off",
     "import/no-named-as-default-member": "off",
     "import/no-named-as-default": "off",
@@ -102,8 +76,6 @@
     "eslint/no-eq-null": "error",
     "eslint/default-case": "error",
     "eslint/no-console": "error",
-    "eslint/no-shadow": "error",
-    "eslint/no-await-in-loop": "error",
     "eslint/complexity": "error",
     "eslint/max-depth": [
       "error",
@@ -154,10 +126,10 @@
         "node/no-process-env": "off",
         "typescript/no-unsafe-type-assertion": "off",
         "typescript/consistent-type-assertions": "off",
-        "typescript/no-extraneous-class": "off",
-        "react/no-children-prop": "off",
         "eslint/max-lines-per-function": "off",
-        "eslint/max-nested-callbacks": "off"
+        "eslint/max-nested-callbacks": "off",
+        "typescript/no-extraneous-class": "off",
+        "react/no-children-prop": "off"
       }
     },
     {
@@ -165,34 +137,7 @@
         "**/*.d.ts"
       ],
       "rules": {
-        "typescript/no-extraneous-class": "off",
-        "typescript/triple-slash-reference": "off"
-      }
-    },
-    {
-      "files": [
-        "packages/server/src/paths.ts"
-      ],
-      "rules": {
-        "node/no-process-env": "off"
-      }
-    },
-    {
-      "files": [
-        "packages/query/src/datascript.ts"
-      ],
-      "rules": {
-        "typescript/triple-slash-reference": "off"
-      }
-    },
-    {
-      "files": [
-        "packages/runtime/src/output.ts",
-        "packages/ui/src/lib/log.ts",
-        "packages/ext-sdk/scripts/generate.ts"
-      ],
-      "rules": {
-        "eslint/no-console": "off"
+        "typescript/no-extraneous-class": "off"
       }
     }
   ]
