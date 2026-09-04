@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Graph from "graphology";
+import { nodePosition } from "./graph-attributes";
 import Sigma from "sigma";
 import { EdgeArrowProgram } from "sigma/rendering";
 import type { LensEdge, LensNode, LensLayout } from "@/lib/graph-lens";
@@ -303,7 +304,7 @@ export function SigmaGraph({
 
     // --- Node drag ---
     sigma.on("downNode", ({ node }) => {
-      const pos = sigma.graphToViewport(graph.getNodeAttributes(node) as { x: number; y: number });
+      const pos = sigma.graphToViewport(nodePosition(graph, node));
       dragRef.current = {
         node,
         dragging: false,

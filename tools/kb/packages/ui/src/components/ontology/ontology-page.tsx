@@ -175,9 +175,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
               { key: "descendants", label: "descendants" },
             ]}
             value={closure}
-            onChange={(v) =>
-              void mutations.ontologySetClosure(ontologyId, v as "none" | "descendants")
-            }
+            onChange={(v) => void mutations.ontologySetClosure(ontologyId, v)}
           />
           <span className="text-[11px] text-foreground/30">pull whole subtrees of members in</span>
         </DefinitionRow>
@@ -374,14 +372,14 @@ function SectionTitle({ children, count }: { children: React.ReactNode; count: n
   );
 }
 
-function Segmented({
+function Segmented<T extends string>({
   options,
   value,
   onChange,
 }: {
-  options: Array<{ key: string; label: string }>;
-  value: string;
-  onChange: (key: string) => void;
+  options: Array<{ key: T; label: string }>;
+  value: T;
+  onChange: (key: T) => void;
 }) {
   return (
     <div className="flex items-center gap-0.5 rounded-md bg-foreground/[0.04] p-0.5">

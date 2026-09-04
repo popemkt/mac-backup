@@ -8,7 +8,15 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "./fields-section";
 import { listFilterFieldOptions } from "./view-filter-fields";
+import { EnumSelect, type EnumOption } from "@/components/ui/enum-select";
 import { POPOVER_VALUE_CLASS, PopoverShell } from "@/components/ui/popover-shell";
+
+type FilterKind = "eq" | "text";
+
+const FILTER_KIND_OPTIONS: readonly EnumOption<FilterKind>[] = [
+  { value: "eq", label: "field equals" },
+  { value: "text", label: "text contains" },
+];
 
 function filterLabel(f: ViewFilter): string {
   if (f.kind === "text") return `text ∋ ${f.text}`;
@@ -54,7 +62,7 @@ export function ViewFilterPopoverHost() {
 
   const config = getViewConfig(frame?.props);
 
-  const [kind, setKind] = useState<"eq" | "text">("eq");
+  const [kind, setKind] = useState<FilterKind>("eq");
   const [fieldId, setFieldId] = useState("");
   const [value, setValue] = useState("");
 
@@ -171,14 +179,12 @@ export function ViewFilterPopoverHost() {
         )}
 
         <PrefFieldRow icon={FunnelIcon} label="kind">
-          <select
+          <EnumSelect
             className={POPOVER_VALUE_CLASS}
             value={kind}
-            onChange={(e) => setKind(e.target.value as "eq" | "text")}
-          >
-            <option value="eq">field equals</option>
-            <option value="text">text contains</option>
-          </select>
+            options={FILTER_KIND_OPTIONS}
+            onChange={setKind}
+          />
         </PrefFieldRow>
 
         {kind === "eq" && (

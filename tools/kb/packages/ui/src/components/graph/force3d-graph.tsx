@@ -3,7 +3,13 @@
  * three stays in this chunk only (task 16a).
  */
 import { useEffect, useRef } from "react";
-import ForceGraph3D, { type ForceGraph3DInstance } from "3d-force-graph";
+import {
+  createForceGraph,
+  linkEndId,
+  type FgLink,
+  type FgNode,
+  type KbForceGraph,
+} from "./force3d-instance";
 import { CanvasTexture, type Object3D, Sprite, SpriteMaterial } from "./force3d-three";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import { force3dColor, readTokenColor } from "@/lib/css-color";
@@ -28,34 +34,7 @@ export interface Force3dGraphProps {
   labelTopN?: number;
 }
 
-type FgNode = {
-  id: string;
-  name: string;
-  color: string;
-  val: number;
-  clusterKey: string;
-  tags: string[];
-  degree: number;
-  x?: number;
-  y?: number;
-  z?: number;
-  vx?: number;
-  vy?: number;
-  vz?: number;
-};
-
-type FgLink = {
-  source: string | FgNode;
-  target: string | FgNode;
-  kind: string;
-  weight: number;
-};
-
 type Vec3 = { x: number; y: number; z: number };
-
-function linkEndId(end: string | FgNode): string {
-  return typeof end === "string" ? end : end.id;
-}
 
 function makeLabelSprite(text: string, color: string): Sprite {
   const canvas = document.createElement("canvas");
@@ -95,7 +74,7 @@ export default function Force3dGraph({
   labelTopN = 24,
 }: Force3dGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const graphRef = useRef<ForceGraph3DInstance | null>(null);
+  const graphRef = useRef<KbForceGraph | null>(null);
   const positionsRef = useRef<Map<string, Vec3>>(new Map());
   const cameraRef = useRef<Vec3 | null>(null);
   const layoutKeyRef = useRef(layoutKey);
@@ -186,8 +165,8 @@ export default function Force3dGraph({
     const neighbors = new Map<string, Set<string>>();
     for (const n of fgNodes) neighbors.set(n.id, new Set());
     for (const e of fgLinks) {
-      const source = e.source as string;
-      const target = e.target as string;
+      const source = linkEndId(e.source);
+      const target = linkEndId(e.target);
       neighbors.get(source)?.add(target);
       neighbors.get(target)?.add(source);
     }
@@ -211,33 +190,27 @@ export default function Force3dGraph({
       });
     };
 
-    const Graph = new ForceGraph3D(el)
+    const Graph = createForceGraph(el)
       .backgroundColor(background)
       .showNavInfo(false)
       .nodeResolution(24)
       .graphData({ nodes: fgNodes, links: fgLinks })
       .nodeId("id")
-      .nodeLabel((n: object) => {
-        const node = n as FgNode;
+      .nodeLabel((node: FgNode) => {
         const tags = node.tags.slice(0, 3).join(", ");
         return `<div style="font:12px Outfit Variable,sans-serif"><b>${node.name}</b><br/>${tags ? `${tags}<br/>` : ""}${node.degree} connections</div>`;
       })
-      .nodeColor((n: object) => {
-        const node = n as FgNode;
-        return withGraphAlpha(node.color, alphaFor(node.id));
-      })
-      .nodeVal((n: object) => (n as FgNode).val);
+      .nodeColor((node: FgNode) => withGraphAlpha(node.color, alphaFor(node.id)))
+      .nodeVal((node: FgNode) => node.val);
 
     if (showLabels) {
-      Graph.nodeThreeObject((n: object) => {
-        const node = n as FgNode;
+      Graph.nodeThreeObject((node: FgNode) => {
         if (!labelIds.has(node.id)) return undefined as unknown as Object3D;
         return makeLabelSprite(formatGraphLabel(node.name, node.val), labelColor);
       }).nodeThreeObjectExtend(true);
     }
 
-    Graph.linkWidth((l: object) => {
-      const link = l as FgLink;
+    Graph.linkWidth((link: FgLink) => {
       const base = Math.max(0.8, Math.min(3, Math.sqrt(link.weight) * 0.4));
       const sel = selectedRef.current;
       if (!sel) return base;
@@ -245,8 +218,7 @@ export default function Force3dGraph({
       const t = linkEndId(link.target);
       return s === sel || t === sel ? base * 2 : base * 0.3;
     })
-      .linkColor((l: object) => {
-        const link = l as FgLink;
+      .linkColor((link: FgLink) => {
         const sel = selectedRef.current;
         if (!sel) return withGraphAlpha(linkBase, 1);
         const s = linkEndId(link.source);
@@ -258,24 +230,21 @@ export default function Force3dGraph({
       .linkDirectionalArrowLength(3.5)
       .linkDirectionalArrowRelPos(1)
       .linkCurvature(curvedLinks ? 0.25 : 0)
-      .linkDirectionalParticles((l: object) => {
-        const link = l as FgLink;
+      .linkDirectionalParticles((link: FgLink) => {
         const sel = selectedRef.current;
         if (!sel) return 1;
         const s = linkEndId(link.source);
         const t = linkEndId(link.target);
         return s === sel || t === sel ? 4 : 0;
       })
-      .linkDirectionalParticleSpeed((l: object) => {
-        const link = l as FgLink;
+      .linkDirectionalParticleSpeed((link: FgLink) => {
         const sel = selectedRef.current;
         if (!sel) return 0.004;
         const s = linkEndId(link.source);
         const t = linkEndId(link.target);
         return s === sel || t === sel ? 0.015 : 0.004;
       })
-      .linkDirectionalParticleWidth((l: object) => {
-        const link = l as FgLink;
+      .linkDirectionalParticleWidth((link: FgLink) => {
         const sel = selectedRef.current;
         if (!sel) return 1.2;
         const s = linkEndId(link.source);
@@ -289,8 +258,7 @@ export default function Force3dGraph({
           /* torn down */
         }
       })
-      .onNodeClick((n: object) => {
-        const node = n as FgNode;
+      .onNodeClick((node: FgNode) => {
         if (!node.id) return;
         const meta = nodes.find((x) => x.id === node.id);
         onSelRef.current?.(
@@ -372,7 +340,7 @@ export default function Force3dGraph({
     onControlsReadyRef.current?.(force3dCameraControls(() => graphRef.current));
     // Browser render harness only: 3d-force-graph keeps simulation state private.
     if (import.meta.env.MODE === "test-render") {
-      (el as HTMLDivElement & { __kbForceGraph?: ForceGraph3DInstance }).__kbForceGraph = Graph;
+      (el as HTMLDivElement & { __kbForceGraph?: KbForceGraph }).__kbForceGraph = Graph;
     }
 
     const ro = new ResizeObserver(() => {
@@ -397,9 +365,8 @@ export default function Force3dGraph({
         /* */
       }
       try {
-        const data = Graph.graphData() as unknown as { nodes?: FgNode[] };
         const snap = new Map<string, Vec3>();
-        for (const n of data.nodes ?? fgNodes) {
+        for (const n of Graph.graphData().nodes) {
           if (
             n.id &&
             typeof n.x === "number" &&
@@ -420,7 +387,7 @@ export default function Force3dGraph({
       }
       graphRef.current = null;
       onControlsReadyRef.current?.(null);
-      delete (el as HTMLDivElement & { __kbForceGraph?: ForceGraph3DInstance }).__kbForceGraph;
+      delete (el as HTMLDivElement & { __kbForceGraph?: KbForceGraph }).__kbForceGraph;
       el.replaceChildren();
     };
   }, [nodes, edges, layoutKey, themeKey, curvedLinks, autorotate, showLabels, labelTopN]);

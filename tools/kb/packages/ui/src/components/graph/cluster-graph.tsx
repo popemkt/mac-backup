@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Graph from "graphology";
+import { nodePosition } from "./graph-attributes";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Sigma from "sigma";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
@@ -282,7 +283,7 @@ export function ClusterGraph({
 
     // --- Node drag (MUST 7) ---
     sigma.on("downNode", ({ node, event: _event }) => {
-      const pos = sigma.graphToViewport(graph.getNodeAttributes(node) as { x: number; y: number });
+      const pos = sigma.graphToViewport(nodePosition(graph, node));
       dragRef.current = { node, dragging: false, startX: pos.x, startY: pos.y };
       sigma.getCamera().disable();
     });

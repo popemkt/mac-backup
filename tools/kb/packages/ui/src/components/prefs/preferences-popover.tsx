@@ -1,9 +1,25 @@
 import { useEffect, useRef } from "react";
 import { ArrowsHorizontalIcon, CircleHalfIcon, TextAaIcon } from "@phosphor-icons/react";
 import { usePrefsStore, type FontPref, type ThemePref, type WidthPref } from "@/stores/prefs.store";
+import { isOutside } from "@/lib/dom";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "@/components/outline/fields-section";
+import { EnumSelect, type EnumOption } from "@/components/ui/enum-select";
 import { POPOVER_VALUE_CLASS, PopoverShell } from "@/components/ui/popover-shell";
+
+const THEME_OPTIONS: readonly EnumOption<ThemePref>[] = [
+  { value: "system", label: "system" },
+  { value: "light", label: "light" },
+  { value: "dark", label: "dark" },
+];
+const FONT_OPTIONS: readonly EnumOption<FontPref>[] = [
+  { value: "inter", label: "Inter" },
+  { value: "outfit", label: "Outfit" },
+];
+const WIDTH_OPTIONS: readonly EnumOption<WidthPref>[] = [
+  { value: "centered", label: "centered" },
+  { value: "full", label: "full" },
+];
 
 export function PreferencesPopover() {
   const open = useUiStore((s) => s.prefsOpen);
@@ -16,10 +32,7 @@ export function PreferencesPopover() {
       if (e.key === "Escape") setOpen(false);
     };
     const onPointerDown = (e: PointerEvent) => {
-      const panel = panelRef.current;
-      if (panel && e.target instanceof Node && !panel.contains(e.target)) {
-        setOpen(false);
-      }
+      if (isOutside(panelRef.current, e.target)) setOpen(false);
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("pointerdown", onPointerDown);
@@ -45,15 +58,12 @@ function ThemeRow() {
   const setTheme = usePrefsStore((s) => s.setTheme);
   return (
     <PrefFieldRow icon={CircleHalfIcon} label="theme">
-      <select
+      <EnumSelect
         className={POPOVER_VALUE_CLASS}
         value={theme}
-        onChange={(e) => setTheme(e.target.value as ThemePref)}
-      >
-        <option value="system">system</option>
-        <option value="light">light</option>
-        <option value="dark">dark</option>
-      </select>
+        options={THEME_OPTIONS}
+        onChange={setTheme}
+      />
     </PrefFieldRow>
   );
 }
@@ -63,14 +73,12 @@ function FontRow() {
   const setFont = usePrefsStore((s) => s.setFont);
   return (
     <PrefFieldRow icon={TextAaIcon} label="font">
-      <select
+      <EnumSelect
         className={POPOVER_VALUE_CLASS}
         value={font}
-        onChange={(e) => setFont(e.target.value as FontPref)}
-      >
-        <option value="inter">Inter</option>
-        <option value="outfit">Outfit</option>
-      </select>
+        options={FONT_OPTIONS}
+        onChange={setFont}
+      />
     </PrefFieldRow>
   );
 }
@@ -80,14 +88,12 @@ function WidthRow() {
   const setWidth = usePrefsStore((s) => s.setWidth);
   return (
     <PrefFieldRow icon={ArrowsHorizontalIcon} label="width">
-      <select
+      <EnumSelect
         className={POPOVER_VALUE_CLASS}
         value={width}
-        onChange={(e) => setWidth(e.target.value as WidthPref)}
-      >
-        <option value="centered">centered</option>
-        <option value="full">full</option>
-      </select>
+        options={WIDTH_OPTIONS}
+        onChange={setWidth}
+      />
     </PrefFieldRow>
   );
 }
