@@ -5,6 +5,7 @@ import { LAYER_ALLOWS, SCOPE_ALLOWS } from "../src/constraints.ts";
 import {
   PACKAGES_ROOT,
   axisValues,
+  layerDirs,
   packageDirs,
   rootManifest,
   tagsOf,
@@ -16,28 +17,38 @@ import {
  * member is under packages/. Without this, a package can exist that no gate
  * ever sees: untagged, untypechecked, and invisible to the project graph.
  * Red case (demonstrated in the w1 report): drop a tag from a manifest.
+ *
+ * The tree is two levels deep and the first level is the layer: a package's
+ * layer is where it sits, so `packages/misc/<pkg>` fails here rather than
+ * inventing a layer the matrix has never heard of, and a `layer:*` tag beside
+ * the folder fails as the duplicate it is. `scope:*` stays a tag — it names
+ * the runtime the code must survive, which placement cannot say.
  */
 describe("workspace-shape", () => {
   const root = rootManifest();
 
-  test("the root declares exactly packages/* as its members", () => {
-    expect(root.workspaces?.packages).toEqual(["packages/*"]);
+  test("the root declares exactly packages/*/* as its members", () => {
+    expect(root.workspaces?.packages).toEqual(["packages/*/*"]);
     expect(root.private).toBe(true);
   });
 
-  test("every directory under packages/ has a manifest", () => {
+  test("every directory under packages/ is a layer the matrix knows", () => {
+    const unknown = layerDirs().filter((layer) => !(layer in LAYER_ALLOWS));
+    expect(unknown, `not a layer: ${unknown.join(", ")}`).toEqual([]);
+  });
+
+  test("every directory under a layer has a manifest", () => {
     const missing = packageDirs().filter(
       (dir) => !existsSync(join(PACKAGES_ROOT, dir, "package.json")),
     );
     expect(missing, missing.join("\n")).toEqual([]);
   });
 
-  test("every member is @kb/<dir>, private, ESM, and typechecked", () => {
+  test("every member is @kb/<basename>, private, ESM, and typechecked", () => {
     const bad: string[] = [];
-    for (const { dir, manifest } of workspacePackages()) {
-      if (manifest.name !== `@kb/${dir}`) {
-        bad.push(`${dir}: name is ${String(manifest.name)}`);
-      }
+    for (const { dir, name, manifest } of workspacePackages()) {
+      const basename = dir.slice(dir.indexOf("/") + 1);
+      if (name !== `@kb/${basename}`) bad.push(`${dir}: name is ${JSON.stringify(name)}`);
       if (manifest.private !== true) bad.push(`${dir}: not private`);
       if (manifest.type !== "module") bad.push(`${dir}: type is not module`);
       if (manifest.version !== "0.0.0") {
@@ -53,17 +64,25 @@ describe("workspace-shape", () => {
     expect(bad, bad.join("\n")).toEqual([]);
   });
 
-  test("every member carries one known layer tag and one known scope tag", () => {
+  test("no member declares a layer tag", () => {
+    // The folder is the layer. A `layer:*` tag beside it is a second copy of
+    // the same fact, free to disagree with where the package actually sits.
+    // Red case: add `"layer:domain"` back to any manifest's `nx.tags`.
     const bad: string[] = [];
     for (const { dir, manifest } of workspacePackages()) {
-      const tags = tagsOf(manifest);
-      const layers = axisValues(tags, "layer");
-      const scopes = axisValues(tags, "scope");
-      const [layer] = layers;
+      const tagged = axisValues(tagsOf(manifest), "layer");
+      if (tagged.length > 0) {
+        bad.push(`${dir}: declares ${JSON.stringify(tagged)}; the folder is the layer`);
+      }
+    }
+    expect(bad, bad.join("\n")).toEqual([]);
+  });
+
+  test("every member carries exactly one known scope tag", () => {
+    const bad: string[] = [];
+    for (const { dir, manifest } of workspacePackages()) {
+      const scopes = axisValues(tagsOf(manifest), "scope");
       const [scope] = scopes;
-      if (layers.length !== 1 || layer === undefined) {
-        bad.push(`${dir}: layer tags ${JSON.stringify(layers)}`);
-      } else if (!(layer in LAYER_ALLOWS)) bad.push(`${dir}: unknown layer:${layer}`);
       if (scopes.length !== 1 || scope === undefined) {
         bad.push(`${dir}: scope tags ${JSON.stringify(scopes)}`);
       } else if (!(scope in SCOPE_ALLOWS)) bad.push(`${dir}: unknown scope:${scope}`);

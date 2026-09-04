@@ -17,7 +17,7 @@
     "**/dist/**",
     "**/node_modules/**",
     "**/storybook-static/**",
-    "packages/ext-sdk/generated/**"
+    "**/ext-sdk/generated/**"
   ],
   "categories": {
     "correctness": "error",

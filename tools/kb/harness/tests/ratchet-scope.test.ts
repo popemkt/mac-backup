@@ -16,9 +16,9 @@ import { countsTowardRatchet, tsgoDiagnosticCounts } from "../src/snapshot.ts";
  * "test-file suggestion is not counted" expectations below fail.
  */
 describe("ratchet-scope", () => {
-  const srcFile = "/abs/tools/kb/packages/server/src/server.ts";
-  const testFile = "/abs/tools/kb/packages/server/tests/ui.test.ts";
-  const rootFile = "/abs/tools/kb/packages/render-tests/playwright.config.ts";
+  const srcFile = "/abs/tools/kb/packages/app/server/src/server.ts";
+  const testFile = "/abs/tools/kb/packages/app/server/tests/ui.test.ts";
+  const rootFile = "/abs/tools/kb/packages/test-support/render-tests/playwright.config.ts";
 
   test("suggestion under src/ is counted", () => {
     expect(countsTowardRatchet({ severity: "message", name: "asyncFunction", file: srcFile })).toBe(

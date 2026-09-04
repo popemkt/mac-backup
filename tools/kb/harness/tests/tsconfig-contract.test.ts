@@ -7,6 +7,7 @@ import {
   SCOPE_ALLOWS,
 } from "../src/constraints.ts";
 import {
+  type WorkspacePackage,
   PACKAGES_ROOT,
   WORKSPACE_ROOT,
   axisValues,
@@ -106,11 +107,18 @@ function baseOptions(): Record<string, unknown> {
 }
 
 /** The preset a package must extend, derived from the scope tag it carries. */
-function presetFor(dir: string): string | undefined {
-  const pkg = workspacePackages().find((p) => p.dir === dir);
-  if (!pkg) return undefined;
+function presetFor(pkg: WorkspacePackage): string | undefined {
   const scope = axisValues(tagsOf(pkg.manifest), "scope")[0];
   return scope === undefined ? undefined : RUNTIME_PRESET_BY_SCOPE[scope];
+}
+
+/**
+ * How far a package tsconfig is from the presets: `packages/<layer>/<pkg>`,
+ * so three levels. Derived from the package's own path rather than written
+ * out, so the depth is stated where the tree is.
+ */
+function presetPrefix(pkg: WorkspacePackage): string {
+  return "../".repeat(pkg.dir.split("/").length + 1);
 }
 
 describe("tsconfig-contract", () => {
@@ -219,7 +227,8 @@ describe("tsconfig-presets", () => {
     );
 
     const bad: string[] = [];
-    for (const { dir } of workspacePackages()) {
+    for (const pkg of workspacePackages()) {
+      const { dir, name } = pkg;
       const tsPath = join(PACKAGES_ROOT, dir, "tsconfig.json");
       if (!existsSync(tsPath)) {
         bad.push(`${dir}: no tsconfig.json`);
@@ -227,13 +236,13 @@ describe("tsconfig-presets", () => {
       }
 
       const config = readTsconfig(tsPath);
-      const preset = presetFor(dir);
+      const preset = presetFor(pkg);
       if (preset === undefined) {
         bad.push(`${dir}: no scope tag, so no preset can be derived`);
         continue;
       }
 
-      const want = `../../${preset}`;
+      const want = `${presetPrefix(pkg)}${preset}`;
       if (config.extends !== want) {
         bad.push(`${dir}: extends '${String(config.extends)}' (want '${want}')`);
       }
@@ -244,7 +253,7 @@ describe("tsconfig-presets", () => {
         }
       }
 
-      const sanctioned = SANCTIONED_TSCONFIG_DELTAS[dir] ?? {};
+      const sanctioned = SANCTIONED_TSCONFIG_DELTAS[name] ?? {};
       for (const [key, value] of Object.entries(config.compilerOptions ?? {})) {
         if (key in sanctioned) continue;
         if (baseKeys.has(key)) {
@@ -261,13 +270,21 @@ describe("tsconfig-presets", () => {
   });
 
   test("every sanctioned delta is still declared by the package that claimed it", () => {
+    const dirByName = new Map(workspacePackages().map((pkg) => [pkg.name, pkg.dir]));
     const stale: string[] = [];
-    for (const [dir, deltas] of Object.entries(SANCTIONED_TSCONFIG_DELTAS)) {
+    for (const [name, deltas] of Object.entries(SANCTIONED_TSCONFIG_DELTAS)) {
+      const dir = dirByName.get(name);
+      if (dir === undefined) {
+        stale.push(`${name}: sanctioned but no such package — drop the sanction`);
+        continue;
+      }
       const tsPath = join(PACKAGES_ROOT, dir, "tsconfig.json");
       const opts = existsSync(tsPath) ? (readTsconfig(tsPath).compilerOptions ?? {}) : {};
       for (const key of Object.keys(deltas)) {
         if (!(key in opts)) {
-          stale.push(`${dir}: sanctioned delta '${key}' is no longer declared — drop the sanction`);
+          stale.push(
+            `${name}: sanctioned delta '${key}' is no longer declared — drop the sanction`,
+          );
         }
       }
     }
@@ -284,7 +301,7 @@ describe("tsconfig-presets", () => {
  * `overrides`, next to the severities it changes.
  *
  * The scope is one `include` and nothing else. The harness lives outside
- * `packages/`, so `packages/*\/src/**\/*` already excludes it; an `exclude`
+ * `packages/`, so `packages/*\/*\/src/**\/*` already excludes it; an `exclude`
  * beside the include would be a second list to keep in sync.
  *
  * Red cases: promote a rule that is still in the ratchet ledger; relax a rule
@@ -297,7 +314,7 @@ describe("effect-severity-lanes", () => {
 
   test("the preference lane has exactly one file scope", () => {
     expect(plugin.overrides.length, "the Effect file scope is stated once").toBe(1);
-    expect(override?.include).toEqual(["packages/*/src/**/*"]);
+    expect(override?.include).toEqual(["packages/*/*/src/**/*"]);
     expect(
       override?.exclude,
       "the include is the whole scope; a carve-out would be a second list",

@@ -18,14 +18,7 @@
         "vite-plus": "catalog:",
       },
     },
-    "packages/canvas": {
-      "name": "@kb/canvas",
-      "version": "0.0.0",
-      "devDependencies": {
-        "@types/bun": "catalog:",
-      },
-    },
-    "packages/cli": {
+    "packages/app/cli": {
       "name": "@kb/cli",
       "version": "0.0.0",
       "bin": {
@@ -52,63 +45,7 @@
         "zod": "catalog:",
       },
     },
-    "packages/contracts": {
-      "name": "@kb/contracts",
-      "version": "0.0.0",
-      "dependencies": {
-        "@kb/model": "workspace:*",
-        "@kb/query": "workspace:*",
-        "effect": "catalog:",
-        "zod": "catalog:",
-      },
-      "devDependencies": {
-        "@types/bun": "catalog:",
-      },
-    },
-    "packages/ext-canvas": {
-      "name": "@kb/ext-canvas",
-      "version": "0.0.0",
-      "dependencies": {
-        "@kb/canvas": "workspace:*",
-        "@kb/contracts": "workspace:*",
-        "@kb/model": "workspace:*",
-        "@kb/operations": "workspace:*",
-        "effect": "catalog:",
-        "zod": "catalog:",
-      },
-      "devDependencies": {
-        "@types/bun": "catalog:",
-      },
-    },
-    "packages/ext-docs": {
-      "name": "@kb/ext-docs",
-      "version": "0.0.0",
-      "dependencies": {
-        "@kb/contracts": "workspace:*",
-        "@kb/model": "workspace:*",
-        "@kb/operations": "workspace:*",
-        "effect": "catalog:",
-        "zod": "catalog:",
-      },
-      "devDependencies": {
-        "@types/bun": "catalog:",
-      },
-    },
-    "packages/ext-sdk": {
-      "name": "@kb/ext-sdk",
-      "version": "0.0.0",
-      "dependencies": {
-        "@kb/contracts": "workspace:*",
-        "@kb/model": "workspace:*",
-        "effect": "catalog:",
-      },
-      "devDependencies": {
-        "@effect/platform-bun": "catalog:",
-        "@types/bun": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/mcp": {
+    "packages/app/mcp": {
       "name": "@kb/mcp",
       "version": "0.0.0",
       "dependencies": {
@@ -125,63 +62,7 @@
         "@types/bun": "catalog:",
       },
     },
-    "packages/model": {
-      "name": "@kb/model",
-      "version": "0.0.0",
-      "dependencies": {
-        "effect": "catalog:",
-        "ulid": "catalog:",
-        "zod": "catalog:",
-      },
-      "devDependencies": {
-        "@kb/test-kit": "workspace:*",
-        "@types/bun": "catalog:",
-        "fast-check": "catalog:",
-      },
-    },
-    "packages/operations": {
-      "name": "@kb/operations",
-      "version": "0.0.0",
-      "dependencies": {
-        "@kb/contracts": "workspace:*",
-        "@kb/ext-sdk": "workspace:*",
-        "@kb/model": "workspace:*",
-        "@kb/query": "workspace:*",
-        "effect": "catalog:",
-        "zod": "catalog:",
-      },
-      "devDependencies": {
-        "@types/bun": "catalog:",
-      },
-    },
-    "packages/query": {
-      "name": "@kb/query",
-      "version": "0.0.0",
-      "dependencies": {
-        "@kb/model": "workspace:*",
-        "datascript": "catalog:",
-      },
-      "devDependencies": {
-        "@kb/test-kit": "workspace:*",
-        "@types/bun": "catalog:",
-        "fast-check": "catalog:",
-      },
-    },
-    "packages/render-tests": {
-      "name": "@kb/render-tests",
-      "version": "0.0.0",
-      "dependencies": {
-        "@kb/server": "workspace:*",
-      },
-      "devDependencies": {
-        "@kb/model": "workspace:*",
-        "@kb/test-kit": "workspace:*",
-        "@types/bun": "catalog:",
-        "effect": "catalog:",
-        "playwright": "catalog:",
-      },
-    },
-    "packages/runtime": {
+    "packages/app/runtime": {
       "name": "@kb/runtime",
       "version": "0.0.0",
       "dependencies": {
@@ -201,7 +82,7 @@
         "zod": "catalog:",
       },
     },
-    "packages/server": {
+    "packages/app/server": {
       "name": "@kb/server",
       "version": "0.0.0",
       "dependencies": {
@@ -219,23 +100,7 @@
         "@types/bun": "catalog:",
       },
     },
-    "packages/store-jsonl": {
-      "name": "@kb/store-jsonl",
-      "version": "0.0.0",
-      "dependencies": {
-        "@effect/platform-bun": "catalog:",
-        "@kb/contracts": "workspace:*",
-        "@kb/model": "workspace:*",
-        "effect": "catalog:",
-      },
-      "devDependencies": {
-        "@kb/query": "workspace:*",
-        "@kb/test-kit": "workspace:*",
-        "@types/bun": "catalog:",
-        "fast-check": "catalog:",
-      },
-    },
-    "packages/test-kit": {
+    "packages/app/test-kit": {
       "name": "@kb/test-kit",
       "version": "0.0.0",
       "dependencies": {
@@ -250,7 +115,7 @@
         "@types/bun": "catalog:",
       },
     },
-    "packages/ui": {
+    "packages/app/ui": {
       "name": "@kb/ui",
       "version": "0.0.0",
       "dependencies": {
@@ -296,6 +161,141 @@
         "vite": "catalog:",
         "vite-plus": "catalog:",
         "vitest": "catalog:",
+      },
+    },
+    "packages/application/operations": {
+      "name": "@kb/operations",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/ext-sdk": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/query": "workspace:*",
+        "effect": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/contract/contracts": {
+      "name": "@kb/contracts",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/model": "workspace:*",
+        "@kb/query": "workspace:*",
+        "effect": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/contract/ext-sdk": {
+      "name": "@kb/ext-sdk",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "catalog:",
+        "@types/bun": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/domain/canvas": {
+      "name": "@kb/canvas",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/domain/model": {
+      "name": "@kb/model",
+      "version": "0.0.0",
+      "dependencies": {
+        "effect": "catalog:",
+        "ulid": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@kb/test-kit": "workspace:*",
+        "@types/bun": "catalog:",
+        "fast-check": "catalog:",
+      },
+    },
+    "packages/domain/query": {
+      "name": "@kb/query",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/model": "workspace:*",
+        "datascript": "catalog:",
+      },
+      "devDependencies": {
+        "@kb/test-kit": "workspace:*",
+        "@types/bun": "catalog:",
+        "fast-check": "catalog:",
+      },
+    },
+    "packages/extension/ext-canvas": {
+      "name": "@kb/ext-canvas",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/canvas": "workspace:*",
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/operations": "workspace:*",
+        "effect": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/ext-docs": {
+      "name": "@kb/ext-docs",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/operations": "workspace:*",
+        "effect": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/infrastructure/store-jsonl": {
+      "name": "@kb/store-jsonl",
+      "version": "0.0.0",
+      "dependencies": {
+        "@effect/platform-bun": "catalog:",
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@kb/query": "workspace:*",
+        "@kb/test-kit": "workspace:*",
+        "@types/bun": "catalog:",
+        "fast-check": "catalog:",
+      },
+    },
+    "packages/test-support/render-tests": {
+      "name": "@kb/render-tests",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/server": "workspace:*",
+      },
+      "devDependencies": {
+        "@kb/model": "workspace:*",
+        "@kb/test-kit": "workspace:*",
+        "@types/bun": "catalog:",
+        "effect": "catalog:",
+        "playwright": "catalog:",
       },
     },
   },
@@ -575,37 +575,37 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@kb/canvas": ["@kb/canvas@workspace:packages/canvas"],
+    "@kb/canvas": ["@kb/canvas@workspace:packages/domain/canvas"],
 
-    "@kb/cli": ["@kb/cli@workspace:packages/cli"],
+    "@kb/cli": ["@kb/cli@workspace:packages/app/cli"],
 
-    "@kb/contracts": ["@kb/contracts@workspace:packages/contracts"],
+    "@kb/contracts": ["@kb/contracts@workspace:packages/contract/contracts"],
 
-    "@kb/ext-canvas": ["@kb/ext-canvas@workspace:packages/ext-canvas"],
+    "@kb/ext-canvas": ["@kb/ext-canvas@workspace:packages/extension/ext-canvas"],
 
-    "@kb/ext-docs": ["@kb/ext-docs@workspace:packages/ext-docs"],
+    "@kb/ext-docs": ["@kb/ext-docs@workspace:packages/extension/ext-docs"],
 
-    "@kb/ext-sdk": ["@kb/ext-sdk@workspace:packages/ext-sdk"],
+    "@kb/ext-sdk": ["@kb/ext-sdk@workspace:packages/contract/ext-sdk"],
 
-    "@kb/mcp": ["@kb/mcp@workspace:packages/mcp"],
+    "@kb/mcp": ["@kb/mcp@workspace:packages/app/mcp"],
 
-    "@kb/model": ["@kb/model@workspace:packages/model"],
+    "@kb/model": ["@kb/model@workspace:packages/domain/model"],
 
-    "@kb/operations": ["@kb/operations@workspace:packages/operations"],
+    "@kb/operations": ["@kb/operations@workspace:packages/application/operations"],
 
-    "@kb/query": ["@kb/query@workspace:packages/query"],
+    "@kb/query": ["@kb/query@workspace:packages/domain/query"],
 
-    "@kb/render-tests": ["@kb/render-tests@workspace:packages/render-tests"],
+    "@kb/render-tests": ["@kb/render-tests@workspace:packages/test-support/render-tests"],
 
-    "@kb/runtime": ["@kb/runtime@workspace:packages/runtime"],
+    "@kb/runtime": ["@kb/runtime@workspace:packages/app/runtime"],
 
-    "@kb/server": ["@kb/server@workspace:packages/server"],
+    "@kb/server": ["@kb/server@workspace:packages/app/server"],
 
-    "@kb/store-jsonl": ["@kb/store-jsonl@workspace:packages/store-jsonl"],
+    "@kb/store-jsonl": ["@kb/store-jsonl@workspace:packages/infrastructure/store-jsonl"],
 
-    "@kb/test-kit": ["@kb/test-kit@workspace:packages/test-kit"],
+    "@kb/test-kit": ["@kb/test-kit@workspace:packages/app/test-kit"],
 
-    "@kb/ui": ["@kb/ui@workspace:packages/ui"],
+    "@kb/ui": ["@kb/ui@workspace:packages/app/ui"],
 
     "@modelcontextprotocol/sdk": ["@modelcontextprotocol/sdk@1.30.0", "", { "dependencies": { "@hono/node-server": "^1.19.9 || ^2.0.5", "ajv": "^8.17.1", "ajv-formats": "^3.0.1", "content-type": "^1.0.5", "cors": "^2.8.5", "cross-spawn": "^7.0.5", "eventsource": "^3.0.2", "eventsource-parser": "^3.0.0", "express": "^5.2.1", "express-rate-limit": "^8.2.1", "hono": "^4.11.4", "jose": "^6.1.3", "json-schema-typed": "^8.0.2", "pkce-challenge": "^5.0.0", "raw-body": "^3.0.0", "zod": "^3.25 || ^4.0", "zod-to-json-schema": "^3.25.1" }, "peerDependencies": { "@cfworker/json-schema": "^4.1.1" }, "optionalPeers": ["@cfworker/json-schema"] }, "sha512-xKd8OIzlqNzcqcNumGAa6g+PW2kjD5vrpcKOnfldAUPP3j7lnqMPwlTXQm8gF+UwH72z0lqaRbjr9hqGz0eITA=="],
 

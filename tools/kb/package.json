@@ -4,7 +4,7 @@
   "private": true,
   "workspaces": {
     "packages": [
-      "packages/*"
+      "packages/*/*"
     ],
     "catalog": {
       "3d-force-graph": "^1.80.0",
@@ -64,9 +64,9 @@
     "typecheck": "nx run-many -t typecheck",
     "test": "bun test packages",
     "test:ui": "bun run --filter @kb/ui test",
-    "test:dst": "bun packages/test-kit/tests/run-many.ts 25",
+    "test:dst": "bun packages/app/test-kit/tests/run-many.ts 25",
     "test:mutation": "stryker run",
-    "bench": "bun test packages/store-jsonl/tests/benchmark.test.ts",
+    "bench": "bun test packages/infrastructure/store-jsonl/tests/benchmark.test.ts",
     "lint": "oxlint --config .oxlintrc.json --type-aware packages harness",
     "fmt": "vp fmt packages harness",
     "fmt:check": "vp fmt packages harness --check",
@@ -74,7 +74,7 @@
     "harness": "bun test harness",
     "harness:snapshot": "bun harness/src/snapshot.ts",
     "affected": "nx affected -t typecheck,test --base=main",
-    "gen:ext-sdk": "bun packages/ext-sdk/scripts/generate.ts",
+    "gen:ext-sdk": "bun packages/contract/ext-sdk/scripts/generate.ts",
     "verify": "bun run typecheck && bun run lint && bun run fmt:check && bun run knip && bun run harness"
   },
   "devDependencies": {

@@ -16,8 +16,16 @@
 import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { typecheckProjectDirs } from "./scopes.ts";
-import { HARNESS_ROOT, rootManifest, WORKSPACE_ROOT } from "./workspace.ts";
+import { RUNTIME_PRESET_BY_SCOPE } from "./constraints.ts";
+import { projectDirOf, typecheckProjectDirs } from "./scopes.ts";
+import {
+  axisValues,
+  HARNESS_ROOT,
+  rootManifest,
+  tagsOf,
+  workspacePackages,
+  WORKSPACE_ROOT,
+} from "./workspace.ts";
 
 export const BASELINE_PATH = join(HARNESS_ROOT, "lint-warn-baseline.json");
 
@@ -41,8 +49,8 @@ export interface TsgoDiagnostic {
   file?: string;
 }
 
-/** A file under some package's `src/`. */
-const PACKAGE_SRC_FILE = /(?:^|\/)packages\/[^/]+\/src\//;
+/** A file under some package's `src/`, i.e. `packages/<layer>/<package>/src/`. */
+const PACKAGE_SRC_FILE = /(?:^|\/)packages\/[^/]+\/[^/]+\/src\//;
 
 /**
  * Which `@effect/tsgo` diagnostics the ratchet counts (DESIGN.md, "Ratchet
@@ -127,9 +135,30 @@ function collectOxlintWarnings(root: string, counts: Record<string, number>): vo
   }
 }
 
+/**
+ * Typecheck projects `effect-tsgo` has nothing to say about. The
+ * `@effect/language-service` block is authored in `tsconfig.bun.json` alone, so
+ * a project on any other preset emits no Effect diagnostic — asking costs a
+ * whole `tsc` run for an empty answer. Derived from the scope tag rather than
+ * naming the package, so the preset table stays the one place that knows.
+ */
+const EFFECT_PRESET = "tsconfig.bun.json";
+
+function nonEffectProjectDirs(): Set<string> {
+  return new Set(
+    workspacePackages()
+      .filter((pkg) => {
+        const scope = axisValues(tagsOf(pkg.manifest), "scope")[0];
+        return scope === undefined || RUNTIME_PRESET_BY_SCOPE[scope] !== EFFECT_PRESET;
+      })
+      .map(projectDirOf),
+  );
+}
+
 function collectTsgoWarnings(root: string, counts: Record<string, number>): void {
+  const skip = nonEffectProjectDirs();
   for (const dir of typecheckProjectDirs()) {
-    if (dir === "packages/ui") continue;
+    if (skip.has(dir)) continue;
     let tsgoOut = "";
     try {
       tsgoOut = execSync(

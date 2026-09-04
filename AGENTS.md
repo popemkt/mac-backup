@@ -170,11 +170,11 @@ by `.kb/assets/` (Mackup-owned backup, never committed; see
 `docs/backup-strategy.md`) and the `asset.upload` action, live WS updates);
 other apps
 can subscribe to live datalog queries over its `/ws` endpoint (see protocol in
-`tools/kb/packages/contracts/src/protocol.ts`). `sys.*` nodes are write-guarded (CLI
+`tools/kb/packages/contract/contracts/src/protocol.ts`). `sys.*` nodes are write-guarded (CLI
 `--force` to override).
 
 ```bash
-kb add "Fix drift audit" --tag todo --prop status=doing   # alias for bun tools/kb/packages/cli/src/main.ts
+kb add "Fix drift audit" --tag todo --prop status=doing   # alias for bun tools/kb/packages/app/cli/src/main.ts
 kb search "drift" --json
 kb query '[:find ?id ?text :where [?n :f/sys.f.type ?t] [?t :node/text "todo"] [?n :node/id ?id] [?n :node/text ?text]]'
 kb query '[:find ?from ?text :where [?e :node/mentions ?m] [?m :node/id "n.root-a"] [?e :node/id ?from] [?e :node/text ?text]]'
@@ -191,7 +191,7 @@ backbone). Repo-specific policy lives in extensions: `.kb/extensions/*.ts`
 modules default-exporting an array of contributions — actions
 (`{...ActionDefinition, handler}`) and render templates (`{id, template}`) —
 each registered as `ext.<file>.<id>`; loader failures warn and skip, never
-crash core. The bundled example `@kb/ext-docs` (`tools/kb/packages/ext-docs`)
+crash core. The bundled example `@kb/ext-docs` (`tools/kb/packages/extension/ext-docs`)
 owns `ext.docs.materialize`/`ext.docs.check` and the templates
 `ext.docs.todos`/`ext.docs.rules` (the bare ids `docs.materialize`,
 `docs.check`, `todos` and `rules` remain as aliases, so pre-commit and
@@ -204,9 +204,14 @@ Rules for agents:
 - `docs/kb/*.md` is generated (header marks it); edit data, then materialize.
   Pre-commit runs `docs.check` and blocks stale generated docs.
 - Workspace: `tools/kb` is a Bun workspace; every concept is a package under
-  `tools/kb/packages/<name>` named `@kb/<name>`, with one curated barrel at
-  `src/index.ts` and two tags (`layer:*`, `scope:*`) in its `nx` key. There is
-  no alias map — `@kb/*` resolve as workspace packages. Internal deps are
+  `tools/kb/packages/<layer>/<name>` named `@kb/<name>`, with one curated
+  barrel at `src/index.ts`. Its two axes have two homes: the **layer** is the
+  folder it sits in (`domain`, `contract`, `infrastructure`, `application`,
+  `extension`, `app`, `test-support` — exactly the `LAYER_ALLOWS` keys), and
+  the **scope** is one `scope:*` tag in its `nx` key. A `layer:*` tag is a
+  duplicate of the folder and fails `workspace-shape`. There is
+  no alias map — `@kb/*` resolve as workspace packages, and a package name
+  never encodes its layer. Internal deps are
   `workspace:*`, external deps are `catalog:`, and the catalog in the root
   `package.json` is the only file that names a version.
 - Rules and gaps are nodes like everything else: `#rule` (fields `home`,

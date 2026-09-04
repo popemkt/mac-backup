@@ -12,4 +12,4 @@ trustedDependencies = []
 # on Vitest (`bun run --filter @kb/ui test`) because its suite needs happy-dom,
 # vi.mock hoisting and fake timers. Documented once in DESIGN.md.
 [test]
-pathIgnorePatterns = ["**/packages/ui/**"]
+pathIgnorePatterns = ["**/packages/app/ui/**"]

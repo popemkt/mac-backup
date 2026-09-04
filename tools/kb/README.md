@@ -1,7 +1,7 @@
 # kb
 
 Repo-native outliner datastore, built as a Bun workspace: every concept is a
-package under `packages/<name>`. Bun is the production runtime; the toolchain
+package under `packages/<layer>/<name>`. Bun is the production runtime; the toolchain
 is TypeScript 7 + Vite+ (`vp` 0.2.8) + oxlint + Nx. See
 [DESIGN.md](./DESIGN.md) for the workspace shape, the runtime/tooling
 boundary, and the Effect action-handler seam.
@@ -41,4 +41,4 @@ export default actions;
 ```
 
 No repo-relative imports, no npm install of kb. Regenerate the embedded
-string after changing `packages/ext-sdk/src/surface.ts`: `bun run gen:ext-sdk`.
+string after changing `packages/contract/ext-sdk/src/surface.ts`: `bun run gen:ext-sdk`.

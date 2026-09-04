@@ -18,6 +18,10 @@
  * - There is no `tooling` row on either axis. The harness is the only thing
  *   that would have carried one, and it lives outside `packages/` as root
  *   tooling; the matrix describes workspace members.
+ *
+ * The keys of `LAYER_ALLOWS` are also the layer folder names under
+ * `packages/`: a package's layer is where it sits, so this table is the one
+ * place the set of layers is written down.
  * - There is no `scope:extension` row: no package carries it, and a row
  *   nothing reads is worse than no row.
  */
@@ -85,14 +89,16 @@ export const RUNTIME_PRESET_BY_SCOPE: Record<string, string> = {
 
 /**
  * The only compiler options a package tsconfig may declare on top of its
- * preset, per package, each with the reason it cannot be inherited. Anything
- * absent from this table is a redeclaration: fix the preset, not the package.
+ * preset, keyed by package name, each with the reason it cannot be inherited.
+ * Anything absent from this table is a redeclaration: fix the preset, not the
+ * package. Keyed by name, not directory, because the sanction is about the
+ * package and survives it being moved.
  */
 export const SANCTIONED_TSCONFIG_DELTAS: Record<string, Record<string, string>> = {
-  "render-tests": {
+  "@kb/render-tests": {
     lib: "Playwright `page.evaluate` bodies typecheck against the browser realm, so this one Bun package also needs the DOM lib. Widening the Bun preset would let backend code reference `document`.",
   },
-  ui: {
+  "@kb/ui": {
     paths:
       "`@/*` is ui's own intra-package source alias, not a workspace alias map; `@kb/*` still resolve as real packages.",
   },

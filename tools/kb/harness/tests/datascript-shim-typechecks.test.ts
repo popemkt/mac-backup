@@ -2,13 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { WORKSPACE_ROOT } from "../src/workspace.ts";
+import { PACKAGES_ROOT, WORKSPACE_ROOT, workspacePackages } from "../src/workspace.ts";
 
 /**
  * Harness check 10: Datascript shim typechecks (spec 11 / plan A.9 #10).
  *
- * Compiles packages/query/src/datascript.d.ts with `skipLibCheck: false` in an
- * isolated tsc invocation over the shim + packages/query/src/datascript.ts.
+ * Compiles @kb/query's `src/datascript.d.ts` with `skipLibCheck: false` in an
+ * isolated tsc invocation over the shim + its `src/datascript.ts`. The
+ * package's directory comes from the workspace reader, so the shim keeps its
+ * name while the tree around it can move.
  *
  * This guarantees that our hand-crafted DataScript type declarations are sound
  * and do not rely on skipLibCheck to pass.
@@ -16,8 +18,11 @@ import { WORKSPACE_ROOT } from "../src/workspace.ts";
  * Red case: introduce a type error into datascript.d.ts.
  */
 describe("datascript-shim-typechecks", () => {
-  const shimPath = join(WORKSPACE_ROOT, "packages", "query", "src", "datascript.d.ts");
-  const implPath = join(WORKSPACE_ROOT, "packages", "query", "src", "datascript.ts");
+  const queryDir = workspacePackages().find(({ name }) => name === "@kb/query")?.dir ?? "";
+  const shimRel = `packages/${queryDir}/src/datascript.d.ts`;
+  const implRel = `packages/${queryDir}/src/datascript.ts`;
+  const shimPath = join(PACKAGES_ROOT, queryDir, "src", "datascript.d.ts");
+  const implPath = join(PACKAGES_ROOT, queryDir, "src", "datascript.ts");
 
   // Spawns a whole tsc; under the full harness run it shares the box with
   // oxlint and effect-tsgo, so the 5 s default is not enough.
@@ -34,8 +39,8 @@ describe("datascript-shim-typechecks", () => {
       "--module Preserve",
       "--moduleResolution bundler",
       "--target ESNext",
-      "packages/query/src/datascript.d.ts",
-      "packages/query/src/datascript.ts",
+      shimRel,
+      implRel,
     ].join(" ");
 
     let exitCode = 0;
