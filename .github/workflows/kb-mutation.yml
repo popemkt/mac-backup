@@ -46,7 +46,7 @@ jobs:
         run: bun install --cwd tools/kb --frozen-lockfile
 
       - name: Mutation run
-        run: npm run test:mutation
+        run: bun run test:mutation
         working-directory: tools/kb
 
       # The report is the deliverable: which mutants no test killed. Kept even

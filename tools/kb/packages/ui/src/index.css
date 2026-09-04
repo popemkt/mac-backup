@@ -1,0 +1,306 @@
+/**
+ * kb token system — ported from nxus apps/nxus-editor/src/styles.css
+ * (DESIGN-RESKIN §1.1). Light/dark oklch palettes, radius scale, auto-hiding
+ * scrollbar. Default face is Inter Variable (Tana parity); Outfit remains an
+ * opt-in pref via <html data-font>. Metric-matched fallbacks keep swap CLS-free.
+ */
+@import "tailwindcss";
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/outfit";
+@import "./tokens.css";
+
+/* Arial reshaped to Inter metrics — swap must not reflow (item 1 / i10). */
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial"), local("Helvetica Neue"), local("Helvetica");
+  size-adjust: 107.64%;
+  ascent-override: 90%;
+  descent-override: 22.43%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Outfit Fallback";
+  src: local("Arial"), local("Helvetica Neue"), local("Helvetica");
+  size-adjust: 105%;
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.67 0.16 58);
+  --primary-foreground: oklch(0.99 0.02 95);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.58 0.22 27);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.88 0.15 92);
+  --chart-2: oklch(0.77 0.16 70);
+  --chart-3: oklch(0.67 0.16 58);
+  --chart-4: oklch(0.56 0.15 49);
+  --chart-5: oklch(0.47 0.12 46);
+  --radius: 8px;
+  --radius-card: 16px;
+  --radius-panel: 26px;
+  --radius-button: 9999px;
+  --border-width: 1px;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.67 0.16 58);
+  --sidebar-primary-foreground: oklch(0.99 0.02 95);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  --warning: oklch(0.75 0.15 85);
+  --success: oklch(0.7 0.15 140);
+  --info: oklch(0.6 0.15 250);
+  /* JSON Canvas color presets ("1"–"6") — luminance tuned for light skin */
+  --canvas-color-1: oklch(0.58 0.2 25);
+  --canvas-color-2: oklch(0.65 0.17 55);
+  --canvas-color-3: oklch(0.72 0.14 95);
+  --canvas-color-4: oklch(0.62 0.15 145);
+  --canvas-color-5: oklch(0.62 0.12 210);
+  --canvas-color-6: oklch(0.58 0.17 300);
+  --app-font: "Inter Variable", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-weight-body: 400;
+  --font-weight-ui: 500;
+  --font-weight-emphasis: 600;
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.77 0.16 70);
+  --primary-foreground: oklch(0.28 0.07 46);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.371 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.88 0.15 92);
+  --chart-2: oklch(0.77 0.16 70);
+  --chart-3: oklch(0.67 0.16 58);
+  --chart-4: oklch(0.56 0.15 49);
+  --chart-5: oklch(0.47 0.12 46);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.77 0.16 70);
+  --sidebar-primary-foreground: oklch(0.28 0.07 46);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+  --warning: oklch(0.8 0.15 85);
+  --success: oklch(0.65 0.15 145);
+  --info: oklch(0.7 0.12 250);
+  /* JSON Canvas presets — brighter for dark skin */
+  --canvas-color-1: oklch(0.72 0.18 25);
+  --canvas-color-2: oklch(0.78 0.15 55);
+  --canvas-color-3: oklch(0.86 0.13 95);
+  --canvas-color-4: oklch(0.76 0.14 145);
+  --canvas-color-5: oklch(0.78 0.11 210);
+  --canvas-color-6: oklch(0.74 0.15 300);
+}
+
+html[data-font="outfit"] {
+  --app-font: "Outfit Variable", "Outfit Fallback", ui-sans-serif, system-ui, sans-serif;
+}
+
+@theme inline {
+  --font-sans: var(--app-font);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-info: var(--info);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 10px);
+  --radius-2xl: var(--radius-card);
+  --radius-3xl: var(--radius-panel);
+  --radius-4xl: var(--radius-button);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply font-sans bg-background text-foreground;
+    font-weight: var(--font-weight-body, 400);
+  }
+  html {
+    @apply font-sans;
+    font-weight: var(--font-weight-body, 400);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  button,
+  input,
+  select {
+    font: inherit;
+  }
+
+  /* Custom Scrollbar - Auto-hiding */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  [data-scrolling="true"] {
+    scrollbar-color: color-mix(in oklch, var(--foreground) 15%, transparent) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 9999px;
+    transition: background-color 0.4s ease;
+  }
+
+  [data-scrolling="true"]::-webkit-scrollbar-thumb,
+  [data-scrolling="true"] ::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklch, var(--foreground) 15%, transparent);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklch, var(--foreground) 30%, transparent) !important;
+  }
+
+  /* Outline editor specific styles */
+  .editable[contenteditable="true"]:empty::before {
+    content: "";
+    display: inline-block;
+  }
+
+  /* Empty field placeholder — CSS-only, never part of editable content */
+  .empty-placeholder:empty::before {
+    content: "Empty";
+  }
+
+  .editable[contenteditable="true"]:focus {
+    outline: none;
+  }
+
+  /* Prevent contentEditable from inserting divs on Enter */
+  .editable[contenteditable="true"] {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /*
+   * W7: table breaks out of the centered max-w-3xl shell to viewport width.
+   * Only the table region — not the whole page (RED4 / DESIGN views).
+   */
+  .table-view-breakout {
+    width: 100vw;
+    max-width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    box-sizing: border-box;
+  }
+}
+/* State changes remain visible without motion; this also covers shared chrome
+ * transitions, palette scrolling, and every projected view consistently. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes graph-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

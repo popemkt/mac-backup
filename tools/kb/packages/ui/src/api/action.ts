@@ -1,0 +1,45 @@
+/** POST /api/action — registry.invoke receipt shape (mirrors shared/contracts). */
+
+import { ActionReceiptSchema, type ActionInvocation, type ActionReceipt } from "@kb/contracts";
+
+export type { ActionInvocation, ActionReceipt };
+
+export type PostActionFn = (invocation: ActionInvocation) => Promise<ActionReceipt>;
+
+let postActionImpl: PostActionFn = defaultPostAction;
+
+const clientOrigin =
+  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `kb-${Math.random().toString(36).slice(2)}`;
+
+/** Stable per-tab origin shared by HTTP actions and the live socket. */
+export function getClientOrigin(): string {
+  return clientOrigin;
+}
+
+async function defaultPostAction(invocation: ActionInvocation): Promise<ActionReceipt> {
+  const res = await fetch("/api/action", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-KB-Origin": getClientOrigin() },
+    body: JSON.stringify(invocation),
+  });
+  const json: unknown = await res.json().catch(() => null);
+  const parsed = ActionReceiptSchema.safeParse(json);
+  if (parsed.success) return parsed.data;
+  return {
+    status: "failed",
+    id: invocation.id,
+    code: "internal",
+    message: `POST /api/action → ${res.status}`,
+  };
+}
+
+/** Inject a mock for tests. */
+export function setPostAction(fn: PostActionFn | null): void {
+  postActionImpl = fn ?? defaultPostAction;
+}
+
+export function postAction(id: string, input: unknown): Promise<ActionReceipt> {
+  return postActionImpl({ id, input });
+}

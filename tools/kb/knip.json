@@ -1,64 +1,46 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
-    ".": {
+    "packages/cli": {
       "entry": [
-        "index.ts",
-        "src/surface/cli.ts",
-        "src/surface/ui.ts",
-        "src/surface/mcp.ts"
-      ],
-      "project": [
-        "src/**/*.ts",
-        "extensions-bundled/**/*.ts"
+        "src/bin/*.ts"
       ]
     },
-    "ui": {
+    "packages/ext-sdk": {
       "entry": [
-        "src/main.tsx"
-      ],
-      "project": [
-        "src/**/*.{ts,tsx}"
-      ],
-      "paths": {
-        "@/*": [
-          "src/*"
-        ],
-        "@kb/protocol": [
-          "../src/surface/protocol.ts"
-        ],
-        "@kb/canvas": [
-          "../src/canvas/doc.ts"
-        ],
-        "@kb/ontology": [
-          "../src/foundation/ontology.ts"
-        ],
-        "@kb/order": [
-          "../src/foundation/order.ts"
-        ],
-        "@kb/field-type": [
-          "../src/foundation/field-type.ts"
-        ],
-        "@kb/queries": [
-          "../src/foundation/query/queries.ts"
-        ]
-      }
+        "scripts/generate.ts",
+        "tests/*.test.ts"
+      ]
+    },
+    "packages/harness": {
+      "entry": [
+        "tests/*.test.ts"
+      ]
+    },
+    "packages/render-tests": {
+      "entry": [
+        "playwright.config.ts",
+        "tests-render/*.e2e.ts",
+        "tests-render/global-setup.ts",
+        "tests-render/server.ts"
+      ]
+    },
+    "packages/test-kit": {
+      "entry": [
+        "tests/*.test.ts",
+        "tests/run-many.ts"
+      ]
     }
   },
   "ignoreFiles": [
-    "src/bin/docs-check.ts",
-    "src/bin/docs-materialize.ts",
-    "src/ext-sdk/surface.ts",
-    "ui/src/api/queries.ts",
-    "ui/src/components/canvas/index.tsx"
+    "packages/ext-sdk/src/surface.ts",
+    "packages/ui/src/api/queries.ts",
+    "packages/ui/src/components/canvas/index.tsx"
   ],
   "ignoreDependencies": [
-    "@fontsource-variable/outfit",
     "graphology-communities-louvain",
     "graphology-layout",
     "graphology-layout-noverlap",
-    "storybook",
-    "tailwindcss",
     "zod"
   ]
 }

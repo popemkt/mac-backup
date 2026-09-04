@@ -105,7 +105,7 @@ depth 1 │      ┆    │ ● Child …                                       
   fg-25, label 120px, value flex-1. Indent is space *before* a row, never
   padding inside it — otherwise the hover separators (and a node row's
   selection fill and focus ring) paint across the indent gutter and over the
-  guide lines. One owner: `ui/src/lib/indent.ts`.
+  guide lines. One owner: `packages/ui/src/lib/indent.ts`.
 - Value editors become borderless contenteditable-style; boolean = 36×20 pill
   toggle; URL = primary underline; ref = chip (`primary/8` bg) or full node row.
 - **Focus belongs to the gesture that created the slot, not to the slot being

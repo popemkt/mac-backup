@@ -1,0 +1,9 @@
+{
+  "lanes": {
+    "blocking": {
+      "eslint/max-lines": 2,
+      "eslint/max-lines-per-function": 40
+    },
+    "advisory": {}
+  }
+}

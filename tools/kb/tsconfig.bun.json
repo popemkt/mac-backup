@@ -1,0 +1,88 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "lib": [
+      "ESNext"
+    ],
+    "types": [
+      "bun"
+    ],
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "includeSuggestionsInTsc": true,
+        "ignoreEffectSuggestionsInTscExitCode": true,
+        "diagnosticSeverity": {
+          "floatingEffect": "error",
+          "missingEffectError": "error",
+          "missingEffectContext": "error",
+          "missingLayerContext": "error",
+          "missingStarInYieldEffectGen": "error",
+          "missingReturnYieldStar": "error",
+          "outdatedApi": "error",
+          "classSelfMismatch": "error",
+          "duplicatePackage": "error",
+          "anyUnknownInErrorContext": "error",
+          "unsupportedServiceAccessors": "error",
+          "tryCatchInEffectGen": "suggestion",
+          "runEffectInsideEffect": "suggestion",
+          "leakingRequirements": "suggestion",
+          "unknownInEffectCatch": "error",
+          "globalErrorInEffectCatch": "suggestion",
+          "globalErrorInEffectFailure": "suggestion",
+          "multipleEffectProvide": "error",
+          "scopeInLayerEffect": "suggestion",
+          "preferTypedSchemaDecoder": "error",
+          "effectMapVoid": "error",
+          "catchToOrElseSucceed": "error",
+          "catchToIgnore": "error",
+          "lazyEffect": "suggestion",
+          "schemaNumber": "suggestion",
+          "unnecessaryFailYieldableError": "error",
+          "processEnv": "suggestion",
+          "globalDate": "suggestion",
+          "globalConsole": "suggestion",
+          "globalRandom": "suggestion",
+          "globalTimers": "suggestion",
+          "asyncFunction": "suggestion",
+          "missedPipeableOpportunity": "off",
+          "effectFnOpportunity": "off",
+          "importFromBarrel": "off"
+        },
+        "overrides": [
+          {
+            "include": [
+              "packages/*/src/**/*"
+            ],
+            "exclude": [
+              "packages/harness/src/**/*"
+            ],
+            "options": {
+              "diagnosticSeverity": {
+                "asyncFunction": "error",
+                "globalConsole": "error",
+                "globalDate": "error",
+                "globalErrorInEffectCatch": "error",
+                "globalErrorInEffectFailure": "error",
+                "globalRandom": "error",
+                "globalTimers": "error",
+                "lazyEffect": "error",
+                "leakingRequirements": "error",
+                "processEnv": "error",
+                "runEffectInsideEffect": "error",
+                "schemaNumber": "error",
+                "scopeInLayerEffect": "error",
+                "tryCatchInEffectGen": "error"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

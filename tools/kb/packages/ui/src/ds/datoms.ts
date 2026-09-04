@@ -1,0 +1,164 @@
+/**
+ * Client-side DataScript datom builder — pure parts copied from
+ * tools/kb/src/foundation/query/datascript.ts (isomorphic; no Node APIs).
+ */
+import type { WireNode } from "@kb/contracts";
+
+export type NodeId = string;
+export type PropValue = WireNode["props"][string][number];
+
+/**
+ * `:node/mentions` is the carrier-independent reference relation: a
+ * `[[node-id]]` token in text and a `{t:"ref"}` prop value both produce one.
+ * See src/foundation/query/datascript.ts for the reasoning; this file is the
+ * documented browser fork of that builder and must mirror it.
+ */
+
+/** Mention form in text: [[node-id|label]] or [[node-id]] */
+const MENTION_RE = /\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g;
+
+export type Datom = [number | string, string, unknown, number?, boolean?];
+
+export interface IdMap {
+  toEid: Map<NodeId, number>;
+  toId: Map<number, NodeId>;
+}
+
+export interface NodesToDatomsResult {
+  datoms: Datom[];
+  schema: Record<string, Record<string, string>>;
+  ids: IdMap;
+}
+
+export function buildIdMap(nodes: Array<{ id: NodeId }>): IdMap {
+  const sorted = [...nodes].toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const toEid = new Map<NodeId, number>();
+  const toId = new Map<number, NodeId>();
+  let eid = 1;
+  for (const n of sorted) {
+    toEid.set(n.id, eid);
+    toId.set(eid, n.id);
+    eid += 1;
+  }
+  return { toEid, toId };
+}
+
+function fieldAttr(fieldId: NodeId): string {
+  return `:f/${fieldId}`;
+}
+
+/**
+ * A ref that resolved carries an entity id; everything else carries the raw
+ * value. Discriminating on `isRef` is what makes the entity id a `number`
+ * without anyone restating it.
+ */
+type PropDatom = { isRef: true; value: number } | { isRef: false; value: PropValue["v"] };
+
+function propDatomValue(pv: PropValue, ids: IdMap): PropDatom {
+  if (pv.t === "ref") {
+    const eid = ids.toEid.get(pv.v);
+    if (eid === undefined) {
+      return { isRef: false, value: pv.v };
+    }
+    return { isRef: true, value: eid };
+  }
+  return { isRef: false, value: pv.v };
+}
+
+/** Single-pass nodes → datoms (+ schema entries for ref attrs). */
+export function nodesToDatoms(
+  nodes: Array<{
+    id: NodeId;
+    text: string;
+    props: WireNode["props"];
+    children: NodeId[];
+    createdAt: string;
+    updatedAt: string;
+  }>,
+): NodesToDatomsResult {
+  const ids = buildIdMap(nodes);
+  const datoms: Datom[] = [];
+  const refAttrs = new Set<string>([":node/child", ":node/mentions"]);
+
+  for (const node of nodes) {
+    const eid = ids.toEid.get(node.id);
+    if (eid === undefined) continue;
+    datoms.push([eid, ":node/id", node.id]);
+    datoms.push([eid, ":node/text", node.text]);
+    datoms.push([eid, ":node/created-at", node.createdAt]);
+    datoms.push([eid, ":node/updated-at", node.updatedAt]);
+
+    const childEids: number[] = [];
+    for (const [i, childId] of node.children.entries()) {
+      const childEid = ids.toEid.get(childId);
+      if (childEid === undefined) continue;
+      childEids.push(childEid);
+      datoms.push([eid, ":node/child", childEid]);
+      datoms.push([eid, ":node/child-order", i]);
+    }
+    if (childEids.length > 0) {
+      datoms.push([eid, ":node/children", childEids]);
+    }
+
+    // One mention datom per (source, target) whichever carrier produced it —
+    // the attr is cardinality-many, so a duplicate would be a duplicate datom.
+    const mentioned = new Set<number>();
+
+    for (const [fieldId, values] of Object.entries(node.props)) {
+      const attr = fieldAttr(fieldId);
+      for (const pv of values) {
+        const datom = propDatomValue(pv, ids);
+        if (datom.isRef) {
+          refAttrs.add(attr);
+          mentioned.add(datom.value);
+        }
+        datoms.push([eid, attr, datom.value]);
+      }
+    }
+
+    MENTION_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = MENTION_RE.exec(node.text)) !== null) {
+      const [, target] = m;
+      if (target === undefined) continue;
+      const meid = ids.toEid.get(target.trim());
+      if (meid !== undefined) mentioned.add(meid);
+    }
+
+    for (const meid of mentioned) {
+      datoms.push([eid, ":node/mentions", meid]);
+    }
+  }
+
+  const schema: Record<string, Record<string, string>> = {
+    ":node/id": { ":db/unique": ":db.unique/identity" },
+    ":node/child": {
+      ":db/valueType": ":db.type/ref",
+      ":db/cardinality": ":db.cardinality/many",
+    },
+    ":node/mentions": {
+      ":db/valueType": ":db.type/ref",
+      ":db/cardinality": ":db.cardinality/many",
+    },
+  };
+  for (const attr of refAttrs) {
+    if (attr === ":node/child" || attr === ":node/mentions") continue;
+    schema[attr] = {
+      ":db/valueType": ":db.type/ref",
+      ":db/cardinality": ":db.cardinality/many",
+    };
+  }
+
+  return { datoms, schema, ids };
+}
+
+export function extractMentions(text: string): NodeId[] {
+  const out: NodeId[] = [];
+  MENTION_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = MENTION_RE.exec(text)) !== null) {
+    const [, target] = m;
+    if (target !== undefined) out.push(target.trim());
+  }
+  return out;
+}

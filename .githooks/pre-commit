@@ -10,8 +10,8 @@ repo_root="$(git rev-parse --show-toplevel)"
 # kb generated docs match .kb data. A fresh checkout may have Bun but not its
 # local dependencies yet; say exactly how to restore this optional check.
 if [ -d "$repo_root/tools/kb" ] && [ -d "$repo_root/.kb" ]; then
-  if command -v bun >/dev/null 2>&1 && [ -d "$repo_root/tools/kb/node_modules/effect" ]; then
-    (cd "$repo_root" && bun tools/kb/src/bin/docs-check.ts)
+  if command -v bun >/dev/null 2>&1 && [ -x "$repo_root/tools/kb/node_modules/.bin/nx" ]; then
+    (cd "$repo_root" && bun tools/kb/packages/cli/src/bin/docs-check.ts)
   else
     echo "warning: kb docs check skipped — tools/kb dependencies are unavailable; run: bun install --cwd tools/kb" >&2
   fi
@@ -24,17 +24,15 @@ if [ -d "$repo_root/.kb" ]; then
   "$repo_root/scripts/check-kb-assets-backup.sh" check
 fi
 
-# kb TS7 typecheck gate: zero-error `tsc --noEmit` for changed kb packages.
+# kb verify gate: typecheck + lint + fmt:check + knip + harness for kb workspace.
 # Dependencies may be absent on a fresh checkout, so report the recovery step.
 if git diff --cached --name-only --diff-filter=ACMRD | grep -q '^tools/kb/'; then
-  for pkg in tools/kb tools/kb/ui; do
-    if [ -x "$repo_root/$pkg/node_modules/.bin/tsc" ]; then
-      echo "==> typecheck ($pkg)"
-      (cd "$repo_root/$pkg" && ./node_modules/.bin/tsc --noEmit)
-    else
-      echo "warning: typecheck ($pkg) skipped — dependencies are unavailable; run: bun install --cwd $pkg" >&2
-    fi
-  done
+  if [ -x "$repo_root/tools/kb/node_modules/.bin/nx" ]; then
+    echo "==> verify (kb workspace)"
+    (cd "$repo_root/tools/kb" && bun run verify)
+  else
+    echo "warning: kb verify skipped — dependencies are unavailable; run: bun install --cwd tools/kb" >&2
+  fi
 fi
 
 exec "$repo_root/intent/gate.sh" record git-commit

@@ -1,0 +1,116 @@
+{
+  "candidate": "datascript-snapshot",
+  "scale": "100k",
+  "versions": {
+    "bun": "1.3.14",
+    "datascript": "1.8.1"
+  },
+  "nodes": 11889,
+  "datoms": 100007,
+  "coldLoadMs": {
+    "read": 2.6,
+    "jsonParse": 7.1,
+    "nodesToDatoms": 14.4,
+    "initDb": 110.4,
+    "nodeMap": 1.5,
+    "total": 136
+  },
+  "rssDeltaMB": 141,
+  "heapDeltaMB": 28.4,
+  "queries": [
+    {
+      "label": "Q1 all todos",
+      "rows": 4533,
+      "p50": 13.013,
+      "p90": 16.489,
+      "min": 10.407,
+      "runs": 20
+    },
+    {
+      "label": "Q2 todos status=doing",
+      "rows": 733,
+      "p50": 12.975,
+      "p90": 20.537,
+      "min": 7.94,
+      "runs": 20
+    },
+    {
+      "label": "Q3 backlinks to hub",
+      "rows": 500,
+      "p50": 1.873,
+      "p90": 5.307,
+      "min": 1.319,
+      "runs": 20
+    },
+    {
+      "label": "Q4 tag inheritance",
+      "rows": 7043,
+      "p50": 48.538,
+      "p90": 187.387,
+      "min": 24.401,
+      "runs": 20
+    },
+    {
+      "label": "Q5 children of parent",
+      "rows": 36,
+      "p50": 4.66,
+      "p90": 36.164,
+      "min": 1.239,
+      "runs": 20
+    },
+    {
+      "label": "Q6 count per status",
+      "rows": 8,
+      "p50": 39.679,
+      "p90": 214.364,
+      "min": 25.173,
+      "runs": 20
+    },
+    {
+      "label": "BL backlinks (=Q3)",
+      "rows": 500,
+      "p50": 2.671,
+      "p90": 3.517,
+      "min": 1.688,
+      "runs": 20
+    },
+    {
+      "label": "CL closure of mentions",
+      "rows": 2059,
+      "p50": 924.387,
+      "p90": 1811.068,
+      "min": 749.137,
+      "runs": 20
+    },
+    {
+      "label": "PULL subtree",
+      "rows": 36,
+      "p50": 0.25,
+      "p90": 4.685,
+      "min": 0.144,
+      "runs": 20
+    }
+  ],
+  "incrementalMs": {
+    "label": "incremental upsert",
+    "rows": 1,
+    "p50": 0.118,
+    "p90": 0.392,
+    "min": 0.041,
+    "runs": 20
+  },
+  "persistence": {
+    "serializeMs": 19.8,
+    "stringifyMs": 6.2,
+    "snapshotBytes": 4479647,
+    "readMs": 2.9,
+    "jsonParseMs": 10.9,
+    "fromSerializableMs": 16.7,
+    "restoreTotalMs": 30.5
+  },
+  "notes": [
+    "rules arguments must be normalized like the query itself; kb's query() normalizes only the query string, so a caller-supplied rules vector with `:f/...` attrs throws inside DataScript",
+    "snapshot restore Q1 rows 4533 vs fresh 4533 — identical",
+    "incremental upsert = one d.db_with with a retract+add pair on an existing string attr; a first-seen ref attr still forces a full rebuild (p1 2b)"
+  ]
+}

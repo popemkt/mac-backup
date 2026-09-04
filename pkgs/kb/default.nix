@@ -7,7 +7,7 @@
 
 # Single entry point: one `kb` binary with the SPA baked beside it.
 # Operator never minds KB_UI_DIST — the wrapper sets KB_PKG_ROOT so
-# paths.ts resolves `$out/lib/kb/ui/dist` the same as a checkout layout.
+# paths.ts resolves `$out/lib/kb/packages/ui/dist` the same as a checkout.
 #
 # UI and CLI bundles are fixed-output derivations (network for bun install).
 # Unchanged inputs → same output hash → Nix reuses the store path.
@@ -35,16 +35,15 @@ let
     nativeBuildInputs = [ bun ];
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-HSLgAbMWQSa8BIuOFlvEffztRs6HSSLnAKUIYG1T93E=";
+    outputHash = "sha256-rS/ZKsgaQIdVZ7Pf+TQ3Z3rZWSvZIAHXU95JM5S0O2Y=";
     dontConfigure = true;
     buildPhase = ''
       runHook preBuild
       export HOME=$TMPDIR
-      # Root install: vite aliases @kb/protocol|canvas → ../src, which import zod etc.
+      # One workspace, one lockfile: @kb/* resolve as linked workspace packages.
       bun install --frozen-lockfile
       (
-        cd ui
-        bun install --frozen-lockfile
+        cd packages/ui
         bun run build
       )
       runHook postBuild
@@ -52,7 +51,7 @@ let
     installPhase = ''
       runHook preInstall
       mkdir -p "$out"
-      cp -a ui/dist/. "$out/"
+      cp -a packages/ui/dist/. "$out/"
       runHook postInstall
     '';
   };
@@ -64,14 +63,14 @@ let
     nativeBuildInputs = [ bun ];
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-xH5MWLjClFD8wkPPOYNmUIu/x/FJJbVXOEf/6AgnLfk=";
+    outputHash = "sha256-8SvezBj2fh5lh9MKkUOgkV/EDKaoO6LG+gvWvm0oA+Q=";
     dontConfigure = true;
     buildPhase = ''
       runHook preBuild
       export HOME=$TMPDIR
       bun install --frozen-lockfile
       mkdir -p "$TMPDIR/bundle"
-      bun build ./src/surface/cli.ts \
+      bun build ./packages/cli/src/main.ts \
         --outdir="$TMPDIR/bundle" \
         --target=bun \
         --sourcemap=none
@@ -80,7 +79,7 @@ let
     installPhase = ''
       runHook preInstall
       mkdir -p "$out"
-      cp -a "$TMPDIR/bundle/cli.js" "$out/cli.js"
+      cp -a "$TMPDIR/bundle/main.js" "$out/cli.js"
       runHook postInstall
     '';
   };
@@ -98,9 +97,9 @@ stdenvNoCC.mkDerivation {
 
   installPhase = ''
     runHook preInstall
-    mkdir -p "$out/lib/kb/ui" "$out/bin"
+    mkdir -p "$out/lib/kb/packages/ui" "$out/bin"
     cp -a ${cliJs}/cli.js "$out/lib/kb/cli.js"
-    cp -a ${uiDist} "$out/lib/kb/ui/dist"
+    cp -a ${uiDist} "$out/lib/kb/packages/ui/dist"
     makeBinaryWrapper ${lib.getExe bun} "$out/bin/kb" \
       --set KB_PKG_ROOT "$out/lib/kb" \
       --add-flags "$out/lib/kb/cli.js"

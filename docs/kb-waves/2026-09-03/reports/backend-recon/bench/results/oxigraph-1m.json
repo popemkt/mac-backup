@@ -1,0 +1,113 @@
+{
+  "candidate": "oxigraph",
+  "scale": "1m",
+  "versions": {
+    "bun": "1.3.14",
+    "oxigraph": "0.5.11"
+  },
+  "nodes": 117866,
+  "datoms": 953848,
+  "coldLoadMs": {
+    "read": 13,
+    "jsonParse": 71.2,
+    "serialiseNTriples": 276.7,
+    "storeLoad": 1119.4,
+    "total": 1480.3
+  },
+  "rssDeltaMB": 1551.4,
+  "heapDeltaMB": 319.6,
+  "queries": [
+    {
+      "label": "Q1 all todos",
+      "rows": 52162,
+      "p50": 84.21,
+      "p90": 92.192,
+      "min": 74.777,
+      "runs": 20
+    },
+    {
+      "label": "Q2 todos status=doing",
+      "rows": 8725,
+      "p50": 54.038,
+      "p90": 70.675,
+      "min": 46.486,
+      "runs": 20
+    },
+    {
+      "label": "Q3 backlinks to hub",
+      "rows": 500,
+      "p50": 0.561,
+      "p90": 0.605,
+      "min": 0.528,
+      "runs": 20
+    },
+    {
+      "label": "Q4 tag inheritance",
+      "rows": 65391,
+      "p50": 153.018,
+      "p90": 184.153,
+      "min": 137.301,
+      "runs": 20
+    },
+    {
+      "label": "Q5 children of parent",
+      "rows": 36,
+      "p50": 0.067,
+      "p90": 0.099,
+      "min": 0.061,
+      "runs": 20
+    },
+    {
+      "label": "Q6 count per status",
+      "rows": 8,
+      "p50": 37.017,
+      "p90": 39.773,
+      "min": 35.426,
+      "runs": 20
+    },
+    {
+      "label": "BL backlinks (=Q3)",
+      "rows": 500,
+      "p50": 0.572,
+      "p90": 0.628,
+      "min": 0.537,
+      "runs": 20
+    },
+    {
+      "label": "CL closure of mentions",
+      "rows": 2059,
+      "p50": 5.038,
+      "p90": 5.746,
+      "min": 3.779,
+      "runs": 20
+    },
+    {
+      "label": "PULL subtree",
+      "rows": 36,
+      "p50": 0.101,
+      "p90": 0.135,
+      "min": 0.094,
+      "runs": 20
+    }
+  ],
+  "incrementalMs": {
+    "label": "incremental upsert",
+    "rows": 1,
+    "p50": 0.356,
+    "p90": 0.83,
+    "min": 0.023,
+    "runs": 20
+  },
+  "persistence": {
+    "dumpMs": 2144.2,
+    "dumpBytes": 95372926,
+    "reloadMs": 1212.3,
+    "mode": "in-memory only (dump/load N-Triples)",
+    "wasmBytesNode": 4051880,
+    "wasmBytesWeb": 4049113
+  },
+  "notes": [
+    "triple count differs from the datom count by design: \":node/child-order\" becomes one ordered literal instead of one datom per child. Bulk load uses store.load() with {no_transaction, lenient}; there is no quad-array fast path in the JS API, so the whole graph must be serialised to N-Triples first (91.0 MB of text at this scale)",
+    "the npm `oxigraph` package exposes no on-disk store: the Store constructor takes only quads, and there is no open(path). RocksDB persistence exists in the Rust crate and the CLI/server, not in the wasm bindings — so 'RocksDB on native' is not reachable from Bun without writing our own napi/FFI binding"
+  ]
+}

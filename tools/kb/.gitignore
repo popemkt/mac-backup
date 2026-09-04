@@ -30,6 +30,11 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .eslintcache
 .cache
 *.tsbuildinfo
+.nx
+
+# kb store side effects
+.kb/nodes.jsonl.bak
+.kb/nodes.jsonl.lock
 
 # IntelliJ based IDEs
 .idea

@@ -1,0 +1,26 @@
+{
+  "name": "@kb/render-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {},
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@kb/server": "workspace:*"
+  },
+  "devDependencies": {
+    "@kb/model": "workspace:*",
+    "@kb/test-kit": "workspace:*",
+    "@types/bun": "catalog:",
+    "effect": "catalog:",
+    "playwright": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "layer:test-support",
+      "scope:test-support"
+    ]
+  }
+}

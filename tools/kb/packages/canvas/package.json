@@ -1,0 +1,21 @@
+{
+  "name": "@kb/canvas",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "layer:domain",
+      "scope:shared"
+    ]
+  }
+}

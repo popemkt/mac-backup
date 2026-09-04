@@ -1,0 +1,9 @@
+# Fixtures and built indexes are regenerated deterministically by run-all.sh.
+# Committing 47 MB of synthetic JSONL and a 293 MB SQLite file would put a
+# derived artefact in git, which is the thing this whole report argues against.
+data/
+node_modules/
+browser/dist/
+
+# the flock file run-all.sh takes
+.run-all.lock

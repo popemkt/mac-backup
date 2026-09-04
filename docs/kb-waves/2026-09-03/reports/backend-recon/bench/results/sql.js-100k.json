@@ -1,0 +1,95 @@
+{
+  "candidate": "sql.js",
+  "scale": "100k",
+  "versions": {
+    "chromium": "149.0.7827.55",
+    "playwright": "1.62.1",
+    "sql.js": "1.14.2",
+    "wa-sqlite": "1.0.0"
+  },
+  "nodes": 11889,
+  "datoms": 100007,
+  "coldLoadMs": {
+    "wasmInit": 22.6,
+    "fetchJsonl": 16.6,
+    "jsonParse": 12.6,
+    "nodesToDatoms": 20,
+    "insertDatoms": 232.8,
+    "createIndexes": 225.4,
+    "buildFts5": "unavailable: no such module: fts5",
+    "total": 530
+  },
+  "rssDeltaMB": -1,
+  "heapDeltaMB": 124.9,
+  "queries": [
+    {
+      "label": "Q1 all todos",
+      "rows": 4533,
+      "p50": 2.07,
+      "runs": 20
+    },
+    {
+      "label": "Q2 todos status=doing",
+      "rows": 733,
+      "p50": 1.955,
+      "runs": 20
+    },
+    {
+      "label": "Q3 backlinks to hub",
+      "rows": 500,
+      "p50": 0.35,
+      "runs": 20
+    },
+    {
+      "label": "Q4 tag inheritance",
+      "rows": 7043,
+      "p50": 4.295,
+      "runs": 20
+    },
+    {
+      "label": "Q5 children of parent",
+      "rows": 36,
+      "p50": 0.055,
+      "runs": 20
+    },
+    {
+      "label": "Q6 count per status",
+      "rows": 8,
+      "p50": 0.935,
+      "runs": 20
+    },
+    {
+      "label": "BL backlinks (=Q3)",
+      "rows": 500,
+      "p50": 0.36,
+      "runs": 20
+    },
+    {
+      "label": "CL closure of mentions",
+      "rows": 2059,
+      "p50": 4.32,
+      "runs": 20
+    },
+    {
+      "label": "PULL subtree",
+      "rows": 36,
+      "p50": 0.08,
+      "runs": 20
+    }
+  ],
+  "persistence": {
+    "exportMs": 3.6,
+    "exportBytes": 26976256,
+    "mode": "in-memory; export() to bytes the page persists itself",
+    "bundleRawBytes": 48514,
+    "bundleGzipBytes": 18004,
+    "wasmRawBytes": 658410,
+    "wasmGzipBytes": 326008,
+    "pageWallMs": 1002.1,
+    "crossOriginIsolated": "true"
+  },
+  "notes": [
+    "measured in headless Chromium via playwright-core; rssDeltaMB is -1 because the process boundary makes an in-page RSS figure meaningless — heapDeltaMB is performance.memory.usedJSHeapSize where the browser exposes it",
+    "bundle bytes are Bun.build minified output for this candidate's entrypoint; wasm bytes are the vendored binary it fetches"
+  ]
+}

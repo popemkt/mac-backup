@@ -1,0 +1,20 @@
+{
+  "name": "@kb/harness",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {},
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "layer:tooling",
+      "scope:tooling"
+    ]
+  }
+}

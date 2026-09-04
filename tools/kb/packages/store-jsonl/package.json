@@ -1,0 +1,31 @@
+{
+  "name": "@kb/store-jsonl",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@effect/platform-bun": "catalog:",
+    "@kb/contracts": "workspace:*",
+    "@kb/model": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@kb/query": "workspace:*",
+    "@kb/test-kit": "workspace:*",
+    "@types/bun": "catalog:",
+    "fast-check": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "layer:infrastructure",
+      "scope:backend"
+    ]
+  }
+}

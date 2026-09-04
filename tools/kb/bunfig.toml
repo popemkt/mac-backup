@@ -1,13 +1,15 @@
-# UI component tests that need vitest's mock-hoist / happy-dom (or WebGL)
-# still run under `cd ui && bunx vp test`. Bun's recursive `bun test` from
-# tools/kb would otherwise fail at import / act() / waitFor time.
+# Supply chain. `minimumReleaseAge` is 3 days in minutes: a version published
+# minutes ago cannot enter the lockfile, which is the cheap half of the
+# defence against a compromised publish. `trustedDependencies` is the other
+# half — an explicit allowlist of packages permitted to run install lifecycle
+# scripts. Empty means: nothing runs code at install time.
+[install]
+minimumReleaseAge = 4320
+trustedDependencies = []
+
+# One workspace, two runners, split by package rather than by file: every
+# package except @kb/ui runs on `bun test packages`; the browser package runs
+# on Vitest (`bun run --filter @kb/ui test`) because its suite needs happy-dom,
+# vi.mock hoisting and fake timers. Documented once in DESIGN.md.
 [test]
-pathIgnorePatterns = [
-  "ui/src/components/graph/graph-page.component.test.tsx",
-  "ui/src/components/ontology/ontology-page.component.test.tsx",
-  "ui/src/components/ontology/ontology-scope.acceptance.test.tsx",
-  "ui/src/components/outline/ghost-node-row.component.test.tsx",
-  # Vitest-only: vi.mock hoist / happy-dom ErrorBoundary / fake-timer debounce.
-  "ui/src/actions/mutations.debounce.test.ts",
-  "ui/src/components/view-error-boundary.test.tsx",
-]
+pathIgnorePatterns = ["**/packages/ui/**"]

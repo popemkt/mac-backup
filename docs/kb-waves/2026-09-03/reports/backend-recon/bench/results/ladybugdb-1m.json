@@ -1,0 +1,130 @@
+{
+  "candidate": "ladybugdb",
+  "scale": "1m",
+  "versions": {
+    "bun": "1.3.14",
+    "@ladybugdb/core": "0.20.2"
+  },
+  "nodes": 117866,
+  "datoms": 1000004,
+  "coldLoadMs": {
+    "read": 13.1,
+    "jsonParse": 70.5,
+    "prepareCsv": 340.7,
+    "ddl": 66.2,
+    "copyFrom": 2036,
+    "total": 2526.5
+  },
+  "rssDeltaMB": 1287.9,
+  "heapDeltaMB": 286,
+  "queries": [
+    {
+      "label": "Q1 all todos",
+      "rows": 52162,
+      "p50": 480.57,
+      "p90": 785.35,
+      "min": 447.661,
+      "runs": 15
+    },
+    {
+      "label": "Q2 todos status=doing",
+      "rows": 8725,
+      "p50": 96.726,
+      "p90": 108.294,
+      "min": 85.692,
+      "runs": 20
+    },
+    {
+      "label": "Q3 backlinks to hub",
+      "rows": 500,
+      "p50": 4.809,
+      "p90": 5.457,
+      "min": 4.083,
+      "runs": 20
+    },
+    {
+      "label": "Q4 tag inheritance",
+      "rows": 65391,
+      "p50": 611.653,
+      "p90": 893.75,
+      "min": 566.518,
+      "runs": 11
+    },
+    {
+      "label": "Q5 children of parent",
+      "rows": 36,
+      "p50": 1.393,
+      "p90": 2.404,
+      "min": 0.836,
+      "runs": 20
+    },
+    {
+      "label": "Q6 count per status",
+      "rows": 8,
+      "p50": 6.07,
+      "p90": 7.747,
+      "min": 5.263,
+      "runs": 20
+    },
+    {
+      "label": "BL backlinks (=Q3)",
+      "rows": 500,
+      "p50": 6.133,
+      "p90": 14.799,
+      "min": 4.097,
+      "runs": 20
+    },
+    {
+      "label": "CL closure of mentions",
+      "rows": 2059,
+      "p50": 23.219,
+      "p90": 41.787,
+      "min": 17.71,
+      "runs": 20
+    },
+    {
+      "label": "PULL subtree",
+      "rows": 36,
+      "p50": 1.123,
+      "p90": 1.938,
+      "min": 0.792,
+      "runs": 20
+    },
+    {
+      "label": "PATH paths as values",
+      "rows": 73,
+      "p50": 1.558,
+      "p90": 2.477,
+      "min": 1.143,
+      "runs": 20
+    },
+    {
+      "label": "SHORTEST shortest paths",
+      "rows": 1,
+      "p50": 2.138,
+      "p90": 2.701,
+      "min": 1.742,
+      "runs": 20
+    }
+  ],
+  "incrementalMs": {
+    "label": "incremental upsert",
+    "rows": 1,
+    "p50": 9.986,
+    "p90": 14.445,
+    "min": 7.363,
+    "runs": 20
+  },
+  "persistence": {
+    "mode": "single on-disk file, durable; reopen does no index construction",
+    "dbBytes": 42089919,
+    "reopenAndCountMs": 21.5,
+    "edgeTotal": 469368
+  },
+  "notes": [
+    "closure via a plain `-[:MENTIONS*1..30]->` + DISTINCT did not return within six minutes at 100 k (path enumeration, not set reachability); the measured CL row uses `* SHORTEST`, which is the form an adapter would have to emit",
+    "reification cost, measured: 117853 SCALAR + 146889 REFPROP + 158470 MENTIONS + 46156 CHILD edges = 469368 edges for 117866 nodes, against 1000004 datoms for the same graph",
+    "fixed schema is the real constraint: `:f/<fieldId>` attrs are minted per field node at runtime, so there is no column to declare and every prop must become an edge. A prop keyed by a field id that is not itself a node cannot be modelled at all",
+    "bulk load goes through COPY FROM csv; there is no in-process array ingest, so the whole graph is written to five CSV files first (charged to prepareCsv below), and node text containing newlines forces PARALLEL=false on the CSV reader"
+  ]
+}

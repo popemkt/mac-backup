@@ -1,0 +1,28 @@
+{
+  "name": "@kb/query",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@kb/model": "workspace:*",
+    "datascript": "catalog:"
+  },
+  "devDependencies": {
+    "@kb/test-kit": "workspace:*",
+    "@types/bun": "catalog:",
+    "fast-check": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "layer:domain",
+      "scope:shared"
+    ]
+  }
+}
