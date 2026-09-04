@@ -17,7 +17,6 @@ import {
   type KbNode,
   type StoreTx,
 } from "@kb/model";
-import { buildQueryDb } from "@kb/query";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-persist-"));
@@ -261,7 +260,9 @@ describe("reload / persist via KbStore Layer substitution", () => {
     const injected: KbNode[] = [sampleNode("n.injected", "from-mock")];
     let loads = 0;
     const mock: EffectStore = {
-      path: join(root, ".kb", "nodes.jsonl"),
+      // A store with no file of its own: nothing to compare against, so reload
+      // always goes to the port rather than short-circuiting on a stamp.
+      path: join(root, ".kb", "mock.jsonl"),
       loadEffect: Effect.sync(() => {
         loads += 1;
         return injected;
@@ -310,9 +311,11 @@ describe("reload / persist via KbStore Layer substitution", () => {
       openKbEffect(root).pipe(Effect.provide(bunFileSystemLayer)),
     );
     await persist(ctx, { upserts: [sampleNode("n.p", "p")], deletes: [] });
-    ctx.nodes = [];
+    const external = new JsonlStore(root);
+    await external.commit({ upserts: [sampleNode("n.external", "e")], deletes: [] });
     await reload(ctx);
     expect(ctx.nodes.some((n) => n.id === "n.p")).toBe(true);
+    expect(ctx.nodes.some((n) => n.id === "n.external")).toBe(true);
   });
 
   test("runWithKb KbStore.yield matches effectStore instance", async () => {
@@ -329,7 +332,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
   });
 });
 
-describe("rebuildQdb virtual query preservation", () => {
+describe("virtual query preservation", () => {
   let root: string;
   afterEach(async () => {
     if (root) await rm(root, { recursive: true, force: true });
@@ -340,12 +343,12 @@ describe("rebuildQdb virtual query preservation", () => {
     const ctx = await openKb(root);
     const realQuery = sampleNode("sys.query.persisted", "persisted-query");
     await persist(ctx, { upserts: [realQuery], deletes: [] });
-    expect(ctx.qdb.nodes.has("sys.query.persisted")).toBe(true);
+    expect(ctx.index.getNode("sys.query.persisted")).toBeDefined();
 
-    // persist path: capture prior real ids before applying deletes.
+    // persist path: a stored node is not virtual, so deleting it is final.
     await persist(ctx, { upserts: [], deletes: ["sys.query.persisted"] });
     expect(ctx.nodes.some((n) => n.id === "sys.query.persisted")).toBe(false);
-    expect(ctx.qdb.nodes.has("sys.query.persisted")).toBe(false);
+    expect(ctx.index.getNode("sys.query.persisted")).toBeUndefined();
 
     // reload path: node was real in the pre-reload snapshot, gone on disk.
     await persist(ctx, { upserts: [realQuery], deletes: [] });
@@ -356,10 +359,10 @@ describe("rebuildQdb virtual query preservation", () => {
       deletes: ["sys.query.persisted"],
     });
     expect(ctx.nodes.some((n) => n.id === "sys.query.persisted")).toBe(true);
-    expect(ctx.qdb.nodes.has("sys.query.persisted")).toBe(true);
+    expect(ctx.index.getNode("sys.query.persisted")).toBeDefined();
     await reload(ctx);
     expect(ctx.nodes.some((n) => n.id === "sys.query.persisted")).toBe(false);
-    expect(ctx.qdb.nodes.has("sys.query.persisted")).toBe(false);
+    expect(ctx.index.getNode("sys.query.persisted")).toBeUndefined();
   });
 
   test("synthetic/virtual sys.query.* not in prior snapshot is preserved", async () => {
@@ -368,18 +371,18 @@ describe("rebuildQdb virtual query preservation", () => {
     const virtualRoot = sampleNode(SYSTEM_IDS.queriesRoot, "queries");
     virtualRoot.children = ["sys.query.virtual"];
     const virtualQuery = sampleNode("sys.query.virtual", "virtual-query");
-    ctx.qdb = buildQueryDb([...ctx.nodes, virtualRoot, virtualQuery]);
+    ctx.index.withVirtual([virtualRoot, virtualQuery]);
 
     await persist(ctx, {
       upserts: [sampleNode("n.other", "other")],
       deletes: [],
     });
-    expect(ctx.qdb.nodes.has("sys.query.virtual")).toBe(true);
-    expect(ctx.qdb.nodes.has(SYSTEM_IDS.queriesRoot)).toBe(true);
+    expect(ctx.index.getNode("sys.query.virtual")).toBeDefined();
+    expect(ctx.index.getNode(SYSTEM_IDS.queriesRoot)).toBeDefined();
     expect(ctx.nodes.some((n) => n.id === "sys.query.virtual")).toBe(false);
 
     await reload(ctx);
-    expect(ctx.qdb.nodes.has("sys.query.virtual")).toBe(true);
-    expect(ctx.qdb.nodes.has(SYSTEM_IDS.queriesRoot)).toBe(true);
+    expect(ctx.index.getNode("sys.query.virtual")).toBeDefined();
+    expect(ctx.index.getNode(SYSTEM_IDS.queriesRoot)).toBeDefined();
   });
 });

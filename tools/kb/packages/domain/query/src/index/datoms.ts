@@ -77,8 +77,8 @@ function propDatomValue(pv: PropValue, ids: IdMap): DatomValue {
 /** One node's datoms, the schema it needs, and everything it points at. */
 export interface NodeDatoms {
   datoms: Datom[];
-  /** attr → does it ever carry a ref value (`:db.type/ref`)? */
-  attrs: Map<string, boolean>;
+  /** the attrs this node carries, so the schema can grow with the data */
+  attrs: Set<string>;
   /**
    * Every node id this node points at through any carrier — child, `{t:"ref"}`
    * prop, or `[[id]]` in text — whether or not the target resolves today. An
@@ -94,7 +94,7 @@ export interface NodeDatoms {
 export function nodeToDatoms(node: KbNode, ids: IdMap): NodeDatoms {
   const eid = present(ids.toEid.get(node.id), `eid for ${node.id}`);
   const datoms: Datom[] = [];
-  const attrs = new Map<string, boolean>();
+  const attrs = new Set<string>();
   const refs = new Set<NodeId>();
 
   datoms.push([eid, ":node/id", node.id]);
@@ -127,7 +127,7 @@ export function nodeToDatoms(node: KbNode, ids: IdMap): NodeDatoms {
     for (const pv of values) {
       if (pv.t === "ref") refs.add(pv.v);
       const datomValue = propDatomValue(pv, ids);
-      attrs.set(attr, (attrs.get(attr) ?? false) || datomValue.isRef);
+      attrs.add(attr);
       if (datomValue.isRef) mentioned.add(datomValue.value);
       datoms.push([eid, attr, datomValue.value]);
     }
@@ -150,18 +150,25 @@ export function nodeToDatoms(node: KbNode, ids: IdMap): NodeDatoms {
 }
 
 /**
- * Datascript schema for a set of field attrs.
+ * Datascript schema for the field attrs the data has produced.
  *
- * Every attr a node can carry more than once is `:db.cardinality/many`. Under
- * `init_db` that is decoration — raw datoms bypass cardinality — but the
- * incremental path transacts, and a cardinality-one `:db/add` *replaces* the
- * previous value instead of accumulating. Props are multi-valued and a parent
- * has one `:node/child-order` datom per child, so the two paths only agree
- * when the schema says so. One derivation, both paths.
+ * Two things are declared, and only these two:
+ *
+ * - **Cardinality.** Every attr a node can carry more than once is
+ *   `:db.cardinality/many`. Under `init_db` that is decoration — raw datoms
+ *   bypass cardinality — but the incremental path transacts, and a
+ *   cardinality-one `:db/add` *replaces* the previous value instead of
+ *   accumulating. Props are multi-valued and a parent has one
+ *   `:node/child-order` datom per child, so the two paths only agree when the
+ *   schema says so. One derivation, both paths.
+ * - **Ref value type**, for `:node/child` and `:node/mentions` only. A prop
+ *   ref is a plain eid: joins read it as an entity either way, but a field
+ *   attr is the one place a *dangling* ref survives as its id string
+ *   (DANGLING_REF_DECISION), and a string on a ref-typed attr is a tempid to
+ *   `db_with`. Declaring those attrs ref would make the incremental path
+ *   reject exactly the data the rebuild path keeps.
  */
-export function schemaFor(
-  attrs: ReadonlyMap<string, boolean>,
-): Record<string, Record<string, string>> {
+export function schemaFor(attrs: ReadonlySet<string>): Record<string, Record<string, string>> {
   const many = { ":db/cardinality": ":db.cardinality/many" };
   const refMany = { ":db/valueType": ":db.type/ref", ...many };
   const schema: Record<string, Record<string, string>> = {
@@ -170,9 +177,9 @@ export function schemaFor(
     ":node/mentions": { ...refMany },
     ":node/child-order": { ...many },
   };
-  for (const [attr, isRef] of attrs) {
+  for (const attr of attrs) {
     if (attr in schema) continue;
-    schema[attr] = isRef ? { ...refMany } : { ...many };
+    schema[attr] = { ...many };
   }
   return schema;
 }
@@ -185,14 +192,12 @@ function nodesToDatoms(nodes: KbNode[]): {
 } {
   const ids = buildIdMap(nodes);
   const datoms: Datom[] = [];
-  const attrs = new Map<string, boolean>();
+  const attrs = new Set<string>();
 
   for (const node of nodes) {
     const built = nodeToDatoms(node, ids);
     datoms.push(...built.datoms);
-    for (const [attr, isRef] of built.attrs) {
-      attrs.set(attr, (attrs.get(attr) ?? false) || isRef);
-    }
+    for (const attr of built.attrs) attrs.add(attr);
   }
 
   return { datoms, schema: schemaFor(attrs), ids };

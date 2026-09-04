@@ -120,16 +120,37 @@ describe("DatascriptIndex", () => {
     expect(rows(index, query)).toEqual([["a", "x"]]);
   });
 
-  test("a field attr that becomes a ref attr falls back to one rebuild", () => {
+  test("a known attr turning into a ref stays incremental", () => {
     const a = node("a", { props: { f: [{ t: "str", v: "plain" }] } });
-    const index = new DatascriptIndex([a, node("f"), node("t")]);
+    const f = node("f");
+    const t = node("t");
+    const index = new DatascriptIndex([a, f, t]);
     const builds = index.rebuilds;
 
     const reffed = node("a", { props: { f: [{ t: "ref", v: "t" }] } });
     index.applyTx({ upserts: [reffed], deletes: [] });
 
-    expect(index.rebuilds).toBe(builds + 1);
+    expect(index.rebuilds).toBe(builds);
     expect(rows(index, MENTIONS_QUERY)).toEqual([["a", "t"]]);
+    const query = `[:find ?id :where [?n :node/id "a"] [?n :f/f ?v] [?v :node/id ?id]]`;
+    expect(rows(index, query)).toEqual(fresh([reffed, f, t], query));
+  });
+
+  test("a dangling prop ref keeps its id as the value, and heals in place", () => {
+    const f = node("f");
+    const a = node("a", { props: { f: [{ t: "ref", v: "later" }] } });
+    const index = new DatascriptIndex([a, f]);
+    const query = `[:find ?v :where [?n :node/id "a"] [?n :f/f ?v]]`;
+    expect(rows(index, query)).toEqual([["later"]]);
+
+    const builds = index.rebuilds;
+    const later = node("later");
+    index.applyTx({ upserts: [later], deletes: [] });
+
+    expect(index.rebuilds).toBe(builds);
+    expect(rows(index, query)).toEqual([["later"]]);
+    expect(rows(index, MENTIONS_QUERY)).toEqual([["a", "later"]]);
+    expect(rows(index, query)).toEqual(fresh([a, f, later], query));
   });
 
   test("a multi-valued prop keeps every value across an incremental edit", () => {

@@ -1,9 +1,15 @@
 import { Effect, Layer } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import { currentIso, ensureSystemSeed, migrateFieldTypeValues, migrateOrderKeys } from "@kb/model";
+import {
+  currentIso,
+  ensureSystemSeed,
+  migrateFieldTypeValues,
+  migrateOrderKeys,
+  type DomainError,
+  type KbNode,
+} from "@kb/model";
 import { JsonlStore, asPromiseStore, bunFileSystemLayer } from "@kb/store-jsonl";
-import { buildQueryDb } from "@kb/query";
-import type { DomainError } from "@kb/model";
+import { DatascriptIndex, KbIndexService } from "@kb/query";
 import {
   type KbCtx,
   type KbStore,
@@ -21,11 +27,12 @@ import { registryFor } from "./registry.ts";
  */
 export function kbRuntimeLayer(
   ctx: KbContext,
-): Layer.Layer<FileSystem | KbStore | KbCtx | TemplateRegistry> {
+): Layer.Layer<FileSystem | KbStore | KbCtx | KbIndexService | TemplateRegistry> {
   return Layer.mergeAll(
     bunFileSystemLayer,
     kbStoreLayer(ctx.effectStore),
     kbCtxLayer(ctx),
+    Layer.succeed(KbIndexService, ctx.index),
     Layer.effect(
       TemplateRegistry,
       registryFor(ctx.root).pipe(
@@ -51,15 +58,23 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   } else {
     nodes = migrated.nodes;
   }
-  const qdb = buildQueryDb(nodes);
+  const index = new DatascriptIndex(nodes);
   const store = asPromiseStore(effectStore);
-  return { root, store, effectStore, nodes, qdb };
+  return {
+    root,
+    store,
+    effectStore,
+    index,
+    get nodes(): KbNode[] {
+      return index.storedNodes();
+    },
+  };
 });
 
 /** Run an Effect that needs KbCtx (+ Bun FileSystem) against a live session. */
 export function runWithKb<A, E>(
   ctx: KbContext,
-  effect: Effect.Effect<A, E, KbCtx | FileSystem | KbStore | TemplateRegistry>,
+  effect: Effect.Effect<A, E, KbCtx | KbIndexService | FileSystem | KbStore | TemplateRegistry>,
 ): Promise<A> {
   return Effect.runPromise(effect.pipe(Effect.provide(kbRuntimeLayer(ctx))));
 }

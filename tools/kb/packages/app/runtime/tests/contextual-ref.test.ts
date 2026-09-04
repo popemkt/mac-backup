@@ -23,7 +23,7 @@ import {
   systemSeedNodes,
   type KbNode,
 } from "@kb/model";
-import { backlinksQuery, buildQueryDb, query } from "@kb/query";
+import { backlinksQuery, DatascriptIndex } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
 
 function refs(node: KbNode, field: string): string[] {
@@ -98,9 +98,8 @@ describe(":node/mentions counts ref props, not only text tokens", () => {
         [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: "n.target" }],
       }),
     ];
-    const db = buildQueryDb(nodes);
-    const rows = query(db, backlinksQuery("n.target")) as unknown[][];
-    expect([...rows].map((r) => r[0])).toEqual(["n.ctx"]);
+    const rows = new DatascriptIndex(nodes).runDatalog(backlinksQuery("n.target"));
+    expect(rows.map((r) => r[0])).toEqual(["n.ctx"]);
   });
 
   test("a text token and a ref prop are one relation, counted once", () => {
@@ -110,8 +109,7 @@ describe(":node/mentions counts ref props, not only text tokens", () => {
         [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: "n.target" }],
       }),
     ];
-    const db = buildQueryDb(nodes);
-    const rows = [...(query(db, backlinksQuery("n.target")) as unknown[][])];
+    const rows = new DatascriptIndex(nodes).runDatalog(backlinksQuery("n.target"));
     expect(rows.map((r) => r[0])).toEqual(["n.both"]);
   });
 
@@ -121,9 +119,8 @@ describe(":node/mentions counts ref props, not only text tokens", () => {
         [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: "n.missing" }],
       }),
     ];
-    const db = buildQueryDb(nodes);
-    const rows = query(db, backlinksQuery("n.missing")) as unknown[][];
-    expect([...rows]).toEqual([]);
+    const rows = new DatascriptIndex(nodes).runDatalog(backlinksQuery("n.missing"));
+    expect(rows).toEqual([]);
   });
 });
 

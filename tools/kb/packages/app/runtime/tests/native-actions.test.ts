@@ -7,6 +7,7 @@ import { kbRuntimeLayer, openKbEffect } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
 import { KbCtx, KbStore, templateRegistryLayer } from "@kb/contracts";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { KbIndexService } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
 import {
   invokeReceiptEffect,
@@ -131,10 +132,6 @@ export default actions;
       commitEffect: (tx) =>
         Effect.sync(() => {
           commits.push(tx);
-          const byId = new Map(ctx.nodes.map((n) => [n.id, n]));
-          for (const id of tx.deletes) byId.delete(id);
-          for (const n of tx.upserts) byId.set(n.id, n);
-          ctx.nodes = [...byId.values()];
         }),
     };
 
@@ -145,6 +142,7 @@ export default actions;
       }).pipe(
         Effect.provideService(KbCtx, ctx),
         Effect.provideService(KbStore, fakeStore),
+        Effect.provideService(KbIndexService, ctx.index),
         Effect.provide(Layer.mergeAll(bunFileSystemLayer, templateRegistryLayer(new Map()))),
       ),
     );

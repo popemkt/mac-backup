@@ -1,6 +1,6 @@
 import { Context, Layer } from "effect";
 import type { KbNode } from "@kb/model";
-import type { QueryDb } from "@kb/query";
+import type { KbIndex } from "@kb/query";
 import type { EffectStore, Store } from "./store.ts";
 
 /**
@@ -13,8 +13,14 @@ export interface KbContext {
   store: Store;
   /** Effect-native store instance (same JsonlStore as `store` when live). */
   effectStore: EffectStore;
-  nodes: KbNode[];
-  qdb: QueryDb;
+  /** The one owner of the derived graph: datoms, node lookup, text scan. */
+  index: KbIndex;
+  /**
+   * The stored nodes, derived from {@link index}. Read-only on purpose: the
+   * index owns the node set, and a session that could assign here would be a
+   * second owner drifting from the datoms it is supposed to describe.
+   */
+  readonly nodes: KbNode[];
 }
 
 /**
@@ -23,7 +29,7 @@ export interface KbContext {
  */
 export class KbStore extends Context.Service<KbStore, EffectStore>()("kb/KbStore") {}
 
-/** Live kb session (nodes + qdb + store). */
+/** Live kb session (store + index). */
 export class KbCtx extends Context.Service<KbCtx, KbContext>()("kb/KbCtx") {}
 
 export function kbStoreLayer(store: EffectStore): Layer.Layer<KbStore> {

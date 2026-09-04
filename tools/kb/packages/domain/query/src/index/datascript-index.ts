@@ -42,7 +42,7 @@ export class DatascriptIndex implements KbIndex {
   #virtualIds = new Set<NodeId>();
   #ids: IdMap = { toEid: new Map(), toId: new Map() };
   #nextEid = 1;
-  #attrs = new Map<string, boolean>();
+  #attrs = new Set<string>();
   /** node → the ids it points at */
   #refsFrom = new Map<NodeId, Set<NodeId>>();
   /** id → the nodes pointing at it, resolvable or not */
@@ -73,13 +73,13 @@ export class DatascriptIndex implements KbIndex {
     this.#syncIds(merged);
     this.#refsFrom = new Map();
     this.#refsTo = new Map();
-    this.#attrs = new Map();
+    this.#attrs = new Set();
 
     const datoms: Datom[] = [];
     for (const node of merged) {
       const built = nodeToDatoms(node, this.#ids);
       datoms.push(...built.datoms);
-      this.#mergeAttrs(built.attrs);
+      for (const attr of built.attrs) this.#attrs.add(attr);
       this.#setRefs(node.id, built.refs);
     }
 
@@ -121,9 +121,8 @@ export class DatascriptIndex implements KbIndex {
     const grown = new Set<string>();
     for (const node of restated.values()) {
       const built = nodeToDatoms(node, this.#ids);
-      for (const [attr, isRef] of built.attrs) {
-        const known = this.#attrs.get(attr);
-        if (known === undefined || (isRef && !known)) grown.add(attr);
+      for (const attr of built.attrs) {
+        if (!this.#attrs.has(attr)) grown.add(attr);
       }
       this.#setRefs(node.id, built.refs);
       const eid = present(this.#ids.toEid.get(node.id), `eid for ${node.id}`);
@@ -131,8 +130,8 @@ export class DatascriptIndex implements KbIndex {
     }
 
     if (grown.size > 0) {
-      // The schema is fixed at `init_db`; a new attr — or a known attr that has
-      // just become a ref attr — can only be admitted by rebuilding.
+      // The schema is fixed at `init_db`: a first-seen attr needs its
+      // cardinality declared, and only a rebuild can declare it.
       this.rebuild(this.#currentStored());
       return;
     }
@@ -209,12 +208,6 @@ export class DatascriptIndex implements KbIndex {
     }
     for (const [key, datom] of before) {
       if (!after.has(key)) retracts.push([":db/retract", eid, datom.a, datom.v]);
-    }
-  }
-
-  #mergeAttrs(attrs: ReadonlyMap<string, boolean>): void {
-    for (const [attr, isRef] of attrs) {
-      this.#attrs.set(attr, (this.#attrs.get(attr) ?? false) || isRef);
     }
   }
 
