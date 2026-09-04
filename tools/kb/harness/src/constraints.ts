@@ -71,15 +71,6 @@ export function isTestKitDevDependency(target: string): boolean {
   return target === "@kb/test-kit" || target.endsWith("/test-kit");
 }
 
-/** Off-catalog dependency specifiers admitted by an explicit decision. */
-export const OFF_CATALOG_BY_DECISION: Record<string, string> = {
-  // `vite-plus` and its `vite` alias twin must stay byte-identical, and an
-  // alias specifier (`npm:<pkg>@<version>`) cannot reference a catalog entry.
-  // Keeping both literal and adjacent is the only way to state the pair once.
-  "vite-plus": "0.2.8",
-  vite: "npm:@voidzero-dev/vite-plus-core@0.2.8",
-};
-
 /**
  * `tsconfig.base.json` is the strictness contract and nothing else. Two runtime
  * presets extend it, and a package picks one — by the `scope` tag it already

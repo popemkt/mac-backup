@@ -216,9 +216,8 @@ globs the collector derives from the same tags.
 
 - Every internal dependency is `workspace:*`; every external dependency is
   `catalog:`. The catalog in the root `package.json` is the only file that
-  names a version. The single exception — `vite-plus` and its `vite` alias
-  twin, which cannot reference a catalog entry — is recorded in
-  `OFF_CATALOG_BY_DECISION` with its reason.
+  names a version, with no exceptions; the vite alias twin lives in the catalog
+  and the harness asserts it tracks `vite-plus`.
 - One `bun.lock`. CI installs with `--frozen-lockfile`.
 - `bunfig.toml` `[install]` sets `minimumReleaseAge` (3 days) and an explicit
   `trustedDependencies` allowlist, which is empty: nothing in this tree runs

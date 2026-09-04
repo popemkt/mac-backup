@@ -56,8 +56,8 @@
     "happy-dom": "catalog:",
     "storybook": "catalog:",
     "typescript": "catalog:",
-    "vite": "npm:@voidzero-dev/vite-plus-core@0.2.8",
-    "vite-plus": "0.2.8",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
     "vitest": "catalog:"
   },
   "nx": {
