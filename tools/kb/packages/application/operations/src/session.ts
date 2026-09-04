@@ -76,11 +76,23 @@ export const reloadEffect = Effect.fn("kb.reload")(function* (
   if (stamp !== null) stamps.set(ctx, stamp);
 });
 
+/**
+ * Commit a transaction and move the index with it.
+ *
+ * The catch-up first is not defensive noise: the store commits under a lock by
+ * reloading, merging and replacing the whole file, so anything another process
+ * wrote lands in the file this commit produces. Applying only `tx` to an index
+ * that has not seen those nodes would leave the session quietly behind its own
+ * store — and the stamp taken afterwards would call that state current. Catching
+ * up first also means integrity is checked against the graph the commit will
+ * actually merge into.
+ */
 export const persistEffect = Effect.fn("kb.persist")(function* (
   ctx: KbContext,
   tx: StoreTx,
 ): Effect.fn.Return<void, DomainError, KbStore | FileSystem> {
   const store = yield* KbStore;
+  yield* reloadEffect(ctx);
   const integrityError = txIntegrityError(ctx.nodes, tx);
   if (integrityError !== null && integrityError !== "") {
     return yield* domainError("invalid_input", `invalid graph transaction: ${integrityError}`);
