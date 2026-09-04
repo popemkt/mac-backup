@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { normalizeEdnQuery } from "@kb/query";
 import { fixtureGraph } from "@/fixtures/graph";
 import { buildQueryDb } from "./db";
-import { normalizeEdnQuery, runQuery } from "./query";
+import { runQuery } from "./query";
 
 describe("client datalog execution", () => {
   const qdb = buildQueryDb(fixtureGraph.nodes, fixtureGraph.rev);

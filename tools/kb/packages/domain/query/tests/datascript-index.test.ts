@@ -184,7 +184,10 @@ describe("DatascriptIndex", () => {
     index.applyTx({ upserts: [reordered], deletes: [] });
 
     expect(index.rebuilds).toBe(builds);
-    const query = `[:find ?id ?i :where [?p :node/id "p"] [?p :node/child ?c] [?c :node/id ?id] [?p :node/child-order ?i]]`;
+    // Order lives on the `:node/children` vector — joining `:node/child` with
+    // `:node/child-order` is the cartesian the compiler rewrites away.
+    const query = `[:find ?v :where [?p :node/id "p"] [?p :node/children ?v]]`;
+    expect(rows(index, query)).toEqual([["b,a"]]);
     expect(rows(index, query)).toEqual(
       fresh([reordered, nodes[1] as KbNode, nodes[2] as KbNode], query),
     );
