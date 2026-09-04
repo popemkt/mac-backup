@@ -2,7 +2,7 @@
 /// <reference path="./datascript.d.ts" />
 import * as d from "datascript";
 import { present, type NodeId } from "@kb/model";
-import type { IdMap, QueryDb } from "./index/datoms.ts";
+import type { DatascriptDb, IdMap } from "./index/datoms.ts";
 import { compile, normalizeEdnQuery } from "./ir/compile.ts";
 import type { FindPos, Ir } from "./ir/ir.ts";
 
@@ -81,7 +81,7 @@ function reviveTypedRow(row: unknown, find: readonly FindPos[], ids: IdMap): unk
   });
 }
 
-function executeEdn(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
+function executeEdn(db: DatascriptDb, edn: string, ...inputs: unknown[]): unknown {
   try {
     return d.q(edn, db.db, ...inputs);
   } catch (err) {
@@ -92,7 +92,7 @@ function executeEdn(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
 /** `(edn, ...inputs) => raw rows` — no revival. `runIr` supplies typed revival. */
 export type EdnExecutor = (edn: string, ...inputs: unknown[]) => unknown;
 
-export function datascriptExecutor(db: QueryDb): EdnExecutor {
+export function datascriptExecutor(db: DatascriptDb): EdnExecutor {
   return (edn, ...inputs) => executeEdn(db, edn, ...inputs);
 }
 
@@ -116,7 +116,7 @@ export function runIr(exec: EdnExecutor, ir: Ir, ids: IdMap, ...inputs: unknown[
  * inputs (rules vectors included) are normalised the same way as the query.
  * Typed revival lives on `runIr`.
  */
-export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
+export function query(db: DatascriptDb, edn: string, ...inputs: unknown[]): unknown {
   const q = normalizeEdnQuery(rewriteChildOrderCartesian(edn));
   const raw = executeEdn(db, q, ...inputs.map(normalizeQueryInput));
   return reviveValue(raw, db.ids);
@@ -127,7 +127,7 @@ export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
  * is whatever the query asked for; every row-shaped caller went through the
  * same cast, so the check lives here instead.
  */
-export function queryRows(db: QueryDb, edn: string, ...inputs: unknown[]): unknown[][] {
+export function queryRows(db: DatascriptDb, edn: string, ...inputs: unknown[]): unknown[][] {
   const raw = query(db, edn, ...inputs);
   if (!Array.isArray(raw) || !raw.every((row) => Array.isArray(row))) {
     throw new DatalogError(`datalog query did not return rows: ${edn}`);
@@ -135,7 +135,7 @@ export function queryRows(db: QueryDb, edn: string, ...inputs: unknown[]): unkno
   return raw;
 }
 
-export function pull(db: QueryDb, pattern: string, id: NodeId | number): unknown {
+export function pull(db: DatascriptDb, pattern: string, id: NodeId | number): unknown {
   let eidOrLookup: number | [string, string];
   if (typeof id === "number") {
     eidOrLookup = id;

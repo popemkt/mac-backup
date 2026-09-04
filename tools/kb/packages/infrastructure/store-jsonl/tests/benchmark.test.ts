@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { JsonlStore } from "../src/index.ts";
 import { decodeNodes } from "../src/jsonl-store.ts";
 import { systemSeedNodes, SYSTEM_IDS, type KbNode, nowIso } from "@kb/model";
-import { buildQueryDb, query } from "@kb/query";
+import { DatascriptIndex } from "@kb/query";
 
 const N = 50_000;
 const benchmarkEnabled = Bun.argv.some((arg) => arg.endsWith("benchmark.test.ts"));
@@ -64,12 +64,11 @@ describe.skipIf(!benchmarkEnabled)("benchmark 50k", () => {
       const decodeMs = elapsedSince(started);
 
       started = performance.now();
-      const qdb = buildQueryDb(loaded);
+      const index = new DatascriptIndex(loaded);
       const datomBuildMs = elapsedSince(started);
 
       started = performance.now();
-      query(
-        qdb,
+      index.runDatalog(
         `[:find ?id
           :where [?n :f/${SYSTEM_IDS.typeField} ?t]
                  [?t :node/id "${tagId}"]

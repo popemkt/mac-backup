@@ -32,8 +32,7 @@ import {
   type PropValue,
   typeRefsOf,
 } from "@kb/model";
-import { buildQueryDb, query } from "@kb/query";
-import { normalizeRows } from "../src/session.ts";
+import { DatascriptIndex } from "@kb/query";
 
 const AT = "2026-08-24T00:00:00.000Z";
 
@@ -42,8 +41,8 @@ const seedMap = new Map<string, KbNode>(seed.map((n) => [n.id, n]));
 
 /** The EDN runner core asks for, bound to the backend datalog engine. */
 function runnerFor(nodes: KbNode[]): (edn: string) => unknown[][] {
-  const db = buildQueryDb(nodes);
-  return (edn) => normalizeRows(query(db, edn));
+  const index = new DatascriptIndex(nodes);
+  return (edn) => index.runDatalog(edn);
 }
 
 function node(id: string, text: string, props: Record<string, PropValue[]> = {}): KbNode {

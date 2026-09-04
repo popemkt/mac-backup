@@ -9,6 +9,7 @@ import {
   type FailureCode,
   schemaToJsonSchema,
 } from "@kb/model";
+import type { KbIndexService } from "@kb/query";
 import type { KbCtx, KbStore } from "./session.ts";
 import type { TemplateRegistry } from "./template.ts";
 
@@ -20,7 +21,7 @@ type ActionMode = z.infer<typeof ActionModeSchema>;
  * at the invoke tip (`kbRuntimeLayer`); a handler that needs fewer of them
  * still assigns, because Effect's requirement channel is covariant.
  */
-export type ActionHandlerEnv = KbCtx | KbStore | FileSystem | TemplateRegistry;
+export type ActionHandlerEnv = KbCtx | KbStore | KbIndexService | FileSystem | TemplateRegistry;
 
 /**
  * What an action handler may fail with. A closed vocabulary, not `unknown`:

@@ -75,4 +75,4 @@ export {
   resolveSavedQueryFile,
   saveSavedQuery,
 } from "./saved-query.ts";
-export { persistEffect, reloadEffect } from "./session.ts";
+export { noteStoreSynced, persistEffect, reloadEffect } from "./session.ts";

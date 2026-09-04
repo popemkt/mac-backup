@@ -58,6 +58,7 @@ import {
   mapTagList,
   mapUnset,
   parsePropType,
+  persistEffect,
   UsageError,
   type PlannedAction,
 } from "@kb/operations";
@@ -378,11 +379,7 @@ function buildProgram(): Command {
             let examples = 0;
             if (opts.bare !== true && isPristine(ctx.nodes)) {
               const nodes = exampleSeedNodes(yield* currentIso);
-              yield* ctx.effectStore.commitEffect({
-                upserts: nodes,
-                deletes: [],
-              });
-              ctx.nodes = [...ctx.nodes, ...nodes];
+              yield* persistEffect(ctx, { upserts: nodes, deletes: [] });
               examples = nodes.length;
             }
 

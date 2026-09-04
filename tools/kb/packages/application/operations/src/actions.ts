@@ -18,7 +18,7 @@ import {
   type PropValue,
 } from "@kb/model";
 import { persistEffect } from "./session.ts";
-import { DatalogError, pull, query } from "@kb/query";
+import { DatalogError, type KbIndex, KbIndexService } from "@kb/query";
 import { resolveSavedQueryFile } from "./saved-query.ts";
 
 type KbWriteEnv = KbCtx | KbStore | FileSystem;
@@ -177,7 +177,7 @@ export const graphSearchDef = {
 } satisfies ActionDefinition;
 
 function nodeById(ctx: KbContext, id: NodeId): KbNode | undefined {
-  return ctx.nodes.find((n) => n.id === id);
+  return ctx.index.getNode(id);
 }
 
 function requireNode(ctx: KbContext, id: NodeId): KbNode {
@@ -472,7 +472,7 @@ export const nodeGetEffect = Effect.fn("node.get")(function* (
   yield* syncDomain(() => requireNode(ctx, input.id));
   const node = pullSubtree(ctx, input.id, input.depth);
   if (input.depth <= 1) {
-    void pull(ctx.qdb, subtreePattern(input.depth), input.id);
+    void ctx.index.pull(subtreePattern(input.depth), input.id);
   }
   return { node };
 });
@@ -554,21 +554,21 @@ export function classifyQueryError(err: unknown, queryString: string): DomainErr
 
 /** Shared datalog execution for graph.query / graph.run. */
 function runDatalog(
-  ctx: KbContext,
+  index: KbIndex,
   edn: string,
   inputs?: unknown[],
-): Effect.Effect<unknown, DomainError> {
+): Effect.Effect<unknown[][], DomainError> {
   return Effect.try({
-    try: () => query(ctx.qdb, edn, ...(inputs ?? [])),
+    try: () => index.runDatalog(edn, ...(inputs ?? [])),
     catch: (err) => classifyQueryError(err, edn),
   });
 }
 
 export const graphQueryEffect = Effect.fn("graph.query")(function* (
   input: z.infer<typeof graphQueryDef.inputSchema>,
-): Effect.fn.Return<{ rows: unknown }, DomainError, KbCtx> {
-  const ctx = yield* KbCtx;
-  const rows = yield* runDatalog(ctx, input.query, input.inputs);
+): Effect.fn.Return<{ rows: unknown }, DomainError, KbIndexService> {
+  const index = yield* KbIndexService;
+  const rows = yield* runDatalog(index, input.query, input.inputs);
   return { rows };
 });
 
@@ -606,21 +606,13 @@ export const graphRunEffect = Effect.fn("graph.run")(function* (
       );
     }),
   );
-  const rows = yield* runDatalog(ctx, edn, input.inputs);
+  const rows = yield* runDatalog(ctx.index, edn, input.inputs);
   return { name: input.name, query: edn.trim(), rows };
 });
 
 export const graphSearchEffect = Effect.fn("graph.search")(function* (
   input: z.infer<typeof graphSearchDef.inputSchema>,
-): Effect.fn.Return<{ rows: unknown[][] }, DomainError, KbCtx> {
-  const ctx = yield* KbCtx;
-  const needle = input.text.toLowerCase();
-  const rows = ctx.nodes
-    .filter((n) => n.text.toLowerCase().includes(needle))
-    .map((n) => [n.id, n.text])
-    .toSorted((a, b) => String(a[0]).localeCompare(String(b[0])));
-  if (input.limit !== undefined && rows.length > input.limit) {
-    rows.length = input.limit;
-  }
-  return { rows };
+): Effect.fn.Return<{ rows: unknown[][] }, DomainError, KbIndexService> {
+  const index = yield* KbIndexService;
+  return { rows: index.search(input.text, input.limit).map((n) => [n.id, n.text]) };
 });

@@ -7,7 +7,7 @@ import { FileSystem } from "effect/FileSystem";
 import { openKbEffect, runWithKb, kbRuntimeLayer } from "../src/layers.ts";
 import { openKb, persist, reload } from "../src/session.ts";
 import { KbCtx, KbStore } from "@kb/contracts";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { bunFileSystemLayer, JsonlStore } from "@kb/store-jsonl";
 import {
   DomainError,
   domainError,
@@ -85,10 +85,24 @@ describe("Effect services + layers", () => {
     expect(ctx.nodes.some((n) => n.id === "n.effect-store")).toBe(true);
     expect(ctx.nodes.length).toBe(before + 1);
 
-    // Drop in-memory state, then reload through the KbStore port.
-    ctx.nodes = [];
+    // Write behind the session's back, then reload through the KbStore port.
+    const external = new JsonlStore(root);
+    await external.commit({
+      upserts: [
+        {
+          id: "n.external",
+          text: "written by someone else",
+          props: {},
+          children: [],
+          createdAt: new Date(0).toISOString(),
+          updatedAt: new Date(0).toISOString(),
+        },
+      ],
+      deletes: [],
+    });
     await reload(ctx);
     expect(ctx.nodes.some((n) => n.id === "n.effect-store")).toBe(true);
+    expect(ctx.nodes.some((n) => n.id === "n.external")).toBe(true);
   });
 
   test("DomainError maps to typed invoke receipts", async () => {

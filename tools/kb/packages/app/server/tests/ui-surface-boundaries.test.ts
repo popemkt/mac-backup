@@ -9,13 +9,7 @@ import * as assets from "../src/assets.ts";
 import { handleHttpRequest } from "../src/http.ts";
 import { UI_DIST } from "../src/paths.ts";
 import { listSavedQueries, savedQueryNodes } from "../src/saved-queries.ts";
-import {
-  contentHash,
-  diffNodes,
-  normalizeRows,
-  rowsHash,
-  SubscriptionHub,
-} from "../src/session.ts";
+import { diffNodes, rowsHash, SubscriptionHub } from "../src/session.ts";
 import type { KbNode } from "@kb/model";
 
 const { assetContentType, serveKbAsset, serveStatic } = assets;
@@ -126,13 +120,7 @@ describe("ui saved-queries boundary", () => {
 });
 
 describe("ui session boundary", () => {
-  test("contentHash is order-insensitive; rowsHash/normalizeRows stabilize", () => {
-    const a = [node("b"), node("a")];
-    const b = [node("a"), node("b")];
-    expect(contentHash(a)).toBe(contentHash(b));
-
-    expect(normalizeRows(null)).toEqual([]);
-    expect(normalizeRows([1, [2, 3]])).toEqual([[1], [2, 3]]);
+  test("rowsHash is stable per row set", () => {
     expect(rowsHash([["x"]])).toBe(rowsHash([["x"]]));
     expect(rowsHash([["x"]])).not.toBe(rowsHash([["y"]]));
   });

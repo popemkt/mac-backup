@@ -9,7 +9,6 @@ import {
   type WireNode,
 } from "@kb/contracts";
 import type { KbNode } from "@kb/model";
-import { buildQueryDb, query } from "@kb/query";
 
 /** Bun.serve websocket attachment (server boundary only). */
 export type WsData = {
@@ -34,31 +33,25 @@ function nodesToMap(nodes: KbNode[]): Map<string, KbNode> {
   return new Map(nodes.map((n) => [n.id, n]));
 }
 
-export function contentHash(nodes: KbNode[]): string {
-  const sorted = [...nodes].toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  return String(Bun.hash(JSON.stringify(sorted)));
-}
-
 export function rowsHash(rows: unknown[][]): string {
   return String(Bun.hash(JSON.stringify(rows)));
 }
 
-export function normalizeRows(raw: unknown): unknown[][] {
-  if (raw === undefined || raw === null) return [];
-  const list = raw instanceof Set ? [...raw] : Array.isArray(raw) ? raw : [];
-  return list.map((r) => (Array.isArray(r) ? r : [r]));
-}
-
+/**
+ * The transaction between two node sets. This is both what clients are told
+ * and what the index is given, so it is computed once, in node terms, and
+ * converted to wire nodes only at the frame boundary.
+ */
 export function diffNodes(
   oldMap: Map<string, KbNode>,
   newMap: Map<string, KbNode>,
-): { upserts: WireNode[]; deletes: string[] } {
-  const upserts: WireNode[] = [];
+): { upserts: KbNode[]; deletes: string[] } {
+  const upserts: KbNode[] = [];
   const deletes: string[] = [];
   for (const [id, node] of newMap) {
     const prev = oldMap.get(id);
     if (!prev || JSON.stringify(prev) !== JSON.stringify(node)) {
-      upserts.push(toWireNode(node));
+      upserts.push(node);
     }
   }
   for (const id of oldMap.keys()) {
@@ -77,21 +70,24 @@ export function diffNodes(
  */
 export class SubscriptionHub {
   rev = 0;
-  private hash = "";
-  private nodeMap = new Map<string, KbNode>();
+  /**
+   * The stored nodes as clients last saw them. Not a second copy of the graph:
+   * the index owns that. This is what a `tx` frame is a delta against, which is
+   * why it must survive a reload that has already moved the index on.
+   */
+  private broadcast = new Map<string, KbNode>();
   private clients = new Map<string, ClientState>();
   private ctx: KbContext;
-  /** Virtual nodes (saved queries) merged into every broadcast/snapshot,
-   * never written back to .kb/nodes.jsonl. */
-  private virtual: KbNode[];
 
+  /**
+   * `virtual` are the saved-query nodes: they answer queries and reach clients
+   * in the snapshot, and never reach `.kb/nodes.jsonl`. The index owns that
+   * distinction now, so the hub hands them over once and forgets them.
+   */
   constructor(ctx: KbContext, virtual: KbNode[] = []) {
     this.ctx = ctx;
-    this.virtual = virtual;
-    const merged = this.withVirtual(ctx.nodes);
-    this.nodeMap = nodesToMap(merged);
-    this.hash = contentHash(merged);
-    ctx.qdb = buildQueryDb(merged);
+    if (virtual.length > 0) ctx.index.withVirtual(virtual);
+    this.broadcast = nodesToMap(ctx.index.storedNodes());
   }
 
   /** Test hook: number of live clients. */
@@ -99,14 +95,10 @@ export class SubscriptionHub {
     return this.clients.size;
   }
 
-  private withVirtual(nodes: KbNode[]): KbNode[] {
-    return this.virtual.length === 0 ? nodes : [...nodes, ...this.virtual];
-  }
-
   get snapshot(): GraphSnapshot {
     return GraphSnapshotSchema.parse({
       rev: this.rev,
-      nodes: [...this.nodeMap.values()]
+      nodes: [...this.ctx.index.allNodes()]
         .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
         .map(toWireNode),
     });
@@ -165,7 +157,7 @@ export class SubscriptionHub {
         return Effect.void;
       case "subscribe": {
         try {
-          const rows = normalizeRows(query(this.ctx.qdb, msg.query));
+          const rows = this.ctx.index.runDatalog(msg.query);
           const hash = rowsHash(rows);
           client.subs.set(msg.id, { query: msg.query, lastHash: hash });
           return client.send(JSON.stringify({ op: "rows", id: msg.id, rev: this.rev, rows }));
@@ -199,47 +191,39 @@ export class SubscriptionHub {
   }
 
   /**
-   * Apply a new node set. No-ops when content hash matches (guards
-   * action→fs.watch double-fire). Bumps rev, broadcasts tx + row updates.
-   * The node-set mutation is synchronous (atomic at the JS level); the
-   * broadcast sends are returned as an Effect sequence.
+   * Apply a new stored node set. The difference against what clients last saw
+   * is the whole story: it is the no-op guard (an action→fs.watch double-fire
+   * diffs to nothing), the transaction the index is given, and the frame the
+   * clients get. Bumps rev and broadcasts tx + row updates. The node-set
+   * mutation is synchronous (atomic at the JS level); the broadcast sends are
+   * returned as an Effect sequence.
    */
   applyNodes(nodes: KbNode[], origin?: string): Effect.Effect<void> {
-    const merged = this.withVirtual(nodes);
-    const hash = contentHash(merged);
-    if (hash === this.hash) return Effect.void;
+    const newMap = nodesToMap(nodes);
+    const { upserts, deletes } = diffNodes(this.broadcast, newMap);
+    if (upserts.length === 0 && deletes.length === 0) return Effect.void;
 
-    const oldMap = this.nodeMap;
-    const newMap = nodesToMap(merged);
-    const { upserts, deletes } = diffNodes(oldMap, newMap);
-
-    this.nodeMap = newMap;
-    this.hash = hash;
+    this.broadcast = newMap;
     this.rev += 1;
-
-    // Real nodes only — virtual saved-query nodes must never reach persist().
-    this.ctx.nodes = nodes;
-    this.ctx.qdb = buildQueryDb(merged);
+    this.ctx.index.applyTx({ upserts, deletes });
 
     const sends: Effect.Effect<void>[] = [];
 
-    if (upserts.length > 0 || deletes.length > 0) {
-      const tx: ServerMessage = {
-        op: "tx",
-        rev: this.rev,
-        upserts,
-        deletes,
-      };
-      const payload = JSON.stringify(tx);
-      for (const [clientId, c] of this.clients) {
-        if (c.watchTx && clientId !== origin) sends.push(c.send(payload));
-      }
+    const tx: ServerMessage = {
+      op: "tx",
+      rev: this.rev,
+      upserts: upserts.map(toWireNode),
+      deletes,
+    };
+    const payload = JSON.stringify(tx);
+    for (const [clientId, c] of this.clients) {
+      if (c.watchTx && clientId !== origin) sends.push(c.send(payload));
     }
 
     for (const c of this.clients.values()) {
       for (const [id, sub] of c.subs) {
         try {
-          const rows = normalizeRows(query(this.ctx.qdb, sub.query));
+          const rows = this.ctx.index.runDatalog(sub.query);
           const subHash = rowsHash(rows);
           if (subHash === sub.lastHash) continue;
           sub.lastHash = subHash;

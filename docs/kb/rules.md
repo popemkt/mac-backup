@@ -196,6 +196,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1PJVW0VZ283V1N3PDXFSHTC`
 
+### GAP: KbIndex reads are synchronous
+
+- **expected** — A KbIndex whose reads are Effects, so an implementation with async point reads (SqliteIndex, r4 §9.3) can satisfy the port.
+- **current** — rebuild/applyTx/runDatalog/pull/getNode/allNodes/search are all synchronous; every caller wraps them in Effect.try and depends on a synchronous throw.
+- **impact** — A second KbIndex implementation that cannot answer synchronously does not fit the port. Making reads Effects later is a wide mechanical change across the ontology runner's injected row function, the WS subscription hub and the docs renderer — three surfaces, no consumer asking for it today.
+- **closes** — p1 Phase 3 (SqliteIndex): change the port's read signatures to Effect and the three injected-runner signatures with it.
+- **node** — `01M1PH06G67A9HHTTXFZVAZ3YF`
+
 ### GAP: KbNode.order is optional and undeclared
 
 - **expected** — Sibling rank is part of the node schema, declared once, with the presence rule encoded rather than left optional.
@@ -344,6 +352,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Six pinpoint disables of a rule that is error everywhere else. If any of these lists later gains a real id, the disable will read as blessed rather than as a question.
 - **closes** — A node prop is an ordered multi-value: slot 2 is slot 2, and two slots can hold equal values, so position is the only identity available and a content key would collide and remount live editors. Snap guides are a transient two-element overlay with no domain object at all. Close it by giving multi-values an id in the data model (Track 2 KbNode/prop schema work), then key on that.
 - **node** — `01M1MFP33RDP5MVB4827DR5RE7`
+
+### GAP: store staleness is size+mtime, not a fingerprint
+
+- **expected** — The session knows whether its index reflects the store from a content fingerprint the store computes as it writes (p1 Phase 3), so no external write can be missed.
+- **current** — reloadEffect compares the store file's size and mtimeMs against what this session last read or wrote; persistEffect catches up through the same check before committing, and re-stamps after.
+- **impact** — Two windows, both needing a second process writing the same store: an external write in the same mtime tick with an identical byte count is invisible; and an external write landing between persist's check and JsonlStore's own locked reload is merged into the file by that commit but not into the index, which the post-commit stamp then calls current. The session recovers at the next write it does see.
+- **closes** — p1 Phase 3's fingerprint (sourceHash + sourceBytes + nodeCount), or EffectStore.commitEffect returning the merged snapshot so persist reconciles against what was actually written.
+- **node** — `01M1PK5NYA7ZG3XC0H0YRYRVZE`
 
 ### GAP: suppression grammar still includes legacy eslint directives
 
