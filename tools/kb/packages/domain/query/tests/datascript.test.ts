@@ -4,8 +4,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import type { KbNode } from "@kb/model";
-import { buildQueryDb } from "../src/index/datoms.ts";
-import { normalizeEdnQuery, query, queryRows } from "../src/datascript.ts";
+import { buildQueryDb, normalizeEdnQuery, query, queryRows } from "@kb/query";
 
 const AT = "2026-01-01T00:00:00.000Z";
 

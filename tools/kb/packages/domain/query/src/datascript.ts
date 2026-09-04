@@ -3,6 +3,8 @@
 import * as d from "datascript";
 import { present, type NodeId } from "@kb/model";
 import type { IdMap, QueryDb } from "./index/datoms.ts";
+import { compile, normalizeEdnQuery } from "./ir/compile.ts";
+import type { FindPos, Ir } from "./ir/ir.ts";
 
 /**
  * A query that failed inside the datascript engine — parse or evaluation
@@ -15,56 +17,6 @@ export class DatalogError extends Error {
     super(message);
     this.name = "DatalogError";
   }
-}
-
-const QUERY_DIRECTIVES = new Set([
-  "find",
-  "where",
-  "in",
-  "with",
-  "keys",
-  "limit",
-  "offset",
-  "rules",
-]);
-
-/**
- * DataScript JS API stores attrs as strings; EDN queries use keywords.
- * Rewrite `:attr` → `":attr"` (quoted) except query directives.
- *
- * Rules vectors (`:in $ %`) are the same dialect and must go through this
- * too — an unquoted `:f/…` inside a rule stays a keyword while datoms hold
- * strings, and DataScript throws mid-fixpoint.
- */
-export function normalizeEdnQuery(edn: string): string {
-  const keyword = /^:([A-Za-z*][\w./+*-]*)/;
-  let out = "";
-  let i = 0;
-  while (i < edn.length) {
-    if (edn[i] === '"') {
-      let j = i + 1;
-      while (j < edn.length) {
-        if (edn[j] === "\\") j += 2;
-        else if (edn[j] === '"') {
-          j += 1;
-          break;
-        } else j += 1;
-      }
-      out += edn.slice(i, j);
-      i = j;
-      continue;
-    }
-    const m = keyword.exec(edn.slice(i));
-    if (m) {
-      const directive = present(m[1], "edn keyword");
-      out += QUERY_DIRECTIVES.has(directive) ? m[0] : `"${m[0]}"`;
-      i += m[0].length;
-      continue;
-    }
-    out += edn[i];
-    i += 1;
-  }
-  return out;
 }
 
 /**
@@ -115,25 +67,58 @@ function reviveValue(v: unknown, ids: IdMap): unknown {
   return v;
 }
 
+function reviveTyped(raw: unknown, find: readonly FindPos[], ids: IdMap): unknown {
+  if (!Array.isArray(raw)) return raw;
+  return raw.map((row) => reviveTypedRow(row, find, ids));
+}
+
+function reviveTypedRow(row: unknown, find: readonly FindPos[], ids: IdMap): unknown {
+  if (!Array.isArray(row)) return row;
+  return row.map((val, i) => {
+    const pos = find[i];
+    if (pos?.type === "node-ref") return reviveValue(val, ids);
+    return val;
+  });
+}
+
+function executeEdn(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
+  try {
+    return d.q(edn, db.db, ...inputs);
+  } catch (err) {
+    throw new DatalogError(err instanceof Error ? err.message : String(err));
+  }
+}
+
+/** `(edn, ...inputs) => raw rows` — no revival. `runIr` supplies typed revival. */
+export type EdnExecutor = (edn: string, ...inputs: unknown[]) => unknown;
+
+export function datascriptExecutor(db: QueryDb): EdnExecutor {
+  return (edn, ...inputs) => executeEdn(db, edn, ...inputs);
+}
+
+/**
+ * Compile `ir`, run it through `exec`, revive **only** `node-ref` find positions.
+ * Aggregate counts that collide with live eids stay numbers — the r4 red case.
+ */
+export function runIr(exec: EdnExecutor, ir: Ir, ids: IdMap, ...inputs: unknown[]): unknown {
+  const compiled = compile(ir);
+  const extra = compiled.rules !== undefined ? [compiled.rules, ...inputs] : inputs;
+  const raw = exec(compiled.query, ...extra);
+  if (ir.kind === "raw") return reviveValue(raw, ids);
+  return reviveTyped(raw, ir.find, ids);
+}
+
 /**
  * Run raw EDN datalog; entity ids in results are revived to NodeIds when known.
  *
  * This is the engine-specific surface: every integer that matches a live eid
  * is revived, including aggregate counts that happen to collide. String
  * inputs (rules vectors included) are normalised the same way as the query.
+ * Typed revival lives on `runIr`.
  */
 export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
   const q = normalizeEdnQuery(rewriteChildOrderCartesian(edn));
-  const normalizedInputs = inputs.map(normalizeQueryInput);
-  let raw: unknown;
-  try {
-    raw = d.q(q, db.db, ...normalizedInputs);
-  } catch (err) {
-    // Query parse/evaluation failures are the caller's datalog at fault, not
-    // an internal defect — surface them as DatalogError so action surfaces can
-    // type them invalid_input while genuine glue bugs stay plain Error.
-    throw new DatalogError(err instanceof Error ? err.message : String(err));
-  }
+  const raw = executeEdn(db, q, ...inputs.map(normalizeQueryInput));
   return reviveValue(raw, db.ids);
 }
 
