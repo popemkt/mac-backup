@@ -2,6 +2,7 @@
  * Typed fields seed: sys.f.fieldType / targetTag / targetQuery.
  */
 import { describe, expect, test } from "bun:test";
+import { present } from "../src/present.ts";
 import { SYSTEM_IDS, type KbNode } from "../src/model.ts";
 import {
   FIELD_TYPES,
@@ -12,7 +13,6 @@ import {
 } from "../src/field-type.ts";
 import { resolveFieldId } from "../src/resolve.ts";
 import { ensureSystemSeed, systemSeedNodes } from "../src/seed.ts";
-import { expectDefined } from "@kb/test-kit";
 
 function refs(node: KbNode, field: string): string[] {
   return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
@@ -30,12 +30,25 @@ describe("typed field seeds", () => {
     ]) {
       const field = byId.get(id);
       expect(field).toBeDefined();
-      expect(refs(expectDefined(field), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.field]);
+      expect(refs(present(field, "expected field"), SYSTEM_IDS.typeField)).toEqual([
+        SYSTEM_IDS.field,
+      ]);
     }
 
-    expect(expectDefined(byId.get(SYSTEM_IDS.fieldTypeField)).text).toBe("fieldType");
-    expect(expectDefined(byId.get(SYSTEM_IDS.targetTagField)).text).toBe("targetTag");
-    expect(expectDefined(byId.get(SYSTEM_IDS.targetQueryField)).text).toBe("targetQuery");
+    expect(
+      present(byId.get(SYSTEM_IDS.fieldTypeField), "expected byId.get(SYSTEM_IDS.fieldTypeField)")
+        .text,
+    ).toBe("fieldType");
+    expect(
+      present(byId.get(SYSTEM_IDS.targetTagField), "expected byId.get(SYSTEM_IDS.targetTagField)")
+        .text,
+    ).toBe("targetTag");
+    expect(
+      present(
+        byId.get(SYSTEM_IDS.targetQueryField),
+        "expected byId.get(SYSTEM_IDS.targetQueryField)",
+      ).text,
+    ).toBe("targetQuery");
   });
 
   test("every field type is a node tagged #field-type", () => {
@@ -43,14 +56,16 @@ describe("typed field seeds", () => {
 
     const tag = byId.get(SYSTEM_IDS.fieldTypeTag);
     expect(tag).toBeDefined();
-    expect(expectDefined(tag).text).toBe("field-type");
-    expect(refs(expectDefined(tag), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
+    expect(present(tag, "expected tag").text).toBe("field-type");
+    expect(refs(present(tag, "expected tag"), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
 
     for (const type of FIELD_TYPES) {
       const option = byId.get(FIELD_TYPE_OPTION_IDS[type]);
       expect(option, type).toBeDefined();
-      expect(expectDefined(option).text).toBe(type);
-      expect(refs(expectDefined(option), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.fieldTypeTag]);
+      expect(present(option, "expected option").text).toBe(type);
+      expect(refs(present(option, "expected option"), SYSTEM_IDS.typeField)).toEqual([
+        SYSTEM_IDS.fieldTypeTag,
+      ]);
     }
   });
 
@@ -58,7 +73,10 @@ describe("typed field seeds", () => {
     // This is what lets the normal ref editor render it: nothing about the
     // type slot is special-cased, it is a ref field with a target tag.
     const byId = new Map(systemSeedNodes().map((n) => [n.id, n]));
-    const slot = expectDefined(byId.get(SYSTEM_IDS.fieldTypeField));
+    const slot = present(
+      byId.get(SYSTEM_IDS.fieldTypeField),
+      "expected byId.get(SYSTEM_IDS.fieldTypeField)",
+    );
     expect(fieldTypeOf(slot.props)).toBe("ref");
     expect(refs(slot, SYSTEM_IDS.targetTagField)).toEqual([SYSTEM_IDS.fieldTypeTag]);
   });
@@ -67,11 +85,12 @@ describe("typed field seeds", () => {
     // One rule — surface the fields your kinds and tags template — has to cover
     // field pages too, or they need a bespoke configurator panel.
     const byId = new Map(systemSeedNodes().map((n) => [n.id, n]));
-    expect(refs(expectDefined(byId.get(SYSTEM_IDS.field)), SYSTEM_IDS.fieldsField)).toEqual([
-      SYSTEM_IDS.fieldTypeField,
-      SYSTEM_IDS.targetTagField,
-      SYSTEM_IDS.targetQueryField,
-    ]);
+    expect(
+      refs(
+        present(byId.get(SYSTEM_IDS.field), "expected byId.get(SYSTEM_IDS.field)"),
+        SYSTEM_IDS.fieldsField,
+      ),
+    ).toEqual([SYSTEM_IDS.fieldTypeField, SYSTEM_IDS.targetTagField, SYSTEM_IDS.targetQueryField]);
   });
 
   test("fieldTypeOf reads both the node form and the pre-option-node string", () => {
@@ -120,9 +139,9 @@ describe("typed field seeds", () => {
     const first = migrateFieldTypeValues(nodes);
     expect(first.changed).toBe(true);
     const byId = new Map(first.nodes.map((n) => [n.id, n]));
-    expect(expectDefined(byId.get("field.a")).props[SYSTEM_IDS.fieldTypeField]).toEqual([
-      fieldTypeValue("number"),
-    ]);
+    expect(
+      present(byId.get("field.a"), 'expected byId.get("field.a")').props[SYSTEM_IDS.fieldTypeField],
+    ).toEqual([fieldTypeValue("number")]);
     // Already-migrated and unrelated nodes are untouched, by identity.
     expect(byId.get("field.b")).toBe(nodes[1]);
     expect(byId.get("n.plain")).toBe(nodes[2]);
@@ -145,9 +164,9 @@ describe("typed field seeds", () => {
     ];
     const result = migrateFieldTypeValues(nodes);
     expect(result.changed).toBe(false);
-    expect(expectDefined(result.nodes[0]).props[SYSTEM_IDS.fieldTypeField]).toEqual([
-      { t: "str", v: "colour" },
-    ]);
+    expect(
+      present(result.nodes[0], "expected result.nodes[0]").props[SYSTEM_IDS.fieldTypeField],
+    ).toEqual([{ t: "str", v: "colour" }]);
   });
 
   test("ensureSystemSeed is idempotent over typed-field nodes", () => {

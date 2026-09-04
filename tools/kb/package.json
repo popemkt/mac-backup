@@ -2,7 +2,6 @@
   "name": "kb",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "workspaces": {
     "packages": [
       "packages/*"
@@ -56,6 +55,7 @@
       "zustand": "^5.0.9"
     }
   },
+  "type": "module",
   "scripts": {
     "prepare": "effect-tsgo patch",
     "typecheck": "nx run-many -t typecheck",

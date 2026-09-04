@@ -41,7 +41,7 @@ export const SCOPE_ALLOWS: Record<string, readonly string[]> = {
 
 /**
  * Test files may import `@kb/test-kit` without inverting the production
- * matrix. The assertion helper `expectDefined` lives there; a domain package
+ * matrix. The DST harness and scenario runners live there; a domain package
  * depending on test-kit as a production edge would be domain → app.
  */
 export function isPackageTestFile(file: string): boolean {

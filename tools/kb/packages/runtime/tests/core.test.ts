@@ -1,20 +1,21 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { Effect } from "effect";
 import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   canonicalJson,
-  SYSTEM_IDS,
-  type KbNode,
   ensureSystemSeed,
+  present,
+  SYSTEM_IDS,
   systemSeedNodes,
   txIntegrityError,
+  type KbNode,
 } from "@kb/model";
-import { JsonlStore } from "@kb/store-jsonl";
+import { bunFileSystemLayer, JsonlStore } from "@kb/store-jsonl";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
 import { manifest } from "../src/registry.ts";
-import { expectDefined } from "@kb/test-kit";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-test-"));
@@ -58,11 +59,12 @@ describe("JsonlStore", () => {
     expect(second).toBe(first);
     // sorted by id, canonical keys
     const lines = first.trim().split("\n");
-    expect(expectDefined(lines[0]).startsWith('{"children"')).toBe(true);
-    expect(JSON.parse(expectDefined(lines[0])).id < JSON.parse(expectDefined(lines[1])).id).toBe(
-      true,
-    );
-    expect(lines[0]).toBe(canonicalJson(JSON.parse(expectDefined(lines[0]))));
+    expect(present(lines[0], "expected lines[0]").startsWith('{"children"')).toBe(true);
+    expect(
+      JSON.parse(present(lines[0], "expected lines[0]")).id <
+        JSON.parse(present(lines[1], "expected lines[1]")).id,
+    ).toBe(true);
+    expect(lines[0]).toBe(canonicalJson(JSON.parse(present(lines[0], "expected lines[0]"))));
   });
 });
 
@@ -99,12 +101,15 @@ describe("system seed", () => {
     // tagging while actually changing the node's kind.
     const tag = systemSeedNodes().find((n) => n.id === SYSTEM_IDS.tag);
     expect(tag).toBeDefined();
-    expect(expectDefined(tag).props[SYSTEM_IDS.typeField]).toBeUndefined();
+    expect(present(tag, "expected tag").props[SYSTEM_IDS.typeField]).toBeUndefined();
   });
 
   test("seed fills prop keys a stored sys node lacks, and never rewrites one it has", () => {
     const seeded = systemSeedNodes();
-    const tagSeed = expectDefined(seeded.find((n) => n.id === SYSTEM_IDS.tag));
+    const tagSeed = present(
+      seeded.find((n) => n.id === SYSTEM_IDS.tag),
+      "expected seeded.find((n) => n.id === SYSTEM_IDS.tag)",
+    );
 
     // An older store: sys.tag predates its field template, and
     // lens.all-mentions carries a deliberately different value.
@@ -127,13 +132,16 @@ describe("system seed", () => {
     const byId = new Map(result.nodes.map((n) => [n.id, n]));
 
     // Absent keys arrive.
-    expect(expectDefined(byId.get(SYSTEM_IDS.tag)).props[SYSTEM_IDS.fieldsField]).toEqual(
-      tagSeed.props[SYSTEM_IDS.fieldsField],
-    );
+    expect(
+      present(byId.get(SYSTEM_IDS.tag), "expected byId.get(SYSTEM_IDS.tag)").props[
+        SYSTEM_IDS.fieldsField
+      ],
+    ).toEqual(tagSeed.props[SYSTEM_IDS.fieldsField]);
 
     // A key the store already carries is the owner's, seed default or not.
     expect(
-      expectDefined(byId.get(SYSTEM_IDS.lensAllMentions)).props[SYSTEM_IDS.lensClusterByField],
+      present(byId.get(SYSTEM_IDS.lensAllMentions), "expected byId.get(SYSTEM_IDS.lensAllMentions)")
+        .props[SYSTEM_IDS.lensClusterByField],
     ).toEqual([{ t: "str", v: "none" }]);
   });
 });
@@ -148,9 +156,12 @@ describe("registry + operations", () => {
   });
 
   test("manifest exposes JSON schemas", async () => {
-    const m = await manifest();
+    const m = await Effect.runPromise(manifest().pipe(Effect.provide(bunFileSystemLayer)));
     expect(m.some((a) => a.id === "node.add")).toBe(true);
-    const add = expectDefined(m.find((a) => a.id === "graph.query"));
+    const add = present(
+      m.find((a) => a.id === "graph.query"),
+      'expected m.find((a) => a.id === "graph.query")',
+    );
     expect(add.inputSchema).toBeTruthy();
     expect(add.mode).toBe("read");
   });

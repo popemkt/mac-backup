@@ -3,9 +3,9 @@
  * default "All mentions" perspective.
  */
 import { describe, expect, test } from "bun:test";
+import { present } from "../src/present.ts";
 import { LEGACY_LENS_ALL_MENTIONS, SYSTEM_IDS, type KbNode } from "../src/model.ts";
 import { ensureSystemSeed, systemSeedNodes } from "../src/seed.ts";
-import { expectDefined } from "@kb/test-kit";
 
 function refs(node: KbNode, field: string): string[] {
   return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
@@ -37,11 +37,11 @@ describe("V0 seed: graph-perspective + lens fields", () => {
       SYSTEM_IDS.lensAutorotateField,
       SYSTEM_IDS.lensLabelDensityField,
     ]) {
-      const field = expectDefined(byId.get(id), `lens field ${id}`);
+      const field = present(byId.get(id), `lens field ${id}`);
       expect(refs(field, SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.field]);
     }
 
-    const tag = expectDefined(byId.get(SYSTEM_IDS.graphPerspectiveTag), "graph-perspective tag");
+    const tag = present(byId.get(SYSTEM_IDS.graphPerspectiveTag), "graph-perspective tag");
     expect(tag.text).toBe("graph-perspective");
     expect(refs(tag, SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
     expect(refs(tag, SYSTEM_IDS.fieldsField)).toEqual([
@@ -62,7 +62,7 @@ describe("V0 seed: graph-perspective + lens fields", () => {
       SYSTEM_IDS.lensLabelDensityField,
     ]);
 
-    const perspective = expectDefined(byId.get(SYSTEM_IDS.lensAllMentions), "All mentions");
+    const perspective = present(byId.get(SYSTEM_IDS.lensAllMentions), "All mentions");
     expect(SYSTEM_IDS.lensAllMentions.startsWith("sys.")).toBe(false);
     expect(perspective.text).toBe("All mentions");
     expect(refs(perspective, SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.graphPerspectiveTag]);
@@ -97,7 +97,10 @@ describe("V0 seed: graph-perspective + lens fields", () => {
     };
     const result = ensureSystemSeed([staleTag]);
     expect(result.seeded).toBe(true);
-    const tag = expectDefined(result.nodes.find((n) => n.id === SYSTEM_IDS.graphPerspectiveTag));
+    const tag = present(
+      result.nodes.find((n) => n.id === SYSTEM_IDS.graphPerspectiveTag),
+      "expected result.nodes.find((n) => n.id === SYSTEM_IDS.graphPerspectiveTag)",
+    );
     const fieldIds = refs(tag, SYSTEM_IDS.fieldsField);
     expect(fieldIds).toContain(SYSTEM_IDS.lensClusterByField);
     expect(fieldIds).toContain(SYSTEM_IDS.lensFocusField);

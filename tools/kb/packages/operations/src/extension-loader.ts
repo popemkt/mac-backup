@@ -1,4 +1,5 @@
-import { readdir } from "node:fs/promises";
+import { Effect, Predicate } from "effect";
+import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isActionSchema } from "@kb/model";
@@ -28,11 +29,6 @@ export function namespacedId(extName: string, localId: string): string {
 }
 
 const NAME_RE = /^[\w][\w.-]*$/;
-
-/** The one narrowing seam: unknown module exports viewed as a plain record. */
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
-}
 
 function aliasesProblem(a: Record<string, unknown>, label: string): string | null {
   if (
@@ -78,16 +74,18 @@ function actionProblem(a: Record<string, unknown>): string | null {
  * Discover and import `.kb/extensions/*.ts`. Per-file and per-contribution
  * failures are collected (and skipped); valid contributions load normally.
  */
-export async function discoverExtensions(root: string): Promise<{
-  extensions: LoadedExtension[];
-  failures: ExtensionFailure[];
-}> {
-  let entries: string[];
-  try {
-    entries = await readdir(extensionsDir(root));
-  } catch {
-    return { extensions: [], failures: [] };
-  }
+export const discoverExtensions = Effect.fn("kb.discoverExtensions")(function* (
+  root: string,
+): Effect.fn.Return<
+  { extensions: LoadedExtension[]; failures: ExtensionFailure[] },
+  never,
+  FileSystem
+> {
+  const fs = yield* FileSystem;
+  const entries = yield* fs
+    .readDirectory(extensionsDir(root))
+    .pipe(Effect.orElseSucceed(() => null));
+  if (entries === null) return { extensions: [], failures: [] };
   const files = entries.filter((e) => e.endsWith(".ts") && !e.endsWith(".d.ts")).toSorted();
 
   const extensions: LoadedExtension[] = [];
@@ -99,17 +97,18 @@ export async function discoverExtensions(root: string): Promise<{
       continue;
     }
     const path = join(extensionsDir(root), file);
-    let mod: unknown;
-    try {
-      mod = await import(pathToFileURL(path).href);
-    } catch (err) {
-      failures.push({
-        file,
-        error: err instanceof Error ? err.message : String(err),
-      });
+    const loaded = yield* Effect.tryPromise({
+      try: () => import(pathToFileURL(path).href) as Promise<unknown>,
+      catch: (err) => (err instanceof Error ? err.message : String(err)),
+    }).pipe(
+      Effect.map((mod) => ({ mod, error: null })),
+      Effect.catch((error) => Effect.succeed({ mod: null, error })),
+    );
+    if (loaded.error !== null) {
+      failures.push({ file, error: loaded.error });
       continue;
     }
-    const exported = asRecord(mod)?.default;
+    const exported = Predicate.isObject(loaded.mod) ? loaded.mod.default : undefined;
     if (!Array.isArray(exported)) {
       failures.push({
         file,
@@ -122,11 +121,11 @@ export async function discoverExtensions(root: string): Promise<{
     const actions: ExtensionAction[] = [];
     const templates: ExtensionTemplate[] = [];
     for (const candidate of exported) {
-      const contribution = asRecord(candidate);
-      if (contribution === null) {
+      if (!Predicate.isObject(candidate)) {
         failures.push({ file, error: "contribution is not an object" });
         continue;
       }
+      const contribution = candidate;
       // A contribution carrying a `template` function is a render template.
       // The loader already discriminates structurally (`effect` vs
       // `handler`); this is the same distinction one level up.
@@ -151,4 +150,4 @@ export async function discoverExtensions(root: string): Promise<{
     }
   }
   return { extensions, failures };
-}
+});

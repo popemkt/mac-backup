@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import type { KbContext } from "@kb/contracts";
+import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { invoke } from "../src/invoke.ts";
 import { registryFor, resetRegistryCache } from "../src/registry.ts";
 import { openKb } from "../src/session.ts";
@@ -94,14 +95,14 @@ describe("extension-contributed render templates", () => {
     Effect.runPromise(
       Effect.gen(function* () {
         const { root } = yield* seedShoutRootEffect();
-        const registry = yield* Effect.promise(() => registryFor(root));
+        const registry = yield* registryFor(root);
 
         expect(registry.failures).toEqual([]);
         expect([...registry.templates.keys()]).toContain("ext.loud.shout");
         expect(registry.extensions.find((e) => e.name === "loud")?.templates).toMatchObject([
           { id: "ext.loud.shout", source: "ext:loud" },
         ]);
-      }),
+      }).pipe(Effect.provide(bunFileSystemLayer)),
     ));
 
   test("docs.materialize renders a view through the extension's template", () =>
@@ -119,18 +120,18 @@ describe("extension-contributed render templates", () => {
         );
         expect(content).toContain("# Shout");
         expect(content).toContain("- HELLO SEAM");
-      }),
+      }).pipe(Effect.provide(bunFileSystemLayer)),
     ));
 
   test("the bundled docs templates keep their bare ids as aliases", () =>
     Effect.runPromise(
       Effect.gen(function* () {
         const { root } = yield* seedShoutRootEffect();
-        const registry = yield* Effect.promise(() => registryFor(root));
+        const registry = yield* registryFor(root);
 
         expect(registry.templates.has("ext.docs.todos")).toBe(true);
         expect(registry.templates.get("todos")).toBe(registry.templates.get("ext.docs.todos"));
-      }),
+      }).pipe(Effect.provide(bunFileSystemLayer)),
     ));
 
   test("an unknown template names the registered ids", () =>
@@ -153,6 +154,6 @@ describe("extension-contributed render templates", () => {
           code: "invalid_input",
           details: { known: expect.arrayContaining(["ext.loud.shout"]) },
         });
-      }),
+      }).pipe(Effect.provide(bunFileSystemLayer)),
     ));
 });

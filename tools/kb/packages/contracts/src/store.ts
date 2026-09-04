@@ -1,5 +1,4 @@
 import type { Effect } from "effect";
-import type { FileSystem } from "effect/FileSystem";
 import type { DomainError, KbNode, StoreTx } from "@kb/model";
 
 /**
@@ -13,11 +12,13 @@ export interface Store {
 }
 
 /**
- * Effect-native persistence port. Methods require `FileSystem` in R — provide
- * bunFileSystemLayer (or a test Layer) at composition boundaries.
+ * Effect-native persistence port. A port that leaks its adapter's platform
+ * into R is not a port: the concrete store provides its own FileSystem, so a
+ * consumer of {@link KbStore} needs nothing but the store. `loadEffect` is a
+ * value, not a nullary function — an Effect is already the deferred call.
  */
 export interface EffectStore {
   readonly path: string;
-  loadEffect(): Effect.Effect<KbNode[], DomainError, FileSystem>;
-  commitEffect(tx: StoreTx): Effect.Effect<void, DomainError, FileSystem>;
+  readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
+  commitEffect(tx: StoreTx): Effect.Effect<void, DomainError>;
 }

@@ -7,6 +7,8 @@
  * without a browser, a live checkout, or a real Vite process.
  */
 
+import { Effect } from "effect";
+
 export const UI_DEV_DEFAULT_PORT = 5173;
 
 /** Minimal child-process surface needed by the dev orchestration. */
@@ -53,15 +55,15 @@ export function bunSpawnDev(opts: UiDevSpawnOpts): UiDevChild {
  * child exit code (null when the child died by signal). Testable with a fake
  * child: the backend stop is the observable side effect.
  */
-export async function runDevUntilExit(
+export const runDevUntilExit = Effect.fn("kb.runDevUntilExit")(function* (
   dev: {
     child: UiDevChild;
-    backend: { stop(): Promise<void> };
+    backend: { stop: Effect.Effect<void> };
   },
   onExit?: (code: number | null) => void,
-): Promise<number | null> {
-  const code = await dev.child.exited;
-  await dev.backend.stop();
+): Effect.fn.Return<number | null> {
+  const code = yield* Effect.promise(() => dev.child.exited);
+  yield* dev.backend.stop;
   onExit?.(code);
   return code;
-}
+});

@@ -1,4 +1,6 @@
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { Effect } from "effect";
+import { FileSystem } from "effect/FileSystem";
+import type { PlatformError } from "effect/PlatformError";
 import { isAbsolute, join, normalize, relative, resolve } from "node:path";
 
 /**
@@ -33,33 +35,40 @@ export function resolveSavedQueryFile(root: string, name: string): string | null
 }
 
 /** Read a saved query; null when the name is invalid or the file is missing. */
-export async function readSavedQuery(root: string, name: string): Promise<string | null> {
+export const readSavedQuery = Effect.fn("kb.readSavedQuery")(function* (
+  root: string,
+  name: string,
+): Effect.fn.Return<string | null, never, FileSystem> {
   const path = resolveSavedQueryFile(root, name);
   if (path === null) return null;
-  try {
-    return await readFile(path, "utf8");
-  } catch {
-    return null;
-  }
-}
+  const fs = yield* FileSystem;
+  return yield* fs.readFileString(path).pipe(Effect.orElseSucceed(() => null));
+});
 
 /** Create/overwrite a saved query file. Returns false when the name is invalid. */
-export async function saveSavedQuery(root: string, name: string, edn: string): Promise<boolean> {
+export const saveSavedQuery = Effect.fn("kb.saveSavedQuery")(function* (
+  root: string,
+  name: string,
+  edn: string,
+): Effect.fn.Return<boolean, PlatformError, FileSystem> {
   const path = resolveSavedQueryFile(root, name);
   if (path === null) return false;
-  await mkdir(queriesDir(root), { recursive: true });
-  await writeFile(path, edn, "utf8");
+  const fs = yield* FileSystem;
+  yield* fs.makeDirectory(queriesDir(root), { recursive: true });
+  yield* fs.writeFileString(path, edn);
   return true;
-}
+});
 
 /** Delete a saved query file. Returns false when the name is invalid. */
-export async function deleteSavedQuery(root: string, name: string): Promise<boolean> {
+export const deleteSavedQuery = Effect.fn("kb.deleteSavedQuery")(function* (
+  root: string,
+  name: string,
+): Effect.fn.Return<boolean, never, FileSystem> {
   const path = resolveSavedQueryFile(root, name);
   if (path === null) return false;
-  try {
-    await unlink(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
+  const fs = yield* FileSystem;
+  return yield* fs.remove(path).pipe(
+    Effect.as(true),
+    Effect.orElseSucceed(() => false),
+  );
+});

@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { Effect } from "effect";
+import type { FileSystem } from "effect/FileSystem";
+import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -15,6 +18,10 @@ import {
  * Uses only temp dirs — never builds the real UI, never touches the live
  * checkout, needs no browser.
  */
+
+/** The one place these tests provide the platform layer the build needs. */
+const run = <A, E>(effect: Effect.Effect<A, E, FileSystem>): Promise<A> =>
+  Effect.runPromise(effect.pipe(Effect.provide(bunFileSystemLayer)));
 
 let roots: string[] = [];
 
@@ -39,12 +46,12 @@ async function makeUi(): Promise<{ uiRoot: string; distDir: string }> {
 describe("ui source fingerprint", () => {
   test("is stable across runs and changes when sources change", async () => {
     const { uiRoot } = await makeUi();
-    const a = await uiSourceFingerprint(uiRoot);
-    const b = await uiSourceFingerprint(uiRoot);
+    const a = await run(uiSourceFingerprint(uiRoot));
+    const b = await run(uiSourceFingerprint(uiRoot));
     expect(a).toBe(b);
 
     await writeFile(join(uiRoot, "src", "main.ts"), "export const v = 2;\n");
-    const c = await uiSourceFingerprint(uiRoot);
+    const c = await run(uiSourceFingerprint(uiRoot));
     expect(c).not.toBe(a);
   });
 });
@@ -52,26 +59,26 @@ describe("ui source fingerprint", () => {
 describe("needsUiBuild decision", () => {
   test("missing index.html → missing; no marker → stale; matching marker → fresh", async () => {
     const { uiRoot, distDir } = await makeUi();
-    expect(await needsUiBuild(uiRoot, distDir)).toBe("missing");
+    expect(await run(needsUiBuild(uiRoot, distDir))).toBe("missing");
 
     await mkdir(distDir, { recursive: true });
     await writeFile(join(distDir, "index.html"), '<div id="root"></div>\n');
-    expect(await needsUiBuild(uiRoot, distDir)).toBe("stale");
+    expect(await run(needsUiBuild(uiRoot, distDir))).toBe("stale");
 
-    const fp = await uiSourceFingerprint(uiRoot);
-    await writeBuildMarker(distDir, fp);
-    expect(await needsUiBuild(uiRoot, distDir)).toBe("fresh");
+    const fp = await run(uiSourceFingerprint(uiRoot));
+    await run(writeBuildMarker(distDir, fp));
+    expect(await run(needsUiBuild(uiRoot, distDir))).toBe("fresh");
 
     // A source change after a fresh build makes it stale again.
     await writeFile(join(uiRoot, "src", "main.ts"), "export const v = 3;\n");
-    expect(await needsUiBuild(uiRoot, distDir)).toBe("stale");
+    expect(await run(needsUiBuild(uiRoot, distDir))).toBe("stale");
   });
 
   test("marker round-trips through read/write", async () => {
     const { distDir } = await makeUi();
-    expect(await readBuildMarker(distDir)).toBeNull();
-    await writeBuildMarker(distDir, "fp-123");
-    expect(await readBuildMarker(distDir)).toBe("fp-123");
+    expect(await run(readBuildMarker(distDir))).toBeNull();
+    await run(writeBuildMarker(distDir, "fp-123"));
+    expect(await run(readBuildMarker(distDir))).toBe("fp-123");
   });
 
   test("packaged uiRoot (no package.json) is served as-is, never built", async () => {
@@ -84,10 +91,10 @@ describe("needsUiBuild decision", () => {
     const calls: string[] = [];
     const runner: UiBuildRunner = () => {
       calls.push("build");
-      return Promise.resolve();
+      return Effect.void;
     };
-    expect(await needsUiBuild(uiRoot, distDir)).toBe("fresh");
-    const result = await ensureUiBuilt(uiRoot, distDir, runner);
+    expect(await run(needsUiBuild(uiRoot, distDir))).toBe("fresh");
+    const result = await run(ensureUiBuilt(uiRoot, distDir, runner));
     expect(result).toEqual({ built: false, state: "fresh" });
     expect(calls).toEqual([]);
   });
@@ -98,14 +105,14 @@ describe("ensureUiBuilt", () => {
     const { uiRoot, distDir } = await makeUi();
     await mkdir(distDir, { recursive: true });
     await writeFile(join(distDir, "index.html"), "built");
-    await writeBuildMarker(distDir, await uiSourceFingerprint(uiRoot));
+    await run(writeBuildMarker(distDir, await run(uiSourceFingerprint(uiRoot))));
 
     const calls: string[] = [];
     const runner: UiBuildRunner = () => {
       calls.push("build");
-      return Promise.resolve();
+      return Effect.void;
     };
-    const result = await ensureUiBuilt(uiRoot, distDir, runner);
+    const result = await run(ensureUiBuilt(uiRoot, distDir, runner));
     expect(result).toEqual({ built: false, state: "fresh" });
     expect(calls).toEqual([]);
   });
@@ -113,25 +120,26 @@ describe("ensureUiBuilt", () => {
   test("builds when missing/stale and records the post-build marker", async () => {
     const { uiRoot, distDir } = await makeUi();
     const calls: string[] = [];
-    const runner: UiBuildRunner = async (_root, dist) => {
-      calls.push("build");
-      await mkdir(dist, { recursive: true });
-      await writeFile(join(dist, "index.html"), "built");
-    };
+    const runner: UiBuildRunner = (_root, dist) =>
+      Effect.promise(async () => {
+        calls.push("build");
+        await mkdir(dist, { recursive: true });
+        await writeFile(join(dist, "index.html"), "built");
+      });
 
-    const missing = await ensureUiBuilt(uiRoot, distDir, runner);
+    const missing = await run(ensureUiBuilt(uiRoot, distDir, runner));
     expect(missing).toEqual({ built: true, state: "missing" });
     expect(calls).toEqual(["build"]);
-    expect(await needsUiBuild(uiRoot, distDir)).toBe("fresh");
+    expect(await run(needsUiBuild(uiRoot, distDir))).toBe("fresh");
 
     // Second run is a no-op.
-    const again = await ensureUiBuilt(uiRoot, distDir, runner);
+    const again = await run(ensureUiBuilt(uiRoot, distDir, runner));
     expect(again).toEqual({ built: false, state: "fresh" });
     expect(calls).toEqual(["build"]);
 
     // Touching a source forces a rebuild.
     await writeFile(join(uiRoot, "src", "main.ts"), "export const v = 9;\n");
-    const stale = await ensureUiBuilt(uiRoot, distDir, runner);
+    const stale = await run(ensureUiBuilt(uiRoot, distDir, runner));
     expect(stale).toEqual({ built: true, state: "stale" });
     expect(calls).toEqual(["build", "build"]);
   });

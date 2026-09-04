@@ -24,8 +24,14 @@ describe("lint-warn-ratchet", () => {
     expect(typeof parsed.lanes.blocking).toBe("object");
     expect(typeof parsed.lanes.advisory).toBe("object");
 
-    expect(Object.keys(parsed.lanes.blocking).length).toBeGreaterThan(10);
-    expect(Object.keys(parsed.lanes.advisory).length).toBeGreaterThanOrEqual(1);
+    // The ledger may be empty — that is the goal — but every entry must be a
+    // positive count: a zero-count rule belongs in the promotion, not here.
+    for (const lane of [parsed.lanes.blocking, parsed.lanes.advisory]) {
+      for (const [rule, count] of Object.entries(lane)) {
+        expect(rule).toMatch(/^[a-z-]+\/[A-Za-z-]+$/);
+        expect(Number.isInteger(count) && count > 0).toBe(true);
+      }
+    }
   });
   test("no blocking rule count rose above baseline, and zero-count rules are promoted", () => {
     const raw = readFileSync(BASELINE_PATH, "utf8");

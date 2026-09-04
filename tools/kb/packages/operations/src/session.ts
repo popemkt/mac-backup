@@ -41,7 +41,7 @@ export const reloadEffect = Effect.fn("kb.reload")(function* (
 ): Effect.fn.Return<void, DomainError, KbStore | FileSystem> {
   const store = yield* KbStore;
   const previousRealIds = new Set(ctx.nodes.map((n) => n.id));
-  ctx.nodes = yield* store.loadEffect();
+  ctx.nodes = yield* store.loadEffect;
   ctx.qdb = rebuildQdb(ctx, ctx.nodes, previousRealIds);
 });
 

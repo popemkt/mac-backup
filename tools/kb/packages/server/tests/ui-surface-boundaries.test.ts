@@ -1,4 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
+import { present } from "@kb/model";
 import { mkdir, mkdtemp, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,7 +17,6 @@ import {
   SubscriptionHub,
 } from "../src/session.ts";
 import type { KbNode } from "@kb/model";
-import { expectDefined } from "@kb/test-kit";
 
 const { assetContentType, serveKbAsset, serveStatic } = assets;
 
@@ -166,16 +166,16 @@ describe("ui session boundary", () => {
 
     await Effect.runPromise(hub.addClient("c1", send));
     expect(hub.clientCount).toBe(1);
-    expect(JSON.parse(expectDefined(frames[0]))).toEqual({ op: "hello", rev: 0 });
+    expect(JSON.parse(present(frames[0], "expected frames[0]"))).toEqual({ op: "hello", rev: 0 });
 
     await Effect.runPromise(hub.handleMessage("c1", "not-json{{{"));
-    expect(JSON.parse(expectDefined(frames[1]))).toMatchObject({
+    expect(JSON.parse(present(frames[1], "expected frames[1]"))).toMatchObject({
       op: "error",
       code: "invalid_json",
     });
 
     await Effect.runPromise(hub.handleMessage("c1", JSON.stringify({ op: "subscribe" })));
-    expect(JSON.parse(expectDefined(frames[2]))).toMatchObject({
+    expect(JSON.parse(present(frames[2], "expected frames[2]"))).toMatchObject({
       op: "error",
       code: "invalid_message",
     });
@@ -185,7 +185,7 @@ describe("ui session boundary", () => {
     await Effect.runPromise(
       hub.handleMessage("c1", JSON.stringify({ op: "subscribe", id: "s1", query: "not [valid" })),
     );
-    expect(JSON.parse(expectDefined(frames[3]))).toMatchObject({
+    expect(JSON.parse(present(frames[3], "expected frames[3]"))).toMatchObject({
       op: "error",
       id: "s1",
       code: "query_error",

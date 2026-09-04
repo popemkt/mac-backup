@@ -1,4 +1,5 @@
-import { Effect } from "effect";
+import { Effect, Predicate } from "effect";
+import type { FileSystem } from "effect/FileSystem";
 import {
   type ActionDefinition,
   type ActionEffectHandler,
@@ -18,12 +19,11 @@ import {
   ActionSchemaError,
   FailureCodeSchema,
   ResolveError,
-  domainFromResolve,
   ensureDomainError,
   isDomainError,
+  isZodError,
   parseActionInput,
   receiptCodeOf,
-  type ActionSchema,
   type DomainError,
 } from "@kb/model";
 import {
@@ -144,7 +144,9 @@ const BUNDLED_EXTENSIONS: readonly LoadedExtension[] = [
   { name: "canvas", source: "bundled", actions: canvasActions, templates: [] },
 ];
 
-async function buildRegistry(root: string | null): Promise<Registry> {
+const buildRegistry = Effect.fnUntraced(function* (
+  root: string | null,
+): Effect.fn.Return<Registry, never, FileSystem> {
   const actions: RegisteredAction[] = [...CORE_ACTIONS];
   const byId = new Map<string, RegisteredAction>();
   for (const action of CORE_ACTIONS) byId.set(action.def.id, action);
@@ -219,7 +221,7 @@ async function buildRegistry(root: string | null): Promise<Registry> {
   for (const ext of BUNDLED_EXTENSIONS) register(ext);
 
   if (root !== null) {
-    const discovered = await discoverExtensions(root);
+    const discovered = yield* discoverExtensions(root);
     failures.push(...discovered.failures);
     for (const ext of discovered.extensions) register(ext);
   }
@@ -238,9 +240,9 @@ async function buildRegistry(root: string | null): Promise<Registry> {
   ]);
 
   return { actions, byId, templates: templatesById, extensions, failures, manifestEntries };
-}
+});
 
-const registryCache = new Map<string, Promise<Registry>>();
+const registryCache = new Map<string, Effect.Effect<Registry, never, FileSystem>>();
 const NO_ROOT_KEY = "no-root";
 
 /**
@@ -248,49 +250,36 @@ const NO_ROOT_KEY = "no-root";
  * `.kb/extensions/*.ts`. Cached per root for the process lifetime
  * (extension changes need a restart). `null` root = core + bundled only.
  */
-export function registryFor(root: string | null): Promise<Registry> {
+export const registryFor = Effect.fn("kb.registryFor")(function* (
+  root: string | null,
+): Effect.fn.Return<Registry, never, FileSystem> {
   const key = root ?? NO_ROOT_KEY;
   let registry = registryCache.get(key);
-  if (!registry) {
-    registry = buildRegistry(root);
+  if (registry === undefined) {
+    // `Effect.cached` is what makes the entry a build-once value rather than a
+    // recipe: concurrent callers share the one in-flight build, as the cached
+    // Promise did.
+    registry = yield* Effect.cached(buildRegistry(root));
     registryCache.set(key, registry);
   }
-  return registry;
-}
+  return yield* registry;
+});
 
 /** Test hook: drop cached registries so fresh roots re-discover extensions. */
 export function resetRegistryCache(): void {
   registryCache.clear();
 }
 
-export async function manifest(root?: string): Promise<readonly ManifestEntry[]> {
-  return (await registryFor(root ?? null)).manifestEntries;
-}
+export const manifest = Effect.fn("kb.manifest")(function* (
+  root?: string,
+): Effect.fn.Return<readonly ManifestEntry[], never, FileSystem> {
+  return (yield* registryFor(root ?? null)).manifestEntries;
+});
 
 /** True when the registered action dispatches through an Effect handler. */
 export function isEffectNativeAction(action: RegisteredAction): boolean {
   return typeof action.effect === "function";
 }
-
-const parseInputEffect = Effect.fn("kb.parseActionInput")(function* (
-  schema: ActionSchema,
-  input: unknown,
-): Effect.fn.Return<unknown, ActionSchemaError | DomainError> {
-  return yield* Effect.tryPromise({
-    try: () => parseActionInput(schema, input),
-    catch: (err) => {
-      if (err instanceof ActionSchemaError) return err;
-      if (isZodError(err)) {
-        return new ActionSchemaError(err.message, [{ message: err.message }]);
-      }
-      if (err instanceof ResolveError) return domainFromResolve(err);
-      if (isDomainError(err)) return err;
-      return new ActionSchemaError(err instanceof Error ? err.message : String(err), [
-        { message: err instanceof Error ? err.message : String(err) },
-      ]);
-    },
-  });
-});
 
 function mapHandlerError(err: unknown): ActionSchemaError | DomainError {
   if (err instanceof ActionSchemaError) return err;
@@ -308,14 +297,11 @@ export const invokeEffect = Effect.fn("kb.invoke")(function* (
 ): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, ActionHandlerEnv> {
   const { id, input } = invocation;
   // Registry discovery still uses dynamic import (external boundary).
-  const registry = yield* Effect.tryPromise({
-    try: () => registryFor(ctx.root),
-    catch: (err) => ensureDomainError(err),
-  });
+  const registry = yield* registryFor(ctx.root);
   const entry = registry.byId.get(id);
   if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
 
-  const parsed = yield* parseInputEffect(entry.def.inputSchema, input);
+  const parsed = yield* parseActionInput(entry.def.inputSchema, input);
 
   if (entry.effect) {
     const output = yield* Effect.scoped(entry.effect(parsed as never)).pipe(
@@ -367,15 +353,14 @@ export function receiptFromError(id: string, err: unknown): ActionReceipt {
   if (err instanceof Error) {
     // DocsError and extension errors alike: any Error carrying a valid
     // FailureCode `code` maps to a typed failure.
-    const parsed = FailureCodeSchema.safeParse((err as { code?: unknown }).code);
+    const parsed = FailureCodeSchema.safeParse(
+      Predicate.hasProperty(err, "code") ? err.code : undefined,
+    );
     if (parsed.success) {
-      return failed(id, parsed.data, err.message, (err as { details?: unknown }).details);
+      const details = Predicate.hasProperty(err, "details") ? err.details : undefined;
+      return failed(id, parsed.data, err.message, details);
     }
     return failed(id, "internal", err.message);
   }
   return failed(id, "internal", String(err));
-}
-
-function isZodError(err: unknown): err is Error & { issues: unknown } {
-  return typeof err === "object" && err !== null && (err as { name?: string }).name === "ZodError";
 }

@@ -1,3 +1,4 @@
+import { Predicate } from "effect";
 import type { ActionReceipt } from "@kb/contracts";
 import { isSysPrefixed } from "@kb/model";
 
@@ -18,25 +19,14 @@ export function formatReceipt(
   return formatSuccess(receipt.id, receipt.output, opts.command);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function asObject(output: unknown): Record<string, unknown> | null {
-  return isRecord(output) ? output : null;
+function asObject(output: unknown): { [key: PropertyKey]: unknown } | null {
+  return Predicate.isObject(output) ? output : null;
 }
 
 function formatChildrenCommand(output: unknown): string | null {
-  const obj = asObject(output);
-  const node = obj?.node;
-  if (
-    typeof node !== "object" ||
-    node === null ||
-    !Array.isArray((node as { children?: unknown }).children)
-  ) {
-    return null;
-  }
-  return formatOutlineChildren(node as Record<string, unknown>);
+  const node = asObject(output)?.node;
+  if (!Predicate.isObject(node) || !Array.isArray(node.children)) return null;
+  return formatOutlineChildren(node);
 }
 
 function formatNodeGet(output: unknown): string {
@@ -54,14 +44,8 @@ function asString(value: unknown, fallback = ""): string {
 
 function formatNodeAdd(output: unknown): string {
   const o = asObject(output);
-  const node = o?.node;
-  const text =
-    typeof node === "object" &&
-    node !== null &&
-    typeof (node as { text?: unknown }).text === "string"
-      ? (node as { text: string }).text
-      : undefined;
-  const suffix = text !== undefined && text !== "" ? `  ${text}` : "";
+  const text = asObject(o?.node)?.text;
+  const suffix = typeof text === "string" && text !== "" ? `  ${text}` : "";
   return `added ${asString(o?.id)}${suffix}`;
 }
 
@@ -118,12 +102,10 @@ function formatOutlineChildren(node: Record<string, unknown>): string {
   const text = asString(node.text);
   const kids = Array.isArray(node.children) ? node.children : [];
   const lines = [`${text}  [${id}]`];
-  for (const c of kids) {
-    if (typeof c === "object" && c !== null) {
-      const child = c as { id?: string; text?: string; missing?: boolean };
-      if (child.missing === true) lines.push(`  - [${asString(child.id)}] (missing)`);
-      else lines.push(`  - ${asString(child.text)}  [${asString(child.id, "?")}]`);
-    }
+  for (const child of kids) {
+    if (!Predicate.isObject(child)) continue;
+    if (child.missing === true) lines.push(`  - [${asString(child.id)}] (missing)`);
+    else lines.push(`  - ${asString(child.text)}  [${asString(child.id, "?")}]`);
   }
   if (kids.length === 0) lines.push("  (no children)");
   return lines.join("\n");

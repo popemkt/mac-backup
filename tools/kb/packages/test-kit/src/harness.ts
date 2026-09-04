@@ -1,4 +1,4 @@
-import { Effect, Random, Clock } from "effect";
+import { Clock, Effect, Predicate, Random, Schema } from "effect";
 import { mkdtemp, rm } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -13,6 +13,9 @@ import {
   migrateOrderKeys,
   canonicalJson,
   present,
+  type DomainError,
+  KbNodeSchema,
+  nodeParseOptions,
 } from "@kb/model";
 import {
   mapAdd,
@@ -286,11 +289,24 @@ interface StoreSnapshot {
   nodes: KbNode[];
 }
 
+/** The `id` a define action minted, when the receipt output carries one. */
+function mintedNodeId(output: unknown): string | undefined {
+  return Predicate.hasProperty(output, "id") && typeof output.id === "string"
+    ? output.id
+    : undefined;
+}
+
+/** The store's own node schema, applied to a whole JSONL body at once. */
+const decodeNodes = Schema.decodeUnknownSync(
+  Schema.mutable(Schema.Array(KbNodeSchema)),
+  nodeParseOptions,
+);
+
 /** Read the store back off disk; the JSONL must parse into nodes (sync). */
 function snapshotSync(root: string): StoreSnapshot {
   const json = readFileSync(nodesPath(root), "utf8");
   if (json.trim().length === 0) return { root, json, nodes: [] };
-  const nodes = JSON.parse(`[${json.trim().split("\n").join(",")}]`) as KbNode[];
+  const nodes = decodeNodes(JSON.parse(`[${json.trim().split("\n").join(",")}]`));
   return { root, json, nodes };
 }
 
@@ -491,14 +507,14 @@ export interface ScenarioResult {
  *   3. after every op, snapshot off disk and assert the invariants continuously
  *   4. the caller asserts byte-identical replay (same seed → same json)
  */
-export async function runScenario(
+export const runScenario = Effect.fn("kb.runScenario")(function* (
   seed: string,
   opts: { ops?: number; base?: number; step?: number } = {},
-): Promise<ScenarioResult> {
+): Effect.fn.Return<ScenarioResult, DomainError> {
   const opsCount = opts.ops ?? 60;
   const base = opts.base ?? BASE_EPOCH;
   const step = opts.step ?? 1000;
-  const root = await mkdtemp(join(tmpdir(), "kb-dst-"));
+  const root = yield* Effect.promise(() => mkdtemp(join(tmpdir(), "kb-dst-")));
   const violations: string[] = [];
   let applied = 0;
 
@@ -525,11 +541,12 @@ export async function runScenario(
         input: action.input,
       }).pipe(Effect.provide(kbRuntimeLayer(ctx)));
 
-      if (action.id === "field.define" && receipt.status === "succeeded") {
-        fieldIds.push((receipt.output as { id: string }).id);
-      }
-      if (action.id === "tag.define" && receipt.status === "succeeded") {
-        tagIds.push((receipt.output as { id: string }).id);
+      if (receipt.status === "succeeded") {
+        const mintedId = mintedNodeId(receipt.output);
+        if (mintedId !== undefined) {
+          if (action.id === "field.define") fieldIds.push(mintedId);
+          if (action.id === "tag.define") tagIds.push(mintedId);
+        }
       }
 
       // Continuous invariant check on the on-disk store after this op. The
@@ -561,15 +578,17 @@ export async function runScenario(
     Effect.provideService(Clock.Clock, seededClock(base, step)),
   );
 
-  await Effect.runPromise(program);
+  yield* program;
 
   const snap = snapshotSync(root);
   return { seed, root, json: snap.json, nodes: snap.nodes, ops: applied, violations };
-}
+});
 
-export async function cleanup(result: ScenarioResult): Promise<void> {
-  await rm(result.root, { recursive: true, force: true });
-}
+export const cleanup = Effect.fn("kb.cleanupScenario")(function* (
+  result: ScenarioResult,
+): Effect.fn.Return<void> {
+  yield* Effect.promise(() => rm(result.root, { recursive: true, force: true }));
+});
 
 /** Committed set of seeds that always run in CI. */
 export const COMMITTED_SEEDS = ["dst-0", "dst-1", "dst-2", "dst-3"];

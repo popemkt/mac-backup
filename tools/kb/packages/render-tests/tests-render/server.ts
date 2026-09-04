@@ -1,6 +1,7 @@
 import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { Effect } from "effect";
 import { startUi } from "@kb/server";
 import { renderFixtureNodes } from "./fixture.ts";
 
@@ -21,17 +22,19 @@ await writeFile(
   `${fixtureNodes.map((node) => JSON.stringify(node)).join("\n")}\n`,
 );
 
-const server = await startUi({
-  root: scratchRoot,
-  // Per-spec port: a spec that writes must not share a store with one that
-  // counts (see harness-server.ts).
-  port: Number(process.argv[2] ?? 4323),
-  openBrowser: false,
-});
+const server = await Effect.runPromise(
+  startUi({
+    root: scratchRoot,
+    // Per-spec port: a spec that writes must not share a store with one that
+    // counts (see harness-server.ts).
+    port: Number(process.argv[2] ?? 4323),
+    openBrowser: false,
+  }),
+);
 console.log(`render harness UI: ${server.url} (scratch root: ${scratchRoot})`);
 
 const stop = async () => {
-  await server.stop();
+  await Effect.runPromise(server.stop);
   await rm(scratchRoot, { recursive: true, force: true });
   process.exit(0);
 };

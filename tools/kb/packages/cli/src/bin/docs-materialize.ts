@@ -2,6 +2,7 @@
 // Regenerate all (or one: pass a view name) generated markdown docs from .kb data.
 import { invoke, openKb, writeErr, writeOut } from "@kb/runtime";
 import { kbDataRoot } from "@kb/server";
+import { materializeOutput } from "@kb/ext-docs";
 
 const root = kbDataRoot();
 const view = process.argv[2];
@@ -16,7 +17,8 @@ if (receipt.status !== "succeeded") {
   process.exit(1);
 }
 
-const out = receipt.output as { written: { view: string; output: string }[] };
+// The action declares this shape; parse it rather than assert it.
+const out = materializeOutput.parse(receipt.output);
 for (const w of out.written) {
   writeOut(`kb docs: wrote ${w.output} (view: ${w.view})`);
 }

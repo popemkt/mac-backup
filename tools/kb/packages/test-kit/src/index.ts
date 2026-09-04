@@ -1,4 +1,3 @@
-export { expectDefined } from "./expect-defined.ts";
 export {
   COMMITTED_SEEDS,
   DANGLING_REF_DECISION,

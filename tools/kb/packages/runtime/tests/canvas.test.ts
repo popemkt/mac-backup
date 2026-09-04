@@ -17,10 +17,9 @@ import {
   type CanvasEdge,
 } from "@kb/canvas";
 import { openKb } from "../src/session.ts";
-import { SYSTEM_IDS, ensureSystemSeed, systemSeedNodes } from "@kb/model";
+import { ensureSystemSeed, present, SYSTEM_IDS, systemSeedNodes } from "@kb/model";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
-import { expectDefined } from "@kb/test-kit";
 
 let roots: string[] = [];
 
@@ -42,16 +41,16 @@ describe("C1 seed: canvas tag + field", () => {
     const byId = new Map(seed.map((n) => [n.id, n]));
     const tag = byId.get(SYSTEM_IDS.canvasTag);
     expect(tag).toBeDefined();
-    expect(expectDefined(tag).text).toBe("canvas");
-    expect(expectDefined(tag).props[SYSTEM_IDS.typeField]).toEqual([
+    expect(present(tag, "expected tag").text).toBe("canvas");
+    expect(present(tag, "expected tag").props[SYSTEM_IDS.typeField]).toEqual([
       { t: "ref", v: SYSTEM_IDS.tag },
     ]);
-    expect(expectDefined(tag).props[SYSTEM_IDS.fieldsField]).toEqual([
+    expect(present(tag, "expected tag").props[SYSTEM_IDS.fieldsField]).toEqual([
       { t: "ref", v: SYSTEM_IDS.canvasField },
     ]);
     const field = byId.get(SYSTEM_IDS.canvasField);
     expect(field).toBeDefined();
-    expect(expectDefined(field).props[SYSTEM_IDS.typeField]).toEqual([
+    expect(present(field, "expected field").props[SYSTEM_IDS.typeField]).toEqual([
       { t: "ref", v: SYSTEM_IDS.field },
     ]);
   });
@@ -189,23 +188,23 @@ describe("canvas doc parse/patch round-trip", () => {
   });
 });
 
-describe("render-time bound check (no reconciler)", () => {
-  function mkEdge(id: string, link: Partial<NonNullable<CanvasEdge["kbLink"]>> = {}): CanvasEdge {
-    return {
-      id,
-      fromNode: "a",
-      toNode: "b",
-      kbLink: {
-        mode: link.mode ?? "native",
-        via: "prop",
-        fieldId: link.fieldId ?? "f.rel",
-        sourceNodeId: link.sourceNodeId ?? "n.a",
-        targetNodeId: link.targetNodeId ?? "n.b",
-        bindingId: link.bindingId ?? "b1",
-      },
-    };
-  }
+function mkEdge(id: string, link: Partial<NonNullable<CanvasEdge["kbLink"]>> = {}): CanvasEdge {
+  return {
+    id,
+    fromNode: "a",
+    toNode: "b",
+    kbLink: {
+      mode: link.mode ?? "native",
+      via: "prop",
+      fieldId: link.fieldId ?? "f.rel",
+      sourceNodeId: link.sourceNodeId ?? "n.a",
+      targetNodeId: link.targetNodeId ?? "n.b",
+      bindingId: link.bindingId ?? "b1",
+    },
+  };
+}
 
+describe("render-time bound check (no reconciler)", () => {
   test("isNativeEdgeBound reflects prop presence without mutating doc", () => {
     const props: Record<string, { t: string; v: unknown }[]> = {
       "n.a|f.rel": [{ t: "ref", v: "n.b" }],
@@ -333,12 +332,18 @@ describe("ext.canvas.tx.apply", () => {
     });
     expect(receipt.status).toBe("succeeded");
 
-    const canvasNode = expectDefined(ctx.nodes.find((n) => n.id === "n.canvas"));
+    const canvasNode = present(
+      ctx.nodes.find((n) => n.id === "n.canvas"),
+      'expected ctx.nodes.find((n) => n.id === "n.canvas")',
+    );
     const stored = canvasNode.props[SYSTEM_IDS.canvasField]?.[0];
     expect(stored?.t).toBe("str");
-    expect(parseCanvasDoc(String(expectDefined(stored).v))).toEqual(doc);
+    expect(parseCanvasDoc(String(present(stored, "expected stored").v))).toEqual(doc);
 
-    const source = expectDefined(ctx.nodes.find((n) => n.id === "n.source"));
+    const source = present(
+      ctx.nodes.find((n) => n.id === "n.source"),
+      'expected ctx.nodes.find((n) => n.id === "n.source")',
+    );
     expect(source.props["f.related"]).toEqual([{ t: "ref", v: "n.target" }]);
   });
 
@@ -367,9 +372,15 @@ describe("ext.canvas.tx.apply", () => {
     if (receipt.status === "failed") {
       expect(receipt.code).toBe("invalid_input");
     }
-    const source = expectDefined(ctx.nodes.find((n) => n.id === "n.source"));
+    const source = present(
+      ctx.nodes.find((n) => n.id === "n.source"),
+      'expected ctx.nodes.find((n) => n.id === "n.source")',
+    );
     expect(source.props[SYSTEM_IDS.typeField]).toBeUndefined();
-    const canvasNode = expectDefined(ctx.nodes.find((n) => n.id === "n.canvas"));
+    const canvasNode = present(
+      ctx.nodes.find((n) => n.id === "n.canvas"),
+      'expected ctx.nodes.find((n) => n.id === "n.canvas")',
+    );
     expect(canvasNode.props[SYSTEM_IDS.canvasField]).toBeUndefined();
   });
 
@@ -466,7 +477,10 @@ describe("ext.canvas.tx.apply", () => {
       input: { canvasId: "n.canvas", doc },
     });
     expect(second.status).toBe("succeeded");
-    const source = expectDefined(ctx.nodes.find((n) => n.id === "n.source"));
+    const source = present(
+      ctx.nodes.find((n) => n.id === "n.source"),
+      'expected ctx.nodes.find((n) => n.id === "n.source")',
+    );
     expect(source.props["f.related"]).toEqual([{ t: "ref", v: "n.target" }]);
   });
 
@@ -527,12 +541,26 @@ describe("ext.canvas.tx.apply", () => {
       },
     });
     expect(del.status).toBe("succeeded");
-    const source = expectDefined(ctx.nodes.find((n) => n.id === "n.source"));
+    const source = present(
+      ctx.nodes.find((n) => n.id === "n.source"),
+      'expected ctx.nodes.find((n) => n.id === "n.source")',
+    );
     expect(source.props["f.related"]).toBeUndefined();
-    const canvasNode = expectDefined(ctx.nodes.find((n) => n.id === "n.canvas"));
+    const canvasNode = present(
+      ctx.nodes.find((n) => n.id === "n.canvas"),
+      'expected ctx.nodes.find((n) => n.id === "n.canvas")',
+    );
     expect(
       parseCanvasDoc(
-        String(expectDefined(expectDefined(canvasNode.props[SYSTEM_IDS.canvasField])[0]).v),
+        String(
+          present(
+            present(
+              canvasNode.props[SYSTEM_IDS.canvasField],
+              "expected canvasNode.props[SYSTEM_IDS.canvasField]",
+            )[0],
+            "expected canvasNode.props[SYSTEM_IDS.canvasField][0]",
+          ).v,
+        ),
       ),
     ).toEqual({
       nodes: [],

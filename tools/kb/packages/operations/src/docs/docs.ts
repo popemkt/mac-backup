@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { SYSTEM_IDS, present, type NodeId } from "@kb/model";
-import { query } from "@kb/query";
+import { queryRows } from "@kb/query";
 import { resolveSavedQueryFile } from "../saved-query.ts";
 import type { KbContext, TemplateContext } from "@kb/contracts";
 import { KbCtx, TemplateRegistry } from "@kb/contracts";
@@ -72,7 +72,7 @@ export const renderViewEffect = Effect.fn("docs.renderView")(function* (
   }
   const edn = yield* viewEdnEffect(view);
   const rows = yield* Effect.try({
-    try: () => query(ctx.qdb, edn) as unknown[][],
+    try: () => queryRows(ctx.qdb, edn),
     catch: (err) =>
       new DocsError(
         "invalid_input",

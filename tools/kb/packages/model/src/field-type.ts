@@ -35,7 +35,18 @@ export const FIELD_TYPE_OPTION_IDS = {
 
 export type FieldType = keyof typeof FIELD_TYPE_OPTION_IDS;
 
-export const FIELD_TYPES = Object.keys(FIELD_TYPE_OPTION_IDS) as FieldType[];
+/**
+ * Declared order for CLI help and the seeded option nodes. Written out rather
+ * than read back from `Object.keys`, which erases the literal types.
+ */
+export const FIELD_TYPES: readonly FieldType[] = [
+  "text",
+  "number",
+  "date",
+  "url",
+  "checkbox",
+  "ref",
+];
 
 /** Option node id → declared type. */
 const FIELD_TYPE_BY_OPTION_ID: Record<string, FieldType> = Object.fromEntries(

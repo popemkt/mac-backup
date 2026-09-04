@@ -7,12 +7,12 @@
  * `[[ref]]` edge, a runnable query, and ontology union/inheritance/veto.
  */
 import { describe, expect, test } from "bun:test";
+import { present } from "../src/present.ts";
 import { fieldTypeOf } from "../src/field-type.ts";
 import { EXAMPLE_IDS, exampleSeedNodes, isPristine } from "../src/example.ts";
 import { SYSTEM_IDS, type KbNode } from "../src/model.ts";
 import { resolveOntology } from "../src/ontology.ts";
 import { systemSeedNodes } from "../src/seed.ts";
-import { expectDefined } from "@kb/test-kit";
 
 const byId = () => new Map(exampleSeedNodes().map((n) => [n.id, n]));
 
@@ -39,16 +39,21 @@ describe("example content", () => {
 
   test("#task templates a field of every type, and status is an option list", () => {
     const nodes = byId();
-    const task = expectDefined(nodes.get(EXAMPLE_IDS.taskTag));
+    const task = present(nodes.get(EXAMPLE_IDS.taskTag), "expected nodes.get(EXAMPLE_IDS.taskTag)");
     expect(refs(task, SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
 
     const templated = refs(task, SYSTEM_IDS.fieldsField);
-    const types = templated.map((id) => fieldTypeOf(expectDefined(nodes.get(id)).props));
+    const types = templated.map((id) =>
+      fieldTypeOf(present(nodes.get(id), "expected nodes.get(id)").props),
+    );
     expect(new Set(types)).toEqual(new Set(["ref", "date", "number", "checkbox"]));
 
     // status is a ref field constrained to the option tag, and the options are
     // just nodes carrying that tag — the pattern any user list follows.
-    const status = expectDefined(nodes.get(EXAMPLE_IDS.statusField));
+    const status = present(
+      nodes.get(EXAMPLE_IDS.statusField),
+      "expected nodes.get(EXAMPLE_IDS.statusField)",
+    );
     expect(fieldTypeOf(status.props)).toBe("ref");
     expect(refs(status, SYSTEM_IDS.targetTagField)).toEqual([EXAMPLE_IDS.statusOptionTag]);
     for (const option of [
@@ -56,21 +61,21 @@ describe("example content", () => {
       EXAMPLE_IDS.statusDoing,
       EXAMPLE_IDS.statusDone,
     ]) {
-      expect(refs(expectDefined(nodes.get(option)), SYSTEM_IDS.typeField)).toEqual([
-        EXAMPLE_IDS.statusOptionTag,
-      ]);
+      expect(
+        refs(present(nodes.get(option), "expected nodes.get(option)"), SYSTEM_IDS.typeField),
+      ).toEqual([EXAMPLE_IDS.statusOptionTag]);
     }
   });
 
   test("a task carries a value for its templated fields, including a ref", () => {
-    const task = expectDefined(byId().get(EXAMPLE_IDS.task1));
+    const task = present(byId().get(EXAMPLE_IDS.task1), "expected byId().get(EXAMPLE_IDS.task1)");
     expect(refs(task, EXAMPLE_IDS.statusField)).toEqual([EXAMPLE_IDS.statusDoing]);
     expect(refs(task, EXAMPLE_IDS.ownerField)).toEqual([EXAMPLE_IDS.ada]);
     expect(task.props[EXAMPLE_IDS.estimateField]).toEqual([{ t: "num", v: 3 }]);
   });
 
   test("text carries a [[ref]] so the graph and backlinks have something in them", () => {
-    const review = expectDefined(byId().get(EXAMPLE_IDS.task2));
+    const review = present(byId().get(EXAMPLE_IDS.task2), "expected byId().get(EXAMPLE_IDS.task2)");
     expect(review.text).toContain(`[[${EXAMPLE_IDS.task1}|`);
   });
 

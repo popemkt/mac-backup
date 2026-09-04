@@ -1,4 +1,6 @@
-import { access, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { Effect, Schema } from "effect";
+import { FileSystem } from "effect/FileSystem";
+import type { PlatformError } from "effect/PlatformError";
 import { join, relative, resolve } from "node:path";
 
 /**
@@ -15,6 +17,11 @@ import { join, relative, resolve } from "node:path";
 
 /** Marker file inside `ui/dist` recording the source fingerprint it was built from. */
 const BUILD_MARKER = ".kb-build-hash";
+
+/** A build the runner could not complete. */
+export class UiBuildError extends Schema.TaggedError<UiBuildError>()("Kb/UiBuildError", {
+  message: Schema.String,
+}) {}
 
 function uiRootBase(uiRoot: string): string {
   return resolve(uiRoot, "..");
@@ -40,66 +47,59 @@ function uiSourceInputs(uiRoot: string): string[] {
   ];
 }
 
-async function pathExists(p: string): Promise<boolean> {
-  try {
-    await access(p);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function walkFiles(dir: string): Promise<string[]> {
-  const out: string[] = [];
-  const entries = await readdir(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const p = join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...(await walkFiles(p)));
-    else if (entry.isFile()) out.push(p);
-  }
-  return out;
-}
+const pathExists = Effect.fnUntraced(function* (path: string) {
+  const fs = yield* FileSystem;
+  return yield* fs.exists(path).pipe(Effect.orElseSucceed(() => false));
+});
 
 /**
  * Deterministic hash over every source input that can change the built
  * bundle. Paths are relative to the kb package root and contents are sorted
  * before hashing, so the fingerprint is stable across runs and machines.
+ * Anything that does not read as text — a directory, a file this checkout
+ * does not have — is not an input.
  */
-export async function uiSourceFingerprint(uiRoot: string): Promise<string> {
+export const uiSourceFingerprint = Effect.fn("kb.uiSourceFingerprint")(function* (
+  uiRoot: string,
+): Effect.fn.Return<string, PlatformError, FileSystem> {
+  const fs = yield* FileSystem;
   const inputs = [...uiSourceInputs(uiRoot)];
   const srcDir = join(uiRoot, "src");
-  if (await pathExists(srcDir)) inputs.push(...(await walkFiles(srcDir)));
-
-  const parts: string[] = [];
-  const base = uiRootBase(uiRoot);
-  for (const p of inputs) {
-    let text: string;
-    try {
-      text = await readFile(p, "utf8");
-    } catch {
-      continue; // not an input in this checkout state
-    }
-    parts.push(`${relative(base, p)}\u0000${text}`);
+  if (yield* pathExists(srcDir)) {
+    const entries = yield* fs.readDirectory(srcDir, { recursive: true });
+    inputs.push(...entries.map((entry) => join(srcDir, entry)));
   }
-  return String(Bun.hash(parts.toSorted().join("\u0001")));
-}
+
+  const base = uiRootBase(uiRoot);
+  const parts = yield* Effect.forEach(inputs, (path) =>
+    fs.readFileString(path).pipe(
+      Effect.map((text) => `${relative(base, path)}\u0000${text}`),
+      Effect.orElseSucceed(() => null),
+    ),
+  );
+  const present = parts.filter((part) => part !== null);
+  return String(Bun.hash(present.toSorted().join("\u0001")));
+});
 
 function buildMarkerPath(distDir: string): string {
   return join(distDir, BUILD_MARKER);
 }
 
-export async function readBuildMarker(distDir: string): Promise<string | null> {
-  try {
-    return await readFile(buildMarkerPath(distDir), "utf8");
-  } catch {
-    return null;
-  }
-}
+export const readBuildMarker = Effect.fn("kb.readBuildMarker")(function* (
+  distDir: string,
+): Effect.fn.Return<string | null, never, FileSystem> {
+  const fs = yield* FileSystem;
+  return yield* fs.readFileString(buildMarkerPath(distDir)).pipe(Effect.orElseSucceed(() => null));
+});
 
-export async function writeBuildMarker(distDir: string, fingerprint: string): Promise<void> {
-  await mkdir(distDir, { recursive: true });
-  await writeFile(buildMarkerPath(distDir), fingerprint, "utf8");
-}
+export const writeBuildMarker = Effect.fn("kb.writeBuildMarker")(function* (
+  distDir: string,
+  fingerprint: string,
+): Effect.fn.Return<void, PlatformError, FileSystem> {
+  const fs = yield* FileSystem;
+  yield* fs.makeDirectory(distDir, { recursive: true });
+  yield* fs.writeFileString(buildMarkerPath(distDir), fingerprint);
+});
 
 /** Why the cached build (if any) cannot be served as-is. */
 export type UiBuildState = "missing" | "stale" | "fresh";
@@ -113,40 +113,49 @@ export type UiBuildState = "missing" | "stale" | "fresh";
  * runtime `bun install` there can never succeed (read-only, dep-free). Serve
  * the baked assets as-is.
  */
-export async function needsUiBuild(uiRoot: string, distDir: string): Promise<UiBuildState> {
-  if (!(await pathExists(join(uiRoot, "package.json")))) return "fresh";
-  if (!(await pathExists(join(distDir, "index.html")))) return "missing";
-  const fp = await uiSourceFingerprint(uiRoot);
-  const marker = await readBuildMarker(distDir);
+export const needsUiBuild = Effect.fn("kb.needsUiBuild")(function* (
+  uiRoot: string,
+  distDir: string,
+): Effect.fn.Return<UiBuildState, PlatformError, FileSystem> {
+  if (!(yield* pathExists(join(uiRoot, "package.json")))) return "fresh";
+  if (!(yield* pathExists(join(distDir, "index.html")))) return "missing";
+  const fp = yield* uiSourceFingerprint(uiRoot);
+  const marker = yield* readBuildMarker(distDir);
   if (marker === null || marker !== fp) return "stale";
   return "fresh";
-}
+});
 
 /**
  * Build execution seam. The default runs the UI package's own build
  * (`bun install && bun run build` — `vp build`); tests inject a fake that
  * produces `dist/index.html` without touching the live checkout.
  */
-export type UiBuildRunner = (uiRoot: string, distDir: string) => Promise<void>;
+export type UiBuildRunner = (
+  uiRoot: string,
+  distDir: string,
+) => Effect.Effect<void, UiBuildError, FileSystem>;
 
-async function runChild(cwd: string, args: string[]): Promise<void> {
+const runChild = Effect.fnUntraced(function* (cwd: string, args: string[]) {
   const proc = Bun.spawn(args, {
     cwd,
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
   });
-  const code = await proc.exited;
+  const code = yield* Effect.promise(() => proc.exited);
   if (code !== 0) {
-    throw new Error(`${args[0]} exited ${code} (cwd ${cwd})`);
+    return yield* new UiBuildError({ message: `${args[0]} exited ${code} (cwd ${cwd})` });
   }
-}
+  return code;
+});
 
 /** Real production build: install deps, run the UI's `build` script. */
-async function runProductionBuild(uiRoot: string, _distDir: string): Promise<void> {
-  await runChild(uiRoot, ["bun", "install"]);
-  await runChild(uiRoot, ["bun", "run", "build"]);
-}
+const runProductionBuild: UiBuildRunner = Effect.fn("kb.runProductionBuild")(function* (
+  uiRoot: string,
+): Effect.fn.Return<void, UiBuildError> {
+  yield* runChild(uiRoot, ["bun", "install"]);
+  yield* runChild(uiRoot, ["bun", "run", "build"]);
+});
 
 export interface UiEnsureResult {
   built: boolean;
@@ -157,16 +166,16 @@ export interface UiEnsureResult {
  * Ensure `ui/dist` is buildable: no-op when fresh, otherwise run the build
  * and record the post-build fingerprint as the cache marker.
  */
-export async function ensureUiBuilt(
+export const ensureUiBuilt = Effect.fn("kb.ensureUiBuilt")(function* (
   uiRoot: string,
   distDir: string,
   runner: UiBuildRunner = runProductionBuild,
-): Promise<UiEnsureResult> {
-  const state = await needsUiBuild(uiRoot, distDir);
+): Effect.fn.Return<UiEnsureResult, PlatformError | UiBuildError, FileSystem> {
+  const state = yield* needsUiBuild(uiRoot, distDir);
   if (state === "fresh") return { built: false, state };
-  await runner(uiRoot, distDir);
+  yield* runner(uiRoot, distDir);
   // Marker reflects post-build sources: an install that touched lockfiles is
   // part of the state that produced this dist, so it must not invalidate it.
-  await writeBuildMarker(distDir, await uiSourceFingerprint(uiRoot));
+  yield* writeBuildMarker(distDir, yield* uiSourceFingerprint(uiRoot));
   return { built: true, state };
-}
+});

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { present } from "@kb/model";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,8 +10,12 @@ import {
   resolveSavedQueryFile,
   saveSavedQuery,
 } from "@kb/operations";
+import { Effect } from "effect";
+import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { listSavedQueries } from "../src/saved-queries.ts";
-import { expectDefined } from "@kb/test-kit";
+
+const run = <A, E, R>(effect: Effect.Effect<A, E, R>): Promise<A> =>
+  Effect.runPromise(effect.pipe(Effect.provide(bunFileSystemLayer)) as Effect.Effect<A, E>);
 
 describe("saved-query name validation", () => {
   test("accepts compatibility names used by kb run / views", () => {
@@ -44,14 +49,14 @@ describe("saved-query name validation", () => {
     const path = resolveSavedQueryFile(root, "ok-name");
     expect(path).toBe(join(root, ".kb", "queries", "ok-name.edn"));
 
-    expect(await saveSavedQuery(root, "../escape", "[:find ?x]")).toBe(false);
-    expect(await saveSavedQuery(root, "ok-name", "[:find ?x]")).toBe(true);
-    expect(await readFile(expectDefined(path), "utf8")).toBe("[:find ?x]");
-    expect(await readSavedQuery(root, "ok-name")).toBe("[:find ?x]");
-    expect(await readSavedQuery(root, "../escape")).toBeNull();
-    expect(await deleteSavedQuery(root, "../escape")).toBe(false);
-    expect(await deleteSavedQuery(root, "ok-name")).toBe(true);
-    expect(await readSavedQuery(root, "ok-name")).toBeNull();
+    expect(await run(saveSavedQuery(root, "../escape", "[:find ?x]"))).toBe(false);
+    expect(await run(saveSavedQuery(root, "ok-name", "[:find ?x]"))).toBe(true);
+    expect(await readFile(present(path, "expected path"), "utf8")).toBe("[:find ?x]");
+    expect(await run(readSavedQuery(root, "ok-name"))).toBe("[:find ?x]");
+    expect(await run(readSavedQuery(root, "../escape"))).toBeNull();
+    expect(await run(deleteSavedQuery(root, "../escape"))).toBe(false);
+    expect(await run(deleteSavedQuery(root, "ok-name"))).toBe(true);
+    expect(await run(readSavedQuery(root, "ok-name"))).toBeNull();
   });
 
   test("listSavedQueries skips invalid stems; keeps valid ones", async () => {

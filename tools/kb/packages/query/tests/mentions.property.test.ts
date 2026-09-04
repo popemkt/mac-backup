@@ -5,9 +5,9 @@
  * marker (`[`, `]`, `|` in isolation) never becomes a phantom extra mention.
  */
 import { describe, expect, test } from "bun:test";
+import { present } from "@kb/model";
 import fc from "fast-check";
 import { extractMentions } from "../src/datascript.ts";
-import { expectDefined } from "@kb/test-kit";
 
 /** A mention id: no bracket/pipe chars, so it can never be mistaken for
  * marker syntax or a label boundary. Real ids are ULID/sys.* shaped anyway. */
@@ -51,9 +51,11 @@ describe("extractMentions properties (fast-check)", () => {
         ),
         fc.array(cleanFragmentArb, { minLength: 21, maxLength: 21 }),
         (mentions, fragments) => {
-          let text = expectDefined(fragments[0]);
+          let text = present(fragments[0], "expected fragments[0]");
           mentions.forEach(([id, hasLabel, label], i) => {
-            text += withOptionalLabel(id, hasLabel, label) + expectDefined(fragments[i + 1]);
+            text +=
+              withOptionalLabel(id, hasLabel, label) +
+              present(fragments[i + 1], "expected fragments[i + 1]");
           });
 
           expect(extractMentions(text)).toEqual(mentions.map(([id]) => id));
@@ -69,9 +71,9 @@ describe("extractMentions properties (fast-check)", () => {
         fc.array(idArb, { minLength: 0, maxLength: 10 }),
         fc.array(noiseFragmentArb, { minLength: 11, maxLength: 11 }),
         (ids, noise) => {
-          let text = expectDefined(noise[0]);
+          let text = present(noise[0], "expected noise[0]");
           ids.forEach((id, i) => {
-            text += `[[${id}]]` + expectDefined(noise[i + 1]);
+            text += `[[${id}]]` + present(noise[i + 1], "expected noise[i + 1]");
           });
 
           expect(extractMentions(text)).toEqual(ids);

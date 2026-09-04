@@ -85,10 +85,19 @@ export function isShapeNode(n: CanvasNode): n is CanvasShapeNode {
   return n.type === "shape" && "shape" in n;
 }
 
-const SHAPE_KINDS = new Set<string>(["rect", "ellipse", "diamond"]);
+const SHAPE_KINDS = ["rect", "ellipse", "diamond"] as const;
+
+/**
+ * Membership that narrows. A `Set<string>.has()` proves nothing to the type
+ * system, which is why every caller used to re-assert the literal it had just
+ * checked; the allowed values are the type, so read them back from the list.
+ */
+function oneOf<T extends string>(allowed: readonly T[], raw: unknown): T | undefined {
+  return allowed.find((value) => value === raw);
+}
 
 function normalizeShapeKind(raw: unknown): CanvasShapeKind {
-  return typeof raw === "string" && SHAPE_KINDS.has(raw) ? (raw as CanvasShapeKind) : "rect";
+  return oneOf(SHAPE_KINDS, raw) ?? "rect";
 }
 
 export interface CanvasEdge {
@@ -116,8 +125,8 @@ export const EMPTY_CANVAS_DOC: CanvasDoc = Object.freeze({
   edges: [],
 });
 
-const SIDES = new Set(["top", "right", "bottom", "left"]);
-const ENDS = new Set(["none", "arrow"]);
+const SIDES = ["top", "right", "bottom", "left"] as const;
+const ENDS = ["none", "arrow"] as const;
 const KNOWN_NODE_KEYS = new Set([
   "id",
   "type",
@@ -245,18 +254,14 @@ function parseEdge(raw: unknown): CanvasEdge | null {
     fromNode: raw.fromNode,
     toNode: raw.toNode,
   };
-  if (typeof raw.fromSide === "string" && SIDES.has(raw.fromSide)) {
-    edge.fromSide = raw.fromSide as CanvasSide;
-  }
-  if (typeof raw.toSide === "string" && SIDES.has(raw.toSide)) {
-    edge.toSide = raw.toSide as CanvasSide;
-  }
-  if (typeof raw.fromEnd === "string" && ENDS.has(raw.fromEnd)) {
-    edge.fromEnd = raw.fromEnd as CanvasEdgeEnd;
-  }
-  if (typeof raw.toEnd === "string" && ENDS.has(raw.toEnd)) {
-    edge.toEnd = raw.toEnd as CanvasEdgeEnd;
-  }
+  const fromSide = oneOf(SIDES, raw.fromSide);
+  if (fromSide !== undefined) edge.fromSide = fromSide;
+  const toSide = oneOf(SIDES, raw.toSide);
+  if (toSide !== undefined) edge.toSide = toSide;
+  const fromEnd = oneOf(ENDS, raw.fromEnd);
+  if (fromEnd !== undefined) edge.fromEnd = fromEnd;
+  const toEnd = oneOf(ENDS, raw.toEnd);
+  if (toEnd !== undefined) edge.toEnd = toEnd;
   if (typeof raw.color === "string") edge.color = raw.color;
   if (typeof raw.label === "string") edge.label = raw.label;
   const kbLink = parseKbLink(raw.kbLink);
@@ -276,15 +281,14 @@ function emitNode(n: CanvasNode): Record<string, unknown> {
     height: n.height,
   };
   if (n.color !== undefined) out.color = n.color;
-  if (n.type === "text") out.text = (n as CanvasTextNode).text;
-  if (n.type === "group" && (n as CanvasGroupNode).label !== undefined) {
-    out.label = (n as CanvasGroupNode).label;
-  }
-  if (n.type === "kb-node") out.nodeId = (n as CanvasKbNode).nodeId;
-  if (n.type === "shape") {
-    const s = n as CanvasShapeNode;
-    out.shape = s.shape;
-    if (s.label !== undefined) out.label = s.label;
+  // `CanvasUnknownNode.type` is `string`, so `type === "text"` does not
+  // discriminate the union — the guards this module already exports do.
+  if (isTextNode(n)) out.text = n.text;
+  if (isGroupNode(n) && n.label !== undefined) out.label = n.label;
+  if (isKbNode(n)) out.nodeId = n.nodeId;
+  if (isShapeNode(n)) {
+    out.shape = n.shape;
+    if (n.label !== undefined) out.label = n.label;
   }
   if (n.extra) Object.assign(out, n.extra);
   return out;

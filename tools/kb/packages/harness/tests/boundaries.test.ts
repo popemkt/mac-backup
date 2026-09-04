@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { present } from "../../model/src/present.ts";
 import {
   LAYER_ALLOWS,
   SCOPE_ALLOWS,
@@ -8,7 +9,6 @@ import {
 import { importEdges } from "../src/import-graph.ts";
 import { internalEdges, projectGraph } from "../src/project-graph.ts";
 import { axisValues, dependencyEntries, workspacePackages } from "../src/workspace.ts";
-import { expectDefined } from "../../test-kit/src/expect-defined.ts";
 
 /**
  * Layer and scope direction (plan D11), over what the code actually imports.
@@ -90,7 +90,7 @@ describe("boundaries", () => {
     // build of @kb/ui failed on exactly this for `three`.
     const declared = new Map(
       workspacePackages().map(({ manifest }) => [
-        expectDefined(manifest.name),
+        present(manifest.name, "expected manifest.name"),
         new Set(
           dependencyEntries(manifest)
             .map(([, name]) => name)

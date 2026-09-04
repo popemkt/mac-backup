@@ -5,8 +5,11 @@
  * Run: `bun tools/kb/packages/ext-sdk/src/generate.ts`
  * Writes: `packages/ext-sdk/src/sdk-dts.text.ts`
  */
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { Effect, Schema } from "effect";
+import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
+import { FileSystem } from "effect/FileSystem";
+import type { PlatformError } from "effect/PlatformError";
+import type { Scope } from "effect/Scope";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -22,16 +25,24 @@ export interface GenExtSdkResult {
   version: string;
 }
 
-/** Build the ambient `kb-ext-sdk` declaration string (no filesystem write). */
-export async function generateExtSdkDts(opts: { version?: string } = {}): Promise<GenExtSdkResult> {
-  const pkg = JSON.parse(await readFile(PKG, "utf8")) as { version: string };
-  const version = opts.version ?? pkg.version;
+/** `tsc` could not emit the surface declaration. */
+export class ExtSdkEmitError extends Schema.TaggedError<ExtSdkEmitError>()("Kb/ExtSdkEmitError", {
+  message: Schema.String,
+}) {}
 
-  const work = await mkdtemp(join(tmpdir(), "kb-ext-sdk-"));
-  try {
-    const surfaceSrc = await readFile(SURFACE, "utf8");
-    await writeFile(join(work, "surface.ts"), surfaceSrc, "utf8");
-    await writeFile(
+/** Build the ambient `kb-ext-sdk` declaration string (no filesystem write). */
+export const generateExtSdkDts = Effect.fn("kb.generateExtSdkDts")(function* (
+  opts: { version?: string } = {},
+): Effect.fn.Return<GenExtSdkResult, PlatformError | ExtSdkEmitError, FileSystem | Scope> {
+  const fs = yield* FileSystem;
+  const pkg = yield* fs.readFileString(PKG).pipe(Effect.map(parsePackageVersion));
+  const version = opts.version ?? pkg;
+
+  const work = yield* fs.makeTempDirectoryScoped({ prefix: "kb-ext-sdk-" });
+  {
+    const surfaceSrc = yield* fs.readFileString(SURFACE);
+    yield* fs.writeFileString(join(work, "surface.ts"), surfaceSrc);
+    yield* fs.writeFileString(
       join(work, "tsconfig.json"),
       JSON.stringify(
         {
@@ -50,7 +61,6 @@ export async function generateExtSdkDts(opts: { version?: string } = {}): Promis
         null,
         2,
       ),
-      "utf8",
     );
 
     const tsc = join(KB_ROOT, "node_modules/.bin/tsc");
@@ -58,10 +68,12 @@ export async function generateExtSdkDts(opts: { version?: string } = {}): Promis
       encoding: "utf8",
     });
     if (result.status !== 0) {
-      throw new Error(`tsc emit failed:\n${result.stdout}\n${result.stderr}`);
+      return yield* new ExtSdkEmitError({
+        message: `tsc emit failed:\n${result.stdout}\n${result.stderr}`,
+      });
     }
 
-    const emitted = await readFile(join(work, "out/surface.d.ts"), "utf8");
+    const emitted = yield* fs.readFileString(join(work, "out/surface.d.ts"));
     const body = stripHeaderComments(emitted).trimEnd();
     const dts = [
       "/**",
@@ -85,14 +97,22 @@ export async function generateExtSdkDts(opts: { version?: string } = {}): Promis
     ].join("\n");
 
     return { dts, version };
-  } finally {
-    await rm(work, { recursive: true, force: true });
   }
+});
+
+const PackageJson = Schema.Struct({ version: Schema.String });
+
+/** The kb version stamped into the generated header. */
+function parsePackageVersion(text: string): string {
+  return Schema.decodeUnknownSync(PackageJson)(JSON.parse(text)).version;
 }
 
 /** Write `sdk-dts.text.ts` with the regenerated string constant. */
-export async function writeExtSdkModule(opts: { version?: string } = {}): Promise<GenExtSdkResult> {
-  const { dts, version } = await generateExtSdkDts(opts);
+export const writeExtSdkModule = Effect.fn("kb.writeExtSdkModule")(function* (
+  opts: { version?: string } = {},
+): Effect.fn.Return<GenExtSdkResult, PlatformError | ExtSdkEmitError, FileSystem | Scope> {
+  const fs = yield* FileSystem;
+  const { dts, version } = yield* generateExtSdkDts(opts);
   const moduleSource = [
     "/**",
     " * GENERATED — do not edit by hand.",
@@ -102,10 +122,10 @@ export async function writeExtSdkModule(opts: { version?: string } = {}): Promis
     "export const KB_SDK_DTS: string = " + JSON.stringify(dts) + ";",
     "",
   ].join("\n");
-  await mkdir(dirname(OUT_MODULE), { recursive: true });
-  await writeFile(OUT_MODULE, moduleSource, "utf8");
+  yield* fs.makeDirectory(dirname(OUT_MODULE), { recursive: true });
+  yield* fs.writeFileString(OUT_MODULE, moduleSource);
   return { dts, version };
-}
+});
 
 function stripHeaderComments(src: string): string {
   return src.replace(/^\/\*[\s\S]*?\*\/\s*/u, "").replace(/^\/\/.*\n/gmu, "");
@@ -120,6 +140,11 @@ function indent(text: string, spaces: number): string {
 }
 
 if (import.meta.main) {
-  const { version } = await writeExtSdkModule();
+  // A generator script is its own composition root: it picks the platform
+  // here rather than borrowing @kb/store-jsonl's persistence boundary, which
+  // `layer:contract` may not reach.
+  const { version } = await Effect.runPromise(
+    Effect.scoped(writeExtSdkModule()).pipe(Effect.provide(BunFileSystem.layer)),
+  );
   console.log(`wrote packages/ext-sdk/src/sdk-dts.text.ts (kb ${version})`);
 }

@@ -31,6 +31,7 @@
       },
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/ext-docs": "workspace:*",
         "@kb/ext-sdk": "workspace:*",
         "@kb/mcp": "workspace:*",
         "@kb/model": "workspace:*",
@@ -94,7 +95,11 @@
     "packages/ext-sdk": {
       "name": "@kb/ext-sdk",
       "version": "0.0.0",
+      "dependencies": {
+        "effect": "catalog:",
+      },
       "devDependencies": {
+        "@effect/platform-bun": "catalog:",
         "@types/bun": "catalog:",
         "typescript": "catalog:",
       },
@@ -171,8 +176,10 @@
         "@kb/server": "workspace:*",
       },
       "devDependencies": {
+        "@kb/model": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
+        "effect": "catalog:",
         "playwright": "catalog:",
       },
     },

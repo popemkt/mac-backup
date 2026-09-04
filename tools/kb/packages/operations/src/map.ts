@@ -1,3 +1,4 @@
+import { Predicate, Schema } from "effect";
 import type { ActionInvocation } from "@kb/contracts";
 import { isValidSavedQueryName } from "./saved-query.ts";
 import { LIST_FIELDS_QUERY, LIST_TAGS_QUERY, backlinksQuery } from "@kb/query";
@@ -11,6 +12,22 @@ import {
 } from "@kb/model";
 
 export type PropType = "str" | "num" | "bool" | "date" | "ref";
+
+const PROP_TYPES: readonly PropType[] = ["str", "num", "bool", "date", "ref"];
+
+/**
+ * The one gate a `--type` / `field:type=` fragment passes through. Both prop
+ * surfaces name the same set, so the set is stated once and an unknown name
+ * is a usage error on either of them rather than a silent fall-through.
+ */
+export function parsePropType(raw: string | undefined): PropType | undefined {
+  if (raw === undefined) return undefined;
+  const type = PROP_TYPES.find((t) => t === raw);
+  if (type === undefined) {
+    throw new UsageError({ message: `invalid prop type: ${raw}` });
+  }
+  return type;
+}
 
 export interface PlannedAction {
   id: string;
@@ -40,28 +57,26 @@ export function parsePropArg(arg: string): {
 } {
   const eq = arg.indexOf("=");
   if (eq <= 0) {
-    throw new UsageError(`invalid --prop (expected field=value): ${arg}`);
+    throw new UsageError({ message: `invalid --prop (expected field=value): ${arg}` });
   }
   const left = arg.slice(0, eq);
   const raw = arg.slice(eq + 1);
   const colon = left.lastIndexOf(":");
   if (colon > 0) {
     const field = left.slice(0, colon);
-    const type = left.slice(colon + 1) as PropType;
-    if (!["str", "num", "bool", "date", "ref"].includes(type)) {
-      throw new UsageError(`invalid prop type: ${type}`);
-    }
-    return { field, value: parsePropValue(raw, type) };
+    return { field, value: parsePropValue(raw, parsePropType(left.slice(colon + 1))) };
   }
   return { field: left, value: parsePropValue(raw) };
 }
 
-export class UsageError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "UsageError";
-  }
-}
+/**
+ * Bad input from a human surface (argv, a `--prop` fragment, an action-invoke
+ * blob). Tagged so an Effect can raise it directly and the CLI can map it to
+ * its own exit code without folding it into a DomainError.
+ */
+export class UsageError extends Schema.TaggedError<UsageError>()("Kb/UsageError", {
+  message: Schema.String,
+}) {}
 
 export function mapAdd(opts: {
   text: string;
@@ -206,7 +221,9 @@ export function mapFieldType(opts: {
   previous?: PropValue;
 }): PlannedAction {
   if (!isFieldType(opts.type)) {
-    throw new UsageError(`invalid field type: ${opts.type} (expected ${FIELD_TYPES.join("|")})`);
+    throw new UsageError({
+      message: `invalid field type: ${opts.type} (expected ${FIELD_TYPES.join("|")})`,
+    });
   }
   return {
     id: "node.update",
@@ -308,7 +325,9 @@ export function mapQuery(opts: { query: string; inputs?: unknown[] }): PlannedAc
  */
 export function mapRun(name: string): PlannedAction {
   if (!isValidSavedQueryName(name)) {
-    throw new UsageError(`invalid saved query name: ${name} (letters, digits, ., _, - only)`);
+    throw new UsageError({
+      message: `invalid saved query name: ${name} (letters, digits, ., _, - only)`,
+    });
   }
   return {
     id: "graph.run",
@@ -341,29 +360,24 @@ export function mapChildren(id: string): PlannedAction {
 
 export function mapActionInvoke(raw: unknown): ActionInvocation {
   if (typeof raw !== "object" || raw === null || !("id" in raw) || typeof raw.id !== "string") {
-    throw new UsageError('action-invoke expects JSON object with string "id" and optional "input"');
+    throw new UsageError({
+      message: 'action-invoke expects JSON object with string "id" and optional "input"',
+    });
   }
-  const obj = raw as { id: string; input?: unknown };
-  return { id: obj.id, input: obj.input ?? {} };
+  return { id: raw.id, input: "input" in raw ? (raw.input ?? {}) : {} };
 }
 
 /** Fields referenced by a planned apply that may need --create minting. */
 export function fieldsNeedingCreate(plan: PlannedAction): string[] {
-  const input = plan.input as Record<string, unknown> | null;
-  if (input === null || typeof input !== "object") return [];
+  const input = plan.input;
+  if (!Predicate.isObject(input)) return [];
+  const entries = [input.props, input.setProps].flatMap((list) =>
+    Array.isArray(list) ? (list as unknown[]) : [],
+  );
   const names: string[] = [];
-  if (Array.isArray(input.props)) {
-    for (const p of input.props) {
-      if (typeof p === "object" && p !== null && "field" in p) {
-        names.push((p as { field: string }).field);
-      }
-    }
-  }
-  if (Array.isArray(input.setProps)) {
-    for (const p of input.setProps) {
-      if (typeof p === "object" && p !== null && "field" in p) {
-        names.push((p as { field: string }).field);
-      }
+  for (const entry of entries) {
+    if (Predicate.hasProperty(entry, "field") && typeof entry.field === "string") {
+      names.push(entry.field);
     }
   }
   return names;

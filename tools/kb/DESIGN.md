@@ -6,7 +6,7 @@ materializes markdown from queries. One action registry drives CLI and MCP.
 
 **What this actually is** (answering the "graph db?" question): yes — a tiny
 graph database plus application features, which is exactly Tana's and Logseq's
-architecture. Logseq *is* DataScript in memory (classic parses md → datoms; the
+architecture. Logseq _is_ DataScript in memory (classic parses md → datoms; the
 new DB version persists datoms in SQLite). Tana is a proprietary node graph
 with supertags/fields/views as app features on top. We build the same shape,
 minimal: DataScript = graph engine; our node/field/tag model = app layer.
@@ -17,15 +17,15 @@ per-invocation CLI (fresh db each run); if we later add watch-mode or a server,
 
 ## Decisions
 
-| Decision | Choice | Why |
-|---|---|---|
-| Name | **`kb`** | confirmed |
-| Storage | Backend-agnostic `Store`; **JSONL backend v1** | exact round-trip, line-per-node git diffs. git-lfs rejected (stores blobs, doesn't make them mergeable); dolt-on-branch possible later as another backend |
-| Query | **DataScript** in-memory, rebuilt per invocation | real datalog; Cozo persistent backends are binary |
-| Surfaces | **CLI + MCP over one action registry** | action is the abstraction (harman pattern) |
-| Runtime | **Bun**, no build step | the production `kb` tool (CLI, `kb ui` server, MCP) runs under Bun and may use Bun APIs (`Bun.serve`, `Bun.file`, …) where appropriate |
-| Toolchain | **TypeScript 7 + Vite+ (`vp` 0.2.8)** | vp owns lint/check/fmt/UI test; authoritative typecheck is `tsc --noEmit` — see [Runtime/tooling boundary](#runtimetooling-boundary) |
-| Model | **Everything is a node** — fields and tags included | Tana model; Logseq DB does the same (properties are first-class entities) |
+| Decision  | Choice                                              | Why                                                                                                                                                       |
+| --------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Name      | **`kb`**                                            | confirmed                                                                                                                                                 |
+| Storage   | Backend-agnostic `Store`; **JSONL backend v1**      | exact round-trip, line-per-node git diffs. git-lfs rejected (stores blobs, doesn't make them mergeable); dolt-on-branch possible later as another backend |
+| Query     | **DataScript** in-memory, rebuilt per invocation    | real datalog; Cozo persistent backends are binary                                                                                                         |
+| Surfaces  | **CLI + MCP over one action registry**              | action is the abstraction (harman pattern)                                                                                                                |
+| Runtime   | **Bun**, no build step                              | the production `kb` tool (CLI, `kb ui` server, MCP) runs under Bun and may use Bun APIs (`Bun.serve`, `Bun.file`, …) where appropriate                    |
+| Toolchain | **TypeScript 7 + Vite+ (`vp` 0.2.8)**               | vp owns lint/check/fmt/UI test; authoritative typecheck is `tsc --noEmit` — see [Runtime/tooling boundary](#runtimetooling-boundary)                      |
+| Model     | **Everything is a node** — fields and tags included | Tana model; Logseq DB does the same (properties are first-class entities)                                                                                 |
 
 ## Workspace shape
 
@@ -34,10 +34,10 @@ per-invocation CLI (fresh db each run); if we later add watch-mode or a server,
 curated barrel of named exports at `src/index.ts` (or `"exports": {}` when it
 has no importable surface), and carrying two tags in its `nx` key:
 
-| Axis | Values | Means |
-|---|---|---|
-| `layer:*` | `domain`, `contract`, `infrastructure`, `application`, `app`, `extension`, `test-support`, `tooling` | which way dependencies may point |
-| `scope:*` | `shared`, `backend`, `browser`, `test-support`, `tooling` | which runtime the code must survive |
+| Axis      | Values                                                                                               | Means                               |
+| --------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `layer:*` | `domain`, `contract`, `infrastructure`, `application`, `app`, `extension`, `test-support`, `tooling` | which way dependencies may point    |
+| `scope:*` | `shared`, `backend`, `browser`, `test-support`, `tooling`                                            | which runtime the code must survive |
 
 The direction rules live in exactly one place,
 `packages/harness/src/constraints.ts`, and `packages/harness` applies them to
@@ -74,7 +74,7 @@ The backend runs on **Bun** in production; the toolchain around it is **Vite+
   - `bun run test:ui` → `bun run --filter @kb/ui test` (Vitest)
   - `bun run test:dst` → the deterministic simulation sweep
   - `bun run knip`, `bun run harness`, and `bun run verify` = typecheck + lint
-    + knip + harness
+    - knip + harness
 - **Two runners, split by package, not by file.** Everything except `@kb/ui`
   runs on `bun test`; the browser package runs on Vitest because its suite
   needs happy-dom, `vi.mock` hoisting and fake timers. `bunfig.toml` states
@@ -103,24 +103,24 @@ The table below is the single source of truth for strictness; harness check
 bit-for-bit, that neither preset redeclares a base flag, and that no package
 redeclares a key its base or preset already owns.
 
-| flag | value | status |
-|---|---|---|
-| strict | true | active |
-| noImplicitOverride | true | active |
-| noUncheckedIndexedAccess | true | active |
-| noFallthroughCasesInSwitch | true | active |
-| verbatimModuleSyntax | true | active |
-| noUnusedLocals | true | active |
-| noUnusedParameters | true | active |
-| noImplicitReturns | true | active |
-| allowUnreachableCode | false | active |
-| allowUnusedLabels | false | active |
-| noUncheckedSideEffectImports | true | active |
-| erasableSyntaxOnly | true | active |
-| forceConsistentCasingInFileNames | true | active |
-| useUnknownInCatchVariables | true | active |
-| skipLibCheck | true | active |
-| exactOptionalPropertyTypes | true | deferred |
+| flag                               | value | status   |
+| ---------------------------------- | ----- | -------- |
+| strict                             | true  | active   |
+| noImplicitOverride                 | true  | active   |
+| noUncheckedIndexedAccess           | true  | active   |
+| noFallthroughCasesInSwitch         | true  | active   |
+| verbatimModuleSyntax               | true  | active   |
+| noUnusedLocals                     | true  | active   |
+| noUnusedParameters                 | true  | active   |
+| noImplicitReturns                  | true  | active   |
+| allowUnreachableCode               | false | active   |
+| allowUnusedLabels                  | false | active   |
+| noUncheckedSideEffectImports       | true  | active   |
+| erasableSyntaxOnly                 | true  | active   |
+| forceConsistentCasingInFileNames   | true  | active   |
+| useUnknownInCatchVariables         | true  | active   |
+| skipLibCheck                       | true  | active   |
+| exactOptionalPropertyTypes         | true  | deferred |
 | noPropertyAccessFromIndexSignature | false | rejected |
 
 `exactOptionalPropertyTypes` is deferred to `d1`/`d2` code drains (17 backend +
@@ -142,7 +142,9 @@ sets on purpose.
   appear. Suggestion-severity ones — the Effect-native preference group
   (`asyncFunction`, `globalConsole`, `globalDate`, `globalTimers`,
   `processEnv`, `globalRandom`), emitted by tsgo as `message` — count only
-  under a package's `src/`.
+  under the `src/` of a package that is kb: a `scope:tooling` package's `src/`
+  is a build script, and the scope follows the tag it already carries rather
+  than a second list.
 
 Rejected rules are recorded here with their measured count, like rejected
 compiler flags: `oxc/no-map-spread` (14 sites) — a micro-optimisation for
@@ -164,6 +166,7 @@ but still has hits outside it cannot be promoted, because promotion is a
 severity flip in `tsconfig.bun.json` and that flip has no file scope. Such a
 rule leaves the ledger without a promotion; the drain report says which sites
 remain and why.
+
 ## Supply chain
 
 - Every internal dependency is `workspace:*`; every external dependency is
@@ -202,17 +205,17 @@ falsifiable domain claim, and falsifiability runs from the **rejecting** side:
 an accept-everything round-trip is not a property. Three anti-patterns are
 named so a reviewer can cite them:
 
-| anti-pattern | shape | why it has no power |
-|---|---|---|
-| TAUTOLOGY | the oracle re-implements the function under test | passes for every implementation, including a wrong one |
-| STRUCTURAL | asserts what the type system or `Schema` already guarantees | the negation is unrepresentable |
-| quantifier theatre | `fc.constantFrom` over two or three values, or a filtered generator wearing a `forall` | claims coverage it does not have |
+| anti-pattern       | shape                                                                                  | why it has no power                                    |
+| ------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| TAUTOLOGY          | the oracle re-implements the function under test                                       | passes for every implementation, including a wrong one |
+| STRUCTURAL         | asserts what the type system or `Schema` already guarantees                            | the negation is unrepresentable                        |
+| quantifier theatre | `fc.constantFrom` over two or three values, or a filtered generator wearing a `forall` | claims coverage it does not have                       |
 
 The keeper classes are metamorphic relations (idempotence, injectivity,
 invariance, erasure — `store-roundtrip`, `order`, `mentions` are all of this
 kind), fail-closed backstops, precedence, conservation/projection, and
-cross-function agreement. Mutate one field and assert the rejection *names the
-violated path*. Determinism is mandatory: no wall clock, no unseeded
+cross-function agreement. Mutate one field and assert the rejection _names the
+violated path_. Determinism is mandatory: no wall clock, no unseeded
 randomness, fixed seed in CI, and a failure prints seed plus counterexample. A
 pure function is not by itself a reason to write a property.
 
@@ -230,10 +233,10 @@ test; a non-deterministic merge blocker erodes trust in every other gate.
 - **L1 — structural, hard (`error`).** Cross-unit coupling: import cycles,
   layer direction, a unit reaching past another's public surface. Mechanical
   and non-negotiable.
-- **L2 — within-unit sensors, two tiers.** *Branching* sensors (`complexity`,
+- **L2 — within-unit sensors, two tiers.** _Branching_ sensors (`complexity`,
   `max-depth`, `max-nested-callbacks`) are hard, because they measure shape
   directly; the caps are draiver's (`complexity` 20, `max-depth` 5,
-  `max-nested-callbacks` 4). *Size* sensors (`max-lines` 900,
+  `max-nested-callbacks` 4). _Size_ sensors (`max-lines` 900,
   `max-lines-per-function` 120, `max-params` 5) only ever `warn`: a
   legitimately large cohesive unit is real, and a length cap forces exactly
   the bad split a reviewer would have to reverse. A long but flat body of
@@ -288,22 +291,21 @@ type NodeId = string; // ULID, or "sys.*" for seeded system nodes
 interface KbNode {
   id: NodeId;
   text: string;
-  props: Record<NodeId, PropValue[]>;  // key = FIELD NODE id, not a string
-  children: NodeId[];                   // ordered outline
+  props: Record<NodeId, PropValue[]>; // key = FIELD NODE id, not a string
+  children: NodeId[]; // ordered outline
   createdAt: string;
   updatedAt: string;
 }
 
 type PropValue =
-  | { t: "str" | "num" | "bool" | "date"; v: string | number | boolean }
-  | { t: "ref"; v: NodeId };
+  { t: "str" | "num" | "bool" | "date"; v: string | number | boolean } | { t: "ref"; v: NodeId };
 ```
 
 - **Fields are nodes.** A field is just a node typed `sys.field` (e.g. node
   `01J..X` text "status"). `props` keys are field-node ids, so fields are
   reusable anywhere, renameable in one place, and can carry their own props
   (description, allowed values) later. Attaching any field to any node is
-  legal — tags only *template* fields, never restrict them (Tana semantics).
+  legal — tags only _template_ fields, never restrict them (Tana semantics).
 - **Tags (supertags) are nodes** typed `sys.tag`, holding a `sys.f.fields`
   prop listing field-node refs they template. Applying a tag = adding a
   `sys.f.type` ref prop. Multiple tags per node allowed.
@@ -320,19 +322,19 @@ type PropValue =
   checks — read the kind slot (`typeRefsOf`, i.e. `sys.f.type`) and return
   everything it names, seeded ids included: `sys.f.fieldType` legitimately
   targets six `sys.ft.*` options and `sys.f.onto.include` legitimately targets
-  every supertag. Display surfaces then decide what to *show*: an unconstrained
+  every supertag. Display surfaces then decide what to _show_: an unconstrained
   ref picker hides infrastructure (`fuzzyNodeCandidates` in `ui/src/lib/refs`),
   and the outline's `#tag` badge list omits the kind refs so a tag's own page
   shows no "#tag" chip. Those two lists are not interchangeable — reading the
   badge list back as membership reports every supertag as untagged, which is
   what once left `sys.f.onto.include` with an empty allowed set. Write
   protection is a third, separate concern (`isSysPrefixed` + `--force`);
-  referencing a `sys.*` node as a *value* is not a write to it.
+  referencing a `sys.*` node as a _value_ is not a write to it.
 - **System nodes**, seeded on init, are ordinary nodes with reserved ids:
   `sys.field` (the type of fields), `sys.tag` (the type of tags),
   `sys.f.type` (the "type/tag" field), `sys.f.fields` (tag→templated fields).
   That's the whole special set; everything else is user space.
-- **Name resolution**: CLI/actions accept field/tag *names*; resolver does a
+- **Name resolution**: CLI/actions accept field/tag _names_; resolver does a
   unique-text lookup among `sys.field`/`sys.tag` nodes (error on ambiguity,
   `--create` to mint). Resolution is dynamic at load — at our scale (\<\<100k
   nodes) caching is premature; revisit only if load profiling says so.
@@ -361,7 +363,7 @@ type PropValue =
   `backlinksQuery` is the single owner of that EDN, and the browser reads it
   through the `@kb/queries` alias rather than keeping a copy.)
 
-  **Why both carriers, one attribute.** A ref prop *is* a relationship. When
+  **Why both carriers, one attribute.** A ref prop _is_ a relationship. When
   only text tokens produced the datom, `kb backlinks` and the UI's References
   section silently missed every prop-borne reference — a status value did not
   know its tasks, a tag did not know its instances, and a contextual reference
@@ -376,13 +378,14 @@ type PropValue =
 
   Optional Logseq-style `:node/path-refs` (ancestor mentions) is backlog —
   add only when a real query needs hierarchy-scoped reach.
+
 - **Contextual references** (Tana "contextual content") are the node kind built
   on that relation: an ordinary node tagged `#ref` (`sys.tag.ref`) whose
-  `sys.f.ref.target` ref prop names a target. It renders the target's *current*
+  `sys.f.ref.target` ref prop names a target. It renders the target's _current_
   text verbatim (so the target's markdown still renders); its own children are
   content local to that location and stay on the
   reference, so the original shows them only through References/backlinks — a
-  new node *kind*, not a new node *type*, exactly like `#query`. Anatomy, the
+  new node _kind_, not a new node _type_, exactly like `#query`. Anatomy, the
   rendering rule and the deliberate deviations from Tana are in
   [DESIGN-UI.md → Contextual references](./DESIGN-UI.md#contextual-references-i12).
   Creating one needs no new action:
@@ -392,6 +395,7 @@ type PropValue =
     "tags":["sys.tag.ref"],
     "props":[{"field":"sys.f.ref.target","value":{"t":"ref","v":"<target>"}}]}}'
   ```
+
 - Datom mapping: `[id :node/text v]`, `[id :node/child child]` (+order),
   `[id :f/<fieldId> v]` with ref values as entity refs → native datalog joins
   and graph traversal.
@@ -416,11 +420,11 @@ interface Store {
   `tests/benchmark.test.ts` holds the standing bar: a 50k-node fixture loads,
   builds and queries well under a second. `.bak` / `nodes.jsonl.*.tmp` are
   gitignored — only the live `nodes.jsonl` is committed. The transient
-  `nodes.jsonl.lock` is *not* yet gitignored (known gap).
+  `nodes.jsonl.lock` is _not_ yet gitignored (known gap).
 - **Write hardening** (r4 Stage-0 — on-disk format unchanged), two modules
   in `@kb/store-jsonl`:
   - `write-lock.ts` — an exclusive `.kb/nodes.jsonl.lock` carrying the holder
-    pid wraps the *whole* commit via `Effect.acquireRelease` inside
+    pid wraps the _whole_ commit via `Effect.acquireRelease` inside
     `Effect.scoped`, so reload → merge → replace is one critical section and
     concurrent CLI / MCP / `kb ui` writers cannot silently clobber each other
     (previously last-writer-wins). Contention spins on `Effect.sleep`
@@ -445,7 +449,7 @@ interface Store {
   `bun:sqlite` **index**: derived, gitignored, fingerprinted against the JSONL,
   deletable at any time, and never authoritative — the type must say so.
 - No WAL, no leases — repo scale. The lock above is advisory, filesystem-local
-  and process-scoped; it serializes writers but does not make a *reader's*
+  and process-scoped; it serializes writers but does not make a _reader's_
   snapshot binding. Conditional writes (an `expect` precondition carrying graph
   identity / node hash, returning the existing `conflict` receipt) are designed
   in `docs/kb-waves/2026-08-23/reports/r8-zerolang.md` §1 and **parked** — no
@@ -473,7 +477,7 @@ interface Store {
 ## Ontologies — a lens over the graph
 
 An **ontology** is an ordinary node tagged `#ontology` that names a subset of
-the graph. It is a new node *kind*, not a new node *type*: nothing in the data
+the graph. It is a new node _kind_, not a new node _type_: nothing in the data
 model changes, and membership bookkeeping lives on the ontology, never on the
 member — a node that never joins one carries zero ontology props. Full design
 (including the parts deliberately left out) is
@@ -481,14 +485,14 @@ member — a node that never joins one carries zero ontology props. Full design
 
 Six seeded fields carry the definition, all templated by the `#ontology` tag:
 
-| Field | Type | Means |
-|---|---|---|
-| `sys.f.onto.include` | ref (→ `sys.tag`), multi | tags whose instances are members |
-| `sys.f.onto.member` | ref, multi | explicit pins |
-| `sys.f.onto.exclude` | ref, multi | vetoed nodes — absolute |
-| `sys.f.onto.extends` | ref (→ `#ontology` via `sys.f.targetQuery`), multi | parent ontologies whose members are inherited |
-| `sys.f.onto.query` | text | parameter-free EDN datalog; first column = node id |
-| `sys.f.onto.closure` | text: `none` (default) \| `descendants` | structural pull of members' subtrees |
+| Field                | Type                                               | Means                                              |
+| -------------------- | -------------------------------------------------- | -------------------------------------------------- |
+| `sys.f.onto.include` | ref (→ `sys.tag`), multi                           | tags whose instances are members                   |
+| `sys.f.onto.member`  | ref, multi                                         | explicit pins                                      |
+| `sys.f.onto.exclude` | ref, multi                                         | vetoed nodes — absolute                            |
+| `sys.f.onto.extends` | ref (→ `#ontology` via `sys.f.targetQuery`), multi | parent ontologies whose members are inherited      |
+| `sys.f.onto.query`   | text                                               | parameter-free EDN datalog; first column = node id |
+| `sys.f.onto.closure` | text: `none` (default) \| `descendants`            | structural pull of members' subtrees               |
 
 **Membership algebra — core is union + veto:**
 
@@ -505,13 +509,13 @@ members(O) =  ⋃ members(P)  for P ∈ O.extends      -- inheritance
 Precedence is the whole rule a human has to remember: **union everything, then
 subtract**. `exclude` is applied last and beats tag-, pin-, query-, extends-
 and closure-derived membership, which is what makes "remove this from my
-ontology" always work. Set algebra *over* ontologies (`intersect` / `subtract`,
+ontology" always work. Set algebra _over_ ontologies (`intersect` / `subtract`,
 so "Infrastructure ∩ Open work" would itself be a node) is specified in r5 §1.2
 and is out of core — the resolver signature leaves them as extra passes rather
 than a rewrite.
 
 **Nothing graph-shaped throws.** `extends` is a DAG by intent and cycle-safe by
-implementation: DFS with a `visiting` set, back-edges ignored *and reported*,
+implementation: DFS with a `visiting` set, back-edges ignored _and reported_,
 depth capped at 32 (`DEFAULT_MAX_DEPTH`). Cycles, malformed EDN, unknown refs,
 a missing query runner, and the soft size cap (`DEFAULT_WARN_ABOVE` = 5000
 members) all surface as `warnings` on the resolution instead of failing it —
@@ -520,7 +524,7 @@ a broken definition must never make a page unopenable. Same posture as
 
 **One resolver, three surfaces.** `@kb/model`'s `ontology.ts` is pure and
 isomorphic — no Node/Bun API, no `datascript` import; the EDN runner is
-*injected*. CLI and MCP pass `@kb/query`, the browser passes its own
+_injected_. CLI and MCP pass `@kb/query`, the browser passes its own
 `ds/query`, both reaching the same module through the `@kb/ontology` alias, so
 there is no fork (contrast `ds/datoms.ts`). Resolution is deterministic
 (input node order, then prop order) and carries per-member provenance —
@@ -543,7 +547,7 @@ kb set <onto> onto.member  <nodeId> --type ref
 kb set <onto> onto.exclude <nodeId> --type ref
 ```
 
-So the UI's scope is *exactly* reachable through data — the standing rule in
+So the UI's scope is _exactly_ reachable through data — the standing rule in
 INSPIRATIONS.md ("anything the UI can do must be reachable through data").
 
 **Scoped reading mode** is the UI consumption of the same resolver and is
@@ -552,8 +556,8 @@ specified in DESIGN-UI.md. The one invariant that belongs here: scope is a
 over the full graph, so backlinks, `#query` nodes, and WS subscriptions keep
 honest reach while the outline/graph/search render members only.
 
-Parked by design (r5 §2.9, none of it in core): an ontology's *schema*
-vocabulary (which fields members carry) and *relation* vocabulary (which
+Parked by design (r5 §2.9, none of it in core): an ontology's _schema_
+vocabulary (which fields members carry) and _relation_ vocabulary (which
 ref-fields count as internal edges), inference, auto-classification, validation
 enforcement, tag inheritance, and auto-admission of nodes created inside a
 scope.
@@ -606,7 +610,7 @@ where, how rows become markdown, repo-specific output of any kind — lives in
 - **Extension SDK:** external `.kb/extensions/*.ts` authors get types from
   the running binary — `kb ext sdk --write` emits `.kb/sdk.d.ts` (ambient
   module `kb-ext-sdk`), then `import type { ExtensionAction, ExtensionTemplate }
-  from "kb-ext-sdk"`. Types are generated from `packages/ext-sdk/src/surface.ts` and
+from "kb-ext-sdk"`. Types are generated from `packages/ext-sdk/src/surface.ts` and
   embedded in the CLI bundle; `bun packages/ext-sdk/src/generate.ts` refreshes the
   committed string (freshness-tested). Prefer Promise `handler`s; schemas
   may be zod, Standard Schema v1, or a bare `{ parse }`. Helper siblings
@@ -614,22 +618,22 @@ where, how rows become markdown, repo-specific output of any kind — lives in
 
 ## Operations (verticals)
 
-| Action | Mode | Does |
-|---|---|---|
-| `node.add` | apply | create (text, props by field name/id, parent, position, tags) |
-| `node.update` | apply | edit text / set-unset props / move / delete |
-| `node.get` | read | pull subtree to depth N |
-| `field.define` / `tag.define` | apply | mint field/tag nodes (sugar over node.add) |
-| `graph.query` | read | raw datalog → JSON rows |
-| `graph.run` | read | execute saved query from `.kb/queries/` |
-| `graph.search` | read | text/prop filter convenience |
-| `ontology.members` | read | resolve an `#ontology` node's membership, with provenance ([Ontologies](#ontologies--a-lens-over-the-graph)) |
-| `asset.upload` | apply | write opaque bytes to `.kb/assets/<ulid>.<ext>`; returns the `assets/…` markdown path |
-| `render.view` | read | render a saved view (`.kb/views/<name>.json`) to html or md |
-| `render.views` | read | list saved view names available to `render.view` |
-| `ext.docs.materialize` (alias `docs.materialize`) | apply | run view specs → write md (bundled extension) |
-| `ext.docs.check` (alias `docs.check`) | read | materialize to memory, diff vs disk (bundled extension) |
-| `ext.canvas.tx.apply` | apply | apply a JSON Canvas transaction to a `#canvas` node (bundled extension) |
+| Action                                            | Mode  | Does                                                                                                         |
+| ------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------ |
+| `node.add`                                        | apply | create (text, props by field name/id, parent, position, tags)                                                |
+| `node.update`                                     | apply | edit text / set-unset props / move / delete                                                                  |
+| `node.get`                                        | read  | pull subtree to depth N                                                                                      |
+| `field.define` / `tag.define`                     | apply | mint field/tag nodes (sugar over node.add)                                                                   |
+| `graph.query`                                     | read  | raw datalog → JSON rows                                                                                      |
+| `graph.run`                                       | read  | execute saved query from `.kb/queries/`                                                                      |
+| `graph.search`                                    | read  | text/prop filter convenience                                                                                 |
+| `ontology.members`                                | read  | resolve an `#ontology` node's membership, with provenance ([Ontologies](#ontologies--a-lens-over-the-graph)) |
+| `asset.upload`                                    | apply | write opaque bytes to `.kb/assets/<ulid>.<ext>`; returns the `assets/…` markdown path                        |
+| `render.view`                                     | read  | render a saved view (`.kb/views/<name>.json`) to html or md                                                  |
+| `render.views`                                    | read  | list saved view names available to `render.view`                                                             |
+| `ext.docs.materialize` (alias `docs.materialize`) | apply | run view specs → write md (bundled extension)                                                                |
+| `ext.docs.check` (alias `docs.check`)             | read  | materialize to memory, diff vs disk (bundled extension)                                                      |
+| `ext.canvas.tx.apply`                             | apply | apply a JSON Canvas transaction to a `#canvas` node (bundled extension)                                      |
 
 ## Materialization
 
@@ -696,4 +700,3 @@ where, how rows become markdown, repo-specific output of any kind — lives in
 - I orchestrate via orca-cli: dispatch, wait on worker_done, run
   `cavecrew-reviewer` on each worktree diff, **fix findings myself**, merge
   sequentially (M1 → parallel trio → M5).
-

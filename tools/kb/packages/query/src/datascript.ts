@@ -117,16 +117,19 @@ function fieldAttr(fieldId: NodeId): string {
   return `:f/${fieldId}`;
 }
 
-function propDatomValue(pv: PropValue, ids: IdMap): { value: unknown; isRef: boolean } {
+/** Discriminated so a ref's value is known to be the entity id it is. */
+type DatomValue = { isRef: true; value: number } | { isRef: false; value: unknown };
+
+function propDatomValue(pv: PropValue, ids: IdMap): DatomValue {
   if (pv.t === "ref") {
     const eid = ids.toEid.get(pv.v);
     if (eid === undefined) {
       // dangling ref — store as string sentinel, not a ref join
-      return { value: pv.v, isRef: false };
+      return { isRef: false, value: pv.v };
     }
-    return { value: eid, isRef: true };
+    return { isRef: true, value: eid };
   }
-  return { value: pv.v, isRef: false };
+  return { isRef: false, value: pv.v };
 }
 
 /** Single-pass nodes → datoms (+ schema entries for ref attrs). */
@@ -168,12 +171,12 @@ function nodesToDatoms(nodes: KbNode[]): {
     for (const [fieldId, values] of Object.entries(node.props)) {
       const attr = fieldAttr(fieldId);
       for (const pv of values) {
-        const { value, isRef } = propDatomValue(pv, ids);
-        if (isRef) {
+        const datomValue = propDatomValue(pv, ids);
+        if (datomValue.isRef) {
           refAttrs.add(attr);
-          mentioned.add(value as number);
+          mentioned.add(datomValue.value);
         }
-        datoms.push([eid, attr, value]);
+        datoms.push([eid, attr, datomValue.value]);
       }
     }
 
@@ -242,6 +245,19 @@ export function query(db: QueryDb, edn: string, ...inputs: unknown[]): unknown {
   return reviveValue(raw, db.ids);
 }
 
+/**
+ * `:find` results as rows. `query` returns `unknown` because a datalog result
+ * is whatever the query asked for; every row-shaped caller went through the
+ * same cast, so the check lives here instead.
+ */
+export function queryRows(db: QueryDb, edn: string, ...inputs: unknown[]): unknown[][] {
+  const raw = query(db, edn, ...inputs);
+  if (!Array.isArray(raw) || !raw.every((row) => Array.isArray(row))) {
+    throw new DatalogError(`datalog query did not return rows: ${edn}`);
+  }
+  return raw;
+}
+
 export function pull(db: QueryDb, pattern: string, id: NodeId | number): unknown {
   let eidOrLookup: number | [string, string];
   if (typeof id === "number") {
@@ -260,9 +276,8 @@ function revivePull(raw: unknown, ids: IdMap): unknown {
   if (raw === null || raw === undefined) return raw;
   if (typeof raw !== "object") return reviveValue(raw, ids);
   if (Array.isArray(raw)) return raw.map((x) => revivePull(x, ids));
-  const obj = raw as Record<string, unknown>;
   const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(obj)) {
+  for (const [k, v] of Object.entries(raw)) {
     if (k === ":db/id" && typeof v === "number") {
       out[k] = v;
       const nid = ids.toId.get(v);
