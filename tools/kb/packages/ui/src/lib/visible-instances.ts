@@ -12,6 +12,7 @@ import { frameListChildren, frameRows } from "@/lib/frame-rows";
 import { isQueryNode, queryDefOf, resultNodeIds } from "@/lib/query-node";
 import type { NodeMap } from "@/lib/types";
 import { getViewConfig, isProjectedViewMode } from "@/lib/view-config";
+import { hasText } from "@/lib/text";
 
 export type VisibleInstance = {
   nodeId: string;
@@ -60,7 +61,7 @@ function walkVisibleInstances(
   // Query results — list walks refs; projected modes emit flat result rows.
   if (!isRef && isQueryNode(node)) {
     const def = queryDefOf(node);
-    if (def?.edn && queryDb) {
+    if (hasText(def?.edn) && queryDb) {
       try {
         const rows = runQuery(queryDb, def.edn);
         const ids = resultNodeIds(rows, nodes, {

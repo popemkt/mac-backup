@@ -14,7 +14,7 @@ export function CanvasListPage() {
     setBusy(true);
     try {
       const id = await createCanvasNode();
-      if (id) navigate(`/canvas/${id}`);
+      if (id !== null) navigate(`/canvas/${id}`);
     } finally {
       setBusy(false);
     }

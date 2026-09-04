@@ -124,10 +124,10 @@ export function FieldRow({
               debug ? "text-foreground/25" : "text-foreground/35",
             )}
             style={{ width: `${FIELD_LABEL_WIDTH}px` }}
-            title={labelTitle ?? (fieldId ? `${label} (${fieldId})` : label)}
+            title={labelTitle ?? (fieldId !== undefined ? `${label} (${fieldId})` : label)}
           >
             <span className="truncate">{label}</span>
-            {debug && fieldId && (
+            {debug && fieldId !== undefined && (
               <span className="ml-1 truncate font-mono text-[10px] text-foreground/25">
                 {fieldId}
               </span>

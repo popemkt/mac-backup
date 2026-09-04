@@ -150,7 +150,7 @@ export function TagFieldsConfig({ tagId }: { tagId: string }) {
           // query written against them.
           const existing = all.find((f) => f.name.toLowerCase() === name.toLowerCase());
           const fieldId = existing?.id ?? (await mutations.defineField(name));
-          if (!fieldId) return;
+          if (fieldId === null) return;
           if (!template.some((f) => f.id === fieldId)) {
             await mutations.addTagField(tagId, fieldId);
           }

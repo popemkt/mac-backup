@@ -72,7 +72,7 @@ export const NodeBlock = memo(function NodeBlock({
       // same activate intent, routed to the node that owns the string. (The
       // bullet's ⌘-click still zooms this reference.)
       const targetId = contextualTargetOf(node);
-      if (targetId) {
+      if (targetId !== null) {
         zoomTo(targetId);
         return;
       }

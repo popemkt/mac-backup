@@ -8,6 +8,7 @@
  * presentational and rebuilt from the authoritative string.
  */
 import { isElementNode, isTextNode } from "@/lib/dom";
+import { textOr } from "@/lib/text";
 export const KB_REF_ATTR = "data-kb-ref";
 
 /** Complete wiki-link token: [[id]] or [[id|label]]. */
@@ -25,7 +26,7 @@ export function findRefSpans(text: string): RefSpan[] {
   const out: RefSpan[] = [];
   for (const m of text.matchAll(REF_TOKEN)) {
     const id = m[1]!.trim();
-    const label = m[2]?.trim() || id;
+    const label = textOr(m[2]?.trim(), id);
     out.push({ token: m[0], id, label, index: m.index });
   }
   return out;

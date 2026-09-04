@@ -6,6 +6,7 @@ import {
   MinusIcon,
   PlusIcon,
 } from "@phosphor-icons/react";
+import { hasText } from "@/lib/text";
 import { cn } from "@/lib/cn";
 import { isTextEntry } from "@/lib/dom";
 import type { LensPerspective } from "@/lib/graph-lens";
@@ -74,7 +75,7 @@ export function GraphToolbar({
           break;
         case "f":
           e.preventDefault();
-          if (selectedRef.current && caps.focus) {
+          if (selectedRef.current !== null && caps.focus) {
             cam.focusNode(selectedRef.current);
           } else if (caps.fit) {
             cam.fit();
@@ -212,7 +213,7 @@ function ToolbarButton({
   disabled?: boolean;
   disabledReason?: string;
 }) {
-  const title = disabled === true && disabledReason ? disabledReason : label;
+  const title = disabled === true && hasText(disabledReason) ? disabledReason : label;
   return (
     <button
       type="button"

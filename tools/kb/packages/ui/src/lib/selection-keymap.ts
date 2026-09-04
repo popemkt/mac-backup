@@ -65,7 +65,7 @@ export function mapSelectionKey(
   ctx: SelectionKeyContext,
 ): SelectionKeyAction | null {
   const { selectedNodeId, selectedInstanceKey, activeNodeId } = ctx;
-  if (!selectedNodeId || !selectedInstanceKey || activeNodeId) return null;
+  if (selectedNodeId === null || selectedInstanceKey === null || activeNodeId !== null) return null;
 
   const mod = ev.metaKey === true || ev.ctrlKey === true;
   const info = ctx.getNode?.(selectedNodeId);
@@ -109,7 +109,7 @@ export function mapSelectionKey(
       if (!info.collapsed && info.childIds.length > 0) {
         return { type: "collapse", nodeId: id };
       }
-      return info.parentId ? { type: "selectParent", nodeId: id } : null;
+      return info.parentId !== null ? { type: "selectParent", nodeId: id } : null;
     }
     case "ArrowRight": {
       if (!info) return null;

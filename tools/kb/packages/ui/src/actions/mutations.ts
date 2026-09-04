@@ -284,7 +284,7 @@ export const mutations = {
     let ok = false;
     if (parentId === WORKSPACE_ROOT_ID) {
       ok = await applyPlan(planAddRootNode("", newId));
-    } else if (afterSiblingId) {
+    } else if (afterSiblingId !== null) {
       // Inserting after a sibling lands under the sibling's parent — guard
       // that parent, not just the sibling id (sys.* write-guard).
       const siblingParent = findParentWire(wire(), afterSiblingId);
@@ -313,7 +313,7 @@ export const mutations = {
     const prevSibling = idx > 0 ? siblings[idx - 1]! : null;
     const newId = ulid();
     let plan: PlannedMutation | null;
-    if (prevSibling) {
+    if (prevSibling !== null) {
       plan = planInsertSibling(wire(), prevSibling, "after", newId);
     } else {
       plan = planPrependChild(wire(), parent.id, newId);
@@ -407,7 +407,7 @@ export const mutations = {
     if (!guardSysWrite(id)) return;
     await prepareStructuralMutation([id]);
     let plan: PlannedMutation | null = null;
-    if (instanceKey) {
+    if (instanceKey !== undefined) {
       const prevInst = useOutlineStore.getState().getPreviousVisibleInstance(instanceKey);
       if (prevInst && prevInst.nodeId !== id) {
         plan = planMergeInto(wire(), id, prevInst.nodeId);
@@ -558,7 +558,7 @@ export const mutations = {
     }
     const existing = findPinnedTagId(nodes);
     const tagId = existing ?? (await mutations.defineTag(PINNED_TAG_TEXT));
-    if (!tagId) return false;
+    if (tagId === null) return false;
     await mutations.addTag(nodeId, tagId);
     return true;
   },

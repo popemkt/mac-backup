@@ -5,6 +5,7 @@ import { PopoverShell } from "@/components/ui/popover-shell";
 import { CANVAS_COLOR_PRESETS } from "@/lib/canvas-color";
 import { cn } from "@/lib/cn";
 import { isOutside } from "@/lib/dom";
+import { hasText } from "@/lib/text";
 
 export interface ShapeInspectorProps {
   card: CanvasShapeNode;
@@ -42,7 +43,7 @@ export function ShapeInspector({ card, anchor, onClose, onColorChange }: ShapeIn
             title="None"
             className={cn(
               "h-6 w-6 rounded-full border border-foreground/15 bg-background",
-              !card.color && "ring-2 ring-primary/50",
+              !hasText(card.color) && "ring-2 ring-primary/50",
             )}
             onClick={() => onColorChange(undefined)}
           />

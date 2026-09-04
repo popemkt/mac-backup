@@ -75,7 +75,7 @@ const PERMISSIVE: CaretGeometry = {
 function uniqueTops(rects: DOMRectList | DOMRect[]): number[] {
   const tops: number[] = [];
   for (const r of Array.from(rects)) {
-    if (!r || (r.width === 0 && r.height === 0)) continue;
+    if (r.width === 0 && r.height === 0) continue;
     const top = Math.round(r.top);
     if (!tops.includes(top)) tops.push(top);
   }

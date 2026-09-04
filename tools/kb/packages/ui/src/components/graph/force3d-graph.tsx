@@ -181,7 +181,7 @@ export default function Force3dGraph({
 
     const alphaFor = (id: string): number => {
       const sel = selectedRef.current;
-      if (!sel) return 1;
+      if (sel === null) return 1;
       const ring = neighborsRef.current.get(sel) ?? new Set();
       return graphNodeAlpha({
         includedByFilter: true,
@@ -213,14 +213,14 @@ export default function Force3dGraph({
     Graph.linkWidth((link: FgLink) => {
       const base = Math.max(0.8, Math.min(3, Math.sqrt(link.weight) * 0.4));
       const sel = selectedRef.current;
-      if (!sel) return base;
+      if (sel === null) return base;
       const s = linkEndId(link.source);
       const t = linkEndId(link.target);
       return s === sel || t === sel ? base * 2 : base * 0.3;
     })
       .linkColor((link: FgLink) => {
         const sel = selectedRef.current;
-        if (!sel) return withGraphAlpha(linkBase, 1);
+        if (sel === null) return withGraphAlpha(linkBase, 1);
         const s = linkEndId(link.source);
         const t = linkEndId(link.target);
         return s === sel || t === sel
@@ -232,21 +232,21 @@ export default function Force3dGraph({
       .linkCurvature(curvedLinks ? 0.25 : 0)
       .linkDirectionalParticles((link: FgLink) => {
         const sel = selectedRef.current;
-        if (!sel) return 1;
+        if (sel === null) return 1;
         const s = linkEndId(link.source);
         const t = linkEndId(link.target);
         return s === sel || t === sel ? 4 : 0;
       })
       .linkDirectionalParticleSpeed((link: FgLink) => {
         const sel = selectedRef.current;
-        if (!sel) return 0.004;
+        if (sel === null) return 0.004;
         const s = linkEndId(link.source);
         const t = linkEndId(link.target);
         return s === sel || t === sel ? 0.015 : 0.004;
       })
       .linkDirectionalParticleWidth((link: FgLink) => {
         const sel = selectedRef.current;
-        if (!sel) return 1.2;
+        if (sel === null) return 1.2;
         const s = linkEndId(link.source);
         const t = linkEndId(link.target);
         return s === sel || t === sel ? 2.5 : 1.2;
@@ -353,12 +353,7 @@ export default function Force3dGraph({
       ro.disconnect();
       try {
         const cam = Graph.cameraPosition();
-        if (
-          cam &&
-          typeof cam.x === "number" &&
-          typeof cam.y === "number" &&
-          typeof cam.z === "number"
-        ) {
+        if (typeof cam.x === "number" && typeof cam.y === "number" && typeof cam.z === "number") {
           cameraRef.current = { x: cam.x, y: cam.y, z: cam.z };
         }
       } catch {

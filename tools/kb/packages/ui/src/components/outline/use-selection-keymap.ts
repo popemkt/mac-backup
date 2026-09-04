@@ -24,7 +24,7 @@ function applySelectionAction(action: SelectionKeyAction): void {
       break;
     case "selectParent": {
       const parent = store.nodes.get(action.nodeId)?.parentId ?? null;
-      if (parent) {
+      if (parent !== null) {
         store.selectNode(parent);
         requestAnimationFrame(() => {
           document
@@ -36,7 +36,7 @@ function applySelectionAction(action: SelectionKeyAction): void {
     }
     case "selectFirstChild": {
       const first = store.nodes.get(action.nodeId)?.children[0];
-      if (first) store.selectNode(first);
+      if (first !== undefined) store.selectNode(first);
       break;
     }
     case "indent":
@@ -102,7 +102,8 @@ export function useSelectionKeymap(): void {
   const activeNodeId = useOutlineStore((s) => s.activeNodeId);
 
   useEffect(() => {
-    if (!selectedNodeId || !selectedInstanceKey || activeNodeId) return undefined;
+    if (selectedNodeId === null || selectedInstanceKey === null || activeNodeId !== null)
+      return undefined;
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.altKey && !(e.metaKey || e.ctrlKey)) {

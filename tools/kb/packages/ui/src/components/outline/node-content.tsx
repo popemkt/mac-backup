@@ -85,14 +85,15 @@ export function NodeTextHost({
   }, [refOpen?.query, refOpen?.start]);
 
   useLayoutEffect(() => {
-    if (!isActive || !instanceKey) return undefined;
+    if (!isActive || instanceKey === undefined) return undefined;
     const registry = useOutlineStore.getState();
     registry.registerTextHost(instanceKey);
     return () => registry.unregisterTextHost(instanceKey);
   }, [isActive, instanceKey]);
 
   useLayoutEffect(() => {
-    const intent = instanceKey && pendingCaret?.instanceKey === instanceKey ? pendingCaret : null;
+    const intent =
+      instanceKey !== undefined && pendingCaret?.instanceKey === instanceKey ? pendingCaret : null;
     const localIntent =
       !intent && isActive && !wasActive.current && initialCaret
         ? { instanceKey: instanceKey ?? "local", at: initialCaret }
@@ -148,7 +149,8 @@ export function NodeTextHost({
         setCaretSerializedOffset(editorRef.current, inserted.cursor);
       }
       setCursor(inserted.cursor);
-      if (instanceKey) useOutlineStore.getState().placeCaret(instanceKey, inserted.cursor);
+      if (instanceKey !== undefined)
+        useOutlineStore.getState().placeCaret(instanceKey, inserted.cursor);
     },
     [content, cursor, instanceKey, onChange],
   );
@@ -164,7 +166,7 @@ export function NodeTextHost({
     renderEditableContent(editorRef.current, next);
     setCaretSerializedOffset(editorRef.current, cursor + 2);
     setCursor(cursor + 2);
-    if (instanceKey) useOutlineStore.getState().placeCaret(instanceKey, cursor + 2);
+    if (instanceKey !== undefined) useOutlineStore.getState().placeCaret(instanceKey, cursor + 2);
   }, [content, cursor, instanceKey, onChange]);
 
   const handleInput = useCallback(() => {
@@ -213,7 +215,7 @@ export function NodeTextHost({
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       const files = e.dataTransfer.files;
-      if (!files || files.length === 0) return;
+      if (files.length === 0) return;
       e.preventDefault();
       e.stopPropagation();
       const file = files[0];

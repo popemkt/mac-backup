@@ -11,6 +11,7 @@ import {
   upsertCanvasEdge,
   upsertCanvasNode,
 } from "@kb/canvas";
+import { hasText } from "@/lib/text";
 import { Bullet } from "@/components/outline/bullet";
 import { NodeRow } from "@/components/outline/node-row";
 import { KbNodeCard, TextCard } from "@/components/canvas/canvas-card";
@@ -745,7 +746,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       const movingIds = new Set(d.origPositions.keys());
       const firstOrig = d.origPositions.values().next().value;
       const firstId = d.origPositions.keys().next().value;
-      if (firstOrig && firstId && movingIds.size > 0) {
+      if (firstOrig && firstId !== undefined && movingIds.size > 0) {
         const movingNode = byId.get(firstId);
         if (movingNode) {
           const myLeft = firstOrig.x + dx;
@@ -940,7 +941,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     const el = document.elementFromPoint(e.clientX, e.clientY);
     const cardEl = asInstance(el?.closest("[data-card-id]"), HTMLElement);
     const toCardId = cardEl?.dataset.cardId;
-    if (!toCardId || toCardId === d.fromCardId) return;
+    if (toCardId === undefined || toCardId === d.fromCardId) return;
     const from = byId.get(d.fromCardId);
     const to = byId.get(toCardId);
     if (!from || !to) return;
@@ -987,17 +988,17 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
   // Derive selected edge/shape for inspectors
   const selectedEdgeId = selection.edgeIds.size === 1 ? [...selection.edgeIds][0] : null;
-  const selectedEdgeObj = selectedEdgeId
-    ? (doc.edges.find((e) => e.id === selectedEdgeId) ?? null)
-    : null;
+  const selectedEdgeObj =
+    selectedEdgeId !== undefined ? (doc.edges.find((e) => e.id === selectedEdgeId) ?? null) : null;
 
-  const selectedShapeId = selection.nodeIds.size === 1 ? [...selection.nodeIds][0] : null;
-  const selectedShape = selectedShapeId
-    ? (() => {
-        const n = byId.get(selectedShapeId);
-        return n && isShapeNode(n) ? n : null;
-      })()
-    : null;
+  const selectedShapeId = selection.nodeIds.size === 1 ? ([...selection.nodeIds][0] ?? null) : null;
+  const selectedShape =
+    selectedShapeId !== null
+      ? (() => {
+          const n = byId.get(selectedShapeId);
+          return n && isShapeNode(n) ? n : null;
+        })()
+      : null;
 
   // oxlint-disable-next-line complexity -- GAP [[01M1MGCTRFEHBF15DSCNDXW0GZ]]
   const onModeChange = async (mode: KbLinkMode) => {
@@ -1005,7 +1006,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     const from = byId.get(selectedEdgeObj.fromNode);
     const to = byId.get(selectedEdgeObj.toNode);
 
-    if (mode === "native" && !selectedEdgeObj.kbLink?.fieldId) {
+    if (mode === "native" && selectedEdgeObj.kbLink?.fieldId === undefined) {
       toast("Pick a ref field before enabling native mode");
       return;
     }
@@ -1096,7 +1097,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       link?.mode === "native" &&
       !!link.fieldId &&
       window.confirm("Also remove the bound prop from the source node?");
-    if (offerUnset && link) {
+    if (offerUnset && link !== undefined) {
       await flushPersist(next, {
         propTargetId: link.sourceNodeId,
         unsetProps: [
@@ -1373,12 +1374,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                 const markerEnd =
                   edge.toEnd === "none"
                     ? undefined
-                    : edge.color
+                    : hasText(edge.color)
                       ? `url(#kb-arrow-${edge.color})`
                       : "url(#kb-arrow)";
                 const markerStart =
                   edge.fromEnd === "arrow"
-                    ? edge.color
+                    ? hasText(edge.color)
                       ? `url(#kb-arrow-rev-${edge.color})`
                       : "url(#kb-arrow-rev)"
                     : undefined;
@@ -1415,7 +1416,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                       </foreignObject>
                     );
                   }
-                  if (!edge.label) return null;
+                  if (!hasText(edge.label)) return null;
                   return (
                     <g
                       transform={`translate(${mx}, ${my})`}
@@ -1578,7 +1579,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                       handleCardPointerDown(card, e);
                     }}
                   >
-                    {card.label && (
+                    {hasText(card.label) && (
                       <div className="px-2 py-1 text-[11px] text-foreground/40">{card.label}</div>
                     )}
                     {renderResizeHandles(card, isSelected)}

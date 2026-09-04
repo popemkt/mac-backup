@@ -14,7 +14,7 @@ export function outlineInstanceKey(nodeId: string, nodes: NodeMap): string {
   const chain: string[] = [];
   let cur: string | null = nodeId;
   const seen = new Set<string>();
-  while (cur && cur !== WORKSPACE_ROOT_ID) {
+  while (cur !== null && cur !== WORKSPACE_ROOT_ID) {
     if (seen.has(cur)) break;
     seen.add(cur);
     chain.unshift(cur);

@@ -21,7 +21,7 @@ export function withGraphAlpha(color: string, alpha: number): string {
   const clamped = Math.max(0, Math.min(1, alpha));
   const hex = /^#([\da-f]{6})([\da-f]{2})?$/i.exec(color);
   if (hex) {
-    const existing = hex[2] ? Number.parseInt(hex[2], 16) / 255 : 1;
+    const existing = hex[2] !== undefined ? Number.parseInt(hex[2], 16) / 255 : 1;
     return `#${hex[1]}${Math.round(existing * clamped * 255)
       .toString(16)
       .padStart(2, "0")}`;
@@ -30,6 +30,6 @@ export function withGraphAlpha(color: string, alpha: number): string {
     color,
   );
   if (!rgb) return color;
-  const existing = rgb[4] ? Number(rgb[4]) : 1;
+  const existing = rgb[4] !== undefined ? Number(rgb[4]) : 1;
   return `rgba(${rgb[1]}, ${rgb[2]}, ${rgb[3]}, ${existing * clamped})`;
 }

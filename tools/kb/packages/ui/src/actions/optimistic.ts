@@ -174,7 +174,7 @@ export async function runOptimistic(
 
   store.applyTx(plan.upserts, plan.deletes);
 
-  if (plan.focusId) {
+  if (plan.focusId !== undefined) {
     const next = useOutlineStore.getState();
     const key = outlineInstanceKey(plan.focusId, next.nodes);
     next.activateNode(plan.focusId, plan.focusCursor ?? 0, key);

@@ -8,6 +8,7 @@ import type { PropValue } from "@/lib/types";
 import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
 import { forestRootIds } from "@/lib/graph-view";
 import { cloneWire, findParentWire, nowIso, wireById } from "@/lib/tx";
+import { hasText } from "@/lib/text";
 
 export interface PlannedMutation {
   upserts: WireNode[];
@@ -109,7 +110,7 @@ export function planSplit(
       input: {
         id: newId,
         text: right,
-        ...(parentId ? { parent: parentId, position } : {}),
+        ...(parentId !== undefined ? { parent: parentId, position } : {}),
       },
     },
   ];
@@ -991,7 +992,7 @@ export function planSetTagColor(
     throw new Error("sys.* tags are read-only");
   }
   const trimmed = color?.trim();
-  if (!trimmed) {
+  if (!hasText(trimmed)) {
     const node = requireNode(nodes, tagId);
     const existing = node.props[SYSTEM_IDS.colorField]?.[0];
     return planUnsetProp(
@@ -1250,7 +1251,7 @@ export function planSetViewGroup(
 ): PlannedMutation {
   const frame = requireNode(nodes, frameId);
   const existing = frame.props[SYSTEM_IDS.viewGroupField]?.[0];
-  if (!fieldId) {
+  if (fieldId === null) {
     return planUnsetProp(
       nodes,
       frameId,

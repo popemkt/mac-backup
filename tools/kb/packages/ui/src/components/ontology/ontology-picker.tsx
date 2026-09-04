@@ -92,7 +92,7 @@ export function OntologyPicker({
               <span className="truncate">{o.label}</span>
             </button>
           ))}
-          {onClear && activeId ? (
+          {onClear && activeId !== null ? (
             <button
               type="button"
               className="mt-1 flex w-full items-center rounded-md border-t border-foreground/[0.06] px-1.5 pt-1.5 text-left text-[12px] text-foreground/40 transition-colors duration-75 hover:text-foreground/70"

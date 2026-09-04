@@ -10,6 +10,7 @@ import {
   typeLabelDraft,
   type LabelEditState,
 } from "@/lib/shape-label-edit";
+import { hasText, textOr } from "@/lib/text";
 
 interface ShapeCardProps {
   card: CanvasShapeNode;
@@ -170,10 +171,10 @@ export function ShapeCard({
           <span
             className={cn(
               "max-w-full truncate text-center text-[13px]",
-              card.label ? "text-foreground/85" : "text-foreground/25",
+              hasText(card.label) ? "text-foreground/85" : "text-foreground/25",
             )}
           >
-            {card.label || "Label"}
+            {textOr(card.label, "Label")}
           </span>
         )}
       </ShapeChrome>

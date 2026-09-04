@@ -14,6 +14,7 @@ import { isProjectedViewMode } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { FrameChildrenView } from "./frame-children-view";
+import { hasText } from "@/lib/text";
 
 interface QueryResultItem {
   nodeId: string;
@@ -88,7 +89,7 @@ export function QueryResultsSection({
 
   const indent = indentStyle(depth + 1);
 
-  if (error) {
+  if (hasText(error)) {
     return (
       <div className="query-results" data-query-results-for={nodeId}>
         <p className="px-1 py-0.5 text-[12px] text-destructive" style={indent}>

@@ -13,6 +13,7 @@
  *    `oklch(…)`, and appending hex-alpha digits to those produces garbage.
  */
 import type { TagBadge } from "@/lib/types";
+import { textOr } from "@/lib/text";
 
 /** Deterministic 12-color hash (djb2 % 12). */
 export const TAG_PALETTE = [
@@ -46,9 +47,7 @@ export function hashTagColor(tagId: string): string {
 
 /** Explicit tag-node `color` prop overrides the hash. */
 export function resolveTagColor(tagId: string, explicitColor?: string | null): string {
-  const trimmed = explicitColor?.trim();
-  if (trimmed) return trimmed;
-  return hashTagColor(tagId);
+  return textOr(explicitColor?.trim(), hashTagColor(tagId));
 }
 
 /**

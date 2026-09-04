@@ -310,7 +310,7 @@ export function buildTreeForest(
     return node;
   }
 
-  if (focusId && nodeSet.has(focusId)) {
+  if (focusId !== null && nodeSet.has(focusId)) {
     const root = build(focusId);
     return root ? [root] : [];
   }
@@ -332,7 +332,7 @@ export function idsFromQueryRows(rows: unknown[][], known: Set<string>): Set<str
   const out = new Set<string>();
   for (const row of rows) {
     const id = row.find((v): v is string => typeof v === "string" && known.has(v));
-    if (id) out.add(id);
+    if (id !== undefined) out.add(id);
   }
   return out;
 }

@@ -11,6 +11,7 @@ import { FieldsSection } from "./fields-section";
 import { TagChipGroup } from "./tag-chip";
 import { ViewToolbar } from "./view-toolbar";
 import { NodeTextHost } from "./node-content";
+import { hasText } from "@/lib/text";
 
 /**
  * D13: everything is a node — the zoomed page title edits in place with
@@ -110,7 +111,7 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
       data-frame-id={node.id}
     >
       <div className="relative pl-7 pt-1">
-        {washColor && (
+        {hasText(washColor) && (
           <div
             className="pointer-events-none absolute"
             style={{

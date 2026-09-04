@@ -111,7 +111,7 @@ export function SigmaGraph({
 
     const activeNode = sel ?? hovered;
     const neighborSet = new Set<string>();
-    if (activeNode && graph.hasNode(activeNode)) {
+    if (activeNode !== null && graph.hasNode(activeNode)) {
       graph.forEachNeighbor(activeNode, (neighbor) => neighborSet.add(neighbor));
       neighborSet.add(activeNode);
     }
@@ -119,7 +119,7 @@ export function SigmaGraph({
     sigma.setSetting("nodeReducer", (node, data) => {
       const filterMatch = !filter || filter.has(node);
       const searchMatch = !highlight || highlight.size === 0 || highlight.has(node);
-      const focusMatch = !activeNode || neighborSet.has(node);
+      const focusMatch = activeNode === null || neighborSet.has(node);
       const alpha = graphNodeAlpha({
         includedByFilter: filterMatch,
         includedBySearch: searchMatch,
@@ -138,7 +138,7 @@ export function SigmaGraph({
     });
 
     sigma.setSetting("edgeReducer", (edge, data) => {
-      if (!activeNode) return { ...data, hidden: false };
+      if (activeNode === null) return { ...data, hidden: false };
       const extremities = graph.extremities(edge);
       if (extremities.includes(activeNode)) {
         return { ...data, hidden: false, zIndex: 1 };
@@ -345,7 +345,7 @@ export function SigmaGraph({
     };
 
     const onHoverMove = (e: MouseEvent) => {
-      if (hoveredRef.current) {
+      if (hoveredRef.current !== null) {
         const rect = el.getBoundingClientRect();
         setTooltip({
           id: hoveredRef.current,
@@ -417,7 +417,7 @@ export function SigmaGraph({
         onSelRef.current?.(null);
         refreshReducers();
       }
-      if (e.key === "Enter" && selectedRef.current) {
+      if (e.key === "Enter" && selectedRef.current !== null) {
         onOpenRef.current(selectedRef.current);
       }
     };
@@ -428,7 +428,7 @@ export function SigmaGraph({
   return (
     <div className="relative h-full w-full min-h-0">
       <div ref={containerRef} className="h-full w-full min-h-0" data-sigma-container="true" />
-      {tooltip && !selected && (
+      {tooltip && selected === null && (
         <HoverTooltip nodeId={tooltip.id} nodes={nodes} x={tooltip.x} y={tooltip.y} />
       )}
     </div>

@@ -81,7 +81,8 @@ export class ViewErrorBoundary extends Component<ViewErrorBoundaryProps, ViewErr
 
   override render(): ReactNode {
     if (this.state.error) {
-      if (this.props.fallback) return this.props.fallback;
+      const { fallback } = this.props;
+      if (fallback !== undefined && fallback !== null) return fallback;
       return (
         <ViewError
           title={this.props.title}

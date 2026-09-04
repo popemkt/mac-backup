@@ -200,7 +200,7 @@ function projectWire(
   ontologyId: string | null,
 ): Projection {
   const queryDb = buildQueryDb(wire, rev);
-  if (!ontologyId) {
+  if (ontologyId === null) {
     return {
       nodes: wireToOutlineMap(wire, expanded),
       queryDb,
@@ -267,7 +267,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
   function pruneOutgoingTransient(nextId: string | null): void {
     const st = get();
     const out = st.activeNodeId;
-    if (!out || out === nextId) return;
+    if (out === null || out === nextId) return;
     const node = st.nodes.get(out);
     if (!isPrunableTransient(node, out, st.transientIds)) return;
     const nextWire = mergeTx(st.wireNodes, [], [out]);
@@ -330,7 +330,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       ontologyMembers: projection.ontologyMembers,
       ontologyWarnings: projection.ontologyWarnings,
       selectedNodeId,
-      selectedInstanceKey: selectedNodeId ? st.selectedInstanceKey : null,
+      selectedInstanceKey: selectedNodeId !== null ? st.selectedInstanceKey : null,
       activeNodeId: null,
       activeInstanceKey: null,
     });
@@ -405,9 +405,9 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       // Deleted nodes must not remain the zoom root / selection.
       const rootNodeId = nodes.has(prev.rootNodeId) ? prev.rootNodeId : prev.homeRootId;
       const selectedNodeId =
-        prev.selectedNodeId && nodes.has(prev.selectedNodeId) ? prev.selectedNodeId : null;
+        prev.selectedNodeId !== null && nodes.has(prev.selectedNodeId) ? prev.selectedNodeId : null;
       const activeNodeId =
-        prev.activeNodeId && nodes.has(prev.activeNodeId) ? prev.activeNodeId : null;
+        prev.activeNodeId !== null && nodes.has(prev.activeNodeId) ? prev.activeNodeId : null;
       const transientIds = new Set<string>();
       for (const id of prev.transientIds) {
         if (nodes.has(id)) transientIds.add(id);
@@ -421,9 +421,9 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
         rev: nextRev,
         rootNodeId,
         selectedNodeId,
-        selectedInstanceKey: selectedNodeId ? prev.selectedInstanceKey : null,
+        selectedInstanceKey: selectedNodeId !== null ? prev.selectedInstanceKey : null,
         activeNodeId,
-        activeInstanceKey: activeNodeId ? prev.activeInstanceKey : null,
+        activeInstanceKey: activeNodeId !== null ? prev.activeInstanceKey : null,
         transientIds,
       });
     },
@@ -454,9 +454,9 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       const queryDb = projection.queryDb;
       const rootNodeId = nodes.has(prev.rootNodeId) ? prev.rootNodeId : prev.homeRootId;
       const selectedNodeId =
-        prev.selectedNodeId && nodes.has(prev.selectedNodeId) ? prev.selectedNodeId : null;
+        prev.selectedNodeId !== null && nodes.has(prev.selectedNodeId) ? prev.selectedNodeId : null;
       const activeNodeId =
-        prev.activeNodeId && nodes.has(prev.activeNodeId) ? prev.activeNodeId : null;
+        prev.activeNodeId !== null && nodes.has(prev.activeNodeId) ? prev.activeNodeId : null;
       const transientIds = new Set<string>();
       for (const id of prev.transientIds) {
         if (nodes.has(id)) transientIds.add(id);
@@ -470,9 +470,9 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
         rev,
         rootNodeId,
         selectedNodeId,
-        selectedInstanceKey: selectedNodeId ? prev.selectedInstanceKey : null,
+        selectedInstanceKey: selectedNodeId !== null ? prev.selectedInstanceKey : null,
         activeNodeId,
-        activeInstanceKey: activeNodeId ? prev.activeInstanceKey : null,
+        activeInstanceKey: activeNodeId !== null ? prev.activeInstanceKey : null,
         transientIds,
       });
     },
@@ -491,7 +491,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       if (id === null) {
         // Leaving: return to the root the user was on before entering.
         const restored =
-          st.preScopeRootId && projection.nodes.has(st.preScopeRootId)
+          st.preScopeRootId !== null && projection.nodes.has(st.preScopeRootId)
             ? st.preScopeRootId
             : WORKSPACE_ROOT_ID;
         set({
@@ -641,7 +641,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     },
 
     selectNode: (id, instanceKey) => {
-      if (!id) {
+      if (id === null) {
         pruneOutgoingTransient(null);
         set({
           selectedNodeId: null,
@@ -716,7 +716,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       const next = new Map(nodes);
       let current: OutlineNode | undefined = next.get(id);
       let changed = false;
-      while (current?.parentId) {
+      while (current !== undefined && current.parentId !== null) {
         const parent = next.get(current.parentId);
         if (!parent) break;
         if (parent.collapsed) {
@@ -793,7 +793,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       const { nodes, rootNodeId, homeRootId } = get();
       const chain: Array<{ id: string; text: string }> = [];
       let currentId: string | null = rootNodeId;
-      while (currentId && currentId !== homeRootId) {
+      while (currentId !== null && currentId !== homeRootId) {
         const n = nodes.get(currentId);
         if (!n) break;
         chain.unshift({ id: n.id, text: n.text || "Untitled" });

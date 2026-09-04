@@ -51,12 +51,12 @@ export function ViewFilterPopoverHost() {
   const frameId = useUiStore((s) => s.filterPopoverFrameId);
   const setOpenId = useUiStore((s) => s.setFilterPopoverFrameId);
   const rev = useOutlineStore((s) => s.rev);
-  const frame = useOutlineStore((s) => (frameId ? s.nodes.get(frameId) : undefined));
+  const frame = useOutlineStore((s) => (frameId !== null ? s.nodes.get(frameId) : undefined));
   const panelRef = useRef<HTMLDivElement>(null);
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
 
   const fields = useMemo(() => {
-    if (!frameId) return [];
+    if (frameId === null) return [];
     return listFilterFieldOptions(frameId, useOutlineStore.getState().nodes);
   }, [frameId, rev]); // oxlint-disable-line react-hooks/exhaustive-deps -- rev is the reactive invalidation key: the body reads the store imperatively via getState(), so rev drives recomputation
 
@@ -67,7 +67,7 @@ export function ViewFilterPopoverHost() {
   const [value, setValue] = useState("");
 
   useLayoutEffect(() => {
-    if (!frameId) {
+    if (frameId === null) {
       setAnchor(null);
       return;
     }
@@ -82,7 +82,7 @@ export function ViewFilterPopoverHost() {
   }, [frameId, setOpenId, rev]);
 
   useEffect(() => {
-    if (!frameId || !anchor) return undefined;
+    if (frameId === null || !anchor) return undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpenId(null);
     };
@@ -116,7 +116,7 @@ export function ViewFilterPopoverHost() {
     if (!fieldId && fields[0]) setFieldId(fields[0].id);
   }, [fields, fieldId]);
 
-  if (!frameId || !anchor) return null;
+  if (frameId === null || !anchor) return null;
 
   const add = () => {
     if (kind === "text") {

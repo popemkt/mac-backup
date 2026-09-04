@@ -1,5 +1,6 @@
 import { SYSTEM_IDS } from "@/lib/types";
 import { textHasAssetRef } from "@/lib/md-inline";
+import { hasText } from "@/lib/text";
 
 /** Glyph / shape family for the outline bullet (DESIGN-REFINE §2 W1). */
 export type BulletKind =
@@ -71,7 +72,7 @@ export function resolveBulletKind(input: BulletModeInput): BulletKind {
   }
 
   // W6a: ▣ when node text embeds an assets/ markdown image
-  if (input.text && textHasAssetRef(input.text)) return "media";
+  if (hasText(input.text) && textHasAssetRef(input.text)) return "media";
 
   if (input.hasChildren) return "parent";
   return "plain";

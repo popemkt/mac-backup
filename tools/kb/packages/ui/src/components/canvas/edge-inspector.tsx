@@ -5,6 +5,7 @@ import { CANVAS_COLOR_PRESETS } from "@/lib/canvas-color";
 import { EnumSelect, type EnumOption } from "@/components/ui/enum-select";
 import { cn } from "@/lib/cn";
 import { isOutside } from "@/lib/dom";
+import { hasText } from "@/lib/text";
 
 export interface EdgeInspectorProps {
   edge: CanvasEdge;
@@ -125,7 +126,7 @@ export function EdgeInspector({
               title="None"
               className={cn(
                 "h-5 w-5 rounded-full border border-foreground/15 bg-background",
-                !edge.color && "ring-2 ring-primary/50",
+                !hasText(edge.color) && "ring-2 ring-primary/50",
               )}
               onClick={() => onColorChange(undefined)}
             />

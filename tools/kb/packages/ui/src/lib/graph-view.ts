@@ -8,6 +8,7 @@ import {
   isIntrinsicSystemPropKey,
   type ResolvePropsOptions,
 } from "@/lib/field-visibility";
+import { hasText, textOr } from "@/lib/text";
 import {
   EXPANDED_STORAGE_KEY,
   LEGACY_COLLAPSED_STORAGE_KEY,
@@ -49,7 +50,7 @@ function resolveTags(wire: WireNode, byId: Map<string, WireNode>): TagBadge[] {
     const explicitColor = colorProp?.t === "str" ? colorProp.v : undefined;
     tags.push({
       id: typeId,
-      name: target?.text || typeId,
+      name: textOr(target?.text, typeId),
       color: resolveTagColor(typeId, explicitColor),
     });
   }
@@ -79,9 +80,9 @@ export function forestRootIds(nodes: WireNode[]): string[] {
       return true;
     })
     .toSorted((a, b) => {
-      if (a.order && b.order) return a.order.localeCompare(b.order);
-      if (a.order) return -1;
-      if (b.order) return 1;
+      if (a.order !== undefined && b.order !== undefined) return a.order.localeCompare(b.order);
+      if (a.order !== undefined) return -1;
+      if (b.order !== undefined) return 1;
       return compareWireNodeId(a, b);
     })
     .map((n) => n.id);
@@ -203,7 +204,7 @@ export function formatPropValue(
 export function loadIdSet(key: string): Set<string> {
   try {
     const raw = localStorage.getItem(key);
-    if (!raw) return new Set();
+    if (!hasText(raw)) return new Set();
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return new Set();
     return new Set(parsed.filter((x): x is string => typeof x === "string"));

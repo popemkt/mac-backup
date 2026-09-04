@@ -81,12 +81,14 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
 
   const targetNodeId = activeNodeId ?? selectedNodeId;
-  const targetNode = targetNodeId ? nodes.get(targetNodeId) : undefined;
-  const debugOn = useDebugFieldsStore((s) => (targetNodeId ? s.ids.has(targetNodeId) : false));
+  const targetNode = targetNodeId !== null ? nodes.get(targetNodeId) : undefined;
+  const debugOn = useDebugFieldsStore((s) =>
+    targetNodeId !== null ? s.ids.has(targetNodeId) : false,
+  );
   const pinned = targetNode ? isPinned(targetNode, nodes) : false;
 
   useEffect(() => {
-    if (!open || !targetNodeId) {
+    if (!open || targetNodeId === null) {
       setAnchorRect(null);
       return;
     }
@@ -162,7 +164,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         icon: <ArrowRightIcon size={14} />,
         immediate: true,
         action: () => {
-          if (targetNodeId) void mutations.indentNode(targetNodeId);
+          if (targetNodeId !== null) void mutations.indentNode(targetNodeId);
           onClose();
         },
       },
@@ -172,7 +174,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         icon: <ArrowBendUpLeftIcon size={14} />,
         immediate: true,
         action: () => {
-          if (targetNodeId) void mutations.outdentNode(targetNodeId);
+          if (targetNodeId !== null) void mutations.outdentNode(targetNodeId);
           onClose();
         },
       },
@@ -188,7 +190,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         ),
         immediate: true,
         action: () => {
-          if (targetNodeId) void mutations.togglePin(targetNodeId);
+          if (targetNodeId !== null) void mutations.togglePin(targetNodeId);
           onClose();
         },
       },
@@ -200,7 +202,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         icon: debugOn ? <EyeSlashIcon size={14} /> : <EyeIcon size={14} />,
         immediate: true,
         action: () => {
-          if (targetNodeId) useDebugFieldsStore.getState().toggle(targetNodeId);
+          if (targetNodeId !== null) useDebugFieldsStore.getState().toggle(targetNodeId);
           onClose();
         },
       },
@@ -210,14 +212,14 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         icon: <TrashIcon size={14} />,
         immediate: true,
         action: () => {
-          if (targetNodeId) void mutations.deleteNode(targetNodeId);
+          if (targetNodeId !== null) void mutations.deleteNode(targetNodeId);
           onClose();
         },
       },
     ];
 
     const setMode = (mode: ViewMode) => {
-      if (!targetNodeId) return;
+      if (targetNodeId === null) return;
       void mutations.setViewMode(targetNodeId, mode);
       onClose();
     };
@@ -256,7 +258,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         icon: <MagnifyingGlassIcon size={14} />,
         immediate: true,
         action: () => {
-          if (!targetNodeId) return;
+          if (targetNodeId === null) return;
           useUiStore.getState().setFilterPopoverFrameId(targetNodeId);
           onClose();
         },
@@ -274,7 +276,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         icon: <HashIcon size={14} weight="fill" />,
         immediate: true,
         action: () => {
-          if (!targetNodeId) return;
+          if (targetNodeId === null) return;
           void (async () => {
             if (!(await mutations.makeSupertag(targetNodeId))) return;
             // A supertag is schema, so it leaves the outline forest the moment
@@ -303,7 +305,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         icon: <MagnifyingGlassIcon size={14} weight="bold" />,
         immediate: true,
         action: () => {
-          if (!targetNodeId) return;
+          if (targetNodeId === null) return;
           void (async () => {
             await mutations.addTag(targetNodeId, SYSTEM_IDS.queryTag);
             await mutations.updateProp(targetNodeId, SYSTEM_IDS.queryField, {
@@ -412,7 +414,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       }
 
       const item = pickerItems[index];
-      if (!item || !targetNodeId) return;
+      if (!item || targetNodeId === null) return;
       const creating = item.id === CREATE_ID;
 
       void (async () => {
@@ -428,7 +430,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         }
         if (step.type === "add-field") {
           const fieldId = creating ? await mutations.defineField(trimmed) : item.id;
-          if (!fieldId) return;
+          if (fieldId === null) return;
           // An empty typed value is what makes the row appear and focusable;
           // the field's own declared type decides which editor that row gets.
           await mutations.updateProp(
@@ -439,7 +441,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
           return;
         }
         const tagId = creating ? await mutations.defineTag(trimmed) : item.id;
-        if (tagId) await mutations.addTag(targetNodeId, tagId);
+        if (tagId !== null) await mutations.addTag(targetNodeId, tagId);
       })();
       onClose();
     },
@@ -488,7 +490,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     [handleSelect, highlightIndex, items.length, onClose, step.type],
   );
 
-  if (!open || !anchorRect || !targetNodeId) return null;
+  if (!open || !anchorRect || targetNodeId === null) return null;
 
   const placeholder =
     step.type === "commands"
@@ -580,7 +582,9 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
                 onClick={() => handleSelect(i)}
                 onMouseEnter={() => setHighlightIndex(i)}
               >
-                {item.icon && <span className="shrink-0 opacity-50">{item.icon}</span>}
+                {item.icon !== undefined && item.icon !== null && (
+                  <span className="shrink-0 opacity-50">{item.icon}</span>
+                )}
                 <span className="truncate">{item.label}</span>
               </button>
             ))

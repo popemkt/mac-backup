@@ -90,7 +90,7 @@ export function BoardCardsView({
 
   const handleDropOnColumn = useCallback(
     (columnKey: string, columnValue: PropValue | null) => {
-      if (!dragNodeId || !groupFieldId || isQuerySource) return;
+      if (dragNodeId === null || groupFieldId === null || isQuerySource) return;
       const node = nodes.get(dragNodeId);
       if (!node) return;
       const oldVal = node.props[groupFieldId]?.[0] ?? null;
@@ -109,7 +109,7 @@ export function BoardCardsView({
   // not board/cards is FrameChildrenView's business, not ours.
   if (!isBoardOrCards(mode)) return null;
 
-  if (mode === "board" && !groupFieldId) {
+  if (mode === "board" && groupFieldId === null) {
     return (
       <div
         className="board-cards-view my-2 rounded-md border border-dashed border-foreground/15 px-3 py-4 text-[13px] text-foreground/45"
@@ -175,7 +175,7 @@ export function BoardCardsView({
               className="w-64 shrink-0 rounded-md border border-foreground/[0.06] bg-foreground/[0.02]"
               data-board-column={col.key}
               onDragOver={(e) => {
-                if (isQuerySource || !groupFieldId) return;
+                if (isQuerySource || groupFieldId === null) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "move";
               }}
@@ -197,7 +197,7 @@ export function BoardCardsView({
                     displayCols={displayCols}
                     nodes={nodes}
                     isRef={isQuerySource}
-                    draggable={!isQuerySource && !!groupFieldId}
+                    draggable={!isQuerySource && groupFieldId !== null}
                     onDragStart={handleCardDragStart}
                     onDragEnd={handleCardDragEnd}
                   />

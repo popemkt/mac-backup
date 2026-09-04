@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { create } from "zustand";
+import { hasText } from "@/lib/text";
 
 /**
  * Device-level preferences (DESIGN-RESKIN §1.7): theme / font / width.
@@ -58,7 +59,7 @@ export function loadPrefs(
   raw: string | null,
   viewportWidth: number | null = typeof window !== "undefined" ? window.innerWidth : null,
 ): Prefs {
-  if (!raw) {
+  if (!hasText(raw)) {
     return { ...DEFAULT_PREFS, sidebarOpen: defaultSidebarOpen(viewportWidth) };
   }
   try {
@@ -85,7 +86,7 @@ export function resolveDark(theme: ThemePref, systemDark: boolean): boolean {
 }
 
 function systemPrefersDark(): boolean {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
@@ -162,7 +163,7 @@ export function initPrefs() {
   };
   applyPrefs(current());
 
-  if (window.matchMedia) {
+  if (typeof window.matchMedia === "function") {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     mq.addEventListener?.("change", (e) => {
       applyPrefs(current(), e.matches);

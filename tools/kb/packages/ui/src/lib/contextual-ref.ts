@@ -73,7 +73,7 @@ export function isContextualRef(node: OutlineNode | undefined): boolean {
  */
 export function rowText(node: OutlineNode, nodes: NodeMap): string {
   const targetId = contextualTargetOf(node);
-  if (!targetId) return node.text;
+  if (targetId === null) return node.text;
   const target = nodes.get(targetId);
   // A dangling reference renders the way every other dangling ref in this app
   // renders — as the `[[id]]` token — rather than as a blank row.

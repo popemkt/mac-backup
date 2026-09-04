@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PlusIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import { isOutside } from "@/lib/dom";
+import { hasText } from "@/lib/text";
 
 export interface RefCandidateItem {
   id: string;
@@ -144,7 +145,7 @@ export function RefAddPopover({
                   onClick={() => commit(c)}
                 >
                   <span className="min-w-0 flex-1 truncate">{c.label}</span>
-                  {c.note ? (
+                  {hasText(c.note) ? (
                     <span className="shrink-0 text-[10px] text-foreground/25">{c.note}</span>
                   ) : null}
                 </button>

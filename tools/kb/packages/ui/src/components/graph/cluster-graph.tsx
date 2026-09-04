@@ -382,7 +382,7 @@ export function ClusterGraph({
     const sigma = sigmaRef.current;
     if (!sigma) return;
     const graph = sigma.getGraph();
-    if (isolatedCluster) {
+    if (isolatedCluster !== null) {
       sigma.setSetting("nodeReducer", (node, data) => {
         const key = String(graph.getNodeAttribute(node, "clusterKey") ?? "none");
         if (key === isolatedCluster) return { ...data, highlighted: true };
@@ -407,7 +407,7 @@ export function ClusterGraph({
       {/* Hull canvas between Sigma layers for fills + click targets. */}
       <canvas ref={hullRef} className="absolute inset-0 z-20" />
       <div ref={containerRef} className="absolute inset-0 z-10" />
-      {isolatedCluster && (
+      {isolatedCluster !== null && (
         <button
           type="button"
           className="absolute top-3 left-1/2 -translate-x-1/2 z-20 rounded-md border border-foreground/10 bg-popover/95 px-2.5 py-1 text-[11px] font-medium text-foreground/60 shadow-md backdrop-blur-sm hover:bg-foreground/[0.06]"

@@ -12,6 +12,7 @@ import {
   type LensPerspective,
   type LensRenderer,
 } from "@/lib/graph-lens";
+import { hasText } from "@/lib/text";
 import { listOntologyItems } from "@/lib/ontology-scope";
 import { SYSTEM_IDS } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -30,7 +31,7 @@ import { SidebarToggle } from "@/components/sidebar/sidebar";
 const Force3dGraph = lazy(() => import("@/components/graph/force3d-graph"));
 
 function systemPrefersDark(): boolean {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
@@ -82,7 +83,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
 
   const active: LensPerspective | null = useMemo(() => {
     if (perspectives.length === 0) return null;
-    if (perspectiveId) {
+    if (perspectiveId !== null) {
       const hit = perspectives.find((p) => p.id === perspectiveId);
       if (hit) return hit;
     }
@@ -91,14 +92,14 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
 
   useEffect(() => {
     // Under an ontology scope the URL is /o/<id>/graph; never rewrite it.
-    if (!active || ontologyId) return;
+    if (!active || ontologyId !== null) return;
     if (perspectiveId !== active.id) {
       navigate(graphPath(active.id));
     }
   }, [active, perspectiveId, ontologyId]);
 
   const restrictTo = useMemo(
-    () => (ontologyId ? (ontologyMembers ?? new Set<string>()) : undefined),
+    () => (ontologyId !== null ? (ontologyMembers ?? new Set<string>()) : undefined),
     [ontologyId, ontologyMembers],
   );
 
@@ -136,7 +137,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   const themeKey = `${theme}:${dark ? "d" : "l"}`;
   const onNodeOpen = useCallback(
     (id: string) => {
-      navigate(ontologyId ? ontologyPath(ontologyId, "outline") : "/");
+      navigate(ontologyId !== null ? ontologyPath(ontologyId, "outline") : "/");
       zoomTo(id);
     },
     [ontologyId, zoomTo],
@@ -170,7 +171,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
       <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
         <SidebarToggle />
         <span className="text-[13px] font-medium text-foreground/50">
-          {ontologyId ? "ontology graph" : "graph"}
+          {ontologyId !== null ? "ontology graph" : "graph"}
         </span>
         <PerspectivePicker
           perspectives={perspectives}
@@ -216,7 +217,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
         <span className="text-[11px] text-foreground/30">
           {lensGraph.nodes.length} nodes · {lensGraph.edges.length} edges
         </span>
-        {lensGraph.queryError && (
+        {hasText(lensGraph.queryError) && (
           <span
             className="flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-600 dark:text-amber-400"
             title={lensGraph.queryError}
@@ -247,7 +248,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
               No graph perspectives seeded.
             </p>
           </div>
-        ) : lensGraph.nodes.length === 0 && !lensGraph.queryError ? (
+        ) : lensGraph.nodes.length === 0 && !hasText(lensGraph.queryError) ? (
           <div className="flex h-full items-center justify-center">
             <p className="max-w-xs text-center text-[13px] text-foreground/40">
               0 nodes match — edit this perspective’s query to broaden the view.

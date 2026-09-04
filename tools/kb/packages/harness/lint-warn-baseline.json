@@ -18,9 +18,9 @@
       "eslint/max-params": 2,
       "eslint/no-await-in-loop": 7,
       "typescript/no-non-null-assertion": 391,
-      "typescript/no-unnecessary-condition": 20,
+      "typescript/no-unnecessary-condition": 14,
       "typescript/no-unsafe-type-assertion": 53,
-      "typescript/strict-boolean-expressions": 198,
+      "typescript/strict-boolean-expressions": 5,
       "unicorn/consistent-function-scoping": 15
     },
     "advisory": {

@@ -15,6 +15,7 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { cn } from "@/lib/cn";
+import { hasText, textOr } from "@/lib/text";
 
 /** Sigma/graphology and canvas land in separate chunks — outline bundle must not grow. */
 const GraphPage = lazy(() => import("@/components/graph/graph-page"));
@@ -235,7 +236,7 @@ function OutlineShell({
             <Suspense
               fallback={<div className="p-6 text-[13px] text-foreground/40">Loading canvas…</div>}
             >
-              {canvasId ? <CanvasPage canvasId={canvasId} /> : <CanvasListPage />}
+              {canvasId !== null ? <CanvasPage canvasId={canvasId} /> : <CanvasListPage />}
             </Suspense>
           </ViewErrorBoundary>
         </MainRegion>
@@ -255,7 +256,7 @@ function OntologyChrome({ id, view }: { id: string; view: "page" | "outline" | "
   const members = useOutlineStore((s) => s.ontologyMembers);
   const warnings = useOutlineStore((s) => s.ontologyWarnings);
   const wireNodes = useOutlineStore((s) => s.wireNodes);
-  const label = wireNodes.find((n) => n.id === id)?.text.trim() || "Untitled ontology";
+  const label = textOr(wireNodes.find((n) => n.id === id)?.text.trim(), "Untitled ontology");
   return (
     <OntologyScopeBar
       ontologyId={id}
@@ -285,7 +286,7 @@ function LoadError({ error, onRetry }: { error: string | null; onRetry: () => vo
         >
           Try again
         </button>
-        {error ? (
+        {hasText(error) ? (
           <details className="text-[12px] text-foreground/45">
             <summary className="cursor-pointer">Technical details</summary>
             <pre className="mt-1 max-w-sm overflow-auto whitespace-pre-wrap text-destructive/80">
@@ -339,11 +340,11 @@ export function App() {
       // F15: ⌘K → node palette when a row is selected/active, else global search
       if (action === "global-search" && (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         const o = useOutlineStore.getState();
-        const hasRow = Boolean(o.activeNodeId || o.selectedNodeId);
+        const hasRow = Boolean(o.activeNodeId !== null || o.selectedNodeId);
         if (hasRow) {
           e.preventDefault();
           // If an editable row is active, demote to selected so palette can anchor.
-          if (o.activeNodeId && o.activeInstanceKey) {
+          if (o.activeNodeId !== null && o.activeInstanceKey !== null) {
             o.selectNode(o.activeNodeId, o.activeInstanceKey);
           }
           useUiStore.getState().setNodePaletteOpen(true);

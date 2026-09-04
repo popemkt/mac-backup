@@ -152,7 +152,7 @@ export async function persistCanvasDoc(
         updatedAt: new Date().toISOString(),
       },
     ];
-    if (opts?.propTargetId) {
+    if (opts?.propTargetId !== undefined) {
       const src = store.wireNodes.find((n) => n.id === opts.propTargetId);
       if (src) {
         const props: WireNode["props"] = { ...src.props };

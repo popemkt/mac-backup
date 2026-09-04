@@ -8,6 +8,7 @@ import {
   PushPinIcon,
   SquareIcon,
 } from "@phosphor-icons/react";
+import { hasText } from "@/lib/text";
 import { mutations } from "@/actions/mutations";
 import { createCanvasNode } from "@/lib/canvas-api";
 import { cn } from "@/lib/cn";
@@ -81,7 +82,7 @@ function SidebarRow({
             : "text-foreground/55 hover:bg-foreground/[0.04] hover:text-foreground/75",
       )}
     >
-      {icon ? (
+      {icon !== undefined && icon !== null ? (
         <span className="flex h-4 w-4 shrink-0 items-center justify-center">{icon}</span>
       ) : null}
       <span className="min-w-0 truncate">{label}</span>
@@ -92,7 +93,7 @@ function SidebarRow({
 function SidebarSection({ title, children }: { title?: string; children: ReactNode }) {
   return (
     <div className="mb-3">
-      {title ? (
+      {hasText(title) ? (
         <div className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wide text-foreground/30">
           {title}
         </div>
@@ -124,7 +125,7 @@ export function Sidebar() {
     setCreating(true);
     try {
       const id = await createCanvasNode();
-      if (id) navigate(`/canvas/${id}`);
+      if (id !== null) navigate(`/canvas/${id}`);
     } finally {
       setCreating(false);
     }
@@ -140,7 +141,7 @@ export function Sidebar() {
     setCreating(true);
     try {
       const id = await mutations.defineOntology();
-      if (id) navigate(ontologyPath(id));
+      if (id !== null) navigate(ontologyPath(id));
     } finally {
       setCreating(false);
     }

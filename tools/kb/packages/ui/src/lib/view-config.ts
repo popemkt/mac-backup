@@ -1,6 +1,7 @@
 import type { NodeMap, OutlineNode, PropValue } from "./types";
 import { isSysPrefixed, SYSTEM_IDS } from "./types";
 import { logWarn } from "@/lib/log";
+import { textOr } from "@/lib/text";
 
 export type ViewMode = "list" | "table" | "board" | "cards";
 export type SortDir = "asc" | "desc";
@@ -92,7 +93,7 @@ function propValueKey(v: PropValue, _nodes: NodeMap): string {
 }
 
 function propValueLabel(v: PropValue, nodes: NodeMap): string {
-  if (v.t === "ref") return nodes.get(v.v)?.text || v.v;
+  if (v.t === "ref") return textOr(nodes.get(v.v)?.text, v.v);
   if (v.t === "bool") return v.v ? "true" : "false";
   return String(v.v);
 }
@@ -248,7 +249,7 @@ export function resolveTableColumns(
       }
     }
     const fieldNode = nodes.get(fieldId);
-    const label = fieldNode?.text || fieldId;
+    const label = textOr(fieldNode?.text, fieldId);
     columns.push({ fieldId, label });
   }
 
@@ -288,8 +289,8 @@ export function sortChildrenForTable(
         } else if (valA.t === "bool" && valB.t === "bool") {
           cmp = (valA.v ? 1 : 0) - (valB.v ? 1 : 0);
         } else if (valA.t === "ref" && valB.t === "ref") {
-          const textA = (nodes.get(valA.v)?.text || valA.v).toLowerCase();
-          const textB = (nodes.get(valB.v)?.text || valB.v).toLowerCase();
+          const textA = textOr(nodes.get(valA.v)?.text, valA.v).toLowerCase();
+          const textB = textOr(nodes.get(valB.v)?.text, valB.v).toLowerCase();
           cmp = textA < textB ? -1 : textA > textB ? 1 : 0;
         } else {
           const strA = String(valA.v).toLowerCase();
@@ -327,7 +328,7 @@ export function groupChildrenForBoard(
   groupFieldId: string | null,
   nodes: NodeMap,
 ): BoardColumn[] {
-  if (!groupFieldId) {
+  if (groupFieldId === null) {
     return [
       {
         key: "__all__",
@@ -338,7 +339,7 @@ export function groupChildrenForBoard(
     ];
   }
 
-  const fieldLabel = nodes.get(groupFieldId)?.text || groupFieldId;
+  const fieldLabel = textOr(nodes.get(groupFieldId)?.text, groupFieldId);
   const columns = new Map<string, BoardColumn>();
   const empty: BoardColumn = {
     key: EMPTY_GROUP_KEY,
