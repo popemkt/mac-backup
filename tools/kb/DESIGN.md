@@ -251,6 +251,14 @@ Once a domain value is parsed, narrowing on its discriminator hands back the
 right field shape with no further checks: no `!`, no `as`, no field that
 "exists for one variant but not another".
 
+- **An id is never the empty string.** A `NodeId` — and every binding whose
+  name or type says id or key (`nodeId`, `canvasId`, `afterSiblingId`,
+  `focusId`, `instanceKey`) — is present or absent, never present-and-empty.
+  So an id is tested with `!== undefined` / `!== null`, and `""` carries no
+  meaning the code may branch on. Display text is the opposite: a label, a
+  colour, a title or an error message can be present-and-empty, which is a
+  state the UI decides about, so `@kb/ui`'s `lib/text.ts` (`hasText`,
+  `textOr`) owns that test in one place.
 - **No optional-where-discriminated.** If a field is sometimes present and the
   rule for when it appears is encodable, do not write `field?: T` — lift the
   rule into a discriminator. The live violation is `KbNode.order?`: a
