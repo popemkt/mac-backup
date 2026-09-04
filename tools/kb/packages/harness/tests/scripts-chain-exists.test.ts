@@ -15,6 +15,10 @@ import { rootManifest, workspacePackages, type PackageManifest } from "../src/wo
 
 const COMPILE_TOKENS = ["tsc", "build", "compile", "bundle", "vp build"];
 
+function presentCapture(value: string | undefined): value is string {
+  return value !== undefined && value !== "";
+}
+
 export function checkScriptChains(
   pkgName: string,
   manifest: PackageManifest,
@@ -40,7 +44,7 @@ export function checkScriptChains(
     const runMatches = scriptBody.matchAll(/(?:bun|npm|pnpm|yarn)\s+run\s+([a-zA-Z0-9:_-]+)/g);
     for (const match of runMatches) {
       const target = match[1];
-      if (!target || target === "--filter") continue;
+      if (!presentCapture(target) || target === "--filter") continue;
 
       // Check if target script exists in current manifest
       if (!(target in scripts)) {
@@ -57,7 +61,7 @@ export function checkScriptChains(
     for (const match of filterMatches) {
       const targetPkg = match[1];
       const targetScript = match[2];
-      if (!targetPkg || !targetScript) continue;
+      if (!presentCapture(targetPkg) || !presentCapture(targetScript)) continue;
       const pkg = allPackages.get(targetPkg);
       if (!pkg) {
         violations.push(`${pkgName} script "${scriptName}" targets unknown package "${targetPkg}"`);
@@ -78,7 +82,7 @@ describe("scripts-chain-exists", () => {
   const allPackages = new Map<string, PackageManifest>();
   allPackages.set(root.name ?? "root", root);
   for (const p of packages) {
-    if (p.manifest.name) {
+    if (p.manifest.name !== undefined && p.manifest.name !== "") {
       allPackages.set(p.manifest.name, p.manifest);
     }
   }

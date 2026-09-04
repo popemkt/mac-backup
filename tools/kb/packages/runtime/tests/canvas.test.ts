@@ -20,6 +20,7 @@ import { openKb } from "../src/session.ts";
 import { SYSTEM_IDS, ensureSystemSeed, systemSeedNodes } from "@kb/model";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
+import { expectDefined } from "@kb/test-kit";
 
 let roots: string[] = [];
 
@@ -41,12 +42,18 @@ describe("C1 seed: canvas tag + field", () => {
     const byId = new Map(seed.map((n) => [n.id, n]));
     const tag = byId.get(SYSTEM_IDS.canvasTag);
     expect(tag).toBeDefined();
-    expect(tag!.text).toBe("canvas");
-    expect(tag!.props[SYSTEM_IDS.typeField]).toEqual([{ t: "ref", v: SYSTEM_IDS.tag }]);
-    expect(tag!.props[SYSTEM_IDS.fieldsField]).toEqual([{ t: "ref", v: SYSTEM_IDS.canvasField }]);
+    expect(expectDefined(tag).text).toBe("canvas");
+    expect(expectDefined(tag).props[SYSTEM_IDS.typeField]).toEqual([
+      { t: "ref", v: SYSTEM_IDS.tag },
+    ]);
+    expect(expectDefined(tag).props[SYSTEM_IDS.fieldsField]).toEqual([
+      { t: "ref", v: SYSTEM_IDS.canvasField },
+    ]);
     const field = byId.get(SYSTEM_IDS.canvasField);
     expect(field).toBeDefined();
-    expect(field!.props[SYSTEM_IDS.typeField]).toEqual([{ t: "ref", v: SYSTEM_IDS.field }]);
+    expect(expectDefined(field).props[SYSTEM_IDS.typeField]).toEqual([
+      { t: "ref", v: SYSTEM_IDS.field },
+    ]);
   });
 
   test("ensureSystemSeed is idempotent over canvas nodes", () => {
@@ -326,12 +333,12 @@ describe("ext.canvas.tx.apply", () => {
     });
     expect(receipt.status).toBe("succeeded");
 
-    const canvasNode = ctx.nodes.find((n) => n.id === "n.canvas")!;
+    const canvasNode = expectDefined(ctx.nodes.find((n) => n.id === "n.canvas"));
     const stored = canvasNode.props[SYSTEM_IDS.canvasField]?.[0];
     expect(stored?.t).toBe("str");
-    expect(parseCanvasDoc(String(stored!.v))).toEqual(doc);
+    expect(parseCanvasDoc(String(expectDefined(stored).v))).toEqual(doc);
 
-    const source = ctx.nodes.find((n) => n.id === "n.source")!;
+    const source = expectDefined(ctx.nodes.find((n) => n.id === "n.source"));
     expect(source.props["f.related"]).toEqual([{ t: "ref", v: "n.target" }]);
   });
 
@@ -360,9 +367,9 @@ describe("ext.canvas.tx.apply", () => {
     if (receipt.status === "failed") {
       expect(receipt.code).toBe("invalid_input");
     }
-    const source = ctx.nodes.find((n) => n.id === "n.source")!;
+    const source = expectDefined(ctx.nodes.find((n) => n.id === "n.source"));
     expect(source.props[SYSTEM_IDS.typeField]).toBeUndefined();
-    const canvasNode = ctx.nodes.find((n) => n.id === "n.canvas")!;
+    const canvasNode = expectDefined(ctx.nodes.find((n) => n.id === "n.canvas"));
     expect(canvasNode.props[SYSTEM_IDS.canvasField]).toBeUndefined();
   });
 
@@ -459,7 +466,7 @@ describe("ext.canvas.tx.apply", () => {
       input: { canvasId: "n.canvas", doc },
     });
     expect(second.status).toBe("succeeded");
-    const source = ctx.nodes.find((n) => n.id === "n.source")!;
+    const source = expectDefined(ctx.nodes.find((n) => n.id === "n.source"));
     expect(source.props["f.related"]).toEqual([{ t: "ref", v: "n.target" }]);
   });
 
@@ -520,10 +527,14 @@ describe("ext.canvas.tx.apply", () => {
       },
     });
     expect(del.status).toBe("succeeded");
-    const source = ctx.nodes.find((n) => n.id === "n.source")!;
+    const source = expectDefined(ctx.nodes.find((n) => n.id === "n.source"));
     expect(source.props["f.related"]).toBeUndefined();
-    const canvasNode = ctx.nodes.find((n) => n.id === "n.canvas")!;
-    expect(parseCanvasDoc(String(canvasNode.props[SYSTEM_IDS.canvasField]![0]!.v))).toEqual({
+    const canvasNode = expectDefined(ctx.nodes.find((n) => n.id === "n.canvas"));
+    expect(
+      parseCanvasDoc(
+        String(expectDefined(expectDefined(canvasNode.props[SYSTEM_IDS.canvasField])[0]).v),
+      ),
+    ).toEqual({
       nodes: [],
       edges: [],
     });

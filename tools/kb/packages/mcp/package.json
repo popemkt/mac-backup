@@ -20,6 +20,7 @@
     "effect": "catalog:"
   },
   "devDependencies": {
+    "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:"
   },
   "nx": {

@@ -14,6 +14,7 @@ import { JsonlStore } from "@kb/store-jsonl";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
 import { manifest } from "../src/registry.ts";
+import { expectDefined } from "@kb/test-kit";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-test-"));
@@ -57,9 +58,11 @@ describe("JsonlStore", () => {
     expect(second).toBe(first);
     // sorted by id, canonical keys
     const lines = first.trim().split("\n");
-    expect(lines[0]!.startsWith('{"children"')).toBe(true);
-    expect(JSON.parse(lines[0]!).id < JSON.parse(lines[1]!).id).toBe(true);
-    expect(lines[0]).toBe(canonicalJson(JSON.parse(lines[0]!)));
+    expect(expectDefined(lines[0]).startsWith('{"children"')).toBe(true);
+    expect(JSON.parse(expectDefined(lines[0])).id < JSON.parse(expectDefined(lines[1])).id).toBe(
+      true,
+    );
+    expect(lines[0]).toBe(canonicalJson(JSON.parse(expectDefined(lines[0]))));
   });
 });
 
@@ -96,12 +99,12 @@ describe("system seed", () => {
     // tagging while actually changing the node's kind.
     const tag = systemSeedNodes().find((n) => n.id === SYSTEM_IDS.tag);
     expect(tag).toBeDefined();
-    expect(tag!.props[SYSTEM_IDS.typeField]).toBeUndefined();
+    expect(expectDefined(tag).props[SYSTEM_IDS.typeField]).toBeUndefined();
   });
 
   test("seed fills prop keys a stored sys node lacks, and never rewrites one it has", () => {
     const seeded = systemSeedNodes();
-    const tagSeed = seeded.find((n) => n.id === SYSTEM_IDS.tag)!;
+    const tagSeed = expectDefined(seeded.find((n) => n.id === SYSTEM_IDS.tag));
 
     // An older store: sys.tag predates its field template, and
     // lens.all-mentions carries a deliberately different value.
@@ -124,14 +127,14 @@ describe("system seed", () => {
     const byId = new Map(result.nodes.map((n) => [n.id, n]));
 
     // Absent keys arrive.
-    expect(byId.get(SYSTEM_IDS.tag)!.props[SYSTEM_IDS.fieldsField]).toEqual(
+    expect(expectDefined(byId.get(SYSTEM_IDS.tag)).props[SYSTEM_IDS.fieldsField]).toEqual(
       tagSeed.props[SYSTEM_IDS.fieldsField],
     );
 
     // A key the store already carries is the owner's, seed default or not.
-    expect(byId.get(SYSTEM_IDS.lensAllMentions)!.props[SYSTEM_IDS.lensClusterByField]).toEqual([
-      { t: "str", v: "none" },
-    ]);
+    expect(
+      expectDefined(byId.get(SYSTEM_IDS.lensAllMentions)).props[SYSTEM_IDS.lensClusterByField],
+    ).toEqual([{ t: "str", v: "none" }]);
   });
 });
 
@@ -147,7 +150,7 @@ describe("registry + operations", () => {
   test("manifest exposes JSON schemas", async () => {
     const m = await manifest();
     expect(m.some((a) => a.id === "node.add")).toBe(true);
-    const add = m.find((a) => a.id === "graph.query")!;
+    const add = expectDefined(m.find((a) => a.id === "graph.query"));
     expect(add.inputSchema).toBeTruthy();
     expect(add.mode).toBe("read");
   });

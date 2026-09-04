@@ -17,6 +17,7 @@ import {
   type StoreTx,
 } from "@kb/model";
 import { buildQueryDb } from "@kb/query";
+import { expectDefined } from "@kb/test-kit";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-persist-"));
@@ -121,7 +122,7 @@ describe("JsonlStore Effect persistence", () => {
       store.loadEffect().pipe(Effect.provide(bunFileSystemLayer)),
     );
     expect(loaded).toHaveLength(1);
-    expect(loaded[0]!.id).toBe("n.extra");
+    expect(expectDefined(loaded[0]).id).toBe("n.extra");
     expect((loaded[0] as KbNode & { legacyNote?: string }).legacyNote).toBe("keep-me");
 
     await Effect.runPromise(
@@ -298,7 +299,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
       ),
     );
     expect(commits).toHaveLength(1);
-    expect(commits[0]!.upserts.map((n) => n.id)).toEqual(["n.via-layer"]);
+    expect(expectDefined(commits[0]).upserts.map((n) => n.id)).toEqual(["n.via-layer"]);
     expect(ctx.nodes.some((n) => n.id === "n.via-layer")).toBe(true);
   });
 

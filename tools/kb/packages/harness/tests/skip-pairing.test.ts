@@ -38,7 +38,7 @@ export function findUnpairedSkips(root: string = WORKSPACE_ROOT): Array<{
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (!line) continue;
+      if (line === undefined || line === "") continue;
       const trimmed = line.trim();
       if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) continue;
       if (!SKIP_PATTERN.test(line)) continue;

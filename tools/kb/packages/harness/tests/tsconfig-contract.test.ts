@@ -79,7 +79,11 @@ function parseStrictnessContract(markdown: string): ContractRow[] {
     const value = valStr === "true" ? true : valStr === "false" ? false : null;
     if (value === null) continue;
 
-    if (flag && (status === "active" || status === "deferred" || status === "rejected")) {
+    if (
+      flag !== undefined &&
+      flag !== "" &&
+      (status === "active" || status === "deferred" || status === "rejected")
+    ) {
       rows.push({ flag, value, status });
     }
   }

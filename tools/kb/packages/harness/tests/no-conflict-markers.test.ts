@@ -42,7 +42,7 @@ export function findConflictMarkers(root: string = WORKSPACE_ROOT): Array<{
     const lines = content.split("\n");
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (!line) continue;
+      if (line === undefined || line === "") continue;
       for (const pattern of CONFLICT_PATTERNS) {
         if (pattern.test(line)) {
           violations.push({

@@ -6,6 +6,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createMcpServer } from "../src/mcp.ts";
 import { manifest } from "@kb/runtime";
+import { expectDefined } from "@kb/test-kit";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-mcp-"));
@@ -48,7 +49,7 @@ describe("MCP surface", () => {
       arguments: { text: "hello-mcp" },
     });
     expect(add.isError).toBeFalsy();
-    const addText = (add.content as { type: string; text: string }[])[0]!.text;
+    const addText = expectDefined((add.content as { type: string; text: string }[])[0]).text;
     const added = JSON.parse(addText) as { id: string };
     expect(typeof added.id).toBe("string");
 
@@ -59,13 +60,13 @@ describe("MCP surface", () => {
       },
     });
     expect(q.isError).toBeFalsy();
-    const qText = (q.content as { type: string; text: string }[])[0]!.text;
+    const qText = expectDefined((q.content as { type: string; text: string }[])[0]).text;
     const queried = JSON.parse(qText) as { rows: unknown[][] };
     expect(queried.rows.some((r) => r[0] === added.id)).toBe(true);
 
     const man = await client.callTool({ name: "kb_manifest", arguments: {} });
     expect(man.isError).toBeFalsy();
-    const manText = (man.content as { type: string; text: string }[])[0]!.text;
+    const manText = expectDefined((man.content as { type: string; text: string }[])[0]).text;
     const manBody = JSON.parse(manText) as { id: string }[];
     expect(manBody.some((a) => a.id === "node.add")).toBe(true);
 
@@ -85,7 +86,7 @@ describe("MCP surface", () => {
       arguments: { id: "missing-node-id" },
     });
     expect(result.isError).toBe(true);
-    const text = (result.content as { type: string; text: string }[])[0]!.text;
+    const text = expectDefined((result.content as { type: string; text: string }[])[0]).text;
     const body = JSON.parse(text) as { code: string; message: string };
     expect(body.code).toBe("not_found");
     expect(body.message.length).toBeGreaterThan(0);
@@ -105,7 +106,7 @@ describe("MCP surface", () => {
       arguments: { query: "not [valid" },
     });
     expect(result.isError).toBe(true);
-    const text = (result.content as { type: string; text: string }[])[0]!.text;
+    const text = expectDefined((result.content as { type: string; text: string }[])[0]).text;
     const body = JSON.parse(text) as { code: string };
     expect(body.code).toBe("invalid_input");
 
@@ -124,7 +125,7 @@ describe("MCP surface", () => {
       arguments: { text: "evil", parent: "sys.tag" },
     });
     expect(result.isError).toBe(true);
-    const text = (result.content as { type: string; text: string }[])[0]!.text;
+    const text = expectDefined((result.content as { type: string; text: string }[])[0]).text;
     const body = JSON.parse(text) as { code: string };
     expect(body.code).toBe("forbidden");
 
@@ -155,7 +156,7 @@ describe("MCP surface", () => {
     expect(uris).toContain("ui://kb/view/todos");
 
     const read = await client.readResource({ uri: "ui://kb/view/todos" });
-    const first = read.contents[0]!;
+    const first = expectDefined(read.contents[0]);
     expect(first.mimeType).toBe("text/html");
     expect("text" in first && first.text).toContain("<h1>Todos</h1>");
 
@@ -163,7 +164,7 @@ describe("MCP surface", () => {
       name: "render_view",
       arguments: { view: "todos", format: "md" },
     });
-    const text = (rendered.content as Array<{ text: string }>)[0]!.text;
+    const text = expectDefined((rendered.content as Array<{ text: string }>)[0]).text;
     expect(text).toContain("# Todos");
 
     await client.close();

@@ -13,6 +13,7 @@ import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import type { KbNode, PropValue } from "../src/model.ts";
 import { TEMPLATE_TAGS, ensureSystemSeed, systemSeedNodes } from "../src/seed.ts";
+import { expectDefined } from "@kb/test-kit";
 
 const AT = "2026-08-24T00:00:00.000Z";
 const EXCLUDED = new Set<string>(TEMPLATE_TAGS);
@@ -44,7 +45,7 @@ describe("seed idempotence properties (fast-check)", () => {
             if (!selected.has(node.id)) return node;
             const nextProps: Record<string, PropValue[]> = {};
             for (const key of Object.keys(node.props)) {
-              const keep = keepFlags[flagIdx++ % keepFlags.length]!;
+              const keep = expectDefined(keepFlags[flagIdx++ % keepFlags.length]);
               // Keep the key with a value that DIFFERS from the fresh default
               // (a user edit), or drop it entirely (an older, unmigrated store).
               if (keep) nextProps[key] = [{ t: "str", v: `__sentinel-${flagIdx}__` }];
@@ -56,9 +57,9 @@ describe("seed idempotence properties (fast-check)", () => {
           const resultById = new Map(result.nodes.map((n) => [n.id, n]));
 
           for (const id of selectedIds) {
-            const before = existingNodes.find((n) => n.id === id)!;
-            const after = resultById.get(id)!;
-            const fresh = baseById.get(id)!;
+            const before = expectDefined(existingNodes.find((n) => n.id === id));
+            const after = expectDefined(resultById.get(id));
+            const fresh = expectDefined(baseById.get(id));
 
             for (const key of Object.keys(before.props)) {
               expect(after.props[key]).toEqual(before.props[key]);

@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { KbNode, PropValue } from "@kb/model";
 import { JsonlStore } from "../src/index.ts";
+import { expectDefined } from "@kb/test-kit";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -76,7 +77,7 @@ describe("JsonlStore round trip (fast-check)", () => {
 
             const byId = new Map(nodes.map((n) => [n.id, n]));
             for (const loadedNode of loaded) {
-              expect(loadedNode).toEqual(byId.get(loadedNode.id)!);
+              expect(loadedNode).toEqual(expectDefined(byId.get(loadedNode.id)));
             }
           } finally {
             await rm(root, { recursive: true, force: true });
