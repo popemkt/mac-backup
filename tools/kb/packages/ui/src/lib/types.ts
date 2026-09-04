@@ -129,10 +129,6 @@ export function isSysPrefixed(id: string): boolean {
 export const EXPANDED_STORAGE_KEY = "kb-expanded";
 /** Node ids revealing their hidden + `sys.` field rows (per-node debug). */
 export const DEBUG_FIELDS_STORAGE_KEY = "kb-debug-fields";
-/** @deprecated migrated into EXPANDED_STORAGE_KEY on read */
-export const LEGACY_COLLAPSED_STORAGE_KEY = "kb-ui:collapsed";
-/** @deprecated migrated into EXPANDED_STORAGE_KEY on read */
-export const LEGACY_EXPANDED_QUERIES_STORAGE_KEY = "kb-ui:expanded-queries";
 
 export type PropValue = WireNode["props"][string][number];
 
