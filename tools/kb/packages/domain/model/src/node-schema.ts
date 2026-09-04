@@ -59,7 +59,7 @@ export const KbNodeSchema = Schema.Struct({
   text: Schema.String,
   props: Schema.Record(Schema.String, Schema.mutable(Schema.Array(PropValueSchema))),
   children: Schema.mutable(Schema.Array(Schema.String)),
-  order: Schema.optional(Schema.String),
+  order: Schema.optionalKey(Schema.String),
   createdAt: Schema.String,
   updatedAt: Schema.String,
 });
