@@ -19,7 +19,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname } from "node:path";
-import { Duration, Effect } from "effect";
+import { Clock, Duration, Effect } from "effect";
 import { domainError, type DomainError } from "@kb/model";
 
 const LOCK_SUFFIX = ".lock";
@@ -100,7 +100,7 @@ export const acquireNodesWriteLockEffect = Effect.fn("kb.acquireWriteLock")(func
       ),
   });
 
-  const started = Date.now();
+  const started = yield* Clock.currentTimeMillis;
   for (;;) {
     const got = yield* Effect.try({
       try: () => tryCreateLock(lockPath) || stealIfStale(lockPath),
@@ -115,7 +115,7 @@ export const acquireNodesWriteLockEffect = Effect.fn("kb.acquireWriteLock")(func
     });
     if (got) return lockPath;
 
-    if (Date.now() - started > MAX_WAIT_MS) {
+    if ((yield* Clock.currentTimeMillis) - started > MAX_WAIT_MS) {
       const holder = readLockPid(lockPath);
       return yield* domainError(
         "conflict",
@@ -135,33 +135,5 @@ export function releaseNodesWriteLock(lockPath: string): void {
     if (pid === process.pid || pid === null) unlinkSync(lockPath);
   } catch {
     // best-effort release
-  }
-}
-
-/**
- * Sync helper for tests / non-Effect callers. Prefer
- * {@link acquireNodesWriteLockEffect} on the async write path.
- */
-export function withNodesWriteLock<T>(nodesPath: string, fn: () => T): T {
-  const lockPath = lockPathFor(nodesPath);
-  ensureLockDir(lockPath);
-  const started = Date.now();
-  for (;;) {
-    if (tryCreateLock(lockPath) || stealIfStale(lockPath)) break;
-    if (Date.now() - started > MAX_WAIT_MS) {
-      const holder = readLockPid(lockPath);
-      throw domainError(
-        "conflict",
-        `timed out waiting for write lock ${lockPath}` +
-          (holder !== null ? ` (held by pid ${holder})` : ""),
-        { lockPath, holder },
-      );
-    }
-    // Busy-wait only — sync API must not Bun.sleepSync (blocks the loop).
-  }
-  try {
-    return fn();
-  } finally {
-    releaseNodesWriteLock(lockPath);
   }
 }

@@ -23,6 +23,13 @@ import {
 import { dirname } from "node:path";
 import { domainError, type DomainError } from "@kb/model";
 
+/**
+ * Per-process temp-file counter. A wall-clock stamp collided whenever two
+ * commits landed in the same millisecond and made the write path read a clock
+ * it has no other reason to read; pid + sequence is unique without either.
+ */
+let tmpSeq = 0;
+
 function mapErr(err: unknown, context: string): DomainError {
   const message = err instanceof Error ? err.message : String(err);
   return domainError("internal", `${context}: ${message}`);
@@ -62,7 +69,7 @@ export function durableReplaceFile(path: string, backupPath: string, body: strin
     throw mapErr(err, `mkdir ${dir}`);
   }
 
-  const tmp = `${path}.${process.pid}.${Date.now()}.tmp`;
+  const tmp = `${path}.${process.pid}.${tmpSeq++}.tmp`;
   try {
     const fd = openSync(tmp, "w");
     try {

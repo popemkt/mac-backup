@@ -3,7 +3,6 @@
     "blocking": {
       "effect/anyUnknownInErrorContext": 1,
       "effect/globalConsole": 1,
-      "effect/globalDate": 5,
       "effect/lazyEffect": 2,
       "effect/leakingRequirements": 1,
       "effect/schemaNumber": 1,

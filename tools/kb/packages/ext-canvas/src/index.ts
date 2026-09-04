@@ -6,7 +6,7 @@ import { persistEffect } from "@kb/operations";
 import {
   SYSTEM_IDS,
   isSysPrefixed,
-  nowIso,
+  currentIso,
   ResolveError,
   resolveFieldId,
   domainError,
@@ -156,6 +156,8 @@ export const canvasTxApplyEffect = Effect.fn("ext.canvas.tx.apply")(function* (
       }),
   });
   const docStr = stringifyCanvasDoc(parsed);
+  // One stamp per transaction, from the Clock the store's replay overrides.
+  const at = yield* currentIso;
 
   const canvas = yield* Effect.try({
     try: () => cloneNode(assertCanvasHost(ctx, input.canvasId)),
@@ -167,7 +169,7 @@ export const canvasTxApplyEffect = Effect.fn("ext.canvas.tx.apply")(function* (
   });
   // Replace (not append) the canvas JSON prop — single current document.
   canvas.props[SYSTEM_IDS.canvasField] = [{ t: "str", v: docStr }];
-  canvas.updatedAt = nowIso();
+  canvas.updatedAt = at;
 
   const upserts: KbNode[] = [canvas];
   let propTargetId: string | undefined;
@@ -191,7 +193,7 @@ export const canvasTxApplyEffect = Effect.fn("ext.canvas.tx.apply")(function* (
         if (input.unsetProps) {
           applyUnsetProps(ctx, t.props, input.unsetProps);
         }
-        t.updatedAt = nowIso();
+        t.updatedAt = at;
         return t;
       },
       catch: (err) => {

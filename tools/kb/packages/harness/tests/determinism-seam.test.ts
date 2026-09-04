@@ -22,18 +22,13 @@ import { join, relative, sep } from "node:path";
  *                         parameter value, the sanctioned "thread the param,
  *                         default to live implementation" pattern. The Effect
  *                         call sites (layers.ts, cli.ts) thread the clock.
- *   - write-lock.ts,      `Date.now()` is a lock spin-timeout, and
- *     durable-replace.ts  a tmp-file name. Neither writes node content, so
- *                         neither contributes store nondeterminism.
- *   - ext-canvas          KNOWN BYPASS, not sanctioned. The bundled canvas
- *                         extension stamps `updatedAt` from the wall clock
- *                         and then persists, so a seeded replay of a canvas
- *                         write diverges. `extensions-bundled/` was outside
- *                         this guard's scan root before the w1 move, which is
- *                         why it was never seen. Recorded in
- *                         docs/kb-waves/2026-09-03/reports/w1-workspace.md;
- *                         closing it means threading the Effect clock through
- *                         the extension contract.
+ *
+ * The two former exemptions are closed: `write-lock.ts` reads the spin
+ * timeout from `Clock`, `durable-replace.ts` names its temp file from a
+ * per-process sequence, and `ext-canvas` stamps `updatedAt` from
+ * `currentIso`, so a seeded replay of a canvas write no longer diverges
+ * (b6; the bypass was recorded in
+ * docs/kb-waves/2026-09-03/reports/w1-workspace.md).
  */
 const PACKAGES_ROOT = join(import.meta.dir, "..", "..");
 const NOT_STORE_REACHABLE = new Set(["ui", "render-tests"]);
@@ -43,20 +38,11 @@ const NOT_STORE_REACHABLE = new Set(["ui", "render-tests"]);
 // name a guard can reason about.
 const MODEL = "model/src/model.ts";
 const ALLOWED: Record<string, Set<string>> = {
-  "Date.now(": new Set([
-    MODEL,
-    "store-jsonl/src/write-lock.ts",
-    "store-jsonl/src/durable-replace.ts",
-  ]),
+  "Date.now(": new Set([MODEL]),
   "Math.random(": new Set([MODEL]),
   "new Date(": new Set([MODEL]),
   "ulid(": new Set([MODEL]),
-  "nowIso(": new Set([
-    MODEL,
-    "model/src/seed.ts",
-    "model/src/example.ts",
-    "ext-canvas/src/index.ts",
-  ]),
+  "nowIso(": new Set([MODEL, "model/src/seed.ts", "model/src/example.ts"]),
   "Date(": new Set([MODEL]),
 };
 

@@ -1,4 +1,4 @@
-import { Clock, Effect, Random } from "effect";
+import { Clock, DateTime, Effect, Random } from "effect";
 import { ulid } from "ulid";
 
 /**
@@ -186,8 +186,14 @@ export function isSysPrefixed(id: string): boolean {
   return id.startsWith("sys.");
 }
 
+/**
+ * Wall-clock stamp for the non-Effect seed defaults. It reads the same
+ * `Clock` the Effect path does, through the default runtime — a seeded replay
+ * passes `at` explicitly instead, and the determinism seam guard is what says
+ * where this may be called at all.
+ */
 export function nowIso(): string {
-  return new Date().toISOString();
+  return Effect.runSync(currentIso);
 }
 
 /**
@@ -195,7 +201,7 @@ export function nowIso(): string {
  * single formatting point so the store's time shape is owned here.
  */
 function isoFromMillis(ms: number): string {
-  return new Date(ms).toISOString();
+  return DateTime.formatIso(DateTime.makeUnsafe(ms));
 }
 
 /**
