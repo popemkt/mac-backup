@@ -322,7 +322,7 @@ export function NodeTextHost({
             {showPadlock && (
               <span
                 className="shrink-0 text-foreground/25 opacity-0 transition-opacity duration-150 group-hover/node:opacity-100"
-                title={readOnlyReason ?? undefined}
+                title={readOnlyReason}
                 data-sys-lock="true"
               >
                 <LockSimpleIcon size={12} weight="bold" />

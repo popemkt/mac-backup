@@ -25,7 +25,7 @@ export function findRefSpans(text: string): RefSpan[] {
   for (const m of text.matchAll(REF_TOKEN)) {
     const id = m[1]!.trim();
     const label = m[2]?.trim() || id;
-    out.push({ token: m[0], id, label, index: m.index ?? 0 });
+    out.push({ token: m[0], id, label, index: m.index });
   }
   return out;
 }
@@ -195,9 +195,9 @@ function selectRange(tn: Text, offset: number): void {
 }
 
 function lastDescendantText(el: HTMLElement): Text | null {
-  const nf = (globalThis as unknown as Record<string, unknown>).NodeFilter as
-    | { SHOW_TEXT: number }
-    | undefined;
+  const { NodeFilter: nf } = globalThis as unknown as {
+    NodeFilter?: { SHOW_TEXT: number };
+  };
   const whatToShow = nf?.SHOW_TEXT ?? 4;
   const walker = document.createTreeWalker(el, whatToShow);
   let last: Text | null = null;

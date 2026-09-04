@@ -165,7 +165,7 @@ describe("resolveScope", () => {
 
 /** Adapts a node map to the resolver the row builders now take. */
 const labelOf = (map: ReturnType<typeof wireToOutlineMap>) => (id: string) =>
-  map.get(id)?.text?.trim() || id;
+  map.get(id)?.text.trim() || id;
 
 describe("member rows", () => {
   it("labels provenance and flags pins, sorted by label", () => {
@@ -224,7 +224,7 @@ describe("member rows", () => {
     // The page's resolver falls back to the unscoped nodes, so it recovers it.
     const unscoped = wireToOutlineMap(wire, new Set());
     const pageResolver = (id: string) =>
-      unscoped.get(id)?.text?.trim() || scoped.get(id)?.text?.trim() || id;
+      unscoped.get(id)?.text.trim() || scoped.get(id)?.text.trim() || id;
     expect(excludedRows(r, pageResolver).map((x) => x.label)).toEqual(["alpha"]);
   });
 });

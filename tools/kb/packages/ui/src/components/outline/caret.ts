@@ -206,34 +206,27 @@ export function nearestOffsetForX(
   }
 }
 
+/**
+ * The two vendor spellings of "what caret is under this point". Neither is in
+ * lib.dom for every target, so this is the one place that names their shape.
+ */
+interface CaretDocument {
+  caretRangeFromPoint?: (x: number, y: number) => Range | null;
+  caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+}
+
 /** Serialized offset under viewport point (clientX/clientY). Null when no caret. F16. */
 export function offsetFromPoint(el: HTMLElement, clientX: number, clientY: number): number | null {
   try {
     let range: Range | null = null;
-    const anyDoc = document as unknown as Record<string, unknown>;
-    if (typeof anyDoc["caretRangeFromPoint"] === "function") {
-      range = (anyDoc["caretRangeFromPoint"] as (x: number, y: number) => Range | null)(
-        clientX,
-        clientY,
-      );
-    } else if (
-      typeof (
-        document as unknown as {
-          caretPositionFromPoint?: (
-            x: number,
-            y: number,
-          ) => { offsetNode: Node; offset: number } | null;
-        }
-      ).caretPositionFromPoint === "function"
-    ) {
-      const pos = (
-        document as unknown as {
-          caretPositionFromPoint: (
-            x: number,
-            y: number,
-          ) => { offsetNode: Node; offset: number } | null;
-        }
-      ).caretPositionFromPoint(clientX, clientY);
+    const doc = document as unknown as CaretDocument;
+    // Kept verbatim: the first branch calls the vendor function unbound and the
+    // second calls it on `document`. See the wave report before unifying them.
+    const rangeFromPoint = doc.caretRangeFromPoint;
+    if (typeof rangeFromPoint === "function") {
+      range = rangeFromPoint(clientX, clientY);
+    } else if (typeof doc.caretPositionFromPoint === "function") {
+      const pos = doc.caretPositionFromPoint(clientX, clientY);
       if (pos) {
         const r = document.createRange();
         r.setStart(pos.offsetNode, pos.offset);
