@@ -1,7 +1,12 @@
 import type { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { type FailureCode, type ActionSchema, schemaToJsonSchema } from "@kb/model";
+import {
+  FailureCodeSchema,
+  type FailureCode,
+  type ActionSchema,
+  schemaToJsonSchema,
+} from "@kb/model";
 import type { KbCtx, KbStore } from "./session.ts";
 import type { TemplateRegistry } from "./template.ts";
 
@@ -54,19 +59,21 @@ export interface ActionInvocation {
   input: unknown;
 }
 
-export type ActionReceipt =
-  | {
-      status: "succeeded";
-      id: string;
-      output: unknown;
-    }
-  | {
-      status: "failed";
-      id: string;
-      code: FailureCode;
-      message: string;
-      details?: unknown;
-    };
+export const ActionReceiptSchema = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("succeeded"),
+    id: z.string(),
+    output: z.unknown(),
+  }),
+  z.object({
+    status: z.literal("failed"),
+    id: z.string(),
+    code: FailureCodeSchema,
+    message: z.string(),
+    details: z.unknown().optional(),
+  }),
+]);
+export type ActionReceipt = z.infer<typeof ActionReceiptSchema>;
 
 export function succeeded(id: string, output: unknown): ActionReceipt {
   return { status: "succeeded", id, output };
