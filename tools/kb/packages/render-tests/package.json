@@ -14,6 +14,7 @@
     "@kb/model": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:",
+    "effect": "catalog:",
     "playwright": "catalog:"
   },
   "nx": {

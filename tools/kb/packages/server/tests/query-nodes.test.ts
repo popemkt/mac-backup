@@ -10,8 +10,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureSystemSeed, present, SYSTEM_IDS, systemSeedNodes, type KbNode } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
+import { Effect } from "effect";
 import { savedQueryNodes } from "../src/saved-queries.ts";
 import { startUi, type UiServerHandle } from "../src/server.ts";
+
+const run = Effect.runPromise;
 
 function refs(node: KbNode | WireNode, field: string): string[] {
   return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
@@ -87,7 +90,7 @@ describe("W4 saved-query surfacing via kb ui server", () => {
 
   afterEach(async () => {
     if (handle) {
-      await handle.stop();
+      await run(handle.stop);
       handle = null;
     }
     await rm(root, { recursive: true, force: true });
@@ -97,7 +100,7 @@ describe("W4 saved-query surfacing via kb ui server", () => {
     const edn = "[:find ?id ?text :where [?n :node/id ?id] [?n :node/text ?text]]";
     await writeFile(join(root, ".kb", "queries", "all-nodes.edn"), edn + "\n");
 
-    handle = await startUi({ root, port: 0, openBrowser: false });
+    handle = await run(startUi({ root, port: 0, openBrowser: false }));
 
     const res = await fetch(`${handle.url}/api/graph`);
     expect(res.status).toBe(200);

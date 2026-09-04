@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { Effect } from "effect";
 import { present } from "@kb/model";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -16,11 +17,13 @@ import { startDevServer, startProductionUi, type UiDevServer } from "../src/serv
  * the live checkout is never mutated.
  */
 
+const run = Effect.runPromise;
+
 let roots: string[] = [];
 let active: UiDevServer[] = [];
 
 afterEach(async () => {
-  for (const dev of active) await dev.stop().catch(() => {});
+  for (const dev of active) await run(dev.stop).catch(() => {});
   active = [];
   for (const root of roots) await rm(root, { recursive: true, force: true });
   roots = [];
@@ -76,13 +79,15 @@ describe("kb ui --dev orchestration", () => {
       return rec.child;
     };
 
-    const dev = await startDevServer({
-      root,
-      backendPort: 0,
-      devPort: 5173,
-      uiRoot: "/tmp/fake-ui",
-      spawn,
-    });
+    const dev = await run(
+      startDevServer({
+        root,
+        backendPort: 0,
+        devPort: 5173,
+        uiRoot: "/tmp/fake-ui",
+        spawn,
+      }),
+    );
     active.push(dev);
 
     expect(dev.url).toBe("http://127.0.0.1:5173");
@@ -99,7 +104,7 @@ describe("kb ui --dev orchestration", () => {
     expect(graph.status).toBe(200);
 
     // stop() kills the child and tears down the backend listener.
-    await dev.stop();
+    await run(dev.stop);
     expect(rec.killed.killed).toBe(true);
     expect(fetch(`http://127.0.0.1:${dev.backend.port}/api/graph`)).rejects.toThrow();
   });
@@ -118,13 +123,15 @@ describe("kb ui --dev orchestration", () => {
     const boundPort = (blocker.address() as { port: number }).port;
     try {
       expect(
-        startDevServer({
-          root,
-          backendPort: boundPort,
-          devPort: 5173,
-          uiRoot: "/tmp/fake-ui",
-          spawn: () => fakeChild().child,
-        }),
+        run(
+          startDevServer({
+            root,
+            backendPort: boundPort,
+            devPort: 5173,
+            uiRoot: "/tmp/fake-ui",
+            spawn: () => fakeChild().child,
+          }),
+        ),
       ).rejects.toThrow();
     } finally {
       blocker.close();
@@ -134,17 +141,19 @@ describe("kb ui --dev orchestration", () => {
   test("runDevUntilExit stops the backend and reports the child exit code", async () => {
     const root = await tempRoot();
     const rec = fakeChild();
-    const dev = await startDevServer({
-      root,
-      backendPort: 0,
-      devPort: 5173,
-      uiRoot: "/tmp/fake-ui",
-      spawn: () => rec.child,
-    });
+    const dev = await run(
+      startDevServer({
+        root,
+        backendPort: 0,
+        devPort: 5173,
+        uiRoot: "/tmp/fake-ui",
+        spawn: () => rec.child,
+      }),
+    );
     active.push(dev);
 
     const exits: (number | null)[] = [];
-    const pending = runDevUntilExit(dev, (code) => exits.push(code));
+    const pending = Effect.runPromise(runDevUntilExit(dev, (code) => exits.push(code)));
     rec.exit.resolve(1);
 
     expect(await pending).toBe(1);
@@ -160,21 +169,23 @@ describe("kb ui production wiring", () => {
     const calls: string[] = [];
     const ensureBuilt = () => {
       calls.push("ensure");
-      return Promise.resolve({ built: true, state: "missing" as const });
+      return Effect.succeed({ built: true, state: "missing" as const });
     };
 
-    const { handle, build } = await startProductionUi({
-      root,
-      port: 0,
-      openBrowser: false,
-      uiRoot: "/tmp/fake-ui",
-      ensureBuilt,
-    });
+    const { handle, build } = await run(
+      startProductionUi({
+        root,
+        port: 0,
+        openBrowser: false,
+        uiRoot: "/tmp/fake-ui",
+        ensureBuilt,
+      }),
+    );
 
     expect(calls).toEqual(["ensure"]);
     expect(build).toEqual({ built: true, state: "missing" });
     const graph = await fetch(`http://127.0.0.1:${handle.port}/api/graph`);
     expect(graph.status).toBe(200);
-    await handle.stop();
+    await run(handle.stop);
   });
 });

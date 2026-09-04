@@ -2,8 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Effect } from "effect";
 import type { ServerMessage } from "@kb/contracts";
 import { startUi, type UiServerHandle } from "../src/index.ts";
+
+const run = Effect.runPromise;
 
 async function tempRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "kb-ui-"));
@@ -54,7 +57,7 @@ describe("kb ui server", () => {
 
   afterEach(async () => {
     if (handle) {
-      await handle.stop();
+      await run(handle.stop);
       handle = null;
     }
     await rm(root, { recursive: true, force: true });
@@ -66,11 +69,13 @@ describe("kb ui server", () => {
       "[:find ?id :where [?e :node/id ?id]]\n",
     );
 
-    handle = await startUi({
-      root,
-      port: 0,
-      openBrowser: false,
-    });
+    handle = await run(
+      startUi({
+        root,
+        port: 0,
+        openBrowser: false,
+      }),
+    );
 
     const graph = await fetch(`${handle.url}/api/graph`);
     expect(graph.status).toBe(200);
@@ -183,7 +188,7 @@ describe("kb ui server", () => {
         template: "todos",
       }),
     );
-    handle = await startUi({ root, port: 0, openBrowser: false });
+    handle = await run(startUi({ root, port: 0, openBrowser: false }));
 
     const listResp = await fetch(`${handle.url}/api/action`, {
       method: "POST",
@@ -230,7 +235,7 @@ describe("kb ui server", () => {
   });
 
   test("POST /api/action never throws on unknown action", async () => {
-    handle = await startUi({ root, port: 0, openBrowser: false });
+    handle = await run(startUi({ root, port: 0, openBrowser: false }));
     const resp = await fetch(`${handle.url}/api/action`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -243,7 +248,7 @@ describe("kb ui server", () => {
   });
 
   test("GET /assets/* serves uploads; traversal returns 403", async () => {
-    handle = await startUi({ root, port: 0, openBrowser: false });
+    handle = await run(startUi({ root, port: 0, openBrowser: false }));
 
     const upload = await fetch(`${handle.url}/api/action`, {
       method: "POST",
@@ -279,7 +284,7 @@ describe("kb ui server", () => {
   });
 
   test("stop() cancels listen; WS close cleans hub session", async () => {
-    handle = await startUi({ root, port: 0, openBrowser: false });
+    handle = await run(startUi({ root, port: 0, openBrowser: false }));
     const url = handle.url;
     const port = handle.port;
 
@@ -297,14 +302,14 @@ describe("kb ui server", () => {
     ws.close();
     await closed;
 
-    await handle.stop();
+    await run(handle.stop);
     handle = null;
 
     expect(fetch(`${url}/api/graph`)).rejects.toThrow();
   });
 
   test("malformed action body is 400 invalid_input", async () => {
-    handle = await startUi({ root, port: 0, openBrowser: false });
+    handle = await run(startUi({ root, port: 0, openBrowser: false }));
     const resp = await fetch(`${handle.url}/api/action`, {
       method: "POST",
       headers: { "content-type": "application/json" },

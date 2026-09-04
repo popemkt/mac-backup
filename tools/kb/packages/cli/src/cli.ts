@@ -342,18 +342,13 @@ function buildProgram(): Command {
           Effect.gen(function* () {
             const { runUiCli } = yield* Effect.promise(() => import("@kb/server"));
             const root = yield* resolveRootEffect({ root: globals.root });
-            yield* Effect.tryPromise({
-              try: () =>
-                runUiCli({
-                  root,
-                  port: opts.port ?? UI_DEFAULT_PORT,
-                  openBrowser: opts.open !== false,
-                  dev: opts.dev === true,
-                  devPort: opts.devPort,
-                }),
-              catch: ensureDomainError,
+            return yield* runUiCli({
+              root,
+              port: opts.port ?? UI_DEFAULT_PORT,
+              openBrowser: opts.open !== false,
+              dev: opts.dev === true,
+              devPort: opts.devPort,
             });
-            return EXIT_OK;
           }),
       ),
     );
