@@ -252,6 +252,6 @@ export class SubscriptionHub {
     }
 
     if (sends.length === 0) return Effect.void;
-    return Effect.all(sends).pipe(Effect.map(() => undefined));
+    return Effect.all(sends).pipe(Effect.asVoid);
   }
 }

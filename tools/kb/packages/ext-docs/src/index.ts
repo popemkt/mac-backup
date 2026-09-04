@@ -85,7 +85,7 @@ export const docsCheckEffect = Effect.fn("ext.docs.check")(function* (
     const path = join(ctx.root, view.spec.output);
     const status = yield* fs.readFileString(path).pipe(
       Effect.map((actual) => (actual === expected ? ("clean" as const) : ("stale" as const))),
-      Effect.catch(() => Effect.succeed("missing" as const)),
+      Effect.orElseSucceed(() => "missing" as const),
     );
     results.push({ view: view.name, output: view.spec.output, status });
   }

@@ -94,10 +94,7 @@ export async function startUi(opts: UiServerOptions): Promise<UiServerHandle> {
         Effect.gen(function* () {
           yield* reloadEffect(ctx);
           yield* hub.applyNodes(ctx.nodes);
-        }).pipe(
-          Effect.provide(kbRuntimeLayer(ctx)),
-          Effect.catchCause(() => Effect.void),
-        ),
+        }).pipe(Effect.provide(kbRuntimeLayer(ctx)), Effect.ignoreCause),
       );
     }, 50);
   };

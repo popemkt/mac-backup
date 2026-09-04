@@ -15,9 +15,7 @@ export const resolveRootEffect = Effect.fn("kb.resolveRoot")(function* (
   const fs = yield* FileSystem;
   let dir = resolve(opts.cwd ?? process.cwd());
   for (;;) {
-    const hasKb = yield* fs
-      .exists(join(dir, ".kb"))
-      .pipe(Effect.catch(() => Effect.succeed(false)));
+    const hasKb = yield* fs.exists(join(dir, ".kb")).pipe(Effect.orElseSucceed(() => false));
     if (hasKb) return dir;
     const parent = dirname(dir);
     if (parent === dir) break;

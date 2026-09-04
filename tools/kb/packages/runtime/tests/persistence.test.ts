@@ -1,5 +1,5 @@
 import { describe, expect, test, afterEach } from "bun:test";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -271,8 +271,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
 
     await Effect.runPromise(
       reloadEffect(ctx).pipe(
-        Effect.provide(kbStoreLayer(mock)),
-        Effect.provide(bunFileSystemLayer),
+        Effect.provide(Layer.mergeAll(kbStoreLayer(mock), bunFileSystemLayer)),
       ),
     );
     expect(loads).toBe(1);
@@ -295,8 +294,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
     const node = sampleNode("n.via-layer", "layer");
     await Effect.runPromise(
       persistEffect(ctx, { upserts: [node], deletes: [] }).pipe(
-        Effect.provide(kbStoreLayer(mock)),
-        Effect.provide(bunFileSystemLayer),
+        Effect.provide(Layer.mergeAll(kbStoreLayer(mock), bunFileSystemLayer)),
       ),
     );
     expect(commits).toHaveLength(1);

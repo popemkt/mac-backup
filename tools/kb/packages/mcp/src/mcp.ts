@@ -85,8 +85,8 @@ function causeMessage(cause: Cause.Cause<unknown>): string {
  * Pure interrupt-only causes are re-raised so we do not pretend MCP can
  * turn cancellation into a normal tool result.
  */
-export function containToolResult<R>(
-  effect: Effect.Effect<CallToolResult, unknown, R>,
+export function containToolResult<E, R>(
+  effect: Effect.Effect<CallToolResult, E, R>,
 ): Effect.Effect<CallToolResult, never, R> {
   return Effect.exit(effect).pipe(
     Effect.flatMap((exit) => {
@@ -130,7 +130,7 @@ export function callToolEffect(
 
       if (name === RENDER_TOOL) {
         const decoded = yield* Schema.decodeUnknownEffect(RenderViewArgs)(args ?? {}).pipe(
-          Effect.catch(() => Effect.succeed(null)),
+          Effect.orElseSucceed(() => null),
         );
         if (!decoded) {
           return errorResult("invalid_input", "expected {view: string, format?: 'html'|'md'}");
@@ -194,7 +194,7 @@ const readResourceEffect = Effect.fn("mcp.readResource")(function* (ctx: KbConte
  * error. Interrupt-only causes propagate as FiberFailure rejects — they are
  * not rewritten into -32603.
  */
-export async function runResourceHandler<A>(effect: Effect.Effect<A, unknown>): Promise<A> {
+export async function runResourceHandler<A, E>(effect: Effect.Effect<A, E>): Promise<A> {
   const exit = await Effect.runPromiseExit(effect);
   if (Exit.isSuccess(exit)) return exit.value;
   if (Cause.hasInterruptsOnly(exit.cause)) {

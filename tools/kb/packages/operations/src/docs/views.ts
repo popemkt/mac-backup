@@ -108,9 +108,7 @@ export const loadViewsEffect = Effect.fn("docs.loadViews")(function* (
 
   const fs = yield* FileSystem;
   const dir = viewsDir(root);
-  const entries = yield* fs
-    .readDirectory(dir)
-    .pipe(Effect.catch(() => Effect.succeed([] as string[])));
+  const entries = yield* fs.readDirectory(dir).pipe(Effect.orElseSucceed((): string[] => []));
   const names = entries
     .filter((e) => e.endsWith(".json"))
     .map((e) => e.slice(0, -".json".length))

@@ -23,10 +23,12 @@ export async function startHarness(port = DEFAULT_HARNESS_PORT): Promise<{
   url: string;
   stop: () => Promise<void>;
 }> {
-  const server = spawn("bun", ["tests-render/server.ts"], {
+  // The port travels as an argument, not an environment variable: the harness
+  // child inherits the parent environment on its own, and `process.env` reads
+  // belong to the config seam (packages/server/src/paths.ts), not here.
+  const server = spawn("bun", ["tests-render/server.ts", String(port)], {
     cwd: process.cwd(),
     stdio: "inherit",
-    env: { ...process.env, KB_HARNESS_PORT: String(port) },
   });
   const url = `http://127.0.0.1:${port}`;
 

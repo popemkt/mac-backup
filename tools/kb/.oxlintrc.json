@@ -510,8 +510,6 @@
       "files": [
         "packages/runtime/src/output.ts",
         "packages/ui/src/lib/log.ts",
-        "packages/*/src/bin/**",
-        "packages/*/bin/**",
         "packages/ext-sdk/src/generate.ts"
       ],
       "rules": {
