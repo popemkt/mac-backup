@@ -5,6 +5,7 @@ import { present, type NodeId } from "@kb/model";
 import type { DatascriptDb, IdMap } from "./index/datoms.ts";
 import { compile, normalizeEdnQuery } from "./ir/compile.ts";
 import type { FindPos, Ir } from "./ir/ir.ts";
+import { parseEdn } from "./ir/parse.ts";
 
 /**
  * A query that failed inside the datascript engine — parse or evaluation
@@ -17,42 +18,6 @@ export class DatalogError extends Error {
     super(message);
     this.name = "DatalogError";
   }
-}
-
-/**
- * `[?p :node/child ?c] [?p :node/child-order ?ord]` is a cartesian product:
- * both attrs are cardinality-many on the parent, so N children × N orders
- * rows. The child *set* is `:node/child` alone; order lives on the
- * `:node/children` vector. Drop the unusable join.
- */
-function rewriteChildOrderCartesian(edn: string): string {
-  const childClause = /\[\s*(\?\S+)\s+:node\/child\s+\?\S+\s*\]/g;
-  const childEntities = new Set<string>();
-  for (const m of edn.matchAll(childClause)) {
-    childEntities.add(present(m[1], "child-clause entity"));
-  }
-  if (childEntities.size === 0) return edn;
-
-  const droppedOrd: string[] = [];
-  const orderClause = /\[\s*(\?\S+)\s+:node\/child-order\s+(\?\S+)\s*\]/g;
-  const withoutOrder = edn.replace(orderClause, (full, entity: string, ord: string) => {
-    if (!childEntities.has(entity)) return full;
-    droppedOrd.push(ord);
-    return "";
-  });
-  return dropUnusedFindVars(withoutOrder, droppedOrd);
-}
-
-function dropUnusedFindVars(edn: string, vars: readonly string[]): string {
-  let out = edn;
-  for (const v of vars) {
-    const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const occurrences = out.match(new RegExp(escaped, "g"));
-    if (occurrences !== null && occurrences.length === 1) {
-      out = out.replace(new RegExp(`\\s*${escaped}\\b`), "");
-    }
-  }
-  return out;
 }
 
 function normalizeQueryInput(input: unknown): unknown {
@@ -96,29 +61,31 @@ export function datascriptExecutor(db: DatascriptDb): EdnExecutor {
   return (edn, ...inputs) => executeEdn(db, edn, ...inputs);
 }
 
+function executeIr(exec: EdnExecutor, ir: Ir, inputs: readonly unknown[]): unknown {
+  const compiled = compile(ir);
+  const normalized = inputs.map(normalizeQueryInput);
+  const extra = compiled.rules !== undefined ? [compiled.rules, ...normalized] : normalized;
+  return exec(compiled.query, ...extra);
+}
+
 /**
  * Compile `ir`, run it through `exec`, revive **only** `node-ref` find positions.
  * Aggregate counts that collide with live eids stay numbers — the r4 red case.
+ * Inputs (a `%` rules vector included) are normalised the same way `query` does.
  */
 export function runIr(exec: EdnExecutor, ir: Ir, ids: IdMap, ...inputs: unknown[]): unknown {
-  const compiled = compile(ir);
-  const extra = compiled.rules !== undefined ? [compiled.rules, ...inputs] : inputs;
-  const raw = exec(compiled.query, ...extra);
+  const raw = executeIr(exec, ir, inputs);
   if (ir.kind === "raw") return reviveValue(raw, ids);
   return reviveTyped(raw, ir.find, ids);
 }
 
 /**
- * Run raw EDN datalog; entity ids in results are revived to NodeIds when known.
- *
- * This is the engine-specific surface: every integer that matches a live eid
- * is revived, including aggregate counts that happen to collide. String
- * inputs (rules vectors included) are normalised the same way as the query.
- * Typed revival lives on `runIr`.
+ * Raw-EDN entry: `compile(parseEdn(edn))` then execute, then revive every
+ * eid-shaped integer. Structured IR when the subset parses, `{ kind: "raw" }`
+ * when it does not. Typed revival (aggregates stay numbers) lives on `runIr`.
  */
 export function query(db: DatascriptDb, edn: string, ...inputs: unknown[]): unknown {
-  const q = normalizeEdnQuery(rewriteChildOrderCartesian(edn));
-  const raw = executeEdn(db, q, ...inputs.map(normalizeQueryInput));
+  const raw = executeIr(datascriptExecutor(db), parseEdn(edn), inputs);
   return reviveValue(raw, db.ids);
 }
 

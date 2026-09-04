@@ -4,7 +4,15 @@
  */
 import { describe, expect, test } from "bun:test";
 import type { KbNode } from "@kb/model";
-import { DatascriptIndex, normalizeEdnQuery, query, queryRows } from "@kb/query";
+import {
+  DatascriptIndex,
+  datascriptExecutor,
+  normalizeEdnQuery,
+  parseEdn,
+  query,
+  queryRows,
+  runIr,
+} from "@kb/query";
 
 /** The engine handle these tests drive directly, built the one way there is. */
 function handleFor(nodes: KbNode[]) {
@@ -54,9 +62,20 @@ describe("query() normalises rules inputs", () => {
   ]);
 
   test("recursive rule via runDatalog (was throw, now rows)", () => {
+    expect(parseEdn(Q4).kind).toBe("query");
     expect(normalizeEdnQuery(RULES_SUBTAG)).toContain('":f/sys.f.onto.extends"');
     const rows = queryRows(db, Q4, RULES_SUBTAG, "tag-root");
     const ids = rows.map((r) => r[0]).toSorted((a, b) => String(a).localeCompare(String(b)));
+    expect(ids).toEqual(["n-direct", "n-tagged"]);
+  });
+
+  test("runIr normalises a rules vector supplied as %", () => {
+    const ir = parseEdn(Q4);
+    expect(ir.kind).toBe("query");
+    const rows = runIr(datascriptExecutor(db), ir, db.ids, RULES_SUBTAG, "tag-root");
+    const ids = (Array.isArray(rows) ? rows : [])
+      .map((r) => (Array.isArray(r) ? r[0] : r))
+      .toSorted((a, b) => String(a).localeCompare(String(b)));
     expect(ids).toEqual(["n-direct", "n-tagged"]);
   });
 });
@@ -86,6 +105,19 @@ describe("query() stops the child-order cartesian", () => {
       "p",
     );
     expect(rows).toHaveLength(3);
+  });
+
+  test("child-order as the last clause still returns one row per child", () => {
+    const rows = queryRows(
+      db,
+      `[:find ?id ?i :where [?p :node/id "p"] [?p :node/child ?c] [?c :node/id ?id] [?p :node/child-order ?i]]`,
+    );
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => r[0]).toSorted((a, b) => String(a).localeCompare(String(b)))).toEqual([
+      "c1",
+      "c2",
+      "c3",
+    ]);
   });
 });
 

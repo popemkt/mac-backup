@@ -116,7 +116,7 @@ function readNumber(src: Src): number {
 
 function readSymbolOrBool(src: Src): Edn {
   const start = src.i;
-  while (src.i < src.s.length && /[A-Za-z0-9_./+*?-]/.test(present(src.s[src.i], "sym"))) {
+  while (src.i < src.s.length && /[A-Za-z0-9_./+*?$%-]/.test(present(src.s[src.i], "sym"))) {
     src.i += 1;
   }
   const v = src.s.slice(start, src.i);
@@ -346,16 +346,26 @@ function inferFindTypes(find: FindPos[], where: Clause[]): FindPos[] {
 
 function collectNodeRefVars(where: Clause[]): Set<string> {
   const nodeRefs = new Set<string>();
+  const scalars = new Set<string>();
   for (const c of where) {
     if (c.kind === "pattern") {
       nodeRefs.add(c.entity);
-      if (c.value.t === "var" && REF_ATTRS.has(c.attr)) nodeRefs.add(c.value.name);
+      if (c.value.t === "var") {
+        if (REF_ATTRS.has(c.attr)) nodeRefs.add(c.value.name);
+        else scalars.add(c.value.name);
+      }
     } else if (c.kind === "children") {
       nodeRefs.add(c.parent);
       nodeRefs.add(c.child);
     } else if (c.kind === "reach") {
       nodeRefs.add(c.from);
       nodeRefs.add(c.to);
+    }
+  }
+  for (const c of where) {
+    if (c.kind !== "rule") continue;
+    for (const a of c.args) {
+      if (a.t === "var" && !scalars.has(a.name)) nodeRefs.add(a.name);
     }
   }
   return nodeRefs;
