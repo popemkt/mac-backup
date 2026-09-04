@@ -39,6 +39,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ## Gaps
 
+### GAP: 3d-force-graph constructor and nodeThreeObject typings force two assertions
+
+- **expected** — createForceGraph and nodeThreeObject are typed to kb's FgNode/FgLink and to a falsy-means-default Object3D accessor, with no assertions at the call sites.
+- **current** — The library publishes a non-generic const constructor whose default instance is not assignable to ForceGraph3DInstance<FgNode, FgLink> under strictFunctionTypes, and nodeThreeObject's accessor is typed as returning Object3D while the runtime treats a falsy return as the default sphere. IForceGraph3D is unexported and ForceGraph3DInstance is a type alias, so a 3d-force-graph module augmentation cannot restate either signature.
+- **impact** — Two typescript/no-unsafe-type-assertion hits remain in ui src. One of them is the seam that deleted fourteen per-callback assertions; the other is the labelled-node sprite accessor.
+- **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
+- **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
+
 ### GAP: agent-prompt review rules are not ported to this repo
 
 - **expected** — The dotfiles skills and agent directory has a stated review checklist for every prompt or skill change, with the mechanical half actually checked.
@@ -86,6 +94,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The move and up handlers each re-derive the drag kind's meaning, so they can disagree.
 - **closes** — Falls out of the onPointerMove gap: one state machine owns both.
 - **node** — `01M1MGCT80E1FMXMEAEATS1VER`
+
+### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
+
+- **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
+- **current** — lib.dom marks caretRangeFromPoint @deprecated. A direct Document call is typescript/no-deprecated (ratchet rise). The one remaining assertion is document as unknown as CaretDocument so the probe stays off that type and the method is called bound.
+- **impact** — ui src keeps one typescript/no-unsafe-type-assertion that a check cannot replace until the DOM lib drops the deprecation or the ratchet promotes no-deprecated to error with a pinpoint disable.
+- **closes** — lib.dom removes @deprecated from caretRangeFromPoint, or caretPositionFromPoint is the only probe and Chrome implements it everywhere this app runs.
+- **node** — `01M1P2R0XMSK1MRVQ8P2JH5V0Z`
 
 ### GAP: CLI pays full cold start on every invocation
 
