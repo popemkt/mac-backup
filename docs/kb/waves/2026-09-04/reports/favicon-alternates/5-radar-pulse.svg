@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .pulse { stroke: #d97706; fill: none; stroke-linecap: round; }
+    .w1 { stroke-width: 2.8; stroke-opacity: 0.9; }
+    .w2 { stroke-width: 2.2; stroke-opacity: 0.6; }
+    .w3 { stroke-width: 1.8; stroke-opacity: 0.35; }
+    .dot { fill: #d97706; }
+    .child { fill: #1c1917; }
+    @media (prefers-color-scheme: dark) {
+      .pulse { stroke: #f59e0b; }
+      .dot { fill: #f59e0b; }
+      .child { fill: #f5f5f4; }
+    }
+  </style>
+  <!-- Emitting arc pulses from top-left node -->
+  <path class="pulse w1" d="M19 7a13 13 0 0 1 0 16" />
+  <path class="pulse w2" d="M23 5a18 18 0 0 1 0 20" />
+  <path class="pulse w3" d="M27 3a23 23 0 0 1 0 24" />
+  <circle class="dot" cx="10" cy="15" r="5.5" />
+  <circle class="child" cx="10" cy="25" r="3" />
+</svg>

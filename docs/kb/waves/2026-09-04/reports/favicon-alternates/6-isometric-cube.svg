@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .edge { stroke: #78716c; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .top-face { fill: #d97706; fill-opacity: 0.25; }
+    .apex { fill: #d97706; }
+    .vert { fill: #1c1917; }
+    @media (prefers-color-scheme: dark) {
+      .edge { stroke: #a8a29e; }
+      .top-face { fill: #f59e0b; fill-opacity: 0.35; }
+      .apex { fill: #f59e0b; }
+      .vert { fill: #f5f5f4; }
+    }
+  </style>
+  <!-- Top face polygon -->
+  <polygon class="top-face" points="16,4 26,10 16,16 6,10" />
+  <!-- Wireframe edges -->
+  <path class="edge" d="M16 4L26 10v12L16 28 6 22V10z M16 16v12 M16 16L26 10 M16 16L6 10" />
+  <!-- Vertex nodes -->
+  <circle class="apex" cx="16" cy="4" r="3.5" />
+  <circle class="vert" cx="6" cy="10" r="3" />
+  <circle class="vert" cx="26" cy="10" r="3" />
+  <circle class="vert" cx="16" cy="28" r="3" />
+</svg>

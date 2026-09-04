@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .shadow { fill: #1c1917; }
+    .card { fill: #d97706; stroke: #1c1917; stroke-width: 2.5; }
+    .node-a { fill: #ffffff; stroke: #1c1917; stroke-width: 2; }
+    .node-b { fill: #1c1917; }
+    .wire { stroke: #1c1917; fill: none; stroke-width: 2.5; stroke-linecap: round; }
+    @media (prefers-color-scheme: dark) {
+      .shadow { fill: #000000; }
+      .card { fill: #f59e0b; stroke: #000000; }
+      .wire { stroke: #000000; }
+    }
+  </style>
+  <!-- Offset Drop Shadow -->
+  <rect class="shadow" x="5" y="5" width="24" height="24" rx="7" />
+  <!-- Main Badge -->
+  <rect class="card" x="3" y="3" width="24" height="24" rx="7" />
+  <!-- Outliner content inside badge -->
+  <path class="wire" d="M9 10v8a3 3 0 0 0 3 3h7" />
+  <circle class="node-a" cx="9" cy="10" r="4.5" />
+  <circle class="node-b" cx="21" cy="21" r="3.5" />
+</svg>
