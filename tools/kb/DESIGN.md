@@ -36,13 +36,29 @@ has no importable surface), and carrying two tags in its `nx` key:
 
 | Axis      | Values                                                                                               | Means                               |
 | --------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| `layer:*` | `domain`, `contract`, `infrastructure`, `application`, `app`, `extension`, `test-support`, `tooling` | which way dependencies may point    |
-| `scope:*` | `shared`, `backend`, `browser`, `test-support`, `tooling`                                            | which runtime the code must survive |
+| `layer:*` | `domain`, `contract`, `infrastructure`, `application`, `app`, `extension`, `test-support` | which way dependencies may point    |
+| `scope:*` | `shared`, `backend`, `browser`, `test-support`                                            | which runtime the code must survive |
 
-The direction rules live in exactly one place,
-`packages/harness/src/constraints.ts`, and `packages/harness` applies them to
-what the code imports. There is no alias map: `@kb/*` resolve as workspace
-packages through each package's `exports`.
+The direction rules live in exactly one place, `harness/src/constraints.ts`,
+and the harness applies them to what the code imports. There is no alias map:
+`@kb/*` resolve as workspace packages through each package's `exports`.
+
+The harness is **not** one of these packages. It checks the workspace's shape,
+so it lives at `tools/kb/harness` — root tooling, outside `packages/`, typed by
+the root `@types/bun`, typechecked by the root Nx project `kb-workspace`, and
+named in the `lint` and `fmt` scopes. That is why neither axis carries a
+`tooling` row: the harness was the only thing that would have held one, and a
+row that exists so the checker can be a member is a special case, not a
+constraint. `boundaries` asserts the reverse — no file under `harness/` imports
+`@kb/*` or resolves out of `harness/` — so the checker stays outside what it
+checks.
+
+Import edges are extracted with a parser (`oxc-parser`), not a regex: a
+side-effect `import "@kb/x"` and an `export … from "@kb/y"` are edges, and a
+scanner that keys on the word `from` sees one of them by accident and the other
+not at all. dependency-cruiser and `@nx/enforce-module-boundaries` were both
+rejected for the fence itself: they take path-pattern rules, which would mean
+generating a mirror of the tag matrix — the thing `4b63dff` removed.
 
 One restriction the package graph cannot see is the **isomorphism fence** — a
 `scope:shared` package runs in the browser too, so it may not import `node:*`,
@@ -69,8 +85,9 @@ The backend runs on **Bun** in production; the toolchain around it is **Vite+
   - `bun run typecheck` → `nx run-many -t typecheck`, one `tsc --noEmit` per
     package against `tsconfig.base.json`. This is the authoritative typecheck,
     and the pre-commit hook runs it when `tools/kb/` changes.
-  - `bun run lint` → one `oxlint --config .oxlintrc.json --type-aware packages`
-    over the whole workspace. Type-aware linting is on: `oxlint-tsgolint` is a
+  - `bun run lint` → one
+    `oxlint --config .oxlintrc.json --type-aware packages harness` over the
+    whole workspace. Type-aware linting is on: `oxlint-tsgolint` is a
     declared devDependency, which is what makes its platform binary
     (`@oxlint-tsgolint/darwin-arm64`) install.
   - `bun run test` → `bun test packages`
@@ -98,7 +115,7 @@ runtime keys: `tsconfig.bun.json` (Bun target/module/lib, `types: ["bun"]`,
 `jsx`, no Effect plugin). A package tsconfig names its `include` and the preset
 its `scope` tag selects — `scope:browser` gets the browser preset, every other
 scope gets the Bun one — and declares a compiler option only when
-`SANCTIONED_TSCONFIG_DELTAS` in `@kb/harness` records why it cannot be
+`SANCTIONED_TSCONFIG_DELTAS` in the harness records why it cannot be
 inherited (today: `@kb/render-tests`'s DOM `lib`, `@kb/ui`'s `@/*` `paths`).
 
 #### Effect diagnostic severities and their file scope
@@ -114,14 +131,14 @@ place both the Effect severities and their file scope are authored, and every
 Promotion carries a file scope, because the claim does. The Effect-native
 preference group says "model this control flow as an Effect", which is a
 statement about how kb's production code is written; a `test("…", async () =>
-…)` callback is a test-runner calling convention and a `scope:tooling`
-package's `src/` is a build script, and neither is kb modelling anything. So a
-promoted rule is an `error` under a package's `src/` and stays a `suggestion`
+…)` callback is a test-runner calling convention, not kb modelling anything. So
+a promoted rule is an `error` under a package's `src/` and stays a `suggestion`
 everywhere else, expressed as the plugin's single `overrides` entry:
-`include: ["packages/*/src/**/*"]`, `exclude` the `src/` of every
-`scope:tooling` package. That is the same scope `countsTowardRatchet` applies
-while a rule is still counted — see "Ratchet scope" — so a rule keeps its
-meaning as it crosses lanes.
+`include: ["packages/*/src/**/*"]` and no `exclude`. The harness lives outside
+`packages/`, so that file scope already excludes it; a carve-out beside the
+include would be a second list to keep in sync. That is the same scope
+`countsTowardRatchet` applies while a rule is still counted — see "Ratchet
+scope" — so a rule keeps its meaning as it crosses lanes.
 
 The alternative — a second `tsconfig.bun.test.json` preset with a
 `tsconfig.test.json` per package — was rejected: `plugins` does not merge
@@ -131,14 +148,15 @@ block, and two hand-synced copies of the severity map is exactly the mirror
 block, one tsconfig per package, and one `nx typecheck` target per project.
 
 Harness check `effect-severity-lanes` holds the shape: exactly one override,
-whose `exclude` equals the `scope:tooling` `src/` globs *computed from the nx
-tags*; an override that only ever promotes `suggestion` to `error`, never
-relaxes; and no rule both promoted and present in the ratchet ledger.
+carrying an `include` and no `exclude`; an override that only ever promotes
+`suggestion` to `error`, never relaxes; and no rule both promoted and present
+in the ratchet ledger.
 
 The contract only reaches a file some `tsc -p` project includes, so harness
 check `typecheck-scope` asserts that every TypeScript file under `tools/kb`
-falls in exactly one package tsconfig `include` — the same question
-`lint-scope-coverage` asks of the lint scopes, asked through the same reader.
+falls in exactly one typecheck project's `include` — one per package plus the
+harness — the same question `lint-scope-coverage` asks of the lint scopes,
+asked through the same reader.
 A package that grows a directory and forgets to include it would otherwise
 keep a green `bun run typecheck` over code nothing checks.
 
@@ -174,21 +192,21 @@ violations, style-only with no soundness gain).
 
 ### Ratchet scope
 
-The ratchet ledger (`packages/harness/lint-warn-baseline.json`, harness check
+The ratchet ledger (`harness/lint-warn-baseline.json`, harness check
 `lint-warn-ratchet`) ingests two collectors, and they measure different file
 sets on purpose.
 
-- **oxlint** counts every warning over every linted file. Where a rule means
-  something different in a test, that is said once in `.oxlintrc.json`
-  `overrides` — the file glob is the scope, and the ledger just follows it.
+- **oxlint** counts every warning over every linted file: the collector runs
+  the root `lint` script itself, so the lint scope is authored once and the
+  ledger cannot drift from what the gate lints. Where a rule means something
+  different in a test, that is said once in `.oxlintrc.json` `overrides` — the
+  file glob is the scope, and the ledger just follows it.
 - **`@effect/tsgo`** has no per-file severity, so the scope lives in the
   collector instead. Correctness-severity diagnostics count wherever they
   appear. Suggestion-severity ones — the Effect-native preference group
   (`asyncFunction`, `globalConsole`, `globalDate`, `globalTimers`,
   `processEnv`, `globalRandom`), emitted by tsgo as `message` — count only
-  under the `src/` of a package that is kb: a `scope:tooling` package's `src/`
-  is a build script, and the scope follows the tag it already carries rather
-  than a second list.
+  under a package's `src/`, which is kb's production code.
 
 Rejected rules are recorded here with their measured count, like rejected
 compiler flags: `oxc/no-map-spread` (14 sites) — a micro-optimisation for
@@ -202,15 +220,14 @@ control flow as an Effect"; that is a statement about how kb is written, and a
 modelling anything. Counting those made 235 of 303 `asyncFunction` hits
 untouchable-by-design, so the ledger's largest number could only ever move by
 re-snapshotting — a rule nothing can satisfy is a rule nothing enforces.
-`countsTowardRatchet` in `@kb/harness` states the split once, and
+`countsTowardRatchet` in the harness states the split once, and
 `ratchet-scope` is its red case.
 
 Promotion carries the same scope. A suggestion rule that reaches 0 in `src`
 but still has hits outside it *is* promotable, because the severity flip in
 `tsconfig.bun.json` is file-scoped too — see "Effect diagnostic severities and
-their file scope". The collector and the plugin state one scope, not two:
-`effect-severity-lanes` asserts the plugin's `exclude` is the `scope:tooling`
-globs the collector derives from the same tags.
+their file scope". The collector and the plugin state one scope, not two: a
+package's `src/`, with nothing carved out of it.
 
 ## Supply chain
 

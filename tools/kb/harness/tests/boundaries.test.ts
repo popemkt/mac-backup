@@ -8,9 +8,17 @@ import {
   isTestKitDevDependency,
   testMayImportTestKit,
 } from "../src/constraints.ts";
-import { importEdges, importSites } from "../src/import-graph.ts";
+import { readFileSync } from "node:fs";
+import { dirname, relative, resolve, sep } from "node:path";
+import { importEdges, importSites, sourceFilesUnder, specifiersOf } from "../src/import-graph.ts";
 import { internalEdges, projectGraph } from "../src/project-graph.ts";
-import { axisValues, dependencyEntries, workspacePackages } from "../src/workspace.ts";
+import {
+  axisValues,
+  dependencyEntries,
+  HARNESS_ROOT,
+  WORKSPACE_ROOT,
+  workspacePackages,
+} from "../src/workspace.ts";
 
 /**
  * Layer and scope direction (plan D11), over what the code actually imports.
@@ -101,6 +109,28 @@ describe("boundaries", () => {
       for (const axis of ["layer", "scope"] as const) {
         const problem = violation(edge.source, edge.target, axis);
         if (problem !== null) violations.push(`${problem}  [manifest]`);
+      }
+    }
+    expect(violations, violations.join("\n")).toEqual([]);
+  });
+
+  test("no harness file imports product code", () => {
+    // The harness checks the workspace from outside it. An import of `@kb/*`,
+    // or a relative path that climbs out of `harness/`, would make the checker
+    // a member of the thing it checks — and would put it back in the matrix.
+    // Red case: `import { present } from "../../packages/model/src/present.ts"`.
+    const violations: string[] = [];
+    for (const file of sourceFilesUnder(HARNESS_ROOT)) {
+      for (const specifier of specifiersOf(readFileSync(file, "utf8"))) {
+        const rel = relative(WORKSPACE_ROOT, file);
+        if (specifier.startsWith("@kb/")) {
+          violations.push(`${rel} imports ${specifier}`);
+        } else if (specifier.startsWith(".")) {
+          const target = resolve(dirname(file), specifier);
+          if (target !== HARNESS_ROOT && !target.startsWith(`${HARNESS_ROOT}${sep}`)) {
+            violations.push(`${rel} imports ${specifier}, which resolves outside harness/`);
+          }
+        }
       }
     }
     expect(violations, violations.join("\n")).toEqual([]);

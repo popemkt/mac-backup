@@ -2,8 +2,8 @@
  * Generates the lint-warn-baseline.json ratchet ledger (plan A.9 #2 / spec 11).
  *
  * Captures all current warnings from:
- *   1. oxlint (type-aware over workspace packages)
- *   2. effect-tsgo diagnostics (across backend packages)
+ *   1. oxlint (type-aware, over the root `lint` script's own scopes)
+ *   2. effect-tsgo diagnostics (across every typecheck project but @kb/ui)
  *
  * Groups warnings into two lanes:
  *   - `blocking`: Tier R rules that fail if counts rise, and must be promoted
@@ -16,13 +16,8 @@
 import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  axisValues,
-  HARNESS_ROOT,
-  tagsOf,
-  WORKSPACE_ROOT,
-  workspacePackages,
-} from "./workspace.ts";
+import { typecheckProjectDirs } from "./scopes.ts";
+import { HARNESS_ROOT, rootManifest, WORKSPACE_ROOT } from "./workspace.ts";
 
 export const BASELINE_PATH = join(HARNESS_ROOT, "lint-warn-baseline.json");
 
@@ -46,51 +41,31 @@ export interface TsgoDiagnostic {
   file?: string;
 }
 
-/** `packages/<name>/src/**`, capturing the package directory. */
-const PACKAGE_SRC_FILE = /(?:^|\/)packages\/([^/]+)\/src\//;
-
-/**
- * Packages whose `src/` is a script, not kb: the Effect-native preference
- * lane does not describe how a build script should be written, so the scope
- * follows the `scope:tooling` tag the package already carries.
- */
-function toolingPackageDirs(): Set<string> {
-  return new Set(
-    workspacePackages()
-      .filter(({ manifest }) => axisValues(tagsOf(manifest), "scope").includes("tooling"))
-      .map(({ dir }) => dir),
-  );
-}
+/** A file under some package's `src/`. */
+const PACKAGE_SRC_FILE = /(?:^|\/)packages\/[^/]+\/src\//;
 
 /**
  * Which `@effect/tsgo` diagnostics the ratchet counts (DESIGN.md, "Ratchet
  * scope"). Correctness-severity diagnostics count wherever they appear;
  * suggestion-severity ones (Effect-native preferences, emitted as `message`)
- * count only under the `src/` of a package that is kb rather than tooling,
- * because they describe how production code should be written and neither a
- * test callback nor a build script is that code.
+ * count only under a package's `src/`, because they describe how production
+ * code should be written and a test callback is not that code.
  */
-export function countsTowardRatchet(
-  diagnostic: TsgoDiagnostic,
-  toolingDirs: ReadonlySet<string> = toolingPackageDirs(),
-): boolean {
+export function countsTowardRatchet(diagnostic: TsgoDiagnostic): boolean {
   if (diagnostic.name === undefined || diagnostic.name === "") return false;
   if (diagnostic.severity === "warning") return true;
   if (diagnostic.severity !== "message") return false;
   if (diagnostic.file === undefined) return false;
-  const match = PACKAGE_SRC_FILE.exec(diagnostic.file);
-  if (match === null) return false;
-  return !toolingDirs.has(String(match[1]));
+  return PACKAGE_SRC_FILE.test(diagnostic.file);
 }
 
 /** Group one project's tsgo diagnostics into `effect/<name>` ratchet counts. */
 export function tsgoDiagnosticCounts(
   diagnostics: readonly TsgoDiagnostic[],
-  toolingDirs: ReadonlySet<string> = toolingPackageDirs(),
 ): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const d of diagnostics) {
-    if (!countsTowardRatchet(d, toolingDirs)) continue;
+    if (!countsTowardRatchet(d)) continue;
     const rule = `effect/${String(d.name)}`;
     counts[rule] = (counts[rule] ?? 0) + 1;
   }
@@ -113,17 +88,27 @@ function stdoutOf(err: unknown): string {
   return "";
 }
 
+/**
+ * The lint scope is authored once, in the root `lint` script — the same string
+ * `lint-scope-coverage` proves covers every file. The ledger measures what the
+ * gate lints, so it runs that script rather than restating its arguments.
+ */
+function oxlintCommand(): string {
+  const lint = rootManifest().scripts?.lint;
+  if (lint === undefined || lint === "") {
+    throw new Error("root package.json has no scripts.lint to derive the ledger's scope from");
+  }
+  return `node_modules/.bin/${lint} --format json`;
+}
+
 function collectOxlintWarnings(root: string, counts: Record<string, number>): void {
   let oxlintOut = "";
   try {
-    oxlintOut = execSync(
-      "node_modules/.bin/oxlint --config .oxlintrc.json --type-aware packages --format json",
-      {
-        cwd: root,
-        maxBuffer: 50 * 1024 * 1024,
-        encoding: "utf8",
-      },
-    );
+    oxlintOut = execSync(oxlintCommand(), {
+      cwd: root,
+      maxBuffer: 50 * 1024 * 1024,
+      encoding: "utf8",
+    });
   } catch (err: unknown) {
     oxlintOut = stdoutOf(err);
   }
@@ -143,13 +128,12 @@ function collectOxlintWarnings(root: string, counts: Record<string, number>): vo
 }
 
 function collectTsgoWarnings(root: string, counts: Record<string, number>): void {
-  const pkgs = workspacePackages();
-  for (const { dir } of pkgs) {
-    if (dir === "ui") continue;
+  for (const dir of typecheckProjectDirs()) {
+    if (dir === "packages/ui") continue;
     let tsgoOut = "";
     try {
       tsgoOut = execSync(
-        `node_modules/.bin/effect-tsgo diagnostics --project packages/${dir}/tsconfig.json --format json`,
+        `node_modules/.bin/effect-tsgo diagnostics --project ${dir}/tsconfig.json --format json`,
         {
           cwd: root,
           encoding: "utf8",

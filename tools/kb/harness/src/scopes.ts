@@ -81,7 +81,7 @@ export function missingScopes(scopes: readonly PathScope[]): string[] {
  * member. Stated as data so a gate asking "which files does `tsc -p` see" reads
  * the list instead of assuming everything lives under `packages/`.
  */
-function typecheckProjectDirs(): string[] {
+export function typecheckProjectDirs(): string[] {
   return [...workspacePackages().map(({ dir }) => `packages/${dir}`), "harness"];
 }
 

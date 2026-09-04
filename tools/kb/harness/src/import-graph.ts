@@ -49,16 +49,27 @@ export interface ImportEdge {
   file: string;
 }
 
-function* sourceFiles(dir: string): Generator<string> {
+/** Every `.ts`/`.tsx` file under a directory, derived output skipped. */
+export function* sourceFilesUnder(dir: string): Generator<string> {
   for (const entry of readdirSync(dir)) {
     if (SKIP_DIRS.has(entry)) continue;
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
-      yield* sourceFiles(full);
+      yield* sourceFilesUnder(full);
     } else if (SOURCE_EXT.some((ext) => entry.endsWith(ext))) {
       yield full;
     }
   }
+}
+
+/** Every module specifier one source file imports from. */
+export function specifiersOf(source: string): string[] {
+  const out: string[] = [];
+  for (const match of stripComments(source).matchAll(SPECIFIER)) {
+    const specifier = match[2];
+    if (specifier !== undefined) out.push(specifier);
+  }
+  return out;
 }
 
 let cached: ImportSite[] | undefined;
@@ -69,11 +80,8 @@ export function importSites(): ImportSite[] {
   const sites: ImportSite[] = [];
   for (const dir of packageDirs()) {
     const source = `@kb/${dir}`;
-    for (const file of sourceFiles(join(PACKAGES_ROOT, dir))) {
-      const body = stripComments(readFileSync(file, "utf8"));
-      for (const match of body.matchAll(SPECIFIER)) {
-        const specifier = match[2];
-        if (specifier === undefined) continue;
+    for (const file of sourceFilesUnder(join(PACKAGES_ROOT, dir))) {
+      for (const specifier of specifiersOf(readFileSync(file, "utf8"))) {
         sites.push({ source, specifier, file: file.slice(PACKAGES_ROOT.length + 1) });
       }
     }
