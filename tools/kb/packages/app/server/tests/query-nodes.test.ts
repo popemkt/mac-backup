@@ -155,7 +155,7 @@ describe("W4 saved-query surfacing via kb ui server", () => {
     const jsonlAfter = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");
     expect(jsonlAfter).not.toContain("sys.query.");
 
-    // Live subscription sees materialized query nodes through ctx.qdb.
+    // Live subscription sees materialized query nodes through ctx.index.
     const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/ws`);
     await new Promise<void>((resolve, reject) => {
       ws.addEventListener("open", () => resolve());

@@ -25,11 +25,11 @@ Base: `main` after the t3 merge (`144baf0` or later).
 
 | id | brief | harness | depends on | owns |
 |---|---|---|---|---|
-| p1a | `briefs/p1a-store-baseline.md` | codex | — | `packages/infrastructure/store-jsonl/**`, `packages/domain/model/src/**` (schema only), `.gitignore`, DESIGN.md §Performance and the "conn" wording in DESIGN-UI.md, `reports/p1-baseline.md` |
-| p1b | `briefs/p1b-kbindex-port.md` | claude (opus, high) | — (its commit 1 unblocks p1c) | new `packages/domain/query/src/index/**`; the **builder half** of `packages/domain/query/src/datascript.ts` (moved out in commit 1); `packages/contract/contracts/src/session.ts`; `packages/application/operations/**`; `packages/app/runtime/**`; `packages/app/server/src/{session,http}.ts`; `packages/app/cli/**`; `packages/app/mcp/**`; `packages/app/test-kit/**` and the tests that build a `QueryDb` |
-| p1c | `briefs/p1c-query-ir.md` | cursor (grok 4.6 high) | p1b commit 1 merged to the integration branch | new `packages/domain/query/src/ir/**`; the **query-execution half** of `datascript.ts` (`normalizeEdnQuery`, `query`, `queryRows`, `pull`, revival, rules); `packages/app/ui/src/ds/query.ts` + its test |
+| p1a | `briefs/p1a-store-baseline.md` | codex | — → merged `e6ca561` | `packages/infrastructure/store-jsonl/**`, `packages/domain/model/src/**` (schema only), `.gitignore`, DESIGN.md §Performance and the "conn" wording in DESIGN-UI.md, `reports/p1-baseline.md` |
+| p1b | `briefs/p1b-kbindex-port.md` | claude (opus, high) | — (its commit 1 unblocks p1c) → merged `400d435` (last, after p1a+p1c+r1) | new `packages/domain/query/src/index/**`; the **builder half** of `packages/domain/query/src/datascript.ts` (moved out in commit 1); `packages/contract/contracts/src/session.ts`; `packages/application/operations/**`; `packages/app/runtime/**`; `packages/app/server/src/{session,http}.ts`; `packages/app/cli/**`; `packages/app/mcp/**`; `packages/app/test-kit/**` and the tests that build a `QueryDb` |
+| p1c | `briefs/p1c-query-ir.md` | cursor (grok 4.6 high) | p1b commit 1 merged to the integration branch → merged `50695be`; fix-up p1c-fix merged `954d02f` | new `packages/domain/query/src/ir/**`; the **query-execution half** of `datascript.ts` (`normalizeEdnQuery`, `query`, `queryRows`, `pull`, revival, rules); `packages/app/ui/src/ds/query.ts` + its test |
 
-| r1 | `briefs/r1-review-cleanup.md` | codex | — (base `main`; merges after p1c) | `tools/kb/harness/**`, `tools/kb/package.json` scripts, knip config, `.oxlintrc.json`, `server/src/build.ts`, `ui/ARCHITECTURE.md`, three UI files' directive lines, `ext-docs/**`, DESIGN.md non-Performance wording, `docs/ci.md`, kb nodes via CLI |
+| r1 | `briefs/r1-review-cleanup.md` | codex | — (base `main`; merges after p1c) → merged `66fd302`; promotion check restored on main `131ab86` | `tools/kb/harness/**`, `tools/kb/package.json` scripts, knip config, `.oxlintrc.json`, `server/src/build.ts`, `ui/ARCHITECTURE.md`, three UI files' directive lines, `ext-docs/**`, DESIGN.md non-Performance wording, `docs/ci.md`, kb nodes via CLI |
 
 Sequencing: p1a and p1b start together. p1b's first commit is a
 behaviour-preserving split of `datascript.ts` into builder (`index/datoms.ts`)
@@ -55,3 +55,34 @@ wave's `reports/`, never at the repo root.
 - Phase 4 benchmarks as gates: after p1a's baseline and p1b's port.
 - The FOD fragility from t3 (`pkgs/kb` hashes move with the ambient `bun`): a
   `#gap` for the owner to decide, not a wave.
+
+## Close-out (2026-09-05, early)
+
+All five branches merged to `main`; every merge ran `bun run verify` in
+pre-commit and the final head passed `bun test packages` (363), `bun run
+test:ui` (631) and `bun run harness` (63). Each merge was reviewed against
+Rule 1 and the brief before landing; the review findings and what happened to
+them:
+
+| wave | verdict | acted on |
+|---|---|---|
+| p1a | merge-quality; `Schema.optional` → `optionalKey` for `order` | fixed on main `9d8e111` |
+| p1c | **not** merge-quality: regex child-order rewrite duplicated the IR collapse; four-constant "generated corpus"; rule-clause vars untyped; `runIr` inputs unnormalised | `briefs/p1c-fix-one-collapse.md` (cursor) → merged `954d02f` |
+| r1 | merge-quality except the exact-match ratchet dropped the promote-at-zero half of the two-mechanism rule | restored in `harness/src/ratchet.ts` `131ab86` |
+| p1b | merge-quality; two stale comments | fixed on main with this close-out |
+
+Other coordinator commits this wave: `781ec02` kb development notes move to
+`tools/kb/AGENTS.md`; `57ae60d` r1 added after the owner verified the codex
+governance review (now committed at
+`docs/kb/waves/2026-09-04/reports/kb-comprehensive-architecture-governance-review.md`).
+
+Harness notes for next time: codex blocks on its own update prompt (skip it once
+in Orca's managed codex home); cursor blocks on a per-worktree trust prompt and
+Orca's paste does not submit (send Enter); Orca then records the dispatch as
+failed even though the worker runs, so track cursor by branch. Workers finish
+before reading late coordinator messages; send review fix-ups as a new task,
+not a mailbox note.
+
+Next wave: `docs/kb/waves/2026-09-06/plan.md` — `run(ir)` on the port and the
+browser as a `DatascriptIndex` replica; the tx log; operations shared so the UI
+invokes actions locally; then the replica store and `SqliteStore`.

@@ -51,7 +51,7 @@ export interface KbIndex {
 
   /**
    * The stored projection: everything except the virtual set. This is what
-   * persist, transaction integrity and the WS snapshot operate on, and the
+   * persist, transaction integrity and the hub's broadcast diff baseline operate on, and the
    * reason the rule "a virtual node must never reach the store" is enforced
    * by the index rather than remembered at three call sites.
    */
