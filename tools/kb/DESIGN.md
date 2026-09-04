@@ -98,6 +98,13 @@ scope gets the Bun one — and declares a compiler option only when
 `SANCTIONED_TSCONFIG_DELTAS` in `@kb/harness` records why it cannot be
 inherited (today: `@kb/render-tests`'s DOM `lib`, `@kb/ui`'s `@/*` `paths`).
 
+The contract only reaches a file some `tsc -p` project includes, so harness
+check `typecheck-scope` asserts that every TypeScript file under `tools/kb`
+falls in exactly one package tsconfig `include` — the same question
+`lint-scope-coverage` asks of the lint scopes, asked through the same reader.
+A package that grows a directory and forgets to include it would otherwise
+keep a green `bun run typecheck` over code nothing checks.
+
 The table below is the single source of truth for strictness; harness check
 `tsconfig-contract` parses it live and asserts `tsconfig.base.json` matches it
 bit-for-bit, that neither preset redeclares a base flag, and that no package

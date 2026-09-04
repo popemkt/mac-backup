@@ -12,7 +12,13 @@
  */
 import { existsSync } from "node:fs";
 import { join, normalize } from "node:path";
-import { WORKSPACE_ROOT, gitWorkspaceFiles } from "./workspace.ts";
+import {
+  PACKAGES_ROOT,
+  WORKSPACE_ROOT,
+  gitWorkspaceFiles,
+  readTsconfig,
+  workspacePackages,
+} from "./workspace.ts";
 
 /** One scope plus the config line that authored it, for the failure message. */
 export interface PathScope {
@@ -73,4 +79,32 @@ export function missingScopes(scopes: readonly PathScope[]): string[] {
   return scopes
     .filter(({ path }) => !existsSync(join(WORKSPACE_ROOT, path)))
     .map(({ path, source }) => `${path} (${source}) does not exist`);
+}
+
+/**
+ * The typecheck scopes: every package tsconfig's `include` entries, resolved
+ * against the package directory. `tsc -p` is the only thing that reads them,
+ * so a file outside every one of them is typechecked by nothing — no strict
+ * flag, no Effect diagnostic, no promotion reaches it.
+ *
+ * An `include` entry carrying a glob character is rejected rather than
+ * approximated: this reader is a prefix matcher, and a glob it cannot expand
+ * would make it silently under-report.
+ */
+export function typecheckScopes(): PathScope[] {
+  const scopes: PathScope[] = [];
+  for (const { dir } of workspacePackages()) {
+    const source = `packages/${dir}/tsconfig.json`;
+    const path = join(PACKAGES_ROOT, dir, "tsconfig.json");
+    if (!existsSync(path)) continue;
+    for (const include of readTsconfig(path).include ?? []) {
+      if (/[*?[\]]/.test(include)) {
+        throw new Error(
+          `${source}: include entry '${include}' is a glob; typecheckScopes reads plain paths`,
+        );
+      }
+      scopes.push({ path: `packages/${dir}/${include}`, source });
+    }
+  }
+  return scopes;
 }
