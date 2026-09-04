@@ -1,4 +1,6 @@
 import { describe, expect, test, afterEach } from "bun:test";
+import { Effect } from "effect";
+import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { openKb, invoke, registryFor, resetRegistryCache } from "@kb/runtime";
@@ -73,7 +75,9 @@ describe("extension loading", () => {
       expect(receipt.output).toEqual({ message: "hello kb" });
     }
 
-    const registry = await registryFor(root);
+    const registry = await Effect.runPromise(
+      registryFor(root).pipe(Effect.provide(bunFileSystemLayer)),
+    );
     const ids = registry.manifestEntries.map((e) => e.id);
     expect(ids).toContain("ext.hello.greet");
     const hello = registry.extensions.find((e) => e.name === "hello");
@@ -87,7 +91,9 @@ describe("extension loading", () => {
     await writeExtension(root, "hello.ts", HELLO_EXT);
     const ctx = await openKb(root);
 
-    const registry = await registryFor(root);
+    const registry = await Effect.runPromise(
+      registryFor(root).pipe(Effect.provide(bunFileSystemLayer)),
+    );
     expect(registry.failures.map((f) => f.file).toSorted()).toEqual(["broken.ts", "shapeless.ts"]);
 
     const greet = await invoke(ctx, { id: "ext.hello.greet", input: {} });
@@ -130,7 +136,9 @@ describe("bundled docs extension", () => {
     });
     expect(materialize.status).toBe("succeeded");
 
-    const registry = await registryFor(root);
+    const registry = await Effect.runPromise(
+      registryFor(root).pipe(Effect.provide(bunFileSystemLayer)),
+    );
     const alias = registry.manifestEntries.find((e) => e.id === "docs.check");
     expect(alias?.aliasOf).toBe("ext.docs.check");
   });

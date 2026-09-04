@@ -119,7 +119,7 @@ describe("MCP Effect surface", () => {
     expect(unknownBody.code).toBe("unknown_action");
 
     // Register node.get via a real server tool map entry shape.
-    const live = await createMcpServer(root);
+    const live = await Effect.runPromise(createMcpServer(root));
     await live.close();
     const viaReceipt = await Effect.runPromise(
       invokeReceiptEffect(ctx, {
@@ -240,7 +240,7 @@ describe("MCP Effect surface", () => {
 
   test("resource Fail surfaces as McpError -32603 to the client", async () => {
     root = await tempRoot();
-    const server = await createMcpServer(root);
+    const server = await Effect.runPromise(createMcpServer(root));
     const client = new Client({ name: "surface-effect", version: "0.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
@@ -276,7 +276,7 @@ export default [{
 `,
     );
     resetRegistryCache();
-    const server = await createMcpServer(root);
+    const server = await Effect.runPromise(createMcpServer(root));
     const client = new Client({ name: "surface-effect", version: "0.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
@@ -304,7 +304,7 @@ export default [{
 
   test("render_view advertised inputSchema accepts null format", async () => {
     root = await tempRoot();
-    const server = await createMcpServer(root);
+    const server = await Effect.runPromise(createMcpServer(root));
     const client = new Client({ name: "surface-effect", version: "0.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
@@ -339,7 +339,7 @@ export default [{
       }).pipe(Effect.provide(kbRuntimeLayer(ctx))),
     );
 
-    const server = await createMcpServer(root);
+    const server = await Effect.runPromise(createMcpServer(root));
     const client = new Client({ name: "surface-effect", version: "0.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);

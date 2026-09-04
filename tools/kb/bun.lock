@@ -94,7 +94,11 @@
     "packages/ext-sdk": {
       "name": "@kb/ext-sdk",
       "version": "0.0.0",
+      "dependencies": {
+        "effect": "catalog:",
+      },
       "devDependencies": {
+        "@effect/platform-bun": "catalog:",
         "@types/bun": "catalog:",
         "typescript": "catalog:",
       },

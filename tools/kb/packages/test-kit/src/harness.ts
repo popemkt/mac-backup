@@ -13,6 +13,7 @@ import {
   migrateOrderKeys,
   canonicalJson,
   present,
+  type DomainError,
 } from "@kb/model";
 import {
   mapAdd,
@@ -491,14 +492,14 @@ export interface ScenarioResult {
  *   3. after every op, snapshot off disk and assert the invariants continuously
  *   4. the caller asserts byte-identical replay (same seed → same json)
  */
-export async function runScenario(
+export const runScenario = Effect.fn("kb.runScenario")(function* (
   seed: string,
   opts: { ops?: number; base?: number; step?: number } = {},
-): Promise<ScenarioResult> {
+): Effect.fn.Return<ScenarioResult, DomainError> {
   const opsCount = opts.ops ?? 60;
   const base = opts.base ?? BASE_EPOCH;
   const step = opts.step ?? 1000;
-  const root = await mkdtemp(join(tmpdir(), "kb-dst-"));
+  const root = yield* Effect.promise(() => mkdtemp(join(tmpdir(), "kb-dst-")));
   const violations: string[] = [];
   let applied = 0;
 
@@ -561,15 +562,17 @@ export async function runScenario(
     Effect.provideService(Clock.Clock, seededClock(base, step)),
   );
 
-  await Effect.runPromise(program);
+  yield* program;
 
   const snap = snapshotSync(root);
   return { seed, root, json: snap.json, nodes: snap.nodes, ops: applied, violations };
-}
+});
 
-export async function cleanup(result: ScenarioResult): Promise<void> {
-  await rm(result.root, { recursive: true, force: true });
-}
+export const cleanup = Effect.fn("kb.cleanupScenario")(function* (
+  result: ScenarioResult,
+): Effect.fn.Return<void> {
+  yield* Effect.promise(() => rm(result.root, { recursive: true, force: true }));
+});
 
 /** Committed set of seeds that always run in CI. */
 export const COMMITTED_SEEDS = ["dst-0", "dst-1", "dst-2", "dst-3"];

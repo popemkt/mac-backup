@@ -38,7 +38,9 @@ async function makeRoot(): Promise<string> {
 
 describe("Effect-native action registry", () => {
   test("core + bundled actions register effect and no Promise handler", async () => {
-    const registry = await registryFor(null);
+    const registry = await Effect.runPromise(
+      registryFor(null).pipe(Effect.provide(bunFileSystemLayer)),
+    );
     const owned = registry.actions.filter(
       (a) => a.source === "core" || a.source === "ext:docs" || a.source === "ext:canvas",
     );
@@ -107,7 +109,9 @@ export default actions;
       expect(boom.message).toBe("legacy boom");
     }
 
-    const registry = await registryFor(root);
+    const registry = await Effect.runPromise(
+      registryFor(root).pipe(Effect.provide(bunFileSystemLayer)),
+    );
     const legacy = registry.byId.get("ext.legacy.ok");
     expect(legacy?.effect).toBeUndefined();
     expect(legacy?.handler).toBeTypeOf("function");

@@ -11,8 +11,9 @@ import {
   type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import { Cause, Effect, Exit, Schema } from "effect";
+import type { FileSystem } from "effect/FileSystem";
 import type { KbContext, ActionInvocation } from "@kb/contracts";
-import { domainError } from "@kb/model";
+import { type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect, listViewNamesEffect, renderNamedViewEffect } from "@kb/operations";
 import {
   invokeReceiptEffect,
@@ -20,6 +21,7 @@ import {
   openKbEffect,
   registryFor,
   resolveRootEffect,
+  type RootNotFoundError,
   writeErr,
   type ManifestEntry,
 } from "@kb/runtime";
@@ -194,22 +196,25 @@ const readResourceEffect = Effect.fn("mcp.readResource")(function* (ctx: KbConte
  * error. Interrupt-only causes propagate as FiberFailure rejects — they are
  * not rewritten into -32603.
  */
-export async function runResourceHandler<A, E>(effect: Effect.Effect<A, E>): Promise<A> {
-  const exit = await Effect.runPromiseExit(effect);
-  if (Exit.isSuccess(exit)) return exit.value;
-  if (Cause.hasInterruptsOnly(exit.cause)) {
-    return Effect.runPromise(Effect.failCause(exit.cause));
-  }
-  throw mcpInternalError(exit.cause);
+export function runResourceHandler<A, E>(effect: Effect.Effect<A, E>): Promise<A> {
+  return Effect.runPromiseExit(effect).then((exit) => {
+    if (Exit.isSuccess(exit)) return exit.value;
+    if (Cause.hasInterruptsOnly(exit.cause)) {
+      return Effect.runPromise(Effect.failCause(exit.cause));
+    }
+    throw mcpInternalError(exit.cause);
+  });
 }
 
 /**
  * Build an MCP server bound to a kb root. Does not connect a transport —
  * callers connect stdio (startMcp) or InMemoryTransport (tests).
  */
-export async function createMcpServer(root: string): Promise<Server> {
-  const ctx = await Effect.runPromise(openKbEffect(root).pipe(Effect.provide(bunFileSystemLayer)));
-  const actions = (await registryFor(root)).manifestEntries;
+export const createMcpServer = Effect.fn("kb.createMcpServer")(function* (
+  root: string,
+): Effect.fn.Return<Server, DomainError, FileSystem> {
+  const ctx = yield* openKbEffect(root);
+  const actions = (yield* registryFor(root)).manifestEntries;
   const byToolName = new Map(actions.map((a) => [actionIdToToolName(a.id), a] as const));
   const toolsCtx: McpToolContext = { actions, byToolName };
 
@@ -270,6 +275,15 @@ export async function createMcpServer(root: string): Promise<Server> {
     },
   ];
 
+  return bindMcpHandlers(ctx, tools, toolsCtx);
+}, Effect.provide(bunFileSystemLayer));
+
+/**
+ * The MCP SDK boundary. Every request handler must hand the SDK a promise, so
+ * this is where kb's Effects are run — a plain function beside the builder,
+ * not inside it.
+ */
+function bindMcpHandlers(ctx: KbContext, tools: Tool[], toolsCtx: McpToolContext) {
   const server = new Server(
     { name: "kb", version: "0.1.0" },
     { capabilities: { tools: {}, resources: {} } },
@@ -278,17 +292,17 @@ export async function createMcpServer(root: string): Promise<Server> {
   server.setRequestHandler(ListToolsRequestSchema, () => ({ tools }));
 
   // MCP Apps backbone: each saved view is a ui:// html resource.
-  server.setRequestHandler(ListResourcesRequestSchema, async () =>
+  server.setRequestHandler(ListResourcesRequestSchema, () =>
     runResourceHandler(listResourcesEffect(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx)))),
   );
 
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) =>
+  server.setRequestHandler(ReadResourceRequestSchema, (request) =>
     runResourceHandler(
       readResourceEffect(ctx, request.params.uri).pipe(Effect.provide(kbRuntimeLayer(ctx))),
     ),
   );
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  server.setRequestHandler(CallToolRequestSchema, (request) => {
     const { name, arguments: args } = request.params;
     // callToolEffect provides kbRuntimeLayer and maps Fail/Die → isError.
     return Effect.runPromise(callToolEffect(ctx, name, args, toolsCtx));
@@ -301,32 +315,46 @@ export async function createMcpServer(root: string): Promise<Server> {
  * Start the kb MCP server on stdio for the given data root.
  * Safe for CLI `kb mcp` to call without importing commander.
  */
-export async function startMcp(root: string): Promise<void> {
-  const server = await createMcpServer(root);
+export const startMcp = Effect.fn("kb.startMcp")(function* (
+  root: string,
+): Effect.fn.Return<void, DomainError, FileSystem> {
+  const server = yield* createMcpServer(root);
   const transport = new StdioServerTransport();
-  await server.connect(transport);
-}
+  yield* Effect.tryPromise({
+    try: () => server.connect(transport),
+    catch: ensureDomainError,
+  });
+});
 
-async function parseRoot(argv: string[]): Promise<string> {
+const parseRoot = Effect.fn("kb.mcp.parseRoot")(function* (
+  argv: string[],
+): Effect.fn.Return<string, DomainError | RootNotFoundError, FileSystem> {
   const idx = argv.indexOf("--root");
   if (idx >= 0) {
     const value = argv[idx + 1];
     if (value === undefined || value === "" || value.startsWith("-")) {
-      throw new Error("missing value for --root");
+      return yield* domainError("invalid_input", "missing value for --root");
     }
     return value;
   }
   // MCP clients launch with cwd = project dir; walk upward to find .kb/.
-  return Effect.runPromise(resolveRootEffect().pipe(Effect.provide(bunFileSystemLayer)));
-}
+  return yield* resolveRootEffect();
+});
 
 if (import.meta.main) {
-  try {
-    const root = await parseRoot(process.argv.slice(2));
-    await startMcp(root);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    writeErr(`kb mcp: ${message}`);
-    process.exit(1);
-  }
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const root = yield* parseRoot(process.argv.slice(2));
+      yield* startMcp(root);
+    }).pipe(
+      Effect.provide(bunFileSystemLayer),
+      Effect.catchCause((cause) =>
+        Effect.sync(() => {
+          const err: unknown = Cause.squash(cause);
+          writeErr(`kb mcp: ${err instanceof Error ? err.message : String(err)}`);
+          process.exit(1);
+        }),
+      ),
+    ),
+  );
 }

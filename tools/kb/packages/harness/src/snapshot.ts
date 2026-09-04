@@ -16,7 +16,7 @@
 import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { WORKSPACE_ROOT, workspacePackages } from "./workspace.ts";
+import { axisValues, tagsOf, WORKSPACE_ROOT, workspacePackages } from "./workspace.ts";
 
 export const BASELINE_PATH = join(WORKSPACE_ROOT, "packages", "harness", "lint-warn-baseline.json");
 
@@ -40,30 +40,51 @@ export interface TsgoDiagnostic {
   file?: string;
 }
 
-/** `packages/<name>/src/**` — the files the Effect suggestion lane governs. */
-const SRC_FILE = /(?:^|\/)packages\/[^/]+\/src\//;
+/** `packages/<name>/src/**`, capturing the package directory. */
+const PACKAGE_SRC_FILE = /(?:^|\/)packages\/([^/]+)\/src\//;
+
+/**
+ * Packages whose `src/` is a script, not kb: the Effect-native preference
+ * lane does not describe how a build script should be written, so the scope
+ * follows the `scope:tooling` tag the package already carries.
+ */
+function toolingPackageDirs(): Set<string> {
+  return new Set(
+    workspacePackages()
+      .filter(({ manifest }) => axisValues(tagsOf(manifest), "scope").includes("tooling"))
+      .map(({ dir }) => dir),
+  );
+}
 
 /**
  * Which `@effect/tsgo` diagnostics the ratchet counts (DESIGN.md, "Ratchet
  * scope"). Correctness-severity diagnostics count wherever they appear;
  * suggestion-severity ones (Effect-native preferences, emitted as `message`)
- * count only under a package's `src/`, because they describe how production
- * code should be written and a test callback is not that code.
+ * count only under the `src/` of a package that is kb rather than tooling,
+ * because they describe how production code should be written and neither a
+ * test callback nor a build script is that code.
  */
-export function countsTowardRatchet(diagnostic: TsgoDiagnostic): boolean {
+export function countsTowardRatchet(
+  diagnostic: TsgoDiagnostic,
+  toolingDirs: ReadonlySet<string> = toolingPackageDirs(),
+): boolean {
   if (diagnostic.name === undefined || diagnostic.name === "") return false;
   if (diagnostic.severity === "warning") return true;
   if (diagnostic.severity !== "message") return false;
-  return diagnostic.file !== undefined && SRC_FILE.test(diagnostic.file);
+  if (diagnostic.file === undefined) return false;
+  const match = PACKAGE_SRC_FILE.exec(diagnostic.file);
+  if (match === null) return false;
+  return !toolingDirs.has(String(match[1]));
 }
 
 /** Group one project's tsgo diagnostics into `effect/<name>` ratchet counts. */
 export function tsgoDiagnosticCounts(
   diagnostics: readonly TsgoDiagnostic[],
+  toolingDirs: ReadonlySet<string> = toolingPackageDirs(),
 ): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const d of diagnostics) {
-    if (!countsTowardRatchet(d)) continue;
+    if (!countsTowardRatchet(d, toolingDirs)) continue;
     const rule = `effect/${String(d.name)}`;
     counts[rule] = (counts[rule] ?? 0) + 1;
   }

@@ -47,7 +47,9 @@ export {
   ActionSchemaError,
   isActionSchema,
   isStandardSchemaV1,
+  isZodError,
   parseActionInput,
+  schemaFailure,
   schemaToJsonSchema,
 } from "./schema-seam.ts";
 export type { ActionSchema } from "./schema-seam.ts";

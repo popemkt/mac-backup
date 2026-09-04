@@ -3,6 +3,7 @@
  * Prints a one-line result per seed; any violation prints seed + op index so
  * it is a one-line reproduction (the seed alone reproduces the history).
  */
+import { Effect } from "effect";
 import { runScenario, cleanup, COMMITTED_SEEDS } from "../src/harness.ts";
 
 const count = Number(process.argv[2] ?? 24);
@@ -11,7 +12,7 @@ const all = [...COMMITTED_SEEDS, ...seeds];
 
 let failures = 0;
 for (const seed of all) {
-  const r = await runScenario(seed, { ops: 60 });
+  const r = await Effect.runPromise(runScenario(seed, { ops: 60 }));
   if (r.violations.length > 0) {
     failures += 1;
     console.error(`FAIL seed=${seed} ops=${r.ops}`);
@@ -19,7 +20,7 @@ for (const seed of all) {
   } else {
     console.log(`ok   seed=${seed} ops=${r.ops} nodes=${r.nodes.length} bytes=${r.json.length}`);
   }
-  await cleanup(r);
+  await Effect.runPromise(cleanup(r));
 }
 
 console.log(

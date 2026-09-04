@@ -1,4 +1,5 @@
 import { describe, expect, test, afterEach } from "bun:test";
+import { Effect } from "effect";
 import {
   runScenario,
   cleanup,
@@ -13,12 +14,12 @@ import {
 
 const done: ScenarioResult[] = [];
 afterEach(async () => {
-  for (const r of done) await cleanup(r).catch(() => {});
+  for (const r of done) await Effect.runPromise(cleanup(r)).catch(() => {});
   done.length = 0;
 });
 
 async function run(seed: string, opts?: { ops?: number }): Promise<ScenarioResult> {
-  const r = await runScenario(seed, opts);
+  const r = await Effect.runPromise(runScenario(seed, opts));
   done.push(r);
   return r;
 }
@@ -115,7 +116,7 @@ describe("DST — deliberate defect is caught with seed + op index", () => {
     // broken store. The harness reports `op#N (seed S)` so the failure is a
     // single line. The committed harness is green; the red evidence is in the
     // handoff report. Here we only assert the reporting shape is usable.
-    const r = await runScenario("dst-5", { ops: 5 });
+    const r = await Effect.runPromise(runScenario("dst-5", { ops: 5 }));
     done.push(r);
     expect(r.seed).toBe("dst-5");
     for (const v of r.violations) {

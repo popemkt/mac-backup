@@ -1,4 +1,7 @@
+import { Effect } from "effect";
 import { z } from "zod";
+import { type DomainError, domainFromResolve, isDomainError } from "./errors.ts";
+import { ResolveError } from "./resolve.ts";
 
 /**
  * Standard Schema v1 compatibility seam for action input/output schemas.
@@ -67,20 +70,42 @@ export class ActionSchemaError extends Error {
   }
 }
 
+/** A thrown zod failure, recognised structurally so zod stays one import. */
+export function isZodError(err: unknown): err is Error & { issues: unknown } {
+  return typeof err === "object" && err !== null && (err as { name?: string }).name === "ZodError";
+}
+
+/** Name a schema failure: the one mapping from a thrown value to a typed one. */
+export function schemaFailure(err: unknown): ActionSchemaError | DomainError {
+  if (err instanceof ActionSchemaError) return err;
+  if (isZodError(err)) return new ActionSchemaError(err.message, [{ message: err.message }]);
+  if (err instanceof ResolveError) return domainFromResolve(err);
+  if (isDomainError(err)) return err;
+  const message = err instanceof Error ? err.message : String(err);
+  return new ActionSchemaError(message, [{ message }]);
+}
+
 /**
  * Parse action input via Standard Schema v1 when present, else `.parse`.
- * Throws ActionSchemaError (or the underlying zod ZodError) on failure.
+ * Fails with the typed {@link schemaFailure} of whatever the schema raised.
  */
-export async function parseActionInput(schema: ActionSchema, input: unknown): Promise<unknown> {
+export const parseActionInput = Effect.fn("kb.parseActionInput")(function* (
+  schema: ActionSchema,
+  input: unknown,
+): Effect.fn.Return<unknown, ActionSchemaError | DomainError> {
   if (isStandardSchemaV1(schema)) {
-    const result = await schema["~standard"].validate(input);
+    const result = yield* Effect.promise(() =>
+      Promise.resolve(schema["~standard"].validate(input)),
+    );
     if (result.issues && result.issues.length > 0) {
-      throw new ActionSchemaError(result.issues.map((i) => i.message).join("; "), result.issues);
+      return yield* Effect.fail(
+        new ActionSchemaError(result.issues.map((i) => i.message).join("; "), result.issues),
+      );
     }
     return result.value;
   }
-  return schema.parse(input);
-}
+  return yield* Effect.try({ try: () => schema.parse(input), catch: schemaFailure });
+});
 
 /** JSON Schema for manifests — zod via z.toJSONSchema; else a permissive object. */
 export function schemaToJsonSchema(schema: ActionSchema): unknown {

@@ -6,7 +6,12 @@ import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createMcpServer } from "../src/mcp.ts";
+import { Effect } from "effect";
+import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { manifest } from "@kb/runtime";
+
+const run = <A, E, R>(effect: Effect.Effect<A, E, R>): Promise<A> =>
+  Effect.runPromise(effect.pipe(Effect.provide(bunFileSystemLayer)) as Effect.Effect<A, E>);
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-mcp-"));
@@ -24,7 +29,7 @@ describe("MCP surface", () => {
   });
 
   test("lists action tools plus kb_manifest; node_add then graph_query", async () => {
-    const server = await createMcpServer(root);
+    const server = await run(createMcpServer(root));
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
@@ -33,7 +38,7 @@ describe("MCP surface", () => {
     const listed = await client.listTools();
     const names = new Set(listed.tools.map((t) => t.name));
     expect(names.has("kb_manifest")).toBe(true);
-    for (const entry of await manifest(root)) {
+    for (const entry of await run(manifest(root))) {
       expect(names.has(entry.id.replaceAll(".", "_"))).toBe(true);
     }
 
@@ -84,7 +89,7 @@ describe("MCP surface", () => {
   });
 
   test("failed action returns isError with code+message, never throws", async () => {
-    const server = await createMcpServer(root);
+    const server = await run(createMcpServer(root));
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
@@ -108,7 +113,7 @@ describe("MCP surface", () => {
   });
 
   test("graph_query with malformed EDN returns isError invalid_input", async () => {
-    const server = await createMcpServer(root);
+    const server = await run(createMcpServer(root));
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
@@ -130,7 +135,7 @@ describe("MCP surface", () => {
   });
 
   test("node_add under a sys.* parent returns isError forbidden", async () => {
-    const server = await createMcpServer(root);
+    const server = await run(createMcpServer(root));
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
@@ -164,7 +169,7 @@ describe("MCP surface", () => {
       }),
     );
 
-    const server = await createMcpServer(root);
+    const server = await run(createMcpServer(root));
     const client = new Client({ name: "kb-mcp-test", version: "0.0.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);

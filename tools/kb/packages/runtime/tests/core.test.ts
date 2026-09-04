@@ -1,4 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { Effect } from "effect";
 import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,7 +12,7 @@ import {
   txIntegrityError,
   type KbNode,
 } from "@kb/model";
-import { JsonlStore } from "@kb/store-jsonl";
+import { bunFileSystemLayer, JsonlStore } from "@kb/store-jsonl";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
 import { manifest } from "../src/registry.ts";
@@ -155,7 +156,7 @@ describe("registry + operations", () => {
   });
 
   test("manifest exposes JSON schemas", async () => {
-    const m = await manifest();
+    const m = await Effect.runPromise(manifest().pipe(Effect.provide(bunFileSystemLayer)));
     expect(m.some((a) => a.id === "node.add")).toBe(true);
     const add = present(
       m.find((a) => a.id === "graph.query"),

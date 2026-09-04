@@ -1,4 +1,6 @@
 import { describe, expect, test, afterEach } from "bun:test";
+import { Effect } from "effect";
+import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -40,7 +42,9 @@ async function runCli(args: string[]): Promise<{ code: number; out: string }> {
 
 describe("extension SDK freshness", () => {
   test("committed KB_SDK_DTS matches regeneration from surface.ts", async () => {
-    const { dts, version } = await generateExtSdkDts();
+    const { dts, version } = await Effect.runPromise(
+      Effect.scoped(generateExtSdkDts()).pipe(Effect.provide(bunFileSystemLayer)),
+    );
     expect(version).toBe(KB_SDK_VERSION);
     expect(dts).toBe(KB_SDK_DTS);
   });
@@ -68,7 +72,9 @@ describe("kb ext sdk", () => {
     const onDisk = await readFile(join(root, ".kb", "sdk.d.ts"), "utf8");
     expect(onDisk).toBe(KB_SDK_DTS);
 
-    const discovered = await discoverExtensions(root);
+    const discovered = await Effect.runPromise(
+      discoverExtensions(root).pipe(Effect.provide(bunFileSystemLayer)),
+    );
     expect(discovered.extensions).toEqual([]);
     expect(discovered.failures).toEqual([]);
   });
@@ -77,7 +83,7 @@ describe("kb ext sdk", () => {
 describe("scratch external extension against shipped SDK", () => {
   test("tsc --noEmit succeeds with zero repo-relative imports; extension loads", async () => {
     const root = await tempRoot("kb-sdk-author-");
-    await writeSdkDts(root);
+    await Effect.runPromise(writeSdkDts(root).pipe(Effect.provide(bunFileSystemLayer)));
 
     const extDir = join(root, ".kb", "extensions");
     await mkdir(extDir, { recursive: true });
@@ -154,7 +160,9 @@ export default actions;
     if (receipt.status === "succeeded") {
       expect(receipt.output).toEqual({ message: "hello sdk" });
     }
-    const registry = await registryFor(root);
+    const registry = await Effect.runPromise(
+      registryFor(root).pipe(Effect.provide(bunFileSystemLayer)),
+    );
     expect(registry.failures).toEqual([]);
   });
 });

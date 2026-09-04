@@ -28,8 +28,9 @@ export function kbRuntimeLayer(
     kbCtxLayer(ctx),
     Layer.effect(
       TemplateRegistry,
-      Effect.promise(() => registryFor(ctx.root)).pipe(
+      registryFor(ctx.root).pipe(
         Effect.map((registry) => registry.templates),
+        Effect.provide(bunFileSystemLayer),
       ),
     ),
   );

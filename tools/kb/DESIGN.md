@@ -142,7 +142,9 @@ sets on purpose.
   appear. Suggestion-severity ones — the Effect-native preference group
   (`asyncFunction`, `globalConsole`, `globalDate`, `globalTimers`,
   `processEnv`, `globalRandom`), emitted by tsgo as `message` — count only
-  under a package's `src/`.
+  under the `src/` of a package that is kb: a `scope:tooling` package's `src/`
+  is a build script, and the scope follows the tag it already carries rather
+  than a second list.
 
 Rejected rules are recorded here with their measured count, like rejected
 compiler flags: `oxc/no-map-spread` (14 sites) — a micro-optimisation for

@@ -71,7 +71,7 @@ const handleHttpRequestEffect = (
     }
 
     if (url.pathname === "/api/manifest" && req.method === "GET") {
-      return jsonResponse(yield* Effect.promise(() => manifest(root)));
+      return jsonResponse(yield* manifest(root));
     }
 
     if (url.pathname === "/api/queries" && req.method === "GET") {

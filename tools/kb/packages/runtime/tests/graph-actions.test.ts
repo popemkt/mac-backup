@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { Effect } from "effect";
+import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { present } from "@kb/model";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -181,7 +183,7 @@ describe("graph.query failure classification", () => {
 
 describe("graph.run / graph.search surface availability", () => {
   test("manifest exposes both as read actions with JSON schemas", async () => {
-    const m = await manifest();
+    const m = await Effect.runPromise(manifest().pipe(Effect.provide(bunFileSystemLayer)));
     const run = present(
       m.find((a) => a.id === "graph.run"),
       'expected m.find((a) => a.id === "graph.run")',

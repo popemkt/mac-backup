@@ -1,4 +1,5 @@
-import { readdir } from "node:fs/promises";
+import { Effect } from "effect";
+import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isActionSchema } from "@kb/model";
@@ -78,16 +79,18 @@ function actionProblem(a: Record<string, unknown>): string | null {
  * Discover and import `.kb/extensions/*.ts`. Per-file and per-contribution
  * failures are collected (and skipped); valid contributions load normally.
  */
-export async function discoverExtensions(root: string): Promise<{
-  extensions: LoadedExtension[];
-  failures: ExtensionFailure[];
-}> {
-  let entries: string[];
-  try {
-    entries = await readdir(extensionsDir(root));
-  } catch {
-    return { extensions: [], failures: [] };
-  }
+export const discoverExtensions = Effect.fn("kb.discoverExtensions")(function* (
+  root: string,
+): Effect.fn.Return<
+  { extensions: LoadedExtension[]; failures: ExtensionFailure[] },
+  never,
+  FileSystem
+> {
+  const fs = yield* FileSystem;
+  const entries = yield* fs
+    .readDirectory(extensionsDir(root))
+    .pipe(Effect.orElseSucceed(() => null));
+  if (entries === null) return { extensions: [], failures: [] };
   const files = entries.filter((e) => e.endsWith(".ts") && !e.endsWith(".d.ts")).toSorted();
 
   const extensions: LoadedExtension[] = [];
@@ -99,17 +102,18 @@ export async function discoverExtensions(root: string): Promise<{
       continue;
     }
     const path = join(extensionsDir(root), file);
-    let mod: unknown;
-    try {
-      mod = await import(pathToFileURL(path).href);
-    } catch (err) {
-      failures.push({
-        file,
-        error: err instanceof Error ? err.message : String(err),
-      });
+    const loaded = yield* Effect.tryPromise({
+      try: () => import(pathToFileURL(path).href) as Promise<unknown>,
+      catch: (err) => (err instanceof Error ? err.message : String(err)),
+    }).pipe(
+      Effect.map((mod) => ({ mod, error: null })),
+      Effect.catch((error) => Effect.succeed({ mod: null, error })),
+    );
+    if (loaded.error !== null) {
+      failures.push({ file, error: loaded.error });
       continue;
     }
-    const exported = asRecord(mod)?.default;
+    const exported = asRecord(loaded.mod)?.default;
     if (!Array.isArray(exported)) {
       failures.push({
         file,
@@ -151,4 +155,4 @@ export async function discoverExtensions(root: string): Promise<{
     }
   }
   return { extensions, failures };
-}
+});

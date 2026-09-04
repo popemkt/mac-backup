@@ -322,7 +322,7 @@ function buildProgram(): Command {
         Effect.gen(function* () {
           const { startMcp } = yield* Effect.promise(() => import("@kb/mcp"));
           const root = yield* resolveRootEffect({ root: globals.root });
-          yield* Effect.tryPromise({ try: () => startMcp(root), catch: ensureDomainError });
+          yield* startMcp(root);
           // keep the process alive; the transport owns stdio from here
           return yield* Effect.never;
         }),
@@ -692,10 +692,7 @@ function buildProgram(): Command {
     .action(
       kbAction((ctx, globals) =>
         Effect.gen(function* () {
-          const registry = yield* Effect.tryPromise({
-            try: () => registryFor(ctx.root),
-            catch: ensureDomainError,
-          });
+          const registry = yield* registryFor(ctx.root);
           if (globals.json === true) {
             writeOut(
               JSON.stringify({
@@ -749,10 +746,7 @@ function buildProgram(): Command {
             root: globals.root,
             allowCreate: true,
           });
-          const result = yield* Effect.tryPromise({
-            try: () => writeSdkDts(root),
-            catch: ensureDomainError,
-          });
+          const result = yield* writeSdkDts(root).pipe(Effect.mapError(ensureDomainError));
           writeOut(
             globals.json === true
               ? JSON.stringify({
