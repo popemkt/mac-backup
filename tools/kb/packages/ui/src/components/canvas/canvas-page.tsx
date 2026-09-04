@@ -878,10 +878,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       return;
     }
 
-    if (d.kind === "edge") {
-      dragRef.current = { ...d, x: e.clientX, y: e.clientY };
-      setPan((p) => ({ ...p }));
-    }
+    dragRef.current = { ...d, x: e.clientX, y: e.clientY };
+    setPan((p) => ({ ...p }));
   };
 
   // oxlint-disable-next-line complexity -- GAP [[01M1MGCT80E1FMXMEAEATS1VER]]

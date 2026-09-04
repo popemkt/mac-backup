@@ -15,8 +15,7 @@ export function computeLayoutPositions(
   if (layout === "force") return null;
   if (layout === "radial") return radialLayout(nodes, size);
   if (layout === "hierarchical") return hierarchicalLayout(nodes, edges, size);
-  if (layout === "grid") return gridLayout(nodes, size);
-  return null;
+  return gridLayout(nodes, size);
 }
 
 /** Ring anchors sorted by id for determinism. */
