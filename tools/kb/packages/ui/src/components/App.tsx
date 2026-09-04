@@ -241,7 +241,7 @@ function OutlineShell({
         </MainRegion>
       ) : (
         <MainRegion>
-          <ViewErrorBoundary title="Outline crashed" resetKey={rootNodeId ?? "outline"}>
+          <ViewErrorBoundary title="Outline crashed" resetKey={rootNodeId}>
             <OutlineColumn />
           </ViewErrorBoundary>
         </MainRegion>
@@ -255,7 +255,7 @@ function OntologyChrome({ id, view }: { id: string; view: "page" | "outline" | "
   const members = useOutlineStore((s) => s.ontologyMembers);
   const warnings = useOutlineStore((s) => s.ontologyWarnings);
   const wireNodes = useOutlineStore((s) => s.wireNodes);
-  const label = wireNodes.find((n) => n.id === id)?.text?.trim() || "Untitled ontology";
+  const label = wireNodes.find((n) => n.id === id)?.text.trim() || "Untitled ontology";
   return (
     <OntologyScopeBar
       ontologyId={id}

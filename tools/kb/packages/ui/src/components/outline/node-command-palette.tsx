@@ -400,7 +400,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       if (step.type === "commands") {
         const cmd = filteredCommands[index];
         if (!cmd) return;
-        if (cmd.immediate && cmd.action) {
+        if (cmd.immediate === true && cmd.action) {
           cmd.action();
           return;
         }

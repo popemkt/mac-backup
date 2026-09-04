@@ -186,8 +186,10 @@ export default function Force3dGraph({
     const neighbors = new Map<string, Set<string>>();
     for (const n of fgNodes) neighbors.set(n.id, new Set());
     for (const e of fgLinks) {
-      neighbors.get(e.source as string)?.add(e.target as string);
-      neighbors.get(e.target as string)?.add(e.source as string);
+      const source = e.source as string;
+      const target = e.target as string;
+      neighbors.get(source)?.add(target);
+      neighbors.get(target)?.add(source);
     }
     neighborsRef.current = neighbors;
 
@@ -220,7 +222,10 @@ export default function Force3dGraph({
         const tags = node.tags.slice(0, 3).join(", ");
         return `<div style="font:12px Outfit Variable,sans-serif"><b>${node.name}</b><br/>${tags ? `${tags}<br/>` : ""}${node.degree} connections</div>`;
       })
-      .nodeColor((n: object) => withGraphAlpha((n as FgNode).color, alphaFor((n as FgNode).id)))
+      .nodeColor((n: object) => {
+        const node = n as FgNode;
+        return withGraphAlpha(node.color, alphaFor(node.id));
+      })
       .nodeVal((n: object) => (n as FgNode).val);
 
     if (showLabels) {

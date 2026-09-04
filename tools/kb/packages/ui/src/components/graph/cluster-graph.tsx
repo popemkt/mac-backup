@@ -276,7 +276,7 @@ export function ClusterGraph({
 
     sigma.on("afterRender", drawHulls);
     sigma.on("clickNode", ({ node }) => {
-      if (dragRef.current?.dragging) return;
+      if (dragRef.current?.dragging === true) return;
       onClickRef.current(node);
     });
 

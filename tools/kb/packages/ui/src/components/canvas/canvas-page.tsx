@@ -878,10 +878,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       return;
     }
 
-    if (d.kind === "edge") {
-      dragRef.current = { ...d, x: e.clientX, y: e.clientY };
-      setPan((p) => ({ ...p }));
-    }
+    dragRef.current = { ...d, x: e.clientX, y: e.clientY };
+    setPan((p) => ({ ...p }));
   };
 
   // oxlint-disable-next-line complexity -- GAP [[01M1MGCT80E1FMXMEAEATS1VER]]
@@ -1576,8 +1574,9 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                       height: card.height,
                     }}
                     onPointerDown={(e) => {
-                      if ((e.target as HTMLElement).closest("[data-port]")) return;
-                      if ((e.target as HTMLElement).closest("[data-resize]")) return;
+                      const target = e.target as HTMLElement;
+                      if (target.closest("[data-port]")) return;
+                      if (target.closest("[data-resize]")) return;
                       e.stopPropagation();
                       handleCardPointerDown(card, e);
                     }}

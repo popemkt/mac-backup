@@ -212,23 +212,23 @@ function ToolbarButton({
   disabled?: boolean;
   disabledReason?: string;
 }) {
-  const title = disabled && disabledReason ? disabledReason : label;
+  const title = disabled === true && disabledReason ? disabledReason : label;
   return (
     <button
       type="button"
       disabled={disabled}
       className={cn(
         "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
-        disabled
+        disabled === true
           ? "cursor-not-allowed text-foreground/20"
           : "text-foreground/50 hover:bg-foreground/[0.06] hover:text-foreground/80",
-        active && !disabled && "bg-foreground/[0.08] text-foreground/80",
+        active === true && disabled !== true && "bg-foreground/[0.08] text-foreground/80",
       )}
       title={title}
       aria-label={title}
-      aria-disabled={disabled || undefined}
+      aria-disabled={disabled === true || undefined}
       onClick={() => {
-        if (!disabled) onClick();
+        if (disabled !== true) onClick();
       }}
     >
       {icon}

@@ -40,7 +40,7 @@ export function sigmaCameraControls(getSigma: () => Sigma | null): GraphCameraCo
     },
     labelOf: (id) => {
       const s = getSigma();
-      if (!s?.getGraph().hasNode(id)) return undefined;
+      if (s?.getGraph().hasNode(id) !== true) return undefined;
       const label = s.getGraph().getNodeAttribute(id, "label");
       return typeof label === "string" ? label : undefined;
     },

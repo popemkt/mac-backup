@@ -36,13 +36,10 @@ async function defaultPostAction(invocation: ActionInvocation): Promise<ActionRe
     body: JSON.stringify(invocation),
   });
   const json: unknown = await res.json().catch(() => null);
-  if (
-    json &&
-    typeof json === "object" &&
-    "status" in json &&
-    ((json as ActionReceipt).status === "succeeded" || (json as ActionReceipt).status === "failed")
-  ) {
-    return json as ActionReceipt;
+  if (json !== null && typeof json === "object" && "status" in json) {
+    // `json` is unparsed: the union narrows `.status` to `unknown`, so this
+    // stays a real check rather than a restatement of `ActionReceipt`.
+    if (json.status === "succeeded" || json.status === "failed") return json as ActionReceipt;
   }
   return {
     status: "failed",

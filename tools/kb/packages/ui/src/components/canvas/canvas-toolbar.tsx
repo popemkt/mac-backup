@@ -64,7 +64,7 @@ export function CanvasToolbar({
           }}
         >
           {t.icon}
-          {tool === t.id && sticky && (
+          {tool === t.id && sticky === true && (
             <span className="absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
           )}
         </button>

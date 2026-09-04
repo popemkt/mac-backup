@@ -214,7 +214,7 @@ export function TreeGraph({
 
   const selectNode = useCallback(
     (id: string) => {
-      if (dragState.current?.moved) return;
+      if (dragState.current?.moved === true) return;
       const node = forestFind(forest, id);
       setSelected(id);
       onSelRef.current?.(

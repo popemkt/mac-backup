@@ -170,6 +170,6 @@ export function excludedRows(
 
 export function labelOf(id: string, nodes: NodeMap): string {
   const node: OutlineNode | undefined = nodes.get(id);
-  const text = node?.text?.trim();
+  const text = node?.text.trim();
   return text ? text : id;
 }

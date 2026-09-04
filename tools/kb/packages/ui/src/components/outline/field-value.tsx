@@ -65,12 +65,12 @@ export function PropValueEditor({
     case "number":
       return (
         <EditableText
-          text={value.t === "num" ? String(value.v) : String(value.v ?? "")}
+          text={value.t === "num" ? String(value.v) : String(value.v)}
           onCommit={(text) => {
             const n = Number(text.trim());
             if (!Number.isNaN(n)) onCommit({ t: "num", v: n });
           }}
-          empty={value.t !== "num" || value.v === null || value.v === undefined}
+          empty={value.t !== "num"}
         />
       );
     case "date":
@@ -84,7 +84,7 @@ export function PropValueEditor({
     case "url":
       return (
         <EditableText
-          text={value.t === "str" ? value.v : String(value.v ?? "")}
+          text={value.t === "str" ? value.v : String(value.v)}
           onCommit={(text) => onCommit({ t: "str", v: text })}
           empty={!value.v}
           underline
@@ -105,7 +105,7 @@ export function PropValueEditor({
     default:
       return (
         <EditableText
-          text={value.t === "str" ? (value.v ?? "") : String(value.v ?? "")}
+          text={value.t === "str" ? value.v : String(value.v)}
           onCommit={(text) => onCommit({ t: "str", v: text })}
           empty={!value.v}
           underline={false}
@@ -277,7 +277,7 @@ function EditableText({
     [text],
   );
 
-  const showEmpty = empty && !text;
+  const showEmpty = empty === true && !text;
 
   return (
     <div

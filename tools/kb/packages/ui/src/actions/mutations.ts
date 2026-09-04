@@ -590,7 +590,7 @@ export const mutations = {
       const alt = file.name.replace(/\.[^.]+$/, "") || "file";
       const md = `![${alt}](${out.path})`;
       const next =
-        !node?.text || node.text.trim() === ""
+        node === undefined || node.text.trim() === ""
           ? md
           : `${node.text}${node.text.endsWith("\n") ? "" : "\n"}${md}`;
       mutations.updateNodeContent(nodeId, next);

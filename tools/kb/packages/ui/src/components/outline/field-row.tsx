@@ -84,9 +84,7 @@ export function FieldRow({
 }: FieldRowProps) {
   const IconCmp =
     icon ??
-    (fieldId === SYSTEM_IDS.colorField
-      ? PaletteIcon
-      : (FIELD_ICON[resolveIconKind(fieldType)] ?? TextTIcon));
+    (fieldId === SYSTEM_IDS.colorField ? PaletteIcon : FIELD_ICON[resolveIconKind(fieldType)]);
 
   return (
     <div

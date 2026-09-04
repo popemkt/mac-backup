@@ -95,9 +95,10 @@ export function KbNodeCard({
         height: card.height,
       }}
       onPointerDown={(e) => {
-        if ((e.target as HTMLElement).closest("[data-port]")) return;
-        if ((e.target as HTMLElement).closest("[data-resize]")) return;
-        if ((e.target as HTMLElement).closest(".node-content")) {
+        const target = e.target as HTMLElement;
+        if (target.closest("[data-port]")) return;
+        if (target.closest("[data-resize]")) return;
+        if (target.closest(".node-content")) {
           onSelect();
           return;
         }
@@ -203,9 +204,10 @@ export function TextCard({
         height: card.height,
       }}
       onPointerDown={(e) => {
-        if ((e.target as HTMLElement).closest("[data-port]")) return;
-        if ((e.target as HTMLElement).closest("[data-resize]")) return;
-        if ((e.target as HTMLElement).tagName === "TEXTAREA") {
+        const target = e.target as HTMLElement;
+        if (target.closest("[data-port]")) return;
+        if (target.closest("[data-resize]")) return;
+        if (target.tagName === "TEXTAREA") {
           onSelect();
           return;
         }

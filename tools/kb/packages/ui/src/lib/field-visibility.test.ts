@@ -105,7 +105,7 @@ describe("field visibility", () => {
       expect.arrayContaining(["sys.f.color", "sys.f.hidden"]),
     );
     const color = visible.find((p) => p.fieldId === "sys.f.color");
-    expect(color?.empty || (color?.values.length ?? 0) >= 0).toBe(true);
+    expect(color?.empty === true || (color?.values.length ?? 0) >= 0).toBe(true);
   });
 
   it("planSetFieldHidden sets and unsets sys.f.hidden on field nodes", () => {

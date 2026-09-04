@@ -42,7 +42,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
   // Consults the unscoped wire nodes first, so a node the scope excludes still
   // resolves to its text instead of showing a raw id.
   const labelFor = useCallback(
-    (id: string): string => byId.get(id)?.text?.trim() || nodes.get(id)?.text?.trim() || id,
+    (id: string): string => byId.get(id)?.text.trim() || nodes.get(id)?.text.trim() || id,
     [byId, nodes],
   );
 

@@ -73,10 +73,10 @@ function SidebarRow({
       title={label}
       className={cn(
         "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] transition-colors duration-100",
-        indented && "pl-7",
-        active
+        indented === true && "pl-7",
+        active === true
           ? "bg-foreground/[0.08] text-foreground/85"
-          : muted
+          : muted === true
             ? "text-foreground/30 hover:bg-foreground/[0.03] hover:text-foreground/50"
             : "text-foreground/55 hover:bg-foreground/[0.04] hover:text-foreground/75",
       )}
