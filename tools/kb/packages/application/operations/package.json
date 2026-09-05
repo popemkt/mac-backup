@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@kb/contracts": "workspace:*",
-    "@kb/ext-sdk": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/query": "workspace:*",
     "effect": "catalog:",
