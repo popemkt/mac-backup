@@ -136,15 +136,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
-### GAP: core action definitions and handlers are hand-paired
-
-- **expected** — Operations exports one canonical coreActions contribution collection consumed through the same registration interface as extensions.
-- **current** — Definitions and Effect handlers are exported separately, then manually paired in runtime CORE_ACTIONS.
-- **impact** — A new action can be declared but remain unwired, and the core follows a parallel registration mechanism.
-- **closes** — Define each core action once as a contribution and make the registry consume that canonical collection.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M1PJW3WHWPCBT5BYNEQMYG98`
-
 ### GAP: extension SDK mirror is not bidirectionally typed
 
 - **expected** — The dependency-free public SDK contract and runtime contract are generated from one canonical schema or proven exactly assignable in both directions.
@@ -493,6 +484,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 
 ## Closed
+
+### GAP: core action definitions and handlers are hand-paired
+
+- **expected** — Operations exports one canonical coreActions contribution collection consumed through the same registration interface as extensions.
+- **current** — Definitions and Effect handlers are exported separately, then manually paired in runtime CORE_ACTIONS.
+- **impact** — A new action can be declared but remain unwired, and the core follows a parallel registration mechanism.
+- **closes** — Define each core action once as a contribution and make the registry consume that canonical collection.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M1PJW3WHWPCBT5BYNEQMYG98`
 
 ### GAP: KbContext carries two persistence interfaces
 
