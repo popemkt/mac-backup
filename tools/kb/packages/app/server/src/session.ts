@@ -146,6 +146,17 @@ export class SubscriptionHub {
       case "unsubscribe":
         client.subs.delete(msg.id);
         return Effect.void;
+      case "since": {
+        // The frames themselves, not a nudge to refetch: a client that missed
+        // three edits should receive three edits. Sent regardless of
+        // `watchTx`, because asking is the opt-in.
+        const caught = this.ctx.log.since(msg.rev);
+        if (caught === "snapshot-required") {
+          return client.send(JSON.stringify({ op: "snapshot-required", head: this.ctx.log.head }));
+        }
+        if (caught.length === 0) return Effect.void;
+        return Effect.forEach(caught, (tx) => client.send(this.txFrame(tx))).pipe(Effect.asVoid);
+      }
       case "subscribe": {
         try {
           const rows = this.ctx.index.runDatalog(msg.query);

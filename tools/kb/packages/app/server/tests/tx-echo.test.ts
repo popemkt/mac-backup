@@ -196,6 +196,50 @@ describe("the server echoes every tx to every watcher", () => {
     }
   });
 
+  test("since replies with the frames after a rev, in order", async () => {
+    const dir = await root();
+    try {
+      const ctx = await openKb(dir);
+      const hub = new SubscriptionHub(ctx);
+      const deps = { root: dir, ctx, hub };
+
+      await addNode(deps, "n.1");
+      const at = ctx.log.head;
+      await addNode(deps, "n.2");
+      await addNode(deps, "n.3");
+
+      // A client that arrives late, holding the graph as of `at`.
+      const late = await watcher(hub, "client-late");
+      await Effect.runPromise(
+        hub.handleMessage("client-late", JSON.stringify({ op: "since", rev: at })),
+      );
+      expect(txFrames(late).map((f) => f.rev)).toEqual([at + 1, at + 2]);
+      expect(txFrames(late).flatMap((f) => f.upserts.map((n) => n.id))).toEqual(["n.2", "n.3"]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("since answers snapshot-required past the window and ahead of head", async () => {
+    const dir = await root();
+    try {
+      const ctx = await openKb(dir);
+      const hub = new SubscriptionHub(ctx);
+      const deps = { root: dir, ctx, hub };
+      await addNode(deps, "n.1");
+      const frames = await watcher(hub, "client-a");
+
+      // Ahead of head: this rev was counted by a previous server process.
+      await Effect.runPromise(
+        hub.handleMessage("client-a", JSON.stringify({ op: "since", rev: ctx.log.head + 4 })),
+      );
+      expect(frames.at(-1)).toEqual({ op: "snapshot-required", head: ctx.log.head });
+      expect(txFrames(frames)).toEqual([]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   test("dispose detaches the hub from the log", async () => {
     const dir = await root();
     try {

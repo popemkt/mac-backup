@@ -1,7 +1,8 @@
 /**
  * The log's one promise, checked over arbitrary histories: what a reader at
  * rev `k` is told, plus what it already had, is the whole log — and when the
- * window can no longer say that, it says `"too-old"` instead of lying.
+ * window can no longer say that, it says `"snapshot-required"` instead of
+ * lying.
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
@@ -36,8 +37,9 @@ describe("MemoryTxLog", () => {
         for (const tx of txs) log.append(tx, AT);
         expect(log.head).toBe(txs.length);
         expect(log.since(log.head)).toEqual([]);
-        // A reader that is somehow ahead is current, not broken.
-        expect(log.since(log.head + 5)).toEqual([]);
+        // A reader ahead of head counted in another process (rev is
+        // per-server and resets on restart): nothing here describes its graph.
+        expect(log.since(log.head + 5)).toBe("snapshot-required");
       }),
     );
   });
@@ -49,7 +51,7 @@ describe("MemoryTxLog", () => {
         const appended = txs.map((tx) => log.append(tx, AT));
         const k = Math.min(cut, txs.length);
         const caught = log.since(k);
-        expect(caught).not.toBe("too-old");
+        expect(caught).not.toBe("snapshot-required");
         expect(caught).toEqual(appended.slice(k));
         // …and the prefix the reader already had, plus the catch-up, is the log.
         expect([...appended.slice(0, k), ...(caught as typeof appended)]).toEqual(appended);
@@ -57,7 +59,7 @@ describe("MemoryTxLog", () => {
     );
   });
 
-  test("too-old exactly at the ring boundary", () => {
+  test("snapshot-required exactly at the ring boundary", () => {
     fc.assert(
       fc.property(fc.integer({ min: 1, max: 8 }), fc.integer({ min: 0, max: 12 }), (cap, extra) => {
         const log = new MemoryTxLog(cap);
@@ -67,7 +69,7 @@ describe("MemoryTxLog", () => {
         // oldest reader that can still be caught up; one behind it cannot.
         const oldestServable = log.head - cap;
         expect(log.since(oldestServable)).toHaveLength(cap);
-        if (oldestServable > 0) expect(log.since(oldestServable - 1)).toBe("too-old");
+        if (oldestServable > 0) expect(log.since(oldestServable - 1)).toBe("snapshot-required");
       }),
     );
   });
@@ -82,7 +84,7 @@ describe("MemoryTxLog", () => {
     log.append({ upserts: [], deletes: [] }, AT);
     expect(seen).toEqual([1, 2]);
     const caught = log.since(1);
-    expect(caught).not.toBe("too-old");
+    expect(caught).not.toBe("snapshot-required");
     expect((caught as KbTx[]).at(0)?.origin).toBe("client-a");
     expect(log.head).toBe(3);
   });
@@ -93,6 +95,6 @@ describe("MemoryTxLog", () => {
       log.append({ upserts: [], deletes: [] }, AT);
     }
     expect(log.since(1)).toHaveLength(TX_LOG_DEFAULT_CAPACITY);
-    expect(log.since(0)).toBe("too-old");
+    expect(log.since(0)).toBe("snapshot-required");
   });
 });

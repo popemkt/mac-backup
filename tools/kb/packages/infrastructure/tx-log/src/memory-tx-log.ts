@@ -17,7 +17,8 @@ export const TX_LOG_DEFAULT_CAPACITY = 1000;
  * identity — so the log is authoritative for one process's lifetime and a
  * restart puts every client through the snapshot path it already has. The
  * durable form (`.kb/tx.jsonl` written under the store's write lock) is a
- * later wave; nothing here assumes memory, only `since` can answer `"too-old"`.
+ * later wave; nothing in the port assumes memory, only that `since` may have
+ * to answer `"snapshot-required"`.
  */
 export class MemoryTxLog implements KbTxLog {
   /** Oldest first; length is bounded by {@link capacity}. */
@@ -46,12 +47,15 @@ export class MemoryTxLog implements KbTxLog {
     return tx;
   }
 
-  since(rev: number): KbTx[] | "too-old" {
-    if (rev >= this.rev) return [];
+  since(rev: number): KbTx[] | "snapshot-required" {
+    if (rev === this.rev) return [];
+    // Ahead of head: the caller counted in a previous process. Nothing this
+    // log holds describes the graph they have.
+    if (rev > this.rev) return "snapshot-required";
     const oldest = this.window[0];
     // The caller needs rev+1 onwards; if the window has already dropped it,
     // no sequence of frames can reconstruct the graph they are holding.
-    if (oldest === undefined || oldest.rev > rev + 1) return "too-old";
+    if (oldest === undefined || oldest.rev > rev + 1) return "snapshot-required";
     return this.window.filter((tx) => tx.rev > rev);
   }
 

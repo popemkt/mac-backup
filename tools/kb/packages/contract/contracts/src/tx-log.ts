@@ -32,10 +32,15 @@ export interface KbTxLog {
 
   /**
    * Everything after `rev`, oldest first. Empty when the caller is current.
-   * `"too-old"` when the log no longer holds `rev + 1`: the caller cannot be
-   * caught up incrementally and needs a snapshot.
+   *
+   * `"snapshot-required"` when the log cannot express the difference as
+   * frames. That is one answer with two causes, deliberately: the window has
+   * dropped `rev + 1`, or `rev` is ahead of `head` because it belongs to
+   * another process's counter (`rev` is per-server, so a restart resets it).
+   * Both mean the same thing to a caller, and naming them apart would put the
+   * distinction at every call site instead of here.
    */
-  since(rev: number): KbTx[] | "too-old";
+  since(rev: number): KbTx[] | "snapshot-required";
 
   /** Observe every subsequent append. Returns the unsubscribe. */
   subscribe(fn: (tx: KbTx) => void): () => void;
