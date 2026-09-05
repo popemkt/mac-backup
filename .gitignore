@@ -39,5 +39,9 @@ tools/kb/ui/node_modules/
 .kb/nodes.jsonl.*.tmp
 .kb/cache/
 
+# kb SqliteStore derived files (the live kb.sqlite stays tracked, as nodes.jsonl does)
+.kb/kb.sqlite-wal
+.kb/kb.sqlite-shm
+
 # Claude Code agent worktrees
 .claude/worktrees/

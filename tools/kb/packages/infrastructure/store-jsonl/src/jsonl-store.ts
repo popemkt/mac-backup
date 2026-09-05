@@ -6,8 +6,7 @@ import {
   ensureDomainError,
   type DomainError,
   canonicalJson,
-  KbNodeSchema,
-  nodeParseOptions,
+  decodeStoredNode,
   type KbNode,
   type StoreTx,
 } from "@kb/model";
@@ -24,10 +23,8 @@ function mapFsError(err: unknown): DomainError {
   return domainError("internal", message);
 }
 
-const decodeKbNode = Schema.decodeUnknownSync(KbNodeSchema, nodeParseOptions);
-
 /** Decode a complete JSONL document without performing filesystem I/O. */
-export const decodeNodes = Effect.fn("decodeNodes")(function* (body: string, path: string) {
+const decodeNodes = Effect.fn("decodeNodes")(function* (body: string, path: string) {
   let lineNo = 0;
 
   return yield* Effect.try({
@@ -41,7 +38,7 @@ export const decodeNodes = Effect.fn("decodeNodes")(function* (body: string, pat
         if (line === undefined || line.trim().length === 0) continue;
         lineNo = i + 1;
         const raw = JSON.parse(line) as unknown;
-        nodes.push(decodeKbNode(raw));
+        nodes.push(decodeStoredNode(raw));
       }
       return nodes;
     },
@@ -80,12 +77,15 @@ export const decodeNodes = Effect.fn("decodeNodes")(function* (body: string, pat
 export class JsonlStore implements EffectStore {
   readonly path: string;
   readonly backupPath: string;
+  /** One file is the whole store; `.bak` and `.lock` are its own bookkeeping. */
+  readonly watchPaths: readonly string[];
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
   readonly fingerprint: Effect.Effect<StoreFingerprint | null>;
 
   constructor(root: string) {
     this.path = join(root, ".kb", "nodes.jsonl");
     this.backupPath = `${this.path}.bak`;
+    this.watchPaths = [this.path];
     this.loadEffect = loadNodes(this.path);
     this.fingerprint = fingerprintOf(this.path);
   }

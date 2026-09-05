@@ -5,6 +5,8 @@ import type { DomainError, KbNode, StoreTx } from "@kb/model";
 /** In-memory persistence side of the browser's replicated kb session. */
 export class BrowserStore implements EffectStore {
   readonly path = "browser";
+  /** Nothing on a filesystem to watch: the server pushes this store its news. */
+  readonly watchPaths: readonly string[] = [];
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
 
   private readonly byId = new Map<string, KbNode>();

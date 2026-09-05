@@ -68,3 +68,13 @@ export const KbNodeSchema = Schema.Struct({
 export const nodeParseOptions: ParseOptions = {
   onExcessProperty: "preserve",
 };
+
+/**
+ * Decode one stored node. Every adapter's load path goes through this, so
+ * unknown-key preservation and correlated `PropValue` validation cannot drift
+ * between backends: JSONL calls it per line and adds the line number, sqlite
+ * calls it per row and adds the row id. Sync and throwing on purpose — the
+ * callers already wrap their whole load in one `Effect.try` so they can attach
+ * the location the failure came from.
+ */
+export const decodeStoredNode = Schema.decodeUnknownSync(KbNodeSchema, nodeParseOptions);

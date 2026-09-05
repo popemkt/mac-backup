@@ -516,6 +516,16 @@ block that each adapter's test file calls with its own factory. A property
 that holds for one backend and not the other is not a store property, and the
 contract is where that gets found out.
 
+`storeBenchmark(name, makeStore)` sits beside it and is measured the same way:
+the 50k-node first write, cold load, datom build, query, `kb set`-shaped commit
+and interactive edit, printed and never asserted on — measured gates belong to
+Phase 4. Its phases are port-level, so the two adapters produce two columns of
+one table instead of two tables. The JSONL adapter's old read-versus-decode
+split went with that: it was measuring two halves of `JsonlStore.loadEffect`,
+which the port does not have. `briefs/p1-persistence.md` picks incremental
+reading up against that adapter's own internals when it gets there; keeping
+`decodeNodes` exported for a benchmark nobody runs yet would be a dead seam.
+
 The candidate second backends are **not** an open field:
 `briefs/p1-persistence.md` §0 is the canonical record of what was measured and
 rejected (Logseq's own fork — opaque Transit blobs, and their answer to git is
@@ -537,11 +547,8 @@ file is the format git already understands.
   through `Schema`; single-pass datom build; durable whole-file replace
   (below). Incremental file reading is a target owned by
   `briefs/p1-persistence.md`, not a description of the current implementation.
-  `tests/benchmark.test.ts` records the 50k-node read, decode, datom-build,
-  query, set-shaped commit, and interactive-edit timings without gating them;
-  measured gates belong to Phase 4. `.bak`, `nodes.jsonl.lock`,
-  `nodes.jsonl.*.tmp`, and `.kb/cache/` are gitignored — only the live
-  `nodes.jsonl` is committed.
+  `.bak`, `nodes.jsonl.lock`, `nodes.jsonl.*.tmp`, and `.kb/cache/` are
+  gitignored — only the live `nodes.jsonl` is committed.
 - **Write hardening** (r4 Stage-0 — on-disk format unchanged), two modules
   in `@kb/store-jsonl`:
   - `write-lock.ts` — an exclusive `.kb/nodes.jsonl.lock` carrying the holder
@@ -590,6 +597,8 @@ CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
   and correlated `PropValue` validation cannot drift between backends. Load is
   all-or-nothing here too: one bad row fails the whole load with an
   `invalid_input` naming that row's id.
+- `.kb/kb.sqlite` is the committed file, the way `nodes.jsonl` is; `-wal` and
+  `-shm` are derived and gitignored.
 - `PRAGMA journal_mode = WAL`, `synchronous = NORMAL`, `busy_timeout = 15000`.
   WAL so a reader is never blocked by the writer; `NORMAL` because the same
   durability trade the JSONL adapter makes (ordering-safe, no `F_FULLFSYNC`) is

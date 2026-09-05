@@ -5,8 +5,9 @@ import type { DomainError, KbNode, StoreTx } from "@kb/model";
  * What the store looked like at one moment, as a value a session can hold and
  * compare. Opaque on purpose: callers ask "is this the store I last saw?", and
  * only the store knows what makes that true — {@link JsonlStore} builds one
- * from the file's size and mtime, a future SQLite store would use its own
- * change counter. A string because equality is the whole interface.
+ * from the file's size and mtime, the SQLite store from its own commit counter
+ * plus sqlite's `data_version`. A string because equality is the whole
+ * interface.
  */
 export type StoreFingerprint = string;
 
@@ -18,6 +19,15 @@ export type StoreFingerprint = string;
  */
 export interface EffectStore {
   readonly path: string;
+  /**
+   * The filesystem paths whose change means "someone else wrote the store".
+   * A live-reload watcher asks the store what to watch rather than deciding
+   * from the adapter it thinks it has: a JSONL store is one file, a SQLite
+   * store is the database plus its write-ahead log, and a future adapter is
+   * whatever it says it is. `path` alone cannot answer, because a backend's
+   * unit of storage is not always a single file.
+   */
+  readonly watchPaths: readonly string[];
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
   /**
    * The store's current fingerprint, or null when it cannot say (no store
