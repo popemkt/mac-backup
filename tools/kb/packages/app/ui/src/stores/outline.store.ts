@@ -129,13 +129,13 @@ interface OutlineState {
 }
 
 /** Data half of `OutlineState` — every member that is not a function. */
-type OutlineStateData = {
+export type OutlineStateData = {
   [K in keyof OutlineState as OutlineState[K] extends (...args: never) => unknown
     ? never
     : K]: OutlineState[K];
 };
 
-const initialOutlineState: OutlineStateData = {
+export const initialOutlineState: OutlineStateData = {
   nodes: new Map(),
   wireNodes: [],
   framePages: {},

@@ -3,6 +3,7 @@ import { present } from "@kb/model";
 import { fixtureGraph } from "@/fixtures/graph";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
+import { resetOutlineStore } from "@/test-support/outline-store";
 import { useOutlineStore } from "./outline.store";
 
 function seed() {
@@ -20,20 +21,7 @@ const wire = (id: string, text: string) => ({
 
 describe("outline store (WireNode adaptation)", () => {
   beforeEach(() => {
-    useOutlineStore.setState({
-      nodes: new Map(),
-      wireNodes: [],
-      index: null,
-      rev: 0,
-      rootNodeId: WORKSPACE_ROOT_ID,
-      homeRootId: WORKSPACE_ROOT_ID,
-      activeNodeId: null,
-      activeInstanceKey: null,
-      selectedNodeId: null,
-      selectedInstanceKey: null,
-      loadSource: null,
-      loadError: null,
-    });
+    resetOutlineStore();
   });
 
   it("hydrates forest roots under virtual workspace root (id-sorted)", () => {

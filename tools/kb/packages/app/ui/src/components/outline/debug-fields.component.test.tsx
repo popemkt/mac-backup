@@ -10,9 +10,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
+import { SYSTEM_IDS } from "@/lib/types";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useOutlineStore } from "@/stores/outline.store";
+import { resetOutlineStore } from "@/test-support/outline-store";
 import { FieldsSection } from "./fields-section";
 
 const ISO = "2026-08-08T05:00:00.000Z";
@@ -39,20 +40,7 @@ function graph(): WireNode[] {
 }
 
 function seed() {
-  useOutlineStore.setState({
-    nodes: new Map(),
-    wireNodes: [],
-    index: null,
-    rev: 0,
-    rootNodeId: WORKSPACE_ROOT_ID,
-    homeRootId: WORKSPACE_ROOT_ID,
-    activeNodeId: null,
-    activeInstanceKey: null,
-    selectedNodeId: null,
-    selectedInstanceKey: null,
-    loadSource: null,
-    loadError: null,
-  });
+  resetOutlineStore();
   useOutlineStore.getState().hydrateFromWire(graph(), 1, "fixtures");
   useDebugFieldsStore.setState({ ids: new Set() });
 }

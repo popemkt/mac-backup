@@ -2,28 +2,15 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/fixtures/graph";
-import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
 import { useOutlineStore } from "@/stores/outline.store";
+import { resetOutlineStore } from "@/test-support/outline-store";
 import { useUiStore } from "@/stores/ui.store";
 import { cloneWire } from "@/lib/tx";
 
 describe("sys.* UI write-guard", () => {
   beforeEach(() => {
-    useOutlineStore.setState({
-      nodes: new Map(),
-      wireNodes: [],
-      index: null,
-      rev: 0,
-      rootNodeId: WORKSPACE_ROOT_ID,
-      homeRootId: WORKSPACE_ROOT_ID,
-      activeNodeId: null,
-      activeInstanceKey: null,
-      selectedNodeId: null,
-      selectedInstanceKey: null,
-      loadSource: null,
-      loadError: null,
-    });
+    resetOutlineStore();
     useUiStore.setState({ toasts: [] });
     useOutlineStore
       .getState()

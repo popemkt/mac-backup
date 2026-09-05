@@ -6,6 +6,7 @@ import { mergeTx } from "@/lib/tx";
 import { EXPANDED_STORAGE_KEY } from "@/lib/types";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
+import { resetOutlineStore } from "@/test-support/outline-store";
 
 describe("stable outline ordering", () => {
   beforeEach(() => {
@@ -14,20 +15,7 @@ describe("stable outline ordering", () => {
     } catch {
       // node without localStorage
     }
-    useOutlineStore.setState({
-      nodes: new Map(),
-      wireNodes: [],
-      index: null,
-      rev: 0,
-      rootNodeId: "__kb_root__",
-      homeRootId: "__kb_root__",
-      activeNodeId: null,
-      activeInstanceKey: null,
-      selectedNodeId: null,
-      selectedInstanceKey: null,
-      loadSource: null,
-      loadError: null,
-    });
+    resetOutlineStore();
     useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
   });
 

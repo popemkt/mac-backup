@@ -12,35 +12,17 @@ import { present } from "@kb/model";
 import { setPostAction } from "@/api/action";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { fixtureGraph } from "@/fixtures/graph";
-import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
 import { mutations, __resetPendingContentForTests } from "@/actions/mutations";
 import { planInsertSibling } from "@/actions/plan";
 import { useOutlineStore } from "@/stores/outline.store";
+import { resetOutlineStore } from "@/test-support/outline-store";
 import { useUiStore } from "@/stores/ui.store";
 import { NodeBlock } from "./node-block";
 import { OutlineEditor } from "./outline-editor";
 
 function seed() {
-  useOutlineStore.setState({
-    nodes: new Map(),
-    wireNodes: [],
-    index: null,
-    rev: 0,
-    rootNodeId: WORKSPACE_ROOT_ID,
-    homeRootId: WORKSPACE_ROOT_ID,
-    activeNodeId: null,
-    activeInstanceKey: null,
-    selectedNodeId: null,
-    selectedInstanceKey: null,
-    loadSource: null,
-    loadError: null,
-    focusSeq: 0,
-    focusX: null,
-    transientIds: new Set<string>(),
-    undoStack: [],
-    redoStack: [],
-  });
+  resetOutlineStore();
   useUiStore.setState({ toasts: [], nodePaletteOpen: false, globalPaletteOpen: false });
   useOutlineStore
     .getState()
