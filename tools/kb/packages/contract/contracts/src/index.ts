@@ -3,6 +3,7 @@ export type {
   ActionDefinition,
   ActionEffectHandler,
   ActionHandlerEnv,
+  IsomorphicActionEnv,
   ActionInvocation,
   ActionReceipt,
 } from "./actions.ts";

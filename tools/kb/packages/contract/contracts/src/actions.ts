@@ -52,9 +52,18 @@ export type ActionHandlerError = ActionSchemaError | CodedError;
  * `inputSchema` produces": a handler declaring a concrete input type is
  * assignable, and the registry pairs the two at the one seam that knows both.
  */
-export type ActionEffectHandler = (
+export type ActionEffectHandler<R = ActionHandlerEnv> = (
   input: never,
-) => Effect.Effect<unknown, ActionHandlerError, ActionHandlerEnv>;
+) => Effect.Effect<unknown, ActionHandlerError, R>;
+
+/**
+ * The services every runtime can supply from its own store and index — no
+ * filesystem, no workspace ports. An action whose handler requires only these
+ * runs identically in the browser and on the server; the list of such actions
+ * is `isomorphicActions` in `@kb/operations`, typed with this env so a
+ * composition root that has nothing more can provide it without lying.
+ */
+export type IsomorphicActionEnv = KbCtx | KbStore | KbIndexService;
 
 /**
  * Action contract. Schemas are Standard Schema v1–compatible (zod 4 satisfies

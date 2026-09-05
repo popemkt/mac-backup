@@ -3,6 +3,7 @@ import {
   type ActionDefinition,
   type ActionEffectHandler,
   type ActionHandlerEnv,
+  type IsomorphicActionEnv,
   type ActionInvocation,
   type ActionReceipt,
   failed,
@@ -55,13 +56,13 @@ import {
  * Runtime (server, CLI, MCP) composes this over its discovered registry; the
  * browser composes it over `coreActions` alone. Neither owns a second copy.
  */
-export interface RegisteredAction {
+export interface RegisteredAction<R = ActionHandlerEnv> {
   def: ActionDefinition;
   /**
    * Effect-native handler. Preferred when set — composed directly inside
    * {@link invokeEffect} (no `tryPromise`).
    */
-  effect?: ActionEffectHandler;
+  effect?: ActionEffectHandler<R>;
   /**
    * Legacy Promise handler. Used only when {@link RegisteredAction.effect}
    * is absent (third-party `.kb/extensions`).
@@ -72,24 +73,31 @@ export interface RegisteredAction {
   aliases: readonly string[];
 }
 
-function coreNative(def: ActionDefinition, effect: ActionEffectHandler): RegisteredAction {
+function coreNative<R>(def: ActionDefinition, effect: ActionEffectHandler<R>): RegisteredAction<R> {
   return { def, effect, source: "core", aliases: [] };
 }
 
-export const coreActions: readonly RegisteredAction[] = [
+/** The eight actions every runtime can run from its own store and index. */
+export const isomorphicActions: readonly RegisteredAction<IsomorphicActionEnv>[] = [
   coreNative(nodeAddDef, nodeAddEffect),
   coreNative(nodeUpdateDef, nodeUpdateEffect),
   coreNative(nodeGetDef, nodeGetEffect),
   coreNative(fieldDefineDef, fieldDefineEffect),
   coreNative(tagDefineDef, tagDefineEffect),
   coreNative(graphQueryDef, graphQueryEffect),
-  coreNative(graphRunDef, graphRunEffect),
   coreNative(graphSearchDef, graphSearchEffect),
+  coreNative(ontologyMembersDef, ontologyMembersEffect),
+];
+
+/** The four actions that reach a workspace port (saved queries, views, assets). */
+export const portActions: readonly RegisteredAction[] = [
+  coreNative(graphRunDef, graphRunEffect),
   coreNative(assetUploadDef, assetUploadEffect),
   coreNative(renderViewDef, renderViewActionEffect),
   coreNative(renderViewsDef, renderViewsActionEffect),
-  coreNative(ontologyMembersDef, ontologyMembersEffect),
 ];
+
+export const coreActions: readonly RegisteredAction[] = [...isomorphicActions, ...portActions];
 
 /** Extensions shipped with kb itself; loaded like repo extensions. */
 
@@ -122,11 +130,11 @@ function asDeclaredInput(parsed: unknown): never {
 }
 
 /** Pair an action's handler with its parsed input; `null` when it has neither. */
-function dispatch(
-  entry: RegisteredAction,
+function dispatch<R>(
+  entry: RegisteredAction<R>,
   ctx: KbContext,
   parsed: unknown,
-): Effect.Effect<unknown, ActionSchemaError | DomainError, ActionHandlerEnv> | null {
+): Effect.Effect<unknown, ActionSchemaError | DomainError, R> | null {
   const { effect, handler } = entry;
   if (effect) {
     return Effect.scoped(effect(asDeclaredInput(parsed))).pipe(Effect.mapError(mapHandlerError));
@@ -145,11 +153,11 @@ function dispatch(
  * Native handlers are composed directly (scoped); legacy Promise handlers are
  * the only path that uses `tryPromise`.
  */
-export const invokeWith = Effect.fn("kb.invoke")(function* (
-  actions: ReadonlyMap<string, RegisteredAction>,
+export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
+  actions: ReadonlyMap<string, RegisteredAction<R>>,
   ctx: KbContext,
   invocation: ActionInvocation,
-): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, ActionHandlerEnv> {
+): Effect.fn.Return<ActionReceipt, ActionSchemaError | DomainError, R> {
   const { id, input } = invocation;
   const entry = actions.get(id);
   if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
@@ -167,11 +175,11 @@ export const invokeWith = Effect.fn("kb.invoke")(function* (
  * {@link invokeWith} are mapped through the canonical receipt mapper.
  * Requires {@link ActionHandlerEnv} so native handlers receive Layers.
  */
-export const invokeReceiptWith = Effect.fn("kb.invokeReceipt")(function* (
-  actions: ReadonlyMap<string, RegisteredAction>,
+export const invokeReceiptWith = Effect.fn("kb.invokeReceipt")(function* <R>(
+  actions: ReadonlyMap<string, RegisteredAction<R>>,
   ctx: KbContext,
   invocation: ActionInvocation,
-): Effect.fn.Return<ActionReceipt, never, ActionHandlerEnv> {
+): Effect.fn.Return<ActionReceipt, never, R> {
   return yield* invokeWith(actions, ctx, invocation).pipe(
     Effect.catch((err) => Effect.succeed(receiptFromError(invocation.id, err))),
   );
