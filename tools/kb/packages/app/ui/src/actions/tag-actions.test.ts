@@ -8,7 +8,7 @@ describe("tag chip actions (plan layer)", () => {
     useOutlineStore.setState({
       nodes: new Map(),
       wireNodes: [],
-      queryDb: null,
+      index: null,
       rev: 0,
       rootNodeId: "__kb_root__",
       homeRootId: "__kb_root__",

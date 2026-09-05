@@ -208,7 +208,7 @@ describe("ontology scope (acceptance)", () => {
     const { extractLensGraph } = await import("@/lib/graph-lens");
     const s = useOutlineStore.getState();
     const graph = extractLensGraph(
-      present(s.queryDb, "query db"),
+      present(s.index, "query db"),
       s.wireNodes,
       {
         id: "p",

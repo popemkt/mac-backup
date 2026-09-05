@@ -23,8 +23,7 @@ import {
   type FieldType,
 } from "@kb/model";
 import { hasText } from "@/lib/text";
-import { runQuery } from "@/ds/query";
-import type { QueryDb } from "@/ds/db";
+import { runQuery, type KbIndex } from "@/ds";
 import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
 
 export { FIELD_TYPES, FIELD_TYPE_OPTION_IDS, fieldTypeValue, isFieldType, type FieldType };
@@ -52,14 +51,14 @@ export function resolveFieldTypeById(fieldId: string, nodes: NodeMap): FieldType
 export function resolveAllowedRefIds(
   fieldNode: OutlineNode | undefined,
   nodes: NodeMap,
-  queryDb: QueryDb | null,
+  queryDb: KbIndex | null,
 ): Set<string> | null {
   return allowedRefIdsOf(fieldNode, nodes, queryDb ? (edn) => runQuery(queryDb, edn) : null);
 }
 
-/** Cache keyed by fieldId + rev + constraint fingerprint (EDN / tags). */
+/** Cache keyed by fieldId + index generation + constraint fingerprint (EDN / tags). */
 const allowedRefCache = new Map<string, Set<string> | null>();
-let allowedRefCacheRev = -1;
+let allowedRefCacheGeneration = -1;
 
 function constraintFingerprint(fieldNode: OutlineNode | undefined): string {
   const edn = targetQueryOf(fieldNode);
@@ -70,19 +69,19 @@ function constraintFingerprint(fieldNode: OutlineNode | undefined): string {
 }
 
 /**
- * Memoized allowed-ref set. Recomputes only when rev or the field's
- * targetQuery/targetTag constraint changes — not per React render/keystroke.
+ * Memoized allowed-ref set. Recomputes only when the index generation or the
+ * field's targetQuery/targetTag constraint changes — not per React render/keystroke.
  */
 export function resolveAllowedRefIdsCached(
   fieldId: string,
   fieldNode: OutlineNode | undefined,
   nodes: NodeMap,
-  queryDb: QueryDb | null,
-  rev: number,
+  queryDb: KbIndex | null,
+  generation: number,
 ): Set<string> | null {
-  if (allowedRefCacheRev !== rev) {
+  if (allowedRefCacheGeneration !== generation) {
     allowedRefCache.clear();
-    allowedRefCacheRev = rev;
+    allowedRefCacheGeneration = generation;
   }
   const key = `${fieldId}\0${constraintFingerprint(fieldNode)}`;
   const cached = allowedRefCache.get(key);
@@ -95,7 +94,7 @@ export function resolveAllowedRefIdsCached(
 /** Test helper — drop memo between cases. */
 export function clearAllowedRefIdsCache(): void {
   allowedRefCache.clear();
-  allowedRefCacheRev = -1;
+  allowedRefCacheGeneration = -1;
 }
 
 /** Expected wire PropValue.t for a declared FieldType (url/date use str). */

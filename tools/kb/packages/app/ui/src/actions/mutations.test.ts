@@ -19,7 +19,7 @@ describe("applyTx", () => {
     useOutlineStore.setState({
       nodes: new Map(),
       wireNodes: [],
-      queryDb: null,
+      index: null,
       rev: 0,
       rootNodeId: WORKSPACE_ROOT_ID,
       homeRootId: WORKSPACE_ROOT_ID,
@@ -53,8 +53,8 @@ describe("applyTx", () => {
     expect(s.rev).toBe(9);
     expect(s.nodes.get("n.root-b")?.text).toBe("updated search node");
     expect(s.nodes.has("n.root-c")).toBe(false);
-    expect(s.queryDb?.nodes.has("n.root-b")).toBe(true);
-    expect(s.queryDb?.nodes.has("n.root-c")).toBe(false);
+    expect(s.index?.getNode("n.root-b")).toBeDefined();
+    expect(s.index?.getNode("n.root-c")).toBeUndefined();
   });
 });
 

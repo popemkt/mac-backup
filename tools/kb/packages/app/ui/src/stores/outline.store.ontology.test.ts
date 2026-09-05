@@ -73,11 +73,11 @@ describe("outline store — ontology scope", () => {
     expect(s.getBreadcrumbs()).toEqual([]);
   });
 
-  it("keeps wireNodes and queryDb global — scope is a projection", () => {
+  it("keeps wireNodes and index global — scope is a projection", () => {
     useOutlineStore.getState().setOntologyScope("o.1");
     const s = useOutlineStore.getState();
     expect(s.wireNodes.map((n) => n.id)).toContain("n.other");
-    expect(s.queryDb?.nodes.has("n.other")).toBe(true);
+    expect(s.index?.getNode("n.other")).toBeDefined();
   });
 
   it("scopes search for free (it iterates the projection)", () => {

@@ -21,7 +21,7 @@ interface CommandPaletteProps {
  */
 export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const wireNodes = useOutlineStore((s) => s.wireNodes);
-  const rev = useOutlineStore((s) => s.rev);
+  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
 
@@ -40,7 +40,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
    * circuited forever and ⌘K matched nothing. useMemo already rebuilds exactly
    * when its inputs change, so the cache was only able to be wrong.
    */
-  const index = useMemo(() => buildPaletteIndex(wireNodes, rev), [wireNodes, rev]);
+  const index = useMemo(() => buildPaletteIndex(wireNodes, generation), [wireNodes, generation]);
 
   const hits = useMemo(() => searchPalette(index, query, ROW_LIMIT), [index, query]);
 

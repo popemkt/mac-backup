@@ -18,7 +18,8 @@ import { TagChipGroup } from "./tag-chip";
  */
 export function SchemaSection({ nodeId }: { nodeId: string }) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
-  const queryDb = useOutlineStore((s) => s.queryDb);
+  const queryDb = useOutlineStore((s) => s.index);
+  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
 
@@ -29,7 +30,7 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
     return kind === "tag"
       ? queryTaggedInstances(queryDb, nodeId)
       : queryFieldCarriers(queryDb, nodeId);
-  }, [queryDb, nodeId, kind]);
+  }, [queryDb, nodeId, kind, generation]); // oxlint-disable-line react-hooks/exhaustive-deps -- generation, not queryDb identity, tracks graph content
 
   if (!kind) return null;
 

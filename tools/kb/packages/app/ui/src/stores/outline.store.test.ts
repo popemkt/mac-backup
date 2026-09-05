@@ -23,7 +23,7 @@ describe("outline store (WireNode adaptation)", () => {
     useOutlineStore.setState({
       nodes: new Map(),
       wireNodes: [],
-      queryDb: null,
+      index: null,
       rev: 0,
       rootNodeId: WORKSPACE_ROOT_ID,
       homeRootId: WORKSPACE_ROOT_ID,
@@ -191,26 +191,26 @@ describe("outline store (WireNode adaptation)", () => {
     );
   });
 
-  it("builds a DataScript query db on hydrate", () => {
+  it("builds a DatascriptIndex replica on hydrate", () => {
     seed();
-    const db = useOutlineStore.getState().queryDb;
-    const qdb = present(db, "query db");
-    expect(qdb.ids.toEid.has("n.root-a")).toBe(true);
-    expect(qdb.rev).toBe(1);
+    const ix = present(useOutlineStore.getState().index, "index");
+    expect(ix.getNode("n.root-a")).toBeDefined();
+    expect(ix.generation).toBeGreaterThan(0);
   });
 
   describe("applyTx (WS delta seam)", () => {
-    it("upserts new nodes and bumps rev + query db", () => {
+    it("upserts new nodes and bumps rev + index generation", () => {
       seed();
+      const genBefore = present(useOutlineStore.getState().index, "index").generation;
       useOutlineStore.getState().applyTx([wire("n.new", "fresh node")], [], { rev: 2 });
       const s = useOutlineStore.getState();
       expect(s.rev).toBe(2);
       expect(s.nodes.get("n.new")?.text).toBe("fresh node");
       const root = present(s.nodes.get(WORKSPACE_ROOT_ID), "workspace root");
       expect(root.children).toContain("n.new");
-      const qdb = present(s.queryDb, "query db");
-      expect(qdb.ids.toEid.has("n.new")).toBe(true);
-      expect(qdb.rev).toBe(2);
+      const ix = present(s.index, "index");
+      expect(ix.getNode("n.new")).toBeDefined();
+      expect(ix.generation).toBeGreaterThan(genBefore);
     });
 
     it("updates existing node text in place", () => {

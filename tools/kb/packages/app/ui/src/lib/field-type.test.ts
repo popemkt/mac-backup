@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildQueryDb } from "@/ds/db";
+import { DatascriptIndex } from "@/ds";
 import { fixtureGraph } from "@/fixtures/graph";
 import { wireToOutlineMap } from "@/lib/graph-view";
 import { fuzzyNodeCandidates } from "@/lib/refs";
@@ -95,7 +95,7 @@ describe("field types", () => {
       }),
     ];
     const nodes = wireToOutlineMap(wire, new Set());
-    const qdb = buildQueryDb(wire, 1);
+    const qdb = new DatascriptIndex(wire);
     const allowed = resolveAllowedRefIds(nodes.get("field.pick"), nodes, qdb);
     const set = present(allowed, "allowed refs");
     expect([...set]).toEqual(["n.root-a"]);
@@ -117,7 +117,7 @@ describe("field types", () => {
       }),
     ];
     const nodes = wireToOutlineMap(wire, new Set());
-    const qdb = buildQueryDb(wire, 1);
+    const qdb = new DatascriptIndex(wire);
     const allowed = resolveAllowedRefIds(nodes.get("field.both"), nodes, qdb);
     const set = present(allowed, "allowed refs");
     // Query matches n.root-c only; tag.todo would have included a/b — query wins.
@@ -320,7 +320,11 @@ describe("allowed ref targets: resolution vs display", () => {
       }),
     ];
     const nodes = wireToOutlineMap(wire, new Set());
-    const allowed = resolveAllowedRefIds(nodes.get("field.onto-ish"), nodes, buildQueryDb(wire, 1));
+    const allowed = resolveAllowedRefIds(
+      nodes.get("field.onto-ish"),
+      nodes,
+      new DatascriptIndex(wire),
+    );
     const set = present(allowed, "allowed refs");
     expect([...set]).toEqual([SYSTEM_IDS.typeField]);
     expect(set.has("tag.todo")).toBe(false);

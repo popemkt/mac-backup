@@ -33,8 +33,8 @@ export interface OntologyPageProps {
 export function OntologyPage({ ontologyId }: OntologyPageProps) {
   const wireNodes = useOutlineStore((s) => s.wireNodes);
   const nodes = useOutlineStore((s) => s.nodes);
-  const queryDb = useOutlineStore((s) => s.queryDb);
-  const rev = useOutlineStore((s) => s.rev);
+  const queryDb = useOutlineStore((s) => s.index);
+  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
   const jumpToNode = useOutlineStore((s) => s.jumpToNode);
 
   const byId = useMemo(() => new Map(wireNodes.map((n) => [n.id, n])), [wireNodes]);
@@ -49,8 +49,8 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
   );
 
   const resolution = useMemo(
-    () => resolveScope(wireNodes, ontologyId, queryDb, rev),
-    [wireNodes, ontologyId, queryDb, rev],
+    () => resolveScope(wireNodes, ontologyId, queryDb, generation),
+    [wireNodes, ontologyId, queryDb, generation],
   );
 
   const members = useMemo(() => memberRows(resolution, labelFor), [resolution, labelFor]);

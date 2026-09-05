@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
-import { buildQueryDb } from "@/ds/db";
+import { DatascriptIndex } from "@/ds";
 import {
   DEFAULT_EDGE_KINDS,
   DEFAULT_MAX_NODES,
@@ -148,7 +148,7 @@ describe("extractLensGraph", () => {
   });
 
   it("includes mention + child edges by default", () => {
-    const db = buildQueryDb(nodes, 1);
+    const db = new DatascriptIndex(nodes);
     const g = extractLensGraph(db, nodes, perspective());
     const kinds = new Set(g.edges.map((e) => e.kind));
     expect(kinds.has("mention")).toBe(true);
@@ -169,7 +169,7 @@ describe("extractLensGraph", () => {
   });
 
   it("smart-elides sys/command/schema by default; toggle re-includes", () => {
-    const db = buildQueryDb(nodes, 1);
+    const db = new DatascriptIndex(nodes);
     const elided = extractLensGraph(db, nodes, perspective());
     const elidedIds = new Set(elided.nodes.map((n) => n.id));
     expect(elidedIds.has("sys.field")).toBe(false);
@@ -188,7 +188,7 @@ describe("extractLensGraph", () => {
   });
 
   it("selects only ref-prop edges when configured", () => {
-    const db = buildQueryDb(nodes, 1);
+    const db = new DatascriptIndex(nodes);
     const g = extractLensGraph(db, nodes, perspective({ edgeKinds: ["ref-prop"] }));
     expect(g.edges.every((e) => e.kind === "ref-prop")).toBe(true);
     expect(g.edges).toContainEqual({
@@ -200,7 +200,7 @@ describe("extractLensGraph", () => {
   });
 
   it("filters nodes by lens.query EDN", () => {
-    const db = buildQueryDb(nodes, 1);
+    const db = new DatascriptIndex(nodes);
     const g = extractLensGraph(
       db,
       nodes,
@@ -219,7 +219,7 @@ describe("extractLensGraph", () => {
 
   it("bad EDN query yields empty set and warns (never all-nodes)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const db = buildQueryDb(nodes, 1);
+    const db = new DatascriptIndex(nodes);
     const g = extractLensGraph(
       db,
       nodes,
@@ -236,7 +236,7 @@ describe("extractLensGraph", () => {
 
   it("caps to highest-degree nodes and logs dropped count", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const db = buildQueryDb(nodes, 1);
+    const db = new DatascriptIndex(nodes);
     const g = extractLensGraph(
       db,
       nodes,
@@ -294,7 +294,7 @@ describe("extractLensGraph", () => {
   });
 
   it("buildTreeForest: forest roots vs focus root, cycle-safe", () => {
-    const db = buildQueryDb(nodes, 1);
+    const db = new DatascriptIndex(nodes);
     const g = extractLensGraph(db, nodes, perspective({ edgeKinds: ["child"] }));
     const forest = buildTreeForest(nodes, g.nodes, null);
     const rootIds = forest.map((t) => t.id).toSorted();
@@ -309,7 +309,7 @@ describe("extractLensGraph", () => {
     // Cycle: a → a1 → a
     const cyclic = nodes.map((n) => (n.id === "n.a1" ? { ...n, children: ["n.a"] } : { ...n }));
     const g2 = extractLensGraph(
-      buildQueryDb(cyclic, 1),
+      new DatascriptIndex(cyclic),
       cyclic,
       perspective({ edgeKinds: ["child"] }),
     );

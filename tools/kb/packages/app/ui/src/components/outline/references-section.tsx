@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { queryBacklinks } from "@/ds/db";
+import { queryBacklinks } from "@/ds";
 import { rowText } from "@/lib/contextual-ref";
 import { MdView } from "@/components/outline/md-view";
 import type { TagBadge } from "@/lib/types";
@@ -18,9 +18,9 @@ export interface BacklinkRow {
  * Inline "References (N)" at the bottom of a zoomed view (DESIGN-RESKIN §1.5).
  */
 export function ReferencesSection({ nodeId }: { nodeId: string }) {
-  const queryDb = useOutlineStore((s) => s.queryDb);
+  const queryDb = useOutlineStore((s) => s.index);
   const nodes = useOutlineStore((s) => s.nodes);
-  const rev = useOutlineStore((s) => s.rev);
+  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
 
   const backlinks = useMemo((): BacklinkRow[] => {
     if (!queryDb) return [];
@@ -37,7 +37,7 @@ export function ReferencesSection({ nodeId }: { nodeId: string }) {
         };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryDb, nodeId, rev, nodes]);
+  }, [queryDb, nodeId, generation, nodes]);
 
   return <ReferencesView nodeId={nodeId} backlinks={backlinks} />;
 }

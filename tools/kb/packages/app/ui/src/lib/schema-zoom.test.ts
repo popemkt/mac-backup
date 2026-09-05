@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildQueryDb } from "@/ds/db";
+import { DatascriptIndex } from "@/ds";
 import { fixtureGraph } from "@/fixtures/graph";
 import { queryFieldCarriers, queryTaggedInstances, schemaZoomKind } from "@/lib/schema-zoom";
 import { wireToOutlineMap } from "@/lib/graph-view";
 
 describe("schema zoom queries", () => {
-  const qdb = buildQueryDb(fixtureGraph.nodes, fixtureGraph.rev);
+  const qdb = new DatascriptIndex(fixtureGraph.nodes);
   const nodes = wireToOutlineMap(fixtureGraph.nodes, new Set());
 
   it("detects tag vs field zoom kinds", () => {

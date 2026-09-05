@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { buildQueryDb, queryBacklinks } from "@/ds/db";
+import { DatascriptIndex, queryBacklinks } from "@/ds";
 import { fixtureGraph } from "@/fixtures/graph";
 import type { WireNode } from "@kb/contracts";
 
@@ -17,7 +17,7 @@ describe("queryBacklinks", () => {
   });
 
   it("finds nodes that mention the target via :node/mentions", () => {
-    const db = buildQueryDb(nodes, 1);
+    const db = new DatascriptIndex(nodes);
     const hits = queryBacklinks(db, "n.root-a");
     expect(hits.map((h) => h.id)).toContain("n.root-b");
   });

@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { normalizeEdnQuery } from "@kb/query";
 import { fixtureGraph } from "@/fixtures/graph";
-import { buildQueryDb } from "./db";
-import { runQuery } from "./query";
+import { DatascriptIndex, runQuery } from "./index";
 
 describe("client datalog execution", () => {
-  const qdb = buildQueryDb(fixtureGraph.nodes, fixtureGraph.rev);
+  const qdb = new DatascriptIndex(fixtureGraph.nodes);
 
   it("normalizes keywords but not directives", () => {
     expect(normalizeEdnQuery("[:find ?id :where [?n :node/id ?id]]")).toBe(

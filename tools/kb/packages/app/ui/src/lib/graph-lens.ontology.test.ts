@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
-import { buildQueryDb } from "@/ds/db";
+import { DatascriptIndex } from "@/ds";
 import { DEFAULT_MAX_NODES, extractLensGraph, type LensPerspective } from "@/lib/graph-lens";
 
 const ISO = "2026-08-23T00:00:00.000Z";
@@ -37,7 +37,7 @@ function wire(): WireNode[] {
 describe("extractLensGraph — restrictTo (ontology scope)", () => {
   it("keeps only member nodes and their internal edges", () => {
     const nodes = wire();
-    const db = buildQueryDb(nodes, 1);
+    const db = new DatascriptIndex(nodes);
     const graph = extractLensGraph(db, nodes, PERSPECTIVE, {
       restrictTo: new Set(["n.a", "n.b"]),
     });
@@ -47,7 +47,7 @@ describe("extractLensGraph — restrictTo (ontology scope)", () => {
 
   it("drops edges with either endpoint outside the set", () => {
     const nodes = wire();
-    const db = buildQueryDb(nodes, 1);
+    const db = new DatascriptIndex(nodes);
     const graph = extractLensGraph(db, nodes, PERSPECTIVE, {
       restrictTo: new Set(["n.b", "n.c"]),
     });
@@ -58,7 +58,7 @@ describe("extractLensGraph — restrictTo (ontology scope)", () => {
 
   it("renders nothing for an empty member set", () => {
     const nodes = wire();
-    const db = buildQueryDb(nodes, 1);
+    const db = new DatascriptIndex(nodes);
     const graph = extractLensGraph(db, nodes, PERSPECTIVE, {
       restrictTo: new Set(),
     });
@@ -68,7 +68,7 @@ describe("extractLensGraph — restrictTo (ontology scope)", () => {
 
   it("composes with a perspective query (intersection, not replacement)", () => {
     const nodes = wire();
-    const db = buildQueryDb(nodes, 1);
+    const db = new DatascriptIndex(nodes);
     const graph = extractLensGraph(
       db,
       nodes,
@@ -83,7 +83,7 @@ describe("extractLensGraph — restrictTo (ontology scope)", () => {
 
   it("is inert when restrictTo is omitted", () => {
     const nodes = wire();
-    const db = buildQueryDb(nodes, 1);
+    const db = new DatascriptIndex(nodes);
     const graph = extractLensGraph(db, nodes, PERSPECTIVE, {});
     expect(graph.nodes.map((n) => n.id)).toEqual(["n.a", "n.b", "n.c"]);
     expect(graph.edges).toHaveLength(2);

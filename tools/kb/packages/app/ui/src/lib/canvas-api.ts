@@ -105,7 +105,7 @@ export function isValidNativeTarget(
   fieldId: string,
   targetNodeId: string,
   nodes: Map<string, OutlineNode>,
-  queryDb: ReturnType<typeof useOutlineStore.getState>["queryDb"],
+  queryDb: ReturnType<typeof useOutlineStore.getState>["index"],
 ): boolean {
   const field = nodes.get(fieldId);
   if (!field) return false;
