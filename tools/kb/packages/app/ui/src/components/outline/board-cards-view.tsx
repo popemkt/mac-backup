@@ -41,13 +41,13 @@ export function BoardCardsView({
   isQuerySource = false,
   widthPref: widthPrefProp,
 }: BoardCardsViewProps) {
-  const rev = useOutlineStore((s) => s.rev);
+  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
   const storeNodes = useOutlineStore((s) => s.nodes);
   const nodes = useMemo(
     () => nodesProp ?? storeNodes,
-    // rev gates store map identity; props path uses explicit nodesProp.
+    // generation gates store map identity; props path uses explicit nodesProp.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [nodesProp, storeNodes, rev],
+    [nodesProp, storeNodes, generation],
   );
   const frameNode = nodes.get(frameId);
   // Same rule as the table: displayed columns belong to the frame.

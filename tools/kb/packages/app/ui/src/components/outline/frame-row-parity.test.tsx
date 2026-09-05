@@ -16,7 +16,7 @@ function seed() {
   useOutlineStore.setState({
     nodes: new Map(),
     wireNodes: [],
-    queryDb: null,
+    index: null,
     rev: 0,
     rootNodeId: WORKSPACE_ROOT_ID,
     homeRootId: WORKSPACE_ROOT_ID,

@@ -203,8 +203,8 @@ function snapOffset(pairs: readonly (readonly [number, number])[]) {
 
 export function CanvasPage({ canvasId }: CanvasPageProps) {
   const nodes = useOutlineStore((s) => s.nodes);
-  const queryDb = useOutlineStore((s) => s.queryDb);
-  const rev = useOutlineStore((s) => s.rev);
+  const queryDb = useOutlineStore((s) => s.index);
+  const rev = useOutlineStore((s) => s.index?.generation ?? 0);
   const canvasNode = nodes.get(canvasId);
 
   const [historyState, setHistoryState] = useState<CanvasHistory>(() =>

@@ -10,8 +10,7 @@ import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { runQuery } from "@/ds/query";
-import { buildQueryDb } from "@/ds/db";
+import { DatascriptIndex, runQuery } from "@/ds";
 import { fixtureGraph } from "@/fixtures/graph";
 import { resultNodeIds } from "@/lib/query-node";
 import { wireToOutlineMap } from "@/lib/graph-view";
@@ -50,7 +49,7 @@ function renderBullet(node: OutlineNode, isRef: boolean): string {
 describe("result row render (W4)", () => {
   it("query rows resolve to real nodes and render dashed ref bullets", () => {
     const nodes = outlineMap();
-    const db = buildQueryDb([...fixtureGraph.nodes, queryWire()], 1);
+    const db = new DatascriptIndex([...fixtureGraph.nodes, queryWire()]);
     const rows = runQuery(db, TODO_EDN);
     const ids = resultNodeIds(rows, nodes, { excludeId: "n.q1" });
     expect(ids.toSorted()).toEqual(["n.root-a", "n.root-b"]);

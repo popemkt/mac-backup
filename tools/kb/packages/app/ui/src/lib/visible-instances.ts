@@ -5,8 +5,8 @@
  * {@link frameRows} / {@link frameListChildren}, the same functions the
  * renderers call. This walk only assigns instance keys and recurses.
  */
-import type { QueryDb } from "@/ds/db";
-import { runQuery } from "@/ds/query";
+import type { KbIndex } from "@/ds";
+import { runQuery } from "@/ds";
 import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
 import { frameListChildren, frameRows } from "@/lib/frame-rows";
 import { isQueryNode, queryDefOf, resultNodeIds } from "@/lib/query-node";
@@ -26,7 +26,7 @@ export type FramePagesMap = Readonly<Record<string, number>>;
  * per-frame page counts, and the list it appends to. */
 interface WalkContext {
   nodes: NodeMap;
-  queryDb: QueryDb | null;
+  queryDb: KbIndex | null;
   pages: FramePagesMap;
   out: VisibleInstance[];
 }
@@ -104,7 +104,7 @@ function walkVisibleInstances(
 export function collectVisibleInstances(
   rootNodeId: string,
   nodes: NodeMap,
-  queryDb: QueryDb | null,
+  queryDb: KbIndex | null,
   pages: FramePagesMap = {},
 ): VisibleInstance[] {
   const out: VisibleInstance[] = [];

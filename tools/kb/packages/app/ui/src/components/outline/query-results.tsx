@@ -5,7 +5,7 @@
  */
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { getLiveClient } from "@/api/live";
-import { runQuery } from "@/ds/query";
+import { runQuery } from "@/ds";
 import { indentStyle } from "@/lib/indent";
 import { queryResultInstanceKey } from "@/lib/instance-key";
 import { queryDefOf, resultNodeIds, subscribeQueryNode } from "@/lib/query-node";
@@ -42,8 +42,8 @@ export function QueryResultsSection({
 }: QueryResultsSectionProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const nodes = useOutlineStore((s) => s.nodes);
-  const queryDb = useOutlineStore((s) => s.queryDb);
-  const rev = useOutlineStore((s) => s.rev);
+  const queryDb = useOutlineStore((s) => s.index);
+  const rev = useOutlineStore((s) => s.index?.generation ?? 0);
   const wsStatus = useUiStore((s) => s.wsStatus);
 
   const def = queryDefOf(node);

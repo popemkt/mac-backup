@@ -1,8 +1,7 @@
 /**
  * Schema-page live queries for zoomed tag / field nodes (DESIGN-REFINE §2 W3).
  */
-import { runQuery } from "@/ds/query";
-import type { QueryDb } from "@/ds/db";
+import { runQuery, type KbIndex } from "@/ds";
 import { SYSTEM_IDS } from "@/lib/types";
 import type { OutlineNode } from "@/lib/types";
 
@@ -39,12 +38,12 @@ export function fieldCarriersQuery(fieldId: string): string {
 }
 
 /** Everything tagged with this tag node (Tana schema page). */
-export function queryTaggedInstances(qdb: QueryDb, tagId: string): SchemaHit[] {
+export function queryTaggedInstances(qdb: KbIndex, tagId: string): SchemaHit[] {
   return rowsToHits(runQuery(qdb, taggedInstancesQuery(tagId))).filter((h) => h.id !== tagId);
 }
 
 /** Nodes that carry this field as a prop key. */
-export function queryFieldCarriers(qdb: QueryDb, fieldId: string): SchemaHit[] {
+export function queryFieldCarriers(qdb: KbIndex, fieldId: string): SchemaHit[] {
   return rowsToHits(runQuery(qdb, fieldCarriersQuery(fieldId))).filter((h) => h.id !== fieldId);
 }
 

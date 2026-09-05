@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
-import { buildQueryDb, queryBacklinks } from "@/ds/db";
+import { DatascriptIndex, queryBacklinks } from "@/ds";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { fixtureGraph } from "@/fixtures/graph";
 import {
@@ -112,10 +112,11 @@ describe("contextual reference model", () => {
 
 describe("references section reach", () => {
   it("a contextual reference shows up in the target's backlinks", () => {
-    const db = buildQueryDb(
-      [...fixtureGraph.nodes, ...REF_SEED_WIRES, ctxRefWire("n.ctx", "n.root-a")],
-      1,
-    );
+    const db = new DatascriptIndex([
+      ...fixtureGraph.nodes,
+      ...REF_SEED_WIRES,
+      ctxRefWire("n.ctx", "n.root-a"),
+    ]);
     expect(queryBacklinks(db, "n.root-a").map((b) => b.id)).toContain("n.ctx");
   });
 
@@ -124,7 +125,7 @@ describe("references section reach", () => {
       id: "n.referrer",
       text: "See [[n.root-a|Ship kb ui shell]] for context",
     });
-    const db = buildQueryDb([...fixtureGraph.nodes, referrer], 1);
+    const db = new DatascriptIndex([...fixtureGraph.nodes, referrer]);
     expect(queryBacklinks(db, "n.root-a").map((b) => b.id)).toEqual(["n.referrer"]);
   });
 });

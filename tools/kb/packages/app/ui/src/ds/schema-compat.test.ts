@@ -1,7 +1,7 @@
 /**
- * Dual-schema audit: every EDN string the UI runs, on both the forked
- * `buildQueryDb` (ref-typed `:f/*`) and `DatascriptIndex` (prop refs are
- * values; `:f/*` is not a ref attr). Commit 1 of w2 — the safety net.
+ * Every EDN string the UI runs, pinned against DatascriptIndex on the
+ * fixture graph. Commit 1 compared this replica to the deleted fork; the
+ * counts below are that table, now a regression suite for the one schema.
  */
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
@@ -15,8 +15,6 @@ import {
 import { fixtureGraph } from "@/fixtures/graph";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { fieldCarriersQuery, taggedInstancesQuery } from "@/lib/schema-zoom";
-import { buildQueryDb } from "./db";
-import { runQuery } from "./query";
 
 function sortRows(rows: unknown[][]): string[][] {
   return rows
@@ -71,50 +69,40 @@ const UI_EDN: Array<{ id: string; source: string; edn: string }> = [
   },
 ];
 
-describe("UI datalog under both schemas", () => {
-  const oldDb = buildQueryDb(fixtureGraph.nodes, fixtureGraph.rev);
+describe("UI datalog on DatascriptIndex", () => {
   const index = new DatascriptIndex(fixtureGraph.nodes);
 
-  const table = UI_EDN.map((q) => {
-    const forkRows = sortRows(runQuery(oldDb, q.edn));
-    const indexRows = sortRows(index.runDatalog(q.edn));
-    return {
-      id: q.id,
-      source: q.source,
-      fork: forkRows.length,
-      index: indexRows.length,
-      same: JSON.stringify(forkRows) === JSON.stringify(indexRows),
-    };
-  });
+  const table = UI_EDN.map((q) => ({
+    id: q.id,
+    source: q.source,
+    rows: sortRows(index.runDatalog(q.edn)).length,
+  }));
 
-  it("pins before/after row counts — zero unexplained diffs", () => {
-    expect(table.map((r) => [r.id, r.fork, r.index, r.same])).toEqual([
-      ["queries.list-all", 52, 52, true],
-      ["queries.list-fields", 26, 26, true],
-      ["queries.list-tags", 3, 3, true],
-      ["queries.backlinks-n.root-a", 0, 0, true],
-      ["query-node.default", 52, 52, true],
-      ["schema-zoom.tagged-todo", 2, 2, true],
-      ["schema-zoom.field-status", 2, 2, true],
-      ["graph-lens.todo-via-id", 2, 2, true],
-      ["field-type.target-query-text", 1, 1, true],
-      ["ontology-scope.outsider", 0, 0, true],
-      ["diagnostic.join-via-text", 2, 2, true],
-      ["diagnostic.join-via-node-id-value", 0, 0, true],
+  it("pins row counts — zero unexplained diffs from the commit-1 audit", () => {
+    expect(table.map((r) => [r.id, r.rows])).toEqual([
+      ["queries.list-all", 52],
+      ["queries.list-fields", 26],
+      ["queries.list-tags", 3],
+      ["queries.backlinks-n.root-a", 0],
+      ["query-node.default", 52],
+      ["schema-zoom.tagged-todo", 2],
+      ["schema-zoom.field-status", 2],
+      ["graph-lens.todo-via-id", 2],
+      ["field-type.target-query-text", 1],
+      ["ontology-scope.outsider", 0],
+      ["diagnostic.join-via-text", 2],
+      ["diagnostic.join-via-node-id-value", 0],
     ]);
   });
 
-  it("backlinks with a mention in text match on both schemas", () => {
+  it("backlinks with a mention in text match", () => {
     const nodes = structuredClone(fixtureGraph.nodes);
     const mentioned = present(
       nodes.find((n) => n.id === "n.root-b"),
       "n.root-b",
     );
     mentioned.text = "See [[n.root-a|Ship]] for context";
-    const edn = backlinksQuery("n.root-a");
-    const fork = sortRows(runQuery(buildQueryDb(nodes, 1), edn));
-    const indexRows = sortRows(new DatascriptIndex(nodes).runDatalog(edn));
-    expect(fork.map((r) => r[0])).toContain("n.root-b");
-    expect(indexRows).toEqual(fork);
+    const rows = sortRows(new DatascriptIndex(nodes).runDatalog(backlinksQuery("n.root-a")));
+    expect(rows.map((r) => r[0])).toContain("n.root-b");
   });
 });

@@ -227,16 +227,3 @@ export function loadExpandedIds(): Set<string> {
 export function saveExpandedIds(ids: Set<string>): void {
   saveIdSet(EXPANDED_STORAGE_KEY, ids);
 }
-
-export function searchNodes(nodes: NodeMap, query: string): Array<{ id: string; text: string }> {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  const hits: Array<{ id: string; text: string }> = [];
-  for (const n of nodes.values()) {
-    if (n.id === WORKSPACE_ROOT_ID) continue;
-    if (n.text.toLowerCase().includes(q) || n.id.toLowerCase().includes(q)) {
-      hits.push({ id: n.id, text: n.text });
-    }
-  }
-  return hits.slice(0, 50);
-}

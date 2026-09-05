@@ -261,7 +261,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     const cols = groupChildrenForBoard(kids, "f_status", nodes);
     const expected = flattenBoardOrder(cols).map((n) => n.id);
     useOutlineStore.getState().zoomTo("frame1");
-    const visible = collectVisibleInstances("frame1", nodes, useOutlineStore.getState().queryDb);
+    const visible = collectVisibleInstances("frame1", nodes, useOutlineStore.getState().index);
     // zoomed root itself + projected cards in board order
     const projected = visible.filter((v) => v.nodeId !== "frame1").map((v) => v.nodeId);
     expect(projected).toEqual(expected);

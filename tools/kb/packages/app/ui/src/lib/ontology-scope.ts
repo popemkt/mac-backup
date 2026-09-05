@@ -4,7 +4,7 @@
  *
  * Scope is a PROJECTION, not a sandbox. The outline is projected through one
  * function (`wireToOutlineMap`), so filtering the array handed to it scopes the
- * outline, search, keyboard nav, and breadcrumbs at once. `queryDb` stays built
+ * outline, search, keyboard nav, and breadcrumbs at once. `index` stays built
  * over the FULL wire set on purpose: backlinks, `#query` nodes, and WS
  * subscriptions keep global reach and honest results. Scoping the datalog
  * engine is deliberately out of core (r5 §2.9).
@@ -17,8 +17,8 @@ import {
   type OntologyResolution,
 } from "@kb/model";
 import { textOr } from "@/lib/text";
-import type { QueryDb } from "@/ds/db";
-import { runQuery } from "@/ds/query";
+import type { KbIndex } from "@/ds";
+import { runQuery } from "@/ds";
 import type { NodeMap, OutlineNode } from "@/lib/types";
 
 export type { MemberReason, OntologyResolution };
@@ -97,15 +97,15 @@ const scopeCache = new WeakMap<readonly WireNode[], Map<string, OntologyResoluti
  *
  * The client datalog runner takes no inputs, so `sys.f.onto.query` must be
  * parameter-free EDN — same contract as every other client-side query in kb.
- * `rev` joins the key only so a same-array resync still re-resolves.
+ * `generation` joins the key so a same-array resync still re-resolves.
  */
 export function resolveScope(
   wireNodes: WireNode[],
   ontologyId: string,
-  queryDb: QueryDb | null,
-  rev: number,
+  queryDb: KbIndex | null,
+  generation: number,
 ): OntologyResolution {
-  const key = `${rev}\u0000${ontologyId}`;
+  const key = `${generation}\u0000${ontologyId}`;
   let perSnapshot = scopeCache.get(wireNodes);
   if (!perSnapshot) {
     perSnapshot = new Map<string, OntologyResolution>();

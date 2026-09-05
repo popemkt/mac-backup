@@ -66,8 +66,6 @@
       "types:packages/app/ui/src/api/graph.ts:GraphLoadSource": 1,
       "types:packages/app/ui/src/components/graph/sigma-graph.tsx:GraphSelection": 1,
       "types:packages/app/ui/src/components/outline/caret.ts:VerticalDirection": 1,
-      "types:packages/app/ui/src/ds/datoms.ts:Datom": 1,
-      "types:packages/app/ui/src/ds/datoms.ts:PropValue": 1,
       "types:packages/app/ui/src/lib/canvas-color.ts:CanvasColorPresetId": 1,
       "types:packages/app/ui/src/lib/md-inline.ts:AssetMediaKind": 1,
       "types:packages/app/ui/src/lib/ontology-scope.ts:MemberReason": 1,

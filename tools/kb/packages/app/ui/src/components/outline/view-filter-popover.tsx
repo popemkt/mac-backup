@@ -50,7 +50,7 @@ function resolveAnchorRect(frameId: string): DOMRect | null {
 export function ViewFilterPopoverHost() {
   const frameId = useUiStore((s) => s.filterPopoverFrameId);
   const setOpenId = useUiStore((s) => s.setFilterPopoverFrameId);
-  const rev = useOutlineStore((s) => s.rev);
+  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
   const frame = useOutlineStore((s) => (frameId !== null ? s.nodes.get(frameId) : undefined));
   const panelRef = useRef<HTMLDivElement>(null);
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
@@ -58,7 +58,7 @@ export function ViewFilterPopoverHost() {
   const fields = useMemo(() => {
     if (frameId === null) return [];
     return listFilterFieldOptions(frameId, useOutlineStore.getState().nodes);
-  }, [frameId, rev]); // oxlint-disable-line react-hooks/exhaustive-deps -- rev is the reactive invalidation key: the body reads the store imperatively via getState(), so rev drives recomputation
+  }, [frameId, generation]); // oxlint-disable-line react-hooks/exhaustive-deps -- generation is the reactive invalidation key: the body reads the store imperatively via getState(), so generation drives recomputation
 
   const config = getViewConfig(frame?.props);
 
@@ -79,7 +79,7 @@ export function ViewFilterPopoverHost() {
       return;
     }
     setAnchor(rect);
-  }, [frameId, setOpenId, rev]);
+  }, [frameId, setOpenId, generation]);
 
   useEffect(() => {
     if (frameId === null || !anchor) return undefined;

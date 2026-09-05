@@ -28,7 +28,6 @@
     "@tailwindcss/vite": "catalog:",
     "clsx": "catalog:",
     "d3-hierarchy": "catalog:",
-    "datascript": "catalog:",
     "graphology": "catalog:",
     "graphology-communities-louvain": "catalog:",
     "graphology-layout": "catalog:",

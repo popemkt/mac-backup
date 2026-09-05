@@ -3,9 +3,8 @@
  * + wire nodes, driven by a #graph-perspective node's lens props.
  */
 import type { WireNode } from "@kb/contracts";
-import type { QueryDb } from "@/ds/db";
-import { extractMentions } from "@/ds/datoms";
-import { runQuery } from "@/ds/query";
+import type { KbIndex } from "@/ds";
+import { extractMentions, runQuery } from "@/ds";
 import { hashTagColor, resolveTagColor } from "@/lib/tag-color";
 import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
 import { logWarn } from "@/lib/log";
@@ -366,7 +365,7 @@ export interface ExtractLensOptions {
 }
 
 function resolveNodeSet(
-  db: QueryDb,
+  db: KbIndex,
   wireNodes: WireNode[],
   perspective: LensPerspective,
   opts: ExtractLensOptions = {},
@@ -501,7 +500,7 @@ export function resolveSize(sizeBy: string, degree: number, childCount: number):
 }
 
 export function extractLensGraph(
-  db: QueryDb,
+  db: KbIndex,
   wireNodes: WireNode[],
   perspective: LensPerspective,
   opts: ExtractLensOptions = {},

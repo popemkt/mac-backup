@@ -144,8 +144,8 @@ export function FieldValueStack({
 export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const nodes = useOutlineStore((s) => s.nodes);
-  const queryDb = useOutlineStore((s) => s.queryDb);
-  const rev = useOutlineStore((s) => s.rev);
+  const queryDb = useOutlineStore((s) => s.index);
+  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
   // Debug rows are this node's own business (⌘K → "Show debug fields").
   const showDebugFields = useDebugFields(nodeId);
 
@@ -164,7 +164,7 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
         const fieldNode = nodes.get(p.fieldId);
         const allowedRefIds =
           fieldType === "ref"
-            ? resolveAllowedRefIdsCached(p.fieldId, fieldNode, nodes, queryDb, rev)
+            ? resolveAllowedRefIdsCached(p.fieldId, fieldNode, nodes, queryDb, generation)
             : null;
         const debug = "debug" in p ? Boolean(p.debug) : false;
         const values = p.values;

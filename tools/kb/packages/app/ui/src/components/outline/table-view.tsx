@@ -350,15 +350,14 @@ const TableCellField = memo(function TableCellField({
   values: PropValue[];
   nodes: NodeMap;
 }) {
-  const queryDb = useOutlineStore((s) => s.queryDb);
+  const queryDb = useOutlineStore((s) => s.index);
   const fieldType = resolveFieldTypeById(fieldId, nodes);
-  // Ref-target cache keys on rev; only subscribe when field is ref-typed.
-  const rev = useOutlineStore((s) => (fieldType === "ref" ? s.rev : 0));
+  const generation = useOutlineStore((s) => (fieldType === "ref" ? (s.index?.generation ?? 0) : 0));
 
   const fieldNode = nodes.get(fieldId);
   const allowedRefIds =
     fieldType === "ref"
-      ? resolveAllowedRefIdsCached(fieldId, fieldNode, nodes, queryDb, rev)
+      ? resolveAllowedRefIdsCached(fieldId, fieldNode, nodes, queryDb, generation)
       : null;
 
   const label = textOr(fieldNode?.text, fieldId);
