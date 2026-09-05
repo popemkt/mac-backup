@@ -47,7 +47,7 @@ existing view specs are unchanged).
   `Buffer` and `process` are compile errors — the half of the fence the import
   graph cannot see), `tsconfig.bun.json` for everything else, and
   `tsconfig.browser.json` for `scope:browser`; a `scope:shared` package carries
-  a second `tsconfig.tests.json` on the Bun preset, because `bun test` is Bun
+  a second `tests/tsconfig.json` on the Bun preset, because `bun test` is Bun
   whatever the code under test targets.
   `tools/kb/.oxlintrc.json` is the single oxlint ruleset: the three categories at `error`, the rules
   beyond them, and overrides only for the test-file and `.d.ts` file classes.

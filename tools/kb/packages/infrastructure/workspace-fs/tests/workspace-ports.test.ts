@@ -61,13 +61,15 @@ describe("workspace name resolution", () => {
 });
 
 describe("SavedQueries port", () => {
-  test("write/read/remove stay under .kb/queries; a bad name never lands", async () => {
+  test("read stays under .kb/queries; a bad name never resolves", async () => {
     const root = await mkdtemp(join(tmpdir(), "kb-sq-io-"));
+    await mkdir(join(root, ".kb", "queries"), { recursive: true });
+    await writeFile(join(root, ".kb", "queries", "ok-name.edn"), "[:find ?x]");
 
     const escaped = await run(
       Effect.gen(function* () {
         const queries = yield* SavedQueries;
-        return yield* queries.write("../escape", "[:find ?x]").pipe(Effect.result);
+        return yield* queries.read("../escape").pipe(Effect.result);
       }),
       root,
     );
@@ -76,25 +78,20 @@ describe("SavedQueries port", () => {
     const edn = await run(
       Effect.gen(function* () {
         const queries = yield* SavedQueries;
-        yield* queries.write("ok-name", "[:find ?x]");
         return yield* queries.read("ok-name");
       }),
       root,
     );
     expect(edn).toBe("[:find ?x]");
-    expect(await readFile(join(root, ".kb", "queries", "ok-name.edn"), "utf8")).toBe("[:find ?x]");
 
-    const after = await run(
+    const missing = await run(
       Effect.gen(function* () {
         const queries = yield* SavedQueries;
-        // Removing twice is the same as removing once.
-        yield* queries.remove("ok-name");
-        yield* queries.remove("ok-name");
-        return yield* queries.read("ok-name");
+        return yield* queries.read("not-there");
       }),
       root,
     );
-    expect(after).toBeNull();
+    expect(missing).toBeNull();
   });
 
   test("list skips stems the port could never address", async () => {

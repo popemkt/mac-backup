@@ -63,27 +63,6 @@ export function savedQueriesLayer(root: string): Layer.Layer<SavedQueries, never
           return out.toSorted((a, b) => a.name.localeCompare(b.name));
         }),
         read,
-        write: Effect.fn("kb.savedQueries.write")(function* (name: string, edn: string) {
-          const path = yield* pathOf(root, name);
-          yield* fs
-            .makeDirectory(dir, { recursive: true })
-            .pipe(Effect.mapError((err) => internal(`create ${dir}`, err)));
-          yield* fs
-            .writeFileString(path, edn)
-            .pipe(Effect.mapError((err) => internal(`write saved query ${name}`, err)));
-        }),
-        remove: Effect.fn("kb.savedQueries.remove")(function* (name: string) {
-          const path = yield* pathOf(root, name);
-          yield* fs
-            .remove(path)
-            .pipe(
-              Effect.catch((err) =>
-                isNotFound(err)
-                  ? Effect.void
-                  : Effect.fail(internal(`remove saved query ${name}`, err)),
-              ),
-            );
-        }),
       });
     }),
   );

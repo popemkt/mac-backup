@@ -39,9 +39,6 @@ export interface SavedQueriesPort {
   readonly list: Effect.Effect<readonly SavedQuery[], DomainError>;
   /** The query's edn, or null when there is none by that name. */
   read(name: string): Effect.Effect<string | null, DomainError>;
-  write(name: string, edn: string): Effect.Effect<void, DomainError>;
-  /** Idempotent: removing a query that is not there succeeds. */
-  remove(name: string): Effect.Effect<void, DomainError>;
 }
 
 export class SavedQueries extends Context.Service<SavedQueries, SavedQueriesPort>()(
