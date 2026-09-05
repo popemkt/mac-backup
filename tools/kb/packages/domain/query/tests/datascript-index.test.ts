@@ -8,7 +8,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import type { KbNode } from "@kb/model";
-import { DatascriptIndex } from "../src/index/datascript-index.ts";
+import { BACKLINKS_IR, DatascriptIndex, type IrQuery } from "@kb/query";
 
 function node(id: string, over: Partial<KbNode> = {}): KbNode {
   return {
@@ -248,5 +248,29 @@ describe("DatascriptIndex", () => {
       unknown
     >;
     expect(pulled[":node/id"]).toBe("p");
+  });
+
+  test("run keeps aggregate numbers typed and binds backlinks ids as inputs", () => {
+    const targetId = 'target"quoted';
+    const index = new DatascriptIndex([
+      node("a", { text: `sees [[${targetId}]]`, props: { status: [{ t: "str", v: "doing" }] } }),
+      node("b", { props: { status: [{ t: "str", v: "doing" }] } }),
+      node("c", { props: { status: [{ t: "str", v: "doing" }] } }),
+      node(targetId, { text: "target" }),
+    ]);
+    const count: IrQuery = {
+      kind: "query",
+      find: [
+        { kind: "var", name: "v", type: "scalar" },
+        { kind: "aggregate", op: "count", of: "n", type: "aggregate" },
+      ],
+      where: [{ kind: "pattern", entity: "n", attr: ":f/status", value: { t: "var", name: "v" } }],
+    };
+
+    expect(index.runDatalog("[:find ?v (count ?n) :where [?n :f/status ?v]]")).toEqual([
+      ["doing", "c"],
+    ]);
+    expect(index.run(count)).toEqual([["doing", 3]]);
+    expect(index.run(BACKLINKS_IR, targetId)).toEqual([["a", `sees [[${targetId}]]`]]);
   });
 });
