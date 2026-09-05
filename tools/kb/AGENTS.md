@@ -38,8 +38,10 @@ existing view specs are unchanged).
   `bun run test:ui`. Two runners split by package: everything but `@kb/ui` runs
   on `bun test`; the browser package runs on Vitest. See `tools/kb/DESIGN.md`.
 - Linting & boundaries (`tools/kb`): every boundary — layer and scope
-  direction, and the isomorphism fence (a `scope:shared` package may not import
-  `node:*`, `bun:*`, or `@effect/platform-bun`) — is stated once in
+  direction, the isomorphism fence (a `scope:shared` package may not import
+  `node:*`, `bun:*`, or `@effect/platform-bun`), and the zone matrix inside
+  `packages/app/ui` (`UI_ALLOWS`, whose sanctioned breaches carry
+  `// GAP [[id]]` on the import line) — is stated once in
   `tools/kb/harness/src/constraints.ts` and enforced by `tools/kb/harness`
   (root tooling, not a workspace package) over what the code imports.
   Three tsconfig presets sit under the one strictness base and a package picks
