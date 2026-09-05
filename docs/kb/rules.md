@@ -347,7 +347,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: store staleness is size+mtime, not a fingerprint
 
 - **expected** — The session knows whether its index reflects the store from a content fingerprint the store computes as it writes (p1 Phase 3), so no external write can be missed.
-- **current** — reloadEffect compares the store file's size and mtimeMs against what this session last read or wrote; persistEffect catches up through the same check before committing, and re-stamps after.
+- **current** — reloadEffect compares the opaque StoreFingerprint the EffectStore reports against the one this session last saw; JsonlStore builds that fingerprint from the file's size and mtimeMs, so the same-tick/same-length window is unchanged. persistEffect catches up through the same check before committing, and re-reads the fingerprint after.
 - **impact** — Two windows, both needing a second process writing the same store: an external write in the same mtime tick with an identical byte count is invisible; and an external write landing between persist's check and JsonlStore's own locked reload is merged into the file by that commit but not into the index, which the post-commit stamp then calls current. The session recovers at the next write it does see.
 - **closes** — p1 Phase 3's fingerprint (sourceHash + sourceBytes + nodeCount), or EffectStore.commitEffect returning the merged snapshot so persist reconciles against what was actually written.
 - **node** — `01M1PK5NYA7ZG3XC0H0YRYRVZE`

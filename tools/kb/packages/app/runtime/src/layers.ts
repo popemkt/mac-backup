@@ -12,7 +12,7 @@ import { JsonlStore, bunFileSystemLayer } from "@kb/store-jsonl";
 import { DatascriptIndex, KbIndexService } from "@kb/query";
 import {
   type KbCtx,
-  type KbStore,
+  KbStore,
   kbCtxLayer,
   kbStoreLayer,
   type KbContext,
@@ -68,7 +68,7 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
       return index.storedNodes();
     },
   };
-  yield* noteStoreSynced(ctx, store.path);
+  yield* noteStoreSynced(ctx).pipe(Effect.provideService(KbStore, store));
   return ctx;
 });
 

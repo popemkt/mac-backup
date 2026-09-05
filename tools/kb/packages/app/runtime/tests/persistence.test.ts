@@ -268,13 +268,14 @@ describe("reload / persist via KbStore Layer substitution", () => {
     const injected: KbNode[] = [sampleNode("n.injected", "from-mock")];
     let loads = 0;
     const mock: EffectStore = {
-      // A store with no file of its own: nothing to compare against, so reload
-      // always goes to the port rather than short-circuiting on a stamp.
+      // A store with no fingerprint of its own: nothing to compare against, so
+      // reload always goes to the port rather than short-circuiting.
       path: join(root, ".kb", "mock.jsonl"),
       loadEffect: Effect.sync(() => {
         loads += 1;
         return injected;
       }),
+      fingerprint: Effect.succeed(null),
       commitEffect: () => Effect.void,
     };
 
@@ -294,6 +295,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
     const mock: EffectStore = {
       path: ctx.store.path,
       loadEffect: Effect.succeed([]),
+      fingerprint: Effect.succeed(null),
       commitEffect: (tx) =>
         Effect.sync(() => {
           commits.push(tx);

@@ -32,4 +32,4 @@ export { KbCtx, KbStore, kbCtxLayer, kbStoreLayer } from "./session.ts";
 export { TemplateRegistry, templateRegistryLayer } from "./template.ts";
 export type { ExtensionTemplate, TemplateContext, TemplateFn } from "./template.ts";
 export type { KbContext } from "./session.ts";
-export type { EffectStore } from "./store.ts";
+export type { EffectStore, StoreFingerprint } from "./store.ts";

@@ -1,4 +1,4 @@
-import { Effect, Predicate, Schema } from "effect";
+import { Effect, Option, Predicate, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
 import {
@@ -13,7 +13,7 @@ import {
 } from "@kb/model";
 import { bunFileSystemLayer } from "./platform.ts";
 import { durableReplaceFile } from "./durable-replace.ts";
-import type { EffectStore } from "@kb/contracts";
+import type { EffectStore, StoreFingerprint } from "@kb/contracts";
 import { acquireNodesWriteLockEffect, releaseNodesWriteLock } from "./write-lock.ts";
 
 function mapFsError(err: unknown): DomainError {
@@ -81,11 +81,13 @@ export class JsonlStore implements EffectStore {
   readonly path: string;
   readonly backupPath: string;
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
+  readonly fingerprint: Effect.Effect<StoreFingerprint | null>;
 
   constructor(root: string) {
     this.path = join(root, ".kb", "nodes.jsonl");
     this.backupPath = `${this.path}.bak`;
     this.loadEffect = loadNodes(this.path);
+    this.fingerprint = fingerprintOf(this.path);
   }
 
   commitEffect(tx: StoreTx): Effect.Effect<void, DomainError> {
@@ -116,6 +118,26 @@ export class JsonlStore implements EffectStore {
       }),
     ).pipe(Effect.provide(bunFileSystemLayer));
   }
+}
+
+/**
+ * Size plus mtime, the cheap answer to "did this file change?". A write that
+ * lands inside the same mtime tick *and* keeps the byte count identical is
+ * invisible to it, which is the price of not hashing the file — recorded as
+ * GAP [[01M1PK5NYA7ZG3XC0H0YRYRVZE]]. A file that is not there yet has no
+ * fingerprint, and null compares equal to nothing.
+ */
+function fingerprintOf(path: string): Effect.Effect<StoreFingerprint | null> {
+  return Effect.gen(function* () {
+    const fs = yield* FileSystem;
+    return yield* fs.stat(path).pipe(
+      Effect.map(
+        (info): StoreFingerprint | null =>
+          `${String(info.size)}:${String(Option.isSome(info.mtime) ? info.mtime.value.getTime() : 0)}`,
+      ),
+      Effect.orElseSucceed(() => null),
+    );
+  }).pipe(Effect.provide(bunFileSystemLayer));
 }
 
 /** The store's own platform boundary: JSONL on the Bun filesystem. */
