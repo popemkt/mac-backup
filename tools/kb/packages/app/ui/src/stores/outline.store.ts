@@ -90,8 +90,6 @@ interface OutlineState {
   applyTx: (upserts: WireNode[], deletes: string[], opts?: { rev?: number }) => void;
   /** Re-project after the shared local action advanced the existing index. */
   syncFromIndex: () => void;
-  /** Restore a prior wire snapshot (optimistic revert). */
-  restoreSnapshot: (nodes: WireNode[], rev: number) => void;
   /** Full-snapshot resync (rev gap) that preserves zoom/selection/collapse. */
   refreshFromWire: (nodes: WireNode[], rev: number) => void;
   setRootNodeId: (id: string) => void;
@@ -293,7 +291,6 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     const index = st.index ?? new DatascriptIndex(nextWire);
     if (st.index !== null) {
       ingestBrowserTx({ upserts: [], deletes: [out] });
-      index.applyTx({ upserts: [], deletes: [out] });
     }
     const projection = projectOutline(nextWire, expanded, st.ontologyId, index);
     set({
@@ -384,7 +381,6 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       for (const id of loadExpandedIds()) expanded.add(id);
       const nextRev = opts?.rev ?? prev.rev;
       const index = prev.index ?? new DatascriptIndex(nextWire);
-      if (prev.index !== null) index.applyTx({ upserts, deletes });
       const projection = projectOutline(nextWire, expanded, prev.ontologyId, index);
       const nodes = projection.nodes;
       // Deleted nodes must not remain the zoom root / selection.
@@ -414,27 +410,6 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     },
 
     syncFromIndex,
-
-    restoreSnapshot: (wireNodes, rev) => {
-      const prev = get();
-      // Never rewind rev: concurrent WS/refetch may have advanced past the
-      // pre-optimistic baseline. Node payload may still roll back; rev must not.
-      const nextRev = Math.max(prev.rev, rev);
-      const expanded = collectExpanded(prev.nodes);
-      for (const id of loadExpandedIds()) expanded.add(id);
-      const index = prev.index ?? new DatascriptIndex(wireNodes);
-      if (prev.index !== null) index.rebuild(wireNodes);
-      replaceBrowserSession(wireNodes, index, syncFromIndex);
-      const projection = projectOutline(wireNodes, expanded, prev.ontologyId, index);
-      set({
-        wireNodes,
-        nodes: projection.nodes,
-        index,
-        ontologyMembers: projection.ontologyMembers,
-        ontologyWarnings: projection.ontologyWarnings,
-        rev: nextRev,
-      });
-    },
 
     refreshFromWire: (wireNodes, rev) => {
       const prev = get();

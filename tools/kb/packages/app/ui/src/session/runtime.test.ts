@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPostAction } from "@/api/action";
 import { fixtureGraph } from "@/fixtures/graph";
+import { DatascriptIndex } from "@kb/query";
 import { invoke, invokeLocal, setBrowserReconciler, waitForBrowserPushes } from "@/session/runtime";
 import { useOutlineStore } from "@/stores/outline.store";
 
@@ -29,6 +30,29 @@ describe("browser action runtime", () => {
       id: "node.update",
       input: { id: "n.root-a", text: "local first" },
     });
+  });
+
+  it("keeps fifty local node updates incremental", async () => {
+    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "fixtures");
+    const index = useOutlineStore.getState().index;
+    expect(index).toBeInstanceOf(DatascriptIndex);
+    if (!(index instanceof DatascriptIndex)) throw new Error("expected a DatascriptIndex");
+    const before = index.rebuilds;
+
+    await Array.from({ length: 50 }, (_, i) => i).reduce(
+      (tail, i) =>
+        tail.then(async () => {
+          const receipt = await invokeLocal({
+            id: "node.update",
+            input: { id: "n.root-a", text: `local ${i}` },
+          });
+          expect(receipt.status).toBe("succeeded");
+          return undefined;
+        }),
+      Promise.resolve(),
+    );
+
+    expect(index.rebuilds).toBe(before);
   });
 
   it("an equal confirming echo converges without duplicating the node", async () => {

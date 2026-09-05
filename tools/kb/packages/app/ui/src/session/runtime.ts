@@ -11,7 +11,7 @@ import {
 import type { KbNode, StoreTx } from "@kb/model";
 import { KbIndexService, type KbIndex } from "@kb/query";
 import { MemoryTxLog } from "@kb/tx-log";
-import { invokeReceiptWith, isomorphicActions, portActions } from "@kb/operations";
+import { invokeReceiptWith, isomorphicActions, noteStoreSynced, portActions } from "@kb/operations";
 import { postAction } from "@/api/action";
 import { toast } from "@/lib/toast";
 import { BrowserStore } from "./browser-store";
@@ -30,6 +30,10 @@ let pushTail = Promise.resolve();
 const remoteOnlyActions = new Set(portActions.map((action) => action.def.id));
 const localActions = new Map(isomorphicActions.map((action) => [action.def.id, action]));
 
+function noteBrowserStoreSynced(current: BrowserSession): void {
+  Effect.runSync(noteStoreSynced(current.ctx).pipe(Effect.provide(current.layer)));
+}
+
 /** Install the browser infrastructure around the outline store's one index. */
 export function replaceBrowserSession(
   nodes: readonly KbNode[],
@@ -46,7 +50,7 @@ export function replaceBrowserSession(
       return index.storedNodes();
     },
   };
-  session = {
+  const nextSession: BrowserSession = {
     ctx,
     store,
     layer: Layer.mergeAll(
@@ -56,11 +60,17 @@ export function replaceBrowserSession(
     ),
     onLocalCommit,
   };
+  session = nextSession;
+  noteBrowserStoreSynced(nextSession);
 }
 
-/** Mirror a server tx into BrowserStore; the outline store advances the index. */
+/** Advance the replicated store and index together when a server tx arrives. */
 export function ingestBrowserTx(tx: StoreTx): void {
-  session?.store.apply(tx);
+  const current = session;
+  if (current === null) return;
+  current.store.apply(tx);
+  current.ctx.index.applyTx(tx);
+  noteBrowserStoreSynced(current);
 }
 
 export function setBrowserReconciler(fn: (() => void) | null): void {
