@@ -55,6 +55,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
 - **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
 
+### GAP: a UI test gates on wall-clock time and fails under machine load
+
+- **expected** — Admission tests assert algorithmic properties; absolute timings are recorded as observations (like the store benchmark table) or normalised against a host calibration.
+- **current** — At least one @kb/ui test asserts an absolute duration; it failed once on 2026-09-05 while a worker ran verify on the same machine and passed on rerun.
+- **impact** — A green/red signal that depends on what else the machine is doing; agents learn to rerun instead of trusting the gate.
+- **closes** — Move the timing to an observation (print a table) or a calibrated ratio; keep the algorithmic assertion.
+- **node** — `01M1R19NXBMTVQG6AH0S7VTC7D`
+
 ### GAP: action registry does not validate output schemas
 
 - **expected** — Every action result is parsed once through its declared output schema before a successful receipt crosses a surface.
