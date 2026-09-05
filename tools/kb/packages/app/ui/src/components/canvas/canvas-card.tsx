@@ -134,7 +134,9 @@ export function KbNodeCard({
             isActive={isActive}
             tags={node.tags}
             onActivate={handleActivate}
-            onChange={(text) => mutations.updateNodeContent(card.nodeId, text)}
+            onChange={(text) => {
+              void mutations.updateNodeContent(card.nodeId, text);
+            }}
             onKeyDown={handleKeyDown}
           />
         }

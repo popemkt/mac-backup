@@ -44,13 +44,13 @@ describe("stable outline ordering", () => {
     );
   });
 
-  it("root and sibling order stay byte-identical across repeated text edits", () => {
+  it("root and sibling order stay byte-identical across repeated text edits", async () => {
     const before = useOutlineStore.getState().nodes;
     const beforeRoots = [...present(before.get("__kb_root__"), "__kb_root__").children];
     const beforeChildren = [...present(before.get("n.root-a"), "n.root-a").children];
 
     for (let i = 0; i < 25; i++) {
-      mutations.updateNodeContent("n.root-a", `Ship kb ui shell v${i}`);
+      await mutations.updateNodeContent("n.root-a", `Ship kb ui shell v${i}`);
     }
 
     const after = useOutlineStore.getState().nodes;
@@ -61,7 +61,7 @@ describe("stable outline ordering", () => {
     expect(afterChildren).toEqual(beforeChildren);
   });
 
-  it("order survives JsonlStore-shaped id-sorted reload and re-edit", () => {
+  it("order survives JsonlStore-shaped id-sorted reload and re-edit", async () => {
     const idSorted = [...fixtureGraph.nodes].toSorted((a, b) => a.id.localeCompare(b.id));
     useOutlineStore.getState().hydrateFromWire(idSorted, fixtureGraph.rev, "fixtures");
 
@@ -69,14 +69,14 @@ describe("stable outline ordering", () => {
     const beforeRoots = [...present(before.get("__kb_root__"), "__kb_root__").children];
     const beforeChildren = [...present(before.get("n.root-a"), "n.root-a").children];
 
-    mutations.updateNodeContent("n.root-a", "edited once");
+    await mutations.updateNodeContent("n.root-a", "edited once");
 
     const wireAfterEdit = useOutlineStore.getState().wireNodes;
     const idSortedReload = [...wireAfterEdit].toSorted((a, b) => a.id.localeCompare(b.id));
     useOutlineStore.getState().hydrateFromWire(idSortedReload, fixtureGraph.rev + 1, "api");
 
     for (let i = 0; i < 10; i++) {
-      mutations.updateNodeContent("n.root-a", `edited ${i}`);
+      await mutations.updateNodeContent("n.root-a", `edited ${i}`);
     }
 
     const after = useOutlineStore.getState().nodes;

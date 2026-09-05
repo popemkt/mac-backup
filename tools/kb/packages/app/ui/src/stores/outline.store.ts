@@ -6,25 +6,24 @@ import { outlineInstanceKey } from "@/lib/instance-key";
 import { isQueryNode } from "@/lib/query-node";
 import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
 import { toast } from "@/lib/toast";
-import { cloneWire, mergeTx } from "@/lib/tx";
+import { mergeTx } from "@/lib/tx";
 import {
   collectVisibleInstances,
   neighborVisibleInstance,
   type VisibleInstance,
 } from "@/lib/visible-instances";
 import { WORKSPACE_ROOT_ID, isSysPrefixed, type NodeMap, type OutlineNode } from "@/lib/types";
-import type { InverseTx } from "@/actions/plan";
-import type { WireNode } from "@kb/contracts";
+import type { ActionInvocation, WireNode } from "@kb/contracts";
 import { logWarn } from "@/lib/log";
+import { ingestBrowserTx, replaceBrowserSession } from "@/session/runtime";
 
 export type { VisibleInstance };
 
 const HISTORY_LIMIT = 50;
 
-export interface UndoEntry {
-  inv: InverseTx;
-  /** Compensating registry actions (best-effort remote undo). */
-  actions: Array<{ id: string; input: unknown }>;
+interface UndoEntry {
+  undo: ActionInvocation[];
+  redo: ActionInvocation[];
 }
 
 export interface ActivateOpts {
@@ -89,6 +88,8 @@ interface OutlineState {
   hydrateFromWire: (nodes: WireNode[], rev: number, source: "api" | "fixtures") => void;
   /** Apply node-level delta (optimistic edits + WS tx). */
   applyTx: (upserts: WireNode[], deletes: string[], opts?: { rev?: number }) => void;
+  /** Re-project after the shared local action advanced the existing index. */
+  syncFromIndex: () => void;
   /** Restore a prior wire snapshot (optimistic revert). */
   restoreSnapshot: (nodes: WireNode[], rev: number) => void;
   /** Full-snapshot resync (rev gap) that preserves zoom/selection/collapse. */
@@ -123,9 +124,9 @@ interface OutlineState {
   markTransient: (ids: string | string[]) => void;
   /** Push an undo entry (trims redo tail). */
   recordUndo: (entry: UndoEntry) => void;
-  /** Pop undoStack → apply inverse; push forward entry onto redoStack. */
+  /** Pop undoStack and move the same inverse-invocation pair to redoStack. */
   applyUndo: () => UndoEntry | null;
-  /** Pop redoStack → apply forward entry; push back onto undoStack. */
+  /** Pop redoStack and move the same inverse-invocation pair to undoStack. */
   applyRedo: () => UndoEntry | null;
 }
 
@@ -239,6 +240,27 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
    */
   const mountedTextHosts = new Set<string>();
 
+  function syncFromIndex(): void {
+    const prev = get();
+    if (prev.index === null) return;
+    const wireNodes = prev.index.storedNodes();
+    const expanded = collectExpanded(prev.nodes);
+    for (const id of loadExpandedIds()) expanded.add(id);
+    const projection = projectOutline(wireNodes, expanded, prev.ontologyId, prev.index);
+    const nodes = projection.nodes;
+    set({
+      wireNodes,
+      nodes,
+      ontologyMembers: projection.ontologyMembers,
+      ontologyWarnings: projection.ontologyWarnings,
+      rootNodeId: nodes.has(prev.rootNodeId) ? prev.rootNodeId : prev.homeRootId,
+      selectedNodeId:
+        prev.selectedNodeId !== null && nodes.has(prev.selectedNodeId) ? prev.selectedNodeId : null,
+      activeNodeId:
+        prev.activeNodeId !== null && nodes.has(prev.activeNodeId) ? prev.activeNodeId : null,
+    });
+  }
+
   function fallBackFromMissingHost(instanceKey: string): void {
     const active = get();
     if (active.activeInstanceKey !== instanceKey || mountedTextHosts.has(instanceKey)) return;
@@ -269,7 +291,10 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     const nextTransient = new Set(st.transientIds);
     nextTransient.delete(out);
     const index = st.index ?? new DatascriptIndex(nextWire);
-    if (st.index !== null) index.applyTx({ upserts: [], deletes: [out] });
+    if (st.index !== null) {
+      ingestBrowserTx({ upserts: [], deletes: [out] });
+      index.applyTx({ upserts: [], deletes: [out] });
+    }
     const projection = projectOutline(nextWire, expanded, st.ontologyId, index);
     set({
       wireNodes: nextWire,
@@ -294,49 +319,6 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     get().setOntologyScope(null);
     toast("Left the ontology to follow that node");
     return get().nodes.has(id);
-  }
-
-  /** Apply an inverse/forward tx; return the opposite-direction entry. */
-  function applyHistoryEntry(entry: UndoEntry): UndoEntry {
-    const st = get();
-    const touched = new Set<string>([...entry.inv.upserts.map((u) => u.id), ...entry.inv.deletes]);
-    // Capture the opposite-direction entry AGAINST THE PRE-APPLICATION
-    // STATE: survivors revert to their pre-apply payload; ids this entry
-    // restores (absent now) are removed again by the opposite pass.
-    const oppositeUpserts: WireNode[] = [];
-    for (const n of st.wireNodes) {
-      if (touched.has(n.id)) oppositeUpserts.push(cloneWire(n));
-    }
-    const oppositeDeletes = entry.inv.upserts
-      .map((u) => u.id)
-      .filter((id) => !st.wireNodes.some((n) => n.id === id));
-
-    const postWire = mergeTx(st.wireNodes, entry.inv.upserts, entry.inv.deletes);
-    const expanded = collectExpanded(st.nodes);
-    for (const id of loadExpandedIds()) expanded.add(id);
-    const survives = (id: string | null): boolean =>
-      id !== null && postWire.some((n) => n.id === id);
-    const selectedNodeId = survives(st.selectedNodeId) ? st.selectedNodeId : null;
-    const index = st.index ?? new DatascriptIndex(postWire);
-    if (st.index !== null) {
-      index.applyTx({ upserts: entry.inv.upserts, deletes: entry.inv.deletes });
-    }
-    const projection = projectOutline(postWire, expanded, st.ontologyId, index);
-    set({
-      wireNodes: postWire,
-      nodes: projection.nodes,
-      index,
-      ontologyMembers: projection.ontologyMembers,
-      ontologyWarnings: projection.ontologyWarnings,
-      selectedNodeId,
-      selectedInstanceKey: selectedNodeId !== null ? st.selectedInstanceKey : null,
-      activeNodeId: null,
-      activeInstanceKey: null,
-    });
-    return {
-      inv: { upserts: oppositeUpserts, deletes: oppositeDeletes },
-      actions: [],
-    };
   }
 
   return {
@@ -368,6 +350,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       const expanded = loadExpandedIds();
       // A fresh load starts unscoped; App re-applies the URL scope after.
       const index = new DatascriptIndex(wireNodes);
+      replaceBrowserSession(wireNodes, index, syncFromIndex);
       const projection = projectOutline(wireNodes, expanded, null, index);
       set({
         wireNodes,
@@ -395,6 +378,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
 
     applyTx: (upserts, deletes, opts) => {
       const prev = get();
+      ingestBrowserTx({ upserts, deletes });
       const nextWire = mergeTx(prev.wireNodes, upserts, deletes);
       const expanded = collectExpanded(prev.nodes);
       for (const id of loadExpandedIds()) expanded.add(id);
@@ -429,6 +413,8 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       });
     },
 
+    syncFromIndex,
+
     restoreSnapshot: (wireNodes, rev) => {
       const prev = get();
       // Never rewind rev: concurrent WS/refetch may have advanced past the
@@ -438,6 +424,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       for (const id of loadExpandedIds()) expanded.add(id);
       const index = prev.index ?? new DatascriptIndex(wireNodes);
       if (prev.index !== null) index.rebuild(wireNodes);
+      replaceBrowserSession(wireNodes, index, syncFromIndex);
       const projection = projectOutline(wireNodes, expanded, prev.ontologyId, index);
       set({
         wireNodes,
@@ -454,6 +441,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       const expanded = collectExpanded(prev.nodes);
       const index = prev.index ?? new DatascriptIndex(wireNodes);
       if (prev.index !== null) index.rebuild(wireNodes);
+      replaceBrowserSession(wireNodes, index, syncFromIndex);
       const projection = projectOutline(wireNodes, expanded, prev.ontologyId, index);
       const nodes = projection.nodes;
       const rootNodeId = nodes.has(prev.rootNodeId) ? prev.rootNodeId : prev.homeRootId;
@@ -818,10 +806,9 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       const st = get();
       const entry = st.undoStack[st.undoStack.length - 1];
       if (!entry) return null;
-      const forward = applyHistoryEntry(entry);
       set((s) => ({
         undoStack: s.undoStack.slice(0, -1),
-        redoStack: [...s.redoStack.slice(-(HISTORY_LIMIT - 1)), forward],
+        redoStack: [...s.redoStack.slice(-(HISTORY_LIMIT - 1)), entry],
       }));
       return entry;
     },
@@ -830,10 +817,9 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       const st = get();
       const entry = st.redoStack[st.redoStack.length - 1];
       if (!entry) return null;
-      const backward = applyHistoryEntry(entry);
       set((s) => ({
         redoStack: s.redoStack.slice(0, -1),
-        undoStack: [...s.undoStack.slice(-(HISTORY_LIMIT - 1)), backward],
+        undoStack: [...s.undoStack.slice(-(HISTORY_LIMIT - 1)), entry],
       }));
       return entry;
     },

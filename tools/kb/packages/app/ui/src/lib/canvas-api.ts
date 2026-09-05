@@ -6,7 +6,7 @@
  * Bound vs unbound is computed at render time only (no reconciler writes).
  */
 import { ulid } from "ulid";
-import { postAction } from "@/api/action";
+import { invoke } from "@/session/runtime";
 import {
   EMPTY_CANVAS_DOC,
   isNativeEdgeBound,
@@ -128,7 +128,7 @@ export async function persistCanvasDoc(
     unsetProps?: { field: string; value?: unknown }[];
   },
 ): Promise<boolean> {
-  const receipt = await postAction("ext.canvas.tx.apply", {
+  const receipt = await invoke("ext.canvas.tx.apply", {
     canvasId,
     doc: stringifyCanvasDoc(doc),
     propTargetId: opts?.propTargetId,
@@ -181,22 +181,7 @@ export async function persistCanvasDoc(
 export async function createCanvasNode(text = "Untitled canvas"): Promise<string | null> {
   const id = ulid();
   const docStr = stringifyCanvasDoc(EMPTY_CANVAS_DOC);
-  const at = new Date().toISOString();
-  const store = useOutlineStore.getState();
-  const optimistic: WireNode = {
-    id,
-    text,
-    props: {
-      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.canvasTag }],
-      [SYSTEM_IDS.canvasField]: [{ t: "str", v: docStr }],
-    },
-    children: [],
-    createdAt: at,
-    updatedAt: at,
-  };
-  store.applyTx([optimistic], []);
-
-  const receipt = await postAction("node.add", {
+  const receipt = await invoke("node.add", {
     text,
     id,
     tags: [SYSTEM_IDS.canvasTag],
@@ -204,7 +189,6 @@ export async function createCanvasNode(text = "Untitled canvas"): Promise<string
   });
   if (receipt.status === "failed") {
     logError("[kb/canvas] create failed:", receipt.message);
-    store.applyTx([], [id]);
     return null;
   }
   return id;

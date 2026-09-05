@@ -1,44 +1,32 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { fixtureGraph } from "@/fixtures/graph";
-import { useOutlineStore } from "@/stores/outline.store";
-import { planAddTagField, planRemoveTag, planSetTagColor } from "@/actions/plan";
+import { describe, expect, it } from "vitest";
+import type { WireNode } from "@kb/contracts";
+import { SYSTEM_IDS } from "@/lib/types";
+import { planAddTagField, planRemoveTag, planSetTagColor } from "./plan";
 
-describe("tag chip actions (plan layer)", () => {
-  beforeEach(() => {
-    useOutlineStore.setState({
-      nodes: new Map(),
-      wireNodes: [],
-      index: null,
-      rev: 0,
-      rootNodeId: "__kb_root__",
-      homeRootId: "__kb_root__",
-      activeNodeId: null,
-      activeInstanceKey: null,
-      selectedNodeId: null,
-      selectedInstanceKey: null,
-      loadSource: null,
-      loadError: null,
-    });
-    useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
-  });
+const tag: WireNode = {
+  id: "tag.work",
+  text: "work",
+  props: {},
+  children: [],
+  createdAt: "2026-09-06T00:00:00.000Z",
+  updatedAt: "2026-09-06T00:00:00.000Z",
+};
 
-  it("planRemoveTag drops a sys.f.type ref", () => {
-    const plan = planRemoveTag(useOutlineStore.getState().wireNodes, "n.root-a", "tag.todo");
-    expect(plan.actions[0]?.input).toMatchObject({
-      id: "n.root-a",
-      unsetProps: [{ field: "sys.f.type", value: { t: "ref", v: "tag.todo" } }],
+describe("tag action inputs", () => {
+  it("adds a templated field through node.update", () => {
+    expect(planAddTagField([tag], tag.id, "field.status").actions[0]).toMatchObject({
+      input: {
+        setProps: [{ field: SYSTEM_IDS.fieldsField, value: { t: "ref", v: "field.status" } }],
+      },
     });
   });
 
-  it("planAddTagField appends template field on tag node", () => {
-    const plan = planAddTagField(useOutlineStore.getState().wireNodes, "tag.todo", "field.status");
-    const upsert = plan.upserts.find((n) => n.id === "tag.todo");
-    expect(upsert?.props["sys.f.fields"]?.some((v) => v.v === "field.status")).toBe(true);
-  });
-
-  it("planSetTagColor writes sys.f.color on tag node", () => {
-    const plan = planSetTagColor(useOutlineStore.getState().wireNodes, "tag.todo", "#3b82f6");
-    const upsert = plan.upserts.find((n) => n.id === "tag.todo");
-    expect(upsert?.props["sys.f.color"]).toEqual([{ t: "str", v: "#3b82f6" }]);
+  it("removes tag refs and sets color through ordinary props", () => {
+    expect(planRemoveTag([tag], tag.id, "tag.other").actions[0]).toMatchObject({
+      input: { unsetProps: [{ field: SYSTEM_IDS.typeField, value: { t: "ref", v: "tag.other" } }] },
+    });
+    expect(planSetTagColor([tag], tag.id, "#fff").actions[0]).toMatchObject({
+      input: { setProps: [{ field: SYSTEM_IDS.colorField, value: { t: "str", v: "#fff" } }] },
+    });
   });
 });

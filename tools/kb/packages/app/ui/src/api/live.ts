@@ -8,6 +8,7 @@ import { KbWsClient, type KbWsClientOptions } from "@/api/ws";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { mergeRemoteUpserts } from "@/actions/mutations";
+import { setBrowserReconciler } from "@/session/runtime";
 
 let client: KbWsClient | null = null;
 let refetching = false;
@@ -33,7 +34,7 @@ export async function refetchGraph(): Promise<void> {
 
 /** Store-wired client; overrides let tests inject a fake socket. */
 export function createLiveClient(overrides: Partial<KbWsClientOptions> = {}): KbWsClient {
-  return new KbWsClient({
+  const next = new KbWsClient({
     getRev: () => useOutlineStore.getState().rev,
     onTx: (tx) =>
       useOutlineStore
@@ -45,6 +46,8 @@ export function createLiveClient(overrides: Partial<KbWsClientOptions> = {}): Kb
       useUiStore.getState().pushToast("error", `ws ${err.code}: ${err.message}`),
     ...overrides,
   });
+  setBrowserReconciler(() => next.reconcile());
+  return next;
 }
 
 export function getLiveClient(): KbWsClient {

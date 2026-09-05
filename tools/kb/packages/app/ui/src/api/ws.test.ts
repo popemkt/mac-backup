@@ -162,6 +162,16 @@ describe("KbWsClient", () => {
     expect(h.gaps).toEqual([]);
   });
 
+  it("explicit reconciliation asks for frames after the current revision", () => {
+    const h = makeHarness(4);
+    h.client.connect();
+    h.server.accept(4);
+
+    h.client.reconcile();
+
+    expect(h.server.received("since")).toEqual([{ op: "since", rev: 4 }]);
+  });
+
   it("answers a gap in the tx stream with since, then applies the batch", () => {
     const h = makeHarness();
     h.client.connect();

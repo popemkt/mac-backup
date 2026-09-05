@@ -118,15 +118,29 @@ describe("field visibility", () => {
     const wire = useOutlineStore.getState().wireNodes;
 
     const hide = planSetFieldHidden(wire, "field.status", true);
-    const hiddenUpsert = present(
-      hide.upserts.find((n) => n.id === "field.status"),
-      "field.status upsert",
-    );
-    expect(hiddenUpsert.props["sys.f.hidden"]).toEqual([{ t: "bool", v: true }]);
+    expect(hide.actions[0]).toEqual({
+      id: "node.update",
+      input: {
+        id: "field.status",
+        setProps: [{ field: "sys.f.hidden", value: { t: "bool", v: true } }],
+      },
+    });
 
-    const merged = [...wire.filter((n) => n.id !== "field.status"), hiddenUpsert];
+    const hidden = present(
+      wire.find((node) => node.id === "field.status"),
+      "field.status",
+    );
+    const merged = [
+      ...wire.filter((node) => node.id !== "field.status"),
+      { ...hidden, props: { ...hidden.props, "sys.f.hidden": [{ t: "bool" as const, v: true }] } },
+    ];
     const show = planSetFieldHidden(merged, "field.status", false);
-    const shownUpsert = show.upserts.find((n) => n.id === "field.status");
-    expect(shownUpsert?.props["sys.f.hidden"]).toBeUndefined();
+    expect(show.actions[0]).toEqual({
+      id: "node.update",
+      input: {
+        id: "field.status",
+        unsetProps: [{ field: "sys.f.hidden", value: { t: "bool", v: true } }],
+      },
+    });
   });
 });

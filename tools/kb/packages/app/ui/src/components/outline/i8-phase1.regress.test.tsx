@@ -159,14 +159,11 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
       },
     ];
     const plan = planInsertSibling(nodes, "a", "after", "new");
-    // anchor "a" not upserted (only its parent "p" is)
-    expect(plan.upserts.find((n) => n.id === "a")).toBeUndefined();
-    expect(
-      present(
-        plan.upserts.find((n) => n.id === "p"),
-        "upsert p",
-      ).children,
-    ).toEqual(["a", "new"]);
+    expect(plan.actions).toHaveLength(1);
+    expect(plan.actions[0]).toMatchObject({
+      id: "node.add",
+      input: { id: "new", parent: "p", position: 1 },
+    });
   });
 
   it("F4/B4: only an explicit CaretIntent can move the caret", async () => {
@@ -177,7 +174,7 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
     expect(s1.activeNodeId).toBe(id);
     expect(s1.pendingCaret).toMatchObject({ at: 0 });
     // Typing should not be clobbered by a second activation — simulate user typing
-    mutations.updateNodeContent(id, "hello");
+    await mutations.updateNodeContent(id, "hello");
     act(() => useOutlineStore.getState().activateNode(id, 5, outlineInstanceKey(id, s1.nodes)));
     const s2 = useOutlineStore.getState();
     expect(s2.pendingCaret).toMatchObject({ at: 5 });
@@ -216,7 +213,7 @@ describe("i8 Phase 1 regressions (R9 B-table)", () => {
       );
     });
     // Replace text with multiline
-    act(() => mutations.updateNodeContent("n.root-c", "a\nb"));
+    await act(async () => mutations.updateNodeContent("n.root-c", "a\nb"));
     await act(async () => {
       root.render(
         <NodeBlock

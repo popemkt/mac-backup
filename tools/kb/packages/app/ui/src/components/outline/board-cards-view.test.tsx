@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/fixtures/graph";
+import { viewFieldNodes } from "@/fixtures/view-fields";
 import { queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -23,6 +24,7 @@ import {
 import { collectVisibleInstances } from "@/lib/visible-instances";
 
 const mockWire: WireNode[] = [
+  ...viewFieldNodes,
   {
     id: "frame1",
     text: "Board Frame",

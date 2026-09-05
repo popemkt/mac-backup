@@ -8,6 +8,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { fixtureGraph } from "@/fixtures/graph";
+import { viewFieldNodes } from "@/fixtures/view-fields";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { NodeBlock } from "./node-block";
@@ -27,7 +28,9 @@ function seed() {
     loadSource: null,
     loadError: null,
   });
-  useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
+  useOutlineStore
+    .getState()
+    .hydrateFromWire([...fixtureGraph.nodes, ...viewFieldNodes], fixtureGraph.rev, "fixtures");
 }
 
 describe("frame row parity (render vs nav)", () => {

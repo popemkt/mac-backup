@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/fixtures/graph";
+import { viewFieldNodes } from "@/fixtures/view-fields";
 import { queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
@@ -44,7 +45,11 @@ describe("visible instances", () => {
     });
     useOutlineStore
       .getState()
-      .hydrateFromWire([...fixtureGraph.nodes, queryWire()], fixtureGraph.rev, "fixtures");
+      .hydrateFromWire(
+        [...fixtureGraph.nodes, ...viewFieldNodes, queryWire()],
+        fixtureGraph.rev,
+        "fixtures",
+      );
   });
 
   it("includes query-result instances when the query node is expanded", () => {

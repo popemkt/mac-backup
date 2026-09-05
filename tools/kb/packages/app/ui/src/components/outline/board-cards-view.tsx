@@ -294,7 +294,9 @@ const ViewCard = memo(function ViewCard({
             isActive={isActive}
             tags={[]}
             onActivate={(pos) => activateNode(child.id, pos, instanceKey)}
-            onChange={(text) => mutations.updateNodeContent(child.id, text)}
+            onChange={(text) => {
+              void mutations.updateNodeContent(child.id, text);
+            }}
             onKeyDown={handleKeyDown}
           />
         }

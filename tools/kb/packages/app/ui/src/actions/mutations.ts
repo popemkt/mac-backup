@@ -5,12 +5,8 @@ import { ulid } from "ulid";
 import { z } from "zod";
 import type { FieldType } from "@kb/model";
 import type { SortSpec, ViewMode } from "@/lib/view-config";
-import { postAction } from "@/api/action";
-import { fetchGraphSnapshot } from "@/api/graph";
 import { runOptimistic } from "@/actions/optimistic";
 import {
-  inversePlanActions,
-  invertPlan,
   planAddChild,
   planAddRootNode,
   planAddTag,
@@ -41,10 +37,11 @@ const AssetUploadOutputSchema = z.object({ path: z.string() });
 import { isSysPrefixed, SYSTEM_IDS, WORKSPACE_ROOT_ID, type PropValue } from "@/lib/types";
 import { forestRootIds } from "@/lib/graph-view";
 import { outlineInstanceKey } from "@/lib/instance-key";
-import { cloneWire, findParentWire } from "@/lib/tx";
+import { findParentWire } from "@/lib/tx";
 import type { WireNode } from "@kb/contracts";
 import { typeRefsOf } from "@kb/model";
 import { useOutlineStore } from "@/stores/outline.store";
+import { invoke, invokeLocal, pushInvocation, reconcileBrowserSession } from "@/session/runtime";
 
 function wire(): WireNode[] {
   return useOutlineStore.getState().wireNodes;
@@ -57,29 +54,90 @@ function guardSysWrite(id: string): boolean {
   return false;
 }
 
-/** Capture an undo entry against pre-state after a successful apply (D19). */
+function propEntries(node: WireNode): Array<{ field: string; value: PropValue }> {
+  return Object.entries(node.props).flatMap(([field, values]) =>
+    values.map((value) => ({ field, value })),
+  );
+}
+
+/** Build inverse invocations from two graph states; actions remain the one writer. */
+function restoreInvocations(
+  from: WireNode[],
+  to: WireNode[],
+): Array<{ id: string; input: unknown }> {
+  const fromById = new Map(from.map((node) => [node.id, node]));
+  const toById = new Map(to.map((node) => [node.id, node]));
+  const actions: Array<{ id: string; input: unknown }> = [];
+  for (const node of from) {
+    if (!toById.has(node.id))
+      actions.push({ id: "node.update", input: { id: node.id, delete: true } });
+  }
+  const missing = to.filter((node) => !fromById.has(node.id));
+  const depth = (node: WireNode): number => {
+    let count = 0;
+    let parent = findParentWire(to, node.id);
+    while (parent !== null) {
+      count += 1;
+      parent = findParentWire(to, parent.id);
+    }
+    return count;
+  };
+  for (const node of missing.toSorted((a, b) => depth(a) - depth(b))) {
+    const parent = findParentWire(to, node.id);
+    actions.push({
+      id: "node.add",
+      input: {
+        id: node.id,
+        text: node.text,
+        props: propEntries(node),
+        ...(parent ? { parent: parent.id, position: parent.children.indexOf(node.id) } : {}),
+        ...(node.order !== undefined ? { order: node.order } : {}),
+      },
+    });
+  }
+  for (const target of to) {
+    const current = fromById.get(target.id);
+    if (!current || JSON.stringify(current) === JSON.stringify(target)) continue;
+    const parent = findParentWire(to, target.id);
+    const unsetProps = Object.keys(current.props).map((field) => ({ field }));
+    actions.push({
+      id: "node.update",
+      input: {
+        id: target.id,
+        text: target.text,
+        ...(unsetProps.length > 0 ? { unsetProps } : {}),
+        parent: parent?.id ?? null,
+        ...(parent ? { position: parent.children.indexOf(target.id) } : {}),
+        ...(target.order !== undefined ? { order: target.order } : {}),
+      },
+    });
+    const setProps = propEntries(target);
+    if (setProps.length > 0) {
+      actions.push({ id: "node.update", input: { id: target.id, setProps } });
+    }
+  }
+  return actions;
+}
+
 function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
-  const inv = invertPlan(preWire, plan);
   useOutlineStore.getState().recordUndo({
-    inv,
-    actions: inversePlanActions(preWire, plan, inv),
+    undo: restoreInvocations(wire(), preWire),
+    redo: plan.actions,
   });
 }
 
-/** Best-effort remote sync for undo/redo compensating actions. */
-async function postCompensations(actions: Array<{ id: string; input: unknown }>): Promise<void> {
-  const source = useOutlineStore.getState().loadSource;
-  if (source !== "api") return;
+async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promise<boolean> {
+  const localOnly = useOutlineStore.getState().loadSource !== "api";
   for (const action of actions) {
-    try {
-      // Sequential by contract: compensating actions undo each other in order.
-      // oxlint-disable-next-line eslint/no-await-in-loop
-      await postAction(action.id, action.input);
-    } catch {
-      // Server resync (WS / next refetch) heals divergence; never block UI.
-      return;
+    // History is ordered for structural dependencies.
+    // oxlint-disable-next-line eslint/no-await-in-loop
+    const receipt = localOnly ? await invokeLocal(action) : await invoke(action.id, action.input);
+    if (receipt.status === "failed") {
+      toast(receipt.message);
+      return false;
     }
   }
+  return true;
 }
 
 async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
@@ -92,8 +150,6 @@ async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
 
 type PendingContent = {
   text: string;
-  /** Pre-edit wire node for this id only — never a whole-graph snapshot. */
-  preEdit: WireNode;
   timer: ReturnType<typeof setTimeout>;
 };
 
@@ -125,66 +181,19 @@ function enqueueContent(id: string, task: () => Promise<void>): Promise<void> {
   return next;
 }
 
-/**
- * Re-apply every newer pending local text edit after a resync wipe.
- * Node-local and independent: missing or unplannable ids are pruned and
- * skipped so one failure never aborts the rest of the batch.
- * Do not exclude the failed flush id — its map entry was already removed at
- * timer fire, and any same-id entry present now is a newer in-flight re-edit.
- */
-function reapplyPendingLocalEdits(): void {
-  for (const [id, pending] of Array.from(pendingContent)) {
-    try {
-      const store = useOutlineStore.getState();
-      if (!store.wireNodes.some((n) => n.id === id)) {
-        clearTimeout(pending.timer);
-        pendingContent.delete(id);
-        continue;
-      }
-      const plan = planUpdateText(store.wireNodes, id, pending.text);
-      store.applyTx(plan.upserts, plan.deletes);
-    } catch {
-      const still = pendingContent.get(id);
-      if (still) {
-        clearTimeout(still.timer);
-        pendingContent.delete(id);
-      }
-    }
-  }
-}
-
-/**
- * Failure recovery for the debounced text path.
- * Prefer a strict server resync (never demo fixtures), then restore only the
- * failed node's pre-edit state if resync itself fails — never hydrateFromWire
- * mid-session and never flip loadSource to fixtures.
- * Concurrent pending edits (including a same-node re-edit made during the
- * in-flight resync) are re-applied afterward.
- */
-async function resyncOrRestoreNode(preEdit: WireNode): Promise<void> {
-  const store = useOutlineStore.getState();
-  try {
-    const fresh = await fetchGraphSnapshot();
-    store.refreshFromWire(fresh.nodes, fresh.rev);
-  } catch {
-    useOutlineStore.getState().applyTx([cloneWire(preEdit)], []);
-  }
-  reapplyPendingLocalEdits();
-}
-
-async function flushContentRemote(id: string, content: string, preEdit: WireNode): Promise<void> {
+async function flushContentRemote(id: string, content: string): Promise<void> {
   const store = useOutlineStore.getState();
   if (store.loadSource === "fixtures" || store.loadSource === null) return;
 
   try {
-    const receipt = await postAction("node.update", { id, text: content });
+    const receipt = await pushInvocation({ id: "node.update", input: { id, text: content } });
     if (receipt.status === "failed") {
       toast(receipt.message);
-      await resyncOrRestoreNode(preEdit);
+      reconcileBrowserSession();
     }
   } catch (err) {
     toast(err instanceof Error ? err.message : String(err));
-    await resyncOrRestoreNode(preEdit);
+    reconcileBrowserSession();
   }
 }
 
@@ -194,7 +203,7 @@ function flushPendingContent(id: string, pending: PendingContent): Promise<void>
   // A newer keystroke may already have replaced this entry.  Only the entry
   // being flushed is removed; the newer one remains queued behind it.
   if (pendingContent.get(id) === pending) pendingContent.delete(id);
-  return enqueueContent(id, () => flushContentRemote(id, pending.text, pending.preEdit));
+  return enqueueContent(id, () => flushContentRemote(id, pending.text));
 }
 
 /**
@@ -229,23 +238,26 @@ export function __resetPendingContentForTests(): void {
 }
 
 export const mutations = {
-  /** Immediate local text apply; debounced remote POST with per-node revert. */
-  updateNodeContent(id: string, content: string): void {
+  /** Local text action first; coalesce its ordered remote confirmation. */
+  async updateNodeContent(id: string, content: string): Promise<void> {
     if (!guardSysWrite(id)) return;
 
     const store = useOutlineStore.getState();
     const prev = pendingContent.get(id);
-    const existing = store.wireNodes.find((n) => n.id === id);
-    const preEdit = prev?.preEdit ?? (existing === undefined ? undefined : cloneWire(existing));
-    if (preEdit === undefined) return;
+    if (!store.wireNodes.some((node) => node.id === id)) return;
 
     const plan = planUpdateText(store.wireNodes, id, content);
-    store.applyTx(plan.upserts, plan.deletes);
+    const action = plan.actions[0];
+    if (action === undefined) return;
+    const receipt = await invokeLocal(action);
+    if (receipt.status === "failed") {
+      toast(receipt.message);
+      return;
+    }
 
     if (prev) clearTimeout(prev.timer);
     pendingContent.set(id, {
       text: content,
-      preEdit,
       timer: setTimeout(() => {
         const latest = pendingContent.get(id);
         if (latest) void flushPendingContent(id, latest);
@@ -473,20 +485,18 @@ export const mutations = {
     await applyPlan(planMove(wire(), id, "down"));
   },
 
-  /** D19: undo the last structural mutation (local inverse + remote sync). */
+  /** D19: undo through inverse invocations of the same shared actions. */
   async undo(): Promise<boolean> {
     const entry = useOutlineStore.getState().applyUndo();
     if (!entry) return false;
-    await postCompensations(entry.actions);
-    return true;
+    return invokeAll(entry.undo);
   },
 
   /** D19: redo the last undone mutation. */
   async redo(): Promise<boolean> {
     const entry = useOutlineStore.getState().applyRedo();
     if (!entry) return false;
-    await postCompensations(entry.actions);
-    return true;
+    return invokeAll(entry.redo);
   },
 
   async updateProp(
@@ -586,7 +596,7 @@ export const mutations = {
       let binary = "";
       for (const byte of buf) binary += String.fromCharCode(byte);
       const bytes = btoa(binary);
-      const receipt = await postAction("asset.upload", {
+      const receipt = await invoke("asset.upload", {
         bytes,
         filename: file.name,
       });
@@ -606,7 +616,7 @@ export const mutations = {
         node === undefined || node.text.trim() === ""
           ? md
           : `${node.text}${node.text.endsWith("\n") ? "" : "\n"}${md}`;
-      mutations.updateNodeContent(nodeId, next);
+      await mutations.updateNodeContent(nodeId, next);
       return true;
     } catch (err) {
       toast(err instanceof Error ? err.message : String(err));

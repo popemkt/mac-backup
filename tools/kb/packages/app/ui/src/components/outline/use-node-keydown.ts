@@ -60,7 +60,7 @@ export function useNodeKeyDown({ nodeId, instanceKey, isRef = false }: UseNodeKe
             // Soft line break inside the node — never a split (§3.2).
             e.preventDefault();
             const next = text.slice(0, cursor) + "\n" + text.slice(cursor);
-            mutations.updateNodeContent(nodeId, next);
+            void mutations.updateNodeContent(nodeId, next);
             renderEditableContent(el, next);
             setCaretSerializedOffset(el, cursor + 1);
             activateNode(nodeId, cursor + 1, instanceKey);

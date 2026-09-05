@@ -84,6 +84,23 @@ describe("undo / redo (D19)", () => {
     expect(s.nodes.get("n.root-a")?.children).toEqual(["n.child-a1", "n.child-a2"]);
   });
 
+  it("restores replaced properties through canonical unset then set actions", async () => {
+    await mutations.updateProp(
+      "n.root-a",
+      "field.status",
+      { t: "str", v: "done" },
+      { t: "str", v: "doing" },
+    );
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.props["field.status"]).toEqual([
+      { t: "str", v: "done" },
+    ]);
+
+    await mutations.undo();
+    expect(useOutlineStore.getState().nodes.get("n.root-a")?.props["field.status"]).toEqual([
+      { t: "str", v: "doing" },
+    ]);
+  });
+
   it("undoes a visual merge into an expanded descendant (D09 pairing)", async () => {
     // Expand root-a → child-a2 chain so the visual predecessor of root-b
     // (the next root row) is its deepest last descendant, n.grandchild.
