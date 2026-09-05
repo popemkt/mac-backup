@@ -128,6 +128,39 @@ interface OutlineState {
   applyRedo: () => UndoEntry | null;
 }
 
+/** Data half of `OutlineState` — every member that is not a function. */
+type OutlineStateData = {
+  [K in keyof OutlineState as OutlineState[K] extends (...args: never) => unknown
+    ? never
+    : K]: OutlineState[K];
+};
+
+const initialOutlineState: OutlineStateData = {
+  nodes: new Map(),
+  wireNodes: [],
+  framePages: {},
+  index: null,
+  rev: 0,
+  rootNodeId: WORKSPACE_ROOT_ID,
+  homeRootId: WORKSPACE_ROOT_ID,
+  activeNodeId: null,
+  activeInstanceKey: null,
+  selectedNodeId: null,
+  selectedInstanceKey: null,
+  pendingCaret: null,
+  loadSource: null,
+  loadError: null,
+  ontologyId: null,
+  ontologyMembers: null,
+  ontologyWarnings: [],
+  preScopeRootId: null,
+  focusSeq: 0,
+  focusX: null,
+  transientIds: new Set<string>(),
+  undoStack: [],
+  redoStack: [],
+};
+
 function collectExpanded(nodes: NodeMap): Set<string> {
   const ids = new Set<string>();
   for (const n of nodes.values()) {
@@ -319,29 +352,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
   }
 
   return {
-    nodes: new Map(),
-    wireNodes: [],
-    framePages: {},
-    index: null,
-    rev: 0,
-    rootNodeId: WORKSPACE_ROOT_ID,
-    homeRootId: WORKSPACE_ROOT_ID,
-    activeNodeId: null,
-    activeInstanceKey: null,
-    selectedNodeId: null,
-    selectedInstanceKey: null,
-    pendingCaret: null,
-    loadSource: null,
-    loadError: null,
-    ontologyId: null,
-    ontologyMembers: null,
-    ontologyWarnings: [],
-    preScopeRootId: null,
-    focusSeq: 0,
-    focusX: null,
-    transientIds: new Set<string>(),
-    undoStack: [],
-    redoStack: [],
+    ...initialOutlineState,
 
     hydrateFromWire: (wireNodes, rev, source) => {
       const expanded = loadExpandedIds();
