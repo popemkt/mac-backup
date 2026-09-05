@@ -1,4 +1,3 @@
-/** Pure UI-intent to shared-action input builders. */
 import type { ActionInvocation, WireNode } from "@kb/contracts";
 import { fieldTypeValue, rankBetween, wouldCreateExtendsCycle, type FieldType } from "@kb/model";
 import { forestRootIds } from "@/lib/graph-view";
@@ -10,10 +9,6 @@ export interface PlannedMutation {
   actions: ActionInvocation[];
   focusId?: string;
   focusCursor?: number;
-  revealIds?: string[];
-}
-export interface PlanSplitOpts {
-  expandedIds: Set<string>;
 }
 
 const plan = (...actions: ActionInvocation[]): PlannedMutation => ({ actions });
@@ -53,7 +48,7 @@ export function planSplit(
   id: string,
   cursor: number,
   newId: string,
-  opts: PlanSplitOpts,
+  opts: { expandedIds: Set<string> },
 ): PlannedMutation {
   const node = requireNode(nodes, id);
   const left = node.text.slice(0, cursor);
@@ -319,14 +314,14 @@ export const planPrependChild = (_n: WireNode[], parent: string, id: string, tex
 function mutableSchema(id: string): void {
   if (isSysPrefixed(id)) throw new Error("sys.* schema nodes are read-only");
 }
-export function planAddTagField(n: WireNode[], id: string, field: string) {
+function schemaMutation(id: string, build: () => PlannedMutation): PlannedMutation {
   mutableSchema(id);
-  return refProp(n, id, SYSTEM_IDS.fieldsField, field);
+  return build();
 }
-export function planRemoveTagField(n: WireNode[], id: string, field: string) {
-  mutableSchema(id);
-  return unrefProp(n, id, SYSTEM_IDS.fieldsField, field);
-}
+export const planAddTagField = (n: WireNode[], id: string, field: string) =>
+  schemaMutation(id, () => refProp(n, id, SYSTEM_IDS.fieldsField, field));
+export const planRemoveTagField = (n: WireNode[], id: string, field: string) =>
+  schemaMutation(id, () => unrefProp(n, id, SYSTEM_IDS.fieldsField, field));
 export function planSetFieldHidden(n: WireNode[], id: string, hidden: boolean) {
   mutableSchema(id);
   return hidden
@@ -341,18 +336,12 @@ export function planSetTagColor(n: WireNode[], id: string, color: string | null)
     ? planSetProp(n, id, SYSTEM_IDS.colorField, { t: "str", v: value }, old)
     : planUnsetProp(n, id, SYSTEM_IDS.colorField, old);
 }
-export function planSetFieldType(n: WireNode[], id: string, type: FieldType) {
-  mutableSchema(id);
-  return replaceProp(n, id, SYSTEM_IDS.fieldTypeField, [fieldTypeValue(type)]);
-}
-export function planAddFieldTargetTag(n: WireNode[], id: string, tag: string) {
-  mutableSchema(id);
-  return refProp(n, id, SYSTEM_IDS.targetTagField, tag);
-}
-export function planRemoveFieldTargetTag(n: WireNode[], id: string, tag: string) {
-  mutableSchema(id);
-  return unrefProp(n, id, SYSTEM_IDS.targetTagField, tag);
-}
+export const planSetFieldType = (n: WireNode[], id: string, type: FieldType) =>
+  schemaMutation(id, () => replaceProp(n, id, SYSTEM_IDS.fieldTypeField, [fieldTypeValue(type)]));
+export const planAddFieldTargetTag = (n: WireNode[], id: string, tag: string) =>
+  schemaMutation(id, () => refProp(n, id, SYSTEM_IDS.targetTagField, tag));
+export const planRemoveFieldTargetTag = (n: WireNode[], id: string, tag: string) =>
+  schemaMutation(id, () => unrefProp(n, id, SYSTEM_IDS.targetTagField, tag));
 export function planSetFieldTargetQuery(n: WireNode[], id: string, edn: string | null) {
   mutableSchema(id);
   const value = edn?.trim() ?? "";
