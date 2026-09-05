@@ -77,17 +77,44 @@ export function isTestKitDevDependency(target: string): boolean {
 }
 
 /**
- * `tsconfig.base.json` is the strictness contract and nothing else. Two runtime
- * presets extend it, and a package picks one — by the `scope` tag it already
- * carries, not by a name restated per package. `scope:browser` compiles against
- * a DOM; every other scope compiles against Bun.
+ * `tsconfig.base.json` is the strictness contract and nothing else. Three
+ * runtime presets reach it, and a package picks one — by the `scope` tag it
+ * already carries, not by a name restated per package.
+ *
+ * `scope:shared` compiles against {@link ISO_PRESET}: no `types`, so Bun's
+ * globals are not there and `Buffer` or `process` in a shared package is a
+ * compile error rather than a hole the import fence cannot see.
+ * `scope:browser` compiles against a DOM; everything else against Bun.
  */
 export const RUNTIME_PRESET_BY_SCOPE: Record<string, string> = {
-  shared: "tsconfig.bun.json",
+  shared: "tsconfig.iso.json",
   backend: "tsconfig.bun.json",
   browser: "tsconfig.browser.json",
   "test-support": "tsconfig.bun.json",
 };
+
+/**
+ * The preset that authors the Effect language-service block. `tsconfig.bun.json`
+ * extends it, so both lanes get the same diagnostics from one copy — and the
+ * ratchet, the severity-lane check and the plugin reader all name it here
+ * rather than each spelling out a filename.
+ */
+export const ISO_PRESET = "tsconfig.iso.json";
+
+/**
+ * A package's second `tsc -p` project, present only when a package needs one:
+ * `bun test` is Bun whatever the code under test targets, so a `scope:shared`
+ * package compiles `src/` against the isomorphic preset and `tests/` against
+ * {@link TEST_PRESET}. Every other scope already compiles against Bun and
+ * needs no second project.
+ *
+ * It sits inside `tests/` rather than beside the first config, because the
+ * type-aware linter resolves a file's options by walking up to the nearest
+ * `tsconfig.json` — a sibling `tsconfig.tests.json` is invisible to that walk,
+ * and those files would be linted with no strictness contract at all.
+ */
+export const TESTS_TSCONFIG = "tests/tsconfig.json";
+export const TEST_PRESET = "tsconfig.bun.json";
 
 /**
  * The only compiler options a package tsconfig may declare on top of its

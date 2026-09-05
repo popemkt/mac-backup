@@ -2,9 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  ISO_PRESET,
   RUNTIME_PRESET_BY_SCOPE,
   SANCTIONED_TSCONFIG_DELTAS,
   SCOPE_ALLOWS,
+  TESTS_TSCONFIG,
+  TEST_PRESET,
 } from "../src/constraints.ts";
 import {
   type WorkspacePackage,
@@ -15,6 +18,7 @@ import {
   gitWorkspaceFiles,
   readTsconfig,
   tagsOf,
+  tsconfigChain,
   workspacePackages,
 } from "../src/workspace.ts";
 import { BASELINE_PATH, type BaselineLanes } from "../src/snapshot.ts";
@@ -25,14 +29,18 @@ import { BASELINE_PATH, type BaselineLanes } from "../src/snapshot.ts";
  * Three files, three jobs, no overlap:
  *   - `tsconfig.base.json` is strictness only. It matches the DESIGN.md table
  *     bit-for-bit and carries no runtime or module-system key.
- *   - `tsconfig.bun.json` / `tsconfig.browser.json` are the runtime presets.
- *     They extend the base, redeclare nothing it owns, and the Effect language
- *     service plugin block is authored in exactly one of them.
+ *   - `tsconfig.iso.json` / `tsconfig.bun.json` / `tsconfig.browser.json` are
+ *     the runtime presets. Each reaches the base through its `extends` chain,
+ *     none redeclares a key the base owns, and the Effect language service
+ *     plugin block is authored in exactly one of them.
  *   - a package tsconfig names its `include` and its preset, and declares a
- *     compiler option only when `SANCTIONED_TSCONFIG_DELTAS` says why.
+ *     compiler option only when `SANCTIONED_TSCONFIG_DELTAS` says why. A
+ *     package may carry a second project for its `tests/`, and that one is
+ *     always Bun — `bun test` is Bun whatever the code under test targets.
  *
- * Red cases (g2b report §6): a preset redeclaring a base flag, a package
- * redeclaring a preset key, and a second copy of the Effect plugin block.
+ * Red cases (g2b report §6, plus wave 2026-09-06 w3): a preset redeclaring a
+ * base flag, a package redeclaring a preset key, a second copy of the Effect
+ * plugin block, and a `scope:shared` package on the Bun preset.
  */
 
 const FORBIDDEN_IN_BASE = [
@@ -171,6 +179,17 @@ describe("tsconfig-contract", () => {
   });
 });
 
+/** Every option a preset settles, including the ones it inherits. */
+function effectivePresetKeys(preset: string): Set<string> {
+  const keys = new Set<string>();
+  for (const file of tsconfigChain(preset)) {
+    for (const key of Object.keys(readTsconfig(join(WORKSPACE_ROOT, file)).compilerOptions ?? {})) {
+      keys.add(key);
+    }
+  }
+  return keys;
+}
+
 describe("tsconfig-presets", () => {
   test("every scope has a runtime preset and every preset file exists", () => {
     const missing: string[] = [];
@@ -185,20 +204,17 @@ describe("tsconfig-presets", () => {
     expect(missing, missing.join("\n")).toEqual([]);
   });
 
-  test("runtime presets extend the base and redeclare no base-owned key", () => {
+  test("every runtime preset reaches the base and redeclares no base-owned key", () => {
     const baseKeys = new Set(Object.keys(baseOptions()));
     const violations: string[] = [];
 
     for (const [file, path] of Object.entries(presetPaths)) {
-      const preset = readTsconfig(path);
-
-      if (preset.extends !== "./tsconfig.base.json") {
-        violations.push(
-          `${file} extends '${String(preset.extends)}' (want './tsconfig.base.json')`,
-        );
+      const chain = tsconfigChain(file);
+      if (!chain.includes("tsconfig.base.json")) {
+        violations.push(`${file} extends chain ${chain.join(" -> ")} never reaches the base`);
       }
 
-      for (const [key, value] of Object.entries(preset.compilerOptions ?? {})) {
+      for (const [key, value] of Object.entries(readTsconfig(path).compilerOptions ?? {})) {
         if (baseKeys.has(key)) {
           violations.push(`${file} redeclares base compilerOptions.${key} = ${String(value)}`);
         }
@@ -208,64 +224,106 @@ describe("tsconfig-presets", () => {
     expect(violations, violations.join("\n")).toEqual([]);
   });
 
+  test("scope:shared compiles against a preset with no Bun and no DOM", () => {
+    // Red case: point RUNTIME_PRESET_BY_SCOPE.shared back at tsconfig.bun.json.
+    const iso = readTsconfig(join(WORKSPACE_ROOT, ISO_PRESET)).compilerOptions ?? {};
+    expect(RUNTIME_PRESET_BY_SCOPE.shared).toBe(ISO_PRESET);
+    expect(iso.types, "a shared package must not be handed a @types package").toEqual([]);
+    expect(iso.lib, "the isomorphic lib is the language plus the worker globals").toEqual([
+      "ESNext",
+      "WebWorker",
+    ]);
+  });
+
   test("the Effect language service plugin block is authored exactly once", () => {
     const authored = gitWorkspaceFiles(["*.json"]).filter((file) =>
       readFileSync(join(WORKSPACE_ROOT, file), "utf8").includes(EFFECT_PLUGIN),
     );
-    expect(authored, `${EFFECT_PLUGIN} appears in: ${authored.join(", ")}`).toEqual([
-      "tsconfig.bun.json",
-    ]);
+    expect(authored, `${EFFECT_PLUGIN} appears in: ${authored.join(", ")}`).toEqual([ISO_PRESET]);
   });
 
-  test("every package extends its scope's preset and declares only sanctioned deltas", () => {
+  function checkProject(
+    pkg: WorkspacePackage,
+    tsconfig: string,
+    preset: string,
+    bad: string[],
+  ): void {
+    const { dir, name } = pkg;
+    const config = readTsconfig(join(PACKAGES_ROOT, dir, tsconfig));
     const baseKeys = new Set(Object.keys(baseOptions()));
-    const presetKeys = new Map(
-      Object.entries(presetPaths).map(([file, path]) => [
-        file,
-        new Set(Object.keys(readTsconfig(path).compilerOptions ?? {})),
-      ]),
-    );
 
+    // A nested project is one directory further from the presets than its
+    // package's own config, and the prefix is derived, never written out.
+    const depth = "../".repeat(tsconfig.split("/").length - 1);
+    const want = `${depth}${presetPrefix(pkg)}${preset}`;
+    if (config.extends !== want) {
+      bad.push(`${dir}/${tsconfig}: extends '${String(config.extends)}' (want '${want}')`);
+    }
+
+    for (const key of Object.keys(config)) {
+      if (!ALLOWED_PACKAGE_TOP_LEVEL.has(key)) {
+        bad.push(`${dir}/${tsconfig}: unexpected top-level tsconfig key '${key}'`);
+      }
+    }
+
+    const sanctioned = SANCTIONED_TSCONFIG_DELTAS[name] ?? {};
+    const presetKeys = effectivePresetKeys(preset);
+    for (const [key, value] of Object.entries(config.compilerOptions ?? {})) {
+      if (key in sanctioned) continue;
+      if (baseKeys.has(key)) {
+        bad.push(`${dir}/${tsconfig}: redeclares base compilerOptions.${key} = ${String(value)}`);
+      } else if (presetKeys.has(key)) {
+        bad.push(
+          `${dir}/${tsconfig}: redeclares ${preset} compilerOptions.${key} = ${String(value)}`,
+        );
+      } else {
+        bad.push(`${dir}/${tsconfig}: unsanctioned compilerOptions.${key} = ${String(value)}`);
+      }
+    }
+  }
+
+  test("every package extends its scope's preset and declares only sanctioned deltas", () => {
     const bad: string[] = [];
     for (const pkg of workspacePackages()) {
-      const { dir, name } = pkg;
-      const tsPath = join(PACKAGES_ROOT, dir, "tsconfig.json");
-      if (!existsSync(tsPath)) {
+      const { dir } = pkg;
+      if (!existsSync(join(PACKAGES_ROOT, dir, "tsconfig.json"))) {
         bad.push(`${dir}: no tsconfig.json`);
         continue;
       }
 
-      const config = readTsconfig(tsPath);
       const preset = presetFor(pkg);
       if (preset === undefined) {
         bad.push(`${dir}: no scope tag, so no preset can be derived`);
         continue;
       }
 
-      const want = `${presetPrefix(pkg)}${preset}`;
-      if (config.extends !== want) {
-        bad.push(`${dir}: extends '${String(config.extends)}' (want '${want}')`);
-      }
+      checkProject(pkg, "tsconfig.json", preset, bad);
 
-      for (const key of Object.keys(config)) {
-        if (!ALLOWED_PACKAGE_TOP_LEVEL.has(key)) {
-          bad.push(`${dir}: unexpected top-level tsconfig key '${key}'`);
-        }
-      }
-
-      const sanctioned = SANCTIONED_TSCONFIG_DELTAS[name] ?? {};
-      for (const [key, value] of Object.entries(config.compilerOptions ?? {})) {
-        if (key in sanctioned) continue;
-        if (baseKeys.has(key)) {
-          bad.push(`${dir}: redeclares base compilerOptions.${key} = ${String(value)}`);
-        } else if (presetKeys.get(preset)?.has(key) === true) {
-          bad.push(`${dir}: redeclares ${preset} compilerOptions.${key} = ${String(value)}`);
-        } else {
-          bad.push(`${dir}: unsanctioned compilerOptions.${key} = ${String(value)}`);
-        }
+      // A package may carry one extra project, for its `tests/`, and that one
+      // is Bun whatever the package's own scope is. Its `include` is checked
+      // by `typecheck-scope`, which is where "every file is in exactly one
+      // project" lives; here it only has to be on the right preset.
+      if (existsSync(join(PACKAGES_ROOT, dir, TESTS_TSCONFIG))) {
+        checkProject(pkg, TESTS_TSCONFIG, TEST_PRESET, bad);
       }
     }
 
+    expect(bad, bad.join("\n")).toEqual([]);
+  });
+
+  test("a tests project exists exactly where the package preset is not Bun", () => {
+    // Otherwise a shared package either cannot compile `bun:test` or is
+    // quietly compiling its `src/` against Bun after all.
+    const bad: string[] = [];
+    for (const pkg of workspacePackages()) {
+      const hasTestsDir = existsSync(join(PACKAGES_ROOT, pkg.dir, "tests"));
+      const hasTestsProject = existsSync(join(PACKAGES_ROOT, pkg.dir, TESTS_TSCONFIG));
+      const wants = presetFor(pkg) !== TEST_PRESET && hasTestsDir;
+      if (wants && !hasTestsProject) bad.push(`${pkg.dir}: has tests/ but no ${TESTS_TSCONFIG}`);
+      if (!wants && hasTestsProject) {
+        bad.push(`${pkg.dir}: has ${TESTS_TSCONFIG} but its own preset is already Bun`);
+      }
+    }
     expect(bad, bad.join("\n")).toEqual([]);
   });
 

@@ -1,4 +1,6 @@
 {
-  "extends": "../../../tsconfig.bun.json",
-  "include": ["src", "tests"]
+  "extends": "../../../tsconfig.iso.json",
+  "include": [
+    "src"
+  ]
 }

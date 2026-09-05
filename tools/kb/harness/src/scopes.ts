@@ -10,8 +10,8 @@
  * "Exactly one" is the point in both cases. Zero means a file no gate ever
  * sees; more than one means two gates disagree about which config owns it.
  */
-import { existsSync } from "node:fs";
-import { join, normalize } from "node:path";
+import { existsSync, readdirSync } from "node:fs";
+import { dirname, join, normalize } from "node:path";
 import {
   type WorkspacePackage,
   WORKSPACE_ROOT,
@@ -84,16 +84,58 @@ export function missingScopes(scopes: readonly PathScope[]): string[] {
 /**
  * Every directory `nx run-many -t typecheck` compiles, workspace-relative: one
  * per workspace package, plus the harness, which is root tooling rather than a
- * member. Stated as data so a gate asking "which files does `tsc -p` see" reads
- * the list instead of assuming everything lives under `packages/`.
+ * member. Stated here so {@link typecheckProjects} does not assume everything
+ * lives under `packages/`.
  */
-export function typecheckProjectDirs(): string[] {
+function typecheckProjectDirs(): string[] {
   return [...workspacePackages().map(projectDirOf), "harness"];
 }
 
 /** Where one package's `tsc -p` project lives, workspace-relative. */
 export function projectDirOf(pkg: Pick<WorkspacePackage, "dir">): string {
   return `packages/${pkg.dir}`;
+}
+
+/** One `tsc -p` project: the package it belongs to and the config it reads. */
+export interface TypecheckProject {
+  /** Workspace-relative project directory, e.g. `packages/domain/model`. */
+  owner: string;
+  /** Workspace-relative tsconfig path, e.g. `packages/domain/model/tsconfig.json`. */
+  file: string;
+}
+
+/**
+ * Every `tsc -p` project under tools/kb. Usually one per package — but a
+ * `scope:shared` package compiles its `src/` against the isomorphic preset and
+ * its `tests/` against Bun, so it has two, and a gate that assumed
+ * `<dir>/tsconfig.json` would silently stop seeing half of it.
+ *
+ * A second project lives *inside* the directory it compiles rather than beside
+ * the first as `tsconfig.tests.json`, because the type-aware linter finds a
+ * file's options by walking up to the nearest `tsconfig.json`: a config the
+ * walk cannot reach means those files are linted without the strictness
+ * contract, silently.
+ *
+ * Discovered from the tree rather than listed, so adding a project is adding
+ * a file.
+ */
+export function typecheckProjects(): TypecheckProject[] {
+  const projects: TypecheckProject[] = [];
+  for (const owner of typecheckProjectDirs()) {
+    const abs = join(WORKSPACE_ROOT, owner);
+    if (!existsSync(abs)) continue;
+    if (existsSync(join(abs, "tsconfig.json"))) {
+      projects.push({ owner, file: `${owner}/tsconfig.json` });
+    }
+    for (const entry of readdirSync(abs, { withFileTypes: true }).toSorted((a, b) =>
+      a.name.localeCompare(b.name),
+    )) {
+      if (!entry.isDirectory()) continue;
+      if (!existsSync(join(abs, entry.name, "tsconfig.json"))) continue;
+      projects.push({ owner, file: `${owner}/${entry.name}/tsconfig.json` });
+    }
+  }
+  return projects;
 }
 
 /**
@@ -108,17 +150,15 @@ export function projectDirOf(pkg: Pick<WorkspacePackage, "dir">): string {
  */
 export function typecheckScopes(): PathScope[] {
   const scopes: PathScope[] = [];
-  for (const dir of typecheckProjectDirs()) {
-    const source = `${dir}/tsconfig.json`;
-    const path = join(WORKSPACE_ROOT, dir, "tsconfig.json");
-    if (!existsSync(path)) continue;
-    for (const include of readTsconfig(path).include ?? []) {
+  for (const { file: source } of typecheckProjects()) {
+    const dir = dirname(source);
+    for (const include of readTsconfig(join(WORKSPACE_ROOT, source)).include ?? []) {
       if (/[*?[\]]/.test(include)) {
         throw new Error(
           `${source}: include entry '${include}' is a glob; typecheckScopes reads plain paths`,
         );
       }
-      scopes.push({ path: `${dir}/${include}`, source });
+      scopes.push({ path: normalize(`${dir}/${include}`), source });
     }
   }
   return scopes;

@@ -3,26 +3,41 @@
   "namedInputs": {
     "sharedGlobals": [
       "{workspaceRoot}/tsconfig.base.json",
+      "{workspaceRoot}/tsconfig.iso.json",
       "{workspaceRoot}/tsconfig.bun.json",
       "{workspaceRoot}/tsconfig.browser.json",
       "{workspaceRoot}/.oxlintrc.json",
       "{workspaceRoot}/bun.lock"
     ],
-    "default": ["{projectRoot}/**/*", "sharedGlobals"]
+    "default": [
+      "{projectRoot}/**/*",
+      "sharedGlobals"
+    ]
   },
   "targetDefaults": {
     "typecheck": {
       "cache": true,
-      "inputs": ["default", "^default"]
+      "inputs": [
+        "default",
+        "^default"
+      ]
     },
     "test": {
       "cache": true,
-      "inputs": ["default", "^default"]
+      "inputs": [
+        "default",
+        "^default"
+      ]
     },
     "build": {
       "cache": true,
-      "inputs": ["default", "^default"],
-      "outputs": ["{projectRoot}/dist"]
+      "inputs": [
+        "default",
+        "^default"
+      ],
+      "outputs": [
+        "{projectRoot}/dist"
+      ]
     }
   },
   "useInferencePlugins": false,

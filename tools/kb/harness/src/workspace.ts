@@ -4,7 +4,8 @@
  */
 import { execSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
+import { ISO_PRESET } from "./constraints.ts";
 export const WORKSPACE_ROOT = join(import.meta.dir, "..", "..");
 export const PACKAGES_ROOT = join(WORKSPACE_ROOT, "packages");
 /** The harness itself: root tooling, outside the workspace members. */
@@ -254,7 +255,30 @@ const EFFECT_PLUGIN_NAME = "@effect/language-service";
  * Effect severities and their file scope live there, so every gate that reads
  * them reads this.
  */
-export function effectPluginConfig(preset = "tsconfig.bun.json"): EffectPluginConfig {
+/**
+ * A tsconfig's `extends` chain, nearest first, as workspace-relative paths and
+ * including the file itself. Presets extend presets, so a gate asking "does
+ * this project get the strictness contract / the Effect diagnostics" has to
+ * walk, not compare one filename.
+ */
+export function tsconfigChain(file: string): string[] {
+  const chain: string[] = [];
+  let current = file;
+  while (!chain.includes(current)) {
+    chain.push(current);
+    const parent = readTsconfig(join(WORKSPACE_ROOT, current)).extends;
+    if (typeof parent !== "string" || parent === "") break;
+    current = relative(WORKSPACE_ROOT, join(WORKSPACE_ROOT, dirname(current), parent));
+  }
+  return chain;
+}
+
+/** True when a tsconfig inherits the preset that authors the Effect plugin. */
+export function hasEffectDiagnostics(file: string): boolean {
+  return tsconfigChain(file).includes(ISO_PRESET);
+}
+
+export function effectPluginConfig(preset: string = ISO_PRESET): EffectPluginConfig {
   const plugins = readTsconfig(join(WORKSPACE_ROOT, preset)).compilerOptions?.plugins;
   if (!Array.isArray(plugins)) {
     throw new Error(`${preset}: compilerOptions.plugins is not an array`);

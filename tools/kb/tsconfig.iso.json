@@ -1,0 +1,96 @@
+{
+  // The isomorphic runtime preset: `scope:shared` compiles here.
+  //
+  // No `types`, so no @types package is auto-included and Bun's globals are
+  // absent — `Buffer` and `process` in a shared package are compile errors,
+  // which is the whole point. What a shared package may still reach for is
+  // named in `lib`: the language, plus the web-worker global surface, which is
+  // the closest thing TypeScript ships to "what every kb runtime has"
+  // (TextEncoder, URL, fetch, crypto) without also handing it a `document`.
+  //
+  // `tsconfig.bun.json` extends this file rather than repeating it, and the
+  // Effect language-service block is authored here, once, so both presets get
+  // the same diagnostics.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "lib": [
+      "ESNext",
+      "WebWorker"
+    ],
+    "types": [],
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "includeSuggestionsInTsc": true,
+        "ignoreEffectSuggestionsInTscExitCode": true,
+        "diagnosticSeverity": {
+          "floatingEffect": "error",
+          "missingEffectError": "error",
+          "missingEffectContext": "error",
+          "missingLayerContext": "error",
+          "missingStarInYieldEffectGen": "error",
+          "missingReturnYieldStar": "error",
+          "outdatedApi": "error",
+          "classSelfMismatch": "error",
+          "duplicatePackage": "error",
+          "anyUnknownInErrorContext": "error",
+          "unsupportedServiceAccessors": "error",
+          "tryCatchInEffectGen": "suggestion",
+          "runEffectInsideEffect": "suggestion",
+          "leakingRequirements": "suggestion",
+          "unknownInEffectCatch": "error",
+          "globalErrorInEffectCatch": "suggestion",
+          "globalErrorInEffectFailure": "suggestion",
+          "multipleEffectProvide": "error",
+          "scopeInLayerEffect": "suggestion",
+          "preferTypedSchemaDecoder": "error",
+          "effectMapVoid": "error",
+          "catchToOrElseSucceed": "error",
+          "catchToIgnore": "error",
+          "lazyEffect": "suggestion",
+          "schemaNumber": "suggestion",
+          "unnecessaryFailYieldableError": "error",
+          "processEnv": "suggestion",
+          "globalDate": "suggestion",
+          "globalConsole": "suggestion",
+          "globalRandom": "suggestion",
+          "globalTimers": "suggestion",
+          "asyncFunction": "suggestion",
+          "missedPipeableOpportunity": "off",
+          "effectFnOpportunity": "off",
+          "importFromBarrel": "off"
+        },
+        "overrides": [
+          {
+            "include": [
+              "packages/*/*/src/**/*"
+            ],
+            "options": {
+              "diagnosticSeverity": {
+                "asyncFunction": "error",
+                "globalConsole": "error",
+                "globalDate": "error",
+                "globalErrorInEffectCatch": "error",
+                "globalErrorInEffectFailure": "error",
+                "globalRandom": "error",
+                "globalTimers": "error",
+                "lazyEffect": "error",
+                "leakingRequirements": "error",
+                "processEnv": "error",
+                "runEffectInsideEffect": "error",
+                "schemaNumber": "error",
+                "scopeInLayerEffect": "error",
+                "tryCatchInEffectGen": "error"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
