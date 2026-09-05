@@ -50,7 +50,7 @@ export interface GraphPageProps {
 export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPageProps) {
   const wireNodes = useOutlineStore((s) => s.wireNodes);
   const queryDb = useOutlineStore((s) => s.index);
-  const rev = useOutlineStore((s) => s.index?.generation ?? 0);
+  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const ontologyMembers = useOutlineStore((s) => s.ontologyMembers);
   const theme = usePrefsStore((s) => s.theme);
@@ -127,7 +127,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
       );
     }, 300);
     return () => window.clearTimeout(handle);
-  }, [queryDb, wireNodes, active, rev, includeSystemNodes, restrictTo]);
+  }, [queryDb, wireNodes, active, generation, includeSystemNodes, restrictTo]);
 
   const forest = useMemo(
     () => (active ? buildTreeForest(wireNodes, lensGraph.nodes, active.focus) : []),

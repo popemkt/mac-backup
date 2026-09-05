@@ -43,7 +43,7 @@ export function QueryResultsSection({
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const nodes = useOutlineStore((s) => s.nodes);
   const queryDb = useOutlineStore((s) => s.index);
-  const rev = useOutlineStore((s) => s.index?.generation ?? 0);
+  const generation = useOutlineStore((s) => s.index?.generation ?? 0);
   const wsStatus = useUiStore((s) => s.wsStatus);
 
   const def = queryDefOf(node);
@@ -79,7 +79,7 @@ export function QueryResultsSection({
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveEdn, edn, queryDb, rev]);
+  }, [liveEdn, edn, queryDb, generation]);
 
   if (!def || edn === null) return null;
 

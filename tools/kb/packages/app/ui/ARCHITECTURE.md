@@ -38,13 +38,14 @@ Use `ViewErrorBoundary` / `ViewError` from
 
 ## Import / ownership rules
 
-| Layer                                                    | May import                                  | Must not import                  |
-| -------------------------------------------------------- | ------------------------------------------- | -------------------------------- |
-| `lib/*`, `ds/*`, `api/*`, `actions/*`                    | each other, protocol aliases                | `components/**`                  |
-| `stores/*`                                               | `lib`, `ds`, `api`                          | `components/**`                  |
-| `components/<surface>/*`                                 | own surface, shared primitives, stores, lib | sibling surface **internals**    |
-| `components/outline/{tag-chip,bullet,node-row,field-*} ` | lib, types                                  | graph/canvas/ontology pages      |
-| `catalog/*`                                              | components (read-only stories)              | stores mutations except fixtures |
+| Layer                                                                                                  | May import                                  | Must not import                              |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------- | -------------------------------------------- |
+| `ds/` — one-file `@kb/query` seam (`runQuery`, `queryBacklinks`, `DatascriptIndex`, `extractMentions`) | `@kb/query`                                 | `components/**`; a second DataScript builder |
+| `lib/*`, `api/*`, `actions/*`                                                                          | each other, `ds`, protocol aliases          | `components/**`                              |
+| `stores/*`                                                                                             | `lib`, `ds`, `api`                          | `components/**`                              |
+| `components/<surface>/*`                                                                               | own surface, shared primitives, stores, lib | sibling surface **internals**                |
+| `components/outline/{tag-chip,bullet,node-row,field-*} `                                               | lib, types                                  | graph/canvas/ontology pages                  |
+| `catalog/*`                                                                                            | components (read-only stories)              | stores mutations except fixtures             |
 
 **Shared primitives** (allowed cross-surface): `TagChip`, `Bullet`, `NodeRow`,
 `PropValueEditor` / field row, `FieldRow`, `ViewErrorBoundary`, `popover-shell`.
@@ -70,7 +71,8 @@ components/
   ontology/               scope + definition pages (lazy)
   sidebar/, palette/, prefs/, ui/
 catalog/                  story modules + smoke tests (dev/test only)
-stores/, lib/, ds/, api/, actions/
+stores/, lib/, api/, actions/
+ds/                       one-file @kb/query seam (runQuery, queryBacklinks, DatascriptIndex, extractMentions)
 ```
 
 Colocate tests as `*.test.ts(x)` next to the unit. Catalog stories are
