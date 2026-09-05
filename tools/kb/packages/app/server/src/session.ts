@@ -8,7 +8,7 @@ import {
   type ServerMessage,
   type WireNode,
 } from "@kb/contracts";
-import type { KbNode } from "@kb/model";
+import type { KbNode, KbTx } from "@kb/model";
 
 /** Bun.serve websocket attachment (server boundary only). */
 export type WsData = {
@@ -29,55 +29,35 @@ function toWireNode(node: KbNode): WireNode {
   return WireNodeSchema.parse(node);
 }
 
-function nodesToMap(nodes: KbNode[]): Map<string, KbNode> {
-  return new Map(nodes.map((n) => [n.id, n]));
-}
-
 export function rowsHash(rows: unknown[][]): string {
   return String(Bun.hash(JSON.stringify(rows)));
 }
 
 /**
- * The transaction between two node sets. This is both what clients are told
- * and what the index is given, so it is computed once, in node terms, and
- * converted to wire nodes only at the frame boundary.
- */
-export function diffNodes(
-  oldMap: Map<string, KbNode>,
-  newMap: Map<string, KbNode>,
-): { upserts: KbNode[]; deletes: string[] } {
-  const upserts: KbNode[] = [];
-  const deletes: string[] = [];
-  for (const [id, node] of newMap) {
-    const prev = oldMap.get(id);
-    if (!prev || JSON.stringify(prev) !== JSON.stringify(node)) {
-      upserts.push(node);
-    }
-  }
-  for (const id of oldMap.keys()) {
-    if (!newMap.has(id)) deletes.push(id);
-  }
-  return { upserts, deletes };
-}
-
-/**
  * Live WS graph + query subscription hub for `kb ui`.
+ *
+ * The hub is a reader of the session's transaction log, not a second producer
+ * of deltas. It used to keep a private copy of the node set as clients last
+ * saw it and diff `storedNodes()` against it on every commit, which made it
+ * the third place a delta was derived and the only one that could disagree
+ * with the store. Now it subscribes at construction and forwards what the log
+ * says happened.
+ *
+ * Every frame goes to every watcher, including the client that caused the
+ * write. Suppressing the echo was what left an origin's `rev` one behind after
+ * each of its own writes, so the next foreign tx read as a gap and cost a full
+ * snapshot; an optimistic local apply is idempotent under its own confirming
+ * frame, so sending it is both cheaper and simpler than not.
  *
  * Clients are tracked by an opaque clientId with an Effect-valued send
  * handle (acquired from the socket writer at the server boundary). Message
- * processing, broadcasting and cleanup are Effect programs — every method
+ * processing, publishing and cleanup are Effect programs — every method
  * returns `Effect<void>` and never throws.
  */
 export class SubscriptionHub {
-  rev = 0;
-  /**
-   * The stored nodes as clients last saw them. Not a second copy of the graph:
-   * the index owns that. This is what a `tx` frame is a delta against, which is
-   * why it must survive a reload that has already moved the index on.
-   */
-  private broadcast = new Map<string, KbNode>();
   private clients = new Map<string, ClientState>();
   private ctx: KbContext;
+  private readonly unsubscribe: () => void;
 
   /**
    * `virtual` are the saved-query nodes: they answer queries and reach clients
@@ -87,7 +67,18 @@ export class SubscriptionHub {
   constructor(ctx: KbContext, virtual: KbNode[] = []) {
     this.ctx = ctx;
     if (virtual.length > 0) ctx.index.withVirtual(virtual);
-    this.broadcast = nodesToMap(ctx.index.storedNodes());
+    this.unsubscribe = ctx.log.subscribe((tx) => {
+      // The log calls back synchronously from inside the commit; the sends it
+      // produces are synchronous too, so forking keeps frame order while
+      // refusing to let a slow client block the writer.
+      Effect.runFork(this.publish(tx));
+    });
+  }
+
+  /** Detach from the log. The server scope owns this. */
+  dispose(): void {
+    this.unsubscribe();
+    this.clients.clear();
   }
 
   /** Test hook: number of live clients. */
@@ -97,7 +88,7 @@ export class SubscriptionHub {
 
   get snapshot(): GraphSnapshot {
     return GraphSnapshotSchema.parse({
-      rev: this.rev,
+      rev: this.ctx.log.head,
       nodes: [...this.ctx.index.allNodes()]
         .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
         .map(toWireNode),
@@ -107,7 +98,7 @@ export class SubscriptionHub {
   /** Register a client and send the connection `hello`. */
   addClient(clientId: string, send: ClientSend): Effect.Effect<void> {
     this.clients.set(clientId, { send, watchTx: false, subs: new Map() });
-    return send(JSON.stringify({ op: "hello", rev: this.rev }));
+    return send(JSON.stringify({ op: "hello", rev: this.ctx.log.head }));
   }
 
   /** Forget a client (socket closed / session interrupted). */
@@ -155,12 +146,25 @@ export class SubscriptionHub {
       case "unsubscribe":
         client.subs.delete(msg.id);
         return Effect.void;
+      case "since": {
+        // The frames themselves, not a nudge to refetch: a client that missed
+        // three edits should receive three edits. Sent regardless of
+        // `watchTx`, because asking is the opt-in.
+        const caught = this.ctx.log.since(msg.rev);
+        if (caught === "snapshot-required") {
+          return client.send(JSON.stringify({ op: "snapshot-required", head: this.ctx.log.head }));
+        }
+        if (caught.length === 0) return Effect.void;
+        return Effect.forEach(caught, (tx) => client.send(this.txFrame(tx))).pipe(Effect.asVoid);
+      }
       case "subscribe": {
         try {
           const rows = this.ctx.index.runDatalog(msg.query);
           const hash = rowsHash(rows);
           client.subs.set(msg.id, { query: msg.query, lastHash: hash });
-          return client.send(JSON.stringify({ op: "rows", id: msg.id, rev: this.rev, rows }));
+          return client.send(
+            JSON.stringify({ op: "rows", id: msg.id, rev: this.ctx.log.head, rows }),
+          );
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           return client.send(
@@ -190,34 +194,27 @@ export class SubscriptionHub {
     }
   }
 
+  /** The `tx` frame for one logged transaction. */
+  private txFrame(tx: KbTx): string {
+    const frame: ServerMessage = {
+      op: "tx",
+      rev: tx.rev,
+      upserts: tx.ops.upserts.map(toWireNode),
+      deletes: tx.ops.deletes,
+    };
+    return JSON.stringify(frame);
+  }
+
   /**
-   * Apply a new stored node set. The difference against what clients last saw
-   * is the whole story: it is the no-op guard (an action→fs.watch double-fire
-   * diffs to nothing), the transaction the index is given, and the frame the
-   * clients get. Bumps rev and broadcasts tx + row updates. The node-set
-   * mutation is synchronous (atomic at the JS level); the broadcast sends are
-   * returned as an Effect sequence.
+   * Forward one logged transaction: the delta to every watcher, then the rows
+   * of every subscription whose answer moved.
    */
-  applyNodes(nodes: KbNode[], origin?: string): Effect.Effect<void> {
-    const newMap = nodesToMap(nodes);
-    const { upserts, deletes } = diffNodes(this.broadcast, newMap);
-    if (upserts.length === 0 && deletes.length === 0) return Effect.void;
-
-    this.broadcast = newMap;
-    this.rev += 1;
-    this.ctx.index.applyTx({ upserts, deletes });
-
+  private publish(tx: KbTx): Effect.Effect<void> {
+    const payload = this.txFrame(tx);
     const sends: Effect.Effect<void>[] = [];
 
-    const tx: ServerMessage = {
-      op: "tx",
-      rev: this.rev,
-      upserts: upserts.map(toWireNode),
-      deletes,
-    };
-    const payload = JSON.stringify(tx);
-    for (const [clientId, c] of this.clients) {
-      if (c.watchTx && clientId !== origin) sends.push(c.send(payload));
+    for (const c of this.clients.values()) {
+      if (c.watchTx) sends.push(c.send(payload));
     }
 
     for (const c of this.clients.values()) {
@@ -227,7 +224,7 @@ export class SubscriptionHub {
           const subHash = rowsHash(rows);
           if (subHash === sub.lastHash) continue;
           sub.lastHash = subHash;
-          sends.push(c.send(JSON.stringify({ op: "rows", id, rev: this.rev, rows })));
+          sends.push(c.send(JSON.stringify({ op: "rows", id, rev: tx.rev, rows })));
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           sends.push(c.send(JSON.stringify({ op: "error", id, code: "query_error", message })));

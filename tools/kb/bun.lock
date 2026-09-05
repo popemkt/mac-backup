@@ -73,6 +73,7 @@
         "@kb/operations": "workspace:*",
         "@kb/query": "workspace:*",
         "@kb/store-jsonl": "workspace:*",
+        "@kb/tx-log": "workspace:*",
         "effect": "catalog:",
       },
       "devDependencies": {
@@ -130,7 +131,6 @@
         "@tailwindcss/vite": "catalog:",
         "clsx": "catalog:",
         "d3-hierarchy": "catalog:",
-        "datascript": "catalog:",
         "graphology": "catalog:",
         "graphology-communities-louvain": "catalog:",
         "graphology-layout": "catalog:",
@@ -281,6 +281,18 @@
       "devDependencies": {
         "@kb/query": "workspace:*",
         "@kb/test-kit": "workspace:*",
+        "@types/bun": "catalog:",
+        "fast-check": "catalog:",
+      },
+    },
+    "packages/infrastructure/tx-log": {
+      "name": "@kb/tx-log",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+      },
+      "devDependencies": {
         "@types/bun": "catalog:",
         "fast-check": "catalog:",
       },
@@ -605,6 +617,8 @@
     "@kb/store-jsonl": ["@kb/store-jsonl@workspace:packages/infrastructure/store-jsonl"],
 
     "@kb/test-kit": ["@kb/test-kit@workspace:packages/app/test-kit"],
+
+    "@kb/tx-log": ["@kb/tx-log@workspace:packages/infrastructure/tx-log"],
 
     "@kb/ui": ["@kb/ui@workspace:packages/app/ui"],
 

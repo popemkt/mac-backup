@@ -54,5 +54,5 @@ export {
 } from "./schema-seam.ts";
 export type { ActionSchema } from "./schema-seam.ts";
 export { ensureSystemSeed, systemSeedNodes } from "./seed.ts";
-export { txIntegrityError } from "./tx.ts";
-export type { StoreTx } from "./tx.ts";
+export { diffTx, txIntegrityError } from "./tx.ts";
+export type { KbTx, StoreTx } from "./tx.ts";

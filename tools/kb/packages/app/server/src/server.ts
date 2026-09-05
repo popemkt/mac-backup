@@ -4,7 +4,7 @@ import { Effect, Exit, Fiber, Scope } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
 import { UI_DEFAULT_PORT, type KbContext } from "@kb/contracts";
-import { type DomainError, domainError, ensureDomainError } from "@kb/model";
+import { currentIso, diffTx, type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect } from "@kb/operations";
 import { kbRuntimeLayer, openKbEffect, writeErr } from "@kb/runtime";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
@@ -69,15 +69,32 @@ function clientSend(ws: Bun.ServerWebSocket<WsData>): ClientSend {
 }
 
 /**
+ * Ingest an external write: bring the session up to date, then say what
+ * changed.
+ *
+ * A file event carries no transaction, only "something happened", so this is
+ * the one path that has to recover a delta by comparing node sets — once,
+ * here, rather than on every commit. The comparison doubles as the
+ * double-fire guard: the watcher also fires on writes this session made, and
+ * those diff to nothing because `reloadEffect` already knows the file is the
+ * one it wrote. An empty transaction is not appended, so it costs no rev and
+ * no frame.
+ */
+export const ingestExternalWrite = Effect.fn("kb.ingestExternalWrite")(function* (ctx: KbContext) {
+  const before = ctx.index.storedNodes();
+  yield* reloadEffect(ctx);
+  const ops = diffTx(before, ctx.index.storedNodes());
+  if (ops.upserts.length === 0 && ops.deletes.length === 0) return;
+  ctx.log.append(ops, yield* currentIso);
+});
+
+/**
  * Debounced store reload. Every fs event restarts a 50ms `Effect.sleep` in a
  * fresh fiber and interrupts the pending one, so a burst of writes reloads
  * once. Owning a fiber rather than a `setTimeout` is what lets the server
  * scope cancel an in-flight reload on stop.
  */
-function makeReloadDebounce(
-  ctx: KbContext,
-  hub: SubscriptionHub,
-): { trigger: () => void; stop: () => void } {
+function makeReloadDebounce(ctx: KbContext): { trigger: () => void; stop: () => void } {
   let pending: Fiber.Fiber<void> | null = null;
   let stopped = false;
 
@@ -94,8 +111,7 @@ function makeReloadDebounce(
       pending = Effect.runFork(
         Effect.gen(function* () {
           yield* Effect.sleep("50 millis");
-          yield* reloadEffect(ctx);
-          yield* hub.applyNodes(ctx.nodes);
+          yield* ingestExternalWrite(ctx);
         }).pipe(Effect.provide(kbRuntimeLayer(ctx)), Effect.ignoreCause),
       );
     },
@@ -183,7 +199,7 @@ function serveUi(deps: {
  *
  * Single Bun.serve / Effect runtime boundary: `Bun.serve` owns the TCP listen,
  * WebSocket upgrade, and response delivery (`Bun.file` bodies). Request
- * routing, asset/static reads, hub message processing, broadcast, and reload
+ * routing, asset/static reads, hub message processing, publishing, and reload
  * are Effect programs provided with FileSystem/KbStore layers. Binds
  * 127.0.0.1 only by default.
  */
@@ -200,7 +216,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   const saved = yield* listSavedQueriesEffect(opts.root);
   const hub = new SubscriptionHub(ctx, savedQueryNodes(saved));
 
-  const reload = makeReloadDebounce(ctx, hub);
+  const reload = makeReloadDebounce(ctx);
   const watcher = watchNodesFile(opts.root, reload.trigger);
   const server = serveUi({ hostname, port, root: opts.root, ctx, hub });
 
@@ -209,6 +225,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     Effect.sync(() => {
       reload.stop();
       watcher?.close();
+      hub.dispose();
       void server.stop(true);
     }),
   );

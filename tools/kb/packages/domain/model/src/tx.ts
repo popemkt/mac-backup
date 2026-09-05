@@ -1,3 +1,4 @@
+import { canonicalJson } from "./canonical.ts";
 import type { KbNode, NodeId } from "./model.ts";
 import { present } from "./present.ts";
 
@@ -16,6 +17,31 @@ function applyTx(previous: KbNode[], tx: StoreTx): Map<NodeId, KbNode> {
   for (const id of tx.deletes) next.delete(id);
   for (const node of tx.upserts) next.set(node.id, node);
   return next;
+}
+
+/**
+ * The transaction that turns `previous` into `next`.
+ *
+ * The inverse of applying one, and it lives beside it for that reason: the
+ * only place that needs a diff is an ingest path that was handed a whole node
+ * set instead of the transaction that produced it (an external process wrote
+ * the store). Everything downstream — the log, the index, the wire — speaks
+ * transactions, so the conversion happens once, here, in node terms.
+ */
+export function diffTx(previous: ReadonlyArray<KbNode>, next: ReadonlyArray<KbNode>): StoreTx {
+  const before = new Map(previous.map((node) => [node.id, node]));
+  const upserts: KbNode[] = [];
+  const deletes: NodeId[] = [];
+  const seen = new Set<NodeId>();
+  for (const node of next) {
+    seen.add(node.id);
+    const prev = before.get(node.id);
+    if (prev === undefined || canonicalJson(prev) !== canonicalJson(node)) upserts.push(node);
+  }
+  for (const id of before.keys()) {
+    if (!seen.has(id)) deletes.push(id);
+  }
+  return { upserts, deletes };
 }
 
 function parentChildError(next: Map<NodeId, KbNode>): string | null {
@@ -91,4 +117,20 @@ export function txIntegrityError(previous: KbNode[], tx: StoreTx): string | null
   const orphan = orphanError(before, next, parentOf, tx.deletes);
   if (orphan !== null) return orphan;
   return cycleError(next, parentOf);
+}
+
+/**
+ * One committed transaction as the log records it.
+ *
+ * `rev` is the log's position, so a client that has seen `rev` knows exactly
+ * what it is missing; `origin` is the client that caused the write, carried so
+ * a watcher can recognise the confirming echo of its own optimistic apply
+ * rather than so the server can skip it. `at` is the caller's `Clock` reading:
+ * the log is synchronous, and the seam that owns time is an Effect service.
+ */
+export interface KbTx {
+  rev: number;
+  ops: StoreTx;
+  at: string;
+  origin?: string;
 }

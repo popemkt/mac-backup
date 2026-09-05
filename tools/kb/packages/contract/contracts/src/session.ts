@@ -2,6 +2,7 @@ import { Context, Layer } from "effect";
 import type { KbNode } from "@kb/model";
 import type { KbIndex } from "@kb/query";
 import type { EffectStore } from "./store.ts";
+import type { KbTxLog } from "./tx-log.ts";
 
 /**
  * Mutable kb session state. Surfaces still pass this object; Effect programs
@@ -13,6 +14,8 @@ export interface KbContext {
   store: EffectStore;
   /** The one owner of the derived graph: datoms, node lookup, text scan. */
   index: KbIndex;
+  /** The one record of what this session's store has committed, in order. */
+  log: KbTxLog;
   /**
    * The stored nodes, derived from {@link index}. Read-only on purpose: the
    * index owns the node set, and a session that could assign here would be a
