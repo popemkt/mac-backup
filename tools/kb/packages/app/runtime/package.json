@@ -14,11 +14,13 @@
     "@kb/contracts": "workspace:*",
     "@kb/ext-canvas": "workspace:*",
     "@kb/ext-docs": "workspace:*",
+    "@kb/ext-sdk": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",
     "@kb/query": "workspace:*",
     "@kb/store-jsonl": "workspace:*",
     "@kb/tx-log": "workspace:*",
+    "@kb/workspace-fs": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

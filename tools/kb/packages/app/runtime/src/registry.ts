@@ -27,8 +27,6 @@ import {
   type DomainError,
 } from "@kb/model";
 import {
-  discoverExtensions,
-  namespacedId,
   assetUploadDef,
   assetUploadEffect,
   fieldDefineDef,
@@ -54,6 +52,7 @@ import {
   renderViewsActionEffect,
   renderViewsDef,
 } from "@kb/operations";
+import { discoverExtensions, namespacedId } from "./extension-loader.ts";
 import { writeErr } from "./output.ts";
 import { docsActions, docsTemplates } from "@kb/ext-docs";
 import { canvasActions } from "@kb/ext-canvas";

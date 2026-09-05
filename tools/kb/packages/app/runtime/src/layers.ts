@@ -11,30 +11,43 @@ import {
 import { JsonlStore, bunFileSystemLayer } from "@kb/store-jsonl";
 import { DatascriptIndex, KbIndexService } from "@kb/query";
 import {
+  type Assets,
   type KbCtx,
-  type KbStore,
+  KbStore,
+  type SavedQueries,
+  type Views,
   kbCtxLayer,
   kbStoreLayer,
   type KbContext,
   TemplateRegistry,
 } from "@kb/contracts";
 import { MemoryTxLog } from "@kb/tx-log";
+import { assetsLayer, savedQueriesLayer, viewsLayer } from "@kb/workspace-fs";
 import { noteStoreSynced } from "@kb/operations";
 import { registryFor } from "./registry.ts";
 
 /**
  * Full runtime for a root: Bun FileSystem + EffectStore + opened KbCtx +
- * the render templates the registry resolved from core-bundled and
- * `.kb/extensions` contributions.
+ * the three workspace ports backed by `.kb/` on disk + the render templates
+ * the registry resolved from core-bundled and `.kb/extensions` contributions.
+ *
+ * This is where "the actions run anywhere" is paid for: the actions ask for
+ * {@link SavedQueries}, {@link Views} and {@link Assets}, and this composition
+ * root is the only place that says those are directories under `ctx.root`.
  */
 export function kbRuntimeLayer(
   ctx: KbContext,
-): Layer.Layer<FileSystem | KbStore | KbCtx | KbIndexService | TemplateRegistry> {
+): Layer.Layer<
+  FileSystem | KbStore | KbCtx | KbIndexService | TemplateRegistry | SavedQueries | Views | Assets
+> {
   return Layer.mergeAll(
     bunFileSystemLayer,
     kbStoreLayer(ctx.store),
     kbCtxLayer(ctx),
     Layer.succeed(KbIndexService, ctx.index),
+    savedQueriesLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
+    viewsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
+    assetsLayer(ctx.root).pipe(Layer.provide(bunFileSystemLayer)),
     Layer.effect(
       TemplateRegistry,
       registryFor(ctx.root).pipe(
@@ -70,14 +83,18 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
       return index.storedNodes();
     },
   };
-  yield* noteStoreSynced(ctx, store.path);
+  yield* noteStoreSynced(ctx).pipe(Effect.provideService(KbStore, store));
   return ctx;
 });
 
 /** Run an Effect that needs KbCtx (+ Bun FileSystem) against a live session. */
 export function runWithKb<A, E>(
   ctx: KbContext,
-  effect: Effect.Effect<A, E, KbCtx | KbIndexService | FileSystem | KbStore | TemplateRegistry>,
+  effect: Effect.Effect<
+    A,
+    E,
+    KbCtx | KbIndexService | FileSystem | KbStore | TemplateRegistry | SavedQueries | Views | Assets
+  >,
 ): Promise<A> {
   return Effect.runPromise(effect.pipe(Effect.provide(kbRuntimeLayer(ctx))));
 }

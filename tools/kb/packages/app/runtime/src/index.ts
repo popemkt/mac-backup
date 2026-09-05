@@ -1,3 +1,4 @@
+export { discoverExtensions, namespacedId } from "./extension-loader.ts";
 export { invoke } from "./invoke.ts";
 export { kbRuntimeLayer, openKbEffect } from "./layers.ts";
 export { writeErr, writeOut } from "./output.ts";

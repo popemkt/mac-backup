@@ -1,10 +1,8 @@
 import { Effect } from "effect";
-import { FileSystem } from "effect/FileSystem";
 import { SYSTEM_IDS, present, type NodeId } from "@kb/model";
 
-import { resolveSavedQueryFile } from "../saved-query.ts";
 import type { KbContext, TemplateContext } from "@kb/contracts";
-import { KbCtx, TemplateRegistry } from "@kb/contracts";
+import { KbCtx, SavedQueries, TemplateRegistry } from "@kb/contracts";
 import { DocsError, type LoadedView } from "./views.ts";
 
 export { DocsError, loadViewsEffect } from "./views.ts";
@@ -29,36 +27,34 @@ function templateContext(ctx: KbContext): TemplateContext {
 
 const viewEdnEffect = Effect.fn("docs.viewEdn")(function* (
   view: LoadedView,
-): Effect.fn.Return<string, DocsError, KbCtx | FileSystem> {
+): Effect.fn.Return<string, DocsError, SavedQueries> {
   if (view.spec.query !== undefined) return view.spec.query;
-  const ctx = yield* KbCtx;
   const name = present(view.spec.savedQuery, `view ${view.name} savedQuery`);
-  const path = resolveSavedQueryFile(ctx.root, name);
-  if (path === null) {
+  const queries = yield* SavedQueries;
+  const edn = yield* queries.read(name).pipe(
+    Effect.mapError(
+      () =>
+        new DocsError("invalid_input", `invalid saved query name: ${name}`, {
+          view: view.name,
+          savedQuery: name,
+        }),
+    ),
+  );
+  if (edn === null) {
     return yield* Effect.fail(
-      new DocsError("invalid_input", `invalid saved query name: ${name}`, {
+      new DocsError("not_found", `saved query not found: ${name}`, {
         view: view.name,
         savedQuery: name,
       }),
     );
   }
-  const fs = yield* FileSystem;
-  const edn = yield* fs.readFileString(path).pipe(
-    Effect.mapError(
-      () =>
-        new DocsError("not_found", `saved query not found: ${name}`, {
-          view: view.name,
-          path,
-        }),
-    ),
-  );
   return edn;
 });
 
 /** Render one view to its final file content (header + template output). */
 export const renderViewEffect = Effect.fn("docs.renderView")(function* (
   view: LoadedView,
-): Effect.fn.Return<string, DocsError, KbCtx | FileSystem | TemplateRegistry> {
+): Effect.fn.Return<string, DocsError, KbCtx | SavedQueries | TemplateRegistry> {
   const ctx = yield* KbCtx;
   const templates = yield* TemplateRegistry;
   const template = templates.get(view.spec.template);

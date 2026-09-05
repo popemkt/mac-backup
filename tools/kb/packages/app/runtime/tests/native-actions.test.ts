@@ -7,6 +7,7 @@ import { kbRuntimeLayer, openKbEffect } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
 import { KbCtx, KbStore, templateRegistryLayer } from "@kb/contracts";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { assetsLayer, savedQueriesLayer, viewsLayer } from "@kb/workspace-fs";
 import { KbIndexService } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
 import {
@@ -129,6 +130,7 @@ export default actions;
     const fakeStore: EffectStore = {
       path: join(root, ".kb", "nodes.jsonl"),
       loadEffect: Effect.succeed(ctx.nodes),
+      fingerprint: Effect.succeed(null),
       commitEffect: (tx) =>
         Effect.sync(() => {
           commits.push(tx);
@@ -143,7 +145,15 @@ export default actions;
         Effect.provideService(KbCtx, ctx),
         Effect.provideService(KbStore, fakeStore),
         Effect.provideService(KbIndexService, ctx.index),
-        Effect.provide(Layer.mergeAll(bunFileSystemLayer, templateRegistryLayer(new Map()))),
+        Effect.provide(
+          Layer.mergeAll(
+            bunFileSystemLayer,
+            templateRegistryLayer(new Map()),
+            savedQueriesLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
+            viewsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
+            assetsLayer(root).pipe(Layer.provide(bunFileSystemLayer)),
+          ),
+        ),
       ),
     );
     expect(receipt.status).toBe("succeeded");

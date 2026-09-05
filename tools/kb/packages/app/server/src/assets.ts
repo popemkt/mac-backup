@@ -2,7 +2,7 @@ import { join, normalize, relative, resolve, isAbsolute } from "node:path";
 import { Effect, Option } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
-import { resolveAssetFile, assetsDir } from "@kb/operations";
+import { resolveAssetFile, assetsDir } from "@kb/workspace-fs";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { UI_DIST } from "./paths.ts";
 

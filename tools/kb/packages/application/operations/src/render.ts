@@ -1,13 +1,11 @@
 import { Effect } from "effect";
-import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { KbCtx } from "@kb/contracts";
-import type { ActionDefinition, TemplateRegistry } from "@kb/contracts";
+import type { ActionDefinition, KbCtx, SavedQueries, TemplateRegistry, Views } from "@kb/contracts";
 import { DomainError, domainError, present } from "@kb/model";
 import { DocsError, GENERATED_HEADER, loadViewsEffect, renderViewEffect } from "./docs/docs.ts";
 
 type RenderError = DomainError | DocsError;
-type RenderEnv = KbCtx | FileSystem | TemplateRegistry;
+type RenderEnv = KbCtx | SavedQueries | TemplateRegistry | Views;
 
 /** Map unknown render failures; DomainError must be a runtime import for instanceof. */
 export function mapRenderErr(err: unknown): RenderError {
@@ -80,8 +78,7 @@ export const renderNamedViewEffect = Effect.fn("render.namedView")(function* (
   viewName: string,
   format: RenderFormat,
 ): Effect.fn.Return<RenderedView, RenderError, RenderEnv> {
-  const ctx = yield* KbCtx;
-  const views = yield* loadViewsEffect(ctx.root, viewName);
+  const views = yield* loadViewsEffect(viewName);
   const view = views[0];
   if (!view) {
     return yield* Effect.fail(
@@ -107,8 +104,7 @@ export const listViewNamesEffect = Effect.fn("render.listViews")(function* (): E
   RenderError,
   RenderEnv
 > {
-  const ctx = yield* KbCtx;
-  const views = yield* loadViewsEffect(ctx.root);
+  const views = yield* loadViewsEffect();
   return views.map((v) => v.name).toSorted();
 });
 

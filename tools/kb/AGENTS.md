@@ -42,6 +42,13 @@ existing view specs are unchanged).
   `node:*`, `bun:*`, or `@effect/platform-bun`) — is stated once in
   `tools/kb/harness/src/constraints.ts` and enforced by `tools/kb/harness`
   (root tooling, not a workspace package) over what the code imports.
+  Three tsconfig presets sit under the one strictness base and a package picks
+  one by its scope tag: `tsconfig.iso.json` for `scope:shared` (no `types`, so
+  `Buffer` and `process` are compile errors — the half of the fence the import
+  graph cannot see), `tsconfig.bun.json` for everything else, and
+  `tsconfig.browser.json` for `scope:browser`; a `scope:shared` package carries
+  a second `tsconfig.tests.json` on the Bun preset, because `bun test` is Bun
+  whatever the code under test targets.
   `tools/kb/.oxlintrc.json` is the single oxlint ruleset: the three categories at `error`, the rules
   beyond them, and overrides only for the test-file and `.d.ts` file classes.
   A file that legitimately breaks a rule carries a pinpoint

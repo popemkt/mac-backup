@@ -3,7 +3,13 @@ import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
 import { KbCtx } from "@kb/contracts";
-import type { ExtensionAction, ExtensionTemplate, TemplateRegistry } from "@kb/contracts";
+import type {
+  ExtensionAction,
+  ExtensionTemplate,
+  SavedQueries,
+  TemplateRegistry,
+  Views,
+} from "@kb/contracts";
 import { DocsError, loadViewsEffect, renderViewEffect } from "@kb/operations";
 import { rules } from "./rules.ts";
 import { todos } from "./todos.ts";
@@ -43,7 +49,7 @@ export const checkOutput = z.object({
   ),
 });
 
-type DocsEnv = KbCtx | FileSystem | TemplateRegistry;
+type DocsEnv = KbCtx | FileSystem | TemplateRegistry | SavedQueries | Views;
 
 function mapDocsFs(err: unknown, message: string): DocsError {
   return new DocsError(
@@ -57,7 +63,7 @@ export const docsMaterializeEffect = Effect.fn("ext.docs.materialize")(function*
 ): Effect.fn.Return<z.infer<typeof materializeOutput>, DocsError, DocsEnv> {
   const ctx = yield* KbCtx;
   const fs = yield* FileSystem;
-  const views = yield* loadViewsEffect(ctx.root, input.view);
+  const views = yield* loadViewsEffect(input.view);
   const written: { view: string; output: string }[] = [];
   for (const view of views) {
     const content = yield* renderViewEffect(view);
@@ -78,7 +84,7 @@ export const docsCheckEffect = Effect.fn("ext.docs.check")(function* (
 ): Effect.fn.Return<z.infer<typeof checkOutput>, DocsError, DocsEnv> {
   const ctx = yield* KbCtx;
   const fs = yield* FileSystem;
-  const views = yield* loadViewsEffect(ctx.root, input.view);
+  const views = yield* loadViewsEffect(input.view);
   const results: z.infer<typeof checkOutput>["views"] = [];
   for (const view of views) {
     const expected = yield* renderViewEffect(view);

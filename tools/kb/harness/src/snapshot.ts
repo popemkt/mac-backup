@@ -17,14 +17,15 @@ import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { RUNTIME_PRESET_BY_SCOPE } from "./constraints.ts";
-import { projectDirOf, typecheckProjectDirs } from "./scopes.ts";
+import { projectDirOf, typecheckProjects } from "./scopes.ts";
 import {
-  axisValues,
   HARNESS_ROOT,
+  WORKSPACE_ROOT,
+  axisValues,
+  hasEffectDiagnostics,
   rootManifest,
   tagsOf,
   workspacePackages,
-  WORKSPACE_ROOT,
 } from "./workspace.ts";
 
 export const BASELINE_PATH = join(HARNESS_ROOT, "lint-warn-baseline.json");
@@ -216,19 +217,18 @@ export function collectOxlintWarnings(
 
 /**
  * Typecheck projects `effect-tsgo` has nothing to say about. The
- * `@effect/language-service` block is authored in `tsconfig.bun.json` alone, so
- * a project on any other preset emits no Effect diagnostic — asking costs a
- * whole `tsc` run for an empty answer. Derived from the scope tag rather than
- * naming the package, so the preset table stays the one place that knows.
+ * `@effect/language-service` block is authored in one preset alone, so a
+ * project whose `extends` chain never reaches it emits no Effect diagnostic —
+ * asking costs a whole `tsc` run for an empty answer. Walked rather than
+ * compared, because the Bun preset inherits the block from the isomorphic one.
  */
-const EFFECT_PRESET = "tsconfig.bun.json";
-
 function nonEffectProjectDirs(): Set<string> {
   return new Set(
     workspacePackages()
       .filter((pkg) => {
         const scope = axisValues(tagsOf(pkg.manifest), "scope")[0];
-        return scope === undefined || RUNTIME_PRESET_BY_SCOPE[scope] !== EFFECT_PRESET;
+        const preset = scope === undefined ? undefined : RUNTIME_PRESET_BY_SCOPE[scope];
+        return preset === undefined || !hasEffectDiagnostics(preset);
       })
       .map(projectDirOf),
   );
@@ -241,10 +241,10 @@ export function collectTsgoWarnings(
   const findings: Record<string, number> = {};
   let ok = true;
   const skip = nonEffectProjectDirs();
-  for (const dir of typecheckProjectDirs()) {
-    if (skip.has(dir)) continue;
+  for (const project of typecheckProjects()) {
+    if (skip.has(project.owner)) continue;
     const output = commandOutput(
-      `node_modules/.bin/effect-tsgo diagnostics --project ${dir}/tsconfig.json --format json`,
+      `node_modules/.bin/effect-tsgo diagnostics --project ${project.file} --format json`,
       root,
       run,
     );

@@ -1,6 +1,5 @@
 import { Predicate, Schema } from "effect";
-import type { ActionInvocation } from "@kb/contracts";
-import { isValidSavedQueryName } from "./saved-query.ts";
+import { isValidWorkspaceName, type ActionInvocation } from "@kb/contracts";
 import { LIST_FIELDS_QUERY, LIST_TAGS_QUERY, backlinksQuery } from "@kb/query";
 import {
   FIELD_TYPES,
@@ -324,7 +323,7 @@ export function mapQuery(opts: { query: string; inputs?: unknown[] }): PlannedAc
  * can never resolve is a usage error, exit 2); the file read is not CLI policy.
  */
 export function mapRun(name: string): PlannedAction {
-  if (!isValidSavedQueryName(name)) {
+  if (!isValidWorkspaceName(name)) {
     throw new UsageError({
       message: `invalid saved query name: ${name} (letters, digits, ., _, - only)`,
     });
