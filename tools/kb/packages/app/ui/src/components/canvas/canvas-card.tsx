@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import type { CanvasKbNode, CanvasTextNode } from "@kb/canvas";
 import { Bullet } from "@/components/outline/bullet";
-import { NodeContent } from "@/components/outline/node-content";
+import { NodeContent } from "@/components/outline/node-content"; // GAP [[01M1RXNGSJT2J2VHDSYY7QJSD3]]
 import { NodeRow } from "@/components/outline/node-row";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";

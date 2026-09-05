@@ -9,7 +9,7 @@ import {
   kbStoreLayer,
 } from "@kb/contracts";
 import type { KbNode, StoreTx } from "@kb/model";
-import { KbIndexService, type KbIndex } from "@kb/query";
+import { KbIndexService, type KbIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { MemoryTxLog } from "@kb/tx-log";
 import { invokeReceiptWith, isomorphicActions, noteStoreSynced, portActions } from "@kb/operations";
 import { postAction } from "@/api/action";

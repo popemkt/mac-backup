@@ -17,7 +17,7 @@ import { listOntologyItems } from "@/lib/ontology-scope";
 import { SYSTEM_IDS } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { graphPath, navigate, ontologyPath } from "@/lib/router";
-import { OntologyPicker } from "@/components/ontology/ontology-picker";
+import { OntologyPicker } from "@/components/ontology/ontology-picker"; // GAP [[01M1RXNHJ8S019678AYDKWYE63]]
 import { PerspectivePicker } from "@/components/graph/perspective-picker";
 import { RendererSwitch } from "@/components/graph/renderer-switch";
 import { SigmaGraph } from "@/components/graph/sigma-graph";
@@ -26,7 +26,7 @@ import { TreeGraph } from "@/components/graph/tree-graph";
 import { GraphCanvasFrame } from "@/components/graph/graph-canvas-frame";
 import type { GraphCameraControls } from "@/components/graph/graph-camera-controls";
 import type { GraphSelection } from "@/components/graph/graph-selection";
-import { SidebarToggle } from "@/components/sidebar/sidebar";
+import { SidebarToggle } from "@/components/sidebar/sidebar"; // GAP [[01M1RXNJHCH2Q5HCKQNEKVQGKD]]
 
 const Force3dGraph = lazy(() => import("@/components/graph/force3d-graph"));
 

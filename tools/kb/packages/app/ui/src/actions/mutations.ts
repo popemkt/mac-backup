@@ -40,7 +40,7 @@ import { outlineInstanceKey } from "@/lib/instance-key";
 import { findParentWire } from "@/lib/tx";
 import type { WireNode } from "@kb/contracts";
 import { typeRefsOf } from "@kb/model";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore } from "@/stores/outline.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { invoke, invokeLocal, pushInvocation, reconcileBrowserSession } from "@/session/runtime";
 
 function wire(): WireNode[] {
