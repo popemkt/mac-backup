@@ -73,6 +73,7 @@
         "@kb/operations": "workspace:*",
         "@kb/query": "workspace:*",
         "@kb/store-jsonl": "workspace:*",
+        "@kb/tx-log": "workspace:*",
         "effect": "catalog:",
       },
       "devDependencies": {

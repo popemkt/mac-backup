@@ -6,7 +6,7 @@
  * - `build` — fresh-checkout UI build decision + execution (fingerprint/marker)
  * - `dev` — `--dev` Vite child orchestration (spawn / exit / port)
  * - `http` — Effect REST/API request routing + failure mapping
- * - `session` — Effect SubscriptionHub (message/broadcast/cleanup)
+ * - `session` — Effect SubscriptionHub (message/publish/cleanup)
  * - `server` — Bun.serve / Effect runtime boundary, fs-watch, CLI entry
  * - `saved-queries` — Effect listing of `.kb/queries/*.edn` + virtual nodes
  * - `paths` — the one place `process.env` is read for kb's install layout

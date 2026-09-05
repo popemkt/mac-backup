@@ -17,6 +17,11 @@ import type { KbTx, StoreTx } from "@kb/model";
  * owner in this codebase and it is an Effect service (`@kb/model`'s
  * `currentIso`); a synchronous port that read the wall clock would be a second
  * one.
+ *
+ * Reached as {@link KbContext.log}, beside the index, and not also as a
+ * Context service: a session already hands its collaborators to everything
+ * that holds it, and a second accessor for the same instance is a second place
+ * to keep in sync.
  */
 export interface KbTxLog {
   /** The rev of the newest appended transaction; 0 when nothing is logged. */
@@ -36,4 +41,19 @@ export interface KbTxLog {
   subscribe(fn: (tx: KbTx) => void): () => void;
 }
 
-export class KbTxLogService extends Context.Service<KbTxLogService, KbTxLog>()("kb/KbTxLog") {}
+/**
+ * Who asked for the write, when the surface that took the request knows.
+ *
+ * Ambient rather than a parameter because that is what it is: no action cares
+ * which client invoked it, and threading it through every handler to reach the
+ * one line that records it would put a request-shaped argument in the domain.
+ * A `Reference` has a default, so nothing downstream gains a requirement — an
+ * origin-less surface (the CLI, the watcher) simply gets `undefined`.
+ *
+ * It is a label on the transaction, not a filter: the server echoes every tx
+ * to every watcher including its origin, so a client can recognise the
+ * confirmation of its own optimistic apply instead of never hearing about it.
+ */
+export const TxOrigin = Context.Reference<string | undefined>("kb/TxOrigin", {
+  defaultValue: () => undefined,
+});

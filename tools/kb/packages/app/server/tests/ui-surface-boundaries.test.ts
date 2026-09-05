@@ -9,21 +9,9 @@ import * as assets from "../src/assets.ts";
 import { handleHttpRequest } from "../src/http.ts";
 import { UI_DIST } from "../src/paths.ts";
 import { listSavedQueries, savedQueryNodes } from "../src/saved-queries.ts";
-import { diffNodes, rowsHash, SubscriptionHub } from "../src/session.ts";
-import type { KbNode } from "@kb/model";
+import { rowsHash, SubscriptionHub } from "../src/session.ts";
 
 const { assetContentType, serveKbAsset, serveStatic } = assets;
-
-function node(id: string, text = id): KbNode {
-  return {
-    id,
-    text,
-    props: {},
-    children: [],
-    createdAt: "1970-01-01T00:00:00.000Z",
-    updatedAt: "1970-01-01T00:00:00.000Z",
-  };
-}
 
 describe("ui assets boundary", () => {
   test("assetContentType maps known media and falls back", () => {
@@ -123,22 +111,6 @@ describe("ui session boundary", () => {
   test("rowsHash is stable per row set", () => {
     expect(rowsHash([["x"]])).toBe(rowsHash([["x"]]));
     expect(rowsHash([["x"]])).not.toBe(rowsHash([["y"]]));
-  });
-
-  test("diffNodes reports upserts and deletes", () => {
-    const oldMap = new Map([
-      ["keep", node("keep", "same")],
-      ["gone", node("gone")],
-      ["chg", node("chg", "old")],
-    ]);
-    const newMap = new Map([
-      ["keep", node("keep", "same")],
-      ["chg", node("chg", "new")],
-      ["add", node("add")],
-    ]);
-    const { upserts, deletes } = diffNodes(oldMap, newMap);
-    expect(deletes).toEqual(["gone"]);
-    expect(upserts.map((n) => n.id).toSorted()).toEqual(["add", "chg"]);
   });
 
   test("session cleanup removes client; malformed messages become error frames", async () => {

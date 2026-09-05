@@ -15,6 +15,7 @@ import { Effect } from "effect";
 import { openKb, kbRuntimeLayer } from "@kb/runtime";
 import { reloadEffect } from "@kb/operations";
 import { JsonlStore } from "@kb/store-jsonl";
+import { ingestExternalWrite } from "../src/server.ts";
 import { DatascriptIndex, type KbIndex } from "@kb/query";
 import type { KbNode } from "@kb/model";
 import { handleHttpRequest } from "../src/http.ts";
@@ -65,13 +66,15 @@ describe("index rebuilds on the interactive path", () => {
       expect(ctx.index.getNode("n.edit")?.text).toBe("edited");
       expect(rebuildsOf(ctx.index)).toBe(before);
 
-      // …and the watcher firing on the write this session just made adds none:
-      // the store file is the one the session last wrote.
+      // …and the watcher firing on the write this session just made adds
+      // none: the store file is the one the session last wrote, so the ingest
+      // diff is empty and appends no second transaction for the same edit.
+      const revAfterAction = ctx.log.head;
       await Effect.runPromise(
-        reloadEffect(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx))) as Effect.Effect<void>,
+        ingestExternalWrite(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx))) as Effect.Effect<void>,
       );
-      await Effect.runPromise(hub.applyNodes(ctx.nodes));
       expect(rebuildsOf(ctx.index)).toBe(before);
+      expect(ctx.log.head).toBe(revAfterAction);
       expect(ctx.index.getNode("n.edit")?.text).toBe("edited");
     } finally {
       await rm(dir, { recursive: true, force: true });
