@@ -21,6 +21,7 @@ import {
   type KbContext,
   TemplateRegistry,
 } from "@kb/contracts";
+import { MemoryTxLog } from "@kb/tx-log";
 import { assetsLayer, savedQueriesLayer, viewsLayer } from "@kb/workspace-fs";
 import { noteStoreSynced } from "@kb/operations";
 import { registryFor } from "./registry.ts";
@@ -77,6 +78,7 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
     root,
     store,
     index,
+    log: new MemoryTxLog(),
     get nodes(): KbNode[] {
       return index.storedNodes();
     },

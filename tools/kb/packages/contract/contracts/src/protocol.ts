@@ -36,7 +36,8 @@ export type WireNode = z.infer<typeof WireNodeSchema>;
 
 /** `rev` is a monotonically increasing server counter, bumped on every
  * observed change of .kb/nodes.jsonl. Clients use it to detect missed
- * updates (gap => refetch /api/graph). */
+ * updates: a gap is answered with `since`, and only a rev the server's log
+ * cannot cover falls back to refetching /api/graph. */
 export const GraphSnapshotSchema = z.object({
   rev: z.number().int().nonnegative(),
   nodes: z.array(WireNodeSchema),
@@ -59,6 +60,11 @@ export const ClientMessageSchema = z.discriminatedUnion("op", [
     query: z.string().min(1), // EDN datalog, same dialect as graph.query
   }),
   z.object({ op: z.literal("unsubscribe"), id: z.string().min(1) }),
+  /**
+   * Catch me up from `rev`: the server replies with the `tx` frames after it,
+   * in order, or with `snapshot-required` when its log cannot cover them.
+   */
+  z.object({ op: z.literal("since"), rev: z.number().int().nonnegative() }),
   /** Opt in/out of node-level tx broadcasts (browser UI wants these). */
   z.object({ op: z.literal("watch-tx"), enabled: z.boolean() }),
   z.object({ op: z.literal("ping") }),
@@ -91,6 +97,12 @@ export const ServerMessageSchema = z.discriminatedUnion("op", [
     code: z.string(),
     message: z.string(),
   }),
+  /**
+   * Answer to `since` when the gap cannot be expressed as frames (the log
+   * window has moved past it, or the client's rev belongs to a previous
+   * server process). `head` is the rev a fresh /api/graph will carry.
+   */
+  z.object({ op: z.literal("snapshot-required"), head: z.number().int() }),
   z.object({ op: z.literal("pong") }),
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

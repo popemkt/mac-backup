@@ -320,6 +320,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Introduce a ui command registry and register each command beside its implementation. Pairs with the NodeCommandPalette gap - one registry serves both.
 - **node** — `01M1MGCRNVNBE5HW27Z83PK67B`
 
+### GAP: saved-query virtual nodes never appear in tx frames
+
+- **expected** — Every node a client can see reaches it the same way. A change under .kb/queries/ produces a KbTx like any other change, so a client catching up with since(rev) ends with the same graph a fresh /api/graph would give it.
+- **current** — savedQueryNodes() are handed to the index once at SubscriptionHub construction via withVirtual (tools/kb/packages/app/server/src/session.ts), and the log only ever carries StoreTx from persist or the watcher diff, which is computed over storedNodes(). The snapshot has the sys.query.* nodes; no frame ever mentions them.
+- **impact** — A since(rev) catch-up silently misses a /api/queries change: a saved query added, renamed or removed while a client was behind stays wrong until that client happens to take a full snapshot. The two paths that used to agree by accident (both refetched) now diverge.
+- **closes** — Make the virtual set a logged transaction: watch .kb/queries/ alongside .kb/nodes.jsonl, diff savedQueryNodes() across the change, and append it — or drop withVirtual and materialise saved queries as ordinary stored nodes.
+- **node** — `01M1QZNBFSTCM9V7DZT1XWEY2N`
+
 ### GAP: search is a substring scan, no text index
 
 - **expected** — Full-text search as an additive derived index (FTS5, and sqlite-vec for semantic search) rebuilt from the JSONL like any other index.
@@ -351,6 +359,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two windows, both needing a second process writing the same store: an external write in the same mtime tick with an identical byte count is invisible; and an external write landing between persist's check and JsonlStore's own locked reload is merged into the file by that commit but not into the index, which the post-commit stamp then calls current. The session recovers at the next write it does see.
 - **closes** — p1 Phase 3's fingerprint (sourceHash + sourceBytes + nodeCount), or EffectStore.commitEffect returning the merged snapshot so persist reconciles against what was actually written.
 - **node** — `01M1PK5NYA7ZG3XC0H0YRYRVZE`
+
+### GAP: subscription re-evaluation is O(clients x subs x full query) per tx
+
+- **expected** — A logged transaction re-evaluates only the subscriptions it can affect, and evaluates each distinct query once for all the clients holding it.
+- **current** — SubscriptionHub.publish (tools/kb/packages/app/server/src/session.ts) loops every client, then every subscription of that client, and runs the full datalog query through the index for each one, hashing the rows to decide whether to push. Two clients watching the same query run it twice; a tx that cannot touch a query runs it anyway.
+- **impact** — Cost grows with the product of connected clients and their subscriptions, on the hot path of every single edit. The UI opens a subscription per query node on screen, so a handful of tabs on a board view makes each keystroke re-run every visible query.
+- **closes** — Key the evaluation by query string rather than by client so a shared query runs once per tx, and gate it on the tx touching an attribute or entity the query reads (the IR from @kb/query already names what a query looks at).
+- **node** — `01M1QZNM17MTGGPE517NVZYJT0`
 
 ### GAP: suppression grammar still includes legacy eslint directives
 
@@ -432,6 +448,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two ways to ask the same question, one of them known-ambiguous when a node id repeats. Callers can still reach the wrong one.
 - **closes** — Confirm no caller outside the test uses them (none does today), delete both methods and the two test assertions. Store API change, so it is an owner call.
 - **node** — `01M1MGT3K0DNGEQFXQNZYE83NY`
+
+### GAP: the tx log is process-local; there is no durable .kb/tx.jsonl
+
+- **expected** — The log is durable: every KbTx is appended to .kb/tx.jsonl under the store's write lock, and rev is a per-store counter that survives a restart. A client reconnecting after a server restart catches up with since(rev) like any other gap.
+- **current** — MemoryTxLog is a 1000-entry in-process ring (tools/kb/packages/infrastructure/tx-log/src/memory-tx-log.ts). rev keeps its documented per-server meaning, so a restart resets it to 0 and every connected client's rev is ahead of head; since() answers snapshot-required and each client refetches /api/graph.
+- **impact** — A restart of kb ui costs every open client a full graph refetch, and no surface can replay history — undo across sessions, an audit trail, and a browser replica that survives a reload all need the durable form.
+- **closes** — Write each append to .kb/tx.jsonl inside the JsonlStore write lock, load the tail at openKbEffect and seed MemoryTxLog's window and rev from it; make rev per-store rather than per-server in protocol.ts.
+- **node** — `01M1QZMR3CYFYPEXBMC2JTFAA5`
 
 ### GAP: the ws client assigns on* handlers instead of addEventListener
 

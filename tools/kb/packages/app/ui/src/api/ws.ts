@@ -4,8 +4,9 @@
  *  - connect /ws, track server rev from hello/tx messages
  *  - opt into node-level tx broadcasts (watch-tx) and hand deltas to the
  *    store's applyTx seam
- *  - detect rev gaps (missed messages / server restart) → onGap, caller
- *    refetches /api/graph
+ *  - close rev gaps by asking the server for the transactions it is holding
+ *    (`since`), and fall back to onGap → /api/graph only when it answers
+ *    `snapshot-required`
  *  - live query subscriptions (rows pushed on change)
  *  - reconnect with capped exponential backoff, resubscribing on open
  */
@@ -38,7 +39,13 @@ export interface KbWsClientOptions {
   getRev: () => number;
   /** Contiguous node-level delta — transact into local DataScript. */
   onTx: (tx: TxDelta) => void;
-  /** Rev gap detected — caller must refetch /api/graph. */
+  /**
+   * The server cannot catch us up from our rev — its log window has moved
+   * past it, or the rev belongs to a previous server process. The caller must
+   * refetch /api/graph. An ordinary gap in the tx stream does *not* land here:
+   * it is answered with `since` first, and only its `snapshot-required` reply
+   * does.
+   */
   onGap: (info: { expected: number; got: number }) => void;
   /** Server-sent error (query_error, invalid_message, …). */
   onServerError?: (err: { id?: string; code: string; message: string }) => void;
@@ -87,6 +94,12 @@ export class KbWsClient {
   private socket: WsLike | null = null;
   private subs = new Map<string, Subscription>();
   private attempts = 0;
+  /**
+   * The rev we last asked to be caught up from. A burst of out-of-order
+   * frames is one gap, not one request each; `rev` only moves when a delta is
+   * applied, so this is exactly "we already asked about this state".
+   */
+  private catchUpFrom: number | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private closedByUser = false;
   status: WsStatus = "idle";
@@ -158,6 +171,7 @@ export class KbWsClient {
     socket.onopen = () => {
       if (socket !== this.socket) return;
       this.attempts = 0;
+      this.catchUpFrom = null;
       this.setStatus("open");
       this.send({ op: "watch-tx", enabled: true });
       for (const [id, sub] of this.subs) {
@@ -194,6 +208,13 @@ export class KbWsClient {
     }, delay);
   }
 
+  /** Ask the server for everything after `rev`. Idempotent per rev. */
+  private requestCatchUp(rev: number): void {
+    if (this.catchUpFrom === rev) return;
+    this.catchUpFrom = rev;
+    this.send({ op: "since", rev });
+  }
+
   private handleMessage(raw: string): void {
     let json: unknown;
     try {
@@ -217,25 +238,30 @@ export class KbWsClient {
     switch (msg.op) {
       case "hello": {
         // Reconnect (or first connect against a moved server): any rev
-        // mismatch means we may have missed txs — resync via snapshot.
+        // mismatch means we may have missed txs. Ask for them; the server
+        // says `snapshot-required` when it cannot produce them.
         const cur = this.opts.getRev();
-        if (msg.rev !== cur) {
-          this.opts.onGap({ expected: cur, got: msg.rev });
-        }
+        if (msg.rev !== cur) this.requestCatchUp(cur);
         break;
       }
       case "tx": {
         const cur = this.opts.getRev();
         if (msg.rev <= cur) break; // duplicate/stale — already have it
         if (msg.rev !== cur + 1) {
-          this.opts.onGap({ expected: cur + 1, got: msg.rev });
+          this.requestCatchUp(cur);
           break;
         }
+        this.catchUpFrom = null;
         this.opts.onTx({
           rev: msg.rev,
           upserts: msg.upserts,
           deletes: msg.deletes,
         });
+        break;
+      }
+      case "snapshot-required": {
+        this.catchUpFrom = null;
+        this.opts.onGap({ expected: this.opts.getRev(), got: msg.head });
         break;
       }
       case "rows": {

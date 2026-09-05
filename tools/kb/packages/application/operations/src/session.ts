@@ -1,6 +1,12 @@
 import { Effect } from "effect";
-import { type DomainError, domainError, txIntegrityError, type StoreTx } from "@kb/model";
-import { KbStore, type KbContext, type StoreFingerprint } from "@kb/contracts";
+import {
+  currentIso,
+  type DomainError,
+  domainError,
+  txIntegrityError,
+  type StoreTx,
+} from "@kb/model";
+import { KbStore, TxOrigin, type KbContext, type StoreFingerprint } from "@kb/contracts";
 
 /**
  * The store as this session last saw it.
@@ -62,12 +68,21 @@ export const reloadEffect = Effect.fn("kb.reload")(function* (
  * store — and the fingerprint taken afterwards would call that state current.
  * Catching up first also means integrity is checked against the graph the
  * commit will actually merge into.
+ *
+ * The transaction is recorded on the log in the same breath. This is the only
+ * place that holds the real delta of a local write, so it is the only honest
+ * producer of one: everything downstream that used to re-derive a delta — the
+ * hub's node-set diff, a fallen-behind client's full refetch — was
+ * reconstructing what was thrown away here. `origin` is ambient (see
+ * {@link TxOrigin}), so no handler between the request and this line carries
+ * a request-shaped argument.
  */
 export const persistEffect = Effect.fn("kb.persist")(function* (
   ctx: KbContext,
   tx: StoreTx,
 ): Effect.fn.Return<void, DomainError, KbStore> {
   const store = yield* KbStore;
+  const origin = yield* TxOrigin;
   yield* reloadEffect(ctx);
   const integrityError = txIntegrityError(ctx.nodes, tx);
   if (integrityError !== null && integrityError !== "") {
@@ -75,6 +90,7 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
   }
   yield* store.commitEffect(tx);
   ctx.index.applyTx(tx);
+  ctx.log.append(tx, yield* currentIso, origin);
   const fingerprint = yield* store.fingerprint;
   if (fingerprint !== null) seen.set(ctx, fingerprint);
   return undefined;

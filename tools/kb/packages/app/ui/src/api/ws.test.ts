@@ -162,20 +162,56 @@ describe("KbWsClient", () => {
     expect(h.gaps).toEqual([]);
   });
 
-  it("detects a rev gap in the tx stream and asks for resync", () => {
+  it("answers a gap in the tx stream with since, then applies the batch", () => {
     const h = makeHarness();
     h.client.connect();
     h.server.accept(0);
     h.server.push({ op: "tx", rev: 3, upserts: [wireNode("n.x")], deletes: [] });
-    expect(h.txs).toEqual([]); // gap delta must NOT be applied
-    expect(h.gaps).toEqual([{ expected: 1, got: 3 }]);
+    expect(h.txs).toEqual([]); // the gap delta itself must NOT be applied
+    expect(h.gaps).toEqual([]); // …and it is not a snapshot, it is a question
+    expect(h.server.received("since")).toEqual([{ op: "since", rev: 0 }]);
+
+    // The server answers with everything after rev 0, in order.
+    h.server.push({ op: "tx", rev: 1, upserts: [wireNode("n.a")], deletes: [] });
+    h.server.push({ op: "tx", rev: 2, upserts: [wireNode("n.b")], deletes: [] });
+    h.server.push({ op: "tx", rev: 3, upserts: [wireNode("n.x")], deletes: [] });
+    expect(h.txs.map((t) => t.rev)).toEqual([1, 2, 3]);
+    expect(h.rev.current).toBe(3);
+    expect(h.gaps).toEqual([]);
   });
 
-  it("detects a rev mismatch on hello (reconnect after missed txs)", () => {
+  it("asks once per gap, however many out-of-order frames arrive", () => {
+    const h = makeHarness();
+    h.client.connect();
+    h.server.accept(0);
+    h.server.push({ op: "tx", rev: 3, upserts: [], deletes: [] });
+    h.server.push({ op: "tx", rev: 4, upserts: [], deletes: [] });
+    h.server.push({ op: "tx", rev: 5, upserts: [], deletes: [] });
+    expect(h.server.received("since")).toEqual([{ op: "since", rev: 0 }]);
+  });
+
+  it("falls back to a snapshot only when the server says it must", () => {
     const h = makeHarness(4);
     h.client.connect();
     h.server.accept(7);
+    expect(h.gaps).toEqual([]);
+    expect(h.server.received("since")).toEqual([{ op: "since", rev: 4 }]);
+
+    h.server.push({ op: "snapshot-required", head: 7 });
     expect(h.gaps).toEqual([{ expected: 4, got: 7 }]);
+  });
+
+  it("a self-write echo advances rev like any other frame — no snapshot", () => {
+    // The origin used to be skipped by the server, so its rev fell behind
+    // after every write of its own and the next foreign tx read as a gap.
+    const h = makeHarness();
+    h.client.connect();
+    h.server.accept(0);
+    h.server.push({ op: "tx", rev: 1, upserts: [wireNode("n.mine")], deletes: [] });
+    h.server.push({ op: "tx", rev: 2, upserts: [wireNode("n.theirs")], deletes: [] });
+    expect(h.txs.map((t) => t.rev)).toEqual([1, 2]);
+    expect(h.server.received("since")).toEqual([]);
+    expect(h.gaps).toEqual([]);
   });
 
   it("routes subscription rows and resubscribes after reconnect", () => {

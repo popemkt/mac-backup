@@ -1,0 +1,26 @@
+{
+  "name": "@kb/tx-log",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@kb/contracts": "workspace:*",
+    "@kb/model": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "fast-check": "catalog:"
+  },
+  "nx": {
+    "tags": [
+      "scope:shared"
+    ]
+  }
+}

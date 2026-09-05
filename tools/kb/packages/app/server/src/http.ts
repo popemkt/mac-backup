@@ -2,7 +2,7 @@ import { relative } from "node:path";
 import { Cause, Effect, Option } from "effect";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import { z } from "zod";
-import type { KbContext } from "@kb/contracts";
+import { TxOrigin, type KbContext } from "@kb/contracts";
 import { reloadEffect } from "@kb/operations";
 import { type ActionHandlerEnv, invokeReceiptEffect, kbRuntimeLayer, manifest } from "@kb/runtime";
 import * as assets from "./assets.ts";
@@ -55,7 +55,7 @@ function invalidInput(message: string): HttpServerResponse.HttpServerResponse {
  * boundary in `server.ts`).
  *
  * Genuine Effect program: route dispatch, asset reads, saved-query reads,
- * store reloads and hub broadcasts are all Effect programs. Content-Type
+ * store reloads and snapshot reads are all Effect programs. Content-Type
  * matches the pre-Effect surface (`Response.json` charset + bare text bodies).
  */
 const handleHttpRequestEffect = (
@@ -90,13 +90,14 @@ const handleHttpRequestEffect = (
       }
 
       // Fresh load so we don't miss external writes, then invoke natively.
+      // What the invocation commits reaches watchers through the log, which
+      // the hub is already subscribed to: persist → log → hub, with no second
+      // path from here and nothing to wait for fs.watch to notice.
       yield* reloadEffect(ctx);
       const receipt = yield* invokeReceiptEffect(ctx, {
         id: parsed.data.id,
         input: parsed.data.input ?? {},
-      });
-      // Immediate bump/broadcast — do not wait for fs.watch.
-      yield* hub.applyNodes(ctx.nodes, req.headers.get("x-kb-origin") ?? undefined);
+      }).pipe(Effect.provideService(TxOrigin, req.headers.get("x-kb-origin") ?? undefined));
       return jsonResponse(receipt);
     }
 

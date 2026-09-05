@@ -19,6 +19,7 @@
     "@kb/operations": "workspace:*",
     "@kb/query": "workspace:*",
     "@kb/store-jsonl": "workspace:*",
+    "@kb/tx-log": "workspace:*",
     "@kb/workspace-fs": "workspace:*",
     "effect": "catalog:"
   },
