@@ -81,13 +81,8 @@ currentRev }`.
 
 ## Remaining gaps
 
-- **IndexedDB:** `BrowserStore` is process-memory only and reports a null
-  fingerprint. Reload always consults the port, and page reload/offline startup
-  has no durable local replica yet. An IndexedDB adapter with a revision
-  fingerprint can replace it without changing action handlers.
-- **Offline queue:** the invocation lane is ordered but memory-only. Network
-  loss triggers reconciliation; it does not durably retain and replay writes
-  across reloads. A durable queue also needs an explicit conflict/replay policy.
+- `[[01M1R6N8VC3W5P93KABEFZ8CTX|BrowserStore IndexedDB persistence]]`.
+- `[[01M1R6NFYFCRBT1F07YJN3H12Y|Durable browser invocation replay]]`.
 
 The four port-backed core actions remain server-owned by coordinator decision;
 this wave does not add browser `SavedQueries`, `Views`, or `Assets` adapters.
@@ -106,3 +101,31 @@ only other generated file outside UI is
 `tools/kb/harness/lint-warn-baseline.json`, regenerated with `bun run
 harness:snapshot`; its `eslint/max-lines` count fell from 2 to 1 when the old
 planner was deleted.
+
+## Fix-up
+
+- `BrowserStore` now exposes a monotonic generation fingerprint. Browser
+  session construction records the initial generation, while local commits and
+  WebSocket ingest advance the store and index together before recording the
+  new generation as synchronized.
+- `persistCanvasDoc` no longer hand-merges `WireNode` props into the outline
+  store. `ext.canvas.tx.apply` replaces the canvas document and can update a
+  second node atomically, so only its server-echoed WebSocket transaction
+  advances the local graph.
+- Deleted the uncalled `outlineStore.restoreSnapshot` implementation and
+  interface member.
+- Recorded `[[01M1R6N8VC3W5P93KABEFZ8CTX|BrowserStore IndexedDB persistence]]`
+  and `[[01M1R6NFYFCRBT1F07YJN3H12Y|durable browser invocation replay]]` as
+  first-class `#gap` nodes.
+
+### Fix-up verification
+
+- Rebuild regression: 50 sequential local `node.update` invocations left
+  `index.rebuilds` at `1`, its construction value; the focused runtime/store
+  run passed 5 tests.
+- `bun run verify` — green: 19 typecheck projects and 64 harness tests passed,
+  with 1 harness test skipped.
+- `bun test packages` — 382 passed, 1 skipped.
+- `bun run test:ui` — 594 passed across 91 files. One initial wall-clock
+  palette benchmark miss passed on its focused rerun and the full rerun; that
+  known flake is tracked by `[[01M1R19NXBMTVQG6AH0S7VTC7D]]`.

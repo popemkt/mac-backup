@@ -54,14 +54,13 @@ implementation modules under `packages/app/server/src/` split by concern:
 - **Client DataScript**: browser loads all nodes once, builds the same datom
   set the CLI builds (shared `foundation/query` code — it's isomorphic TS, no
   node APIs in the datom builder). Keystrokes never wait on the network.
-- **Mutations**: optimistic local tx → `POST /api/action` (registry.invoke,
-  same receipts) → on failure, strict `/api/graph` refetch (never demo
-  fixtures mid-session) + toast; if refetch fails, restore plan-touched
-  nodes to pre-plan state without rewinding `rev`, drop minted nodes, and
-  re-apply only confirmed non-structural actions (text/props) — never keep
-  unconfirmed reparent/delete `children[]` fragments. Unrelated live-graph
-  nodes (concurrent remote edits) are preserved. Cold-boot `loadGraph` may
-  fall back to fixtures; `hydrateFromWire` is boot-only — live resync uses
+- **Mutations**: `session/runtime.ts` invokes isomorphic actions against the
+  browser's `BrowserStore` and existing DataScript index first, then sends the
+  same invocation through one ordered `POST /api/action` push lane. Port-only
+  actions remain server-owned. A failed confirmation asks the live socket to
+  reconcile from the current revision; only `snapshot-required` escalates to
+  an authoritative `/api/graph` refresh. Cold-boot `loadGraph` may fall back to
+  fixtures; `hydrateFromWire` is boot-only — live resync uses
   `refreshFromWire` so `loadSource` stays `api`. No temp-id dance (nxus's
   pain): client mints final ULIDs, server accepts explicit ids (already
   supported by `node.add`).
@@ -186,12 +185,12 @@ pill at its full token length. A layout-free environment (unit tests, headless)
 degrades to offset-based behaviour rather than breaking. `focusSeq` forces
 caret re-placement when a row remounts.
 
-**Undo/redo is action-level, not keystroke-level.** `actions/plan.ts`
-`invertPlan` computes an inverse transaction against the *pre-application*
-state; `inversePlanActions` derives the compensating registry actions.
-`outlineStore` keeps bounded `undoStack` / `redoStack` of `{ inv, actions }`
-(`HISTORY_LIMIT` = 50). `Cmd/Ctrl+Z` binds outside editable targets, and in api
-mode the compensation is posted best-effort — there is **no** server-authoritative
+**Undo/redo is action-level, not keystroke-level.** `actions/mutations.ts`
+`restoreInvocations` compares the graph states before and after a plan and
+derives compensating shared-action invocations. `outlineStore` keeps bounded
+`undoStack` / `redoStack` of `{ undo, redo }` (`HISTORY_LIMIT` = 50).
+`Cmd/Ctrl+Z` binds outside editable targets, and in api mode compensation uses
+the same local invocation + ordered push lane — there is **no** server-authoritative
 undo journal, and rapid same-node text edits are not coalesced. Structural
 operations (split, merge, indent, outdent, delete, move) are the covered case.
 

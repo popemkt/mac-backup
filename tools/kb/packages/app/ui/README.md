@@ -27,8 +27,9 @@ server port is `KB_UI_DEV_PORT` (default 5173) and the proxy target is
 
 Force fixtures (no server): `VITE_USE_FIXTURES=1 bun run dev`
 
-Shape: `src/actions/{plan,mutations}.ts` is the optimistic mutation pipeline
-(plan → local tx → `POST /api/action`, with `invertPlan` backing undo/redo);
+Shape: `src/session/runtime.ts` owns the shared-action browser session and its
+ordered remote push lane; `src/actions/{plan,mutations}.ts` plans mutations and
+uses `restoreInvocations` to build undo/redo actions from graph states;
 `src/api/ws.ts` feeds live deltas into `outlineStore.applyTx`;
 `src/stores/outline.store.ts` holds outline + selection + ontology-scope state;
 `src/lib/` holds the pure, unit-tested helpers (caret/markdown, canvas
