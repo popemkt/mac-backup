@@ -2,7 +2,8 @@
 /// <reference path="../datascript.d.ts" />
 import * as d from "datascript";
 import { present, type KbNode, type NodeId, type StoreTx } from "@kb/model";
-import { pull as dsPull, query as dsQuery } from "../datascript.ts";
+import { datascriptExecutor, pull as dsPull, query as dsQuery, runIr } from "../datascript.ts";
+import type { Ir } from "../ir/ir.ts";
 import { type Datom, type DatascriptDb, type IdMap, nodeToDatoms, schemaFor } from "./datoms.ts";
 import type { KbIndex } from "./index.ts";
 
@@ -62,14 +63,7 @@ export class DatascriptIndex implements KbIndex {
     return this.#rebuilds;
   }
 
-  /**
-   * The engine handle: this db plus the eid map that reads its integers back
-   * as node ids. Exposed because the datascript half still takes it as an
-   * argument — `runIr(exec, ir, ids)` and the tests that exercise the engine
-   * directly. It closes when `run(ir)` moves onto the port and the index is
-   * the only thing that ever holds a db.
-   */
-  get handle(): DatascriptDb {
+  #datascriptDb(): DatascriptDb {
     return { db: this.#db, ids: this.#ids };
   }
 
@@ -151,11 +145,15 @@ export class DatascriptIndex implements KbIndex {
   }
 
   runDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): Array<Array<unknown>> {
-    return normalizeRows(dsQuery(this.handle, edn, ...inputs));
+    return normalizeRows(dsQuery(this.#datascriptDb(), edn, ...inputs));
+  }
+
+  run(ir: Ir, ...inputs: ReadonlyArray<unknown>): Array<Array<unknown>> {
+    return normalizeRows(runIr(datascriptExecutor(this.#datascriptDb()), ir, this.#ids, ...inputs));
   }
 
   pull(pattern: string, id: NodeId): unknown {
-    return dsPull(this.handle, pattern, id);
+    return dsPull(this.#datascriptDb(), pattern, id);
   }
 
   getNode(id: NodeId): KbNode | undefined {

@@ -8,19 +8,15 @@ import {
   backlinksQuery,
   DatascriptIndex,
   compile,
-  datascriptExecutor,
   parseEdn,
-  query,
-  runIr,
   type IrQuery,
 } from "@kb/query";
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import { systemSeedNodes, type KbNode } from "@kb/model";
 
-/** The engine handle these tests drive directly, built the one way there is. */
-function handleFor(nodes: KbNode[]) {
-  return new DatascriptIndex(nodes).handle;
+function indexFor(nodes: KbNode[]): DatascriptIndex {
+  return new DatascriptIndex(nodes);
 }
 
 const AT = "2026-01-01T00:00:00.000Z";
@@ -101,7 +97,7 @@ describe("parseEdn subset vs raw", () => {
 });
 
 describe("compile(parse(edn)) is query-equivalent", () => {
-  const db = handleFor([
+  const index = indexFor([
     ...systemSeedNodes(AT),
     node("n.todo", {
       text: "a todo",
@@ -112,7 +108,7 @@ describe("compile(parse(edn)) is query-equivalent", () => {
   test("stored queries: same rows as the original EDN", () => {
     for (const q of STORED_QUERIES) {
       const compiled = compile(parseEdn(q.edn));
-      sameRows(query(db, compiled.query), query(db, q.edn));
+      sameRows(index.runDatalog(compiled.query), index.runDatalog(q.edn));
     }
   });
 });
@@ -200,7 +196,7 @@ const irArb: fc.Arbitrary<IrQuery> = fc
   });
 
 describe("generated IR round-trips through compile(parseEdn(compile(ir)))", () => {
-  const db = handleFor([
+  const index = indexFor([
     node("sys.tag", { text: "tag" }),
     node("n.todo", {
       text: "a todo",
@@ -217,7 +213,7 @@ describe("generated IR round-trips through compile(parseEdn(compile(ir)))", () =
   test("rows match query(edn) on the fixture", () => {
     const outcome = (edn: string, extra: unknown[]) => {
       try {
-        return { rows: sortedRows(query(db, edn, ...extra)) };
+        return { rows: sortedRows(index.runDatalog(edn, ...extra)) };
       } catch (e) {
         return { error: e instanceof Error ? e.message : String(e) };
       }
@@ -235,7 +231,7 @@ describe("generated IR round-trips through compile(parseEdn(compile(ir)))", () =
 });
 
 describe("runIr revives only node-ref positions", () => {
-  const db = handleFor([
+  const index = indexFor([
     node("a", { props: { "fld.status": [{ t: "str", v: "doing" }] } }),
     node("b", { props: { "fld.status": [{ t: "str", v: "doing" }] } }),
     node("c", { props: { "fld.status": [{ t: "str", v: "doing" }] } }),
@@ -243,17 +239,17 @@ describe("runIr revives only node-ref positions", () => {
   const edn = "[:find ?v (count ?n) :where [?n :f/fld.status ?v]]";
 
   test("count-revival: query() collides with an eid; runIr keeps the count", () => {
-    const raw = query(db, edn);
+    const raw = index.runDatalog(edn);
     const ir = parseEdn(edn);
     expect(ir.kind).toBe("query");
-    const typed = runIr(datascriptExecutor(db), ir, db.ids);
+    const typed = index.run(ir);
     expect(sortedRows(raw)).toEqual([["doing", "c"]]);
     expect(sortedRows(typed)).toEqual([["doing", 3]]);
   });
 });
 
 describe("reach compiles to a recursive DataScript rule", () => {
-  const db = handleFor([
+  const index = indexFor([
     node("a", { text: "[[b]]" }),
     node("b", { text: "[[c]]" }),
     node("c", { text: "leaf" }),
@@ -271,7 +267,7 @@ describe("reach compiles to a recursive DataScript rule", () => {
     };
     const compiled = compile(ir);
     expect(compiled.rules).toContain("reach");
-    const rows = runIr(datascriptExecutor(db), ir, db.ids);
+    const rows = index.run(ir);
     expect(
       sortedRows(rows)
         .map((r) => r[0])
@@ -281,7 +277,7 @@ describe("reach compiles to a recursive DataScript rule", () => {
 });
 
 describe("children clause replaces the cartesian join", () => {
-  const db = handleFor([
+  const index = indexFor([
     node("p", { children: ["c1", "c2", "c3"] }),
     node("c1"),
     node("c2"),
@@ -294,7 +290,7 @@ describe("children clause replaces the cartesian join", () => {
     expect(ir.kind).toBe("query");
     if (ir.kind !== "query") return;
     expect(ir.where.some((c) => c.kind === "children")).toBe(true);
-    const rows = runIr(datascriptExecutor(db), ir, db.ids);
+    const rows = index.run(ir);
     expect(sortedRows(rows)).toHaveLength(3);
   });
 
@@ -305,7 +301,7 @@ describe("children clause replaces the cartesian join", () => {
     if (ir.kind !== "query") return;
     expect(ir.where.some((c) => c.kind === "children")).toBe(true);
     expect(ir.find.some((p) => p.kind === "var" && p.name === "i")).toBe(false);
-    expect(sortedRows(query(db, lastClause))).toHaveLength(3);
+    expect(sortedRows(index.runDatalog(lastClause))).toHaveLength(3);
   });
 });
 
@@ -315,7 +311,7 @@ const RULES_SUBTAG = `[[(subtag ?child ?parent) [?child :f/sys.f.onto.extends ?p
                        [(has-tag ?n ?tag) [?n :f/sys.f.type ?sub] (subtag ?sub ?tag)]]`;
 
 describe("rule-call args are node-ref unless bound as a scalar", () => {
-  const db = handleFor([
+  const index = indexFor([
     node("tag-root", { text: "root-tag" }),
     node("tag-child", {
       text: "child-tag",
@@ -337,7 +333,7 @@ describe("rule-call args are node-ref unless bound as a scalar", () => {
     expect(ir.kind).toBe("query");
     if (ir.kind !== "query") return;
     expect(ir.find).toEqual([{ kind: "var", name: "n", type: "node-ref" }]);
-    const rows = runIr(datascriptExecutor(db), ir, db.ids, RULES_SUBTAG, "tag-root");
+    const rows = index.run(ir, RULES_SUBTAG, "tag-root");
     expect(sortedRows(rows)).toEqual([["n-direct"], ["n-tagged"]]);
   });
 

@@ -1,5 +1,6 @@
 import { Context } from "effect";
 import type { KbNode, NodeId, StoreTx } from "@kb/model";
+import type { Ir } from "../ir/ir.ts";
 
 /**
  * The one owner of "the current graph as something you can ask questions of".
@@ -40,6 +41,12 @@ export interface KbIndex {
    * `subscribe` frame expose to users, EDN and all.
    */
   runDatalog(edn: string, ...inputs: ReadonlyArray<unknown>): Array<Array<unknown>>;
+
+  /**
+   * Engine-neutral query IR. Unlike the raw EDN surface, result positions are
+   * typed, so aggregate numbers are never mistaken for engine entity ids.
+   */
+  run(ir: Ir, ...inputs: ReadonlyArray<unknown>): Array<Array<unknown>>;
 
   /** Engine pull for one node. Engine-specific for the same reason. */
   pull(pattern: string, id: NodeId): unknown;
