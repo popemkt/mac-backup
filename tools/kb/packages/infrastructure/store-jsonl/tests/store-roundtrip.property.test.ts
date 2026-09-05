@@ -5,6 +5,7 @@
  * gets its own scratch temp root, cleaned up immediately after.
  */
 import { describe, expect, test } from "bun:test";
+import { Effect } from "effect";
 import { present } from "@kb/model";
 import fc from "fast-check";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -71,8 +72,8 @@ describe("JsonlStore round trip (fast-check)", () => {
           const root = await mkdtemp(join(tmpdir(), "kb-store-prop-"));
           try {
             const store = new JsonlStore(root);
-            await store.commit({ upserts: nodes, deletes: [] });
-            const loaded = await store.load();
+            await Effect.runPromise(store.commitEffect({ upserts: nodes, deletes: [] }));
+            const loaded = await Effect.runPromise(store.loadEffect);
 
             const sortedIds = nodes.map((n) => n.id).toSorted();
             expect(loaded.map((n) => n.id)).toEqual(sortedIds);

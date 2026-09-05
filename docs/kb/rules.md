@@ -187,15 +187,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Module boundaries
 - **node** — `01M1PJV94AJP2SAQT50KNKNHA2`
 
-### GAP: KbContext carries two persistence interfaces
-
-- **expected** — KbContext exposes one Effect-native storage capability used by all core and extension handlers.
-- **current** — Both Promise Store and Effect-native EffectStore remain live on KbContext.
-- **impact** — Callers choose between parallel persistence seams, increasing adapter code and divergence risk.
-- **closes** — Migrate legacy Promise handlers to EffectStore, remove Store from KbContext, and delete the Promise facade.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M1PJVW0VZ283V1N3PDXFSHTC`
-
 ### GAP: KbIndex reads are synchronous
 
 - **expected** — A KbIndex whose reads are Effects, so an implementation with async point reads (SqliteIndex, r4 §9.3) can satisfy the port.
@@ -470,6 +461,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 
 ## Closed
+
+### GAP: KbContext carries two persistence interfaces
+
+- **expected** — KbContext exposes one Effect-native storage capability used by all core and extension handlers.
+- **current** — Both Promise Store and Effect-native EffectStore remain live on KbContext.
+- **impact** — Callers choose between parallel persistence seams, increasing adapter code and divergence risk.
+- **closes** — Migrate legacy Promise handlers to EffectStore, remove Store from KbContext, and delete the Promise facade.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M1PJVW0VZ283V1N3PDXFSHTC`
 
 ### GAP: OutlineNode.cursorPosition is deprecated but is still the canvas editor's caret channel
 

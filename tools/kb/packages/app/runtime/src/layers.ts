@@ -8,7 +8,7 @@ import {
   type DomainError,
   type KbNode,
 } from "@kb/model";
-import { JsonlStore, asPromiseStore, bunFileSystemLayer } from "@kb/store-jsonl";
+import { JsonlStore, bunFileSystemLayer } from "@kb/store-jsonl";
 import { DatascriptIndex, KbIndexService } from "@kb/query";
 import {
   type KbCtx,
@@ -31,7 +31,7 @@ export function kbRuntimeLayer(
 ): Layer.Layer<FileSystem | KbStore | KbCtx | KbIndexService | TemplateRegistry> {
   return Layer.mergeAll(
     bunFileSystemLayer,
-    kbStoreLayer(ctx.effectStore),
+    kbStoreLayer(ctx.store),
     kbCtxLayer(ctx),
     Layer.succeed(KbIndexService, ctx.index),
     Layer.effect(
@@ -47,30 +47,28 @@ export function kbRuntimeLayer(
 export const openKbEffect = Effect.fn("kb.open")(function* (
   root: string,
 ): Effect.fn.Return<KbContext, DomainError, FileSystem> {
-  const effectStore = new JsonlStore(root);
-  let nodes = yield* effectStore.loadEffect;
+  const store = new JsonlStore(root);
+  let nodes = yield* store.loadEffect;
   const at = yield* currentIso;
   const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(nodes, at);
   const typed = migrateFieldTypeValues(seeded);
   const migrated = migrateOrderKeys(typed.nodes);
   if (didSeed || nodes.length === 0 || deletes.length > 0 || typed.changed || migrated.changed) {
     nodes = migrated.nodes;
-    yield* effectStore.commitEffect({ upserts: nodes, deletes });
+    yield* store.commitEffect({ upserts: nodes, deletes });
   } else {
     nodes = migrated.nodes;
   }
   const index = new DatascriptIndex(nodes);
-  const store = asPromiseStore(effectStore);
   const ctx: KbContext = {
     root,
     store,
-    effectStore,
     index,
     get nodes(): KbNode[] {
       return index.storedNodes();
     },
   };
-  yield* noteStoreSynced(ctx, effectStore.path);
+  yield* noteStoreSynced(ctx, store.path);
   return ctx;
 });
 

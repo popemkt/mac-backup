@@ -85,8 +85,10 @@ describe("index rebuilds on the interactive path", () => {
       const before = rebuildsOf(ctx.index);
 
       const external = new JsonlStore(dir);
-      const onDisk = await external.load();
-      await external.commit({ upserts: [...onDisk, node("n.external")], deletes: [] });
+      const onDisk = await Effect.runPromise(external.loadEffect);
+      await Effect.runPromise(
+        external.commitEffect({ upserts: [...onDisk, node("n.external")], deletes: [] }),
+      );
 
       await Effect.runPromise(
         reloadEffect(ctx).pipe(Effect.provide(kbRuntimeLayer(ctx))) as Effect.Effect<void>,
