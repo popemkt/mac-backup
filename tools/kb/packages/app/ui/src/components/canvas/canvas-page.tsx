@@ -21,14 +21,12 @@ import { NodePicker } from "@/components/canvas/node-picker";
 import { edgePath, sidePoint } from "@/components/canvas/edge-path";
 import { ShapeCard } from "@/components/canvas/shape-card";
 import { ShapeInspector } from "@/components/canvas/shape-inspector";
+import { useCanvasDoc } from "@/components/canvas/use-canvas-doc";
 import {
   edgePropPresent,
   isValidNativeTarget,
   listRefFields,
-  persistCanvasDoc,
   planNativeBind,
-  readCanvasDoc,
-  syncDocOnRev,
 } from "@/lib/canvas-api";
 import {
   placeWithTool,
@@ -47,13 +45,6 @@ import {
   toggleEdge,
   toggleNode,
 } from "@/lib/canvas-selection";
-import {
-  type CanvasHistory,
-  initHistory,
-  pushHistory,
-  undo as histUndo,
-  redo as histRedo,
-} from "@/lib/canvas-history";
 import { resolveCanvasColor } from "@/lib/canvas-color";
 import {
   createPointerState,
@@ -72,7 +63,6 @@ import { cn } from "@/lib/cn";
 
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 3;
-const DEBOUNCE_MS = 300;
 
 interface CanvasPageProps {
   canvasId: string;
@@ -125,16 +115,24 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const rev = useOutlineStore((s) => s.index?.generation ?? 0);
   const canvasNode = nodes.get(canvasId);
 
-  const [historyState, setHistoryState] = useState<CanvasHistory>(() =>
-    initHistory(readCanvasDoc(canvasNode)),
-  );
-  const doc = historyState.present;
-
   const [pointerState, setPointerState] = useReducer(
     (_current: PointerState, next: PointerState) => next,
     createPointerState(),
   );
+  const pointerRef = useRef(pointerState);
+  pointerRef.current = pointerState;
+  const isInteracting = useCallback(() => pointerRef.current.drag !== null, []);
+  const {
+    doc,
+    docRef,
+    schedulePersist,
+    schedulePersistSilent,
+    flushPersist,
+    undo: undoCanvasDoc,
+    redo: redoCanvasDoc,
+  } = useCanvasDoc({ canvasId, canvasNode, nodes, rev, isInteracting });
   const { pan, marqueeRect, snapGuides } = pointerState;
+
   const [zoom, setZoom] = useState(1);
   const [spaceDown, setSpaceDown] = useState(false);
   const [selection, setSelection] = useState<CanvasSelection>(EMPTY_SELECTION);
@@ -150,70 +148,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   } | null>(null);
   const [editingEdgeLabel, setEditingEdgeLabel] = useState<string | null>(null);
 
-  const pointerRef = useRef(pointerState);
-  pointerRef.current = pointerState;
-  const dirtyRef = useRef(false);
-  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const histRef = useRef(historyState);
-  histRef.current = historyState;
   const selRef = useRef(selection);
   selRef.current = selection;
-
-  const docRef = useRef(doc);
-  docRef.current = doc;
-
-  const isBusy = useCallback(() => pointerRef.current.drag !== null || dirtyRef.current, []);
-
-  const applyDoc = useCallback((next: CanvasDoc) => {
-    setHistoryState((h) => pushHistory(h, next));
-  }, []);
-
-  const applyDocSilent = useCallback((next: CanvasDoc) => {
-    setHistoryState((h) => ({ ...h, present: next }));
-  }, []);
-
-  useEffect(() => {
-    syncDocOnRev(canvasId, useOutlineStore.getState().nodes, {
-      applyLocal: (next) => applyDocSilent(next),
-      isBusy,
-    });
-  }, [canvasId, rev, applyDocSilent, isBusy]);
-
-  const schedulePersist = useCallback(
-    (next: CanvasDoc) => {
-      dirtyRef.current = true;
-      applyDoc(next);
-      if (persistTimer.current) clearTimeout(persistTimer.current);
-      persistTimer.current = setTimeout(() => {
-        dirtyRef.current = false;
-        void persistCanvasDoc(canvasId, histRef.current.present);
-      }, DEBOUNCE_MS);
-    },
-    [canvasId, applyDoc],
-  );
-
-  const schedulePersistSilent = useCallback(
-    (next: CanvasDoc) => {
-      dirtyRef.current = true;
-      applyDocSilent(next);
-      if (persistTimer.current) clearTimeout(persistTimer.current);
-      persistTimer.current = setTimeout(() => {
-        dirtyRef.current = false;
-        void persistCanvasDoc(canvasId, histRef.current.present);
-      }, DEBOUNCE_MS);
-    },
-    [canvasId, applyDocSilent],
-  );
-
-  const flushPersist = useCallback(
-    async (next: CanvasDoc, opts?: Parameters<typeof persistCanvasDoc>[2]) => {
-      if (persistTimer.current) clearTimeout(persistTimer.current);
-      dirtyRef.current = false;
-      applyDoc(next);
-      await persistCanvasDoc(canvasId, next, opts);
-    },
-    [canvasId, applyDoc],
-  );
 
   const byId = useMemo(() => {
     const m = new Map<string, CanvasNode>();
@@ -245,7 +181,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       applyPointerResult(next);
       return next;
     },
-    [applyPointerResult, byId, zoom],
+    [applyPointerResult, byId, docRef, zoom],
   );
 
   const refFields = useMemo(() => listRefFields(nodes), [nodes]);
@@ -258,29 +194,17 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       // Undo / Redo (works even when in field)
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
-        setHistoryState((h) => {
-          const next = histUndo(h);
-          if (next !== h) void persistCanvasDoc(canvasId, next.present);
-          return next;
-        });
+        undoCanvasDoc();
         return;
       }
       if ((e.metaKey || e.ctrlKey) && (e.key === "Z" || (e.key === "z" && e.shiftKey))) {
         e.preventDefault();
-        setHistoryState((h) => {
-          const next = histRedo(h);
-          if (next !== h) void persistCanvasDoc(canvasId, next.present);
-          return next;
-        });
+        redoCanvasDoc();
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "y") {
         e.preventDefault();
-        setHistoryState((h) => {
-          const next = histRedo(h);
-          if (next !== h) void persistCanvasDoc(canvasId, next.present);
-          return next;
-        });
+        redoCanvasDoc();
         return;
       }
 
@@ -501,7 +425,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [canvasId, byId, schedulePersist, schedulePersistSilent]); // oxlint-disable-line react-hooks/exhaustive-deps -- zoomToFit is recreated per render and is not a stable dep; this effect intentionally binds a one-shot keydown listener
+  }, [byId, redoCanvasDoc, schedulePersist, schedulePersistSilent, undoCanvasDoc]); // oxlint-disable-line react-hooks/exhaustive-deps -- zoomToFit is recreated per render and is not a stable dep; this effect intentionally binds a one-shot keydown listener
 
   const setTool = useCallback((tool: CanvasTool) => {
     if (tool === "kb-node") {
@@ -550,7 +474,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       },
     });
     setZoom(newZoom);
-  }, [dispatchPointer]);
+  }, [dispatchPointer, docRef]);
 
   const screenToWorld = useCallback(
     (clientX: number, clientY: number, el: HTMLElement) => {
