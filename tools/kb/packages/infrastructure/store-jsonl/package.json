@@ -19,8 +19,7 @@
   "devDependencies": {
     "@kb/query": "workspace:*",
     "@kb/test-kit": "workspace:*",
-    "@types/bun": "catalog:",
-    "fast-check": "catalog:"
+    "@types/bun": "catalog:"
   },
   "nx": {
     "tags": [
