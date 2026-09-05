@@ -92,3 +92,19 @@ export function txIntegrityError(previous: KbNode[], tx: StoreTx): string | null
   if (orphan !== null) return orphan;
   return cycleError(next, parentOf);
 }
+
+/**
+ * One committed transaction as the log records it.
+ *
+ * `rev` is the log's position, so a client that has seen `rev` knows exactly
+ * what it is missing; `origin` is the client that caused the write, carried so
+ * a watcher can recognise the confirming echo of its own optimistic apply
+ * rather than so the server can skip it. `at` is the caller's `Clock` reading:
+ * the log is synchronous, and the seam that owns time is an Effect service.
+ */
+export interface KbTx {
+  rev: number;
+  ops: StoreTx;
+  at: string;
+  origin?: string;
+}

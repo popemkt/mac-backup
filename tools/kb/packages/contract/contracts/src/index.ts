@@ -29,6 +29,8 @@ export type {
   WireNode,
 } from "./protocol.ts";
 export { KbCtx, KbStore, kbCtxLayer, kbStoreLayer } from "./session.ts";
+export { KbTxLogService } from "./tx-log.ts";
+export type { KbTxLog } from "./tx-log.ts";
 export { TemplateRegistry, templateRegistryLayer } from "./template.ts";
 export type { ExtensionTemplate, TemplateContext, TemplateFn } from "./template.ts";
 export type { KbContext } from "./session.ts";
