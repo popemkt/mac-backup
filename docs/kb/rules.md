@@ -202,6 +202,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Module boundaries
 - **node** — `01M1PJV94AJP2SAQT50KNKNHA2`
 
+### GAP: KbIndex is DataScript in memory on both stores; sqlite holds nodes but answers no queries
+
+- **expected** — A KbIndex backed by the sqlite store — queries compiled from the query IR to SQL and answered by the database that already holds the nodes, so a sqlite root does not rebuild a whole DataScript db on every open.
+- **current** — Both adapters load every node and build a DatascriptIndex in memory (app/runtime/src/layers.ts). SqliteStore is a container, not a query engine; the 50k benchmark's datom-build cost is identical on both.
+- **impact** — Choosing sqlite buys write speed (a set-shaped commit is ~4ms against ~120ms) and buys nothing for read or open. The port's second adapter is proven but under-exploited.
+- **closes** — An IR to SQL compiler behind KbIndex.run(ir), plus a decision about which queries stay in DataScript. Needs its own wave: the IR is not yet the only way queries reach the index.
+- **node** — `01M1RYY03MAQPTPRCBHTRJDC39`
+
 ### GAP: KbIndex reads are synchronous
 
 - **expected** — A KbIndex whose reads are Effects, so an implementation with async point reads (SqliteIndex, r4 §9.3) can satisfy the port.
@@ -463,6 +471,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two ways to ask the same question, one of them known-ambiguous when a node id repeats. Callers can still reach the wrong one.
 - **closes** — Confirm no caller outside the test uses them (none does today), delete both methods and the two test assertions. Store API change, so it is an owner call.
 - **node** — `01M1MGT3K0DNGEQFXQNZYE83NY`
+
+### GAP: the tx log is MemoryTxLog on both stores; a sqlite root could have a durable one as a table
+
+- **expected** — With a sqlite store, the transaction log is a table in the same database, written inside the same BEGIN IMMEDIATE as the nodes it describes — so a restart does not lose the log, and a client that fell behind can be caught up from it instead of refetching the graph.
+- **current** — ctx.log is a MemoryTxLog whatever the store is (app/runtime/src/layers.ts). It dies with the process, so every reconnect after a restart is a full snapshot.
+- **impact** — The durable-log gap stays open. It is now cheaper to close for one adapter than the other, which is itself a reason to be explicit: a log that is durable on sqlite and not on JSONL is two behaviours behind one KbTxLog port.
+- **closes** — A schema for the log table, a decision about whether KbTxLog gains a durability contract or a second adapter, and what the JSONL store does about it (a .kb/tx.jsonl was the shape considered before sqlite existed).
+- **node** — `01M1RYY9HVDNB1RNNKCSYF2H47`
 
 ### GAP: the tx log is process-local; there is no durable .kb/tx.jsonl
 
