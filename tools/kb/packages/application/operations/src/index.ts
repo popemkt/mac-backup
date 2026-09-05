@@ -17,14 +17,8 @@ export {
   tagDefineDef,
   tagDefineEffect,
 } from "./actions.ts";
-export {
-  assetUploadDef,
-  assetUploadEffect,
-  assetsDir,
-  mediaKindFromExt,
-  resolveAssetFile,
-  textHasAssetRef,
-} from "./assets.ts";
+export { assetUploadDef, assetUploadEffect, mediaKindFromExt, textHasAssetRef } from "./assets.ts";
+export type { AssetMediaKind } from "./assets.ts";
 export { GENERATED_HEADER, renderViewEffect } from "./docs/docs.ts";
 export { renderText } from "./docs/text.ts";
 export { DocsError, loadViewsEffect } from "./docs/views.ts";
@@ -68,11 +62,4 @@ export {
   renderViewsActionEffect,
   renderViewsDef,
 } from "./render.ts";
-export {
-  deleteSavedQuery,
-  isValidSavedQueryName,
-  readSavedQuery,
-  resolveSavedQueryFile,
-  saveSavedQuery,
-} from "./saved-query.ts";
 export { noteStoreSynced, persistEffect, reloadEffect } from "./session.ts";

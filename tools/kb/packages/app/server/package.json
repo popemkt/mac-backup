@@ -17,6 +17,7 @@
     "@kb/query": "workspace:*",
     "@kb/runtime": "workspace:*",
     "@kb/store-jsonl": "workspace:*",
+    "@kb/workspace-fs": "workspace:*",
     "effect": "catalog:",
     "zod": "catalog:"
   },

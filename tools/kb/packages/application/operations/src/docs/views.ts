@@ -1,7 +1,6 @@
-import { isAbsolute, join, normalize } from "node:path";
 import { Effect } from "effect";
-import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
+import { Views, isValidWorkspaceName } from "@kb/contracts";
 import type { FailureCode } from "@kb/model";
 
 /** Typed failure for docs operations; registry maps it to a receipt. */
@@ -34,7 +33,7 @@ const ViewSpecSchema = z
   .refine((v) => (v.query === undefined) !== (v.savedQuery === undefined), {
     message: "exactly one of query or savedQuery is required",
   })
-  .refine((v) => !isAbsolute(v.output) && !normalize(v.output).split(/[\\/]/).includes(".."), {
+  .refine((v) => isRepoRelative(v.output), {
     message: "output must be a repo-relative path without ..",
   });
 
@@ -45,11 +44,18 @@ export interface LoadedView {
   spec: ViewSpec;
 }
 
-function viewsDir(root: string): string {
-  return join(root, ".kb", "views");
+/**
+ * A view writes its markdown somewhere in the repo, so the one thing its
+ * `output` may not do is leave it. Pure on purpose — a path this rejects is
+ * rejected the same way in every runtime, and the port that owns real paths
+ * never sees it.
+ */
+function isRepoRelative(output: string): boolean {
+  if (/^([/\\]|[a-zA-Z]:[/\\])/.test(output)) return false;
+  return !output.split(/[\\/]/).includes("..");
 }
 
-function parseViewJson(name: string, path: string, raw: string): LoadedView {
+function parseViewJson(name: string, raw: string): LoadedView {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -57,14 +63,13 @@ function parseViewJson(name: string, path: string, raw: string): LoadedView {
     throw new DocsError(
       "invalid_input",
       `view ${name} is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
-      { name, path },
+      { name },
     );
   }
   const result = ViewSpecSchema.safeParse(parsed);
   if (!result.success) {
     throw new DocsError("invalid_input", `view ${name} is invalid`, {
       name,
-      path,
       issues: result.error.issues,
     });
   }
@@ -72,50 +77,42 @@ function parseViewJson(name: string, path: string, raw: string): LoadedView {
 }
 
 const loadViewEffect = Effect.fn("docs.loadView")(function* (
-  root: string,
   name: string,
-): Effect.fn.Return<LoadedView, DocsError, FileSystem> {
-  if (!/^[\w][\w.-]*$/.test(name)) {
+): Effect.fn.Return<LoadedView, DocsError, Views> {
+  if (!isValidWorkspaceName(name)) {
     return yield* Effect.fail(
       new DocsError("invalid_input", `invalid view name: ${name}`, { name }),
     );
   }
-  const path = join(viewsDir(root), `${name}.json`);
-  const fs = yield* FileSystem;
-  const raw = yield* fs
-    .readFileString(path)
-    .pipe(
-      Effect.mapError(() => new DocsError("not_found", `view not found: ${name}`, { name, path })),
-    );
+  const views = yield* Views;
+  const raw = yield* views
+    .load(name)
+    .pipe(Effect.mapError((err) => new DocsError("internal", err.message, { name })));
+  if (raw === null) {
+    return yield* Effect.fail(new DocsError("not_found", `view not found: ${name}`, { name }));
+  }
   return yield* Effect.try({
-    try: () => parseViewJson(name, path, raw),
+    try: () => parseViewJson(name, raw),
     catch: (err) =>
       err instanceof DocsError
         ? err
-        : new DocsError("internal", err instanceof Error ? err.message : String(err), {
-            name,
-            path,
-          }),
+        : new DocsError("internal", err instanceof Error ? err.message : String(err), { name }),
   });
 });
 
-/** Load one view by name, or all views sorted by name (Effect + FileSystem). */
+/** Load one view by name, or every view sorted by name. */
 export const loadViewsEffect = Effect.fn("docs.loadViews")(function* (
-  root: string,
   name?: string,
-): Effect.fn.Return<LoadedView[], DocsError, FileSystem> {
-  if (name !== undefined) return [yield* loadViewEffect(root, name)];
+): Effect.fn.Return<LoadedView[], DocsError, Views> {
+  if (name !== undefined) return [yield* loadViewEffect(name)];
 
-  const fs = yield* FileSystem;
-  const dir = viewsDir(root);
-  const entries = yield* fs.readDirectory(dir).pipe(Effect.orElseSucceed((): string[] => []));
-  const names = entries
-    .filter((e) => e.endsWith(".json"))
-    .map((e) => e.slice(0, -".json".length))
-    .toSorted();
+  const port = yield* Views;
+  const names = yield* port.list.pipe(
+    Effect.mapError((err) => new DocsError("internal", err.message)),
+  );
   const views: LoadedView[] = [];
   for (const n of names) {
-    views.push(yield* loadViewEffect(root, n));
+    views.push(yield* loadViewEffect(n));
   }
   return views;
 });

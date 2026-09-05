@@ -4,12 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runWithKb } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
-import {
-  assetUploadEffect,
-  mediaKindFromExt,
-  resolveAssetFile,
-  textHasAssetRef,
-} from "@kb/operations";
+import { assetUploadEffect, mediaKindFromExt, textHasAssetRef } from "@kb/operations";
+import { resolveAssetFile } from "@kb/workspace-fs";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
 

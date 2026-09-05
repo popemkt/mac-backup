@@ -1,7 +1,12 @@
 import { Effect } from "effect";
-import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { type ActionDefinition, type KbContext, KbCtx, type KbStore } from "@kb/contracts";
+import {
+  type ActionDefinition,
+  type KbContext,
+  KbCtx,
+  type KbStore,
+  SavedQueries,
+} from "@kb/contracts";
 import {
   ResolveError,
   SYSTEM_IDS,
@@ -19,9 +24,8 @@ import {
 } from "@kb/model";
 import { persistEffect } from "./session.ts";
 import { DatalogError, type KbIndex, KbIndexService } from "@kb/query";
-import { resolveSavedQueryFile } from "./saved-query.ts";
 
-type KbWriteEnv = KbCtx | KbStore | FileSystem;
+type KbWriteEnv = KbCtx | KbStore;
 
 /** Lift sync resolve/throw helpers into DomainError. */
 function syncDomain<A>(f: () => A): Effect.Effect<A, DomainError> {
@@ -572,40 +576,17 @@ export const graphQueryEffect = Effect.fn("graph.query")(function* (
   return { rows };
 });
 
-/** True for FileSystem "not found" platform errors (ENOENT on read). */
-function isFsNotFound(err: unknown): boolean {
-  if (typeof err !== "object" || err === null) return false;
-  return (err as { reason?: { _tag?: string } }).reason?._tag === "NotFound";
-}
-
 export const graphRunEffect = Effect.fn("graph.run")(function* (
   input: z.infer<typeof graphRunDef.inputSchema>,
-): Effect.fn.Return<z.infer<typeof graphRunDef.outputSchema>, DomainError, KbCtx | FileSystem> {
+): Effect.fn.Return<z.infer<typeof graphRunDef.outputSchema>, DomainError, KbCtx | SavedQueries> {
   const ctx = yield* KbCtx;
-  const fs = yield* FileSystem;
-  const path = resolveSavedQueryFile(ctx.root, input.name);
-  if (path === null) {
-    return yield* domainError(
-      "invalid_input",
-      `invalid saved query name: ${input.name} (letters, digits, ., _, - only)`,
-      { name: input.name },
-    );
+  const queries = yield* SavedQueries;
+  const edn = yield* queries.read(input.name);
+  if (edn === null) {
+    return yield* domainError("not_found", `saved query not found: ${input.name}`, {
+      name: input.name,
+    });
   }
-  const edn = yield* fs.readFileString(path).pipe(
-    Effect.mapError((err) => {
-      if (isFsNotFound(err)) {
-        return domainError("not_found", `saved query not found: ${input.name}`, {
-          name: input.name,
-          path,
-        });
-      }
-      return domainError(
-        "internal",
-        `read saved query failed: ${err instanceof Error ? err.message : String(err)}`,
-        { name: input.name, path },
-      );
-    }),
-  );
   const rows = yield* runDatalog(ctx.index, edn, input.inputs);
   return { name: input.name, query: edn.trim(), rows };
 });

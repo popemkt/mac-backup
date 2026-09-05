@@ -33,3 +33,5 @@ export { TemplateRegistry, templateRegistryLayer } from "./template.ts";
 export type { ExtensionTemplate, TemplateContext, TemplateFn } from "./template.ts";
 export type { KbContext } from "./session.ts";
 export type { EffectStore, StoreFingerprint } from "./store.ts";
+export { Assets, SavedQueries, Views, isValidWorkspaceName } from "./workspace.ts";
+export type { AssetsPort, SavedQueriesPort, ViewsPort } from "./workspace.ts";

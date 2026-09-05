@@ -1,5 +1,5 @@
 {
-  "name": "@kb/runtime",
+  "name": "@kb/workspace-fs",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,20 +12,12 @@
   },
   "dependencies": {
     "@kb/contracts": "workspace:*",
-    "@kb/ext-canvas": "workspace:*",
-    "@kb/ext-docs": "workspace:*",
     "@kb/model": "workspace:*",
-    "@kb/operations": "workspace:*",
-    "@kb/query": "workspace:*",
-    "@kb/store-jsonl": "workspace:*",
-    "@kb/workspace-fs": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@kb/canvas": "workspace:*",
-    "@kb/test-kit": "workspace:*",
-    "@types/bun": "catalog:",
-    "zod": "catalog:"
+    "@effect/platform-bun": "catalog:",
+    "@types/bun": "catalog:"
   },
   "nx": {
     "tags": [
