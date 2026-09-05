@@ -61,3 +61,11 @@ export {
   renderViewsDef,
 } from "./render.ts";
 export { noteStoreSynced, persistEffect, reloadEffect } from "./session.ts";
+export {
+  coreActions,
+  invokeReceiptWith,
+  invokeWith,
+  isEffectNativeAction,
+  receiptFromError,
+} from "./invoke.ts";
+export type { RegisteredAction } from "./invoke.ts";
