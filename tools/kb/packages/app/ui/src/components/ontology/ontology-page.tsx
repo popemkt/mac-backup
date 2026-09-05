@@ -273,14 +273,14 @@ function OntologyTitle({ id, text }: { id: string; text: string }) {
         onFocus={() => setEditing(true)}
         onChange={(e) => {
           setDraft(e.target.value);
-          mutations.updateNodeContent(id, e.target.value);
+          void mutations.updateNodeContent(id, e.target.value);
         }}
         onBlur={() => setEditing(false)}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             e.preventDefault();
             setDraft(text);
-            mutations.updateNodeContent(id, text);
+            void mutations.updateNodeContent(id, text);
             e.currentTarget.blur();
             return;
           }

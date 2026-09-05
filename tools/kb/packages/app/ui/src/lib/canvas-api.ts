@@ -6,7 +6,7 @@
  * Bound vs unbound is computed at render time only (no reconciler writes).
  */
 import { ulid } from "ulid";
-import { postAction } from "@/api/action";
+import { invoke } from "@/session/runtime";
 import {
   EMPTY_CANVAS_DOC,
   isNativeEdgeBound,
@@ -18,8 +18,7 @@ import {
 import { resolveAllowedRefIds, resolveFieldType } from "@/lib/field-type";
 import { typeRefsOf } from "@kb/model";
 import { SYSTEM_IDS, isSysPrefixed, type PropValue, type OutlineNode } from "@/lib/types";
-import type { WireNode } from "@kb/contracts";
-import { useOutlineStore } from "@/stores/outline.store";
+import type { useOutlineStore } from "@/stores/outline.store";
 import { logError } from "@/lib/log";
 
 export function readCanvasDoc(node: OutlineNode | undefined): CanvasDoc {
@@ -116,8 +115,10 @@ export function isValidNativeTarget(
 }
 
 /**
- * Persist canvas JSON (+ optional one-shot prop ops) via ext.canvas.tx.apply.
- * UI never writes props through node.update — this is the only semantic path.
+ * Persist canvas JSON (+ optional one-shot prop ops) atomically on the server.
+ * A single node.update cannot reproduce this action: it replaces the canvas
+ * document while optionally updating a second node in the same transaction.
+ * The WebSocket echo is therefore the only local graph write.
  */
 export async function persistCanvasDoc(
   canvasId: string,
@@ -128,7 +129,7 @@ export async function persistCanvasDoc(
     unsetProps?: { field: string; value?: unknown }[];
   },
 ): Promise<boolean> {
-  const receipt = await postAction("ext.canvas.tx.apply", {
+  const receipt = await invoke("ext.canvas.tx.apply", {
     canvasId,
     doc: stringifyCanvasDoc(doc),
     propTargetId: opts?.propTargetId,
@@ -139,64 +140,13 @@ export async function persistCanvasDoc(
     logError("[kb/canvas] tx.apply failed:", receipt.message);
     return false;
   }
-  const store = useOutlineStore.getState();
-  const wire = store.wireNodes.find((n) => n.id === canvasId);
-  if (wire) {
-    const upserts: WireNode[] = [
-      {
-        ...wire,
-        props: {
-          ...wire.props,
-          [SYSTEM_IDS.canvasField]: [{ t: "str", v: stringifyCanvasDoc(doc) }],
-        },
-        updatedAt: new Date().toISOString(),
-      },
-    ];
-    if (opts?.propTargetId !== undefined) {
-      const src = store.wireNodes.find((n) => n.id === opts.propTargetId);
-      if (src) {
-        const props: WireNode["props"] = { ...src.props };
-        for (const u of opts.unsetProps ?? []) {
-          const list = props[u.field] ?? [];
-          const nextList = list.filter((pv) => JSON.stringify(pv) !== JSON.stringify(u.value));
-          if (nextList.length === 0) delete props[u.field];
-          else props[u.field] = nextList;
-        }
-        for (const s of opts.setProps ?? []) {
-          const list = props[s.field] ?? [];
-          props[s.field] = [...list, s.value];
-        }
-        upserts.push({
-          ...src,
-          props,
-          updatedAt: new Date().toISOString(),
-        });
-      }
-    }
-    store.applyTx(upserts, []);
-  }
   return true;
 }
 
 export async function createCanvasNode(text = "Untitled canvas"): Promise<string | null> {
   const id = ulid();
   const docStr = stringifyCanvasDoc(EMPTY_CANVAS_DOC);
-  const at = new Date().toISOString();
-  const store = useOutlineStore.getState();
-  const optimistic: WireNode = {
-    id,
-    text,
-    props: {
-      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.canvasTag }],
-      [SYSTEM_IDS.canvasField]: [{ t: "str", v: docStr }],
-    },
-    children: [],
-    createdAt: at,
-    updatedAt: at,
-  };
-  store.applyTx([optimistic], []);
-
-  const receipt = await postAction("node.add", {
+  const receipt = await invoke("node.add", {
     text,
     id,
     tags: [SYSTEM_IDS.canvasTag],
@@ -204,7 +154,6 @@ export async function createCanvasNode(text = "Untitled canvas"): Promise<string
   });
   if (receipt.status === "failed") {
     logError("[kb/canvas] create failed:", receipt.message);
-    store.applyTx([], [id]);
     return null;
   }
   return id;

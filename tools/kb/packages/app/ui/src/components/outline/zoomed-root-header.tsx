@@ -48,7 +48,7 @@ function EditableTitle({ node }: { node: OutlineNode }) {
         textClassName={cn(TITLE_CLASS, "rounded-sm text-foreground/90")}
         onActivate={() => undefined}
         onChange={(next) => {
-          if (next !== text) mutations.updateNodeContent(node.id, next);
+          if (next !== text) void mutations.updateNodeContent(node.id, next);
         }}
         onBlur={commit}
         zoomTitleEditor

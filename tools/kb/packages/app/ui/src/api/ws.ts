@@ -140,6 +140,11 @@ export class KbWsClient {
     this.send({ op: "unsubscribe", id });
   }
 
+  /** Ask for every transaction after the store's current rev. */
+  reconcile(): void {
+    this.requestCatchUp(this.opts.getRev());
+  }
+
   private setStatus(status: WsStatus): void {
     this.status = status;
     this.opts.onStatus?.(status);

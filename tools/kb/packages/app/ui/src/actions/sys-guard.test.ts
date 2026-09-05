@@ -30,10 +30,10 @@ describe("sys.* UI write-guard", () => {
       .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
   });
 
-  it("blocks text edits on sys.* with a toast", () => {
+  it("blocks text edits on sys.* with a toast", async () => {
     const sysTag = present(useOutlineStore.getState().nodes.get("sys.tag"), "sys.tag");
     const before = sysTag.text;
-    mutations.updateNodeContent("sys.tag", "hacked");
+    await mutations.updateNodeContent("sys.tag", "hacked");
     expect(present(useOutlineStore.getState().nodes.get("sys.tag"), "sys.tag").text).toBe(before);
     expect(useUiStore.getState().toasts.some((t) => /sys\.\*/.test(t.text))).toBe(true);
   });
@@ -44,8 +44,8 @@ describe("sys.* UI write-guard", () => {
     expect(useUiStore.getState().toasts.length).toBeGreaterThan(0);
   });
 
-  it("allows edits on normal nodes", () => {
-    mutations.updateNodeContent("n.root-c", "edited");
+  it("allows edits on normal nodes", async () => {
+    await mutations.updateNodeContent("n.root-c", "edited");
     expect(present(useOutlineStore.getState().nodes.get("n.root-c"), "n.root-c").text).toBe(
       "edited",
     );

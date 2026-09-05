@@ -69,7 +69,7 @@ function fuzzySubsequence(hay: string, q: string): boolean {
 }
 
 /** Build the wiki-link token inserted on autocomplete select. */
-export function formatRefToken(id: string, label: string): string {
+function formatRefToken(id: string, label: string): string {
   const clean = label.replace(/[[\]]/g, "").trim() || id;
   return `[[${id}|${clean}]]`;
 }

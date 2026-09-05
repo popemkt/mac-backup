@@ -92,7 +92,7 @@ export const NodeBlock = memo(function NodeBlock({
 
   const handleContentChange = useCallback(
     (content: string) => {
-      mutations.updateNodeContent(nodeId, content);
+      void mutations.updateNodeContent(nodeId, content);
     },
     [nodeId],
   );

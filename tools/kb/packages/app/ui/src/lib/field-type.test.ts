@@ -154,9 +154,13 @@ describe("field types", () => {
     const wire = [...fixtureGraph.nodes, fieldNode({ id: "field.x", text: "x" })];
     // The declared type is a ref to its option node — field types are nodes.
     const typed = planSetFieldType(wire, "field.x", "ref");
-    expect(typed.upserts[0]?.props[SYSTEM_IDS.fieldTypeField]).toEqual([fieldTypeValue("ref")]);
-    // And the round trip still reads back as the declared type.
-    expect(resolveFieldType(typed.upserts[0] as never)).toBe("ref");
+    expect(typed.actions[0]).toEqual({
+      id: "node.update",
+      input: {
+        id: "field.x",
+        setProps: [{ field: SYSTEM_IDS.fieldTypeField, value: fieldTypeValue("ref") }],
+      },
+    });
 
     const withType: WireNode[] = [
       ...wire.filter((n) => n.id !== "field.x"),
@@ -169,18 +173,31 @@ describe("field types", () => {
       },
     ];
     const tagged = planAddFieldTargetTag(withType, "field.x", "tag.todo");
-    expect(tagged.upserts[0]?.props[SYSTEM_IDS.targetTagField]).toEqual([
-      { t: "ref", v: "tag.todo" },
-    ]);
+    expect(tagged.actions[0]).toEqual({
+      id: "node.update",
+      input: {
+        id: "field.x",
+        setProps: [{ field: SYSTEM_IDS.targetTagField, value: { t: "ref", v: "tag.todo" } }],
+      },
+    });
 
     const queried = planSetFieldTargetQuery(
       withType,
       "field.x",
       "[:find ?id :where [?e :node/id ?id]]",
     );
-    expect(queried.upserts[0]?.props[SYSTEM_IDS.targetQueryField]).toEqual([
-      { t: "str", v: "[:find ?id :where [?e :node/id ?id]]" },
-    ]);
+    expect(queried.actions[0]).toEqual({
+      id: "node.update",
+      input: {
+        id: "field.x",
+        setProps: [
+          {
+            field: SYSTEM_IDS.targetQueryField,
+            value: { t: "str", v: "[:find ?id :where [?e :node/id ?id]]" },
+          },
+        ],
+      },
+    });
   });
 });
 

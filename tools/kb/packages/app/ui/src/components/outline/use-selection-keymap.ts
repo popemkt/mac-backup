@@ -73,7 +73,7 @@ function applySelectionAction(action: SelectionKeyAction): void {
       const node = store.nodes.get(action.nodeId);
       const nextText = (node?.text ?? "") + action.char;
       store.activateNode(action.nodeId, nextText.length, action.instanceKey);
-      mutations.updateNodeContent(action.nodeId, nextText);
+      void mutations.updateNodeContent(action.nodeId, nextText);
       break;
     }
     case "delete": {

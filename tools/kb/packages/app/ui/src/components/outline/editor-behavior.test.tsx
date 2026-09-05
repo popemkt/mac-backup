@@ -165,9 +165,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
   });
 
   it("D14: Escape dismisses autocomplete without leaving edit mode", async () => {
-    act(() => {
-      mutations.updateNodeContent("n.root-c", "[[");
-    });
+    await act(async () => mutations.updateNodeContent("n.root-c", "[["));
     const s0 = useOutlineStore.getState();
     const cKey = outlineInstanceKey("n.root-c", s0.nodes);
     act(() => {

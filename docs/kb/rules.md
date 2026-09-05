@@ -88,6 +88,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — SLAP-extract each case body into a named step, then replace the switch with a Record<SelectionKeyAction['type'], (a) => void>. Behaviour-preserving but not mechanical: the cases share narrowed action fields.
 - **node** — `01M1MGCDRS0K28YBF1Q86YY61S`
 
+### GAP: BrowserStore IndexedDB persistence
+
+- **expected** — The browser replica persists through an IndexedDB-backed EffectStore across page reloads.
+- **current** — BrowserStore keeps the replicated graph only in page memory.
+- **impact** — A page reload discards optimistic local state that has not reached the server.
+- **closes** — Implement an IndexedDB-backed EffectStore with the same generation fingerprint contract.
+- **node** — `01M1R6N8VC3W5P93KABEFZ8CTX`
+
 ### GAP: Bullet computes its appearance with 46 branches
 
 - **expected** — The bullet's appearance is one derived value (shape, ring, halo, affordance) computed by a pure function from node state, and the component renders it.
@@ -135,6 +143,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Interactive use is bounded by cold start, and the derived snapshot cache exists mostly to work around it.
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
+
+### GAP: Durable browser invocation replay
+
+- **expected** — The browser invocation lane durably queues offline mutations and replays them under an explicit conflict policy.
+- **current** — The ordered browser push lane exists only in memory for the page lifetime.
+- **impact** — Offline or interrupted mutations can be lost, and reconnect behavior has no declared conflict resolution.
+- **closes** — Persist queued invocations and define replay ordering plus conflict handling.
+- **node** — `01M1R6NFYFCRBT1F07YJN3H12Y`
 
 ### GAP: extension SDK mirror is not bidirectionally typed
 

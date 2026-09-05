@@ -297,7 +297,9 @@ const TableRow = memo(function TableRow({
               isActive={isActive}
               tags={child.tags}
               onActivate={(pos) => activateNode(child.id, pos, childKey)}
-              onChange={(text) => mutations.updateNodeContent(child.id, text)}
+              onChange={(text) => {
+                void mutations.updateNodeContent(child.id, text);
+              }}
               onKeyDown={handleKeyDown}
             />
           }
