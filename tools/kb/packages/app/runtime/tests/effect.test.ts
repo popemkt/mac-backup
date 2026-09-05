@@ -40,7 +40,6 @@ describe("Effect services + layers", () => {
     );
     expect(ctx.nodes.some((n) => n.id === "sys.tag")).toBe(true);
     expect(ctx.store).toBeTruthy();
-    expect(ctx.effectStore).toBeTruthy();
   });
 
   test("runWithKb provides KbCtx, KbStore, and Bun FileSystem", async () => {
@@ -56,7 +55,7 @@ describe("Effect services + layers", () => {
         return {
           root: live.root,
           exists,
-          sameStore: store === live.effectStore,
+          sameStore: store === live.store,
         };
       }),
     );
@@ -87,19 +86,21 @@ describe("Effect services + layers", () => {
 
     // Write behind the session's back, then reload through the KbStore port.
     const external = new JsonlStore(root);
-    await external.commit({
-      upserts: [
-        {
-          id: "n.external",
-          text: "written by someone else",
-          props: {},
-          children: [],
-          createdAt: new Date(0).toISOString(),
-          updatedAt: new Date(0).toISOString(),
-        },
-      ],
-      deletes: [],
-    });
+    await Effect.runPromise(
+      external.commitEffect({
+        upserts: [
+          {
+            id: "n.external",
+            text: "written by someone else",
+            props: {},
+            children: [],
+            createdAt: new Date(0).toISOString(),
+            updatedAt: new Date(0).toISOString(),
+          },
+        ],
+        deletes: [],
+      }),
+    );
     await reload(ctx);
     expect(ctx.nodes.some((n) => n.id === "n.effect-store")).toBe(true);
     expect(ctx.nodes.some((n) => n.id === "n.external")).toBe(true);

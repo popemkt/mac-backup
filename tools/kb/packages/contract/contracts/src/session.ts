@@ -1,7 +1,7 @@
 import { Context, Layer } from "effect";
 import type { KbNode } from "@kb/model";
 import type { KbIndex } from "@kb/query";
-import type { EffectStore, Store } from "./store.ts";
+import type { EffectStore } from "./store.ts";
 
 /**
  * Mutable kb session state. Surfaces still pass this object; Effect programs
@@ -9,10 +9,8 @@ import type { EffectStore, Store } from "./store.ts";
  */
 export interface KbContext {
   root: string;
-  /** Promise Store facade (tests / legacy). Effect code uses {@link KbStore}. */
-  store: Store;
-  /** Effect-native store instance (same JsonlStore as `store` when live). */
-  effectStore: EffectStore;
+  /** The session's one persistence capability. */
+  store: EffectStore;
   /** The one owner of the derived graph: datoms, node lookup, text scan. */
   index: KbIndex;
   /**
@@ -24,7 +22,7 @@ export interface KbContext {
 }
 
 /**
- * Effect-native Store port. Live consumers: `reloadEffect` / `persistEffect`
+ * Effect-native store port. Live consumers: `reloadEffect` / `persistEffect`
  * (yield* KbStore → loadEffect/commitEffect).
  */
 export class KbStore extends Context.Service<KbStore, EffectStore>()("kb/KbStore") {}

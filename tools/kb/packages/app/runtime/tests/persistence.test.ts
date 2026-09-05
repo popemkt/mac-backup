@@ -34,6 +34,14 @@ function sampleNode(id: string, text = id): KbNode {
   };
 }
 
+function load(store: EffectStore): Promise<KbNode[]> {
+  return Effect.runPromise(store.loadEffect);
+}
+
+function commit(store: EffectStore, tx: StoreTx): Promise<void> {
+  return Effect.runPromise(store.commitEffect(tx));
+}
+
 describe("JsonlStore Effect persistence", () => {
   let root: string;
   afterEach(async () => {
@@ -192,8 +200,8 @@ describe("JsonlStore Effect persistence", () => {
     root = await tempRoot();
     const store = new JsonlStore(root);
     expect(store.backupPath.endsWith("nodes.jsonl.bak")).toBe(true);
-    await store.commit({ upserts: [sampleNode("n.1")], deletes: [] });
-    await store.commit({ upserts: [sampleNode("n.2")], deletes: [] });
+    await commit(store, { upserts: [sampleNode("n.1")], deletes: [] });
+    await commit(store, { upserts: [sampleNode("n.2")], deletes: [] });
     const bak = await readFile(store.backupPath, "utf8");
     expect(bak).toContain("n.1");
   });
@@ -201,10 +209,10 @@ describe("JsonlStore Effect persistence", () => {
   test("commit keeps prior file as .bak (backup semantics)", async () => {
     root = await tempRoot();
     const store = new JsonlStore(root);
-    await store.commit({ upserts: [sampleNode("n.1", "one")], deletes: [] });
+    await commit(store, { upserts: [sampleNode("n.1", "one")], deletes: [] });
     const first = await readFile(store.path, "utf8");
 
-    await store.commit({ upserts: [sampleNode("n.2", "two")], deletes: [] });
+    await commit(store, { upserts: [sampleNode("n.2", "two")], deletes: [] });
     const second = await readFile(store.path, "utf8");
     const bak = await readFile(store.backupPath, "utf8");
 
@@ -217,17 +225,17 @@ describe("JsonlStore Effect persistence", () => {
   test("concurrent commits serialize via write lock (no lost update)", async () => {
     root = await tempRoot();
     const store = new JsonlStore(root);
-    await store.commit({ upserts: [sampleNode("n.seed", "seed")], deletes: [] });
+    await commit(store, { upserts: [sampleNode("n.seed", "seed")], deletes: [] });
 
     const writers = Array.from({ length: 8 }, (_, i) =>
-      store.commit({
+      commit(store, {
         upserts: [sampleNode(`n.w${i}`, `w${i}`)],
         deletes: [],
       }),
     );
     await Promise.all(writers);
 
-    const loaded = await store.load();
+    const loaded = await load(store);
     const ids = new Set(loaded.map((n) => n.id));
     expect(ids.has("n.seed")).toBe(true);
     for (let i = 0; i < 8; i++) {
@@ -242,8 +250,8 @@ describe("JsonlStore Effect persistence", () => {
     const { lockPathFor } = await import("@kb/store-jsonl");
     await writeFile(lockPathFor(store.path), "999999999\n", "utf8");
 
-    await store.commit({ upserts: [sampleNode("n.after-stale", "ok")], deletes: [] });
-    const loaded = await store.load();
+    await commit(store, { upserts: [sampleNode("n.after-stale", "ok")], deletes: [] });
+    const loaded = await load(store);
     expect(loaded.some((n) => n.id === "n.after-stale")).toBe(true);
   });
 });
@@ -284,7 +292,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
     const ctx = await openKb(root);
     const commits: StoreTx[] = [];
     const mock: EffectStore = {
-      path: ctx.effectStore.path,
+      path: ctx.store.path,
       loadEffect: Effect.succeed([]),
       commitEffect: (tx) =>
         Effect.sync(() => {
@@ -312,20 +320,20 @@ describe("reload / persist via KbStore Layer substitution", () => {
     );
     await persist(ctx, { upserts: [sampleNode("n.p", "p")], deletes: [] });
     const external = new JsonlStore(root);
-    await external.commit({ upserts: [sampleNode("n.external", "e")], deletes: [] });
+    await commit(external, { upserts: [sampleNode("n.external", "e")], deletes: [] });
     await reload(ctx);
     expect(ctx.nodes.some((n) => n.id === "n.p")).toBe(true);
     expect(ctx.nodes.some((n) => n.id === "n.external")).toBe(true);
   });
 
-  test("runWithKb KbStore.yield matches effectStore instance", async () => {
+  test("runWithKb KbStore.yield matches context store", async () => {
     root = await tempRoot();
     const ctx = await openKb(root);
     const same = await runWithKb(
       ctx,
       Effect.gen(function* () {
         const store = yield* KbStore;
-        return store === ctx.effectStore;
+        return store === ctx.store;
       }),
     );
     expect(same).toBe(true);
@@ -353,8 +361,8 @@ describe("virtual query preservation", () => {
     // reload path: node was real in the pre-reload snapshot, gone on disk.
     await persist(ctx, { upserts: [realQuery], deletes: [] });
     const store = new JsonlStore(root);
-    const onDisk = await store.load();
-    await store.commit({
+    const onDisk = await load(store);
+    await commit(store, {
       upserts: onDisk.filter((n) => n.id !== "sys.query.persisted"),
       deletes: ["sys.query.persisted"],
     });

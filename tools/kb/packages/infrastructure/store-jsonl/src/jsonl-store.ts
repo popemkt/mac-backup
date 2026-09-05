@@ -13,7 +13,7 @@ import {
 } from "@kb/model";
 import { bunFileSystemLayer } from "./platform.ts";
 import { durableReplaceFile } from "./durable-replace.ts";
-import type { EffectStore, Store } from "@kb/contracts";
+import type { EffectStore } from "@kb/contracts";
 import { acquireNodesWriteLockEffect, releaseNodesWriteLock } from "./write-lock.ts";
 
 function mapFsError(err: unknown): DomainError {
@@ -76,9 +76,8 @@ export const decodeNodes = Effect.fn("decodeNodes")(function* (body: string, pat
  *
  * Effect-native I/O: {@link JsonlStore.loadEffect}/{@link JsonlStore.commitEffect}.
  * The Bun FileSystem is provided here, not asked of callers.
- * Promise `load`/`commit` are public adapters for tests/context.
  */
-export class JsonlStore implements Store, EffectStore {
+export class JsonlStore implements EffectStore {
   readonly path: string;
   readonly backupPath: string;
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
@@ -117,14 +116,6 @@ export class JsonlStore implements Store, EffectStore {
       }),
     ).pipe(Effect.provide(bunFileSystemLayer));
   }
-
-  load(): Promise<KbNode[]> {
-    return Effect.runPromise(this.loadEffect);
-  }
-
-  commit(tx: StoreTx): Promise<void> {
-    return Effect.runPromise(this.commitEffect(tx));
-  }
 }
 
 /** The store's own platform boundary: JSONL on the Bun filesystem. */
@@ -139,13 +130,4 @@ function loadNodes(path: string): Effect.Effect<KbNode[], DomainError> {
 
     return yield* decodeNodes(body, path);
   }).pipe(Effect.provide(bunFileSystemLayer));
-}
-
-/** Promise facade over any {@link EffectStore} (e.g. in-memory test doubles). */
-export function asPromiseStore(store: EffectStore): Store {
-  return {
-    path: store.path,
-    load: () => Effect.runPromise(store.loadEffect),
-    commit: (tx) => Effect.runPromise(store.commitEffect(tx)),
-  };
 }

@@ -51,10 +51,10 @@ describe("JsonlStore", () => {
         updatedAt: at,
       },
     ];
-    await store.commit({ upserts: nodes, deletes: [] });
+    await Effect.runPromise(store.commitEffect({ upserts: nodes, deletes: [] }));
     const first = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");
-    const loaded = await store.load();
-    await store.commit({ upserts: loaded, deletes: [] });
+    const loaded = await Effect.runPromise(store.loadEffect);
+    await Effect.runPromise(store.commitEffect({ upserts: loaded, deletes: [] }));
     const second = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");
     expect(second).toBe(first);
     // sorted by id, canonical keys

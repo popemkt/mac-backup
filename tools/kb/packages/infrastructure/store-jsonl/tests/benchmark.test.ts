@@ -53,7 +53,7 @@ describe.skipIf(!benchmarkEnabled)("benchmark 50k", () => {
       }
 
       const store = new JsonlStore(root);
-      await store.commit({ upserts: nodes, deletes: [] });
+      await Effect.runPromise(store.commitEffect({ upserts: nodes, deletes: [] }));
 
       let started = performance.now();
       const body = await Bun.file(store.path).text();
@@ -80,20 +80,24 @@ describe.skipIf(!benchmarkEnabled)("benchmark 50k", () => {
       if (target === undefined) throw new Error("benchmark fixture node missing");
 
       started = performance.now();
-      await store.commit({
-        upserts: [{ ...target, text: "set-shaped edit", updatedAt: nowIso() }],
-        deletes: [],
-      });
+      await Effect.runPromise(
+        store.commitEffect({
+          upserts: [{ ...target, text: "set-shaped edit", updatedAt: nowIso() }],
+          deletes: [],
+        }),
+      );
       const setCommitMs = elapsedSince(started);
 
       started = performance.now();
-      const reloaded = await store.load();
+      const reloaded = await Effect.runPromise(store.loadEffect);
       const edited = reloaded.find((node) => node.id === target.id);
       if (edited === undefined) throw new Error("benchmark edit node missing");
-      await store.commit({
-        upserts: [{ ...edited, text: "interactive edit", updatedAt: nowIso() }],
-        deletes: [],
-      });
+      await Effect.runPromise(
+        store.commitEffect({
+          upserts: [{ ...edited, text: "interactive edit", updatedAt: nowIso() }],
+          deletes: [],
+        }),
+      );
       const interactiveEditMs = elapsedSince(started);
 
       printTable([
