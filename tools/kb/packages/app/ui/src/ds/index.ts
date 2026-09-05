@@ -6,9 +6,7 @@
 import { backlinksQuery, type KbIndex } from "@kb/query";
 
 export type { KbIndex } from "@kb/query";
-export { DatascriptIndex } from "@kb/query";
-// w1 owns the @kb/query barrel export; until that lands, import the owner.
-export { extractMentions } from "../../../../domain/query/src/index/datoms.ts";
+export { DatascriptIndex, extractMentions } from "@kb/query";
 
 export const runQuery = (ix: KbIndex, edn: string): unknown[][] => ix.runDatalog(edn);
 

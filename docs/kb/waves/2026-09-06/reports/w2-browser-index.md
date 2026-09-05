@@ -12,7 +12,9 @@ Owned `tools/kb/packages/app/ui/**` plus this report. Did not touch
 |---|---|---|
 | 1 | `fce17b9` | `test(kb-ui): every UI datalog string under both schemas` |
 | 2 | `f8fc6d4` | `refactor(kb-ui): DatascriptIndex replaces src/ds` |
-| 3 | this file | `perf(kb-ui): measure` |
+| 3 | `899318f` | `perf(kb-ui): measure` |
+| — | merge of `1e48855` | w1 `KbIndex.run(ir)` (extractMentions barrel) |
+| 4 | this commit | `extractMentions` re-exported from `@kb/query` |
 
 `bun run verify`, `bun test packages` (362) and `bun run test:ui` (628) green
 at commit 2. `grep -rn "buildQueryDb\|init_db" tools/kb/packages/app/ui` empty.
@@ -84,16 +86,8 @@ snapshot, one owner, until w5 moves the write path onto the replica.
 
 ### `extractMentions`
 
-Not on the `@kb/query` barrel (w1's job). The seam deep-imports the owning
-module:
-
-```ts
-export { extractMentions } from "../../../../domain/query/src/index/datoms.ts";
-```
-
-Escalated during the run (`msg_78899c8f9746`). When w1's barrel export lands,
-switch that line to `export { extractMentions } from "@kb/query"`. Not a
-second implementation.
+w1 `1e48855` exported it from `@kb/query`. Merged that commit; the seam is
+now `export { extractMentions } from "@kb/query"`. No second implementation.
 
 ## Perf (commit 3)
 
@@ -114,8 +108,6 @@ on the incremental path.
 
 ## Left
 
-- w1: export `extractMentions` from `@kb/query`; this wave's deep import
-  becomes a one-line barrel switch.
 - w5: `wireNodes` can become `index.storedNodes()` when planners stop owning
   a parallel snapshot.
 - w4: WS ingest stays as it is (`rev` / gap); the replica is fed by the
