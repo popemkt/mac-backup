@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { ulid } from "ulid";
 import type { CanvasDoc, CanvasEdge, CanvasNode, CanvasSide, KbLinkMode } from "@kb/canvas";
 import {
@@ -39,9 +39,7 @@ import {
 import {
   type CanvasSelection,
   EMPTY_SELECTION,
-  addNodes,
   deleteSelected,
-  marqueeSelect,
   selectAll,
   selectEdge,
   selectNode as selNode,
@@ -57,6 +55,14 @@ import {
   redo as histRedo,
 } from "@/lib/canvas-history";
 import { resolveCanvasColor } from "@/lib/canvas-color";
+import {
+  createPointerState,
+  pointerReduce,
+  type CanvasPointerEvent,
+  type PointerResult,
+  type PointerState,
+  type ResizeCorner,
+} from "@/lib/canvas-pointer";
 import { classifyCardPointer } from "@/lib/card-pointer";
 import { asElement, asInstance, isTextEntry } from "@/lib/dom";
 import { navigate } from "@/lib/router";
@@ -67,87 +73,9 @@ import { cn } from "@/lib/cn";
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 3;
 const DEBOUNCE_MS = 300;
-const DRAG_THRESHOLD = 4;
-const MIN_NODE_W = 80;
-const MIN_NODE_H = 40;
 
 interface CanvasPageProps {
   canvasId: string;
-}
-
-type ResizeCorner = "nw" | "ne" | "se" | "sw";
-
-type Drag =
-  | { kind: "pan"; x: number; y: number; ox: number; oy: number }
-  | {
-      kind: "move-pending";
-      id: string;
-      startX: number;
-      startY: number;
-      origPositions: Map<string, { x: number; y: number }>;
-    }
-  | {
-      kind: "move";
-      startX: number;
-      startY: number;
-      origPositions: Map<string, { x: number; y: number }>;
-    }
-  | {
-      kind: "resize-pending";
-      id: string;
-      corner: ResizeCorner;
-      startX: number;
-      startY: number;
-      origX: number;
-      origY: number;
-      origW: number;
-      origH: number;
-    }
-  | {
-      kind: "resize";
-      id: string;
-      corner: ResizeCorner;
-      startX: number;
-      startY: number;
-      origX: number;
-      origY: number;
-      origW: number;
-      origH: number;
-    }
-  | {
-      kind: "edge";
-      fromCardId: string;
-      fromSide: CanvasSide;
-      x: number;
-      y: number;
-    }
-  | {
-      kind: "marquee-pending";
-      startX: number;
-      startY: number;
-      worldX: number;
-      worldY: number;
-      additive: boolean;
-    }
-  | {
-      kind: "marquee";
-      worldX: number;
-      worldY: number;
-      curX: number;
-      curY: number;
-      additive: boolean;
-      baseSel: CanvasSelection;
-    };
-
-function closestPort(node: CanvasNode, px: number, py: number): { side: CanvasSide; dist: number } {
-  const sides: CanvasSide[] = ["top", "right", "bottom", "left"];
-  let best: { side: CanvasSide; dist: number } = { side: "left", dist: Infinity };
-  for (const s of sides) {
-    const pt = sidePoint(node, s);
-    const d = Math.hypot(pt.x - px, pt.y - py);
-    if (d < best.dist) best = { side: s, dist: d };
-  }
-  return best;
 }
 
 /** A press that landed on the stage itself, not on a card, the toolbar or an edge. */
@@ -191,16 +119,6 @@ const renderPorts = (
   </>
 );
 
-const SNAP_TOL = 5;
-
-/** The first edge pair within `SNAP_TOL`, as the offset that closes the gap. */
-function snapOffset(pairs: readonly (readonly [number, number])[]) {
-  for (const [mine, theirs] of pairs) {
-    if (Math.abs(mine - theirs) < SNAP_TOL) return { delta: theirs - mine, pos: theirs };
-  }
-  return undefined;
-}
-
 export function CanvasPage({ canvasId }: CanvasPageProps) {
   const nodes = useOutlineStore((s) => s.nodes);
   const queryDb = useOutlineStore((s) => s.index);
@@ -212,7 +130,11 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   );
   const doc = historyState.present;
 
-  const [pan, setPan] = useState({ x: 40, y: 40 });
+  const [pointerState, setPointerState] = useReducer(
+    (_current: PointerState, next: PointerState) => next,
+    createPointerState(),
+  );
+  const { pan, marqueeRect, snapGuides } = pointerState;
   const [zoom, setZoom] = useState(1);
   const [spaceDown, setSpaceDown] = useState(false);
   const [selection, setSelection] = useState<CanvasSelection>(EMPTY_SELECTION);
@@ -226,16 +148,10 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     x: number;
     y: number;
   } | null>(null);
-  const [marqueeRect, setMarqueeRect] = useState<{
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-  } | null>(null);
-  const [snapGuides, setSnapGuides] = useState<{ axis: "x" | "y"; pos: number }[]>([]);
   const [editingEdgeLabel, setEditingEdgeLabel] = useState<string | null>(null);
 
-  const dragRef = useRef<Drag | null>(null);
+  const pointerRef = useRef(pointerState);
+  pointerRef.current = pointerState;
   const dirtyRef = useRef(false);
   const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const histRef = useRef(historyState);
@@ -246,7 +162,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const docRef = useRef(doc);
   docRef.current = doc;
 
-  const isBusy = useCallback(() => dragRef.current !== null || dirtyRef.current, []);
+  const isBusy = useCallback(() => pointerRef.current.drag !== null || dirtyRef.current, []);
 
   const applyDoc = useCallback((next: CanvasDoc) => {
     setHistoryState((h) => pushHistory(h, next));
@@ -304,6 +220,33 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     for (const n of doc.nodes) m.set(n.id, n);
     return m;
   }, [doc.nodes]);
+
+  const applyPointerResult = useCallback(
+    (next: PointerResult) => {
+      pointerRef.current = next.state;
+      setPointerState(next.state);
+      if (next.selection) setSelection(next.selection);
+      if (!next.doc) return;
+      if (next.persist === "silent") schedulePersistSilent(next.doc);
+      else if (next.persist === "flush") void flushPersist(next.doc);
+      else if (next.persist === "history") schedulePersist(next.doc);
+    },
+    [flushPersist, schedulePersist, schedulePersistSilent],
+  );
+
+  const dispatchPointer = useCallback(
+    (event: CanvasPointerEvent): PointerResult => {
+      const next = pointerReduce(pointerRef.current, event, {
+        doc: docRef.current,
+        selection: selRef.current,
+        zoom,
+        byId,
+      });
+      applyPointerResult(next);
+      return next;
+    },
+    [applyPointerResult, byId, zoom],
+  );
 
   const refFields = useMemo(() => listRefFields(nodes), [nodes]);
 
@@ -599,12 +542,15 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.min(scaleX, scaleY, 1)));
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
-    setPan({
-      x: rect.width / 2 - cx * newZoom,
-      y: rect.height / 2 - cy * newZoom,
+    dispatchPointer({
+      type: "pan/set",
+      pan: {
+        x: rect.width / 2 - cx * newZoom,
+        y: rect.height / 2 - cy * newZoom,
+      },
     });
     setZoom(newZoom);
-  }, []);
+  }, [dispatchPointer]);
 
   const screenToWorld = useCallback(
     (clientX: number, clientY: number, el: HTMLElement) => {
@@ -628,43 +574,34 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       const py = e.clientY - rect.top;
       const worldX = (px - pan.x) / zoom;
       const worldY = (py - pan.y) / zoom;
-      setPan({
-        x: px - worldX * newZoom,
-        y: py - worldY * newZoom,
+      dispatchPointer({
+        type: "pan/set",
+        pan: {
+          x: px - worldX * newZoom,
+          y: py - worldY * newZoom,
+        },
       });
       setZoom(newZoom);
       return;
     }
-    setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
+    dispatchPointer({
+      type: "pan/set",
+      pan: { x: pan.x - e.deltaX, y: pan.y - e.deltaY },
+    });
   };
 
   const startMoveForSelection = (e: React.PointerEvent, clickedId: string) => {
-    const sel = selRef.current;
-    const selectedIds = sel.nodeIds.has(clickedId) ? sel.nodeIds : new Set([clickedId]);
-    const origPositions = new Map<string, { x: number; y: number }>();
-    for (const id of selectedIds) {
-      const node = byId.get(id);
-      if (node) origPositions.set(id, { x: node.x, y: node.y });
-    }
-    dragRef.current = {
-      kind: "move-pending",
+    dispatchPointer({
+      type: "move/start",
       id: clickedId,
-      startX: e.clientX,
-      startY: e.clientY,
-      origPositions,
-    };
+      screen: { x: e.clientX, y: e.clientY },
+    });
     asElement(e.target)?.setPointerCapture(e.pointerId);
   };
 
   const onPointerDownStage = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button === 1 || spaceDown || (e.button === 0 && e.altKey)) {
-      dragRef.current = {
-        kind: "pan",
-        x: e.clientX,
-        y: e.clientY,
-        ox: pan.x,
-        oy: pan.y,
-      };
+      dispatchPointer({ type: "pan/start", screen: { x: e.clientX, y: e.clientY } });
       asElement(e.target)?.setPointerCapture(e.pointerId);
       return;
     }
@@ -688,14 +625,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       }
       // Begin marquee or clear selection
       const world = screenToWorld(e.clientX, e.clientY, e.currentTarget);
-      dragRef.current = {
-        kind: "marquee-pending",
-        startX: e.clientX,
-        startY: e.clientY,
-        worldX: world.x,
-        worldY: world.y,
+      dispatchPointer({
+        type: "marquee/start",
+        screen: { x: e.clientX, y: e.clientY },
+        world,
         additive: e.shiftKey,
-      };
+      });
       asElement(e.target)?.setPointerCapture(e.pointerId);
     }
   };
@@ -717,291 +652,41 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setSelection(selNode(card.id));
   };
 
-  // oxlint-disable-next-line complexity -- GAP [[01M1MGCSQY0M708HYYTWHP0XP2]]
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const d = dragRef.current;
-    if (!d) return;
-
-    if (d.kind === "pan") {
-      setPan({ x: d.ox + (e.clientX - d.x), y: d.oy + (e.clientY - d.y) });
-      return;
-    }
-
-    if (d.kind === "marquee-pending") {
-      const dist = Math.hypot(e.clientX - d.startX, e.clientY - d.startY);
-      if (dist < DRAG_THRESHOLD) return;
-      const curWorld = screenToWorld(e.clientX, e.clientY, e.currentTarget);
-      dragRef.current = {
-        kind: "marquee",
-        worldX: d.worldX,
-        worldY: d.worldY,
-        curX: curWorld.x,
-        curY: curWorld.y,
-        additive: d.additive,
-        baseSel: d.additive ? selRef.current : EMPTY_SELECTION,
-      };
-      setMarqueeRect({
-        x: d.worldX,
-        y: d.worldY,
-        w: curWorld.x - d.worldX,
-        h: curWorld.y - d.worldY,
-      });
-      return;
-    }
-
-    if (d.kind === "marquee") {
-      const curWorld = screenToWorld(e.clientX, e.clientY, e.currentTarget);
-      dragRef.current = { ...d, curX: curWorld.x, curY: curWorld.y };
-      const rect = {
-        x: d.worldX,
-        y: d.worldY,
-        w: curWorld.x - d.worldX,
-        h: curWorld.y - d.worldY,
-      };
-      setMarqueeRect(rect);
-      const hits = marqueeSelect(docRef.current.nodes, rect);
-      setSelection(addNodes(d.baseSel, hits));
-      return;
-    }
-
-    if (d.kind === "move-pending") {
-      const dist = Math.hypot(e.clientX - d.startX, e.clientY - d.startY);
-      if (dist < DRAG_THRESHOLD) return;
-      dragRef.current = {
-        kind: "move",
-        startX: d.startX,
-        startY: d.startY,
-        origPositions: d.origPositions,
-      };
-      return;
-    }
-
-    if (d.kind === "move") {
-      let dx = (e.clientX - d.startX) / zoom;
-      let dy = (e.clientY - d.startY) / zoom;
-
-      // Alignment snapping (5px tolerance)
-      const guides: { axis: "x" | "y"; pos: number }[] = [];
-      const movingIds = new Set(d.origPositions.keys());
-      const firstOrig = d.origPositions.values().next().value;
-      const firstId = d.origPositions.keys().next().value;
-      if (firstOrig && firstId !== undefined && movingIds.size > 0) {
-        const movingNode = byId.get(firstId);
-        if (movingNode) {
-          const myLeft = firstOrig.x + dx;
-          const myTop = firstOrig.y + dy;
-          const myRight = myLeft + movingNode.width;
-          const myBottom = myTop + movingNode.height;
-          const myCx = (myLeft + myRight) / 2;
-          const myCy = (myTop + myBottom) / 2;
-
-          for (const other of docRef.current.nodes) {
-            if (movingIds.has(other.id)) continue;
-            const oLeft = other.x;
-            const oRight = other.x + other.width;
-            const oTop = other.y;
-            const oBottom = other.y + other.height;
-            const oCx = (oLeft + oRight) / 2;
-            const oCy = (oTop + oBottom) / 2;
-
-            const xSnap = snapOffset([
-              [myLeft, oLeft],
-              [myLeft, oRight],
-              [myRight, oLeft],
-              [myRight, oRight],
-              [myCx, oCx],
-            ]);
-            if (xSnap) {
-              dx += xSnap.delta;
-              guides.push({ axis: "x", pos: xSnap.pos });
-            }
-            const ySnap = snapOffset([
-              [myTop, oTop],
-              [myTop, oBottom],
-              [myBottom, oTop],
-              [myBottom, oBottom],
-              [myCy, oCy],
-            ]);
-            if (ySnap) {
-              dy += ySnap.delta;
-              guides.push({ axis: "y", pos: ySnap.pos });
-            }
-            if (guides.length >= 2) break;
-          }
-        }
-      }
-      setSnapGuides(guides);
-
-      let nextDoc = docRef.current;
-      for (const [id, orig] of d.origPositions) {
-        const node = byId.get(id);
-        if (!node) continue;
-        nextDoc = upsertCanvasNode(nextDoc, {
-          ...node,
-          x: orig.x + dx,
-          y: orig.y + dy,
-        });
-      }
-      schedulePersistSilent(nextDoc);
-      return;
-    }
-
-    if (d.kind === "resize-pending") {
-      const dist = Math.hypot(e.clientX - d.startX, e.clientY - d.startY);
-      if (dist < DRAG_THRESHOLD) return;
-      dragRef.current = { ...d, kind: "resize" };
-      return;
-    }
-
-    if (d.kind === "resize") {
-      const dx = (e.clientX - d.startX) / zoom;
-      const dy = (e.clientY - d.startY) / zoom;
-      const node = byId.get(d.id);
-      if (!node) return;
-
-      let newX = d.origX;
-      let newY = d.origY;
-      let newW = d.origW;
-      let newH = d.origH;
-
-      switch (d.corner) {
-        case "se":
-          newW = Math.max(MIN_NODE_W, d.origW + dx);
-          newH = Math.max(MIN_NODE_H, d.origH + dy);
-          break;
-        case "sw":
-          newW = Math.max(MIN_NODE_W, d.origW - dx);
-          newH = Math.max(MIN_NODE_H, d.origH + dy);
-          newX = d.origX + d.origW - newW;
-          break;
-        case "ne":
-          newW = Math.max(MIN_NODE_W, d.origW + dx);
-          newH = Math.max(MIN_NODE_H, d.origH - dy);
-          newY = d.origY + d.origH - newH;
-          break;
-        case "nw":
-          newW = Math.max(MIN_NODE_W, d.origW - dx);
-          newH = Math.max(MIN_NODE_H, d.origH - dy);
-          newX = d.origX + d.origW - newW;
-          newY = d.origY + d.origH - newH;
-          break;
-        // Exhaustive over ResizeCorner; switch-exhaustiveness-check guards it
-        // no default
-      }
-
-      // Shift: lock aspect ratio
-      if (e.shiftKey && d.origW > 0 && d.origH > 0) {
-        const ratio = d.origW / d.origH;
-        if (newW / newH > ratio) {
-          newW = Math.max(MIN_NODE_W, newH * ratio);
-        } else {
-          newH = Math.max(MIN_NODE_H, newW / ratio);
-        }
-      }
-
-      schedulePersistSilent(
-        upsertCanvasNode(docRef.current, {
-          ...node,
-          x: newX,
-          y: newY,
-          width: newW,
-          height: newH,
-        }),
-      );
-      return;
-    }
-
-    dragRef.current = { ...d, x: e.clientX, y: e.clientY };
-    setPan((p) => ({ ...p }));
+    dispatchPointer({
+      type: "pointer/move",
+      screen: { x: e.clientX, y: e.clientY },
+      world: screenToWorld(e.clientX, e.clientY, e.currentTarget),
+      shiftKey: e.shiftKey,
+    });
   };
 
-  // oxlint-disable-next-line complexity -- GAP [[01M1MGCT80E1FMXMEAEATS1VER]]
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    const d = dragRef.current;
-    dragRef.current = null;
-
-    if (!d) return;
-
-    if (d.kind === "marquee-pending") {
-      // Was a click on empty stage — clear selection
-      if (!d.additive) {
-        setSelection(EMPTY_SELECTION);
-        setInspectorAnchor(null);
-        setShapeInspectorAnchor(null);
-      }
-      return;
+    const drag = pointerRef.current.drag;
+    if (drag?.kind === "marquee-pending") {
+      setInspectorAnchor(null);
+      setShapeInspectorAnchor(null);
     }
-
-    if (d.kind === "marquee") {
-      setMarqueeRect(null);
-      return;
+    const edgeTarget =
+      drag?.kind === "edge"
+        ? asInstance(
+            document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-card-id]"),
+            HTMLElement,
+          )?.dataset.cardId
+        : undefined;
+    const edgeWorld =
+      drag?.kind === "edge" ? screenToWorld(drag.x, drag.y, e.currentTarget) : undefined;
+    const next = dispatchPointer({
+      type: "pointer/end",
+      screen: { x: e.clientX, y: e.clientY },
+      edgeTargetId: edgeTarget,
+      edgeWorld,
+      edgeId: drag?.kind === "edge" ? ulid() : undefined,
+      edgeBindingId: drag?.kind === "edge" ? ulid() : undefined,
+    });
+    if (next.persist === "flush") {
+      setInspectorAnchor({ x: e.clientX, y: e.clientY });
     }
-
-    if (d.kind === "move-pending") {
-      // Was a click on a card (no drag happened)
-      return;
-    }
-
-    if (d.kind === "move") {
-      setSnapGuides([]);
-      // Commit the final position into history
-      const dx = (e.clientX - d.startX) / zoom;
-      const dy = (e.clientY - d.startY) / zoom;
-      let nextDoc = histRef.current.present;
-      for (const [id, orig] of d.origPositions) {
-        const n = byId.get(id);
-        if (!n) continue;
-        nextDoc = upsertCanvasNode(nextDoc, {
-          ...n,
-          x: orig.x + dx,
-          y: orig.y + dy,
-        });
-      }
-      schedulePersist(nextDoc);
-      return;
-    }
-
-    if (d.kind === "resize-pending" || d.kind === "resize") {
-      // If we were resizing, commit the final size into history
-      if (d.kind === "resize") {
-        schedulePersist(docRef.current);
-      }
-      return;
-    }
-
-    if (d.kind !== "edge") return;
-
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    const cardEl = asInstance(el?.closest("[data-card-id]"), HTMLElement);
-    const toCardId = cardEl?.dataset.cardId;
-    if (toCardId === undefined || toCardId === d.fromCardId) return;
-    const from = byId.get(d.fromCardId);
-    const to = byId.get(toCardId);
-    if (!from || !to) return;
-
-    // Smart port snapping: find closest port on target
-    const world = screenToWorld(d.x, d.y, e.currentTarget);
-    const bestPort = closestPort(to, world.x, world.y);
-
-    const edge: CanvasEdge = {
-      id: ulid(),
-      fromNode: d.fromCardId,
-      toNode: toCardId,
-      fromSide: d.fromSide,
-      toSide: bestPort.side,
-      toEnd: "arrow",
-      kbLink: {
-        mode: "layout",
-        via: "prop",
-        fieldId: "",
-        sourceNodeId: isKbNode(from) ? from.nodeId : "",
-        targetNodeId: isKbNode(to) ? to.nodeId : "",
-        bindingId: ulid(),
-      },
-    };
-    void flushPersist(upsertCanvasEdge(docRef.current, edge));
-    setSelection(selectEdge(edge.id));
-    setInspectorAnchor({ x: e.clientX, y: e.clientY });
   };
 
   const addKbNode = (nodeId: string) => {
@@ -1149,7 +834,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
   // Ghost edge rendering
   const ghostEdge = (() => {
-    const d = dragRef.current;
+    const d = pointerState.drag;
     if (!d || d.kind !== "edge") return null;
     const from = byId.get(d.fromCardId);
     if (!from) return null;
@@ -1216,17 +901,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         style={{ ...style, cursor }}
         onPointerDown={(e) => {
           e.stopPropagation();
-          dragRef.current = {
-            kind: "resize-pending",
+          dispatchPointer({
+            type: "resize/start",
             id: card.id,
             corner,
-            startX: e.clientX,
-            startY: e.clientY,
-            origX: card.x,
-            origY: card.y,
-            origW: card.width,
-            origH: card.height,
-          };
+            screen: { x: e.clientX, y: e.clientY },
+          });
           asElement(e.target)?.setPointerCapture(e.pointerId);
         }}
       />
@@ -1234,13 +914,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   };
 
   const portHandler = (cardId: string) => (side: CanvasSide, e: React.PointerEvent) => {
-    dragRef.current = {
-      kind: "edge",
+    dispatchPointer({
+      type: "edge/start",
       fromCardId: cardId,
       fromSide: side,
-      x: e.clientX,
-      y: e.clientY,
-    };
+      screen: { x: e.clientX, y: e.clientY },
+    });
   };
 
   return (
@@ -1607,17 +1286,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                         handleCardPointerDown(card, e);
                       }}
                       onResizeStart={(e) => {
-                        dragRef.current = {
-                          kind: "resize-pending",
+                        dispatchPointer({
+                          type: "resize/start",
                           id: card.id,
                           corner: "se",
-                          startX: e.clientX,
-                          startY: e.clientY,
-                          origX: card.x,
-                          origY: card.y,
-                          origW: card.width,
-                          origH: card.height,
-                        };
+                          screen: { x: e.clientX, y: e.clientY },
+                        });
                         asElement(e.target)?.setPointerCapture(e.pointerId);
                       }}
                       onPortDown={portHandler(card.id)}
@@ -1652,17 +1326,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                         });
                       }}
                       onResizeStart={(e) => {
-                        dragRef.current = {
-                          kind: "resize-pending",
+                        dispatchPointer({
+                          type: "resize/start",
                           id: card.id,
                           corner: "se",
-                          startX: e.clientX,
-                          startY: e.clientY,
-                          origX: card.x,
-                          origY: card.y,
-                          origW: card.width,
-                          origH: card.height,
-                        };
+                          screen: { x: e.clientX, y: e.clientY },
+                        });
                         asElement(e.target)?.setPointerCapture(e.pointerId);
                       }}
                       onPortDown={portHandler(card.id)}
@@ -1712,17 +1381,12 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
                       handleCardPointerDown(card, e);
                     }}
                     onResizeStart={(e) => {
-                      dragRef.current = {
-                        kind: "resize-pending",
+                      dispatchPointer({
+                        type: "resize/start",
                         id: card.id,
                         corner: "se",
-                        startX: e.clientX,
-                        startY: e.clientY,
-                        origX: card.x,
-                        origY: card.y,
-                        origW: card.width,
-                        origH: card.height,
-                      };
+                        screen: { x: e.clientX, y: e.clientY },
+                      });
                       asElement(e.target)?.setPointerCapture(e.pointerId);
                     }}
                     onPortDown={portHandler(card.id)}
