@@ -133,6 +133,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXNGSJT2J2VHDSYY7QJSD3`
 
+### GAP: canvas move release persists the unsnapped position
+
+- **expected** — The position persisted on pointer release is the last snapped position shown during the drag; finishMove and moveNodes share one snap computation.
+- **current** — lib/canvas-pointer.ts finishMove recomputes the delta from raw screen coordinates while moveNodes snaps toward guides, so a card that snapped during the drag jumps back on release and the unsnapped position is what history records. Preserved verbatim from the pre-split canvas-page.tsx onPointerUp.
+- **impact** — Snap guides are cosmetic: alignment shown while dragging is lost the moment the mouse is released.
+- **closes** — finishMove reuses snapMove (or the last delta carried on the drag state); a reducer test snaps on pointer/move and asserts the pointer/end doc.
+- **node** — `01M1TAE8HKYARYNTAVNMP566GV`
+
 ### GAP: canvas onModeChange rewrites edge links with 22 inline branches
 
 - **expected** — Edge link-mode changes go through one named transformation from (edge, mode) to a plan, the way node mutations already go through actions/plan.ts.
@@ -440,6 +448,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Seven pinpoint disables of a rule that is error everywhere else. A genuinely broken mid-chain callback in one of these files would now need the disable removed to be seen.
 - **closes** — oxlint implements the ignoreLastCallback option for promise/always-return (verified against eslint-plugin-promise, which has it). Then set the option in .oxlintrc.json and delete all seven disables.
 - **node** — `01M1MFS8RQ2BMQVZD02J4TQT7W`
+
+### GAP: shift-locked resize from nw/sw/ne moves the anchored corner
+
+- **expected** — With Shift held, the corner opposite the dragged one stays pinned while the aspect ratio is locked.
+- **current** — lib/canvas-pointer.ts resizedRect computes x (sw, nw) and y (ne, nw) from the pre-ratio width and height, then the Shift branch rewrites w or h, so the anchored edge drifts by the ratio correction. Only se is unaffected. Preserved verbatim from the pre-split canvas-page.tsx.
+- **impact** — Shift-resizing a card from three of four corners slides it instead of scaling it in place.
+- **closes** — Recompute x and y after the ratio lock from the final w and h; add a shiftKey case to the resize reducer test.
+- **node** — `01M1TAE8V1GDX971M2A6NC4DS1`
 
 ### GAP: six React lists key by array index because the index is the identity
 

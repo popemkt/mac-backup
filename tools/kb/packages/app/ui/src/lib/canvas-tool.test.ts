@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { present } from "@kb/model";
 import { parseCanvasDoc, stringifyCanvasDoc, type CanvasDoc } from "@kb/canvas";
-import { edgePath } from "@/components/canvas/edge-path";
+import { edgePath } from "@/lib/canvas-edge-path";
 import { createShapeNode, placeWithTool, reduceCanvasTool } from "@/lib/canvas-tool";
 
 describe("canvas tool reducer", () => {
