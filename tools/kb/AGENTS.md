@@ -58,7 +58,7 @@ existing view specs are unchanged).
 
 ## Extensions
 
-`@kb/ext-check` owns the `ext.check.audit` read action and `ext.check.sync` apply action: it proves that every `rule.check` points to a `#check` whose evidence exists and whose invocation is wired into its declared surface, rejects stale enforcement, simultaneous `gate` and `check`, and broken rule homes, and derives `rule.enforcement` from the check surface. To remove it, delete `packages/extension/ext-check`, its `BUNDLED_EXTENSIONS` registry entry, `packages/app/cli/src/bin/check-audit.ts`, and the `check:audit` script plus its `verify` mention; remove the `@kb/ext-check` manifest dependencies and refresh `bun.lock`; the `check`/`check-surface` nodes and `rule.check` refs are data and may stay or be removed with `kb rm`, after which the rules index is hand-typed again.
+`@kb/ext-check` owns the `ext.check.audit` read action and `ext.check.sync` apply action: it proves that every `rule.check` points to a `#check` whose evidence exists and whose invocation is wired into its declared surface, rejects stale enforcement, simultaneous `gate` and `check`, and broken rule homes, and derives `rule.enforcement` from the check surface. To remove it, delete `packages/extension/ext-check`, its `BUNDLED_EXTENSIONS` registry entry, `packages/app/cli/src/bin/check-audit.ts`, and the `check:audit` script plus its `verify` mention; remove the `@kb/ext-check` manifest dependencies and refresh `bun.lock`; the `check` tag, the `enforcement` field's option children and `rule.check` refs are data and may stay or be removed with `kb rm`, after which the rules index is hand-typed again.
 
 ### Effect
 

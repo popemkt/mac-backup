@@ -167,25 +167,18 @@ function fixture(): Fixture {
   const nodes = [
     typed("tag.rule", "rule", "sys.tag"),
     typed("tag.check", "check", "sys.tag"),
-    typed("tag.surface", "check-surface", "sys.tag"),
-    typed("tag.enforcement", "enforcement-level", "sys.tag"),
     typed("f.home", "home", "sys.field"),
-    typed("f.enforcement", "enforcement", "sys.field"),
+    // Enforcement levels are the field's children — the option set shape.
+    // No `#enforcement-level` / `#check-surface` supertag exists to mark them.
+    { ...typed("f.enforcement", "enforcement", "sys.field"), children: ["v.prose", "v.harness"] },
     typed("f.gate", "gate", "sys.field"),
     typed("f.check", "check", "sys.field"),
     typed("f.surface", "surface", "sys.field"),
     typed("f.evidence", "evidence", "sys.field"),
     typed("f.invocation", "invocation", "sys.field"),
     typed("f.blocking", "blocking", "sys.field"),
-    node("v.prose", "prose", {
-      "sys.f.type": [{ t: "ref", v: "tag.enforcement" }],
-    }),
-    node("v.harness", "harness", {
-      "sys.f.type": [
-        { t: "ref", v: "tag.enforcement" },
-        { t: "ref", v: "tag.surface" },
-      ],
-    }),
+    node("v.prose", "prose"),
+    node("v.harness", "harness"),
     node("check.harness", "harness-check", {
       "sys.f.type": [{ t: "ref", v: "tag.check" }],
       "f.surface": [{ t: "ref", v: "v.harness" }],
@@ -316,6 +309,29 @@ describe("ext.check.audit", () => {
     ).then((output) => {
       expect(output.synced.updated).toEqual(["rule.one"]);
       expect(output.audited).toEqual({ clean: true, findings: [] });
+      return undefined;
+    });
+  });
+
+  test("an enforcement level is a CHILD of the field — a loose node is not one", () => {
+    // The option set is the parenting, not a supertag. A node named "harness"
+    // that is not the field's child cannot be the value sync writes back, so
+    // sync must find nothing rather than pick a lookalike out of the graph.
+    const input = fixture();
+    updateNode(input.nodes, "f.enforcement", (field) => ({ ...field, children: ["v.prose"] }));
+    updateNode(input.nodes, "rule.one", (rule) => ({
+      ...rule,
+      props: { ...rule.props, "f.enforcement": [{ t: "ref", v: "v.prose" }] },
+    }));
+    const { ctx, store } = fixtureContext(input.nodes);
+    return Effect.runPromise(
+      checkSyncEffect({}).pipe(
+        Effect.provide(
+          Layer.mergeAll(kbCtxLayer(ctx), kbStoreLayer(store), fileLayer(input.files)),
+        ),
+      ),
+    ).then((synced) => {
+      expect(synced.updated).toEqual([]);
       return undefined;
     });
   });

@@ -1,6 +1,13 @@
 import type { KbNode, NodeId, PropValue } from "@kb/model";
 import { z } from "zod";
 
+/**
+ * The surfaces a check can live on: every enforcement level except `prose`,
+ * which by definition means "nothing checks it". The `surface` field says the
+ * same thing as data — its `sys.f.targetQuery` selects the `enforcement`
+ * field's children minus that one — so the picker and this list are two
+ * readings of one declaration rather than two hand-kept copies.
+ */
 const CHECK_SURFACES = ["harness", "lint", "tsc", "hook", "ci"] as const;
 export const checkSurfaceSchema = z.enum(CHECK_SURFACES);
 export type CheckSurface = z.infer<typeof checkSurfaceSchema>;
@@ -95,7 +102,28 @@ function tagged(nodes: readonly KbNode[], tagIds: ReadonlySet<NodeId>): KbNode[]
   return nodes.filter((node) => typeRefs(node).some((id) => tagIds.has(id)));
 }
 
+/**
+ * The option set a field declares by parenting it: its children, in order.
+ *
+ * `prose`, `lint`, `tsc`, `harness`, `hook`, `ci` are not kinds of thing — they
+ * are the values `enforcement` may take — so they are children of that field
+ * and carry no supertag (DESIGN → Kinds, roles and options). The
+ * `#enforcement-level` tag this replaces existed only to give a `targetTag`
+ * something to point at.
+ */
+function fieldOptions(
+  nodesById: ReadonlyMap<NodeId, KbNode>,
+  fieldId: NodeId | undefined,
+): KbNode[] {
+  const field = fieldId === undefined ? undefined : nodesById.get(fieldId);
+  return (field?.children ?? []).flatMap((id) => {
+    const child = nodesById.get(id);
+    return child === undefined ? [] : [child];
+  });
+}
+
 export function buildCheckModel(nodes: readonly KbNode[]): CheckModel {
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
   const fieldIds = new Map<string, NodeId>();
   for (const node of nodes) {
     if (typeRefs(node).includes("sys.field") && !fieldIds.has(node.text)) {
@@ -105,12 +133,12 @@ export function buildCheckModel(nodes: readonly KbNode[]): CheckModel {
 
   const checkTagIds = tagIdsNamed(nodes, "check");
   const enforcementIds = new Map<string, NodeId>();
-  for (const node of tagged(nodes, tagIdsNamed(nodes, "enforcement-level"))) {
-    enforcementIds.set(node.text, node.id);
+  for (const option of fieldOptions(nodesById, fieldIds.get("enforcement"))) {
+    enforcementIds.set(option.text, option.id);
   }
 
   return {
-    nodesById: new Map(nodes.map((node) => [node.id, node])),
+    nodesById,
     rules: tagged(nodes, tagIdsNamed(nodes, "rule")).toSorted((a, b) => a.id.localeCompare(b.id)),
     checks: tagged(nodes, checkTagIds).toSorted((a, b) => a.id.localeCompare(b.id)),
     fieldIds,
