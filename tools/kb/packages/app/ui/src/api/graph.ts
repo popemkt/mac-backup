@@ -1,5 +1,5 @@
 import { GraphSnapshotSchema, type GraphSnapshot } from "@kb/contracts";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/fixtures/graph"; // GAP [[01M1RXMR501MC0KQ85WSNHC97R]]
 
 export type GraphLoadSource = "api" | "fixtures";
 

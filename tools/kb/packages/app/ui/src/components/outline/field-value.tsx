@@ -6,7 +6,7 @@ import { emptyValueForType, type FieldType } from "@/lib/field-type";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
 import { fuzzyNodeCandidates } from "@/lib/refs";
 import { TAG_PALETTE } from "@/lib/tag-color";
-import { useOutlineStore } from "@/stores/outline.store";
+import { useOutlineStore } from "@/stores/outline.store"; // GAP [[01M1RXMRJA3ZRAWPTB0ZH5YEYG]]
 import { asInstance } from "@/lib/dom";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
 import { Bullet } from "./bullet";

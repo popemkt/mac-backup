@@ -38,20 +38,21 @@ Use `ViewErrorBoundary` / `ViewError` from
 
 ## Import / ownership rules
 
-| Layer                                                                                                  | May import                                  | Must not import                              |
-| ------------------------------------------------------------------------------------------------------ | ------------------------------------------- | -------------------------------------------- |
-| `ds/` — one-file `@kb/query` seam (`runQuery`, `queryBacklinks`, `DatascriptIndex`, `extractMentions`) | `@kb/query`                                 | `components/**`; a second DataScript builder |
-| `lib/*`, `api/*`, `actions/*`                                                                          | each other, `ds`, protocol aliases          | `components/**`                              |
-| `stores/*`                                                                                             | `lib`, `ds`, `api`                          | `components/**`                              |
-| `components/<surface>/*`                                                                               | own surface, shared primitives, stores, lib | sibling surface **internals**                |
-| `components/outline/{tag-chip,bullet,node-row,field-*} `                                               | lib, types                                  | graph/canvas/ontology pages                  |
-| `catalog/*`                                                                                            | components (read-only stories)              | stores mutations except fixtures             |
+Who may import whom inside `src/` is one table: `UI_ALLOWS` in
+[`tools/kb/harness/src/constraints.ts`](../../../harness/src/constraints.ts),
+keyed by the zone a file sits in — the surface folders under `components/`,
+the named shared primitives, and `ds`, `lib`, `api`, `actions`, `session`,
+`stores`, `fixtures`, `catalog`, `types` and the shell. The harness applies it
+to every intra-package import (`harness/tests/ui-boundaries.test.ts`, part of
+`bun run verify`), so this file states no rows of its own; the doc comment
+beside the table carries the reasoning, and the shared-primitives list is the
+`UI_PRIMITIVES` set next to it.
 
-**Shared primitives** (allowed cross-surface): `TagChip`, `Bullet`, `NodeRow`,
-`PropValueEditor` / field row, `FieldRow`, `ViewErrorBoundary`, `popover-shell`.
-
-**Surface folders** own their pages and toolbars. Cross-surface reuse goes
-through primitives or `lib/`, never by reaching into another page module.
+A sanctioned breach carries `// GAP [[id]]` on its import line and a `#gap`
+node naming what would close it — see
+[`docs/kb/rules.md`](../../../../../docs/kb/rules.md) under **UI import
+matrix**. Adding an edge to `UI_ALLOWS` is a decision about the architecture,
+not a way past a red test.
 
 **Stores:** prefer selectors (`useXStore(s => s.field)`). Do not pass the whole
 store through props. Do not call mutations during render.

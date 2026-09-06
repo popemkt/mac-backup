@@ -1,7 +1,7 @@
 import { ArrowUUpLeftIcon, PushPinIcon, PushPinSlashIcon, XIcon } from "@phosphor-icons/react";
 import { describeReason } from "@kb/model";
 import { cn } from "@/lib/cn";
-import { MdView } from "@/components/outline/md-view";
+import { MdView } from "@/components/outline/md-view"; // GAP [[01M1RXNKKK31EGJWCA1KCV6V20]]
 import type { MemberRowModel } from "@/lib/ontology-scope";
 
 export interface MemberRowProps {
