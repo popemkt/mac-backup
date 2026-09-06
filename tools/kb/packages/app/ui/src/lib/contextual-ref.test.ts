@@ -1,7 +1,7 @@
 /**
  * Contextual references — the data half. A contextual reference is an ordinary
- * node tagged #ref (sys.tag.ref) carrying `sys.f.ref.target`; it displays the
- * target's *current* text, and its own text is never the row's own to edit.
+ * node carrying `sys.f.ref.target`; it displays the target's *current* text,
+ * and its own text is never the row's own to edit.
  */
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
@@ -36,32 +36,42 @@ function mapWith(extra: WireNode[]): NodeMap {
 }
 
 describe("contextual reference model", () => {
-  it("recognises a #ref-tagged node carrying a target", () => {
+  it("recognises a node carrying a target on sys.f.ref.target", () => {
     const nodes = mapWith([ctxRefWire("n.ctx", "n.root-a")]);
     const ref = present(nodes.get("n.ctx"), "n.ctx");
     expect(isContextualRef(ref)).toBe(true);
     expect(contextualTargetOf(ref)).toBe("n.root-a");
   });
 
-  it("needs both the tag and the prop — either alone is an ordinary node", () => {
+  it("the target field alone decides — an empty target is an ordinary node", () => {
     const nodes = mapWith([
       wire({
-        id: "n.tagonly",
-        props: {
-          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.refTag }],
-        },
+        id: "n.blank",
+        text: "plain",
+        props: { [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: "" }] },
+      }),
+      wire({ id: "n.none", text: "plain" }),
+    ]);
+    expect(isContextualRef(nodes.get("n.blank"))).toBe(false);
+    expect(contextualTargetOf(nodes.get("n.blank"))).toBeNull();
+    expect(isContextualRef(nodes.get("n.none"))).toBe(false);
+  });
+
+  it("a node merely TAGGED `ref` is not a reference — the field is the kind", () => {
+    const nodes = mapWith([
+      wire({
+        id: "t.ref",
+        text: "ref",
+        props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
       }),
       wire({
-        id: "n.proponly",
-        text: "plain",
-        props: {
-          [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: "n.root-a" }],
-        },
+        id: "n.tagged",
+        text: "tagged, not a reference",
+        props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.ref" }] },
       }),
     ]);
-    expect(isContextualRef(nodes.get("n.tagonly"))).toBe(false);
-    expect(isContextualRef(nodes.get("n.proponly"))).toBe(false);
-    expect(contextualTargetOf(nodes.get("n.proponly"))).toBeNull();
+    expect(isContextualRef(nodes.get("n.tagged"))).toBe(false);
+    expect(contextualTargetOf(nodes.get("n.tagged"))).toBeNull();
   });
 
   it("renders the target's current text verbatim, so markdown still renders", () => {
@@ -83,17 +93,17 @@ describe("contextual reference model", () => {
     expect(rowText(present(nodes.get("n.ctx"), "n.ctx"), nodes)).toBe("[[n.gone]]");
   });
 
-  it("reads the kind slot, not the badge list, to decide it is a reference", () => {
-    // Same graph minus the `#ref` tag NODE — which is what an ontology-scoped
-    // wire set looks like. `resolveTags` drops a badge whose target is not a
-    // known tag node, so a badge-based test ("t.id === sys.tag.ref") reports
-    // the row as ordinary and the reference silently stops resolving.
+  it("resolves with no seed nodes present at all — the prop is self-contained", () => {
+    // An ontology-scoped wire set may carry neither the field node nor any tag
+    // node. The old reader asked the kind slot for a `#ref` tag and went quiet
+    // when that tag was out of scope; a prop value needs nothing else in the
+    // graph, which is the point of reading one carrier.
     const nodes = wireToOutlineMap(
       [...fixtureGraph.nodes, ctxRefWire("n.ctx", "n.root-a")],
       new Set(),
     );
     const ref = present(nodes.get("n.ctx"), "n.ctx");
-    expect(ref.tags.map((t) => t.id)).not.toContain(SYSTEM_IDS.refTag);
+    expect(ref.tags).toEqual([]);
     expect(isContextualRef(ref)).toBe(true);
     expect(contextualTargetOf(ref)).toBe("n.root-a");
   });
@@ -103,7 +113,7 @@ describe("contextual reference model", () => {
     expect(rowTextReadOnlyReason("n.ctx", nodes.get("n.ctx"))).toBe(
       "Reference — edit the original",
     );
-    expect(rowTextReadOnlyReason("sys.tag.query", nodes.get("sys.tag.query"))).toBe(
+    expect(rowTextReadOnlyReason("sys.f.query", nodes.get("sys.f.query"))).toBe(
       "System node — read-only",
     );
     expect(rowTextReadOnlyReason("n.root-a", nodes.get("n.root-a"))).toBeNull();

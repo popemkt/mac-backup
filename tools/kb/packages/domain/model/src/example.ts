@@ -187,7 +187,6 @@ export function exampleSeedNodes(at: string = nowIso()): KbNode[] {
       `Inline **markdown**, \`code\`, and refs like [[${EXAMPLE_IDS.taskTag}|#task]] all render in place.`,
     ),
     mk(EXAMPLE_IDS.openTasks, "Every task", {
-      ...typed(SYSTEM_IDS.queryTag),
       [SYSTEM_IDS.queryField]: [{ t: "str", v: EXAMPLE_OPEN_TASKS_EDN }],
     }),
 

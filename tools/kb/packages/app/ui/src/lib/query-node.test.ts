@@ -24,7 +24,6 @@ function queryWire(id = "n.q1", extraProps: WireNode["props"] = {}): WireNode {
     id,
     text: "Open todos",
     props: {
-      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.queryTag }],
       [SYSTEM_IDS.queryField]: [{ t: "str", v: EDN }],
       ...extraProps,
     },
@@ -62,7 +61,7 @@ beforeEach(() => {
 });
 
 describe("queryDefOf / isQueryNode", () => {
-  it("extracts EDN and limit from a #query node", () => {
+  it("extracts EDN and limit from a query node", () => {
     hydrate([
       queryWire("n.q1", {
         [SYSTEM_IDS.queryLimitField]: [{ t: "num", v: 3 }],
@@ -73,22 +72,48 @@ describe("queryDefOf / isQueryNode", () => {
     expect(queryDefOf(node)).toEqual({ edn: EDN, limit: 3 });
   });
 
-  it("null for untagged nodes and tagged nodes without EDN", () => {
+  it("null for plain nodes, and for a query node whose EDN is blank", () => {
     const plain = useOutlineStore.getState().nodes.get("n.root-c");
     expect(isQueryNode(plain)).toBe(false);
     expect(queryDefOf(plain)).toBeNull();
 
+    // The field is present but empty — still a query node (that is what the
+    // row the user is editing looks like), with nothing yet to subscribe to.
     hydrate([
       {
         ...queryWire("n.q2"),
-        props: {
-          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.queryTag }],
-        },
+        props: { [SYSTEM_IDS.queryField]: [{ t: "str", v: "" }] },
       },
     ]);
     const noEdn = useOutlineStore.getState().nodes.get("n.q2");
     expect(isQueryNode(noEdn)).toBe(true);
     expect(queryDefOf(noEdn)).toBeNull();
+  });
+
+  it("a node merely TAGGED `query` is not a query node — the field is the kind", () => {
+    // The old reader accepted any tag whose name was "query", so a user tag
+    // called `query` silently turned its members into live subscriptions.
+    hydrate([
+      {
+        id: "t.query",
+        text: "query",
+        props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
+        children: [],
+        createdAt: "2026-08-08T00:00:00.000Z",
+        updatedAt: "2026-08-08T00:00:00.000Z",
+      },
+      {
+        id: "n.tagged",
+        text: "tagged, not a query",
+        props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.query" }] },
+        children: [],
+        createdAt: "2026-08-08T00:00:00.000Z",
+        updatedAt: "2026-08-08T00:00:00.000Z",
+      },
+    ]);
+    const tagged = useOutlineStore.getState().nodes.get("n.tagged");
+    expect(isQueryNode(tagged)).toBe(false);
+    expect(queryDefOf(tagged)).toBeNull();
   });
 });
 

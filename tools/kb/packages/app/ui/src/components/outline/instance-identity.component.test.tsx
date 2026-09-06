@@ -26,7 +26,6 @@ function queryWire(): WireNode {
     id: "n.q1",
     text: "Open todos",
     props: {
-      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.queryTag }],
       [SYSTEM_IDS.queryField]: [{ t: "str", v: TODO_EDN }],
     },
     children: [],

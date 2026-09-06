@@ -45,6 +45,7 @@ export function Bullet({
     hasChildren,
     typeRefs: typeRefsOf(node),
     tagNames: node.tags.map((t) => t.name),
+    fieldIds: Object.keys(node.props),
     isSys: isSysPrefixed(node.id),
     text: node.text,
     kindOverride,

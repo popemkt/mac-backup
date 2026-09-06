@@ -46,7 +46,6 @@ export function savedQueryNodes(saved: readonly SavedQuery[]): KbNode[] {
   });
   const queries = saved.map((q) =>
     mk(`sys.query.${q.name}`, q.name, {
-      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.queryTag }],
       [SYSTEM_IDS.queryField]: [{ t: "str", v: q.edn.trim() }],
     }),
   );

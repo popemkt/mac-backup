@@ -1,6 +1,6 @@
 import type { WireNode } from "@kb/contracts";
 import { typeRefsOf } from "@kb/model";
-import { isQueryTagBadges } from "@/lib/query-node";
+import { hasQueryDef } from "@/lib/query-node";
 import { resolveTagColor } from "@/lib/tag-color";
 import { compareWireNodeId } from "@/lib/tx";
 import {
@@ -99,12 +99,8 @@ function wireHasVisibleFields(wire: WireNode, byId: Map<string, WireNode>): bool
   return false;
 }
 
-function nodeDefaultsCollapsed(
-  wire: WireNode,
-  tags: TagBadge[],
-  byId: Map<string, WireNode>,
-): boolean {
-  if (isQueryTagBadges(tags)) return true;
+function nodeDefaultsCollapsed(wire: WireNode, byId: Map<string, WireNode>): boolean {
+  if (hasQueryDef(wire.props)) return true;
   if (wire.children.length > 0) return true;
   if (wireHasVisibleFields(wire, byId)) return true;
   return false;
@@ -136,7 +132,7 @@ export function wireToOutlineMap(nodes: WireNode[], expandedIds: Set<string>): N
     const parentId = parentOf.get(wire.id) ?? null;
     const outlineParent = parentId ?? (roots.includes(wire.id) ? WORKSPACE_ROOT_ID : null);
     const tags = resolveTags(wire, byId);
-    const collapsed = nodeDefaultsCollapsed(wire, tags, byId) && !expandedIds.has(wire.id);
+    const collapsed = nodeDefaultsCollapsed(wire, byId) && !expandedIds.has(wire.id);
     map.set(wire.id, {
       id: wire.id,
       text: wire.text,

@@ -69,7 +69,7 @@ describe("pin toggle", () => {
   });
 
   it("refuses to pin a sys.* node (write guard)", async () => {
-    expect(await mutations.togglePin(SYSTEM_IDS.queryTag)).toBe(false);
+    expect(await mutations.togglePin(SYSTEM_IDS.queryField)).toBe(false);
     expect(findPinnedTagId(nodes())).toBeNull();
   });
 });

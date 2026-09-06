@@ -306,13 +306,12 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         immediate: true,
         action: () => {
           if (targetNodeId === null) return;
-          void (async () => {
-            await mutations.addTag(targetNodeId, SYSTEM_IDS.queryTag);
-            await mutations.updateProp(targetNodeId, SYSTEM_IDS.queryField, {
-              t: "str",
-              v: DEFAULT_QUERY_EDN,
-            });
-          })();
+          // Setting the field is the whole gesture: the field is the kind, so
+          // there is no tag to apply alongside it and nothing to keep in sync.
+          void mutations.updateProp(targetNodeId, SYSTEM_IDS.queryField, {
+            t: "str",
+            v: DEFAULT_QUERY_EDN,
+          });
           onClose();
         },
       });
@@ -420,8 +419,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       void (async () => {
         if (step.type === "add-ref") {
           // The whole creation gesture, and nothing but existing primitives:
-          // apply the tag, point the target field at the picked node.
-          await mutations.addTag(targetNodeId, SYSTEM_IDS.refTag);
+          // point the target field at the picked node. The field is the kind.
           await mutations.updateProp(targetNodeId, SYSTEM_IDS.refTargetField, {
             t: "ref",
             v: item.id,

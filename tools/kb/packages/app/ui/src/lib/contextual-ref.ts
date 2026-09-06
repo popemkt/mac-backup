@@ -1,9 +1,12 @@
 /**
  * Contextual references (Tana "contextual content").
  *
- * A contextual reference is an ordinary node tagged `#ref` (sys.tag.ref)
- * carrying its target on the `sys.f.ref.target` ref field — the same anatomy as
- * a query node (`#query` + `sys.f.query`). It displays the *target's* text; its
+ * A contextual reference is an ordinary node carrying its target on the
+ * `sys.f.ref.target` ref field — the same anatomy as a query node
+ * (`sys.f.query`). The field is the whole declaration: strip it and the node is
+ * not a reference, it is a plain node, so there is no `#ref` supertag to carry
+ * the same distinction twice (DESIGN.md → Kinds, roles and options). It
+ * displays the *target's* text; its
  * own children are the local, contextual content and belong to this location,
  * not to the target. Nothing else about the row is special: children, tags,
  * fields, collapse state, instance keys and both keymaps are the ordinary ones.
@@ -16,8 +19,8 @@
  *   uses — bold, code, inline refs and `assets/` media all render as content.
  *   Rendering it as a `[[id|label]]` token instead was tried and looked wrong:
  *   a ref label is terminal in the inline grammar, so `**markdown**` showed up
- *   literally and the whole row went link-coloured. The dashed bullet ring and
- *   the `#ref` chip are what mark the row as a reference.
+ *   literally and the whole row went link-coloured. The dashed bullet ring is
+ *   what marks the row as a reference.
  *
  *   Note what a ref *prop* buys over typing `[[id|label]]` by hand: the label
  *   in a hand-written token freezes at insert time, while this resolves on every
@@ -31,29 +34,21 @@
  *   every editing affordance already works. ⌘-click on the bullet still zooms
  *   the reference itself, so the two destinations have two affordances.
  */
-import { typeRefsOf } from "@kb/model";
 import type { NodeMap, OutlineNode } from "@/lib/types";
 import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
 
 /**
- * The seeded `#ref` tag, matched by id only.
+ * The node this reference points at, or null when it is not a reference.
  *
- * Deliberately narrower than `isQueryTagBadges`, which also accepts any tag
- * *named* "query": "ref" is a common word, and a user tag that happens to be
- * called `ref` must not silently turn its rows into references.
- *
- * Read from the kind slot (`typeRefsOf`), never from `node.tags` — that list is
- * a DISPLAY list which drops kind refs, so membership read off it is only
- * accidentally right (see graph-view.resolveTags).
+ * One read of one carrier. The tag check that used to guard this was the second
+ * carrier for one distinction — and a strictly weaker one, since a `#ref` node
+ * with no target is not a reference either, so the field already answered for
+ * both. "Is it named `ref`?" was never on the table: a user tag called `ref`
+ * must not turn its rows into references, and now it cannot, because nothing
+ * reads a tag name here at all.
  */
-function hasRefTag(node: OutlineNode): boolean {
-  return typeRefsOf(node).includes(SYSTEM_IDS.refTag);
-}
-
-/** The node this reference points at, or null when it is not a reference. */
 export function contextualTargetOf(node: OutlineNode | undefined): string | null {
-  if (!node || !hasRefTag(node)) return null;
-  const value = (node.props[SYSTEM_IDS.refTargetField] ?? []).find(
+  const value = (node?.props[SYSTEM_IDS.refTargetField] ?? []).find(
     (v) => v.t === "ref" && typeof v.v === "string" && v.v !== "",
   );
   return value ? String(value.v) : null;

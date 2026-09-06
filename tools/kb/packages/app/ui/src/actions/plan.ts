@@ -181,7 +181,6 @@ export function planNewQueryNode(
         input: {
           id,
           text,
-          tags: [SYSTEM_IDS.queryTag],
           props: [{ field: SYSTEM_IDS.queryField, value: { t: "str", v: edn } }],
         },
       },

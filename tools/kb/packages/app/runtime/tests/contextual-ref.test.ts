@@ -1,8 +1,9 @@
 /**
  * Contextual references (Tana "contextual content").
  *
- * A contextual reference is an ordinary node tagged `#ref` (sys.tag.ref)
- * carrying its target on the `sys.f.ref.target` ref field. It renders the
+ * A contextual reference is an ordinary node carrying its target on the
+ * `sys.f.ref.target` ref field — the field is the kind, there is no `#ref`
+ * supertag (DESIGN → Kinds, roles and options). It renders the
  * target's text; its own children are the local, contextual content and stay
  * on the reference, never on the target.
  *
@@ -45,17 +46,9 @@ async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-ctxref-"));
 }
 
-describe("seed: #ref tag + ref.target field", () => {
-  test("seeds sys.tag.ref templating a ref-typed sys.f.ref.target", () => {
+describe("seed: the ref.target field, and no #ref tag", () => {
+  test("seeds a ref-typed sys.f.ref.target", () => {
     const byId = new Map(systemSeedNodes().map((n) => [n.id, n]));
-
-    const tag = byId.get(SYSTEM_IDS.refTag);
-    expect(tag).toBeDefined();
-    expect(present(tag, "expected tag").text).toBe("ref");
-    expect(refs(present(tag, "expected tag"), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
-    expect(refs(present(tag, "expected tag"), SYSTEM_IDS.fieldsField)).toEqual([
-      SYSTEM_IDS.refTargetField,
-    ]);
 
     const field = byId.get(SYSTEM_IDS.refTargetField);
     expect(field).toBeDefined();
@@ -67,25 +60,31 @@ describe("seed: #ref tag + ref.target field", () => {
     expect(fieldTypeOf(present(field, "expected field").props)).toBe("ref");
   });
 
-  test("ensureSystemSeed stays idempotent and syncs the #ref template", () => {
+  test("seeds no supertag whose whole job is to mark the field's presence", () => {
+    // A tag that templates one field and gates no picker is a marker, not a
+    // thing — the strip test in DESIGN → Kinds, roles and options.
+    const texts = systemSeedNodes()
+      .filter((n) => refs(n, SYSTEM_IDS.typeField).includes(SYSTEM_IDS.tag))
+      .map((n) => n.text);
+    expect(texts).not.toContain("ref");
+    expect(texts).not.toContain("query");
+    expect(texts).not.toContain("field-type");
+  });
+
+  test("ensureSystemSeed stays idempotent and heals a store missing the field", () => {
     const first = ensureSystemSeed([]);
     expect(first.seeded).toBe(true);
     const again = ensureSystemSeed(first.nodes);
     expect(again.seeded).toBe(false);
 
-    // A store that predates the field still gains the template ref.
-    const stale = first.nodes.map((n) =>
-      n.id === SYSTEM_IDS.refTag
-        ? { ...n, props: { ...n.props, [SYSTEM_IDS.fieldsField]: [] } }
-        : n,
-    );
+    const stale = first.nodes.filter((n) => n.id !== SYSTEM_IDS.refTargetField);
     const healed = ensureSystemSeed(stale);
     expect(healed.seeded).toBe(true);
-    const tag = present(
-      healed.nodes.find((n) => n.id === SYSTEM_IDS.refTag),
-      "expected healed.nodes.find((n) => n.id === SYSTEM_IDS.refTag)",
+    const field = present(
+      healed.nodes.find((n) => n.id === SYSTEM_IDS.refTargetField),
+      "expected the seeded ref.target field",
     );
-    expect(refs(tag, SYSTEM_IDS.fieldsField)).toEqual([SYSTEM_IDS.refTargetField]);
+    expect(fieldTypeOf(field.props)).toBe("ref");
   });
 });
 
@@ -94,7 +93,6 @@ describe(":node/mentions counts ref props, not only text tokens", () => {
     const nodes = [
       mk("n.target", "Original node"),
       mk("n.ctx", "", {
-        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.refTag }],
         [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: "n.target" }],
       }),
     ];
@@ -157,7 +155,6 @@ describe("creating a contextual reference is plain node.add / node.update", () =
       input: {
         text: "",
         parent: hostId,
-        tags: [SYSTEM_IDS.refTag],
         props: [
           {
             field: SYSTEM_IDS.refTargetField,
@@ -228,7 +225,6 @@ describe("creating a contextual reference is plain node.add / node.update", () =
       input: {
         id: plainId,
         setProps: [
-          { field: SYSTEM_IDS.typeField, value: { t: "ref", v: SYSTEM_IDS.refTag } },
           {
             field: SYSTEM_IDS.refTargetField,
             value: { t: "ref", v: targetId },

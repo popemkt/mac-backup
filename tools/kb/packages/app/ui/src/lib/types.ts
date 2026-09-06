@@ -29,15 +29,13 @@ export const SYSTEM_IDS = {
   cmdDebugShowFields: "sys.cmd.debug-show-fields",
   cmdExpandAll: "sys.cmd.expand-all",
   cmdCollapseAll: "sys.cmd.collapse-all",
-  /** Query nodes as pure system nodes (DESIGN-REFINE §2 W4). */
-  queryTag: "sys.tag.query",
+  /** Query nodes: a node carrying `sys.f.query` is one — the field is the kind. */
   queryField: "sys.f.query",
   queryLimitField: "sys.f.query.limit",
   /**
-   * Contextual references: a node tagged #ref carrying `sys.f.ref.target`
-   * shows the target's text and owns its own children (see lib/contextual-ref).
+   * Contextual references: a node carrying `sys.f.ref.target` shows the
+   * target's text and owns its own children (see lib/contextual-ref).
    */
-  refTag: "sys.tag.ref",
   refTargetField: "sys.f.ref.target",
   /** View configuration field nodes (W7.0). */
   viewModeField: "sys.f.view.mode",

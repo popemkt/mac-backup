@@ -23,6 +23,8 @@ export interface BulletModeInput {
   typeRefs: string[];
   /** Resolved tag badge names (lowercase compare). */
   tagNames: string[];
+  /** Field-node ids this node carries a value for — the kind carriers. */
+  fieldIds?: string[];
   /** True when node id starts with `sys.`. */
   isSys: boolean;
   /** Node text — used to detect `![…](assets/…)` media refs (W6a). */
@@ -41,8 +43,8 @@ export interface BulletMode {
 
 /**
  * Map node metadata → bullet kind.
- * Priority: override → tag/field/command/query/canvas/ontology type →
- * media asset ref → parent → plain.
+ * Priority: override → tag/field/command type → query field → canvas/ontology
+ * type → media asset ref → parent → plain.
  */
 export function resolveBulletKind(input: BulletModeInput): BulletKind {
   if (input.kindOverride === "media" || input.kindOverride === "canvas") {
@@ -54,8 +56,9 @@ export function resolveBulletKind(input: BulletModeInput): BulletKind {
   if (refs.includes(SYSTEM_IDS.field)) return "field";
   // W3: sys.command type node
   if (refs.includes(SYSTEM_IDS.command)) return "command";
-  // W4: anything tagged #query
-  if (input.tagNames.some((n) => n.toLowerCase() === "query")) return "query";
+  // W4: anything carrying sys.f.query — the field is the kind, so the glyph
+  // reads the same carrier `isQueryNode` does instead of a tag's display name.
+  if (input.fieldIds?.includes(SYSTEM_IDS.queryField) === true) return "query";
   // C1: #canvas tag (or seeded sys.tag.canvas)
   if (
     refs.includes(SYSTEM_IDS.canvasTag) ||

@@ -84,21 +84,23 @@ export const SYSTEM_IDS = {
   cmdDebugShowFields: "sys.cmd.debug-show-fields",
   cmdExpandAll: "sys.cmd.expand-all",
   cmdCollapseAll: "sys.cmd.collapse-all",
-  /** Query nodes as pure system nodes (DESIGN-REFINE §2 W4). */
-  queryTag: "sys.tag.query",
+  /**
+   * Query nodes as pure system nodes (DESIGN-REFINE §2 W4). A query node is any
+   * node carrying `sys.f.query` — the field is the kind, so there is no
+   * `#query` supertag (DESIGN → Kinds, roles and options).
+   */
   queryField: "sys.f.query",
   queryLimitField: "sys.f.query.limit",
   /**
-   * Contextual references (Tana "contextual content"). A node tagged `#ref`
-   * carrying `sys.f.ref.target` displays the target's text; its own children
-   * are content local to *that* location. Same shape as a query node — a tag
-   * plus one templated field — so it is an ordinary node everywhere else.
+   * Contextual references (Tana "contextual content"). A node carrying
+   * `sys.f.ref.target` displays the target's text; its own children are content
+   * local to *that* location. Same shape as a query node — one field and no
+   * supertag — so it is an ordinary node everywhere else.
    *
    * `sys.f.ref.target` is deliberately unconstrained: a reference may point at
    * any node, and declaring a `targetTag` would be a constraint the feature
    * does not have (cf. `sys.f.onto.member`, unconstrained for the same reason).
    */
-  refTag: "sys.tag.ref",
   refTargetField: "sys.f.ref.target",
   /** View configuration field nodes (W7.0). */
   viewModeField: "sys.f.view.mode",

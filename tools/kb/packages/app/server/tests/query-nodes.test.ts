@@ -1,6 +1,6 @@
 /**
  * W4 — query nodes as pure system nodes (DESIGN-REFINE §2 W4).
- * Seed: sys.tag.query templating sys.f.query / sys.f.query.limit.
+ * Seed: sys.f.query / sys.f.query.limit — the field is the kind, no #query tag.
  * Saved queries: .kb/queries/*.edn materialize as sys.query.* nodes under
  * sys.queries in the UI graph only — never duplicated into nodes.jsonl.
  */
@@ -20,19 +20,14 @@ function refs(node: KbNode | WireNode, field: string): string[] {
   return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
 }
 
-describe("W4 seed: query tag + fields", () => {
-  test("seeds sys.tag.query templating sys.f.query and sys.f.query.limit", () => {
+describe("W4 seed: query fields", () => {
+  test("seeds sys.f.query and sys.f.query.limit, and no #query supertag", () => {
     const seed = systemSeedNodes();
     const byId = new Map(seed.map((n) => [n.id, n]));
 
-    const tag = byId.get(SYSTEM_IDS.queryTag);
-    expect(tag).toBeDefined();
-    expect(present(tag, "expected tag").text).toBe("query");
-    expect(refs(present(tag, "expected tag"), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
-    expect(refs(present(tag, "expected tag"), SYSTEM_IDS.fieldsField)).toEqual([
-      SYSTEM_IDS.queryField,
-      SYSTEM_IDS.queryLimitField,
-    ]);
+    expect(
+      seed.filter((n) => refs(n, SYSTEM_IDS.typeField).includes(SYSTEM_IDS.tag)).map((n) => n.text),
+    ).not.toContain("query");
 
     for (const id of [SYSTEM_IDS.queryField, SYSTEM_IDS.queryLimitField]) {
       const field = byId.get(id);
@@ -56,7 +51,7 @@ describe("W4 seed: query tag + fields", () => {
 });
 
 describe("W4 savedQueryNodes", () => {
-  test("builds a sys.queries root with tagged query children", () => {
+  test("builds a sys.queries root whose children carry sys.f.query", () => {
     const nodes = savedQueryNodes([
       { name: "open-todos", edn: "[:find ?id :where [?e :node/id ?id]]\n" },
     ]);
@@ -68,7 +63,7 @@ describe("W4 savedQueryNodes", () => {
     const q = byId.get("sys.query.open-todos");
     expect(q).toBeDefined();
     expect(present(q, "expected q").text).toBe("open-todos");
-    expect(refs(present(q, "expected q"), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.queryTag]);
+    expect(refs(present(q, "expected q"), SYSTEM_IDS.typeField)).toEqual([]);
     expect(present(q, "expected q").props[SYSTEM_IDS.queryField]).toEqual([
       { t: "str", v: "[:find ?id :where [?e :node/id ?id]]" },
     ]);
@@ -113,7 +108,7 @@ describe("W4 saved-query surfacing via kb ui server", () => {
 
     const q = byId.get("sys.query.all-nodes");
     expect(q).toBeDefined();
-    expect(refs(present(q, "expected q"), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.queryTag]);
+    expect(refs(present(q, "expected q"), SYSTEM_IDS.typeField)).toEqual([]);
     expect(present(q, "expected q").props[SYSTEM_IDS.queryField]).toEqual([{ t: "str", v: edn }]);
 
     // Materialized at load only — never duplicated into nodes.jsonl.

@@ -134,14 +134,16 @@ Logseq pattern on top of existing swap:
 Pure system-node modeling (your annotation — no special node type, just more system nodes):
 
 ```
-  sys.tag.query      ← a TAG node "query" (bullet renders ⌕ for anything tagged)
   sys.f.query        ← FIELD node: the datalog/EDN definition (str prop)
   sys.f.query.limit  ← FIELD node: optional result cap
      └─ future: sys.f.query.filter/sort fields = the visual builder writes
         these instead of raw EDN; builder is UI sugar over the same props
 ```
 
-A query node = ordinary node + `#query` tag + `sys.f.query` prop. Tag templates the fields (existing mechanism); CLI/MCP/extensions see nothing new. Renders live results in-outline:
+A query node = ordinary node + `sys.f.query` prop. The field is the kind — a
+`#query` tag once marked the same rows and was retired as a second carrier for
+one distinction (DESIGN.md → [Kinds, roles and options](./DESIGN.md#kinds-roles-and-options));
+the ⌕ bullet reads the field. CLI/MCP/extensions see nothing new. Renders live results in-outline:
 
 ```
   ▸ ⌕ Open todos                 ← query node (sys.f.query = "[:find ...]")

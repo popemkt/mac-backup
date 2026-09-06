@@ -12,7 +12,6 @@ import { ONTOLOGY_TARGET_QUERY } from "./ontology.ts";
 export const TEMPLATE_TAGS: readonly string[] = [
   SYSTEM_IDS.graphPerspectiveTag,
   SYSTEM_IDS.ontologyTag,
-  SYSTEM_IDS.refTag,
 ];
 
 /** Reserved system nodes. Idempotent — same ids every time. */
@@ -115,21 +114,15 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     mk(SYSTEM_IDS.cmdExitOntology, "Exit ontology", cmdType),
   ];
 
-  // Query nodes as pure system nodes (W4): a tag "query" templating the
-  // EDN definition + optional result cap fields. A query node is any node
-  // tagged #query carrying sys.f.query.
+  // Query nodes as pure system nodes (W4). A query node is any node carrying
+  // `sys.f.query`; the field is the kind, so no `#query` supertag is seeded —
+  // strip the field and the node is a plain node (DESIGN → Kinds, roles and
+  // options).
   const fieldType = {
     [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: SYSTEM_IDS.field }],
   };
   const queryField = mk(SYSTEM_IDS.queryField, "query", fieldType);
   const queryLimitField = mk(SYSTEM_IDS.queryLimitField, "limit", fieldType);
-  const queryTag = mk(SYSTEM_IDS.queryTag, "query", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
-    [SYSTEM_IDS.fieldsField]: [
-      { t: "ref", v: SYSTEM_IDS.queryField },
-      { t: "ref", v: SYSTEM_IDS.queryLimitField },
-    ],
-  });
 
   // View configuration field nodes (W7.0)
   const viewModeField = mk(SYSTEM_IDS.viewModeField, "view.mode", fieldType);
@@ -231,9 +224,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("text")],
   });
   /*
-   * Contextual references: #ref templating one ref-typed field. Same anatomy
-   * as #query (tag + templated definition field), so a contextual reference is
-   * an ordinary node in every other respect — children, tags, collapse state,
+   * Contextual references: one ref-typed field and nothing else. Same anatomy
+   * as a query node — the field is the kind — so a contextual reference is an
+   * ordinary node in every other respect: children, tags, collapse state,
    * backlinks and keyboard behaviour all come for free.
    *
    * No target constraint on purpose: a reference may point at any node, and a
@@ -241,10 +234,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    * not have. `sys.f.onto.member` is unconstrained for the same reason.
    */
   const refTargetField = refField(SYSTEM_IDS.refTargetField, "ref.target");
-  const refTag = mk(SYSTEM_IDS.refTag, "ref", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
-    [SYSTEM_IDS.fieldsField]: [{ t: "ref", v: SYSTEM_IDS.refTargetField }],
-  });
 
   const ontologyTag = mk(SYSTEM_IDS.ontologyTag, "ontology", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
@@ -273,7 +262,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ...commands,
     queryField,
     queryLimitField,
-    queryTag,
     viewModeField,
     viewSortField,
     viewSortDirField,
@@ -309,7 +297,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ontoClosureField,
     ontologyTag,
     refTargetField,
-    refTag,
   ];
 }
 

@@ -22,7 +22,7 @@ function wire(partial: Partial<WireNode> & Pick<WireNode, "id">): WireNode {
   };
 }
 
-/** Mirrors systemSeedNodes(): the #ref tag and the ref-typed target field. */
+/** Mirrors systemSeedNodes(): the ref-typed target field, and nothing else. */
 export const REF_SEED_WIRES: WireNode[] = [
   wire({
     id: SYSTEM_IDS.refTargetField,
@@ -32,22 +32,13 @@ export const REF_SEED_WIRES: WireNode[] = [
       [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: "sys.ft.ref" }],
     },
   }),
-  wire({
-    id: SYSTEM_IDS.refTag,
-    text: "ref",
-    props: {
-      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
-      [SYSTEM_IDS.fieldsField]: [{ t: "ref", v: SYSTEM_IDS.refTargetField }],
-    },
-  }),
 ];
 
-/** One contextual reference: `#ref` + a target, plus any extra wire fields. */
+/** One contextual reference: a target on `sys.f.ref.target`, plus extras. */
 export function ctxRefWire(id: string, targetId: string, extra: Partial<WireNode> = {}): WireNode {
   return wire({
     id,
     props: {
-      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.refTag }],
       [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: targetId }],
     },
     ...extra,

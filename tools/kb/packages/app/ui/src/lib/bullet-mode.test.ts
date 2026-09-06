@@ -23,10 +23,16 @@ describe("resolveBulletKind", () => {
     expect(resolveBulletKind(base({ typeRefs: [SYSTEM_IDS.field] }))).toBe("field");
   });
 
-  it("maps query from #query tag and command from sys.command type", () => {
-    expect(resolveBulletKind(base({ tagNames: ["query"] }))).toBe("query");
-    expect(resolveBulletKind(base({ tagNames: ["Query"] }))).toBe("query");
+  it("maps query from the sys.f.query field and command from sys.command type", () => {
+    expect(resolveBulletKind(base({ fieldIds: [SYSTEM_IDS.queryField] }))).toBe("query");
     expect(resolveBulletKind(base({ typeRefs: [SYSTEM_IDS.command] }))).toBe("command");
+  });
+
+  it("a tag NAMED query does not get the query glyph — the field is the kind", () => {
+    // The glyph reads the same carrier `isQueryNode` does, so a user tag
+    // called `query` cannot make a row look like a live subscription.
+    expect(resolveBulletKind(base({ tagNames: ["query"] }))).toBe("plain");
+    expect(resolveBulletKind(base({ tagNames: ["Query"] }))).toBe("plain");
   });
 
   it("maps canvas from #canvas tag or sys.tag.canvas type ref", () => {
@@ -40,7 +46,7 @@ describe("resolveBulletKind", () => {
         base({
           hasChildren: true,
           typeRefs: [SYSTEM_IDS.tag],
-          tagNames: ["query"],
+          fieldIds: [SYSTEM_IDS.queryField],
         }),
       ),
     ).toBe("tag");
