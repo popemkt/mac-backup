@@ -8,7 +8,7 @@ import {
   type DomainError,
   type KbNode,
 } from "@kb/model";
-import { JsonlStore, bunFileSystemLayer } from "@kb/store-jsonl";
+import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { DatascriptIndex, KbIndexService } from "@kb/query";
 import {
   type Assets,
@@ -25,6 +25,7 @@ import { MemoryTxLog } from "@kb/tx-log";
 import { assetsLayer, savedQueriesLayer, viewsLayer } from "@kb/workspace-fs";
 import { noteStoreSynced } from "@kb/operations";
 import { registryFor } from "./registry.ts";
+import { selectStore } from "./store-selection.ts";
 
 /**
  * Full runtime for a root: Bun FileSystem + EffectStore + opened KbCtx +
@@ -61,7 +62,7 @@ export function kbRuntimeLayer(
 export const openKbEffect = Effect.fn("kb.open")(function* (
   root: string,
 ): Effect.fn.Return<KbContext, DomainError, FileSystem> {
-  const store = new JsonlStore(root);
+  const store = yield* selectStore(root);
   let nodes = yield* store.loadEffect;
   const at = yield* currentIso;
   const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(nodes, at);

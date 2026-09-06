@@ -13,7 +13,6 @@
       "devDependencies:packages/app/server/package.json:@kb/test-kit": 1,
       "devDependencies:packages/domain/model/package.json:@kb/test-kit": 1,
       "devDependencies:packages/domain/query/package.json:@kb/test-kit": 1,
-      "devDependencies:packages/infrastructure/store-jsonl/package.json:@kb/test-kit": 1,
       "devDependencies:packages/test-support/render-tests/package.json:@kb/test-kit": 1,
       "duplicates:packages/app/ui/src/components/outline/node-content.tsx:NodeContent|NodeTextHost": 1,
       "exports:harness/src/constraints.ts:isPackageTestFile": 1,

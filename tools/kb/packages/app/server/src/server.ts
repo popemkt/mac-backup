@@ -1,5 +1,5 @@
 import { watch, type FSWatcher } from "node:fs";
-import { join, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import { Effect, Exit, Fiber, Scope } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
@@ -123,29 +123,43 @@ function makeReloadDebounce(ctx: KbContext): { trigger: () => void; stop: () => 
 }
 
 /**
- * Watch `.kb/nodes.jsonl`, falling back to its directory when the file does
- * not exist yet. Best effort: an unwatchable root simply gets no live reload.
+ * Watch the paths the store says are its own, falling back to `.kb/` for any
+ * that does not exist yet. Best effort: an unwatchable root simply gets no
+ * live reload.
+ *
+ * The store is asked rather than assumed. A JSONL store is one file and a
+ * sqlite store is a database plus its write-ahead log; an `if` here on which
+ * adapter the session got would put a backend's file layout inside a package
+ * that is supposed to know only the port.
  */
-function watchNodesFile(root: string, onEvent: () => void): FSWatcher | null {
-  try {
-    return watch(join(root, ".kb", "nodes.jsonl"), onEvent);
-  } catch {
-    // file may not exist yet — watch the .kb dir instead
+function watchStore(root: string, paths: readonly string[], onEvent: () => void): FSWatcher[] {
+  const watchers: FSWatcher[] = [];
+  const missing: string[] = [];
+  for (const path of paths) {
+    try {
+      watchers.push(watch(path, onEvent));
+    } catch {
+      missing.push(basename(path));
+    }
   }
+  if (missing.length === 0) return watchers;
+
   try {
-    return watch(join(root, ".kb"), (_event, filename) => {
-      if (
-        typeof filename !== "string" ||
-        filename === "" ||
-        filename === "nodes.jsonl" ||
-        filename.endsWith("nodes.jsonl")
-      ) {
-        onEvent();
-      }
-    });
+    watchers.push(
+      watch(join(root, ".kb"), (_event, filename) => {
+        if (
+          typeof filename !== "string" ||
+          filename === "" ||
+          missing.some((name) => filename === name || filename.endsWith(name))
+        ) {
+          onEvent();
+        }
+      }),
+    );
   } catch {
-    return null; // best-effort
+    // best-effort: the directory may not be watchable either
   }
+  return watchers;
 }
 
 /**
@@ -217,14 +231,14 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   const hub = new SubscriptionHub(ctx, savedQueryNodes(saved));
 
   const reload = makeReloadDebounce(ctx);
-  const watcher = watchNodesFile(opts.root, reload.trigger);
+  const watchers = watchStore(opts.root, ctx.store.watchPaths, reload.trigger);
   const server = serveUi({ hostname, port, root: opts.root, ctx, hub });
 
   yield* Scope.addFinalizer(
     lifetime,
     Effect.sync(() => {
       reload.stop();
-      watcher?.close();
+      for (const watcher of watchers) watcher.close();
       hub.dispose();
       void server.stop(true);
     }),

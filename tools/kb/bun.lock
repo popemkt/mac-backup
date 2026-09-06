@@ -74,6 +74,7 @@
         "@kb/operations": "workspace:*",
         "@kb/query": "workspace:*",
         "@kb/store-jsonl": "workspace:*",
+        "@kb/store-sqlite": "workspace:*",
         "@kb/tx-log": "workspace:*",
         "@kb/workspace-fs": "workspace:*",
         "effect": "catalog:",
@@ -111,9 +112,11 @@
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
+        "@kb/query": "workspace:*",
         "@kb/runtime": "workspace:*",
         "@kb/store-jsonl": "workspace:*",
         "effect": "catalog:",
+        "fast-check": "catalog:",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
@@ -284,10 +287,21 @@
         "effect": "catalog:",
       },
       "devDependencies": {
-        "@kb/query": "workspace:*",
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
-        "fast-check": "catalog:",
+      },
+    },
+    "packages/infrastructure/store-sqlite": {
+      "name": "@kb/store-sqlite",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@kb/test-kit": "workspace:*",
+        "@types/bun": "catalog:",
       },
     },
     "packages/infrastructure/tx-log": {
@@ -633,6 +647,8 @@
     "@kb/server": ["@kb/server@workspace:packages/app/server"],
 
     "@kb/store-jsonl": ["@kb/store-jsonl@workspace:packages/infrastructure/store-jsonl"],
+
+    "@kb/store-sqlite": ["@kb/store-sqlite@workspace:packages/infrastructure/store-sqlite"],
 
     "@kb/test-kit": ["@kb/test-kit@workspace:packages/app/test-kit"],
 

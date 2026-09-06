@@ -271,6 +271,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
       // A store with no fingerprint of its own: nothing to compare against, so
       // reload always goes to the port rather than short-circuiting.
       path: join(root, ".kb", "mock.jsonl"),
+      watchPaths: [],
       loadEffect: Effect.sync(() => {
         loads += 1;
         return injected;
@@ -294,6 +295,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
     const commits: StoreTx[] = [];
     const mock: EffectStore = {
       path: ctx.store.path,
+      watchPaths: [],
       loadEffect: Effect.succeed([]),
       fingerprint: Effect.succeed(null),
       commitEffect: (tx) =>

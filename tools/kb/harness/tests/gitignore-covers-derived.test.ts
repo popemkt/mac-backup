@@ -11,6 +11,7 @@ import { WORKSPACE_ROOT } from "../src/workspace.ts";
  *   properly ignored by git:
  *     - .kb/nodes.jsonl.lock (write lock)
  *     - .kb/nodes.jsonl.bak, *.bak (backup files)
+ *     - .kb/kb.sqlite-wal, .kb/kb.sqlite-shm (SqliteStore derived files)
  *     - .kb/cache/* (query/index cache)
  *     - reports/mutation/* (Stryker mutation test reports)
  *     - .stryker-tmp/* (Stryker temp files)
@@ -23,6 +24,8 @@ const REPO_ROOT = join(WORKSPACE_ROOT, "..", "..");
 const REQUIRED_IGNORED = [
   ".kb/nodes.jsonl.lock",
   ".kb/nodes.jsonl.bak",
+  ".kb/kb.sqlite-wal",
+  ".kb/kb.sqlite-shm",
   "tools/kb/.stryker-tmp/sandbox",
   "data.bak",
   "tools/kb/reports/mutation/report.html",

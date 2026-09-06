@@ -503,25 +503,52 @@ type PropValue =
 
 ## Storage (horizontal)
 
-```ts
-interface Store {
-  load(): Promise<KbNode[]>;
-  commit(tx: { upserts: KbNode[]; deletes: NodeId[] }): Promise<void>;
-}
-```
+The port is `EffectStore` in `packages/contract/contracts/src/store.ts`; that
+file is its canonical statement and this section does not restate its members.
+What matters here is that there are **two adapters behind it**, that the choice
+between them is a fact about the tree rather than a setting, and that
+everything above the port — operations, query, surfaces — sees only
+`EffectStore` + `KbNode`.
 
-- **JsonlStore v1**: `.kb/nodes.jsonl`, one canonical-JSON node per line,
-  sorted by id, sorted keys → stable bytes, mergeable diffs.
+Both adapters answer the same three questions and are proven by the same
+tests: `storeContract(name, makeStore)` in `@kb/test-kit` is one `describe`
+block that each adapter's test file calls with its own factory. A property
+that holds for one backend and not the other is not a store property, and the
+contract is where that gets found out.
+
+`storeBenchmark(name, makeStore)` sits beside it and is measured the same way:
+the 50k-node first write, cold load, datom build, query, `kb set`-shaped commit
+and interactive edit, printed and never asserted on — measured gates belong to
+Phase 4. Its phases are port-level, so the two adapters produce two columns of
+one table instead of two tables. The JSONL adapter's old read-versus-decode
+split went with that: it was measuring two halves of `JsonlStore.loadEffect`,
+which the port does not have. `briefs/p1-persistence.md` picks incremental
+reading up against that adapter's own internals when it gets there; keeping
+`decodeNodes` exported for a benchmark nobody runs yet would be a dead seam.
+
+The candidate second backends are **not** an open field:
+`briefs/p1-persistence.md` §0 is the canonical record of what was measured and
+rejected (Logseq's own fork — opaque Transit blobs, and their answer to git is
+"export markdown" — plus Cozo, Kuzu, Mentat, Datahike/XTDB, the server-backed
+graph databases, and the CRDT stores). Of those, `bun:sqlite` is the one that
+survived, and it survives twice over: as the store below, and — still
+unbuilt — as a derived, gitignored, deletable **index** that is never
+authoritative. Those are different things wearing the same library; the store
+is authoritative and committed, the index would not be.
+
+### JsonlStore — `.kb/nodes.jsonl`
+
+One canonical-JSON node per line, sorted by id, sorted keys → stable bytes,
+mergeable diffs. This is the adapter a repo gets by default, because a text
+file is the format git already understands.
+
 - **Performance is a stated requirement**, and what the code does today is:
   read the whole file into one string, split on newlines, decode each line
   through `Schema`; single-pass datom build; durable whole-file replace
   (below). Incremental file reading is a target owned by
   `briefs/p1-persistence.md`, not a description of the current implementation.
-  `tests/benchmark.test.ts` records the 50k-node read, decode, datom-build,
-  query, set-shaped commit, and interactive-edit timings without gating them;
-  measured gates belong to Phase 4. `.bak`, `nodes.jsonl.lock`,
-  `nodes.jsonl.*.tmp`, and `.kb/cache/` are gitignored — only the live
-  `nodes.jsonl` is committed.
+  `.bak`, `nodes.jsonl.lock`, `nodes.jsonl.*.tmp`, and `.kb/cache/` are
+  gitignored — only the live `nodes.jsonl` is committed.
 - **Write hardening** (r4 Stage-0 — on-disk format unchanged), two modules
   in `@kb/store-jsonl`:
   - `write-lock.ts` — an exclusive `.kb/nodes.jsonl.lock` carrying the holder
@@ -541,20 +568,130 @@ interface Store {
   (same fail-closed posture as the pre-Schema `JSON.parse` loader). Unknown own
   JSON properties on otherwise-valid nodes are preserved across decode so a later
   commit cannot silently drop them.
-- Backend-agnostic by construction — operations/query/surfaces see only
-  `Store` + `KbNode`. The candidate second backends are **not** an open field
-  any more: `briefs/p1-persistence.md` §0 is the canonical record of what was
-  measured and rejected (Logseq's own fork — opaque Transit blobs, and their
-  answer to git is "export markdown" — plus Cozo, Kuzu, Mentat, Datahike/XTDB,
-  the server-backed graph databases, and the CRDT stores). What survives is a
-  `bun:sqlite` **index**: derived, gitignored, fingerprinted against the JSONL,
-  deletable at any time, and never authoritative — the type must say so.
-- No WAL, no leases — repo scale. The lock above is advisory, filesystem-local
-  and process-scoped; it serializes writers but does not make a _reader's_
-  snapshot binding. Conditional writes (an `expect` precondition carrying graph
-  identity / node hash, returning the existing `conflict` receipt) are designed
-  in `docs/kb/waves/2026-08-23/reports/r8-zerolang.md` §1 and **parked** — no
+- **Fingerprint** is size + mtime: the cheap answer, with a blind spot for a
+  write that lands inside one mtime tick *and* keeps the byte count identical
+  (GAP `01M1PK5NYA7ZG3XC0H0YRYRVZE`). That gap is JSONL's, not the port's — see
+  below.
+
+### SqliteStore — `.kb/kb.sqlite`
+
+`@kb/store-sqlite` over `bun:sqlite`. Same nodes, same canonical JSON, a
+different container.
+
+```sql
+CREATE TABLE nodes (id TEXT PRIMARY KEY, body TEXT NOT NULL);
+CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
+```
+
+- `body` is **the same `canonicalJson(node)` string the JSONL writes**, one row
+  per node instead of one line per node. Not a column per field: the row is a
+  node's bytes, and the only thing the store promises is to give them back. A
+  column per field would be a second, partial copy of the node schema living in
+  DDL — the exact mirror Rule 1 forbids — and it would have to grow every time
+  the model does. `id` is the primary key because it is the identity the model
+  already has.
+- **Decode is the JSONL decoder.** `decodeStoredNode` lives in `@kb/model`
+  beside `KbNodeSchema` and `nodeParseOptions`, and both adapters call it; the
+  JSONL loader adds line numbers, the sqlite loader adds the row id. "How a
+  stored node becomes a `KbNode`" is one function, so unknown-key preservation
+  and correlated `PropValue` validation cannot drift between backends. Load is
+  all-or-nothing here too: one bad row fails the whole load with an
+  `invalid_input` naming that row's id.
+- `.kb/kb.sqlite` is the committed file, the way `nodes.jsonl` is; `-wal` and
+  `-shm` are derived and gitignored.
+- `PRAGMA journal_mode = WAL`, `synchronous = NORMAL`, `busy_timeout = 15000`.
+  WAL so a reader is never blocked by the writer; `NORMAL` because the same
+  durability trade the JSONL adapter makes (ordering-safe, no `F_FULLFSYNC`) is
+  the honest one at repo scale; the busy timeout is the same 15s ceiling
+  `write-lock.ts` already spends waiting, so a contended commit behaves the same
+  on both adapters rather than failing fast on one and spinning on the other.
+- **No `.lock` file.** `BEGIN IMMEDIATE … COMMIT` takes sqlite's own write lock
+  for the whole deletes → upserts → `rev += 1` transaction. A second lock beside
+  it would be two mechanisms for one concept, and the weaker one would be the
+  one that lies.
+- **Fingerprint is `${rev}:${data_version}`.** `rev` is a counter this store
+  bumps inside every commit transaction, so it moves even when a commit's
+  content is byte-identical to what was there — the case JSONL's size+mtime
+  cannot see. `PRAGMA data_version` moves when *another connection* commits,
+  which is what catches a writer that bypassed `rev` entirely (a `VACUUM`, a
+  hand-run `sqlite3`). Neither alone is the whole answer; together they are.
+  Null when the file does not exist, so an unopened store compares equal to
+  nothing. **This closes the size+mtime blind spot for sqlite only.** The gap
+  node stays open because it is still true of the JSONL adapter, which is still
+  the default.
+- **The store owns the connection.** It opens lazily on first `load` or
+  `commit` and stays open for the store's lifetime; `close()` exists for tests.
+  The caller cannot own it: `EffectStore` is constructed once per session and
+  handed to layers, actions and the watcher as a value, and none of them has a
+  lifetime to hang a connection off — `KbContext` is not scoped. Making the
+  connection the caller's problem would push a resource into every host that
+  today constructs a store and forgets about it, to buy nothing: one process,
+  one session, one connection.
+
+### Choosing an adapter — presence, not configuration
+
+`selectStore(root)` in `@kb/runtime` (the one composition root) answers by
+looking:
+
+| `.kb/kb.sqlite` | `.kb/nodes.jsonl` | store |
+|---|---|---|
+| absent | either | `JsonlStore` |
+| present | absent | `SqliteStore` |
+| present | present | `conflict`, naming both paths |
+
+Presence rather than a config key because there is nothing else to configure —
+the answer is a single bit, the file that holds the data is the least
+surprising place to keep it, and a config file that disagreed with the tree
+would be a second source of truth for which store is real. Both present is an
+error rather than a precedence rule: a precedence rule would silently pick one
+and leave the other's writes stranded, which is the failure mode worth being
+loud about. The code is `conflict` — two stores claiming the same root is
+exactly that — because `DomainError` has no `invalid_state`, and inventing one
+would widen `FailureCode`, the receipt mapping and the wire protocol for a
+single call site.
+
+### The store says what to watch
+
+`EffectStore.watchPaths` is the list of filesystem paths whose change means
+"someone else wrote the store" (`[nodes.jsonl]` for JSONL; `[kb.sqlite,
+kb.sqlite-wal]` for sqlite). The `kb ui` server watches those paths and asks
+for nothing else. The alternative — an `if` in the server keyed on the adapter
+— puts knowledge of a backend's file layout in a package that is supposed to
+know only the port, and would need editing for every future adapter.
+
+### Migrating between adapters
+
+`kb store migrate --to <jsonl|sqlite>`: load every node from the store that is
+present, commit them into the other, then delete the source's files
+(`nodes.jsonl` + `.bak`, or `kb.sqlite` + `-wal`/`-shm`) so that presence stays
+unambiguous the moment the command returns. It refuses when the target already
+exists — that is the "both present" state the selector rejects, and the
+migration is not entitled to resolve it.
+
+It is a CLI command in `@kb/cli`, not an action in `@kb/operations`, and the
+reason is structural rather than a preference: `@kb/operations` is
+`scope:shared` and sits in the `application` layer, so it may import neither
+`bun:`/`node:` nor an infrastructure package. Migration is defined by
+constructing *both concrete adapters* and deleting *their* files; written
+against `EffectStore` alone it cannot name a single one of those things. The
+one place that legitimately knows both adapters exist is the composition root,
+so `migrateStore` lives beside `selectStore` in `@kb/runtime` and the CLI
+command is a thin surface over it.
+
+### What is still true of both
+
+- No leases. The JSONL lock is advisory, filesystem-local and process-scoped;
+  sqlite's is real but equally process-local. Either serializes writers; neither
+  makes a _reader's_ snapshot binding. Conditional writes (an `expect`
+  precondition carrying graph identity / node hash, returning the existing
+  `conflict` receipt) are designed in
+  `docs/kb/waves/2026-08-23/reports/r8-zerolang.md` §1 and **parked** — no
   action input accepts `expect` today.
+- The index is `DatascriptIndex` in memory on both, and the tx log is
+  `MemoryTxLog` on both. Choosing sqlite for the store buys nothing for either
+  yet; an SQL-backed `KbIndex` needs an IR → SQL compiler and a durable tx log
+  as a sqlite table needs a schema, and both are recorded as gaps rather than
+  smuggled in here.
 
 ## Query layer (horizontal)
 

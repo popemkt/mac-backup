@@ -14,9 +14,11 @@
     "@kb/contracts": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",
+    "@kb/query": "workspace:*",
     "@kb/runtime": "workspace:*",
     "@kb/store-jsonl": "workspace:*",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "fast-check": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

@@ -13,6 +13,10 @@ import {
   type ActionHandlerEnv,
   resolveRootEffect,
   RootNotFoundError,
+  STORE_BACKENDS,
+  createStore,
+  migrateStore,
+  type StoreBackend,
   writeOut,
   writeErr,
 } from "@kb/runtime";
@@ -161,18 +165,27 @@ function kbAction<A extends readonly unknown[], E>(
     globals: GlobalOpts,
     args: A,
   ) => Effect.Effect<number, E, ActionHandlerEnv>,
-  opts: { allowCreateRoot?: boolean } = {},
 ): (this: Command, ...args: A) => Promise<void> {
   return cliAction((globals, args) =>
     Effect.gen(function* () {
-      const root = yield* resolveRootEffect({
-        root: globals.root,
-        allowCreate: opts.allowCreateRoot === true,
-      });
+      const root = yield* resolveRootEffect({ root: globals.root });
       const ctx = yield* openKbEffect(root);
       return yield* body(ctx, globals, args).pipe(Effect.provide(kbRuntimeLayer(ctx)));
     }),
   );
+}
+
+/** `--store` / `--to`: one of {@link STORE_BACKENDS}, or a usage failure. */
+function parseStoreBackend(value: string, flag: string): StoreBackend {
+  const found = STORE_BACKENDS.find((name) => name === value);
+  if (found === undefined) {
+    throw new CommanderError(
+      EXIT_USAGE,
+      "commander.invalidArgument",
+      `${flag} must be one of ${STORE_BACKENDS.join(", ")} (got ${JSON.stringify(value)})`,
+    );
+  }
+  return found;
 }
 
 function ensureFieldsEffect(
@@ -358,45 +371,73 @@ function buildProgram(): Command {
     .command("init")
     .description("Initialize .kb/ at --root or cwd")
     .option("--bare", "skip the example content (supertags, fields, query, ontologies)")
+    .option(`--store <${STORE_BACKENDS.join("|")}>`, "storage backend", "jsonl")
     .action(
-      kbAction(
-        (ctx, globals, [opts]: [{ bare?: boolean }]) =>
-          Effect.gen(function* () {
-            const fs = yield* FileSystem;
-            yield* fs
-              .makeDirectory(join(ctx.root, ".kb", "queries"), {
-                recursive: true,
-              })
-              .pipe(Effect.mapError(ensureDomainError));
+      // Not `kbAction`: init is the one command that runs *before* a session
+      // could be opened — it creates the root and picks the store the open
+      // will then select. `ext-sdk --write` opens the same way.
+      cliAction((globals, [opts]: [{ bare?: boolean; store?: string }]) =>
+        Effect.gen(function* () {
+          const backend = parseStoreBackend(opts.store ?? "jsonl", "--store");
+          const root = yield* resolveRootEffect({ root: globals.root, allowCreate: true });
+          const fs = yield* FileSystem;
+          yield* fs
+            .makeDirectory(join(root, ".kb", "queries"), { recursive: true })
+            .pipe(Effect.mapError(ensureDomainError));
+          yield* createStore(root, backend);
 
-            /*
-             * Example content lands here rather than in the system seed on
-             * purpose: the seed runs on every open and is write-guarded, so
-             * demo nodes there would come back after you deleted them and no
-             * test fixture could avoid them. Init runs once, by choice, and
-             * only fills a store nobody has put anything into yet.
-             */
-            let examples = 0;
-            if (opts.bare !== true && isPristine(ctx.nodes)) {
-              const nodes = exampleSeedNodes(yield* currentIso);
-              yield* persistEffect(ctx, { upserts: nodes, deletes: [] });
-              examples = nodes.length;
-            }
+          const ctx = yield* openKbEffect(root);
 
-            const msg =
-              globals.json === true
-                ? JSON.stringify({
-                    status: "succeeded",
-                    id: "init",
-                    output: { root: ctx.root, exampleNodes: examples },
-                  })
-                : examples > 0
-                  ? `initialized ${join(ctx.root, ".kb")} with ${examples} example nodes (ordinary nodes — delete any of them)`
-                  : `initialized ${join(ctx.root, ".kb")}`;
-            writeOut(msg);
-            return EXIT_OK;
-          }),
-        { allowCreateRoot: true },
+          /*
+           * Example content lands here rather than in the system seed on
+           * purpose: the seed runs on every open and is write-guarded, so
+           * demo nodes there would come back after you deleted them and no
+           * test fixture could avoid them. Init runs once, by choice, and
+           * only fills a store nobody has put anything into yet.
+           */
+          let examples = 0;
+          if (opts.bare !== true && isPristine(ctx.nodes)) {
+            const nodes = exampleSeedNodes(yield* currentIso);
+            yield* persistEffect(ctx, { upserts: nodes, deletes: [] }).pipe(
+              Effect.provide(kbRuntimeLayer(ctx)),
+            );
+            examples = nodes.length;
+          }
+
+          const msg =
+            globals.json === true
+              ? JSON.stringify({
+                  status: "succeeded",
+                  id: "init",
+                  output: { root: ctx.root, store: backend, exampleNodes: examples },
+                })
+              : examples > 0
+                ? `initialized ${join(ctx.root, ".kb")} (${backend}) with ${examples} example nodes (ordinary nodes — delete any of them)`
+                : `initialized ${join(ctx.root, ".kb")} (${backend})`;
+          writeOut(msg);
+          return EXIT_OK;
+        }),
+      ),
+    );
+
+  const store = program.command("store").description("Storage backend operations");
+  store
+    .command("migrate")
+    .description(`Move this root's nodes to the other backend and remove the old files`)
+    .requiredOption(`--to <${STORE_BACKENDS.join("|")}>`, "target backend")
+    .action(
+      cliAction((globals, [opts]: [{ to: string }]) =>
+        Effect.gen(function* () {
+          const target = parseStoreBackend(opts.to, "--to");
+          const root = yield* resolveRootEffect({ root: globals.root });
+          const result = yield* migrateStore(root, target);
+          writeOut(
+            globals.json === true
+              ? JSON.stringify({ status: "succeeded", id: "store.migrate", output: result })
+              : `migrated ${String(result.nodes)} nodes from ${result.from} to ${result.to} (${result.path})`,
+          );
+          return EXIT_OK;
+        }),
       ),
     );
 

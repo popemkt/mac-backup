@@ -25,7 +25,12 @@ export {
 export type { FieldType } from "./field-type.ts";
 export { SYSTEM_IDS, currentIso, freshId, isSysPrefixed, nowIso } from "./model.ts";
 export type { KbNode, NodeId, PropValue } from "./model.ts";
-export { KbNodeSchema, PropValueSchema, nodeParseOptions } from "./node-schema.ts";
+export {
+  KbNodeSchema,
+  PropValueSchema,
+  decodeStoredNode,
+  nodeParseOptions,
+} from "./node-schema.ts";
 export {
   DEFAULT_MAX_DEPTH,
   LIST_ONTOLOGIES_QUERY,

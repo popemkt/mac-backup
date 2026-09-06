@@ -129,6 +129,7 @@ export default actions;
     const commits: StoreTx[] = [];
     const fakeStore: EffectStore = {
       path: join(root, ".kb", "nodes.jsonl"),
+      watchPaths: [],
       loadEffect: Effect.succeed(ctx.nodes),
       fingerprint: Effect.succeed(null),
       commitEffect: (tx) =>
