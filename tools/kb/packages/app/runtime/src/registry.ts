@@ -17,6 +17,7 @@ import { discoverExtensions, namespacedId } from "./extension-loader.ts";
 import { writeErr } from "./output.ts";
 import { docsActions, docsTemplates } from "@kb/ext-docs";
 import { canvasActions } from "@kb/ext-canvas";
+import { checkActions } from "@kb/ext-check";
 
 /** Services Effect-native handlers may require; provided at the invoke tip. */
 export type { ActionHandlerEnv } from "@kb/contracts";
@@ -65,6 +66,7 @@ export interface Registry {
 const BUNDLED_EXTENSIONS: readonly LoadedExtension[] = [
   { name: "docs", source: "bundled", actions: docsActions, templates: docsTemplates },
   { name: "canvas", source: "bundled", actions: canvasActions, templates: [] },
+  { name: "check", source: "bundled", actions: checkActions, templates: [] },
 ];
 
 const buildRegistry = Effect.fnUntraced(function* (

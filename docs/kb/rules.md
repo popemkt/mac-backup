@@ -10,33 +10,34 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 | Rule | Home | Scope | Principle | Enforcement | Gate |
 |---|---|---|---|---|---|
-| Admission gate | CLAUDE.md#gate-run-first | repo | Every session and every commit records admission through the one gate script; a missing tool is restored, never worked around. | hook | .githooks/pre-commit runs intent/gate.sh record git-commit |
-| Generated docs are data | CLAUDE.md#kb--repo-knowledge-base | repo | Files under docs/kb are materialized from kb nodes; the data is edited and the file is regenerated, never the other way round. | hook | .githooks/pre-commit runs docs.check |
-| Isomorphism fence | docs/kb/waves/2026-09-03/plan.md | tools/kb shared packages | Shared packages run in the browser too: no runtime-only imports. Platform access belongs to an infrastructure or app package. | harness | harness boundaries — isomorphism fence test (2026-09-04) |
-| Module boundaries | tools/kb/harness/src/constraints.ts | tools/kb | Layer and scope direction are enforced mechanically from package folders, manifest scope tags, and source imports; shared packages remain runtime-isomorphic. | harness | bun run harness (boundaries.test.ts) |
+| Admission gate | CLAUDE.md#gate-run-first | repo | Every session and every commit records admission through the one gate script; a missing tool is restored, never worked around. | hook | — |
+| Generated docs are data | CLAUDE.md#kb--repo-knowledge-base | repo | Files under docs/kb are materialized from kb nodes; the data is edited and the file is regenerated, never the other way round. | hook | — |
+| Compiler strictness contract | tools/kb/DESIGN.md#compiler-strictness-contract | tools/kb | One base tsconfig owns strictness; the DESIGN.md table is the contract, packages declare only their delta, and a rejected flag is recorded with its measured count. | harness | — |
+| Drift markers | CLAUDE.md#drift-markers-and-gaps | repo | A deferred clean shape carries a GAP marker at the deferral site and a matching gap node naming expected, current, impact and closes. An unlabelled workaround is drift. | harness | — |
+| Isomorphism fence | docs/kb/waves/2026-09-03/plan.md | tools/kb shared packages | Shared packages run in the browser too: no runtime-only imports. Platform access belongs to an infrastructure or app package. | harness | — |
+| Lint scope coverage | docs/kb/waves/2026-09-03/briefs/g2-strict-stack.md | tools/kb | Every TS file, tracked or merely untracked-and-not-ignored, falls in exactly one lint scope. A second severity tier for the same rules is a second quality stack wearing a disguise. | harness | — |
+| Minimal valid entrypoints | tools/kb/DESIGN.md#runtimetooling-boundary | tools/kb | Every way to start the system is a named script that a fresh shell can run; no raw invocation below the entrypoint layer, and removal is a deletion, not a deprecation. | harness | — |
+| Module boundaries | tools/kb/harness/src/constraints.ts | tools/kb | Layer and scope direction are enforced mechanically from package folders, manifest scope tags, and source imports; shared packages remain runtime-isomorphic. | harness | — |
+| No conflict markers | docs/kb/waves/2026-09-03/briefs/g2-strict-stack.md | repo | A committed merge-conflict marker fails the build. | harness | — |
+| Public surface | docs/kb/waves/2026-09-03/briefs/w1-workspace.md | tools/kb packages | Every package exposes exactly one barrel of named exports; no star re-exports and no deep imports past it. | harness | — |
+| Rule checks are nodes | tools/kb/AGENTS.md#extensions | kb rule index | A machine-enforced rule references its check node; enforcement is derived from the check surface, and the obsolete gate is removed. | harness | — |
+| Skip pairing | CLAUDE.md#drift-markers-and-gaps | tools/kb tests | Every skip or todo test names a GAP node within three lines. A skipped test is a debt, not a solved problem. | harness | — |
+| Two-mechanism soft rules | CLAUDE.md#drift-markers-and-gaps | tools/kb | A soft lint rule is either error plus pinpoint GAP disables (up to about 30 sites) or a frozen ratchet lane; never both, never a third. | harness | — |
+| UI import matrix | tools/kb/harness/src/constraints.ts | tools/kb packages/app/ui | Who may import whom inside the UI is one table — UI_ALLOWS in constraints.ts, keyed by the zone a file sits in — and the harness applies it to every intra-package import. ARCHITECTURE.md links to that table; a sanctioned breach carries a GAP marker on its import line. | harness | — |
+| Version authored once | docs/kb/waves/2026-09-03/briefs/w1-workspace.md | tools/kb workspace | Internal deps are workspace refs and external deps are catalog refs; no literal, floating or latest specifier appears in any manifest. | harness | — |
+| Warn ratchet | docs/kb/waves/2026-09-03/briefs/g2-strict-stack.md | tools/kb | Warn-lane counts are frozen per rule whole-repo: a rise fails, a drop prompts a re-snapshot, a rule at zero must be promoted. A newly enabled rule cannot arrive pre-forgiven. | harness | — |
+| Code-unit cohesion (L1/L2/L3) | tools/kb/DESIGN.md#testing-doctrine | tools/kb | Boundaries and branching gate; size only warns; semantic cohesion is a reviewer verdict. A unit may be long, it may not be tangled. | lint | — |
+| Domain typing — parse unknown at the boundary | tools/kb/DESIGN.md#domain-typing--effect-schema | tools/kb | Every boundary parses unknown into the domain type. A cast or a non-null assertion on a domain value means the schema is too loose; tighten the schema instead. | lint | — |
 | Abstraction before addition (Rule 1) | CLAUDE.md#rule-1--abstraction-before-addition | repo | Every change lands in the shape it would have had if the requirement had always existed; when the model does not fit, the model gets fixed, not special-cased. | prose | — |
 | Canonical statements | CLAUDE.md#canonical-statements | repo | Every rule, principle and decision has exactly one home; other files link to it and never restate it. Restatement is drift. | prose | — |
-| Code-unit cohesion (L1/L2/L3) | tools/kb/DESIGN.md#testing-doctrine | tools/kb | Boundaries and branching gate; size only warns; semantic cohesion is a reviewer verdict. A unit may be long, it may not be tangled. | prose | oxlint complexity + max-depth (g2); harness boundaries (w1) |
-| Compiler strictness contract | tools/kb/DESIGN.md#compiler-strictness-contract | tools/kb | One base tsconfig owns strictness; the DESIGN.md table is the contract, packages declare only their delta, and a rejected flag is recorded with its measured count. | prose | harness tsconfig-contract (g2) |
 | Coverage is a signal | tools/kb/DESIGN.md#testing-doctrine | tools/kb | Coverage is reported and never a threshold; chasing a percentage manufactures exactly the noise the testing doctrine forbids. | prose | — |
 | Domain typing — discriminator over optional | tools/kb/DESIGN.md#domain-typing--effect-schema | tools/kb | If the rule for when a field appears is encodable, lift it into a discriminator instead of declaring an optional field. | prose | — |
 | Domain typing — literal discriminators | tools/kb/DESIGN.md#domain-typing--effect-schema | tools/kb | A discriminator is a literal or an enum of literals, never a bare string. | prose | — |
 | Domain typing — one canonical schema | tools/kb/DESIGN.md#domain-typing--effect-schema | tools/kb | A shared shape is declared once and referenced; an inline re-declaration of it is a divergence waiting to drop a field. | prose | — |
-| Domain typing — parse unknown at the boundary | tools/kb/DESIGN.md#domain-typing--effect-schema | tools/kb | Every boundary parses unknown into the domain type. A cast or a non-null assertion on a domain value means the schema is too loose; tighten the schema instead. | prose | oxlint no-explicit-any + consistent-type-assertions (g2) |
-| Drift markers | CLAUDE.md#drift-markers-and-gaps | repo | A deferred clean shape carries a GAP marker at the deferral site and a matching gap node naming expected, current, impact and closes. An unlabelled workaround is drift. | prose | harness gap-markers-resolve (g2) |
 | Effect v4 idiom | tools/kb/AGENTS.md#effect | tools/kb | Read the shipped Effect AGENTS.md before writing Effect code; the v4 non-negotiables listed there are not optional and v3 memory is wrong. | prose | @effect/tsgo diagnostics through tsc (g2) |
-| Lint scope coverage | docs/kb/waves/2026-09-03/briefs/g2-strict-stack.md | tools/kb | Every TS file, tracked or merely untracked-and-not-ignored, falls in exactly one lint scope. A second severity tier for the same rules is a second quality stack wearing a disguise. | prose | harness lint-scope-coverage (g2) |
-| Minimal valid entrypoints | tools/kb/DESIGN.md#runtimetooling-boundary | tools/kb | Every way to start the system is a named script that a fresh shell can run; no raw invocation below the entrypoint layer, and removal is a deletion, not a deprecation. | prose | harness scripts-chain-exists (g2) |
 | Mutation score is advisory | tools/kb/DESIGN.md#testing-doctrine | tools/kb | The kill score is a sensor a human reads to find a missing test; it never blocks a merge, and kb's own weekly run declares itself non-reproducible. | prose | — |
-| No conflict markers | docs/kb/waves/2026-09-03/briefs/g2-strict-stack.md | repo | A committed merge-conflict marker fails the build. | prose | harness no-conflict-markers (g2) |
 | Property selection | tools/kb/DESIGN.md#testing-doctrine | tools/kb tests | A property states a falsifiable domain claim and is exercised from the rejecting side. TAUTOLOGY, STRUCTURAL and quantifier theatre are review verdicts cited by name. | prose | — |
-| Public surface | docs/kb/waves/2026-09-03/briefs/w1-workspace.md | tools/kb packages | Every package exposes exactly one barrel of named exports; no star re-exports and no deep imports past it. | prose | harness public-surface (w1) |
-| Skip pairing | CLAUDE.md#drift-markers-and-gaps | tools/kb tests | Every skip or todo test names a GAP node within three lines. A skipped test is a debt, not a solved problem. | prose | harness skip-pairing (g2) |
 | Spec-first changes | tools/kb/DESIGN.md#spec-first-changes | tools/kb | The design doc is edited before the code it describes, in the same change and earlier in commit order. If the section cannot be written, the code cannot be written. | prose | — |
-| Two-mechanism soft rules | CLAUDE.md#drift-markers-and-gaps | tools/kb | A soft lint rule is either error plus pinpoint GAP disables (up to about 30 sites) or a frozen ratchet lane; never both, never a third. | prose | harness lint-warn-ratchet + gap-markers-resolve (g2) |
-| UI import matrix | tools/kb/harness/src/constraints.ts#ui | tools/kb packages/app/ui | Who may import whom inside the UI is one table — UI_ALLOWS in constraints.ts, keyed by the zone a file sits in — and the harness applies it to every intra-package import. ARCHITECTURE.md links to that table; a sanctioned breach carries a GAP marker on its import line. | prose | harness ui-boundaries |
-| Version authored once | docs/kb/waves/2026-09-03/briefs/w1-workspace.md | tools/kb workspace | Internal deps are workspace refs and external deps are catalog refs; no literal, floating or latest specifier appears in any manifest. | prose | harness version-authored-once (w1) |
-| Warn ratchet | docs/kb/waves/2026-09-03/briefs/g2-strict-stack.md | tools/kb | Warn-lane counts are frozen per rule whole-repo: a rise fails, a drop prompts a re-snapshot, a rule at zero must be promoted. A newly enabled rule cannot arrive pre-forgiven. | prose | harness lint-warn-ratchet (g2) |
 
 ## Gaps
 
@@ -408,15 +409,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — SLAP-extract explicitColumns / derivedColumns / mergeColumns and keep the existing view-config tests green.
 - **node** — `01M1MGCJYB7PZXM68T4AVBECYG`
 
-### GAP: rule enforcement is hand-typed instead of derived
-
-- **expected** — Each rule references a machine-readable #check node, and enforcement plus gate are derived from a verified execution surface.
-- **current** — Rule enforcement and gate are free-text fields maintained by hand, so recorded prose can contradict the live harness, lint, hook, or CI path.
-- **impact** — The canonical rule index cannot reliably answer what is checked, where it runs, or which rules remain prose-only.
-- **closes** — Model checks as nodes, make rule gate a reference, derive enforcement, and validate checker existence plus invocation from verify, hook, and CI.
-- **rule** — Canonical statements
-- **node** — `01M1PJXPBSJ6J25ZCEAX0G0AN7`
-
 ### GAP: runPaletteCommand dispatches palette commands with a 37-branch chain
 
 - **expected** — Palette commands are registry entries ({id, isAvailable, run}), the same shape kb actions already use, and the runner looks one up.
@@ -667,6 +659,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Exactly the parallel-mechanism shape Rule 1 forbids: a change to caret behaviour has to be made twice, and the deprecation says which one is wrong without removing it.
 - **closes** — Delete cursorPosition from OutlineState, its initial value, its activateNode write, and the unread NodeTextHost prop. TypeScript excess-property checks then require removing 'cursorPosition: 0,' from the hand-copied store-reset literal in 24 ui test files, which is the whole remaining cost - one line each. The reset duplication itself is the obstacle; a shared resetOutlineStore() helper would make this a three-line change.
 - **node** — `01M1MGT307N4K243CBPJTXNG5X`
+
+### GAP: rule enforcement is hand-typed instead of derived
+
+- **expected** — Each rule references a machine-readable #check node, and enforcement plus gate are derived from a verified execution surface.
+- **current** — Rule enforcement and gate are free-text fields maintained by hand, so recorded prose can contradict the live harness, lint, hook, or CI path.
+- **impact** — The canonical rule index cannot reliably answer what is checked, where it runs, or which rules remain prose-only.
+- **closes** — Model checks as nodes, make rule gate a reference, derive enforcement, and validate checker existence plus invocation from verify, hook, and CI.
+- **rule** — Canonical statements
+- **node** — `01M1PJXPBSJ6J25ZCEAX0G0AN7`
 
 ### GAP: rules view needs a template the docs extension cannot own
 

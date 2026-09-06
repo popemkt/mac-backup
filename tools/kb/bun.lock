@@ -26,6 +26,7 @@
       },
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/ext-check": "workspace:*",
         "@kb/ext-docs": "workspace:*",
         "@kb/ext-sdk": "workspace:*",
         "@kb/mcp": "workspace:*",
@@ -68,6 +69,7 @@
       "dependencies": {
         "@kb/contracts": "workspace:*",
         "@kb/ext-canvas": "workspace:*",
+        "@kb/ext-check": "workspace:*",
         "@kb/ext-docs": "workspace:*",
         "@kb/ext-sdk": "workspace:*",
         "@kb/model": "workspace:*",
@@ -260,6 +262,21 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/ext-check": {
+      "name": "@kb/ext-check",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/operations": "workspace:*",
+        "effect": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
@@ -627,6 +644,8 @@
     "@kb/contracts": ["@kb/contracts@workspace:packages/contract/contracts"],
 
     "@kb/ext-canvas": ["@kb/ext-canvas@workspace:packages/extension/ext-canvas"],
+
+    "@kb/ext-check": ["@kb/ext-check@workspace:packages/extension/ext-check"],
 
     "@kb/ext-docs": ["@kb/ext-docs@workspace:packages/extension/ext-docs"],
 
