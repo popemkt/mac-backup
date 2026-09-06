@@ -39,9 +39,9 @@ describe("sys.* UI write-guard", () => {
   });
 
   it("transient create under a sys.* parent returns null with a toast", async () => {
-    const newId = await mutations.createTransientNode("sys.tag.query", null);
+    const newId = await mutations.createTransientNode("sys.f.query", null);
     expect(newId).toBeNull();
-    expect(useOutlineStore.getState().nodes.has("sys.tag.query")).toBe(true);
+    expect(useOutlineStore.getState().nodes.has("sys.f.query")).toBe(true);
     expect(useUiStore.getState().toasts.some((t) => /sys\.\*/.test(t.text))).toBe(true);
   });
 

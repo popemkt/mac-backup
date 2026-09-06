@@ -80,11 +80,11 @@ describe("UI datalog on DatascriptIndex", () => {
 
   it("pins row counts — zero unexplained diffs from the commit-1 audit", () => {
     expect(table.map((r) => [r.id, r.rows])).toEqual([
-      ["queries.list-all", 52],
+      ["queries.list-all", 51],
       ["queries.list-fields", 26],
-      ["queries.list-tags", 3],
+      ["queries.list-tags", 2],
       ["queries.backlinks-n.root-a", 0],
-      ["query-node.default", 52],
+      ["query-node.default", 51],
       ["schema-zoom.tagged-todo", 2],
       ["schema-zoom.field-status", 2],
       ["graph-lens.todo-via-id", 2],

@@ -75,7 +75,7 @@ export const QueryKind: Story = {
     node: stubOutlineNode({
       id: "n3",
       text: "Live query",
-      tags: [{ id: "sys.tag.query", name: "query", color: "#8b5cf6" }],
+      props: { "sys.f.query": [{ t: "str", v: "[:find ?id :where [?n :node/id ?id]]" }] },
     }),
     collapsible: true,
     onClick: noop,

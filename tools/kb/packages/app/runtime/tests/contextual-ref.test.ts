@@ -60,15 +60,13 @@ describe("seed: the ref.target field, and no #ref tag", () => {
     expect(fieldTypeOf(present(field, "expected field").props)).toBe("ref");
   });
 
-  test("seeds no supertag whose whole job is to mark the field's presence", () => {
-    // A tag that templates one field and gates no picker is a marker, not a
-    // thing — the strip test in DESIGN → Kinds, roles and options.
+  test("seeds no `ref` supertag — a node with no target is not a reference", () => {
+    // The general claim (what a supertag is for) lives in @kb/model's
+    // kinds.test.ts; this pins the one tag this feature used to carry.
     const texts = systemSeedNodes()
       .filter((n) => refs(n, SYSTEM_IDS.typeField).includes(SYSTEM_IDS.tag))
       .map((n) => n.text);
     expect(texts).not.toContain("ref");
-    expect(texts).not.toContain("query");
-    expect(texts).not.toContain("field-type");
   });
 
   test("ensureSystemSeed stays idempotent and heals a store missing the field", () => {
