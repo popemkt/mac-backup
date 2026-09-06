@@ -7,8 +7,9 @@ import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/fixtures/graph";
-import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
+import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
+import { resetOutlineStore } from "@/test-support/outline-store";
 
 vi.mock("sigma", () => ({ default: class {} }));
 vi.mock("sigma/rendering", () => ({ EdgeArrowProgram: class {} }));
@@ -39,20 +40,7 @@ vi.mock("@/components/graph/force3d-graph", () => ({
 import GraphPage from "./graph-page";
 
 function seed() {
-  useOutlineStore.setState({
-    nodes: new Map(),
-    wireNodes: [],
-    index: null,
-    rev: 0,
-    rootNodeId: WORKSPACE_ROOT_ID,
-    homeRootId: WORKSPACE_ROOT_ID,
-    activeNodeId: null,
-    activeInstanceKey: null,
-    selectedNodeId: null,
-    selectedInstanceKey: null,
-    loadSource: null,
-    loadError: null,
-  });
+  resetOutlineStore();
   useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
 }
 

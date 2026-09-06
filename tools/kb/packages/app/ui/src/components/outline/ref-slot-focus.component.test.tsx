@@ -11,8 +11,9 @@ import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
-import { WORKSPACE_ROOT_ID, type PropValue } from "@/lib/types";
+import type { PropValue } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
+import { resetOutlineStore } from "@/test-support/outline-store";
 import { FieldValueStack } from "./fields-section";
 
 const ISO = "2026-08-08T05:00:00.000Z";
@@ -22,20 +23,7 @@ function wire(partial: Pick<WireNode, "id" | "text"> & Partial<WireNode>): WireN
 }
 
 function seed() {
-  useOutlineStore.setState({
-    nodes: new Map(),
-    wireNodes: [],
-    index: null,
-    rev: 0,
-    rootNodeId: WORKSPACE_ROOT_ID,
-    homeRootId: WORKSPACE_ROOT_ID,
-    activeNodeId: null,
-    activeInstanceKey: null,
-    selectedNodeId: null,
-    selectedInstanceKey: null,
-    loadSource: null,
-    loadError: null,
-  });
+  resetOutlineStore();
   useOutlineStore
     .getState()
     .hydrateFromWire(

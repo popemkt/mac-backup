@@ -9,9 +9,10 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/fixtures/graph";
 import { outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
-import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
+import { SYSTEM_IDS } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";
 import { useOutlineStore } from "@/stores/outline.store";
+import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
 
 const TODO_EDN = `[:find ?id ?text
@@ -35,20 +36,7 @@ function queryWire(): WireNode {
 }
 
 function seed(extra: WireNode[] = []) {
-  useOutlineStore.setState({
-    nodes: new Map(),
-    wireNodes: [],
-    index: null,
-    rev: 0,
-    rootNodeId: WORKSPACE_ROOT_ID,
-    homeRootId: WORKSPACE_ROOT_ID,
-    activeNodeId: null,
-    activeInstanceKey: null,
-    selectedNodeId: null,
-    selectedInstanceKey: null,
-    loadSource: null,
-    loadError: null,
-  });
+  resetOutlineStore();
   useOutlineStore
     .getState()
     .hydrateFromWire([...fixtureGraph.nodes, ...extra], fixtureGraph.rev, "fixtures");

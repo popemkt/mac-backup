@@ -172,6 +172,7 @@ export type UiZone =
   | "stores"
   | "fixtures"
   | "types"
+  | "test-support"
   | "catalog"
   | `components/${UiSurface}`;
 
@@ -267,6 +268,9 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   stores: ["stores", "lib", "api", "session", "ds"],
   fixtures: ["fixtures", "lib"],
   types: ["types"],
+  // Test helpers (`resetOutlineStore`): imported only by test files, which the
+  // surface rows exempt, so no row names it; it reaches the store it resets.
+  "test-support": ["test-support", "stores"],
   primitives: ["primitives", "lib"],
   catalog: [
     "catalog",

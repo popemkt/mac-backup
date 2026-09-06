@@ -40,14 +40,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ## Gaps
 
-### GAP: 23 ui test files hand-copy the outline store reset literal
-
-- **expected** — One shared reset fixture — resetOutlineStore() in @kb/ui's test support — that every suite calls, so the store's shape is stated once.
-- **current** — 23 files under packages/app/ui/src (actions/*.test.ts, lib/*.test.ts, components/outline/*.test.tsx, graph-page.component.test.tsx, stores/outline.store.test.ts) each open with their own useOutlineStore.setState({...}) literal listing 10-12 OutlineState fields by hand.
-- **impact** — Any change to the store's shape fans out to 23 files: f2 §4 deleting one dead field required 23 one-line edits, and TypeScript's excess-property check makes them mandatory rather than optional. It also hides drift — the literals already differ in which fields they list.
-- **closes** — Extract the reset into one exported fixture and have every suite call it. Mechanical but wide; it is a packages/app/ui change and wants its own wave.
-- **node** — `01M1P63E3Y5KVHV3XMM6TBV2BM`
-
 ### GAP: 3d-force-graph constructor and nodeThreeObject typings force two assertions
 
 - **expected** — createForceGraph and nodeThreeObject are typed to kb's FgNode/FgLink and to a falsy-means-default Object3D accessor, with no assertions at the call sites.
@@ -625,6 +617,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 
 ## Closed
+
+### GAP: 23 ui test files hand-copy the outline store reset literal
+
+- **expected** — One shared reset fixture — resetOutlineStore() in @kb/ui's test support — that every suite calls, so the store's shape is stated once.
+- **current** — 23 files under packages/app/ui/src (actions/*.test.ts, lib/*.test.ts, components/outline/*.test.tsx, graph-page.component.test.tsx, stores/outline.store.test.ts) each open with their own useOutlineStore.setState({...}) literal listing 10-12 OutlineState fields by hand.
+- **impact** — Any change to the store's shape fans out to 23 files: f2 §4 deleting one dead field required 23 one-line edits, and TypeScript's excess-property check makes them mandatory rather than optional. It also hides drift — the literals already differ in which fields they list.
+- **closes** — Extract the reset into one exported fixture and have every suite call it. Mechanical but wide; it is a packages/app/ui change and wants its own wave.
+- **node** — `01M1P63E3Y5KVHV3XMM6TBV2BM`
 
 ### GAP: core action definitions and handlers are hand-paired
 

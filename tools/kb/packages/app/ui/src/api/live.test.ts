@@ -3,7 +3,7 @@ import type { GraphSnapshot } from "@kb/contracts";
 import { setFetchGraphSnapshot } from "@/api/graph";
 import { fixtureGraph } from "@/fixtures/graph";
 import { useOutlineStore } from "@/stores/outline.store";
-import { WORKSPACE_ROOT_ID } from "@/lib/types";
+import { resetOutlineStore } from "@/test-support/outline-store";
 import { createLiveClient } from "./live";
 import type { WsLike } from "./ws";
 
@@ -22,20 +22,7 @@ class FakeSocket implements WsLike {
 }
 
 function resetStore(): void {
-  useOutlineStore.setState({
-    nodes: new Map(),
-    wireNodes: [],
-    index: null,
-    rev: 0,
-    rootNodeId: WORKSPACE_ROOT_ID,
-    homeRootId: WORKSPACE_ROOT_ID,
-    activeNodeId: null,
-    activeInstanceKey: null,
-    selectedNodeId: null,
-    selectedInstanceKey: null,
-    loadSource: null,
-    loadError: null,
-  });
+  resetOutlineStore();
 }
 
 /** Poll until pred holds (works under both vitest and bun test). */

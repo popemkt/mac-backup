@@ -1,24 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { fixtureGraph } from "@/fixtures/graph";
 import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
-import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
+import { resetOutlineStore } from "@/test-support/outline-store";
 
 function seed() {
-  useOutlineStore.setState({
-    nodes: new Map(),
-    wireNodes: [],
-    index: null,
-    rev: 0,
-    rootNodeId: WORKSPACE_ROOT_ID,
-    homeRootId: WORKSPACE_ROOT_ID,
-    activeNodeId: null,
-    activeInstanceKey: null,
-    selectedNodeId: null,
-    selectedInstanceKey: null,
-    loadSource: null,
-    loadError: null,
-  });
+  resetOutlineStore();
   useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
 }
 
