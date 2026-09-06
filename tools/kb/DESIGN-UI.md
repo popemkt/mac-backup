@@ -202,15 +202,17 @@ faces the caret and serialization round-trips canonical markdown.
 `sys.*` id to selection so no caret ever enters one; the row shows a hover
 padlock instead of failing on write.
 
-### Contextual references (i12)
+### Contextual references (2026-08-27)
 
 Tana's *contextual content*, expressed with no new storage shape and no new
-widget: a **contextual reference is an ordinary node** tagged `#ref`
-(`sys.tag.ref`) carrying its target on the `sys.f.ref.target` ref field. Same
-anatomy as a query node (`#query` + `sys.f.query`), so children, tags, fields,
-collapse state, instance keys, both keymaps, undo and the transient rules are
-the ordinary ones — nothing in `visible-instances.ts`, `instance-key.ts` or
-`frame-rows.ts` changed to accommodate it.
+widget: a **contextual reference is an ordinary node** carrying its target on
+the `sys.f.ref.target` ref field. The field is the whole declaration — no tag —
+because a node with no target is not a reference (DESIGN.md → [Kinds, roles and
+options](./DESIGN.md#kinds-roles-and-options)). Same anatomy as a query node
+(`sys.f.query`), so children, tags, fields, collapse state, instance keys, both
+keymaps, undo and the transient rules are the ordinary ones — nothing in
+`visible-instances.ts`, `instance-key.ts` or `frame-rows.ts` changed to
+accommodate it.
 
 `packages/app/ui/src/lib/contextual-ref.ts` owns the three rules that make it read as a
 reference:

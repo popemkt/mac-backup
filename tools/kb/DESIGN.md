@@ -410,14 +410,19 @@ type PropValue =
 - **Tags (supertags) are nodes** typed `sys.tag`, holding a `sys.f.fields`
   prop listing field-node refs they template. Applying a tag = adding a
   `sys.f.type` ref prop. Multiple tags per node allowed.
-- **Ref targets are declared on the field node.** A ref field may carry
-  `sys.f.targetTag` (sugar — union of the listed tags' instances) or
-  `sys.f.targetQuery` (general form — parameter-free EDN whose rows name node
-  ids). `targetQuery` **wins** over `targetTag`: the tag is one shape of the
-  query, so honouring both would answer one question twice. Resolution lives in
-  `@kb/model`'s `field-type.ts` (`allowedRefIdsOf`, EDN runner injected) and is
-  shared by CLI, MCP and the browser through the `@kb/field-type` alias — same
-  posture as the ontology resolver.
+- **Ref targets are declared on the field node**, by exactly one of three
+  carriers: `sys.f.targetQuery` (general form — parameter-free EDN whose rows
+  name node ids), `sys.f.targetTag` (sugar — union of the listed tags'
+  instances), or **the field node's own children** (the option-set shape — no
+  field, no prop; the parent–child datom is the declaration). Precedence is
+  query → tag → children, and the first present carrier is the only one
+  consulted: two declarations would answer one question twice. The children
+  carrier is derived into EDN (`childrenTargetQuery`) and run through the same
+  injected runner, so the resolver is one shape — derive a query, run it —
+  rather than a query path with a `children` branch bolted beside it.
+  Resolution lives in `@kb/model`'s `field-type.ts` (`allowedRefIdsOf`, EDN
+  runner injected) and is shared by CLI, MCP and the browser through the
+  `@kb/field-type` alias — same posture as the ontology resolver.
 - **Hiding `sys.*` is a display rule, never a resolution rule.** Resolution
   surfaces — ref-target constraints, ontology membership, datalog, validity
   checks — read the kind slot (`typeRefsOf`, i.e. `sys.f.type`) and return
@@ -481,25 +486,67 @@ type PropValue =
   add only when a real query needs hierarchy-scoped reach.
 
 - **Contextual references** (Tana "contextual content") are the node kind built
-  on that relation: an ordinary node tagged `#ref` (`sys.tag.ref`) whose
-  `sys.f.ref.target` ref prop names a target. It renders the target's _current_
-  text verbatim (so the target's markdown still renders); its own children are
-  content local to that location and stay on the
+  on that relation: an ordinary node carrying `sys.f.ref.target`, a ref prop
+  naming a target. The field is the whole declaration — there is no `#ref` tag,
+  because a node with no target is not a reference at all (see
+  [Kinds, roles and options](#kinds-roles-and-options)). It renders the
+  target's _current_ text verbatim (so the target's markdown still renders);
+  its own children are content local to that location and stay on the
   reference, so the original shows them only through References/backlinks — a
-  new node _kind_, not a new node _type_, exactly like `#query`. Anatomy, the
-  rendering rule and the deliberate deviations from Tana are in
-  [DESIGN-UI.md → Contextual references](./DESIGN-UI.md#contextual-references-i12).
+  new node _kind_, not a new node _type_, exactly like a query node. Anatomy,
+  the rendering rule and the deliberate deviations from Tana are in
+  [DESIGN-UI.md → Contextual references](./DESIGN-UI.md#contextual-references-2026-08-27).
   Creating one needs no new action:
 
   ```bash
   kb action-invoke '{"id":"node.add","input":{"text":"","parent":"<host>",
-    "tags":["sys.tag.ref"],
     "props":[{"field":"sys.f.ref.target","value":{"t":"ref","v":"<target>"}}]}}'
   ```
 
 - Datom mapping: `[id :node/text v]`, `[id :node/child child]` (+order),
   `[id :f/<fieldId> v]` with ref values as entity refs → native datalog joins
   and graph traversal.
+
+### Kinds, roles and options
+
+**A supertag says what a node *is*. A behaviour is a field. An option set is
+children.**
+
+Everything is a node, and a tag is a node too — but that is a statement about
+*storage*, not a licence to express every distinction as one. Three carriers
+exist and they are not interchangeable:
+
+| carrier | says | example |
+|---|---|---|
+| supertag (`sys.f.type` → a `sys.tag` node) | this node **is a** thing of that kind | `#rule`, `#gap`, `#check`, `#ontology`, `#todo` |
+| field (a `props` key) | this node **does** something, or **has** an attribute | `sys.f.query` (a query node), `sys.f.ref.target` (a contextual reference) |
+| children | these nodes **are the values** the parent may take | `sys.ft.text` … under `sys.f.fieldType`; `prose lint tsc harness hook ci` under `enforcement` |
+
+**The strip test**, applied before minting a tag: remove the behaviour and ask
+whether the node is still that thing. A `#gap` with no `expected` is still a
+gap — badly filled in, but a gap — so `gap` is a kind and earns a tag. A node
+with no `sys.f.ref.target` is not a reference, it is a plain node, so `ref` is
+a *role* the field already carries and a `#ref` tag would be a second carrier
+for one distinction (Rule 1's second `if`). `lint` is not "a check-surface", it
+is one of the values `surface` may take, so it is a child of that field.
+
+Two consequences the code depends on:
+
+- **A kind is read from its carrier, never from a display list.** `isQueryNode`
+  asks whether `sys.f.query` is present; `contextualTargetOf` asks whether
+  `sys.f.ref.target` names a node. Neither consults `node.tags`, which is a
+  badge array that deliberately drops kind refs, and neither matches a tag by
+  *name* — a user tag called `query` is a user tag.
+- **An option set needs no tag to group it.** Siblings under one parent are
+  already a set, and `allowedRefIdsOf` derives the picker's candidates from
+  exactly that (see the ref-targets bullet above). This is what "in Tana you
+  just add a node" means: a user's own option list is a child added under the
+  field, with no supertag minted and no bespoke editor.
+
+`#ontology`, `#rule`, `#gap`, `#check`, `#todo`, `#graph-perspective` and
+`#canvas` remain supertags because each names a thing that exists before any
+particular field is filled in, and each templates a field set for its
+instances — which is the job a supertag has.
 
 ## Storage (horizontal)
 

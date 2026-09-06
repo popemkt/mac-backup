@@ -54,13 +54,12 @@ export const SYSTEM_IDS = {
   /** Declared value type on field nodes — a ref to one of the option nodes below. */
   fieldTypeField: "sys.f.fieldType",
   /**
-   * Field types are option nodes, not an enum baked into a picker. A field
-   * whose value comes from a list is a ref field constrained to nodes carrying
-   * the list's tag, and this is that pattern applied to the type slot itself —
-   * so the ordinary ref editor renders it and a user's own option list works
-   * exactly the same way.
+   * Field types are option nodes, not an enum baked into a picker — and they
+   * are `sys.f.fieldType`'s own **children**, which is how any field declares
+   * a list of options (DESIGN → Kinds, roles and options). No supertag marks
+   * them: "text" is not a kind of thing, it is one of the values the field may
+   * take, and being a child of the field says that already.
    */
-  fieldTypeTag: "sys.tag.field-type",
   ftText: "sys.ft.text",
   ftNumber: "sys.ft.number",
   ftDate: "sys.ft.date",

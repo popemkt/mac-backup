@@ -15,6 +15,7 @@ export {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
   allowedRefIdsOf,
+  childrenTargetQuery,
   fieldTypeOf,
   fieldTypeValue,
   isFieldType,

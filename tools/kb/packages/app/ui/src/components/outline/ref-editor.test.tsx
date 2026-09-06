@@ -16,6 +16,7 @@ import { present } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { WireNode } from "@kb/contracts";
+import { DatascriptIndex } from "@/ds";
 import { FIELD_TYPE_OPTION_IDS, resolveAllowedRefIds } from "@/lib/field-type";
 import { wireToOutlineMap } from "@/lib/graph-view";
 import { fuzzyNodeCandidates } from "@/lib/refs";
@@ -34,32 +35,19 @@ function wire(partial: Pick<WireNode, "id" | "text"> & Partial<WireNode>): WireN
   };
 }
 
-/** The seeded field-type ontology (src/foundation/seed.ts): tag + option nodes. */
+/** The seeded field-type option set (seed.ts): the field and its children. */
 function fieldTypeOntology(): WireNode[] {
   return [
     wire({ id: SYSTEM_IDS.field, text: "sys.field" }),
     wire({ id: SYSTEM_IDS.tag, text: "sys.tag" }),
-    wire({
-      id: SYSTEM_IDS.fieldTypeTag,
-      text: "field-type",
-      props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
-    }),
-    ...Object.entries(FIELD_TYPE_OPTION_IDS).map(([type, id]) =>
-      wire({
-        id,
-        text: type,
-        props: {
-          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.fieldTypeTag }],
-        },
-      }),
-    ),
+    ...Object.entries(FIELD_TYPE_OPTION_IDS).map(([type, id]) => wire({ id, text: type })),
     wire({
       id: SYSTEM_IDS.fieldTypeField,
       text: "fieldType",
+      children: Object.values(FIELD_TYPE_OPTION_IDS),
       props: {
         [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
         [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: FIELD_TYPE_OPTION_IDS.ref }],
-        [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.fieldTypeTag }],
       },
     }),
     // One ordinary node, so "unconstrained search hides sys nodes" stays
@@ -72,6 +60,15 @@ const OPTION_IDS = Object.values(FIELD_TYPE_OPTION_IDS).slice().toSorted();
 
 function ontology(): NodeMap {
   return wireToOutlineMap(fieldTypeOntology(), new Set());
+}
+
+/**
+ * The EDN runner the resolver needs. `fieldType` declares its options by
+ * parenting them, and that declaration is derived into a datalog query like any
+ * other, so a picker without an index legitimately resolves to nothing.
+ */
+function queryDb(): DatascriptIndex {
+  return new DatascriptIndex(fieldTypeOntology());
 }
 
 /**
@@ -102,7 +99,7 @@ describe("ref picker candidates (declared targets win)", () => {
   it("resolves declared sys option nodes as the allowed set", () => {
     const nodes = ontology();
     const allowed = present(
-      resolveAllowedRefIds(nodes.get(SYSTEM_IDS.fieldTypeField), nodes, null),
+      resolveAllowedRefIds(nodes.get(SYSTEM_IDS.fieldTypeField), nodes, queryDb()),
       "allowed refs",
     );
     // The constraint is data on the field node; it is not display policy, so
@@ -112,7 +109,7 @@ describe("ref picker candidates (declared targets win)", () => {
 
   it("offers the declared targets in the picker for fieldType", () => {
     const nodes = ontology();
-    const allowed = resolveAllowedRefIds(nodes.get(SYSTEM_IDS.fieldTypeField), nodes, null);
+    const allowed = resolveAllowedRefIds(nodes.get(SYSTEM_IDS.fieldTypeField), nodes, queryDb());
     const html = renderRefSlot(nodes, allowed);
     expect(html).toContain('role="listbox"');
     for (const id of OPTION_IDS) expect(html).toContain(id);

@@ -64,8 +64,12 @@ function constraintFingerprint(fieldNode: OutlineNode | undefined): string {
   const edn = targetQueryOf(fieldNode);
   if (hasText(edn)) return `q:${edn}`;
   const tags = targetTagsOf(fieldNode);
-  if (tags.length === 0) return "open";
-  return `t:${tags.slice().toSorted().join(",")}`;
+  if (tags.length > 0) return `t:${tags.slice().toSorted().join(",")}`;
+  // Third carrier: the field's own children are its option set, so the child
+  // list is the constraint and belongs in the key like the other two.
+  const children = fieldNode?.children ?? [];
+  if (children.length === 0) return "open";
+  return `c:${children.join(",")}`;
 }
 
 /**

@@ -51,34 +51,36 @@ describe("typed field seeds", () => {
     ).toBe("targetQuery");
   });
 
-  test("every field type is a node tagged #field-type", () => {
+  test("every field type is a plain child of the type field — no supertag", () => {
+    // "text" is not a kind of thing, it is one of the values fieldType may
+    // take, so it carries no kind ref at all: being a child says it.
     const byId = new Map(systemSeedNodes().map((n) => [n.id, n]));
+    const slot = present(
+      byId.get(SYSTEM_IDS.fieldTypeField),
+      "expected byId.get(SYSTEM_IDS.fieldTypeField)",
+    );
 
-    const tag = byId.get(SYSTEM_IDS.fieldTypeTag);
-    expect(tag).toBeDefined();
-    expect(present(tag, "expected tag").text).toBe("field-type");
-    expect(refs(present(tag, "expected tag"), SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.tag]);
-
+    expect(slot.children).toEqual(FIELD_TYPES.map((type) => FIELD_TYPE_OPTION_IDS[type]));
     for (const type of FIELD_TYPES) {
       const option = byId.get(FIELD_TYPE_OPTION_IDS[type]);
       expect(option, type).toBeDefined();
       expect(present(option, "expected option").text).toBe(type);
-      expect(refs(present(option, "expected option"), SYSTEM_IDS.typeField)).toEqual([
-        SYSTEM_IDS.fieldTypeTag,
-      ]);
+      expect(refs(present(option, "expected option"), SYSTEM_IDS.typeField)).toEqual([]);
     }
   });
 
   test("the type slot is itself an ordinary ref field over that option list", () => {
     // This is what lets the normal ref editor render it: nothing about the
-    // type slot is special-cased, it is a ref field with a target tag.
+    // type slot is special-cased, it is a ref field whose options are its
+    // children — the same declaration a user's own option list makes.
     const byId = new Map(systemSeedNodes().map((n) => [n.id, n]));
     const slot = present(
       byId.get(SYSTEM_IDS.fieldTypeField),
       "expected byId.get(SYSTEM_IDS.fieldTypeField)",
     );
     expect(fieldTypeOf(slot.props)).toBe("ref");
-    expect(refs(slot, SYSTEM_IDS.targetTagField)).toEqual([SYSTEM_IDS.fieldTypeTag]);
+    expect(refs(slot, SYSTEM_IDS.targetTagField)).toEqual([]);
+    expect(refs(slot, SYSTEM_IDS.targetQueryField)).toEqual([]);
   });
 
   test("a field node templates its own schema fields, like a tag does", () => {

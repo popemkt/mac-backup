@@ -19,6 +19,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   allowedRefIdsOf,
+  childrenTargetQuery,
   FIELD_TYPE_OPTION_IDS,
   fieldTypeValue,
   ONTOLOGY_TARGET_QUERY,
@@ -80,8 +81,8 @@ describe("sys.f.onto.include — targetTag → sys.tag", () => {
     expect(seededTagIds.length).toBeGreaterThan(0);
     expect(seededTagIds.every((id) => id.startsWith("sys."))).toBe(true);
     expect(seededTagIds).toContain(SYSTEM_IDS.ontologyTag);
-    expect(seededTagIds).toContain(SYSTEM_IDS.queryTag);
-    expect(seededTagIds).toContain(SYSTEM_IDS.fieldTypeTag);
+    expect(seededTagIds).toContain(SYSTEM_IDS.canvasTag);
+    expect(seededTagIds).toContain(SYSTEM_IDS.graphPerspectiveTag);
   });
 
   test("a kind is not an instance of itself, and fields are not tags", () => {
@@ -112,12 +113,60 @@ describe("sys.f.onto.include — targetTag → sys.tag", () => {
   });
 });
 
-describe("sys.f.fieldType — targetTag → #field-type", () => {
-  test("resolves to the six seeded option nodes", () => {
-    const allowed = allowedRefIdsOf(seedMap.get(SYSTEM_IDS.fieldTypeField), seedMap);
-    expect([...present(allowed, "expected allowed")].toSorted()).toEqual(
-      Object.values(FIELD_TYPE_OPTION_IDS).slice().toSorted(),
+describe("sys.f.fieldType — the option set is the field's children", () => {
+  test("resolves to the six seeded option nodes, in declared child order", () => {
+    const allowed = allowedRefIdsOf(
+      seedMap.get(SYSTEM_IDS.fieldTypeField),
+      seedMap,
+      runnerFor(seed),
     );
+    expect([...present(allowed, "expected allowed")]).toEqual(Object.values(FIELD_TYPE_OPTION_IDS));
+  });
+
+  test("declares neither targetTag nor targetQuery — parenting is the declaration", () => {
+    const field = seedMap.get(SYSTEM_IDS.fieldTypeField);
+    expect(targetTagsOf(field)).toEqual([]);
+    expect(targetQueryOf(field)).toBeNull();
+    expect(present(field, "expected field").children).toEqual(Object.values(FIELD_TYPE_OPTION_IDS));
+  });
+
+  test("a child added to the field joins the option set with no extra rule", () => {
+    // The whole point of the children carrier: a user's own option list is
+    // "add a node under the field", exactly as in Tana.
+    const field = present(seedMap.get(SYSTEM_IDS.fieldTypeField), "expected field");
+    const mine = node("ft.mine", "mine");
+    const widened = { ...field, children: [...field.children, mine.id] };
+    const nodes = [...seed.filter((n) => n.id !== field.id), widened, mine];
+    const allowed = allowedRefIdsOf(
+      widened,
+      new Map(nodes.map((n) => [n.id, n])),
+      runnerFor(nodes),
+    );
+    expect(present(allowed, "expected allowed").has("ft.mine")).toBe(true);
+  });
+
+  test("children lose to an explicit targetTag or targetQuery — one carrier answers", () => {
+    const field = present(seedMap.get(SYSTEM_IDS.fieldTypeField), "expected field");
+    const tagged: KbNode = {
+      ...field,
+      props: {
+        ...field.props,
+        [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+      },
+    };
+    const nodes = [...seed.filter((n) => n.id !== field.id), tagged];
+    const allowed = present(
+      allowedRefIdsOf(tagged, new Map(nodes.map((n) => [n.id, n])), runnerFor(nodes)),
+      "expected allowed",
+    );
+    expect(allowed.has(SYSTEM_IDS.ontologyTag)).toBe(true);
+    expect(allowed.has(FIELD_TYPE_OPTION_IDS.text)).toBe(false);
+  });
+
+  test("no runner ⇒ empty, never 'unrestricted' — the children carrier is a query", () => {
+    expect([
+      ...present(allowedRefIdsOf(seedMap.get(SYSTEM_IDS.fieldTypeField), seedMap), "s"),
+    ]).toEqual([]);
   });
 });
 
@@ -155,19 +204,17 @@ describe("sys.f.targetQuery — the general form", () => {
   });
 
   test("honours rows naming sys.* ids", () => {
+    // Spelled out as EDN on a field of its own, so the *general* form is what
+    // is under test — `childrenTargetQuery` is asserted to produce this same
+    // answer above, through the children carrier.
     const field = node("f.q", "q", {
       [SYSTEM_IDS.targetQueryField]: [
-        {
-          t: "str",
-          v: `[:find ?id :where [?n :node/id ?id] [?n :f/${SYSTEM_IDS.typeField} ?t] [?t :node/id "${SYSTEM_IDS.fieldTypeTag}"]]`,
-        },
+        { t: "str", v: childrenTargetQuery(SYSTEM_IDS.fieldTypeField) },
       ],
     });
     const nodes = [...seed, field];
     const allowed = allowedRefIdsOf(field, new Map(nodes.map((n) => [n.id, n])), runnerFor(nodes));
-    expect([...present(allowed, "expected allowed")].toSorted()).toEqual(
-      Object.values(FIELD_TYPE_OPTION_IDS).slice().toSorted(),
-    );
+    expect([...present(allowed, "expected allowed")]).toEqual(Object.values(FIELD_TYPE_OPTION_IDS));
   });
 
   test("no runner, or broken EDN, yields empty — never 'unrestricted'", () => {

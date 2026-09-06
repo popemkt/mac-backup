@@ -2,11 +2,13 @@
  * What a field node declares: its value type, and — for ref fields — which
  * nodes are allowed as values.
  *
- * A field whose value comes from a fixed list is an ordinary ref field pointing
- * at nodes that carry the list's tag. The type slot itself is that pattern:
- * `sys.f.fieldType` is a ref field constrained to `#field-type` nodes, so the
- * normal ref editor renders it and a user's own option list behaves the same
- * way — add an option by adding a node.
+ * A field whose value comes from a fixed list declares that list. The plainest
+ * way to declare it is to *parent* the options: a field node's own children are
+ * its option set, which is what "in Tana you just add a node" means here. The
+ * type slot itself is that pattern — `sys.ft.text` … `sys.ft.ref` are children
+ * of `sys.f.fieldType` — so the normal ref editor renders it and a user's own
+ * option list behaves the same way, with no supertag minted to mark six values
+ * as a group they were already in by being siblings.
  *
  * This is the single source for the mapping. It used to exist three times: an
  * enum in the CLI mapper, a string-literal union in the UI, and the seed's
@@ -98,14 +100,79 @@ export function targetQueryOf(fieldNode: NodeLike | undefined): string | null {
 }
 
 /**
+ * The option set a field declares by *parenting* it: this field node's own
+ * children, in child order.
+ *
+ * Expressed as EDN, not as a `children` walk in TypeScript, so the resolver
+ * below stays one shape — derive a query, run the query — rather than growing
+ * a second branch that reads the node graph directly. `:node/child` paired with
+ * `:node/child-order` is the ordered-children idiom the query compiler collapses
+ * into a single ordered projection, so the picker lists options in the order the
+ * outline shows them.
+ */
+export function childrenTargetQuery(fieldId: NodeId): string {
+  return `[:find ?id :where [?p :node/id "${fieldId}"] [?p :node/child ?c] [?p :node/child-order ?o] [?c :node/id ?id]]`;
+}
+
+/**
+ * The one EDN constraint a ref field declares, or null when it declares none.
+ *
+ * Exactly one of three carriers applies, in this precedence:
+ *
+ *   1. `sys.f.targetQuery` — the general form, verbatim.
+ *   2. `sys.f.targetTag`   — the tag shape, resolved against the node set
+ *                            rather than the query engine (see below).
+ *   3. the field node's **children** — the option-set shape: no field, no prop,
+ *                            the parent–child datom is the declaration.
+ *
+ * A field that declares two of them would answer one question twice, so the
+ * first present carrier wins and the rest are not consulted.
+ */
+function declaredTargetQuery(fieldNode: NodeLike | undefined): string | null {
+  const edn = targetQueryOf(fieldNode);
+  if (typeof edn === "string" && edn !== "") return edn;
+  if (targetTagsOf(fieldNode).length > 0) return null;
+  if (fieldNode === undefined || fieldNode.children.length === 0) return null;
+  return childrenTargetQuery(fieldNode.id);
+}
+
+function runTargetQuery(
+  edn: string,
+  nodes: ReadonlyMap<NodeId, NodeLike>,
+  runQuery: ((edn: string) => unknown[][]) | null | undefined,
+): Set<NodeId> {
+  if (runQuery === undefined || runQuery === null) return new Set();
+  try {
+    const ids = new Set<NodeId>();
+    for (const row of runQuery(edn)) {
+      for (const cell of Array.isArray(row) ? row : [row]) {
+        if (typeof cell === "string" && nodes.has(cell)) ids.add(cell);
+      }
+    }
+    return ids;
+  } catch {
+    return new Set();
+  }
+}
+
+/**
  * Allowed ref target ids — what the *field node declares*, nothing else.
  *
- *   targetQuery present ⇒ the query's row ids (targetTag ignored)
+ *   targetQuery present ⇒ the query's row ids
  *   else targetTag      ⇒ union of nodes whose `sys.f.type` names a listed tag
- *   else               ⇒ unrestricted (null)
+ *   else children       ⇒ the field node's own children, in child order
+ *   else                ⇒ unrestricted (null)
+ *
+ * `targetTag` is the one carrier that is not routed through the runner: it is
+ * a scan of the node set the caller already holds, and keeping it that way is
+ * what lets every non-query surface (and every test without an index) resolve
+ * a tag constraint with no engine at all. The other two are queries, and the
+ * children shape is derived into one — see {@link childrenTargetQuery} — rather
+ * than walked here, because a `children` branch beside the query path would be
+ * a second answer to "which nodes may this field name".
  *
  * This is data, not display policy. No node is dropped for being seeded or
- * `sys.`-prefixed: `sys.f.fieldType` legitimately targets six `sys.ft.*`
+ * `sys.`-prefixed: `sys.f.fieldType` legitimately parents six `sys.ft.*`
  * options, and `sys.f.onto.include` legitimately targets every supertag,
  * `sys.tag.*` ones included. Which of these a picker chooses to *show* is a
  * separate decision, made once in the UI's `fuzzyNodeCandidates`, which takes
@@ -124,21 +191,8 @@ export function allowedRefIdsOf(
   nodes: ReadonlyMap<NodeId, NodeLike>,
   runQuery?: ((edn: string) => unknown[][]) | null,
 ): Set<NodeId> | null {
-  const edn = targetQueryOf(fieldNode);
-  if (typeof edn === "string" && edn !== "") {
-    if (runQuery === undefined || runQuery === null) return new Set();
-    try {
-      const ids = new Set<NodeId>();
-      for (const row of runQuery(edn)) {
-        for (const cell of Array.isArray(row) ? row : [row]) {
-          if (typeof cell === "string" && nodes.has(cell)) ids.add(cell);
-        }
-      }
-      return ids;
-    } catch {
-      return new Set();
-    }
-  }
+  const edn = declaredTargetQuery(fieldNode);
+  if (edn !== null) return runTargetQuery(edn, nodes, runQuery);
 
   const tags = targetTagsOf(fieldNode);
   if (tags.length === 0) return null;

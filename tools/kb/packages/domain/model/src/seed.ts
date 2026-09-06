@@ -1,4 +1,4 @@
-import { LEGACY_LENS_ALL_MENTIONS, SYSTEM_IDS, type KbNode, nowIso } from "./model.ts";
+import { LEGACY_LENS_ALL_MENTIONS, SYSTEM_IDS, type KbNode, type NodeId, nowIso } from "./model.ts";
 import { FIELD_TYPES, FIELD_TYPE_OPTION_IDS, fieldTypeValue } from "./field-type.ts";
 import { ONTOLOGY_TARGET_QUERY } from "./ontology.ts";
 
@@ -50,28 +50,23 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
   });
   /*
-   * Field types are nodes. `fieldType` is an ordinary ref field constrained to
-   * nodes tagged `field-type`, which is the same shape any user-defined
-   * "field with a list of options" takes: tag the options, point the field at
-   * the tag, add an option by adding a node. That is what lets the normal ref
-   * editor render the type slot instead of a picker built only for this enum.
+   * Field types are nodes, and they are the type field's **children** — the
+   * option-set shape (DESIGN → Kinds, roles and options). A `field-type`
+   * supertag once existed only so `targetTag` had something to point at; it
+   * named no concept, because "text" is not a kind of thing, it is one of the
+   * values `fieldType` may take. Parenting says exactly that and nothing more,
+   * and it is what a user does for their own option list: add a child under
+   * the field. The ordinary ref editor renders the type slot either way.
    * The sys options are write-guarded; a user's own list is not.
    */
-  const fieldTypeTag = mk(SYSTEM_IDS.fieldTypeTag, "field-type", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
-  });
-  const fieldTypeOption = (id: string, text: string): KbNode =>
-    mk(id, text, {
-      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.fieldTypeTag }],
-    });
-  const fieldTypeOptions = FIELD_TYPES.map((type) =>
-    fieldTypeOption(FIELD_TYPE_OPTION_IDS[type], type),
-  );
-  const fieldTypeField = mk(SYSTEM_IDS.fieldTypeField, "fieldType", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
-    [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
-    [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: SYSTEM_IDS.fieldTypeTag }],
-  });
+  const fieldTypeOptions = FIELD_TYPES.map((type) => mk(FIELD_TYPE_OPTION_IDS[type], type));
+  const fieldTypeField: KbNode = {
+    ...mk(SYSTEM_IDS.fieldTypeField, "fieldType", {
+      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
+    }),
+    children: fieldTypeOptions.map((option) => option.id),
+  };
   const targetTagField = mk(SYSTEM_IDS.targetTagField, "targetTag", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
   });
@@ -266,13 +261,12 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   return [
     field,
     tag,
-    fieldTypeTag,
-    ...fieldTypeOptions,
     typeField,
     fieldsField,
     colorField,
     hiddenField,
     fieldTypeField,
+    ...fieldTypeOptions,
     targetTagField,
     targetQueryField,
     command,
@@ -409,5 +403,43 @@ export function ensureSystemSeed(
     seeded = true;
   }
 
+  if (adoptSeedChildren(byId, seedById)) seeded = true;
+
   return { nodes: [...byId.values()], seeded, deletes };
+}
+
+/**
+ * Adopt seed-declared children that nothing currently parents.
+ *
+ * The seed declares structure as well as props — a field's option set is its
+ * children (DESIGN → Kinds, roles and options) — and a store created before
+ * that declaration has the option nodes sitting at the forest root. Leaving
+ * them there would make the declaration a dead seam: the resolver would derive
+ * "the children of this field" and find none.
+ *
+ * Only orphans are adopted, and that is the whole rule. A node the owner has
+ * already filed somewhere is their arrangement; re-parenting it here would both
+ * overwrite that and hand the node two parents, which `txIntegrityError` rejects
+ * outright. Same posture as the fill-absent props pass: an absent declaration is
+ * a seed addition, a present one is a choice.
+ */
+function adoptSeedChildren(
+  byId: Map<NodeId, KbNode>,
+  seedById: ReadonlyMap<NodeId, KbNode>,
+): boolean {
+  const parented = new Set<NodeId>();
+  for (const node of byId.values()) {
+    for (const childId of node.children) parented.add(childId);
+  }
+  let adopted = false;
+  for (const seed of seedById.values()) {
+    const existing = byId.get(seed.id);
+    if (existing === undefined || existing === seed) continue;
+    const adopt = seed.children.filter((id) => byId.has(id) && !parented.has(id));
+    if (adopt.length === 0) continue;
+    for (const childId of adopt) parented.add(childId);
+    byId.set(seed.id, { ...existing, children: [...existing.children, ...adopt] });
+    adopted = true;
+  }
+  return adopted;
 }
