@@ -189,6 +189,34 @@ export function planNewQueryNode(
     focusCursor: text.length,
   };
 }
+/**
+ * Pin: one contextual reference appended to the Pinned list. No focus move —
+ * pinning is a sidebar gesture, and stealing the caret from the row the user is
+ * on would be a surprise the tag version never had.
+ */
+export function planPinNode(
+  nodes: WireNode[],
+  targetId: string,
+  id: string,
+): PlannedMutation | null {
+  const list = wireById(nodes).get(SYSTEM_IDS.pinnedRoot);
+  if (list === undefined) return null;
+  return {
+    actions: [
+      {
+        id: "node.add",
+        input: {
+          id,
+          text: "",
+          parent: SYSTEM_IDS.pinnedRoot,
+          position: list.children.length,
+          props: [{ field: SYSTEM_IDS.refTargetField, value: { t: "ref", v: targetId } }],
+        },
+      },
+    ],
+  };
+}
+
 export function planDefineOntology(name: string, id: string): PlannedMutation {
   return {
     actions: [{ id: "node.add", input: { id, text: name, tags: [SYSTEM_IDS.ontologyTag] } }],

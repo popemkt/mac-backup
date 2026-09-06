@@ -1,19 +1,12 @@
 /**
- * Pinned membership comes from the kind slot, not from the badge list.
+ * Pinned is an ordered list of contextual references, not a mark on the node.
  *
- * `node.tags` is a DISPLAY list (`graph-view.resolveTags` drops kind refs from
- * it), so a selector that reads badge *names* is only accidentally right. These
- * pin the prop as the source of truth, and pin the fact that a tag merely
- * *named* pinned that is not a supertag does not pin anything.
+ * These pin the two things the tag version could not do — keep an order the
+ * user chose, and pin a node without writing to it — plus the one it did do
+ * that must keep working: a node merely *tagged* `pinned` is not pinned.
  */
 import { describe, expect, it } from "vitest";
-import {
-  PINNED_TAG_TEXT,
-  findPinnedTagId,
-  isPinned,
-  listPinnedNodes,
-  pinnedTagIdsOn,
-} from "@/lib/pinned";
+import { isPinned, listPinnedNodes, pinnedRefIds, pinnedRefIdsFor } from "@/lib/pinned";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 
 function outline(partial: Partial<OutlineNode> & Pick<OutlineNode, "id" | "text">): OutlineNode {
@@ -29,81 +22,83 @@ function outline(partial: Partial<OutlineNode> & Pick<OutlineNode, "id" | "text"
   };
 }
 
-const pinnedTag = outline({
-  id: "tag.pinned",
-  text: PINNED_TAG_TEXT,
-  props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
-});
+/** One pin row: a contextual reference to `targetId`. */
+function pin(id: string, targetId: string): OutlineNode {
+  return outline({
+    id,
+    text: "",
+    parentId: SYSTEM_IDS.pinnedRoot,
+    props: { [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: targetId }] },
+  });
+}
 
-function graph(...nodes: OutlineNode[]): NodeMap {
-  return new Map(nodes.map((n) => [n.id, n]));
+function graph(refIds: string[], ...nodes: OutlineNode[]): NodeMap {
+  const list = outline({ id: SYSTEM_IDS.pinnedRoot, text: "Pinned", children: refIds });
+  return new Map([list, ...nodes].map((n) => [n.id, n]));
 }
 
 describe("pinned membership", () => {
-  it("reads the prop, not the badge list", () => {
-    // Zero badges by construction: this is the case where reading `node.tags`
-    // and reading `sys.f.type` disagree, and the prop is the one that counts.
-    const node = outline({
-      id: "a",
-      text: "Pinned A",
-      props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "tag.pinned" }] },
-      tags: [],
-    });
-    const nodes = graph(pinnedTag, node);
-    expect(isPinned(node, nodes)).toBe(true);
+  it("reads the Pinned list's children, resolved through their ref target", () => {
+    const nodes = graph(["p1"], pin("p1", "a"), outline({ id: "a", text: "Pinned A" }));
+    expect(pinnedRefIds(nodes)).toEqual(["p1"]);
+    expect(isPinned(nodes, "a")).toBe(true);
     expect(listPinnedNodes(nodes).map((n) => n.id)).toEqual(["a"]);
   });
 
-  it("a badge alone pins nothing", () => {
-    const node = outline({
-      id: "a",
-      text: "Looks pinned",
-      tags: [{ id: "tag.pinned", name: PINNED_TAG_TEXT, color: "#fff" }],
-    });
-    expect(isPinned(node, graph(pinnedTag, node))).toBe(false);
+  it("keeps list order — the whole reason a list beats a tag", () => {
+    const nodes = graph(
+      ["p1", "p2"],
+      pin("p1", "z"),
+      pin("p2", "a"),
+      outline({ id: "z", text: "alpha" }),
+      outline({ id: "a", text: "beta" }),
+    );
+    // Neither label order nor id order: the order the children are in.
+    expect(listPinnedNodes(nodes).map((n) => n.id)).toEqual(["z", "a"]);
   });
 
-  it("the target must actually be a supertag named pinned", () => {
-    const notATag = outline({ id: "note.pinned", text: PINNED_TAG_TEXT });
-    const node = outline({
-      id: "a",
-      text: "A",
-      props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "note.pinned" }] },
-    });
-    expect(isPinned(node, graph(notATag, node))).toBe(false);
-  });
-
-  it("reports the carried tag ids, so unpin removes the right one", () => {
-    // Two tags named `pinned` is a legal state; unpinning has to remove the
-    // one this node carries, not whichever the graph scan met first.
-    const second = outline({
-      id: "aaa.pinned",
-      text: PINNED_TAG_TEXT,
+  it("a node merely TAGGED `pinned` is not pinned", () => {
+    const tag = outline({
+      id: "tag.pinned",
+      text: "pinned",
       props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
     });
-    const node = outline({
+    const tagged = outline({
       id: "a",
-      text: "A",
+      text: "Looks pinned",
       props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "tag.pinned" }] },
+      tags: [{ id: "tag.pinned", name: "pinned", color: "#fff" }],
     });
-    const nodes = graph(pinnedTag, second, node);
-    expect(findPinnedTagId(nodes)).toBe("aaa.pinned");
-    expect(pinnedTagIdsOn(node, nodes)).toEqual(["tag.pinned"]);
+    const nodes = graph([], tag, tagged);
+    expect(isPinned(nodes, "a")).toBe(false);
+    expect(listPinnedNodes(nodes)).toEqual([]);
   });
 
-  it("finds the tag id, and reports none before anything is pinned", () => {
-    expect(findPinnedTagId(graph(pinnedTag))).toBe("tag.pinned");
-    expect(findPinnedTagId(graph())).toBeNull();
+  it("reports every row pinning a target, so unpin clears all of them", () => {
+    const nodes = graph(
+      ["p1", "p2"],
+      pin("p1", "a"),
+      pin("p2", "a"),
+      outline({ id: "a", text: "A" }),
+    );
+    expect(pinnedRefIdsFor(nodes, "a")).toEqual(["p1", "p2"]);
+    expect(listPinnedNodes(nodes).map((n) => n.id)).toEqual(["a", "a"]);
   });
 
-  it("orders by label then id", () => {
-    const mk = (id: string, text: string) =>
-      outline({
-        id,
-        text,
-        props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: "tag.pinned" }] },
-      });
-    const nodes = graph(pinnedTag, mk("z", "alpha"), mk("a", "beta"));
-    expect(listPinnedNodes(nodes).map((n) => n.id)).toEqual(["z", "a"]);
+  it("a pin whose target is gone drops out of the sidebar, not out of the graph", () => {
+    const nodes = graph(
+      ["p1", "p2"],
+      pin("p1", "gone"),
+      pin("p2", "a"),
+      outline({ id: "a", text: "A" }),
+    );
+    expect(listPinnedNodes(nodes).map((n) => n.id)).toEqual(["a"]);
+    expect(pinnedRefIds(nodes)).toEqual(["p1", "p2"]);
+  });
+
+  it("an unseeded graph has an empty list, not a throw", () => {
+    expect(pinnedRefIds(new Map())).toEqual([]);
+    expect(isPinned(new Map(), "a")).toBe(false);
+    expect(listPinnedNodes(new Map())).toEqual([]);
   });
 });

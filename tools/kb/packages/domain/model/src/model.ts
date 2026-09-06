@@ -151,6 +151,18 @@ export const SYSTEM_IDS = {
    * User-editable (NOT sys-prefixed) so write-guard does not lock it.
    */
   lensAllMentions: "lens.all-mentions",
+  /**
+   * The Pinned list. Its children are contextual references to the pinned
+   * nodes, so "pinned" is membership of an ordered list rather than a supertag
+   * (DESIGN → Kinds, roles and options).
+   *
+   * User-editable (NOT sys-prefixed), same reason as `lens.all-mentions` and a
+   * sharper one: every pin writes a child into this node, which is precisely
+   * what the `sys.*` guard exists to refuse. Being an ordinary node is also
+   * what makes the list draggable in the outline — the order the sidebar reads
+   * is written by the reorder the outline already has.
+   */
+  pinnedRoot: "pinned",
   /** Canvas nodes (JSON Canvas 1.0 doc on sys.f.canvas). */
   canvasTag: "sys.tag.canvas",
   canvasField: "sys.f.canvas",

@@ -80,6 +80,8 @@ export const SYSTEM_IDS = {
    * User-editable (NOT sys-prefixed) so write-guard does not lock it.
    */
   lensAllMentions: "lens.all-mentions",
+  /** The Pinned list: its children are references to the pinned nodes. */
+  pinnedRoot: "pinned",
   /** Canvas nodes (JSON Canvas 1.0 doc on sys.f.canvas). */
   canvasTag: "sys.tag.canvas",
   canvasField: "sys.f.canvas",

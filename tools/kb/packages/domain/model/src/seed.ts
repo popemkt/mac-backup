@@ -235,6 +235,17 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    */
   const refTargetField = refField(SYSTEM_IDS.refTargetField, "ref.target");
 
+  /*
+   * The Pinned list. Its children are contextual references to the pinned
+   * nodes — a pin is an ordinary reference row, so order, drag-reorder,
+   * backlinks and the ⌘K "Turn into reference…" gesture all come for free and
+   * no `pinned` supertag has to exist to mark membership.
+   *
+   * No tag on the node either: it is a list, and being the node the sidebar
+   * reads is the whole of what it is.
+   */
+  const pinnedRoot = mk(SYSTEM_IDS.pinnedRoot, "Pinned");
+
   const ontologyTag = mk(SYSTEM_IDS.ontologyTag, "ontology", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
     [SYSTEM_IDS.fieldsField]: [
@@ -297,6 +308,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     ontoClosureField,
     ontologyTag,
     refTargetField,
+    pinnedRoot,
   ];
 }
 

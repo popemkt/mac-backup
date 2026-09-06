@@ -20,6 +20,7 @@ import {
   planMove,
   planNewQueryNode,
   planOutdent,
+  planPinNode,
   planPrependChild,
   planRemoveTag,
   planSetProp,
@@ -28,7 +29,7 @@ import {
   planUpdateText,
   type PlannedMutation,
 } from "@/actions/plan";
-import { findPinnedTagId, pinnedTagIdsOn, PINNED_TAG_TEXT } from "@/lib/pinned";
+import { pinnedRefIdsFor } from "@/lib/pinned";
 import { toast } from "@/lib/toast";
 
 /** `asset.upload` answers with the repo-relative path it stored the bytes at. */
@@ -555,28 +556,32 @@ export const mutations = {
   /**
    * Pin / unpin a node for the sidebar's Pinned section.
    *
-   * Pinning is tagging (see lib/pinned): the toggle is `addTag`/`removeTag`
-   * over the `pinned` tag, and nothing here is bespoke. The tag is minted on
-   * first use through the same `defineTag` the ⌘K picker's "Create tag" path
-   * uses, which is why no `sys.tag.pinned` needs seeding.
+   * Pinning is *listing* (see lib/pinned): the toggle adds or removes a
+   * contextual reference under the seeded `pinned` node, and nothing here is
+   * bespoke — `node.add` with one ref prop, `deleteNode` for the row.
+   *
+   * No `guardSysWrite` on the target: nothing is written to it. The guard was
+   * there because a tag edits the node's kind slot, so pinning `sys.queries`
+   * was a write to a system node; pointing a reference at one is not, and
+   * `sys.*` browse has always been open.
    */
   async togglePin(nodeId: string): Promise<boolean> {
-    if (!guardSysWrite(nodeId)) return false;
     const nodes = useOutlineStore.getState().nodes;
-    const carried = pinnedTagIdsOn(nodes.get(nodeId), nodes);
-    if (carried.length > 0) {
-      for (const tagId of carried) {
-        // Sequential by contract: each removeTag reads the store the last wrote.
+    const pins = pinnedRefIdsFor(nodes, nodeId);
+    if (pins.length > 0) {
+      for (const refId of pins) {
+        // Sequential by contract: each delete reads the store the last wrote.
         // oxlint-disable-next-line eslint/no-await-in-loop
-        await mutations.removeTag(nodeId, tagId);
+        await mutations.deleteNode(refId);
       }
       return true;
     }
-    const existing = findPinnedTagId(nodes);
-    const tagId = existing ?? (await mutations.defineTag(PINNED_TAG_TEXT));
-    if (tagId === null) return false;
-    await mutations.addTag(nodeId, tagId);
-    return true;
+    const plan = planPinNode(wire(), nodeId, ulid());
+    if (plan === null) {
+      toast("Pinned list is missing from this graph");
+      return false;
+    }
+    return applyPlan(plan);
   },
 
   /**

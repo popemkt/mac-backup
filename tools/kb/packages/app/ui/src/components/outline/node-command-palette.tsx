@@ -85,7 +85,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const debugOn = useDebugFieldsStore((s) =>
     targetNodeId !== null ? s.ids.has(targetNodeId) : false,
   );
-  const pinned = targetNode ? isPinned(targetNode, nodes) : false;
+  const pinned = targetNodeId !== null && isPinned(nodes, targetNodeId);
 
   useEffect(() => {
     if (!open || targetNodeId === null) {
@@ -179,7 +179,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         },
       },
       {
-        // Pinning is tagging (lib/pinned); the label is the current state so
+        // Pinning is listing (lib/pinned); the label is the current state so
         // the row reads as a toggle rather than as a fire-and-hope command.
         id: "toggle-pin",
         label: pinned ? "Unpin" : "Pin",

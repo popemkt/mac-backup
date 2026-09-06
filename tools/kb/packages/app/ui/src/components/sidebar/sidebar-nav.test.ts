@@ -17,33 +17,29 @@ function outline(partial: Partial<OutlineNode> & Pick<OutlineNode, "id" | "text"
 }
 
 describe("sidebar-nav selectors", () => {
-  it("lists #pinned nodes from the kind slot, not from badges", () => {
-    // Props only, no badges — the shape the other nav selectors' fixtures use,
-    // and the case where a badge-name lookup silently returns nothing.
-    const pinnedRef = { [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: "tag.pinned" }] };
+  it("lists the Pinned list's targets, in list order", () => {
+    const pinRow = (id: string, target: string) =>
+      outline({
+        id,
+        text: "",
+        parentId: SYSTEM_IDS.pinnedRoot,
+        props: { [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: target }] },
+      });
     const nodes = new Map<string, OutlineNode>([
       [
-        "tag.pinned",
-        outline({
-          id: "tag.pinned",
-          text: "pinned",
-          props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
-        }),
+        SYSTEM_IDS.pinnedRoot,
+        outline({ id: SYSTEM_IDS.pinnedRoot, text: "Pinned", children: ["p1", "p2"] }),
       ],
-      ["a", outline({ id: "a", text: "Pinned A", props: pinnedRef })],
-      [
-        "b",
-        outline({
-          id: "b",
-          text: "Other",
-          tags: [{ id: "tag.todo", name: "todo", color: "#fff" }],
-        }),
-      ],
-      ["c", outline({ id: "c", text: "Pinned C", props: pinnedRef })],
+      ["p1", pinRow("p1", "c")],
+      ["p2", pinRow("p2", "a")],
+      ["a", outline({ id: "a", text: "Pinned A" })],
+      ["b", outline({ id: "b", text: "Other" })],
+      ["c", outline({ id: "c", text: "Pinned C" })],
     ]);
+    // List order, not label order: the sidebar shows what the outline shows.
     expect(listPinnedNavItems(nodes)).toEqual([
-      { id: "a", label: "Pinned A" },
       { id: "c", label: "Pinned C" },
+      { id: "a", label: "Pinned A" },
     ]);
   });
 

@@ -16,6 +16,7 @@ import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
+import { REF_SEED_WIRES } from "@/fixtures/contextual-ref";
 import { isPinned } from "@/lib/pinned";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
@@ -29,7 +30,7 @@ function wire(partial: Pick<WireNode, "id" | "text"> & Partial<WireNode>): WireN
   return { props: {}, children: [], createdAt: ISO, updatedAt: ISO, ...partial };
 }
 
-/** A plain row, a supertag, and the pinned tag. */
+/** A plain row, a supertag, and the seed the pin gesture writes through. */
 function graph(): WireNode[] {
   return [
     wire({ id: SYSTEM_IDS.tag, text: "sys.tag" }),
@@ -39,11 +40,8 @@ function graph(): WireNode[] {
       text: "project",
       props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
     }),
-    wire({
-      id: "tag.pinned",
-      text: "pinned",
-      props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }] },
-    }),
+    ...REF_SEED_WIRES,
+    wire({ id: SYSTEM_IDS.pinnedRoot, text: "Pinned" }),
   ];
 }
 
@@ -135,7 +133,7 @@ describe("node command palette", () => {
       present(pin, "pin").click();
     });
     const nodes = useOutlineStore.getState().nodes;
-    expect(isPinned(nodes.get("n.plain"), nodes)).toBe(true);
+    expect(isPinned(nodes, "n.plain")).toBe(true);
 
     await open("n.plain");
     expect(labels()).toContain("Unpin");

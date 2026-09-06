@@ -453,13 +453,23 @@ both are answered from the node ⌘K menu rather than from a device switch.
     user who had the global switch on has no id set to migrate to, so debug
     starts off and is re-armed per node. The stale key inside
     `localStorage["kb-prefs"]` is ignored on read and dropped on next write.
-- **Pinning is tagging.** `lib/pinned.ts` owns it: a node is pinned when its
-  kind slot names a tag node whose text is `pinned`, read through `typeRefsOf`
-  and never off `node.tags` (a DISPLAY list — see `resolveTags`). Nothing is
-  seeded; the tag is minted on first pin through the same `defineTag` the ⌘K
-  picker's "Create tag" path uses, which is why there is no `sys.tag.pinned`.
-  `mutations.togglePin` is `addTag`/`removeTag` and nothing else, and the
-  sidebar's Pinned section reads the same predicate.
+- **Pinning is listing.** `lib/pinned.ts` owns it: the seeded `pinned` node's
+  **children** are contextual references (`sys.f.ref.target`) to the pinned
+  nodes, and that list *is* the sidebar section. `mutations.togglePin` appends
+  one such child or deletes it, and nothing else. Three things follow that a
+  `pinned` supertag could not give (DESIGN.md →
+  [Kinds, roles and options](./DESIGN.md#kinds-roles-and-options)):
+  - **Order is data.** A tag is a set, so the sidebar had to invent an order
+    and sorted by label. Children are ordered, and the outline's existing
+    drag-reorder writes that order — the sidebar learned nothing about
+    dragging, because `pinned` is an ordinary node you can open and rearrange.
+  - **One node kind, reused.** A pin *is* a contextual reference: the row the
+    outline already renders, backlinks already count, and ⌘K already mints.
+  - **Nothing is written to the pinned node.** That is why the toggle no
+    longer refuses `sys.*` targets — tagging edited the node's kind slot, so
+    pinning `sys.queries` was a write to it; pointing at a node is not.
+  - The list node is deliberately **not** `sys.`-prefixed, for the same reason
+    `lens.all-mentions` is not: its whole purpose is to be written to.
   - **Naming collision, deliberately not merged:** an *ontology's* pins are
     `sys.f.onto.member` props with their own Unpin control on the ontology
     page. Same English word, different field, different mechanism.

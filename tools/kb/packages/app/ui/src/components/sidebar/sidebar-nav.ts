@@ -14,7 +14,7 @@ export interface SidebarNavItem {
   label: string;
 }
 
-/** `#pinned` nodes for the Pinned section — membership owned by lib/pinned. */
+/** Targets of the Pinned list, in list order — membership owned by lib/pinned. */
 export function listPinnedNavItems(nodes: NodeMap): SidebarNavItem[] {
   return listPinnedNodes(nodes).map((n) => ({
     id: n.id,

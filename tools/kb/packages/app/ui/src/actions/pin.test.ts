@@ -1,25 +1,45 @@
 /**
  * Pin / unpin round-trip.
  *
- * Pinning is tagging, so this asserts the whole gesture through the ordinary
- * mutation path: the `pinned` tag is minted on first use, membership shows up
- * where the sidebar reads it, and toggling again removes it.
+ * Pinning is listing, so this asserts the whole gesture through the ordinary
+ * mutation path: a contextual reference lands under the seeded `pinned` node,
+ * the sidebar reads it in list order, and toggling again deletes that row.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
+import { REF_SEED_WIRES } from "@/fixtures/contextual-ref";
 import { fixtureGraph } from "@/fixtures/graph";
 import { listPinnedNavItems } from "@/components/sidebar/sidebar-nav";
-import { PINNED_TAG_TEXT, findPinnedTagId, isPinned } from "@/lib/pinned";
+import { contextualTargetOf } from "@/lib/contextual-ref";
+import { isPinned, pinnedRefIds } from "@/lib/pinned";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
+
+/** The seeded Pinned list, which the real graph always carries. */
+const PINNED_LIST = {
+  id: SYSTEM_IDS.pinnedRoot,
+  text: "Pinned",
+  props: {},
+  children: [],
+  createdAt: "2026-08-08T00:00:00.000Z",
+  updatedAt: "2026-08-08T00:00:00.000Z",
+};
 
 function seed() {
   resetOutlineStore();
   useOutlineStore
     .getState()
-    .hydrateFromWire(structuredClone(fixtureGraph.nodes), fixtureGraph.rev, "fixtures");
+    .hydrateFromWire(
+      [
+        ...structuredClone(fixtureGraph.nodes),
+        ...structuredClone(REF_SEED_WIRES),
+        { ...PINNED_LIST },
+      ],
+      fixtureGraph.rev,
+      "fixtures",
+    );
 }
 
 const nodes = () => useOutlineStore.getState().nodes;
@@ -27,49 +47,45 @@ const nodes = () => useOutlineStore.getState().nodes;
 describe("pin toggle", () => {
   beforeEach(seed);
 
-  it("mints the pinned tag on first pin and lists the node", () => {
-    expect(findPinnedTagId(nodes())).toBeNull();
+  it("appends one reference row and lists the node", async () => {
     expect(listPinnedNavItems(nodes())).toEqual([]);
 
-    // oxlint-disable-next-line promise/always-return -- GAP [[01M1MFS8RQ2BMQVZD02J4TQT7W]]
-    return mutations.togglePin("n.root-a").then(() => {
-      const tagId = present(findPinnedTagId(nodes()), "pinned tag");
-      expect(nodes().get(tagId)?.text).toBe(PINNED_TAG_TEXT);
-      expect(isPinned(nodes().get("n.root-a"), nodes())).toBe(true);
-      expect(listPinnedNavItems(nodes()).map((i) => i.id)).toEqual(["n.root-a"]);
-    });
+    await mutations.togglePin("n.root-a");
+
+    const refId = present(pinnedRefIds(nodes())[0], "pin row");
+    expect(contextualTargetOf(nodes().get(refId))).toBe("n.root-a");
+    expect(isPinned(nodes(), "n.root-a")).toBe(true);
+    expect(listPinnedNavItems(nodes()).map((i) => i.id)).toEqual(["n.root-a"]);
   });
 
-  it("round-trips: a second toggle unpins and reuses the same tag", async () => {
-    await mutations.togglePin("n.root-a");
-    const tagId = findPinnedTagId(nodes());
+  it("round-trips, and keeps pin order rather than label order", async () => {
     await mutations.togglePin("n.root-b");
-    expect(findPinnedTagId(nodes())).toBe(tagId);
-    expect(
-      listPinnedNavItems(nodes())
-        .map((i) => i.id)
-        .toSorted(),
-    ).toEqual(["n.root-a", "n.root-b"]);
-
     await mutations.togglePin("n.root-a");
-    expect(isPinned(nodes().get("n.root-a"), nodes())).toBe(false);
-    expect(listPinnedNavItems(nodes()).map((i) => i.id)).toEqual(["n.root-b"]);
+    expect(listPinnedNavItems(nodes()).map((i) => i.id)).toEqual(["n.root-b", "n.root-a"]);
+
+    await mutations.togglePin("n.root-b");
+    expect(isPinned(nodes(), "n.root-b")).toBe(false);
+    expect(listPinnedNavItems(nodes()).map((i) => i.id)).toEqual(["n.root-a"]);
+    expect(pinnedRefIds(nodes()).length).toBe(1);
   });
 
-  it("pins by tagging — no bespoke flag on the node", async () => {
+  it("writes nothing to the pinned node itself", async () => {
     await mutations.togglePin("n.root-a");
-    const tagId = present(findPinnedTagId(nodes()), "pinned tag");
     const wire = present(
       useOutlineStore.getState().wireNodes.find((n) => n.id === "n.root-a"),
       "n.root-a",
     );
-    expect(wire.props[SYSTEM_IDS.typeField]).toEqual(
-      expect.arrayContaining([{ t: "ref", v: tagId }]),
+    const before = present(
+      fixtureGraph.nodes.find((n) => n.id === "n.root-a"),
+      "fixture n.root-a",
     );
+    expect(wire.props).toEqual(before.props);
   });
 
-  it("refuses to pin a sys.* node (write guard)", async () => {
-    expect(await mutations.togglePin(SYSTEM_IDS.queryField)).toBe(false);
-    expect(findPinnedTagId(nodes())).toBeNull();
+  it("pins a sys.* node — pointing at one is not writing to one", async () => {
+    // The old toggle refused, because tagging edited the node's kind slot.
+    // A reference writes only the Pinned list, and `sys.*` browse is open.
+    expect(await mutations.togglePin(SYSTEM_IDS.queryField)).toBe(true);
+    expect(isPinned(nodes(), SYSTEM_IDS.queryField)).toBe(true);
   });
 });
