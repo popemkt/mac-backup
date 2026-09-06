@@ -26,6 +26,7 @@
       },
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/ext-check": "workspace:*",
         "@kb/ext-docs": "workspace:*",
         "@kb/ext-sdk": "workspace:*",
         "@kb/mcp": "workspace:*",
