@@ -1,113 +1,31 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { ulid } from "ulid";
-import type { CanvasDoc, CanvasEdge, CanvasNode, CanvasSide, KbLinkMode } from "@kb/canvas";
-import {
-  isGroupNode,
-  isKbNode,
-  isShapeNode,
-  isTextNode,
-  parseCanvasDoc,
-  removeCanvasEdge,
-  upsertCanvasEdge,
-  upsertCanvasNode,
-} from "@kb/canvas";
-import { hasText } from "@/lib/text";
+import { useCallback, useMemo, useReducer, useRef, useState } from "react";
+import type { CanvasNode } from "@kb/canvas";
+import { upsertCanvasEdge, upsertCanvasNode } from "@kb/canvas";
 import { Bullet } from "@/components/outline/bullet";
 import { NodeRow } from "@/components/outline/node-row";
-import { KbNodeCard, TextCard } from "@/components/canvas/canvas-card";
-import { CanvasToolbar } from "@/components/canvas/canvas-toolbar";
-import { EdgeInspector } from "@/components/canvas/edge-inspector";
-import { NodePicker } from "@/components/canvas/node-picker";
-import { edgePath, sidePoint } from "@/components/canvas/edge-path";
-import { ShapeCard } from "@/components/canvas/shape-card";
-import { ShapeInspector } from "@/components/canvas/shape-inspector";
+import { CanvasOverlays } from "@/components/canvas/canvas-overlays";
+import { CanvasStage } from "@/components/canvas/canvas-stage";
 import { useCanvasDoc } from "@/components/canvas/use-canvas-doc";
-import {
-  edgePropPresent,
-  isValidNativeTarget,
-  listRefFields,
-  planNativeBind,
-} from "@/lib/canvas-api";
-import {
-  placeWithTool,
-  reduceCanvasTool,
-  type CanvasTool,
-  type ToolState,
-} from "@/lib/canvas-tool";
-import {
-  type CanvasSelection,
-  EMPTY_SELECTION,
-  deleteSelected,
-  selectAll,
-  selectEdge,
-  selectNode as selNode,
-  selectionEmpty,
-  toggleEdge,
-  toggleNode,
-} from "@/lib/canvas-selection";
-import { resolveCanvasColor } from "@/lib/canvas-color";
+import { createCanvasEdgeActions } from "@/components/canvas/use-canvas-edge-actions";
+import { useCanvasGestures } from "@/components/canvas/use-canvas-gestures";
+import { useCanvasKeyboard } from "@/components/canvas/use-canvas-keyboard";
+import { useCanvasSelection } from "@/components/canvas/use-canvas-selection";
+import { listRefFields } from "@/lib/canvas-api";
+import type { ToolState } from "@/lib/canvas-tool";
+import { EMPTY_SELECTION, deleteSelected, selectNode as selNode } from "@/lib/canvas-selection";
 import {
   createPointerState,
   pointerReduce,
   type CanvasPointerEvent,
   type PointerResult,
   type PointerState,
-  type ResizeCorner,
 } from "@/lib/canvas-pointer";
-import { classifyCardPointer } from "@/lib/card-pointer";
-import { asElement, asInstance, isTextEntry } from "@/lib/dom";
 import { navigate } from "@/lib/router";
-import { toast } from "@/lib/toast";
 import { useOutlineStore } from "@/stores/outline.store";
-import { cn } from "@/lib/cn";
-
-const MIN_ZOOM = 0.1;
-const MAX_ZOOM = 3;
 
 interface CanvasPageProps {
   canvasId: string;
 }
-
-/** A press that landed on the stage itself, not on a card, the toolbar or an edge. */
-const isEmptyStageTarget = (target: EventTarget | null) => {
-  const el = asElement(target);
-  if (el === undefined) return false;
-  if (el.closest("[data-card-id]") !== null) return false;
-  if (el.closest("[data-testid='canvas-toolbar']") !== null) return false;
-  if (el.closest("path") !== null) return false;
-  return true;
-};
-
-/** The four connect handles a card shows on hover. */
-const renderPorts = (
-  _card: CanvasNode,
-  onPortDown: (side: CanvasSide, e: React.PointerEvent) => void,
-) => (
-  <>
-    {(["left", "right", "top", "bottom"] as const).map((side) => (
-      <button
-        key={side}
-        type="button"
-        data-port={side}
-        aria-label={`Connect ${side}`}
-        className={cn(
-          "absolute z-10 h-4.5 w-4.5 rounded-full",
-          "opacity-0 transition-opacity group-hover/card:opacity-100",
-          side === "left" && "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
-          side === "right" && "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
-          side === "top" && "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
-          side === "bottom" && "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
-        )}
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          onPortDown(side, e);
-        }}
-      >
-        <span className="block h-2 w-2 rounded-full border border-foreground/20 bg-background mx-auto mt-[5px]" />
-      </button>
-    ))}
-  </>
-);
 
 export function CanvasPage({ canvasId }: CanvasPageProps) {
   const nodes = useOutlineStore((s) => s.nodes);
@@ -135,27 +53,29 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
   const [zoom, setZoom] = useState(1);
   const [spaceDown, setSpaceDown] = useState(false);
-  const [selection, setSelection] = useState<CanvasSelection>(EMPTY_SELECTION);
-  const [inspectorAnchor, setInspectorAnchor] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [toolState, setToolState] = useState<ToolState>({ tool: "select" });
-  const [shapeInspectorAnchor, setShapeInspectorAnchor] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
   const [editingEdgeLabel, setEditingEdgeLabel] = useState<string | null>(null);
-
-  const selRef = useRef(selection);
-  selRef.current = selection;
 
   const byId = useMemo(() => {
     const m = new Map<string, CanvasNode>();
     for (const n of doc.nodes) m.set(n.id, n);
     return m;
   }, [doc.nodes]);
+
+  const {
+    inspectorAnchor,
+    onCardPointerDown,
+    onEdgeClick,
+    selectedEdge: selectedEdgeObj,
+    selectedShape,
+    selection,
+    selectionRef: selRef,
+    setInspectorAnchor,
+    setSelection,
+    setShapeInspectorAnchor,
+    shapeInspectorAnchor,
+  } = useCanvasSelection(doc, byId);
 
   const applyPointerResult = useCallback(
     (next: PointerResult) => {
@@ -167,7 +87,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       else if (next.persist === "flush") void flushPersist(next.doc);
       else if (next.persist === "history") schedulePersist(next.doc);
     },
-    [flushPersist, schedulePersist, schedulePersistSilent],
+    [flushPersist, schedulePersist, schedulePersistSilent, setSelection],
   );
 
   const dispatchPointer = useCallback(
@@ -181,590 +101,68 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       applyPointerResult(next);
       return next;
     },
-    [applyPointerResult, byId, docRef, zoom],
+    [applyPointerResult, byId, docRef, selRef, zoom],
   );
 
   const refFields = useMemo(() => listRefFields(nodes), [nodes]);
 
-  useEffect(() => {
-    // oxlint-disable-next-line complexity -- GAP [[01M1MGCS6A29HT51G40W5TEEYK]]
-    const onKeyDown = (e: KeyboardEvent) => {
-      const inField = isTextEntry(e.target);
+  const {
+    addKbNode,
+    onDoubleClickStage,
+    onPointerDownStage,
+    onPointerMove,
+    onPointerUp,
+    onWheel,
+    setTool,
+    setToolSticky,
+    startMoveForSelection,
+    zoomToFit,
+  } = useCanvasGestures({
+    docRef,
+    pointerRef,
+    pan,
+    zoom,
+    spaceDown,
+    toolState,
+    dispatchPointer,
+    schedulePersist,
+    flushPersist,
+    setInspectorAnchor,
+    setPickerOpen,
+    setSelection,
+    setShapeInspectorAnchor,
+    setToolState,
+    setZoom,
+  });
 
-      // Undo / Redo (works even when in field)
-      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
-        e.preventDefault();
-        undoCanvasDoc();
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && (e.key === "Z" || (e.key === "z" && e.shiftKey))) {
-        e.preventDefault();
-        redoCanvasDoc();
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "y") {
-        e.preventDefault();
-        redoCanvasDoc();
-        return;
-      }
+  useCanvasKeyboard({
+    byId,
+    docRef,
+    selRef,
+    schedulePersist,
+    schedulePersistSilent,
+    undoCanvasDoc,
+    redoCanvasDoc,
+    zoomToFit,
+    setSelection,
+    setInspectorAnchor,
+    setShapeInspectorAnchor,
+    setPickerOpen,
+    setSpaceDown,
+    setToolState,
+    setZoom,
+  });
 
-      if (inField) {
-        if (e.key === "Escape") return;
-        return;
-      }
-
-      // Delete / Backspace
-      if (e.key === "Delete" || e.key === "Backspace") {
-        e.preventDefault();
-        const sel = selRef.current;
-        if (selectionEmpty(sel)) return;
-        const nextDoc = deleteSelected(docRef.current, sel);
-        schedulePersist(nextDoc);
-        setSelection(EMPTY_SELECTION);
-        setInspectorAnchor(null);
-        setShapeInspectorAnchor(null);
-        return;
-      }
-
-      // Select All
-      if ((e.metaKey || e.ctrlKey) && e.key === "a") {
-        e.preventDefault();
-        setSelection(selectAll(docRef.current));
-        return;
-      }
-
-      // Copy
-      if ((e.metaKey || e.ctrlKey) && e.key === "c") {
-        e.preventDefault();
-        const sel = selRef.current;
-        if (selectionEmpty(sel)) return;
-        const copied: CanvasDoc = {
-          nodes: docRef.current.nodes.filter((n) => sel.nodeIds.has(n.id)),
-          edges: docRef.current.edges.filter(
-            (edge) =>
-              sel.edgeIds.has(edge.id) ||
-              (sel.nodeIds.has(edge.fromNode) && sel.nodeIds.has(edge.toNode)),
-          ),
-        };
-        void navigator.clipboard.writeText(JSON.stringify(copied));
-        return;
-      }
-
-      // Paste
-      if ((e.metaKey || e.ctrlKey) && e.key === "v") {
-        e.preventDefault();
-        // oxlint-disable-next-line promise/always-return -- GAP [[01M1MFS8RQ2BMQVZD02J4TQT7W]]
-        void navigator.clipboard.readText().then((text) => {
-          try {
-            const parsed = parseCanvasDoc(text);
-            const idMap = new Map<string, string>();
-            const newNodes: CanvasNode[] = parsed.nodes.map((n) => {
-              const newId = ulid();
-              idMap.set(n.id, newId);
-              return { ...n, id: newId, x: n.x + 24, y: n.y + 24 };
-            });
-            const newEdges: CanvasEdge[] = parsed.edges.flatMap((edge) => {
-              const fromNode = idMap.get(edge.fromNode);
-              const toNode = idMap.get(edge.toNode);
-              if (fromNode === undefined || toNode === undefined) return [];
-              return [{ ...edge, id: ulid(), fromNode, toNode }];
-            });
-            let nextDoc = docRef.current;
-            for (const n of newNodes) nextDoc = upsertCanvasNode(nextDoc, n);
-            for (const edge of newEdges) nextDoc = upsertCanvasEdge(nextDoc, edge);
-            schedulePersist(nextDoc);
-            setSelection({
-              nodeIds: new Set(newNodes.map((n) => n.id)),
-              edgeIds: new Set(newEdges.map((edge) => edge.id)),
-            });
-          } catch {
-            // not valid canvas JSON
-          }
-        });
-        return;
-      }
-
-      // Duplicate
-      if ((e.metaKey || e.ctrlKey) && e.key === "d") {
-        e.preventDefault();
-        const sel = selRef.current;
-        if (selectionEmpty(sel)) return;
-        const idMap = new Map<string, string>();
-        let nextDoc = docRef.current;
-        for (const nodeId of sel.nodeIds) {
-          const node = byId.get(nodeId);
-          if (!node) continue;
-          const newId = ulid();
-          idMap.set(nodeId, newId);
-          nextDoc = upsertCanvasNode(nextDoc, {
-            ...node,
-            id: newId,
-            x: node.x + 24,
-            y: node.y + 24,
-          });
-        }
-        for (const edge of docRef.current.edges) {
-          if (sel.nodeIds.has(edge.fromNode) && sel.nodeIds.has(edge.toNode)) {
-            nextDoc = upsertCanvasEdge(nextDoc, {
-              ...edge,
-              id: ulid(),
-              fromNode: idMap.get(edge.fromNode) ?? edge.fromNode,
-              toNode: idMap.get(edge.toNode) ?? edge.toNode,
-            });
-          }
-        }
-        schedulePersist(nextDoc);
-        setSelection({
-          nodeIds: new Set(idMap.values()),
-          edgeIds: new Set(),
-        });
-        return;
-      }
-
-      // Escape
-      if (e.key === "Escape") {
-        setToolState((s) => reduceCanvasTool(s, { type: "escape" }));
-        setSelection(EMPTY_SELECTION);
-        setInspectorAnchor(null);
-        setShapeInspectorAnchor(null);
-        return;
-      }
-
-      // Space for panning
-      if (e.code === "Space") {
-        setSpaceDown(true);
-        e.preventDefault();
-        return;
-      }
-
-      // Arrow nudge
-      if (e.key.startsWith("Arrow")) {
-        const sel = selRef.current;
-        if (selectionEmpty(sel)) return;
-        e.preventDefault();
-        const step = e.shiftKey ? 10 : 1;
-        const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
-        const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
-        let nextDoc = docRef.current;
-        for (const nodeId of sel.nodeIds) {
-          const node = byId.get(nodeId);
-          if (node) {
-            nextDoc = upsertCanvasNode(nextDoc, {
-              ...node,
-              x: node.x + dx,
-              y: node.y + dy,
-            });
-          }
-        }
-        schedulePersistSilent(nextDoc);
-        return;
-      }
-
-      // Tool shortcuts
-      const toolKeys: Record<string, CanvasTool> = {
-        v: "select",
-        "1": "select",
-        t: "text",
-        "2": "text",
-        r: "rect",
-        "3": "rect",
-        o: "ellipse",
-        c: "ellipse",
-        "4": "ellipse",
-        d: "diamond",
-        "5": "diamond",
-        n: "kb-node",
-        "6": "kb-node",
-        g: "group",
-        f: "group",
-        "7": "group",
-      };
-      const mapped = toolKeys[e.key.toLowerCase()];
-      if (mapped) {
-        e.preventDefault();
-        if (mapped === "kb-node") {
-          setToolState({ tool: "select" });
-          setPickerOpen(true);
-        } else {
-          setToolState((s) => reduceCanvasTool(s, { type: "set-tool", tool: mapped }));
-        }
-        return;
-      }
-
-      // Zoom shortcuts
-      if ((e.metaKey || e.ctrlKey) && (e.key === "=" || e.key === "+")) {
-        e.preventDefault();
-        setZoom((z) => Math.min(MAX_ZOOM, z * 1.15));
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "-") {
-        e.preventDefault();
-        setZoom((z) => Math.max(MIN_ZOOM, z / 1.15));
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "0") {
-        e.preventDefault();
-        setZoom(1);
-        return;
-      }
-
-      // Zoom to fit (Shift+1)
-      if (e.shiftKey && e.key === "!") {
-        e.preventDefault();
-        zoomToFit();
-        return;
-      }
-    };
-
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code === "Space") setSpaceDown(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-    };
-  }, [byId, redoCanvasDoc, schedulePersist, schedulePersistSilent, undoCanvasDoc]); // oxlint-disable-line react-hooks/exhaustive-deps -- zoomToFit is recreated per render and is not a stable dep; this effect intentionally binds a one-shot keydown listener
-
-  const setTool = useCallback((tool: CanvasTool) => {
-    if (tool === "kb-node") {
-      setToolState({ tool: "select" });
-      setPickerOpen(true);
-      return;
-    }
-    setToolState((s) => reduceCanvasTool(s, { type: "set-tool", tool }));
-  }, []);
-
-  const setToolSticky = useCallback((tool: CanvasTool) => {
-    if (tool === "kb-node" || tool === "select") return;
-    setToolState((s) => reduceCanvasTool(s, { type: "set-tool-sticky", tool }));
-  }, []);
-
-  const zoomToFit = useCallback(() => {
-    const docNodes = docRef.current.nodes;
-    if (docNodes.length === 0) return;
-    const stageEl = document.querySelector("[data-canvas-stage]")?.parentElement?.parentElement;
-    if (!stageEl) return;
-    const rect = stageEl.getBoundingClientRect();
-    const PAD = 40;
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    for (const n of docNodes) {
-      minX = Math.min(minX, n.x);
-      minY = Math.min(minY, n.y);
-      maxX = Math.max(maxX, n.x + n.width);
-      maxY = Math.max(maxY, n.y + n.height);
-    }
-    const contentW = maxX - minX;
-    const contentH = maxY - minY;
-    if (contentW <= 0 || contentH <= 0) return;
-    const scaleX = (rect.width - PAD * 2) / contentW;
-    const scaleY = (rect.height - PAD * 2) / contentH;
-    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.min(scaleX, scaleY, 1)));
-    const cx = (minX + maxX) / 2;
-    const cy = (minY + maxY) / 2;
-    dispatchPointer({
-      type: "pan/set",
-      pan: {
-        x: rect.width / 2 - cx * newZoom,
-        y: rect.height / 2 - cy * newZoom,
-      },
-    });
-    setZoom(newZoom);
-  }, [dispatchPointer, docRef]);
-
-  const screenToWorld = useCallback(
-    (clientX: number, clientY: number, el: HTMLElement) => {
-      const rect = el.getBoundingClientRect();
-      return {
-        x: (clientX - rect.left - pan.x) / zoom,
-        y: (clientY - rect.top - pan.y) / zoom,
-      };
-    },
-    [pan, zoom],
-  );
-
-  const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const factor = e.deltaY > 0 ? 0.92 : 1.08;
-      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * factor));
-      // Cursor-centered zoom
-      const rect = e.currentTarget.getBoundingClientRect();
-      const px = e.clientX - rect.left;
-      const py = e.clientY - rect.top;
-      const worldX = (px - pan.x) / zoom;
-      const worldY = (py - pan.y) / zoom;
-      dispatchPointer({
-        type: "pan/set",
-        pan: {
-          x: px - worldX * newZoom,
-          y: py - worldY * newZoom,
-        },
-      });
-      setZoom(newZoom);
-      return;
-    }
-    dispatchPointer({
-      type: "pan/set",
-      pan: { x: pan.x - e.deltaX, y: pan.y - e.deltaY },
-    });
-  };
-
-  const startMoveForSelection = (e: React.PointerEvent, clickedId: string) => {
-    dispatchPointer({
-      type: "move/start",
-      id: clickedId,
-      screen: { x: e.clientX, y: e.clientY },
-    });
-    asElement(e.target)?.setPointerCapture(e.pointerId);
-  };
-
-  const onPointerDownStage = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button === 1 || spaceDown || (e.button === 0 && e.altKey)) {
-      dispatchPointer({ type: "pan/start", screen: { x: e.clientX, y: e.clientY } });
-      asElement(e.target)?.setPointerCapture(e.pointerId);
-      return;
-    }
-    if (e.button === 0 && isEmptyStageTarget(e.target)) {
-      const placed = placeWithTool(
-        docRef.current,
-        toolState.tool,
-        screenToWorld(e.clientX, e.clientY, e.currentTarget),
-        ulid(),
-      );
-      if (placed) {
-        schedulePersist(placed.doc);
-        setSelection(selNode(placed.node.id));
-        setToolState((s) => reduceCanvasTool(s, { type: "placed" }));
-        setInspectorAnchor(null);
-        setShapeInspectorAnchor(null);
-        if (isShapeNode(placed.node)) {
-          setShapeInspectorAnchor({ x: e.clientX, y: e.clientY });
-        }
-        return;
-      }
-      // Begin marquee or clear selection
-      const world = screenToWorld(e.clientX, e.clientY, e.currentTarget);
-      dispatchPointer({
-        type: "marquee/start",
-        screen: { x: e.clientX, y: e.clientY },
-        world,
-        additive: e.shiftKey,
-      });
-      asElement(e.target)?.setPointerCapture(e.pointerId);
-    }
-  };
-
-  const onDoubleClickStage = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isEmptyStageTarget(e.target)) return;
-    if (toolState.tool !== "select") return;
-    const world = screenToWorld(e.clientX, e.clientY, e.currentTarget);
-    const card = {
-      id: ulid(),
-      type: "text" as const,
-      text: "",
-      x: world.x,
-      y: world.y,
-      width: 220,
-      height: 80,
-    };
-    schedulePersist(upsertCanvasNode(docRef.current, card));
-    setSelection(selNode(card.id));
-  };
-
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    dispatchPointer({
-      type: "pointer/move",
-      screen: { x: e.clientX, y: e.clientY },
-      world: screenToWorld(e.clientX, e.clientY, e.currentTarget),
-      shiftKey: e.shiftKey,
-    });
-  };
-
-  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    const drag = pointerRef.current.drag;
-    if (drag?.kind === "marquee-pending") {
-      setInspectorAnchor(null);
-      setShapeInspectorAnchor(null);
-    }
-    const edgeTarget =
-      drag?.kind === "edge"
-        ? asInstance(
-            document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-card-id]"),
-            HTMLElement,
-          )?.dataset.cardId
-        : undefined;
-    const edgeWorld =
-      drag?.kind === "edge" ? screenToWorld(drag.x, drag.y, e.currentTarget) : undefined;
-    const next = dispatchPointer({
-      type: "pointer/end",
-      screen: { x: e.clientX, y: e.clientY },
-      edgeTargetId: edgeTarget,
-      edgeWorld,
-      edgeId: drag?.kind === "edge" ? ulid() : undefined,
-      edgeBindingId: drag?.kind === "edge" ? ulid() : undefined,
-    });
-    if (next.persist === "flush") {
-      setInspectorAnchor({ x: e.clientX, y: e.clientY });
-    }
-  };
-
-  const addKbNode = (nodeId: string) => {
-    setPickerOpen(false);
-    const card = {
-      id: ulid(),
-      type: "kb-node" as const,
-      nodeId,
-      x: (200 - pan.x) / zoom,
-      y: (160 - pan.y) / zoom,
-      width: 280,
-      height: 72,
-    };
-    void flushPersist(upsertCanvasNode(docRef.current, card));
-    setSelection(selNode(card.id));
-  };
-
-  // Derive selected edge/shape for inspectors
-  const selectedEdgeId = selection.edgeIds.size === 1 ? [...selection.edgeIds][0] : null;
-  const selectedEdgeObj =
-    selectedEdgeId !== undefined ? (doc.edges.find((e) => e.id === selectedEdgeId) ?? null) : null;
-
-  const selectedShapeId = selection.nodeIds.size === 1 ? ([...selection.nodeIds][0] ?? null) : null;
-  const selectedShape =
-    selectedShapeId !== null
-      ? (() => {
-          const n = byId.get(selectedShapeId);
-          return n && isShapeNode(n) ? n : null;
-        })()
-      : null;
-
-  // oxlint-disable-next-line complexity -- GAP [[01M1MGCTRFEHBF15DSCNDXW0GZ]]
-  const onModeChange = async (mode: KbLinkMode) => {
-    if (!selectedEdgeObj) return;
-    const from = byId.get(selectedEdgeObj.fromNode);
-    const to = byId.get(selectedEdgeObj.toNode);
-
-    if (mode === "native" && selectedEdgeObj.kbLink?.fieldId === undefined) {
-      toast("Pick a ref field before enabling native mode");
-      return;
-    }
-
-    if (!from || !to || !isKbNode(from) || !isKbNode(to)) {
-      const next = upsertCanvasEdge(docRef.current, {
-        ...selectedEdgeObj,
-        kbLink: selectedEdgeObj.kbLink
-          ? {
-              ...selectedEdgeObj.kbLink,
-              mode: mode === "native" && !selectedEdgeObj.kbLink.fieldId ? "layout" : mode,
-            }
-          : undefined,
-      });
-      await flushPersist(next);
-      return;
-    }
-
-    const link = {
-      mode,
-      via: "prop" as const,
-      fieldId: selectedEdgeObj.kbLink?.fieldId ?? "",
-      sourceNodeId: from.nodeId,
-      targetNodeId: to.nodeId,
-      bindingId: selectedEdgeObj.kbLink?.bindingId ?? ulid(),
-    };
-    if (mode === "native" && !link.fieldId) {
-      toast("Pick a ref field before enabling native mode");
-      return;
-    }
-
-    const next = upsertCanvasEdge(docRef.current, {
-      ...selectedEdgeObj,
-      kbLink: link,
-    });
-
-    if (mode === "native" && link.fieldId) {
-      if (!isValidNativeTarget(link.fieldId, to.nodeId, nodes, queryDb)) {
-        toast("Target not allowed for this ref field");
-        return;
-      }
-      const bind = planNativeBind(nodes, from.nodeId, link.fieldId, to.nodeId);
-      await flushPersist(next, {
-        propTargetId: from.nodeId,
-        setProps: bind.skip ? undefined : bind.setProps,
-      });
-    } else {
-      await flushPersist(next);
-    }
-  };
-
-  const onFieldChange = async (fieldId: string) => {
-    if (!selectedEdgeObj) return;
-    const from = byId.get(selectedEdgeObj.fromNode);
-    const to = byId.get(selectedEdgeObj.toNode);
-    if (!from || !to || !isKbNode(from) || !isKbNode(to)) return;
-
-    if (!isValidNativeTarget(fieldId, to.nodeId, nodes, queryDb)) {
-      toast("Target not allowed for this ref field");
-      return;
-    }
-
-    const link = {
-      mode: "native" as const,
-      via: "prop" as const,
-      fieldId,
-      sourceNodeId: from.nodeId,
-      targetNodeId: to.nodeId,
-      bindingId: selectedEdgeObj.kbLink?.bindingId ?? ulid(),
-    };
-    const next = upsertCanvasEdge(docRef.current, {
-      ...selectedEdgeObj,
-      kbLink: link,
-    });
-
-    const bind = planNativeBind(nodes, from.nodeId, fieldId, to.nodeId);
-    await flushPersist(next, {
-      propTargetId: from.nodeId,
-      setProps: bind.skip ? undefined : bind.setProps,
-    });
-  };
-
-  const onDeleteEdge = async () => {
-    if (!selectedEdgeObj) return;
-    const link = selectedEdgeObj.kbLink;
-    const next = removeCanvasEdge(docRef.current, selectedEdgeObj.id);
-    const offerUnset =
-      link?.mode === "native" &&
-      !!link.fieldId &&
-      window.confirm("Also remove the bound prop from the source node?");
-    if (offerUnset) {
-      await flushPersist(next, {
-        propTargetId: link.sourceNodeId,
-        unsetProps: [
-          {
-            field: link.fieldId,
-            value: { t: "ref", v: link.targetNodeId },
-          },
-        ],
-      });
-    } else {
-      await flushPersist(next);
-    }
-    setSelection(EMPTY_SELECTION);
-    setInspectorAnchor(null);
-  };
-
-  // Ghost edge rendering
-  const ghostEdge = (() => {
-    const d = pointerState.drag;
-    if (!d || d.kind !== "edge") return null;
-    const from = byId.get(d.fromCardId);
-    if (!from) return null;
-    const start = sidePoint(from, d.fromSide);
-    return { start, endX: d.x, endY: d.y, fromSide: d.fromSide };
-  })();
+  const { onDeleteEdge, onFieldChange, onModeChange } = createCanvasEdgeActions({
+    selectedEdge: selectedEdgeObj,
+    byId,
+    docRef,
+    nodes,
+    queryDb,
+    flushPersist,
+    setSelection,
+    setInspectorAnchor,
+  });
 
   if (!canvasNode) {
     return (
@@ -776,75 +174,6 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       </div>
     );
   }
-
-  const handleCardPointerDown = (
-    card: CanvasNode,
-    e: React.PointerEvent,
-    anchor?: { x: number; y: number },
-  ) => {
-    const isSelected = selection.nodeIds.has(card.id);
-    if (e.shiftKey || e.metaKey || e.ctrlKey) {
-      setSelection(toggleNode(selection, card.id));
-      setInspectorAnchor(null);
-      setShapeInspectorAnchor(null);
-      return;
-    }
-    if (!isSelected) {
-      setSelection(selNode(card.id));
-      setInspectorAnchor(null);
-      if (anchor) setShapeInspectorAnchor(anchor);
-      else setShapeInspectorAnchor(null);
-    }
-    startMoveForSelection(e, card.id);
-  };
-
-  const handleEdgeClick = (edge: CanvasEdge, ev: React.MouseEvent) => {
-    ev.stopPropagation();
-    if (ev.shiftKey || ev.metaKey || ev.ctrlKey) {
-      setSelection(toggleEdge(selection, edge.id));
-    } else {
-      setSelection(selectEdge(edge.id));
-    }
-    setInspectorAnchor({ x: ev.clientX, y: ev.clientY });
-    setShapeInspectorAnchor(null);
-  };
-
-  const renderResizeHandles = (card: CanvasNode, isSelected: boolean) => {
-    if (!isSelected) return null;
-    const corners: { corner: ResizeCorner; cursor: string; style: React.CSSProperties }[] = [
-      { corner: "nw", cursor: "nwse-resize", style: { top: -4, left: -4 } },
-      { corner: "ne", cursor: "nesw-resize", style: { top: -4, right: -4 } },
-      { corner: "se", cursor: "nwse-resize", style: { bottom: -4, right: -4 } },
-      { corner: "sw", cursor: "nesw-resize", style: { bottom: -4, left: -4 } },
-    ];
-    return corners.map(({ corner, cursor, style }) => (
-      <div
-        key={corner}
-        data-resize={corner}
-        className="absolute z-20 h-2.5 w-2.5 rounded-sm border border-primary/60 bg-background"
-        style={{ ...style, cursor }}
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          dispatchPointer({
-            type: "resize/start",
-            id: card.id,
-            corner,
-            screen: { x: e.clientX, y: e.clientY },
-          });
-          asElement(e.target)?.setPointerCapture(e.pointerId);
-        }}
-      />
-    ));
-  };
-
-  const portHandler = (cardId: string) => (side: CanvasSide, e: React.PointerEvent) => {
-    dispatchPointer({
-      type: "edge/start",
-      fromCardId: cardId,
-      fromSide: side,
-      screen: { x: e.clientX, y: e.clientY },
-    });
-  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -875,548 +204,94 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
         <span className="text-[11px] text-foreground/30">{Math.round(zoom * 100)}%</span>
       </div>
 
-      <div
-        className={cn(
-          "relative min-h-0 flex-1 overflow-hidden",
-          spaceDown
-            ? "cursor-grab"
-            : toolState.tool !== "select"
-              ? "cursor-crosshair"
-              : "cursor-default",
-        )}
-        style={{
-          backgroundImage:
-            "radial-gradient(circle, color-mix(in oklab, var(--foreground) 4%, transparent) 1px, transparent 1px)",
-          backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
-          backgroundPosition: `${pan.x}px ${pan.y}px`,
-        }}
-        onWheel={onWheel}
-        onPointerDown={onPointerDownStage}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onDoubleClick={onDoubleClickStage}
-      >
-        <CanvasToolbar
-          tool={toolState.tool}
-          sticky={toolState.sticky}
+      <div className="relative min-h-0 flex flex-1">
+        <CanvasStage
+          doc={doc}
+          nodes={nodes}
+          byId={byId}
+          selection={selection}
+          pan={pan}
+          zoom={zoom}
+          spaceDown={spaceDown}
+          toolState={toolState}
+          editingEdgeLabel={editingEdgeLabel}
+          edgeDrag={pointerState.drag?.kind === "edge" ? pointerState.drag : null}
+          snapGuides={snapGuides}
+          marqueeRect={marqueeRect}
+          onEditingEdgeLabelChange={setEditingEdgeLabel}
+          onEdgeLabelCommit={(edge, label) => {
+            const updated = { ...edge, label: label || undefined };
+            if (!label) delete updated.label;
+            schedulePersist(upsertCanvasEdge(docRef.current, updated));
+          }}
+          onCardSelect={(card, anchor) => {
+            setSelection(selNode(card.id));
+            setInspectorAnchor(null);
+            setShapeInspectorAnchor(anchor ?? null);
+          }}
+          onCardChange={(card) => schedulePersist(upsertCanvasNode(docRef.current, card))}
+          onResizeStart={(cardId, corner, screen) => {
+            dispatchPointer({ type: "resize/start", id: cardId, corner, screen });
+          }}
+          onPortDown={(cardId, side, screen) => {
+            dispatchPointer({
+              type: "edge/start",
+              fromCardId: cardId,
+              fromSide: side,
+              screen,
+            });
+          }}
+          onWheel={onWheel}
+          onPointerDownStage={onPointerDownStage}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onDoubleClickStage={onDoubleClickStage}
+          handleCardPointerDown={(card, event, anchor) => {
+            onCardPointerDown(card, event, anchor, startMoveForSelection);
+          }}
+          handleEdgeClick={onEdgeClick}
+        />
+        <CanvasOverlays
+          selection={selection}
+          toolState={toolState}
+          selectedEdge={selectedEdgeObj}
+          selectedShape={selectedShape}
+          inspectorAnchor={inspectorAnchor}
+          shapeInspectorAnchor={shapeInspectorAnchor}
+          pickerOpen={pickerOpen}
+          refFields={refFields}
           onToolChange={setTool}
           onToolDoubleClick={setToolSticky}
-        />
-        <div
-          className="absolute inset-0 origin-top-left"
-          style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          onBringToFront={() => {
+            const current = docRef.current;
+            const kept = current.nodes.filter((node) => !selection.nodeIds.has(node.id));
+            const moved = current.nodes.filter((node) => selection.nodeIds.has(node.id));
+            schedulePersist({ ...current, nodes: [...kept, ...moved] });
           }}
-        >
-          <svg
-            className="pointer-events-none absolute top-0 left-0 overflow-visible"
-            width={8000}
-            height={8000}
-          >
-            <defs>
-              <marker
-                id="kb-arrow"
-                viewBox="0 0 10 10"
-                refX="8"
-                refY="5"
-                markerWidth="6"
-                markerHeight="6"
-                orient="auto-start-reverse"
-              >
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
-              </marker>
-              {["1", "2", "3", "4", "5", "6"].map((cid) => (
-                <marker
-                  key={cid}
-                  id={`kb-arrow-${cid}`}
-                  viewBox="0 0 10 10"
-                  refX="8"
-                  refY="5"
-                  markerWidth="6"
-                  markerHeight="6"
-                  orient="auto-start-reverse"
-                >
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill={`var(--canvas-color-${cid})`} />
-                </marker>
-              ))}
-              <marker
-                id="kb-arrow-rev"
-                viewBox="0 0 10 10"
-                refX="2"
-                refY="5"
-                markerWidth="6"
-                markerHeight="6"
-                orient="auto-start-reverse"
-              >
-                <path d="M 10 0 L 0 5 L 10 10 z" fill="currentColor" />
-              </marker>
-              {["1", "2", "3", "4", "5", "6"].map((cid) => (
-                <marker
-                  key={`rev-${cid}`}
-                  id={`kb-arrow-rev-${cid}`}
-                  viewBox="0 0 10 10"
-                  refX="2"
-                  refY="5"
-                  markerWidth="6"
-                  markerHeight="6"
-                  orient="auto-start-reverse"
-                >
-                  <path d="M 10 0 L 0 5 L 10 10 z" fill={`var(--canvas-color-${cid})`} />
-                </marker>
-              ))}
-            </defs>
-            <g className="pointer-events-auto text-foreground/35">
-              {doc.edges.map((edge) => {
-                const from = byId.get(edge.fromNode);
-                const to = byId.get(edge.toNode);
-                if (!from || !to) return null;
-                const d = edgePath(from, to, edge);
-                const selected = selection.edgeIds.has(edge.id);
-                const unbound =
-                  edge.kbLink?.mode === "native" &&
-                  !!edge.kbLink.fieldId &&
-                  !edgePropPresent(edge, nodes);
-                const edgeColor = resolveCanvasColor(edge.color);
-                const markerEnd =
-                  edge.toEnd === "none"
-                    ? undefined
-                    : hasText(edge.color)
-                      ? `url(#kb-arrow-${edge.color})`
-                      : "url(#kb-arrow)";
-                const markerStart =
-                  edge.fromEnd === "arrow"
-                    ? hasText(edge.color)
-                      ? `url(#kb-arrow-rev-${edge.color})`
-                      : "url(#kb-arrow-rev)"
-                    : undefined;
-
-                // Edge label midpoint
-                const labelEl = (() => {
-                  const a = sidePoint(from, edge.fromSide ?? "right");
-                  const b = sidePoint(to, edge.toSide ?? "left");
-                  const mx = (a.x + b.x) / 2;
-                  const my = (a.y + b.y) / 2;
-                  if (editingEdgeLabel === edge.id) {
-                    return (
-                      <foreignObject x={mx - 60} y={my - 12} width={120} height={24}>
-                        <input
-                          autoFocus
-                          type="text"
-                          className="h-full w-full rounded border border-primary/40 bg-popover px-1 text-center text-[11px]"
-                          defaultValue={edge.label ?? ""}
-                          onBlur={(ev) => {
-                            const val = ev.currentTarget.value.trim();
-                            const updated = { ...edge, label: val || undefined };
-                            if (!val) delete updated.label;
-                            schedulePersist(upsertCanvasEdge(docRef.current, updated));
-                            setEditingEdgeLabel(null);
-                          }}
-                          onKeyDown={(ev) => {
-                            if (ev.key === "Enter" || ev.key === "Escape") {
-                              ev.currentTarget.blur();
-                            }
-                            ev.stopPropagation();
-                          }}
-                        />
-                      </foreignObject>
-                    );
-                  }
-                  if (!hasText(edge.label)) return null;
-                  return (
-                    <g
-                      transform={`translate(${mx}, ${my})`}
-                      className="cursor-pointer"
-                      onDoubleClick={(ev) => {
-                        ev.stopPropagation();
-                        setEditingEdgeLabel(edge.id);
-                      }}
-                    >
-                      <rect
-                        x={-edge.label.length * 3.5 - 6}
-                        y={-10}
-                        width={edge.label.length * 7 + 12}
-                        height={20}
-                        rx={4}
-                        className="fill-popover stroke-foreground/10"
-                        strokeWidth={1}
-                      />
-                      <text
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                        className="fill-foreground/70 text-[11px] font-medium"
-                        style={{ pointerEvents: "none" }}
-                      >
-                        {edge.label}
-                      </text>
-                    </g>
-                  );
-                })();
-
-                return (
-                  <g key={edge.id}>
-                    {/* Fat transparent hit area */}
-                    <path
-                      d={d}
-                      fill="none"
-                      stroke="transparent"
-                      strokeWidth={20}
-                      className="cursor-pointer"
-                      onClick={(ev) => handleEdgeClick(edge, ev)}
-                      onDoubleClick={(ev) => {
-                        ev.stopPropagation();
-                        setEditingEdgeLabel(edge.id);
-                      }}
-                    />
-                    {/* Visible stroke */}
-                    <path
-                      d={d}
-                      fill="none"
-                      stroke={
-                        edgeColor ??
-                        (unbound
-                          ? "color-mix(in oklab, var(--foreground) 15%, transparent)"
-                          : selected
-                            ? "var(--primary)"
-                            : "currentColor")
-                      }
-                      strokeWidth={selected ? 2.5 : 1.5}
-                      className="pointer-events-none transition-colors"
-                      markerEnd={markerEnd}
-                      markerStart={markerStart}
-                    >
-                      {unbound && <title>prop no longer present — rebind?</title>}
-                    </path>
-                    {labelEl}
-                  </g>
-                );
-              })}
-            </g>
-
-            {/* Ghost edge while creating connection */}
-            {ghostEdge &&
-              (() => {
-                const stageEl = document.querySelector("[data-canvas-stage]")?.parentElement;
-                if (!stageEl) return null;
-                const stageRect = stageEl.getBoundingClientRect();
-                const endWorld = {
-                  x: (ghostEdge.endX - stageRect.left - pan.x) / zoom,
-                  y: (ghostEdge.endY - stageRect.top - pan.y) / zoom,
-                };
-                const a = ghostEdge.start;
-                const b = endWorld;
-                const dx = Math.max(40, Math.abs(b.x - a.x) * 0.45);
-                const c1x =
-                  a.x +
-                  (ghostEdge.fromSide === "left" ? -dx : ghostEdge.fromSide === "right" ? dx : 0);
-                const c1y =
-                  a.y +
-                  (ghostEdge.fromSide === "top" ? -dx : ghostEdge.fromSide === "bottom" ? dx : 0);
-                const ghostD = `M ${a.x} ${a.y} C ${c1x} ${c1y}, ${b.x} ${b.y}, ${b.x} ${b.y}`;
-                return (
-                  <path
-                    d={ghostD}
-                    fill="none"
-                    stroke="var(--primary)"
-                    strokeWidth={1.5}
-                    strokeDasharray="4 4"
-                    className="pointer-events-none"
-                    opacity={0.6}
-                  />
-                );
-              })()}
-          </svg>
-
-          {/* Alignment snap guides */}
-          {snapGuides.map((g, i) =>
-            g.axis === "x" ? (
-              <div
-                // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
-                key={`sg-${i}`}
-                className="absolute border-l border-dashed border-primary/40"
-                style={{ left: g.pos, top: -4000, height: 8000, pointerEvents: "none" }}
-              />
-            ) : (
-              <div
-                // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
-                key={`sg-${i}`}
-                className="absolute border-t border-dashed border-primary/40"
-                style={{ top: g.pos, left: -4000, width: 8000, pointerEvents: "none" }}
-              />
-            ),
-          )}
-
-          {/* Marquee selection rectangle */}
-          {marqueeRect && (
-            <div
-              className="absolute border border-primary/40 bg-primary/10"
-              style={{
-                left: Math.min(marqueeRect.x, marqueeRect.x + marqueeRect.w),
-                top: Math.min(marqueeRect.y, marqueeRect.y + marqueeRect.h),
-                width: Math.abs(marqueeRect.w),
-                height: Math.abs(marqueeRect.h),
-                pointerEvents: "none",
-              }}
-            />
-          )}
-
-          <div data-canvas-stage className="contents">
-            {doc.nodes.map((card) => {
-              const isSelected = selection.nodeIds.has(card.id);
-
-              if (isGroupNode(card)) {
-                return (
-                  <div
-                    key={card.id}
-                    data-card-id={card.id}
-                    className={cn(
-                      "group/card absolute rounded-md border border-dashed bg-foreground/[0.02]",
-                      isSelected ? "border-primary/40" : "border-foreground/10",
-                    )}
-                    style={{
-                      left: card.x,
-                      top: card.y,
-                      width: card.width,
-                      height: card.height,
-                    }}
-                    onPointerDown={(e) => {
-                      if (classifyCardPointer(e.target, undefined) === "chrome") return;
-                      e.stopPropagation();
-                      handleCardPointerDown(card, e);
-                    }}
-                  >
-                    {hasText(card.label) && (
-                      <div className="px-2 py-1 text-[11px] text-foreground/40">{card.label}</div>
-                    )}
-                    {renderResizeHandles(card, isSelected)}
-                    {renderPorts(card, portHandler(card.id))}
-                  </div>
-                );
-              }
-              if (isTextNode(card)) {
-                return (
-                  <div key={card.id} data-card-id={card.id}>
-                    <TextCard
-                      card={card}
-                      selected={isSelected}
-                      onSelect={() => {
-                        if (!selection.nodeIds.has(card.id)) {
-                          setSelection(selNode(card.id));
-                        }
-                      }}
-                      onChange={(text) =>
-                        schedulePersist(upsertCanvasNode(docRef.current, { ...card, text }))
-                      }
-                      onMoveStart={(e) => {
-                        handleCardPointerDown(card, e);
-                      }}
-                      onResizeStart={(e) => {
-                        dispatchPointer({
-                          type: "resize/start",
-                          id: card.id,
-                          corner: "se",
-                          screen: { x: e.clientX, y: e.clientY },
-                        });
-                        asElement(e.target)?.setPointerCapture(e.pointerId);
-                      }}
-                      onPortDown={portHandler(card.id)}
-                    />
-                  </div>
-                );
-              }
-              if (isShapeNode(card)) {
-                return (
-                  <div key={card.id} data-card-id={card.id}>
-                    <ShapeCard
-                      card={card}
-                      selected={isSelected}
-                      onSelect={(anchor) => {
-                        if (!selection.nodeIds.has(card.id)) {
-                          setSelection(selNode(card.id));
-                          setShapeInspectorAnchor(anchor);
-                        }
-                      }}
-                      onLabelChange={(label) =>
-                        schedulePersist(
-                          upsertCanvasNode(docRef.current, {
-                            ...card,
-                            label,
-                          }),
-                        )
-                      }
-                      onMoveStart={(e) => {
-                        handleCardPointerDown(card, e, {
-                          x: e.clientX,
-                          y: e.clientY,
-                        });
-                      }}
-                      onResizeStart={(e) => {
-                        dispatchPointer({
-                          type: "resize/start",
-                          id: card.id,
-                          corner: "se",
-                          screen: { x: e.clientX, y: e.clientY },
-                        });
-                        asElement(e.target)?.setPointerCapture(e.pointerId);
-                      }}
-                      onPortDown={portHandler(card.id)}
-                    />
-                  </div>
-                );
-              }
-              if (!isKbNode(card)) {
-                return (
-                  <div
-                    key={card.id}
-                    data-card-id={card.id}
-                    className={cn(
-                      "group/card absolute rounded-md border bg-background px-2 py-1 text-[11px] text-foreground/40",
-                      isSelected ? "border-primary/40" : "border-foreground/[0.06]",
-                    )}
-                    style={{
-                      left: card.x,
-                      top: card.y,
-                      width: card.width,
-                      height: card.height,
-                    }}
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      handleCardPointerDown(card, e);
-                    }}
-                  >
-                    {card.type}
-                    {renderResizeHandles(card, isSelected)}
-                    {renderPorts(card, portHandler(card.id))}
-                  </div>
-                );
-              }
-              return (
-                <div key={card.id} data-card-id={card.id}>
-                  <KbNodeCard
-                    card={card}
-                    selected={isSelected}
-                    onSelect={() => {
-                      if (!selection.nodeIds.has(card.id)) {
-                        setSelection(selNode(card.id));
-                        setInspectorAnchor(null);
-                        setShapeInspectorAnchor(null);
-                      }
-                    }}
-                    onMoveStart={(e) => {
-                      handleCardPointerDown(card, e);
-                    }}
-                    onResizeStart={(e) => {
-                      dispatchPointer({
-                        type: "resize/start",
-                        id: card.id,
-                        corner: "se",
-                        screen: { x: e.clientX, y: e.clientY },
-                      });
-                      asElement(e.target)?.setPointerCapture(e.pointerId);
-                    }}
-                    onPortDown={portHandler(card.id)}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Floating selection toolbar */}
-      {!selectionEmpty(selection) && !inspectorAnchor && !shapeInspectorAnchor && (
-        <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-foreground/10 bg-popover/95 px-2 py-1.5 shadow-lg backdrop-blur-sm">
-          <span className="mr-1 text-[11px] text-foreground/40">
-            {selection.nodeIds.size + selection.edgeIds.size} selected
-          </span>
-          <button
-            type="button"
-            title="Bring to front"
-            className="rounded-md px-1.5 py-1 text-[11px] text-foreground/60 hover:bg-foreground/5"
-            onClick={() => {
-              let nextDoc = docRef.current;
-              const kept = nextDoc.nodes.filter((n) => !selection.nodeIds.has(n.id));
-              const moved = nextDoc.nodes.filter((n) => selection.nodeIds.has(n.id));
-              nextDoc = { ...nextDoc, nodes: [...kept, ...moved] };
-              schedulePersist(nextDoc);
-            }}
-          >
-            ↑ Front
-          </button>
-          <button
-            type="button"
-            title="Send to back"
-            className="rounded-md px-1.5 py-1 text-[11px] text-foreground/60 hover:bg-foreground/5"
-            onClick={() => {
-              let nextDoc = docRef.current;
-              const moved = nextDoc.nodes.filter((n) => selection.nodeIds.has(n.id));
-              const kept = nextDoc.nodes.filter((n) => !selection.nodeIds.has(n.id));
-              nextDoc = { ...nextDoc, nodes: [...moved, ...kept] };
-              schedulePersist(nextDoc);
-            }}
-          >
-            ↓ Back
-          </button>
-          <div className="mx-1 h-4 w-px bg-foreground/10" />
-          <button
-            type="button"
-            title="Delete selected (Del)"
-            className="rounded-md px-1.5 py-1 text-[11px] text-destructive hover:bg-destructive/10"
-            onClick={() => {
-              const nextDoc = deleteSelected(docRef.current, selection);
-              schedulePersist(nextDoc);
-              setSelection(EMPTY_SELECTION);
-            }}
-          >
-            Delete
-          </button>
-        </div>
-      )}
-
-      {selectedEdgeObj && inspectorAnchor && (
-        <EdgeInspector
-          edge={selectedEdgeObj}
-          anchor={inspectorAnchor}
-          refFields={refFields}
-          onClose={() => {
+          onSendToBack={() => {
+            const current = docRef.current;
+            const moved = current.nodes.filter((node) => selection.nodeIds.has(node.id));
+            const kept = current.nodes.filter((node) => !selection.nodeIds.has(node.id));
+            schedulePersist({ ...current, nodes: [...moved, ...kept] });
+          }}
+          onDeleteSelection={() => {
+            schedulePersist(deleteSelected(docRef.current, selection));
+            setSelection(EMPTY_SELECTION);
+          }}
+          onCloseEdgeInspector={() => {
             setSelection(EMPTY_SELECTION);
             setInspectorAnchor(null);
           }}
-          onModeChange={(m) => void onModeChange(m)}
-          onFieldChange={(f) => void onFieldChange(f)}
-          onDelete={() => void onDeleteEdge()}
-          onArrowChange={(end, val) => {
-            const next = upsertCanvasEdge(docRef.current, { ...selectedEdgeObj, [end]: val });
-            schedulePersist(next);
-          }}
-          onColorChange={(color) => {
-            const updated = { ...selectedEdgeObj };
-            if (color === undefined) delete updated.color;
-            else updated.color = color;
-            const next = upsertCanvasEdge(docRef.current, updated);
-            schedulePersist(next);
-          }}
-          onLabelChange={(label) => {
-            const updated = { ...selectedEdgeObj, label: label || undefined };
-            if (!label) delete updated.label;
-            const next = upsertCanvasEdge(docRef.current, updated);
-            schedulePersist(next);
-          }}
+          onEdgeModeChange={(mode) => void onModeChange(mode)}
+          onEdgeFieldChange={(fieldId) => void onFieldChange(fieldId)}
+          onDeleteEdge={() => void onDeleteEdge()}
+          onEdgeChange={(edge) => schedulePersist(upsertCanvasEdge(docRef.current, edge))}
+          onCloseShapeInspector={() => setShapeInspectorAnchor(null)}
+          onShapeChange={(shape) => schedulePersist(upsertCanvasNode(docRef.current, shape))}
+          onPickNode={addKbNode}
+          onClosePicker={() => setPickerOpen(false)}
         />
-      )}
-      {selectedShape && shapeInspectorAnchor && (
-        <ShapeInspector
-          card={selectedShape}
-          anchor={shapeInspectorAnchor}
-          onClose={() => setShapeInspectorAnchor(null)}
-          onColorChange={(color) => {
-            const next = { ...selectedShape };
-            if (color === undefined) delete next.color;
-            else next.color = color;
-            schedulePersist(upsertCanvasNode(docRef.current, next));
-          }}
-        />
-      )}
-      {pickerOpen && <NodePicker onPick={addKbNode} onClose={() => setPickerOpen(false)} />}
+      </div>
     </div>
   );
 }

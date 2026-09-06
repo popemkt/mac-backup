@@ -1,8 +1,7 @@
 {
   "lanes": {
     "blocking": {
-      "eslint/max-lines": 1,
-      "eslint/max-lines-per-function": 39
+      "eslint/max-lines-per-function": 37
     },
     "advisory": {},
     "knip": {

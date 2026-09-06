@@ -96,7 +96,7 @@
       5
     ],
     "eslint/max-lines": [
-      "warn",
+      "error",
       {
         "max": 900
       }
