@@ -25,11 +25,11 @@ on — `EffectStore` (with `fingerprint`), `KbIndex` (`run(ir)`, `applyTx`),
 
 | id | brief | harness | depends on | scope |
 |---|---|---|---|---|
-| c1 | `briefs/c1-check-plugin.md` | codex | — | `@kb/ext-check`: nodes, `audit`, `sync`, `check-audit` bin in the verify chain, existing rules linked to their harness checks, removal recipe |
-| s1 | `briefs/s1-sqlite-store.md` | claude (opus) | — | `@kb/store-sqlite`, presence-based selection in `layers.ts`, store contract test in `@kb/test-kit`, `store.migrate` action |
-| u1 | `briefs/u1-ui-matrix.md` | claude (opus) | — | `UI_ALLOWS` in `constraints.ts`, `ui-boundaries.test.ts`, violations under the two-mechanism rule, `ARCHITECTURE.md` table → pointer |
-| u2 | `briefs/u2-canvas-split.md` | codex | u1 merged preferred; may start in parallel and rebase | `canvas-page.tsx` → shell / `tool-machine.ts` / selection / render layer, reducer tests |
-| u3 | `briefs/u3-store-reset-fixture.md` | cursor | — | `resetOutlineStore()` fixture derived from the store's initial state, 18 files migrated, gap `01M1P63E3Y5KVHV3XMM6TBV2BM` closed |
+| c1 | `briefs/c1-check-plugin.md` | codex | — → merged `36f57d1` (redispatched once as c1b) | `@kb/ext-check`: nodes, `audit`, `sync`, `check-audit` bin in the verify chain, existing rules linked to their harness checks, removal recipe |
+| s1 | `briefs/s1-sqlite-store.md` | claude (opus) | — → merged `95d39be` | `@kb/store-sqlite`, presence-based selection in `layers.ts`, store contract test in `@kb/test-kit`, `store.migrate` action |
+| u1 | `briefs/u1-ui-matrix.md` | claude (opus) | — → merged `db5b3c6` | `UI_ALLOWS` in `constraints.ts`, `ui-boundaries.test.ts`, violations under the two-mechanism rule, `ARCHITECTURE.md` table → pointer |
+| u2 | `briefs/u2-canvas-split.md` | codex | u1 → merged `a110e7f` | `canvas-page.tsx` → shell / `tool-machine.ts` / selection / render layer, reducer tests |
+| u3 | `briefs/u3-store-reset-fixture.md` | cursor | — → merged `7074808` | `resetOutlineStore()` fixture derived from the store's initial state, 18 files migrated, gap `01M1P63E3Y5KVHV3XMM6TBV2BM` closed |
 
 Sequencing: all five branch from `main` @ `bd2303b`. Disjoint trees except:
 c1 and every worker append to `.kb/nodes.jsonl` (coordinator merges by id
@@ -54,3 +54,72 @@ its report. A workaround is a `GAP [[id]]` plus a `#gap` node, never a comment.
 - Red-case fixtures per `#check`.
 - `outline.store.ts` slices; `mutations.ts`; `field-value.tsx`; `sigma-graph.tsx`.
 - IndexedDB `BrowserStore`; offline invocation replay.
+
+## Close-out (2026-09-06)
+
+All five waves merged to `main` @ `36f57d1`; every merge ran `bun run verify`
+in pre-commit (now ending in `check:audit`), and the head passes
+`bun test packages` (419 pass, 2 skip), `bun run test:ui` (94 files, 605),
+`bun test harness` (68 pass, 1 GAP skip) and `kb checks: clean`. Each branch
+was reviewed against Rule 1 before merge; verdicts: s1, u1, u3, c1 MERGE with
+no findings; u2 MERGE WITH FIXES.
+
+What the tree has now:
+
+- `@kb/store-sqlite` beside `@kb/store-jsonl`, chosen by presence of
+  `.kb/kb.sqlite`; one `storeContract` in `@kb/test-kit` that both run;
+  `kb store migrate --to <jsonl|sqlite>` proven round-trip byte-identical on a
+  copy of the live `.kb/`; `EffectStore.watchPaths` so the server asks the
+  store what to watch. Incremental commit 122 ms → 4 ms on 50k nodes; bulk
+  load a wash.
+- `UI_ALLOWS` in `harness/src/constraints.ts`, 20 zones, enforced by
+  `ui-boundaries`; 22 sanctioned breaches under 13 gaps; `ARCHITECTURE.md`
+  points at it. The fence paid for itself inside the wave: it caught u3's new
+  `test-support/` folder (row added in the merge) and u2's
+  `lib/canvas-pointer.ts → components/canvas/edge-path` inversion
+  (`edge-path.ts` moved to `lib/canvas-edge-path.ts` in the merge).
+- `canvas-page.tsx` 1834 → 297 lines: a pure `lib/canvas-pointer.ts` reducer
+  with rejecting-side tests, `use-canvas-doc` owning the persist contract, a
+  render layer, a characterization test that passed unchanged. The last
+  `eslint/max-lines` debt went with it and the ratchet promoted the rule to
+  `error`.
+- `resetOutlineStore()` derived from `initialOutlineState`; 18 suites stopped
+  restating the store; gap `01M1P63E3Y5KVHV3XMM6TBV2BM` closed. The store
+  slice is unblocked.
+- `@kb/ext-check`: `#check` nodes (surface, evidence, invocation, blocking),
+  `rule.check`, `ext.check.audit` with six finding kinds and a red case each,
+  `ext.check.sync` deriving `enforcement`, `check:audit` closing `verify`.
+  The five `enforcement-level` value nodes double as `check-surface`; `prose`
+  stays enforcement-only. Rules index: 22 prose / 2 harness / 2 hook before,
+  10 prose / 14 harness / 2 lint / 2 hook after. Removal recipe in
+  `tools/kb/AGENTS.md#extensions`, verified on a scratch branch.
+
+Coordinator fix-ups, each recorded where it landed:
+
+- u2: `.oxlintrc.json` promotion (ratchet at zero) made by the coordinator
+  after the worker stopped correctly on an unowned file.
+- u2 review: two pre-existing pointer bugs the split preserved verbatim
+  (`01M1TAE8HKYARYNTAVNMP566GV` move release persists the unsnapped delta;
+  `01M1TAE8V1GDX971M2A6NC4DS1` Shift-resize anchor drift) — gapped, report
+  corrected.
+- c1 merge: the audit's first run on the merged tree flagged u1's rule home
+  `constraints.ts#ui` (an anchor on a TypeScript file, from this plan's own
+  brief) — home fixed, a `Check: ui-boundaries` node minted and linked, so
+  the UI rule now derives `harness`. c1's in-memory store fixture gained
+  s1's `watchPaths`.
+
+Harness notes for the next coordinator: both codex workers and the cursor
+worker asked ownership questions through `orca orchestration ask` and sat
+blocked for 30–60 minutes because the coordinator's monitor swallowed a CLI
+error (`--all --peek` are mutually exclusive) and never surfaced them. A
+monitor that polls `orca orchestration inbox` and dedupes by message id is
+the shape that works; a brief should also say what to do when an ownership
+question gets no answer in ten minutes (c1b's did: make the smallest call,
+record it, continue). The kb CLI stores `--prop field=<id>` as `str`; a ref
+needs `kb set … --type ref`.
+
+Open after this wave (gaps filed): SQL-backed `KbIndex`; durable tx log as a
+sqlite table; red-case fixtures per `#check`; `outline.store.ts` slices;
+`mutations.ts`; IndexedDB `BrowserStore`; the two canvas pointer bugs; ten
+rules still `prose` (seven judgment rules, two advisory-by-design, and
+`Effect v4 idiom` awaiting a `tsc` check).
