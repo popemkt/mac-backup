@@ -171,7 +171,7 @@ describe("kb ext list", () => {
     };
     expect(parsed.status).toBe("succeeded");
     const names = parsed.output.extensions.map((e) => e.name).toSorted();
-    expect(names).toEqual(["canvas", "docs", "hello"]);
+    expect(names).toEqual(["canvas", "check", "docs", "hello"]);
     expect(parsed.output.failures.map((f) => f.file)).toEqual(["broken.ts"]);
   });
 });

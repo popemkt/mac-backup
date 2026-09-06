@@ -1,5 +1,5 @@
 {
-  "name": "@kb/runtime",
+  "name": "@kb/ext-check",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,23 +12,14 @@
   },
   "dependencies": {
     "@kb/contracts": "workspace:*",
-    "@kb/ext-canvas": "workspace:*",
-    "@kb/ext-check": "workspace:*",
-    "@kb/ext-docs": "workspace:*",
-    "@kb/ext-sdk": "workspace:*",
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",
-    "@kb/query": "workspace:*",
-    "@kb/store-jsonl": "workspace:*",
-    "@kb/tx-log": "workspace:*",
-    "@kb/workspace-fs": "workspace:*",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "@kb/canvas": "workspace:*",
     "@kb/test-kit": "workspace:*",
-    "@types/bun": "catalog:",
-    "zod": "catalog:"
+    "@types/bun": "catalog:"
   },
   "nx": {
     "tags": [
