@@ -41,7 +41,6 @@ step() { printf '  %s\n' "$*"; }
 skip() { printf '  · already done: %s\n' "$*"; }
 
 # ── ids ────────────────────────────────────────────────────────────────────
-FT_OPTIONS=(sys.ft.text sys.ft.number sys.ft.date sys.ft.url sys.ft.checkbox sys.ft.ref)
 FIELD_TYPE_TAG=sys.tag.field-type
 QUERY_TAG=sys.tag.query
 REF_TAG=sys.tag.ref
