@@ -135,38 +135,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXNGSJT2J2VHDSYY7QJSD3`
 
-### GAP: canvas move release persists the unsnapped position
-
-- **expected** — The position persisted on pointer release is the last snapped position shown during the drag; finishMove and moveNodes share one snap computation.
-- **current** — lib/canvas-pointer.ts finishMove recomputes the delta from raw screen coordinates while moveNodes snaps toward guides, so a card that snapped during the drag jumps back on release and the unsnapped position is what history records. Preserved verbatim from the pre-split canvas-page.tsx onPointerUp.
-- **impact** — Snap guides are cosmetic: alignment shown while dragging is lost the moment the mouse is released.
-- **closes** — finishMove reuses snapMove (or the last delta carried on the drag state); a reducer test snaps on pointer/move and asserts the pointer/end doc.
-- **node** — `01M1TAE8HKYARYNTAVNMP566GV`
-
-### GAP: canvas onModeChange rewrites edge links with 22 inline branches
-
-- **expected** — Edge link-mode changes go through one named transformation from (edge, mode) to a plan, the way node mutations already go through actions/plan.ts.
-- **current** — onModeChange resolves endpoints, branches over KbLinkMode and writes props inline in the component.
-- **impact** — Canvas edge semantics live in a component rather than beside the other planners, so they are invisible to the plan tests.
-- **closes** — Move it into the canvas action layer next to the other canvas mutations.
-- **node** — `01M1MGCTRFEHBF15DSCNDXW0GZ`
-
-### GAP: canvas onPointerMove is a 36-branch drag state machine
-
-- **expected** — An explicit drag state machine: one transition function over a discriminated drag state, tested without a DOM.
-- **current** — onPointerMove branches on drag kind (move, resize, marquee, edge-draw, pan) and computes snapping inline.
-- **impact** — Snapping and resize geometry - pure maths with real edge cases - can only be exercised through pointer events.
-- **closes** — Extract nextDragState(state, pointer) as a pure function and leave the handler as event plumbing.
-- **node** — `01M1MGCSQY0M708HYYTWHP0XP2`
-
-### GAP: canvas onPointerUp commits every drag kind in one 21-branch handler
-
-- **expected** — The same drag state machine as onPointerMove, with commit as its terminal transition.
-- **current** — onPointerUp branches on drag kind again to decide what to persist.
-- **impact** — The move and up handlers each re-derive the drag kind's meaning, so they can disagree.
-- **closes** — Falls out of the onPointerMove gap: one state machine owns both.
-- **node** — `01M1MGCT80E1FMXMEAEATS1VER`
-
 ### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
 
 - **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
@@ -442,14 +410,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — oxlint implements the ignoreLastCallback option for promise/always-return (verified against eslint-plugin-promise, which has it). Then set the option in .oxlintrc.json and delete all seven disables.
 - **node** — `01M1MFS8RQ2BMQVZD02J4TQT7W`
 
-### GAP: shift-locked resize from nw/sw/ne moves the anchored corner
-
-- **expected** — With Shift held, the corner opposite the dragged one stays pinned while the aspect ratio is locked.
-- **current** — lib/canvas-pointer.ts resizedRect computes x (sw, nw) and y (ne, nw) from the pre-ratio width and height, then the Shift branch rewrites w or h, so the anchored edge drifts by the ratio correction. Only se is unaffected. Preserved verbatim from the pre-split canvas-page.tsx.
-- **impact** — Shift-resizing a card from three of four corners slides it instead of scaling it in place.
-- **closes** — Recompute x and y after the ratio lock from the final w and h; add a shiftKey case to the resize reducer test.
-- **node** — `01M1TAE8V1GDX971M2A6NC4DS1`
-
 ### GAP: six React lists key by array index because the index is the identity
 
 - **expected** — Every keyed list keys by a stable domain id, so react/no-array-index-key holds with no exception.
@@ -499,14 +459,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Either ds/ exports the index layer the session runtime builds, or the seam moves to session/ and ds/ becomes its caller — one of the two, decided when the browser store's ownership settles.
 - **rule** — UI import matrix
 - **node** — `01M1RXNP3EMV1ES85BVE9CXMYE`
-
-### GAP: the canvas keydown effect is a 66-branch handler
-
-- **expected** — A canvas keymap table (chord -> canvas intent) plus one applier, mirroring what the outline keymaps should be.
-- **current** — One effect-scoped onKeyDown covers copy, paste, delete, duplicate, nudge, select-all, zoom and escape, with clipboard parsing inline.
-- **impact** — Highest-complexity handler in the canvas; clipboard parsing and selection maths are unreachable from tests.
-- **closes** — Same treatment as the outline keydown gap: pure chord mapping, separate appliers, clipboard parsing already has parseCanvasDoc to lean on.
-- **node** — `01M1MGCS6A29HT51G40W5TEEYK`
 
 ### GAP: the cluster renderer's lifecycle effect carries 28 branches
 
@@ -635,6 +587,38 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Extract the reset into one exported fixture and have every suite call it. Mechanical but wide; it is a packages/app/ui change and wants its own wave.
 - **node** — `01M1P63E3Y5KVHV3XMM6TBV2BM`
 
+### GAP: canvas move release persists the unsnapped position
+
+- **expected** — The position persisted on pointer release is the last snapped position shown during the drag; finishMove and moveNodes share one snap computation.
+- **current** — Closed on the kb-merge-origin branch by origin's 397324e, before g3 reached it: finishMove now shares snapMove with moveNodes, so the release persists the position the drag showed. g3 added the reducer test the gap asked for; reverting the fix turns it red.
+- **impact** — Snap guides are cosmetic: alignment shown while dragging is lost the moment the mouse is released.
+- **closes** — finishMove reuses snapMove (or the last delta carried on the drag state); a reducer test snaps on pointer/move and asserts the pointer/end doc.
+- **node** — `01M1TAE8HKYARYNTAVNMP566GV`
+
+### GAP: canvas onModeChange rewrites edge links with 22 inline branches
+
+- **expected** — Edge link-mode changes go through one named transformation from (edge, mode) to a plan, the way node mutations already go through actions/plan.ts.
+- **current** — onModeChange resolves endpoints, branches over KbLinkMode and writes props inline in the component.
+- **impact** — Canvas edge semantics live in a component rather than beside the other planners, so they are invisible to the plan tests.
+- **closes** — Move it into the canvas action layer next to the other canvas mutations.
+- **node** — `01M1MGCTRFEHBF15DSCNDXW0GZ`
+
+### GAP: canvas onPointerMove is a 36-branch drag state machine
+
+- **expected** — An explicit drag state machine: one transition function over a discriminated drag state, tested without a DOM.
+- **current** — Closed by wave u2: onPointerMove is four lines that hand one pointer/move event to the pure reducer in lib/canvas-pointer.ts, and every drag kind is a state in that reducer's Drag union. Verified against the code, not the gap text.
+- **impact** — Snapping and resize geometry - pure maths with real edge cases - can only be exercised through pointer events.
+- **closes** — Extract nextDragState(state, pointer) as a pure function and leave the handler as event plumbing.
+- **node** — `01M1MGCSQY0M708HYYTWHP0XP2`
+
+### GAP: canvas onPointerUp commits every drag kind in one 21-branch handler
+
+- **expected** — The same drag state machine as onPointerMove, with commit as its terminal transition.
+- **current** — Closed by wave u2: onPointerUp resolves the DOM-only facts an edge drop needs (the card under the cursor, its world point) and dispatches one pointer/end event; reduceEnd is the same reducer's terminal transition, so the two handlers can no longer disagree.
+- **impact** — The move and up handlers each re-derive the drag kind's meaning, so they can disagree.
+- **closes** — Falls out of the onPointerMove gap: one state machine owns both.
+- **node** — `01M1MGCT80E1FMXMEAEATS1VER`
+
 ### GAP: core action definitions and handlers are hand-paired
 
 - **expected** — Operations exports one canonical coreActions contribution collection consumed through the same registration interface as extensions.
@@ -678,6 +662,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Give the render backbone a real template-registration seam (extension actions contribute templates alongside actions), then move the rules template onto it and drop the mutation.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1M08VXGJ5RTQJ3AJNK12G79`
+
+### GAP: shift-locked resize from nw/sw/ne moves the anchored corner
+
+- **expected** — With Shift held, the corner opposite the dragged one stays pinned while the aspect ratio is locked.
+- **current** — Closed on the kb-merge-origin branch by origin's 397324e, before g3 reached it: resizedRect recomputes x and y from the final w and h after the ratio lock, so every corner pins its opposite edge. g3 added the shiftKey reducer test for all four corners.
+- **impact** — Shift-resizing a card from three of four corners slides it instead of scaling it in place.
+- **closes** — Recompute x and y after the ratio lock from the final w and h; add a shiftKey case to the resize reducer test.
+- **node** — `01M1TAE8V1GDX971M2A6NC4DS1`
+
+### GAP: the canvas keydown effect is a 66-branch handler
+
+- **expected** — A canvas keymap table (chord -> canvas intent) plus one applier, mirroring what the outline keymaps should be.
+- **current** — One effect-scoped onKeyDown covers copy, paste, delete, duplicate, nudge, select-all, zoom and escape, with clipboard parsing inline.
+- **impact** — Highest-complexity handler in the canvas; clipboard parsing and selection maths are unreachable from tests.
+- **closes** — Same treatment as the outline keydown gap: pure chord mapping, separate appliers, clipboard parsing already has parseCanvasDoc to lean on.
+- **node** — `01M1MGCS6A29HT51G40W5TEEYK`
 
 ### GAP: the legacy localStorage migration in loadExpandedIds has no end date
 
