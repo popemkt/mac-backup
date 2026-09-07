@@ -150,15 +150,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Reuse the forest builder tree-graph already has and leave this function as placement only.
 - **node** — `01M1MGCR50QEXX7R4JDJ51HQFY`
 
-### GAP: import graph misses package-entry bypasses
-
-- **expected** — One import resolver maps every supported specifier to its owning package, rejects relative imports across package roots and @kb package subpaths, and explicitly governs every JavaScript-family source extension.
-- **current** — importEdges creates workspace edges only for exact bare @kb/<package> specifiers and scans only TypeScript source extensions.
-- **impact** — Consumers can bypass layer, scope, isomorphism, and public-surface boundaries through subpath or cross-package relative imports.
-- **closes** — Resolve relative and subpath specifiers to package ownership, govern .js, .jsx, .mts, and .cts, and add red tests for every bypass.
-- **rule** — Module boundaries
-- **node** — `01M1PJV94AJP2SAQT50KNKNHA2`
-
 ### GAP: KbIndex is DataScript in memory on both stores; sqlite holds nodes but answers no queries
 
 - **expected** — A KbIndex backed by the sqlite store — queries compiled from the query IR to SQL and answered by the database that already holds the nodes, so a sqlite root does not rebuild a whole DataScript db on every open.
@@ -199,15 +190,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The policy is honest in code and invisible in the product: the one audience who could fix a malformed prop is the one who cannot see it. Repeat renders also re-log the same warning, because getViewConfig runs per node per render.
 - **closes** — Give the two decoders' reports a home in the ui the way ontology warnings have one — a store field plus a badge — and have the config surfaces read it instead of the log seam. Component + store work: out of g8's zone (docs/kb/waves/2026-09-09/briefs/g8-domain-typing.md).
 - **node** — `01M1XF1NA2RBAX1E6NNX6PMZ6N`
-
-### GAP: pre-commit admission reads the working tree
-
-- **expected** — Pre-commit reconstructs and verifies the staged snapshot for every governed path so unstaged content cannot affect the decision.
-- **current** — The hook runs checks against the working tree and its KB trigger coverage is narrower than the governed repository surfaces.
-- **impact** — An unstaged fix can mask a staged defect, and governed extension or policy changes can evade local admission.
-- **closes** — Verify a reconstructed index snapshot and trigger on .kb, .kb/extensions, AGENTS.md, governance docs, tools/kb, the hook, and the workflow.
-- **rule** — Admission gate
-- **node** — `01M1PJWWSSRV3JGADQVYTMRGPB`
 
 ### GAP: repository extensions have no fail-closed admission
 
@@ -257,15 +239,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Cost now grows with the number of distinct queries on screen rather than with clients times subscriptions, but it is still every query on every edit: a board view with a dozen query nodes re-runs all twelve per keystroke, most of them answering the same rows.
 - **closes** — Skip a subscription the transaction cannot affect. @kb/query's IR names what a compiled query reads (PatternClause.attr, ReachClause.edge, children), but a StoreTx does not name what a write touched: it carries whole nodes as they are after the write, so a removed prop and every attribute of a deleted node are absent from it. Gating on that read set would silently drop those changes. Needs the tx log to carry before-images (or the store to report a per-tx attribute set), and a fallback that always re-runs an IrRaw query, which exposes no read set at all.
 - **node** — `01M1QZNM17MTGGPE517NVZYJT0`
-
-### GAP: suppression grammar still includes legacy eslint directives
-
-- **expected** — Every TypeScript suppression uses // oxlint-disable-next-line <rule> -- GAP id or // oxlint-disable-next-line <rule> -- <reason>.
-- **current** — Legacy eslint-disable-next-line directives remain in packages/app/mcp/src/mcp.ts, packages/app/runtime/src/registry.ts, and UI board-cards-view.tsx, breadcrumbs.tsx, caret.ts, force3d-graph.tsx, force3d-instance.ts, query-results.tsx, and references-section.tsx; those files are outside r1 ownership.
-- **impact** — The suppression checker cannot be admitted without failing files owned by concurrent or later work.
-- **closes** — Rewrite every listed directive to the oxlint grammar, then unskip suppression-grammar.test.ts.
-- **rule** — Lint scope coverage
-- **node** — `01M1PHTZDZCKMXYP6HW109M3DT`
 
 ### GAP: the browser holds the whole graph
 
@@ -513,6 +486,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXNJHCH2Q5HCKQNEKVQGKD`
 
+### GAP: import graph misses package-entry bypasses
+
+- **expected** — One import resolver maps every supported specifier to its owning package, rejects relative imports across package roots and @kb package subpaths, and explicitly governs every JavaScript-family source extension.
+- **current** — importEdges creates workspace edges only for exact bare @kb/<package> specifiers and scans only TypeScript source extensions.
+- **impact** — Consumers can bypass layer, scope, isomorphism, and public-surface boundaries through subpath or cross-package relative imports.
+- **closes** — Resolve relative and subpath specifiers to package ownership, govern .js, .jsx, .mts, and .cts, and add red tests for every bypass.
+- **rule** — Module boundaries
+- **node** — `01M1PJV94AJP2SAQT50KNKNHA2`
+
 ### GAP: KbContext carries two persistence interfaces
 
 - **expected** — KbContext exposes one Effect-native storage capability used by all core and extension handlers.
@@ -597,6 +579,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Track 2 domain-typing work: express LensPerspective as a Schema and decode props through it. Not mechanical - it changes what happens on malformed input.
 - **node** — `01M1MGCEBYDFRNJX1JKXXN825H`
 
+### GAP: pre-commit admission reads the working tree
+
+- **expected** — Pre-commit reconstructs and verifies the staged snapshot for every governed path so unstaged content cannot affect the decision.
+- **current** — The hook runs checks against the working tree and its KB trigger coverage is narrower than the governed repository surfaces.
+- **impact** — An unstaged fix can mask a staged defect, and governed extension or policy changes can evade local admission.
+- **closes** — Verify a reconstructed index snapshot and trigger on .kb, .kb/extensions, AGENTS.md, governance docs, tools/kb, the hook, and the workflow.
+- **rule** — Admission gate
+- **node** — `01M1PJWWSSRV3JGADQVYTMRGPB`
+
 ### GAP: production api/graph.ts imports the graph test fixture
 
 - **expected** — fixtures/ is test data. Production transport code does not import it; a fallback snapshot, if one is wanted, is a production module.
@@ -671,6 +662,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Shift-resizing a card from three of four corners slides it instead of scaling it in place.
 - **closes** — Recompute x and y after the ratio lock from the final w and h; add a shiftKey case to the resize reducer test.
 - **node** — `01M1TAE8V1GDX971M2A6NC4DS1`
+
+### GAP: suppression grammar still includes legacy eslint directives
+
+- **expected** — Every TypeScript suppression uses // oxlint-disable-next-line <rule> -- GAP id or // oxlint-disable-next-line <rule> -- <reason>.
+- **current** — Legacy eslint-disable-next-line directives remain in packages/app/mcp/src/mcp.ts, packages/app/runtime/src/registry.ts, and UI board-cards-view.tsx, breadcrumbs.tsx, caret.ts, force3d-graph.tsx, force3d-instance.ts, query-results.tsx, and references-section.tsx; those files are outside r1 ownership.
+- **impact** — The suppression checker cannot be admitted without failing files owned by concurrent or later work.
+- **closes** — Rewrite every listed directive to the oxlint grammar, then unskip suppression-grammar.test.ts.
+- **rule** — Lint scope coverage
+- **node** — `01M1PHTZDZCKMXYP6HW109M3DT`
 
 ### GAP: the canvas keydown effect is a 66-branch handler
 
