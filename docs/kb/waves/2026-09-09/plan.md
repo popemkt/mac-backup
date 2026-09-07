@@ -76,7 +76,7 @@ under plain `bun run test:ui` on a loaded machine — gap
 
 | id | brief | zone | status |
 |---|---|---|---|
-| g9 | `briefs/g9-harness.md` | suppression grammar (unskip), import-graph bypasses, pre-commit index-snapshot admission | dispatched |
+| g9 | `briefs/g9-harness.md` | suppression grammar (unskip), import-graph bypasses, pre-commit index-snapshot admission | merged `edb7f65`; 3/3 closed, none filed; 17 suppression sites (not 10) on one grammar; harness 69→85 tests; real tree had no import bypass |
 
 ## Not this batch (owner decision or external)
 
@@ -91,3 +91,57 @@ typing; fail-closed ext admission; todo F close/split; pins update.
 `.kb/nodes.jsonl` only via `bun tools/kb/packages/app/cli/src/main.ts`; no
 hand edits to `harness/lint-warn-baseline.json`; no push; no `rtk rebuild`;
 reports under `reports/`; commits in the background (pre-commit takes minutes).
+
+## Wave close-out (2026-09-07)
+
+`main` = `kb-merge-origin` @ `edb7f65`. Gates on that tip: verify green
+(harness 85 pass), packages 483 / 0, UI 1052 / 1052 (one gapped flake seen
+once, green in isolation). Nine waves in three batches, every reviewer MERGE;
+three carried fixes the coordinator applied before merge (g4 stale lint
+disables, g7 duplicated compaction bound, g9 hook portability).
+
+Totals: **45 gaps closed, 2 half-closed, 6 filed.** Open gaps went 70 → 31.
+
+**The new hook admitted its own merge on the third try**, and both refusals
+were real:
+
+1. `tar --exclude` after `-T -` — GNU tar (first on this machine's PATH via
+   nix) ignores the excludes and exits non-zero; bsdtar (the worker's) accepted
+   it. Options now precede the file list.
+2. Checks running *inside* the snapshot inherited `GIT_DIR` / `GIT_INDEX_FILE`
+   from the committing repository, so the harness's `git check-ignore`
+   answered for the wrong repo and `gitignore-covers-derived` failed on every
+   path. The worker's `git_own_env` scrubbed only the hook's own git calls;
+   `in_snapshot` now scrubs the three checks too.
+
+Both are in the merge commit's message. The worker's own commits passed the
+hook because its worktree's `GIT_DIR` and its PATH's `tar` differed from the
+coordinator's — a portability class the hook should be tested against
+explicitly (bsdtar and GNU tar; a linked worktree and the main checkout).
+Not filed as a gap: the fix is in, and the hook's first admission on `main`
+is the test.
+
+Seen once, not filed: a `bun run verify` run that started while the hook's
+`intent/gate.sh record` step was still finishing failed
+`suppression-grammar` on `git rev-parse --show-toplevel` (a lock race); the
+immediate rerun passed 85/85. If it recurs, it is a gap on the harness
+reading git while a commit is in flight.
+
+**Still open and worth a wave each**, in the order they hurt:
+
+- `01M1XA98A0A7PWEPMHG2T4R5GP` — UI suites share module state under vitest
+  parallelism. g8 measured it near-deterministic under plain
+  `bun run test:ui` on a loaded machine. Fix is per-file isolation in the UI
+  vitest project or mutations that return their focus hand-off.
+- `01M1RXMRJA3ZRAWPTB0ZH5YEYG` — field-value subscribes to the outline store;
+  the last thing between `components/ui/` and holding the text host (gap 10).
+  "Lands with the outline-store split" — the split is the wave.
+- `01M1X8VQT1P6E45NBTQEQ96YDR` — DST scenarios inherit bun's 5 s timeout.
+- `01M1XEZT8XZNSG1NGS9JPCQFGM` — JSONL tx tail not atomic with the node write.
+- `01M1XF1NA2RBAX1E6NNX6PMZ6N` — config decode warnings reach the log, not a
+  UI badge.
+
+Owner-only items unchanged: push (`main` is now well ahead of `origin/main`),
+`rtk rebuild`, pins (`cli-proxy-api` 7.2.152, `genoffice` 0.9.10), todo F
+close/split, `docs/kb/check-feature.html` (untracked archify diagram, not
+touched).
