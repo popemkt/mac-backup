@@ -38,7 +38,7 @@ export {
   manyOf,
   oneOf,
 } from "./node-config.ts";
-export type { ConfigSlot, ConfigSlots, DecodedConfig, NodeProps } from "./node-config.ts";
+export type { ConfigReader, ConfigSlot, ConfigSlots, NodeProps } from "./node-config.ts";
 export {
   KbNodeSchema,
   PropValueSchema,

@@ -143,38 +143,33 @@ export function manyOf<E>(spec: {
 /** A config's slot table: one slot per output key. */
 export type ConfigSlots<T> = { readonly [K in keyof T]-?: ConfigSlot<T[K]> };
 
-/**
- * A decoded node config: a typed reader over the slot table, plus every
- * present prop the decode had to ignore.
- *
- * `slot` rather than a finished object, because a mapped-type product cannot
- * be assembled from `Object.entries` without an unchecked assertion — and the
- * caller listing its keys is what makes TypeScript prove the config is
- * complete. Each call decodes that slot; slots are pure, and a slot decode is
- * one scalar schema decode.
- */
-export interface DecodedConfig<T> {
-  readonly slot: <K extends keyof T>(key: K) => T[K];
-  /** Non-fatal, and complete: collected over every slot, not only those read. */
-  readonly warnings: readonly string[];
-}
+/** Reads one slot of a decoded config. Each call decodes that slot. */
+export type ConfigReader<T> = <K extends keyof T>(key: K) => T[K];
 
 /**
  * Decode a node-backed config from a props record.
  *
- * Total: every slot yields either its decoded value or its declared fallback,
- * and every fallback taken over a prop that *is* present is reported.
+ * Returns a reader rather than a finished object: a mapped-type product cannot
+ * be assembled from `Object.entries` without an unchecked assertion, and the
+ * caller listing its keys is what makes TypeScript prove the config complete.
+ * That completeness is also what makes `report` complete — every slot is
+ * decoded exactly once, on the way to the field it fills, and reports as it
+ * goes.
+ *
+ * `report` is required, not optional: where a malformed prop goes is a
+ * decision each config surface has to make, and a default sink would let one
+ * be written that silently swallows.
  */
 export function decodeNodeConfig<T extends object>(
   slots: ConfigSlots<T>,
   props: NodeProps | undefined,
-): DecodedConfig<T> {
+  report: (warning: string) => void,
+): ConfigReader<T> {
   const from = props ?? {};
-  return {
-    slot: (key) => slots[key].decode(from).value,
-    warnings: Object.values<ConfigSlot<unknown>>(slots).flatMap(
-      (slot) => slot.decode(from).warnings,
-    ),
+  return (key) => {
+    const decoded = slots[key].decode(from);
+    decoded.warnings.forEach(report);
+    return decoded.value;
   };
 }
 

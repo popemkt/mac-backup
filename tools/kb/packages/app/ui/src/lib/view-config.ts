@@ -151,10 +151,10 @@ const sortSpecValues = (props: NodeProps): unknown[] | undefined => {
   return keys.map((key, index) => {
     // A value that is not a field reference names no sort key.
     if (key.t !== "ref") return null;
+    // A direction with no string at this index is unset, so it takes the
+    // declared default; a string that is present is the schema's to judge.
     const dir = dirs[index];
-    // GAP: the direction is still normalised here rather than judged by the
-    // schema, so this commit changes no behaviour; the policy commit moves it.
-    return { fieldId: key.v, dir: dir?.t === "str" && dir.v === "desc" ? "desc" : "asc" };
+    return { fieldId: key.v, dir: dir?.t === "str" ? dir.v : "asc" };
   });
 };
 
@@ -189,13 +189,7 @@ const colwidthValue = (props: NodeProps): unknown => {
     return undefined;
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return undefined;
-  // GAP: per-key sanitising still happens here rather than in the schema, so
-  // this commit changes no behaviour; the policy commit moves it.
-  return Object.fromEntries(
-    Object.entries(parsed).filter(
-      ([, width]) => typeof width === "number" && Number.isFinite(width) && width > 0,
-    ),
-  );
+  return parsed;
 };
 
 /** A page size may be stored as a number or as the text a form wrote. */
@@ -232,11 +226,7 @@ const ViewFilterSchema = Schema.Union([
 const filterValues = (props: NodeProps): unknown[] | undefined =>
   props[SYSTEM_IDS.viewFilterField]?.map((value) => {
     if (value.t !== "str") return value;
-    const parsed = parseViewFilterEdn(value.v);
-    // GAP: the warning is still emitted here rather than reported by the slot,
-    // so this commit changes no behaviour; the policy commit moves it.
-    if (parsed === null) logWarn(`[view-config] ignoring bad filter EDN: ${value.v}`);
-    return parsed ?? value;
+    return parseViewFilterEdn(value.v) ?? value.v;
   });
 
 const VIEW_SLOTS: ConfigSlots<ViewConfig> = {
@@ -287,8 +277,17 @@ const VIEW_SLOTS: ConfigSlots<ViewConfig> = {
   }),
 };
 
+/**
+ * Decode a view frame's configuration.
+ *
+ * A malformed view prop falls back to its declared default and is reported
+ * through the ui log seam; it never fails the frame, because a bad prop must
+ * not make the outline unopenable.
+ */
 export function getViewConfig(props?: Record<string, PropValue[]>): ViewConfig {
-  const { slot } = decodeNodeConfig<ViewConfig>(VIEW_SLOTS, props);
+  const slot = decodeNodeConfig<ViewConfig>(VIEW_SLOTS, props, (warning) =>
+    logWarn(`[view-config] ${warning}`),
+  );
   return {
     mode: slot("mode"),
     sort: slot("sort"),

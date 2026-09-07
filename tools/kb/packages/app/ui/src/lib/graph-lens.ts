@@ -329,8 +329,17 @@ const LENS_SLOTS: ConfigSlots<LensProps> = {
   }),
 };
 
+/**
+ * Decode a `#graph-perspective` node.
+ *
+ * A malformed lens prop falls back to the slot's declared default and is
+ * reported through the ui log seam; it never fails the perspective, because a
+ * bad prop must not make the graph unopenable.
+ */
 export function parsePerspective(node: WireNode): LensPerspective {
-  const { slot } = decodeNodeConfig<LensProps>(LENS_SLOTS, node.props);
+  const slot = decodeNodeConfig<LensProps>(LENS_SLOTS, node.props, (warning) =>
+    logWarn(`[graph-lens] ${node.id}: ${warning}`),
+  );
   return {
     id: node.id,
     label: node.text.trim() || "Untitled",
