@@ -13,10 +13,7 @@ import { selectNode as selNode } from "@/lib/canvas-selection";
 import type { CanvasSelection } from "@/lib/canvas-selection";
 import type { CanvasPointerEvent, PointerResult, PointerState } from "@/lib/canvas-pointer";
 import { asElement, asInstance } from "@/lib/dom";
-import { clientToCanvas } from "@/lib/canvas-viewport";
-
-const MIN_ZOOM = 0.1;
-const MAX_ZOOM = 3;
+import { clampZoom, clientToCanvas } from "@/lib/canvas-viewport";
 
 interface CanvasGestureContext {
   docRef: RefObject<CanvasDoc>;
@@ -152,7 +149,7 @@ function useViewportControls({
     if (contentW <= 0 || contentH <= 0) return;
     const scaleX = (rect.width - PAD * 2) / contentW;
     const scaleY = (rect.height - PAD * 2) / contentH;
-    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.min(scaleX, scaleY, 1)));
+    const newZoom = clampZoom(Math.min(scaleX, scaleY, 1));
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
     dispatchPointer({
@@ -177,7 +174,7 @@ function useViewportControls({
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const factor = e.deltaY > 0 ? 0.92 : 1.08;
-      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * factor));
+      const newZoom = clampZoom(zoom * factor);
       // Cursor-centered zoom
       const rect = e.currentTarget.getBoundingClientRect();
       const px = e.clientX - rect.left;
