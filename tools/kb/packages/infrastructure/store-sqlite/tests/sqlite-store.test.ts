@@ -65,7 +65,7 @@ describe("SqliteStore", () => {
         Effect.gen(function* () {
           const store = yield* scratchStore;
           const written = node("n-a", "a");
-          yield* store.commitEffect({ upserts: [written], deletes: [] });
+          yield* store.commitEffect({ upserts: [written], deletes: [] }, { at: AT });
 
           withRawConnection(store.path, (db) => {
             const row = db
@@ -77,7 +77,8 @@ describe("SqliteStore", () => {
             const version = db
               .query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'schema_version'")
               .get();
-            expect(present(version, "expected schema_version").value).toBe("1");
+            // 2 since the store grew its transaction tail; see `tx-tail.ts`.
+            expect(present(version, "expected schema_version").value).toBe("2");
           });
         }),
       ),
@@ -89,13 +90,13 @@ describe("SqliteStore", () => {
         Effect.gen(function* () {
           const store = yield* scratchStore;
           const same = node("n-a", "a");
-          yield* store.commitEffect({ upserts: [same], deletes: [] });
+          yield* store.commitEffect({ upserts: [same], deletes: [] }, { at: AT });
           const before = yield* store.fingerprint;
 
           // Byte-identical content: what a size+mtime fingerprint cannot see,
           // and the reason `rev` exists. GAP 01M1PK5NYA7ZG3XC0H0YRYRVZE stays
           // open because the JSONL adapter still has that blind spot.
-          yield* store.commitEffect({ upserts: [same], deletes: [] });
+          yield* store.commitEffect({ upserts: [same], deletes: [] }, { at: AT });
           expect(yield* store.fingerprint).not.toBe(before);
         }),
       ),
@@ -106,7 +107,7 @@ describe("SqliteStore", () => {
       Effect.scoped(
         Effect.gen(function* () {
           const store = yield* scratchStore;
-          yield* store.commitEffect({ upserts: [node("n-a", "a")], deletes: [] });
+          yield* store.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
           const before = yield* store.fingerprint;
 
           // A writer that bypasses `rev` entirely — the half `data_version` owns.
@@ -127,7 +128,7 @@ describe("SqliteStore", () => {
       Effect.scoped(
         Effect.gen(function* () {
           const store = yield* scratchStore;
-          yield* store.commitEffect({ upserts: [node("n-a", "a")], deletes: [] });
+          yield* store.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
 
           // Fail the second of two inserts, after the first has already been
           // written inside the transaction: nothing short of a real rollback
@@ -143,10 +144,13 @@ describe("SqliteStore", () => {
           const before = yield* store.fingerprint;
 
           const exit = yield* Effect.exit(
-            store.commitEffect({
-              upserts: [node("n-good", "good"), node("n-poison", "poison")],
-              deletes: ["n-a"],
-            }),
+            store.commitEffect(
+              {
+                upserts: [node("n-good", "good"), node("n-poison", "poison")],
+                deletes: ["n-a"],
+              },
+              { at: AT },
+            ),
           );
 
           expect(Exit.isFailure(exit)).toBe(true);
@@ -162,7 +166,7 @@ describe("SqliteStore", () => {
       Effect.scoped(
         Effect.gen(function* () {
           const store = yield* scratchStore;
-          yield* store.commitEffect({ upserts: [node("n-a", "a")], deletes: [] });
+          yield* store.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
 
           withRawConnection(store.path, (db) => {
             db.prepare<unknown, [string, string]>("INSERT INTO nodes (id, body) VALUES (?, ?)").run(

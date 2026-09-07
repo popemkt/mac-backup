@@ -1,5 +1,6 @@
 import type { Effect } from "effect";
 import type { DomainError, KbNode, StoreTx } from "@kb/model";
+import type { TxRecord, TxTail } from "./tx-log.ts";
 
 /**
  * What the store looked like at one moment, as a value a session can hold and
@@ -57,8 +58,25 @@ export interface EffectStore {
    */
   readonly fingerprint: Effect.Effect<StoreFingerprint | null>;
   /**
-   * Apply `tx` and report what the store did, so a caller can tell its own
-   * delta from the state that delta landed in. See {@link StoreCommit}.
+   * The durable sequence of transactions this store has committed.
+   *
+   * On the store because only the store can make the node write and the log
+   * record one act — see {@link TxTail}. It is read and appended
+   * synchronously, and it is what a session's {@link KbTxLog} is a view of.
    */
-  commitEffect(tx: StoreTx): Effect.Effect<StoreCommit, DomainError>;
+  readonly txTail: TxTail;
+  /**
+   * Apply `tx`, record it on {@link txTail}, and report what the store did so
+   * a caller can tell its own delta from the state that delta landed in. See
+   * {@link StoreCommit}.
+   *
+   * `record` is the caller's half of the log entry — the rev is the tail's to
+   * assign. It is required rather than optional because a commit nobody
+   * recorded is exactly the hole this port used to have: the transaction
+   * existed, the store wrote it, and no reader could ever learn what it was.
+   * An empty `tx` is not recorded (it costs a rev and a frame and says
+   * nothing), so a commit whose only purpose is to create the store leaves the
+   * tail alone.
+   */
+  commitEffect(tx: StoreTx, record: TxRecord): Effect.Effect<StoreCommit, DomainError>;
 }

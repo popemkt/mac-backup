@@ -238,7 +238,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: saved-query virtual nodes never appear in tx frames
 
 - **expected** — Every node a client can see reaches it the same way. A change under .kb/queries/ produces a KbTx like any other change, so a client catching up with since(rev) ends with the same graph a fresh /api/graph would give it.
-- **current** — savedQueryNodes() are handed to the index once at SubscriptionHub construction via withVirtual (tools/kb/packages/app/server/src/session.ts), and the log only ever carries StoreTx from persist or the watcher diff, which is computed over storedNodes(). The snapshot has the sys.query.* nodes; no frame ever mentions them.
+- **current** — Closed by wave g7: withVirtual stays and the virtual set is a logged transaction. SavedQuerySet (app/server) owns it - adopt installs the first set (the snapshot carries it) and sync diffs savedQueryNodes() and appends with origin=virtual. .kb/queries/ is watched beside the store's own files through the same debounce, so a saved query added, renamed or removed reaches a catching-up client as an ordinary tx frame.
 - **impact** — A since(rev) catch-up silently misses a /api/queries change: a saved query added, renamed or removed while a client was behind stays wrong until that client happens to take a full snapshot. The two paths that used to agree by accident (both refetched) now diverge.
 - **closes** — Make the virtual set a logged transaction: watch .kb/queries/ alongside .kb/nodes.jsonl, diff savedQueryNodes() across the change, and append it — or drop withVirtual and materialise saved queries as ordinary stored nodes.
 - **node** — `01M1QZNBFSTCM9V7DZT1XWEY2N`
@@ -335,6 +335,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Split into recognizers over a cursor and drive them from a list. The existing md-inline tests are the gate; this is a rewrite, not a mechanical move.
 - **node** — `01M1MGCM9RWXE3CYANZK5K4KC0`
 
+### GAP: the JSONL tx tail is not atomic with the node write
+
+- **expected** — One act: nodes.jsonl and the tail entry either both land or neither does, the way the sqlite adapter gets it for free inside BEGIN IMMEDIATE.
+- **current** — Two writes inside one lock (JsonlStore.commitEffect): durableReplaceFile for the nodes, then txTail.append, and the append is deliberately not fsynced. No other process can interleave, but a crash or power loss between them can. TxTail.isCurrent() detects it by comparing the tail's newest store mark to the file's, and StoreTxLog then refuses every rev at or below head.
+- **impact** — A crash in that window costs every connected client one snapshot instead of frames - the same cost the log already had before it was durable, so nothing regresses. What is not reached is the stated shape: on JSONL the record can still lag the write, and the mark it is detected by is size+mtime, so it inherits GAP 01M1PK5NYA7ZG3XC0H0YRYRVZE's blind spot.
+- **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
+- **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
+
 ### GAP: the palette index pre-sizes its arrays with new Array(n)
 
 - **expected** — buildPaletteIndex and searchPalette allocate their result arrays the way unicorn/no-new-array wants (Array.from({ length: n }) or push), with no pinpoint disable.
@@ -354,7 +362,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the tx log is MemoryTxLog on both stores; a sqlite root could have a durable one as a table
 
 - **expected** — With a sqlite store, the transaction log is a table in the same database, written inside the same BEGIN IMMEDIATE as the nodes it describes — so a restart does not lose the log, and a client that fell behind can be caught up from it instead of refetching the graph.
-- **current** — ctx.log is a MemoryTxLog whatever the store is (app/runtime/src/layers.ts). It dies with the process, so every reconnect after a restart is a full snapshot.
+- **current** — Closed by wave g7 with the same mechanism as the JSONL tail, because they were one gap seen from two stores: TxTail is a store capability and each adapter implements it. SqliteStore inserts into a tx table (rev, at, origin, ops, mark) inside the same BEGIN IMMEDIATE as the node rows, so on that backend the record and the write really are one act - schema_version 2, CREATE TABLE IF NOT EXISTS is the whole migration. logContract in @kb/test-kit runs the same ten properties against both adapters.
 - **impact** — The durable-log gap stays open. It is now cheaper to close for one adapter than the other, which is itself a reason to be explicit: a log that is durable on sqlite and not on JSONL is two behaviours behind one KbTxLog port.
 - **closes** — A schema for the log table, a decision about whether KbTxLog gains a durability contract or a second adapter, and what the JSONL store does about it (a .kb/tx.jsonl was the shape considered before sqlite existed).
 - **node** — `01M1RYY9HVDNB1RNNKCSYF2H47`
@@ -362,7 +370,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the tx log is process-local; there is no durable .kb/tx.jsonl
 
 - **expected** — The log is durable: every KbTx is appended to .kb/tx.jsonl under the store's write lock, and rev is a per-store counter that survives a restart. A client reconnecting after a server restart catches up with since(rev) like any other gap.
-- **current** — MemoryTxLog is a 1000-entry in-process ring (tools/kb/packages/infrastructure/tx-log/src/memory-tx-log.ts). rev keeps its documented per-server meaning, so a restart resets it to 0 and every connected client's rev is ahead of head; since() answers snapshot-required and each client refetches /api/graph.
+- **current** — Closed by wave g7: the sequence is EffectStore.txTail, appended by the store. The JSONL adapter writes .kb/tx.jsonl inside the .lock that already covers load-merge-replace; rev is the store's counter and survives a restart, so a reconnecting client is caught up with frames. StoreTxLog holds no window - a ring beside a durable tail would be two records of one sequence. Write order is nodes first, tail second, and a tail that lags is detected by TxTail.isCurrent(), which makes StoreTxLog refuse every rev at or below a head it cannot vouch for.
 - **impact** — A restart of kb ui costs every open client a full graph refetch, and no surface can replay history — undo across sessions, an audit trail, and a browser replica that survives a reload all need the durable form.
 - **closes** — Write each append to .kb/tx.jsonl inside the JsonlStore write lock, load the tail at openKbEffect and seed MemoryTxLog's window and rev from it; make rev per-store rather than per-server in protocol.ts.
 - **node** — `01M1QZMR3CYFYPEXBMC2JTFAA5`
@@ -375,6 +383,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide shim versus store binary (the shim is the dev-loop affordance; the package is the artifact), then point .mcp.json at the winner and delete the loser.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1M08VKDXG6AFZHQPW5M2GRF`
+
+### GAP: TxTail allocates a rev outside the store's exclusion for virtual transactions
+
+- **expected** — Every appender allocates its rev under the same exclusion, so two writers can never be handed the same one.
+- **current** — TxTail.append reads its own head to assign rev+1 and is documented as not self-serialising. The store calls it inside the lock that already serialises writers, which covers every node commit; KbTxLog.append does not, and that is the path the saved-query virtual set takes. A CLI commit concurrent with a .kb/queries/ reload, or two kb ui servers on one root with different ports, can both read head N and both write N+1.
+- **impact** — A duplicate rev in the tail. Frames stay applicable in order and upserts are idempotent, so a client converges - but rev stops being a unique position, and any surface that keys on it (a replay, an audit trail, an undo across sessions) would be reading two things with one name. Narrow: it needs a second appender in the same instant.
+- **closes** — Either the virtual set becomes a store transaction so the store's exclusion covers it, or the tail acquires the store's lock itself - which needs a synchronous acquire, and write-lock.ts deliberately has none (its spin is Effect.sleep so a contended commit cannot block the loop).
+- **rule** — Abstraction before addition
+- **node** — `01M1XF05FV87AR22B4SAS0A2BK`
 
 
 ## Closed

@@ -81,7 +81,7 @@ function measure(store: EffectStore): Promise<ReadonlyArray<readonly [string, nu
   return Effect.runPromise(
     Effect.gen(function* () {
       let started = performance.now();
-      yield* store.commitEffect({ upserts: benchmarkNodes(AT), deletes: [] });
+      yield* store.commitEffect({ upserts: benchmarkNodes(AT), deletes: [] }, { at: AT });
       const initialCommitMs = elapsedSince(started);
 
       started = performance.now();
@@ -98,20 +98,26 @@ function measure(store: EffectStore): Promise<ReadonlyArray<readonly [string, nu
       if (target === undefined) throw new Error("benchmark fixture node missing");
 
       started = performance.now();
-      yield* store.commitEffect({
-        upserts: [{ ...target, text: "set-shaped edit", updatedAt: EDITED_AT }],
-        deletes: [],
-      });
+      yield* store.commitEffect(
+        {
+          upserts: [{ ...target, text: "set-shaped edit", updatedAt: EDITED_AT }],
+          deletes: [],
+        },
+        { at: AT },
+      );
       const setCommitMs = elapsedSince(started);
 
       started = performance.now();
       const reloaded = yield* store.loadEffect;
       const edited = reloaded.find((n) => n.id === target.id);
       if (edited === undefined) throw new Error("benchmark edit node missing");
-      yield* store.commitEffect({
-        upserts: [{ ...edited, text: "interactive edit", updatedAt: EDITED_AT }],
-        deletes: [],
-      });
+      yield* store.commitEffect(
+        {
+          upserts: [{ ...edited, text: "interactive edit", updatedAt: EDITED_AT }],
+          deletes: [],
+        },
+        { at: AT },
+      );
       const interactiveEditMs = elapsedSince(started);
 
       return [

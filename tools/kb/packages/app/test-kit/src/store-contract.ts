@@ -99,7 +99,7 @@ function roundTripHolds(makeStore: StoreFactory, nodes: KbNode[]): Promise<void>
     Effect.scoped(
       Effect.gen(function* () {
         const store = makeStore(yield* scratchRoot);
-        yield* store.commitEffect({ upserts: nodes, deletes: [] });
+        yield* store.commitEffect({ upserts: nodes, deletes: [] }, { at: AT });
         const loaded = yield* store.loadEffect;
 
         expect(loaded.map((n) => n.id)).toEqual(nodes.map((n) => n.id).toSorted());
@@ -166,11 +166,17 @@ function commitMerges(makeStore: StoreFactory): Promise<void> {
     Effect.scoped(
       Effect.gen(function* () {
         const store = makeStore(yield* scratchRoot);
-        yield* store.commitEffect({
-          upserts: [plainNode("n-a", "a"), plainNode("n-b", "b"), plainNode("n-c", "c")],
-          deletes: [],
-        });
-        yield* store.commitEffect({ upserts: [plainNode("n-b", "b2")], deletes: ["n-a"] });
+        yield* store.commitEffect(
+          {
+            upserts: [plainNode("n-a", "a"), plainNode("n-b", "b"), plainNode("n-c", "c")],
+            deletes: [],
+          },
+          { at: AT },
+        );
+        yield* store.commitEffect(
+          { upserts: [plainNode("n-b", "b2")], deletes: ["n-a"] },
+          { at: AT },
+        );
 
         const loaded = yield* store.loadEffect;
         expect(loaded.map((n) => n.id)).toEqual(["n-b", "n-c"]);
@@ -185,7 +191,7 @@ function fingerprintTracks(makeStore: StoreFactory): Promise<void> {
     Effect.scoped(
       Effect.gen(function* () {
         const store = makeStore(yield* scratchRoot);
-        yield* store.commitEffect({ upserts: [plainNode("n-a", "a")], deletes: [] });
+        yield* store.commitEffect({ upserts: [plainNode("n-a", "a")], deletes: [] }, { at: AT });
 
         const first = yield* store.fingerprint;
         expect(first).not.toBeNull();
@@ -193,7 +199,7 @@ function fingerprintTracks(makeStore: StoreFactory): Promise<void> {
         yield* store.loadEffect;
         expect(yield* store.fingerprint).toBe(first);
 
-        yield* store.commitEffect({ upserts: [plainNode("n-b", "b")], deletes: [] });
+        yield* store.commitEffect({ upserts: [plainNode("n-b", "b")], deletes: [] }, { at: AT });
         expect(yield* store.fingerprint).not.toBe(first);
       }),
     ),
@@ -206,11 +212,11 @@ function externalWriteIsSeen(makeStore: StoreFactory): Promise<void> {
       Effect.gen(function* () {
         const root = yield* scratchRoot;
         const store = makeStore(root);
-        yield* store.commitEffect({ upserts: [plainNode("n-a", "a")], deletes: [] });
+        yield* store.commitEffect({ upserts: [plainNode("n-a", "a")], deletes: [] }, { at: AT });
         const before = yield* store.fingerprint;
 
         const external = makeStore(root);
-        yield* external.commitEffect({ upserts: [plainNode("n-b", "b")], deletes: [] });
+        yield* external.commitEffect({ upserts: [plainNode("n-b", "b")], deletes: [] }, { at: AT });
 
         expect(yield* store.fingerprint).not.toBe(before);
         expect((yield* store.loadEffect).map((n) => n.id)).toEqual(["n-a", "n-b"]);
@@ -226,12 +232,16 @@ function concurrentCommitsSerialize(makeStore: StoreFactory): Promise<void> {
         const root = yield* scratchRoot;
         const one = makeStore(root);
         const two = makeStore(root);
-        yield* one.commitEffect({ upserts: [plainNode("n-a", "a")], deletes: [] });
+        yield* one.commitEffect({ upserts: [plainNode("n-a", "a")], deletes: [] }, { at: AT });
 
         const exits = yield* Effect.all(
           [
-            Effect.exit(one.commitEffect({ upserts: [plainNode("n-b", "b")], deletes: [] })),
-            Effect.exit(two.commitEffect({ upserts: [plainNode("n-c", "c")], deletes: [] })),
+            Effect.exit(
+              one.commitEffect({ upserts: [plainNode("n-b", "b")], deletes: [] }, { at: AT }),
+            ),
+            Effect.exit(
+              two.commitEffect({ upserts: [plainNode("n-c", "c")], deletes: [] }, { at: AT }),
+            ),
           ],
           { concurrency: "unbounded" },
         );
@@ -262,7 +272,7 @@ function unwritableCommitFails(makeStore: StoreFactory): Promise<void> {
         const store = makeStore(blocked);
 
         const exit = yield* Effect.exit(
-          store.commitEffect({ upserts: [plainNode("n-a", "a")], deletes: [] }),
+          store.commitEffect({ upserts: [plainNode("n-a", "a")], deletes: [] }, { at: AT }),
         );
         expect(Exit.isFailure(exit)).toBe(true);
         expect(isDomainError(failureOf(exit))).toBe(true);

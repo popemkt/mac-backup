@@ -73,13 +73,13 @@ export const reloadEffect = Effect.fn("kb.reload")(function* (
  * takes it directly; when it is not, the index is rebuilt from the store
  * rather than stamped as current on a guess.
  *
- * The transaction is recorded on the log in the same breath. This is the only
- * place that holds the real delta of a local write, so it is the only honest
- * producer of one: everything downstream that used to re-derive a delta — the
- * hub's node-set diff, a fallen-behind client's full refetch — was
- * reconstructing what was thrown away here. `origin` is ambient (see
- * {@link TxOrigin}), so no handler between the request and this line carries
- * a request-shaped argument.
+ * The transaction is recorded by the commit itself: the store's tail is
+ * durable and the store is the only thing that can make the node write and
+ * the record one act, so this function hands the commit the caller's half of
+ * the entry (`at`, and the ambient {@link TxOrigin}) and then asks the log to
+ * catch up to whatever the tail now holds. `refresh` rather than an append,
+ * because the same call also adopts anything another process appended in the
+ * meantime — the log has one way to learn what happened, not two.
  */
 export const persistEffect = Effect.fn("kb.persist")(function* (
   ctx: KbContext,
@@ -93,7 +93,7 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
     return yield* domainError("invalid_input", `invalid graph transaction: ${integrityError}`);
   }
   const caughtUpTo = seen.get(ctx) ?? null;
-  const commit = yield* store.commitEffect(tx);
+  const commit = yield* store.commitEffect(tx, { at: yield* currentIso, origin });
   if (commit.base !== null && commit.base === caughtUpTo) {
     ctx.index.applyTx(tx);
     if (commit.fingerprint !== null) seen.set(ctx, commit.fingerprint);
@@ -105,6 +105,6 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
     seen.delete(ctx);
     yield* reloadEffect(ctx);
   }
-  ctx.log.append(tx, yield* currentIso, origin);
+  ctx.log.refresh();
   return undefined;
 });

@@ -43,5 +43,13 @@ tools/kb/ui/node_modules/
 .kb/kb.sqlite-wal
 .kb/kb.sqlite-shm
 
+# kb transaction tail — the JSONL store's durable log of what changed, in what
+# order. State, not intent: the nodes are the repo's content and this is how
+# they got there, so it is a backup concern (docs/backup-strategy.md) and never
+# committed. The sqlite store keeps its tail inside kb.sqlite, which is.
+.kb/tx.jsonl
+.kb/tx.jsonl.lock
+.kb/tx.jsonl.*.tmp
+
 # Claude Code agent worktrees
 .claude/worktrees/

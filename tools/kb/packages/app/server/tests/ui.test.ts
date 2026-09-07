@@ -80,7 +80,9 @@ describe("kb ui server", () => {
     const graph = await fetch(`${handle.url}/api/graph`);
     expect(graph.status).toBe(200);
     const snap = (await graph.json()) as { rev: number; nodes: unknown[] };
-    expect(snap.rev).toBe(0);
+    // rev 1, not 0: `rev` is the store's durable counter now, and the seed a
+    // fresh root gets is a recorded transaction like any other.
+    expect(snap.rev).toBe(1);
     expect(snap.nodes.length).toBeGreaterThan(0);
 
     const man = await fetch(`${handle.url}/api/manifest`);
@@ -110,7 +112,7 @@ describe("kb ui server", () => {
     });
 
     const hello = await waitFor(ws, (m) => m.op === "hello");
-    expect(hello).toEqual({ op: "hello", rev: 0 });
+    expect(hello).toEqual({ op: "hello", rev: 1 });
 
     const subQuery = '[:find ?id :where [?e :node/id ?id] [?e :node/text "ui-live-node"]]';
     ws.send(JSON.stringify({ op: "subscribe", id: "s1", query: subQuery }));
@@ -294,7 +296,7 @@ describe("kb ui server", () => {
       ws.addEventListener("error", () => reject(new Error("ws open failed")));
     });
     const hello = await waitFor(ws, (m) => m.op === "hello");
-    expect(hello).toEqual({ op: "hello", rev: 0 });
+    expect(hello).toEqual({ op: "hello", rev: 1 });
 
     const closed = new Promise<void>((resolve) => {
       ws.addEventListener("close", () => resolve());

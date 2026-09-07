@@ -12,6 +12,7 @@ import { WORKSPACE_ROOT } from "../src/workspace.ts";
  *     - .kb/nodes.jsonl.lock (write lock)
  *     - .kb/nodes.jsonl.bak, *.bak (backup files)
  *     - .kb/kb.sqlite-wal, .kb/kb.sqlite-shm (SqliteStore derived files)
+ *     - .kb/tx.jsonl, .kb/tx.jsonl.bak (JsonlStore transaction tail)
  *     - .kb/cache/* (query/index cache)
  *     - reports/mutation/* (Stryker mutation test reports)
  *     - .stryker-tmp/* (Stryker temp files)
@@ -26,6 +27,8 @@ const REQUIRED_IGNORED = [
   ".kb/nodes.jsonl.bak",
   ".kb/kb.sqlite-wal",
   ".kb/kb.sqlite-shm",
+  ".kb/tx.jsonl",
+  ".kb/tx.jsonl.bak",
   "tools/kb/.stryker-tmp/sandbox",
   "data.bak",
   "tools/kb/reports/mutation/report.html",

@@ -78,3 +78,35 @@ export const nodeParseOptions: ParseOptions = {
  * the location the failure came from.
  */
 export const decodeStoredNode = Schema.decodeUnknownSync(KbNodeSchema, nodeParseOptions);
+
+/**
+ * The stored form of one recorded transaction — `KbTx` as a store's tx tail
+ * writes it. Here rather than in `tx.ts` because this file is where the
+ * persistence decoders live, and both tails read it: the JSONL tail per line,
+ * the SQLite tail per row.
+ */
+const KbTxSchema = Schema.Struct({
+  // Finite for the same reason a `num` prop is: a rev that serialised to
+  // `null` would be a position in the sequence nothing could read back.
+  rev: Schema.Finite,
+  at: Schema.String,
+  origin: Schema.optionalKey(Schema.String),
+  ops: Schema.Struct({
+    upserts: Schema.mutable(Schema.Array(KbNodeSchema)),
+    deletes: Schema.mutable(Schema.Array(Schema.String)),
+  }),
+});
+
+/**
+ * Decode one recorded transaction.
+ *
+ * Excess keys are dropped rather than preserved, the opposite of
+ * {@link decodeStoredNode}: a tail record's extra keys are the *adapter's* own
+ * bookkeeping (the store mark it was written at), and a `KbTx` that carried
+ * them would put them on the wire in every `tx` frame. The nodes inside `ops`
+ * still decode through {@link KbNodeSchema}, so an upsert in the tail is the
+ * same node an upsert in the store is.
+ */
+export const decodeStoredTx = Schema.decodeUnknownSync(KbTxSchema, {
+  onExcessProperty: "ignore",
+});

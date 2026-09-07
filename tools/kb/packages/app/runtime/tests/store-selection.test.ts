@@ -70,9 +70,9 @@ describe("selectStore", () => {
     const exit = await withRoot((root) =>
       Effect.gen(function* () {
         const jsonl = new JsonlStore(root);
-        yield* jsonl.commitEffect({ upserts: [node("n-a", "a")], deletes: [] });
+        yield* jsonl.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
         const sqlite = new SqliteStore(root);
-        yield* sqlite.commitEffect({ upserts: [node("n-a", "a")], deletes: [] });
+        yield* sqlite.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
         sqlite.close();
         return yield* selectStore(root);
       }),
@@ -105,7 +105,10 @@ describe("selectStore", () => {
   test("createStore refuses to add a second backend to a root that has one", async () => {
     const exit = await withRoot((root) =>
       Effect.gen(function* () {
-        yield* new JsonlStore(root).commitEffect({ upserts: [node("n-a", "a")], deletes: [] });
+        yield* new JsonlStore(root).commitEffect(
+          { upserts: [node("n-a", "a")], deletes: [] },
+          { at: AT },
+        );
         return yield* createStore(root, "sqlite");
       }),
     );
@@ -120,7 +123,7 @@ describe("migrateStore", () => {
     const exit = await withRoot((root) =>
       Effect.gen(function* () {
         const written = [node("n-a", "a"), node("n-b", "b"), node("n-c", "c")];
-        yield* new JsonlStore(root).commitEffect({ upserts: written, deletes: [] });
+        yield* new JsonlStore(root).commitEffect({ upserts: written, deletes: [] }, { at: AT });
 
         const toSqlite = yield* migrateStore(root, "sqlite");
         expect(toSqlite).toMatchObject({ from: "jsonl", to: "sqlite", nodes: 3 });
@@ -146,10 +149,54 @@ describe("migrateStore", () => {
     expect(succeeded(exit)).toEqual([node("n-a", "a"), node("n-b", "b"), node("n-c", "c")]);
   });
 
+  test("the transaction tail moves with the nodes, revs preserved", async () => {
+    const exit = await withRoot((root) =>
+      Effect.gen(function* () {
+        const source = new JsonlStore(root);
+        yield* source.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
+        yield* source.commitEffect({ upserts: [node("n-b", "b")], deletes: [] }, { at: AT });
+        const before = source.txTail.entries();
+        expect(before.map((tx) => tx.rev)).toEqual([1, 2]);
+
+        yield* migrateStore(root, "sqlite");
+        const target = yield* selectStore(root);
+        // Same revs, same transactions: a migration changes nothing a client
+        // can see, so it must not be what forces every client to resnapshot.
+        expect(target.txTail.entries().map((tx) => tx.rev)).toEqual([1, 2]);
+        expect(target.txTail.entries().map((tx) => tx.ops.upserts[0]?.id)).toEqual(["n-a", "n-b"]);
+        // The marks were re-stamped, so the tail vouches for the new store.
+        expect(target.txTail.isCurrent()).toBe(true);
+        return yield* target.loadEffect;
+      }),
+    );
+    expect(succeeded(exit).map((n) => n.id)).toEqual(["n-a", "n-b"]);
+  });
+
+  test("a migrated-away store leaves no tail behind", async () => {
+    const exit = await withRoot((root) =>
+      Effect.gen(function* () {
+        const source = new JsonlStore(root);
+        yield* source.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
+        expect(existsSync(source.txTail.path)).toBe(true);
+
+        yield* migrateStore(root, "sqlite");
+        // Presence selects the store, and a tail describing a store that is
+        // gone is exactly the state the selector must never have to read.
+        expect(existsSync(source.txTail.path)).toBe(false);
+        expect(existsSync(source.txTail.backupPath)).toBe(false);
+        return yield* (yield* selectStore(root)).loadEffect;
+      }),
+    );
+    expect(succeeded(exit).map((n) => n.id)).toEqual(["n-a"]);
+  });
+
   test("migrating to the backend a root already has is refused", async () => {
     const exit = await withRoot((root) =>
       Effect.gen(function* () {
-        yield* new JsonlStore(root).commitEffect({ upserts: [node("n-a", "a")], deletes: [] });
+        yield* new JsonlStore(root).commitEffect(
+          { upserts: [node("n-a", "a")], deletes: [] },
+          { at: AT },
+        );
         return yield* migrateStore(root, "jsonl");
       }),
     );

@@ -10,7 +10,7 @@
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
-import { domainError, ensureDomainError, type DomainError } from "@kb/model";
+import { currentIso, domainError, ensureDomainError, type DomainError } from "@kb/model";
 import type { EffectStore } from "@kb/contracts";
 import { JsonlStore } from "@kb/store-jsonl";
 import { SqliteStore, sqliteStoreFiles } from "@kb/store-sqlite";
@@ -53,10 +53,13 @@ function backend<S extends EffectStore>(spec: {
 const BACKENDS: Record<StoreBackend, StoreBackendOps> = {
   jsonl: backend({
     make: (root) => new JsonlStore(root),
-    // The store itself names its files; `.lock` and `.tmp` are transient.
+    // The store itself names its files — including its transaction tail, which
+    // is as much the store's as `nodes.jsonl` is and must go when it goes, or
+    // migrating away would leave a tail describing a store that is not there.
+    // `.lock` and `.tmp` are transient.
     files: (root) => {
       const store = new JsonlStore(root);
-      return [store.path, store.backupPath];
+      return [store.path, store.backupPath, store.txTail.path, store.txTail.backupPath];
     },
   }),
   sqlite: backend({
@@ -134,7 +137,7 @@ export const createStore = Effect.fn("kb.createStore")(function* (
     );
   }
   const opened = BACKENDS[name].open(root);
-  yield* opened.store.commitEffect({ upserts: [], deletes: [] });
+  yield* opened.store.commitEffect({ upserts: [], deletes: [] }, { at: yield* currentIso });
   opened.release();
   return undefined;
 });
@@ -148,7 +151,8 @@ export interface StoreMigration {
 
 /**
  * Move a root from the store it has to the one it asked for: load everything,
- * commit it into the other backend, then remove the source's files.
+ * commit it into the other backend, carry the transaction tail across, then
+ * remove the source's files.
  *
  * The removal is the point. Selection is by presence, so leaving the old files
  * behind would leave the root in exactly the state the selector refuses to
@@ -173,7 +177,17 @@ export const migrateStore = Effect.fn("kb.migrateStore")(function* (
   const source = BACKENDS[from].open(root);
   const target = BACKENDS[to].open(root);
   const nodes = yield* source.store.loadEffect;
-  yield* target.store.commitEffect({ upserts: nodes, deletes: [] });
+  const tail = source.store.txTail.entries();
+  yield* target.store.commitEffect({ upserts: nodes, deletes: [] }, { at: yield* currentIso });
+  // The tail moves with the nodes, revs and all. The migration changes nothing
+  // a client can see, so it must not be the thing that forces every client
+  // into a snapshot — and `adopt` re-stamps the store mark, because the marks
+  // in the source tail describe a store that is about to be deleted. It runs
+  // after the node commit so the mark it stamps is the target's settled one.
+  // A source with no tail (a store written before tails existed) leaves the
+  // target the one record its own commit made, which is the truthful answer:
+  // the whole graph arrived in one transaction and nothing before it is known.
+  if (tail.length > 0) target.store.txTail.adopt(tail);
 
   // Release before removing: a backend that holds a file open would otherwise
   // recreate its sidecars on close, and the root would have two stores again.

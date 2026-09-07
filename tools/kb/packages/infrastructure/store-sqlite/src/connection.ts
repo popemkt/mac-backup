@@ -22,7 +22,7 @@ import { dirname } from "node:path";
 const BUSY_TIMEOUT_MS = 15_000;
 
 /** Bumped when the table shape changes; stored in `meta` so a file can say. */
-const SCHEMA_VERSION = "1";
+const SCHEMA_VERSION = "2";
 
 export interface SqliteConnection {
   /** Open the database, creating the file and schema when absent. */
@@ -39,10 +39,24 @@ function initialize(db: Database): void {
   db.run(`PRAGMA busy_timeout = ${String(BUSY_TIMEOUT_MS)}`);
   db.run("CREATE TABLE IF NOT EXISTS nodes (id TEXT PRIMARY KEY, body TEXT NOT NULL)");
   db.run("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)");
+  // The store's durable transaction tail; see `tx-tail.ts` for what each
+  // column is for. `IF NOT EXISTS` is the whole migration from schema 1: the
+  // table is additive and an existing database gains an empty tail, which is
+  // exactly the state `TxTail.isCurrent` already knows how to report.
+  db.run(
+    `CREATE TABLE IF NOT EXISTS tx (
+       rev INTEGER PRIMARY KEY,
+       at TEXT NOT NULL,
+       origin TEXT,
+       ops TEXT NOT NULL,
+       mark TEXT NOT NULL
+     )`,
+  );
   db.run(
     `INSERT INTO meta (key, value) VALUES ('schema_version', '${SCHEMA_VERSION}'), ('rev', '0')
      ON CONFLICT(key) DO NOTHING`,
   );
+  db.run(`UPDATE meta SET value = '${SCHEMA_VERSION}' WHERE key = 'schema_version'`);
 }
 
 export function sqliteConnection(path: string): SqliteConnection {

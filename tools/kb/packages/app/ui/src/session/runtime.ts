@@ -10,7 +10,7 @@ import {
 } from "@kb/contracts";
 import type { KbNode, StoreTx } from "@kb/model";
 import { KbIndexService, type KbIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
-import { MemoryTxLog } from "@kb/tx-log";
+import { StoreTxLog } from "@kb/tx-log";
 import { invokeReceiptWith, isomorphicActions, noteStoreSynced, portActions } from "@kb/operations";
 import { postAction } from "@/api/action";
 import { toast } from "@/lib/toast";
@@ -45,7 +45,7 @@ export function replaceBrowserSession(
     root: "browser",
     store,
     index,
-    log: new MemoryTxLog(),
+    log: new StoreTxLog(store.txTail),
     get nodes(): KbNode[] {
       return index.storedNodes();
     },

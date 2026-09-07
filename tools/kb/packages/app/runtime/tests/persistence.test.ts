@@ -17,6 +17,10 @@ import {
   type KbNode,
   type StoreTx,
 } from "@kb/model";
+import { MemoryTxTail } from "@kb/tx-log";
+
+/** The `at` a test commit records; the tail wants one and none of these assert on it. */
+const TX_AT = "2026-01-01T00:00:00.000Z";
 
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-persist-"));
@@ -39,7 +43,7 @@ function load(store: EffectStore): Promise<KbNode[]> {
 }
 
 function commit(store: EffectStore, tx: StoreTx): Promise<unknown> {
-  return Effect.runPromise(store.commitEffect(tx));
+  return Effect.runPromise(store.commitEffect(tx, { at: TX_AT }));
 }
 
 describe("JsonlStore Effect persistence", () => {
@@ -62,7 +66,9 @@ describe("JsonlStore Effect persistence", () => {
     const store = new JsonlStore(root);
     const nodes = [sampleNode("n.b", "b"), sampleNode("n.a", "a")];
     await Effect.runPromise(
-      store.commitEffect({ upserts: nodes, deletes: [] }).pipe(Effect.provide(bunFileSystemLayer)),
+      store
+        .commitEffect({ upserts: nodes, deletes: [] }, { at: TX_AT })
+        .pipe(Effect.provide(bunFileSystemLayer)),
     );
     const loaded = await Effect.runPromise(
       store.loadEffect.pipe(Effect.provide(bunFileSystemLayer)),
@@ -133,7 +139,9 @@ describe("JsonlStore Effect persistence", () => {
     expect((loaded[0] as KbNode & { legacyNote?: string }).legacyNote).toBe("keep-me");
 
     await Effect.runPromise(
-      store.commitEffect({ upserts: loaded, deletes: [] }).pipe(Effect.provide(bunFileSystemLayer)),
+      store
+        .commitEffect({ upserts: loaded, deletes: [] }, { at: TX_AT })
+        .pipe(Effect.provide(bunFileSystemLayer)),
     );
     const body = await readFile(store.path, "utf8");
     const rewritten = JSON.parse(body.trim()) as Record<string, unknown>;
@@ -168,7 +176,7 @@ describe("JsonlStore Effect persistence", () => {
     expect(afterLoad).toBe(original);
 
     const commitCaught = await Effect.runPromise(
-      store.commitEffect({ upserts: [sampleNode("n.new")], deletes: [] }).pipe(
+      store.commitEffect({ upserts: [sampleNode("n.new")], deletes: [] }, { at: TX_AT }).pipe(
         Effect.provide(bunFileSystemLayer),
         Effect.catch((e) => Effect.succeed(e)),
       ),
@@ -277,6 +285,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
         return injected;
       }),
       fingerprint: Effect.succeed(null),
+      txTail: new MemoryTxTail(),
       commitEffect: () => Effect.succeed({ base: null, fingerprint: null }),
     };
 
@@ -303,6 +312,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
       watchPaths: [],
       loadEffect: Effect.sync(() => [...held]),
       fingerprint: Effect.sync(() => `revision:${revision}`),
+      txTail: new MemoryTxTail(),
       commitEffect: (tx) =>
         Effect.sync(() => {
           commits.push(tx);
@@ -345,6 +355,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
       watchPaths: [],
       loadEffect: Effect.sync(() => [...held]),
       fingerprint: Effect.sync(() => `revision:${revision}`),
+      txTail: new MemoryTxTail(),
       commitEffect: (tx) =>
         Effect.sync(() => {
           if (!raced) {

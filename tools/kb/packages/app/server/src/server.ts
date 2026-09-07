@@ -1,13 +1,14 @@
 import { watch, type FSWatcher } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { Effect, Exit, Fiber, Scope } from "effect";
-import type { FileSystem } from "effect/FileSystem";
+import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
 import { UI_DEFAULT_PORT, type KbContext } from "@kb/contracts";
 import { currentIso, diffTx, type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect } from "@kb/operations";
 import { kbRuntimeLayer, openKbEffect, writeErr } from "@kb/runtime";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { queriesDir } from "@kb/workspace-fs";
 import { ensureUiBuilt, type UiBuildError, type UiEnsureResult } from "./build.ts";
 import {
   UI_DEV_DEFAULT_PORT,
@@ -18,7 +19,7 @@ import {
 } from "./dev.ts";
 import { childProcessEnv, UI_DIST, UI_ROOT } from "./paths.ts";
 import { handleHttpRequest } from "./http.ts";
-import { listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
+import { SavedQuerySet, listSavedQueriesEffect, savedQueryNodes } from "./saved-queries.ts";
 import { SubscriptionHub, type ClientSend, type WsData } from "./session.ts";
 
 /** The injectable build-ensure step, shared by both entry points. */
@@ -72,29 +73,65 @@ function clientSend(ws: Bun.ServerWebSocket<WsData>): ClientSend {
  * Ingest an external write: bring the session up to date, then say what
  * changed.
  *
- * A file event carries no transaction, only "something happened", so this is
- * the one path that has to recover a delta by comparing node sets — once,
- * here, rather than on every commit. The comparison doubles as the
- * double-fire guard: the watcher also fires on writes this session made, and
- * those diff to nothing because `reloadEffect` already knows the file is the
- * one it wrote. An empty transaction is not appended, so it costs no rev and
- * no frame.
+ * The store's tail is durable and shared, so a write another process made is
+ * already recorded in it by the time this fires — `refresh` reads those
+ * transactions rather than reconstructing them, which is both cheaper and the
+ * only version that agrees with the writer about what happened. It doubles as
+ * the double-fire guard: the watcher also fires on writes this session made,
+ * and those are already at head.
+ *
+ * The diff is the fallback for a write nobody recorded — a hand-edited
+ * `nodes.jsonl`, an older kb, a restore from backup. A file event carries no
+ * transaction, only "something happened", so that case is the one place a
+ * delta still has to be recovered by comparing node sets. It runs only when
+ * the tail had nothing to say, because a change the tail already explained
+ * would otherwise be recorded twice — once as the writer authored it and once
+ * as this session re-derived it. An empty transaction is not appended either:
+ * it costs a rev and a frame and says nothing.
  */
 export const ingestExternalWrite = Effect.fn("kb.ingestExternalWrite")(function* (ctx: KbContext) {
   const before = ctx.index.storedNodes();
   yield* reloadEffect(ctx);
+  // The tail explained the change, so nothing here has to guess at it.
+  if (ctx.log.refresh().length > 0) return;
   const ops = diffTx(before, ctx.index.storedNodes());
   if (ops.upserts.length === 0 && ops.deletes.length === 0) return;
   ctx.log.append(ops, yield* currentIso);
 });
 
 /**
- * Debounced store reload. Every fs event restarts a 50ms `Effect.sleep` in a
- * fresh fiber and interrupts the pending one, so a burst of writes reloads
- * once. Owning a fiber rather than a `setTimeout` is what lets the server
- * scope cancel an in-flight reload on stop.
+ * Ingest a change under `.kb/queries/`: re-list the saved queries and let the
+ * virtual set record what moved.
+ *
+ * The saved-query sidebar is a projection of `.kb/queries/*.edn`, so the
+ * directory is watched exactly the way the store's files are, and the change
+ * reaches clients as the same kind of frame.
  */
-function makeReloadDebounce(ctx: KbContext): { trigger: () => void; stop: () => void } {
+export const ingestSavedQueries = Effect.fn("kb.ingestSavedQueries")(function* (
+  root: string,
+  queries: SavedQuerySet,
+) {
+  const saved = yield* listSavedQueriesEffect(root);
+  queries.sync(savedQueryNodes(saved), yield* currentIso);
+});
+
+/** A debounce plus the way to cancel whatever it has in flight. */
+interface Debounce {
+  trigger: () => void;
+  stop: () => void;
+}
+
+/**
+ * Debounced fs-event ingest. Every event restarts a 50ms `Effect.sleep` in a
+ * fresh fiber and interrupts the pending one, so a burst of writes is ingested
+ * once. Owning a fiber rather than a `setTimeout` is what lets the server
+ * scope cancel an in-flight ingest on stop.
+ *
+ * Two things are watched — the store's files and `.kb/queries/` — and they
+ * differ only in what they run, so this takes the program rather than the
+ * session: a second copy of the fiber bookkeeping is the thing to avoid here.
+ */
+function makeIngestDebounce(ingest: Effect.Effect<void, DomainError>): Debounce {
   let pending: Fiber.Fiber<void> | null = null;
   let stopped = false;
 
@@ -111,8 +148,8 @@ function makeReloadDebounce(ctx: KbContext): { trigger: () => void; stop: () => 
       pending = Effect.runFork(
         Effect.gen(function* () {
           yield* Effect.sleep("50 millis");
-          yield* ingestExternalWrite(ctx);
-        }).pipe(Effect.provide(kbRuntimeLayer(ctx)), Effect.ignoreCause),
+          yield* ingest;
+        }).pipe(Effect.ignoreCause),
       );
     },
     stop: () => {
@@ -123,29 +160,50 @@ function makeReloadDebounce(ctx: KbContext): { trigger: () => void; stop: () => 
 }
 
 /**
- * Watch the paths the store says are its own, falling back to `.kb/` for any
- * that does not exist yet. Best effort: an unwatchable root simply gets no
- * live reload.
+ * One watched directory, and the filenames in it that matter — `null` when the
+ * whole directory is the target.
  *
- * The store is asked rather than assumed. A JSONL store is one file and a
- * sqlite store is a database plus its write-ahead log; an `if` here on which
- * adapter the session got would put a backend's file layout inside a package
- * that is supposed to know only the port.
+ * Directories rather than files because an atomic replacement strands a watch
+ * on the old inode, so `nodes.jsonl` is watched as "the name `nodes.jsonl` in
+ * `.kb`". `.kb/queries/` is the other kind of target: a saved query is added
+ * and removed as a file, so what changes is the listing and every name in it
+ * matters.
  */
-function watchStore(_root: string, paths: readonly string[], onEvent: () => void): FSWatcher[] {
-  // Watch containing directories so atomic replacement cannot strand a watch
-  // on an old inode. The store still owns which paths are relevant.
-  const directories = new Map<string, Set<string>>();
+interface WatchScope {
+  directory: string;
+  names: Set<string> | null;
+}
+
+/** The scopes that cover a set of files, one per containing directory. */
+function fileScopes(paths: readonly string[]): WatchScope[] {
+  const byDirectory = new Map<string, Set<string>>();
   for (const path of paths) {
     const directory = dirname(path);
-    const names = directories.get(directory) ?? new Set<string>();
+    const names = byDirectory.get(directory) ?? new Set<string>();
     names.add(basename(path));
-    directories.set(directory, names);
+    byDirectory.set(directory, names);
   }
+  return [...byDirectory].map(([directory, names]) => ({ directory, names }));
+}
+
+/**
+ * Watch what the caller named. Best effort: an unwatchable directory simply
+ * gets no live reload.
+ *
+ * The store is asked which files are its own rather than assumed. A JSONL
+ * store is one file and a sqlite store is a database plus its write-ahead log;
+ * an `if` here on which adapter the session got would put a backend's file
+ * layout inside a package that is supposed to know only the port.
+ */
+function watchScopes(scopes: readonly WatchScope[], onEvent: () => void): FSWatcher[] {
   const watchers: FSWatcher[] = [];
-  for (const [directory, names] of directories) {
+  for (const { directory, names } of scopes) {
     try {
       const watcher = watch(directory, (_event, filename) => {
+        if (names === null) {
+          onEvent();
+          return;
+        }
         if (typeof filename !== "string" || filename === "" || names.has(filename)) onEvent();
       });
       watcher.on("error", () => {
@@ -224,17 +282,38 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   const lifetime = Scope.makeUnsafe("parallel");
 
   const ctx = yield* openKbEffect(opts.root);
-  const saved = yield* listSavedQueriesEffect(opts.root);
-  const hub = new SubscriptionHub(ctx, savedQueryNodes(saved));
+  const hub = new SubscriptionHub(ctx);
+  const queries = new SavedQuerySet(ctx);
+  queries.adopt(savedQueryNodes(yield* listSavedQueriesEffect(opts.root)));
 
-  const reload = makeReloadDebounce(ctx);
-  const watchers = watchStore(opts.root, ctx.store.watchPaths, reload.trigger);
+  const layer = kbRuntimeLayer(ctx);
+  // The directory has to be there to be watched, and `kb ui` is the surface
+  // that projects it — a root that has never saved a query would otherwise
+  // never notice its first one.
+  const savedDir = queriesDir(opts.root);
+  yield* Effect.gen(function* () {
+    const fs = yield* FileSystem;
+    yield* fs.makeDirectory(savedDir, { recursive: true });
+  }).pipe(Effect.ignoreCause);
+
+  const lanes = [
+    {
+      scopes: fileScopes(ctx.store.watchPaths),
+      ingest: ingestExternalWrite(ctx).pipe(Effect.provide(layer)),
+    },
+    {
+      scopes: [{ directory: savedDir, names: null }],
+      ingest: ingestSavedQueries(opts.root, queries).pipe(Effect.provide(layer)),
+    },
+  ].map(({ scopes, ingest }) => ({ scopes, debounce: makeIngestDebounce(ingest) }));
+  const debounces = lanes.map((lane) => lane.debounce);
+  const watchers = lanes.flatMap(({ scopes, debounce }) => watchScopes(scopes, debounce.trigger));
   const server = serveUi({ hostname, port, root: opts.root, ctx, hub });
 
   yield* Scope.addFinalizer(
     lifetime,
     Effect.sync(() => {
-      reload.stop();
+      for (const debounce of debounces) debounce.stop();
       for (const watcher of watchers) watcher.close();
       hub.dispose();
       void server.stop(true);

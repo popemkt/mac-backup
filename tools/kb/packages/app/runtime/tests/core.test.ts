@@ -17,6 +17,9 @@ import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
 import { manifest } from "../src/registry.ts";
 
+/** The `at` a test commit records; the tail wants one and none of these assert on it. */
+const TX_AT = "2026-01-01T00:00:00.000Z";
+
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-test-"));
 }
@@ -51,10 +54,10 @@ describe("JsonlStore", () => {
         updatedAt: at,
       },
     ];
-    await Effect.runPromise(store.commitEffect({ upserts: nodes, deletes: [] }));
+    await Effect.runPromise(store.commitEffect({ upserts: nodes, deletes: [] }, { at: TX_AT }));
     const first = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");
     const loaded = await Effect.runPromise(store.loadEffect);
-    await Effect.runPromise(store.commitEffect({ upserts: loaded, deletes: [] }));
+    await Effect.runPromise(store.commitEffect({ upserts: loaded, deletes: [] }, { at: TX_AT }));
     const second = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");
     expect(second).toBe(first);
     // sorted by id, canonical keys

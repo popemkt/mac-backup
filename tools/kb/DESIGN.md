@@ -736,6 +736,108 @@ one place that legitimately knows both adapters exist is the composition root,
 so `migrateStore` lives beside `selectStore` in `@kb/runtime` and the CLI
 command is a thin surface over it.
 
+### The transaction tail — the store records what changed, in order
+
+`KbTxLog` (`contracts/src/tx-log.ts`) is the one producer of "what changed, in
+order". Its *sequence* is not in the log: it is `EffectStore.txTail`, a
+`TxTail` the store owns. That is where it has to be, because the node write and
+the record have to be one act, and only the store is inside the exclusion that
+makes them one. The log is the session's **view** of that tail — the head it
+has caught up to, the subscribers it notifies, and two ways a transaction
+enters the sequence:
+
+- `refresh()` adopts whatever the tail gained past head. That is how a
+  session's own commit is recorded (the store appended it inside
+  `commitEffect`) *and* how another process's commit arrives — the tail is
+  shared, so a CLI write is already in it when the watcher fires, and reading
+  it beats re-deriving it by diffing node sets.
+- `append(ops, at, origin)` records a transaction the store did *not* commit.
+  There is exactly one: the saved-query virtual set (below). The
+  hand-edited-file fallback uses it too, because no transaction was ever
+  recorded for that write.
+
+`StoreTxLog` holds **no window**. The bounded in-process ring it replaces
+existed only because there was nothing durable to read; keeping it beside a
+durable tail would be two records of one sequence, and the shorter one would be
+the one that answered `snapshot-required` first. `rev` is therefore the
+**store's** counter, durable across a restart — `protocol.ts` says so — so a
+client that reconnects after `kb ui` restarts is caught up with frames instead
+of refetching the graph.
+
+**The two tails.**
+
+| | tail | atomic with the node write? | rev allocation |
+|---|---|---|---|
+| JSONL | `.kb/tx.jsonl`, one canonical-JSON record per line | no — two files, one lock | under `.kb/nodes.jsonl.lock`, the lock that already covers load → merge → replace |
+| SQLite | a `tx` table in `.kb/kb.sqlite` | yes — the same `BEGIN IMMEDIATE` | inside that transaction |
+
+Both records carry `mark`: the store's own durable commit mark as of that
+append (`nodes.jsonl`'s size+mtime; sqlite's `meta.rev`). `TxTail.isCurrent()`
+compares the newest mark to the store's current one, which is what makes the
+next paragraph a detection rather than a hope.
+
+**Write order: nodes first, tail second.** It only matters for JSONL, where
+the two writes are two files. The order is not symmetric in cost:
+
+- a tail that **lags** costs one snapshot. `isCurrent()` returns false at open,
+  `StoreTxLog` sets its `floor` to `head + 1`, and every `since(rev ≤ head)`
+  answers `"snapshot-required"` — including a client that is *at* head, which
+  is the case a naive implementation gets wrong.
+- a tail that **led** would hand every replica a frame for a write that never
+  landed, and no later frame could take it back.
+
+So the tail is allowed to be behind and never allowed to be ahead. The same
+detection covers a store written by something that recorded nothing at all — a
+hand-edited `nodes.jsonl`, a restore from backup, an older kb. For the same
+reason the tail append is deliberately **not** `fsync`ed while the node write
+is: skipping the flush can only widen the lag, which is already handled, and
+paying an `fsync` per commit to shrink a window nothing falls into would double
+the cost of every keystroke. (JSONL's mark is size+mtime, so it inherits that
+adapter's blind spot, GAP `01M1PK5NYA7ZG3XC0H0YRYRVZE`.)
+
+**Compaction.** Both tails keep their newest 2048 records and drop to 1024 when
+they pass it — the bound the ring used to impose, moved to the file so an
+unbounded sequence costs one rewrite instead of unbounded disk. A reader
+further behind than the tail reaches gets `"snapshot-required"`, which is the
+answer the port already had.
+
+**Rev allocation is the store's exclusion, not a second lock.** `TxTail` reads
+its own head to assign the next rev, so it is not self-serialising: the store
+appends inside the lock that already serialises writers, and the only other
+appender is the saved-query set in the single `kb ui` process that owns
+`.kb/queries/`.
+
+**Migration carries the tail.** `kb store migrate --to` reads the source tail,
+commits the nodes, then `adopt`s those records into the target — revs
+preserved, marks re-stamped to the target (the source marks describe a store
+that is about to be deleted). A migration changes nothing a client can see, so
+it must not be the thing that forces every client into a snapshot. A source
+with no tail leaves the target the one record its own migration commit made,
+which is the truthful answer: the whole graph arrived in one transaction and
+nothing before it is known.
+
+**One contract test.** `logContract(name, adapter)` in `@kb/test-kit`, beside
+`storeContract`, run by both adapters: the empty tail, a commit's record, rev
+across a reopen, `since` from a durable tail, `since` beyond head, an empty
+commit recording nothing, a failed append leaving head unchanged, a store ahead
+of its tail detected, a stale tail refusing frames, and a virtual transaction
+recorded without touching the nodes. Two of those need a state that is only
+reachable past the port — the tail one record behind, and a tail that refuses
+writes — so `LogAdapter` carries the one line that injects each (a line off the
+file / a row out of the table; a chmod / an aborting trigger), the way `s1`
+left the mid-write abort in the sqlite package.
+
+**Saved queries are a logged transaction.** `savedQueryNodes()` materialises
+`.kb/queries/*.edn` as `sys.query.*` nodes that answer queries and never reach
+the store. They used to be handed to the hub once at construction and never
+appear in a frame, so a client catching up with `since` ended with a graph a
+fresh snapshot disagreed with. `SavedQuerySet` (`app/server`) owns the set now:
+`adopt` installs the first one (the snapshot carries it, so logging it would
+spend a rev saying what the client already has) and `sync` diffs and appends
+with `origin: "virtual"`. `.kb/queries/` is watched beside the store's own
+files, through the same debounce. One path to a client, whatever a node's
+provenance.
+
 ### What is still true of both
 
 - No leases. The JSONL lock is advisory, filesystem-local and process-scoped;
@@ -745,11 +847,11 @@ command is a thin surface over it.
   `conflict` receipt) are designed in
   `docs/kb/waves/2026-08-23/reports/r8-zerolang.md` §1 and **parked** — no
   action input accepts `expect` today.
-- The index is `DatascriptIndex` in memory on both, and the tx log is
-  `MemoryTxLog` on both. Choosing sqlite for the store buys nothing for either
-  yet; an SQL-backed `KbIndex` needs an IR → SQL compiler and a durable tx log
-  as a sqlite table needs a schema, and both are recorded as gaps rather than
-  smuggled in here.
+- The index is `DatascriptIndex` in memory on both, and the transaction log is
+  `StoreTxLog` over the store's own tail on both — durable on both, and the one
+  thing sqlite buys there is atomicity with the node write rather than an
+  ordering argument. An SQL-backed `KbIndex` still needs an IR → SQL compiler
+  and is still a gap.
 
 ## Query layer (horizontal)
 
