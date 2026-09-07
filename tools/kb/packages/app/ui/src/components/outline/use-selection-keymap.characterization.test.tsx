@@ -1,5 +1,5 @@
 /**
- * Characterization of the selection-mode dispatcher (GAP
+ * Characterization of the selection-mode dispatcher (closed gap
  * [[01M1MGCDRS0K28YBF1Q86YY61S]]).
  *
  * `mapSelectionKey` is pinned as a pure table in `lib/selection-keymap.test.ts`;

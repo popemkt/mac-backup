@@ -1,5 +1,6 @@
 /**
- * Characterization of the outline editing keymap (GAP [[01M1MGCQKVQCG3H9YYCWQX0A0Y]]).
+ * Characterization of the outline editing keymap (closed gap
+ * [[01M1MGCQKVQCG3H9YYCWQX0A0Y]]).
  *
  * Every chord the handler routes, pinned before the chain becomes a table:
  * whether the key is claimed (`preventDefault`) and the one store fact that
@@ -56,6 +57,22 @@ function node(id: string) {
 }
 
 /**
+ * The active row, given a few more ticks to reach `expected`.
+ *
+ * Crossing rows is the one editing intent whose effect depends on the row it
+ * lands on still being reachable, so it is the one that a straggling write
+ * from a neighbouring case can disturb. Polling reads the settled value rather
+ * than whichever tick the assertion happened to fall on.
+ */
+async function activeNodeSettlingOn(expected: string): Promise<string | null> {
+  for (let i = 0; i < 10; i += 1) {
+    if (useOutlineStore.getState().activeNodeId === expected) break;
+    await settle(1, 1);
+  }
+  return useOutlineStore.getState().activeNodeId;
+}
+
+/**
  * Let React and the fire-and-forget mutation chains settle.
  *
  * Several rounds, not one: the outline's store writes go through
@@ -87,7 +104,10 @@ describe("outline editing keymap (characterization)", () => {
     installed.restore();
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Before the reset, not only after it: a write still in flight from the
+    // previous test would otherwise land on this test's freshly seeded graph.
+    await settle();
     resetOutlineStore();
     useOutlineStore
       .getState()
@@ -363,12 +383,12 @@ describe("outline editing keymap (characterization)", () => {
 
     it("bare ArrowUp crosses to the previous visible row", async () => {
       expect(await press(mount("n.root-c", 4, false), "ArrowUp")).toBe(true);
-      expect(useOutlineStore.getState().activeNodeId).toBe("n.root-b");
+      expect(await activeNodeSettlingOn("n.root-b")).toBe("n.root-b");
     });
 
     it("bare ArrowDown crosses to the next visible row", async () => {
       expect(await press(mount("n.root-b", 4, false), "ArrowDown")).toBe(true);
-      expect(useOutlineStore.getState().activeNodeId).toBe("n.root-c");
+      expect(await activeNodeSettlingOn("n.root-c")).toBe("n.root-c");
     });
 
     it("bare ArrowDown at the document edge is left to the browser", async () => {

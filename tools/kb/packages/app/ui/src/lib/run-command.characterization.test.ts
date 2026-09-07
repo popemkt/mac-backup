@@ -1,5 +1,6 @@
 /**
- * Characterization of palette-command routing (GAP [[01M1MGCRNVNBE5HW27Z83PK67B]]).
+ * Characterization of palette-command routing (closed gap
+ * [[01M1MGCRNVNBE5HW27Z83PK67B]]).
  *
  * One case per `sys.command` id: what running it does, and what it toasts when
  * it cannot. The chain becomes a registry lookup, so this is the gate — the

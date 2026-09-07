@@ -176,7 +176,7 @@ describe("mapSelectionKey", () => {
 });
 
 /**
- * The whole binding set, in the order the mapper resolves it (GAP
+ * The whole binding set, in the order the mapper resolves it (closed gap
  * [[01M1MGCH7SD69CRSSV75X789QW]]). First match wins, so the rows are the
  * chain read top to bottom: modifier combos, the modifier cutoff, then the
  * bare keys and the printable fall-through. This table is the gate for

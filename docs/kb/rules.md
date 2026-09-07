@@ -102,14 +102,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXMQYDBWX4EWJPEFRDR05H`
 
-### GAP: applySelectionAction dispatches selection actions with a 30-branch switch
-
-- **expected** — A SelectionKeyAction is dispatched through one table keyed by action type, each entry a named, separately testable step, so adding an action adds a row rather than a branch.
-- **current** — applySelectionAction is a single switch with 30 branches; several cases inline multi-statement store choreography (parent lookup + scrollIntoView, child pick, create-after placement).
-- **impact** — Every new selection action grows one function, and the store choreography inside a case cannot be exercised without going through the whole dispatcher.
-- **closes** — SLAP-extract each case body into a named step, then replace the switch with a Record<SelectionKeyAction['type'], (a) => void>. Behaviour-preserving but not mechanical: the cases share narrowed action fields.
-- **node** — `01M1MGCDRS0K28YBF1Q86YY61S`
-
 ### GAP: BrowserStore IndexedDB persistence
 
 - **expected** — The browser replica persists through an IndexedDB-backed EffectStore across page reloads.
@@ -182,6 +174,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Interactive use is bounded by cold start, and the derived snapshot cache exists mostly to work around it.
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
+
+### GAP: concurrent ui test files share the store, so a fire-and-forget write lands in another suite
+
+- **expected** — Each @kb/ui test file gets its own module registry and globals, so a suite's store writes cannot reach a suite running beside it.
+- **current** — Vitest schedules the 105 ui files across workers that share module state: a suite whose 'void mutations.X().then(...)' chain is still in flight when a neighbour asserts writes into that neighbour's store. Reproduced by pairing components/outline/use-node-keydown.characterization.test.tsx with components/outline/editor-behavior.test.tsx — red under file parallelism, green with --no-file-parallelism. Suites now drain their chains in afterEach, which fixes the within-file half only.
+- **impact** — Any DOM-driven suite can be reddened by an unrelated one, so a red run is not evidence of a defect and a green run is not evidence of correctness. src/lib/palette-index.test.ts's 10ms keystroke bar is the same hazard by wall clock: it measures 19ms under a loaded parallel run and passes alone.
+- **closes** — Turn on per-file isolation for the ui vitest project (or stop the fire-and-forget store writes by having mutations return their focus hand-off), and move the palette-index perf bar out of the parallel lane into its own sequential run.
+- **node** — `01M1XA98A0A7PWEPMHG2T4R5GP`
 
 ### GAP: Durable browser invocation replay
 
@@ -287,9 +287,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: lib/ reaches up into the stores it should be a leaf below
 
 - **expected** — lib/ is the UI's leaf zone: pure helpers the layers above call, taking what they need as arguments. Store reads and writes belong to the caller — a store, an action, or a component.
-- **current** — lib/toast.ts writes through useUiStore.getState().pushToast; lib/run-command.ts reads debug-fields, outline, prefs and ui stores to assemble and execute palette commands; lib/canvas-api.ts takes a type-only dependency on useOutlineStore for the node map. Six import sites in three files.
+- **current** — lib/toast.ts writes through useUiStore.getState().pushToast; lib/canvas-api.ts takes a type-only dependency on useOutlineStore for the node map. Two import sites in two files. lib/run-command.ts is gone: the command registry that replaced it (lib/commands.tsx) takes a CommandContext from the palette that already holds the stores, so the four store imports it carried are closed.
 - **impact** — The leaf zone cannot be exercised or reused without the whole store stack behind it, and the outline-store split has to drag three lib modules along. It also inverts the direction every other row of UI_ALLOWS states.
-- **closes** — toast moves onto ui.store's own surface; run-command takes its state as an argument from the palette that already holds it; canvas-api takes the node map instead of the store type. Each is small on its own; together they are the lib-leaf wave.
+- **closes** — toast moves onto ui.store's own surface; canvas-api takes the node map instead of the store type. The run-command third is done (wave 2026-09-09 g4).
 - **rule** — UI import matrix
 - **node** — `01M1RXMQPVJKREGDS7D37J1MWN`
 
@@ -301,14 +301,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Enable branch protection for main with the documented Nix and KB checks required and verify the policy.
 - **rule** — Admission gate
 - **node** — `01M1PJXGKQ0HAYEWY2V0QPWVX1`
-
-### GAP: mapSelectionKey maps keys to actions through a 46-branch chain
-
-- **expected** — A declarative keymap table (chord -> action factory) that the mapper looks up, so the binding set is data and can be listed, documented and rebound.
-- **current** — mapSelectionKey is a 46-branch if/switch chain over key plus modifier combinations.
-- **impact** — The binding set exists only as control flow: nothing can render a shortcuts list, and two bindings can silently overlap.
-- **closes** — Turn the chain into a table of {key, mods, toAction} entries. Behaviour-preserving only if the current first-match order is reproduced exactly, so it needs its own change with the keymap tests as the gate.
-- **node** — `01M1MGCH7SD69CRSSV75X789QW`
 
 ### GAP: no SQLite index behind the store port
 
@@ -325,14 +317,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The rules for what a row shows are spread across a component body, so a view-mode change is a hunt rather than one edit.
 - **closes** — Extract resolveRowChrome(node, viewConfig) returning the flags as one value, then render from it. Mechanical in shape but it moves logic the outline tests reach through the DOM.
 - **node** — `01M1MGCGKSAJSB6GFR30SZNATJ`
-
-### GAP: NodeCommandPalette mixes command assembly and rendering in one 24-branch component
-
-- **expected** — The command list for a node is computed by a pure function the component calls, so the component is layout only.
-- **current** — NodeCommandPalette builds the applicable command set inline while rendering, with the availability conditions as JSX-level branches.
-- **impact** — Which commands a node offers cannot be tested without rendering, and the same availability rules are re-derived in run-command.ts.
-- **closes** — Extract listNodeCommands(node, store) beside run-command.ts and have both the palette and the runner read it. Touches the command surface, so it is an owner call.
-- **node** — `01M1MGCF0ECBDEPTHPKMSQ4YFD`
 
 ### GAP: nodes.jsonl has no merge driver
 
@@ -409,14 +393,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The precedence between explicit and derived columns is implicit in statement order.
 - **closes** — SLAP-extract explicitColumns / derivedColumns / mergeColumns and keep the existing view-config tests green.
 - **node** — `01M1MGCJYB7PZXM68T4AVBECYG`
-
-### GAP: runPaletteCommand dispatches palette commands with a 37-branch chain
-
-- **expected** — Palette commands are registry entries ({id, isAvailable, run}), the same shape kb actions already use, and the runner looks one up.
-- **current** — runPaletteCommand is one async function branching over every command id.
-- **impact** — The palette command set is not enumerable, so the palette and the runner each re-derive availability, and a command cannot be tested without the runner.
-- **closes** — Introduce a ui command registry and register each command beside its implementation. Pairs with the NodeCommandPalette gap - one registry serves both.
-- **node** — `01M1MGCRNVNBE5HW27Z83PK67B`
 
 ### GAP: saved-query virtual nodes never appear in tx frames
 
@@ -541,14 +517,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Extract compareByField(fieldId, dir) and fold the specs with a compose helper.
 - **node** — `01M1MGCKK69CQBZQYAKRMESW5S`
 
-### GAP: the outline keydown handler is a 64-branch callback
-
-- **expected** — The editing keymap is a table like the selection keymap should be: chord -> intent, with the intents applied by one dispatcher.
-- **current** — One useCallback handles Enter, Tab, Backspace, Delete, arrows, modifiers and their merge/split/indent choreography inline. Highest complexity in the package.
-- **impact** — The outline's entire editing contract lives in one function; every editing bug fix lands in the same place, and the merge/split rules cannot be tested without a live editor.
-- **closes** — Split into mapEditingKey (pure, chord -> intent) and applyEditingIntent, mirroring selection-keymap. Do it with the same wave that tables mapSelectionKey so the outline ends with one keymap mechanism, not two.
-- **node** — `01M1MGCQKVQCG3H9YYCWQX0A0Y`
-
 ### GAP: the palette index pre-sizes its arrays with new Array(n)
 
 - **expected** — buildPaletteIndex and searchPalette allocate their result arrays the way unicorn/no-new-array wants (Array.from({ length: n }) or push), with no pinpoint disable.
@@ -635,6 +603,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Extract the reset into one exported fixture and have every suite call it. Mechanical but wide; it is a packages/app/ui change and wants its own wave.
 - **node** — `01M1P63E3Y5KVHV3XMM6TBV2BM`
 
+### GAP: applySelectionAction dispatches selection actions with a 30-branch switch
+
+- **expected** — A SelectionKeyAction is dispatched through one table keyed by action type, each entry a named, separately testable step, so adding an action adds a row rather than a branch.
+- **current** — applySelectionAction is a single switch with 30 branches; several cases inline multi-statement store choreography (parent lookup + scrollIntoView, child pick, create-after placement).
+- **impact** — Every new selection action grows one function, and the store choreography inside a case cannot be exercised without going through the whole dispatcher.
+- **closes** — SLAP-extract each case body into a named step, then replace the switch with a Record<SelectionKeyAction['type'], (a) => void>. Behaviour-preserving but not mechanical: the cases share narrowed action fields.
+- **node** — `01M1MGCDRS0K28YBF1Q86YY61S`
+
 ### GAP: core action definitions and handlers are hand-paired
 
 - **expected** — Operations exports one canonical coreActions contribution collection consumed through the same registration interface as extensions.
@@ -652,6 +628,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Migrate legacy Promise handlers to EffectStore, remove Store from KbContext, and delete the Promise facade.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1PJVW0VZ283V1N3PDXFSHTC`
+
+### GAP: mapSelectionKey maps keys to actions through a 46-branch chain
+
+- **expected** — A declarative keymap table (chord -> action factory) that the mapper looks up, so the binding set is data and can be listed, documented and rebound.
+- **current** — mapSelectionKey is a 46-branch if/switch chain over key plus modifier combinations.
+- **impact** — The binding set exists only as control flow: nothing can render a shortcuts list, and two bindings can silently overlap.
+- **closes** — Turn the chain into a table of {key, mods, toAction} entries. Behaviour-preserving only if the current first-match order is reproduced exactly, so it needs its own change with the keymap tests as the gate.
+- **node** — `01M1MGCH7SD69CRSSV75X789QW`
+
+### GAP: NodeCommandPalette mixes command assembly and rendering in one 24-branch component
+
+- **expected** — The command list for a node is computed by a pure function the component calls, so the component is layout only.
+- **current** — NodeCommandPalette builds the applicable command set inline while rendering, with the availability conditions as JSX-level branches.
+- **impact** — Which commands a node offers cannot be tested without rendering, and the same availability rules are re-derived in run-command.ts.
+- **closes** — Extract listNodeCommands(node, store) beside run-command.ts and have both the palette and the runner read it. Touches the command surface, so it is an owner call.
+- **node** — `01M1MGCF0ECBDEPTHPKMSQ4YFD`
 
 ### GAP: OutlineNode.cursorPosition is deprecated but is still the canvas editor's caret channel
 
@@ -679,6 +671,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1M08VXGJ5RTQJ3AJNK12G79`
 
+### GAP: runPaletteCommand dispatches palette commands with a 37-branch chain
+
+- **expected** — Palette commands are registry entries ({id, isAvailable, run}), the same shape kb actions already use, and the runner looks one up.
+- **current** — runPaletteCommand is one async function branching over every command id.
+- **impact** — The palette command set is not enumerable, so the palette and the runner each re-derive availability, and a command cannot be tested without the runner.
+- **closes** — Introduce a ui command registry and register each command beside its implementation. Pairs with the NodeCommandPalette gap - one registry serves both.
+- **node** — `01M1MGCRNVNBE5HW27Z83PK67B`
+
 ### GAP: the legacy localStorage migration in loadExpandedIds has no end date
 
 - **expected** — Outline expansion state reads one key. The one-shot migration from kb-ui:collapsed and kb-ui:expanded-queries is deleted once every machine that could still hold those keys has run a build that migrated them.
@@ -686,3 +686,11 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A deprecation with no removal condition reads as permanent. The migration also silently drops the collapsed-id set (the inversion needs node metadata that is not available at load), so it is half a migration kept alive indefinitely.
 - **closes** — Decide the removal date (or a version gate) for the migration, delete loadExpandedIds' legacy branch and the two constants. Data decision, not a mechanical one - it strands whatever those keys still hold.
 - **node** — `01M1MGT2A6Y9ZVG5J1CGJMJ2AH`
+
+### GAP: the outline keydown handler is a 64-branch callback
+
+- **expected** — The editing keymap is a table like the selection keymap should be: chord -> intent, with the intents applied by one dispatcher.
+- **current** — One useCallback handles Enter, Tab, Backspace, Delete, arrows, modifiers and their merge/split/indent choreography inline. Highest complexity in the package.
+- **impact** — The outline's entire editing contract lives in one function; every editing bug fix lands in the same place, and the merge/split rules cannot be tested without a live editor.
+- **closes** — Split into mapEditingKey (pure, chord -> intent) and applyEditingIntent, mirroring selection-keymap. Do it with the same wave that tables mapSelectionKey so the outline ends with one keymap mechanism, not two.
+- **node** — `01M1MGCQKVQCG3H9YYCWQX0A0Y`

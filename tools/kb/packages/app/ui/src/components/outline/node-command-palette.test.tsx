@@ -159,7 +159,7 @@ describe("node command palette", () => {
   });
 
   /**
-   * The command set a node offers, in order (GAPs
+   * The command set a node offers, in order (closed gaps
    * [[01M1MGCF0ECBDEPTHPKMSQ4YFD]] / [[01M1MGCRNVNBE5HW27Z83PK67B]]).
    *
    * Pinned as whole ordered lists rather than `toContain` checks: assembly by

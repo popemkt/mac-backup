@@ -171,7 +171,7 @@ export interface NodeCommandPaletteProps {
  * Which commands a row offers is `listNodeCommands`, and what a picker step
  * shows and writes is {@link PICKERS}. This component measures the anchor,
  * keeps the highlight, and renders — it decides nothing about the command set
- * (GAP [[01M1MGCF0ECBDEPTHPKMSQ4YFD]]).
+ * (closed gap [[01M1MGCF0ECBDEPTHPKMSQ4YFD]]).
  */
 export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const [step, setStep] = useState<PaletteStep>("commands");

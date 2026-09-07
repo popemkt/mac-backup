@@ -18,8 +18,8 @@
  *   in this list is the order the menu shows.
  *
  * The state a command needs arrives as {@link CommandContext} from the palette
- * that already holds it (GAP [[01M1RXMQPVJKREGDS7D37J1MWN]]): `lib/` is the
- * leaf zone, so it reads no store.
+ * that already holds it (GAP [[01M1RXMQPVJKREGDS7D37J1MWN]], the run-command
+ * third of it): `lib/` is the leaf zone, so it reads no store.
  */
 import { ulid } from "ulid";
 import {
