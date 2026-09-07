@@ -17,7 +17,7 @@ export function ReferencesSection({ nodeId }: { nodeId: string }) {
 
   const backlinks = useMemo(
     (): BacklinkRow[] => backlinkRows(queryDb, nodes, nodeId),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation is the index revision; queryDb's identity is stable while its contents change
     [queryDb, nodeId, generation, nodes],
   );
 

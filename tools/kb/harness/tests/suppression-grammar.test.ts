@@ -21,8 +21,7 @@ describe("suppression grammar", () => {
     expect(suppressionViolation(comment("oxlint-disable-next-line GAP [[id]]"))).toBeDefined();
   });
 
-  // GAP [[01M1PHTZDZCKMXYP6HW109M3DT]]
-  test.skip("every TypeScript suppression uses the canonical grammar", () => {
+  test("every TypeScript suppression uses the canonical grammar", () => {
     const violations = repositorySuppressionViolations();
     expect(violations, violations.join("\n")).toEqual([]);
   });
