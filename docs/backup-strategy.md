@@ -182,6 +182,29 @@ Boundary:
 - Before the first `mackup restore` on a fresh machine the media is absent and
   node references render as broken media — by design, the text stays portable.
 
+## kb Transaction Tail (`.kb/tx.jsonl`)
+
+The JSONL store records every committed transaction — what was upserted, what
+was deleted, when, and which client asked — in `.kb/tx.jsonl`, appended inside
+the same write lock as `nodes.jsonl`. Live clients read it to catch up after a
+disconnect instead of refetching the whole graph.
+
+Decision: **state, not intent, and not a backup concern either.** The nodes are
+the source of truth and they are committed; the tail only says how they got
+there, over a window of the last few thousand transactions. Losing it costs one
+full graph refetch per connected client and nothing else, so it is neither
+committed nor backed up — it is *derived-shaped*: gitignored the way
+`nodes.jsonl.bak` and `kb.sqlite-wal` are, and left to be rebuilt by use.
+
+- Gitignored: `.kb/tx.jsonl` plus its `.bak` and `.tmp` siblings.
+- Asserted by the `gitignore-covers-derived` harness check.
+- The SQLite store keeps its tail in a `tx` table inside `.kb/kb.sqlite`, which
+  *is* committed — the same trade `nodes.jsonl` makes, since one file is the
+  whole store and splitting the tail out of it would need a second file the
+  backend does not have.
+- A tail that is missing, truncated or behind its store is a state the store
+  reports (`TxTail.isCurrent`), not a failure: clients take a snapshot.
+
 ## App Onboarding Checklist
 
 When adding a new app or agent, classify it using this checklist:

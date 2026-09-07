@@ -35,6 +35,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # kb store side effects
 .kb/nodes.jsonl.bak
 .kb/nodes.jsonl.lock
+.kb/tx.jsonl
+.kb/tx.jsonl.lock
 
 # IntelliJ based IDEs
 .idea
