@@ -1,3 +1,4 @@
+import { GRAPH_RENDERER_VALUES, GRAPH_SOURCE_VALUES } from "./graph-schema.ts";
 import { LEGACY_LENS_ALL_MENTIONS, SYSTEM_IDS, type KbNode, type NodeId, nowIso } from "./model.ts";
 import { FIELD_TYPES, FIELD_TYPE_OPTION_IDS, fieldTypeValue } from "./field-type.ts";
 import { ONTOLOGY_TARGET_QUERY } from "./ontology.ts";
@@ -134,14 +135,45 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const viewGroupField = mk(SYSTEM_IDS.viewGroupField, "view.group", fieldType);
   const viewFilterField = mk(SYSTEM_IDS.viewFilterField, "view.filter", fieldType);
 
+  const refField = (id: string, text: string, targetTag?: string): KbNode =>
+    mk(id, text, {
+      ...fieldType,
+      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
+      ...(targetTag !== undefined && targetTag !== ""
+        ? { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: targetTag }] }
+        : {}),
+    });
+  const graphRendererTag = mk(SYSTEM_IDS.graphRendererTag, "graph-renderer", {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+  });
+  const graphSourceTag = mk(SYSTEM_IDS.graphSourceTag, "graph-source", {
+    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+  });
+  const graphOptions = [
+    ...Object.values(GRAPH_RENDERER_VALUES).map((value) =>
+      mk(value.id, value.label, {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.graphRendererTag }],
+      }),
+    ),
+    ...Object.values(GRAPH_SOURCE_VALUES).map((value) =>
+      mk(value.id, value.label, {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.graphSourceTag }],
+      }),
+    ),
+  ];
+  const lensLabelByField = refField(SYSTEM_IDS.lensLabelByField, "lens.label-by");
   // Graph perspectives (V0): #graph-perspective tag + lens field template.
   const lensQueryField = mk(SYSTEM_IDS.lensQueryField, "lens.query", fieldType);
-  const lensRendererField = mk(SYSTEM_IDS.lensRendererField, "lens.renderer", fieldType);
-  const lensColorByField = mk(SYSTEM_IDS.lensColorByField, "lens.color-by", fieldType);
-  const lensSizeByField = mk(SYSTEM_IDS.lensSizeByField, "lens.size-by", fieldType);
-  const lensEdgeKindsField = mk(SYSTEM_IDS.lensEdgeKindsField, "lens.edge-kinds", fieldType);
+  const lensRendererField = refField(
+    SYSTEM_IDS.lensRendererField,
+    "lens.renderer",
+    SYSTEM_IDS.graphRendererTag,
+  );
+  const lensColorByField = refField(SYSTEM_IDS.lensColorByField, "lens.color-by");
+  const lensSizeByField = refField(SYSTEM_IDS.lensSizeByField, "lens.size-by");
+  const lensEdgeKindsField = refField(SYSTEM_IDS.lensEdgeKindsField, "lens.edge-kinds");
   const lensMaxNodesField = mk(SYSTEM_IDS.lensMaxNodesField, "lens.max-nodes", fieldType);
-  const lensClusterByField = mk(SYSTEM_IDS.lensClusterByField, "lens.cluster-by", fieldType);
+  const lensClusterByField = refField(SYSTEM_IDS.lensClusterByField, "lens.cluster-by");
   const lensFocusField = mk(SYSTEM_IDS.lensFocusField, "lens.focus", fieldType);
   const lensLayoutField = mk(SYSTEM_IDS.lensLayoutField, "lens.layout", fieldType);
   const lensSpreadField = mk(SYSTEM_IDS.lensSpreadField, "lens.spread", fieldType);
@@ -169,6 +201,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.lensMaxNodesField },
       { t: "ref", v: SYSTEM_IDS.lensClusterByField },
       { t: "ref", v: SYSTEM_IDS.lensFocusField },
+      { t: "ref", v: SYSTEM_IDS.lensLabelByField },
       { t: "ref", v: SYSTEM_IDS.lensLayoutField },
       { t: "ref", v: SYSTEM_IDS.lensSpreadField },
       { t: "ref", v: SYSTEM_IDS.lensLinkDistanceField },
@@ -180,11 +213,11 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   });
   const lensAllMentions = mk(SYSTEM_IDS.lensAllMentions, "All mentions", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.graphPerspectiveTag }],
-    [SYSTEM_IDS.lensRendererField]: [{ t: "str", v: "force2d" }],
-    [SYSTEM_IDS.lensClusterByField]: [{ t: "str", v: "parent" }],
+    [SYSTEM_IDS.lensRendererField]: [{ t: "ref", v: GRAPH_RENDERER_VALUES.force2d.id }],
+    [SYSTEM_IDS.lensClusterByField]: [{ t: "ref", v: GRAPH_SOURCE_VALUES.parent.id }],
     [SYSTEM_IDS.lensEdgeKindsField]: [
-      { t: "str", v: "mention" },
-      { t: "str", v: "child" },
+      { t: "ref", v: GRAPH_SOURCE_VALUES.mention.id },
+      { t: "ref", v: GRAPH_SOURCE_VALUES.child.id },
     ],
   });
 
@@ -198,14 +231,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   // Ontologies (r5 core): #ontology tag templating the sys.f.onto.* algebra.
   // No default ontology is seeded — an empty ontology list is a legitimate
   // empty state (unlike a graph page with zero perspectives).
-  const refField = (id: string, text: string, targetTag?: string): KbNode =>
-    mk(id, text, {
-      ...fieldType,
-      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
-      ...(targetTag !== undefined && targetTag !== ""
-        ? { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: targetTag }] }
-        : {}),
-    });
   const ontoIncludeField = refField(SYSTEM_IDS.ontoIncludeField, "onto.include", SYSTEM_IDS.tag);
   const ontoMemberField = refField(SYSTEM_IDS.ontoMemberField, "onto.member");
   const ontoExcludeField = refField(SYSTEM_IDS.ontoExcludeField, "onto.exclude");
@@ -282,6 +307,10 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewGroupField,
     viewFilterField,
     lensQueryField,
+    graphRendererTag,
+    graphSourceTag,
+    ...graphOptions,
+    lensLabelByField,
     lensRendererField,
     lensColorByField,
     lensSizeByField,

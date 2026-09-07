@@ -24,7 +24,7 @@ export function GraphSelectionCard({
 
   return (
     <div
-      className="absolute bottom-4 left-4 z-30 flex max-w-xs flex-col gap-1.5 rounded-lg border border-foreground/10 bg-popover/95 p-3 shadow-xl backdrop-blur-sm"
+      className="kb-surface-enter absolute bottom-4 right-4 z-30 flex max-w-xs flex-col gap-1.5 rounded-lg border border-foreground/10 bg-popover/95 p-3 shadow-xl backdrop-blur-sm"
       data-testid="graph-selection-card"
     >
       <div className="flex items-start justify-between gap-2">

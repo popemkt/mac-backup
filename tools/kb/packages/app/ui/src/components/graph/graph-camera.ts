@@ -3,40 +3,16 @@ import type { CameraState } from "sigma/types";
 
 const EASE_DURATION_MS = 300;
 
-function easeOutCubic(t: number): number {
-  return 1 - Math.pow(1 - t, 3);
-}
-
+/** Sigma owns cancellation so rapid camera commands cannot race each other. */
 export function animateCamera(
   sigma: Sigma,
   target: Partial<CameraState>,
   durationMs = EASE_DURATION_MS,
 ): void {
   const camera = sigma.getCamera();
-  const start = camera.getState();
-  const startTime = performance.now();
-
-  const tx = target.x ?? start.x;
-  const ty = target.y ?? start.y;
-  const tRatio = target.ratio ?? start.ratio;
-  const tAngle = target.angle ?? start.angle;
-
-  function frame() {
-    const elapsed = performance.now() - startTime;
-    const t = Math.min(1, elapsed / durationMs);
-    const e = easeOutCubic(t);
-
-    camera.setState({
-      x: start.x + (tx - start.x) * e,
-      y: start.y + (ty - start.y) * e,
-      ratio: start.ratio + (tRatio - start.ratio) * e,
-      angle: start.angle + (tAngle - start.angle) * e,
-    });
-
-    if (t < 1) requestAnimationFrame(frame);
-  }
-
-  requestAnimationFrame(frame);
+  const duration = motionDuration(durationMs);
+  if (duration <= 0) camera.setState(target);
+  else void camera.animate(target, { duration, easing: "cubicOut" });
 }
 
 export interface Point {
@@ -131,4 +107,11 @@ export function focusNode(sigma: Sigma, nodeId: string): void {
   const display = sigma.getNodeDisplayData(nodeId);
   if (!display) return;
   animateCamera(sigma, { x: display.x, y: display.y, ratio: 0.3 }, 400);
+}
+
+export function motionDuration(duration: number): number {
+  return typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? 0
+    : duration;
 }

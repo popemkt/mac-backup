@@ -62,7 +62,9 @@ describe("ShapeCard label edit wiring", () => {
       );
     });
 
-    const shell = present(container.querySelector(".group\\/card"), "card shell");
+    const shell = present(container.querySelector(".group\\/card"), "shape shell");
+    expect(shell.textContent).toContain("Prior");
+    expect(container.querySelector('[data-testid="shape-label-input"]')).toBeNull();
     act(() => {
       shell.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
     });

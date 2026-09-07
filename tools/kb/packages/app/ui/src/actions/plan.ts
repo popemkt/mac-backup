@@ -1,5 +1,11 @@
 import type { ActionInvocation, WireNode } from "@kb/contracts";
-import { fieldTypeValue, rankBetween, wouldCreateExtendsCycle, type FieldType } from "@kb/model";
+import {
+  graphRendererId,
+  fieldTypeValue,
+  rankBetween,
+  wouldCreateExtendsCycle,
+  type FieldType,
+} from "@kb/model";
 import { forestRootIds } from "@/lib/graph-view";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { findParentWire, wireById } from "@/lib/tx";
@@ -38,8 +44,12 @@ function replaceProps(
   );
 }
 
-const replaceProp = (nodes: WireNode[], id: string, field: string, values: PropValue[]) =>
-  replaceProps(nodes, id, [{ field, values }]);
+export const planReplaceField = (
+  nodes: WireNode[],
+  id: string,
+  field: string,
+  values: PropValue[],
+) => replaceProps(nodes, id, [{ field, values }]);
 
 export const planUpdateText = (_nodes: WireNode[], id: string, text: string) =>
   update(id, { text });
@@ -280,9 +290,12 @@ export function planOntologySetClosure(
 function addNode(
   id: string,
   text: string,
-  parent?: string,
-  position?: number,
-  order?: string,
+  {
+    parent,
+    position,
+    order,
+    props,
+  }: { parent?: string; position?: number; order?: string; props?: WireNode["props"] } = {},
 ): PlannedMutation {
   return {
     actions: [
@@ -293,6 +306,13 @@ function addNode(
           text,
           ...(parent !== undefined ? { parent, position } : {}),
           ...(order !== undefined ? { order } : {}),
+          ...(props
+            ? {
+                props: Object.entries(props).flatMap(([field, values]) =>
+                  values.map((value) => ({ field, value })),
+                ),
+              }
+            : {}),
         },
       },
     ],
@@ -317,7 +337,7 @@ export function planInsertSibling(
     byId.get(siblings[position - 1] ?? "")?.order,
     byId.get(siblings[position] ?? "")?.order,
   );
-  return addNode(id, text, parent?.id, position, order);
+  return addNode(id, text, { parent: parent?.id, position, order });
 }
 export const planInsertChild = (
   n: WireNode[],
@@ -326,17 +346,17 @@ export const planInsertChild = (
   id: string,
   text = "",
 ) =>
-  addNode(
-    id,
-    text,
+  addNode(id, text, {
     parent,
-    index === "start" ? 0 : index === "end" ? requireNode(n, parent).children.length : index,
-  );
-export const planAddRootNode = (text: string, id: string) => addNode(id, text);
+    position:
+      index === "start" ? 0 : index === "end" ? requireNode(n, parent).children.length : index,
+  });
+export const planAddRootNode = (text: string, id: string, props?: WireNode["props"]) =>
+  addNode(id, text, { props });
 export const planAddChild = (n: WireNode[], parent: string, id: string, text = "") =>
-  addNode(id, text, parent, requireNode(n, parent).children.length);
+  addNode(id, text, { parent, position: requireNode(n, parent).children.length });
 export const planPrependChild = (_n: WireNode[], parent: string, id: string, text = "") =>
-  addNode(id, text, parent, 0);
+  addNode(id, text, { parent, position: 0 });
 
 function mutableSchema(id: string): void {
   if (isSysPrefixed(id)) throw new Error("sys.* schema nodes are read-only");
@@ -364,7 +384,9 @@ export function planSetTagColor(n: WireNode[], id: string, color: string | null)
     : planUnsetProp(n, id, SYSTEM_IDS.colorField, old);
 }
 export const planSetFieldType = (n: WireNode[], id: string, type: FieldType) =>
-  schemaMutation(id, () => replaceProp(n, id, SYSTEM_IDS.fieldTypeField, [fieldTypeValue(type)]));
+  schemaMutation(id, () =>
+    planReplaceField(n, id, SYSTEM_IDS.fieldTypeField, [fieldTypeValue(type)]),
+  );
 export const planAddFieldTargetTag = (n: WireNode[], id: string, tag: string) =>
   schemaMutation(id, () => refProp(n, id, SYSTEM_IDS.targetTagField, tag));
 export const planRemoveFieldTargetTag = (n: WireNode[], id: string, tag: string) =>
@@ -372,15 +394,20 @@ export const planRemoveFieldTargetTag = (n: WireNode[], id: string, tag: string)
 export function planSetFieldTargetQuery(n: WireNode[], id: string, edn: string | null) {
   mutableSchema(id);
   const value = edn?.trim() ?? "";
-  return replaceProp(n, id, SYSTEM_IDS.targetQueryField, value ? [{ t: "str", v: value }] : []);
+  return planReplaceField(
+    n,
+    id,
+    SYSTEM_IDS.targetQueryField,
+    value ? [{ t: "str", v: value }] : [],
+  );
 }
 
 export const planSetViewMode = (n: WireNode[], id: string, mode: string) =>
-  replaceProp(n, id, SYSTEM_IDS.viewModeField, [{ t: "str", v: mode }]);
+  planReplaceField(n, id, SYSTEM_IDS.viewModeField, [{ t: "str", v: mode }]);
 export const planSetLensRenderer = (n: WireNode[], id: string, value: string) =>
-  planSetLensProp(n, id, SYSTEM_IDS.lensRendererField, { t: "str", v: value });
+  planSetLensProp(n, id, SYSTEM_IDS.lensRendererField, { t: "ref", v: graphRendererId(value) });
 export const planSetLensProp = (n: WireNode[], id: string, field: string, value: PropValue) =>
-  replaceProp(n, id, field, [value]);
+  planReplaceField(n, id, field, [value]);
 export function planSetViewSort(
   n: WireNode[],
   id: string,
@@ -398,20 +425,25 @@ export function planSetViewSort(
   ]);
 }
 export const planSetViewDisplay = (n: WireNode[], id: string, fields: string[]) =>
-  replaceProp(
+  planReplaceField(
     n,
     id,
     SYSTEM_IDS.viewDisplayField,
     fields.map((v) => ({ t: "ref", v })),
   );
 export const planSetViewColwidth = (n: WireNode[], id: string, widths: Record<string, number>) =>
-  replaceProp(n, id, SYSTEM_IDS.viewColwidthField, [{ t: "str", v: JSON.stringify(widths) }]);
+  planReplaceField(n, id, SYSTEM_IDS.viewColwidthField, [{ t: "str", v: JSON.stringify(widths) }]);
 export const planSetViewPagesize = (n: WireNode[], id: string, size: number) =>
-  replaceProp(n, id, SYSTEM_IDS.viewPagesizeField, [{ t: "num", v: size }]);
+  planReplaceField(n, id, SYSTEM_IDS.viewPagesizeField, [{ t: "num", v: size }]);
 export const planSetViewGroup = (n: WireNode[], id: string, field: string | null) =>
-  replaceProp(n, id, SYSTEM_IDS.viewGroupField, field !== null ? [{ t: "ref", v: field }] : []);
+  planReplaceField(
+    n,
+    id,
+    SYSTEM_IDS.viewGroupField,
+    field !== null ? [{ t: "ref", v: field }] : [],
+  );
 export const planSetViewFilters = (n: WireNode[], id: string, edn: string[]) =>
-  replaceProp(
+  planReplaceField(
     n,
     id,
     SYSTEM_IDS.viewFilterField,
@@ -423,4 +455,4 @@ export const planMoveBoardCard = (
   field: string,
   _old: PropValue | null,
   value: PropValue | null,
-) => replaceProp(n, id, field, value ? [value] : []);
+) => planReplaceField(n, id, field, value ? [value] : []);

@@ -1,8 +1,9 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { CircleHalfIcon, WarningIcon } from "@phosphor-icons/react";
+import { GRAPH_RENDERERS } from "./graph-renderers";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { WarningIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
-import { usePrefsStore, resolveDark } from "@/stores/prefs.store";
+import { usePrefsStore, useDarkTheme } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import {
   buildTreeForest,
@@ -20,20 +21,12 @@ import { graphPath, navigate, ontologyPath } from "@/lib/router";
 import { OntologyPicker } from "@/components/ontology/ontology-picker"; // GAP [[01M1RXNHJ8S019678AYDKWYE63]]
 import { PerspectivePicker } from "@/components/graph/perspective-picker";
 import { RendererSwitch } from "@/components/graph/renderer-switch";
-import { SigmaGraph } from "@/components/graph/sigma-graph";
-import { ClusterGraph } from "@/components/graph/cluster-graph";
-import { TreeGraph } from "@/components/graph/tree-graph";
 import { GraphCanvasFrame } from "@/components/graph/graph-canvas-frame";
 import type { GraphCameraControls } from "@/components/graph/graph-camera-controls";
-import type { GraphSelection } from "@/components/graph/graph-selection";
+import { selectionFromNode, type GraphSelection } from "@/components/graph/graph-selection";
 import { SidebarToggle } from "@/components/sidebar/sidebar"; // GAP [[01M1RXNJHCH2Q5HCKQNEKVQGKD]]
-
-const Force3dGraph = lazy(() => import("@/components/graph/force3d-graph"));
-
-function systemPrefersDark(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
+import { ThemeIcon } from "@/components/ui/theme-icon";
+import { WorkspaceState } from "@/components/ui/workspace-state";
 
 const SYS_STORAGE_KEY = "kb-graph-include-sys";
 
@@ -54,7 +47,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const ontologyMembers = useOutlineStore((s) => s.ontologyMembers);
   const theme = usePrefsStore((s) => s.theme);
-  const dark = resolveDark(theme, systemPrefersDark());
+  const dark = useDarkTheme();
   const prefsOpen = useUiStore((s) => s.prefsOpen);
   const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
 
@@ -130,8 +123,8 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   }, [queryDb, wireNodes, active, generation, includeSystemNodes, restrictTo]);
 
   const forest = useMemo(
-    () => (active ? buildTreeForest(wireNodes, lensGraph.nodes, active.focus) : []),
-    [wireNodes, lensGraph.nodes, active],
+    () => (active ? buildTreeForest(lensGraph.nodes, lensGraph.edges, active.focus) : []),
+    [lensGraph.nodes, lensGraph.edges, active],
   );
 
   const themeKey = `${theme}:${dark ? "d" : "l"}`;
@@ -145,9 +138,17 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
 
   const renderer = active?.renderer ?? "force2d";
 
+  const Adapter = GRAPH_RENDERERS[renderer]?.Component;
+
   // Graph interaction state — selection + camera live on the frame, not per-renderer.
   const [controls, setControls] = useState<GraphCameraControls | null>(null);
-  const [selection, setSelection] = useState<GraphSelection | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedNode = lensGraph.nodes.find((node) => node.id === selectedId);
+  const selection = selectedNode ? selectionFromNode(selectedNode) : null;
+  const setSelection = useCallback(
+    (value: GraphSelection | null) => setSelectedId(value?.nodeId ?? null),
+    [],
+  );
   const [searchHighlight, setSearchHighlight] = useState<Set<string> | null>(null);
   const [filterIds, setFilterIds] = useState<Set<string> | null>(null);
   const [capDismissed, setCapDismissed] = useState(false);
@@ -156,19 +157,15 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
     setCapDismissed(false);
   }, [lensGraph.dropped]);
   useEffect(() => {
-    setSelection(null);
-    // Deliberately not resetting `controls` here. Child effects run before
-    // parent effects, so the incoming renderer has already registered its
-    // adapter by the time this runs — nulling it clobbered the registration on
-    // mount and on every switch, leaving the shared toolbar's camera verbs
-    // permanently disabled. Each renderer nulls its own adapter on unmount.
-  }, [renderer]);
+    if (selectedId !== null && !lensGraph.nodes.some((node) => node.id === selectedId))
+      setSelectedId(null);
+  }, [lensGraph.nodes, selectedId]);
 
-  const clearSelection = useCallback(() => setSelection(null), []);
+  const clearSelection = useCallback(() => setSelectedId(null), []);
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
+      <header className="flex min-h-11 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-foreground/[0.06] px-4 py-2">
         <SidebarToggle />
         <span className="text-[13px] font-medium text-foreground/50">
           {ontologyId !== null ? "ontology graph" : "graph"}
@@ -234,26 +231,15 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setPrefsOpen(!prefsOpen)}
         >
-          <CircleHalfIcon size={15} />
+          <ThemeIcon theme={theme} size={15} />
         </button>
       </header>
-      <div
-        className="relative min-h-0 flex-1"
-        key={renderer}
-        style={{ animation: "graph-fade-in 200ms ease-out" }}
-      >
+      <div className="relative min-h-0 flex-1 kb-workspace-reveal">
         {!active || !queryDb ? (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-center text-[13px] text-foreground/40">
-              No graph perspectives seeded.
-            </p>
-          </div>
-        ) : lensGraph.nodes.length === 0 && !hasText(lensGraph.queryError) ? (
-          <div className="flex h-full items-center justify-center">
-            <p className="max-w-xs text-center text-[13px] text-foreground/40">
-              0 nodes match — edit this perspective’s query to broaden the view.
-            </p>
-          </div>
+          <WorkspaceState
+            title="No graph perspectives yet"
+            description="A perspective chooses which nodes and connections to explore."
+          />
         ) : (
           <GraphCanvasFrame
             nodes={lensGraph.nodes}
@@ -269,56 +255,28 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
             resetKey={`${renderer}:${active.id}`}
             perspective={active}
           >
-            {renderer === "tree" ? (
-              <TreeGraph
+            {lensGraph.nodes.length === 0 && !hasText(lensGraph.queryError) ? (
+              <WorkspaceState
+                title="No nodes in view"
+                description="Broaden the node query in Graph settings."
+              />
+            ) : Adapter ? (
+              <Adapter
+                lensGraph={lensGraph}
+                active={active}
                 forest={forest}
                 themeKey={themeKey}
-                selectedNodeId={selection?.nodeId ?? null}
-                onSelectionChange={setSelection}
-                onControlsReady={setControls}
-              />
-            ) : renderer === "cluster" ? (
-              <ClusterGraph
-                nodes={lensGraph.nodes}
-                edges={lensGraph.edges}
-                layoutKey={active.id}
-                themeKey={themeKey}
-                onNodeClick={onNodeOpen}
-                onControlsReady={setControls}
-              />
-            ) : renderer === "force3d" ? (
-              <Suspense
-                fallback={<div className="p-6 text-[13px] text-foreground/40">loading 3D…</div>}
-              >
-                <Force3dGraph
-                  nodes={lensGraph.nodes}
-                  edges={lensGraph.edges}
-                  layoutKey={active.id}
-                  themeKey={themeKey}
-                  onSelectionChange={setSelection}
-                  selectedNodeId={selection?.nodeId ?? null}
-                  onControlsReady={setControls}
-                  curvedLinks={active.curvedLinks}
-                  autorotate={active.autorotate}
-                  showLabels={active.showLabels}
-                  labelTopN={
-                    active.labelDensity === "low" ? 12 : active.labelDensity === "high" ? 48 : 24
-                  }
-                />
-              </Suspense>
-            ) : (
-              <SigmaGraph
-                nodes={lensGraph.nodes}
-                edges={lensGraph.edges}
-                layoutKey={active.id}
-                themeKey={themeKey}
-                layout={active.layout}
+                selection={selection}
+                setSelection={setSelection}
+                setControls={setControls}
                 onNodeOpen={onNodeOpen}
-                onSelectionChange={setSelection}
-                selectedNodeId={selection?.nodeId ?? null}
-                onControlsReady={setControls}
-                highlightIds={searchHighlight ?? undefined}
-                filterIds={filterIds ?? undefined}
+                searchHighlight={searchHighlight}
+                filterIds={filterIds}
+              />
+            ) : (
+              <WorkspaceState
+                title="Visualization unavailable"
+                description={`No renderer is registered for ${renderer}. Choose another visualization above.`}
               />
             )}
           </GraphCanvasFrame>

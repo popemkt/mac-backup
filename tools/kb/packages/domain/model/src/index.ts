@@ -62,3 +62,13 @@ export type { ActionSchema } from "./schema-seam.ts";
 export { ensureSystemSeed, systemSeedNodes } from "./seed.ts";
 export { diffTx, txIntegrityError } from "./tx.ts";
 export type { KbTx, StoreTx } from "./tx.ts";
+
+export {
+  GRAPH_RENDERER_VALUES,
+  GRAPH_SOURCE_VALUES,
+  graphSourceKey,
+  graphSourceId,
+  graphRendererKey,
+  graphRendererId,
+} from "./graph-schema.ts";
+export type { GraphSourceKind } from "./graph-schema.ts";

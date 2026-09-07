@@ -3,6 +3,8 @@ import type { CanvasShapeNode } from "@kb/canvas";
 import { canvasColorStyle, resolveCanvasColor } from "@/lib/canvas-color";
 import { classifyCardPointer } from "@/lib/card-pointer";
 import { cn } from "@/lib/cn";
+import { CanvasPorts } from "./canvas-ports";
+import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
 import {
   cancelLabelEdit,
   commitLabelEdit,
@@ -18,7 +20,7 @@ interface ShapeCardProps {
   onSelect: (anchor: { x: number; y: number }) => void;
   onLabelChange: (label: string) => void;
   onMoveStart: (e: React.PointerEvent) => void;
-  onResizeStart: (e: React.PointerEvent) => void;
+  onResizeStart: (e: React.PointerEvent, corner: CanvasCorner) => void;
   onPortDown: (side: "left" | "right" | "top" | "bottom", e: React.PointerEvent) => void;
 }
 
@@ -64,7 +66,7 @@ function ShapeChrome({
       className={cn(
         "flex h-full w-full items-center justify-center border px-3",
         shape === "ellipse" ? "rounded-full" : "rounded-md",
-        selected ? "border-primary/40 shadow-sm" : "border-foreground/[0.12]",
+        selected ? "border-primary/70 ring-2 ring-primary/15" : "border-foreground/[0.12]",
       )}
       style={{
         borderColor: selected ? undefined : tint.borderColor,
@@ -87,7 +89,9 @@ export function ShapeCard({
   onResizeStart,
   onPortDown,
 }: ShapeCardProps) {
-  const [edit, setEdit] = useState<LabelEditState>(() => startLabelEdit(""));
+  const [edit, setEdit] = useState<LabelEditState>(() =>
+    cancelLabelEdit(startLabelEdit(card.label ?? "")),
+  );
   const editRef = useRef(edit);
   editRef.current = edit;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -178,34 +182,8 @@ export function ShapeCard({
           </span>
         )}
       </ShapeChrome>
-      {(["left", "right", "top", "bottom"] as const).map((side) => (
-        <button
-          key={side}
-          type="button"
-          data-port={side}
-          aria-label={`Connect ${side}`}
-          className={cn(
-            "absolute z-10 h-2.5 w-2.5 rounded-full border border-foreground/20 bg-background",
-            "opacity-0 transition-opacity group-hover/card:opacity-100",
-            side === "left" && "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
-            side === "right" && "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
-            side === "top" && "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
-            side === "bottom" && "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
-          )}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            onPortDown(side, e);
-          }}
-        />
-      ))}
-      <div
-        data-resize
-        className="absolute right-0 bottom-0 z-10 h-3 w-3 cursor-se-resize opacity-0 group-hover/card:opacity-60"
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          onResizeStart(e);
-        }}
-      />
+      <CanvasPorts onPortDown={onPortDown} />
+      <CanvasResizeHandles selected={selected} onResizeStart={onResizeStart} />
     </div>
   );
 }

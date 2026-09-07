@@ -3,6 +3,7 @@
  */
 import { ulid } from "ulid";
 import { z } from "zod";
+import type { LensPerspective } from "@/lib/graph-lens";
 import type { FieldType } from "@kb/model";
 import type { SortSpec, ViewMode } from "@/lib/view-config";
 import { runOptimistic } from "@/actions/optimistic";
@@ -717,6 +718,25 @@ export const mutations = {
     if (!guardSysWrite(frameId)) return;
     const { planSetViewMode } = await import("@/actions/plan");
     await applyPlan(planSetViewMode(wire(), frameId, mode));
+  },
+
+  async saveGraphPerspective(perspective: LensPerspective, name: string): Promise<string | null> {
+    const { perspectiveProps } = await import("@/lib/graph-lens");
+    const id = ulid();
+    const plan = planAddRootNode(
+      name.trim() || "Graph perspective",
+      id,
+      perspectiveProps(perspective),
+    );
+    delete plan.focusId;
+    delete plan.focusCursor;
+    return (await applyPlan(plan)) ? id : null;
+  },
+
+  async replaceField(nodeId: string, fieldId: string, values: PropValue[]): Promise<void> {
+    if (!guardSysWrite(nodeId)) return;
+    const { planReplaceField } = await import("@/actions/plan");
+    await applyPlan(planReplaceField(wire(), nodeId, fieldId, values));
   },
 
   async setLensRenderer(perspectiveId: string, renderer: string): Promise<void> {

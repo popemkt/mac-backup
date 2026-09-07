@@ -7,8 +7,8 @@ import {
   PlusIcon,
 } from "@phosphor-icons/react";
 import { hasText } from "@/lib/text";
+import { isGraphShortcutTarget } from "@/lib/graph-interaction";
 import { cn } from "@/lib/cn";
-import { isTextEntry } from "@/lib/dom";
 import type { LensPerspective } from "@/lib/graph-lens";
 import { CAPABILITY_REASONS, type RendererCapabilities } from "./graph-capabilities";
 import type { GraphCameraControls } from "./graph-camera-controls";
@@ -44,7 +44,14 @@ export function GraphToolbar({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTextEntry(e.target)) return;
+      if (
+        e.defaultPrevented ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        isGraphShortcutTarget(e.target)
+      )
+        return;
       const caps = capsRef.current;
       const cam = controlsRef.current;
 
@@ -99,7 +106,7 @@ export function GraphToolbar({
       onSearchChange?.(null);
       return;
     }
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
     const matches = new Set<string>();
     for (const n of nodes) {
       if (n.label.toLowerCase().includes(q)) matches.add(n.id);
@@ -129,9 +136,10 @@ export function GraphToolbar({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => {
+              e.stopPropagation();
               if (e.key === "Escape") handleSearchClose();
               if (e.key === "Enter" && searchQuery && controls) {
-                const q = searchQuery.toLowerCase();
+                const q = searchQuery.trim().toLowerCase();
                 const match = nodes.find((n) => n.label.toLowerCase().includes(q));
                 if (match && capabilities.focus) {
                   controls.focusNode(match.id);
@@ -141,8 +149,16 @@ export function GraphToolbar({
             placeholder="Search nodes…"
             className="h-6 w-36 rounded bg-transparent px-1.5 text-[12px] text-foreground/80 outline-none placeholder:text-foreground/30 focus:ring-1 focus:ring-foreground/15"
           />
+          <span aria-live="polite" className="text-[10px] text-foreground/50">
+            {
+              nodes.filter((n) => n.label.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+                .length
+            }{" "}
+            matches
+          </span>
           <button
             type="button"
+            aria-label="Close search"
             className="text-[10px] text-foreground/40 hover:text-foreground/60"
             onClick={handleSearchClose}
           >

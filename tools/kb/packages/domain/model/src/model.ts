@@ -132,6 +132,9 @@ export const SYSTEM_IDS = {
   lensClusterByField: "sys.f.lens.cluster-by",
   /** Ego/tree root for tree + local lenses (ref, single). */
   lensFocusField: "sys.f.lens.focus",
+  lensLabelByField: "sys.f.lens.label-by",
+  graphRendererTag: "sys.tag.graph-renderer",
+  graphSourceTag: "sys.tag.graph-source",
   /** Layout sub-mode: `force` | `radial` | `hierarchical` | `grid` (not metro). */
   lensLayoutField: "sys.f.lens.layout",
   /** FA2 / force spread scale (num). */

@@ -1,12 +1,6 @@
+import { GRAPH_RENDERERS } from "./graph-renderers";
 import { cn } from "@/lib/cn";
-import { LENS_RENDERERS, type LensRenderer } from "@/lib/graph-lens";
-
-const LABELS: Record<string, string> = {
-  force2d: "2D",
-  tree: "Tree",
-  cluster: "Cluster",
-  force3d: "3D",
-};
+import type { LensRenderer } from "@/lib/graph-lens";
 
 interface RendererSwitchProps {
   value: LensRenderer;
@@ -25,7 +19,7 @@ export function RendererSwitch({ value, onChange, className }: RendererSwitchPro
       data-renderer-switch="true"
       data-active-renderer={value}
     >
-      {LENS_RENDERERS.map((r) => (
+      {Object.keys(GRAPH_RENDERERS).map((r) => (
         <button
           key={r}
           type="button"
@@ -40,7 +34,7 @@ export function RendererSwitch({ value, onChange, className }: RendererSwitchPro
             if (r !== value) onChange(r);
           }}
         >
-          {LABELS[r] ?? r}
+          {GRAPH_RENDERERS[r]?.label ?? r}
         </button>
       ))}
     </div>

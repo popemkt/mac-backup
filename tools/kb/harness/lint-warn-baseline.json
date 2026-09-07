@@ -1,7 +1,7 @@
 {
   "lanes": {
     "blocking": {
-      "eslint/max-lines-per-function": 37
+      "eslint/max-lines-per-function": 35
     },
     "advisory": {},
     "knip": {
@@ -20,7 +20,6 @@
       "exports:packages/app/ui/src/components/graph/graph-camera.ts:animateCamera": 1,
       "exports:packages/app/ui/src/components/graph/graph-camera.ts:framedPoints": 1,
       "exports:packages/app/ui/src/components/outline/field-row.tsx:FIELD_LABEL_WIDTH": 1,
-      "exports:packages/app/ui/src/lib/canvas-api.ts:propLookupFromStore": 1,
       "exports:packages/app/ui/src/lib/canvas-tool.ts:DEFAULT_GROUP_SIZE": 1,
       "exports:packages/app/ui/src/lib/canvas-tool.ts:DEFAULT_SHAPE_SIZE": 1,
       "exports:packages/app/ui/src/lib/canvas-tool.ts:DEFAULT_TEXT_SIZE": 1,
@@ -54,7 +53,6 @@
       "exports:packages/app/ui/src/lib/router.ts:matchCanvasId": 1,
       "exports:packages/app/ui/src/lib/tx.ts:sortWireNodes": 1,
       "exports:packages/app/ui/src/lib/types.ts:LEGACY_LENS_ALL_MENTIONS": 1,
-      "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.applyPrefs": 1,
       "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.DEFAULT_PREFS": 1,
       "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.defaultSidebarOpen": 1,
       "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.loadPrefs": 1,

@@ -1,6 +1,6 @@
 import type Sigma from "sigma";
 import type { KbForceGraph } from "./force3d-instance";
-import { fitView, focusNode, resetCamera, zoomIn, zoomOut } from "./graph-camera";
+import { fitView, focusNode, resetCamera, zoomIn, zoomOut, motionDuration } from "./graph-camera";
 
 /**
  * Renderer-agnostic camera verbs the shared toolbar/keyboard drive.
@@ -12,6 +12,8 @@ export interface GraphCameraControls {
   zoomOut: () => void;
   reset: () => void;
   focusNode: (id: string) => void;
+  expandAll?: () => void;
+  collapseAll?: () => void;
   /** Label lookup for search Enter → focus (optional). */
   labelOf?: (id: string) => string | undefined;
 }
@@ -48,6 +50,9 @@ export function sigmaCameraControls(getSigma: () => Sigma | null): GraphCameraCo
 }
 
 export interface TreeViewHandle {
+  focusNode: (id: string) => void;
+  expandAll: () => void;
+  collapseAll: () => void;
   fit: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
@@ -60,9 +65,9 @@ export function treeCameraControls(getHandle: () => TreeViewHandle | null): Grap
     zoomIn: () => getHandle()?.zoomIn(),
     zoomOut: () => getHandle()?.zoomOut(),
     reset: () => getHandle()?.reset(),
-    focusNode: () => {
-      /* tree has no focus verb */
-    },
+    focusNode: (id) => getHandle()?.focusNode(id),
+    expandAll: () => getHandle()?.expandAll(),
+    collapseAll: () => getHandle()?.collapseAll(),
   };
 }
 
@@ -70,7 +75,7 @@ export function force3dCameraControls(getGraph: () => KbForceGraph | null): Grap
   return {
     fit: () => {
       try {
-        getGraph()?.zoomToFit(600, 40);
+        getGraph()?.zoomToFit(motionDuration(600), 40);
       } catch {
         /* torn down */
       }
@@ -80,7 +85,8 @@ export function force3dCameraControls(getGraph: () => KbForceGraph | null): Grap
       if (!g) return;
       try {
         const cam = g.cameraPosition();
-        g.cameraPosition({ x: cam.x * 0.7, y: cam.y * 0.7, z: cam.z * 0.7 }, undefined, 400);
+        const target = orbitTarget(g);
+        g.cameraPosition(scaleFromTarget(cam, target, 0.7), target, motionDuration(400));
       } catch {
         /* */
       }
@@ -90,14 +96,15 @@ export function force3dCameraControls(getGraph: () => KbForceGraph | null): Grap
       if (!g) return;
       try {
         const cam = g.cameraPosition();
-        g.cameraPosition({ x: cam.x * 1.4, y: cam.y * 1.4, z: cam.z * 1.4 }, undefined, 400);
+        const target = orbitTarget(g);
+        g.cameraPosition(scaleFromTarget(cam, target, 1.4), target, motionDuration(400));
       } catch {
         /* */
       }
     },
     reset: () => {
       try {
-        getGraph()?.zoomToFit(600, 40);
+        getGraph()?.zoomToFit(motionDuration(600), 40);
       } catch {
         /* */
       }
@@ -115,21 +122,55 @@ export function force3dCameraControls(getGraph: () => KbForceGraph | null): Grap
         ) {
           return;
         }
-        const dist = Math.hypot(node.x, node.y, node.z) || 1;
+        const camera = g.cameraPosition();
+        const target = orbitTarget(g);
+        const dx = camera.x - target.x,
+          dy = camera.y - target.y,
+          dz = camera.z - target.z;
+        const dist = Math.hypot(dx, dy, dz) || 1;
         const offset = 120;
         const lookAt = { x: node.x, y: node.y, z: node.z };
         g.cameraPosition(
           {
-            x: node.x + (node.x / dist) * offset,
-            y: node.y + (node.y / dist) * offset,
-            z: node.z + (node.z / dist) * offset,
+            x: node.x + (dx / dist) * offset,
+            y: node.y + (dy / dist) * offset,
+            z: node.z + (dz / dist) * offset,
           },
           lookAt,
-          1200,
+          motionDuration(500),
         );
       } catch {
         /* */
       }
     },
   };
+}
+
+export type CameraPoint = { x: number; y: number; z: number };
+export function scaleFromTarget(
+  camera: CameraPoint,
+  target: CameraPoint,
+  scale: number,
+): CameraPoint {
+  return {
+    x: target.x + (camera.x - target.x) * scale,
+    y: target.y + (camera.y - target.y) * scale,
+    z: target.z + (camera.z - target.z) * scale,
+  };
+}
+function orbitTarget(graph: KbForceGraph): CameraPoint {
+  const controls = graph.controls();
+  if ("target" in controls && typeof controls.target === "object" && controls.target !== null) {
+    const target = controls.target;
+    if (
+      "x" in target &&
+      typeof target.x === "number" &&
+      "y" in target &&
+      typeof target.y === "number" &&
+      "z" in target &&
+      typeof target.z === "number"
+    )
+      return { x: target.x, y: target.y, z: target.z };
+  }
+  return { x: 0, y: 0, z: 0 };
 }

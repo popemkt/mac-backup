@@ -43,7 +43,7 @@ export function listCanvasNodes(nodes: Map<string, OutlineNode>): OutlineNode[] 
   return out.toSorted((a, b) => a.text.localeCompare(b.text));
 }
 
-export function propLookupFromStore(
+function propLookupFromStore(
   nodes: Map<string, OutlineNode>,
 ): (nodeId: string, fieldId: string) => ReadonlyArray<{ t: string; v: unknown }> | undefined {
   return (nodeId, fieldId) => {

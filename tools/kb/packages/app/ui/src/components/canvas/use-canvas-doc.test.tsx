@@ -84,7 +84,7 @@ describe("useCanvasDoc persistence", () => {
   test("persists only the last doc applied in a debounce window", () => {
     act(() => {
       current?.schedulePersist(first);
-      current?.schedulePersistSilent(last);
+      current?.schedulePersist(last);
     });
     act(() => {
       vi.advanceTimersByTime(299);
@@ -95,6 +95,30 @@ describe("useCanvasDoc persistence", () => {
     });
     expect(persistCanvasDoc).toHaveBeenCalledTimes(1);
     expect(persistCanvasDoc).toHaveBeenLastCalledWith("canvas", last);
+  });
+
+  test("an unfinished preview never leaks through an earlier commit timer", () => {
+    act(() => {
+      current?.schedulePersist(first);
+      current?.previewDoc(last);
+    });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(persistCanvasDoc).toHaveBeenLastCalledWith("canvas", first);
+    expect(current?.doc).toEqual(last);
+    act(() => current?.cancelPreview());
+    expect(current?.doc).toEqual(first);
+  });
+
+  test("committing a preview adds one undo step from its original document", () => {
+    act(() => current?.schedulePersist(first));
+    act(() => current?.previewDoc(last));
+    act(() => current?.schedulePersist(last));
+    act(() => current?.undo());
+    expect(current?.doc).toEqual(first);
+    act(() => current?.redo());
+    expect(current?.doc).toEqual(last);
   });
 
   test("flushes the last dirty doc on unmount and cancels the timer", () => {

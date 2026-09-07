@@ -11,6 +11,7 @@ import {
   idsFromQueryRows,
   listPerspectiveNodes,
   parsePerspective,
+  perspectiveProps,
   resolveClusterKey,
   resolveColor,
   resolveSize,
@@ -190,11 +191,11 @@ describe("extractLensGraph", () => {
   it("selects only ref-prop edges when configured", () => {
     const db = new DatascriptIndex(nodes);
     const g = extractLensGraph(db, nodes, perspective({ edgeKinds: ["ref-prop"] }));
-    expect(g.edges.every((e) => e.kind === "ref-prop")).toBe(true);
+    expect(g.edges.every((e) => e.kind.startsWith("prop:"))).toBe(true);
     expect(g.edges).toContainEqual({
       source: "n.b",
       target: "n.c",
-      kind: "ref-prop",
+      kind: "prop:field.depends",
       weight: 1,
     });
   });
@@ -296,11 +297,11 @@ describe("extractLensGraph", () => {
   it("buildTreeForest: forest roots vs focus root, cycle-safe", () => {
     const db = new DatascriptIndex(nodes);
     const g = extractLensGraph(db, nodes, perspective({ edgeKinds: ["child"] }));
-    const forest = buildTreeForest(nodes, g.nodes, null);
+    const forest = buildTreeForest(g.nodes, g.edges, null);
     const rootIds = forest.map((t) => t.id).toSorted();
     expect(rootIds).toContain("n.a");
     expect(rootIds).not.toContain("n.a1");
-    const focused = buildTreeForest(nodes, g.nodes, "n.a");
+    const focused = buildTreeForest(g.nodes, g.edges, "n.a");
     expect(focused).toHaveLength(1);
     const focusedRoot = present(focused[0], "focus root");
     expect(focusedRoot.id).toBe("n.a");
@@ -313,8 +314,8 @@ describe("extractLensGraph", () => {
       cyclic,
       perspective({ edgeKinds: ["child"] }),
     );
-    expect(() => buildTreeForest(cyclic, g2.nodes, "n.a")).not.toThrow();
-    const cyc = buildTreeForest(cyclic, g2.nodes, "n.a");
+    expect(() => buildTreeForest(g2.nodes, g2.edges, "n.a")).not.toThrow();
+    const cyc = buildTreeForest(g2.nodes, g2.edges, "n.a");
     expect(present(cyc[0], "cycle root").id).toBe("n.a");
   });
 
@@ -331,3 +332,92 @@ describe("extractLensGraph", () => {
     expect([...ids].toSorted()).toEqual(["n.a", "n.b"]);
   });
 });
+
+describe("graph projection mappings", () => {
+  it("roundtrips a saved perspective through ordinary reference-valued node fields", () => {
+    const configured = perspective({
+      renderer: "treemap",
+      colorBy: "prop:field.team",
+      labelBy: "prop:field.title",
+      sizeBy: "prop:field.hours",
+      clusterBy: "prop:field.team",
+      edgeKinds: ["prop:field.depends"],
+      query: "",
+      focus: "n.a",
+    });
+    const saved = node({
+      id: configured.id,
+      text: configured.label,
+      props: perspectiveProps(configured),
+    });
+    expect(saved.props[SYSTEM_IDS.lensRendererField]?.[0]?.t).toBe("ref");
+    expect(parsePerspective(saved)).toEqual(configured);
+    expect(
+      parsePerspective(
+        node({ ...saved, props: perspectiveProps({ ...configured, edgeKinds: [] }) }),
+      ).edgeKinds,
+    ).toEqual([]);
+  });
+
+  it("maps a specific reference field once and uses numeric and label fields", () => {
+    const nodes = [
+      node({
+        id: "a",
+        text: "Original",
+        props: {
+          "field.depends": [{ t: "ref", v: "b" }],
+          "field.other": [{ t: "ref", v: "c" }],
+          "field.hours": [{ t: "num", v: 16 }],
+          "field.title": [{ t: "str", v: "Mapped label" }],
+        },
+      }),
+      node({ id: "b", text: "B" }),
+      node({ id: "c", text: "C" }),
+    ];
+    const graph = extractLensGraph(
+      new DatascriptIndex(nodes),
+      nodes,
+      perspective({
+        edgeKinds: ["prop:field.depends"],
+        sizeBy: "prop:field.hours",
+        labelBy: "prop:field.title",
+      }),
+    );
+    expect(graph.edges).toEqual([
+      { source: "a", target: "b", kind: "prop:field.depends", weight: 1 },
+    ]);
+    expect(graph.nodes.find((n) => n.id === "a")).toMatchObject({
+      label: "Mapped label",
+      weight: 16,
+    });
+    const combined = extractLensGraph(
+      new DatascriptIndex(nodes),
+      nodes,
+      perspective({ edgeKinds: ["ref-prop", "prop:field.depends"] }),
+    );
+    expect(combined.edges.filter((edge) => edge.kind === "prop:field.depends")).toHaveLength(1);
+  });
+
+  it("projects cycles and shared descendants once without altering relationships", () => {
+    const nodes = ["a", "b", "c", "d"].map((id) => node({ id, text: id }));
+    const graph = extractLensGraph(new DatascriptIndex(nodes), nodes, perspective());
+    const edges = [
+      { source: "a", target: "b", kind: "child" as const, weight: 1 },
+      { source: "a", target: "c", kind: "child" as const, weight: 1 },
+      { source: "b", target: "d", kind: "child" as const, weight: 1 },
+      { source: "c", target: "d", kind: "child" as const, weight: 1 },
+      { source: "d", target: "a", kind: "child" as const, weight: 1 },
+    ];
+
+    expect(flatten(buildTreeForest(graph.nodes, edges, null)).toSorted()).toEqual([
+      "a",
+      "b",
+      "c",
+      "d",
+    ]);
+    expect(edges).toHaveLength(5);
+  });
+});
+
+const flatten = (forest: ReturnType<typeof buildTreeForest>): string[] =>
+  forest.flatMap((n) => [n.id, ...flatten(n.children)]);

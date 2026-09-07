@@ -4,6 +4,7 @@ import { NodeRow } from "@/components/outline/node-row";
 import { createCanvasNode, listCanvasNodes } from "@/lib/canvas-api";
 import { navigate } from "@/lib/router";
 import { useOutlineStore } from "@/stores/outline.store";
+import { WorkspaceState } from "@/components/ui/workspace-state";
 
 export function CanvasListPage() {
   const nodes = useOutlineStore((s) => s.nodes);
@@ -44,9 +45,10 @@ export function CanvasListPage() {
       </div>
 
       {canvases.length === 0 ? (
-        <p className="text-[13px] text-foreground/40">
-          No canvases yet. Create one to open a JSON Canvas board.
-        </p>
+        <WorkspaceState
+          title="Room for a little possibility"
+          description="Create a canvas to spread out your nodes, sketch an idea, or follow a connection."
+        />
       ) : (
         <div className="flex flex-col gap-0.5">
           {canvases.map((n) => (

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FunnelIcon, XIcon } from "@phosphor-icons/react";
 import type { LensNode } from "@/lib/graph-lens";
 import { cn } from "@/lib/cn";
@@ -9,6 +9,7 @@ interface GraphLegendProps {
 }
 
 interface TagBucket {
+  key: string;
   tag: string;
   color: string;
   nodeIds: string[];
@@ -19,22 +20,22 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
 
   const buckets = useMemo(() => {
-    const map = new Map<string, { color: string; ids: string[] }>();
+    const map = new Map<string, { label: string; color: string; ids: string[] }>();
     for (const node of nodes) {
-      const tag = node.tags[0] ?? "untagged";
-      let entry = map.get(tag);
+      const tag = node.colorLabel ?? node.tags[0] ?? "untagged";
+      const key = node.colorKey ?? node.tagIds?.[0] ?? tag;
+      let entry = map.get(key);
       if (!entry) {
-        entry = { color: node.color, ids: [] };
-        map.set(tag, entry);
+        entry = { label: tag, color: node.color, ids: [] };
+        map.set(key, entry);
       }
       entry.ids.push(node.id);
     }
     const result: TagBucket[] = [];
-    for (const [tag, { color, ids }] of map) {
-      result.push({ tag, color, nodeIds: ids });
+    for (const [key, { label, color, ids }] of map) {
+      result.push({ key, tag: label, color, nodeIds: ids });
     }
-    result.sort((a, b) => b.nodeIds.length - a.nodeIds.length);
-    return result.slice(0, 20);
+    return result.toSorted((a, b) => b.nodeIds.length - a.nodeIds.length).slice(0, 20);
   }, [nodes]);
 
   const toggleFilter = (tag: string) => {
@@ -45,26 +46,33 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
       next.add(tag);
     }
     setActiveFilters(next);
-
-    if (next.size === 0) {
-      onFilterChange(null);
-    } else {
-      const ids = new Set<string>();
-      for (const bucket of buckets) {
-        if (next.has(bucket.tag)) {
-          for (const id of bucket.nodeIds) ids.add(id);
-        }
-      }
-      onFilterChange(ids);
-    }
   };
+
+  // Derive membership again when live nodes change, and clear on frame remount.
+  useEffect(() => {
+    const available = new Set(buckets.map((bucket) => bucket.key));
+    if ([...activeFilters].some((key) => !available.has(key))) {
+      setActiveFilters(new Set([...activeFilters].filter((key) => available.has(key))));
+      return;
+    }
+    if (!activeFilters.size) {
+      onFilterChange(null);
+      return;
+    }
+    const ids = new Set(nodes.map((node) => node.id));
+    for (const bucket of buckets)
+      if (activeFilters.has(bucket.key)) {
+        for (const id of bucket.nodeIds) ids.delete(id);
+      }
+    onFilterChange(ids);
+  }, [activeFilters, buckets, nodes, onFilterChange]);
 
   const clearFilters = () => {
     setActiveFilters(new Set());
     onFilterChange(null);
   };
 
-  if (buckets.length <= 1) return null;
+  if (buckets.length <= 1 && activeFilters.size === 0) return null;
 
   return (
     <div className="absolute left-3 top-3 z-20 flex flex-col rounded-lg border border-foreground/8 bg-popover/90 shadow-lg backdrop-blur-sm">
@@ -95,15 +103,15 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
           )}
           {buckets.map((b) => (
             <button
-              key={b.tag}
+              key={b.key}
               type="button"
               className={cn(
                 "flex items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-[11px] transition-colors hover:bg-foreground/5",
-                activeFilters.size > 0 && !activeFilters.has(b.tag)
-                  ? "text-foreground/30"
-                  : "text-foreground/70",
+                activeFilters.has(b.key) ? "text-foreground/30" : "text-foreground/70",
               )}
-              onClick={() => toggleFilter(b.tag)}
+              aria-pressed={activeFilters.has(b.key)}
+              title={activeFilters.has(b.key) ? `Restore ${b.tag}` : `Dim ${b.tag}`}
+              onClick={() => toggleFilter(b.key)}
             >
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-full"

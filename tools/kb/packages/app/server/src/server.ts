@@ -1,5 +1,5 @@
 import { watch, type FSWatcher } from "node:fs";
-import { basename, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { Effect, Exit, Fiber, Scope } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
@@ -132,32 +132,29 @@ function makeReloadDebounce(ctx: KbContext): { trigger: () => void; stop: () => 
  * adapter the session got would put a backend's file layout inside a package
  * that is supposed to know only the port.
  */
-function watchStore(root: string, paths: readonly string[], onEvent: () => void): FSWatcher[] {
-  const watchers: FSWatcher[] = [];
-  const missing: string[] = [];
+function watchStore(_root: string, paths: readonly string[], onEvent: () => void): FSWatcher[] {
+  // Watch containing directories so atomic replacement cannot strand a watch
+  // on an old inode. The store still owns which paths are relevant.
+  const directories = new Map<string, Set<string>>();
   for (const path of paths) {
-    try {
-      watchers.push(watch(path, onEvent));
-    } catch {
-      missing.push(basename(path));
-    }
+    const directory = dirname(path);
+    const names = directories.get(directory) ?? new Set<string>();
+    names.add(basename(path));
+    directories.set(directory, names);
   }
-  if (missing.length === 0) return watchers;
-
-  try {
-    watchers.push(
-      watch(join(root, ".kb"), (_event, filename) => {
-        if (
-          typeof filename !== "string" ||
-          filename === "" ||
-          missing.some((name) => filename === name || filename.endsWith(name))
-        ) {
-          onEvent();
-        }
-      }),
-    );
-  } catch {
-    // best-effort: the directory may not be watchable either
+  const watchers: FSWatcher[] = [];
+  for (const [directory, names] of directories) {
+    try {
+      const watcher = watch(directory, (_event, filename) => {
+        if (typeof filename !== "string" || filename === "" || names.has(filename)) onEvent();
+      });
+      watcher.on("error", () => {
+        /* A transient filesystem error must not crash the server. */
+      });
+      watchers.push(watcher);
+    } catch {
+      /* Best effort for an unavailable directory. */
+    }
   }
   return watchers;
 }

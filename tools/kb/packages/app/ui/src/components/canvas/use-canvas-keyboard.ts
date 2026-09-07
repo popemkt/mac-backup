@@ -14,11 +14,11 @@ import { reduceCanvasTool, type CanvasTool, type ToolState } from "@/lib/canvas-
 import { isTextEntry } from "@/lib/dom";
 
 interface CanvasKeyboardContext {
+  cancelPointer: () => void;
   byId: Map<string, CanvasNode>;
   docRef: RefObject<CanvasDoc>;
   selRef: RefObject<CanvasSelection>;
   schedulePersist: (doc: CanvasDoc) => void;
-  schedulePersistSilent: (doc: CanvasDoc) => void;
   undoCanvasDoc: () => void;
   redoCanvasDoc: () => void;
   zoomToFit: () => void;
@@ -58,16 +58,19 @@ function handleHistory(event: KeyboardEvent, context: CanvasKeyboardContext) {
   if (!commandKey(event)) return false;
   if (event.key === "z" && !event.shiftKey) {
     event.preventDefault();
+    context.cancelPointer();
     context.undoCanvasDoc();
     return true;
   }
   if (event.key === "Z" || (event.key === "z" && event.shiftKey)) {
     event.preventDefault();
+    context.cancelPointer();
     context.redoCanvasDoc();
     return true;
   }
   if (event.key === "y") {
     event.preventDefault();
+    context.cancelPointer();
     context.redoCanvasDoc();
     return true;
   }
@@ -181,6 +184,7 @@ function handleDuplicate(event: KeyboardEvent, context: CanvasKeyboardContext) {
 
 function handleCanvasState(event: KeyboardEvent, context: CanvasKeyboardContext) {
   if (event.key === "Escape") {
+    context.cancelPointer();
     context.setToolState((state) => reduceCanvasTool(state, { type: "escape" }));
     context.setSelection(EMPTY_SELECTION);
     context.setInspectorAnchor(null);
@@ -210,7 +214,7 @@ function handleNudge(event: KeyboardEvent, context: CanvasKeyboardContext) {
       nextDoc = upsertCanvasNode(nextDoc, { ...node, x: node.x + dx, y: node.y + dy });
     }
   }
-  context.schedulePersistSilent(nextDoc);
+  context.schedulePersist(nextDoc);
   return true;
 }
 
@@ -252,8 +256,8 @@ function handleZoom(event: KeyboardEvent, context: CanvasKeyboardContext) {
 }
 
 function handleKeyDown(event: KeyboardEvent, context: CanvasKeyboardContext) {
-  if (handleHistory(event, context)) return;
   if (isTextEntry(event.target)) return;
+  if (handleHistory(event, context)) return;
   if (handleSelection(event, context)) return;
   if (handleClipboard(event, context)) return;
   if (handleDuplicate(event, context)) return;
@@ -269,9 +273,15 @@ export function useCanvasKeyboard(context: CanvasKeyboardContext) {
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.code === "Space") context.setSpaceDown(false);
     };
+    const onBlur = () => {
+      context.setSpaceDown(false);
+      context.cancelPointer();
+    };
+    window.addEventListener("blur", onBlur);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     return () => {
+      window.removeEventListener("blur", onBlur);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };

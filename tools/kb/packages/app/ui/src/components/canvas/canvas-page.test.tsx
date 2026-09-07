@@ -133,12 +133,12 @@ describe("CanvasPage pointer interactions", () => {
     dispatchPointer(pointerSurface, "pointerup", { button: 0, clientX: 451, clientY: 251 });
     expect(
       present(container.querySelector('[data-card-id="a"]'), "marquee card a").querySelector(
-        ".border-primary\\/40",
+        "[data-resize]",
       ),
     ).not.toBeNull();
     expect(
       present(container.querySelector('[data-card-id="b"]'), "marquee card b").querySelector(
-        ".border-primary\\/40",
+        "[data-resize]",
       ),
     ).not.toBeNull();
 
@@ -156,7 +156,7 @@ describe("CanvasPage pointer interactions", () => {
     expect(transformLayer.getAttribute("style")).toContain("translate(80px, 70px)");
 
     const resizeA = present(
-      container.querySelector('[data-card-id="a"] [data-resize]'),
+      container.querySelector('[data-card-id="a"] [data-resize="se"]'),
       "first card resize handle",
     );
     dispatchPointer(resizeA, "pointerdown", { button: 0, clientX: 0, clientY: 0 });

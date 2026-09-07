@@ -1,398 +1,339 @@
-/**
- * V3 force3d renderer — lazy-loaded in its own chunk (must not join graph-page).
- * three stays in this chunk only (task 16a).
- */
-import { useEffect, useRef } from "react";
+/** Three.js stays behind the lazy force3d boundary. */
+import { useCallback, useEffect, useRef } from "react";
 import {
   createForceGraph,
-  linkEndId,
-  type FgLink,
-  type FgNode,
+  linkEndId as endId,
   type KbForceGraph,
+  type FgNode,
 } from "./force3d-instance";
-import { CanvasTexture, type Object3D, Sprite, SpriteMaterial } from "./force3d-three";
+import { CanvasTexture, Object3D, Sprite, SpriteMaterial } from "./force3d-three";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import { force3dColor, readTokenColor } from "@/lib/css-color";
-import { graphNodeAlpha, withGraphAlpha } from "@/lib/graph-dim";
-import { formatGraphLabel } from "@/lib/graph-label";
-import { fibonacciSphere } from "@/lib/convex-hull";
+import { withGraphAlpha } from "@/lib/graph-dim";
+import { graphEmphasisAlpha, graphNeighborhood, type GraphEmphasis } from "@/lib/graph-interaction";
+import { fitGraphLabel, GRAPH_LABEL_FONT } from "@/lib/graph-label";
+import { reserveGraphLabel, type GraphLabelBox } from "@/lib/graph-label-layout";
 import { force3dCameraControls, type GraphCameraControls } from "./graph-camera-controls";
+import { motionDuration } from "./graph-camera";
 import { selectionFromNode, type GraphSelection } from "./graph-selection";
 
-export interface Force3dGraphProps {
+export interface Force3dGraphProps extends GraphEmphasis {
   nodes: LensNode[];
   edges: LensEdge[];
   layoutKey: string;
   themeKey: string;
   onControlsReady?: (controls: GraphCameraControls | null) => void;
   onSelectionChange?: (sel: GraphSelection | null) => void;
-  selectedNodeId?: string | null;
   curvedLinks?: boolean;
   autorotate?: boolean;
   showLabels?: boolean;
-  /** Top-N sprite labels by size. */
   labelTopN?: number;
+  spread?: number;
+  linkDistance?: number;
 }
 
-type Vec3 = { x: number; y: number; z: number };
-
-function makeLabelSprite(text: string, color: string): Sprite | undefined {
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if (ctx === null) return undefined;
-  const fontSize = 28;
-  ctx.font = `600 ${fontSize}px Outfit Variable, ui-sans-serif, system-ui, sans-serif`;
-  const w = Math.ceil(ctx.measureText(text).width) + 16;
-  canvas.width = w;
-  canvas.height = fontSize + 12;
-  ctx.font = `600 ${fontSize}px Outfit Variable, ui-sans-serif, system-ui, sans-serif`;
-  ctx.fillStyle = color;
+function labelSprite(text: string, color: string, viewportHeight: number, fov: number) {
+  const canvas = document.createElement("canvas"),
+    ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 2D context unavailable");
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const scale = 2 * dpr,
+    fontSize = 12;
+  ctx.font = "500 " + fontSize + "px " + GRAPH_LABEL_FONT;
+  const label = fitGraphLabel(text, (t) => ctx.measureText(t).width);
+  const width = Math.ceil(ctx.measureText(label).width) + 12,
+    height = 24;
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+  ctx.scale(scale, scale);
+  ctx.font = "500 " + fontSize + "px " + GRAPH_LABEL_FONT;
   ctx.textBaseline = "middle";
-  ctx.fillText(text, 8, canvas.height / 2);
+  ctx.fillStyle = color;
+  ctx.fillText(label, 6, height / 2);
   const texture = new CanvasTexture(canvas);
-  texture.needsUpdate = true;
   const material = new SpriteMaterial({
     map: texture,
     transparent: true,
     depthTest: false,
+    sizeAttenuation: false,
   });
   const sprite = new Sprite(material);
-  sprite.scale.set(w / 40, canvas.height / 40, 1);
-  return sprite;
+  const pixelsToScale = (2 * Math.tan((fov * Math.PI) / 360)) / Math.max(1, viewportHeight);
+  sprite.scale.set(width * pixelsToScale, height * pixelsToScale, 1);
+  sprite.center.set(0.5, -0.35);
+  return {
+    sprite,
+    width,
+    height,
+    dispose: () => {
+      texture.dispose();
+      material.dispose();
+    },
+  };
 }
 
-export default function Force3dGraph({
-  nodes,
-  edges,
-  layoutKey,
-  themeKey,
-  onControlsReady,
-  onSelectionChange,
-  selectedNodeId = null,
-  curvedLinks = false,
-  autorotate = false,
-  showLabels = true,
-  labelTopN = 24,
-}: Force3dGraphProps) {
+export default function Force3dGraph(props: Force3dGraphProps) {
+  const {
+    nodes,
+    edges,
+    layoutKey,
+    themeKey,
+    selectedNodeId,
+    highlightIds,
+    filterIds,
+    curvedLinks = false,
+    autorotate = false,
+    showLabels = true,
+    labelTopN = 24,
+    spread = 150,
+    linkDistance = 60,
+  } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<KbForceGraph | null>(null);
-  const positionsRef = useRef<Map<string, Vec3>>(new Map());
-  const cameraRef = useRef<Vec3 | null>(null);
-  const layoutKeyRef = useRef(layoutKey);
-  const nodeSetRef = useRef("");
-  const selectedRef = useRef(selectedNodeId);
-  selectedRef.current = selectedNodeId;
-  const onSelRef = useRef(onSelectionChange);
-  onSelRef.current = onSelectionChange;
-  const onControlsReadyRef = useRef(onControlsReady);
-  onControlsReadyRef.current = onControlsReady;
-  const neighborsRef = useRef<Map<string, Set<string>>>(new Map());
+  const live = useRef(props);
+  live.current = props;
+  const hovered = useRef<string | null>(null);
+  const cameraIntent = useRef(false);
+  const fitted = useRef(false);
+  const simulationReady = useRef(false);
+  const labelCleanup = useRef<Array<() => void>>([]);
+  const labelCandidates = useRef<
+    Array<{
+      node: FgNode;
+      sprite: Sprite;
+      width: number;
+      height: number;
+    }>
+  >([]);
+  const refresh = useCallback(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    const p = live.current;
+    const active = p.selectedNodeId ?? hovered.current;
+    const neighborhood = graphNeighborhood(active, p.edges);
+    const alpha = (id: string) => graphEmphasisAlpha(id, p, neighborhood);
+    const foreground = force3dColor(readTokenColor("--foreground", { fallback: "#222" }));
+    graph.backgroundColor(force3dColor(readTokenColor("--background", { fallback: "#fff" })));
+    graph.nodeColor((n) => withGraphAlpha(n.color, alpha(n.id)));
+    graph.nodeVal((n) => n.val * (n.id === active ? 1.5 : 1));
+    graph.linkColor((l) => {
+      const a = endId(l.source),
+        b = endId(l.target);
+      const near = active === null || a === active || b === active;
+      return withGraphAlpha(foreground, near ? 0.35 * Math.min(alpha(a), alpha(b)) : 0.025);
+    });
+    graph.linkWidth((l) => {
+      const near = active !== null && (endId(l.source) === active || endId(l.target) === active);
+      return Math.max(0.6, Math.min(2, Math.sqrt(l.weight) * 0.4)) * (near ? 2 : 1);
+    });
+    const labels = new Set(
+      [...p.nodes]
+        .toSorted((a, b) => b.size - a.size || a.id.localeCompare(b.id))
+        .slice(0, p.labelTopN ?? 24)
+        .map((n) => n.id),
+    );
+    const previous = labelCleanup.current;
+    const next: Array<() => void> = [];
+    labelCandidates.current = [];
+    graph
+      .nodeThreeObject((node: FgNode) => {
+        const emphatic = alpha(node.id) === 1;
+        const labelVisible =
+          (p.showLabels ?? true) &&
+          emphatic &&
+          (labels.has(node.id) || node.id === active || p.highlightIds?.has(node.id) === true);
+        if (!labelVisible) return new Object3D();
+        const label = labelSprite(node.name, foreground, graph.height(), graph.camera().fov);
+        next.push(label.dispose);
+        labelCandidates.current.push({
+          node,
+          sprite: label.sprite,
+          width: label.width,
+          height: label.height,
+        });
+        return label.sprite;
+      })
+      .nodeThreeObjectExtend(true);
+    labelCleanup.current = next;
+    for (const dispose of previous) dispose();
+  }, []);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return undefined;
-
-    try {
-      graphRef.current?._destructor();
-    } catch {
-      /* */
-    }
-    graphRef.current = null;
-
-    const nodeSetKey = nodes
-      .map((node) => node.id)
-      .toSorted()
-      .join("|");
-    if (layoutKeyRef.current !== layoutKey || nodeSetRef.current !== nodeSetKey) {
-      positionsRef.current = new Map();
-      cameraRef.current = null;
-      layoutKeyRef.current = layoutKey;
-      nodeSetRef.current = nodeSetKey;
-    }
-
-    const background = force3dColor(readTokenColor("--background", { fallback: "rgb(20,20,20)" }));
-    const linkBase = force3dColor(
-      readTokenColor("--foreground", {
-        alpha: 0.35,
-        fallback: "rgba(200,200,200,0.35)",
-      }),
-    );
-    const labelColor = force3dColor(readTokenColor("--foreground", { fallback: "rgb(34,34,34)" }));
-
-    const clusters = [...new Set(nodes.map((n) => n.clusterKey))].toSorted();
-    const attractors = new Map<string, Vec3>();
-    const radius = 120 + clusters.length * 20;
-    clusters.forEach((key, i) => {
-      attractors.set(key, fibonacciSphere(i, Math.max(clusters.length, 1), radius));
-    });
-
-    const prev = positionsRef.current;
-    const nextPositions = new Map<string, Vec3>();
-
-    const fgNodes: FgNode[] = nodes.map((n) => {
-      const a = attractors.get(n.clusterKey) ?? { x: 0, y: 0, z: 0 };
-      const prior = prev.get(n.id);
-      const pos = prior ?? {
-        x: a.x + (Math.random() - 0.5) * 20,
-        y: a.y + (Math.random() - 0.5) * 20,
-        z: a.z + (Math.random() - 0.5) * 20,
-      };
-      nextPositions.set(n.id, pos);
-      return {
-        id: n.id,
-        name: n.label,
-        color: force3dColor(n.color),
-        val: n.size,
-        clusterKey: n.clusterKey,
-        tags: n.tags,
-        degree: n.degree,
-        x: pos.x,
-        y: pos.y,
-        z: pos.z,
-      };
-    });
-    positionsRef.current = nextPositions;
-
-    const idSet = new Set(nodes.map((n) => n.id));
-    const fgLinks: FgLink[] = edges
-      .filter((e) => idSet.has(e.source) && idSet.has(e.target))
-      .map((e) => ({
-        source: e.source,
-        target: e.target,
-        kind: e.kind,
-        weight: e.weight,
-      }));
-
-    const neighbors = new Map<string, Set<string>>();
-    for (const n of fgNodes) neighbors.set(n.id, new Set());
-    for (const e of fgLinks) {
-      const source = linkEndId(e.source);
-      const target = linkEndId(e.target);
-      neighbors.get(source)?.add(target);
-      neighbors.get(target)?.add(source);
-    }
-    neighborsRef.current = neighbors;
-
-    const labelIds = new Set(
-      [...nodes]
-        .toSorted((a, b) => b.size - a.size || a.id.localeCompare(b.id))
-        .slice(0, showLabels ? labelTopN : 0)
-        .map((n) => n.id),
-    );
-
-    const alphaFor = (id: string): number => {
-      const sel = selectedRef.current;
-      if (sel === null) return 1;
-      const ring = neighborsRef.current.get(sel) ?? new Set();
-      return graphNodeAlpha({
-        includedByFilter: true,
-        includedBySearch: true,
-        includedByFocus: id === sel || ring.has(id),
-      });
-    };
-
-    const Graph = createForceGraph(el)
-      .backgroundColor(background)
+    fitted.current = false;
+    simulationReady.current = false;
+    cameraIntent.current = false;
+    const graph = createForceGraph(el)
       .showNavInfo(false)
-      .nodeResolution(24)
-      .graphData({ nodes: fgNodes, links: fgLinks })
       .nodeId("id")
-      .nodeLabel((node: FgNode) => {
-        const tags = node.tags.slice(0, 3).join(", ");
-        return `<div style="font:12px Outfit Variable,sans-serif"><b>${node.name}</b><br/>${tags ? `${tags}<br/>` : ""}${node.degree} connections</div>`;
-      })
-      .nodeColor((node: FgNode) => withGraphAlpha(node.color, alphaFor(node.id)))
-      .nodeVal((node: FgNode) => node.val);
-
-    if (showLabels) {
-      Graph.nodeThreeObject((node: FgNode) => {
-        // eslint-disable-next-line typescript/no-unsafe-type-assertion -- GAP [[01M1P2RAJVTB4CESYGEVF7NDE1]] nodeThreeObject typed Object3D, falsy means default
-        if (!labelIds.has(node.id)) return undefined as unknown as Object3D; // GAP [[01M1P2RAJVTB4CESYGEVF7NDE1]]
-        return makeLabelSprite(formatGraphLabel(node.name, node.val), labelColor);
-      }).nodeThreeObjectExtend(true);
-    }
-
-    Graph.linkWidth((link: FgLink) => {
-      const base = Math.max(0.8, Math.min(3, Math.sqrt(link.weight) * 0.4));
-      const sel = selectedRef.current;
-      if (sel === null) return base;
-      const s = linkEndId(link.source);
-      const t = linkEndId(link.target);
-      return s === sel || t === sel ? base * 2 : base * 0.3;
-    })
-      .linkColor((link: FgLink) => {
-        const sel = selectedRef.current;
-        if (sel === null) return withGraphAlpha(linkBase, 1);
-        const s = linkEndId(link.source);
-        const t = linkEndId(link.target);
-        return s === sel || t === sel
-          ? withGraphAlpha(linkBase, 1)
-          : withGraphAlpha(linkBase, 0.08);
-      })
-      .linkDirectionalArrowLength(3.5)
+      .nodeResolution(32)
+      .enableNodeDrag(false)
+      .linkDirectionalArrowLength(3)
       .linkDirectionalArrowRelPos(1)
-      .linkCurvature(curvedLinks ? 0.25 : 0)
-      .linkDirectionalParticles((link: FgLink) => {
-        const sel = selectedRef.current;
-        if (sel === null) return 1;
-        const s = linkEndId(link.source);
-        const t = linkEndId(link.target);
-        return s === sel || t === sel ? 4 : 0;
+      .cooldownTicks(160)
+      .onEngineTick(() => {
+        simulationReady.current = true;
       })
-      .linkDirectionalParticleSpeed((link: FgLink) => {
-        const sel = selectedRef.current;
-        if (sel === null) return 0.004;
-        const s = linkEndId(link.source);
-        const t = linkEndId(link.target);
-        return s === sel || t === sel ? 0.015 : 0.004;
+      .nodeLabel((node) => {
+        const content = document.createElement("div");
+        content.textContent = node.name;
+        content.style.maxWidth = "320px";
+        content.style.whiteSpace = "normal";
+        return content;
       })
-      .linkDirectionalParticleWidth((link: FgLink) => {
-        const sel = selectedRef.current;
-        if (sel === null) return 1.2;
-        const s = linkEndId(link.source);
-        const t = linkEndId(link.target);
-        return s === sel || t === sel ? 2.5 : 1.2;
+      .onNodeClick((value) => {
+        const id = value.id,
+          meta = live.current.nodes.find((n) => n.id === id);
+        if (meta) live.current.onSelectionChange?.(selectionFromNode(meta));
+      })
+      .onBackgroundClick(() => live.current.onSelectionChange?.(null))
+      .onNodeHover((value) => {
+        hovered.current = value?.id ?? null;
+        refresh();
       })
       .onEngineStop(() => {
-        try {
-          Graph.zoomToFit(600, 40);
-        } catch {
-          /* torn down */
+        if (!fitted.current && !cameraIntent.current) {
+          graph.zoomToFit(motionDuration(500), 80);
+          fitted.current = true;
         }
-      })
-      .onNodeClick((node: FgNode) => {
-        if (!node.id) return;
-        const meta = nodes.find((x) => x.id === node.id);
-        onSelRef.current?.(
-          meta
-            ? selectionFromNode(meta)
-            : {
-                nodeId: node.id,
-                label: node.name,
-                tags: node.tags,
-                degree: node.degree,
-              },
-        );
-        selectedRef.current = node.id;
-        try {
-          const dist = Math.hypot(node.x ?? 0, node.y ?? 0, node.z ?? 0) || 1;
-          const offset = 120;
-          const lookAt = { x: node.x ?? 0, y: node.y ?? 0, z: node.z ?? 0 };
-          Graph.cameraPosition(
-            {
-              x: lookAt.x + (lookAt.x / dist) * offset,
-              y: lookAt.y + (lookAt.y / dist) * offset,
-              z: lookAt.z + (lookAt.z / dist) * offset,
-            },
-            lookAt,
-            1200,
-          );
-        } catch {
-          /* */
-        }
-      })
-      .onBackgroundClick(() => {
-        selectedRef.current = null;
-        onSelRef.current?.(null);
       });
-
-    const clusterForce = (axis: "x" | "y" | "z") => (alpha: number) => {
-      for (const node of fgNodes) {
-        const attractor = attractors.get(node.clusterKey);
-        if (!attractor) continue;
-        const pull = (attractor[axis] - (node[axis] ?? 0)) * 0.15 * alpha;
-        if (axis === "x") node.vx = (node.vx ?? 0) + pull;
-        if (axis === "y") node.vy = (node.vy ?? 0) + pull;
-        if (axis === "z") node.vz = (node.vz ?? 0) + pull;
+    graphRef.current = graph;
+    const scene = graph.scene();
+    const previousBeforeRender = scene.onBeforeRender;
+    scene.onBeforeRender = () => {
+      const occupied: GraphLabelBox[] = [];
+      const active = live.current.selectedNodeId ?? hovered.current;
+      const candidates = [...labelCandidates.current].toSorted(
+        (a, b) =>
+          Number(b.node.id === active) - Number(a.node.id === active) ||
+          b.node.val - a.node.val ||
+          a.node.id.localeCompare(b.node.id),
+      );
+      const matrix = graph.camera().matrixWorldInverse.elements;
+      for (const { node, sprite, width, height } of candidates) {
+        const { x = 0, y = 0, z = 0 } = node;
+        const point = graph.graph2ScreenCoords(x, y, z);
+        const box = {
+          x: point.x - width / 2 - 3,
+          y: point.y - height * 1.35 - 2,
+          width: width + 6,
+          height: height + 4,
+        };
+        const inFront = matrix[2] * x + matrix[6] * y + matrix[10] * z + matrix[14] < 0;
+        sprite.visible =
+          inFront &&
+          Number.isFinite(box.x + box.y) &&
+          box.x >= 0 &&
+          box.y >= 0 &&
+          box.x + box.width <= graph.width() &&
+          box.y + box.height <= graph.height() &&
+          reserveGraphLabel(box, occupied);
       }
     };
-    if (clusters.length >= 2) {
-      Graph.d3Force("x", clusterForce("x"));
-      Graph.d3Force("y", clusterForce("y"));
-      Graph.d3Force("z", clusterForce("z"));
-    } else {
-      Graph.d3Force("x", null);
-      Graph.d3Force("y", null);
-      Graph.d3Force("z", null);
-    }
-
-    try {
-      const controls = Graph.controls() as {
-        autoRotate?: boolean;
-        autoRotateSpeed?: number;
-      } | null;
-      if (controls) {
-        controls.autoRotate = autorotate;
-        controls.autoRotateSpeed = 1.0;
-      }
-    } catch {
-      /* */
-    }
-
-    if (cameraRef.current) {
-      const c = cameraRef.current;
-      try {
-        Graph.cameraPosition({ x: c.x, y: c.y, z: c.z });
-      } catch {
-        /* */
-      }
-    }
-
-    graphRef.current = Graph;
-    onControlsReadyRef.current?.(force3dCameraControls(() => graphRef.current));
-    // Browser render harness only: 3d-force-graph keeps simulation state private.
-    if (import.meta.env.MODE === "test-render") {
-      (el as HTMLDivElement & { __kbForceGraph?: KbForceGraph }).__kbForceGraph = Graph;
-    }
-
-    const ro = new ResizeObserver(() => {
-      Graph.width(el.clientWidth).height(el.clientHeight);
+    graph.renderer().setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const mark = () => {
+      cameraIntent.current = true;
+    };
+    el.addEventListener("pointerdown", mark);
+    el.addEventListener("wheel", mark, { passive: true });
+    const controls = force3dCameraControls(() => graphRef.current);
+    live.current.onControlsReady?.({
+      ...controls,
+      fit: () => {
+        mark();
+        controls.fit();
+      },
+      reset: () => {
+        mark();
+        controls.reset();
+      },
+      focusNode: (id) => {
+        mark();
+        controls.focusNode(id);
+      },
+      zoomIn: () => {
+        mark();
+        controls.zoomIn();
+      },
+      zoomOut: () => {
+        mark();
+        controls.zoomOut();
+      },
     });
-    ro.observe(el);
-    Graph.width(el.clientWidth).height(el.clientHeight);
-
+    const resize = new ResizeObserver(() => {
+      graph.width(el.clientWidth).height(el.clientHeight);
+      refresh();
+    });
+    resize.observe(el);
+    graph.width(el.clientWidth).height(el.clientHeight);
+    if (import.meta.env.MODE === "test-render")
+      (el as HTMLDivElement & { __kbForceGraph?: KbForceGraph }).__kbForceGraph = graph;
     return () => {
-      ro.disconnect();
-      try {
-        const cam = Graph.cameraPosition();
-        if (typeof cam.x === "number" && typeof cam.y === "number" && typeof cam.z === "number") {
-          cameraRef.current = { x: cam.x, y: cam.y, z: cam.z };
-        }
-      } catch {
-        /* */
-      }
-      try {
-        const snap = new Map<string, Vec3>();
-        for (const n of Graph.graphData().nodes) {
-          if (
-            n.id &&
-            typeof n.x === "number" &&
-            typeof n.y === "number" &&
-            typeof n.z === "number"
-          ) {
-            snap.set(n.id, { x: n.x, y: n.y, z: n.z });
-          }
-        }
-        if (snap.size > 0) positionsRef.current = snap;
-      } catch {
-        /* */
-      }
-      try {
-        Graph._destructor();
-      } catch {
-        /* */
-      }
+      resize.disconnect();
+      el.removeEventListener("pointerdown", mark);
+      el.removeEventListener("wheel", mark);
+      for (const dispose of labelCleanup.current) dispose();
+      labelCleanup.current = [];
+      labelCandidates.current = [];
+      scene.onBeforeRender = previousBeforeRender;
+      graph._destructor();
       graphRef.current = null;
-      onControlsReadyRef.current?.(null);
-      delete (el as HTMLDivElement & { __kbForceGraph?: KbForceGraph }).__kbForceGraph;
       el.replaceChildren();
+      live.current.onControlsReady?.(null);
+      delete (el as HTMLDivElement & { __kbForceGraph?: KbForceGraph }).__kbForceGraph;
     };
-  }, [nodes, edges, layoutKey, themeKey, curvedLinks, autorotate, showLabels, labelTopN]);
+  }, [layoutKey, refresh]);
 
-  // Sync external clear — accessors read selectedRef each frame.
   useEffect(() => {
-    selectedRef.current = selectedNodeId;
-  }, [selectedNodeId]);
-
+    const graph = graphRef.current;
+    if (!graph) return;
+    const previous = new Map(graph.graphData().nodes.map((n) => [n.id, n]));
+    const ids = new Set(nodes.map((n) => n.id));
+    graph.graphData({
+      nodes: nodes.map((n, index) =>
+        Object.assign(
+          previous.get(n.id) ?? {
+            x: Math.cos(index * 2.4) * Math.sqrt(index + 1) * 12,
+            y: Math.sin(index * 2.4) * Math.sqrt(index + 1) * 12,
+            z: Math.sin(index) * 30,
+          },
+          {
+            id: n.id,
+            name: n.label,
+            color: force3dColor(n.color),
+            val: n.size,
+            clusterKey: n.clusterKey,
+            tags: n.tags,
+            degree: n.degree,
+          },
+        ),
+      ),
+      links: edges
+        .filter((e) => ids.has(e.source) && ids.has(e.target))
+        .map((e) => ({ source: e.source, target: e.target, weight: e.weight, kind: e.kind })),
+    });
+    refresh();
+  }, [nodes, edges, layoutKey, refresh]);
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    graph.linkCurvature(curvedLinks ? 0.25 : 0);
+    const controls = graph.controls() as { autoRotate?: boolean; autoRotateSpeed?: number };
+    controls.autoRotate = autorotate && motionDuration(1) > 0;
+    controls.autoRotateSpeed = 1;
+    const link = graph.d3Force("link");
+    if (link && "distance" in link && typeof link.distance === "function")
+      link.distance(linkDistance);
+    const charge = graph.d3Force("charge");
+    if (charge && "strength" in charge && typeof charge.strength === "function")
+      charge.strength(-spread);
+    // Initial graphData sets up and starts the layout asynchronously. Reheating
+    // before its first tick starts an engine whose layout does not exist yet.
+    if (simulationReady.current) graph.d3ReheatSimulation();
+  }, [curvedLinks, autorotate, spread, linkDistance, layoutKey]);
+  useEffect(() => {
+    refresh();
+  }, [themeKey, selectedNodeId, highlightIds, filterIds, showLabels, labelTopN, refresh]);
   return <div ref={containerRef} className="h-full w-full min-h-0" data-testid="force3d-graph" />;
 }

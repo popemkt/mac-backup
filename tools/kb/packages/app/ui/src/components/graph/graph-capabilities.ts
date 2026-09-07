@@ -1,3 +1,4 @@
+import { GRAPH_RENDERERS } from "./graph-renderers";
 import type { LensRenderer } from "@/lib/graph-lens";
 
 /**
@@ -29,51 +30,13 @@ export const CAPABILITY_REASONS: Record<CapabilityKey, string> = {
   drag: "Node drag is not available in this renderer",
 };
 
-const ALL: RendererCapabilities = {
-  fit: true,
-  zoom: true,
-  reset: true,
-  focus: true,
-  search: true,
-  selection: true,
-  dim: true,
-  drag: true,
-};
-
-/** Per-renderer capability table — chrome intersects this with its buttons. */
-export const RENDERER_CAPABILITIES: Record<string, RendererCapabilities> = {
-  force2d: { ...ALL },
-  cluster: {
-    ...ALL,
-    // Selection card parity lands with shared frame wiring; cluster clicks
-    // still navigate today — keep honest until select-in-place is wired.
-    selection: false,
-  },
-  tree: {
-    fit: true,
-    zoom: true,
-    reset: true,
-    focus: false,
-    search: true,
-    selection: true,
-    dim: false,
-    drag: false,
-  },
-  force3d: {
-    fit: true,
-    zoom: true,
-    reset: true,
-    focus: true,
-    search: true,
-    selection: true,
-    dim: true,
-    drag: false,
-  },
-};
-
+/** Registry metadata is shared by the frame and adapter selection. */
+export const RENDERER_CAPABILITIES = Object.fromEntries(
+  Object.entries(GRAPH_RENDERERS).map(([key, definition]) => [key, definition.capabilities]),
+);
 export function capabilitiesFor(renderer: LensRenderer): RendererCapabilities {
   return (
-    RENDERER_CAPABILITIES[renderer] ?? {
+    GRAPH_RENDERERS[renderer]?.capabilities ?? {
       fit: false,
       zoom: false,
       reset: false,
@@ -84,4 +47,22 @@ export function capabilitiesFor(renderer: LensRenderer): RendererCapabilities {
       drag: false,
     }
   );
+}
+
+export type GraphSetting =
+  | "clusterBy"
+  | "layout"
+  | "spread"
+  | "linkDistance"
+  | "labelDensity"
+  | "showLabels"
+  | "curvedLinks"
+  | "autorotate";
+export function settingDisabledReason(
+  renderer: LensRenderer,
+  setting: GraphSetting,
+): string | undefined {
+  return GRAPH_RENDERERS[renderer]?.settings.includes(setting) === true
+    ? undefined
+    : "This renderer does not support this setting";
 }

@@ -148,7 +148,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       />
       <div
         className={cn(
-          "relative z-10 w-full max-w-[520px] overflow-hidden rounded-xl",
+          "kb-surface-enter relative z-10 w-full max-w-[520px] overflow-hidden rounded-xl",
           "border border-foreground/10 bg-popover shadow-2xl",
         )}
         onKeyDown={onKeyDown}

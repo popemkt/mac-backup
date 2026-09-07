@@ -10,8 +10,10 @@ declare module "three" {
     constructor(canvas: HTMLCanvasElement);
     /** Set to true to upload the canvas to the GPU. */
     needsUpdate: boolean;
+    dispose(): void;
   }
   export class SpriteMaterial {
+    dispose(): void;
     constructor(params?: {
       map?: CanvasTexture;
       transparent?: boolean;
@@ -21,7 +23,9 @@ declare module "three" {
   }
   export class Sprite {
     constructor(material?: SpriteMaterial);
+    visible: boolean;
     scale: Vec3Like;
+    center: { set(x: number, y: number): void };
   }
   export class Object3D {
     constructor();

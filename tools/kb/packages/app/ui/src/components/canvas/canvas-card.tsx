@@ -1,3 +1,5 @@
+import { classifyCardPointer } from "@/lib/card-pointer";
+import { asInstance } from "@/lib/dom";
 import { useCallback } from "react";
 import type { CanvasKbNode, CanvasTextNode } from "@kb/canvas";
 import { Bullet } from "@/components/outline/bullet";
@@ -6,8 +8,8 @@ import { NodeRow } from "@/components/outline/node-row";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
 import { cn } from "@/lib/cn";
-import { classifyCardPointer } from "@/lib/card-pointer";
-import { asInstance } from "@/lib/dom";
+import { CanvasPorts } from "./canvas-ports";
+import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
 
 /** Stable instance key for a kb-node card on a canvas. */
 function canvasCardInstanceKey(cardId: string, nodeId: string): string {
@@ -19,8 +21,28 @@ interface KbCardProps {
   selected: boolean;
   onSelect: () => void;
   onMoveStart: (e: React.PointerEvent) => void;
-  onResizeStart: (e: React.PointerEvent) => void;
+  onResizeStart: (e: React.PointerEvent, corner: CanvasCorner) => void;
   onPortDown: (side: "left" | "right" | "top" | "bottom", e: React.PointerEvent) => void;
+}
+
+/** Canvas text editing excludes structural outline operations. */
+function handleCanvasNodeKeyDown(
+  event: React.KeyboardEvent<HTMLDivElement>,
+  nodeId: string,
+  instanceKey: string,
+) {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    asInstance(event.target, HTMLElement)?.blur();
+    useOutlineStore.getState().selectNode(nodeId, instanceKey);
+    return;
+  }
+  if (
+    event.key === "Tab" ||
+    ((event.key === "Backspace" || event.key === "Delete") && (event.metaKey || event.ctrlKey))
+  ) {
+    event.preventDefault();
+  }
 }
 
 /** kb-node card: layout shell + shared NodeRow / NodeContent / TagChips. */
@@ -47,26 +69,6 @@ export function KbNodeCard({
     [activateNode, card.nodeId, instanceKey],
   );
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      // Canvas-safe subset: no structural outline ops (indent/split/merge).
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        asInstance(e.target, HTMLElement)?.blur();
-        useOutlineStore.getState().selectNode(card.nodeId, instanceKey);
-        return;
-      }
-      if (e.key === "Tab") {
-        e.preventDefault();
-        return;
-      }
-      if ((e.key === "Backspace" || e.key === "Delete") && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-      }
-    },
-    [card.nodeId, instanceKey],
-  );
-
   if (!node) {
     return (
       <div
@@ -86,8 +88,8 @@ export function KbNodeCard({
   return (
     <div
       className={cn(
-        "group/card absolute overflow-hidden rounded-md border bg-background",
-        selected ? "border-primary/40 shadow-sm" : "border-foreground/[0.06]",
+        "group/card absolute rounded-xl border bg-background shadow-sm",
+        selected ? "border-primary/70 ring-2 ring-primary/15" : "border-foreground/12",
       )}
       style={{
         left: card.x,
@@ -108,6 +110,7 @@ export function KbNodeCard({
       }}
     >
       <NodeRow
+        className="h-full overflow-auto rounded-xl bg-transparent px-3 py-3"
         depth={0}
         nodeId={card.nodeId}
         instanceKey={instanceKey}
@@ -120,6 +123,7 @@ export function KbNodeCard({
         bullet={
           <Bullet
             node={node}
+            isRef
             onClick={(e) => {
               e.stopPropagation();
               selectNode(card.nodeId, instanceKey);
@@ -137,38 +141,12 @@ export function KbNodeCard({
             onChange={(text) => {
               void mutations.updateNodeContent(card.nodeId, text);
             }}
-            onKeyDown={handleKeyDown}
+            onKeyDown={(event) => handleCanvasNodeKeyDown(event, card.nodeId, instanceKey)}
           />
         }
       />
-      {(["left", "right", "top", "bottom"] as const).map((side) => (
-        <button
-          key={side}
-          type="button"
-          data-port={side}
-          aria-label={`Connect ${side}`}
-          className={cn(
-            "absolute z-10 h-2.5 w-2.5 rounded-full border border-foreground/20 bg-background",
-            "opacity-0 transition-opacity group-hover/card:opacity-100",
-            side === "left" && "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
-            side === "right" && "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
-            side === "top" && "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
-            side === "bottom" && "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
-          )}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            onPortDown(side, e);
-          }}
-        />
-      ))}
-      <div
-        data-resize
-        className="absolute right-0 bottom-0 h-3 w-3 cursor-se-resize opacity-0 group-hover/card:opacity-60"
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          onResizeStart(e);
-        }}
-      />
+      <CanvasPorts onPortDown={onPortDown} />
+      <CanvasResizeHandles selected={selected} onResizeStart={onResizeStart} />
     </div>
   );
 }
@@ -179,7 +157,7 @@ interface TextCardProps {
   onSelect: () => void;
   onChange: (text: string) => void;
   onMoveStart: (e: React.PointerEvent) => void;
-  onResizeStart: (e: React.PointerEvent) => void;
+  onResizeStart: (e: React.PointerEvent, corner: CanvasCorner) => void;
   onPortDown: (side: "left" | "right" | "top" | "bottom", e: React.PointerEvent) => void;
 }
 
@@ -195,8 +173,8 @@ export function TextCard({
   return (
     <div
       className={cn(
-        "group/card absolute overflow-hidden rounded-md border bg-background p-2",
-        selected ? "border-primary/40" : "border-foreground/[0.06]",
+        "group/card absolute rounded-xl border bg-background p-3 shadow-sm",
+        selected ? "border-primary/40" : "border-foreground/12",
       )}
       style={{
         left: card.x,
@@ -222,33 +200,8 @@ export function TextCard({
         onChange={(e) => onChange(e.target.value)}
         onPointerDown={(e) => e.stopPropagation()}
       />
-      {(["left", "right", "top", "bottom"] as const).map((side) => (
-        <button
-          key={side}
-          type="button"
-          data-port={side}
-          className={cn(
-            "absolute z-10 h-2.5 w-2.5 rounded-full border border-foreground/20 bg-background",
-            "opacity-0 transition-opacity group-hover/card:opacity-100",
-            side === "left" && "top-1/2 left-0 -translate-x-1/2 -translate-y-1/2",
-            side === "right" && "top-1/2 right-0 translate-x-1/2 -translate-y-1/2",
-            side === "top" && "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2",
-            side === "bottom" && "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2",
-          )}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            onPortDown(side, e);
-          }}
-        />
-      ))}
-      <div
-        data-resize
-        className="absolute right-0 bottom-0 h-3 w-3 cursor-se-resize opacity-0 group-hover/card:opacity-60"
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          onResizeStart(e);
-        }}
-      />
+      <CanvasPorts onPortDown={onPortDown} />
+      <CanvasResizeHandles selected={selected} onResizeStart={onResizeStart} />
     </div>
   );
 }

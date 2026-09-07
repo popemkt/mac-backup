@@ -8,6 +8,7 @@ import {
   type CanvasSide,
 } from "@kb/canvas";
 import { sidePoint } from "@/lib/canvas-edge-path";
+import { snapCanvasMove } from "@/lib/canvas-snap";
 import {
   EMPTY_SELECTION,
   addNodes,
@@ -19,7 +20,6 @@ import {
 const DRAG_THRESHOLD = 4;
 const MIN_NODE_W = 80;
 const MIN_NODE_H = 40;
-const SNAP_TOL = 5;
 
 export interface Point {
   x: number;
@@ -108,6 +108,7 @@ export interface PointerState {
 }
 
 export type CanvasPointerEvent =
+  | { type: "pointer/cancel" }
   | { type: "pan/set"; pan: Point }
   | { type: "pan/start"; screen: Point }
   | { type: "move/start"; id: string; screen: Point }
@@ -118,6 +119,7 @@ export type CanvasPointerEvent =
   | {
       type: "pointer/end";
       screen: Point;
+      shiftKey?: boolean;
       edgeTargetId?: string;
       edgeWorld?: Point;
       edgeId?: string;
@@ -135,7 +137,7 @@ export interface PointerResult {
   state: PointerState;
   doc?: CanvasDoc;
   selection?: CanvasSelection;
-  persist?: "history" | "silent" | "flush";
+  persist?: "history" | "silent" | "flush" | "cancel";
   guides: readonly SnapGuide[];
 }
 
@@ -198,71 +200,23 @@ function startResize(
   });
 }
 
-/** The first edge pair within `SNAP_TOL`, as the offset that closes the gap. */
-function snapOffset(
-  pairs: readonly (readonly [number, number])[],
-): { delta: number; pos: number } | undefined {
-  for (const [mine, theirs] of pairs) {
-    if (Math.abs(mine - theirs) < SNAP_TOL) return { delta: theirs - mine, pos: theirs };
-  }
-  return undefined;
-}
-
 function snapMove(
   drag: Extract<Drag, { kind: "move" }>,
   dx: number,
   dy: number,
   ctx: PointerContext,
-): { dx: number; dy: number; guides: SnapGuide[] } {
-  const guides: SnapGuide[] = [];
-  const movingIds = new Set(drag.origPositions.keys());
-  const firstOrig = drag.origPositions.values().next().value;
+) {
   const firstId = drag.origPositions.keys().next().value;
-  if (firstOrig === undefined || firstId === undefined || movingIds.size === 0) {
-    return { dx, dy, guides };
-  }
-  const movingNode = ctx.byId.get(firstId);
-  if (!movingNode) return { dx, dy, guides };
-
-  const myLeft = firstOrig.x + dx;
-  const myTop = firstOrig.y + dy;
-  const myRight = myLeft + movingNode.width;
-  const myBottom = myTop + movingNode.height;
-  const myCx = (myLeft + myRight) / 2;
-  const myCy = (myTop + myBottom) / 2;
-  for (const other of ctx.doc.nodes) {
-    if (movingIds.has(other.id)) continue;
-    const oLeft = other.x;
-    const oRight = other.x + other.width;
-    const oTop = other.y;
-    const oBottom = other.y + other.height;
-    const oCx = (oLeft + oRight) / 2;
-    const oCy = (oTop + oBottom) / 2;
-    const xSnap = snapOffset([
-      [myLeft, oLeft],
-      [myLeft, oRight],
-      [myRight, oLeft],
-      [myRight, oRight],
-      [myCx, oCx],
-    ]);
-    const ySnap = snapOffset([
-      [myTop, oTop],
-      [myTop, oBottom],
-      [myBottom, oTop],
-      [myBottom, oBottom],
-      [myCy, oCy],
-    ]);
-    if (xSnap) {
-      dx += xSnap.delta;
-      guides.push({ axis: "x", pos: xSnap.pos });
-    }
-    if (ySnap) {
-      dy += ySnap.delta;
-      guides.push({ axis: "y", pos: ySnap.pos });
-    }
-    if (guides.length >= 2) break;
-  }
-  return { dx, dy, guides };
+  const original = firstId === undefined ? undefined : drag.origPositions.get(firstId);
+  const node = firstId === undefined ? undefined : ctx.byId.get(firstId);
+  if (!node || !original) return { dx, dy, guides: [] };
+  return snapCanvasMove(
+    { ...node, ...original },
+    ctx.doc.nodes.filter((other) => !drag.origPositions.has(other.id)),
+    dx,
+    dy,
+    ctx.zoom,
+  );
 }
 
 function moveNodes(
@@ -316,6 +270,8 @@ function resizedRect(
     if (w / h > ratio) w = Math.max(MIN_NODE_W, h * ratio);
     else h = Math.max(MIN_NODE_H, w / ratio);
   }
+  if (drag.corner.endsWith("w")) x = drag.origX + drag.origW - w;
+  if (drag.corner.startsWith("n")) y = drag.origY + drag.origH - h;
   return { x, y, w, h };
 }
 
@@ -395,21 +351,15 @@ function reduceMove(
   if (drag.kind === "move-pending") {
     const distance = Math.hypot(event.screen.x - drag.startX, event.screen.y - drag.startY);
     if (distance < DRAG_THRESHOLD) return result(state);
-    return result({
-      ...state,
-      drag: {
-        kind: "move",
-        startX: drag.startX,
-        startY: drag.startY,
-        origPositions: drag.origPositions,
-      },
-    });
+    const active = { ...drag, kind: "move" as const };
+    return moveNodes({ ...state, drag: active }, active, event, ctx);
   }
   if (drag.kind === "move") return moveNodes(state, drag, event, ctx);
   if (drag.kind === "resize-pending") {
     const distance = Math.hypot(event.screen.x - drag.startX, event.screen.y - drag.startY);
     if (distance < DRAG_THRESHOLD) return result(state);
-    return result({ ...state, drag: { ...drag, kind: "resize" } });
+    const active = { ...drag, kind: "resize" as const };
+    return resizeNode({ ...state, drag: active }, active, event, ctx);
   }
   if (drag.kind === "resize") return resizeNode(state, drag, event, ctx);
   return result({
@@ -435,8 +385,12 @@ function finishMove(
   event: Extract<CanvasPointerEvent, { type: "pointer/end" }>,
   ctx: PointerContext,
 ): PointerResult {
-  const dx = (event.screen.x - drag.startX) / ctx.zoom;
-  const dy = (event.screen.y - drag.startY) / ctx.zoom;
+  const { dx, dy } = snapMove(
+    drag,
+    (event.screen.x - drag.startX) / ctx.zoom,
+    (event.screen.y - drag.startY) / ctx.zoom,
+    ctx,
+  );
   let doc = ctx.doc;
   for (const [id, orig] of drag.origPositions) {
     const node = ctx.byId.get(id);
@@ -505,7 +459,18 @@ function reduceEnd(
   }
   if (drag.kind === "move") return finishMove(state, drag, event, ctx);
   if (drag.kind === "resize") {
-    return result({ ...state, drag: null }, { doc: ctx.doc, persist: "history" });
+    const final = resizeNode(
+      state,
+      drag,
+      {
+        type: "pointer/move",
+        screen: event.screen,
+        world: event.screen,
+        shiftKey: event.shiftKey ?? false,
+      },
+      ctx,
+    );
+    return result({ ...state, drag: null }, { doc: final.doc ?? ctx.doc, persist: "history" });
   }
   if (drag.kind === "edge") return finishEdge(state, drag, event, ctx);
   return result({ ...state, drag: null });
@@ -516,6 +481,11 @@ export function pointerReduce(
   event: CanvasPointerEvent,
   ctx: PointerContext,
 ): PointerResult {
+  if (event.type === "pointer/cancel")
+    return result(
+      { ...state, drag: null, marqueeRect: null, snapGuides: [] },
+      { persist: "cancel" },
+    );
   if (event.type === "pan/set") return result({ ...state, pan: event.pan });
   if (event.type === "pan/start") {
     return result({

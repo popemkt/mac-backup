@@ -1,5 +1,6 @@
+import { THEME_GLYPHS } from "@/lib/theme-glyphs";
 import { useEffect, useRef } from "react";
-import { ArrowsHorizontalIcon, CircleHalfIcon, TextAaIcon } from "@phosphor-icons/react";
+import { ArrowsHorizontalIcon, TextAaIcon } from "@phosphor-icons/react";
 import { usePrefsStore, type FontPref, type ThemePref, type WidthPref } from "@/stores/prefs.store";
 import { isOutside } from "@/lib/dom";
 import { useUiStore } from "@/stores/ui.store";
@@ -57,7 +58,7 @@ function ThemeRow() {
   const theme = usePrefsStore((s) => s.theme);
   const setTheme = usePrefsStore((s) => s.setTheme);
   return (
-    <PrefFieldRow icon={CircleHalfIcon} label="theme">
+    <PrefFieldRow icon={THEME_GLYPHS[theme]} label="theme">
       <EnumSelect
         className={POPOVER_VALUE_CLASS}
         value={theme}

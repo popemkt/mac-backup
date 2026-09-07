@@ -27,7 +27,7 @@ export interface FgNode {
 }
 
 /** An edge; the simulation replaces the endpoint ids with node objects. */
-export interface FgLink {
+interface FgLink {
   source: string | FgNode;
   target: string | FgNode;
   kind: string;

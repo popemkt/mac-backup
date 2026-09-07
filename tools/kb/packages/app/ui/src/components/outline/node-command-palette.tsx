@@ -512,7 +512,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
       <div className="fixed inset-0 z-[99]" onClick={onClose} />
       <div
         className={cn(
-          "fixed z-[100] w-[300px]",
+          "kb-surface-enter fixed z-[100] w-[300px]",
           "rounded-lg border border-foreground/10",
           "bg-popover shadow-xl",
           "overflow-hidden",

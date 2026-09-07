@@ -43,8 +43,9 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
   const {
     doc,
     docRef,
+    cancelPreview,
     schedulePersist,
-    schedulePersistSilent,
+    previewDoc,
     flushPersist,
     undo: undoCanvasDoc,
     redo: redoCanvasDoc,
@@ -82,12 +83,16 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       pointerRef.current = next.state;
       setPointerState(next.state);
       if (next.selection) setSelection(next.selection);
+      if (next.persist === "cancel") {
+        cancelPreview();
+        return;
+      }
       if (!next.doc) return;
-      if (next.persist === "silent") schedulePersistSilent(next.doc);
+      if (next.persist === "silent") previewDoc(next.doc);
       else if (next.persist === "flush") void flushPersist(next.doc);
       else if (next.persist === "history") schedulePersist(next.doc);
     },
-    [flushPersist, schedulePersist, schedulePersistSilent, setSelection],
+    [cancelPreview, flushPersist, schedulePersist, previewDoc, setSelection],
   );
 
   const dispatchPointer = useCallback(
@@ -135,12 +140,16 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     setZoom,
   });
 
+  const cancelPointer = useCallback(() => {
+    dispatchPointer({ type: "pointer/cancel" });
+  }, [dispatchPointer]);
+
   useCanvasKeyboard({
+    cancelPointer,
     byId,
     docRef,
     selRef,
     schedulePersist,
-    schedulePersistSilent,
     undoCanvasDoc,
     redoCanvasDoc,
     zoomToFit,
@@ -245,6 +254,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           onPointerDownStage={onPointerDownStage}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onPointerCancel={cancelPointer}
           onDoubleClickStage={onDoubleClickStage}
           handleCardPointerDown={(card, event, anchor) => {
             onCardPointerDown(card, event, anchor, startMoveForSelection);

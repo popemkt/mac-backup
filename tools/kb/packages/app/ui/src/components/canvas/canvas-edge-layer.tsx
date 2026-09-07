@@ -6,6 +6,7 @@ import type { CanvasSelection } from "@/lib/canvas-selection";
 import type { PointerState } from "@/lib/canvas-pointer";
 import type { OutlineNode } from "@/lib/types";
 import { hasText } from "@/lib/text";
+import { clientToCanvas } from "@/lib/canvas-viewport";
 
 interface CanvasEdgeLayerProps {
   doc: CanvasDoc;
@@ -227,14 +228,11 @@ function GhostEdgePath({
 }: Pick<CanvasEdgeLayerProps, "byId" | "edgeDrag" | "pan" | "zoom">) {
   if (!edgeDrag) return null;
   const from = byId.get(edgeDrag.fromCardId);
-  const stageEl = document.querySelector("[data-canvas-stage]")?.parentElement;
+  const stageEl = document.querySelector("[data-canvas-viewport]");
   if (!from || !stageEl) return null;
   const stageRect = stageEl.getBoundingClientRect();
   const start = sidePoint(from, edgeDrag.fromSide);
-  const end = {
-    x: (edgeDrag.x - stageRect.left - pan.x) / zoom,
-    y: (edgeDrag.y - stageRect.top - pan.y) / zoom,
-  };
+  const end = clientToCanvas({ x: edgeDrag.x, y: edgeDrag.y }, stageRect, pan, zoom);
   const dx = Math.max(40, Math.abs(end.x - start.x) * 0.45);
   const c1x =
     start.x + (edgeDrag.fromSide === "left" ? -dx : edgeDrag.fromSide === "right" ? dx : 0);
@@ -242,6 +240,7 @@ function GhostEdgePath({
     start.y + (edgeDrag.fromSide === "top" ? -dx : edgeDrag.fromSide === "bottom" ? dx : 0);
   return (
     <path
+      data-testid="canvas-connection-preview"
       d={`M ${start.x} ${start.y} C ${c1x} ${c1y}, ${end.x} ${end.y}, ${end.x} ${end.y}`}
       fill="none"
       stroke="var(--primary)"
