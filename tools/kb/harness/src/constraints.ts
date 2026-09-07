@@ -44,6 +44,38 @@ export const SCOPE_ALLOWS: Record<string, readonly string[]> = {
   "test-support": ["shared", "backend", "test-support"],
 };
 
+/** Both axes of one package: where it sits, and the runtime it must survive. */
+export interface PackageAxes {
+  layer: string;
+  /** `undefined` when the package carries no `scope:` tag — a `workspace-shape` failure. */
+  scope: string | undefined;
+}
+
+/**
+ * One edge measured against one axis of the matrix, or `undefined` when the
+ * matrix allows it. Both `boundaries` (over the real workspace) and the
+ * import-graph fixtures (over a two-package tree built for one case) ask this,
+ * so the direction rule is applied in one place rather than restated per
+ * caller.
+ *
+ * An edge whose endpoints are not both known packages is not this function's
+ * business — that a package has exactly one known layer and one known scope is
+ * `workspace-shape`'s assertion.
+ */
+export function matrixViolation(
+  axesOf: ReadonlyMap<string, PackageAxes>,
+  source: string,
+  target: string,
+  axis: "layer" | "scope",
+): string | undefined {
+  const allows = axis === "layer" ? LAYER_ALLOWS : SCOPE_ALLOWS;
+  const from = axesOf.get(source)?.[axis];
+  const to = axesOf.get(target)?.[axis];
+  if (from === undefined || to === undefined) return undefined;
+  if ((allows[from] ?? []).includes(to)) return undefined;
+  return `${source} (${axis}:${from}) -> ${target} (${axis}:${to})`;
+}
+
 /**
  * The isomorphism fence. A `scope:shared` package runs in the browser too, so
  * it may not import a runtime-only module; platform access belongs to an

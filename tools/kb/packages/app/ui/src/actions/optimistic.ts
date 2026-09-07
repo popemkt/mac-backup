@@ -18,8 +18,7 @@ export async function runOptimistic(
   const skipRemote = opts?.skipRemote === true || useOutlineStore.getState().loadSource !== "api";
 
   for (const action of plan.actions) {
-    // Plans are deliberately ordered (split and merge depend on prior writes).
-    // oxlint-disable-next-line eslint/no-await-in-loop
+    // oxlint-disable-next-line eslint/no-await-in-loop -- plans are deliberately ordered (split and merge depend on prior writes)
     const receipt = await (skipRemote ? invokeLocal(action) : invoke(action.id, action.input));
     if (receipt.status === "failed") {
       toast(receipt.message);

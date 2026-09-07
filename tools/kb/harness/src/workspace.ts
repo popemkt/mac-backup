@@ -5,7 +5,7 @@
 import { execSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { ISO_PRESET } from "./constraints.ts";
+import { ISO_PRESET, type PackageAxes } from "./constraints.ts";
 export const WORKSPACE_ROOT = join(import.meta.dir, "..", "..");
 export const PACKAGES_ROOT = join(WORKSPACE_ROOT, "packages");
 /** The harness itself: root tooling, outside the workspace members. */
@@ -96,26 +96,28 @@ function subdirectories(dir: string): string[] {
  * Every directory directly under packages/. Each one names a layer, which is
  * what makes `layer` a property of placement rather than a tag repeating it;
  * `workspace-shape` is where "and it is a layer the matrix knows" is asserted.
+ *
+ * `packagesRoot` defaults to this workspace's own. A fixture tree passes its
+ * own so a gate can be exercised against a two-package workspace built for
+ * one case, rather than against a copy of the reader written for tests.
  */
-export function layerDirs(): string[] {
-  return subdirectories(PACKAGES_ROOT);
+export function layerDirs(packagesRoot: string = PACKAGES_ROOT): string[] {
+  return subdirectories(packagesRoot);
 }
 
 /**
  * Every `<layer>/<name>` directory under packages/, whether or not it is a
  * valid member.
  */
-export function packageDirs(): string[] {
-  return layerDirs()
-    .flatMap((layer) =>
-      subdirectories(join(PACKAGES_ROOT, layer)).map((name) => `${layer}/${name}`),
-    )
+export function packageDirs(packagesRoot: string = PACKAGES_ROOT): string[] {
+  return layerDirs(packagesRoot)
+    .flatMap((layer) => subdirectories(join(packagesRoot, layer)).map((name) => `${layer}/${name}`))
     .toSorted();
 }
 
-export function workspacePackages(): WorkspacePackage[] {
-  return packageDirs().map((dir) => {
-    const manifestPath = join(PACKAGES_ROOT, dir, "package.json");
+export function workspacePackages(packagesRoot: string = PACKAGES_ROOT): WorkspacePackage[] {
+  return packageDirs(packagesRoot).map((dir) => {
+    const manifestPath = join(packagesRoot, dir, "package.json");
     const manifest = readJson(manifestPath);
     return {
       dir,
@@ -158,6 +160,22 @@ export function tagsOf(manifest: PackageManifest): string[] {
  */
 export function axisValues(tags: string[], axis: "layer" | "scope"): string[] {
   return tags.filter((t) => t.startsWith(`${axis}:`)).map((t) => t.slice(axis.length + 1));
+}
+
+/**
+ * Both axes of every package, keyed by manifest name: the input
+ * {@link matrixViolation} measures an edge against. Built here because it is
+ * read off the tree and the manifests, which is this module's job.
+ */
+export function packageAxes(
+  packages: readonly WorkspacePackage[] = workspacePackages(),
+): Map<string, PackageAxes> {
+  return new Map(
+    packages.map(({ name, layer, manifest }) => [
+      name,
+      { layer, scope: axisValues(tagsOf(manifest), "scope")[0] },
+    ]),
+  );
 }
 
 /** `bunfig.toml`'s `[install]` table: the supply-chain half of the config. */

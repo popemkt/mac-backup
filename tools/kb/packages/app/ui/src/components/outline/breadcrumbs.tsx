@@ -11,7 +11,7 @@ export function Breadcrumbs() {
   const nodes = useOutlineStore((s) => s.nodes);
   const crumbs = useMemo(
     () => useOutlineStore.getState().getBreadcrumbs(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- getBreadcrumbs is read off getState(), so its real inputs are named here by hand
     [nodes, rootNodeId],
   );
   const zoomHome = useOutlineStore((s) => s.zoomHome);

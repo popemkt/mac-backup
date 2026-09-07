@@ -31,7 +31,8 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
     return kind === "tag"
       ? queryTaggedInstances(queryDb, nodeId)
       : queryFieldCarriers(queryDb, nodeId);
-  }, [queryDb, nodeId, kind, generation]); // oxlint-disable-line react-hooks/exhaustive-deps -- generation, not queryDb identity, tracks graph content
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation, not queryDb identity, tracks graph content
+  }, [queryDb, nodeId, kind, generation]);
 
   if (!kind) return null;
 

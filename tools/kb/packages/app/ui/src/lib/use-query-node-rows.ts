@@ -59,7 +59,7 @@ export function useQueryNodeRows(input: {
         error: err instanceof Error ? err.message : String(err),
       };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation is the index revision; the index object's identity is stable
   }, [liveEdn, edn, index, generation]);
 
   return liveEdn === null ? local : { rows: liveRows, error: liveError };

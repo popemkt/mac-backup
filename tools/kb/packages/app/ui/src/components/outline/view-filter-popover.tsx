@@ -58,7 +58,8 @@ export function ViewFilterPopoverHost() {
   const fields = useMemo(() => {
     if (frameId === null) return [];
     return listFilterFieldOptions(frameId, useOutlineStore.getState().nodes);
-  }, [frameId, generation]); // oxlint-disable-line react-hooks/exhaustive-deps -- generation is the reactive invalidation key: the body reads the store imperatively via getState(), so generation drives recomputation
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation is the reactive invalidation key: the body reads the store imperatively via getState(), so generation drives recomputation
+  }, [frameId, generation]);
 
   const config = getViewConfig(frame?.props);
 

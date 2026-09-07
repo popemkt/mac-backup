@@ -34,9 +34,14 @@ existing view specs are unchanged).
   appropriate); TS 7 + Vite+ (`vp` 0.2.8) + oxlint + Nx own the tooling. Run
   `bun run verify` (typecheck + lint + knip + harness — the entry point a human
   or CI runs), `bun run typecheck` (authoritative zero-error `tsc --noEmit` per
-  package via Nx, also in pre-commit when `tools/kb/` changes), `bun run test`,
+  package via Nx), `bun run test`,
   `bun run test:ui`. Two runners split by package: everything but `@kb/ui` runs
   on `bun test`; the browser package runs on Vitest. See `tools/kb/DESIGN.md`.
+- Admission: `.githooks/pre-commit` runs `verify`, the generated-docs check
+  and the `.kb/assets` ownership check against a reconstructed **index
+  snapshot**, not the working tree, so an unstaged fix cannot mask a staged
+  defect. Which staged paths trigger which check is stated once, in
+  [`docs/ci.md`](../../docs/ci.md#pre-commit-the-same-questions-one-commit-earlier).
 - Linting & boundaries (`tools/kb`): every boundary — layer and scope
   direction, the isomorphism fence (a `scope:shared` package may not import
   `node:*`, `bun:*`, or `@effect/platform-bun`), and the zone matrix inside

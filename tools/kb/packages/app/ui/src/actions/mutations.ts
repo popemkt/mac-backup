@@ -131,8 +131,7 @@ function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {
 async function invokeAll(actions: Array<{ id: string; input: unknown }>): Promise<boolean> {
   const localOnly = useOutlineStore.getState().loadSource !== "api";
   for (const action of actions) {
-    // History is ordered for structural dependencies.
-    // oxlint-disable-next-line eslint/no-await-in-loop
+    // oxlint-disable-next-line eslint/no-await-in-loop -- history is ordered for structural dependencies
     const receipt = localOnly ? await invokeLocal(action) : await invoke(action.id, action.input);
     if (receipt.status === "failed") {
       toast(receipt.message);
@@ -571,8 +570,7 @@ export const mutations = {
     const pins = pinnedRefIdsFor(nodes, nodeId);
     if (pins.length > 0) {
       for (const refId of pins) {
-        // Sequential by contract: each delete reads the store the last wrote.
-        // oxlint-disable-next-line eslint/no-await-in-loop
+        // oxlint-disable-next-line eslint/no-await-in-loop -- Sequential by contract: each delete reads the store the last wrote
         await mutations.deleteNode(refId);
       }
       return true;

@@ -45,8 +45,7 @@ export function BoardCardsView({
   const storeNodes = useOutlineStore((s) => s.nodes);
   const nodes = useMemo(
     () => nodesProp ?? storeNodes,
-    // generation gates store map identity; props path uses explicit nodesProp.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation gates store map identity; the props path uses nodesProp
     [nodesProp, storeNodes, generation],
   );
   const frameNode = nodes.get(frameId);

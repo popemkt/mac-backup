@@ -2,37 +2,164 @@
 # Shim: record admission routes through the single gate (intent/gate.sh).
 # Registered in intent/SURFACES.md.
 # Install: git config core.hooksPath .githooks
+#
+# Every check below reads a reconstructed *index* snapshot, never the working
+# tree. An unstaged fix must not be able to mask a staged defect, and a
+# governed file can be staged while the working copy says something else.
+#
+# The snapshot is a detached linked worktree of `git write-tree`, not a
+# `git checkout-index` directory: the kb harness reads the tree through
+# `git ls-files` and `git check-ignore`, so a snapshot that is not a git
+# repository fails eight of its own checks for the wrong reason. `git stash
+# --keep-index` is not a candidate at all — it moves the user's tree, which is
+# the one thing a hook must not do.
+#
+# `intent/gate.sh record` reconstructs the index a second time for the Nix
+# lane, and that is deliberate rather than a duplicate: those checks feed
+# `nix flake check "path:…"`, which copies the whole directory into the store,
+# so that snapshot has to stay a pristine checkout with no node_modules in it.
+# One index, two shapes, each built where its requirement is stated.
 
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
+staged="$(git diff --cached --name-only --diff-filter=ACMRD)"
 
-# kb generated docs match .kb data. A fresh checkout may have Bun but not its
-# local dependencies yet; say exactly how to restore this optional check.
-if [ -d "$repo_root/tools/kb" ] && [ -d "$repo_root/.kb" ]; then
-  if command -v bun >/dev/null 2>&1 && [ -x "$repo_root/tools/kb/node_modules/.bin/nx" ]; then
-    (cd "$repo_root" && bun tools/kb/packages/app/cli/src/bin/docs-check.ts)
+# What can change each admission check's answer, as an ERE over staged paths.
+#
+# The snapshot makes unstaged edits invisible, so a check whose every input is
+# unchanged in it cannot report anything new — running it would be work with a
+# known answer. Each list is that check's real input set, not a guess at what
+# counts as "kb-ish":
+#
+#   docs    kb data, the generated docs it is compared against, and the
+#           materializer that writes them
+#   assets  committed node text, plus the files that declare who owns
+#           .kb/assets and the script that reads them
+#   verify  the kb workspace itself, and every surface `ext.check.audit`
+#           reaches for: each rule's `home` file (CLAUDE.md, tools/kb/**, any
+#           AGENTS.md) and the `SURFACE_FILES` list in @kb/ext-check — this
+#           hook and the workflows
+docs_inputs='^(\.kb/|docs/kb/|tools/kb/)'
+assets_inputs='^(\.kb/|\.gitignore$|docs/backup-strategy\.md$|modules/darwin/home-manager/mackup\.nix$|scripts/check-kb-assets-backup\.sh$)'
+verify_inputs='^(\.kb/|tools/kb/|docs/kb/|CLAUDE\.md$|\.githooks/|\.github/workflows/.*\.ya?ml$)|(^|/)AGENTS\.md$'
+
+triggered() {
+  printf '%s\n' "$staged" | grep -qE "$1"
+}
+
+# The kb checks need Bun and the workspace's installed dependencies. A fresh
+# checkout has neither; say exactly how to restore them rather than passing.
+kb_deps_present() {
+  command -v bun > /dev/null 2>&1 && [ -x "$repo_root/tools/kb/node_modules/.bin/nx" ]
+}
+
+# Give the snapshot the checkout's dependencies without a `bun install`.
+#
+# The content-addressed store (`node_modules/.bun`) and the build caches are
+# shared by absolute symlink: nothing in them depends on which tree is being
+# checked. Everything else in a `node_modules` tree is itself a symlink, so it
+# is copied as one — and that is the point, because a package's
+# `node_modules/@kb/<member>` link is *relative* to a sibling source
+# directory. Copied, it resolves inside the snapshot; shared, it would resolve
+# back into the working tree and the whole exercise would check the wrong
+# files.
+link_node_modules() {
+  local src="$1" dest="$2" shared
+  (
+    cd "$src"
+    find tools/kb -maxdepth 4 -type d -name node_modules -not -path '*/node_modules/*' -print0 \
+      | tar -cf - \
+        --exclude='*/node_modules/.bun' \
+        --exclude='*/node_modules/.cache' \
+        --exclude='*/node_modules/.vite' \
+        --exclude='*/node_modules/.vite-temp' \
+        --null -T -
+  ) | tar -xf - -C "$dest"
+  for shared in .bun .cache; do
+    [ -e "$src/tools/kb/node_modules/$shared" ] || continue
+    ln -sfn "$src/tools/kb/node_modules/$shared" "$dest/tools/kb/node_modules/$shared"
+  done
+}
+
+snapshot_parent=""
+snapshot=""
+
+# git exports GIT_DIR and GIT_INDEX_FILE into a hook, and they name the
+# *committing* repository. Any git command that is about the snapshot has to
+# run without them — `worktree add` that inherits GIT_INDEX_FILE checks the
+# files out but leaves the new worktree's index empty, and an empty index is
+# the worst possible failure here: `git ls-files` returns nothing, so every
+# tree-reading check passes on no files at all.
+git_own_env() {
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX git "$@"
+}
+
+# The same holds for every check that runs *inside* the snapshot: the harness
+# shells out to `git ls-files` and `git check-ignore`, and with the hook's env
+# those would answer for the committing repository, not the snapshot.
+in_snapshot() {
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX "$@"
+}
+
+remove_snapshot() {
+  if [ -n "$snapshot" ]; then
+    git_own_env -C "$repo_root" worktree remove --force "$snapshot" > /dev/null 2>&1 || true
+  fi
+  if [ -n "$snapshot_parent" ]; then
+    rm -rf "$snapshot_parent"
+  fi
+  return 0
+}
+
+# A detached worktree at the exact tree the index holds.
+build_snapshot() {
+  local tree commit
+  snapshot_parent="$(mktemp -d)"
+  snapshot="$snapshot_parent/index"
+  trap remove_snapshot EXIT
+  # This one reads the index being committed, so it keeps the hook's own env.
+  tree="$(git -C "$repo_root" write-tree)"
+  commit="$(git_own_env -C "$repo_root" commit-tree "$tree" -m 'pre-commit index snapshot')"
+  git_own_env -C "$repo_root" worktree add --detach --quiet "$snapshot" "$commit"
+
+  # The invariant the checks depend on: the snapshot's index is the tree that
+  # was staged. Assert it rather than trust it — see git_own_env above.
+  if ! git_own_env -C "$snapshot" diff --cached --quiet HEAD; then
+    echo "error: index snapshot at $snapshot does not match the staged tree" >&2
+    exit 1
+  fi
+
+  link_node_modules "$repo_root" "$snapshot"
+}
+
+if triggered "$docs_inputs" || triggered "$assets_inputs" || triggered "$verify_inputs"; then
+  if kb_deps_present; then
+    build_snapshot
+
+    # kb generated docs match .kb data.
+    if triggered "$docs_inputs"; then
+      echo "==> kb generated docs (staged snapshot)"
+      (cd "$snapshot" && in_snapshot bun tools/kb/packages/app/cli/src/bin/docs-check.ts)
+    fi
+
+    # kb media backup ownership regression: .kb/assets stays covered by its
+    # Mackup declaration and committed node references cannot point at
+    # unowned state.
+    if triggered "$assets_inputs"; then
+      echo "==> kb media backup ownership (staged snapshot)"
+      KB_ASSETS_ROOT="$snapshot" in_snapshot "$snapshot/scripts/check-kb-assets-backup.sh" check
+    fi
+
+    # kb verify gate: typecheck + lint + fmt:check + knip + harness + the
+    # rule/check audit for the kb workspace.
+    if triggered "$verify_inputs"; then
+      echo "==> verify (kb workspace, staged snapshot)"
+      (cd "$snapshot/tools/kb" && in_snapshot bun run verify)
+    fi
   else
-    echo "warning: kb docs check skipped — tools/kb dependencies are unavailable; run: bun install --cwd tools/kb" >&2
+    echo "warning: kb admission checks skipped — tools/kb dependencies are unavailable; run: bun install --cwd tools/kb" >&2
   fi
 fi
 
-# kb media backup ownership regression: .kb/assets stays covered by its Mackup
-# declaration and committed node references cannot point at unowned state.
-if [ -d "$repo_root/.kb" ]; then
-  echo "==> kb media backup ownership"
-  "$repo_root/scripts/check-kb-assets-backup.sh" check
-fi
-
-# kb verify gate: typecheck + lint + fmt:check + knip + harness for kb workspace.
-# Dependencies may be absent on a fresh checkout, so report the recovery step.
-if git diff --cached --name-only --diff-filter=ACMRD | grep -q '^tools/kb/'; then
-  if [ -x "$repo_root/tools/kb/node_modules/.bin/nx" ]; then
-    echo "==> verify (kb workspace)"
-    (cd "$repo_root/tools/kb" && bun run verify)
-  else
-    echo "warning: kb verify skipped — dependencies are unavailable; run: bun install --cwd tools/kb" >&2
-  fi
-fi
-
-exec "$repo_root/intent/gate.sh" record git-commit
+"$repo_root/intent/gate.sh" record git-commit
