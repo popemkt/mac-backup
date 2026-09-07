@@ -17,8 +17,9 @@ import {
   ResolveError,
   ensureDomainError,
   isDomainError,
+  domainError,
   isZodError,
-  parseActionInput,
+  parseBySchema,
   receiptCodeOf,
   type DomainError,
 } from "@kb/model";
@@ -149,6 +150,32 @@ function dispatch<R>(
 }
 
 /**
+ * A result that does not match its own `outputSchema` is a broken contract on
+ * kb's side, not a caller error: the manifest published that shape and a
+ * surface is about to publish a success receipt claiming it. So the same
+ * parser runs on the way out, and a mismatch becomes an `internal` failure
+ * carrying the schema's issues — a typed receipt, never a throw across the
+ * boundary.
+ *
+ * The parsed value is what the receipt carries. Parsing that did not decide
+ * the output would be a check performed and then discarded.
+ */
+const parseOutput = Effect.fnUntraced(function* (def: ActionDefinition, output: unknown) {
+  return yield* parseBySchema(def.outputSchema, output).pipe(
+    Effect.mapError((err) =>
+      domainError(
+        "internal",
+        `action ${def.id} returned output its schema rejects: ${err.message}`,
+        {
+          action: def.id,
+          issues: err instanceof ActionSchemaError ? err.issues : undefined,
+        },
+      ),
+    ),
+  );
+});
+
+/**
  * Effect invoke over a registry map — failures stay typed until a receipt mapper takes them.
  * Native handlers are composed directly (scoped); legacy Promise handlers are
  * the only path that uses `tryPromise`.
@@ -162,11 +189,11 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   const entry = actions.get(id);
   if (!entry) return failed(id, "unknown_action", `unknown action: ${id}`);
 
-  const parsed = yield* parseActionInput(entry.def.inputSchema, input);
+  const parsed = yield* parseBySchema(entry.def.inputSchema, input);
   const run = dispatch(entry, ctx, parsed);
   if (run === null) return failed(id, "internal", `action has no effect or handler: ${id}`);
 
-  return succeeded(id, yield* run);
+  return succeeded(id, yield* parseOutput(entry.def, yield* run));
 });
 
 /**
