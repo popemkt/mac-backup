@@ -56,20 +56,20 @@ export function rowsHash(rows: unknown[][]): string {
  * handle (acquired from the socket writer at the server boundary). Message
  * processing, publishing and cleanup are Effect programs — every method
  * returns `Effect<void>` and never throws.
+ *
+ * It knows nothing about the saved-query virtual set any more. It used to be
+ * handed those nodes at construction, which made it the one surface where a
+ * node reached a client without a transaction; `SavedQuerySet` owns them now
+ * and logs their changes, so the hub reads them off the log like everything
+ * else.
  */
 export class SubscriptionHub {
   private clients = new Map<string, ClientState>();
   private ctx: KbContext;
   private readonly unsubscribe: () => void;
 
-  /**
-   * `virtual` are the saved-query nodes: they answer queries and reach clients
-   * in the snapshot, and never reach `.kb/nodes.jsonl`. The index owns that
-   * distinction now, so the hub hands them over once and forgets them.
-   */
-  constructor(ctx: KbContext, virtual: KbNode[] = []) {
+  constructor(ctx: KbContext) {
     this.ctx = ctx;
-    if (virtual.length > 0) ctx.index.withVirtual(virtual);
     this.unsubscribe = ctx.log.subscribe((tx) => {
       // The log calls back synchronously from inside the commit; the sends it
       // produces are synchronous too, so forking keeps frame order while
