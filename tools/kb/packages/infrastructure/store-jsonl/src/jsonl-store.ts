@@ -5,7 +5,7 @@ import {
   domainError,
   ensureDomainError,
   type DomainError,
-  canonicalJson,
+  canonicalJsonl,
   decodeStoredNode,
   type KbNode,
   type StoreTx,
@@ -105,11 +105,7 @@ export class JsonlStore implements EffectStore {
         for (const id of tx.deletes) byId.delete(id);
         for (const node of tx.upserts) byId.set(node.id, node);
 
-        const sorted = [...byId.values()].toSorted((a, b) =>
-          a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
-        );
-        const body =
-          sorted.length === 0 ? "" : sorted.map((n) => canonicalJson(n)).join("\n") + "\n";
+        const body = canonicalJsonl([...byId.values()]);
 
         yield* Effect.try({
           try: () => durableReplaceFile(path, backupPath, body),

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer, Option } from "effect";
 import * as FileSystem from "effect/FileSystem";
-import { canonicalJsonl } from "@kb/test-kit";
+import { canonicalJsonl } from "@kb/model";
 import {
   kbCtxLayer,
   kbStoreLayer,
