@@ -4,7 +4,7 @@ import { ArrowsHorizontalIcon, TextAaIcon } from "@phosphor-icons/react";
 import { usePrefsStore, type FontPref, type ThemePref, type WidthPref } from "@/stores/prefs.store";
 import { isOutside } from "@/lib/dom";
 import { useUiStore } from "@/stores/ui.store";
-import { PrefFieldRow } from "@/components/outline/fields-section"; // GAP [[01M1RXNMP8NQZ2WD8F2E8V6QBH]]
+import { PrefFieldRow } from "@/components/ui/pref-field-row";
 import { EnumSelect, type EnumOption } from "@/components/ui/enum-select";
 import { POPOVER_VALUE_CLASS, PopoverShell } from "@/components/ui/popover-shell";
 

@@ -6,7 +6,7 @@ import { toast } from "@/lib/toast";
 import { getViewConfig, serializeViewFilter, type ViewFilter } from "@/lib/view-config";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
-import { PrefFieldRow } from "./fields-section";
+import { PrefFieldRow } from "@/components/ui/pref-field-row";
 import { listFilterFieldOptions } from "./view-filter-fields";
 import { EnumSelect, type EnumOption } from "@/components/ui/enum-select";
 import { POPOVER_VALUE_CLASS, PopoverShell } from "@/components/ui/popover-shell";

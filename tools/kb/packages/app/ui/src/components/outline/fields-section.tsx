@@ -194,20 +194,3 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
     </div>
   );
 }
-
-/** Single pref/settings row — same FieldRow, borderless value slot. */
-export function PrefFieldRow({
-  icon,
-  label,
-  children,
-}: {
-  icon: React.ComponentProps<typeof FieldRow>["icon"];
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <FieldRow depth={-1} icon={icon} label={label}>
-      {children}
-    </FieldRow>
-  );
-}
