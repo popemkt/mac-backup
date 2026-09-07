@@ -12,7 +12,7 @@ import {
   LIST_TAGS_QUERY,
   backlinksQuery,
 } from "@kb/query";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { DEFAULT_QUERY_EDN } from "@/lib/query-node";
 import { fieldCarriersQuery, taggedInstancesQuery } from "@/lib/schema-zoom";
 

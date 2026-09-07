@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { planDelete, planIndent, planMergeInto, planMove, planSetProp, planSplit } from "./plan";
 
 describe("outline action input builders", () => {

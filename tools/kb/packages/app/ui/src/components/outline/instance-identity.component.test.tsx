@@ -7,7 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
 import type { WireNode } from "@kb/contracts";

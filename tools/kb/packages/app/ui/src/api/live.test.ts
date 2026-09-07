@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { GraphSnapshot } from "@kb/contracts";
 import { setFetchGraphSnapshot } from "@/api/graph";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { createLiveClient } from "./live";

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";
 import { queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";

@@ -17,7 +17,7 @@ import type { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { renderEditableContent, setCaretSerializedOffset } from "@/lib/md-edit";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { DatascriptIndex, queryBacklinks } from "@/ds";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import type { WireNode } from "@kb/contracts";
 
 describe("queryBacklinks", () => {

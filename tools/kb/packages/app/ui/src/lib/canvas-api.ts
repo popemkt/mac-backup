@@ -18,7 +18,7 @@ import {
 import { resolveAllowedRefIds, resolveFieldType } from "@/lib/field-type";
 import { typeRefsOf } from "@kb/model";
 import { SYSTEM_IDS, isSysPrefixed, type PropValue, type OutlineNode } from "@/lib/types";
-import type { useOutlineStore } from "@/stores/outline.store"; // GAP [[01M1RXMQPVJKREGDS7D37J1MWN]]
+import type { KbIndex } from "@/ds";
 import { logError } from "@/lib/log";
 
 export function readCanvasDoc(node: OutlineNode | undefined): CanvasDoc {
@@ -104,7 +104,7 @@ export function isValidNativeTarget(
   fieldId: string,
   targetNodeId: string,
   nodes: Map<string, OutlineNode>,
-  queryDb: ReturnType<typeof useOutlineStore.getState>["index"],
+  queryDb: KbIndex | null,
 ): boolean {
   const field = nodes.get(fieldId);
   if (!field) return false;

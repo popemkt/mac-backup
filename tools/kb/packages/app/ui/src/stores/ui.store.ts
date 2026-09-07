@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { WsStatus } from "@/api/ws";
+import { setToastSink } from "@/lib/toast";
 
 export interface Toast {
   id: number;
@@ -60,3 +61,13 @@ export const useUiStore = create<UiState>((set) => ({
 
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));
+
+/**
+ * The store is the toast sink `lib/toast` declares. Registered at module scope
+ * rather than from a boot step: `toast()` is called from zones that may not
+ * reach a store, and every code path that can render a toast has already
+ * imported this module — App renders `<Toasts/>` from it.
+ */
+setToastSink((message) => {
+  useUiStore.getState().pushToast("error", message);
+});

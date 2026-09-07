@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DatascriptIndex } from "@/ds";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { wireToOutlineMap } from "@/lib/graph-view";
 import { fuzzyNodeCandidates } from "@/lib/refs";
 import {

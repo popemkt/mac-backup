@@ -6,14 +6,15 @@ import { CommandPalette, PaletteTrigger } from "@/components/palette/command-pal
 import { OutlineEditor } from "@/components/outline/outline-editor";
 import { ViewFilterPopoverHost } from "@/components/outline/view-filter-popover";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
-import { Sidebar, SidebarToggle } from "@/components/sidebar/sidebar";
+import { Sidebar } from "@/components/sidebar/sidebar";
+import { SidebarToggle } from "@/components/ui/sidebar-toggle";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
 import { OntologyScopeBar } from "@/components/ontology/ontology-scope-bar";
 import { matchRoute, navigate, usePath } from "@/lib/router";
 import { useOutlineStore } from "@/stores/outline.store";
-import { usePrefsStore } from "@/stores/prefs.store";
+import { usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
 import type { WsStatus } from "@/api/ws";
 import { useUiStore } from "@/stores/ui.store";
 import { cn } from "@/lib/cn";
@@ -176,11 +177,12 @@ function OutlineShell({
   const prefsOpen = useUiStore((s) => s.prefsOpen);
   const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
+  const sidebar = useSidebarToggle();
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
-        <SidebarToggle />
+        <SidebarToggle {...sidebar} />
         <h1 className="text-[13px] font-medium text-foreground/50">kb</h1>
         <span className="text-[11px] text-foreground/30">
           {status === "loading" ? "loading…" : `rev ${rev} · ${loadSource ?? "?"}`}

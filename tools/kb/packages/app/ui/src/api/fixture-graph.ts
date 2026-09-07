@@ -14,7 +14,18 @@ function node(
   };
 }
 
-/** Fixture graph matching protocol.ts GraphSnapshot shape (no live server). */
+/**
+ * The offline graph, in `GraphSnapshot` shape.
+ *
+ * This is product code, not test data, which is why it sits beside
+ * `api/graph.ts` rather than under `fixtures/`. `loadGraph` serves it when
+ * `VITE_USE_FIXTURES` is set or the server is unreachable at cold boot, and
+ * the store records `loadSource: "fixtures"` — the flag `actions/mutations`
+ * reads to keep every write local. The `fixtures/` folder next door is
+ * test-only seeds, which no production module may import.
+ *
+ * The test suites seed from it as well: one demo workspace, described once.
+ */
 export const fixtureGraph: GraphSnapshot = {
   rev: 1,
   nodes: [

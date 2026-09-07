@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { getCaretSerializedOffset } from "@/lib/md-edit";
 import { useOutlineStore } from "@/stores/outline.store";
-import { readCaretGeometry, verticalArrowDecision, type VerticalNavDecision } from "./caret";
+import { readCaretGeometry, verticalArrowDecision, type VerticalNavDecision } from "@/lib/caret";
 import { applyEditingIntent } from "./editing-intents";
 import { mapEditingKey, type EditingKeyContext } from "./editing-keymap";
 

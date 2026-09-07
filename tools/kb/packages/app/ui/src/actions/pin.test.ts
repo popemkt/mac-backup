@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { REF_SEED_WIRES } from "@/fixtures/contextual-ref";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { listPinnedNavItems } from "@/components/sidebar/sidebar-nav";
 import { contextualTargetOf } from "@/lib/contextual-ref";
 import { isPinned, pinnedRefIds } from "@/lib/pinned";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DatascriptIndex } from "@/ds";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { queryFieldCarriers, queryTaggedInstances, schemaZoomKind } from "@/lib/schema-zoom";
 import { wireToOutlineMap } from "@/lib/graph-view";
 

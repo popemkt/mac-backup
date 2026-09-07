@@ -11,7 +11,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { setPostAction } from "@/api/action";
 import { outlineInstanceKey } from "@/lib/instance-key";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import type { WireNode } from "@kb/contracts";
 import { mutations, __resetPendingContentForTests } from "@/actions/mutations";
 import { planInsertSibling } from "@/actions/plan";

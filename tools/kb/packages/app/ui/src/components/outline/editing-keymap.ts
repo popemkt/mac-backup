@@ -14,7 +14,7 @@
  */
 import { lookupChord, type Chord, type KeyChordEvent } from "@/lib/keychord";
 import type { VisibleInstance } from "@/lib/visible-instances";
-import type { VerticalNavDecision } from "./caret";
+import type { VerticalNavDecision } from "@/lib/caret";
 
 /** What the row looks like to the keymap. Offsets are SERIALIZED offsets. */
 export interface EditingKeyContext {

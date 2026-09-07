@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";

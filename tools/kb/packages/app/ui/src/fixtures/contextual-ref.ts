@@ -2,7 +2,7 @@
  * Wire nodes for contextual-reference tests: the seeded `#ref` ontology plus a
  * builder for one reference.
  *
- * Kept beside `fixtures/graph.ts` rather than inside it because
+ * Kept apart from `api/fixture-graph.ts` (the product's offline graph) rather than inside it because
  * `fixtureGraph`'s tag list is asserted verbatim by unrelated suites — a shared
  * fixture that grows breaks tests that are about something else entirely.
  */

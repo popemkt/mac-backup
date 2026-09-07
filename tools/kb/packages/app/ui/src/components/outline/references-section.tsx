@@ -1,18 +1,11 @@
 import { useMemo } from "react";
-import { queryBacklinks } from "@/ds"; // GAP [[01M1RXMRZKE1AJC850BRTHHHCW]]
-import { rowText } from "@/lib/contextual-ref";
-import { MdView } from "@/components/outline/md-view";
-import type { TagBadge } from "@/lib/types";
+import { backlinkRows, type BacklinkRow } from "@/lib/backlinks";
+import { MdView } from "@/components/ui/md-view";
 import { useOutlineStore } from "@/stores/outline.store";
+import { useRefNavigation } from "@/stores/ref-navigation";
 import { Bullet } from "./bullet";
 import { NodeRow } from "./node-row";
 import { TagChipGroup } from "./tag-chip";
-
-export interface BacklinkRow {
-  id: string;
-  text: string;
-  tags: TagBadge[];
-}
 
 /**
  * Inline "References (N)" at the bottom of a zoomed view (DESIGN-RESKIN §1.5).
@@ -22,22 +15,11 @@ export function ReferencesSection({ nodeId }: { nodeId: string }) {
   const nodes = useOutlineStore((s) => s.nodes);
   const generation = useOutlineStore((s) => s.index?.generation ?? 0);
 
-  const backlinks = useMemo((): BacklinkRow[] => {
-    if (!queryDb) return [];
-    return queryBacklinks(queryDb, nodeId)
-      .filter((b) => b.id !== nodeId)
-      .map((b) => {
-        const node = nodes.get(b.id);
-        // Same display rule as the outline row, so a referrer whose own text
-        // is empty — a contextual reference — is not a blank line here.
-        return {
-          id: b.id,
-          text: node ? rowText(node, nodes) : b.text,
-          tags: node?.tags ?? [],
-        };
-      });
+  const backlinks = useMemo(
+    (): BacklinkRow[] => backlinkRows(queryDb, nodes, nodeId),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryDb, nodeId, generation, nodes]);
+    [queryDb, nodeId, generation, nodes],
+  );
 
   return <ReferencesView nodeId={nodeId} backlinks={backlinks} />;
 }
@@ -65,6 +47,7 @@ export function ReferencesView({
 
 function ShallowBacklinkRow({ row }: { row: BacklinkRow }) {
   const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const onRefClick = useRefNavigation();
   const nodes = useOutlineStore((s) => s.nodes);
   const node = nodes.get(row.id);
 
@@ -98,7 +81,11 @@ function ShallowBacklinkRow({ row }: { row: BacklinkRow }) {
       }
       content={
         <>
-          <MdView text={row.text} className="min-w-0 flex-1 text-foreground/85" />
+          <MdView
+            text={row.text}
+            className="min-w-0 flex-1 text-foreground/85"
+            onRefClick={onRefClick}
+          />
           {row.tags.length > 0 && (
             <TagChipGroup
               tags={row.tags}

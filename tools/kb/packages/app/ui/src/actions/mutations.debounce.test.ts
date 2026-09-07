@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setPostAction } from "@/api/action";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { waitForBrowserPushes } from "@/session/runtime";
 import { useOutlineStore } from "@/stores/outline.store";
 import { __resetPendingContentForTests, mutations } from "./mutations";

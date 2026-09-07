@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import type { WireNode } from "@kb/contracts";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";

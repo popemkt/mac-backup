@@ -105,7 +105,7 @@ describe("line-height consistency (edit vs view)", () => {
   it("edit and view share KB_TEXT_CLASS / .kb-text token", () => {
     const tokens = readFileSync(path.join(root, "tokens.css"), "utf8");
     const content = readFileSync(path.join(root, "components/outline/node-content.tsx"), "utf8");
-    const mdView = readFileSync(path.join(root, "components/outline/md-view.tsx"), "utf8");
+    const mdView = readFileSync(path.join(root, "components/ui/md-view.tsx"), "utf8");
 
     expect(KB_TEXT_CLASS).toBe("kb-text");
     expect(tokens).toMatch(/\.kb-text\s*\{[^}]*var\(--kb-text-size\)/s);

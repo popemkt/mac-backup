@@ -13,10 +13,11 @@ import { fuzzyNodeCandidates, insertRefAtCursor, openRefQuery } from "@/lib/refs
 import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
-import { MdView } from "@/components/outline/md-view";
+import { useRefNavigation } from "@/stores/ref-navigation";
+import { MdView } from "@/components/ui/md-view";
 import { asElement } from "@/lib/dom";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
-import { nearestOffsetForX, offsetFromPoint } from "./caret";
+import { nearestOffsetForX, offsetFromPoint } from "@/lib/caret";
 import { TagChipGroup } from "./tag-chip";
 
 export interface NodeTextHostProps {
@@ -57,6 +58,7 @@ export function NodeTextHost({
   const acDismissedQuery = useRef<string | null>(null);
   const nodes = useOutlineStore((s) => s.nodes);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const onRefClick = useRefNavigation();
   const pendingCaret = useOutlineStore((s) => s.pendingCaret);
   const [acIndex, setAcIndex] = useState(0);
   /** D14: Escape dismisses the popup without blurring or leaving edit mode. */
@@ -373,6 +375,7 @@ export function NodeTextHost({
               text={content}
               className={cn("min-h-6 min-w-0 text-foreground/85", textClassName)}
               clamp={false}
+              onRefClick={onRefClick}
             />
           </div>
         )}

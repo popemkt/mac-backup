@@ -67,15 +67,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way the reference repo does before adding more skills.
 - **node** — `01M1M08W6Z70XV3KCQB5CWH3ZR`
 
-### GAP: an outline component owns the live-query subscription
-
-- **expected** — A surface component renders; opening and closing a server subscription is api/ or store work that the component consumes as data.
-- **current** — components/outline/query-results.tsx imports getLiveClient from @/api/live and drives subscribeQueryNode from inside the component. One import site.
-- **impact** — The component owns transport lifecycle, so it cannot render without a live connection, and the live client gains a caller no other surface has.
-- **closes** — Fold the subscription into the query-node store slice or a lib/ hook that returns results, leaving the component with props. Pairs with the ds/ gap in the same file.
-- **rule** — UI import matrix
-- **node** — `01M1RXMS5Z0A5H46MF63Q9AAPM`
-
 ### GAP: api/live.ts writes straight into the outline and ui stores
 
 - **expected** — api/ speaks to the server and hands results back. Applying a delta to a store is the caller's job — the session runtime or an action.
@@ -104,7 +95,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: canvas cards render outline's NodeContent
 
 - **expected** — Cross-surface reuse goes through the primitives zone or lib/; a surface never reaches into a sibling surface's internals. Bullet and NodeRow are already primitives, NodeContent is not.
-- **current** — components/canvas/canvas-card.tsx imports NodeContent from components/outline/node-content.tsx to render a kb node inside a canvas card. One import site.
+- **current** — components/canvas/canvas-card.tsx imports NodeContent from components/outline/node-content.tsx to render a kb node inside a canvas card. One import site. The card is a full editor (isActive/onActivate/onChange plus its own keydown), so only the whole component can move; wave 2026-09-09 g2 re-ran the promotion after closing the MdView and caret gaps and it now costs four breaches, all of them primitives -> stores/actions and all in the promoted file: node-content.tsx:3 @/actions/mutations, :14 @/stores/outline.store, :15 @/stores/ui.store, :16 @/stores/ref-navigation. g3 saw five, two of which were components/outline edges that are now gone. What is left is exactly GAP: the field-value primitive subscribes to the outline store, which lands with the outline-store split, so the move was reverted rather than sanctioned with fresh markers. harness/lint-warn-baseline.json still carries duplicates:...node-content.tsx:NodeContent|NodeTextHost; whoever lands the move drops the alias and re-snapshots in the same change.
 - **impact** — The canvas split (wave u2) inherits an edge into a 351-line outline component that is itself listed for splitting, so neither can move without the other.
 - **closes** — Promote NodeContent, or the read-only part of it the card needs, into the primitives zone beside Bullet and NodeRow.
 - **rule** — UI import matrix
@@ -175,24 +166,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move the remaining renderer-specific branches behind RendererCapabilities and render one <GraphCanvasFrame> for every renderer.
 - **node** — `01M1MGCFTMWY5EYHEWP9QVH8Z9`
 
-### GAP: GraphPage embeds the ontology surface's picker
-
-- **expected** — A surface composes its own chrome; a control shared by two surfaces is a primitive or is lifted into the shell that owns both.
-- **current** — components/graph/graph-page.tsx imports OntologyPicker from components/ontology/ontology-picker.tsx to choose the ontology a graph lens is scoped to. One import site.
-- **impact** — Graph cannot be loaded, lazily or otherwise, without pulling the ontology surface in, and the ontology page cannot be reshaped without checking the graph toolbar.
-- **closes** — Move OntologyPicker into components/ui/ as a primitive, or have App pass the chosen ontology down as it already passes the perspective.
-- **rule** — UI import matrix
-- **node** — `01M1RXNHJ8S019678AYDKWYE63`
-
-### GAP: GraphPage imports the sidebar's toggle button
-
-- **expected** — The sidebar is a shell-level surface; a page does not reach into it for a control. Shared chrome belongs to the primitives zone.
-- **current** — components/graph/graph-page.tsx imports SidebarToggle from components/sidebar/sidebar.tsx so the graph header can reopen a collapsed sidebar. One import site.
-- **impact** — The graph bundle pulls in the whole sidebar module for one button, and the sidebar cannot be split without breaking a lazy page.
-- **closes** — Move SidebarToggle into components/ui/, where every surface can use it without importing the sidebar.
-- **rule** — UI import matrix
-- **node** — `01M1RXNJHCH2Q5HCKQNEKVQGKD`
-
 ### GAP: hierarchicalLayout mixes forest construction with placement in 21 branches
 
 - **expected** — Forest construction (from edges) and placement (from a forest) are separate pure functions, as they already are for the tree renderer.
@@ -235,15 +208,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Domain typing — discriminator over optional
 - **node** — `01M1M08XNE3SBGY1MMNA1A73VX`
 
-### GAP: lib/ reaches up into the stores it should be a leaf below
-
-- **expected** — lib/ is the UI's leaf zone: pure helpers the layers above call, taking what they need as arguments. Store reads and writes belong to the caller — a store, an action, or a component.
-- **current** — lib/toast.ts writes through useUiStore.getState().pushToast; lib/canvas-api.ts takes a type-only dependency on useOutlineStore for the node map. Two import sites in two files. lib/run-command.ts is gone: the command registry that replaced it (lib/commands.tsx) takes a CommandContext from the palette that already holds the stores, so the four store imports it carried are closed.
-- **impact** — The leaf zone cannot be exercised or reused without the whole store stack behind it, and the outline-store split has to drag three lib modules along. It also inverts the direction every other row of UI_ALLOWS states.
-- **closes** — toast moves onto ui.store's own surface; canvas-api takes the node map instead of the store type. The run-command third is done (wave 2026-09-09 g4).
-- **rule** — UI import matrix
-- **node** — `01M1RXMQPVJKREGDS7D37J1MWN`
-
 ### GAP: main has no required branch protection
 
 - **expected** — Branch protection requires the Nix and KB validation checks before main can advance.
@@ -269,15 +233,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Extract resolveRowChrome(node, viewConfig) returning the flags as one value, then render from it. Mechanical in shape but it moves logic the outline tests reach through the DOM.
 - **node** — `01M1MGCGKSAJSB6GFR30SZNATJ`
 
-### GAP: ontology member rows render outline's MdView
-
-- **expected** — Markdown rendering is used by three surfaces; it is a primitive, not an outline internal.
-- **current** — components/ontology/member-row.tsx imports MdView from components/outline/md-view.tsx to render a member's text. One import site.
-- **impact** — The ontology surface depends on an outline internal for a purely presentational component, and the outline folder cannot be reorganised without the ontology page following.
-- **closes** — Move MdView into the primitives zone; it takes text and options and touches no store.
-- **rule** — UI import matrix
-- **node** — `01M1RXNKKK31EGJWCA1KCV6V20`
-
 ### GAP: parsePerspective decodes a perspective node with 27 hand-written branches
 
 - **expected** — A #graph-perspective node decodes through one Schema (effect Schema, as DESIGN.md's domain-typing section states), so defaults, coercion and validation live in the schema rather than in per-field ternaries.
@@ -294,15 +249,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Verify a reconstructed index snapshot and trigger on .kb, .kb/extensions, AGENTS.md, governance docs, tools/kb, the hook, and the workflow.
 - **rule** — Admission gate
 - **node** — `01M1PJWWSSRV3JGADQVYTMRGPB`
-
-### GAP: production api/graph.ts imports the graph test fixture
-
-- **expected** — fixtures/ is test data. Production transport code does not import it; a fallback snapshot, if one is wanted, is a production module.
-- **current** — api/graph.ts imports fixtureGraph from @/fixtures/graph and offers it as a GraphLoadSource, so the fixture ships in the bundle.
-- **impact** — Test data is a production dependency: it cannot be trimmed, it is typechecked as product code, and the fixtures folder cannot be moved under test-only tooling.
-- **closes** — Either move the fallback snapshot into a production module beside api/, or drop the fixtures source and let the caller decide what an unreachable server means.
-- **rule** — UI import matrix
-- **node** — `01M1RXMR501MC0KQ85WSNHC97R`
 
 ### GAP: PropValueEditor branches 24 ways over prop value type
 
@@ -453,15 +399,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
 
-### GAP: the preferences popover renders outline's PrefFieldRow
-
-- **expected** — Prefs is its own surface and composes its own rows; a row layout shared with outline is a primitive.
-- **current** — components/prefs/preferences-popover.tsx imports PrefFieldRow from components/outline/fields-section.tsx for the label/control layout of each preference. One import site.
-- **impact** — Prefs depends on an outline internal for layout alone, so fields-section carries a caller with no relation to fields.
-- **closes** — Move the row layout into components/ui/ beside EnumSelect and PopoverShell, which this file already uses.
-- **rule** — UI import matrix
-- **node** — `01M1RXNMP8NQZ2WD8F2E8V6QBH`
-
 ### GAP: the sigma renderer's lifecycle effect carries 32 branches
 
 - **expected** — Renderer setup, event wiring and teardown are three named steps, with the graph-building step shared across renderers.
@@ -495,15 +432,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1M08VKDXG6AFZHQPW5M2GRF`
 
-### GAP: two outline components run DataScript through ds/ directly
-
-- **expected** — ds/ is the one @kb/query seam and the layers above it (stores, lib, actions) own the queries; a component renders what it is given.
-- **current** — components/outline/query-results.tsx calls runQuery and components/outline/references-section.tsx calls queryBacklinks, both importing @/ds from inside a surface. Two import sites.
-- **impact** — Query execution sits in the render tree, so a component cannot be rendered without an index and the query layer has two entry points instead of one — exactly what the ds/ seam exists to prevent.
-- **closes** — Move both queries behind a lib/ or store selector that the components consume, so ds/ keeps one set of callers.
-- **rule** — UI import matrix
-- **node** — `01M1RXMRZKE1AJC850BRTHHHCW`
-
 
 ## Closed
 
@@ -531,6 +459,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Add one registry output parser for Effect-native and Promise handlers, map mismatch to an internal contract failure, and add invalid-output tests.
 - **rule** — Domain typing — parse unknown at the boundary
 - **node** — `01M1PJSSQYFV2E160JANGBPKCK`
+
+### GAP: an outline component owns the live-query subscription
+
+- **expected** — A surface component renders; opening and closing a server subscription is api/ or store work that the component consumes as data.
+- **current** — components/outline/query-results.tsx imports getLiveClient from @/api/live and drives subscribeQueryNode from inside the component. One import site.
+- **impact** — The component owns transport lifecycle, so it cannot render without a live connection, and the live client gains a caller no other surface has.
+- **closes** — Fold the subscription into the query-node store slice or a lib/ hook that returns results, leaving the component with props. Pairs with the ds/ gap in the same file.
+- **rule** — UI import matrix
+- **node** — `01M1RXMS5Z0A5H46MF63Q9AAPM`
 
 ### GAP: applySelectionAction dispatches selection actions with a 30-branch switch
 
@@ -572,6 +509,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Falls out of the onPointerMove gap: one state machine owns both.
 - **node** — `01M1MGCT80E1FMXMEAEATS1VER`
 
+### GAP: caret geometry is an outline internal two zones reach for
+
+- **expected** — Caret geometry is a primitive: pure DOM math over a contenteditable, with no store and no component, so it belongs in the UI's leaf zone beside the other lib/ helpers.
+- **current** — components/outline/caret.ts is imported by components/outline/node-content.tsx (NodeTextHost), components/outline/use-node-keydown.ts and components/outline/editing-keymap.ts, so anything promoted out of the outline folder that measures a caret has to drag an outline internal with it.
+- **impact** — It blocks gap GAP: canvas cards render outline's NodeContent: promoting NodeTextHost to the primitives zone breaches primitives -> components/outline on its ./caret import alone.
+- **closes** — Move it to lib/ (pure DOM math) or components/ui/ (if it rendered); rewire the three importers and the colocated test.
+- **rule** — UI import matrix
+- **node** — `01M1XCB0ETCJH03FGJS6E75AFP`
+
 ### GAP: core action definitions and handlers are hand-paired
 
 - **expected** — Operations exports one canonical coreActions contribution collection consumed through the same registration interface as extensions.
@@ -581,6 +527,24 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1PJW3WHWPCBT5BYNEQMYG98`
 
+### GAP: GraphPage embeds the ontology surface's picker
+
+- **expected** — A surface composes its own chrome; a control shared by two surfaces is a primitive or is lifted into the shell that owns both.
+- **current** — components/graph/graph-page.tsx imports OntologyPicker from components/ontology/ontology-picker.tsx to choose the ontology a graph lens is scoped to. One import site.
+- **impact** — Graph cannot be loaded, lazily or otherwise, without pulling the ontology surface in, and the ontology page cannot be reshaped without checking the graph toolbar.
+- **closes** — Move OntologyPicker into components/ui/ as a primitive, or have App pass the chosen ontology down as it already passes the perspective.
+- **rule** — UI import matrix
+- **node** — `01M1RXNHJ8S019678AYDKWYE63`
+
+### GAP: GraphPage imports the sidebar's toggle button
+
+- **expected** — The sidebar is a shell-level surface; a page does not reach into it for a control. Shared chrome belongs to the primitives zone.
+- **current** — components/graph/graph-page.tsx imports SidebarToggle from components/sidebar/sidebar.tsx so the graph header can reopen a collapsed sidebar. One import site.
+- **impact** — The graph bundle pulls in the whole sidebar module for one button, and the sidebar cannot be split without breaking a lazy page.
+- **closes** — Move SidebarToggle into components/ui/, where every surface can use it without importing the sidebar.
+- **rule** — UI import matrix
+- **node** — `01M1RXNJHCH2Q5HCKQNEKVQGKD`
+
 ### GAP: KbContext carries two persistence interfaces
 
 - **expected** — KbContext exposes one Effect-native storage capability used by all core and extension handlers.
@@ -589,6 +553,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Migrate legacy Promise handlers to EffectStore, remove Store from KbContext, and delete the Promise facade.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1PJVW0VZ283V1N3PDXFSHTC`
+
+### GAP: lib/ reaches up into the stores it should be a leaf below
+
+- **expected** — lib/ is the UI's leaf zone: pure helpers the layers above call, taking what they need as arguments. Store reads and writes belong to the caller — a store, an action, or a component.
+- **current** — lib/toast.ts writes through useUiStore.getState().pushToast; lib/canvas-api.ts takes a type-only dependency on useOutlineStore for the node map. Two import sites in two files. lib/run-command.ts is gone: the command registry that replaced it (lib/commands.tsx) takes a CommandContext from the palette that already holds the stores, so the four store imports it carried are closed.
+- **impact** — The leaf zone cannot be exercised or reused without the whole store stack behind it, and the outline-store split has to drag three lib modules along. It also inverts the direction every other row of UI_ALLOWS states.
+- **closes** — toast moves onto ui.store's own surface; canvas-api takes the node map instead of the store type. The run-command third is done (wave 2026-09-09 g4).
+- **rule** — UI import matrix
+- **node** — `01M1RXMQPVJKREGDS7D37J1MWN`
 
 ### GAP: mapSelectionKey maps keys to actions through a 46-branch chain
 
@@ -614,6 +587,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — About 40 lines of Bun plus a .gitattributes entry; recorded in briefs/p1-persistence.md section 4.
 - **node** — `01M1M08WYY9X6HFNN5GKDCC47E`
 
+### GAP: ontology member rows render outline's MdView
+
+- **expected** — Markdown rendering is used by three surfaces; it is a primitive, not an outline internal.
+- **current** — components/ontology/member-row.tsx imports MdView from components/outline/md-view.tsx to render a member's text. One import site.
+- **impact** — The ontology surface depends on an outline internal for a purely presentational component, and the outline folder cannot be reorganised without the ontology page following.
+- **closes** — Move MdView into the primitives zone; it takes text and options and touches no store.
+- **rule** — UI import matrix
+- **node** — `01M1RXNKKK31EGJWCA1KCV6V20`
+
 ### GAP: OutlineNode.cursorPosition is deprecated but is still the canvas editor's caret channel
 
 - **expected** — One caret mechanism for both hosts: the outline's CaretIntent, with the canvas card reading the same channel, and cursorPosition gone from the store.
@@ -621,6 +603,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Exactly the parallel-mechanism shape Rule 1 forbids: a change to caret behaviour has to be made twice, and the deprecation says which one is wrong without removing it.
 - **closes** — Delete cursorPosition from OutlineState, its initial value, its activateNode write, and the unread NodeTextHost prop. TypeScript excess-property checks then require removing 'cursorPosition: 0,' from the hand-copied store-reset literal in 24 ui test files, which is the whole remaining cost - one line each. The reset duplication itself is the obstacle; a shared resetOutlineStore() helper would make this a three-line change.
 - **node** — `01M1MGT307N4K243CBPJTXNG5X`
+
+### GAP: production api/graph.ts imports the graph test fixture
+
+- **expected** — fixtures/ is test data. Production transport code does not import it; a fallback snapshot, if one is wanted, is a production module.
+- **current** — api/graph.ts imports fixtureGraph from @/fixtures/graph and offers it as a GraphLoadSource, so the fixture ships in the bundle.
+- **impact** — Test data is a production dependency: it cannot be trimmed, it is typechecked as product code, and the fixtures folder cannot be moved under test-only tooling.
+- **closes** — Either move the fallback snapshot into a production module beside api/, or drop the fixtures source and let the caller decide what an unreachable server means.
+- **rule** — UI import matrix
+- **node** — `01M1RXMR501MC0KQ85WSNHC97R`
 
 ### GAP: rule enforcement is hand-typed instead of derived
 
@@ -688,6 +679,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Split into mapEditingKey (pure, chord -> intent) and applyEditingIntent, mirroring selection-keymap. Do it with the same wave that tables mapSelectionKey so the outline ends with one keymap mechanism, not two.
 - **node** — `01M1MGCQKVQCG3H9YYCWQX0A0Y`
 
+### GAP: the preferences popover renders outline's PrefFieldRow
+
+- **expected** — Prefs is its own surface and composes its own rows; a row layout shared with outline is a primitive.
+- **current** — components/prefs/preferences-popover.tsx imports PrefFieldRow from components/outline/fields-section.tsx for the label/control layout of each preference. One import site.
+- **impact** — Prefs depends on an outline internal for layout alone, so fields-section carries a caller with no relation to fields.
+- **closes** — Move the row layout into components/ui/ beside EnumSelect and PopoverShell, which this file already uses.
+- **rule** — UI import matrix
+- **node** — `01M1RXNMP8NQZ2WD8F2E8V6QBH`
+
 ### GAP: the store still exposes getPreviousVisibleNode / getNextVisibleNode by node id
 
 - **expected** — Visible-neighbour lookup exists once, keyed by instance key, because a node id can appear in the outline more than once.
@@ -703,3 +703,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Four pinpoint disables, and a port shaped so only one listener per event can ever exist. Today that is true by construction (the client owns the socket), which is why this is deferred rather than wrong.
 - **closes** — Widen WsLike to {addEventListener, removeEventListener, send, close} and update every injected fake (api/live.test.ts and the ws tests). That is a test-double contract change across the package, not a mechanical edit, so it needs its own commit.
 - **node** — `01M1MHKS8EV3DD378TZSX44EJG`
+
+### GAP: two outline components run DataScript through ds/ directly
+
+- **expected** — ds/ is the one @kb/query seam and the layers above it (stores, lib, actions) own the queries; a component renders what it is given.
+- **current** — components/outline/query-results.tsx calls runQuery and components/outline/references-section.tsx calls queryBacklinks, both importing @/ds from inside a surface. Two import sites.
+- **impact** — Query execution sits in the render tree, so a component cannot be rendered without an index and the query layer has two entry points instead of one — exactly what the ds/ seam exists to prevent.
+- **closes** — Move both queries behind a lib/ or store selector that the components consume, so ds/ keeps one set of callers.
+- **rule** — UI import matrix
+- **node** — `01M1RXMRZKE1AJC850BRTHHHCW`

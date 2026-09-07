@@ -50,6 +50,17 @@ export function isOutside(container: Node | null | undefined, target: unknown): 
 }
 
 /**
+ * The sidebar panel's marker, in the two forms the DOM needs it.
+ *
+ * `components/sidebar` renders the panel and `components/ui/sidebar-toggle`'s
+ * caller asks whether focus is inside it before collapsing — two zones, so the
+ * attribute name is written once, here, and both forms derive from it.
+ */
+const SIDEBAR_REGION_ATTR = "data-sidebar";
+export const sidebarRegionProps = { [SIDEBAR_REGION_ATTR]: "true" } as const;
+export const SIDEBAR_REGION_SELECTOR = `[${SIDEBAR_REGION_ATTR}="true"]`;
+
+/**
  * True when an event landed in a text-entry surface. Every hotkey handler that
  * declines to act "while the user is typing" asks exactly this question.
  */

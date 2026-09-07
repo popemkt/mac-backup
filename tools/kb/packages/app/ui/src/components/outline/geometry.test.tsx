@@ -24,6 +24,10 @@ function readIndentOwner(): string {
   return readFileSync(path.join(outlineDir, "../../lib/indent.ts"), "utf8");
 }
 
+function readPrimitiveSource(name: string): string {
+  return readFileSync(path.join(outlineDir, "../ui", name), "utf8");
+}
+
 /** Resolved indent step, read from the token sheet the UI actually ships. */
 const INDENT_PX = Number(
   /--kb-indent:\s*(\d+(?:\.\d+)?)px/.exec(
@@ -75,7 +79,7 @@ describe("One-Row Metric Invariant (§5.2)", () => {
     // Editor branch
     expect(src).toMatch(/KB_TEXT_CLASS/);
     // MdView branch receives the same class via md-view.tsx
-    expect(readOutlineSource("md-view.tsx")).toMatch(/KB_TEXT_CLASS/);
+    expect(readPrimitiveSource("md-view.tsx")).toMatch(/KB_TEXT_CLASS/);
     // Field value editors use the shared scale too.
     expect(readOutlineSource("field-value.tsx")).toMatch(/KB_TEXT_CLASS/);
   });

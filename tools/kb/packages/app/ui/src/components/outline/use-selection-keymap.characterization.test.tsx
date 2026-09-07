@@ -12,7 +12,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { Window } from "happy-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";

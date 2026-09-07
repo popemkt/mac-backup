@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { KbWsClient } from "@/api/ws";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import {
   isQueryNode,
   queryDefOf,

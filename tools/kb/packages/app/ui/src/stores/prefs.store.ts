@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { create } from "zustand";
+import { SIDEBAR_REGION_SELECTOR } from "@/lib/dom";
 import { hasText } from "@/lib/text";
 import { transitionTheme } from "@/lib/theme-transition";
 
@@ -164,6 +165,33 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
 /** Canvas/WebGL renderers need a reactive resolved theme as well as CSS tokens. */
 export function useDarkTheme(): boolean {
   return usePrefsStore((s) => resolveDark(s.theme, s.systemDark));
+}
+
+/**
+ * The left-rail toggle's state and gesture, for the primitive that renders it
+ * (`components/ui/sidebar-toggle`).
+ *
+ * Two headers render that button — the shell's and the graph page's — so the
+ * wiring has one home. The focus hand-off lives here rather than in the button
+ * because it is about the panel going away, not about the button: collapsing a
+ * sidebar that holds focus would otherwise drop focus on the document.
+ */
+export function useSidebarToggle(): {
+  open: boolean;
+  onToggle: (button: HTMLButtonElement | null) => void;
+} {
+  const open = usePrefsStore((s) => s.sidebarOpen);
+  const toggle = usePrefsStore((s) => s.toggleSidebar);
+  return {
+    open,
+    onToggle: (button) => {
+      const focusedInSidebar = document.activeElement?.closest(SIDEBAR_REGION_SELECTOR);
+      toggle();
+      if (open && focusedInSidebar) {
+        requestAnimationFrame(() => button?.focus());
+      }
+    },
+  };
 }
 
 /**
