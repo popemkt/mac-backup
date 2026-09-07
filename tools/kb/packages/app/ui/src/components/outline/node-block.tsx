@@ -106,7 +106,6 @@ export const NodeBlock = memo(function NodeBlock({
   const handleKeyDown = useNodeKeyDown({
     nodeId,
     instanceKey,
-    node,
     isRef,
   });
 

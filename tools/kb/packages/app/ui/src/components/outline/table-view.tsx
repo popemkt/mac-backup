@@ -251,7 +251,6 @@ const TableRow = memo(function TableRow({
   const handleKeyDown = useNodeKeyDown({
     nodeId: child.id,
     instanceKey: childKey,
-    node: child,
     isRef,
   });
 

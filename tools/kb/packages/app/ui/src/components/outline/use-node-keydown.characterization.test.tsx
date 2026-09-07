@@ -41,8 +41,9 @@ function Host({
   instanceKey: string;
   isRef: boolean;
 }) {
-  const live = useOutlineStore((s) => s.nodes.get(nodeId));
-  const onKeyDown = useNodeKeyDown({ nodeId, instanceKey, node: live, isRef });
+  // Subscribed so the host re-renders as the store changes, the way a row does.
+  useOutlineStore((s) => s.nodes.get(nodeId));
+  const onKeyDown = useNodeKeyDown({ nodeId, instanceKey, isRef });
   return <div data-editor="true" contentEditable onKeyDown={onKeyDown} />;
 }
 
