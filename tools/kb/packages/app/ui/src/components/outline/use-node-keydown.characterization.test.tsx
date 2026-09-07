@@ -327,11 +327,15 @@ describe("outline editing keymap (characterization)", () => {
       // which is why this case cannot use one of the tagged fixture rows.
       act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
       const el = mount("n.child-a1", 3, false);
-      const before = node("n.child-a1")?.collapsed;
+      const before = {
+        collapsed: node("n.child-a1")?.collapsed,
+        active: useOutlineStore.getState().activeNodeId,
+      };
       expect(await press(el, "ArrowDown", { metaKey: true })).toBe(true);
-      expect(useOutlineStore.getState().activeNodeId).toBe("n.child-a1");
-      expect(node("n.child-a1")?.collapsed).toBe(before);
-      expect(useOutlineStore.getState().rootNodeId).toBe(WORKSPACE_ROOT_ID);
+      const after = useOutlineStore.getState();
+      expect(after.activeNodeId).toBe(before.active);
+      expect(node("n.child-a1")?.collapsed).toBe(before.collapsed);
+      expect(after.rootNodeId).toBe(WORKSPACE_ROOT_ID);
     });
 
     it("Meta+ArrowDown on a childless but tagged row still reveals its fields", async () => {
