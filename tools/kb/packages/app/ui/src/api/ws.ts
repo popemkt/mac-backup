@@ -15,14 +15,31 @@ import { getClientOrigin } from "@/api/action";
 
 export type WsStatus = "idle" | "connecting" | "open" | "closed";
 
-/** Minimal socket surface so tests can inject a fake. */
+/**
+ * The socket events this client listens to, and what each one carries. `error`
+ * is absent on purpose: a browser socket always follows an error with a close,
+ * and close is where reconnect belongs, so an error listener would be a seam
+ * nothing reads.
+ */
+export interface WsEventMap {
+  open: void;
+  close: void;
+  message: { data: unknown };
+}
+
+export type WsListener<K extends keyof WsEventMap> = (event: WsEventMap[K]) => void;
+
+/**
+ * Minimal socket surface so tests can inject a fake. It is the browser
+ * listener contract narrowed to the three events the client uses, so a real
+ * `WebSocket` satisfies it directly and a second listener never clobbers the
+ * first.
+ */
 export interface WsLike {
   send(data: string): void;
   close(): void;
-  onopen: (() => void) | null;
-  onclose: (() => void) | null;
-  onerror: (() => void) | null;
-  onmessage: ((ev: { data: unknown }) => void) | null;
+  addEventListener<K extends keyof WsEventMap>(type: K, listener: WsListener<K>): void;
+  removeEventListener<K extends keyof WsEventMap>(type: K, listener: WsListener<K>): void;
 }
 
 export interface TxDelta {
@@ -67,31 +84,19 @@ function defaultUrl(): string {
 }
 
 /**
- * The browser class is not structurally a `WsLike` — its handlers take the
- * event objects `lib.dom` declares. This is the port, not a restatement: the
- * socket's handlers read `port`'s at fire time, so a caller may still assign
- * them after construction.
+ * A browser `WebSocket` *is* a `WsLike`: the port asks for the listener pair
+ * it already has. The adapter that used to bridge on* handlers is gone with
+ * the handlers.
  */
 function defaultMakeSocket(url: string): WsLike {
-  const ws = new WebSocket(url);
-  const port: WsLike = {
-    send: (data) => ws.send(data),
-    close: () => ws.close(),
-    onopen: null,
-    onclose: null,
-    onerror: null,
-    onmessage: null,
-  };
-  ws.addEventListener("open", () => port.onopen?.());
-  ws.addEventListener("close", () => port.onclose?.());
-  ws.addEventListener("error", () => port.onerror?.());
-  ws.addEventListener("message", (ev) => port.onmessage?.({ data: ev.data }));
-  return port;
+  return new WebSocket(url);
 }
 
 export class KbWsClient {
   private opts: Required<Pick<KbWsClientOptions, "getRev" | "onTx" | "onGap">> & KbWsClientOptions;
   private socket: WsLike | null = null;
+  /** Detaches the listeners attached to {@link socket}; null when there are none. */
+  private detachSocket: (() => void) | null = null;
   private subs = new Map<string, Subscription>();
   private attempts = 0;
   /**
@@ -124,8 +129,11 @@ export class KbWsClient {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    this.socket?.close();
-    this.socket = null;
+    const socket = this.socket;
+    // Detach before closing: the close this asks for is ours, not a drop to
+    // reconnect from, and a detached socket cannot report it back to us.
+    this.dropSocket();
+    socket?.close();
     this.setStatus("closed");
   }
 
@@ -172,9 +180,7 @@ export class KbWsClient {
     }
     this.socket = socket;
 
-    // oxlint-disable-next-line unicorn/prefer-add-event-listener -- GAP [[01M1MHKS8EV3DD378TZSX44EJG]]
-    socket.onopen = () => {
-      if (socket !== this.socket) return;
+    const onOpen = (): void => {
       this.attempts = 0;
       this.catchUpFrom = null;
       this.setStatus("open");
@@ -183,21 +189,34 @@ export class KbWsClient {
         this.send({ op: "subscribe", id, query: sub.query });
       }
     };
-    // oxlint-disable-next-line unicorn/prefer-add-event-listener -- GAP [[01M1MHKS8EV3DD378TZSX44EJG]]
-    socket.onmessage = (ev) => {
-      if (socket !== this.socket) return;
-      this.handleMessage(String(ev.data));
+    const onMessage = (event: { data: unknown }): void => {
+      this.handleMessage(String(event.data));
     };
-    // oxlint-disable-next-line unicorn/prefer-add-event-listener -- GAP [[01M1MHKS8EV3DD378TZSX44EJG]]
-    socket.onclose = () => {
-      if (socket !== this.socket) return;
-      this.socket = null;
-      if (!this.closedByUser) this.scheduleReconnect();
+    const onClose = (): void => {
+      this.dropSocket();
+      // No-op once the caller has disconnected; scheduleReconnect owns that test.
+      this.scheduleReconnect();
     };
-    // oxlint-disable-next-line unicorn/prefer-add-event-listener -- GAP [[01M1MHKS8EV3DD378TZSX44EJG]]
-    socket.onerror = () => {
-      // onclose follows; nothing to do here
+
+    socket.addEventListener("open", onOpen);
+    socket.addEventListener("message", onMessage);
+    socket.addEventListener("close", onClose);
+    this.detachSocket = () => {
+      socket.removeEventListener("open", onOpen);
+      socket.removeEventListener("message", onMessage);
+      socket.removeEventListener("close", onClose);
     };
+  }
+
+  /**
+   * Forget the current socket. Detaching is what makes it forgotten — with the
+   * listeners off, a late frame from an abandoned socket cannot reach us, so
+   * no handler has to re-check which socket it belongs to.
+   */
+  private dropSocket(): void {
+    this.detachSocket?.();
+    this.detachSocket = null;
+    this.socket = null;
   }
 
   private scheduleReconnect(): void {

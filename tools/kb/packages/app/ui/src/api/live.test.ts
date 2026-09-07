@@ -5,21 +5,7 @@ import { fixtureGraph } from "@/fixtures/graph";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { createLiveClient } from "./live";
-import type { WsLike } from "./ws";
-
-class FakeSocket implements WsLike {
-  onopen: (() => void) | null = null;
-  onclose: (() => void) | null = null;
-  onerror: (() => void) | null = null;
-  onmessage: ((ev: { data: unknown }) => void) | null = null;
-  sent: string[] = [];
-  send(data: string): void {
-    this.sent.push(data);
-  }
-  close(): void {
-    this.onclose?.();
-  }
-}
+import { FakeWsSocket } from "@/test-support/ws";
 
 function resetStore(): void {
   resetOutlineStore();
@@ -61,16 +47,14 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
     useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, 1, "api");
     const fetchStub = stubFetch(async () => new Response("{}"));
 
-    const socket = new FakeSocket();
+    const socket = new FakeWsSocket();
     const client = createLiveClient({ url: "ws://test/ws", makeSocket: () => socket });
     client.connect();
-    socket.onopen?.();
-    socket.onmessage?.({ data: JSON.stringify({ op: "hello", rev: 1 }) });
+    socket.accept();
+    socket.deliver({ op: "hello", rev: 1 });
 
     // rev jumps 1 → 3: ask, do not refetch.
-    socket.onmessage?.({
-      data: JSON.stringify({ op: "tx", rev: 3, upserts: [], deletes: [] }),
-    });
+    socket.deliver({ op: "tx", rev: 3, upserts: [], deletes: [] });
     expect(socket.sent.map((s) => JSON.parse(s) as { op: string })).toContainEqual({
       op: "since",
       rev: 1,
@@ -85,12 +69,8 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
       createdAt: "2026-08-08T00:00:00.000Z",
       updatedAt: "2026-08-08T00:00:00.000Z",
     };
-    socket.onmessage?.({
-      data: JSON.stringify({ op: "tx", rev: 2, upserts: [arrived], deletes: [] }),
-    });
-    socket.onmessage?.({
-      data: JSON.stringify({ op: "tx", rev: 3, upserts: [], deletes: [] }),
-    });
+    socket.deliver({ op: "tx", rev: 2, upserts: [arrived], deletes: [] });
+    socket.deliver({ op: "tx", rev: 3, upserts: [], deletes: [] });
     expect(useOutlineStore.getState().rev).toBe(3);
     expect(useOutlineStore.getState().nodes.has("n.from-since")).toBe(true);
     expect(fetchStub.calls).toEqual([]);
@@ -120,22 +100,20 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
       });
     });
 
-    const socket = new FakeSocket();
+    const socket = new FakeWsSocket();
     const client = createLiveClient({
       url: "ws://test/ws",
       makeSocket: () => socket,
     });
     client.connect();
-    socket.onopen?.();
-    socket.onmessage?.({ data: JSON.stringify({ op: "hello", rev: 1 }) });
+    socket.accept();
+    socket.deliver({ op: "hello", rev: 1 });
     expect(fetchStub.calls).toEqual([]); // revs agree — nothing to ask
 
     // rev jumps 1 → 5, and the server's log no longer covers rev 2.
-    socket.onmessage?.({
-      data: JSON.stringify({ op: "tx", rev: 5, upserts: [], deletes: [] }),
-    });
+    socket.deliver({ op: "tx", rev: 5, upserts: [], deletes: [] });
     expect(fetchStub.calls).toEqual([]);
-    socket.onmessage?.({ data: JSON.stringify({ op: "snapshot-required", head: 5 }) });
+    socket.deliver({ op: "snapshot-required", head: 5 });
     expect(fetchStub.calls).toEqual(["/api/graph"]);
     await until(() => useOutlineStore.getState().rev === 5);
     expect(useOutlineStore.getState().nodes.has("n.from-resync")).toBe(true);
@@ -152,18 +130,18 @@ describe("live wiring: a gap is caught up, a snapshot is the fallback", () => {
         }),
     );
 
-    const socket = new FakeSocket();
+    const socket = new FakeWsSocket();
     const client = createLiveClient({
       url: "ws://test/ws",
       makeSocket: () => socket,
     });
     client.connect();
-    socket.onopen?.();
+    socket.accept();
     // A restart resets the per-server rev counter: the client's rev 3 is
     // ahead of head, so the log cannot express the difference as frames.
-    socket.onmessage?.({ data: JSON.stringify({ op: "hello", rev: 0 }) });
+    socket.deliver({ op: "hello", rev: 0 });
     expect(fetchStub.calls).toEqual([]);
-    socket.onmessage?.({ data: JSON.stringify({ op: "snapshot-required", head: 0 }) });
+    socket.deliver({ op: "snapshot-required", head: 0 });
     expect(fetchStub.calls).toEqual(["/api/graph"]);
     await until(() => useOutlineStore.getState().rev === fixtureGraph.rev);
     client.disconnect();

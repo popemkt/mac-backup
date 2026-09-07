@@ -8,6 +8,7 @@ import {
   type WireNode,
 } from "@kb/contracts";
 import { KbWsClient, type TxDelta, type WsLike } from "./ws";
+import { FakeWsSocket } from "@/test-support/ws";
 
 /**
  * Mock server built from protocol.ts schemas: every frame the client sends
@@ -15,54 +16,40 @@ import { KbWsClient, type TxDelta, type WsLike } from "./ws";
  * validated against ServerMessageSchema. Wire-contract violations fail the
  * test at the boundary, exactly like a strict server would.
  */
-class FakeSocket implements WsLike {
-  onopen: (() => void) | null = null;
-  onclose: (() => void) | null = null;
-  onerror: (() => void) | null = null;
-  onmessage: ((ev: { data: unknown }) => void) | null = null;
-  sent: ClientMessage[] = [];
-  closed = false;
-
-  send(data: string): void {
-    this.sent.push(ClientMessageSchema.parse(JSON.parse(data)));
-  }
-
-  close(): void {
-    this.closed = true;
-    this.onclose?.();
-  }
-}
-
 class MockServer {
-  sockets: FakeSocket[] = [];
+  sockets: FakeWsSocket[] = [];
 
   makeSocket = (): WsLike => {
-    const s = new FakeSocket();
+    const s = new FakeWsSocket();
     this.sockets.push(s);
     return s;
   };
 
-  get socket(): FakeSocket {
+  get socket(): FakeWsSocket {
     return present(this.sockets.at(-1), "latest socket");
   }
 
   /** Accept the connection and send the protocol hello. */
   accept(rev: number): void {
-    this.socket.onopen?.();
+    this.socket.accept();
     this.push({ op: "hello", rev });
   }
 
   push(msg: ServerMessage): void {
-    const validated = ServerMessageSchema.parse(msg);
-    this.socket.onmessage?.({ data: JSON.stringify(validated) });
+    this.socket.deliver(ServerMessageSchema.parse(msg));
   }
 
   drop(): void {
-    this.socket.onclose?.();
+    this.socket.drop();
+  }
+
+  /** Every frame the client has sent, validated against the wire contract. */
+  get sent(): ClientMessage[] {
+    return this.socket.sent.map((raw) => ClientMessageSchema.parse(JSON.parse(raw)));
   }
 
   received(op: ClientMessage["op"]): ClientMessage[] {
-    return this.socket.sent.filter((m) => m.op === op);
+    return this.sent.filter((m) => m.op === op);
   }
 }
 
@@ -289,9 +276,9 @@ describe("KbWsClient", () => {
     const h = makeHarness();
     h.client.connect();
     h.server.accept(0);
-    h.server.socket.onmessage?.({
-      data: JSON.stringify({ op: "tx", rev: "not-a-number" }),
-    });
+    // Bypasses MockServer.push on purpose: this frame is invalid, so it has to
+    // reach the client without passing ServerMessageSchema on the way out.
+    h.server.socket.deliver({ op: "tx", rev: "not-a-number" });
     expect(h.errors.some((e) => e.code === "invalid_server_message")).toBe(true);
     expect(h.txs).toEqual([]);
   });

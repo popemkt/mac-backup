@@ -4,7 +4,7 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { KbWsClient, type WsLike } from "@/api/ws";
+import { KbWsClient } from "@/api/ws";
 import { fixtureGraph } from "@/fixtures/graph";
 import {
   isQueryNode,
@@ -15,6 +15,7 @@ import {
 } from "@/lib/query-node";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
+import { FakeWsSocket } from "@/test-support/ws";
 import type { WireNode } from "@kb/contracts";
 
 const EDN = "[:find ?id ?text :where [?n :node/id ?id] [?n :node/text ?text]]";
@@ -35,20 +36,6 @@ function queryWire(id = "n.q1", extraProps: WireNode["props"] = {}): WireNode {
 
 function hydrate(extra: WireNode[] = []): void {
   useOutlineStore.getState().hydrateFromWire([...fixtureGraph.nodes, ...extra], 1, "fixtures");
-}
-
-class FakeSocket implements WsLike {
-  onopen: (() => void) | null = null;
-  onclose: (() => void) | null = null;
-  onerror: (() => void) | null = null;
-  onmessage: ((ev: { data: unknown }) => void) | null = null;
-  sent: string[] = [];
-  send(data: string): void {
-    this.sent.push(data);
-  }
-  close(): void {
-    this.onclose?.();
-  }
 }
 
 beforeEach(() => {
@@ -186,21 +173,21 @@ describe("query node collapse state (cheap-by-default)", () => {
   });
 });
 
-describe("subscribe/unsubscribe lifecycle over /ws", () => {
-  function openClient(): { client: KbWsClient; socket: FakeSocket } {
-    const socket = new FakeSocket();
-    const client = new KbWsClient({
-      url: "ws://test/ws",
-      makeSocket: () => socket,
-      getRev: () => 1,
-      onTx: () => {},
-      onGap: () => {},
-    });
-    client.connect();
-    socket.onopen?.();
-    return { client, socket };
-  }
+function openClient(): { client: KbWsClient; socket: FakeWsSocket } {
+  const socket = new FakeWsSocket();
+  const client = new KbWsClient({
+    url: "ws://test/ws",
+    makeSocket: () => socket,
+    getRev: () => 1,
+    onTx: () => {},
+    onGap: () => {},
+  });
+  client.connect();
+  socket.accept();
+  return { client, socket };
+}
 
+describe("subscribe/unsubscribe lifecycle over /ws", () => {
   it("expand → subscribe frame, rows delivered, collapse → unsubscribe", () => {
     const { client, socket } = openClient();
     const got: unknown[][][] = [];
@@ -216,13 +203,11 @@ describe("subscribe/unsubscribe lifecycle over /ws", () => {
       query: EDN,
     });
 
-    socket.onmessage?.({
-      data: JSON.stringify({
-        op: "rows",
-        id: querySubscriptionId("n.q1"),
-        rev: 1,
-        rows: [["n.root-a", "Ship kb ui shell"]],
-      }),
+    socket.deliver({
+      op: "rows",
+      id: querySubscriptionId("n.q1"),
+      rev: 1,
+      rows: [["n.root-a", "Ship kb ui shell"]],
     });
     expect(got).toEqual([[["n.root-a", "Ship kb ui shell"]]]);
 
@@ -237,13 +222,11 @@ describe("subscribe/unsubscribe lifecycle over /ws", () => {
     });
 
     // Late rows for a dead subscription never reach the callback.
-    socket.onmessage?.({
-      data: JSON.stringify({
-        op: "rows",
-        id: querySubscriptionId("n.q1"),
-        rev: 2,
-        rows: [["n.root-b", "late"]],
-      }),
+    socket.deliver({
+      op: "rows",
+      id: querySubscriptionId("n.q1"),
+      rev: 2,
+      rows: [["n.root-b", "late"]],
     });
     expect(got.length).toBe(1);
     client.disconnect();
@@ -255,11 +238,11 @@ describe("subscribe/unsubscribe lifecycle over /ws", () => {
     socket.sent.length = 0;
 
     // Drop and reopen the socket (client reconnects with same subs).
-    socket.onclose?.();
+    socket.drop();
     // KbWsClient schedules reconnect; simulate by reconnecting directly.
     client.connect();
     // connect() replaced the socket via makeSocket — same fake instance.
-    socket.onopen?.();
+    socket.accept();
     const frames = socket.sent.map((f) => JSON.parse(f) as { op: string; id?: string });
     expect(frames.some((f) => f.op === "subscribe" && f.id === querySubscriptionId("n.q1"))).toBe(
       true,
