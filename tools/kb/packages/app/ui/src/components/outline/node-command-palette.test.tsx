@@ -16,7 +16,7 @@ import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
-import { REF_SEED_WIRES } from "@/fixtures/contextual-ref";
+import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { isPinned } from "@/lib/pinned";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
@@ -42,6 +42,12 @@ function graph(): WireNode[] {
     }),
     ...REF_SEED_WIRES,
     wire({ id: SYSTEM_IDS.pinnedRoot, text: "Pinned" }),
+    wire({
+      id: "n.query",
+      text: "A saved query",
+      props: { [SYSTEM_IDS.queryField]: [{ t: "str", v: "[:find ?e :where [?e]]" }] },
+    }),
+    ctxRefWire("n.ref", "n.plain"),
   ];
 }
 
@@ -150,5 +156,85 @@ describe("node command palette", () => {
     // A sibling is untouched — the flag is per node, not global.
     await open("t.super");
     expect(labels()).toContain("Show debug fields");
+  });
+
+  /**
+   * The command set a node offers, in order (GAPs
+   * [[01M1MGCF0ECBDEPTHPKMSQ4YFD]] / [[01M1MGCRNVNBE5HW27Z83PK67B]]).
+   *
+   * Pinned as whole ordered lists rather than `toContain` checks: assembly by
+   * splice makes position a function of which conditions fired, and that
+   * ordering is the part a registry has to reproduce.
+   */
+  it("lists every command a plain node offers, in order", async () => {
+    await open("n.plain");
+    expect(labels()).toEqual([
+      "Add tag",
+      "Turn into query",
+      "Turn into reference…",
+      "Add field",
+      "Make supertag",
+      "Search everything… ⌘S",
+      "Indent",
+      "Outdent",
+      "Pin",
+      "Show debug fields",
+      "Delete node",
+      "View as: List",
+      "View as: Table",
+      "View as: Board",
+      "View as: Cards",
+      "Filter…",
+    ]);
+  });
+
+  it("drops Make supertag on a supertag, keeping the rest in order", async () => {
+    await open("t.super");
+    expect(labels()).toEqual([
+      "Add tag",
+      "Turn into query",
+      "Turn into reference…",
+      "Add field",
+      "Search everything… ⌘S",
+      "Indent",
+      "Outdent",
+      "Pin",
+      "Show debug fields",
+      "Delete node",
+      "View as: List",
+      "View as: Table",
+      "View as: Board",
+      "View as: Cards",
+      "Filter…",
+    ]);
+  });
+
+  it("drops Turn into query on a node that already is one", async () => {
+    await open("n.query");
+    expect(labels()).not.toContain("Turn into query");
+    expect(labels()[1]).toBe("Turn into reference…");
+  });
+
+  it("drops Turn into reference on a node that already is one", async () => {
+    await open("n.ref");
+    expect(labels()).not.toContain("Turn into reference…");
+    expect(labels()[1]).toBe("Turn into query");
+  });
+
+  it("Add tag opens the tag picker step", async () => {
+    await open("n.plain");
+    const row = [...dom.document.querySelectorAll('[data-palette-list="true"] button')].find(
+      (b) => b.textContent.trim() === "Add tag",
+    ) as HTMLElement | undefined;
+    await act(async () => {
+      present(row, "add tag row").click();
+    });
+    const input = dom.document.querySelector('[role="dialog"] input') as unknown as
+      | HTMLInputElement
+      | undefined;
+    expect(present(input, "picker input").placeholder).toBe("Search or name a tag...");
+    expect(dom.document.querySelector('[role="dialog"]')?.getAttribute("aria-label")).toBe(
+      "Add tag",
+    );
   });
 });
