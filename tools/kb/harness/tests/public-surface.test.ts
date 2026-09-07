@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { reExportsOf } from "../src/import-graph.ts";
+import { reExportsOf, resolvedImports, surfaceBypass } from "../src/import-graph.ts";
 import { PACKAGES_ROOT, workspacePackages } from "../src/workspace.ts";
 
 /**
@@ -58,6 +58,19 @@ describe("public-surface", () => {
       }
     }
     expect(bad, bad.join("\n")).toEqual([]);
+  });
+
+  test("every cross-package import names the package it reaches", () => {
+    // The barrel is only the surface if nothing can go around it. A
+    // `@kb/other/src/thing.ts` subpath and a relative path that climbs out of
+    // its own package both reach code the target never published, and neither
+    // is recorded by any manifest — it resolves by accident of hoisting.
+    // Red case (import-graph fixtures): see tests/import-graph.test.ts.
+    const bypasses = resolvedImports()
+      .map((imp) => surfaceBypass(imp))
+      .filter((message): message is string => message !== undefined)
+      .toSorted();
+    expect(bypasses, bypasses.join("\n")).toEqual([]);
   });
 
   test("no barrel re-exports another package's symbols", () => {
