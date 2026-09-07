@@ -8,7 +8,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { MemberRow } from "@/components/ontology/member-row";
-import { OntologyPicker } from "@/components/ontology/ontology-picker";
+import { OntologyPicker } from "@/components/ui/ontology-picker";
 import { OntologyScopeBar } from "@/components/ontology/ontology-scope-bar";
 
 describe("MemberRow", () => {

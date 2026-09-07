@@ -1,9 +1,8 @@
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   GraphIcon,
   HexagonIcon,
   HouseIcon,
-  ListIcon,
   PlusIcon,
   PushPinIcon,
   SquareIcon,
@@ -12,6 +11,7 @@ import { hasText } from "@/lib/text";
 import { mutations } from "@/actions/mutations";
 import { createCanvasNode } from "@/lib/canvas-api";
 import { cn } from "@/lib/cn";
+import { sidebarRegionProps } from "@/lib/dom";
 import { graphPath, matchRoute, navigate, ontologyPath, usePath } from "@/lib/router";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
@@ -23,34 +23,6 @@ import {
 } from "./sidebar-nav";
 
 const SIDEBAR_WIDTH_PX = 220;
-
-export function SidebarToggle({ className }: { className?: string }) {
-  const open = usePrefsStore((s) => s.sidebarOpen);
-  const toggle = usePrefsStore((s) => s.toggleSidebar);
-  const ref = useRef<HTMLButtonElement>(null);
-  return (
-    <button
-      type="button"
-      className={cn(
-        "flex h-6 w-6 items-center justify-center rounded-md text-foreground/40 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/70",
-        className,
-      )}
-      aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
-      aria-expanded={open}
-      title={open ? "Collapse sidebar" : "Expand sidebar"}
-      onClick={() => {
-        const focusedInSidebar = document.activeElement?.closest('[data-sidebar="true"]');
-        toggle();
-        if (open && focusedInSidebar) {
-          requestAnimationFrame(() => ref.current?.focus());
-        }
-      }}
-      ref={ref}
-    >
-      <ListIcon size={15} />
-    </button>
-  );
-}
 
 function SidebarRow({
   label,
@@ -149,7 +121,7 @@ export function Sidebar() {
 
   return (
     <aside
-      data-sidebar="true"
+      {...sidebarRegionProps}
       aria-hidden={!open}
       inert={!open}
       className={cn(

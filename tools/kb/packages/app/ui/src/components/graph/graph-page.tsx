@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { WarningIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
-import { usePrefsStore, useDarkTheme } from "@/stores/prefs.store";
+import { usePrefsStore, useDarkTheme, useSidebarToggle } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import {
   buildTreeForest,
@@ -18,13 +18,13 @@ import { listOntologyItems } from "@/lib/ontology-scope";
 import { SYSTEM_IDS } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { graphPath, navigate, ontologyPath } from "@/lib/router";
-import { OntologyPicker } from "@/components/ontology/ontology-picker"; // GAP [[01M1RXNHJ8S019678AYDKWYE63]]
+import { OntologyPicker } from "@/components/ui/ontology-picker";
 import { PerspectivePicker } from "@/components/graph/perspective-picker";
 import { RendererSwitch } from "@/components/graph/renderer-switch";
 import { GraphCanvasFrame } from "@/components/graph/graph-canvas-frame";
 import type { GraphCameraControls } from "@/components/graph/graph-camera-controls";
 import { selectionFromNode, type GraphSelection } from "@/components/graph/graph-selection";
-import { SidebarToggle } from "@/components/sidebar/sidebar"; // GAP [[01M1RXNJHCH2Q5HCKQNEKVQGKD]]
+import { SidebarToggle } from "@/components/ui/sidebar-toggle";
 import { ThemeIcon } from "@/components/ui/theme-icon";
 import { WorkspaceState } from "@/components/ui/workspace-state";
 
@@ -48,6 +48,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   const ontologyMembers = useOutlineStore((s) => s.ontologyMembers);
   const theme = usePrefsStore((s) => s.theme);
   const dark = useDarkTheme();
+  const sidebar = useSidebarToggle();
   const prefsOpen = useUiStore((s) => s.prefsOpen);
   const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
 
@@ -166,7 +167,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <header className="flex min-h-11 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-foreground/[0.06] px-4 py-2">
-        <SidebarToggle />
+        <SidebarToggle {...sidebar} />
         <span className="text-[13px] font-medium text-foreground/50">
           {ontologyId !== null ? "ontology graph" : "graph"}
         </span>
