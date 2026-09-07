@@ -59,7 +59,9 @@ export const KbNodeSchema = Schema.Struct({
   text: Schema.String,
   props: Schema.Record(Schema.String, Schema.mutable(Schema.Array(PropValueSchema))),
   children: Schema.mutable(Schema.Array(Schema.String)),
-  order: Schema.optionalKey(Schema.String),
+  // Absence is the only way to be unranked: `""` would be a second spelling
+  // of the same state, and `rankOf` would have to keep testing for both.
+  order: Schema.optionalKey(Schema.NonEmptyString),
   createdAt: Schema.String,
   updatedAt: Schema.String,
 });

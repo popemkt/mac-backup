@@ -59,7 +59,7 @@ export const nodeAddDef = {
     props: z.array(PropInputSchema).optional(),
     parent: z.string().optional(),
     position: z.number().int().nonnegative().optional(),
-    order: z.string().optional(),
+    order: z.string().min(1).optional(),
     tags: z.array(z.string()).optional(),
     id: z.string().optional(),
     /** Bypass sys.* write-guard (browse yes / break no). */
@@ -83,7 +83,7 @@ export const nodeUpdateDef = {
     unsetProps: z.array(z.object({ field: z.string(), value: z.unknown().optional() })).optional(),
     parent: z.string().nullable().optional(),
     position: z.number().int().nonnegative().optional(),
-    order: z.string().optional(),
+    order: z.string().min(1).optional(),
     delete: z.boolean().optional(),
     /** Parent deletion is never implicitly shallow; cascade is the default. */
     descendants: z.enum(["cascade", "reparent"]).optional(),
@@ -332,7 +332,7 @@ export const nodeAddEffect = Effect.fn("node.add")(function* (
     text: input.text,
     props,
     children: [],
-    ...(input.order !== undefined && input.order !== "" ? { order: input.order } : {}),
+    ...(input.order !== undefined ? { order: input.order } : {}),
     createdAt: at,
     updatedAt: at,
   };
