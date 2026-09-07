@@ -26,7 +26,6 @@
       "exports:packages/app/ui/src/lib/canvas-tool.ts:isShapeTool": 1,
       "exports:packages/app/ui/src/lib/css-color.ts:FORCE3D_SAFE_COLOR": 1,
       "exports:packages/app/ui/src/lib/field-type.ts:expectedPropKind": 1,
-      "exports:packages/app/ui/src/lib/field-type.ts:FIELD_TYPES": 1,
       "exports:packages/app/ui/src/lib/field-type.ts:isFieldType": 1,
       "exports:packages/app/ui/src/lib/field-visibility.ts:isPropHiddenByDefault": 1,
       "exports:packages/app/ui/src/lib/field-visibility.ts:SCHEMA_SURFACE_FIELDS": 1,
