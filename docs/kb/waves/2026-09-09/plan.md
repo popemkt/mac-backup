@@ -22,24 +22,42 @@ owned by g1.
 | id | brief | zone | gaps | status |
 |---|---|---|---|---|
 | g1 | `briefs/g1-graph-options.md` | `domain/model` seed + graph schema, `ui/lib/graph-*`, both `.kb` stores | origin's option tags (no gap node — it never reached main) | merged `7f56ea3`, reviewer MERGE no findings; `main` ff'd to it. `kinds.test.ts` green unedited. One UI flake seen once under 3 concurrent runs (`editor-behavior` D10), 3/3 green in isolation |
-| g3 | `briefs/g3-canvas.md` | `ui/components/canvas/**`, `ui/lib/canvas-*` | `01M1TAE8HKYARYNTAVNMP566GV` `01M1TAE8V1GDX971M2A6NC4DS1` `01M1MGCSQY0M708HYYTWHP0XP2` `01M1MGCT80E1FMXMEAEATS1VER` `01M1MGCS6A29HT51G40W5TEEYK` `01M1MGCTRFEHBF15DSCNDXW0GZ` `01M1RXNGSJT2J2VHDSYY7QJSD3` | dispatched |
-| g4 | `briefs/g4-outline-keys-commands.md` | `ui/lib/*keymap*`, `ui/lib/run-command.ts`, `ui/components/outline/node-command-palette*`, outline keydown | `01M1MGCH7SD69CRSSV75X789QW` `01M1MGCDRS0K28YBF1Q86YY61S` `01M1MGCQKVQCG3H9YYCWQX0A0Y` `01M1MGCRNVNBE5HW27Z83PK67B` `01M1MGCF0ECBDEPTHPKMSQ4YFD` `01M1RXMQPVJKREGDS7D37J1MWN` (run-command part) | dispatched |
-| g6 | `briefs/g6-backend-small.md` | `application/operations`, `app/server`, `ui/api/ws*`, `.gitattributes` + merge driver, `.oxlintrc.json` (one option), `ui/stores/outline.store.ts` (two deletions) | `01M1PJSSQYFV2E160JANGBPKCK` `01M1PK5NYA7ZG3XC0H0YRYRVZE` `01M1QZNM17MTGGPE517NVZYJT0` `01M1M08WYY9X6HFNN5GKDCC47E` `01M1MHKS8EV3DD378TZSX44EJG` `01M1R19NXBMTVQG6AH0S7VTC7D` `01M1MGT3K0DNGEQFXQNZYE83NY` `01M1MFS8RQ2BMQVZD02J4TQT7W` | dispatched |
+| g3 | `briefs/g3-canvas.md` | `ui/components/canvas/**`, `ui/lib/canvas-*` | `01M1TAE8HKYARYNTAVNMP566GV` `01M1TAE8V1GDX971M2A6NC4DS1` `01M1MGCSQY0M708HYYTWHP0XP2` `01M1MGCT80E1FMXMEAEATS1VER` `01M1MGCS6A29HT51G40W5TEEYK` `01M1MGCTRFEHBF15DSCNDXW0GZ` `01M1RXNGSJT2J2VHDSYY7QJSD3` | merged `27662dc`; 6/7 closed, gap 7 blocked → g2 |
+| g4 | `briefs/g4-outline-keys-commands.md` | `ui/lib/*keymap*`, `ui/lib/run-command.ts`, `ui/components/outline/node-command-palette*`, outline keydown | `01M1MGCH7SD69CRSSV75X789QW` `01M1MGCDRS0K28YBF1Q86YY61S` `01M1MGCQKVQCG3H9YYCWQX0A0Y` `01M1MGCRNVNBE5HW27Z83PK67B` `01M1MGCF0ECBDEPTHPKMSQ4YFD` `01M1RXMQPVJKREGDS7D37J1MWN` (run-command part) | merged `0cd4283`; 5/6 closed + one third; filed `01M1XA98A0A7PWEPMHG2T4R5GP` (ui tests share store under parallelism) |
+| g6 | `briefs/g6-backend-small.md` | `application/operations`, `app/server`, `ui/api/ws*`, `.gitattributes` + merge driver, `.oxlintrc.json` (one option), `ui/stores/outline.store.ts` (two deletions) | `01M1PJSSQYFV2E160JANGBPKCK` `01M1PK5NYA7ZG3XC0H0YRYRVZE` `01M1QZNM17MTGGPE517NVZYJT0` `01M1M08WYY9X6HFNN5GKDCC47E` `01M1MHKS8EV3DD378TZSX44EJG` `01M1R19NXBMTVQG6AH0S7VTC7D` `01M1MGT3K0DNGEQFXQNZYE83NY` `01M1MFS8RQ2BMQVZD02J4TQT7W` | merged `47eee74`; 6 closed, 2 half (JSONL fingerprint, read-set gate); merge driver live in this clone; filed `01M1X8VQT1P6E45NBTQEQ96YDR` (DST timeout under load) |
 
 Merge order: g1 first (makes the branch green), then g3 / g4 / g6 in the order
 they finish. Coordinator reviews each against Rule 1 before merging.
 
-## Batch 2 (after batch 1 is on main)
+## Batch 1 close-out (2026-09-07)
 
-- g2 primitives: MdView, OntologyPicker, SidebarToggle, PrefFieldRow into
-  `components/ui/`; `api/graph.ts` fixture; two outline components running
-  DataScript directly; the live-query subscription out of a component.
-- g5 editor registry: FieldRow, PropValueEditor, RefEditor hook, Bullet
-  appearance, NodeBlock chrome, table columns, sort comparator.
-- g7 durable tx log (`.kb/tx.jsonl` under the JSONL lock; table on sqlite) +
-  saved-query virtual nodes as logged transactions.
-- g8 domain typing: `parsePerspective`, `getViewConfig`, `KbNode.order`
-  through one Schema each.
+`main` = `kb-merge-origin` @ `0cd4283`. Gates on that tip: verify green,
+packages 449 pass / 0 fail, UI 891 / 891. 20 gaps closed, 2 half-closed, 2
+filed. Coordinator fix-ups at merge: g4's new files carried four
+`promise/always-return` disables that g6 had made unused (lint error) —
+deleted; two live-store edits from the running kb UI committed as data before
+each merge; the `nodes.jsonl` merge driver from g6 resolved the g4 store merge
+by itself on first use. Reviewer notes: g4's "one line changed" claim about
+its characterization tests understated — the diff is harness hardening
+(`settle()`, polling reads, marker rewording), no assertion changed meaning.
+Flakes seen under load (editor-behavior §3.3/D10, palette perf bar, DST
+timeouts) are covered by gaps `01M1XA98A0A7PWEPMHG2T4R5GP` and
+`01M1X8VQT1P6E45NBTQEQ96YDR`; not filed twice.
+
+## Batch 2 (parallel, disjoint zones; base `kb-merge-origin` @ batch-1 tip)
+
+| id | brief | zone | status |
+|---|---|---|---|
+| g2 | `briefs/g2-primitives.md` | `components/ui/` promotions, `api/graph.ts`, ds/live-query out of components, toast + canvas-api thirds, caret gap, gap 7 retry | dispatched |
+| g5 | `briefs/g5-editor-registry.md` | field editors registry, RefEditor hook, bullet appearance, row chrome, table columns, sort | dispatched |
+| g7 | `briefs/g7-durable-tx-log.md` | `KbTxLog` durable tail on both stores, migrate, saved-query virtual tx | dispatched |
+| g8 | `briefs/g8-domain-typing.md` | `parsePerspective` / `getViewConfig` Schemas, `KbNode.order` discriminator | dispatched |
+
+g2 and g5 both live in `components/outline/`; the briefs partition the files
+and tell each to expect one-line import rewrites from the other.
+
+## Batch 3 (after batch 2; touches comments repo-wide)
+
 - g9 harness: suppression grammar to oxlint form (unskip), import-graph
   bypasses, pre-commit admission from the index snapshot.
 
