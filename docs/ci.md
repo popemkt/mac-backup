@@ -19,6 +19,81 @@ independent jobs that run in parallel because they share nothing:
   `bun run test:dst`, followed by the generated-docs check and the `.kb/assets`
   backup-ownership check.
 
+## Pre-commit: the same questions, one commit earlier
+
+`.githooks/pre-commit` is admission for this clone (registered in
+`intent/SURFACES.md`; installed with `git config core.hooksPath .githooks`).
+It runs the checks CI runs, and it runs them against a **reconstructed index
+snapshot** — a detached linked worktree of `git write-tree` — never against
+the working tree. That is the point of it: an unstaged fix must not be able to
+mask a staged defect. Stage a defect, fix it in the working copy only, and the
+hook fails on the staged content, which is what will be committed.
+
+Two mechanics worth knowing, both learned the hard way:
+
+- **A `git checkout-index` directory is not enough.** The kb harness reads the
+  tree through `git ls-files` and `git check-ignore`, so a snapshot that is not
+  a git repository fails eight of its own checks for the wrong reason. (`git
+  stash --keep-index` is not a candidate at all — it moves the user's tree,
+  which is the one thing a hook must not do.)
+- **git exports `GIT_DIR` and `GIT_INDEX_FILE` into a hook**, and they name the
+  committing repository. `git worktree add` that inherits `GIT_INDEX_FILE`
+  checks the files out but leaves the new worktree's index *empty*, and then
+  every tree-reading check passes on no files at all — a green hook that
+  checked nothing. The hook scrubs those variables for every snapshot-directed
+  git command and then asserts the snapshot's index equals its HEAD.
+
+The snapshot borrows the checkout's `node_modules` rather than installing: the
+content-addressed store and the caches by absolute symlink, every other entry
+copied as the symlink it already is. That last part matters — a package's
+`node_modules/@kb/<member>` link is relative to a sibling source directory, so
+copied it resolves inside the snapshot, and shared it would resolve back into
+the working tree.
+
+### What triggers what
+
+Each check runs when the staged paths include one of its own inputs. Unstaged
+edits are invisible in the snapshot, so a check whose every input is unchanged
+there has a known answer already:
+
+| Check | Runs when the commit stages |
+|---|---|
+| kb generated docs (`docs-check.ts`) | `.kb/**`, `docs/kb/**`, `tools/kb/**` |
+| `.kb/assets` backup ownership | `.kb/**`, `.gitignore`, `docs/backup-strategy.md`, `modules/darwin/home-manager/mackup.nix`, `scripts/check-kb-assets-backup.sh` |
+| `bun run verify` (kb workspace) | `.kb/**`, `tools/kb/**`, `docs/kb/**`, `CLAUDE.md`, any `AGENTS.md`, `.githooks/**`, `.github/workflows/*.yml` |
+| Nix lane — `nixfmt`, `statix`, `deadnix`, `nix flake check`, release pins | any `*.nix`, plus `nvfetcher.toml`, `_sources/**`, `pkgs/**` for the pins |
+
+`verify`'s row reaches past the kb workspace because `verify` ends in
+`bun run check:audit`, and `ext.check.audit` reads every `#rule`'s `home` file
+(`CLAUDE.md`, `tools/kb/AGENTS.md`, `tools/kb/DESIGN.md`) and every `#check`'s
+`evidence` file, plus the surface files in `@kb/ext-check`'s `SURFACE_FILES` —
+this hook and the workflows. Staging a governance or policy file changes that
+check's answer, so it runs.
+
+The Nix lane keeps its own separate snapshot, built by `intent/gate.sh record`
+with `git checkout-index`. That is deliberate rather than a leftover: those
+checks feed `nix flake check "path:…"`, which copies the whole directory into
+the store, so that snapshot has to stay a pristine ~9 MB checkout with no
+`node_modules` in it. One index, two shapes, each built where its requirement
+is stated.
+
+### Cost
+
+Wall time on this machine, hook run under the environment a real commit gives
+it, new against the previous working-tree hook:
+
+| Commit shape | Before | After |
+|---|---|---|
+| kb source (`tools/kb/**`) | 35.7 / 37.7 s | 38.4 / 39.4 s |
+| Nix only | 16.6 s | 16.4 s |
+| A doc outside the governed set | 16.3 s | 12.6 s |
+| A doc inside it (`docs/kb/**`) | 14.6 s | 39.7 s |
+
+The snapshot costs about 3 s (0.4 s for the worktree, 2.7 s to mirror
+`node_modules`), and the narrower triggers give most of it back. The last row
+is not a regression: `verify` did not run on a governed-doc commit before, and
+that was the coverage gap.
+
 ## Why the kb job looks the way it does
 
 - **It calls `bun run verify`, not its constituent tools.** `verify` is the one
