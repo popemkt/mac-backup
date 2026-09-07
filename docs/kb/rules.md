@@ -134,14 +134,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Domain typing — one canonical schema
 - **node** — `01M1PJWF4G6W4122ZE4K67319V`
 
-### GAP: getViewConfig decodes view props with 45 branches
-
-- **expected** — View configuration decodes through one Schema with declared defaults, the same way every other node-backed config should.
-- **current** — getViewConfig reads roughly a dozen props, each with its own presence check, type check and default.
-- **impact** — Defaults are duplicated between this function and the ontology, and a bad prop silently falls back per field.
-- **closes** — Track 2 domain typing: a ViewConfig Schema decoded once. Same gap as parsePerspective in graph-lens.
-- **node** — `01M1MGCJAKKST0C1R54VVX9HPX`
-
 ### GAP: GraphPage carries 35 branches of renderer and perspective selection
 
 - **expected** — GraphPage picks a renderer and hands it a resolved lens; renderer capability differences live in graph-capabilities.ts, not in the page.
@@ -183,15 +175,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — p1 Phase 3 (SqliteIndex): change the port's read signatures to Effect and the three injected-runner signatures with it.
 - **node** — `01M1PH06G67A9HHTTXFZVAZ3YF`
 
-### GAP: KbNode.order is optional and undeclared
-
-- **expected** — Sibling rank is part of the node schema, declared once, with the presence rule encoded rather than left optional.
-- **current** — KbNode.order is declared optional in the model and is absent from KbNodeSchema entirely; it survives the round trip only because decode uses onExcessProperty preserve.
-- **impact** — The one field the outline depends on for ordering is invisible to the schema, so any backend with a real column or a stricter decode silently drops it.
-- **closes** — Track 2: declare order in the schema and encode the migration state as a discriminator instead of an optional field, keeping the byte-exact round trip test green.
-- **rule** — Domain typing — discriminator over optional
-- **node** — `01M1M08XNE3SBGY1MMNA1A73VX`
-
 ### GAP: main has no required branch protection
 
 - **expected** — Branch protection requires the Nix and KB validation checks before main can advance.
@@ -209,13 +192,13 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Track 2 phase work in briefs/p1-persistence.md. Trigger: measured commit latency at real node counts hurts, or node.get needs to stop materializing everything.
 - **node** — `01M1M08WEYJNEFDZVECN9QKEWT`
 
-### GAP: parsePerspective decodes a perspective node with 27 hand-written branches
+### GAP: node-config decode warnings reach the browser log, not the UI
 
-- **expected** — A #graph-perspective node decodes through one Schema (effect Schema, as DESIGN.md's domain-typing section states), so defaults, coercion and validation live in the schema rather than in per-field ternaries.
-- **current** — parsePerspective reads each lens prop with its own str/num/bool helper plus a fallback ternary, 27 branches in one function.
-- **impact** — Field defaults are stated once per field in code and again in the ontology, and a malformed prop degrades silently per field instead of failing the decode.
-- **closes** — Track 2 domain-typing work: express LensPerspective as a Schema and decode props through it. Not mechanical - it changes what happens on malformed input.
-- **node** — `01M1MGCEBYDFRNJX1JKXXN825H`
+- **expected** — A malformed config prop is visible where the config is: a badge or bar beside the graph / view frame, the way resolveOntology's warnings surface through ontology-scope-bar and ontology-page.
+- **current** — parsePerspective and getViewConfig report every ignored prop through @kb/ui's lib/log seam (console.warn). No component reads them, so a user editing a lens prop by hand sees the default applied and no explanation unless the devtools console is open.
+- **impact** — The policy is honest in code and invisible in the product: the one audience who could fix a malformed prop is the one who cannot see it. Repeat renders also re-log the same warning, because getViewConfig runs per node per render.
+- **closes** — Give the two decoders' reports a home in the ui the way ontology warnings have one — a store field plus a badge — and have the config surfaces read it instead of the log seam. Component + store work: out of g8's zone (docs/kb/waves/2026-09-09/briefs/g8-domain-typing.md).
+- **node** — `01M1XF1NA2RBAX1E6NNX6PMZ6N`
 
 ### GAP: pre-commit admission reads the working tree
 
@@ -504,6 +487,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Introduce the editor registry (it already half-exists in field-value.tsx) and have FieldRow look up rather than branch.
 - **node** — `01M1MGCHQH499KS0RV9J461F73`
 
+### GAP: getViewConfig decodes view props with 45 branches
+
+- **expected** — View configuration decodes through one Schema with declared defaults, the same way every other node-backed config should.
+- **current** — Closed by wave 2026-09-09 (g8). getViewConfig is an 8-line function over a VIEW_SLOTS table on the same node-config mechanism as parsePerspective. The seed declares no defaults for sys.f.view.* (it seeds the field nodes only), so the duplicate was between the function and DEFAULT_VIEW_CONFIG; the slot table now reads DEFAULT_VIEW_CONFIG rather than restating it. The complexity disable is gone.
+- **impact** — Defaults are duplicated between this function and the ontology, and a bad prop silently falls back per field.
+- **closes** — Track 2 domain typing: a ViewConfig Schema decoded once. Same gap as parsePerspective in graph-lens.
+- **node** — `01M1MGCJAKKST0C1R54VVX9HPX`
+
 ### GAP: GraphPage embeds the ontology surface's picker
 
 - **expected** — A surface composes its own chrome; a control shared by two surfaces is a primitive or is lifted into the shell that owns both.
@@ -530,6 +521,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Migrate legacy Promise handlers to EffectStore, remove Store from KbContext, and delete the Promise facade.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1PJVW0VZ283V1N3PDXFSHTC`
+
+### GAP: KbNode.order is optional and undeclared
+
+- **expected** — Sibling rank is part of the node schema, declared once, with the presence rule encoded rather than left optional.
+- **current** — Closed by wave 2026-09-09 (g8), on top of 9d8e111's declaration. KbNodeSchema.order is optionalKey(NonEmptyString) — absence is the only way to be unranked — and the migration state is the type: migrateOrderKeys returns RankedNode[], with rankOf/isRanked the one way to ask. The DST harness's undefined-rank filter is gone because there are none. Still open elsewhere: mutations.ts and graph-view.ts test a WIRE node's order against undefined, which the wire contract keeps optional on purpose.
+- **impact** — The one field the outline depends on for ordering is invisible to the schema, so any backend with a real column or a stricter decode silently drops it.
+- **closes** — Track 2: declare order in the schema and encode the migration state as a discriminator instead of an optional field, keeping the byte-exact round trip test green.
+- **rule** — Domain typing — discriminator over optional
+- **node** — `01M1M08XNE3SBGY1MMNA1A73VX`
 
 ### GAP: lib/ reaches up into the stores it should be a leaf below
 
@@ -588,6 +588,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Exactly the parallel-mechanism shape Rule 1 forbids: a change to caret behaviour has to be made twice, and the deprecation says which one is wrong without removing it.
 - **closes** — Delete cursorPosition from OutlineState, its initial value, its activateNode write, and the unread NodeTextHost prop. TypeScript excess-property checks then require removing 'cursorPosition: 0,' from the hand-copied store-reset literal in 24 ui test files, which is the whole remaining cost - one line each. The reset duplication itself is the obstacle; a shared resetOutlineStore() helper would make this a three-line change.
 - **node** — `01M1MGT307N4K243CBPJTXNG5X`
+
+### GAP: parsePerspective decodes a perspective node with 27 hand-written branches
+
+- **expected** — A #graph-perspective node decodes through one Schema (effect Schema, as DESIGN.md's domain-typing section states), so defaults, coercion and validation live in the schema rather than in per-field ternaries.
+- **current** — Closed by wave 2026-09-09 (g8). parsePerspective is a 4-line function: it decodes the LENS_SLOTS table through @kb/model's node-config, which is the one mechanism getViewConfig also uses. Each lens prop declares its field, carrier reader, Schema and default in one place; the complexity disable is gone. Malformed props fall back and are reported (see GAP: node-config decode warnings reach the browser log, not the UI for where the report lands).
+- **impact** — Field defaults are stated once per field in code and again in the ontology, and a malformed prop degrades silently per field instead of failing the decode.
+- **closes** — Track 2 domain-typing work: express LensPerspective as a Schema and decode props through it. Not mechanical - it changes what happens on malformed input.
+- **node** — `01M1MGCEBYDFRNJX1JKXXN825H`
 
 ### GAP: production api/graph.ts imports the graph test fixture
 

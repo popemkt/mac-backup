@@ -227,6 +227,6 @@ describe("W7 TableView & ViewToolbar", () => {
     const bad = getViewConfig({
       [SYSTEM_IDS.viewColwidthField]: [{ t: "str", v: JSON.stringify({ a: "x", b: 0, c: 120 }) }],
     });
-    expect(bad.colwidth).toEqual({ c: 120 });
+    expect(bad.colwidth).toEqual({});
   });
 });

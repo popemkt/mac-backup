@@ -2,12 +2,22 @@
  * V0 graph-lens module — pure extract of {nodes, edges} from client DataScript
  * + wire nodes, driven by a #graph-perspective node's lens props.
  */
+import { Schema, SchemaGetter } from "effect";
 import {
   GRAPH_RENDERER_VALUES,
+  decodeNodeConfig,
+  firstBool,
+  firstNum,
+  firstRef,
+  firstStr,
   graphRendererKey,
   graphSourceKey,
   graphRendererId,
   graphSourceId,
+  manyOf,
+  oneOf,
+  type ConfigSlots,
+  type NodeProps,
 } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import type { KbIndex } from "@/ds";
@@ -101,26 +111,10 @@ export const DEFAULT_CURVED_LINKS = false;
 export const DEFAULT_AUTOROTATE = false;
 export const DEFAULT_LABEL_DENSITY: LensLabelDensity = "medium";
 
-export const LENS_LAYOUTS: LensLayout[] = ["force", "radial", "hierarchical", "grid"];
+export const LENS_LAYOUTS: readonly LensLayout[] = ["force", "radial", "hierarchical", "grid"];
+export const LENS_LABEL_DENSITIES: readonly LensLabelDensity[] = ["low", "medium", "high"];
 
 const LENS_RENDERERS = Object.keys(GRAPH_RENDERER_VALUES);
-
-const EDGE_KIND_SET = new Set<string>(["mention", "child", "ref-prop"]);
-
-function strProp(node: WireNode, fieldId: string): string | null {
-  const v = (node.props[fieldId] ?? []).find((p) => p.t === "str" && typeof p.v === "string");
-  return v ? v.v.trim() : null;
-}
-
-function numProp(node: WireNode, fieldId: string): number | null {
-  const v = (node.props[fieldId] ?? []).find((p) => p.t === "num" && typeof p.v === "number");
-  return v ? v.v : null;
-}
-
-function refProp(node: WireNode, fieldId: string): string | null {
-  const v = (node.props[fieldId] ?? []).find((p) => p.t === "ref" && typeof p.v === "string");
-  return v ? v.v : null;
-}
 
 function isTagNode(node: WireNode | undefined): boolean {
   if (!node) return false;
@@ -157,72 +151,214 @@ export function listPerspectiveNodes(wireNodes: WireNode[]): WireNode[] {
     .toSorted((a, b) => a.text.localeCompare(b.text) || a.id.localeCompare(b.id));
 }
 
-function boolProp(node: WireNode, fieldId: string): boolean | null {
-  const v = (node.props[fieldId] ?? []).find((p) => p.t === "bool" && typeof p.v === "boolean");
-  return v ? v.v : null;
-}
+/*
+ * The perspective's lens props, as one slot table.
+ *
+ * Everything a `#graph-perspective` node may say about itself is declared here
+ * once: the field it is stored under, how a stored value is read from that
+ * field, what a legal value is (an Effect `Schema`), and the value used when
+ * the node says nothing. `decodeNodeConfig` in `@kb/model` is the only code
+ * that walks it, and `view-config.ts` declares its own table against the same
+ * mechanism.
+ */
 
-// oxlint-disable-next-line complexity -- GAP [[01M1MGCEBYDFRNJX1JKXXN825H]]
-export function parsePerspective(node: WireNode): LensPerspective {
-  const kindsRaw = (node.props[SYSTEM_IDS.lensEdgeKindsField] ?? []).map((value) =>
-    value.t === "ref" ? graphSourceKey(value.v) : String(value.v),
-  );
-  const edgeKinds = kindsRaw.filter(
-    (k): k is EdgeKind => EDGE_KIND_SET.has(k) || k.startsWith("prop:"),
-  );
-  const source = (field: string, fallback: string) => {
-    const value = node.props[field]?.[0];
-    return value?.t === "ref" ? graphSourceKey(value.v) : (strProp(node, field) ?? fallback);
+/**
+ * A lens source prop names one of the shared source options.
+ *
+ * New definitions store a node reference (g1); definitions written before the
+ * options were nodes still hold the key as a string, and a user field is
+ * stored as a `prop:<field id>` string that no option covers. All three are
+ * the same carrier question, so one reader answers it.
+ */
+const sourceKey =
+  (field: string) =>
+  (props: NodeProps): string | undefined => {
+    const first = props[field]?.[0];
+    return first?.t === "ref" ? graphSourceKey(first.v) : firstStr(field)(props);
   };
-  const rendererValue = node.props[SYSTEM_IDS.lensRendererField]?.[0];
-  const renderer =
-    rendererValue?.t === "ref"
-      ? graphRendererKey(rendererValue.v)
-      : (strProp(node, SYSTEM_IDS.lensRendererField) ?? DEFAULT_RENDERER);
-  const maxNodes = numProp(node, SYSTEM_IDS.lensMaxNodesField);
-  const layoutRaw = strProp(node, SYSTEM_IDS.lensLayoutField);
-  const layout: LensLayout =
-    layoutRaw === "radial" ||
-    layoutRaw === "hierarchical" ||
-    layoutRaw === "grid" ||
-    layoutRaw === "force"
-      ? layoutRaw
-      : DEFAULT_LAYOUT;
-  const densityRaw = strProp(node, SYSTEM_IDS.lensLabelDensityField);
-  const labelDensity: LensLabelDensity =
-    densityRaw === "low" || densityRaw === "medium" || densityRaw === "high"
-      ? densityRaw
-      : DEFAULT_LABEL_DENSITY;
-  const spread = numProp(node, SYSTEM_IDS.lensSpreadField);
-  const linkDistance = numProp(node, SYSTEM_IDS.lensLinkDistanceField);
-  const showLabels = boolProp(node, SYSTEM_IDS.lensShowLabelsField);
-  const curvedLinks = boolProp(node, SYSTEM_IDS.lensCurvedLinksField);
-  const autorotate = boolProp(node, SYSTEM_IDS.lensAutorotateField);
+
+/** Same shape for the renderer, whose options are `lens.renderer`'s children. */
+const rendererKey =
+  (field: string) =>
+  (props: NodeProps): string | undefined => {
+    const first = props[field]?.[0];
+    return first?.t === "ref" ? graphRendererKey(first.v) : firstStr(field)(props);
+  };
+
+/**
+ * `sys.graph.source.none` — "No grouping" — is what the graph panel writes to
+ * `lens.edge-kinds` when every box is unchecked, because an absent prop would
+ * mean "unset" and fall back to {@link DEFAULT_EDGE_KINDS}. It names no
+ * relationship, so it decodes to nothing rather than being reported as a value
+ * this slot could not read.
+ */
+const NO_EDGE_KIND = "none";
+
+const edgeKindValues = (props: NodeProps): unknown[] | undefined =>
+  props[SYSTEM_IDS.lensEdgeKindsField]?.map((value) => {
+    const key = value.t === "ref" ? graphSourceKey(value.v) : String(value.v);
+    return key === NO_EDGE_KIND ? null : key;
+  });
+
+const EdgeKindSchema = Schema.Union([
+  Schema.Literals(["mention", "child", "ref-prop"]),
+  Schema.String.pipe(
+    Schema.refine((key): key is `prop:${string}` => key.startsWith("prop:"), {
+      expected: 'a "prop:<field id>" key',
+    }),
+  ),
+]);
+
+/** A count of nodes: positive, and whole however it was stored. */
+const NodeCountSchema = Schema.Finite.check(Schema.isGreaterThan(0)).pipe(
+  Schema.decodeTo(Schema.Number, {
+    decode: SchemaGetter.transform((value: number) => Math.floor(value)),
+    encode: SchemaGetter.transform((value: number) => value),
+  }),
+);
+
+/** A force-layout distance: any positive finite number. */
+const DistanceSchema = Schema.Finite.check(Schema.isGreaterThan(0));
+
+/**
+ * A source is a free-form string on purpose: `tag`, `parent`, `fixed:<hex>`
+ * and `prop:<field id>` are all legal, and a key naming an option kb does not
+ * know is a user field, not an error (see g1's report).
+ */
+const SourceSchema = Schema.String;
+
+/** Everything the node itself declares; `id` and `label` come from the node. */
+type LensProps = Omit<LensPerspective, "id" | "label">;
+
+const LENS_SLOTS: ConfigSlots<LensProps> = {
+  query: oneOf({
+    fields: [SYSTEM_IDS.lensQueryField],
+    read: firstStr(SYSTEM_IDS.lensQueryField),
+    schema: Schema.String,
+    fallback: "",
+  }),
+  renderer: oneOf({
+    fields: [SYSTEM_IDS.lensRendererField],
+    read: rendererKey(SYSTEM_IDS.lensRendererField),
+    schema: Schema.String,
+    fallback: DEFAULT_RENDERER,
+  }),
+  colorBy: oneOf({
+    fields: [SYSTEM_IDS.lensColorByField],
+    read: sourceKey(SYSTEM_IDS.lensColorByField),
+    schema: SourceSchema,
+    fallback: DEFAULT_COLOR_BY,
+  }),
+  labelBy: oneOf({
+    fields: [SYSTEM_IDS.lensLabelByField],
+    read: sourceKey(SYSTEM_IDS.lensLabelByField),
+    schema: SourceSchema,
+    fallback: "text",
+  }),
+  sizeBy: oneOf({
+    fields: [SYSTEM_IDS.lensSizeByField],
+    read: sourceKey(SYSTEM_IDS.lensSizeByField),
+    schema: SourceSchema,
+    fallback: DEFAULT_SIZE_BY,
+  }),
+  clusterBy: oneOf({
+    fields: [SYSTEM_IDS.lensClusterByField],
+    read: sourceKey(SYSTEM_IDS.lensClusterByField),
+    schema: SourceSchema,
+    fallback: DEFAULT_CLUSTER_BY,
+  }),
+  edgeKinds: manyOf<EdgeKind>({
+    fields: [SYSTEM_IDS.lensEdgeKindsField],
+    read: edgeKindValues,
+    schema: Schema.NullOr(EdgeKindSchema),
+    fallback: DEFAULT_EDGE_KINDS,
+  }),
+  maxNodes: oneOf({
+    fields: [SYSTEM_IDS.lensMaxNodesField],
+    read: firstNum(SYSTEM_IDS.lensMaxNodesField),
+    schema: NodeCountSchema,
+    fallback: DEFAULT_MAX_NODES,
+  }),
+  focus: oneOf<string | null>({
+    fields: [SYSTEM_IDS.lensFocusField],
+    read: firstRef(SYSTEM_IDS.lensFocusField),
+    schema: Schema.String,
+    fallback: null,
+  }),
+  layout: oneOf({
+    fields: [SYSTEM_IDS.lensLayoutField],
+    read: firstStr(SYSTEM_IDS.lensLayoutField),
+    schema: Schema.Literals(LENS_LAYOUTS),
+    fallback: DEFAULT_LAYOUT,
+  }),
+  spread: oneOf({
+    fields: [SYSTEM_IDS.lensSpreadField],
+    read: firstNum(SYSTEM_IDS.lensSpreadField),
+    schema: DistanceSchema,
+    fallback: DEFAULT_SPREAD,
+  }),
+  linkDistance: oneOf({
+    fields: [SYSTEM_IDS.lensLinkDistanceField],
+    read: firstNum(SYSTEM_IDS.lensLinkDistanceField),
+    schema: DistanceSchema,
+    fallback: DEFAULT_LINK_DISTANCE,
+  }),
+  showLabels: oneOf({
+    fields: [SYSTEM_IDS.lensShowLabelsField],
+    read: firstBool(SYSTEM_IDS.lensShowLabelsField),
+    schema: Schema.Boolean,
+    fallback: DEFAULT_SHOW_LABELS,
+  }),
+  curvedLinks: oneOf({
+    fields: [SYSTEM_IDS.lensCurvedLinksField],
+    read: firstBool(SYSTEM_IDS.lensCurvedLinksField),
+    schema: Schema.Boolean,
+    fallback: DEFAULT_CURVED_LINKS,
+  }),
+  autorotate: oneOf({
+    fields: [SYSTEM_IDS.lensAutorotateField],
+    read: firstBool(SYSTEM_IDS.lensAutorotateField),
+    schema: Schema.Boolean,
+    fallback: DEFAULT_AUTOROTATE,
+  }),
+  labelDensity: oneOf({
+    fields: [SYSTEM_IDS.lensLabelDensityField],
+    read: firstStr(SYSTEM_IDS.lensLabelDensityField),
+    schema: Schema.Literals(LENS_LABEL_DENSITIES),
+    fallback: DEFAULT_LABEL_DENSITY,
+  }),
+};
+
+/**
+ * Decode a `#graph-perspective` node.
+ *
+ * A malformed lens prop falls back to the slot's declared default and is
+ * reported through the ui log seam; it never fails the perspective, because a
+ * bad prop must not make the graph unopenable.
+ */
+export function parsePerspective(node: WireNode): LensPerspective {
+  const slot = decodeNodeConfig<LensProps>(LENS_SLOTS, node.props, (warning) =>
+    logWarn(`[graph-lens] ${node.id}: ${warning}`),
+  );
   return {
     id: node.id,
     label: node.text.trim() || "Untitled",
-    query: strProp(node, SYSTEM_IDS.lensQueryField) ?? "",
-    renderer,
-    colorBy: source(SYSTEM_IDS.lensColorByField, DEFAULT_COLOR_BY),
-    labelBy: source(SYSTEM_IDS.lensLabelByField, "text"),
-    sizeBy: source(SYSTEM_IDS.lensSizeByField, DEFAULT_SIZE_BY),
-    edgeKinds: node.props[SYSTEM_IDS.lensEdgeKindsField] ? edgeKinds : [...DEFAULT_EDGE_KINDS],
-    maxNodes:
-      maxNodes !== null && Number.isFinite(maxNodes) && maxNodes > 0
-        ? Math.floor(maxNodes)
-        : DEFAULT_MAX_NODES,
-    clusterBy: source(SYSTEM_IDS.lensClusterByField, DEFAULT_CLUSTER_BY),
-    focus: refProp(node, SYSTEM_IDS.lensFocusField),
-    layout,
-    spread: spread !== null && Number.isFinite(spread) && spread > 0 ? spread : DEFAULT_SPREAD,
-    linkDistance:
-      linkDistance !== null && Number.isFinite(linkDistance) && linkDistance > 0
-        ? linkDistance
-        : DEFAULT_LINK_DISTANCE,
-    showLabels: showLabels ?? DEFAULT_SHOW_LABELS,
-    curvedLinks: curvedLinks ?? DEFAULT_CURVED_LINKS,
-    autorotate: autorotate ?? DEFAULT_AUTOROTATE,
-    labelDensity,
+    query: slot("query"),
+    renderer: slot("renderer"),
+    colorBy: slot("colorBy"),
+    labelBy: slot("labelBy"),
+    sizeBy: slot("sizeBy"),
+    clusterBy: slot("clusterBy"),
+    edgeKinds: slot("edgeKinds"),
+    maxNodes: slot("maxNodes"),
+    focus: slot("focus"),
+    layout: slot("layout"),
+    spread: slot("spread"),
+    linkDistance: slot("linkDistance"),
+    showLabels: slot("showLabels"),
+    curvedLinks: slot("curvedLinks"),
+    autorotate: slot("autorotate"),
+    labelDensity: slot("labelDensity"),
   };
 }
 

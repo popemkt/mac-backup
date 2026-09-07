@@ -84,7 +84,11 @@ describe("view-config", () => {
     expect(config.colwidth).toEqual({});
   });
 
-  it("sanitizes colwidth to finite numbers > 0 (drops arrays/strings/null/≤0)", () => {
+  it("rejects a colwidth map containing anything that is not a width", () => {
+    // `sys.f.view.colwidth` is one prop holding one JSON object, so the whole
+    // prop is either a legal width map or it is not: a single bad entry falls
+    // the field back to its default and is reported, rather than being dropped
+    // silently while the rest is kept.
     const config = getViewConfig({
       [SYSTEM_IDS.viewColwidthField]: [
         {
@@ -100,7 +104,13 @@ describe("view-config", () => {
         },
       ],
     });
-    expect(config.colwidth).toEqual({ ok: 180 });
+    expect(config.colwidth).toEqual({});
+
+    expect(
+      getViewConfig({
+        [SYSTEM_IDS.viewColwidthField]: [{ t: "str", v: JSON.stringify({ ok: 180, also: 90 }) }],
+      }).colwidth,
+    ).toEqual({ ok: 180, also: 90 });
 
     const arr = getViewConfig({
       [SYSTEM_IDS.viewColwidthField]: [{ t: "str", v: JSON.stringify([1, 2]) }],
@@ -269,7 +279,7 @@ describe("view-config", () => {
       expect(config.filters).toHaveLength(2);
       expect(config.filters[0]?.kind).toBe("eq");
       expect(config.filters[1]?.kind).toBe("text");
-      expect(warns.some((w) => w.includes("bad filter"))).toBe(true);
+      expect(warns.some((w) => w.includes(`${SYSTEM_IDS.viewFilterField}[1] ignored`))).toBe(true);
     } finally {
       console.warn = warn;
     }

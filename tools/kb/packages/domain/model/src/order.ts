@@ -1,5 +1,5 @@
 import { present } from "./present.ts";
-import type { KbNode, NodeId } from "./model.ts";
+import type { KbNode, NodeId, RankedNode } from "./model.ts";
 
 const WIDTH = 10;
 const BASE = 36n;
@@ -17,6 +17,29 @@ function decode(value: string): bigint {
     result = result * BASE + BigInt(digit);
   }
   return result;
+}
+
+/**
+ * Whether a node carries a sibling rank — the migration state, named.
+ *
+ * `""` is not a rank: an order key is present or absent, never
+ * present-and-empty (DESIGN.md → Domain typing), which is what
+ * `KbNodeSchema` now rejects on load. Collapsing the two spellings here is
+ * what lets every reader ask one question instead of repeating a two-clause
+ * test, and it is why {@link migrateOrderKeys} can promise a {@link RankedNode}.
+ */
+export type NodeRank =
+  | { readonly ranked: true; readonly order: string }
+  | { readonly ranked: false };
+
+export function rankOf(node: { readonly order?: string } | undefined): NodeRank {
+  const order = node?.order;
+  return order === undefined || order === "" ? { ranked: false } : { ranked: true, order };
+}
+
+/** The same question as a narrowing, for code that keeps the node itself. */
+export function isRanked(node: KbNode): node is RankedNode {
+  return rankOf(node).ranked;
 }
 
 /** Stable rank for an existing sibling list; it deliberately preserves order. */
@@ -49,7 +72,7 @@ export function rankBetween(before?: string, after?: string): string {
  * server start silently reverted root reordering to id order — defeating the
  * root-level move/insert this rank was added to enable.
  */
-export function migrateOrderKeys(nodes: KbNode[]): { nodes: KbNode[]; changed: boolean } {
+export function migrateOrderKeys(nodes: KbNode[]): { nodes: RankedNode[]; changed: boolean } {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const orderedGroups: NodeId[][] = [];
   const children = new Set<NodeId>();
@@ -63,13 +86,11 @@ export function migrateOrderKeys(nodes: KbNode[]): { nodes: KbNode[]; changed: b
     .filter((node) => !children.has(node.id))
     .map((node) => node.id)
     .toSorted((a, b) => {
-      const oa = byId.get(a)?.order;
-      const ob = byId.get(b)?.order;
-      if (oa !== undefined && oa !== "" && ob !== undefined && ob !== "") {
-        return oa < ob ? -1 : oa > ob ? 1 : 0;
-      }
-      if (oa !== undefined && oa !== "") return -1;
-      if (ob !== undefined && ob !== "") return 1;
+      const ra = rankOf(byId.get(a));
+      const rb = rankOf(byId.get(b));
+      if (ra.ranked && rb.ranked) return ra.order < rb.order ? -1 : ra.order > rb.order ? 1 : 0;
+      if (ra.ranked) return -1;
+      if (rb.ranked) return 1;
       return a < b ? -1 : a > b ? 1 : 0;
     });
   orderedGroups.push(rootIds);
@@ -77,31 +98,33 @@ export function migrateOrderKeys(nodes: KbNode[]): { nodes: KbNode[]; changed: b
   const ranks = new Map<NodeId, string>();
   for (const ids of orderedGroups) {
     if (ids.length === 0) continue;
-    const stored = ids.map((id) => byId.get(id)?.order);
-    if (stored.every((rank) => rank !== undefined && rank !== "")) continue; // fully ranked already — leave it alone
-    if (!stored.some((rank) => rank !== undefined && rank !== "")) {
+    const stored = ids.map((id) => rankOf(byId.get(id)));
+    if (stored.every((rank) => rank.ranked)) continue; // fully ranked already — leave it alone
+    if (!stored.some((rank) => rank.ranked)) {
       for (const [id, rank] of ranksFor(ids)) ranks.set(id, rank);
       continue;
     }
     // Mixed: rank only the gaps, between their already-ranked neighbours, so
     // the visible sequence of this group is unchanged.
     for (let i = 0; i < ids.length; i++) {
-      if (stored[i] !== undefined && stored[i] !== "") continue;
+      const own = stored[i];
+      if (own?.ranked === true) continue;
       let before: string | undefined;
       for (let j = i - 1; j >= 0; j--) {
         const neighbour = ids[j];
         if (neighbour === undefined) continue;
-        const prior = stored[j] ?? ranks.get(neighbour);
-        if (prior !== undefined && prior !== "") {
-          before = prior;
+        const prior = stored[j];
+        const rank = prior?.ranked === true ? prior.order : ranks.get(neighbour);
+        if (rank !== undefined) {
+          before = rank;
           break;
         }
       }
       let after: string | undefined;
       for (let j = i + 1; j < ids.length; j++) {
         const storedAfter = stored[j];
-        if (storedAfter !== undefined && storedAfter !== "") {
-          after = storedAfter;
+        if (storedAfter?.ranked === true) {
+          after = storedAfter.order;
           break;
         }
       }
@@ -111,12 +134,17 @@ export function migrateOrderKeys(nodes: KbNode[]): { nodes: KbNode[]; changed: b
   }
 
   let changed = false;
-  const migrated = nodes.map((node) => {
-    if (node.order !== undefined && node.order !== "") return node; // never overwrite an existing rank
-    const order = ranks.get(node.id);
-    if (order === undefined || order === "") return node;
+  const migrated = nodes.map((node): RankedNode => {
+    if (isRanked(node)) return node; // never overwrite an existing rank
     changed = true;
-    return { ...node, order };
+    /*
+     * Every node belongs to exactly one sibling group — its parent's children
+     * or the forest root — and the loop above leaves every group fully ranked,
+     * so an unranked node always has a rank waiting here. `present` states
+     * that invariant instead of widening the result back to "maybe unranked",
+     * which is the whole point of returning `RankedNode[]`.
+     */
+    return { ...node, order: present(ranks.get(node.id), `no sibling rank for ${node.id}`) };
   });
   return { nodes: migrated, changed };
 }

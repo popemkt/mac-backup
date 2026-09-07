@@ -58,7 +58,9 @@ const nodeArb = fc
       fc.array(propValueArb, { minLength: 0, maxLength: 3 }),
     ),
     children: fc.array(fc.string({ minLength: 1, maxLength: 8 }), { maxLength: 4 }),
-    order: fc.option(fc.string(), { nil: undefined }),
+    // A rank is present or absent, never present-and-empty: `KbNodeSchema`
+    // rejects `""`, so the contract's arbitrary must not mint it either.
+    order: fc.option(fc.string({ minLength: 1 }), { nil: undefined }),
     extra: fc.option(fc.string(), { nil: undefined }),
   })
   .map(({ id, text, props, children, order, extra }) => {

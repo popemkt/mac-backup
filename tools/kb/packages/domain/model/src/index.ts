@@ -27,7 +27,18 @@ export {
 } from "./field-type.ts";
 export type { FieldType } from "./field-type.ts";
 export { SYSTEM_IDS, currentIso, freshId, isSysPrefixed, nowIso } from "./model.ts";
-export type { KbNode, NodeId, PropValue } from "./model.ts";
+export type { KbNode, NodeId, PropValue, RankedNode } from "./model.ts";
+export {
+  allValues,
+  decodeNodeConfig,
+  firstBool,
+  firstNum,
+  firstRef,
+  firstStr,
+  manyOf,
+  oneOf,
+} from "./node-config.ts";
+export type { ConfigReader, ConfigSlot, ConfigSlots, NodeProps } from "./node-config.ts";
 export {
   KbNodeSchema,
   PropValueSchema,
@@ -50,7 +61,8 @@ export {
   wouldCreateExtendsCycle,
 } from "./ontology.ts";
 export type { MemberReason, NodeLike, OntologyResolution } from "./ontology.ts";
-export { migrateOrderKeys, rankBetween } from "./order.ts";
+export { isRanked, migrateOrderKeys, rankBetween, rankOf } from "./order.ts";
+export type { NodeRank } from "./order.ts";
 export { ResolveError, resolveFieldId, resolveTagId } from "./resolve.ts";
 export {
   ActionSchemaError,

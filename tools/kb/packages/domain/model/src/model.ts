@@ -36,11 +36,30 @@ export interface KbNode {
   props: Record<NodeId, PropValue[]>;
   /** ordered outline children */
   children: NodeId[];
-  /** Fractional sibling rank. Optional only while legacy JSONL is migrating. */
+  /**
+   * Fractional sibling rank.
+   *
+   * Absent only on a row minted before fractional ordering existed, and the
+   * canonical writer must never invent one — so absence is a real stored
+   * state, not a `?` standing in for "sometimes". Which state a node is in is
+   * asked through `order.ts`'s `rankOf`, never by comparing against
+   * `undefined` or `""` at a call site, and `migrateOrderKeys` is the total
+   * function from this type to {@link RankedNode}.
+   */
   order?: string;
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * A node whose sibling rank is present.
+ *
+ * This is what `migrateOrderKeys` returns and therefore what every node in a
+ * session is, because `openKb` migrates before anything else sees the nodes.
+ * The migration state is encoded here — in which of the two types a node has —
+ * rather than in a field a reader has to test.
+ */
+export type RankedNode = KbNode & { order: string };
 
 export const SYSTEM_IDS = {
   field: "sys.field",

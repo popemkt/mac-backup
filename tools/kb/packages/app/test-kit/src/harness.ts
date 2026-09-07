@@ -360,8 +360,8 @@ function orderingErrors(nodes: KbNode[]): string[] {
       (m): m is NonNullable<(typeof members)[number]> => m !== undefined,
     );
     if (defined.length !== members.length) continue;
-    const ranks = defined.map((m) => m.order).filter((r): r is string => r !== undefined);
-    if (ranks.length !== defined.length) continue;
+    // `migrateOrderKeys` returns RankedNode[], so every member has a rank.
+    const ranks = defined.map((m) => m.order);
     const unique = new Set(ranks);
     if (unique.size !== ranks.length) {
       out.push(`ordering ranks collide at ${group.label}: ${ranks.join(", ")}`);
