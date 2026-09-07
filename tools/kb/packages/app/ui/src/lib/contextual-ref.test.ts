@@ -8,7 +8,7 @@ import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
 import { DatascriptIndex, queryBacklinks } from "@/ds";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import {
   contextualTargetOf,
   isContextualRef,

@@ -4,7 +4,7 @@ import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { present } from "@kb/model";
 import type { CanvasDoc } from "@kb/canvas";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { useOutlineStore } from "@/stores/outline.store";
 import { CanvasPage } from "./canvas-page";
 import type * as CanvasApi from "@/lib/canvas-api";

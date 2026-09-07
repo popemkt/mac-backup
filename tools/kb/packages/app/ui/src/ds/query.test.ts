@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { normalizeEdnQuery } from "@kb/query";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { DatascriptIndex, runQuery } from "./index";
 
 describe("client datalog execution", () => {

@@ -11,7 +11,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { SYSTEM_IDS, systemSeedNodes } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useOutlineStore } from "@/stores/outline.store";

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPostAction } from "@/api/action";
-import { fixtureGraph } from "@/fixtures/graph";
+import { fixtureGraph } from "@/api/fixture-graph";
 import { planSplit } from "./plan";
 import { runOptimistic } from "./optimistic";
 import { waitForBrowserPushes } from "@/session/runtime";
