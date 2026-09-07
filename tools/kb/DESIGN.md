@@ -365,13 +365,18 @@ right field shape with no further checks: no `!`, no `as`, no field that
   `textOr`) owns that test in one place.
 - **No optional-where-discriminated.** If a field is sometimes present and the
   rule for when it appears is encodable, do not write `field?: T` — lift the
-  rule into a discriminator. The live violation is `KbNode.order?`: a
-  fractional sibling rank marked "optional during migration", absent from
-  `KbNodeSchema` altogether, surviving the round trip only because decode runs
-  with `onExcessProperty: "preserve"`. The one field the outline depends on for
-  ordering is invisible to the schema, and any backend with a real column or a
-  stricter decode drops it silently. Track 2 fixes it
-  (`briefs/p1-persistence.md`); this section records it until then.
+  rule into a discriminator. `KbNode.order?` is the worked example. A
+  fractional sibling rank is absent only on a row minted before fractional
+  ordering existed, and the canonical writer must never invent one, so absence
+  is a real stored state; but it is a state of the *store*, not of a live
+  node, because `openKb` runs `migrateOrderKeys` before anything else sees the
+  nodes. The discriminator is therefore which of two **types** a node has:
+  `KbNode` is what a row may be, `RankedNode` is what the migration returns,
+  and `migrateOrderKeys` is the total function between them. No reader compares
+  `order` against `undefined`; `rankOf` (a `NodeRank` union) and `isRanked`
+  (its narrowing) are the one way to ask. `KbNodeSchema` declares
+  `order: optionalKey(NonEmptyString)`, which is what makes that one test
+  rather than two: absence is the only way to be unranked.
 - **Discriminators are literals**, never `Schema.String`. `PropValue.t`,
   `ActionReceipt.status`, `ServerMessage.op`, `MemberReason.kind` and
   `DomainError.code` are the model's discriminators and each is a literal
@@ -383,6 +388,36 @@ right field shape with no further checks: no `!`, no `as`, no field that
   and its first act is a decode; that is validation, not a cast. Finding
   yourself writing `node.props[id]!` means the schema is too loose — tighten
   the schema, do not bypass the type.
+- **A node-backed config decodes through one Schema, and says what it
+  ignored.** A `#graph-perspective` and a view frame are the same kind of
+  thing — a node whose props configure a projection — so both decode through
+  `@kb/model`'s `node-config` rather than a hand-written branch per field. A
+  config declares a table of slots; a slot names the field node it reads, the
+  **carrier reader** that projects the stored `PropValue[]` to one candidate,
+  the `Schema` that says what is legal, and the value used when the store says
+  nothing. Carrier and validity stay apart: "the first `num` value of
+  `lens.max-nodes`" is a projection, "positive and whole" is the schema. A
+  default has exactly one home — the slot, beside the shape it defaults to —
+  never the ontology *and* the function.
+
+  The malformed-input policy is part of the mechanism, not per call site:
+
+  - An **absent** prop is *unset*. The declared default applies, silently.
+  - A **present** prop the slot cannot read — wrong carrier, or a value the
+    schema rejects — falls back to that same default **and is reported**,
+    naming the field node and what was expected. Nothing throws: a bad prop
+    must never make a graph or an outline unopenable.
+  - Props are multi-valued, so a **multi-valued** field decodes per value —
+    one bad clause is reported by its index and the readable ones survive —
+    while a **single-valued** field is one value and decodes whole.
+  - An element that decodes to `null` contributes nothing and is *not*
+    reported. That is how a documented sentinel says "explicitly empty": the
+    `none` source option stored in `lens.edge-kinds` means no edges, and is a
+    value, not a mistake.
+
+  Reports reach `@kb/ui`'s log seam (`lib/log`) today. Surfacing them in the
+  UI the way `resolveOntology`'s warnings are surfaced is
+  GAP [[01M1XF1NA2RBAX1E6NNX6PMZ6N]].
 
 ## Data model — everything is a node
 
@@ -394,6 +429,7 @@ interface KbNode {
   text: string;
   props: Record<NodeId, PropValue[]>; // key = FIELD NODE id, not a string
   children: NodeId[]; // ordered outline
+  order?: string; // fractional sibling rank; absent only pre-migration (see Domain typing)
   createdAt: string;
   updatedAt: string;
 }
