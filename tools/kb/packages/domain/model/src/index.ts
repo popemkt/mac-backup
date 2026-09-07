@@ -29,6 +29,17 @@ export type { FieldType } from "./field-type.ts";
 export { SYSTEM_IDS, currentIso, freshId, isSysPrefixed, nowIso } from "./model.ts";
 export type { KbNode, NodeId, PropValue } from "./model.ts";
 export {
+  allValues,
+  decodeNodeConfig,
+  firstBool,
+  firstNum,
+  firstRef,
+  firstStr,
+  manyOf,
+  oneOf,
+} from "./node-config.ts";
+export type { ConfigSlot, ConfigSlots, DecodedConfig, NodeProps } from "./node-config.ts";
+export {
   KbNodeSchema,
   PropValueSchema,
   decodeStoredNode,

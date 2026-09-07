@@ -3,12 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import { GearSixIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { SYSTEM_IDS } from "@/lib/types";
-import { LENS_LAYOUTS, type LensLabelDensity, type LensPerspective } from "@/lib/graph-lens";
+import { LENS_LABEL_DENSITIES, LENS_LAYOUTS, type LensPerspective } from "@/lib/graph-lens";
 import { settingDisabledReason } from "./graph-capabilities";
 import { cn } from "@/lib/cn";
 import { isOutside } from "@/lib/dom";
-
-const DENSITY_OPTIONS: LensLabelDensity[] = ["low", "medium", "high"];
 
 interface GraphSettingsProps {
   perspective: LensPerspective;
@@ -121,7 +119,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
             reason={settingDisabledReason(perspective.renderer, "labelDensity")}
           >
             <div className="flex gap-1">
-              {DENSITY_OPTIONS.map((d) => (
+              {LENS_LABEL_DENSITIES.map((d) => (
                 <button
                   key={d}
                   type="button"
