@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import { useOutlineStore } from "@/stores/outline.store";
+import { useRefNavigation } from "@/stores/ref-navigation";
 import {
   queryFieldCarriers,
   queryTaggedInstances,
   schemaZoomKind,
   type SchemaHit,
 } from "@/lib/schema-zoom";
-import { MdView } from "@/components/outline/md-view";
+import { MdView } from "@/components/ui/md-view";
 import { Bullet } from "./bullet";
 import { NodeRow } from "./node-row";
 import { TagFieldsConfig } from "./tag-fields-config";
@@ -74,6 +75,7 @@ function SchemaInstanceRow({
   onZoom: () => void;
 }) {
   const nodes = useOutlineStore((s) => s.nodes);
+  const onRefClick = useRefNavigation();
   const node = nodes.get(hit.id);
   const tags = node?.tags ?? [];
 
@@ -108,7 +110,11 @@ function SchemaInstanceRow({
         }
         content={
           <>
-            <MdView text={hit.text || "(empty)"} className="min-w-0 flex-1 text-foreground/85" />
+            <MdView
+              text={hit.text || "(empty)"}
+              className="min-w-0 flex-1 text-foreground/85"
+              onRefClick={onRefClick}
+            />
             {tags.length > 0 && (
               <TagChipGroup
                 tags={tags}

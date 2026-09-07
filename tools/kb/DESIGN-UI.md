@@ -174,7 +174,7 @@ re-entry into Mode A. Focus hand-offs are specified per operation (split → new
 node at 0; indent/outdent → same offset; merge → the join boundary; delete →
 neighbour) and tested.
 
-**Caret geometry is measured, not guessed.** `components/outline/caret.ts`
+**Caret geometry is measured, not guessed.** `lib/caret.ts`
 exposes `readCaretGeometry` (range rects → real line detection),
 `verticalArrowDecision` (pure: is this arrow a line move or a row move?) and
 `nearestOffsetForX` (column restoration), fed by `outlineStore.focusX`. Offsets

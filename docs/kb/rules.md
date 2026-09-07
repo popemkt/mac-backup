@@ -572,6 +572,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Falls out of the onPointerMove gap: one state machine owns both.
 - **node** — `01M1MGCT80E1FMXMEAEATS1VER`
 
+### GAP: caret geometry is an outline internal two zones reach for
+
+- **expected** — Caret geometry is a primitive: pure DOM math over a contenteditable, with no store and no component, so it belongs in the UI's leaf zone beside the other lib/ helpers.
+- **current** — components/outline/caret.ts is imported by components/outline/node-content.tsx (NodeTextHost), components/outline/use-node-keydown.ts and components/outline/editing-keymap.ts, so anything promoted out of the outline folder that measures a caret has to drag an outline internal with it.
+- **impact** — It blocks gap GAP: canvas cards render outline's NodeContent: promoting NodeTextHost to the primitives zone breaches primitives -> components/outline on its ./caret import alone.
+- **closes** — Move it to lib/ (pure DOM math) or components/ui/ (if it rendered); rewire the three importers and the colocated test.
+- **rule** — UI import matrix
+- **node** — `01M1XCB0ETCJH03FGJS6E75AFP`
+
 ### GAP: core action definitions and handlers are hand-paired
 
 - **expected** — Operations exports one canonical coreActions contribution collection consumed through the same registration interface as extensions.

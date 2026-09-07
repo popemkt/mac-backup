@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, type MouseEvent, type ReactNode } from "react";
+import { memo, useMemo, type MouseEvent, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import {
   KB_TEXT_CLASS,
@@ -7,29 +7,22 @@ import {
   parseInlineMd,
   type InlineSeg,
 } from "@/lib/md-inline";
-import { useOutlineStore } from "@/stores/outline.store";
 
 interface MdViewProps {
   text: string;
   className?: string;
   clamp?: boolean;
+  /**
+   * What clicking an inline `[[id]]` reference does. A primitive does not
+   * decide navigation, so the surface passes it — `useRefNavigation` is the
+   * one handler every caller uses.
+   */
+  onRefClick: (e: MouseEvent, id: string) => void;
 }
 
 /** Inactive-row markdown view — memoized parse, accent refs, tinted code, media. */
-export const MdView = memo(function MdView({ text, className, clamp }: MdViewProps) {
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
-  const jumpToNode = useOutlineStore((s) => s.jumpToNode);
+export const MdView = memo(function MdView({ text, className, clamp, onRefClick }: MdViewProps) {
   const segs = useMemo(() => parseInlineMd(text), [text]);
-
-  const onRefClick = useCallback(
-    (e: MouseEvent, id: string) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.metaKey || e.ctrlKey) jumpToNode(id);
-      else zoomTo(id);
-    },
-    [jumpToNode, zoomTo],
-  );
 
   if (!text) {
     return (
