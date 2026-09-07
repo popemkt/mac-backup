@@ -70,6 +70,12 @@
         "varsIgnorePattern": "^_"
       }
     ],
+    "promise/always-return": [
+      "error",
+      {
+        "ignoreLastCallback": true
+      }
+    ],
     "promise/catch-or-return": "error",
     "eslint/no-var": "error",
     "eslint/prefer-const": "error",

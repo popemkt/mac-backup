@@ -1,4 +1,4 @@
-export { canonicalJson } from "./canonical.ts";
+export { canonicalJson, canonicalJsonl } from "./canonical.ts";
 export {
   DomainError,
   domainError,
@@ -7,6 +7,8 @@ export {
   isDomainError,
   receiptCodeOf,
 } from "./errors.ts";
+export { mergeNodeSets } from "./merge.ts";
+export type { MergeConflict, MergeConflictReason, MergeResult } from "./merge.ts";
 export { present } from "./present.ts";
 export { exampleSeedNodes, isPristine } from "./example.ts";
 export { FailureCodeSchema } from "./failure.ts";
@@ -54,7 +56,7 @@ export {
   isActionSchema,
   isStandardSchemaV1,
   isZodError,
-  parseActionInput,
+  parseBySchema,
   schemaFailure,
   schemaToJsonSchema,
 } from "./schema-seam.ts";

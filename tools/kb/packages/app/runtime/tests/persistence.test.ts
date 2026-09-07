@@ -38,7 +38,7 @@ function load(store: EffectStore): Promise<KbNode[]> {
   return Effect.runPromise(store.loadEffect);
 }
 
-function commit(store: EffectStore, tx: StoreTx): Promise<void> {
+function commit(store: EffectStore, tx: StoreTx): Promise<unknown> {
   return Effect.runPromise(store.commitEffect(tx));
 }
 
@@ -277,7 +277,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
         return injected;
       }),
       fingerprint: Effect.succeed(null),
-      commitEffect: () => Effect.void,
+      commitEffect: () => Effect.succeed({ base: null, fingerprint: null }),
     };
 
     await Effect.runPromise(
@@ -293,14 +293,26 @@ describe("reload / persist via KbStore Layer substitution", () => {
     root = await tempRoot();
     const ctx = await openKb(root);
     const commits: StoreTx[] = [];
+    // A store whose `loadEffect` contradicts its own commits is not a store,
+    // and persist reconciles against what the store reports — so the mock
+    // keeps its nodes and a revision, the smallest honest implementation.
+    let held: KbNode[] = [];
+    let revision = 0;
     const mock: EffectStore = {
       path: ctx.store.path,
       watchPaths: [],
-      loadEffect: Effect.succeed([]),
-      fingerprint: Effect.succeed(null),
+      loadEffect: Effect.sync(() => [...held]),
+      fingerprint: Effect.sync(() => `revision:${revision}`),
       commitEffect: (tx) =>
         Effect.sync(() => {
           commits.push(tx);
+          const base = `revision:${revision}`;
+          const byId = new Map(held.map((n) => [n.id, n]));
+          for (const id of tx.deletes) byId.delete(id);
+          for (const n of tx.upserts) byId.set(n.id, n);
+          held = [...byId.values()];
+          revision += 1;
+          return { base, fingerprint: `revision:${revision}` };
         }),
     };
 
@@ -315,6 +327,66 @@ describe("reload / persist via KbStore Layer substitution", () => {
       "n.via-layer",
     ]);
     expect(ctx.nodes.some((n) => n.id === "n.via-layer")).toBe(true);
+  });
+
+  test("a write landing after persist's catch-up is still in the index", async () => {
+    root = await tempRoot();
+    const ctx = await openKb(root);
+
+    // The window the fingerprint alone cannot close: persist checks for
+    // foreign writes, and one lands *after* that check but before the store
+    // takes its lock. The store merges it; our delta does not mention it.
+    let held: KbNode[] = [...ctx.nodes];
+    let revision = 0;
+    const foreign = sampleNode("n.foreign", "another process");
+    let raced = false;
+    const racing: EffectStore = {
+      path: ctx.store.path,
+      watchPaths: [],
+      loadEffect: Effect.sync(() => [...held]),
+      fingerprint: Effect.sync(() => `revision:${revision}`),
+      commitEffect: (tx) =>
+        Effect.sync(() => {
+          if (!raced) {
+            raced = true;
+            held = [...held, foreign];
+            revision += 1;
+          }
+          const base = `revision:${revision}`;
+          const byId = new Map(held.map((n) => [n.id, n]));
+          for (const id of tx.deletes) byId.delete(id);
+          for (const n of tx.upserts) byId.set(n.id, n);
+          held = [...byId.values()];
+          revision += 1;
+          return { base, fingerprint: `revision:${revision}` };
+        }),
+    };
+
+    await Effect.runPromise(
+      persistEffect(ctx, { upserts: [sampleNode("n.ours", "ours")], deletes: [] }).pipe(
+        Effect.provide(Layer.mergeAll(kbStoreLayer(racing), bunFileSystemLayer)),
+      ),
+    );
+
+    expect(ctx.nodes.some((n) => n.id === "n.ours")).toBe(true);
+    expect(ctx.nodes.some((n) => n.id === "n.foreign")).toBe(true);
+
+    // And the session is not left believing it is behind: a reload right after
+    // finds nothing to do.
+    let loadsAfter = 0;
+    const counting: EffectStore = {
+      ...racing,
+      loadEffect: Effect.sync(() => {
+        loadsAfter += 1;
+        return [...held];
+      }),
+    };
+    await Effect.runPromise(
+      reloadEffect(ctx).pipe(
+        Effect.provide(Layer.mergeAll(kbStoreLayer(counting), bunFileSystemLayer)),
+      ),
+    );
+    expect(loadsAfter).toBe(0);
   });
 
   test("openKbEffect + Promise reload/persist preserve public API", async () => {

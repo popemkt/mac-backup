@@ -50,23 +50,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
 - **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
 
-### GAP: a UI test gates on wall-clock time and fails under machine load
-
-- **expected** — Admission tests assert algorithmic properties; absolute timings are recorded as observations (like the store benchmark table) or normalised against a host calibration.
-- **current** — At least one @kb/ui test asserts an absolute duration; it failed once on 2026-09-05 while a worker ran verify on the same machine and passed on rerun.
-- **impact** — A green/red signal that depends on what else the machine is doing; agents learn to rerun instead of trusting the gate.
-- **closes** — Move the timing to an observation (print a table) or a calibrated ratio; keep the algorithmic assertion.
-- **node** — `01M1R19NXBMTVQG6AH0S7VTC7D`
-
-### GAP: action registry does not validate output schemas
-
-- **expected** — Every action result is parsed once through its declared output schema before a successful receipt crosses a surface.
-- **current** — The registry validates action inputs but wraps raw handler results without applying outputSchema.
-- **impact** — Malformed built-in or extension output can be published as success while the manifest promises a stricter contract.
-- **closes** — Add one registry output parser for Effect-native and Promise handlers, map mismatch to an internal contract failure, and add invalid-output tests.
-- **rule** — Domain typing — parse unknown at the boundary
-- **node** — `01M1PJSSQYFV2E160JANGBPKCK`
-
 ### GAP: actions/ reads the outline store instead of being handed state
 
 - **expected** — actions/ plans and invokes mutations against state it is given; the store is above it in UI_ALLOWS (stores may import actions, not the reverse).
@@ -302,14 +285,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Extract listNodeCommands(node, store) beside run-command.ts and have both the palette and the runner read it. Touches the command surface, so it is an owner call.
 - **node** — `01M1MGCF0ECBDEPTHPKMSQ4YFD`
 
-### GAP: nodes.jsonl has no merge driver
-
-- **expected** — A git merge driver that parses both sides as JSONL and merges by node id, conflicting only when the same node diverges.
-- **current** — Default line-based merge. ULIDs cluster newly created nodes at the file tail, so two branches that each add nodes conflict on adjacent lines.
-- **impact** — Routine parallel work produces textual conflicts in owner data that are not semantic conflicts, which invites hand-editing the store.
-- **closes** — About 40 lines of Bun plus a .gitattributes entry; recorded in briefs/p1-persistence.md section 4.
-- **node** — `01M1M08WYY9X6HFNN5GKDCC47E`
-
 ### GAP: ontology member rows render outline's MdView
 
 - **expected** — Markdown rendering is used by three surfaces; it is a primitive, not an outline internal.
@@ -402,14 +377,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
 - **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
 
-### GAP: seven terminal .then callbacks disable promise/always-return
-
-- **expected** — promise/always-return runs with ignoreLastCallback:true, so the rule guards mid-chain callbacks (where a missing return really does break the chain) and says nothing about a terminal fire-and-forget callback.
-- **current** — oxlint 1.76 parses the options object but does not implement ignoreLastCallback, so all seven terminal callbacks in @kb/ui carry // oxlint-disable-next-line promise/always-return.
-- **impact** — Seven pinpoint disables of a rule that is error everywhere else. A genuinely broken mid-chain callback in one of these files would now need the disable removed to be seen.
-- **closes** — oxlint implements the ignoreLastCallback option for promise/always-return (verified against eslint-plugin-promise, which has it). Then set the option in .oxlintrc.json and delete all seven disables.
-- **node** — `01M1MFS8RQ2BMQVZD02J4TQT7W`
-
 ### GAP: six React lists key by array index because the index is the identity
 
 - **expected** — Every keyed list keys by a stable domain id, so react/no-array-index-key holds with no exception.
@@ -421,17 +388,17 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: store staleness is size+mtime, not a fingerprint
 
 - **expected** — The session knows whether its index reflects the store from a content fingerprint the store computes as it writes (p1 Phase 3), so no external write can be missed.
-- **current** — reloadEffect compares the opaque StoreFingerprint the EffectStore reports against the one this session last saw; JsonlStore builds that fingerprint from the file's size and mtimeMs, so the same-tick/same-length window is unchanged. persistEffect catches up through the same check before committing, and re-reads the fingerprint after.
-- **impact** — Two windows, both needing a second process writing the same store: an external write in the same mtime tick with an identical byte count is invisible; and an external write landing between persist's check and JsonlStore's own locked reload is merged into the file by that commit but not into the index, which the post-commit stamp then calls current. The session recovers at the next write it does see.
-- **closes** — p1 Phase 3's fingerprint (sourceHash + sourceBytes + nodeCount), or EffectStore.commitEffect returning the merged snapshot so persist reconciles against what was actually written.
+- **current** — persistEffect now reconciles against what the commit merged into: EffectStore.commitEffect returns a StoreCommit (the fingerprint it merged into, and the one it left), and persist applies its own delta only when the commit merged into the state this session had read, rebuilding from the store otherwise. What is left is JsonlStore's fingerprint itself: size plus mtimeMs, so an external write in the same mtime tick that keeps the byte count identical is invisible to reload and to the commit's base alike. SqliteStore is already content-derived (rev plus data_version) and BrowserStore is a generation counter, so this remainder is the JSONL adapter alone.
+- **impact** — One window left, and it needs a second process writing the same store: an external write in the same mtime tick with an identical byte count is invisible, so the session works from an index that is quietly one write behind until the next write it does see.
+- **closes** — JsonlStore reports a content fingerprint rather than a stat — p1 Phase 3's sourceHash + sourceBytes + nodeCount — which means hashing the file on a path whose whole purpose is to answer 'did it change?' without reading it. Worth doing only with a cheaper content signal, or once the cost is measured against the store benchmark.
 - **node** — `01M1PK5NYA7ZG3XC0H0YRYRVZE`
 
 ### GAP: subscription re-evaluation is O(clients x subs x full query) per tx
 
 - **expected** — A logged transaction re-evaluates only the subscriptions it can affect, and evaluates each distinct query once for all the clients holding it.
-- **current** — SubscriptionHub.publish (tools/kb/packages/app/server/src/session.ts) loops every client, then every subscription of that client, and runs the full datalog query through the index for each one, hashing the rows to decide whether to push. Two clients watching the same query run it twice; a tx that cannot touch a query runs it anyway.
-- **impact** — Cost grows with the product of connected clients and their subscriptions, on the hot path of every single edit. The UI opens a subscription per query node on screen, so a handful of tabs on a board view makes each keystroke re-run every visible query.
-- **closes** — Key the evaluation by query string rather than by client so a shared query runs once per tx, and gate it on the tx touching an attribute or entity the query reads (the IR from @kb/query already names what a query looks at).
+- **current** — SubscriptionHub.publish keys evaluation by query string, so each distinct query runs once per tx however many clients hold it. It still runs every subscribed query on every tx, including one the transaction cannot have affected.
+- **impact** — Cost now grows with the number of distinct queries on screen rather than with clients times subscriptions, but it is still every query on every edit: a board view with a dozen query nodes re-runs all twelve per keystroke, most of them answering the same rows.
+- **closes** — Skip a subscription the transaction cannot affect. @kb/query's IR names what a compiled query reads (PatternClause.attr, ReachClause.edge, children), but a StoreTx does not name what a write touched: it carries whole nodes as they are after the write, so a removed prop and every attribute of a deleted node are absent from it. Gating on that read set would silently drop those changes. Needs the tx log to carry before-images (or the store to report a per-tx attribute set), and a fallback that always re-runs an IrRaw query, which exposes no read set at all.
 - **node** — `01M1QZNM17MTGGPE517NVZYJT0`
 
 ### GAP: suppression grammar still includes legacy eslint directives
@@ -467,6 +434,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Hull geometry and hit-testing - pure maths - are trapped inside an effect.
 - **closes** — Extract the hull geometry first (it is pure and testable), then the renderer object.
 - **node** — `01M1MGCQ3JT5GE3FY5XJ9EB67Q`
+
+### GAP: the DST scenario tests gate on a 5s default test timeout
+
+- **expected** — A scenario test's green/red says whether the store behaved, not how busy the host was. Its budget is either sized for a loaded machine or expressed the way palette-index's is — an algorithmic assertion plus printed observations.
+- **current** — packages/app/test-kit/tests/dst.test.ts runs seeded histories through the real plan/apply path under bun test's 5000ms default. On an unloaded machine every scenario finishes well inside it; with two other suites running, whole tests time out — observed 2 of 10 runs failing on 2026-09-09, on the merge base as well as on a working branch, so it is not a code regression.
+- **impact** — A test that fails on a busy machine and passes on a rerun teaches agents to rerun rather than trust the gate, which is the same lesson GAP 01M1R19NXBMTVQG6AH0S7VTC7D was filed to unteach. It also hides a real slowdown: nobody can tell a genuine regression from load.
+- **closes** — Give the DST scenarios an explicit timeout sized to their real cost (they are seconds of work, not milliseconds), or make the scenario count adaptive. Either way the number is stated in the file with its reason, not inherited from a runner default.
+- **rule** — GAP 01M1R19NXBMTVQG6AH0S7VTC7D is the same class: no test gates on wall clock.
+- **node** — `01M1X8VQT1P6E45NBTQEQ96YDR`
 
 ### GAP: the field-value primitive subscribes to the outline store
 
@@ -526,14 +502,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
 - **node** — `01M1MGCPJTV66QSFCR44XG29YM`
 
-### GAP: the store still exposes getPreviousVisibleNode / getNextVisibleNode by node id
-
-- **expected** — Visible-neighbour lookup exists once, keyed by instance key, because a node id can appear in the outline more than once.
-- **current** — getPreviousVisibleInstance / getNextVisibleInstance are the real accessors; the two by-id versions remain @deprecated on the store and are exercised by outline.store.test.ts. Four of the ten remaining no-deprecated hits are these.
-- **impact** — Two ways to ask the same question, one of them known-ambiguous when a node id repeats. Callers can still reach the wrong one.
-- **closes** — Confirm no caller outside the test uses them (none does today), delete both methods and the two test assertions. Store API change, so it is an owner call.
-- **node** — `01M1MGT3K0DNGEQFXQNZYE83NY`
-
 ### GAP: the tx log is MemoryTxLog on both stores; a sqlite root could have a durable one as a table
 
 - **expected** — With a sqlite store, the transaction log is a table in the same database, written inside the same BEGIN IMMEDIATE as the nodes it describes — so a restart does not lose the log, and a client that fell behind can be caught up from it instead of refetching the graph.
@@ -549,14 +517,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A restart of kb ui costs every open client a full graph refetch, and no surface can replay history — undo across sessions, an audit trail, and a browser replica that survives a reload all need the durable form.
 - **closes** — Write each append to .kb/tx.jsonl inside the JsonlStore write lock, load the tail at openKbEffect and seed MemoryTxLog's window and rev from it; make rev per-store rather than per-server in protocol.ts.
 - **node** — `01M1QZMR3CYFYPEXBMC2JTFAA5`
-
-### GAP: the ws client assigns on* handlers instead of addEventListener
-
-- **expected** — KbWsClient wires its socket with addEventListener, so a second listener can be added without clobbering the first and unicorn/prefer-add-event-listener holds.
-- **current** — WsLike is a four-property on*-handler port (onopen/onclose/onerror/onmessage) and the client assigns all four; each assignment carries // oxlint-disable-next-line unicorn/prefer-add-event-listener.
-- **impact** — Four pinpoint disables, and a port shaped so only one listener per event can ever exist. Today that is true by construction (the client owns the socket), which is why this is deferred rather than wrong.
-- **closes** — Widen WsLike to {addEventListener, removeEventListener, send, close} and update every injected fake (api/live.test.ts and the ws tests). That is a test-double contract change across the package, not a mechanical edit, so it needs its own commit.
-- **node** — `01M1MHKS8EV3DD378TZSX44EJG`
 
 ### GAP: two launch paths for the kb binary
 
@@ -586,6 +546,23 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Any change to the store's shape fans out to 23 files: f2 §4 deleting one dead field required 23 one-line edits, and TypeScript's excess-property check makes them mandatory rather than optional. It also hides drift — the literals already differ in which fields they list.
 - **closes** — Extract the reset into one exported fixture and have every suite call it. Mechanical but wide; it is a packages/app/ui change and wants its own wave.
 - **node** — `01M1P63E3Y5KVHV3XMM6TBV2BM`
+
+### GAP: a UI test gates on wall-clock time and fails under machine load
+
+- **expected** — Admission tests assert algorithmic properties; absolute timings are recorded as observations (like the store benchmark table) or normalised against a host calibration.
+- **current** — At least one @kb/ui test asserts an absolute duration; it failed once on 2026-09-05 while a worker ran verify on the same machine and passed on rerun.
+- **impact** — A green/red signal that depends on what else the machine is doing; agents learn to rerun instead of trusting the gate.
+- **closes** — Move the timing to an observation (print a table) or a calibrated ratio; keep the algorithmic assertion.
+- **node** — `01M1R19NXBMTVQG6AH0S7VTC7D`
+
+### GAP: action registry does not validate output schemas
+
+- **expected** — Every action result is parsed once through its declared output schema before a successful receipt crosses a surface.
+- **current** — The registry validates action inputs but wraps raw handler results without applying outputSchema.
+- **impact** — Malformed built-in or extension output can be published as success while the manifest promises a stricter contract.
+- **closes** — Add one registry output parser for Effect-native and Promise handlers, map mismatch to an internal contract failure, and add invalid-output tests.
+- **rule** — Domain typing — parse unknown at the boundary
+- **node** — `01M1PJSSQYFV2E160JANGBPKCK`
 
 ### GAP: canvas move release persists the unsnapped position
 
@@ -637,6 +614,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1PJVW0VZ283V1N3PDXFSHTC`
 
+### GAP: nodes.jsonl has no merge driver
+
+- **expected** — A git merge driver that parses both sides as JSONL and merges by node id, conflicting only when the same node diverges.
+- **current** — Default line-based merge. ULIDs cluster newly created nodes at the file tail, so two branches that each add nodes conflict on adjacent lines.
+- **impact** — Routine parallel work produces textual conflicts in owner data that are not semantic conflicts, which invites hand-editing the store.
+- **closes** — About 40 lines of Bun plus a .gitattributes entry; recorded in briefs/p1-persistence.md section 4.
+- **node** — `01M1M08WYY9X6HFNN5GKDCC47E`
+
 ### GAP: OutlineNode.cursorPosition is deprecated but is still the canvas editor's caret channel
 
 - **expected** — One caret mechanism for both hosts: the outline's CaretIntent, with the canvas card reading the same channel, and cursorPosition gone from the store.
@@ -663,6 +648,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1M08VXGJ5RTQJ3AJNK12G79`
 
+### GAP: seven terminal .then callbacks disable promise/always-return
+
+- **expected** — promise/always-return runs with ignoreLastCallback:true, so the rule guards mid-chain callbacks (where a missing return really does break the chain) and says nothing about a terminal fire-and-forget callback.
+- **current** — oxlint 1.76 parses the options object but does not implement ignoreLastCallback, so all seven terminal callbacks in @kb/ui carry // oxlint-disable-next-line promise/always-return.
+- **impact** — Seven pinpoint disables of a rule that is error everywhere else. A genuinely broken mid-chain callback in one of these files would now need the disable removed to be seen.
+- **closes** — oxlint implements the ignoreLastCallback option for promise/always-return (verified against eslint-plugin-promise, which has it). Then set the option in .oxlintrc.json and delete all seven disables.
+- **node** — `01M1MFS8RQ2BMQVZD02J4TQT7W`
+
 ### GAP: shift-locked resize from nw/sw/ne moves the anchored corner
 
 - **expected** — With Shift held, the corner opposite the dragged one stays pinned while the aspect ratio is locked.
@@ -686,3 +679,19 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A deprecation with no removal condition reads as permanent. The migration also silently drops the collapsed-id set (the inversion needs node metadata that is not available at load), so it is half a migration kept alive indefinitely.
 - **closes** — Decide the removal date (or a version gate) for the migration, delete loadExpandedIds' legacy branch and the two constants. Data decision, not a mechanical one - it strands whatever those keys still hold.
 - **node** — `01M1MGT2A6Y9ZVG5J1CGJMJ2AH`
+
+### GAP: the store still exposes getPreviousVisibleNode / getNextVisibleNode by node id
+
+- **expected** — Visible-neighbour lookup exists once, keyed by instance key, because a node id can appear in the outline more than once.
+- **current** — getPreviousVisibleInstance / getNextVisibleInstance are the real accessors; the two by-id versions remain @deprecated on the store and are exercised by outline.store.test.ts. Four of the ten remaining no-deprecated hits are these.
+- **impact** — Two ways to ask the same question, one of them known-ambiguous when a node id repeats. Callers can still reach the wrong one.
+- **closes** — Confirm no caller outside the test uses them (none does today), delete both methods and the two test assertions. Store API change, so it is an owner call.
+- **node** — `01M1MGT3K0DNGEQFXQNZYE83NY`
+
+### GAP: the ws client assigns on* handlers instead of addEventListener
+
+- **expected** — KbWsClient wires its socket with addEventListener, so a second listener can be added without clobbering the first and unicorn/prefer-add-event-listener holds.
+- **current** — WsLike is a four-property on*-handler port (onopen/onclose/onerror/onmessage) and the client assigns all four; each assignment carries // oxlint-disable-next-line unicorn/prefer-add-event-listener.
+- **impact** — Four pinpoint disables, and a port shaped so only one listener per event can ever exist. Today that is true by construction (the client owns the socket), which is why this is deferred rather than wrong.
+- **closes** — Widen WsLike to {addEventListener, removeEventListener, send, close} and update every injected fake (api/live.test.ts and the ws tests). That is a test-double contract change across the package, not a mechanical edit, so it needs its own commit.
+- **node** — `01M1MHKS8EV3DD378TZSX44EJG`

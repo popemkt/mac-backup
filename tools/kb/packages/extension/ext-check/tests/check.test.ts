@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer, Option } from "effect";
 import * as FileSystem from "effect/FileSystem";
-import { canonicalJsonl } from "@kb/test-kit";
+import { canonicalJsonl } from "@kb/model";
 import {
   kbCtxLayer,
   kbStoreLayer,
@@ -65,8 +65,10 @@ function fixtureContext(initial: readonly KbNode[]) {
     fingerprint: Effect.sync(() => `revision:${revision}`),
     commitEffect: (tx) =>
       Effect.sync(() => {
+        const base = `revision:${revision}`;
         stored = applyTx(stored, tx);
         revision += 1;
+        return { base, fingerprint: `revision:${revision}` };
       }),
   };
   const index = {

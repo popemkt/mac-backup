@@ -82,10 +82,15 @@ export function schemaFailure(err: unknown): ActionSchemaError | DomainError {
 }
 
 /**
- * Parse action input via Standard Schema v1 when present, else `.parse`.
- * Fails with the typed {@link schemaFailure} of whatever the schema raised.
+ * Parse a value through an action schema — Standard Schema v1 when present,
+ * else `.parse`. Fails with the typed {@link schemaFailure} of whatever the
+ * schema raised.
+ *
+ * One parser for both ends of an action: an input on the way in and a result
+ * on the way out are the same operation against the same kind of schema. What
+ * differs is whose fault a mismatch is, and that is the caller's to name.
  */
-export const parseActionInput = Effect.fn("kb.parseActionInput")(function* (
+export const parseBySchema = Effect.fn("kb.parseBySchema")(function* (
   schema: ActionSchema,
   input: unknown,
 ): Effect.fn.Return<unknown, ActionSchemaError | DomainError> {

@@ -12,6 +12,27 @@ import type { DomainError, KbNode, StoreTx } from "@kb/model";
 export type StoreFingerprint = string;
 
 /**
+ * What one commit did.
+ *
+ * A store commits by merging: it reads the current state inside its own
+ * exclusion, applies the transaction, and writes the result. So the state a
+ * commit merged into is not necessarily the state its caller last read —
+ * another process may have written in between, and that write is now in the
+ * store whether the caller knows about it or not.
+ *
+ * `base` is what the commit actually merged into. A caller that had seen
+ * exactly that can apply its own delta to its index; a caller that had not
+ * has an index missing whatever the commit absorbed, and must reload. Null
+ * means the store cannot say, which compares equal to nothing — the safe
+ * direction, since it costs a reload and never a stale index.
+ */
+export interface StoreCommit {
+  readonly base: StoreFingerprint | null;
+  /** The store's fingerprint after the write. */
+  readonly fingerprint: StoreFingerprint | null;
+}
+
+/**
  * Effect-native persistence port. A port that leaks its adapter's platform
  * into R is not a port: the concrete store provides its own FileSystem, so a
  * consumer of {@link EffectStore} needs nothing but the store. `loadEffect` is
@@ -35,5 +56,9 @@ export interface EffectStore {
    * equal to anything, so a session that gets one reloads.
    */
   readonly fingerprint: Effect.Effect<StoreFingerprint | null>;
-  commitEffect(tx: StoreTx): Effect.Effect<void, DomainError>;
+  /**
+   * Apply `tx` and report what the store did, so a caller can tell its own
+   * delta from the state that delta landed in. See {@link StoreCommit}.
+   */
+  commitEffect(tx: StoreTx): Effect.Effect<StoreCommit, DomainError>;
 }

@@ -63,11 +63,15 @@ export const reloadEffect = Effect.fn("kb.reload")(function* (
  *
  * The catch-up first is not defensive noise: the store commits under a lock by
  * reloading, merging and replacing the whole file, so anything another process
- * wrote lands in the file this commit produces. Applying only `tx` to an index
- * that has not seen those nodes would leave the session quietly behind its own
- * store — and the fingerprint taken afterwards would call that state current.
- * Catching up first also means integrity is checked against the graph the
- * commit will actually merge into.
+ * wrote lands in the file this commit produces. It also means integrity is
+ * checked against the graph the commit will actually merge into.
+ *
+ * The catch-up cannot be the whole answer, though: it happens outside the
+ * store's lock, so a write can still land between it and the merge. That is
+ * why the commit reports the state it merged into. When that is the state this
+ * session had read, the local delta is the whole difference and the index
+ * takes it directly; when it is not, the index is rebuilt from the store
+ * rather than stamped as current on a guess.
  *
  * The transaction is recorded on the log in the same breath. This is the only
  * place that holds the real delta of a local write, so it is the only honest
@@ -88,10 +92,19 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
   if (integrityError !== null && integrityError !== "") {
     return yield* domainError("invalid_input", `invalid graph transaction: ${integrityError}`);
   }
-  yield* store.commitEffect(tx);
-  ctx.index.applyTx(tx);
+  const caughtUpTo = seen.get(ctx) ?? null;
+  const commit = yield* store.commitEffect(tx);
+  if (commit.base !== null && commit.base === caughtUpTo) {
+    ctx.index.applyTx(tx);
+    if (commit.fingerprint !== null) seen.set(ctx, commit.fingerprint);
+  } else {
+    // The commit merged into a store this session had not read, so the file it
+    // wrote holds nodes our delta does not mention. Applying only `tx` would
+    // leave the index short of them and the stamp would call that current.
+    // Forget the stamp and read what was actually written.
+    seen.delete(ctx);
+    yield* reloadEffect(ctx);
+  }
   ctx.log.append(tx, yield* currentIso, origin);
-  const fingerprint = yield* store.fingerprint;
-  if (fingerprint !== null) seen.set(ctx, fingerprint);
   return undefined;
 });

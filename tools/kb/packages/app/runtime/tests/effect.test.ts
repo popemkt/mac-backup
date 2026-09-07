@@ -15,7 +15,7 @@ import {
   ActionSchemaError,
   isActionSchema,
   isStandardSchemaV1,
-  parseActionInput,
+  parseBySchema,
   schemaToJsonSchema,
 } from "@kb/model";
 import { DocsError, mapRenderErr } from "@kb/operations";
@@ -214,11 +214,11 @@ describe("ActionSchemaError override", () => {
 });
 
 describe("Standard Schema v1 seam", () => {
-  test("zod schemas satisfy Standard Schema v1 and parseActionInput", async () => {
+  test("zod schemas satisfy Standard Schema v1 and parseBySchema", async () => {
     const schema = z.object({ name: z.string() });
     expect(isStandardSchemaV1(schema)).toBe(true);
     expect(isActionSchema(schema)).toBe(true);
-    const value = await Effect.runPromise(parseActionInput(schema, { name: "kb" }));
+    const value = await Effect.runPromise(parseBySchema(schema, { name: "kb" }));
     expect(value).toEqual({ name: "kb" });
     expect(schemaToJsonSchema(schema)).toMatchObject({ type: "object" });
   });
@@ -241,8 +241,8 @@ describe("Standard Schema v1 seam", () => {
       },
     };
     expect(isActionSchema(schema)).toBe(true);
-    expect(await Effect.runPromise(parseActionInput(schema, { n: 1 }))).toEqual({ n: 1 });
-    expect(Effect.runPromise(parseActionInput(schema, { n: "x" }))).rejects.toThrow(/expected/);
+    expect(await Effect.runPromise(parseBySchema(schema, { n: 1 }))).toEqual({ n: 1 });
+    expect(Effect.runPromise(parseBySchema(schema, { n: "x" }))).rejects.toThrow(/expected/);
     // Non-zod vendors emit a permissive JSON Schema for manifests.
     expect(schemaToJsonSchema(schema)).toEqual({ type: "object" });
   });
@@ -255,6 +255,6 @@ describe("Standard Schema v1 seam", () => {
       },
     };
     expect(isActionSchema(schema)).toBe(true);
-    expect(await Effect.runPromise(parseActionInput(schema, "hi"))).toBe("HI");
+    expect(await Effect.runPromise(parseBySchema(schema, "hi"))).toBe("HI");
   });
 });

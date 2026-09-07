@@ -1,10 +1,10 @@
 import { describe, expect, test, afterEach } from "bun:test";
 import { Effect } from "effect";
+import { canonicalJsonl } from "@kb/model";
 import {
   runScenario,
   cleanup,
   COMMITTED_SEEDS,
-  canonicalJsonl,
   orderIdsByParent,
   contentDanglingRefs,
   parentOf,

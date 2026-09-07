@@ -1,0 +1,7 @@
+# The node store is a set of nodes keyed by id, not a list of lines: ULIDs put
+# every newly created node at the tail of the file, so two branches that each
+# add nodes collide on adjacent lines over a difference that is not one.
+# The driver merges by node id instead. It is registered per clone — see the
+# `kb-jsonl` block in tools/kb/AGENTS.md.
+.kb/nodes.jsonl merge=kb-jsonl
+tools/kb/.kb/nodes.jsonl merge=kb-jsonl

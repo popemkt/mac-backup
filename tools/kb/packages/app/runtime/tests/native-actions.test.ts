@@ -58,6 +58,83 @@ describe("Effect-native action registry", () => {
     expect(sample).toBeDefined();
   });
 
+  test("output its own schema rejects is an internal failure, not a success", async () => {
+    const root = await makeRoot();
+    const dir = join(root, ".kb", "extensions");
+    await mkdir(dir, { recursive: true });
+    // Both handler kinds, so neither path can publish an unchecked result.
+    await writeFile(
+      join(dir, "liar.ts"),
+      `import { z } from "zod";
+import { Effect } from "effect";
+const actions = [
+  {
+    id: "native",
+    title: "Native liar",
+    description: "effect handler whose result breaks its contract",
+    mode: "read",
+    inputSchema: z.object({}),
+    outputSchema: z.object({ count: z.number() }),
+    effect: () => Effect.succeed({ count: "not a number" }),
+  },
+  {
+    id: "promise",
+    title: "Promise liar",
+    description: "promise handler whose result breaks its contract",
+    mode: "read",
+    inputSchema: z.object({}),
+    outputSchema: z.object({ count: z.number() }),
+    handler: async () => ({ count: "not a number" }),
+  },
+];
+export default actions;
+`,
+      "utf8",
+    );
+
+    const ctx = await openKb(root);
+    for (const id of ["ext.liar.native", "ext.liar.promise"]) {
+      const receipt = await invoke(ctx, { id, input: {} });
+      expect(receipt.status).toBe("failed");
+      if (receipt.status === "failed") {
+        expect(receipt.code).toBe("internal");
+        expect(receipt.message).toContain(id);
+      }
+    }
+  });
+
+  test("a receipt carries what the output schema produced, not the raw result", async () => {
+    const root = await makeRoot();
+    const dir = join(root, ".kb", "extensions");
+    await mkdir(dir, { recursive: true });
+    await writeFile(
+      join(dir, "extra.ts"),
+      `import { z } from "zod";
+import { Effect } from "effect";
+const actions = [
+  {
+    id: "surplus",
+    title: "Surplus",
+    description: "returns more than it declares",
+    mode: "read",
+    inputSchema: z.object({}),
+    outputSchema: z.object({ kept: z.string() }),
+    effect: () => Effect.succeed({ kept: "yes", undeclared: "no" }),
+  },
+];
+export default actions;
+`,
+      "utf8",
+    );
+
+    const ctx = await openKb(root);
+    const receipt = await invoke(ctx, { id: "ext.extra.surplus", input: {} });
+    expect(receipt.status).toBe("succeeded");
+    if (receipt.status === "succeeded") {
+      expect(receipt.output).toEqual({ kept: "yes" });
+    }
+  });
+
   test("legacy Promise extension still succeeds and fails canonically", async () => {
     const root = await makeRoot();
     const dir = join(root, ".kb", "extensions");
@@ -135,6 +212,7 @@ export default actions;
       commitEffect: (tx) =>
         Effect.sync(() => {
           commits.push(tx);
+          return { base: null, fingerprint: null };
         }),
     };
 

@@ -55,6 +55,23 @@ existing view specs are unchanged).
   beyond them, and overrides only for the test-file and `.d.ts` file classes.
   A file that legitimately breaks a rule carries a pinpoint
   `// oxlint-disable-next-line <rule> -- <reason>`, not an override.
+- Merging `nodes.jsonl`: the store is a set of nodes keyed by id, so git's
+  line-based merge reports conflicts that are not conflicts — ULIDs put every
+  newly created node at the tail, and two branches that each add one collide
+  there. `.gitattributes` routes both stores through the `kb-jsonl` driver
+  (`packages/app/cli/src/bin/merge-jsonl.ts`, resolution rules in
+  `@kb/model`'s `mergeNodeSets`). Git config is per clone and is not
+  versioned, so — like `git config core.hooksPath .githooks` — register it
+  once per clone, from the repo root:
+
+  ```bash
+  git config merge.kb-jsonl.name "kb node store (three-way by node id)"
+  git config merge.kb-jsonl.driver \
+    "bun tools/kb/packages/app/cli/src/bin/merge-jsonl.ts %O %A %B %P"
+  ```
+
+  Without it git falls back to the default text merge, which is the behaviour
+  that exists today: noisy, but never wrong about content.
 
 ## Extensions
 

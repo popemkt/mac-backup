@@ -1,7 +1,6 @@
 export {
   COMMITTED_SEEDS,
   DANGLING_REF_DECISION,
-  canonicalJsonl,
   cleanup,
   contentDanglingRefs,
   orderIdsByParent,

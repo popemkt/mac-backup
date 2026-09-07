@@ -11,7 +11,7 @@ import {
   type KbNode,
   systemSeedNodes,
   migrateOrderKeys,
-  canonicalJson,
+  canonicalJsonl,
   present,
   type DomainError,
   KbNodeSchema,
@@ -308,12 +308,6 @@ function snapshotSync(root: string): StoreSnapshot {
   if (json.trim().length === 0) return { root, json, nodes: [] };
   const nodes = decodeNodes(JSON.parse(`[${json.trim().split("\n").join(",")}]`));
   return { root, json, nodes };
-}
-
-/** Bring a parsed JSONL body back to canonical bytes; a real store round-trips. */
-export function canonicalJsonl(nodes: KbNode[]): string {
-  const sorted = [...nodes].toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  return sorted.length === 0 ? "" : sorted.map((n) => canonicalJson(n)).join("\n") + "\n";
 }
 
 /**
