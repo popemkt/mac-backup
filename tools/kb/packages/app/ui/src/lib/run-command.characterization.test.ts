@@ -18,10 +18,22 @@ import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { installDomGlobals } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
-import { runPaletteCommand } from "@/lib/run-command";
+import { commandTargetNodeId, runCommand, viewTargetFrameId } from "@/lib/commands";
 
+/**
+ * The one line the registry refactor moved: the runner takes its state as an
+ * argument now. Every assertion below is unchanged.
+ */
 async function run(commandId: string): Promise<void> {
-  await runPaletteCommand(commandId);
+  const outline = useOutlineStore.getState();
+  await runCommand(commandId, {
+    target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
+    outline,
+    prefs: usePrefsStore.getState(),
+    ui: useUiStore.getState(),
+    debugFields: useDebugFieldsStore.getState(),
+    palette: { close: () => {}, openStep: () => {} },
+  });
 }
 
 /** The real `sys.*` seed plus the fixture's outline rows: commands zoom to

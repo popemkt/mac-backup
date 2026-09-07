@@ -1,12 +1,44 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MagnifyingGlassIcon, TerminalIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
+import {
+  commandTargetNodeId,
+  runCommand,
+  viewTargetFrameId,
+  type CommandContext,
+} from "@/lib/commands";
 import { buildPaletteIndex, searchPalette, type PaletteHit } from "@/lib/palette-index";
 import { asInstance } from "@/lib/dom";
-import { runPaletteCommand } from "@/lib/run-command";
 import { schemaZoomKind } from "@/lib/schema-zoom";
+import { toast } from "@/lib/toast";
 import { isSysPrefixed } from "@/lib/types";
+import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useOutlineStore } from "@/stores/outline.store";
+import { usePrefsStore } from "@/stores/prefs.store";
+import { useUiStore } from "@/stores/ui.store";
+
+/**
+ * The state a command runs against, read at the moment it runs.
+ *
+ * The registry is a leaf module, so the palette hands it the stores rather
+ * than the other way round (GAP [[01M1RXMQPVJKREGDS7D37J1MWN]]). ⌘K offers
+ * only the `sys.command` nodes and none of those is a picker step, so
+ * `openStep` states that rather than being wired to nothing.
+ */
+function commandContext(onClose: () => void): CommandContext {
+  const outline = useOutlineStore.getState();
+  return {
+    target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
+    outline,
+    prefs: usePrefsStore.getState(),
+    ui: useUiStore.getState(),
+    debugFields: useDebugFieldsStore.getState(),
+    palette: {
+      close: onClose,
+      openStep: () => toast("That command needs a selected row"),
+    },
+  };
+}
 
 const ROW_LIMIT = 20;
 
@@ -72,7 +104,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     async (hit: PaletteHit) => {
       onClose();
       if (hit.kind === "command") {
-        await runPaletteCommand(hit.id);
+        await runCommand(hit.id, commandContext(onClose));
         return;
       }
       const node = useOutlineStore.getState().nodes.get(hit.id);

@@ -55,6 +55,22 @@ function node(id: string) {
   return useOutlineStore.getState().nodes.get(id);
 }
 
+/**
+ * Let React and the fire-and-forget mutation chains settle.
+ *
+ * Several rounds, not one: the outline's store writes go through
+ * `void mutations.…().then(…)` chains, and under a loaded test run one tick
+ * is not always enough for a chain to land before an assertion reads the
+ * store — or, on the way out of a test, before the next one re-hydrates.
+ */
+async function settle(rounds = 4, delayMs = 0): Promise<void> {
+  for (let i = 0; i < rounds; i += 1) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    });
+  }
+}
+
 describe("outline editing keymap (characterization)", () => {
   let dom: Window;
   const installed = { restore: () => {} };
@@ -82,9 +98,9 @@ describe("outline editing keymap (characterization)", () => {
   });
 
   afterEach(async () => {
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
+    // Generous on the way out: a delete whose promise is still in flight when
+    // the next test re-hydrates would delete a row out of that test's graph.
+    await settle(8, 1);
     act(() => root.unmount());
     container.remove();
   });
@@ -122,11 +138,8 @@ describe("outline editing keymap (characterization)", () => {
     });
     await act(async () => {
       el.dispatchEvent(ev as unknown as Event);
-      // A macrotask, not a microtask: the handler's store writes go through
-      // fire-and-forget `void mutations.…().then(…)` chains, and a chain that
-      // lands after the test would land in the next test's store.
-      await new Promise((resolve) => setTimeout(resolve, 0));
     });
+    await settle();
     return ev.defaultPrevented;
   }
 

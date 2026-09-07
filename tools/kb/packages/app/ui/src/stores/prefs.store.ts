@@ -8,10 +8,9 @@ import { transitionTheme } from "@/lib/theme-transition";
  * Persisted to localStorage["kb-prefs"] — device concern, never repo data.
  * index.html carries a blocking script that reads the same key pre-paint.
  */
-import { THEMES, type ThemePref } from "@/lib/theme";
-export type { ThemePref } from "@/lib/theme";
+import { THEMES, WIDTHS, type ThemePref, type WidthPref } from "@/lib/theme";
+export type { ThemePref, WidthPref } from "@/lib/theme";
 export type FontPref = "outfit" | "inter";
-export type WidthPref = "centered" | "full";
 
 export interface Prefs {
   theme: ThemePref;
@@ -52,7 +51,7 @@ export const DEFAULT_PREFS: Prefs = {
 const StoredPrefsSchema = z.object({
   theme: z.enum(THEMES).catch(DEFAULT_PREFS.theme),
   font: z.enum(["outfit", "inter"]).catch(DEFAULT_PREFS.font),
-  width: z.enum(["centered", "full"]).catch(DEFAULT_PREFS.width),
+  width: z.enum(WIDTHS).catch(DEFAULT_PREFS.width),
   sidebarOpen: z.boolean().optional().catch(undefined),
 });
 

@@ -7,7 +7,9 @@ import { fixtureGraph } from "@/fixtures/graph";
 import { viewFieldNodes } from "@/fixtures/view-fields";
 import { queryResultInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
+import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { useOutlineStore } from "@/stores/outline.store";
+import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import type { WireNode } from "@kb/contracts";
 import { BoardCardsView } from "./board-cards-view";
@@ -303,7 +305,7 @@ describe("Filter… host visibility", () => {
     const { createRoot } = await import("react-dom/client");
     const { act } = await import("react");
     const { ViewFilterPopoverHost } = await import("./view-filter-popover");
-    const { runPaletteCommand } = await import("@/lib/run-command");
+    const { runCommand, commandTargetNodeId, viewTargetFrameId } = await import("@/lib/commands");
 
     const win = new Window({ url: "https://kb.test/" });
     const g = globalThis as typeof globalThis & {
@@ -332,7 +334,15 @@ describe("Filter… host visibility", () => {
 
     useOutlineStore.getState().zoomTo("frame1");
     await act(async () => {
-      await runPaletteCommand(SYSTEM_IDS.cmdViewFilter);
+      const outline = useOutlineStore.getState();
+      await runCommand(SYSTEM_IDS.cmdViewFilter, {
+        target: { nodeId: commandTargetNodeId(outline), frameId: viewTargetFrameId(outline) },
+        outline,
+        prefs: usePrefsStore.getState(),
+        ui: useUiStore.getState(),
+        debugFields: useDebugFieldsStore.getState(),
+        palette: { close: () => {}, openStep: () => {} },
+      });
     });
 
     expect(useUiStore.getState().filterPopoverFrameId).toBe("frame1");
