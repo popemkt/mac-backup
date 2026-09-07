@@ -149,8 +149,9 @@ const sortSpecValues = (props: NodeProps): unknown[] | undefined => {
   if (keys === undefined) return undefined;
   const dirs = props[SYSTEM_IDS.viewSortDirField] ?? [];
   return keys.map((key, index) => {
-    // A value that is not a field reference names no sort key.
-    if (key.t !== "ref") return null;
+    // A value that is not a field reference is not a sort key, and the schema
+    // is what says so — passing it through is what gets it reported.
+    if (key.t !== "ref") return key;
     // A direction with no string at this index is unset, so it takes the
     // declared default; a string that is present is the schema's to judge.
     const dir = dirs[index];
@@ -163,13 +164,18 @@ const SortSpecSchema = Schema.Struct({
   dir: Schema.Literals(["asc", "desc"]),
 });
 
-/** A column listed twice is one column, so a repeat contributes nothing. */
+/**
+ * A column is a field reference. A column listed twice is one column, so a
+ * repeat decodes to `null` — a value that legitimately contributes nothing —
+ * while a value that is no reference at all is left for the schema to reject.
+ */
 const displayValues = (props: NodeProps): unknown[] | undefined => {
   const values = props[SYSTEM_IDS.viewDisplayField];
   if (values === undefined) return undefined;
   const seen = new Set<string>();
   return values.map((value) => {
-    if (value.t !== "ref" || seen.has(value.v)) return null;
+    if (value.t !== "ref") return value;
+    if (seen.has(value.v)) return null;
     seen.add(value.v);
     return value.v;
   });

@@ -165,6 +165,33 @@ describe("getViewConfig reporting", () => {
     expect(warned).toEqual([]);
   });
 
+  it("reports a display column that is not a field reference, and keeps a repeat silent", () => {
+    const config = getViewConfig({
+      [SYSTEM_IDS.viewDisplayField]: [
+        { t: "ref", v: "f1" },
+        { t: "str", v: "f2" },
+        { t: "ref", v: "f1" },
+      ],
+    });
+    expect(config.display).toEqual(["f1"]);
+    expect(warned).toHaveLength(1);
+    expect(warned[0]).toContain(`${SYSTEM_IDS.viewDisplayField}[1] ignored`);
+  });
+
+  it("reports a sort key that is not a field reference", () => {
+    const config = getViewConfig({
+      [SYSTEM_IDS.viewSortField]: [
+        { t: "str", v: "f1" },
+        { t: "ref", v: "f2" },
+      ],
+    });
+    expect(config.sort).toEqual([{ fieldId: "f2", dir: "asc" }]);
+    expect(warned).toHaveLength(1);
+    expect(warned[0]).toContain(
+      `${SYSTEM_IDS.viewSortField} + ${SYSTEM_IDS.viewSortDirField}[0] ignored`,
+    );
+  });
+
   it("reports an empty group-by reference, since an id is never the empty string", () => {
     expect(getViewConfig({ [SYSTEM_IDS.viewGroupField]: [{ t: "ref", v: "" }] }).groupFieldId).toBe(
       null,
