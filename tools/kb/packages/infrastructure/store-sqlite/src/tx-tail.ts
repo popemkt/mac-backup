@@ -28,17 +28,13 @@
  */
 import type { Database } from "bun:sqlite";
 import { canonicalJson, decodeStoredTx, domainError, type KbTx, type StoreTx } from "@kb/model";
-import type { TxRecord, TxTail } from "@kb/contracts";
+import {
+  TX_TAIL_KEEP_ENTRIES,
+  TX_TAIL_MAX_ENTRIES,
+  type TxRecord,
+  type TxTail,
+} from "@kb/contracts";
 import type { SqliteConnection } from "./connection.ts";
-
-/**
- * How many records the tail keeps, matching the JSONL tail's bound so a reader
- * that can be caught up on one backend can be caught up on the other.
- */
-export const TX_TAIL_MAX_ENTRIES = 2048;
-
-/** What a compaction leaves, so it does not run again on the next append. */
-export const TX_TAIL_KEEP_ENTRIES = 1024;
 
 interface TxRow {
   rev: number;

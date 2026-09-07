@@ -18,19 +18,13 @@ import { appendFileSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Predicate } from "effect";
 import { canonicalJson, decodeStoredTx, domainError, type KbTx, type StoreTx } from "@kb/model";
-import type { TxRecord, TxTail } from "@kb/contracts";
+import {
+  TX_TAIL_KEEP_ENTRIES,
+  TX_TAIL_MAX_ENTRIES,
+  type TxRecord,
+  type TxTail,
+} from "@kb/contracts";
 import { durableReplaceFile } from "./durable-replace.ts";
-
-/**
- * How many records the tail keeps. A reader further behind than this takes a
- * snapshot — the same bound the in-process ring used to impose, except that it
- * now bounds a file, so an unbounded sequence costs one compaction rather than
- * unbounded disk forever.
- */
-export const TX_TAIL_MAX_ENTRIES = 2048;
-
-/** What a compaction leaves, so it does not run again on the next append. */
-export const TX_TAIL_KEEP_ENTRIES = 1024;
 
 /** One line of `tx.jsonl`: a {@link KbTx} plus the store mark it was written at. */
 interface TailRecord {

@@ -172,3 +172,12 @@ export const TxOrigin = Context.Reference<string | undefined>("kb/TxOrigin", {
 
 /** The origin the saved-query virtual set carries. See {@link KbTxLog.append}. */
 export const VIRTUAL_ORIGIN = "virtual";
+
+/**
+ * How many records a {@link TxTail} keeps before compacting, and what a
+ * compaction leaves. One bound for every backend on purpose: a reader that can
+ * be caught up (`since` below head) on one store must be caught up on the
+ * other, so the bound is part of the contract, not an adapter's tuning knob.
+ */
+export const TX_TAIL_MAX_ENTRIES = 2048;
+export const TX_TAIL_KEEP_ENTRIES = 1024;
