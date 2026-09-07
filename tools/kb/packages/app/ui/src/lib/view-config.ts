@@ -210,49 +210,169 @@ export interface TableColumnSpec {
   label: string;
 }
 
+/** A field id paired with the label a column header shows. */
+function toColumnSpec(fieldId: string, nodes: NodeMap): TableColumnSpec {
+  return { fieldId, label: textOr(nodes.get(fieldId)?.text, fieldId) };
+}
+
+function isHiddenField(fieldId: string, nodes: NodeMap): boolean {
+  return nodes.get(fieldId)?.props[SYSTEM_IDS.hiddenField]?.[0]?.v === true;
+}
+
+/**
+ * The columns the frame names for itself, or null when it names none.
+ *
+ * `null` rather than `[]` on purpose: a frame that names only hidden fields
+ * has *made a choice*, and showing no columns is that choice honoured. See
+ * {@link mergeColumns}.
+ *
+ * A named `sys.` field is kept — naming one is itself the decision that it
+ * belongs on the table, which is the asymmetry with derivation below.
+ */
+function explicitColumns(
+  display: readonly string[],
+  nodes: NodeMap,
+  showDebugColumns: boolean,
+): TableColumnSpec[] | null {
+  if (display.length === 0) return null;
+  return display
+    .filter((fieldId) => showDebugColumns || !isHiddenField(fieldId, nodes))
+    .map((fieldId) => toColumnSpec(fieldId, nodes));
+}
+
+/**
+ * The columns the projected rows' own tags imply, in first-seen order.
+ *
+ * Nobody asked for these, so infrastructure stays out: a `sys.` field or a
+ * field marked hidden is not offered by derivation.
+ */
+function derivedColumns(
+  children: readonly OutlineNode[],
+  nodes: NodeMap,
+  showDebugColumns: boolean,
+): TableColumnSpec[] {
+  const seen = new Set<string>();
+  const columns: TableColumnSpec[] = [];
+  for (const child of children) {
+    for (const tag of child.tags) {
+      const tagNode = nodes.get(tag.id);
+      if (!tagNode) continue;
+      for (const ref of tagNode.props[SYSTEM_IDS.fieldsField] ?? []) {
+        if (ref.t !== "ref" || seen.has(ref.v)) continue;
+        seen.add(ref.v);
+        if (!showDebugColumns && (isSysPrefixed(ref.v) || isHiddenField(ref.v, nodes))) continue;
+        columns.push(toColumnSpec(ref.v, nodes));
+      }
+    }
+  }
+  return columns;
+}
+
+/**
+ * The precedence, in one place: naming columns on the frame replaces
+ * derivation outright. It used to be implicit in statement order.
+ */
+function mergeColumns(
+  explicit: TableColumnSpec[] | null,
+  derived: () => TableColumnSpec[],
+): TableColumnSpec[] {
+  return explicit ?? derived();
+}
+
 export function resolveTableColumns(
   viewConfig: ViewConfig,
   children: OutlineNode[],
   nodes: NodeMap,
   showDebugColumns = false,
 ): TableColumnSpec[] {
-  let candidateFieldIds: string[] = [];
+  return mergeColumns(explicitColumns(viewConfig.display, nodes, showDebugColumns), () =>
+    derivedColumns(children, nodes, showDebugColumns),
+  );
+}
 
-  if (viewConfig.display.length > 0) {
-    candidateFieldIds = [...viewConfig.display];
-  } else {
-    const seen = new Set<string>();
-    for (const child of children) {
-      for (const tag of child.tags) {
-        const tagNode = nodes.get(tag.id);
-        if (!tagNode) continue;
-        const fields = tagNode.props[SYSTEM_IDS.fieldsField] ?? [];
-        for (const ref of fields) {
-          if (ref.t === "ref" && !seen.has(ref.v)) {
-            seen.add(ref.v);
-            candidateFieldIds.push(ref.v);
-          }
-        }
-      }
+/** `__name__` is the node's own text standing in for a field. */
+const NAME_FIELD_ID = "__name__";
+
+/**
+ * Reading one sort key off a row.
+ *
+ * The node's text is a pseudo-field rather than a branch in the comparator:
+ * once it resolves to a `PropValue` like any other key, one ordering rule
+ * serves both, and "the name is never missing" stops being a special case.
+ */
+const PSEUDO_FIELDS: Readonly<Record<string, (node: OutlineNode) => PropValue>> = {
+  [NAME_FIELD_ID]: (node) => ({ t: "str", v: node.text }),
+};
+
+function sortValueOf(node: OutlineNode, fieldId: string): PropValue | undefined {
+  const pseudo = PSEUDO_FIELDS[fieldId];
+  if (pseudo) return pseudo(node);
+  // Display and drag both take the first value; so does ordering.
+  return node.props[fieldId]?.[0];
+}
+
+function byLowerString(a: string, b: string): number {
+  const x = a.toLowerCase();
+  const y = b.toLowerCase();
+  return x < y ? -1 : x > y ? 1 : 0;
+}
+
+/**
+ * A value type's sort key: one row per type, which is what the comparator's
+ * `else if` ladder made invisible. Numbers stay numbers so 10 sorts after 9;
+ * everything else compares as a lowercased string.
+ */
+type SortKey = number | string;
+
+const SORT_KEY: Readonly<Record<PropValue["t"], (value: PropValue, nodes: NodeMap) => SortKey>> = {
+  num: (value) => Number(value.v),
+  bool: (value) => (value.v === true ? 1 : 0),
+  ref: (value, nodes) => textOr(nodes.get(String(value.v))?.text, String(value.v)).toLowerCase(),
+  str: (value) => String(value.v).toLowerCase(),
+  date: (value) => String(value.v).toLowerCase(),
+};
+
+function compareKeys(a: SortKey, b: SortKey): number {
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return byLowerString(String(a), String(b));
+}
+
+/**
+ * Two rows' values for one key.
+ *
+ * A missing value sorts last — before the direction is applied, so descending
+ * puts it first. Two values of *different* types are compared as their raw
+ * strings rather than through either one's key: a ref mixed with a string has
+ * no shared ordering, and reaching for the ref's resolved text there would be
+ * inventing one.
+ */
+function compareValues(a: PropValue | undefined, b: PropValue | undefined, nodes: NodeMap): number {
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  if (a.t !== b.t) return byLowerString(String(a.v), String(b.v));
+  return compareKeys(SORT_KEY[a.t](a, nodes), SORT_KEY[b.t](b, nodes));
+}
+
+type RowComparator = (a: OutlineNode, b: OutlineNode) => number;
+
+/** One sort key, in one direction. */
+function compareByField(spec: SortSpec, nodes: NodeMap): RowComparator {
+  return (a, b) => {
+    const cmp = compareValues(sortValueOf(a, spec.fieldId), sortValueOf(b, spec.fieldId), nodes);
+    return spec.dir === "asc" ? cmp : -cmp;
+  };
+}
+
+/** First key that separates two rows wins; ties fall through to the next. */
+function composeComparators(comparators: readonly RowComparator[]): RowComparator {
+  return (a, b) => {
+    for (const compare of comparators) {
+      const cmp = compare(a, b);
+      if (cmp !== 0) return cmp;
     }
-  }
-
-  const columns: TableColumnSpec[] = [];
-  for (const fieldId of candidateFieldIds) {
-    if (!showDebugColumns) {
-      const isHidden = nodes.get(fieldId)?.props[SYSTEM_IDS.hiddenField]?.[0]?.v === true;
-      if (viewConfig.display.length === 0) {
-        if (isSysPrefixed(fieldId) || isHidden) continue;
-      } else {
-        if (isHidden) continue;
-      }
-    }
-    const fieldNode = nodes.get(fieldId);
-    const label = textOr(fieldNode?.text, fieldId);
-    columns.push({ fieldId, label });
-  }
-
-  return columns;
+    return 0;
+  };
 }
 
 export function sortChildrenForTable(
@@ -261,51 +381,9 @@ export function sortChildrenForTable(
   nodes: NodeMap,
 ): OutlineNode[] {
   if (sortSpecs.length === 0) return children;
-
-  const sorted = [...children];
-  // oxlint-disable-next-line complexity -- GAP [[01M1MGCKK69CQBZQYAKRMESW5S]]
-  sorted.sort((a, b) => {
-    for (const spec of sortSpecs) {
-      const { fieldId, dir } = spec;
-      let cmp = 0;
-
-      if (fieldId === "__name__") {
-        const textA = a.text.toLowerCase();
-        const textB = b.text.toLowerCase();
-        cmp = textA < textB ? -1 : textA > textB ? 1 : 0;
-      } else {
-        const valA = a.props[fieldId]?.[0];
-        const valB = b.props[fieldId]?.[0];
-
-        if (!valA && !valB) {
-          cmp = 0;
-        } else if (!valA) {
-          cmp = 1;
-        } else if (!valB) {
-          cmp = -1;
-        } else if (valA.t === "num" && valB.t === "num") {
-          cmp = valA.v - valB.v;
-        } else if (valA.t === "bool" && valB.t === "bool") {
-          cmp = (valA.v ? 1 : 0) - (valB.v ? 1 : 0);
-        } else if (valA.t === "ref" && valB.t === "ref") {
-          const textA = textOr(nodes.get(valA.v)?.text, valA.v).toLowerCase();
-          const textB = textOr(nodes.get(valB.v)?.text, valB.v).toLowerCase();
-          cmp = textA < textB ? -1 : textA > textB ? 1 : 0;
-        } else {
-          const strA = String(valA.v).toLowerCase();
-          const strB = String(valB.v).toLowerCase();
-          cmp = strA < strB ? -1 : strA > strB ? 1 : 0;
-        }
-      }
-
-      if (cmp !== 0) {
-        return dir === "asc" ? cmp : -cmp;
-      }
-    }
-    return 0;
-  });
-
-  return sorted;
+  return children.toSorted(
+    composeComparators(sortSpecs.map((spec) => compareByField(spec, nodes))),
+  );
 }
 
 export const EMPTY_GROUP_KEY = "__empty__";

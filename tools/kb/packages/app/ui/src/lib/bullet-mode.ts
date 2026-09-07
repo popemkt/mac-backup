@@ -1,4 +1,5 @@
 import { SYSTEM_IDS } from "@/lib/types";
+import { tagColorAlpha, tagColorFill } from "@/lib/tag-color";
 import { textHasAssetRef } from "@/lib/md-inline";
 import { hasText } from "@/lib/text";
 
@@ -31,14 +32,6 @@ export interface BulletModeInput {
   text?: string;
   /** Stub override for media/canvas kinds. */
   kindOverride?: BulletKindOverride | null;
-}
-
-export interface BulletMode {
-  kind: BulletKind;
-  collapsed: boolean;
-  isRef: boolean;
-  isSys: boolean;
-  childCount: number;
 }
 
 /**
@@ -81,18 +74,125 @@ export function resolveBulletKind(input: BulletModeInput): BulletKind {
   return "plain";
 }
 
-export function resolveBulletMode(
-  input: BulletModeInput & {
-    collapsed: boolean;
-    childCount: number;
-    isRef?: boolean;
-  },
-): BulletMode {
+/**
+ * The bullet's whole appearance, as one value.
+ *
+ * `Bullet` used to decide shape, halo, count badge, tint, title and
+ * aria-label inside its own JSX — a nested ternary for the element and three
+ * `!tinted && …` class strings around it, which made the single most-read
+ * affordance in the outline untestable without rendering. The component now
+ * renders this record and decides nothing.
+ */
+export type BulletShape = "supertag" | "query" | "ref-ring" | "glyph" | "dot";
+
+export interface BulletAppearance {
+  kind: BulletKind;
+  shape: BulletShape;
+  /** The kind's glyph, when it has one. `shape` decides whether it is used. */
+  glyph: string | null;
+  isSys: boolean;
+  isRef: boolean;
+  hasChildren: boolean;
+  collapsed: boolean;
+  childCount: number;
+  /** Whether clicking toggles. Overridable: a row's fields also count. */
+  collapsible: boolean;
+  showHalo: boolean;
+  showCount: boolean;
+  /** True when any tag contributed a color, i.e. the fallback tints are off. */
+  tinted: boolean;
+  /** Filled surfaces divide every tag color equally from the center. */
+  haloFill: string | null;
+  dotFill: string | null;
+  /** A stroke or a glyph can only carry one color, so it takes the first. */
+  strokeColor: string | null;
+  ringColor: string | null;
+  title: string;
+  ariaLabel: string | undefined;
+}
+
+export interface BulletAppearanceInput extends BulletModeInput {
+  collapsed: boolean;
+  childCount: number;
+  isRef?: boolean;
+  /**
+   * Overrides the derived affordance. `NodeBlock` passes it because a row's
+   * fields are expandable content the bullet cannot see.
+   */
+  collapsible?: boolean;
+  /** The node's resolved tag colors, in order (see lib/tag-color). */
+  tagColors?: readonly string[];
+}
+
+/** DESIGN-RESKIN §1.3 — collapsed halo is the tag color at 12.5% (was `20`). */
+const HALO_OPACITY = 12.5;
+/** Dashed reference ring stroke at 25% (was `40`). */
+const REF_RING_OPACITY = 25;
+
+const KIND_GLYPH: Partial<Record<BulletKind, string>> = {
+  tag: "#",
+  field: "\u2317",
+  command: "\u2699",
+  media: "\u25A3",
+  canvas: "\u25C7",
+  ontology: "\u2B21",
+};
+
+/**
+ * Which element the bullet is.
+ *
+ * The order is the one the JSX ternary encoded by position, and two of the
+ * rungs are load-bearing: a supertag and a query node keep their own shape
+ * *on a reference row*, while a glyph kind gives way to the dashed ring.
+ */
+function resolveBulletShape(kind: BulletKind, isRef: boolean, glyph: string | null): BulletShape {
+  if (kind === "tag") return "supertag";
+  if (kind === "query") return "query";
+  if (isRef) return "ref-ring";
+  if (hasText(glyph)) return "glyph";
+  return "dot";
+}
+
+/** What the bullet promises when it is clicked. */
+function resolveAriaLabel(
+  collapsible: boolean,
+  collapsed: boolean,
+  hasChildren: boolean,
+  childCount: number,
+): string | undefined {
+  if (!collapsible) return undefined;
+  if (!collapsed) return "Collapse";
+  return hasChildren ? `Expand (${childCount} children)` : "Expand results";
+}
+
+export function bulletAppearance(input: BulletAppearanceInput): BulletAppearance {
+  const kind = resolveBulletKind(input);
+  const glyph = KIND_GLYPH[kind] ?? null;
+  const isRef = input.isRef ?? false;
+  const collapsible = input.collapsible ?? (input.hasChildren || kind === "query");
+  const showHalo = collapsible && input.collapsed;
+
+  const tagColors = input.tagColors ?? [];
+  const strokeColor = tagColors[0] ?? null;
+
   return {
-    kind: resolveBulletKind(input),
-    collapsed: input.collapsed,
-    isRef: input.isRef ?? false,
+    kind,
+    shape: resolveBulletShape(kind, isRef, glyph),
+    glyph,
     isSys: input.isSys,
+    isRef,
+    hasChildren: input.hasChildren,
+    collapsed: input.collapsed,
     childCount: input.childCount,
+    collapsible,
+    showHalo,
+    showCount: showHalo && input.childCount > 0,
+    tinted: tagColors.length > 0,
+    haloFill: tagColorFill(tagColors, HALO_OPACITY),
+    dotFill: tagColorFill(tagColors),
+    strokeColor,
+    ringColor: strokeColor === null ? null : tagColorAlpha(strokeColor, REF_RING_OPACITY),
+    title: collapsible ? "Click to toggle, Cmd+click to focus" : "Cmd+click to focus",
+    ariaLabel: resolveAriaLabel(collapsible, input.collapsed, input.hasChildren, input.childCount),
   };
 }

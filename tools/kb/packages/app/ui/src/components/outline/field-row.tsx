@@ -1,34 +1,17 @@
-import {
-  CalendarBlankIcon,
-  HashIcon,
-  LinkSimpleIcon,
-  PaletteIcon,
-  TextTIcon,
-  ToggleRightIcon,
-  WarningIcon,
-  XIcon,
-  type Icon,
-} from "@phosphor-icons/react";
+import { WarningIcon, XIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
-import { fieldTypeIconKind, type FieldType } from "@/lib/field-type";
+import type { FieldType } from "@/lib/field-type";
 import { indentStyle } from "@/lib/indent";
-import { SYSTEM_IDS, type PropValue } from "@/lib/types";
+import { FieldTypeIcon, type FieldEditor } from "./field-value";
 
 export const FIELD_LABEL_WIDTH = 120;
 
-const FIELD_ICON: Record<PropValue["t"], Icon> = {
-  str: TextTIcon,
-  num: HashIcon,
-  bool: ToggleRightIcon,
-  date: CalendarBlankIcon,
-  ref: LinkSimpleIcon,
-};
-
 export interface FieldRowProps {
   depth?: number;
-  icon?: Icon;
+  /** Overrides the type glyph the field's editor declares. */
+  icon?: FieldEditor["icon"];
   /** Declared field type (defaults text). Drives the type icon. */
-  fieldType?: FieldType | PropValue["t"];
+  fieldType?: FieldType;
   fieldId?: string;
   label: string;
   labelTitle?: string;
@@ -43,30 +26,101 @@ export interface FieldRowProps {
   className?: string;
 }
 
-function resolveIconKind(fieldType: FieldType | PropValue["t"]): PropValue["t"] {
-  switch (fieldType) {
-    case "text":
-    case "number":
-    case "url":
-    case "checkbox":
-    case "ref":
-      return fieldTypeIconKind(fieldType);
-    case "date":
-      return "date";
-    case "str":
-    case "num":
-    case "bool":
-      return fieldType;
-    default:
-      return "str";
-  }
+/**
+ * The label column: the field's type glyph and its name.
+ *
+ * A value-only row (a table cell) has no label column at all, so this is one
+ * slot the row either fills or does not — not four `!valueOnly &&` guards
+ * spread through one component.
+ */
+function FieldLabel({
+  icon,
+  fieldType,
+  fieldId,
+  label,
+  labelTitle,
+  debug,
+  onIconClick,
+}: Pick<
+  FieldRowProps,
+  "icon" | "fieldType" | "fieldId" | "label" | "labelTitle" | "debug" | "onIconClick"
+> & { fieldType: FieldType; debug: boolean }) {
+  const Glyph = icon;
+  return (
+    <>
+      <span
+        className={cn(
+          "flex h-6 w-6 shrink-0 items-center justify-center self-start text-foreground/25",
+          onIconClick && "cursor-pointer transition-opacity hover:opacity-70",
+        )}
+        onClick={onIconClick}
+      >
+        {/* The glyph is the field's editor's glyph: the registry answers "which
+            editor" and "which icon" together, so a row cannot show one type's
+            glyph over another type's editor. An explicit `icon` overrides it —
+            that is what a preferences row passes. */}
+        {Glyph ? <Glyph size={13} /> : <FieldTypeIcon fieldType={fieldType} fieldId={fieldId} />}
+      </span>
+
+      <span
+        className={cn(
+          "flex h-6 shrink-0 items-start self-start truncate pl-1 pt-px",
+          // Same type scale as node text — only the tint differs (Tana).
+          "kb-text",
+          debug ? "text-foreground/25" : "text-foreground/35",
+        )}
+        style={{ width: `${FIELD_LABEL_WIDTH}px` }}
+        title={labelTitle ?? (fieldId !== undefined ? `${label} (${fieldId})` : label)}
+      >
+        <span className="truncate">{label}</span>
+        {debug && fieldId !== undefined && (
+          <span className="ml-1 truncate font-mono text-[10px] text-foreground/25">{fieldId}</span>
+        )}
+      </span>
+    </>
+  );
+}
+
+/** The UI-only hint that a value's wire kind is not what the field declares. */
+function MismatchWarning() {
+  return (
+    <span
+      className="mr-1 mt-0 flex h-6 w-4 shrink-0 items-center justify-center self-start text-warning"
+      title="Value type does not match field type"
+      data-mismatch-warning="true"
+    >
+      <WarningIcon size={11} weight="fill" />
+    </span>
+  );
+}
+
+/** Hover-revealed "drop this field". Width is reserved, so revealing it cannot shift the row. */
+function RemoveFieldButton({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "ml-1 flex h-6 w-5 shrink-0 items-center justify-center self-start rounded-sm",
+        "text-foreground/20 opacity-0 transition-opacity",
+        "group-hover/field:opacity-100 hover:bg-foreground/8 hover:text-foreground/50",
+        "focus:opacity-100",
+      )}
+      onClick={(e) => {
+        e.stopPropagation();
+        onRemove();
+      }}
+      title={`Remove ${label}`}
+      aria-label={`Remove ${label}`}
+    >
+      <XIcon size={11} weight="bold" />
+    </button>
+  );
 }
 
 /** DESIGN-RESKIN §1.4 — the one field row everywhere (outline, prefs, …).
  * Single source of alignment: label col top-aligned to first value line.
  * Icon + label slots use h-6 baseline; value slot is first-line-flex via items-start.
  */
-// oxlint-disable-next-line complexity -- GAP [[01M1MGCHQH499KS0RV9J461F73]]
 export function FieldRow({
   depth = 0,
   icon,
@@ -82,10 +136,6 @@ export function FieldRow({
   children,
   className,
 }: FieldRowProps) {
-  const IconCmp =
-    icon ??
-    (fieldId === SYSTEM_IDS.colorField ? PaletteIcon : FIELD_ICON[resolveIconKind(fieldType)]);
-
   return (
     <div
       className={cn(
@@ -105,68 +155,22 @@ export function FieldRow({
       data-field-mismatch={mismatch ? "true" : undefined}
     >
       {!valueOnly && (
-        <>
-          <span
-            className={cn(
-              "flex h-6 w-6 shrink-0 items-center justify-center self-start text-foreground/25",
-              onIconClick && "cursor-pointer transition-opacity hover:opacity-70",
-            )}
-            onClick={onIconClick}
-          >
-            <IconCmp size={13} />
-          </span>
-
-          <span
-            className={cn(
-              "flex h-6 shrink-0 items-start self-start truncate pl-1 pt-px",
-              // Same type scale as node text — only the tint differs (Tana).
-              "kb-text",
-              debug ? "text-foreground/25" : "text-foreground/35",
-            )}
-            style={{ width: `${FIELD_LABEL_WIDTH}px` }}
-            title={labelTitle ?? (fieldId !== undefined ? `${label} (${fieldId})` : label)}
-          >
-            <span className="truncate">{label}</span>
-            {debug && fieldId !== undefined && (
-              <span className="ml-1 truncate font-mono text-[10px] text-foreground/25">
-                {fieldId}
-              </span>
-            )}
-          </span>
-        </>
+        <FieldLabel
+          icon={icon}
+          fieldType={fieldType}
+          fieldId={fieldId}
+          label={label}
+          labelTitle={labelTitle}
+          debug={debug}
+          onIconClick={onIconClick}
+        />
       )}
 
-      {mismatch && (
-        <span
-          className="mr-1 mt-0 flex h-6 w-4 shrink-0 items-center justify-center self-start text-warning"
-          title="Value type does not match field type"
-          data-mismatch-warning="true"
-        >
-          <WarningIcon size={11} weight="fill" />
-        </span>
-      )}
+      {mismatch && <MismatchWarning />}
 
       <div className={cn("min-w-0 flex-1 self-start", valueOnly ? "px-0" : "px-1")}>{children}</div>
 
-      {!valueOnly && onRemove && (
-        <button
-          type="button"
-          className={cn(
-            "ml-1 flex h-6 w-5 shrink-0 items-center justify-center self-start rounded-sm",
-            "text-foreground/20 opacity-0 transition-opacity",
-            "group-hover/field:opacity-100 hover:bg-foreground/8 hover:text-foreground/50",
-            "focus:opacity-100",
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          title={`Remove ${label}`}
-          aria-label={`Remove ${label}`}
-        >
-          <XIcon size={11} weight="bold" />
-        </button>
-      )}
+      {!valueOnly && onRemove && <RemoveFieldButton label={label} onRemove={onRemove} />}
     </div>
   );
 }

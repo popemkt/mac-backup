@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveBulletKind, resolveBulletMode, type BulletModeInput } from "@/lib/bullet-mode";
+import { bulletAppearance, resolveBulletKind, type BulletModeInput } from "@/lib/bullet-mode";
 import { SYSTEM_IDS } from "@/lib/types";
 
 function base(partial: Partial<BulletModeInput> = {}): BulletModeInput {
@@ -67,9 +67,9 @@ describe("resolveBulletKind", () => {
   });
 });
 
-describe("resolveBulletMode states", () => {
+describe("bulletAppearance states", () => {
   it("composes collapsed halo inputs and sys/ref flags", () => {
-    const mode = resolveBulletMode({
+    const mode = bulletAppearance({
       ...base({ hasChildren: true, isSys: true }),
       collapsed: true,
       childCount: 3,

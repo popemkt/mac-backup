@@ -1,10 +1,9 @@
 import { memo, useCallback, useMemo } from "react";
-import { contextualTargetOf, isContextualRef, rowText } from "@/lib/contextual-ref";
-import { isQueryNode } from "@/lib/query-node";
+import { contextualTargetOf, rowText } from "@/lib/contextual-ref";
 import { cn } from "@/lib/cn";
 import { guideLineStyle, indentStyle } from "@/lib/indent";
 import { childInstanceKey, outlineInstanceKey } from "@/lib/instance-key";
-import { resolveProps } from "@/lib/graph-view";
+import { resolveRowChrome } from "@/lib/row-chrome";
 import { useUiStore } from "@/stores/ui.store";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -29,7 +28,6 @@ interface NodeBlockProps {
   isRef?: boolean;
 }
 
-// oxlint-disable-next-line complexity -- GAP [[01M1MGCGKSAJSB6GFR30SZNATJ]]
 export const NodeBlock = memo(function NodeBlock({
   nodeId,
   depth,
@@ -126,29 +124,7 @@ export const NodeBlock = memo(function NodeBlock({
     nodePaletteOpen &&
     ((selectedNodeId === nodeId && selectedInstanceKey === instanceKey) ||
       (activeNodeId === nodeId && activeInstanceKey === instanceKey));
-  const hasChildren = node.children.length > 0;
-  const isQuery = isQueryNode(node);
-  /*
-   * A contextual reference row IS a reference, so it takes the dashed ref ring
-   * the outline already uses for reference rows. It is only the *bullet* that
-   * is shared: `isRef` (the prop) means "this row renders a node whose home is
-   * elsewhere", which suppresses nested results and the create-child strip. A
-   * contextual reference's children are its own, so those gates keep reading
-   * the prop, not this.
-   */
-  const bulletIsRef = isRef || isContextualRef(node);
-  const hasFields = resolveProps(node, nodes, { showDebugFields }).length > 0;
-  // What this row actually renders when expanded — one derivation, read by the
-  // bullet's affordance and by every render gate below. A query node projects
-  // results instead of children, and a reference row does not re-run a nested
-  // query, so "expandable" must not promise more than the gates deliver.
-  const showsQueryResults = isQuery && !isRef;
-  const showsChildren = !isQuery && hasChildren;
-  const hasFrameRows = showsChildren || showsQueryResults;
-  const isExpandable = hasFrameRows || hasFields;
-  // Tana model: list = no chrome; toolbar only when mode ≠ list AND expanded.
-  const showToolbar = hasFrameRows && !node.collapsed && viewConfig.mode !== "list";
-  const projected = isProjectedViewMode(viewConfig.mode);
+  const chrome = resolveRowChrome({ node, nodes, viewConfig, isRef, showDebugFields });
 
   return (
     <div
@@ -169,8 +145,8 @@ export const NodeBlock = memo(function NodeBlock({
             bullet={
               <Bullet
                 node={node}
-                collapsible={isExpandable}
-                isRef={bulletIsRef}
+                collapsible={chrome.isExpandable}
+                isRef={chrome.bulletIsRef}
                 onClick={handleBulletClick}
               />
             }
@@ -188,7 +164,7 @@ export const NodeBlock = memo(function NodeBlock({
             }
           />
         </div>
-        {showToolbar && (
+        {chrome.showToolbar && (
           <div
             className={cn(
               "absolute right-2 transition-opacity z-10",
@@ -202,7 +178,7 @@ export const NodeBlock = memo(function NodeBlock({
         )}
       </div>
 
-      {isExpandable && !node.collapsed && (
+      {chrome.showsChildContainer && (
         <div className="children-container relative">
           <div
             className="absolute top-0 bottom-2 w-5 cursor-pointer group/line"
@@ -214,7 +190,7 @@ export const NodeBlock = memo(function NodeBlock({
 
           <FieldsSection nodeId={nodeId} depth={depth} />
 
-          {showsQueryResults && (
+          {chrome.showsQueryResults && (
             <QueryResultsSection
               nodeId={nodeId}
               depth={depth}
@@ -237,8 +213,8 @@ export const NodeBlock = memo(function NodeBlock({
             />
           )}
 
-          {showsChildren &&
-            (projected ? (
+          {chrome.showsChildren &&
+            (chrome.projected ? (
               <div style={indentStyle(depth + 1)}>
                 <FrameChildrenView frameId={nodeId} frameInstanceKey={instanceKey} />
               </div>
@@ -256,7 +232,7 @@ export const NodeBlock = memo(function NodeBlock({
               })
             ))}
 
-          {!isRef && !projected && (
+          {chrome.showsCreateChild && (
             <div
               data-create-child-zone={nodeId}
               role="button"
