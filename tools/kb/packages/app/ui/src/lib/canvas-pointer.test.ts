@@ -123,3 +123,92 @@ test("an edge drag that ends off-port creates nothing", () => {
   expect(ended.doc).toBeUndefined();
   expect(ended.state.drag).toBeNull();
 });
+
+test("the release persists the snapped position the drag showed", () => {
+  const started = reduce(createPointerState(), {
+    type: "move/start",
+    id: moving.id,
+    screen: { x: 0, y: 0 },
+  });
+  const dragged = reduce(started.state, {
+    type: "pointer/move",
+    screen: { x: 97, y: 10 },
+    world: { x: 97, y: 10 },
+    shiftKey: false,
+  });
+  const shown = dragged.doc?.nodes.find((node) => node.id === moving.id);
+  // 97 raw pixels; the right edge snaps the last 3 onto the guide's left edge.
+  expect(shown?.x).toBe(guide.x - moving.width);
+
+  const released = reduce(
+    dragged.state,
+    { type: "pointer/end", screen: { x: 97, y: 10 } },
+    context(dragged.doc),
+  );
+  const persisted = released.doc?.nodes.find((node) => node.id === moving.id);
+  expect(persisted?.x).toBe(shown?.x);
+  expect(released.persist).toBe("history");
+  expect(released.state.snapGuides).toEqual([]);
+});
+
+describe("shift-locked resize", () => {
+  const corners = ["nw", "ne", "se", "sw"] as const;
+  const deltas = [
+    { x: -60, y: -40 },
+    { x: 60, y: 40 },
+    { x: -60, y: 40 },
+    { x: 60, y: -40 },
+    { x: 24, y: -8 },
+  ];
+  const cases = corners.flatMap((corner) => deltas.map((delta) => [corner, delta] as const));
+
+  test.each(cases)("%s keeps its anchored corner pinned (%o)", (corner, delta) => {
+    const started = reduce(createPointerState(), {
+      type: "resize/start",
+      id: moving.id,
+      corner,
+      screen: { x: 0, y: 0 },
+    });
+    const resized = reduce(started.state, {
+      type: "pointer/move",
+      screen: delta,
+      world: delta,
+      shiftKey: true,
+    }).doc?.nodes.find((node) => node.id === moving.id);
+    expect(resized).toBeDefined();
+    if (!resized) return;
+    // Dragging a west corner pins the east edge, and vice versa; a north
+    // corner pins the south edge. The ratio lock may not move either.
+    if (corner.endsWith("w")) expect(resized.x + resized.width).toBe(moving.x + moving.width);
+    else expect(resized.x).toBe(moving.x);
+    if (corner.startsWith("n")) expect(resized.y + resized.height).toBe(moving.y + moving.height);
+    else expect(resized.y).toBe(moving.y);
+  });
+
+  test("the anchor survives the release, not just the drag", () => {
+    const started = reduce(createPointerState(), {
+      type: "resize/start",
+      id: moving.id,
+      corner: "nw",
+      screen: { x: 0, y: 0 },
+    });
+    const active = reduce(started.state, {
+      type: "pointer/move",
+      screen: { x: -60, y: -40 },
+      world: { x: -60, y: -40 },
+      shiftKey: true,
+    });
+    const released = reduce(
+      active.state,
+      { type: "pointer/end", screen: { x: -60, y: -40 }, shiftKey: true },
+      context(active.doc),
+    );
+    const persisted = released.doc?.nodes.find((node) => node.id === moving.id);
+    // The ratio lock shortened the height; the south-east corner still sits
+    // where it did, so the card scaled in place instead of sliding.
+    expect(persisted?.height).toBeLessThan(100);
+    expect((persisted?.x ?? 0) + (persisted?.width ?? 0)).toBe(moving.x + moving.width);
+    expect((persisted?.y ?? 0) + (persisted?.height ?? 0)).toBe(moving.y + moving.height);
+    expect(released.persist).toBe("history");
+  });
+});
