@@ -1,4 +1,12 @@
-import { GRAPH_RENDERER_VALUES, GRAPH_SOURCE_VALUES } from "./graph-schema.ts";
+import {
+  GRAPH_RENDERER_VALUES,
+  GRAPH_SOURCE_FIELD_KINDS,
+  GRAPH_SOURCE_KINDS,
+  GRAPH_SOURCE_KIND_OPTION_IDS,
+  GRAPH_SOURCE_VALUES,
+  graphSourceTargetQuery,
+  type GraphSourceField,
+} from "./graph-schema.ts";
 import { LEGACY_LENS_ALL_MENTIONS, SYSTEM_IDS, type KbNode, type NodeId, nowIso } from "./model.ts";
 import { FIELD_TYPES, FIELD_TYPE_OPTION_IDS, fieldTypeValue } from "./field-type.ts";
 import { ONTOLOGY_TARGET_QUERY } from "./ontology.ts";
@@ -143,37 +151,76 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
         ? { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: targetTag }] }
         : {}),
     });
-  const graphRendererTag = mk(SYSTEM_IDS.graphRendererTag, "graph-renderer", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
-  });
-  const graphSourceTag = mk(SYSTEM_IDS.graphSourceTag, "graph-source", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
-  });
-  const graphOptions = [
-    ...Object.values(GRAPH_RENDERER_VALUES).map((value) =>
-      mk(value.id, value.label, {
-        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.graphRendererTag }],
-      }),
-    ),
-    ...Object.values(GRAPH_SOURCE_VALUES).map((value) =>
-      mk(value.id, value.label, {
-        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.graphSourceTag }],
-      }),
-    ),
-  ];
-  const lensLabelByField = refField(SYSTEM_IDS.lensLabelByField, "lens.label-by");
+  /*
+   * A ref field whose allowed targets are the rows of one EDN query — the
+   * general form of a target constraint (`sys.f.targetQuery`). Both callers
+   * below used to write this object out inline.
+   */
+  const refQueryField = (id: string, text: string, edn: string): KbNode =>
+    mk(id, text, {
+      ...fieldType,
+      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
+      [SYSTEM_IDS.targetQueryField]: [{ t: "str", v: edn }],
+    });
+
+  /*
+   * Graph vocabulary. Renderers and sources are option *sets*, so both are
+   * declared by parenting (DESIGN -> Kinds, roles and options); the two
+   * supertags that once held them templated no fields and existed only so
+   * `lens.renderer` had a `targetTag` to name. "2D" is not a kind of thing, it
+   * is one of the values `lens.renderer` may take.
+   *
+   * They are parented differently because they are shaped differently:
+   *
+   * - the five renderers belong to one field, so they are that field's own
+   *   children — exactly `sys.ft.*` under `sys.f.fieldType`;
+   * - the ten sources are ONE list read by five fields, and a node has one
+   *   parent. So they are children of a list node (`sys.graph.sources`, no tag;
+   *   the Pinned list is the precedent), they carry the `kind` that used to
+   *   exist only in TypeScript, and each of the five fields selects the subset
+   *   it accepts with a `targetQuery` — the shape `surface` uses to select
+   *   `enforcement`'s children minus `prose`.
+   */
+  const rendererOptions = Object.values(GRAPH_RENDERER_VALUES).map((value) =>
+    mk(value.id, value.label),
+  );
+  const sourceKindOptions = GRAPH_SOURCE_KINDS.map((kind) =>
+    mk(GRAPH_SOURCE_KIND_OPTION_IDS[kind], kind),
+  );
+  const graphSourceKindField: KbNode = {
+    ...mk(SYSTEM_IDS.graphSourceKindField, "graph.source.kind", {
+      ...fieldType,
+      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
+    }),
+    children: sourceKindOptions.map((option) => option.id),
+  };
+  const sourceOptions = Object.values(GRAPH_SOURCE_VALUES).map((value) =>
+    mk(value.id, value.label, {
+      [SYSTEM_IDS.graphSourceKindField]: [
+        { t: "ref", v: GRAPH_SOURCE_KIND_OPTION_IDS[value.kind] },
+      ],
+    }),
+  );
+  const graphSourcesRoot: KbNode = {
+    ...mk(SYSTEM_IDS.graphSourcesRoot, "Graph sources"),
+    children: sourceOptions.map((option) => option.id),
+  };
+  /** A lens field selecting from the shared source list, narrowed to its kind. */
+  const sourceField = (id: GraphSourceField, text: string): KbNode =>
+    refQueryField(id, text, graphSourceTargetQuery(GRAPH_SOURCE_FIELD_KINDS[id]));
+
+  const lensLabelByField = sourceField(SYSTEM_IDS.lensLabelByField, "lens.label-by");
   // Graph perspectives (V0): #graph-perspective tag + lens field template.
   const lensQueryField = mk(SYSTEM_IDS.lensQueryField, "lens.query", fieldType);
-  const lensRendererField = refField(
-    SYSTEM_IDS.lensRendererField,
-    "lens.renderer",
-    SYSTEM_IDS.graphRendererTag,
-  );
-  const lensColorByField = refField(SYSTEM_IDS.lensColorByField, "lens.color-by");
-  const lensSizeByField = refField(SYSTEM_IDS.lensSizeByField, "lens.size-by");
-  const lensEdgeKindsField = refField(SYSTEM_IDS.lensEdgeKindsField, "lens.edge-kinds");
+  const lensRendererField: KbNode = {
+    ...refField(SYSTEM_IDS.lensRendererField, "lens.renderer"),
+    children: rendererOptions.map((option) => option.id),
+  };
+  const lensColorByField = sourceField(SYSTEM_IDS.lensColorByField, "lens.color-by");
+  const lensSizeByField = sourceField(SYSTEM_IDS.lensSizeByField, "lens.size-by");
+  const lensEdgeKindsField = sourceField(SYSTEM_IDS.lensEdgeKindsField, "lens.edge-kinds");
   const lensMaxNodesField = mk(SYSTEM_IDS.lensMaxNodesField, "lens.max-nodes", fieldType);
-  const lensClusterByField = refField(SYSTEM_IDS.lensClusterByField, "lens.cluster-by");
+  const lensClusterByField = sourceField(SYSTEM_IDS.lensClusterByField, "lens.cluster-by");
   const lensFocusField = mk(SYSTEM_IDS.lensFocusField, "lens.focus", fieldType);
   const lensLayoutField = mk(SYSTEM_IDS.lensLayoutField, "lens.layout", fieldType);
   const lensSpreadField = mk(SYSTEM_IDS.lensSpreadField, "lens.spread", fieldType);
@@ -235,11 +282,11 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const ontoMemberField = refField(SYSTEM_IDS.ontoMemberField, "onto.member");
   const ontoExcludeField = refField(SYSTEM_IDS.ontoExcludeField, "onto.exclude");
   // targetQuery (not targetTag) so the ref picker offers only #ontology nodes.
-  const ontoExtendsField = mk(SYSTEM_IDS.ontoExtendsField, "onto.extends", {
-    ...fieldType,
-    [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
-    [SYSTEM_IDS.targetQueryField]: [{ t: "str", v: ONTOLOGY_TARGET_QUERY }],
-  });
+  const ontoExtendsField = refQueryField(
+    SYSTEM_IDS.ontoExtendsField,
+    "onto.extends",
+    ONTOLOGY_TARGET_QUERY,
+  );
   const ontoQueryField = mk(SYSTEM_IDS.ontoQueryField, "onto.query", {
     ...fieldType,
     [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("text")],
@@ -307,11 +354,13 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewGroupField,
     viewFilterField,
     lensQueryField,
-    graphRendererTag,
-    graphSourceTag,
-    ...graphOptions,
+    graphSourceKindField,
+    ...sourceKindOptions,
+    graphSourcesRoot,
+    ...sourceOptions,
     lensLabelByField,
     lensRendererField,
+    ...rendererOptions,
     lensColorByField,
     lensSizeByField,
     lensEdgeKindsField,

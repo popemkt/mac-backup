@@ -2,47 +2,53 @@ import { useMemo } from "react";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
 import { SYSTEM_IDS } from "@/lib/types";
-import { graphBindingOptions } from "@/lib/graph-bindings";
+import { graphBindingOptions, type GraphBindingOption } from "@/lib/graph-bindings";
 import { sourceValue, type LensPerspective } from "@/lib/graph-lens";
-import type { GraphSourceKind } from "@kb/model";
+import { GRAPH_SOURCE_FIELD_KINDS, type GraphSourceField, type GraphSourceKind } from "@kb/model";
+import type { WireNode } from "@kb/contracts";
 import { GRAPH_RENDERERS, type GraphChannel } from "./graph-renderers";
 
+/**
+ * "Which options does this lens field accept?" — asked by field, because that
+ * is the question every call site here actually has.
+ *
+ * The answer is `GRAPH_SOURCE_FIELD_KINDS`, the same map the seed turns into
+ * that field's `targetQuery`. Naming the four kinds in this panel instead
+ * would be its own copy of that map, free to disagree with the picker's.
+ * Memoized per kind because two channels (color, group) select the same one.
+ */
+function sourceOptionsByField(
+  nodes: WireNode[],
+): (field: GraphSourceField) => GraphBindingOption[] {
+  const byKind = new Map<GraphSourceKind, GraphBindingOption[]>();
+  return (field) => {
+    const kind = GRAPH_SOURCE_FIELD_KINDS[field];
+    const cached = byKind.get(kind);
+    if (cached !== undefined) return cached;
+    const computed = graphBindingOptions(nodes, kind);
+    byKind.set(kind, computed);
+    return computed;
+  };
+}
+
+/** A channel is a lens field plus how this panel presents it — nothing more. */
 const CHANNELS: Record<
   Exclude<GraphChannel, "relationships">,
   {
     label: string;
-    kind: GraphSourceKind;
-    field: string;
+    field: GraphSourceField;
     key: "colorBy" | "sizeBy" | "clusterBy" | "labelBy";
   }
 > = {
-  color: {
-    label: "Color by",
-    kind: "category",
-    field: SYSTEM_IDS.lensColorByField,
-    key: "colorBy",
-  },
-  size: { label: "Size by", kind: "number", field: SYSTEM_IDS.lensSizeByField, key: "sizeBy" },
-  group: {
-    label: "Group by",
-    kind: "category",
-    field: SYSTEM_IDS.lensClusterByField,
-    key: "clusterBy",
-  },
-  label: { label: "Label from", kind: "label", field: SYSTEM_IDS.lensLabelByField, key: "labelBy" },
+  color: { label: "Color by", field: SYSTEM_IDS.lensColorByField, key: "colorBy" },
+  size: { label: "Size by", field: SYSTEM_IDS.lensSizeByField, key: "sizeBy" },
+  group: { label: "Group by", field: SYSTEM_IDS.lensClusterByField, key: "clusterBy" },
+  label: { label: "Label from", field: SYSTEM_IDS.lensLabelByField, key: "labelBy" },
 };
 
 export function GraphMappings({ perspective }: { perspective: LensPerspective }) {
   const nodes = useOutlineStore((s) => s.wireNodes);
-  const options = useMemo(
-    () => ({
-      category: graphBindingOptions(nodes, "category"),
-      number: graphBindingOptions(nodes, "number"),
-      label: graphBindingOptions(nodes, "label"),
-      relationship: graphBindingOptions(nodes, "relationship"),
-    }),
-    [nodes],
-  );
+  const optionsFor = useMemo(() => sourceOptionsByField(nodes), [nodes]);
   const channels = GRAPH_RENDERERS[perspective.renderer]?.channels ?? [];
   return (
     <div className="mb-3 space-y-3 border-b border-foreground/10 pb-3">
@@ -55,7 +61,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
             <fieldset key={channel} className="space-y-1">
               <legend className="mb-1 text-[11px] text-foreground/55">Relationships</legend>
               <div className="max-h-32 space-y-1 overflow-y-auto">
-                {options.relationship.map((option) => (
+                {optionsFor(SYSTEM_IDS.lensEdgeKindsField).map((option) => (
                   <label key={option.value} className="flex items-center gap-2 text-xs">
                     <input
                       type="checkbox"
@@ -101,12 +107,12 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
                 )
               }
             >
-              {options[config.kind].map((o) => (
+              {optionsFor(config.field).map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
               ))}
-              {!options[config.kind].some((o) => o.value === current) ? (
+              {!optionsFor(config.field).some((o) => o.value === current) ? (
                 <option value={current}>Current: {current}</option>
               ) : null}
             </select>

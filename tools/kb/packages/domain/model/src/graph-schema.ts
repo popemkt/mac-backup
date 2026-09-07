@@ -1,4 +1,21 @@
-/** Stable graph vocabulary. Presets reference these ordinary option nodes or field nodes. */
+import { SYSTEM_IDS } from "./model.ts";
+
+/**
+ * Stable graph vocabulary. Perspectives reference these ordinary option nodes
+ * or field nodes.
+ *
+ * The ids are the seed's, and the seed derives the nodes from here — this file
+ * is the TypeScript side of one declaration, not a second list. Two things it
+ * owns beyond the labels, because both were previously written down twice:
+ *
+ * - a source's **kind** (category / number / label / relationship), which used
+ *   to live only here while the store held it nowhere, so the option set could
+ *   not be partitioned by a query. It is now a seeded field on each option node
+ *   ({@link GRAPH_SOURCE_KIND_OPTION_IDS}) and this map is what seeds it.
+ * - which kind each lens field selects from ({@link GRAPH_SOURCE_FIELD_KINDS}),
+ *   which the seed turns into five `targetQuery`s and the graph page turns into
+ *   five option lists.
+ */
 export const GRAPH_RENDERER_VALUES = {
   force2d: { id: "sys.graph.renderer.force2d", label: "2D" },
   tree: { id: "sys.graph.renderer.tree", label: "Tree" },
@@ -24,6 +41,62 @@ export const GRAPH_SOURCE_VALUES = {
   },
 } as const;
 export type GraphSourceKind = "category" | "number" | "label" | "relationship";
+
+/**
+ * Declared order, which becomes the option order the `kind` picker shows —
+ * written out rather than read back from the values above, which would erase
+ * the literal types (same reason as `FIELD_TYPES`).
+ */
+export const GRAPH_SOURCE_KINDS: readonly GraphSourceKind[] = [
+  "category",
+  "number",
+  "label",
+  "relationship",
+];
+
+/** Kind -> option node id. The four are children of `sys.f.graph.source.kind`. */
+export const GRAPH_SOURCE_KIND_OPTION_IDS: Record<GraphSourceKind, string> = {
+  category: "sys.graph.kind.category",
+  number: "sys.graph.kind.number",
+  label: "sys.graph.kind.label",
+  relationship: "sys.graph.kind.relationship",
+};
+
+/**
+ * The lens fields that select from the shared source list, and the kind each
+ * one selects. Every consumer reads the kind from here: the seed to build the
+ * field's `targetQuery`, the graph page to build its option list.
+ */
+export const GRAPH_SOURCE_FIELD_KINDS = {
+  [SYSTEM_IDS.lensColorByField]: "category",
+  [SYSTEM_IDS.lensClusterByField]: "category",
+  [SYSTEM_IDS.lensSizeByField]: "number",
+  [SYSTEM_IDS.lensLabelByField]: "label",
+  [SYSTEM_IDS.lensEdgeKindsField]: "relationship",
+} as const satisfies Record<string, GraphSourceKind>;
+
+export type GraphSourceField = keyof typeof GRAPH_SOURCE_FIELD_KINDS;
+
+/**
+ * The option set a source-selecting lens field declares: the children of the
+ * shared `sys.graph.sources` list whose `kind` is this one.
+ *
+ * A query, not a second copy of the list — the same shape `surface` uses to
+ * select `enforcement`'s children minus `prose`. `:node/child-order` is paired
+ * with `:node/child` so the picker lists options in outline order, exactly as
+ * `childrenTargetQuery` does for a field's own children.
+ */
+export function graphSourceTargetQuery(kind: GraphSourceKind): string {
+  return [
+    "[:find ?id :where",
+    `[?p :node/id "${SYSTEM_IDS.graphSourcesRoot}"]`,
+    "[?p :node/child ?c]",
+    "[?p :node/child-order ?o]",
+    "[?c :node/id ?id]",
+    `[?c :f/${SYSTEM_IDS.graphSourceKindField} ?k]`,
+    `[?k :node/id "${GRAPH_SOURCE_KIND_OPTION_IDS[kind]}"]]`,
+  ].join(" ");
+}
 
 export function graphSourceKey(id: string): string {
   return (

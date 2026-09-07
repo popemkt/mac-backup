@@ -3,8 +3,16 @@ import type { WireNode } from "@kb/contracts";
 import { SYSTEM_IDS } from "./types";
 import { graphDisplayText } from "./graph-label";
 
+export interface GraphBindingOption {
+  value: string;
+  label: string;
+}
+
 /** Field discovery includes declared fields and properties present on graph nodes. */
-export function graphBindingOptions(nodes: WireNode[], kind: GraphSourceKind) {
+export function graphBindingOptions(
+  nodes: WireNode[],
+  kind: GraphSourceKind,
+): GraphBindingOption[] {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const fields = new Map<string, Set<string>>();
   for (const node of nodes) {

@@ -133,8 +133,22 @@ export const SYSTEM_IDS = {
   /** Ego/tree root for tree + local lenses (ref, single). */
   lensFocusField: "sys.f.lens.focus",
   lensLabelByField: "sys.f.lens.label-by",
-  graphRendererTag: "sys.tag.graph-renderer",
-  graphSourceTag: "sys.tag.graph-source",
+  /**
+   * The shared graph source list. Its children are the ten source options, and
+   * the five source-selecting lens fields each narrow them by `kind` through a
+   * `targetQuery` — one list, five views of it, because a node has one parent.
+   *
+   * No tag on the node, same as the Pinned list: it is a list, and being the
+   * node those queries read is the whole of what it is (DESIGN -> Kinds, roles
+   * and options).
+   */
+  graphSourcesRoot: "sys.graph.sources",
+  /**
+   * Which kind of value a source option yields (category / number / label /
+   * relationship). Carried by each option node; its own four values are this
+   * field's children.
+   */
+  graphSourceKindField: "sys.f.graph.source.kind",
   /** Layout sub-mode: `force` | `radial` | `hierarchical` | `grid` (not metro). */
   lensLayoutField: "sys.f.lens.layout",
   /** FA2 / force spread scale (num). */

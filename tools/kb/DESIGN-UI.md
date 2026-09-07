@@ -627,8 +627,12 @@ A graph perspective is an ordinary `#graph-perspective` node. Its query selects
 nodes; its relationship sources select edges; its encodings map fields to label,
 color, size/area and group. The UI edits the existing lens fields and “Save as
 new perspective” creates a new node through the shared action pipeline. It does
-not create a separate preset store. New source values reference field nodes or
-seeded graph-source nodes; renderer choices reference graph-renderer nodes.
+not create a separate preset store. New source values reference field nodes or the
+seeded source options; renderer choices reference the seeded renderer options.
+Both option sets are declared by parenting rather than by a supertag — the five
+renderers are `lens.renderer`'s own children, and the ten sources are one
+`sys.graph.sources` list that each source-selecting lens field narrows by
+`kind` through a `targetQuery` (DESIGN.md → Kinds, roles and options).
 Legacy string settings remain readable and existing values are not rewritten by
 seeding. Search, selection, legend dimming and camera position are transient.
 Ontology membership remains a separate scope on the same projection.

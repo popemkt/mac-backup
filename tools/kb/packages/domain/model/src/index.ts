@@ -65,10 +65,14 @@ export type { KbTx, StoreTx } from "./tx.ts";
 
 export {
   GRAPH_RENDERER_VALUES,
+  GRAPH_SOURCE_FIELD_KINDS,
+  GRAPH_SOURCE_KINDS,
+  GRAPH_SOURCE_KIND_OPTION_IDS,
   GRAPH_SOURCE_VALUES,
   graphSourceKey,
   graphSourceId,
+  graphSourceTargetQuery,
   graphRendererKey,
   graphRendererId,
 } from "./graph-schema.ts";
-export type { GraphSourceKind } from "./graph-schema.ts";
+export type { GraphSourceField, GraphSourceKind } from "./graph-schema.ts";

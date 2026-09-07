@@ -542,6 +542,17 @@ Two consequences the code depends on:
   exactly that (see the ref-targets bullet above). This is what "in Tana you
   just add a node" means: a user's own option list is a child added under the
   field, with no supertag minted and no bespoke editor.
+- **One list, several fields: the parent is a list node and each field selects
+  from it.** A node has one parent, so an option set used by more than one
+  field cannot be all of their children. Then the options are children of an
+  ordinary list node — no tag on it either, being the node those queries read
+  is the whole of what it is — and each field declares the subset it accepts as
+  a `targetQuery` over that list. `surface` does it by excluding a sibling
+  (`enforcement`'s children minus `prose`); the five graph source fields do it
+  by partitioning on a field the options carry (`sys.graph.sources`' children
+  filtered by `sys.f.graph.source.kind`). This is still one mechanism — a
+  declared query over the option nodes — not a fourth carrier: `targetQuery`
+  is the general form and parenting is the sugar for the single-field case.
 
 `#ontology`, `#rule`, `#gap`, `#check`, `#todo`, `#graph-perspective` and
 `#canvas` remain supertags because each names a thing that exists before any
