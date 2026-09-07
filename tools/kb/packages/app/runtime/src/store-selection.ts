@@ -10,7 +10,7 @@
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
-import { domainError, ensureDomainError, type DomainError } from "@kb/model";
+import { currentIso, domainError, ensureDomainError, type DomainError } from "@kb/model";
 import type { EffectStore } from "@kb/contracts";
 import { JsonlStore } from "@kb/store-jsonl";
 import { SqliteStore, sqliteStoreFiles } from "@kb/store-sqlite";
@@ -134,7 +134,7 @@ export const createStore = Effect.fn("kb.createStore")(function* (
     );
   }
   const opened = BACKENDS[name].open(root);
-  yield* opened.store.commitEffect({ upserts: [], deletes: [] });
+  yield* opened.store.commitEffect({ upserts: [], deletes: [] }, { at: yield* currentIso });
   opened.release();
   return undefined;
 });
@@ -173,7 +173,7 @@ export const migrateStore = Effect.fn("kb.migrateStore")(function* (
   const source = BACKENDS[from].open(root);
   const target = BACKENDS[to].open(root);
   const nodes = yield* source.store.loadEffect;
-  yield* target.store.commitEffect({ upserts: nodes, deletes: [] });
+  yield* target.store.commitEffect({ upserts: nodes, deletes: [] }, { at: yield* currentIso });
 
   // Release before removing: a backend that holds a file open would otherwise
   // recreate its sidecars on close, and the root would have two stores again.

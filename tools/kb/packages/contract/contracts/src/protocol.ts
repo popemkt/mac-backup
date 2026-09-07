@@ -34,10 +34,14 @@ export const WireNodeSchema = z.object({
 });
 export type WireNode = z.infer<typeof WireNodeSchema>;
 
-/** `rev` is a monotonically increasing server counter, bumped on every
- * observed change of .kb/nodes.jsonl. Clients use it to detect missed
- * updates: a gap is answered with `since`, and only a rev the server's log
- * cannot cover falls back to refetching /api/graph. */
+/** `rev` is a monotonically increasing counter over the **store's** durable
+ * transaction tail, bumped on every observed change of the store (and on a
+ * change to the saved-query set, which is a logged transaction too). It
+ * survives a server restart, so a client that reconnects with the rev it had
+ * is usually caught up with frames rather than a snapshot. Clients use it to
+ * detect missed updates: a gap is answered with `since`, and only a rev the
+ * tail cannot cover — compacted past, from another store, or at or below a
+ * head the tail cannot vouch for — falls back to refetching /api/graph. */
 export const GraphSnapshotSchema = z.object({
   rev: z.number().int().nonnegative(),
   nodes: z.array(WireNodeSchema),
@@ -98,9 +102,11 @@ export const ServerMessageSchema = z.discriminatedUnion("op", [
     message: z.string(),
   }),
   /**
-   * Answer to `since` when the gap cannot be expressed as frames (the log
-   * window has moved past it, or the client's rev belongs to a previous
-   * server process). `head` is the rev a fresh /api/graph will carry.
+   * Answer to `since` when the gap cannot be expressed as frames: the tail
+   * has been compacted past it, the client's rev belongs to another store's
+   * counter, or the tail is behind the store it describes and so cannot vouch
+   * for any rev at or below its head. `head` is the rev a fresh /api/graph
+   * will carry.
    */
   z.object({ op: z.literal("snapshot-required"), head: z.number().int() }),
   z.object({ op: z.literal("pong") }),

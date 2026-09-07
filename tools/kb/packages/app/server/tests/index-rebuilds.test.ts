@@ -21,6 +21,9 @@ import type { KbNode } from "@kb/model";
 import { handleHttpRequest } from "../src/http.ts";
 import { SubscriptionHub } from "../src/session.ts";
 
+/** The `at` a test commit records; the tail wants one and none of these assert on it. */
+const TX_AT = "2026-01-01T00:00:00.000Z";
+
 /** The counter lives on the implementation; the port does not promise one. */
 function rebuildsOf(index: KbIndex): number {
   if (!(index instanceof DatascriptIndex)) throw new Error("expected a DatascriptIndex");
@@ -90,7 +93,10 @@ describe("index rebuilds on the interactive path", () => {
       const external = new JsonlStore(dir);
       const onDisk = await Effect.runPromise(external.loadEffect);
       await Effect.runPromise(
-        external.commitEffect({ upserts: [...onDisk, node("n.external")], deletes: [] }),
+        external.commitEffect(
+          { upserts: [...onDisk, node("n.external")], deletes: [] },
+          { at: TX_AT },
+        ),
       );
 
       await Effect.runPromise(

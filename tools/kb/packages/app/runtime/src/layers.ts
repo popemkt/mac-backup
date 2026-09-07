@@ -21,7 +21,7 @@ import {
   type KbContext,
   TemplateRegistry,
 } from "@kb/contracts";
-import { MemoryTxLog } from "@kb/tx-log";
+import { StoreTxLog } from "@kb/tx-log";
 import { assetsLayer, savedQueriesLayer, viewsLayer } from "@kb/workspace-fs";
 import { noteStoreSynced } from "@kb/operations";
 import { registryFor } from "./registry.ts";
@@ -70,7 +70,7 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   const migrated = migrateOrderKeys(typed.nodes);
   if (didSeed || nodes.length === 0 || deletes.length > 0 || typed.changed || migrated.changed) {
     nodes = migrated.nodes;
-    yield* store.commitEffect({ upserts: nodes, deletes });
+    yield* store.commitEffect({ upserts: nodes, deletes }, { at });
   } else {
     nodes = migrated.nodes;
   }
@@ -79,7 +79,7 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
     root,
     store,
     index,
-    log: new MemoryTxLog(),
+    log: new StoreTxLog(store.txTail),
     get nodes(): KbNode[] {
       return index.storedNodes();
     },

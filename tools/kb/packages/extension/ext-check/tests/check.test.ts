@@ -8,6 +8,8 @@ import {
   type EffectStore,
   type KbContext,
   type KbTxLog,
+  type TxRecord,
+  type TxTail,
 } from "@kb/contracts";
 import type { KbNode, KbTx, StoreTx } from "@kb/model";
 import { checkAuditEffect, checkSyncEffect, type Finding } from "../src/index.ts";
@@ -30,30 +32,81 @@ function applyTx(nodes: readonly KbNode[], tx: StoreTx): KbNode[] {
   return [...byId.values()].toSorted((a, b) => a.id.localeCompare(b.id));
 }
 
-class TestLog implements KbTxLog {
-  readonly entries: KbTx[] = [];
-  get head(): number {
-    return this.entries.length;
+/**
+ * The fake store's transaction tail, and a log over it.
+ *
+ * Hand-rolled rather than `@kb/tx-log`'s pair: this is an `extension` package,
+ * which may not reach infrastructure, and the fixture's store is in a closure
+ * anyway. Small enough that the alternative — widening the import matrix for a
+ * test double — would cost more than it saves.
+ */
+class FixtureTail implements TxTail {
+  private readonly recorded: KbTx[] = [];
+
+  head(): number {
+    return this.recorded.at(-1)?.rev ?? 0;
   }
-  append(ops: StoreTx, at: string, origin?: string): KbTx {
-    const entry: KbTx = {
-      rev: this.entries.length + 1,
-      at,
+
+  isCurrent(): boolean {
+    return true;
+  }
+
+  entries(): KbTx[] {
+    return [...this.recorded];
+  }
+
+  append(ops: StoreTx, record: TxRecord): KbTx {
+    const rev = this.head() + 1;
+    const tx: KbTx = {
+      rev,
       ops,
-      ...(origin !== undefined ? { origin } : {}),
+      at: record.at,
+      ...(record.origin === undefined ? {} : { origin: record.origin }),
     };
-    this.entries.push(entry);
-    return entry;
+    this.recorded.push(tx);
+    return tx;
   }
+
+  adopt(): void {
+    /* Migration is not a thing a fixture store does. */
+  }
+}
+
+class FixtureLog implements KbTxLog {
+  private readonly tail: FixtureTail;
+  private rev = 0;
+
+  constructor(tail: FixtureTail) {
+    this.tail = tail;
+  }
+
+  get head(): number {
+    return this.rev;
+  }
+
+  refresh(): KbTx[] {
+    const caught = this.tail.entries().filter((tx) => tx.rev > this.rev);
+    this.rev = this.tail.head();
+    return caught;
+  }
+
+  append(ops: StoreTx, at: string, origin?: string): KbTx {
+    const tx = this.tail.append(ops, origin === undefined ? { at } : { at, origin });
+    this.rev = tx.rev;
+    return tx;
+  }
+
   since(rev: number): KbTx[] | "snapshot-required" {
-    return rev > this.head ? "snapshot-required" : this.entries.filter((entry) => entry.rev > rev);
+    return rev > this.rev ? "snapshot-required" : this.tail.entries().filter((tx) => tx.rev > rev);
   }
+
   subscribe(): () => void {
     return () => undefined;
   }
 }
 
 function fixtureContext(initial: readonly KbNode[]) {
+  const tail = new FixtureTail();
   let stored = [...initial];
   let indexed = [...initial];
   let generation = 0;
@@ -63,6 +116,7 @@ function fixtureContext(initial: readonly KbNode[]) {
     watchPaths: [],
     loadEffect: Effect.sync(() => [...stored]),
     fingerprint: Effect.sync(() => `revision:${revision}`),
+    txTail: tail,
     commitEffect: (tx) =>
       Effect.sync(() => {
         const base = `revision:${revision}`;
@@ -109,7 +163,7 @@ function fixtureContext(initial: readonly KbNode[]) {
       generation += 1;
     },
   };
-  const log = new TestLog();
+  const log = new FixtureLog(tail);
   const ctx: KbContext = {
     root: ROOT,
     store,

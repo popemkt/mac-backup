@@ -1,4 +1,4 @@
-import { Effect, Option, Predicate, Schema } from "effect";
+import { Effect, Predicate, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { join } from "node:path";
 import {
@@ -12,8 +12,9 @@ import {
 } from "@kb/model";
 import { bunFileSystemLayer } from "./platform.ts";
 import { durableReplaceFile } from "./durable-replace.ts";
-import type { EffectStore, StoreCommit, StoreFingerprint } from "@kb/contracts";
+import type { EffectStore, StoreCommit, StoreFingerprint, TxRecord } from "@kb/contracts";
 import { acquireNodesWriteLockEffect, releaseNodesWriteLock } from "./write-lock.ts";
+import { JsonlTxTail, fileMark, txTailPath } from "./tx-tail.ts";
 
 function mapFsError(err: unknown): DomainError {
   const message =
@@ -81,6 +82,7 @@ export class JsonlStore implements EffectStore {
   readonly watchPaths: readonly string[];
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
   readonly fingerprint: Effect.Effect<StoreFingerprint | null>;
+  readonly txTail: JsonlTxTail;
 
   constructor(root: string) {
     this.path = join(root, ".kb", "nodes.jsonl");
@@ -88,12 +90,14 @@ export class JsonlStore implements EffectStore {
     this.watchPaths = [this.path];
     this.loadEffect = loadNodes(this.path);
     this.fingerprint = fingerprintOf(this.path);
+    this.txTail = new JsonlTxTail(this.path, txTailPath(root));
   }
 
-  commitEffect(tx: StoreTx): Effect.Effect<StoreCommit, DomainError> {
+  commitEffect(tx: StoreTx, record: TxRecord): Effect.Effect<StoreCommit, DomainError> {
     const path = this.path;
     const backupPath = this.backupPath;
     const loadEffect = this.loadEffect;
+    const txTail = this.txTail;
     return Effect.scoped(
       Effect.gen(function* () {
         yield* Effect.acquireRelease(acquireNodesWriteLockEffect(path), (lockPath) =>
@@ -115,6 +119,20 @@ export class JsonlStore implements EffectStore {
           catch: (err) => ensureDomainError(err),
         });
 
+        // Still under the same lock, so the tail's rev allocation is serialised
+        // by the mechanism that already serialises node writes and no second
+        // lock is needed. Nodes first, tail second: a tail that lags is
+        // detectable (`isCurrent`) and costs one snapshot, while a tail that
+        // led would hand replicas a frame for a write that never landed. An
+        // empty transaction is not recorded — it costs a rev and a frame and
+        // says nothing.
+        if (tx.upserts.length > 0 || tx.deletes.length > 0) {
+          yield* Effect.try({
+            try: () => txTail.append(tx, record),
+            catch: (err) => ensureDomainError(err),
+          });
+        }
+
         return { base, fingerprint: yield* fingerprintOf(path) };
       }),
     ).pipe(Effect.provide(bunFileSystemLayer));
@@ -129,16 +147,10 @@ export class JsonlStore implements EffectStore {
  * fingerprint, and null compares equal to nothing.
  */
 function fingerprintOf(path: string): Effect.Effect<StoreFingerprint | null> {
-  return Effect.gen(function* () {
-    const fs = yield* FileSystem;
-    return yield* fs.stat(path).pipe(
-      Effect.map(
-        (info): StoreFingerprint | null =>
-          `${String(info.size)}:${String(Option.isSome(info.mtime) ? info.mtime.value.getTime() : 0)}`,
-      ),
-      Effect.orElseSucceed(() => null),
-    );
-  }).pipe(Effect.provide(bunFileSystemLayer));
+  // The same string the tail stamps on every record (`fileMark`), so "is the
+  // tail current?" compares like with like instead of two spellings of
+  // size+mtime that could drift apart.
+  return Effect.sync(() => fileMark(path));
 }
 
 /** The store's own platform boundary: JSONL on the Bun filesystem. */

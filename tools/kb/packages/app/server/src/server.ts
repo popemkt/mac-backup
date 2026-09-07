@@ -72,17 +72,27 @@ function clientSend(ws: Bun.ServerWebSocket<WsData>): ClientSend {
  * Ingest an external write: bring the session up to date, then say what
  * changed.
  *
- * A file event carries no transaction, only "something happened", so this is
- * the one path that has to recover a delta by comparing node sets — once,
- * here, rather than on every commit. The comparison doubles as the
- * double-fire guard: the watcher also fires on writes this session made, and
- * those diff to nothing because `reloadEffect` already knows the file is the
- * one it wrote. An empty transaction is not appended, so it costs no rev and
- * no frame.
+ * The store's tail is durable and shared, so a write another process made is
+ * already recorded in it by the time this fires — `refresh` reads those
+ * transactions rather than reconstructing them, which is both cheaper and the
+ * only version that agrees with the writer about what happened. It doubles as
+ * the double-fire guard: the watcher also fires on writes this session made,
+ * and those are already at head.
+ *
+ * The diff is the fallback for a write nobody recorded — a hand-edited
+ * `nodes.jsonl`, an older kb, a restore from backup. A file event carries no
+ * transaction, only "something happened", so that case is the one place a
+ * delta still has to be recovered by comparing node sets. It runs only when
+ * the tail had nothing to say, because a change the tail already explained
+ * would otherwise be recorded twice — once as the writer authored it and once
+ * as this session re-derived it. An empty transaction is not appended either:
+ * it costs a rev and a frame and says nothing.
  */
 export const ingestExternalWrite = Effect.fn("kb.ingestExternalWrite")(function* (ctx: KbContext) {
   const before = ctx.index.storedNodes();
   yield* reloadEffect(ctx);
+  // The tail explained the change, so nothing here has to guess at it.
+  if (ctx.log.refresh().length > 0) return;
   const ops = diffTx(before, ctx.index.storedNodes());
   if (ops.upserts.length === 0 && ops.deletes.length === 0) return;
   ctx.log.append(ops, yield* currentIso);

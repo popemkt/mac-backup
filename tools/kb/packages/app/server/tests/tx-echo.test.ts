@@ -21,6 +21,9 @@ import { handleHttpRequest } from "../src/http.ts";
 import { ingestExternalWrite } from "../src/server.ts";
 import { SubscriptionHub } from "../src/session.ts";
 
+/** The `at` a test commit records; the tail wants one and none of these assert on it. */
+const TX_AT = "2026-01-01T00:00:00.000Z";
+
 type TxFrame = Extract<ServerMessage, { op: "tx" }>;
 
 async function root(): Promise<string> {
@@ -168,10 +171,11 @@ describe("the server echoes every tx to every watcher", () => {
       const hub = new SubscriptionHub(ctx);
       const a = await watcher(hub, "client-a");
 
+      // A second store over the same files is another process: it commits its
+      // own delta, which lands in the shared tail with it.
       const external = new JsonlStore(dir);
-      const onDisk = await Effect.runPromise(external.loadEffect);
       await Effect.runPromise(
-        external.commitEffect({ upserts: [...onDisk, node("n.external")], deletes: [] }),
+        external.commitEffect({ upserts: [node("n.external")], deletes: [] }, { at: TX_AT }),
       );
 
       const before = ctx.log.head;
@@ -186,8 +190,8 @@ describe("the server echoes every tx to every watcher", () => {
           ?.upserts.map((n) => n.id),
       ).toEqual(["n.external"]);
 
-      // The watcher double-fires on the same file; the diff is empty, so no
-      // rev is spent and no frame is sent.
+      // The watcher double-fires on the same file. The tail has nothing past
+      // head and the node sets agree, so no rev is spent and no frame is sent.
       await Effect.runPromise(ingest);
       expect(ctx.log.head).toBe(before + 1);
       expect(txFrames(a)).toHaveLength(1);

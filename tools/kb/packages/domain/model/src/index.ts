@@ -32,6 +32,7 @@ export {
   KbNodeSchema,
   PropValueSchema,
   decodeStoredNode,
+  decodeStoredTx,
   nodeParseOptions,
 } from "./node-schema.ts";
 export {

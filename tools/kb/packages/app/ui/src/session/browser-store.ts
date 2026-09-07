@@ -1,6 +1,7 @@
 import { Effect } from "effect";
-import type { EffectStore, StoreCommit } from "@kb/contracts";
+import type { EffectStore, StoreCommit, TxRecord } from "@kb/contracts";
 import type { DomainError, KbNode, StoreTx } from "@kb/model";
+import { MemoryTxTail } from "@kb/tx-log";
 
 /** In-memory persistence side of the browser's replicated kb session. */
 export class BrowserStore implements EffectStore {
@@ -8,6 +9,13 @@ export class BrowserStore implements EffectStore {
   /** Nothing on a filesystem to watch: the server pushes this store its news. */
   readonly watchPaths: readonly string[] = [];
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
+
+  /**
+   * In memory, because this store is a replica: the server's tail is the
+   * durable one, and a second durable copy in the browser would be a record
+   * with no authority claiming to be one.
+   */
+  readonly txTail = new MemoryTxTail();
 
   private readonly byId = new Map<string, KbNode>();
   private generation = 0;
@@ -18,12 +26,14 @@ export class BrowserStore implements EffectStore {
     this.loadEffect = Effect.sync(() => [...this.byId.values()]);
   }
 
-  commitEffect(tx: StoreTx): Effect.Effect<StoreCommit, DomainError> {
+  commitEffect(tx: StoreTx, record: TxRecord): Effect.Effect<StoreCommit, DomainError> {
     return Effect.sync(() => {
       // Single-threaded and synchronous: nothing can land between the read of
-      // the generation and the write that bumps it.
+      // the generation and the write that bumps it, or between that and the
+      // record — which is what "one critical section" means in a browser.
       const base = String(this.generation);
       this.apply(tx);
+      if (tx.upserts.length > 0 || tx.deletes.length > 0) this.txTail.append(tx, record);
       return { base, fingerprint: String(this.generation) };
     });
   }

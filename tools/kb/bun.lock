@@ -117,6 +117,7 @@
         "@kb/query": "workspace:*",
         "@kb/runtime": "workspace:*",
         "@kb/store-jsonl": "workspace:*",
+        "@kb/tx-log": "workspace:*",
         "effect": "catalog:",
         "fast-check": "catalog:",
       },

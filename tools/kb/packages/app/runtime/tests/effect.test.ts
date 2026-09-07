@@ -23,6 +23,9 @@ import { invoke } from "../src/invoke.ts";
 import { invokeEffect, invokeReceiptEffect } from "../src/registry.ts";
 import { z } from "zod";
 
+/** The `at` a test commit records; the tail wants one and none of these assert on it. */
+const TX_AT = "2026-01-01T00:00:00.000Z";
+
 async function tempRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), "kb-effect-"));
 }
@@ -87,19 +90,22 @@ describe("Effect services + layers", () => {
     // Write behind the session's back, then reload through the KbStore port.
     const external = new JsonlStore(root);
     await Effect.runPromise(
-      external.commitEffect({
-        upserts: [
-          {
-            id: "n.external",
-            text: "written by someone else",
-            props: {},
-            children: [],
-            createdAt: new Date(0).toISOString(),
-            updatedAt: new Date(0).toISOString(),
-          },
-        ],
-        deletes: [],
-      }),
+      external.commitEffect(
+        {
+          upserts: [
+            {
+              id: "n.external",
+              text: "written by someone else",
+              props: {},
+              children: [],
+              createdAt: new Date(0).toISOString(),
+              updatedAt: new Date(0).toISOString(),
+            },
+          ],
+          deletes: [],
+        },
+        { at: TX_AT },
+      ),
     );
     await reload(ctx);
     expect(ctx.nodes.some((n) => n.id === "n.effect-store")).toBe(true);

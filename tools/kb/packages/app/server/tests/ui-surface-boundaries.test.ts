@@ -126,7 +126,9 @@ describe("ui session boundary", () => {
 
     await Effect.runPromise(hub.addClient("c1", send));
     expect(hub.clientCount).toBe(1);
-    expect(JSON.parse(present(frames[0], "expected frames[0]"))).toEqual({ op: "hello", rev: 0 });
+    // rev 1, not 0: `rev` is the store's durable counter now, and opening a
+    // fresh root seeds it — which is a recorded transaction like any other.
+    expect(JSON.parse(present(frames[0], "expected frames[0]"))).toEqual({ op: "hello", rev: 1 });
 
     await Effect.runPromise(hub.handleMessage("c1", "not-json{{{"));
     expect(JSON.parse(present(frames[1], "expected frames[1]"))).toMatchObject({

@@ -18,6 +18,7 @@ import {
 } from "../src/registry.ts";
 import type { ActionEffectHandler, EffectStore } from "@kb/contracts";
 import type { StoreTx } from "@kb/model";
+import { MemoryTxTail } from "@kb/tx-log";
 
 /** Under tests/ so fixture extensions resolve zod via tools/kb/node_modules. */
 async function tempRoot(): Promise<string> {
@@ -209,6 +210,7 @@ export default actions;
       watchPaths: [],
       loadEffect: Effect.succeed(ctx.nodes),
       fingerprint: Effect.succeed(null),
+      txTail: new MemoryTxTail(),
       commitEffect: (tx) =>
         Effect.sync(() => {
           commits.push(tx);
