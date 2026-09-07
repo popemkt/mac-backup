@@ -26,7 +26,12 @@ describe("lens action inputs", () => {
         id: "node.update",
         input: {
           id: perspective.id,
-          setProps: [{ field: SYSTEM_IDS.lensRendererField, value: { t: "str", v: "force3d" } }],
+          setProps: [
+            {
+              field: SYSTEM_IDS.lensRendererField,
+              value: { t: "ref", v: "sys.graph.renderer.force3d" },
+            },
+          ],
         },
       },
     ]);

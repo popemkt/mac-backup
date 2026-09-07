@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { composeGraphAlpha, graphNodeAlpha, withGraphAlpha } from "./graph-dim";
 
 describe("graph dim", () => {
-  it("multiplies independent emphasis constraints", () => {
-    expect(composeGraphAlpha(0.2, 0.2, 1)).toBeCloseTo(0.04);
+  it("keeps dimmed nodes readable when emphasis constraints overlap", () => {
+    expect(composeGraphAlpha(0.2, 0.2, 1)).toBeCloseTo(0.2);
     expect(
       graphNodeAlpha({ includedByFilter: false, includedBySearch: true, includedByFocus: false }),
-    ).toBeCloseTo(0.04);
+    ).toBeCloseTo(0.2);
   });
 
   it("preserves semantic colour while varying alpha", () => {

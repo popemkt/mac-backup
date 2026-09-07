@@ -8,6 +8,7 @@
 @import "@fontsource-variable/inter/wght.css";
 @import "@fontsource-variable/outfit";
 @import "./tokens.css";
+@import "./motion.css";
 
 /* Arial reshaped to Inter metrics — swap must not reflow (item 1 / i10). */
 @font-face {
@@ -293,14 +294,5 @@ html[data-font="outfit"] {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
-  }
-}
-
-@keyframes graph-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }

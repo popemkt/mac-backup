@@ -29,6 +29,7 @@ interface CanvasStageProps {
   onWheel: (event: React.WheelEvent<HTMLDivElement>) => void;
   onPointerDownStage: (event: React.PointerEvent<HTMLDivElement>) => void;
   onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerCancel: () => void;
   onPointerUp: (event: React.PointerEvent<HTMLDivElement>) => void;
   onDoubleClickStage: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleCardPointerDown: (
@@ -37,6 +38,27 @@ interface CanvasStageProps {
     anchor?: { x: number; y: number },
   ) => void;
   handleEdgeClick: (edge: CanvasEdge, event: React.MouseEvent) => void;
+}
+
+function CanvasSnapGuides({ guides }: { guides: PointerResult["guides"] }) {
+  return (
+    <>
+      {guides.map((guide) => (
+        <div
+          key={guide.axis}
+          className={cn(
+            "absolute border-dashed border-primary/40",
+            guide.axis === "x" ? "border-l" : "border-t",
+          )}
+          style={
+            guide.axis === "x"
+              ? { left: guide.pos, top: -4000, height: 8000, pointerEvents: "none" }
+              : { top: guide.pos, left: -4000, width: 8000, pointerEvents: "none" }
+          }
+        />
+      ))}
+    </>
+  );
 }
 
 export function CanvasStage({
@@ -62,12 +84,14 @@ export function CanvasStage({
   onPointerDownStage,
   onPointerMove,
   onPointerUp,
+  onPointerCancel,
   onDoubleClickStage,
   handleCardPointerDown,
   handleEdgeClick,
 }: CanvasStageProps) {
   return (
     <div
+      data-canvas-viewport
       className={cn(
         "relative min-h-0 flex-1 overflow-hidden",
         spaceDown
@@ -83,9 +107,17 @@ export function CanvasStage({
         backgroundPosition: `${pan.x}px ${pan.y}px`,
       }}
       onWheel={onWheel}
+      onPointerDownCapture={(event) => {
+        if (event.button === 1 || spaceDown || (event.button === 0 && event.altKey)) {
+          event.preventDefault();
+          event.stopPropagation();
+          onPointerDownStage(event);
+        }
+      }}
       onPointerDown={onPointerDownStage}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
       onDoubleClick={onDoubleClickStage}
     >
       <div
@@ -108,24 +140,7 @@ export function CanvasStage({
           onEdgeClick={handleEdgeClick}
         />
 
-        {/* Alignment snap guides */}
-        {snapGuides.map((g, i) =>
-          g.axis === "x" ? (
-            <div
-              // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
-              key={`sg-${i}`}
-              className="absolute border-l border-dashed border-primary/40"
-              style={{ left: g.pos, top: -4000, height: 8000, pointerEvents: "none" }}
-            />
-          ) : (
-            <div
-              // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
-              key={`sg-${i}`}
-              className="absolute border-t border-dashed border-primary/40"
-              style={{ top: g.pos, left: -4000, width: 8000, pointerEvents: "none" }}
-            />
-          ),
-        )}
+        <CanvasSnapGuides guides={snapGuides} />
 
         {/* Marquee selection rectangle */}
         {marqueeRect && (

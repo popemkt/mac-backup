@@ -1,5 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import { CircleHalfIcon } from "@phosphor-icons/react";
+import { lazy, useCallback, useEffect, useState } from "react";
+import { ThemeIcon } from "@/components/ui/theme-icon";
 import { loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
 import { CommandPalette, PaletteTrigger } from "@/components/palette/command-palette";
@@ -8,6 +8,7 @@ import { ViewFilterPopoverHost } from "@/components/outline/view-filter-popover"
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { Sidebar, SidebarToggle } from "@/components/sidebar/sidebar";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
+import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
 import { OntologyScopeBar } from "@/components/ontology/ontology-scope-bar";
 import { matchRoute, navigate, usePath } from "@/lib/router";
@@ -76,7 +77,7 @@ function Toasts() {
           onClick={() => dismiss(t.id)}
           aria-label={`Dismiss notification: ${t.text}`}
           className={cn(
-            "rounded-md border px-3 py-2 text-left text-[12px] shadow-md",
+            "kb-surface-enter rounded-md border px-3 py-2 text-left text-[12px] shadow-md",
             t.kind === "error"
               ? "border-destructive/30 bg-destructive/10 text-destructive"
               : "border-foreground/10 bg-popover text-foreground/70",
@@ -168,6 +169,7 @@ function OutlineShell({
   ontology?: { id: string; view: "page" | "outline" } | null;
   ontologyList?: boolean;
 }) {
+  const theme = usePrefsStore((s) => s.theme);
   const rev = useOutlineStore((s) => s.rev);
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
   const loadSource = useOutlineStore((s) => s.loadSource);
@@ -194,61 +196,59 @@ function OutlineShell({
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setPrefsOpen(!prefsOpen)}
         >
-          <CircleHalfIcon size={15} />
+          <ThemeIcon theme={theme} size={15} />
         </button>
       </header>
 
-      {ontology && status !== "error" ? (
+      {ontology && status === "ready" ? (
         <OntologyChrome id={ontology.id} view={ontology.view} />
       ) : null}
 
-      {status === "error" ? (
-        <LoadError error={error} onRetry={onRetry} />
-      ) : ontology ? (
-        <MainRegion>
-          <ViewErrorBoundary title="Ontology crashed" resetKey={`${ontology.id}:${ontology.view}`}>
-            {ontology.view === "page" ? (
-              <Suspense
-                fallback={
-                  <div className="p-6 text-[13px] text-foreground/40">Loading ontology…</div>
-                }
-              >
+      <WorkspaceBoundary
+        pending={status === "loading"}
+        title={
+          onCanvas
+            ? "Opening canvas…"
+            : ontology || ontologyList
+              ? "Opening ontology…"
+              : "Opening your workspace…"
+        }
+      >
+        {status === "error" ? (
+          <LoadError error={error} onRetry={onRetry} />
+        ) : ontology ? (
+          <MainRegion>
+            <ViewErrorBoundary
+              title="Ontology crashed"
+              resetKey={`${ontology.id}:${ontology.view}`}
+            >
+              {ontology.view === "page" ? (
                 <OntologyPage ontologyId={ontology.id} />
-              </Suspense>
-            ) : (
-              <OutlineColumn />
-            )}
-          </ViewErrorBoundary>
-        </MainRegion>
-      ) : ontologyList ? (
-        <MainRegion>
-          <ViewErrorBoundary title="Ontologies crashed" resetKey="ontology-list">
-            <Suspense
-              fallback={
-                <div className="p-6 text-[13px] text-foreground/40">Loading ontologies…</div>
-              }
-            >
+              ) : (
+                <OutlineColumn />
+              )}
+            </ViewErrorBoundary>
+          </MainRegion>
+        ) : ontologyList ? (
+          <MainRegion>
+            <ViewErrorBoundary title="Ontologies crashed" resetKey="ontology-list">
               <OntologyListPage />
-            </Suspense>
-          </ViewErrorBoundary>
-        </MainRegion>
-      ) : onCanvas ? (
-        <MainRegion scroll={false}>
-          <ViewErrorBoundary title="Canvas crashed" resetKey={canvasId ?? "canvas-list"}>
-            <Suspense
-              fallback={<div className="p-6 text-[13px] text-foreground/40">Loading canvas…</div>}
-            >
+            </ViewErrorBoundary>
+          </MainRegion>
+        ) : onCanvas ? (
+          <MainRegion scroll={false}>
+            <ViewErrorBoundary title="Canvas crashed" resetKey={canvasId ?? "canvas-list"}>
               {canvasId !== null ? <CanvasPage canvasId={canvasId} /> : <CanvasListPage />}
-            </Suspense>
-          </ViewErrorBoundary>
-        </MainRegion>
-      ) : (
-        <MainRegion>
-          <ViewErrorBoundary title="Outline crashed" resetKey={rootNodeId}>
-            <OutlineColumn />
-          </ViewErrorBoundary>
-        </MainRegion>
-      )}
+            </ViewErrorBoundary>
+          </MainRegion>
+        ) : (
+          <MainRegion>
+            <ViewErrorBoundary title="Outline crashed" resetKey={rootNodeId}>
+              <OutlineColumn />
+            </ViewErrorBoundary>
+          </MainRegion>
+        )}
+      </WorkspaceBoundary>
     </div>
   );
 }
@@ -369,32 +369,26 @@ export function App() {
       </ViewErrorBoundary>
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         {route.name === "graph" || (route.name === "ontology" && route.view === "graph") ? (
-          status === "loading" ? (
-            <div className="p-6 text-[13px] text-foreground/40">loading…</div>
-          ) : status === "error" ? (
-            <LoadError error={error} onRetry={() => void reload()} />
-          ) : (
-            <>
-              {route.name === "ontology" ? <OntologyChrome id={route.id} view="graph" /> : null}
-              <ViewErrorBoundary
-                title="Graph crashed"
-                resetKey={
-                  route.name === "ontology" ? `o:${route.id}` : (route.perspectiveId ?? "graph")
-                }
-              >
-                <Suspense
-                  fallback={
-                    <div className="p-6 text-[13px] text-foreground/40">loading graph…</div>
+          <WorkspaceBoundary pending={status === "loading"} title="Opening graph…">
+            {status === "error" ? (
+              <LoadError error={error} onRetry={() => void reload()} />
+            ) : (
+              <>
+                {route.name === "ontology" ? <OntologyChrome id={route.id} view="graph" /> : null}
+                <ViewErrorBoundary
+                  title="Graph crashed"
+                  resetKey={
+                    route.name === "ontology" ? `o:${route.id}` : (route.perspectiveId ?? "graph")
                   }
                 >
                   <GraphPage
                     perspectiveId={route.name === "graph" ? route.perspectiveId : null}
                     ontologyId={route.name === "ontology" ? route.id : null}
                   />
-                </Suspense>
-              </ViewErrorBoundary>
-            </>
-          )
+                </ViewErrorBoundary>
+              </>
+            )}
+          </WorkspaceBoundary>
         ) : (
           <OutlineShell
             status={status}

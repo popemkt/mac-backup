@@ -37,35 +37,54 @@ export function useCanvasDoc({
   const docRef = useRef(history.present);
   docRef.current = history.present;
   const dirtyRef = useRef(false);
+  const previewBase = useRef<CanvasHistory | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const applyDoc = useCallback((next: CanvasDoc) => {
-    setHistory((current) => pushHistory(current, next));
+  const installHistory = useCallback((next: CanvasHistory) => {
+    historyRef.current = next;
+    docRef.current = next.present;
+    setHistory(next);
   }, []);
 
-  const applyDocSilent = useCallback((next: CanvasDoc) => {
-    setHistory((current) => ({ ...current, present: next }));
-  }, []);
+  const applyDoc = useCallback(
+    (next: CanvasDoc) => {
+      const updated = pushHistory(previewBase.current ?? historyRef.current, next);
+      previewBase.current = null;
+      installHistory(updated);
+    },
+    [installHistory],
+  );
+
+  const applyDocSilent = useCallback(
+    (next: CanvasDoc) => {
+      installHistory({ ...historyRef.current, present: next });
+    },
+    [installHistory],
+  );
 
   const persistLastApplied = useCallback(() => {
     timerRef.current = null;
     dirtyRef.current = false;
-    void persistCanvasDoc(canvasId, historyRef.current.present);
+    void persistCanvasDoc(canvasId, (previewBase.current ?? historyRef.current).present);
   }, [canvasId]);
 
-  const schedule = useCallback(
-    (next: CanvasDoc, silent: boolean) => {
+  const previewDoc = useCallback(
+    (next: CanvasDoc) => {
+      previewBase.current ??= historyRef.current;
+      applyDocSilent(next);
+    },
+    [applyDocSilent],
+  );
+
+  const schedulePersist = useCallback(
+    (next: CanvasDoc) => {
       dirtyRef.current = true;
-      if (silent) applyDocSilent(next);
-      else applyDoc(next);
+      applyDoc(next);
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(persistLastApplied, DEBOUNCE_MS);
     },
-    [applyDoc, applyDocSilent, persistLastApplied],
+    [applyDoc, persistLastApplied],
   );
-
-  const schedulePersist = useCallback((next: CanvasDoc) => schedule(next, false), [schedule]);
-  const schedulePersistSilent = useCallback((next: CanvasDoc) => schedule(next, true), [schedule]);
 
   const flushPersist = useCallback(
     async (next: CanvasDoc, opts?: Parameters<typeof persistCanvasDoc>[2]) => {
@@ -78,21 +97,20 @@ export function useCanvasDoc({
     [applyDoc, canvasId],
   );
 
-  const undo = useCallback(() => {
-    setHistory((current) => {
-      const next = undoHistory(current);
-      if (next !== current) void persistCanvasDoc(canvasId, next.present);
-      return next;
-    });
-  }, [canvasId]);
+  const cancelPreview = useCallback(() => {
+    const base = previewBase.current;
+    if (!base) return;
+    previewBase.current = null;
+    installHistory(base);
+  }, [installHistory]);
 
-  const redo = useCallback(() => {
-    setHistory((current) => {
-      const next = redoHistory(current);
-      if (next !== current) void persistCanvasDoc(canvasId, next.present);
-      return next;
-    });
-  }, [canvasId]);
+  const travelHistory = (transform: (current: CanvasHistory) => CanvasHistory) => {
+    const current = historyRef.current;
+    const next = transform(current);
+    if (next === current) return;
+    installHistory(next);
+    void persistCanvasDoc(canvasId, next.present);
+  };
 
   useEffect(() => {
     syncDocOnRev(canvasId, nodesRef.current, {
@@ -113,9 +131,10 @@ export function useCanvasDoc({
     doc: history.present,
     docRef,
     schedulePersist,
-    schedulePersistSilent,
+    previewDoc,
     flushPersist,
-    undo,
-    redo,
+    undo: () => travelHistory(undoHistory),
+    redo: () => travelHistory(redoHistory),
+    cancelPreview,
   };
 }

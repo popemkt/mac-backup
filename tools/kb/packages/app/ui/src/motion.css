@@ -1,0 +1,227 @@
+/* Quiet, finite gestures. The global reduced-motion rule also governs these. */
+:root {
+  --motion-settle: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.kb-workspace-state {
+  display: flex;
+  min-height: 240px;
+  height: 100%;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.kb-companion {
+  position: relative;
+  width: 160px;
+  height: 120px;
+  flex-shrink: 0;
+  pointer-events: none;
+  --companion-thread: color-mix(in oklch, var(--primary) 45%, var(--background));
+}
+
+.kb-companion-thread {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  stroke: var(--companion-thread);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.kb-companion-thread circle {
+  fill: var(--background);
+}
+
+.kb-companion-shadow {
+  position: absolute;
+  left: 46px;
+  top: 95px;
+  width: 70px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse,
+    color-mix(in oklch, var(--foreground) 14%, transparent),
+    transparent 70%
+  );
+  animation: kb-companion-shadow 900ms var(--motion-settle) both;
+}
+
+.kb-companion-body {
+  position: absolute;
+  left: 44px;
+  top: 24px;
+  width: 72px;
+  height: 72px;
+  border-radius: 46% 50% 47% 48%;
+  background: radial-gradient(
+    circle at 30% 23%,
+    #fff3dc 0%,
+    #ffd6a1 32%,
+    #eea766 72%,
+    #cc7f47 100%
+  );
+  box-shadow:
+    inset 2px 3px 5px #fff8e5a6,
+    inset -3px -5px 8px #ad62282b;
+  transform-origin: 50% 95%;
+  animation: kb-companion-arrive 900ms var(--motion-settle) both;
+}
+
+.kb-companion-face {
+  position: absolute;
+  left: 26px;
+  top: 31px;
+  display: flex;
+  gap: 10px;
+  transform: rotate(-6deg);
+  animation: kb-companion-glance 1400ms var(--motion-settle) both;
+}
+
+.kb-companion-eye {
+  width: 5px;
+  height: 8px;
+  border-radius: 50%;
+  background: #493225;
+  box-shadow: 0 1px 0 #fff3dc80;
+}
+
+.kb-companion-satellite {
+  position: absolute;
+  top: 74px;
+  left: 20px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 25%, #e0eddf, #9dbca7 60%, #769483);
+  box-shadow: inset 1px 1px 2px #ffffff80;
+  animation: kb-companion-arrive 750ms 100ms var(--motion-settle) both;
+}
+
+.kb-surface-enter {
+  animation: kb-surface-enter 220ms var(--motion-settle) both;
+}
+
+/* Opacity only: never move the editor, scale its text, or capture fixed chrome. */
+.kb-workspace-reveal {
+  animation: kb-workspace-reveal 280ms ease-out;
+}
+
+@keyframes kb-workspace-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Browser snapshots keep canvas, text, and surfaces in the same day/night fade. */
+html[data-theme-transition]::view-transition-old(root) {
+  animation: kb-theme-out 360ms ease-in-out both;
+}
+
+html[data-theme-transition]::view-transition-new(root) {
+  animation: kb-workspace-reveal 360ms ease-in-out both;
+}
+
+html[data-theme-transition]::view-transition-group(root) {
+  animation-duration: 360ms;
+}
+
+html[data-theme-transition]::view-transition {
+  pointer-events: none;
+}
+
+.kb-theme-glyph {
+  animation: kb-theme-turn 320ms var(--motion-settle);
+}
+
+@keyframes kb-theme-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes kb-theme-turn {
+  from {
+    opacity: 0.5;
+    transform: rotate(-25deg) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme-transition]::view-transition-old(root),
+  html[data-theme-transition]::view-transition-new(root),
+  html[data-theme-transition]::view-transition-group(root) {
+    animation-duration: 0.01ms !important;
+  }
+}
+
+@keyframes kb-companion-arrive {
+  0% {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.88, 1.06) rotate(-9deg);
+  }
+  38% {
+    opacity: 1;
+    transform: translateY(3px) scale(1.08, 0.92) rotate(3deg);
+  }
+  65% {
+    transform: translateY(-3px) scale(0.97, 1.03) rotate(-2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0);
+  }
+}
+
+@keyframes kb-companion-shadow {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.7);
+  }
+  38% {
+    opacity: 1;
+    transform: scaleX(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes kb-companion-glance {
+  0%,
+  45% {
+    transform: translateX(-2px) rotate(-6deg);
+  }
+  70% {
+    transform: translateX(2px) rotate(2deg);
+  }
+  100% {
+    transform: translateX(0) rotate(-6deg);
+  }
+}
+
+@keyframes kb-surface-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

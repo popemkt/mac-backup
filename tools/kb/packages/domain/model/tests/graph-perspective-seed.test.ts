@@ -11,10 +11,6 @@ function refs(node: KbNode, field: string): string[] {
   return (node.props[field] ?? []).filter((v) => v.t === "ref").map((v) => v.v);
 }
 
-function strs(node: KbNode, field: string): string[] {
-  return (node.props[field] ?? []).filter((v) => v.t === "str").map((v) => v.v);
-}
-
 describe("V0 seed: graph-perspective + lens fields", () => {
   test("seeds lens fields, tag template, and All mentions perspective", () => {
     const seed = systemSeedNodes();
@@ -29,6 +25,7 @@ describe("V0 seed: graph-perspective + lens fields", () => {
       SYSTEM_IDS.lensMaxNodesField,
       SYSTEM_IDS.lensClusterByField,
       SYSTEM_IDS.lensFocusField,
+      SYSTEM_IDS.lensLabelByField,
       SYSTEM_IDS.lensLayoutField,
       SYSTEM_IDS.lensSpreadField,
       SYSTEM_IDS.lensLinkDistanceField,
@@ -53,6 +50,7 @@ describe("V0 seed: graph-perspective + lens fields", () => {
       SYSTEM_IDS.lensMaxNodesField,
       SYSTEM_IDS.lensClusterByField,
       SYSTEM_IDS.lensFocusField,
+      SYSTEM_IDS.lensLabelByField,
       SYSTEM_IDS.lensLayoutField,
       SYSTEM_IDS.lensSpreadField,
       SYSTEM_IDS.lensLinkDistanceField,
@@ -66,9 +64,12 @@ describe("V0 seed: graph-perspective + lens fields", () => {
     expect(SYSTEM_IDS.lensAllMentions.startsWith("sys.")).toBe(false);
     expect(perspective.text).toBe("All mentions");
     expect(refs(perspective, SYSTEM_IDS.typeField)).toEqual([SYSTEM_IDS.graphPerspectiveTag]);
-    expect(strs(perspective, SYSTEM_IDS.lensRendererField)).toEqual(["force2d"]);
-    expect(strs(perspective, SYSTEM_IDS.lensClusterByField)).toEqual(["parent"]);
-    expect(strs(perspective, SYSTEM_IDS.lensEdgeKindsField)).toEqual(["mention", "child"]);
+    expect(refs(perspective, SYSTEM_IDS.lensRendererField)).toEqual(["sys.graph.renderer.force2d"]);
+    expect(refs(perspective, SYSTEM_IDS.lensClusterByField)).toEqual(["sys.graph.source.parent"]);
+    expect(refs(perspective, SYSTEM_IDS.lensEdgeKindsField)).toEqual([
+      "sys.graph.source.mentions",
+      "sys.graph.source.containment",
+    ]);
   });
 
   test("ensureSystemSeed is idempotent over lens nodes", () => {

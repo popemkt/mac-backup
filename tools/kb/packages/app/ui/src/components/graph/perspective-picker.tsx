@@ -1,3 +1,4 @@
+import { mutations } from "@/actions/mutations";
 import { useEffect, useRef, useState } from "react";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
@@ -15,6 +16,9 @@ interface PerspectivePickerProps {
  */
 export function PerspectivePicker({ perspectives, activeId, onSelect }: PerspectivePickerProps) {
   const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const active = perspectives.find((p) => p.id === activeId) ?? null;
 
@@ -53,31 +57,81 @@ export function PerspectivePicker({ perspectives, activeId, onSelect }: Perspect
       </button>
       {open ? (
         <div
-          role="listbox"
+          role="dialog"
           aria-label="Graph perspectives"
           className="absolute left-0 top-full z-40 mt-1 min-w-[200px] max-w-xs rounded-lg border border-foreground/10 bg-popover p-1 shadow-xl"
         >
           <h2 className="px-1.5 pb-1 pt-0.5 text-[12px] uppercase tracking-wide text-foreground/30">
             Perspectives
           </h2>
-          {perspectives.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              role="option"
-              aria-selected={p.id === activeId}
-              className={cn(
-                "flex w-full items-center rounded-md px-1.5 py-1 text-left text-[13px] text-foreground/70 transition-colors duration-75 hover:bg-foreground/5 hover:text-foreground/85",
-                p.id === activeId && "bg-foreground/[0.04] text-foreground/85",
-              )}
-              onClick={() => {
-                onSelect(p.id);
-                setOpen(false);
+          <div role="listbox" aria-label="Saved perspectives" className="max-h-64 overflow-y-auto">
+            {perspectives.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                role="option"
+                aria-selected={p.id === activeId}
+                className={cn(
+                  "flex w-full items-center rounded-md px-1.5 py-1 text-left text-[13px] text-foreground/70 transition-colors duration-75 hover:bg-foreground/5 hover:text-foreground/85",
+                  p.id === activeId && "bg-foreground/[0.04] text-foreground/85",
+                )}
+                onClick={() => {
+                  onSelect(p.id);
+                  setOpen(false);
+                }}
+              >
+                <span className="truncate">{p.label}</span>
+              </button>
+            ))}
+          </div>
+          {active ? (
+            <form
+              className="mt-1 space-y-2 border-t border-foreground/10 p-1.5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void (async () => {
+                  if (!name.trim() || saving) return;
+                  setSaving(true);
+                  setSaveError(false);
+                  try {
+                    const id = await mutations.saveGraphPerspective(active, name);
+                    if (id !== null) {
+                      onSelect(id);
+                      setName("");
+                      setOpen(false);
+                    } else setSaveError(true);
+                  } catch {
+                    setSaveError(true);
+                  } finally {
+                    setSaving(false);
+                  }
+                })();
               }}
             >
-              <span className="truncate">{p.label}</span>
-            </button>
-          ))}
+              <p className="text-[11px] text-foreground/45">
+                Save these mappings as a perspective node.
+              </p>
+              <input
+                aria-label="Perspective name"
+                placeholder="Name this perspective…"
+                value={name}
+                className="w-full rounded border border-foreground/10 bg-transparent px-2 py-1 text-xs"
+                onChange={(e) => setName(e.target.value)}
+              />
+              <button
+                type="submit"
+                disabled={!name.trim() || saving}
+                className="rounded bg-foreground/[0.07] px-2 py-1 text-xs disabled:opacity-40"
+              >
+                {saving ? "Saving…" : "Save as new perspective"}
+              </button>
+              {saveError ? (
+                <p role="alert" className="text-xs text-destructive">
+                  Could not save. Your current perspective is still available.
+                </p>
+              ) : null}
+            </form>
+          ) : null}
         </div>
       ) : null}
     </div>

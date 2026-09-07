@@ -1,7 +1,7 @@
 /** Theme-independent graph emphasis. Keep semantic node colour and only vary
  * alpha, so search, filters and neighbourhood focus compose predictably. */
 export function composeGraphAlpha(...factors: readonly number[]): number {
-  return factors.reduce((alpha, factor) => alpha * factor, 1);
+  return Math.min(1, ...factors);
 }
 
 export function graphNodeAlpha(input: {

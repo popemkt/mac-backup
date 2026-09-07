@@ -1,3 +1,4 @@
+import { resolveDark } from "./prefs.store";
 import type * as PrefsStore from "./prefs.store";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
@@ -28,6 +29,7 @@ function fakeDocument() {
       },
       setAttribute: (k: string, v: string) => void attrs.set(k, v),
       getAttribute: (k: string) => attrs.get(k) ?? null,
+      removeAttribute: (k: string) => void attrs.delete(k),
     },
   };
 }
@@ -113,13 +115,13 @@ describe("loadPrefs", () => {
 
 describe("resolveDark", () => {
   it("explicit themes ignore the system preference", () => {
-    expect(prefs.resolveDark("dark", false)).toBe(true);
-    expect(prefs.resolveDark("light", true)).toBe(false);
+    expect(resolveDark("dark", false)).toBe(true);
+    expect(resolveDark("light", true)).toBe(false);
   });
 
   it("system follows the media query", () => {
-    expect(prefs.resolveDark("system", true)).toBe(true);
-    expect(prefs.resolveDark("system", false)).toBe(false);
+    expect(resolveDark("system", true)).toBe(true);
+    expect(resolveDark("system", false)).toBe(false);
   });
 });
 
@@ -166,6 +168,40 @@ describe("usePrefsStore", () => {
 });
 
 describe("initPrefs cross-tab sync", () => {
+  it("publishes OS theme changes for canvas renderers without persisting the device signal", () => {
+    const previousWindow = g.window;
+    const listeners: Array<(event: { matches: boolean }) => void> = [];
+    g.window = {
+      ...fakeWindow(),
+      matchMedia: () => ({
+        matches: false,
+        addEventListener: (_type: string, listener: (event: { matches: boolean }) => void) => {
+          listeners.push(listener);
+        },
+      }),
+    };
+    try {
+      prefs.usePrefsStore.getState().setTheme("system");
+      prefs.initPrefs();
+      present(listeners[0], "OS theme listener")({ matches: true });
+      expect(prefs.usePrefsStore.getState().systemDark).toBe(true);
+      expect(
+        resolveDark(
+          prefs.usePrefsStore.getState().theme,
+          prefs.usePrefsStore.getState().systemDark,
+        ),
+      ).toBe(true);
+      expect((g.document as Document).documentElement.classList.contains("dark")).toBe(true);
+      const stored = JSON.parse(
+        present((g.localStorage as Storage).getItem(prefs.PREFS_STORAGE_KEY), "stored preferences"),
+      );
+      expect(stored).not.toHaveProperty("systemDark");
+    } finally {
+      g.window = previousWindow;
+      prefs.usePrefsStore.setState({ systemDark: false });
+    }
+  });
+
   it("storage event updates store state and re-applies html attrs", () => {
     (g.localStorage as Storage).setItem(
       prefs.PREFS_STORAGE_KEY,

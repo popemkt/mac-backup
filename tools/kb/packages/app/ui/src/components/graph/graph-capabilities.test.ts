@@ -9,16 +9,16 @@ describe("renderer capabilities", () => {
     }
   });
 
-  it("tree supports fit/zoom/reset/search/selection but not focus/drag/dim", () => {
+  it("tree supports fit/zoom/reset/search/selection but not node drag", () => {
     const c = capabilitiesFor("tree");
     expect(c.fit).toBe(true);
     expect(c.zoom).toBe(true);
     expect(c.reset).toBe(true);
     expect(c.search).toBe(true);
     expect(c.selection).toBe(true);
-    expect(c.focus).toBe(false);
+    expect(c.focus).toBe(true);
     expect(c.drag).toBe(false);
-    expect(c.dim).toBe(false);
+    expect(c.dim).toBe(true);
   });
 
   it("force3d supports selection but not node drag", () => {

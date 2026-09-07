@@ -21,8 +21,8 @@ export interface EdgeInspectorProps {
 }
 
 const LINK_MODE_OPTIONS: readonly EnumOption<KbLinkMode>[] = [
-  { value: "layout", label: "layout" },
-  { value: "native", label: "native" },
+  { value: "layout", label: "Canvas only" },
+  { value: "native", label: "Node relationship" },
 ];
 
 export function EdgeInspector({
@@ -157,6 +157,11 @@ export function EdgeInspector({
           onChange={onModeChange}
         />
       </label>
+      <p className="mb-3 text-[11px] leading-relaxed text-foreground/50">
+        {mode === "layout"
+          ? "This connection appears on this canvas only."
+          : "This connection uses a reference field between the underlying nodes."}
+      </p>
       {mode === "native" && (
         <label className="mb-2 flex flex-col gap-1 text-[12px]">
           <span className="text-foreground/60">Ref field</span>

@@ -1,13 +1,15 @@
 import { z } from "zod";
 import { create } from "zustand";
 import { hasText } from "@/lib/text";
+import { transitionTheme } from "@/lib/theme-transition";
 
 /**
  * Device-level preferences (DESIGN-RESKIN §1.7): theme / font / width.
  * Persisted to localStorage["kb-prefs"] — device concern, never repo data.
  * index.html carries a blocking script that reads the same key pre-paint.
  */
-export type ThemePref = "light" | "dark" | "system";
+import { THEMES, type ThemePref } from "@/lib/theme";
+export type { ThemePref } from "@/lib/theme";
 export type FontPref = "outfit" | "inter";
 export type WidthPref = "centered" | "full";
 
@@ -48,7 +50,7 @@ export const DEFAULT_PREFS: Prefs = {
  * one unreadable value cannot reset the rest.
  */
 const StoredPrefsSchema = z.object({
-  theme: z.enum(["light", "dark", "system"]).catch(DEFAULT_PREFS.theme),
+  theme: z.enum(THEMES).catch(DEFAULT_PREFS.theme),
   font: z.enum(["outfit", "inter"]).catch(DEFAULT_PREFS.font),
   width: z.enum(["centered", "full"]).catch(DEFAULT_PREFS.width),
   sidebarOpen: z.boolean().optional().catch(undefined),
@@ -126,6 +128,8 @@ function writeStored(prefs: Prefs) {
 }
 
 interface PrefsState extends Prefs {
+  /** Live device signal, never persisted as an intentional preference. */
+  systemDark: boolean;
   setTheme: (theme: ThemePref) => void;
   setFont: (font: FontPref) => void;
   setWidth: (width: WidthPref) => void;
@@ -143,13 +147,25 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
   };
   return {
     ...readStored(),
-    setTheme: (theme) => commit({ theme }),
+    systemDark: systemPrefersDark(),
+    setTheme: (theme) => {
+      const dark = resolveDark(theme, systemPrefersDark());
+      const changesAppearance =
+        typeof document !== "undefined" &&
+        document.documentElement.classList.contains("dark") !== dark;
+      transitionTheme(() => commit({ theme }), changesAppearance);
+    },
     setFont: (font) => commit({ font }),
     setWidth: (width) => commit({ width }),
     setSidebarOpen: (sidebarOpen) => commit({ sidebarOpen }),
     toggleSidebar: () => commit({ sidebarOpen: !get().sidebarOpen }),
   };
 });
+
+/** Canvas/WebGL renderers need a reactive resolved theme as well as CSS tokens. */
+export function useDarkTheme(): boolean {
+  return usePrefsStore((s) => resolveDark(s.theme, s.systemDark));
+}
 
 /**
  * One-time boot wiring: apply stored prefs, follow the OS theme while in
@@ -161,11 +177,13 @@ export function initPrefs() {
     const { theme, font, width, sidebarOpen } = usePrefsStore.getState();
     return { theme, font, width, sidebarOpen };
   };
+  usePrefsStore.setState({ systemDark: systemPrefersDark() });
   applyPrefs(current());
 
   if (typeof window.matchMedia === "function") {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     mq.addEventListener("change", (e) => {
+      usePrefsStore.setState({ systemDark: e.matches });
       applyPrefs(current(), e.matches);
     });
   }

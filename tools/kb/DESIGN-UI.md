@@ -540,6 +540,65 @@ diff. Instead, two install shapes:
   no checkout is needed. Homebrew cask adds nothing over that for a personal
   tool. Backlogged as a kb todo, not in this wave.
 
+## Workspace motion and exploration
+
+`WorkspaceState` owns loading and empty-state presentation across the app. Its
+decorative node companion uses CSS shading and vector curves, stays sharp at any
+pixel ratio, and performs one finite arrival and glance. Readiness never waits
+for animation. Loading copy is a live status; decorative shapes are hidden from
+assistive technology. `motion.css` owns these gestures and the shared palette /
+toast entrance; the global reduced-motion rule applies to all of them. Editing
+rows and text do not move.
+
+`WorkspaceBoundary` unifies explicit data loading and lazy module loading.
+Ready content fades in over 280ms using opacity only; it mounts and accepts input
+immediately, with no minimum loading time. Ordinary data updates preserve the
+mounted content and any active edit. The catalog includes a loading-to-ready
+study to inspect this transition.
+
+Explicit device-theme changes use a single browser View Transition around the
+preference commit, so text, DOM surfaces, and canvas snapshots crossfade together.
+The shared theme glyph turns between sun, moon, and system icons. Reduced motion
+and browsers without the snapshot API apply the preference immediately. Rapid
+choices supersede earlier pending transitions; boot and cross-tab synchronization
+stay immediate.
+
+The component catalog's `Workspace/WorkspaceState/Study` is the isolated motion
+preview: replayable light/dark examples, with no workspace data access. This is
+the first place to review visual experiments.
+
+Proposed in-app playground: an ordinary canvas named Playground, reached through
+existing canvas navigation (and existing pinning if desired). Contents remain
+nodes and assets, with the same editing and deletion model as other canvases.
+Future interactive 3D scenes need a reusable asset/view contract before adding a
+renderer; a bespoke playground datastore or app-wide pet overlay is not part of
+this direction. Three.js WebGPU/TSL and Blender glTF assets are candidates for
+that renderer. TypeGPU requires a measured compute use case. Smooth silhouettes,
+antialiasing, readable text, and no accidental polygon faceting are acceptance
+criteria. See `docs/kb-graph-audit-2026-09-06.md` at the repository root for the
+graph interaction and rendering repair proposal.
+
+Milestone direction (proposal): **a new bridge**. After a successful, deliberate
+relationship creation joins two previously disconnected groups in the current
+graph perspective, the new edge receives one short pulse and its endpoints
+respond. This marks a structural event rather than guessing that more nodes or
+completed tasks mean progress. All relation forms participate according to the
+perspective's semantics. Loading, imports, filtering, failed writes, undo/redo,
+and remote changes must not trigger a celebration. Keep it transient and local
+to the relationship; do not add a parallel achievement datastore or a universal
+task/streak model. Implementation is deferred until the shared relationship
+creation path exposes the confirmed gesture and before/after graph consistently.
+
+Art direction for future graph atmospheres (proposal): Observatory (nodes as
+stars, relationships as constellations), Porcelain (smooth ceramic forms in
+daylight), and Ink (precise points and fine lines). Atmosphere belongs to the
+existing perspective as a relationship to an allowed-value node. A curated
+shuffle may change this presentation without changing node identity, query,
+semantic color mapping, selection, or camera. It must use the renderer's supported
+settings contract and preserve readable labels, smooth silhouettes, and a clear
+distinction between real graph elements and decoration. This is not implemented
+by the current graph repair.
+
 ## Port
 
 Fixed default `4321`, `--port` override, auto-open browser on start, bind
@@ -547,3 +606,46 @@ Fixed default `4321`, `--port` override, auto-open browser on start, bind
 transport for local subscriber apps + `kb ui` finding a free port and
 registering it in `.kb/runtime.json` for discovery; browser still needs a
 TCP port, everything else can go UDS.
+
+
+### Field-based graph perspectives (2026-09-07)
+
+The graph-first product principle lives in [AGENTS.md](../../AGENTS.md).
+A graph perspective is an ordinary `#graph-perspective` node. Its query selects
+nodes; its relationship sources select edges; its encodings map fields to label,
+color, size/area and group. The UI edits the existing lens fields and “Save as
+new perspective” creates a new node through the shared action pipeline. It does
+not create a separate preset store. New source values reference field nodes or
+seeded graph-source nodes; renderer choices reference graph-renderer nodes.
+Legacy string settings remain readable and existing values are not rewritten by
+seeding. Search, selection, legend dimming and camera position are transient.
+Ontology membership remains a separate scope on the same projection.
+
+`packages/app/ui/src/components/graph/graph-renderers.ts` owns each renderer's
+adapter, supported encodings, settings and interaction capabilities. The shared
+frame disables unsupported camera operations with a reason. A new renderer
+registers that contract and consumes the same extracted nodes and edges. The
+stable source/renderer vocabulary lives in `@kb/model`; browser components never
+reach into backend files through aliases.
+
+Tree is a deterministic spanning projection of the chosen directed edges. Each
+node occurs once, including in graphs with cycles or shared descendants; this
+never changes the stored relationships. Collapse preserves scale and anchors
+the clicked branch at its prior screen position. Treemap uses the selected group
+and area encodings. Numeric fields sum finite values, clamped to zero; zero and
+missing measures receive no area and are counted explicitly. Equal size shows
+all nodes. Category and label fields use their displayed values, resolving node
+references to human text. Legend toggles dim the chosen category; overlapping
+search/filter/focus constraints preserve a readable minimum opacity.
+
+Engine direction: retain Sigma/Graphology for 2D networks, d3-hierarchy for tree
+and treemap, and Three.js/3d-force-graph for 3D. This change does not add another
+rendering dependency. [Cytoscape.js](https://js.cytoscape.org/) and
+[AntV G6](https://github.com/antvis/G6/tree/v5) are viable graph-engine alternatives,
+but adopting either would require a measured capability/performance advantage.
+Borrow [G2's](https://github.com/antvis/G2/tree/v5) separation of data, transforms,
+and encoding channels, and [Bloom perspectives](https://neo4j.com/docs/bloom-user-guide/current/bloom-perspectives/bloom-perspectives/)
+as a product precedent for saved views of one graph.
+[Neo4j NVL](https://neo4j.com/docs/nvl/current/) accepts node/relationship data
+through adapters; using a Cypher ecosystem renderer would not require changing
+kb's datastore or query model.

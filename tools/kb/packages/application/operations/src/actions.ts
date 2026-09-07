@@ -409,7 +409,6 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
   yield* syncDomain(() => {
     if (input.text !== undefined) node.text = input.text;
     if (input.order !== undefined) node.order = input.order;
-    if (input.setProps) applyProps(ctx, node.props, input.setProps);
     if (input.unsetProps) {
       for (const u of input.unsetProps) {
         const fieldId = resolveFieldId(ctx.nodes, u.field);
@@ -422,6 +421,8 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
         }
       }
     }
+    // Remove old values before adding replacements in the same node update.
+    if (input.setProps) applyProps(ctx, node.props, input.setProps);
   });
 
   const newParentId = input.parent;

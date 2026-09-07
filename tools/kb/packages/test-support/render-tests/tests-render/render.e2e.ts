@@ -1,6 +1,11 @@
 // Deliberately .e2e.ts: Bun's recursive unit-test discovery must not load it.
 import { expect, test, type Page } from "playwright/test";
 import { FIXTURE_SIZE } from "./fixture.ts";
+const runtimeErrors = new WeakMap<Page, string[]>();
+
+test.afterEach(async ({ page }) => {
+  expect(runtimeErrors.get(page) ?? [], "graph runtime errors").toEqual([]);
+});
 
 type SigmaInspector = {
   getGraph(): { nodes(): string[] };
@@ -63,6 +68,9 @@ async function alphaBoundingBox(page: Page, selector: string) {
 }
 
 test.beforeEach(async ({ page }) => {
+  const errors: string[] = [];
+  runtimeErrors.set(page, errors);
+  page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/graph");
   await expect(page.locator("[data-renderer-switch]")).toBeVisible();
 });
@@ -112,30 +120,33 @@ test("cluster paints labels and a hull spanning its members", async ({ page }) =
   expect(hull.height).toBeGreaterThanOrEqual(members.height * 0.6);
 });
 
-test("tree mounts every fixture node inside the viewport after Fit", async ({ page }) => {
+test("tree fits every full label on first load and after resize", async ({ page }) => {
   await selectRenderer(page, "tree");
-  const tree = page.locator("[data-testid='tree-graph']");
-  // Fit lives in the shared GraphCanvasFrame toolbar, not inside the renderer:
-  // i13 moved chrome out of the per-renderer subtrees so every renderer gets
-  // the same controls. Scope to the page, and require it to be enabled — the
-  // frame renders unsupported controls disabled, so a disabled Fit here would
-  // mean tree lost its `fit` capability.
-  const fit = page.getByRole("button", { name: "Fit view (f)" });
-  await expect(fit).toBeEnabled();
-  await fit.click();
-  await expect(tree.locator("svg g.cursor-pointer")).toHaveCount(FIXTURE_SIZE);
-  const intersects = await tree.evaluate((element) => {
-    const container = element.getBoundingClientRect();
-    const svg = element.querySelector("svg")?.getBoundingClientRect();
-    return (
-      !!svg &&
-      svg.right > container.left &&
-      svg.left < container.right &&
-      svg.bottom > container.top &&
-      svg.top < container.bottom
-    );
-  });
-  expect(intersects).toBe(true);
+  const host = page.locator("[data-testid='tree-graph']");
+  await expect(host.locator("[data-node-id]")).toHaveCount(FIXTURE_SIZE);
+  const allLabelsFit = () =>
+    host.evaluate((element) => {
+      const frame = element.getBoundingClientRect();
+      return [...element.querySelectorAll("[data-node-id] > text")].every((text) => {
+        const box = text.getBoundingClientRect();
+        return (
+          box.left >= frame.left &&
+          box.right <= frame.right &&
+          box.top >= frame.top &&
+          box.bottom <= frame.bottom
+        );
+      });
+    });
+  await expect.poll(allLabelsFit).toBe(true);
+  await page.setViewportSize({ width: 760, height: 600 });
+  await expect.poll(allLabelsFit).toBe(true);
+  await page.getByRole("button", { name: "Collapse all", exact: true }).click();
+  await page.getByRole("button", { name: "Search (/)", exact: true }).click();
+  await page.getByPlaceholder("Search nodes…").fill("Fixture node 28");
+  await page.getByPlaceholder("Search nodes…").press("Enter");
+  await expect(host.locator('[data-node-id="render.fixture.node.28"]')).toBeVisible();
+  await host.locator('[data-node-id="render.fixture.node.28"] > text').click();
+  await expect(page.getByTestId("graph-selection-card")).toContainText("Fixture node 28");
 });
 
 test("force3d receives all fixture nodes and settles to a non-degenerate volume", async ({
@@ -176,4 +187,193 @@ test("force3d receives all fixture nodes and settles to a non-degenerate volume"
     return Math.max(extent("x"), extent("y"), extent("z"));
   });
   expect(maximumExtent).toBeGreaterThan(1);
+});
+
+test("cluster selects in place, keeps camera still, and composes zero search with selection", async ({
+  page,
+}) => {
+  await selectRenderer(page, "cluster");
+  const host = page.locator("[data-sigma-container]");
+  await expect(host.locator("canvas.sigma-labels")).toBeVisible();
+  await expect
+    .poll(() =>
+      host.evaluate((element) => {
+        const sigma = (element as HTMLDivElement & { __kbSigma?: SigmaInspector }).__kbSigma;
+        return sigma?.getGraph().nodes().length ?? 0;
+      }),
+    )
+    .toBe(FIXTURE_SIZE);
+  const root = await host.evaluate((element) => {
+    const sigma = (
+      element as HTMLDivElement & {
+        __kbSigma: {
+          getNodeDisplayData(id: string): { x: number; y: number };
+          framedGraphToViewport(p: { x: number; y: number }): { x: number; y: number };
+          getCamera(): { getState(): { x: number; y: number; ratio: number } };
+        };
+      }
+    ).__kbSigma;
+    const point = sigma.framedGraphToViewport(sigma.getNodeDisplayData("render.fixture.root"));
+    const box = element.getBoundingClientRect();
+    return { x: box.left + point.x, y: box.top + point.y, camera: sigma.getCamera().getState() };
+  });
+  await page.mouse.click(root.x, root.y);
+  await expect(page.getByTestId("graph-selection-card")).toContainText("Fixture root");
+  await expect(page).toHaveURL(/\/graph\//);
+  expect(
+    await host.evaluate((element) =>
+      (
+        element as HTMLDivElement & { __kbSigma: { getCamera(): { getState(): unknown } } }
+      ).__kbSigma
+        .getCamera()
+        .getState(),
+    ),
+  ).toEqual(root.camera);
+  await page.getByRole("button", { name: "Search (/)", exact: true }).click();
+  const input = page.getByPlaceholder("Search nodes…");
+  await input.fill("no node has this label");
+  await expect(page.getByText("0 matches", { exact: true })).toBeVisible();
+  await expect
+    .poll(() =>
+      host.evaluate((element) => {
+        const sigma = (
+          element as HTMLDivElement & {
+            __kbSigma: {
+              getGraph(): { nodes(): string[] };
+              getNodeDisplayData(id: string): { label?: string };
+            };
+          }
+        ).__kbSigma;
+        return sigma
+          .getGraph()
+          .nodes()
+          .every((id) => {
+            const label = sigma.getNodeDisplayData(id).label;
+            return label === undefined || label === "";
+          });
+      }),
+    )
+    .toBe(true);
+  await input.press("Escape");
+  await expect(page.getByTestId("graph-selection-card")).toBeVisible();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page.getByRole("button", { name: "graph-perspective 1", exact: true }).click();
+  await expect
+    .poll(() =>
+      host.evaluate(
+        (element) =>
+          (
+            element as HTMLDivElement & {
+              __kbSigma: { getNodeDisplayData(id: string): { label?: string } };
+            }
+          ).__kbSigma.getNodeDisplayData("lens.all-mentions").label,
+      ),
+    )
+    .toBe("");
+});
+
+test("a renderer replacement survives reload on the first attempt", async ({ page }) => {
+  await selectRenderer(page, "cluster");
+  await page.reload();
+  await expect(page.locator("[data-renderer-switch]")).toHaveAttribute(
+    "data-active-renderer",
+    "cluster",
+  );
+});
+
+test.describe("dark Retina graph labels", () => {
+  test.use({ deviceScaleFactor: 2, colorScheme: "dark" });
+  test("hover labels stay high-contrast without a white plate", async ({ page }, testInfo) => {
+    await selectRenderer(page, "cluster");
+    const host = page.locator("[data-sigma-container]");
+    const root = await host.evaluate((element) => {
+      const sigma = (
+        element as HTMLDivElement & {
+          __kbSigma: {
+            getNodeDisplayData(id: string): { x: number; y: number };
+            framedGraphToViewport(p: { x: number; y: number }): { x: number; y: number };
+          };
+        }
+      ).__kbSigma;
+      const point = sigma.framedGraphToViewport(sigma.getNodeDisplayData("render.fixture.root"));
+      const box = element.getBoundingClientRect();
+      return { x: box.left + point.x, y: box.top + point.y };
+    });
+    await page.mouse.move(root.x, root.y);
+    await expect(page.getByText("Fixture root", { exact: false })).toBeVisible();
+    const paint = await page.locator("canvas.sigma-hovers").evaluate((canvas) => {
+      const el = canvas as HTMLCanvasElement,
+        ctx = el.getContext("2d");
+      if (!ctx) throw new Error("missing canvas context");
+      const rgba = ctx.getImageData(0, 0, el.width, el.height).data;
+      let bright = 0,
+        dark = 0;
+      for (let i = 0; i < rgba.length; i += 4) {
+        if ((rgba[i + 3] ?? 0) < 180) continue;
+        const luminance = ((rgba[i] ?? 0) + (rgba[i + 1] ?? 0) + (rgba[i + 2] ?? 0)) / 3;
+        if (luminance > 180) bright++;
+        if (luminance < 80) dark++;
+      }
+      return { bright, dark, dpr: el.width / el.getBoundingClientRect().width };
+    });
+    expect(paint.dpr).toBe(2);
+    expect(paint.bright).toBeGreaterThan(100);
+    expect(paint.dark).toBeGreaterThan(100);
+    await page.screenshot({ path: testInfo.outputPath("cluster-dark-retina.png") });
+    await selectRenderer(page, "tree");
+    await page.locator(".kb-workspace-reveal").evaluateAll(async (elements) => {
+      await Promise.all(
+        elements
+          .flatMap((el) => el.getAnimations())
+          .map((animation) => animation.finished.catch(() => {})),
+      );
+    });
+    await page.screenshot({ path: testInfo.outputPath("tree-dark-retina.png") });
+    await selectRenderer(page, "force3d");
+    await expect(page.getByTestId("force3d-graph").locator("canvas")).toBeVisible();
+    let previous = "";
+    await expect
+      .poll(
+        async () => {
+          const next = await page.getByTestId("force3d-graph").evaluate((el) =>
+            JSON.stringify(
+              (
+                el as HTMLDivElement & {
+                  __kbForceGraph: {
+                    graphData(): { nodes: Array<{ x?: number; y?: number; z?: number }> };
+                  };
+                }
+              ).__kbForceGraph
+                .graphData()
+                .nodes.map((n) => [n.x, n.y, n.z]),
+            ),
+          );
+          const settled = JSON.parse(next).length === FIXTURE_SIZE && next === previous;
+          previous = next;
+          return settled;
+        },
+        { timeout: 15000, intervals: [250, 500, 500] },
+      )
+      .toBe(true);
+    await page.locator(".kb-workspace-reveal").evaluateAll(async (elements) => {
+      await Promise.all(
+        elements
+          .flatMap((el) => el.getAnimations())
+          .map((animation) => animation.finished.catch(() => {})),
+      );
+    });
+    await expect
+      .poll(() =>
+        page.getByTestId("force3d-graph").evaluate(
+          (el) =>
+            (
+              el as HTMLDivElement & {
+                __kbForceGraph: { renderer(): { info: { render: { calls: number } } } };
+              }
+            ).__kbForceGraph.renderer().info.render.calls,
+        ),
+      )
+      .toBeGreaterThan(0);
+    await page.screenshot({ path: testInfo.outputPath("force3d-dark-retina.png") });
+  });
 });

@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { isGraphShortcutTarget } from "@/lib/graph-interaction";
 import type { LensNode, LensPerspective, LensRenderer } from "@/lib/graph-lens";
 import { GraphLegend } from "./graph-legend";
 import { GraphToolbar } from "./graph-toolbar";
@@ -42,12 +43,14 @@ export function GraphCanvasFrame({
   perspective?: LensPerspective | null;
 }) {
   const capabilities = capabilitiesFor(renderer);
+  const searchNodes = useMemo(() => nodes.map((n) => ({ id: n.id, label: n.label })), [nodes]);
   const clearRef = useRef(onClearSelection);
   clearRef.current = onClearSelection;
 
   useEffect(() => {
     if (!capabilities.selection) return undefined;
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || isGraphShortcutTarget(e.target)) return;
       if (e.key === "Escape") clearRef.current();
       if (e.key === "Enter" && selectedNodeId !== null) onOpenNode(selectedNodeId);
     };
@@ -68,11 +71,29 @@ export function GraphCanvasFrame({
         capabilities={capabilities}
         controls={controls}
         selectedNodeId={selectedNodeId}
-        nodes={nodes.map((n) => ({ id: n.id, label: n.label }))}
+        nodes={searchNodes}
         onSearchChange={onSearchChange}
         perspective={perspective}
       />
       <GraphLegend nodes={nodes} onFilterChange={onFilterChange} />
+      {controls?.expandAll && controls.collapseAll ? (
+        <div className="absolute bottom-3 left-3 z-20 flex gap-1 rounded-lg border border-foreground/10 bg-popover/95 p-1 text-xs shadow">
+          <button
+            type="button"
+            className="rounded px-2 py-1 hover:bg-foreground/5"
+            onClick={controls.collapseAll}
+          >
+            Collapse all
+          </button>
+          <button
+            type="button"
+            className="rounded px-2 py-1 hover:bg-foreground/5"
+            onClick={controls.expandAll}
+          >
+            Expand all
+          </button>
+        </div>
+      ) : null}
       {selection && capabilities.selection ? (
         <GraphSelectionCard
           nodeId={selection.nodeId}

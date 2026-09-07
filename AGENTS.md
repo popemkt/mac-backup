@@ -55,6 +55,18 @@ tag; a field is a node; a field's allowed values are nodes. If a feature needs
 its own widget, its own storage shape, or its own editing gesture, that is the
 signal the model is wrong, not that the widget is needed.
 
+**kb is a graph of everything.** Relationships are the core model. Fields are
+relationships we choose to display as fields; field definitions, tags, and their
+allowed values are themselves nodes. Outlines, tables, task boards, canvases,
+and visual graphs are projections of that same graph, not separate product
+models. Do not let outliner or task-management conventions become the default
+meaning of kb, or add bespoke workflows that weaken this principle. New
+interactions, playful details, and milestones should express creating,
+connecting, discovering, or understanding nodes and relationships. Task
+completion is meaningful only within an explicitly chosen task model, never
+as a universal kb milestone.
+
+
 ## Canonical statements
 
 Every rule, principle, and decision has exactly one home. Other files link to
@@ -156,7 +168,7 @@ GitHub release pins.
 
 `kb` (code in `tools/kb/`, specs in `tools/kb/DESIGN.md`,
 `tools/kb/DESIGN-UI.md`, and `tools/kb/DESIGN-REFINE.md`) is this repo's
-outliner datastore: todos, notes, and
+graph datastore with an outliner projection: todos, notes, and
 any structured facts live as nodes in `.kb/nodes.jsonl` (committed).
 Everything is a node — fields and tags too. Props are keyed by field-node id;
 tags template fields; values may reference other nodes. Query with datalog

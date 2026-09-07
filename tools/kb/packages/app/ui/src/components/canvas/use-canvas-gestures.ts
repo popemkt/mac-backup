@@ -13,6 +13,7 @@ import { selectNode as selNode } from "@/lib/canvas-selection";
 import type { CanvasSelection } from "@/lib/canvas-selection";
 import type { CanvasPointerEvent, PointerResult, PointerState } from "@/lib/canvas-pointer";
 import { asElement, asInstance } from "@/lib/dom";
+import { clientToCanvas } from "@/lib/canvas-viewport";
 
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 3;
@@ -70,9 +71,12 @@ function createPointerEnd(context: StageGestureContext, screenToWorld: ScreenToW
           )?.dataset.cardId
         : undefined;
     const edgeWorld =
-      drag?.kind === "edge" ? screenToWorld(drag.x, drag.y, event.currentTarget) : undefined;
+      drag?.kind === "edge"
+        ? screenToWorld(event.clientX, event.clientY, event.currentTarget)
+        : undefined;
     const next = context.dispatchPointer({
       type: "pointer/end",
+      shiftKey: event.shiftKey,
       screen: { x: event.clientX, y: event.clientY },
       edgeTargetId: edgeTarget,
       edgeWorld,
@@ -129,7 +133,7 @@ function useViewportControls({
   const zoomToFit = useCallback(() => {
     const docNodes = docRef.current.nodes;
     if (docNodes.length === 0) return;
-    const stageEl = document.querySelector("[data-canvas-stage]")?.parentElement?.parentElement;
+    const stageEl = document.querySelector("[data-canvas-viewport]");
     if (!stageEl) return;
     const rect = stageEl.getBoundingClientRect();
     const PAD = 40;
@@ -164,10 +168,7 @@ function useViewportControls({
   const screenToWorld = useCallback(
     (clientX: number, clientY: number, el: HTMLElement) => {
       const rect = el.getBoundingClientRect();
-      return {
-        x: (clientX - rect.left - pan.x) / zoom,
-        y: (clientY - rect.top - pan.y) / zoom,
-      };
+      return clientToCanvas({ x: clientX, y: clientY }, rect, pan, zoom);
     },
     [pan, zoom],
   );

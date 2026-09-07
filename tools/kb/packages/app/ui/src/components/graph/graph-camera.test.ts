@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
+import { scaleFromTarget } from "./graph-camera-controls";
 import { computeFitTarget } from "./graph-camera";
 
 /**
@@ -74,5 +75,13 @@ describe("computeFitTarget", () => {
     const fit = present(target, "fit target");
     expect(fit.x).toBeCloseTo(0.5);
     expect(Number.isFinite(present(fit.ratio, "fit ratio"))).toBe(true);
+  });
+});
+
+it("3D zoom stays relative to the focused target", () => {
+  expect(scaleFromTarget({ x: 110, y: 20, z: 30 }, { x: 100, y: 20, z: 30 }, 0.5)).toEqual({
+    x: 105,
+    y: 20,
+    z: 30,
   });
 });
