@@ -25,6 +25,9 @@ interface ClientState {
   subs: Map<string, { query: string; lastHash: string }>;
 }
 
+/** What one query answered this transaction, shared by every subscription on it. */
+type QueryAnswer = { ok: true; rows: unknown[][]; hash: string } | { ok: false; message: string };
+
 function toWireNode(node: KbNode): WireNode {
   return WireNodeSchema.parse(node);
 }
@@ -208,6 +211,16 @@ export class SubscriptionHub {
   /**
    * Forward one logged transaction: the delta to every watcher, then the rows
    * of every subscription whose answer moved.
+   *
+   * A query's answer depends on the index, not on who asked for it, so each
+   * distinct query is run once per transaction and every subscription holding
+   * it reads that one answer. The UI opens a subscription per query node on
+   * screen, so the same board view in three tabs used to cost three identical
+   * datalog runs on the hot path of every keystroke.
+   *
+   * The evaluation is shared; the decision is not. Each subscription keeps its
+   * own last-seen hash, because two clients holding the same query can be at
+   * different points in it — one just subscribed, one has been watching.
    */
   private publish(tx: KbTx): Effect.Effect<void> {
     const payload = this.txFrame(tx);
@@ -217,22 +230,39 @@ export class SubscriptionHub {
       if (c.watchTx) sends.push(c.send(payload));
     }
 
+    const answers = new Map<string, QueryAnswer>();
     for (const c of this.clients.values()) {
       for (const [id, sub] of c.subs) {
-        try {
-          const rows = this.ctx.index.runDatalog(sub.query);
-          const subHash = rowsHash(rows);
-          if (subHash === sub.lastHash) continue;
-          sub.lastHash = subHash;
-          sends.push(c.send(JSON.stringify({ op: "rows", id, rev: tx.rev, rows })));
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          sends.push(c.send(JSON.stringify({ op: "error", id, code: "query_error", message })));
+        let answer = answers.get(sub.query);
+        if (answer === undefined) {
+          answer = this.evaluate(sub.query);
+          answers.set(sub.query, answer);
         }
+        if (!answer.ok) {
+          sends.push(
+            c.send(
+              JSON.stringify({ op: "error", id, code: "query_error", message: answer.message }),
+            ),
+          );
+          continue;
+        }
+        if (answer.hash === sub.lastHash) continue;
+        sub.lastHash = answer.hash;
+        sends.push(c.send(JSON.stringify({ op: "rows", id, rev: tx.rev, rows: answer.rows })));
       }
     }
 
     if (sends.length === 0) return Effect.void;
     return Effect.all(sends).pipe(Effect.asVoid);
+  }
+
+  /** Run one query against the index; a datalog failure is an answer too. */
+  private evaluate(query: string): QueryAnswer {
+    try {
+      const rows = this.ctx.index.runDatalog(query);
+      return { ok: true, rows, hash: rowsHash(rows) };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : String(err) };
+    }
   }
 }
