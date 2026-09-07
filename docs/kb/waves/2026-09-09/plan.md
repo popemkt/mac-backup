@@ -100,7 +100,7 @@ once, green in isolation). Nine waves in three batches, every reviewer MERGE;
 three carried fixes the coordinator applied before merge (g4 stale lint
 disables, g7 duplicated compaction bound, g9 hook portability).
 
-Totals: **45 gaps closed, 2 half-closed, 6 filed.** Open gaps went 70 → 31.
+Totals, measured on the store rather than summed from reports: **39 gaps newly marked done, 2 half-closed, 6 filed.** Open gaps went 70 → 37 (83 total, 46 done). The per-wave reports sum higher because several waves verified gaps that earlier waves had already effectively closed.
 
 **The new hook admitted its own merge on the third try**, and both refusals
 were real:
