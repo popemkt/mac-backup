@@ -48,18 +48,35 @@ timeouts) are covered by gaps `01M1XA98A0A7PWEPMHG2T4R5GP` and
 
 | id | brief | zone | status |
 |---|---|---|---|
-| g2 | `briefs/g2-primitives.md` | `components/ui/` promotions, `api/graph.ts`, ds/live-query out of components, toast + canvas-api thirds, caret gap, gap 7 retry | dispatched |
-| g5 | `briefs/g5-editor-registry.md` | field editors registry, RefEditor hook, bullet appearance, row chrome, table columns, sort | dispatched |
-| g7 | `briefs/g7-durable-tx-log.md` | `KbTxLog` durable tail on both stores, migrate, saved-query virtual tx | dispatched |
-| g8 | `briefs/g8-domain-typing.md` | `parsePerspective` / `getViewConfig` Schemas, `KbNode.order` discriminator | dispatched |
+| g2 | `briefs/g2-primitives.md` | `components/ui/` promotions, `api/graph.ts`, ds/live-query out of components, toast + canvas-api thirds, caret gap, gap 7 retry | merged `d177b5f`; 9/10 closed, fence 18→8 breaches, zero new rows; gap 10 blocked on `01M1RXMRJA3ZRAWPTB0ZH5YEYG` |
+| g5 | `briefs/g5-editor-registry.md` | field editors registry, RefEditor hook, bullet appearance, row chrome, table columns, sort | merged `c90f6f8`; 7/7 closed, six `complexity` disables gone, max-lines 31→29 |
+| g7 | `briefs/g7-durable-tx-log.md` | `KbTxLog` durable tail on both stores, migrate, saved-query virtual tx | merged `e48a70d`; 3 closed, 2 filed (`01M1XEZT8XZNSG1NGS9JPCQFGM` JSONL tail atomicity, `01M1XF05FV87AR22B4SAS0A2BK` virtual rev outside lock); reviewer fix: compaction bound hoisted to `TxTail` contract (`9b7feba`) |
+| g8 | `briefs/g8-domain-typing.md` | `parsePerspective` / `getViewConfig` Schemas, `KbNode.order` discriminator | merged `a1c4337`; 3 closed, 1 filed (`01M1XF1NA2RBAX1E6NNX6PMZ6N` decode warnings reach log not UI); three deliberate behaviour changes on malformed view props, each reasoned in its test |
 
 g2 and g5 both live in `components/outline/`; the briefs partition the files
 and tell each to expect one-line import rewrites from the other.
 
-## Batch 3 (after batch 2; touches comments repo-wide)
+## Batch 2 close-out (2026-09-07)
 
-- g9 harness: suppression grammar to oxlint form (unskip), import-graph
-  bypasses, pre-commit admission from the index snapshot.
+`main` = `kb-merge-origin` @ `a1c4337`. Gates on that tip: verify green,
+packages 483 pass / 0 fail, UI 1052 / 1052. 22 gaps closed, 4 filed. All four
+reviewers MERGE; g7's carried one Rule 1 finding (compaction bound declared in
+both adapters), fixed by the coordinator before merge. Merge-time notes: the
+g7 merge commit first failed pre-commit because `@kb/test-kit` gained a
+workspace dependency and the integration tree needed `bun install`; every
+store merge resolved itself through g6's driver; `rules.md` was the only file
+to conflict in every batch-2 merge (regenerated each time). Three gap texts
+were found wrong on contact and corrected with evidence (g2: `MdView` read
+the store; `toast` `closes` inverts by the matrix; `canvas-api` already took
+the node map). g8 reports the editor-behavior §3.3 flake as near-deterministic
+under plain `bun run test:ui` on a loaded machine — gap
+`01M1XA98A0A7PWEPMHG2T4R5GP` is more urgent than "seen once" suggested.
+
+## Batch 3 (alone; touches comment lines repo-wide and the hook)
+
+| id | brief | zone | status |
+|---|---|---|---|
+| g9 | `briefs/g9-harness.md` | suppression grammar (unskip), import-graph bypasses, pre-commit index-snapshot admission | dispatched |
 
 ## Not this batch (owner decision or external)
 
