@@ -1,3 +1,12 @@
+import { Schema } from "effect";
+import {
+  decodeNodeConfig,
+  firstStr,
+  manyOf,
+  oneOf,
+  type ConfigSlots,
+  type NodeProps,
+} from "@kb/model";
 import type { NodeMap, OutlineNode, PropValue } from "./types";
 import { isSysPrefixed, SYSTEM_IDS } from "./types";
 import { logWarn } from "@/lib/log";
@@ -38,11 +47,6 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
 };
 
 const VIEW_MODES: readonly ViewMode[] = ["list", "table", "board", "cards"];
-
-/** The stored `sys.f.view.mode` string, when it names a mode kb renders. */
-function toViewMode(raw: string): ViewMode | undefined {
-  return VIEW_MODES.find((m) => m === raw);
-}
 
 /** Serialize a filter back to the EDN string stored on the frame. */
 export function serializeViewFilter(filter: Exclude<ViewFilter, never> & { raw?: string }): string {
@@ -129,80 +133,171 @@ export function applyViewFilters(
   return children.filter((n) => filters.every((f) => matchesFilter(n, f, nodes)));
 }
 
-// oxlint-disable-next-line complexity -- GAP [[01M1MGCJAKKST0C1R54VVX9HPX]]
+/*
+ * The view frame's props, as one slot table.
+ *
+ * Same mechanism as `graph-lens.ts`'s perspective table (`@kb/model`'s
+ * `node-config`): a slot names the field it reads, the carrier reader that
+ * projects the stored values, the `Schema` that says what is legal, and the
+ * value used when the frame says nothing. Nothing else in this file decides a
+ * default.
+ */
+
+/** Sort keys and their directions are two parallel multi-valued fields. */
+const sortSpecValues = (props: NodeProps): unknown[] | undefined => {
+  const keys = props[SYSTEM_IDS.viewSortField];
+  if (keys === undefined) return undefined;
+  const dirs = props[SYSTEM_IDS.viewSortDirField] ?? [];
+  return keys.map((key, index) => {
+    // A value that is not a field reference names no sort key.
+    if (key.t !== "ref") return null;
+    const dir = dirs[index];
+    // GAP: the direction is still normalised here rather than judged by the
+    // schema, so this commit changes no behaviour; the policy commit moves it.
+    return { fieldId: key.v, dir: dir?.t === "str" && dir.v === "desc" ? "desc" : "asc" };
+  });
+};
+
+const SortSpecSchema = Schema.Struct({
+  fieldId: Schema.NonEmptyString,
+  dir: Schema.Literals(["asc", "desc"]),
+});
+
+/** A column listed twice is one column, so a repeat contributes nothing. */
+const displayValues = (props: NodeProps): unknown[] | undefined => {
+  const values = props[SYSTEM_IDS.viewDisplayField];
+  if (values === undefined) return undefined;
+  const seen = new Set<string>();
+  return values.map((value) => {
+    if (value.t !== "ref" || seen.has(value.v)) return null;
+    seen.add(value.v);
+    return value.v;
+  });
+};
+
+/**
+ * `sys.f.view.colwidth` stores a JSON object of field id → pixel width. The
+ * reader gets the object out of the text; the schema says what a width is.
+ */
+const colwidthValue = (props: NodeProps): unknown => {
+  const raw = firstStr(SYSTEM_IDS.viewColwidthField)(props);
+  if (raw === undefined) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return undefined;
+  // GAP: per-key sanitising still happens here rather than in the schema, so
+  // this commit changes no behaviour; the policy commit moves it.
+  return Object.fromEntries(
+    Object.entries(parsed).filter(
+      ([, width]) => typeof width === "number" && Number.isFinite(width) && width > 0,
+    ),
+  );
+};
+
+/** A page size may be stored as a number or as the text a form wrote. */
+const pagesizeValue = (props: NodeProps): unknown => {
+  const first = props[SYSTEM_IDS.viewPagesizeField]?.[0];
+  if (first?.t === "num") return first.v;
+  if (first?.t !== "str") return undefined;
+  const parsed = parseInt(first.v, 10);
+  return Number.isNaN(parsed) ? undefined : parsed;
+};
+
+const PositiveSchema = Schema.Finite.check(Schema.isGreaterThan(0));
+
+const WidthsSchema = Schema.Record(Schema.String, PositiveSchema);
+
+const ViewFilterSchema = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("eq"),
+    fieldId: Schema.NonEmptyString,
+    value: Schema.String,
+    raw: Schema.String,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("text"),
+    text: Schema.String,
+    raw: Schema.String,
+  }),
+]);
+
+/**
+ * A filter is stored as EDN text, so reading the clause out of the text is the
+ * carrier step and the schema validates the clause it produced.
+ */
+const filterValues = (props: NodeProps): unknown[] | undefined =>
+  props[SYSTEM_IDS.viewFilterField]?.map((value) => {
+    if (value.t !== "str") return value;
+    const parsed = parseViewFilterEdn(value.v);
+    // GAP: the warning is still emitted here rather than reported by the slot,
+    // so this commit changes no behaviour; the policy commit moves it.
+    if (parsed === null) logWarn(`[view-config] ignoring bad filter EDN: ${value.v}`);
+    return parsed ?? value;
+  });
+
+const VIEW_SLOTS: ConfigSlots<ViewConfig> = {
+  mode: oneOf({
+    fields: [SYSTEM_IDS.viewModeField],
+    read: firstStr(SYSTEM_IDS.viewModeField),
+    schema: Schema.Literals(VIEW_MODES),
+    fallback: DEFAULT_VIEW_CONFIG.mode,
+  }),
+  sort: manyOf<SortSpec>({
+    fields: [SYSTEM_IDS.viewSortField, SYSTEM_IDS.viewSortDirField],
+    read: sortSpecValues,
+    schema: Schema.NullOr(SortSpecSchema),
+    fallback: DEFAULT_VIEW_CONFIG.sort,
+  }),
+  display: manyOf<string>({
+    fields: [SYSTEM_IDS.viewDisplayField],
+    read: displayValues,
+    schema: Schema.NullOr(Schema.NonEmptyString),
+    fallback: DEFAULT_VIEW_CONFIG.display,
+  }),
+  colwidth: oneOf({
+    fields: [SYSTEM_IDS.viewColwidthField],
+    read: colwidthValue,
+    schema: WidthsSchema,
+    fallback: DEFAULT_VIEW_CONFIG.colwidth,
+  }),
+  pagesize: oneOf({
+    fields: [SYSTEM_IDS.viewPagesizeField],
+    read: pagesizeValue,
+    schema: PositiveSchema,
+    fallback: DEFAULT_VIEW_CONFIG.pagesize,
+  }),
+  groupFieldId: oneOf<string | null>({
+    fields: [SYSTEM_IDS.viewGroupField],
+    read: (props) => {
+      const first = props[SYSTEM_IDS.viewGroupField]?.[0];
+      return first?.t === "ref" ? first.v : undefined;
+    },
+    schema: Schema.NonEmptyString,
+    fallback: DEFAULT_VIEW_CONFIG.groupFieldId,
+  }),
+  filters: manyOf<ViewFilter>({
+    fields: [SYSTEM_IDS.viewFilterField],
+    read: filterValues,
+    schema: ViewFilterSchema,
+    fallback: DEFAULT_VIEW_CONFIG.filters,
+  }),
+};
+
 export function getViewConfig(props?: Record<string, PropValue[]>): ViewConfig {
-  if (!props) return { ...DEFAULT_VIEW_CONFIG };
-
-  const rawMode = props[SYSTEM_IDS.viewModeField]?.[0];
-  const mode: ViewMode =
-    (rawMode && rawMode.t === "str" ? toViewMode(rawMode.v) : undefined) ?? "list";
-
-  const sortRefs = props[SYSTEM_IDS.viewSortField] ?? [];
-  const sortDirs = props[SYSTEM_IDS.viewSortDirField] ?? [];
-  const sort: SortSpec[] = [];
-  for (let i = 0; i < sortRefs.length; i++) {
-    const ref = sortRefs[i];
-    if (ref && ref.t === "ref") {
-      const dirVal = sortDirs[i];
-      const dir: SortDir = dirVal && dirVal.t === "str" && dirVal.v === "desc" ? "desc" : "asc";
-      sort.push({ fieldId: ref.v, dir });
-    }
-  }
-
-  const displayRefs = props[SYSTEM_IDS.viewDisplayField] ?? [];
-  const display: string[] = [];
-  for (const ref of displayRefs) {
-    if (ref.t === "ref" && !display.includes(ref.v)) {
-      display.push(ref.v);
-    }
-  }
-
-  let colwidth: Record<string, number> = {};
-  const rawColwidth = props[SYSTEM_IDS.viewColwidthField]?.[0];
-  if (rawColwidth && rawColwidth.t === "str") {
-    try {
-      const parsed: unknown = JSON.parse(rawColwidth.v);
-      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-        for (const [key, value] of Object.entries(parsed)) {
-          if (typeof value === "number" && Number.isFinite(value) && value > 0) {
-            colwidth[key] = value;
-          }
-        }
-      }
-    } catch {
-      colwidth = {};
-    }
-  }
-
-  let pagesize = 100;
-  const rawPagesize = props[SYSTEM_IDS.viewPagesizeField]?.[0];
-  if (rawPagesize) {
-    if (rawPagesize.t === "num" && typeof rawPagesize.v === "number" && rawPagesize.v > 0) {
-      pagesize = rawPagesize.v;
-    } else if (rawPagesize.t === "str") {
-      const num = parseInt(rawPagesize.v, 10);
-      if (!isNaN(num) && num > 0) pagesize = num;
-    }
-  }
-
-  let groupFieldId: string | null = null;
-  const rawGroup = props[SYSTEM_IDS.viewGroupField]?.[0];
-  if (rawGroup && rawGroup.t === "ref" && rawGroup.v) {
-    groupFieldId = rawGroup.v;
-  }
-
-  const filters: ViewFilter[] = [];
-  for (const raw of props[SYSTEM_IDS.viewFilterField] ?? []) {
-    if (raw.t !== "str") continue;
-    const parsed = parseViewFilterEdn(raw.v);
-    if (parsed) {
-      filters.push(parsed);
-    } else {
-      logWarn(`[view-config] ignoring bad filter EDN: ${raw.v}`);
-    }
-  }
-
-  return { mode, sort, display, colwidth, pagesize, groupFieldId, filters };
+  const { slot } = decodeNodeConfig<ViewConfig>(VIEW_SLOTS, props);
+  return {
+    mode: slot("mode"),
+    sort: slot("sort"),
+    display: slot("display"),
+    colwidth: slot("colwidth"),
+    pagesize: slot("pagesize"),
+    groupFieldId: slot("groupFieldId"),
+    filters: slot("filters"),
+  };
 }
 
 export interface TableColumnSpec {
