@@ -65,8 +65,10 @@ function fixtureContext(initial: readonly KbNode[]) {
     fingerprint: Effect.sync(() => `revision:${revision}`),
     commitEffect: (tx) =>
       Effect.sync(() => {
+        const base = `revision:${revision}`;
         stored = applyTx(stored, tx);
         revision += 1;
+        return { base, fingerprint: `revision:${revision}` };
       }),
   };
   const index = {

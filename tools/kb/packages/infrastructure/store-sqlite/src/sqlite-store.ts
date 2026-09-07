@@ -7,7 +7,7 @@ import {
   type KbNode,
   type StoreTx,
 } from "@kb/model";
-import type { EffectStore, StoreFingerprint } from "@kb/contracts";
+import type { EffectStore, StoreCommit, StoreFingerprint } from "@kb/contracts";
 import { sqliteConnection, type SqliteConnection } from "./connection.ts";
 import { sqliteStoreFiles, sqliteStorePath } from "./paths.ts";
 
@@ -67,27 +67,16 @@ export class SqliteStore implements EffectStore {
     this.fingerprint = fingerprintOf(this.connection);
   }
 
-  commitEffect(tx: StoreTx): Effect.Effect<void, DomainError> {
+  commitEffect(tx: StoreTx): Effect.Effect<StoreCommit, DomainError> {
     const connection = this.connection;
     const path = this.path;
-    return Effect.try({
-      try: () => {
-        const db = connection.open();
-        const drop = db.prepare<unknown, [string]>("DELETE FROM nodes WHERE id = ?");
-        const upsert = db.prepare<unknown, [string, string]>(
-          `INSERT INTO nodes (id, body) VALUES (?, ?)
-           ON CONFLICT(id) DO UPDATE SET body = excluded.body`,
-        );
-        const bumpRev = db.prepare(
-          "UPDATE meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'rev'",
-        );
-        db.transaction(() => {
-          for (const id of tx.deletes) drop.run(id);
-          for (const node of tx.upserts) upsert.run(node.id, canonicalJson(node));
-          bumpRev.run();
-        }).immediate();
-      },
-      catch: (err) => mapCommitError(err, path),
+    const fingerprint = this.fingerprint;
+    return Effect.gen(function* () {
+      // Read before the immediate transaction opens: `rev` and `data_version`
+      // together name the state that transaction merges into.
+      const base = yield* fingerprint;
+      yield* commitTx(connection, path, tx);
+      return { base, fingerprint: yield* fingerprint };
     });
   }
 
@@ -95,6 +84,32 @@ export class SqliteStore implements EffectStore {
   close(): void {
     this.connection.close();
   }
+}
+
+function commitTx(
+  connection: SqliteConnection,
+  path: string,
+  tx: StoreTx,
+): Effect.Effect<void, DomainError> {
+  return Effect.try({
+    try: () => {
+      const db = connection.open();
+      const drop = db.prepare<unknown, [string]>("DELETE FROM nodes WHERE id = ?");
+      const upsert = db.prepare<unknown, [string, string]>(
+        `INSERT INTO nodes (id, body) VALUES (?, ?)
+           ON CONFLICT(id) DO UPDATE SET body = excluded.body`,
+      );
+      const bumpRev = db.prepare(
+        "UPDATE meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'rev'",
+      );
+      db.transaction(() => {
+        for (const id of tx.deletes) drop.run(id);
+        for (const node of tx.upserts) upsert.run(node.id, canonicalJson(node));
+        bumpRev.run();
+      }).immediate();
+    },
+    catch: (err) => mapCommitError(err, path),
+  });
 }
 
 /**

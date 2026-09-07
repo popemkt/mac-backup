@@ -12,7 +12,7 @@ import {
 } from "@kb/model";
 import { bunFileSystemLayer } from "./platform.ts";
 import { durableReplaceFile } from "./durable-replace.ts";
-import type { EffectStore, StoreFingerprint } from "@kb/contracts";
+import type { EffectStore, StoreCommit, StoreFingerprint } from "@kb/contracts";
 import { acquireNodesWriteLockEffect, releaseNodesWriteLock } from "./write-lock.ts";
 
 function mapFsError(err: unknown): DomainError {
@@ -90,7 +90,7 @@ export class JsonlStore implements EffectStore {
     this.fingerprint = fingerprintOf(this.path);
   }
 
-  commitEffect(tx: StoreTx): Effect.Effect<void, DomainError> {
+  commitEffect(tx: StoreTx): Effect.Effect<StoreCommit, DomainError> {
     const path = this.path;
     const backupPath = this.backupPath;
     const loadEffect = this.loadEffect;
@@ -100,6 +100,9 @@ export class JsonlStore implements EffectStore {
           Effect.sync(() => releaseNodesWriteLock(lockPath)),
         );
 
+        // Under the lock, before the read: this is the file the merge below
+        // absorbs, which is what the caller needs to know it saw.
+        const base = yield* fingerprintOf(path);
         const existing = yield* loadEffect;
         const byId = new Map(existing.map((n) => [n.id, n]));
         for (const id of tx.deletes) byId.delete(id);
@@ -111,6 +114,8 @@ export class JsonlStore implements EffectStore {
           try: () => durableReplaceFile(path, backupPath, body),
           catch: (err) => ensureDomainError(err),
         });
+
+        return { base, fingerprint: yield* fingerprintOf(path) };
       }),
     ).pipe(Effect.provide(bunFileSystemLayer));
   }

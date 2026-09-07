@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import type { EffectStore } from "@kb/contracts";
+import type { EffectStore, StoreCommit } from "@kb/contracts";
 import type { DomainError, KbNode, StoreTx } from "@kb/model";
 
 /** In-memory persistence side of the browser's replicated kb session. */
@@ -18,8 +18,14 @@ export class BrowserStore implements EffectStore {
     this.loadEffect = Effect.sync(() => [...this.byId.values()]);
   }
 
-  commitEffect(tx: StoreTx): Effect.Effect<void, DomainError> {
-    return Effect.sync(() => this.apply(tx));
+  commitEffect(tx: StoreTx): Effect.Effect<StoreCommit, DomainError> {
+    return Effect.sync(() => {
+      // Single-threaded and synchronous: nothing can land between the read of
+      // the generation and the write that bumps it.
+      const base = String(this.generation);
+      this.apply(tx);
+      return { base, fingerprint: String(this.generation) };
+    });
   }
 
   /** Keep the store side current when the replica ingests a server tx. */
