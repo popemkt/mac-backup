@@ -93,14 +93,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Implement an IndexedDB-backed EffectStore with the same generation fingerprint contract.
 - **node** — `01M1R6N8VC3W5P93KABEFZ8CTX`
 
-### GAP: Bullet computes its appearance with 46 branches
-
-- **expected** — The bullet's appearance is one derived value (shape, ring, halo, affordance) computed by a pure function from node state, and the component renders it.
-- **current** — Bullet branches on collapsed, children, query, ref, zoom target, drag state and hover inside the component body and in class strings.
-- **impact** — The visual contract of a bullet is untestable without rendering, and it is the single most-read affordance in the outline.
-- **closes** — Extract bulletAppearance(node, state) returning a small record, and drive both the element and its classes from it.
-- **node** — `01M1MGCMX698XJ0VDCSVQBGSQB`
-
 ### GAP: canvas cards render outline's NodeContent
 
 - **expected** — Cross-surface reuse goes through the primitives zone or lib/; a surface never reaches into a sibling surface's internals. Bullet and NodeRow are already primitives, NodeContent is not.
@@ -150,14 +142,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Add bidirectional compile-time exactness fixtures or generate both surfaces from one dependency-free canonical contract.
 - **rule** — Domain typing — one canonical schema
 - **node** — `01M1PJWF4G6W4122ZE4K67319V`
-
-### GAP: FieldRow branches 27 ways over field type and edit state
-
-- **expected** — One editor component per field type, selected through a registry keyed by FieldType, so a new type adds an entry.
-- **current** — FieldRow branches on field type, read-only, value presence and edit state inside a single component.
-- **impact** — Adding a field type means editing a shared component, and the per-type behaviour cannot be tested in isolation.
-- **closes** — Introduce the editor registry (it already half-exists in field-value.tsx) and have FieldRow look up rather than branch.
-- **node** — `01M1MGCHQH499KS0RV9J461F73`
 
 ### GAP: getViewConfig decodes view props with 45 branches
 
@@ -261,14 +245,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Track 2 phase work in briefs/p1-persistence.md. Trigger: measured commit latency at real node counts hurts, or node.get needs to stop materializing everything.
 - **node** — `01M1M08WEYJNEFDZVECN9QKEWT`
 
-### GAP: NodeBlock decides row chrome with 28 branches
-
-- **expected** — A row's chrome (toolbar, fields, children, query results, projected frame) is chosen by one view-mode resolver, and NodeBlock renders what it returns.
-- **current** — NodeBlock computes showsChildren, showsQueryResults, hasFrameRows, isExpandable, showToolbar and projected inline, then branches on all of them in JSX.
-- **impact** — The rules for what a row shows are spread across a component body, so a view-mode change is a hunt rather than one edit.
-- **closes** — Extract resolveRowChrome(node, viewConfig) returning the flags as one value, then render from it. Mechanical in shape but it moves logic the outline tests reach through the DOM.
-- **node** — `01M1MGCGKSAJSB6GFR30SZNATJ`
-
 ### GAP: ontology member rows render outline's MdView
 
 - **expected** — Markdown rendering is used by three surfaces; it is a primitive, not an outline internal.
@@ -304,22 +280,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXMR501MC0KQ85WSNHC97R`
 
-### GAP: PropValueEditor branches 24 ways over prop value type
-
-- **expected** — One editor per PropValue variant, selected through a registry keyed by the variant tag.
-- **current** — PropValueEditor switches on value.t and on edit state within one component.
-- **impact** — Adding a value type edits a shared component; the per-type editors cannot be story-tested alone.
-- **closes** — Same registry as the FieldRow gap: one place maps a field type to its editor.
-- **node** — `01M1MGCND3KMDYJPSSMD2E4Q9J`
-
-### GAP: RefEditor mixes candidate search, keyboard handling and rendering in 22 branches
-
-- **expected** — Ref candidate search and keyboard navigation are a hook (useRefCandidates) the editor renders from.
-- **current** — RefEditor computes candidates, tracks the highlighted index, handles keys and renders in one function.
-- **impact** — The candidate ranking - the part with real rules - can only be tested through the DOM.
-- **closes** — Lift candidate search into a hook beside fuzzyNodeCandidates and leave RefEditor as presentation.
-- **node** — `01M1MGCP1EF5GM8NA32JEJRJ9Q`
-
 ### GAP: repository extensions have no fail-closed admission
 
 - **expected** — Repository-owned extensions pass one explicit admission operation that compiles and decodes contributions, rejects duplicate IDs, validates handlers against definitions, and reports zero loader failures.
@@ -328,14 +288,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Implement ext validate over the real repository extensions and invoke it from verify, pre-commit, and CI.
 - **rule** — Admission gate
 - **node** — `01M1PJVJX84AZCRVJ82R20WTK3`
-
-### GAP: resolveTableColumns resolves table columns in one 21-branch function
-
-- **expected** — Column resolution splits into explicit columns, tag-derived columns and the merge between them, each named.
-- **current** — One function walks explicit config, projected rows' tags and dedup rules together.
-- **impact** — The precedence between explicit and derived columns is implicit in statement order.
-- **closes** — SLAP-extract explicitColumns / derivedColumns / mergeColumns and keep the existing view-config tests green.
-- **node** — `01M1MGCJYB7PZXM68T4AVBECYG`
 
 ### GAP: saved-query virtual nodes never appear in tx frames
 
@@ -437,14 +389,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Split into recognizers over a cursor and drive them from a list. The existing md-inline tests are the gate; this is a rewrite, not a mechanical move.
 - **node** — `01M1MGCM9RWXE3CYANZK5K4KC0`
 
-### GAP: the multi-key view sort comparator is a 29-branch inline function
-
-- **expected** — One comparator per sort spec, composed left to right by a small combinator, so a value type's ordering is defined once.
-- **current** — A single inline comparator loops the sort specs and branches on prop presence and value type inside the loop.
-- **impact** — Ordering rules per value type (str/num/date/bool/ref/missing) are only visible by reading the whole comparator, and are not directly testable.
-- **closes** — Extract compareByField(fieldId, dir) and fold the specs with a compose helper.
-- **node** — `01M1MGCKK69CQBZQYAKRMESW5S`
-
 ### GAP: the palette index pre-sizes its arrays with new Array(n)
 
 - **expected** — buildPaletteIndex and searchPalette allocate their result arrays the way unicorn/no-new-array wants (Array.from({ length: n }) or push), with no pinpoint disable.
@@ -540,6 +484,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — SLAP-extract each case body into a named step, then replace the switch with a Record<SelectionKeyAction['type'], (a) => void>. Behaviour-preserving but not mechanical: the cases share narrowed action fields.
 - **node** — `01M1MGCDRS0K28YBF1Q86YY61S`
 
+### GAP: Bullet computes its appearance with 46 branches
+
+- **expected** — The bullet's appearance is one derived value (shape, ring, halo, affordance) computed by a pure function from node state, and the component renders it.
+- **current** — Bullet branches on collapsed, children, query, ref, zoom target, drag state and hover inside the component body and in class strings.
+- **impact** — The visual contract of a bullet is untestable without rendering, and it is the single most-read affordance in the outline.
+- **closes** — Extract bulletAppearance(node, state) returning a small record, and drive both the element and its classes from it.
+- **node** — `01M1MGCMX698XJ0VDCSVQBGSQB`
+
 ### GAP: canvas move release persists the unsnapped position
 
 - **expected** — The position persisted on pointer release is the last snapped position shown during the drag; finishMove and moveNodes share one snap computation.
@@ -581,6 +533,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1PJW3WHWPCBT5BYNEQMYG98`
 
+### GAP: FieldRow branches 27 ways over field type and edit state
+
+- **expected** — One editor component per field type, selected through a registry keyed by FieldType, so a new type adds an entry.
+- **current** — FieldRow branches on field type, read-only, value presence and edit state inside a single component.
+- **impact** — Adding a field type means editing a shared component, and the per-type behaviour cannot be tested in isolation.
+- **closes** — Introduce the editor registry (it already half-exists in field-value.tsx) and have FieldRow look up rather than branch.
+- **node** — `01M1MGCHQH499KS0RV9J461F73`
+
 ### GAP: KbContext carries two persistence interfaces
 
 - **expected** — KbContext exposes one Effect-native storage capability used by all core and extension handlers.
@@ -597,6 +557,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The binding set exists only as control flow: nothing can render a shortcuts list, and two bindings can silently overlap.
 - **closes** — Turn the chain into a table of {key, mods, toAction} entries. Behaviour-preserving only if the current first-match order is reproduced exactly, so it needs its own change with the keymap tests as the gate.
 - **node** — `01M1MGCH7SD69CRSSV75X789QW`
+
+### GAP: NodeBlock decides row chrome with 28 branches
+
+- **expected** — A row's chrome (toolbar, fields, children, query results, projected frame) is chosen by one view-mode resolver, and NodeBlock renders what it returns.
+- **current** — NodeBlock computes showsChildren, showsQueryResults, hasFrameRows, isExpandable, showToolbar and projected inline, then branches on all of them in JSX.
+- **impact** — The rules for what a row shows are spread across a component body, so a view-mode change is a hunt rather than one edit.
+- **closes** — Extract resolveRowChrome(node, viewConfig) returning the flags as one value, then render from it. Mechanical in shape but it moves logic the outline tests reach through the DOM.
+- **node** — `01M1MGCGKSAJSB6GFR30SZNATJ`
 
 ### GAP: NodeCommandPalette mixes command assembly and rendering in one 24-branch component
 
@@ -621,6 +589,30 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Exactly the parallel-mechanism shape Rule 1 forbids: a change to caret behaviour has to be made twice, and the deprecation says which one is wrong without removing it.
 - **closes** — Delete cursorPosition from OutlineState, its initial value, its activateNode write, and the unread NodeTextHost prop. TypeScript excess-property checks then require removing 'cursorPosition: 0,' from the hand-copied store-reset literal in 24 ui test files, which is the whole remaining cost - one line each. The reset duplication itself is the obstacle; a shared resetOutlineStore() helper would make this a three-line change.
 - **node** — `01M1MGT307N4K243CBPJTXNG5X`
+
+### GAP: PropValueEditor branches 24 ways over prop value type
+
+- **expected** — One editor per PropValue variant, selected through a registry keyed by the variant tag.
+- **current** — PropValueEditor switches on value.t and on edit state within one component.
+- **impact** — Adding a value type edits a shared component; the per-type editors cannot be story-tested alone.
+- **closes** — Same registry as the FieldRow gap: one place maps a field type to its editor.
+- **node** — `01M1MGCND3KMDYJPSSMD2E4Q9J`
+
+### GAP: RefEditor mixes candidate search, keyboard handling and rendering in 22 branches
+
+- **expected** — Ref candidate search and keyboard navigation are a hook (useRefCandidates) the editor renders from.
+- **current** — RefEditor computes candidates, tracks the highlighted index, handles keys and renders in one function.
+- **impact** — The candidate ranking - the part with real rules - can only be tested through the DOM.
+- **closes** — Lift candidate search into a hook beside fuzzyNodeCandidates and leave RefEditor as presentation.
+- **node** — `01M1MGCP1EF5GM8NA32JEJRJ9Q`
+
+### GAP: resolveTableColumns resolves table columns in one 21-branch function
+
+- **expected** — Column resolution splits into explicit columns, tag-derived columns and the merge between them, each named.
+- **current** — One function walks explicit config, projected rows' tags and dedup rules together.
+- **impact** — The precedence between explicit and derived columns is implicit in statement order.
+- **closes** — SLAP-extract explicitColumns / derivedColumns / mergeColumns and keep the existing view-config tests green.
+- **node** — `01M1MGCJYB7PZXM68T4AVBECYG`
 
 ### GAP: rule enforcement is hand-typed instead of derived
 
@@ -679,6 +671,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A deprecation with no removal condition reads as permanent. The migration also silently drops the collapsed-id set (the inversion needs node metadata that is not available at load), so it is half a migration kept alive indefinitely.
 - **closes** — Decide the removal date (or a version gate) for the migration, delete loadExpandedIds' legacy branch and the two constants. Data decision, not a mechanical one - it strands whatever those keys still hold.
 - **node** — `01M1MGT2A6Y9ZVG5J1CGJMJ2AH`
+
+### GAP: the multi-key view sort comparator is a 29-branch inline function
+
+- **expected** — One comparator per sort spec, composed left to right by a small combinator, so a value type's ordering is defined once.
+- **current** — A single inline comparator loops the sort specs and branches on prop presence and value type inside the loop.
+- **impact** — Ordering rules per value type (str/num/date/bool/ref/missing) are only visible by reading the whole comparator, and are not directly testable.
+- **closes** — Extract compareByField(fieldId, dir) and fold the specs with a compose helper.
+- **node** — `01M1MGCKK69CQBZQYAKRMESW5S`
 
 ### GAP: the outline keydown handler is a 64-branch callback
 
