@@ -243,7 +243,6 @@ const ViewCard = memo(function ViewCard({
   const handleKeyDown = useNodeKeyDown({
     nodeId: child.id,
     instanceKey,
-    node: child,
     isRef,
   });
 
