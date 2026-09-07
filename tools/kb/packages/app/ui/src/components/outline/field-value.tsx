@@ -1,3 +1,12 @@
+import {
+  CalendarBlankIcon,
+  HashIcon,
+  LinkSimpleIcon,
+  PaletteIcon,
+  TextTIcon,
+  ToggleRightIcon,
+  type Icon,
+} from "@phosphor-icons/react";
 import type { PropValue, NodeMap } from "@/lib/types";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -14,106 +23,223 @@ import { NodeRow } from "./node-row";
 import { TagChipGroup } from "./tag-chip";
 import { hasText } from "@/lib/text";
 
-interface PropValueEditorProps {
+/** Everything a field's value needs from the surfaces that show it. */
+export interface FieldEditorProps {
   value: PropValue;
+  /** Pre-formatted label for a ref value, when the caller already has one. */
   display: string;
-  fieldType: FieldType;
-  /** Field definition id — special-cases editors (e.g. sys.f.color swatch). */
-  fieldId?: string;
   /** When set, ref suggestions are filtered to this id set. */
-  allowedRefIds?: Set<string> | null;
+  allowedRefIds: Set<string> | null;
   /**
    * This slot exists because the user asked for it (⌘"+ value"), so the
    * gesture that created it owns the focus and the editor opens straight away.
    * A slot that exists only because the field is unset passes false and renders
    * as a quiet placeholder until it is focused — see RefEditor.
    */
-  autoOpen?: boolean;
+  autoOpen: boolean;
   onCommit: (next: PropValue) => void;
   nodes: NodeMap;
 }
 
+/**
+ * One field type's presentation: the glyph its row wears, and the component
+ * that both shows the value and edits it in place.
+ *
+ * Display and edit are one component per type on purpose — every editor here
+ * *is* its own display until it is clicked, which is what makes an inline
+ * field feel like text rather than a form control.
+ */
+export interface FieldEditor {
+  /** The type glyph `FieldRow` shows in its icon slot. */
+  readonly icon: Icon;
+  readonly Editor: (props: FieldEditorProps) => React.ReactNode;
+}
+
 const editableClass = cn("flex-1 outline-none rounded-sm px-1", KB_TEXT_CLASS);
 
-/** Borderless inline prop editors — picked by declared fieldType. */
-// oxlint-disable-next-line complexity -- GAP [[01M1MGCND3KMDYJPSSMD2E4Q9J]]
-export function PropValueEditor({
+/**
+ * The three textual types differ by data, not by component.
+ *
+ * `text`, `url` and `number` all edit a contenteditable line. What separates
+ * them is the underline, when the line counts as empty, and how the string
+ * becomes a `PropValue` — so those are the columns, and the editor is written
+ * once.
+ */
+interface TextualSpec {
+  readonly underline: boolean;
+  readonly isEmpty: (value: PropValue) => boolean;
+  /** `null` rejects the input: the field keeps the value it had. */
+  readonly parse: (text: string) => PropValue | null;
+}
+
+function textualEditor(spec: TextualSpec): FieldEditor["Editor"] {
+  return function TextualEditor({ value, onCommit }: FieldEditorProps) {
+    return (
+      <EditableText
+        text={value.t === "str" ? value.v : String(value.v)}
+        empty={spec.isEmpty(value)}
+        underline={spec.underline}
+        onCommit={(text) => {
+          const next = spec.parse(text);
+          if (next) onCommit(next);
+        }}
+      />
+    );
+  };
+}
+
+/** A scalar reads as unset when it holds its type's zero. */
+function isBlankScalar(value: PropValue): boolean {
+  return value.v === "" || value.v === 0 || value.v === false;
+}
+
+function BooleanEditor({ value, onCommit }: FieldEditorProps) {
+  return (
+    <BooleanValue
+      value={value.t === "bool" ? value.v : false}
+      onChange={(v) => onCommit({ t: "bool", v })}
+    />
+  );
+}
+
+function DateEditor({ value, autoOpen, onCommit }: FieldEditorProps) {
+  return (
+    <DateValue
+      value={value.t === "str" || value.t === "date" ? value.v : ""}
+      autoOpen={autoOpen}
+      onChange={(v) => onCommit({ t: "str", v })}
+    />
+  );
+}
+
+function RefFieldEditor({
   value,
   display,
+  nodes,
+  allowedRefIds,
+  autoOpen,
+  onCommit,
+}: FieldEditorProps) {
+  return (
+    <RefEditor
+      refId={value.t === "ref" ? value.v : ""}
+      display={display}
+      nodes={nodes}
+      allowedRefIds={allowedRefIds}
+      autoOpen={autoOpen}
+      onCommit={(id) => onCommit({ t: "ref", v: id })}
+    />
+  );
+}
+
+function ColorEditor({ value, onCommit }: FieldEditorProps) {
+  return (
+    <ColorSwatchEditor
+      value={value.t === "str" ? value.v : ""}
+      onCommit={(hex) => onCommit({ t: "str", v: hex })}
+    />
+  );
+}
+
+/**
+ * The editor registry: one row per declared field type.
+ *
+ * `FieldRow`, `PropValueEditor` and `EmptyTypedEditor` all read this table —
+ * a `switch` in the first two and a leading `if` in all three used to answer
+ * the same question three ways. A new field type is a row here; a type that
+ * needs something special says so in *its own row*, never in an `if` at a
+ * call site.
+ *
+ * `url` shares the text glyph, as it always has. That is now a cell rather
+ * than a fall-through, so giving it its own icon is a one-word change.
+ */
+const FIELD_EDITORS: Record<FieldType, FieldEditor> = {
+  text: {
+    icon: TextTIcon,
+    Editor: textualEditor({
+      underline: false,
+      isEmpty: isBlankScalar,
+      parse: (text) => ({ t: "str", v: text }),
+    }),
+  },
+  url: {
+    icon: TextTIcon,
+    Editor: textualEditor({
+      underline: true,
+      isEmpty: isBlankScalar,
+      parse: (text) => ({ t: "str", v: text }),
+    }),
+  },
+  number: {
+    icon: HashIcon,
+    Editor: textualEditor({
+      underline: false,
+      isEmpty: (value) => value.t !== "num",
+      parse: (text) => {
+        const n = Number(text.trim());
+        return Number.isNaN(n) ? null : { t: "num", v: n };
+      },
+    }),
+  },
+  date: { icon: CalendarBlankIcon, Editor: DateEditor },
+  checkbox: { icon: ToggleRightIcon, Editor: BooleanEditor },
+  ref: { icon: LinkSimpleIcon, Editor: RefFieldEditor },
+};
+
+/**
+ * Fields that name their own editor, whatever type they declare.
+ *
+ * A declared type says what shape the value has; a particular field may still
+ * know a better way to pick one. `sys.f.color` stores a hex string — a text
+ * field by type — and is edited as palette swatches. One row here replaces the
+ * three `if (fieldId === SYSTEM_IDS.colorField)` this was: the editor, the
+ * empty slot, and the row's icon.
+ */
+const FIELD_ID_EDITORS: Readonly<Record<string, FieldEditor>> = {
+  [SYSTEM_IDS.colorField]: { icon: PaletteIcon, Editor: ColorEditor },
+};
+
+/** The editor a field uses: its own if it names one, else its type's. */
+function editorFor(fieldType: FieldType, fieldId?: string): FieldEditor {
+  const named = fieldId === undefined ? undefined : FIELD_ID_EDITORS[fieldId];
+  return named ?? FIELD_EDITORS[fieldType];
+}
+
+/**
+ * The type glyph for a field — the icon half of its registry row.
+ *
+ * `FieldRow` renders this rather than looking the row up itself, so the glyph
+ * and the editor can never come from different rows.
+ */
+export function FieldTypeIcon({
+  fieldType,
+  fieldId,
+  size = 13,
+}: {
+  fieldType: FieldType;
+  fieldId?: string;
+  size?: number;
+}) {
+  const { icon: Glyph } = editorFor(fieldType, fieldId);
+  return <Glyph size={size} />;
+}
+
+/** Borderless inline prop editor — looked up by field, rendered by type. */
+export function PropValueEditor({
   fieldType,
   fieldId,
   allowedRefIds = null,
   autoOpen = false,
-  onCommit,
-  nodes,
-}: PropValueEditorProps) {
-  if (fieldId === SYSTEM_IDS.colorField) {
-    return (
-      <ColorSwatchEditor
-        value={value.t === "str" ? value.v : ""}
-        onCommit={(hex) => onCommit({ t: "str", v: hex })}
-      />
-    );
-  }
-
-  switch (fieldType) {
-    case "checkbox":
-      return (
-        <BooleanValue
-          value={value.t === "bool" ? value.v : false}
-          onChange={(v) => onCommit({ t: "bool", v })}
-        />
-      );
-    case "number":
-      return (
-        <EditableText
-          text={value.t === "num" ? String(value.v) : String(value.v)}
-          onCommit={(text) => {
-            const n = Number(text.trim());
-            if (!Number.isNaN(n)) onCommit({ t: "num", v: n });
-          }}
-          empty={value.t !== "num"}
-        />
-      );
-    case "date":
-      return (
-        <DateValue
-          value={value.t === "str" || value.t === "date" ? value.v : ""}
-          autoOpen={autoOpen}
-          onChange={(v) => onCommit({ t: "str", v })}
-        />
-      );
-    case "url":
-      return (
-        <EditableText
-          text={value.t === "str" ? value.v : String(value.v)}
-          onCommit={(text) => onCommit({ t: "str", v: text })}
-          empty={value.v === "" || value.v === 0 || value.v === false}
-          underline
-        />
-      );
-    case "ref":
-      return (
-        <RefEditor
-          refId={value.t === "ref" ? value.v : ""}
-          display={display}
-          nodes={nodes}
-          allowedRefIds={allowedRefIds}
-          autoOpen={autoOpen}
-          onCommit={(id) => onCommit({ t: "ref", v: id })}
-        />
-      );
-    case "text":
-    default:
-      return (
-        <EditableText
-          text={value.t === "str" ? value.v : String(value.v)}
-          onCommit={(text) => onCommit({ t: "str", v: text })}
-          empty={value.v === "" || value.v === 0 || value.v === false}
-          underline={false}
-        />
-      );
-  }
+  ...rest
+}: Omit<FieldEditorProps, "allowedRefIds" | "autoOpen"> & {
+  fieldType: FieldType;
+  /** Field definition id — lets a field name its own editor (e.g. sys.f.color). */
+  fieldId?: string;
+  allowedRefIds?: Set<string> | null;
+  autoOpen?: boolean;
+}) {
+  const { Editor } = editorFor(fieldType, fieldId);
+  return <Editor {...rest} allowedRefIds={allowedRefIds} autoOpen={autoOpen} />;
 }
 
 /** Editor for an empty typed slot (no value yet). */
@@ -132,13 +258,9 @@ export function EmptyTypedEditor({
   onCommit: (next: PropValue) => void;
   nodes: NodeMap;
 }) {
-  if (fieldId === SYSTEM_IDS.colorField) {
-    return <ColorSwatchEditor value="" onCommit={(hex) => onCommit({ t: "str", v: hex })} />;
-  }
-  const starter = emptyValueForType(fieldType);
   return (
     <PropValueEditor
-      value={starter}
+      value={emptyValueForType(fieldType)}
       display=""
       fieldType={fieldType}
       fieldId={fieldId}

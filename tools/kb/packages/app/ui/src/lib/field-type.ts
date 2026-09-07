@@ -101,78 +101,50 @@ export function clearAllowedRefIdsCache(): void {
   allowedRefCacheGeneration = -1;
 }
 
+/**
+ * What each declared field type is, as one table.
+ *
+ * The expected wire kind, the value an empty editor starts from, and which
+ * wire kinds the type accepts without a mismatch hint were three `switch`
+ * statements over the same union, kept in step by hand. They are three columns
+ * of one row now, so a new field type is a row rather than three edits — and
+ * the union's exhaustiveness is what fails the build when a row is missing,
+ * where a `default:` used to swallow it.
+ *
+ * The *editor* for a type is not a column here: it is React, and this module
+ * is read by code that has no DOM. `components/outline/field-value` keys the
+ * editor registry by the same union.
+ */
+interface FieldTypeSpec {
+  /** Wire `PropValue.t`, narrowed where the type constrains a string. */
+  readonly wireKind: PropValue["t"] | "str-url" | "str-date";
+  /** Wire kinds a value may carry without the UI hinting a mismatch. */
+  readonly accepts: readonly PropValue["t"][];
+  /** Starter value for an empty typed editor. */
+  readonly empty: PropValue;
+}
+
+const FIELD_TYPE_SPEC: Record<FieldType, FieldTypeSpec> = {
+  text: { wireKind: "str", accepts: ["str"], empty: { t: "str", v: "" } },
+  number: { wireKind: "num", accepts: ["num"], empty: { t: "num", v: 0 } },
+  // Prefer ISO str; legacy {t:date} is still accepted as matching.
+  date: { wireKind: "str-date", accepts: ["str", "date"], empty: { t: "str", v: "" } },
+  url: { wireKind: "str-url", accepts: ["str"], empty: { t: "str", v: "" } },
+  checkbox: { wireKind: "bool", accepts: ["bool"], empty: { t: "bool", v: false } },
+  ref: { wireKind: "ref", accepts: ["ref"], empty: { t: "ref", v: "" } },
+};
+
 /** Expected wire PropValue.t for a declared FieldType (url/date use str). */
 export function expectedPropKind(fieldType: FieldType): PropValue["t"] | "str-url" | "str-date" {
-  switch (fieldType) {
-    case "number":
-      return "num";
-    case "checkbox":
-      return "bool";
-    case "ref":
-      return "ref";
-    case "date":
-      return "str-date";
-    case "url":
-      return "str-url";
-    case "text":
-    default:
-      return "str";
-  }
+  return FIELD_TYPE_SPEC[fieldType].wireKind;
 }
 
 /** Subtle UI mismatch — core writes stay permissive. */
 export function isValueMismatch(fieldType: FieldType, value: PropValue): boolean {
-  switch (fieldType) {
-    case "number":
-      return value.t !== "num";
-    case "checkbox":
-      return value.t !== "bool";
-    case "ref":
-      return value.t !== "ref";
-    case "date":
-      // Prefer ISO str; legacy {t:date} is still accepted as matching.
-      return value.t !== "str" && value.t !== "date";
-    case "url":
-      return value.t !== "str";
-    case "text":
-      return value.t !== "str";
-    default:
-      return false;
-  }
+  return !FIELD_TYPE_SPEC[fieldType].accepts.includes(value.t);
 }
 
 /** Empty / starter value for a typed editor. */
 export function emptyValueForType(fieldType: FieldType): PropValue {
-  switch (fieldType) {
-    case "number":
-      return { t: "num", v: 0 };
-    case "checkbox":
-      return { t: "bool", v: false };
-    case "ref":
-      return { t: "ref", v: "" };
-    case "date":
-    case "url":
-    case "text":
-    default:
-      return { t: "str", v: "" };
-  }
-}
-
-/** Map FieldType → FieldRow icon key (legacy PropValue.t icons reused). */
-export function fieldTypeIconKind(fieldType: FieldType): PropValue["t"] {
-  switch (fieldType) {
-    case "number":
-      return "num";
-    case "checkbox":
-      return "bool";
-    case "ref":
-      return "ref";
-    case "date":
-      return "date";
-    case "url":
-      return "str";
-    case "text":
-    default:
-      return "str";
-  }
+  return { ...FIELD_TYPE_SPEC[fieldType].empty };
 }
