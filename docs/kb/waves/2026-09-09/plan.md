@@ -21,7 +21,7 @@ owned by g1.
 
 | id | brief | zone | gaps | status |
 |---|---|---|---|---|
-| g1 | `briefs/g1-graph-options.md` | `domain/model` seed + graph schema, `ui/lib/graph-*`, both `.kb` stores | origin's option tags (no gap node — it never reached main) | dispatched |
+| g1 | `briefs/g1-graph-options.md` | `domain/model` seed + graph schema, `ui/lib/graph-*`, both `.kb` stores | origin's option tags (no gap node — it never reached main) | merged `7f56ea3`, reviewer MERGE no findings; `main` ff'd to it. `kinds.test.ts` green unedited. One UI flake seen once under 3 concurrent runs (`editor-behavior` D10), 3/3 green in isolation |
 | g3 | `briefs/g3-canvas.md` | `ui/components/canvas/**`, `ui/lib/canvas-*` | `01M1TAE8HKYARYNTAVNMP566GV` `01M1TAE8V1GDX971M2A6NC4DS1` `01M1MGCSQY0M708HYYTWHP0XP2` `01M1MGCT80E1FMXMEAEATS1VER` `01M1MGCS6A29HT51G40W5TEEYK` `01M1MGCTRFEHBF15DSCNDXW0GZ` `01M1RXNGSJT2J2VHDSYY7QJSD3` | dispatched |
 | g4 | `briefs/g4-outline-keys-commands.md` | `ui/lib/*keymap*`, `ui/lib/run-command.ts`, `ui/components/outline/node-command-palette*`, outline keydown | `01M1MGCH7SD69CRSSV75X789QW` `01M1MGCDRS0K28YBF1Q86YY61S` `01M1MGCQKVQCG3H9YYCWQX0A0Y` `01M1MGCRNVNBE5HW27Z83PK67B` `01M1MGCF0ECBDEPTHPKMSQ4YFD` `01M1RXMQPVJKREGDS7D37J1MWN` (run-command part) | dispatched |
 | g6 | `briefs/g6-backend-small.md` | `application/operations`, `app/server`, `ui/api/ws*`, `.gitattributes` + merge driver, `.oxlintrc.json` (one option), `ui/stores/outline.store.ts` (two deletions) | `01M1PJSSQYFV2E160JANGBPKCK` `01M1PK5NYA7ZG3XC0H0YRYRVZE` `01M1QZNM17MTGGPE517NVZYJT0` `01M1M08WYY9X6HFNN5GKDCC47E` `01M1MHKS8EV3DD378TZSX44EJG` `01M1R19NXBMTVQG6AH0S7VTC7D` `01M1MGT3K0DNGEQFXQNZYE83NY` `01M1MFS8RQ2BMQVZD02J4TQT7W` | dispatched |
