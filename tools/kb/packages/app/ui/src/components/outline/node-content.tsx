@@ -8,7 +8,7 @@ import { useNodeTextHostBinding } from "@/stores/node-text-host-binding";
 
 /** Outline surface binding of the shared node text host. */
 export function NodeContent(props: Omit<NodeTextHostProps, keyof NodeTextHostBinding>) {
-  const binding = useNodeTextHostBinding(props.nodeId, props.instanceKey);
+  const binding = useNodeTextHostBinding();
   return (
     <NodeTextHost
       {...props}
