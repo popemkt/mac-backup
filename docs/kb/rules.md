@@ -109,14 +109,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Separate design question recorded in briefs/p1-persistence.md section 4: protocol, discovery, and fallback when no server is running.
 - **node** — `01M1M08WPQTB514E7JERKYEDWZ`
 
-### GAP: concurrent ui test files share the store, so a fire-and-forget write lands in another suite
-
-- **expected** — Each @kb/ui test file gets its own module registry and globals, so a suite's store writes cannot reach a suite running beside it.
-- **current** — Vitest schedules the 105 ui files across workers that share module state: a suite whose 'void mutations.X().then(...)' chain is still in flight when a neighbour asserts writes into that neighbour's store. Reproduced by pairing components/outline/use-node-keydown.characterization.test.tsx with components/outline/editor-behavior.test.tsx — red under file parallelism, green with --no-file-parallelism. Suites now drain their chains in afterEach, which fixes the within-file half only.
-- **impact** — Any DOM-driven suite can be reddened by an unrelated one, so a red run is not evidence of a defect and a green run is not evidence of correctness. src/lib/palette-index.test.ts's 10ms keystroke bar is the same hazard by wall clock: it measures 19ms under a loaded parallel run and passes alone.
-- **closes** — Turn on per-file isolation for the ui vitest project (or stop the fire-and-forget store writes by having mutations return their focus hand-off), and move the palette-index perf bar out of the parallel lane into its own sequential run.
-- **node** — `01M1XA98A0A7PWEPMHG2T4R5GP`
-
 ### GAP: Durable browser invocation replay
 
 - **expected** — The browser invocation lane durably queues offline mutations and replays them under an explicit conflict policy.
@@ -264,15 +256,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Hull geometry and hit-testing - pure maths - are trapped inside an effect.
 - **closes** — Extract the hull geometry first (it is pure and testable), then the renderer object.
 - **node** — `01M1MGCQ3JT5GE3FY5XJ9EB67Q`
-
-### GAP: the DST scenario tests gate on a 5s default test timeout
-
-- **expected** — A scenario test's green/red says whether the store behaved, not how busy the host was. Its budget is either sized for a loaded machine or expressed the way palette-index's is — an algorithmic assertion plus printed observations.
-- **current** — packages/app/test-kit/tests/dst.test.ts runs seeded histories through the real plan/apply path under bun test's 5000ms default. On an unloaded machine every scenario finishes well inside it; with two other suites running, whole tests time out — observed 2 of 10 runs failing on 2026-09-09, on the merge base as well as on a working branch, so it is not a code regression.
-- **impact** — A test that fails on a busy machine and passes on a rerun teaches agents to rerun rather than trust the gate, which is the same lesson GAP 01M1R19NXBMTVQG6AH0S7VTC7D was filed to unteach. It also hides a real slowdown: nobody can tell a genuine regression from load.
-- **closes** — Give the DST scenarios an explicit timeout sized to their real cost (they are seconds of work, not milliseconds), or make the scenario count adaptive. Either way the number is stated in the file with its reason, not inherited from a runner default.
-- **rule** — GAP 01M1R19NXBMTVQG6AH0S7VTC7D is the same class: no test gates on wall clock.
-- **node** — `01M1X8VQT1P6E45NBTQEQ96YDR`
 
 ### GAP: the field-value primitive subscribes to the outline store
 
@@ -680,6 +663,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Same treatment as the outline keydown gap: pure chord mapping, separate appliers, clipboard parsing already has parseCanvasDoc to lean on.
 - **node** — `01M1MGCS6A29HT51G40W5TEEYK`
 
+### GAP: the DST scenario tests gate on a 5s default test timeout
+
+- **expected** — A scenario test's green/red says whether the store behaved, not how busy the host was. Its budget is either sized for a loaded machine or expressed the way palette-index's is — an algorithmic assertion plus printed observations.
+- **current** — packages/app/test-kit/tests/dst.test.ts runs seeded histories through the real plan/apply path under bun test's 5000ms default. On an unloaded machine every scenario finishes well inside it; with two other suites running, whole tests time out — observed 2 of 10 runs failing on 2026-09-09, on the merge base as well as on a working branch, so it is not a code regression.
+- **impact** — A test that fails on a busy machine and passes on a rerun teaches agents to rerun rather than trust the gate, which is the same lesson GAP 01M1R19NXBMTVQG6AH0S7VTC7D was filed to unteach. It also hides a real slowdown: nobody can tell a genuine regression from load.
+- **closes** — Give the DST scenarios an explicit timeout sized to their real cost (they are seconds of work, not milliseconds), or make the scenario count adaptive. Either way the number is stated in the file with its reason, not inherited from a runner default.
+- **rule** — GAP 01M1R19NXBMTVQG6AH0S7VTC7D is the same class: no test gates on wall clock.
+- **node** — `01M1X8VQT1P6E45NBTQEQ96YDR`
+
 ### GAP: the legacy localStorage migration in loadExpandedIds has no end date
 
 - **expected** — Outline expansion state reads one key. The one-shot migration from kb-ui:collapsed and kb-ui:expanded-queries is deleted once every machine that could still hold those keys has run a build that migrated them.
@@ -737,3 +729,11 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move both queries behind a lib/ or store selector that the components consume, so ds/ keeps one set of callers.
 - **rule** — UI import matrix
 - **node** — `01M1RXMRZKE1AJC850BRTHHHCW`
+
+### GAP: ui suites reddened under load when the row a chord crossed to had no text host
+
+- **expected** — A red ui run means a defect. Every suite that activates a row mounts a text host for it, the way every visible row does in the app, so no assertion races the store's 250 ms orphaned-focus fallback. Timing is asserted as a ratio or as a budget sized from measurement, never as bare wall clock.
+- **current** — Re-scoped by measurement: the files never shared anything. vp test forks a process per file (probe src/test-support/isolation-probe.ts prints pid, realm, module-registry and store nonces from two files; distinct on every axis even under --no-file-parallelism --max-workers=1), and the pairing was red 3/10 sequentially as well as 6/10 in parallel, which rules file parallelism out. The mechanism was wall clock inside one file: activateNode arms a 250 ms fallBackFromMissingHost that clears activeNodeId when no text host registers for the row, and the suites that drive the keymap or the store directly never mount one for the row they cross to. The 'kb: active text host did not mount' warning appeared in exactly the failing runs, 1:1 over 10 pairings. palette-index's bar was already a ratio (closed with 01M1R19NXBMTVQG6AH0S7VTC7D); it still reddened 1 of 5 loaded runs because three timing samples can all be interrupted.
+- **impact** — A red run was not evidence of a defect and a green run was not evidence of correctness, so agents learned to rerun rather than trust the gate. Before the fix, 2 of 5 full test:ui runs under load reddened on use-node-keydown/editor-behavior and 1 of 5 on palette-index.
+- **closes** — Closed: test-support/active-text-host.ts follows the store's activeInstanceKey and registers a host for it, called from the beforeEach of the suites that render one row or none; the settling poll that used to outrun the timer is deleted; palette-index times nine samples instead of three and states where its budget came from. 5/5 test:ui green under a concurrent bun test packages, 5/5 the other way; the pairing is 0/10 red solo, parallel and sequential.
+- **node** — `01M1XA98A0A7PWEPMHG2T4R5GP`
