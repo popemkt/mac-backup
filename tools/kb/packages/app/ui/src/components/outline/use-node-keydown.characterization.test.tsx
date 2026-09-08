@@ -22,6 +22,7 @@ import { outlineInstanceKey } from "@/lib/instance-key";
 import { renderEditableContent, setCaretSerializedOffset } from "@/lib/md-edit";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
+import { ActiveTextHost } from "@/test-support/active-text-host";
 import { installDomGlobals } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useNodeKeyDown } from "./use-node-keydown";
@@ -54,22 +55,6 @@ function keyOf(nodeId: string): string {
 
 function node(id: string) {
   return useOutlineStore.getState().nodes.get(id);
-}
-
-/**
- * The active row, given a few more ticks to reach `expected`.
- *
- * Crossing rows is the one editing intent whose effect depends on the row it
- * lands on still being reachable, so it is the one that a straggling write
- * from a neighbouring case can disturb. Polling reads the settled value rather
- * than whichever tick the assertion happened to fall on.
- */
-async function activeNodeSettlingOn(expected: string): Promise<string | null> {
-  for (let i = 0; i < 10; i += 1) {
-    if (useOutlineStore.getState().activeNodeId === expected) break;
-    await settle(1, 1);
-  }
-  return useOutlineStore.getState().activeNodeId;
 }
 
 /**
@@ -136,7 +121,14 @@ describe("outline editing keymap (characterization)", () => {
       useOutlineStore.getState().activateNode(nodeId, cursor, instanceKey);
     });
     act(() => {
-      root.render(<Host nodeId={nodeId} instanceKey={instanceKey} isRef={isRef} />);
+      root.render(
+        <>
+          <Host nodeId={nodeId} instanceKey={instanceKey} isRef={isRef} />
+          {/* Every visible row has a text host in the app; a chord that crosses
+              rows needs the row it lands on to have one here too. */}
+          <ActiveTextHost />
+        </>,
+      );
     });
     const el = present(
       container.querySelector<HTMLElement>('[data-editor="true"]'),
@@ -383,12 +375,12 @@ describe("outline editing keymap (characterization)", () => {
 
     it("bare ArrowUp crosses to the previous visible row", async () => {
       expect(await press(mount("n.root-c", 4, false), "ArrowUp")).toBe(true);
-      expect(await activeNodeSettlingOn("n.root-b")).toBe("n.root-b");
+      expect(useOutlineStore.getState().activeNodeId).toBe("n.root-b");
     });
 
     it("bare ArrowDown crosses to the next visible row", async () => {
       expect(await press(mount("n.root-b", 4, false), "ArrowDown")).toBe(true);
-      expect(await activeNodeSettlingOn("n.root-c")).toBe("n.root-c");
+      expect(useOutlineStore.getState().activeNodeId).toBe("n.root-c");
     });
 
     it("bare ArrowDown at the document edge is left to the browser", async () => {
