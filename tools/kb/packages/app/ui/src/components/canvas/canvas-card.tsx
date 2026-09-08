@@ -3,10 +3,11 @@ import { asInstance } from "@/lib/dom";
 import { useCallback } from "react";
 import type { CanvasKbNode, CanvasTextNode } from "@kb/canvas";
 import { Bullet } from "@/components/outline/bullet";
-import { NodeContent } from "@/components/outline/node-content"; // GAP [[01M1RXNGSJT2J2VHDSYY7QJSD3]]
 import { NodeRow } from "@/components/outline/node-row";
+import { NodeTextHost } from "@/components/ui/node-text-host";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
+import { useNodeTextHostBinding } from "@/stores/node-text-host-binding";
 import { cn } from "@/lib/cn";
 import { CanvasPorts } from "./canvas-ports";
 import { CanvasResizeHandles, type CanvasCorner } from "./canvas-resize-handles";
@@ -45,7 +46,7 @@ function handleCanvasNodeKeyDown(
   }
 }
 
-/** kb-node card: layout shell + shared NodeRow / NodeContent / TagChips. */
+/** kb-node card: layout shell + shared NodeRow / NodeTextHost / TagChips. */
 export function KbNodeCard({
   card,
   selected,
@@ -61,6 +62,7 @@ export function KbNodeCard({
   const selectNode = useOutlineStore((s) => s.selectNode);
   const instanceKey = canvasCardInstanceKey(card.id, card.nodeId);
   const isActive = activeNodeId === card.nodeId && activeInstanceKey === instanceKey;
+  const binding = useNodeTextHostBinding(card.nodeId, instanceKey);
 
   const handleActivate = useCallback(
     (cursorPos?: number) => {
@@ -131,7 +133,8 @@ export function KbNodeCard({
           />
         }
         content={
-          <NodeContent
+          <NodeTextHost
+            {...binding}
             nodeId={card.nodeId}
             instanceKey={instanceKey}
             content={node.text}
@@ -140,6 +143,12 @@ export function KbNodeCard({
             onActivate={handleActivate}
             onChange={(text) => {
               void mutations.updateNodeContent(card.nodeId, text);
+            }}
+            onAttachFile={(file) => {
+              void mutations.attachFileToNode(card.nodeId, file);
+            }}
+            onRemoveTag={(tagId) => {
+              void mutations.removeTag(card.nodeId, tagId);
             }}
             onKeyDown={(event) => handleCanvasNodeKeyDown(event, card.nodeId, instanceKey)}
           />
