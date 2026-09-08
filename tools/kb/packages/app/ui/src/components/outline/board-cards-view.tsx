@@ -330,6 +330,7 @@ const ViewCard = memo(function ViewCard({
                     display=""
                     fieldType={fieldType}
                     nodes={nodes}
+                    onZoomTo={zoomTo}
                     onCommit={(next) => void mutations.updateProp(child.id, col.fieldId, next)}
                   />
                 </FieldRow>
@@ -350,6 +351,7 @@ const ViewCard = memo(function ViewCard({
                   display={formatPropValue(v, nodes)}
                   fieldType={fieldType}
                   nodes={nodes}
+                  onZoomTo={zoomTo}
                   onCommit={(next) => void mutations.updateProp(child.id, col.fieldId, next, v)}
                 />
               </FieldRow>

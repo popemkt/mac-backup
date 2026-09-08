@@ -21,6 +21,7 @@ function render(values: PropValue[], readOnly = false) {
       values,
       nodes,
       readOnly,
+      onZoomTo: () => undefined,
     }),
   );
 }

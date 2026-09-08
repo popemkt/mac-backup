@@ -78,6 +78,7 @@ describe("ref slot focus behaviour", () => {
           values={values}
           nodes={useOutlineStore.getState().nodes}
           readOnly={false}
+          onZoomTo={() => undefined}
         />,
       );
     });

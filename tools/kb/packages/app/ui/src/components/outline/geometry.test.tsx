@@ -96,6 +96,7 @@ describe("Field value placeholder (D17, §5.2)", () => {
         fieldType: "text",
         onCommit: () => {},
         nodes,
+        onZoomTo: () => undefined,
       }),
     );
     expect(html).toContain("empty-placeholder");
@@ -112,6 +113,7 @@ describe("Field value placeholder (D17, §5.2)", () => {
         fieldType: "text",
         onCommit: () => {},
         nodes,
+        onZoomTo: () => undefined,
       }),
     );
     expect(html).not.toContain("empty-placeholder");

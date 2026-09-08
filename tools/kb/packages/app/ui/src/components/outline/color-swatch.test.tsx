@@ -40,6 +40,7 @@ describe("ColorSwatchEditor (i10 item 4)", () => {
         fieldId: SYSTEM_IDS.colorField,
         nodes,
         onCommit: () => undefined,
+        onZoomTo: () => undefined,
       }),
     );
     expect(html).toContain('data-color-swatch-editor="true"');

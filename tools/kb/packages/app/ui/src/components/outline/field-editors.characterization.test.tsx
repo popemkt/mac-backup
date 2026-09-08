@@ -58,6 +58,7 @@ function editorHtml(
       autoOpen: extra.autoOpen ?? false,
       onCommit: () => undefined,
       nodes,
+      onZoomTo: () => undefined,
     }),
   );
 }
@@ -71,6 +72,7 @@ function emptyHtml(fieldType: FieldType, fieldId?: string, autoOpen = false): st
       autoOpen,
       onCommit: () => undefined,
       nodes,
+      onZoomTo: () => undefined,
     }),
   );
 }
@@ -242,6 +244,7 @@ describe("what a commit writes", () => {
           autoOpen: false,
           onCommit: (next: PropValue) => committed.push(next),
           nodes,
+          onZoomTo: () => undefined,
         }),
       );
     });
@@ -397,6 +400,7 @@ describe("ref candidate keyboard navigation", () => {
           autoOpen: true,
           onCommit: (next: PropValue) => committed.push(next),
           nodes,
+          onZoomTo: () => undefined,
         }),
       );
     });
@@ -471,6 +475,7 @@ describe("ref candidate keyboard navigation", () => {
             autoOpen: true,
             onCommit: () => undefined,
             nodes,
+            onZoomTo: () => undefined,
           }),
         ),
       );

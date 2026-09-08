@@ -356,6 +356,7 @@ const TableCellField = memo(function TableCellField({
   const generation = useOutlineStore((s) => (fieldType === "ref" ? (s.index?.generation ?? 0) : 0));
 
   const fieldNode = nodes.get(fieldId);
+  const zoomTo = useOutlineStore((s) => s.zoomTo);
   const allowedRefIds =
     fieldType === "ref"
       ? resolveAllowedRefIdsCached(fieldId, fieldNode, nodes, queryDb, generation)
@@ -373,6 +374,7 @@ const TableCellField = memo(function TableCellField({
           fieldType={fieldType}
           allowedRefIds={allowedRefIds}
           nodes={nodes}
+          onZoomTo={zoomTo}
           onCommit={(next: PropValue) => void mutations.updateProp(nodeId, fieldId, next)}
         />
       </FieldRow>
@@ -397,6 +399,7 @@ const TableCellField = memo(function TableCellField({
             fieldType={fieldType}
             allowedRefIds={allowedRefIds}
             nodes={nodes}
+            onZoomTo={zoomTo}
             onCommit={(next: PropValue) => void mutations.updateProp(nodeId, fieldId, next, v)}
           />
         </FieldRow>

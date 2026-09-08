@@ -19,6 +19,7 @@ export const CheckboxChecked: Story = {
     fieldType: "checkbox",
     onCommit: noop,
     nodes,
+    onZoomTo: noop,
   },
 };
 
@@ -29,6 +30,7 @@ export const TextFilled: Story = {
     fieldType: "text",
     onCommit: noop,
     nodes,
+    onZoomTo: noop,
   },
 };
 
@@ -39,5 +41,6 @@ export const UrlEmpty: Story = {
     fieldType: "url",
     onCommit: noop,
     nodes,
+    onZoomTo: noop,
   },
 };

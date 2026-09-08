@@ -13,6 +13,7 @@ const meta = {
     allowedRefIds: null,
     nodes: emptyNodes,
     readOnly: false,
+    onZoomTo: () => undefined,
   },
 } satisfies Meta<typeof FieldValueStack>;
 

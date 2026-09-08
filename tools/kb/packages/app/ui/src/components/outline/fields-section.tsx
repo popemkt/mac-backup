@@ -28,6 +28,7 @@ export interface FieldValueStackProps {
   values: PropValue[];
   nodes: NodeMap;
   readOnly: boolean;
+  onZoomTo: (id: string) => void;
 }
 
 /**
@@ -46,6 +47,7 @@ export function FieldValueStack({
   values,
   nodes,
   readOnly,
+  onZoomTo,
 }: FieldValueStackProps) {
   /** Slots the user minted with "+ value" and has not filled yet. */
   const [pendingSlots, setPendingSlots] = useState(0);
@@ -76,6 +78,7 @@ export function FieldValueStack({
               fieldId={fieldId}
               allowedRefIds={allowedRefIds}
               nodes={nodes}
+              onZoomTo={onZoomTo}
               onCommit={(next: PropValue) =>
                 void mutations.updateProp(nodeId, fieldId, next, value)
               }
@@ -113,6 +116,7 @@ export function FieldValueStack({
           allowedRefIds={allowedRefIds}
           autoOpen={autoOpen}
           nodes={nodes}
+          onZoomTo={onZoomTo}
           onCommit={(next: PropValue) => {
             setPendingSlots(0);
             void mutations.updateProp(nodeId, fieldId, next);
@@ -144,6 +148,7 @@ export function FieldValueStack({
 export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const nodes = useOutlineStore((s) => s.nodes);
+  const zoomTo = useOutlineStore((s) => s.zoomTo);
   const queryDb = useOutlineStore((s) => s.index);
   const generation = useOutlineStore((s) => s.index?.generation ?? 0);
   // Debug rows are this node's own business (⌘K → "Show debug fields").
@@ -187,6 +192,7 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
               values={values}
               nodes={nodes}
               readOnly={nodeReadOnly || debug}
+              onZoomTo={zoomTo}
             />
           </FieldRow>
         );

@@ -15,7 +15,6 @@ import { emptyValueForType, type FieldType } from "@/lib/field-type";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
 import { useRefCandidates } from "@/lib/use-ref-candidates";
 import { TAG_PALETTE } from "@/lib/tag-color";
-import { useOutlineStore } from "@/stores/outline.store"; // GAP [[01M1RXMRJA3ZRAWPTB0ZH5YEYG]]
 import { asInstance } from "@/lib/dom";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
 import { Bullet } from "./bullet";
@@ -39,6 +38,11 @@ export interface FieldEditorProps {
   autoOpen: boolean;
   onCommit: (next: PropValue) => void;
   nodes: NodeMap;
+  /**
+   * Navigate to a node from a resolved ref's bullet or tag chip.
+   * Opening the picker is `onOpen` on that row — it is not this.
+   */
+  onZoomTo: (id: string) => void;
 }
 
 /**
@@ -119,6 +123,7 @@ function RefFieldEditor({
   allowedRefIds,
   autoOpen,
   onCommit,
+  onZoomTo,
 }: FieldEditorProps) {
   return (
     <RefEditor
@@ -128,6 +133,7 @@ function RefFieldEditor({
       allowedRefIds={allowedRefIds}
       autoOpen={autoOpen}
       onCommit={(id) => onCommit({ t: "ref", v: id })}
+      onZoomTo={onZoomTo}
     />
   );
 }
@@ -250,6 +256,7 @@ export function EmptyTypedEditor({
   autoOpen = false,
   onCommit,
   nodes,
+  onZoomTo,
 }: {
   fieldType: FieldType;
   fieldId?: string;
@@ -257,6 +264,7 @@ export function EmptyTypedEditor({
   autoOpen?: boolean;
   onCommit: (next: PropValue) => void;
   nodes: NodeMap;
+  onZoomTo: (id: string) => void;
 }) {
   return (
     <PropValueEditor
@@ -268,6 +276,7 @@ export function EmptyTypedEditor({
       autoOpen={autoOpen}
       onCommit={onCommit}
       nodes={nodes}
+      onZoomTo={onZoomTo}
     />
   );
 }
@@ -518,12 +527,13 @@ function ResolvedRefRow({
   refId,
   target,
   onOpen,
+  onZoomTo,
 }: {
   refId: string;
   target: OutlineNode;
   onOpen: () => void;
+  onZoomTo: (id: string) => void;
 }) {
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
   return (
     <NodeRow
       depth={0}
@@ -536,7 +546,7 @@ function ResolvedRefRow({
           isRef
           onClick={(e) => {
             e.stopPropagation();
-            zoomTo(refId);
+            onZoomTo(refId);
           }}
         />
       }
@@ -558,7 +568,7 @@ function ResolvedRefRow({
               tags={target.tags}
               onTagClick={(tag, e) => {
                 e.stopPropagation();
-                zoomTo(tag.id);
+                onZoomTo(tag.id);
               }}
             />
           )}
@@ -738,6 +748,7 @@ function RefEditor({
   allowedRefIds = null,
   autoOpen = false,
   onCommit,
+  onZoomTo,
 }: {
   refId: string;
   display: string;
@@ -745,6 +756,7 @@ function RefEditor({
   allowedRefIds?: Set<string> | null;
   autoOpen?: boolean;
   onCommit: (id: string) => void;
+  onZoomTo: (id: string) => void;
 }) {
   const [open, setOpen] = useState(autoOpen);
   const target = nodes.get(refId);
@@ -761,7 +773,7 @@ function RefEditor({
   }
   const show = () => setOpen(true);
   if (target) {
-    return <ResolvedRefRow refId={refId} target={target} onOpen={show} />;
+    return <ResolvedRefRow refId={refId} target={target} onOpen={show} onZoomTo={onZoomTo} />;
   }
   if (refId) return <UnresolvedRefChip refId={refId} display={display} onOpen={show} />;
   return <EmptyRefSlot onOpen={show} />;

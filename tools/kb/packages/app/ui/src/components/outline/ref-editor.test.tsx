@@ -89,6 +89,7 @@ function renderRefSlot(nodes: NodeMap, allowedRefIds: Set<string> | null, autoOp
       autoOpen,
       onCommit: () => {},
       nodes,
+      onZoomTo: () => undefined,
     }),
   );
 }
