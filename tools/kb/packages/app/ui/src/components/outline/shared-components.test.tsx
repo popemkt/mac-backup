@@ -18,6 +18,10 @@ function readOutlineSource(name: string): string {
   return readFileSync(path.join(outlineDir, name), "utf8");
 }
 
+function readPrimitiveSource(name: string): string {
+  return readFileSync(path.join(outlineDir, "../ui", name), "utf8");
+}
+
 describe("shared outline components (W8b)", () => {
   it("TagChip uses deterministic hash colors with hex+18 background", () => {
     const color = hashTagColor("tag.todo");
@@ -156,7 +160,9 @@ describe("shared outline components (W8b)", () => {
 
   it("surface modules import the single shared row/chip/field components", () => {
     expect(readOutlineSource("node-block.tsx")).toMatch(/from "\.\/node-row"/);
-    expect(readOutlineSource("node-content.tsx")).toMatch(/from "\.\/tag-chip"/);
+    expect(readPrimitiveSource("node-text-host.tsx")).toMatch(
+      /from "@\/components\/outline\/tag-chip"/,
+    );
     expect(readOutlineSource("references-section.tsx")).toMatch(/from "\.\/node-row"/);
     expect(readOutlineSource("references-section.tsx")).toMatch(/from "\.\/tag-chip"/);
     expect(readOutlineSource("field-value.tsx")).toMatch(/from "\.\/node-row"/);
@@ -171,8 +177,8 @@ describe("shared outline components (W8b)", () => {
   });
 
   it("tag render path is TagChip only — no inline striped duplicate (i10 item 3)", () => {
-    const content = readOutlineSource("node-content.tsx");
-    expect(content).toMatch(/from "\.\/tag-chip"/);
+    const content = readPrimitiveSource("node-text-host.tsx");
+    expect(content).toMatch(/from "@\/components\/outline\/tag-chip"/);
     expect(content).toMatch(/TagChipGroup/);
     // No second ad-hoc tag markup / hardcoded chip sizes in the content row.
     expect(content).not.toMatch(/text-\[1[01]px\].*tag|tag.*text-\[1[01]px\]/i);

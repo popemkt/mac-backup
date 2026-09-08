@@ -10,7 +10,7 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { FieldsSection } from "./fields-section";
 import { TagChipGroup } from "./tag-chip";
 import { ViewToolbar } from "./view-toolbar";
-import { NodeTextHost } from "./node-content";
+import { NodeContent } from "./node-content";
 import { hasText } from "@/lib/text";
 
 /**
@@ -38,7 +38,7 @@ function EditableTitle({ node }: { node: OutlineNode }) {
 
   if (editing) {
     return (
-      <NodeTextHost
+      <NodeContent
         nodeId={node.id}
         instanceKey={`title/${node.id}`}
         content={text}

@@ -40,7 +40,7 @@ describe("kb tokens", () => {
   const tokens = readFileSync(path.join(root, "tokens.css"), "utf8");
   const tokenDecls = stripComments(tokens);
   const index = readFileSync(path.join(root, "index.css"), "utf8");
-  const content = readFileSync(path.join(root, "components/outline/node-content.tsx"), "utf8");
+  const content = readFileSync(path.join(root, "components/ui/node-text-host.tsx"), "utf8");
 
   it("defines row metric tokens from DESIGN-REFINE W1", () => {
     expect(tokens).toMatch(/--kb-indent:\s*24px/);

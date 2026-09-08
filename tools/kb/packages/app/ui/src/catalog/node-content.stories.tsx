@@ -1,8 +1,24 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { NodeTextHost } from "@/components/outline/node-content";
+import { NodeTextHost, type NodeTextHostBinding } from "@/components/ui/node-text-host";
 
 const noop = (): void => undefined;
 const noopActivate = (): void => undefined;
+const noopNav = (_e: React.MouseEvent, _id: string): void => undefined;
+
+const binding: NodeTextHostBinding = {
+  nodes: new Map(),
+  zoomTo: noop,
+  pendingCaret: null,
+  onRefClick: noopNav,
+  consumeCaret: () => null,
+  placeCaret: noop,
+  selectNode: noop,
+  registerTextHost: noop,
+  unregisterTextHost: noop,
+  setNodePaletteOpen: noop,
+  onAttachFile: noop,
+  onRemoveTag: noop,
+};
 
 const oneTag = [{ id: "tag.todo", name: "todo", color: "#3b82f6" }];
 
@@ -26,6 +42,7 @@ const meta = {
     onActivate: noopActivate,
     onChange: noop,
     onKeyDown: noop,
+    ...binding,
   },
 } satisfies Meta<typeof NodeTextHost>;
 

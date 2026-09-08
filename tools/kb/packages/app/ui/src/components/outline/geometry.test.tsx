@@ -75,7 +75,7 @@ describe("One-Row Metric Invariant (§5.2)", () => {
   });
 
   it("active editor and inactive view share the KB_TEXT_CLASS type scale", () => {
-    const src = readOutlineSource("node-content.tsx");
+    const src = readPrimitiveSource("node-text-host.tsx");
     // Editor branch
     expect(src).toMatch(/KB_TEXT_CLASS/);
     // MdView branch receives the same class via md-view.tsx
