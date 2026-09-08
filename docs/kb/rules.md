@@ -84,15 +84,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Implement an IndexedDB-backed EffectStore with the same generation fingerprint contract.
 - **node** — `01M1R6N8VC3W5P93KABEFZ8CTX`
 
-### GAP: canvas cards render outline's NodeContent
-
-- **expected** — Cross-surface reuse goes through the primitives zone or lib/; a surface never reaches into a sibling surface's internals. Bullet and NodeRow are already primitives, NodeContent is not.
-- **current** — components/canvas/canvas-card.tsx imports NodeContent from components/outline/node-content.tsx to render a kb node inside a canvas card. One import site. The card is a full editor (isActive/onActivate/onChange plus its own keydown), so only the whole component can move; wave 2026-09-09 g2 re-ran the promotion after closing the MdView and caret gaps and it now costs four breaches, all of them primitives -> stores/actions and all in the promoted file: node-content.tsx:3 @/actions/mutations, :14 @/stores/outline.store, :15 @/stores/ui.store, :16 @/stores/ref-navigation. g3 saw five, two of which were components/outline edges that are now gone. What is left is exactly GAP: the field-value primitive subscribes to the outline store, which lands with the outline-store split, so the move was reverted rather than sanctioned with fresh markers. harness/lint-warn-baseline.json still carries duplicates:...node-content.tsx:NodeContent|NodeTextHost; whoever lands the move drops the alias and re-snapshots in the same change.
-- **impact** — The canvas split (wave u2) inherits an edge into a 351-line outline component that is itself listed for splitting, so neither can move without the other.
-- **closes** — Promote NodeContent, or the read-only part of it the card needs, into the primitives zone beside Bullet and NodeRow.
-- **rule** — UI import matrix
-- **node** — `01M1RXNGSJT2J2VHDSYY7QJSD3`
-
 ### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
 
 - **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
@@ -257,15 +248,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Extract the hull geometry first (it is pure and testable), then the renderer object.
 - **node** — `01M1MGCQ3JT5GE3FY5XJ9EB67Q`
 
-### GAP: the field-value primitive subscribes to the outline store
-
-- **expected** — A shared primitive takes its data through props; UI_ALLOWS gives the primitives zone lib and itself, nothing else. That is what lets any surface render one.
-- **current** — components/outline/field-value.tsx imports useOutlineStore to resolve ref candidates and node text while editing a field value. One import site.
-- **impact** — Every surface that renders a field value drags the outline store in, which is why canvas and prefs already reach across for outline internals. It also blocks the outline-store split from moving anything the editor reads.
-- **closes** — Lift the node lookup to a prop or a small resolver passed by the caller, the way RefAutocomplete already takes its candidates. Lands with the outline-store split.
-- **rule** — UI import matrix
-- **node** — `01M1RXMRJA3ZRAWPTB0ZH5YEYG`
-
 ### GAP: the inline markdown parser is a 41-branch hand-rolled scanner
 
 - **expected** — Inline markdown parses through a table of segment recognizers tried in order, each recognizer a named, separately tested function.
@@ -384,6 +366,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The visual contract of a bullet is untestable without rendering, and it is the single most-read affordance in the outline.
 - **closes** — Extract bulletAppearance(node, state) returning a small record, and drive both the element and its classes from it.
 - **node** — `01M1MGCMX698XJ0VDCSVQBGSQB`
+
+### GAP: canvas cards render outline's NodeContent
+
+- **expected** — Cross-surface reuse goes through the primitives zone or lib/; a surface never reaches into a sibling surface's internals. Bullet and NodeRow are already primitives, NodeContent is not.
+- **current** — components/canvas/canvas-card.tsx imports NodeContent from components/outline/node-content.tsx to render a kb node inside a canvas card. One import site. The card is a full editor (isActive/onActivate/onChange plus its own keydown), so only the whole component can move; wave 2026-09-09 g2 re-ran the promotion after closing the MdView and caret gaps and it now costs four breaches, all of them primitives -> stores/actions and all in the promoted file: node-content.tsx:3 @/actions/mutations, :14 @/stores/outline.store, :15 @/stores/ui.store, :16 @/stores/ref-navigation. g3 saw five, two of which were components/outline edges that are now gone. What is left is exactly GAP: the field-value primitive subscribes to the outline store, which lands with the outline-store split, so the move was reverted rather than sanctioned with fresh markers. harness/lint-warn-baseline.json still carries duplicates:...node-content.tsx:NodeContent|NodeTextHost; whoever lands the move drops the alias and re-snapshots in the same change.
+- **impact** — The canvas split (wave u2) inherits an edge into a 351-line outline component that is itself listed for splitting, so neither can move without the other.
+- **closes** — Promote NodeContent, or the read-only part of it the card needs, into the primitives zone beside Bullet and NodeRow.
+- **rule** — UI import matrix
+- **node** — `01M1RXNGSJT2J2VHDSYY7QJSD3`
 
 ### GAP: canvas move release persists the unsnapped position
 
@@ -671,6 +662,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Give the DST scenarios an explicit timeout sized to their real cost (they are seconds of work, not milliseconds), or make the scenario count adaptive. Either way the number is stated in the file with its reason, not inherited from a runner default.
 - **rule** — GAP 01M1R19NXBMTVQG6AH0S7VTC7D is the same class: no test gates on wall clock.
 - **node** — `01M1X8VQT1P6E45NBTQEQ96YDR`
+
+### GAP: the field-value primitive subscribes to the outline store
+
+- **expected** — A shared primitive takes its data through props; UI_ALLOWS gives the primitives zone lib and itself, nothing else. That is what lets any surface render one.
+- **current** — components/outline/field-value.tsx imports useOutlineStore to resolve ref candidates and node text while editing a field value. One import site.
+- **impact** — Every surface that renders a field value drags the outline store in, which is why canvas and prefs already reach across for outline internals. It also blocks the outline-store split from moving anything the editor reads.
+- **closes** — Lift the node lookup to a prop or a small resolver passed by the caller, the way RefAutocomplete already takes its candidates. Lands with the outline-store split.
+- **rule** — UI import matrix
+- **node** — `01M1RXMRJA3ZRAWPTB0ZH5YEYG`
 
 ### GAP: the legacy localStorage migration in loadExpandedIds has no end date
 
