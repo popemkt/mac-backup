@@ -18,8 +18,8 @@ function node(id: string, text: string, props: WireNode["props"] = {}): WireNode
 }
 
 /**
- * Best of three: the fastest run is the one least interrupted by the host, so
- * it is the closest reading of the code's own cost on a shared machine.
+ * Best of {@link SAMPLES}: the fastest run is the one least interrupted by the
+ * host, so it is the closest reading of the code's own cost on a shared machine.
  */
 function bestOf(runs: number, work: () => number): number {
   let best = Infinity;
@@ -32,9 +32,25 @@ function bestOf(runs: number, work: () => number): number {
 }
 
 /**
- * How many baseline substring passes a keystroke may cost. One pass is the
- * algorithm; the slack covers hit allocation, the sort, and timer noise on a
- * sub-millisecond measurement. A rebuild or a second full scan lands far above.
+ * How many times each side of the ratio is timed, keeping the fastest.
+ *
+ * Three was not enough: on a machine running the whole ui suite beside a
+ * `bun test packages`, all three samples can be interrupted, and the measured
+ * ratio drifted to 9.3 passes on one of five runs — a red that says nothing
+ * about the algorithm. Nine samples of a sub-10 ms scan cost a fraction of a
+ * second and put the loaded ratio back in range (1.46 / 2.30 / 1.55 / 3.75 /
+ * 2.34 over the same five runs).
+ */
+const SAMPLES = 9;
+
+/**
+ * How many baseline substring passes a keystroke may cost.
+ *
+ * Three is the floor by construction: a miss costs `textLower.indexOf`, then
+ * `idLower.includes`, then `haystack.includes`. Unloaded the ratio sits at 2.7
+ * (the misses short-circuit on most entries); loaded it reached 3.75. Eight
+ * leaves room above that while still landing far below a rebuild or a second
+ * 50k subsequence pass.
  */
 const PASS_BUDGET = 8;
 
@@ -100,17 +116,23 @@ describe("palette index", () => {
     // slows both sides equally. The claim under test is algorithmic — a
     // keystroke is one linear scan over the prebuilt haystack, so an index
     // rebuild or a second 50k subsequence pass blows the ratio anywhere.
-    const baselineMs = bestOf(3, () => {
+    const baselineMs = bestOf(SAMPLES, () => {
       let seen = 0;
       for (const entry of index.entries) seen += entry.textLower.indexOf("node 1234");
       return seen;
     });
 
     let keyHits: ReturnType<typeof searchPalette> = [];
-    const keyMs = bestOf(3, () => {
+    const keyMs = bestOf(SAMPLES, () => {
       keyHits = searchPalette(index, "node 1234", 20);
       return keyHits.length;
     });
+
+    // Printed, not asserted: a rebuild is only ~3x a keystroke on a warm JIT
+    // over an already-sorted array, so it is too close to gate on. It is here
+    // because it is the cost the ratio above exists to keep off the keystroke
+    // path, and a reader deserves to see both numbers side by side.
+    const rebuildMs = bestOf(SAMPLES, () => buildPaletteIndex(nodes, 1).entries.length);
 
     expect(keyHits.length).toBeGreaterThan(0);
     expect(keyMs).toBeLessThan(baselineMs * PASS_BUDGET);
@@ -118,7 +140,9 @@ describe("palette index", () => {
     // Observations. Recorded like the store benchmark table, asserted by nobody.
     console.info(
       `| palette 50k | ms |\n|---|---:|\n| baseline substring pass | ${baselineMs.toFixed(2)} |` +
-        `\n| keystroke search | ${keyMs.toFixed(2)} |\n| passes | ${(keyMs / baselineMs).toFixed(2)} |`,
+        `\n| keystroke search | ${keyMs.toFixed(2)} |\n| index rebuild | ${rebuildMs.toFixed(2)} |` +
+        `\n| passes | ${(keyMs / baselineMs).toFixed(2)} |` +
+        `\n| rebuilds | ${(keyMs / rebuildMs).toFixed(3)} |`,
     );
   });
 });

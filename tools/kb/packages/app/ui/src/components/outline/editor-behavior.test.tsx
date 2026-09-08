@@ -13,6 +13,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
+import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { NodeBlock } from "./node-block";
 
@@ -37,6 +38,7 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
   let dom: Window;
   let container: HTMLDivElement;
   let root: Root;
+  let unmountTextHost: () => void;
 
   beforeAll(() => {
     dom = new Window();
@@ -55,11 +57,16 @@ describe("editor behavior scenarios (r1 §5.3)", () => {
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
     dom.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
+    // These scenarios activate rows they never render. In the app every visible
+    // row mounts a text host; without one the store drops the active row 250 ms
+    // later, which on a loaded machine lands before the assertion.
+    unmountTextHost = mountActiveTextHost();
   });
 
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    unmountTextHost();
   });
 
   function editorEl(instanceKey: string): HTMLElement | null {

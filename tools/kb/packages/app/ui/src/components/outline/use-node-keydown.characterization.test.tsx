@@ -22,7 +22,7 @@ import { outlineInstanceKey } from "@/lib/instance-key";
 import { renderEditableContent, setCaretSerializedOffset } from "@/lib/md-edit";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
-import { ActiveTextHost } from "@/test-support/active-text-host";
+import { mountActiveTextHost } from "@/test-support/active-text-host";
 import { installDomGlobals } from "@/test-support/dom-globals";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { useNodeKeyDown } from "./use-node-keydown";
@@ -78,6 +78,7 @@ describe("outline editing keymap (characterization)", () => {
   const installed = { restore: () => {} };
   let container: HTMLDivElement;
   let root: Root;
+  let unmountTextHost: () => void;
 
   beforeAll(() => {
     const fresh = installDomGlobals();
@@ -100,6 +101,9 @@ describe("outline editing keymap (characterization)", () => {
     container = dom.document.createElement("div") as unknown as HTMLDivElement;
     dom.document.body.appendChild(container as unknown as never);
     root = createRoot(container);
+    // The suite renders one editor, not an outline: without this, the row a
+    // chord crosses to has no text host and the store drops it after 250 ms.
+    unmountTextHost = mountActiveTextHost();
   });
 
   afterEach(async () => {
@@ -108,6 +112,7 @@ describe("outline editing keymap (characterization)", () => {
     await settle(8, 1);
     act(() => root.unmount());
     container.remove();
+    unmountTextHost();
   });
 
   /**
@@ -121,14 +126,7 @@ describe("outline editing keymap (characterization)", () => {
       useOutlineStore.getState().activateNode(nodeId, cursor, instanceKey);
     });
     act(() => {
-      root.render(
-        <>
-          <Host nodeId={nodeId} instanceKey={instanceKey} isRef={isRef} />
-          {/* Every visible row has a text host in the app; a chord that crosses
-              rows needs the row it lands on to have one here too. */}
-          <ActiveTextHost />
-        </>,
-      );
+      root.render(<Host nodeId={nodeId} instanceKey={instanceKey} isRef={isRef} />);
     });
     const el = present(
       container.querySelector<HTMLElement>('[data-editor="true"]'),
