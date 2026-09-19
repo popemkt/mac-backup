@@ -46,7 +46,8 @@ in version control and minimises what must be done manually.
 ## GUI App Settings Sync
 
 - App settings for Karabiner, Zed, VS Code, Warp, AltTab, Telegram, Claude
-  Code, Snapzy, and macOS keyboard shortcuts are synced to iCloud via Mackup.
+  Code, Snapzy, Tinycast (MCP server bindings/CUA), and macOS keyboard shortcuts
+  are synced to iCloud via Mackup.
 - Raycast remains a deliberate export/import workflow through
   `configs/raycast.rayconfig`; its live plist and encrypted databases mix
   portable preferences with device, permission, account, and runtime state.

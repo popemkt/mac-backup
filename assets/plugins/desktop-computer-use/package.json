@@ -1,0 +1,6 @@
+{
+  "name": "desktop-computer-use",
+  "version": "1.0.0",
+  "description": "macOS computer-use routing between Orca (interactive) and CuaDriver (background stealth)",
+  "keywords": ["computer-use", "orca", "cua-driver", "macos", "automation"]
+}

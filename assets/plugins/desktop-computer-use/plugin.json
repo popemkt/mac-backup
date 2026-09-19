@@ -1,0 +1,10 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "desktop-computer-use",
+  "version": "1.0.0",
+  "description": "macOS computer-use routing between Orca (interactive) and CuaDriver (background stealth)",
+  "author": {
+    "name": "Hoang Nguyen Gia"
+  },
+  "keywords": ["computer-use", "orca", "cua-driver", "macos", "automation"]
+}

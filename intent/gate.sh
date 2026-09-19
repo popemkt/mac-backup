@@ -47,6 +47,7 @@ record_admission() {
   source_files_staged=$(
     git diff --cached --name-only --diff-filter=ACMRD \
       | grep -E '^(nvfetcher\.toml|_sources/|pkgs/)' \
+      | grep -vE '^pkgs/(kb|system-setup)/' \
       || true
   )
 

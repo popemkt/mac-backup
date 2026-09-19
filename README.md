@@ -96,6 +96,8 @@ have an operational readiness check.
 | **Cognee** | Follow `system-setup next` for service approval and agent enrollment; see `docs/cognee.md` |
 | **Claudex** | After Codex OAuth, run `claudex` for Claude Code backed by GPT-5.6 Sol; normal `claude` remains unchanged |
 | **App sign-ins** | Claude, Discord, Warp, Lens — manual |
+| **CuaDriver (TryCUA)** | Install: `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/trycua/cua/main/libs/cua-driver/scripts/install.sh)"` → `cua-driver permissions grant` |
+| **Tinycast** | Preferences and MCP server bindings (`cua-driver mcp --experimental-pip`) synced via Mackup |
 | **/stuff workspace** | Attach `/Volumes/Data` external drive, or update `modules/darwin/system/external-workspace.nix` and `modules/darwin/system/hermes.nix` |
 
 #### Hermes agent (optional)

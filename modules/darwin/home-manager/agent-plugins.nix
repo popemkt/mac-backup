@@ -52,6 +52,15 @@ let
   # than treat empty output as "nothing installed", which would otherwise
   # re-add marketplaces that already exist.
   installScript = ''
+    local_repo_plugins() {
+      local script="${home}/.dotfiles/scripts/sync-agent-plugins.sh"
+      if [ -x "$script" ]; then
+        "$script" || echo "warning: sync-agent-plugins failed" >&2
+      fi
+    }
+
+    local_repo_plugins
+
     claude_plugins() {
       if ! listing="$(claude plugin marketplace list 2>/dev/null)"; then
         echo "warning: claude plugin marketplace list failed; skipped its tracked plugins" >&2

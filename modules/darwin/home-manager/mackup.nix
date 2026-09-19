@@ -19,6 +19,7 @@
       kb
       snapzy
       t3-code
+      tinycast
       macosx
     '';
 
@@ -60,6 +61,16 @@
       Library/Application Support/t3-code/config.json
       Library/Application Support/t3/config.json
       .t3/config.json
+    '';
+
+    # Tinycast: launcher and AI assistant. Sync portable preferences and MCP
+    # server definitions (e.g. cua-driver); API tokens remain in macOS Keychain.
+    file.".config/mackup/applications/tinycast.cfg".text = ''
+      [application]
+      name = Tinycast
+
+      [configuration_files]
+      Library/Preferences/com.tinycast.app.plist
     '';
   };
 }
