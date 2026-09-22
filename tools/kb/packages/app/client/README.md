@@ -1,14 +1,15 @@
 # @kb/client
 
 kb's graph as a library, for a tool that lives outside kb's own surfaces. It
-opens the JSONL store under a root and offers three calls: read, query, and a
-conditional commit. It loads no extensions, starts no server, and seeds or
+opens the store under a root — `.kb/kb.sqlite` when that is there,
+`.kb/nodes.jsonl` otherwise, chosen by the same `selectStore` every kb surface
+uses — and offers three calls: read, query, and a conditional commit. It loads no extensions, starts no server, and seeds or
 migrates nothing; reading never writes.
 
 ```ts
-import { openJsonlClient } from "@kb/client";
+import { openClient } from "@kb/client";
 
-const graph = openJsonlClient(projectRoot);
+const graph = await openClient(projectRoot);
 const before = await graph.snapshot();
 const after = await graph.commit({
   expectedRevision: before.revision,
@@ -20,8 +21,10 @@ const { rows } = await graph.query("[:find ?id :where [?n :node/id ?id]]");
 ```
 
 - **`revision` is the store's fingerprint** (`EffectStore.fingerprint`), not a
-  second token: for JSONL, the hash of `nodes.jsonl`'s bytes. Identical content
-  has the identical revision. `snapshot()` and `query()` return the revision of
+  second token: for JSONL, the hash of `nodes.jsonl`'s bytes, so identical
+  content has the identical revision; for sqlite, the change counter the
+  database's triggers keep, which moves on every write. Either way it names
+  the state, so a revision read by one client is valid in another. `snapshot()` and `query()` return the revision of
   exactly the nodes they read.
 - **`commit()` is the store's conditional commit.** The batch is decoded,
   checked as a whole graph against the snapshot it names (`txIntegrityError`),

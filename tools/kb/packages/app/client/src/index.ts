@@ -12,7 +12,8 @@ import {
   type DomainError,
 } from "@kb/model";
 import { DatascriptIndex } from "@kb/query";
-import { JsonlStore } from "@kb/store-jsonl";
+import { selectStore } from "@kb/runtime";
+import { bunFileSystemLayer } from "@kb/store-jsonl";
 import type { KbClient, QueryResult, Snapshot } from "./api.d.ts";
 
 export type { Commit, KbClient, KbNode, PropValue, QueryResult, Snapshot } from "./api.d.ts";
@@ -130,6 +131,11 @@ function clientOver(store: EffectStore): KbClient {
   };
 }
 
-export function openJsonlClient(root: string): KbClient {
-  return clientOver(new JsonlStore(root));
+/**
+ * The store is chosen once, the way every kb surface chooses it
+ * (`selectStore`: by which store file is present), and held for the client's
+ * lifetime — a sqlite store keeps its connection open until the process ends.
+ */
+export function openClient(root: string): Promise<KbClient> {
+  return run(selectStore(root).pipe(Effect.map(clientOver), Effect.provide(bunFileSystemLayer)));
 }

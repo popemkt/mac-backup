@@ -62,5 +62,8 @@ export declare class KbClientError extends Error {
   constructor(code: string, message: string);
 }
 
-/** A client over the JSONL store under `root` (`<root>/.kb/nodes.jsonl`). */
-export declare function openJsonlClient(root: string): KbClient;
+/**
+ * A client over the store under `root`: `.kb/kb.sqlite` when that is present,
+ * `.kb/nodes.jsonl` otherwise. Rejects with `conflict` when both are.
+ */
+export declare function openClient(root: string): Promise<KbClient>;
