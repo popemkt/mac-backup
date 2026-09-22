@@ -128,7 +128,13 @@
     "anti-slop-effect/no-manual-effect-error-tag": "error",
     "anti-slop-effect/no-manual-tag-comparison": "error",
     "anti-slop-effect/no-manual-tagged-construction": "error",
-    "anti-slop-effect/no-service-constructor-imports": "error"
+    "anti-slop-effect/no-service-constructor-imports": "error",
+    "react/refs": "warn",
+    "react/exhaustive-effect-dependencies": "warn",
+    "react/set-state-in-effect": "warn",
+    "react/hooks": "warn",
+    "react/memo-dependencies": "warn",
+    "react/globals": "warn"
   },
   "overrides": [
     {

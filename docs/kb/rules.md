@@ -166,6 +166,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Give the two decoders' reports a home in the ui the way ontology warnings have one — a store field plus a badge — and have the config surfaces read it instead of the log seam. Component + store work: out of g8's zone (docs/kb/waves/2026-09-09/briefs/g8-domain-typing.md).
 - **node** — `01M1XF1NA2RBAX1E6NNX6PMZ6N`
 
+### GAP: React Compiler rules oxlint 1.83 added sit on the ratchet, not at error
+
+- **expected** — react/refs, exhaustive-effect-dependencies, set-state-in-effect, hooks, memo-dependencies and globals are error with zero sites, like the rest of oxlint's correctness and suspicious categories.
+- **current** — The oxlint 1.76 -> 1.83 bump turned them on through those categories with 59 existing sites, mostly the imperative graph and canvas components (sigma, three, the canvas doc hook) reading refs during render and syncing state in effects. They are warn with counts frozen in harness/lint-warn-baseline.json.
+- **impact** — Each site can render stale values or cascade renders. The ratchet stops new ones, but the existing 59 stay until drained.
+- **closes** — Drain per component with the UI suite (bun run test:ui) as the guard, re-snapshot the ledger, and promote each rule to error when its count reaches 0.
+- **node** — `01M35NJQPKW5YVNVFFAFAYXPFH`
+
 ### GAP: repository extensions have no fail-closed admission
 
 - **expected** — Repository-owned extensions pass one explicit admission operation that compiles and decodes contributions, rejects duplicate IDs, validates handlers against definitions, and reports zero loader failures.

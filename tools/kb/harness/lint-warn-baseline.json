@@ -1,7 +1,13 @@
 {
   "lanes": {
     "blocking": {
-      "eslint/max-lines-per-function": 29
+      "eslint/max-lines-per-function": 29,
+      "react/exhaustive-effect-dependencies": 16,
+      "react/globals": 1,
+      "react/hooks": 4,
+      "react/memo-dependencies": 2,
+      "react/refs": 22,
+      "react/set-state-in-effect": 14
     },
     "advisory": {},
     "knip": {
