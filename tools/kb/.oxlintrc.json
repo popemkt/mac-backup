@@ -10,6 +10,16 @@
     "promise",
     "node"
   ],
+  "jsPlugins": [
+    {
+      "name": "anti-slop",
+      "specifier": "./harness/lint/anti-slop/index.ts"
+    },
+    {
+      "name": "anti-slop-effect",
+      "specifier": "./harness/lint/anti-slop/effect/index.ts"
+    }
+  ],
   "env": {
     "builtin": true
   },
@@ -111,7 +121,14 @@
     "node/no-process-env": "error",
     "react/rules-of-hooks": "error",
     "react/button-has-type": "error",
-    "react/no-danger": "error"
+    "react/no-danger": "error",
+    "anti-slop/no-reduce-accumulator-copy": "error",
+    "anti-slop/no-reflect-apply": "error",
+    "anti-slop/no-reflect-get": "error",
+    "anti-slop-effect/no-manual-effect-error-tag": "error",
+    "anti-slop-effect/no-manual-tag-comparison": "error",
+    "anti-slop-effect/no-manual-tagged-construction": "error",
+    "anti-slop-effect/no-service-constructor-imports": "error"
   },
   "overrides": [
     {

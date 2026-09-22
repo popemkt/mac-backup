@@ -6,6 +6,7 @@
       "name": "kb",
       "devDependencies": {
         "@effect/tsgo": "catalog:",
+        "@oxlint/plugins": "catalog:",
         "@stryker-mutator/core": "catalog:",
         "@types/bun": "catalog:",
         "bun2nix": "catalog:",
@@ -388,6 +389,7 @@
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/outfit": "^5.3.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "@oxlint/plugins": "1.76.0",
     "@phosphor-icons/react": "^2.1.10",
     "@storybook/addon-a11y": "^10.5.10",
     "@storybook/react": "^10.5.10",
@@ -415,7 +417,7 @@
     "knip": "6.32.2",
     "nx": "^23.1.2",
     "oxc-parser": "^0.148.0",
-    "oxlint": "^1.76.0",
+    "oxlint": "1.76.0",
     "oxlint-tsgolint": "^7.0.2001",
     "playwright": "^1.62.1",
     "react": "^19.2.0",
@@ -902,7 +904,7 @@
 
     "@oxlint/binding-win32-x64-msvc": ["@oxlint/binding-win32-x64-msvc@1.76.0", "", { "os": "win32", "cpu": "x64" }, "sha512-5qcirPHO8nKfkoowEVWtpAoVTcYDy6g0UT0NGic450Qv8J2NrOqg4uQ8QppRP4MDTC7Xx47lbZnmadTH03CGGA=="],
 
-    "@oxlint/plugins": ["@oxlint/plugins@1.73.0", "", {}, "sha512-OhgMQeMmZA0dcFcX4/priaJZWdFECxiClgq6mRX6aatZEcV9PbKC3P3/v8U1hVjviT1i5U+vR8lAtBV6m4FXAA=="],
+    "@oxlint/plugins": ["@oxlint/plugins@1.76.0", "", {}, "sha512-twmbsVrYAjkaOw6I2pDiYSAxVLNOV8kcqMzajJ599SpqXzea+GjDCZVad1VUqNR/4thWjM4PER5n+3/TQtTkZQ=="],
 
     "@phosphor-icons/react": ["@phosphor-icons/react@2.1.10", "", { "peerDependencies": { "react": ">= 16.8", "react-dom": ">= 16.8" } }, "sha512-vt8Tvq8GLjheAZZYa+YG/pW7HDbov8El/MANW8pOAz4eGxrwhnbfrQZq0Cp4q8zBEu8NIhHdnr+r8thnfRSNYA=="],
 
@@ -2193,6 +2195,8 @@
     "vite/@oxc-project/types": ["@oxc-project/types@0.142.0", "", {}, "sha512-7W+2q5AKQVU36fkaryontrHn3YDt1RyUYXatw9i5H8ocYe2sPKSFB6eS8WNPeRKiN1qAWWZUPm7gwFzJGrccqQ=="],
 
     "vite-plus/@oxc-project/types": ["@oxc-project/types@0.142.0", "", {}, "sha512-7W+2q5AKQVU36fkaryontrHn3YDt1RyUYXatw9i5H8ocYe2sPKSFB6eS8WNPeRKiN1qAWWZUPm7gwFzJGrccqQ=="],
+
+    "vite-plus/@oxlint/plugins": ["@oxlint/plugins@1.73.0", "", {}, "sha512-OhgMQeMmZA0dcFcX4/priaJZWdFECxiClgq6mRX6aatZEcV9PbKC3P3/v8U1hVjviT1i5U+vR8lAtBV6m4FXAA=="],
 
     "vitest/magic-string": ["magic-string@0.30.21", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.5" } }, "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ=="],
 

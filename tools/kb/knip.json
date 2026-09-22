@@ -4,7 +4,10 @@
     ".": {
       "entry": [
         "harness/tests/*.test.ts",
-        "harness/src/snapshot.ts"
+        "harness/src/snapshot.ts",
+        "harness/lint/*/index.ts",
+        "harness/lint/*/effect/index.ts",
+        "harness/lint/**/*.rule-cases.ts"
       ]
     },
     "packages/app/cli": {

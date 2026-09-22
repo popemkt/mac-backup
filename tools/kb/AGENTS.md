@@ -60,6 +60,10 @@ existing view specs are unchanged).
   beyond them, and overrides only for the test-file and `.d.ts` file classes.
   A file that legitimately breaks a rule carries a pinpoint
   `// oxlint-disable-next-line <rule> -- <reason>`, not an override.
+  Rules oxlint does not ship are vendored JS plugins under `harness/lint/`
+  (today a subset of anti-slop; `harness/lint/anti-slop/UPSTREAM.md` says
+  which rules and why), registered in that same file. `@oxlint/plugins` is
+  pinned exactly to the `oxlint` version, and the two move together.
 - Merging `nodes.jsonl`: the store is a set of nodes keyed by id, so git's
   line-based merge reports conflicts that are not conflicts — ULIDs put every
   newly created node at the tail, and two branches that each add one collide

@@ -1234,6 +1234,10 @@
     url = "https://registry.npmjs.org/@oxlint/plugins/-/plugins-1.73.0.tgz";
     hash = "sha512-OhgMQeMmZA0dcFcX4/priaJZWdFECxiClgq6mRX6aatZEcV9PbKC3P3/v8U1hVjviT1i5U+vR8lAtBV6m4FXAA==";
   };
+  "@oxlint/plugins@1.76.0" = fetchurl {
+    url = "https://registry.npmjs.org/@oxlint/plugins/-/plugins-1.76.0.tgz";
+    hash = "sha512-twmbsVrYAjkaOw6I2pDiYSAxVLNOV8kcqMzajJ599SpqXzea+GjDCZVad1VUqNR/4thWjM4PER5n+3/TQtTkZQ==";
+  };
   "@phosphor-icons/react@2.1.10" = fetchurl {
     url = "https://registry.npmjs.org/@phosphor-icons/react/-/react-2.1.10.tgz";
     hash = "sha512-vt8Tvq8GLjheAZZYa+YG/pW7HDbov8El/MANW8pOAz4eGxrwhnbfrQZq0Cp4q8zBEu8NIhHdnr+r8thnfRSNYA==";
