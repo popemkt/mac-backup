@@ -158,14 +158,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Admission gate
 - **node** — `01M1PJXGKQ0HAYEWY2V0QPWVX1`
 
-### GAP: no SQLite index behind the store port
-
-- **expected** — A second Store implementation backed by SQLite for O(1) writes and point reads, typed as a derived cache with committed JSONL as the truth.
-- **current** — JsonlStore is the only implementation: every commit is lock, full read, full sort, full serialize, full fsynced rewrite, and every read materializes every node.
-- **impact** — Write cost is O(n) per commit regardless of transaction size, and node.get cannot avoid loading the whole graph.
-- **closes** — Track 2 phase work in briefs/p1-persistence.md. Trigger: measured commit latency at real node counts hurts, or node.get needs to stop materializing everything.
-- **node** — `01M1M08WEYJNEFDZVECN9QKEWT`
-
 ### GAP: node-config decode warnings reach the browser log, not the UI
 
 - **expected** — A malformed config prop is visible where the config is: a badge or bar beside the graph / view frame, the way resolveOntology's warnings surface through ontology-scope-bar and ontology-page.
@@ -271,14 +263,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The effect is the renderer, so nothing about it can be tested without a DOM and a real sigma instance.
 - **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
 - **node** — `01M1MGCPJTV66QSFCR44XG29YM`
-
-### GAP: the tx log is MemoryTxLog on both stores; a sqlite root could have a durable one as a table
-
-- **expected** — With a sqlite store, the transaction log is a table in the same database, written inside the same BEGIN IMMEDIATE as the nodes it describes — so a restart does not lose the log, and a client that fell behind can be caught up from it instead of refetching the graph.
-- **current** — Closed by wave g7 with the same mechanism as the JSONL tail, because they were one gap seen from two stores: TxTail is a store capability and each adapter implements it. SqliteStore inserts into a tx table (rev, at, origin, ops, mark) inside the same BEGIN IMMEDIATE as the node rows, so on that backend the record and the write really are one act - schema_version 2, CREATE TABLE IF NOT EXISTS is the whole migration. logContract in @kb/test-kit runs the same ten properties against both adapters.
-- **impact** — The durable-log gap stays open. It is now cheaper to close for one adapter than the other, which is itself a reason to be explicit: a log that is durable on sqlite and not on JSONL is two behaviours behind one KbTxLog port.
-- **closes** — A schema for the log table, a decision about whether KbTxLog gains a durability contract or a second adapter, and what the JSONL store does about it (a .kb/tx.jsonl was the shape considered before sqlite existed).
-- **node** — `01M1RYY9HVDNB1RNNKCSYF2H47`
 
 ### GAP: the tx log is process-local; there is no durable .kb/tx.jsonl
 
@@ -496,6 +480,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Turn the chain into a table of {key, mods, toAction} entries. Behaviour-preserving only if the current first-match order is reproduced exactly, so it needs its own change with the keymap tests as the gate.
 - **node** — `01M1MGCH7SD69CRSSV75X789QW`
 
+### GAP: no SQLite index behind the store port
+
+- **expected** — A second Store implementation backed by SQLite for O(1) writes and point reads, typed as a derived cache with committed JSONL as the truth.
+- **current** — Closed by wave s1 as a different shape: SqliteStore (.kb/kb.sqlite) is a second authoritative adapter of the store port, selected by presence, with O(rows) commits (~3ms against JSONL's ~120ms at 50k nodes). The derived-index half of the expected shape is 01M1RYY03MAQPTPRCBHTRJDC39.
+- **impact** — Write cost is O(n) per commit regardless of transaction size, and node.get cannot avoid loading the whole graph.
+- **closes** — Track 2 phase work in briefs/p1-persistence.md. Trigger: measured commit latency at real node counts hurts, or node.get needs to stop materializing everything.
+- **node** — `01M1M08WEYJNEFDZVECN9QKEWT`
+
 ### GAP: NodeBlock decides row chrome with 28 branches
 
 - **expected** — A row's chrome (toolbar, fields, children, query results, projected frame) is chosen by one view-mode resolver, and NodeBlock renders what it returns.
@@ -712,6 +704,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two ways to ask the same question, one of them known-ambiguous when a node id repeats. Callers can still reach the wrong one.
 - **closes** — Confirm no caller outside the test uses them (none does today), delete both methods and the two test assertions. Store API change, so it is an owner call.
 - **node** — `01M1MGT3K0DNGEQFXQNZYE83NY`
+
+### GAP: the tx log is MemoryTxLog on both stores; a sqlite root could have a durable one as a table
+
+- **expected** — With a sqlite store, the transaction log is a table in the same database, written inside the same BEGIN IMMEDIATE as the nodes it describes — so a restart does not lose the log, and a client that fell behind can be caught up from it instead of refetching the graph.
+- **current** — Closed by wave g7 with the same mechanism as the JSONL tail, because they were one gap seen from two stores: TxTail is a store capability and each adapter implements it. SqliteStore inserts into a tx table (rev, at, origin, ops, mark) inside the same BEGIN IMMEDIATE as the node rows, so on that backend the record and the write really are one act - schema_version 2, CREATE TABLE IF NOT EXISTS is the whole migration. logContract in @kb/test-kit runs the same ten properties against both adapters.
+- **impact** — None left: both adapters keep a durable tail behind the one TxTail port (.kb/tx.jsonl and the tx table), so a restart keeps the log on either store.
+- **closes** — A schema for the log table, a decision about whether KbTxLog gains a durability contract or a second adapter, and what the JSONL store does about it (a .kb/tx.jsonl was the shape considered before sqlite existed).
+- **node** — `01M1RYY9HVDNB1RNNKCSYF2H47`
 
 ### GAP: the ws client assigns on* handlers instead of addEventListener
 
