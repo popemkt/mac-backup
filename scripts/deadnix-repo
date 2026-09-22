@@ -12,9 +12,9 @@ set -euo pipefail
 
 generated=(
   ./_sources/generated.nix # nvfetcher
+  ./tools/kb/bun.nix # bun2nix, from tools/kb/bun.lock
 )
 
 cd "${1:-.}"
-excludes=()
-for file in "${generated[@]}"; do excludes+=(--exclude "$file"); done
-exec deadnix --fail "${excludes[@]}" .
+# `--exclude` takes every path after it, so the scan root goes first.
+exec deadnix --fail . --exclude "${generated[@]}"

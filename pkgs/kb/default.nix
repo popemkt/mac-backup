@@ -2,6 +2,7 @@
   lib,
   stdenvNoCC,
   bun,
+  bun2nix,
   makeBinaryWrapper,
 }:
 
@@ -9,104 +10,58 @@
 # Operator never minds KB_UI_DIST — the wrapper sets KB_PKG_ROOT so
 # paths.ts resolves `$out/lib/kb/packages/app/ui/dist` the same as a checkout.
 #
-# UI and CLI bundles are fixed-output derivations (network for bun install).
-# Unchanged inputs → same output hash → Nix reuses the store path.
-let
+# Dependencies come from tools/kb/bun.nix, which bun2nix generates from
+# bun.lock (kb's `postinstall`; its harness fails a stale copy). Each package
+# is fetched against the hash the lockfile already records, and the build
+# itself is an ordinary offline derivation — so no hash here tracks kb's own
+# code, and editing kb never needs a hash refresh.
+stdenvNoCC.mkDerivation {
+  pname = "kb";
   version = "0.1.0";
 
   src = lib.cleanSourceWith {
     src = ../../tools/kb;
     filter =
-      path: type:
-      let
-        base = baseNameOf path;
-      in
-      !(builtins.elem base [
+      path: _type:
+      !(builtins.elem (baseNameOf path) [
         "node_modules"
         "dist"
+        "out"
         ".source-hash"
       ]);
   };
 
-  # FOD: install + vp build → SPA only.
-  #
-  # Both hashes below were stale before the layer-folder move: at the previous
-  # commit this derivation already produced `A3QUQ1…` and cliJs already
-  # produced `cGU7Eu…`, so `nix build .#kb` was red on `main`. The SPA bytes are
-  # unchanged by the move (same hash before and after); the CLI bundle's hash
-  # does move with it, because the bundle inlines the generated extension-SDK
-  # header, which names the generator's path.
-  uiDist = stdenvNoCC.mkDerivation {
-    name = "kb-ui-dist-${version}";
-    inherit src;
-    nativeBuildInputs = [ bun ];
-    outputHashMode = "recursive";
-    outputHashAlgo = "sha256";
-    outputHash = "sha256-dTKdlYjcSJi74XJajg9RIYQkQeB4B2sxdIORUd4vdNs=";
-    dontConfigure = true;
-    buildPhase = ''
-      runHook preBuild
-      export HOME=$TMPDIR
-      # One workspace, one lockfile: @kb/* resolve as linked workspace packages.
-      bun install --frozen-lockfile
-      (
-        cd packages/app/ui
-        bun run build
-      )
-      runHook postBuild
-    '';
-    installPhase = ''
-      runHook preInstall
-      mkdir -p "$out"
-      cp -a packages/app/ui/dist/. "$out/"
-      runHook postInstall
-    '';
+  nativeBuildInputs = [
+    bun
+    bun2nix.hook
+    makeBinaryWrapper
+  ];
+
+  bunDeps = bun2nix.fetchBunDeps {
+    bunNix = ../../tools/kb/bun.nix;
   };
 
-  # FOD: install CLI deps + bun-bundle to one JS file (deps inlined).
-  cliJs = stdenvNoCC.mkDerivation {
-    name = "kb-cli-js-${version}";
-    inherit src;
-    nativeBuildInputs = [ bun ];
-    outputHashMode = "recursive";
-    outputHashAlgo = "sha256";
-    outputHash = "sha256-BxQ71vKpdWW+Q3zqdKQ6XlWZee6yRg2mPc2wNKpjjoY=";
-    dontConfigure = true;
-    buildPhase = ''
-      runHook preBuild
-      export HOME=$TMPDIR
-      bun install --frozen-lockfile
-      mkdir -p "$TMPDIR/bundle"
-      bun build ./packages/app/cli/src/main.ts \
-        --outdir="$TMPDIR/bundle" \
-        --target=bun \
-        --sourcemap=none
-      runHook postBuild
-    '';
-    installPhase = ''
-      runHook preInstall
-      mkdir -p "$out"
-      cp -a "$TMPDIR/bundle/main.js" "$out/cli.js"
-      runHook postInstall
-    '';
-  };
-in
-stdenvNoCC.mkDerivation {
-  pname = "kb";
-  inherit version;
+  # The hook installs node_modules from bunDeps; building and installing are
+  # kb's own two artifacts, below.
+  dontUseBunBuild = true;
+  dontUseBunCheck = true;
+  dontUseBunInstall = true;
 
-  nativeBuildInputs = [ makeBinaryWrapper ];
-
-  # Pure assembly from FODs — offline.
-  dontUnpack = true;
-  dontConfigure = true;
-  dontBuild = true;
+  buildPhase = ''
+    runHook preBuild
+    (cd packages/app/ui && bun run build)
+    bun build ./packages/app/cli/src/main.ts \
+      --outdir="$TMPDIR/bundle" \
+      --target=bun \
+      --sourcemap=none
+    runHook postBuild
+  '';
 
   installPhase = ''
     runHook preInstall
     mkdir -p "$out/lib/kb/packages/app/ui" "$out/bin"
-    cp -a ${cliJs}/cli.js "$out/lib/kb/cli.js"
-    cp -a ${uiDist} "$out/lib/kb/packages/app/ui/dist"
+    cp -a "$TMPDIR/bundle/main.js" "$out/lib/kb/cli.js"
+    cp -a packages/app/ui/dist "$out/lib/kb/packages/app/ui/dist"
     makeBinaryWrapper ${lib.getExe bun} "$out/bin/kb" \
       --set KB_PKG_ROOT "$out/lib/kb" \
       --add-flags "$out/lib/kb/cli.js"

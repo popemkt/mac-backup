@@ -1,5 +1,6 @@
 {
   pkgs,
+  bun2nix,
   pyproject-build-systems,
   pyproject-nix,
   uv2nix,
@@ -33,7 +34,9 @@ in
     inherit sources;
   };
 
-  kb = pkgs.callPackage ./kb { };
+  kb = pkgs.callPackage ./kb {
+    bun2nix = bun2nix.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  };
 
   system-setup = pkgs.callPackage ./system-setup {
     inherit

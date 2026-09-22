@@ -39,10 +39,11 @@ staged="$(git diff --cached --name-only --diff-filter=ACMRD)"
 #   verify  the kb workspace itself, and every surface `ext.check.audit`
 #           reaches for: each rule's `home` file (CLAUDE.md, tools/kb/**, any
 #           AGENTS.md) and the `SURFACE_FILES` list in @kb/ext-check — this
-#           hook and the workflows
+#           hook and the workflows — plus flake.nix, whose bun2nix pin the
+#           harness holds to kb's
 docs_inputs='^(\.kb/|docs/kb/|tools/kb/)'
 assets_inputs='^(\.kb/|\.gitignore$|docs/backup-strategy\.md$|modules/darwin/home-manager/mackup\.nix$|scripts/check-kb-assets-backup\.sh$)'
-verify_inputs='^(\.kb/|tools/kb/|docs/kb/|CLAUDE\.md$|\.githooks/|\.github/workflows/.*\.ya?ml$)|(^|/)AGENTS\.md$'
+verify_inputs='^(\.kb/|tools/kb/|docs/kb/|CLAUDE\.md$|flake\.nix$|\.githooks/|\.github/workflows/.*\.ya?ml$)|(^|/)AGENTS\.md$'
 
 triggered() {
   printf '%s\n' "$staged" | grep -qE "$1"
