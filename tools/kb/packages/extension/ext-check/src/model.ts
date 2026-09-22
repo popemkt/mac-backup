@@ -64,6 +64,10 @@ export const findingSchema = z.discriminatedUnion("kind", [
 ]);
 export type Finding = z.infer<typeof findingSchema>;
 
+/** Both actions read the whole graph and take nothing. */
+export const emptyInput = z.object({});
+export type EmptyInput = z.infer<typeof emptyInput>;
+
 export const auditOutput = z.object({
   clean: z.boolean(),
   findings: z.array(findingSchema),

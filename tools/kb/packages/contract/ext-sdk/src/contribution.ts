@@ -13,7 +13,7 @@
  * The decoded types are `@kb/contracts`' own, not a second copy: the registry
  * stores exactly what comes out of here.
  */
-import { Result, Schema } from "effect";
+import { Predicate, Result, Schema } from "effect";
 import type {
   ActionEffectHandler,
   ExtensionAction,
@@ -113,7 +113,7 @@ export function isTemplateContribution(
 }
 
 function label(kind: string, value: unknown): string {
-  const id = typeof value === "object" && value !== null ? Reflect.get(value, "id") : undefined;
+  const id = Predicate.hasProperty(value, "id") ? value.id : undefined;
   return typeof id === "string" && id !== "" ? `${kind} ${id}` : kind;
 }
 
@@ -137,9 +137,7 @@ function oneLine(message: string): string {
  */
 export function decodeContribution(value: unknown): Result.Result<ExtensionContribution, string> {
   const isTemplate =
-    typeof value === "object" &&
-    value !== null &&
-    typeof Reflect.get(value, "template") === "function";
+    Predicate.hasProperty(value, "template") && Predicate.isFunction(value.template);
 
   const decoded: Result.Result<ExtensionAction | ExtensionTemplate, { message: string }> =
     isTemplate ? decodeTemplate(value) : decodeAction(value);

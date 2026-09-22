@@ -12,8 +12,9 @@ import {
   propRefs,
   propText,
   propValues,
-  type Finding,
   type CheckModel,
+  type EmptyInput,
+  type Finding,
 } from "./model.ts";
 
 function pathInRoot(root: string, candidate: string | undefined): string | undefined {
@@ -232,7 +233,7 @@ const findHomeBroken = Effect.fn("ext.check.findHomeBroken")(function* (
   return homeBroken;
 });
 
-export const checkAuditEffect = Effect.fn("ext.check.audit")(function* (_input: object) {
+export const checkAuditEffect = Effect.fn("ext.check.audit")(function* (_input: EmptyInput) {
   const ctx = yield* KbCtx;
   const model = buildCheckModel(ctx.nodes);
   const checkMissing = findCheckMissing(model);

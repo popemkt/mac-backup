@@ -2,7 +2,13 @@ import { Effect } from "effect";
 import { KbCtx } from "@kb/contracts";
 import { currentIso, type KbNode, type NodeId } from "@kb/model";
 import { persistEffect } from "@kb/operations";
-import { buildCheckModel, derivedEnforcement, propText, syncOutput } from "./model.ts";
+import {
+  buildCheckModel,
+  derivedEnforcement,
+  propText,
+  syncOutput,
+  type EmptyInput,
+} from "./model.ts";
 
 function replaceEnforcement(node: KbNode, field: NodeId, value: NodeId, at: string): KbNode {
   const props = Object.fromEntries(
@@ -13,7 +19,7 @@ function replaceEnforcement(node: KbNode, field: NodeId, value: NodeId, at: stri
   return { ...node, props, children: [...node.children], updatedAt: at };
 }
 
-export const checkSyncEffect = Effect.fn("ext.check.sync")(function* (_input: object) {
+export const checkSyncEffect = Effect.fn("ext.check.sync")(function* (_input: EmptyInput) {
   const ctx = yield* KbCtx;
   const model = buildCheckModel(ctx.nodes);
   const enforcementField = model.fieldIds.get("enforcement");

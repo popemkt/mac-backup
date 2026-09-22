@@ -6,9 +6,7 @@ export function isNotFound(err: unknown): boolean {
   return (
     Predicate.isObject(err) &&
     Predicate.hasProperty(err, "reason") &&
-    Predicate.isObject(err.reason) &&
-    Predicate.hasProperty(err.reason, "_tag") &&
-    err.reason._tag === "NotFound"
+    Predicate.isTagged(err.reason, "NotFound")
   );
 }
 

@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Predicate, Schema } from "effect";
 import { FailureCodeSchema, type FailureCode } from "./failure.ts";
 import { ResolveError } from "./resolve.ts";
 
@@ -46,9 +46,7 @@ export function domainFromResolve(err: ResolveError): DomainError {
 }
 
 export function isDomainError(err: unknown): err is DomainError {
-  return (
-    typeof err === "object" && err !== null && (err as { _tag?: unknown })._tag === "Kb/DomainError"
-  );
+  return Predicate.isTagged(err, "Kb/DomainError");
 }
 
 function isDomainErrorCode(code: FailureCode): code is DomainErrorCode {
@@ -60,10 +58,11 @@ export function ensureDomainError(err: unknown): DomainError {
   if (isDomainError(err)) return err;
   if (err instanceof ResolveError) return domainFromResolve(err);
   const message = err instanceof Error ? err.message : String(err);
-  if (typeof err === "object" && err !== null) {
-    const parsed = FailureCodeSchema.safeParse((err as { code?: unknown }).code);
+  if (Predicate.hasProperty(err, "code")) {
+    const parsed = FailureCodeSchema.safeParse(err.code);
     if (parsed.success && isDomainErrorCode(parsed.data)) {
-      return domainError(parsed.data, message, (err as { details?: unknown }).details);
+      const details = Predicate.hasProperty(err, "details") ? err.details : undefined;
+      return domainError(parsed.data, message, details);
     }
   }
   return domainError("internal", message);
