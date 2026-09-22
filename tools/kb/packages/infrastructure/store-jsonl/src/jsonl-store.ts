@@ -14,7 +14,8 @@ import { bunFileSystemLayer } from "./platform.ts";
 import { durableReplaceFile } from "./durable-replace.ts";
 import type { EffectStore, StoreCommit, StoreFingerprint, TxRecord } from "@kb/contracts";
 import { acquireNodesWriteLockEffect, releaseNodesWriteLock } from "./write-lock.ts";
-import { JsonlTxTail, fileMark, txTailPath } from "./tx-tail.ts";
+import { JsonlTxTail, txTailPath } from "./tx-tail.ts";
+import { contentMark, storeMark } from "./content-mark.ts";
 
 function mapFsError(err: unknown): DomainError {
   const message =
@@ -61,6 +62,20 @@ const decodeNodes = Effect.fn("decodeNodes")(function* (body: string, path: stri
 });
 
 /**
+ * The store's bytes, the one read both a load and a commit start from. A file
+ * that is not there yet is the empty store, the same answer {@link storeMark}
+ * gives it.
+ */
+const readBody = Effect.fn("readBody")(function* (
+  path: string,
+): Effect.fn.Return<string, DomainError, FileSystem> {
+  const fs = yield* FileSystem;
+  const exists = yield* fs.exists(path).pipe(Effect.mapError(mapFsError));
+  if (!exists) return "";
+  return yield* fs.readFileString(path).pipe(Effect.mapError(mapFsError));
+}, Effect.provide(bunFileSystemLayer));
+
+/**
  * JSONL backend: `<root>/.kb/nodes.jsonl`
  * One canonical-JSON node per line, sorted by id.
  *
@@ -88,15 +103,14 @@ export class JsonlStore implements EffectStore {
     this.path = join(root, ".kb", "nodes.jsonl");
     this.backupPath = `${this.path}.bak`;
     this.watchPaths = [this.path];
-    this.loadEffect = loadNodes(this.path);
-    this.fingerprint = fingerprintOf(this.path);
+    this.loadEffect = Effect.flatMap(readBody(this.path), (body) => decodeNodes(body, this.path));
+    this.fingerprint = Effect.sync(() => storeMark(this.path));
     this.txTail = new JsonlTxTail(this.path, txTailPath(root));
   }
 
   commitEffect(tx: StoreTx, record: TxRecord): Effect.Effect<StoreCommit, DomainError> {
     const path = this.path;
     const backupPath = this.backupPath;
-    const loadEffect = this.loadEffect;
     const txTail = this.txTail;
     return Effect.scoped(
       Effect.gen(function* () {
@@ -104,15 +118,18 @@ export class JsonlStore implements EffectStore {
           Effect.sync(() => releaseNodesWriteLock(lockPath)),
         );
 
-        // Under the lock, before the read: this is the file the merge below
-        // absorbs, which is what the caller needs to know it saw.
-        const base = yield* fingerprintOf(path);
-        const existing = yield* loadEffect;
+        // Under the lock, and from the one read the merge absorbs: `base` names
+        // exactly the file this commit merged into, which is what the caller
+        // needs to know it saw.
+        const current = yield* readBody(path);
+        const base = contentMark(current);
+        const existing = yield* decodeNodes(current, path);
         const byId = new Map(existing.map((n) => [n.id, n]));
         for (const id of tx.deletes) byId.delete(id);
         for (const node of tx.upserts) byId.set(node.id, node);
 
         const body = canonicalJsonl([...byId.values()]);
+        const fingerprint = contentMark(body);
 
         yield* Effect.try({
           try: () => durableReplaceFile(path, backupPath, body),
@@ -128,41 +145,13 @@ export class JsonlStore implements EffectStore {
         // says nothing.
         if (tx.upserts.length > 0 || tx.deletes.length > 0) {
           yield* Effect.try({
-            try: () => txTail.append(tx, record),
+            try: () => txTail.append(tx, record, fingerprint),
             catch: (err) => ensureDomainError(err),
           });
         }
 
-        return { base, fingerprint: yield* fingerprintOf(path) };
+        return { base, fingerprint };
       }),
     ).pipe(Effect.provide(bunFileSystemLayer));
   }
-}
-
-/**
- * Size plus mtime, the cheap answer to "did this file change?". A write that
- * lands inside the same mtime tick *and* keeps the byte count identical is
- * invisible to it, which is the price of not hashing the file — recorded as
- * GAP [[01M1PK5NYA7ZG3XC0H0YRYRVZE]]. A file that is not there yet has no
- * fingerprint, and null compares equal to nothing.
- */
-function fingerprintOf(path: string): Effect.Effect<StoreFingerprint | null> {
-  // The same string the tail stamps on every record (`fileMark`), so "is the
-  // tail current?" compares like with like instead of two spellings of
-  // size+mtime that could drift apart.
-  return Effect.sync(() => fileMark(path));
-}
-
-/** The store's own platform boundary: JSONL on the Bun filesystem. */
-function loadNodes(path: string): Effect.Effect<KbNode[], DomainError> {
-  return Effect.gen(function* () {
-    const fs = yield* FileSystem;
-    const exists = yield* fs.exists(path).pipe(Effect.mapError(mapFsError));
-    if (!exists) return [];
-
-    const body = yield* fs.readFileString(path).pipe(Effect.mapError(mapFsError));
-    if (body.trim().length === 0) return [];
-
-    return yield* decodeNodes(body, path);
-  }).pipe(Effect.provide(bunFileSystemLayer));
 }

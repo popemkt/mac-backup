@@ -93,9 +93,8 @@ describe("SqliteStore", () => {
           yield* store.commitEffect({ upserts: [same], deletes: [] }, { at: AT });
           const before = yield* store.fingerprint;
 
-          // Byte-identical content: what a size+mtime fingerprint cannot see,
-          // and the reason `rev` exists. GAP 01M1PK5NYA7ZG3XC0H0YRYRVZE stays
-          // open because the JSONL adapter still has that blind spot.
+          // Byte-identical content still moves `rev`: this adapter names its
+          // commits, where the JSONL adapter names its content.
           yield* store.commitEffect({ upserts: [same], deletes: [] }, { at: AT });
           expect(yield* store.fingerprint).not.toBe(before);
         }),

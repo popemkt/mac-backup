@@ -8,7 +8,7 @@
  * the order they were written in is state (`docs/backup-strategy.md`).
  *
  * Each record carries `mark`, the store's own durable commit mark —
- * `nodes.jsonl`'s size and mtime, the same string {@link JsonlStore.fingerprint}
+ * `nodes.jsonl`'s content hash, the same string {@link JsonlStore.fingerprint}
  * answers with — read after the node write. That is what makes
  * {@link JsonlTxTail.isCurrent} a comparison rather than a guess: a tail whose
  * last mark is not the file's current one is behind the store, which is the
@@ -25,6 +25,7 @@ import {
   type TxTail,
 } from "@kb/contracts";
 import { durableReplaceFile } from "./durable-replace.ts";
+import { contentMark, storeMark } from "./content-mark.ts";
 
 /** One line of `tx.jsonl`: a {@link KbTx} plus the store mark it was written at. */
 interface TailRecord {
@@ -32,8 +33,12 @@ interface TailRecord {
   readonly mark: string;
 }
 
-/** `${size}:${mtime}` for a file, or null when it is not there. */
-export function fileMark(path: string): string | null {
+/**
+ * `${size}:${mtime}` of the tail file itself: the key of the parse cache, never
+ * a store mark. The tail only grows or is replaced, and either moves its size
+ * or its mtime; the store's own mark is its content ({@link storeMark}).
+ */
+function tailFileMark(path: string): string | null {
   try {
     const info = statSync(path);
     return `${String(info.size)}:${String(Math.trunc(info.mtimeMs))}`;
@@ -77,23 +82,28 @@ export class JsonlTxTail implements TxTail {
 
   isCurrent(): boolean {
     const last = this.records().at(-1);
-    // No tail and no store is a consistent pair: nothing has happened yet.
-    if (last === undefined) return fileMark(this.nodesPath) === null;
-    return last.mark === fileMark(this.nodesPath);
+    // No tail and an empty store is a consistent pair: nothing has happened yet.
+    if (last === undefined) return storeMark(this.nodesPath) === contentMark("");
+    return last.mark === storeMark(this.nodesPath);
   }
 
   entries(): KbTx[] {
     return this.records().map((record) => record.tx);
   }
 
-  append(ops: StoreTx, record: TxRecord): KbTx {
+  /**
+   * `mark` is the store's mark this record is written at. The store's own
+   * commit passes the mark of the bytes it just wrote rather than have the tail
+   * read them back; any other caller gets the file's current mark.
+   */
+  append(ops: StoreTx, record: TxRecord, mark = storeMark(this.nodesPath)): KbTx {
     const existing = this.records();
     const rev = (existing.at(-1)?.tx.rev ?? 0) + 1;
     const tx: KbTx =
       record.origin === undefined
         ? { rev, ops, at: record.at }
         : { rev, ops, at: record.at, origin: record.origin };
-    const line: TailRecord = { tx, mark: fileMark(this.nodesPath) ?? "" };
+    const line: TailRecord = { tx, mark: mark ?? "" };
 
     if (existing.length + 1 > TX_TAIL_MAX_ENTRIES) {
       this.write([...existing.slice(-(TX_TAIL_KEEP_ENTRIES - 1)), line]);
@@ -104,13 +114,13 @@ export class JsonlTxTail implements TxTail {
   }
 
   adopt(txs: readonly KbTx[]): void {
-    const mark = fileMark(this.nodesPath) ?? "";
+    const mark = storeMark(this.nodesPath) ?? "";
     this.write(txs.slice(-TX_TAIL_KEEP_ENTRIES).map((tx) => ({ tx, mark })));
   }
 
   /** The tail as records, from the cache while the file has not moved. */
   private records(): TailRecord[] {
-    const mark = fileMark(this.path);
+    const mark = tailFileMark(this.path);
     if (mark === null) {
       this.cache = null;
       return [];
@@ -168,7 +178,7 @@ export class JsonlTxTail implements TxTail {
         { path: this.path },
       );
     }
-    this.cache = { mark: fileMark(this.path) ?? "", records: [...existing, line] };
+    this.cache = { mark: tailFileMark(this.path) ?? "", records: [...existing, line] };
   }
 
   /** Replace the whole tail — compaction and {@link JsonlTxTail.adopt}. */
@@ -182,6 +192,6 @@ export class JsonlTxTail implements TxTail {
       this.cache = null;
       throw err;
     }
-    this.cache = { mark: fileMark(this.path) ?? "", records: [...records] };
+    this.cache = { mark: tailFileMark(this.path) ?? "", records: [...records] };
   }
 }

@@ -207,14 +207,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A node prop is an ordered multi-value: slot 2 is slot 2, and two slots can hold equal values, so position is the only identity available and a content key would collide and remount live editors. Snap guides are a transient two-element overlay with no domain object at all. Close it by giving multi-values an id in the data model (Track 2 KbNode/prop schema work), then key on that.
 - **node** — `01M1MFP33RDP5MVB4827DR5RE7`
 
-### GAP: store staleness is size+mtime, not a fingerprint
-
-- **expected** — The session knows whether its index reflects the store from a content fingerprint the store computes as it writes (p1 Phase 3), so no external write can be missed.
-- **current** — persistEffect now reconciles against what the commit merged into: EffectStore.commitEffect returns a StoreCommit (the fingerprint it merged into, and the one it left), and persist applies its own delta only when the commit merged into the state this session had read, rebuilding from the store otherwise. What is left is JsonlStore's fingerprint itself: size plus mtimeMs, so an external write in the same mtime tick that keeps the byte count identical is invisible to reload and to the commit's base alike. SqliteStore is already content-derived (rev plus data_version) and BrowserStore is a generation counter, so this remainder is the JSONL adapter alone.
-- **impact** — One window left, and it needs a second process writing the same store: an external write in the same mtime tick with an identical byte count is invisible, so the session works from an index that is quietly one write behind until the next write it does see.
-- **closes** — JsonlStore reports a content fingerprint rather than a stat — p1 Phase 3's sourceHash + sourceBytes + nodeCount — which means hashing the file on a path whose whole purpose is to answer 'did it change?' without reading it. Worth doing only with a cheaper content signal, or once the cost is measured against the store benchmark.
-- **node** — `01M1PK5NYA7ZG3XC0H0YRYRVZE`
-
 ### GAP: subscription re-evaluation is O(clients x subs x full query) per tx
 
 - **expected** — A logged transaction re-evaluates only the subscriptions it can affect, and evaluates each distinct query once for all the clients holding it.
@@ -260,7 +252,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 - **expected** — One act: nodes.jsonl and the tail entry either both land or neither does, the way the sqlite adapter gets it for free inside BEGIN IMMEDIATE.
 - **current** — Two writes inside one lock (JsonlStore.commitEffect): durableReplaceFile for the nodes, then txTail.append, and the append is deliberately not fsynced. No other process can interleave, but a crash or power loss between them can. TxTail.isCurrent() detects it by comparing the tail's newest store mark to the file's, and StoreTxLog then refuses every rev at or below head.
-- **impact** — A crash in that window costs every connected client one snapshot instead of frames - the same cost the log already had before it was durable, so nothing regresses. What is not reached is the stated shape: on JSONL the record can still lag the write, and the mark it is detected by is size+mtime, so it inherits GAP 01M1PK5NYA7ZG3XC0H0YRYRVZE's blind spot.
+- **impact** — A crash in that window costs every connected client one snapshot instead of frames - the same cost the log already had before it was durable, so nothing regresses. What is not reached is the stated shape: on JSONL the record can still lag the write. The lag is detected exactly, because the mark it is compared by is the file's content hash.
 - **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
 - **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
 
@@ -636,6 +628,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Shift-resizing a card from three of four corners slides it instead of scaling it in place.
 - **closes** — Recompute x and y after the ratio lock from the final w and h; add a shiftKey case to the resize reducer test.
 - **node** — `01M1TAE8V1GDX971M2A6NC4DS1`
+
+### GAP: store staleness is size+mtime, not a fingerprint
+
+- **expected** — The session knows whether its index reflects the store from a content fingerprint the store computes as it writes (p1 Phase 3), so no external write can be missed.
+- **current** — persistEffect now reconciles against what the commit merged into: EffectStore.commitEffect returns a StoreCommit (the fingerprint it merged into, and the one it left), and persist applies its own delta only when the commit merged into the state this session had read, rebuilding from the store otherwise. What is left is JsonlStore's fingerprint itself: size plus mtimeMs, so an external write in the same mtime tick that keeps the byte count identical is invisible to reload and to the commit's base alike. SqliteStore is already content-derived (rev plus data_version) and BrowserStore is a generation counter, so this remainder is the JSONL adapter alone.
+- **impact** — One window left, and it needs a second process writing the same store: an external write in the same mtime tick with an identical byte count is invisible, so the session works from an index that is quietly one write behind until the next write it does see.
+- **closes** — JsonlStore reports a content fingerprint rather than a stat — p1 Phase 3's sourceHash + sourceBytes + nodeCount — which means hashing the file on a path whose whole purpose is to answer 'did it change?' without reading it. Worth doing only with a cheaper content signal, or once the cost is measured against the store benchmark.
+- **node** — `01M1PK5NYA7ZG3XC0H0YRYRVZE`
 
 ### GAP: suppression grammar still includes legacy eslint directives
 

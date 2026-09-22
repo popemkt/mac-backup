@@ -123,7 +123,10 @@ function roundTripHolds(makeStore: StoreFactory, nodes: KbNode[]): Promise<void>
  * so the registration below stays the two lines it is.
  */
 const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => Promise<void>]> = [
-  ["an unwritten store loads empty and has no fingerprint", unwrittenStoreIsEmpty],
+  [
+    "an unwritten store loads empty, and whatever fingerprint it names is stable",
+    unwrittenStoreIsEmpty,
+  ],
   [
     "write then read: identical nodes, identical order, no key invented or dropped",
     roundTripsAnyNodeSet,
@@ -147,7 +150,9 @@ function unwrittenStoreIsEmpty(makeStore: StoreFactory): Promise<void> {
       Effect.gen(function* () {
         const store = makeStore(yield* scratchRoot);
         expect(yield* store.loadEffect).toEqual([]);
-        expect(yield* store.fingerprint).toBeNull();
+        // Null ("cannot say") and a content-derived name for the empty store
+        // are both honest; flickering between reads is not.
+        expect(yield* store.fingerprint).toBe(yield* store.fingerprint);
       }),
     ),
   );

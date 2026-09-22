@@ -662,10 +662,15 @@ file is the format git already understands.
   (same fail-closed posture as the pre-Schema `JSON.parse` loader). Unknown own
   JSON properties on otherwise-valid nodes are preserved across decode so a later
   commit cannot silently drop them.
-- **Fingerprint** is size + mtime: the cheap answer, with a blind spot for a
-  write that lands inside one mtime tick *and* keeps the byte count identical
-  (GAP `01M1PK5NYA7ZG3XC0H0YRYRVZE`). That gap is JSONL's, not the port's — see
-  below.
+- **Fingerprint is the SHA-256 of the file's bytes** (`content-mark.ts`). The
+  question is about content, so the answer is too: a same-length write inside
+  one mtime tick — invisible to the size+mtime stat this used to be — moves it,
+  and so does any byte a decoder would ignore. A missing file is the empty
+  store and carries the empty store's mark; a file that cannot be read has
+  none. Load and commit both start from one read, so the `base` a commit
+  reports names exactly the bytes it merged into. The cost is a hash where a
+  stat was: measured by the store benchmark at roughly +10% on a 50k-node
+  commit, and noise at this repo's size.
 
 ### SqliteStore — `.kb/kb.sqlite`
 
@@ -705,14 +710,12 @@ CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
   one that lies.
 - **Fingerprint is `${rev}:${data_version}`.** `rev` is a counter this store
   bumps inside every commit transaction, so it moves even when a commit's
-  content is byte-identical to what was there — the case JSONL's size+mtime
-  cannot see. `PRAGMA data_version` moves when *another connection* commits,
+  content is byte-identical to what was there, where JSONL's content hash
+  deliberately does not. `PRAGMA data_version` moves when *another connection* commits,
   which is what catches a writer that bypassed `rev` entirely (a `VACUUM`, a
   hand-run `sqlite3`). Neither alone is the whole answer; together they are.
   Null when the file does not exist, so an unopened store compares equal to
-  nothing. **This closes the size+mtime blind spot for sqlite only.** The gap
-  node stays open because it is still true of the JSONL adapter, which is still
-  the default.
+  nothing.
 - **The store owns the connection.** It opens lazily on first `load` or
   `commit` and stays open for the store's lifetime; `close()` exists for tests.
   The caller cannot own it: `EffectStore` is constructed once per session and
@@ -808,7 +811,7 @@ of refetching the graph.
 | SQLite | a `tx` table in `.kb/kb.sqlite` | yes — the same `BEGIN IMMEDIATE` | inside that transaction |
 
 Both records carry `mark`: the store's own durable commit mark as of that
-append (`nodes.jsonl`'s size+mtime; sqlite's `meta.rev`). `TxTail.isCurrent()`
+append (`nodes.jsonl`'s content hash; sqlite's `meta.rev`). `TxTail.isCurrent()`
 compares the newest mark to the store's current one, which is what makes the
 next paragraph a detection rather than a hope.
 
@@ -828,8 +831,8 @@ hand-edited `nodes.jsonl`, a restore from backup, an older kb. For the same
 reason the tail append is deliberately **not** `fsync`ed while the node write
 is: skipping the flush can only widen the lag, which is already handled, and
 paying an `fsync` per commit to shrink a window nothing falls into would double
-the cost of every keystroke. (JSONL's mark is size+mtime, so it inherits that
-adapter's blind spot, GAP `01M1PK5NYA7ZG3XC0H0YRYRVZE`.)
+the cost of every keystroke. JSONL's mark is the store fingerprint, so a lag is
+detected exactly.
 
 **Compaction.** Both tails keep their newest 2048 records and drop to 1024 when
 they pass it — the bound the ring used to impose, moved to the file so an
