@@ -139,6 +139,11 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
     concurrentCommitsSerialize,
   ],
   [
+    "a conditional commit lands only on the state it names, and a stale one leaves no trace",
+    conditionalCommitNamesItsBase,
+  ],
+  ["two conditional commits from one state: at most one lands", conditionalCommitsRace],
+  [
     "a commit that cannot be written fails with a DomainError and leaves no store",
     unwritableCommitFails,
   ],
@@ -263,6 +268,75 @@ function concurrentCommitsSerialize(makeStore: StoreFactory): Promise<void> {
         }
 
         expect((yield* one.loadEffect).map((n) => n.id)).toEqual([...landed].toSorted());
+      }),
+    ),
+  );
+}
+
+function conditionalCommitNamesItsBase(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* scratchRoot;
+        const store = makeStore(root);
+        yield* store.commitEffect({ upserts: [plainNode("n-a", "a")], deletes: [] }, { at: AT });
+        const seen = present(yield* store.fingerprint, "expected a written store to name itself");
+
+        const landed = yield* store.commitEffect(
+          { upserts: [plainNode("n-b", "b")], deletes: [] },
+          { at: AT },
+          seen,
+        );
+        expect(landed.base).toBe(seen);
+
+        // `seen` is gone now: the same condition must fail, write no node and
+        // record no tx.
+        const entries = store.txTail.entries().length;
+        const exit = yield* Effect.exit(
+          store.commitEffect(
+            { upserts: [plainNode("n-c", "c")], deletes: ["n-a"] },
+            { at: AT },
+            seen,
+          ),
+        );
+        const failure = failureOf(exit);
+        expect(isDomainError(failure) && failure.code).toBe("conflict");
+        expect((yield* makeStore(root).loadEffect).map((n) => n.id)).toEqual(["n-a", "n-b"]);
+        expect(store.txTail.entries()).toHaveLength(entries);
+      }),
+    ),
+  );
+}
+
+function conditionalCommitsRace(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* scratchRoot;
+        const one = makeStore(root);
+        const two = makeStore(root);
+        yield* one.commitEffect({ upserts: [plainNode("n-a", "a")], deletes: [] }, { at: AT });
+        const seen = present(yield* one.fingerprint, "expected a written store to name itself");
+
+        const exits = yield* Effect.all(
+          [
+            Effect.exit(
+              one.commitEffect({ upserts: [plainNode("n-b", "b")], deletes: [] }, { at: AT }, seen),
+            ),
+            Effect.exit(
+              two.commitEffect({ upserts: [plainNode("n-c", "c")], deletes: [] }, { at: AT }, seen),
+            ),
+          ],
+          { concurrency: "unbounded" },
+        );
+
+        // Both decided on `seen`; at most one may act on it. (Zero is allowed:
+        // a writer that times out on the other's lock also said so.)
+        expect(exits.filter(Exit.isSuccess).length).toBeLessThanOrEqual(1);
+        for (const exit of exits.filter(Exit.isFailure)) {
+          expect(isDomainError(failureOf(exit))).toBe(true);
+        }
+        expect((yield* one.loadEffect).length).toBe(1 + exits.filter(Exit.isSuccess).length);
       }),
     ),
   );

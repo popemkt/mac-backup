@@ -656,7 +656,8 @@ file is the format git already understands.
   - `durable-replace.ts` — write the candidate to a tmp fd + `fsync`, copy the
     live file to `nodes.jsonl.bak` (+fsync), `rename` tmp → live, best-effort
     parent-directory fsync. Ordering-safe; **not** crash-injection tested
-    (no `F_FULLFSYNC`, no revision/CAS).
+    (no `F_FULLFSYNC`). A conditional commit is checked under the same
+    lock, against the fingerprint of the bytes it is about to merge into.
 - **Load is all-or-nothing**: a malformed or schema-invalid line fails the load
   with a line-numbered error and returns no nodes; load never rewrites the file
   (same fail-closed posture as the pre-Schema `JSON.parse` loader). Unknown own

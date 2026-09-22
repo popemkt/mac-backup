@@ -1,13 +1,21 @@
+import type { Database } from "bun:sqlite";
 import { Effect, Predicate } from "effect";
 import {
   canonicalJson,
   decodeStoredNode,
   domainError,
+  isDomainError,
   type DomainError,
   type KbNode,
   type StoreTx,
 } from "@kb/model";
-import type { EffectStore, StoreCommit, StoreFingerprint, TxRecord } from "@kb/contracts";
+import {
+  staleCommitError,
+  type EffectStore,
+  type StoreCommit,
+  type StoreFingerprint,
+  type TxRecord,
+} from "@kb/contracts";
 import { sqliteConnection, type SqliteConnection } from "./connection.ts";
 import { sqliteStoreFiles, sqliteStorePath } from "./paths.ts";
 import { SqliteTxTail } from "./tx-tail.ts";
@@ -70,16 +78,17 @@ export class SqliteStore implements EffectStore {
     this.txTail = new SqliteTxTail(this.connection, this.path);
   }
 
-  commitEffect(tx: StoreTx, record: TxRecord): Effect.Effect<StoreCommit, DomainError> {
+  commitEffect(
+    tx: StoreTx,
+    record: TxRecord,
+    expected?: StoreFingerprint,
+  ): Effect.Effect<StoreCommit, DomainError> {
     const connection = this.connection;
     const path = this.path;
     const fingerprint = this.fingerprint;
     const txTail = this.txTail;
     return Effect.gen(function* () {
-      // Read before the immediate transaction opens: `rev` and `data_version`
-      // together name the state that transaction merges into.
-      const base = yield* fingerprint;
-      yield* commitTx(connection, path, tx, record, txTail);
+      const base = yield* commitTx(connection, path, { tx, record, expected }, txTail);
       return { base, fingerprint: yield* fingerprint };
     });
   }
@@ -90,13 +99,24 @@ export class SqliteStore implements EffectStore {
   }
 }
 
+interface CommitRequest {
+  readonly tx: StoreTx;
+  readonly record: TxRecord;
+  readonly expected: StoreFingerprint | undefined;
+}
+
+/**
+ * Run one commit and return the fingerprint it merged into. Read inside the
+ * immediate transaction, after sqlite's write lock is taken, so `base` is the
+ * state the writes below land on and a conditional commit is checked against
+ * exactly that.
+ */
 function commitTx(
   connection: SqliteConnection,
   path: string,
-  tx: StoreTx,
-  record: TxRecord,
+  { tx, record, expected }: CommitRequest,
   txTail: SqliteTxTail,
-): Effect.Effect<void, DomainError> {
+): Effect.Effect<StoreFingerprint | null, DomainError> {
   return Effect.try({
     try: () => {
       const db = connection.open();
@@ -108,21 +128,28 @@ function commitTx(
       const bumpRev = db.prepare(
         "UPDATE meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'rev'",
       );
-      db.transaction(() => {
-        for (const id of tx.deletes) drop.run(id);
-        for (const node of tx.upserts) upsert.run(node.id, canonicalJson(node));
-        bumpRev.run();
-        // After the bump, so the mark the tail stamps is the one a reopen will
-        // read; inside the same transaction, so on this backend the node rows
-        // and their log entry are one act with no crash window between them.
-        // An empty transaction is not recorded: it costs a rev and a frame and
-        // says nothing.
-        if (tx.upserts.length > 0 || tx.deletes.length > 0) {
-          txTail.appendWithin(db, tx, record);
-        }
-      }).immediate();
+      return db
+        .transaction(() => {
+          const base = readFingerprint(db);
+          const stale = staleCommitError(expected, base);
+          // Thrown to roll the transaction back; `catch` below passes it through.
+          if (stale !== null) throw stale;
+          for (const id of tx.deletes) drop.run(id);
+          for (const node of tx.upserts) upsert.run(node.id, canonicalJson(node));
+          bumpRev.run();
+          // After the bump, so the mark the tail stamps is the one a reopen will
+          // read; inside the same transaction, so on this backend the node rows
+          // and their log entry are one act with no crash window between them.
+          // An empty transaction is not recorded: it costs a rev and a frame and
+          // says nothing.
+          if (tx.upserts.length > 0 || tx.deletes.length > 0) {
+            txTail.appendWithin(db, tx, record);
+          }
+          return base;
+        })
+        .immediate();
     },
-    catch: (err) => mapCommitError(err, path),
+    catch: (err) => (isDomainError(err) ? err : mapCommitError(err, path)),
   });
 }
 
@@ -139,16 +166,19 @@ function fingerprintOf(connection: SqliteConnection): Effect.Effect<StoreFingerp
   return Effect.sync(() => {
     try {
       const db = connection.peek();
-      if (db === null) return null;
-      const rev = db.query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'rev'").get();
-      const version = db.query<{ data_version: number }, []>("PRAGMA data_version").get();
-      if (rev === null || version === null) return null;
-      return `${rev.value}:${String(version.data_version)}`;
+      return db === null ? null : readFingerprint(db);
     } catch {
       // The port promises no failure here; a store that cannot say says null.
       return null;
     }
   });
+}
+
+function readFingerprint(db: Database): StoreFingerprint | null {
+  const rev = db.query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'rev'").get();
+  const version = db.query<{ data_version: number }, []>("PRAGMA data_version").get();
+  if (rev === null || version === null) return null;
+  return `${rev.value}:${String(version.data_version)}`;
 }
 
 function loadNodes(

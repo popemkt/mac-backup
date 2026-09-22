@@ -37,4 +37,19 @@ describe("BrowserStore", () => {
     // same sequence a server tx arrives on.
     expect(store.txTail.entries().map((tx) => tx.rev)).toEqual([1, 2]);
   });
+
+  it("takes a conditional commit only on the generation it names", async () => {
+    const store = new BrowserStore([node("a", "a")]);
+    const seen = await Effect.runPromise(store.fingerprint);
+    await Effect.runPromise(
+      store.commitEffect({ upserts: [node("b", "b")], deletes: [] }, { at: AT }, seen),
+    );
+
+    const stale = await Effect.runPromise(
+      Effect.flip(store.commitEffect({ upserts: [node("c", "c")], deletes: [] }, { at: AT }, seen)),
+    );
+    expect(stale.code).toBe("conflict");
+    expect((await Effect.runPromise(store.loadEffect)).map((n) => n.id)).toEqual(["a", "b"]);
+    expect(store.txTail.entries()).toHaveLength(1);
+  });
 });

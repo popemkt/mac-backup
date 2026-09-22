@@ -12,7 +12,13 @@ import {
 } from "@kb/model";
 import { bunFileSystemLayer } from "./platform.ts";
 import { durableReplaceFile } from "./durable-replace.ts";
-import type { EffectStore, StoreCommit, StoreFingerprint, TxRecord } from "@kb/contracts";
+import {
+  staleCommitError,
+  type EffectStore,
+  type StoreCommit,
+  type StoreFingerprint,
+  type TxRecord,
+} from "@kb/contracts";
 import { acquireNodesWriteLockEffect, releaseNodesWriteLock } from "./write-lock.ts";
 import { JsonlTxTail, txTailPath } from "./tx-tail.ts";
 import { contentMark, storeMark } from "./content-mark.ts";
@@ -108,7 +114,11 @@ export class JsonlStore implements EffectStore {
     this.txTail = new JsonlTxTail(this.path, txTailPath(root));
   }
 
-  commitEffect(tx: StoreTx, record: TxRecord): Effect.Effect<StoreCommit, DomainError> {
+  commitEffect(
+    tx: StoreTx,
+    record: TxRecord,
+    expected?: StoreFingerprint,
+  ): Effect.Effect<StoreCommit, DomainError> {
     const path = this.path;
     const backupPath = this.backupPath;
     const txTail = this.txTail;
@@ -123,6 +133,8 @@ export class JsonlStore implements EffectStore {
         // needs to know it saw.
         const current = yield* readBody(path);
         const base = contentMark(current);
+        const stale = staleCommitError(expected, base);
+        if (stale !== null) return yield* stale;
         const existing = yield* decodeNodes(current, path);
         const byId = new Map(existing.map((n) => [n.id, n]));
         for (const id of tx.deletes) byId.delete(id);

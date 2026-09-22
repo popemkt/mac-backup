@@ -1,5 +1,11 @@
 import { Effect } from "effect";
-import type { EffectStore, StoreCommit, TxRecord } from "@kb/contracts";
+import {
+  staleCommitError,
+  type EffectStore,
+  type StoreCommit,
+  type StoreFingerprint,
+  type TxRecord,
+} from "@kb/contracts";
 import type { DomainError, KbNode, StoreTx } from "@kb/model";
 import { MemoryTxTail } from "@kb/tx-log";
 
@@ -26,15 +32,21 @@ export class BrowserStore implements EffectStore {
     this.loadEffect = Effect.sync(() => [...this.byId.values()]);
   }
 
-  commitEffect(tx: StoreTx, record: TxRecord): Effect.Effect<StoreCommit, DomainError> {
-    return Effect.sync(() => {
+  commitEffect(
+    tx: StoreTx,
+    record: TxRecord,
+    expected?: StoreFingerprint,
+  ): Effect.Effect<StoreCommit, DomainError> {
+    return Effect.suspend(() => {
       // Single-threaded and synchronous: nothing can land between the read of
       // the generation and the write that bumps it, or between that and the
       // record — which is what "one critical section" means in a browser.
       const base = String(this.generation);
+      const stale = staleCommitError(expected, base);
+      if (stale !== null) return Effect.fail(stale);
       this.apply(tx);
       if (tx.upserts.length > 0 || tx.deletes.length > 0) this.txTail.append(tx, record);
-      return { base, fingerprint: String(this.generation) };
+      return Effect.succeed({ base, fingerprint: String(this.generation) });
     });
   }
 

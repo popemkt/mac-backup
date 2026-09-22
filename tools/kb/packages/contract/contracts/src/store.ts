@@ -1,5 +1,5 @@
 import type { Effect } from "effect";
-import type { DomainError, KbNode, StoreTx } from "@kb/model";
+import { domainError, type DomainError, type KbNode, type StoreTx } from "@kb/model";
 import type { TxRecord, TxTail } from "./tx-log.ts";
 
 /**
@@ -77,6 +77,36 @@ export interface EffectStore {
    * An empty `tx` is not recorded (it costs a rev and a frame and says
    * nothing), so a commit whose only purpose is to create the store leaves the
    * tail alone.
+   *
+   * `expected` makes the commit conditional: it lands only if the state it
+   * would merge into is the one `expected` names, checked inside the same
+   * exclusion as the write — see {@link staleCommitError}. Without it the
+   * commit merges into whatever is there, which is what a session that
+   * reconciles through {@link StoreCommit.base} wants; with it a caller that
+   * decided on a state it read gets "that state is gone" instead of a merge.
    */
-  commitEffect(tx: StoreTx, record: TxRecord): Effect.Effect<StoreCommit, DomainError>;
+  commitEffect(
+    tx: StoreTx,
+    record: TxRecord,
+    expected?: StoreFingerprint,
+  ): Effect.Effect<StoreCommit, DomainError>;
+}
+
+/**
+ * The one test of a conditional commit, shared by every adapter so the rule
+ * cannot drift between them: no `expected` always passes, and otherwise the
+ * state the commit would merge into must be exactly the named one. A store
+ * that cannot name its state (`base` null) matches nothing — the safe
+ * direction, since it costs the caller a re-read and never a blind write. The
+ * failure is a `conflict`, and the adapter writes and records nothing.
+ */
+export function staleCommitError(
+  expected: StoreFingerprint | undefined,
+  base: StoreFingerprint | null,
+): DomainError | null {
+  if (expected === undefined || (base !== null && base === expected)) return null;
+  return domainError("conflict", "store changed since it was read; read again before committing", {
+    expected,
+    actual: base,
+  });
 }
