@@ -32,11 +32,11 @@ jobs:
 
       - name: Validate formatting and evaluation
         run: |
-          nix develop -c shellcheck .githooks/pre-commit scripts/github-sources
+          nix develop -c shellcheck .githooks/pre-commit scripts/github-sources scripts/deadnix-repo
           nix develop -c actionlint
           nix develop -c sh -c 'find . -name "*.nix" -not -path "./.git/*" -print0 | xargs -0 nixfmt --check'
           nix develop -c statix check .
-          nix develop -c deadnix --fail --exclude ./_sources/generated.nix .
+          nix develop -c scripts/deadnix-repo
           nix flake check --no-build
 
       - name: Build flake checks

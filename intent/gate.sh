@@ -151,7 +151,7 @@ record_admission() {
     run_admission_check "nixfmt --check" check_nixfmt
   fi
   run_admission_check "statix check (whole repo)" bash -c 'cd "$1" && statix check .' bash "$staged_tree"
-  run_admission_check "deadnix --fail (excluding nvfetcher output)" bash -c 'cd "$1" && deadnix --fail --exclude ./_sources/generated.nix .' bash "$staged_tree"
+  run_admission_check "deadnix --fail (excluding generated Nix)" "$staged_tree/scripts/deadnix-repo" "$staged_tree"
   run_admission_check "nix flake check --no-build" nix flake check "path:$staged_tree" --no-build
 
   for check_index in "${!check_pids[@]}"; do

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+#
+# deadnix over the whole repo, minus the Nix files a generator writes.
+#
+# A generated file carries what its generator emits (a callPackage signature
+# with arguments some outputs never use), and pruning it by hand would be
+# undone on the next run. This list is the one place those files are named;
+# every caller — the commit gate, CI, the docs — runs this script.
+#
+# Usage: scripts/deadnix-repo [repo-root]   (default: the current directory)
+set -euo pipefail
+
+generated=(
+  ./_sources/generated.nix # nvfetcher
+)
+
+cd "${1:-.}"
+excludes=()
+for file in "${generated[@]}"; do excludes+=(--exclude "$file"); done
+exec deadnix --fail "${excludes[@]}" .

@@ -243,7 +243,7 @@ lives in modules; host files select roles and host-only behavior.
 ```bash
 nixfmt **/*.nix
 statix check .
-deadnix --fail --exclude ./_sources/generated.nix .
+scripts/deadnix-repo
 nix flake check --no-build
 ```
 

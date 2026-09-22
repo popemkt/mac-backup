@@ -317,7 +317,7 @@ Before suggesting commits, ensure changed Nix files pass:
 ```bash
 rtk nixfmt **/*.nix
 rtk statix check .
-rtk deadnix --fail --exclude ./_sources/generated.nix .
+rtk scripts/deadnix-repo
 rtk nix flake check --no-build
 ```
 
