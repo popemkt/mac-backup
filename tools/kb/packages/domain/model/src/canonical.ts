@@ -20,6 +20,11 @@ function sortKeys(value: unknown): unknown {
   );
 }
 
+/** The store's node order: by id, by UTF-16 code unit — not by locale. */
+export function byNodeId(a: KbNode, b: KbNode): number {
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
 /**
  * The store's file format, from nodes to bytes: one canonical-JSON node per
  * line, sorted by id, trailing newline, empty file for no nodes.
@@ -29,6 +34,6 @@ function sortKeys(value: unknown): unknown {
  * this one only until one of them is edited.
  */
 export function canonicalJsonl(nodes: readonly KbNode[]): string {
-  const sorted = [...nodes].toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const sorted = [...nodes].toSorted(byNodeId);
   return sorted.length === 0 ? "" : sorted.map((n) => canonicalJson(n)).join("\n") + "\n";
 }

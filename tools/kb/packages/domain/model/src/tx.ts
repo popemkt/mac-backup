@@ -12,7 +12,8 @@ export interface StoreTx {
   deletes: NodeId[];
 }
 
-function applyTx(previous: KbNode[], tx: StoreTx): Map<NodeId, KbNode> {
+/** `previous` with `tx` applied: deletes first, then upserts replace whole nodes. */
+export function applyTx(previous: readonly KbNode[], tx: StoreTx): Map<NodeId, KbNode> {
   const next = new Map(previous.map((node) => [node.id, node]));
   for (const id of tx.deletes) next.delete(id);
   for (const node of tx.upserts) next.set(node.id, node);
