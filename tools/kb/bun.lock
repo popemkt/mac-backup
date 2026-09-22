@@ -46,6 +46,20 @@
         "zod": "catalog:",
       },
     },
+    "packages/app/client": {
+      "name": "@kb/client",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
+        "@kb/query": "workspace:*",
+        "@kb/store-jsonl": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/app/mcp": {
       "name": "@kb/mcp",
       "version": "0.0.0",
@@ -640,6 +654,8 @@
     "@kb/canvas": ["@kb/canvas@workspace:packages/domain/canvas"],
 
     "@kb/cli": ["@kb/cli@workspace:packages/app/cli"],
+
+    "@kb/client": ["@kb/client@workspace:packages/app/client"],
 
     "@kb/contracts": ["@kb/contracts@workspace:packages/contract/contracts"],
 

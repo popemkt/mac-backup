@@ -620,6 +620,11 @@ which the port does not have. `briefs/p1-persistence.md` picks incremental
 reading up against that adapter's own internals when it gets there; keeping
 `decodeNodes` exported for a benchmark nobody runs yet would be a dead seam.
 
+A tool outside kb's surfaces reaches the graph through `@kb/client`
+(`packages/app/client/README.md`): a fresh read, a query over it, and a commit
+conditioned on the fingerprint that read returned — the port's own members,
+behind a Promise boundary, with no second notion of revision.
+
 The candidate second backends are **not** an open field:
 `briefs/p1-persistence.md` §0 is the canonical record of what was measured and
 rejected (Logseq's own fork — opaque Transit blobs, and their answer to git is
