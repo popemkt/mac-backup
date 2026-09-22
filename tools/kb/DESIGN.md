@@ -686,6 +686,7 @@ different container.
 ```sql
 CREATE TABLE nodes (id TEXT PRIMARY KEY, body TEXT NOT NULL);
 CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
+-- plus nodes_rev_{insert,update,delete}: AFTER triggers that bump meta.rev
 ```
 
 - `body` is **the same `canonicalJson(node)` string the JSONL writes**, one row
@@ -711,17 +712,22 @@ CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
   `write-lock.ts` already spends waiting, so a contended commit behaves the same
   on both adapters rather than failing fast on one and spinning on the other.
 - **No `.lock` file.** `BEGIN IMMEDIATE … COMMIT` takes sqlite's own write lock
-  for the whole deletes → upserts → `rev += 1` transaction. A second lock beside
+  for the whole deletes → upserts → tail-record transaction. A second lock beside
   it would be two mechanisms for one concept, and the weaker one would be the
   one that lies.
-- **Fingerprint is `${rev}:${data_version}`.** `rev` is a counter this store
-  bumps inside every commit transaction, so it moves even when a commit's
-  content is byte-identical to what was there, where JSONL's content hash
-  deliberately does not. `PRAGMA data_version` moves when *another connection* commits,
-  which is what catches a writer that bypassed `rev` entirely (a `VACUUM`, a
-  hand-run `sqlite3`). Neither alone is the whole answer; together they are.
-  Null when the file does not exist, so an unopened store compares equal to
-  nothing.
+- **Fingerprint is `meta.rev`, and the database keeps it.** Triggers on
+  `nodes` (one per insert, update and delete; schema 3) bump it, so it moves for
+  every writer — this store, another process, a hand-run `sqlite3` — and on
+  every commit that touches a row, including one whose content is
+  byte-identical to what was there, where JSONL's content hash deliberately
+  does not. It is also the tail's `mark`: one name for the state, as on JSONL.
+  The database keeps it rather than the store because the name must be the
+  state's, not the reader's — the store contract asserts that every instance
+  over a root gives one state one name, which is what lets a revision read in
+  one process condition a commit in another. `PRAGMA data_version`, the other
+  way to see a foreign writer, is a per-connection counter and fails exactly
+  that. Null when the file does not exist, so an
+  unopened store compares equal to nothing.
 - **The store owns the connection.** It opens lazily on first `load` or
   `commit` and stays open for the store's lifetime; `close()` exists for tests.
   The caller cannot own it: `EffectStore` is constructed once per session and
@@ -817,7 +823,8 @@ of refetching the graph.
 | SQLite | a `tx` table in `.kb/kb.sqlite` | yes — the same `BEGIN IMMEDIATE` | inside that transaction |
 
 Both records carry `mark`: the store's own durable commit mark as of that
-append (`nodes.jsonl`'s content hash; sqlite's `meta.rev`). `TxTail.isCurrent()`
+append (`nodes.jsonl`'s content hash; sqlite's `meta.rev`) — on both, the
+store's fingerprint. `TxTail.isCurrent()`
 compares the newest mark to the store's current one, which is what makes the
 next paragraph a detection rather than a hope.
 

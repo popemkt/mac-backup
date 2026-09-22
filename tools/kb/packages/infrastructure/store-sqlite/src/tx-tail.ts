@@ -9,16 +9,14 @@
  *
  * `ops` is the `canonicalJson` of the `StoreTx` — the nodes' own bytes again,
  * for the same reason the `nodes` table stores a body rather than a column per
- * field. `mark` is the store's own durable commit mark (`meta.rev`) as of that
- * append, which is what {@link SqliteTxTail.isCurrent} compares; `meta.rev`
- * rather than the fingerprint because `PRAGMA data_version` is meaningless
- * across connections and a mark that could not be compared after a reopen
- * would answer nothing.
+ * field. `mark` is the store's commit mark (`meta.rev`, which is also its
+ * fingerprint) as of that append, which is what {@link SqliteTxTail.isCurrent}
+ * compares.
  *
- * `rev` is the tail's own counter, not `meta.rev`: `meta.rev` also moves for a
- * commit that records nothing (the empty write `kb init --store sqlite` makes),
- * and a sequence with holes in it is a sequence a reader cannot tell from a
- * compacted one.
+ * `rev` is the tail's own counter, not `meta.rev`: `meta.rev` counts row
+ * changes, so it moves by n for a commit of n rows and also for a write that
+ * recorded nothing (a hand-run `sqlite3`), and a sequence with holes in it is
+ * a sequence a reader cannot tell from a compacted one.
  *
  * The row goes in inside the store's own `BEGIN IMMEDIATE`, so here the node
  * write and the record really are one act — there is no window for a crash to
@@ -34,19 +32,13 @@ import {
   type TxRecord,
   type TxTail,
 } from "@kb/contracts";
-import type { SqliteConnection } from "./connection.ts";
+import { commitMark, type SqliteConnection } from "./connection.ts";
 
 interface TxRow {
   rev: number;
   at: string;
   origin: string | null;
   ops: string;
-}
-
-/** The store's durable commit mark: the `meta.rev` counter every commit bumps. */
-function storeMark(db: Database): string {
-  const row = db.query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'rev'").get();
-  return row?.value ?? "";
 }
 
 function toKbTx(row: TxRow): KbTx {
@@ -81,9 +73,9 @@ export class SqliteTxTail implements TxTail {
       .query<{ mark: string }, []>("SELECT mark FROM tx ORDER BY rev DESC LIMIT 1")
       .get();
     // An empty tail is current only while the store is empty too. `meta.rev`
-    // counts commits, so "0" is the untouched store.
-    if (last === null) return storeMark(db) === "0";
-    return last.mark === storeMark(db);
+    // counts row changes, so "0" is the store nothing has written a row to.
+    if (last === null) return commitMark(db) === "0";
+    return last.mark === commitMark(db);
   }
 
   entries(): KbTx[] {
@@ -113,7 +105,7 @@ export class SqliteTxTail implements TxTail {
     const kept = txs.slice(-TX_TAIL_KEEP_ENTRIES);
     db.transaction(() => {
       db.run("DELETE FROM tx");
-      const mark = storeMark(db);
+      const mark = commitMark(db) ?? "";
       const insert = db.prepare<unknown, [number, string, string | null, string, string]>(
         "INSERT INTO tx (rev, at, origin, ops, mark) VALUES (?, ?, ?, ?, ?)",
       );
@@ -133,7 +125,7 @@ export class SqliteTxTail implements TxTail {
       (db.query<{ rev: number | null }, []>("SELECT MAX(rev) AS rev FROM tx").get()?.rev ?? 0) + 1;
     db.prepare<unknown, [number, string, string | null, string, string]>(
       "INSERT INTO tx (rev, at, origin, ops, mark) VALUES (?, ?, ?, ?, ?)",
-    ).run(rev, record.at, record.origin ?? null, canonicalJson(ops), storeMark(db));
+    ).run(rev, record.at, record.origin ?? null, canonicalJson(ops), commitMark(db) ?? "");
 
     // Compaction is part of the same transaction: a tail that shed its head
     // in a separate write could be observed with neither bound in force.

@@ -134,6 +134,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
   ["a commit merges into what is there: upserts overwrite, deletes remove", commitMerges],
   ["the fingerprint is stable across loads and moves when the content does", fingerprintTracks],
   ["another writer's commit is visible, and changes this store's fingerprint", externalWriteIsSeen],
+  ["every instance over one root gives one state one name", instancesAgreeOnTheName],
   [
     "concurrent commits are serialized: neither writer's nodes are lost",
     concurrentCommitsSerialize,
@@ -232,6 +233,32 @@ function externalWriteIsSeen(makeStore: StoreFactory): Promise<void> {
 
         expect(yield* store.fingerprint).not.toBe(before);
         expect((yield* store.loadEffect).map((n) => n.id)).toEqual(["n-a", "n-b"]);
+      }),
+    ),
+  );
+}
+
+function instancesAgreeOnTheName(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* scratchRoot;
+        const one = makeStore(root);
+        yield* one.commitEffect({ upserts: [plainNode("n-a", "a")], deletes: [] }, { at: AT });
+        const two = makeStore(root);
+        yield* two.loadEffect;
+        expect(yield* two.fingerprint).toBe(yield* one.fingerprint);
+
+        // The name is the state's, not the reader's: a fingerprint read
+        // through one instance is a condition another instance can commit on.
+        const seen = present(yield* two.fingerprint, "expected a written store to name itself");
+        const landed = yield* one.commitEffect(
+          { upserts: [plainNode("n-b", "b")], deletes: [] },
+          { at: AT },
+          seen,
+        );
+        expect(landed.base).toBe(seen);
+        expect(yield* two.fingerprint).toBe(landed.fingerprint);
       }),
     ),
   );

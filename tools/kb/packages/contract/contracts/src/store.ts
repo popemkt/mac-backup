@@ -6,9 +6,10 @@ import type { TxRecord, TxTail } from "./tx-log.ts";
  * What the store looked like at one moment, as a value a session can hold and
  * compare. Opaque on purpose: callers ask "is this the store I last saw?", and
  * only the store knows what makes that true — {@link JsonlStore} hashes the
- * file's bytes, the SQLite store combines its own commit counter
- * plus sqlite's `data_version`. A string because equality is the whole
- * interface.
+ * file's bytes, the SQLite store reads the change counter its triggers keep.
+ * It names the state, not the reader: every instance over one root gives one
+ * state one name, so a fingerprint read in one process is a condition another
+ * can commit on. A string because equality is the whole interface.
  */
 export type StoreFingerprint = string;
 

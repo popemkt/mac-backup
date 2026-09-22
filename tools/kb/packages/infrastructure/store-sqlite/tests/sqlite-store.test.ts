@@ -1,6 +1,6 @@
 /**
- * What SqliteStore does that the port does not promise: the on-disk shape, the
- * two halves of the fingerprint, atomicity when a write fails part-way through
+ * What SqliteStore does that the port does not promise: the on-disk shape, a
+ * fingerprint the database itself keeps, atomicity when a write fails part-way through
  * the transaction, and the paths it asks a watcher to watch.
  */
 import { describe, expect, test } from "bun:test";
@@ -77,8 +77,8 @@ describe("SqliteStore", () => {
             const version = db
               .query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'schema_version'")
               .get();
-            // 2 since the store grew its transaction tail; see `tx-tail.ts`.
-            expect(present(version, "expected schema_version").value).toBe("2");
+            // 3 since the database keeps `rev` itself; see `connection.ts`.
+            expect(present(version, "expected schema_version").value).toBe("3");
           });
         }),
       ),
@@ -101,7 +101,7 @@ describe("SqliteStore", () => {
       ),
     ));
 
-  test("a raw connection's write moves data_version, so the fingerprint moves", () =>
+  test("a raw connection's write moves rev, so the fingerprint moves", () =>
     Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -109,7 +109,7 @@ describe("SqliteStore", () => {
           yield* store.commitEffect({ upserts: [node("n-a", "a")], deletes: [] }, { at: AT });
           const before = yield* store.fingerprint;
 
-          // A writer that bypasses `rev` entirely — the half `data_version` owns.
+          // A writer that knows nothing of `rev`: the triggers move it anyway.
           withRawConnection(store.path, (db) => {
             db.prepare<unknown, [string, string]>("INSERT INTO nodes (id, body) VALUES (?, ?)").run(
               "n-b",
@@ -138,8 +138,6 @@ describe("SqliteStore", () => {
                BEGIN SELECT RAISE(ABORT, 'poisoned'); END`,
             );
           });
-          // Taken after the trigger: installing it is itself another
-          // connection's write, and the fingerprint is right to notice.
           const before = yield* store.fingerprint;
 
           const exit = yield* Effect.exit(

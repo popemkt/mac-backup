@@ -1,8 +1,8 @@
 /**
  * SqliteStore against the shared store and log contracts. The properties live
  * in `@kb/test-kit` because they are the ports', not this adapter's; what is
- * specific to sqlite — the schema, the write-lock failure, the `rev` half of
- * the fingerprint — is in `sqlite-store.test.ts`.
+ * specific to sqlite — the schema, the write-lock failure, the triggers that
+ * keep the fingerprint — is in `sqlite-store.test.ts`.
  */
 import { Database } from "bun:sqlite";
 import { logContract, storeContract } from "@kb/test-kit";

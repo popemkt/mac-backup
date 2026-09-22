@@ -1,4 +1,3 @@
-import type { Database } from "bun:sqlite";
 import { Effect, Predicate } from "effect";
 import {
   canonicalJson,
@@ -16,7 +15,7 @@ import {
   type StoreFingerprint,
   type TxRecord,
 } from "@kb/contracts";
-import { sqliteConnection, type SqliteConnection } from "./connection.ts";
+import { commitMark, sqliteConnection, type SqliteConnection } from "./connection.ts";
 import { sqliteStoreFiles, sqliteStorePath } from "./paths.ts";
 import { SqliteTxTail } from "./tx-tail.ts";
 
@@ -125,23 +124,19 @@ function commitTx(
         `INSERT INTO nodes (id, body) VALUES (?, ?)
            ON CONFLICT(id) DO UPDATE SET body = excluded.body`,
       );
-      const bumpRev = db.prepare(
-        "UPDATE meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'rev'",
-      );
       return db
         .transaction(() => {
-          const base = readFingerprint(db);
+          const base = commitMark(db);
           const stale = staleCommitError(expected, base);
           // Thrown to roll the transaction back; `catch` below passes it through.
           if (stale !== null) throw stale;
           for (const id of tx.deletes) drop.run(id);
           for (const node of tx.upserts) upsert.run(node.id, canonicalJson(node));
-          bumpRev.run();
-          // After the bump, so the mark the tail stamps is the one a reopen will
-          // read; inside the same transaction, so on this backend the node rows
-          // and their log entry are one act with no crash window between them.
-          // An empty transaction is not recorded: it costs a rev and a frame and
-          // says nothing.
+          // After the rows, whose triggers have moved `rev`, so the mark the
+          // tail stamps is the one a reopen will read; inside the same
+          // transaction, so on this backend the node rows and their log entry
+          // are one act with no crash window between them. An empty
+          // transaction is not recorded: it changes nothing and says nothing.
           if (tx.upserts.length > 0 || tx.deletes.length > 0) {
             txTail.appendWithin(db, tx, record);
           }
@@ -154,31 +149,23 @@ function commitTx(
 }
 
 /**
- * `rev` plus sqlite's `data_version`.
- *
- * `rev` moves on every commit, including one whose content is byte-identical
- * to what was already there — the case a size+mtime fingerprint cannot see.
- * `data_version` moves when another connection commits, which catches a writer
- * that bypassed `rev` altogether (a `VACUUM`, a hand-run `sqlite3`). Null when
- * the file does not exist, and null compares equal to nothing.
+ * `meta.rev`, the count of row changes the database's own triggers keep. It
+ * moves for every writer, a hand-run `sqlite3` included, and on every commit
+ * that touches a row — even one whose content is byte-identical to what was
+ * there, where JSONL's content hash deliberately does not. And it is the
+ * database's, not the connection's, so every reader names one state alike.
+ * Null when the file does not exist, and null compares equal to nothing.
  */
 function fingerprintOf(connection: SqliteConnection): Effect.Effect<StoreFingerprint | null> {
   return Effect.sync(() => {
     try {
       const db = connection.peek();
-      return db === null ? null : readFingerprint(db);
+      return db === null ? null : commitMark(db);
     } catch {
       // The port promises no failure here; a store that cannot say says null.
       return null;
     }
   });
-}
-
-function readFingerprint(db: Database): StoreFingerprint | null {
-  const rev = db.query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'rev'").get();
-  const version = db.query<{ data_version: number }, []>("PRAGMA data_version").get();
-  if (rev === null || version === null) return null;
-  return `${rev.value}:${String(version.data_version)}`;
 }
 
 function loadNodes(

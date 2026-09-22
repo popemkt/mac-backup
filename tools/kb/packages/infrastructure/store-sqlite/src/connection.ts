@@ -22,7 +22,29 @@ import { dirname } from "node:path";
 const BUSY_TIMEOUT_MS = 15_000;
 
 /** Bumped when the table shape changes; stored in `meta` so a file can say. */
-const SCHEMA_VERSION = "2";
+const SCHEMA_VERSION = "3";
+
+/**
+ * `meta.rev` is the store's commit mark, and the database keeps it: a trigger
+ * per kind of row change on `nodes` bumps it, so it moves for every writer —
+ * this store, another process, a hand-run `sqlite3` — and means the same thing
+ * on every connection. One kind of change, one trigger each; sqlite has no
+ * statement-level triggers, so a commit of n rows moves it by n.
+ */
+const REV_TRIGGERS = ["INSERT", "UPDATE", "DELETE"].map(
+  (change) =>
+    `CREATE TRIGGER IF NOT EXISTS nodes_rev_${change.toLowerCase()} AFTER ${change} ON nodes
+     BEGIN
+       UPDATE meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'rev';
+     END`,
+);
+
+/** The store's commit mark: `meta.rev`, or null when the database has none. */
+export function commitMark(db: Database): string | null {
+  return (
+    db.query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'rev'").get()?.value ?? null
+  );
+}
 
 export interface SqliteConnection {
   /** Open the database, creating the file and schema when absent. */
@@ -56,6 +78,9 @@ function initialize(db: Database): void {
     `INSERT INTO meta (key, value) VALUES ('schema_version', '${SCHEMA_VERSION}'), ('rev', '0')
      ON CONFLICT(key) DO NOTHING`,
   );
+  // `IF NOT EXISTS` is the whole migration from schema 2, whose store bumped
+  // `rev` itself: the count carries on from wherever that left it.
+  for (const trigger of REV_TRIGGERS) db.run(trigger);
   db.run(`UPDATE meta SET value = '${SCHEMA_VERSION}' WHERE key = 'schema_version'`);
 }
 
