@@ -16,6 +16,8 @@ pushed.
 | f1 | tokens, restructure: type scale, elevation, border, mono font; no visual change | d | — |
 | f2 | tokens, add: `html[data-theme]` design-system sets and the preference that picks one | f1 | — |
 | g | graph polish: one shared scene module (bloom, fog, starfield, link particles, camera fly-to) used by lab and force3d; 2D curved edges, label halos, hover fade | e, f2 | — |
+| h | CI green: push-time pin verify checks consistency only; refresh pins; push `main` and watch `Validate` | a–g merged | building (pins) |
+| z | whole-wave audit, then a prioritised fix pass: polish, tests, UX, visual impact, modularity, design cleanliness | h | — |
 
 d and e run in parallel. f1 touches most UI components, so nothing else in
 the UI runs beside it.
