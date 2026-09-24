@@ -351,6 +351,35 @@ describe("cli e2e (tmpdir)", () => {
     expect(JSON.parse(invoke.stdout).status).toBe("succeeded");
   });
 
+  test("query and run trace a mention chain with reach", async () => {
+    await kb(["init", "--bare"]);
+    const added: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const prev = added.at(-1);
+      const add = await kb(["add", prev === undefined ? "origin" : `step ${i} after [[${prev}]]`]);
+      expect(add.code).toBe(0);
+      added.push(JSON.parse(add.stdout).output.id as string);
+    }
+    const [origin, , , last] = added;
+    const edn = `[:find ?id :where [?r :node/id "${last}"] (reach ?r :node/mentions ?n) [?n :node/id ?id]]`;
+
+    const query = await kb(["query", edn]);
+    expect(query.code).toBe(0);
+    const rows = JSON.parse(query.stdout).output.rows as unknown[][];
+    expect(rows).toHaveLength(3);
+    expect(new Set(rows.map((r) => r[0]))).toEqual(new Set(added.slice(0, 3)));
+    expect(rows.map((r) => r[0])).toContain(origin);
+
+    await mkdir(join(root, ".kb", "queries"), { recursive: true });
+    await writeFile(
+      join(root, ".kb", "queries", "one-hop.edn"),
+      edn.replace("?n)", "?n 1)") + "\n",
+    );
+    const run = await kb(["run", "one-hop"]);
+    expect(run.code).toBe(0);
+    expect(JSON.parse(run.stdout).output.rows).toEqual([[added[2]]]);
+  });
+
   test("usage errors exit 2", async () => {
     await kb(["init"]);
     const bad = await kb(["mv", "missing-id"]);

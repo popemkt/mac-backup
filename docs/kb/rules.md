@@ -192,6 +192,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Give the two decoders' reports a home in the ui the way ontology warnings have one — a store field plus a badge — and have the config surfaces read it instead of the log seam. Component + store work: out of g8's zone (docs/kb/waves/2026-09-09/briefs/g8-domain-typing.md).
 - **node** — `01M1XF1NA2RBAX1E6NNX6PMZ6N`
 
+### GAP: reach is recognised only inside the query subset parseEdn models
+
+- **expected** — (reach ...) works in any datalog query: parseEdn keeps where-clauses it does not model (predicates, not/or, _ wildcards, 2-element patterns) and sections like :with/:keys/:limit as opaque IR the compiler emits verbatim, so the parser never has to fall a whole query back to raw.
+- **current** — A query that uses any construct outside the subset parses as raw; in raw EDN reach is an ordinary rule call no rules define, and DataScript rejects it (Missing rules var '%' in :in).
+- **impact** — Tracing queries must stay inside the subset (patterns over variables and literals, rule calls, count/collect/pull); a lineage query that also needs a predicate or a not clause fails with an error that does not name the cause.
+- **closes** — An opaque clause/section kind in the IR (ir.ts) that parse.ts produces for unmodelled forms and compile.ts emits unchanged; find-type inference then treats vars bound only there as scalar.
+- **node** — `01M39X8RPQBWFVDNG77BB3ZCMH`
+
 ### GAP: React Compiler rules oxlint 1.83 added sit on the ratchet, not at error
 
 - **expected** — react/refs, exhaustive-effect-dependencies, set-state-in-effect, hooks, memo-dependencies and globals are error with zero sites, like the rest of oxlint's correctness and suspicious categories.

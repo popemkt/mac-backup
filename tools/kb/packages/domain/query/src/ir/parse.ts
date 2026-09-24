@@ -7,6 +7,7 @@ import type {
   IrQuery,
   PatternClause,
   PullSpec,
+  ReachClause,
   Term,
 } from "./ir.ts";
 
@@ -26,8 +27,9 @@ class ParseFail extends Error {}
 
 /**
  * Parse stored-form EDN into the kb IR. The subset is `:find` / `:in` / `:where`
- * over pattern clauses, rule calls, `count`/`collect`/`pull`, and the child
- * cartesian which collapses to `children`. Anything else is `{ kind: "raw" }`.
+ * over pattern clauses, rule calls, `(reach …)`, `count`/`collect`/`pull`, and
+ * the child cartesian which collapses to `children`. Anything else is
+ * `{ kind: "raw" }`.
  */
 export function parseEdn(edn: string): Ir {
   try {
@@ -266,10 +268,29 @@ function pullElem(el: Edn): PullSpec[number] | null {
   return rec;
 }
 
+// GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]] — an unmodelled clause makes the whole query raw, reach included.
 function clauseFromEdn(item: Edn): Clause | null {
   if (item.k === "vec") return patternFromEdn(item.v);
-  if (item.k === "list") return ruleFromEdn(item.v);
+  if (item.k === "list") return reachFromEdn(item.v) ?? ruleFromEdn(item.v);
   return null;
+}
+
+/** `(reach ?from <edge> ?to)` / `(reach ?from <edge> ?to <max>)` — DESIGN.md → Query layer. */
+function reachFromEdn(parts: Edn[]): ReachClause | null {
+  const [name, from, edge, to, max, ...rest] = parts;
+  if (name?.k !== "sym" || name.v !== "reach" || rest.length > 0) return null;
+  if (from?.k !== "sym" || !from.v.startsWith("?")) return null;
+  if (edge?.k !== "kw") return null;
+  if (to?.k !== "sym" || !to.v.startsWith("?")) return null;
+  const clause: ReachClause = {
+    kind: "reach",
+    from: from.v.slice(1),
+    to: to.v.slice(1),
+    edge: edge.v,
+  };
+  if (max === undefined) return clause;
+  if (max.k !== "num" || !Number.isInteger(max.v) || max.v < 1) return null;
+  return { ...clause, maxHops: max.v };
 }
 
 function patternFromEdn(parts: Edn[]): PatternClause | null {

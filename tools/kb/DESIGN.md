@@ -979,7 +979,10 @@ provenance.
   in path length; a lineage of hundreds of hops is seconds, not milliseconds.
   Path reconstruction and a minimum hop count are not in the form: a path is
   not a datalog relation, and a hop counter on the unbounded form would not
-  terminate on a cycle.
+  terminate on a cycle. `reach` is recognised only in a query the subset
+  covers whole; one construct outside it (a predicate, `not`/`or`, `_`,
+  `:with`) makes the query `raw`, where `reach` is an ordinary rule call that
+  no rules define (GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]]).
 
   ```bash
   kb query '[:find ?id :where [?r :node/id "n.root-a"] (reach ?r :node/mentions ?n) [?n :node/id ?id]]'
