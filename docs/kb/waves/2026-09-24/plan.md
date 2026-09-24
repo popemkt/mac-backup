@@ -8,16 +8,14 @@ pushed.
 
 | # | item | depends on | status |
 |---|---|---|---|
-| a | field values checked against the field's declared type on every write | — | merged `fc217f4` (grok: approve) |
-| b | `(reach ?from <edge> ?to [max])` in EDN | — | review fix in progress (grok: approve-with-nits) |
-| c | review leftovers: stale gaps, AGENTS.md, canvas split in the p1 gaps, client/store seams | — | merged `47678b6` (grok: approve) |
-| d | the 6 failing graph-render e2e cases (`render.e2e.ts`) | a–c merged | building |
-| e | `lab` UI plugin: full-frame surface, lazy 3D, off by default and unloadable | a–c merged | building |
+| a | field values checked against the field's declared type on every write | — | building |
+| b | `(reach ?from <edge> ?to [max])` in EDN | — | built, in review |
+| c | review leftovers: stale gaps, AGENTS.md, canvas split in the p1 gaps, client/store seams | — | building |
+| d | the 6 failing graph-render e2e cases (`render.e2e.ts`) | a–c merged | — |
+| e | `lab` UI plugin: full-frame surface, lazy 3D, off by default and unloadable; four studies on one kit | a–c merged | built, in review |
 | f1 | tokens, restructure: type scale, elevation, border, mono font; no visual change | d | — |
 | f2 | tokens, add: `html[data-theme]` design-system sets and the preference that picks one | f1 | — |
 | g | graph polish: one shared scene module (bloom, fog, starfield, link particles, camera fly-to) used by lab and force3d; 2D curved edges, label halos, hover fade | e, f2 | — |
-| h | CI green: push-time pin verify checks consistency only; refresh pins; push `main` and watch `Validate` | a–g merged | building (pins) |
-| z | whole-wave audit, then a prioritised fix pass: polish, tests, UX, visual impact, modularity, design cleanliness | h | — |
 
 d and e run in parallel. f1 touches most UI components, so nothing else in
 the UI runs beside it.
@@ -45,7 +43,16 @@ functional view.
 ## The lab and Rule 1
 
 Root `CLAUDE.md` says playful details should express creating, connecting,
-discovering or understanding nodes. The lab's scenes should take their data
-from the graph: for example, stars as nodes, glints as recently touched
-nodes, and sun or moon following the theme. A scene that reads nothing from
-the graph is a sketch, and stays inside the lab.
+discovering or understanding nodes. The first draft of item e read that as
+"every lab scene takes its data from the graph".
+
+**Decision (the user, 2026-09-24):** the lab is an off-by-default sketchbook.
+Its purpose is to experiment with and learn aesthetically pleasing effects,
+3D techniques and motion — lighting, polish, uniformity — so its scenes are
+studies, not product features. A study *may* read the graph when that helps
+the study (the Sky's stars are nodes), but it does not have to, and nothing a
+study does is a kb milestone. What a study proves graduates into functional
+views only through the lab's shared kit (stage, palette, timing, rig,
+controls), for example in item g's graph polish, never as a copy of a study.
+The studies and the Lab principles they follow are specified in
+`tools/kb/DESIGN-UI.md` → The lab.

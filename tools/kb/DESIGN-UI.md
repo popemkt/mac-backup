@@ -498,6 +498,110 @@ beside the built-ins:
 - Off by default means absent from the list. A name with no plugin behind it
   is inert, so shipping or retiring an optional plugin needs no migration.
 
+### The lab
+
+The lab (`components/lab`, `/lab`) is an off-by-default sketchbook for
+real-time 3D: a place to study effects, lighting, polish and motion before
+anything reaches a working view. It is the first optional UI plugin (above).
+Its studies are exercises, not product features: a study **may** read the
+graph (the Sky's stars are nodes), but it does not have to, and nothing a
+study does is a kb milestone. What a study proves graduates into functional
+views only through the shared kit — the graph-polish work (wave item g) builds
+on the same stage, palette and timing, never on a copy of a study.
+
+Four studies, each with a collapsible info card naming its technique, the
+principles below it applies, and two to four live parameters:
+
+| study  | technique                                                        | parameters                          |
+| ------ | ---------------------------------------------------------------- | ----------------------------------- |
+| Embers | TSL compute: a GPU spatial hash grid, contact heat, pops; bloom  | heat gain, cooling rate, pop threshold |
+| Sky    | shader-drawn sprites (four-point glints), a nebula dome, dither   | glint length, nebula, dither        |
+| Light  | key/fill/rim rig, soft shadows, GTAO, tone mapping, finishes     | tone mapping, PBR/matcap, AO, key angle |
+| Motion | staggered critically damped springs against an eased tween        | settle, stagger, drive, overlap     |
+
+The kit (`components/lab/kit`) is the one mechanism every study is built from
+(P4): `stage` (renderer, post chain, tone mapping, palette uniforms, frame
+loop, reveal), `study` (`mountStudy`: the reduced-motion and theme hand-off),
+`timing` (the motion tokens, springs, eases), `tsl` (the typed TSL seam and
+the ease as a shader function), `palette`, `rig` (lights and finishes), `pointer` and `pan` (pointer field, drag-to-turn with momentum),
+`scene-host` and `info-card` (the React side). `three` is imported only by
+the kit's GPU modules and the study scenes, and each study's scene is its own
+dynamic import (`lab/three-import.boundary.test.ts`).
+
+The renderer is three's `WebGPURenderer` (T1): WebGPU where the browser has
+it, three's own WebGL2 backend where it does not, the same node code
+compiling to both. Embers' collision grid needs storage atomics, which the
+WebGL2 backend lacks, so that one study needs WebGPU (a recorded gap).
+
+#### Lab principles
+
+Every study follows these. They are the lab's rules, stated here once; a
+study's info card cites them by id.
+
+**Motion**
+
+- **M1.** Nothing moves linearly except constant ambient rotation.
+  Pointer-follow and settling use a critically damped spring or a
+  frame-rate-independent approach (`1 - exp(-k·dt)`).
+- **M2.** dt is clamped, so a tab switch never causes a jump.
+- **M3.** Momentum and follow-through: drags carry inertia and decay;
+  secondary elements lag the primary (overlap); stagger is small and
+  consistent.
+- **M4.** One hero motion at a time. Ambient motion is slow (periods of 8s or
+  more) and small.
+- **M5.** A visible reaction on the next frame, full settle in roughly
+  300–600ms.
+- **M6.** One timing vocabulary: durations, the ease and spring settle times
+  come from the `motion.css` tokens (`kit/timing.ts` reads them; its fallback
+  mirror is checked against the stylesheet), never retyped per study.
+- **M7.** `prefers-reduced-motion` gives a still composition or a crossfade,
+  never a half-animation.
+
+**Light and colour**
+
+- **L1.** A limited palette: one hue family and one accent, from the
+  `--lab-*` tokens (the accent is `--primary`) through `lib/css-color.ts`.
+  Value contrast over hue contrast.
+- **L2.** Physically plausible light: a named key/fill/rim rig, a set tone
+  mapping (ACES by default; AgX greys a light ground), sRGB output. Bloom's
+  threshold is 1, so only HDR values glow and nothing glows by accident.
+- **L3.** Depth cues: fog or atmospheric perspective, size attenuation, and
+  falloff at the edges.
+- **L4.** No banding in dark gradients: dither (a half-step of noise) in the
+  post chain; the vignette is subtle.
+- **L5.** A small shared material set with fixed roughness and metalness; never
+  three's default grey.
+
+**Composition and polish**
+
+- **P1.** The hero sits at a focal point with negative space around it; the
+  edges fade into the ground, no hard canvas edges.
+- **P2.** No popping: shaders compile before the first frame is shown, and
+  the canvas fades in over the ground.
+- **P3.** A loading state, smooth resize, device pixel ratio at most 2,
+  antialiasing, a steady 60fps, and no per-frame allocation in hot loops.
+- **P4.** Uniformity: every study is built from the one kit; no per-study
+  copy of a mechanism the kit owns.
+- **P5.** The dark and the light theme both look intentional.
+
+**Technology**
+
+- **T1.** WebGPU plus TSL only: `WebGPURenderer` from `three/webgpu` (its
+  WebGL2 fallback is three's, never a hand-rolled second path); every shader
+  and compute kernel a TSL node graph (`Fn`, `uniform`, storage buffers,
+  `compute()`) on node materials, never GLSL/WGSL strings or
+  `ShaderMaterial`; post-processing a TSL graph (`PostProcessing`, `pass()`,
+  `bloom()`, tone mapping, dither); the info card's parameters drive TSL
+  `uniform()`s. Where three's TSL typings are looser than the nodes, the one
+  typed seam is `kit/tsl.ts`. Plain CPU arithmetic that feeds instance data
+  (the Motion field's springs) is not a shader and stays TypeScript. TypeGPU
+  or raw WGSL only where TSL cannot express the thing, recorded as a gap.
+
+Enforcement is honest: the three boundary, the timing mirror, the principle
+bounds on the timing tokens (follow 300–600ms, ambient period 8s+), the pop
+budget and the population invariant are tests; everything else here is prose
+(the `#rule` node for the lab principles says so).
+
 ## Layout
 
 ```
@@ -608,7 +712,8 @@ existing canvas navigation (and existing pinning if desired). Contents remain
 nodes and assets, with the same editing and deletion model as other canvases.
 Future interactive 3D scenes need a reusable asset/view contract before adding a
 renderer; a bespoke playground datastore or app-wide pet overlay is not part of
-this direction. Three.js WebGPU/TSL and Blender glTF assets are candidates for
+this direction. (Technique studies live in the lab — see The lab — and reach
+working views only through its shared kit.) Three.js WebGPU/TSL and Blender glTF assets are candidates for
 that renderer. TypeGPU requires a measured compute use case. Smooth silhouettes,
 antialiasing, readable text, and no accidental polygon faceting are acceptance
 criteria. See `docs/kb-graph-audit-2026-09-06.md` at the repository root for the

@@ -78,6 +78,13 @@
   --canvas-color-4: oklch(0.62 0.15 145);
   --canvas-color-5: oklch(0.62 0.12 210);
   --canvas-color-6: oklch(0.58 0.17 300);
+  /* Lab palette (components/lab, Lab principles L1): one violet hue family
+   * and one accent, the app's own primary. Light: a lavender daylight. */
+  --lab-ground: oklch(0.955 0.02 292);
+  --lab-edge: oklch(0.87 0.04 290);
+  --lab-hue: oklch(0.56 0.13 288);
+  --lab-ink: oklch(0.3 0.08 285);
+  --lab-accent: var(--primary);
   --app-font: "Inter Variable", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
   --font-weight-body: 400;
   --font-weight-ui: 500;
@@ -126,6 +133,11 @@
   --canvas-color-4: oklch(0.76 0.14 145);
   --canvas-color-5: oklch(0.78 0.11 210);
   --canvas-color-6: oklch(0.74 0.15 300);
+  /* Lab palette: a deep violet night. */
+  --lab-ground: oklch(0.19 0.06 292);
+  --lab-edge: oklch(0.1 0.035 290);
+  --lab-hue: oklch(0.5 0.14 292);
+  --lab-ink: oklch(0.93 0.03 290);
 }
 
 html[data-font="outfit"] {

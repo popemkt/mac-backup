@@ -36,6 +36,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Domain typing — one canonical schema | tools/kb/DESIGN.md#domain-typing--effect-schema | tools/kb | A shared shape is declared once and referenced; an inline re-declaration of it is a divergence waiting to drop a field. | prose | — |
 | Effect v4 idiom | tools/kb/AGENTS.md#effect | tools/kb | Read the shipped Effect AGENTS.md before writing Effect code; the v4 non-negotiables listed there are not optional and v3 memory is wrong. | prose | @effect/tsgo diagnostics through tsc (g2) |
 | Kinds, roles and options | tools/kb/DESIGN.md#kinds-roles-and-options | tools/kb | A supertag says what a node is; a behaviour is a field; an option set is children. Strip the behaviour and ask whether the node is still that thing. | prose | A lint rejecting a new supertag that templates no fields would close the option-set clause (@kb/model kinds.test.ts pins it for the seed); the strip test itself stays a reviewer judgement. |
+| Lab principles | tools/kb/DESIGN-UI.md#lab-principles | tools/kb packages/app/ui lab | Every lab study follows the motion (M1–M7), light and colour (L1–L5), composition (P1–P5) and technology (T1: WebGPU plus TSL only) principles and is built from the one lab kit; a study's info card cites them by id and never restates them. | prose | Tests pin the measurable parts (the lab three boundary, the timing-token mirror and its 300–600ms / 8s bounds, the Embers pop budget); a render-lane frame-budget, WebGL2-fallback and reduced-motion-still check would close the rest of P3/M7/T1, and composition stays a review verdict. |
 | Mutation score is advisory | tools/kb/DESIGN.md#testing-doctrine | tools/kb | The kill score is a sensor a human reads to find a missing test; it never blocks a merge, and kb's own weekly run declares itself non-reproducible. | prose | — |
 | Property selection | tools/kb/DESIGN.md#testing-doctrine | tools/kb tests | A property states a falsifiable domain claim and is exercised from the rejecting side. TAUTOLOGY, STRUCTURAL and quantifier theatre are review verdicts cited by name. | prose | — |
 | Spec-first changes | tools/kb/DESIGN.md#spec-first-changes | tools/kb | The design doc is edited before the code it describes, in the same change and earlier in commit order. If the section cannot be written, the code cannot be written. | prose | — |
@@ -149,6 +150,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Offline or interrupted mutations can be lost, and reconnect behavior has no declared conflict resolution.
 - **closes** — Persist queued invocations and define replay ordering plus conflict handling.
 - **node** — `01M1R6NFYFCRBT1F07YJN3H12Y`
+
+### GAP: Embers needs WebGPU; on three's WebGL2 fallback it shows an error instead of a cloud
+
+- **expected** — Every lab study runs on both of WebGPURenderer's backends (WebGPU, and WebGL2 where the browser lacks it), from one TSL source.
+- **current** — Embers' collision grid uses storage-buffer atomics (atomicAdd/atomicLoad in TSL compute), which three's WebGL2 backend cannot run; embers/scene.ts throws on WebGL2 and the study shows 'This study could not start'.
+- **impact** — On a browser without WebGPU the lab's first study is an error card; the other three studies still run. The WebGL2 path of the whole lab is also unexercised: headless Chrome here always offered WebGPU.
+- **closes** — A WebGL2-expressible grid (a counting sort in several transform-feedback passes, or a fixed-slot grid written without atomics), or three's WebGL backend gaining storage atomics; plus a render-lane run with WebGPU disabled.
+- **rule** — Lab principles
+- **node** — `01M3A95XAEE6FGT8ZVDRHYBDF5`
 
 ### GAP: extension SDK mirror is not bidirectionally typed
 
@@ -313,6 +323,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A crash in that window costs every connected client one snapshot instead of frames - the same cost the log already had before it was durable, so nothing regresses. What is not reached is the stated shape: on JSONL the record can still lag the write. The lag is detected exactly, because the mark it is compared by is the file's content hash.
 - **closes** — A write-ahead record the JSONL adapter can commit atomically with the file replace - a single sidecar holding both the candidate bytes and the tail entry, renamed once - or a per-root manifest that names the nodes generation and the tail head together.
 - **node** — `01M1XEZT8XZNSG1NGS9JPCQFGM`
+
+### GAP: the lab pre-compiles only plain scenes; occlusion and shadow scenes compile on the hidden first frame
+
+- **expected** — Every study's pipelines, including the GTAO two-target pass and the shadow pass, are compiled before the first frame is drawn (Lab principle P2).
+- **current** — kit/stage.ts reveal() calls renderer.compileAsync only when the study has no occlusion and no shadows; the Light and Motion studies compile synchronously on the first, still-hidden frame.
+- **impact** — A one-frame compile hitch behind the fade-in on those two studies; nothing pops, but the frame is not pre-warmed.
+- **closes** — Compile through the post chain (PostProcessing.renderAsync on a hidden frame, or a compileAsync that takes the pass's render target and the shadow pass) once three supports it, then drop the condition.
+- **rule** — Lab principles
+- **node** — `01M3A8QG4PEQK0A9N3KPQ3K98X`
 
 ### GAP: the palette index pre-sizes its arrays with new Array(n)
 

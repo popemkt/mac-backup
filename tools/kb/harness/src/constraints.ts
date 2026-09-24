@@ -181,11 +181,20 @@ export const SANCTIONED_TSCONFIG_DELTAS: Record<string, Record<string, string>> 
 export const UI_SRC = "packages/app/ui/src";
 
 /** A surface folder under `components/`: one page family and its chrome. */
-type UiSurface = "canvas" | "graph" | "ontology" | "outline" | "palette" | "prefs" | "sidebar";
+type UiSurface =
+  | "canvas"
+  | "graph"
+  | "lab"
+  | "ontology"
+  | "outline"
+  | "palette"
+  | "prefs"
+  | "sidebar";
 
 const UI_SURFACES: readonly UiSurface[] = [
   "canvas",
   "graph",
+  "lab",
   "ontology",
   "outline",
   "palette",
@@ -279,6 +288,7 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "primitives",
     "components/canvas",
     "components/graph",
+    "components/lab",
     "components/ontology",
     "components/outline",
     "components/palette",
@@ -318,6 +328,7 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   ],
   "components/canvas": ["components/canvas", "primitives", "stores", "actions", "lib"],
   "components/graph": ["components/graph", "primitives", "stores", "actions", "lib"],
+  "components/lab": ["components/lab", "primitives", "stores", "actions", "lib"],
   "components/ontology": ["components/ontology", "primitives", "stores", "actions", "lib"],
   "components/outline": ["components/outline", "primitives", "stores", "actions", "lib"],
   "components/palette": ["components/palette", "primitives", "stores", "actions", "lib"],

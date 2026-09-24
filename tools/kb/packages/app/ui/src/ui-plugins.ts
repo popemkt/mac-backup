@@ -7,9 +7,11 @@
  * `syncUiPlugins`, and the only difference an optional plugin has is that the
  * `enabledPlugins` preference decides whether it is in the set.
  */
+import { FlaskIcon } from "@phosphor-icons/react";
 import type { Plugin } from "@kb/plugin";
 import { canvasUiPlugin } from "@/components/canvas/plugin";
 import { graphUiPlugin } from "@/components/graph/plugin";
+import { labUiPlugin } from "@/components/lab/plugin";
 import { ontologyUiPlugin } from "@/components/ontology/plugin";
 import { outlineUiPlugin } from "@/components/outline/plugin";
 import { syncUiPlugins, type OptionalUiPlugin } from "@/lib/plugins";
@@ -24,7 +26,9 @@ export const BUILTIN_UI_PLUGINS: readonly Plugin[] = [
 ];
 
 /** Loaded only while switched on in Preferences; off by default. */
-export const OPTIONAL_UI_PLUGINS: readonly OptionalUiPlugin[] = [];
+export const OPTIONAL_UI_PLUGINS: readonly OptionalUiPlugin[] = [
+  { plugin: labUiPlugin, label: "lab", icon: FlaskIcon },
+];
 
 /** The plugins the kernel should hold for this set of enabled names. */
 export function uiPluginsFor(

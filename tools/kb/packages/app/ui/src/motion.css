@@ -9,6 +9,12 @@
   --motion-duration-reveal: 280ms;
   --motion-duration-theme: 360ms;
   --motion-duration-arrive: 900ms;
+  /* Script motion: how long a pointer-follow spring takes to settle, the
+   * delay between neighbours in a staggered wave, and the shortest period an
+   * ambient (unprompted) motion may have. */
+  --motion-duration-follow: 480ms;
+  --motion-stagger: 24ms;
+  --motion-ambient-period: 12s;
 }
 
 .kb-workspace-state {

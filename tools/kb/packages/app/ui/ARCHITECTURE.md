@@ -33,15 +33,18 @@ outline surface), never by importing a sibling folder.
 | `graph`    | `graph.page` `/graph[/<perspective>]`                    | Graph (10)             |
 | `ontology` | `ontology.list` `/o`, `ontology.scope` `/o/<id>[/outline | /graph]`               | Ontologies (20) |
 | `canvas`   | `canvas.list` `/canvas`, `canvas.page` `/canvas/<id>`    | Canvases (30)          |
+| `lab`      | `lab.page` `/lab[/<study>]` (optional, off by default)   | Lab (40)               |
 
-Lazy chunks: graph, canvas, ontology — each surface file lazy-loads its page.
+Lazy chunks: graph, canvas, ontology, lab — each surface file lazy-loads its
+page; each lab study's three.js scene is a further dynamic import.
 Outline stays eager (primary path).
 
 The plugins above are built-in and always loaded. An optional plugin is listed
 in `OPTIONAL_UI_PLUGINS` instead, and the `enabledPlugins` preference decides
 whether it is loaded; both lists reach the kernel through the one
 `syncUiPlugins` call, so an optional plugin is written exactly like a built-in
-one. See DESIGN-UI.md → Optional UI plugins.
+one. See DESIGN-UI.md → Optional UI plugins, and → The lab for the first
+one and the Lab principles its studies follow.
 
 ## Error isolation
 
@@ -95,6 +98,7 @@ components/
   graph/                  renderers + toolbar (lazy page)
   canvas/                 page + cards (lazy)
   ontology/               scope + definition pages (lazy)
+  lab/                    optional 3D studies: kit/ + one folder per study (lazy)
   sidebar/, palette/, prefs/, ui/
 catalog/                  story modules + smoke tests (dev/test only)
 stores/, lib/, api/, actions/

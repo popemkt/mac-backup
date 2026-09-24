@@ -1,0 +1,94 @@
+/**
+ * The lab's light rig and material set (Lab principles L2, L5).
+ *
+ * Light: a named three-point rig. The key is a warm directional light (it
+ * carries the accent) that may cast soft shadows; the fill is a hemisphere
+ * light from the hue family above and the ground below, so shadows are
+ * coloured rather than grey; the rim is a cool light from behind that draws
+ * silhouettes out of the background.
+ *
+ * Materials: four finishes with fixed roughness/metalness, all tinted from
+ * the palette — no study ships three's default grey.
+ */
+import {
+  Color,
+  DirectionalLight,
+  HemisphereLight,
+  MeshStandardNodeMaterial,
+  type Object3D,
+} from "three/webgpu";
+import type { LabPalette } from "@/components/lab/kit/palette";
+
+/** Physically plausible intensities for the rig, under AgX. */
+const KEY = 3.2;
+const FILL = 1.5;
+const RIM = 2.2;
+
+export interface LightRig {
+  readonly key: DirectionalLight;
+  readonly fill: HemisphereLight;
+  readonly rim: DirectionalLight;
+  readonly lights: readonly Object3D[];
+  /** Re-tint from a palette (a theme change). */
+  setPalette(palette: LabPalette): void;
+  /** Swing the key round the subject, radians from front-left. */
+  setKeyAngle(angle: number, height: number, distance: number): void;
+}
+
+export function createRig(palette: LabPalette, shadows: boolean): LightRig {
+  const key = new DirectionalLight(undefined, KEY);
+  const fill = new HemisphereLight(undefined, undefined, FILL);
+  const rim = new DirectionalLight(undefined, RIM);
+  rim.position.set(-3, 4, -6);
+  if (shadows) {
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.radius = 6;
+    key.shadow.blurSamples = 16;
+    key.shadow.bias = -0.0004;
+    key.shadow.normalBias = 0.02;
+    const box = key.shadow.camera;
+    box.left = -6;
+    box.right = 6;
+    box.top = 6;
+    box.bottom = -6;
+    box.near = 0.5;
+    box.far = 30;
+  }
+  const scratch = new Color();
+  const rig: LightRig = {
+    key,
+    fill,
+    rim,
+    lights: [key, fill, rim],
+    setPalette: (p) => {
+      key.color.setRGB(1, 1, 1).lerp(scratch.set(p.accent), 0.28);
+      fill.color.set(p.hue).lerp(scratch.set(p.ink), 0.2);
+      fill.groundColor.set(p.ground);
+      rim.color.set(p.ink).lerp(scratch.set(p.hue), 0.35);
+    },
+    setKeyAngle: (angle, height, distance) => {
+      key.position.set(Math.cos(angle) * distance, height, Math.sin(angle) * distance);
+    },
+  };
+  rig.setPalette(palette);
+  rig.setKeyAngle(Math.PI * 0.8, 7, 6);
+  return rig;
+}
+
+type LabFinish = "matte" | "satin" | "glaze" | "metal";
+
+/** The one table of finishes (L5): roughness and metalness never vary by study. */
+const FINISHES: Record<LabFinish, { readonly roughness: number; readonly metalness: number }> = {
+  matte: { roughness: 0.9, metalness: 0 },
+  satin: { roughness: 0.55, metalness: 0 },
+  glaze: { roughness: 0.2, metalness: 0 },
+  metal: { roughness: 0.32, metalness: 1 },
+};
+
+/** A finish; its colour is the given one, or the study's own `colorNode`. */
+export function labMaterial(finish: LabFinish, color?: string): MeshStandardNodeMaterial {
+  const material = new MeshStandardNodeMaterial(FINISHES[finish]);
+  if (color !== undefined) material.color.set(color);
+  return material;
+}

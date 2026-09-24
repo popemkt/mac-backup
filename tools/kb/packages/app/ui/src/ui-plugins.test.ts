@@ -9,7 +9,7 @@ import { definePlugin, makeKernel } from "@kb/plugin";
 import { GearIcon } from "@phosphor-icons/react";
 import { SidebarSectionPoint, SurfacePoint, matchSurface } from "@/lib/plugins";
 import { ontologyPath, type OntologyView } from "@/lib/router";
-import { BUILTIN_UI_PLUGINS, uiPluginsFor } from "@/ui-plugins";
+import { BUILTIN_UI_PLUGINS, OPTIONAL_UI_PLUGINS, uiPluginsFor } from "@/ui-plugins";
 
 function kernelWithBuiltins() {
   const kernel = makeKernel();
@@ -98,5 +98,14 @@ describe("optional plugins", () => {
 
   it("never drop a built-in, whatever the preference says", () => {
     expect(names(["outline"])).toEqual(BUILTIN_UI_PLUGINS.map((p) => p.name));
+  });
+});
+
+describe("the lab", () => {
+  it("ships as an optional plugin, never as a built-in", () => {
+    expect(OPTIONAL_UI_PLUGINS.map((entry) => entry.plugin.name)).toContain("lab");
+    expect(BUILTIN_UI_PLUGINS.map((plugin) => plugin.name)).not.toContain("lab");
+    expect(uiPluginsFor(OPTIONAL_UI_PLUGINS, []).map((p) => p.name)).not.toContain("lab");
+    expect(uiPluginsFor(OPTIONAL_UI_PLUGINS, ["lab"]).map((p) => p.name)).toContain("lab");
   });
 });
