@@ -135,11 +135,23 @@ function compileReachRules(
   return `[${chunks.join(" ")}]`;
 }
 
+/**
+ * Every hop's far end must be an entity: a step and a result are nodes. A
+ * dangling field ref is its id string in the value slot, and DataScript
+ * rejects a string bound into an entity slot — so the test cannot be a
+ * pattern like `[?b :node/id]`, which puts `?b` in one. On a node-valued attr
+ * the value is an eid or a dangling id string, and only the eid's `str`
+ * differs from itself.
+ */
+function isEntity(v: string): string {
+  return `[(str ?${v}) ?${v}_str] [(not= ?${v}_str ?${v})]`;
+}
+
 function compileOneReach(clause: ReachClause, name: string): string {
   const edge = clause.edge;
   const max = clause.maxHops;
   if (max === undefined) {
-    return `[(${name} ?a ?b) [?a ${edge} ?b]] [(${name} ?a ?b) [?a ${edge} ?mid] (${name} ?mid ?b)]`;
+    return `[(${name} ?a ?b) [?a ${edge} ?b] ${isEntity("b")}] [(${name} ?a ?b) [?a ${edge} ?mid] ${isEntity("mid")} (${name} ?mid ?b)]`;
   }
-  return `[(${name} ?a ?b ?h) [?a ${edge} ?b] [(<= ?h ${max})]] [(${name} ?a ?b ?h) [?a ${edge} ?mid] [(< ?h ${max})] [(+ ?h 1) ?h2] (${name} ?mid ?b ?h2)]`;
+  return `[(${name} ?a ?b ?h) [?a ${edge} ?b] ${isEntity("b")} [(<= ?h ${max})]] [(${name} ?a ?b ?h) [?a ${edge} ?mid] ${isEntity("mid")} [(< ?h ${max})] [(+ ?h 1) ?h2] (${name} ?mid ?b ?h2)]`;
 }

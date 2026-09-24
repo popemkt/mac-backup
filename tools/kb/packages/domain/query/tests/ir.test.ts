@@ -276,6 +276,87 @@ describe("reach compiles to a recursive DataScript rule", () => {
   });
 });
 
+function reachIr(root: string, edge: string, extra: Partial<IrQuery> = {}): IrQuery {
+  return {
+    kind: "query",
+    find: [{ kind: "var", name: "id", type: "node-ref" }],
+    ...extra,
+    where: [
+      { kind: "pattern", entity: "root", attr: ":node/id", value: { t: "str", value: root } },
+      { kind: "reach", from: "root", to: "n", edge },
+      { kind: "pattern", entity: "n", attr: ":node/id", value: { t: "var", name: "id" } },
+      ...(extra.where ?? []),
+    ],
+  };
+}
+
+function ids(rows: unknown): unknown[] {
+  return sortedRows(rows)
+    .map((r) => r[0])
+    .toSorted((x, y) => String(x).localeCompare(String(y)));
+}
+
+describe("reach steps through nodes only", () => {
+  const index = indexFor([
+    node("a", {
+      props: {
+        parent: [
+          { t: "ref", v: "b" },
+          { t: "ref", v: "ghost" },
+        ],
+      },
+    }),
+    node("b", { props: { parent: [{ t: "ref", v: "c" }] } }),
+    node("c", { props: { parent: [{ t: "ref", v: "gone" }] } }),
+  ]);
+
+  test("a dangling ref is neither followed nor returned", () => {
+    expect(ids(index.run(reachIr("a", ":f/parent")))).toEqual(["b", "c"]);
+    const bare: IrQuery = {
+      kind: "query",
+      find: [{ kind: "var", name: "n", type: "node-ref" }],
+      where: [
+        { kind: "pattern", entity: "root", attr: ":node/id", value: { t: "str", value: "a" } },
+        { kind: "reach", from: "root", to: "n", edge: ":f/parent" },
+      ],
+    };
+    expect(ids(index.run(bare))).toEqual(["b", "c"]);
+  });
+
+  test("the bounded form skips dangling refs too", () => {
+    const ir = reachIr("a", ":f/parent");
+    const where = ir.where.map((c) => (c.kind === "reach" ? { ...c, maxHops: 5 } : c));
+    expect(ids(index.run({ ...ir, where }))).toEqual(["b", "c"]);
+  });
+});
+
+describe("reach shares the % slot with the caller's rules", () => {
+  const index = indexFor([
+    node("a", { text: "[[b]]" }),
+    node("b", { text: "[[c]]" }),
+    node("c", { text: "leaf" }),
+  ]);
+  const leafRule = `[[(leaf ?n) [?n :node/text "leaf"]]]`;
+
+  test("a declared % receives both rule sets", () => {
+    const ir = reachIr("a", ":node/mentions", {
+      in: ["%"],
+      where: [{ kind: "rule", name: "leaf", args: [{ t: "var", name: "n" }] }],
+    });
+    expect(ids(index.run(ir, leafRule))).toEqual(["c"]);
+  });
+
+  test("% declared after another input still lines up", () => {
+    const ir = reachIr("a", ":node/mentions", {
+      in: ["text", "%"],
+      where: [
+        { kind: "pattern", entity: "n", attr: ":node/text", value: { t: "var", name: "text" } },
+      ],
+    });
+    expect(ids(index.run(ir, "leaf", "[]"))).toEqual(["c"]);
+  });
+});
+
 describe("children clause replaces the cartesian join", () => {
   const index = indexFor([
     node("p", { children: ["c1", "c2", "c3"] }),

@@ -64,8 +64,31 @@ export function datascriptExecutor(db: DatascriptDb): EdnExecutor {
 function executeIr(exec: EdnExecutor, ir: Ir, inputs: readonly unknown[]): unknown {
   const compiled = compile(ir);
   const normalized = inputs.map(normalizeQueryInput);
-  const extra = compiled.rules !== undefined ? [compiled.rules, ...normalized] : normalized;
-  return exec(compiled.query, ...extra);
+  return exec(compiled.query, ...withCompiledRules(ir, compiled.rules, normalized));
+}
+
+/**
+ * Seat the compiler's rules in the `%` slot. `compile` adds `%` first when the
+ * query does not declare it; when the query does, the caller's rules string is
+ * in that slot and the compiled rules join it.
+ */
+function withCompiledRules(ir: Ir, rules: string | undefined, inputs: unknown[]): unknown[] {
+  if (rules === undefined) return inputs;
+  const slot = ir.kind === "query" ? (ir.in ?? []).indexOf("%") : -1;
+  if (slot === -1) return [rules, ...inputs];
+  const own = inputs[slot];
+  if (typeof own !== "string") {
+    throw new DatalogError("the % input must be an EDN rules vector string");
+  }
+  return inputs.with(slot, `[${rulesBody(own)} ${rulesBody(rules)}]`);
+}
+
+function rulesBody(rules: string): string {
+  const trimmed = rules.trim();
+  if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) {
+    throw new DatalogError(`rules must be an EDN vector: ${rules}`);
+  }
+  return trimmed.slice(1, -1);
 }
 
 /**
