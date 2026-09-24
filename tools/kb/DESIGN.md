@@ -951,6 +951,39 @@ provenance.
 - `datascript` npm. Every load rebuilds a DataScript database from the current
   nodes, then queries that value.
 - `kb query '<edn datalog>'` for raw power; pull API via `kb get <id> --depth N`.
+- **One parser, one compiler.** Every datalog surface — `kb query`, `kb run`,
+  MCP `graph_query`, `#query` nodes over `/ws`, the UI's `@/ds` seam — hands
+  its EDN to `KbIndex.runDatalog`, which is `compile(parseEdn(edn))` then
+  DataScript. The subset `parseEdn` understands becomes the kb IR
+  (`@kb/query`'s `ir.ts`); anything else passes through as `raw`, unchanged.
+- **Transitive reach** is a `:where` clause in that subset, written as a rule
+  call so the EDN stays valid datalog:
+
+  ```clojure
+  (reach ?from <edge> ?to)           ; 1..∞ hops — no cap
+  (reach ?from <edge> ?to <max>)     ; 1..max hops, max a positive integer
+  ```
+
+  `<edge>` is any node-valued attribute: `:node/mentions` (the reference
+  relation, either carrier), `:node/child`, or `:f/<fieldId>` for a ref field.
+  `?from` and `?to` are variables, and either end may be the bound one:
+  `(reach ?me :f/parent ?anc)` walks up a lineage, `(reach ?d :f/parent ?me)`
+  walks down it. Each step and each result is a node — a dangling ref (kept
+  as its id string, see Data model) is neither followed nor returned — and a
+  cycle terminates, because the unbounded form is a set fixpoint and the
+  bounded form counts hops. The compiler owns the recursive rules it emits
+  (private `__kb_reach_<n>` names, so a caller's own rule cannot collide):
+  `%` is added to `:in` when the query does not declare it, and when it does,
+  the emitted rules are appended to the rules string the caller passes there.
+  The engine is DataScript's recursive-rule evaluation, which is superlinear
+  in path length; a lineage of hundreds of hops is seconds, not milliseconds.
+  Path reconstruction and a minimum hop count are not in the form: a path is
+  not a datalog relation, and a hop counter on the unbounded form would not
+  terminate on a cycle.
+
+  ```bash
+  kb query '[:find ?id :where [?r :node/id "n.root-a"] (reach ?r :node/mentions ?n) [?n :node/id ?id]]'
+  ```
 - Query failures are typed at the action boundary: errors thrown by the
   datascript engine on the caller's EDN become `DatalogError`
   (→ `invalid_input`); defects in our own glue (normalization / result
