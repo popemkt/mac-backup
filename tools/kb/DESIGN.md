@@ -966,6 +966,11 @@ provenance.
 
   `<edge>` is any node-valued attribute: `:node/mentions` (the reference
   relation, either carrier), `:node/child`, or `:f/<fieldId>` for a ref field.
+  A list headed `reach` with a keyword in the edge slot is this form. If it is
+  malformed (an end that is not a variable, a bound that is not a positive
+  integer, extra arguments), that is a `DatalogError` naming `reach`
+  (`invalid_input`), not a `raw` fallback. Without the keyword it is an
+  ordinary rule call.
   `?from` and `?to` are variables, and either end may be the bound one:
   `(reach ?me :f/parent ?anc)` walks up a lineage, `(reach ?d :f/parent ?me)`
   walks down it. Each step and each result is a node: a dangling ref (kept

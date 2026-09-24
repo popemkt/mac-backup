@@ -1,4 +1,5 @@
 import { present } from "@kb/model";
+import { DatalogError } from "../datalog-error.ts";
 import type {
   Clause,
   FindPos,
@@ -29,7 +30,7 @@ class ParseFail extends Error {}
  * Parse stored-form EDN into the kb IR. The subset is `:find` / `:in` / `:where`
  * over pattern clauses, rule calls, `(reach …)`, `count`/`collect`/`pull`, and
  * the child cartesian which collapses to `children`. Anything else is
- * `{ kind: "raw" }`.
+ * `{ kind: "raw" }`, except a malformed `reach`, which throws `DatalogError`.
  */
 export function parseEdn(edn: string): Ir {
   try {
@@ -39,7 +40,8 @@ export function parseEdn(edn: string): Ir {
     if (src.i !== src.s.length) return { kind: "raw", edn };
     const query = queryFromEdn(value);
     return query ?? { kind: "raw", edn };
-  } catch {
+  } catch (err) {
+    if (err instanceof DatalogError) throw err;
     return { kind: "raw", edn };
   }
 }
@@ -275,13 +277,24 @@ function clauseFromEdn(item: Edn): Clause | null {
   return null;
 }
 
-/** `(reach ?from <edge> ?to)` / `(reach ?from <edge> ?to <max>)` — DESIGN.md → Query layer. */
+/**
+ * `(reach ?from <edge> ?to)` / `(reach ?from <edge> ?to <max>)` — DESIGN.md →
+ * Query layer. A list headed `reach` with a keyword in the edge slot is kb's
+ * form, so a malformed one is the caller's error, named as such: left raw,
+ * DataScript would only report a missing `%`. Without the keyword it is an
+ * ordinary rule call.
+ */
 function reachFromEdn(parts: Edn[]): ReachClause | null {
   const [name, from, edge, to, max, ...rest] = parts;
-  if (name?.k !== "sym" || name.v !== "reach" || rest.length > 0) return null;
-  if (from?.k !== "sym" || !from.v.startsWith("?")) return null;
-  if (edge?.k !== "kw") return null;
-  if (to?.k !== "sym" || !to.v.startsWith("?")) return null;
+  if (name?.k !== "sym" || name.v !== "reach" || edge?.k !== "kw") return null;
+  const form = "(reach ?from <edge> ?to [max])";
+  if (from?.k !== "sym" || !from.v.startsWith("?")) {
+    throw new DatalogError(`reach: ?from must be a variable in ${form}`);
+  }
+  if (to?.k !== "sym" || !to.v.startsWith("?")) {
+    throw new DatalogError(`reach: ?to must be a variable in ${form}`);
+  }
+  if (rest.length > 0) throw new DatalogError(`reach takes at most 4 arguments: ${form}`);
   const clause: ReachClause = {
     kind: "reach",
     from: from.v.slice(1),
@@ -289,7 +302,9 @@ function reachFromEdn(parts: Edn[]): ReachClause | null {
     edge: edge.v,
   };
   if (max === undefined) return clause;
-  if (max.k !== "num" || !Number.isInteger(max.v) || max.v < 1) return null;
+  if (max.k !== "num" || !Number.isInteger(max.v) || max.v < 1) {
+    throw new DatalogError(`reach: max must be a positive integer in ${form}`);
+  }
   return { ...clause, maxHops: max.v };
 }
 

@@ -378,6 +378,12 @@ describe("cli e2e (tmpdir)", () => {
     const run = await kb(["run", "one-hop"]);
     expect(run.code).toBe(0);
     expect(JSON.parse(run.stdout).output.rows).toEqual([[added[2]]]);
+
+    const malformed = await kb(["query", edn.replace("?n)", "?n 0)")]);
+    expect(malformed.code).toBe(1);
+    const body = JSON.parse(malformed.stdout);
+    expect(body.code).toBe("invalid_input");
+    expect(body.message).toContain("reach: max must be a positive integer");
   });
 
   test("usage errors exit 2", async () => {

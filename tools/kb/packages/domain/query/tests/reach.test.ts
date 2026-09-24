@@ -4,7 +4,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import type { KbNode, PropValue } from "@kb/model";
-import { DatascriptIndex, compile, parseEdn } from "@kb/query";
+import { DatalogError, DatascriptIndex, compile, parseEdn } from "@kb/query";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -64,12 +64,18 @@ describe("parseEdn reads the reach form", () => {
   });
 
   test.each([
-    ["zero bound", "(reach ?a :f/parent ?b 0)"],
-    ["fractional bound", "(reach ?a :f/parent ?b 1.5)"],
-    ["constant end", '(reach "p0" :f/parent ?b)'],
-    ["extra argument", "(reach ?a :f/parent ?b 2 3)"],
-  ])("malformed (%s) is not a reach clause", (_label, clause) => {
-    expect(parseEdn(`[:find ?b :where ${clause}]`).kind).toBe("raw");
+    ["zero bound", "(reach ?a :f/parent ?b 0)", /max must be a positive integer/],
+    ["fractional bound", "(reach ?a :f/parent ?b 1.5)", /max must be a positive integer/],
+    ["string bound", '(reach ?a :f/parent ?b "3")', /max must be a positive integer/],
+    ["constant from", '(reach "p0" :f/parent ?b)', /\?from must be a variable/],
+    ["constant to", '(reach ?a :f/parent "p1")', /\?to must be a variable/],
+    ["extra argument", "(reach ?a :f/parent ?b 2 3)", /at most 4 arguments/],
+  ])("malformed (%s) is a DatalogError naming reach", (_label, clause, message) => {
+    const edn = `[:find ?b :where ${clause}]`;
+    expect(() => parseEdn(edn)).toThrow(DatalogError);
+    expect(() => parseEdn(edn)).toThrow(message);
+    expect(() => new DatascriptIndex(lineage(1)).runDatalog(edn)).toThrow(DatalogError);
+    expect(() => new DatascriptIndex(lineage(1)).runDatalog(edn)).toThrow(/^reach/);
   });
 });
 
