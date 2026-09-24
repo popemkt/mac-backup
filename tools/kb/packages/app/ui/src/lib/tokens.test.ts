@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { TYPE_STEPS } from "./cn";
+import { ELEVATIONS, TYPE_STEPS } from "./cn";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -124,17 +124,27 @@ describe("kb tokens", () => {
     expect(designSystem).toMatch(/--font-weight-body:\s*400/);
   });
 
-  it("the type scale is one list: design system, Tailwind bridge, tailwind-merge", () => {
-    // Tailwind's own steps are reset, so the bridge is the only source of
-    // text-* sizes; each bridged step reads a design-system value; and
-    // tailwind-merge knows exactly those names (else it reads them as colours).
+  // Each scale kb owns is one list in three places. Tailwind's own steps are
+  // reset, so the bridge is the only source of its utilities; each bridged
+  // step reads a design-system value of the same name; and tailwind-merge
+  // knows exactly those names (else it misfiles them, e.g. a size as a colour).
+  it.each([
+    { namespace: "text", source: "type", names: TYPE_STEPS },
+    { namespace: "shadow", source: "elevation", names: ELEVATIONS },
+  ])("the $namespace scale is one list: design system, bridge, tailwind-merge", (scale) => {
     const bridge = stripComments(index);
-    expect(bridge).toMatch(/--text-\*:\s*initial;/);
-    const bridged = [...bridge.matchAll(/--text-([a-z]+):\s*var\(--type-([a-z]+)\);/g)];
-    expect(bridged.map((m) => m[1])).toEqual([...TYPE_STEPS]);
+    expect(bridge).toContain(`--${scale.namespace}-*: initial;`);
+    const bridged = [
+      ...bridge.matchAll(
+        new RegExp(`--${scale.namespace}-([a-z]+):\\s*var\\(--${scale.source}-([a-z]+)\\);`, "g"),
+      ),
+    ];
+    expect(bridged.map((m) => m[1])).toEqual([...scale.names]);
     for (const m of bridged) expect(m[2]).toBe(m[1]);
-    const values = [...stripComments(designSystem).matchAll(/--type-([a-z]+):/g)].map((m) => m[1]);
-    expect(values).toEqual([...TYPE_STEPS]);
+    const values = [
+      ...stripComments(designSystem).matchAll(new RegExp(`--${scale.source}-([a-z]+):`, "g")),
+    ].map((m) => m[1]);
+    expect(values).toEqual([...scale.names]);
   });
 
   it("text-[Npx] literals in ui/src stay within §1.2 whitelist", () => {

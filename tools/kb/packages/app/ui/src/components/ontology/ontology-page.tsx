@@ -395,7 +395,7 @@ function Segmented<T extends string>({
           className={cn(
             "rounded-[5px] px-2 py-0.5 text-label font-medium transition-colors duration-100",
             o.key === value
-              ? "bg-background text-foreground/75 shadow-sm"
+              ? "bg-background text-foreground/75 shadow-raised"
               : "text-foreground/35 hover:text-foreground/60",
           )}
           onClick={() => onChange(o.key)}

@@ -90,7 +90,7 @@ export function KbNodeCard({
   return (
     <div
       className={cn(
-        "group/card absolute rounded-xl border bg-background shadow-sm",
+        "group/card absolute rounded-xl border bg-background shadow-raised",
         selected ? "border-primary/70 ring-2 ring-primary/15" : "border-foreground/12",
       )}
       style={{
@@ -182,7 +182,7 @@ export function TextCard({
   return (
     <div
       className={cn(
-        "group/card absolute rounded-xl border bg-background p-3 shadow-sm",
+        "group/card absolute rounded-xl border bg-background p-3 shadow-raised",
         selected ? "border-primary/40" : "border-foreground/12",
       )}
       style={{

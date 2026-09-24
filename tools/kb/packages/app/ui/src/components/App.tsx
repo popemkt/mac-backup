@@ -59,7 +59,7 @@ function Toasts() {
           onClick={() => dismiss(t.id)}
           aria-label={`Dismiss notification: ${t.text}`}
           className={cn(
-            "kb-surface-enter rounded-md border px-3 py-2 text-left text-meta shadow-md",
+            "kb-surface-enter rounded-md border px-3 py-2 text-left text-meta shadow-lifted",
             t.kind === "error"
               ? "border-destructive/30 bg-destructive/10 text-destructive"
               : "border-foreground/10 bg-popover text-foreground/70",

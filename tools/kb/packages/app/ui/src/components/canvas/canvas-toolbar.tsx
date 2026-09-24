@@ -40,7 +40,7 @@ export function CanvasToolbar({
 }: CanvasToolbarProps) {
   return (
     <div
-      className="absolute top-1/2 left-2 z-20 flex -translate-y-1/2 flex-col gap-0.5 rounded-lg border border-foreground/10 bg-popover/95 p-1 shadow-lg backdrop-blur-sm"
+      className="absolute top-1/2 left-2 z-20 flex -translate-y-1/2 flex-col gap-0.5 rounded-lg border border-foreground/10 bg-popover/95 p-1 shadow-floating backdrop-blur-sm"
       data-testid="canvas-toolbar"
       role="toolbar"
       aria-label="Canvas tools"

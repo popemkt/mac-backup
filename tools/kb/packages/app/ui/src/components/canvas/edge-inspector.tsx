@@ -59,7 +59,7 @@ export function EdgeInspector({
   return createPortal(
     <div
       ref={ref}
-      className="fixed z-50 w-64 rounded-lg border border-foreground/10 bg-popover p-3 shadow-xl"
+      className="fixed z-50 w-64 rounded-lg border border-foreground/10 bg-popover p-3 shadow-overlay"
       style={{ top: anchor.y + 8, left: Math.max(8, anchor.x - 128) }}
     >
       <div className="mb-2 text-label font-medium text-foreground/50">Edge</div>

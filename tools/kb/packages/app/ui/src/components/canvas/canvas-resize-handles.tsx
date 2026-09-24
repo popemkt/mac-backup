@@ -28,7 +28,7 @@ export function CanvasResizeHandles({
         onResizeStart(event, corner);
       }}
     >
-      <span className="h-2 w-2 rounded-[2px] border border-primary/70 bg-background shadow-sm" />
+      <span className="h-2 w-2 rounded-[2px] border border-primary/70 bg-background shadow-raised" />
     </div>
   ));
 }

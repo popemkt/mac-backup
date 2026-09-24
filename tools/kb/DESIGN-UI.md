@@ -669,6 +669,26 @@ with the element (`leading-*`, or the `.kb-text` role's `--kb-text-leading`).
   `lib/tokens.test.ts` fails if `TYPE_STEPS`, the bridge and the layer-1
   values ever list different names.
 
+### Elevation
+
+How far a surface floats above the page, lowest first. `--elevation-<level>`
+in layer 1 is bridged as `shadow-<level>`, and Tailwind's `shadow-*` scale is
+reset.
+
+| level | used by |
+|---|---|
+| `edge` | the active segment of a segmented control |
+| `raised` | canvas cards, ports and handles, a toggle's knob, small status chips |
+| `lifted` | toasts, the ref autocomplete dropdown |
+| `floating` | floating toolbars and legends over a canvas, graph tooltips |
+| `overlay` | popovers and pickers (the popover anatomy of DESIGN-RESKIN §1.5) |
+| `modal` | the command palette |
+
+The levels are ordered and name a height, not a component. A new surface
+picks the level it floats at. It does not get a level named after itself.
+`ELEVATIONS` in `lib/cn.ts` is held to the bridge the same way `TYPE_STEPS`
+is.
+
 ## Layout
 
 ```

@@ -12,7 +12,7 @@ export function RefAutocomplete({ candidates, activeIndex, onSelect }: RefAutoco
     <ul
       className={cn(
         "absolute left-1 top-full z-20 mt-1 max-h-48 w-72 overflow-auto",
-        "rounded-md border border-foreground/10 bg-popover py-1 shadow-md",
+        "rounded-md border border-foreground/10 bg-popover py-1 shadow-lifted",
         "text-ui",
       )}
       role="listbox"

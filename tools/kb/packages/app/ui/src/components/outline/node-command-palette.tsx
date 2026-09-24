@@ -323,7 +323,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         className={cn(
           "kb-surface-enter fixed z-[100] w-[300px]",
           "rounded-lg border border-foreground/10",
-          "bg-popover shadow-xl",
+          "bg-popover shadow-overlay",
           "overflow-hidden",
         )}
         style={{

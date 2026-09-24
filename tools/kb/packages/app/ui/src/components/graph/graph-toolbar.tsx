@@ -127,7 +127,7 @@ export function GraphToolbar({
   };
 
   return (
-    <div className="absolute right-3 top-3 z-20 flex items-center gap-1 rounded-lg border border-foreground/8 bg-popover/90 p-1 shadow-lg backdrop-blur-sm">
+    <div className="absolute right-3 top-3 z-20 flex items-center gap-1 rounded-lg border border-foreground/8 bg-popover/90 p-1 shadow-floating backdrop-blur-sm">
       {searchOpen && capabilities.search && (
         <div className="flex items-center gap-1 pr-1">
           <input

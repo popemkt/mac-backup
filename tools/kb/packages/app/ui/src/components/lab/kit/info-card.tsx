@@ -95,7 +95,7 @@ export function InfoCard({
   return (
     <section
       aria-label={`${study.label}: how it works`}
-      className="pointer-events-auto w-80 rounded-lg border border-foreground/10 bg-popover/85 text-meta shadow-lg backdrop-blur-md"
+      className="pointer-events-auto w-80 rounded-lg border border-foreground/10 bg-popover/85 text-meta shadow-floating backdrop-blur-md"
     >
       <button
         type="button"

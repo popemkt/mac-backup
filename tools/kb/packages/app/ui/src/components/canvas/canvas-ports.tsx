@@ -27,7 +27,7 @@ export function CanvasPorts({
         onPortDown(side, event);
       }}
     >
-      <span className="h-2.5 w-2.5 rounded-full border-2 border-current bg-background shadow-sm" />
+      <span className="h-2.5 w-2.5 rounded-full border-2 border-current bg-background shadow-raised" />
     </button>
   ));
 }

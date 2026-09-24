@@ -361,7 +361,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
       {isolated !== null ? (
         <button
           type="button"
-          className="absolute bottom-3 left-3 z-20 rounded-md bg-popover px-3 py-1 text-meta leading-4 shadow"
+          className="absolute bottom-3 left-3 z-20 rounded-md bg-popover px-3 py-1 text-meta leading-4 shadow-raised"
           onClick={() => setIsolated(null)}
         >
           Clear cluster:{" "}
@@ -370,7 +370,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
       ) : null}
       {tooltip && meta && (selectedNodeId === null || selectedNodeId === undefined) ? (
         <div
-          className="pointer-events-none absolute z-40 max-w-72 whitespace-normal break-words rounded-md border border-foreground/10 bg-popover px-3 py-2 text-meta leading-4 text-foreground shadow-lg"
+          className="pointer-events-none absolute z-40 max-w-72 whitespace-normal break-words rounded-md border border-foreground/10 bg-popover px-3 py-2 text-meta leading-4 text-foreground shadow-floating"
           style={{
             left: Math.max(
               8,

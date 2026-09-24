@@ -86,7 +86,7 @@ export function RefAddPopover({
       </button>
       {open ? (
         <div
-          className="absolute left-0 top-full z-40 mt-1 w-[260px] rounded-lg border border-foreground/10 bg-popover p-1 shadow-xl"
+          className="absolute left-0 top-full z-40 mt-1 w-[260px] rounded-lg border border-foreground/10 bg-popover p-1 shadow-overlay"
           role="dialog"
           aria-label={title}
         >

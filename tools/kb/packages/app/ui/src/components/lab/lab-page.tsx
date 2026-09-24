@@ -79,7 +79,7 @@ function LabHeader({ scene, backend }: { scene: LabSceneId; backend: LabBackend 
 function HoverLabel({ hover }: { hover: LabHover }) {
   return (
     <div
-      className="pointer-events-none absolute z-10 max-w-64 -translate-x-1/2 truncate rounded-md border border-foreground/10 bg-popover/90 px-2 py-1 text-meta text-foreground/80 shadow-md backdrop-blur-sm"
+      className="pointer-events-none absolute z-10 max-w-64 -translate-x-1/2 truncate rounded-md border border-foreground/10 bg-popover/90 px-2 py-1 text-meta text-foreground/80 shadow-lifted backdrop-blur-sm"
       style={{ left: hover.x, top: hover.y + 14 }}
     >
       {hover.label}

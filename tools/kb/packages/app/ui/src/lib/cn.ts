@@ -24,8 +24,11 @@ export const TYPE_STEPS = [
   "title",
 ] as const;
 
+/** Elevation levels, lowest first; `shadow-<level>`. Same contract as above. */
+export const ELEVATIONS = ["edge", "raised", "lifted", "floating", "overlay", "modal"] as const;
+
 const twMerge = extendTailwindMerge({
-  extend: { theme: { text: [...TYPE_STEPS] } },
+  extend: { theme: { text: [...TYPE_STEPS], shadow: [...ELEVATIONS] } },
 });
 
 export function cn(...inputs: ClassValue[]): string {

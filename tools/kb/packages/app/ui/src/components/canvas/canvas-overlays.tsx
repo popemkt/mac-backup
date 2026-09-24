@@ -66,7 +66,7 @@ export function CanvasOverlays({
       />
 
       {!selectionEmpty(selection) && !inspectorAnchor && !shapeInspectorAnchor && (
-        <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-foreground/10 bg-popover/95 px-2 py-1.5 shadow-lg backdrop-blur-sm">
+        <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-foreground/10 bg-popover/95 px-2 py-1.5 shadow-floating backdrop-blur-sm">
           <span className="mr-1 text-label text-foreground/40">
             {selection.nodeIds.size + selection.edgeIds.size} selected
           </span>

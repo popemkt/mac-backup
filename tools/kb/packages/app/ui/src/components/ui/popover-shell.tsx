@@ -33,7 +33,7 @@ export function PopoverShell({
       aria-label={ariaLabel ?? title}
       data-testid={testId}
       className={cn(
-        "z-40 w-[320px] rounded-lg border border-foreground/10 bg-popover p-2 shadow-xl",
+        "z-40 w-[320px] rounded-lg border border-foreground/10 bg-popover p-2 shadow-overlay",
         className,
       )}
       style={style}

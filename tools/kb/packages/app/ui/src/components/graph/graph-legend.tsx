@@ -75,7 +75,7 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
   if (buckets.length <= 1 && activeFilters.size === 0) return null;
 
   return (
-    <div className="absolute left-3 top-3 z-20 flex flex-col rounded-lg border border-foreground/8 bg-popover/90 shadow-lg backdrop-blur-sm">
+    <div className="absolute left-3 top-3 z-20 flex flex-col rounded-lg border border-foreground/8 bg-popover/90 shadow-floating backdrop-blur-sm">
       <button
         type="button"
         className="flex items-center gap-1.5 px-2.5 py-1.5 text-label font-medium text-foreground/60 hover:text-foreground/80"

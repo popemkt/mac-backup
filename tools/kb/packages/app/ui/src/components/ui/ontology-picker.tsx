@@ -69,7 +69,7 @@ export function OntologyPicker({
         <div
           role="listbox"
           aria-label="Ontologies"
-          className="absolute left-0 top-full z-40 mt-1 min-w-[200px] max-w-xs rounded-lg border border-foreground/10 bg-popover p-1 shadow-xl"
+          className="absolute left-0 top-full z-40 mt-1 min-w-[200px] max-w-xs rounded-lg border border-foreground/10 bg-popover p-1 shadow-overlay"
         >
           <h2 className="px-1.5 pb-1 pt-0.5 text-meta uppercase tracking-wide text-foreground/30">
             Ontologies

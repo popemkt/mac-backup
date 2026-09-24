@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cn, TYPE_STEPS } from "./cn";
+import { cn, ELEVATIONS, TYPE_STEPS } from "./cn";
 
 describe("cn knows the design system's scales", () => {
   it("a type step is a font size, not a colour", () => {
@@ -10,5 +10,11 @@ describe("cn knows the design system's scales", () => {
 
   it("a later type step replaces an earlier one", () => {
     expect(cn("text-label", "text-meta")).toBe("text-meta");
+  });
+
+  it("an elevation level is a shadow, and a later one replaces an earlier one", () => {
+    for (const level of ELEVATIONS) {
+      expect(cn("shadow-raised", `shadow-${level}`)).toBe(`shadow-${level}`);
+    }
   });
 });
