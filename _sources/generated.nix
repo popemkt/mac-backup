@@ -48,10 +48,10 @@
   };
   logseq-nightly = {
     pname = "logseq-nightly";
-    version = "2.0.1-alpha+nightly.20260923";
+    version = "2.0.1-alpha+nightly.20260924";
     src = fetchurl {
-      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260923.zip";
-      sha256 = "sha256-yED1LljTE39hI5xdai2sra4rkl8tfDrlmsJcMTtSO+M=";
+      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260924.zip";
+      sha256 = "sha256-1e2qJ64n8HOt1pkeY9wJ7FktAISpPEzqMEGHX1bVNCk=";
     };
     versionUrl = "https://github.com/logseq/logseq/releases/expanded_assets/nightly";
     versionRegex = "Logseq-darwin-arm64-([0-9A-Za-z.+-]+nightly[.][0-9]+)[.]zip";

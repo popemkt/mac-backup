@@ -83,11 +83,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-yED1LljTE39hI5xdai2sra4rkl8tfDrlmsJcMTtSO+M=",
+            "sha256": "sha256-1e2qJ64n8HOt1pkeY9wJ7FktAISpPEzqMEGHX1bVNCk=",
             "type": "url",
-            "url": "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260923.zip"
+            "url": "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260924.zip"
         },
-        "version": "2.0.1-alpha+nightly.20260923"
+        "version": "2.0.1-alpha+nightly.20260924"
     },
     "vite-plus": {
         "cargoLock": null,
