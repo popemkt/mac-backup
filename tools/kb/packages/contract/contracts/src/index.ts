@@ -7,7 +7,9 @@ export type {
   ActionInvocation,
   ActionReceipt,
 } from "./actions.ts";
+export { ActionPoint, TemplatePoint, extensionPlugin } from "./extension.ts";
 export type {
+  ActionContribution,
   ExtensionAction,
   ExtensionContribution,
   ExtensionFailure,

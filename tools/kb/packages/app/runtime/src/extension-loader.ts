@@ -12,8 +12,9 @@ import type {
 
 /**
  * Extension loader: discovers, imports and validates the TS modules in
- * `.kb/extensions/` against the extension contract. The registry namespaces
- * every contributed id as `ext.<file>.<id>` at build time. Loader failures
+ * `.kb/extensions/` against the extension contract. Each file becomes one
+ * plugin (`extensionPlugin`), so its ids are namespaced `ext.<file>.<id>` by
+ * the kernel like every other plugin's. Loader failures
  * warn and skip the offending file/contribution; they never crash core.
  *
  * What a contribution must look like is @kb/ext-sdk's contract, decoded by
@@ -22,10 +23,6 @@ import type {
  */
 function extensionsDir(root: string): string {
   return join(root, ".kb", "extensions");
-}
-
-export function namespacedId(extName: string, localId: string): string {
-  return `ext.${extName}.${localId}`;
 }
 
 const NAME_RE = /^[\w][\w.-]*$/;

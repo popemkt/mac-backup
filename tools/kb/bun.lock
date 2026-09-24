@@ -91,6 +91,7 @@
         "@kb/ext-sdk": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
+        "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
         "@kb/store-jsonl": "workspace:*",
         "@kb/store-sqlite": "workspace:*",
@@ -211,6 +212,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/model": "workspace:*",
+        "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
         "effect": "catalog:",
         "zod": "catalog:",

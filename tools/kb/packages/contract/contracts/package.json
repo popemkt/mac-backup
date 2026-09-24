@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@kb/model": "workspace:*",
+    "@kb/plugin": "workspace:*",
     "@kb/query": "workspace:*",
     "effect": "catalog:",
     "zod": "catalog:"

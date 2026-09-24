@@ -1,7 +1,13 @@
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { KbCtx, type KbStore, type ExtensionAction, type KbContext } from "@kb/contracts";
+import {
+  KbCtx,
+  extensionPlugin,
+  type ExtensionAction,
+  type KbContext,
+  type KbStore,
+} from "@kb/contracts";
 import { persistEffect } from "@kb/operations";
 import {
   SYSTEM_IDS,
@@ -222,4 +228,5 @@ const actions: ExtensionAction[] = [
   },
 ];
 
-export const canvasActions = actions;
+/** The bundled canvas extension: `ext.canvas.*`. */
+export const canvasPlugin = extensionPlugin({ name: "canvas", actions, templates: [] });

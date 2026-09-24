@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import { Effect } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { z } from "zod";
-import { KbCtx } from "@kb/contracts";
+import { KbCtx, extensionPlugin } from "@kb/contracts";
 import type {
   ExtensionAction,
   ExtensionTemplate,
@@ -130,7 +130,7 @@ const templates: ExtensionTemplate[] = [
   { id: "rules", aliases: ["rules"], template: rules },
 ];
 
-export const docsActions = actions;
-export const docsTemplates = templates;
+/** The bundled docs extension: `ext.docs.*`, with its bare legacy aliases. */
+export const docsPlugin = extensionPlugin({ name: "docs", actions, templates });
 export { rules } from "./rules.ts";
 export { todos } from "./todos.ts";

@@ -1,23 +1,27 @@
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
+  ActionPoint,
+  TemplatePoint,
+  actionToManifestEntry,
+  extensionPlugin,
+  type ActionContribution,
   type ActionDefinition,
   type ActionHandlerEnv,
   type ActionInvocation,
   type ActionReceipt,
-  actionToManifestEntry,
+  type ExtensionFailure,
   type KbContext,
   type TemplateFn,
-  type ExtensionFailure,
-  type LoadedExtension,
 } from "@kb/contracts";
 import type { ActionSchemaError, DomainError } from "@kb/model";
 import { coreActions, invokeReceiptWith, invokeWith, type RegisteredAction } from "@kb/operations";
-import { discoverExtensions, namespacedId } from "./extension-loader.ts";
+import { definePlugin, makeKernel, type Contribution, type Kernel, type Plugin } from "@kb/plugin";
+import { discoverExtensions } from "./extension-loader.ts";
 import { writeErr } from "./output.ts";
-import { docsActions, docsTemplates } from "@kb/ext-docs";
-import { canvasActions } from "@kb/ext-canvas";
-import { checkActions } from "@kb/ext-check";
+import { docsPlugin } from "@kb/ext-docs";
+import { canvasPlugin } from "@kb/ext-canvas";
+import { checkPlugin } from "@kb/ext-check";
 
 /** Services Effect-native handlers may require; provided at the invoke tip. */
 export type { ActionHandlerEnv } from "@kb/contracts";
@@ -54,6 +58,8 @@ export interface ManifestEntry {
 }
 
 export interface Registry {
+  /** The kernel every action and template was loaded into. */
+  kernel: Kernel;
   actions: readonly RegisteredAction[];
   byId: ReadonlyMap<string, RegisteredAction>;
   /** Render templates by namespaced id and by alias; fed to the TemplateRegistry service. */
@@ -63,97 +69,122 @@ export interface Registry {
   manifestEntries: readonly ManifestEntry[];
 }
 
-const BUNDLED_EXTENSIONS: readonly LoadedExtension[] = [
-  { name: "docs", source: "bundled", actions: docsActions, templates: docsTemplates },
-  { name: "canvas", source: "bundled", actions: canvasActions, templates: [] },
-  { name: "check", source: "bundled", actions: checkActions, templates: [] },
-];
+/** Core's actions, contributed like anyone else's but in the root namespace. */
+const corePlugin = definePlugin({
+  name: "core",
+  namespace: "",
+  apply: (ctx) =>
+    Effect.forEach(
+      coreActions,
+      (action) =>
+        ctx.contribute(ActionPoint, {
+          id: action.def.id,
+          aliases: action.aliases,
+          value: { ...action.def, effect: action.effect, handler: action.handler },
+        }),
+      { discard: true },
+    ),
+});
 
+const BUNDLED_PLUGINS: readonly Plugin[] = [docsPlugin, canvasPlugin, checkPlugin];
+
+/** The top-level plugin a contribution belongs to (a child answers for its parent). */
+function rootOwner(contribution: Contribution<unknown>): string {
+  return contribution.owner.split("/")[0] ?? contribution.owner;
+}
+
+function sourceOf(contribution: Contribution<unknown>): string {
+  const owner = rootOwner(contribution);
+  return owner === corePlugin.name ? "core" : `ext:${owner}`;
+}
+
+function registeredAction(contribution: Contribution<ActionContribution>): RegisteredAction {
+  const { value } = contribution;
+  return {
+    def: {
+      id: contribution.id,
+      title: value.title,
+      description: value.description,
+      mode: value.mode,
+      inputSchema: value.inputSchema,
+      outputSchema: value.outputSchema,
+    },
+    effect: value.effect,
+    handler: value.handler,
+    source: sourceOf(contribution),
+    aliases: contribution.aliases,
+  };
+}
+
+function registeredTemplate(contribution: Contribution<TemplateFn>): RegisteredTemplate {
+  return {
+    id: contribution.id,
+    template: contribution.value,
+    source: sourceOf(contribution),
+    aliases: contribution.aliases,
+  };
+}
+
+/**
+ * The registry is a reading of the kernel: load core, the bundled extensions
+ * and the repo's `.kb/extensions`, then derive every table from the points
+ * they contributed to. A plugin that cannot load (a clash, a throwing module)
+ * is reported and leaves nothing behind.
+ */
 const buildRegistry = Effect.fnUntraced(function* (
   root: string | null,
 ): Effect.fn.Return<Registry, never, FileSystem> {
-  const actions: RegisteredAction[] = [...coreActions];
-  const byId = new Map<string, RegisteredAction>();
-  for (const action of coreActions) byId.set(action.def.id, action);
-
-  const templatesById = new Map<string, TemplateFn>();
-
-  const extensions: RegistryExtension[] = [];
+  const kernel = makeKernel();
   const failures: ExtensionFailure[] = [];
+  const sources = new Map<string, string>();
 
-  const register = (ext: LoadedExtension): void => {
-    const registered: RegisteredAction[] = [];
-    const registeredTemplates: RegisteredTemplate[] = [];
-    for (const action of ext.actions) {
-      const id = namespacedId(ext.name, action.id);
-      const aliases = action.aliases ?? [];
-      const clash = [id, ...aliases].find((candidate) => byId.has(candidate));
-      if (clash !== undefined) {
-        failures.push({
-          file: ext.source,
-          error: `action id already registered: ${clash}`,
-        });
-        continue;
-      }
-      const entry: RegisteredAction = {
-        def: {
-          id,
-          title: action.title,
-          description: action.description,
-          mode: action.mode,
-          inputSchema: action.inputSchema,
-          outputSchema: action.outputSchema,
-        },
-        effect: action.effect,
-        handler: action.handler,
-        source: `ext:${ext.name}`,
-        aliases,
-      };
-      actions.push(entry);
-      byId.set(id, entry);
-      for (const alias of aliases) byId.set(alias, entry);
-      registered.push(entry);
-    }
-    for (const template of ext.templates) {
-      const id = namespacedId(ext.name, template.id);
-      const aliases = template.aliases ?? [];
-      const clash = [id, ...aliases].find((candidate) => templatesById.has(candidate));
-      if (clash !== undefined) {
-        failures.push({
-          file: ext.source,
-          error: `template id already registered: ${clash}`,
-        });
-        continue;
-      }
-      const entry: RegisteredTemplate = {
-        id,
-        template: template.template,
-        source: `ext:${ext.name}`,
-        aliases,
-      };
-      templatesById.set(id, template.template);
-      for (const alias of aliases) templatesById.set(alias, template.template);
-      registeredTemplates.push(entry);
-    }
-    extensions.push({
-      name: ext.name,
-      source: ext.source,
-      actions: registered,
-      templates: registeredTemplates,
-    });
-  };
+  const load = (plugin: Plugin, source: string): Effect.Effect<void> =>
+    kernel.load(plugin).pipe(
+      Effect.map(() => {
+        sources.set(plugin.name, source);
+      }),
+      Effect.catchTag("Kb/PluginError", (error) =>
+        Effect.sync(() => {
+          failures.push({ file: source, error: error.message });
+        }),
+      ),
+    );
 
-  for (const ext of BUNDLED_EXTENSIONS) register(ext);
-
+  yield* load(corePlugin, "core");
+  for (const plugin of BUNDLED_PLUGINS) yield* load(plugin, "bundled");
   if (root !== null) {
     const discovered = yield* discoverExtensions(root);
     failures.push(...discovered.failures);
-    for (const ext of discovered.extensions) register(ext);
+    for (const extension of discovered.extensions) {
+      yield* load(extensionPlugin(extension), extension.source);
+    }
   }
 
   for (const failure of failures) {
     writeErr(`kb: extension ${failure.file}: ${failure.error} (skipped)`);
   }
+
+  const actions = kernel.contributions(ActionPoint).map(registeredAction);
+  const byId = new Map<string, RegisteredAction>();
+  for (const action of actions) {
+    byId.set(action.def.id, action);
+    for (const alias of action.aliases) byId.set(alias, action);
+  }
+  const templateEntries = kernel.contributions(TemplatePoint).map(registeredTemplate);
+  const templates = new Map<string, TemplateFn>();
+  for (const template of templateEntries) {
+    templates.set(template.id, template.template);
+    for (const alias of template.aliases) templates.set(alias, template.template);
+  }
+
+  const extensions: RegistryExtension[] = [...sources]
+    .filter(([name]) => name !== corePlugin.name)
+    .map(([name, source]) => ({
+      name,
+      source,
+      actions: actions.filter((action) => action.source === `ext:${name}`),
+      templates: templateEntries.filter((template) => template.source === `ext:${name}`),
+    }));
 
   const manifestEntries: ManifestEntry[] = actions.flatMap((action) => [
     actionToManifestEntry(action.def),
@@ -164,7 +195,7 @@ const buildRegistry = Effect.fnUntraced(function* (
     })),
   ]);
 
-  return { actions, byId, templates: templatesById, extensions, failures, manifestEntries };
+  return { kernel, actions, byId, templates, extensions, failures, manifestEntries };
 });
 
 const registryCache = new Map<string, Effect.Effect<Registry, never, FileSystem>>();

@@ -1,4 +1,4 @@
-import type { ExtensionAction } from "@kb/contracts";
+import { extensionPlugin, type ExtensionAction } from "@kb/contracts";
 import { checkAuditEffect } from "./audit.ts";
 import { auditOutput, emptyInput, syncOutput } from "./model.ts";
 import { checkSyncEffect } from "./sync.ts";
@@ -24,7 +24,8 @@ const actions: ExtensionAction[] = [
   },
 ];
 
-export const checkActions = actions;
+/** The bundled check extension: `ext.check.*`. */
+export const checkPlugin = extensionPlugin({ name: "check", actions, templates: [] });
 export { checkAuditEffect } from "./audit.ts";
 export { checkSyncEffect } from "./sync.ts";
 export { auditOutput, findingSchema, syncOutput } from "./model.ts";

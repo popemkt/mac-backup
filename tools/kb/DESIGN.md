@@ -1041,17 +1041,33 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   render **template** (`{ id, aliases?, template }`, see
   `@kb/contracts/template.ts`). The loader discriminates structurally: a
   contribution carrying a `template` function is a template.
-- The registry discovers them at build and namespaces both kinds of id the
-  same way: `ext.<file>.<id>`, with optional bare-id `aliases`. A failing
-  module or malformed contribution warns and is skipped — extension errors
-  never crash core. `kb ext list` shows what loaded (and what didn't).
+- **Everything loads as a plugin into one kernel** (`@kb/plugin`,
+  `packages/domain/plugin`, `scope:shared`; the model is DeepSeek Harness's
+  Cordis). A plugin is `{ name, namespace?, inject?, apply(ctx) }`; through
+  `ctx` it provides and injects typed services, contributes to typed points,
+  emits and listens to typed events, and loads children. Everything it
+  registers hangs off its Effect `Scope`, so unload closes the scope; a
+  plugin waits as `pending` until what it injects exists, and returns to
+  pending when a provider leaves. A failing `apply` is atomic: nothing it
+  registered survives.
+- Actions and templates are two points of that kernel, `ActionPoint` and
+  `TemplatePoint` in `@kb/contracts`. Core's actions are a plugin in the root
+  namespace (bare ids like `node.add`); each extension is a plugin in
+  `ext.<name>`, so both kinds of id are namespaced `ext.<file>.<id>` by the
+  kernel, with optional bare-id `aliases`. A default-exported array is the
+  declarative form of a plugin — `extensionPlugin` turns it into one — so the
+  bundled extensions and the repo's load the same way. `registryFor` loads
+  them and derives the handler table, the manifest and the template map from
+  the points. A module that fails to import, or a plugin that clashes, is
+  reported and skipped as a unit — extension errors never crash core.
+  `kb ext list` shows what loaded (and what didn't).
 - Templates are handed to the render backbone through the `TemplateRegistry`
   service, provided once by `kbRuntimeLayer`. Core registers **no** template
   of its own: `renderViewEffect` resolves `view.spec.template` against the
   registry and fails `invalid_input` (listing the registered ids) when the
   name is unknown.
-- `@kb/ext-docs` / `@kb/ext-canvas` are Effect-native
-  bundled examples (`effect` handlers using `KbCtx` / `FileSystem` /
+- `@kb/ext-docs` / `@kb/ext-canvas` / `@kb/ext-check` export their plugin
+  (`docsPlugin`, …) and are Effect-native bundled examples (`effect` handlers using `KbCtx` / `FileSystem` /
   `KbStore` Layers). Docs owns `ext.docs.materialize` / `ext.docs.check` and
   the templates `ext.docs.todos` / `ext.docs.rules`, with the bare ids
   `docs.materialize`, `docs.check`, `todos` and `rules` as aliases. Core keeps
