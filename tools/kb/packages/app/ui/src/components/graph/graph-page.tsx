@@ -10,12 +10,12 @@ import {
   extractLensGraph,
   listPerspectiveNodes,
   parsePerspective,
+  resolvePerspective,
   type LensPerspective,
   type LensRenderer,
 } from "@/lib/graph-lens";
 import { hasText } from "@/lib/text";
 import { listOntologyItems } from "@/lib/ontology-scope";
-import { SYSTEM_IDS } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { graphPath, navigate, ontologyPath } from "@/lib/router";
 import { OntologyPicker } from "@/components/ui/ontology-picker";
@@ -75,14 +75,10 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
     [wireNodes],
   );
 
-  const active: LensPerspective | null = useMemo(() => {
-    if (perspectives.length === 0) return null;
-    if (perspectiveId !== null) {
-      const hit = perspectives.find((p) => p.id === perspectiveId);
-      if (hit) return hit;
-    }
-    return perspectives.find((p) => p.id === SYSTEM_IDS.lensAllMentions) ?? perspectives[0] ?? null;
-  }, [perspectives, perspectiveId]);
+  const active: LensPerspective | null = useMemo(
+    () => resolvePerspective(perspectives, perspectiveId),
+    [perspectives, perspectiveId],
+  );
 
   useEffect(() => {
     // Under an ontology scope the URL is /o/<id>/graph; never rewrite it.

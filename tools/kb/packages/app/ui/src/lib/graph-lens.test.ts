@@ -14,6 +14,7 @@ import {
   perspectiveProps,
   resolveClusterKey,
   resolveColor,
+  resolvePerspective,
   resolveSize,
   buildParentMap,
   type LensPerspective,
@@ -138,6 +139,19 @@ describe("parsePerspective / listPerspectiveNodes", () => {
     expect(p.query).toBe("");
     expect(p.clusterBy).toBe("parent");
     expect(p.layout).toBe("force");
+  });
+});
+
+describe("resolvePerspective", () => {
+  const other = perspective({ id: "p.other", label: "Other" });
+  const all = perspective();
+
+  it("takes the asked-for perspective, else all-mentions, else the first", () => {
+    expect(resolvePerspective([other, all], "p.other")).toBe(other);
+    expect(resolvePerspective([other, all], "p.gone")).toBe(all);
+    expect(resolvePerspective([other, all], null)).toBe(all);
+    expect(resolvePerspective([other], null)).toBe(other);
+    expect(resolvePerspective([], "p.other")).toBeNull();
   });
 });
 

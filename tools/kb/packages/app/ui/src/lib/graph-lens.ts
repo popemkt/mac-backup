@@ -362,6 +362,23 @@ export function parsePerspective(node: WireNode): LensPerspective {
   };
 }
 
+/**
+ * The perspective a graph shows when asked for `id`: that one if it exists,
+ * else the seeded all-mentions lens, else the first there is.
+ */
+export function resolvePerspective(
+  perspectives: readonly LensPerspective[],
+  id: string | null,
+): LensPerspective | null {
+  const asked = id === null ? undefined : perspectives.find((p) => p.id === id);
+  return (
+    asked ??
+    perspectives.find((p) => p.id === SYSTEM_IDS.lensAllMentions) ??
+    perspectives[0] ??
+    null
+  );
+}
+
 /** parentOf map from children[] within an optional id set. */
 export function buildParentMap(wireNodes: WireNode[], nodeSet?: Set<string>): Map<string, string> {
   const parentOf = new Map<string, string>();
