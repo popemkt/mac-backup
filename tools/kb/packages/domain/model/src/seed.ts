@@ -477,6 +477,10 @@ export function ensureSystemSeed(
    * already declares on lens.all-mentions and which this pass therefore covers
    * exactly; adding the next such default now means editing the seed, not
    * adding another block here.
+   *
+   * GAP [[01M3A0ZEWWG0VEHXEM3YNKRQ0Y]] — "absent" cannot tell a key the store
+   * never had from one its owner unset, so an unset seeded key comes back on
+   * the next open.
    */
   for (const seed of seedById.values()) {
     const existing = byId.get(seed.id);

@@ -298,6 +298,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
 
+### GAP: the seed's fill-absent pass restores a seeded prop its owner unset
+
+- **expected** — Removing every value of a seeded prop from a seeded node stays removed. The fill-absent pass adds only keys the seed gained after the store was created, never keys the owner deleted.
+- **current** — ensureSystemSeed fills any seed prop key an existing seeded node does not carry, on every open. It cannot tell a key the store never had from one the owner deleted, so 'kb unset lens.all-mentions sys.f.lens.cluster-by' is undone by the next command's open. A following 'kb set' then appends to the restored default. That is how a two-command replace doubled lens.all-mentions' values in both committed stores on 2026-09-24.
+- **impact** — A seeded node's props cannot be cleared, and replacing one with unset followed by set in two commands silently stores the value twice. A replace has to be one node.update carrying both unsetProps and setProps.
+- **closes** — Record which seed prop keys a store has already been offered (for example a seed revision per node, or a tombstone written when a seeded key is unset) and fill only keys added since. Then add a test that an unset seeded key survives reopening.
+- **node** — `01M3A0ZEWWG0VEHXEM3YNKRQ0Y`
+
 ### GAP: the sigma renderer's lifecycle effect carries 32 branches
 
 - **expected** — Renderer setup, event wiring and teardown are three named steps, with the graph-building step shared across renderers.
