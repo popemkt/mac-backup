@@ -103,7 +103,8 @@ scheduled updater keeps moving it within that range.
   through the scheduled PR without anyone touching the config. `check` applies
   the same `src.include_regex`, so both agree on "latest", and it prints a
   line for every source whose newest release is excluded, and counts them in
-  its summary. A hold never disappears silently.
+  its summary. A hold never disappears silently. `chat2db` follows stable
+  releases this way; the reason sits beside it in `nvfetcher.toml`.
 - **Freeze at one version** only when a human must decide each move: set
   nvfetcher's `pinned = true` on the source. `update` then keeps the committed
   version, and `check` keeps reporting the newer upstream (exit 10) for as

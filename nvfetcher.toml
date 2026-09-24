@@ -25,8 +25,11 @@ src.to_pattern = "\\1"
 fetch.url = "https://github.com/genspark-ai/genoffice/releases/download/v$ver/GenOffice-$ver-arm64.dmg"
 passthru = { github = "genspark-ai/genoffice", tagPrefix = "v" }
 
+# Stable releases only: upstream publishes betas (v5.4.0-beta.1) as ordinary,
+# non-prerelease GitHub releases, so the release flag cannot exclude them.
 [chat2db]
-src.github = "OtterMind/Chat2DB"
+src.github_tag = "OtterMind/Chat2DB"
+src.include_regex = '^v[0-9]+\.[0-9]+\.[0-9]+$'
 src.from_pattern = "^v(.+)$"
 src.to_pattern = "\\1"
 fetch.url = "https://github.com/OtterMind/Chat2DB/releases/download/v$ver/Chat2DB-Community-$ver-arm64.dmg"
