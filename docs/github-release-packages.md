@@ -23,8 +23,14 @@ Never edit files under `_sources/` manually.
 The commands answer two different questions, and each question has exactly one
 command.
 
-**Freshness — is there a newer upstream release?** `check` compares each pin
-with its upstream and exits 10 when an update is available. Only the scheduled
+**Freshness — is there a newer upstream release?** `check` resolves every
+source with nvfetcher from the real `nvfetcher.toml` into a temporary
+directory — the same resolution `update` performs, so the two cannot disagree
+— and exits 10 when a resolved version differs from its pin. A source nvfetcher
+cannot resolve exits 20 (a warning with `--best-effort`). Because nvfetcher
+prefetches what it resolves, the first `check` after an upstream release
+downloads that artifact once; nix caches it for later runs and for `update`.
+Only the scheduled
 updater acts on the answer (see [Scheduled Updates](#scheduled-updates)); no
 commit or push gate asks it, because upstreams publish on their own schedule
 and a nightly would otherwise keep every gate red.
@@ -71,8 +77,8 @@ commit, and an unreachable network warns and passes. The hook never runs
 The hook never updates or stages files. Updates are explicit so their diffs can
 be reviewed.
 
-When `GITHUB_TOKEN` is available, `check` sends it to the GitHub API and
-`update` passes it to nvfetcher through a mode-0600 temporary nvchecker keyfile. The keyfile is
+When `GITHUB_TOKEN` is available, `check` and `update` pass it to nvfetcher
+through a mode-0600 temporary nvchecker keyfile. The keyfile is
 removed after the command and is never stored in the repository or printed.
 
 ## Scheduled Updates
@@ -100,10 +106,12 @@ scheduled updater keeps moving it within that range.
 - **Exclude a kind of release** (prereleases, betas): track tags with
   `src.github_tag` and admit only the wanted versions with `src.include_regex`.
   `update` resolves the newest admitted tag, so the next stable release lands
-  through the scheduled PR without anyone touching the config. `check` applies
-  the same `src.include_regex`, so both agree on "latest", and it prints a
-  line for every source whose newest release is excluded, and counts them in
-  its summary. A hold never disappears silently. `chat2db` follows stable
+  through the scheduled PR without anyone touching the config. For every
+  source that declares a list filter (`src.include_regex`,
+  `src.exclude_regex`, `src.ignored`), `check` resolves it a second time with
+  those filters removed; when that answer differs, it prints a line naming the
+  excluded release and counts it in its summary. A hold never disappears
+  silently. `chat2db` follows stable
   releases this way; the reason sits beside it in `nvfetcher.toml`.
 - **Freeze at one version** only when a human must decide each move: set
   nvfetcher's `pinned = true` on the source. `update` then keeps the committed

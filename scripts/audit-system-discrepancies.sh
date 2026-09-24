@@ -768,7 +768,11 @@ if [ -x "$ROOT_DIR/scripts/uv-sources" ]; then
 fi
 if [ -x "$ROOT_DIR/scripts/github-sources" ]; then
   gh_check_probe=${#AUDIT_PROBE_PIDS[@]}
-  audit_probe_start audit_probe_combined "$ROOT_DIR/scripts/github-sources" check --best-effort
+  # Through the flake app: check resolves releases with nvfetcher, which only
+  # the app's runtime inputs guarantee.
+  audit_probe_start audit_probe_combined \
+    env GITHUB_SOURCES_ROOT="$ROOT_DIR" \
+    nix run "$ROOT_DIR#github-sources" -- check --best-effort
 fi
 
 if command -v determinate-nixd >/dev/null 2>&1; then
@@ -843,7 +847,7 @@ fi
 if [ -x "$ROOT_DIR/scripts/github-sources" ]; then
   gh_check_rc="$(audit_probe_status "$gh_check_probe")"
   gh_check_out="$(audit_probe_output "$gh_check_probe")"
-  gh_check_clean="$(printf '%s\n' "$gh_check_out" | grep -vE '^warning: Git tree|^warning: ignoring' || true)"
+  gh_check_clean="$(printf '%s\n' "$gh_check_out" | grep -vE "^warning: Git tree|^warning: ignoring|^this derivation|^building '|^  /nix/store/" || true)"
   case "$gh_check_rc" in
     0) record_ok "$(printf '%s\n' "$gh_check_clean" | tail -1)" ;;
     10)

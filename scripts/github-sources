@@ -96,8 +96,7 @@ pinned_artifacts_reachable() {
   done < <(jq -r '.[].src.url // empty' "$GENERATED_JSON")
 }
 
-# nvfetcher.toml as JSON: the one reader of the configuration. Nix is present
-# wherever this script runs, including outside `nix run`.
+# nvfetcher.toml as JSON: the one reader of the configuration.
 config_json() {
   nix-instantiate --eval --strict --json \
     --expr '{ path }: builtins.fromTOML (builtins.readFile path)' \
@@ -129,6 +128,26 @@ write_pinned_config() {
     | remarshal -if json -of toml >"$pinned_config"
 }
 
+# A source's list filters: the nvchecker options that narrow which upstream
+# versions it may follow. The one place that names them.
+LIST_FILTER_KEYS='["include_regex", "exclude_regex", "ignored"]'
+
+# nvfetcher.toml with each source's list filters removed, keeping only the
+# sources that declare one; resolving it names the newest release upstream
+# offers, which differs from the configured latest while a filter excludes it.
+write_unfiltered_config() {
+  local unfiltered_config="$1"
+  local config
+
+  config="$(config_json)" || return 20
+  jq --argjson filters "$LIST_FILTER_KEYS" '
+    with_entries(
+      select(.value.src | keys | any(IN($filters[])))
+      | .value.src |= with_entries(select(.key | IN($filters[]) | not))
+    )
+  ' <<<"$config" | remarshal -if json -of toml >"$unfiltered_config"
+}
+
 check_sources() {
   local best_effort=false
   if [ "${1:-}" = "--best-effort" ]; then
@@ -140,8 +159,9 @@ check_sources() {
     return 2
   fi
 
-  require_command curl
   require_command jq
+  require_command nvfetcher
+  require_command remarshal
 
   if [ ! -f "$GENERATED_JSON" ]; then
     echo "error: generated source metadata is missing: $GENERATED_JSON" >&2
@@ -149,162 +169,72 @@ check_sources() {
     return 2
   fi
 
-  local source_count
-  source_count="$(
-    jq '[
-      to_entries[]
-      | select(
-          .value.passthru.github != null
-          or .value.passthru.versionUrl != null
-        )
-    ] | length' \
-      "$GENERATED_JSON"
-  )"
-  if [ "$source_count" -eq 0 ]; then
-    echo "error: no release sources found in $GENERATED_JSON" >&2
-    return 2
-  fi
-
   local tmpdir
   tmpdir="$(mktemp -d)"
   trap 'rm -rf "$tmpdir"' RETURN
+  prepare_nvfetcher_auth "$tmpdir"
 
-  local curl_headers=()
-  if [ -n "${GITHUB_TOKEN:-}" ]; then
-    curl_headers=(-H "Authorization: Bearer $GITHUB_TOKEN")
+  # "Latest" is whatever nvfetcher resolves from the real configuration, the
+  # same resolution update performs, so the two cannot disagree. A fresh build
+  # directory makes a pinned = true source resolve too, so a frozen pin keeps
+  # reporting its newer upstream. --keep-going lets one unreachable upstream
+  # cost only its own answer.
+  generate_sources "$NVFETCHER_CONFIG" "$tmpdir/latest" --keep-going \
+    >"$tmpdir/latest.log" 2>&1 || true
+  write_unfiltered_config "$tmpdir/unfiltered.toml" || return
+  if [ -s "$tmpdir/unfiltered.toml" ]; then
+    generate_sources "$tmpdir/unfiltered.toml" "$tmpdir/unfiltered" --keep-going \
+      >"$tmpdir/unfiltered.log" 2>&1 || true
   fi
 
-  # A source's src.include_regex is the release filter nvfetcher's update
-  # applies; check applies the same one so both agree on "latest".
-  local include_regexes
-  include_regexes="$(config_json | jq -c 'map_values(.src.include_regex // "")')"
+  local report
+  report="$(
+    jq -rn \
+      --slurpfile committed "$GENERATED_JSON" \
+      --argjson config "$(config_json)" \
+      --argjson latest "$(cat "$tmpdir/latest/generated.json" 2>/dev/null || echo '{}')" \
+      --argjson newest "$(cat "$tmpdir/unfiltered/generated.json" 2>/dev/null || echo '{}')" \
+      --argjson filters "$LIST_FILTER_KEYS" '
+      $config | keys[] as $name
+      | ($committed[0][$name].version // "∅") as $current
+      | ($latest[$name].version) as $want
+      | ($config[$name].src | keys | any(IN($filters[]))) as $filtered
+      | ($newest[$name].version) as $unfiltered
+      | if $want == null or ($filtered and $unfiltered == null)
+        then "unavailable\t\($name)"
+        else
+          (if $want != $current
+           then "outdated\t\($name): \($current) -> \($want)" else empty end),
+          (if $filtered and $unfiltered != $want
+           then "excluded\t\($name): newer release \($unfiltered) excluded by its list filters"
+           else empty end),
+          "checked\t\($name)"
+        end
+    '
+  )"
 
-  local checked=0
-  local unavailable=0
-  local outdated=0
-  local excluded=0
-  local name repo current tag_prefix response_file http_code
-  local tags tag newest_tag latest newest
-  local version_url version_regex
-
-  while IFS=$'\t' read -r name repo current tag_prefix; do
-    response_file="$tmpdir/${name}.json"
-    # List releases instead of /latest so platform-specific tags (e.g.
-    # linux-v*) do not shadow the prefix-filtered macOS/version tags.
-    if http_code="$(
-      curl \
-        --silent \
-        --show-error \
-        --location \
-        --connect-timeout 2 \
-        --max-time 5 \
-        --retry 0 \
-        --output "$response_file" \
-        --write-out '%{http_code}' \
-        -H "Accept: application/vnd.github+json" \
-        "${curl_headers[@]}" \
-        "https://api.github.com/repos/$repo/releases?per_page=30"
-    )" && [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
-      # The newest release upstream offers, and the newest the source's
-      # include_regex admits; they differ while a release is excluded.
-      tags="$(
-        jq -r \
-          --arg prefix "$tag_prefix" \
-          --arg name "$name" \
-          --argjson include_regexes "$include_regexes" '
-          ($include_regexes[$name] // "") as $include
-          | [.[] | select(.prerelease == false and .draft == false)
-              | .tag_name
-              | select(startswith($prefix))] as $tags
-          | [
-              ($tags[0] // "-"),
-              ([$tags[] | select($include == "" or test($include))][0] // "-")
-            ]
-          | @tsv
-        ' "$response_file" 2>/dev/null || true
-      )"
-      IFS=$'\t' read -r newest_tag tag <<<"$tags"
-      if [ -z "$tag" ] || [ "$tag" = "-" ]; then
-        echo "warning: GitHub returned no matching release for $repo" >&2
-        unavailable=$((unavailable + 1))
-        continue
-      fi
-
-      latest="${tag#"$tag_prefix"}"
-      newest="${newest_tag#"$tag_prefix"}"
-
-      checked=$((checked + 1))
-      if [ "$latest" != "$current" ]; then
-        printf '%s: %s -> %s\n' "$name" "$current" "$latest"
+  local kind line checked=0 outdated=0 excluded=0 unavailable=0
+  while IFS=$'\t' read -r kind line; do
+    case "$kind" in
+      checked) checked=$((checked + 1)) ;;
+      outdated)
+        printf '%s\n' "$line"
         outdated=$((outdated + 1))
-      fi
-      if [ "$newest" != "$latest" ]; then
-        printf '%s: newer release %s excluded by its src.include_regex\n' \
-          "$name" "$newest"
+        ;;
+      excluded)
+        printf '%s\n' "$line"
         excluded=$((excluded + 1))
-      fi
-    else
-      echo "warning: skipped $name; GitHub is unavailable (HTTP ${http_code:-000})" >&2
-      unavailable=$((unavailable + 1))
-    fi
-  done < <(
-    jq -r '
-      to_entries[]
-      | select(.value.passthru.github != null)
-      | [
-          .key,
-          .value.passthru.github,
-          .value.version,
-          (.value.passthru.tagPrefix // "")
-        ]
-      | @tsv
-    ' "$GENERATED_JSON"
-  )
-
-  while IFS=$'\t' read -r name version_url version_regex current; do
-    response_file="$tmpdir/${name}.version-source"
-
-    if curl \
-      --silent \
-      --show-error \
-      --fail \
-      --location \
-      --connect-timeout 2 \
-      --max-time 5 \
-      --retry 0 \
-      --output "$response_file" \
-      "$version_url"; then
-      latest="$(
-        sed -nE "s#.*${version_regex}.*#\\1#p" "$response_file" | head -n 1
-      )"
-      if [ -z "$latest" ]; then
-        echo "warning: $name returned unrecognized release metadata" >&2
+        ;;
+      unavailable)
+        echo "warning: skipped $line; nvfetcher could not resolve its upstream" >&2
         unavailable=$((unavailable + 1))
-        continue
-      fi
+        ;;
+    esac
+  done <<<"$report"
 
-      checked=$((checked + 1))
-      if [ "$latest" != "$current" ]; then
-        printf '%s: %s -> %s\n' "$name" "$current" "$latest"
-        outdated=$((outdated + 1))
-      fi
-    else
-      echo "warning: skipped $name; $version_url is unavailable" >&2
-      unavailable=$((unavailable + 1))
-    fi
-  done < <(
-    jq -r '
-      to_entries[]
-      | select(.value.passthru.versionUrl != null)
-      | [
-          .key,
-          .value.passthru.versionUrl,
-          .value.passthru.versionRegex,
-          .value.version
-        ]
-      | @tsv
-    ' "$GENERATED_JSON"
-  )
+  if [ "$unavailable" -gt 0 ]; then
+    tail -n 20 "$tmpdir/latest.log" >&2
+  fi
 
   if [ "$outdated" -gt 0 ]; then
     print_update_hint
