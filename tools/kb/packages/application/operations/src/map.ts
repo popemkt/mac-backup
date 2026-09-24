@@ -3,69 +3,90 @@ import { isValidWorkspaceName, type ActionInvocation } from "@kb/contracts";
 import { LIST_FIELDS_QUERY, LIST_TAGS_QUERY, backlinksQuery } from "@kb/query";
 import {
   FIELD_TYPES,
+  ResolveError,
+  fieldTypeOf,
   fieldTypeValue,
   isFieldType,
+  resolveFieldId,
   SYSTEM_IDS,
+  type FieldType,
+  type KbNode,
   type PropValue,
   LIST_ONTOLOGIES_QUERY,
 } from "@kb/model";
-
-export type PropType = "str" | "num" | "bool" | "date" | "ref";
-
-const PROP_TYPES: readonly PropType[] = ["str", "num", "bool", "date", "ref"];
-
-/**
- * The one gate a `--type` / `field:type=` fragment passes through. Both prop
- * surfaces name the same set, so the set is stated once and an unknown name
- * is a usage error on either of them rather than a silent fall-through.
- */
-export function parsePropType(raw: string | undefined): PropType | undefined {
-  if (raw === undefined) return undefined;
-  const type = PROP_TYPES.find((t) => t === raw);
-  if (type === undefined) {
-    throw new UsageError({ message: `invalid prop type: ${raw}` });
-  }
-  return type;
-}
 
 export interface PlannedAction {
   id: string;
   input: unknown;
 }
 
-/** Infer PropValue from a CLI string (optional explicit type). */
-export function parsePropValue(
-  raw: string,
-  type?: PropType,
-): { t: PropType; v: string | number | boolean } {
-  if (type === "str") return { t: "str", v: raw };
-  if (type === "num") return { t: "num", v: Number(raw) };
-  if (type === "bool") return { t: "bool", v: raw === "true" || raw === "1" };
-  if (type === "date") return { t: "date", v: raw };
-  if (type === "ref") return { t: "ref", v: raw };
+/** A field named on argv (by name or id) → the type its values are parsed as. */
+export type DeclaredTypes = (field: string) => FieldType;
 
-  if (raw === "true" || raw === "false") return { t: "bool", v: raw === "true" };
-  if (/^-?\d+(\.\d+)?$/.test(raw)) return { t: "num", v: Number(raw) };
+/**
+ * The declared types of the fields in `nodes`, looked up the way actions
+ * resolve a field name.
+ *
+ * A field that does not exist yet is text: that is what `--create` mints, and
+ * without `--create` the action reports the missing field itself. An ambiguous
+ * name is not guessed at — the resolver's error surfaces as it would anywhere.
+ */
+export function declaredTypes(nodes: KbNode[]): DeclaredTypes {
+  return (field) => {
+    try {
+      const id = resolveFieldId(nodes, field);
+      return fieldTypeOf(nodes.find((node) => node.id === id)?.props);
+    } catch (err) {
+      if (err instanceof ResolveError && err.code === "not_found") return "text";
+      throw err;
+    }
+  };
+}
+
+const CHECKBOX_VALUES: Readonly<Record<string, boolean>> = { true: true, false: false };
+
+/**
+ * Parse a CLI argument as a value of the field's declared type.
+ *
+ * The type decides the value kind; the argument's shape never does, so `42`
+ * on a text field is the string "42". An argument the type cannot read is a
+ * usage error, not a coercion: `abc` is no number, and writing it as a string
+ * would only be refused by the write check with a less useful message.
+ */
+export function parseFieldValue(raw: string, type: FieldType, field: string): PropValue {
+  if (type === "number") {
+    const n = raw.trim() === "" ? Number.NaN : Number(raw);
+    if (!Number.isFinite(n)) {
+      throw new UsageError({ message: `${field} is a number field; not a number: ${raw}` });
+    }
+    return { t: "num", v: n };
+  }
+  if (type === "checkbox") {
+    const v = CHECKBOX_VALUES[raw];
+    if (v === undefined) {
+      throw new UsageError({
+        message: `${field} is a checkbox field; expected true|false: ${raw}`,
+      });
+    }
+    return { t: "bool", v };
+  }
+  if (type === "ref") return { t: "ref", v: raw };
+  // text, url, and date — which the UI's date editor also writes as a string.
+  // GAP [[01M39X7NQV187BDQVGH81997M5]] — date has a second carrier, {t:"date"}.
   return { t: "str", v: raw };
 }
 
-/** Parse `field=value` or `field:type=value` fragments. */
-export function parsePropArg(arg: string): {
-  field: string;
-  value: { t: PropType; v: string | number | boolean };
-} {
+/** One `--prop field=value` fragment, parsed as the field's declared type. */
+export function parsePropArg(
+  arg: string,
+  typeOf: DeclaredTypes,
+): { field: string; value: PropValue } {
   const eq = arg.indexOf("=");
   if (eq <= 0) {
     throw new UsageError({ message: `invalid --prop (expected field=value): ${arg}` });
   }
-  const left = arg.slice(0, eq);
-  const raw = arg.slice(eq + 1);
-  const colon = left.lastIndexOf(":");
-  if (colon > 0) {
-    const field = left.slice(0, colon);
-    return { field, value: parsePropValue(raw, parsePropType(left.slice(colon + 1))) };
-  }
-  return { field: left, value: parsePropValue(raw) };
+  const field = arg.slice(0, eq);
+  return { field, value: parseFieldValue(arg.slice(eq + 1), typeOf(field), field) };
 }
 
 /**
@@ -82,11 +103,11 @@ export function mapAdd(opts: {
   parent?: string;
   position?: number;
   tags?: string[];
-  props?: string[];
+  props?: { field: string; value: PropValue }[];
   id?: string;
   force?: boolean;
 }): PlannedAction {
-  const props = (opts.props ?? []).map(parsePropArg);
+  const props = opts.props ?? [];
   return {
     id: "node.add",
     input: {
@@ -104,15 +125,14 @@ export function mapAdd(opts: {
 export function mapSet(opts: {
   id: string;
   field: string;
-  value: string;
-  type?: PropType;
+  value: PropValue;
   force?: boolean;
 }): PlannedAction {
   return {
     id: "node.update",
     input: {
       id: opts.id,
-      setProps: [{ field: opts.field, value: parsePropValue(opts.value, opts.type) }],
+      setProps: [{ field: opts.field, value: opts.value }],
       ...(opts.force === true ? { force: true } : {}),
     },
   };
@@ -121,14 +141,11 @@ export function mapSet(opts: {
 export function mapUnset(opts: {
   id: string;
   field: string;
-  value?: string;
-  type?: PropType;
+  value?: PropValue;
   force?: boolean;
 }): PlannedAction {
-  const entry: { field: string; value?: unknown } = { field: opts.field };
-  if (opts.value !== undefined) {
-    entry.value = parsePropValue(opts.value, opts.type);
-  }
+  const entry: { field: string; value?: PropValue } = { field: opts.field };
+  if (opts.value !== undefined) entry.value = opts.value;
   return {
     id: "node.update",
     input: {

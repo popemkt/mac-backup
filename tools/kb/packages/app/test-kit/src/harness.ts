@@ -209,7 +209,7 @@ function planSet(rng: Rng, live: Livestate, text: string): PlannedAction {
   return mapSet({
     id: rng.choice(live.contentIds),
     field: live.fieldIds.length > 0 ? rng.choice(live.fieldIds) : "status",
-    value: word(rng),
+    value: { t: "str", v: word(rng) },
   });
 }
 

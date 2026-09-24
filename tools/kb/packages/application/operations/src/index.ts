@@ -45,11 +45,11 @@ export {
   mapTagDefine,
   mapTagList,
   mapUnset,
+  declaredTypes,
+  parseFieldValue,
   parsePropArg,
-  parsePropType,
-  parsePropValue,
 } from "./map.ts";
-export type { PlannedAction, PropType } from "./map.ts";
+export type { DeclaredTypes, PlannedAction } from "./map.ts";
 export { ontologyMembersDef, ontologyMembersEffect } from "./ontology.ts";
 export {
   listViewNamesEffect,

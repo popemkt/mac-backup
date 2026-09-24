@@ -507,6 +507,15 @@ type PropValue =
   unique-text lookup among `sys.field`/`sys.tag` nodes (error on ambiguity,
   `--create` to mint). Resolution is dynamic at load — at our scale (\<\<100k
   nodes) caching is premature; revisit only if load profiling says so.
+- **A CLI value is parsed as its field's declared type**, never guessed from
+  its shape (`parseFieldValue` in `@kb/operations`' `map.ts`): `kb set <n>
+  <field> 42` writes the string `"42"` into a text field and the number `42`
+  into a number field, a ref field takes the argument as a node id, and a
+  checkbox takes `true`/`false`. An argument the type cannot read (`abc` for a
+  number) is a usage error, exit 2. A field that does not exist yet reads as
+  text, which is what `--create` mints. There is no per-value type flag: the
+  field already says what its values are, and a flag that disagreed with it
+  would only be refused by the write check.
 - **Refs / `:node/mentions` (the reference relationship, carrier-independent).**
   Two things carry a reference in this model, and `:node/mentions` is emitted
   from **both**:
@@ -1019,11 +1028,11 @@ CLI sugar:
 kb ontology list                        # #ontology nodes
 kb ontology members <id> --reasons      # members + provenance + excluded + warnings
 
-# defining one is plain node.update — but the onto.* ref fields need --type ref:
-# a bare `kb set` writes {t:"str"} and the resolver only counts {t:"ref"}.
-kb set <onto> onto.include <tagId>  --type ref
-kb set <onto> onto.member  <nodeId> --type ref
-kb set <onto> onto.exclude <nodeId> --type ref
+# defining one is plain node.update; the onto.* fields are declared ref, so
+# the argument is written as a ref to that node.
+kb set <onto> onto.include <tagId>
+kb set <onto> onto.member  <nodeId>
+kb set <onto> onto.exclude <nodeId>
 ```
 
 So the UI's scope is _exactly_ reachable through data — the standing rule in

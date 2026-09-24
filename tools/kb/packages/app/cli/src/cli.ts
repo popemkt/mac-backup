@@ -61,7 +61,9 @@ import {
   mapTagDefine,
   mapTagList,
   mapUnset,
-  parsePropType,
+  declaredTypes,
+  parseFieldValue,
+  parsePropArg,
   persistEffect,
   UsageError,
   type PlannedAction,
@@ -299,9 +301,6 @@ interface ForceOpts {
 interface IdOpts {
   id?: string;
 }
-interface TypedPropOpts extends ForceOpts {
-  type?: string;
-}
 interface AddOpts extends IdOpts, ForceOpts {
   parent?: string;
   position?: number;
@@ -309,7 +308,7 @@ interface AddOpts extends IdOpts, ForceOpts {
   prop: string[];
   create?: boolean;
 }
-interface SetOpts extends TypedPropOpts {
+interface SetOpts extends ForceOpts {
   create?: boolean;
 }
 interface MvOpts extends ForceOpts {
@@ -461,7 +460,7 @@ function buildProgram(): Command {
             parent: opts.parent,
             position: opts.position,
             tags: opts.tag,
-            props: opts.prop,
+            props: opts.prop.map((arg) => parsePropArg(arg, declaredTypes(ctx.nodes))),
             id: opts.id,
             force: opts.force === true,
           }),
@@ -476,8 +475,7 @@ function buildProgram(): Command {
     .description("Set a property on a node")
     .argument("<id>", "node id")
     .argument("<field>", "field name or id")
-    .argument("<value>", "value")
-    .option("--type <t>", "str|num|bool|date|ref")
+    .argument("<value>", "value, parsed as the field's declared type")
     .option("--create", "mint missing field", false)
     .option("--force", "allow edits on sys.* nodes", false)
     .action(
@@ -487,8 +485,7 @@ function buildProgram(): Command {
           mapSet({
             id,
             field,
-            value,
-            type: parsePropType(opts.type),
+            value: parseFieldValue(value, declaredTypes(ctx.nodes)(field), field),
             force: opts.force === true,
           }),
           globals,
@@ -502,23 +499,20 @@ function buildProgram(): Command {
     .description("Unset a property on a node")
     .argument("<id>", "node id")
     .argument("<field>", "field name or id")
-    .argument("[value]", "specific value to remove")
-    .option("--type <t>", "str|num|bool|date|ref")
+    .argument("[value]", "specific value to remove, parsed as the field's declared type")
     .option("--force", "allow edits on sys.* nodes", false)
     .action(
       kbAction(
-        (
-          ctx,
-          globals,
-          [id, field, value, opts]: [string, string, string | undefined, TypedPropOpts],
-        ) =>
+        (ctx, globals, [id, field, value, opts]: [string, string, string | undefined, ForceOpts]) =>
           runPlanEffect(
             ctx,
             mapUnset({
               id,
               field,
-              value,
-              type: parsePropType(opts.type),
+              value:
+                value === undefined
+                  ? undefined
+                  : parseFieldValue(value, declaredTypes(ctx.nodes)(field), field),
               force: opts.force === true,
             }),
             globals,

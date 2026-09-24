@@ -19,9 +19,18 @@ import {
   mapTagDefine,
   mapTagList,
   mapUnset,
+  declaredTypes,
+  parseFieldValue,
   parsePropArg,
-  parsePropValue,
+  UsageError,
 } from "@kb/operations";
+import {
+  SYSTEM_IDS,
+  fieldTypeValue,
+  systemSeedNodes,
+  type FieldType,
+  type KbNode,
+} from "@kb/model";
 import { main } from "../src/cli.ts";
 
 describe("arg → invocation mapping", () => {
@@ -31,7 +40,10 @@ describe("arg → invocation mapping", () => {
       parent: "01PARENT",
       position: 2,
       tags: ["todo"],
-      props: ["status=doing", "priority:num=1"],
+      props: [
+        { field: "status", value: { t: "str", v: "doing" } },
+        { field: "priority", value: { t: "num", v: 1 } },
+      ],
     });
     expect(plan.id).toBe("node.add");
     expect(plan.input).toEqual({
@@ -47,7 +59,7 @@ describe("arg → invocation mapping", () => {
   });
 
   test("mapSet / mapUnset / mapRm / mapMv", () => {
-    expect(mapSet({ id: "n1", field: "status", value: "done" }).input).toEqual({
+    expect(mapSet({ id: "n1", field: "status", value: { t: "str", v: "done" } }).input).toEqual({
       id: "n1",
       setProps: [{ field: "status", value: { t: "str", v: "done" } }],
     });
@@ -122,14 +134,50 @@ describe("arg → invocation mapping", () => {
     expect(() => mapActionInvoke({})).toThrow();
   });
 
-  test("parsePropValue / parsePropArg", () => {
-    expect(parsePropValue("true")).toEqual({ t: "bool", v: true });
-    expect(parsePropValue("3.5")).toEqual({ t: "num", v: 3.5 });
-    expect(parsePropValue("hi", "ref")).toEqual({ t: "ref", v: "hi" });
-    expect(parsePropArg("status:str=open")).toEqual({
-      field: "status",
-      value: { t: "str", v: "open" },
+  test("parseFieldValue reads an argument as the declared type, never by its shape", () => {
+    expect(parseFieldValue("42", "text", "f")).toEqual({ t: "str", v: "42" });
+    expect(parseFieldValue("true", "text", "f")).toEqual({ t: "str", v: "true" });
+    expect(parseFieldValue("42", "number", "f")).toEqual({ t: "num", v: 42 });
+    expect(parseFieldValue("-3.5", "number", "f")).toEqual({ t: "num", v: -3.5 });
+    expect(parseFieldValue("true", "checkbox", "f")).toEqual({ t: "bool", v: true });
+    expect(parseFieldValue("false", "checkbox", "f")).toEqual({ t: "bool", v: false });
+    expect(parseFieldValue("42", "ref", "f")).toEqual({ t: "ref", v: "42" });
+    expect(parseFieldValue("https://x.dev", "url", "f")).toEqual({ t: "str", v: "https://x.dev" });
+    expect(parseFieldValue("2026-09-24", "date", "f")).toEqual({ t: "str", v: "2026-09-24" });
+    for (const [raw, type] of [
+      ["abc", "number"],
+      ["", "number"],
+      ["Infinity", "number"],
+      ["yes", "checkbox"],
+      ["1", "checkbox"],
+    ] as const satisfies readonly (readonly [string, FieldType])[]) {
+      expect(() => parseFieldValue(raw, type, "f")).toThrow(UsageError);
+    }
+  });
+
+  test("declaredTypes resolves a field by name or id; a missing one is text", () => {
+    const estimate: KbNode = {
+      id: "f.estimate",
+      text: "estimate",
+      props: {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+        [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("number")],
+      },
+      children: [],
+      createdAt: "",
+      updatedAt: "",
+    };
+    const typeOf = declaredTypes([...systemSeedNodes(), estimate]);
+    expect(typeOf("estimate")).toBe("number");
+    expect(typeOf("f.estimate")).toBe("number");
+    expect(typeOf("type")).toBe("ref");
+    expect(typeOf("sys.f.hidden")).toBe("checkbox");
+    expect(typeOf("not-yet-minted")).toBe("text");
+    expect(parsePropArg("estimate=3", typeOf)).toEqual({
+      field: "estimate",
+      value: { t: "num", v: 3 },
     });
+    expect(() => parsePropArg("estimate", typeOf)).toThrow(UsageError);
   });
 });
 
@@ -199,6 +247,48 @@ describe("cli e2e (tmpdir)", () => {
     const nodes = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");
     expect(nodes).toContain("sys.field");
     expect(nodes).not.toContain("ex.");
+  });
+
+  test("set parses its value as the field's declared type", async () => {
+    expect((await kb(["init", "--bare"])).code).toBe(0);
+    expect((await kb(["field", "define", "label"])).code).toBe(0);
+    expect((await kb(["field", "define", "estimate"])).code).toBe(0);
+    expect((await kb(["field", "type", "estimate", "number"])).code).toBe(0);
+    expect((await kb(["field", "define", "owner"])).code).toBe(0);
+    expect((await kb(["field", "type", "owner", "ref"])).code).toBe(0);
+    const task = JSON.parse((await kb(["add", "Task", "--id", "n.task"])).stdout).output.id;
+    await kb(["add", "Ada", "--id", "n.ada"]);
+
+    const props = async (): Promise<Record<string, unknown>> =>
+      JSON.parse((await kb(["get", task, "--depth", "0"])).stdout).output.node.props;
+    const fieldId = async (name: string): Promise<string> => {
+      const rows = JSON.parse((await kb(["field", "list"])).stdout).output.rows as string[][];
+      return rows.find((r) => r[1] === name)?.[0] ?? "";
+    };
+
+    expect((await kb(["set", task, "label", "42"])).code).toBe(0);
+    expect((await kb(["set", task, "estimate", "42"])).code).toBe(0);
+    expect((await kb(["set", task, "owner", "n.ada"])).code).toBe(0);
+    const after = await props();
+    expect(after[await fieldId("label")]).toEqual([{ t: "str", v: "42" }]);
+    expect(after[await fieldId("estimate")]).toEqual([{ t: "num", v: 42 }]);
+    expect(after[await fieldId("owner")]).toEqual([{ t: "ref", v: "n.ada" }]);
+
+    // Unreadable as the type: a usage error, before any write.
+    const abc = await kb(["set", task, "estimate", "abc"]);
+    expect(abc.code).toBe(2);
+    expect(JSON.parse(abc.stdout)).toMatchObject({ status: "failed", code: "invalid_input" });
+    // Readable, but naming no node: the write check refuses it.
+    const dangling = await kb(["set", task, "owner", "no-such-node"]);
+    expect(dangling.code).toBe(1);
+    expect(JSON.parse(dangling.stdout)).toMatchObject({ status: "failed", code: "invalid_input" });
+    expect(await props()).toEqual(after);
+
+    // --prop on add goes through the same parse.
+    const added = await kb(["add", "Other", "--prop", "estimate=7", "--prop", "label=7"]);
+    const node = JSON.parse(added.stdout).output.node;
+    expect(node.props[await fieldId("estimate")]).toEqual([{ t: "num", v: 7 }]);
+    expect(node.props[await fieldId("label")]).toEqual([{ t: "str", v: "7" }]);
   });
 
   test("init → add → query → get", async () => {
