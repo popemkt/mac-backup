@@ -24,12 +24,18 @@ the UI runs beside it.
 
 Captured 2026-09-24 in the session scratchpad (`insp/`).
 
-- **OpenAI GPT-6 Sol/Luna hero.** A video, not WebGL; the page has no
-  canvas. Its first frame is a dense starfield with four-point diffraction
-  glints and a faint blue nebula vignette at the edges.
-- **threejs-journey.com hero.** A stylised isometric low-poly room with baked
-  lighting and a saturated purple/pink palette. It is a drag-to-rotate
-  sequence of pre-rendered frames on a 2D canvas, not a real-time scene.
+- **OpenAI GPT-6 Sol/Luna banner** (as described by the user; Cloudflare
+  blocks automated browsers, so only the poster frame was captured). An
+  "Astra" scene transitions into a sun and a moon, and the viewer can pan to
+  move the objects. The poster frame is a starfield with four-point
+  diffraction glints and a faint blue nebula vignette at the edges.
+- **threejs-journey WebGPU & TSL course hero** (`WebgpuTslHero` bundle plus
+  `three.tsl`, real-time). A cloud of a few thousand instanced spheres on a
+  deep purple background. A hot orange-yellow emissive core under bloom fades
+  to dark maroon spheres at the edges, with depth-of-field-like falloff. The
+  cloud follows the pointer and the spheres flow around it, with the glow
+  moving along. It is most likely a TSL compute-shader particle simulation
+  with pointer attraction.
 
 The lab is where both styles are tried in real time before anything reaches a
 functional view.
