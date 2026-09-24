@@ -45,8 +45,20 @@ describe("disposeGraph", () => {
     );
     expect(live.size).toBe(8);
     disposeGraph(scene);
-    // The sprite's shared geometry is three's own; everything created here is gone.
     expect(live.size).toBe(0);
+    expect(scene.children).toHaveLength(0);
+  });
+
+  it("leaves the quad three shares between sprites alone", () => {
+    const shared = new Sprite(new SpriteNodeMaterial()).geometry;
+    let freed = false;
+    shared.addEventListener("dispose", () => {
+      freed = true;
+    });
+    const scene = new Scene();
+    scene.add(new Sprite(new SpriteNodeMaterial()));
+    disposeGraph(scene);
+    expect(freed).toBe(false);
     expect(scene.children).toHaveLength(0);
   });
 });

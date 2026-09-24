@@ -339,7 +339,6 @@ function sky(stage: LabStage, init: LabSceneInit, context: StudyContext): StudyP
     setGraph: (next: LabGraph) => {
       graph = next;
       turn.remove(stars.sprite);
-      stars.sprite.geometry.dispose();
       for (const m of [stars.sprite.material].flat()) m.dispose();
       stars = nodeStars(stage, u, graph.nodes);
       turn.add(stars.sprite);
