@@ -50,6 +50,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
 - **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
 
+### GAP: a date value has two carriers, {t:str} and {t:date}
+
+- **expected** — One carrier per declared type: a date field's values are one PropValue kind, and the accepted-kinds table in @kb/model (FIELD_VALUE_KINDS in field-type.ts) lists exactly one kind for date, as it does for every other type.
+- **current** — The UI date editor and the example seed write {t:"str"} ISO strings, while PropValue keeps a {t:"date"} variant that older writes used. So the table accepts both kinds for date - the only type with two.
+- **impact** — Two representations of one value. A query, sort or filter over a date field has to match both kinds, and nothing stops one store holding a mix of them.
+- **closes** — Choose one carrier (the date variant, since PropValue already names it, or drop the variant), migrate stored values on open the way migrateFieldTypeValues does for type values, and list one kind for date.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M39X7NQV187BDQVGH81997M5`
+
 ### GAP: a number prop that equals a live eid reads as a ref to that node
 
 - **expected** — A {t:ref} prop value and a {t:num} prop value have distinct datom encodings, so a query or a reach can tell a reference from a number.
@@ -57,6 +66,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A number-valued prop on a field that is walked as an edge (or joined as one) can alias an arbitrary node, and which node depends on eid assignment order. Rare in practice, since ref fields hold refs and number fields are not walked, but silent when it happens.
 - **closes** — Distinct encodings in datoms.ts (for example refs on :f/<fieldId> and numbers on a typed value, or a separate ref attr per field), with queries.ts, parse.ts find-type inference, and stored queries over numeric props migrated to match.
 - **node** — `01M3A0Y5JQ5XKZMC87K34HDT2B`
+
+### GAP: a store's release is not on the port; selectStore drops it
+
+- **expected** — Letting go of an open store is part of what selecting one returns: the caller that opened it can close it, through the port or a Scope, so a sqlite connection's lifetime is the session's, not the process's.
+- **current** — BACKENDS[name].open(root) returns { store, release }, and selectStore returns only .store. createStore and migrateStore call release; nothing that selects a store can. @kb/client documents that a sqlite connection stays open until the process ends; kb ui, kb mcp and the CLI hold theirs the same way.
+- **impact** — A library call that opens a client, commits and returns leaves a sqlite connection open with no way to close it, and a test or a long-lived host that opens many roots accumulates them. Harmless for one kb ui process per root; wrong as soon as the client is embedded.
+- **closes** — Decide where lifetime lives: selectStore as a scoped acquireRelease (every openKbEffect caller then supplies a Scope, which a long-lived session would hold), or a close on EffectStore that JSONL implements as a no-op. Then KbClient gains close(), and the api.d.ts contract with it.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M39XVZCR684Y1V9FXNDT44D5`
 
 ### GAP: actions/ reads the outline store instead of being handed state
 
@@ -92,12 +110,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Implement an IndexedDB-backed EffectStore with the same generation fingerprint contract.
 - **node** — `01M1R6N8VC3W5P93KABEFZ8CTX`
 
-### GAP: canvas's UI lives in @kb/ui, not in the ext-canvas extension
+### GAP: canvas UI still lives in @kb/ui, not in a canvas browser plugin
 
-- **expected** — @kb/ext-canvas is one extension with two entries: its backend plugin (tx.apply, and the canvas tag/field seeds) and a ./ui entry whose plugin contributes the canvas surfaces and sidebar section to the browser kernel, as DeepSeek Harness's dsh.client does.
+- **expected** — Canvas is three packages around one concept, one scope:* tag each, never one package with two entries. @kb/canvas (scope:shared, no dependencies) owns the JSON Canvas document. @kb/ext-canvas (scope:backend) is the backend plugin: ext.canvas.tx.apply plus the #canvas tag and sys.f.canvas field seeds, which leave @kb/model's systemSeedNodes because the system seed is core, not every view kb ships. A browser plugin package (scope:browser) contributes the canvas surfaces and sidebar section to the browser kernel. Both plugins depend on @kb/plugin and @kb/canvas, and neither names the other by a string literal.
 - **current** — The canvas UI is a built-in UI plugin in packages/app/ui/src/components/canvas (plugin.ts, surfaces.tsx) plus ~12 lib/canvas-* modules; sys.tag.canvas and sys.f.canvas are seeded by core; the UI calls the action by the string ext.canvas.tx.apply.
 - **impact** — An extension cannot own its UI, so canvas is only nominally an extension, and removing ext-canvas leaves a canvas UI with no backend.
-- **closes** — @kb/ui-sdk: the host API an extension's ./ui may use (store selectors it needs, the text-host and sidebar primitives, invoke, live query, the UI points), decided as a design, then a per-entry scope in the harness (. backend, ./ui browser) and the move.
+- **closes** — First @kb/ui-sdk, decided as a design: the host API a browser plugin may use (the store selectors canvas needs, the text-host and sidebar primitives, invoke, live query, the UI points). Then, in order: state the three-package shape in DESIGN.md's Core boundary & extensions; create the browser plugin package and move components/canvas and the lib/canvas-* modules into it; move the canvas seeds from systemSeedNodes into @kb/ext-canvas. The harness keeps one scope per package; no per-entry scope.
 - **node** — `01M39F3MR3HT2NR553FY8CRD6X`
 
 ### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
@@ -152,7 +170,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: KbIndex is DataScript in memory on both stores; sqlite holds nodes but answers no queries
 
 - **expected** — A KbIndex backed by the sqlite store — queries compiled from the query IR to SQL and answered by the database that already holds the nodes, so a sqlite root does not rebuild a whole DataScript db on every open.
-- **current** — Both adapters load every node and build a DatascriptIndex in memory (app/runtime/src/layers.ts). SqliteStore is a container, not a query engine; the 50k benchmark's datom-build cost is identical on both.
+- **current** — Both adapters load every node and build a DatascriptIndex in memory (app/runtime/src/layers.ts); @kb/client holds one KbIndex of its own, rebuilt from a full snapshot whenever the store's fingerprint moves. SqliteStore is a container, not a query engine; the 50k benchmark's datom-build cost is identical on both.
 - **impact** — Choosing sqlite buys write speed (a set-shaped commit is ~4ms against ~120ms) and buys nothing for read or open. The port's second adapter is proven but under-exploited.
 - **closes** — An IR to SQL compiler behind KbIndex.run(ir), plus a decision about which queries stay in DataScript. Needs its own wave: the IR is not yet the only way queries reach the index.
 - **node** — `01M1RYY03MAQPTPRCBHTRJDC39`
@@ -203,7 +221,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — A .kb/extensions module can carry a browser half (<name>.ui.tsx) that the server builds to ESM, serves at /ext/<name>/ui.js and the UI loads into its kernel at runtime, sharing the host's React through import-map shims, reloaded on change.
 - **current** — The browser kernel loads only the built-in UI plugins listed in ui-plugins.ts; .kb/extensions contribute actions and templates only.
 - **impact** — A repo cannot add a view without editing kb itself.
-- **closes** — The same @kb/ui-sdk the canvas move needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test.
+- **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
 
 ### GAP: repository extensions have no fail-closed admission
@@ -214,14 +232,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Implement ext validate over the real repository extensions and invoke it from verify, pre-commit, and CI.
 - **rule** — Admission gate
 - **node** — `01M1PJVJX84AZCRVJ82R20WTK3`
-
-### GAP: saved-query virtual nodes never appear in tx frames
-
-- **expected** — Every node a client can see reaches it the same way. A change under .kb/queries/ produces a KbTx like any other change, so a client catching up with since(rev) ends with the same graph a fresh /api/graph would give it.
-- **current** — Closed by wave g7: withVirtual stays and the virtual set is a logged transaction. SavedQuerySet (app/server) owns it - adopt installs the first set (the snapshot carries it) and sync diffs savedQueryNodes() and appends with origin=virtual. .kb/queries/ is watched beside the store's own files through the same debounce, so a saved query added, renamed or removed reaches a catching-up client as an ordinary tx frame.
-- **impact** — A since(rev) catch-up silently misses a /api/queries change: a saved query added, renamed or removed while a client was behind stays wrong until that client happens to take a full snapshot. The two paths that used to agree by accident (both refetched) now diverge.
-- **closes** — Make the virtual set a logged transaction: watch .kb/queries/ alongside .kb/nodes.jsonl, diff savedQueryNodes() across the change, and append it — or drop withVirtual and materialise saved queries as ordinary stored nodes.
-- **node** — `01M1QZNBFSTCM9V7DZT1XWEY2N`
 
 ### GAP: search is a substring scan, no text index
 
@@ -304,6 +314,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — palette-index.test.ts asserts open <50ms and keystroke <10ms at 50k nodes. A standalone benchmark puts Array.from({length:n}) about 40% behind new Array(n) at that size, and the push variant flipped that test red on three of four full-suite runs on a loaded machine. Close it by making the 50k path fast enough that the allocation shape stops mattering (incremental or worker-side palette search), then delete both disables.
 - **node** — `01M1MFJXAQ8NVBMA6E6CZ7CY9W`
 
+### GAP: the seed's fill-absent pass restores a seeded prop its owner unset
+
+- **expected** — Removing every value of a seeded prop from a seeded node stays removed. The fill-absent pass adds only keys the seed gained after the store was created, never keys the owner deleted.
+- **current** — ensureSystemSeed fills any seed prop key an existing seeded node does not carry, on every open. It cannot tell a key the store never had from one the owner deleted, so 'kb unset lens.all-mentions sys.f.lens.cluster-by' is undone by the next command's open. A following 'kb set' then appends to the restored default. That is how a two-command replace doubled lens.all-mentions' values in both committed stores on 2026-09-24.
+- **impact** — A seeded node's props cannot be cleared, and replacing one with unset followed by set in two commands silently stores the value twice. A replace has to be one node.update carrying both unsetProps and setProps.
+- **closes** — Record which seed prop keys a store has already been offered (for example a seed revision per node, or a tombstone written when a seeded key is unset) and fill only keys added since. Then add a test that an unset seeded key survives reopening.
+- **node** — `01M3A0ZEWWG0VEHXEM3YNKRQ0Y`
+
 ### GAP: the sigma renderer's lifecycle effect carries 32 branches
 
 - **expected** — Renderer setup, event wiring and teardown are three named steps, with the graph-building step shared across renderers.
@@ -312,13 +330,21 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
 - **node** — `01M1MGCPJTV66QSFCR44XG29YM`
 
-### GAP: the tx log is process-local; there is no durable .kb/tx.jsonl
+### GAP: the write check covers written values only, so a retype or a delete can strand stored ones
 
-- **expected** — The log is durable: every KbTx is appended to .kb/tx.jsonl under the store's write lock, and rev is a per-store counter that survives a restart. A client reconnecting after a server restart catches up with since(rev) like any other gap.
-- **current** — Closed by wave g7: the sequence is EffectStore.txTail, appended by the store. The JSONL adapter writes .kb/tx.jsonl inside the .lock that already covers load-merge-replace; rev is the store's counter and survives a restart, so a reconnecting client is caught up with frames. StoreTxLog holds no window - a ring beside a durable tail would be two records of one sequence. Write order is nodes first, tail second, and a tail that lags is detected by TxTail.isCurrent(), which makes StoreTxLog refuse every rev at or below a head it cannot vouch for.
-- **impact** — A restart of kb ui costs every open client a full graph refetch, and no surface can replay history — undo across sessions, an audit trail, and a browser replica that survives a reload all need the durable form.
-- **closes** — Write each append to .kb/tx.jsonl inside the JsonlStore write lock, load the tail at openKbEffect and seed MemoryTxLog's window and rev from it; make rev per-store rather than per-server in protocol.ts.
-- **node** — `01M1QZMR3CYFYPEXBMC2JTFAA5`
+- **expected** — Every stored value conforms to its field's declared type and every ref names a stored node, whatever order the writes came in.
+- **current** — txIntegrityError checks the values a transaction writes - those an upserted node holds that its stored version did not. Values already stored are not rechecked, so changing a field's sys.f.fieldType, deleting a node that refs name, and anything a store held before the check existed all leave nonconforming values in place.
+- **impact** — kb field type <f> number on a field full of strings succeeds and leaves each of them nonconforming; kb rm on a ref target leaves refs that name nothing. Readers still have to tolerate mismatched values, which is why the UI keeps its mismatch hint.
+- **closes** — Make a retype or delete that would strand values either fail (listing them) or carry their migration in the same transaction, and add an on-open audit that reports legacy mismatches the way migrateFieldTypeValues repairs legacy type values.
+- **node** — `01M39YM7VRD0K4H70E48R71VRP`
+
+### GAP: the write check does not enforce a ref field's target constraint
+
+- **expected** — A ref value outside the set its field declares (allowedRefIdsOf: targetQuery, targetTag or the field's children) is rejected at the same chokepoint, and with the same error, as a value of the wrong kind.
+- **current** — txIntegrityError checks that a written value's kind is one its field's type accepts and that a ref names a stored node. Only the UI's ref picker consults allowedRefIdsOf. The integrity check is pure and engine-free, while two of the three constraint carriers (targetQuery, and children, derived into EDN) resolve through an injected EDN runner it is not given.
+- **impact** — Every surface except the picker - CLI, MCP, HTTP, @kb/client - can write a ref its field excludes, for example a #gap rule naming a node that is not a #rule. The constraint reads as enforced because the UI enforces it.
+- **closes** — Hand the integrity check an EDN runner over the prospective graph (the session index already has one), then check every written ref value against allowedRefIdsOf, with a test per carrier.
+- **node** — `01M39YM7FQ9S231XW8JBA5MG0E`
 
 ### GAP: two launch paths for the kb binary
 
@@ -335,7 +361,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **current** — TxTail.append reads its own head to assign rev+1 and is documented as not self-serialising. The store calls it inside the lock that already serialises writers, which covers every node commit; KbTxLog.append does not, and that is the path the saved-query virtual set takes. A CLI commit concurrent with a .kb/queries/ reload, or two kb ui servers on one root with different ports, can both read head N and both write N+1.
 - **impact** — A duplicate rev in the tail. Frames stay applicable in order and upserts are idempotent, so a client converges - but rev stops being a unique position, and any surface that keys on it (a replay, an audit trail, an undo across sessions) would be reading two things with one name. Narrow: it needs a second appender in the same instant.
 - **closes** — Either the virtual set becomes a store transaction so the store's exclusion covers it, or the tail acquires the store's lock itself - which needs a synchronous acquire, and write-lock.ts deliberately has none (its spin is Effect.sleep so a contended commit cannot block the loop).
-- **rule** — Abstraction before addition
+- **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1XF05FV87AR22B4SAS0A2BK`
 
 
@@ -505,7 +531,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: KbNode.order is optional and undeclared
 
 - **expected** — Sibling rank is part of the node schema, declared once, with the presence rule encoded rather than left optional.
-- **current** — Closed by wave 2026-09-09 (g8), on top of 9d8e111's declaration. KbNodeSchema.order is optionalKey(NonEmptyString) — absence is the only way to be unranked — and the migration state is the type: migrateOrderKeys returns RankedNode[], with rankOf/isRanked the one way to ask. The DST harness's undefined-rank filter is gone because there are none. Still open elsewhere: mutations.ts and graph-view.ts test a WIRE node's order against undefined, which the wire contract keeps optional on purpose.
+- **current** — Closed by wave 2026-09-09 (g8), on top of 9d8e111's declaration. KbNodeSchema.order is optionalKey(NonEmptyString) — absence is the only way to be unranked — and the migration state is the type: migrateOrderKeys returns RankedNode[], with rankOf/isRanked the one way to ask. The DST harness's undefined-rank filter is gone because there are none. The wire contract keeps order optional on purpose, and every UI reader of a wire node's order asks through rankOf as well: restoreInvocations (actions/mutations.ts), forestRootIds (lib/graph-view.ts), and the two rankBetween bounds in actions/plan.ts. No call site compares an order against undefined or passes a raw wire order on.
 - **impact** — The one field the outline depends on for ordering is invisible to the schema, so any backend with a real column or a stricter decode silently drops it.
 - **closes** — Track 2: declare order in the schema and encode the migration state as a discriminator instead of an optional field, keeping the byte-exact round trip test green.
 - **rule** — Domain typing — discriminator over optional
@@ -653,6 +679,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Introduce a ui command registry and register each command beside its implementation. Pairs with the NodeCommandPalette gap - one registry serves both.
 - **node** — `01M1MGCRNVNBE5HW27Z83PK67B`
 
+### GAP: saved-query virtual nodes never appear in tx frames
+
+- **expected** — Every node a client can see reaches it the same way. A change under .kb/queries/ produces a KbTx like any other change, so a client catching up with since(rev) ends with the same graph a fresh /api/graph would give it.
+- **current** — Closed by wave g7: withVirtual stays and the virtual set is a logged transaction. SavedQuerySet (app/server) owns it - adopt installs the first set (the snapshot carries it) and sync diffs savedQueryNodes() and appends with origin=virtual. .kb/queries/ is watched beside the store's own files through the same debounce, so a saved query added, renamed or removed reaches a catching-up client as an ordinary tx frame.
+- **impact** — A since(rev) catch-up silently misses a /api/queries change: a saved query added, renamed or removed while a client was behind stays wrong until that client happens to take a full snapshot. The two paths that used to agree by accident (both refetched) now diverge.
+- **closes** — Make the virtual set a logged transaction: watch .kb/queries/ alongside .kb/nodes.jsonl, diff savedQueryNodes() across the change, and append it — or drop withVirtual and materialise saved queries as ordinary stored nodes.
+- **node** — `01M1QZNBFSTCM9V7DZT1XWEY2N`
+
 ### GAP: seven terminal .then callbacks disable promise/always-return
 
 - **expected** — promise/always-return runs with ignoreLastCallback:true, so the rule guards mid-chain callbacks (where a missing return really does break the chain) and says nothing about a terminal fire-and-forget callback.
@@ -700,7 +734,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **current** — packages/app/test-kit/tests/dst.test.ts runs seeded histories through the real plan/apply path under bun test's 5000ms default. On an unloaded machine every scenario finishes well inside it; with two other suites running, whole tests time out — observed 2 of 10 runs failing on 2026-09-09, on the merge base as well as on a working branch, so it is not a code regression.
 - **impact** — A test that fails on a busy machine and passes on a rerun teaches agents to rerun rather than trust the gate, which is the same lesson GAP 01M1R19NXBMTVQG6AH0S7VTC7D was filed to unteach. It also hides a real slowdown: nobody can tell a genuine regression from load.
 - **closes** — Give the DST scenarios an explicit timeout sized to their real cost (they are seconds of work, not milliseconds), or make the scenario count adaptive. Either way the number is stated in the file with its reason, not inherited from a runner default.
-- **rule** — GAP 01M1R19NXBMTVQG6AH0S7VTC7D is the same class: no test gates on wall clock.
 - **node** — `01M1X8VQT1P6E45NBTQEQ96YDR`
 
 ### GAP: the field-value primitive subscribes to the outline store
@@ -760,6 +793,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — None left: both adapters keep a durable tail behind the one TxTail port (.kb/tx.jsonl and the tx table), so a restart keeps the log on either store.
 - **closes** — A schema for the log table, a decision about whether KbTxLog gains a durability contract or a second adapter, and what the JSONL store does about it (a .kb/tx.jsonl was the shape considered before sqlite existed).
 - **node** — `01M1RYY9HVDNB1RNNKCSYF2H47`
+
+### GAP: the tx log is process-local; there is no durable .kb/tx.jsonl
+
+- **expected** — The log is durable: every KbTx is appended to .kb/tx.jsonl under the store's write lock, and rev is a per-store counter that survives a restart. A client reconnecting after a server restart catches up with since(rev) like any other gap.
+- **current** — Closed by wave g7: the sequence is EffectStore.txTail, appended by the store. The JSONL adapter writes .kb/tx.jsonl inside the .lock that already covers load-merge-replace; rev is the store's counter and survives a restart, so a reconnecting client is caught up with frames. StoreTxLog holds no window - a ring beside a durable tail would be two records of one sequence. Write order is nodes first, tail second, and a tail that lags is detected by TxTail.isCurrent(), which makes StoreTxLog refuse every rev at or below a head it cannot vouch for.
+- **impact** — A restart of kb ui costs every open client a full graph refetch, and no surface can replay history — undo across sessions, an audit trail, and a browser replica that survives a reload all need the durable form.
+- **closes** — Write each append to .kb/tx.jsonl inside the JsonlStore write lock, load the tail at openKbEffect and seed MemoryTxLog's window and rev from it; make rev per-store rather than per-server in protocol.ts.
+- **node** — `01M1QZMR3CYFYPEXBMC2JTFAA5`
 
 ### GAP: the ws client assigns on* handlers instead of addEventListener
 
