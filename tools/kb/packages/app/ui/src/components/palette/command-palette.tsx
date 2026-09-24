@@ -202,7 +202,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             aria-controls="kb-palette-list"
             aria-activedescendant={hits[active] ? `kb-palette-${hits[active].id}` : undefined}
           />
-          <kbd className="hidden rounded border border-foreground/10 px-1.5 py-0.5 text-[10px] text-foreground/40 sm:inline">
+          <kbd className="hidden rounded border border-foreground/10 px-1.5 py-0.5 text-caption text-foreground/40 sm:inline">
             esc
           </kbd>
         </div>
@@ -213,7 +213,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           className="max-h-[min(20*2rem,50vh)] overflow-auto py-1"
         >
           {hits.length === 0 ? (
-            <li className="px-3 py-3 text-[13px] text-foreground/40">No matches</li>
+            <li className="px-3 py-3 text-ui text-foreground/40">No matches</li>
           ) : (
             hits.map((hit, i) => (
               <li key={hit.id} role="option" aria-selected={i === active}>
@@ -234,10 +234,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   ) : (
                     <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-foreground/25" />
                   )}
-                  <span className="min-w-0 flex-1 truncate text-[13px] text-foreground/85">
+                  <span className="min-w-0 flex-1 truncate text-ui text-foreground/85">
                     {hit.text || "(empty)"}
                   </span>
-                  <span className="shrink-0 font-mono text-[10px] text-foreground/30">
+                  <span className="shrink-0 font-mono text-caption text-foreground/30">
                     {hit.kind === "command" ? "cmd" : hit.id}
                   </span>
                 </button>
@@ -260,8 +260,8 @@ export function PaletteTrigger({ onOpen }: { onOpen: () => void }) {
       aria-label="Open search palette"
     >
       <MagnifyingGlassIcon size={14} className="shrink-0 text-foreground/25" />
-      <span className="flex-1 text-[13px] text-foreground/25">Search and open…</span>
-      <kbd className="rounded border border-foreground/10 px-1.5 py-0.5 text-[10px] text-foreground/40">
+      <span className="flex-1 text-ui text-foreground/25">Search and open…</span>
+      <kbd className="rounded border border-foreground/10 px-1.5 py-0.5 text-caption text-foreground/40">
         ⌘K
       </kbd>
     </button>

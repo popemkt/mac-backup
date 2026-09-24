@@ -175,7 +175,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
   if (!canvasNode) {
     return (
-      <div className="p-6 text-[13px] text-destructive">
+      <div className="p-6 text-ui text-destructive">
         Canvas not found: {canvasId}{" "}
         <button type="button" className="underline" onClick={() => navigate("/canvas")}>
           back
@@ -189,7 +189,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-foreground/[0.06] px-3">
         <button
           type="button"
-          className="text-[12px] text-foreground/40 hover:text-foreground/70"
+          className="text-meta text-foreground/40 hover:text-foreground/70"
           onClick={() => navigate("/canvas")}
         >
           ← canvases
@@ -198,19 +198,17 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           depth={0}
           nodeId={canvasId}
           bullet={<Bullet node={canvasNode} onClick={() => {}} />}
-          content={
-            <span className="truncate text-[13px] text-foreground/70">{canvasNode.text}</span>
-          }
+          content={<span className="truncate text-ui text-foreground/70">{canvasNode.text}</span>}
           className="min-w-0 flex-1"
         />
         <button
           type="button"
-          className="rounded-md border border-foreground/10 px-2 py-1 text-[12px] text-foreground/60 hover:bg-foreground/5"
+          className="rounded-md border border-foreground/10 px-2 py-1 text-meta text-foreground/60 hover:bg-foreground/5"
           onClick={() => setPickerOpen(true)}
         >
           Add node
         </button>
-        <span className="text-[11px] text-foreground/30">{Math.round(zoom * 100)}%</span>
+        <span className="text-label text-foreground/30">{Math.round(zoom * 100)}%</span>
       </div>
 
       <div className="relative min-h-0 flex flex-1">

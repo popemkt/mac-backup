@@ -39,20 +39,20 @@ export function OntologyScopeBar({
       data-ontology-scope-bar="true"
     >
       <span
-        className="flex h-5 items-center gap-1 rounded-sm bg-primary/[0.10] px-1.5 text-[11px] font-medium text-primary"
+        className="flex h-5 items-center gap-1 rounded-sm bg-primary/[0.10] px-1.5 text-label font-medium text-primary"
         title={ontologyId}
       >
         <span aria-hidden>⬡</span>
         <span className="max-w-[16rem] truncate">{label}</span>
       </span>
 
-      <span className="text-[11px] text-foreground/35">
+      <span className="text-label text-foreground/35">
         {memberCount} {memberCount === 1 ? "member" : "members"}
       </span>
 
       {warnings.length > 0 ? (
         <span
-          className="flex items-center gap-1 text-[11px] text-warning"
+          className="flex items-center gap-1 text-label text-warning"
           title={warnings.join("\n")}
           data-ontology-warnings={String(warnings.length)}
         >
@@ -70,7 +70,7 @@ export function OntologyScopeBar({
             type="button"
             aria-pressed={v.key === view}
             className={cn(
-              "rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors duration-100",
+              "rounded-md px-2 py-0.5 text-label font-medium transition-colors duration-100",
               v.key === view
                 ? "bg-foreground/[0.08] text-foreground/75"
                 : "text-foreground/35 hover:bg-foreground/[0.04] hover:text-foreground/60",
@@ -84,7 +84,7 @@ export function OntologyScopeBar({
 
       <button
         type="button"
-        className="ml-1 rounded-md px-2 py-0.5 text-[11px] text-foreground/40 transition-colors duration-100 hover:bg-foreground/[0.04] hover:text-foreground/70"
+        className="ml-1 rounded-md px-2 py-0.5 text-label text-foreground/40 transition-colors duration-100 hover:bg-foreground/[0.04] hover:text-foreground/70"
         onClick={onExit}
       >
         Exit

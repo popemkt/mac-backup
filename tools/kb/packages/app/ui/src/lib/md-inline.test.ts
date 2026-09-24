@@ -108,7 +108,7 @@ describe("line-height consistency (edit vs view)", () => {
     const mdView = readFileSync(path.join(root, "components/ui/md-view.tsx"), "utf8");
 
     expect(KB_TEXT_CLASS).toBe("kb-text");
-    expect(tokens).toMatch(/\.kb-text\s*\{[^}]*var\(--kb-text-size\)/s);
+    expect(tokens).toMatch(/\.kb-text\s*\{[^}]*var\(--type-body\)/s);
     // Both modes must apply the same token class (equal computed font/line-height).
     expect(content).toContain(`KB_TEXT_CLASS`);
     expect(content).toMatch(/isActive[\s\S]*KB_TEXT_CLASS/);

@@ -111,7 +111,7 @@ export function BoardCardsView({
   if (mode === "board" && groupFieldId === null) {
     return (
       <div
-        className="board-cards-view my-2 rounded-md border border-dashed border-foreground/15 px-3 py-4 text-[13px] text-foreground/45"
+        className="board-cards-view my-2 rounded-md border border-dashed border-foreground/15 px-3 py-4 text-ui text-foreground/45"
         data-board-cards-view="true"
         data-view-mode="board"
         data-board-empty="true"
@@ -122,7 +122,7 @@ export function BoardCardsView({
         </p>
         <button
           type="button"
-          className="mt-2 rounded-md bg-foreground/[0.06] px-2 py-1 text-[12px] font-medium text-foreground/70 hover:bg-foreground/[0.1]"
+          className="mt-2 rounded-md bg-foreground/[0.06] px-2 py-1 text-meta font-medium text-foreground/70 hover:bg-foreground/[0.1]"
           data-switch-to-cards="true"
           onClick={() => void mutations.setViewMode(frameId, "cards")}
         >
@@ -183,7 +183,7 @@ export function BoardCardsView({
                 handleDropOnColumn(col.key, col.value);
               }}
             >
-              <div className="px-2 py-1.5 text-[11px] font-medium text-foreground/35 border-b border-foreground/[0.06]">
+              <div className="px-2 py-1.5 text-label font-medium text-foreground/35 border-b border-foreground/[0.06]">
                 {col.label || "All"}
                 <span className="ml-1 text-foreground/25">{col.nodes.length}</span>
               </div>

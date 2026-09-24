@@ -100,12 +100,12 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-6">
         <h2 className="kb-text font-medium text-foreground/80">Ontology not found</h2>
-        <p className="mt-1 text-[13px] text-foreground/45">
-          <span className="font-mono text-[12px]">{ontologyId}</span> is not in this workspace.
+        <p className="mt-1 text-ui text-foreground/45">
+          <span className="font-mono text-meta">{ontologyId}</span> is not in this workspace.
         </p>
         <button
           type="button"
-          className="mt-3 rounded-md border border-foreground/10 px-3 py-1.5 text-[12px] text-foreground/70 hover:bg-foreground/5"
+          className="mt-3 rounded-md border border-foreground/10 px-3 py-1.5 text-meta text-foreground/70 hover:bg-foreground/5"
           onClick={() => navigate("/o")}
         >
           All ontologies
@@ -181,7 +181,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
             value={closure}
             onChange={(v) => void mutations.ontologySetClosure(ontologyId, v)}
           />
-          <span className="text-[11px] text-foreground/30">pull whole subtrees of members in</span>
+          <span className="text-label text-foreground/30">pull whole subtrees of members in</span>
         </DefinitionRow>
       </section>
 
@@ -191,7 +191,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
           data-ontology-page-warnings="true"
         >
           {resolution.warnings.map((w) => (
-            <li key={w} className="text-[11px] text-warning">
+            <li key={w} className="text-label text-warning">
               {w}
             </li>
           ))}
@@ -201,7 +201,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
       <section>
         <SectionTitle count={members.length}>Members</SectionTitle>
         {members.length === 0 ? (
-          <p className="px-1.5 py-1 text-[12px] text-foreground/35">
+          <p className="px-1.5 py-1 text-meta text-foreground/35">
             Nothing here yet. Include a tag, extend another ontology, or pin nodes from the outline.
           </p>
         ) : (
@@ -238,7 +238,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
               />
             ))}
           </div>
-          <p className="mt-1 px-1.5 text-[11px] text-foreground/30">
+          <p className="mt-1 px-1.5 text-label text-foreground/30">
             Excluded nodes keep their tags — they are hidden from this ontology only.
           </p>
         </section>
@@ -263,7 +263,7 @@ function OntologyTitle({ id, text }: { id: string; text: string }) {
 
   return (
     <div className="flex items-center gap-2">
-      <span aria-hidden className="text-[13px] text-foreground/35">
+      <span aria-hidden className="text-ui text-foreground/35">
         ⬡
       </span>
       <input
@@ -271,7 +271,7 @@ function OntologyTitle({ id, text }: { id: string; text: string }) {
         aria-label="Ontology name"
         placeholder="Untitled ontology"
         spellCheck={false}
-        className="min-w-0 flex-1 rounded-md bg-transparent px-1 py-0.5 text-[20px] font-medium text-foreground/85 outline-none placeholder:text-foreground/25 hover:bg-foreground/[0.03] focus:bg-foreground/[0.04]"
+        className="min-w-0 flex-1 rounded-md bg-transparent px-1 py-0.5 text-title font-medium text-foreground/85 outline-none placeholder:text-foreground/25 hover:bg-foreground/[0.03] focus:bg-foreground/[0.04]"
         onFocus={() => setEditing(true)}
         onChange={(e) => {
           setDraft(e.target.value);
@@ -318,7 +318,7 @@ function DefinitionRow({
     <div className={cn("flex gap-3", align === "center" ? "items-center" : "items-start")}>
       <span
         className={cn(
-          "w-16 shrink-0 text-[11px] uppercase tracking-wide text-foreground/30",
+          "w-16 shrink-0 text-label uppercase tracking-wide text-foreground/30",
           align === "start" && "pt-1",
         )}
       >
@@ -330,7 +330,7 @@ function DefinitionRow({
 }
 
 function EmptyHint({ children }: { children: React.ReactNode }) {
-  return <span className="text-[11px] text-foreground/25">{children}</span>;
+  return <span className="text-label text-foreground/25">{children}</span>;
 }
 
 function Chip({
@@ -346,7 +346,7 @@ function Chip({
 }) {
   return (
     <span
-      className="group/chip inline-flex h-[18px] max-w-full items-center gap-0.5 rounded-sm px-1.5 text-[11px] font-medium leading-[18px]"
+      className="group/chip inline-flex h-[18px] max-w-full items-center gap-0.5 rounded-sm px-1.5 text-label font-medium leading-[18px]"
       style={
         hasText(color)
           ? { backgroundColor: `${color}18`, color }
@@ -369,7 +369,7 @@ function Chip({
 
 function SectionTitle({ children, count }: { children: React.ReactNode; count: number }) {
   return (
-    <h2 className="mb-1 flex items-center gap-1.5 px-1.5 text-[11px] font-medium uppercase tracking-wide text-foreground/30">
+    <h2 className="mb-1 flex items-center gap-1.5 px-1.5 text-label font-medium uppercase tracking-wide text-foreground/30">
       {children}
       <span className="font-normal normal-case tracking-normal text-foreground/25">{count}</span>
     </h2>
@@ -393,7 +393,7 @@ function Segmented<T extends string>({
           type="button"
           aria-pressed={o.key === value}
           className={cn(
-            "rounded-[5px] px-2 py-0.5 text-[11px] font-medium transition-colors duration-100",
+            "rounded-[5px] px-2 py-0.5 text-label font-medium transition-colors duration-100",
             o.key === value
               ? "bg-background text-foreground/75 shadow-sm"
               : "text-foreground/35 hover:text-foreground/60",
@@ -443,7 +443,7 @@ function QueryEditor({
         placeholder="[:find ?id :where …]  — parameter-free EDN"
         className={cn(
           "w-full resize-y rounded-md bg-foreground/[0.03] px-2 py-1",
-          "font-mono text-[11px] leading-[1.5] text-foreground/75 outline-none",
+          "font-mono text-label leading-[1.5] text-foreground/75 outline-none",
           "placeholder:text-foreground/25 focus:bg-foreground/[0.05]",
           hasText(warning) && "ring-1 ring-warning/40",
         )}
@@ -465,7 +465,7 @@ function QueryEditor({
           }
         }}
       />
-      {hasText(warning) ? <span className="text-[11px] text-warning">{warning}</span> : null}
+      {hasText(warning) ? <span className="text-label text-warning">{warning}</span> : null}
     </div>
   );
 }

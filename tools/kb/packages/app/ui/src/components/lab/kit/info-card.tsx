@@ -95,7 +95,7 @@ export function InfoCard({
   return (
     <section
       aria-label={`${study.label}: how it works`}
-      className="pointer-events-auto w-80 rounded-lg border border-foreground/10 bg-popover/85 text-[12px] shadow-lg backdrop-blur-md"
+      className="pointer-events-auto w-80 rounded-lg border border-foreground/10 bg-popover/85 text-meta shadow-lg backdrop-blur-md"
     >
       <button
         type="button"
@@ -114,7 +114,7 @@ export function InfoCard({
           <ul className="flex flex-col gap-1">
             {study.rules.map((rule) => (
               <li key={rule.id} className="flex gap-2 leading-snug text-foreground/55">
-                <span className="w-6 shrink-0 font-mono text-[11px] text-primary">{rule.id}</span>
+                <span className="w-6 shrink-0 font-mono text-label text-primary">{rule.id}</span>
                 <span>{rule.how}</span>
               </li>
             ))}
@@ -131,9 +131,7 @@ export function InfoCard({
               ))}
             </div>
           ) : null}
-          <p className="text-[11px] text-foreground/35">
-            Principles: DESIGN-UI.md → Lab principles
-          </p>
+          <p className="text-label text-foreground/35">Principles: DESIGN-UI.md → Lab principles</p>
         </div>
       ) : null}
     </section>

@@ -78,7 +78,7 @@ export function RefAddPopover({
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex h-[18px] items-center gap-0.5 rounded-sm border border-dashed border-foreground/15 px-1.5 text-[11px] text-foreground/40 transition-colors duration-100 hover:border-foreground/30 hover:text-foreground/70"
+        className="flex h-[18px] items-center gap-0.5 rounded-sm border border-dashed border-foreground/15 px-1.5 text-label text-foreground/40 transition-colors duration-100 hover:border-foreground/30 hover:text-foreground/70"
         onClick={() => setOpen((v) => !v)}
       >
         <PlusIcon size={9} weight="bold" />
@@ -95,7 +95,7 @@ export function RefAddPopover({
             value={filter}
             placeholder={title}
             aria-label={title}
-            className="mb-1 w-full rounded-md bg-foreground/[0.04] px-2 py-1 text-[12px] text-foreground/85 outline-none placeholder:text-foreground/30"
+            className="mb-1 w-full rounded-md bg-foreground/[0.04] px-2 py-1 text-meta text-foreground/85 outline-none placeholder:text-foreground/30"
             onChange={(e) => {
               setFilter(e.target.value);
               setActive(0);
@@ -124,7 +124,7 @@ export function RefAddPopover({
           />
           <div role="listbox" aria-label={title} className="max-h-56 overflow-auto">
             {hits.length === 0 ? (
-              <p className="px-2 py-1.5 text-[12px] text-foreground/30">{emptyHint}</p>
+              <p className="px-2 py-1.5 text-meta text-foreground/30">{emptyHint}</p>
             ) : (
               hits.map((c, i) => (
                 <button
@@ -134,7 +134,7 @@ export function RefAddPopover({
                   aria-selected={i === active}
                   disabled={c.disabled}
                   className={cn(
-                    "flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[12px]",
+                    "flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-meta",
                     "transition-colors duration-75",
                     c.disabled === true
                       ? "cursor-not-allowed text-foreground/25"
@@ -146,7 +146,7 @@ export function RefAddPopover({
                 >
                   <span className="min-w-0 flex-1 truncate">{c.label}</span>
                   {hasText(c.note) ? (
-                    <span className="shrink-0 text-[10px] text-foreground/25">{c.note}</span>
+                    <span className="shrink-0 text-caption text-foreground/25">{c.note}</span>
                   ) : null}
                 </button>
               ))

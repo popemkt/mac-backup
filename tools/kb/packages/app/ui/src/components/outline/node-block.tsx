@@ -253,7 +253,7 @@ export const NodeBlock = memo(function NodeBlock({
               title="New child node"
             >
               <span
-                className="flex h-6 w-6 items-center justify-center text-[13px] leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25"
+                className="flex h-6 w-6 items-center justify-center text-ui leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25"
                 aria-hidden
               >
                 +

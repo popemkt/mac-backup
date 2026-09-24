@@ -39,7 +39,7 @@ export function PopoverShell({
       style={style}
       onClick={onClick}
     >
-      <h2 className="px-1.5 pb-1 pt-0.5 text-[12px] uppercase tracking-wide text-foreground/30">
+      <h2 className="px-1.5 pb-1 pt-0.5 text-meta uppercase tracking-wide text-foreground/30">
         {title}
       </h2>
       {children}

@@ -36,7 +36,7 @@ function StudySwitch({ scene }: { scene: LabSceneId }) {
           type="button"
           aria-pressed={id === scene}
           className={cn(
-            "flex h-6 items-center rounded-md px-2 text-[12px] transition-colors duration-100",
+            "flex h-6 items-center rounded-md px-2 text-meta transition-colors duration-100",
             id === scene
               ? "bg-foreground/[0.08] text-foreground/80"
               : "text-foreground/45 hover:bg-foreground/[0.05] hover:text-foreground/70",
@@ -58,9 +58,9 @@ function LabHeader({ scene, backend }: { scene: LabSceneId; backend: LabBackend 
   return (
     <header className="relative z-10 flex h-11 shrink-0 items-center gap-3 px-4">
       <SidebarToggle {...sidebar} />
-      <span className="text-[13px] font-medium text-foreground/50">lab</span>
+      <span className="text-ui font-medium text-foreground/50">lab</span>
       <StudySwitch scene={scene} />
-      {backend === null ? null : <span className="text-[11px] text-foreground/35">{backend}</span>}
+      {backend === null ? null : <span className="text-label text-foreground/35">{backend}</span>}
       <div className="flex-1" />
       <button
         type="button"
@@ -79,7 +79,7 @@ function LabHeader({ scene, backend }: { scene: LabSceneId; backend: LabBackend 
 function HoverLabel({ hover }: { hover: LabHover }) {
   return (
     <div
-      className="pointer-events-none absolute z-10 max-w-64 -translate-x-1/2 truncate rounded-md border border-foreground/10 bg-popover/90 px-2 py-1 text-[12px] text-foreground/80 shadow-md backdrop-blur-sm"
+      className="pointer-events-none absolute z-10 max-w-64 -translate-x-1/2 truncate rounded-md border border-foreground/10 bg-popover/90 px-2 py-1 text-meta text-foreground/80 shadow-md backdrop-blur-sm"
       style={{ left: hover.x, top: hover.y + 14 }}
     >
       {hover.label}

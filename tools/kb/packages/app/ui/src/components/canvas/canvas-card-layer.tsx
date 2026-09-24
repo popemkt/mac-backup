@@ -68,7 +68,7 @@ function CanvasCardView({
         }}
       >
         {hasText(card.label) && (
-          <div className="px-2 py-1 text-[11px] text-foreground/40">{card.label}</div>
+          <div className="px-2 py-1 text-label text-foreground/40">{card.label}</div>
         )}
         <CanvasResizeHandles selected={isSelected} onResizeStart={resizeHandler} />
         <CanvasPorts onPortDown={portHandler(card.id)} />
@@ -126,7 +126,7 @@ function CanvasCardView({
         key={card.id}
         data-card-id={card.id}
         className={cn(
-          "group/card absolute rounded-md border bg-background px-2 py-1 text-[11px] text-foreground/40",
+          "group/card absolute rounded-md border bg-background px-2 py-1 text-label text-foreground/40",
           isSelected ? "border-primary/40" : "border-foreground/[0.06]",
         )}
         style={{

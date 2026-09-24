@@ -154,7 +154,7 @@ export function ViewFilterPopoverHost() {
     >
       <div data-view-filter-popover="true" data-frame-id={frameId}>
         {config.filters.length === 0 ? (
-          <p className="px-1.5 py-1 text-[12px] text-foreground/40">No filters</p>
+          <p className="px-1.5 py-1 text-meta text-foreground/40">No filters</p>
         ) : (
           <ul className="mb-1 flex flex-col gap-0.5">
             {config.filters.map((f) => {
@@ -162,7 +162,7 @@ export function ViewFilterPopoverHost() {
               return (
                 <li
                   key={raw}
-                  className="flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[12px] text-foreground/70 hover:bg-foreground/[0.04]"
+                  className="flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-meta text-foreground/70 hover:bg-foreground/[0.04]"
                 >
                   <span className="min-w-0 flex-1 truncate">{filterLabel(f)}</span>
                   <button
@@ -225,7 +225,7 @@ export function ViewFilterPopoverHost() {
 
         <button
           type="button"
-          className="mt-1 flex w-full items-center justify-center gap-1 rounded-md bg-foreground/[0.04] px-2 py-1 text-[11px] font-medium text-foreground/60 hover:bg-foreground/[0.08] hover:text-foreground/80"
+          className="mt-1 flex w-full items-center justify-center gap-1 rounded-md bg-foreground/[0.04] px-2 py-1 text-label font-medium text-foreground/60 hover:bg-foreground/[0.08] hover:text-foreground/80"
           onClick={add}
         >
           <PlusIcon size={12} weight="bold" />

@@ -43,17 +43,17 @@ function MotionStudy() {
     <div className="mx-auto max-w-3xl px-4 py-8">
       <div className="mb-8 flex items-center justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+          <p className="text-label uppercase tracking-[0.16em] text-muted-foreground">
             kb · motion study 01
           </p>
-          <h1 className="mt-2 text-xl font-medium text-foreground">
+          <h1 className="mt-2 text-title leading-7 font-medium text-foreground">
             A little life between thoughts.
           </h1>
         </div>
         <button
           type="button"
           onClick={() => setTake((value) => value + 1)}
-          className="shrink-0 rounded-full border border-border px-4 py-2 text-[12px] text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+          className="shrink-0 rounded-full border border-border px-4 py-2 text-meta text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
         >
           Replay arrival
         </button>
@@ -72,7 +72,7 @@ function MotionStudy() {
           />
         </div>
       </div>
-      <p className="mt-5 text-[12px] leading-relaxed text-muted-foreground">
+      <p className="mt-5 text-meta leading-relaxed text-muted-foreground">
         One soft landing, a curious glance, then stillness. This preview follows your reduced-motion
         preference. Nothing here reads or changes your workspace.
       </p>
@@ -91,11 +91,13 @@ function ReadinessStudy() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between gap-4">
-        <h1 className="text-lg font-medium text-foreground">From a little hello to your ideas.</h1>
+        <h1 className="text-heading leading-7 font-medium text-foreground">
+          From a little hello to your ideas.
+        </h1>
         <button
           type="button"
           onClick={() => setPending((value) => !value)}
-          className="shrink-0 rounded-full border border-border px-4 py-2 text-[12px] text-foreground hover:bg-muted"
+          className="shrink-0 rounded-full border border-border px-4 py-2 text-meta text-foreground hover:bg-muted"
         >
           {pending ? "Reveal workspace" : "Replay loading"}
         </button>
@@ -103,11 +105,13 @@ function ReadinessStudy() {
       <div className="flex h-80 flex-col overflow-hidden rounded-2xl border border-border bg-background">
         <WorkspaceBoundary pending={pending} title="Opening your workspace…">
           <div className="p-8 text-foreground">
-            <p className="mb-6 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            <p className="mb-6 text-label uppercase tracking-[0.16em] text-muted-foreground">
               A quiet place to begin
             </p>
-            <h2 className="mb-4 text-lg font-medium">Small ideas, interesting connections</h2>
-            <ul className="space-y-3 text-[13px] text-muted-foreground">
+            <h2 className="mb-4 text-heading leading-7 font-medium">
+              Small ideas, interesting connections
+            </h2>
+            <ul className="space-y-3 text-ui text-muted-foreground">
               <li>· A thought worth keeping</li>
               <li>· Something to explore tomorrow</li>
               <li>· Two ideas that might belong together</li>
@@ -115,7 +119,7 @@ function ReadinessStudy() {
           </div>
         </WorkspaceBoundary>
       </div>
-      <p className="mt-4 text-[12px] leading-relaxed text-muted-foreground">
+      <p className="mt-4 text-meta leading-relaxed text-muted-foreground">
         Content fades in as soon as it is ready. No movement, no minimum loading time.
       </p>
     </div>

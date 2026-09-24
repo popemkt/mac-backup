@@ -93,7 +93,7 @@ export function CurvePanel({ values, timing }: { values: LabControlValues; timin
     return () => cancelAnimationFrame(frame);
   }, [settle, timing, reduced]);
   return (
-    <figure className="pointer-events-auto w-[284px] rounded-lg border border-foreground/10 bg-popover/85 p-3 text-[11px] shadow-lg backdrop-blur-md">
+    <figure className="pointer-events-auto w-[284px] rounded-lg border border-foreground/10 bg-popover/85 p-3 text-label shadow-lg backdrop-blur-md">
       <canvas ref={canvas} style={{ width: WIDTH, height: HEIGHT }} aria-hidden="true" />
       <figcaption className="mt-1.5 flex gap-3 text-foreground/55">
         <span>

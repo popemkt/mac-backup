@@ -67,13 +67,13 @@ export function CanvasOverlays({
 
       {!selectionEmpty(selection) && !inspectorAnchor && !shapeInspectorAnchor && (
         <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-lg border border-foreground/10 bg-popover/95 px-2 py-1.5 shadow-lg backdrop-blur-sm">
-          <span className="mr-1 text-[11px] text-foreground/40">
+          <span className="mr-1 text-label text-foreground/40">
             {selection.nodeIds.size + selection.edgeIds.size} selected
           </span>
           <button
             type="button"
             title="Bring to front"
-            className="rounded-md px-1.5 py-1 text-[11px] text-foreground/60 hover:bg-foreground/5"
+            className="rounded-md px-1.5 py-1 text-label text-foreground/60 hover:bg-foreground/5"
             onClick={onBringToFront}
           >
             ↑ Front
@@ -81,7 +81,7 @@ export function CanvasOverlays({
           <button
             type="button"
             title="Send to back"
-            className="rounded-md px-1.5 py-1 text-[11px] text-foreground/60 hover:bg-foreground/5"
+            className="rounded-md px-1.5 py-1 text-label text-foreground/60 hover:bg-foreground/5"
             onClick={onSendToBack}
           >
             ↓ Back
@@ -90,7 +90,7 @@ export function CanvasOverlays({
           <button
             type="button"
             title="Delete selected (Del)"
-            className="rounded-md px-1.5 py-1 text-[11px] text-destructive hover:bg-destructive/10"
+            className="rounded-md px-1.5 py-1 text-label text-destructive hover:bg-destructive/10"
             onClick={onDeleteSelection}
           >
             Delete

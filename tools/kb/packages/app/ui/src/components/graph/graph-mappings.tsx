@@ -52,17 +52,17 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
   const channels = GRAPH_RENDERERS[perspective.renderer]?.channels ?? [];
   return (
     <div className="mb-3 space-y-3 border-b border-foreground/10 pb-3">
-      <p className="text-[11px] text-foreground/45">
+      <p className="text-label text-foreground/45">
         Map the same graph through different relationships and fields.
       </p>
       {channels.map((channel) => {
         if (channel === "relationships")
           return (
             <fieldset key={channel} className="space-y-1">
-              <legend className="mb-1 text-[11px] text-foreground/55">Relationships</legend>
+              <legend className="mb-1 text-label text-foreground/55">Relationships</legend>
               <div className="max-h-32 space-y-1 overflow-y-auto">
                 {optionsFor(SYSTEM_IDS.lensEdgeKindsField).map((option) => (
-                  <label key={option.value} className="flex items-center gap-2 text-xs">
+                  <label key={option.value} className="flex items-center gap-2 text-meta leading-4">
                     <input
                       type="checkbox"
                       checked={perspective.edgeKinds.some((k) => k === option.value)}
@@ -82,7 +82,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
                 ))}
               </div>
               {perspective.renderer === "tree" ? (
-                <p className="text-[10px] text-foreground/45">
+                <p className="text-caption text-foreground/45">
                   A spanning tree shows each node once, including cyclic relationships.
                 </p>
               ) : null}
@@ -91,13 +91,13 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
         const config = CHANNELS[channel];
         const current = perspective[config.key] ?? "text";
         return (
-          <label key={channel} className="block text-[11px] text-foreground/55">
+          <label key={channel} className="block text-label text-foreground/55">
             {channel === "size" && perspective.renderer === "treemap" ? "Area by" : config.label}
             <select
               aria-label={
                 channel === "size" && perspective.renderer === "treemap" ? "Area by" : config.label
               }
-              className="mt-1 block w-full rounded border border-foreground/10 bg-popover px-1.5 py-1 text-xs text-foreground"
+              className="mt-1 block w-full rounded border border-foreground/10 bg-popover px-1.5 py-1 text-meta leading-4 text-foreground"
               value={current}
               onChange={(e) =>
                 void mutations.setLensProp(
@@ -119,14 +119,14 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
           </label>
         );
       })}
-      <label className="block text-[11px] text-foreground/55">
+      <label className="block text-label text-foreground/55">
         Node query (Datalog)
         <textarea
           key={perspective.id + perspective.query}
           aria-label="Node query"
           defaultValue={perspective.query}
           placeholder="All nodes"
-          className="mt-1 block w-full rounded border border-foreground/10 bg-transparent p-1.5 font-mono text-[11px] text-foreground"
+          className="mt-1 block w-full rounded border border-foreground/10 bg-transparent p-1.5 font-mono text-label text-foreground"
           onBlur={(e) => {
             if (e.target.value !== perspective.query)
               void mutations.setLensProp(perspective.id, SYSTEM_IDS.lensQueryField, {
@@ -136,7 +136,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
           }}
         />
       </label>
-      <label className="flex items-center justify-between text-[11px] text-foreground/55">
+      <label className="flex items-center justify-between text-label text-foreground/55">
         Node limit
         <input
           key={perspective.id + perspective.maxNodes}
@@ -144,7 +144,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
           aria-label="Node limit"
           min={1}
           defaultValue={perspective.maxNodes}
-          className="w-20 rounded border border-foreground/10 bg-transparent px-1.5 py-1 text-xs text-foreground"
+          className="w-20 rounded border border-foreground/10 bg-transparent px-1.5 py-1 text-meta leading-4 text-foreground"
           onBlur={(e) => {
             const v = Number(e.target.value);
             if (Number.isFinite(v) && v >= 1 && v !== perspective.maxNodes)

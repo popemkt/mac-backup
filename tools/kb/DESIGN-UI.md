@@ -602,6 +602,73 @@ bounds on the timing tokens (follow 300–600ms, ambient period 8s+), the pop
 budget and the population invariant are tests; everything else here is prose
 (the `#rule` node for the lab principles says so).
 
+## Design tokens
+
+A whole design system (colour, type, elevation, radius, faces) can be swapped
+by redefining one set of custom properties. Components never carry a raw
+value, so nothing has to be edited beside that set.
+
+### Layers
+
+| layer | file | holds | may name |
+|---|---|---|---|
+| 1. design system | `ui/src/design-system.css` | the values a skin chooses, as plain custom properties on `:root`, with the colour overrides under `.dark` | values only |
+| 2. bridge | `ui/src/index.css`, `@theme inline` | the mapping from layer 1 into Tailwind's namespaces (`--color-*`, `--text-*`, `--font-*`, …) | layer 1 |
+| 3. component roles | `ui/src/tokens.css` | row metrics, and the classes that compose layer 1 into a role (`.kb-text` is body text at the body step, `.kb-tag` a chip at the tag step) | layer 1 |
+
+Components use layer-2 utilities (`text-meta`, `bg-popover`) and layer-3
+classes (`kb-text`). The bridge is `inline`, so every utility compiles to a
+`var()` of a layer-1 property rather than a copy of its value: redefining the
+property on another selector re-skins every utility that reads it, at run
+time, with no rebuild.
+
+For every namespace kb owns, the bridge first resets Tailwind's defaults
+(`--text-*: initial`). The only steps that exist are then the design
+system's. A Tailwind default such as `text-sm` does not compile at all, so it
+cannot pass as tokenized while bypassing the scale.
+
+**Swapping a design system** means writing a block that redefines the layer-1
+properties on its own selector. Layers 2 and 3 and the components do not
+change. The selector that chooses between design systems, and the preference
+behind it, are the next wave item (f2). Layer 1 is the contract that item
+fills.
+
+### Type scale
+
+One step per font size the UI sets. A step sets font-size only; leading stays
+with the element (`leading-*`, or the `.kb-text` role's `--kb-text-leading`).
+
+| step | px | typical use |
+|---|---:|---|
+| `micro` | 9 | count badges |
+| `caption` | 10 | mono ids, micro labels |
+| `label` | 11 | chrome labels, buttons, uppercase section labels |
+| `tag` | 11.5 | tag chips (`.kb-tag`) |
+| `meta` | 12 | secondary text, menu rows, toasts |
+| `ui` | 13 | inputs, palette rows, breadcrumbs |
+| `note` | 14 | empty-state notes |
+| `body` | 14.5 | node and field text (`.kb-text`) |
+| `lead` | 16 | lead paragraphs, sub-headings |
+| `heading` | 18 | section headings |
+| `title` | 20 | the zoomed-root and page titles |
+
+- **The names are ordered roles, one size each,** like Apple's text styles
+  (caption, footnote, body, title). They are not t-shirt sizes. Tailwind's
+  `xs`/`sm` already mean 12px/14px with a paired line-height, and kb's steps
+  sit between them (11, 11.5, 13, 14.5px), so reusing those names would make
+  `text-sm` mean something other than what every Tailwind reader expects. Nor
+  are they a pure semantic set: several roles share a size, and the scale
+  maps each px to exactly one step. "Typical use" says where a step is used;
+  it does not restrict it.
+- **Body text is a step, not a variable beside the scale.** `.kb-text` and
+  `--kb-text-line` read `--type-body`. The tag chip likewise reads
+  `--type-tag`.
+- **tailwind-merge learns the names** (`lib/cn.ts`, `TYPE_STEPS`). Without
+  that it reads an unknown `text-<name>` as a colour, and
+  `cn("text-label", "text-foreground/50")` would drop the size.
+  `lib/tokens.test.ts` fails if `TYPE_STEPS`, the bridge and the layer-1
+  values ever list different names.
+
 ## Layout
 
 ```

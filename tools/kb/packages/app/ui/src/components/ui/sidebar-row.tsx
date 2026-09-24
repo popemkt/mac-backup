@@ -24,7 +24,7 @@ export function SidebarRow({
       onClick={onClick}
       title={label}
       className={cn(
-        "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] transition-colors duration-100",
+        "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-meta transition-colors duration-100",
         indented === true && "pl-7",
         active === true
           ? "bg-foreground/[0.08] text-foreground/85"
@@ -45,7 +45,7 @@ export function SidebarSection({ title, children }: { title?: string; children: 
   return (
     <div className="mb-3">
       {hasText(title) ? (
-        <div className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wide text-foreground/30">
+        <div className="mb-1 px-2 text-caption font-medium uppercase tracking-wide text-foreground/30">
           {title}
         </div>
       ) : null}

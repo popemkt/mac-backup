@@ -64,7 +64,7 @@ export function PreferencesPopover({
       <WidthRow />
       {plugins.length > 0 ? (
         <section aria-label="plugins">
-          <h3 className="px-1.5 pb-1 pt-2 text-[12px] uppercase tracking-wide text-foreground/30">
+          <h3 className="px-1.5 pb-1 pt-2 text-meta uppercase tracking-wide text-foreground/30">
             plugins
           </h3>
           {plugins.map((entry) => (

@@ -27,17 +27,17 @@ export function CanvasListPage() {
         <div>
           <button
             type="button"
-            className="mb-1 text-[12px] text-foreground/40 hover:text-foreground/70"
+            className="mb-1 text-meta text-foreground/40 hover:text-foreground/70"
             onClick={() => navigate("/")}
           >
             ← outline
           </button>
-          <h2 className="text-[13px] font-medium text-foreground/80">Canvases</h2>
+          <h2 className="text-ui font-medium text-foreground/80">Canvases</h2>
         </div>
         <button
           type="button"
           disabled={busy}
-          className="rounded-md border border-foreground/10 px-3 py-1.5 text-[12px] text-foreground/70 hover:bg-foreground/5 disabled:opacity-50"
+          className="rounded-md border border-foreground/10 px-3 py-1.5 text-meta text-foreground/70 hover:bg-foreground/5 disabled:opacity-50"
           onClick={() => void onNew()}
         >
           New canvas
@@ -71,7 +71,7 @@ export function CanvasListPage() {
                   />
                 }
                 content={
-                  <span className="truncate text-[13px] text-foreground/80">
+                  <span className="truncate text-ui text-foreground/80">
                     {n.text || "Untitled canvas"}
                   </span>
                 }

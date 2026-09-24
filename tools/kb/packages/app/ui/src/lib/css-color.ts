@@ -1,7 +1,7 @@
 /**
  * Token colors, normalized to a form every renderer can parse.
  *
- * The token system is authored in oklch (`tokens.css`), and Chrome's computed
+ * The palette is authored in oklch (`design-system.css`), and Chrome's computed
  * value for `color` preserves the authored color space rather than converting
  * to rgb. That breaks two consumers:
  *

@@ -334,7 +334,7 @@ export function ColorSwatchEditor({
         aria-label="Custom color hex"
         className={cn(
           "ml-1 h-5 w-[5.5rem] rounded-sm border border-foreground/10 bg-transparent px-1",
-          "font-mono text-[11px] text-foreground/60 outline-none",
+          "font-mono text-label text-foreground/60 outline-none",
           "placeholder:text-foreground/25 focus:border-foreground/25",
         )}
         onChange={(e) => setCustom(e.target.value)}
@@ -607,7 +607,7 @@ function UnresolvedRefChip({
       title={hasDisplay ? `Node: ${refId}` : `Unresolved ref: ${refId}`}
       data-unresolved-ref={!hasDisplay ? "true" : undefined}
     >
-      {!hasDisplay && <span className="text-warning text-[11px] leading-none">⚠</span>}
+      {!hasDisplay && <span className="text-warning text-label leading-none">⚠</span>}
       <span
         className={cn(
           "h-1 w-1 shrink-0 rounded-full",

@@ -35,7 +35,7 @@ export function ShapeInspector({ card, anchor, onClose, onColorChange }: ShapeIn
   return createPortal(
     <div className="fixed z-50" style={{ top: anchor.y + 8, left: Math.max(8, anchor.x - 160) }}>
       <PopoverShell title="Shape" panelRef={ref} className="w-72" data-testid="shape-inspector">
-        <div className="px-1.5 pb-1 text-[12px] text-foreground/50">Color</div>
+        <div className="px-1.5 pb-1 text-meta text-foreground/50">Color</div>
         <div className="flex items-center gap-1.5 px-1.5 pb-1.5">
           <button
             type="button"

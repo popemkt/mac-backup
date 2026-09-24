@@ -35,7 +35,7 @@ export function ReferencesView({
 
   return (
     <section className="references-section" data-references-for={nodeId}>
-      <h2 className="mb-1 mt-3 text-[12px] uppercase tracking-wide text-foreground/30">
+      <h2 className="mb-1 mt-3 text-meta uppercase tracking-wide text-foreground/30">
         References ({backlinks.length})
       </h2>
       {backlinks.map((row) => (

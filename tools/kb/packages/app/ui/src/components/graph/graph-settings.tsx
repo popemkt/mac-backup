@@ -60,7 +60,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
           className="absolute right-0 top-9 z-40 max-h-[calc(100vh-10rem)] w-72 overflow-y-auto rounded-lg border border-foreground/10 bg-popover/95 p-3 shadow-xl backdrop-blur-sm"
           data-testid="graph-settings-panel"
         >
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-foreground/40">
+          <p className="mb-2 text-label font-semibold uppercase tracking-wide text-foreground/40">
             Settings
           </p>
 
@@ -73,7 +73,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
                   key={layout}
                   type="button"
                   className={cn(
-                    "rounded px-2 py-0.5 text-[11px] capitalize",
+                    "rounded px-2 py-0.5 text-label capitalize",
                     perspective.layout === layout
                       ? "bg-foreground/[0.1] font-semibold text-foreground/80"
                       : "text-foreground/45 hover:bg-foreground/[0.05]",
@@ -124,7 +124,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
                   key={d}
                   type="button"
                   className={cn(
-                    "rounded px-2 py-0.5 text-[11px] capitalize",
+                    "rounded px-2 py-0.5 text-label capitalize",
                     perspective.labelDensity === d
                       ? "bg-foreground/[0.1] font-semibold text-foreground/80"
                       : "text-foreground/45 hover:bg-foreground/[0.05]",
@@ -176,10 +176,10 @@ function Field({
       title={reason}
       className="mb-2.5 flex flex-col gap-1 disabled:opacity-40"
     >
-      <span className="text-[11px] text-foreground/50">{label}</span>
+      <span className="text-label text-foreground/50">{label}</span>
       {children}
       {reason !== undefined ? (
-        <span className="text-[10px] text-foreground/55">{reason}</span>
+        <span className="text-caption text-foreground/55">{reason}</span>
       ) : null}
     </fieldset>
   );
@@ -199,7 +199,7 @@ function Toggle({
   return (
     <label
       title={reason}
-      className="mb-1.5 flex items-center justify-between gap-2 text-[12px] text-foreground/70"
+      className="mb-1.5 flex items-center justify-between gap-2 text-meta text-foreground/70"
     >
       <span>{label}</span>
       <input

@@ -62,15 +62,15 @@ export function EdgeInspector({
       className="fixed z-50 w-64 rounded-lg border border-foreground/10 bg-popover p-3 shadow-xl"
       style={{ top: anchor.y + 8, left: Math.max(8, anchor.x - 128) }}
     >
-      <div className="mb-2 text-[11px] font-medium text-foreground/50">Edge</div>
+      <div className="mb-2 text-label font-medium text-foreground/50">Edge</div>
 
       {/* Label */}
       {onLabelChange && (
-        <label className="mb-2 flex flex-col gap-1 text-[12px]">
+        <label className="mb-2 flex flex-col gap-1 text-meta">
           <span className="text-foreground/60">Label</span>
           <input
             type="text"
-            className="rounded-md border border-foreground/10 bg-background px-2 py-1 text-[12px]"
+            className="rounded-md border border-foreground/10 bg-background px-2 py-1 text-meta"
             value={edge.label ?? ""}
             placeholder="Edge label…"
             onChange={(e) => onLabelChange(e.target.value)}
@@ -80,14 +80,14 @@ export function EdgeInspector({
 
       {/* Arrowheads */}
       {onArrowChange && (
-        <div className="mb-2 flex items-center justify-between gap-2 text-[12px]">
+        <div className="mb-2 flex items-center justify-between gap-2 text-meta">
           <span className="text-foreground/60">Arrows</span>
           <div className="flex items-center gap-1">
             <button
               type="button"
               title="Start arrow"
               className={cn(
-                "rounded-md border px-1.5 py-0.5 text-[11px]",
+                "rounded-md border px-1.5 py-0.5 text-label",
                 edge.fromEnd === "arrow"
                   ? "border-primary/40 bg-primary/10 text-primary"
                   : "border-foreground/10 text-foreground/50 hover:bg-foreground/5",
@@ -100,7 +100,7 @@ export function EdgeInspector({
               type="button"
               title="End arrow"
               className={cn(
-                "rounded-md border px-1.5 py-0.5 text-[11px]",
+                "rounded-md border px-1.5 py-0.5 text-label",
                 (edge.toEnd ?? "arrow") === "arrow"
                   ? "border-primary/40 bg-primary/10 text-primary"
                   : "border-foreground/10 text-foreground/50 hover:bg-foreground/5",
@@ -118,7 +118,7 @@ export function EdgeInspector({
       {/* Color swatches */}
       {onColorChange && (
         <div className="mb-2">
-          <div className="mb-1 text-[12px] text-foreground/60">Color</div>
+          <div className="mb-1 text-meta text-foreground/60">Color</div>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -148,25 +148,25 @@ export function EdgeInspector({
         </div>
       )}
 
-      <label className="mb-2 flex items-center justify-between gap-2 text-[12px]">
+      <label className="mb-2 flex items-center justify-between gap-2 text-meta">
         <span className="text-foreground/60">Mode</span>
         <EnumSelect
-          className="rounded-md border border-foreground/10 bg-background px-2 py-1 text-[12px]"
+          className="rounded-md border border-foreground/10 bg-background px-2 py-1 text-meta"
           value={mode}
           options={LINK_MODE_OPTIONS}
           onChange={onModeChange}
         />
       </label>
-      <p className="mb-3 text-[11px] leading-relaxed text-foreground/50">
+      <p className="mb-3 text-label leading-relaxed text-foreground/50">
         {mode === "layout"
           ? "This connection appears on this canvas only."
           : "This connection uses a reference field between the underlying nodes."}
       </p>
       {mode === "native" && (
-        <label className="mb-2 flex flex-col gap-1 text-[12px]">
+        <label className="mb-2 flex flex-col gap-1 text-meta">
           <span className="text-foreground/60">Ref field</span>
           <select
-            className="rounded-md border border-foreground/10 bg-background px-2 py-1 text-[12px]"
+            className="rounded-md border border-foreground/10 bg-background px-2 py-1 text-meta"
             value={fieldId}
             onChange={(e) => onFieldChange(e.target.value)}
           >
@@ -184,7 +184,7 @@ export function EdgeInspector({
         type="button"
         className={cn(
           "mt-1 w-full rounded-md border border-destructive/30 px-2 py-1.5",
-          "text-[12px] text-destructive hover:bg-destructive/10",
+          "text-meta text-destructive hover:bg-destructive/10",
         )}
         onClick={onDelete}
       >

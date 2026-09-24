@@ -19,10 +19,7 @@ export function Breadcrumbs() {
   const isAtRoot = rootNodeId === WORKSPACE_ROOT_ID;
 
   return (
-    <nav
-      className="breadcrumbs flex h-11 items-center gap-1 px-1 text-[13px]"
-      aria-label="Breadcrumb"
-    >
+    <nav className="breadcrumbs flex h-11 items-center gap-1 px-1 text-ui" aria-label="Breadcrumb">
       <button
         type="button"
         className={cn(

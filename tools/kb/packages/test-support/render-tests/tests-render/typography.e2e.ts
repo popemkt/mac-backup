@@ -11,7 +11,7 @@
 import { expect, test } from "playwright/test";
 import { present } from "@kb/model";
 
-/** --kb-text-size × --kb-text-leading, resolved. */
+/** --type-body × --kb-text-leading, resolved. */
 const TEXT_SIZE = 14.5;
 const LINE_BOX = 23.2;
 

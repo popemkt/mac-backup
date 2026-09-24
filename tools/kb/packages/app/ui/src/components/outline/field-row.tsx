@@ -74,7 +74,7 @@ function FieldLabel({
       >
         <span className="truncate">{label}</span>
         {debug && fieldId !== undefined && (
-          <span className="ml-1 truncate font-mono text-[10px] text-foreground/25">{fieldId}</span>
+          <span className="ml-1 truncate font-mono text-caption text-foreground/25">{fieldId}</span>
         )}
       </span>
     </>

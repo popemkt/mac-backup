@@ -37,7 +37,7 @@ function ConnectionDot() {
   const dot = WS_DOT[wsStatus];
   return (
     <span
-      className="flex items-center gap-1.5 text-[11px] text-foreground/40"
+      className="flex items-center gap-1.5 text-label text-foreground/40"
       title={`WebSocket: ${wsStatus}`}
     >
       <span className={cn("h-2 w-2 rounded-full", dot.className)} />
@@ -59,7 +59,7 @@ function Toasts() {
           onClick={() => dismiss(t.id)}
           aria-label={`Dismiss notification: ${t.text}`}
           className={cn(
-            "kb-surface-enter rounded-md border px-3 py-2 text-left text-[12px] shadow-md",
+            "kb-surface-enter rounded-md border px-3 py-2 text-left text-meta shadow-md",
             t.kind === "error"
               ? "border-destructive/30 bg-destructive/10 text-destructive"
               : "border-foreground/10 bg-popover text-foreground/70",
@@ -165,8 +165,8 @@ function WorkspaceShell({
     <div className="relative flex h-full min-h-0 flex-col">
       <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
         <SidebarToggle {...sidebar} />
-        <h1 className="text-[13px] font-medium text-foreground/50">kb</h1>
-        <span className="text-[11px] text-foreground/30">
+        <h1 className="text-ui font-medium text-foreground/50">kb</h1>
+        <span className="text-label text-foreground/30">
           {status === "loading" ? "loading…" : `rev ${rev} · ${loadSource ?? "?"}`}
         </span>
         <ConnectionDot />
@@ -204,7 +204,7 @@ function LoadError({ error, onRetry }: { error: string | null; onRetry: () => vo
     <div className="mx-auto flex max-w-md flex-col gap-3 p-6" role="alert">
       <div>
         <h2 className="kb-text font-medium text-foreground/80">Couldn’t load your workspace</h2>
-        <p className="mt-1 text-[13px] text-foreground/50">
+        <p className="mt-1 text-ui text-foreground/50">
           Check that kb is running, then try again. Your local data has not been changed.
         </p>
       </div>
@@ -212,12 +212,12 @@ function LoadError({ error, onRetry }: { error: string | null; onRetry: () => vo
         <button
           type="button"
           onClick={onRetry}
-          className="rounded-md bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground hover:opacity-90"
+          className="rounded-md bg-primary px-3 py-1.5 text-meta font-medium text-primary-foreground hover:opacity-90"
         >
           Try again
         </button>
         {hasText(error) ? (
-          <details className="text-[12px] text-foreground/45">
+          <details className="text-meta text-foreground/45">
             <summary className="cursor-pointer">Technical details</summary>
             <pre className="mt-1 max-w-sm overflow-auto whitespace-pre-wrap text-destructive/80">
               {error}

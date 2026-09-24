@@ -338,13 +338,13 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
           <div className="flex items-center gap-1 px-3 pt-2 pb-0.5">
             <button
               type="button"
-              className="text-[10px] text-foreground/30 transition-colors hover:text-foreground/50"
+              className="text-caption text-foreground/30 transition-colors hover:text-foreground/50"
               onClick={() => goToStep("commands")}
             >
               Commands
             </button>
-            <span className="text-[10px] text-foreground/20">›</span>
-            <span className="text-[10px] font-medium text-foreground/50">{stepLabel}</span>
+            <span className="text-caption text-foreground/20">›</span>
+            <span className="text-caption font-medium text-foreground/50">{stepLabel}</span>
           </div>
         )}
 
@@ -356,7 +356,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={picker?.placeholder ?? COMMANDS_PLACEHOLDER}
-            className="flex-1 bg-transparent text-[13px] text-foreground/85 outline-none placeholder:text-foreground/25"
+            className="flex-1 bg-transparent text-ui text-foreground/85 outline-none placeholder:text-foreground/25"
           />
         </div>
 
@@ -367,7 +367,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
           data-palette-list="true"
         >
           {items.length === 0 ? (
-            <div className="px-2 py-2 text-center text-[12px] text-foreground/25">
+            <div className="px-2 py-2 text-center text-meta text-foreground/25">
               {query ? "No matches" : "Type to filter…"}
             </div>
           ) : (
@@ -377,7 +377,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
                 type="button"
                 className={cn(
                   "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left",
-                  "text-[13px] transition-colors duration-75",
+                  "text-ui transition-colors duration-75",
                   i === highlightIndex
                     ? "bg-accent text-accent-foreground"
                     : "text-foreground/70 hover:bg-foreground/[0.04]",
@@ -394,7 +394,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
           )}
         </div>
 
-        <div className="flex items-center gap-3 border-t border-foreground/[0.06] px-3 py-1.5 text-[10px] text-foreground/20">
+        <div className="flex items-center gap-3 border-t border-foreground/[0.06] px-3 py-1.5 text-caption text-foreground/20">
           <span>↑↓ navigate</span>
           <span>↵ select</span>
           <span>esc {picker === null ? "close" : "back"}</span>

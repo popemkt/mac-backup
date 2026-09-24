@@ -51,13 +51,13 @@ export function TagFieldsConfigView({
 
   return (
     <div className="mb-4" data-tag-fields-config="true">
-      <h2 className="mb-2 px-1 text-[12px] uppercase tracking-wide text-foreground/30">
+      <h2 className="mb-2 px-1 text-meta uppercase tracking-wide text-foreground/30">
         Fields
         <span className="ml-1.5 font-normal normal-case tracking-normal">({template.length})</span>
       </h2>
 
       {template.length === 0 && (
-        <p className="px-1 pb-1 text-[13px] text-foreground/50" role="status">
+        <p className="px-1 pb-1 text-ui text-foreground/50" role="status">
           No fields yet — anything tagged with this gets the fields you add here.
         </p>
       )}
@@ -67,7 +67,7 @@ export function TagFieldsConfigView({
           <div className="flex min-w-0 flex-1 items-center gap-1">
             <button
               type="button"
-              className="ml-auto text-[11px] text-foreground/40 underline-offset-2 hover:text-foreground/70 hover:underline"
+              className="ml-auto text-label text-foreground/40 underline-offset-2 hover:text-foreground/70 hover:underline"
               onClick={() => onOpen(field.id)}
             >
               open
@@ -111,7 +111,7 @@ export function TagFieldsConfigView({
             placeholder="Add field"
             aria-label="Add a field to this tag"
             className={cn(
-              "min-w-0 flex-1 bg-transparent text-[13px] text-foreground",
+              "min-w-0 flex-1 bg-transparent text-ui text-foreground",
               "placeholder:text-foreground/35 outline-none",
             )}
           />

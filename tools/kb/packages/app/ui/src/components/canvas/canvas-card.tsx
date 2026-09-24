@@ -74,7 +74,7 @@ export function KbNodeCard({
   if (!node) {
     return (
       <div
-        className="absolute rounded-md border border-destructive/30 bg-background px-2 py-1 text-[11px] text-destructive"
+        className="absolute rounded-md border border-destructive/30 bg-background px-2 py-1 text-label text-destructive"
         style={{
           left: card.x,
           top: card.y,
@@ -204,7 +204,7 @@ export function TextCard({
       }}
     >
       <textarea
-        className="h-full w-full resize-none bg-transparent text-[13px] outline-none"
+        className="h-full w-full resize-none bg-transparent text-ui outline-none"
         value={card.text}
         onChange={(e) => onChange(e.target.value)}
         onPointerDown={(e) => e.stopPropagation()}

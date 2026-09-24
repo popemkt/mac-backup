@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { CANVAS_COLOR_PRESETS, resolveCanvasColor, canvasColorStyle } from "./canvas-color";
 
-const indexCss = readFileSync(
-  path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "index.css"),
+const designSystemCss = readFileSync(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "design-system.css"),
   "utf8",
 );
 
@@ -22,13 +22,13 @@ describe("canvas color presets", () => {
     expect(resolveCanvasColor(undefined)).toBeUndefined();
   });
 
-  test("index.css defines --canvas-color-1..6 under :root and .dark", () => {
+  test("design-system.css defines --canvas-color-1..6 under :root and .dark", () => {
     for (const id of ["1", "2", "3", "4", "5", "6"]) {
       const re = new RegExp(`--canvas-color-${id}:\\s*oklch\\(`);
-      expect(indexCss.match(re)?.length).toBeGreaterThanOrEqual(1);
+      expect(designSystemCss.match(re)?.length).toBeGreaterThanOrEqual(1);
     }
     // both theme blocks carry the vars
-    expect(indexCss).toMatch(
+    expect(designSystemCss).toMatch(
       /:root\s*\{[\s\S]*--canvas-color-1:[\s\S]*\}\s*\.dark\s*\{[\s\S]*--canvas-color-1:/,
     );
   });

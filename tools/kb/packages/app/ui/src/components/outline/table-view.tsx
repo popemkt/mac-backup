@@ -145,7 +145,7 @@ export function TableView({
         <thead>
           <tr className="border-b border-foreground/[0.06] bg-foreground/[0.02]">
             <th
-              className="group relative px-2 py-1.5 text-[11px] font-medium text-foreground/35 select-none"
+              className="group relative px-2 py-1.5 text-label font-medium text-foreground/35 select-none"
               style={{
                 width: `${localColwidth[NAME_COLUMN] ?? viewConfig.colwidth[NAME_COLUMN] ?? 220}px`,
               }}
@@ -174,7 +174,7 @@ export function TableView({
               return (
                 <th
                   key={col.fieldId}
-                  className="group relative px-2 py-1.5 text-[11px] font-medium text-foreground/35 select-none"
+                  className="group relative px-2 py-1.5 text-label font-medium text-foreground/35 select-none"
                   style={{ width: `${currentWidth}px` }}
                 >
                   <div
@@ -215,7 +215,7 @@ export function TableView({
         <div className="p-2 border-t border-foreground/[0.06] text-center">
           <button
             type="button"
-            className="text-[11px] text-foreground/50 hover:text-foreground/80 font-medium px-3 py-1 rounded bg-foreground/[0.04] hover:bg-foreground/[0.08] cursor-pointer"
+            className="text-label text-foreground/50 hover:text-foreground/80 font-medium px-3 py-1 rounded bg-foreground/[0.04] hover:bg-foreground/[0.08] cursor-pointer"
             onClick={() => revealMorePages(frameId)}
           >
             Show more ({rows.ordered.length - displayedChildren.length} remaining)
@@ -326,7 +326,7 @@ function SortIndicator({ sort, fieldId }: { sort: SortSpec[]; fieldId: string })
   const spec = sort.find((s) => s.fieldId === fieldId);
   if (!spec) return null;
   return (
-    <span className="text-[9px] font-bold text-foreground/70">
+    <span className="text-micro font-bold text-foreground/70">
       {spec.dir === "asc" ? "▲" : "▼"}
     </span>
   );

@@ -77,7 +77,7 @@ export function GraphCanvasFrame({
       />
       <GraphLegend nodes={nodes} onFilterChange={onFilterChange} />
       {controls?.expandAll && controls.collapseAll ? (
-        <div className="absolute bottom-3 left-3 z-20 flex gap-1 rounded-lg border border-foreground/10 bg-popover/95 p-1 text-xs shadow">
+        <div className="absolute bottom-3 left-3 z-20 flex gap-1 rounded-lg border border-foreground/10 bg-popover/95 p-1 text-meta leading-4 shadow">
           <button
             type="button"
             className="rounded px-2 py-1 hover:bg-foreground/5"

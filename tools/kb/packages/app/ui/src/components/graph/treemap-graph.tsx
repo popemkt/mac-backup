@@ -76,7 +76,7 @@ export function TreemapGraph({
             }}
           >
             <p
-              className="truncate px-2 pt-1 text-[11px] font-medium text-foreground/55"
+              className="truncate px-2 pt-1 text-label font-medium text-foreground/55"
               title={group.data.label}
             >
               {group.data.label}
@@ -118,10 +118,10 @@ export function TreemapGraph({
               onDoubleClick={() => onNodeOpen(node.id)}
             >
               {active.showLabels && width > 54 && height > 34 ? (
-                <span className="block truncate text-xs font-medium">{node.label}</span>
+                <span className="block truncate text-meta leading-4 font-medium">{node.label}</span>
               ) : null}
               {width > 70 && height > 60 ? (
-                <span className="block text-[11px] tabular-nums text-foreground/50">
+                <span className="block text-label tabular-nums text-foreground/50">
                   {node.weight}
                 </span>
               ) : null}
@@ -129,13 +129,13 @@ export function TreemapGraph({
           );
         })}
         {(layout.value ?? 0) <= 0 ? (
-          <p className="absolute inset-0 flex items-center justify-center text-sm text-foreground/50">
+          <p className="absolute inset-0 flex items-center justify-center text-note leading-5 text-foreground/50">
             No positive values to map. Choose Uniform or another area source in Graph settings.
           </p>
         ) : null}
       </div>
       {omitted.length ? (
-        <p className="px-2 text-[11px] text-foreground/45">
+        <p className="px-2 text-label text-foreground/45">
           {omitted.length} nodes have zero or missing area. Choose Uniform to show every node.
         </p>
       ) : null}

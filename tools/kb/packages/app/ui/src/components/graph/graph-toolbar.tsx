@@ -147,9 +147,9 @@ export function GraphToolbar({
               }
             }}
             placeholder="Search nodes…"
-            className="h-6 w-36 rounded bg-transparent px-1.5 text-[12px] text-foreground/80 outline-none placeholder:text-foreground/30 focus:ring-1 focus:ring-foreground/15"
+            className="h-6 w-36 rounded bg-transparent px-1.5 text-meta text-foreground/80 outline-none placeholder:text-foreground/30 focus:ring-1 focus:ring-foreground/15"
           />
-          <span aria-live="polite" className="text-[10px] text-foreground/50">
+          <span aria-live="polite" className="text-caption text-foreground/50">
             {
               nodes.filter((n) => n.label.toLowerCase().includes(searchQuery.trim().toLowerCase()))
                 .length
@@ -159,7 +159,7 @@ export function GraphToolbar({
           <button
             type="button"
             aria-label="Close search"
-            className="text-[10px] text-foreground/40 hover:text-foreground/60"
+            className="text-caption text-foreground/40 hover:text-foreground/60"
             onClick={handleSearchClose}
           >
             ✕

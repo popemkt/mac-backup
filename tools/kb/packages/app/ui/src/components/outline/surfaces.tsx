@@ -45,7 +45,7 @@ export function PinnedSection({ route }: { readonly route: MatchedRoute }) {
   return (
     <SidebarSection title="Pinned">
       {pinned.length === 0 ? (
-        <p className="px-2 py-1 text-[11px] text-foreground/30">Pin nodes with ⌘K</p>
+        <p className="px-2 py-1 text-label text-foreground/30">Pin nodes with ⌘K</p>
       ) : (
         pinned.map((f) => (
           <SidebarRow

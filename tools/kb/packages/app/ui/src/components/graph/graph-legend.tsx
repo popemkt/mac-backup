@@ -78,14 +78,14 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
     <div className="absolute left-3 top-3 z-20 flex flex-col rounded-lg border border-foreground/8 bg-popover/90 shadow-lg backdrop-blur-sm">
       <button
         type="button"
-        className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-foreground/60 hover:text-foreground/80"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 text-label font-medium text-foreground/60 hover:text-foreground/80"
         onClick={() => setCollapsed((v) => !v)}
         aria-label={collapsed ? "Expand legend" : "Collapse legend"}
       >
         <FunnelIcon size={12} />
         <span>Legend</span>
         {activeFilters.size > 0 && (
-          <span className="rounded bg-foreground/[0.08] px-1 text-[10px]">
+          <span className="rounded bg-foreground/[0.08] px-1 text-caption">
             {activeFilters.size}
           </span>
         )}
@@ -95,7 +95,7 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
           {activeFilters.size > 0 && (
             <button
               type="button"
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-foreground/50 hover:bg-foreground/5"
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-caption text-foreground/50 hover:bg-foreground/5"
               onClick={clearFilters}
             >
               <XIcon size={10} /> Clear filters
@@ -106,7 +106,7 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
               key={b.key}
               type="button"
               className={cn(
-                "flex items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-[11px] transition-colors hover:bg-foreground/5",
+                "flex items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-label transition-colors hover:bg-foreground/5",
                 activeFilters.has(b.key) ? "text-foreground/30" : "text-foreground/70",
               )}
               aria-pressed={activeFilters.has(b.key)}
@@ -118,7 +118,7 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
                 style={{ backgroundColor: b.color }}
               />
               <span className="truncate max-w-[120px]">{b.tag}</span>
-              <span className="ml-auto text-[10px] text-foreground/30">{b.nodeIds.length}</span>
+              <span className="ml-auto text-caption text-foreground/30">{b.nodeIds.length}</span>
             </button>
           ))}
         </div>

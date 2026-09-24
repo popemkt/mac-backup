@@ -45,7 +45,7 @@ export function PerspectivePicker({ perspectives, activeId, onSelect }: Perspect
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        className="flex h-6 max-w-xs items-center gap-1 rounded-md px-1.5 text-[13px] text-foreground/70 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/85"
+        className="flex h-6 max-w-xs items-center gap-1 rounded-md px-1.5 text-ui text-foreground/70 transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground/85"
         aria-label="Perspective"
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -61,7 +61,7 @@ export function PerspectivePicker({ perspectives, activeId, onSelect }: Perspect
           aria-label="Graph perspectives"
           className="absolute left-0 top-full z-40 mt-1 min-w-[200px] max-w-xs rounded-lg border border-foreground/10 bg-popover p-1 shadow-xl"
         >
-          <h2 className="px-1.5 pb-1 pt-0.5 text-[12px] uppercase tracking-wide text-foreground/30">
+          <h2 className="px-1.5 pb-1 pt-0.5 text-meta uppercase tracking-wide text-foreground/30">
             Perspectives
           </h2>
           <div role="listbox" aria-label="Saved perspectives" className="max-h-64 overflow-y-auto">
@@ -72,7 +72,7 @@ export function PerspectivePicker({ perspectives, activeId, onSelect }: Perspect
                 role="option"
                 aria-selected={p.id === activeId}
                 className={cn(
-                  "flex w-full items-center rounded-md px-1.5 py-1 text-left text-[13px] text-foreground/70 transition-colors duration-75 hover:bg-foreground/5 hover:text-foreground/85",
+                  "flex w-full items-center rounded-md px-1.5 py-1 text-left text-ui text-foreground/70 transition-colors duration-75 hover:bg-foreground/5 hover:text-foreground/85",
                   p.id === activeId && "bg-foreground/[0.04] text-foreground/85",
                 )}
                 onClick={() => {
@@ -108,25 +108,25 @@ export function PerspectivePicker({ perspectives, activeId, onSelect }: Perspect
                 })();
               }}
             >
-              <p className="text-[11px] text-foreground/45">
+              <p className="text-label text-foreground/45">
                 Save these mappings as a perspective node.
               </p>
               <input
                 aria-label="Perspective name"
                 placeholder="Name this perspective…"
                 value={name}
-                className="w-full rounded border border-foreground/10 bg-transparent px-2 py-1 text-xs"
+                className="w-full rounded border border-foreground/10 bg-transparent px-2 py-1 text-meta leading-4"
                 onChange={(e) => setName(e.target.value)}
               />
               <button
                 type="submit"
                 disabled={!name.trim() || saving}
-                className="rounded bg-foreground/[0.07] px-2 py-1 text-xs disabled:opacity-40"
+                className="rounded bg-foreground/[0.07] px-2 py-1 text-meta leading-4 disabled:opacity-40"
               >
                 {saving ? "Saving…" : "Save as new perspective"}
               </button>
               {saveError ? (
-                <p role="alert" className="text-xs text-destructive">
+                <p role="alert" className="text-meta leading-4 text-destructive">
                   Could not save. Your current perspective is still available.
                 </p>
               ) : null}

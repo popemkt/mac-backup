@@ -77,7 +77,7 @@ export function ViewToolbar({ frameId, mode, className, tucked = false }: ViewTo
           key={m.id}
           type="button"
           className={cn(
-            "flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer",
+            "flex items-center gap-1 rounded px-2 py-0.5 text-label font-medium transition-colors cursor-pointer",
             mode === m.id
               ? "bg-background text-foreground shadow-xs font-semibold"
               : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground/80",

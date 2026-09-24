@@ -45,7 +45,7 @@ export function OutlineEditor() {
   if (!root) {
     return (
       <div
-        className="px-2 py-8 text-[13px] text-foreground/50"
+        className="px-2 py-8 text-ui text-foreground/50"
         role="status"
         aria-live="polite"
         aria-busy="true"
@@ -92,7 +92,7 @@ export function OutlineEditor() {
             }}
             title="New node"
           >
-            <span className="text-[13px] leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25">
+            <span className="text-ui leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25">
               +
             </span>
           </div>
@@ -125,7 +125,7 @@ export function OutlineEditor() {
         }}
         title="New node"
       >
-        <span className="text-[13px] leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25">
+        <span className="text-ui leading-none text-foreground/0 transition-colors duration-150 group-hover/create:text-foreground/25 group-focus-visible/create:text-foreground/25">
           +
         </span>
       </div>

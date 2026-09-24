@@ -22,14 +22,14 @@ export function ViewError({
       data-testid="view-error"
       className={cn("flex h-full min-h-0 flex-col items-start justify-center gap-3 p-6", className)}
     >
-      <h2 className="text-[13px] font-medium text-foreground/80">{title}</h2>
-      <p className="max-w-md text-[13px] text-foreground/50">{message}</p>
+      <h2 className="text-ui font-medium text-foreground/80">{title}</h2>
+      <p className="max-w-md text-ui text-foreground/50">{message}</p>
       {onRetry ? (
         <button
           type="button"
           data-testid="view-error-retry"
           onClick={onRetry}
-          className="rounded-md border border-foreground/10 bg-foreground/[0.04] px-3 py-1.5 text-[12px] text-foreground/70 transition-colors hover:bg-foreground/[0.08] hover:text-foreground/85"
+          className="rounded-md border border-foreground/10 bg-foreground/[0.04] px-3 py-1.5 text-meta text-foreground/70 transition-colors hover:bg-foreground/[0.08] hover:text-foreground/85"
         >
           Try again
         </button>

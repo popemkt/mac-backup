@@ -28,7 +28,7 @@ function SupertagGlyph({ a }: { a: BulletAppearance }) {
   return (
     <span
       className={cn(
-        "relative z-[1] block select-none text-[11px] font-bold leading-none",
+        "relative z-[1] block select-none text-label font-bold leading-none",
         !a.tinted && "text-foreground/45",
         !a.tinted && a.hasChildren && "text-foreground/55",
         a.hasChildren && !a.collapsed && !a.tinted && "group-hover/bullet:text-foreground/70",
@@ -81,7 +81,7 @@ function KindGlyph({ a }: { a: BulletAppearance }) {
   return (
     <span
       className={cn(
-        "relative z-[1] select-none text-[11px] font-bold leading-none",
+        "relative z-[1] select-none text-label font-bold leading-none",
         "text-foreground/45",
       )}
       aria-hidden
@@ -168,7 +168,7 @@ export function Bullet({
 
       {appearance.showCount && (
         <span
-          className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-foreground/10 px-0.5 text-[9px] font-medium text-foreground/50"
+          className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-foreground/10 px-0.5 text-micro font-medium text-foreground/50"
           data-bullet-count
         >
           {appearance.childCount}

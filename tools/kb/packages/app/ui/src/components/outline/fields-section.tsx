@@ -129,7 +129,7 @@ export function FieldValueStack({
           type="button"
           className={cn(
             "mt-px flex w-fit items-center gap-1 rounded-sm px-1 py-px",
-            "text-[11px] text-foreground/30 opacity-0 transition-opacity",
+            "text-label text-foreground/30 opacity-0 transition-opacity",
             "group-hover/field:opacity-100 focus-visible:opacity-100",
             "hover:bg-foreground/[0.06] hover:text-foreground/60",
             "focus-visible:ring-2 focus-visible:ring-primary/60 outline-none",

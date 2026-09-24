@@ -1,10 +1,11 @@
 /**
- * kb row token sheet (nxus metrics, DESIGN-REFINE §2 W1).
- * Metrics only — indent / hit / type scale / chips / field labels.
- * Colors come from the nxus palette in index.css (DESIGN-RESKIN §1.1);
- * the legacy --kb-* palette and --bg bridge names are gone.
+ * Component roles: token layer 3 (DESIGN-UI.md → Design tokens). Row metrics
+ * (nxus, DESIGN-REFINE §2 W1) and the classes that compose design-system
+ * values into a role — `.kb-text` is body text at the body step, `.kb-tag`
+ * is a chip at the tag step. Values come from design-system.css; this file
+ * picks which step a role uses and never restates a size of its own.
  *
- * The type scale is declared as longhands, never via the `font` shorthand.
+ * Roles are declared as longhands, never via the `font` shorthand.
  * `font: var(--kb-text) inherit` looks tokenized but is invalid CSS — a
  * CSS-wide keyword such as `inherit` may not appear as a shorthand component —
  * so the whole declaration was dropped and every `.kb-text` row silently
@@ -13,23 +14,21 @@
  * one place, and it actually applies.
  *
  * These are component defaults, so they live in the `components` layer: a
- * Tailwind utility (`font-medium`, `text-[20px]`) must still win over them
+ * Tailwind utility (`font-medium`, `text-title`) must still win over them
  * without a specificity fight.
  */
 :root {
   --kb-indent: 24px;
   --kb-row-h: 24px;
 
-  --kb-text-size: 14.5px;
   --kb-text-leading: 1.6;
   --kb-text-weight: var(--font-weight-body, 400);
   /* Resolved line box. Anything that must align to a line of text reads this
    * rather than re-deriving it (chips, floats, row minimums). */
-  --kb-text-line: calc(var(--kb-text-size) * var(--kb-text-leading));
+  --kb-text-line: calc(var(--type-body) * var(--kb-text-leading));
 
   /* Tag pill fills the line box like Tana's, minus a hairline of breathing
    * room top and bottom — a readable chip, not a superscript. */
-  --tag-size: 11.5px;
   --tag-h: calc(var(--kb-text-line) - 4px);
   --tag-line: var(--tag-h);
   --tag-weight: var(--font-weight-ui, 500);
@@ -38,7 +37,7 @@
 
 @layer components {
   .kb-text {
-    font-size: var(--kb-text-size);
+    font-size: var(--type-body);
     line-height: var(--kb-text-leading);
     font-weight: var(--kb-text-weight);
   }
@@ -59,7 +58,7 @@
 
   .kb-chip,
   .kb-tag {
-    font-size: var(--tag-size);
+    font-size: var(--type-tag);
     line-height: var(--tag-line);
     font-weight: var(--tag-weight);
   }

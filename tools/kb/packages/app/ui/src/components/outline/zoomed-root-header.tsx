@@ -93,7 +93,7 @@ function EditableTitle({ node }: { node: OutlineNode }) {
 
 const TITLE_CLASS = cn(
   "flex min-h-9 min-w-0 flex-1 items-center px-1",
-  "text-[20px] font-semibold leading-[1.4]",
+  "text-title font-semibold leading-[1.4]",
 );
 
 /** Zoomed root title + tag wash + fields at depth −1 (DESIGN-RESKIN §1.5). */

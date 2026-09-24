@@ -159,7 +159,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
     <div className="relative flex h-full min-h-0 flex-col">
       <header className="flex min-h-11 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-foreground/[0.06] px-4 py-2">
         <SidebarToggle {...sidebar} />
-        <span className="text-[13px] font-medium text-foreground/50">
+        <span className="text-ui font-medium text-foreground/50">
           {ontologyId !== null ? "ontology graph" : "graph"}
         </span>
         <PerspectivePicker
@@ -187,7 +187,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
         <button
           type="button"
           className={cn(
-            "rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors duration-100",
+            "rounded-md px-2 py-0.5 text-label font-medium transition-colors duration-100",
             includeSystemNodes
               ? "bg-foreground/[0.08] text-foreground/70"
               : "text-foreground/35 hover:bg-foreground/[0.04] hover:text-foreground/55",
@@ -203,7 +203,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
         >
           {includeSystemNodes ? "sys on" : "sys off"}
         </button>
-        <span className="text-[11px] text-foreground/30">
+        <span className="text-label text-foreground/30">
           {lensGraph.dropped > 0
             ? `top ${lensGraph.nodes.length} of ${lensGraph.nodes.length + lensGraph.dropped} nodes by degree`
             : `${lensGraph.nodes.length} nodes`}{" "}
@@ -212,7 +212,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
         {lensGraph.dropped > 0 && active ? (
           <button
             type="button"
-            className="rounded-md bg-foreground/[0.06] px-2 py-0.5 text-[10px] font-medium text-foreground/60 transition-colors hover:bg-foreground/[0.1] hover:text-foreground/80"
+            className="rounded-md bg-foreground/[0.06] px-2 py-0.5 text-caption font-medium text-foreground/60 transition-colors hover:bg-foreground/[0.1] hover:text-foreground/80"
             onClick={() => {
               navigate("/");
               zoomTo(active.id);
@@ -223,7 +223,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
         ) : null}
         {hasText(lensGraph.queryError) && (
           <span
-            className="flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-600 dark:text-amber-400"
+            className="flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-label text-amber-600 dark:text-amber-400"
             title={lensGraph.queryError}
           >
             <WarningIcon size={12} /> query error

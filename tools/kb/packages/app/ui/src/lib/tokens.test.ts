@@ -2,6 +2,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { TYPE_STEPS } from "./cn";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -40,19 +41,20 @@ describe("kb tokens", () => {
   const tokens = readFileSync(path.join(root, "tokens.css"), "utf8");
   const tokenDecls = stripComments(tokens);
   const index = readFileSync(path.join(root, "index.css"), "utf8");
+  const designSystem = readFileSync(path.join(root, "design-system.css"), "utf8");
   const content = readFileSync(path.join(root, "components/ui/node-text-host.tsx"), "utf8");
 
   it("defines row metric tokens from DESIGN-REFINE W1", () => {
     expect(tokens).toMatch(/--kb-indent:\s*24px/);
     expect(tokens).toMatch(/--kb-row-h:\s*24px/);
-    expect(tokens).toMatch(/--kb-text-size:\s*14\.5px/);
+    expect(designSystem).toMatch(/--type-body:\s*14\.5px/);
     expect(tokens).toMatch(/--kb-text-leading:\s*1\.6/);
     expect(tokens).toMatch(/--kb-field-label:\s*120px/);
   });
 
   it("tag typography is one token on .kb-tag/.kb-chip (i10 item 3)", () => {
     expect(tokens).toMatch(/\.kb-chip,\s*\n\s*\.kb-tag\s*\{/);
-    expect(tokens).toMatch(/font-size:\s*var\(--tag-size\)/);
+    expect(tokens).toMatch(/font-size:\s*var\(--type-tag\)/);
     expect(tokens).toMatch(/line-height:\s*var\(--tag-line\)/);
   });
 
@@ -71,7 +73,7 @@ describe("kb tokens", () => {
     // tokenized but is invalid: a CSS-wide keyword cannot be a shorthand
     // component, so the declaration was dropped whole and .kb-text inherited
     // the 16px body size for its entire life. Longhands only.
-    expect(tokens).toMatch(/\.kb-text\s*\{[^}]*font-size:\s*var\(--kb-text-size\)/s);
+    expect(tokens).toMatch(/\.kb-text\s*\{[^}]*font-size:\s*var\(--type-body\)/s);
     expect(tokens).toMatch(/\.kb-text\s*\{[^}]*line-height:\s*var\(--kb-text-leading\)/s);
     expect(tokenDecls).not.toMatch(/\bfont:\s*var\(/);
     expect(tokenDecls).not.toMatch(/\binherit\b/);
@@ -88,18 +90,18 @@ describe("kb tokens", () => {
     expect(tokens.indexOf(".kb-text {")).toBeGreaterThan(layerStart);
   });
 
-  it("index.css carries the nxus oklch palette (DESIGN-RESKIN §1.1)", () => {
-    expect(index).toMatch(/:root\s*\{[^}]*--background:\s*oklch\(/s);
-    expect(index).toMatch(/\.dark\s*\{[^}]*--background:\s*oklch\(/s);
+  it("design-system.css carries the nxus oklch palette (DESIGN-RESKIN §1.1)", () => {
+    expect(designSystem).toMatch(/:root\s*\{[^}]*--background:\s*oklch\(/s);
+    expect(designSystem).toMatch(/\.dark\s*\{[^}]*--background:\s*oklch\(/s);
     // Warm amber primary, light + dark
-    expect(index).toContain("--primary: oklch(0.67 0.16 58)");
-    expect(index).toContain("--primary: oklch(0.77 0.16 70)");
+    expect(designSystem).toContain("--primary: oklch(0.67 0.16 58)");
+    expect(designSystem).toContain("--primary: oklch(0.77 0.16 70)");
     expect(index).toMatch(/@custom-variant dark/);
     expect(index).toMatch(/data-scrolling/);
   });
 
   it("legacy skin is gone: no serif stack, gradients, or --kb palette bridges", () => {
-    for (const css of [tokens, index]) {
+    for (const css of [tokens, index, designSystem]) {
       expect(css).not.toMatch(/radial-gradient/);
       expect(css).not.toMatch(/Iowan Old Style|Palatino|Georgia/);
       expect(css).not.toMatch(/--kb-bg|--kb-fg|--kb-accent|--kb-line/);
@@ -108,18 +110,31 @@ describe("kb tokens", () => {
   });
 
   it("font is a pref-driven CSS var (Inter Variable default, Outfit opt-in)", () => {
-    expect(index).toMatch(/--app-font:\s*"Inter Variable"/);
-    expect(index).toMatch(/html\[data-font="outfit"\]/);
+    expect(designSystem).toMatch(/--app-font:\s*"Inter Variable"/);
+    expect(designSystem).toMatch(/html\[data-font="outfit"\]/);
     expect(index).toMatch(/--font-sans:\s*var\(--app-font\)/);
-    expect(index).toMatch(/font-family:\s*"Inter Fallback"/);
+    expect(designSystem).toMatch(/font-family:\s*"Inter Fallback"/);
     expect(index).toMatch(/@fontsource-variable\/inter/);
-    expect(index).toMatch(/size-adjust:/);
+    expect(designSystem).toMatch(/size-adjust:/);
   });
 
   it("tokens declare body weight for Inter (Outfit 500 read heavy)", () => {
     expect(tokens).toMatch(/--kb-text-weight:/);
     expect(tokens).toMatch(/--tag-weight:/);
-    expect(index).toMatch(/--font-weight-body:\s*400/);
+    expect(designSystem).toMatch(/--font-weight-body:\s*400/);
+  });
+
+  it("the type scale is one list: design system, Tailwind bridge, tailwind-merge", () => {
+    // Tailwind's own steps are reset, so the bridge is the only source of
+    // text-* sizes; each bridged step reads a design-system value; and
+    // tailwind-merge knows exactly those names (else it reads them as colours).
+    const bridge = stripComments(index);
+    expect(bridge).toMatch(/--text-\*:\s*initial;/);
+    const bridged = [...bridge.matchAll(/--text-([a-z]+):\s*var\(--type-([a-z]+)\);/g)];
+    expect(bridged.map((m) => m[1])).toEqual([...TYPE_STEPS]);
+    for (const m of bridged) expect(m[2]).toBe(m[1]);
+    const values = [...stripComments(designSystem).matchAll(/--type-([a-z]+):/g)].map((m) => m[1]);
+    expect(values).toEqual([...TYPE_STEPS]);
   });
 
   it("text-[Npx] literals in ui/src stay within §1.2 whitelist", () => {

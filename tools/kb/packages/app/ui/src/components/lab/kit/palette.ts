@@ -1,6 +1,6 @@
 /**
  * The lab palette (Lab principles L1): one hue family and one accent, read
- * from the `--lab-*` tokens in `index.css` through `css-color`, the same
+ * from the `--lab-*` tokens in `design-system.css` through `css-color`, the same
  * normalisation the graph renderers use. The accent is the app's own
  * `--primary`. A theme change is a re-read; no scene names a colour.
  */

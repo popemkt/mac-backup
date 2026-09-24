@@ -41,12 +41,12 @@ export function SchemaSection({ nodeId }: { nodeId: string }) {
   return (
     <section className="mt-6 border-t border-foreground/[0.06] px-1 pt-4">
       {kind === "tag" && <TagFieldsConfig tagId={nodeId} />}
-      <h2 className="mb-2 px-1 text-[12px] uppercase tracking-wide text-foreground/30">
+      <h2 className="mb-2 px-1 text-meta uppercase tracking-wide text-foreground/30">
         {title}
         <span className="ml-1.5 font-normal normal-case tracking-normal">({hits.length})</span>
       </h2>
       {hits.length === 0 ? (
-        <p className="px-1 text-[13px] text-foreground/50" role="status">
+        <p className="px-1 text-ui text-foreground/50" role="status">
           None yet
         </p>
       ) : (

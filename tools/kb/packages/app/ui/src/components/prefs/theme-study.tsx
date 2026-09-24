@@ -11,14 +11,16 @@ export function ThemeStudy() {
       <div className="mx-auto max-w-xl">
         <div className="mb-10 flex items-center justify-between gap-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            <p className="text-label uppercase tracking-[0.16em] text-muted-foreground">
               kb · day and night
             </p>
-            <h1 className="mt-2 text-xl font-medium">Same thoughts. A different light.</h1>
+            <h1 className="mt-2 text-title leading-7 font-medium">
+              Same thoughts. A different light.
+            </h1>
           </div>
           <button
             type="button"
-            className="flex shrink-0 items-center gap-2 rounded-full border border-border px-4 py-2 text-[12px] hover:bg-muted"
+            className="flex shrink-0 items-center gap-2 rounded-full border border-border px-4 py-2 text-meta hover:bg-muted"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           >
             <ThemeIcon theme={theme} size={17} />
@@ -38,8 +40,8 @@ export function ThemeStudy() {
             <circle cx="320" cy="105" r="12" fill="var(--primary)" />
             <circle cx="420" cy="45" r="7" fill="var(--canvas-color-5)" />
           </svg>
-          <h2 className="text-base font-medium">Everything is connected.</h2>
-          <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+          <h2 className="text-lead leading-6 font-medium">Everything is connected.</h2>
+          <p className="mt-2 text-ui leading-relaxed text-muted-foreground">
             A thought, a person, a question. The relationships stay where you left them.
           </p>
         </div>

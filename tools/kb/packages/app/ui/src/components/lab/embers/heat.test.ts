@@ -10,7 +10,10 @@ import { describe, expect, it } from "vitest";
 import { oklchToRgb } from "@/lib/css-color";
 import { HEAT_GAIN, RestCeiling, peakEmissive, peakShown, restCeiling, type Rgb } from "./heat";
 
-const INDEX_CSS = readFileSync(join(import.meta.dirname, "..", "..", "..", "index.css"), "utf8");
+const DESIGN_SYSTEM_CSS = readFileSync(
+  join(import.meta.dirname, "..", "..", "..", "design-system.css"),
+  "utf8",
+);
 
 /** An sRGB byte as a linear channel, as three stores a colour. */
 function linear(byte: number): number {
@@ -21,7 +24,7 @@ function linear(byte: number): number {
 /** `--primary` (the lab accent) in the `:root` or `.dark` block, as linear RGB. */
 function accent(block: ":root" | ".dark"): Rgb {
   const body =
-    new RegExp(`${block.replace(".", "\\.")}\\s*\\{([^}]*)\\}`).exec(INDEX_CSS)?.[1] ?? "";
+    new RegExp(`${block.replace(".", "\\.")}\\s*\\{([^}]*)\\}`).exec(DESIGN_SYSTEM_CSS)?.[1] ?? "";
   const value = /--primary:\s*([^;]+);/.exec(body)?.[1] ?? "";
   const srgb = oklchToRgb(value);
   if (srgb === null) throw new Error(`no --primary in ${block}`);

@@ -155,7 +155,7 @@ export function ShapeCard({
           <input
             ref={inputRef}
             data-testid="shape-label-input"
-            className="w-full truncate bg-transparent text-center text-[13px] text-foreground/85 outline-none"
+            className="w-full truncate bg-transparent text-center text-ui text-foreground/85 outline-none"
             value={edit.draft}
             onChange={(e) => setEdit((s) => typeLabelDraft(s, e.target.value))}
             onBlur={commit}
@@ -174,7 +174,7 @@ export function ShapeCard({
         ) : (
           <span
             className={cn(
-              "max-w-full truncate text-center text-[13px]",
+              "max-w-full truncate text-center text-ui",
               hasText(card.label) ? "text-foreground/85" : "text-foreground/25",
             )}
           >

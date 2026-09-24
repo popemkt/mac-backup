@@ -54,7 +54,7 @@ export function MemberRow({
       <span
         aria-hidden
         className={cn(
-          "shrink-0 text-[10px] leading-none",
+          "shrink-0 text-caption leading-none",
           excluded ? "text-foreground/20" : "text-foreground/35",
         )}
       >
@@ -80,7 +80,7 @@ export function MemberRow({
 
       <span
         className={cn(
-          "shrink-0 truncate text-[11px]",
+          "shrink-0 truncate text-label",
           excluded ? "text-foreground/25" : "text-foreground/35",
         )}
         data-member-provenance="true"
@@ -130,7 +130,7 @@ export function MemberRow({
       {row.pinned && !excluded ? (
         <span
           aria-hidden
-          className="shrink-0 text-[10px] text-foreground/25 group-hover/member:hidden"
+          className="shrink-0 text-caption text-foreground/25 group-hover/member:hidden"
           title="Pinned"
         >
           <PushPinIcon size={11} weight="fill" />
