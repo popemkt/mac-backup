@@ -77,6 +77,15 @@ describe("parseEdn reads the reach form", () => {
     expect(() => new DatascriptIndex(lineage(1)).runDatalog(edn)).toThrow(DatalogError);
     expect(() => new DatascriptIndex(lineage(1)).runDatalog(edn)).toThrow(/^reach/);
   });
+
+  // GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]]: outside the subset the whole query is raw, malformed reach too.
+  test.each([
+    ["a _ wildcard", "[:find ?b :where [_ :node/id ?b] (reach ?a :f/parent ?b 0)]"],
+    ["a not clause", '[:find ?b :where (not [?b :node/text "x"]) (reach ?a :f/parent ?b 0)]'],
+    ["a :with section", "[:find ?b :where (reach ?a :f/parent ?b 0) :with ?a]"],
+  ])("a malformed reach beside %s is raw like the rest of the query", (_label, edn) => {
+    expect(parseEdn(edn)).toEqual({ kind: "raw", edn });
+  });
 });
 
 describe("reach over a ref field", () => {

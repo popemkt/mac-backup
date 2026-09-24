@@ -30,7 +30,8 @@ class ParseFail extends Error {}
  * Parse stored-form EDN into the kb IR. The subset is `:find` / `:in` / `:where`
  * over pattern clauses, rule calls, `(reach …)`, `count`/`collect`/`pull`, and
  * the child cartesian which collapses to `children`. Anything else is
- * `{ kind: "raw" }`, except a malformed `reach`, which throws `DatalogError`.
+ * `{ kind: "raw" }`. A malformed `reach` in a query that is otherwise in the
+ * subset throws `DatalogError`.
  */
 export function parseEdn(edn: string): Ir {
   try {
@@ -164,9 +165,12 @@ function queryFromEdn(value: Edn): IrQuery | null {
   if (sections === null) return null;
   const find = sections.find.map(findPosFromEdn);
   if (find.some((p) => p === null)) return null;
-  const where = sections.where.map(clauseFromEdn);
-  if (where.some((c) => c === null)) return null;
-  const collapsed = collapseChildOrder(where.filter((c): c is Clause => c !== null));
+  const parsed = sections.where.map(clauseFromEdn);
+  if (parsed.some((c) => c === null)) return null;
+  const misused = parsed.find((c) => c?.kind === "reach-misuse");
+  if (misused?.kind === "reach-misuse") throw new DatalogError(misused.message);
+  const where = parsed.filter((c): c is Clause => c !== null && c.kind !== "reach-misuse");
+  const collapsed = collapseChildOrder(where);
   const typed = inferFindTypes(
     find.filter((p): p is FindPos => p !== null),
     collapsed,
@@ -270,8 +274,19 @@ function pullElem(el: Edn): PullSpec[number] | null {
   return rec;
 }
 
+/**
+ * A `reach` form that is kb's but malformed. Raised as a `DatalogError` only
+ * once the rest of the query is known to be in the subset: a query that goes
+ * raw anyway is raw, malformed reach included.
+ */
+type ReachMisuse = { kind: "reach-misuse"; message: string };
+
+function misuse(message: string): ReachMisuse {
+  return { kind: "reach-misuse", message };
+}
+
 // GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]] — an unmodelled clause makes the whole query raw, reach included.
-function clauseFromEdn(item: Edn): Clause | null {
+function clauseFromEdn(item: Edn): Clause | ReachMisuse | null {
   if (item.k === "vec") return patternFromEdn(item.v);
   if (item.k === "list") return reachFromEdn(item.v) ?? ruleFromEdn(item.v);
   return null;
@@ -280,21 +295,21 @@ function clauseFromEdn(item: Edn): Clause | null {
 /**
  * `(reach ?from <edge> ?to)` / `(reach ?from <edge> ?to <max>)` — DESIGN.md →
  * Query layer. A list headed `reach` with a keyword in the edge slot is kb's
- * form, so a malformed one is the caller's error, named as such: left raw,
- * DataScript would only report a missing `%`. Without the keyword it is an
- * ordinary rule call.
+ * form, so a malformed one is reported as a misuse (see `ReachMisuse`):
+ * left raw, DataScript would only report a missing `%`. Without the keyword
+ * it is an ordinary rule call.
  */
-function reachFromEdn(parts: Edn[]): ReachClause | null {
+function reachFromEdn(parts: Edn[]): ReachClause | ReachMisuse | null {
   const [name, from, edge, to, max, ...rest] = parts;
   if (name?.k !== "sym" || name.v !== "reach" || edge?.k !== "kw") return null;
   const form = "(reach ?from <edge> ?to [max])";
   if (from?.k !== "sym" || !from.v.startsWith("?")) {
-    throw new DatalogError(`reach: ?from must be a variable in ${form}`);
+    return misuse(`reach: ?from must be a variable in ${form}`);
   }
   if (to?.k !== "sym" || !to.v.startsWith("?")) {
-    throw new DatalogError(`reach: ?to must be a variable in ${form}`);
+    return misuse(`reach: ?to must be a variable in ${form}`);
   }
-  if (rest.length > 0) throw new DatalogError(`reach takes at most 4 arguments: ${form}`);
+  if (rest.length > 0) return misuse(`reach takes at most 4 arguments: ${form}`);
   const clause: ReachClause = {
     kind: "reach",
     from: from.v.slice(1),
@@ -303,7 +318,7 @@ function reachFromEdn(parts: Edn[]): ReachClause | null {
   };
   if (max === undefined) return clause;
   if (max.k !== "num" || !Number.isInteger(max.v) || max.v < 1) {
-    throw new DatalogError(`reach: max must be a positive integer in ${form}`);
+    return misuse(`reach: max must be a positive integer in ${form}`);
   }
   return { ...clause, maxHops: max.v };
 }

@@ -968,9 +968,10 @@ provenance.
   relation, either carrier), `:node/child`, or `:f/<fieldId>` for a ref field.
   A list headed `reach` with a keyword in the edge slot is this form. If it is
   malformed (an end that is not a variable, a bound that is not a positive
-  integer, extra arguments), that is a `DatalogError` naming `reach`
-  (`invalid_input`), not a `raw` fallback. Without the keyword it is an
-  ordinary rule call.
+  integer, extra arguments) in a query the subset otherwise covers, that is a
+  `DatalogError` naming `reach` (`invalid_input`), not a `raw` fallback. In a
+  query that is `raw` anyway (below), it is raw like the rest. Without the
+  keyword it is an ordinary rule call.
   `?from` and `?to` are variables, and either end may be the bound one:
   `(reach ?me :f/parent ?anc)` walks up a lineage, `(reach ?d :f/parent ?me)`
   walks down it. Each step and each result is a node: a dangling ref (kept
@@ -989,8 +990,9 @@ provenance.
   not a datalog relation, and a hop counter on the unbounded form would not
   terminate on a cycle. `reach` is recognised only in a query the subset
   covers whole; one construct outside it (a predicate, `not`/`or`, `_`,
-  `:with`) makes the query `raw`, where `reach` is an ordinary rule call that
-  no rules define (GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]]).
+  `:with`) makes the query `raw`, well-formed or malformed `reach` included,
+  and there `reach` is an ordinary rule call that no rules define
+  (GAP [[01M39X8RPQBWFVDNG77BB3ZCMH]]).
 
   ```bash
   kb query '[:find ?id :where [?r :node/id "n.root-a"] (reach ?r :node/mentions ?n) [?n :node/id ?id]]'
