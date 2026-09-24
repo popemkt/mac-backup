@@ -31,14 +31,16 @@ type ChildrenClause = {
   child: string;
 };
 
+/**
+ * Transitive closure of `edge` from `from` to `to`: 1..∞ hops, or 1..`maxHops`.
+ * Surface form and semantics: DESIGN.md → Query layer.
+ */
 export type ReachClause = {
   kind: "reach";
   from: string;
   to: string;
   edge: Attr;
-  minHops?: number;
   maxHops?: number;
-  returnPath?: boolean;
 };
 
 type RuleCallClause = {

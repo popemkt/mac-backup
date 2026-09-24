@@ -60,7 +60,7 @@ export function compile(ir: Ir): CompiledEdn {
   const reaches = ir.where.filter((c): c is ReachClause => c.kind === "reach");
   const names = new Map<ReachClause, string>();
   for (const [i, r] of reaches.entries()) {
-    names.set(r, i === 0 ? "reach" : `reach_${i}`);
+    names.set(r, `__kb_reach_${i}`);
   }
   const rules = reaches.length > 0 ? compileReachRules(reaches, names) : undefined;
   const inSlots = compileIn(ir.in, rules !== undefined);
@@ -137,11 +137,9 @@ function compileReachRules(
 
 function compileOneReach(clause: ReachClause, name: string): string {
   const edge = clause.edge;
-  const min = clause.minHops ?? 1;
   const max = clause.maxHops;
-  const identity = min === 0 ? `[(${name} ?a ?b) [(= ?a ?b)]]` : "";
   if (max === undefined) {
-    return `${identity}[(${name} ?a ?b) [?a ${edge} ?b]] [(${name} ?a ?b) [?a ${edge} ?mid] (${name} ?mid ?b)]`;
+    return `[(${name} ?a ?b) [?a ${edge} ?b]] [(${name} ?a ?b) [?a ${edge} ?mid] (${name} ?mid ?b)]`;
   }
-  return `${identity}[(${name} ?a ?b ?h) [?a ${edge} ?b] [(<= ?h ${max})]] [(${name} ?a ?b ?h) [?a ${edge} ?mid] [(< ?h ${max})] [(+ ?h 1) ?h2] (${name} ?mid ?b ?h2)]`;
+  return `[(${name} ?a ?b ?h) [?a ${edge} ?b] [(<= ?h ${max})]] [(${name} ?a ?b ?h) [?a ${edge} ?mid] [(< ?h ${max})] [(+ ?h 1) ?h2] (${name} ?mid ?b ?h2)]`;
 }
