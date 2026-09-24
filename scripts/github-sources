@@ -62,6 +62,18 @@ prepare_nvfetcher_auth() {
   NVFETCHER_AUTH_ARGS=(--keyfile "$keyfile")
 }
 
+# The one way this script runs nvfetcher: a configuration into a build
+# directory, with the credentials prepare_nvfetcher_auth set up, if any.
+generate_sources() {
+  local config="$1" build_dir="$2"
+  shift 2
+  nvfetcher \
+    "${NVFETCHER_AUTH_ARGS[@]}" \
+    --config "$config" \
+    --build-dir "$build_dir" \
+    "$@"
+}
+
 print_update_hint() {
   echo "run: cd \"$COMMAND_ROOT\" && nix run .#github-sources -- update" >&2
 }
@@ -346,10 +358,7 @@ verify_sources() {
   pinned_config="$tmpdir/nvfetcher.pinned.toml"
   write_pinned_config "$pinned_config" || return
 
-  if ! nvfetcher \
-    --config "$pinned_config" \
-    --build-dir "$tmpdir/_sources" \
-    >"$log_file" 2>&1; then
+  if ! generate_sources "$pinned_config" "$tmpdir/_sources" >"$log_file" 2>&1; then
     if [ "$best_effort" = true ] && ! pinned_artifacts_reachable; then
       echo "warning: could not fetch pinned release artifacts while offline; continuing" >&2
       return 0
@@ -397,11 +406,7 @@ update_sources() {
 
   local filter="${1:-}"
   # --keep-old preserves co-located non-nvfetcher files such as uv-pins.json.
-  local args=(
-    --config "$NVFETCHER_CONFIG"
-    --build-dir "$ROOT_DIR/_sources"
-    --keep-old
-  )
+  local args=(--keep-old)
 
   if [ -n "$filter" ]; then
     if [[ ! "$filter" =~ ^[A-Za-z0-9._+-]+$ ]]; then
@@ -416,7 +421,7 @@ update_sources() {
     auth_tmpdir="$(mktemp -d)"
     trap 'rm -rf "$auth_tmpdir"' EXIT
     prepare_nvfetcher_auth "$auth_tmpdir"
-    nvfetcher "${NVFETCHER_AUTH_ARGS[@]}" "${args[@]}"
+    generate_sources "$NVFETCHER_CONFIG" "$ROOT_DIR/_sources" "${args[@]}"
   )
   git -C "$ROOT_DIR" diff --stat -- _sources
 }
