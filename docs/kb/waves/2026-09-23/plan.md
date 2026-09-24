@@ -31,8 +31,11 @@ Phases, each its own commit, restructure before add:
    Behaviour-preserving: every existing test passes unchanged in meaning.
 3. The browser runs a kernel too; routes, sidebar sections, bullet kinds,
    view modes and commands become points the built-in views contribute to.
-4. Canvas moves into `ext-canvas`: its seeds, its action and its UI, one
-   extension with a backend entry and a `./ui` entry.
+4. Canvas leaves core and `@kb/ui`: a backend plugin (`@kb/ext-canvas`: its
+   action and its seeds) and a browser plugin package (its UI) around the
+   shared `@kb/canvas` doc. Not one package with a `./ui` entry: a package
+   has one `scope:*` tag. The shape is stated in gap
+   `01M39F3MR3HT2NR553FY8CRD6X`.
 5. `.kb/extensions/<name>/ui.tsx` loaded at runtime (server-built ESM plus an
    import map), unload/reload on change.
 
@@ -43,7 +46,7 @@ Phases, each its own commit, restructure before add:
 | 1 kernel | `77f0133` | done — 14 contract tests |
 | 2 backend registry on the kernel | `aacf165` | done — registry shape unchanged, clash fails a plugin as a unit |
 | 3 browser kernel: surfaces + sidebar sections | `6bf48dc` | done — route table asserted over contributions |
-| 4 canvas into `ext-canvas` (`./ui`) | — | gap: canvas's UI lives in @kb/ui |
+| 4 canvas as a backend plugin + a browser plugin | — | gap: canvas UI still lives in @kb/ui |
 | 5 runtime UI for `.kb/extensions` | — | gap: repository extensions cannot ship UI |
 | — hot reload | — | gap: the action registry is build-once per process |
 

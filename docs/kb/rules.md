@@ -84,12 +84,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Implement an IndexedDB-backed EffectStore with the same generation fingerprint contract.
 - **node** — `01M1R6N8VC3W5P93KABEFZ8CTX`
 
-### GAP: canvas's UI lives in @kb/ui, not in the ext-canvas extension
+### GAP: canvas UI still lives in @kb/ui, not in a canvas browser plugin
 
-- **expected** — @kb/ext-canvas is one extension with two entries: its backend plugin (tx.apply, and the canvas tag/field seeds) and a ./ui entry whose plugin contributes the canvas surfaces and sidebar section to the browser kernel, as DeepSeek Harness's dsh.client does.
+- **expected** — Canvas is three packages around one concept, one scope:* tag each, never one package with two entries. @kb/canvas (scope:shared, no dependencies) owns the JSON Canvas document. @kb/ext-canvas (scope:backend) is the backend plugin: ext.canvas.tx.apply plus the #canvas tag and sys.f.canvas field seeds, which leave @kb/model's systemSeedNodes because the system seed is core, not every view kb ships. A browser plugin package (scope:browser) contributes the canvas surfaces and sidebar section to the browser kernel. Both plugins depend on @kb/plugin and @kb/canvas, and neither names the other by a string literal.
 - **current** — The canvas UI is a built-in UI plugin in packages/app/ui/src/components/canvas (plugin.ts, surfaces.tsx) plus ~12 lib/canvas-* modules; sys.tag.canvas and sys.f.canvas are seeded by core; the UI calls the action by the string ext.canvas.tx.apply.
 - **impact** — An extension cannot own its UI, so canvas is only nominally an extension, and removing ext-canvas leaves a canvas UI with no backend.
-- **closes** — @kb/ui-sdk: the host API an extension's ./ui may use (store selectors it needs, the text-host and sidebar primitives, invoke, live query, the UI points), decided as a design, then a per-entry scope in the harness (. backend, ./ui browser) and the move.
+- **closes** — First @kb/ui-sdk, decided as a design: the host API a browser plugin may use (the store selectors canvas needs, the text-host and sidebar primitives, invoke, live query, the UI points). Then, in order: state the three-package shape in DESIGN.md's Core boundary & extensions; create the browser plugin package and move components/canvas and the lib/canvas-* modules into it; move the canvas seeds from systemSeedNodes into @kb/ext-canvas. The harness keeps one scope per package; no per-entry scope.
 - **node** — `01M39F3MR3HT2NR553FY8CRD6X`
 
 ### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
@@ -187,7 +187,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — A .kb/extensions module can carry a browser half (<name>.ui.tsx) that the server builds to ESM, serves at /ext/<name>/ui.js and the UI loads into its kernel at runtime, sharing the host's React through import-map shims, reloaded on change.
 - **current** — The browser kernel loads only the built-in UI plugins listed in ui-plugins.ts; .kb/extensions contribute actions and templates only.
 - **impact** — A repo cannot add a view without editing kb itself.
-- **closes** — The same @kb/ui-sdk the canvas move needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test.
+- **closes** — The same @kb/ui-sdk the canvas browser plugin needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test. The browser half is built and loaded as its own module, the repository-extension form of the backend-plugin/browser-plugin split canvas takes, not a second entry of the backend module.
 - **node** — `01M39F3N04WNEVCGHX428H8TKN`
 
 ### GAP: repository extensions have no fail-closed admission

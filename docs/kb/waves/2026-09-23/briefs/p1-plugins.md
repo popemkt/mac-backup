@@ -75,6 +75,16 @@ run the same one.
   clashing entry — a half-registered extension is a state nothing asked for.
 - The manifest, invoke and templates read the kernel's points.
 
+## Phase 4 — canvas is two plugins, not two entries
+
+A package carries one `scope:*` tag, so "one extension with a backend entry
+and a `./ui` entry" is not a shape the harness admits, and a per-entry scope
+would be a second scope mechanism. Canvas becomes a backend plugin and a
+browser plugin around the shared `@kb/canvas` doc, and its seeds move out of
+the system seed. The shape and what closes it are gap
+`01M39F3MR3HT2NR553FY8CRD6X` (`docs/kb/rules.md`); it waits on the
+`@kb/ui-sdk` decision.
+
 ## Not in p1
 
 - A Promise-flavoured `ctx` for third-party authors who do not write Effect —
