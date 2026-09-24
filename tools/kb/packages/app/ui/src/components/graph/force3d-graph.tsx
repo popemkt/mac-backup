@@ -11,7 +11,7 @@ import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import { force3dColor, readTokenColor } from "@/lib/css-color";
 import { withGraphAlpha } from "@/lib/graph-dim";
 import { graphEmphasisAlpha, graphNeighborhood, type GraphEmphasis } from "@/lib/graph-interaction";
-import { fitGraphLabel, GRAPH_LABEL_FONT } from "@/lib/graph-label";
+import { fitGraphLabel, graphLabelFont } from "@/lib/graph-label";
 import { reserveGraphLabel, type GraphLabelBox } from "@/lib/graph-label-layout";
 import { force3dCameraControls, type GraphCameraControls } from "./graph-camera-controls";
 import { motionDuration } from "./graph-camera";
@@ -39,14 +39,14 @@ function labelSprite(text: string, color: string, viewportHeight: number, fov: n
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const scale = 2 * dpr,
     fontSize = 12;
-  ctx.font = "500 " + fontSize + "px " + GRAPH_LABEL_FONT;
+  ctx.font = "500 " + fontSize + "px " + graphLabelFont();
   const label = fitGraphLabel(text, (t) => ctx.measureText(t).width);
   const width = Math.ceil(ctx.measureText(label).width) + 12,
     height = 24;
   canvas.width = width * scale;
   canvas.height = height * scale;
   ctx.scale(scale, scale);
-  ctx.font = "500 " + fontSize + "px " + GRAPH_LABEL_FONT;
+  ctx.font = "500 " + fontSize + "px " + graphLabelFont();
   ctx.textBaseline = "middle";
   ctx.fillStyle = color;
   ctx.fillText(label, 6, height / 2);
@@ -112,8 +112,8 @@ export default function Force3dGraph(props: Force3dGraphProps) {
     const active = p.selectedNodeId ?? hovered.current;
     const neighborhood = graphNeighborhood(active, p.edges);
     const alpha = (id: string) => graphEmphasisAlpha(id, p, neighborhood);
-    const foreground = force3dColor(readTokenColor("--foreground", { fallback: "#222" }));
-    graph.backgroundColor(force3dColor(readTokenColor("--background", { fallback: "#fff" })));
+    const foreground = force3dColor(readTokenColor("--foreground"));
+    graph.backgroundColor(force3dColor(readTokenColor("--background")));
     graph.nodeColor((n) => withGraphAlpha(n.color, alpha(n.id)));
     graph.nodeVal((n) => n.val * (n.id === active ? 1.5 : 1));
     graph.linkColor((l) => {

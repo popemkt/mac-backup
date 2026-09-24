@@ -18,20 +18,14 @@ export interface LabPalette {
   readonly accent: string;
 }
 
-/**
- * Only reached when a token does not resolve (no stylesheet, as in a unit
- * test): mid grey, so a missing token reads as missing rather than as a
- * deliberate colour.
- */
-const MISSING_TOKEN = "rgb(128, 128, 128)";
-
 export function readLabPalette(): LabPalette {
-  const read = (token: string) => readTokenColor(token, { fallback: MISSING_TOKEN });
+  // A token that does not resolve (no stylesheet, as in a unit test) reads
+  // as mid grey; that fallback is the token's, in css-color's table.
   return {
-    ground: read("--lab-ground"),
-    edge: read("--lab-edge"),
-    hue: read("--lab-hue"),
-    ink: read("--lab-ink"),
-    accent: read("--lab-accent"),
+    ground: readTokenColor("--lab-ground"),
+    edge: readTokenColor("--lab-edge"),
+    hue: readTokenColor("--lab-hue"),
+    ink: readTokenColor("--lab-ink"),
+    accent: readTokenColor("--lab-accent"),
   };
 }

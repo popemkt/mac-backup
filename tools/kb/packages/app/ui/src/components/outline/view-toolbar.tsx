@@ -77,7 +77,7 @@ export function ViewToolbar({ frameId, mode, className, tucked = false }: ViewTo
           key={m.id}
           type="button"
           className={cn(
-            "flex items-center gap-1 rounded px-2 py-0.5 text-label font-medium transition-colors cursor-pointer",
+            "flex items-center gap-1 rounded-xs px-2 py-0.5 text-label font-medium transition-colors cursor-pointer",
             mode === m.id
               ? "bg-background text-foreground shadow-edge font-semibold"
               : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground/80",
@@ -92,7 +92,7 @@ export function ViewToolbar({ frameId, mode, className, tucked = false }: ViewTo
       <button
         type="button"
         className={cn(
-          "flex h-6 w-6 items-center justify-center rounded text-foreground/40 hover:bg-foreground/[0.04] hover:text-foreground/70",
+          "flex h-6 w-6 items-center justify-center rounded-xs text-foreground/40 hover:bg-foreground/[0.04] hover:text-foreground/70",
           filterOpen && "bg-background text-foreground shadow-edge",
         )}
         data-filter-button="true"
@@ -108,7 +108,7 @@ export function ViewToolbar({ frameId, mode, className, tucked = false }: ViewTo
       {tucked ? (
         <button
           type="button"
-          className="flex h-6 w-6 items-center justify-center rounded text-foreground/30 hover:text-foreground/60"
+          className="flex h-6 w-6 items-center justify-center rounded-xs text-foreground/30 hover:text-foreground/60"
           title="Collapse view options"
           aria-label="Collapse view options"
           onClick={(e) => {

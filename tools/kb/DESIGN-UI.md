@@ -689,6 +689,45 @@ picks the level it floats at. It does not get a level named after itself.
 `ELEVATIONS` in `lib/cn.ts` is held to the bridge the same way `TYPE_STEPS`
 is.
 
+### Radius, borders, faces, colour
+
+- **Radius** derives from one layer-1 value, `--radius` (the `md` step). The
+  bridge computes `xs` (−4px), `sm` (−2px), `lg` (+4px), `xl` (+10px) and
+  `2xl` (×2) from it, after resetting Tailwind's steps. Bare `rounded`
+  (Tailwind's fixed 4px) is `rounded-xs`. `rounded-full` is a shape, not a
+  step.
+- **Borders** are Tailwind's 1px hairline. No layer-1 width exists: a
+  `--border-width` property was declared that nothing read, so it was
+  deleted rather than kept looking like it was wired.
+- **Faces.** `--app-font` is the UI face, switched by the `data-font` pref.
+  `--app-font-mono` sets ids, code and EDN (`font-mono`, `.kb-md-code`).
+  `--app-font-graph` sets graph labels: `font-graph` in the DOM, and on
+  canvas through `graphLabelFont()` (`lib/graph-label.ts`), because a canvas
+  `font` string cannot hold a `var()`. No `font-family` outside layer 1 names
+  a family.
+- **Colour** is the oklch palette, bridged as `--color-*`. Two
+  theme-independent tokens cover what used to be Tailwind's `black` and
+  `white`: `scrim` (the dimming layer behind a modal) and `knob` (a toggle's
+  knob). Canvas renderers read colour through `readTokenColor`
+  (`lib/css-color.ts`), which owns each token's no-document fallback, so no
+  component carries a colour literal. The lab's palette (`--lab-*`, Lab
+  principles L1) is layer 1 too, read the same way by `lab/kit/palette.ts`.
+- **Canvas-drawn values are outside the Tailwind scale, on purpose.** What a
+  renderer paints on canvas or WebGPU is not a class: the graph label sizes
+  (11–12px in `sigma-labels.ts`, `cluster-hulls.ts`, `tree-graph.tsx`,
+  `force3d-graph.tsx`) and the lab scenes' geometry, light and bloom
+  values belong to their renderers. Their colours and faces still come from
+  layer 1 (`readTokenColor`, `graphLabelFont()`). Their sizes are scene
+  parameters, and no type step names them. The lab's DOM chrome (info card,
+  curve panel, scene switcher) is ordinary UI and uses the scale.
+
+### A dead token is a duplicate
+
+`lib/tokens.test.ts` fails when a layer-1 property is read by nothing, which
+is how `--border-width`, `--font-weight-emphasis` and the one-use radius
+aliases were found and deleted. It also fails when the scale lists in
+`lib/cn.ts`, the bridge and layer 1 disagree.
+
 ## Layout
 
 ```

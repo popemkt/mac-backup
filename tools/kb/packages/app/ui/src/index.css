@@ -1,7 +1,8 @@
 /**
  * kb stylesheet entry. Three token layers (DESIGN-UI.md → Design tokens):
  *
- *   1. design-system.css — the values a skin chooses (colour, type, faces).
+ *   1. design-system.css — the values a skin chooses (colour, type, elevation,
+ *      radius, faces).
  *   2. the `@theme inline` block below — bridges those values into Tailwind's
  *      namespaces, after resetting each namespace kb owns, so the only
  *      utilities that exist are the ones the design system defines.
@@ -21,6 +22,8 @@
 
 @theme inline {
   --font-sans: var(--app-font);
+  --font-mono: var(--app-font-mono);
+  --font-graph: var(--app-font-graph);
 
   /* Type scale: Tailwind's own steps are reset, so `text-sm` and friends do
    * not exist here and every font size is one of the design system's. A step
@@ -63,6 +66,8 @@
   --color-warning: var(--warning);
   --color-success: var(--success);
   --color-info: var(--info);
+  --color-scrim: var(--scrim);
+  --color-knob: var(--knob);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -81,13 +86,16 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+
+  /* Radius: the whole scale derives from the design system's one --radius
+   * (md). Tailwind's steps are reset, and bare `rounded` is not used. */
+  --radius-*: initial;
+  --radius-xs: calc(var(--radius) - 4px);
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 4px);
   --radius-xl: calc(var(--radius) + 10px);
-  --radius-2xl: var(--radius-card);
-  --radius-3xl: var(--radius-panel);
-  --radius-4xl: var(--radius-button);
+  --radius-2xl: calc(var(--radius) * 2);
 }
 
 @layer base {

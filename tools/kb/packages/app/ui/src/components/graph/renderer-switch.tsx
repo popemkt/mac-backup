@@ -25,7 +25,7 @@ export function RendererSwitch({ value, onChange, className }: RendererSwitchPro
           type="button"
           data-renderer-button={r}
           className={cn(
-            "rounded px-2 py-0.5 text-label font-medium transition-colors cursor-pointer",
+            "rounded-xs px-2 py-0.5 text-label font-medium transition-colors cursor-pointer",
             value === r
               ? "bg-background font-semibold text-foreground shadow-edge"
               : "text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground/80",

@@ -3,7 +3,8 @@
  *
  * This file is layer 1 of three (DESIGN-UI.md → Design tokens). It holds
  * plain custom properties on `:root` — colours (with their `.dark` set), the
- * type scale, faces and weights. It names no utility and no component:
+ * type scale, elevation, the radius base, faces and weights. It names no
+ * utility and no component:
  * `index.css`'s `@theme inline` block bridges these values into Tailwind's
  * namespaces (layer 2), and `tokens.css` composes them into component roles
  * such as `.kb-text` (layer 3). Swapping the design system means redefining
@@ -58,11 +59,8 @@
   --chart-3: oklch(0.67 0.16 58);
   --chart-4: oklch(0.56 0.15 49);
   --chart-5: oklch(0.47 0.12 46);
+  /* Corner radius: the md step. The bridge derives the whole scale from it. */
   --radius: 8px;
-  --radius-card: 16px;
-  --radius-panel: 26px;
-  --radius-button: 9999px;
-  --border-width: 1px;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.67 0.16 58);
@@ -74,6 +72,10 @@
   --warning: oklch(0.75 0.15 85);
   --success: oklch(0.7 0.15 140);
   --info: oklch(0.6 0.15 250);
+  /* Theme-independent: the dimming layer behind a modal, and the knob of a
+   * toggle, are the same in light and dark. */
+  --scrim: oklch(0 0 0);
+  --knob: oklch(1 0 0);
   /* JSON Canvas color presets ("1"–"6") — luminance tuned for light skin */
   --canvas-color-1: oklch(0.58 0.2 25);
   --canvas-color-2: oklch(0.65 0.17 55);
@@ -113,10 +115,16 @@
   --elevation-overlay: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
   --elevation-modal: 0 25px 50px -12px rgb(0 0 0 / 0.25);
 
+  /* Faces. `--app-font` is the UI face (the `data-font` pref overrides it
+   * below); `--app-font-mono` sets ids, code and EDN; `--app-font-graph` sets
+   * graph labels, in the DOM and on canvas (lib/graph-label.ts). */
   --app-font: "Inter Variable", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
+  --app-font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
+  --app-font-graph: "Outfit Variable", ui-sans-serif, system-ui, sans-serif;
   --font-weight-body: 400;
   --font-weight-ui: 500;
-  --font-weight-emphasis: 600;
 }
 
 .dark {

@@ -5,6 +5,7 @@ import Sigma from "sigma";
 import { EdgeArrowProgram } from "sigma/rendering";
 import type { LensEdge, LensNode, LensLayout, LensLabelDensity } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
+import { graphLabelFont } from "@/lib/graph-label";
 import { withGraphAlpha } from "@/lib/graph-dim";
 import { graphEmphasisAlpha, graphNeighborhood, type GraphEmphasis } from "@/lib/graph-interaction";
 import { computeLayoutPositions } from "@/lib/graph-layouts";
@@ -110,7 +111,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     const graph = new Graph({ multi: true, type: "directed" });
     const sigma = new Sigma(graph, el, {
       allowInvalidContainer: true,
-      labelFont: "Outfit Variable, ui-sans-serif, system-ui, sans-serif",
+      labelFont: graphLabelFont(),
       labelSize: 12,
       labelRenderedSizeThreshold: 0,
       labelDensity: 0.7,
@@ -329,10 +330,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
   useEffect(() => {
     const sigma = sigmaRef.current;
     if (!sigma) return;
-    const edgeColor = readTokenColor("--foreground", {
-      alpha: 0.22,
-      fallback: "rgba(128,128,128,.22)",
-    });
+    const edgeColor = readTokenColor("--foreground", { alpha: 0.22 });
     sigma.setSetting("defaultEdgeColor", edgeColor);
     sigma
       .getGraph()

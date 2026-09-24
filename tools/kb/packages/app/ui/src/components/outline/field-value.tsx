@@ -461,7 +461,7 @@ function BooleanValue({ value, onChange }: { value: boolean; onChange: (v: boole
     >
       <span
         className={cn(
-          "absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow-raised",
+          "absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-knob shadow-raised",
           "transition-transform duration-150",
           value && "translate-x-4",
         )}

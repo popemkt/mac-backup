@@ -85,7 +85,7 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
         <FunnelIcon size={12} />
         <span>Legend</span>
         {activeFilters.size > 0 && (
-          <span className="rounded bg-foreground/[0.08] px-1 text-caption">
+          <span className="rounded-xs bg-foreground/[0.08] px-1 text-caption">
             {activeFilters.size}
           </span>
         )}
@@ -95,7 +95,7 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
           {activeFilters.size > 0 && (
             <button
               type="button"
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-caption text-foreground/50 hover:bg-foreground/5"
+              className="flex items-center gap-1 rounded-xs px-1.5 py-0.5 text-caption text-foreground/50 hover:bg-foreground/5"
               onClick={clearFilters}
             >
               <XIcon size={10} /> Clear filters
@@ -106,7 +106,7 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
               key={b.key}
               type="button"
               className={cn(
-                "flex items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-label transition-colors hover:bg-foreground/5",
+                "flex items-center gap-1.5 rounded-xs px-1.5 py-0.5 text-left text-label transition-colors hover:bg-foreground/5",
                 activeFilters.has(b.key) ? "text-foreground/30" : "text-foreground/70",
               )}
               aria-pressed={activeFilters.has(b.key)}

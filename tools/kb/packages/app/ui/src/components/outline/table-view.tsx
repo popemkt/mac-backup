@@ -215,7 +215,7 @@ export function TableView({
         <div className="p-2 border-t border-foreground/[0.06] text-center">
           <button
             type="button"
-            className="text-label text-foreground/50 hover:text-foreground/80 font-medium px-3 py-1 rounded bg-foreground/[0.04] hover:bg-foreground/[0.08] cursor-pointer"
+            className="text-label text-foreground/50 hover:text-foreground/80 font-medium px-3 py-1 rounded-xs bg-foreground/[0.04] hover:bg-foreground/[0.08] cursor-pointer"
             onClick={() => revealMorePages(frameId)}
           >
             Show more ({rows.ordered.length - displayedChildren.length} remaining)

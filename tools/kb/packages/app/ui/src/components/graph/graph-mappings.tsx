@@ -97,7 +97,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
               aria-label={
                 channel === "size" && perspective.renderer === "treemap" ? "Area by" : config.label
               }
-              className="mt-1 block w-full rounded border border-foreground/10 bg-popover px-1.5 py-1 text-meta leading-4 text-foreground"
+              className="mt-1 block w-full rounded-xs border border-foreground/10 bg-popover px-1.5 py-1 text-meta leading-4 text-foreground"
               value={current}
               onChange={(e) =>
                 void mutations.setLensProp(
@@ -126,7 +126,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
           aria-label="Node query"
           defaultValue={perspective.query}
           placeholder="All nodes"
-          className="mt-1 block w-full rounded border border-foreground/10 bg-transparent p-1.5 font-mono text-label text-foreground"
+          className="mt-1 block w-full rounded-xs border border-foreground/10 bg-transparent p-1.5 font-mono text-label text-foreground"
           onBlur={(e) => {
             if (e.target.value !== perspective.query)
               void mutations.setLensProp(perspective.id, SYSTEM_IDS.lensQueryField, {
@@ -144,7 +144,7 @@ export function GraphMappings({ perspective }: { perspective: LensPerspective })
           aria-label="Node limit"
           min={1}
           defaultValue={perspective.maxNodes}
-          className="w-20 rounded border border-foreground/10 bg-transparent px-1.5 py-1 text-meta leading-4 text-foreground"
+          className="w-20 rounded-xs border border-foreground/10 bg-transparent px-1.5 py-1 text-meta leading-4 text-foreground"
           onBlur={(e) => {
             const v = Number(e.target.value);
             if (Number.isFinite(v) && v >= 1 && v !== perspective.maxNodes)

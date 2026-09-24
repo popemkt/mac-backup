@@ -178,7 +178,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-scrim/30 backdrop-blur-[2px]"
         aria-label="Dismiss palette"
         onClick={onClose}
       />
@@ -202,7 +202,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             aria-controls="kb-palette-list"
             aria-activedescendant={hits[active] ? `kb-palette-${hits[active].id}` : undefined}
           />
-          <kbd className="hidden rounded border border-foreground/10 px-1.5 py-0.5 text-caption text-foreground/40 sm:inline">
+          <kbd className="hidden rounded-xs border border-foreground/10 px-1.5 py-0.5 text-caption text-foreground/40 sm:inline">
             esc
           </kbd>
         </div>
@@ -261,7 +261,7 @@ export function PaletteTrigger({ onOpen }: { onOpen: () => void }) {
     >
       <MagnifyingGlassIcon size={14} className="shrink-0 text-foreground/25" />
       <span className="flex-1 text-ui text-foreground/25">Search and open…</span>
-      <kbd className="rounded border border-foreground/10 px-1.5 py-0.5 text-caption text-foreground/40">
+      <kbd className="rounded-xs border border-foreground/10 px-1.5 py-0.5 text-caption text-foreground/40">
         ⌘K
       </kbd>
     </button>

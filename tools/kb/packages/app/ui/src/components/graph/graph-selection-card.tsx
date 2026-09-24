@@ -43,7 +43,7 @@ export function GraphSelectionCard({
           {meta.tags.slice(0, 5).map((t) => (
             <span
               key={t}
-              className="rounded bg-foreground/[0.06] px-1.5 py-0.5 text-caption text-foreground/60"
+              className="rounded-xs bg-foreground/[0.06] px-1.5 py-0.5 text-caption text-foreground/60"
             >
               {t}
             </span>

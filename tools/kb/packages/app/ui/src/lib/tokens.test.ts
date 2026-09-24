@@ -118,6 +118,34 @@ describe("kb tokens", () => {
     expect(designSystem).toMatch(/size-adjust:/);
   });
 
+  it("every face is a design-system token: sans, mono and the graph label face", () => {
+    expect(index).toMatch(/--font-mono:\s*var\(--app-font-mono\)/);
+    expect(index).toMatch(/--font-graph:\s*var\(--app-font-graph\)/);
+    // tokens.css composes the code role from the mono token, never a stack.
+    expect(tokenDecls).toMatch(/\.kb-md-code\s*\{[^}]*font-family:\s*var\(--app-font-mono\)/s);
+    for (const css of [tokenDecls, stripComments(index)]) {
+      expect(css).not.toMatch(/font-family:(?!\s*var\()/);
+    }
+  });
+
+  it("every design-system token is read somewhere (a dead token reads as covered)", () => {
+    // Layer 1 declares values; a value nothing reads is a seam that looks
+    // wired and is not — --border-width sat here for its whole life unused.
+    const declared = [
+      ...new Set(
+        [...stripComments(designSystem).matchAll(/^\s*(--[a-z][\w-]*):/gm)].map(
+          (m) => m[1] as string,
+        ),
+      ),
+    ];
+    const readers = collectSourceFiles(root)
+      .filter((file) => !file.endsWith("design-system.css") && !/\.test\.tsx?$/.test(file))
+      .map((file) => stripComments(readFileSync(file, "utf8")))
+      .join("\n");
+    const dead = declared.filter((name) => !new RegExp(`${name}(?![\\w-])`).test(readers));
+    expect(dead).toEqual([]);
+  });
+
   it("tokens declare body weight for Inter (Outfit 500 read heavy)", () => {
     expect(tokens).toMatch(/--kb-text-weight:/);
     expect(tokens).toMatch(/--tag-weight:/);

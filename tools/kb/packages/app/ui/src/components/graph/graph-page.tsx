@@ -223,7 +223,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
         ) : null}
         {hasText(lensGraph.queryError) && (
           <span
-            className="flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-label text-amber-600 dark:text-amber-400"
+            className="flex items-center gap-1 rounded-xs bg-amber-500/10 px-1.5 py-0.5 text-label text-amber-600 dark:text-amber-400"
             title={lensGraph.queryError}
           >
             <WarningIcon size={12} /> query error

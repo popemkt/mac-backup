@@ -115,13 +115,13 @@ export function PerspectivePicker({ perspectives, activeId, onSelect }: Perspect
                 aria-label="Perspective name"
                 placeholder="Name this perspective…"
                 value={name}
-                className="w-full rounded border border-foreground/10 bg-transparent px-2 py-1 text-meta leading-4"
+                className="w-full rounded-xs border border-foreground/10 bg-transparent px-2 py-1 text-meta leading-4"
                 onChange={(e) => setName(e.target.value)}
               />
               <button
                 type="submit"
                 disabled={!name.trim() || saving}
-                className="rounded bg-foreground/[0.07] px-2 py-1 text-meta leading-4 disabled:opacity-40"
+                className="rounded-xs bg-foreground/[0.07] px-2 py-1 text-meta leading-4 disabled:opacity-40"
               >
                 {saving ? "Saving…" : "Save as new perspective"}
               </button>

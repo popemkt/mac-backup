@@ -1,5 +1,20 @@
 import { parseInlineMd } from "./md-inline";
-export const GRAPH_LABEL_FONT = "Outfit Variable, ui-sans-serif, system-ui, sans-serif";
+
+/**
+ * The graph label face, read from the design system's `--app-font-graph`.
+ *
+ * A canvas `font` string cannot hold a `var()`, so renderers that paint on
+ * canvas resolve the token here when they draw; DOM labels use the
+ * `font-graph` utility instead. Outside a document (unit tests) the generic
+ * family keeps measuring deterministic.
+ */
+export function graphLabelFont(): string {
+  if (typeof document === "undefined") return "sans-serif";
+  const face = getComputedStyle(document.documentElement)
+    .getPropertyValue("--app-font-graph")
+    .trim();
+  return face.length > 0 ? face : "sans-serif";
+}
 export const GRAPH_LABEL_WIDTH = 220;
 
 /** Text space is measured in screen pixels, independently of node importance. */

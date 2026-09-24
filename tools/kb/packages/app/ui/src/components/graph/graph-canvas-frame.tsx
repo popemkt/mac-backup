@@ -80,14 +80,14 @@ export function GraphCanvasFrame({
         <div className="absolute bottom-3 left-3 z-20 flex gap-1 rounded-lg border border-foreground/10 bg-popover/95 p-1 text-meta leading-4 shadow-raised">
           <button
             type="button"
-            className="rounded px-2 py-1 hover:bg-foreground/5"
+            className="rounded-xs px-2 py-1 hover:bg-foreground/5"
             onClick={controls.collapseAll}
           >
             Collapse all
           </button>
           <button
             type="button"
-            className="rounded px-2 py-1 hover:bg-foreground/5"
+            className="rounded-xs px-2 py-1 hover:bg-foreground/5"
             onClick={controls.expandAll}
           >
             Expand all

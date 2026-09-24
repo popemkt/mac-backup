@@ -133,7 +133,7 @@ function CanvasEdgeView({
           <input
             autoFocus
             type="text"
-            className="h-full w-full rounded border border-primary/40 bg-popover px-1 text-center text-label"
+            className="h-full w-full rounded-xs border border-primary/40 bg-popover px-1 text-center text-label"
             defaultValue={edge.label ?? ""}
             onBlur={(ev) => {
               const val = ev.currentTarget.value.trim();

@@ -140,11 +140,29 @@ export function toRenderableColor(color: string, alphaOverride?: number): string
     : `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${alpha})`;
 }
 
-export function readTokenColor(
-  varName: string,
-  opts: { alpha?: number; fallback: string } = { fallback: "rgb(0, 0, 0)" },
-): string {
-  if (typeof document === "undefined") return opts.fallback;
+/**
+ * The palette tokens canvas renderers read, each with the colour it stands
+ * for when there is no document to resolve it against (unit tests, SSR).
+ * The fallback belongs to the token, not to whichever caller reads it.
+ */
+const TOKEN_FALLBACK = {
+  "--foreground": "#222",
+  "--background": "#fff",
+  // The lab palette: mid grey, so a missing token reads as missing rather
+  // than as a deliberate colour.
+  "--lab-ground": "rgb(128, 128, 128)",
+  "--lab-edge": "rgb(128, 128, 128)",
+  "--lab-hue": "rgb(128, 128, 128)",
+  "--lab-ink": "rgb(128, 128, 128)",
+  "--lab-accent": "rgb(128, 128, 128)",
+} as const;
+
+type ColorToken = keyof typeof TOKEN_FALLBACK;
+
+export function readTokenColor(varName: ColorToken, opts: { alpha?: number } = {}): string {
+  const fallback = TOKEN_FALLBACK[varName];
+  const unresolved = toRenderableColor(fallback, opts.alpha) ?? fallback;
+  if (typeof document === "undefined") return unresolved;
   const probe = document.createElement("span");
   probe.style.color = `var(${varName})`;
   probe.style.position = "absolute";
@@ -152,14 +170,9 @@ export function readTokenColor(
   document.documentElement.appendChild(probe);
   const raw = getComputedStyle(probe).color;
   document.documentElement.removeChild(probe);
-  if (!raw) return opts.fallback;
   // A token in any authored space becomes rgb/rgba here, so downstream parsers
   // (notably `polished`, via three-render-objects) never see oklch.
-  return (
-    toRenderableColor(raw, opts.alpha) ??
-    toRenderableColor(opts.fallback, opts.alpha) ??
-    opts.fallback
-  );
+  return (raw.length > 0 ? toRenderableColor(raw, opts.alpha) : null) ?? unresolved;
 }
 
 /**

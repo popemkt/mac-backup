@@ -3,7 +3,7 @@ import { clusterHull, clusterHullPath, HULL_PAD } from "./cluster-hull";
 import { hashTagColor } from "@/lib/tag-color";
 import { withGraphAlpha } from "@/lib/graph-dim";
 import { readTokenColor } from "@/lib/css-color";
-import { GRAPH_LABEL_FONT, fitGraphLabel } from "@/lib/graph-label";
+import { fitGraphLabel, graphLabelFont } from "@/lib/graph-label";
 
 /** Decoration never captures input; background clicks are hit-tested by Sigma. */
 export function clusterHulls(sigma: Sigma, canvas: HTMLCanvasElement) {
@@ -38,8 +38,8 @@ export function clusterHulls(sigma: Sigma, canvas: HTMLCanvasElement) {
       ctx.lineWidth = 1.5;
       ctx.fill(path);
       ctx.stroke(path);
-      ctx.font = `600 11px ${GRAPH_LABEL_FONT}`;
-      ctx.fillStyle = readTokenColor("--foreground", { fallback: "#222" });
+      ctx.font = `600 11px ${graphLabelFont()}`;
+      ctx.fillStyle = readTokenColor("--foreground");
       ctx.textAlign = "center";
       ctx.fillText(
         fitGraphLabel(

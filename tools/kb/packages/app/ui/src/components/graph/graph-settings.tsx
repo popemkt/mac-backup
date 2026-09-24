@@ -73,7 +73,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
                   key={layout}
                   type="button"
                   className={cn(
-                    "rounded px-2 py-0.5 text-label capitalize",
+                    "rounded-xs px-2 py-0.5 text-label capitalize",
                     perspective.layout === layout
                       ? "bg-foreground/[0.1] font-semibold text-foreground/80"
                       : "text-foreground/45 hover:bg-foreground/[0.05]",
@@ -124,7 +124,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
                   key={d}
                   type="button"
                   className={cn(
-                    "rounded px-2 py-0.5 text-label capitalize",
+                    "rounded-xs px-2 py-0.5 text-label capitalize",
                     perspective.labelDensity === d
                       ? "bg-foreground/[0.1] font-semibold text-foreground/80"
                       : "text-foreground/45 hover:bg-foreground/[0.05]",

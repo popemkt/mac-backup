@@ -147,7 +147,7 @@ export function GraphToolbar({
               }
             }}
             placeholder="Search nodes…"
-            className="h-6 w-36 rounded bg-transparent px-1.5 text-meta text-foreground/80 outline-none placeholder:text-foreground/30 focus:ring-1 focus:ring-foreground/15"
+            className="h-6 w-36 rounded-xs bg-transparent px-1.5 text-meta text-foreground/80 outline-none placeholder:text-foreground/30 focus:ring-1 focus:ring-foreground/15"
           />
           <span aria-live="polite" className="text-caption text-foreground/50">
             {

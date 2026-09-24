@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { hierarchy, tree as d3Tree } from "d3-hierarchy";
 import type { LensTreeNode, LensEdge } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
-import { GRAPH_LABEL_FONT, GRAPH_LABEL_WIDTH, wrapGraphLabel } from "@/lib/graph-label";
+import { GRAPH_LABEL_WIDTH, graphLabelFont, wrapGraphLabel } from "@/lib/graph-label";
 import { graphEmphasisAlpha, graphNeighborhood, type GraphEmphasis } from "@/lib/graph-interaction";
 import {
   treeCameraControls,
@@ -64,7 +64,7 @@ export function TreeGraph({
   const layout = useMemo(() => {
     void fontRevision;
     const ctx = document.createElement("canvas").getContext("2d");
-    if (ctx) ctx.font = "11px " + GRAPH_LABEL_FONT;
+    if (ctx) ctx.font = "11px " + graphLabelFont();
     const measure = (text: string) => (ctx ? ctx.measureText(text).width : text.length * 6.5);
     const datum = (n: LensTreeNode): Datum => {
       const lines = showLabels ? wrapGraphLabel(n.label, measure) : [];
@@ -268,8 +268,8 @@ export function TreeGraph({
   const tokens = useMemo(() => {
     void themeKey;
     return {
-      text: readTokenColor("--foreground", { fallback: "#222" }),
-      line: readTokenColor("--foreground", { alpha: 0.22, fallback: "rgba(128,128,128,.22)" }),
+      text: readTokenColor("--foreground"),
+      line: readTokenColor("--foreground", { alpha: 0.22 }),
     };
   }, [themeKey]);
   return (
@@ -379,7 +379,7 @@ export function TreeGraph({
                   fontSize={11}
                   fill={tokens.text}
                   fontWeight={selected ? 600 : 400}
-                  style={{ fontFamily: GRAPH_LABEL_FONT }}
+                  className="font-graph"
                 >
                   {n.data.lines.map((line, index) => (
                     <tspan
