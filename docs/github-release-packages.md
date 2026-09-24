@@ -92,6 +92,23 @@ suppresses workflow events from pull requests created with the default
 `UPDATE_GITHUB_SOURCES_TOKEN` repository secret with contents and pull-request
 write access lets updater pull requests trigger the normal PR workflow too.
 
+## Holding Back Releases
+
+Nothing is frozen: a hold narrows which releases a source follows, and the
+scheduled updater keeps moving it within that range.
+
+- **Exclude a kind of release** (prereleases, betas): track tags with
+  `src.github_tag` and admit only the wanted versions with `src.include_regex`.
+  `update` resolves the newest admitted tag, so the next stable release lands
+  through the scheduled PR without anyone touching the config. `check` applies
+  the same `src.include_regex`, so both agree on "latest", and it prints a
+  line for every source whose newest release is excluded, and counts them in
+  its summary. A hold never disappears silently.
+- **Freeze at one version** only when a human must decide each move: set
+  nvfetcher's `pinned = true` on the source. `update` then keeps the committed
+  version, and `check` keeps reporting the newer upstream (exit 10) for as
+  long as the pin lasts.
+
 ## Rebuild And Update Behavior
 
 The `rebuild` shell wrapper only applies declared state. It does not check for

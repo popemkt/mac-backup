@@ -162,10 +162,17 @@ check_sources() {
     curl_headers=(-H "Authorization: Bearer $GITHUB_TOKEN")
   fi
 
+  # A source's src.include_regex is the release filter nvfetcher's update
+  # applies; check applies the same one so both agree on "latest".
+  local include_regexes
+  include_regexes="$(config_json | jq -c 'map_values(.src.include_regex // "")')"
+
   local checked=0
   local unavailable=0
   local outdated=0
-  local name repo current tag_prefix response_file http_code tag latest
+  local excluded=0
+  local name repo current tag_prefix response_file http_code
+  local tags tag newest_tag latest newest
   local version_url version_regex
 
   while IFS=$'\t' read -r name repo current tag_prefix; do
@@ -186,38 +193,43 @@ check_sources() {
         "${curl_headers[@]}" \
         "https://api.github.com/repos/$repo/releases?per_page=30"
     )" && [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
-      if [ -n "$tag_prefix" ]; then
-        tag="$(
-          jq -er --arg prefix "$tag_prefix" '
-            [.[] | select(.prerelease == false and .draft == false)
+      # The newest release upstream offers, and the newest the source's
+      # include_regex admits; they differ while a release is excluded.
+      tags="$(
+        jq -r \
+          --arg prefix "$tag_prefix" \
+          --arg name "$name" \
+          --argjson include_regexes "$include_regexes" '
+          ($include_regexes[$name] // "") as $include
+          | [.[] | select(.prerelease == false and .draft == false)
               | .tag_name
-              | select(startswith($prefix))]
-            | .[0] // empty
-          ' "$response_file" 2>/dev/null || true
-        )"
-      else
-        tag="$(
-          jq -er '
-            [.[] | select(.prerelease == false and .draft == false) | .tag_name]
-            | .[0] // empty
-          ' "$response_file" 2>/dev/null || true
-        )"
-      fi
-      if [ -z "$tag" ]; then
+              | select(startswith($prefix))] as $tags
+          | [
+              ($tags[0] // "-"),
+              ([$tags[] | select($include == "" or test($include))][0] // "-")
+            ]
+          | @tsv
+        ' "$response_file" 2>/dev/null || true
+      )"
+      IFS=$'\t' read -r newest_tag tag <<<"$tags"
+      if [ -z "$tag" ] || [ "$tag" = "-" ]; then
         echo "warning: GitHub returned no matching release for $repo" >&2
         unavailable=$((unavailable + 1))
         continue
       fi
 
-      latest="$tag"
-      if [ -n "$tag_prefix" ] && [ "${latest#"$tag_prefix"}" != "$latest" ]; then
-        latest="${latest#"$tag_prefix"}"
-      fi
+      latest="${tag#"$tag_prefix"}"
+      newest="${newest_tag#"$tag_prefix"}"
 
       checked=$((checked + 1))
       if [ "$latest" != "$current" ]; then
         printf '%s: %s -> %s\n' "$name" "$current" "$latest"
         outdated=$((outdated + 1))
+      fi
+      if [ "$newest" != "$latest" ]; then
+        printf '%s: newer release %s excluded by its src.include_regex\n' \
+          "$name" "$newest"
+        excluded=$((excluded + 1))
       fi
     else
       echo "warning: skipped $name; GitHub is unavailable (HTTP ${http_code:-000})" >&2
@@ -295,7 +307,7 @@ check_sources() {
     return 20
   fi
 
-  echo "Release pins are current ($checked checked)."
+  echo "Release pins are current ($checked checked, $excluded with a newer release excluded)."
 }
 
 verify_sources() {
