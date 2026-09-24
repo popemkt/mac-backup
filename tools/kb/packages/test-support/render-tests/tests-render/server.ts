@@ -2,6 +2,7 @@ import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { Effect } from "effect";
+import { isSysPrefixed } from "@kb/model";
 import { startUi } from "@kb/server";
 import { renderFixtureNodes } from "./fixture.ts";
 
@@ -15,7 +16,7 @@ const sourceNodes = (await readFile(join(scratchKb, "nodes.jsonl"), "utf8"))
   .trim()
   .split("\n")
   .map((line) => JSON.parse(line) as { id: string });
-const systemNodes = sourceNodes.filter((node) => node.id.startsWith("sys."));
+const systemNodes = sourceNodes.filter((node) => isSysPrefixed(node.id));
 const fixtureNodes = [...systemNodes, ...renderFixtureNodes()];
 await writeFile(
   join(scratchKb, "nodes.jsonl"),
