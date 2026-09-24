@@ -98,4 +98,30 @@ describe("GraphPage (smoke)", () => {
     const canvas = present(container.querySelector('[data-testid="sigma-graph"]'), "sigma graph");
     expect(Number(canvas.getAttribute("data-node-count"))).toBeGreaterThan(0);
   });
+
+  it("reports a max-nodes cap in the header, not over the canvas chrome", async () => {
+    resetOutlineStore();
+    const capped = fixtureGraph.nodes.map((node) =>
+      node.id === SYSTEM_IDS.lensAllMentions
+        ? {
+            ...node,
+            props: { ...node.props, [SYSTEM_IDS.lensMaxNodesField]: [{ t: "num" as const, v: 2 }] },
+          }
+        : node,
+    );
+    useOutlineStore.getState().hydrateFromWire(capped, fixtureGraph.rev, "fixtures");
+    await act(async () => {
+      root.render(createElement(GraphPage, { perspectiveId: SYSTEM_IDS.lensAllMentions }));
+      await new Promise((r) => setTimeout(r, 350));
+    });
+
+    const header = present(container.querySelector("header"), "graph header");
+    expect(header.textContent).toMatch(/top 2 of \d+ nodes by degree/);
+    const edit = [...header.querySelectorAll("button")].find(
+      (button) => button.textContent === "edit max-nodes",
+    );
+    expect(edit).toBeDefined();
+    const canvas = present(container.querySelector('[data-testid="sigma-graph"]'), "sigma graph");
+    expect(Number(canvas.getAttribute("data-node-count"))).toBe(2);
+  });
 });

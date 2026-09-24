@@ -152,11 +152,6 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   );
   const [searchHighlight, setSearchHighlight] = useState<Set<string> | null>(null);
   const [filterIds, setFilterIds] = useState<Set<string> | null>(null);
-  const [capDismissed, setCapDismissed] = useState(false);
-
-  useEffect(() => {
-    setCapDismissed(false);
-  }, [lensGraph.dropped]);
   useEffect(() => {
     if (selectedId !== null && !lensGraph.nodes.some((node) => node.id === selectedId))
       setSelectedId(null);
@@ -213,8 +208,23 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
           {includeSystemNodes ? "sys on" : "sys off"}
         </button>
         <span className="text-[11px] text-foreground/30">
-          {lensGraph.nodes.length} nodes · {lensGraph.edges.length} edges
+          {lensGraph.dropped > 0
+            ? `top ${lensGraph.nodes.length} of ${lensGraph.nodes.length + lensGraph.dropped} nodes by degree`
+            : `${lensGraph.nodes.length} nodes`}{" "}
+          · {lensGraph.edges.length} edges
         </span>
+        {lensGraph.dropped > 0 && active ? (
+          <button
+            type="button"
+            className="rounded-md bg-foreground/[0.06] px-2 py-0.5 text-[10px] font-medium text-foreground/60 transition-colors hover:bg-foreground/[0.1] hover:text-foreground/80"
+            onClick={() => {
+              navigate("/");
+              zoomTo(active.id);
+            }}
+          >
+            edit max-nodes
+          </button>
+        ) : null}
         {hasText(lensGraph.queryError) && (
           <span
             className="flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[11px] text-amber-600 dark:text-amber-400"
@@ -281,34 +291,6 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
               />
             )}
           </GraphCanvasFrame>
-        )}
-        {lensGraph.dropped > 0 && !capDismissed && (
-          <div className="absolute left-1/2 top-3 z-30 -translate-x-1/2 flex items-center gap-2 rounded-lg border border-foreground/8 bg-popover/95 px-3 py-1.5 shadow-md backdrop-blur-sm">
-            <span className="text-[11px] text-foreground/60">
-              showing top {lensGraph.nodes.length} of {lensGraph.nodes.length + lensGraph.dropped}{" "}
-              by degree
-            </span>
-            <button
-              type="button"
-              className="rounded-md bg-foreground/[0.06] px-2 py-0.5 text-[10px] font-medium text-foreground/60 transition-colors hover:bg-foreground/[0.1] hover:text-foreground/80"
-              onClick={() => {
-                if (active) {
-                  navigate("/");
-                  zoomTo(active.id);
-                }
-              }}
-            >
-              edit max-nodes
-            </button>
-            <button
-              type="button"
-              className="text-foreground/30 hover:text-foreground/60 text-[11px]"
-              onClick={() => setCapDismissed(true)}
-              aria-label="Dismiss"
-            >
-              ✕
-            </button>
-          </div>
         )}
       </div>
     </div>
