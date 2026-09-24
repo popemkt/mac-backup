@@ -1,8 +1,40 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
+import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 const DEFAULT_HARNESS_PORT = 4323;
+
+/**
+ * The UI every harness instance serves: a Vite `test-render` build, the only
+ * mode in which the renderers expose their internals (`__kbSigma`,
+ * `__kbForceGraph`) to a spec. It is the harness's own output, never
+ * `ui/dist`, so a spec cannot pass or fail on whichever production build — or
+ * no build at all — happens to be lying there.
+ */
+const HARNESS_UI_DIST = resolve(import.meta.dirname, "../dist");
+
+/** Build {@link HARNESS_UI_DIST} from the current UI source. Run once per suite. */
+export function buildHarnessUi(): void {
+  const build = spawnSync(
+    "bun",
+    [
+      "run",
+      "--filter",
+      "@kb/ui",
+      "build",
+      "--mode",
+      "test-render",
+      "--outDir",
+      HARNESS_UI_DIST,
+      "--emptyOutDir",
+    ],
+    { cwd: process.cwd(), stdio: ["ignore", "ignore", "inherit"] },
+  );
+  if (build.status !== 0) {
+    throw new Error(`render harness UI build failed (exit ${build.status ?? build.signal})`);
+  }
+}
 
 async function stop(server: ChildProcess): Promise<void> {
   if (server.exitCode !== null) return;
@@ -23,12 +55,14 @@ export async function startHarness(port = DEFAULT_HARNESS_PORT): Promise<{
   url: string;
   stop: () => Promise<void>;
 }> {
-  // The port travels as an argument, not an environment variable: the harness
-  // child inherits the parent environment on its own, and `process.env` reads
-  // belong to the config seam (packages/app/server/src/paths.ts), not here.
+  // The port travels as an argument. The served UI travels through the
+  // server's own override, `KB_UI_DIST` (packages/app/server/src/paths.ts):
+  // this process runs under Node, so it cannot import that Bun module to
+  // name it, and the harness is the override's reason to exist.
   const server = spawn("bun", ["tests-render/server.ts", String(port)], {
     cwd: process.cwd(),
     stdio: "inherit",
+    env: { ...process.env, KB_UI_DIST: HARNESS_UI_DIST },
   });
   const url = `http://127.0.0.1:${port}`;
 

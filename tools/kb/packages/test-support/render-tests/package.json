@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {},
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:render": "playwright test"
   },
   "dependencies": {
     "@kb/server": "workspace:*"
