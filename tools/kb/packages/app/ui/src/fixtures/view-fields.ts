@@ -23,5 +23,6 @@ export const viewFieldNodes = [
   SYSTEM_IDS.viewPagesizeField,
   SYSTEM_IDS.viewGroupField,
   SYSTEM_IDS.viewFilterField,
+  SYSTEM_IDS.nodeTextField,
   SYSTEM_IDS.lensRendererField,
 ].map(field);

@@ -150,6 +150,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const viewPagesizeField = typedField(SYSTEM_IDS.viewPagesizeField, "view.pagesize", "number");
   const viewGroupField = typedField(SYSTEM_IDS.viewGroupField, "view.group", "ref");
   const viewFilterField = typedField(SYSTEM_IDS.viewFilterField, "view.filter", "text");
+  const nodeTextField = typedField(SYSTEM_IDS.nodeTextField, "node.text", "text");
 
   const refField = (id: string, text: string, targetTag?: string): KbNode =>
     typedField(
@@ -361,6 +362,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     viewPagesizeField,
     viewGroupField,
     viewFilterField,
+    nodeTextField,
     lensQueryField,
     graphSourceKindField,
     ...sourceKindOptions,

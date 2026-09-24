@@ -217,7 +217,7 @@ describe("view-config", () => {
     // Sort by name asc
     const sortedByName = sortChildrenForTable(
       originalChildren,
-      [{ fieldId: "__name__", dir: "asc" }],
+      [{ fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" }],
       nodes,
     );
     expect(sortedByName.map((n) => n.id)).toEqual(["c2", "c1"]);

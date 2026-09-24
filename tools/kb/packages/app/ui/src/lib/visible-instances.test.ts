@@ -81,7 +81,7 @@ describe("visible instances", () => {
     useOutlineStore.getState().toggleCollapse("n.child-a2");
 
     await mutations.setViewMode("n.root-a", "table");
-    await mutations.setViewSort("n.root-a", [{ fieldId: "__name__", dir: "asc" }]);
+    await mutations.setViewSort("n.root-a", [{ fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" }]);
 
     const keys = useOutlineStore
       .getState()

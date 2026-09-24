@@ -142,8 +142,14 @@ describe("the multi-key sort", () => {
 
   it("__name__ orders case-insensitively by node text", () => {
     const children = [withVal("x", null, "banana"), withVal("y", null, "Apple")];
-    expect(sortIds(children, [{ fieldId: "__name__", dir: "asc" }])).toEqual(["y", "x"]);
-    expect(sortIds(children, [{ fieldId: "__name__", dir: "desc" }])).toEqual(["x", "y"]);
+    expect(sortIds(children, [{ fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" }])).toEqual([
+      "y",
+      "x",
+    ]);
+    expect(sortIds(children, [{ fieldId: SYSTEM_IDS.nodeTextField, dir: "desc" }])).toEqual([
+      "x",
+      "y",
+    ]);
   });
 
   it("numbers order numerically, not lexically", () => {
@@ -206,7 +212,7 @@ describe("the multi-key sort", () => {
     expect(
       sortIds(children, [
         { fieldId: "f.v", dir: "asc" },
-        { fieldId: "__name__", dir: "asc" },
+        { fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" },
       ]),
     ).toEqual(["b", "a"]);
   });
@@ -236,7 +242,7 @@ describe("the multi-key sort", () => {
     expect(
       sortIds(children, [
         { fieldId: "f.v", dir: "desc" },
-        { fieldId: "__name__", dir: "desc" },
+        { fieldId: SYSTEM_IDS.nodeTextField, dir: "desc" },
       ]),
     ).toEqual(["a", "b"]);
   });

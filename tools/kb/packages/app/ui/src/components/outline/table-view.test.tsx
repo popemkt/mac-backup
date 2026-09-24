@@ -178,7 +178,7 @@ describe("W7 TableView & ViewToolbar", () => {
     ];
     expect(initialChildren).toEqual(["child1", "child2"]);
 
-    await mutations.setViewSort("frame1", [{ fieldId: "__name__", dir: "asc" }]);
+    await mutations.setViewSort("frame1", [{ fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" }]);
 
     const html = renderToStaticMarkup(
       createElement(TableView, { frameId: "frame1", nodes: getStoreNodes() }),
@@ -198,7 +198,7 @@ describe("W7 TableView & ViewToolbar", () => {
   });
 
   it("Enter split-at-cursor inserts after the edited node (visual row) and focuses with table instanceKey", async () => {
-    await mutations.setViewSort("frame1", [{ fieldId: "__name__", dir: "asc" }]);
+    await mutations.setViewSort("frame1", [{ fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" }]);
     // Visual first row is Apple (child2); split mid-text.
     await mutations.splitNode("child2", "Apple".length);
 

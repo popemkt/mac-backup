@@ -390,18 +390,16 @@ export function resolveTableColumns(
   );
 }
 
-/** `__name__` is the node's own text standing in for a field. */
-const NAME_FIELD_ID = "__name__";
-
 /**
  * Reading one sort key off a row.
  *
- * The node's text is a pseudo-field rather than a branch in the comparator:
- * once it resolves to a `PropValue` like any other key, one ordering rule
- * serves both, and "the name is never missing" stops being a special case.
+ * The node's text is a field (`sys.f.node.text`) whose value is read off the
+ * node rather than its props — not a branch in the comparator: once it
+ * resolves to a `PropValue` like any other key, one ordering rule serves both,
+ * and "the name is never missing" stops being a special case.
  */
 const PSEUDO_FIELDS: Readonly<Record<string, (node: OutlineNode) => PropValue>> = {
-  [NAME_FIELD_ID]: (node) => ({ t: "str", v: node.text }),
+  [SYSTEM_IDS.nodeTextField]: (node) => ({ t: "str", v: node.text }),
 };
 
 function sortValueOf(node: OutlineNode, fieldId: string): PropValue | undefined {

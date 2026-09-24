@@ -482,6 +482,10 @@ type PropValue =
   system field (`sys.f.type` holds refs, `sys.f.hidden` a bool), so no system
   field leans on it. The seed's fill-absent pass carries a declaration added
   later to stores seeded before it.
+- **A node's own text is a field a view can name** — `sys.f.node.text`, the
+  table's Name column. It holds no values (text is `KbNode.text`, not a prop);
+  it exists so a view that sorts or sizes by name refers to a node, exactly as
+  it does for every other column, instead of to a sentinel id no node has.
 - **Name resolution**: CLI/actions accept field/tag _names_; resolver does a
   unique-text lookup among `sys.field`/`sys.tag` nodes (error on ambiguity,
   `--create` to mint). Resolution is dynamic at load — at our scale (\<\<100k

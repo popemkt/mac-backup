@@ -133,6 +133,7 @@ export const fixtureGraph: GraphSnapshot = {
     }),
     seedField("sys.f.query"),
     seedField("sys.f.query.limit"),
+    seedField("sys.f.node.text"),
     seedField("sys.f.lens.query"),
     seedField("sys.f.lens.renderer"),
     seedField("sys.f.lens.color-by"),

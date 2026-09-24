@@ -11,7 +11,7 @@ import {
 import { textOr } from "@/lib/text";
 import { cn } from "@/lib/cn";
 import { isQueryNode } from "@/lib/query-node";
-import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
+import { SYSTEM_IDS, type NodeMap, type OutlineNode, type PropValue } from "@/lib/types";
 import { frameRows } from "@/lib/frame-rows";
 import {
   getViewConfig,
@@ -28,6 +28,9 @@ import { PropValueEditor } from "./field-value";
 import { NodeContent } from "./node-content";
 import { NodeRow } from "./node-row";
 import { useNodeKeyDown } from "./use-node-keydown";
+
+/** The Name column is the node-text field, so sorting by it names a node like any other column. */
+const NAME_COLUMN = SYSTEM_IDS.nodeTextField;
 
 interface TableViewProps {
   frameId: string;
@@ -144,21 +147,21 @@ export function TableView({
             <th
               className="group relative px-2 py-1.5 text-[11px] font-medium text-foreground/35 select-none"
               style={{
-                width: `${localColwidth["__name__"] ?? viewConfig.colwidth["__name__"] ?? 220}px`,
+                width: `${localColwidth[NAME_COLUMN] ?? viewConfig.colwidth[NAME_COLUMN] ?? 220}px`,
               }}
             >
               <div
                 className="flex items-center gap-1 cursor-pointer hover:text-foreground/70"
-                onClick={() => handleHeaderSortClick("__name__")}
+                onClick={() => handleHeaderSortClick(NAME_COLUMN)}
               >
                 <span>Name</span>
-                <SortIndicator sort={viewConfig.sort} fieldId="__name__" />
+                <SortIndicator sort={viewConfig.sort} fieldId={NAME_COLUMN} />
               </div>
               <ResizeHandle
                 onMouseDown={(e) =>
                   handleResizeStart(
-                    "__name__",
-                    localColwidth["__name__"] ?? viewConfig.colwidth["__name__"] ?? 220,
+                    NAME_COLUMN,
+                    localColwidth[NAME_COLUMN] ?? viewConfig.colwidth[NAME_COLUMN] ?? 220,
                     e,
                   )
                 }

@@ -132,6 +132,13 @@ export const SYSTEM_IDS = {
   viewGroupField: "sys.f.view.group",
   /** W7.1 filter clauses (str EDN, multi). */
   viewFilterField: "sys.f.view.filter",
+  /**
+   * A node's own text, as a field a view can name: the table's Name column,
+   * sorted by and sized like any other column. It holds no values — a node's
+   * text is its `text`, not a prop — and exists so that a view naming it names
+   * a node, the way every other sort key does.
+   */
+  nodeTextField: "sys.f.node.text",
   cmdViewAsList: "sys.cmd.view-as-list",
   cmdViewAsTable: "sys.cmd.view-as-table",
   cmdViewAsBoard: "sys.cmd.view-as-board",
