@@ -75,6 +75,8 @@ function emberUniforms() {
     gain: uniform(0.6),
     cooling: uniform(0.9),
     threshold: uniform(1),
+    /** The warmest the resting glow may be before it would bloom (`heat.ts`). */
+    restCeiling: uniform(0.5),
     /** Pops this frame may start: 0 or 1, from `PopGrants`. */
     grant: uniform(0),
   };
@@ -283,7 +285,7 @@ function advanceKernel(
     const core = float(1)
       .sub(smoothstep(0, 0.8, fromCore))
       .pow(1.4);
-    const rest = core.mul(0.5).add(drift.mul(core).mul(0.14)).toVar();
+    const rest = core.mul(0.5).add(drift.mul(core).mul(0.14)).min(u.restCeiling).toVar();
 
     If(life.x.equal(LIVE), () => {
       If(heat.greaterThanEqual(u.threshold), () => {

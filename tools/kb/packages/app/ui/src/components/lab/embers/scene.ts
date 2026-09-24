@@ -8,16 +8,18 @@
  * nothing crosses back to the CPU.
  *
  * Temperature is the only thing that varies a sphere's look; every sphere is
- * the same size. It maps through a blackbody-style ramp built from the
- * palette — the edge colour, the accent's ember, the accent, the accent run
- * toward white — whose gain rises with heat, so only the hot end is HDR and
- * only it crosses the bloom threshold (L2).
+ * the same size. It maps through `heat.ts`'s curve — a blackbody-style ramp
+ * from dark maroon through the accent's ember and the accent to white-hot —
+ * whose gain rises with heat, so only the hot end is HDR and only it crosses
+ * the bloom threshold (L2). The resting glow is capped, from the live accent
+ * and gain, below the point where it would bloom; the warm rest comes from
+ * the lights and the sub-threshold emissive.
  *
  * The cloud's centre follows the pointer (`steer.ts`); the shell's softer
  * springs lag the core (M3). Distance fades into the ground (L3).
  */
-import { Mesh, PointLight, SphereGeometry, Vector3 } from "three/webgpu";
-import { instanceIndex, mix, positionLocal, smoothstep, uniform, vec3 } from "three/tsl";
+import { Color, Mesh, PointLight, SphereGeometry, Vector3 } from "three/webgpu";
+import { float, instanceIndex, mix, positionLocal, smoothstep, uniform, vec3 } from "three/tsl";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
 import { PointerField } from "@/components/lab/kit/pointer";
 import { createRig, labMaterial } from "@/components/lab/kit/rig";
@@ -26,6 +28,27 @@ import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab
 import { emberSimulation, type EmberShape } from "@/components/lab/embers/compute";
 import { PopGrants } from "@/components/lab/embers/pops";
 import { EmberSteer } from "@/components/lab/embers/steer";
+import {
+  EMBER_TINT,
+  HEAT_GAIN,
+  heatEmissive,
+  restCeiling,
+  type HeatOps,
+} from "@/components/lab/embers/heat";
+import type { TslNode } from "@/components/lab/kit/tsl";
+
+/** `heat.ts`'s arithmetic as TSL nodes: the curve's one definition, on the GPU. */
+const NODE_OPS: HeatOps<TslNode, TslNode> = {
+  num: (value) => float(value),
+  add: (a, b) => a.add(b),
+  mul: (a, b) => a.mul(b),
+  smoothstep: (from, to, t) => smoothstep(from, to, t),
+  mix: (a, b, t) => mix(a, b, t),
+  scale: (v, s) => v.mul(s),
+  tint: (v, rgb) => v.mul(vec3(...rgb)),
+  addColor: (a, b) => a.add(b),
+  white: vec3(1, 1, 1),
+};
 
 const SHAPE: EmberShape = { count: 3400, sphere: 0.1, cloud: 3.4 };
 const CAMERA_Z = 17;
@@ -80,29 +103,14 @@ function embers(stage: LabStage, init: LabSceneInit, context: StudyContext): Stu
   const { u, buffers: b } = sim;
   const look = b.state.element(instanceIndex);
   const t = look.w.min(1.6);
-  const hot = mix(colors.accent, vec3(1, 1, 1), 0.6);
-  const ember = colors.accent.mul(vec3(0.85, 0.28, 0.12));
-  const maroon = ember.mul(0.35);
-  // Blackbody-style ramp, through the palette: maroon → ember → accent → white-hot.
-  const ramp = mix(
-    mix(maroon, ember, smoothstep(0, 0.35, t)),
-    mix(colors.accent, hot, smoothstep(0.7, 1, t)),
-    smoothstep(0.3, 0.7, t),
-  );
-  const gain = uniform(3.2);
+  const ember = colors.accent.mul(vec3(...EMBER_TINT));
+  const gain = uniform<number>(HEAT_GAIN.dark);
   const material = labMaterial("satin");
   material.positionNode = positionLocal
     .mul(look.z.mul(SHAPE.sphere))
     .add(b.position.element(instanceIndex));
   material.colorNode = mix(ember.mul(0.3), colors.hue.mul(0.2), 0.3);
-  // Gain grows with t², so the resting core (t ≈ 0.5) stays under the bloom
-  // threshold and only contact heat crosses it; past t ≈ 0.85 the hot end
-  // runs far into HDR, which is the halo. The maroon floor keeps even the
-  // coolest sphere a colour, never a hole (L1).
-  const halo = smoothstep(0.85, 1.3, t).mul(5);
-  material.emissiveNode = ramp
-    .mul(t.mul(t).mul(gain).add(t.mul(0.15)).add(halo))
-    .add(maroon.mul(0.2));
+  material.emissiveNode = heatEmissive(NODE_OPS, vec3(colors.accent), t, float(gain));
   const mesh = new Mesh(new SphereGeometry(1, 20, 14), material);
   mesh.count = SHAPE.count;
   mesh.frustumCulled = false;
@@ -147,7 +155,9 @@ function embers(stage: LabStage, init: LabSceneInit, context: StudyContext): Stu
     setPalette: (palette, dark) => {
       core.color.set(palette.accent);
       core.intensity = dark ? 45 : 20;
-      gain.value = dark ? 3.2 : 2.4;
+      gain.value = dark ? HEAT_GAIN.dark : HEAT_GAIN.light;
+      const accent = new Color(palette.accent);
+      u.restCeiling.value = restCeiling([accent.r, accent.g, accent.b], gain.value);
       rig.setPalette(palette);
       rig.key.color.set(palette.accent);
       rig.rim.color.set(palette.accent);
