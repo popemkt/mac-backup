@@ -19,7 +19,7 @@ import {
 } from "@/lib/graph-lens";
 import { useOutlineStore } from "@/stores/outline.store";
 
-interface LabNode {
+export interface LabNode {
   readonly id: string;
   readonly label: string;
   readonly degree: number;

@@ -65,7 +65,7 @@ import { approachRate, clampStep, type Timing } from "@/components/lab/kit/timin
 
 const MAX_PIXEL_RATIO = 2;
 
-type LabToneMapping = "agx" | "aces" | "none";
+export type LabToneMapping = "agx" | "aces" | "none";
 
 const TONE_MAPPINGS: Record<LabToneMapping, ToneMapping> = {
   agx: AgXToneMapping,

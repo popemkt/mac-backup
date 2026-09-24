@@ -11,10 +11,13 @@
  * the palette — no study ships three's default grey.
  */
 import {
+  CanvasTexture,
   Color,
   DirectionalLight,
   HemisphereLight,
+  MeshMatcapNodeMaterial,
   MeshStandardNodeMaterial,
+  SRGBColorSpace,
   type Object3D,
 } from "three/webgpu";
 import type { LabPalette } from "@/components/lab/kit/palette";
@@ -76,7 +79,7 @@ export function createRig(palette: LabPalette, shadows: boolean): LightRig {
   return rig;
 }
 
-type LabFinish = "matte" | "satin" | "glaze" | "metal";
+export type LabFinish = "matte" | "satin" | "glaze" | "metal";
 
 /** The one table of finishes (L5): roughness and metalness never vary by study. */
 const FINISHES: Record<LabFinish, { readonly roughness: number; readonly metalness: number }> = {
@@ -91,4 +94,40 @@ export function labMaterial(finish: LabFinish, color?: string): MeshStandardNode
   const material = new MeshStandardNodeMaterial(FINISHES[finish]);
   if (color !== undefined) material.color.set(color);
   return material;
+}
+
+/**
+ * A matcap painted from the palette: the lit sphere a matcap material looks
+ * up by normal. Light from the upper left in the accent, falling to the hue,
+ * with a rim of ink — the same rig, baked.
+ */
+export function paletteMatcap(palette: LabPalette): CanvasTexture {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (ctx !== null) {
+    const body = ctx.createRadialGradient(
+      size * 0.36,
+      size * 0.3,
+      size * 0.04,
+      size / 2,
+      size / 2,
+      size / 2,
+    );
+    body.addColorStop(0, palette.ground);
+    body.addColorStop(0.35, palette.accent);
+    body.addColorStop(0.8, palette.hue);
+    body.addColorStop(1, palette.ink);
+    ctx.fillStyle = body;
+    ctx.fillRect(0, 0, size, size);
+  }
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  return texture;
+}
+
+export function matcapMaterial(texture: CanvasTexture): MeshMatcapNodeMaterial {
+  return new MeshMatcapNodeMaterial({ matcap: texture });
 }

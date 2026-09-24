@@ -6,7 +6,7 @@ export const LAB_PAGE = "page";
 export const LAB_SURFACE = `${LAB_NAMESPACE}.${LAB_PAGE}`;
 
 /** The studies the lab shows, in switcher order; the first is `/lab`'s. */
-export const LAB_SCENE_IDS = ["embers", "motion"] as const;
+export const LAB_SCENE_IDS = ["embers", "sky", "light", "motion"] as const;
 export type LabSceneId = (typeof LAB_SCENE_IDS)[number];
 
 function isLabScene(value: string): value is LabSceneId {
