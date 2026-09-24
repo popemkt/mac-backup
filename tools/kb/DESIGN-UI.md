@@ -348,8 +348,9 @@ rather than by navigation.
   thicker, single links stay hairline.
 - **Honest empty and large states.** Zero matches renders guidance rather than
   a blank canvas; invalid EDN surfaces an amber warning chip (`queryError` on
-  the lens); a capped lens shows a dismissible "showing top N of M by degree"
-  notice with a jump to the perspective node. Above
+  the lens); a capped lens reports "top N of M nodes by degree" in the header's
+  node count, beside an "edit max-nodes" jump to the perspective node, so the
+  report stays in flow and never covers canvas chrome. Above
   `LARGE_GRAPH_THRESHOLD` = 1500 nodes the renderer degrades deliberately:
   `hideEdgesOnMove`, label threshold 12 (from 7), label density 0.5 (from 0.8).
 - Cluster renderer: padded hulls with member-count labels, top-15 cluster cap,
