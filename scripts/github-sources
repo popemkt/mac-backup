@@ -96,11 +96,10 @@ pinned_artifacts_reachable() {
   done < <(jq -r '.[].src.url // empty' "$GENERATED_JSON")
 }
 
-# nvfetcher.toml as JSON: the one reader of the configuration.
+# nvfetcher.toml as JSON: the one reader of the configuration. remarshal is
+# already the writer, and every caller runs through the flake app.
 config_json() {
-  nix-instantiate --eval --strict --json \
-    --expr '{ path }: builtins.fromTOML (builtins.readFile path)' \
-    --argstr path "$NVFETCHER_CONFIG"
+  remarshal -if toml -of json "$NVFETCHER_CONFIG"
 }
 
 # The committed configuration with every version source replaced by the
