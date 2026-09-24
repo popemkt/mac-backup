@@ -13,8 +13,6 @@
       url = "https://github.com/OtterMind/Chat2DB/releases/download/v5.3.7/Chat2DB-Community-5.3.7-arm64.dmg";
       sha256 = "sha256-RCDOllW346ak55Cea4JIzrQB6ZL1m7cOTyxEpB5v+Mo=";
     };
-    github = "OtterMind/Chat2DB";
-    tagPrefix = "v";
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
@@ -23,8 +21,6 @@
       url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.3.16/CLIProxyAPI_7.3.16_darwin_aarch64.tar.gz";
       sha256 = "sha256-ttR4zBbGCKv+yTQ+6X06hQQDYE8S4jeVK8/brSoD4jQ=";
     };
-    github = "router-for-me/CLIProxyAPI";
-    tagPrefix = "v";
   };
   cursor-cli = {
     pname = "cursor-cli";
@@ -33,8 +29,6 @@
       url = "https://downloads.cursor.com/lab/2026.09.23-86fc751/darwin/arm64/agent-cli-package.tar.gz";
       sha256 = "sha256-+j/hPVWJxYb/EyokwW7qlvuO/eiK/e/dzRHYD6GZ86U=";
     };
-    versionUrl = "https://cursor.com/install";
-    versionRegex = "downloads.cursor.com/lab/([^/]+)/";
   };
   genoffice = {
     pname = "genoffice";
@@ -43,8 +37,6 @@
       url = "https://github.com/genspark-ai/genoffice/releases/download/v0.10.1038/GenOffice-0.10.1038-arm64.dmg";
       sha256 = "sha256-KHVvbAcxlafI+8QK3SWdNSIGIxBwLLYQAejiRKomf18=";
     };
-    github = "genspark-ai/genoffice";
-    tagPrefix = "v";
   };
   logseq-nightly = {
     pname = "logseq-nightly";
@@ -53,8 +45,6 @@
       url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260924.zip";
       sha256 = "sha256-1e2qJ64n8HOt1pkeY9wJ7FktAISpPEzqMEGHX1bVNCk=";
     };
-    versionUrl = "https://github.com/logseq/logseq/releases/expanded_assets/nightly";
-    versionRegex = "Logseq-darwin-arm64-([0-9A-Za-z.+-]+nightly[.][0-9]+)[.]zip";
   };
   vite-plus = {
     pname = "vite-plus";
@@ -63,7 +53,5 @@
       url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.0.0-rc.0/vp-aarch64-apple-darwin.tar.gz";
       sha256 = "sha256-1+tTOscAU4VRm+fnLsyFAQm5R87KMMmAJPrNe9s9yvk=";
     };
-    github = "voidzero-dev/vite-plus";
-    tagPrefix = "v";
   };
 }

@@ -43,7 +43,7 @@ nix run .#github-sources -- check
 the pinned versions?** `verify` rewrites every source's version source to the
 version `_sources/generated.json` records, regenerates in a temporary
 directory, and requires both generated files to match byte for byte. That
-proves the fetch URLs, passthru, hashes, and both generated files agree with
+proves the fetch URLs, hashes, and both generated files agree with
 `nvfetcher.toml`, and that generation is reproducible. It downloads the pinned
 artifacts but never asks upstream what is newest, so it gives the same answer
 whenever it runs. It exits 11 on a mismatch, including a configured source
@@ -150,8 +150,9 @@ Software Update labels.
 6. Confirm `nix flake check` builds it through the automatically exported flake
    checks.
 
-For GitHub releases, use `passthru.github` and `passthru.tagPrefix` to let
-`scripts/github-sources` perform its lightweight freshness check:
+The `src.*` keys are the whole version source: `check`, `verify`, and
+`update` all resolve through nvfetcher, so nothing else needs to describe it.
+A GitHub release:
 
 ```toml
 [example]
@@ -159,18 +160,15 @@ src.github = "owner/repository"
 src.from_pattern = "^v(.+)$"
 src.to_pattern = "\\1"
 fetch.url = "https://github.com/owner/repository/releases/download/v$ver/example_$ver_darwin_aarch64.tar.gz"
-passthru = { github = "owner/repository", tagPrefix = "v" }
 ```
 
-For a webpage-backed version, provide the page and a capture expression both
-to nvfetcher and to the lightweight checker:
+A webpage-backed version:
 
 ```toml
 [example]
 src.webpage = "https://example.com/install"
 src.regex = 'downloads\.example\.com/([^/]+)/\$\{OS\}'
 fetch.url = "https://downloads.example.com/$ver/darwin/arm64/package.tar.gz"
-passthru = { versionUrl = "https://example.com/install", versionRegex = "downloads.example.com/([^/]+)/" }
 ```
 
 Credentials, OAuth tokens, databases, caches, and other mutable application

@@ -4,10 +4,7 @@
         "date": null,
         "extract": null,
         "name": "chat2db",
-        "passthru": {
-            "github": "OtterMind/Chat2DB",
-            "tagPrefix": "v"
-        },
+        "passthru": null,
         "pinned": false,
         "src": {
             "name": null,
@@ -22,10 +19,7 @@
         "date": null,
         "extract": null,
         "name": "cli-proxy-api",
-        "passthru": {
-            "github": "router-for-me/CLIProxyAPI",
-            "tagPrefix": "v"
-        },
+        "passthru": null,
         "pinned": false,
         "src": {
             "name": null,
@@ -40,10 +34,7 @@
         "date": null,
         "extract": null,
         "name": "cursor-cli",
-        "passthru": {
-            "versionRegex": "downloads.cursor.com/lab/([^/]+)/",
-            "versionUrl": "https://cursor.com/install"
-        },
+        "passthru": null,
         "pinned": false,
         "src": {
             "name": null,
@@ -58,10 +49,7 @@
         "date": null,
         "extract": null,
         "name": "genoffice",
-        "passthru": {
-            "github": "genspark-ai/genoffice",
-            "tagPrefix": "v"
-        },
+        "passthru": null,
         "pinned": false,
         "src": {
             "name": null,
@@ -76,10 +64,7 @@
         "date": null,
         "extract": null,
         "name": "logseq-nightly",
-        "passthru": {
-            "versionRegex": "Logseq-darwin-arm64-([0-9A-Za-z.+-]+nightly[.][0-9]+)[.]zip",
-            "versionUrl": "https://github.com/logseq/logseq/releases/expanded_assets/nightly"
-        },
+        "passthru": null,
         "pinned": false,
         "src": {
             "name": null,
@@ -94,10 +79,7 @@
         "date": null,
         "extract": null,
         "name": "vite-plus",
-        "passthru": {
-            "github": "voidzero-dev/vite-plus",
-            "tagPrefix": "v"
-        },
+        "passthru": null,
         "pinned": false,
         "src": {
             "name": null,
