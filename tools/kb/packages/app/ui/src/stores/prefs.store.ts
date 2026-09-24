@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { z } from "zod";
 import { create } from "zustand";
 import { SIDEBAR_REGION_SELECTOR } from "@/lib/dom";
@@ -177,9 +178,26 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
   };
 });
 
-/** Canvas/WebGL renderers need a reactive resolved theme as well as CSS tokens. */
-export function useDarkTheme(): boolean {
-  return usePrefsStore((s) => resolveDark(s.theme, s.systemDark));
+/**
+ * What the page is painted in, resolved: everything that changes the values
+ * the design-system tokens hold. DOM styling follows a change by itself (every
+ * utility is a live `var()`); canvas and WebGL renderers copied token values
+ * out, so they re-read them whenever `key` changes. This is the one signal
+ * they listen to.
+ */
+export interface Appearance {
+  readonly dark: boolean;
+  /** Changes exactly when any field above does. */
+  readonly key: string;
+}
+
+function appearanceOf(dark: boolean): Appearance {
+  return { dark, key: dark ? "dark" : "light" };
+}
+
+export function useAppearance(): Appearance {
+  const dark = usePrefsStore((s) => resolveDark(s.theme, s.systemDark));
+  return useMemo(() => appearanceOf(dark), [dark]);
 }
 
 /**

@@ -18,8 +18,9 @@
  * without a specificity fight.
  */
 :root {
-  --kb-indent: 24px;
-  --kb-row-h: 24px;
+  /* Row metrics scale with the design system's density (24px at density 1). */
+  --kb-indent: calc(24px * var(--density));
+  --kb-row-h: calc(24px * var(--density));
 
   --kb-text-leading: 1.6;
   --kb-text-weight: var(--font-weight-body, 400);

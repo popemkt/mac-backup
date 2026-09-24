@@ -699,9 +699,17 @@ is.
   off the scale (2px resize handles, the 3px inline-code chip, the 5px
   ontology segmented control), under one gap: putting them on a step moves
   each by 1–2px, which is a visible change.
-- **Borders** are Tailwind's 1px hairline. No layer-1 width exists: a
-  `--border-width` property was declared that nothing read, so it was
-  deleted rather than kept looking like it was wired.
+- **Borders.** `--border-width` is what a bare `border` and `divide-*`
+  draw: the bridge maps it onto Tailwind's `--default-border-width`, so it
+  is read, not merely declared (an earlier unread `--border-width` was
+  deleted for exactly that reason). Explicit widths (`border-2`) stay
+  Tailwind's.
+- **Density** is one multiplier, `--density`. The bridge sets Tailwind's
+  spacing unit to `0.25rem × --density`, so every `p-*`, `gap-*`, `w-*`
+  and `inset-*` step scales with it, and `tokens.css` derives the outline
+  row metrics (`--kb-row-h`, `--kb-indent`, 24px each at density 1) from it.
+  Density 1 is Tailwind's own unit, so it reproduces the unscaled layout
+  exactly.
 - **Faces.** `--app-font` is the UI face, switched by the `data-font` pref.
   `--app-font-mono` sets ids, code and EDN (`font-mono`, `.kb-md-code`).
   `--app-font-graph` sets graph labels: `font-graph` in the DOM, and on
@@ -715,6 +723,14 @@ is.
   (`lib/css-color.ts`), which owns each token's no-document fallback, so no
   component carries a colour literal. The lab's palette (`--lab-*`, Lab
   principles L1) is layer 1 too, read the same way by `lab/kit/palette.ts`.
+- **Canvas renderers re-read on one signal.** A DOM utility follows a token
+  change by itself; a renderer that copied a value out (a colour, the
+  graph label face) does not. `useAppearance()` (`stores/prefs.store.ts`)
+  resolves everything that changes what the tokens hold, and its `key`
+  changes exactly when that does. The graph page hands the key to every
+  renderer (`appearanceKey`), and the lab's scene host re-reads the lab
+  palette when the appearance changes. Nothing listens to the `.dark` class
+  or a preference directly.
 - **Canvas-drawn values are outside the Tailwind scale, on purpose.** What a
   renderer paints on canvas or WebGPU is not a class: the graph label sizes
   (11–12px in `sigma-labels.ts`, `cluster-hulls.ts`, `tree-graph.tsx`,

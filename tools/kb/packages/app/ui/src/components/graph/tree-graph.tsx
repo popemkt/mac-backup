@@ -14,7 +14,7 @@ import type { GraphSelection } from "./graph-selection";
 interface TreeGraphProps extends GraphEmphasis {
   forest: LensTreeNode[];
   edges?: LensEdge[];
-  themeKey: string;
+  appearanceKey: string;
   showLabels?: boolean;
   onSelectionChange?: (sel: GraphSelection | null) => void;
   onControlsReady?: (controls: GraphCameraControls | null) => void;
@@ -41,7 +41,7 @@ function forestFind(forest: LensTreeNode[], id: string): LensTreeNode | null {
 export function TreeGraph({
   forest,
   edges = EMPTY_EDGES,
-  themeKey,
+  appearanceKey,
   showLabels = true,
   selectedNodeId = null,
   highlightIds,
@@ -62,7 +62,9 @@ export function TreeGraph({
     };
   }, []);
   const layout = useMemo(() => {
+    // Labels are measured in the graph face, which the appearance may change.
     void fontRevision;
+    void appearanceKey;
     const ctx = document.createElement("canvas").getContext("2d");
     if (ctx) ctx.font = "11px " + graphLabelFont();
     const measure = (text: string) => (ctx ? ctx.measureText(text).width : text.length * 6.5);
@@ -104,7 +106,7 @@ export function TreeGraph({
       width: maxX - minX + 40,
       height: maxY - minY + 40,
     };
-  }, [forest, collapsed, showLabels, fontRevision]);
+  }, [forest, collapsed, showLabels, fontRevision, appearanceKey]);
   const containerRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState({ zoom: 1, x: 0, y: 0 });
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -266,12 +268,12 @@ export function TreeGraph({
   );
   const alpha = (id: string) => graphEmphasisAlpha(id, { highlightIds, filterIds }, neighborhood);
   const tokens = useMemo(() => {
-    void themeKey;
+    void appearanceKey;
     return {
       text: readTokenColor("--foreground"),
       line: readTokenColor("--foreground", { alpha: 0.22 }),
     };
-  }, [themeKey]);
+  }, [appearanceKey]);
   return (
     <div
       ref={containerRef}

@@ -10,7 +10,8 @@ export interface GraphAdapterProps {
   lensGraph: LensGraph;
   active: LensPerspective;
   forest: LensTreeNode[];
-  themeKey: string;
+  /** `Appearance.key`: a change means the tokens hold new values. */
+  appearanceKey: string;
   searchHighlight: Set<string> | null;
   filterIds: Set<string> | null;
   selection: GraphSelection | null;

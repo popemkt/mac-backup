@@ -55,7 +55,7 @@ it("keeps zoom and the clicked branch at the same screen position through collap
             branch("sibling"),
           ]),
         ],
-        themeKey: "light",
+        appearanceKey: "light",
         onControlsReady: (value) => {
           controls = value;
         },

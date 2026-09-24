@@ -10,7 +10,7 @@ import type { GraphAdapterProps } from "./graph-renderers";
 export function Force2dAdapter({
   lensGraph,
   active,
-  themeKey,
+  appearanceKey,
   searchHighlight,
   filterIds,
   selection,
@@ -23,7 +23,7 @@ export function Force2dAdapter({
       nodes={lensGraph.nodes}
       edges={lensGraph.edges}
       layoutKey={active.id}
-      themeKey={themeKey}
+      appearanceKey={appearanceKey}
       layout={active.layout}
       showLabels={active.showLabels}
       labelDensity={active.labelDensity}
@@ -41,7 +41,7 @@ export function TreeAdapter({
   lensGraph,
   active,
   forest,
-  themeKey,
+  appearanceKey,
   searchHighlight,
   filterIds,
   selection,
@@ -55,7 +55,7 @@ export function TreeAdapter({
       showLabels={active.showLabels}
       highlightIds={searchHighlight ?? undefined}
       filterIds={filterIds ?? undefined}
-      themeKey={themeKey}
+      appearanceKey={appearanceKey}
       selectedNodeId={selection?.nodeId ?? null}
       onSelectionChange={setSelection}
       onControlsReady={setControls}
@@ -66,7 +66,7 @@ export function TreeAdapter({
 export function ClusterAdapter({
   lensGraph,
   active,
-  themeKey,
+  appearanceKey,
   searchHighlight,
   filterIds,
   selection,
@@ -79,7 +79,7 @@ export function ClusterAdapter({
       nodes={lensGraph.nodes}
       edges={lensGraph.edges}
       layoutKey={active.id}
-      themeKey={themeKey}
+      appearanceKey={appearanceKey}
       onNodeClick={onNodeOpen}
       selectedNodeId={selection?.nodeId ?? null}
       onSelectionChange={setSelection}
@@ -95,7 +95,7 @@ export function ClusterAdapter({
 export function Force3dAdapter({
   lensGraph,
   active,
-  themeKey,
+  appearanceKey,
   searchHighlight,
   filterIds,
   selection,
@@ -108,7 +108,7 @@ export function Force3dAdapter({
         nodes={lensGraph.nodes}
         edges={lensGraph.edges}
         layoutKey={active.id}
-        themeKey={themeKey}
+        appearanceKey={appearanceKey}
         onSelectionChange={setSelection}
         selectedNodeId={selection?.nodeId ?? null}
         onControlsReady={setControls}

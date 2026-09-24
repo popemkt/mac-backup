@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { WarningIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { useOutlineStore } from "@/stores/outline.store";
-import { usePrefsStore, useDarkTheme, useSidebarToggle } from "@/stores/prefs.store";
+import { usePrefsStore, useAppearance, useSidebarToggle } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import {
   buildTreeForest,
@@ -47,7 +47,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const ontologyMembers = useOutlineStore((s) => s.ontologyMembers);
   const theme = usePrefsStore((s) => s.theme);
-  const dark = useDarkTheme();
+  const appearance = useAppearance();
   const sidebar = useSidebarToggle();
   const prefsOpen = useUiStore((s) => s.prefsOpen);
   const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
@@ -124,7 +124,6 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
     [lensGraph.nodes, lensGraph.edges, active],
   );
 
-  const themeKey = `${theme}:${dark ? "d" : "l"}`;
   const onNodeOpen = useCallback(
     (id: string) => {
       navigate(ontologyId !== null ? ontologyPath(ontologyId, "outline") : "/");
@@ -273,7 +272,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
                 lensGraph={lensGraph}
                 active={active}
                 forest={forest}
-                themeKey={themeKey}
+                appearanceKey={appearance.key}
                 selection={selection}
                 setSelection={setSelection}
                 setControls={setControls}

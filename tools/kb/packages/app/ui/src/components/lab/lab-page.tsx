@@ -9,7 +9,7 @@ import { cn } from "@/lib/cn";
 import { useReducedMotion } from "@/lib/motion";
 import { navigate } from "@/lib/router";
 import { useOutlineStore } from "@/stores/outline.store";
-import { useDarkTheme, usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
+import { useAppearance, usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { SidebarToggle } from "@/components/ui/sidebar-toggle";
 import { ThemeIcon } from "@/components/ui/theme-icon";
@@ -97,7 +97,7 @@ function Study({
 }) {
   const study = LAB_STUDIES[scene];
   const graph = useLabGraph();
-  const dark = useDarkTheme();
+  const appearance = useAppearance();
   const reducedMotion = useReducedMotion();
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const timing = useMemo(() => readTiming(), []);
@@ -122,7 +122,7 @@ function Study({
         <SceneHost
           study={study}
           graph={graph}
-          dark={dark}
+          appearance={appearance}
           reducedMotion={reducedMotion}
           values={values}
           onHover={setHover}
@@ -136,7 +136,7 @@ function Study({
       <div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex items-end justify-between gap-4">
         <InfoCard study={study} values={values} onChange={onChange} />
         {Panel === undefined ? null : (
-          <Panel key={dark ? "dark" : "light"} values={values} timing={timing} />
+          <Panel key={appearance.key} values={values} timing={timing} />
         )}
       </div>
       {hover === null ? null : <HoverLabel hover={hover} />}

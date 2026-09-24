@@ -28,9 +28,9 @@ function readPrimitiveSource(name: string): string {
   return readFileSync(path.join(outlineDir, "../ui", name), "utf8");
 }
 
-/** Resolved indent step, read from the token sheet the UI actually ships. */
+/** The indent step at reference density, read from the token sheet the UI actually ships. */
 const INDENT_PX = Number(
-  /--kb-indent:\s*(\d+(?:\.\d+)?)px/.exec(
+  /--kb-indent:\s*calc\((\d+(?:\.\d+)?)px \* var\(--density\)\)/.exec(
     readFileSync(path.join(outlineDir, "../../tokens.css"), "utf8"),
   )?.[1],
 );

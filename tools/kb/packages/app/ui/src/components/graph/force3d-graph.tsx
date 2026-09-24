@@ -21,7 +21,7 @@ export interface Force3dGraphProps extends GraphEmphasis {
   nodes: LensNode[];
   edges: LensEdge[];
   layoutKey: string;
-  themeKey: string;
+  appearanceKey: string;
   onControlsReady?: (controls: GraphCameraControls | null) => void;
   onSelectionChange?: (sel: GraphSelection | null) => void;
   curvedLinks?: boolean;
@@ -77,7 +77,7 @@ export default function Force3dGraph(props: Force3dGraphProps) {
     nodes,
     edges,
     layoutKey,
-    themeKey,
+    appearanceKey,
     selectedNodeId,
     highlightIds,
     filterIds,
@@ -334,6 +334,6 @@ export default function Force3dGraph(props: Force3dGraphProps) {
   }, [curvedLinks, autorotate, spread, linkDistance, layoutKey]);
   useEffect(() => {
     refresh();
-  }, [themeKey, selectedNodeId, highlightIds, filterIds, showLabels, labelTopN, refresh]);
+  }, [appearanceKey, selectedNodeId, highlightIds, filterIds, showLabels, labelTopN, refresh]);
   return <div ref={containerRef} className="h-full w-full min-h-0" data-testid="force3d-graph" />;
 }

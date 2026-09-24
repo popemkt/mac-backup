@@ -16,12 +16,13 @@ import type {
 import { readLabPalette } from "@/components/lab/kit/palette";
 import { readTiming } from "@/components/lab/kit/timing";
 import type { LabGraph } from "@/components/lab/lab-graph";
+import type { Appearance } from "@/stores/prefs.store";
 
 export interface SceneHostProps {
   readonly study: LabStudy;
   readonly graph: LabGraph;
-  /** The theme; the palette is re-read from the tokens whenever it flips. */
-  readonly dark: boolean;
+  /** The palette is re-read from the tokens whenever the appearance changes. */
+  readonly appearance: Appearance;
   readonly reducedMotion: boolean;
   readonly values: LabControlValues;
   readonly onHover: (hover: LabHover | null) => void;
@@ -58,7 +59,7 @@ function useMountedScene(
         graph: props.graph,
         palette: readLabPalette(),
         timing: readTiming(),
-        dark: props.dark,
+        dark: props.appearance.dark,
         reducedMotion: props.reducedMotion,
         values: props.values,
         onHover: (hover) => live.current.onHover(hover),
@@ -104,7 +105,7 @@ function useControlValues(scene: LabScene | null, values: LabControlValues): voi
 }
 
 export function SceneHost(props: SceneHostProps) {
-  const { study, graph, dark, reducedMotion, values } = props;
+  const { study, graph, appearance, reducedMotion, values } = props;
   const host = useRef<HTMLDivElement>(null);
   const live = useRef(props);
   useEffect(() => {
@@ -114,8 +115,9 @@ export function SceneHost(props: SceneHostProps) {
   useMountedScene(host, live, study, setScene);
   useControlValues(scene, values);
   useEffect(() => scene?.setGraph?.(graph), [scene, graph]);
-  // By the time this runs the `.dark` class has moved, so the tokens are the new theme's.
-  useEffect(() => scene?.setPalette(readLabPalette(), dark), [scene, dark]);
+  // By the time this runs <html> carries the new appearance, so the tokens hold its values.
+  // `appearance` is a new object exactly when its key changes.
+  useEffect(() => scene?.setPalette(readLabPalette(), appearance.dark), [scene, appearance]);
   useEffect(() => scene?.setReducedMotion(reducedMotion), [scene, reducedMotion]);
   return <div ref={host} className="absolute inset-0" data-testid="lab-scene" />;
 }

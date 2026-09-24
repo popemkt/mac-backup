@@ -34,8 +34,8 @@ describe("kb tokens", () => {
   const content = readFileSync(path.join(root, "components/ui/node-text-host.tsx"), "utf8");
 
   it("defines row metric tokens from DESIGN-REFINE W1", () => {
-    expect(tokens).toMatch(/--kb-indent:\s*24px/);
-    expect(tokens).toMatch(/--kb-row-h:\s*24px/);
+    expect(tokens).toMatch(/--kb-indent:\s*calc\(24px \* var\(--density\)\)/);
+    expect(tokens).toMatch(/--kb-row-h:\s*calc\(24px \* var\(--density\)\)/);
     expect(designSystem).toMatch(/--type-body:\s*14\.5px/);
     expect(tokens).toMatch(/--kb-text-leading:\s*1\.6/);
     expect(tokens).toMatch(/--kb-field-label:\s*120px/);

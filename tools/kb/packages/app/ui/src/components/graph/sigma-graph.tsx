@@ -23,7 +23,7 @@ export interface SigmaGraphProps extends GraphEmphasis {
   onNodeOpen: (id: string) => void;
   onSelectionChange?: (sel: GraphSelection | null) => void;
   layoutKey: string;
-  themeKey: string;
+  appearanceKey: string;
   layout?: LensLayout;
   cluster?: boolean;
   showLabels?: boolean;
@@ -37,7 +37,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     nodes,
     edges,
     layoutKey,
-    themeKey,
+    appearanceKey,
     layout = "force",
     cluster = false,
     selectedNodeId,
@@ -330,6 +330,8 @@ export function SigmaGraph(props: SigmaGraphProps) {
   useEffect(() => {
     const sigma = sigmaRef.current;
     if (!sigma) return;
+    // Everything sigma copied out of the tokens is re-read on an appearance change.
+    sigma.setSetting("labelFont", graphLabelFont());
     const edgeColor = readTokenColor("--foreground", { alpha: 0.22 });
     sigma.setSetting("defaultEdgeColor", edgeColor);
     sigma
@@ -342,7 +344,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     );
     sigma.setSetting("hideEdgesOnMove", nodes.length > 1500);
     refresh();
-  }, [themeKey, showLabels, labelDensity, nodes, edges, layoutKey, layout, cluster, refresh]);
+  }, [appearanceKey, showLabels, labelDensity, nodes, edges, layoutKey, layout, cluster, refresh]);
   useEffect(() => {
     refresh();
   }, [selectedNodeId, highlightIds, filterIds, isolated, refresh]);

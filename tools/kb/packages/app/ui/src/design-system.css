@@ -3,7 +3,8 @@
  *
  * This file is layer 1 of three (DESIGN-UI.md → Design tokens). It holds
  * plain custom properties on `:root` — colours (with their `.dark` set), the
- * type scale, elevation, the radius base, faces and weights. It names no
+ * type scale, elevation, the radius base, border width, density, faces and
+ * weights. It names no
  * utility and no component:
  * `index.css`'s `@theme inline` block bridges these values into Tailwind's
  * namespaces (layer 2), and `tokens.css` composes them into component roles
@@ -61,6 +62,11 @@
   --chart-5: oklch(0.47 0.12 46);
   /* Corner radius: the md step. The bridge derives the whole scale from it. */
   --radius: 8px;
+  /* Border width: what a bare `border` (and `divide-*`) draws. */
+  --border-width: 1px;
+  /* Density: one multiplier on every spacing step (Tailwind's --spacing) and
+   * on the outline's row metrics. 1 is the reference density. */
+  --density: 1;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.67 0.16 58);

@@ -96,6 +96,14 @@
   --radius-lg: calc(var(--radius) + 4px);
   --radius-xl: calc(var(--radius) + 10px);
   --radius-2xl: calc(var(--radius) * 2);
+
+  /* Border width: a bare `border` and `divide-*` read the design system's. */
+  --default-border-width: var(--border-width);
+
+  /* Spacing: every `p-*`, `gap-*`, `w-*` step is a multiple of this unit, so
+   * the design system's density scales them all. Tailwind's own unit is
+   * 0.25rem; density 1 reproduces it exactly. */
+  --spacing: calc(0.25rem * var(--density));
 }
 
 @layer base {
