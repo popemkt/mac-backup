@@ -75,8 +75,6 @@ function emberUniforms() {
     gain: uniform(0.6),
     cooling: uniform(0.9),
     threshold: uniform(1),
-    /** The warmest the resting glow may be before it would bloom (`heat.ts`). */
-    restCeiling: uniform(0.5),
     /** Pops this frame may start: 0 or 1, from `PopGrants`. */
     grant: uniform(0),
   };
@@ -178,6 +176,23 @@ function meet(b: EmberBuffers, j: TslNode, size: number, self: Contact): void {
   });
 }
 
+/**
+ * The resting glow, from where a sphere is: warm at the cloud's live core,
+ * cooling toward its edge, stirred by a slow noise field — so the core glows
+ * untouched and contact heat has somewhere to climb from. It is shown, never
+ * stored: it cannot pop anything, and the material caps it (`heat.ts`).
+ */
+export function restFloor(u: EmberUniforms, p: TslNode, cloud: number): TslNode {
+  const fromCore = length(p.sub(u.center)).div(cloud);
+  const drift = mx_noise_float(p.mul(0.9).add(vec3(0, u.time.mul(0.07), 0)))
+    .mul(0.5)
+    .add(0.5);
+  const core = float(1)
+    .sub(smoothstep(0, 0.8, fromCore))
+    .pow(1.4);
+  return core.mul(0.5).add(drift.mul(core).mul(0.14));
+}
+
 function kernels(u: EmberUniforms, b: EmberBuffers, shape: EmberShape, timing: Timing) {
   const size = shape.sphere * 2;
   const i = instanceIndex;
@@ -274,18 +289,6 @@ function advanceKernel(
     v.assign(v.add(force.mul(u.dt)).add(b.contact.element(i.add(shape.count))));
     p.assign(p.add(v.mul(u.dt)).add(b.contact.element(i)));
     heat.assign(heat.mul(exp(u.cooling.negate().mul(u.dt))));
-    // The resting glow: warm at the cloud's live core, cooling toward its
-    // edge, stirred by a slow noise field — so the core glows untouched and
-    // contact heat has somewhere to climb from. It is a floor under what is
-    // shown, never heat: it cannot pop anything.
-    const fromCore = length(p.sub(u.center)).div(shape.cloud);
-    const drift = mx_noise_float(p.mul(0.9).add(vec3(0, u.time.mul(0.07), 0)))
-      .mul(0.5)
-      .add(0.5);
-    const core = float(1)
-      .sub(smoothstep(0, 0.8, fromCore))
-      .pow(1.4);
-    const rest = core.mul(0.5).add(drift.mul(core).mul(0.14)).min(u.restCeiling).toVar();
 
     If(life.x.equal(LIVE), () => {
       If(heat.greaterThanEqual(u.threshold), () => {
@@ -296,7 +299,7 @@ function advanceKernel(
         });
         heat.assign(u.threshold);
       });
-      life.w.assign(heat.div(u.threshold).max(rest));
+      life.w.assign(heat.div(u.threshold));
     })
       .ElseIf(life.x.equal(POPPING), () => {
         const swell = float(timing.quick);
@@ -323,7 +326,7 @@ function advanceKernel(
       })
       .Else(() => {
         life.z.assign(ease(clock.div(timing.reveal)));
-        life.w.assign(heat.div(u.threshold).max(rest));
+        life.w.assign(heat.div(u.threshold));
         If(clock.greaterThanEqual(timing.reveal), () => {
           life.x.assign(LIVE);
           life.y.assign(0);

@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { oklchToRgb } from "@/lib/css-color";
-import { HEAT_GAIN, peakEmissive, restCeiling, type Rgb } from "./heat";
+import { HEAT_GAIN, RestCeiling, peakEmissive, peakShown, restCeiling, type Rgb } from "./heat";
 
 const INDEX_CSS = readFileSync(join(import.meta.dirname, "..", "..", "..", "index.css"), "utf8");
 
@@ -50,4 +50,43 @@ describe("the resting glow", () => {
       expect(peakEmissive(theme.accent, theme.gain, 1)).toBeGreaterThan(1);
     });
   }
+});
+
+/** The warmest the resting floor ever is (`restFloor`: 0.5 plus 0.14 of noise). */
+const REST_MAX = 0.64;
+
+describe("the shown temperature across a theme change", () => {
+  const [light, dark] = THEMES;
+
+  it("does not bloom on a frozen still switched from light to dark with no step", () => {
+    // The sim is not stepping (reduced motion): the resting floor is whatever
+    // it was in the light theme, and the frame is shaded with the dark curve.
+    for (let i = 0; i <= 40; i++) {
+      const rest = (i / 40) * REST_MAX;
+      expect(peakShown(dark.accent, dark.gain, 0, rest)).toBeLessThanOrEqual(1);
+    }
+    expect(peakShown(light.accent, light.gain, 0, REST_MAX)).toBeLessThanOrEqual(1);
+  });
+
+  it("does not bloom mid-ease, while the accent crosses between the themes", () => {
+    for (const [from, to] of [
+      [dark, light],
+      [light, dark],
+    ] as const) {
+      for (const s of [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1]) {
+        const lerp = (c: 0 | 1 | 2) => from.accent[c] + (to.accent[c] - from.accent[c]) * s;
+        const eased: Rgb = [lerp(0), lerp(1), lerp(2)];
+        // The gain switches at once; the accent is still on its way.
+        expect(peakShown(eased, to.gain, 0, REST_MAX)).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it("solves again only when the accent or gain moved", () => {
+    const ceilings = new RestCeiling();
+    const [r, g, b] = dark.accent;
+    const first = ceilings.for({ r, g, b }, dark.gain);
+    expect(ceilings.for({ r, g, b }, dark.gain)).toBe(first);
+    expect(ceilings.for({ r, g, b }, light.gain)).not.toBe(first);
+  });
 });

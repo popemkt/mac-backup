@@ -1,12 +1,17 @@
 /**
  * Embers' heat-to-light curve, stated once (Lab principle L2).
  *
- * `heatEmissive` is written over a small arithmetic interface, so the one
- * definition runs twice: as TSL nodes in the sphere material, and as numbers
- * on the CPU, where `restCeiling` asks it how warm the resting glow may be
- * before any channel of any sphere's emissive crosses the bloom threshold.
- * The ceiling is solved at runtime from the live accent and gain, so a
- * palette or gain change cannot make a resting sphere bloom.
+ * `heatEmissive` and `displayTemperature` are written over a small
+ * arithmetic interface, so the one definition runs twice: as TSL nodes in the
+ * sphere material, and as numbers on the CPU, where `restCeiling` asks it how
+ * warm the resting glow may be before any channel of any sphere's emissive
+ * crosses the bloom threshold.
+ *
+ * The cap lives where the colour is made. The shown temperature is the
+ * contact heat or the capped resting glow, whichever is warmer, and the cap
+ * is solved every frame from the accent and gain that frame is shaded with —
+ * the eased accent mid-theme-change, the new gain on a frozen still — so no
+ * frame, stepped or not, can let a resting sphere bloom.
  *
  * The curve: a blackbody-style ramp through the palette — dark maroon, the
  * accent's ember, the accent, the accent run toward white — under a gain
@@ -19,6 +24,8 @@
 export interface HeatOps<V, S> {
   readonly num: (value: number) => S;
   readonly add: (a: S, b: S) => S;
+  readonly max: (a: S, b: S) => S;
+  readonly min: (a: S, b: S) => S;
   readonly mul: (a: S, b: S) => S;
   readonly smoothstep: (from: number, to: number, t: S) => S;
   readonly mix: (a: V, b: V, t: S) => V;
@@ -60,6 +67,14 @@ export function heatEmissive<V, S>(o: HeatOps<V, S>, accent: V, t: S, gain: S): 
   return o.addColor(o.scale(ramp, level), o.scale(maroon, o.num(FLOOR)));
 }
 
+/**
+ * The temperature a sphere is shown at: its contact heat (and a pop's flash),
+ * or its resting glow capped at `ceiling`, whichever is warmer.
+ */
+export function displayTemperature<V, S>(o: HeatOps<V, S>, contact: S, rest: S, ceiling: S): S {
+  return o.max(contact, o.min(rest, ceiling));
+}
+
 function smooth(from: number, to: number, t: number): number {
   const x = Math.max(0, Math.min(1, (t - from) / (to - from)));
   return x * x * (3 - 2 * x);
@@ -69,6 +84,8 @@ function smooth(from: number, to: number, t: number): number {
 const NUMBER_OPS: HeatOps<Rgb, number> = {
   num: (value) => value,
   add: (a, b) => a + b,
+  max: Math.max,
+  min: Math.min,
   mul: (a, b) => a * b,
   smoothstep: smooth,
   mix: (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t],
@@ -110,4 +127,38 @@ export function restCeiling(accent: Rgb, gain: number, limit = 1): number {
     low = t;
   }
   return limit;
+}
+
+/**
+ * `restCeiling`, solved again only when the accent or gain it was solved for
+ * has moved: the frame loop asks every frame, and a still palette costs
+ * nothing (P3).
+ */
+export class RestCeiling {
+  value = 0;
+  private r = Number.NaN;
+  private g = Number.NaN;
+  private b = Number.NaN;
+  private gain = Number.NaN;
+
+  /** The ceiling for this linear accent and gain. */
+  for(
+    accent: { readonly r: number; readonly g: number; readonly b: number },
+    gain: number,
+  ): number {
+    if (accent.r !== this.r || accent.g !== this.g || accent.b !== this.b || gain !== this.gain) {
+      this.r = accent.r;
+      this.g = accent.g;
+      this.b = accent.b;
+      this.gain = gain;
+      this.value = restCeiling([accent.r, accent.g, accent.b], gain);
+    }
+    return this.value;
+  }
+}
+
+/** The brightest channel a sphere is shown at, with the cap the frame would solve. */
+export function peakShown(accent: Rgb, gain: number, contact: number, rest: number): number {
+  const shown = displayTemperature(NUMBER_OPS, contact, rest, restCeiling(accent, gain));
+  return peakEmissive(accent, gain, shown);
 }
