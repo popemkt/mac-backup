@@ -1,9 +1,8 @@
-import { lazy, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ThemeIcon } from "@/components/ui/theme-icon";
 import { loadGraph } from "@/api/graph";
 import { ensureLiveConnection } from "@/api/live";
 import { CommandPalette, PaletteTrigger } from "@/components/palette/command-palette";
-import { OutlineEditor } from "@/components/outline/outline-editor";
 import { ViewFilterPopoverHost } from "@/components/outline/view-filter-popover";
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { Sidebar } from "@/components/sidebar/sidebar";
@@ -11,37 +10,19 @@ import { SidebarToggle } from "@/components/ui/sidebar-toggle";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
-import { OntologyScopeBar } from "@/components/ontology/ontology-scope-bar";
-import { matchRoute, navigate, usePath } from "@/lib/router";
+import { useRoute, type Surface, type SurfaceParams } from "@/lib/plugins";
+import type { Contribution } from "@kb/plugin";
+import { loadBuiltinUiPlugins } from "@/ui-plugins";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
 import type { WsStatus } from "@/api/ws";
 import { useUiStore } from "@/stores/ui.store";
 import { cn } from "@/lib/cn";
-import { hasText, textOr } from "@/lib/text";
+import { hasText } from "@/lib/text";
 
-/** Sigma/graphology and canvas land in separate chunks — outline bundle must not grow. */
-const GraphPage = lazy(() => import("@/components/graph/graph-page"));
-const CanvasListPage = lazy(() =>
-  import("@/components/canvas/canvas-list-page").then((m) => ({
-    default: m.CanvasListPage,
-  })),
-);
-const CanvasPage = lazy(() =>
-  import("@/components/canvas/canvas-page").then((m) => ({
-    default: m.CanvasPage,
-  })),
-);
-const OntologyPage = lazy(() =>
-  import("@/components/ontology/ontology-page").then((m) => ({
-    default: m.OntologyPage,
-  })),
-);
-const OntologyListPage = lazy(() =>
-  import("@/components/ontology/ontology-list-page").then((m) => ({
-    default: m.OntologyListPage,
-  })),
-);
+// Every page, and the sidebar section that leads to it, is a plugin's
+// contribution; the shell only frames whichever surface owns the path.
+loadBuiltinUiPlugins();
 
 /** Total over `WsStatus`: every status has a dot, so the lookup cannot miss. */
 const WS_DOT: Record<WsStatus, { className: string; label: string }> = {
@@ -140,44 +121,45 @@ function MainRegion({
   );
 }
 
-/** The one content column: centered 768px or fluid, per the width pref. */
-function OutlineColumn() {
-  const width = usePrefsStore((s) => s.width);
+/** A surface's page, under whatever chrome it contributes. */
+function SurfaceBody({
+  surface,
+  params,
+}: {
+  surface: Contribution<Surface>;
+  params: SurfaceParams;
+}) {
+  const { Component } = surface.value;
+  // A plugin's page owns its own boundary; this one only keeps a page that
+  // lacks one from taking the shell down with it.
   return (
-    <div
-      className={cn("kb-shell w-full", width === "centered" ? "mx-auto max-w-3xl px-4" : "px-8")}
-    >
-      <OutlineEditor />
-    </div>
+    <ViewErrorBoundary title="View crashed" resetKey={surface.id}>
+      <Component params={params} />
+    </ViewErrorBoundary>
   );
 }
 
-function OutlineShell({
+function WorkspaceShell({
   status,
   error,
   onRetry,
-  canvasId = null,
-  onCanvas = false,
-  ontology = null,
-  ontologyList = false,
+  surface,
+  params,
 }: {
   status: "loading" | "ready" | "error";
   error: string | null;
   onRetry: () => void;
-  canvasId?: string | null;
-  onCanvas?: boolean;
-  /** Active ontology scope: `page` shows the definition, `outline` its members. */
-  ontology?: { id: string; view: "page" | "outline" } | null;
-  ontologyList?: boolean;
+  surface: Contribution<Surface>;
+  params: SurfaceParams;
 }) {
   const theme = usePrefsStore((s) => s.theme);
   const rev = useOutlineStore((s) => s.rev);
-  const rootNodeId = useOutlineStore((s) => s.rootNodeId);
   const loadSource = useOutlineStore((s) => s.loadSource);
   const prefsOpen = useUiStore((s) => s.prefsOpen);
   const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
   const sidebar = useSidebarToggle();
+  const { Chrome } = surface.value;
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
@@ -202,74 +184,18 @@ function OutlineShell({
         </button>
       </header>
 
-      {ontology && status === "ready" ? (
-        <OntologyChrome id={ontology.id} view={ontology.view} />
-      ) : null}
+      {Chrome !== undefined && status === "ready" ? <Chrome params={params} /> : null}
 
-      <WorkspaceBoundary
-        pending={status === "loading"}
-        title={
-          onCanvas
-            ? "Opening canvas…"
-            : ontology || ontologyList
-              ? "Opening ontology…"
-              : "Opening your workspace…"
-        }
-      >
+      <WorkspaceBoundary pending={status === "loading"} title={surface.value.pendingTitle(params)}>
         {status === "error" ? (
           <LoadError error={error} onRetry={onRetry} />
-        ) : ontology ? (
-          <MainRegion>
-            <ViewErrorBoundary
-              title="Ontology crashed"
-              resetKey={`${ontology.id}:${ontology.view}`}
-            >
-              {ontology.view === "page" ? (
-                <OntologyPage ontologyId={ontology.id} />
-              ) : (
-                <OutlineColumn />
-              )}
-            </ViewErrorBoundary>
-          </MainRegion>
-        ) : ontologyList ? (
-          <MainRegion>
-            <ViewErrorBoundary title="Ontologies crashed" resetKey="ontology-list">
-              <OntologyListPage />
-            </ViewErrorBoundary>
-          </MainRegion>
-        ) : onCanvas ? (
-          <MainRegion scroll={false}>
-            <ViewErrorBoundary title="Canvas crashed" resetKey={canvasId ?? "canvas-list"}>
-              {canvasId !== null ? <CanvasPage canvasId={canvasId} /> : <CanvasListPage />}
-            </ViewErrorBoundary>
-          </MainRegion>
         ) : (
-          <MainRegion>
-            <ViewErrorBoundary title="Outline crashed" resetKey={rootNodeId}>
-              <OutlineColumn />
-            </ViewErrorBoundary>
+          <MainRegion scroll={surface.value.frame(params) === "scroll"}>
+            <SurfaceBody surface={surface} params={params} />
           </MainRegion>
         )}
       </WorkspaceBoundary>
     </div>
-  );
-}
-
-/** Scope chip fed from the store's resolved membership. */
-function OntologyChrome({ id, view }: { id: string; view: "page" | "outline" | "graph" }) {
-  const members = useOutlineStore((s) => s.ontologyMembers);
-  const warnings = useOutlineStore((s) => s.ontologyWarnings);
-  const wireNodes = useOutlineStore((s) => s.wireNodes);
-  const label = textOr(wireNodes.find((n) => n.id === id)?.text.trim(), "Untitled ontology");
-  return (
-    <OntologyScopeBar
-      ontologyId={id}
-      label={label}
-      memberCount={members?.size ?? 0}
-      warnings={warnings}
-      view={view}
-      onExit={() => navigate("/")}
-    />
   );
 }
 
@@ -308,10 +234,8 @@ export function App() {
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
-  const path = usePath();
-  const route = matchRoute(path);
-  const setOntologyScope = useOutlineStore((s) => s.setOntologyScope);
-  const scopeId = route.name === "ontology" ? route.id : null;
+  const route = useRoute();
+  const surface = route.contribution;
 
   const reload = useCallback(async () => {
     setStatus("loading");
@@ -330,12 +254,6 @@ export function App() {
   useEffect(() => {
     void reload();
   }, [reload]);
-
-  // Scope lives in the URL; the store follows it (reload + back button safe).
-  useEffect(() => {
-    if (status !== "ready") return;
-    setOntologyScope(scopeId);
-  }, [status, scopeId, setOntologyScope]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -364,46 +282,34 @@ export function App() {
     return () => window.removeEventListener("keydown", handler, true);
   }, [setGlobalPaletteOpen]);
 
+  const { Chrome } = surface?.value ?? {};
   return (
     <div className="relative flex h-full min-h-0">
       <ViewErrorBoundary title="Sidebar crashed" resetKey="sidebar">
         <Sidebar />
       </ViewErrorBoundary>
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-        {route.name === "graph" || (route.name === "ontology" && route.view === "graph") ? (
-          <WorkspaceBoundary pending={status === "loading"} title="Opening graph…">
+        {surface === null ? null : surface.value.frame(route.params) === "full" ? (
+          <WorkspaceBoundary
+            pending={status === "loading"}
+            title={surface.value.pendingTitle(route.params)}
+          >
             {status === "error" ? (
               <LoadError error={error} onRetry={() => void reload()} />
             ) : (
               <>
-                {route.name === "ontology" ? <OntologyChrome id={route.id} view="graph" /> : null}
-                <ViewErrorBoundary
-                  title="Graph crashed"
-                  resetKey={
-                    route.name === "ontology" ? `o:${route.id}` : (route.perspectiveId ?? "graph")
-                  }
-                >
-                  <GraphPage
-                    perspectiveId={route.name === "graph" ? route.perspectiveId : null}
-                    ontologyId={route.name === "ontology" ? route.id : null}
-                  />
-                </ViewErrorBoundary>
+                {Chrome !== undefined ? <Chrome params={route.params} /> : null}
+                <SurfaceBody surface={surface} params={route.params} />
               </>
             )}
           </WorkspaceBoundary>
         ) : (
-          <OutlineShell
+          <WorkspaceShell
             status={status}
             error={error}
             onRetry={() => void reload()}
-            canvasId={route.name === "canvas" ? route.id : null}
-            onCanvas={route.name === "canvas-list" || route.name === "canvas"}
-            ontology={
-              route.name === "ontology" && route.view !== "graph"
-                ? { id: route.id, view: route.view }
-                : null
-            }
-            ontologyList={route.name === "ontology-list"}
+            surface={surface}
+            params={route.params}
           />
         )}
         <SharedChrome />

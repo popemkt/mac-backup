@@ -13,7 +13,6 @@ import {
   isValidNativeTarget,
   syncDocOnRev,
 } from "@/lib/canvas-api";
-import { matchRoute } from "@/lib/router";
 import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
 import { clearAllowedRefIdsCache } from "@/lib/field-type";
 
@@ -163,15 +162,6 @@ describe("unbound tint computation", () => {
       ],
     ]);
     expect(edgePropPresent(nativeEdge, nodes)).toBe(true);
-  });
-});
-
-describe("canvas routes", () => {
-  test("matchRoute table", () => {
-    expect(matchRoute("/canvas")).toEqual({ name: "canvas-list" });
-    expect(matchRoute("/canvas/abc")).toEqual({ name: "canvas", id: "abc" });
-    expect(matchRoute("/graph")).toEqual({ name: "graph", perspectiveId: null });
-    expect(matchRoute("/")).toEqual({ name: "outline" });
   });
 });
 

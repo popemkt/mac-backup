@@ -1,6 +1,10 @@
 import { useSyncExternalStore } from "react";
 
-/** Tiny path router — no react-router dependency. Single route table. */
+/**
+ * Tiny path router — no react-router dependency. Which page owns a path is
+ * not written here: each surface plugin matches its own (`lib/plugins`), and
+ * this module only tracks the path and builds the links other views share.
+ */
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -35,45 +39,6 @@ export function usePath(): string {
   );
 }
 
-export type AppRoute =
-  | { name: "outline" }
-  | { name: "canvas-list" }
-  | { name: "canvas"; id: string }
-  | { name: "graph"; perspectiveId: string | null }
-  | { name: "ontology-list" }
-  /**
-   * Ontology scope lives in the URL so it is linkable, restorable on reload,
-   * and survives the back button (r5 §2.6). `view` selects the surface the
-   * scope is projected onto.
-   */
-  | { name: "ontology"; id: string; view: "page" | "outline" | "graph" };
-
-/** Canonical route table — App.tsx and nav consume this only. */
-export function matchRoute(path: string): AppRoute {
-  if (path === "/canvas" || path === "/canvas/") return { name: "canvas-list" };
-  const canvas = path.match(/^\/canvas\/([^/]+)\/?$/);
-  if (canvas?.[1] !== undefined) {
-    return { name: "canvas", id: decodeURIComponent(canvas[1]) };
-  }
-  if (path === "/graph" || path === "/graph/") {
-    return { name: "graph", perspectiveId: null };
-  }
-  const graph = path.match(/^\/graph\/([^/]+)\/?$/);
-  if (graph?.[1] !== undefined) {
-    return { name: "graph", perspectiveId: decodeURIComponent(graph[1]) };
-  }
-  if (path === "/o" || path === "/o/") return { name: "ontology-list" };
-  const onto = path.match(/^\/o\/([^/]+)(?:\/(outline|graph))?\/?$/);
-  if (onto?.[1] !== undefined) {
-    return {
-      name: "ontology",
-      id: decodeURIComponent(onto[1]),
-      view: onto[2] === "graph" ? "graph" : onto[2] === "outline" ? "outline" : "page",
-    };
-  }
-  return { name: "outline" };
-}
-
 export function graphPath(perspectiveId?: string | null): string {
   if (perspectiveId !== null && perspectiveId !== undefined) {
     return `/graph/${encodeURIComponent(perspectiveId)}`;
@@ -87,15 +52,4 @@ export type OntologyView = "page" | "outline" | "graph";
 export function ontologyPath(id: string, view: OntologyView = "page"): string {
   const base = `/o/${encodeURIComponent(id)}`;
   return view === "page" ? base : `${base}/${view}`;
-}
-
-/** @deprecated use matchRoute */
-export function matchCanvasId(path: string): string | null {
-  const r = matchRoute(path);
-  return r.name === "canvas" ? r.id : null;
-}
-
-/** @deprecated use matchRoute */
-export function isCanvasList(path: string): boolean {
-  return matchRoute(path).name === "canvas-list";
 }

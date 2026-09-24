@@ -1,7 +1,7 @@
 {
   "lanes": {
     "blocking": {
-      "eslint/max-lines-per-function": 29,
+      "eslint/max-lines-per-function": 28,
       "react/exhaustive-effect-dependencies": 16,
       "react/globals": 1,
       "react/hooks": 4,
@@ -53,8 +53,6 @@
       "exports:packages/app/ui/src/lib/md-inline.ts:mediaKindFromHref": 1,
       "exports:packages/app/ui/src/lib/ontology-scope.ts:labelOf": 1,
       "exports:packages/app/ui/src/lib/router.ts:getPath": 1,
-      "exports:packages/app/ui/src/lib/router.ts:isCanvasList": 1,
-      "exports:packages/app/ui/src/lib/router.ts:matchCanvasId": 1,
       "exports:packages/app/ui/src/lib/tx.ts:sortWireNodes": 1,
       "exports:packages/app/ui/src/lib/types.ts:LEGACY_LENS_ALL_MENTIONS": 1,
       "nsExports:packages/app/ui/src/stores/prefs.store.ts:PrefsStore.DEFAULT_PREFS": 1,

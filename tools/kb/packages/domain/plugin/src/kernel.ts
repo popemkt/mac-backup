@@ -94,21 +94,25 @@ export interface PluginHandle {
   readonly unload: Effect.Effect<void>;
 }
 
+/**
+ * Members are closures over the kernel's state, not methods: any of them can
+ * be passed on unbound (`useSyncExternalStore(kernel.subscribe, kernel.version)`).
+ */
 export interface Kernel {
-  load(plugin: Plugin): Effect.Effect<PluginHandle, PluginError>;
-  unload(name: string): Effect.Effect<void, PluginError>;
+  readonly load: (plugin: Plugin) => Effect.Effect<PluginHandle, PluginError>;
+  readonly unload: (name: string) => Effect.Effect<void, PluginError>;
   /** Unload every plugin, newest first. */
   readonly shutdown: Effect.Effect<void>;
   /** Every contribution to a point, in the order it was made. */
-  contributions<C>(point: PointKey<C>): readonly Contribution<C>[];
+  readonly contributions: <C>(point: PointKey<C>) => readonly Contribution<C>[];
   /** The contribution holding `id` as its id or one of its aliases. */
-  lookup<C>(point: PointKey<C>, id: string): Contribution<C> | undefined;
-  service<S>(key: ServiceKey<S>): S | undefined;
-  plugins(): readonly PluginState[];
+  readonly lookup: <C>(point: PointKey<C>, id: string) => Contribution<C> | undefined;
+  readonly service: <S>(key: ServiceKey<S>) => S | undefined;
+  readonly plugins: () => readonly PluginState[];
   /** Called after every change to plugins, services or contributions. */
-  subscribe(listener: () => void): () => void;
+  readonly subscribe: (listener: () => void) => () => void;
   /** Moves on every change; the snapshot `useSyncExternalStore` compares. */
-  version(): number;
+  readonly version: () => number;
 }
 
 interface Entry {

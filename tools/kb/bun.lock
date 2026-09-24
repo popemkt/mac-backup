@@ -154,6 +154,7 @@
         "@kb/contracts": "workspace:*",
         "@kb/model": "workspace:*",
         "@kb/operations": "workspace:*",
+        "@kb/plugin": "workspace:*",
         "@kb/query": "workspace:*",
         "@kb/tx-log": "workspace:*",
         "@phosphor-icons/react": "catalog:",

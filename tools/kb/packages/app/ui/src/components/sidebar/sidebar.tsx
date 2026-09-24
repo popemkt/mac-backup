@@ -1,123 +1,23 @@
-import { useMemo, useState, type ReactNode } from "react";
-import {
-  GraphIcon,
-  HexagonIcon,
-  HouseIcon,
-  PlusIcon,
-  PushPinIcon,
-  SquareIcon,
-} from "@phosphor-icons/react";
-import { hasText } from "@/lib/text";
-import { mutations } from "@/actions/mutations";
-import { createCanvasNode } from "@/lib/canvas-api";
+import { useMemo } from "react";
 import { cn } from "@/lib/cn";
 import { sidebarRegionProps } from "@/lib/dom";
-import { graphPath, matchRoute, navigate, ontologyPath, usePath } from "@/lib/router";
-import { useOutlineStore } from "@/stores/outline.store";
+import { SidebarSectionPoint, useContributions, useRoute } from "@/lib/plugins";
 import { usePrefsStore } from "@/stores/prefs.store";
-import {
-  listCanvasNavItems,
-  listOntologyNavItems,
-  listPerspectiveNavItems,
-  listPinnedNavItems,
-} from "./sidebar-nav";
 
 const SIDEBAR_WIDTH_PX = 220;
 
-function SidebarRow({
-  label,
-  icon,
-  active,
-  indented,
-  onClick,
-  muted,
-}: {
-  label: string;
-  icon?: ReactNode;
-  active?: boolean;
-  indented?: boolean;
-  onClick: () => void;
-  muted?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      className={cn(
-        "flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] transition-colors duration-100",
-        indented === true && "pl-7",
-        active === true
-          ? "bg-foreground/[0.08] text-foreground/85"
-          : muted === true
-            ? "text-foreground/30 hover:bg-foreground/[0.03] hover:text-foreground/50"
-            : "text-foreground/55 hover:bg-foreground/[0.04] hover:text-foreground/75",
-      )}
-    >
-      {icon !== undefined && icon !== null ? (
-        <span className="flex h-4 w-4 shrink-0 items-center justify-center">{icon}</span>
-      ) : null}
-      <span className="min-w-0 truncate">{label}</span>
-    </button>
-  );
-}
-
-function SidebarSection({ title, children }: { title?: string; children: ReactNode }) {
-  return (
-    <div className="mb-3">
-      {hasText(title) ? (
-        <div className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wide text-foreground/30">
-          {title}
-        </div>
-      ) : null}
-      <div className="flex flex-col gap-0.5">{children}</div>
-    </div>
-  );
-}
-
+/**
+ * The sidebar lists what plugins contribute: each section is one plugin's
+ * way into its own pages, in `order`.
+ */
 export function Sidebar() {
   const open = usePrefsStore((s) => s.sidebarOpen);
-  const path = usePath();
-  const route = matchRoute(path);
-  const nodes = useOutlineStore((s) => s.nodes);
-  const wireNodes = useOutlineStore((s) => s.wireNodes);
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
-  const zoomHome = useOutlineStore((s) => s.zoomHome);
-  const rootNodeId = useOutlineStore((s) => s.rootNodeId);
-  const homeRootId = useOutlineStore((s) => s.homeRootId);
-  const [creating, setCreating] = useState(false);
-
-  const perspectives = useMemo(() => listPerspectiveNavItems(wireNodes), [wireNodes]);
-  const canvases = useMemo(() => listCanvasNavItems(nodes), [nodes]);
-  const ontologies = useMemo(() => listOntologyNavItems(wireNodes), [wireNodes]);
-  const pinned = useMemo(() => listPinnedNavItems(nodes), [nodes]);
-
-  const onNewCanvas = async () => {
-    if (creating) return;
-    setCreating(true);
-    try {
-      const id = await createCanvasNode();
-      if (id !== null) navigate(`/canvas/${id}`);
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const onPinned = (id: string) => {
-    navigate("/");
-    zoomTo(id);
-  };
-
-  const onNewOntology = async () => {
-    if (creating) return;
-    setCreating(true);
-    try {
-      const id = await mutations.defineOntology();
-      if (id !== null) navigate(ontologyPath(id));
-    } finally {
-      setCreating(false);
-    }
-  };
+  const route = useRoute();
+  const contributed = useContributions(SidebarSectionPoint);
+  const sections = useMemo(
+    () => contributed.toSorted((a, b) => a.value.order - b.value.order),
+    [contributed],
+  );
 
   return (
     <aside
@@ -131,101 +31,9 @@ export function Sidebar() {
       style={{ width: open ? SIDEBAR_WIDTH_PX : 0 }}
     >
       <div className="flex h-full w-[220px] flex-col overflow-y-auto px-2 py-3">
-        <SidebarSection>
-          <SidebarRow
-            label="Home"
-            icon={<HouseIcon size={14} />}
-            active={route.name === "outline" && rootNodeId === homeRootId}
-            onClick={() => {
-              navigate("/");
-              zoomHome();
-            }}
-          />
-        </SidebarSection>
-
-        <SidebarSection>
-          <SidebarRow
-            label="Graph"
-            icon={<GraphIcon size={14} />}
-            active={route.name === "graph" && route.perspectiveId === null}
-            onClick={() => navigate(graphPath())}
-          />
-          {perspectives.map((p) => (
-            <SidebarRow
-              key={p.id}
-              label={p.label}
-              indented
-              active={route.name === "graph" && route.perspectiveId === p.id}
-              onClick={() => navigate(graphPath(p.id))}
-            />
-          ))}
-        </SidebarSection>
-
-        <SidebarSection>
-          <SidebarRow
-            label="Ontologies"
-            icon={<HexagonIcon size={14} />}
-            active={route.name === "ontology-list"}
-            onClick={() => navigate("/o")}
-          />
-          {ontologies.map((o) => (
-            <SidebarRow
-              key={o.id}
-              label={o.label}
-              indented
-              active={route.name === "ontology" && route.id === o.id}
-              onClick={() => navigate(ontologyPath(o.id))}
-            />
-          ))}
-          <SidebarRow
-            label={creating ? "Creating…" : "New ontology"}
-            icon={<PlusIcon size={14} />}
-            indented
-            muted
-            onClick={() => void onNewOntology()}
-          />
-        </SidebarSection>
-
-        <SidebarSection>
-          <SidebarRow
-            label="Canvases"
-            icon={<SquareIcon size={14} />}
-            active={route.name === "canvas-list"}
-            onClick={() => navigate("/canvas")}
-          />
-          {canvases.map((c) => (
-            <SidebarRow
-              key={c.id}
-              label={c.label}
-              indented
-              active={route.name === "canvas" && route.id === c.id}
-              onClick={() => navigate(`/canvas/${c.id}`)}
-            />
-          ))}
-          <SidebarRow
-            label={creating ? "Creating…" : "New canvas"}
-            icon={<PlusIcon size={14} />}
-            indented
-            muted
-            onClick={() => void onNewCanvas()}
-          />
-        </SidebarSection>
-
-        <SidebarSection title="Pinned">
-          {pinned.length === 0 ? (
-            <p className="px-2 py-1 text-[11px] text-foreground/30">Pin nodes with ⌘K</p>
-          ) : (
-            pinned.map((f) => (
-              <SidebarRow
-                key={f.id}
-                label={f.label}
-                icon={<PushPinIcon size={14} />}
-                active={route.name === "outline" && rootNodeId === f.id}
-                onClick={() => onPinned(f.id)}
-              />
-            ))
-          )}
-        </SidebarSection>
+        {sections.map(({ id, value: { Component } }) => (
+          <Component key={id} route={route} />
+        ))}
       </div>
     </aside>
   );

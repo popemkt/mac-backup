@@ -66,11 +66,16 @@ describe("component catalog smoke", () => {
 });
 
 describe("surface error-boundary wiring (App)", () => {
-  it("wraps outline and sidebar so one crash cannot blank the shell", () => {
-    const appSrc = readFileSync(path.join(catalogDir, "../components/App.tsx"), "utf8");
-    expect(appSrc).toContain('title="Outline crashed"');
+  it("wraps the sidebar and every page so one crash cannot blank the shell", () => {
+    const read = (file: string) => readFileSync(path.join(catalogDir, "..", file), "utf8");
+    const appSrc = read("components/App.tsx");
     expect(appSrc).toContain('title="Sidebar crashed"');
-    expect(appSrc).toContain('title="Graph crashed"');
-    expect(appSrc).toContain('title="Canvas crashed"');
+    // A page that brings no boundary of its own still cannot take the shell down.
+    expect(appSrc).toContain('title="View crashed"');
+    // Each built-in page owns its boundary, beside the surface that renders it.
+    expect(read("components/outline/surfaces.tsx")).toContain('title="Outline crashed"');
+    expect(read("components/graph/surfaces.tsx")).toContain('title="Graph crashed"');
+    expect(read("components/canvas/surfaces.tsx")).toContain('title="Canvas crashed"');
+    expect(read("components/ontology/surfaces.tsx")).toContain('title="Ontology crashed"');
   });
 });

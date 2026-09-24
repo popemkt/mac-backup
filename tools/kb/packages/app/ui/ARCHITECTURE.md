@@ -5,34 +5,53 @@ is a projection. This file is the encapsulation contract for new work.
 
 ## Tree (App → surfaces)
 
+The shell names no feature. Every page is a **surface** and every sidebar
+section a contribution, made by a UI plugin into the browser's `@kb/plugin`
+kernel (`lib/plugins.ts`); `ui-plugins.ts` lists the built-in plugins and the
+shell loads them before it renders.
+
 ```
 main.tsx
-└─ App                         shell: load graph, route, global shortcuts
-   ├─ Sidebar                  nav (pins, surfaces) — ViewErrorBoundary
-   └─ main column
-      ├─ GraphPage             lazy + ViewErrorBoundary   (route /graph*)
-      ├─ OutlineShell          header + connection chrome
-      │  ├─ OntologyPage       lazy + ViewErrorBoundary
-      │  ├─ OntologyListPage   lazy + ViewErrorBoundary
-      │  ├─ CanvasPage/List    lazy + ViewErrorBoundary
-      │  └─ OutlineEditor      eager + ViewErrorBoundary
+└─ App                         shell: load graph, resolve the route, shortcuts
+   ├─ Sidebar                  renders SidebarSectionPoint, by order — boundary
+   └─ main column              the surface whose `match` owns the path
+      ├─ frame "full"          the surface alone, under its Chrome (graph)
+      ├─ WorkspaceShell        header + connection chrome + Chrome
+      │  └─ MainRegion         frame "scroll" (outline, ontology) or "fixed" (canvas)
       └─ SharedChrome          prefs, filters, ⌘ palette, toasts
 ```
 
-Lazy chunks: graph, canvas, ontology. Outline stays eager (primary path).
+A feature folder owns its plugin as three files: `routes.ts` (namespace,
+surface ids, path matchers), `surfaces.tsx` (its pages and sidebar section,
+components only) and `plugin.ts` (the contributions). A surface embeds another
+plugin's by id with `ContributedSurface` (an ontology's outline view is the
+outline surface), never by importing a sibling folder.
+
+| plugin     | surfaces                                                 | sidebar                |
+| ---------- | -------------------------------------------------------- | ---------------------- |
+| `outline`  | `outline.main` (fallback, every path)                    | Home (0), Pinned (100) |
+| `graph`    | `graph.page` `/graph[/<perspective>]`                    | Graph (10)             |
+| `ontology` | `ontology.list` `/o`, `ontology.scope` `/o/<id>[/outline | /graph]`               | Ontologies (20) |
+| `canvas`   | `canvas.list` `/canvas`, `canvas.page` `/canvas/<id>`    | Canvases (30)          |
+
+Lazy chunks: graph, canvas, ontology — each surface file lazy-loads its page.
+Outline stays eager (primary path).
 
 ## Error isolation
 
-| Surface              | Boundary? | Notes                                       |
-| -------------------- | --------- | ------------------------------------------- |
-| Graph                | yes       | `resetKey` = perspective / ontology id      |
-| Canvas               | yes       | `resetKey` = canvas id                      |
-| Ontology page / list | yes       |                                             |
-| Outline              | yes       | added i9-arch; keeps sidebar + chrome alive |
-| Sidebar              | yes       | crash must not blank the workspace          |
-| SharedChrome         | no        | tiny; failures are non-fatal UI             |
+| Surface              | Boundary? | Notes                                        |
+| -------------------- | --------- | -------------------------------------------- |
+| Any surface          | yes       | the shell's "View crashed", keyed by surface |
+| Graph                | yes       | `resetKey` = perspective / ontology id       |
+| Canvas               | yes       | `resetKey` = canvas id                       |
+| Ontology page / list | yes       |                                              |
+| Outline              | yes       | added i9-arch; keeps sidebar + chrome alive  |
+| Sidebar              | yes       | crash must not blank the workspace           |
+| SharedChrome         | no        | tiny; failures are non-fatal UI              |
 
-Use `ViewErrorBoundary` / `ViewError` from
+A surface owns its boundary (only it knows what resets it); the shell's
+wraps whatever a surface renders so a plugin without one cannot blank the
+workspace. Use `ViewErrorBoundary` / `ViewError` from
 `components/view-error-boundary.tsx`. Do not invent a second boundary type.
 `console.error` in `componentDidCatch` is intentional (devtools signal).
 

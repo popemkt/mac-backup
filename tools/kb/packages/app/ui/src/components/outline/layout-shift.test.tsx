@@ -88,8 +88,9 @@ describe("layout-shift regressions (i10)", () => {
     expect(src).toMatch(/function MainRegion\(/);
     expect((src.match(/<main\b/g) ?? []).length).toBe(1);
     expect(src).not.toMatch(/className="min-h-0 flex-1 overflow-(?:auto|hidden)"/);
-    // Every route's region goes through it, canvas (non-scrolling) included.
-    expect((src.match(/<MainRegion\b/g) ?? []).length).toBe(4);
+    // Every page under the workspace header is framed by the one call site,
+    // canvas (non-scrolling) included: the frame is data on the surface.
+    expect((src.match(/<MainRegion\b/g) ?? []).length).toBe(1);
     // The track is reserved unconditionally, so a view that overflows and one
     // that does not resolve to the same content width — the centered column,
     // and with it the breadcrumb, cannot shift by the 6px scrollbar.
