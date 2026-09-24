@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { HashIcon, LinkSimpleIcon, PlusIcon, TextTIcon } from "@phosphor-icons/react";
 import type { WireNode } from "@kb/contracts";
@@ -189,7 +189,12 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
 
   const targetNodeId = activeNodeId ?? selectedNodeId;
 
-  useEffect(() => {
+  /*
+   * Anchor, reset and focus all run as layout effects, in the commit that
+   * opens the palette. When focus waited a frame, or waited for a passive
+   * effect's re-render, whatever was typed right after ⌘K was lost.
+   */
+  useLayoutEffect(() => {
     if (!open || targetNodeId === null) {
       setAnchorRect(null);
       return;
@@ -202,7 +207,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     }
   }, [open, targetNodeId]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (open) {
       setStep("commands");
       setQuery("");
@@ -210,10 +215,8 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     }
   }, [open]);
 
-  useEffect(() => {
-    if (open && anchorRect) {
-      requestAnimationFrame(() => inputRef.current?.focus());
-    }
+  useLayoutEffect(() => {
+    if (open && anchorRect) inputRef.current?.focus();
   }, [open, anchorRect]);
 
   const goToStep = (next: PaletteStep) => {

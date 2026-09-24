@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { MagnifyingGlassIcon, TerminalIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import {
@@ -76,15 +76,19 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   const hits = useMemo(() => searchPalette(index, query, ROW_LIMIT), [index, query]);
 
-  useEffect(() => {
+  /*
+   * Focus the input in the commit that opens the palette, before the browser
+   * handles another event. Deferring it a frame lost whatever was typed right
+   * after ⌘K to the element that had focus before.
+   */
+  useLayoutEffect(() => {
     if (!open) return undefined;
     restoreFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setQuery("");
     setActive(0);
-    const t = requestAnimationFrame(() => inputRef.current?.focus());
+    inputRef.current?.focus();
     return () => {
-      cancelAnimationFrame(t);
       restoreFocusRef.current?.focus();
       restoreFocusRef.current = null;
     };
