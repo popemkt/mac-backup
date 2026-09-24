@@ -1,11 +1,12 @@
 import { Database } from "bun:sqlite";
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { KbTx } from "@kb/model";
+import { DatascriptIndex } from "@kb/query";
 import {
   STORE_BACKENDS,
   createStore,
@@ -181,13 +182,22 @@ describe.each([...STORE_BACKENDS])("over a %s store", (backend) => {
       deletes: [],
     });
     const texts = "[:find ?text :where [?n :node/text ?text]]";
-    expect(await client.query(texts)).toEqual({ revision: saved.revision, rows: [["before"]] });
-    expect(await client.query(texts)).toEqual({ revision: saved.revision, rows: [["before"]] });
+    // Every index build, the constructor's included, goes through rebuild.
+    const rebuilds = spyOn(DatascriptIndex.prototype, "rebuild");
+    try {
+      expect(await client.query(texts)).toEqual({ revision: saved.revision, rows: [["before"]] });
+      expect(rebuilds).toHaveBeenCalledTimes(1);
+      expect(await client.query(texts)).toEqual({ revision: saved.revision, rows: [["before"]] });
+      expect(rebuilds).toHaveBeenCalledTimes(1);
 
-    externalEdit[backend](root, "before", "after!");
-    const moved = await client.query(texts);
-    expect(moved.revision).not.toBe(saved.revision);
-    expect(moved).toEqual({ revision: (await client.snapshot()).revision, rows: [["after!"]] });
+      externalEdit[backend](root, "before", "after!");
+      const moved = await client.query(texts);
+      expect(rebuilds).toHaveBeenCalledTimes(2);
+      expect(moved.revision).not.toBe(saved.revision);
+      expect(moved).toEqual({ revision: (await client.snapshot()).revision, rows: [["after!"]] });
+    } finally {
+      rebuilds.mockRestore();
+    }
   });
 
   test("a malformed upsert rejects the whole batch before anything is stored", async () => {
