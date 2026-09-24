@@ -55,6 +55,8 @@ const GROWING = 2;
 /** Peak scale of a pop's pulse, and how long the shrink after it takes. */
 const POP_SWELL = 1.4;
 const POP_SHRINK = 0.12;
+/** The fastest pointer speed (world units/s) the force field responds to. */
+const MAX_SHOVE_SPEED = 14;
 
 export interface EmberShape {
   readonly count: number;
@@ -257,10 +259,16 @@ function advanceKernel(
     const reach = float(1.1).add(speed.mul(0.1)).min(2.4);
     const shove = float(1)
       .sub(smoothstep(0, reach, distance))
-      .mul(speed.mul(0.9).min(14));
+      .mul(speed.mul(0.9).min(MAX_SHOVE_SPEED));
     const force = spring
       .add(away.div(distance).mul(shove.mul(40)))
-      .add(u.pointerVelocity.mul(shove.mul(2.5)));
+      // Capped as the shove is: however the speed was sampled, the drag
+      // along the stroke never exceeds what a fast, real gesture gives.
+      .add(
+        u.pointerVelocity
+          .mul(float(MAX_SHOVE_SPEED).div(speed.max(MAX_SHOVE_SPEED)))
+          .mul(shove.mul(2.5)),
+      );
     v.assign(v.add(force.mul(u.dt)).add(b.contact.element(i.add(shape.count))));
     p.assign(p.add(v.mul(u.dt)).add(b.contact.element(i)));
     heat.assign(heat.mul(exp(u.cooling.negate().mul(u.dt))));

@@ -13,21 +13,19 @@
  * toward white — whose gain rises with heat, so only the hot end is HDR and
  * only it crosses the bloom threshold (L2).
  *
- * The cloud's centre follows the pointer on a critically damped spring that
- * settles in the follow duration (M1, M5); the shell's softer springs lag
- * the core (M3). Distance fades into the ground (L3).
+ * The cloud's centre follows the pointer (`steer.ts`); the shell's softer
+ * springs lag the core (M3). Distance fades into the ground (L3).
  */
 import { Mesh, PointLight, SphereGeometry, Vector3 } from "three/webgpu";
 import { instanceIndex, mix, positionLocal, smoothstep, uniform, vec3 } from "three/tsl";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
 import { PointerField } from "@/components/lab/kit/pointer";
-import { PointerVelocity } from "@/components/lab/kit/velocity";
 import { createRig, labMaterial } from "@/components/lab/kit/rig";
 import type { LabStage } from "@/components/lab/kit/stage";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
-import { springRate, stepSpring, type Spring } from "@/components/lab/kit/timing";
 import { emberSimulation, type EmberShape } from "@/components/lab/embers/compute";
 import { PopGrants } from "@/components/lab/embers/pops";
+import { EmberSteer } from "@/components/lab/embers/steer";
 
 const SHAPE: EmberShape = { count: 3400, sphere: 0.1, cloud: 3.4 };
 const CAMERA_Z = 17;
@@ -122,31 +120,18 @@ function embers(stage: LabStage, init: LabSceneInit, context: StudyContext): Stu
 
   const pointer = new PointerField(context.host);
   const grants = new PopGrants();
-  const follow = springRate(init.timing.follow);
-  const cx: Spring = { x: 0, v: 0 };
-  const cy: Spring = { x: 0, v: 0 };
+  const steer = new EmberSteer(init.timing);
   const aim = new Vector3();
-  const flick = new PointerVelocity();
   return {
     frame: (dt, elapsed) => {
-      // A reduced-motion still is the cloud at rest: no step is dispatched.
-      if (dt <= 0) return;
-      const idle = !pointer.inside || pointer.idleFor(performance.now()) > 2.5;
-      if (idle) {
-        // Ambient drift: slow and small (M4), a figure of eight over the ambient period.
-        const w = (Math.PI * 2) / init.timing.ambientPeriod;
-        aim.set(Math.sin(elapsed * w) * 0.8, Math.sin(elapsed * w * 2) * 0.35, 0);
-      } else {
-        pointer.onPlane(stage.camera, "z", aim);
-      }
-      stepSpring(cx, aim.x, follow, dt);
-      stepSpring(cy, aim.y, follow, dt);
-      u.center.value.set(cx.x, cy.x, 0);
-      // The ambient drift is not the pointer: it shoves nothing.
-      flick.step(dt, idle ? null : aim);
-      u.pointerVelocity.value.set(flick.x, flick.y, 0);
-      if (idle) u.pointer.value.set(0, 0, 100);
-      else u.pointer.value.set(aim.x, aim.y, 0);
+      const live = pointer.inside && pointer.idleFor(performance.now()) <= 2.5;
+      const onPlane = live && pointer.onPlane(stage.camera, "z", aim);
+      // A zero step (a restart, or reduced motion's still) steps nothing and
+      // dispatches nothing; the steer forgets the pointer's speed across it.
+      if (!steer.frame(dt, elapsed, onPlane ? aim : null)) return;
+      u.center.value.set(steer.center.x, steer.center.y, 0);
+      u.pointerVelocity.value.set(steer.velocity.x, steer.velocity.y, 0);
+      u.pointer.value.set(steer.pointer.x, steer.pointer.y, steer.pointer.z);
       u.dt.value = dt;
       u.time.value = elapsed;
       u.grant.value = grants.next(dt);
