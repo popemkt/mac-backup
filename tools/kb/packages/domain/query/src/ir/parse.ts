@@ -295,9 +295,10 @@ function clauseFromEdn(item: Edn): Clause | ReachMisuse | null {
 /**
  * `(reach ?from <edge> ?to)` / `(reach ?from <edge> ?to <max>)` — DESIGN.md →
  * Query layer. A list headed `reach` with a keyword in the edge slot is kb's
- * form, so a malformed one is reported as a misuse (see `ReachMisuse`):
- * left raw, DataScript would only report a missing `%`. Without the keyword
- * it is an ordinary rule call.
+ * form, so a malformed one returns a `ReachMisuse` token rather than null.
+ * `queryFromEdn` throws it as a `DatalogError` naming `reach` when every
+ * other clause is in the subset, and otherwise drops it and returns raw.
+ * Without the keyword the list is an ordinary rule call.
  */
 function reachFromEdn(parts: Edn[]): ReachClause | ReachMisuse | null {
   const [name, from, edge, to, max, ...rest] = parts;
