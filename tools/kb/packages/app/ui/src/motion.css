@@ -1,6 +1,14 @@
-/* Quiet, finite gestures. The global reduced-motion rule also governs these. */
+/* Quiet, finite gestures. The global reduced-motion rule also governs these.
+ *
+ * The timing vocabulary is these tokens: one ease and the durations every
+ * gesture picks from. Script motion reads the same tokens (the lab's
+ * `kit/timing.ts`), so a duration is changed here and nowhere else. */
 :root {
   --motion-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-duration-quick: 220ms;
+  --motion-duration-reveal: 280ms;
+  --motion-duration-theme: 360ms;
+  --motion-duration-arrive: 900ms;
 }
 
 .kb-workspace-state {
@@ -51,7 +59,7 @@
     color-mix(in oklch, var(--foreground) 14%, transparent),
     transparent 70%
   );
-  animation: kb-companion-shadow 900ms var(--motion-settle) both;
+  animation: kb-companion-shadow var(--motion-duration-arrive) var(--motion-settle) both;
 }
 
 .kb-companion-body {
@@ -72,7 +80,7 @@
     inset 2px 3px 5px #fff8e5a6,
     inset -3px -5px 8px #ad62282b;
   transform-origin: 50% 95%;
-  animation: kb-companion-arrive 900ms var(--motion-settle) both;
+  animation: kb-companion-arrive var(--motion-duration-arrive) var(--motion-settle) both;
 }
 
 .kb-companion-face {
@@ -106,12 +114,12 @@
 }
 
 .kb-surface-enter {
-  animation: kb-surface-enter 220ms var(--motion-settle) both;
+  animation: kb-surface-enter var(--motion-duration-quick) var(--motion-settle) both;
 }
 
 /* Opacity only: never move the editor, scale its text, or capture fixed chrome. */
 .kb-workspace-reveal {
-  animation: kb-workspace-reveal 280ms ease-out;
+  animation: kb-workspace-reveal var(--motion-duration-reveal) ease-out;
 }
 
 @keyframes kb-workspace-reveal {
@@ -125,15 +133,15 @@
 
 /* Browser snapshots keep canvas, text, and surfaces in the same day/night fade. */
 html[data-theme-transition]::view-transition-old(root) {
-  animation: kb-theme-out 360ms ease-in-out both;
+  animation: kb-theme-out var(--motion-duration-theme) ease-in-out both;
 }
 
 html[data-theme-transition]::view-transition-new(root) {
-  animation: kb-workspace-reveal 360ms ease-in-out both;
+  animation: kb-workspace-reveal var(--motion-duration-theme) ease-in-out both;
 }
 
 html[data-theme-transition]::view-transition-group(root) {
-  animation-duration: 360ms;
+  animation-duration: var(--motion-duration-theme);
 }
 
 html[data-theme-transition]::view-transition {
