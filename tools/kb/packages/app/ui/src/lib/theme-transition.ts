@@ -1,4 +1,5 @@
 import { flushSync } from "react-dom";
+import { prefersReducedMotion } from "@/lib/motion";
 
 let active: ViewTransition | null = null;
 let revision = 0;
@@ -10,8 +11,7 @@ export function transitionTheme(update: () => void, appearanceChanges: boolean):
   active = null;
   const root = typeof document === "undefined" ? null : document.documentElement;
   root?.removeAttribute("data-theme-transition");
-  const reduced =
-    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reduced = prefersReducedMotion();
   if (
     !root ||
     !appearanceChanges ||

@@ -1,5 +1,6 @@
 import type Sigma from "sigma";
 import type { CameraState } from "sigma/types";
+import { prefersReducedMotion } from "@/lib/motion";
 
 const EASE_DURATION_MS = 300;
 
@@ -110,8 +111,5 @@ export function focusNode(sigma: Sigma, nodeId: string): void {
 }
 
 export function motionDuration(duration: number): number {
-  return typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    ? 0
-    : duration;
+  return prefersReducedMotion() ? 0 : duration;
 }
