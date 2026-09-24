@@ -53,11 +53,13 @@ const ARBITRARY_TEXT_SIZE = new RegExp(
   [
     // typed, either form: text-[length:…], text-(percentage:--x), …
     String.raw`^text-[[(](?:length|percentage|absolute-size|relative-size):`,
-    // untyped bracket value that is a number, a function of lengths, or a keyword
-    String.raw`^text-\[(?:[-+]?[\d.]|calc\(|clamp\(|min\(|max\(|(?:${SIZE_KEYWORDS})\]$)`,
+    // untyped bracket value that is a number, a function of lengths, or a
+    // keyword. Every alternative matches a prefix or allows a trailing
+    // `/<leading>` modifier, since `text-[large]/5` is still a raw size.
+    String.raw`^text-\[(?:[-+]?[\d.]|calc\(|clamp\(|min\(|max\(|(?:${SIZE_KEYWORDS})\](?:\/\S+)?$)`,
   ].join("|"),
 );
-const RAW_SHADOW = /^(?:shadow-[[(]|(?:drop|inset|text)-shadow(?:-|$))/;
+const RAW_SHADOW = /^(?:shadow-[[(]|(?:drop|inset|text)-shadow(?:[-/]|$))/;
 const RAW_RADIUS = /^rounded(?:-(?:[trblse]|tl|tr|bl|br|ss|se|es|ee))?-[[(]/;
 const PALETTE_COLOR = new RegExp(
   `^(?:${COLOR_UTILITIES})-(?:white|black|(?:${HUES})-\\d{2,3})(?:/.*)?$`,

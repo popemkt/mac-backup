@@ -735,9 +735,10 @@ system:
 
 - an arbitrary font size, in any data type Tailwind reads as a size (length,
   percentage, absolute-size, relative-size), untyped or typed, in `[…]` or
-  `(…)` form: `text-[11px]`, `text-[large]`, `text-[length:11px]`,
-  `text-(percentage:--x)`. An arbitrary colour (`text-[color:…]`,
-  `text-(--x)`) is not a size and passes;
+  `(…)` form, with or without a leading modifier: `text-[11px]`,
+  `text-[large]/5`, `text-[length:11px]`, `text-(percentage:--x)`. An
+  arbitrary colour (`text-[color:…]`, `text-(--x)`) is not a size and
+  passes;
 - an arbitrary shadow (`shadow-[…]`), and the shadow families the bridge
   does not own (`drop-shadow-*`, `inset-shadow-*`, `text-shadow-*`);
 - an arbitrary radius (`rounded-[5px]`, `rounded-t-[2px]`);
@@ -754,13 +755,16 @@ leaves every default step (`text-sm`, `text-sm/6`, `shadow-xl`, bare
 `Scanner` extracts the class candidates from each non-test UI module, with
 comments blanked, and each candidate is compiled against stock Tailwind and
 against `index.css`. A candidate that stock Tailwind turns into CSS and kb's
-stylesheet does not is dead, and the test names its file. Comparing against
-stock Tailwind is what separates a dead class from the scanner's noise,
-which emits nothing under either. `NOT_CLASSES` lists the few scanned
-strings that are not classes. Today there are two, both the word `shadow`:
-tailwind-merge's theme key in `lib/cn.ts`, and prose in the lab's Light
-study description. Each entry is keyed by file, and a stale entry fails
-too.
+stylesheet does not is dead, and the test names its file and line.
+Comparing against stock Tailwind is what separates a dead class from the
+scanner's noise, which emits nothing under either. A fixture test pins the
+comparison itself: `text-sm/6` is dead and `rounded-md` is not.
+`NOT_CLASSES` exempts the few scanned occurrences that are not classes.
+Today there are two, both the word `shadow`: tailwind-merge's theme key in
+`lib/cn.ts`, and prose in the lab's Light study description. Each entry
+exempts one occurrence, the candidate inside an exact snippet of its file,
+so the same word written as a class elsewhere in that file is still checked.
+An entry that no longer covers any occurrence fails as stale.
 
 The lint rule does not ask the liveness question, and the harness does not
 ask the policy one. Both run in `bun run verify`, so pre-commit and CI apply

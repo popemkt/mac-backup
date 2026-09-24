@@ -58,6 +58,18 @@ tester.run("design-tokens/no-raw-design-value", noRawDesignValueRule, {
       errors: Array.from({ length: 3 }, () => at("arbitraryTextSize")),
     },
     {
+      name: "arbitrary font sizes carrying a leading modifier",
+      code: `const c = "text-[large]/5 text-[xx-large]/6 text-[large]/[1.4] text-[medium]/none text-[11px]/5 text-[length:11px]/6";`,
+      filename: COMPONENT,
+      errors: Array.from({ length: 6 }, () => at("arbitraryTextSize")),
+    },
+    {
+      name: "shadow families carrying an opacity modifier",
+      code: `const c = "drop-shadow/50 shadow-[0_1px_red]/20";`,
+      filename: COMPONENT,
+      errors: [at("rawShadow"), at("rawShadow")],
+    },
+    {
       name: "typed arbitrary font sizes, bracket and paren forms",
       code: `const c = "text-[length:11px] text-(length:--size) text-[absolute-size:large] text-(percentage:--x) text-[relative-size:larger]";`,
       filename: COMPONENT,

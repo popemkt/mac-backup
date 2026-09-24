@@ -29,7 +29,8 @@ import { WORKSPACE_ROOT } from "../src/workspace.ts";
  * utility bypasses the design system is a different question, owned by the
  * `design-tokens/no-raw-design-value` lint rule.
  *
- * Red case: write `text-sm/6` or `rounded-3xl` in any component.
+ * Red case: write `text-sm/6` or `rounded-3xl` in any component (the
+ * fixture test below pins it).
  */
 
 const UI_ROOT = join(WORKSPACE_ROOT, UI_SRC);
@@ -47,30 +48,63 @@ function withoutComments(file: string, source: string): string {
 }
 
 /**
- * Candidates that are not classes, as `file: candidate`. The scanner reads
- * every token that could be a class; these are the ones that read like a
- * dead class but are something else. Keyed by file, so the same string
- * written as a class anywhere else is still checked.
+ * Occurrences that are not classes. The scanner reads every token that could
+ * be a class; these read like a dead class but are something else. Each
+ * exempts one occurrence: `candidate` where it sits inside `context`, an
+ * exact snippet of `file`. The same string written as a class anywhere else,
+ * in the same file included, is still checked; an entry whose snippet no
+ * longer holds its candidate is stale and fails.
  */
-const NOT_CLASSES: ReadonlySet<string> = new Set([
-  // tailwind-merge's theme key for the elevation names, not a class.
-  "lib/cn.ts: shadow",
-  // Prose in the Light study's description ("watch the soft shadow"), a word.
-  "components/lab/studies.ts: shadow",
-]);
+interface NotAClass {
+  readonly file: string;
+  readonly candidate: string;
+  readonly context: string;
+}
 
-/** Tailwind's own candidate extraction over each non-test UI module. */
-function uiCandidatesByFile(): Map<string, string[]> {
-  const byFile = new Map<string, string[]>();
-  for (const file of uiSourceFiles().filter((f) => !/\.test\.tsx?$/.test(f))) {
-    const path = join(UI_ROOT, file);
-    const content = withoutComments(path, readFileSync(path, "utf8"));
-    const extension = file.endsWith(".tsx") ? "tsx" : "ts";
-    // One scanner per file: a scanner reports each candidate only the first
-    // time it sees it, which would attribute it to whichever file came first.
-    byFile.set(file, new Scanner({}).scanFiles([{ content, extension }]));
+const NOT_CLASSES: readonly NotAClass[] = [
+  // tailwind-merge's theme key for the elevation names.
+  { file: "lib/cn.ts", candidate: "shadow", context: "shadow: [...ELEVATIONS]" },
+  // Prose in the Light study's description.
+  { file: "components/lab/studies.ts", candidate: "shadow", context: "watch the soft shadow and" },
+];
+
+/** A scanned occurrence: which file, which 1-based line, which candidate. */
+interface Occurrence {
+  readonly file: string;
+  readonly line: number;
+  readonly offset: number;
+  readonly candidate: string;
+}
+
+/** Tailwind's own candidate extraction, with each occurrence's position. */
+function occurrencesIn(file: string, content: string): Occurrence[] {
+  const extension = file.endsWith(".tsx") ? "tsx" : "ts";
+  const bytes = Buffer.from(content);
+  // One scanner per file; positions are byte offsets, the source is UTF-16.
+  return new Scanner({}).getCandidatesWithPositions({ content, extension }).map((hit) => {
+    const offset = bytes.subarray(0, hit.position).toString().length;
+    return {
+      file,
+      offset,
+      line: content.slice(0, offset).split("\n").length,
+      candidate: hit.candidate,
+    };
+  });
+}
+
+/** Whether an exemption covers this occurrence of its candidate in `content`. */
+function exempts(entry: NotAClass, hit: Occurrence, content: string): boolean {
+  if (entry.file !== hit.file || entry.candidate !== hit.candidate) return false;
+  for (
+    let at = content.indexOf(entry.context);
+    at !== -1;
+    at = content.indexOf(entry.context, at + 1)
+  ) {
+    if (hit.offset >= at && hit.offset + hit.candidate.length <= at + entry.context.length) {
+      return true;
+    }
   }
-  return byFile;
+  return false;
 }
 
 async function emittedBy(css: string, candidates: string[]): Promise<Set<string>> {
@@ -79,28 +113,60 @@ async function emittedBy(css: string, candidates: string[]): Promise<Set<string>
   return new Set(candidates.filter((_, i) => out[i] !== null));
 }
 
+/**
+ * Every occurrence, in these sources, of a candidate stock Tailwind compiles
+ * and `index.css` does not, minus the exemptions — as `file:line: candidate`.
+ */
+async function deadSites(
+  sources: ReadonlyMap<string, string>,
+  notClasses: readonly NotAClass[],
+): Promise<string[]> {
+  const hits = [...sources].flatMap(([file, content]) => occurrencesIn(file, content));
+  const candidates = [...new Set(hits.map((hit) => hit.candidate))];
+  const stock = await emittedBy('@import "tailwindcss";', candidates);
+  const kb = await emittedBy(readFileSync(join(UI_ROOT, "index.css"), "utf8"), candidates);
+  return hits
+    .filter((hit) => stock.has(hit.candidate) && !kb.has(hit.candidate))
+    .filter((hit) => !notClasses.some((e) => exempts(e, hit, sources.get(hit.file) ?? "")))
+    .map((hit) => `${hit.file}:${hit.line}: ${hit.candidate}`)
+    .toSorted();
+}
+
+/** The UI's non-test modules, comments blanked, keyed by path under src. */
+function uiSources(): Map<string, string> {
+  const sources = new Map<string, string>();
+  for (const file of uiSourceFiles().filter((f) => !/\.test\.tsx?$/.test(f))) {
+    const path = join(UI_ROOT, file);
+    sources.set(file, withoutComments(path, readFileSync(path, "utf8")));
+  }
+  return sources;
+}
+
 describe("ui-utilities-live", () => {
   test("every class candidate stock Tailwind compiles also compiles under index.css", async () => {
-    const byFile = uiCandidatesByFile();
-    const candidates = [...new Set([...byFile.values()].flat())];
-    expect(candidates.length).toBeGreaterThan(500);
-
-    const stock = await emittedBy('@import "tailwindcss";', candidates);
-    const kb = await emittedBy(readFileSync(join(UI_ROOT, "index.css"), "utf8"), candidates);
-    const dead = [...byFile]
-      .flatMap(([file, found]) =>
-        found.filter((c) => stock.has(c) && !kb.has(c)).map((c) => `${file}: ${c}`),
-      )
-      .filter((site) => !NOT_CLASSES.has(site))
-      .toSorted();
-    expect(dead).toEqual([]);
+    const sources = uiSources();
+    expect(sources.size).toBeGreaterThan(100);
+    expect(await deadSites(sources, NOT_CLASSES)).toEqual([]);
   }, 60_000);
 
-  test("every NOT_CLASSES entry is still a scanned candidate (no stale exemptions)", () => {
-    const byFile = uiCandidatesByFile();
-    const stale = [...NOT_CLASSES].filter((site) => {
-      const [file, candidate] = site.split(": ") as [string, string];
-      return !(byFile.get(file) ?? []).includes(candidate);
+  test("the red case: a reset default step is dead, a design-system step is not", async () => {
+    // Locks the comparison itself in: were candidatesToCss null (or a string)
+    // for everything, the empty list above would pass for the wrong reason.
+    const fixture = new Map([["components/fixture.tsx", 'const c = "rounded-md text-sm/6";']]);
+    expect(await deadSites(fixture, [])).toEqual(["components/fixture.tsx:1: text-sm/6"]);
+  });
+
+  test("an exemption covers its occurrence only, not the file", async () => {
+    const content = 'const t = { shadow: [...ELEVATIONS] };\nconst c = "shadow";';
+    const fixture = new Map([["lib/cn.ts", content]]);
+    expect(await deadSites(fixture, NOT_CLASSES)).toEqual(["lib/cn.ts:2: shadow"]);
+  });
+
+  test("every NOT_CLASSES entry still covers an occurrence (no stale exemptions)", () => {
+    const sources = uiSources();
+    const stale = NOT_CLASSES.filter((entry) => {
+      const content = sources.get(entry.file) ?? "";
+      return !occurrencesIn(entry.file, content).some((hit) => exempts(entry, hit, content));
     });
     expect(stale).toEqual([]);
   });
