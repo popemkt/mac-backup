@@ -70,8 +70,9 @@ package.
 The pre-commit hook materializes the exact Git index into a temporary directory,
 so unstaged working-tree content cannot make a partial commit pass. A commit
 that changes `nvfetcher.toml`, `_sources/`, or `pkgs/` runs
-`verify --best-effort` against that staged snapshot; a mismatch blocks the
-commit, and an unreachable network warns and passes. The hook never runs
+`verify --best-effort` against that staged snapshot, and verify's exit status
+alone decides: any failure blocks the commit, and only `--best-effort`'s
+unreachable-host case warns and passes. The hook never runs
 `check`: freshness does not decide whether a commit lands.
 
 The hook never updates or stages files. Updates are explicit so their diffs can

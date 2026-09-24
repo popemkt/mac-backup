@@ -59,6 +59,8 @@ record_admission() {
   # upstream has published something newer (docs/github-release-packages.md).
   if [ -n "$source_files_staged" ]; then
     echo "==> Generated GitHub sources (staged snapshot)"
+    # verify --best-effort already passes when the pinned artifacts' hosts are
+    # unreachable; any other failure is real.
     set +e
     GITHUB_SOURCES_ROOT="$staged_tree" \
       GITHUB_SOURCES_COMMAND_ROOT="$(pwd)" \
@@ -67,22 +69,8 @@ record_admission() {
     set -e
 
     if [ "$source_verify_status" -ne 0 ]; then
-      if [ "$source_verify_status" -ne 11 ] \
-        && ! curl \
-          --silent \
-          --show-error \
-          --fail \
-          --location \
-          --connect-timeout 2 \
-          --max-time 5 \
-          --retry 0 \
-          --output /dev/null \
-          "https://api.github.com/rate_limit"; then
-        echo "warning: staged GitHub sources could not be verified while offline; continuing" >&2
-      else
-        echo "error: staged GitHub sources are inconsistent or invalid" >&2
-        exit "$source_verify_status"
-      fi
+      echo "error: staged GitHub sources are inconsistent or invalid" >&2
+      exit "$source_verify_status"
     fi
   fi
 
