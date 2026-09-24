@@ -50,6 +50,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
 - **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
 
+### GAP: a confirming frame for an earlier write overwrites a later optimistic write
+
+- **expected** — While a node has local writes the server has not confirmed yet, a remote frame never rolls it back to an older state. The browser holds or rebases the remote node until its own writes are confirmed. The text-only pendingContent carve-out in actions/mutations.ts becomes one case of that rule.
+- **current** — session/runtime.ts applies each server tx to the replica as it arrives. mergeRemoteUpserts keeps only a pending text buffer. A tx frame carries the full node as the server had it after that write, so the frame for write k removes local writes k+1..n until their own frames arrive. The SubscriptionHub claim that an optimistic apply is idempotent under its confirming frame holds only when one write is in flight.
+- **impact** — Fast consecutive edits on one node flicker. A field row can unmount mid-gesture, which drops its pending + value slot and sends the next keystrokes into another editor. palette.e2e.ts 'Add field' failed about 1 run in 4 under parallel load: later was appended to high (a highlater value), or typed into the node title.
+- **closes** — Track the nodes each in-flight local invocation touched, from its local StoreTx. Hold remote upserts for those nodes, then apply the newest held node once the node's last write is confirmed. Or tag tx frames with origin and invocation id, and rebase unconfirmed invocations on ingest. Then pendingContent folds in, the palette spec's settle wait goes, and a spec with delayed pushes pins the behaviour.
+- **node** — `01M3A6NB33CT1EMM418HBN8GTT`
+
 ### GAP: a date value has two carriers, {t:str} and {t:date}
 
 - **expected** — One carrier per declared type: a date field's values are one PropValue kind, and the accepted-kinds table in @kb/model (FIELD_VALUE_KINDS in field-type.ts) lists exactly one kind for date, as it does for every other type.

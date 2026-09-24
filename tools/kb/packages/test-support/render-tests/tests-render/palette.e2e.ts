@@ -92,7 +92,16 @@ test("Add field names a new field and gives the node an editable row for it", as
   // A text slot only becomes contenteditable once clicked, so click the slot.
   await row.locator("[data-editable-text]").first().click();
   await page.keyboard.type("high");
+  // GAP [[01M3A6NB33CT1EMM418HBN8GTT]]: the confirming frame of an earlier write
+  // still in flight rolls this row back, unmounting the "+ value" slot, so the
+  // spec waits for "high" to be confirmed before its next gesture.
+  const confirmed = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/action") &&
+      (response.request().postData() ?? "").includes('"v":"high"'),
+  );
   await page.keyboard.press("Enter");
+  await confirmed;
   await expect(row.locator('[data-field-value="true"]')).toHaveCount(1);
 
   await row.getByRole("button", { name: "value", exact: true }).click();
