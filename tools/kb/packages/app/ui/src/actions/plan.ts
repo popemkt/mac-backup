@@ -3,6 +3,7 @@ import {
   graphRendererId,
   fieldTypeValue,
   rankBetween,
+  rankOf,
   wouldCreateExtendsCycle,
   type FieldType,
 } from "@kb/model";
@@ -143,8 +144,8 @@ export function planMove(
   const byId = wireById(nodes);
   return update(id, {
     order: rankBetween(
-      byId.get(reordered[position - 1] ?? "")?.order,
-      byId.get(reordered[position + 1] ?? "")?.order,
+      rankKey(byId.get(reordered[position - 1] ?? "")),
+      rankKey(byId.get(reordered[position + 1] ?? "")),
     ),
   });
 }
@@ -287,6 +288,12 @@ export function planOntologySetClosure(
     : planSetProp(nodes, id, SYSTEM_IDS.ontoClosureField, { t: "str", v: mode }, old);
 }
 
+/** A sibling's rank as a `rankBetween` bound: its order when ranked, open when not. */
+function rankKey(node: WireNode | undefined): string | undefined {
+  const rank = rankOf(node);
+  return rank.ranked ? rank.order : undefined;
+}
+
 function addNode(
   id: string,
   text: string,
@@ -334,8 +341,8 @@ export function planInsertSibling(
   const position = side === "after" ? anchor + 1 : anchor;
   const byId = wireById(nodes);
   const order = rankBetween(
-    byId.get(siblings[position - 1] ?? "")?.order,
-    byId.get(siblings[position] ?? "")?.order,
+    rankKey(byId.get(siblings[position - 1] ?? "")),
+    rankKey(byId.get(siblings[position] ?? "")),
   );
   return addNode(id, text, { parent: parent?.id, position, order });
 }
