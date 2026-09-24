@@ -8,14 +8,16 @@ pushed.
 
 | # | item | depends on | status |
 |---|---|---|---|
-| a | field values checked against the field's declared type on every write | — | building |
-| b | `(reach ?from <edge> ?to [max])` in EDN | — | built, in review |
-| c | review leftovers: stale gaps, AGENTS.md, canvas split in the p1 gaps, client/store seams | — | building |
-| d | the 6 failing graph-render e2e cases (`render.e2e.ts`) | a–c merged | — |
-| e | `lab` UI plugin: full-frame surface, lazy 3D, off by default and unloadable; four studies on one kit | a–c merged | built, in review |
-| f1 | tokens, restructure: type scale, elevation, border, mono font; no visual change | d | — |
+| a | field values checked against the field's declared type on every write | — | merged `fc217f4` (grok: approve) |
+| b | `(reach ?from <edge> ?to [max])` in EDN | — | merged `609c130` (grok: approve) |
+| c | review leftovers: stale gaps, AGENTS.md, canvas split in the p1 gaps, client/store seams | — | merged `47678b6` (grok: approve) |
+| d | the 6 failing graph-render e2e cases (`render.e2e.ts`) | a–c merged | merged `93aa59a` (grok: approve; 15/15 render) |
+| e | `lab` UI plugin: full-frame surface, lazy 3D, off by default and unloadable; four studies on one kit | a–c merged | merged `01594bf` (grok: approve after 4 rounds) |
+| f1 | tokens, restructure: type scale, elevation, border, mono font; no visual change | d | in review (grok round 3) |
 | f2 | tokens, add: `html[data-theme]` design-system sets and the preference that picks one | f1 | — |
 | g | graph polish: one shared scene module (bloom, fog, starfield, link particles, camera fly-to) used by lab and force3d; 2D curved edges, label halos, hover fade | e, f2 | — |
+| h | CI green: push-time pin verify checks consistency only; refresh pins; push `main` and watch `Validate` | a–g merged | pins fix merged `26da950`; push after g |
+| z | whole-wave audit, then a prioritised fix pass: polish, tests, UX, visual impact, modularity, design cleanliness | h | — |
 
 d and e run in parallel. f1 touches most UI components, so nothing else in
 the UI runs beside it.
