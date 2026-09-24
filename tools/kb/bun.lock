@@ -254,6 +254,16 @@
         "fast-check": "catalog:",
       },
     },
+    "packages/domain/plugin": {
+      "name": "@kb/plugin",
+      "version": "0.0.0",
+      "dependencies": {
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/domain/query": {
       "name": "@kb/query",
       "version": "0.0.0",
@@ -677,6 +687,8 @@
     "@kb/model": ["@kb/model@workspace:packages/domain/model"],
 
     "@kb/operations": ["@kb/operations@workspace:packages/application/operations"],
+
+    "@kb/plugin": ["@kb/plugin@workspace:packages/domain/plugin"],
 
     "@kb/query": ["@kb/query@workspace:packages/domain/query"],
 

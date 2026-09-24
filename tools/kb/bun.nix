@@ -564,6 +564,7 @@
   "@kb/mcp" = copyPathToStore ./packages/app/mcp;
   "@kb/model" = copyPathToStore ./packages/domain/model;
   "@kb/operations" = copyPathToStore ./packages/application/operations;
+  "@kb/plugin" = copyPathToStore ./packages/domain/plugin;
   "@kb/query" = copyPathToStore ./packages/domain/query;
   "@kb/render-tests" = copyPathToStore ./packages/test-support/render-tests;
   "@kb/runtime" = copyPathToStore ./packages/app/runtime;
