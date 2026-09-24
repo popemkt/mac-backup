@@ -18,20 +18,20 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "7.3.14";
+    version = "7.3.16";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.3.14/CLIProxyAPI_7.3.14_darwin_aarch64.tar.gz";
-      sha256 = "sha256-7EXP+4gu+U8sgLiXdns3b+pX4CX/KM7xGEU9WNTIOWQ=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.3.16/CLIProxyAPI_7.3.16_darwin_aarch64.tar.gz";
+      sha256 = "sha256-ttR4zBbGCKv+yTQ+6X06hQQDYE8S4jeVK8/brSoD4jQ=";
     };
     github = "router-for-me/CLIProxyAPI";
     tagPrefix = "v";
   };
   cursor-cli = {
     pname = "cursor-cli";
-    version = "2026.09.18-9a7762b";
+    version = "2026.09.23-86fc751";
     src = fetchurl {
-      url = "https://downloads.cursor.com/lab/2026.09.18-9a7762b/darwin/arm64/agent-cli-package.tar.gz";
-      sha256 = "sha256-Tme5rIDMSlbgqRs7Q3iU4LpInvfsN/Eg2AhNK/0CCV0=";
+      url = "https://downloads.cursor.com/lab/2026.09.23-86fc751/darwin/arm64/agent-cli-package.tar.gz";
+      sha256 = "sha256-+j/hPVWJxYb/EyokwW7qlvuO/eiK/e/dzRHYD6GZ86U=";
     };
     versionUrl = "https://cursor.com/install";
     versionRegex = "downloads.cursor.com/lab/([^/]+)/";
@@ -48,10 +48,10 @@
   };
   logseq-nightly = {
     pname = "logseq-nightly";
-    version = "2.0.1-alpha+nightly.20260921";
+    version = "2.0.1-alpha+nightly.20260923";
     src = fetchurl {
-      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260921.zip";
-      sha256 = "sha256-DswSCngUmyp8GIdLiuNmkmCCynJtxZjKOneiUqiIcro=";
+      url = "https://github.com/logseq/logseq/releases/download/nightly/Logseq-darwin-arm64-2.0.1-alpha+nightly.20260923.zip";
+      sha256 = "sha256-yED1LljTE39hI5xdai2sra4rkl8tfDrlmsJcMTtSO+M=";
     };
     versionUrl = "https://github.com/logseq/logseq/releases/expanded_assets/nightly";
     versionRegex = "Logseq-darwin-arm64-([0-9A-Za-z.+-]+nightly[.][0-9]+)[.]zip";
