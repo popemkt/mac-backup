@@ -8,16 +8,14 @@ records: `docs/kb/waves/`.
 
 ## Shape
 
-Core is mechanism only (store, datalog, registry, subscriptions, render
-backbone). Repo-specific policy lives in extensions: `.kb/extensions/*.ts`
-modules default-exporting an array of contributions — actions
-(`{...ActionDefinition, handler}`) and render templates (`{id, template}`) —
-each registered as `ext.<file>.<id>`; loader failures warn and skip, never
-crash core. The bundled example `@kb/ext-docs` (`tools/kb/packages/extension/ext-docs`)
-owns `ext.docs.materialize`/`ext.docs.check` and the templates
-`ext.docs.todos`/`ext.docs.rules` (the bare ids `docs.materialize`,
-`docs.check`, `todos` and `rules` remain as aliases, so pre-commit and
-existing view specs are unchanged).
+Core is mechanism only (store, datalog, plugin kernel, subscriptions, render
+backbone). Repo-specific policy lives in extensions, and every extension —
+bundled or `.kb/extensions/*.ts` — loads as a plugin into the one
+`@kb/plugin` kernel. A default-exported array of contributions is not a
+second mechanism: it is the declarative form of a plugin, bridged into one
+by the loader. Points, namespacing, aliases and failure handling are stated
+once, in `DESIGN.md` →
+[Core boundary & extensions](DESIGN.md#core-boundary--extensions).
 
 - Workspace: `tools/kb` is a Bun workspace; every concept is a package under
   `tools/kb/packages/<layer>/<name>` named `@kb/<name>`, with one curated
