@@ -3,10 +3,12 @@
  */
 import { describe, expect, test } from "bun:test";
 import { present } from "../src/present.ts";
-import { SYSTEM_IDS, type KbNode } from "../src/model.ts";
+import { SYSTEM_IDS, type KbNode, type PropValue } from "../src/model.ts";
 import {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
+  acceptsValueKind,
+  type FieldType,
   fieldTypeOf,
   fieldTypeValue,
   migrateFieldTypeValues,
@@ -200,5 +202,29 @@ describe("typed field seeds", () => {
     expect(resolveFieldId(nodes, "targetTag")).toBe(SYSTEM_IDS.targetTagField);
     expect(resolveFieldId(nodes, "targetQuery")).toBe(SYSTEM_IDS.targetQueryField);
     expect(resolveFieldId(nodes, SYSTEM_IDS.fieldTypeField)).toBe(SYSTEM_IDS.fieldTypeField);
+  });
+});
+
+const VALUE_KINDS: PropValue["t"][] = ["str", "num", "bool", "date", "ref"];
+
+function sampleOfKind(t: PropValue["t"]): PropValue {
+  if (t === "num") return { t, v: 1 };
+  if (t === "bool") return { t, v: true };
+  return { t, v: "x" };
+}
+
+describe("accepted value kinds", () => {
+  const accepted = (type: FieldType): PropValue["t"][] =>
+    VALUE_KINDS.filter((t) => acceptsValueKind(type, sampleOfKind(t)));
+
+  test("each declared type accepts exactly its kinds", () => {
+    expect(Object.fromEntries(FIELD_TYPES.map((type) => [type, accepted(type)]))).toEqual({
+      text: ["str"],
+      number: ["num"],
+      date: ["str", "date"],
+      url: ["str"],
+      checkbox: ["bool"],
+      ref: ["ref"],
+    });
   });
 });

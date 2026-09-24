@@ -16,6 +16,7 @@ export type { CodedError, FailureCode } from "./failure.ts";
 export {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
+  acceptsValueKind,
   allowedRefIdsOf,
   childrenTargetQuery,
   fieldTypeOf,

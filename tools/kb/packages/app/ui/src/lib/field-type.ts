@@ -14,6 +14,7 @@
 import {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
+  acceptsValueKind,
   allowedRefIdsOf,
   fieldTypeOf,
   fieldTypeValue,
@@ -102,36 +103,34 @@ export function clearAllowedRefIdsCache(): void {
 }
 
 /**
- * What each declared field type is, as one table.
+ * What each declared field type is to an editor, as one table.
  *
- * The expected wire kind, the value an empty editor starts from, and which
- * wire kinds the type accepts without a mismatch hint were three `switch`
- * statements over the same union, kept in step by hand. They are three columns
- * of one row now, so a new field type is a row rather than three edits — and
- * the union's exhaustiveness is what fails the build when a row is missing,
- * where a `default:` used to swallow it.
+ * The expected wire kind and the value an empty editor starts from were
+ * `switch` statements over the same union, kept in step by hand. They are
+ * columns of one row now, so a new field type is a row rather than several
+ * edits — and the union's exhaustiveness is what fails the build when a row is
+ * missing, where a `default:` used to swallow it.
  *
- * The *editor* for a type is not a column here: it is React, and this module
- * is read by code that has no DOM. `components/outline/field-value` keys the
- * editor registry by the same union.
+ * Which wire kinds a type *accepts* is not a column here: that is a fact about
+ * the graph, owned by `@kb/model` (`acceptsValueKind`), and the mismatch hint
+ * below reads it rather than keeping a copy. Neither is the *editor*: it is
+ * React, and this module is read by code that has no DOM.
+ * `components/outline/field-value` keys the editor registry by the same union.
  */
 interface FieldTypeSpec {
   /** Wire `PropValue.t`, narrowed where the type constrains a string. */
   readonly wireKind: PropValue["t"] | "str-url" | "str-date";
-  /** Wire kinds a value may carry without the UI hinting a mismatch. */
-  readonly accepts: readonly PropValue["t"][];
   /** Starter value for an empty typed editor. */
   readonly empty: PropValue;
 }
 
 const FIELD_TYPE_SPEC: Record<FieldType, FieldTypeSpec> = {
-  text: { wireKind: "str", accepts: ["str"], empty: { t: "str", v: "" } },
-  number: { wireKind: "num", accepts: ["num"], empty: { t: "num", v: 0 } },
-  // Prefer ISO str; legacy {t:date} is still accepted as matching.
-  date: { wireKind: "str-date", accepts: ["str", "date"], empty: { t: "str", v: "" } },
-  url: { wireKind: "str-url", accepts: ["str"], empty: { t: "str", v: "" } },
-  checkbox: { wireKind: "bool", accepts: ["bool"], empty: { t: "bool", v: false } },
-  ref: { wireKind: "ref", accepts: ["ref"], empty: { t: "ref", v: "" } },
+  text: { wireKind: "str", empty: { t: "str", v: "" } },
+  number: { wireKind: "num", empty: { t: "num", v: 0 } },
+  date: { wireKind: "str-date", empty: { t: "str", v: "" } },
+  url: { wireKind: "str-url", empty: { t: "str", v: "" } },
+  checkbox: { wireKind: "bool", empty: { t: "bool", v: false } },
+  ref: { wireKind: "ref", empty: { t: "ref", v: "" } },
 };
 
 /** Expected wire PropValue.t for a declared FieldType (url/date use str). */
@@ -139,9 +138,9 @@ export function expectedPropKind(fieldType: FieldType): PropValue["t"] | "str-ur
   return FIELD_TYPE_SPEC[fieldType].wireKind;
 }
 
-/** Subtle UI mismatch — core writes stay permissive. */
+/** A stored value whose kind its field's declared type does not accept. */
 export function isValueMismatch(fieldType: FieldType, value: PropValue): boolean {
-  return !FIELD_TYPE_SPEC[fieldType].accepts.includes(value.t);
+  return !acceptsValueKind(fieldType, value);
 }
 
 /** Empty / starter value for a typed editor. */

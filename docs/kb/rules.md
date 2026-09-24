@@ -50,6 +50,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
 - **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
 
+### GAP: a date value has two carriers, {t:str} and {t:date}
+
+- **expected** — One carrier per declared type: a date field's values are one PropValue kind, and the accepted-kinds table in @kb/model (FIELD_VALUE_KINDS in field-type.ts) lists exactly one kind for date, as it does for every other type.
+- **current** — The UI date editor and the example seed write {t:"str"} ISO strings, while PropValue keeps a {t:"date"} variant that older writes used. So the table accepts both kinds for date - the only type with two.
+- **impact** — Two representations of one value. A query, sort or filter over a date field has to match both kinds, and nothing stops one store holding a mix of them.
+- **closes** — Choose one carrier (the date variant, since PropValue already names it, or drop the variant), migrate stored values on open the way migrateFieldTypeValues does for type values, and list one kind for date.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M39X7NQV187BDQVGH81997M5`
+
 ### GAP: a store's release is not on the port; selectStore drops it
 
 - **expected** — Letting go of an open store is part of what selecting one returns: the caller that opened it can close it, through the port or a Scope, so a sqlite connection's lifetime is the session's, not the process's.

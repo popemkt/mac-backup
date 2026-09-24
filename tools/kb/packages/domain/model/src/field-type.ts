@@ -62,6 +62,31 @@ export function isFieldType(value: unknown): value is FieldType {
   return typeof value === "string" && Object.hasOwn(FIELD_TYPE_OPTION_IDS, value);
 }
 
+/**
+ * Which stored value kinds (`PropValue["t"]`) each declared type accepts.
+ *
+ * The one statement of how a declared type relates to the values a field may
+ * hold. It used to live in the browser as a column of the editor table, where
+ * it could only decide whether to hint a mismatch; a value's type is a fact
+ * about the graph, not about an editor, so it is stated here and the UI reads
+ * it. `url` is a string that happens to be a link, so it shares `str` with
+ * `text`.
+ */
+const FIELD_VALUE_KINDS: Record<FieldType, readonly PropValue["t"][]> = {
+  text: ["str"],
+  number: ["num"],
+  // GAP [[01M39X7NQV187BDQVGH81997M5]] — date is the one type with two carriers.
+  date: ["str", "date"],
+  url: ["str"],
+  checkbox: ["bool"],
+  ref: ["ref"],
+};
+
+/** Whether a value's kind is one a field of `type` may hold. */
+export function acceptsValueKind(type: FieldType, value: PropValue): boolean {
+  return FIELD_VALUE_KINDS[type].includes(value.t);
+}
+
 /** The value written into a field node's type slot. */
 export function fieldTypeValue(type: FieldType): PropValue {
   return { t: "ref", v: FIELD_TYPE_OPTION_IDS[type] };
