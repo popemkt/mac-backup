@@ -1,4 +1,5 @@
 import type { GraphSnapshot, WireNode } from "@kb/contracts";
+import { systemSeedNodes } from "@kb/model";
 
 const ISO = "2026-08-08T05:00:00.000Z";
 
@@ -12,6 +13,23 @@ function node(
     updatedAt: ISO,
     ...partial,
   };
+}
+
+const SEED = new Map(systemSeedNodes(ISO).map((seed) => [seed.id, seed]));
+
+/**
+ * A system field as the seed declares it.
+ *
+ * The offline graph chooses which system fields it carries; what each one
+ * *is* — its name and props, its declared value type among them — is the
+ * seed's, so a declaration added there reaches this graph without a second
+ * copy kept in step by hand. Children are left out: the option nodes they
+ * name are not part of this graph.
+ */
+function seedField(id: string): WireNode {
+  const seed = SEED.get(id);
+  if (seed === undefined) throw new Error(`fixture graph names an unseeded field: ${id}`);
+  return node({ id, text: seed.text, props: seed.props });
 }
 
 /**
@@ -40,41 +58,13 @@ export const fixtureGraph: GraphSnapshot = {
         ],
       },
     }),
-    node({
-      id: "sys.f.type",
-      text: "type",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.fields",
-      text: "fields",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.hidden",
-      text: "hidden",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.color",
-      text: "color",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.fieldType",
-      text: "fieldType",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.targetTag",
-      text: "targetTag",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.targetQuery",
-      text: "targetQuery",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
+    seedField("sys.f.type"),
+    seedField("sys.f.fields"),
+    seedField("sys.f.hidden"),
+    seedField("sys.f.color"),
+    seedField("sys.f.fieldType"),
+    seedField("sys.f.targetTag"),
+    seedField("sys.f.targetQuery"),
     node({ id: "sys.command", text: "sys.command" }),
     node({
       id: "sys.cmd.add-node",
@@ -141,91 +131,23 @@ export const fixtureGraph: GraphSnapshot = {
       text: "Filter…",
       props: { "sys.f.type": [{ t: "ref", v: "sys.command" }] },
     }),
-    node({
-      id: "sys.f.query",
-      text: "query",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.query.limit",
-      text: "limit",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.lens.query",
-      text: "lens.query",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.lens.renderer",
-      text: "lens.renderer",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.lens.color-by",
-      text: "lens.color-by",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.lens.size-by",
-      text: "lens.size-by",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.lens.edge-kinds",
-      text: "lens.edge-kinds",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.lens.max-nodes",
-      text: "lens.max-nodes",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.lens.cluster-by",
-      text: "lens.cluster-by",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.lens.focus",
-      text: "lens.focus",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.lens.layout",
-      text: "lens.layout",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.lens.spread",
-      text: "lens.spread",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.lens.link-distance",
-      text: "lens.link-distance",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.lens.show-labels",
-      text: "lens.show-labels",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.lens.curved-links",
-      text: "lens.curved-links",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.lens.autorotate",
-      text: "lens.autorotate",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
-    node({
-      id: "sys.f.lens.label-density",
-      text: "lens.label-density",
-      props: { "sys.f.type": [{ t: "ref", v: "sys.field" }] },
-    }),
+    seedField("sys.f.query"),
+    seedField("sys.f.query.limit"),
+    seedField("sys.f.lens.query"),
+    seedField("sys.f.lens.renderer"),
+    seedField("sys.f.lens.color-by"),
+    seedField("sys.f.lens.size-by"),
+    seedField("sys.f.lens.edge-kinds"),
+    seedField("sys.f.lens.max-nodes"),
+    seedField("sys.f.lens.cluster-by"),
+    seedField("sys.f.lens.focus"),
+    seedField("sys.f.lens.layout"),
+    seedField("sys.f.lens.spread"),
+    seedField("sys.f.lens.link-distance"),
+    seedField("sys.f.lens.show-labels"),
+    seedField("sys.f.lens.curved-links"),
+    seedField("sys.f.lens.autorotate"),
+    seedField("sys.f.lens.label-density"),
     node({
       id: "sys.tag.graph-perspective",
       text: "graph-perspective",
