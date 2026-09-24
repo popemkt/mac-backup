@@ -112,6 +112,8 @@ export const selectStore = Effect.fn("kb.selectStore")(function* (
   const found = yield* presentBackends(root);
   if (found.length > 1) return yield* twoStoresError(root, found);
   const [name = "jsonl"] = found;
+  // GAP [[01M39XVZCR684Y1V9FXNDT44D5]]: `release` is dropped here, so no
+  // caller that selects a store can close it.
   return BACKENDS[name].open(root).store;
 });
 

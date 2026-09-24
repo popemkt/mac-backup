@@ -50,6 +50,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
 - **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
 
+### GAP: a store's release is not on the port; selectStore drops it
+
+- **expected** — Letting go of an open store is part of what selecting one returns: the caller that opened it can close it, through the port or a Scope, so a sqlite connection's lifetime is the session's, not the process's.
+- **current** — BACKENDS[name].open(root) returns { store, release }, and selectStore returns only .store. createStore and migrateStore call release; nothing that selects a store can. @kb/client documents that a sqlite connection stays open until the process ends; kb ui, kb mcp and the CLI hold theirs the same way.
+- **impact** — A library call that opens a client, commits and returns leaves a sqlite connection open with no way to close it, and a test or a long-lived host that opens many roots accumulates them. Harmless for one kb ui process per root; wrong as soon as the client is embedded.
+- **closes** — Decide where lifetime lives: selectStore as a scoped acquireRelease (every openKbEffect caller then supplies a Scope, which a long-lived session would hold), or a close on EffectStore that JSONL implements as a no-op. Then KbClient gains close(), and the api.d.ts contract with it.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M39XVZCR684Y1V9FXNDT44D5`
+
 ### GAP: actions/ reads the outline store instead of being handed state
 
 - **expected** — actions/ plans and invokes mutations against state it is given; the store is above it in UI_ALLOWS (stores may import actions, not the reverse).
