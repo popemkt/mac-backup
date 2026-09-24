@@ -6,7 +6,7 @@ import {
   type KbForceGraph,
   type FgNode,
 } from "./force3d-instance";
-import { CanvasTexture, Object3D, Sprite, SpriteMaterial } from "./force3d-three";
+import { cameraFov, CanvasTexture, Object3D, Sprite, SpriteMaterial } from "./force3d-three";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import { force3dColor, readTokenColor } from "@/lib/css-color";
 import { withGraphAlpha } from "@/lib/graph-dim";
@@ -143,7 +143,7 @@ export default function Force3dGraph(props: Force3dGraphProps) {
           emphatic &&
           (labels.has(node.id) || node.id === active || p.highlightIds?.has(node.id) === true);
         if (!labelVisible) return new Object3D();
-        const label = labelSprite(node.name, foreground, graph.height(), graph.camera().fov);
+        const label = labelSprite(node.name, foreground, graph.height(), cameraFov(graph.camera()));
         next.push(label.dispose);
         labelCandidates.current.push({
           node,
@@ -200,7 +200,7 @@ export default function Force3dGraph(props: Force3dGraphProps) {
       });
     graphRef.current = graph;
     const scene = graph.scene();
-    const previousBeforeRender = scene.onBeforeRender;
+    const previousBeforeRender = scene.onBeforeRender.bind(scene);
     scene.onBeforeRender = () => {
       const occupied: GraphLabelBox[] = [];
       const active = live.current.selectedNodeId ?? hovered.current;

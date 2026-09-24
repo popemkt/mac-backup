@@ -61,7 +61,7 @@ Who may import whom inside `src/` is one table: `UI_ALLOWS` in
 [`tools/kb/harness/src/constraints.ts`](../../../harness/src/constraints.ts),
 keyed by the zone a file sits in — the surface folders under `components/`,
 the named shared primitives, and `ds`, `lib`, `api`, `actions`, `session`,
-`stores`, `fixtures`, `catalog`, `types` and the shell. The harness applies it
+`stores`, `fixtures`, `catalog` and the shell. The harness applies it
 to every intra-package import (`harness/tests/ui-boundaries.test.ts`, part of
 `bun run verify`), so this file states no rows of its own; the doc comment
 beside the table carries the reasoning, and the shared-primitives list is the

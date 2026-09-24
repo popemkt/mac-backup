@@ -55,6 +55,7 @@
     "@types/d3-hierarchy": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@types/three": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "happy-dom": "catalog:",
     "storybook": "catalog:",

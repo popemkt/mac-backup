@@ -203,7 +203,6 @@ export type UiZone =
   | "session"
   | "stores"
   | "fixtures"
-  | "types"
   | "test-support"
   | "catalog"
   | `components/${UiSurface}`;
@@ -264,9 +263,9 @@ export function uiZoneOf(file: string): UiZone {
  * - `session` has no row in the table because the zone did not exist when the
  *   table was written (wave w5 added it). It is a runtime seam like `api`, so
  *   it takes the same row and the same family membership.
- * - The table's "types" means the `lib/types` module, not `src/types/`, which
- *   holds ambient declarations only: that folder imports nothing and nothing
- *   imports it, so its row is itself alone.
+ * - The table's "types" means the `lib/types` module, which is `lib`. The
+ *   `src/types/` folder of ambient declarations it once shadowed is gone:
+ *   `three` is typed by `@types/three` now, not by a hand-written stub.
  * - `catalog` is not exempt from the matrix, only permissive within it:
  *   stories read components, primitives, `lib` and `fixtures`, and the table's
  *   "must not: stores mutations" is enforced rather than assumed.
@@ -299,7 +298,6 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   session: ["lib", "api", "actions", "session", "ds"],
   stores: ["stores", "lib", "api", "session", "ds"],
   fixtures: ["fixtures", "lib"],
-  types: ["types"],
   // Test helpers: imported only by test files, which the surface rows exempt,
   // so no row names it. It reaches what it stands in for — the store
   // `resetOutlineStore` resets, and the `api/ws` port `FakeWsSocket` doubles.
