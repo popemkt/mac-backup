@@ -1,4 +1,5 @@
-export { DatalogError, datascriptExecutor, pull, query, queryRows, runIr } from "./datascript.ts";
+export { DatalogError } from "./datalog-error.ts";
+export { datascriptExecutor, pull, query, queryRows, runIr } from "./datascript.ts";
 export type { EdnExecutor } from "./datascript.ts";
 export { DatascriptIndex } from "./index/datascript-index.ts";
 export { extractMentions } from "./index/datoms.ts";

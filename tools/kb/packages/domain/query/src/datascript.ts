@@ -6,19 +6,7 @@ import type { DatascriptDb, IdMap } from "./index/datoms.ts";
 import { compile, normalizeEdnQuery } from "./ir/compile.ts";
 import type { FindPos, Ir } from "./ir/ir.ts";
 import { parseEdn } from "./ir/parse.ts";
-
-/**
- * A query that failed inside the datascript engine — parse or evaluation
- * error in the user-supplied EDN. Distinguishes "the datalog is wrong"
- * (invalid_input at the action boundary) from internal glue failures
- * (normalization / revive bugs, which stay plain `Error` → internal).
- */
-export class DatalogError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "DatalogError";
-  }
-}
+import { DatalogError } from "./datalog-error.ts";
 
 function normalizeQueryInput(input: unknown): unknown {
   if (typeof input === "string") return normalizeEdnQuery(input);
