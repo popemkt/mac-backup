@@ -1,4 +1,5 @@
 import { expect, test } from "playwright/test";
+import { fieldTypeValue, type FieldType } from "@kb/model";
 import { startHarness } from "./harness-server.ts";
 
 let harness: Awaited<ReturnType<typeof startHarness>>;
@@ -40,16 +41,17 @@ test("collapse holds the camera; mapped perspectives save as node references and
   await branch.getByRole("button", { name: "Expand Fixture root", exact: true }).click();
   await expect(tree.locator("[data-node-id]")).toHaveCount(count);
 
-  for (const [id, name, type] of [
+  const fields: Array<[id: string, name: string, type: FieldType]> = [
     ["render.field.area", "Reading weight", "number"],
     ["render.field.group", "Topic", "text"],
     ["render.field.label", "Short name", "text"],
-  ]) {
+  ];
+  for (const [id, name, type] of fields) {
     await action("node.add", {
       id,
       text: name,
       tags: ["sys.field"],
-      props: [{ field: "sys.f.fieldType", value: { t: "str", v: type } }],
+      props: [{ field: "sys.f.fieldType", value: fieldTypeValue(type) }],
     });
   }
   for (const [index, weight, topic, label] of [
