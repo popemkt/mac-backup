@@ -58,9 +58,11 @@ once, in `DESIGN.md` →
   beyond them, and overrides only for the test-file and `.d.ts` file classes.
   A file that legitimately breaks a rule carries a pinpoint
   `// oxlint-disable-next-line <rule> -- <reason>`, not an override.
-  Rules oxlint does not ship are vendored JS plugins under `harness/lint/`
-  (today a subset of anti-slop; `harness/lint/anti-slop/UPSTREAM.md` says
-  which rules and why), registered in that same file. `@oxlint/plugins` is
+  Rules oxlint does not ship are JS plugins under `harness/lint/`, registered
+  in that same file: a vendored subset of anti-slop
+  (`harness/lint/anti-slop/UPSTREAM.md` says which rules and why), and kb's
+  own `design-tokens` (what it enforces is in `DESIGN-UI.md` → Design
+  tokens). `@oxlint/plugins` is
   pinned exactly to the `oxlint` version, and the two move together.
 - Merging `nodes.jsonl`: the store is a set of nodes keyed by id, so git's
   line-based merge reports conflicts that are not conflicts — ULIDs put every

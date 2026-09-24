@@ -18,6 +18,10 @@
     {
       "name": "anti-slop-effect",
       "specifier": "./harness/lint/anti-slop/effect/index.ts"
+    },
+    {
+      "name": "design-tokens",
+      "specifier": "./harness/lint/design-tokens/index.ts"
     }
   ],
   "env": {
@@ -129,6 +133,7 @@
     "anti-slop-effect/no-manual-tag-comparison": "error",
     "anti-slop-effect/no-manual-tagged-construction": "error",
     "anti-slop-effect/no-service-constructor-imports": "error",
+    "design-tokens/no-raw-design-value": "error",
     "react/refs": "warn",
     "react/exhaustive-effect-dependencies": "warn",
     "react/set-state-in-effect": "warn",
@@ -158,7 +163,8 @@
         "eslint/max-lines-per-function": "off",
         "eslint/max-nested-callbacks": "off",
         "typescript/no-extraneous-class": "off",
-        "react/no-children-prop": "off"
+        "react/no-children-prop": "off",
+        "design-tokens/no-raw-design-value": "off"
       }
     },
     {

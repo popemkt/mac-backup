@@ -224,9 +224,9 @@ review, merge. Then W7 views (cards/table/board — can lift nxus `kanban-view.t
 `table-view.tsx` styles verbatim), then V-wave. Views plan + V-wave plan from
 previous doc unchanged otherwise.
 
-Token-discipline test (your nxus complaint): unit test greps built CSS/components
-for pixel font-size literals outside the §1.2 whitelist — new sizes need a
-whitelist edit, which reviewers see.
+Token discipline (your nxus complaint) is now the design-token architecture
+and its lint rule: see `DESIGN-UI.md` → Design tokens. A new size is a new
+type step, which reviewers see.
 
 ---
 

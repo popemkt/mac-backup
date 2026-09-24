@@ -721,6 +721,31 @@ is.
   parameters, and no type step names them. The lab's DOM chrome (info card,
   curve panel, scene switcher) is ordinary UI and uses the scale.
 
+### Enforcement
+
+`design-tokens/no-raw-design-value` (oxlint, `harness/lint/design-tokens/`,
+at `error`) reads every string a UI module writes. It rejects the forms that
+bypass the bridge:
+
+- an arbitrary font size (`text-[11px]`);
+- a shadow outside the elevation levels (`shadow`, `shadow-xl`, `shadow-[…]`);
+- bare `rounded`;
+- a Tailwind palette colour (`bg-amber-500`, `text-white`);
+- in `components/`, a hex colour literal.
+
+Resetting Tailwind's namespaces already stops most of these forms from
+compiling. The rule turns what would be a silently missing style into a red
+build. It runs in `bun run lint`, so pre-commit and CI both apply it. Test
+files are exempt: their hex strings are tag-colour fixtures, not styling.
+
+A sanctioned exception is the soft-rule mechanism for few sites (root
+`CLAUDE.md` → Drift markers and gaps): a pinpoint
+`oxlint-disable-next-line design-tokens/no-raw-design-value -- GAP [[id]]`
+and a `#gap` node. Today there is one: the graph's query-error chip still
+uses Tailwind amber where the `warning` token exists. Moving it to `warning`
+is a visible change, so it was left out of this no-visual-change
+restructure.
+
 ### A dead token is a duplicate
 
 `lib/tokens.test.ts` fails when a layer-1 property is read by nothing, which

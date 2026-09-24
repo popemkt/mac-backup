@@ -27,6 +27,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Version authored once | docs/kb/waves/2026-09-03/briefs/w1-workspace.md | tools/kb workspace | Internal deps are workspace refs and external deps are catalog refs; no literal, floating or latest specifier appears in any manifest. | harness | — |
 | Warn ratchet | docs/kb/waves/2026-09-03/briefs/g2-strict-stack.md | tools/kb | Warn-lane counts are frozen per rule whole-repo: a rise fails, a drop prompts a re-snapshot, a rule at zero must be promoted. A newly enabled rule cannot arrive pre-forgiven. | harness | — |
 | Code-unit cohesion (L1/L2/L3) | tools/kb/DESIGN.md#testing-doctrine | tools/kb | Boundaries and branching gate; size only warns; semantic cohesion is a reviewer verdict. A unit may be long, it may not be tangled. | lint | — |
+| Design tokens | tools/kb/DESIGN-UI.md#design-tokens | tools/kb packages/app/ui | UI code names a design-system step, never a raw value: no arbitrary font size, no shadow outside the elevation levels, no bare rounded, no Tailwind palette colour, no hex colour in a component. Each value lives once, in design-system.css, so the design system can be swapped whole. | lint | — |
 | Domain typing — parse unknown at the boundary | tools/kb/DESIGN.md#domain-typing--effect-schema | tools/kb | Every boundary parses unknown into the domain type. A cast or a non-null assertion on a domain value means the schema is too loose; tighten the schema instead. | lint | — |
 | Abstraction before addition (Rule 1) | CLAUDE.md#rule-1--abstraction-before-addition | repo | Every change lands in the shape it would have had if the requirement had always existed; when the model does not fit, the model gets fixed, not special-cased. | prose | — |
 | Canonical statements | CLAUDE.md#canonical-statements | repo | Every rule, principle and decision has exactly one home; other files link to it and never restate it. Restatement is drift. | prose | — |
@@ -307,6 +308,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Hull geometry and hit-testing - pure maths - are trapped inside an effect.
 - **closes** — Extract the hull geometry first (it is pure and testable), then the renderer object.
 - **node** — `01M1MGCQ3JT5GE3FY5XJ9EB67Q`
+
+### GAP: the graph query-error chip colours itself with Tailwind amber instead of the warning token
+
+- **expected** — The chip reads the design system's warning colour (bg-warning/10 text-warning), like every other status surface, so a design-system swap re-colours it.
+- **current** — graph-page.tsx paints it bg-amber-500/10 text-amber-600 dark:text-amber-400, Tailwind palette values outside the design system, under a GAP-marked disable of design-tokens/no-raw-design-value.
+- **impact** — A swapped design system leaves this one chip amber, and warning and amber are two near-identical yellows for one meaning.
+- **closes** — Replace the three classes with the warning token. That is a visible colour change, so it lands as its own commit outside the no-visual-change token restructure (wave 2026-09-24 f1).
+- **rule** — Design tokens
+- **node** — `01M3AD9BRB1C5YMJFDQC1MDAFA`
 
 ### GAP: the inline markdown parser is a 41-branch hand-rolled scanner
 
