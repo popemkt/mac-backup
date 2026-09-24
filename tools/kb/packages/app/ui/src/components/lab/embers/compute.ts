@@ -33,6 +33,7 @@ import {
   ivec3,
   length,
   mix,
+  mx_noise_float,
   normalize,
   sin,
   smoothstep,
@@ -263,6 +264,18 @@ function advanceKernel(
     v.assign(v.add(force.mul(u.dt)).add(b.contact.element(i.add(shape.count))));
     p.assign(p.add(v.mul(u.dt)).add(b.contact.element(i)));
     heat.assign(heat.mul(exp(u.cooling.negate().mul(u.dt))));
+    // The resting glow: warm at the cloud's live core, cooling toward its
+    // edge, stirred by a slow noise field — so the core glows untouched and
+    // contact heat has somewhere to climb from. It is a floor under what is
+    // shown, never heat: it cannot pop anything.
+    const fromCore = length(p.sub(u.center)).div(shape.cloud);
+    const drift = mx_noise_float(p.mul(0.9).add(vec3(0, u.time.mul(0.07), 0)))
+      .mul(0.5)
+      .add(0.5);
+    const core = float(1)
+      .sub(smoothstep(0, 0.8, fromCore))
+      .pow(1.4);
+    const rest = core.mul(0.5).add(drift.mul(core).mul(0.14)).toVar();
 
     If(life.x.equal(LIVE), () => {
       If(heat.greaterThanEqual(u.threshold), () => {
@@ -273,7 +286,7 @@ function advanceKernel(
         });
         heat.assign(u.threshold);
       });
-      life.w.assign(heat.div(u.threshold));
+      life.w.assign(heat.div(u.threshold).max(rest));
     })
       .ElseIf(life.x.equal(POPPING), () => {
         const swell = float(timing.quick);
@@ -300,7 +313,7 @@ function advanceKernel(
       })
       .Else(() => {
         life.z.assign(ease(clock.div(timing.reveal)));
-        life.w.assign(heat.div(u.threshold));
+        life.w.assign(heat.div(u.threshold).max(rest));
         If(clock.greaterThanEqual(timing.reveal), () => {
           life.x.assign(LIVE);
           life.y.assign(0);

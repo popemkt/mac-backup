@@ -29,13 +29,14 @@ import { springRate, stepSpring, type Spring } from "@/components/lab/kit/timing
 import { emberSimulation, type EmberShape } from "@/components/lab/embers/compute";
 import { PopGrants } from "@/components/lab/embers/pops";
 
-const SHAPE: EmberShape = { count: 2600, sphere: 0.13, cloud: 3 };
-const CAMERA_Z = 15;
+const SHAPE: EmberShape = { count: 3400, sphere: 0.1, cloud: 3.4 };
+const CAMERA_Z = 17;
 
 /**
  * Rest offsets in a ball, from a seeded generator (the same cloud every
- * mount), no two closer than a sphere's diameter: spheres that overlapped at
- * rest would bump for ever and glow with no one stirring them.
+ * mount), no two closer than 1.3 diameters: spheres that overlapped at rest
+ * would bump for ever and glow with no one stirring them. Denser at the core
+ * and thinning past the rim, so the cloud has no hard outline (P1).
  */
 function homes(): Float32Array {
   let state = 0x9e3779b9;
@@ -47,10 +48,10 @@ function homes(): Float32Array {
     return ((t ^ (t >>> 14)) >>> 0) / 0x1_0000_0000;
   };
   const out = new Float32Array(SHAPE.count * 3);
-  const clear = (SHAPE.sphere * 2.1) ** 2;
+  const clear = (SHAPE.sphere * 2.6) ** 2;
   let placed = 0;
   for (let tries = 0; placed < SHAPE.count && tries < SHAPE.count * 60; tries++) {
-    const r = SHAPE.cloud * Math.cbrt(random());
+    const r = SHAPE.cloud * random() ** 0.45 * (1 + 0.3 * random() ** 4);
     const z = random() * 2 - 1;
     const angle = random() * Math.PI * 2;
     const ring = Math.sqrt(1 - z * z);
@@ -83,9 +84,10 @@ function embers(stage: LabStage, init: LabSceneInit, context: StudyContext): Stu
   const t = look.w.min(1.6);
   const hot = mix(colors.accent, vec3(1, 1, 1), 0.6);
   const ember = colors.accent.mul(vec3(0.85, 0.28, 0.12));
-  // Blackbody-style ramp, through the palette: edge → ember → accent → white-hot.
+  const maroon = ember.mul(0.35);
+  // Blackbody-style ramp, through the palette: maroon → ember → accent → white-hot.
   const ramp = mix(
-    mix(colors.edge, ember, smoothstep(0, 0.35, t)),
+    mix(maroon, ember, smoothstep(0, 0.35, t)),
     mix(colors.accent, hot, smoothstep(0.7, 1, t)),
     smoothstep(0.3, 0.7, t),
   );
@@ -94,15 +96,24 @@ function embers(stage: LabStage, init: LabSceneInit, context: StudyContext): Stu
   material.positionNode = positionLocal
     .mul(look.z.mul(SHAPE.sphere))
     .add(b.position.element(instanceIndex));
-  material.colorNode = mix(colors.hue.mul(0.35), colors.edge, 0.5);
-  // Gain grows with t²: cold is barely lit, only the hot end runs past 1 (HDR).
-  material.emissiveNode = ramp.mul(t.mul(t).mul(gain).add(t.mul(0.15)));
+  material.colorNode = mix(ember.mul(0.3), colors.hue.mul(0.2), 0.3);
+  // Gain grows with t², so the resting core (t ≈ 0.5) stays under the bloom
+  // threshold and only contact heat crosses it; past t ≈ 0.85 the hot end
+  // runs far into HDR, which is the halo. The maroon floor keeps even the
+  // coolest sphere a colour, never a hole (L1).
+  const halo = smoothstep(0.85, 1.3, t).mul(5);
+  material.emissiveNode = ramp
+    .mul(t.mul(t).mul(gain).add(t.mul(0.15)).add(halo))
+    .add(maroon.mul(0.2));
   const mesh = new Mesh(new SphereGeometry(1, 20, 14), material);
   mesh.count = SHAPE.count;
   mesh.frustumCulled = false;
-  const core = new PointLight(undefined, 30, 0, 1.8);
+  const core = new PointLight(undefined, 45, 0, 2);
+  // The rig, warmed: a low key and a strong rim, both in the accent, give the
+  // spheres form from the core outward rather than reading as holes.
   const rig = createRig(init.palette, false);
-  rig.key.intensity = 0;
+  rig.key.intensity = 0.3;
+  rig.rim.intensity = 1.6;
   stage.scene.add(mesh, core, ...rig.lights);
   stage.camera.position.set(0, 0, CAMERA_Z);
   stage.camera.lookAt(0, 0, 0);
@@ -150,9 +161,11 @@ function embers(stage: LabStage, init: LabSceneInit, context: StudyContext): Stu
     },
     setPalette: (palette, dark) => {
       core.color.set(palette.accent);
-      core.intensity = dark ? 30 : 16;
+      core.intensity = dark ? 45 : 20;
       gain.value = dark ? 3.2 : 2.4;
       rig.setPalette(palette);
+      rig.key.color.set(palette.accent);
+      rig.rim.color.set(palette.accent);
     },
     dispose: () => {
       pointer.dispose();
@@ -162,5 +175,5 @@ function embers(stage: LabStage, init: LabSceneInit, context: StudyContext): Stu
 }
 
 export function mountEmbers(host: HTMLElement, init: LabSceneInit): Promise<LabScene> {
-  return mountStudy(host, init, { fov: 38, bloom: { strength: 0.85, radius: 0.5 } }, embers);
+  return mountStudy(host, init, { fov: 38, bloom: { strength: 1.15, radius: 0.65 } }, embers);
 }
