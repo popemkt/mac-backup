@@ -100,6 +100,7 @@ components/
   ontology/               scope + definition pages (lazy)
   lab/                    optional 3D studies: kit/ + one folder per study (lazy)
   sidebar/, palette/, prefs/, ui/
+scene/                    the scene kit every real-time 3D view stands on (gpu/ = three)
 catalog/                  story modules + smoke tests (dev/test only)
 stores/, lib/, api/, actions/
 ds/                       one-file @kb/query seam (runQuery, queryBacklinks, DatascriptIndex, extractMentions)

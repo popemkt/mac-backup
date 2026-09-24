@@ -5,11 +5,11 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import type { LabSceneInit } from "@/components/lab/kit/contract";
-import { TIMING_FALLBACK } from "@/components/lab/kit/timing";
+import { TIMING_FALLBACK } from "@/lib/timing";
 
 const live = vi.hoisted(() => ({ stages: 0 }));
 
-vi.mock("@/components/lab/kit/stage", () => ({
+vi.mock("@/scene/gpu/stage", () => ({
   createStage: () => {
     live.stages += 1;
     return Promise.resolve({

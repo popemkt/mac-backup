@@ -1,8 +1,7 @@
 /* Quiet, finite gestures. The global reduced-motion rule also governs these.
  *
  * The timing vocabulary is these tokens: one ease and the durations every
- * gesture picks from. Script motion reads the same tokens (the lab's
- * `kit/timing.ts`), so a duration is changed here and nowhere else. */
+ * gesture picks from. Script motion reads the same tokens (`lib/timing.ts`), so a duration is changed here and nowhere else. */
 :root {
   --motion-settle: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-duration-quick: 220ms;

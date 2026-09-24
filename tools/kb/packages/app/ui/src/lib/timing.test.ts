@@ -15,7 +15,7 @@ import {
   type Spring,
 } from "./timing";
 
-const MOTION_CSS = readFileSync(join(import.meta.dirname, "..", "..", "..", "motion.css"), "utf8");
+const MOTION_CSS = readFileSync(join(import.meta.dirname, "..", "motion.css"), "utf8");
 
 function token(name: string): string {
   const match = new RegExp(`${name}:\\s*([^;]+);`).exec(MOTION_CSS);

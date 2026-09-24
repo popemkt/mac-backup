@@ -8,8 +8,9 @@
 import { useEffect, useRef } from "react";
 import type { LabControlValues } from "@/components/lab/kit/contract";
 import { numberOf } from "@/components/lab/kit/contract";
-import { readLabPalette, type LabPalette } from "@/components/lab/kit/palette";
-import { easeAt, springRate, springResponse, type Timing } from "@/components/lab/kit/timing";
+import { readLabPalette } from "@/components/lab/kit/palette";
+import type { ScenePalette } from "@/scene/palette";
+import { easeAt, springRate, springResponse, type Timing } from "@/lib/timing";
 import { useReducedMotion } from "@/lib/motion";
 
 const WIDTH = 260;
@@ -19,7 +20,7 @@ const SPAN = 1.6;
 
 interface Chart {
   readonly ctx: CanvasRenderingContext2D;
-  readonly palette: LabPalette;
+  readonly palette: ScenePalette;
   readonly settle: number;
   readonly timing: Timing;
 }

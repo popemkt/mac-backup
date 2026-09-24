@@ -8,8 +8,9 @@
  */
 import type { ComponentType } from "react";
 import type { LabGraph } from "@/components/lab/lab-graph";
-import type { LabPalette } from "@/components/lab/kit/palette";
-import type { Timing } from "@/components/lab/kit/timing";
+import type { SceneBackend } from "@/scene/backend";
+import type { ScenePalette } from "@/scene/palette";
+import type { Timing } from "@/lib/timing";
 
 /** A Lab principle, by its id in DESIGN-UI.md → Lab principles. */
 type LabRuleId =
@@ -69,11 +70,8 @@ export interface LabHover {
   readonly y: number;
 }
 
-/** Which GPU path three's `WebGPURenderer` settled on. */
-export type LabBackend = "WebGPU" | "WebGL2";
-
 export interface LabSceneInit {
-  readonly palette: LabPalette;
+  readonly palette: ScenePalette;
   readonly dark: boolean;
   readonly reducedMotion: boolean;
   readonly timing: Timing;
@@ -86,10 +84,10 @@ export interface LabSceneInit {
 
 /** A mounted scene. `dispose` releases every GPU resource, loop and listener it took. */
 export interface LabScene {
-  readonly backend: LabBackend;
+  readonly backend: SceneBackend;
   /** Present only on a study that reads the graph. */
   readonly setGraph?: (graph: LabGraph) => void;
-  setPalette(palette: LabPalette, dark: boolean): void;
+  setPalette(palette: ScenePalette, dark: boolean): void;
   setReducedMotion(reduced: boolean): void;
   setControl(id: string, value: LabControlValue): void;
   /** CSS pixels; the stage clamps the device pixel ratio itself. */

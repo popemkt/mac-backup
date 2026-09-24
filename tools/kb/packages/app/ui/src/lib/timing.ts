@@ -1,8 +1,9 @@
 /**
- * The lab's timing vocabulary (Lab principles M1, M2, M6): the durations and
- * ease in `motion.css`, read once from the tokens, and the two ways anything
- * in the lab moves toward a target — a critically damped spring, or a
- * frame-rate-independent exponential approach. No scene types a duration.
+ * The timing vocabulary of script motion (Lab principles M1, M2, M6): the
+ * durations and ease in `motion.css`, read once from the tokens, and the two
+ * ways anything moves toward a target — a critically damped spring, or a
+ * frame-rate-independent exponential approach. No scene or renderer types a
+ * duration. (Whether motion may run at all is `motion.ts`'s question.)
  */
 
 export interface CubicBezier {

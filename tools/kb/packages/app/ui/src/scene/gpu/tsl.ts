@@ -1,11 +1,11 @@
 /**
- * The lab's typed seam over TSL (Lab principle T1): the few three/tsl
- * helpers whose published types are looser than the nodes they hand back,
- * wrapped once so no study casts.
+ * The typed seam over TSL (Lab principle T1): the few three/tsl helpers
+ * whose published types are looser than the nodes they hand back, wrapped
+ * once so no scene casts.
  */
 import { Loop, int, mix, uniformArray, type ShaderNodeObject } from "three/tsl";
 import type { Node } from "three/webgpu";
-import { easeAt, type CubicBezier } from "@/components/lab/kit/timing";
+import { easeAt, type CubicBezier } from "@/lib/timing";
 
 export type TslNode = ShaderNodeObject<Node>;
 

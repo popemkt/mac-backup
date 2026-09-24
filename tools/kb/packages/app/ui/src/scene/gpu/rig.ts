@@ -1,5 +1,5 @@
 /**
- * The lab's light rig and material set (Lab principles L2, L5).
+ * The scene kit's light rig and material set (Lab principles L2, L5).
  *
  * Light: a named three-point rig. The key is a warm directional light (it
  * carries the accent) that may cast soft shadows; the fill is a hemisphere
@@ -8,7 +8,7 @@
  * silhouettes out of the background.
  *
  * Materials: four finishes with fixed roughness/metalness, all tinted from
- * the palette — no study ships three's default grey.
+ * the palette — no scene ships three's default grey.
  */
 import {
   CanvasTexture,
@@ -20,7 +20,7 @@ import {
   SRGBColorSpace,
   type Object3D,
 } from "three/webgpu";
-import type { LabPalette } from "@/components/lab/kit/palette";
+import type { ScenePalette } from "@/scene/palette";
 
 /** Physically plausible intensities for the rig, under AgX. */
 const KEY = 3.2;
@@ -33,12 +33,12 @@ export interface LightRig {
   readonly rim: DirectionalLight;
   readonly lights: readonly Object3D[];
   /** Re-tint from a palette (a theme change). */
-  setPalette(palette: LabPalette): void;
+  setPalette(palette: ScenePalette): void;
   /** Swing the key round the subject, radians from front-left. */
   setKeyAngle(angle: number, height: number, distance: number): void;
 }
 
-export function createRig(palette: LabPalette, shadows: boolean): LightRig {
+export function createRig(palette: ScenePalette, shadows: boolean): LightRig {
   const key = new DirectionalLight(undefined, KEY);
   const fill = new HemisphereLight(undefined, undefined, FILL);
   const rim = new DirectionalLight(undefined, RIM);
@@ -79,10 +79,10 @@ export function createRig(palette: LabPalette, shadows: boolean): LightRig {
   return rig;
 }
 
-export type LabFinish = "matte" | "satin" | "glaze" | "metal";
+export type Finish = "matte" | "satin" | "glaze" | "metal";
 
-/** The one table of finishes (L5): roughness and metalness never vary by study. */
-const FINISHES: Record<LabFinish, { readonly roughness: number; readonly metalness: number }> = {
+/** The one table of finishes (L5): roughness and metalness never vary by scene. */
+const FINISHES: Record<Finish, { readonly roughness: number; readonly metalness: number }> = {
   matte: { roughness: 0.9, metalness: 0 },
   satin: { roughness: 0.55, metalness: 0 },
   glaze: { roughness: 0.2, metalness: 0 },
@@ -90,7 +90,7 @@ const FINISHES: Record<LabFinish, { readonly roughness: number; readonly metalne
 };
 
 /** A finish; its colour is the given one, or the study's own `colorNode`. */
-export function labMaterial(finish: LabFinish, color?: string): MeshStandardNodeMaterial {
+export function finishMaterial(finish: Finish, color?: string): MeshStandardNodeMaterial {
   const material = new MeshStandardNodeMaterial(FINISHES[finish]);
   if (color !== undefined) material.color.set(color);
   return material;
@@ -101,7 +101,7 @@ export function labMaterial(finish: LabFinish, color?: string): MeshStandardNode
  * up by normal. Light from the upper left in the accent, falling to the hue,
  * with a rim of ink — the same rig, baked.
  */
-export function paletteMatcap(palette: LabPalette): CanvasTexture {
+export function paletteMatcap(palette: ScenePalette): CanvasTexture {
   const size = 256;
   const canvas = document.createElement("canvas");
   canvas.width = size;

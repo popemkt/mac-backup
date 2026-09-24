@@ -27,13 +27,13 @@ import {
   vec3,
   type uniform,
 } from "three/tsl";
-import type { PaletteUniforms } from "@/components/lab/kit/stage";
+import type { PaletteUniforms } from "@/scene/gpu/stage";
 
 type FloatNode = ReturnType<typeof float>;
 type FloatUniform = ReturnType<typeof uniform<number>>;
 
 /** Position across a sprite's quad: 0 at its centre, ±1 at its edges. */
-export const quad = () => uv().sub(0.5).mul(2);
+const quad = () => uv().sub(0.5).mul(2);
 
 /**
  * A star's light at a point of its quad: a tight core, a soft halo, and for a

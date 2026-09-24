@@ -20,8 +20,8 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 import { instancedBufferAttribute, mix, positionLocal, vec3 } from "three/tsl";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
 import { PointerField } from "@/components/lab/kit/pointer";
-import { createRig, labMaterial } from "@/components/lab/kit/rig";
-import type { LabStage } from "@/components/lab/kit/stage";
+import { createRig, finishMaterial } from "@/scene/gpu/rig";
+import type { SceneStage } from "@/scene/gpu/stage";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
 import { TileField } from "@/components/lab/motion/field";
 
@@ -32,7 +32,7 @@ const TILE = 0.5;
 const RISE = 1.1;
 const REACH = 1.6;
 
-function motion(stage: LabStage, init: LabSceneInit, context: StudyContext): StudyParts {
+function motion(stage: SceneStage, init: LabSceneInit, context: StudyContext): StudyParts {
   const field = new TileField(
     SIDE,
     SPACING,
@@ -47,7 +47,7 @@ function motion(stage: LabStage, init: LabSceneInit, context: StudyContext): Stu
     state.array[i * 4 + 2] = field.centers[i * 2 + 1] ?? 0;
   }
   const s = instancedBufferAttribute(state);
-  const material = labMaterial("satin");
+  const material = finishMaterial("satin");
   material.positionNode = positionLocal.add(vec3(s.x, s.y.mul(RISE).add(TILE * 0.3), s.z));
   material.colorNode = mix(stage.colors.hue.mul(0.62), stage.colors.accent, s.w.min(1));
   const tiles = new Mesh(new RoundedBoxGeometry(TILE, TILE * 0.6, TILE, 3, 0.06), material);
@@ -55,7 +55,7 @@ function motion(stage: LabStage, init: LabSceneInit, context: StudyContext): Stu
   tiles.frustumCulled = false;
   tiles.castShadow = true;
   tiles.receiveShadow = true;
-  const floor = new Mesh(new PlaneGeometry(40, 40), labMaterial("matte"));
+  const floor = new Mesh(new PlaneGeometry(40, 40), finishMaterial("matte"));
   floor.material.colorNode = stage.colors.ground;
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;

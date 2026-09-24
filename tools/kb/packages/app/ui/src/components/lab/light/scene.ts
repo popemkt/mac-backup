@@ -25,30 +25,30 @@ import {
 } from "three/webgpu";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
-import type { LabPalette } from "@/components/lab/kit/palette";
+import type { ScenePalette } from "@/scene/palette";
 import { PanControl } from "@/components/lab/kit/pointer";
 import {
   createRig,
-  labMaterial,
+  finishMaterial,
   matcapMaterial,
   paletteMatcap,
-  type LabFinish,
-} from "@/components/lab/kit/rig";
-import type { LabStage, LabToneMapping } from "@/components/lab/kit/stage";
+  type Finish,
+} from "@/scene/gpu/rig";
+import type { SceneStage, SceneToneMapping } from "@/scene/gpu/stage";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
 
 /** Which palette colour and finish each piece of the still life takes (L1, L5). */
-type Tint = keyof LabStage["colors"];
+type Tint = keyof SceneStage["colors"];
 interface Piece {
   readonly mesh: Mesh;
   readonly tint: Tint;
-  readonly finish: LabFinish;
+  readonly finish: Finish;
 }
 
 function piece(
   geometry: Mesh["geometry"],
   tint: Tint,
-  finish: LabFinish,
+  finish: Finish,
   at: readonly [number, number, number],
 ): Piece {
   const mesh = new Mesh(geometry);
@@ -78,7 +78,7 @@ function stillLife(): Piece[] {
   ];
 }
 
-function light(stage: LabStage, init: LabSceneInit, context: StudyContext): StudyParts {
+function light(stage: SceneStage, init: LabSceneInit, context: StudyContext): StudyParts {
   stage.renderer.shadowMap.enabled = true;
   stage.renderer.shadowMap.type = PCFSoftShadowMap;
   const rig = createRig(init.palette, true);
@@ -95,14 +95,14 @@ function light(stage: LabStage, init: LabSceneInit, context: StudyContext): Stud
   let finish: "pbr" | "matcap" = "pbr";
   let matcap = paletteMatcap(init.palette);
   const owned: Material[] = [];
-  const dress = (palette: LabPalette) => {
+  const dress = (palette: ScenePalette) => {
     for (const m of owned) m.dispose();
     owned.length = 0;
     matcap.dispose();
     matcap = paletteMatcap(palette);
     for (const p of pieces) {
       // The colour is the stage's palette uniform, so a theme change eases it across.
-      const material = finish === "pbr" ? labMaterial(p.finish) : matcapMaterial(matcap);
+      const material = finish === "pbr" ? finishMaterial(p.finish) : matcapMaterial(matcap);
       if (finish === "pbr") material.colorNode = stage.colors[p.tint];
       owned.push(material);
       p.mesh.material = material;
@@ -128,7 +128,7 @@ function light(stage: LabStage, init: LabSceneInit, context: StudyContext): Stud
     },
     setControl: (id, value: LabControlValue) => {
       if (id === "tone" && (value === "agx" || value === "aces" || value === "none")) {
-        stage.setToneMapping(value satisfies LabToneMapping);
+        stage.setToneMapping(value satisfies SceneToneMapping);
       }
       if (id === "finish" && (value === "pbr" || value === "matcap")) {
         finish = value;

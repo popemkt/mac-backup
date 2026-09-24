@@ -157,7 +157,7 @@ const TOKEN_FALLBACK = {
   "--lab-accent": "rgb(128, 128, 128)",
 } as const;
 
-type ColorToken = keyof typeof TOKEN_FALLBACK;
+export type ColorToken = keyof typeof TOKEN_FALLBACK;
 
 export function readTokenColor(varName: ColorToken, opts: { alpha?: number } = {}): string {
   const fallback = TOKEN_FALLBACK[varName];

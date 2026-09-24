@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TIMING_FALLBACK } from "@/components/lab/kit/timing";
+import { TIMING_FALLBACK } from "@/lib/timing";
 import { EmberSteer } from "./steer";
 
 const FRAME = 1 / 60;

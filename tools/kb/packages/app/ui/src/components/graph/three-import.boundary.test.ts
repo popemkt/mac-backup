@@ -20,7 +20,9 @@ function listTsFiles(dir: string): string[] {
   );
 }
 
-const THREE_IMPORT = /from\s+["']three["']|require\(\s*["']three["']\s*\)/;
+/** three itself, or the scene kit's GPU modules, which are three. */
+const THREE_IMPORT =
+  /from\s+["'](?:three(?:\/[^"']*)?|@\/scene\/gpu\/[^"']*)["']|require\(\s*["']three["']\s*\)/;
 
 describe("three import boundary (task 16a)", () => {
   it("only force3d chunk sources import three", () => {

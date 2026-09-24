@@ -9,7 +9,7 @@
  * The pointer's velocity is `PointerVelocity`'s, and a zero step (a loop
  * restart) steps nothing and forgets it.
  */
-import { springRate, stepSpring, type Spring, type Timing } from "@/components/lab/kit/timing";
+import { springRate, stepSpring, type Spring, type Timing } from "@/lib/timing";
 import { PointerVelocity } from "@/components/lab/kit/velocity";
 
 /** Where the pointer is parked while it shoves nothing: far behind the cloud. */

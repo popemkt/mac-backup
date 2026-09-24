@@ -1,7 +1,7 @@
 /**
- * The stage every lab study stands on (Lab principles P4): one renderer
- * setup, one post chain, one palette, one frame loop and one reveal, so no
- * study has its own copy of any of them.
+ * The stage every real-time 3D view stands on — each lab study and the 3D
+ * graph (Lab principles P4): one renderer setup, one post chain, one palette,
+ * one frame loop and one reveal, so no view has its own copy of any of them.
  *
  * - Renderer: three's `WebGPURenderer` — WebGPU where the browser has it, its
  *   own WebGL2 backend where it does not; the same TSL compiles to both.
@@ -18,7 +18,8 @@
  * - Reveal (P2): shaders are compiled before the first frame is shown, and
  *   the canvas fades in over the ground rather than popping.
  *
- * Only the lab's study modules import this, and only they import three.
+ * Only modules that are themselves behind a lazy boundary import this: the
+ * lab's study scenes and the 3D graph's chunk (the three boundary tests).
  */
 import {
   ACESFilmicToneMapping,
@@ -56,16 +57,16 @@ import {
 } from "three/tsl";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 import { ao as gtao } from "three/addons/tsl/display/GTAONode.js";
-import type { LabBackend } from "@/components/lab/kit/contract";
-import { disposeGraph } from "@/components/lab/kit/dispose";
-import type { LabPalette } from "@/components/lab/kit/palette";
-import { approachRate, clampStep, type Timing } from "@/components/lab/kit/timing";
+import type { SceneBackend } from "@/scene/backend";
+import { disposeGraph } from "@/scene/gpu/dispose";
+import type { ScenePalette } from "@/scene/palette";
+import { approachRate, clampStep, type Timing } from "@/lib/timing";
 
 const MAX_PIXEL_RATIO = 2;
 
-export type LabToneMapping = "agx" | "aces" | "none";
+export type SceneToneMapping = "agx" | "aces" | "none";
 
-const TONE_MAPPINGS: Record<LabToneMapping, ToneMapping> = {
+const TONE_MAPPINGS: Record<SceneToneMapping, ToneMapping> = {
   agx: AgXToneMapping,
   aces: ACESFilmicToneMapping,
   none: NoToneMapping,
@@ -73,7 +74,7 @@ const TONE_MAPPINGS: Record<LabToneMapping, ToneMapping> = {
 
 export interface StageOptions {
   readonly fov: number;
-  readonly palette: LabPalette;
+  readonly palette: ScenePalette;
   readonly timing: Timing;
   readonly bloom: { readonly strength: number; readonly radius: number };
   /** Build the ambient-occlusion pass (a study that shows contact shadows). */
@@ -143,7 +144,7 @@ function postChain(
   return { post, glow, occlusionPass, knobs };
 }
 
-function backendOf(renderer: WebGPURenderer): LabBackend {
+function backendOf(renderer: WebGPURenderer): SceneBackend {
   // Only three's WebGPU backend carries the flag; its WebGL2 fallback has none.
   return "isWebGPUBackend" in renderer.backend ? "WebGPU" : "WebGL2";
 }
@@ -217,7 +218,7 @@ function frameLoop(
       draw(now);
     });
   };
-  const setPalette = (palette: LabPalette, animate: boolean) => {
+  const setPalette = (palette: ScenePalette, animate: boolean) => {
     for (const key of PALETTE_KEYS) {
       targets[key].set(palette[key]);
       if (!animate) colors[key].value.copy(targets[key]);
@@ -229,8 +230,8 @@ function frameLoop(
     draw,
     invalidate,
     /** New theme colours: eased across while the loop runs, set at once otherwise. */
-    setPalette: (palette: LabPalette) => setPalette(palette, running),
-    setInitialPalette: (palette: LabPalette) => setPalette(palette, false),
+    setPalette: (palette: ScenePalette) => setPalette(palette, running),
+    setInitialPalette: (palette: ScenePalette) => setPalette(palette, false),
     setRunning: (next: boolean) => {
       if (next === running) return;
       running = next;
@@ -270,7 +271,7 @@ export async function createStage(host: HTMLElement, options: StageOptions) {
       chain.glow.strength.value = strength;
       invalidate();
     },
-    setToneMapping: (kind: LabToneMapping) => {
+    setToneMapping: (kind: SceneToneMapping) => {
       renderer.toneMapping = TONE_MAPPINGS[kind];
       chain.post.needsUpdate = true;
       invalidate();
@@ -329,4 +330,4 @@ export async function createStage(host: HTMLElement, options: StageOptions) {
   };
 }
 
-export type LabStage = Awaited<ReturnType<typeof createStage>>;
+export type SceneStage = Awaited<ReturnType<typeof createStage>>;

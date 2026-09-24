@@ -24,30 +24,18 @@ import {
   SpriteNodeMaterial,
   Vector3,
 } from "three/webgpu";
-import {
-  exp,
-  float,
-  instancedBufferAttribute,
-  instanceIndex,
-  select,
-  sin,
-  uniform,
-} from "three/tsl";
+import { float, instancedBufferAttribute, instanceIndex, select, sin, uniform } from "three/tsl";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
 import type { LabGraph, LabNode } from "@/components/lab/lab-graph";
 import { SKY_PAN } from "@/components/lab/kit/pan";
 import { PanControl, PointerField } from "@/components/lab/kit/pointer";
-import type { LabStage } from "@/components/lab/kit/stage";
+import type { SceneStage } from "@/scene/gpu/stage";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
-import { approach, approachRate, easeAt } from "@/components/lab/kit/timing";
-import {
-  HERO_GLINTS,
-  heroPlace,
-  skyDirection,
-  starPlace,
-  unitHash,
-} from "@/components/lab/sky/layout";
-import { dome, moon, quad, starLight, sun } from "@/components/lab/sky/shaders";
+import { approach, approachRate, easeAt } from "@/lib/timing";
+import { HERO_GLINTS, heroPlace, starPlace } from "@/components/lab/sky/layout";
+import { starfield } from "@/scene/gpu/starfield";
+import { sphereDirection, unitHash } from "@/scene/sphere";
+import { dome, moon, starLight, sun } from "@/components/lab/sky/shaders";
 
 const STAR_RADIUS = 60;
 const DUST = 1400;
@@ -78,7 +66,7 @@ function uniforms() {
 type SkyUniforms = ReturnType<typeof uniforms>;
 
 /** The node stars: one sprite drawn once per node, per-instance look from attributes. */
-function nodeStars(stage: LabStage, u: SkyUniforms, nodes: readonly LabNode[]) {
+function nodeStars(stage: SceneStage, u: SkyUniforms, nodes: readonly LabNode[]) {
   const n = Math.max(1, nodes.length);
   const positions = new Float32Array(n * 3);
   const looks = new Float32Array(n * 4);
@@ -91,7 +79,7 @@ function nodeStars(stage: LabStage, u: SkyUniforms, nodes: readonly LabNode[]) {
   );
   const local = nodes.map((node, i) => {
     const hero = heroPlace(rank.get(node.id) ?? HERO_GLINTS);
-    const [x, y, z] = skyDirection(hero ?? starPlace(node));
+    const [x, y, z] = sphereDirection(hero ?? starPlace(node));
     const at = new Vector3(x, y, z).multiplyScalar(STAR_RADIUS);
     positions.set([at.x, at.y, at.z], i * 3);
     const glint = hero !== undefined ? 0.6 + node.recency * 0.4 : node.glint ? 0.3 : 0;
@@ -122,28 +110,6 @@ function nodeStars(stage: LabStage, u: SkyUniforms, nodes: readonly LabNode[]) {
   sprite.count = nodes.length;
   sprite.frustumCulled = false;
   return { sprite, local };
-}
-
-/** Decoration only: a seeded field of faint, tiny, still stars. */
-function dust(stage: LabStage): Sprite {
-  const positions = new Float32Array(DUST * 3);
-  for (let i = 0; i < DUST; i++) {
-    const [x, y, z] = skyDirection({
-      yaw: unitHash(`dust:${i}:yaw`) * Math.PI * 2,
-      pitch: Math.asin(unitHash(`dust:${i}:pitch`) * 2 - 1),
-    });
-    positions.set([x * 90, y * 90, z * 90], i * 3);
-  }
-  const material = new SpriteNodeMaterial({ transparent: true, depthWrite: false });
-  material.positionNode = instancedBufferAttribute(new InstancedBufferAttribute(positions, 3));
-  material.scaleNode = float(0.55);
-  material.colorNode = stage.colors.ink;
-  const q = quad();
-  material.opacityNode = exp(q.dot(q).mul(-30)).mul(0.4);
-  const sprite = new Sprite(material);
-  sprite.count = DUST;
-  sprite.frustumCulled = false;
-  return sprite;
 }
 
 /** The hovered node's edges, drawn as constellation lines between its stars. */
@@ -185,7 +151,7 @@ const projected = new Vector3();
 function nearestStar(
   { local, nodes }: { readonly local: readonly Vector3[]; readonly nodes: readonly LabNode[] },
   turn: Group,
-  stage: LabStage,
+  stage: SceneStage,
   pointer: PointerField,
   hit: Hit,
 ): void {
@@ -217,7 +183,7 @@ function nearestStar(
  * M3), and a theme change sets one as the other rises, over the arrive
  * duration on the one ease (M6); under reduced motion both jump (M7).
  */
-function celestial(stage: LabStage, u: SkyUniforms, init: LabSceneInit) {
+function celestial(stage: SceneStage, u: SkyUniforms, init: LabSceneInit) {
   const group = new Group();
   const sunSprite = sun(stage.colors, u.sunStrength);
   const moonSprite = moon(stage.colors, u.moonStrength);
@@ -255,7 +221,7 @@ function celestial(stage: LabStage, u: SkyUniforms, init: LabSceneInit) {
   };
 }
 
-function sky(stage: LabStage, init: LabSceneInit, context: StudyContext): StudyParts {
+function sky(stage: SceneStage, init: LabSceneInit, context: StudyContext): StudyParts {
   const u = uniforms();
   const turn = new Group();
   const lineMaterial = new LineBasicNodeMaterial({ transparent: true, depthWrite: false });
@@ -265,7 +231,12 @@ function sky(stage: LabStage, init: LabSceneInit, context: StudyContext): StudyP
   const lines = new LineSegments(new BufferGeometry(), lineMaterial);
   lines.frustumCulled = false;
   lines.visible = false;
-  turn.add(dome(stage.colors, u.nebula), dust(stage), lines);
+  turn.add(
+    dome(stage.colors, u.nebula),
+    starfield(stage.colors, { seed: "dust", count: DUST, radius: 90, size: 0.55, opacity: 0.4 })
+      .sprite,
+    lines,
+  );
   const bodies = celestial(stage, u, init);
   stage.scene.add(turn, bodies.group);
   stage.camera.position.set(0, 0, 0);

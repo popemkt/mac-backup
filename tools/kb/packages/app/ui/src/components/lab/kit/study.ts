@@ -9,8 +9,8 @@
  */
 import type { LabControlValue, LabScene, LabSceneInit } from "@/components/lab/kit/contract";
 import type { LabGraph } from "@/components/lab/lab-graph";
-import type { LabPalette } from "@/components/lab/kit/palette";
-import { createStage, type LabStage, type StageOptions } from "@/components/lab/kit/stage";
+import type { ScenePalette } from "@/scene/palette";
+import { createStage, type SceneStage, type StageOptions } from "@/scene/gpu/stage";
 
 export interface StudyContext {
   /** The element the study draws into; its pointer events are the study's. */
@@ -24,7 +24,7 @@ export interface StudyParts {
   readonly frame: (dt: number, elapsed: number) => void;
   readonly setControl: (id: string, value: LabControlValue) => void;
   /** After the stage has taken the new palette: re-tint what the stage does not own. */
-  readonly setPalette?: (palette: LabPalette, dark: boolean) => void;
+  readonly setPalette?: (palette: ScenePalette, dark: boolean) => void;
   readonly setGraph?: (graph: LabGraph) => void;
   /** Release what the stage's scene traversal does not reach (listeners, textures). */
   readonly dispose?: () => void;
@@ -36,7 +36,7 @@ export async function mountStudy(
   host: HTMLElement,
   init: LabSceneInit,
   options: StudyOptions,
-  build: (stage: LabStage, init: LabSceneInit, context: StudyContext) => StudyParts,
+  build: (stage: SceneStage, init: LabSceneInit, context: StudyContext) => StudyParts,
 ): Promise<LabScene> {
   let parts: StudyParts | null = null;
   let reduced = init.reducedMotion;

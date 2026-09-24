@@ -23,8 +23,8 @@ import { Mesh, PointLight, SphereGeometry, Vector3 } from "three/webgpu";
 import { float, instanceIndex, mix, positionLocal, smoothstep, uniform, vec3 } from "three/tsl";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
 import { PointerField } from "@/components/lab/kit/pointer";
-import { createRig, labMaterial } from "@/components/lab/kit/rig";
-import type { LabStage } from "@/components/lab/kit/stage";
+import { createRig, finishMaterial } from "@/scene/gpu/rig";
+import type { SceneStage } from "@/scene/gpu/stage";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
 import { emberSimulation, restFloor, type EmberShape } from "@/components/lab/embers/compute";
 import { PopGrants } from "@/components/lab/embers/pops";
@@ -37,7 +37,7 @@ import {
   heatEmissive,
   type HeatOps,
 } from "@/components/lab/embers/heat";
-import type { TslNode } from "@/components/lab/kit/tsl";
+import type { TslNode } from "@/scene/gpu/tsl";
 
 /** `heat.ts`'s arithmetic as TSL nodes: the curve's one definition, on the GPU. */
 const NODE_OPS: HeatOps<TslNode, TslNode> = {
@@ -95,7 +95,7 @@ function homes(): Float32Array {
   return out;
 }
 
-function embers(stage: LabStage, init: LabSceneInit, context: StudyContext): StudyParts {
+function embers(stage: SceneStage, init: LabSceneInit, context: StudyContext): StudyParts {
   if (stage.backend !== "WebGPU") {
     // GAP [[01M3A95XAEE6FGT8ZVDRHYBDF5]]
     throw new Error(
@@ -119,7 +119,7 @@ function embers(stage: LabStage, init: LabSceneInit, context: StudyContext): Stu
     float(ceiling),
   ).min(1.6);
   const ember = colors.accent.mul(vec3(...EMBER_TINT));
-  const material = labMaterial("satin");
+  const material = finishMaterial("satin");
   material.positionNode = positionLocal.mul(look.z.mul(SHAPE.sphere)).add(place);
   material.colorNode = mix(ember.mul(0.3), colors.hue.mul(0.2), 0.3);
   material.emissiveNode = heatEmissive(NODE_OPS, vec3(colors.accent), t, float(gain));

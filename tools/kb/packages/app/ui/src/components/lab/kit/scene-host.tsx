@@ -6,15 +6,10 @@
  * listener with it.
  */
 import { useEffect, useRef, useState } from "react";
-import type {
-  LabBackend,
-  LabControlValues,
-  LabHover,
-  LabScene,
-  LabStudy,
-} from "@/components/lab/kit/contract";
+import type { LabControlValues, LabHover, LabScene, LabStudy } from "@/components/lab/kit/contract";
 import { readLabPalette } from "@/components/lab/kit/palette";
-import { readTiming } from "@/components/lab/kit/timing";
+import type { SceneBackend } from "@/scene/backend";
+import { readTiming } from "@/lib/timing";
 import type { LabGraph } from "@/components/lab/lab-graph";
 import type { Appearance } from "@/stores/prefs.store";
 
@@ -28,7 +23,7 @@ export interface SceneHostProps {
   readonly onHover: (hover: LabHover | null) => void;
   readonly onOpen: (id: string) => void;
   /** The scene is on screen, drawn by this backend. */
-  readonly onReady: (backend: LabBackend) => void;
+  readonly onReady: (backend: SceneBackend) => void;
   /** The scene could not start (no WebGPU and no WebGL2, or a shader error). */
   readonly onError: (message: string) => void;
 }

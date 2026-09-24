@@ -14,15 +14,11 @@ import { useUiStore } from "@/stores/ui.store";
 import { SidebarToggle } from "@/components/ui/sidebar-toggle";
 import { ThemeIcon } from "@/components/ui/theme-icon";
 import { WorkspaceState } from "@/components/ui/workspace-state";
-import {
-  initialValues,
-  type LabBackend,
-  type LabControlValue,
-  type LabHover,
-} from "@/components/lab/kit/contract";
+import { initialValues, type LabControlValue, type LabHover } from "@/components/lab/kit/contract";
 import { InfoCard } from "@/components/lab/kit/info-card";
+import type { SceneBackend } from "@/scene/backend";
 import { SceneHost } from "@/components/lab/kit/scene-host";
-import { readTiming } from "@/components/lab/kit/timing";
+import { readTiming } from "@/lib/timing";
 import { useLabGraph } from "@/components/lab/lab-graph";
 import { LAB_SCENE_IDS, labPath, type LabSceneId } from "@/components/lab/routes";
 import { LAB_STUDIES } from "@/components/lab/studies";
@@ -50,7 +46,7 @@ function StudySwitch({ scene }: { scene: LabSceneId }) {
   );
 }
 
-function LabHeader({ scene, backend }: { scene: LabSceneId; backend: LabBackend | null }) {
+function LabHeader({ scene, backend }: { scene: LabSceneId; backend: SceneBackend | null }) {
   const sidebar = useSidebarToggle();
   const theme = usePrefsStore((s) => s.theme);
   const prefsOpen = useUiStore((s) => s.prefsOpen);
@@ -93,7 +89,7 @@ function Study({
   onBackend,
 }: {
   scene: LabSceneId;
-  onBackend: (b: LabBackend | null) => void;
+  onBackend: (b: SceneBackend | null) => void;
 }) {
   const study = LAB_STUDIES[scene];
   const graph = useLabGraph();
@@ -145,7 +141,7 @@ function Study({
 }
 
 export default function LabPage({ scene }: { scene: LabSceneId }) {
-  const [backend, setBackend] = useState<LabBackend | null>(null);
+  const [backend, setBackend] = useState<SceneBackend | null>(null);
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[var(--lab-ground)]">
       <LabHeader scene={scene} backend={backend} />

@@ -519,14 +519,23 @@ principles below it applies, and two to four live parameters:
 | Light  | key/fill/rim rig, soft shadows, GTAO, tone mapping, finishes     | tone mapping, PBR/matcap, AO, key angle |
 | Motion | staggered critically damped springs against an eased tween        | settle, stagger, drive, overlap     |
 
-The kit (`components/lab/kit`) is the one mechanism every study is built from
-(P4): `stage` (renderer, post chain, tone mapping, palette uniforms, frame
-loop, reveal), `study` (`mountStudy`: the reduced-motion and theme hand-off),
-`timing` (the motion tokens, springs, eases), `tsl` (the typed TSL seam and
-the ease as a shader function), `palette`, `rig` (lights and finishes), `pointer` and `pan` (pointer field, drag-to-turn with momentum),
-`scene-host` and `info-card` (the React side). `three` is imported only by
-the kit's GPU modules and the study scenes, and each study's scene is its own
-dynamic import (`lab/three-import.boundary.test.ts`).
+Every study is built from one kit (P4), in two homes. What any real-time 3D
+view needs is the **scene kit**, `src/scene/` (its own zone in `UI_ALLOWS`,
+open to the lab and the graph): `gpu/stage` (renderer, post chain, tone
+mapping, palette uniforms, frame loop, reveal), `gpu/tsl` (the typed TSL seam
+and the ease as a shader function), `gpu/rig` (lights and finishes),
+`gpu/starfield`, `gpu/dispose`, `palette` (the five palette roles, filled
+from whichever tokens the caller names) and `sphere` (seeded places on a
+sphere). The timing vocabulary (the motion tokens, springs, eases) is
+`lib/timing.ts`, beside `lib/motion.ts`, because DOM motion reads it too.
+What only the lab needs stays in `components/lab/kit`: `study`
+(`mountStudy`: the reduced-motion and theme hand-off), `palette` (the
+`--lab-*` roles), `pointer`, `pan` and `velocity` (pointer field,
+drag-to-turn with momentum), `scene-host` and `info-card` (the React side).
+`three` is imported only under `scene/gpu/` and by the modules that stand
+behind a lazy boundary, and each study's scene is its own dynamic import
+(`scene/`, `lab/` and `graph/three-import.boundary.test.ts`; a surface's test
+counts an import of `@/scene/gpu/*` as an import of three).
 
 The renderer is three's `WebGPURenderer` (T1): WebGPU where the browser has
 it, three's own WebGL2 backend where it does not, the same node code
@@ -552,7 +561,7 @@ study's info card cites them by id.
 - **M5.** A visible reaction on the next frame, full settle in roughly
   300–600ms.
 - **M6.** One timing vocabulary: durations, the ease and spring settle times
-  come from the `motion.css` tokens (`kit/timing.ts` reads them; its fallback
+  come from the `motion.css` tokens (`lib/timing.ts` reads them; its fallback
   mirror is checked against the stylesheet), never retyped per study.
 - **M7.** `prefers-reduced-motion` gives a still composition or a crossfade,
   never a half-animation.
@@ -593,7 +602,7 @@ study's info card cites them by id.
   `ShaderMaterial`; post-processing a TSL graph (`PostProcessing`, `pass()`,
   `bloom()`, tone mapping, dither); the info card's parameters drive TSL
   `uniform()`s. Where three's TSL typings are looser than the nodes, the one
-  typed seam is `kit/tsl.ts`. Plain CPU arithmetic that feeds instance data
+  typed seam is `scene/gpu/tsl.ts`. Plain CPU arithmetic that feeds instance data
   (the Motion field's springs) is not a shader and stays TypeScript. TypeGPU
   or raw WGSL only where TSL cannot express the thing, recorded as a gap.
 
@@ -806,7 +815,7 @@ is.
   knob). Canvas renderers read colour through `readTokenColor`
   (`lib/css-color.ts`), which owns each token's no-document fallback, so no
   component carries a colour literal. The lab's palette (`--lab-*`, Lab
-  principles L1) is layer 1 too, read the same way by `lab/kit/palette.ts`.
+  principles L1) is layer 1 too, read the same way by `lab/kit/palette.ts` through `scene/palette.ts`.
 - **Canvas renderers re-read on one signal.** A DOM utility follows a token
   change by itself; a renderer that copied a value out (a colour, the
   graph label face) does not. `useAppearance()` (`stores/prefs.store.ts`)

@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import type { LensGraph, LensNode } from "@/lib/graph-lens";
 import { glintCount, toLabGraph } from "./lab-graph";
-import { skyDirection, starPlace, type SkyPlace } from "./sky/layout";
+import { starPlace } from "./sky/layout";
+import { sphereDirection, type SpherePlace } from "@/scene/sphere";
 import { LAB_SCENE_IDS, labPath, labSceneOf, matchLab } from "./routes";
 
 function lensNode(id: string, degree = 1, clusterKey = "root"): LensNode {
@@ -42,7 +43,7 @@ describe("toLabGraph", () => {
   });
 });
 
-function gap(x: SkyPlace, y: SkyPlace): number {
+function gap(x: SpherePlace, y: SpherePlace): number {
   return Math.hypot(x.yaw - y.yaw, x.pitch - y.pitch);
 }
 
@@ -54,7 +55,7 @@ describe("the sky's star places", () => {
     const far = starPlace({ id: "a", cluster: "q" });
     expect(gap(a, b)).toBeLessThan(0.33);
     expect(gap(a, far)).toBeGreaterThan(0);
-    const [x, y, z] = skyDirection(a);
+    const [x, y, z] = sphereDirection(a);
     expect(Math.hypot(x, y, z)).toBeCloseTo(1, 9);
   });
 });

@@ -1,5 +1,6 @@
 /**
- * The lab's three boundary: three.js is imported only by the study scene
+ * The lab's three boundary: three.js — directly, or through the scene kit's
+ * GPU modules (`@/scene/gpu/*`) — is imported only by the study scene
  * modules and the kit pieces they alone load, so everything the always-loaded
  * plugin reaches (routes, plugin, surfaces) and the page shell stay free of
  * it, and a study's three code rides in its own lazy chunk.
@@ -10,15 +11,12 @@ import { describe, expect, it } from "vitest";
 import { LAB_SCENE_IDS } from "./routes";
 
 const LAB_DIR = import.meta.dirname;
-const THREE_IMPORT = /from\s+["']three(?:\/[^"']*)?["']/;
+const THREE_IMPORT = /from\s+["'](?:three(?:\/[^"']*)?|@\/scene\/gpu\/[^"']*)["']/;
 
 /** Only these may import three; each is reached only through a study's `load()`. */
 const ALLOWED = new Set([
-  "kit/stage.ts",
-  "kit/rig.ts",
   "kit/pointer.ts",
-  "kit/tsl.ts",
-  "kit/dispose.ts",
+  "kit/study.ts",
   "embers/compute.ts",
   "embers/scene.ts",
   "sky/scene.ts",

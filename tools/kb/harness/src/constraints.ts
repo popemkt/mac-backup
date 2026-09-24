@@ -212,6 +212,7 @@ export type UiZone =
   | "session"
   | "stores"
   | "fixtures"
+  | "scene"
   | "test-support"
   | "catalog"
   | `components/${UiSurface}`;
@@ -308,6 +309,11 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   session: ["lib", "api", "actions", "session", "ds"],
   stores: ["stores", "lib", "api", "session", "ds"],
   fixtures: ["fixtures", "lib"],
+  // The scene kit: the GPU stage, post chain, palette roles, light rig and
+  // starfield every real-time 3D view stands on — the lab's studies and the
+  // 3D graph alike — so neither surface owns a copy. Mechanism only: it reads
+  // tokens and timing from `lib` and knows no surface.
+  scene: ["scene", "lib"],
   // Test helpers: imported only by test files, which the surface rows exempt,
   // so no row names it. It reaches what it stands in for — the store
   // `resetOutlineStore` resets, and the `api/ws` port `FakeWsSocket` doubles.
@@ -327,8 +333,8 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "components/sidebar",
   ],
   "components/canvas": ["components/canvas", "primitives", "stores", "actions", "lib"],
-  "components/graph": ["components/graph", "primitives", "stores", "actions", "lib"],
-  "components/lab": ["components/lab", "primitives", "stores", "actions", "lib"],
+  "components/graph": ["components/graph", "primitives", "stores", "actions", "lib", "scene"],
+  "components/lab": ["components/lab", "primitives", "stores", "actions", "lib", "scene"],
   "components/ontology": ["components/ontology", "primitives", "stores", "actions", "lib"],
   "components/outline": ["components/outline", "primitives", "stores", "actions", "lib"],
   "components/palette": ["components/palette", "primitives", "stores", "actions", "lib"],
