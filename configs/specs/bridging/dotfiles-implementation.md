@@ -208,7 +208,7 @@ iCloud on first run. See `dotfiles-system.md`.
 | Out-of-band freshness | Determinate Nix, macOS softwareupdate, brew outdated, uv/GitHub pin checks (advisory) | `scripts/audit-system-discrepancies.sh` |
 | Out-of-band upgrade | Determinate Nix via `determinate-nixd upgrade`; macOS updates listed only | `upgrade-out-of-band` in `modules/darwin/home-manager/default.nix` |
 | Login items snapshot | osascript dump to `configs/login-items.txt` | `scripts/dump-login-items.sh` |
-| Direct release freshness | best-effort remote comparison; no mutation | `scripts/github-sources check` |
+| Direct release freshness | nvfetcher resolution compared with the pins; no mutation ([commands](../../../docs/github-release-packages.md#commands)) | `scripts/github-sources check` |
 | Direct release update | nvfetcher regenerates pinned versions and hashes | `scripts/github-sources update` |
 | External readiness | `system-setup status`, dependency-aware enrollment, and operational checks | `tools/system-setup/` |
 | Unpacked browser extensions | Clone under `/stuff/workspace/repos` via `system-setup enroll`; Load unpacked stays manual | `modules/stacks/browsers/` |
@@ -224,8 +224,7 @@ iCloud on first run. See `dotfiles-system.md`.
 | Dead bindings | deadnix | whole repo except generated nvfetcher output |
 | Eval-time errors | `nix flake check --no-build` | whole flake |
 | Setup application | Ruff, Pyrefly, pytest in the uv2nix dev environment | `checks.<system>.systemSetupCheck` |
-| Release freshness | GitHub API and upstream webpages through `github-sources` | best effort; offline passes, stale source changes block |
-| Generated source consistency | nvfetcher regeneration in a temporary directory | staged snapshot locally; authoritative in PR CI |
+| Generated source consistency | `github-sources verify`; what it proves and why freshness gates nothing: [docs/github-release-packages.md](../../../docs/github-release-packages.md#commands) | staged `nvfetcher.toml`, `_sources/`, `pkgs/` changes; authoritative in PR CI |
 
 Hook location: `.githooks/pre-commit`. Activated via `git config core.hooksPath .githooks`.
 
