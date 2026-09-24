@@ -51,6 +51,21 @@ describe("typed field seeds", () => {
     ).toBe("targetQuery");
   });
 
+  test("every seeded field declares its value type — none leans on the text default", () => {
+    const fields = systemSeedNodes().filter((n) =>
+      refs(n, SYSTEM_IDS.typeField).includes(SYSTEM_IDS.field),
+    );
+    expect(fields.length).toBeGreaterThan(0);
+    const undeclared = fields
+      .filter((n) => (n.props[SYSTEM_IDS.fieldTypeField] ?? []).length !== 1)
+      .map((n) => n.id);
+    expect(undeclared).toEqual([]);
+    const byId = new Map(fields.map((n) => [n.id, n]));
+    expect(fieldTypeOf(byId.get(SYSTEM_IDS.typeField)?.props)).toBe("ref");
+    expect(fieldTypeOf(byId.get(SYSTEM_IDS.hiddenField)?.props)).toBe("checkbox");
+    expect(fieldTypeOf(byId.get(SYSTEM_IDS.lensMaxNodesField)?.props)).toBe("number");
+  });
+
   test("every field type is a plain child of the type field — no supertag", () => {
     // "text" is not a kind of thing, it is one of the values fieldType may
     // take, so it carries no kind ref at all: being a child says it.

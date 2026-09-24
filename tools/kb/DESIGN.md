@@ -476,6 +476,12 @@ type PropValue =
   `sys.field` (the type of fields), `sys.tag` (the type of tags),
   `sys.f.type` (the "type/tag" field), `sys.f.fields` (tag→templated fields).
   That's the whole special set; everything else is user space.
+- **Every seeded field declares its value type** (`sys.f.fieldType`), text
+  ones included. `fieldTypeOf` reads an absent type as text, which is the
+  right default for a user's untyped field and the wrong one for nearly every
+  system field (`sys.f.type` holds refs, `sys.f.hidden` a bool), so no system
+  field leans on it. The seed's fill-absent pass carries a declaration added
+  later to stores seeded before it.
 - **Name resolution**: CLI/actions accept field/tag _names_; resolver does a
   unique-text lookup among `sys.field`/`sys.tag` nodes (error on ambiguity,
   `--create` to mint). Resolution is dynamic at load — at our scale (\<\<100k

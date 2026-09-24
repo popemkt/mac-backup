@@ -8,7 +8,12 @@ import {
   type GraphSourceField,
 } from "./graph-schema.ts";
 import { LEGACY_LENS_ALL_MENTIONS, SYSTEM_IDS, type KbNode, type NodeId, nowIso } from "./model.ts";
-import { FIELD_TYPES, FIELD_TYPE_OPTION_IDS, fieldTypeValue } from "./field-type.ts";
+import {
+  FIELD_TYPES,
+  FIELD_TYPE_OPTION_IDS,
+  fieldTypeValue,
+  type FieldType,
+} from "./field-type.ts";
 import { ONTOLOGY_TARGET_QUERY } from "./ontology.ts";
 
 /**
@@ -34,6 +39,26 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     updatedAt: at,
   });
 
+  /*
+   * Every seeded field declares its value type — text ones included. A field's
+   * declared type is the contract its values are held to, and `fieldTypeOf`
+   * reads an absent one as text: right for a user's untyped field, wrong for
+   * nearly every system one (`sys.f.type` holds refs, `sys.f.hidden` a bool).
+   * So no system field leans on that default; each says what it holds, here,
+   * and the fill-absent pass below carries the declaration to older stores.
+   */
+  const typedField = (
+    id: string,
+    text: string,
+    type: FieldType,
+    props: KbNode["props"] = {},
+  ): KbNode =>
+    mk(id, text, {
+      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue(type)],
+      ...props,
+    });
+
   // A field node's own configuration is a field template, exactly like a tag's.
   // That is what lets one rule — "surface the fields your kinds and tags
   // template" — serve tag pages, field pages, and ordinary tagged nodes alike,
@@ -45,18 +70,10 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.targetQueryField },
     ],
   });
-  const typeField = mk(SYSTEM_IDS.typeField, "type", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
-  });
-  const fieldsField = mk(SYSTEM_IDS.fieldsField, "fields", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
-  });
-  const colorField = mk(SYSTEM_IDS.colorField, "color", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
-  });
-  const hiddenField = mk(SYSTEM_IDS.hiddenField, "hidden", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
-  });
+  const typeField = typedField(SYSTEM_IDS.typeField, "type", "ref");
+  const fieldsField = typedField(SYSTEM_IDS.fieldsField, "fields", "ref");
+  const colorField = typedField(SYSTEM_IDS.colorField, "color", "text");
+  const hiddenField = typedField(SYSTEM_IDS.hiddenField, "hidden", "checkbox");
   /*
    * Field types are nodes, and they are the type field's **children** — the
    * option-set shape (DESIGN → Kinds, roles and options). A `field-type`
@@ -69,18 +86,11 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
    */
   const fieldTypeOptions = FIELD_TYPES.map((type) => mk(FIELD_TYPE_OPTION_IDS[type], type));
   const fieldTypeField: KbNode = {
-    ...mk(SYSTEM_IDS.fieldTypeField, "fieldType", {
-      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
-      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
-    }),
+    ...typedField(SYSTEM_IDS.fieldTypeField, "fieldType", "ref"),
     children: fieldTypeOptions.map((option) => option.id),
   };
-  const targetTagField = mk(SYSTEM_IDS.targetTagField, "targetTag", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
-  });
-  const targetQueryField = mk(SYSTEM_IDS.targetQueryField, "targetQuery", {
-    [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
-  });
+  const targetTagField = typedField(SYSTEM_IDS.targetTagField, "targetTag", "ref");
+  const targetQueryField = typedField(SYSTEM_IDS.targetQueryField, "targetQuery", "text");
   // Deliberately NOT self-typed. `sys.f.type` is the kind slot, and a ref to
   // `sys.tag` there declares "this node is a supertag" — resolveTags skips it
   // precisely so it never renders as a chip. Listing sys.tag among selectable
@@ -127,41 +137,36 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   // `sys.f.query`; the field is the kind, so no `#query` supertag is seeded —
   // strip the field and the node is a plain node (DESIGN → Kinds, roles and
   // options).
-  const fieldType = {
-    [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: SYSTEM_IDS.field }],
-  };
-  const queryField = mk(SYSTEM_IDS.queryField, "query", fieldType);
-  const queryLimitField = mk(SYSTEM_IDS.queryLimitField, "limit", fieldType);
+  const queryField = typedField(SYSTEM_IDS.queryField, "query", "text");
+  const queryLimitField = typedField(SYSTEM_IDS.queryLimitField, "limit", "number");
 
-  // View configuration field nodes (W7.0)
-  const viewModeField = mk(SYSTEM_IDS.viewModeField, "view.mode", fieldType);
-  const viewSortField = mk(SYSTEM_IDS.viewSortField, "view.sort", fieldType);
-  const viewSortDirField = mk(SYSTEM_IDS.viewSortDirField, "view.sort.dir", fieldType);
-  const viewDisplayField = mk(SYSTEM_IDS.viewDisplayField, "view.display", fieldType);
-  const viewColwidthField = mk(SYSTEM_IDS.viewColwidthField, "view.colwidth", fieldType);
-  const viewPagesizeField = mk(SYSTEM_IDS.viewPagesizeField, "view.pagesize", fieldType);
-  const viewGroupField = mk(SYSTEM_IDS.viewGroupField, "view.group", fieldType);
-  const viewFilterField = mk(SYSTEM_IDS.viewFilterField, "view.filter", fieldType);
+  // View configuration field nodes (W7.0). The sort, display and group slots
+  // name field nodes; colwidth is a JSON object held as one string.
+  const viewModeField = typedField(SYSTEM_IDS.viewModeField, "view.mode", "text");
+  const viewSortField = typedField(SYSTEM_IDS.viewSortField, "view.sort", "ref");
+  const viewSortDirField = typedField(SYSTEM_IDS.viewSortDirField, "view.sort.dir", "text");
+  const viewDisplayField = typedField(SYSTEM_IDS.viewDisplayField, "view.display", "ref");
+  const viewColwidthField = typedField(SYSTEM_IDS.viewColwidthField, "view.colwidth", "text");
+  const viewPagesizeField = typedField(SYSTEM_IDS.viewPagesizeField, "view.pagesize", "number");
+  const viewGroupField = typedField(SYSTEM_IDS.viewGroupField, "view.group", "ref");
+  const viewFilterField = typedField(SYSTEM_IDS.viewFilterField, "view.filter", "text");
 
   const refField = (id: string, text: string, targetTag?: string): KbNode =>
-    mk(id, text, {
-      ...fieldType,
-      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
-      ...(targetTag !== undefined && targetTag !== ""
+    typedField(
+      id,
+      text,
+      "ref",
+      targetTag !== undefined && targetTag !== ""
         ? { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: targetTag }] }
-        : {}),
-    });
+        : {},
+    );
   /*
    * A ref field whose allowed targets are the rows of one EDN query — the
    * general form of a target constraint (`sys.f.targetQuery`). Both callers
    * below used to write this object out inline.
    */
   const refQueryField = (id: string, text: string, edn: string): KbNode =>
-    mk(id, text, {
-      ...fieldType,
-      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
-      [SYSTEM_IDS.targetQueryField]: [{ t: "str", v: edn }],
-    });
+    typedField(id, text, "ref", { [SYSTEM_IDS.targetQueryField]: [{ t: "str", v: edn }] });
 
   /*
    * Graph vocabulary. Renderers and sources are option *sets*, so both are
@@ -188,10 +193,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     mk(GRAPH_SOURCE_KIND_OPTION_IDS[kind], kind),
   );
   const graphSourceKindField: KbNode = {
-    ...mk(SYSTEM_IDS.graphSourceKindField, "graph.source.kind", {
-      ...fieldType,
-      [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")],
-    }),
+    ...typedField(SYSTEM_IDS.graphSourceKindField, "graph.source.kind", "ref"),
     children: sourceKindOptions.map((option) => option.id),
   };
   const sourceOptions = Object.values(GRAPH_SOURCE_VALUES).map((value) =>
@@ -211,7 +213,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
 
   const lensLabelByField = sourceField(SYSTEM_IDS.lensLabelByField, "lens.label-by");
   // Graph perspectives (V0): #graph-perspective tag + lens field template.
-  const lensQueryField = mk(SYSTEM_IDS.lensQueryField, "lens.query", fieldType);
+  const lensQueryField = typedField(SYSTEM_IDS.lensQueryField, "lens.query", "text");
   const lensRendererField: KbNode = {
     ...refField(SYSTEM_IDS.lensRendererField, "lens.renderer"),
     children: rendererOptions.map((option) => option.id),
@@ -219,23 +221,35 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const lensColorByField = sourceField(SYSTEM_IDS.lensColorByField, "lens.color-by");
   const lensSizeByField = sourceField(SYSTEM_IDS.lensSizeByField, "lens.size-by");
   const lensEdgeKindsField = sourceField(SYSTEM_IDS.lensEdgeKindsField, "lens.edge-kinds");
-  const lensMaxNodesField = mk(SYSTEM_IDS.lensMaxNodesField, "lens.max-nodes", fieldType);
+  const lensMaxNodesField = typedField(SYSTEM_IDS.lensMaxNodesField, "lens.max-nodes", "number");
   const lensClusterByField = sourceField(SYSTEM_IDS.lensClusterByField, "lens.cluster-by");
-  const lensFocusField = mk(SYSTEM_IDS.lensFocusField, "lens.focus", fieldType);
-  const lensLayoutField = mk(SYSTEM_IDS.lensLayoutField, "lens.layout", fieldType);
-  const lensSpreadField = mk(SYSTEM_IDS.lensSpreadField, "lens.spread", fieldType);
-  const lensLinkDistanceField = mk(
+  const lensFocusField = typedField(SYSTEM_IDS.lensFocusField, "lens.focus", "ref");
+  const lensLayoutField = typedField(SYSTEM_IDS.lensLayoutField, "lens.layout", "text");
+  const lensSpreadField = typedField(SYSTEM_IDS.lensSpreadField, "lens.spread", "number");
+  const lensLinkDistanceField = typedField(
     SYSTEM_IDS.lensLinkDistanceField,
     "lens.link-distance",
-    fieldType,
+    "number",
   );
-  const lensShowLabelsField = mk(SYSTEM_IDS.lensShowLabelsField, "lens.show-labels", fieldType);
-  const lensCurvedLinksField = mk(SYSTEM_IDS.lensCurvedLinksField, "lens.curved-links", fieldType);
-  const lensAutorotateField = mk(SYSTEM_IDS.lensAutorotateField, "lens.autorotate", fieldType);
-  const lensLabelDensityField = mk(
+  const lensShowLabelsField = typedField(
+    SYSTEM_IDS.lensShowLabelsField,
+    "lens.show-labels",
+    "checkbox",
+  );
+  const lensCurvedLinksField = typedField(
+    SYSTEM_IDS.lensCurvedLinksField,
+    "lens.curved-links",
+    "checkbox",
+  );
+  const lensAutorotateField = typedField(
+    SYSTEM_IDS.lensAutorotateField,
+    "lens.autorotate",
+    "checkbox",
+  );
+  const lensLabelDensityField = typedField(
     SYSTEM_IDS.lensLabelDensityField,
     "lens.label-density",
-    fieldType,
+    "text",
   );
   const graphPerspectiveTag = mk(SYSTEM_IDS.graphPerspectiveTag, "graph-perspective", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
@@ -269,7 +283,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   });
 
   // Canvas nodes (C1): #canvas tag templating sys.f.canvas (JSON Canvas 1.0 str).
-  const canvasField = mk(SYSTEM_IDS.canvasField, "canvas", fieldType);
+  const canvasField = typedField(SYSTEM_IDS.canvasField, "canvas", "text");
   const canvasTag = mk(SYSTEM_IDS.canvasTag, "canvas", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
     [SYSTEM_IDS.fieldsField]: [{ t: "ref", v: SYSTEM_IDS.canvasField }],
@@ -287,14 +301,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     "onto.extends",
     ONTOLOGY_TARGET_QUERY,
   );
-  const ontoQueryField = mk(SYSTEM_IDS.ontoQueryField, "onto.query", {
-    ...fieldType,
-    [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("text")],
-  });
-  const ontoClosureField = mk(SYSTEM_IDS.ontoClosureField, "onto.closure", {
-    ...fieldType,
-    [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("text")],
-  });
+  const ontoQueryField = typedField(SYSTEM_IDS.ontoQueryField, "onto.query", "text");
+  const ontoClosureField = typedField(SYSTEM_IDS.ontoClosureField, "onto.closure", "text");
   /*
    * Contextual references: one ref-typed field and nothing else. Same anatomy
    * as a query node — the field is the kind — so a contextual reference is an

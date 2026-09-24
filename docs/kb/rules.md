@@ -312,7 +312,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **current** — TxTail.append reads its own head to assign rev+1 and is documented as not self-serialising. The store calls it inside the lock that already serialises writers, which covers every node commit; KbTxLog.append does not, and that is the path the saved-query virtual set takes. A CLI commit concurrent with a .kb/queries/ reload, or two kb ui servers on one root with different ports, can both read head N and both write N+1.
 - **impact** — A duplicate rev in the tail. Frames stay applicable in order and upserts are idempotent, so a client converges - but rev stops being a unique position, and any surface that keys on it (a replay, an audit trail, an undo across sessions) would be reading two things with one name. Narrow: it needs a second appender in the same instant.
 - **closes** — Either the virtual set becomes a store transaction so the store's exclusion covers it, or the tail acquires the store's lock itself - which needs a synchronous acquire, and write-lock.ts deliberately has none (its spin is Effect.sleep so a contended commit cannot block the loop).
-- **rule** — Abstraction before addition
+- **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1XF05FV87AR22B4SAS0A2BK`
 
 
@@ -685,7 +685,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **current** — packages/app/test-kit/tests/dst.test.ts runs seeded histories through the real plan/apply path under bun test's 5000ms default. On an unloaded machine every scenario finishes well inside it; with two other suites running, whole tests time out — observed 2 of 10 runs failing on 2026-09-09, on the merge base as well as on a working branch, so it is not a code regression.
 - **impact** — A test that fails on a busy machine and passes on a rerun teaches agents to rerun rather than trust the gate, which is the same lesson GAP 01M1R19NXBMTVQG6AH0S7VTC7D was filed to unteach. It also hides a real slowdown: nobody can tell a genuine regression from load.
 - **closes** — Give the DST scenarios an explicit timeout sized to their real cost (they are seconds of work, not milliseconds), or make the scenario count adaptive. Either way the number is stated in the file with its reason, not inherited from a runner default.
-- **rule** — GAP 01M1R19NXBMTVQG6AH0S7VTC7D is the same class: no test gates on wall clock.
 - **node** — `01M1X8VQT1P6E45NBTQEQ96YDR`
 
 ### GAP: the field-value primitive subscribes to the outline store
