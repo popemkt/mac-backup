@@ -136,22 +136,23 @@ function compileReachRules(
 }
 
 /**
- * Every hop's far end must be an entity: a step and a result are nodes. A
- * dangling field ref is its id string in the value slot, and DataScript
- * rejects a string bound into an entity slot — so the test cannot be a
- * pattern like `[?b :node/id]`, which puts `?b` in one. On a node-valued attr
- * the value is an eid or a dangling id string, and only the eid's `str`
- * differs from itself.
+ * Every hop's far end must be a node, so a step and a result are nodes. The
+ * test is `[?v :node/id ?v_id]`, which drops bools and numbers that are not
+ * eids. DataScript throws when a string is bound into that entity slot, and a
+ * dangling field ref is its id string. So strings go first, by the one value
+ * whose `str` is itself. A number that equals a live eid still passes; the
+ * encoding, not this test, is what cannot tell it from a ref
+ * (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]).
  */
-function isEntity(v: string): string {
-  return `[(str ?${v}) ?${v}_str] [(not= ?${v}_str ?${v})]`;
+function isNode(v: string): string {
+  return `[(str ?${v}) ?${v}_str] [(not= ?${v}_str ?${v})] [?${v} :node/id ?${v}_id]`;
 }
 
 function compileOneReach(clause: ReachClause, name: string): string {
   const edge = clause.edge;
   const max = clause.maxHops;
   if (max === undefined) {
-    return `[(${name} ?a ?b) [?a ${edge} ?b] ${isEntity("b")}] [(${name} ?a ?b) [?a ${edge} ?mid] ${isEntity("mid")} (${name} ?mid ?b)]`;
+    return `[(${name} ?a ?b) [?a ${edge} ?b] ${isNode("b")}] [(${name} ?a ?b) [?a ${edge} ?mid] ${isNode("mid")} (${name} ?mid ?b)]`;
   }
-  return `[(${name} ?a ?b ?h) [?a ${edge} ?b] ${isEntity("b")} [(<= ?h ${max})]] [(${name} ?a ?b ?h) [?a ${edge} ?mid] ${isEntity("mid")} [(< ?h ${max})] [(+ ?h 1) ?h2] (${name} ?mid ?b ?h2)]`;
+  return `[(${name} ?a ?b ?h) [?a ${edge} ?b] ${isNode("b")} [(<= ?h ${max})]] [(${name} ?a ?b ?h) [?a ${edge} ?mid] ${isNode("mid")} [(< ?h ${max})] [(+ ?h 1) ?h2] (${name} ?mid ?b ?h2)]`;
 }

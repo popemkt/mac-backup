@@ -50,6 +50,7 @@ function fieldAttr(fieldId: NodeId): string {
 /** Discriminated so a ref's value is known to be the entity id it is. */
 type DatomValue = { isRef: true; value: number } | { isRef: false; value: unknown };
 
+// GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]] — a ref and a {t:num} share the bare-number encoding.
 function propDatomValue(pv: PropValue, ids: IdMap): DatomValue {
   if (pv.t === "ref") {
     const eid = ids.toEid.get(pv.v);

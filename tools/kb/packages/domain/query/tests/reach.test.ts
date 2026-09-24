@@ -107,6 +107,33 @@ describe("reach over a ref field", () => {
     expect(firstColumn(index.runDatalog(ANCESTORS("x", " 30")))).toEqual(["x", "y", "z"]);
   });
 
+  test.each([
+    ["a bool", { t: "bool", v: false }],
+    ["a number that is no eid", { t: "num", v: 99 }],
+    ["a string", { t: "str", v: "p1" }],
+  ] as [string, PropValue][])(
+    "%s on the edge is neither followed nor returned",
+    (_label, value) => {
+      const index = new DatascriptIndex([
+        node("p0", { props: { parent: [value, ref("p1")] } }),
+        node("p1", { props: { parent: [value] } }),
+      ]);
+      expect(firstColumn(index.runDatalog(ANCESTORS("p0")))).toEqual(["p1"]);
+      expect(firstColumn(index.runDatalog(ANCESTORS("p0", " 4")))).toEqual(["p1"]);
+      const bare = `[:find ?a :where [?me :node/id "p1"] (reach ?me :f/parent ?a)]`;
+      expect(index.runDatalog(bare)).toEqual([]);
+    },
+  );
+
+  // GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]: pins today's aliasing; flips to [] when refs and numbers are encoded apart.
+  test("a number equal to a live eid still aliases that node", () => {
+    const index = new DatascriptIndex([
+      node("p0", { props: { parent: [{ t: "num", v: 2 }] } }),
+      node("p1"),
+    ]);
+    expect(firstColumn(index.runDatalog(ANCESTORS("p0")))).toEqual(["p1"]);
+  });
+
   test("a dangling ref on the lineage is skipped", () => {
     const index = new DatascriptIndex([
       node("p0", { props: { parent: [ref("p1")] } }),

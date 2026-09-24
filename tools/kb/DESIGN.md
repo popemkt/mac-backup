@@ -968,8 +968,11 @@ provenance.
   relation, either carrier), `:node/child`, or `:f/<fieldId>` for a ref field.
   `?from` and `?to` are variables, and either end may be the bound one:
   `(reach ?me :f/parent ?anc)` walks up a lineage, `(reach ?d :f/parent ?me)`
-  walks down it. Each step and each result is a node — a dangling ref (kept
-  as its id string, see Data model) is neither followed nor returned — and a
+  walks down it. Each step and each result is a node: a dangling ref (kept
+  as its id string, see Data model), a string, a bool or a number that is
+  not an eid is neither followed nor returned. A number that equals a live
+  eid is indistinguishable from a ref to that node in the datoms
+  (GAP [[01M3A0Y5JQ5XKZMC87K34HDT2B]]). A
   cycle terminates, because the unbounded form is a set fixpoint and the
   bounded form counts hops. The compiler owns the recursive rules it emits
   (private `__kb_reach_<n>` names, so a caller's own rule cannot collide):
