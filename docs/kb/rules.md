@@ -306,6 +306,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
 - **node** — `01M1MGCPJTV66QSFCR44XG29YM`
 
+### GAP: the write check covers written values only, so a retype or a delete can strand stored ones
+
+- **expected** — Every stored value conforms to its field's declared type and every ref names a stored node, whatever order the writes came in.
+- **current** — txIntegrityError checks the values a transaction writes - those an upserted node holds that its stored version did not. Values already stored are not rechecked, so changing a field's sys.f.fieldType, deleting a node that refs name, and anything a store held before the check existed all leave nonconforming values in place.
+- **impact** — kb field type <f> number on a field full of strings succeeds and leaves each of them nonconforming; kb rm on a ref target leaves refs that name nothing. Readers still have to tolerate mismatched values, which is why the UI keeps its mismatch hint.
+- **closes** — Make a retype or delete that would strand values either fail (listing them) or carry their migration in the same transaction, and add an on-open audit that reports legacy mismatches the way migrateFieldTypeValues repairs legacy type values.
+- **node** — `01M39YM7VRD0K4H70E48R71VRP`
+
+### GAP: the write check does not enforce a ref field's target constraint
+
+- **expected** — A ref value outside the set its field declares (allowedRefIdsOf: targetQuery, targetTag or the field's children) is rejected at the same chokepoint, and with the same error, as a value of the wrong kind.
+- **current** — txIntegrityError checks that a written value's kind is one its field's type accepts and that a ref names a stored node. Only the UI's ref picker consults allowedRefIdsOf. The integrity check is pure and engine-free, while two of the three constraint carriers (targetQuery, and children, derived into EDN) resolve through an injected EDN runner it is not given.
+- **impact** — Every surface except the picker - CLI, MCP, HTTP, @kb/client - can write a ref its field excludes, for example a #gap rule naming a node that is not a #rule. The constraint reads as enforced because the UI enforces it.
+- **closes** — Hand the integrity check an EDN runner over the prospective graph (the session index already has one), then check every written ref value against allowedRefIdsOf, with a test per carrier.
+- **node** — `01M39YM7FQ9S231XW8JBA5MG0E`
+
 ### GAP: two launch paths for the kb binary
 
 - **expected** — One kb binary: the nix-built package is the only thing on PATH and the only thing .mcp.json launches.

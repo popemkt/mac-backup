@@ -17,7 +17,7 @@ import {
   type CanvasEdge,
 } from "@kb/canvas";
 import { openKb } from "../src/session.ts";
-import { ensureSystemSeed, present, SYSTEM_IDS, systemSeedNodes } from "@kb/model";
+import { ensureSystemSeed, fieldTypeValue, present, SYSTEM_IDS, systemSeedNodes } from "@kb/model";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
 
@@ -27,6 +27,23 @@ async function tempRoot(): Promise<string> {
   const root = await mkdtemp(join(import.meta.dir, "kb-canvas-"));
   roots.push(root);
   return root;
+}
+
+/** The `related` field a native edge binds through: a ref field, declared as one. */
+async function defineRelatedField(ctx: Awaited<ReturnType<typeof openKb>>) {
+  const defined = await invoke(ctx, {
+    id: "field.define",
+    input: { name: "related", id: "f.related" },
+  });
+  const typed = await invoke(ctx, {
+    id: "node.update",
+    input: {
+      id: "f.related",
+      setProps: [{ field: SYSTEM_IDS.fieldTypeField, value: fieldTypeValue("ref") }],
+    },
+  });
+  expect(typed.status).toBe("succeeded");
+  return defined;
 }
 
 afterEach(async () => {
@@ -255,10 +272,7 @@ describe("ext.canvas.tx.apply", () => {
     const root = await tempRoot();
     const ctx = await openKb(root);
 
-    const field = await invoke(ctx, {
-      id: "field.define",
-      input: { name: "related", id: "f.related" },
-    });
+    const field = await defineRelatedField(ctx);
     expect(field.status).toBe("succeeded");
 
     const src = await invoke(ctx, {
@@ -424,10 +438,7 @@ describe("ext.canvas.tx.apply", () => {
   test("one-shot bind writes prop exactly once (append is idempotent at UI layer)", async () => {
     const root = await tempRoot();
     const ctx = await openKb(root);
-    await invoke(ctx, {
-      id: "field.define",
-      input: { name: "related", id: "f.related" },
-    });
+    await defineRelatedField(ctx);
     await invoke(ctx, {
       id: "node.add",
       input: { text: "Source", id: "n.source" },
@@ -487,10 +498,7 @@ describe("ext.canvas.tx.apply", () => {
   test("optional unset on delete still works via tx.apply", async () => {
     const root = await tempRoot();
     const ctx = await openKb(root);
-    await invoke(ctx, {
-      id: "field.define",
-      input: { name: "related", id: "f.related" },
-    });
+    await defineRelatedField(ctx);
     await invoke(ctx, {
       id: "node.add",
       input: { text: "Source", id: "n.source" },

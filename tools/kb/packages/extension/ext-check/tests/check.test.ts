@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer, Option } from "effect";
 import * as FileSystem from "effect/FileSystem";
-import { canonicalJsonl } from "@kb/model";
+import { canonicalJsonl, fieldTypeValue } from "@kb/model";
 import {
   kbCtxLayer,
   kbStoreLayer,
@@ -23,6 +23,11 @@ function node(id: string, text: string, props: KbNode["props"] = {}): KbNode {
 
 function typed(id: string, text: string, type: string, props: KbNode["props"] = {}): KbNode {
   return node(id, text, { ...props, "sys.f.type": [{ t: "ref", v: type }] });
+}
+
+/** A field that holds refs, as the repo graph declares these. */
+function refField(id: string, text: string): KbNode {
+  return typed(id, text, "sys.field", { "sys.f.fieldType": [fieldTypeValue("ref")] });
 }
 
 function applyTx(nodes: readonly KbNode[], tx: StoreTx): KbNode[] {
@@ -226,13 +231,15 @@ function fixture(): Fixture {
     typed("f.home", "home", "sys.field"),
     // Enforcement levels are the field's children — the option set shape.
     // No `#enforcement-level` / `#check-surface` supertag exists to mark them.
-    { ...typed("f.enforcement", "enforcement", "sys.field"), children: ["v.prose", "v.harness"] },
+    { ...refField("f.enforcement", "enforcement"), children: ["v.prose", "v.harness"] },
     typed("f.gate", "gate", "sys.field"),
-    typed("f.check", "check", "sys.field"),
-    typed("f.surface", "surface", "sys.field"),
+    refField("f.check", "check"),
+    refField("f.surface", "surface"),
     typed("f.evidence", "evidence", "sys.field"),
     typed("f.invocation", "invocation", "sys.field"),
-    typed("f.blocking", "blocking", "sys.field"),
+    typed("f.blocking", "blocking", "sys.field", {
+      "sys.f.fieldType": [fieldTypeValue("checkbox")],
+    }),
     node("v.prose", "prose"),
     node("v.harness", "harness"),
     node("check.harness", "harness-check", {

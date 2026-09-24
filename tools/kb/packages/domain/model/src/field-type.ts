@@ -87,6 +87,34 @@ export function acceptsValueKind(type: FieldType, value: PropValue): boolean {
   return FIELD_VALUE_KINDS[type].includes(value.t);
 }
 
+/**
+ * Why the field `fieldId` cannot hold `value`, or null when it can.
+ *
+ * Conformance is two facts about the graph: the value's kind is one the
+ * field's declared type accepts, and a ref names a node the graph holds.
+ * `nodes` is the graph the value would land in, so the field node and the ref
+ * target are both read from it — a field declared, or a target created, in the
+ * same transaction counts. A key with no field node behind it declares nothing,
+ * which `fieldTypeOf` reads as text like any other undeclared type.
+ *
+ * GAP [[01M39YM7FQ9S231XW8JBA5MG0E]] — a ref field's target constraint
+ * (`allowedRefIdsOf`) is not checked here; only the UI picker applies it.
+ */
+export function valueConformanceError(
+  fieldId: NodeId,
+  value: PropValue,
+  nodes: ReadonlyMap<NodeId, Pick<NodeLike, "props">>,
+): string | null {
+  const type = fieldTypeOf(nodes.get(fieldId)?.props);
+  if (!acceptsValueKind(type, value)) {
+    return `field ${fieldId} is ${type} and cannot hold ${JSON.stringify(value)}`;
+  }
+  if (value.t === "ref" && !nodes.has(value.v)) {
+    return `field ${fieldId} refs missing node ${value.v}`;
+  }
+  return null;
+}
+
 /** The value written into a field node's type slot. */
 export function fieldTypeValue(type: FieldType): PropValue {
   return { t: "ref", v: FIELD_TYPE_OPTION_IDS[type] };

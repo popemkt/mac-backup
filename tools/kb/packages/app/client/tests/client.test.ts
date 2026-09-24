@@ -5,7 +5,7 @@ import type { FileSystem } from "effect/FileSystem";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { KbTx } from "@kb/model";
+import { SYSTEM_IDS, fieldTypeValue, systemSeedNodes, type KbTx, type PropValue } from "@kb/model";
 import { DatascriptIndex } from "@kb/query";
 import {
   STORE_BACKENDS,
@@ -216,6 +216,45 @@ describe.each([...STORE_BACKENDS])("over a %s store", (backend) => {
       ),
     ).toBe("invalid_input");
     expect(await client.snapshot()).toEqual(empty);
+  });
+
+  test("a value its field's declared type does not accept is refused, and nothing is stored", async () => {
+    const client = await openClient(await workspace(backend));
+    const empty = await client.snapshot();
+    const estimate = {
+      ...node("f.estimate", "estimate"),
+      props: {
+        [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: SYSTEM_IDS.field }],
+        [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("number")],
+      },
+    };
+    const seeded = await client.commit({
+      expectedRevision: empty.revision,
+      upserts: [...systemSeedNodes(AT), estimate],
+      deletes: [],
+    });
+    const task = (value: PropValue): KbNode => ({
+      ...node("n.task"),
+      props: { "f.estimate": [value] },
+    });
+    expect(
+      await codeOf(
+        client.commit({
+          expectedRevision: seeded.revision,
+          upserts: [task({ t: "str", v: "banana" })],
+          deletes: [],
+        }),
+      ),
+    ).toBe("invalid_input");
+    expect((await client.snapshot()).revision).toBe(seeded.revision);
+    const landed = await client.commit({
+      expectedRevision: seeded.revision,
+      upserts: [task({ t: "num", v: 3 })],
+      deletes: [],
+    });
+    expect(landed.nodes.find((n) => n.id === "n.task")?.props["f.estimate"]).toEqual([
+      { t: "num", v: 3 },
+    ]);
   });
 
   test("a malformed query is an invalid_input error", async () => {

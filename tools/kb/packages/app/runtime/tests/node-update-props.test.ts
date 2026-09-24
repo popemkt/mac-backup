@@ -17,25 +17,33 @@ test("node.update replaces an entire field atomically instead of erasing the new
   const field = "sys.f.lens.renderer";
   await invoke(ctx, {
     id: "node.update",
-    input: { id: "n.perspective", setProps: [{ field, value: { t: "str", v: "force2d" } }] },
+    input: {
+      id: "n.perspective",
+      setProps: [{ field, value: { t: "ref", v: "sys.graph.renderer.force2d" } }],
+    },
   });
-  for (const renderer of ["cluster", "tree", "force3d", "force2d"]) {
+  for (const renderer of [
+    "sys.graph.renderer.cluster",
+    "sys.graph.renderer.tree",
+    "sys.graph.renderer.force3d",
+    "sys.graph.renderer.force2d",
+  ]) {
     const receipt = await invoke(ctx, {
       id: "node.update",
       input: {
         id: "n.perspective",
         unsetProps: [{ field }],
-        setProps: [{ field, value: { t: "str", v: renderer } }],
+        setProps: [{ field, value: { t: "ref", v: renderer } }],
       },
     });
     expect(receipt.status).toBe("succeeded");
     if (receipt.status !== "succeeded") throw new Error("replacement failed");
     expect((receipt.output as { node: KbNode }).node.props[field]).toEqual([
-      { t: "str", v: renderer },
+      { t: "ref", v: renderer },
     ]);
   }
   const reopened = await openKb(root);
   expect(reopened.nodes.find((node) => node.id === "n.perspective")?.props[field]).toEqual([
-    { t: "str", v: "force2d" },
+    { t: "ref", v: "sys.graph.renderer.force2d" },
   ]);
 });

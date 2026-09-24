@@ -1,4 +1,5 @@
 import { canonicalJson } from "./canonical.ts";
+import { valueConformanceError } from "./field-type.ts";
 import type { KbNode, NodeId } from "./model.ts";
 import { present } from "./present.ts";
 
@@ -108,7 +109,42 @@ function cycleError(next: Map<NodeId, KbNode>, parentOf: Map<NodeId, NodeId>): s
   return null;
 }
 
-/** Validate the prospective outline before it can be persisted. */
+/**
+ * The first value a transaction writes that its field cannot hold.
+ *
+ * "Writes" is the upserted node's values that its stored version did not hold
+ * under the same field — an upsert replaces the whole node, so the unchanged
+ * rest of it is carried, not written. Checking only the written values is what
+ * keeps a store with legacy values editable: renaming a node never fails over
+ * a value it has held since before its field was typed.
+ *
+ * GAP [[01M39YM7VRD0K4H70E48R71VRP]] — values already stored are not
+ * rechecked, so a retype or a delete in `tx` can strand them.
+ */
+function writtenValueError(
+  before: Map<NodeId, KbNode>,
+  next: Map<NodeId, KbNode>,
+  tx: StoreTx,
+): string | null {
+  for (const node of tx.upserts) {
+    const stored = before.get(node.id)?.props ?? {};
+    for (const [fieldId, values] of Object.entries(node.props)) {
+      const held = new Set((stored[fieldId] ?? []).map((value) => canonicalJson(value)));
+      for (const value of values) {
+        if (held.has(canonicalJson(value))) continue;
+        const err = valueConformanceError(fieldId, value, next);
+        if (err !== null) return `node ${node.id}: ${err}`;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Validate the prospective graph before it can be persisted: the outline is a
+ * forest (every child exists, has one parent, no cycles, no orphaned
+ * descendants), and every value the transaction writes conforms to its field.
+ */
 export function txIntegrityError(previous: KbNode[], tx: StoreTx): string | null {
   const before = new Map(previous.map((node) => [node.id, node]));
   const next = applyTx(previous, tx);
@@ -117,7 +153,9 @@ export function txIntegrityError(previous: KbNode[], tx: StoreTx): string | null
   const parentOf = parentMap(next);
   const orphan = orphanError(before, next, parentOf, tx.deletes);
   if (orphan !== null) return orphan;
-  return cycleError(next, parentOf);
+  const cycle = cycleError(next, parentOf);
+  if (cycle !== null) return cycle;
+  return writtenValueError(before, next, tx);
 }
 
 /**

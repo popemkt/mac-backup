@@ -32,6 +32,25 @@ describe("browser action runtime", () => {
     });
   });
 
+  it("refuses a local write its field cannot hold, before anything is pushed", async () => {
+    useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "api");
+    const post = vi.fn();
+    setPostAction(post);
+
+    // `sys.f.hidden` is a checkbox field; the local replica commits through
+    // the same integrity check the server does.
+    const receipt = await invoke("node.update", {
+      id: "n.root-a",
+      setProps: [{ field: "sys.f.hidden", value: { t: "str", v: "yes" } }],
+    });
+    expect(receipt).toMatchObject({ status: "failed", code: "invalid_input" });
+    expect(useOutlineStore.getState().index?.getNode("n.root-a")?.props["sys.f.hidden"]).toBe(
+      undefined,
+    );
+    await waitForBrowserPushes();
+    expect(post).not.toHaveBeenCalled();
+  });
+
   it("keeps fifty local node updates incremental", async () => {
     useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 1, "fixtures");
     const index = useOutlineStore.getState().index;

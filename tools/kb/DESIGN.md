@@ -486,6 +486,23 @@ type PropValue =
   table's Name column. It holds no values (text is `KbNode.text`, not a prop);
   it exists so a view that sorts or sizes by name refers to a node, exactly as
   it does for every other column, instead of to a sentinel id no node has.
+- **A written value conforms to its field, or the write fails.** Tags never
+  restrict which fields a node carries; a field's declared type does restrict
+  what it holds. Each type accepts fixed value kinds (`acceptsValueKind` in
+  `field-type.ts`, the one table the UI's mismatch hint also reads): text and
+  url → `str`, number → `num`, checkbox → `bool`, ref → `ref`, and date →
+  `str` or `date` (two carriers, a recorded gap). A `ref` must also name a node
+  the graph stores. The check (`valueConformanceError`) is part of
+  `txIntegrityError`, so it runs where outline integrity already runs —
+  `persistEffect`, which every action on every surface (CLI, MCP, HTTP/WS, the
+  browser's local replica) commits through, and `@kb/client`'s commit — and a
+  violation is the same `invalid_input` DomainError. What it checks is the
+  values a transaction _writes_: those an upserted node holds that its stored
+  version did not. Values already stored are not rechecked, so a legacy store
+  stays editable and a node's unrelated edit never fails over an old value;
+  the cost is that a retype or a delete can strand values (a recorded gap). A
+  ref field's _target constraint_ (`allowedRefIdsOf`) is not part of the check
+  yet — only the picker applies it (a recorded gap).
 - **Name resolution**: CLI/actions accept field/tag _names_; resolver does a
   unique-text lookup among `sys.field`/`sys.tag` nodes (error on ambiguity,
   `--create` to mint). Resolution is dynamic at load — at our scale (\<\<100k
