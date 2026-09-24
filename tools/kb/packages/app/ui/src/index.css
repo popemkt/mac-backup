@@ -2,7 +2,7 @@
  * kb stylesheet entry. Three token layers (DESIGN-UI.md → Design tokens):
  *
  *   1. design-system.css — the values a skin chooses (colour, type, elevation,
- *      radius, faces).
+ *      radius, border, density, faces); design-systems/*.css redefine them.
  *   2. the `@theme inline` block below — bridges those values into Tailwind's
  *      namespaces, after resetting each namespace kb owns, so the only
  *      utilities that exist are the ones the design system defines.
@@ -15,6 +15,10 @@
 @import "@fontsource-variable/inter/wght.css";
 @import "@fontsource-variable/outfit";
 @import "./design-system.css";
+/* The other design systems, after the default so each overrides it (DESIGN-UI.md
+ * → Design tokens → Design systems). One file per id in lib/theme.ts. */
+@import "./design-systems/paper.css";
+@import "./design-systems/terminal.css";
 @import "./tokens.css";
 @import "./motion.css";
 

@@ -1,20 +1,22 @@
 /**
- * The design system: every value a skin chooses, and nothing else.
+ * The default design system, `kb`: every value a skin chooses, and nothing
+ * else.
  *
  * This file is layer 1 of three (DESIGN-UI.md → Design tokens). It holds
- * plain custom properties on `:root` — colours (with their `.dark` set), the
- * type scale, elevation, the radius base, border width, density, faces and
- * weights. It names no
- * utility and no component:
- * `index.css`'s `@theme inline` block bridges these values into Tailwind's
- * namespaces (layer 2), and `tokens.css` composes them into component roles
- * such as `.kb-text` (layer 3). Swapping the design system means redefining
- * these properties, and only these, on a different selector.
+ * plain custom properties — colours (with their `.dark` set), the type scale,
+ * elevation, the radius base, border width, density, faces and weights. It
+ * names no utility and no component: `index.css`'s `@theme inline` block
+ * bridges these values into Tailwind's namespaces (layer 2), and `tokens.css`
+ * composes them into component roles such as `.kb-text` (layer 3).
+ *
+ * The other design systems (`design-systems/<id>.css`) redefine these
+ * properties, and only these, under `[data-theme="<id>"]`. This set also
+ * answers to `[data-theme="kb"]`, so a subtree can show the default inside
+ * another system (the preference picker's swatches do).
  *
  * Palette ported from nxus apps/nxus-editor/src/styles.css (DESIGN-RESKIN
- * §1.1). Default face is Inter Variable (Tana parity); Outfit remains an
- * opt-in pref via <html data-font>. Metric-matched fallbacks keep swap
- * CLS-free.
+ * §1.1). Default face is Inter Variable (Tana parity). A metric-matched
+ * fallback keeps the swap CLS-free.
  */
 
 /* Arial reshaped to Inter metrics — swap must not reflow (item 1 / i10). */
@@ -27,16 +29,8 @@
   line-gap-override: 0%;
 }
 
-@font-face {
-  font-family: "Outfit Fallback";
-  src: local("Arial"), local("Helvetica Neue"), local("Helvetica");
-  size-adjust: 105%;
-  ascent-override: 92%;
-  descent-override: 24%;
-  line-gap-override: 0%;
-}
-
-:root {
+:root,
+[data-theme="kb"] {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -121,9 +115,9 @@
   --elevation-overlay: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
   --elevation-modal: 0 25px 50px -12px rgb(0 0 0 / 0.25);
 
-  /* Faces. `--app-font` is the UI face (the `data-font` pref overrides it
-   * below); `--app-font-mono` sets ids, code and EDN; `--app-font-graph` sets
-   * graph labels, in the DOM and on canvas (lib/graph-label.ts). */
+  /* Faces. `--app-font` is the UI face; `--app-font-mono` sets ids, code
+   * and EDN; `--app-font-graph` sets graph labels, in the DOM and on canvas
+   * (lib/graph-label.ts). */
   --app-font: "Inter Variable", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
   --app-font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
@@ -133,7 +127,8 @@
   --font-weight-ui: 500;
 }
 
-.dark {
+.dark,
+.dark [data-theme="kb"] {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -180,8 +175,4 @@
   --lab-edge: oklch(0.1 0.035 290);
   --lab-hue: oklch(0.5 0.14 292);
   --lab-ink: oklch(0.93 0.03 290);
-}
-
-html[data-font="outfit"] {
-  --app-font: "Outfit Variable", "Outfit Fallback", ui-sans-serif, system-ui, sans-serif;
 }

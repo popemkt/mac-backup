@@ -310,6 +310,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Extract the hull geometry first (it is pure and testable), then the renderer object.
 - **node** — `01M1MGCQ3JT5GE3FY5XJ9EB67Q`
 
+### GAP: the default design system's light accent and warning sit below body-text AA
+
+- **expected** — Every design system, the default included, meets WCAG AA 4.5:1 for each text/ground pair the contrast guard checks (tools/kb/packages/app/ui/src/lib/design-systems.test.ts).
+- **current** — kb light: primary-foreground on primary and sidebar-primary 3.05:1, primary (reference links) on background 3.14:1, muted-foreground on muted 4.35:1, warning on background 2.25:1. They predate the guard and are listed in its BELOW_BODY_AA set.
+- **impact** — Reference links, primary buttons and inline warnings in the default light theme are harder to read than AA allows, for low-vision readers especially.
+- **closes** — Darken the kb light --primary, --muted-foreground and --warning (a visible change to the default, which f2 was held not to make), then delete the BELOW_BODY_AA entries; the guard fails an entry that starts meeting AA.
+- **node** — `01M3ASKN7S16Y845QA8185BV7V`
+
 ### GAP: the graph query-error chip colours itself with Tailwind amber instead of the warning token
 
 - **expected** — The chip reads the design system's warning colour (bg-warning/10 text-warning), like every other status surface, so a design-system swap re-colours it.

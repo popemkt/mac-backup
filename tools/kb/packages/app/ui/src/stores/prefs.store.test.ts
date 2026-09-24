@@ -84,18 +84,23 @@ describe("loadPrefs", () => {
 
   it("parses valid values and rejects unknown ones", () => {
     expect(
-      prefs.loadPrefs('{"theme":"dark","font":"inter","width":"full","sidebarOpen":false}', 1280),
+      prefs.loadPrefs(
+        '{"theme":"dark","designSystem":"paper","width":"full","sidebarOpen":false}',
+        1280,
+      ),
     ).toEqual({
       theme: "dark",
-      font: "inter",
+      designSystem: "paper",
       width: "full",
       sidebarOpen: false,
       enabledPlugins: [],
     });
-    expect(prefs.loadPrefs('{"theme":"neon","font":"comic","width":"wide"}', 1280)).toEqual({
-      ...prefs.DEFAULT_PREFS,
-      sidebarOpen: true,
-    });
+    expect(prefs.loadPrefs('{"theme":"neon","designSystem":"comic","width":"wide"}', 1280)).toEqual(
+      {
+        ...prefs.DEFAULT_PREFS,
+        sidebarOpen: true,
+      },
+    );
   });
 
   it("keeps optional plugins off unless the payload names them as strings", () => {
@@ -111,6 +116,12 @@ describe("loadPrefs", () => {
     const loaded = prefs.loadPrefs('{"theme":"dark","showAllFields":true}', 1280);
     expect(loaded).toEqual({ ...prefs.DEFAULT_PREFS, theme: "dark" });
     expect("showAllFields" in loaded).toBe(false);
+  });
+
+  it("ignores the retired font pref: the face belongs to the design system", () => {
+    const loaded = prefs.loadPrefs('{"theme":"dark","font":"outfit"}', 1280);
+    expect(loaded).toEqual({ ...prefs.DEFAULT_PREFS, theme: "dark" });
+    expect("font" in loaded).toBe(false);
   });
 
   it("defaults sidebarOpen from viewport when key is absent", () => {
@@ -136,13 +147,13 @@ describe("resolveDark", () => {
 describe("usePrefsStore", () => {
   it("persists setter changes to localStorage[kb-prefs]", () => {
     prefs.usePrefsStore.getState().setTheme("dark");
-    prefs.usePrefsStore.getState().setFont("inter");
+    prefs.usePrefsStore.getState().setDesignSystem("terminal");
     prefs.usePrefsStore.getState().setWidth("full");
     prefs.usePrefsStore.getState().setSidebarOpen(false);
     const raw = (g.localStorage as Storage).getItem(prefs.PREFS_STORAGE_KEY);
     expect(JSON.parse(present(raw, "raw json"))).toEqual({
       theme: "dark",
-      font: "inter",
+      designSystem: "terminal",
       width: "full",
       sidebarOpen: false,
       enabledPlugins: [],
@@ -168,8 +179,9 @@ describe("usePrefsStore", () => {
     expect(JSON.parse(present(raw, "raw json")).sidebarOpen).toBe(false);
   });
 
-  it("applies theme class + font attribute to <html>", () => {
+  it("applies theme class + design-system attribute to <html>", () => {
     prefs.usePrefsStore.getState().setTheme("dark");
+    prefs.usePrefsStore.getState().setDesignSystem("kb");
     const root = (
       g.document as {
         documentElement: {
@@ -179,7 +191,7 @@ describe("usePrefsStore", () => {
       }
     ).documentElement;
     expect(root.classList.contains("dark")).toBe(true);
-    expect(root.getAttribute("data-font")).toBe("inter");
+    expect(root.getAttribute("data-theme")).toBe("kb");
     expect(root.getAttribute("data-width")).toBe("full");
 
     prefs.usePrefsStore.getState().setTheme("light");
@@ -225,25 +237,25 @@ describe("initPrefs cross-tab sync", () => {
   it("storage event updates store state and re-applies html attrs", () => {
     (g.localStorage as Storage).setItem(
       prefs.PREFS_STORAGE_KEY,
-      JSON.stringify({ theme: "dark", font: "inter", width: "full" }),
+      JSON.stringify({ theme: "dark", designSystem: "kb", width: "full" }),
     );
 
     prefs.initPrefs();
 
     (g.localStorage as Storage).setItem(
       prefs.PREFS_STORAGE_KEY,
-      JSON.stringify({ theme: "light", font: "outfit", width: "centered" }),
+      JSON.stringify({ theme: "light", designSystem: "paper", width: "centered" }),
     );
 
     (g.window as ReturnType<typeof fakeWindow>).dispatchEvent({
       type: "storage",
       key: prefs.PREFS_STORAGE_KEY,
-      newValue: '{"theme":"light","font":"outfit","width":"centered"}',
+      newValue: '{"theme":"light","designSystem":"paper","width":"centered"}',
     });
 
     expect(prefs.usePrefsStore.getState()).toMatchObject({
       theme: "light",
-      font: "outfit",
+      designSystem: "paper",
       width: "centered",
     });
 
@@ -256,7 +268,7 @@ describe("initPrefs cross-tab sync", () => {
       }
     ).documentElement;
     expect(root.classList.contains("dark")).toBe(false);
-    expect(root.getAttribute("data-font")).toBe("outfit");
+    expect(root.getAttribute("data-theme")).toBe("paper");
     expect(root.getAttribute("data-width")).toBe("centered");
   });
 });

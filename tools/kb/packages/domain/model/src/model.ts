@@ -99,6 +99,7 @@ export const SYSTEM_IDS = {
   /** Device prefs + shell commands (DESIGN-RESKIN §1.7 W8a). */
   cmdPreferences: "sys.cmd.preferences",
   cmdToggleTheme: "sys.cmd.toggle-theme",
+  cmdSwitchDesignSystem: "sys.cmd.switch-design-system",
   cmdToggleWidth: "sys.cmd.toggle-width",
   cmdDebugShowFields: "sys.cmd.debug-show-fields",
   cmdExpandAll: "sys.cmd.expand-all",

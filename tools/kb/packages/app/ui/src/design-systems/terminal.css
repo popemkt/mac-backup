@@ -1,0 +1,135 @@
+/**
+ * Terminal: dark-first phosphor. One monospace face for everything, tight
+ * corners, a compact density and elevation drawn as a faint accent glow
+ * rather than a shadow. Light is a green-ink printout on white.
+ *
+ * A design system overrides layer 1 and nothing else (DESIGN-UI.md → Design
+ * tokens → Design systems). The JSON Canvas presets are document colours
+ * and stay the default's; `--lab-accent` derives from `--primary`.
+ */
+
+[data-theme="terminal"] {
+  --background: oklch(0.985 0.005 150);
+  --foreground: oklch(0.22 0.03 150);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.03 150);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.03 150);
+  --primary: oklch(0.46 0.12 150);
+  --primary-foreground: oklch(0.985 0.01 150);
+  --secondary: oklch(0.95 0.012 150);
+  --secondary-foreground: oklch(0.22 0.03 150);
+  --muted: oklch(0.955 0.01 150);
+  --muted-foreground: oklch(0.46 0.04 150);
+  --accent: oklch(0.93 0.02 150);
+  --accent-foreground: oklch(0.2 0.03 150);
+  --destructive: oklch(0.52 0.2 27);
+  --border: oklch(0.22 0.03 150 / 18%);
+  --input: oklch(0.22 0.03 150 / 24%);
+  --ring: oklch(0.46 0.12 150 / 60%);
+  --chart-1: oklch(0.82 0.15 150);
+  --chart-2: oklch(0.7 0.14 150);
+  --chart-3: oklch(0.58 0.13 150);
+  --chart-4: oklch(0.48 0.11 160);
+  --chart-5: oklch(0.38 0.08 170);
+  --radius: 4px;
+  --border-width: 1px;
+  --density: 0.875;
+  --sidebar: oklch(0.965 0.008 150);
+  --sidebar-foreground: oklch(0.22 0.03 150);
+  --sidebar-primary: oklch(0.46 0.12 150);
+  --sidebar-primary-foreground: oklch(0.985 0.01 150);
+  --sidebar-accent: oklch(0.925 0.02 150);
+  --sidebar-accent-foreground: oklch(0.2 0.03 150);
+  --sidebar-border: oklch(0.22 0.03 150 / 14%);
+  --sidebar-ring: oklch(0.46 0.12 150 / 60%);
+  --warning: oklch(0.55 0.12 80);
+  --success: oklch(0.56 0.14 150);
+  --info: oklch(0.55 0.12 220);
+  --scrim: oklch(0.08 0.02 150);
+  --knob: oklch(1 0 0);
+  --lab-ground: oklch(0.96 0.015 150);
+  --lab-edge: oklch(0.88 0.03 150);
+  --lab-hue: oklch(0.5 0.1 150);
+  --lab-ink: oklch(0.25 0.05 150);
+
+  /* Monospace runs wide, so every step sits half a pixel or so below kb's. */
+  --type-micro: 9px;
+  --type-caption: 10px;
+  --type-label: 10.5px;
+  --type-tag: 11px;
+  --type-meta: 11.5px;
+  --type-ui: 12.5px;
+  --type-note: 13px;
+  --type-body: 13.5px;
+  --type-lead: 15px;
+  --type-heading: 17px;
+  --type-title: 19px;
+
+  /* No cast shadow: a surface is outlined in the accent and glows faintly,
+   * more the higher it floats. */
+  --elevation-edge: 0 0 0 1px color-mix(in oklch, var(--primary) 18%, transparent);
+  --elevation-raised: 0 0 0 1px color-mix(in oklch, var(--primary) 22%, transparent);
+  --elevation-lifted:
+    0 0 0 1px color-mix(in oklch, var(--primary) 28%, transparent),
+    0 0 8px -2px color-mix(in oklch, var(--primary) 25%, transparent);
+  --elevation-floating:
+    0 0 0 1px color-mix(in oklch, var(--primary) 32%, transparent),
+    0 0 14px -4px color-mix(in oklch, var(--primary) 30%, transparent);
+  --elevation-overlay:
+    0 0 0 1px color-mix(in oklch, var(--primary) 36%, transparent),
+    0 0 20px -6px color-mix(in oklch, var(--primary) 35%, transparent);
+  --elevation-modal:
+    0 0 0 1px color-mix(in oklch, var(--primary) 40%, transparent),
+    0 0 32px -8px color-mix(in oklch, var(--primary) 45%, transparent);
+
+  --app-font:
+    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --app-font-mono:
+    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --app-font-graph: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --font-weight-body: 400;
+  --font-weight-ui: 500;
+}
+
+.dark[data-theme="terminal"],
+.dark [data-theme="terminal"] {
+  --background: oklch(0.14 0.012 150);
+  --foreground: oklch(0.9 0.06 150);
+  --card: oklch(0.17 0.014 150);
+  --card-foreground: oklch(0.9 0.06 150);
+  --popover: oklch(0.17 0.014 150);
+  --popover-foreground: oklch(0.9 0.06 150);
+  --primary: oklch(0.83 0.19 150);
+  --primary-foreground: oklch(0.16 0.03 150);
+  --secondary: oklch(0.22 0.02 150);
+  --secondary-foreground: oklch(0.9 0.06 150);
+  --muted: oklch(0.2 0.016 150);
+  --muted-foreground: oklch(0.72 0.07 150);
+  --accent: oklch(0.25 0.03 150);
+  --accent-foreground: oklch(0.95 0.06 150);
+  --destructive: oklch(0.72 0.18 25);
+  --border: oklch(0.83 0.19 150 / 20%);
+  --input: oklch(0.83 0.19 150 / 26%);
+  --ring: oklch(0.83 0.19 150 / 60%);
+  --chart-1: oklch(0.9 0.17 150);
+  --chart-2: oklch(0.8 0.17 150);
+  --chart-3: oklch(0.7 0.16 150);
+  --chart-4: oklch(0.6 0.14 160);
+  --chart-5: oklch(0.5 0.1 170);
+  --sidebar: oklch(0.12 0.01 150);
+  --sidebar-foreground: oklch(0.9 0.06 150);
+  --sidebar-primary: oklch(0.83 0.19 150);
+  --sidebar-primary-foreground: oklch(0.16 0.03 150);
+  --sidebar-accent: oklch(0.22 0.025 150);
+  --sidebar-accent-foreground: oklch(0.95 0.06 150);
+  --sidebar-border: oklch(0.83 0.19 150 / 16%);
+  --sidebar-ring: oklch(0.83 0.19 150 / 60%);
+  --warning: oklch(0.86 0.16 90);
+  --success: oklch(0.8 0.17 150);
+  --info: oklch(0.8 0.11 220);
+  --lab-ground: oklch(0.13 0.02 150);
+  --lab-edge: oklch(0.06 0.012 150);
+  --lab-hue: oklch(0.55 0.14 150);
+  --lab-ink: oklch(0.92 0.08 150);
+}

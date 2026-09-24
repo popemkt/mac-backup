@@ -604,15 +604,16 @@ budget and the population invariant are tests; everything else here is prose
 
 ## Design tokens
 
-A whole design system (colour, type, elevation, radius, faces) can be swapped
-by redefining one set of custom properties. Components never carry a raw
-value, so nothing has to be edited beside that set.
+A whole design system (colour, type, faces, weights, radius, elevation,
+border width, density) can be swapped by redefining one set of custom
+properties. Components never carry a raw value, so nothing has to be edited
+beside that set.
 
 ### Layers
 
 | layer | file | holds | may name |
 |---|---|---|---|
-| 1. design system | `ui/src/design-system.css` | the values a skin chooses, as plain custom properties on `:root`, with the colour overrides under `.dark` | values only |
+| 1. design system | `ui/src/design-system.css` (the default), `ui/src/design-systems/<id>.css` (the others) | the values a skin chooses, as plain custom properties, with the colour overrides for dark | values only |
 | 2. bridge | `ui/src/index.css`, `@theme inline` | the mapping from layer 1 into Tailwind's namespaces (`--color-*`, `--text-*`, `--font-*`, …) | layer 1 |
 | 3. component roles | `ui/src/tokens.css` | row metrics, and the classes that compose layer 1 into a role (`.kb-text` is body text at the body step, `.kb-tag` a chip at the tag step) | layer 1 |
 
@@ -627,11 +628,93 @@ For every namespace kb owns, the bridge first resets Tailwind's defaults
 system's. A Tailwind default such as `text-sm` does not compile at all, so it
 cannot pass as tokenized while bypassing the scale.
 
-**Swapping a design system** means writing a block that redefines the layer-1
-properties on its own selector. Layers 2 and 3 and the components do not
-change. The selector that chooses between design systems, and the preference
-behind it, are the next wave item (f2). Layer 1 is the contract that item
-fills.
+### Design systems
+
+A design system is one complete set of layer-1 values, with a light and a
+dark variant. Three ship:
+
+| id | character |
+|---|---|
+| `kb` (default) | the nxus palette: neutral grounds, a warm amber accent, Inter, 8px corners |
+| `paper` | warm off-white and ink, an ink-blue accent; the platform serif (`ui-serif`, New York on macOS, so nothing is downloaded); 5px corners, 0.5px hairline borders, soft low shadows, density 1.08. Dark is warm charcoal |
+| `terminal` | dark-first phosphor green on near-black; one monospace face throughout, a type scale half a step smaller to suit it; 4px corners, density 0.875, and elevation drawn as an accent outline and glow rather than a cast shadow. Light is green ink on white |
+
+**The mechanism.** `<html data-theme="<id>">` picks the system, and the
+`.dark` class picks its variant, as it always has. The default is layer 1
+itself: `design-system.css` declares its values on `:root, [data-theme="kb"]`
+and its dark set on `.dark, .dark [data-theme="kb"]`. Every other system is
+one stylesheet, `design-systems/<id>.css`, holding exactly two blocks:
+
+```css
+[data-theme="paper"] { /* every layer-1 value: base and light colours */ }
+.dark[data-theme="paper"],
+.dark [data-theme="paper"] { /* the colours the default varies in dark */ }
+```
+
+`index.css` imports each one after `design-system.css`, so a system's base
+block beats `.dark` (equal specificity, later source) and its dark block
+beats both (higher specificity). The selectors are attributes, not
+`html[…]`, so the same blocks paint any subtree that carries the attribute:
+the preference picker's swatches are live samples of each system, not
+pictures of it.
+
+**The preference.** `designSystem` sits in `kb-prefs` beside `theme` and
+`width` (`stores/prefs.store.ts`). `applyPrefs` writes it to `<html>`, and
+the blocking script in `index.html` writes it before first paint, as it does
+the `.dark` class, so there is no flash. A stored id without a stylesheet
+paints as the default, and the store corrects it on boot. It is chosen in
+Preferences → design (one live swatch per system) or by the palette's
+*Switch design system* command (`sys.cmd.switch-design-system`), which steps
+through the registry. Switching crossfades like a theme change.
+
+The UI face used to be a preference of its own (`font`: Inter or Outfit).
+A face is a design-system value, and a second control over one token would
+have been a second skin mechanism beside the first, with combinations no
+guard covers, so it was folded in: a stored `font` is ignored and dropped on
+the next write.
+
+**Canvas and WebGL** re-read on the one appearance signal (see Radius,
+borders, faces, colour → *Canvas renderers re-read on one signal*); a
+design-system change is an appearance change like light/dark.
+
+**The registry** is `DESIGN_SYSTEM_IDS` in `lib/theme.ts`, with a label per
+id; the preference's schema, the picker and the command read it.
+
+**Guards** (`lib/design-systems.test.ts`, over the stylesheets through
+`lib/design-system-sheets.ts`):
+
+- *registry ↔ stylesheets*: one stylesheet per non-default id and none
+  without one; each holds exactly its two blocks; `index.css` imports each
+  after the default and before the roles.
+- *completeness*: a system restates every token the default sets, in every
+  variant the default sets it. Two exceptions, and only these: **shared**
+  tokens (the JSON Canvas presets, `--canvas-color-*`, are document colours
+  — a card saved as red is red in every skin — so no system may set them)
+  and **derived** tokens (a default whose value is only `var(--other)`, such
+  as `--lab-accent`, follows that token and is inherited unless restated).
+  A system may set no token the default does not.
+- *contrast*: for every system and variant, each text/ground pair
+  (foreground on background, card, popover, secondary, accent, muted and
+  sidebar surfaces; muted text; the accent as link text and as a fill;
+  destructive and warning text; lab ink on lab ground) meets WCAG AA for
+  body text, 4.5:1, computed from the oklch values in the CSS. The default's
+  light theme predates the guard and falls short in five pairs; they are
+  listed, under a gap, and an entry that starts passing fails as stale.
+- the lab's bloom bound (`embers/heat.test.ts`) runs over every system's
+  accent in both variants.
+
+**Adding a design system:**
+
+1. Add the id and its label to `lib/theme.ts`.
+2. Write `design-systems/<id>.css` with the two blocks above. Start from a
+   copy of the default's values: the completeness guard names every token
+   still missing, and the contrast guard every pair below AA.
+3. Import it in `index.css` next to the others.
+4. Look at it: every surface in both variants, the graph renderers and the
+   lab included (they read the same tokens).
+
+Nothing else changes: layers 2 and 3, the components, the picker and the
+command all follow the registry and the tokens.
 
 ### Type scale
 
@@ -710,7 +793,8 @@ is.
   row metrics (`--kb-row-h`, `--kb-indent`, 24px each at density 1) from it.
   Density 1 is Tailwind's own unit, so it reproduces the unscaled layout
   exactly.
-- **Faces.** `--app-font` is the UI face, switched by the `data-font` pref.
+- **Faces.** `--app-font` is the UI face, a design-system value like any
+  other (Design systems, above).
   `--app-font-mono` sets ids, code and EDN (`font-mono`, `.kb-md-code`).
   `--app-font-graph` sets graph labels: `font-graph` in the DOM, and on
   canvas through `graphLabelFont()` (`lib/graph-label.ts`), because a canvas

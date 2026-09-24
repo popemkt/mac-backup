@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { definePlugin } from "@kb/plugin";
 import { present } from "@kb/model";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
+import { DESIGN_SYSTEMS } from "@/lib/theme";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PreferencesPopover } from "./preferences-popover";
@@ -59,6 +60,28 @@ describe("PreferencesPopover plugins", () => {
       select.dispatchEvent(new dom.window.Event("change", { bubbles: true }) as unknown as Event);
     });
     expect(usePrefsStore.getState().enabledPlugins).toEqual([]);
+  });
+
+  it("offers one live swatch per design system and switches to the one clicked", () => {
+    usePrefsStore.setState({ designSystem: "kb" });
+    act(() => root.render(createElement(PreferencesPopover, { plugins: [] })));
+    const radios = [...container.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+    expect(radios.map((r) => r.dataset.testid)).toEqual(
+      DESIGN_SYSTEMS.map((system) => `design-system-${system.id}`),
+    );
+    // Each sample is painted by its own system's stylesheet, not by a copy.
+    expect(radios.map((r) => r.querySelector("[data-theme]")?.getAttribute("data-theme"))).toEqual(
+      DESIGN_SYSTEMS.map((system) => system.id),
+    );
+    expect(radios.map((r) => r.getAttribute("aria-checked"))).toEqual(["true", "false", "false"]);
+
+    act(() => present(radios[1], "second swatch").click());
+    expect(usePrefsStore.getState().designSystem).toBe(DESIGN_SYSTEMS[1]?.id);
+    expect(
+      container
+        .querySelector(`[data-testid="design-system-${DESIGN_SYSTEMS[1]?.id}"]`)
+        ?.getAttribute("aria-checked"),
+    ).toBe("true");
   });
 
   it("has no plugins section when nothing is optional", () => {

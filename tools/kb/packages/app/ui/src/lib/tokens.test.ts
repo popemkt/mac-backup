@@ -80,8 +80,10 @@ describe("kb tokens", () => {
   });
 
   it("design-system.css carries the nxus oklch palette (DESIGN-RESKIN §1.1)", () => {
-    expect(designSystem).toMatch(/:root\s*\{[^}]*--background:\s*oklch\(/s);
-    expect(designSystem).toMatch(/\.dark\s*\{[^}]*--background:\s*oklch\(/s);
+    expect(designSystem).toMatch(/:root,\s*\[data-theme="kb"\]\s*\{[^}]*--background:\s*oklch\(/s);
+    expect(designSystem).toMatch(
+      /\.dark,\s*\.dark \[data-theme="kb"\]\s*\{[^}]*--background:\s*oklch\(/s,
+    );
     // Warm amber primary, light + dark
     expect(designSystem).toContain("--primary: oklch(0.67 0.16 58)");
     expect(designSystem).toContain("--primary: oklch(0.77 0.16 70)");
@@ -89,7 +91,8 @@ describe("kb tokens", () => {
     expect(index).toMatch(/data-scrolling/);
   });
 
-  it("legacy skin is gone: no serif stack, gradients, or --kb palette bridges", () => {
+  // The default only: Paper (design-systems/paper.css) chooses a serif on purpose.
+  it("legacy skin is gone from the default: no serif stack, gradients, or --kb palette bridges", () => {
     for (const css of [tokens, index, designSystem]) {
       expect(css).not.toMatch(/radial-gradient/);
       expect(css).not.toMatch(/Iowan Old Style|Palatino|Georgia/);
@@ -98,9 +101,10 @@ describe("kb tokens", () => {
     }
   });
 
-  it("font is a pref-driven CSS var (Inter Variable default, Outfit opt-in)", () => {
+  it("the UI face is a design-system token (Inter Variable by default)", () => {
     expect(designSystem).toMatch(/--app-font:\s*"Inter Variable"/);
-    expect(designSystem).toMatch(/html\[data-font="outfit"\]/);
+    // The face belongs to the design system; no pref overrides it beside one.
+    expect(designSystem).not.toMatch(/data-font/);
     expect(index).toMatch(/--font-sans:\s*var\(--app-font\)/);
     expect(designSystem).toMatch(/font-family:\s*"Inter Fallback"/);
     expect(index).toMatch(/@fontsource-variable\/inter/);
@@ -128,7 +132,13 @@ describe("kb tokens", () => {
       ),
     ];
     const readers = collectSourceFiles(root)
-      .filter((file) => !file.endsWith("design-system.css") && !/\.test\.tsx?$/.test(file))
+      // A design system restates layer 1; restating a token is not reading it.
+      .filter(
+        (file) =>
+          !file.endsWith("design-system.css") &&
+          !file.includes(`${path.sep}design-systems${path.sep}`) &&
+          !/\.test\.tsx?$/.test(file),
+      )
       .map((file) => stripComments(readFileSync(file, "utf8")))
       .join("\n");
     const dead = declared.filter((name) => !new RegExp(`${name}(?![\\w-])`).test(readers));

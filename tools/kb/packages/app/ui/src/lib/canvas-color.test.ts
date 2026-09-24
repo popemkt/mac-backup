@@ -29,7 +29,7 @@ describe("canvas color presets", () => {
     }
     // both theme blocks carry the vars
     expect(designSystemCss).toMatch(
-      /:root\s*\{[\s\S]*--canvas-color-1:[\s\S]*\}\s*\.dark\s*\{[\s\S]*--canvas-color-1:/,
+      /:root,[^{]*\{[\s\S]*--canvas-color-1:[\s\S]*\}\s*\.dark,[^{]*\{[\s\S]*--canvas-color-1:/,
     );
   });
 

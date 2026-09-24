@@ -174,6 +174,16 @@ describe("palette command routing (characterization)", () => {
     expect(usePrefsStore.getState().theme).toBe("light");
   });
 
+  it("switch-design-system steps through the registry and wraps", async () => {
+    usePrefsStore.getState().setDesignSystem("kb");
+    await run(SYSTEM_IDS.cmdSwitchDesignSystem);
+    expect(usePrefsStore.getState().designSystem).toBe("paper");
+    await run(SYSTEM_IDS.cmdSwitchDesignSystem);
+    expect(usePrefsStore.getState().designSystem).toBe("terminal");
+    await run(SYSTEM_IDS.cmdSwitchDesignSystem);
+    expect(usePrefsStore.getState().designSystem).toBe("kb");
+  });
+
   it("toggle-width flips centered and full", async () => {
     await run(SYSTEM_IDS.cmdToggleWidth);
     expect(usePrefsStore.getState().width).toBe("full");

@@ -1,7 +1,9 @@
 import { THEME_GLYPHS } from "@/lib/theme-glyphs";
 import { useEffect, useRef } from "react";
-import { ArrowsHorizontalIcon, TextAaIcon } from "@phosphor-icons/react";
-import { usePrefsStore, type FontPref, type ThemePref, type WidthPref } from "@/stores/prefs.store";
+import { ArrowsHorizontalIcon, SwatchesIcon } from "@phosphor-icons/react";
+import { cn } from "@/lib/cn";
+import { DESIGN_SYSTEMS } from "@/lib/theme";
+import { usePrefsStore, type ThemePref, type WidthPref } from "@/stores/prefs.store";
 import { isOutside } from "@/lib/dom";
 import type { OptionalUiPlugin } from "@/lib/plugins";
 import { useUiStore } from "@/stores/ui.store";
@@ -13,10 +15,6 @@ const THEME_OPTIONS: readonly EnumOption<ThemePref>[] = [
   { value: "system", label: "system" },
   { value: "light", label: "light" },
   { value: "dark", label: "dark" },
-];
-const FONT_OPTIONS: readonly EnumOption<FontPref>[] = [
-  { value: "inter", label: "Inter" },
-  { value: "outfit", label: "Outfit" },
 ];
 const WIDTH_OPTIONS: readonly EnumOption<WidthPref>[] = [
   { value: "centered", label: "centered" },
@@ -60,7 +58,7 @@ export function PreferencesPopover({
   return (
     <PopoverShell panelRef={panelRef} title="Preferences" className="absolute right-4 top-11 mt-1">
       <ThemeRow />
-      <FontRow />
+      <DesignSystemRow />
       <WidthRow />
       {plugins.length > 0 ? (
         <section aria-label="plugins">
@@ -91,17 +89,56 @@ function ThemeRow() {
   );
 }
 
-function FontRow() {
-  const font = usePrefsStore((s) => s.font);
-  const setFont = usePrefsStore((s) => s.setFont);
+/**
+ * One swatch per design system. Each sample is live, not a picture: it
+ * carries `data-theme`, so that system's own stylesheet paints its ground,
+ * ink, accent, face, radius and border, in the current light or dark. The
+ * name under it stays in the popover's face, so it reads as a label.
+ */
+function DesignSystemRow() {
+  const current = usePrefsStore((s) => s.designSystem);
+  const setDesignSystem = usePrefsStore((s) => s.setDesignSystem);
   return (
-    <PrefFieldRow icon={TextAaIcon} label="font">
-      <EnumSelect
-        className={POPOVER_VALUE_CLASS}
-        value={font}
-        options={FONT_OPTIONS}
-        onChange={setFont}
-      />
+    <PrefFieldRow icon={SwatchesIcon} label="design">
+      <div
+        role="radiogroup"
+        aria-label="design system"
+        className="flex min-w-0 flex-1 gap-1.5 py-1"
+      >
+        {DESIGN_SYSTEMS.map((system) => {
+          const checked = system.id === current;
+          return (
+            <button
+              key={system.id}
+              type="button"
+              role="radio"
+              aria-checked={checked}
+              data-testid={`design-system-${system.id}`}
+              onClick={() => setDesignSystem(system.id)}
+              className="group flex min-w-0 flex-1 flex-col items-stretch gap-1"
+            >
+              <span
+                data-theme={system.id}
+                className={cn(
+                  "flex items-center justify-between gap-1 rounded-md border border-border bg-background px-1.5 py-1 font-sans text-ui leading-none text-foreground shadow-edge outline-offset-2",
+                  checked ? "outline-2 outline-primary" : "group-hover:bg-accent",
+                )}
+              >
+                Aa
+                <span aria-hidden="true" className="size-2 rounded-full bg-primary" />
+              </span>
+              <span
+                className={cn(
+                  "truncate text-caption leading-none",
+                  checked ? "text-foreground/80" : "text-foreground/45",
+                )}
+              >
+                {system.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </PrefFieldRow>
   );
 }

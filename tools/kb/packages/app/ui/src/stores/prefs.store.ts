@@ -6,18 +6,31 @@ import { hasText } from "@/lib/text";
 import { transitionTheme } from "@/lib/theme-transition";
 
 /**
- * Device-level preferences (DESIGN-RESKIN §1.7): theme / font / width, the
- * sidebar, and which optional UI plugins are switched on.
+ * Device-level preferences (DESIGN-RESKIN §1.7): theme / design system /
+ * width, the sidebar, and which optional UI plugins are switched on.
  * Persisted to localStorage["kb-prefs"] — device concern, never repo data.
  * index.html carries a blocking script that reads the same key pre-paint.
  */
-import { THEMES, WIDTHS, type ThemePref, type WidthPref } from "@/lib/theme";
+import {
+  DEFAULT_DESIGN_SYSTEM,
+  DESIGN_SYSTEM_IDS,
+  THEMES,
+  WIDTHS,
+  type DesignSystemId,
+  type ThemePref,
+  type WidthPref,
+} from "@/lib/theme";
 export type { ThemePref, WidthPref } from "@/lib/theme";
-export type FontPref = "outfit" | "inter";
 
 export interface Prefs {
   theme: ThemePref;
-  font: FontPref;
+  /**
+   * Which design system paints the page: every layer-1 value, faces
+   * included. The UI face used to be a pref of its own (`font`); a face is a
+   * design-system value, so a stale `font` key is ignored on read and
+   * dropped on the next write.
+   */
+  designSystem: DesignSystemId;
   width: WidthPref;
   /** Tana-style left rail. Absent in storage → viewport default (≥1024 open). */
   sidebarOpen: boolean;
@@ -48,7 +61,7 @@ export function defaultSidebarOpen(
 
 export const DEFAULT_PREFS: Prefs = {
   theme: "system",
-  font: "inter",
+  designSystem: DEFAULT_DESIGN_SYSTEM,
   width: "centered",
   sidebarOpen: true,
   enabledPlugins: [],
@@ -60,7 +73,7 @@ export const DEFAULT_PREFS: Prefs = {
  */
 const StoredPrefsSchema = z.object({
   theme: z.enum(THEMES).catch(DEFAULT_PREFS.theme),
-  font: z.enum(["outfit", "inter"]).catch(DEFAULT_PREFS.font),
+  designSystem: z.enum(DESIGN_SYSTEM_IDS).catch(DEFAULT_PREFS.designSystem),
   width: z.enum(WIDTHS).catch(DEFAULT_PREFS.width),
   sidebarOpen: z.boolean().optional().catch(undefined),
   enabledPlugins: z.array(z.string()).catch([]),
@@ -70,7 +83,7 @@ const StoredPrefsSchema = z.object({
 function prefsOf(source: Prefs): Prefs {
   return {
     theme: source.theme,
-    font: source.font,
+    designSystem: source.designSystem,
     width: source.width,
     sidebarOpen: source.sidebarOpen,
     enabledPlugins: source.enabledPlugins,
@@ -111,12 +124,12 @@ function systemPrefersDark(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
-/** Push prefs onto <html>: .dark class + data-font / data-width attributes. */
+/** Push prefs onto <html>: .dark class + data-theme / data-width attributes. */
 export function applyPrefs(prefs: Prefs, systemDark = systemPrefersDark()) {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   root.classList.toggle("dark", resolveDark(prefs.theme, systemDark));
-  root.setAttribute("data-font", prefs.font);
+  root.setAttribute("data-theme", prefs.designSystem);
   root.setAttribute("data-width", prefs.width);
 }
 
@@ -142,7 +155,7 @@ interface PrefsState extends Prefs {
   /** Live device signal, never persisted as an intentional preference. */
   systemDark: boolean;
   setTheme: (theme: ThemePref) => void;
-  setFont: (font: FontPref) => void;
+  setDesignSystem: (designSystem: DesignSystemId) => void;
   setWidth: (width: WidthPref) => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
@@ -167,7 +180,12 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
         document.documentElement.classList.contains("dark") !== dark;
       transitionTheme(() => commit({ theme }), changesAppearance);
     },
-    setFont: (font) => commit({ font }),
+    setDesignSystem: (designSystem) => {
+      const changesAppearance =
+        typeof document !== "undefined" &&
+        document.documentElement.getAttribute("data-theme") !== designSystem;
+      transitionTheme(() => commit({ designSystem }), changesAppearance);
+    },
     setWidth: (width) => commit({ width }),
     setSidebarOpen: (sidebarOpen) => commit({ sidebarOpen }),
     toggleSidebar: () => commit({ sidebarOpen: !get().sidebarOpen }),
@@ -186,18 +204,20 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
  * they listen to.
  */
 export interface Appearance {
+  readonly designSystem: DesignSystemId;
   readonly dark: boolean;
   /** Changes exactly when any field above does. */
   readonly key: string;
 }
 
-function appearanceOf(dark: boolean): Appearance {
-  return { dark, key: dark ? "dark" : "light" };
+function appearanceOf(designSystem: DesignSystemId, dark: boolean): Appearance {
+  return { designSystem, dark, key: `${designSystem}:${dark ? "dark" : "light"}` };
 }
 
 export function useAppearance(): Appearance {
+  const designSystem = usePrefsStore((s) => s.designSystem);
   const dark = usePrefsStore((s) => resolveDark(s.theme, s.systemDark));
-  return useMemo(() => appearanceOf(dark), [dark]);
+  return useMemo(() => appearanceOf(designSystem, dark), [designSystem, dark]);
 }
 
 /**

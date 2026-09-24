@@ -6,7 +6,7 @@
     <title>kb</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <!-- Blocking no-FOUC prefs: theme class + font/width attrs before first paint
+    <!-- Blocking no-FOUC prefs: theme class + design-system/width attrs before first paint
          (kb-prefs, DESIGN-RESKIN §1.7; pattern from nxus __root.tsx). -->
     <style>
       html[data-width="centered"] .kb-shell {
@@ -25,20 +25,23 @@
       (function () {
         try {
           var theme = "system";
-          var font = "inter";
+          var designSystem = "kb";
           var width = "centered";
           var stored = localStorage.getItem("kb-prefs");
           if (stored) {
             var s = JSON.parse(stored) || {};
             if (s.theme === "light" || s.theme === "dark") theme = s.theme;
-            if (s.font === "outfit") font = "outfit";
+            // Any id is safe here: one with no stylesheet block paints as the
+            // default, and the store corrects the attribute on boot.
+            if (typeof s.designSystem === "string" && /^[a-z][a-z0-9-]*$/.test(s.designSystem))
+              designSystem = s.designSystem;
             if (s.width === "full") width = "full";
           }
           var dark =
             theme === "dark" ||
             (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
           if (dark) document.documentElement.classList.add("dark");
-          document.documentElement.setAttribute("data-font", font);
+          document.documentElement.setAttribute("data-theme", designSystem);
           document.documentElement.setAttribute("data-width", width);
         } catch (e) {}
       })();

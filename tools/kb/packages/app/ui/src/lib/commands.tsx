@@ -46,7 +46,12 @@ import { listOntologyItems } from "@/lib/ontology-scope";
 import { isPinned } from "@/lib/pinned";
 import { DEFAULT_QUERY_EDN, isQueryNode } from "@/lib/query-node";
 import { navigate, ontologyPath } from "@/lib/router";
-import type { ThemePref, WidthPref } from "@/lib/theme";
+import {
+  DESIGN_SYSTEM_IDS,
+  type DesignSystemId,
+  type ThemePref,
+  type WidthPref,
+} from "@/lib/theme";
 import { toast } from "@/lib/toast";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID, isSysPrefixed, type NodeMap } from "@/lib/types";
 import type { ViewMode } from "@/lib/view-config";
@@ -69,8 +74,10 @@ export interface OutlineCommandApi {
 
 interface PrefsCommandApi {
   readonly theme: ThemePref;
+  readonly designSystem: DesignSystemId;
   readonly width: WidthPref;
   setTheme: (theme: ThemePref) => void;
+  setDesignSystem: (designSystem: DesignSystemId) => void;
   setWidth: (width: WidthPref) => void;
 }
 
@@ -131,11 +138,12 @@ interface Command {
   readonly run: (ctx: CommandContext) => void | Promise<void>;
 }
 
-const THEME_CYCLE: ThemePref[] = ["light", "dark", "system"];
+const THEME_CYCLE: readonly ThemePref[] = ["light", "dark", "system"];
 
-function nextTheme(current: ThemePref): ThemePref {
-  const i = THEME_CYCLE.indexOf(current);
-  return present(THEME_CYCLE[(i + 1) % THEME_CYCLE.length], "theme cycle index is a modulo");
+/** The member after `current` in a closed cycle. */
+function nextIn<T>(cycle: readonly T[], current: T): T {
+  const i = cycle.indexOf(current);
+  return present(cycle[(i + 1) % cycle.length], "cycle index is a modulo");
 }
 
 /** The selected row, else the zoomed root — "which row is this command about". */
@@ -311,7 +319,12 @@ const GLOBAL_COMMANDS: readonly Command[] = [
   {
     id: SYSTEM_IDS.cmdToggleTheme,
     scope: "global",
-    run: (ctx) => ctx.prefs.setTheme(nextTheme(ctx.prefs.theme)),
+    run: (ctx) => ctx.prefs.setTheme(nextIn(THEME_CYCLE, ctx.prefs.theme)),
+  },
+  {
+    id: SYSTEM_IDS.cmdSwitchDesignSystem,
+    scope: "global",
+    run: (ctx) => ctx.prefs.setDesignSystem(nextIn(DESIGN_SYSTEM_IDS, ctx.prefs.designSystem)),
   },
   {
     id: SYSTEM_IDS.cmdToggleWidth,

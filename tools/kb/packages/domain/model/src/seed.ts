@@ -117,6 +117,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     // W8a shell commands: device prefs popover + quick toggles
     mk(SYSTEM_IDS.cmdPreferences, "Preferences", cmdType),
     mk(SYSTEM_IDS.cmdToggleTheme, "Toggle theme", cmdType),
+    mk(SYSTEM_IDS.cmdSwitchDesignSystem, "Switch design system", cmdType),
     mk(SYSTEM_IDS.cmdToggleWidth, "Toggle width", cmdType),
     mk(SYSTEM_IDS.cmdDebugShowFields, "Debug: show all fields", cmdType),
     mk(SYSTEM_IDS.cmdExpandAll, "Expand all", cmdType),

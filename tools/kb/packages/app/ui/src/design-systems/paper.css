@@ -1,0 +1,125 @@
+/**
+ * Paper: warm off-white and ink. A serif text face (the platform's own, so
+ * no font download), smaller radii, hairline borders, soft low elevation and
+ * a slightly looser density. Dark is ink-night: warm charcoal with the same
+ * ink-blue accent, lifted.
+ *
+ * A design system overrides layer 1 and nothing else (DESIGN-UI.md → Design
+ * tokens → Design systems). The JSON Canvas presets are document colours
+ * and stay the default's; `--lab-accent` derives from `--primary`.
+ */
+
+[data-theme="paper"] {
+  --background: oklch(0.975 0.012 85);
+  --foreground: oklch(0.25 0.02 60);
+  --card: oklch(0.99 0.008 85);
+  --card-foreground: oklch(0.25 0.02 60);
+  --popover: oklch(0.99 0.008 85);
+  --popover-foreground: oklch(0.25 0.02 60);
+  --primary: oklch(0.45 0.12 255);
+  --primary-foreground: oklch(0.98 0.01 85);
+  --secondary: oklch(0.94 0.015 80);
+  --secondary-foreground: oklch(0.28 0.02 60);
+  --muted: oklch(0.945 0.014 82);
+  --muted-foreground: oklch(0.48 0.02 60);
+  --accent: oklch(0.93 0.018 80);
+  --accent-foreground: oklch(0.25 0.02 60);
+  --destructive: oklch(0.5 0.17 28);
+  --border: oklch(0.84 0.02 75);
+  --input: oklch(0.84 0.02 75);
+  --ring: oklch(0.6 0.08 255);
+  --chart-1: oklch(0.78 0.07 85);
+  --chart-2: oklch(0.68 0.09 70);
+  --chart-3: oklch(0.58 0.1 50);
+  --chart-4: oklch(0.49 0.09 35);
+  --chart-5: oklch(0.42 0.08 255);
+  --radius: 5px;
+  --border-width: 0.5px;
+  --density: 1.08;
+  --sidebar: oklch(0.955 0.014 82);
+  --sidebar-foreground: oklch(0.25 0.02 60);
+  --sidebar-primary: oklch(0.45 0.12 255);
+  --sidebar-primary-foreground: oklch(0.98 0.01 85);
+  --sidebar-accent: oklch(0.925 0.018 80);
+  --sidebar-accent-foreground: oklch(0.25 0.02 60);
+  --sidebar-border: oklch(0.86 0.02 75);
+  --sidebar-ring: oklch(0.6 0.08 255);
+  --warning: oklch(0.55 0.12 70);
+  --success: oklch(0.58 0.11 145);
+  --info: oklch(0.52 0.1 250);
+  --scrim: oklch(0.2 0.02 60);
+  --knob: oklch(0.99 0.008 85);
+  --lab-ground: oklch(0.955 0.018 82);
+  --lab-edge: oklch(0.86 0.03 75);
+  --lab-hue: oklch(0.55 0.07 60);
+  --lab-ink: oklch(0.28 0.04 55);
+
+  /* A serif reads a step larger than Inter at the same size. */
+  --type-micro: 9.5px;
+  --type-caption: 10.5px;
+  --type-label: 11.5px;
+  --type-tag: 12px;
+  --type-meta: 12.5px;
+  --type-ui: 13.5px;
+  --type-note: 14.5px;
+  --type-body: 15.5px;
+  --type-lead: 17px;
+  --type-heading: 19.5px;
+  --type-title: 22px;
+
+  /* Soft and low: paper lifts off a desk, it does not float. */
+  --elevation-edge: 0 0.5px 1px 0 rgb(60 40 20 / 0.06);
+  --elevation-raised: 0 1px 2px 0 rgb(60 40 20 / 0.08);
+  --elevation-lifted: 0 2px 5px -1px rgb(60 40 20 / 0.09);
+  --elevation-floating: 0 4px 10px -3px rgb(60 40 20 / 0.1);
+  --elevation-overlay: 0 8px 18px -6px rgb(60 40 20 / 0.12);
+  --elevation-modal: 0 14px 32px -10px rgb(60 40 20 / 0.18);
+
+  --app-font: ui-serif, "New York", Charter, "Iowan Old Style", Cambria, serif;
+  --app-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --app-font-graph: ui-serif, "New York", Charter, Cambria, serif;
+  --font-weight-body: 400;
+  --font-weight-ui: 500;
+}
+
+.dark[data-theme="paper"],
+.dark [data-theme="paper"] {
+  --background: oklch(0.2 0.012 60);
+  --foreground: oklch(0.91 0.015 85);
+  --card: oklch(0.235 0.013 60);
+  --card-foreground: oklch(0.91 0.015 85);
+  --popover: oklch(0.24 0.013 60);
+  --popover-foreground: oklch(0.91 0.015 85);
+  --primary: oklch(0.76 0.09 250);
+  --primary-foreground: oklch(0.2 0.03 255);
+  --secondary: oklch(0.28 0.014 60);
+  --secondary-foreground: oklch(0.91 0.015 85);
+  --muted: oklch(0.27 0.013 60);
+  --muted-foreground: oklch(0.72 0.02 80);
+  --accent: oklch(0.31 0.015 60);
+  --accent-foreground: oklch(0.93 0.015 85);
+  --destructive: oklch(0.72 0.14 28);
+  --border: oklch(0.91 0.015 85 / 12%);
+  --input: oklch(0.91 0.015 85 / 16%);
+  --ring: oklch(0.55 0.06 250);
+  --chart-1: oklch(0.82 0.07 85);
+  --chart-2: oklch(0.74 0.09 70);
+  --chart-3: oklch(0.66 0.1 50);
+  --chart-4: oklch(0.58 0.09 35);
+  --chart-5: oklch(0.7 0.08 250);
+  --sidebar: oklch(0.225 0.012 60);
+  --sidebar-foreground: oklch(0.91 0.015 85);
+  --sidebar-primary: oklch(0.76 0.09 250);
+  --sidebar-primary-foreground: oklch(0.2 0.03 255);
+  --sidebar-accent: oklch(0.29 0.014 60);
+  --sidebar-accent-foreground: oklch(0.93 0.015 85);
+  --sidebar-border: oklch(0.91 0.015 85 / 10%);
+  --sidebar-ring: oklch(0.55 0.06 250);
+  --warning: oklch(0.8 0.12 80);
+  --success: oklch(0.72 0.11 145);
+  --info: oklch(0.74 0.09 250);
+  --lab-ground: oklch(0.2 0.018 60);
+  --lab-edge: oklch(0.12 0.012 60);
+  --lab-hue: oklch(0.5 0.06 60);
+  --lab-ink: oklch(0.92 0.02 85);
+}
