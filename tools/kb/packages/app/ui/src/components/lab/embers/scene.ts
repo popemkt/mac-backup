@@ -21,6 +21,7 @@ import { Mesh, PointLight, SphereGeometry, Vector3 } from "three/webgpu";
 import { instanceIndex, mix, positionLocal, smoothstep, uniform, vec3 } from "three/tsl";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
 import { PointerField } from "@/components/lab/kit/pointer";
+import { PointerVelocity } from "@/components/lab/kit/velocity";
 import { createRig, labMaterial } from "@/components/lab/kit/rig";
 import type { LabStage } from "@/components/lab/kit/stage";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
@@ -114,8 +115,7 @@ function embers(stage: LabStage, init: LabSceneInit, context: StudyContext): Stu
   const cx: Spring = { x: 0, v: 0 };
   const cy: Spring = { x: 0, v: 0 };
   const aim = new Vector3();
-  let lastX = 0;
-  let lastY = 0;
+  const flick = new PointerVelocity();
   return {
     frame: (dt, elapsed) => {
       // A reduced-motion still is the cloud at rest: no step is dispatched.
@@ -131,14 +131,11 @@ function embers(stage: LabStage, init: LabSceneInit, context: StudyContext): Stu
       stepSpring(cx, aim.x, follow, dt);
       stepSpring(cy, aim.y, follow, dt);
       u.center.value.set(cx.x, cy.x, 0);
-      const blend = 1 - Math.exp(-dt * 14);
-      const velocity = u.pointerVelocity.value;
-      velocity.x += ((idle ? 0 : (aim.x - lastX) / dt) - velocity.x) * blend;
-      velocity.y += ((idle ? 0 : (aim.y - lastY) / dt) - velocity.y) * blend;
+      // The ambient drift is not the pointer: it shoves nothing.
+      flick.step(dt, idle ? null : aim);
+      u.pointerVelocity.value.set(flick.x, flick.y, 0);
       if (idle) u.pointer.value.set(0, 0, 100);
       else u.pointer.value.set(aim.x, aim.y, 0);
-      lastX = aim.x;
-      lastY = aim.y;
       u.dt.value = dt;
       u.time.value = elapsed;
       u.grant.value = grants.next(dt);

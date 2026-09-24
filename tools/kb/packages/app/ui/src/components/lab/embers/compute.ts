@@ -38,6 +38,7 @@ import {
   smoothstep,
   uint,
   uniform,
+  uvec2,
   vec3,
 } from "three/tsl";
 import { Vector3 } from "three/webgpu";
@@ -95,7 +96,8 @@ function buffers(homes: Float32Array, count: number) {
     /** `[i]`: how far to move out of the neighbours; `[count + i]`: the bounce. */
     contact: instancedArray(count * 2, "vec3"),
     cells: instancedArray(TABLE, "uint").toAtomic(),
-    slots: instancedArray(TABLE * SLOTS, "uint"),
+    /** x: the sphere; y: its cell's exact key, so a hash collision is told apart. */
+    slots: instancedArray(TABLE * SLOTS, "uvec2"),
     tickets: instancedArray(1, "uint").toAtomic(),
   };
 }
@@ -111,6 +113,17 @@ function hashCell(c: TslNode): TslNode {
     .toUint();
 }
 
+/**
+ * A cell's exact identity: its coordinates packed ten bits each. The cloud
+ * spans a few dozen cells, so ±512 never wraps. Two cells that share a hash
+ * bucket keep different keys.
+ */
+function cellKey(c: TslNode): TslNode {
+  return uint(c.x.add(512))
+    .bitOr(uint(c.y.add(512)).shiftLeft(10))
+    .bitOr(uint(c.z.add(512)).shiftLeft(20));
+}
+
 function cellCoord(p: TslNode, size: number): TslNode {
   return ivec3(floor(p.div(size)));
 }
@@ -124,13 +137,23 @@ interface Contact {
   readonly impact: TslNode;
 }
 
-/** Every sphere a grid cell remembers, met by `self` (emitted into the calling kernel). */
-function scanCell(b: EmberBuffers, cell: TslNode, size: number, self: Contact): void {
+/**
+ * Every sphere in grid cell `coord`, met by `self` (emitted into the calling
+ * kernel). The bucket is shared by every cell that hashes to it, so only the
+ * entries carrying this cell's key are met: a sphere is met once, from the one
+ * probe whose cell it is in, even when two of the 27 probes share a bucket.
+ */
+function scanCell(b: EmberBuffers, coord: TslNode, size: number, self: Contact): void {
+  const bucket = hashCell(coord).toVar();
+  const key = cellKey(coord).toVar();
   // Materialised before the loop: left inline as the bound, no contact was ever found.
-  const filled = int(atomicLoad(b.cells.element(cell)))
+  const filled = int(atomicLoad(b.cells.element(bucket)))
     .min(SLOTS)
     .toVar();
-  loop(filled, (s) => meet(b, b.slots.element(cell.mul(SLOTS).add(uint(s))), size, self));
+  loop(filled, (s) => {
+    const entry = b.slots.element(bucket.mul(SLOTS).add(uint(s))).toVar();
+    If(entry.y.equal(key), () => meet(b, entry.x, size, self));
+  });
 }
 
 /** Sphere `j` against `self`: move out of it, bounce off it, and heat by the impact. */
@@ -164,10 +187,11 @@ function kernels(u: EmberUniforms, b: EmberBuffers, shape: EmberShape, timing: T
 
   const insert = Fn(() => {
     If(b.state.element(i).x.equal(LIVE), () => {
-      const cell = hashCell(cellCoord(b.position.element(i), size)).toVar();
-      const slot = atomicAdd(b.cells.element(cell), 1).toVar();
+      const coord = cellCoord(b.position.element(i), size).toVar();
+      const bucket = hashCell(coord).toVar();
+      const slot = atomicAdd(b.cells.element(bucket), 1).toVar();
       If(slot.lessThan(SLOTS), () => {
-        b.slots.element(cell.mul(SLOTS).add(slot)).assign(i);
+        b.slots.element(bucket.mul(SLOTS).add(slot)).assign(uvec2(i, cellKey(coord)));
       });
     });
   })().compute(shape.count);
@@ -184,7 +208,7 @@ function kernels(u: EmberUniforms, b: EmberBuffers, shape: EmberShape, timing: T
       const home = cellCoord(self.p, size).toVar();
       loop(27, (n) => {
         const offset = ivec3(n.mod(3).sub(1), n.div(3).mod(3).sub(1), n.div(9).sub(1));
-        scanCell(b, hashCell(home.add(offset)).toVar(), size, self);
+        scanCell(b, home.add(offset).toVar(), size, self);
       });
     });
     b.contact.element(i).assign(self.push);
