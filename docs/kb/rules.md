@@ -199,14 +199,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Admission gate
 - **node** — `01M1PJVJX84AZCRVJ82R20WTK3`
 
-### GAP: saved-query virtual nodes never appear in tx frames
-
-- **expected** — Every node a client can see reaches it the same way. A change under .kb/queries/ produces a KbTx like any other change, so a client catching up with since(rev) ends with the same graph a fresh /api/graph would give it.
-- **current** — Closed by wave g7: withVirtual stays and the virtual set is a logged transaction. SavedQuerySet (app/server) owns it - adopt installs the first set (the snapshot carries it) and sync diffs savedQueryNodes() and appends with origin=virtual. .kb/queries/ is watched beside the store's own files through the same debounce, so a saved query added, renamed or removed reaches a catching-up client as an ordinary tx frame.
-- **impact** — A since(rev) catch-up silently misses a /api/queries change: a saved query added, renamed or removed while a client was behind stays wrong until that client happens to take a full snapshot. The two paths that used to agree by accident (both refetched) now diverge.
-- **closes** — Make the virtual set a logged transaction: watch .kb/queries/ alongside .kb/nodes.jsonl, diff savedQueryNodes() across the change, and append it — or drop withVirtual and materialise saved queries as ordinary stored nodes.
-- **node** — `01M1QZNBFSTCM9V7DZT1XWEY2N`
-
 ### GAP: search is a substring scan, no text index
 
 - **expected** — Full-text search as an additive derived index (FTS5, and sqlite-vec for semantic search) rebuilt from the JSONL like any other index.
@@ -295,14 +287,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The effect is the renderer, so nothing about it can be tested without a DOM and a real sigma instance.
 - **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
 - **node** — `01M1MGCPJTV66QSFCR44XG29YM`
-
-### GAP: the tx log is process-local; there is no durable .kb/tx.jsonl
-
-- **expected** — The log is durable: every KbTx is appended to .kb/tx.jsonl under the store's write lock, and rev is a per-store counter that survives a restart. A client reconnecting after a server restart catches up with since(rev) like any other gap.
-- **current** — Closed by wave g7: the sequence is EffectStore.txTail, appended by the store. The JSONL adapter writes .kb/tx.jsonl inside the .lock that already covers load-merge-replace; rev is the store's counter and survives a restart, so a reconnecting client is caught up with frames. StoreTxLog holds no window - a ring beside a durable tail would be two records of one sequence. Write order is nodes first, tail second, and a tail that lags is detected by TxTail.isCurrent(), which makes StoreTxLog refuse every rev at or below a head it cannot vouch for.
-- **impact** — A restart of kb ui costs every open client a full graph refetch, and no surface can replay history — undo across sessions, an audit trail, and a browser replica that survives a reload all need the durable form.
-- **closes** — Write each append to .kb/tx.jsonl inside the JsonlStore write lock, load the tail at openKbEffect and seed MemoryTxLog's window and rev from it; make rev per-store rather than per-server in protocol.ts.
-- **node** — `01M1QZMR3CYFYPEXBMC2JTFAA5`
 
 ### GAP: two launch paths for the kb binary
 
@@ -637,6 +621,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Introduce a ui command registry and register each command beside its implementation. Pairs with the NodeCommandPalette gap - one registry serves both.
 - **node** — `01M1MGCRNVNBE5HW27Z83PK67B`
 
+### GAP: saved-query virtual nodes never appear in tx frames
+
+- **expected** — Every node a client can see reaches it the same way. A change under .kb/queries/ produces a KbTx like any other change, so a client catching up with since(rev) ends with the same graph a fresh /api/graph would give it.
+- **current** — Closed by wave g7: withVirtual stays and the virtual set is a logged transaction. SavedQuerySet (app/server) owns it - adopt installs the first set (the snapshot carries it) and sync diffs savedQueryNodes() and appends with origin=virtual. .kb/queries/ is watched beside the store's own files through the same debounce, so a saved query added, renamed or removed reaches a catching-up client as an ordinary tx frame.
+- **impact** — A since(rev) catch-up silently misses a /api/queries change: a saved query added, renamed or removed while a client was behind stays wrong until that client happens to take a full snapshot. The two paths that used to agree by accident (both refetched) now diverge.
+- **closes** — Make the virtual set a logged transaction: watch .kb/queries/ alongside .kb/nodes.jsonl, diff savedQueryNodes() across the change, and append it — or drop withVirtual and materialise saved queries as ordinary stored nodes.
+- **node** — `01M1QZNBFSTCM9V7DZT1XWEY2N`
+
 ### GAP: seven terminal .then callbacks disable promise/always-return
 
 - **expected** — promise/always-return runs with ignoreLastCallback:true, so the rule guards mid-chain callbacks (where a missing return really does break the chain) and says nothing about a terminal fire-and-forget callback.
@@ -744,6 +736,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — None left: both adapters keep a durable tail behind the one TxTail port (.kb/tx.jsonl and the tx table), so a restart keeps the log on either store.
 - **closes** — A schema for the log table, a decision about whether KbTxLog gains a durability contract or a second adapter, and what the JSONL store does about it (a .kb/tx.jsonl was the shape considered before sqlite existed).
 - **node** — `01M1RYY9HVDNB1RNNKCSYF2H47`
+
+### GAP: the tx log is process-local; there is no durable .kb/tx.jsonl
+
+- **expected** — The log is durable: every KbTx is appended to .kb/tx.jsonl under the store's write lock, and rev is a per-store counter that survives a restart. A client reconnecting after a server restart catches up with since(rev) like any other gap.
+- **current** — Closed by wave g7: the sequence is EffectStore.txTail, appended by the store. The JSONL adapter writes .kb/tx.jsonl inside the .lock that already covers load-merge-replace; rev is the store's counter and survives a restart, so a reconnecting client is caught up with frames. StoreTxLog holds no window - a ring beside a durable tail would be two records of one sequence. Write order is nodes first, tail second, and a tail that lags is detected by TxTail.isCurrent(), which makes StoreTxLog refuse every rev at or below a head it cannot vouch for.
+- **impact** — A restart of kb ui costs every open client a full graph refetch, and no surface can replay history — undo across sessions, an audit trail, and a browser replica that survives a reload all need the durable form.
+- **closes** — Write each append to .kb/tx.jsonl inside the JsonlStore write lock, load the tail at openKbEffect and seed MemoryTxLog's window and rev from it; make rev per-store rather than per-server in protocol.ts.
+- **node** — `01M1QZMR3CYFYPEXBMC2JTFAA5`
 
 ### GAP: the ws client assigns on* handlers instead of addEventListener
 
