@@ -19,8 +19,8 @@ import {
   type StoreBackend,
   writeOut,
   writeErr,
+  bunFileSystemLayer,
 } from "@kb/runtime";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
 import {
   type DomainError,
   type FailureCode,

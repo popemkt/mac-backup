@@ -7,7 +7,8 @@ import { FileSystem } from "effect/FileSystem";
 import { openKbEffect, runWithKb, kbRuntimeLayer } from "../src/layers.ts";
 import { openKb, persist, reload } from "../src/session.ts";
 import { KbCtx, KbStore } from "@kb/contracts";
-import { bunFileSystemLayer, JsonlStore } from "@kb/store-jsonl";
+import { JsonlStore } from "@kb/store-jsonl";
+import { bunFileSystemLayer } from "../src/platform.ts";
 import {
   DomainError,
   domainError,

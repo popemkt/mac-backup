@@ -7,8 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createMcpServer } from "../src/mcp.ts";
 import { Effect } from "effect";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
-import { manifest } from "@kb/runtime";
+import { manifest, bunFileSystemLayer } from "@kb/runtime";
 
 const run = <A, E, R>(effect: Effect.Effect<A, E, R>): Promise<A> =>
   Effect.runPromise(effect.pipe(Effect.provide(bunFileSystemLayer)) as Effect.Effect<A, E>);

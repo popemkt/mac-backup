@@ -1,12 +1,18 @@
 import { describe, expect, test, afterEach } from "bun:test";
 import { Effect } from "effect";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { KB_SDK_DTS, KB_SDK_VERSION, writeSdkDts } from "@kb/ext-sdk";
-import { discoverExtensions, openKb, invoke, registryFor, resetRegistryCache } from "@kb/runtime";
+import {
+  discoverExtensions,
+  openKb,
+  invoke,
+  registryFor,
+  resetRegistryCache,
+  bunFileSystemLayer,
+} from "@kb/runtime";
 import { main } from "../src/cli.ts";
 
 let roots: string[] = [];

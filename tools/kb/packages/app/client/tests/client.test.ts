@@ -6,8 +6,13 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { KbTx } from "@kb/model";
-import { STORE_BACKENDS, createStore, selectStore, type StoreBackend } from "@kb/runtime";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
+import {
+  STORE_BACKENDS,
+  createStore,
+  selectStore,
+  type StoreBackend,
+  bunFileSystemLayer,
+} from "@kb/runtime";
 import { KbClientError, openClient, type KbNode } from "../src/index.ts";
 
 const AT = "2026-09-19T00:00:00.000Z";

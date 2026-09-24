@@ -10,7 +10,7 @@ import {
   type KbNode,
   type StoreTx,
 } from "@kb/model";
-import { bunFileSystemLayer } from "./platform.ts";
+import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
 import { durableReplaceFile } from "./durable-replace.ts";
 import {
   staleCommitError,
@@ -79,7 +79,7 @@ const readBody = Effect.fn("readBody")(function* (
   const exists = yield* fs.exists(path).pipe(Effect.mapError(mapFsError));
   if (!exists) return "";
   return yield* fs.readFileString(path).pipe(Effect.mapError(mapFsError));
-}, Effect.provide(bunFileSystemLayer));
+}, Effect.provide(BunFileSystem.layer));
 
 /**
  * JSONL backend: `<root>/.kb/nodes.jsonl`
@@ -164,6 +164,6 @@ export class JsonlStore implements EffectStore {
 
         return { base, fingerprint };
       }),
-    ).pipe(Effect.provide(bunFileSystemLayer));
+    ).pipe(Effect.provide(BunFileSystem.layer));
   }
 }

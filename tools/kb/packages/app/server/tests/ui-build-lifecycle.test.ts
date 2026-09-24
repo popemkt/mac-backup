@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { bunFileSystemLayer } from "@kb/runtime";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {

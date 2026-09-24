@@ -16,7 +16,6 @@
     "@kb/model": "workspace:*",
     "@kb/query": "workspace:*",
     "@kb/runtime": "workspace:*",
-    "@kb/store-jsonl": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

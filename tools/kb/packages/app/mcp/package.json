@@ -15,7 +15,6 @@
     "@kb/model": "workspace:*",
     "@kb/operations": "workspace:*",
     "@kb/runtime": "workspace:*",
-    "@kb/store-jsonl": "workspace:*",
     "@modelcontextprotocol/sdk": "catalog:",
     "effect": "catalog:"
   },

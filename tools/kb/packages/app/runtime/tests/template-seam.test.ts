@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import type { KbContext } from "@kb/contracts";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { bunFileSystemLayer } from "../src/platform.ts";
 import { invoke } from "../src/invoke.ts";
 import { registryFor, resetRegistryCache } from "../src/registry.ts";
 import { openKb } from "../src/session.ts";

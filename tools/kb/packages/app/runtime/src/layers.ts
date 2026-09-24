@@ -8,7 +8,7 @@ import {
   type DomainError,
   type KbNode,
 } from "@kb/model";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { bunFileSystemLayer } from "./platform.ts";
 import { DatascriptIndex, KbIndexService } from "@kb/query";
 import {
   type Assets,

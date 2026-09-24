@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { SavedQueries, VIRTUAL_ORIGIN, type KbContext, type SavedQuery } from "@kb/contracts";
 import { savedQueriesLayer } from "@kb/workspace-fs";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { bunFileSystemLayer } from "@kb/runtime";
 import { SYSTEM_IDS, diffTx, type KbNode } from "@kb/model";
 
 /**

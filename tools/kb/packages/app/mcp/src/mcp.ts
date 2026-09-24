@@ -24,8 +24,8 @@ import {
   type RootNotFoundError,
   writeErr,
   type ManifestEntry,
+  bunFileSystemLayer,
 } from "@kb/runtime";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
 
 const MANIFEST_TOOL = "kb_manifest";
 const RENDER_TOOL = "render_view";

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect } from "effect";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { bunFileSystemLayer } from "../src/platform.ts";
 import { present } from "@kb/model";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";

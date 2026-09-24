@@ -3,8 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openKbEffect, kbRuntimeLayer, invokeReceiptEffect } from "@kb/runtime";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { openKbEffect, kbRuntimeLayer, invokeReceiptEffect, bunFileSystemLayer } from "@kb/runtime";
 import {
   txIntegrityError,
   isSysPrefixed,

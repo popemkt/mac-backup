@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import type { KbContext } from "@kb/contracts";
 import type { KbNode, StoreTx } from "@kb/model";
 import { persistEffect, reloadEffect } from "@kb/operations";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { bunFileSystemLayer } from "./platform.ts";
 import { kbRuntimeLayer, openKbEffect } from "./layers.ts";
 
 /**

@@ -12,7 +12,8 @@ import {
   txIntegrityError,
   type KbNode,
 } from "@kb/model";
-import { bunFileSystemLayer, JsonlStore } from "@kb/store-jsonl";
+import { JsonlStore } from "@kb/store-jsonl";
+import { bunFileSystemLayer } from "../src/platform.ts";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
 import { manifest } from "../src/registry.ts";

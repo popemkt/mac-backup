@@ -3,7 +3,7 @@ import { Effect, Option } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import { resolveAssetFile, assetsDir } from "@kb/workspace-fs";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { bunFileSystemLayer } from "@kb/runtime";
 import { UI_DIST } from "./paths.ts";
 
 const ASSET_MIME: Record<string, string> = {

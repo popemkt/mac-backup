@@ -1,9 +1,8 @@
 import { describe, expect, test, afterEach } from "bun:test";
 import { Effect } from "effect";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { openKb, invoke, registryFor, resetRegistryCache } from "@kb/runtime";
+import { openKb, invoke, registryFor, resetRegistryCache, bunFileSystemLayer } from "@kb/runtime";
 import { main } from "../src/cli.ts";
 
 // Roots live under tests/ (not os tmpdir) so fixture extensions resolve

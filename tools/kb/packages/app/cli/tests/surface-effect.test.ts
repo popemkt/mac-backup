@@ -12,8 +12,8 @@ import {
   resetRegistryCache,
   resolveRootEffect,
   RootNotFoundError,
+  bunFileSystemLayer,
 } from "@kb/runtime";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
 import { runPlanEffect } from "../src/cli.ts";
 import { mapAdd, mapGet } from "@kb/operations";
 import type { ManifestEntry } from "@kb/runtime";

@@ -6,8 +6,7 @@ import type { PlatformError } from "effect/PlatformError";
 import { UI_DEFAULT_PORT, type KbContext } from "@kb/contracts";
 import { currentIso, diffTx, type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect } from "@kb/operations";
-import { kbRuntimeLayer, openKbEffect, writeErr } from "@kb/runtime";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { kbRuntimeLayer, openKbEffect, writeErr, bunFileSystemLayer } from "@kb/runtime";
 import { queriesDir } from "@kb/workspace-fs";
 import { ensureUiBuilt, type UiBuildError, type UiEnsureResult } from "./build.ts";
 import {

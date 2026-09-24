@@ -12,8 +12,7 @@ import {
   type DomainError,
 } from "@kb/model";
 import { DatascriptIndex, type KbIndex } from "@kb/query";
-import { selectStore } from "@kb/runtime";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { selectStore, bunFileSystemLayer } from "@kb/runtime";
 import type { KbClient, QueryResult, Snapshot } from "./api.d.ts";
 
 export type { Commit, KbClient, KbNode, PropValue, QueryResult, Snapshot } from "./api.d.ts";

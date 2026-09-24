@@ -21,7 +21,6 @@
     "@kb/operations": "workspace:*",
     "@kb/runtime": "workspace:*",
     "@kb/server": "workspace:*",
-    "@kb/store-jsonl": "workspace:*",
     "commander": "catalog:",
     "effect": "catalog:"
   },

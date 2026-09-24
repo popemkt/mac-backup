@@ -6,7 +6,7 @@ import { Effect, Exit, Fiber, Layer } from "effect";
 import { kbRuntimeLayer, openKbEffect } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
 import { KbCtx, KbStore, templateRegistryLayer } from "@kb/contracts";
-import { bunFileSystemLayer } from "@kb/store-jsonl";
+import { bunFileSystemLayer } from "../src/platform.ts";
 import { assetsLayer, savedQueriesLayer, viewsLayer } from "@kb/workspace-fs";
 import { KbIndexService } from "@kb/query";
 import { invoke } from "../src/invoke.ts";

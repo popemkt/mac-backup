@@ -16,12 +16,12 @@
     "@kb/operations": "workspace:*",
     "@kb/query": "workspace:*",
     "@kb/runtime": "workspace:*",
-    "@kb/store-jsonl": "workspace:*",
     "@kb/workspace-fs": "workspace:*",
     "effect": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@kb/store-jsonl": "workspace:*",
     "@kb/test-kit": "workspace:*",
     "@types/bun": "catalog:"
   },

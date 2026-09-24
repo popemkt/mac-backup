@@ -7,7 +7,8 @@ import { openKbEffect, runWithKb } from "../src/layers.ts";
 import { openKb, persist, reload } from "../src/session.ts";
 import { KbStore, kbStoreLayer, type EffectStore } from "@kb/contracts";
 import { persistEffect, reloadEffect } from "@kb/operations";
-import { bunFileSystemLayer, JsonlStore } from "@kb/store-jsonl";
+import { JsonlStore } from "@kb/store-jsonl";
+import { bunFileSystemLayer } from "../src/platform.ts";
 import {
   canonicalJson,
   DomainError,
