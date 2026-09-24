@@ -37,7 +37,7 @@ describe("layout-shift regressions (i10)", () => {
     expect(withRemove).toContain("group-hover/tag:opacity-60");
     expect(withRemove).not.toContain("group-hover/tag:flex");
     expect(withRemove).toContain('data-tag-mark="true"');
-    // Mark scales in em off --tag-size rather than pinning its own px box.
+    // Mark scales in em off --type-tag rather than pinning its own px box.
     expect(withRemove).toContain("w-[1em]");
 
     // Label + mark anatomy matches the no-remove chip (only overlay button added).

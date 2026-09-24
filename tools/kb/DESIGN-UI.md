@@ -694,8 +694,11 @@ is.
 - **Radius** derives from one layer-1 value, `--radius` (the `md` step). The
   bridge computes `xs` (−4px), `sm` (−2px), `lg` (+4px), `xl` (+10px) and
   `2xl` (×2) from it, after resetting Tailwind's steps. Bare `rounded`
-  (Tailwind's fixed 4px) is `rounded-xs`. `rounded-full` is a shape, not a
-  step.
+  (Tailwind's fixed 4px) is `rounded-xs`, and `.kb-md-media` applies the
+  same step. `rounded-full` is a shape, not a step. Three corners are still
+  off the scale (2px resize handles, the 3px inline-code chip, the 5px
+  ontology segmented control), under one gap: putting them on a step moves
+  each by 1–2px, which is a visible change.
 - **Borders** are Tailwind's 1px hairline. No layer-1 width exists: a
   `--border-width` property was declared that nothing read, so it was
   deleted rather than kept looking like it was wired.
@@ -727,9 +730,12 @@ is.
 at `error`) reads every string a UI module writes. It rejects the forms that
 bypass the bridge:
 
-- an arbitrary font size (`text-[11px]`);
+- a font size that is not a type step: an arbitrary length, untyped or
+  typed (`text-[11px]`, `text-[length:11px]`, `text-(length:--x)`), or one
+  of Tailwind's default steps (`text-sm`), which the reset leaves compiling
+  to nothing;
 - a shadow outside the elevation levels (`shadow`, `shadow-xl`, `shadow-[…]`);
-- bare `rounded`;
+- bare `rounded` or an arbitrary radius (`rounded-[5px]`, `rounded-t-[2px]`);
 - a Tailwind palette colour (`bg-amber-500`, `text-white`);
 - in `components/`, a hex colour literal.
 
@@ -741,10 +747,13 @@ files are exempt: their hex strings are tag-colour fixtures, not styling.
 A sanctioned exception is the soft-rule mechanism for few sites (root
 `CLAUDE.md` → Drift markers and gaps): a pinpoint
 `oxlint-disable-next-line design-tokens/no-raw-design-value -- GAP [[id]]`
-and a `#gap` node. Today there is one: the graph's query-error chip still
-uses Tailwind amber where the `warning` token exists. Moving it to `warning`
-is a visible change, so it was left out of this no-visual-change
-restructure.
+and a `#gap` node. Two gaps use it today. The graph's query-error chip
+still uses Tailwind amber where the `warning` token exists, and three
+corners sit off the radius scale (see Radius above). Closing either is a
+visible change, so both were left out of this no-visual-change
+restructure. A stylesheet cannot carry a lint disable, so the one CSS site
+(`.kb-md-code`) carries a bare `GAP [[id]]` comment, which the harness's
+gap-marker check resolves like any other.
 
 ### A dead token is a duplicate
 

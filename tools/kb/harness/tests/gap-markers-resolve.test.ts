@@ -60,7 +60,7 @@ export function findAllGapMarkers(root: string = WORKSPACE_ROOT): Array<{
   line: number;
   id: string;
 }> {
-  const files = gitWorkspaceFiles(["*.ts", "*.tsx"], root);
+  const files = gitWorkspaceFiles(["*.ts", "*.tsx", "*.css"], root);
   const markers: Array<{ file: string; line: number; id: string }> = [];
 
   for (const relFile of files) {

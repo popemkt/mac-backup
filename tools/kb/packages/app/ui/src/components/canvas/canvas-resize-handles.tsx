@@ -28,6 +28,7 @@ export function CanvasResizeHandles({
         onResizeStart(event, corner);
       }}
     >
+      {/* oxlint-disable-next-line design-tokens/no-raw-design-value -- GAP [[01M3AF8G4N9JHJB8YYEWF8F5SZ]] */}
       <span className="h-2 w-2 rounded-[2px] border border-primary/70 bg-background shadow-raised" />
     </div>
   ));

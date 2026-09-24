@@ -383,6 +383,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Hand the integrity check an EDN runner over the prospective graph (the session index already has one), then check every written ref value against allowedRefIdsOf, with a test per carrier.
 - **node** — `01M39YM7FQ9S231XW8JBA5MG0E`
 
+### GAP: three corner radii (2px, 3px, 5px) sit off the radius scale
+
+- **expected** — Every corner radius is a step derived from the design system's --radius, so a swap re-rounds everything.
+- **current** — canvas-resize-handles.tsx uses rounded-[2px], ontology-page.tsx's segmented control rounded-[5px], and tokens.css's .kb-md-code a fixed 3px, each under a GAP marker (a disable of design-tokens/no-raw-design-value in the two components).
+- **impact** — A design system that changes --radius leaves these three corners unchanged.
+- **closes** — Map each onto a step (xs 4px or sm 6px, a 1-2px visible change), or add a step if the size is a real role. That is a visible change, so it lands outside the no-visual-change token restructure (wave 2026-09-24 f1).
+- **rule** — Design tokens
+- **node** — `01M3AF8G4N9JHJB8YYEWF8F5SZ`
+
 ### GAP: two launch paths for the kb binary
 
 - **expected** — One kb binary: the nix-built package is the only thing on PATH and the only thing .mcp.json launches.

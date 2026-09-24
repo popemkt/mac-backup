@@ -11,10 +11,10 @@ export interface TagChipProps {
 
 /**
  * DESIGN-RESKIN §1.2/1.8 — the one tag chip everywhere.
- * Tokenized via `.kb-tag` / `--tag-size` / `--tag-h`: the pill fills the text
+ * Tokenized via `.kb-tag` / `--type-tag` / `--tag-h`: the pill fills the text
  * line box (Tana parity) and its box metrics live with the token, not here —
  * a component that restates `h-[12px]` is a second source of truth for the
- * same thing. The mark scales in `em`, so it tracks --tag-size for free.
+ * same thing. The mark scales in `em`, so it tracks --type-tag for free.
  * Remove × overlays the hash slot so hover never changes measured width
  * (i10 item 2; Tana/CodeFlow placement).
  */

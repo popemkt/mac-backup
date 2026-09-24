@@ -26,6 +26,11 @@ tester.run("design-tokens/no-raw-design-value", noRawDesignValueRule, {
       filename: COMPONENT,
     },
     { code: `const c = "leading-[1.4] min-w-[200px] text-left";`, filename: COMPONENT },
+    // An arbitrary colour is not a size; rounded-full and scale steps are fine.
+    {
+      code: `const c = "text-[color:var(--x)] rounded-full rounded-t-md rounded-2xl";`,
+      filename: COMPONENT,
+    },
     // Colour data outside components (the tag-colour hash) is not UI styling.
     { code: `const PALETTE = ["#ef4444", "#f97316"];`, filename: LIB },
     // A '#' that is not a colour: tag text, anchors.
@@ -51,10 +56,22 @@ tester.run("design-tokens/no-raw-design-value", noRawDesignValueRule, {
       errors: [at("rawShadow"), at("rawShadow"), at("rawShadow")],
     },
     {
-      name: "bare rounded",
-      code: `const c = "rounded border";`,
+      name: "typed arbitrary font sizes",
+      code: `const c = "text-[length:11px] text-(length:--size)";`,
       filename: COMPONENT,
-      errors: [at("bareRounded")],
+      errors: [at("arbitraryTextSize"), at("arbitraryTextSize")],
+    },
+    {
+      name: "Tailwind default type steps, reset by the bridge",
+      code: `const c = "text-xs sm:text-sm text-base text-lg text-xl text-2xl";`,
+      filename: COMPONENT,
+      errors: Array.from({ length: 6 }, () => at("arbitraryTextSize")),
+    },
+    {
+      name: "bare rounded and arbitrary radii",
+      code: `const c = "rounded border rounded-[5px] rounded-t-[2px] rounded-l";`,
+      filename: COMPONENT,
+      errors: [at("rawRadius"), at("rawRadius"), at("rawRadius"), at("rawRadius")],
     },
     {
       name: "Tailwind palette colours",
