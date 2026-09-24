@@ -8,11 +8,11 @@ pushed.
 
 | # | item | depends on | status |
 |---|---|---|---|
-| a | field values checked against the field's declared type on every write | — | building |
-| b | `(reach ?from <edge> ?to [max])` in EDN | — | built, in review |
-| c | review leftovers: stale gaps, AGENTS.md, canvas split in the p1 gaps, client/store seams | — | building |
-| d | the 6 failing graph-render e2e cases (`render.e2e.ts`) | a–c merged | — |
-| e | `lab` UI plugin: full-frame surface, lazy 3D, off by default and unloadable | a–c merged | — |
+| a | field values checked against the field's declared type on every write | — | merged `fc217f4` (grok: approve) |
+| b | `(reach ?from <edge> ?to [max])` in EDN | — | review fix in progress (grok: approve-with-nits) |
+| c | review leftovers: stale gaps, AGENTS.md, canvas split in the p1 gaps, client/store seams | — | merged `47678b6` (grok: approve) |
+| d | the 6 failing graph-render e2e cases (`render.e2e.ts`) | a–c merged | building |
+| e | `lab` UI plugin: full-frame surface, lazy 3D, off by default and unloadable | a–c merged | building |
 | f1 | tokens, restructure: type scale, elevation, border, mono font; no visual change | d | — |
 | f2 | tokens, add: `html[data-theme]` design-system sets and the preference that picks one | f1 | — |
 | g | graph polish: one shared scene module (bloom, fog, starfield, link particles, camera fly-to) used by lab and force3d; 2D curved edges, label halos, hover fade | e, f2 | — |
