@@ -17,6 +17,7 @@ import {
   length,
   mix,
   mx_fractal_noise_float,
+  mx_noise_float,
   normalize,
   positionLocal,
   screenUV,
@@ -53,17 +54,22 @@ export function starLight(glint: FloatNode, spikes: FloatUniform) {
 
 /**
  * The dome behind everything: ground at the focal point, falling to the edge
- * colour at the frame (a subtle vignette), with the hue as a nebula haze.
+ * colour at the frame (a subtle vignette), under a nebula haze. The haze is
+ * six octaves of noise at a gentle contrast — fine structure, soft falloff —
+ * and a second, slower field shades it between two nearby hues: the hue, and
+ * the hue lifted toward the ink.
  */
 export function dome(colors: PaletteUniforms, nebula: FloatUniform): Mesh {
   const material = new MeshBasicNodeMaterial({ side: BackSide, depthWrite: false });
   const direction = normalize(positionLocal);
-  const cloud = mx_fractal_noise_float(direction.mul(2.4), 4, 2, 0.5, 1).mul(0.5).add(0.5);
-  const wisps = smoothstep(0.42, 0.95, cloud);
-  const vignette = smoothstep(0.3, 0.95, length(screenUV.sub(0.5)).mul(1.35));
+  const cloud = mx_fractal_noise_float(direction.mul(3.2), 6, 2.1, 0.55, 1).mul(0.5).add(0.5);
+  const wisps = smoothstep(0.3, 1.05, cloud).pow(1.4);
+  const shade = smoothstep(0.2, 0.8, mx_noise_float(direction.mul(1.3)).mul(0.5).add(0.5));
+  const tint = mix(colors.hue, mix(colors.hue, colors.ink, 0.3), shade);
+  const vignette = smoothstep(0.35, 1, length(screenUV.sub(0.5)).mul(1.35));
   const base = mix(colors.ground, colors.edge, vignette);
-  material.colorNode = mix(base, colors.hue, wisps.mul(nebula).add(vignette.mul(0.25)));
-  return new Mesh(new SphereGeometry(120, 48, 32), material);
+  material.colorNode = mix(base, tint, wisps.mul(nebula).mul(0.8).add(vignette.mul(0.18)));
+  return new Mesh(new SphereGeometry(120, 64, 48), material);
 }
 
 /** The sun: a limb-darkened HDR disc under a corona that bloom carries out (L2). */
@@ -90,7 +96,7 @@ export function moon(colors: PaletteUniforms, strength: FloatUniform): Sprite {
   const maria = mx_fractal_noise_float(vec3(q.mul(1.6), 3.1), 3, 2, 0.5, 1)
     .mul(0.14)
     .add(0.9);
-  const halo = exp(d.sub(1).max(0).mul(-2.2)).mul(0.3).mul(float(1).sub(disc));
+  const halo = exp(d.sub(1).max(0).mul(-1.4)).mul(0.36).mul(float(1).sub(disc));
   material.colorNode = colors.ink.mul(disc.mul(lit.mul(maria).mul(1.15).add(0.07)).add(halo));
   material.opacityNode = disc.add(halo).min(1).mul(strength);
   return new Sprite(material);

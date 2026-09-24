@@ -40,7 +40,13 @@ import { PanControl, PointerField } from "@/components/lab/kit/pointer";
 import type { LabStage } from "@/components/lab/kit/stage";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
 import { approach, approachRate, easeAt } from "@/components/lab/kit/timing";
-import { skyDirection, starPlace, unitHash } from "@/components/lab/sky/layout";
+import {
+  HERO_GLINTS,
+  heroPlace,
+  skyDirection,
+  starPlace,
+  unitHash,
+} from "@/components/lab/sky/layout";
 import { dome, moon, quad, starLight, sun } from "@/components/lab/sky/shaders";
 
 const STAR_RADIUS = 60;
@@ -62,6 +68,8 @@ function uniforms() {
     twinkle: uniform(1),
     hover: uniform(-1),
     spikes: uniform(1),
+    /** The constellation lines' opacity, eased in when a star is hovered. */
+    lines: uniform(0),
     nebula: uniform(0.32),
     sunStrength: uniform(1),
     moonStrength: uniform(0),
@@ -74,14 +82,25 @@ function nodeStars(stage: LabStage, u: SkyUniforms, nodes: readonly LabNode[]) {
   const n = Math.max(1, nodes.length);
   const positions = new Float32Array(n * 3);
   const looks = new Float32Array(n * 4);
+  // The few most recent glints are the heroes; the rest glint smaller.
+  const rank = new Map(
+    nodes
+      .filter((node) => node.glint)
+      .toSorted((a, b) => b.recency - a.recency)
+      .map((node, i) => [node.id, i]),
+  );
   const local = nodes.map((node, i) => {
-    const [x, y, z] = skyDirection(starPlace(node));
+    const hero = heroPlace(rank.get(node.id) ?? HERO_GLINTS);
+    const [x, y, z] = skyDirection(hero ?? starPlace(node));
     const at = new Vector3(x, y, z).multiplyScalar(STAR_RADIUS);
     positions.set([at.x, at.y, at.z], i * 3);
-    const glint = node.glint ? 0.45 + node.recency * 0.55 : 0;
-    const size = node.glint
-      ? 5 + node.recency * 3
-      : 0.9 + Math.min(1.2, Math.sqrt(node.degree) * 0.28);
+    const glint = hero !== undefined ? 0.6 + node.recency * 0.4 : node.glint ? 0.3 : 0;
+    const size =
+      hero !== undefined
+        ? 6 + node.recency * 3
+        : node.glint
+          ? 2.6
+          : 0.9 + Math.min(1.2, Math.sqrt(node.degree) * 0.28);
     looks.set(
       [size, glint, unitHash(`${node.id}:twinkle`) * Math.PI * 2, 0.6 + node.recency * 0.4],
       i * 4,
@@ -193,36 +212,69 @@ function nearestStar(
   }
 }
 
+/**
+ * The sun and the moon: they trail the sky's turn a beat behind (overlap,
+ * M3), and a theme change sets one as the other rises, over the arrive
+ * duration on the one ease (M6); under reduced motion both jump (M7).
+ */
+function celestial(stage: LabStage, u: SkyUniforms, init: LabSceneInit) {
+  const group = new Group();
+  const sunSprite = sun(stage.colors, u.sunStrength);
+  const moonSprite = moon(stage.colors, u.moonStrength);
+  sunSprite.scale.setScalar(BODY_SIZE);
+  moonSprite.scale.setScalar(BODY_SIZE * 1.2);
+  group.add(sunSprite, moonSprite);
+  const dayRate = approachRate(init.timing.arrive);
+  const followRate = approachRate(init.timing.follow);
+  let day = init.dark ? 0 : 1;
+  let dayTarget = day;
+  let yaw = 0;
+  let pitch = 0;
+  const place = (
+    pan: { readonly yaw: number; readonly pitch: number },
+    reduced: boolean,
+    dt: number,
+  ) => {
+    yaw = reduced ? pan.yaw : approach(yaw, pan.yaw, followRate, dt);
+    pitch = reduced ? pan.pitch : approach(pitch, pan.pitch, followRate, dt);
+    group.rotation.set(pitch, yaw, 0, "YXZ");
+    day = reduced ? dayTarget : approach(day, dayTarget, dayRate, dt);
+    const eased = easeAt(init.timing.settle, day);
+    sunSprite.position.copy(BODY_HOME).setY(BODY_HOME.y - (1 - eased) * BODY_SET);
+    moonSprite.position.copy(BODY_HOME).setY(BODY_HOME.y - eased * BODY_SET);
+    u.sunStrength.value = eased;
+    u.moonStrength.value = 1 - eased;
+  };
+  place({ yaw: 0, pitch: 0 }, true, 0);
+  return {
+    group,
+    place,
+    setDark: (dark: boolean) => {
+      dayTarget = dark ? 0 : 1;
+    },
+  };
+}
+
 function sky(stage: LabStage, init: LabSceneInit, context: StudyContext): StudyParts {
   const u = uniforms();
   const turn = new Group();
-  const bodies = new Group();
-  const sunSprite = sun(stage.colors, u.sunStrength);
-  const moonSprite = moon(stage.colors, u.moonStrength);
-  for (const body of [sunSprite, moonSprite]) {
-    body.scale.setScalar(BODY_SIZE);
-    bodies.add(body);
-  }
   const lineMaterial = new LineBasicNodeMaterial({ transparent: true, depthWrite: false });
   lineMaterial.colorNode = stage.colors.ink;
-  lineMaterial.opacityNode = float(0.35);
+  // Thin and faint, easing in on hover: a hint of the relationship, not a stroke.
+  lineMaterial.opacityNode = u.lines.mul(0.18);
   const lines = new LineSegments(new BufferGeometry(), lineMaterial);
   lines.frustumCulled = false;
   lines.visible = false;
   turn.add(dome(stage.colors, u.nebula), dust(stage), lines);
-  stage.scene.add(turn, bodies);
+  const bodies = celestial(stage, u, init);
+  stage.scene.add(turn, bodies.group);
   stage.camera.position.set(0, 0, 0);
   stage.camera.lookAt(0, 0, -1);
 
   let graph = init.graph;
   let stars = nodeStars(stage, u, graph.nodes);
   turn.add(stars.sprite);
-  let day = init.dark ? 0 : 1;
-  let dayTarget = day;
-  const dayRate = approachRate(init.timing.arrive);
-  const followRate = approachRate(init.timing.follow);
-  let bodyYaw = 0;
-  let bodyPitch = 0;
+  const lineRate = approachRate(init.timing.reveal);
   let hovered = -1;
   let hoverX = 0;
   let hoverY = 0;
@@ -238,7 +290,10 @@ function sky(stage: LabStage, init: LabSceneInit, context: StudyContext): StudyP
   const setHovered = (index: number, x: number, y: number) => {
     const moved = Math.abs(x - hoverX) + Math.abs(y - hoverY) > 0.75;
     if (index === hovered && !moved) return;
-    if (index !== hovered) constellation(lines, graph, stars.local, graph.nodes[index]);
+    if (index !== hovered) {
+      constellation(lines, graph, stars.local, graph.nodes[index]);
+      u.lines.value = 0;
+    }
     hovered = index;
     hoverX = x;
     hoverY = y;
@@ -256,21 +311,6 @@ function sky(stage: LabStage, init: LabSceneInit, context: StudyContext): StudyP
     setHovered(hit.index, hit.x, hit.y);
   };
 
-  const placeBodies = (dt: number) => {
-    const reduced = context.reduced();
-    const p = pan.pan;
-    bodyYaw = reduced ? p.yaw : approach(bodyYaw, p.yaw, followRate, dt);
-    bodyPitch = reduced ? p.pitch : approach(bodyPitch, p.pitch, followRate, dt);
-    bodies.rotation.set(bodyPitch, bodyYaw, 0, "YXZ");
-    day = reduced ? dayTarget : approach(day, dayTarget, dayRate, dt);
-    const eased = easeAt(init.timing.settle, day);
-    sunSprite.position.copy(BODY_HOME).setY(BODY_HOME.y - (1 - eased) * BODY_SET);
-    moonSprite.position.copy(BODY_HOME).setY(BODY_HOME.y - eased * BODY_SET);
-    u.sunStrength.value = eased;
-    u.moonStrength.value = 1 - eased;
-  };
-  placeBodies(0);
-
   return {
     frame: (dt, elapsed) => {
       u.time.value = elapsed;
@@ -279,7 +319,10 @@ function sky(stage: LabStage, init: LabSceneInit, context: StudyContext): StudyP
       pan.frame(dt, reduced);
       if (!pan.dragging && !reduced) pan.pan.yaw += DRIFT * dt;
       turn.rotation.set(pan.pan.pitch, pan.pan.yaw, 0, "YXZ");
-      placeBodies(dt);
+      bodies.place(pan.pan, context.reduced(), dt);
+      u.lines.value = reduced
+        ? Number(lines.visible)
+        : approach(u.lines.value, Number(lines.visible), lineRate, dt);
       stage.scene.updateMatrixWorld();
       hitTest();
     },
@@ -289,7 +332,7 @@ function sky(stage: LabStage, init: LabSceneInit, context: StudyContext): StudyP
       if (id === "dither" && typeof value === "boolean") stage.knobs.dither.value = value ? 1 : 0;
     },
     setPalette: (_palette, dark) => {
-      dayTarget = dark ? 0 : 1;
+      bodies.setDark(dark);
       u.twinkle.value = context.reduced() ? 0 : 1;
       stage.setBloom(dark ? 0.8 : 0.5);
     },

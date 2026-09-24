@@ -5,9 +5,35 @@
 import { djb2Hash } from "@/lib/tag-color";
 import type { LabNode } from "@/components/lab/lab-graph";
 
-/** A stable number in [0, 1) for a key. */
+/**
+ * A stable number in [0, 1) for a key. djb2 alone keeps near-identical keys
+ * (ULIDs minted in one burst) near-identical, which laid siblings out as
+ * dotted arcs; murmur3's finaliser scatters every bit.
+ */
 export function unitHash(key: string): number {
-  return (djb2Hash(key) >>> 0) / 0x1_0000_0000;
+  let h = djb2Hash(key) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return ((h ^ (h >>> 16)) >>> 0) / 0x1_0000_0000;
+}
+
+/**
+ * Where the brightest glints hang before any pan: near the thirds of the
+ * view, clear of the frame's edges, the header and the info card, and of the
+ * sun or moon (P1). Yaw and pitch in radians for the lab's field of view.
+ */
+const HERO_PLACES: readonly SkyPlace[] = [
+  { yaw: -0.27, pitch: 0.16 },
+  { yaw: 0.3, pitch: -0.15 },
+  { yaw: -0.08, pitch: -0.22 },
+];
+
+/** How many glints are heroes; the rest are smaller, and sit with their siblings. */
+export const HERO_GLINTS = HERO_PLACES.length;
+
+/** The `rank`-th most recent glint's place, if it is one of the heroes. */
+export function heroPlace(rank: number): SkyPlace | undefined {
+  return HERO_PLACES[rank];
 }
 
 /** Stars fill the half of the sky in front; a pan past it finds only dust. */
