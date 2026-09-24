@@ -84,18 +84,26 @@ pinned_artifacts_reachable() {
   done < <(jq -r '.[].src.url // empty' "$GENERATED_JSON")
 }
 
+# nvfetcher.toml as JSON: the one reader of the configuration. Nix is present
+# wherever this script runs, including outside `nix run`.
+config_json() {
+  nix-instantiate --eval --strict --json \
+    --expr '{ path }: builtins.fromTOML (builtins.readFile path)' \
+    --argstr path "$NVFETCHER_CONFIG"
+}
+
 # The committed configuration with every version source replaced by the
 # version generated.json pins, so regenerating it reproduces the committed
 # outputs exactly when they are consistent, whatever upstream has published.
 write_pinned_config() {
   local pinned_config="$1"
-  local unpinned
+  local config unpinned
 
+  config="$(config_json)" || return 11
   unpinned="$(
-    remarshal -if toml -of json "$NVFETCHER_CONFIG" \
-      | jq -r --slurpfile generated "$GENERATED_JSON" '
-          keys[] | select($generated[0][.].version == null)
-        '
+    jq -r --slurpfile generated "$GENERATED_JSON" '
+      keys[] | select($generated[0][.].version == null)
+    ' <<<"$config"
   )"
   if [ -n "$unpinned" ]; then
     echo "error: no pinned version in _sources/generated.json for: ${unpinned//$'\n'/ }" >&2
@@ -103,10 +111,9 @@ write_pinned_config() {
     return 11
   fi
 
-  remarshal -if toml -of json "$NVFETCHER_CONFIG" \
-    | jq --slurpfile generated "$GENERATED_JSON" '
-        with_entries(.value.src = {manual: $generated[0][.key].version})
-      ' \
+  jq --slurpfile generated "$GENERATED_JSON" '
+    with_entries(.value.src = {manual: $generated[0][.key].version})
+  ' <<<"$config" \
     | remarshal -if json -of toml >"$pinned_config"
 }
 
