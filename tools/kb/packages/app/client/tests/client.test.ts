@@ -166,6 +166,25 @@ describe.each([...STORE_BACKENDS])("over a %s store", (backend) => {
     expect((await client.snapshot()).nodes.map((n) => n.text)).toEqual(["after!"]);
   });
 
+  test("a query answers from the held index until the store moves, then from the new state", async () => {
+    const root = await workspace(backend);
+    const client = await openClient(root);
+    const empty = await client.snapshot();
+    const saved = await client.commit({
+      expectedRevision: empty.revision,
+      upserts: [node("one", "before")],
+      deletes: [],
+    });
+    const texts = "[:find ?text :where [?n :node/text ?text]]";
+    expect(await client.query(texts)).toEqual({ revision: saved.revision, rows: [["before"]] });
+    expect(await client.query(texts)).toEqual({ revision: saved.revision, rows: [["before"]] });
+
+    externalEdit[backend](root, "before", "after!");
+    const moved = await client.query(texts);
+    expect(moved.revision).not.toBe(saved.revision);
+    expect(moved).toEqual({ revision: (await client.snapshot()).revision, rows: [["after!"]] });
+  });
+
   test("a malformed upsert rejects the whole batch before anything is stored", async () => {
     const client = await openClient(await workspace(backend));
     const empty = await client.snapshot();

@@ -35,6 +35,9 @@ const { rows } = await graph.query("[:find ?id :where [?n :node/id ?id]]");
   whole nodes, so keep the fields you do not own when editing a shared node.
 - A successful batch is recorded on the transaction tail like any other
   commit, with its `origin`.
+- **`query()` answers through one `KbIndex`** the client holds for its
+  lifetime, rebuilt only when the store's fingerprint has moved past the
+  revision it was built at.
 
 The published boundary is plain data, Promises and `KbClientError`, declared in
 `src/api.d.ts`; `tests/api.test.ts` holds those declarations to kb's node model

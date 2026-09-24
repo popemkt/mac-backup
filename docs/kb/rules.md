@@ -144,7 +144,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: KbIndex is DataScript in memory on both stores; sqlite holds nodes but answers no queries
 
 - **expected** — A KbIndex backed by the sqlite store — queries compiled from the query IR to SQL and answered by the database that already holds the nodes, so a sqlite root does not rebuild a whole DataScript db on every open.
-- **current** — Both adapters load every node and build a DatascriptIndex in memory (app/runtime/src/layers.ts). SqliteStore is a container, not a query engine; the 50k benchmark's datom-build cost is identical on both.
+- **current** — Both adapters load every node and build a DatascriptIndex in memory (app/runtime/src/layers.ts); @kb/client holds one KbIndex of its own, rebuilt from a full snapshot whenever the store's fingerprint moves. SqliteStore is a container, not a query engine; the 50k benchmark's datom-build cost is identical on both.
 - **impact** — Choosing sqlite buys write speed (a set-shaped commit is ~4ms against ~120ms) and buys nothing for read or open. The port's second adapter is proven but under-exploited.
 - **closes** — An IR to SQL compiler behind KbIndex.run(ir), plus a decision about which queries stay in DataScript. Needs its own wave: the IR is not yet the only way queries reach the index.
 - **node** — `01M1RYY03MAQPTPRCBHTRJDC39`

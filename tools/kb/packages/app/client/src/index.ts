@@ -11,7 +11,7 @@ import {
   txIntegrityError,
   type DomainError,
 } from "@kb/model";
-import { DatascriptIndex } from "@kb/query";
+import { DatascriptIndex, type KbIndex } from "@kb/query";
 import { selectStore } from "@kb/runtime";
 import { bunFileSystemLayer } from "@kb/store-jsonl";
 import type { KbClient, QueryResult, Snapshot } from "./api.d.ts";
@@ -64,17 +64,47 @@ const readSnapshot = Effect.fn("kb.client.snapshot")(function* (
   return yield* domainError("conflict", "store kept changing while it was read; try again");
 });
 
+/**
+ * The client's one {@link KbIndex} and the revision it holds. `null` while no
+ * state is held: before the first query, and across a rebuild.
+ */
+interface HeldIndex {
+  readonly index: KbIndex;
+  revision: string | null;
+}
+
+/**
+ * One fingerprint read decides whether the held index still names the
+ * store's state; only when it does not is a snapshot read and the index
+ * rebuilt. The rebuild, the query and the revision reported with the rows
+ * share one synchronous block, so the two always describe the same state,
+ * even when another query rebuilt the index in between.
+ */
 const runQuery = Effect.fn("kb.client.query")(function* (
   store: EffectStore,
+  held: HeldIndex,
   edn: string,
   inputs: readonly unknown[],
 ): Effect.fn.Return<QueryResult, DomainError> {
-  const current = yield* readSnapshot(store);
-  const rows = yield* Effect.try({
-    try: () => new DatascriptIndex(current.nodes).runDatalog(edn, ...inputs),
+  const fingerprint = yield* store.fingerprint;
+  const fresh =
+    fingerprint !== null && fingerprint === held.revision ? null : yield* readSnapshot(store);
+  const result = yield* Effect.try({
+    try: (): QueryResult | null => {
+      if (fresh !== null) {
+        held.revision = null;
+        held.index.rebuild(fresh.nodes);
+        held.revision = fresh.revision;
+      }
+      const revision = held.revision;
+      return revision === null ? null : { revision, rows: held.index.runDatalog(edn, ...inputs) };
+    },
     catch: (err) => domainError("invalid_input", err instanceof Error ? err.message : String(err)),
   });
-  return { revision: current.revision, rows };
+  if (result === null) {
+    return yield* domainError("internal", `the index for ${store.path} holds no state`);
+  }
+  return result;
 });
 
 /**
@@ -124,9 +154,10 @@ function run<A>(effect: Effect.Effect<A, DomainError>): Promise<A> {
 }
 
 function clientOver(store: EffectStore): KbClient {
+  const held: HeldIndex = { index: new DatascriptIndex(), revision: null };
   return {
     snapshot: () => run(readSnapshot(store)),
-    query: (edn, inputs = []) => run(runQuery(store, edn, inputs)),
+    query: (edn, inputs = []) => run(runQuery(store, held, edn, inputs)),
     commit: (change) => run(commitChange(store, change)),
   };
 }
