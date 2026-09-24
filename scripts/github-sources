@@ -131,18 +131,23 @@ write_pinned_config() {
 # versions it may follow. The one place that names them.
 LIST_FILTER_KEYS='["include_regex", "exclude_regex", "ignored"]'
 
-# nvfetcher.toml with each source's list filters removed, keeping only the
-# sources that declare one; resolving it names the newest release upstream
-# offers, which differs from the configured latest while a filter excludes it.
+# nvfetcher.toml reduced to the hold probe: only the sources that declare a
+# list filter, with those filters removed, so resolving it names the newest
+# release upstream offers. The probe wants versions only, so each fetch points
+# at the source's committed artifact, which nvfetcher has already prefetched;
+# an excluded release is never downloaded and need not even have an artifact.
 write_unfiltered_config() {
   local unfiltered_config="$1"
   local config
 
-  config="$(config_json)" || return 20
-  jq --argjson filters "$LIST_FILTER_KEYS" '
+  config="$(config_json)" || return 1
+  jq --argjson filters "$LIST_FILTER_KEYS" --slurpfile committed "$GENERATED_JSON" '
     with_entries(
       select(.value.src | keys | any(IN($filters[])))
       | .value.src |= with_entries(select(.key | IN($filters[]) | not))
+      | .key as $name
+      | if $committed[0][$name].src.url == null then .
+        else .value.fetch = {url: $committed[0][$name].src.url} end
     )
   ' <<<"$config" | remarshal -if json -of toml >"$unfiltered_config"
 }
@@ -168,29 +173,36 @@ check_sources() {
     return 2
   fi
 
-  local tmpdir
+  local tmpdir config
   tmpdir="$(mktemp -d)"
   trap 'rm -rf "$tmpdir"' RETURN
   prepare_nvfetcher_auth "$tmpdir"
+  config="$(config_json)" || return 2
 
   # "Latest" is whatever nvfetcher resolves from the real configuration, the
   # same resolution update performs, so the two cannot disagree. A fresh build
   # directory makes a pinned = true source resolve too, so a frozen pin keeps
   # reporting its newer upstream. --keep-going lets one unreachable upstream
-  # cost only its own answer.
+  # cost only its own answer. This run alone decides the exit status.
   generate_sources "$NVFETCHER_CONFIG" "$tmpdir/latest" --keep-going \
     >"$tmpdir/latest.log" 2>&1 || true
-  write_unfiltered_config "$tmpdir/unfiltered.toml" || return
-  if [ -s "$tmpdir/unfiltered.toml" ]; then
-    generate_sources "$tmpdir/unfiltered.toml" "$tmpdir/unfiltered" --keep-going \
-      >"$tmpdir/unfiltered.log" 2>&1 || true
+
+  # The hold probe only annotates: when it fails, check says so and still
+  # reports the freshness verdict above.
+  if write_unfiltered_config "$tmpdir/unfiltered.toml"; then
+    if [ -s "$tmpdir/unfiltered.toml" ]; then
+      generate_sources "$tmpdir/unfiltered.toml" "$tmpdir/unfiltered" --keep-going \
+        >"$tmpdir/unfiltered.log" 2>&1 || true
+    fi
+  else
+    echo "error: could not write the hold probe configuration" >"$tmpdir/unfiltered.log"
   fi
 
   local report
   report="$(
     jq -rn \
       --slurpfile committed "$GENERATED_JSON" \
-      --argjson config "$(config_json)" \
+      --argjson config "$config" \
       --argjson latest "$(cat "$tmpdir/latest/generated.json" 2>/dev/null || echo '{}')" \
       --argjson newest "$(cat "$tmpdir/unfiltered/generated.json" 2>/dev/null || echo '{}')" \
       --argjson filters "$LIST_FILTER_KEYS" '
@@ -199,20 +211,21 @@ check_sources() {
       | ($latest[$name].version) as $want
       | ($config[$name].src | keys | any(IN($filters[]))) as $filtered
       | ($newest[$name].version) as $unfiltered
-      | if $want == null or ($filtered and $unfiltered == null)
-        then "unavailable\t\($name)"
+      | if $want == null then "unavailable\t\($name)"
         else
+          "checked\t\($name)",
           (if $want != $current
            then "outdated\t\($name): \($current) -> \($want)" else empty end),
-          (if $filtered and $unfiltered != $want
+          (if $filtered | not then empty
+           elif $unfiltered == null then "unprobed\t\($name)"
+           elif $unfiltered != $want
            then "excluded\t\($name): newer release \($unfiltered) excluded by its list filters"
-           else empty end),
-          "checked\t\($name)"
+           else empty end)
         end
     '
   )"
 
-  local kind line checked=0 outdated=0 excluded=0 unavailable=0
+  local kind line checked=0 outdated=0 excluded=0 unavailable=0 unprobed=0
   while IFS=$'\t' read -r kind line; do
     case "$kind" in
       checked) checked=$((checked + 1)) ;;
@@ -224,6 +237,10 @@ check_sources() {
         printf '%s\n' "$line"
         excluded=$((excluded + 1))
         ;;
+      unprobed)
+        echo "warning: $line: could not resolve its newest unfiltered release; whether its filters exclude one is unknown" >&2
+        unprobed=$((unprobed + 1))
+        ;;
       unavailable)
         echo "warning: skipped $line; nvfetcher could not resolve its upstream" >&2
         unavailable=$((unavailable + 1))
@@ -232,7 +249,10 @@ check_sources() {
   done <<<"$report"
 
   if [ "$unavailable" -gt 0 ]; then
-    tail -n 20 "$tmpdir/latest.log" >&2
+    tail -n 20 "$tmpdir/latest.log" >&2 || true
+  fi
+  if [ "$unprobed" -gt 0 ]; then
+    tail -n 20 "$tmpdir/unfiltered.log" >&2 || true
   fi
 
   if [ "$outdated" -gt 0 ]; then
@@ -248,7 +268,7 @@ check_sources() {
     return 20
   fi
 
-  echo "Release pins are current ($checked checked, $excluded with a newer release excluded)."
+  echo "Release pins are current ($checked checked, $excluded with a newer release excluded, $unprobed hold unprobed)."
 }
 
 verify_sources() {

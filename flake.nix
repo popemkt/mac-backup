@@ -104,21 +104,38 @@
             touch "$out"
           '';
 
+      githubSourcesRuntime = with pkgs; [
+        coreutils
+        curl
+        diffutils
+        git
+        jq
+        nvfetcher
+        remarshal
+      ];
+
       githubSources = pkgs.writeShellApplication {
         name = "github-sources";
-        runtimeInputs = with pkgs; [
-          coreutils
-          curl
-          diffutils
-          git
-          jq
-          nvfetcher
-          remarshal
-        ];
+        runtimeInputs = githubSourcesRuntime;
         text = ''
           exec ${./scripts/github-sources} "$@"
         '';
       };
+
+      # Offline fixture test of `github-sources check`: the test's nvfetcher
+      # stub shadows the real one on PATH.
+      githubSourcesCheck =
+        pkgs.runCommand "github-sources-check"
+          {
+            nativeBuildInputs = githubSourcesRuntime ++ [
+              pkgs.bash
+              pkgs.gnugrep
+            ];
+          }
+          ''
+            bash ${./scripts/tests/github-sources-check.sh} ${./scripts/github-sources}
+            touch "$out"
+          '';
 
       # One Darwin host = shared system module + host dir (hosts/<hostname>).
       # Host identity lives in the typed `my.*` options (modules/my.nix),
@@ -188,6 +205,7 @@
 
       checks.${system} = localPackages // {
         inherit systemSetupCheck;
+        github-sources-check = githubSourcesCheck;
         system-setup-manifest-personal = systemSetupManifestCheck "popemkt-personal";
         system-setup-manifest-work = systemSetupManifestCheck "popemkt-work";
         darwin-personal = self.darwinConfigurations.popemkt-personal.system;

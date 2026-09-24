@@ -33,9 +33,9 @@ downloads that artifact once; nvfetcher records the prefetch in its shared
 database (`~/.local/share/nvfetcher`), so later runs and `update` reuse it.
 That database takes a lock, so two nvfetcher runs on one machine at once (a
 `check` and a `verify`, say) make the second fail with exit 20; run them one
-after the other.
-Only the scheduled
-updater acts on the answer (see [Scheduled Updates](#scheduled-updates)); no
+after the other. The flake check `github-sources-check` tests how `check`
+turns resolutions into a verdict, offline, against a stubbed nvfetcher. Only
+the scheduled updater acts on the answer (see [Scheduled Updates](#scheduled-updates)); no
 commit or push gate asks it, because upstreams publish on their own schedule
 and a nightly would otherwise keep every gate red.
 
@@ -115,7 +115,11 @@ scheduled updater keeps moving it within that range.
   source that declares a list filter (`src.include_regex`,
   `src.exclude_regex`, `src.ignored`), `check` resolves it a second time with
   those filters removed; when that answer differs, it prints a line naming the
-  excluded release and counts it in its summary. A hold never disappears
+  excluded release and counts it in its summary. That probe resolves versions
+  only: its fetch points at the committed artifact, so an excluded release is
+  never downloaded. It annotates and never decides: if it fails, `check`
+  warns that the hold is unprobed and still reports the freshness verdict and
+  exit status from the real configuration. A hold never disappears
   silently. `chat2db` follows stable
   releases this way; the reason sits beside it in `nvfetcher.toml`.
 - **Freeze at one version** only when a human must decide each move: set
