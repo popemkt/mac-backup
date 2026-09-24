@@ -29,7 +29,11 @@ directory — the same resolution `update` performs, so the two cannot disagree
 — and exits 10 when a resolved version differs from its pin. A source nvfetcher
 cannot resolve exits 20 (a warning with `--best-effort`). Because nvfetcher
 prefetches what it resolves, the first `check` after an upstream release
-downloads that artifact once; nix caches it for later runs and for `update`.
+downloads that artifact once; nvfetcher records the prefetch in its shared
+database (`~/.local/share/nvfetcher`), so later runs and `update` reuse it.
+That database takes a lock, so two nvfetcher runs on one machine at once (a
+`check` and a `verify`, say) make the second fail with exit 20; run them one
+after the other.
 Only the scheduled
 updater acts on the answer (see [Scheduled Updates](#scheduled-updates)); no
 commit or push gate asks it, because upstreams publish on their own schedule
