@@ -79,17 +79,15 @@ interface Occurrence {
 /** Tailwind's own candidate extraction, with each occurrence's position. */
 function occurrencesIn(file: string, content: string): Occurrence[] {
   const extension = file.endsWith(".tsx") ? "tsx" : "ts";
-  const bytes = Buffer.from(content);
-  // One scanner per file; positions are byte offsets, the source is UTF-16.
-  return new Scanner({}).getCandidatesWithPositions({ content, extension }).map((hit) => {
-    const offset = bytes.subarray(0, hit.position).toString().length;
-    return {
-      file,
-      offset,
-      line: content.slice(0, offset).split("\n").length,
-      candidate: hit.candidate,
-    };
-  });
+  // One scanner per file. A position is a string index into `content`
+  // (`content.slice(position)` starts with the candidate), so it is the
+  // offset as is; the non-ASCII fixture below pins that.
+  return new Scanner({}).getCandidatesWithPositions({ content, extension }).map((hit) => ({
+    file,
+    offset: hit.position,
+    line: content.slice(0, hit.position).split("\n").length,
+    candidate: hit.candidate,
+  }));
 }
 
 /** Whether an exemption covers this occurrence of its candidate in `content`. */
@@ -160,6 +158,26 @@ describe("ui-utilities-live", () => {
     const content = 'const t = { shadow: [...ELEVATIONS] };\nconst c = "shadow";';
     const fixture = new Map([["lib/cn.ts", content]]);
     expect(await deadSites(fixture, NOT_CLASSES)).toEqual(["lib/cn.ts:2: shadow"]);
+  });
+
+  test("positions are exact after non-ASCII text: lines and exemptions hold", async () => {
+    // "é" is two UTF-8 bytes and "—" three; read as byte offsets, every hit
+    // after them would land early and the exemption's span check would miss.
+    const content = [
+      'const note = "café — naïve";',
+      "const t = { shadow: [...ELEVATIONS] };",
+      'const a = "é";',
+      'const c = "shadow";',
+      'const d = "— text-sm/6";',
+    ].join("\n");
+    for (const hit of occurrencesIn("lib/cn.ts", content)) {
+      expect(content.slice(hit.offset, hit.offset + hit.candidate.length)).toBe(hit.candidate);
+    }
+    const fixture = new Map([["lib/cn.ts", content]]);
+    expect(await deadSites(fixture, NOT_CLASSES)).toEqual([
+      "lib/cn.ts:4: shadow",
+      "lib/cn.ts:5: text-sm/6",
+    ]);
   });
 
   test("every NOT_CLASSES entry still covers an occurrence (no stale exemptions)", () => {
