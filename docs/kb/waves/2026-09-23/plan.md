@@ -5,7 +5,7 @@ Single worker (claude / opus) on `main`, in order.
 | wave | what | status |
 |---|---|---|
 | l1-lint | anti-slop subset vendored, oxlint 1.83, `@shadcn/lint` measured | done — `reports/l1-lint.md` |
-| p1-plugins | a DeepSeek-Harness-style plugin kernel under every extension, server and browser | in progress — `briefs/p1-plugins.md` |
+| p1-plugins | a DeepSeek-Harness-style plugin kernel under every extension, server and browser | phases 1–3 done; 4–5 wait on a `@kb/ui-sdk` decision — `briefs/p1-plugins.md` |
 
 ## p1 in one paragraph
 
@@ -35,3 +35,23 @@ Phases, each its own commit, restructure before add:
    extension with a backend entry and a `./ui` entry.
 5. `.kb/extensions/<name>/ui.tsx` loaded at runtime (server-built ESM plus an
    import map), unload/reload on change.
+
+## Status
+
+| phase | commit | state |
+|---|---|---|
+| 1 kernel | `77f0133` | done — 14 contract tests |
+| 2 backend registry on the kernel | `aacf165` | done — registry shape unchanged, clash fails a plugin as a unit |
+| 3 browser kernel: surfaces + sidebar sections | `6bf48dc` | done — route table asserted over contributions |
+| 4 canvas into `ext-canvas` (`./ui`) | — | gap: canvas's UI lives in @kb/ui |
+| 5 runtime UI for `.kb/extensions` | — | gap: repository extensions cannot ship UI |
+| — hot reload | — | gap: the action registry is build-once per process |
+
+4 and 5 share a prerequisite that is a design decision, not a mechanical
+step: `@kb/ui-sdk`, the host API an extension's browser half may use. The
+canvas UI reaches the outline store, the text-host primitive and
+`actions/mutations`; which of those become public API decides both phases.
+
+Render e2e: 9/15 pass; the 6 graph-renderer cases (`render.e2e.ts`) fail
+identically with phase 3 stashed, so they predate this wave and were not
+investigated here.

@@ -84,6 +84,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Implement an IndexedDB-backed EffectStore with the same generation fingerprint contract.
 - **node** — `01M1R6N8VC3W5P93KABEFZ8CTX`
 
+### GAP: canvas's UI lives in @kb/ui, not in the ext-canvas extension
+
+- **expected** — @kb/ext-canvas is one extension with two entries: its backend plugin (tx.apply, and the canvas tag/field seeds) and a ./ui entry whose plugin contributes the canvas surfaces and sidebar section to the browser kernel, as DeepSeek Harness's dsh.client does.
+- **current** — The canvas UI is a built-in UI plugin in packages/app/ui/src/components/canvas (plugin.ts, surfaces.tsx) plus ~12 lib/canvas-* modules; sys.tag.canvas and sys.f.canvas are seeded by core; the UI calls the action by the string ext.canvas.tx.apply.
+- **impact** — An extension cannot own its UI, so canvas is only nominally an extension, and removing ext-canvas leaves a canvas UI with no backend.
+- **closes** — @kb/ui-sdk: the host API an extension's ./ui may use (store selectors it needs, the text-host and sidebar primitives, invoke, live query, the UI points), decided as a design, then a per-entry scope in the harness (. backend, ./ui browser) and the move.
+- **node** — `01M39F3MR3HT2NR553FY8CRD6X`
+
 ### GAP: caretRangeFromPoint needs a CaretDocument cast because lib.dom marks it deprecated
 
 - **expected** — offsetFromPoint calls document.caretRangeFromPoint bound, with no type assertion, and typescript/no-deprecated does not fire on the DOM method.
@@ -174,6 +182,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Drain per component with the UI suite (bun run test:ui) as the guard, re-snapshot the ledger, and promote each rule to error when its count reaches 0.
 - **node** — `01M35NJQPKW5YVNVFFAFAYXPFH`
 
+### GAP: repository extensions cannot ship UI
+
+- **expected** — A .kb/extensions module can carry a browser half (<name>.ui.tsx) that the server builds to ESM, serves at /ext/<name>/ui.js and the UI loads into its kernel at runtime, sharing the host's React through import-map shims, reloaded on change.
+- **current** — The browser kernel loads only the built-in UI plugins listed in ui-plugins.ts; .kb/extensions contribute actions and templates only.
+- **impact** — A repo cannot add a view without editing kb itself.
+- **closes** — The same @kb/ui-sdk the canvas move needs, published as an ambient d.ts like kb-ext-sdk, plus the server route, the shims and a loader test.
+- **node** — `01M39F3N04WNEVCGHX428H8TKN`
+
 ### GAP: repository extensions have no fail-closed admission
 
 - **expected** — Repository-owned extensions pass one explicit admission operation that compiles and decodes contributions, rejects duplicate IDs, validates handlers against definitions, and reports zero loader failures.
@@ -214,6 +230,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Cost now grows with the number of distinct queries on screen rather than with clients times subscriptions, but it is still every query on every edit: a board view with a dozen query nodes re-runs all twelve per keystroke, most of them answering the same rows.
 - **closes** — Skip a subscription the transaction cannot affect. @kb/query's IR names what a compiled query reads (PatternClause.attr, ReachClause.edge, children), but a StoreTx does not name what a write touched: it carries whole nodes as they are after the write, so a removed prop and every attribute of a deleted node are absent from it. Gating on that read set would silently drop those changes. Needs the tx log to carry before-images (or the store to report a per-tx attribute set), and a fallback that always re-runs an IrRaw query, which exposes no read set at all.
 - **node** — `01M1QZNM17MTGGPE517NVZYJT0`
+
+### GAP: the action registry is build-once per process though the kernel can unload
+
+- **expected** — kb ui watches .kb/extensions and reloads a changed extension by unloading and loading its plugin; dependents re-pend and re-activate through the kernel.
+- **current** — registryFor caches one registry (and its kernel) per root for the process lifetime; a changed extension needs a restart of kb ui / kb mcp.
+- **impact** — Extension development needs restarts; the kernel's unload/reload is proven by its contract but unused by any host.
+- **closes** — Hold the kernel as the session's live registry instead of a derived snapshot: the watcher calls kernel.unload/load, and byId/manifest read the points on demand.
+- **node** — `01M39F3N7TS10VJ881RNC0Z4X3`
 
 ### GAP: the browser holds the whole graph
 
