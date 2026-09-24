@@ -24,14 +24,15 @@ Usage:
   github-sources update [source-name]
 
 Commands:
-  check   Compare pinned versions with their latest upstream releases.
-          Exit 10 when updates are available. Network/API failures exit 20,
-          or pass with a warning when --best-effort is used.
-  verify  Regenerate sources in a temporary directory and prove that the
-          committed outputs match nvfetcher.toml and the latest release.
-          Network failures pass only when --best-effort is used.
+  check   Freshness: is a newer upstream release available? Exit 10 when
+          so, 20 on network/API failure (a warning with --best-effort).
+  verify  Consistency: do the committed _sources match nvfetcher.toml
+          regenerated at their pinned versions? Exit 11 on a mismatch, 20
+          when nvfetcher fails (a warning with --best-effort when offline).
   update  Regenerate versions and hashes with nvfetcher. Optionally update
           exactly one source from nvfetcher.toml.
+
+What each command proves: docs/github-release-packages.md#commands
 EOF
 }
 
@@ -65,46 +66,48 @@ print_update_hint() {
   echo "run: cd \"$COMMAND_ROOT\" && nix run .#github-sources -- update" >&2
 }
 
-github_api_available() {
-  local curl_headers=()
-  if [ -n "${GITHUB_TOKEN:-}" ]; then
-    curl_headers=(-H "Authorization: Bearer $GITHUB_TOKEN")
-  fi
-
-  curl \
-    --silent \
-    --fail \
-    --location \
-    --connect-timeout 2 \
-    --max-time 5 \
-    --retry 0 \
-    --output /dev/null \
-    -H "Accept: application/vnd.github+json" \
-    "${curl_headers[@]}" \
-    "https://api.github.com/rate_limit"
-}
-
-tracked_sources_available() {
-  github_api_available || return 1
-
-  local version_url
-  while IFS= read -r version_url; do
+# Verify downloads exactly the pinned artifacts, so those hosts are the network
+# it depends on. Any HTTP answer, even an error, proves the host is reachable;
+# only a connection-level failure counts as offline.
+pinned_artifacts_reachable() {
+  local artifact_url
+  while IFS= read -r artifact_url; do
     curl \
       --silent \
-      --fail \
+      --head \
       --location \
       --connect-timeout 2 \
       --max-time 5 \
       --retry 0 \
       --output /dev/null \
-      "$version_url" || return 1
-  done < <(
-    jq -r '
-      to_entries[]
-      | select(.value.passthru.versionUrl != null)
-      | .value.passthru.versionUrl
-    ' "$GENERATED_JSON"
-  )
+      "$artifact_url" || return 1
+  done < <(jq -r '.[].src.url // empty' "$GENERATED_JSON")
+}
+
+# The committed configuration with every version source replaced by the
+# version generated.json pins, so regenerating it reproduces the committed
+# outputs exactly when they are consistent, whatever upstream has published.
+write_pinned_config() {
+  local pinned_config="$1"
+  local unpinned
+
+  unpinned="$(
+    remarshal -if toml -of json "$NVFETCHER_CONFIG" \
+      | jq -r --slurpfile generated "$GENERATED_JSON" '
+          keys[] | select($generated[0][.].version == null)
+        '
+  )"
+  if [ -n "$unpinned" ]; then
+    echo "error: no pinned version in _sources/generated.json for: ${unpinned//$'\n'/ }" >&2
+    print_update_hint
+    return 11
+  fi
+
+  remarshal -if toml -of json "$NVFETCHER_CONFIG" \
+    | jq --slurpfile generated "$GENERATED_JSON" '
+        with_entries(.value.src = {manual: $generated[0][.key].version})
+      ' \
+    | remarshal -if json -of toml >"$pinned_config"
 }
 
 check_sources() {
@@ -302,6 +305,7 @@ verify_sources() {
   require_command curl
   require_command jq
   require_command nvfetcher
+  require_command remarshal
 
   if [ ! -f "$NVFETCHER_CONFIG" ]; then
     echo "error: nvfetcher config is missing: $NVFETCHER_CONFIG" >&2
@@ -316,25 +320,24 @@ verify_sources() {
     fi
   done
 
-  local tmpdir log_file
+  local tmpdir log_file pinned_config
   tmpdir="$(mktemp -d)"
+  trap 'rm -rf "$tmpdir"' RETURN
   log_file="$tmpdir/nvfetcher.log"
-  prepare_nvfetcher_auth "$tmpdir"
+  pinned_config="$tmpdir/nvfetcher.pinned.toml"
+  write_pinned_config "$pinned_config" || return
 
   if ! nvfetcher \
-    "${NVFETCHER_AUTH_ARGS[@]}" \
-    --config "$NVFETCHER_CONFIG" \
+    --config "$pinned_config" \
     --build-dir "$tmpdir/_sources" \
     >"$log_file" 2>&1; then
-    if [ "$best_effort" = true ] && ! tracked_sources_available; then
-      echo "warning: could not regenerate release sources while offline; continuing" >&2
-      rm -rf "$tmpdir"
+    if [ "$best_effort" = true ] && ! pinned_artifacts_reachable; then
+      echo "warning: could not fetch pinned release artifacts while offline; continuing" >&2
       return 0
     fi
 
     cat "$log_file" >&2
-    echo "error: nvfetcher could not regenerate release sources" >&2
-    rm -rf "$tmpdir"
+    echo "error: nvfetcher could not regenerate release sources at their pinned versions" >&2
     return 20
   fi
 
@@ -344,7 +347,7 @@ verify_sources() {
       "$ROOT_DIR/_sources/$generated_file" \
       "$tmpdir/_sources/$generated_file"; then
       mismatch=true
-      echo "error: _sources/$generated_file does not match nvfetcher.toml" >&2
+      echo "error: _sources/$generated_file does not match nvfetcher.toml at the pinned versions" >&2
       diff -u \
         "$ROOT_DIR/_sources/$generated_file" \
         "$tmpdir/_sources/$generated_file" \
@@ -352,14 +355,12 @@ verify_sources() {
     fi
   done
 
-  rm -rf "$tmpdir"
-
   if [ "$mismatch" = true ]; then
     print_update_hint
     return 11
   fi
 
-  echo "Generated release sources match nvfetcher.toml and the latest releases."
+  echo "Generated release sources match nvfetcher.toml at their pinned versions."
 }
 
 update_sources() {

@@ -162,8 +162,8 @@ system-setup next                               # show the next required enrollm
 update-system                                   # prepare and validate reviewable repo pin updates
 apply-system-update                             # apply/upgrade, then commit and push prepared pin files
 upgrade-out-of-band                             # Determinate Nix upgrade + list macOS Software Update
-nix run .#github-sources -- check               # check pinned direct-release packages
-nix run .#github-sources -- verify              # verify config, versions, and generated hashes
+nix run .#github-sources -- check               # report direct-release pins with newer upstreams
+nix run .#github-sources -- verify              # verify generated sources match config at pinned versions
 nix run .#github-sources -- update              # update their versions + hashes
 ./scripts/uv-sources check                      # report uv tool pins with newer PyPI releases
 ./scripts/uv-sources update                     # bump track="latest" uv pins (update-system runs this)

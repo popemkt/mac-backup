@@ -13,8 +13,11 @@ Two workflows gate this repo, plus two that maintain it.
 independent jobs that run in parallel because they share nothing:
 
 - **`nix`** — `shellcheck`, `actionlint`, `nixfmt --check`, `statix`, `deadnix`,
-  `nix flake check` (eval, then build), and release-pin verification. Runs
-  inside `nix develop`, so the tool versions are the repo's own.
+  `nix flake check` (eval, then build), and release-source consistency
+  (`github-sources verify`). Runs inside `nix develop`, so the tool versions
+  are the repo's own. It does not ask whether the pins are current; what each
+  command proves, and why freshness gates nothing, lives in
+  [github-release-packages.md](github-release-packages.md#commands).
 - **`kb`** — `bun run verify`, `bun run test`, `bun run test:ui`, and
   `bun run test:dst`, followed by the generated-docs check and the `.kb/assets`
   backup-ownership check.
@@ -61,7 +64,7 @@ there has a known answer already:
 | kb generated docs (`docs-check.ts`) | `.kb/**`, `docs/kb/**`, `tools/kb/**` |
 | `.kb/assets` backup ownership | `.kb/**`, `.gitignore`, `docs/backup-strategy.md`, `modules/darwin/home-manager/mackup.nix`, `scripts/check-kb-assets-backup.sh` |
 | `bun run verify` (kb workspace) | `.kb/**`, `tools/kb/**`, `docs/kb/**`, `CLAUDE.md`, any `AGENTS.md`, `.githooks/**`, `.github/workflows/*.yml` |
-| Nix lane — `nixfmt`, `statix`, `deadnix`, `nix flake check`, release pins | any `*.nix`, plus `nvfetcher.toml`, `_sources/**`, `pkgs/**` for the pins |
+| Nix lane — `nixfmt`, `statix`, `deadnix`, `nix flake check`, release-source consistency | any `*.nix`, plus `nvfetcher.toml`, `_sources/**`, `pkgs/**` for the sources |
 
 `verify`'s row reaches past the kb workspace because `verify` ends in
 `bun run check:audit`, and `ext.check.audit` reads every `#rule`'s `home` file

@@ -20,14 +20,29 @@ Never edit files under `_sources/` manually.
 
 ## Commands
 
-Check every tracked release without changing the working tree:
+The commands answer two different questions, and each question has exactly one
+command.
+
+**Freshness — is there a newer upstream release?** `check` compares each pin
+with its upstream and exits 10 when an update is available. Only the scheduled
+updater acts on the answer (see [Scheduled Updates](#scheduled-updates)); no
+commit or push gate asks it, because upstreams publish on their own schedule
+and a nightly would otherwise keep every gate red.
 
 ```bash
 nix run .#github-sources -- check
 ```
 
-Prove that `nvfetcher.toml`, the latest releases, and both generated files
-agree, without changing the working tree:
+**Consistency — are the committed sources what `nvfetcher.toml` generates at
+the pinned versions?** `verify` rewrites every source's version source to the
+version `_sources/generated.json` records, regenerates in a temporary
+directory, and requires both generated files to match byte for byte. That
+proves the fetch URLs, passthru, hashes, and both generated files agree with
+`nvfetcher.toml`, and that generation is reproducible. It downloads the pinned
+artifacts but never asks upstream what is newest, so it gives the same answer
+whenever it runs. It exits 11 on a mismatch, including a configured source
+with no pin, and 20 when nvfetcher cannot run. `--best-effort` passes with a
+warning only when a pinned artifact's host cannot be reached at all.
 
 ```bash
 nix run .#github-sources -- verify
@@ -47,36 +62,33 @@ package.
 ## Pre-commit Behavior
 
 The pre-commit hook materializes the exact Git index into a temporary directory,
-so unstaged working-tree content cannot make a partial commit pass. It then
-performs an uncached, best-effort release check:
-
-- current pins pass
-- no internet, GitHub failure, or rate limiting warns and passes
-- outdated pins warn for unrelated commits
-- outdated pins block commits that change `nvfetcher.toml`, `_sources/`, or
-  `pkgs/`
-- source/package changes also run `verify` against the staged snapshot, proving
-  that the committed generated files match the committed configuration
+so unstaged working-tree content cannot make a partial commit pass. A commit
+that changes `nvfetcher.toml`, `_sources/`, or `pkgs/` runs
+`verify --best-effort` against that staged snapshot; a mismatch blocks the
+commit, and an unreachable network warns and passes. The hook never runs
+`check`: freshness does not decide whether a commit lands.
 
 The hook never updates or stages files. Updates are explicit so their diffs can
 be reviewed.
 
-When `GITHUB_TOKEN` is available, `scripts/github-sources` passes it to
-nvfetcher through a mode-0600 temporary nvchecker keyfile. The keyfile is
+When `GITHUB_TOKEN` is available, `check` sends it to the GitHub API and
+`update` passes it to nvfetcher through a mode-0600 temporary nvchecker keyfile. The keyfile is
 removed after the command and is never stored in the repository or printed.
 
 ## Scheduled Updates
 
-`.github/workflows/update-github-sources.yml` runs every two days and can also
-be started manually. It refreshes all sources, validates the repository, builds
-the packages on Apple Silicon macOS, opens one pull request, and squash-merges
-that PR after the updater's validation passes. When no source changed, it does
-not open a pull request.
+`.github/workflows/update-github-sources.yml` is the one place freshness is
+acted on. It runs every two days and can also be started manually. It
+refreshes all sources with `update`, validates the repository, builds the
+packages on Apple Silicon macOS, opens one pull request, and squash-merges that
+PR after the updater's validation passes. When no source changed, it does not
+open a pull request.
 
-`.github/workflows/validate.yml` independently verifies every pull request and
-push to `main`. The updater repeats the same source verification before opening
-its pull request because GitHub suppresses workflow events from pull requests
-created with the default `GITHUB_TOKEN`. Defining an
+`.github/workflows/validate.yml` runs `verify` on every pull request and push
+to `main`, so it stays green while upstreams move. The updater runs the same
+`verify` on its fresh output before opening its pull request because GitHub
+suppresses workflow events from pull requests created with the default
+`GITHUB_TOKEN`. Defining an
 `UPDATE_GITHUB_SOURCES_TOKEN` repository secret with contents and pull-request
 write access lets updater pull requests trigger the normal PR workflow too.
 

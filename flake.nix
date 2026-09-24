@@ -113,6 +113,7 @@
           git
           jq
           nvfetcher
+          remarshal
         ];
         text = ''
           exec ${./scripts/github-sources} "$@"

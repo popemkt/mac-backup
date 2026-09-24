@@ -27,8 +27,6 @@ jobs:
 
       - name: Verify generated release sources
         run: nix run .#github-sources -- verify
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Validate formatting and evaluation
         run: |

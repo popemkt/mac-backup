@@ -55,36 +55,8 @@ record_admission() {
   trap 'rm -rf "$staged_tree"' EXIT
   git checkout-index --all --prefix="$staged_tree/"
 
-  if [ -x "$staged_tree/scripts/github-sources" ]; then
-    echo "==> GitHub release pins (best effort)"
-    set +e
-    source_check_output=$(
-      GITHUB_SOURCES_ROOT="$staged_tree" \
-        GITHUB_SOURCES_COMMAND_ROOT="$(pwd)" \
-        "$staged_tree/scripts/github-sources" check --best-effort 2>&1
-    )
-    source_check_status=$?
-    set -e
-
-    if [ -n "$source_check_output" ]; then
-      printf '%s\n' "$source_check_output"
-    fi
-
-    if [ "$source_check_status" -eq 10 ]; then
-      if [ -n "$source_files_staged" ]; then
-        echo "error: update GitHub sources before committing package/source changes" >&2
-        exit 1
-      fi
-      echo "warning: updates are available, but this commit does not change GitHub source files" >&2
-    elif [ "$source_check_status" -ne 0 ]; then
-      if [ -n "$source_files_staged" ]; then
-        echo "error: GitHub source metadata could not be validated" >&2
-        exit "$source_check_status"
-      fi
-      echo "warning: GitHub release check could not run; continuing" >&2
-    fi
-  fi
-
+  # Admission asks whether the staged sources are consistent, never whether
+  # upstream has published something newer (docs/github-release-packages.md).
   if [ -n "$source_files_staged" ]; then
     echo "==> Generated GitHub sources (staged snapshot)"
     set +e
