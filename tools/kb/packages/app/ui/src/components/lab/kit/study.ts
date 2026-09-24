@@ -47,14 +47,23 @@ export async function mountStudy(
     timing: init.timing,
     frame: (dt, elapsed) => parts?.frame(reduced ? 0 : dt, elapsed),
   });
-  const study = build(stage, init, { host, reduced: () => reduced });
-  parts = study;
-  study.setPalette?.(init.palette, init.dark);
+  let study: StudyParts;
+  try {
+    study = build(stage, init, { host, reduced: () => reduced });
+    parts = study;
+    study.setPalette?.(init.palette, init.dark);
+    await stage.reveal();
+  } catch (error) {
+    // Nobody will ever hold a handle to this stage: give its GPU context back
+    // here, or every failed open leaks one.
+    parts?.dispose?.();
+    stage.dispose();
+    throw error;
+  }
   const apply = () => {
     stage.setRunning(running && !reduced);
     stage.invalidate();
   };
-  await stage.reveal();
   const setGraph = study.setGraph;
   return {
     backend: stage.backend,

@@ -18,6 +18,7 @@ const ALLOWED = new Set([
   "kit/rig.ts",
   "kit/pointer.ts",
   "kit/tsl.ts",
+  "kit/dispose.ts",
   "embers/compute.ts",
   "embers/scene.ts",
   "sky/scene.ts",

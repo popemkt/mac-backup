@@ -24,14 +24,11 @@ import {
   ACESFilmicToneMapping,
   AgXToneMapping,
   Color,
-  Mesh,
   NoToneMapping,
   PerspectiveCamera,
   PostProcessing,
   Scene,
-  Sprite,
   WebGPURenderer,
-  type Material,
   type ToneMapping,
 } from "three/webgpu";
 import {
@@ -60,6 +57,7 @@ import {
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 import { ao as gtao } from "three/addons/tsl/display/GTAONode.js";
 import type { LabBackend } from "@/components/lab/kit/contract";
+import { disposeGraph } from "@/components/lab/kit/dispose";
 import type { LabPalette } from "@/components/lab/kit/palette";
 import { approachRate, clampStep, type Timing } from "@/components/lab/kit/timing";
 
@@ -99,21 +97,6 @@ function paletteUniforms() {
 export type PaletteUniforms = ReturnType<typeof paletteUniforms>;
 type PaletteKey = keyof PaletteUniforms;
 const PALETTE_KEYS: readonly PaletteKey[] = ["ground", "edge", "hue", "ink", "accent"];
-
-function disposeMaterial(material: Material | Material[]): void {
-  for (const one of Array.isArray(material) ? material : [material]) one.dispose();
-}
-
-/** Every geometry and material a scene graph still holds. */
-function disposeScene(scene: Scene): void {
-  scene.traverse((object) => {
-    if (object instanceof Mesh || object instanceof Sprite) {
-      object.geometry.dispose();
-      disposeMaterial(object.material);
-    }
-  });
-  scene.clear();
-}
 
 /** The post chain, and the handles a study turns. */
 function postChain(
@@ -336,7 +319,7 @@ export async function createStage(host: HTMLElement, options: StageOptions) {
     },
     dispose: () => {
       loop.stop();
-      disposeScene(scene);
+      disposeGraph(scene);
       chain.occlusionPass?.dispose();
       chain.glow.dispose();
       chain.post.dispose();
