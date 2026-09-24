@@ -223,6 +223,40 @@ describe("W7 TableView & ViewToolbar", () => {
     expect(frame.children[0]).toBe("child1");
   });
 
+  it("the next sort or width write drops a Name setting saved as __name__", async () => {
+    const legacy = mockWireNodes.map((n) =>
+      n.id === "frame1"
+        ? {
+            ...n,
+            props: {
+              [SYSTEM_IDS.viewSortField]: [{ t: "ref" as const, v: "__name__" }],
+              [SYSTEM_IDS.viewSortDirField]: [{ t: "str" as const, v: "desc" }],
+              [SYSTEM_IDS.viewColwidthField]: [
+                { t: "str" as const, v: JSON.stringify({ __name__: 240 }) },
+              ],
+            },
+          }
+        : n,
+    );
+    useOutlineStore.getState().hydrateFromWire(legacy, 1, "fixtures");
+
+    await mutations.toggleViewSort("frame1", "f_score");
+    await mutations.setColumnWidth("frame1", "f_score", 120);
+
+    const props = present(useOutlineStore.getState().nodes.get("frame1"), "frame1").props;
+    expect(props[SYSTEM_IDS.viewSortField]).toEqual([
+      { t: "ref", v: "f_score" },
+      { t: "ref", v: SYSTEM_IDS.nodeTextField },
+    ]);
+    expect(props[SYSTEM_IDS.viewSortDirField]).toEqual([
+      { t: "str", v: "asc" },
+      { t: "str", v: "desc" },
+    ]);
+    expect(props[SYSTEM_IDS.viewColwidthField]).toEqual([
+      { t: "str", v: JSON.stringify({ [SYSTEM_IDS.nodeTextField]: 240, f_score: 120 }) },
+    ]);
+  });
+
   it("getViewConfig rejects bad colwidth shapes used by table resize path", () => {
     const bad = getViewConfig({
       [SYSTEM_IDS.viewColwidthField]: [{ t: "str", v: JSON.stringify({ a: "x", b: 0, c: 120 }) }],

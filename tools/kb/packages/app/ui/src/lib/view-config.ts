@@ -143,6 +143,20 @@ export function applyViewFilters(
  * default.
  */
 
+/**
+ * The id a view names a column by, read the way it is written today.
+ *
+ * Before the Name column was the `sys.f.node.text` field node, a view named it
+ * with the sentinel `"__name__"`, and stores still hold sorts and widths saved
+ * that way. Resolving the sentinel here, in the readers, makes the next persist
+ * of either config write the real id — so there is no migration pass, and no
+ * consumer ever sees the sentinel.
+ */
+const LEGACY_NAME_COLUMN = "__name__";
+function columnFieldId(id: string): string {
+  return id === LEGACY_NAME_COLUMN ? SYSTEM_IDS.nodeTextField : id;
+}
+
 /** Sort keys and their directions are two parallel multi-valued fields. */
 const sortSpecValues = (props: NodeProps): unknown[] | undefined => {
   const keys = props[SYSTEM_IDS.viewSortField];
@@ -155,7 +169,7 @@ const sortSpecValues = (props: NodeProps): unknown[] | undefined => {
     // A direction with no string at this index is unset, so it takes the
     // declared default; a string that is present is the schema's to judge.
     const dir = dirs[index];
-    return { fieldId: key.v, dir: dir?.t === "str" ? dir.v : "asc" };
+    return { fieldId: columnFieldId(key.v), dir: dir?.t === "str" ? dir.v : "asc" };
   });
 };
 
@@ -195,7 +209,13 @@ const colwidthValue = (props: NodeProps): unknown => {
     return undefined;
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return undefined;
-  return parsed;
+  // A width saved under the real id wins over one saved under the sentinel.
+  const widths = new Map<string, unknown>(Object.entries(parsed));
+  const legacy = widths.get(LEGACY_NAME_COLUMN);
+  widths.delete(LEGACY_NAME_COLUMN);
+  const name = columnFieldId(LEGACY_NAME_COLUMN);
+  if (legacy !== undefined && !widths.has(name)) widths.set(name, legacy);
+  return Object.fromEntries(widths);
 };
 
 /** A page size may be stored as a number or as the text a form wrote. */

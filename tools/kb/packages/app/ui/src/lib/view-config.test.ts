@@ -62,6 +62,40 @@ describe("view-config", () => {
     ]);
   });
 
+  it("reads a Name sort saved under the old __name__ sentinel as the node-text field", () => {
+    const config = getViewConfig({
+      [SYSTEM_IDS.viewSortField]: [
+        { t: "ref", v: "__name__" },
+        { t: "ref", v: "field1" },
+      ],
+      [SYSTEM_IDS.viewSortDirField]: [
+        { t: "str", v: "desc" },
+        { t: "str", v: "asc" },
+      ],
+    });
+    expect(config.sort).toEqual([
+      { fieldId: SYSTEM_IDS.nodeTextField, dir: "desc" },
+      { fieldId: "field1", dir: "asc" },
+    ]);
+  });
+
+  it("reads a Name width saved under __name__ as the node-text field; the real id wins", () => {
+    const legacy = getViewConfig({
+      [SYSTEM_IDS.viewColwidthField]: [{ t: "str", v: JSON.stringify({ __name__: 240, f1: 90 }) }],
+    });
+    expect(legacy.colwidth).toEqual({ [SYSTEM_IDS.nodeTextField]: 240, f1: 90 });
+
+    const both = getViewConfig({
+      [SYSTEM_IDS.viewColwidthField]: [
+        {
+          t: "str",
+          v: JSON.stringify({ [SYSTEM_IDS.nodeTextField]: 300, __name__: 240 }),
+        },
+      ],
+    });
+    expect(both.colwidth).toEqual({ [SYSTEM_IDS.nodeTextField]: 300 });
+  });
+
   it("reads display refs, colwidth JSON, and pagesize", () => {
     const config = getViewConfig({
       [SYSTEM_IDS.viewDisplayField]: [

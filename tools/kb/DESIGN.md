@@ -486,6 +486,10 @@ type PropValue =
   table's Name column. It holds no values (text is `KbNode.text`, not a prop);
   it exists so a view that sorts or sizes by name refers to a node, exactly as
   it does for every other column, instead of to a sentinel id no node has.
+  Views saved with that old sentinel (`"__name__"`) are read through it: the
+  view-config readers resolve the sentinel to the field in sort keys and in
+  column widths, so the next write of either stores the real id, with no
+  migration pass.
 - **A written value conforms to its field, or the write fails.** Tags never
   restrict which fields a node carries; a field's declared type does restrict
   what it holds. Each type accepts fixed value kinds (`acceptsValueKind` in
