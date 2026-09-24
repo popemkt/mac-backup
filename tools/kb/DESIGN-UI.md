@@ -475,6 +475,29 @@ both are answered from the node ⌘K menu rather than from a device switch.
     `sys.f.onto.member` props with their own Unpin control on the ontology
     page. Same English word, different field, different mechanism.
 
+### Optional UI plugins
+
+Some UI plugins are off until the user switches them on. Which ones are on
+is a device preference, `enabledPlugins` in `localStorage["kb-prefs"]` (a
+list of plugin names), and it is edited in Preferences → plugins as one
+on/off row per optional plugin. There is one mechanism, not a second path
+beside the built-ins:
+
+- `ui-plugins.ts` lists `BUILTIN_UI_PLUGINS` (always loaded) and
+  `OPTIONAL_UI_PLUGINS` (each with the label and icon its preference row
+  shows). `uiPluginsFor` turns the preference into the set of plugins the
+  kernel should hold, and a built-in cannot be switched off by it.
+- `lib/plugins.ts` → `syncUiPlugins` converges the UI kernel on that set:
+  it loads what is missing and unloads each top-level plugin no longer
+  listed. `startUiPlugins` runs it at boot and again whenever the preference
+  changes, including from another tab.
+- Unloading closes the plugin's scope, so its surfaces and sidebar section
+  leave the kernel and every `useContributions` reader re-renders without a
+  reload. A path the plugin owned then resolves like any unmatched path: the
+  outline fallback takes it.
+- Off by default means absent from the list. A name with no plugin behind it
+  is inert, so shipping or retiring an optional plugin needs no migration.
+
 ## Layout
 
 ```

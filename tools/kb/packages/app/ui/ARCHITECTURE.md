@@ -37,6 +37,12 @@ outline surface), never by importing a sibling folder.
 Lazy chunks: graph, canvas, ontology — each surface file lazy-loads its page.
 Outline stays eager (primary path).
 
+The plugins above are built-in and always loaded. An optional plugin is listed
+in `OPTIONAL_UI_PLUGINS` instead, and the `enabledPlugins` preference decides
+whether it is loaded; both lists reach the kernel through the one
+`syncUiPlugins` call, so an optional plugin is written exactly like a built-in
+one. See DESIGN-UI.md → Optional UI plugins.
+
 ## Error isolation
 
 | Surface              | Boundary? | Notes                                        |

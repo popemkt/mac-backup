@@ -5,10 +5,11 @@
  */
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { makeKernel } from "@kb/plugin";
+import { definePlugin, makeKernel } from "@kb/plugin";
+import { GearIcon } from "@phosphor-icons/react";
 import { SidebarSectionPoint, SurfacePoint, matchSurface } from "@/lib/plugins";
 import { ontologyPath, type OntologyView } from "@/lib/router";
-import { BUILTIN_UI_PLUGINS } from "@/ui-plugins";
+import { BUILTIN_UI_PLUGINS, uiPluginsFor } from "@/ui-plugins";
 
 function kernelWithBuiltins() {
   const kernel = makeKernel();
@@ -80,5 +81,22 @@ describe("built-in surfaces", () => {
     expect(kernel.contributions(SidebarSectionPoint).map((s) => s.id)).not.toContain(
       "canvas.section",
     );
+  });
+});
+
+describe("optional plugins", () => {
+  const extra = definePlugin({ name: "extra", apply: () => Effect.void });
+  const optional = [{ plugin: extra, label: "extra", icon: GearIcon }];
+  const names = (enabled: string[]) => uiPluginsFor(optional, enabled).map((p) => p.name);
+
+  it("are left out until the preference names them", () => {
+    const builtins = BUILTIN_UI_PLUGINS.map((p) => p.name);
+    expect(names([])).toEqual(builtins);
+    expect(names(["unknown"])).toEqual(builtins);
+    expect(names(["extra"])).toEqual([...builtins, "extra"]);
+  });
+
+  it("never drop a built-in, whatever the preference says", () => {
+    expect(names(["outline"])).toEqual(BUILTIN_UI_PLUGINS.map((p) => p.name));
   });
 });

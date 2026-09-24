@@ -9,6 +9,7 @@
  * the kernel ties every contribution to the plugin's scope.
  */
 import { useMemo, useSyncExternalStore, type ComponentType } from "react";
+import type { Icon } from "@phosphor-icons/react";
 import { Cause, Effect, Exit } from "effect";
 import { Point, makeKernel, type Contribution, type Plugin, type PointKey } from "@kb/plugin";
 import { usePath } from "@/lib/router";
@@ -58,20 +59,42 @@ export const SidebarSectionPoint = Point<SidebarSection>()("ui.sidebar");
 const uiKernel = makeKernel();
 
 /**
- * Load plugins into the UI kernel, skipping any already loaded. A plugin that
- * fails is reported and leaves nothing behind; the rest of the UI still loads.
+ * A plugin the user switches on and off (Preferences → plugins). Only a
+ * plugin listed as optional is ever unloaded by preference; the rest load
+ * unconditionally. `label` and `icon` are how the preference row names it.
  */
-export function loadUiPlugins(plugins: readonly Plugin[]): void {
+export interface OptionalUiPlugin {
+  readonly plugin: Plugin;
+  readonly label: string;
+  readonly icon: Icon;
+}
+
+function reportFailure(name: string, verb: "load" | "unload", cause: Cause.Cause<unknown>): void {
+  const failure = Cause.squash(cause);
+  toast(
+    `UI plugin ${name} failed to ${verb}: ${failure instanceof Error ? failure.message : String(failure)}`,
+  );
+}
+
+/**
+ * Converge the UI kernel on exactly `plugins`: load each one not yet loaded,
+ * and unload each top-level plugin no longer listed — its pages and its
+ * sidebar section go with it, live, because the kernel ties every
+ * contribution to the plugin's scope. A plugin that fails is reported and
+ * leaves nothing behind; the rest of the UI still loads.
+ */
+export function syncUiPlugins(plugins: readonly Plugin[]): void {
+  const wanted = new Set(plugins.map((plugin) => plugin.name));
+  for (const state of uiKernel.plugins()) {
+    if (state.parent !== null || wanted.has(state.name)) continue;
+    const exit = Effect.runSyncExit(uiKernel.unload(state.name));
+    if (Exit.isFailure(exit)) reportFailure(state.name, "unload", exit.cause);
+  }
   const loaded = new Set(uiKernel.plugins().map((plugin) => plugin.name));
   for (const plugin of plugins) {
     if (loaded.has(plugin.name)) continue;
     const exit = Effect.runSyncExit(uiKernel.load(plugin));
-    if (Exit.isFailure(exit)) {
-      const failure = Cause.squash(exit.cause);
-      toast(
-        `UI plugin ${plugin.name} failed to load: ${failure instanceof Error ? failure.message : String(failure)}`,
-      );
-    }
+    if (Exit.isFailure(exit)) reportFailure(plugin.name, "load", exit.cause);
   }
 }
 

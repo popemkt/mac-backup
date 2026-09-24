@@ -12,7 +12,7 @@ import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
 import { useRoute, type Surface, type SurfaceParams } from "@/lib/plugins";
 import type { Contribution } from "@kb/plugin";
-import { loadBuiltinUiPlugins } from "@/ui-plugins";
+import { OPTIONAL_UI_PLUGINS, startUiPlugins } from "@/ui-plugins";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
 import type { WsStatus } from "@/api/ws";
@@ -22,7 +22,7 @@ import { hasText } from "@/lib/text";
 
 // Every page, and the sidebar section that leads to it, is a plugin's
 // contribution; the shell only frames whichever surface owns the path.
-loadBuiltinUiPlugins();
+startUiPlugins();
 
 /** Total over `WsStatus`: every status has a dot, so the lookup cannot miss. */
 const WS_DOT: Record<WsStatus, { className: string; label: string }> = {
@@ -77,7 +77,7 @@ function SharedChrome() {
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
   return (
     <>
-      <PreferencesPopover />
+      <PreferencesPopover plugins={OPTIONAL_UI_PLUGINS} />
       <ViewFilterPopoverHost />
       <CommandPalette open={globalPaletteOpen} onClose={() => setGlobalPaletteOpen(false)} />
       <Toasts />

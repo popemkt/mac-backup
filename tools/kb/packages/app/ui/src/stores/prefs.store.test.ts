@@ -90,11 +90,19 @@ describe("loadPrefs", () => {
       font: "inter",
       width: "full",
       sidebarOpen: false,
+      enabledPlugins: [],
     });
     expect(prefs.loadPrefs('{"theme":"neon","font":"comic","width":"wide"}', 1280)).toEqual({
       ...prefs.DEFAULT_PREFS,
       sidebarOpen: true,
     });
+  });
+
+  it("keeps optional plugins off unless the payload names them as strings", () => {
+    expect(prefs.DEFAULT_PREFS.enabledPlugins).toEqual([]);
+    expect(prefs.loadPrefs('{"enabledPlugins":["lab"]}', 1280).enabledPlugins).toEqual(["lab"]);
+    expect(prefs.loadPrefs('{"enabledPlugins":"lab"}', 1280).enabledPlugins).toEqual([]);
+    expect(prefs.loadPrefs('{"enabledPlugins":[1]}', 1280).enabledPlugins).toEqual([]);
   });
 
   it("ignores a stale showAllFields key (debug visibility is per node now)", () => {
@@ -137,7 +145,19 @@ describe("usePrefsStore", () => {
       font: "inter",
       width: "full",
       sidebarOpen: false,
+      enabledPlugins: [],
     });
+  });
+
+  it("switches an optional plugin on and off, once each, and persists it", () => {
+    const store = prefs.usePrefsStore;
+    store.getState().setPluginEnabled("lab", true);
+    store.getState().setPluginEnabled("lab", true);
+    expect(store.getState().enabledPlugins).toEqual(["lab"]);
+    const raw = (g.localStorage as Storage).getItem(prefs.PREFS_STORAGE_KEY);
+    expect(JSON.parse(present(raw, "raw json")).enabledPlugins).toEqual(["lab"]);
+    store.getState().setPluginEnabled("lab", false);
+    expect(store.getState().enabledPlugins).toEqual([]);
   });
 
   it("toggleSidebar persists collapse state", () => {
