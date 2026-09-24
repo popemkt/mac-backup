@@ -726,23 +726,48 @@ is.
 
 ### Enforcement
 
-`design-tokens/no-raw-design-value` (oxlint, `harness/lint/design-tokens/`,
-at `error`) reads every string a UI module writes. It rejects the forms that
-bypass the bridge:
+Two questions, two mechanisms, one owner each.
 
-- a font size that is not a type step: an arbitrary length, untyped or
-  typed (`text-[11px]`, `text-[length:11px]`, `text-(length:--x)`), or one
-  of Tailwind's default steps (`text-sm`), which the reset leaves compiling
-  to nothing;
-- a shadow outside the elevation levels (`shadow`, `shadow-xl`, `shadow-[…]`);
-- bare `rounded` or an arbitrary radius (`rounded-[5px]`, `rounded-t-[2px]`);
+**Policy — "don't bypass the tokens."** `design-tokens/no-raw-design-value`
+(oxlint, `harness/lint/design-tokens/`, at `error`) reads every string a UI
+module writes. It rejects the forms that do compile but skip the design
+system:
+
+- an arbitrary font size, in any data type Tailwind reads as a size (length,
+  percentage, absolute-size, relative-size), untyped or typed, in `[…]` or
+  `(…)` form: `text-[11px]`, `text-[large]`, `text-[length:11px]`,
+  `text-(percentage:--x)`. An arbitrary colour (`text-[color:…]`,
+  `text-(--x)`) is not a size and passes;
+- an arbitrary shadow (`shadow-[…]`), and the shadow families the bridge
+  does not own (`drop-shadow-*`, `inset-shadow-*`, `text-shadow-*`);
+- an arbitrary radius (`rounded-[5px]`, `rounded-t-[2px]`);
 - a Tailwind palette colour (`bg-amber-500`, `text-white`);
 - in `components/`, a hex colour literal.
 
-Resetting Tailwind's namespaces already stops most of these forms from
-compiling. The rule turns what would be a silently missing style into a red
-build. It runs in `bun run lint`, so pre-commit and CI both apply it. Test
-files are exempt: their hex strings are tag-colour fixtures, not styling.
+It runs in `bun run lint`. Test files are exempt: their hex strings are
+tag-colour fixtures, not styling.
+
+**Liveness — "this class emits CSS."** Resetting Tailwind's namespaces
+leaves every default step (`text-sm`, `text-sm/6`, `shadow-xl`, bare
+`rounded`, `rounded-3xl`) reading like a class while compiling to nothing.
+`harness/tests/ui-utilities-live.test.ts` asks Tailwind itself. Its own
+`Scanner` extracts the class candidates from each non-test UI module, with
+comments blanked, and each candidate is compiled against stock Tailwind and
+against `index.css`. A candidate that stock Tailwind turns into CSS and kb's
+stylesheet does not is dead, and the test names its file. Comparing against
+stock Tailwind is what separates a dead class from the scanner's noise,
+which emits nothing under either. `NOT_CLASSES` lists the few scanned
+strings that are not classes. Today there are two, both the word `shadow`:
+tailwind-merge's theme key in `lib/cn.ts`, and prose in the lab's Light
+study description. Each entry is keyed by file, and a stale entry fails
+too.
+
+The lint rule does not ask the liveness question, and the harness does not
+ask the policy one. Both run in `bun run verify`, so pre-commit and CI apply
+them. They are two `#rule` nodes, "Design tokens: no bypass" (lint) and
+"Design tokens: every class is live" (harness), each with its `#check`. A
+rule's enforcement is derived from one shared check surface, so two
+surfaces make two rules.
 
 A sanctioned exception is the soft-rule mechanism for few sites (root
 `CLAUDE.md` → Drift markers and gaps): a pinpoint

@@ -28,9 +28,9 @@ export function clusterHulls(sigma: Sigma, canvas: HTMLCanvasElement) {
       points.push(sigma.framedGraphToViewport(node));
       groups.set(key, points);
     });
-    // Tokens resolve once per draw: each read is a style recalculation.
-    const labelFont = `600 11px ${graphLabelFont()}`;
-    const labelColor = readTokenColor("--foreground");
+    // Each token read is a style recalculation, so the label style resolves
+    // once per draw, and only once a hull is actually drawn.
+    let label: { font: string; color: string } | null = null;
     for (const [key, points] of groups) {
       const path = clusterHullPath(clusterHull(points));
       if (!path) continue;
@@ -41,8 +41,9 @@ export function clusterHulls(sigma: Sigma, canvas: HTMLCanvasElement) {
       ctx.lineWidth = 1.5;
       ctx.fill(path);
       ctx.stroke(path);
-      ctx.font = labelFont;
-      ctx.fillStyle = labelColor;
+      label ??= { font: `600 11px ${graphLabelFont()}`, color: readTokenColor("--foreground") };
+      ctx.font = label.font;
+      ctx.fillStyle = label.color;
       ctx.textAlign = "center";
       ctx.fillText(
         fitGraphLabel(

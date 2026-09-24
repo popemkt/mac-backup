@@ -91,7 +91,6 @@ export const LAB_STUDIES: Record<LabSceneId, LabStudy> = {
     label: "Light",
     technique: "A key, fill and rim rig, soft shadows, ambient occlusion and tone mapping",
     teaches:
-      // oxlint-disable-next-line design-tokens/no-raw-design-value -- prose: "soft shadow" is a word, not a class
       "Swing the key and watch the soft shadow and the coloured fill; turn occlusion off and the contacts float; turn tone mapping off and the glaze clips.",
     rules: [
       {

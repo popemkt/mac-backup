@@ -13,6 +13,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Admission gate | CLAUDE.md#gate-run-first | repo | Every session and every commit records admission through the one gate script; a missing tool is restored, never worked around. | hook | — |
 | Generated docs are data | CLAUDE.md#kb--repo-knowledge-base | repo | Files under docs/kb are materialized from kb nodes; the data is edited and the file is regenerated, never the other way round. | hook | — |
 | Compiler strictness contract | tools/kb/DESIGN.md#compiler-strictness-contract | tools/kb | One base tsconfig owns strictness; the DESIGN.md table is the contract, packages declare only their delta, and a rejected flag is recorded with its measured count. | harness | — |
+| Design tokens: every class is live | tools/kb/DESIGN-UI.md#design-tokens | tools/kb packages/app/ui | Every class the UI writes emits CSS under kb's stylesheet. The token bridge resets Tailwind's own scales, so a default step (text-sm, shadow-xl, rounded-3xl) reads like a class and compiles to nothing; Tailwind itself, not a pattern list, decides which classes are dead. | harness | — |
 | Drift markers | CLAUDE.md#drift-markers-and-gaps | repo | A deferred clean shape carries a GAP marker at the deferral site and a matching gap node naming expected, current, impact and closes. An unlabelled workaround is drift. | harness | — |
 | Isomorphism fence | docs/kb/waves/2026-09-03/plan.md | tools/kb shared packages | Shared packages run in the browser too: no runtime-only imports. Platform access belongs to an infrastructure or app package. | harness | — |
 | Lint scope coverage | docs/kb/waves/2026-09-03/briefs/g2-strict-stack.md | tools/kb | Every TS file, tracked or merely untracked-and-not-ignored, falls in exactly one lint scope. A second severity tier for the same rules is a second quality stack wearing a disguise. | harness | — |
@@ -27,7 +28,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Version authored once | docs/kb/waves/2026-09-03/briefs/w1-workspace.md | tools/kb workspace | Internal deps are workspace refs and external deps are catalog refs; no literal, floating or latest specifier appears in any manifest. | harness | — |
 | Warn ratchet | docs/kb/waves/2026-09-03/briefs/g2-strict-stack.md | tools/kb | Warn-lane counts are frozen per rule whole-repo: a rise fails, a drop prompts a re-snapshot, a rule at zero must be promoted. A newly enabled rule cannot arrive pre-forgiven. | harness | — |
 | Code-unit cohesion (L1/L2/L3) | tools/kb/DESIGN.md#testing-doctrine | tools/kb | Boundaries and branching gate; size only warns; semantic cohesion is a reviewer verdict. A unit may be long, it may not be tangled. | lint | — |
-| Design tokens | tools/kb/DESIGN-UI.md#design-tokens | tools/kb packages/app/ui | UI code names a design-system step, never a raw value: no arbitrary font size, no shadow outside the elevation levels, no bare rounded, no Tailwind palette colour, no hex colour in a component. Each value lives once, in design-system.css, so the design system can be swapped whole. | lint | — |
+| Design tokens: no bypass | tools/kb/DESIGN-UI.md#design-tokens | tools/kb packages/app/ui | UI code names a design-system step, never a raw value that compiles past the bridge: no arbitrary font size, shadow or radius, no Tailwind palette colour, no hex colour in a component. Each value lives once, in design-system.css, so the design system can be swapped whole. | lint | — |
 | Domain typing — parse unknown at the boundary | tools/kb/DESIGN.md#domain-typing--effect-schema | tools/kb | Every boundary parses unknown into the domain type. A cast or a non-null assertion on a domain value means the schema is too loose; tighten the schema instead. | lint | — |
 | Abstraction before addition (Rule 1) | CLAUDE.md#rule-1--abstraction-before-addition | repo | Every change lands in the shape it would have had if the requirement had always existed; when the model does not fit, the model gets fixed, not special-cased. | prose | — |
 | Canonical statements | CLAUDE.md#canonical-statements | repo | Every rule, principle and decision has exactly one home; other files link to it and never restate it. Restatement is drift. | prose | — |
@@ -315,7 +316,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **current** — graph-page.tsx paints it bg-amber-500/10 text-amber-600 dark:text-amber-400, Tailwind palette values outside the design system, under a GAP-marked disable of design-tokens/no-raw-design-value.
 - **impact** — A swapped design system leaves this one chip amber, and warning and amber are two near-identical yellows for one meaning.
 - **closes** — Replace the three classes with the warning token. That is a visible colour change, so it lands as its own commit outside the no-visual-change token restructure (wave 2026-09-24 f1).
-- **rule** — Design tokens
+- **rule** — Design tokens: no bypass
 - **node** — `01M3AD9BRB1C5YMJFDQC1MDAFA`
 
 ### GAP: the inline markdown parser is a 41-branch hand-rolled scanner
@@ -389,7 +390,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **current** — canvas-resize-handles.tsx uses rounded-[2px], ontology-page.tsx's segmented control rounded-[5px], and tokens.css's .kb-md-code a fixed 3px, each under a GAP marker (a disable of design-tokens/no-raw-design-value in the two components).
 - **impact** — A design system that changes --radius leaves these three corners unchanged.
 - **closes** — Map each onto a step (xs 4px or sm 6px, a 1-2px visible change), or add a step if the size is a real role. That is a visible change, so it lands outside the no-visual-change token restructure (wave 2026-09-24 f1).
-- **rule** — Design tokens
+- **rule** — Design tokens: no bypass
 - **node** — `01M3AF8G4N9JHJB8YYEWF8F5SZ`
 
 ### GAP: two launch paths for the kb binary

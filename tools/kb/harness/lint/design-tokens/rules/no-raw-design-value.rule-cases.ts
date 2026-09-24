@@ -26,9 +26,11 @@ tester.run("design-tokens/no-raw-design-value", noRawDesignValueRule, {
       filename: COMPONENT,
     },
     { code: `const c = "leading-[1.4] min-w-[200px] text-left";`, filename: COMPONENT },
-    // An arbitrary colour is not a size; rounded-full and scale steps are fine.
+    // An arbitrary colour is not a size.
+    { code: `const c = "text-[color:var(--x)] text-(color:--x) text-(--x)";`, filename: COMPONENT },
+    // Liveness is not this rule's question: reset defaults are the harness's.
     {
-      code: `const c = "text-[color:var(--x)] rounded-full rounded-t-md rounded-2xl";`,
+      code: `const c = "text-sm text-sm/6 shadow shadow-xl rounded rounded-3xl";`,
       filename: COMPONENT,
     },
     // Colour data outside components (the tag-colour hash) is not UI styling.
@@ -38,10 +40,10 @@ tester.run("design-tokens/no-raw-design-value", noRawDesignValueRule, {
   ],
   invalid: [
     {
-      name: "arbitrary font size",
-      code: `const c = "px-2 text-[11px]";`,
+      name: "untyped arbitrary font sizes: length, calc, percentage",
+      code: `const c = "px-2 text-[11px] text-[0.8rem] text-[calc(1em+2px)] text-[120%]";`,
       filename: COMPONENT,
-      errors: [at("arbitraryTextSize")],
+      errors: Array.from({ length: 4 }, () => at("arbitraryTextSize")),
     },
     {
       name: "arbitrary font size behind variants, in JSX",
@@ -50,28 +52,28 @@ tester.run("design-tokens/no-raw-design-value", noRawDesignValueRule, {
       errors: [at("arbitraryTextSize")],
     },
     {
-      name: "Tailwind shadow scale and bare shadow",
-      code: "const c = `shadow ${x} shadow-xl dark:shadow-[0_0_2px_red]`;",
+      name: "size keywords: absolute-size and relative-size",
+      code: `const c = "text-[large] text-[smaller] text-[xx-large]";`,
       filename: COMPONENT,
-      errors: [at("rawShadow"), at("rawShadow"), at("rawShadow")],
+      errors: Array.from({ length: 3 }, () => at("arbitraryTextSize")),
     },
     {
-      name: "typed arbitrary font sizes",
-      code: `const c = "text-[length:11px] text-(length:--size)";`,
+      name: "typed arbitrary font sizes, bracket and paren forms",
+      code: `const c = "text-[length:11px] text-(length:--size) text-[absolute-size:large] text-(percentage:--x) text-[relative-size:larger]";`,
       filename: COMPONENT,
-      errors: [at("arbitraryTextSize"), at("arbitraryTextSize")],
+      errors: Array.from({ length: 5 }, () => at("arbitraryTextSize")),
     },
     {
-      name: "Tailwind default type steps, reset by the bridge",
-      code: `const c = "text-xs sm:text-sm text-base text-lg text-xl text-2xl";`,
+      name: "arbitrary shadows and the shadow families the bridge does not own",
+      code: "const c = `shadow-[0_0_2px_red] dark:shadow-(--x) drop-shadow-lg inset-shadow-sm text-shadow-xs`;",
       filename: COMPONENT,
-      errors: Array.from({ length: 6 }, () => at("arbitraryTextSize")),
+      errors: Array.from({ length: 5 }, () => at("rawShadow")),
     },
     {
-      name: "bare rounded and arbitrary radii",
-      code: `const c = "rounded border rounded-[5px] rounded-t-[2px] rounded-l";`,
+      name: "arbitrary radii",
+      code: `const c = "rounded-[5px] rounded-t-[2px] rounded-(--r)";`,
       filename: COMPONENT,
-      errors: [at("rawRadius"), at("rawRadius"), at("rawRadius"), at("rawRadius")],
+      errors: Array.from({ length: 3 }, () => at("rawRadius")),
     },
     {
       name: "Tailwind palette colours",
