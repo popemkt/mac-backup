@@ -114,12 +114,12 @@ that was the coverage gap.
   and its score is not reproducible (unseeded fast-check: three runs over
   byte-identical source gave 9, 53, then 68 survivors). A per-PR pass/fail on
   that number would be noise. Weekly, with the survivor report as an artifact.
-- **The Playwright render harness** (`ui/tests-render/`). Three specs in
-  `graph.e2e.ts` fail at HEAD and have since wave i11 — force2d and force3d
-  report zero nodes, cluster never switches. Wiring a permanently-red or
-  permanently-yellow job teaches people to ignore CI. **Fix those three specs,
-  then add the job**; it needs `bunx npm@12 run test:render` because of the
-  `devEngines` pin, plus a Playwright browser install step.
+- **The Playwright render harness**
+  (`tools/kb/packages/test-support/render-tests/`, `bun run test:render`).
+  Its global setup builds the UI in Vite's `test-render` mode into the
+  harness's own `dist` and serves only that, so it needs no prior build. All
+  15 specs pass locally. It is not a job yet. A job needs a Playwright
+  Chromium install step, and the WebGL specs have never run on a CI runner.
 
 ## Still manual
 
