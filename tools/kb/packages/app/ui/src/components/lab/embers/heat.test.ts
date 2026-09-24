@@ -82,6 +82,15 @@ describe("the shown temperature across a theme change", () => {
     }
   });
 
+  it("still lets saturated contact heat bloom past the cap, in both themes", () => {
+    // The cap bounds the resting glow only: a sphere at the pop threshold is
+    // shown hot even where the rest is at its warmest.
+    for (const theme of THEMES) {
+      expect(peakShown(theme.accent, theme.gain, 1, REST_MAX)).toBeGreaterThan(1);
+      expect(peakShown(theme.accent, theme.gain, 1, 0)).toBeGreaterThan(1);
+    }
+  });
+
   it("solves again only when the accent or gain moved", () => {
     const ceilings = new RestCeiling();
     const [r, g, b] = dark.accent;
