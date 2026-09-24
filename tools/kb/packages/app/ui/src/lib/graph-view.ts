@@ -1,5 +1,5 @@
 import type { WireNode } from "@kb/contracts";
-import { typeRefsOf } from "@kb/model";
+import { rankOf, typeRefsOf } from "@kb/model";
 import { hasQueryDef } from "@/lib/query-node";
 import { resolveTagColor } from "@/lib/tag-color";
 import { compareWireNodeId } from "@/lib/tx";
@@ -78,9 +78,11 @@ export function forestRootIds(nodes: WireNode[]): string[] {
       return true;
     })
     .toSorted((a, b) => {
-      if (a.order !== undefined && b.order !== undefined) return a.order.localeCompare(b.order);
-      if (a.order !== undefined) return -1;
-      if (b.order !== undefined) return 1;
+      const rankA = rankOf(a);
+      const rankB = rankOf(b);
+      if (rankA.ranked && rankB.ranked) return rankA.order.localeCompare(rankB.order);
+      if (rankA.ranked) return -1;
+      if (rankB.ranked) return 1;
       return compareWireNodeId(a, b);
     })
     .map((n) => n.id);

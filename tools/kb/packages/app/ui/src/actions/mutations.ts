@@ -41,7 +41,7 @@ import { forestRootIds } from "@/lib/graph-view";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { findParentWire } from "@/lib/tx";
 import type { WireNode } from "@kb/contracts";
-import { typeRefsOf } from "@kb/model";
+import { rankOf, typeRefsOf } from "@kb/model";
 import { useOutlineStore } from "@/stores/outline.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { invoke, invokeLocal, pushInvocation, reconcileBrowserSession } from "@/session/runtime";
 
@@ -60,6 +60,12 @@ function propEntries(node: WireNode): Array<{ field: string; value: PropValue }>
   return Object.entries(node.props).flatMap(([field, values]) =>
     values.map((value) => ({ field, value })),
   );
+}
+
+/** A wire node's rank as action input: carried when ranked, absent when not. */
+function rankInput(node: WireNode): { order?: string } {
+  const rank = rankOf(node);
+  return rank.ranked ? { order: rank.order } : {};
 }
 
 /** Build inverse invocations from two graph states; actions remain the one writer. */
@@ -93,7 +99,7 @@ function restoreInvocations(
         text: node.text,
         props: propEntries(node),
         ...(parent ? { parent: parent.id, position: parent.children.indexOf(node.id) } : {}),
-        ...(node.order !== undefined ? { order: node.order } : {}),
+        ...rankInput(node),
       },
     });
   }
@@ -110,7 +116,7 @@ function restoreInvocations(
         ...(unsetProps.length > 0 ? { unsetProps } : {}),
         parent: parent?.id ?? null,
         ...(parent ? { position: parent.children.indexOf(target.id) } : {}),
-        ...(target.order !== undefined ? { order: target.order } : {}),
+        ...rankInput(target),
       },
     });
     const setProps = propEntries(target);
