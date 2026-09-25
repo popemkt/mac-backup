@@ -8,16 +8,16 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Settings } from "sigma/settings";
 import type { GraphLabelBox } from "@/lib/graph-label-layout";
-import { drawGraphLabel, resetGraphLabels, setGraphLabelInk } from "./sigma-labels";
+import { drawGraphHover, drawGraphLabel, resetGraphLabels, setGraphLabelInk } from "./sigma-labels";
 
 type LabelData = Parameters<Settings["defaultDrawNodeLabel"]>[1];
 
-function fakeContext() {
+function fakeContext(pass: "sigma-labels" | "sigma-hovers" = "sigma-labels") {
   const drawn: { text: string; x: number }[] = [];
   const canvas = {
     width: 800,
     height: 600,
-    classList: { contains: (name: string) => name === "sigma-labels" },
+    classList: { contains: (name: string) => name === pass },
   };
   const ctx = {
     canvas,
@@ -30,6 +30,9 @@ function fakeContext() {
     lineJoin: "",
     measureText: (text: string) => ({ width: text.length * 6 }),
     save: () => {},
+    beginPath: () => {},
+    arc: () => {},
+    stroke: () => {},
     restore: () => {},
     strokeText: () => {},
     fillText: (text: string, x: number) => drawn.push({ text, x }),
@@ -68,7 +71,7 @@ describe("2D label placement samples the drawn frame", () => {
     const { ctx, canvas, drawn } = fakeContext();
     const { state, sample } = world();
     // The frame is announced while the node still sits at x = 300…
-    resetGraphLabels(canvas as unknown as HTMLCanvasElement, sample);
+    resetGraphLabels([canvas as unknown as HTMLCanvasElement], sample);
     // …then sigma processes: a layout tick moves the node right, the camera
     // pans left, and the node is drawn at x = 300 + 60 + 20 = 380.
     state.layoutX = 60;
@@ -83,7 +86,7 @@ describe("2D label placement samples the drawn frame", () => {
   it("does not avoid where the node used to be (the stale frame)", () => {
     const { ctx, canvas, drawn } = fakeContext();
     const { state, sample } = world();
-    resetGraphLabels(canvas as unknown as HTMLCanvasElement, sample);
+    resetGraphLabels([canvas as unknown as HTMLCanvasElement], sample);
     // The node leaves x = 300 before the labels are drawn.
     state.layoutX = 200;
     // A label right of a node at 270 covers 280–330: the old place, now empty.
@@ -98,12 +101,42 @@ describe("2D label placement samples the drawn frame", () => {
       samples++;
       out.length = 0;
     };
-    resetGraphLabels(canvas as unknown as HTMLCanvasElement, counting);
+    resetGraphLabels([canvas as unknown as HTMLCanvasElement], counting);
     drawGraphLabel(ctx, label(100), settings);
     drawGraphLabel(ctx, label(500), settings);
     expect(samples).toBe(1);
-    resetGraphLabels(canvas as unknown as HTMLCanvasElement, counting);
+    resetGraphLabels([canvas as unknown as HTMLCanvasElement], counting);
     drawGraphLabel(ctx, label(100), settings);
     expect(samples).toBe(2);
+  });
+
+  it("keeps the hover label off other nodes after the label pass has drawn", () => {
+    const labels = fakeContext("sigma-labels");
+    const hovers = fakeContext("sigma-hovers");
+    const { state, sample } = world();
+    let samples = 0;
+    const counting = (out: GraphLabelBox[]) => {
+      samples++;
+      sample(out);
+    };
+    // One frame, both canvases, as sigma-graph resets them in beforeRender.
+    resetGraphLabels([labels.canvas, hovers.canvas] as unknown as HTMLCanvasElement[], counting);
+    state.layoutX = 60;
+    // Sigma's order: the label pass first (it samples the nodes)…
+    drawGraphLabel(labels.ctx, label(100), settings);
+    // …then the hover pass, whose right side would cover the node at 360.
+    drawGraphHover(hovers.ctx, label(330), settings);
+    expect(samples).toBe(1);
+    expect(hovers.drawn).toHaveLength(1);
+    expect(hovers.drawn[0]?.x).toBeLessThan(330);
+  });
+
+  it("always draws the hover label, even when no side is clear", () => {
+    const hovers = fakeContext("sigma-hovers");
+    resetGraphLabels([hovers.canvas] as unknown as HTMLCanvasElement[], (out) =>
+      out.push({ x: 0, y: 0, width: 800, height: 600 }),
+    );
+    drawGraphHover(hovers.ctx, label(330), settings);
+    expect(hovers.drawn).toHaveLength(1);
   });
 });

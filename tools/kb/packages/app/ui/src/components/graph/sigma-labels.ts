@@ -1,12 +1,33 @@
 import type { Settings } from "sigma/settings";
 import { fitGraphLabel } from "@/lib/graph-label";
 import { readTokenColor } from "@/lib/css-color";
-import { reserveGraphLabel, type GraphLabelBox } from "@/lib/graph-label-layout";
+import {
+  overlapsGraphLabel,
+  reserveGraphLabel,
+  type GraphLabelBox,
+} from "@/lib/graph-label-layout";
 
-/** A frame's label layout per canvas: the boxes placed so far, once sampled. */
-const labelBoxes = new WeakMap<HTMLCanvasElement, GraphLabelBox[]>();
-/** The node sampler to run before the frame's first label is placed. */
-const pendingNodes = new WeakMap<HTMLCanvasElement, (out: GraphLabelBox[]) => void>();
+/**
+ * One frame's label layout, shared by the canvases that draw it (sigma's
+ * label pass, then its hover pass): the drawn nodes' boxes, sampled once on
+ * first use by either, and the label pass's placed labels.
+ */
+interface LabelFrame {
+  readonly sample: (out: GraphLabelBox[]) => void;
+  nodes: GraphLabelBox[] | null;
+  /** The label pass's boxes: the nodes, then each label it placed. */
+  placed: GraphLabelBox[] | null;
+}
+const frames = new WeakMap<HTMLCanvasElement, LabelFrame>();
+
+function nodesOf(frame: LabelFrame): GraphLabelBox[] {
+  if (frame.nodes === null) {
+    const nodes: GraphLabelBox[] = [];
+    frame.sample(nodes);
+    frame.nodes = nodes;
+  }
+  return frame.nodes;
+}
 
 /**
  * The label ink and its halo, read from the tokens once per appearance
@@ -34,23 +55,11 @@ function labelInk(): { text: string; halo: string } {
  * tick alike.
  */
 export function resetGraphLabels(
-  canvas: HTMLCanvasElement,
+  canvases: Iterable<HTMLCanvasElement>,
   sampleNodes: (out: GraphLabelBox[]) => void,
 ): void {
-  labelBoxes.delete(canvas);
-  pendingNodes.set(canvas, sampleNodes);
-}
-
-/** The canvas's placed boxes for this frame, the nodes sampled on first use. */
-function placed(canvas: HTMLCanvasElement): GraphLabelBox[] {
-  let boxes = labelBoxes.get(canvas);
-  if (boxes === undefined) {
-    boxes = [];
-    pendingNodes.get(canvas)?.(boxes);
-    pendingNodes.delete(canvas);
-    labelBoxes.set(canvas, boxes);
-  }
-  return boxes;
+  const frame: LabelFrame = { sample: sampleNodes, nodes: null, placed: null };
+  for (const canvas of canvases) frames.set(canvas, frame);
 }
 
 /** Sigma's default hover plate is white; own label paint for both 2D views. */
@@ -77,11 +86,18 @@ export const drawGraphLabel: Settings["defaultDrawNodeLabel"] = (ctx, data, sett
     Math.max(8, Math.min(at, viewportWidth - width - 8)),
   );
   let x = places[0] ?? 8;
-  if (ctx.canvas.classList.contains("sigma-labels")) {
-    const boxes = placed(ctx.canvas);
+  const frame = frames.get(ctx.canvas);
+  if (frame !== undefined && ctx.canvas.classList.contains("sigma-labels")) {
+    // The label pass: beside the node, clear of nodes and earlier labels, or not at all.
+    frame.placed ??= [...nodesOf(frame)];
+    const boxes = frame.placed;
     const free = places.find((at) => reserveGraphLabel(boxAt(at), boxes));
     if (free === undefined) return;
     x = free;
+  } else if (frame !== undefined) {
+    // The hover pass: always drawn, on whichever side is clear of other nodes.
+    const nodes = nodesOf(frame);
+    x = places.find((at) => !overlapsGraphLabel(boxAt(at), nodes)) ?? x;
   }
   // The halo: the ground, wide and soft under the text, so a label reads over
   // the links and nodes behind it.

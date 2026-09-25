@@ -141,10 +141,10 @@ export function SigmaGraph(props: SigmaGraphProps) {
       });
     };
     sigma.on("beforeRender", () => {
-      for (const canvas of el.querySelectorAll<HTMLCanvasElement>(
-        "canvas.sigma-labels, canvas.sigma-hovers",
-      ))
-        resetGraphLabels(canvas, sampleNodes);
+      resetGraphLabels(
+        el.querySelectorAll<HTMLCanvasElement>("canvas.sigma-labels, canvas.sigma-hovers"),
+        sampleNodes,
+      );
     });
     topology.current = "";
     cameraIntent.current = false;
