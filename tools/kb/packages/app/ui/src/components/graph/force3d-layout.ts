@@ -20,7 +20,7 @@ import {
   forceZ,
 } from "d3-force-3d";
 
-export interface LayoutParams {
+interface LayoutParams {
   /** Charge: how hard nodes push apart. */
   readonly spread: number;
   readonly linkDistance: number;
@@ -114,7 +114,7 @@ function simulation(seed: LayoutSeed) {
  * Tick `seed` to rest, handing positions to `emit` whenever `take` offers a
  * buffer (the page may still hold both). Returns the driver's two controls.
  */
-export function driveLayout(
+function driveLayout(
   seed: LayoutSeed,
   take: () => Float32Array | null,
   emit: Emit,
@@ -150,42 +150,106 @@ export function driveLayout(
   };
 }
 
-/** What the page and the worker say to each other. */
+/**
+ * What the page and the worker say to each other. Every message carries the
+ * generation of the layout it belongs to: a layout that has been replaced
+ * may still have replies queued on the page after its worker is terminated,
+ * and those must never reach the scene or the new layout's buffer pool.
+ */
 export type LayoutRequest =
-  | { readonly type: "seed"; readonly seed: LayoutSeed; readonly buffers: Float32Array[] }
-  | { readonly type: "reheat"; readonly params: LayoutParams }
-  | { readonly type: "return"; readonly buffer: Float32Array };
+  | {
+      readonly type: "seed";
+      readonly generation: number;
+      readonly seed: LayoutSeed;
+      readonly buffers: Float32Array[];
+    }
+  | { readonly type: "reheat"; readonly generation: number; readonly params: LayoutParams }
+  | { readonly type: "return"; readonly generation: number; readonly buffer: Float32Array };
 export type LayoutReply = {
   readonly type: "positions";
+  readonly generation: number;
   readonly positions: Float32Array;
   readonly running: boolean;
 };
 
-export interface Layout3d {
-  reheat(params: LayoutParams): void;
-  /** Hand a positions buffer back once it has been read. */
-  release(buffer: Float32Array): void;
-  dispose(): void;
+/** The two ends of a message channel, as the worker and a test see them. */
+export interface LayoutPort<In, Out> {
+  addEventListener(type: "message", listener: (event: { data: In }) => void): void;
+  postMessage(message: Out, options: { transfer: Transferable[] }): void;
 }
 
 /**
- * Lay out `seed`, calling `onPositions` with each new set; the caller reads
- * the buffer and `release`s it. The worker is a module worker Vite bundles.
+ * The worker side: own one simulation, lend its positions back in the
+ * buffers the page sent with the seed, and take back only buffers of that
+ * generation (a stale or foreign buffer never joins the pool).
+ */
+export function serveLayout(port: LayoutPort<LayoutRequest, LayoutReply>): void {
+  let driver: ReturnType<typeof driveLayout> | null = null;
+  let generation = -1;
+  let size = 0;
+  const free: Float32Array[] = [];
+  port.addEventListener("message", ({ data: request }) => {
+    if (request.type === "seed") {
+      driver?.stop();
+      generation = request.generation;
+      size = request.seed.positions.length;
+      free.length = 0;
+      free.push(...request.buffers);
+      const current = generation;
+      driver = driveLayout(
+        request.seed,
+        () => free.pop() ?? null,
+        (positions, running) => {
+          const reply: LayoutReply = { type: "positions", generation: current, positions, running };
+          port.postMessage(reply, { transfer: [positions.buffer] });
+        },
+      );
+      return;
+    }
+    if (request.generation !== generation) return;
+    if (request.type === "reheat") driver?.reheat(request.params);
+    else if (request.buffer.length === size) free.push(request.buffer);
+  });
+}
+
+export interface Layout3d {
+  reheat(params: LayoutParams): void;
+  dispose(): void;
+}
+
+/** Each layout's generation: unique for the page's life. */
+let generations = 0;
+
+/**
+ * Lay out `seed`, calling `onPositions` with each new set. The buffer is
+ * lent for the call only: read it before returning, the layout takes it
+ * back. After `dispose`, nothing more arrives, even a reply already queued.
+ * The worker is a module worker Vite bundles; without one (a test DOM) the
+ * same driver runs on the main thread.
  */
 export function startLayout3d(
   seed: LayoutSeed,
   onPositions: (positions: Float32Array, running: boolean) => void,
 ): Layout3d {
+  const generation = generations++;
+  let disposed = false;
   const buffers = [0, 1].map(() => new Float32Array(seed.positions.length));
   if (typeof Worker === "undefined") {
     const free: Float32Array[] = [...buffers];
-    const driver = driveLayout(seed, () => free.pop() ?? null, onPositions);
+    const driver = driveLayout(
+      seed,
+      () => free.pop() ?? null,
+      (positions, running) => {
+        if (!disposed) onPositions(positions, running);
+        free.push(positions);
+      },
+    );
     return {
       reheat: driver.reheat,
-      release: (buffer) => {
-        free.push(buffer);
+      dispose: () => {
+        disposed = true;
+        driver.stop();
       },
-      dispose: driver.stop,
     };
   }
   const worker = new Worker(new URL("./force3d-layout.worker.ts", import.meta.url), {
@@ -194,15 +258,24 @@ export function startLayout3d(
   const send = (request: LayoutRequest, transfer: Transferable[] = []) =>
     worker.postMessage(request, { transfer });
   worker.addEventListener("message", (event: MessageEvent<LayoutReply>) => {
-    onPositions(event.data.positions, event.data.running);
+    const reply = event.data;
+    // A reply from another generation, or one queued before dispose, is dropped:
+    // its coordinates are stale and its buffer belongs to a terminated worker.
+    if (disposed || reply.generation !== generation) return;
+    onPositions(reply.positions, reply.running);
+    send({ type: "return", generation, buffer: reply.positions }, [reply.positions.buffer]);
   });
   send(
-    { type: "seed", seed, buffers },
+    { type: "seed", generation, seed, buffers },
     buffers.map((b) => b.buffer),
   );
   return {
-    reheat: (params) => send({ type: "reheat", params }),
-    release: (buffer) => send({ type: "return", buffer }, [buffer.buffer]),
-    dispose: () => worker.terminate(),
+    reheat: (params) => {
+      if (!disposed) send({ type: "reheat", generation, params });
+    },
+    dispose: () => {
+      disposed = true;
+      worker.terminate();
+    },
   };
 }

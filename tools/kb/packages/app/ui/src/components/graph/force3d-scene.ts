@@ -312,8 +312,7 @@ export async function mountForce3d(
         live: !reduced,
       },
       (next, running) => {
-        if (next.length === positions.length) positions.set(next);
-        layout?.release(next);
+        positions.set(next);
         laying = running;
         moved = true;
         wake();
@@ -511,7 +510,7 @@ export async function mountForce3d(
       if (next === key) {
         // Same shape: only what is drawn changed (colour, size, label).
         topology = { ...topology, nodes: nextNodes };
-        nodes?.recolor(nextNodes);
+        nodes?.restyle(nextNodes);
         labels.reset(topology, palette);
         rankBySize();
         refreshEmphasis();

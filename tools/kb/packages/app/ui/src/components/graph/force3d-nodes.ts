@@ -46,8 +46,11 @@ export interface NodeLayer {
   radius(i: number): number;
   /** Write positions and eased emphasis into the instance data. */
   update(positions: Float32Array): void;
-  /** New node colours (an encoding change), for the same nodes in the same order. */
-  recolor(nodes: Force3dTopology["nodes"]): void;
+  /**
+   * New encodings (colour, size) for the same nodes in the same order: tints
+   * and radii are re-read, so spheres and picking follow a size change.
+   */
+  restyle(nodes: Force3dTopology["nodes"]): void;
 }
 
 export function nodeLayer(
@@ -59,7 +62,7 @@ export function nodeLayer(
   const place = new InstancedBufferAttribute(new Float32Array(n * 4), 4);
   const tint = new InstancedBufferAttribute(new Float32Array(n * 3), 3);
   const look = new InstancedBufferAttribute(new Float32Array(n * 2), 2);
-  const base = topology.nodes.map((node) => Math.cbrt(Math.max(0.5, node.size)) * RADIUS_PER_SIZE);
+  const base = new Float32Array(n);
 
   const material = new MeshBasicNodeMaterial();
   const at = instancedDynamicBufferAttribute(place, "vec4");
@@ -81,20 +84,21 @@ export function nodeLayer(
   mesh.frustumCulled = false;
 
   const scratch = new Color();
-  const recolor = (nodes: Force3dTopology["nodes"]) => {
+  const restyle = (nodes: Force3dTopology["nodes"]) => {
     nodes.forEach((node, i) => {
       scratch.set(toRenderableColor(node.color) ?? "rgb(128, 128, 128)");
       tint.setXYZ(i, scratch.r, scratch.g, scratch.b);
+      base[i] = Math.cbrt(Math.max(0.5, node.size)) * RADIUS_PER_SIZE;
     });
     tint.needsUpdate = true;
   };
-  recolor(topology.nodes);
+  restyle(topology.nodes);
 
   const radius = (i: number) => (base[i] ?? 1) * (1 + FOCUS_SWELL * (fades.focus.values[i] ?? 0));
   return {
     mesh,
     radius,
-    recolor,
+    restyle,
     update: (positions) => {
       const count = topology.nodes.length;
       const p = place.array;
