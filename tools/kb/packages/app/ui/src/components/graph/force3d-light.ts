@@ -1,15 +1,17 @@
 /**
  * The 3D node's light, as numbers (Lab principle L2): the rig baked into the
  * node material, the glow that lifts it past white and the lift that never
- * does. `force3d-nodes` builds its shader from these constants, and `shade`
- * is that shader evaluated on the CPU, so a test can prove which light
- * crosses the bloom threshold (1) and which cannot, for any colour. No three
- * here.
+ * does, written once (`shadeNode`) over the scene kit's shading arithmetic:
+ * `force3d-nodes` runs it as TSL nodes, a test runs it as numbers, so the
+ * test proves which light crosses the bloom threshold (1) for any colour of
+ * the shader itself. No three here.
  */
 
-export type Rgb = readonly [number, number, number];
+import { NUMBER_OPS, type Rgb, type ShadeOps } from "@/scene/shade-ops";
 
-export const NODE_LIGHT = {
+export type { Rgb };
+
+const NODE_LIGHT = {
   /** The key's share of the node colour where it faces the light… */
   key: 0.5,
   /** …the fill's share everywhere (the dark side keeps the node's colour)… */
@@ -49,27 +51,42 @@ const SPHERE: readonly (readonly [number, number])[] = (() => {
   return out;
 })();
 
+/** What one fragment of a node is shaded from, over colours V and scalars S. */
+export interface NodeFragment<V, S> {
+  /** The node's colour, and the palette's ground and ink (linear). */
+  readonly hue: V;
+  readonly ground: V;
+  readonly ink: V;
+  /** The key light's reach at this fragment, and the rim's (0–1). */
+  readonly key: S;
+  readonly rim: S;
+  /** How present the node is: 1 in full, toward 0 it sinks into the ground. */
+  readonly presence: S;
+  /** Light that may pass white, so blooms (focus, hover, a match, a hub). */
+  readonly glow: S;
+  /** Light that never passes white (the rising tier, a focus's neighbours). */
+  readonly lift: S;
+}
+
 /**
- * One fragment of a fully present node, channel by channel, exactly as the
- * shader in `force3d-nodes` shades it: the rig's light (capped at white — a
- * resting node is matte whatever its colour), plus a `glow` that may pass
- * white, plus a `lift` capped at the fragment's own headroom under white.
+ * The node light, stated once over `ShadeOps`: the node material runs it as
+ * TSL nodes, and `peakChannel` runs it as numbers, so what the test proves is
+ * what the shader draws. The rig's light is capped at white (a resting node
+ * is matte whatever its colour), a `glow` is added on top and may pass white,
+ * and a `lift` is capped at the fragment's own headroom under white, channel
+ * by channel, so it never does.
  */
-function shade(
-  hue: Rgb,
-  ink: Rgb,
-  [key, rim]: readonly [number, number],
-  { glow, lift }: { readonly glow: number; readonly lift: number },
-): Rgb {
+export function shadeNode<V, S>(o: ShadeOps<V, S>, f: NodeFragment<V, S>): V {
   const L = NODE_LIGHT;
-  const light = (c: number) => ((hue[c] ?? 0) * (1 - L.glowWhite) + L.glowWhite) * L.glowGain;
-  const glowing = (c: number) =>
-    Math.min((hue[c] ?? 0) * (key * L.key + L.fill) + (ink[c] ?? 0) * rim * L.rim, 1) +
-    light(c) * glow;
-  const room = (c: number) => Math.max(0, 1 - glowing(c)) / light(c);
-  const shown = Math.min(lift, room(0), room(1), room(2));
-  const out = (c: number) => glowing(c) + light(c) * shown;
-  return [out(0), out(1), out(2)];
+  const lit = o.addColor(
+    o.scale(f.hue, o.add(o.mul(f.key, o.num(L.key)), o.num(L.fill))),
+    o.scale(f.ink, o.mul(f.rim, o.num(L.rim))),
+  );
+  const rest = o.minColor(o.mix(f.ground, lit, f.presence), o.white);
+  const light = o.scale(o.mix(f.hue, o.white, o.num(L.glowWhite)), o.num(L.glowGain));
+  const glowing = o.addColor(rest, o.scale(light, f.glow));
+  const room = o.divColor(o.maxColor(o.subColor(o.white, glowing), o.black), light);
+  return o.addColor(glowing, o.scale(light, o.min(f.lift, o.minChannel(room))));
 }
 
 /**
@@ -79,9 +96,9 @@ function shade(
  */
 export function peakChannel(hue: Rgb, ink: Rgb, glow: number, lift = 0): number {
   let peak = 0;
-  const light = { glow, lift };
-  for (const point of SPHERE) {
-    for (const channel of shade(hue, ink, point, light)) peak = Math.max(peak, channel);
+  for (const [key, rim] of SPHERE) {
+    const fragment = { hue, ground: NUMBER_OPS.black, ink, key, rim, presence: 1, glow, lift };
+    for (const channel of shadeNode(NUMBER_OPS, fragment)) peak = Math.max(peak, channel);
   }
   return peak;
 }

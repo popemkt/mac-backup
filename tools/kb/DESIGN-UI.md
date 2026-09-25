@@ -407,8 +407,9 @@ like themselves (P5).
   hex), so its rest is capped at white, and the rising tier's and a focus's
   neighbours' light is a *lift* the shader caps at each fragment's own
   headroom under white; only a *glow* (focus, hover, a search match, a hub)
-  may pass it. `force3d-light.ts` holds the constants the shader is built
-  from and the same shading on the CPU, and `force3d-light.test.ts` checks
+  may pass it. the light is written once (`shadeNode` in
+  `force3d-light.ts`) over the scene kit's shading arithmetic, run as TSL
+  nodes by the material and as numbers by `force3d-light.test.ts`, which checks
   it over the unit cube's corners, every pure channel and a seeded spread of
   colours, under every design system's ink in both variants. Range fog follows the camera's distance, a
   restrained starfield stands at infinity, the backdrop is the page's own
@@ -597,8 +598,11 @@ open to the lab and the graph): `gpu/stage` (renderer, post chain, tone
 mapping, palette uniforms, frame loop, reveal), `gpu/tsl` (the typed TSL seam
 and the ease as a shader function), `gpu/rig` (lights and finishes),
 `gpu/starfield`, `gpu/dispose`, `palette` (the five palette roles, filled
-from whichever tokens the caller names) and `sphere` (seeded places on a
-sphere). The timing vocabulary (the motion tokens, springs, eases) is
+from whichever tokens the caller names), `sphere` (seeded places on a
+sphere) and `shade-ops` (the arithmetic a shading formula is written over
+once, run as TSL nodes through `gpu/tsl`'s `NODE_OPS` and as numbers through
+`NUMBER_OPS`, so a test proves the shader itself: Embers' heat curve and the
+3D graph's node light). The timing vocabulary (the motion tokens, springs, eases) is
 `lib/timing.ts`, beside `lib/motion.ts`, because DOM motion reads it too.
 What only the lab needs stays in `components/lab/kit`: `study`
 (`mountStudy`: the reduced-motion and theme hand-off), `palette` (the

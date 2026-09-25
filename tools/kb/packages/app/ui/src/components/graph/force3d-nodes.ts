@@ -3,7 +3,8 @@
  * tinted and emphasised from per-instance attributes the CPU writes, so the
  * whole graph is a single draw (Lab principle P3).
  *
- * Shading is the scene kit's key/fill/rim rig baked into the node material
+ * Shading is the scene kit's key/fill/rim rig baked into the node material,
+ * written once in `force3d-light` (`shadeNode`) and run here as TSL nodes
  * (L2, L5): a soft key from the upper left, a fill that keeps the dark side
  * in the node's own colour, and a rim in the palette's ink that draws the
  * silhouette out of the ground. It stays inside the displayable range; only
@@ -21,8 +22,6 @@ import {
 import {
   float,
   instancedDynamicBufferAttribute,
-  min,
-  mix,
   normalView,
   normalize,
   positionLocal,
@@ -31,7 +30,8 @@ import {
 import type { PaletteUniforms } from "@/scene/gpu/stage";
 import { toRenderableColor } from "@/lib/css-color";
 import { TIER, type Force3dFades, type Force3dTopology } from "./force3d-emphasis";
-import { KEY_DIRECTION, NODE_LIGHT, RIM_POWER } from "./force3d-light";
+import { KEY_DIRECTION, RIM_POWER, shadeNode } from "./force3d-light";
+import { NODE_OPS } from "@/scene/gpu/tsl";
 
 /** World radius per cube root of a lens node's size. */
 const RADIUS_PER_SIZE = 4.2;
@@ -74,18 +74,16 @@ export function nodeLayer(
   const normal = normalize(normalView);
   const key = normal.dot(vec3(...KEY_DIRECTION)).max(0);
   const rim = float(1).sub(normal.z.max(0)).pow(RIM_POWER);
-  const L = NODE_LIGHT;
-  const lit = hue.mul(key.mul(L.key).add(L.fill)).add(colors.ink.mul(rim.mul(L.rim)));
-  const presence = emphasis.x.pow(2);
-  const light = mix(hue, vec3(1, 1, 1), L.glowWhite).mul(L.glowGain);
-  // At rest a node is matte whatever its colour: never past white.
-  const rest = min(mix(colors.ground, lit, presence), vec3(1, 1, 1));
-  // A glow may pass white (it blooms); a lift is capped at this fragment's
-  // headroom under white, channel by channel (force3d-light mirrors this).
-  const glowing = rest.add(light.mul(emphasis.y));
-  const room = vec3(1, 1, 1).sub(glowing).max(0).div(light);
-  const cap = room.x.min(room.y).min(room.z);
-  material.colorNode = glowing.add(light.mul(emphasis.z.min(cap)));
+  material.colorNode = shadeNode(NODE_OPS, {
+    hue: vec3(hue),
+    ground: vec3(colors.ground),
+    ink: vec3(colors.ink),
+    key,
+    rim,
+    presence: emphasis.x.pow(2),
+    glow: emphasis.y,
+    lift: emphasis.z,
+  });
 
   const segments = topology.nodes.length > DENSE ? [12, 8] : [24, 16];
   const mesh = new InstancedMesh(new SphereGeometry(1, segments[0], segments[1]), material, n);
