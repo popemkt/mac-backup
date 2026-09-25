@@ -393,6 +393,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Design tokens: no bypass
 - **node** — `01M3AF8G4N9JHJB8YYEWF8F5SZ`
 
+### GAP: translucent text (text-foreground/N) is outside the contrast guard
+
+- **expected** — Every text colour the UI paints, translucent ones included, is either held to AA on its composited ground by the contrast guard (tools/kb/packages/app/ui/src/lib/design-systems.test.ts) or declared as decorative (placeholder, disabled, ornament) with the 3:1 non-text floor where it is UI.
+- **current** — The guard measures opaque text only. Translucent text (text-foreground/25 through /90, about 400 sites) is skipped: much of it is faint on purpose, and none of it is classified as body text, UI text or decoration.
+- **impact** — Secondary labels, hints and counts set in translucent foreground can sit below AA in any design system without anything going red.
+- **closes** — Classify the translucent text roles (a small set of named text tokens, e.g. subtle and faint, in place of ad-hoc /N steps), hold each to its threshold in the guard, and retire the raw /N text utilities.
+- **node** — `01M3BEJDX4YP2DPHSCFS66NZK1`
+
 ### GAP: two launch paths for the kb binary
 
 - **expected** — One kb binary: the nix-built package is the only thing on PATH and the only thing .mcp.json launches.

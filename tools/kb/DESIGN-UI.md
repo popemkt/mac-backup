@@ -783,7 +783,14 @@ id; the preference's schema, the picker and the command read it.
   sidebar surfaces; muted text; the accent as link text and as a fill;
   destructive and warning text; lab ink on lab ground) meets WCAG AA for
   body text, 4.5:1, computed from the oklch values in the CSS. There is no
-  exception list: a pair below AA fails.
+  exception list: a pair below AA fails. The same bound holds on the grounds
+  the UI composes: every element holding text is read from the JSX (classes
+  split by Tailwind's scanner), its ancestors' and its own `bg-*` tints are
+  composited in sRGB over each page surface, and its opaque text colour is
+  measured on each result — `text-primary` on `bg-primary/10`, a link in a
+  selected row's stacked tints. Content one component mounts into another's
+  element is declared in the guard's `MOUNTS`; translucent text is not yet
+  checked (gap `01M3BEJDX4YP2DPHSCFS66NZK1`).
 - the lab's bloom bound (`embers/heat.test.ts`) runs over every system's
   accent in both variants.
 

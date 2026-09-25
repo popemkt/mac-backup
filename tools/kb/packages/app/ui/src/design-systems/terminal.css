@@ -43,7 +43,7 @@
   --sidebar-accent-foreground: oklch(0.2 0.03 150);
   --sidebar-border: oklch(0.22 0.03 150 / 14%);
   --sidebar-ring: oklch(0.46 0.12 150 / 60%);
-  --warning: oklch(0.55 0.12 80);
+  --warning: oklch(0.495 0.1 80);
   --success: oklch(0.56 0.14 150);
   --info: oklch(0.55 0.12 220);
   --scrim: oklch(0.08 0.02 150);
