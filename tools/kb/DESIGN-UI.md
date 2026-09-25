@@ -782,9 +782,8 @@ id; the preference's schema, the picker and the command read it.
   (foreground on background, card, popover, secondary, accent, muted and
   sidebar surfaces; muted text; the accent as link text and as a fill;
   destructive and warning text; lab ink on lab ground) meets WCAG AA for
-  body text, 4.5:1, computed from the oklch values in the CSS. The default's
-  light theme predates the guard and falls short in five pairs; they are
-  listed, under a gap, and an entry that starts passing fails as stale.
+  body text, 4.5:1, computed from the oklch values in the CSS. There is no
+  exception list: a pair below AA fails.
 - the lab's bloom bound (`embers/heat.test.ts`) runs over every system's
   accent in both variants.
 

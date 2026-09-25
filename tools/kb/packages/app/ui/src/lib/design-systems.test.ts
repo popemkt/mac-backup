@@ -140,43 +140,18 @@ const PAIRS: readonly (readonly [text: string, ground: string])[] = [
   ["--lab-ink", "--lab-ground"],
 ];
 
-/**
- * The default's known shortfalls: its light amber accent and warning, set
- * before this guard existed. Changing them is a visible change to the
- * default, so each is recorded rather than silently passed, and an entry
- * that starts meeting AA fails as stale. GAP [[01M3ASKN7S16Y845QA8185BV7V]]
- */
-const BELOW_BODY_AA = new Set([
-  "kb/light --primary-foreground on --primary",
-  "kb/light --sidebar-primary-foreground on --sidebar-primary",
-  "kb/light --primary on --background",
-  "kb/light --muted-foreground on --muted",
-  "kb/light --warning on --background",
-]);
-
 describe("design systems: contrast (WCAG AA)", () => {
   const cases = DESIGN_SYSTEM_IDS.flatMap((id) =>
     (["light", "dark"] as const).map((variant) => ({ id, variant })),
   );
   it.each(cases)("$id/$variant text meets AA on its ground", ({ id, variant }) => {
     const value = (token: string) => SHEETS.resolve(id, variant, token);
-    const failures: string[] = [];
-    for (const [text, ground] of PAIRS) {
-      const name = `${id}/${variant} ${text} on ${ground}`;
-      const ratio = contrast(value(text), value(ground));
-      if (BELOW_BODY_AA.has(name)) {
-        if (ratio >= BODY) failures.push(`${name}: meets AA now, drop the exemption`);
-      } else if (ratio < BODY) failures.push(`${name}: ${ratio.toFixed(2)}`);
-    }
+    const failures = PAIRS.map(([text, ground]) => ({
+      name: `${id}/${variant} ${text} on ${ground}`,
+      ratio: contrast(value(text), value(ground)),
+    }))
+      .filter(({ ratio }) => ratio < BODY)
+      .map(({ name, ratio }) => `${name}: ${ratio.toFixed(2)}`);
     expect(failures).toEqual([]);
-  });
-
-  it("every exemption names a pair that is checked", () => {
-    const checked = new Set(
-      cases.flatMap(({ id, variant }) =>
-        PAIRS.map(([text, ground]) => `${id}/${variant} ${text} on ${ground}`),
-      ),
-    );
-    expect([...BELOW_BODY_AA].filter((name) => !checked.has(name))).toEqual([]);
   });
 });

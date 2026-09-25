@@ -84,9 +84,10 @@ describe("kb tokens", () => {
     expect(designSystem).toMatch(
       /\.dark,\s*\.dark \[data-theme="kb"\]\s*\{[^}]*--background:\s*oklch\(/s,
     );
-    // Warm amber primary, light + dark
-    expect(designSystem).toContain("--primary: oklch(0.67 0.16 58)");
-    expect(designSystem).toContain("--primary: oklch(0.77 0.16 70)");
+    // Warm amber primary, light + dark: the hue is the identity; lightness and
+    // chroma are tuned for contrast (design-systems.test.ts holds them to AA).
+    expect(designSystem).toMatch(/--primary: oklch\([\d.]+ [\d.]+ 58\)/);
+    expect(designSystem).toMatch(/--primary: oklch\([\d.]+ [\d.]+ 70\)/);
     expect(index).toMatch(/@custom-variant dark/);
     expect(index).toMatch(/data-scrolling/);
   });
