@@ -21,6 +21,7 @@ import {
 import {
   float,
   instancedDynamicBufferAttribute,
+  min,
   mix,
   normalView,
   normalize,
@@ -62,13 +63,13 @@ export function nodeLayer(
   const n = Math.max(1, topology.nodes.length);
   const place = new InstancedBufferAttribute(new Float32Array(n * 4), 4);
   const tint = new InstancedBufferAttribute(new Float32Array(n * 3), 3);
-  const look = new InstancedBufferAttribute(new Float32Array(n * 2), 2);
+  const look = new InstancedBufferAttribute(new Float32Array(n * 3), 3);
   const base = new Float32Array(n);
 
   const material = new MeshBasicNodeMaterial();
   const at = instancedDynamicBufferAttribute(place, "vec4");
   const hue = instancedDynamicBufferAttribute(tint, "vec3");
-  const emphasis = instancedDynamicBufferAttribute(look, "vec2");
+  const emphasis = instancedDynamicBufferAttribute(look, "vec3");
   material.positionNode = positionLocal.mul(at.w).add(at.xyz);
   const normal = normalize(normalView);
   const key = normal.dot(vec3(...KEY_DIRECTION)).max(0);
@@ -76,8 +77,15 @@ export function nodeLayer(
   const L = NODE_LIGHT;
   const lit = hue.mul(key.mul(L.key).add(L.fill)).add(colors.ink.mul(rim.mul(L.rim)));
   const presence = emphasis.x.pow(2);
-  const light = mix(hue, vec3(1, 1, 1), L.glowWhite);
-  material.colorNode = mix(colors.ground, lit, presence).add(light.mul(emphasis.y.mul(L.glowGain)));
+  const light = mix(hue, vec3(1, 1, 1), L.glowWhite).mul(L.glowGain);
+  // At rest a node is matte whatever its colour: never past white.
+  const rest = min(mix(colors.ground, lit, presence), vec3(1, 1, 1));
+  // A glow may pass white (it blooms); a lift is capped at this fragment's
+  // headroom under white, channel by channel (force3d-light mirrors this).
+  const glowing = rest.add(light.mul(emphasis.y));
+  const room = vec3(1, 1, 1).sub(glowing).max(0).div(light);
+  const cap = room.x.min(room.y).min(room.z);
+  material.colorNode = glowing.add(light.mul(emphasis.z.min(cap)));
 
   const segments = topology.nodes.length > DENSE ? [12, 8] : [24, 16];
   const mesh = new InstancedMesh(new SphereGeometry(1, segments[0], segments[1]), material, n);
@@ -110,13 +118,15 @@ export function nodeLayer(
       const count = topology.nodes.length;
       const p = place.array;
       const e = look.array;
+      const lift = fades.lift.values;
       for (let i = 0; i < count; i++) {
         p[i * 4] = positions[i * 3] ?? 0;
         p[i * 4 + 1] = positions[i * 3 + 1] ?? 0;
         p[i * 4 + 2] = positions[i * 3 + 2] ?? 0;
         p[i * 4 + 3] = radius(i);
-        e[i * 2] = fades.dim.values[i] ?? 1;
-        e[i * 2 + 1] = fades.glow.values[i] ?? 0;
+        e[i * 3] = fades.dim.values[i] ?? 1;
+        e[i * 3 + 1] = fades.glow.values[i] ?? 0;
+        e[i * 3 + 2] = lift[i] ?? 0;
       }
       place.needsUpdate = true;
       look.needsUpdate = true;

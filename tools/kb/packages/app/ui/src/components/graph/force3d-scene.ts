@@ -210,6 +210,7 @@ export async function mountForce3d(
   const fades: Force3dFades = {
     dim: new EmphasisFade(0, init.timing.quick),
     glow: new EmphasisFade(0, init.timing.quick),
+    lift: new EmphasisFade(0, init.timing.quick, 0),
     focus: new EmphasisFade(0, init.timing.quick, 0),
   };
   const graph = new Group();
@@ -294,6 +295,7 @@ export async function mountForce3d(
     if (reduced) {
       fades.dim.snap();
       fades.glow.snap();
+      fades.lift.snap();
       fades.focus.snap();
     }
     links?.setParticleLinks(
@@ -347,6 +349,7 @@ export async function mountForce3d(
     });
     fades.dim.reset(topology.nodes.length);
     fades.glow.reset(topology.nodes.length, 0);
+    fades.lift.reset(topology.nodes.length, 0);
     fades.focus.reset(topology.nodes.length, 0);
     if (nodes !== null) graph.remove(nodes.mesh);
     if (links !== null) graph.remove(links.lines, links.particles);
@@ -448,8 +451,9 @@ export async function mountForce3d(
   const stepFades = (dt: number) => {
     const dimmed = fades.dim.step(dt, reduced);
     const glowed = fades.glow.step(dt, reduced);
+    const lifted = fades.lift.step(dt, reduced);
     const focused = fades.focus.step(dt, reduced);
-    return dimmed || glowed || focused;
+    return dimmed || glowed || lifted || focused;
   };
   /** Fly or orbit the camera; whether it moved. */
   const stepCamera = (dt: number) => {

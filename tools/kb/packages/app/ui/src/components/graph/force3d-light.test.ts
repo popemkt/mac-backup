@@ -1,90 +1,88 @@
 /**
- * Only the hubs, the focus, the hover and search matches may bloom (L2): the
- * unprompted tiers below them — the rising nodes and a focus's neighbours —
- * must stay at or under 1 for every node colour the graph paints, under the
- * ink of every design system in both variants. The ink is read from the
- * stylesheets, so a palette change or a new design system is checked too.
+ * Only the hubs, the focus, the hover and search matches may bloom (L2). A
+ * node can carry any stored colour — a tag's palette colour, a `sys.f.color`
+ * taken verbatim, a `fixed:` colour, any `#rgb`/`#rrggbb`/`#rrggbbaa` from
+ * the swatch editor — so the proof is over colour space, not a palette: at
+ * rest, and under any lift, no fragment passes white, for the unit cube's
+ * corners, every pure channel and a seeded spread of colours, under the ink
+ * of every design system in both variants (read from the stylesheets). The
+ * shader caps a lift at each fragment's own headroom; this checks the cap.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { oklchToRgb, toRenderableColor } from "@/lib/css-color";
+import { oklchToRgb } from "@/lib/css-color";
 import { readDesignSystemSheets } from "@/lib/design-system-sheets";
 import { TAG_PALETTE } from "@/lib/tag-color";
 import { DESIGN_SYSTEM_IDS } from "@/lib/theme";
 import { GLOW } from "./force3d-emphasis";
-import { glowHeadroom, peakChannel, type Rgb } from "./force3d-light";
+import { peakChannel, type Rgb } from "./force3d-light";
 
 const SRC = join(import.meta.dirname, "..", "..");
 const SHEETS = readDesignSystemSheets(readFileSync(join(SRC, "design-system.css"), "utf8"), (id) =>
   readFileSync(join(SRC, "design-systems", `${id}.css`), "utf8"),
 );
 
-/** An sRGB byte as a linear channel, as three stores a colour. */
-function linear(byte: number): number {
-  const c = byte / 255;
+/** An sRGB channel (0–1) as a linear one, as three stores a colour. */
+function linear(c: number): number {
   return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 }
 
-function rgbOf(color: string): Rgb {
-  const srgb = oklchToRgb(color);
-  const parsed =
-    srgb ??
-    (() => {
-      const m = /^rgb\((\d+), (\d+), (\d+)\)$/.exec(toRenderableColor(color) ?? "");
-      return m ? { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) } : null;
-    })();
-  if (parsed === null) throw new Error(`unreadable colour ${color}`);
-  return [linear(parsed.r), linear(parsed.g), linear(parsed.b)];
+function hexRgb(hex: string): Rgb {
+  const n = Number.parseInt(hex.slice(1), 16);
+  return [linear(((n >> 16) & 255) / 255), linear(((n >> 8) & 255) / 255), linear((n & 255) / 255)];
 }
 
 /** Each appearance's ink (`--foreground`, the 3D palette's ink role). */
 const INKS = DESIGN_SYSTEM_IDS.flatMap((id) =>
-  (["light", "dark"] as const).map((variant) => ({
-    name: `${id} ${variant}`,
-    ink: rgbOf(SHEETS.resolve(id, variant, "--foreground")),
-  })),
-);
-const HUES = TAG_PALETTE.map((hex) => ({ hex, rgb: rgbOf(hex) }));
-
-/** The least headroom any node colour has under any appearance's ink. */
-const HEADROOM = Math.min(
-  ...INKS.flatMap(({ ink }) => HUES.map(({ rgb }) => glowHeadroom(rgb, ink))),
+  (["light", "dark"] as const).map((variant) => {
+    const srgb = oklchToRgb(SHEETS.resolve(id, variant, "--foreground"));
+    if (srgb === null) throw new Error(`${id}/${variant}: --foreground is not oklch`);
+    const ink: Rgb = [linear(srgb.r / 255), linear(srgb.g / 255), linear(srgb.b / 255)];
+    return { name: `${id} ${variant}`, ink };
+  }),
 );
 
-describe("3D glow tiers", () => {
+/** The unit cube's corners (every pure channel and mix of full channels) … */
+const CORNERS: Rgb[] = [0, 1].flatMap((r) =>
+  [0, 1].flatMap((g) => [0, 1].map((b): Rgb => [r, g, b])),
+);
+/** … the reviewer's crossing colours, and a seeded spread of the rest. */
+const NAMED: Rgb[] = ["#0000ff", "#ff0000", "#00ffff", "#ffffff", "#ff00aa", "#ff00ff"].map(hexRgb);
+let seed = 17;
+const random = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+const SPREAD: Rgb[] = Array.from({ length: 64 }, (): Rgb => [random(), random(), random()]);
+const COLOURS: Rgb[] = [...CORNERS, ...NAMED, ...SPREAD, ...TAG_PALETTE.map(hexRgb)];
+
+/** Lifts to try: the two roles', and far past them (the cap must hold whatever the value). */
+const LIFTS = [GLOW.rising, GLOW.neighbour, 0.5, 1, 4];
+
+describe("3D light over every storable colour", () => {
   for (const { name, ink } of INKS) {
-    it(`keeps the rising tier and neighbours under the bloom threshold in ${name}`, () => {
-      for (const { hex, rgb } of HUES) {
-        expect(peakChannel(rgb, ink, GLOW.rising), `${hex} rising`).toBeLessThanOrEqual(1);
-        expect(peakChannel(rgb, ink, GLOW.neighbour), `${hex} neighbour`).toBeLessThanOrEqual(1);
+    it(`keeps a resting node, and any lift, at or under white in ${name}`, () => {
+      for (const colour of COLOURS) {
+        expect(peakChannel(colour, ink, 0), `rest ${colour.join(",")}`).toBeLessThanOrEqual(
+          1 + 1e-9,
+        );
+        for (const lift of LIFTS) {
+          expect(
+            peakChannel(colour, ink, 0, lift),
+            `lift ${lift} ${colour.join(",")}`,
+          ).toBeLessThanOrEqual(1 + 1e-9);
+        }
       }
     });
   }
 
-  it("leaves those tiers inside the computed headroom, and a hub well past it", () => {
-    expect(GLOW.rising).toBeLessThanOrEqual(HEADROOM);
-    expect(GLOW.neighbour).toBeLessThanOrEqual(HEADROOM);
-    // Something is still left to see: a lift, not nothing.
-    expect(GLOW.rising).toBeGreaterThan(0);
-    // Every hub crosses, whatever its colour: it blooms.
+  it("still lifts a colour with headroom: a lift is visible, not zeroed", () => {
+    const grey: Rgb = [0.2, 0.2, 0.2];
     for (const { ink } of INKS)
-      for (const { rgb } of HUES) expect(peakChannel(rgb, ink, GLOW.hub)).toBeGreaterThan(1);
+      expect(peakChannel(grey, ink, 0, GLOW.rising)).toBeGreaterThan(peakChannel(grey, ink, 0));
   });
 
-  it("keeps a resting node matte: no glow never blooms", () => {
+  it("lets every hub of a tag colour bloom", () => {
     for (const { ink } of INKS)
-      for (const { hex, rgb } of HUES) expect(peakChannel(rgb, ink, 0), hex).toBeLessThanOrEqual(1);
-  });
-
-  it("bounds glowHeadroom exactly: at the headroom a channel reaches 1", () => {
-    const { rgb } = HUES[0] ?? { rgb: [1, 0, 0] as Rgb };
-    const ink = INKS[0]?.ink ?? ([0, 0, 0] as Rgb);
-    expect(peakChannel(rgb, ink, glowHeadroom(rgb, ink))).toBeCloseTo(1, 9);
-  });
-
-  it("reports the headroom", () => {
-    console.log(`3D glow headroom: ${HEADROOM.toFixed(4)}`);
-    expect(HEADROOM).toBeGreaterThan(0);
+      for (const hex of TAG_PALETTE)
+        expect(peakChannel(hexRgb(hex), ink, GLOW.hub)).toBeGreaterThan(1);
   });
 });

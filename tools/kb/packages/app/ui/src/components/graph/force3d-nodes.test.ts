@@ -32,6 +32,7 @@ describe("nodeLayer", () => {
     const fades = {
       dim: new EmphasisFade(2, 0.2),
       glow: new EmphasisFade(2, 0.2, 0),
+      lift: new EmphasisFade(2, 0.2, 0),
       focus: new EmphasisFade(2, 0.2, 0),
     };
     const layer = nodeLayer(topology, colors(), fades);

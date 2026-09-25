@@ -22,6 +22,7 @@ function fades(count: number): Force3dFades {
   return {
     dim: new EmphasisFade(count, 0.2),
     glow: new EmphasisFade(count, 0.2, 0),
+    lift: new EmphasisFade(count, 0.2, 0),
     focus: new EmphasisFade(count, 0.2, 0),
   };
 }

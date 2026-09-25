@@ -1,9 +1,10 @@
 /**
  * The 3D node's light, as numbers (Lab principle L2): the rig baked into the
- * node material and the glow that lifts it past white. `force3d-nodes` builds
- * its shader from these constants, and `peakChannel` bounds what that shader
- * can output, so a test can prove which glow crosses the bloom threshold (1)
- * and which cannot. No three here.
+ * node material, the glow that lifts it past white and the lift that never
+ * does. `force3d-nodes` builds its shader from these constants, and `shade`
+ * is that shader evaluated on the CPU, so a test can prove which light
+ * crosses the bloom threshold (1) and which cannot, for any colour. No three
+ * here.
  */
 
 export type Rgb = readonly [number, number, number];
@@ -49,37 +50,38 @@ const SPHERE: readonly (readonly [number, number])[] = (() => {
 })();
 
 /**
- * The brightest channel a fully present node of linear colour `hue` reaches
- * with `glow`, anywhere on its visible surface, under `ink` (the palette's
- * ink, linear): the shader in `force3d-nodes`, evaluated on the CPU over the
- * visible hemisphere.
+ * One fragment of a fully present node, channel by channel, exactly as the
+ * shader in `force3d-nodes` shades it: the rig's light (capped at white — a
+ * resting node is matte whatever its colour), plus a `glow` that may pass
+ * white, plus a `lift` capped at the fragment's own headroom under white.
  */
-export function peakChannel(hue: Rgb, ink: Rgb, glow: number): number {
+function shade(
+  hue: Rgb,
+  ink: Rgb,
+  [key, rim]: readonly [number, number],
+  { glow, lift }: { readonly glow: number; readonly lift: number },
+): Rgb {
   const L = NODE_LIGHT;
-  let peak = 0;
-  for (let c = 0; c < 3; c++) {
-    const h = hue[c] ?? 0;
-    const light = (h * (1 - L.glowWhite) + L.glowWhite) * glow * L.glowGain;
-    for (const [key, rim] of SPHERE) {
-      peak = Math.max(peak, h * (key * L.key + L.fill) + (ink[c] ?? 0) * rim * L.rim + light);
-    }
-  }
-  return peak;
+  const light = (c: number) => ((hue[c] ?? 0) * (1 - L.glowWhite) + L.glowWhite) * L.glowGain;
+  const glowing = (c: number) =>
+    Math.min((hue[c] ?? 0) * (key * L.key + L.fill) + (ink[c] ?? 0) * rim * L.rim, 1) +
+    light(c) * glow;
+  const room = (c: number) => Math.max(0, 1 - glowing(c)) / light(c);
+  const shown = Math.min(lift, room(0), room(1), room(2));
+  const out = (c: number) => glowing(c) + light(c) * shown;
+  return [out(0), out(1), out(2)];
 }
 
-/** The most glow `hue` can take under `ink` and still stay at or under 1 everywhere. */
-export function glowHeadroom(hue: Rgb, ink: Rgb): number {
-  const L = NODE_LIGHT;
-  let room = Infinity;
-  for (let c = 0; c < 3; c++) {
-    const h = hue[c] ?? 0;
-    let lit = 0;
-    for (const [key, rim] of SPHERE)
-      lit = Math.max(lit, h * (key * L.key + L.fill) + (ink[c] ?? 0) * rim * L.rim);
-    room = Math.min(
-      room,
-      Math.max(0, 1 - lit) / ((h * (1 - L.glowWhite) + L.glowWhite) * L.glowGain),
-    );
+/**
+ * The brightest channel a fully present node of linear colour `hue` reaches
+ * anywhere on its visible surface, under `ink` (the palette's ink, linear),
+ * with a blooming `glow` and a capped `lift`.
+ */
+export function peakChannel(hue: Rgb, ink: Rgb, glow: number, lift = 0): number {
+  let peak = 0;
+  const light = { glow, lift };
+  for (const point of SPHERE) {
+    for (const channel of shade(hue, ink, point, light)) peak = Math.max(peak, channel);
   }
-  return room;
+  return peak;
 }

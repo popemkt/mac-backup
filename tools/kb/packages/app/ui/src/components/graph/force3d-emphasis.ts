@@ -77,29 +77,32 @@ export function topologyOf(
 export interface Force3dFades {
   /** 1 = fully present, down to the shared dim alpha. */
   readonly dim: EmphasisFade;
-  /** 0–1: how far past white the node's light goes. */
+  /** 0–1: a glow that may pass white, so blooms (focus, hover, match, hub). */
   readonly glow: EmphasisFade;
+  /**
+   * 0–1: a lift that must never pass white (the rising tier, a focus's
+   * neighbours). The shader caps it at each fragment's own headroom.
+   */
+  readonly lift: EmphasisFade;
   /** 1 for the node in focus (selected, else hovered). */
   readonly focus: EmphasisFade;
 }
 
 /**
- * Glow per role; a dimmed node never glows. Focus, hover, a search match and
- * a hub cross the bloom threshold; the rising tier and a focus's neighbours
- * stay under it for every node colour and design system — their values sit
- * inside the headroom `force3d-light.test.ts` computes from the stylesheets
- * (0.037 today: orange under the kb dark ink leaves the least).
+ * Light per role; a dimmed node takes none. Focus, hover, a search match and
+ * a hub glow (`fades.glow`) and cross the bloom threshold. The rising tier
+ * and a focus's neighbours lift (`fades.lift`): the node shader caps a lift
+ * at the headroom under white of the fragment it lights, so whatever colour
+ * a node carries, a lift never blooms (`force3d-light.test.ts`).
  */
 export const GLOW = {
   focus: 0.7,
   hover: 0.6,
   match: 0.5,
   hub: 0.5,
-  rising: 0.03,
-  neighbour: 0.03,
+  rising: 0.1,
+  neighbour: 0.12,
 } as const;
-
-const TIER_GLOW = [0, GLOW.rising, GLOW.hub] as const;
 
 /** The node in focus: the selection wins over the hover. */
 export function focusOf(state: GraphEmphasis, hovered: string | null): string | null {
@@ -118,6 +121,7 @@ export function setEmphasisTargets(
   topology.nodes.forEach((node, i) => {
     const alpha = graphEmphasisAlpha(node.id, state, neighbourhood);
     fades.dim.setTarget(i, alpha);
+    const tier = topology.tier[i] ?? TIER.none;
     const glow =
       alpha < 1
         ? 0
@@ -127,11 +131,15 @@ export function setEmphasisTargets(
             ? GLOW.hover
             : state.highlightIds?.has(node.id) === true
               ? GLOW.match
-              : Math.max(
-                  TIER_GLOW[topology.tier[i] ?? 0] ?? 0,
-                  active !== null ? GLOW.neighbour : 0,
-                );
+              : tier === TIER.hub
+                ? GLOW.hub
+                : 0;
+    const lift =
+      alpha < 1 || glow > 0
+        ? 0
+        : Math.max(tier === TIER.rising ? GLOW.rising : 0, active !== null ? GLOW.neighbour : 0);
     fades.glow.setTarget(i, glow);
+    fades.lift.setTarget(i, lift);
     fades.focus.setTarget(i, node.id === active ? 1 : 0);
   });
 }
