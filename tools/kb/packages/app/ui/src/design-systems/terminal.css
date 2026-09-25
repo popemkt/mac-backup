@@ -52,6 +52,7 @@
   --lab-edge: oklch(0.88 0.03 150);
   --lab-hue: oklch(0.5 0.1 150);
   --lab-ink: oklch(0.25 0.05 150);
+  --graph-edge: oklch(0.4 0.08 150 / 0.45);
 
   /* Monospace runs wide, so every step sits half a pixel or so below kb's. */
   --type-micro: 9px;
@@ -132,4 +133,5 @@
   --lab-edge: oklch(0.06 0.012 150);
   --lab-hue: oklch(0.55 0.14 150);
   --lab-ink: oklch(0.92 0.08 150);
+  --graph-edge: oklch(0.82 0.12 150 / 0.3);
 }

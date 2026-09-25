@@ -23,13 +23,18 @@ export interface Force3dTopology {
   readonly links: Int32Array;
   /** Link indices touching each node. */
   readonly incident: readonly (readonly number[])[];
-  /** Nodes that glow faintly on their own: the best connected. */
-  readonly prominent: ReadonlySet<number>;
+  /**
+   * How much each node glows unprompted, by degree: the few best-connected
+   * hubs cross the bloom threshold, the next tier is only a little brighter,
+   * the rest stay matte.
+   */
+  readonly prominence: Float32Array;
 }
 
-/** The share of nodes, by degree, that glow unprompted. */
-const PROMINENT_SHARE = 0.03;
-/** …and the degree a node needs to be one of them at all. */
+/** The share of nodes, by degree, in each unprompted tier, and its glow. */
+const HUBS = { share: 0.03, glow: 0.5 } as const;
+const RISING = { share: 0.1, glow: 0.1 } as const;
+/** …and the degree a node needs to be in a tier at all. */
 const PROMINENT_DEGREE = 4;
 
 export function topologyOf(
@@ -51,15 +56,21 @@ export function topologyOf(
   const ranked = nodes
     .map((node, i) => ({ i, degree: node.degree }))
     .filter((n) => n.degree >= PROMINENT_DEGREE)
-    .toSorted((a, b) => b.degree - a.degree)
-    .slice(0, Math.max(1, Math.round(nodes.length * PROMINENT_SHARE)));
+    .toSorted((a, b) => b.degree - a.degree || a.i - b.i);
+  const prominence = new Float32Array(nodes.length);
+  const hubs = Math.max(1, Math.round(nodes.length * HUBS.share));
+  const rising = hubs + Math.round(nodes.length * RISING.share);
+  ranked.forEach((n, rank) => {
+    if (rank < hubs) prominence[n.i] = HUBS.glow;
+    else if (rank < rising) prominence[n.i] = RISING.glow;
+  });
   return {
     nodes,
     edges: kept,
     index,
     links,
     incident,
-    prominent: new Set(ranked.map((n) => n.i)),
+    prominence,
   };
 }
 
@@ -73,7 +84,7 @@ export interface Force3dFades {
 }
 
 /** Glow per role; a dimmed node never glows. */
-const GLOW = { focus: 1, hover: 0.8, match: 0.55, prominent: 0.3, neighbour: 0.12 } as const;
+const GLOW = { focus: 0.7, hover: 0.6, match: 0.5, neighbour: 0.12 } as const;
 
 /** The node in focus: the selection wins over the hover. */
 export function focusOf(state: GraphEmphasis, hovered: string | null): string | null {
@@ -101,11 +112,7 @@ export function setEmphasisTargets(
             ? GLOW.hover
             : state.highlightIds?.has(node.id) === true
               ? GLOW.match
-              : topology.prominent.has(i)
-                ? GLOW.prominent
-                : active !== null
-                  ? GLOW.neighbour
-                  : 0;
+              : Math.max(topology.prominence[i] ?? 0, active !== null ? GLOW.neighbour : 0);
     fades.glow.setTarget(i, glow);
     fades.focus.setTarget(i, node.id === active ? 1 : 0);
   });

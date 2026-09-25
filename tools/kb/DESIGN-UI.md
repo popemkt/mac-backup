@@ -376,9 +376,15 @@ like themselves (P5).
   `ONE, ONE_MINUS_SRC_ALPHA`, so its colours are premultiplied
   (`premultipliedGraphColor`) — a straight-alpha colour drew faint links and
   dimmed nodes at full brightness.
+- **A link at rest is one token**, `--graph-edge` (colour and alpha
+  together, set per design system and variant), read by the 2D edges, the
+  tree's links and the 3D links alike.
 - **2D (force, cluster).** Curved arrow edges; every node ringed in the
   ground colour (`@sigma/node-border`), in the ink when in focus; labels on
-  a soft halo of the ground, their colours read once per appearance. A new
+  a soft halo of the ground, their colours read once per appearance. A
+  label sits right of its node, else left, and never over a drawn node or
+  another label, so crowded clusters thin their own labels; label density
+  also falls with the square root of the node count past 400. A new
   graph arrives: nodes grow and brighten into place over
   `--motion-duration-arrive` while ForceAtlas2 settles (P2). Cluster hulls
   are soft regions — a faint fill and a glow for an edge, in the cluster's
@@ -393,13 +399,16 @@ like themselves (P5).
   reveal as the studies (T1, P4) — `force3d-scene.ts` owns no renderer.
   Nodes are one instanced draw with the rig baked into the material; only
   the focused, hovered, searched-for and best-connected nodes glow past 1,
-  so only they bloom (L2). Range fog follows the camera's distance, a
+  so only they bloom (L2). Degree sets a quiet hierarchy: the top 3% of
+  nodes by degree glow and stand a little larger, the next 10% are only a
+  little brighter, the rest stay matte. Range fog follows the camera's distance, a
   restrained starfield stands at infinity, the backdrop is the page's own
   surface, and dither breaks banding (L3, L4); there is no tone mapping, so
   the tokens are reproduced exactly and the canvas meets the page. Links
   brighten from source to target, and particles run along the focused
   node's links only (M4). Select flies the camera to the node on critically
-  damped springs (`force3d-flight.ts`, M1, M5); fit, zoom and search jumps
+  damped springs (`force3d-flight.ts`, M1, M5), backing off until the
+  node's whole 1-hop neighbourhood fits with margin; fit, zoom and search jumps
   fly the same way, and the camera follows the layout until the user takes
   it. The layout is d3-force-3d in a worker (`force3d-layout.ts`), with a
   faint pull to the centre so orphans do not shrink the frame. Frames are

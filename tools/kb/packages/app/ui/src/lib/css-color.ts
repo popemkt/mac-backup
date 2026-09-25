@@ -145,6 +145,7 @@ const TOKEN_FALLBACK = {
   "--card": "#fff",
   "--muted-foreground": "#737373",
   "--primary": "#c27c0e",
+  "--graph-edge": "rgba(34, 34, 34, 0.4)",
   // The lab palette: mid grey, so a missing token reads as missing rather
   // than as a deliberate colour.
   "--lab-ground": "rgb(128, 128, 128)",

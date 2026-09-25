@@ -179,15 +179,44 @@ export function fitGoal(
   towards(view.eye, view.look, out.look, back, out.eye);
 }
 
-/** The goal that brings one point near: look at it from `distance`, along the current view. */
-export function focusGoal(
-  at: Vec3,
-  view: { readonly eye: Vec3; readonly look: Vec3 },
-  reach: number,
+/**
+ * The goal that frames a node with its neighbourhood: look at the node, from
+ * the current direction, far enough back that a sphere round it reaching its
+ * farthest neighbour (plus its own `radius`) fits the narrower field of view
+ * with `padding` to spare — never nearer than `nearest`. The frame follows the
+ * neighbourhood's real size, so a hub and a leaf are both seen whole.
+ */
+export function neighbourhoodGoal(
+  positions: Float32Array,
+  { node, neighbours }: { readonly node: number; readonly neighbours: readonly number[] },
+  view: { readonly fov: number; readonly aspect: number; readonly eye: Vec3; readonly look: Vec3 },
+  frame: { readonly radius: number; readonly padding: number; readonly nearest: number },
   out: { eye: Vec3; look: Vec3 },
 ): void {
-  copy(out.look, at);
-  towards(view.eye, view.look, at, reach, out.eye);
+  const x = positions[node * 3] ?? 0;
+  const y = positions[node * 3 + 1] ?? 0;
+  const z = positions[node * 3 + 2] ?? 0;
+  let reach = frame.radius;
+  for (const other of neighbours) {
+    const d = Math.hypot(
+      (positions[other * 3] ?? 0) - x,
+      (positions[other * 3 + 1] ?? 0) - y,
+      (positions[other * 3 + 2] ?? 0) - z,
+    );
+    if (d + frame.radius > reach) reach = d + frame.radius;
+  }
+  const vertical = (view.fov * Math.PI) / 360;
+  const narrow = Math.min(vertical, Math.atan(Math.tan(vertical) * view.aspect));
+  out.look.x = x;
+  out.look.y = y;
+  out.look.z = z;
+  towards(
+    view.eye,
+    view.look,
+    out.look,
+    Math.max(frame.nearest, (reach * frame.padding) / Math.sin(narrow)),
+    out.eye,
+  );
 }
 
 /** The goal that dollies the eye toward (scale < 1) or away from what it looks at. */

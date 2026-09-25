@@ -11,6 +11,7 @@ import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import type { GraphEmphasis } from "@/lib/graph-interaction";
 import { useReducedMotion } from "@/lib/motion";
 import { readTiming } from "@/lib/timing";
+import { readTokenColor } from "@/lib/css-color";
 import { readScenePalette } from "@/scene/palette";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import { selectionFromNode, type GraphSelection } from "./graph-selection";
@@ -113,6 +114,7 @@ function useMountedScene(
       settings: settingsOf(props),
       emphasis: emphasisOf(props),
       palette: readGraphPalette(),
+      link: readTokenColor("--graph-edge"),
       reducedMotion: reduced.current,
       timing: readTiming(),
       onSelect: (id) => {
@@ -186,7 +188,7 @@ export default function Force3dGraph(props: Force3dGraphProps) {
   }, [scene, selectedNodeId, highlightIds, filterIds]);
   // By the time this runs <html> carries the new appearance, so the tokens hold its values.
   useEffect(() => {
-    if (appearanceKey !== "") scene?.setPalette(readGraphPalette());
+    if (appearanceKey !== "") scene?.setPalette(readGraphPalette(), readTokenColor("--graph-edge"));
   }, [scene, appearanceKey]);
   useEffect(() => scene?.setReducedMotion(reducedMotion), [scene, reducedMotion]);
 

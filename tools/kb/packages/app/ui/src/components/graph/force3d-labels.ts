@@ -73,6 +73,8 @@ export class LabelLayer {
   private readonly occupied: GraphLabelBox[] = [];
   private readonly order: Label[] = [];
   private readonly point = new Vector3();
+  private readonly up = new Vector3();
+  private readonly focusDisc: GraphLabelBox = { x: 0, y: 0, width: 0, height: 0 };
   private pixelScale = 1;
   private readonly group: Group;
   private topology: Force3dTopology;
@@ -104,7 +106,7 @@ export class LabelLayer {
       material.colorNode = sample.rgb;
       material.opacityNode = sample.a.mul(opacity);
       const sprite = new Sprite(material);
-      sprite.center.set(0.5, -0.35);
+      sprite.center.set(0.5, -0.15);
       sprite.renderOrder = 10;
       sprite.scale.set(width * this.pixelScale, HEIGHT * this.pixelScale, 1);
       this.group.add(sprite);
@@ -138,11 +140,13 @@ export class LabelLayer {
   frame(
     positions: Float32Array,
     camera: PerspectiveCamera,
-    width: number,
-    height: number,
+    { width, height }: { readonly width: number; readonly height: number },
     fades: Force3dFades,
+    radius: (i: number) => number,
   ): void {
     const focus = fades.focus.values;
+    // A label stands just above its node's silhouette, whatever the node's size.
+    this.up.set(0, 1, 0).applyQuaternion(camera.quaternion);
     this.order.sort(
       (a, b) =>
         (focus[b.node] ?? 0) - (focus[a.node] ?? 0) ||
@@ -150,16 +154,33 @@ export class LabelLayer {
         a.node - b.node,
     );
     this.occupied.length = 0;
+    // The node in focus keeps its own disc: no other label is laid over it.
+    const focal = height / 2 / Math.tan((camera.fov * Math.PI) / 360);
     for (const label of this.order) {
       const i = label.node;
+      if ((focus[i] ?? 0) < 0.5) continue;
       this.point.set(positions[i * 3] ?? 0, positions[i * 3 + 1] ?? 0, positions[i * 3 + 2] ?? 0);
+      const r = (radius(i) * focal) / Math.max(1, this.point.distanceTo(camera.position));
+      this.point.project(camera);
+      const x = ((this.point.x + 1) / 2) * width;
+      const y = ((1 - this.point.y) / 2) * height;
+      this.focusDisc.x = x - r;
+      this.focusDisc.y = y - r;
+      this.focusDisc.width = this.focusDisc.height = 2 * r;
+      this.occupied.push(this.focusDisc);
+    }
+    for (const label of this.order) {
+      const i = label.node;
+      this.point
+        .set(positions[i * 3] ?? 0, positions[i * 3 + 1] ?? 0, positions[i * 3 + 2] ?? 0)
+        .addScaledVector(this.up, radius(i));
       label.sprite.position.copy(this.point);
       this.point.project(camera);
       const x = ((this.point.x + 1) / 2) * width;
       const y = ((1 - this.point.y) / 2) * height;
       const box = label.box;
       box.x = x - label.width / 2 - 3;
-      box.y = y - HEIGHT * 1.35 - 2;
+      box.y = y - HEIGHT * 1.15 - 2;
       box.width = label.width + 6;
       box.height = HEIGHT + 4;
       const present = fades.dim.values[i] ?? 1;

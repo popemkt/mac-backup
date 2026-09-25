@@ -89,6 +89,9 @@
   --lab-edge: oklch(0.87 0.04 290);
   --lab-hue: oklch(0.56 0.13 288);
   --lab-ink: oklch(0.3 0.08 285);
+  /* A graph link at rest (graph views, every renderer): its colour and alpha
+   * together, set per ground so links read without crowding the nodes. */
+  --graph-edge: oklch(0.35 0 0 / 0.42);
   --lab-accent: var(--primary);
 
   /* Type scale. One step per size the UI sets; each utility `text-<step>`
@@ -175,4 +178,5 @@
   --lab-edge: oklch(0.1 0.035 290);
   --lab-hue: oklch(0.5 0.14 292);
   --lab-ink: oklch(0.93 0.03 290);
+  --graph-edge: oklch(0.92 0 0 / 0.3);
 }

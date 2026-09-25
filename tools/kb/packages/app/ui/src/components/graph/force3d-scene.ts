@@ -39,7 +39,7 @@ import {
   type Force3dFades,
   type Force3dTopology,
 } from "./force3d-emphasis";
-import { CameraFlight, dollyGoal, fitGoal, focusGoal, type Vec3 } from "./force3d-flight";
+import { CameraFlight, dollyGoal, fitGoal, neighbourhoodGoal, type Vec3 } from "./force3d-flight";
 import { LabelLayer } from "./force3d-labels";
 import { startLayout3d, type Layout3d } from "./force3d-layout";
 import { MAX_PARTICLE_LINKS, linkLayer, type LinkLayer } from "./force3d-links";
@@ -67,6 +67,8 @@ export interface Force3dSceneInit {
   readonly settings: Force3dSettings;
   readonly emphasis: GraphEmphasis;
   readonly palette: ScenePalette;
+  /** `--graph-edge`: a resting link's colour and alpha. */
+  readonly link: string;
   readonly reducedMotion: boolean;
   readonly timing: Timing;
   readonly onSelect: (id: string | null) => void;
@@ -94,7 +96,7 @@ export interface Force3dScene {
   setGraph(nodes: readonly LensNode[], edges: readonly LensEdge[]): void;
   setSettings(settings: Force3dSettings): void;
   setEmphasis(emphasis: GraphEmphasis): void;
-  setPalette(palette: ScenePalette): void;
+  setPalette(palette: ScenePalette, link: string): void;
   setReducedMotion(reduced: boolean): void;
   resize(width: number, height: number): void;
   /** Off while the tab is hidden: nothing is drawn. */
@@ -108,13 +110,13 @@ const NEAR = 1;
 const FAR = 40_000;
 const STAR_RADIUS = 16_000;
 /** Bloom: soft on the dark ground, lighter on the light one (a glow on white washes out). */
-const BLOOM = { dark: 0.85, light: 0.35, radius: 0.55 } as const;
+const BLOOM = { dark: 1.15, light: 0.4, radius: 0.7 } as const;
 const STARS = { dark: 0.3, light: 0.1 } as const;
 /** The fit leaves this much of the frame around the graph. */
 const FIT_PADDING = 0.8;
-/** How close a fly-to on select comes, in multiples of the node's radius. */
-const FOCUS_REACH = 36;
-const FOCUS_MIN = 220;
+/** A fly-to frames the node's 1-hop neighbourhood with this much margin, never nearer. */
+const FOCUS_PADDING = 1.25;
+const FOCUS_NEAREST = 160;
 /** Pointer travel under which a press is a click, not an orbit (CSS px). */
 const CLICK_SLOP = 4;
 const DOUBLE_CLICK_MS = 320;
@@ -251,8 +253,18 @@ export async function mountForce3d(
     const i = nodeAt(id, focusPoint);
     if (i < 0) return false;
     readView();
-    const reach = Math.max(FOCUS_MIN, (nodes?.radius(i) ?? 4) * FOCUS_REACH);
-    focusGoal(focusPoint, view, reach, goal);
+    const neighbours: number[] = [];
+    for (const l of topology.incident[i] ?? []) {
+      const a = topology.links[l * 2] ?? i;
+      neighbours.push(a === i ? (topology.links[l * 2 + 1] ?? i) : a);
+    }
+    neighbourhoodGoal(
+      positions,
+      { node: i, neighbours },
+      view,
+      { radius: (nodes?.radius(i) ?? 4) * 2, padding: FOCUS_PADDING, nearest: FOCUS_NEAREST },
+      goal,
+    );
     return true;
   };
   const focusNode = (id: string) => {
@@ -340,7 +352,7 @@ export async function mountForce3d(
     disposeLayer(nodes, links);
     nodes = nodeLayer(topology, stage.colors, fades);
     links = linkLayer(topology, stage.colors, fades, settings.curvedLinks);
-    links.setPalette(palette, currentDark);
+    links.setPalette(palette, link);
     graph.add(links.lines, nodes.mesh, links.particles);
     labels.reset(topology, palette);
     labels.resize(camera, canvas.clientHeight || 1);
@@ -348,7 +360,7 @@ export async function mountForce3d(
     startLayout();
     refreshEmphasis();
   };
-  let currentDark = darkGround(init.palette);
+  let link = init.link;
 
   // --- pointer -----------------------------------------------------------
   const pointer = { x: 0, y: 0, inside: false, dirty: false };
@@ -431,6 +443,8 @@ export async function mountForce3d(
   };
 
   // --- the frame -----------------------------------------------------------
+  const nodeRadius = (i: number) => nodes?.radius(i) ?? 0;
+  const viewport = { width: 0, height: 0 };
   /** Step every eased emphasis; whether any moved. */
   const stepFades = (dt: number) => {
     const dimmed = fades.dim.step(dt, reduced);
@@ -477,7 +491,9 @@ export async function mountForce3d(
     fog.far.value = distance * 2.6;
     // The stars stand at infinity: they travel with the eye.
     stars.sprite.position.copy(camera.position);
-    labels.frame(positions, camera, canvas.clientWidth, canvas.clientHeight, fades);
+    viewport.width = canvas.clientWidth;
+    viewport.height = canvas.clientHeight;
+    labels.frame(positions, camera, viewport, fades, nodeRadius);
     return laying || fading || turning || particles || pointer.dirty;
   };
 
@@ -536,14 +552,14 @@ export async function mountForce3d(
       refreshEmphasis();
       if (changed && selected !== null) focusNode(selected);
     },
-    setPalette: (next) => {
+    setPalette: (next, nextLink) => {
       const dark = darkGround(next);
       palette = next;
-      currentDark = dark;
+      link = nextLink;
       stage.setPalette(next);
       stage.setBloom(dark ? BLOOM.dark : BLOOM.light);
       stars.opacity.value = dark ? STARS.dark : STARS.light;
-      links?.setPalette(next, dark);
+      links?.setPalette(next, nextLink);
       labels.reset(topology, palette);
       refreshEmphasis();
     },

@@ -18,8 +18,14 @@ function labelInk(): { text: string; halo: string } {
   ink ??= { text: readTokenColor("--foreground"), halo: readTokenColor("--background") };
   return ink;
 }
-export function resetGraphLabels(canvas: HTMLCanvasElement): void {
-  labelBoxes.delete(canvas);
+/**
+ * Start a frame's label layout. `nodes` are the drawn nodes' boxes: a label
+ * is placed beside its node, never over another, so a label in a dense
+ * cluster moves to its node's other side or is left out (collision
+ * avoidance thins labels where nodes crowd).
+ */
+export function resetGraphLabels(canvas: HTMLCanvasElement, nodes: readonly GraphLabelBox[]): void {
+  labelBoxes.set(canvas, [...nodes]);
 }
 
 /** Sigma's default hover plate is white; own label paint for both 2D views. */
@@ -33,26 +39,34 @@ export const drawGraphLabel: Settings["defaultDrawNodeLabel"] = (ctx, data, sett
   );
   const width = ctx.measureText(text).width;
   const viewportWidth = ctx.canvas.width / (window.devicePixelRatio || 1);
-  const x = Math.max(8, Math.min(data.x + data.size + 6, viewportWidth - width - 8));
   const viewportHeight = ctx.canvas.height / (window.devicePixelRatio || 1);
   const y = Math.max(16, Math.min(data.y + settings.labelSize / 3, viewportHeight - 6));
-  const box = {
-    x: x - 3,
+  const boxAt = (at: number) => ({
+    x: at - 3,
     y: y - settings.labelSize - 2,
     width: width + 8,
     height: settings.labelSize + 7,
-  };
-  const boxes = labelBoxes.get(ctx.canvas) ?? [];
-  if (ctx.canvas.classList.contains("sigma-labels") && !reserveGraphLabel(box, boxes)) return;
-  labelBoxes.set(ctx.canvas, boxes);
+  });
+  // Right of the node, else left of it; clamped into the frame.
+  const places = [data.x + data.size + 6, data.x - data.size - 10 - width].map((at) =>
+    Math.max(8, Math.min(at, viewportWidth - width - 8)),
+  );
+  let x = places[0] ?? 8;
+  if (ctx.canvas.classList.contains("sigma-labels")) {
+    const boxes = labelBoxes.get(ctx.canvas) ?? [];
+    labelBoxes.set(ctx.canvas, boxes);
+    const free = places.find((at) => reserveGraphLabel(boxAt(at), boxes));
+    if (free === undefined) return;
+    x = free;
+  }
   // The halo: the ground, wide and soft under the text, so a label reads over
   // the links and nodes behind it.
   const { text: fill, halo } = labelInk();
   ctx.save();
   ctx.strokeStyle = halo;
   ctx.shadowColor = halo;
-  ctx.shadowBlur = 5;
-  ctx.lineWidth = 4;
+  ctx.shadowBlur = 6;
+  ctx.lineWidth = 5;
   ctx.lineJoin = "round";
   ctx.strokeText(text, x, y);
   ctx.restore();

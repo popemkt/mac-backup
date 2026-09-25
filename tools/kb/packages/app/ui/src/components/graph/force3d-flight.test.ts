@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TIMING_FALLBACK } from "@/lib/timing";
-import { CameraFlight, dollyGoal, fitGoal, focusGoal, type Vec3 } from "./force3d-flight";
+import { CameraFlight, dollyGoal, fitGoal, neighbourhoodGoal, type Vec3 } from "./force3d-flight";
 
 const FOLLOW = TIMING_FALLBACK.follow;
 const v = (x: number, y: number, z: number): Vec3 => ({ x, y, z });
@@ -71,11 +71,22 @@ describe("flight goals", () => {
     expect(out.eye.z).toBeGreaterThan(20);
   });
 
-  it("focus looks at the node from a set distance along the current view", () => {
-    const out = { eye: v(0, 0, 0), look: v(0, 0, 0) };
-    focusGoal(v(5, 5, 5), { eye: v(0, 0, 100), look: v(0, 0, 0) }, 50, out);
-    expect(out.look).toEqual(v(5, 5, 5));
-    expect(out.eye).toEqual(v(5, 5, 55));
+  it("a fly-to frames the node's neighbourhood, from its size, not a fixed distance", () => {
+    // Node 0 at the origin; a near neighbour and a far one.
+    const positions = new Float32Array([0, 0, 0, 10, 0, 0, 0, 200, 0]);
+    const view = { fov: 50, aspect: 1.5, eye: v(0, 0, 500), look: v(0, 0, 0) };
+    const frame = { radius: 4, padding: 1.25, nearest: 50 };
+    const near = { eye: v(0, 0, 0), look: v(0, 0, 0) };
+    const wide = { eye: v(0, 0, 0), look: v(0, 0, 0) };
+    neighbourhoodGoal(positions, { node: 0, neighbours: [1] }, view, frame, near);
+    neighbourhoodGoal(positions, { node: 0, neighbours: [1, 2] }, view, frame, wide);
+    expect(near.look).toEqual(v(0, 0, 0));
+    // A small neighbourhood never comes nearer than `nearest`…
+    expect(near.eye.z).toBeCloseTo(50);
+    // …a wide one backs off until the farthest neighbour fits with margin.
+    const half = (50 * Math.PI) / 360;
+    expect(wide.eye.z).toBeCloseTo((204 * 1.25) / Math.sin(half), 3);
+    expect(wide.eye.x).toBeCloseTo(0);
   });
 
   it("dolly scales the distance to what the camera looks at", () => {

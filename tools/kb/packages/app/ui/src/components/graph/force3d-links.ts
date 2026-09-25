@@ -33,9 +33,7 @@ import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";
 const CURVE_SEGMENTS = 8;
 /** How far a curved link's middle bows out, per unit of its length. */
 const CURVATURE = 0.22;
-/** A link's opacity at rest, on the dark and the light ground. */
-const REST = { dark: 0.2, light: 0.28 } as const;
-/** …in focus, and into the dimmed rest. */
+/** A link's opacity in focus. (At rest its colour and alpha are `--graph-edge`.) */
 const FOCUSED = 0.85;
 /** The source end's share of a link's brightness: the gradient that shows direction. */
 const SOURCE_SHARE = 0.3;
@@ -51,7 +49,8 @@ export interface LinkLayer {
   readonly lines: LineSegments;
   readonly particles: Sprite;
   update(positions: Float32Array): void;
-  setPalette(palette: ScenePalette, dark: boolean): void;
+  /** The accent from the palette; the resting link from `--graph-edge` (rgb/rgba). */
+  setPalette(palette: ScenePalette, link: string): void;
   /** The links that carry particles now; empty turns them off (eased). */
   setParticleLinks(links: readonly number[]): void;
   /** Move the particles on by `dt`; returns whether any are still showing. */
@@ -85,7 +84,7 @@ export function linkLayer(
 
   const ink = new Color();
   const accent = new Color();
-  let rest: number = REST.dark;
+  let rest = 0.3;
 
   // Particles: positions written on the CPU, a soft HDR mote each.
   const maxParticles = MAX_PARTICLE_LINKS * PARTICLES_PER_LINK;
@@ -117,10 +116,11 @@ export function linkLayer(
   return {
     lines,
     particles,
-    setPalette: (palette, dark) => {
-      ink.set(palette.ink);
+    setPalette: (palette, link) => {
+      const rgba = /^rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?\)$/.exec(link);
+      ink.set(rgba === null ? palette.ink : `rgb(${rgba[1]}, ${rgba[2]}, ${rgba[3]})`);
+      rest = rgba?.[4] === undefined ? 1 : Number(rgba[4]);
       accent.set(palette.accent);
-      rest = dark ? REST.dark : REST.light;
     },
     update: (positions) => {
       path.positions = positions;

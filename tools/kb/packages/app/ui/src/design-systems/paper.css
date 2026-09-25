@@ -53,6 +53,7 @@
   --lab-edge: oklch(0.86 0.03 75);
   --lab-hue: oklch(0.55 0.07 60);
   --lab-ink: oklch(0.28 0.04 55);
+  --graph-edge: oklch(0.36 0.04 60 / 0.45);
 
   /* A serif reads a step larger than Inter at the same size. */
   --type-micro: 9.5px;
@@ -122,4 +123,5 @@
   --lab-edge: oklch(0.12 0.012 60);
   --lab-hue: oklch(0.5 0.06 60);
   --lab-ink: oklch(0.92 0.02 85);
+  --graph-edge: oklch(0.88 0.02 80 / 0.3);
 }

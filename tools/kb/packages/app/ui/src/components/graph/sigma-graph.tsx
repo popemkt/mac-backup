@@ -7,6 +7,7 @@ import { createNodeBorderProgram } from "@sigma/node-border";
 import type { LensEdge, LensNode, LensLayout, LensLabelDensity } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
 import { graphLabelFont } from "@/lib/graph-label";
+import type { GraphLabelBox } from "@/lib/graph-label-layout";
 import { prefersReducedMotion } from "@/lib/motion";
 import { readTiming } from "@/lib/timing";
 import { graphEmphasisAlpha, graphNeighborhood, type GraphEmphasis } from "@/lib/graph-interaction";
@@ -48,6 +49,11 @@ const NodeRingProgram = createNodeBorderProgram({
   drawLabel: drawGraphLabel,
   drawHover: drawGraphHover,
 });
+
+/** Drawn nodes at least this big (CSS px radius) keep labels off themselves. */
+const MIN_BLOCKING_RADIUS = 3;
+/** Above this many nodes, label density thins with the square root of the count. */
+const LABEL_CROWD = 400;
 
 /** A single Sigma lifecycle owns both force and cluster interaction. */
 export function SigmaGraph(props: SigmaGraphProps) {
@@ -121,11 +127,27 @@ export function SigmaGraph(props: SigmaGraphProps) {
     });
     sigmaRef.current = sigma;
     emphasis.current = sigmaEmphasis(sigma, readTiming(), prefersReducedMotion);
+    // Each frame, the drawn nodes' boxes are what labels must not cover.
+    const nodeBoxes: GraphLabelBox[] = [];
     sigma.on("beforeRender", () => {
+      let n = 0;
+      graph.forEachNode((id) => {
+        const display = sigma.getNodeDisplayData(id);
+        if (!display || display.hidden) return;
+        const r = sigma.scaleSize(display.size);
+        if (r < MIN_BLOCKING_RADIUS) return;
+        const at = sigma.framedGraphToViewport(display);
+        const box = (nodeBoxes[n] ??= { x: 0, y: 0, width: 0, height: 0 });
+        box.x = at.x - r - 1;
+        box.y = at.y - r - 1;
+        box.width = box.height = 2 * r + 2;
+        n++;
+      });
+      nodeBoxes.length = n;
       for (const canvas of el.querySelectorAll<HTMLCanvasElement>(
         "canvas.sigma-labels, canvas.sigma-hovers",
       ))
-        resetGraphLabels(canvas);
+        resetGraphLabels(canvas, nodeBoxes);
     });
     topology.current = "";
     cameraIntent.current = false;
@@ -334,7 +356,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     if (!sigma) return;
     // Everything sigma copied out of the tokens is re-read on an appearance change.
     sigma.setSetting("labelFont", graphLabelFont());
-    const edgeColor = readTokenColor("--foreground", { alpha: 0.22 });
+    const edgeColor = readTokenColor("--graph-edge");
     sigma.setSetting("defaultEdgeColor", edgeColor);
     sigma
       .getGraph()
@@ -344,9 +366,11 @@ export function SigmaGraph(props: SigmaGraphProps) {
     emphasis.current?.setRings(ground, ink);
     setGraphLabelInk(ink, ground);
     sigma.setSetting("renderLabels", showLabels);
+    // Density-aware: the busier the graph, the fewer labels per grid cell.
+    const crowd = Math.min(1, Math.sqrt(LABEL_CROWD / Math.max(1, nodes.length)));
     sigma.setSetting(
       "labelDensity",
-      labelDensity === "low" ? 0.25 : labelDensity === "high" ? 1 : 0.65,
+      (labelDensity === "low" ? 0.25 : labelDensity === "high" ? 1 : 0.65) * crowd,
     );
     sigma.setSetting("hideEdgesOnMove", nodes.length > 1500);
     refresh();

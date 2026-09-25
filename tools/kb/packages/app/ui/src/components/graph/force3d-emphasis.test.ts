@@ -77,7 +77,7 @@ describe("3D emphasis targets", () => {
     expect(f.dim.values[at("hub")]).toBe(1);
     expect(f.dim.values[at("a")]).toBeLessThan(1);
     expect(f.glow.values[at("a")]).toBe(0);
-    expect(f.glow.values[at("c")]).toBe(1);
+    expect(f.glow.values[at("c")]).toBeGreaterThan(f.glow.values[at("far")] ?? 1);
     expect(f.focus.values[at("c")]).toBe(1);
     expect(f.focus.values[at("hub")]).toBe(0);
   });

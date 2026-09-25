@@ -281,7 +281,7 @@ export function TreeGraph({
     void appearanceKey;
     return {
       text: readTokenColor("--foreground"),
-      line: readTokenColor("--foreground", { alpha: 0.22 }),
+      line: readTokenColor("--graph-edge"),
       ground: readTokenColor("--background"),
     };
   }, [appearanceKey]);
