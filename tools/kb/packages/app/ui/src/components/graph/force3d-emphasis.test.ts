@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import { EmphasisFade } from "@/lib/graph-fade";
 import {
+  GLOW,
+  TIER,
   particleLinks,
   setEmphasisTargets,
   topologyOf,
@@ -15,7 +17,8 @@ function edge(source: string, target: string, weight = 1): LensEdge {
   return { source, target, kind: "child", weight };
 }
 
-const nodes = [node("hub", 5), node("a"), node("b"), node("c"), node("far")];
+// `hub` is the one hub (top 3%); `c` (degree 4) is the one rising node (next 10%).
+const nodes = [node("hub", 5), node("a"), node("b"), node("c", 4), node("far")];
 const edges = [edge("hub", "a"), edge("hub", "b", 3), edge("c", "hub"), edge("far", "c")];
 
 function fades(count: number): Force3dFades {
@@ -89,5 +92,47 @@ describe("3D emphasis targets", () => {
     f.focus.snap();
     expect(f.focus.values[topology.index.get("a") ?? -1]).toBe(1);
     expect(f.focus.values[topology.index.get("far") ?? -1]).toBe(0);
+  });
+});
+
+describe("3D lift: the light that never blooms", () => {
+  const topology = topologyOf(nodes, edges);
+  const at = (id: string) => topology.index.get(id) ?? -1;
+  const settled = (selected: string | null) => {
+    const f = fades(nodes.length);
+    setEmphasisTargets(topology, { selectedNodeId: selected }, null, f);
+    f.dim.snap();
+    f.glow.snap();
+    f.lift.snap();
+    return f;
+  };
+
+  it("has the fixture's tiers", () => {
+    expect(topology.tier[at("hub")]).toBe(TIER.hub);
+    expect(topology.tier[at("c")]).toBe(TIER.rising);
+    expect(topology.tier[at("far")]).toBe(TIER.none);
+  });
+
+  it("lifts a rising node at rest, and does not glow it", () => {
+    const f = settled(null);
+    expect(f.lift.values[at("c")]).toBeCloseTo(GLOW.rising);
+    expect(f.glow.values[at("c")]).toBe(0);
+  });
+
+  it("lifts a selection's non-hub neighbour, and does not glow it", () => {
+    const f = settled("c");
+    expect(f.lift.values[at("far")]).toBeCloseTo(GLOW.neighbour);
+    expect(f.glow.values[at("far")]).toBe(0);
+  });
+
+  it("never lifts a dimmed node or a hub", () => {
+    const f = settled("c");
+    // `a` is outside c's neighbourhood: dimmed.
+    expect(f.dim.values[at("a")]).toBeLessThan(1);
+    expect(f.lift.values[at("a")]).toBe(0);
+    // The hub neighbours c, but glows instead.
+    expect(f.lift.values[at("hub")]).toBe(0);
+    expect(f.glow.values[at("hub")]).toBeCloseTo(GLOW.hub);
+    expect(settled(null).lift.values[at("hub")]).toBe(0);
   });
 });
