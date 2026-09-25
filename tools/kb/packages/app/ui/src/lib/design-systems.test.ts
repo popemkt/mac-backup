@@ -18,14 +18,8 @@ import {
   darkSelector,
   readDesignSystemSheets,
   type Decls,
-  type Variant,
 } from "./design-system-sheets";
-import {
-  DEFAULT_DESIGN_SYSTEM,
-  DESIGN_SYSTEMS,
-  DESIGN_SYSTEM_IDS,
-  type DesignSystemId,
-} from "./theme";
+import { DEFAULT_DESIGN_SYSTEM, DESIGN_SYSTEMS, DESIGN_SYSTEM_IDS } from "./theme";
 
 const src = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const systemsDir = path.join(src, "design-systems");
@@ -479,11 +473,11 @@ function groundsOf(chain: readonly Layer[], surface: string, rgb: (t: string) =>
 }
 
 /** Every opaque text on every ground it can land on, below AA, as `site: text on ground: ratio`. */
-function tintFailures(sites: readonly Site[], id: DesignSystemId, variant: Variant): string[] {
+function tintFailures(sites: readonly Site[], value: (token: string) => string): string[] {
   const cache = new Map<string, Rgb>();
   const rgb = (token: string) => {
     let hit = cache.get(token);
-    if (hit === undefined) cache.set(token, (hit = rgbOf(SHEETS.resolve(id, variant, token))));
+    if (hit === undefined) cache.set(token, (hit = rgbOf(value(token))));
     return hit;
   };
   const failures = new Set<string>();
@@ -502,6 +496,9 @@ function tintFailures(sites: readonly Site[], id: DesignSystemId, variant: Varia
   }
   return [...failures].toSorted();
 }
+
+/** The default's light values, which the red cases measure against. */
+const KB_LIGHT = (token: string) => SHEETS.resolve(DEFAULT_DESIGN_SYSTEM, "light", token);
 
 describe("design systems: contrast on composited grounds (WCAG AA)", () => {
   const { sites, unresolved } = scanUi(uiModules());
@@ -532,7 +529,7 @@ describe("design systems: contrast on composited grounds (WCAG AA)", () => {
   });
 
   it.each(cases)("$id/$variant text meets AA on every tint it sits on", ({ id, variant }) => {
-    expect(tintFailures(sites, id, variant)).toEqual([]);
+    expect(tintFailures(sites, (t) => SHEETS.resolve(id, variant, t))).toEqual([]);
   });
 
   it("the red case: text under a guarded heavy tint fails, its unguarded state passes", () => {
@@ -546,26 +543,40 @@ describe("design systems: contrast on composited grounds (WCAG AA)", () => {
         ].join("\n"),
       ],
     ]);
-    const found = tintFailures(scanUi(fixture, []).sites, DEFAULT_DESIGN_SYSTEM, "light");
+    const found = tintFailures(scanUi(fixture, []).sites, KB_LIGHT);
     expect(found.length).toBeGreaterThan(0);
     expect(
       found.every((f) => f.startsWith("chip.tsx:2: --warning on --") && f.includes("/60%")),
     ).toBe(true);
   });
 
-  it("the red case: a mounted role colour is measured on the host's stacked tints", () => {
+  it("the red case: a selected row's two guarded tints combine under a mounted link", () => {
+    // node-row.tsx's shape: each layer paints its tint only while selected.
     const fixture = new Map([
       [
         "row.tsx",
-        '<div className="bg-primary/20"><div className="node-content bg-primary/20">{c}</div></div>;',
+        [
+          '<div className={cn("node-row", isSelected && !isActive && "bg-primary/5")}>',
+          '  <div className={cn("node-content", isSelected && !isActive && "bg-primary/8")}>',
+          "    {content}",
+          "  </div>",
+          "</div>;",
+        ].join("\n"),
       ],
       ["md.tsx", '<a className="kb-md-ref">{label}</a>;'],
     ]);
     const mounts = [{ host: "row.tsx", at: "node-content", guest: "md.tsx" }];
-    const found = tintFailures(scanUi(fixture, mounts).sites, DEFAULT_DESIGN_SYSTEM, "light");
-    const stacked =
-      "md.tsx:1 in row.tsx: --primary on --background + --primary/20% + --primary/20%:";
-    expect(found.some((f) => f.startsWith(stacked))).toBe(true);
+    const onPage = (primary: string) =>
+      tintFailures(scanUi(fixture, mounts).sites, (t) =>
+        t === "--primary" ? primary : KB_LIGHT(t),
+      ).filter((f) => f.startsWith("md.tsx:1 in row.tsx: --primary on --background"));
+    const both = "md.tsx:1 in row.tsx: --primary on --background + --primary/5% + --primary/8%";
+    // The primary this guard replaced: the combined ground is 3.97:1.
+    expect(onPage("oklch(0.57 0.135 58)")).toContain(`${both}: 3.97`);
+    // A primary that clears each tint alone: only the combination fails.
+    expect(onPage("oklch(0.545 0.13 58)")).toEqual([`${both}: 4.37`]);
+    // The shipped primary clears it.
+    expect(onPage(KB_LIGHT("--primary"))).toEqual([]);
     expect(() => scanUi(fixture, [{ host: "row.tsx", at: "gone", guest: "md.tsx" }])).toThrow(
       /stale mount/,
     );
