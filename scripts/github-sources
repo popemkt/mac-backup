@@ -25,6 +25,28 @@ NVFETCHER_CONFIG="$ROOT_DIR/nvfetcher.toml"
 COMMAND_ROOT="${GITHUB_SOURCES_COMMAND_ROOT:-$ROOT_DIR}"
 NVFETCHER_AUTH_ARGS=()
 
+# One scratch directory per run, removed on every exit path; each command
+# keeps its files in a subdirectory. The documented exit statuses (0, 2, 10,
+# 11, 20) always come with their own message; any other exit is a failure
+# nothing reported, so say so and show the logs it left.
+WORK_DIR="$(mktemp -d)"
+on_exit() {
+  local status="$1" log
+  case "$status" in
+    0 | 2 | 10 | 11 | 20) ;;
+    *)
+      echo "error: github-sources exited unexpectedly (status $status)" >&2
+      for log in "$WORK_DIR"/*/*.log; do
+        [ -f "$log" ] || continue
+        echo "--- ${log#"$WORK_DIR"/} (last 20 lines)" >&2
+        tail -n 20 "$log" >&2
+      done
+      ;;
+  esac
+  rm -rf "$WORK_DIR"
+}
+trap 'on_exit $?' EXIT
+
 usage() {
   cat <<'EOF'
 Usage:
@@ -48,7 +70,7 @@ EOF
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "error: required command not found: $1" >&2
-    return 1
+    return 2
   fi
 }
 
@@ -182,9 +204,8 @@ check_sources() {
     return 2
   fi
 
-  local tmpdir config
-  tmpdir="$(mktemp -d)"
-  trap 'rm -rf "$tmpdir"' RETURN
+  local tmpdir="$WORK_DIR/check" config
+  mkdir -p "$tmpdir"
   prepare_nvfetcher_auth "$tmpdir"
   config="$(config_json)" || return 2
 
@@ -309,9 +330,8 @@ verify_sources() {
     fi
   done
 
-  local tmpdir log_file pinned_config
-  tmpdir="$(mktemp -d)"
-  trap 'rm -rf "$tmpdir"' RETURN
+  local tmpdir="$WORK_DIR/verify" log_file pinned_config
+  mkdir -p "$tmpdir"
   log_file="$tmpdir/nvfetcher.log"
   pinned_config="$tmpdir/nvfetcher.pinned.toml"
   write_pinned_config "$pinned_config" || return
@@ -374,13 +394,12 @@ update_sources() {
     args+=(--filter "^${filter}$")
   fi
 
-  (
-    local auth_tmpdir
-    auth_tmpdir="$(mktemp -d)"
-    trap 'rm -rf "$auth_tmpdir"' EXIT
-    prepare_nvfetcher_auth "$auth_tmpdir"
-    generate_sources "$NVFETCHER_CONFIG" "$ROOT_DIR/_sources" "${args[@]}"
-  )
+  mkdir -p "$WORK_DIR/update"
+  prepare_nvfetcher_auth "$WORK_DIR/update"
+  if ! generate_sources "$NVFETCHER_CONFIG" "$ROOT_DIR/_sources" "${args[@]}"; then
+    echo "error: nvfetcher could not update the release sources" >&2
+    return 20
+  fi
   git -C "$ROOT_DIR" diff --stat -- _sources
 }
 
