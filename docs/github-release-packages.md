@@ -33,9 +33,7 @@ downloads that artifact once; nvfetcher records the prefetch in its shared
 database (`~/.local/share/nvfetcher`), so later runs and `update` reuse it.
 That database takes a lock, so two nvfetcher runs on one machine at once (a
 `check` and a `verify`, say) make the second fail with exit 20; run them one
-after the other. The flake check `github-sources-check` tests how `check`
-turns resolutions into a verdict, offline, against a stubbed nvfetcher. Only
-the scheduled updater acts on the answer (see [Scheduled Updates](#scheduled-updates)); no
+after the other. Only the scheduled updater acts on the answer (see [Scheduled Updates](#scheduled-updates)); no
 commit or push gate asks it, because upstreams publish on their own schedule
 and a nightly would otherwise keep every gate red.
 
@@ -57,6 +55,15 @@ warning only when a pinned artifact's host cannot be reached at all.
 ```bash
 nix run .#github-sources -- verify
 ```
+
+The exit statuses above (and 2 for usage or setup errors) each come with a
+message; any other exit is a failure nothing reported, and the script says so
+and prints the tail of the nvfetcher logs it left. The flake check
+`github-sources-check` runs the flake app itself, with nvfetcher replaced by a
+fixture stub, the way CI runs it: `env -i`, an empty `HOME`, no `TMPDIR`, and
+`PATH=/usr/bin:/bin`. It covers how `check` turns resolutions into a verdict
+and how `verify` answers, so an environment difference that only CI has fails
+`nix flake check` too.
 
 Update every source, or one named source:
 

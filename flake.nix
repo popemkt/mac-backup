@@ -104,38 +104,48 @@
             touch "$out"
           '';
 
-      githubSourcesRuntime = with pkgs; [
-        coreutils
-        curl
-        diffutils
-        git
-        jq
-        nvfetcher
-        remarshal
-      ];
-
+      # The github-sources app around a given nvfetcher: the real one for the
+      # flake app, a fixture stub for its test, so both run the same wrapper.
       # The script runs under the app's own bash, never whatever `env bash`
       # finds: on a minimal PATH that is macOS's /bin/bash 3.2.
-      githubSources = pkgs.writeShellApplication {
-        name = "github-sources";
-        runtimeInputs = githubSourcesRuntime;
-        text = ''
-          exec ${pkgs.lib.getExe pkgs.bash} ${./scripts/github-sources} "$@"
-        '';
-      };
+      mkGithubSources =
+        nvfetcher:
+        pkgs.writeShellApplication {
+          name = "github-sources";
+          runtimeInputs = with pkgs; [
+            coreutils
+            curl
+            diffutils
+            git
+            jq
+            nvfetcher
+            remarshal
+          ];
+          text = ''
+            exec ${pkgs.lib.getExe pkgs.bash} ${./scripts/github-sources} "$@"
+          '';
+        };
 
-      # Offline fixture test of `github-sources check`: the test's nvfetcher
-      # stub shadows the real one on PATH.
+      githubSources = mkGithubSources pkgs.nvfetcher;
+
+      # Offline fixture test of the app, run as CI runs it (env -i, empty
+      # HOME, no TMPDIR, PATH=/usr/bin:/bin).
       githubSourcesCheck =
+        let
+          app = mkGithubSources (
+            pkgs.writeShellScriptBin "nvfetcher" (builtins.readFile ./scripts/tests/nvfetcher-stub.sh)
+          );
+        in
         pkgs.runCommand "github-sources-check"
           {
-            nativeBuildInputs = githubSourcesRuntime ++ [
-              pkgs.bash
-              pkgs.gnugrep
+            nativeBuildInputs = with pkgs; [
+              bash
+              coreutils
+              gnugrep
             ];
           }
           ''
-            bash ${./scripts/tests/github-sources-check.sh} ${./scripts/github-sources}
+            bash ${./scripts/tests/github-sources-check.sh} ${app}/bin/github-sources
             touch "$out"
           '';
 
