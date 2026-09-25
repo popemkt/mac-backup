@@ -433,7 +433,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: 3d-force-graph constructor and nodeThreeObject typings force two assertions
 
 - **expected** — createForceGraph and nodeThreeObject are typed to kb's FgNode/FgLink and to a falsy-means-default Object3D accessor, with no assertions at the call sites.
-- **current** — Closed by wave 2026-09-24 item g: the 3D graph no longer uses 3d-force-graph. It is drawn on the scene kit's stage (components/graph/force3d-scene.ts) with a d3-force-3d layout in a worker; the createForceGraph seam, both assertions and the dependency are gone.
+- **current** — The library publishes a non-generic const constructor whose default instance is not assignable to ForceGraph3DInstance<FgNode, FgLink> under strictFunctionTypes, and nodeThreeObject's accessor is typed as returning Object3D while the runtime treats a falsy return as the default sphere. IForceGraph3D is unexported and ForceGraph3DInstance is a type alias, so a 3d-force-graph module augmentation cannot restate either signature.
 - **impact** — Two typescript/no-unsafe-type-assertion hits remain in ui src. One of them is the seam that deleted fourteen per-callback assertions; the other is the labelled-node sprite accessor.
 - **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
 - **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
