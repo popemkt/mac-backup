@@ -127,27 +127,24 @@ export function SigmaGraph(props: SigmaGraphProps) {
     });
     sigmaRef.current = sigma;
     emphasis.current = sigmaEmphasis(sigma, readTiming(), prefersReducedMotion);
-    // Each frame, the drawn nodes' boxes are what labels must not cover.
-    const nodeBoxes: GraphLabelBox[] = [];
-    sigma.on("beforeRender", () => {
-      let n = 0;
+    // The drawn nodes' boxes are what labels must not cover. They are sampled
+    // when the frame's first label is placed (see resetGraphLabels), after
+    // sigma has processed this frame's positions and camera.
+    const sampleNodes = (out: GraphLabelBox[]) => {
       graph.forEachNode((id) => {
         const display = sigma.getNodeDisplayData(id);
         if (!display || display.hidden) return;
         const r = sigma.scaleSize(display.size);
         if (r < MIN_BLOCKING_RADIUS) return;
         const at = sigma.framedGraphToViewport(display);
-        const box = (nodeBoxes[n] ??= { x: 0, y: 0, width: 0, height: 0 });
-        box.x = at.x - r - 1;
-        box.y = at.y - r - 1;
-        box.width = box.height = 2 * r + 2;
-        n++;
+        out.push({ x: at.x - r - 1, y: at.y - r - 1, width: 2 * r + 2, height: 2 * r + 2 });
       });
-      nodeBoxes.length = n;
+    };
+    sigma.on("beforeRender", () => {
       for (const canvas of el.querySelectorAll<HTMLCanvasElement>(
         "canvas.sigma-labels, canvas.sigma-hovers",
       ))
-        resetGraphLabels(canvas, nodeBoxes);
+        resetGraphLabels(canvas, sampleNodes);
     });
     topology.current = "";
     cameraIntent.current = false;

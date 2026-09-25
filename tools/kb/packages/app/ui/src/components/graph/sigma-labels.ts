@@ -3,7 +3,10 @@ import { fitGraphLabel } from "@/lib/graph-label";
 import { readTokenColor } from "@/lib/css-color";
 import { reserveGraphLabel, type GraphLabelBox } from "@/lib/graph-label-layout";
 
+/** A frame's label layout per canvas: the boxes placed so far, once sampled. */
 const labelBoxes = new WeakMap<HTMLCanvasElement, GraphLabelBox[]>();
+/** The node sampler to run before the frame's first label is placed. */
+const pendingNodes = new WeakMap<HTMLCanvasElement, (out: GraphLabelBox[]) => void>();
 
 /**
  * The label ink and its halo, read from the tokens once per appearance
@@ -19,13 +22,35 @@ function labelInk(): { text: string; halo: string } {
   return ink;
 }
 /**
- * Start a frame's label layout. `nodes` are the drawn nodes' boxes: a label
- * is placed beside its node, never over another, so a label in a dense
- * cluster moves to its node's other side or is left out (collision
+ * Start a frame's label layout. `sampleNodes` writes the drawn nodes' boxes:
+ * a label is placed beside its node, never over another, so a label in a
+ * dense cluster moves to its node's other side or is left out (collision
  * avoidance thins labels where nodes crowd).
+ *
+ * The sampler runs when the frame's first label is placed, not now. Sigma
+ * announces a frame (`beforeRender`) before it re-processes node positions
+ * and rebuilds its camera matrix; by the time it draws labels both are
+ * current, so the boxes are this frame's, through a pan, a zoom or a layout
+ * tick alike.
  */
-export function resetGraphLabels(canvas: HTMLCanvasElement, nodes: readonly GraphLabelBox[]): void {
-  labelBoxes.set(canvas, [...nodes]);
+export function resetGraphLabels(
+  canvas: HTMLCanvasElement,
+  sampleNodes: (out: GraphLabelBox[]) => void,
+): void {
+  labelBoxes.delete(canvas);
+  pendingNodes.set(canvas, sampleNodes);
+}
+
+/** The canvas's placed boxes for this frame, the nodes sampled on first use. */
+function placed(canvas: HTMLCanvasElement): GraphLabelBox[] {
+  let boxes = labelBoxes.get(canvas);
+  if (boxes === undefined) {
+    boxes = [];
+    pendingNodes.get(canvas)?.(boxes);
+    pendingNodes.delete(canvas);
+    labelBoxes.set(canvas, boxes);
+  }
+  return boxes;
 }
 
 /** Sigma's default hover plate is white; own label paint for both 2D views. */
@@ -53,8 +78,7 @@ export const drawGraphLabel: Settings["defaultDrawNodeLabel"] = (ctx, data, sett
   );
   let x = places[0] ?? 8;
   if (ctx.canvas.classList.contains("sigma-labels")) {
-    const boxes = labelBoxes.get(ctx.canvas) ?? [];
-    labelBoxes.set(ctx.canvas, boxes);
+    const boxes = placed(ctx.canvas);
     const free = places.find((at) => reserveGraphLabel(boxAt(at), boxes));
     if (free === undefined) return;
     x = free;
