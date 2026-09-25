@@ -7,6 +7,8 @@ import type { GraphAdapterProps } from "./graph-renderers";
 
 interface AreaNode {
   label: string;
+  /** A group's identity, stable across layouts, so its box can glide. */
+  key?: string;
   node?: LensNode;
   children?: AreaNode[];
 }
@@ -41,7 +43,7 @@ export function TreemapGraph({
       if (!(Number.isFinite(node.weight) && (node.weight ?? 0) > 0)) continue;
       let group = groups.get(node.clusterKey);
       if (!group) {
-        group = { label: node.clusterLabel ?? "All nodes", children: [] };
+        group = { label: node.clusterLabel ?? "All nodes", key: node.clusterKey, children: [] };
         groups.set(node.clusterKey, group);
       }
       group.children.push({ label: node.label, node });
@@ -66,8 +68,8 @@ export function TreemapGraph({
       <div ref={rootRef} className="relative min-h-0 flex-1" onClick={() => setSelection(null)}>
         {layout.children?.map((group) => (
           <div
-            key={group.data.label + group.x0}
-            className="pointer-events-none absolute overflow-hidden rounded-lg border border-foreground/10 bg-foreground/[0.02]"
+            key={group.data.key ?? group.data.label}
+            className="kb-graph-move pointer-events-none absolute overflow-hidden rounded-lg border border-foreground/10 bg-foreground/[0.02]"
             style={{
               left: group.x0,
               top: group.y0,
@@ -97,7 +99,7 @@ export function TreemapGraph({
               aria-label={node.label}
               aria-pressed={selected}
               title={`${node.label} · ${node.weight}`}
-              className="absolute overflow-hidden rounded-md border border-foreground/10 p-2 text-left text-foreground transition-opacity hover:border-foreground/40 focus-visible:outline-2 focus-visible:outline-ring"
+              className="kb-graph-move absolute overflow-hidden rounded-md border border-foreground/10 p-2 text-left text-foreground hover:border-foreground/40 hover:shadow-raised focus-visible:outline-2 focus-visible:outline-ring"
               style={{
                 left: cell.x0,
                 top: cell.y0,

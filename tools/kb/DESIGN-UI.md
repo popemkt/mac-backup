@@ -327,7 +327,8 @@ rather than by navigation.
   Hover does the same lighting through `nodeReducer`/`edgeReducer` only — hover
   and selection never mutate graph data.
 - **Animated camera.** `graph-camera.ts` owns `fitView`, `zoomIn`, `zoomOut`,
-  `resetCamera`, `focusNode` — cubic-eased ~300ms. Toolbar buttons plus
+  `resetCamera`, `focusNode` — `--motion-duration-follow` on the one ease
+  (`lib/timing.ts`). Toolbar buttons plus
   `+`/`=`, `−`, `0`, `f`, `/`. Camera state survives data updates and theme
   switches, and a module-level positions cache keyed by layout restores a
   perspective's layout when you return to it.
@@ -342,10 +343,12 @@ rather than by navigation.
   click. The two intersect — a node must pass both to stay lit. Both are
   **ephemeral**: filters, search and selection never persist, while a renderer
   switch is a persisted prop write (`mutations.setLensRenderer`).
-- **Directed, weighted edges.** `EdgeArrowProgram` is enabled and edges render
-  as arrows. `graph-lens.ts` deduplicates parallel edges into a `weight` count,
-  and stroke width scales as `√weight` — repeated relationships read as
-  thicker, single links stay hairline.
+- **Directed, weighted edges.** In 2D edges are curved arrows
+  (`@sigma/edge-curve`), so a pair of opposite links bows apart instead of
+  overlapping. `graph-lens.ts` deduplicates parallel edges into a `weight`
+  count, and stroke width scales as `√weight` — repeated relationships read
+  as thicker, single links stay hairline. (3D draws one-pixel links, so
+  weight is not yet drawn there: a recorded gap.)
 - **Honest empty and large states.** Zero matches renders guidance rather than
   a blank canvas; invalid EDN surfaces an amber warning chip (`queryError` on
   the lens); a capped lens reports "top N of M nodes by degree" in the header's
@@ -357,8 +360,59 @@ rather than by navigation.
   drag with live hull redraw, hull-click isolation. Tree renderer: pointer
   pan/zoom plus Fit / Collapse-all / Expand-all.
 
+#### Look and motion
+
+The graph views apply the [Lab principles](#lab-principles); this says only
+where each one lives. Everything below reads the tokens through
+`useAppearance()`, so the three design systems in both variants each look
+like themselves (P5).
+
+- **Emphasis eases, in every renderer.** What should be lit is one
+  definition (`graph-interaction`, `graph-dim`); how it gets there is one
+  mechanism, `lib/graph-fade.ts` (`EmphasisFade`): a hover's neighbourhood
+  fades in over `--motion-duration-quick` and back out the same way, and
+  a node in focus swells a little. 2D does it through `sigma-emphasis.ts`,
+  which owns sigma's reducers; 3D through `force3d-emphasis.ts`. Sigma blends
+  `ONE, ONE_MINUS_SRC_ALPHA`, so its colours are premultiplied
+  (`premultipliedGraphColor`) — a straight-alpha colour drew faint links and
+  dimmed nodes at full brightness.
+- **2D (force, cluster).** Curved arrow edges; every node ringed in the
+  ground colour (`@sigma/node-border`), in the ink when in focus; labels on
+  a soft halo of the ground, their colours read once per appearance. A new
+  graph arrives: nodes grow and brighten into place over
+  `--motion-duration-arrive` while ForceAtlas2 settles (P2). Cluster hulls
+  are soft regions — a faint fill and a glow for an edge, in the cluster's
+  colour — and the hull under the pointer comes forward.
+- **Tree and treemap.** A layout change (collapse, expand, resize, a new
+  encoding) glides on `--motion-duration-follow`; hover and emphasis fade on
+  the quick duration; an arriving element fades in. One class,
+  `.kb-graph-move` in `motion.css`, and a tree link's path (`d`) moves with
+  its nodes. A tree hover lights its neighbourhood like a selection does.
+- **3D** is drawn on the scene kit (`src/scene/`, see [The lab](#the-lab)):
+  the same WebGPU + TSL stage, post chain, palette uniforms, frame loop and
+  reveal as the studies (T1, P4) — `force3d-scene.ts` owns no renderer.
+  Nodes are one instanced draw with the rig baked into the material; only
+  the focused, hovered, searched-for and best-connected nodes glow past 1,
+  so only they bloom (L2). Range fog follows the camera's distance, a
+  restrained starfield stands at infinity, the backdrop is the page's own
+  surface, and dither breaks banding (L3, L4); there is no tone mapping, so
+  the tokens are reproduced exactly and the canvas meets the page. Links
+  brighten from source to target, and particles run along the focused
+  node's links only (M4). Select flies the camera to the node on critically
+  damped springs (`force3d-flight.ts`, M1, M5); fit, zoom and search jumps
+  fly the same way, and the camera follows the layout until the user takes
+  it. The layout is d3-force-3d in a worker (`force3d-layout.ts`), with a
+  faint pull to the centre so orphans do not shrink the frame. Frames are
+  drawn only while something moves, the device pixel ratio is clamped to 2,
+  a hidden tab draws nothing, and a renderer switch or unmount disposes the
+  scene, its worker and its listeners (`force3d-graph.lifecycle.test.tsx`).
+- **Reduced motion (M7)** everywhere: fades and flights cut, the 3D layout
+  settles unseen and posts once, particles and the ambient turn stop, and
+  the DOM renderers' transitions are flattened by the global rule.
+
 Not shipped, named: the settings popover (the FA2 live-layout API is wired but
-has no UI), force3d parity, a committed perf fixture, picker keyboard nav.
+has no UI), a committed perf fixture, picker keyboard nav, weight-scaled 3D
+links.
 
 ### Canvas (i3)
 
@@ -1082,8 +1136,10 @@ references to human text. Legend toggles dim the chosen category; overlapping
 search/filter/focus constraints preserve a readable minimum opacity.
 
 Engine direction: retain Sigma/Graphology for 2D networks, d3-hierarchy for tree
-and treemap, and Three.js/3d-force-graph for 3D. This change does not add another
-rendering dependency. [Cytoscape.js](https://js.cytoscape.org/) and
+and treemap, and three's WebGPU renderer on the scene kit, laid out by
+d3-force-3d, for 3D (3d-force-graph was retired in wave 2026-09-24 g: its
+WebGL renderer and composer could not take the kit's stage and post chain).
+This change does not add another rendering dependency. [Cytoscape.js](https://js.cytoscape.org/) and
 [AntV G6](https://github.com/antvis/G6/tree/v5) are viable graph-engine alternatives,
 but adopting either would require a measured capability/performance advantage.
 Borrow [G2's](https://github.com/antvis/G2/tree/v5) separation of data, transforms,

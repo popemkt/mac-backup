@@ -98,6 +98,9 @@ it("keeps zoom and the clicked branch at the same screen position through collap
 
 const coords = (el: Element) =>
   present(
-    el.getAttribute("transform")?.match(/translate\(([-\d.]+),([-\d.]+)\)/),
+    // The origin group is placed by its attribute, a node by its (eased) style.
+    `${el.getAttribute("transform") ?? ""} ${el.getAttribute("style") ?? ""}`.match(
+      /translate\(([-\d.]+)(?:px)?,\s*([-\d.]+)(?:px)?\)/,
+    ),
     "node transform",
   );

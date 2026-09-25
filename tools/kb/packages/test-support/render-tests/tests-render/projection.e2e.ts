@@ -27,12 +27,23 @@ test("collapse holds the camera; mapped perspectives save as node references and
   const tree = page.getByTestId("tree-graph");
   const branch = tree.locator('[data-node-id="render.fixture.root"]');
   await expect(branch).toBeVisible();
+  // Tree moves ease (zoom, collapse, arrival): measure places once they have settled.
+  const settled = () =>
+    tree.evaluate(async (element) => {
+      await Promise.all(
+        element
+          .getAnimations({ subtree: true })
+          .map((animation) => animation.finished.catch(() => {})),
+      );
+    });
   await page.getByRole("button", { name: "Zoom in (+)", exact: true }).click();
+  await settled();
   const before = await branch.boundingBox();
   if (!before) throw new Error("branch must have bounds");
   const count = await tree.locator("[data-node-id]").count();
   await branch.getByRole("button", { name: "Collapse Fixture root", exact: true }).click();
   await expect.poll(() => tree.locator("[data-node-id]").count()).toBeLessThan(count);
+  await settled();
   const collapsed = await branch.boundingBox();
   if (!collapsed) throw new Error("collapsed branch must remain visible");
   expect(collapsed.x).toBeCloseTo(before.x, 0);

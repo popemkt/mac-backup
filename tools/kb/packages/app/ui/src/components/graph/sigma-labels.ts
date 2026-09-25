@@ -4,6 +4,20 @@ import { readTokenColor } from "@/lib/css-color";
 import { reserveGraphLabel, type GraphLabelBox } from "@/lib/graph-label-layout";
 
 const labelBoxes = new WeakMap<HTMLCanvasElement, GraphLabelBox[]>();
+
+/**
+ * The label ink and its halo, read from the tokens once per appearance
+ * (`setGraphLabelInk`) rather than once per label per frame: each token read
+ * is a style recalculation.
+ */
+let ink: { text: string; halo: string } | null = null;
+export function setGraphLabelInk(text: string, halo: string): void {
+  ink = { text, halo };
+}
+function labelInk(): { text: string; halo: string } {
+  ink ??= { text: readTokenColor("--foreground"), halo: readTokenColor("--background") };
+  return ink;
+}
 export function resetGraphLabels(canvas: HTMLCanvasElement): void {
   labelBoxes.delete(canvas);
 }
@@ -31,19 +45,25 @@ export const drawGraphLabel: Settings["defaultDrawNodeLabel"] = (ctx, data, sett
   const boxes = labelBoxes.get(ctx.canvas) ?? [];
   if (ctx.canvas.classList.contains("sigma-labels") && !reserveGraphLabel(box, boxes)) return;
   labelBoxes.set(ctx.canvas, boxes);
-  ctx.fillStyle = readTokenColor("--background");
-  ctx.strokeStyle = ctx.fillStyle;
+  // The halo: the ground, wide and soft under the text, so a label reads over
+  // the links and nodes behind it.
+  const { text: fill, halo } = labelInk();
+  ctx.save();
+  ctx.strokeStyle = halo;
+  ctx.shadowColor = halo;
+  ctx.shadowBlur = 5;
   ctx.lineWidth = 4;
   ctx.lineJoin = "round";
   ctx.strokeText(text, x, y);
-  ctx.fillStyle = readTokenColor("--foreground");
+  ctx.restore();
+  ctx.fillStyle = fill;
   ctx.fillText(text, x, y);
 };
 
 export const drawGraphHover: Settings["defaultDrawNodeHover"] = (ctx, data, settings) => {
   ctx.beginPath();
   ctx.arc(data.x, data.y, data.size + 3, 0, Math.PI * 2);
-  ctx.strokeStyle = readTokenColor("--foreground");
+  ctx.strokeStyle = labelInk().text;
   ctx.lineWidth = 1.5;
   ctx.stroke();
   drawGraphLabel(ctx, data, settings);

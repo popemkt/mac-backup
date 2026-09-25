@@ -45,13 +45,13 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ## Gaps
 
-### GAP: 3d-force-graph constructor and nodeThreeObject typings force two assertions
+### GAP: 3D links are one pixel wide, so link weight is not drawn in 3D
 
-- **expected** — createForceGraph and nodeThreeObject are typed to kb's FgNode/FgLink and to a falsy-means-default Object3D accessor, with no assertions at the call sites.
-- **current** — The library publishes a non-generic const constructor whose default instance is not assignable to ForceGraph3DInstance<FgNode, FgLink> under strictFunctionTypes, and nodeThreeObject's accessor is typed as returning Object3D while the runtime treats a falsy return as the default sphere. IForceGraph3D is unexported and ForceGraph3DInstance is a type alias, so a 3d-force-graph module augmentation cannot restate either signature.
-- **impact** — Two typescript/no-unsafe-type-assertion hits remain in ui src. One of them is the seam that deleted fourteen per-callback assertions; the other is the labelled-node sprite accessor.
-- **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
-- **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
+- **expected** — Every graph renderer encodes a relationship's weight the same way: stroke width grows as the square root of the weight, as sigma's 2D edges do, and a link touching the focus is wider as well as brighter.
+- **current** — force3d-links.ts draws every link as one LineSegments batch. WebGPU (and three's WebGL2 fallback) rasterise lines at exactly one pixel, so width cannot vary: weight is unencoded, and focus reads only through colour, opacity and the direction particles.
+- **impact** — In 3D a relationship repeated many times looks like a single one, and a dense graph at device pixel ratio 2 draws hairline links that can be faint.
+- **closes** — Draw links as screen-space quads (three's Line2NodeMaterial / LineSegments2 with a per-instance width updated in place, or a TSL quad strip), sized by the square root of weight, keeping the one-draw batch and no per-frame allocation.
+- **node** — `01M3AZSFJ9A8K8FYGHF5ADEAPT`
 
 ### GAP: a confirming frame for an earlier write overwrites a later optimistic write
 
@@ -429,6 +429,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Any change to the store's shape fans out to 23 files: f2 §4 deleting one dead field required 23 one-line edits, and TypeScript's excess-property check makes them mandatory rather than optional. It also hides drift — the literals already differ in which fields they list.
 - **closes** — Extract the reset into one exported fixture and have every suite call it. Mechanical but wide; it is a packages/app/ui change and wants its own wave.
 - **node** — `01M1P63E3Y5KVHV3XMM6TBV2BM`
+
+### GAP: 3d-force-graph constructor and nodeThreeObject typings force two assertions
+
+- **expected** — createForceGraph and nodeThreeObject are typed to kb's FgNode/FgLink and to a falsy-means-default Object3D accessor, with no assertions at the call sites.
+- **current** — Closed by wave 2026-09-24 item g: the 3D graph no longer uses 3d-force-graph. It is drawn on the scene kit's stage (components/graph/force3d-scene.ts) with a d3-force-3d layout in a worker; the createForceGraph seam, both assertions and the dependency are gone.
+- **impact** — Two typescript/no-unsafe-type-assertion hits remain in ui src. One of them is the seam that deleted fourteen per-callback assertions; the other is the labelled-node sprite accessor.
+- **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
+- **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
 
 ### GAP: a UI test gates on wall-clock time and fails under machine load
 

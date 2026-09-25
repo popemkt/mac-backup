@@ -10,7 +10,7 @@ export interface GraphEmphasis {
 
 export function graphNeighborhood(
   id: string | null | undefined,
-  edges: LensEdge[],
+  edges: readonly LensEdge[],
 ): Set<string> | null {
   if (id === null || id === undefined || id.length === 0) return null;
   const ids = new Set([id]);

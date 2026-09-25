@@ -1,15 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { force3dColor, isForce3dSafeColor, oklchToRgb, toRenderableColor } from "./css-color";
+import { oklchToRgb, toRenderableColor } from "./css-color";
 
 /**
- * These guard the 3D renderer: `three-render-objects` parses colors with
- * `polished`, which throws on anything but hex/rgb/rgba/hsl/hsla. An oklch
- * token reaching it left the whole scene blank.
+ * Canvas consumers parse only hex and integer `rgb()`/`rgba()` (the strict
+ * shape these patterns pin), so every token must arrive in it.
  */
-const POLISHED_RGB = /^rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$/;
-const POLISHED_RGBA = /^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*[\d.]+\s*\)$/;
-const FORCE3D_RULE = /^(#|rgba?\()/i;
+const STRICT_RGB = /^rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$/;
+const STRICT_RGBA = /^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*[\d.]+\s*\)$/;
 
 describe("oklchToRgb", () => {
   it("converts the achromatic ends of the token ramp", () => {
@@ -64,7 +62,7 @@ describe("toRenderableColor", () => {
     ]) {
       const out = toRenderableColor(input);
       const color = present(out, "renderable color");
-      expect(color, input).toMatch(color.startsWith("rgba") ? POLISHED_RGBA : POLISHED_RGB);
+      expect(color, input).toMatch(color.startsWith("rgba") ? STRICT_RGBA : STRICT_RGB);
     }
   });
 
@@ -75,7 +73,7 @@ describe("toRenderableColor", () => {
   });
 
   it("applies an alpha override to an oklch token — the bug that silently dropped it", () => {
-    expect(toRenderableColor("oklch(0.98 0 0)", 0.25)).toMatch(POLISHED_RGBA);
+    expect(toRenderableColor("oklch(0.98 0 0)", 0.25)).toMatch(STRICT_RGBA);
     expect(toRenderableColor("oklch(0.98 0 0)", 0.25)).toContain(", 0.25)");
   });
 
@@ -86,27 +84,5 @@ describe("toRenderableColor", () => {
   it("returns null for input it cannot parse", () => {
     expect(toRenderableColor("color(display-p3 1 0 0)")).toBeNull();
     expect(toRenderableColor("rebeccapurple")).toBeNull();
-  });
-});
-
-describe("force3dColor / isForce3dSafeColor (task 16b)", () => {
-  it("accepts only # / rgb / rgba shapes", () => {
-    expect(isForce3dSafeColor("#fff")).toBe(true);
-    expect(isForce3dSafeColor("rgb(1, 2, 3)")).toBe(true);
-    expect(isForce3dSafeColor("rgba(1, 2, 3, 0.5)")).toBe(true);
-    expect(isForce3dSafeColor("oklch(1 0 0)")).toBe(false);
-    expect(FORCE3D_RULE.test("oklch(1 0 0)")).toBe(false);
-  });
-
-  it("normalizes oklch into a safe form and refuses leftover oklch", () => {
-    const out = force3dColor("oklch(1 0 0)");
-    expect(out).toMatch(FORCE3D_RULE);
-    expect(out).not.toContain("oklch");
-    expect(() => {
-      // Bypass normalize to prove the assertion fires on raw oklch.
-      if (!isForce3dSafeColor("oklch(1 0 0)")) {
-        throw new Error('force3dColor: refused unsafe colour "oklch(1 0 0)"');
-      }
-    }).toThrow(/refused unsafe colour/);
   });
 });

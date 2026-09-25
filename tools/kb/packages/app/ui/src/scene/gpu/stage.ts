@@ -74,6 +74,9 @@ const TONE_MAPPINGS: Record<SceneToneMapping, ToneMapping> = {
 
 export interface StageOptions {
   readonly fov: number;
+  /** The camera's clip range, in world units; a study's default is 0.1–400. */
+  readonly near?: number;
+  readonly far?: number;
   readonly palette: ScenePalette;
   readonly timing: Timing;
   readonly bloom: { readonly strength: number; readonly radius: number };
@@ -250,7 +253,7 @@ function frameLoop(
 export async function createStage(host: HTMLElement, options: StageOptions) {
   const renderer = await mountRenderer(host);
   const scene = new Scene();
-  const camera = new PerspectiveCamera(options.fov, 1, 0.1, 400);
+  const camera = new PerspectiveCamera(options.fov, 1, options.near ?? 0.1, options.far ?? 400);
   const colors = paletteUniforms();
   const chain = postChain(renderer, scene, camera, options, colors);
   const loop = frameLoop(renderer, colors, options, () => chain.post.render());
@@ -267,6 +270,7 @@ export async function createStage(host: HTMLElement, options: StageOptions) {
     setPalette: loop.setPalette,
     setRunning: loop.setRunning,
     invalidate,
+    bloomStrength: () => chain.glow.strength.value,
     setBloom: (strength: number) => {
       chain.glow.strength.value = strength;
       invalidate();
@@ -291,9 +295,15 @@ export async function createStage(host: HTMLElement, options: StageOptions) {
         smoothstep(0.15, 0.95, length(screenUV.sub(0.5)).mul(1.3)),
       );
     },
-    /** Atmospheric perspective (L3): distance fades into the ground. */
+    /**
+     * Atmospheric perspective (L3): distance fades into the ground. The range
+     * is two uniforms, so a view whose depth changes (a camera that dollies)
+     * moves it without rebuilding a shader.
+     */
     atmosphere: (near: number, far: number) => {
-      scene.fogNode = fog(colors.ground, rangeFogFactor(near, far));
+      const range = { near: uniform(near), far: uniform(far) };
+      scene.fogNode = fog(colors.ground, rangeFogFactor(range.near, range.far));
+      return range;
     },
     resize: (width: number, height: number) => {
       if (width <= 0 || height <= 0) return;

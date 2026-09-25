@@ -238,3 +238,29 @@ html[data-theme-transition]::view-transition {
     transform: translateY(0) scale(1);
   }
 }
+
+/* Graph DOM renderers (tree, treemap): a layout change glides to the new
+ * place on the follow duration and the one ease, never a jump; hover and
+ * emphasis fade on the quick duration; an element that arrives fades in.
+ * `d` is the SVG path, so a tree link follows its nodes. The global
+ * reduced-motion rule flattens all of it to a cut (Lab principle M7). */
+.kb-graph-move {
+  transition:
+    transform var(--motion-duration-follow) var(--motion-settle),
+    d var(--motion-duration-follow) var(--motion-settle),
+    left var(--motion-duration-follow) var(--motion-settle),
+    top var(--motion-duration-follow) var(--motion-settle),
+    width var(--motion-duration-follow) var(--motion-settle),
+    height var(--motion-duration-follow) var(--motion-settle),
+    opacity var(--motion-duration-quick) var(--motion-settle),
+    stroke-width var(--motion-duration-quick) var(--motion-settle),
+    border-color var(--motion-duration-quick) var(--motion-settle),
+    background-color var(--motion-duration-quick) var(--motion-settle),
+    box-shadow var(--motion-duration-quick) var(--motion-settle);
+}
+
+@starting-style {
+  .kb-graph-move {
+    opacity: 0;
+  }
+}

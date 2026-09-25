@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { composeGraphAlpha, graphNodeAlpha, withGraphAlpha } from "./graph-dim";
+import {
+  composeGraphAlpha,
+  graphNodeAlpha,
+  premultipliedGraphColor,
+  withGraphAlpha,
+} from "./graph-dim";
 
 describe("graph dim", () => {
   it("keeps dimmed nodes readable when emphasis constraints overlap", () => {
@@ -12,5 +17,11 @@ describe("graph dim", () => {
   it("preserves semantic colour while varying alpha", () => {
     expect(withGraphAlpha("#ff5f5f", 0.2)).toBe("#ff5f5f33");
     expect(withGraphAlpha("rgba(10, 20, 30, 0.5)", 0.2)).toBe("rgba(10, 20, 30, 0.1)");
+  });
+
+  it("premultiplies for sigma's blend, so a faint colour draws faint", () => {
+    expect(premultipliedGraphColor("#ffffff", 0.2)).toBe("rgba(51, 51, 51, 0.2)");
+    expect(premultipliedGraphColor("rgba(200, 100, 50, 0.5)", 0.5)).toBe("rgba(50, 25, 13, 0.25)");
+    expect(premultipliedGraphColor("#102030", 1)).toBe("rgba(16, 32, 48, 1)");
   });
 });

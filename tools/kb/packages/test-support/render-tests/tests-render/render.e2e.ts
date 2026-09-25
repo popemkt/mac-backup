@@ -149,44 +149,95 @@ test("tree fits every full label on first load and after resize", async ({ page 
   await expect(page.getByTestId("graph-selection-card")).toContainText("Fixture node 28");
 });
 
+type Force3dInspector = {
+  inspect(): {
+    backend: string;
+    nodes: number;
+    positions: Array<readonly [number, number, number]>;
+    frames: number;
+    bloom: boolean;
+    particles: number;
+    flying: boolean;
+    screenOf(id: string): { x: number; y: number } | null;
+  };
+};
+
+/** The 3D scene's inspection, as plain data (test-render builds only). */
+async function scene3d(page: Page) {
+  return page.getByTestId("force3d-graph").evaluate((element) => {
+    const scene = (element as HTMLDivElement & { __kbForce3d?: Force3dInspector }).__kbForce3d;
+    if (!scene) return null;
+    const now = scene.inspect();
+    return {
+      backend: now.backend,
+      nodes: now.nodes,
+      positions: now.positions,
+      frames: now.frames,
+      bloom: now.bloom,
+      particles: now.particles,
+      flying: now.flying,
+    };
+  });
+}
+
+async function screenOf3d(page: Page, id: string) {
+  return page
+    .getByTestId("force3d-graph")
+    .evaluate(
+      (element, node) =>
+        (element as HTMLDivElement & { __kbForce3d?: Force3dInspector }).__kbForce3d
+          ?.inspect()
+          .screenOf(node) ?? null,
+      id,
+    );
+}
+
 test("force3d receives all fixture nodes and settles to a non-degenerate volume", async ({
   page,
 }) => {
   await selectRenderer(page, "force3d");
   const host = page.locator("[data-testid='force3d-graph']");
   await expect(host.locator("canvas")).toBeVisible();
-  await expect
-    .poll(async () =>
-      host.evaluate((element) => {
-        const graph = (
-          element as HTMLDivElement & {
-            __kbForceGraph?: { graphData(): { nodes: unknown[] } };
-          }
-        ).__kbForceGraph;
-        return graph?.graphData().nodes.length ?? 0;
-      }),
-    )
-    .toBe(FIXTURE_SIZE);
+  await expect.poll(() => scene3d(page).then((s) => s?.nodes)).toBe(FIXTURE_SIZE);
 
-  // The historical uncooled cluster force contracts throughout the simulation;
-  // sample after its default cooldown window rather than its initial spread.
-  await page.waitForTimeout(10_000);
-  const maximumExtent = await host.evaluate((element) => {
-    const graph = (
-      element as HTMLDivElement & {
-        __kbForceGraph?: {
-          graphData(): { nodes: Array<{ x?: number; y?: number; z?: number }> };
-        };
-      }
-    ).__kbForceGraph;
-    const nodes = graph?.graphData().nodes ?? [];
-    const extent = (axis: "x" | "y" | "z") => {
-      const values = nodes.map((node) => node[axis] ?? 0);
+  // The layout settles in view over its cooldown; sample after it.
+  await page.waitForTimeout(6_000);
+  const positions = (await scene3d(page))?.positions ?? [];
+  const maximumExtent = (() => {
+    const extent = (axis: 0 | 1 | 2) => {
+      const values = positions.map((p) => p[axis]);
       return Math.max(...values) - Math.min(...values);
     };
-    return Math.max(extent("x"), extent("y"), extent("z"));
-  });
+    return Math.max(extent(0), extent(1), extent(2));
+  })();
   expect(maximumExtent).toBeGreaterThan(1);
+});
+
+test("force3d draws through the scene kit's post chain and flies to a selected node", async ({
+  page,
+}) => {
+  await selectRenderer(page, "force3d");
+  await expect.poll(() => scene3d(page).then((s) => s?.nodes)).toBe(FIXTURE_SIZE);
+  expect(await scene3d(page).then((s) => s?.bloom)).toBe(true);
+  expect(await scene3d(page).then((s) => s?.frames)).toBeGreaterThan(0);
+  // Nothing in focus: no direction particles.
+  expect(await scene3d(page).then((s) => s?.particles)).toBe(0);
+  await page.waitForTimeout(4_000);
+  const host = page.getByTestId("force3d-graph");
+  const box = await host.boundingBox();
+  const root = await screenOf3d(page, "render.fixture.root");
+  if (!box || !root) throw new Error("no 3D host or root position");
+  await page.mouse.click(box.x + root.x, box.y + root.y);
+  await expect(page.getByTestId("graph-selection-card")).toContainText("Fixture root");
+  // The selection brings its links' particles on and flies the camera to it.
+  await expect.poll(() => scene3d(page).then((s) => s?.particles)).toBeGreaterThan(0);
+  await expect.poll(() => scene3d(page).then((s) => s?.flying), { timeout: 5_000 }).toBe(false);
+  const centred = await screenOf3d(page, "render.fixture.root");
+  expect(centred).not.toBeNull();
+  expect(Math.abs((centred?.x ?? 0) - box.width / 2)).toBeLessThan(box.width * 0.1);
+  expect(Math.abs((centred?.y ?? 0) - box.height / 2)).toBeLessThan(box.height * 0.1);
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect.poll(() => scene3d(page).then((s) => s?.particles)).toBe(0);
 });
 
 test("cluster selects in place, keeps camera still, and composes zero search with selection", async ({
@@ -335,20 +386,9 @@ test.describe("dark Retina graph labels", () => {
     await expect
       .poll(
         async () => {
-          const next = await page.getByTestId("force3d-graph").evaluate((el) =>
-            JSON.stringify(
-              (
-                el as HTMLDivElement & {
-                  __kbForceGraph: {
-                    graphData(): { nodes: Array<{ x?: number; y?: number; z?: number }> };
-                  };
-                }
-              ).__kbForceGraph
-                .graphData()
-                .nodes.map((n) => [n.x, n.y, n.z]),
-            ),
-          );
-          const settled = JSON.parse(next).length === FIXTURE_SIZE && next === previous;
+          const next = JSON.stringify((await scene3d(page))?.positions ?? []);
+          const settled =
+            (JSON.parse(next) as unknown[]).length === FIXTURE_SIZE && next === previous;
           previous = next;
           return settled;
         },
@@ -362,18 +402,7 @@ test.describe("dark Retina graph labels", () => {
           .map((animation) => animation.finished.catch(() => {})),
       );
     });
-    await expect
-      .poll(() =>
-        page.getByTestId("force3d-graph").evaluate(
-          (el) =>
-            (
-              el as HTMLDivElement & {
-                __kbForceGraph: { renderer(): { info: { render: { calls: number } } } };
-              }
-            ).__kbForceGraph.renderer().info.render.calls,
-        ),
-      )
-      .toBeGreaterThan(0);
+    await expect.poll(() => scene3d(page).then((s) => s?.frames)).toBeGreaterThan(0);
     await page.screenshot({ path: testInfo.outputPath("force3d-dark-retina.png") });
   });
 });

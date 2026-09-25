@@ -30,6 +30,14 @@ interface Datum {
 }
 const EMPTY_EDGES: LensEdge[] = [];
 
+type Laid = { x: number; y: number };
+
+/** A tree link: a horizontal S from parent to child. */
+function treeLink(source: Laid, target: Laid): string {
+  const mid = (source.y + target.y) / 2;
+  return `M${source.y},${source.x}C${mid},${source.x} ${mid},${target.x} ${target.y},${target.x}`;
+}
+
 function forestFind(forest: LensTreeNode[], id: string): LensTreeNode | null {
   for (const node of forest) {
     if (node.id === id) return node;
@@ -109,7 +117,9 @@ export function TreeGraph({
   }, [forest, collapsed, showLabels, fontRevision, appearanceKey]);
   const containerRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState({ zoom: 1, x: 0, y: 0 });
-  const [focusId, setFocusId] = useState<string | null>(null);
+  // A drag follows the pointer exactly; every other camera move eases.
+  const [panning, setPanning] = useState(false);
+  const [jumpId, setJumpId] = useState<string | null>(null);
   const cameraIntent = useRef(false);
   const collapseAnchor = useRef<{ id: string; x: number; y: number } | null>(null);
   const changeCollapsed = (next: Set<string>, anchorId?: string) => {
@@ -204,13 +214,13 @@ export function TreeGraph({
         (previous) => new Set([...previous].filter((candidate) => !ancestors.has(candidate))),
       );
       cameraIntent.current = true;
-      setFocusId(id);
+      setJumpId(id);
     },
     [forest],
   );
   useEffect(() => {
-    if (focusId === null) return;
-    const node = layout.nodes.find((n) => n.data.id === focusId),
+    if (jumpId === null) return;
+    const node = layout.nodes.find((n) => n.data.id === jumpId),
       el = containerRef.current;
     if (!node || !el) return;
     setView({
@@ -218,8 +228,8 @@ export function TreeGraph({
       x: el.clientWidth / 2 - (node.y - layout.originX) - node.data.width / 2,
       y: el.clientHeight / 2 - (node.x - layout.originY),
     });
-    setFocusId(null);
-  }, [focusId, layout]);
+    setJumpId(null);
+  }, [jumpId, layout]);
   const expandAll = () => {
     changeCollapsed(new Set());
   };
@@ -262,16 +272,17 @@ export function TreeGraph({
     ready.current?.(treeCameraControls(() => handle.current));
     return () => ready.current?.(null);
   }, []);
-  const neighborhood = useMemo(
-    () => graphNeighborhood(selectedNodeId, edges),
-    [selectedNodeId, edges],
-  );
+  // The node in focus: the selection, else the hover (as in every renderer).
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const focusId = selectedNodeId ?? hoveredId;
+  const neighborhood = useMemo(() => graphNeighborhood(focusId, edges), [focusId, edges]);
   const alpha = (id: string) => graphEmphasisAlpha(id, { highlightIds, filterIds }, neighborhood);
   const tokens = useMemo(() => {
     void appearanceKey;
     return {
       text: readTokenColor("--foreground"),
       line: readTokenColor("--foreground", { alpha: 0.22 }),
+      ground: readTokenColor("--background"),
     };
   }, [appearanceKey]);
   return (
@@ -290,16 +301,21 @@ export function TreeGraph({
         if (!d) return;
         const dx = e.clientX - d.x,
           dy = e.clientY - d.y;
-        if (Math.hypot(dx, dy) > 3) d.moved = true;
+        if (Math.hypot(dx, dy) > 3 && !d.moved) {
+          d.moved = true;
+          setPanning(true);
+        }
         if (d.moved) e.currentTarget.setPointerCapture(e.pointerId);
         if (d.moved) setView((v) => ({ ...v, x: d.panX + dx, y: d.panY + dy }));
       }}
       onPointerUp={() => {
         suppressClick.current = drag.current?.moved === true;
         drag.current = null;
+        setPanning(false);
       }}
       onPointerCancel={() => {
         drag.current = null;
+        setPanning(false);
       }}
       onClick={() => {
         if (!suppressClick.current) onSelectionChange?.(null);
@@ -308,7 +324,7 @@ export function TreeGraph({
       <svg
         width={layout.width}
         height={layout.height}
-        className="block"
+        className={panning ? "block" : "block kb-graph-move"}
         style={{
           transform: "translate(" + view.x + "px, " + view.y + "px) scale(" + view.zoom + ")",
           transformOrigin: "0 0",
@@ -318,30 +334,13 @@ export function TreeGraph({
           {layout.links.map((l) => (
             <path
               key={l.target.data.id}
-              d={
-                "M" +
-                l.source.y +
-                "," +
-                l.source.x +
-                "C" +
-                (l.source.y + l.target.y) / 2 +
-                "," +
-                l.source.x +
-                " " +
-                (l.source.y + l.target.y) / 2 +
-                "," +
-                l.target.x +
-                " " +
-                l.target.y +
-                "," +
-                l.target.x
-              }
+              className="kb-graph-move"
+              style={{ d: `path("${treeLink(l.source, l.target)}")` }}
               fill="none"
               stroke={tokens.line}
               opacity={Math.min(alpha(l.source.data.id), alpha(l.target.data.id))}
               strokeWidth={
-                selectedNodeId !== null &&
-                (l.source.data.id === selectedNodeId || l.target.data.id === selectedNodeId)
+                focusId !== null && (l.source.data.id === focusId || l.target.data.id === focusId)
                   ? 2
                   : 1
               }
@@ -355,10 +354,13 @@ export function TreeGraph({
               <g
                 key={n.data.id}
                 data-node-id={n.data.id}
-                transform={"translate(" + n.y + "," + n.x + ")"}
                 opacity={alpha(n.data.id)}
-                className="cursor-pointer"
-                style={{ transition: "opacity 160ms ease" }}
+                className="kb-graph-move cursor-pointer"
+                style={{ transform: `translate(${n.y}px, ${n.x}px)` }}
+                onPointerEnter={() => setHoveredId(n.data.id)}
+                onPointerLeave={() =>
+                  setHoveredId((current) => (current === n.data.id ? null : current))
+                }
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!suppressClick.current)
@@ -371,10 +373,15 @@ export function TreeGraph({
                 }}
               >
                 <title>{n.data.label}</title>
-                {selected ? (
-                  <circle r={10} fill="none" stroke={tokens.text} strokeWidth={1.5} />
-                ) : null}
-                <circle r={4.5} fill={n.data.color} />
+                <circle
+                  r={10}
+                  fill="none"
+                  stroke={tokens.text}
+                  strokeWidth={1.5}
+                  className="kb-graph-move"
+                  opacity={selected ? 1 : n.data.id === hoveredId ? 0.35 : 0}
+                />
+                <circle r={4.5} fill={n.data.color} stroke={tokens.ground} strokeWidth={1.5} />
                 <text
                   x={12}
                   y={-(n.data.lines.length - 1) * 7.5 + 4}

@@ -5,9 +5,17 @@ import { withGraphAlpha } from "@/lib/graph-dim";
 import { readTokenColor } from "@/lib/css-color";
 import { fitGraphLabel, graphLabelFont } from "@/lib/graph-label";
 
-/** Decoration never captures input; background clicks are hit-tested by Sigma. */
+/**
+ * Decoration never captures input; background clicks are hit-tested by Sigma.
+ *
+ * A hull is a soft region, not a box: a faint fill in the cluster's colour and
+ * an edge that is a glow of that colour rather than a hard line. The hull
+ * under the pointer comes forward a little. Labels are the ink token in the
+ * graph face.
+ */
 export function clusterHulls(sigma: Sigma, canvas: HTMLCanvasElement) {
   let paths = new Map<string, Path2D>();
+  let hovered: string | null = null;
   const draw = () => {
     const { width, height } = sigma.getDimensions();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -36,11 +44,16 @@ export function clusterHulls(sigma: Sigma, canvas: HTMLCanvasElement) {
       if (!path) continue;
       paths.set(key, path);
       const color = hashTagColor(key);
-      ctx.fillStyle = withGraphAlpha(color, 0.04);
-      ctx.strokeStyle = withGraphAlpha(color, 0.25);
-      ctx.lineWidth = 1.5;
+      const near = key === hovered;
+      ctx.fillStyle = withGraphAlpha(color, near ? 0.09 : 0.05);
       ctx.fill(path);
+      ctx.save();
+      ctx.shadowColor = withGraphAlpha(color, near ? 0.55 : 0.35);
+      ctx.shadowBlur = 14;
+      ctx.strokeStyle = withGraphAlpha(color, near ? 0.4 : 0.2);
+      ctx.lineWidth = 1;
       ctx.stroke(path);
+      ctx.restore();
       label ??= { font: `600 11px ${graphLabelFont()}`, color: readTokenColor("--foreground") };
       ctx.font = label.font;
       ctx.fillStyle = label.color;
@@ -70,6 +83,13 @@ export function clusterHulls(sigma: Sigma, canvas: HTMLCanvasElement) {
         }
       ctx.restore();
       return result;
+    },
+    /** The hull under the pointer, host-relative CSS pixels (null: none). */
+    hover(x: number, y: number): void {
+      const key = this.hit(x, y);
+      if (key === hovered) return;
+      hovered = key;
+      sigma.scheduleRender();
     },
     dispose: () => sigma.off("afterRender", draw),
   };

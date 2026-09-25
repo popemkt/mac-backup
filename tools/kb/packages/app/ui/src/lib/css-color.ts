@@ -3,17 +3,11 @@
  *
  * The palette is authored in oklch (`design-system.css`), and Chrome's computed
  * value for `color` preserves the authored color space rather than converting
- * to rgb. That breaks two consumers:
+ * to rgb. Canvas and GPU consumers (sigma's colour parser, three's `Color`,
+ * the `alpha` option below) read only hex and `rgb()`/`rgba()`; an oklch
+ * value would be dropped or thrown on.
  *
- *   - `3d-force-graph` → `three-render-objects` parses colors with `polished`,
- *     which accepts only hex/rgb/rgba/hsl/hsla and throws on anything else.
- *     An oklch background made the whole 3D scene fail to initialize.
- *   - the `alpha` option below, whose regex only ever matched `rgb()`/`rgba()`,
- *     so every `alpha` request against an oklch token was silently dropped and
- *     edges/labels rendered at full opacity.
- *
- * So this module always hands back `rgb()`/`rgba()` with integer channels —
- * `polished`'s rgb pattern rejects fractional ones.
+ * So this module always hands back `rgb()`/`rgba()` with integer channels.
  */
 
 const CHANNEL = String.raw`-?[\d.]+%?`;
@@ -148,6 +142,9 @@ export function toRenderableColor(color: string, alphaOverride?: number): string
 const TOKEN_FALLBACK = {
   "--foreground": "#222",
   "--background": "#fff",
+  "--card": "#fff",
+  "--muted-foreground": "#737373",
+  "--primary": "#c27c0e",
   // The lab palette: mid grey, so a missing token reads as missing rather
   // than as a deliberate colour.
   "--lab-ground": "rgb(128, 128, 128)",
@@ -173,23 +170,4 @@ export function readTokenColor(varName: ColorToken, opts: { alpha?: number } = {
   // A token in any authored space becomes rgb/rgba here, so downstream parsers
   // (notably `polished`, via three-render-objects) never see oklch.
   return (raw.length > 0 ? toRenderableColor(raw, opts.alpha) : null) ?? unresolved;
-}
-
-/**
- * Rule behind `3b1f82f`: every colour crossing into the 3D renderer MUST be
- * hex or rgb/rgba — polished throws on oklch and blanks the scene.
- */
-export const FORCE3D_SAFE_COLOR = /^(#|rgba?\()/i;
-
-export function isForce3dSafeColor(color: string): boolean {
-  return FORCE3D_SAFE_COLOR.test(color.trim());
-}
-
-/** Normalize + assert a colour is safe for 3d-force-graph / polished. */
-export function force3dColor(color: string, fallback = "rgb(128, 128, 128)"): string {
-  const rendered = toRenderableColor(color) ?? toRenderableColor(fallback) ?? fallback;
-  if (!isForce3dSafeColor(rendered)) {
-    throw new Error(`force3dColor: refused unsafe colour "${rendered}" (from "${color}")`);
-  }
-  return rendered;
 }

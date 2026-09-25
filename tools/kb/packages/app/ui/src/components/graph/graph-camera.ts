@@ -1,19 +1,23 @@
 import type Sigma from "sigma";
 import type { CameraState } from "sigma/types";
 import { prefersReducedMotion } from "@/lib/motion";
+import { easeAt, readTiming } from "@/lib/timing";
 
-const EASE_DURATION_MS = 300;
-
-/** Sigma owns cancellation so rapid camera commands cannot race each other. */
+/**
+ * Sigma owns cancellation so rapid camera commands cannot race each other.
+ * A move takes `--motion-duration-follow` on the one ease (`--motion-settle`)
+ * unless a caller names another duration (0: a cut).
+ */
 export function animateCamera(
   sigma: Sigma,
   target: Partial<CameraState>,
-  durationMs = EASE_DURATION_MS,
+  durationMs?: number,
 ): void {
   const camera = sigma.getCamera();
-  const duration = motionDuration(durationMs);
+  const timing = readTiming();
+  const duration = motionDuration(durationMs ?? timing.follow * 1000);
   if (duration <= 0) camera.setState(target);
-  else void camera.animate(target, { duration, easing: "cubicOut" });
+  else void camera.animate(target, { duration, easing: (t) => easeAt(timing.settle, t) });
 }
 
 export interface Point {
@@ -77,7 +81,7 @@ export function computeFitTarget(points: readonly Point[]): Partial<CameraState>
   };
 }
 
-export function fitView(sigma: Sigma, durationMs = 300): void {
+export function fitView(sigma: Sigma, durationMs?: number): void {
   const target = computeFitTarget(framedPoints(sigma));
   // No display data yet (fit raced the first render) — the reset framing at
   // least shows the graph instead of blanking the canvas.
@@ -107,7 +111,7 @@ export function focusNode(sigma: Sigma, nodeId: string): void {
   // Framed space, for the same reason as fitView — raw attributes blank the view.
   const display = sigma.getNodeDisplayData(nodeId);
   if (!display) return;
-  animateCamera(sigma, { x: display.x, y: display.y, ratio: 0.3 }, 400);
+  animateCamera(sigma, { x: display.x, y: display.y, ratio: 0.3 });
 }
 
 export function motionDuration(duration: number): number {

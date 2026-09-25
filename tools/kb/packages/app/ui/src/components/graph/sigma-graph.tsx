@@ -2,19 +2,23 @@ import { asInstance } from "@/lib/dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Graph from "graphology";
 import Sigma from "sigma";
-import { EdgeArrowProgram } from "sigma/rendering";
+import { EdgeCurvedArrowProgram } from "@sigma/edge-curve";
+import { createNodeBorderProgram } from "@sigma/node-border";
 import type { LensEdge, LensNode, LensLayout, LensLabelDensity } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
 import { graphLabelFont } from "@/lib/graph-label";
-import { withGraphAlpha } from "@/lib/graph-dim";
+import { prefersReducedMotion } from "@/lib/motion";
+import { readTiming } from "@/lib/timing";
 import { graphEmphasisAlpha, graphNeighborhood, type GraphEmphasis } from "@/lib/graph-interaction";
 import { computeLayoutPositions } from "@/lib/graph-layouts";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
 import { fitView } from "./graph-camera";
 import { sigmaCameraControls, type GraphCameraControls } from "./graph-camera-controls";
 import { selectionFromNode, type GraphSelection } from "./graph-selection";
-import { drawGraphLabel, drawGraphHover, resetGraphLabels } from "./sigma-labels";
+import { drawGraphLabel, drawGraphHover, resetGraphLabels, setGraphLabelInk } from "./sigma-labels";
 import { clusterHulls } from "./cluster-hulls";
+import { GraphTooltip } from "./graph-tooltip";
+import { sigmaEmphasis, type SigmaEmphasis } from "./sigma-emphasis";
 export type { GraphSelection };
 
 export interface SigmaGraphProps extends GraphEmphasis {
@@ -30,6 +34,20 @@ export interface SigmaGraphProps extends GraphEmphasis {
   labelDensity?: LensLabelDensity;
   onControlsReady?: (controls: GraphCameraControls | null) => void;
 }
+
+/**
+ * Nodes are drawn with a ring: the ground colour at rest, so a node reads
+ * clean against the links and neighbours behind it, and the ink for the node
+ * in focus. `sigma-emphasis` picks the ring colour per node.
+ */
+const NodeRingProgram = createNodeBorderProgram({
+  borders: [
+    { size: { value: 0.16 }, color: { attribute: "ringColor" } },
+    { size: { fill: true }, color: { attribute: "color" } },
+  ],
+  drawLabel: drawGraphLabel,
+  drawHover: drawGraphHover,
+});
 
 /** A single Sigma lifecycle owns both force and cluster interaction. */
 export function SigmaGraph(props: SigmaGraphProps) {
@@ -60,6 +78,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
   isolatedRef.current = isolated;
   const [tooltip, setTooltip] = useState<{ id: string; x: number; y: number } | null>(null);
 
+  const emphasis = useRef<SigmaEmphasis | null>(null);
   const refresh = useCallback(() => {
     const sigma = sigmaRef.current;
     if (!sigma) return;
@@ -67,42 +86,18 @@ export function SigmaGraph(props: SigmaGraphProps) {
     const active = state.selectedNodeId ?? hovered.current;
     const neighborhood = graphNeighborhood(active, state.edges);
     const graph = sigma.getGraph();
-    const alphaFor = (id: string) => {
-      const a = graphEmphasisAlpha(id, state, neighborhood);
-      return isolatedRef.current !== null &&
-        graph.getNodeAttribute(id, "clusterKey") !== isolatedRef.current
-        ? a * 0.2
-        : a;
-    };
-    sigma.setSetting("nodeReducer", (id, data) => {
-      const alpha = alphaFor(id);
-      const focused = id === active;
-      return {
-        ...data,
-        color: withGraphAlpha(String(data.color), alpha),
-        label: alpha === 1 ? data.label : "",
-        forceLabel:
-          alpha === 1 &&
-          (active !== null || state.highlightIds !== undefined || state.filterIds !== undefined),
-        highlighted: focused,
-        zIndex: focused ? 2 : alpha === 1 ? 1 : 0,
-        size: focused ? data.size * 1.2 : data.size,
-      };
+    emphasis.current?.retarget({
+      active,
+      narrowed:
+        active !== null || state.highlightIds !== undefined || state.filterIds !== undefined,
+      presence: (id) => {
+        const a = graphEmphasisAlpha(id, state, neighborhood);
+        return isolatedRef.current !== null &&
+          graph.getNodeAttribute(id, "clusterKey") !== isolatedRef.current
+          ? a * 0.2
+          : a;
+      },
     });
-    sigma.setSetting("edgeReducer", (edge, data) => {
-      const [a, b] = graph.extremities(edge);
-      const connected = active === null || a === active || b === active;
-      return {
-        ...data,
-        color: withGraphAlpha(
-          String(data.color),
-          connected ? Math.min(alphaFor(a), alphaFor(b)) : 0.08,
-        ),
-        size: connected && active !== null ? Number(data.size) * 1.6 : data.size,
-        zIndex: connected ? 1 : 0,
-      };
-    });
-    sigma.refresh();
   }, []);
 
   useEffect(() => {
@@ -117,12 +112,15 @@ export function SigmaGraph(props: SigmaGraphProps) {
       labelDensity: 0.7,
       defaultDrawNodeLabel: drawGraphLabel,
       defaultDrawNodeHover: drawGraphHover,
+      defaultNodeType: "ring",
+      nodeProgramClasses: { ring: NodeRingProgram },
       defaultEdgeType: "arrow",
-      edgeProgramClasses: { arrow: EdgeArrowProgram },
+      edgeProgramClasses: { arrow: EdgeCurvedArrowProgram },
       stagePadding: 70,
       zIndex: true,
     });
     sigmaRef.current = sigma;
+    emphasis.current = sigmaEmphasis(sigma, readTiming(), prefersReducedMotion);
     sigma.on("beforeRender", () => {
       for (const canvas of el.querySelectorAll<HTMLCanvasElement>(
         "canvas.sigma-labels, canvas.sigma-hovers",
@@ -215,6 +213,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
       const x = e.clientX - rect.left,
         y = e.clientY - rect.top;
       if (hovered.current !== null) setTooltip({ id: hovered.current, x, y });
+      if (e.target instanceof Node && el.contains(e.target)) hulls?.hover(x, y);
       if (!drag) return;
       if (Math.hypot(x - drag.x, y - drag.y) > 3) drag.moved = true;
       if (!drag.moved) return;
@@ -237,6 +236,8 @@ export function SigmaGraph(props: SigmaGraphProps) {
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", up);
       hulls?.dispose();
+      emphasis.current?.dispose();
+      emphasis.current = null;
       layoutRef.current?.kill();
       layoutRef.current = null;
       sigma.kill();
@@ -312,11 +313,12 @@ export function SigmaGraph(props: SigmaGraphProps) {
           });
       });
     topology.current = key;
+    if (changed) emphasis.current?.reindex(initial);
     if (changed && graph.order && !cluster && layout === "force") {
       const fa = createFA2Layout(graph, {
         onConverged: () => {
           sigma.refresh();
-          if (initial && !cameraIntent.current) fitView(sigma, 400);
+          if (initial && !cameraIntent.current) fitView(sigma);
         },
       });
       layoutRef.current = fa;
@@ -337,6 +339,10 @@ export function SigmaGraph(props: SigmaGraphProps) {
     sigma
       .getGraph()
       .forEachEdge((edge) => sigma.getGraph().setEdgeAttribute(edge, "color", edgeColor));
+    const ground = readTokenColor("--background");
+    const ink = readTokenColor("--foreground");
+    emphasis.current?.setRings(ground, ink);
+    setGraphLabelInk(ink, ground);
     sigma.setSetting("renderLabels", showLabels);
     sigma.setSetting(
       "labelDensity",
@@ -369,19 +375,12 @@ export function SigmaGraph(props: SigmaGraphProps) {
         </button>
       ) : null}
       {tooltip && meta && (selectedNodeId === null || selectedNodeId === undefined) ? (
-        <div
-          className="pointer-events-none absolute z-40 max-w-72 whitespace-normal break-words rounded-md border border-foreground/10 bg-popover px-3 py-2 text-meta leading-4 text-foreground shadow-floating"
-          style={{
-            left: Math.max(
-              8,
-              Math.min(tooltip.x + 12, (containerRef.current?.clientWidth ?? 400) - 280),
-            ),
-            top: Math.max(8, tooltip.y - 48),
-          }}
-        >
-          {meta.label}
-          <div className="mt-1 text-foreground/50">{meta.degree} connections</div>
-        </div>
+        <GraphTooltip
+          node={meta}
+          x={tooltip.x}
+          y={tooltip.y}
+          hostWidth={containerRef.current?.clientWidth ?? 400}
+        />
       ) : null}
     </div>
   );

@@ -101,6 +101,7 @@ export function Force3dAdapter({
   selection,
   setSelection,
   setControls,
+  onNodeOpen,
 }: GraphAdapterProps) {
   return (
     <WorkspaceBoundary title="Opening the third dimension…">
@@ -110,6 +111,7 @@ export function Force3dAdapter({
         layoutKey={active.id}
         appearanceKey={appearanceKey}
         onSelectionChange={setSelection}
+        onNodeOpen={onNodeOpen}
         selectedNodeId={selection?.nodeId ?? null}
         onControlsReady={setControls}
         highlightIds={searchHighlight ?? undefined}
