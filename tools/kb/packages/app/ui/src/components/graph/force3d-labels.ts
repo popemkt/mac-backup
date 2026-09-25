@@ -24,6 +24,7 @@ import { fitGraphLabel, graphLabelFont } from "@/lib/graph-label";
 import { reserveGraphLabel, type GraphLabelBox } from "@/lib/graph-label-layout";
 import type { ScenePalette } from "@/scene/palette";
 import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";
+import { toScreen, type ScreenPoint } from "./force3d-screen";
 
 const FONT_SIZE = 12;
 const PAD_X = 6;
@@ -69,22 +70,24 @@ function paint(text: string, palette: ScenePalette, font: string) {
 }
 
 /**
- * The screen box a node in focus keeps clear of other labels: its disc of
- * `radius` CSS pixels round its projected point (`ndc`, after `project()`),
- * or none when the node is not in front of the camera — a node behind it
- * projects to nonsense, and would blank every label while the camera dollies
- * through it. A new box per node, so two nodes in focus keep two discs.
+ * The screen box a node in focus keeps clear of other labels: the disc its
+ * world `radius` covers round its point, or none when the point is not in
+ * view (`toScreen`) — a node behind the eye, or between the eye and the near
+ * plane, would otherwise blank every label while the camera dollies through
+ * it. A new box per node, so two nodes in focus keep two discs.
  */
 export function focusDisc(
-  ndc: { readonly x: number; readonly y: number; readonly z: number },
+  world: { readonly x: number; readonly y: number; readonly z: number },
   radius: number,
-  width: number,
-  height: number,
+  camera: PerspectiveCamera,
+  size: { readonly width: number; readonly height: number },
 ): GraphLabelBox | null {
-  if (!(ndc.z < 1) || !Number.isFinite(radius)) return null;
-  const x = ((ndc.x + 1) / 2) * width;
-  const y = ((1 - ndc.y) / 2) * height;
-  return { x: x - radius, y: y - radius, width: 2 * radius, height: 2 * radius };
+  const at: ScreenPoint = { x: 0, y: 0, depth: 0 };
+  if (!toScreen(world, camera, size, at)) return null;
+  const focal = size.height / 2 / Math.tan((camera.fov * Math.PI) / 360);
+  const r = (radius * focal) / at.depth;
+  if (!Number.isFinite(r)) return null;
+  return { x: at.x - r, y: at.y - r, width: 2 * r, height: 2 * r };
 }
 
 export class LabelLayer {
@@ -93,6 +96,7 @@ export class LabelLayer {
   private readonly order: Label[] = [];
   private readonly point = new Vector3();
   private readonly up = new Vector3();
+  private readonly screen: ScreenPoint = { x: 0, y: 0, depth: 0 };
   private pixelScale = 1;
   private readonly group: Group;
   private topology: Force3dTopology;
@@ -172,15 +176,13 @@ export class LabelLayer {
         a.node - b.node,
     );
     this.occupied.length = 0;
+    const size = { width, height };
     // The node in focus keeps its own disc: no other label is laid over it.
-    const focal = height / 2 / Math.tan((camera.fov * Math.PI) / 360);
     for (const label of this.order) {
       const i = label.node;
       if ((focus[i] ?? 0) < 0.5) continue;
       this.point.set(positions[i * 3] ?? 0, positions[i * 3 + 1] ?? 0, positions[i * 3 + 2] ?? 0);
-      const r = (radius(i) * focal) / Math.max(1, this.point.distanceTo(camera.position));
-      this.point.project(camera);
-      const disc = focusDisc(this.point, r, width, height);
+      const disc = focusDisc(this.point, radius(i), camera, size);
       if (disc !== null) this.occupied.push(disc);
     }
     for (const label of this.order) {
@@ -189,17 +191,15 @@ export class LabelLayer {
         .set(positions[i * 3] ?? 0, positions[i * 3 + 1] ?? 0, positions[i * 3 + 2] ?? 0)
         .addScaledVector(this.up, radius(i));
       label.sprite.position.copy(this.point);
-      this.point.project(camera);
-      const x = ((this.point.x + 1) / 2) * width;
-      const y = ((1 - this.point.y) / 2) * height;
+      const inView = toScreen(this.point, camera, size, this.screen);
       const box = label.box;
-      box.x = x - label.width / 2 - 3;
-      box.y = y - HEIGHT * 1.15 - 2;
+      box.x = this.screen.x - label.width / 2 - 3;
+      box.y = this.screen.y - HEIGHT * 1.15 - 2;
       box.width = label.width + 6;
       box.height = HEIGHT + 4;
       const present = fades.dim.values[i] ?? 1;
       label.sprite.visible =
-        this.point.z < 1 &&
+        inView &&
         present > 0.5 &&
         box.x >= 0 &&
         box.y >= 0 &&

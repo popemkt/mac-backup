@@ -17,6 +17,7 @@ const ALLOWED = new Set([
   "force3d-nodes.ts",
   "force3d-links.ts",
   "force3d-labels.ts",
+  "force3d-screen.ts",
 ]);
 
 function listTsFiles(dir: string): string[] {
@@ -32,7 +33,7 @@ function listTsFiles(dir: string): string[] {
 /** three itself, or the scene kit's GPU modules, which are three. */
 const THREE_IMPORT =
   /from\s+["'](?:three(?:\/[^"']*)?|@\/scene\/gpu\/[^"']*)["']|require\(\s*["']three["']\s*\)/;
-const SCENE_IMPORT = /from\s+["']\.\/force3d-(?:scene|nodes|links|labels)["']/;
+const SCENE_IMPORT = /from\s+["']\.\/force3d-(?:scene|nodes|links|labels|screen)["']/;
 
 describe("three import boundary (task 16a)", () => {
   it("only the 3D scene's modules import three", () => {

@@ -44,6 +44,7 @@ import { LabelLayer } from "./force3d-labels";
 import { startLayout3d, type Layout3d } from "./force3d-layout";
 import { MAX_PARTICLE_LINKS, linkLayer, type LinkLayer } from "./force3d-links";
 import { nodeLayer, type NodeLayer } from "./force3d-nodes";
+import { toScreen, type ScreenPoint } from "./force3d-screen";
 
 export interface Force3dSettings {
   readonly spread: number;
@@ -367,24 +368,22 @@ export async function mountForce3d(
   let press: { x: number; y: number } | null = null;
   let lastClick = { id: "", at: 0 };
   const projected = new Vector3();
+  const onScreen: ScreenPoint = { x: 0, y: 0, depth: 0 };
+  const canvasSize = { width: 0, height: 0 };
   const pick = (x: number, y: number): number => {
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
-    const focal = height / 2 / Math.tan((FOV * Math.PI) / 360);
+    canvasSize.width = canvas.clientWidth;
+    canvasSize.height = canvas.clientHeight;
+    const focal = canvasSize.height / 2 / Math.tan((FOV * Math.PI) / 360);
     let best = -1;
     let bestDepth = Infinity;
     for (let i = 0; i < topology.nodes.length; i++) {
       if ((fades.dim.values[i] ?? 1) < 0.5) continue;
       projected.set(positions[i * 3] ?? 0, positions[i * 3 + 1] ?? 0, positions[i * 3 + 2] ?? 0);
-      const depth = projected.distanceTo(camera.position);
-      projected.project(camera);
-      if (projected.z > 1) continue;
-      const sx = ((projected.x + 1) / 2) * width;
-      const sy = ((1 - projected.y) / 2) * height;
-      const reach = Math.max(6, ((nodes?.radius(i) ?? 4) * focal) / Math.max(1, depth)) + 2;
-      if (Math.hypot(sx - x, sy - y) <= reach && depth < bestDepth) {
+      if (!toScreen(projected, camera, canvasSize, onScreen)) continue;
+      const reach = Math.max(6, ((nodes?.radius(i) ?? 4) * focal) / onScreen.depth) + 2;
+      if (Math.hypot(onScreen.x - x, onScreen.y - y) <= reach && onScreen.depth < bestDepth) {
         best = i;
-        bestDepth = depth;
+        bestDepth = onScreen.depth;
       }
     }
     return best;
@@ -592,11 +591,9 @@ export async function mountForce3d(
       flying: flight.active,
       screenOf: (id) => {
         if (nodeAt(id, focusPoint) < 0) return null;
-        projected.set(focusPoint.x, focusPoint.y, focusPoint.z).project(camera);
-        return {
-          x: ((projected.x + 1) / 2) * canvas.clientWidth,
-          y: ((1 - projected.y) / 2) * canvas.clientHeight,
-        };
+        const size = { width: canvas.clientWidth, height: canvas.clientHeight };
+        const at: ScreenPoint = { x: 0, y: 0, depth: 0 };
+        return toScreen(focusPoint, camera, size, at) ? { x: at.x, y: at.y } : null;
       },
     }),
     dispose: () => {
