@@ -182,6 +182,7 @@
         "@storybook/addon-a11y": "catalog:",
         "@storybook/react": "catalog:",
         "@storybook/react-vite": "catalog:",
+        "@tailwindcss/node": "catalog:",
         "@tailwindcss/oxide": "catalog:",
         "@types/bun": "catalog:",
         "@types/d3-hierarchy": "catalog:",

@@ -788,7 +788,9 @@ id; the preference's schema, the picker and the command read it.
   split by Tailwind's scanner), its ancestors' and its own `bg-*` tints are
   composited in sRGB over each page surface, and its opaque text colour is
   measured on each result — `text-primary` on `bg-primary/10`, a link in a
-  selected row's stacked tints. Content one component mounts into another's
+  selected row's stacked tints. What a class paints is what Tailwind compiles
+  it to, and a colour class that paints no design-system token (a palette
+  value such as `text-amber-600`) fails. Content one component mounts into another's
   element is declared in the guard's `MOUNTS`; translucent text is not yet
   checked (gap `01M3BEJDX4YP2DPHSCFS66NZK1`).
 - the lab's bloom bound (`embers/heat.test.ts`) runs over every system's

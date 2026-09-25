@@ -222,8 +222,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
         ) : null}
         {hasText(lensGraph.queryError) && (
           <span
-            // oxlint-disable-next-line design-tokens/no-raw-design-value -- GAP [[01M3AD9BRB1C5YMJFDQC1MDAFA]]
-            className="flex items-center gap-1 rounded-xs bg-amber-500/10 px-1.5 py-0.5 text-label text-amber-600 dark:text-amber-400"
+            className="flex items-center gap-1 rounded-xs bg-warning/10 px-1.5 py-0.5 text-label text-warning"
             title={lensGraph.queryError}
           >
             <WarningIcon size={12} /> query error

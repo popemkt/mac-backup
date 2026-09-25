@@ -8,6 +8,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { __unstable__loadDesignSystem } from "@tailwindcss/node";
 import { Scanner } from "@tailwindcss/oxide";
 import { parseSync } from "oxc-parser";
 import { describe, expect, it } from "vitest";
@@ -178,8 +179,10 @@ describe("design systems: contrast (WCAG AA)", () => {
  * composited over whatever surface it sits on. So the grounds are read from
  * the UI's own JSX, not declared. Each element's `className` literals are
  * split into classes by Tailwind's own `Scanner` (the one the build and the
- * liveness test use); a class names a colour through the `--color-*` bridge in
- * `index.css`, or through a component role in `tokens.css` that sets `color`.
+ * liveness test use), and what each paints is what Tailwind compiles it to
+ * against `index.css`, or a component role in `tokens.css` that sets `color`.
+ * A colour class that paints no design-system token fails: it cannot be
+ * measured, and no design system re-colours it.
  *
  * An element that holds text is a site. Its ground is its ancestors' and its
  * own `bg-*` layers, composited in sRGB — the way the browser paints them —
@@ -195,14 +198,11 @@ describe("design systems: contrast (WCAG AA)", () => {
  */
 
 const TOKENS_CSS = readFileSync(path.join(src, "tokens.css"), "utf8");
-const INDEX_CSS = readFileSync(path.join(src, "index.css"), "utf8");
 
-/** Tailwind colour name → layer-1 token, from the `@theme inline` bridge. */
-const COLOR_TOKENS: ReadonlyMap<string, string> = new Map(
-  [...INDEX_CSS.matchAll(/--color-([\w-]+):\s*var\((--[\w-]+)\)/g)].map((m) => [
-    m[1] ?? "",
-    m[2] ?? "",
-  ]),
+/** Tailwind compiled against `index.css`: the authority on what a utility paints. */
+const TAILWIND = await __unstable__loadDesignSystem(
+  readFileSync(path.join(src, "index.css"), "utf8"),
+  { base: src },
 );
 
 /** Component roles that set a text colour: class → token (`.kb-md-ref` → `--primary`). */
@@ -230,10 +230,11 @@ interface Paint {
   readonly always: boolean;
 }
 
-/** What one element's classes paint. */
+/** What one element's classes paint, and its colour classes that name no token. */
 interface Layer {
   readonly grounds: readonly Paint[];
   readonly texts: readonly Paint[];
+  readonly unresolved: readonly string[];
 }
 
 /** A place text is set: where, the text colours it may take, the layers under it. */
@@ -243,29 +244,54 @@ interface Site {
   readonly chain: readonly Layer[];
 }
 
-function alphaOf(raw: string | undefined): number | null {
-  if (raw === undefined) return 1;
-  const arbitrary = /^\[([\d.]+)(%?)\]$/.exec(raw);
-  if (arbitrary !== null) {
-    const n = Number(arbitrary[1]);
-    return arbitrary[2] === "%" ? n / 100 : n;
-  }
-  return /^\d+$/.test(raw) ? Number(raw) / 100 : null;
+/**
+ * What a utility paints, as Tailwind compiles it: a layer-1 token at some
+ * alpha, as ground (`background-color`) or text (`color`); nothing (not a
+ * colour, or `transparent` / `currentcolor` / `inherit`); or a colour that is
+ * no layer-1 token — a palette value such as `text-amber-600`, which no
+ * design system re-colours and this guard cannot measure, so it fails.
+ */
+type Resolved =
+  | { readonly kind: "ground" | "text"; readonly token: string; readonly alpha: number }
+  | { readonly kind: "none" }
+  | { readonly kind: "unresolved"; readonly value: string };
+
+const RESOLVED = new Map<string, Resolved>();
+
+function compileUtility(utility: string): Resolved {
+  const role = ROLE_TEXT.get(utility);
+  if (role !== undefined) return { kind: "text", token: role, alpha: 1 };
+  const css = TAILWIND.candidatesToCss([utility])[0] ?? "";
+  const decl = /(?<![\w-])(background-color|color):\s*([^;]+);/.exec(css);
+  if (decl === null) return { kind: "none" };
+  const value = (decl[2] ?? "").trim();
+  if (/^(transparent|currentcolor|inherit)$/i.test(value)) return { kind: "none" };
+  const ref =
+    /^var\((--[\w-]+)\)$/.exec(value) ??
+    /^color-mix\(in oklab, var\((--[\w-]+)\) ([\d.]+)%, transparent\)$/.exec(value);
+  const token = ref?.[1];
+  if (token === undefined || !DEFAULT.base.has(token)) return { kind: "unresolved", value };
+  const alpha = ref?.[2] === undefined ? 1 : Number(ref[2]) / 100;
+  return { kind: decl[1] === "background-color" ? "ground" : "text", token, alpha };
 }
 
-/** One class → the colour it paints as ground or text, if any. */
-function paintOf(candidate: string, conditional: boolean): { ground?: Paint; text?: Paint } {
-  const variants = candidate.split(":");
-  const utility = variants.pop() ?? "";
-  const always = !conditional && variants.length === 0;
-  const role = ROLE_TEXT.get(utility);
-  if (role !== undefined) return { text: { token: role, alpha: 1, always } };
-  const m = /^(bg|text)-([\w-]+?)(?:\/(\[[\d.]+%?\]|\d+))?$/.exec(utility);
-  const token = m === null ? undefined : COLOR_TOKENS.get(m[2] ?? "");
-  const alpha = m === null ? null : alphaOf(m[3]);
-  if (m === null || token === undefined || alpha === null) return {};
-  const paint = { token, alpha, always };
-  return m[1] === "bg" ? { ground: paint } : { text: paint };
+function resolveUtility(utility: string): Resolved {
+  let hit = RESOLVED.get(utility);
+  if (hit === undefined) RESOLVED.set(utility, (hit = compileUtility(utility)));
+  return hit;
+}
+
+/** A class's utility (after its variants) and whether it has any, split at `:` outside brackets. */
+function splitVariants(candidate: string): { utility: string; varied: boolean } {
+  let depth = 0;
+  let last = -1;
+  for (let i = 0; i < candidate.length; i++) {
+    const ch = candidate[i];
+    if (ch === "[" || ch === "(") depth++;
+    else if (ch === "]" || ch === ")") depth--;
+    else if (ch === ":" && depth === 0) last = i;
+  }
+  return { utility: candidate.slice(last + 1), varied: last >= 0 };
 }
 
 type AstNode = { readonly type: string; readonly start: number } & Record<string, unknown>;
@@ -307,6 +333,7 @@ function layerOf(element: AstNode): { layer: Layer; classes: readonly string[] }
   const value = attr?.["value"];
   const grounds: Paint[] = [];
   const texts: Paint[] = [];
+  const unresolved: string[] = [];
   const classes: string[] = [];
   for (const literal of isNode(value) ? classLiterals(value) : []) {
     const hits = new Scanner({}).getCandidatesWithPositions({
@@ -315,12 +342,16 @@ function layerOf(element: AstNode): { layer: Layer; classes: readonly string[] }
     });
     for (const { candidate } of hits) {
       classes.push(candidate);
-      const paint = paintOf(candidate, literal.conditional);
-      if (paint.ground) grounds.push(paint.ground);
-      if (paint.text) texts.push(paint.text);
+      const { utility, varied } = splitVariants(candidate);
+      const paint = resolveUtility(utility);
+      const always = !literal.conditional && !varied;
+      if (paint.kind === "ground") grounds.push({ token: paint.token, alpha: paint.alpha, always });
+      else if (paint.kind === "text")
+        texts.push({ token: paint.token, alpha: paint.alpha, always });
+      else if (paint.kind === "unresolved") unresolved.push(`${candidate} (${paint.value})`);
     }
   }
-  return { layer: { grounds, texts }, classes };
+  return { layer: { grounds, texts, unresolved }, classes };
 }
 
 /** Whether an element holds text of its own (not only child elements). */
@@ -346,9 +377,13 @@ function textsOf(own: readonly Paint[], inherited: readonly Paint[]): readonly P
 
 const ROOT_TEXT: readonly Paint[] = [{ token: "--foreground", alpha: 1, always: true }];
 
-/** Every text site in one module, and every element's chain by class (for MOUNTS). */
-function sitesIn(file: string, source: string) {
+/**
+ * One module's text sites, every element's chain by class (for MOUNTS), and
+ * every colour class that names no token, as `file:line: class (value)`.
+ */
+function scanModule(file: string, source: string) {
   const sites: Site[] = [];
+  const unresolved: string[] = [];
   const hosts = new Map<string, readonly Layer[]>();
   const lineOf = (at: number) => source.slice(0, at).split("\n").length;
   const walk = (node: AstNode, chain: readonly Layer[], inherited: readonly Paint[]): void => {
@@ -359,12 +394,14 @@ function sitesIn(file: string, source: string) {
     const { layer, classes } = layerOf(node);
     const own = [...chain, layer];
     const texts = textsOf(layer.texts, inherited);
+    const at = `${file}:${lineOf(node.start)}`;
     for (const c of classes) if (!hosts.has(c)) hosts.set(c, own);
-    if (holdsText(node)) sites.push({ at: `${file}:${lineOf(node.start)}`, texts, chain: own });
+    for (const u of layer.unresolved) unresolved.push(`${at}: ${u}`);
+    if (holdsText(node)) sites.push({ at, texts, chain: own });
     for (const child of childrenOf(node)) walk(child, own, texts);
   };
   walk(parseSync(file, source).program as unknown as AstNode, [], ROOT_TEXT);
-  return { sites, hosts };
+  return { sites, hosts, unresolved };
 }
 
 /**
@@ -392,9 +429,12 @@ function uiModules(): Map<string, string> {
   return out;
 }
 
-/** Every site, mounted ones included; a stale mount throws. */
-function allSites(modules: ReadonlyMap<string, string>, mounts = MOUNTS): Site[] {
-  const byFile = new Map([...modules].map(([file, source]) => [file, sitesIn(file, source)]));
+/** Every site, mounted ones included, and every unresolved colour class; a stale mount throws. */
+function scanUi(
+  modules: ReadonlyMap<string, string>,
+  mounts = MOUNTS,
+): { sites: Site[]; unresolved: string[] } {
+  const byFile = new Map([...modules].map(([file, source]) => [file, scanModule(file, source)]));
   const mounted = mounts.flatMap(({ host, at, guest }) => {
     const hostChain = byFile.get(host)?.hosts.get(at);
     const guestSites = byFile.get(guest)?.sites;
@@ -407,7 +447,11 @@ function allSites(modules: ReadonlyMap<string, string>, mounts = MOUNTS): Site[]
       chain: [...hostChain, ...s.chain],
     }));
   });
-  return [...[...byFile.values()].flatMap((f) => f.sites), ...mounted];
+  const scans = [...byFile.values()];
+  return {
+    sites: [...scans.flatMap((f) => f.sites), ...mounted],
+    unresolved: scans.flatMap((f) => f.unresolved).toSorted(),
+  };
 }
 
 const over = (top: Rgb, alpha: number, under: Rgb): Rgb => [
@@ -460,10 +504,27 @@ function tintFailures(sites: readonly Site[], id: DesignSystemId, variant: Varia
 }
 
 describe("design systems: contrast on composited grounds (WCAG AA)", () => {
-  const sites = allSites(uiModules());
+  const { sites, unresolved } = scanUi(uiModules());
   const cases = DESIGN_SYSTEM_IDS.flatMap((id) =>
     (["light", "dark"] as const).map((variant) => ({ id, variant })),
   );
+
+  it("every colour class the UI writes paints a design-system token", () => {
+    expect(unresolved).toEqual([]);
+  });
+
+  it("the red case: a palette colour is reported, keywords and non-colours are not", () => {
+    const fixture = new Map([
+      [
+        "chip.tsx",
+        '<span className="bg-amber-500/10 text-label text-amber-600 bg-transparent text-current hover:text-foreground/40">!</span>;',
+      ],
+    ]);
+    expect(scanUi(fixture, []).unresolved).toEqual([
+      "chip.tsx:1: bg-amber-500/10 (color-mix(in oklab, var(--color-amber-500) 10%, transparent))",
+      "chip.tsx:1: text-amber-600 (var(--color-amber-600))",
+    ]);
+  });
 
   it("finds the UI's tinted text sites", () => {
     const tinted = sites.filter((s) => s.chain.some((l) => l.grounds.some((p) => p.alpha < 1)));
@@ -485,7 +546,7 @@ describe("design systems: contrast on composited grounds (WCAG AA)", () => {
         ].join("\n"),
       ],
     ]);
-    const found = tintFailures(allSites(fixture, []), DEFAULT_DESIGN_SYSTEM, "light");
+    const found = tintFailures(scanUi(fixture, []).sites, DEFAULT_DESIGN_SYSTEM, "light");
     expect(found.length).toBeGreaterThan(0);
     expect(
       found.every((f) => f.startsWith("chip.tsx:2: --warning on --") && f.includes("/60%")),
@@ -501,11 +562,11 @@ describe("design systems: contrast on composited grounds (WCAG AA)", () => {
       ["md.tsx", '<a className="kb-md-ref">{label}</a>;'],
     ]);
     const mounts = [{ host: "row.tsx", at: "node-content", guest: "md.tsx" }];
-    const found = tintFailures(allSites(fixture, mounts), DEFAULT_DESIGN_SYSTEM, "light");
+    const found = tintFailures(scanUi(fixture, mounts).sites, DEFAULT_DESIGN_SYSTEM, "light");
     const stacked =
       "md.tsx:1 in row.tsx: --primary on --background + --primary/20% + --primary/20%:";
     expect(found.some((f) => f.startsWith(stacked))).toBe(true);
-    expect(() => allSites(fixture, [{ host: "row.tsx", at: "gone", guest: "md.tsx" }])).toThrow(
+    expect(() => scanUi(fixture, [{ host: "row.tsx", at: "gone", guest: "md.tsx" }])).toThrow(
       /stale mount/,
     );
   });

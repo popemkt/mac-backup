@@ -310,15 +310,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Extract the hull geometry first (it is pure and testable), then the renderer object.
 - **node** — `01M1MGCQ3JT5GE3FY5XJ9EB67Q`
 
-### GAP: the graph query-error chip colours itself with Tailwind amber instead of the warning token
-
-- **expected** — The chip reads the design system's warning colour (bg-warning/10 text-warning), like every other status surface, so a design-system swap re-colours it.
-- **current** — graph-page.tsx paints it bg-amber-500/10 text-amber-600 dark:text-amber-400, Tailwind palette values outside the design system, under a GAP-marked disable of design-tokens/no-raw-design-value.
-- **impact** — A swapped design system leaves this one chip amber, and warning and amber are two near-identical yellows for one meaning.
-- **closes** — Replace the three classes with the warning token. That is a visible colour change, so it lands as its own commit outside the no-visual-change token restructure (wave 2026-09-24 f1).
-- **rule** — Design tokens: no bypass
-- **node** — `01M3AD9BRB1C5YMJFDQC1MDAFA`
-
 ### GAP: the inline markdown parser is a 41-branch hand-rolled scanner
 
 - **expected** — Inline markdown parses through a table of segment recognizers tried in order, each recognizer a named, separately tested function.
@@ -815,6 +806,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Lift the node lookup to a prop or a small resolver passed by the caller, the way RefAutocomplete already takes its candidates. Lands with the outline-store split.
 - **rule** — UI import matrix
 - **node** — `01M1RXMRJA3ZRAWPTB0ZH5YEYG`
+
+### GAP: the graph query-error chip colours itself with Tailwind amber instead of the warning token
+
+- **expected** — The chip reads the design system's warning colour (bg-warning/10 text-warning), like every other status surface, so a design-system swap re-colours it.
+- **current** — graph-page.tsx paints it bg-amber-500/10 text-amber-600 dark:text-amber-400, Tailwind palette values outside the design system, under a GAP-marked disable of design-tokens/no-raw-design-value.
+- **impact** — A swapped design system leaves this one chip amber, and warning and amber are two near-identical yellows for one meaning.
+- **closes** — Replace the three classes with the warning token. That is a visible colour change, so it lands as its own commit outside the no-visual-change token restructure (wave 2026-09-24 f1).
+- **rule** — Design tokens: no bypass
+- **node** — `01M3AD9BRB1C5YMJFDQC1MDAFA`
 
 ### GAP: the legacy localStorage migration in loadExpandedIds has no end date
 
