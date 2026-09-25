@@ -97,20 +97,27 @@ describe("design systems: completeness against the default", () => {
   });
 });
 
+/** An opaque sRGB colour, 0–255 per channel, as the browser paints it. */
+type Rgb = readonly [r: number, g: number, b: number];
+
+function rgbOf(color: string): Rgb {
+  const rgb = oklchToRgb(color);
+  if (rgb === null) throw new Error(`not an oklch colour: ${color}`);
+  if (rgb.alpha < 1) throw new Error(`translucent colour in a contrast pair: ${color}`);
+  return [rgb.r, rgb.g, rgb.b];
+}
+
 /** sRGB byte → linear light (WCAG 2 relative luminance). */
 function linear(byte: number): number {
   const v = byte / 255;
   return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
 }
 
-function luminance(color: string): number {
-  const rgb = oklchToRgb(color);
-  if (rgb === null) throw new Error(`not an oklch colour: ${color}`);
-  if (rgb.alpha < 1) throw new Error(`translucent colour in a contrast pair: ${color}`);
-  return 0.2126 * linear(rgb.r) + 0.7152 * linear(rgb.g) + 0.0722 * linear(rgb.b);
+function luminance([r, g, b]: Rgb): number {
+  return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
 }
 
-function contrast(a: string, b: string): number {
+function contrast(a: Rgb, b: Rgb): number {
   const [hi, lo] = [luminance(a), luminance(b)].toSorted((x, y) => y - x);
   return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
 }
@@ -145,7 +152,7 @@ describe("design systems: contrast (WCAG AA)", () => {
     (["light", "dark"] as const).map((variant) => ({ id, variant })),
   );
   it.each(cases)("$id/$variant text meets AA on its ground", ({ id, variant }) => {
-    const value = (token: string) => SHEETS.resolve(id, variant, token);
+    const value = (token: string) => rgbOf(SHEETS.resolve(id, variant, token));
     const failures = PAIRS.map(([text, ground]) => ({
       name: `${id}/${variant} ${text} on ${ground}`,
       ratio: contrast(value(text), value(ground)),
