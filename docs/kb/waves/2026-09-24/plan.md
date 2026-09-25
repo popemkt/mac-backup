@@ -16,8 +16,8 @@ pushed.
 | f1 | tokens, restructure: type scale, elevation, border, mono font; no visual change | d | merged `ca97673` (grok: approve after 5 rounds) |
 | f2 | tokens, add: `html[data-theme]` design-system sets and the preference that picks one | f1 | merged `ac0fcf7` (grok: approve); kb light AA contrast merged `c77709b7` |
 | g | graph polish: one shared scene module (bloom, fog, starfield, link particles, camera fly-to) used by lab and force3d; 2D curved edges, label halos, hover fade | e, f2 | merged `1ddb4f9` (grok: approve after 4 rounds) |
-| h | CI green: push-time pin verify checks consistency only; refresh pins; push `main` and watch `Validate` | a–g merged | pushed `3595ecfa`; `Validate` nix job red (silent verify exit on runner), fix building |
-| z | whole-wave audit, then a prioritised fix pass: polish, tests, UX, visual impact, modularity, design cleanliness | h | audit done (`reports/closing-audit.md`); fix packages WP1–WP5 building |
+| h | CI green: push-time pin verify checks consistency only; refresh pins; push `main` and watch `Validate` | a–g merged | paused — see `resume.md` (Validate nix red; fix on PINS branch, unreviewed) |
+| z | whole-wave audit, then a prioritised fix pass: polish, tests, UX, visual impact, modularity, design cleanliness | h | paused — audit done; WP1–WP5 not started (WP2 has a repro); see `resume.md` |
 
 d and e run in parallel. f1 touches most UI components, so nothing else in
 the UI runs beside it.
