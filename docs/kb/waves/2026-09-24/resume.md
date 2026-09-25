@@ -78,6 +78,22 @@ Still waiting for the user:
 - **D-13:** the walkthrough HTML is deleted or regenerated.
 - **D-14:** design systems and plugins become nodes.
 
+## Model strategy (user's choice)
+
+- **Sonnet 5** (`model: "sonnet"`) for mundane work:
+  - landing, rebasing and resolving the node stores;
+  - CI replays and watching runs;
+  - status and doc upkeep;
+  - mechanical migrations;
+  - evidence and screenshot capture;
+  - harvesting and relaying reviews.
+- **Opus** for code generation:
+  - the fix packages WP1–WP5 and the PINS fix;
+  - any design or refactor work;
+  - fixes answering review findings.
+- **Reviews** use grok-4.7 through `omp`. When grok is out of budget, a fresh
+  Opus reviewer takes over.
+
 ## Process lessons (carry forward)
 
 - Launch every review through `orca-review.sh` in the background, so its
