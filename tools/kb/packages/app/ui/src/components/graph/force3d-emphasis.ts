@@ -24,16 +24,16 @@ export interface Force3dTopology {
   /** Link indices touching each node. */
   readonly incident: readonly (readonly number[])[];
   /**
-   * How much each node glows unprompted, by degree: the few best-connected
-   * hubs cross the bloom threshold, the next tier is only a little brighter,
-   * the rest stay matte.
+   * Each node's unprompted tier, by degree: the few best-connected are hubs
+   * (`TIER.hub`, they bloom and stand larger), the next are rising
+   * (`TIER.rising`, a little brighter, never blooming), the rest none.
    */
-  readonly prominence: Float32Array;
+  readonly tier: Uint8Array;
 }
 
-/** The share of nodes, by degree, in each unprompted tier, and its glow. */
-const HUBS = { share: 0.03, glow: 0.5 } as const;
-const RISING = { share: 0.1, glow: 0.1 } as const;
+export const TIER = { none: 0, rising: 1, hub: 2 } as const;
+/** The share of nodes, by degree, in each unprompted tier. */
+const SHARE = { hub: 0.03, rising: 0.1 } as const;
 /** …and the degree a node needs to be in a tier at all. */
 const PROMINENT_DEGREE = 4;
 
@@ -57,12 +57,12 @@ export function topologyOf(
     .map((node, i) => ({ i, degree: node.degree }))
     .filter((n) => n.degree >= PROMINENT_DEGREE)
     .toSorted((a, b) => b.degree - a.degree || a.i - b.i);
-  const prominence = new Float32Array(nodes.length);
-  const hubs = Math.max(1, Math.round(nodes.length * HUBS.share));
-  const rising = hubs + Math.round(nodes.length * RISING.share);
+  const tier = new Uint8Array(nodes.length);
+  const hubs = Math.max(1, Math.round(nodes.length * SHARE.hub));
+  const rising = hubs + Math.round(nodes.length * SHARE.rising);
   ranked.forEach((n, rank) => {
-    if (rank < hubs) prominence[n.i] = HUBS.glow;
-    else if (rank < rising) prominence[n.i] = RISING.glow;
+    if (rank < hubs) tier[n.i] = TIER.hub;
+    else if (rank < rising) tier[n.i] = TIER.rising;
   });
   return {
     nodes,
@@ -70,7 +70,7 @@ export function topologyOf(
     index,
     links,
     incident,
-    prominence,
+    tier,
   };
 }
 
@@ -83,8 +83,23 @@ export interface Force3dFades {
   readonly focus: EmphasisFade;
 }
 
-/** Glow per role; a dimmed node never glows. */
-const GLOW = { focus: 0.7, hover: 0.6, match: 0.5, neighbour: 0.12 } as const;
+/**
+ * Glow per role; a dimmed node never glows. Focus, hover, a search match and
+ * a hub cross the bloom threshold; the rising tier and a focus's neighbours
+ * stay under it for every node colour and design system — their values sit
+ * inside the headroom `force3d-light.test.ts` computes from the stylesheets
+ * (0.037 today: orange under the kb dark ink leaves the least).
+ */
+export const GLOW = {
+  focus: 0.7,
+  hover: 0.6,
+  match: 0.5,
+  hub: 0.5,
+  rising: 0.03,
+  neighbour: 0.03,
+} as const;
+
+const TIER_GLOW = [0, GLOW.rising, GLOW.hub] as const;
 
 /** The node in focus: the selection wins over the hover. */
 export function focusOf(state: GraphEmphasis, hovered: string | null): string | null {
@@ -112,7 +127,10 @@ export function setEmphasisTargets(
             ? GLOW.hover
             : state.highlightIds?.has(node.id) === true
               ? GLOW.match
-              : Math.max(topology.prominence[i] ?? 0, active !== null ? GLOW.neighbour : 0);
+              : Math.max(
+                  TIER_GLOW[topology.tier[i] ?? 0] ?? 0,
+                  active !== null ? GLOW.neighbour : 0,
+                );
     fades.glow.setTarget(i, glow);
     fades.focus.setTarget(i, node.id === active ? 1 : 0);
   });

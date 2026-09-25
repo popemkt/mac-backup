@@ -29,18 +29,15 @@ import {
 } from "three/tsl";
 import type { PaletteUniforms } from "@/scene/gpu/stage";
 import { toRenderableColor } from "@/lib/css-color";
-import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";
+import { TIER, type Force3dFades, type Force3dTopology } from "./force3d-emphasis";
+import { KEY_DIRECTION, NODE_LIGHT, RIM_POWER } from "./force3d-light";
 
-/** How far past white a fully glowing node's colour goes (L2: only HDR glows). */
-const GLOW_GAIN = 2.4;
-/** How far a glowing node's light whitens toward its core. */
-const GLOW_WHITE = 0.25;
 /** World radius per cube root of a lens node's size. */
 const RADIUS_PER_SIZE = 4.2;
 /** How much the node in focus swells. */
 const FOCUS_SWELL = 0.45;
-/** How much larger a node stands per unit of unprompted prominence. */
-const HUB_SWELL = 0.8;
+/** How much larger a hub stands. */
+const HUB_SWELL = 0.4;
 /** Above this many nodes the sphere is tessellated more coarsely. */
 const DENSE = 2000;
 
@@ -74,12 +71,13 @@ export function nodeLayer(
   const emphasis = instancedDynamicBufferAttribute(look, "vec2");
   material.positionNode = positionLocal.mul(at.w).add(at.xyz);
   const normal = normalize(normalView);
-  const key = normal.dot(normalize(vec3(-0.45, 0.62, 0.64))).max(0);
-  const rim = float(1).sub(normal.z.max(0)).pow(2.4);
-  const lit = hue.mul(key.mul(0.5).add(0.42)).add(colors.ink.mul(rim.mul(0.16)));
+  const key = normal.dot(vec3(...KEY_DIRECTION)).max(0);
+  const rim = float(1).sub(normal.z.max(0)).pow(RIM_POWER);
+  const L = NODE_LIGHT;
+  const lit = hue.mul(key.mul(L.key).add(L.fill)).add(colors.ink.mul(rim.mul(L.rim)));
   const presence = emphasis.x.pow(2);
-  const light = mix(hue, vec3(1, 1, 1), GLOW_WHITE);
-  material.colorNode = mix(colors.ground, lit, presence).add(light.mul(emphasis.y.mul(GLOW_GAIN)));
+  const light = mix(hue, vec3(1, 1, 1), L.glowWhite);
+  material.colorNode = mix(colors.ground, lit, presence).add(light.mul(emphasis.y.mul(L.glowGain)));
 
   const segments = topology.nodes.length > DENSE ? [12, 8] : [24, 16];
   const mesh = new InstancedMesh(new SphereGeometry(1, segments[0], segments[1]), material, n);
@@ -102,7 +100,7 @@ export function nodeLayer(
   // The degree hierarchy reads in size as well as light: hubs stand a little larger.
   const radius = (i: number) =>
     (base[i] ?? 1) *
-    (1 + HUB_SWELL * (topology.prominence[i] ?? 0)) *
+    (topology.tier[i] === TIER.hub ? 1 + HUB_SWELL : 1) *
     (1 + FOCUS_SWELL * (fades.focus.values[i] ?? 0));
   return {
     mesh,

@@ -401,7 +401,12 @@ like themselves (P5).
   the focused, hovered, searched-for and best-connected nodes glow past 1,
   so only they bloom (L2). Degree sets a quiet hierarchy: the top 3% of
   nodes by degree glow and stand a little larger, the next 10% are only a
-  little brighter, the rest stay matte. Range fog follows the camera's distance, a
+  little brighter, the rest stay matte. Which glows may cross 1 is checked,
+  not assumed: `force3d-light.ts` holds the node light's constants (the
+  shader is built from them) and bounds its output, and
+  `force3d-light.test.ts` proves, for every tag colour under every design
+  system's ink, that the rising tier and a focus's neighbours stay under the
+  threshold and a hub crosses it. Range fog follows the camera's distance, a
   restrained starfield stands at infinity, the backdrop is the page's own
   surface, and dither breaks banding (L3, L4); there is no tone mapping, so
   the tokens are reproduced exactly and the canvas meets the page. Links
