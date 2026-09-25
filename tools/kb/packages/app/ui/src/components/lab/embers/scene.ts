@@ -20,7 +20,7 @@
  * springs lag the core (M3). Distance fades into the ground (L3).
  */
 import { Mesh, PointLight, SphereGeometry, Vector3 } from "three/webgpu";
-import { float, instanceIndex, mix, positionLocal, smoothstep, uniform, vec3 } from "three/tsl";
+import { float, instanceIndex, mix, positionLocal, uniform, vec3 } from "three/tsl";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
 import { PointerField } from "@/components/lab/kit/pointer";
 import { createRig, finishMaterial } from "@/scene/gpu/rig";
@@ -35,24 +35,8 @@ import {
   RestCeiling,
   displayTemperature,
   heatEmissive,
-  type HeatOps,
 } from "@/components/lab/embers/heat";
-import type { TslNode } from "@/scene/gpu/tsl";
-
-/** `heat.ts`'s arithmetic as TSL nodes: the curve's one definition, on the GPU. */
-const NODE_OPS: HeatOps<TslNode, TslNode> = {
-  num: (value) => float(value),
-  add: (a, b) => a.add(b),
-  max: (a, b) => a.max(b),
-  min: (a, b) => a.min(b),
-  mul: (a, b) => a.mul(b),
-  smoothstep: (from, to, t) => smoothstep(from, to, t),
-  mix: (a, b, t) => mix(a, b, t),
-  scale: (v, s) => v.mul(s),
-  tint: (v, rgb) => v.mul(vec3(...rgb)),
-  addColor: (a, b) => a.add(b),
-  white: vec3(1, 1, 1),
-};
+import { NODE_OPS } from "@/scene/gpu/tsl";
 
 const SHAPE: EmberShape = { count: 3400, sphere: 0.1, cloud: 3.4 };
 const CAMERA_Z = 17;

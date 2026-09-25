@@ -3,9 +3,21 @@
  * whose published types are looser than the nodes they hand back, wrapped
  * once so no scene casts.
  */
-import { Loop, int, mix, uniformArray, type ShaderNodeObject } from "three/tsl";
+import {
+  Loop,
+  float,
+  int,
+  max,
+  min,
+  mix,
+  smoothstep,
+  uniformArray,
+  vec3,
+  type ShaderNodeObject,
+} from "three/tsl";
 import type { Node } from "three/webgpu";
 import { easeAt, type CubicBezier } from "@/lib/timing";
+import type { ShadeOps } from "@/scene/shade-ops";
 
 export type TslNode = ShaderNodeObject<Node>;
 
@@ -41,3 +53,28 @@ export function easeNode(curve: CubicBezier): (t: TslNode) => TslNode {
     return mix(table.element(low), table.element(high), at.fract());
   };
 }
+
+/**
+ * `@/scene/shade-ops`'s arithmetic as TSL nodes: a shading formula written
+ * over `ShadeOps` runs on the GPU with these, and on the CPU with
+ * `NUMBER_OPS` — one definition, no mirror.
+ */
+export const NODE_OPS: ShadeOps<TslNode, TslNode> = {
+  num: (value) => float(value),
+  add: (a, b) => a.add(b),
+  mul: (a, b) => a.mul(b),
+  max: (a, b) => a.max(b),
+  min: (a, b) => a.min(b),
+  smoothstep: (from, to, t) => smoothstep(from, to, t),
+  mix: (a, b, t) => mix(a, b, t),
+  scale: (v, s) => v.mul(s),
+  tint: (v, rgb) => v.mul(vec3(...rgb)),
+  addColor: (a, b) => a.add(b),
+  subColor: (a, b) => a.sub(b),
+  divColor: (a, b) => a.div(b),
+  minColor: (a, b) => min(a, b),
+  maxColor: (a, b) => max(a, b),
+  minChannel: (v) => v.x.min(v.y).min(v.z),
+  white: vec3(1, 1, 1),
+  black: vec3(0, 0, 0),
+};

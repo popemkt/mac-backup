@@ -1,11 +1,11 @@
 /**
  * Embers' heat-to-light curve, stated once (Lab principle L2).
  *
- * `heatEmissive` and `displayTemperature` are written over a small
- * arithmetic interface, so the one definition runs twice: as TSL nodes in the
- * sphere material, and as numbers on the CPU, where `restCeiling` asks it how
- * warm the resting glow may be before any channel of any sphere's emissive
- * crosses the bloom threshold.
+ * `heatEmissive` and `displayTemperature` are written over the scene kit's
+ * shading arithmetic (`@/scene/shade-ops`), so the one definition runs twice:
+ * as TSL nodes in the sphere material, and as numbers on the CPU, where
+ * `restCeiling` asks it how warm the resting glow may be before any channel
+ * of any sphere's emissive crosses the bloom threshold.
  *
  * The cap lives where the colour is made. The shown temperature is the
  * contact heat or the capped resting glow, whichever is warmer, and the cap
@@ -20,22 +20,9 @@
  * halo). A small maroon floor keeps the coolest sphere a colour (L1).
  */
 
-/** The arithmetic the curve needs, over a colour type V and a scalar type S. */
-export interface HeatOps<V, S> {
-  readonly num: (value: number) => S;
-  readonly add: (a: S, b: S) => S;
-  readonly max: (a: S, b: S) => S;
-  readonly min: (a: S, b: S) => S;
-  readonly mul: (a: S, b: S) => S;
-  readonly smoothstep: (from: number, to: number, t: S) => S;
-  readonly mix: (a: V, b: V, t: S) => V;
-  readonly scale: (v: V, s: S) => V;
-  readonly tint: (v: V, rgb: Rgb) => V;
-  readonly addColor: (a: V, b: V) => V;
-  readonly white: V;
-}
+import { NUMBER_OPS, type Rgb, type ShadeOps } from "@/scene/shade-ops";
 
-export type Rgb = readonly [number, number, number];
+export type { Rgb };
 
 /** The accent's ember: its red kept, its green and blue sunk. */
 export const EMBER_TINT: Rgb = [0.85, 0.28, 0.12];
@@ -51,7 +38,7 @@ const FLOOR = 0.2;
 export const HEAT_GAIN = { dark: 3.2, light: 2.4 } as const;
 
 /** The emissive colour of a sphere at temperature `t` (0 cold, 1 pop, 1.6 flash). */
-export function heatEmissive<V, S>(o: HeatOps<V, S>, accent: V, t: S, gain: S): V {
+export function heatEmissive<V, S>(o: ShadeOps<V, S>, accent: V, t: S, gain: S): V {
   const ember = o.tint(accent, EMBER_TINT);
   const maroon = o.scale(ember, o.num(MAROON));
   const hot = o.mix(accent, o.white, o.num(HOT_WHITE));
@@ -71,29 +58,9 @@ export function heatEmissive<V, S>(o: HeatOps<V, S>, accent: V, t: S, gain: S): 
  * The temperature a sphere is shown at: its contact heat (and a pop's flash),
  * or its resting glow capped at `ceiling`, whichever is warmer.
  */
-export function displayTemperature<V, S>(o: HeatOps<V, S>, contact: S, rest: S, ceiling: S): S {
+export function displayTemperature<V, S>(o: ShadeOps<V, S>, contact: S, rest: S, ceiling: S): S {
   return o.max(contact, o.min(rest, ceiling));
 }
-
-function smooth(from: number, to: number, t: number): number {
-  const x = Math.max(0, Math.min(1, (t - from) / (to - from)));
-  return x * x * (3 - 2 * x);
-}
-
-/** The curve's arithmetic on plain numbers: linear RGB triples. */
-const NUMBER_OPS: HeatOps<Rgb, number> = {
-  num: (value) => value,
-  add: (a, b) => a + b,
-  max: Math.max,
-  min: Math.min,
-  mul: (a, b) => a * b,
-  smoothstep: smooth,
-  mix: (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t],
-  scale: (v, s) => [v[0] * s, v[1] * s, v[2] * s],
-  tint: (v, rgb) => [v[0] * rgb[0], v[1] * rgb[1], v[2] * rgb[2]],
-  addColor: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
-  white: [1, 1, 1],
-};
 
 /** The brightest channel of the emissive at `t`. */
 export function peakEmissive(accent: Rgb, gain: number, t: number): number {
