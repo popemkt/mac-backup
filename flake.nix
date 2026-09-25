@@ -114,11 +114,13 @@
         remarshal
       ];
 
+      # The script runs under the app's own bash, never whatever `env bash`
+      # finds: on a minimal PATH that is macOS's /bin/bash 3.2.
       githubSources = pkgs.writeShellApplication {
         name = "github-sources";
         runtimeInputs = githubSourcesRuntime;
         text = ''
-          exec ${./scripts/github-sources} "$@"
+          exec ${pkgs.lib.getExe pkgs.bash} ${./scripts/github-sources} "$@"
         '';
       };
 
