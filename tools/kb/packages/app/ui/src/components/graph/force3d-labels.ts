@@ -68,13 +68,31 @@ function paint(text: string, palette: ScenePalette, font: string) {
   return { map, width };
 }
 
+/**
+ * The screen box a node in focus keeps clear of other labels: its disc of
+ * `radius` CSS pixels round its projected point (`ndc`, after `project()`),
+ * or none when the node is not in front of the camera — a node behind it
+ * projects to nonsense, and would blank every label while the camera dollies
+ * through it. A new box per node, so two nodes in focus keep two discs.
+ */
+export function focusDisc(
+  ndc: { readonly x: number; readonly y: number; readonly z: number },
+  radius: number,
+  width: number,
+  height: number,
+): GraphLabelBox | null {
+  if (!(ndc.z < 1) || !Number.isFinite(radius)) return null;
+  const x = ((ndc.x + 1) / 2) * width;
+  const y = ((1 - ndc.y) / 2) * height;
+  return { x: x - radius, y: y - radius, width: 2 * radius, height: 2 * radius };
+}
+
 export class LabelLayer {
   private readonly labels = new Map<number, Label>();
   private readonly occupied: GraphLabelBox[] = [];
   private readonly order: Label[] = [];
   private readonly point = new Vector3();
   private readonly up = new Vector3();
-  private readonly focusDisc: GraphLabelBox = { x: 0, y: 0, width: 0, height: 0 };
   private pixelScale = 1;
   private readonly group: Group;
   private topology: Force3dTopology;
@@ -162,12 +180,8 @@ export class LabelLayer {
       this.point.set(positions[i * 3] ?? 0, positions[i * 3 + 1] ?? 0, positions[i * 3 + 2] ?? 0);
       const r = (radius(i) * focal) / Math.max(1, this.point.distanceTo(camera.position));
       this.point.project(camera);
-      const x = ((this.point.x + 1) / 2) * width;
-      const y = ((1 - this.point.y) / 2) * height;
-      this.focusDisc.x = x - r;
-      this.focusDisc.y = y - r;
-      this.focusDisc.width = this.focusDisc.height = 2 * r;
-      this.occupied.push(this.focusDisc);
+      const disc = focusDisc(this.point, r, width, height);
+      if (disc !== null) this.occupied.push(disc);
     }
     for (const label of this.order) {
       const i = label.node;
