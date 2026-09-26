@@ -33,19 +33,35 @@ function node(id: string, text: string, updatedAt = "2026-01-01T00:00:00.000Z"):
 
 let repo: string;
 
-/** Run git in the scratch repo, with `env` over the inherited environment. */
+/**
+ * The inherited environment without a single `GIT_*` variable.
+ *
+ * A test run launched from inside git — a pre-commit hook, `rebase --exec` —
+ * inherits `GIT_DIR`, `GIT_INDEX_FILE` and friends, and a git that sees them
+ * works on *that* repository instead of the scratch one: `git config` then
+ * writes the driver line into the real clone's `.git/config`. So nothing of
+ * git's own environment reaches the scratch git.
+ */
+function scrubbedEnv(): Record<string, string | undefined> {
+  return Object.fromEntries(Object.entries(Bun.env).filter(([key]) => !key.startsWith("GIT_")));
+}
+
+/** Run git in the scratch repo, with `env` over the scrubbed environment. */
 async function gitWith(
   env: Record<string, string>,
   ...args: string[]
-): Promise<{ code: number; stderr: string }> {
+): Promise<{ code: number; stderr: string; stdout: string }> {
   const proc = Bun.spawn(["git", ...args], {
     cwd: repo,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...Bun.env, GIT_CONFIG_NOSYSTEM: "1", HOME: repo, ...env },
+    env: { ...scrubbedEnv(), GIT_CONFIG_NOSYSTEM: "1", HOME: repo, ...env },
   });
-  const stderr = await new Response(proc.stderr).text();
-  return { code: await proc.exited, stderr };
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  return { code: await proc.exited, stderr, stdout };
 }
 
 const git = (...args: string[]) => gitWith({}, ...args);
@@ -86,6 +102,31 @@ describe("nodes.jsonl merge driver", () => {
   });
   afterEach(async () => {
     await rm(repo, { recursive: true, force: true });
+  });
+
+  test("git's own environment never reaches the scratch repo", async () => {
+    // What a hook or `rebase --exec` hands a test run: another repository.
+    const decoy = await mkdtemp(join(tmpdir(), "kb-merge-decoy-"));
+    const leaked = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"] as const;
+    const saved = leaked.map((key) => [key, process.env[key]] as const);
+    try {
+      await gitWith({}, "init", "-q", "--bare", decoy);
+      process.env.GIT_DIR = decoy;
+      process.env.GIT_WORK_TREE = decoy;
+      process.env.GIT_INDEX_FILE = join(decoy, "index");
+
+      await git("config", "kb.guard", "scratch");
+      const where = await git("rev-parse", "--absolute-git-dir");
+
+      expect(realpathSync(where.stdout.trim())).toBe(realpathSync(join(repo, ".git")));
+      expect(await readFile(join(decoy, "config"), "utf8")).not.toContain("guard");
+    } finally {
+      for (const [key, value] of saved) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+      await rm(decoy, { recursive: true, force: true });
+    }
   });
 
   test("two branches each appending a node merge without a conflict", async () => {
