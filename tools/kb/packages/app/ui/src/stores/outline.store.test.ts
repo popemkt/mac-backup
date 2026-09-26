@@ -7,10 +7,6 @@ import { resetOutlineStore } from "@/test-support/outline-store";
 import { useUiStore } from "@/stores/ui.store";
 import { useOutlineStore } from "./outline.store";
 
-function toastCount(): number {
-  return useUiStore.getState().toasts.length;
-}
-
 function seed() {
   useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
 }
@@ -157,7 +153,7 @@ describe("outline store (WireNode adaptation)", () => {
 
   it("zoomTo selects the first visible row under the root, never the root itself", () => {
     seed();
-    const before = toastCount();
+    useUiStore.setState({ toasts: [] });
     useOutlineStore.getState().zoomTo("n.root-a");
     const s = useOutlineStore.getState();
     expect(s.selectedNodeId).toBe("n.child-a1");
@@ -167,7 +163,7 @@ describe("outline store (WireNode adaptation)", () => {
     const selected = s.selectedNodeId;
     if (selected !== null) s.activateNode(selected, 0, s.selectedInstanceKey ?? undefined);
     expect(useOutlineStore.getState().activeNodeId).toBe("n.child-a1");
-    expect(toastCount()).toBe(before);
+    expect(useUiStore.getState().toasts).toEqual([]);
   });
 
   it("zoomTo a leaf selects nothing", () => {

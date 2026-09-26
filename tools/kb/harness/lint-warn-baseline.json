@@ -77,7 +77,6 @@
       "types:packages/app/ui/src/stores/outline.store.ts:ActivateOpts": 1,
       "types:packages/app/ui/src/stores/outline.store.ts:CaretIntent": 1,
       "types:packages/app/ui/src/stores/outline.store.ts:VisibleInstance": 1,
-      "types:packages/app/ui/src/stores/ui.store.ts:Toast": 1,
       "types:packages/contract/contracts/src/actions.ts:ActionHandlerError": 1
     }
   }

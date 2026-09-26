@@ -6,6 +6,27 @@ export interface Toast {
   id: number;
   kind: "error" | "info";
   text: string;
+  /** How many times this same message arrived while it was on screen. */
+  count: number;
+}
+
+/** At most this many toasts show at once; the oldest yields. */
+export const TOAST_LIMIT = 3;
+const TOAST_MS = 6000;
+
+/**
+ * The toast list after `incoming` arrives. A message already on screen is not
+ * stacked a second time: it moves to the newest slot with its count raised
+ * (and a fresh id, so its timer restarts). The list keeps the newest
+ * `TOAST_LIMIT`.
+ */
+export function withToast(
+  toasts: readonly Toast[],
+  incoming: { id: number; kind: Toast["kind"]; text: string },
+): Toast[] {
+  const same = (t: Toast) => t.kind === incoming.kind && t.text === incoming.text;
+  const count = (toasts.find(same)?.count ?? 0) + 1;
+  return [...toasts.filter((t) => !same(t)), { ...incoming, count }].slice(-TOAST_LIMIT);
 }
 
 interface UiState {
@@ -53,10 +74,10 @@ export const useUiStore = create<UiState>((set) => ({
 
   pushToast: (kind, text) => {
     const id = ++toastSeq;
-    set((s) => ({ toasts: [...s.toasts, { id, kind, text }].slice(-5) }));
+    set((s) => ({ toasts: withToast(s.toasts, { id, kind, text }) }));
     setTimeout(() => {
       set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
-    }, 6000);
+    }, TOAST_MS);
   },
 
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
