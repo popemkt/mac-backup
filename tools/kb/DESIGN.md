@@ -502,7 +502,14 @@ type PropValue =
   browser's local replica) commits through, and `@kb/client`'s commit — and a
   violation is the same `invalid_input` DomainError. What it checks is the
   values a transaction _writes_: those an upserted node holds that its stored
-  version did not. Values already stored are not rechecked, so a legacy store
+  version did not. A field may also declare how many values it holds:
+  `sys.f.cardinality`, a ref to one of its own children `sys.cardinality.one`
+  / `sys.cardinality.many` (the option-set shape, like `sys.f.fieldType`), with
+  absence meaning many. A write that leaves a `one` field holding two values
+  is refused by the same check, so a replacement is one `node.update` carrying
+  both `unsetProps` and `setProps` (it removes before it adds), never an unset
+  and a set in two transactions. Every seeded setting declares `one`.
+  Values already stored are not rechecked, so a legacy store
   stays editable and a node's unrelated edit never fails over an old value;
   the cost is that a retype or a delete can strand values (a recorded gap). A
   ref field's _target constraint_ (`allowedRefIdsOf`) is not part of the check

@@ -109,7 +109,12 @@ describe("typed field seeds", () => {
         present(byId.get(SYSTEM_IDS.field), "expected byId.get(SYSTEM_IDS.field)"),
         SYSTEM_IDS.fieldsField,
       ),
-    ).toEqual([SYSTEM_IDS.fieldTypeField, SYSTEM_IDS.targetTagField, SYSTEM_IDS.targetQueryField]);
+    ).toEqual([
+      SYSTEM_IDS.fieldTypeField,
+      SYSTEM_IDS.cardinalityField,
+      SYSTEM_IDS.targetTagField,
+      SYSTEM_IDS.targetQueryField,
+    ]);
   });
 
   test("fieldTypeOf reads both the node form and the pre-option-node string", () => {

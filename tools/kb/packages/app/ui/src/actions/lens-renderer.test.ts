@@ -13,19 +13,13 @@ const perspective: WireNode = {
 };
 
 describe("lens action inputs", () => {
-  it("replaces renderer through ordered node.update actions", () => {
+  it("replaces the renderer in one node.update, so no one sees it unset", () => {
     expect(planSetLensRenderer([perspective], perspective.id, "force3d").actions).toEqual([
       {
         id: "node.update",
         input: {
           id: perspective.id,
           unsetProps: [{ field: SYSTEM_IDS.lensRendererField }],
-        },
-      },
-      {
-        id: "node.update",
-        input: {
-          id: perspective.id,
           setProps: [
             {
               field: SYSTEM_IDS.lensRendererField,

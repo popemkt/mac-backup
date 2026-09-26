@@ -26,6 +26,12 @@ function requireNode(nodes: WireNode[], id: string): WireNode {
 const update = (id: string, input: Record<string, unknown>): PlannedMutation =>
   plan({ id: "node.update", input: { id, ...input } });
 
+/**
+ * Replace fields' values as one `node.update`: `node.update` removes before it
+ * adds, so a replacement is one transaction. Two — unset, then set — would
+ * show every other client a window with no value, and two overlapping
+ * replacements would leave a single-valued setting holding both.
+ */
 function replaceProps(
   nodes: WireNode[],
   id: string,
@@ -38,10 +44,11 @@ function replaceProps(
   const setProps = replacements.flatMap(({ field, values }) =>
     values.map((value) => ({ field, value })),
   );
-  return plan(
-    ...(unsetProps.length > 0 ? [{ id: "node.update", input: { id, unsetProps } }] : []),
-    ...(setProps.length > 0 ? [{ id: "node.update", input: { id, setProps } }] : []),
-  );
+  if (unsetProps.length === 0 && setProps.length === 0) return plan();
+  return update(id, {
+    ...(unsetProps.length > 0 ? { unsetProps } : {}),
+    ...(setProps.length > 0 ? { setProps } : {}),
+  });
 }
 
 export const planReplaceField = (
@@ -143,6 +150,7 @@ export function planMove(
   return update(id, { position: group.indexOf(neighbour) + (direction === "up" ? 0 : 1) });
 }
 
+/** Add `value`, replacing `oldValue` in the same `node.update` when given. */
 export function planSetProp(
   _nodes: WireNode[],
   id: string,
@@ -150,12 +158,10 @@ export function planSetProp(
   value: PropValue,
   oldValue?: PropValue,
 ): PlannedMutation {
-  return plan(
-    ...(oldValue === undefined
-      ? []
-      : [{ id: "node.update", input: { id, unsetProps: [{ field, value: oldValue }] } }]),
-    { id: "node.update", input: { id, setProps: [{ field, value }] } },
-  );
+  return update(id, {
+    ...(oldValue === undefined ? {} : { unsetProps: [{ field, value: oldValue }] }),
+    setProps: [{ field, value }],
+  });
 }
 export function planUnsetProp(
   _nodes: WireNode[],
@@ -367,8 +373,10 @@ export const planRemoveTagField = (n: WireNode[], id: string, field: string) =>
   schemaMutation(id, () => unrefProp(n, id, SYSTEM_IDS.fieldsField, field));
 export function planSetFieldHidden(n: WireNode[], id: string, hidden: boolean) {
   mutableSchema(id);
+  // One setting (`cardinality: one`), so showing it again replaces a stored
+  // `false` rather than appending beside it.
   return hidden
-    ? planSetProp(n, id, SYSTEM_IDS.hiddenField, { t: "bool", v: true })
+    ? planReplaceField(n, id, SYSTEM_IDS.hiddenField, [{ t: "bool", v: true }])
     : planUnsetProp(n, id, SYSTEM_IDS.hiddenField, { t: "bool", v: true });
 }
 export function planSetTagColor(n: WireNode[], id: string, color: string | null) {

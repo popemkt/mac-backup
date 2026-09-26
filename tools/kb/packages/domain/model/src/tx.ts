@@ -1,5 +1,5 @@
 import { canonicalJson } from "./canonical.ts";
-import { valueConformanceError } from "./field-type.ts";
+import { cardinalityOf, valueConformanceError } from "./field-type.ts";
 import type { KbNode, NodeId } from "./model.ts";
 import { present } from "./present.ts";
 
@@ -118,6 +118,12 @@ function cycleError(next: Map<NodeId, KbNode>, parentOf: Map<NodeId, NodeId>): s
  * keeps a store with legacy values editable: renaming a node never fails over
  * a value it has held since before its field was typed.
  *
+ * A field declared `cardinality: one` holds at most one value, so a write
+ * that leaves it holding two is refused — whether it appended a second value
+ * or replaced one without removing the other. The same scoping applies: a
+ * field that already held two before its declaration is not rechecked until a
+ * transaction writes to it.
+ *
  * GAP [[01M39YM7VRD0K4H70E48R71VRP]] — values already stored are not
  * rechecked, so a retype or a delete in `tx` can strand them.
  */
@@ -130,10 +136,15 @@ function writtenValueError(
     const stored = before.get(node.id)?.props ?? {};
     for (const [fieldId, values] of Object.entries(node.props)) {
       const held = new Set((stored[fieldId] ?? []).map((value) => canonicalJson(value)));
-      for (const value of values) {
-        if (held.has(canonicalJson(value))) continue;
+      const written = values.filter((value) => !held.has(canonicalJson(value)));
+      for (const value of written) {
         const err = valueConformanceError(fieldId, value, next);
         if (err !== null) return `node ${node.id}: ${err}`;
+      }
+      if (written.length > 0 && values.length > 1) {
+        if (cardinalityOf(next.get(fieldId)?.props) === "one") {
+          return `node ${node.id}: field ${fieldId} holds one value and would hold ${values.length}`;
+        }
       }
     }
   }

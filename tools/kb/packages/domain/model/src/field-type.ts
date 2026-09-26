@@ -115,6 +115,25 @@ export function valueConformanceError(
   return null;
 }
 
+/** How many values a field holds. */
+export type Cardinality = "one" | "many";
+
+/** Read a field node's declared cardinality off its props. Absent ⇒ many. */
+export function cardinalityOf(
+  props: Record<string, readonly PropValue[]> | undefined,
+): Cardinality {
+  const raw = props?.[SYSTEM_IDS.cardinalityField]?.[0];
+  return raw?.t === "ref" && raw.v === SYSTEM_IDS.cardinalityOne ? "one" : "many";
+}
+
+/** The value written into a field node's cardinality slot. */
+export function cardinalityValue(cardinality: Cardinality): PropValue {
+  return {
+    t: "ref",
+    v: cardinality === "one" ? SYSTEM_IDS.cardinalityOne : SYSTEM_IDS.cardinalityMany,
+  };
+}
+
 /** The value written into a field node's type slot. */
 export function fieldTypeValue(type: FieldType): PropValue {
   return { t: "ref", v: FIELD_TYPE_OPTION_IDS[type] };

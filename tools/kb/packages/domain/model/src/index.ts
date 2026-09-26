@@ -18,6 +18,7 @@ export {
   FIELD_TYPE_OPTION_IDS,
   acceptsValueKind,
   allowedRefIdsOf,
+  cardinalityOf,
   childrenTargetQuery,
   fieldTypeOf,
   fieldTypeValue,
@@ -26,7 +27,7 @@ export {
   targetQueryOf,
   targetTagsOf,
 } from "./field-type.ts";
-export type { FieldType } from "./field-type.ts";
+export type { Cardinality, FieldType } from "./field-type.ts";
 export { SYSTEM_IDS, currentIso, freshId, isSysPrefixed, nowIso } from "./model.ts";
 export type { KbNode, NodeId, PropValue } from "./model.ts";
 export {

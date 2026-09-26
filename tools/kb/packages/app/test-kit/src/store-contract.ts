@@ -36,6 +36,7 @@ import {
   present,
   rankOf,
   rankTx,
+  SYSTEM_IDS,
   type DomainError,
   type KbNode,
   type PropValue,
@@ -173,6 +174,10 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
     createdNodeKeepsItsRank,
   ],
   ["an opening migration commits exactly the nodes it changed", openingMigrationIsMinimal],
+  [
+    "a cardinality-one field refuses a second value, and a replacement lands whole",
+    singleValuedFieldHoldsOne,
+  ],
   ["a commit merges into what is there: upserts overwrite, deletes remove", commitMerges],
   ["the fingerprint is stable across loads and moves when the content does", fingerprintTracks],
   ["another writer's commit is visible, and changes this store's fingerprint", externalWriteIsSeen],
@@ -701,6 +706,44 @@ function openingMigrationIsMinimal(makeStore: StoreFactory): Promise<void> {
         expect(entries).toHaveLength(before + 1);
         expect(entries.at(-1)?.ops.upserts.map((n) => n.id)).toEqual([seeded.id]);
         expect(entries.at(-1)?.ops.deletes).toEqual([]);
+      }),
+    ),
+  );
+}
+
+function singleValuedFieldHoldsOne(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        const ctx = yield* openSession(root);
+        const field = SYSTEM_IDS.lensLinkDistanceField;
+        const update = (input: Record<string, unknown>) =>
+          invokeReceiptEffect(ctx, {
+            id: "node.update",
+            input: { id: SYSTEM_IDS.lensAllMentions, ...input },
+          }).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+        const held = Effect.map(
+          makeStore(root).loadEffect,
+          (nodes) => nodes.find((n) => n.id === SYSTEM_IDS.lensAllMentions)?.props[field],
+        );
+
+        expect((yield* update({ setProps: [{ field, value: { t: "num", v: 95 } }] })).status).toBe(
+          "succeeded",
+        );
+        const second = yield* update({ setProps: [{ field, value: { t: "num", v: 96 } }] });
+        expect(second.status).toBe("failed");
+        expect(yield* held).toEqual([{ t: "num", v: 95 }]);
+
+        // Unset and set in one update is a replacement: one transaction, one value.
+        const tail = makeStore(root).txTail.entries().length;
+        const replaced = yield* update({
+          unsetProps: [{ field }],
+          setProps: [{ field, value: { t: "num", v: 96 } }],
+        });
+        expect(replaced.status).toBe("succeeded");
+        expect(yield* held).toEqual([{ t: "num", v: 96 }]);
+        expect(makeStore(root).txTail.entries()).toHaveLength(tail + 1);
       }),
     ),
   );

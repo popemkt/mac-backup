@@ -72,7 +72,7 @@ describe("outline action input builders", () => {
     });
   });
 
-  it("orders property replacement as canonical unset then set invocations", () => {
+  it("replaces a property in one node.update: unset and set in the same transaction", () => {
     expect(
       planSetProp(
         fixtureGraph.nodes,
@@ -87,12 +87,6 @@ describe("outline action input builders", () => {
         input: {
           id: "n.root-a",
           unsetProps: [{ field: "field", value: { t: "str", v: "old" } }],
-        },
-      },
-      {
-        id: "node.update",
-        input: {
-          id: "n.root-a",
           setProps: [{ field: "field", value: { t: "str", v: "new" } }],
         },
       },

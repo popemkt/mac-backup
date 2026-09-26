@@ -108,20 +108,20 @@ export function restoreInvocations(
       placeKey(from, fromParents, toParents, target.id) !==
       placeKey(to, toParents, fromParents, target.id);
     if (!moved && JSON.stringify(was) === JSON.stringify(is)) continue;
+    // One node.update, which removes before it adds: a restore is one
+    // transaction, like every other replacement.
     const unsetProps = Object.keys(current.props).map((field) => ({ field }));
+    const setProps = propEntries(target);
     actions.push({
       id: "node.update",
       input: {
         id: target.id,
         text: target.text,
         ...(unsetProps.length > 0 ? { unsetProps } : {}),
+        ...(setProps.length > 0 ? { setProps } : {}),
         ...placementIn(to, target.id),
       },
     });
-    const setProps = propEntries(target);
-    if (setProps.length > 0) {
-      actions.push({ id: "node.update", input: { id: target.id, setProps } });
-    }
   }
   return actions;
 }

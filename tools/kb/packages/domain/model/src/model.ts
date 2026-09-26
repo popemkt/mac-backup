@@ -75,6 +75,16 @@ export const SYSTEM_IDS = {
   ftUrl: "sys.ft.url",
   ftCheckbox: "sys.ft.checkbox",
   ftRef: "sys.ft.ref",
+  /**
+   * How many values a field holds — a ref to one of the two option nodes
+   * below, which are this field's own children (the option-set shape, like
+   * `sys.f.fieldType`'s). Absent means many: props are multi-valued unless a
+   * field says otherwise, and a store written before the declaration existed
+   * keeps meaning what it meant.
+   */
+  cardinalityField: "sys.f.cardinality",
+  cardinalityOne: "sys.cardinality.one",
+  cardinalityMany: "sys.cardinality.many",
   /** Ref constraint sugar: allowed target tag(s), multi = union. */
   targetTagField: "sys.f.targetTag",
   /** Ref constraint general form: EDN datalog of allowed node ids (wins over tag). */
