@@ -16,6 +16,7 @@
  * and the ref picker's "commit the raw text nothing matched" fallback — are
  * pinned by what the editor *offers* rather than by the value it writes.
  */
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -27,6 +28,11 @@ import { emptyValueForType, FIELD_TYPES, type FieldType } from "@/lib/field-type
 import { SYSTEM_IDS, type NodeMap, type PropValue } from "@/lib/types";
 import { FieldRow } from "./field-row";
 import { EmptyTypedEditor, PropValueEditor } from "./field-value";
+
+/** The one constructor, over an unscoped graph: the whole map is the schema. */
+function schemaFor(nodes: NodeMap): SchemaIndex {
+  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
 
 const nodes: NodeMap = new Map([
   ["n.target", stubOutlineNode({ id: "n.target", text: "Target one" })],
@@ -57,7 +63,7 @@ function editorHtml(
       allowedRefIds: null,
       autoOpen: extra.autoOpen ?? false,
       onCommit: () => undefined,
-      nodes,
+      schema: schemaFor(nodes),
       onZoomTo: () => undefined,
     }),
   );
@@ -71,7 +77,7 @@ function emptyHtml(fieldType: FieldType, fieldId?: string, autoOpen = false): st
       allowedRefIds: null,
       autoOpen,
       onCommit: () => undefined,
-      nodes,
+      schema: schemaFor(nodes),
       onZoomTo: () => undefined,
     }),
   );
@@ -243,7 +249,7 @@ describe("what a commit writes", () => {
           allowedRefIds: null,
           autoOpen: false,
           onCommit: (next: PropValue) => committed.push(next),
-          nodes,
+          schema: schemaFor(nodes),
           onZoomTo: () => undefined,
         }),
       );
@@ -399,7 +405,7 @@ describe("ref candidate keyboard navigation", () => {
           allowedRefIds: null,
           autoOpen: true,
           onCommit: (next: PropValue) => committed.push(next),
-          nodes,
+          schema: schemaFor(nodes),
           onZoomTo: () => undefined,
         }),
       );
@@ -474,7 +480,7 @@ describe("ref candidate keyboard navigation", () => {
             allowedRefIds: null,
             autoOpen: true,
             onCommit: () => undefined,
-            nodes,
+            schema: schemaFor(nodes),
             onZoomTo: () => undefined,
           }),
         ),

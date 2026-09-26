@@ -1,0 +1,56 @@
+/**
+ * Where a node's schema is read from: the whole graph, whatever the outline
+ * shows.
+ *
+ * The outline map (`NodeMap`) is a projection — under an ontology scope it
+ * holds only members, because scope decides which content the outline lists
+ * and navigates to. What that content *means* is not scoped: a field's name,
+ * declared type, cardinality, hidden flag and option set, a tag's name and
+ * templated fields, and the label of a ref value are resolved against every
+ * node.
+ *
+ * So schema is a type of its own. {@link SchemaIndex} is a read-only view of the
+ * whole graph that only {@link schemaOf} produces; every function that reads a
+ * definition takes a `SchemaIndex`, never a `NodeMap`. Handing the projection to a
+ * schema reader is then a compile error rather than a bug that only shows
+ * under a scope — which is how the same bug was found four times over before
+ * the type existed.
+ *
+ * Unscoped, the projection *is* the whole graph and is returned as the schema;
+ * scoped, the full map is built once per snapshot (`wireNodes` identity, which
+ * every store transition renews), so a selector over it is referentially
+ * stable.
+ */
+import type { WireNode } from "@kb/contracts";
+import { wireToOutlineMap } from "@/lib/graph-view";
+import type { NodeMap, OutlineNode } from "@/lib/types";
+
+declare const schemaBrand: unique symbol;
+
+/** The whole graph, read-only, as every field and tag definition is resolved. */
+export type SchemaIndex = ReadonlyMap<string, OutlineNode> & { readonly [schemaBrand]: true };
+
+/** What a schema is built from: the store's projection and the snapshot it projects. */
+export interface SchemaSource {
+  readonly ontologyId: string | null;
+  readonly nodes: NodeMap;
+  readonly wireNodes: readonly WireNode[];
+}
+
+const fullGraph = new WeakMap<readonly WireNode[], SchemaIndex>();
+
+/**
+ * The schema of a state. The one constructor: the brand is asserted here and
+ * nowhere else, because this is the one place that knows the map it returns
+ * is the whole graph.
+ */
+export function schemaOf(state: SchemaSource): SchemaIndex {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the one place a map becomes a SchemaIndex; unscoped, the projection is the whole graph
+  if (state.ontologyId === null) return state.nodes as unknown as SchemaIndex;
+  const cached = fullGraph.get(state.wireNodes);
+  if (cached !== undefined) return cached;
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the one place a map becomes a SchemaIndex; built from the full snapshot
+  const built = wireToOutlineMap([...state.wireNodes], new Set()) as unknown as SchemaIndex;
+  fullGraph.set(state.wireNodes, built);
+  return built;
+}

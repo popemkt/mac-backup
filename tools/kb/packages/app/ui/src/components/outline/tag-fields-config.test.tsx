@@ -3,15 +3,36 @@
  * existed and were tested, but no component called them, so the CLI was the
  * only path. These lock the affordance and its reuse rule in place.
  */
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TagFieldsConfigView } from "./tag-fields-config";
 import { resolveTagFields, type TagFieldRef } from "./tag-fields";
-import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
+import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 
 /** The real outline shape, narrowed — not a lookalike that can drift from it. */
 type TestNode = Pick<OutlineNode, "text" | "props">;
+
+/** The one constructor, over an unscoped graph of these narrowed nodes. */
+function schemaFor(graph: ReadonlyMap<string, TestNode>): SchemaIndex {
+  const nodes: NodeMap = new Map(
+    [...graph].map(([id, node]) => [
+      id,
+      {
+        id,
+        parentId: null,
+        children: [],
+        collapsed: false,
+        createdAt: "",
+        updatedAt: "",
+        tags: [],
+        ...node,
+      },
+    ]),
+  );
+  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
 
 const nodes = new Map<string, TestNode>([
   [
@@ -64,12 +85,12 @@ const view = (over: Partial<Parameters<typeof TagFieldsConfigView>[0]> = {}) =>
 
 describe("resolveTagFields", () => {
   it("returns the template in the tag's own order, not alphabetically", () => {
-    const { template } = resolveTagFields(nodes, "tag_project");
+    const { template } = resolveTagFields(schemaFor(nodes), "tag_project");
     expect(template.map((f) => f.name)).toEqual(["owner", "due"]);
   });
 
   it("suggests only fields the tag does not already carry", () => {
-    const { suggestions } = resolveTagFields(nodes, "tag_project");
+    const { suggestions } = resolveTagFields(schemaFor(nodes), "tag_project");
     // Offering a field already on the tag would make picking it a no-op.
     expect(suggestions.map((f) => f.name)).toEqual(["severity"]);
   });
@@ -87,12 +108,12 @@ describe("resolveTagFields", () => {
         },
       ],
     ]);
-    const { template } = resolveTagFields(orphaned, "tag_x");
+    const { template } = resolveTagFields(schemaFor(orphaned), "tag_x");
     expect(template).toEqual<TagFieldRef[]>([{ id: "f_gone", name: "f_gone" }]);
   });
 
   it("finds nothing for a tag with no fields", () => {
-    expect(resolveTagFields(nodes, "tag_empty").template).toEqual([]);
+    expect(resolveTagFields(schemaFor(nodes), "tag_empty").template).toEqual([]);
   });
 });
 

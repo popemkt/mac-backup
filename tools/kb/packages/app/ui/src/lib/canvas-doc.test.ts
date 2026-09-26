@@ -1,3 +1,4 @@
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { describe, expect, test } from "vitest";
 import {
   isNativeEdgeBound,
@@ -13,8 +14,13 @@ import {
   isValidNativeTarget,
   syncDocOnRev,
 } from "@/lib/canvas-api";
-import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
+import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 import { clearAllowedRefIdsCache } from "@/lib/field-type";
+
+/** The one constructor, over an unscoped graph: the whole map is the schema. */
+function schemaFor(nodes: NodeMap): SchemaIndex {
+  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
 
 describe("canvas doc (UI alias)", () => {
   test("round-trip kb-node + kbLink", () => {
@@ -244,8 +250,8 @@ describe("one-shot bind", () => {
         },
       ],
     ]);
-    expect(isValidNativeTarget("f.rel", "n.ok", nodes, null)).toBe(true);
-    expect(isValidNativeTarget("f.rel", "n.bad", nodes, null)).toBe(false);
+    expect(isValidNativeTarget("f.rel", "n.ok", schemaFor(nodes), null)).toBe(true);
+    expect(isValidNativeTarget("f.rel", "n.bad", schemaFor(nodes), null)).toBe(false);
   });
 });
 

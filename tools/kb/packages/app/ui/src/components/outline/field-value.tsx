@@ -1,3 +1,4 @@
+import type { SchemaIndex } from "@/lib/schema";
 import {
   CalendarBlankIcon,
   HashIcon,
@@ -7,7 +8,7 @@ import {
   ToggleRightIcon,
   type Icon,
 } from "@phosphor-icons/react";
-import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
+import type { OutlineNode, PropValue } from "@/lib/types";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useCallback, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
@@ -37,7 +38,7 @@ export interface FieldEditorProps {
    */
   autoOpen: boolean;
   onCommit: (next: PropValue) => void;
-  nodes: NodeMap;
+  schema: SchemaIndex;
   /**
    * Navigate to a node from a resolved ref's bullet or tag chip.
    * Opening the picker is `onOpen` on that row — it is not this.
@@ -119,7 +120,7 @@ function DateEditor({ value, autoOpen, onCommit }: FieldEditorProps) {
 function RefFieldEditor({
   value,
   display,
-  nodes,
+  schema,
   allowedRefIds,
   autoOpen,
   onCommit,
@@ -129,7 +130,7 @@ function RefFieldEditor({
     <RefEditor
       refId={value.t === "ref" ? value.v : ""}
       display={display}
-      nodes={nodes}
+      schema={schema}
       allowedRefIds={allowedRefIds}
       autoOpen={autoOpen}
       onCommit={(id) => onCommit({ t: "ref", v: id })}
@@ -255,7 +256,7 @@ export function EmptyTypedEditor({
   allowedRefIds = null,
   autoOpen = false,
   onCommit,
-  nodes,
+  schema,
   onZoomTo,
 }: {
   fieldType: FieldType;
@@ -263,7 +264,7 @@ export function EmptyTypedEditor({
   allowedRefIds?: Set<string> | null;
   autoOpen?: boolean;
   onCommit: (next: PropValue) => void;
-  nodes: NodeMap;
+  schema: SchemaIndex;
   onZoomTo: (id: string) => void;
 }) {
   return (
@@ -275,7 +276,7 @@ export function EmptyTypedEditor({
       allowedRefIds={allowedRefIds}
       autoOpen={autoOpen}
       onCommit={onCommit}
-      nodes={nodes}
+      schema={schema}
       onZoomTo={onZoomTo}
     />
   );
@@ -283,7 +284,7 @@ export function EmptyTypedEditor({
 
 /**
  * Color field editor — palette swatches + optional custom hex.
- * Used for sys.f.color on tag nodes (and any other color field).
+ * Used for sys.f.color on tag schema (and any other color field).
  */
 export function ColorSwatchEditor({
   value,
@@ -653,12 +654,12 @@ function EmptyRefSlot({ onOpen }: { onOpen: () => void }) {
  * search ends — a mousedown on a suggestion, and a blur.
  */
 function RefSearch({
-  nodes,
+  schema,
   allowedRefIds,
   onCommit,
   onClose,
 }: {
-  nodes: NodeMap;
+  schema: SchemaIndex;
   allowedRefIds: Set<string> | null;
   onCommit: (id: string) => void;
   onClose: () => void;
@@ -672,7 +673,7 @@ function RefSearch({
   };
 
   const { candidates, activeIndex, handleKeyDown } = useRefCandidates({
-    nodes,
+    nodes: schema,
     query,
     allowed: allowedRefIds,
     onPick: (candidate) => {
@@ -744,7 +745,7 @@ function RefSearch({
 function RefEditor({
   refId,
   display,
-  nodes,
+  schema,
   allowedRefIds = null,
   autoOpen = false,
   onCommit,
@@ -752,19 +753,19 @@ function RefEditor({
 }: {
   refId: string;
   display: string;
-  nodes: NodeMap;
+  schema: SchemaIndex;
   allowedRefIds?: Set<string> | null;
   autoOpen?: boolean;
   onCommit: (id: string) => void;
   onZoomTo: (id: string) => void;
 }) {
   const [open, setOpen] = useState(autoOpen);
-  const target = nodes.get(refId);
+  const target = schema.get(refId);
 
   if (open) {
     return (
       <RefSearch
-        nodes={nodes}
+        schema={schema}
         allowedRefIds={allowedRefIds}
         onCommit={onCommit}
         onClose={() => setOpen(false)}

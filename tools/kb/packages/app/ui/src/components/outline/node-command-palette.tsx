@@ -15,6 +15,7 @@ import { emptyValueForType, resolveFieldTypeById } from "@/lib/field-type";
 import { fuzzyNodeCandidates } from "@/lib/refs";
 import { SYSTEM_IDS, type NodeMap } from "@/lib/types";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
@@ -61,7 +62,8 @@ interface PickerGraph {
 
 interface PickerTarget {
   targetNodeId: string;
-  nodes: NodeMap;
+  /** Where field definitions are read from: the whole graph (`lib/schema.ts`). */
+  schema: SchemaIndex;
   pickedId: string;
   creating: boolean;
   name: string;
@@ -95,7 +97,7 @@ const PICKERS: Record<NodeCommandStep, Picker> = {
     icon: <TextTIcon size={12} weight="bold" />,
     createLabel: (name) => `Create field "${name}"`,
     match: (graph, query) => optionsOfKind(graph.wireNodes, SYSTEM_IDS.field, query),
-    commit: async ({ targetNodeId, nodes, pickedId, creating, name }) => {
+    commit: async ({ targetNodeId, schema, pickedId, creating, name }) => {
       const fieldId = creating ? await mutations.defineField(name) : pickedId;
       if (fieldId === null) return;
       // An empty typed value is what makes the row appear and focusable; the
@@ -103,7 +105,7 @@ const PICKERS: Record<NodeCommandStep, Picker> = {
       await mutations.updateProp(
         targetNodeId,
         fieldId,
-        emptyValueForType(resolveFieldTypeById(fieldId, nodes)),
+        emptyValueForType(resolveFieldTypeById(fieldId, schema)),
       );
     },
   },
@@ -184,6 +186,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const selectedNodeId = useOutlineStore((s) => s.selectedNodeId);
   const activeNodeId = useOutlineStore((s) => s.activeNodeId);
   const nodes = useOutlineStore((s) => s.nodes);
+  const schema = useOutlineStore(schemaOf);
   const wireNodes = useOutlineStore((s) => s.wireNodes);
   const debugIds = useDebugFieldsStore((s) => s.ids);
 
@@ -270,7 +273,7 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     if (!item || targetNodeId === null) return;
     void picker.commit({
       targetNodeId,
-      nodes,
+      schema,
       pickedId: item.id,
       creating: item.id === CREATE_ID,
       name: query.trim(),

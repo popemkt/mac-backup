@@ -5,7 +5,7 @@ import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { isQueryNode } from "@/lib/query-node";
 import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
-import { tagPalette } from "@/lib/tag-color";
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { toast } from "@/lib/toast";
 import { mergeTx } from "@/lib/tx";
 import {
@@ -197,10 +197,11 @@ function scopeNodeIds(nodes: NodeMap, rootNodeId: string): string[] {
   return result;
 }
 
-function isExpandableOutlineNode(node: OutlineNode, nodes: NodeMap): boolean {
+/** `schema` is the map field definitions are read from (`lib/schema.ts`). */
+function isExpandableOutlineNode(node: OutlineNode, schema: SchemaIndex): boolean {
   if (node.children.length > 0) return true;
   if (isQueryNode(node)) return true;
-  return resolveProps(node, nodes).length > 0;
+  return resolveProps(node, schema).length > 0;
 }
 
 interface Projection {
@@ -228,22 +229,18 @@ function projectOutline(
   ontologyId: string | null,
   index: KbIndex,
 ): Projection {
-  // One palette, from the whole workspace, whatever the projection shows.
-  const palette = tagPalette(wire);
+  // `wire` is the whole graph: the projection resolves schema and the tag
+  // palette against it, whatever it shows (`lib/schema.ts`).
   if (ontologyId === null) {
     return {
-      nodes: wireToOutlineMap(wire, expanded, palette),
+      nodes: wireToOutlineMap(wire, expanded),
       ontologyMembers: null,
       ontologyWarnings: [],
     };
   }
   const resolution = resolveScope(wire, ontologyId, index, index.generation);
   return {
-    nodes: wireToOutlineMap(
-      scopedWireNodes(wire, resolution.members, ontologyId),
-      expanded,
-      palette,
-    ),
+    nodes: wireToOutlineMap(scopedWireNodes(wire, resolution.members, ontologyId), expanded, wire),
     ontologyMembers: resolution.members,
     ontologyWarnings: resolution.warnings,
   };
@@ -262,12 +259,13 @@ function isPrunableTransient(
   node: OutlineNode | undefined,
   id: string,
   transientIds: Set<string>,
+  schema: SchemaIndex,
 ): boolean {
   if (!node || !transientIds.has(id)) return false;
   if (isSysPrefixed(id)) return false;
   if (node.text !== "") return false;
   if (node.children.length > 0) return false;
-  return resolveProps(node, new Map()).length === 0;
+  return resolveProps(node, schema).length === 0;
 }
 
 export const useOutlineStore = create<OutlineState>((set, get) => {
@@ -322,7 +320,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     const out = st.activeNodeId;
     if (out === null || out === nextId) return;
     const node = st.nodes.get(out);
-    if (!isPrunableTransient(node, out, st.transientIds)) return;
+    if (!isPrunableTransient(node, out, st.transientIds, schemaOf(st))) return;
     const nextWire = mergeTx(st.wireNodes, [], [out]);
     const expanded = collectExpanded(st.nodes);
     for (const id of loadExpandedIds()) expanded.add(id);
@@ -650,7 +648,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       const { nodes } = get();
       const node = nodes.get(id);
       if (!node) return;
-      const expandable = isExpandableOutlineNode(node, nodes);
+      const expandable = isExpandableOutlineNode(node, schemaOf(get()));
       if (!expandable) return;
       const next = new Map(nodes);
       next.set(id, { ...node, collapsed: !node.collapsed });
@@ -660,11 +658,12 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
 
     expandAllInScope: () => {
       const { nodes, rootNodeId } = get();
+      const schema = schemaOf(get());
       const next = new Map(nodes);
       let changed = false;
       for (const id of scopeNodeIds(next, rootNodeId)) {
         const node = next.get(id);
-        if (!node || !isExpandableOutlineNode(node, next)) continue;
+        if (!node || !isExpandableOutlineNode(node, schema)) continue;
         if (node.collapsed) {
           next.set(id, { ...node, collapsed: false });
           changed = true;
@@ -677,11 +676,12 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
 
     collapseAllInScope: () => {
       const { nodes, rootNodeId } = get();
+      const schema = schemaOf(get());
       const next = new Map(nodes);
       let changed = false;
       for (const id of scopeNodeIds(next, rootNodeId)) {
         const node = next.get(id);
-        if (!node || !isExpandableOutlineNode(node, next)) continue;
+        if (!node || !isExpandableOutlineNode(node, schema)) continue;
         if (!node.collapsed) {
           next.set(id, { ...node, collapsed: true });
           changed = true;
@@ -745,7 +745,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
 
     getVisibleInstances: () => {
       const { nodes, rootNodeId, index, framePages } = get();
-      return collectVisibleInstances(rootNodeId, nodes, index, framePages);
+      return collectVisibleInstances(rootNodeId, nodes, schemaOf(get()), index, framePages);
     },
 
     revealMorePages: (frameId) =>

@@ -14,10 +14,11 @@
 import { useMemo, useState } from "react";
 import { lookupChord, type Chord, type KeyChordEvent } from "@/lib/keychord";
 import { fuzzyNodeCandidates, type RefCandidate } from "@/lib/refs";
-import type { NodeMap } from "@/lib/types";
+import type { OutlineNode } from "@/lib/types";
 
 export interface RefCandidatesInput {
-  nodes: NodeMap;
+  /** Where candidates are looked up: a ref field's schema, or the outline for `[[`. */
+  nodes: ReadonlyMap<string, OutlineNode>;
   /** The live search string, owned by the caller's input. */
   query: string;
   /** The field's declared targets, or null for unconstrained search. */

@@ -12,6 +12,7 @@ import {
   resolveTableColumns,
   type ViewMode,
 } from "@/lib/view-config";
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { usePrefsStore } from "@/stores/prefs.store";
@@ -27,6 +28,8 @@ interface BoardCardsViewProps {
   frameId: string;
   frameInstanceKey?: string;
   nodes?: NodeMap;
+  /** The schema to read field definitions from; the store's by default. */
+  schema?: SchemaIndex;
   /** Query-result row ids (overrides frame children). */
   rowIds?: string[];
   isQuerySource?: boolean;
@@ -37,6 +40,7 @@ export function BoardCardsView({
   frameId,
   frameInstanceKey,
   nodes: nodesProp,
+  schema: schemaProp,
   rowIds,
   isQuerySource = false,
   widthPref: widthPrefProp,
@@ -58,17 +62,25 @@ export function BoardCardsView({
 
   const viewConfig = useMemo(() => getViewConfig(frameNode?.props), [frameNode?.props]);
 
+  // Column names and every field shown are schema, read from the whole graph
+  // (`lib/schema.ts`), whatever projection the rows come from.
+  const storeSchema = useOutlineStore(schemaOf);
+  const schema = schemaProp ?? storeSchema;
+
   // Grouping and order come from the shared owner: board columns and the flat
   // nav order are two views of one computation.
-  const rows = useMemo(() => frameRows({ frameId, nodes, rowIds }), [frameId, nodes, rowIds]);
+  const rows = useMemo(
+    () => frameRows({ frameId, nodes, schema, rowIds }),
+    [frameId, nodes, schema, rowIds],
+  );
   const sorted = rows.ordered;
   const columns = rows.columns;
   const groupFieldId = rows.groupFieldId;
   const mode = rows.mode;
 
   const displayCols = useMemo(
-    () => resolveTableColumns(viewConfig, sorted, nodes, debugColumns),
-    [viewConfig, sorted, nodes, debugColumns],
+    () => resolveTableColumns(viewConfig, sorted, schema, debugColumns),
+    [viewConfig, sorted, schema, debugColumns],
   );
 
   const instanceKeyFor = useCallback(
@@ -160,7 +172,7 @@ export function BoardCardsView({
               child={child}
               instanceKey={instanceKeyFor(child.id)}
               displayCols={displayCols}
-              nodes={nodes}
+              schema={schema}
               isRef={isQuerySource}
               draggable={false}
             />
@@ -194,7 +206,7 @@ export function BoardCardsView({
                     child={child}
                     instanceKey={instanceKeyFor(child.id)}
                     displayCols={displayCols}
-                    nodes={nodes}
+                    schema={schema}
                     isRef={isQuerySource}
                     draggable={!isQuerySource && groupFieldId !== null}
                     onDragStart={handleCardDragStart}
@@ -214,7 +226,7 @@ const ViewCard = memo(function ViewCard({
   child,
   instanceKey,
   displayCols,
-  nodes,
+  schema,
   isRef,
   draggable,
   onDragStart,
@@ -223,7 +235,8 @@ const ViewCard = memo(function ViewCard({
   child: OutlineNode;
   instanceKey: string;
   displayCols: Array<{ fieldId: string; label: string }>;
-  nodes: NodeMap;
+  /** Field definitions and ref labels: the whole graph (`lib/schema.ts`). */
+  schema: SchemaIndex;
   isRef: boolean;
   draggable: boolean;
   onDragStart?: (id: string) => void;
@@ -314,7 +327,7 @@ const ViewCard = memo(function ViewCard({
         <div className="mt-1 flex flex-col gap-0.5">
           {displayCols.map((col) => {
             const values = child.props[col.fieldId] ?? [];
-            const fieldType = resolveFieldTypeById(col.fieldId, nodes);
+            const fieldType = resolveFieldTypeById(col.fieldId, schema);
             if (values.length === 0) {
               const emptyVal = emptyValueForType(fieldType);
               return (
@@ -329,7 +342,7 @@ const ViewCard = memo(function ViewCard({
                     value={emptyVal}
                     display=""
                     fieldType={fieldType}
-                    nodes={nodes}
+                    schema={schema}
                     onZoomTo={zoomTo}
                     onCommit={(next) => void mutations.updateProp(child.id, col.fieldId, next)}
                   />
@@ -348,9 +361,9 @@ const ViewCard = memo(function ViewCard({
               >
                 <PropValueEditor
                   value={v}
-                  display={formatPropValue(v, nodes)}
+                  display={formatPropValue(v, schema)}
                   fieldType={fieldType}
-                  nodes={nodes}
+                  schema={schema}
                   onZoomTo={zoomTo}
                   onCommit={(next) => void mutations.updateProp(child.id, col.fieldId, next, v)}
                 />

@@ -1,5 +1,12 @@
+import type { NodeMap } from "@/lib/types";
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { PropValueEditor } from "@/components/outline/field-value";
+
+/** The one constructor, over an unscoped graph: the whole map is the schema. */
+function schemaFor(nodes: NodeMap): SchemaIndex {
+  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
 
 const nodes = new Map();
 const noop = (): void => undefined;
@@ -18,7 +25,7 @@ export const CheckboxChecked: Story = {
     display: "yes",
     fieldType: "checkbox",
     onCommit: noop,
-    nodes,
+    schema: schemaFor(nodes),
     onZoomTo: noop,
   },
 };
@@ -29,7 +36,7 @@ export const TextFilled: Story = {
     display: "hello",
     fieldType: "text",
     onCommit: noop,
-    nodes,
+    schema: schemaFor(nodes),
     onZoomTo: noop,
   },
 };
@@ -40,7 +47,7 @@ export const UrlEmpty: Story = {
     display: "",
     fieldType: "url",
     onCommit: noop,
-    nodes,
+    schema: schemaFor(nodes),
     onZoomTo: noop,
   },
 };

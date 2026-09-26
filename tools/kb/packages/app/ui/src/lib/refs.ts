@@ -1,4 +1,4 @@
-import type { NodeMap } from "@/lib/types";
+import type { OutlineNode } from "@/lib/types";
 import { isSysPrefixed, WORKSPACE_ROOT_ID } from "@/lib/types";
 
 export interface RefCandidate {
@@ -35,7 +35,7 @@ function isOfferable(id: string, allowed: Set<string> | null): boolean {
  * an allowed node that ranked 13th disappeared.
  */
 export function fuzzyNodeCandidates(
-  nodes: NodeMap,
+  nodes: ReadonlyMap<string, OutlineNode>,
   query: string,
   options: { allowed?: Set<string> | null; limit?: number } = {},
 ): RefCandidate[] {

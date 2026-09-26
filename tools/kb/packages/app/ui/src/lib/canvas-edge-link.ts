@@ -11,6 +11,7 @@
  * Pure: the fresh binding id arrives on the context, the way the pointer
  * reducer takes its edge ids, so a plan is a function of its inputs.
  */
+import type { SchemaIndex } from "@/lib/schema";
 import {
   isKbNode,
   type CanvasEdge,
@@ -19,14 +20,15 @@ import {
   type KbLinkMode,
 } from "@kb/canvas";
 import { isValidNativeTarget, planNativeBind } from "@/lib/canvas-api";
-import type { OutlineNode, PropValue } from "@/lib/types";
+import type { PropValue } from "@/lib/types";
 
 /** What the inspector asked for. */
 export type EdgeRelink = { kind: "mode"; mode: KbLinkMode } | { kind: "field"; fieldId: string };
 
 export interface EdgeRelinkContext {
   byId: ReadonlyMap<string, CanvasNode>;
-  nodes: Map<string, OutlineNode>;
+  /** Field definitions the link is checked against (`lib/schema.ts`). */
+  nodes: SchemaIndex;
   queryDb: Parameters<typeof isValidNativeTarget>[3];
   /** Binding id for an edge that does not have one yet. */
   bindingId: string;

@@ -2,9 +2,19 @@
  * frame-rows is the single owner of frame row order and pagination. These
  * tests pin the contract every renderer and the nav walk share.
  */
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { describe, expect, it } from "vitest";
 import { frameListChildren, frameRows, modePaginates } from "@/lib/frame-rows";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
+
+/** The one constructor, over an unscoped graph: the whole map is the schema. */
+function schemaFor(nodes: NodeMap): SchemaIndex {
+  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
+
+function rowsOf(nodes: NodeMap, frameId = "frame") {
+  return frameRows({ frameId, nodes, schema: schemaFor(nodes) });
+}
 
 function node(
   id: string,
@@ -56,7 +66,7 @@ describe("modePaginates", () => {
 describe("frameRows pagination", () => {
   it("renders the first page and reports the rest as more", () => {
     const nodes = graph(asTable(2));
-    const rows = frameRows({ frameId: "frame", nodes });
+    const rows = frameRows({ frameId: "frame", nodes, schema: schemaFor(nodes) });
     expect(rows.ordered).toHaveLength(5);
     expect(rows.rendered.map((n) => n.id)).toEqual(["r0", "r1"]);
     expect(rows.hasMore).toBe(true);
@@ -64,13 +74,12 @@ describe("frameRows pagination", () => {
 
   it("reveals one further page per revealed page", () => {
     const nodes = graph(asTable(2));
-    expect(frameRows({ frameId: "frame", nodes, pages: 2 }).rendered.map((n) => n.id)).toEqual([
-      "r0",
-      "r1",
-      "r2",
-      "r3",
-    ]);
-    const all = frameRows({ frameId: "frame", nodes, pages: 3 });
+    expect(
+      frameRows({ frameId: "frame", nodes, schema: schemaFor(nodes), pages: 2 }).rendered.map(
+        (n) => n.id,
+      ),
+    ).toEqual(["r0", "r1", "r2", "r3"]);
+    const all = frameRows({ frameId: "frame", nodes, schema: schemaFor(nodes), pages: 3 });
     expect(all.rendered).toHaveLength(5);
     expect(all.hasMore).toBe(false);
   });
@@ -78,8 +87,8 @@ describe("frameRows pagination", () => {
   it("tracks pages, not an absolute count, so pagesize changes re-derive", () => {
     // Same revealed page count against a larger pagesize shows more rows —
     // an absolute reveal count would have stayed stale at the old limit.
-    const small = frameRows({ frameId: "frame", nodes: graph(asTable(2)) });
-    const large = frameRows({ frameId: "frame", nodes: graph(asTable(4)) });
+    const small = rowsOf(graph(asTable(2)));
+    const large = rowsOf(graph(asTable(4)));
     expect(small.rendered).toHaveLength(2);
     expect(large.rendered).toHaveLength(4);
   });
@@ -89,7 +98,7 @@ describe("frameRows pagination", () => {
       [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "cards" }],
       [SYSTEM_IDS.viewPagesizeField]: [{ t: "num", v: 2 }],
     });
-    const rows = frameRows({ frameId: "frame", nodes });
+    const rows = frameRows({ frameId: "frame", nodes, schema: schemaFor(nodes) });
     expect(rows.rendered).toHaveLength(5);
     expect(rows.hasMore).toBe(false);
   });
@@ -101,7 +110,7 @@ describe("frameRows grouping", () => {
       [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "board" }],
       [SYSTEM_IDS.viewGroupField]: [{ t: "ref", v: "f_status" }],
     });
-    const rows = frameRows({ frameId: "frame", nodes });
+    const rows = frameRows({ frameId: "frame", nodes, schema: schemaFor(nodes) });
     expect(rows.groupFieldId).toBe("f_status");
     expect(rows.columns.length).toBeGreaterThan(1);
     expect(rows.ordered.map((n) => n.id)).toEqual(
@@ -114,7 +123,7 @@ describe("frameRows grouping", () => {
       [SYSTEM_IDS.viewModeField]: [{ t: "str", v: "cards" }],
       [SYSTEM_IDS.viewGroupField]: [{ t: "ref", v: "f_status" }],
     });
-    const rows = frameRows({ frameId: "frame", nodes });
+    const rows = frameRows({ frameId: "frame", nodes, schema: schemaFor(nodes) });
     expect(rows.groupFieldId).toBeNull();
     expect(rows.columns).toHaveLength(1);
     expect(rows.ordered).toHaveLength(5);
@@ -124,18 +133,28 @@ describe("frameRows grouping", () => {
 describe("frameRows sources", () => {
   it("explicit rowIds override the frame's own children", () => {
     const nodes = graph(asTable(10));
-    const rows = frameRows({ frameId: "frame", nodes, rowIds: ["r3", "r1"] });
+    const rows = frameRows({
+      frameId: "frame",
+      nodes,
+      schema: schemaFor(nodes),
+      rowIds: ["r3", "r1"],
+    });
     expect(rows.rendered.map((n) => n.id)).toEqual(["r3", "r1"]);
   });
 
   it("drops row ids that are not in the graph", () => {
     const nodes = graph(asTable(10));
-    const rows = frameRows({ frameId: "frame", nodes, rowIds: ["r0", "ghost"] });
+    const rows = frameRows({
+      frameId: "frame",
+      nodes,
+      schema: schemaFor(nodes),
+      rowIds: ["r0", "ghost"],
+    });
     expect(rows.rendered.map((n) => n.id)).toEqual(["r0"]);
   });
 
   it("returns nothing for an unknown frame", () => {
-    const rows = frameRows({ frameId: "missing", nodes: new Map() });
+    const rows = rowsOf(new Map(), "missing");
     expect(rows.ordered).toEqual([]);
     expect(rows.rendered).toEqual([]);
   });
@@ -146,11 +165,11 @@ describe("frameListChildren", () => {
     const nodes = graph({
       [SYSTEM_IDS.viewFilterField]: [{ t: "str", v: `{:field f_status :eq "s0"}` }],
     });
-    const kids = frameListChildren("frame", nodes);
+    const kids = frameListChildren("frame", nodes, schemaFor(nodes));
     expect(kids.map((n) => n.id)).toEqual(["r0", "r2", "r4"]);
   });
 
   it("is empty for an unknown frame", () => {
-    expect(frameListChildren("missing", new Map())).toEqual([]);
+    expect(frameListChildren("missing", new Map(), schemaFor(new Map()))).toEqual([]);
   });
 });

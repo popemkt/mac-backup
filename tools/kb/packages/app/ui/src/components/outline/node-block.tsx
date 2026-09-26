@@ -6,6 +6,7 @@ import { childInstanceKey, outlineInstanceKey } from "@/lib/instance-key";
 import { resolveRowChrome } from "@/lib/row-chrome";
 import { useUiStore } from "@/stores/ui.store";
 import { useDebugFields } from "@/stores/debug-fields.store";
+import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { mutations } from "@/actions/mutations";
 import { frameListChildren } from "@/lib/frame-rows";
@@ -36,6 +37,7 @@ export const NodeBlock = memo(function NodeBlock({
 }: NodeBlockProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   const nodes = useOutlineStore((s) => s.nodes);
+  const schema = useOutlineStore(schemaOf);
   const activeNodeId = useOutlineStore((s) => s.activeNodeId);
   const activeInstanceKey = useOutlineStore((s) => s.activeInstanceKey);
   const selectedNodeId = useOutlineStore((s) => s.selectedNodeId);
@@ -112,8 +114,8 @@ export const NodeBlock = memo(function NodeBlock({
   // Shared owner: the same rows the visible-instance walk will offer to
   // keyboard navigation.
   const listChildren = useMemo(
-    () => (isProjectedViewMode(viewConfig.mode) ? [] : frameListChildren(nodeId, nodes)),
-    [nodeId, nodes, viewConfig.mode],
+    () => (isProjectedViewMode(viewConfig.mode) ? [] : frameListChildren(nodeId, nodes, schema)),
+    [nodeId, nodes, schema, viewConfig.mode],
   );
 
   if (!node) return null;
@@ -124,7 +126,7 @@ export const NodeBlock = memo(function NodeBlock({
     nodePaletteOpen &&
     ((selectedNodeId === nodeId && selectedInstanceKey === instanceKey) ||
       (activeNodeId === nodeId && activeInstanceKey === instanceKey));
-  const chrome = resolveRowChrome({ node, nodes, viewConfig, isRef, showDebugFields });
+  const chrome = resolveRowChrome({ node, schema, viewConfig, isRef, showDebugFields });
 
   return (
     <div

@@ -11,6 +11,7 @@
  * runner core asks for, memoizing the result per snapshot, mismatch hints, and
  * the empty value a typed editor starts from.
  */
+import type { SchemaIndex } from "@/lib/schema";
 import {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
@@ -25,7 +26,7 @@ import {
 } from "@kb/model";
 import { hasText } from "@/lib/text";
 import { runQuery, type KbIndex } from "@/ds";
-import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
+import type { OutlineNode, PropValue } from "@/lib/types";
 
 export { FIELD_TYPES, FIELD_TYPE_OPTION_IDS, fieldTypeValue, isFieldType, type FieldType };
 
@@ -34,8 +35,8 @@ export function resolveFieldType(fieldNode: OutlineNode | undefined): FieldType 
   return fieldTypeOf(fieldNode?.props);
 }
 
-export function resolveFieldTypeById(fieldId: string, nodes: NodeMap): FieldType {
-  return resolveFieldType(nodes.get(fieldId));
+export function resolveFieldTypeById(fieldId: string, schema: SchemaIndex): FieldType {
+  return resolveFieldType(schema.get(fieldId));
 }
 
 /**
@@ -51,15 +52,16 @@ export function resolveFieldTypeById(fieldId: string, nodes: NodeMap): FieldType
  */
 export function resolveAllowedRefIds(
   fieldNode: OutlineNode | undefined,
-  nodes: NodeMap,
+  schema: SchemaIndex,
   queryDb: KbIndex | null,
 ): Set<string> | null {
-  return allowedRefIdsOf(fieldNode, nodes, queryDb ? (edn) => runQuery(queryDb, edn) : null);
+  return allowedRefIdsOf(fieldNode, schema, queryDb ? (edn) => runQuery(queryDb, edn) : null);
 }
 
-/** Cache keyed by fieldId + index generation + constraint fingerprint (EDN / tags). */
+/** Cache keyed by fieldId + constraint fingerprint (EDN / tags), per index generation and schema. */
 const allowedRefCache = new Map<string, Set<string> | null>();
 let allowedRefCacheGeneration = -1;
+let allowedRefCacheSchema: SchemaIndex | null = null;
 
 function constraintFingerprint(fieldNode: OutlineNode | undefined): string {
   const edn = targetQueryOf(fieldNode);
@@ -80,18 +82,22 @@ function constraintFingerprint(fieldNode: OutlineNode | undefined): string {
 export function resolveAllowedRefIdsCached(
   fieldId: string,
   fieldNode: OutlineNode | undefined,
-  nodes: NodeMap,
+  schema: SchemaIndex,
   queryDb: KbIndex | null,
   generation: number,
 ): Set<string> | null {
-  if (allowedRefCacheGeneration !== generation) {
+  // The answer depends on the schema it was resolved against as much as on
+  // the index generation: a new schema (a new snapshot, or a scope entered or
+  // left) starts a fresh cache.
+  if (allowedRefCacheGeneration !== generation || allowedRefCacheSchema !== schema) {
     allowedRefCache.clear();
     allowedRefCacheGeneration = generation;
+    allowedRefCacheSchema = schema;
   }
   const key = `${fieldId}\0${constraintFingerprint(fieldNode)}`;
   const cached = allowedRefCache.get(key);
   if (cached !== undefined || allowedRefCache.has(key)) return cached ?? null;
-  const value = resolveAllowedRefIds(fieldNode, nodes, queryDb);
+  const value = resolveAllowedRefIds(fieldNode, schema, queryDb);
   allowedRefCache.set(key, value);
   return value;
 }

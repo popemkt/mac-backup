@@ -8,6 +8,7 @@ import { viewFieldNodes } from "@/fixtures/view-fields";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
 import { getViewConfig } from "@/lib/view-config";
+import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import type { WireNode } from "@kb/contracts";
@@ -117,7 +118,11 @@ describe("W7 TableView & ViewToolbar", () => {
 
   it("renders TableView with fallback columns from tag fields and asserts NodeRow reuse via data-instance-key", () => {
     const html = renderToStaticMarkup(
-      createElement(TableView, { frameId: "frame1", nodes: getStoreNodes() }),
+      createElement(TableView, {
+        frameId: "frame1",
+        nodes: getStoreNodes(),
+        schema: schemaOf(useOutlineStore.getState()),
+      }),
     );
 
     expect(html).toContain("Name");
@@ -132,7 +137,11 @@ describe("W7 TableView & ViewToolbar", () => {
 
   it("field cells render through shared FieldRow (valueOnly)", () => {
     const html = renderToStaticMarkup(
-      createElement(TableView, { frameId: "frame1", nodes: getStoreNodes() }),
+      createElement(TableView, {
+        frameId: "frame1",
+        nodes: getStoreNodes(),
+        schema: schemaOf(useOutlineStore.getState()),
+      }),
     );
     expect(html).toContain('data-field-row="true"');
     expect(html).toContain('data-field-value-only="true"');
@@ -143,6 +152,7 @@ describe("W7 TableView & ViewToolbar", () => {
       createElement(TableView, {
         frameId: "frame1",
         nodes: getStoreNodes(),
+        schema: schemaOf(useOutlineStore.getState()),
         widthPref: "centered",
       }),
     );
@@ -153,6 +163,7 @@ describe("W7 TableView & ViewToolbar", () => {
       createElement(TableView, {
         frameId: "frame1",
         nodes: getStoreNodes(),
+        schema: schemaOf(useOutlineStore.getState()),
         widthPref: "full",
       }),
     );
@@ -164,7 +175,11 @@ describe("W7 TableView & ViewToolbar", () => {
     await mutations.setViewDisplay("frame1", ["f_score"]);
 
     const html = renderToStaticMarkup(
-      createElement(TableView, { frameId: "frame1", nodes: getStoreNodes() }),
+      createElement(TableView, {
+        frameId: "frame1",
+        nodes: getStoreNodes(),
+        schema: schemaOf(useOutlineStore.getState()),
+      }),
     );
 
     expect(html).toContain("Name");
@@ -181,7 +196,11 @@ describe("W7 TableView & ViewToolbar", () => {
     await mutations.setViewSort("frame1", [{ fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" }]);
 
     const html = renderToStaticMarkup(
-      createElement(TableView, { frameId: "frame1", nodes: getStoreNodes() }),
+      createElement(TableView, {
+        frameId: "frame1",
+        nodes: getStoreNodes(),
+        schema: schemaOf(useOutlineStore.getState()),
+      }),
     );
 
     const posApple = html.indexOf("Apple Task");

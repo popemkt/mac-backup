@@ -10,8 +10,9 @@ import {
   type FieldType,
 } from "@/lib/field-type";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
-import { isSysPrefixed, SYSTEM_IDS, type NodeMap, type PropValue } from "@/lib/types";
+import { isSysPrefixed, SYSTEM_IDS, type PropValue } from "@/lib/types";
 import { useDebugFields } from "@/stores/debug-fields.store";
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { FieldRow } from "./field-row";
 import { EmptyTypedEditor, PropValueEditor } from "./field-value";
@@ -27,7 +28,7 @@ export interface FieldValueStackProps {
   fieldType: FieldType;
   allowedRefIds: Set<string> | null;
   values: PropValue[];
-  nodes: NodeMap;
+  schema: SchemaIndex;
   readOnly: boolean;
   onZoomTo: (id: string) => void;
 }
@@ -46,7 +47,7 @@ export function FieldValueStack({
   fieldType,
   allowedRefIds,
   values,
-  nodes,
+  schema,
   readOnly,
   onZoomTo,
 }: FieldValueStackProps) {
@@ -74,11 +75,11 @@ export function FieldValueStack({
           <div className="min-w-0 flex-1">
             <PropValueEditor
               value={value}
-              display={formatPropValue(value, nodes)}
+              display={formatPropValue(value, schema)}
               fieldType={fieldType}
               fieldId={fieldId}
               allowedRefIds={allowedRefIds}
-              nodes={nodes}
+              schema={schema}
               onZoomTo={onZoomTo}
               onCommit={(next: PropValue) =>
                 void mutations.updateProp(nodeId, fieldId, next, value)
@@ -116,7 +117,7 @@ export function FieldValueStack({
           fieldId={fieldId}
           allowedRefIds={allowedRefIds}
           autoOpen={autoOpen}
-          nodes={nodes}
+          schema={schema}
           onZoomTo={onZoomTo}
           onCommit={(next: PropValue) => {
             setPendingSlots(0);
@@ -125,7 +126,7 @@ export function FieldValueStack({
         />
       ))}
 
-      {!readOnly && values.length > 0 && cardinalityOf(nodes.get(fieldId)?.props) === "many" && (
+      {!readOnly && values.length > 0 && cardinalityOf(schema.get(fieldId)?.props) === "many" && (
         <button
           type="button"
           className={cn(
@@ -148,7 +149,8 @@ export function FieldValueStack({
 /** Inline field rows under a node (DESIGN-RESKIN §1.4). */
 export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
-  const nodes = useOutlineStore((s) => s.nodes);
+  // Field definitions come from the whole graph, never the scoped projection.
+  const schema = useOutlineStore(schemaOf);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const queryDb = useOutlineStore((s) => s.index);
   const generation = useOutlineStore((s) => s.index?.generation ?? 0);
@@ -156,7 +158,7 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
   const showDebugFields = useDebugFields(nodeId);
 
   if (!node) return null;
-  const props = resolveProps(node, nodes, { showDebugFields });
+  const props = resolveProps(node, schema, { showDebugFields });
   if (props.length === 0) return null;
   const nodeReadOnly = isSysPrefixed(nodeId);
 
@@ -166,11 +168,11 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
         const fieldType =
           p.fieldId === SYSTEM_IDS.hiddenField
             ? "checkbox"
-            : resolveFieldTypeById(p.fieldId, nodes);
-        const fieldNode = nodes.get(p.fieldId);
+            : resolveFieldTypeById(p.fieldId, schema);
+        const fieldNode = schema.get(p.fieldId);
         const allowedRefIds =
           fieldType === "ref"
-            ? resolveAllowedRefIdsCached(p.fieldId, fieldNode, nodes, queryDb, generation)
+            ? resolveAllowedRefIdsCached(p.fieldId, fieldNode, schema, queryDb, generation)
             : null;
         const debug = "debug" in p ? Boolean(p.debug) : false;
         const values = p.values;
@@ -191,7 +193,7 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
               fieldType={fieldType}
               allowedRefIds={allowedRefIds}
               values={values}
-              nodes={nodes}
+              schema={schema}
               readOnly={nodeReadOnly || debug}
               onZoomTo={zoomTo}
             />

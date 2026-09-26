@@ -9,6 +9,7 @@
  *
  * Pure: pagination state is passed in as `pages`, never read from a store.
  */
+import type { SchemaIndex } from "@/lib/schema";
 import type { NodeMap, OutlineNode } from "@/lib/types";
 import {
   applyViewFilters,
@@ -22,7 +23,10 @@ import {
 
 export interface FrameRowsInput {
   frameId: string;
+  /** The projection the rows come from. */
   nodes: NodeMap;
+  /** What their fields mean: labels to filter, sort and group by. */
+  schema: SchemaIndex;
   /** Explicit row ids (query results) — overrides structural children. */
   rowIds?: string[];
   /** Pages revealed in a paginating mode (1 = first page). Default 1. */
@@ -57,14 +61,18 @@ function nodesByIds(ids: readonly string[], nodes: NodeMap): OutlineNode[] {
 }
 
 /** List-mode structural children, view filters applied. */
-export function frameListChildren(frameId: string, nodes: NodeMap): OutlineNode[] {
+export function frameListChildren(
+  frameId: string,
+  nodes: NodeMap,
+  schema: SchemaIndex,
+): OutlineNode[] {
   const frame = nodes.get(frameId);
   if (!frame) return [];
   const config = getViewConfig(frame.props);
-  return applyViewFilters(nodesByIds(frame.children, nodes), config.filters, nodes);
+  return applyViewFilters(nodesByIds(frame.children, nodes), config.filters, schema);
 }
 
-export function frameRows({ frameId, nodes, rowIds, pages }: FrameRowsInput): FrameRows {
+export function frameRows({ frameId, nodes, schema, rowIds, pages }: FrameRowsInput): FrameRows {
   const frame = nodes.get(frameId);
   const config = getViewConfig(frame?.props);
   const empty: FrameRows = {
@@ -79,13 +87,13 @@ export function frameRows({ frameId, nodes, rowIds, pages }: FrameRowsInput): Fr
   if (!frame && !rowIds) return empty;
 
   const source = nodesByIds(rowIds ?? frame?.children ?? [], nodes);
-  const filtered = applyViewFilters(source, config.filters, nodes);
-  const sorted = sortChildrenForTable(filtered, config.sort, nodes);
+  const filtered = applyViewFilters(source, config.filters, schema);
+  const sorted = sortChildrenForTable(filtered, config.sort, schema);
 
   const grouped = config.mode === "board" || config.mode === "cards";
   // Only board groups by a field; cards is a single unlabelled column.
   const groupFieldId = config.mode === "board" ? config.groupFieldId : null;
-  const columns = grouped ? groupChildrenForBoard(sorted, groupFieldId, nodes) : [];
+  const columns = grouped ? groupChildrenForBoard(sorted, groupFieldId, schema) : [];
   const ordered = grouped ? flattenBoardOrder(columns) : sorted;
 
   // Pages, not an absolute row count: a pagesize change re-derives the limit

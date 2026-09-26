@@ -5,6 +5,7 @@
  * {@link frameRows} / {@link frameListChildren}, the same functions the
  * renderers call. This walk only assigns instance keys and recurses.
  */
+import type { SchemaIndex } from "@/lib/schema";
 import type { KbIndex } from "@/ds";
 import { runQuery } from "@/ds";
 import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
@@ -26,6 +27,7 @@ export type FramePagesMap = Readonly<Record<string, number>>;
  * per-frame page counts, and the list it appends to. */
 interface WalkContext {
   nodes: NodeMap;
+  schema: SchemaIndex;
   queryDb: KbIndex | null;
   pages: FramePagesMap;
   out: VisibleInstance[];
@@ -37,10 +39,11 @@ function emitProjectedRows(
   rowIds: string[] | undefined,
   keyFor: (nodeId: string) => string,
 ): void {
-  const { nodes, pages, out } = ctx;
+  const { nodes, schema, pages, out } = ctx;
   const { rendered } = frameRows({
     frameId,
     nodes,
+    schema,
     rowIds,
     pages: pages[frameId],
   });
@@ -96,7 +99,7 @@ function walkVisibleInstances(
     return;
   }
 
-  for (const child of frameListChildren(nodeId, nodes)) {
+  for (const child of frameListChildren(nodeId, nodes, ctx.schema)) {
     walkVisibleInstances(ctx, child.id, childInstanceKey(instanceKey, child.id), false);
   }
 }
@@ -104,20 +107,21 @@ function walkVisibleInstances(
 export function collectVisibleInstances(
   rootNodeId: string,
   nodes: NodeMap,
+  schema: SchemaIndex,
   queryDb: KbIndex | null,
   pages: FramePagesMap = {},
 ): VisibleInstance[] {
   const out: VisibleInstance[] = [];
   const root = nodes.get(rootNodeId);
   if (!root) return out;
-  const ctx: WalkContext = { nodes, queryDb, pages, out };
+  const ctx: WalkContext = { nodes, schema, queryDb, pages, out };
 
   if (isProjectedViewMode(getViewConfig(root.props).mode)) {
     emitProjectedRows(ctx, rootNodeId, undefined, (id) => outlineInstanceKey(id, nodes));
     return out;
   }
 
-  for (const child of frameListChildren(rootNodeId, nodes)) {
+  for (const child of frameListChildren(rootNodeId, nodes, schema)) {
     walkVisibleInstances(ctx, child.id, outlineInstanceKey(child.id, nodes), false);
   }
   return out;

@@ -1,3 +1,4 @@
+import type { SchemaIndex } from "@/lib/schema";
 import { Schema } from "effect";
 import {
   decodeNodeConfig,
@@ -7,7 +8,7 @@ import {
   type ConfigSlots,
   type NodeProps,
 } from "@kb/model";
-import type { NodeMap, OutlineNode, PropValue } from "./types";
+import type { OutlineNode, PropValue } from "./types";
 import { isSysPrefixed, SYSTEM_IDS } from "./types";
 import { logWarn } from "@/lib/log";
 import { textOr } from "@/lib/text";
@@ -89,27 +90,27 @@ export function parseViewFilterEdn(edn: string): ViewFilter | null {
   return null;
 }
 
-function propValueKey(v: PropValue, _nodes: NodeMap): string {
+function propValueKey(v: PropValue, _schema: SchemaIndex): string {
   if (v.t === "ref") return `ref:${v.v}`;
   if (v.t === "bool") return `bool:${v.v ? 1 : 0}`;
   if (v.t === "num") return `num:${v.v}`;
   return `str:${v.v}`;
 }
 
-function propValueLabel(v: PropValue, nodes: NodeMap): string {
-  if (v.t === "ref") return textOr(nodes.get(v.v)?.text, v.v);
+function propValueLabel(v: PropValue, schema: SchemaIndex): string {
+  if (v.t === "ref") return textOr(schema.get(v.v)?.text, v.v);
   if (v.t === "bool") return v.v ? "true" : "false";
   return String(v.v);
 }
 
-function matchesFilter(node: OutlineNode, filter: ViewFilter, nodes: NodeMap): boolean {
+function matchesFilter(node: OutlineNode, filter: ViewFilter, schema: SchemaIndex): boolean {
   if (filter.kind === "text") {
     const q = filter.text.toLowerCase();
     if (!q) return true;
     if (node.text.toLowerCase().includes(q)) return true;
     for (const vals of Object.values(node.props)) {
       for (const v of vals) {
-        if (propValueLabel(v, nodes).toLowerCase().includes(q)) return true;
+        if (propValueLabel(v, schema).toLowerCase().includes(q)) return true;
       }
     }
     return false;
@@ -118,7 +119,7 @@ function matchesFilter(node: OutlineNode, filter: ViewFilter, nodes: NodeMap): b
   const vals = node.props[filter.fieldId] ?? [];
   if (vals.length === 0) return false;
   return vals.some((v) => {
-    if (v.t === "ref") return v.v === filter.value || propValueLabel(v, nodes) === filter.value;
+    if (v.t === "ref") return v.v === filter.value || propValueLabel(v, schema) === filter.value;
     return String(v.v) === filter.value;
   });
 }
@@ -127,10 +128,10 @@ function matchesFilter(node: OutlineNode, filter: ViewFilter, nodes: NodeMap): b
 export function applyViewFilters(
   children: OutlineNode[],
   filters: ViewFilter[],
-  nodes: NodeMap,
+  schema: SchemaIndex,
 ): OutlineNode[] {
   if (filters.length === 0) return children;
-  return children.filter((n) => filters.every((f) => matchesFilter(n, f, nodes)));
+  return children.filter((n) => filters.every((f) => matchesFilter(n, f, schema)));
 }
 
 /*
@@ -331,12 +332,12 @@ export interface TableColumnSpec {
 }
 
 /** A field id paired with the label a column header shows. */
-function toColumnSpec(fieldId: string, nodes: NodeMap): TableColumnSpec {
-  return { fieldId, label: textOr(nodes.get(fieldId)?.text, fieldId) };
+function toColumnSpec(fieldId: string, schema: SchemaIndex): TableColumnSpec {
+  return { fieldId, label: textOr(schema.get(fieldId)?.text, fieldId) };
 }
 
-function isHiddenField(fieldId: string, nodes: NodeMap): boolean {
-  return nodes.get(fieldId)?.props[SYSTEM_IDS.hiddenField]?.[0]?.v === true;
+function isHiddenField(fieldId: string, schema: SchemaIndex): boolean {
+  return schema.get(fieldId)?.props[SYSTEM_IDS.hiddenField]?.[0]?.v === true;
 }
 
 /**
@@ -351,13 +352,13 @@ function isHiddenField(fieldId: string, nodes: NodeMap): boolean {
  */
 function explicitColumns(
   display: readonly string[],
-  nodes: NodeMap,
+  schema: SchemaIndex,
   showDebugColumns: boolean,
 ): TableColumnSpec[] | null {
   if (display.length === 0) return null;
   return display
-    .filter((fieldId) => showDebugColumns || !isHiddenField(fieldId, nodes))
-    .map((fieldId) => toColumnSpec(fieldId, nodes));
+    .filter((fieldId) => showDebugColumns || !isHiddenField(fieldId, schema))
+    .map((fieldId) => toColumnSpec(fieldId, schema));
 }
 
 /**
@@ -368,20 +369,20 @@ function explicitColumns(
  */
 function derivedColumns(
   children: readonly OutlineNode[],
-  nodes: NodeMap,
+  schema: SchemaIndex,
   showDebugColumns: boolean,
 ): TableColumnSpec[] {
   const seen = new Set<string>();
   const columns: TableColumnSpec[] = [];
   for (const child of children) {
     for (const tag of child.tags) {
-      const tagNode = nodes.get(tag.id);
+      const tagNode = schema.get(tag.id);
       if (!tagNode) continue;
       for (const ref of tagNode.props[SYSTEM_IDS.fieldsField] ?? []) {
         if (ref.t !== "ref" || seen.has(ref.v)) continue;
         seen.add(ref.v);
-        if (!showDebugColumns && (isSysPrefixed(ref.v) || isHiddenField(ref.v, nodes))) continue;
-        columns.push(toColumnSpec(ref.v, nodes));
+        if (!showDebugColumns && (isSysPrefixed(ref.v) || isHiddenField(ref.v, schema))) continue;
+        columns.push(toColumnSpec(ref.v, schema));
       }
     }
   }
@@ -402,11 +403,11 @@ function mergeColumns(
 export function resolveTableColumns(
   viewConfig: ViewConfig,
   children: OutlineNode[],
-  nodes: NodeMap,
+  schema: SchemaIndex,
   showDebugColumns = false,
 ): TableColumnSpec[] {
-  return mergeColumns(explicitColumns(viewConfig.display, nodes, showDebugColumns), () =>
-    derivedColumns(children, nodes, showDebugColumns),
+  return mergeColumns(explicitColumns(viewConfig.display, schema, showDebugColumns), () =>
+    derivedColumns(children, schema, showDebugColumns),
   );
 }
 
@@ -442,10 +443,12 @@ function byLowerString(a: string, b: string): number {
  */
 type SortKey = number | string;
 
-const SORT_KEY: Readonly<Record<PropValue["t"], (value: PropValue, nodes: NodeMap) => SortKey>> = {
+const SORT_KEY: Readonly<
+  Record<PropValue["t"], (value: PropValue, schema: SchemaIndex) => SortKey>
+> = {
   num: (value) => Number(value.v),
   bool: (value) => (value.v === true ? 1 : 0),
-  ref: (value, nodes) => textOr(nodes.get(String(value.v))?.text, String(value.v)).toLowerCase(),
+  ref: (value, schema) => textOr(schema.get(String(value.v))?.text, String(value.v)).toLowerCase(),
   str: (value) => String(value.v).toLowerCase(),
   date: (value) => String(value.v).toLowerCase(),
 };
@@ -464,20 +467,24 @@ function compareKeys(a: SortKey, b: SortKey): number {
  * no shared ordering, and reaching for the ref's resolved text there would be
  * inventing one.
  */
-function compareValues(a: PropValue | undefined, b: PropValue | undefined, nodes: NodeMap): number {
+function compareValues(
+  a: PropValue | undefined,
+  b: PropValue | undefined,
+  schema: SchemaIndex,
+): number {
   if (!a && !b) return 0;
   if (!a) return 1;
   if (!b) return -1;
   if (a.t !== b.t) return byLowerString(String(a.v), String(b.v));
-  return compareKeys(SORT_KEY[a.t](a, nodes), SORT_KEY[b.t](b, nodes));
+  return compareKeys(SORT_KEY[a.t](a, schema), SORT_KEY[b.t](b, schema));
 }
 
 type RowComparator = (a: OutlineNode, b: OutlineNode) => number;
 
 /** One sort key, in one direction. */
-function compareByField(spec: SortSpec, nodes: NodeMap): RowComparator {
+function compareByField(spec: SortSpec, schema: SchemaIndex): RowComparator {
   return (a, b) => {
-    const cmp = compareValues(sortValueOf(a, spec.fieldId), sortValueOf(b, spec.fieldId), nodes);
+    const cmp = compareValues(sortValueOf(a, spec.fieldId), sortValueOf(b, spec.fieldId), schema);
     return spec.dir === "asc" ? cmp : -cmp;
   };
 }
@@ -496,11 +503,11 @@ function composeComparators(comparators: readonly RowComparator[]): RowComparato
 export function sortChildrenForTable(
   children: OutlineNode[],
   sortSpecs: SortSpec[],
-  nodes: NodeMap,
+  schema: SchemaIndex,
 ): OutlineNode[] {
   if (sortSpecs.length === 0) return children;
   return children.toSorted(
-    composeComparators(sortSpecs.map((spec) => compareByField(spec, nodes))),
+    composeComparators(sortSpecs.map((spec) => compareByField(spec, schema))),
   );
 }
 
@@ -521,7 +528,7 @@ export interface BoardColumn {
 export function groupChildrenForBoard(
   children: OutlineNode[],
   groupFieldId: string | null,
-  nodes: NodeMap,
+  schema: SchemaIndex,
 ): BoardColumn[] {
   if (groupFieldId === null) {
     return [
@@ -534,7 +541,7 @@ export function groupChildrenForBoard(
     ];
   }
 
-  const fieldLabel = textOr(nodes.get(groupFieldId)?.text, groupFieldId);
+  const fieldLabel = textOr(schema.get(groupFieldId)?.text, groupFieldId);
   const columns = new Map<string, BoardColumn>();
   const empty: BoardColumn = {
     key: EMPTY_GROUP_KEY,
@@ -552,12 +559,12 @@ export function groupChildrenForBoard(
     // Display: first value wins. Drag clears all values then sets one.
     const [v] = vals;
     if (v === undefined) continue;
-    const key = propValueKey(v, nodes);
+    const key = propValueKey(v, schema);
     let col = columns.get(key);
     if (!col) {
       col = {
         key,
-        label: propValueLabel(v, nodes),
+        label: propValueLabel(v, schema),
         value: v,
         nodes: [],
       };

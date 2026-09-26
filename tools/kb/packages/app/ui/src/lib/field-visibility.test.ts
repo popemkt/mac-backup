@@ -1,3 +1,5 @@
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import type { NodeMap } from "@/lib/types";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
@@ -10,6 +12,11 @@ import { wireToOutlineMap } from "@/lib/graph-view";
 import { planSetFieldHidden } from "@/actions/plan";
 import { useOutlineStore } from "@/stores/outline.store";
 
+/** The one constructor, over an unscoped graph: the whole map is the schema. */
+function schemaFor(nodes: NodeMap): SchemaIndex {
+  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
+
 function mapFromFixture() {
   return wireToOutlineMap(fixtureGraph.nodes, new Set());
 }
@@ -18,17 +25,17 @@ describe("field visibility", () => {
   it("hides sys.* prop keys and user-hidden fields by default", () => {
     const nodes = mapFromFixture();
     const node = present(nodes.get("n.root-a"), "n.root-a");
-    const visible = resolveVisibleProps(node, nodes);
+    const visible = resolveVisibleProps(node, schemaFor(nodes));
     expect(visible.map((p) => p.fieldId)).toEqual(["field.status"]);
     expect(isIntrinsicSystemPropKey("sys.f.type")).toBe(true);
     expect(isIntrinsicSystemPropKey("sys.f.color")).toBe(false);
-    expect(isFieldNodeHidden("field.noisy", nodes)).toBe(true);
+    expect(isFieldNodeHidden("field.noisy", schemaFor(nodes))).toBe(true);
   });
 
   it("reveals hidden + sys props in debug mode with debug flag", () => {
     const nodes = mapFromFixture();
     const node = present(nodes.get("n.root-a"), "n.root-a");
-    const visible = resolveVisibleProps(node, nodes, { showDebugFields: true });
+    const visible = resolveVisibleProps(node, schemaFor(nodes), { showDebugFields: true });
     expect(visible.map((p) => p.fieldId)).toEqual(
       expect.arrayContaining(["sys.f.type", "field.status", "field.noisy"]),
     );
@@ -64,7 +71,10 @@ describe("field visibility", () => {
       },
     ];
     const nodes = wireToOutlineMap(wire, new Set());
-    const visible = resolveVisibleProps(present(nodes.get("n.member"), "n.member"), nodes);
+    const visible = resolveVisibleProps(
+      present(nodes.get("n.member"), "n.member"),
+      schemaFor(nodes),
+    );
 
     const status = present(
       visible.find((p) => p.fieldId === "field.status"),
@@ -96,7 +106,10 @@ describe("field visibility", () => {
       },
     ];
     const nodes = wireToOutlineMap(wire, new Set());
-    const visible = resolveVisibleProps(present(nodes.get("field.status"), "field.status"), nodes);
+    const visible = resolveVisibleProps(
+      present(nodes.get("field.status"), "field.status"),
+      schemaFor(nodes),
+    );
     expect(visible.map((p) => p.fieldId)).toEqual(
       expect.arrayContaining(["sys.f.fieldType", "sys.f.targetTag", "sys.f.targetQuery"]),
     );
@@ -105,7 +118,7 @@ describe("field visibility", () => {
   it("surfaces color/hidden template slots on tag nodes even when unset", () => {
     const nodes = mapFromFixture();
     const tag = present(nodes.get("tag.todo"), "tag.todo");
-    const visible = resolveVisibleProps(tag, nodes);
+    const visible = resolveVisibleProps(tag, schemaFor(nodes));
     expect(visible.map((p) => p.fieldId)).toEqual(
       expect.arrayContaining(["sys.f.color", "sys.f.hidden"]),
     );

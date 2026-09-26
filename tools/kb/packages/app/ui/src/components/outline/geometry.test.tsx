@@ -3,6 +3,7 @@
  * The One-Row Metric Invariant: every row state resolves to identical
  * indent / bullet-slot / content-padding geometry from the token source.
  */
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +14,11 @@ import { NodeRow } from "./node-row";
 import { FieldRow } from "./field-row";
 import { PropValueEditor } from "./field-value";
 import type { NodeMap, PropValue } from "@/lib/types";
+
+/** The one constructor, over an unscoped graph: the whole map is the schema. */
+function schemaFor(nodes: NodeMap): SchemaIndex {
+  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
 
 const outlineDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -95,7 +101,7 @@ describe("Field value placeholder (D17, §5.2)", () => {
         display: "",
         fieldType: "text",
         onCommit: () => {},
-        nodes,
+        schema: schemaFor(nodes),
         onZoomTo: () => undefined,
       }),
     );
@@ -112,7 +118,7 @@ describe("Field value placeholder (D17, §5.2)", () => {
         display: "",
         fieldType: "text",
         onCommit: () => {},
-        nodes,
+        schema: schemaFor(nodes),
         onZoomTo: () => undefined,
       }),
     );

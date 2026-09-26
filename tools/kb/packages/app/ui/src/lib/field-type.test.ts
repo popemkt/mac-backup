@@ -1,3 +1,4 @@
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { describe, expect, it } from "vitest";
 import { DatascriptIndex } from "@/ds";
 import { fixtureGraph } from "@/api/fixture-graph";
@@ -24,6 +25,11 @@ import { allowedRefIdsOf, present, typeRefsOf, type NodeLike } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import { planAddFieldTargetTag, planSetFieldTargetQuery, planSetFieldType } from "@/actions/plan";
 
+/** The one constructor, over an unscoped graph: the whole map is the schema. */
+function schemaFor(nodes: NodeMap): SchemaIndex {
+  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
+
 function outline(): Map<string, OutlineNode> {
   return wireToOutlineMap(fixtureGraph.nodes, new Set());
 }
@@ -41,7 +47,7 @@ function fieldNode(partial: Partial<WireNode> & { id: string; text: string }): W
 describe("field types", () => {
   it("defaults to text when sys.f.fieldType is absent", () => {
     const nodes = outline();
-    expect(resolveFieldTypeById("field.status", nodes)).toBe("text");
+    expect(resolveFieldTypeById("field.status", schemaFor(nodes))).toBe("text");
     expect(resolveFieldType(undefined)).toBe("text");
   });
 
@@ -74,7 +80,7 @@ describe("field types", () => {
     ];
     const nodes = wireToOutlineMap(wire, new Set());
     const field = nodes.get("field.assignee");
-    const allowed = resolveAllowedRefIds(field, nodes, null);
+    const allowed = resolveAllowedRefIds(field, schemaFor(nodes), null);
     const set = present(allowed, "allowed refs");
     expect([...set].toSorted()).toEqual(["n.root-a", "n.root-b"]);
     expect(set.has("n.root-c")).toBe(false);
@@ -96,7 +102,7 @@ describe("field types", () => {
     ];
     const nodes = wireToOutlineMap(wire, new Set());
     const qdb = new DatascriptIndex(wire);
-    const allowed = resolveAllowedRefIds(nodes.get("field.pick"), nodes, qdb);
+    const allowed = resolveAllowedRefIds(nodes.get("field.pick"), schemaFor(nodes), qdb);
     const set = present(allowed, "allowed refs");
     expect([...set]).toEqual(["n.root-a"]);
   });
@@ -118,7 +124,7 @@ describe("field types", () => {
     ];
     const nodes = wireToOutlineMap(wire, new Set());
     const qdb = new DatascriptIndex(wire);
-    const allowed = resolveAllowedRefIds(nodes.get("field.both"), nodes, qdb);
+    const allowed = resolveAllowedRefIds(nodes.get("field.both"), schemaFor(nodes), qdb);
     const set = present(allowed, "allowed refs");
     // Query matches n.root-c only; tag.todo would have included a/b — query wins.
     expect([...set]).toEqual(["n.root-c"]);
@@ -140,10 +146,10 @@ describe("field types", () => {
     ];
     const nodes = wireToOutlineMap(wire, new Set());
     const field = nodes.get("field.assignee");
-    const a = resolveAllowedRefIdsCached("field.assignee", field, nodes, null, 1);
-    const b = resolveAllowedRefIdsCached("field.assignee", field, nodes, null, 1);
+    const a = resolveAllowedRefIdsCached("field.assignee", field, schemaFor(nodes), null, 1);
+    const b = resolveAllowedRefIdsCached("field.assignee", field, schemaFor(nodes), null, 1);
     expect(a).toBe(b);
-    const c = resolveAllowedRefIdsCached("field.assignee", field, nodes, null, 2);
+    const c = resolveAllowedRefIdsCached("field.assignee", field, schemaFor(nodes), null, 2);
     expect(c).not.toBe(a);
     const aSet = present(a, "cached allowed refs");
     const cSet = present(c, "cached allowed refs rev 2");
@@ -245,7 +251,11 @@ describe("allowed ref targets: resolution vs display", () => {
 
   it("offers every supertag for targetTag → sys.tag", () => {
     const nodes = withIncludeField();
-    const allowed = resolveAllowedRefIds(nodes.get(SYSTEM_IDS.ontoIncludeField), nodes, null);
+    const allowed = resolveAllowedRefIds(
+      nodes.get(SYSTEM_IDS.ontoIncludeField),
+      schemaFor(nodes),
+      null,
+    );
     const set = present(allowed, "allowed refs");
     expect(set.size).toBeGreaterThan(0);
     expect([...set].toSorted()).toEqual(TAG_NODES);
@@ -266,7 +276,7 @@ describe("allowed ref targets: resolution vs display", () => {
   it("ignores badges even when they are wrong", () => {
     const nodes = withIncludeField();
     const truth = present(
-      resolveAllowedRefIds(nodes.get(SYSTEM_IDS.ontoIncludeField), nodes, null),
+      resolveAllowedRefIds(nodes.get(SYSTEM_IDS.ontoIncludeField), schemaFor(nodes), null),
       "allowed refs",
     );
     // Guard the comparison below against being vacuously true.
@@ -282,7 +292,7 @@ describe("allowed ref targets: resolution vs display", () => {
       ]),
     );
     const afterForgery = present(
-      resolveAllowedRefIds(forged.get(SYSTEM_IDS.ontoIncludeField), forged, null),
+      resolveAllowedRefIds(forged.get(SYSTEM_IDS.ontoIncludeField), schemaFor(forged), null),
       "allowed refs after forgery",
     );
     expect([...afterForgery].toSorted()).toEqual([...truth].toSorted());
@@ -316,7 +326,11 @@ describe("allowed ref targets: resolution vs display", () => {
     expect(open).toContain("n.root-c");
 
     // …and yields to the declaration when there is one.
-    const allowed = resolveAllowedRefIds(nodes.get(SYSTEM_IDS.ontoIncludeField), nodes, null);
+    const allowed = resolveAllowedRefIds(
+      nodes.get(SYSTEM_IDS.ontoIncludeField),
+      schemaFor(nodes),
+      null,
+    );
     const offered = fuzzyNodeCandidates(nodes, "", { allowed }).map((c) => c.id);
     expect(offered.slice().toSorted()).toEqual(TAG_NODES);
   });
@@ -339,7 +353,7 @@ describe("allowed ref targets: resolution vs display", () => {
     const nodes = wireToOutlineMap(wire, new Set());
     const allowed = resolveAllowedRefIds(
       nodes.get("field.onto-ish"),
-      nodes,
+      schemaFor(nodes),
       new DatascriptIndex(wire),
     );
     const set = present(allowed, "allowed refs");

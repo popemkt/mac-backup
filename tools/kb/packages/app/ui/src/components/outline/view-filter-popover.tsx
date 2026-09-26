@@ -4,6 +4,7 @@ import { FunnelIcon, PlusIcon, TextTIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { toast } from "@/lib/toast";
 import { getViewConfig, serializeViewFilter, type ViewFilter } from "@/lib/view-config";
+import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { PrefFieldRow } from "@/components/ui/pref-field-row";
@@ -57,7 +58,8 @@ export function ViewFilterPopoverHost() {
 
   const fields = useMemo(() => {
     if (frameId === null) return [];
-    return listFilterFieldOptions(frameId, useOutlineStore.getState().nodes);
+    const state = useOutlineStore.getState();
+    return listFilterFieldOptions(frameId, state.nodes, schemaOf(state));
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation is the reactive invalidation key: the body reads the store imperatively via getState(), so generation drives recomputation
   }, [frameId, generation]);
 

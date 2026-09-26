@@ -5,6 +5,7 @@
  * ext.canvas.tx.apply; afterward the edge does not track/own the prop.
  * Bound vs unbound is computed at render time only (no reconciler writes).
  */
+import type { SchemaIndex } from "@/lib/schema";
 import { ulid } from "ulid";
 import { invoke } from "@/session/runtime";
 import {
@@ -75,7 +76,7 @@ export function syncDocOnRev(
 }
 
 export function hasPropRef(
-  nodes: Map<string, OutlineNode>,
+  nodes: ReadonlyMap<string, OutlineNode>,
   sourceId: string,
   fieldId: string,
   targetId: string,
@@ -86,7 +87,7 @@ export function hasPropRef(
 
 /** One-shot native bind: setProps only if the triple is not already present. */
 export function planNativeBind(
-  nodes: Map<string, OutlineNode>,
+  nodes: ReadonlyMap<string, OutlineNode>,
   sourceId: string,
   fieldId: string,
   targetId: string,
@@ -103,13 +104,13 @@ export function planNativeBind(
 export function isValidNativeTarget(
   fieldId: string,
   targetNodeId: string,
-  nodes: Map<string, OutlineNode>,
+  schema: SchemaIndex,
   queryDb: KbIndex | null,
 ): boolean {
-  const field = nodes.get(fieldId);
+  const field = schema.get(fieldId);
   if (!field) return false;
   if (resolveFieldType(field) !== "ref") return false;
-  const allowed = resolveAllowedRefIds(field, nodes, queryDb);
+  const allowed = resolveAllowedRefIds(field, schema, queryDb);
   if (allowed === null) return true;
   return allowed.has(targetNodeId);
 }

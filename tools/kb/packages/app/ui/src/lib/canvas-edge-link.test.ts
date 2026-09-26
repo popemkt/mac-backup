@@ -1,9 +1,15 @@
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { describe, expect, test } from "vitest";
 import type { CanvasEdge, CanvasNode } from "@kb/canvas";
 import type { WireNode } from "@kb/contracts";
 import { planEdgeRelink, type EdgeRelinkContext } from "@/lib/canvas-edge-link";
 import { wireToOutlineMap } from "@/lib/graph-view";
-import { SYSTEM_IDS, type OutlineNode } from "@/lib/types";
+import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
+
+/** The one constructor, over an unscoped graph: the whole map is the schema. */
+function schemaFor(nodes: NodeMap): SchemaIndex {
+  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
 
 function wireNode(id: string, text: string, partial: Partial<WireNode> = {}): WireNode {
   return {
@@ -51,7 +57,7 @@ const cards: CanvasNode[] = [
 function ctx(overrides: Partial<EdgeRelinkContext> = {}): EdgeRelinkContext {
   return {
     byId: new Map(cards.map((card) => [card.id, card])),
-    nodes,
+    nodes: schemaFor(nodes),
     queryDb: null,
     bindingId: "bind-new",
     ...overrides,
@@ -122,7 +128,7 @@ describe("going native", () => {
     const plan = planEdgeRelink(
       edge("c1", "c2", { ...layoutLink, fieldId: "f.link" }),
       { kind: "mode", mode: "native" },
-      ctx({ nodes: bound }),
+      ctx({ nodes: schemaFor(bound) }),
     );
     expect(plan).toMatchObject({ props: { propTargetId: "n.a", setProps: undefined } });
   });

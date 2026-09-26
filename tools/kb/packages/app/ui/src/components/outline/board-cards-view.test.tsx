@@ -1,3 +1,5 @@
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import type { NodeMap } from "@/lib/types";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -24,6 +26,11 @@ import {
   parseViewFilterEdn,
 } from "@/lib/view-config";
 import { collectVisibleInstances } from "@/lib/visible-instances";
+
+/** The one constructor, over an unscoped graph: the whole map is the schema. */
+function schemaFor(nodes: NodeMap): SchemaIndex {
+  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
 
 const mockWire: WireNode[] = [
   ...viewFieldNodes,
@@ -144,6 +151,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       createElement(BoardCardsView, {
         frameId: "frame1",
         nodes: useOutlineStore.getState().nodes,
+        schema: schemaOf(useOutlineStore.getState()),
         widthPref: "full",
       }),
     );
@@ -173,6 +181,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       createElement(BoardCardsView, {
         frameId: "frame1",
         nodes: useOutlineStore.getState().nodes,
+        schema: schemaOf(useOutlineStore.getState()),
       }),
     );
     expect(html).toContain('data-board-empty="true"');
@@ -199,6 +208,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       createElement(BoardCardsView, {
         frameId: "frame1",
         nodes: useOutlineStore.getState().nodes,
+        schema: schemaOf(useOutlineStore.getState()),
       }),
     );
     expect(html).toContain('data-view-mode="cards"');
@@ -242,6 +252,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       createElement(BoardCardsView, {
         frameId: "frame1",
         nodes: useOutlineStore.getState().nodes,
+        schema: schemaOf(useOutlineStore.getState()),
         rowIds: ["c1", "c2"],
         isQuerySource: true,
         widthPref: "full",
@@ -266,10 +277,15 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     const nodes = useOutlineStore.getState().nodes;
     const frame = present(nodes.get("frame1"), "frame1");
     const kids = frame.children.map((id) => present(nodes.get(id), id));
-    const cols = groupChildrenForBoard(kids, "f_status", nodes);
+    const cols = groupChildrenForBoard(kids, "f_status", schemaFor(nodes));
     const expected = flattenBoardOrder(cols).map((n) => n.id);
     useOutlineStore.getState().zoomTo("frame1");
-    const visible = collectVisibleInstances("frame1", nodes, useOutlineStore.getState().index);
+    const visible = collectVisibleInstances(
+      "frame1",
+      nodes,
+      schemaFor(nodes),
+      useOutlineStore.getState().index,
+    );
     // zoomed root itself + projected cards in board order
     const projected = visible.filter((v) => v.nodeId !== "frame1").map((v) => v.nodeId);
     expect(projected).toEqual(expected);
@@ -279,7 +295,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
 
   it("filter field options come from projected row tags, not global scan", () => {
     const nodes = useOutlineStore.getState().nodes;
-    const opts = listFilterFieldOptions("frame1", nodes);
+    const opts = listFilterFieldOptions("frame1", nodes, schemaFor(nodes));
     expect(opts.map((o) => o.id)).toEqual(["f_status"]);
   });
 
@@ -288,13 +304,13 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     const kids = ["c1", "c2", "c3"].map((id) => present(nodes.get(id), id));
     const textF = present(parseViewFilterEdn('{:text "Alph"}'), "text filter");
     const eqF = present(parseViewFilterEdn('{:field f_status :eq "done"}'), "eq filter");
-    expect(applyViewFilters(kids, [textF], nodes).map((n) => n.id)).toEqual(["c1"]);
-    expect(applyViewFilters(kids, [eqF], nodes).map((n) => n.id)).toEqual(["c2"]);
+    expect(applyViewFilters(kids, [textF], schemaFor(nodes)).map((n) => n.id)).toEqual(["c1"]);
+    expect(applyViewFilters(kids, [eqF], schemaFor(nodes)).map((n) => n.id)).toEqual(["c2"]);
     const cfg = getViewConfig({
       [SYSTEM_IDS.viewFilterField]: [{ t: "str", v: '{:field f_status :eq "doing"}' }],
     });
     expect(cfg.filters).toHaveLength(1);
-    expect(applyViewFilters(kids, cfg.filters, nodes).map((n) => n.id)).toEqual(["c1"]);
+    expect(applyViewFilters(kids, cfg.filters, schemaFor(nodes)).map((n) => n.id)).toEqual(["c1"]);
   });
 });
 

@@ -3,12 +3,18 @@
  * store reads do not survive renderToStaticMarkup (the tag-fields-config
  * lesson), and the thing worth pinning here is layout, not wiring.
  */
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { systemSeedNodes } from "@kb/model";
 import { FieldValueStack } from "@/components/outline/fields-section";
 import { SYSTEM_IDS, type NodeMap, type PropValue } from "@/lib/types";
+
+/** The one constructor, over an unscoped graph: the whole map is the schema. */
+function schemaFor(nodes: NodeMap): SchemaIndex {
+  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
 
 const nodes = new Map() as NodeMap;
 
@@ -20,7 +26,7 @@ function render(values: PropValue[], readOnly = false) {
       fieldType: "text" as const,
       allowedRefIds: null,
       values,
-      nodes,
+      schema: schemaFor(nodes),
       readOnly,
       onZoomTo: () => undefined,
     }),
@@ -66,7 +72,7 @@ describe("field value stack", () => {
         fieldType: "number" as const,
         allowedRefIds: null,
         values: [{ t: "num", v: 96 }],
-        nodes: seeded,
+        schema: schemaFor(seeded),
         readOnly: false,
         onZoomTo: () => undefined,
       }),

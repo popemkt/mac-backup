@@ -11,6 +11,7 @@
  * (constrain, then limit — not limit, then constrain), and the one-placeholder
  * rule for the ref editing slot.
  */
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { createElement } from "react";
@@ -22,6 +23,11 @@ import { wireToOutlineMap } from "@/lib/graph-view";
 import { fuzzyNodeCandidates } from "@/lib/refs";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID, type NodeMap } from "@/lib/types";
 import { PropValueEditor } from "./field-value";
+
+/** The one constructor, over an unscoped graph: the whole map is the schema. */
+function schemaFor(nodes: NodeMap): SchemaIndex {
+  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
 
 const ISO = "2026-08-08T00:00:00.000Z";
 
@@ -88,7 +94,7 @@ function renderRefSlot(nodes: NodeMap, allowedRefIds: Set<string> | null, autoOp
       allowedRefIds,
       autoOpen,
       onCommit: () => {},
-      nodes,
+      schema: schemaFor(nodes),
       onZoomTo: () => undefined,
     }),
   );
@@ -100,7 +106,7 @@ describe("ref picker candidates (declared targets win)", () => {
   it("resolves declared sys option nodes as the allowed set", () => {
     const nodes = ontology();
     const allowed = present(
-      resolveAllowedRefIds(nodes.get(SYSTEM_IDS.fieldTypeField), nodes, queryDb()),
+      resolveAllowedRefIds(nodes.get(SYSTEM_IDS.fieldTypeField), schemaFor(nodes), queryDb()),
       "allowed refs",
     );
     // The constraint is data on the field node; it is not display policy, so
@@ -110,7 +116,11 @@ describe("ref picker candidates (declared targets win)", () => {
 
   it("offers the declared targets in the picker for fieldType", () => {
     const nodes = ontology();
-    const allowed = resolveAllowedRefIds(nodes.get(SYSTEM_IDS.fieldTypeField), nodes, queryDb());
+    const allowed = resolveAllowedRefIds(
+      nodes.get(SYSTEM_IDS.fieldTypeField),
+      schemaFor(nodes),
+      queryDb(),
+    );
     const html = renderRefSlot(nodes, allowed);
     expect(html).toContain('role="listbox"');
     for (const id of OPTION_IDS) expect(html).toContain(id);

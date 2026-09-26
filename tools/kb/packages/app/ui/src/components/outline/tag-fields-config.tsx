@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
+import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { isSysPrefixed } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -127,12 +128,12 @@ export function TagFieldsConfigView({
 }
 
 export function TagFieldsConfig({ tagId }: { tagId: string }) {
-  const nodes = useOutlineStore((s) => s.nodes);
+  const schema = useOutlineStore(schemaOf);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
 
   const { template, suggestions, all } = useMemo(
-    () => resolveTagFields(nodes, tagId),
-    [nodes, tagId],
+    () => resolveTagFields(schema, tagId),
+    [schema, tagId],
   );
 
   return (

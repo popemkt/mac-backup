@@ -10,6 +10,7 @@
  * Written before `explicitColumns` / `derivedColumns` / `compareByField`,
  * unchanged through them.
  */
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { describe, expect, it } from "vitest";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode, type PropValue } from "@/lib/types";
@@ -19,6 +20,11 @@ import {
   sortChildrenForTable,
   type SortSpec,
 } from "./view-config";
+
+/** The one constructor, over an unscoped graph: the whole map is the schema. */
+function schemaFor(nodes: NodeMap): SchemaIndex {
+  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
 
 function field(id: string, text: string, hidden = false): OutlineNode {
   return stubOutlineNode({
@@ -69,7 +75,7 @@ describe("table columns", () => {
     const cols = resolveTableColumns(
       { ...DEFAULT_VIEW_CONFIG, display: ["f.due"] },
       [row("r1", ["t.todo"])],
-      nodes,
+      schemaFor(nodes),
     );
     expect(columnIds(cols)).toEqual(["f.due"]);
   });
@@ -78,7 +84,7 @@ describe("table columns", () => {
     const cols = resolveTableColumns(
       { ...DEFAULT_VIEW_CONFIG, display: ["f.status", "f.secret"] },
       [row("r1", ["t.todo"])],
-      nodes,
+      schemaFor(nodes),
     );
     expect(columnIds(cols)).toEqual(["f.status"]);
   });
@@ -87,7 +93,7 @@ describe("table columns", () => {
     const cols = resolveTableColumns(
       { ...DEFAULT_VIEW_CONFIG, display: ["f.secret"] },
       [row("r1", ["t.todo"])],
-      nodes,
+      schemaFor(nodes),
     );
     expect(cols).toEqual([]);
   });
@@ -96,13 +102,17 @@ describe("table columns", () => {
     const cols = resolveTableColumns(
       { ...DEFAULT_VIEW_CONFIG, display: [SYSTEM_IDS.hiddenField] },
       [row("r1", ["t.todo"])],
-      nodes,
+      schemaFor(nodes),
     );
     expect(columnIds(cols)).toEqual([SYSTEM_IDS.hiddenField]);
   });
 
   it("derivation skips sys fields and hidden fields both", () => {
-    const cols = resolveTableColumns(DEFAULT_VIEW_CONFIG, [row("r1", ["t.todo"])], nodes);
+    const cols = resolveTableColumns(
+      DEFAULT_VIEW_CONFIG,
+      [row("r1", ["t.todo"])],
+      schemaFor(nodes),
+    );
     expect(columnIds(cols)).toEqual(["f.status"]);
   });
 
@@ -110,30 +120,43 @@ describe("table columns", () => {
     const cols = resolveTableColumns(
       DEFAULT_VIEW_CONFIG,
       [row("r1", ["t.dated"]), row("r2", ["t.todo"])],
-      nodes,
+      schemaFor(nodes),
     );
     expect(columnIds(cols)).toEqual(["f.due", "f.status"]);
   });
 
   it("an unresolvable tag contributes nothing", () => {
-    const cols = resolveTableColumns(DEFAULT_VIEW_CONFIG, [row("r1", ["t.gone"])], nodes);
+    const cols = resolveTableColumns(
+      DEFAULT_VIEW_CONFIG,
+      [row("r1", ["t.gone"])],
+      schemaFor(nodes),
+    );
     expect(cols).toEqual([]);
   });
 
   it("debug columns keep the sys and hidden fields the normal pass drops", () => {
-    const cols = resolveTableColumns(DEFAULT_VIEW_CONFIG, [row("r1", ["t.todo"])], nodes, true);
+    const cols = resolveTableColumns(
+      DEFAULT_VIEW_CONFIG,
+      [row("r1", ["t.todo"])],
+      schemaFor(nodes),
+      true,
+    );
     expect(columnIds(cols)).toEqual(["f.status", "f.secret", SYSTEM_IDS.hiddenField]);
   });
 
   it("a column label falls back to the field id when the field has no text", () => {
-    const cols = resolveTableColumns({ ...DEFAULT_VIEW_CONFIG, display: ["f.nowhere"] }, [], nodes);
+    const cols = resolveTableColumns(
+      { ...DEFAULT_VIEW_CONFIG, display: ["f.nowhere"] },
+      [],
+      schemaFor(nodes),
+    );
     expect(cols).toEqual([{ fieldId: "f.nowhere", label: "f.nowhere" }]);
   });
 });
 
 describe("the multi-key sort", () => {
   const sortIds = (children: OutlineNode[], specs: SortSpec[]) =>
-    sortChildrenForTable(children, specs, nodes).map((n) => n.id);
+    sortChildrenForTable(children, specs, schemaFor(nodes)).map((n) => n.id);
 
   it("no specs is the identity, same array order", () => {
     const children = [withVal("b", null), withVal("a", null)];
@@ -172,7 +195,9 @@ describe("the multi-key sort", () => {
     graph.set("n.a", stubOutlineNode({ id: "n.a", text: "Zulu" }));
     const children = [withVal("r1", { t: "ref", v: "n.a" }), withVal("r2", { t: "ref", v: "n.z" })];
     expect(
-      sortChildrenForTable(children, [{ fieldId: "f.v", dir: "asc" }], graph).map((n) => n.id),
+      sortChildrenForTable(children, [{ fieldId: "f.v", dir: "asc" }], schemaFor(graph)).map(
+        (n) => n.id,
+      ),
     ).toEqual(["r2", "r1"]);
   });
 

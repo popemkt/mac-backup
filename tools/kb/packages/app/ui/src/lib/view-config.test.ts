@@ -1,3 +1,4 @@
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { SYSTEM_IDS } from "./types";
@@ -12,6 +13,11 @@ import {
   serializeViewFilter,
   sortChildrenForTable,
 } from "./view-config";
+
+/** The one constructor, over an unscoped graph: the whole map is the schema. */
+function schemaFor(nodes: NodeMap): SchemaIndex {
+  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
 
 describe("view-config", () => {
   it("returns default view config when props are empty or undefined", () => {
@@ -209,12 +215,12 @@ describe("view-config", () => {
     const colsDisplay = resolveTableColumns(
       { ...DEFAULT_VIEW_CONFIG, display: ["f_status"] },
       [childNode],
-      nodes,
+      schemaFor(nodes),
     );
     expect(colsDisplay).toEqual([{ fieldId: "f_status", label: "status" }]);
 
     // Case 2: fallback to tag fields
-    const colsFallback = resolveTableColumns(DEFAULT_VIEW_CONFIG, [childNode], nodes);
+    const colsFallback = resolveTableColumns(DEFAULT_VIEW_CONFIG, [childNode], schemaFor(nodes));
     expect(colsFallback).toEqual([
       { fieldId: "f_status", label: "status" },
       { fieldId: "f_due", label: "due" },
@@ -252,7 +258,7 @@ describe("view-config", () => {
     const sortedByName = sortChildrenForTable(
       originalChildren,
       [{ fieldId: SYSTEM_IDS.nodeTextField, dir: "asc" }],
-      nodes,
+      schemaFor(nodes),
     );
     expect(sortedByName.map((n) => n.id)).toEqual(["c2", "c1"]);
 
@@ -260,7 +266,7 @@ describe("view-config", () => {
     const sortedByValDesc = sortChildrenForTable(
       originalChildren,
       [{ fieldId: "f_val", dir: "desc" }],
-      nodes,
+      schemaFor(nodes),
     );
     expect(sortedByValDesc.map((n) => n.id)).toEqual(["c1", "c2"]);
 
@@ -354,7 +360,7 @@ describe("view-config", () => {
         },
         { kind: "text", text: "ship", raw: "" },
       ],
-      nodes,
+      schemaFor(nodes),
     );
     expect(filtered.map((n) => n.id)).toEqual(["a"]);
   });
@@ -394,12 +400,12 @@ describe("view-config", () => {
       updatedAt: "",
       tags: [],
     };
-    const cols = groupChildrenForBoard([doing, empty], "field.status", nodes);
+    const cols = groupChildrenForBoard([doing, empty], "field.status", schemaFor(nodes));
     expect(cols.map((c) => c.key)).toContain("__empty__");
     expect(cols.find((c) => c.label === "doing")?.nodes.map((n) => n.id)).toEqual(["d"]);
     expect(cols.find((c) => c.key === "__empty__")?.nodes.map((n) => n.id)).toEqual(["e"]);
 
-    const cards = groupChildrenForBoard([doing, empty], null, nodes);
+    const cards = groupChildrenForBoard([doing, empty], null, schemaFor(nodes));
     expect(cards).toHaveLength(1);
     expect(present(cards[0], "cards column").nodes.map((n) => n.id)).toEqual(["d", "e"]);
   });

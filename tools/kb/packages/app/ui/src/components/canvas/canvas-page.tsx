@@ -22,6 +22,7 @@ import {
   type PointerState,
 } from "@/lib/canvas-pointer";
 import { navigate } from "@/lib/router";
+import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 
 interface CanvasPageProps {
@@ -30,6 +31,7 @@ interface CanvasPageProps {
 
 export function CanvasPage({ canvasId }: CanvasPageProps) {
   const nodes = useOutlineStore((s) => s.nodes);
+  const schema = useOutlineStore(schemaOf);
   const queryDb = useOutlineStore((s) => s.index);
   const rev = useOutlineStore((s) => s.index?.generation ?? 0);
   const canvasNode = nodes.get(canvasId);
@@ -167,7 +169,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     selectedEdge: selectedEdgeObj,
     byId,
     docRef,
-    nodes,
+    nodes: schema,
     queryDb,
     flushPersist,
     setSelection,

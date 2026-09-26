@@ -11,10 +11,11 @@
  * "expandable" must not promise more than the render gates deliver, which is
  * why it is derived from them rather than asked separately.
  */
+import type { SchemaIndex } from "@/lib/schema";
 import { isContextualRef } from "@/lib/contextual-ref";
 import { resolveProps } from "@/lib/graph-view";
 import { isQueryNode } from "@/lib/query-node";
-import type { NodeMap, OutlineNode } from "@/lib/types";
+import type { OutlineNode } from "@/lib/types";
 import { isProjectedViewMode, type ViewConfig } from "@/lib/view-config";
 
 export interface RowChrome {
@@ -46,7 +47,8 @@ export interface RowChrome {
 
 export interface RowChromeInput {
   node: OutlineNode;
-  nodes: NodeMap;
+  /** Where field definitions are read from: the whole graph (`lib/schema.ts`). */
+  schema: SchemaIndex;
   viewConfig: ViewConfig;
   /** This render instance stands for a node whose home is elsewhere. */
   isRef: boolean;
@@ -55,7 +57,7 @@ export interface RowChromeInput {
 
 export function resolveRowChrome({
   node,
-  nodes,
+  schema,
   viewConfig,
   isRef,
   showDebugFields,
@@ -67,7 +69,7 @@ export function resolveRowChrome({
   const showsQueryResults = isQuery && !isRef;
   const showsChildren = !isQuery && hasChildren;
   const hasFrameRows = showsChildren || showsQueryResults;
-  const hasFields = resolveProps(node, nodes, { showDebugFields }).length > 0;
+  const hasFields = resolveProps(node, schema, { showDebugFields }).length > 0;
   const isExpandable = hasFrameRows || hasFields;
   const projected = isProjectedViewMode(viewConfig.mode);
 

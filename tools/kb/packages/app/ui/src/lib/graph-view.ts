@@ -1,3 +1,4 @@
+import type { SchemaIndex } from "@/lib/schema";
 import type { WireNode } from "@kb/contracts";
 import { compareRootOrder, typeRefsOf } from "@kb/model";
 import { hasQueryDef } from "@/lib/query-node";
@@ -95,17 +96,21 @@ function nodeDefaultsCollapsed(wire: WireNode, byId: Map<string, WireNode>): boo
 }
 
 /**
- * The outline projection of `nodes`. Tag colours come from `palette`, the
- * whole workspace's (`tagPalette`): a caller projecting a subset (an ontology
- * scope) passes the full graph's palette, so a tag keeps its colour in every
- * projection. The default is right only when `nodes` is the whole graph.
+ * The outline view model for `nodes`. Each node's tag chips â names and
+ * colours â and its default collapse (does it show fields?) are resolved against
+ * `graph`: the whole graph, which is `nodes` itself unless `nodes` is a
+ * projection of it (an ontology scope). The outline's structure comes from
+ * `nodes`; what the schema means, and the tag palette (`tagPalette`, one
+ * palette for the whole workspace), never depend on which content is shown
+ * (`lib/schema.ts`).
  */
 export function wireToOutlineMap(
   nodes: WireNode[],
   expandedIds: Set<string>,
-  palette: TagPalette = tagPalette(nodes),
+  graph: readonly WireNode[] = nodes,
 ): NodeMap {
-  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const byId = new Map(graph.map((n) => [n.id, n]));
+  const palette = tagPalette(graph);
   const parentOf = new Map<string, string>();
   for (const n of nodes) {
     for (const c of n.children) parentOf.set(c, n.id);
@@ -155,26 +160,26 @@ export function wireToOutlineMap(
 
 export function resolveProps(
   node: OutlineNode,
-  nodes: NodeMap,
+  schema: SchemaIndex,
   opts?: ResolvePropsOptions,
 ): ResolvedProp[] {
-  return resolveVisibleProps(node, nodes, opts);
+  return resolveVisibleProps(node, schema, opts);
 }
 
 /** Resolve a ref prop to a label: target text when present, otherwise raw id fallback. */
-export function resolveRefLabel(refId: string, nodes: NodeMap): string | null {
-  const n = nodes.get(refId);
+export function resolveRefLabel(refId: string, schema: SchemaIndex): string | null {
+  const n = schema.get(refId);
   if (!n) return null;
   return n.text || refId;
 }
 
 export function formatPropValue(
   value: OutlineNode["props"][string][number],
-  nodes: NodeMap,
+  schema: SchemaIndex,
 ): string {
   switch (value.t) {
     case "ref": {
-      const resolved = resolveRefLabel(value.v, nodes);
+      const resolved = resolveRefLabel(value.v, schema);
       return resolved ?? value.v;
     }
     case "bool":

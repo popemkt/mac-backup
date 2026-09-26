@@ -1,9 +1,10 @@
-import type { NodeMap, OutlineNode, PropValue, ResolvedProp } from "@/lib/types";
+import type { SchemaIndex } from "@/lib/schema";
+import type { OutlineNode, PropValue, ResolvedProp } from "@/lib/types";
 import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
 
 /**
  * Schema props that live under sys.* but are meant to edit like ordinary
- * fields on tag/field nodes (i10 item 4 — color/hidden on a tag page).
+ * fields on tag/field schema (i10 item 4 — color/hidden on a tag page).
  *
  * The field-configuration trio is here for the same reason: a field node's type
  * and ref constraints are the field's own settings, and editing them on the
@@ -25,15 +26,15 @@ export function isIntrinsicSystemPropKey(fieldId: string): boolean {
 }
 
 /** True when the field definition node carries sys.f.hidden = true. */
-export function isFieldNodeHidden(fieldId: string, nodes: NodeMap): boolean {
-  const fieldNode = nodes.get(fieldId);
+export function isFieldNodeHidden(fieldId: string, schema: SchemaIndex): boolean {
+  const fieldNode = schema.get(fieldId);
   if (!fieldNode) return false;
   const hidden = fieldNode.props[SYSTEM_IDS.hiddenField]?.[0];
   return hidden?.t === "bool" && hidden.v;
 }
 
-export function isPropHiddenByDefault(fieldId: string, nodes: NodeMap): boolean {
-  return isIntrinsicSystemPropKey(fieldId) || isFieldNodeHidden(fieldId, nodes);
+export function isPropHiddenByDefault(fieldId: string, schema: SchemaIndex): boolean {
+  return isIntrinsicSystemPropKey(fieldId) || isFieldNodeHidden(fieldId, schema);
 }
 
 export interface ResolvePropsOptions {
@@ -62,15 +63,15 @@ export type VisibleProp = ResolvedProp & {
  * field node its type and ref constraints, and a user supertag gives its
  * members whatever fields were added to it. That last case is the one this
  * replaces — the old rule consulted only `sys.tag`'s template and only for tag
- * nodes, so fields added to a supertag stayed invisible on its members until
+ * schema, so fields added to a supertag stayed invisible on its members until
  * somebody set a value, which made adding fields to a tag look like it did
  * nothing.
  */
-function templatedFieldIds(node: OutlineNode, nodes: NodeMap): string[] {
+function templatedFieldIds(node: OutlineNode, schema: SchemaIndex): string[] {
   const ids: string[] = [];
   for (const type of node.props[SYSTEM_IDS.typeField] ?? []) {
     if (type.t !== "ref" || typeof type.v !== "string") continue;
-    for (const ref of nodes.get(type.v)?.props[SYSTEM_IDS.fieldsField] ?? []) {
+    for (const ref of schema.get(type.v)?.props[SYSTEM_IDS.fieldsField] ?? []) {
       if (ref.t !== "ref" || typeof ref.v !== "string") continue;
       if (!ids.includes(ref.v)) ids.push(ref.v);
     }
@@ -81,7 +82,7 @@ function templatedFieldIds(node: OutlineNode, nodes: NodeMap): string[] {
 /** Resolve node props for FieldRow display with visibility filtering. */
 export function resolveVisibleProps(
   node: OutlineNode,
-  nodes: NodeMap,
+  schema: SchemaIndex,
   opts: ResolvePropsOptions = {},
 ): VisibleProp[] {
   const showAll = opts.showDebugFields ?? false;
@@ -91,10 +92,10 @@ export function resolveVisibleProps(
   for (const [fieldId, values] of Object.entries(node.props)) {
     if (fieldId === SYSTEM_IDS.typeField && !showAll) continue;
 
-    const hiddenByDefault = isPropHiddenByDefault(fieldId, nodes);
+    const hiddenByDefault = isPropHiddenByDefault(fieldId, schema);
     if (!showAll && hiddenByDefault) continue;
 
-    const fieldNode = nodes.get(fieldId);
+    const fieldNode = schema.get(fieldId);
     seen.add(fieldId);
     out.push({
       fieldId,
@@ -107,10 +108,10 @@ export function resolveVisibleProps(
   // Surface inherited fields even when unset, so the node page is always the
   // configurator — no bespoke panel, and a tag's fields show up on its members
   // as soon as the tag declares them.
-  for (const fieldId of templatedFieldIds(node, nodes)) {
+  for (const fieldId of templatedFieldIds(node, schema)) {
     if (seen.has(fieldId)) continue;
-    if (!showAll && isPropHiddenByDefault(fieldId, nodes)) continue;
-    const fieldNode = nodes.get(fieldId);
+    if (!showAll && isPropHiddenByDefault(fieldId, schema)) continue;
+    const fieldNode = schema.get(fieldId);
     out.push({
       fieldId,
       fieldName: fieldNode?.text ?? fieldId,

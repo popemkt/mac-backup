@@ -3,6 +3,7 @@ import { outlineInstanceKey } from "@/lib/instance-key";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { frameListChildren } from "@/lib/frame-rows";
 import { getViewConfig, isProjectedViewMode } from "@/lib/view-config";
+import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useUiStore } from "@/stores/ui.store";
 import { mutations } from "@/actions/mutations";
@@ -25,6 +26,7 @@ export function OutlineEditor() {
   const rootNodeId = useOutlineStore((s) => s.rootNodeId);
   const root = useOutlineStore((s) => s.nodes.get(s.rootNodeId));
   const nodes = useOutlineStore((s) => s.nodes);
+  const schema = useOutlineStore(schemaOf);
   const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
   const setNodePaletteOpen = useUiStore((s) => s.setNodePaletteOpen);
   useSelectionKeymap();
@@ -58,7 +60,7 @@ export function OutlineEditor() {
   // The root is a frame like any other: its rows come from the shared owner,
   // whether it is the workspace root or a zoomed-in node.
   const projected = isProjectedViewMode(getViewConfig(root.props).mode);
-  const listKids = projected ? [] : frameListChildren(rootNodeId, nodes);
+  const listKids = projected ? [] : frameListChildren(rootNodeId, nodes, schema);
   const rootRows = projected ? (
     <FrameChildrenView frameId={rootNodeId} />
   ) : (
