@@ -44,6 +44,7 @@
   --sidebar-border: oklch(0.22 0.03 150 / 14%);
   --sidebar-ring: oklch(0.46 0.12 150 / 60%);
   --warning: oklch(0.495 0.1 80);
+  --tag-ink-mix: 52%;
   --success: oklch(0.56 0.14 150);
   --info: oklch(0.55 0.12 220);
   --scrim: oklch(0.08 0.02 150);
@@ -127,6 +128,7 @@
   --sidebar-border: oklch(0.83 0.19 150 / 16%);
   --sidebar-ring: oklch(0.83 0.19 150 / 60%);
   --warning: oklch(0.86 0.16 90);
+  --tag-ink-mix: 16%;
   --success: oklch(0.8 0.17 150);
   --info: oklch(0.8 0.11 220);
   --lab-ground: oklch(0.13 0.02 150);

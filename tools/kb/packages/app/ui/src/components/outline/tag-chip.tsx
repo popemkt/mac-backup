@@ -1,5 +1,6 @@
 import { HashIcon, XIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
+import { tagChipColors } from "@/lib/tag-color";
 import type { TagBadge } from "@/lib/types";
 
 export interface TagChipProps {
@@ -68,10 +69,7 @@ export function TagChip({ tag, onClick, onRemove, className }: TagChipProps) {
         "transition-opacity hover:opacity-70",
         className,
       )}
-      style={{
-        backgroundColor: `${tag.color}18`,
-        color: tag.color,
-      }}
+      style={tagChipColors(tag.color)}
       data-tag-chip="true"
     >
       {canNavigate ? (

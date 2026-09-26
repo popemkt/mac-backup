@@ -19,6 +19,7 @@ import {
   readDesignSystemSheets,
   type Decls,
 } from "./design-system-sheets";
+import { TAG_PALETTE, tagChipColors, tagColorAlpha } from "./tag-color";
 import { DEFAULT_DESIGN_SYSTEM, DESIGN_SYSTEMS, DESIGN_SYSTEM_IDS } from "./theme";
 
 const src = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -580,5 +581,154 @@ describe("design systems: contrast on composited grounds (WCAG AA)", () => {
     expect(() => scanUi(fixture, [{ host: "row.tsx", at: "gone", guest: "md.tsx" }])).toThrow(
       /stale mount/,
     );
+  });
+});
+
+/*
+ * Tag chips. A tag colour is data, not a token, so no class names it and the
+ * JSX walk above cannot see it: a chip paints inline styles. What it paints
+ * is whatever `tagChipColors` returns, so the guard evaluates exactly those
+ * CSS values — `color-mix()` in oklab, `var()` resolved in each system and
+ * variant — for every palette entry, on every page surface.
+ */
+
+/** A colour in oklab with its alpha, the space `color-mix(in oklab, …)` interpolates in. */
+interface Oklab {
+  readonly l: number;
+  readonly a: number;
+  readonly b: number;
+  readonly alpha: number;
+}
+
+function hexOklab(hex: string): Oklab {
+  const match = /^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex);
+  if (match === null) throw new Error(`not a 6-digit hex colour: ${hex}`);
+  const [r, g, b] = match.slice(1).map((byte) => linear(Number.parseInt(byte, 16)));
+  const lms = [
+    0.4122214708 * (r ?? 0) + 0.5363325363 * (g ?? 0) + 0.0514459929 * (b ?? 0),
+    0.2119034982 * (r ?? 0) + 0.6806995451 * (g ?? 0) + 0.1073969566 * (b ?? 0),
+    0.0883024619 * (r ?? 0) + 0.2817188376 * (g ?? 0) + 0.6299787005 * (b ?? 0),
+  ].map(Math.cbrt);
+  const [l, m, s] = [lms[0] ?? 0, lms[1] ?? 0, lms[2] ?? 0];
+  return {
+    l: 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    a: 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    b: 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+    alpha: 1,
+  };
+}
+
+function oklchOklab(value: string): Oklab {
+  const match = /^oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)$/.exec(value);
+  if (match === null) throw new Error(`not an opaque oklch colour: ${value}`);
+  const [l, c, h] = match.slice(1).map(Number);
+  const radians = ((h ?? 0) * Math.PI) / 180;
+  return { l: l ?? 0, a: (c ?? 0) * Math.cos(radians), b: (c ?? 0) * Math.sin(radians), alpha: 1 };
+}
+
+/** The top-level comma-separated arguments of a CSS function's body. */
+function argsOf(body: string): string[] {
+  const args: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < body.length; i++) {
+    if (body[i] === "(") depth++;
+    else if (body[i] === ")") depth--;
+    else if (body[i] === "," && depth === 0) {
+      args.push(body.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  args.push(body.slice(start).trim());
+  return args;
+}
+
+/**
+ * The colour a CSS value paints, for the forms a chip writes: hex, oklch,
+ * `transparent`, `var(--token)` and `color-mix(in oklab, A [p], B [q])`,
+ * premultiplied as CSS Color 5 specifies.
+ */
+function cssOklab(value: string, token: (name: string) => string): Oklab {
+  const v = value.trim();
+  const ref = /^var\((--[\w-]+)\)$/.exec(v)?.[1];
+  if (ref !== undefined) return cssOklab(token(ref), token);
+  if (v === "transparent") return { l: 0, a: 0, b: 0, alpha: 0 };
+  if (v.startsWith("#")) return hexOklab(v);
+  if (v.startsWith("oklch(")) return oklchOklab(v);
+  const mix = /^color-mix\(\s*in oklab\s*,(.*)\)$/s.exec(v)?.[1];
+  if (mix === undefined) throw new Error(`cannot evaluate colour: ${v}`);
+  const stops = argsOf(mix).map((arg) => {
+    const pct = /\s((?:var\(--[\w-]+\))|(?:[\d.]+%))$/.exec(arg);
+    if (pct === null) return { color: cssOklab(arg, token), weight: null };
+    const raw = pct[1] ?? "";
+    const amount = raw.startsWith("var(") ? token(raw.slice(4, -1)) : raw;
+    return {
+      color: cssOklab(arg.slice(0, pct.index), token),
+      weight: Number.parseFloat(amount) / 100,
+    };
+  });
+  const [x, y] = stops;
+  if (x === undefined || y === undefined || stops.length !== 2)
+    throw new Error(`color-mix takes two colours: ${v}`);
+  const px = x.weight ?? 1 - (y.weight ?? 0.5);
+  const py = y.weight ?? 1 - px;
+  const alpha = x.color.alpha * px + y.color.alpha * py;
+  const channel = (k: "l" | "a" | "b") =>
+    alpha === 0 ? 0 : (x.color[k] * x.color.alpha * px + y.color[k] * y.color.alpha * py) / alpha;
+  return { l: channel("l"), a: channel("a"), b: channel("b"), alpha };
+}
+
+function oklabRgb(color: Oklab): Rgb {
+  const chroma = Math.hypot(color.a, color.b);
+  const hue = ((Math.atan2(color.b, color.a) * 180) / Math.PI + 360) % 360;
+  return rgbOf(`oklch(${color.l} ${chroma} ${hue})`);
+}
+
+/** Each palette entry on each surface whose chip ink is below AA, as `colour on surface: ratio`. */
+function chipFailures(
+  paint: (color: string) => { backgroundColor: string; color: string },
+  token: (name: string) => string,
+): string[] {
+  const failures: string[] = [];
+  for (const color of TAG_PALETTE) {
+    const { backgroundColor, color: ink } = paint(color);
+    const tint = cssOklab(backgroundColor, token);
+    const inkColor = cssOklab(ink, token);
+    if (inkColor.alpha < 1) throw new Error(`translucent chip ink: ${ink}`);
+    for (const surface of SURFACES) {
+      const ground = over(oklabRgb({ ...tint, alpha: 1 }), tint.alpha, rgbOf(token(surface)));
+      const ratio = contrast(oklabRgb(inkColor), ground);
+      if (ratio < BODY) failures.push(`${color} on ${surface}: ${ratio.toFixed(2)}`);
+    }
+  }
+  return failures;
+}
+
+/** The chip this guard replaced: `${color}18` as the ground, the raw colour as ink. */
+function rawChip(color: string): { backgroundColor: string; color: string } {
+  return { backgroundColor: tagColorAlpha(color, 9.4), color };
+}
+
+describe("design systems: tag chips (WCAG AA)", () => {
+  const cases = DESIGN_SYSTEM_IDS.flatMap((id) =>
+    (["light", "dark"] as const).map((variant) => ({ id, variant })),
+  );
+
+  it.each(cases)("$id/$variant every palette colour's chip ink meets AA", ({ id, variant }) => {
+    expect(chipFailures(tagChipColors, (t) => SHEETS.resolve(id, variant, t))).toEqual([]);
+  });
+
+  it("the red case: the raw tag colour on its own tint fails in a light theme", () => {
+    expect(chipFailures(rawChip, KB_LIGHT).length).toBeGreaterThan(TAG_PALETTE.length);
+  });
+
+  it("evaluates color-mix the way CSS does", () => {
+    const gray = cssOklab("color-mix(in oklab, #ffffff, #000000 50%)", KB_LIGHT);
+    expect(gray.alpha).toBe(1);
+    expect(gray.l).toBeCloseTo(0.5, 5);
+    const tint = cssOklab("color-mix(in oklab, #ff0000 10%, transparent)", KB_LIGHT);
+    expect(tint.alpha).toBeCloseTo(0.1, 5);
+    expect(tint.l).toBeCloseTo(hexOklab("#ff0000").l, 5);
+    expect(oklabRgb(hexOklab("#3b82f6"))).toEqual([59, 130, 246]);
   });
 });

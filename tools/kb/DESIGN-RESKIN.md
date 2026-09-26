@@ -195,7 +195,10 @@ hash onward). A palette colour set explicitly holds its slot first. Untagged is
 a neutral grey outside the palette. `tagColorOf` in `lib/tag-color.ts` is the
 one reader. Tana improvement: tag node may carry explicit `color` prop (ref:
 field on `sys.tag` template) — overrides the slot. Bullet dot + collapsed halo
-inherit tag color. Chip bg = hex + `18` alpha.
+inherit tag color. A chip paints through `tagChipColors`: its ground is the
+tag colour at 10%, its ink the tag colour moved toward `--foreground` by the
+design system's `--tag-ink-mix`, the least amount that keeps every palette
+entry at AA on its chip (DESIGN-UI.md → Design systems → Guards).
 
 ---
 

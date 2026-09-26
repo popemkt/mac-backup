@@ -793,6 +793,11 @@ id; the preference's schema, the picker and the command read it.
   value such as `text-amber-600`) fails. Content one component mounts into another's
   element is declared in the guard's `MOUNTS`; translucent text is not yet
   checked (gap `01M3BEJDX4YP2DPHSCFS66NZK1`).
+- *tag chips*: a tag colour is data, so a chip paints inline styles that no
+  class walk sees. The guard evaluates what `tagChipColors` returns
+  (`color-mix()` in oklab, `var()` resolved per system and variant) for every
+  `TAG_PALETTE` entry on every page surface, at 4.5:1. The ink's pull toward
+  `--foreground` is each system's `--tag-ink-mix`.
 - the lab's bloom bound (`embers/heat.test.ts`) runs over every system's
   accent in both variants.
 

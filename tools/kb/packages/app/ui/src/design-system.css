@@ -70,6 +70,10 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   --warning: oklch(0.505 0.1 85);
+  /* How far a tag chip's ink moves from the tag colour toward --foreground:
+   * the least that puts every palette entry at AA on its own chip tint, with
+   * a margin. lib/design-systems.test.ts measures it through tagChipColors. */
+  --tag-ink-mix: 44%;
   --success: oklch(0.7 0.15 140);
   --info: oklch(0.6 0.15 250);
   /* Theme-independent: the dimming layer behind a modal, and the knob of a
@@ -164,6 +168,7 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
   --warning: oklch(0.8 0.15 85);
+  --tag-ink-mix: 18%;
   --success: oklch(0.65 0.15 145);
   --info: oklch(0.7 0.12 250);
   /* JSON Canvas presets — brighter for dark skin */

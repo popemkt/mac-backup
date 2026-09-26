@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { CircleHalfIcon } from "@phosphor-icons/react";
 import { FieldRow } from "./field-row";
 import { TagChip, TagChipGroup } from "./tag-chip";
-import { hashTagColor } from "@/lib/tag-color";
+import { hashTagColor, tagChipColors } from "@/lib/tag-color";
 
 const outlineDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -23,15 +23,16 @@ function readPrimitiveSource(name: string): string {
 }
 
 describe("shared outline components (W8b)", () => {
-  it("TagChip uses deterministic hash colors with hex+18 background", () => {
+  it("TagChip paints through tagChipColors: a tint ground and a mixed ink", () => {
     const color = hashTagColor("tag.todo");
     const html = renderToStaticMarkup(
       createElement(TagChip, {
         tag: { id: "tag.todo", name: "todo", color },
       }),
     );
-    expect(html).toContain(`${color}18`);
-    expect(html).toContain(`color:${color}`);
+    const paint = tagChipColors(color);
+    expect(html).toContain(`background-color:${paint.backgroundColor}`);
+    expect(html).toContain(`color:${paint.color}`);
     expect(html).toContain("kb-tag");
     // Height comes from --tag-h on .kb-tag, so the chip must not restate one.
     expect(html).not.toMatch(/h-\[\d+px\]/);
@@ -108,7 +109,7 @@ describe("shared outline components (W8b)", () => {
         },
       }),
     );
-    expect(html).toContain("#11223318");
+    expect(html).toContain(tagChipColors("#112233").color);
   });
 
   it("FieldRow shows mismatch warning icon when flagged", () => {

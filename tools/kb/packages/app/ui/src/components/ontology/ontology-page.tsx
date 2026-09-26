@@ -15,7 +15,7 @@ import { RefAddPopover } from "@/components/ontology/ref-add-popover";
 import { cn } from "@/lib/cn";
 import { excludedRows, memberRows, resolveScope } from "@/lib/ontology-scope";
 import { navigate } from "@/lib/router";
-import { tagColorOf } from "@/lib/tag-color";
+import { tagChipColors, tagColorOf } from "@/lib/tag-color";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 
@@ -344,7 +344,7 @@ function Chip({
       className="group/chip inline-flex h-[18px] max-w-full items-center gap-0.5 rounded-sm px-1.5 text-label font-medium leading-[18px]"
       style={
         hasText(color)
-          ? { backgroundColor: `${color}18`, color }
+          ? tagChipColors(color)
           : { backgroundColor: "color-mix(in oklab, currentColor 8%, transparent)" }
       }
     >

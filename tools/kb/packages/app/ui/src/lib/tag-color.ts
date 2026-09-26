@@ -9,8 +9,8 @@
  * 2. **Which colors a node carries** (`nodeTagColors`) — a *list*. Treating it
  *    as a scalar (`tags[0]?.color`) is what made a many-tagged bullet paint one
  *    tag; the reduction is gone from every call site.
- * 3. **How a tag color is weakened or divided** (`tagColorAlpha`,
- *    `tagColorFill`) — because an explicit `sys.f.color` prop comes back from
+ * 3. **How a tag color is weakened, divided or inked** (`tagColorAlpha`,
+ *    `tagColorFill`, `tagChipColors`) — because an explicit `sys.f.color` prop comes back from
  *    `tagColorOf` verbatim, so the value may be `red`, `#f00` or
  *    `oklch(…)`, and appending hex-alpha digits to those produces garbage.
  */
@@ -144,6 +144,25 @@ export function nodeTagColors(node: { tags: readonly TagBadge[] } | null | undef
  */
 export function tagColorAlpha(color: string, percent: number): string {
   return `color-mix(in oklab, ${color} ${percent}%, transparent)`;
+}
+
+/** How strongly a tag chip's ground takes its tag colour, in percent. */
+const TAG_CHIP_TINT = 10;
+
+/**
+ * The one paint of a tag chip: a faint tint of the tag colour for its ground,
+ * and for its ink the tag colour moved toward `--foreground` by
+ * `--tag-ink-mix`. The raw colour as text on its own tint fails AA on every
+ * light ground (1.7:1 at worst), and a tag colour is data, so no one colour
+ * could be picked for it; the mix darkens it on a light ground and lightens
+ * it on a dark one, and each design system sets the amount that keeps the
+ * whole palette at 4.5:1 or better (`lib/design-systems.test.ts`).
+ */
+export function tagChipColors(color: string): { backgroundColor: string; color: string } {
+  return {
+    backgroundColor: tagColorAlpha(color, TAG_CHIP_TINT),
+    color: `color-mix(in oklab, ${color}, var(--foreground) var(--tag-ink-mix))`,
+  };
 }
 
 /** Trim float noise out of generated gradient stops (100/3 → `33.333%`). */
