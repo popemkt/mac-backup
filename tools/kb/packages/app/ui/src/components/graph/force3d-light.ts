@@ -33,20 +33,27 @@ export const KEY_DIRECTION: readonly [number, number, number] = (() => {
 /** How sharply the rim falls off from the silhouette. */
 export const RIM_POWER = 2.4;
 
-/** The (key, rim) pairs a visible point of the sphere can see, sampled once. */
+/**
+ * The (key, rim) pairs a visible point of the sphere can see, sampled once.
+ *
+ * The rim depends only on the normal's angle θ from the view axis, so each
+ * ring of the visible half has one rim; round the ring the key runs over an
+ * interval whose ends are exact, `cosθ·k_z ∓ sinθ·√(k_x² + k_y²)` clamped at
+ * 0. Every term of the light grows with the key, so a ring's brightest
+ * fragment is at the top of its interval: sampling each ring's two ends and a
+ * few points between reaches the sphere's peak without sweeping the surface.
+ */
+const RINGS = 32;
 const SPHERE: readonly (readonly [number, number])[] = (() => {
   const out: [number, number][] = [];
   const [kx, ky, kz] = KEY_DIRECTION;
-  for (let i = 0; i <= 48; i++) {
-    for (let j = 0; j <= 96; j++) {
-      // A view-space normal on the visible half: z (toward the viewer) >= 0.
-      const theta = (i / 48) * (Math.PI / 2);
-      const phi = (j / 96) * Math.PI * 2;
-      const nx = Math.sin(theta) * Math.cos(phi);
-      const ny = Math.sin(theta) * Math.sin(phi);
-      const nz = Math.cos(theta);
-      out.push([Math.max(0, nx * kx + ny * ky + nz * kz), (1 - nz) ** RIM_POWER]);
-    }
+  const spread = Math.hypot(kx, ky);
+  for (let i = 0; i <= RINGS; i++) {
+    const theta = (i / RINGS) * (Math.PI / 2);
+    const rim = (1 - Math.cos(theta)) ** RIM_POWER;
+    const low = Math.max(0, Math.cos(theta) * kz - Math.sin(theta) * spread);
+    const high = Math.max(0, Math.cos(theta) * kz + Math.sin(theta) * spread);
+    for (const t of [0, 0.25, 0.5, 0.75, 1]) out.push([low + (high - low) * t, rim]);
   }
   return out;
 })();
