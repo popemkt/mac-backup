@@ -499,6 +499,10 @@ The rules that hold everywhere, so no surface re-invents them:
   transition and scroll behaviour across *every* surface — the graph cross-fade,
   the canvas, the outline — so an animated surface added later inherits the
   policy for free rather than opting in.
+- **Focus follows the selection.** A `NodeRow` that becomes selected takes
+  focus when it would otherwise fall to `<body>` or is still inside the row
+  (Escape out of its editor), never from anything else. The first Tab stop is
+  a "Skip to content" link past the sidebar to the main column.
 - Navigation affordances are keyboard-reachable: sidebar Home exits zoom, a
   closed sidebar is inert with focus returned to its toggle, breadcrumbs carry
   an accessible label and current-page marker, and tag chips expose real

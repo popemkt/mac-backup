@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/cn";
 import { asInstance } from "@/lib/dom";
 import { indentStyle } from "@/lib/indent";
@@ -34,8 +35,24 @@ export function NodeRow({
   instanceKey,
 }: NodeRowProps) {
   const interactive = Boolean(onRowClick);
+  const ref = useRef<HTMLDivElement>(null);
+  const holdsSelection = interactive && isSelected && !isActive;
+  // Focus follows the selection. A row that becomes selected — Escape out of
+  // its editor, arrow navigation, a zoom — takes focus when it would otherwise
+  // fall to <body> or is still inside the row, so Tab and screen readers stay
+  // on the selected row. It never takes focus from anything else (a palette,
+  // an input elsewhere).
+  useEffect(() => {
+    const el = ref.current;
+    if (!holdsSelection || el === null) return;
+    const focused = el.ownerDocument.activeElement;
+    if (focused === null || focused === el.ownerDocument.body || el.contains(focused)) {
+      el.focus({ preventScroll: true });
+    }
+  }, [holdsSelection]);
   return (
     <div
+      ref={ref}
       className={cn(
         "node-row group/node flex items-start",
         "rounded-sm transition-colors duration-75",

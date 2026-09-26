@@ -72,6 +72,27 @@ function Toasts() {
   );
 }
 
+const MAIN_ID = "kb-main";
+
+/**
+ * The first stop for Tab: past the sidebar straight to the page. It moves
+ * focus without writing a `#fragment` into the URL, which the router owns.
+ */
+function SkipLink() {
+  return (
+    <a
+      href={`#${MAIN_ID}`}
+      className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-popover focus:px-3 focus:py-1.5 focus:text-ui focus:text-popover-foreground focus:shadow-overlay"
+      onClick={(e) => {
+        e.preventDefault();
+        document.getElementById(MAIN_ID)?.focus();
+      }}
+    >
+      Skip to content
+    </a>
+  );
+}
+
 function SharedChrome() {
   const globalPaletteOpen = useUiStore((s) => s.globalPaletteOpen);
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
@@ -280,10 +301,15 @@ export function App() {
   const { Chrome } = surface?.value ?? {};
   return (
     <div className="relative flex h-full min-h-0">
+      <SkipLink />
       <ViewErrorBoundary title="Sidebar crashed" resetKey="sidebar">
         <Sidebar />
       </ViewErrorBoundary>
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <div
+        id={MAIN_ID}
+        tabIndex={-1}
+        className="relative flex min-h-0 min-w-0 flex-1 flex-col outline-none"
+      >
         {surface === null ? null : surface.value.frame(route.params) === "full" ? (
           <WorkspaceBoundary
             pending={status === "loading"}

@@ -18,6 +18,9 @@ export function useSelectionKeymap(): void {
         if (e.key.length === 1) return; // Alt-composed glyphs stay native
       }
       if (isEditableTarget(e.target)) return;
+      // A key the focused element already handled (the selected row's own
+      // Enter/Space) is not a selection key a second time.
+      if (e.defaultPrevented) return;
 
       const store = useOutlineStore.getState();
       const action = mapSelectionKey(
