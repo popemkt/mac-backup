@@ -13,3 +13,5 @@ trustedDependencies = []
 # vi.mock hoisting and fake timers. Documented once in DESIGN.md.
 [test]
 pathIgnorePatterns = ["**/packages/app/ui/**"]
+# Inert unless KB_FAST_CHECK_SEED is set; the mutation run sets it. Why, in the file.
+preload = ["./packages/app/test-kit/src/fast-check-seed.ts"]
