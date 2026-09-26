@@ -270,7 +270,8 @@ function compileUtility(utility: string): Resolved {
   const css = TAILWIND.candidatesToCss([utility])[0] ?? "";
   const decl = /(?<![\w-])(background-color|color):\s*([^;]+);/.exec(css);
   if (decl === null) return { kind: "none" };
-  const value = (decl[2] ?? "").trim();
+  // An important declaration (`bg-x!`) paints the same token.
+  const value = (decl[2] ?? "").trim().replace(/\s*!important$/, "");
   if (/^(transparent|currentcolor|inherit)$/i.test(value)) return { kind: "none" };
   const ref =
     /^var\((--[\w-]+)\)$/.exec(value) ??

@@ -46,13 +46,13 @@ describe("one shape per kind", () => {
     const out = html(stubOutlineNode({ id: "n.a", text: "a" }));
     expect(out).toContain('data-bullet-kind="plain"');
     expect(out).toContain("data-bullet-dot");
-    expect(out).toContain("h-[4px] w-[4px]");
+    expect(out).toContain("width:4px;height:4px");
   });
 
   it("a parent's dot is one pixel larger", () => {
     const out = html(stubOutlineNode({ id: "n.a", text: "a", children: ["n.b"] }));
     expect(out).toContain('data-bullet-kind="parent"');
-    expect(out).toContain("h-[5px] w-[5px]");
+    expect(out).toContain("width:5px;height:5px");
   });
 
   it("a supertag is a bold #", () => {
@@ -205,12 +205,12 @@ describe("system nodes are dimmed", () => {
   it("a sys.-prefixed id dims the bullet and says so in the DOM", () => {
     const out = html(stubOutlineNode({ id: "sys.field", text: "sys.field" }));
     expect(out).toContain('data-bullet-sys="true"');
-    expect(out).toContain("opacity-50");
+    expect(out).toContain("opacity:0.5");
   });
 
   it("an ordinary id does neither", () => {
     const out = html(stubOutlineNode({ id: "n.a", text: "a" }));
     expect(out).not.toContain("data-bullet-sys");
-    expect(out).not.toContain("opacity-50");
+    expect(out).not.toContain("opacity:");
   });
 });

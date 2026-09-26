@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { bulletAppearance, resolveBulletKind, type BulletModeInput } from "@/lib/bullet-mode";
+import {
+  BULLET_GEOMETRY,
+  BULLET_INK,
+  bulletAppearance,
+  bulletPaintCss,
+  resolveBulletKind,
+  type BulletModeInput,
+} from "@/lib/bullet-mode";
 import { SYSTEM_IDS } from "@/lib/types";
 
 function base(partial: Partial<BulletModeInput> = {}): BulletModeInput {
@@ -80,5 +87,38 @@ describe("bulletAppearance states", () => {
     expect(mode.childCount).toBe(3);
     expect(mode.isSys).toBe(true);
     expect(mode.isRef).toBe(true);
+  });
+});
+
+describe("bulletAppearance paints and sizes (the one definition every renderer draws)", () => {
+  const appear = (partial: Partial<BulletModeInput>, tagColors: string[] = [], collapsed = true) =>
+    bulletAppearance({ ...base(partial), collapsed, childCount: 2, tagColors });
+
+  it("an untinted bullet is the ink, stronger on a parent", () => {
+    const leaf = appear({});
+    const parent = appear({ hasChildren: true });
+    expect(leaf.dot).toEqual({ colors: [BULLET_INK], percent: 40 });
+    expect(parent.dot).toEqual({ colors: [BULLET_INK], percent: 50 });
+    expect(parent.halo).toEqual({ colors: [BULLET_INK], percent: 8 });
+    expect(leaf.dotSize).toBe(BULLET_GEOMETRY.dot.leaf);
+    expect(parent.dotSize).toBe(BULLET_GEOMETRY.dot.parent);
+  });
+
+  it("a tinted bullet fills with every tag colour and strokes with the first", () => {
+    const a = appear({ hasChildren: true }, ["red", "blue"]);
+    expect(a.dot).toEqual({ colors: ["red", "blue"], percent: 100 });
+    expect(a.halo).toEqual({ colors: ["red", "blue"], percent: 12.5 });
+    expect(a.ring).toEqual({ colors: ["red"], percent: 25 });
+    expect(bulletPaintCss(a.halo)).toContain("conic-gradient");
+  });
+
+  it("a kind glyph is the ink whatever its tags; a supertag takes its first tag", () => {
+    expect(appear({ typeRefs: [SYSTEM_IDS.field] }, ["red"]).ink.colors).toEqual([BULLET_INK]);
+    expect(appear({ typeRefs: [SYSTEM_IDS.tag] }, ["red"]).ink.colors).toEqual(["red"]);
+  });
+
+  it("the halo sits inside the box, and the ring is the halo's size", () => {
+    const { box, haloInset, ring } = BULLET_GEOMETRY;
+    expect(box - 2 * haloInset).toBe(ring);
   });
 });

@@ -112,7 +112,7 @@ describe("bullet paint (a node's tag colors)", () => {
     );
     expect(html).not.toContain("conic-gradient");
     expect(html).toContain(`background:${RED}`);
-    expect(html).not.toContain("bg-foreground/40");
+    expect(html).not.toContain("var(--foreground) 40%");
   });
 
   it("one tag still tints the collapsed halo at 12.5%, nothing more", () => {
@@ -129,12 +129,10 @@ describe("bullet paint (a node's tag colors)", () => {
     expect(html).toContain(`color-mix(in oklab, ${RED} 12.5%, transparent)`);
   });
 
-  it("no tags keeps the foreground fallback and paints nothing inline", () => {
+  it("no tags keeps the foreground fallback, and no tag colour", () => {
     const html = bulletHtml(stubOutlineNode({ id: "n.bare", text: "Bare" }));
-    expect(html).toContain("bg-foreground/40");
+    expect(html).toContain("background:color-mix(in oklab, var(--foreground) 40%, transparent)");
     expect(html).not.toContain("conic-gradient");
-    expect(html).not.toMatch(/style="[^"]*background/);
-    expect(html).not.toMatch(/style="[^"]*color-mix/);
   });
 
   // --- the hex-alpha assumption ----------------------------------------

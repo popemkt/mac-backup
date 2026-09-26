@@ -1,39 +1,36 @@
 import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
-import type { BulletAppearance, BulletKindOverride, BulletShape } from "@/lib/bullet-mode";
-import { bulletAppearance } from "@/lib/bullet-mode";
-import { typeRefsOf } from "@kb/model";
-import { nodeTagColors } from "@/lib/tag-color";
-import { isSysPrefixed, type OutlineNode } from "@/lib/types";
-import { hasText } from "@/lib/text";
+import {
+  BULLET_GEOMETRY,
+  BULLET_SYS_OPACITY,
+  bulletPaintCss,
+  outlineBulletAppearance,
+  type BulletAppearance,
+  type OutlineBulletOptions,
+  type BulletShape,
+} from "@/lib/bullet-mode";
+import type { OutlineNode } from "@/lib/types";
 
-interface BulletProps {
+interface BulletProps extends OutlineBulletOptions {
   node: OutlineNode;
-  /** True when node has children, fields, or is a query node. */
-  collapsible?: boolean;
-  /** Reference-row state (query result / embedded ref) — dashed ring. */
-  isRef?: boolean;
-  /** W6 stubs: force media/canvas glyph before those tags exist. */
-  kindOverride?: BulletKindOverride | null;
   onClick: (e: React.MouseEvent) => void;
 }
 
 /**
- * DESIGN-RESKIN §1.8 — a node's tag colouring is a list. Filled surfaces
- * (halo, dot) divide equally from the center; a stroke or a glyph can only
- * carry one color, so those take the first tag's. Which surface is which is
- * `bulletAppearance`'s answer; these render it.
+ * DESIGN-RESKIN §1.8 — the bullet draws `bulletAppearance`'s record and
+ * decides nothing: which shape, every surface's paint (a node's tag colours,
+ * or the ink at a stated strength) and every part's size are the record's
+ * (`lib/bullet-mode`). Only the hover affordance is the DOM's own; it wins
+ * over the painted ink (`!`), as it did over the ink classes.
  */
 function SupertagGlyph({ a }: { a: BulletAppearance }) {
   return (
     <span
       className={cn(
         "relative z-[1] block select-none text-label font-bold leading-none",
-        !a.tinted && "text-foreground/45",
-        !a.tinted && a.hasChildren && "text-foreground/55",
-        a.hasChildren && !a.collapsed && !a.tinted && "group-hover/bullet:text-foreground/70",
+        a.hasChildren && !a.collapsed && !a.tinted && "group-hover/bullet:text-foreground/70!",
       )}
-      style={hasText(a.strokeColor) ? { color: a.strokeColor } : undefined}
+      style={{ color: bulletPaintCss(a.ink) }}
       aria-hidden
     >
       #
@@ -44,10 +41,10 @@ function SupertagGlyph({ a }: { a: BulletAppearance }) {
 function QueryGlyph({ a }: { a: BulletAppearance }) {
   return (
     <MagnifyingGlassIcon
-      size={14}
+      size={BULLET_GEOMETRY.icon}
       weight="bold"
-      className={cn("relative z-[1]", !a.tinted && "text-foreground/45")}
-      style={hasText(a.strokeColor) ? { color: a.strokeColor } : undefined}
+      className="relative z-[1]"
+      style={{ color: bulletPaintCss(a.ink) }}
       data-bullet-query
     />
   );
@@ -56,21 +53,17 @@ function QueryGlyph({ a }: { a: BulletAppearance }) {
 function RefRing({ a }: { a: BulletAppearance }) {
   return (
     <span
-      className={cn(
-        "relative z-[1] flex h-[18px] w-[18px] items-center justify-center rounded-full border border-dashed",
-        !a.tinted && "border-foreground/20",
-      )}
-      style={hasText(a.ringColor) ? { borderColor: a.ringColor } : undefined}
+      className="relative z-[1] flex items-center justify-center rounded-full border border-dashed"
+      style={{
+        width: BULLET_GEOMETRY.ring,
+        height: BULLET_GEOMETRY.ring,
+        borderColor: bulletPaintCss(a.ring),
+      }}
       data-bullet-ref-ring
     >
       <span
-        className={cn(
-          "block rounded-full",
-          a.hasChildren ? "h-[5px] w-[5px]" : "h-[4px] w-[4px]",
-          !a.tinted && "bg-foreground/40",
-          !a.tinted && a.hasChildren && "bg-foreground/55",
-        )}
-        style={hasText(a.dotFill) ? { background: a.dotFill } : undefined}
+        className="block rounded-full"
+        style={{ width: a.dotSize, height: a.dotSize, background: bulletPaintCss(a.dot) }}
         data-bullet-dot
       />
     </span>
@@ -80,10 +73,8 @@ function RefRing({ a }: { a: BulletAppearance }) {
 function KindGlyph({ a }: { a: BulletAppearance }) {
   return (
     <span
-      className={cn(
-        "relative z-[1] select-none text-label font-bold leading-none",
-        "text-foreground/45",
-      )}
+      className="relative z-[1] select-none text-label font-bold leading-none"
+      style={{ color: bulletPaintCss(a.ink) }}
       aria-hidden
     >
       {a.glyph}
@@ -96,12 +87,9 @@ function Dot({ a }: { a: BulletAppearance }) {
     <span
       className={cn(
         "relative z-[1] block rounded-full transition-all duration-100",
-        a.hasChildren ? "h-[5px] w-[5px]" : "h-[4px] w-[4px]",
-        !a.tinted && "bg-foreground/40",
-        !a.tinted && a.hasChildren && "bg-foreground/50",
-        a.hasChildren && !a.collapsed && !a.tinted && "group-hover/bullet:bg-foreground/60",
+        a.hasChildren && !a.collapsed && !a.tinted && "group-hover/bullet:bg-foreground/60!",
       )}
-      style={hasText(a.dotFill) ? { background: a.dotFill } : undefined}
+      style={{ width: a.dotSize, height: a.dotSize, background: bulletPaintCss(a.dot) }}
       data-bullet-dot
     />
   );
@@ -116,27 +104,8 @@ const BULLET_SHAPES: Record<BulletShape, (props: { a: BulletAppearance }) => Rea
   dot: Dot,
 };
 
-export function Bullet({
-  node,
-  collapsible,
-  isRef = false,
-  kindOverride = null,
-  onClick,
-}: BulletProps) {
-  const appearance = bulletAppearance({
-    hasChildren: node.children.length > 0,
-    typeRefs: typeRefsOf(node),
-    tagNames: node.tags.map((t) => t.name),
-    fieldIds: Object.keys(node.props),
-    isSys: isSysPrefixed(node.id),
-    text: node.text,
-    kindOverride,
-    collapsed: node.collapsed,
-    childCount: node.children.length,
-    isRef,
-    collapsible,
-    tagColors: nodeTagColors(node),
-  });
+export function Bullet({ node, onClick, ...options }: BulletProps) {
+  const appearance = outlineBulletAppearance(node, options);
   const Shape = BULLET_SHAPES[appearance.shape];
 
   const bullet = (
@@ -147,8 +116,8 @@ export function Bullet({
         "bullet-container group/bullet relative flex h-6 w-6 shrink-0 items-center justify-center",
         "rounded-sm hover:bg-foreground/5 transition-colors duration-100",
         "cursor-pointer",
-        appearance.isSys && "opacity-50",
       )}
+      style={appearance.isSys ? { opacity: BULLET_SYS_OPACITY } : undefined}
       tabIndex={-1}
       data-bullet-kind={appearance.kind}
       data-bullet-ref={appearance.isRef ? "true" : undefined}
@@ -158,8 +127,11 @@ export function Bullet({
     >
       {appearance.showHalo && (
         <span
-          className="absolute rounded-full bg-foreground/8"
-          style={{ inset: "3px", background: appearance.haloFill ?? undefined }}
+          className="absolute rounded-full"
+          style={{
+            inset: BULLET_GEOMETRY.haloInset,
+            background: bulletPaintCss(appearance.halo),
+          }}
           data-bullet-halo
         />
       )}

@@ -1,5 +1,6 @@
-import { SYSTEM_IDS } from "@/lib/types";
-import { tagColorAlpha, tagColorFill } from "@/lib/tag-color";
+import { typeRefsOf } from "@kb/model";
+import { isSysPrefixed, SYSTEM_IDS, type OutlineNode } from "@/lib/types";
+import { nodeTagColors, tagColorFill } from "@/lib/tag-color";
 import { textHasAssetRef } from "@/lib/md-inline";
 import { hasText } from "@/lib/text";
 
@@ -16,7 +17,7 @@ export type BulletKind =
   | "ontology";
 
 /** Optional overrides for canvas (and forced media) until those tags ship. */
-export type BulletKindOverride = "media" | "canvas";
+type BulletKindOverride = "media" | "canvas";
 
 export interface BulletModeInput {
   hasChildren: boolean;
@@ -75,15 +76,47 @@ export function resolveBulletKind(input: BulletModeInput): BulletKind {
 }
 
 /**
- * The bullet's whole appearance, as one value.
+ * The bullet's whole appearance, as one value: the one definition of what a
+ * bullet shows.
  *
  * `Bullet` used to decide shape, halo, count badge, tint, title and
- * aria-label inside its own JSX — a nested ternary for the element and three
- * `!tinted && …` class strings around it, which made the single most-read
- * affordance in the outline untestable without rendering. The component now
- * renders this record and decides nothing.
+ * aria-label inside its own JSX, with its paints and sizes in class strings.
+ * This record now carries all of it — what the bullet is, what paints each
+ * surface, and how big each part is — so every renderer of a bullet draws
+ * the same thing: the outline's `Bullet` in the DOM, and the graph's bullet
+ * theme on a canvas (`lib/bullet-paint`). A renderer decides nothing.
  */
 export type BulletShape = "supertag" | "query" | "ref-ring" | "glyph" | "dot";
+
+/**
+ * What paints one surface: the node's tag colours, dividing a filled surface
+ * equally from the centre (a stroke or a glyph carries only the first), or
+ * the ink when the node has no tag, each at a strength in percent.
+ */
+export interface BulletPaint {
+  readonly colors: readonly string[];
+  readonly percent: number;
+}
+
+/** The ink an untinted bullet is drawn in: the page's foreground. */
+export const BULLET_INK = "var(--foreground)";
+
+/**
+ * A bullet's geometry, CSS pixels at density 1 (DESIGN-REFINE §2 W1): the
+ * 24px box every mode shares, the halo inset from it, the dashed reference
+ * ring, the query icon and the two dot sizes. Every part is sized from here,
+ * so every renderer keeps the parts in proportion.
+ */
+export const BULLET_GEOMETRY = {
+  box: 24,
+  haloInset: 3,
+  ring: 18,
+  icon: 14,
+  dot: { leaf: 4, parent: 5 },
+} as const;
+
+/** A `sys.*` bullet is drawn at this opacity. */
+export const BULLET_SYS_OPACITY = 0.5;
 
 export interface BulletAppearance {
   kind: BulletKind;
@@ -99,14 +132,18 @@ export interface BulletAppearance {
   collapsible: boolean;
   showHalo: boolean;
   showCount: boolean;
-  /** True when any tag contributed a color, i.e. the fallback tints are off. */
+  /** True when any tag contributed a color, i.e. the ink fallbacks are off. */
   tinted: boolean;
-  /** Filled surfaces divide every tag color equally from the center. */
-  haloFill: string | null;
-  dotFill: string | null;
-  /** A stroke or a glyph can only carry one color, so it takes the first. */
-  strokeColor: string | null;
-  ringColor: string | null;
+  /** The halo's fill (drawn only when `showHalo`). */
+  halo: BulletPaint;
+  /** The dot's fill (the plain dot, and the dot inside the reference ring). */
+  dot: BulletPaint;
+  /** The dot's diameter: a parent's is one pixel larger. */
+  dotSize: number;
+  /** A glyph's or the query icon's colour. */
+  ink: BulletPaint;
+  /** The dashed reference ring's stroke. */
+  ring: BulletPaint;
   title: string;
   ariaLabel: string | undefined;
 }
@@ -128,6 +165,15 @@ export interface BulletAppearanceInput extends BulletModeInput {
 const HALO_OPACITY = 12.5;
 /** Dashed reference ring stroke at 25% (was `40`). */
 const REF_RING_OPACITY = 25;
+/** The ink's strength on each surface of an untinted bullet, in percent. */
+const INK = {
+  halo: 8,
+  dot: { leaf: 40, parent: 50 },
+  /** The dot inside a reference ring stands a little stronger on a parent. */
+  ringDot: { leaf: 40, parent: 55 },
+  glyph: { leaf: 45, parent: 55 },
+  ring: 20,
+} as const;
 
 const KIND_GLYPH: Partial<Record<BulletKind, string>> = {
   tag: "#",
@@ -165,19 +211,48 @@ function resolveAriaLabel(
   return hasChildren ? `Expand (${childCount} children)` : "Expand results";
 }
 
+const inked = (percent: number): BulletPaint => ({ colors: [BULLET_INK], percent });
+
+/**
+ * The paints of a bullet's four surfaces. A tinted bullet fills with every
+ * tag colour and strokes with the first; a kind glyph (⌗ ⚙ ▣ ◇ ⬡) is always
+ * the ink, whatever the tags — it names the kind, not the tag.
+ */
+function resolvePaints(
+  shape: BulletShape,
+  tagColors: readonly string[],
+  hasChildren: boolean,
+): Pick<BulletAppearance, "halo" | "dot" | "ink" | "ring"> {
+  const depth = hasChildren ? "parent" : "leaf";
+  const first = tagColors.slice(0, 1);
+  if (tagColors.length === 0) {
+    return {
+      halo: inked(INK.halo),
+      dot: inked(shape === "ref-ring" ? INK.ringDot[depth] : INK.dot[depth]),
+      ink: inked(shape === "supertag" ? INK.glyph[depth] : INK.glyph.leaf),
+      ring: inked(INK.ring),
+    };
+  }
+  return {
+    halo: { colors: tagColors, percent: HALO_OPACITY },
+    dot: { colors: tagColors, percent: 100 },
+    ink: shape === "glyph" ? inked(INK.glyph.leaf) : { colors: first, percent: 100 },
+    ring: { colors: first, percent: REF_RING_OPACITY },
+  };
+}
+
 export function bulletAppearance(input: BulletAppearanceInput): BulletAppearance {
   const kind = resolveBulletKind(input);
   const glyph = KIND_GLYPH[kind] ?? null;
   const isRef = input.isRef ?? false;
   const collapsible = input.collapsible ?? (input.hasChildren || kind === "query");
   const showHalo = collapsible && input.collapsed;
-
+  const shape = resolveBulletShape(kind, isRef, glyph);
   const tagColors = input.tagColors ?? [];
-  const strokeColor = tagColors[0] ?? null;
 
   return {
     kind,
-    shape: resolveBulletShape(kind, isRef, glyph),
+    shape,
     glyph,
     isSys: input.isSys,
     isRef,
@@ -188,11 +263,52 @@ export function bulletAppearance(input: BulletAppearanceInput): BulletAppearance
     showHalo,
     showCount: showHalo && input.childCount > 0,
     tinted: tagColors.length > 0,
-    haloFill: tagColorFill(tagColors, HALO_OPACITY),
-    dotFill: tagColorFill(tagColors),
-    strokeColor,
-    ringColor: strokeColor === null ? null : tagColorAlpha(strokeColor, REF_RING_OPACITY),
+    ...resolvePaints(shape, tagColors, input.hasChildren),
+    dotSize: input.hasChildren ? BULLET_GEOMETRY.dot.parent : BULLET_GEOMETRY.dot.leaf,
     title: collapsible ? "Click to toggle, Cmd+click to focus" : "Cmd+click to focus",
     ariaLabel: resolveAriaLabel(collapsible, input.collapsed, input.hasChildren, input.childCount),
   };
+}
+
+/** How a row draws the bullet beyond the node itself. */
+export interface OutlineBulletOptions {
+  /** True when node has children, fields, or is a query node. */
+  readonly collapsible?: boolean;
+  /** Reference-row state (query result / embedded ref) — dashed ring. */
+  readonly isRef?: boolean;
+  /** W6 stubs: force media/canvas glyph before those tags exist. */
+  readonly kindOverride?: BulletKindOverride | null;
+}
+
+/**
+ * The bullet of an outline node: what the outline's row draws, and what any
+ * other view that shows the node as the outline does (the graph's bullet
+ * theme) reads, from the same node.
+ */
+export function outlineBulletAppearance(
+  node: OutlineNode,
+  options: OutlineBulletOptions = {},
+): BulletAppearance {
+  return bulletAppearance({
+    hasChildren: node.children.length > 0,
+    typeRefs: typeRefsOf(node),
+    tagNames: node.tags.map((t) => t.name),
+    fieldIds: Object.keys(node.props),
+    isSys: isSysPrefixed(node.id),
+    text: node.text,
+    kindOverride: options.kindOverride ?? null,
+    collapsed: node.collapsed,
+    childCount: node.children.length,
+    isRef: options.isRef ?? false,
+    ...(options.collapsible === undefined ? {} : { collapsible: options.collapsible }),
+    tagColors: nodeTagColors(node),
+  });
+}
+
+/**
+ * A paint as one CSS `background`/`color` value: one colour at its strength,
+ * or equal wedges of several (`tagColorFill`).
+ */
+export function bulletPaintCss(paint: BulletPaint): string {
+  return tagColorFill(paint.colors, paint.percent) ?? "transparent";
 }
