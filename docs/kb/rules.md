@@ -90,6 +90,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M39XVZCR684Y1V9FXNDT44D5`
 
+### GAP: a view host is placement-only, and Placement is only page
+
+- **expected** — ViewHost carries placement, size, appearanceKey, reducedMotion and depth; Placement includes inline, beside, float, card and hover; ViewSlot measures its box and refuses to render past MAX_VIEW_DEPTH; view-contract checks sizing, disposal of instrumented resources, appearance, reduced motion, bad config and nesting (tools/kb/DESIGN-UI.md, UI points: routes and views).
+- **current** — R1 of the plugin-composition plan ships ViewHost = { placement } with Placement = page, because every view today fills a page box and none nests. view-contract checks mount, fallback on unload, error containment and clean unmount only.
+- **impact** — No view can be embedded at card, beside, float, inline or hover size yet, and a view that embedded itself would recurse. Nothing breaks today, because no host asks for those placements.
+- **closes** — Plan phases A1/A2 in docs/kb/waves/2026-09-24/briefs/plugin-composition.md: widen Placement and ViewHost with their first non-page consumer, add MAX_VIEW_DEPTH to ViewSlot, and add the matching view-contract properties.
+- **node** — `01M3EZR20H0CDF5MD01M2S26C5`
+
 ### GAP: actions/ reads the outline store instead of being handed state
 
 - **expected** — actions/ plans and invokes mutations against state it is given; the store is above it in UI_ALLOWS (stores may import actions, not the reverse).
@@ -239,6 +247,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The graph cannot take the lab's orbit without a lab import; two camera-control mechanisms.
 - **closes** — WP4 folds kit/orbit.ts into scene/ with the lab kit's view controls, and the graph's flight and the orbit share one camera rig.
 - **node** — `01M3E9QZ3D6EG2W2MERM93ABNA`
+
+### GAP: outline view modes and graph renderers are local registries, not ViewPoint members
+
+- **expected** — The outline's list, table, board and cards modes are four views over a frame's children (sys.view.outline.* options), and each GRAPH_RENDERERS entry is a view the graph page selects, all contributed to ViewPoint and run by view-contract.
+- **current** — sys.f.view.mode is a text field holding list|table|board|cards, read by a local ViewMode union; GRAPH_RENDERERS is a local record in components/graph. Neither is a ViewPoint contribution.
+- **impact** — Another plugin cannot embed one outline mode or one renderer by key, and the view contract does not cover them, so a renderer that leaks a WebGL context or ignores reduced motion is not caught by the shared suite.
+- **closes** — After A1 lands sys.f.view and view nodes: make each mode and each renderer a ViewKey with its own view, migrate sys.f.view.mode to refs to the option nodes, and delete the local registries (plugin-composition brief, section 6, row later).
+- **node** — `01M3EZRFJ9RYFJJ4MW322RQ28S`
 
 ### GAP: package executors share no contract check
 
@@ -422,6 +438,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — State the pin-tool contract once in docs/github-release-packages.md, move uv-sources to exit 20 for could not resolve, and add a uv-sources case to a shared stubbed check next to github-sources-check. Coordinate with the owner of scripts/github-sources.
 - **rule** — One contract, every implementation
 - **node** — `01M3E9VSQZTDHRV4C9YRWD1QV1`
+
+### GAP: the view and route points live in @kb/ui, not @kb/ui-sdk
+
+- **expected** — ViewKey, View, ViewHost, Placement, Route, ViewPoint, RoutePoint, provideView, provideRoute, useView and ViewSlot are the UI points of @kb/ui-sdk (scope:browser), the host API a browser plugin package or repository extension builds against.
+- **current** — They live in packages/app/ui/src/lib/plugins.ts and components/ui/view-slot.tsx inside @kb/ui, so only in-tree UI plugins can contribute or embed a view.
+- **impact** — The canvas browser package and repository extensions cannot use views without importing @kb/ui internals, so the planned canvas split would have to reach into the app package.
+- **closes** — Plan phase R2 in docs/kb/waves/2026-09-24/briefs/plugin-composition.md, as part of the @kb/ui-sdk design in gap 01M39F3MR3HT2NR553FY8CRD6X: move these types and the slot into the sdk, then let the canvas package consume them.
+- **node** — `01M3EZRFTS1W8SB97GFJAWD92X`
 
 ### GAP: the write check covers written values only, so a retype or a delete can strand stored ones
 

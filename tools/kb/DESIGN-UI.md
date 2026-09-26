@@ -570,6 +570,123 @@ both are answered from the node ⌘K menu rather than from a device switch.
     `sys.f.onto.member` props with their own Unpin control on the ontology
     page. Same English word, different field, different mechanism.
 
+### UI points: routes and views
+
+The UI is assembled from contributions to the browser's `@kb/plugin` kernel
+(`lib/plugins.ts`), and three points hold them: `RoutePoint`, `ViewPoint` and
+`SidebarSectionPoint`. This section is the one statement of the first two.
+The plan they come from is
+`docs/kb/waves/2026-09-24/briefs/plugin-composition.md`, and this is its
+phase R1.
+
+**A view is the concept, and a page is a route to a view.** A graph page and
+an ontology that shows the graph are one thing: a projection of the graph,
+rendered in a box the host owns. So there is one point for it, and routing is
+a separate point that only points at it.
+
+- **`ViewPoint`** (`ui.views`) holds a `View<P>`: its `key`, the `placements`
+  it can fill, a `sample: P` (the params the contract suite mounts it with),
+  and `Component`, which receives `{ params: P, host: ViewHost }`. A view owns
+  no route and no chrome.
+- **`RoutePoint`** (`ui.routes`) holds a route: the `view` key it renders,
+  `match(path) → P | null`, and, from those params, the shell `frame`
+  (`scroll`, `fixed` or `full`), the `pendingTitle`, and an optional `Chrome`
+  (a bar the shell renders outside the scroll region, such as the ontology
+  scope bar). A route owns no page component. The shell resolves the path to
+  the first route that matches, then renders that route's view through a
+  `<ViewSlot>` at placement `page`. A path that no route owns is not found.
+- **`ViewHost`** is what a host guarantees a view. It is never a store and
+  never `ctx`. In R1 it carries only `placement`, and `Placement` is only
+  `page`, because every view today fills a page box and none nests. The rest
+  of the host contract (size, appearance, reduced motion, nesting depth, and
+  the other placements) arrives with its first consumer
+  (GAP [[01M3EZR20H0CDF5MD01M2S26C5]]).
+
+**Keys.** A `ViewKey<P>` is made once, by `viewKey<P>()("<namespace>.<local>")`,
+and is compared **by identity**, like `Service`, `Event` and `Point` keys. A
+key with the same id that was created somewhere else is a different key. `P`
+is a phantom that only the compiler sees. `provideView(key, view)` builds the
+contribution under the key's local id, and `provideRoute(route)` builds a
+route under its view's local id. A plugin's namespace is therefore the key's
+namespace, and a view contributed under any other id cannot be found by its
+key, which the contract suite reports.
+
+**Asking.** `useView(key)` returns the `View<P>` provided under the key's id
+only when that contribution's key is this very key object. That identity
+check is the one place an erased view is read as `View<P>`, and it is the
+same trust `asKeyType` spends in the kernel. `paramsOf(route, key)` reads a
+matched route the same way: it returns the route's `P` when the route renders
+this key, and `null` otherwise. A sidebar section uses it to know whether the
+current page is its own, without naming an id as a string.
+
+**The slot's promises.** `<ViewSlot view params placement fallback>` is the
+only way to render a view, both for the shell's page and for one plugin
+embedding another's view.
+
+1. It renders the view provided under `view`, with `params` and
+   `host = { placement }`.
+2. It renders `fallback` when no view is provided under that key, when the
+   one there was made with a different key object, or when the view does not
+   offer `placement`. `fallback` is a required element, so a slot never
+   renders nothing. This is live: unloading the owning plugin switches the
+   slot to its fallback, and reloading it brings the view back.
+3. It wraps the view in its own `ViewErrorBoundary`, reset by the key's id.
+   A view that throws shows `ViewError` in its own box, and the host around
+   it stays up.
+4. It adds no DOM of its own, so the box is exactly what the host gives it.
+
+**Views are soft and services are hard.** A missing view never makes its
+consumer `pending`. The consumer shows the fallback. A computation that
+another plugin must have is a `Service`, injected in `inject`, and it makes
+the consumer pending while its provider is off. Use that form only when a
+hard dependency is what you mean.
+
+**Where keys live.** Each plugin folder has a `views.ts` that holds only its
+view keys and their param types, with no React and no store. It is its own
+zone in `UI_ALLOWS` (`view-keys`). That zone reaches only `lib`, and every
+surface and the shell may import it. A host imports the key and never the
+component. That is how the ontology embeds the graph and the outline
+(`components/ontology/surfaces.tsx`) without importing either one.
+
+**The contract.** `src/view-contract.test.tsx` runs over every view that the
+built-in and optional UI plugins contribute. A new view joins it by being
+registered. For each view, in each placement it offers, the view must: be
+found by its key; mount in a slot with its `sample` and show neither the
+fallback nor the slot's error; show the fallback while its owner is unloaded
+and come back when the owner reloads; have a throw from a provider under its
+key contained by the slot; and leave nothing behind when it unmounts. The
+route table in `ui-plugins.test.ts` also checks that every route renders a
+registered view that offers `page`. The remaining properties (sizing,
+disposal of instrumented resources, appearance, reduced motion, bad config
+and nesting) are deferred with the host contract, in the same gap as above.
+
+**Decisions.** These are the defaults R1 takes for the brief's open
+questions. Each one can be overridden.
+
+1. *Name.* The concept is called **view** (`ViewPoint`, `ViewKey`,
+   `ViewSlot`). "Lens" already means a graph perspective, and "embed" names
+   the consumer's act, not the thing. The overlap with the outline's
+   `sys.f.view.*` prefix is accepted, because those modes are meant to become
+   views (GAP [[01M3EZRFJ9RYFJJ4MW322RQ28S]]).
+2. *Where built-in keys live.* In the owning plugin's `views.ts`, as above.
+   After a package split, a key moves into that package's small contract
+   module.
+3. *Which nodes get embeds.* Per-node refs, tag-level inheritance, or a
+   workspace default. This is **open**, and it belongs to A1 (view config as
+   nodes).
+4. *Neighbourhood direction.* Directed, a union of both directions, or truly
+   undirected. This is **open**, and it belongs to A1 (`neighbourhoodQuery`).
+5. *Isolation.* Views are trusted and run in the same realm. Each one is
+   contained by its slot's error boundary and its fallback. R1 has no iframe
+   and no sandbox.
+
+**Not in R1.** View params are passed from code and checked by `tsc`. The
+runtime `params` schema and the `sys.view.*` option node on a key arrive in
+A1, together with view config held as nodes. The outline's view modes and
+`GRAPH_RENDERERS` are still local registries
+(GAP [[01M3EZRFJ9RYFJJ4MW322RQ28S]]). These points live in `@kb/ui`, not in
+`@kb/ui-sdk`; moving them is R2 (GAP [[01M3EZRFTS1W8SB97GFJAWD92X]]).
+
 ### Optional UI plugins
 
 Some UI plugins are off until the user switches them on. Which ones are on
@@ -586,9 +703,9 @@ beside the built-ins:
   it loads what is missing and unloads each top-level plugin no longer
   listed. `startUiPlugins` runs it at boot and again whenever the preference
   changes, including from another tab.
-- Unloading closes the plugin's scope, so its surfaces and sidebar section
-  leave the kernel and every `useContributions` reader re-renders without a
-  reload. A path the plugin owned then resolves like any unmatched path: it
+- Unloading closes the plugin's scope, so its routes, views and sidebar
+  section leave the kernel and every `useContributions` reader re-renders
+  without a reload. A slot that embedded one of its views shows its fallback. A path the plugin owned then resolves like any unmatched path: it
   is not found (`components/ui/not-found.tsx`).
 - Off by default means absent from the list. A name with no plugin behind it
   is inert, so shipping or retiring an optional plugin needs no migration.
