@@ -11,7 +11,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonicalJson, isDomainError, present, type KbNode } from "@kb/model";
-import { SqliteStore, sqliteStoreFiles } from "../src/index.ts";
+import { SqliteStore } from "../src/index.ts";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -179,18 +179,6 @@ describe("SqliteStore", () => {
             expect(err.code).toBe("invalid_input");
             expect(err.message).toContain("n-bad");
           }
-        }),
-      ),
-    ));
-
-  test("watchPaths is the database and its write-ahead log, never the shm", () =>
-    Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const store = yield* scratchStore;
-          const [db, wal, shm] = sqliteStoreFiles(join(store.path, "..", ".."));
-          expect(store.watchPaths).toEqual([present(db, "db"), present(wal, "wal")]);
-          expect(store.watchPaths).not.toContain(present(shm, "shm"));
         }),
       ),
     ));

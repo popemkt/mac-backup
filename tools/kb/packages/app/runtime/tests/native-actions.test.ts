@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { present } from "@kb/model";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { Effect, Exit, Fiber, Layer } from "effect";
+import { Effect, Exit, Fiber, Layer, Stream } from "effect";
 import { kbRuntimeLayer, openKbEffect } from "../src/layers.ts";
 import { openKb } from "../src/session.ts";
 import { KbCtx, KbStore, templateRegistryLayer } from "@kb/contracts";
@@ -207,7 +207,7 @@ export default actions;
     const commits: StoreTx[] = [];
     const fakeStore: EffectStore = {
       path: join(root, ".kb", "nodes.jsonl"),
-      watchPaths: [],
+      changes: Stream.never,
       loadEffect: Effect.succeed(ctx.nodes),
       fingerprint: Effect.succeed(null),
       txTail: new MemoryTxTail(),

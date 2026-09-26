@@ -1,4 +1,4 @@
-import type { Effect } from "effect";
+import type { Effect, Stream } from "effect";
 import { domainError, type DomainError, type KbNode, type StoreTx } from "@kb/model";
 import type { TxRecord, TxTail } from "./tx-log.ts";
 
@@ -43,14 +43,23 @@ export interface StoreCommit {
 export interface EffectStore {
   readonly path: string;
   /**
-   * The filesystem paths whose change means "someone else wrote the store".
-   * A live-reload watcher asks the store what to watch rather than deciding
-   * from the adapter it thinks it has: a JSONL store is one file, a SQLite
-   * store is the database plus its write-ahead log, and a future adapter is
-   * whatever it says it is. `path` alone cannot answer, because a backend's
-   * unit of storage is not always a single file.
+   * The store's state as it moves, whoever moves it: the current
+   * {@link fingerprint} once the subscription is armed, then each fingerprint
+   * that differs from the last one emitted. Running the stream is the
+   * subscription; interrupting it releases whatever the adapter holds.
+   *
+   * A commit by another instance over the same root — another process, a
+   * hand edit — is observed without anyone asking. This instance's own
+   * commits appear too when the platform reports them, and a consumer treats
+   * that as a no-op: the commit's {@link StoreCommit} already said what it
+   * did. The stream reports states, never writers.
+   *
+   * On the port because noticing an external write is a store property, like
+   * reading and committing: how it is noticed (which files, which events) is
+   * the adapter's layout, and a consumer that named files would be the port
+   * leaking. The guarantee is stated once, in `DESIGN.md` → Storage.
    */
-  readonly watchPaths: readonly string[];
+  readonly changes: Stream.Stream<StoreFingerprint | null>;
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
   /**
    * The store's current fingerprint, or null when it cannot say (no store

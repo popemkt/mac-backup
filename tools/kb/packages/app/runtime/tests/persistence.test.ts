@@ -1,5 +1,5 @@
 import { describe, expect, test, afterEach } from "bun:test";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Stream } from "effect";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -280,7 +280,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
       // A store with no fingerprint of its own: nothing to compare against, so
       // reload always goes to the port rather than short-circuiting.
       path: join(root, ".kb", "mock.jsonl"),
-      watchPaths: [],
+      changes: Stream.never,
       loadEffect: Effect.sync(() => {
         loads += 1;
         return injected;
@@ -310,7 +310,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
     let revision = 0;
     const mock: EffectStore = {
       path: ctx.store.path,
-      watchPaths: [],
+      changes: Stream.never,
       loadEffect: Effect.sync(() => [...held]),
       fingerprint: Effect.sync(() => `revision:${revision}`),
       txTail: new MemoryTxTail(),
@@ -353,7 +353,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
     let raced = false;
     const racing: EffectStore = {
       path: ctx.store.path,
-      watchPaths: [],
+      changes: Stream.never,
       loadEffect: Effect.sync(() => [...held]),
       fingerprint: Effect.sync(() => `revision:${revision}`),
       txTail: new MemoryTxTail(),

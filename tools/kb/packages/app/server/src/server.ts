@@ -1,9 +1,9 @@
-import { watch, type FSWatcher } from "node:fs";
-import { basename, dirname, join, relative } from "node:path";
-import { Effect, Exit, Fiber, Scope } from "effect";
+import { watch } from "node:fs";
+import { join, relative } from "node:path";
+import { Cause, Effect, Exit, Scope, Stream } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import type { PlatformError } from "effect/PlatformError";
-import { UI_DEFAULT_PORT, type KbContext } from "@kb/contracts";
+import { UI_DEFAULT_PORT, directorySignals, type KbContext } from "@kb/contracts";
 import { currentIso, diffTx, type DomainError, domainError, ensureDomainError } from "@kb/model";
 import { reloadEffect } from "@kb/operations";
 import { kbRuntimeLayer, openKbEffect, writeErr, bunFileSystemLayer } from "@kb/runtime";
@@ -39,7 +39,7 @@ export interface UiServerHandle {
   port: number;
   url: string;
   hostname: string;
-  /** Close the scope that owns the listener, the watcher and the debounce. */
+  /** Close the scope that owns the listener and the ingest lanes. */
   stop: Effect.Effect<void>;
 }
 
@@ -76,7 +76,7 @@ function clientSend(ws: Bun.ServerWebSocket<WsData>): ClientSend {
  * already recorded in it by the time this fires — `refresh` reads those
  * transactions rather than reconstructing them, which is both cheaper and the
  * only version that agrees with the writer about what happened. It doubles as
- * the double-fire guard: the watcher also fires on writes this session made,
+ * the double-fire guard: the store's `changes` also report writes this session made,
  * and those are already at head.
  *
  * The diff is the fallback for a write nobody recorded — a hand-edited
@@ -114,106 +114,27 @@ export const ingestSavedQueries = Effect.fn("kb.ingestSavedQueries")(function* (
   queries.sync(savedQueryNodes(saved), yield* currentIso);
 });
 
-/** A debounce plus the way to cancel whatever it has in flight. */
-interface Debounce {
-  trigger: () => void;
-  stop: () => void;
-}
-
 /**
- * Debounced fs-event ingest. Every event restarts a 50ms `Effect.sleep` in a
- * fresh fiber and interrupts the pending one, so a burst of writes is ingested
- * once. Owning a fiber rather than a `setTimeout` is what lets the server
- * scope cancel an in-flight ingest on stop.
+ * Run `ingest` once per element of `signals`, for as long as the server lives.
  *
- * Two things are watched — the store's files and `.kb/queries/` — and they
- * differ only in what they run, so this takes the program rather than the
- * session: a second copy of the fiber bookkeeping is the thing to avoid here.
+ * Two things feed a session from outside — the store's own `changes`, and the
+ * `.kb/queries/` listing — and they differ only in what they run, so this
+ * takes the program rather than the source. One element is ingested at a
+ * time: a signal that lands while an ingest runs is taken after it, never
+ * beside it. A failed ingest — an error or a defect — is dropped rather than
+ * ending the lane, since the next signal re-reads everything it needs. An
+ * interruption is not a failure to drop: it is the server stopping, and a lane
+ * that swallowed it would keep sampling a root nobody serves any more.
  */
-function makeIngestDebounce(ingest: Effect.Effect<void, DomainError>): Debounce {
-  let pending: Fiber.Fiber<void> | null = null;
-  let stopped = false;
-
-  const cancel = (): void => {
-    if (pending === null) return;
-    Effect.runFork(Fiber.interrupt(pending));
-    pending = null;
-  };
-
-  return {
-    trigger: () => {
-      if (stopped) return;
-      cancel();
-      pending = Effect.runFork(
-        Effect.gen(function* () {
-          yield* Effect.sleep("50 millis");
-          yield* ingest;
-        }).pipe(Effect.ignoreCause),
-      );
-    },
-    stop: () => {
-      stopped = true;
-      cancel();
-    },
-  };
-}
-
-/**
- * One watched directory, and the filenames in it that matter — `null` when the
- * whole directory is the target.
- *
- * Directories rather than files because an atomic replacement strands a watch
- * on the old inode, so `nodes.jsonl` is watched as "the name `nodes.jsonl` in
- * `.kb`". `.kb/queries/` is the other kind of target: a saved query is added
- * and removed as a file, so what changes is the listing and every name in it
- * matters.
- */
-interface WatchScope {
-  directory: string;
-  names: Set<string> | null;
-}
-
-/** The scopes that cover a set of files, one per containing directory. */
-function fileScopes(paths: readonly string[]): WatchScope[] {
-  const byDirectory = new Map<string, Set<string>>();
-  for (const path of paths) {
-    const directory = dirname(path);
-    const names = byDirectory.get(directory) ?? new Set<string>();
-    names.add(basename(path));
-    byDirectory.set(directory, names);
-  }
-  return [...byDirectory].map(([directory, names]) => ({ directory, names }));
-}
-
-/**
- * Watch what the caller named. Best effort: an unwatchable directory simply
- * gets no live reload.
- *
- * The store is asked which files are its own rather than assumed. A JSONL
- * store is one file and a sqlite store is a database plus its write-ahead log;
- * an `if` here on which adapter the session got would put a backend's file
- * layout inside a package that is supposed to know only the port.
- */
-function watchScopes(scopes: readonly WatchScope[], onEvent: () => void): FSWatcher[] {
-  const watchers: FSWatcher[] = [];
-  for (const { directory, names } of scopes) {
-    try {
-      const watcher = watch(directory, (_event, filename) => {
-        if (names === null) {
-          onEvent();
-          return;
-        }
-        if (typeof filename !== "string" || filename === "" || names.has(filename)) onEvent();
-      });
-      watcher.on("error", () => {
-        /* A transient filesystem error must not crash the server. */
-      });
-      watchers.push(watcher);
-    } catch {
-      /* Best effort for an unavailable directory. */
-    }
-  }
-  return watchers;
+function ingestEach(
+  signals: Stream.Stream<unknown>,
+  ingest: Effect.Effect<void, DomainError>,
+): Effect.Effect<void> {
+  return Stream.runForEach(signals, () =>
+    Effect.catchCause(ingest, (cause) =>
+      Cause.hasInterrupts(cause) ? Effect.interrupt : Effect.void,
+    ),
+  );
 }
 
 /**
@@ -295,28 +216,32 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     yield* fs.makeDirectory(savedDir, { recursive: true });
   }).pipe(Effect.ignoreCause);
 
-  const lanes = [
-    {
-      scopes: fileScopes(ctx.store.watchPaths),
-      ingest: ingestExternalWrite(ctx).pipe(Effect.provide(layer)),
-    },
-    {
-      scopes: [{ directory: savedDir, names: null }],
-      ingest: ingestSavedQueries(opts.root, queries).pipe(Effect.provide(layer)),
-    },
-  ].map(({ scopes, ingest }) => ({ scopes, debounce: makeIngestDebounce(ingest) }));
-  const debounces = lanes.map((lane) => lane.debounce);
-  const watchers = lanes.flatMap(({ scopes, debounce }) => watchScopes(scopes, debounce.trigger));
+  // The listener first: a bind that fails throws here, before the lifetime
+  // owns anything, so nothing is left running behind a server that never came
+  // up.
   const server = serveUi({ hostname, port, root: opts.root, ctx, hub });
 
   yield* Scope.addFinalizer(
     lifetime,
     Effect.sync(() => {
-      for (const debounce of debounces) debounce.stop();
-      for (const watcher of watchers) watcher.close();
       hub.dispose();
       void server.stop(true);
     }),
+  );
+
+  // The store says when it moved; the server never names its files. The first
+  // element is the state once the subscription is armed, so a write that
+  // landed between the open above and the watch is caught by it too.
+  yield* Effect.forkIn(
+    ingestEach(ctx.store.changes, ingestExternalWrite(ctx).pipe(Effect.provide(layer))),
+    lifetime,
+  );
+  yield* Effect.forkIn(
+    ingestEach(
+      directorySignals([{ directory: savedDir, names: null }], watch),
+      ingestSavedQueries(opts.root, queries).pipe(Effect.provide(layer)),
+    ),
+    lifetime,
   );
 
   const url = `http://${hostname}:${server.port}`;

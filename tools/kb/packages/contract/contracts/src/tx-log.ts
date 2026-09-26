@@ -46,7 +46,7 @@ export interface KbTxLog {
    *
    * This is how a transaction another process committed reaches this session:
    * the tail is the store's, so a CLI write is already in it by the time the
-   * watcher fires, and reading it is cheaper and more truthful than
+   * store's `changes` announces it, and reading it is cheaper and more truthful than
    * reconstructing the delta by diffing node sets. Also how a session's own
    * commit is recorded, since the store appends inside the commit.
    */

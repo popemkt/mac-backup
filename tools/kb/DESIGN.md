@@ -800,14 +800,29 @@ exactly that — because `DomainError` has no `invalid_state`, and inventing one
 would widen `FailureCode`, the receipt mapping and the wire protocol for a
 single call site.
 
-### The store says what to watch
+### The store announces its own changes
 
-`EffectStore.watchPaths` is the list of filesystem paths whose change means
-"someone else wrote the store" (`[nodes.jsonl]` for JSONL; `[kb.sqlite,
-kb.sqlite-wal]` for sqlite). The `kb ui` server watches those paths and asks
-for nothing else. The alternative — an `if` in the server keyed on the adapter
-— puts knowledge of a backend's file layout in a package that is supposed to
-know only the port, and would need editing for every future adapter.
+Noticing that another writer moved the store is a store property, like
+reading and committing, so it is a member of the port: `EffectStore.changes`,
+a stream of fingerprints. What it promises, for every adapter:
+
+- **Armed, then news.** The first element is the current fingerprint, once the
+  subscription is live; every later element is a fingerprint that differs from
+  the one before it. A consumer that reconciles on the first element misses
+  nothing that landed before it subscribed.
+- **States, not writers; deduplicated.** One state is announced once, however
+  many platform events it took. This instance's own commits are announced too
+  when the platform reports them; a consumer treats that as a no-op, because
+  its commit already returned a `StoreCommit` and the session's fingerprint
+  memory (`reloadEffect`) recognises the state.
+
+Both file-backed adapters get `changes` from one function,
+`fingerprintChanges` (`@kb/contracts`), and differ only in the directory and
+file names they declare and the fingerprint they sample (`[nodes.jsonl]` for
+JSONL; `[kb.sqlite, kb.sqlite-wal]` for sqlite).
+
+The consumer never names a file: the `kb ui` server runs the stream and
+ingests each element.
 
 ### Migrating between adapters
 
@@ -841,7 +856,7 @@ enters the sequence:
 - `refresh()` adopts whatever the tail gained past head. That is how a
   session's own commit is recorded (the store appended it inside
   `commitEffect`) *and* how another process's commit arrives — the tail is
-  shared, so a CLI write is already in it when the watcher fires, and reading
+  shared, so a CLI write is already in it when `changes` announces it, and reading
   it beats re-deriving it by diffing node sets.
 - `append(ops, at, origin)` records a transaction the store did *not* commit.
   There is exactly one: the saved-query virtual set (below). The
@@ -927,9 +942,9 @@ appear in a frame, so a client catching up with `since` ended with a graph a
 fresh snapshot disagreed with. `SavedQuerySet` (`app/server`) owns the set now:
 `adopt` installs the first one (the snapshot carries it, so logging it would
 spend a rev saying what the client already has) and `sync` diffs and appends
-with `origin: "virtual"`. `.kb/queries/` is watched beside the store's own
-files, through the same debounce. One path to a client, whatever a node's
-provenance.
+with `origin: "virtual"`. `.kb/queries/` is watched with the same
+`directorySignals` the store's `changes` is built on, and ingested through the
+same lane. One path to a client, whatever a node's provenance.
 
 ### What is still true of both
 

@@ -1,6 +1,7 @@
-import { Effect, Predicate, Schema } from "effect";
+import { Effect, Predicate, Schema, type Stream } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import { join } from "node:path";
+import { watch } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import {
   domainError,
   ensureDomainError,
@@ -13,6 +14,7 @@ import {
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
 import { durableReplaceFile } from "./durable-replace.ts";
 import {
+  fingerprintChanges,
   staleCommitError,
   type EffectStore,
   type StoreCommit,
@@ -99,18 +101,22 @@ const readBody = Effect.fn("readBody")(function* (
 export class JsonlStore implements EffectStore {
   readonly path: string;
   readonly backupPath: string;
-  /** One file is the whole store; `.bak` and `.lock` are its own bookkeeping. */
-  readonly watchPaths: readonly string[];
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
   readonly fingerprint: Effect.Effect<StoreFingerprint | null>;
+  /** One file is the whole store; `.bak` and `.lock` are its own bookkeeping. */
+  readonly changes: Stream.Stream<StoreFingerprint | null>;
   readonly txTail: JsonlTxTail;
 
   constructor(root: string) {
     this.path = join(root, ".kb", "nodes.jsonl");
     this.backupPath = `${this.path}.bak`;
-    this.watchPaths = [this.path];
     this.loadEffect = Effect.flatMap(readBody(this.path), (body) => decodeNodes(body, this.path));
     this.fingerprint = Effect.sync(() => storeMark(this.path));
+    this.changes = fingerprintChanges({
+      scopes: [{ directory: dirname(this.path), names: new Set([basename(this.path)]) }],
+      watch,
+      fingerprint: this.fingerprint,
+    });
     this.txTail = new JsonlTxTail(this.path, txTailPath(root));
   }
 

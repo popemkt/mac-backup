@@ -1,4 +1,6 @@
-import { Effect, Predicate } from "effect";
+import { watch } from "node:fs";
+import { basename, dirname } from "node:path";
+import { Effect, Predicate, type Stream } from "effect";
 import {
   canonicalJson,
   decodeStoredNode,
@@ -9,6 +11,7 @@ import {
   type StoreTx,
 } from "@kb/model";
 import {
+  fingerprintChanges,
   staleCommitError,
   type EffectStore,
   type StoreCommit,
@@ -61,19 +64,32 @@ function mapCommitError(err: unknown, path: string): DomainError {
  */
 export class SqliteStore implements EffectStore {
   readonly path: string;
-  /** The database and its write-ahead log; `-shm` is mapped memory, not news. */
-  readonly watchPaths: readonly string[];
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
   readonly fingerprint: Effect.Effect<StoreFingerprint | null>;
+  /** The database and its write-ahead log; `-shm` is mapped memory, not news. */
+  readonly changes: Stream.Stream<StoreFingerprint | null>;
   readonly txTail: SqliteTxTail;
   private readonly connection: SqliteConnection;
 
   constructor(root: string) {
     this.path = sqliteStorePath(root);
-    this.watchPaths = sqliteStoreFiles(root).slice(0, 2);
     this.connection = sqliteConnection(this.path);
     this.loadEffect = loadNodes(this.connection, this.path);
     this.fingerprint = fingerprintOf(this.connection);
+    this.changes = fingerprintChanges({
+      scopes: [
+        {
+          directory: dirname(this.path),
+          names: new Set(
+            sqliteStoreFiles(root)
+              .slice(0, 2)
+              .map((file) => basename(file)),
+          ),
+        },
+      ],
+      watch,
+      fingerprint: this.fingerprint,
+    });
     this.txTail = new SqliteTxTail(this.connection, this.path);
   }
 

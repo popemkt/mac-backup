@@ -38,6 +38,8 @@ export { TemplateRegistry, templateRegistryLayer } from "./template.ts";
 export type { ExtensionTemplate, TemplateContext, TemplateFn } from "./template.ts";
 export type { KbContext } from "./session.ts";
 export { staleCommitError } from "./store.ts";
+export { directorySignals, fingerprintChanges } from "./store-changes.ts";
+export type { DirectoryWatcher, WatchDirectory, WatchScope } from "./store-changes.ts";
 export type { EffectStore, StoreCommit, StoreFingerprint } from "./store.ts";
 export { Assets, SavedQueries, Views, isValidWorkspaceName } from "./workspace.ts";
 export type { AssetsPort, SavedQueriesPort, ViewsPort } from "./workspace.ts";

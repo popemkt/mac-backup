@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Effect, Layer, Option } from "effect";
+import { Effect, Layer, Option, Stream } from "effect";
 import * as FileSystem from "effect/FileSystem";
 import { canonicalJsonl, fieldTypeValue } from "@kb/model";
 import {
@@ -118,7 +118,7 @@ function fixtureContext(initial: readonly KbNode[]) {
   let revision = 0;
   const store: EffectStore = {
     path: "/memory/nodes.jsonl",
-    watchPaths: [],
+    changes: Stream.never,
     loadEffect: Effect.sync(() => [...stored]),
     fingerprint: Effect.sync(() => `revision:${revision}`),
     txTail: tail,

@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Stream } from "effect";
 import {
   staleCommitError,
   type EffectStore,
@@ -12,8 +12,6 @@ import { MemoryTxTail } from "@kb/tx-log";
 /** In-memory persistence side of the browser's replicated kb session. */
 export class BrowserStore implements EffectStore {
   readonly path = "browser";
-  /** Nothing on a filesystem to watch: the server pushes this store its news. */
-  readonly watchPaths: readonly string[] = [];
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
 
   /**
@@ -26,6 +24,11 @@ export class BrowserStore implements EffectStore {
   private readonly byId = new Map<string, KbNode>();
   private generation = 0;
   readonly fingerprint = Effect.sync(() => String(this.generation));
+  /**
+   * No other instance can write this store — the server pushes it its news —
+   * so the current state is all there is to report.
+   */
+  readonly changes = Stream.fromEffect(this.fingerprint).pipe(Stream.concat(Stream.never));
 
   constructor(nodes: readonly KbNode[]) {
     this.replace(nodes);
