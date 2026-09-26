@@ -152,6 +152,17 @@ const PAIRS: readonly (readonly [text: string, ground: string])[] = [
 ];
 
 describe("design systems: contrast (WCAG AA)", () => {
+  // The measure itself, from the rejecting side: a luminance or oklch
+  // conversion that drifted would pass every pair above by accident.
+  it("measures black on white at 21:1, a colour on itself at 1:1, and grey below AA", () => {
+    const black = rgbOf("oklch(0 0 0)");
+    const white = rgbOf("oklch(1 0 0)");
+    expect(contrast(black, white)).toBeCloseTo(21, 1);
+    expect(contrast(white, black)).toBeCloseTo(21, 1);
+    expect(contrast(white, white)).toBeCloseTo(1, 5);
+    expect(contrast(rgbOf("oklch(0.75 0 0)"), white)).toBeLessThan(BODY);
+  });
+
   const cases = DESIGN_SYSTEM_IDS.flatMap((id) =>
     (["light", "dark"] as const).map((variant) => ({ id, variant })),
   );

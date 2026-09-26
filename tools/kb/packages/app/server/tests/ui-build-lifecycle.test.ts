@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import { bunFileSystemLayer } from "@kb/runtime";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   ensureUiBuilt,
@@ -31,7 +32,7 @@ afterEach(async () => {
 });
 
 async function makeUi(): Promise<{ uiRoot: string; distDir: string }> {
-  const uiRoot = await mkdtemp(join(import.meta.dir, "kb-uibuild-"));
+  const uiRoot = await mkdtemp(join(tmpdir(), "kb-uibuild-"));
   roots.push(uiRoot);
   const distDir = join(uiRoot, "dist");
   await mkdir(join(uiRoot, "src"), { recursive: true });

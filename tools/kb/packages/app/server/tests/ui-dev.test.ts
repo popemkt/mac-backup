@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import { present } from "@kb/model";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   runDevUntilExit,
@@ -30,7 +31,7 @@ afterEach(async () => {
 });
 
 async function tempRoot(): Promise<string> {
-  const root = await mkdtemp(join(import.meta.dir, "kb-uidev-"));
+  const root = await mkdtemp(join(tmpdir(), "kb-uidev-"));
   roots.push(root);
   await mkdir(join(root, ".kb", "queries"), { recursive: true });
   return root;

@@ -39,6 +39,20 @@ vi.mock("@/components/graph/force3d-graph", () => ({
 
 import GraphPage from "./graph-page";
 
+/**
+ * Let the page settle: lazy renderer chunks resolve and effects commit, each
+ * step inside `act`, until `ready` holds. A condition that never holds fails
+ * with the reason, rather than a fixed sleep passing or failing by timing.
+ */
+async function settle(ready: () => boolean, reason: string): Promise<void> {
+  for (let i = 0; i < 100 && !ready(); i++) {
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+  }
+  if (!ready()) throw new Error(`the graph page never settled: ${reason}`);
+}
+
 function seed() {
   resetOutlineStore();
   useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
@@ -88,8 +102,11 @@ describe("GraphPage (smoke)", () => {
           perspectiveId: SYSTEM_IDS.lensAllMentions,
         }),
       );
-      await new Promise((r) => setTimeout(r, 350));
     });
+    await settle(
+      () => container.querySelector('[data-testid="sigma-graph"]') !== null,
+      "no 2D canvas mounted",
+    );
 
     expect(container.textContent).toContain("graph");
     expect(container.textContent).toContain("All mentions");
@@ -112,8 +129,11 @@ describe("GraphPage (smoke)", () => {
     useOutlineStore.getState().hydrateFromWire(capped, fixtureGraph.rev, "fixtures");
     await act(async () => {
       root.render(createElement(GraphPage, { perspectiveId: SYSTEM_IDS.lensAllMentions }));
-      await new Promise((r) => setTimeout(r, 350));
     });
+    await settle(
+      () => /top 2 of \d+ nodes/.test(container.querySelector("header")?.textContent ?? ""),
+      "no capped header",
+    );
 
     const header = present(container.querySelector("header"), "graph header");
     expect(header.textContent).toMatch(/top 2 of \d+ nodes by degree/);

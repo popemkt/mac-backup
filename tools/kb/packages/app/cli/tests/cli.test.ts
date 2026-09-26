@@ -291,6 +291,33 @@ describe("cli e2e (tmpdir)", () => {
     expect(node.props[await fieldId("label")]).toEqual([{ t: "str", v: "7" }]);
   });
 
+  test("unset parses its value as the field's declared type, and removes only that value", async () => {
+    expect((await kb(["init", "--bare"])).code).toBe(0);
+    expect((await kb(["field", "define", "estimate"])).code).toBe(0);
+    expect((await kb(["field", "type", "estimate", "number"])).code).toBe(0);
+    const task = JSON.parse((await kb(["add", "Task", "--id", "n.task"])).stdout).output.id;
+    const rows = JSON.parse((await kb(["field", "list"])).stdout).output.rows as string[][];
+    const estimate = rows.find((r) => r[1] === "estimate")?.[0] ?? "";
+    const values = async (): Promise<unknown> =>
+      JSON.parse((await kb(["get", task, "--depth", "0"])).stdout).output.node.props[estimate];
+
+    expect((await kb(["set", task, "estimate", "3"])).code).toBe(0);
+    expect((await kb(["set", task, "estimate", "5"])).code).toBe(0);
+    expect(await values()).toEqual([
+      { t: "num", v: 3 },
+      { t: "num", v: 5 },
+    ]);
+    // "3" is read as the number 3, so it matches the stored {t:num,v:3}; read
+    // as a string it would match nothing and leave both values in place.
+    expect((await kb(["unset", task, "estimate", "3"])).code).toBe(0);
+    expect(await values()).toEqual([{ t: "num", v: 5 }]);
+    // Unreadable as the type: a usage error, and nothing is removed.
+    const abc = await kb(["unset", task, "estimate", "abc"]);
+    expect(abc.code).toBe(2);
+    expect(JSON.parse(abc.stdout)).toMatchObject({ status: "failed", code: "invalid_input" });
+    expect(await values()).toEqual([{ t: "num", v: 5 }]);
+  });
+
   test("init → add → query → get", async () => {
     // --bare: this exercises CLI mechanics on a clean store. Example content
     // deliberately occupies ordinary names like "status", so a non-bare init

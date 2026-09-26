@@ -16,6 +16,7 @@ import { WORKSPACE_ROOT } from "../src/workspace.ts";
  *     - .kb/cache/* (query/index cache)
  *     - reports/mutation/* (Stryker mutation test reports)
  *     - .stryker-tmp/* (Stryker temp files)
+ *     - a test's in-tree scratch root (tests/kb-<name>, under any package)
  *
  * Red case: check an unignored file (e.g. packages/domain/model/src/model.ts).
  */
@@ -33,6 +34,7 @@ const REQUIRED_IGNORED = [
   "data.bak",
   "tools/kb/reports/mutation/report.html",
   "tools/kb/.stryker-tmp/sandbox",
+  "tools/kb/packages/app/cli/tests/kb-ext-abc123/.kb/nodes.jsonl",
 ];
 
 export function isGitIgnored(relPath: string, cwd: string = REPO_ROOT): boolean {

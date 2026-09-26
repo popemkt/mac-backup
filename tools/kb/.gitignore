@@ -38,6 +38,11 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .kb/tx.jsonl
 .kb/tx.jsonl.lock
 
+# Test scratch roots. A test root lives in the OS temp dir unless its fixture
+# extensions must resolve imports through tools/kb/node_modules; those few sit
+# beside their test as tests/kb-*/ and are removed by the test itself.
+packages/*/*/tests/kb-*/
+
 # IntelliJ based IDEs
 .idea
 

@@ -75,8 +75,10 @@ function seed(count: number): LayoutSeed {
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
+/** Poll until `ready` holds; a condition that never holds fails here, not later. */
 async function until(ready: () => boolean): Promise<void> {
   for (let i = 0; i < 200 && !ready(); i++) await tick();
+  if (!ready()) throw new Error("the worker never reached the awaited state within 1 s");
 }
 
 describe("the 3D layout's worker plumbing", () => {

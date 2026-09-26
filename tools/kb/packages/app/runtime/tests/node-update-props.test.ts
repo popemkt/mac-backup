@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openKb } from "../src/session.ts";
 import { invoke } from "../src/invoke.ts";
@@ -10,7 +11,7 @@ afterEach(async () => {
 });
 
 test("node.update replaces an entire field atomically instead of erasing the new value", async () => {
-  const root = await mkdtemp(join(import.meta.dir, "kb-update-"));
+  const root = await mkdtemp(join(tmpdir(), "kb-update-"));
   roots.push(root);
   const ctx = await openKb(root);
   await invoke(ctx, { id: "node.add", input: { id: "n.perspective", text: "Perspective" } });

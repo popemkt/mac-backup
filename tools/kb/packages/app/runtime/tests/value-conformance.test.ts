@@ -6,6 +6,7 @@
  */
 import { afterEach, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SYSTEM_IDS, fieldTypeValue, type FieldType, type PropValue } from "@kb/model";
 import { openKb } from "../src/session.ts";
@@ -19,7 +20,7 @@ afterEach(async () => {
 type Ctx = Awaited<ReturnType<typeof openKb>>;
 
 async function session(): Promise<{ root: string; ctx: Ctx }> {
-  const root = await mkdtemp(join(import.meta.dir, "kb-conform-"));
+  const root = await mkdtemp(join(tmpdir(), "kb-conform-"));
   roots.push(root);
   return { root, ctx: await openKb(root) };
 }
