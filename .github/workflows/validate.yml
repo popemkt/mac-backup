@@ -47,27 +47,33 @@ jobs:
   # regressions with first-ever-Linux-run portability noise.
   kb:
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 40
+    # Every step runs inside the flake's dev shell, so Bun is the one the
+    # pre-commit hook and `pkgs/kb` use, not whatever setup-bun calls latest.
+    defaults:
+      run:
+        shell: nix develop -c bash -e {0}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
-
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          # The warn ratchet counts from the fork point with main
+          # (harness/src/snapshot.ts, baselineAtRatchetBase); a shallow clone
+          # has no history to find it in.
+          fetch-depth: 0
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
 
       - name: Install dependencies
-        run: |
-          bun install --cwd tools/kb --frozen-lockfile
+        run: bun install --cwd tools/kb --frozen-lockfile
 
-      # typecheck (every workspace package, through the Nx task graph) +
-      # oxlint (type-aware, one scope) + knip + the repo-shape harness. This is
-      # the entry point the waves build for exactly this purpose; do not inline
-      # its parts. Invoked with bun, not npm: the workspace root declares
-      # devEngines npm 12 and `npm run` fails EBADDEVENGINES on the runner.
-      - name: Verify (typecheck, lint, boundaries, dead code)
+      # `verify` is the one name for the kb toolchain gate; what it runs is its
+      # definition in tools/kb/package.json, stated nowhere else. Invoked with
+      # bun, not npm: the workspace root declares devEngines npm 12 and
+      # `npm run` fails EBADDEVENGINES on the runner.
+      - name: Verify
         run: bun run verify
         working-directory: tools/kb
 
@@ -84,6 +90,17 @@ jobs:
       # determinism across seeds nobody has looked at.
       - name: Deterministic simulation sweep
         run: bun run test:dst
+        working-directory: tools/kb
+
+      - name: Install Chromium for the render suite
+        run: bunx playwright install chromium
+        working-directory: tools/kb/packages/test-support/render-tests
+
+      # Real-browser specs. No retries (playwright.config.ts): a flaky spec is
+      # fixed, not retried into green. A runner without a WebGPU adapter runs
+      # the WebGL2 half and skips the WebGPU-only specs, each under its GAP.
+      - name: Render suite
+        run: bun run test:render
         working-directory: tools/kb
 
       - name: Generated docs match .kb data

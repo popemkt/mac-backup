@@ -18,9 +18,11 @@ independent jobs that run in parallel because they share nothing:
   are the repo's own. It does not ask whether the pins are current; what each
   command proves, and why freshness gates nothing, lives in
   [github-release-packages.md](github-release-packages.md#commands).
-- **`kb`** — `bun run verify`, `bun run test`, `bun run test:ui`, and
-  `bun run test:dst`, followed by the generated-docs check and the `.kb/assets`
-  backup-ownership check.
+- **`kb`** — `bun run verify`, `bun run test`, `bun run test:ui`,
+  `bun run test:dst` and `bun run test:render`, followed by the generated-docs
+  check and the `.kb/assets` backup-ownership check. Every step runs inside
+  `nix develop`, so Bun is the flake's, the same one the pre-commit hook and
+  `pkgs/kb` use.
 
 ## Pre-commit: the same questions, one commit earlier
 
@@ -100,8 +102,20 @@ that was the coverage gap.
 ## Why the kb job looks the way it does
 
 - **It calls `bun run verify`, not its constituent tools.** `verify` is the one
-  name for the complete KB toolchain gate: workspace typechecks, type-aware
-  lint, dead-code analysis, and the repository harness.
+  name for the complete kb toolchain gate; what it runs is its definition in
+  `tools/kb/package.json`, and is stated nowhere else.
+- **It checks out the full history.** The harness's warn ratchet holds the
+  committed baseline to the one at the fork point with `main` (on `main`
+  itself, the previous commit), so a regenerated snapshot cannot raise it; a
+  shallow clone has no fork point to read.
+- **The render suite runs, with no retries.** `bun run test:render` builds the
+  UI in Vite's `test-render` mode and gives every test its own server over a
+  fresh fixture store (`tests-render/harness-test.ts`), so no test can see
+  another's writes. It runs Chromium's new headless mode with WebGPU enabled.
+  Each spec that draws a scene asserts the backend it expects: WebGPU where
+  Chromium offers an adapter, WebGL2 where it does not, so a silent fall back
+  is red. The WebGPU-only specs (the Embers study) skip on a runner with no
+  adapter, each under the gap that names that lane.
 - **`macos-15`, not `ubuntu-latest`.** The kb suite has only ever run on Darwin.
   Linux would be faster and cheaper, but a first-ever Linux run would mix real
   regressions with portability noise. Moving it is a worthwhile follow-up on its
@@ -113,16 +127,11 @@ that was the coverage gap.
 
 ## What CI deliberately does NOT run
 
-- **Mutation testing** — see the header comment in `kb-mutation.yml`. It is slow
-  and its score is not reproducible (unseeded fast-check: three runs over
-  byte-identical source gave 9, 53, then 68 survivors). A per-PR pass/fail on
-  that number would be noise. Weekly, with the survivor report as an artifact.
-- **The Playwright render harness**
-  (`tools/kb/packages/test-support/render-tests/`, `bun run test:render`).
-  Its global setup builds the UI in Vite's `test-render` mode into the
-  harness's own `dist` and serves only that, so it needs no prior build. All
-  15 specs pass locally. It is not a job yet. A job needs a Playwright
-  Chromium install step, and the WebGL specs have never run on a CI runner.
+- **Mutation testing** — see the header comment in `kb-mutation.yml`. It is slow,
+  and its score is a signal rather than a gate (the harness holds that no
+  threshold breaks the run). It covers `@kb/model`, `@kb/query` and the CLI's
+  argument mapper, and the run seeds fast-check, so its survivor list is
+  reproducible. Weekly, with the survivor report as an artifact.
 
 ## Still manual
 

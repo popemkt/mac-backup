@@ -20,7 +20,7 @@ MODE="${1:-session}"
 SURFACE="${2:-unspecified}"
 
 HARD_TOOLS=(git jq nix nixfmt statix deadnix)
-SOFT_TOOLS=(shellcheck actionlint nvfetcher)
+SOFT_TOOLS=(shellcheck actionlint nvfetcher bun)
 ADMISSION_CHECKS_DIR=""
 
 check_env() {

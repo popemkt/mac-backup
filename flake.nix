@@ -271,8 +271,11 @@
       };
 
       devShells.${system}.default = pkgs.mkShell {
+        # `bun` is the one kb runs on everywhere: this shell (so the
+        # pre-commit hook), CI's kb job, and `pkgs/kb`'s build.
         packages = with pkgs; [
           actionlint
+          bun
           deadnix
           nixfmt
           nvfetcher
