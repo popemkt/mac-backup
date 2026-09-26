@@ -23,7 +23,7 @@ import {
   type TreeViewHandle,
 } from "./graph-camera-controls";
 import type { GraphSelection } from "./graph-selection";
-import { initiallyCollapsed, layoutForest } from "./tree-layout";
+import { forestNodeSet, initiallyCollapsed, layoutForest } from "./tree-layout";
 
 interface TreeGraphProps extends GraphEmphasis {
   forest: LensTreeNode[];
@@ -62,7 +62,23 @@ export function TreeGraph({
   onSelectionChange,
   onControlsReady,
 }: TreeGraphProps) {
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => initiallyCollapsed(forest));
+  // What is folded belongs to one node set: a new set (another perspective,
+  // query or sys switch) starts from its own fold; the same set rebuilt (a
+  // store update) keeps the user's.
+  const nodeSet = useMemo(() => forestNodeSet(forest), [forest]);
+  const [fold, setFold] = useState(() => ({ nodeSet, collapsed: initiallyCollapsed(forest) }));
+  const collapsed = useMemo(
+    () => (fold.nodeSet === nodeSet ? fold.collapsed : initiallyCollapsed(forest)),
+    [fold, nodeSet, forest],
+  );
+  const setCollapsed = useCallback(
+    (next: Set<string> | ((previous: Set<string>) => Set<string>)) =>
+      setFold((current) => {
+        const base = current.nodeSet === nodeSet ? current.collapsed : initiallyCollapsed(forest);
+        return { nodeSet, collapsed: typeof next === "function" ? next(base) : next };
+      }),
+    [nodeSet, forest],
+  );
   // The frame's shape decides how a many-rooted forest is packed; a coarse
   // step, so a resize repacks only when the shape really changes.
   const [aspect, setAspect] = useState(1.6);
@@ -187,7 +203,7 @@ export function TreeGraph({
       cameraIntent.current = true;
       setJumpId(id);
     },
-    [forest],
+    [forest, setCollapsed],
   );
   useEffect(() => {
     if (jumpId === null) return;

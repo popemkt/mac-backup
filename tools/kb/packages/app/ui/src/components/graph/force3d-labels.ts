@@ -22,6 +22,7 @@ import {
 } from "three/webgpu";
 import { texture, uniform } from "three/tsl";
 import { fitGraphLabel, graphLabelFont } from "@/lib/graph-label";
+import { labelArrived } from "@/lib/graph-arrival";
 import { byLabelPriority, reserveGraphLabel, type GraphLabelBox } from "@/lib/graph-label-layout";
 import type { ScenePalette } from "@/scene/palette";
 import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";
@@ -88,6 +89,16 @@ export function focusDisc(
   const r = radius * pixelsPerUnit(camera, size.height, at.depth);
   if (!Number.isFinite(r)) return null;
   return { x: at.x - r, y: at.y - r, width: 2 * r, height: 2 * r };
+}
+
+/** Whether `box` lies wholly inside a frame of `size`. */
+function within(
+  box: GraphLabelBox,
+  size: { readonly width: number; readonly height: number },
+): boolean {
+  return (
+    box.x >= 0 && box.y >= 0 && box.x + box.width <= size.width && box.y + box.height <= size.height
+  );
 }
 
 export class LabelLayer {
@@ -163,7 +174,7 @@ export class LabelLayer {
     positions: Float32Array,
     camera: PerspectiveCamera,
     { width, height }: { readonly width: number; readonly height: number },
-    fades: Force3dFades,
+    fades: Force3dFades & { readonly arrival: Float32Array },
     radius: (i: number) => number,
   ): void {
     const focus = fades.focus.values;
@@ -197,16 +208,15 @@ export class LabelLayer {
       box.width = label.width + 6;
       box.height = HEIGHT + 4;
       const present = fades.dim.values[i] ?? 1;
-      label.sprite.visible =
-        inView &&
-        present > 0.5 &&
-        box.x >= 0 &&
-        box.y >= 0 &&
-        box.x + box.width <= width &&
-        box.y + box.height <= height &&
-        reserveGraphLabel(box, this.occupied);
+      const ready = inView && present > 0.5 && labelArrived(fades.arrival[i] ?? 1);
+      label.sprite.visible = ready && within(box, size) && reserveGraphLabel(box, this.occupied);
       label.opacity.value = Math.min(1, (present - 0.5) * 2);
     }
+  }
+
+  /** How many labels are shown this frame. */
+  visibleCount(): number {
+    return this.order.filter((label) => label.sprite.visible).length;
   }
 
   /** A new palette or graph: every texture is repainted on next want. */

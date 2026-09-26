@@ -104,3 +104,42 @@ const coords = (el: Element) =>
     ),
     "node transform",
   );
+
+/** A forest past the open-whole budget: a root, 10 children, 6 leaves each. */
+const bigForest = (prefix: string): LensTreeNode[] => [
+  branch(
+    prefix,
+    Array.from({ length: 10 }, (_, c) =>
+      branch(
+        `${prefix}-${c}`,
+        Array.from({ length: 6 }, (_leaf, l) => branch(`${prefix}-${c}-${l}`)),
+      ),
+    ),
+  ),
+];
+
+it("folds each new node set afresh, and keeps the user's fold across a rebuilt one", async () => {
+  const appearance = { designSystem: "kb" as const, dark: false, key: "kb:light" };
+  const show = (forest: LensTreeNode[]) =>
+    act(async () => root.render(createElement(TreeGraph, { forest, appearance })));
+  const visible = (id: string) => container.querySelector(`[data-node-id="${id}"]`) !== null;
+
+  await show(bigForest("a"));
+  // Opened two levels deep: the leaves start folded.
+  expect(visible("a-0")).toBe(true);
+  expect(visible("a-0-0")).toBe(false);
+  const expand = present(container.querySelector('[aria-label="Expand a-0"]'), "expand a-0");
+  act(() => {
+    expand.dispatchEvent(new dom.MouseEvent("click", { bubbles: true }) as unknown as MouseEvent);
+  });
+  expect(visible("a-0-0")).toBe(true);
+
+  // The same node set rebuilt (a store update): the user's fold stays.
+  await show(bigForest("a"));
+  expect(visible("a-0-0")).toBe(true);
+
+  // Another node set (a new perspective): it opens two levels deep too.
+  await show(bigForest("b"));
+  expect(visible("b-0")).toBe(true);
+  expect(visible("b-0-0")).toBe(false);
+});

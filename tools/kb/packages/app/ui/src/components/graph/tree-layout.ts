@@ -47,6 +47,19 @@ export interface TreeLayout {
   readonly height: number;
 }
 
+/** The forest's node set, as one comparable key: the same ids give the same key. */
+export function forestNodeSet(forest: readonly LensTreeNode[]): string {
+  const ids: string[] = [];
+  const visit = (nodes: readonly LensTreeNode[]) => {
+    for (const n of nodes) {
+      ids.push(n.id);
+      visit(n.children);
+    }
+  };
+  visit(forest);
+  return ids.toSorted().join("\n");
+}
+
 function forestSize(nodes: readonly LensTreeNode[]): number {
   return nodes.reduce((sum, n) => sum + 1 + forestSize(n.children), 0);
 }

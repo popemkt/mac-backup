@@ -49,7 +49,7 @@ export interface Force3dSettings {
   readonly labelTopN: number;
 }
 
-/** The settings the layers are built from: a change to any rebuilds them. */
+/** The settings the drawn layers are built from: a change to any redraws them, in place. */
 function layerShape(s: Force3dSettings): string {
   return `${s.curvedLinks}|${s.nodeLook}|${s.linkStyle}`;
 }
@@ -149,6 +149,11 @@ export class GraphLayers {
     this.setGraph(init.nodes, init.edges);
   }
 
+  /** How far each node has arrived (1: in place). */
+  arrived(): Float32Array {
+    return this.arrival.values;
+  }
+
   /** World radius of node `i` now. */
   readonly radius = (i: number): number => this.nodes?.radius(i) ?? 4;
 
@@ -215,10 +220,6 @@ export class GraphLayers {
     this.fades.glow.reset(count, 0);
     this.fades.lift.reset(count, 0);
     this.fades.focus.reset(count, 0);
-    // The old layers leave the scene with their GPU buffers.
-    disposeGraph(this.layers);
-    const colors = this.stage.colors;
-    const { curvedLinks: curved, linkStyle: style, nodeLook } = this.settings;
     this.arrival.start(
       hopsFromHubs(
         count,
@@ -227,17 +228,30 @@ export class GraphLayers {
       ),
       !this.stage.reduced(),
     );
+    this.drawLayers();
+    this.labels.reset(this.topology, this.palette);
+    this.labels.resize(this.stage.camera, this.stage.renderer.domElement.clientHeight || 1);
+    this.rank();
+    this.startLayout();
+    this.refresh();
+  }
+
+  /**
+   * Draw the node, link and particle layers anew from the graph as it stands
+   * — its positions, eased emphasis and arrival — freeing the old ones. A new
+   * look or link style is only this: nothing moves and nothing arrives again.
+   */
+  private drawLayers(): void {
+    disposeGraph(this.layers);
+    const colors = this.stage.colors;
+    const { curvedLinks: curved, linkStyle: style, nodeLook } = this.settings;
     this.nodes = nodeLayer(this.topology, colors, this.fades, nodeLook, this.arrival);
     const ambientPeriod = this.timing.ambientPeriod;
     this.links = linkLayer(this.topology, this.fades, { curved, style, ambientPeriod });
     this.links.setPalette(this.palette, this.link);
     this.particles = particleLayer(this.topology, colors, curved);
     this.layers.add(this.links.lines, this.nodes.mesh, this.particles.sprite);
-    this.labels.reset(this.topology, this.palette);
-    this.labels.resize(this.stage.camera, this.stage.renderer.domElement.clientHeight || 1);
-    this.rank();
-    this.startLayout();
-    this.refresh();
+    this.moved = true;
   }
 
   setGraph(nodes: readonly LensNode[], edges: readonly LensEdge[]): void {
@@ -258,10 +272,7 @@ export class GraphLayers {
   setSettings(next: Force3dSettings): void {
     const previous = this.settings;
     this.settings = next;
-    if (layerShape(next) !== layerShape(previous)) {
-      this.build(this.topology.nodes, this.topology.edges);
-      return;
-    }
+    if (layerShape(next) !== layerShape(previous)) this.drawLayers();
     if (next.spread !== previous.spread || next.linkDistance !== previous.linkDistance) {
       this.laying = true;
       this.layout?.reheat({ spread: next.spread, linkDistance: next.linkDistance });
@@ -328,7 +339,13 @@ export class GraphLayers {
     }
     const particles = this.particles?.step(dt, this.positions, reduced, this.particleRate) ?? false;
     const flowing = this.links?.step(dt, reduced) ?? false;
-    this.labels.frame(this.positions, camera, viewport, fades, this.radius);
+    this.labels.frame(
+      this.positions,
+      camera,
+      viewport,
+      { ...fades, arrival: this.arrival.values },
+      this.radius,
+    );
     return this.laying || fading || particles || flowing;
   }
 

@@ -12,6 +12,18 @@
  */
 import { easeAt, type Timing } from "@/lib/timing";
 
+/**
+ * How far a node must have arrived before its label shows, in every renderer:
+ * a label comes in after the node it names, never at full ink over a node
+ * still growing in.
+ */
+const LABEL_ARRIVED = 0.85;
+
+/** Whether a node that has arrived this far may be labelled. */
+export function labelArrived(arrival: number): boolean {
+  return arrival >= LABEL_ARRIVED;
+}
+
 /** Hops past which every node arrives together: the stagger's reach. */
 const MAX_HOPS = 4;
 /** The share of nodes, by degree, that arrive first (at least one). */
