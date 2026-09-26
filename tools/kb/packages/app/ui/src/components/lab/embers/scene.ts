@@ -37,6 +37,7 @@ import {
   heatEmissive,
 } from "@/components/lab/embers/heat";
 import { NODE_OPS } from "@/scene/gpu/tsl";
+import { seededRandom } from "@/components/lab/kit/seeded";
 
 const SHAPE: EmberShape = { count: 3400, sphere: 0.1, cloud: 3.4 };
 const CAMERA_Z = 17;
@@ -48,14 +49,7 @@ const CAMERA_Z = 17;
  * and thinning past the rim, so the cloud has no hard outline (P1).
  */
 function homes(): Float32Array {
-  let state = 0x9e3779b9;
-  const random = () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 0x1_0000_0000;
-  };
+  const random = seededRandom(0x9e3779b9);
   const out = new Float32Array(SHAPE.count * 3);
   const clear = (SHAPE.sphere * 2.6) ** 2;
   let placed = 0;
