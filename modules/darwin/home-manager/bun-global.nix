@@ -54,18 +54,20 @@ in
       export PATH="$BUN_INSTALL/bin:/opt/homebrew/bin:$PATH"
       mkdir -p "$BUN_INSTALL/bin" "$BUN_INSTALL/install/global"
 
+      # Converge best effort (AGENTS.md "Writing an executor"): the drift
+      # audit reports whatever this skips as tracked but missing.
       if [ ! -x ${lib.escapeShellArg bunBin} ]; then
-        echo "error: Bun is missing; expected Homebrew to install it before Home Manager activation" >&2
-        exit 1
+        echo "warning: Bun is missing; skipping Bun globals until Homebrew installs it" >&2
+      else
+        for pkg in ${lib.concatStringsSep " " (map lib.escapeShellArg bunGlobalPackages)}; do
+          package_dir="$BUN_INSTALL/install/global/node_modules/$pkg"
+          if [ ! -d "$package_dir" ]; then
+            echo "Installing missing Bun global: $pkg"
+            $DRY_RUN_CMD ${lib.escapeShellArg bunBin} add --global "$pkg" \
+              || echo "warning: could not install Bun global $pkg" >&2
+          fi
+        done
       fi
-
-      for pkg in ${lib.concatStringsSep " " (map lib.escapeShellArg bunGlobalPackages)}; do
-        package_dir="$BUN_INSTALL/install/global/node_modules/$pkg"
-        if [ ! -d "$package_dir" ]; then
-          echo "Installing missing Bun global: $pkg"
-          $DRY_RUN_CMD ${lib.escapeShellArg bunBin} add --global "$pkg"
-        fi
-      done
     '';
   };
 }
