@@ -22,6 +22,8 @@ export interface NodeRowProps {
   instanceKey?: string;
 }
 
+const ROW_SELECTOR = '[data-node-row="true"]';
+
 /** DESIGN-RESKIN §1.3 — the one node row everywhere. */
 export function NodeRow({
   depth,
@@ -39,14 +41,16 @@ export function NodeRow({
   const holdsSelection = interactive && isSelected && !isActive;
   // Focus follows the selection. A row that becomes selected — Escape out of
   // its editor, arrow navigation, a zoom — takes focus when it would otherwise
-  // fall to <body> or is still inside the row, so Tab and screen readers stay
-  // on the selected row. It never takes focus from anything else (a palette,
-  // an input elsewhere).
+  // fall to <body>, is still inside the row, or sits on the row the selection
+  // just left (which would keep answering Enter and Space), so Tab and screen
+  // readers stay on the selected row. It never takes focus from anything else
+  // (a palette, an input elsewhere, another row's editor).
   useEffect(() => {
     const el = ref.current;
     if (!holdsSelection || el === null) return;
     const focused = el.ownerDocument.activeElement;
-    if (focused === null || focused === el.ownerDocument.body || el.contains(focused)) {
+    const onRow = focused?.matches(ROW_SELECTOR) === true;
+    if (focused === null || focused === el.ownerDocument.body || el.contains(focused) || onRow) {
       el.focus({ preventScroll: true });
     }
   }, [holdsSelection]);
