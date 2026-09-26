@@ -3,7 +3,8 @@
 // Layout the unit suite cannot see: whether something painted outside its box
 // makes the page scroll sideways, and whether an absolutely placed badge is
 // clipped. Only a real engine measuring real boxes can answer either.
-import { expect, test, type Page } from "playwright/test";
+import type { Page } from "playwright/test";
+import { expect, test } from "./harness-test.ts";
 
 async function home(page: Page, width: number) {
   await page.setViewportSize({ width, height: 900 });
@@ -36,18 +37,27 @@ for (const width of [1280, 390]) {
   }) => {
     await home(page, width);
     await expect(page.locator("[data-header-wash]")).toHaveCount(1);
-    const m = await measure(page);
-    expect(m).not.toBeNull();
-    expect(m?.overflow).toBe(0);
-    expect(m?.pageOverflow).toBe(0);
+    // Measured once the outline has laid out: rows mount and fonts swap
+    // after the first badge is visible, so a single read can see a frame
+    // that is still moving.
+    await expect
+      .poll(async () => {
+        const m = await measure(page);
+        return m === null ? null : { overflow: m.overflow, pageOverflow: m.pageOverflow };
+      })
+      .toEqual({ overflow: 0, pageOverflow: 0 });
   });
 
   test(`home at ${width}px shows every child count whole`, async ({ page }) => {
     await home(page, width);
-    const m = await measure(page);
-    expect(m?.badges.length).toBeGreaterThan(0);
-    for (const badge of m?.badges ?? []) {
-      expect(badge.left, `count ${badge.text}`).toBeGreaterThanOrEqual(m?.frameLeft ?? 0);
-    }
+    await expect
+      .poll(async () => {
+        const m = await measure(page);
+        if (m === null || m.badges.length === 0) return ["no count badges yet"];
+        return m.badges
+          .filter((badge) => badge.left < m.frameLeft)
+          .map((badge) => `count ${badge.text} starts at ${badge.left}, left of ${m.frameLeft}`);
+      })
+      .toEqual([]);
   });
 }
