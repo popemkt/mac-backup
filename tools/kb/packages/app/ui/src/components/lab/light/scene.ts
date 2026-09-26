@@ -125,10 +125,13 @@ function light(stage: SceneStage, init: LabSceneInit, context: StudyContext): St
   // Arriving, the lights come up: the key first, the fill and rim a beat behind.
   const entrance = new Entrance(init.timing);
   const full = { key: rig.key.intensity, fill: rig.fill.intensity, rim: rig.rim.intensity };
+  // Places in the entrance's order (0 first, 1 last): the fill starts about a
+  // quarter of the way through, the rim just under half.
+  const order = { key: 0, fill: 0.45, rim: 0.8 };
   const bringUp = () => {
-    rig.key.intensity = full.key * entrance.arrived(0);
-    rig.fill.intensity = full.fill * (0.15 + 0.85 * entrance.arrived(0.25));
-    rig.rim.intensity = full.rim * entrance.arrived(0.45);
+    rig.key.intensity = full.key * entrance.arrived(order.key);
+    rig.fill.intensity = full.fill * (0.15 + 0.85 * entrance.arrived(order.fill));
+    rig.rim.intensity = full.rim * entrance.arrived(order.rim);
   };
   bringUp();
 

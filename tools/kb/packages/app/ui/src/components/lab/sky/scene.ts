@@ -160,9 +160,11 @@ function sky(stage: SceneStage, init: LabSceneInit, context: StudyContext): Stud
       u.twinkle.value = reduced ? 0 : 1;
       entrance.step(dt, reduced);
       orbit.frame(dt, reduced, stage.camera, DRIFT);
-      u.lines.value = stars.fadeLines(u.lines.value, lineRate, dt, reduced);
       stage.camera.updateMatrixWorld();
+      // The hover first: a let-go this frame must be the target this frame's
+      // fade sees, or a still draw (reduced motion) keeps the lines up.
       hands.frame(orbit.control.dragging || orbit.control.held !== null);
+      u.lines.value = stars.fadeLines(u.lines.value, lineRate, dt, reduced);
     },
     setControl: (id, value: LabControlValue) => {
       if (id === "spikes" && typeof value === "number") u.spikes.value = value;
