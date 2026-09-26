@@ -150,8 +150,28 @@
             touch "$out"
           '';
 
+      # Unit tests of the activation reconcilers (scripts/reconcile_*.py).
+      reconcileScriptsCheck =
+        pkgs.runCommand "reconcile-scripts-check"
+          {
+            nativeBuildInputs = [ pkgs.python3 ];
+          }
+          ''
+            python3 -m unittest discover \
+              -s ${
+                pkgs.lib.fileset.toSource {
+                  root = ./scripts;
+                  fileset = pkgs.lib.fileset.fileFilter (
+                    file: pkgs.lib.hasInfix "reconcile_" file.name && file.hasExt "py"
+                  ) ./scripts;
+                }
+              }/tests \
+              -p 'test_reconcile_*.py'
+            touch "$out"
+          '';
+
       # One Darwin host = shared system module + host dir (hosts/<hostname>).
-      # Host identity lives in the typed `my.*` options (modules/my.nix),
+      # Host identity lives in the typed `my.*` options (modules/options/my.nix),
       # not in specialArgs.
       mkDarwin =
         hostname:
@@ -218,6 +238,7 @@
 
       checks.${system} = localPackages // {
         inherit systemSetupCheck;
+        reconcile-scripts-check = reconcileScriptsCheck;
         github-sources-check = githubSourcesCheck;
         system-setup-manifest-personal = systemSetupManifestCheck "popemkt-personal";
         system-setup-manifest-work = systemSetupManifestCheck "popemkt-work";
