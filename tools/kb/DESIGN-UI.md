@@ -472,9 +472,15 @@ rather than by navigation.
   neighbours at least their radii apart (`discSpacing`, so a ring, column
   or cell grows to hold them); and the cluster placement packs each group
   as a sunflower stepped by its members' radii, so a hub's leaves ring it
-  clear before any separation runs. `graph-discs.test.ts` proves it after
+  clear before any separation runs, and sets the groups on a ring just
+  wide enough that every two of them stand their widths apart (two groups
+  are one chord across it). `separateDiscs` is a bounded pass of
+  noverlap, not a solver that always converges: from a badly overlapping
+  start it can stop short, which is why every layout places its discs
+  clear first and leaves it only the remainder. `graph-discs.test.ts` proves it after
   settle on the fixture graph and on a dense graph of hubs and leaves, in
-  every 2D layout and after a size change on a still one: no two discs
+  every 2D layout, for two and three unequal cluster groups before and
+  after separation, and after a size change on a still one: no two discs
   overlap beyond a hair, and the
   largest radius stays under its stated bound.
 - **Honest empty and large states.** Zero matches renders guidance rather than

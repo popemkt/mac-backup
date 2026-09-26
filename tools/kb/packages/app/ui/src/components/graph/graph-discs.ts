@@ -17,7 +17,7 @@
  *   the graph's shape or a disc's radius;
  * - `clusterPlacement`: the cluster renderer's groups, each packed as a
  *   sunflower stepped by its members' radii (`discSpacing` apart) and set
- *   on a ring whose length is the sum of their widths;
+ *   on a ring just wide enough that every two stand their widths apart;
  * - `discSpacing`: how far apart a placed layout (radial, hierarchical,
  *   grid) sets two neighbours at least — their radii and the margin — so
  *   its ring, column or cell grows to hold its discs;
@@ -57,7 +57,11 @@ export function discSpacing(a: { readonly size: number }, b: { readonly size: nu
 /** The largest disc a lens size can ask for (`resolveSize` caps sizes at 20). */
 export const MAX_DISC_RADIUS = discRadius(20);
 
-/** Push apart the discs that overlap, in place (each disc's radius is its `size`). */
+/**
+ * Push apart the discs that overlap, in place (each disc's radius is its
+ * `size`). A bounded pass of noverlap: it clears what a layout leaves, and
+ * may stop short from a badly overlapping start, so layouts place clear first.
+ */
 export function separateDiscs(graph: Graph): void {
   if (graph.order < 2) return;
   noverlap.assign(graph, {
@@ -131,10 +135,41 @@ function packGroup(members: readonly { readonly id: string; readonly size: numbe
   return { placed, radius };
 }
 
+/** Each group's angle on the ring: its share of the turn is its share of the widths. */
+function ringAngles(widths: readonly number[]): number[] {
+  const around = widths.reduce((sum, w) => sum + 2 * w, 0);
+  let arc = 0;
+  return widths.map((w) => {
+    const angle = ((arc + w) / Math.max(around, 1)) * 2 * Math.PI;
+    arc += 2 * w;
+    return angle;
+  });
+}
+
+/**
+ * The ring's radius: the least at which every two groups' centres stand at
+ * least their half-widths apart. A chord across the angle Δθ between two
+ * centres is 2R·sin(Δθ/2), so R is the largest (wᵢ + wⱼ) / (2·sin(Δθ/2))
+ * over every pair — two groups are one chord across the diameter.
+ */
+function ringRadius(widths: readonly number[], angles: readonly number[]): number {
+  let ring = 0;
+  for (let i = 0; i < widths.length; i++)
+    for (let j = i + 1; j < widths.length; j++) {
+      const turn = Math.abs((angles[j] ?? 0) - (angles[i] ?? 0));
+      const half = Math.min(turn, 2 * Math.PI - turn) / 2;
+      const need = (widths[i] ?? 0) + (widths[j] ?? 0);
+      ring = Math.max(ring, need / (2 * Math.max(Math.sin(half), 1e-6)));
+    }
+  return ring;
+}
+
 /**
  * Where the cluster renderer places each node: each group packed by its
  * members' discs (`packGroup`), the groups on one ring in key order, each
- * given an arc as wide as it is. `separateDiscs` then settles what is left.
+ * keeping a share of the turn in proportion to its width (`ringAngles`), at
+ * the smallest radius where every pair's chord is at least the sum of their
+ * widths (`ringRadius`). `separateDiscs` then settles what is left.
  */
 export function clusterPlacement(
   nodes: readonly { readonly id: string; readonly clusterKey: string; readonly size: number }[],
@@ -147,14 +182,11 @@ export function clusterPlacement(
   }
   const groups = [...byGroup.keys()].toSorted().map((key) => packGroup(byGroup.get(key) ?? []));
   const widths = groups.map((group) => group.radius + GROUP_GAP / 2);
-  const around = widths.reduce((sum, w) => sum + 2 * w, 0);
-  const ring = groups.length < 2 ? 0 : around / (2 * Math.PI);
+  const angles = ringAngles(widths);
+  const ring = ringRadius(widths, angles);
   const out = new Map<string, { x: number; y: number }>();
-  let arc = 0;
   groups.forEach((group, g) => {
-    const w = widths[g] ?? 0;
-    const angle = ((arc + w) / Math.max(around, 1)) * 2 * Math.PI;
-    arc += 2 * w;
+    const angle = angles[g] ?? 0;
     const cx = Math.cos(angle) * ring;
     const cy = Math.sin(angle) * ring;
     for (const member of group.placed) out.set(member.id, { x: cx + member.x, y: cy + member.y });

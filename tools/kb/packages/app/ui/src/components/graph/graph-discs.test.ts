@@ -143,7 +143,7 @@ describe("2D discs after the layout settles", () => {
   });
 
   it("settle again when the discs grow after the layout is still, and only then", () => {
-    // Packed as clusters with every node the same size (size-by fixed) …
+    // Packed as clusters with every node the same size (size-by fixed), and settled so …
     const byDegree = denseLens();
     const fixed = byDegree.nodes.map((n) => ({ ...n, size: resolveSize("fixed", 0, 0) }));
     const placed = clusterPlacement(fixed);
@@ -153,21 +153,47 @@ describe("2D discs after the layout settles", () => {
     const settle = new DiscSettle();
     settle.written(graph, fixed, { reshaped: true, moving: false });
     expect(worstOverlap(discsOf(graph))).toBeLessThanOrEqual(TOLERANCE);
+    // … a write that changes nothing moves nothing.
     const at = () => JSON.stringify(graph.mapNodes((_, a) => [a.x, a.y]));
     const still = at();
     settle.written(graph, fixed, { reshaped: false, moving: false });
     expect(at()).toBe(still);
-    // … then sized by degree: the hubs grow over their leaves where they stand.
+    // Then sized by degree: the hubs grow over their leaves where they stand.
     for (const n of byDegree.nodes) graph.setNodeAttribute(n.id, "size", discRadius(n.size));
     expect(worstOverlap(discsOf(graph))).toBeGreaterThan(TOLERANCE);
-    // A layout still moving separates them when it settles; a still one does now.
-    settle.written(graph, byDegree.nodes, { reshaped: false, moving: true });
+    // While a layout is still moving, its own settle will separate them: not now.
+    const moving = new DiscSettle();
+    moving.written(graph, fixed, { reshaped: false, moving: true });
+    moving.written(graph, byDegree.nodes, { reshaped: false, moving: true });
     expect(worstOverlap(discsOf(graph))).toBeGreaterThan(TOLERANCE);
-    const idle = new DiscSettle();
-    idle.written(graph, fixed, { reshaped: false, moving: false });
-    idle.written(graph, byDegree.nodes, { reshaped: false, moving: false });
+    // On the still layout, the same settle that saw the fixed sizes separates them now.
+    settle.written(graph, byDegree.nodes, { reshaped: false, moving: false });
     expect(worstOverlap(discsOf(graph))).toBeLessThanOrEqual(TOLERANCE);
   });
+
+  for (const counts of [
+    [40, 12],
+    [40, 25, 8],
+  ]) {
+    it(`keeps ${counts.length} unequal cluster groups apart, before and after separation`, () => {
+      const nodes = counts.flatMap((count, g) => {
+        const hub = { id: `g${g}.hub`, clusterKey: `g${g}`, size: resolveSize("degree", count, 0) };
+        const leaves = Array.from({ length: count }, (_, i) => ({
+          id: `g${g}.${i}`,
+          clusterKey: `g${g}`,
+          size: resolveSize("degree", 1, 0),
+        }));
+        return [hub, ...leaves];
+      });
+      const placed = clusterPlacement(nodes);
+      const graph = new Graph();
+      for (const n of nodes)
+        graph.addNode(n.id, { ...present(placed.get(n.id), n.id), size: discRadius(n.size) });
+      expect(worstOverlap(discsOf(graph))).toBeLessThanOrEqual(TOLERANCE);
+      separateDiscs(graph);
+      expect(worstOverlap(discsOf(graph))).toBeLessThanOrEqual(TOLERANCE);
+    });
+  }
 
   it("never overlap in the cluster placement, once separated", () => {
     const { nodes } = denseLens();
