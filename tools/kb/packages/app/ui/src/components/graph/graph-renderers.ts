@@ -96,7 +96,7 @@ export const GRAPH_RENDERERS: Record<string, GraphRendererDefinition> = {
       "showLabels",
       "curvedLinks",
       "autorotate",
-      "nodeLook",
+      "theme",
       "linkStyle",
     ],
     channels: ["relationships", "color", "label", "size"],

@@ -123,7 +123,7 @@ export function Force3dAdapter({
         curvedLinks={active.curvedLinks}
         autorotate={active.autorotate}
         showLabels={active.showLabels}
-        nodeLook={active.nodeLook}
+        theme={active.theme}
         linkStyle={active.linkStyle}
         labelTopN={active.labelDensity === "low" ? 12 : active.labelDensity === "high" ? 48 : 24}
       />

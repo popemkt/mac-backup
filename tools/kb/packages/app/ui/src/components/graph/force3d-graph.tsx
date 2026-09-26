@@ -8,7 +8,7 @@
  */
 import type { Appearance } from "@/stores/prefs.store";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import type { LensEdge, LensLinkStyle, LensNode, LensNodeLook } from "@/lib/graph-lens";
+import type { LensEdge, LensLinkStyle, LensNode, LensTheme } from "@/lib/graph-lens";
 import { showsHoverCard, type GraphEmphasis } from "@/lib/graph-interaction";
 import { useReducedMotion } from "@/lib/motion";
 import { readTiming } from "@/lib/timing";
@@ -40,7 +40,7 @@ export interface Force3dGraphProps extends GraphEmphasis {
   labelTopN?: number;
   spread?: number;
   linkDistance?: number;
-  nodeLook?: LensNodeLook;
+  theme?: LensTheme;
   linkStyle?: LensLinkStyle;
 }
 
@@ -69,7 +69,7 @@ type SettingProps = Pick<
   | "autorotate"
   | "showLabels"
   | "labelTopN"
-  | "nodeLook"
+  | "theme"
   | "linkStyle"
 >;
 
@@ -81,7 +81,7 @@ function settingsOf(p: SettingProps): Force3dSettings {
     autorotate: p.autorotate ?? false,
     showLabels: p.showLabels ?? true,
     labelTopN: p.labelTopN ?? 24,
-    nodeLook: p.nodeLook ?? "matte",
+    theme: p.theme ?? "matte",
     linkStyle: p.linkStyle ?? "lines",
   };
 }
@@ -161,7 +161,7 @@ function useMountedScene(
 export default function Force3dGraph(props: Force3dGraphProps) {
   const { nodes, edges, appearance, selectedNodeId, highlightIds, filterIds } = props;
   const { spread, linkDistance, curvedLinks, autorotate, showLabels, labelTopN } = props;
-  const { nodeLook, linkStyle } = props;
+  const { theme, linkStyle } = props;
   const host = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
   const [scene, setScene] = useState<Force3dScene | null>(null);
@@ -184,7 +184,7 @@ export default function Force3dGraph(props: Force3dGraphProps) {
         autorotate,
         showLabels,
         labelTopN,
-        nodeLook,
+        theme,
         linkStyle,
       }),
     );
@@ -196,7 +196,7 @@ export default function Force3dGraph(props: Force3dGraphProps) {
     autorotate,
     showLabels,
     labelTopN,
-    nodeLook,
+    theme,
     linkStyle,
   ]);
   useEffect(() => {

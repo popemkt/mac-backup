@@ -3,12 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { GearSixIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { SYSTEM_IDS } from "@/lib/types";
-import { GRAPH_LINK_STYLE_VALUES, GRAPH_NODE_LOOK_VALUES } from "@kb/model";
+import { GRAPH_LINK_STYLE_VALUES, GRAPH_THEME_VALUES } from "@kb/model";
 import {
   LENS_LABEL_DENSITIES,
   LENS_LAYOUTS,
   LENS_LINK_STYLES,
-  LENS_NODE_LOOKS,
+  LENS_THEMES,
   type LensPerspective,
 } from "@/lib/graph-lens";
 import { settingDisabledReason } from "./graph-capabilities";
@@ -121,14 +121,14 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
           />
 
           <Choice
-            label="Node look"
-            reason={settingDisabledReason(perspective.renderer, "nodeLook")}
-            options={LENS_NODE_LOOKS.map((look) => ({
+            label="Graph theme"
+            reason={settingDisabledReason(perspective.renderer, "theme")}
+            options={LENS_THEMES.map((look) => ({
               key: look,
-              label: GRAPH_NODE_LOOK_VALUES[look].label,
+              label: GRAPH_THEME_VALUES[look].label,
             }))}
-            value={perspective.nodeLook}
-            onPick={(look) => setRef(SYSTEM_IDS.lensNodeLookField, GRAPH_NODE_LOOK_VALUES[look].id)}
+            value={perspective.theme}
+            onPick={(look) => setRef(SYSTEM_IDS.lensThemeField, GRAPH_THEME_VALUES[look].id)}
           />
 
           <Choice

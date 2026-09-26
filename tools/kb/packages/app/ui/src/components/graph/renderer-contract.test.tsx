@@ -111,7 +111,7 @@ const PERSPECTIVE: LensPerspective = {
   curvedLinks: false,
   autorotate: false,
   labelDensity: "medium",
-  nodeLook: "matte",
+  theme: "matte",
   linkStyle: "lines",
 };
 const LIGHT: Appearance = { designSystem: "kb", dark: false, key: "kb:light" };

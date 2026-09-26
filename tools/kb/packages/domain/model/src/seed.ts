@@ -1,6 +1,6 @@
 import {
   GRAPH_LINK_STYLE_VALUES,
-  GRAPH_NODE_LOOK_VALUES,
+  GRAPH_THEME_VALUES,
   GRAPH_RENDERER_VALUES,
   GRAPH_SOURCE_FIELD_KINDS,
   GRAPH_SOURCE_KINDS,
@@ -224,11 +224,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const rendererOptions = Object.values(GRAPH_RENDERER_VALUES).map((value) =>
     mk(value.id, value.label),
   );
-  // The 3D looks and link styles are option sets of one field each, shaped
+  // Themes and link styles are option sets of one field each, shaped
   // like the renderers: the field's own children.
-  const nodeLookOptions = Object.values(GRAPH_NODE_LOOK_VALUES).map((value) =>
-    mk(value.id, value.label),
-  );
+  const themeOptions = Object.values(GRAPH_THEME_VALUES).map((value) => mk(value.id, value.label));
   const linkStyleOptions = Object.values(GRAPH_LINK_STYLE_VALUES).map((value) =>
     mk(value.id, value.label),
   );
@@ -297,9 +295,9 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     "lens.label-density",
     "text",
   );
-  const lensNodeLookField: KbNode = {
-    ...refField(SYSTEM_IDS.lensNodeLookField, "lens.node-look", undefined, one),
-    children: nodeLookOptions.map((option) => option.id),
+  const lensThemeField: KbNode = {
+    ...refField(SYSTEM_IDS.lensThemeField, "lens.theme", undefined, one),
+    children: themeOptions.map((option) => option.id),
   };
   const lensLinkStyleField: KbNode = {
     ...refField(SYSTEM_IDS.lensLinkStyleField, "lens.link-style", undefined, one),
@@ -324,7 +322,7 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.lensCurvedLinksField },
       { t: "ref", v: SYSTEM_IDS.lensAutorotateField },
       { t: "ref", v: SYSTEM_IDS.lensLabelDensityField },
-      { t: "ref", v: SYSTEM_IDS.lensNodeLookField },
+      { t: "ref", v: SYSTEM_IDS.lensThemeField },
       { t: "ref", v: SYSTEM_IDS.lensLinkStyleField },
     ],
   });
@@ -441,8 +439,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     lensCurvedLinksField,
     lensAutorotateField,
     lensLabelDensityField,
-    lensNodeLookField,
-    ...nodeLookOptions,
+    lensThemeField,
+    ...themeOptions,
     lensLinkStyleField,
     ...linkStyleOptions,
     graphPerspectiveTag,
@@ -482,6 +480,8 @@ export function ensureSystemSeed(
   const deletes: string[] = [];
 
   // Migrate legacy BEFORE seeding defaults so edits on the old id are kept.
+  // The seed has no general retirement: a renamed seeded node lingers in a
+  // store opened elsewhere. GAP [[01M3FK1PM9P96SNCSHXF0CJZRA]]
   const legacy = byId.get(LEGACY_LENS_ALL_MENTIONS);
   if (legacy) {
     if (!byId.has(SYSTEM_IDS.lensAllMentions)) {

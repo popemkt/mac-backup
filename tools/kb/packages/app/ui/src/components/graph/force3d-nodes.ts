@@ -30,7 +30,7 @@ import {
 import type { PaletteUniforms } from "@/scene/gpu/stage";
 import { toRenderableColor } from "@/lib/css-color";
 import { TIER, type Force3dFades, type Force3dTopology } from "./force3d-emphasis";
-import { KEY_DIRECTION, RIM_POWER, shadeNode, type NodeLook } from "./force3d-light";
+import { KEY_DIRECTION, RIM_POWER, shadeNode, type GraphTheme } from "./force3d-light";
 import { NODE_OPS } from "@/scene/gpu/tsl";
 
 /** World radius per cube root of a lens node's size. */
@@ -59,7 +59,7 @@ export function nodeLayer(
   topology: Force3dTopology,
   colors: PaletteUniforms,
   fades: Force3dFades,
-  nodeLook: NodeLook,
+  theme: GraphTheme,
   /** How far each node has arrived (`lib/graph-arrival`): it grows in from the hubs. */
   arrival: { readonly values: Float32Array } = { values: new Float32Array(0) },
 ): NodeLayer {
@@ -89,7 +89,7 @@ export function nodeLayer(
       glow: emphasis.y,
       lift: emphasis.z,
     },
-    nodeLook,
+    theme,
   );
 
   const segments = topology.nodes.length > DENSE ? [12, 8] : [24, 16];

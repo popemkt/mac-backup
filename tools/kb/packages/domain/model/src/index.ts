@@ -89,7 +89,7 @@ export type { KbTx, StoreTx } from "./tx.ts";
 
 export {
   GRAPH_RENDERER_VALUES,
-  GRAPH_NODE_LOOK_VALUES,
+  GRAPH_THEME_VALUES,
   GRAPH_LINK_STYLE_VALUES,
   graphOptionKey,
   graphOptionId,

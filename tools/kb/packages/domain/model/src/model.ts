@@ -190,8 +190,8 @@ export const SYSTEM_IDS = {
   lensAutorotateField: "sys.f.lens.autorotate",
   /** Label density tier: `low` | `medium` | `high` (str). */
   lensLabelDensityField: "sys.f.lens.label-density",
-  /** How a 3D node's surface takes the light (ref to one of its option children). */
-  lensNodeLookField: "sys.f.lens.node-look",
+  /** The graph's scene theme (ref to one of its option children). */
+  lensThemeField: "sys.f.lens.theme",
   /** How a 3D link is drawn (ref to one of its option children). */
   lensLinkStyleField: "sys.f.lens.link-style",
   /**

@@ -52,7 +52,7 @@ const ALL_DEFAULTS: LensPerspective = {
   curvedLinks: false,
   autorotate: false,
   labelDensity: "medium",
-  nodeLook: "matte",
+  theme: "matte",
   linkStyle: "lines",
 };
 

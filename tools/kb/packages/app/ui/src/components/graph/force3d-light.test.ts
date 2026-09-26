@@ -19,7 +19,7 @@ import { readDesignSystemSheets } from "@/lib/design-system-sheets";
 import { TAG_PALETTE } from "@/lib/tag-color";
 import { DESIGN_SYSTEM_IDS } from "@/lib/theme";
 import { GLOW } from "./force3d-emphasis";
-import { NODE_LOOKS, peakChannel, shadeNode, type NodeLighting, type Rgb } from "./force3d-light";
+import { NODE_THEMES, peakChannel, shadeNode, type NodeLighting, type Rgb } from "./force3d-light";
 
 const SRC = join(import.meta.dirname, "..", "..");
 const SHEETS = readDesignSystemSheets(readFileSync(join(SRC, "design-system.css"), "utf8"), (id) =>
@@ -70,10 +70,10 @@ const COLOURS: Rgb[] = [...CORNERS, ...NAMED, ...SPREAD, ...TAG_PALETTE.map(hexR
 /** Lifts to try: the two roles', and far past them (the cap must hold whatever the value). */
 const LIFTS = [GLOW.rising, GLOW.neighbour, 0.5, 1, 4];
 
-const lightings = (look: (typeof NODE_LOOKS)[number]): (NodeLighting & { name: string })[] =>
+const lightings = (look: (typeof NODE_THEMES)[number]): (NodeLighting & { name: string })[] =>
   APPEARANCES.map((a) => ({ ...a, look }));
 
-describe.each(NODE_LOOKS)("3D light over every storable colour, %s look", (look) => {
+describe.each(NODE_THEMES)("3D light over every storable colour, %s look", (look) => {
   for (const lighting of lightings(look)) {
     it(`keeps a resting node, and any lift, at or under white in ${lighting.name}`, () => {
       for (const colour of COLOURS) {

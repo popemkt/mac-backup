@@ -33,7 +33,7 @@ describe("V0 seed: graph-perspective + lens fields", () => {
       SYSTEM_IDS.lensCurvedLinksField,
       SYSTEM_IDS.lensAutorotateField,
       SYSTEM_IDS.lensLabelDensityField,
-      SYSTEM_IDS.lensNodeLookField,
+      SYSTEM_IDS.lensThemeField,
       SYSTEM_IDS.lensLinkStyleField,
     ]) {
       const field = present(byId.get(id), `lens field ${id}`);
@@ -60,7 +60,7 @@ describe("V0 seed: graph-perspective + lens fields", () => {
       SYSTEM_IDS.lensCurvedLinksField,
       SYSTEM_IDS.lensAutorotateField,
       SYSTEM_IDS.lensLabelDensityField,
-      SYSTEM_IDS.lensNodeLookField,
+      SYSTEM_IDS.lensThemeField,
       SYSTEM_IDS.lensLinkStyleField,
     ]);
 

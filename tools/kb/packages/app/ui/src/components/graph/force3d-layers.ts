@@ -12,7 +12,7 @@ import type { SceneStage } from "@/scene/gpu/stage";
 import type { ScenePalette } from "@/scene/palette";
 import { EmphasisFade } from "@/lib/graph-fade";
 import { graphFocus, type GraphEmphasis } from "@/lib/graph-interaction";
-import type { LensEdge, LensLinkStyle, LensNode, LensNodeLook } from "@/lib/graph-lens";
+import type { LensEdge, LensLinkStyle, LensNode, LensTheme } from "@/lib/graph-lens";
 import { GraphArrival, hopsFromHubs } from "@/lib/graph-arrival";
 import { byLabelPriority } from "@/lib/graph-label-layout";
 import { approachRate, type Timing } from "@/lib/timing";
@@ -41,8 +41,8 @@ export interface Force3dSettings {
   readonly spread: number;
   readonly linkDistance: number;
   readonly curvedLinks: boolean;
-  /** How the nodes' surfaces take the light (`lens.node-look`). */
-  readonly nodeLook: LensNodeLook;
+  /** How the nodes' surfaces take the light (`lens.theme`). */
+  readonly theme: LensTheme;
   /** How the links are drawn (`lens.link-style`). */
   readonly linkStyle: LensLinkStyle;
   readonly autorotate: boolean;
@@ -264,7 +264,7 @@ export class GraphLayers {
   private drawNodes(): void {
     disposeGraph(this.nodeGroup);
     const { colors } = this.stage;
-    this.nodes = nodeLayer(this.topology, colors, this.fades, this.settings.nodeLook, this.arrival);
+    this.nodes = nodeLayer(this.topology, colors, this.fades, this.settings.theme, this.arrival);
     this.nodeGroup.add(this.nodes.mesh);
     this.moved = true;
   }
@@ -316,7 +316,7 @@ export class GraphLayers {
   setSettings(next: Force3dSettings): void {
     const previous = this.settings;
     this.settings = next;
-    if (next.nodeLook !== previous.nodeLook) this.drawNodes();
+    if (next.theme !== previous.theme) this.drawNodes();
     const curve = next.curvedLinks !== previous.curvedLinks;
     if (curve || next.linkStyle !== previous.linkStyle) this.drawLinks(true);
     if (curve) this.drawParticles(true);

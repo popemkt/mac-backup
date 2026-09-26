@@ -5,7 +5,7 @@
 import { Schema, SchemaGetter } from "effect";
 import {
   GRAPH_LINK_STYLE_VALUES,
-  GRAPH_NODE_LOOK_VALUES,
+  GRAPH_THEME_VALUES,
   GRAPH_RENDERER_VALUES,
   graphOptionId,
   graphOptionKey,
@@ -70,13 +70,13 @@ export interface LensPerspective {
   curvedLinks: boolean;
   autorotate: boolean;
   labelDensity: LensLabelDensity;
-  /** How a 3D node's surface takes the light (`lens.node-look`). */
-  nodeLook: LensNodeLook;
+  /** The graph's scene theme (`lens.theme`). */
+  theme: LensTheme;
   /** How a 3D link is drawn (`lens.link-style`). */
   linkStyle: LensLinkStyle;
 }
 
-export type LensNodeLook = keyof typeof GRAPH_NODE_LOOK_VALUES;
+export type LensTheme = keyof typeof GRAPH_THEME_VALUES;
 export type LensLinkStyle = keyof typeof GRAPH_LINK_STYLE_VALUES;
 
 export interface LensNode {
@@ -125,14 +125,14 @@ export const DEFAULT_SHOW_LABELS = true;
 export const DEFAULT_CURVED_LINKS = false;
 export const DEFAULT_AUTOROTATE = false;
 export const DEFAULT_LABEL_DENSITY: LensLabelDensity = "medium";
-const DEFAULT_NODE_LOOK: LensNodeLook = "matte";
+const DEFAULT_THEME: LensTheme = "matte";
 const DEFAULT_LINK_STYLE: LensLinkStyle = "lines";
 
 export const LENS_LAYOUTS: readonly LensLayout[] = ["force", "radial", "hierarchical", "grid"];
 export const LENS_LABEL_DENSITIES: readonly LensLabelDensity[] = ["low", "medium", "high"];
 /** The option sets' keys, in their declared order (the settings offer them so). */
-export const LENS_NODE_LOOKS = Object.keys(GRAPH_NODE_LOOK_VALUES).filter(
-  (key): key is LensNodeLook => key in GRAPH_NODE_LOOK_VALUES,
+export const LENS_THEMES = Object.keys(GRAPH_THEME_VALUES).filter(
+  (key): key is LensTheme => key in GRAPH_THEME_VALUES,
 );
 export const LENS_LINK_STYLES = Object.keys(GRAPH_LINK_STYLE_VALUES).filter(
   (key): key is LensLinkStyle => key in GRAPH_LINK_STYLE_VALUES,
@@ -361,11 +361,11 @@ const LENS_SLOTS: ConfigSlots<LensProps> = {
     schema: Schema.Literals(LENS_LABEL_DENSITIES),
     fallback: DEFAULT_LABEL_DENSITY,
   }),
-  nodeLook: oneOf({
-    fields: [SYSTEM_IDS.lensNodeLookField],
-    read: optionKey(SYSTEM_IDS.lensNodeLookField, GRAPH_NODE_LOOK_VALUES),
-    schema: Schema.Literals(LENS_NODE_LOOKS),
-    fallback: DEFAULT_NODE_LOOK,
+  theme: oneOf({
+    fields: [SYSTEM_IDS.lensThemeField],
+    read: optionKey(SYSTEM_IDS.lensThemeField, GRAPH_THEME_VALUES),
+    schema: Schema.Literals(LENS_THEMES),
+    fallback: DEFAULT_THEME,
   }),
   linkStyle: oneOf({
     fields: [SYSTEM_IDS.lensLinkStyleField],
@@ -405,7 +405,7 @@ export function parsePerspective(node: WireNode): LensPerspective {
     curvedLinks: slot("curvedLinks"),
     autorotate: slot("autorotate"),
     labelDensity: slot("labelDensity"),
-    nodeLook: slot("nodeLook"),
+    theme: slot("theme"),
     linkStyle: slot("linkStyle"),
   };
 }
@@ -845,7 +845,7 @@ export function perspectiveProps(p: LensPerspective): WireNode["props"] {
     [SYSTEM_IDS.lensCurvedLinksField]: [{ t: "bool", v: p.curvedLinks }],
     [SYSTEM_IDS.lensAutorotateField]: [{ t: "bool", v: p.autorotate }],
     [SYSTEM_IDS.lensLabelDensityField]: [{ t: "str", v: p.labelDensity }],
-    [SYSTEM_IDS.lensNodeLookField]: [optionValue(GRAPH_NODE_LOOK_VALUES, p.nodeLook)],
+    [SYSTEM_IDS.lensThemeField]: [optionValue(GRAPH_THEME_VALUES, p.theme)],
     [SYSTEM_IDS.lensLinkStyleField]: [optionValue(GRAPH_LINK_STYLE_VALUES, p.linkStyle)],
   };
 }

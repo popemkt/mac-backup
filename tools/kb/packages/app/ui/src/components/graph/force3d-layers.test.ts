@@ -36,7 +36,7 @@ const SETTINGS: Force3dSettings = {
   autorotate: false,
   showLabels: false,
   labelTopN: 0,
-  nodeLook: "matte",
+  theme: "matte",
   linkStyle: "lines",
 };
 
@@ -84,7 +84,7 @@ describe("3D graph layers", () => {
     const arrived = [...graph.arrived()];
     expect(arrived.some((v) => v > 0 && v < 1)).toBe(true);
     for (const change of [
-      { nodeLook: "glass" as const },
+      { theme: "glass" as const },
       { linkStyle: "flow" as const },
       { curvedLinks: true },
     ]) {
@@ -103,7 +103,7 @@ describe("3D graph layers", () => {
     for (let i = 0; i < 5; i++) graph.frame(0.05, camera, viewport);
     const phase = graph.motion().flowPhase;
     expect(phase).toBeGreaterThan(0);
-    graph.setSettings({ ...graph.settings, nodeLook: "cel" });
+    graph.setSettings({ ...graph.settings, theme: "cel" });
     expect(graph.motion().flowPhase).toBe(phase);
     graph.setSettings({ ...graph.settings, curvedLinks: true });
     expect(graph.motion().flowPhase).toBe(phase);
@@ -119,7 +119,7 @@ describe("3D graph layers", () => {
     const before = graph.motion().particles;
     expect(before?.showing ?? 0).toBeGreaterThan(0);
     expect(before?.phase ?? 0).toBeGreaterThan(0);
-    graph.setSettings({ ...graph.settings, nodeLook: "glass" });
+    graph.setSettings({ ...graph.settings, theme: "glass" });
     expect(graph.motion().particles).toEqual(before);
     graph.setSettings({ ...graph.settings, curvedLinks: true });
     expect(graph.motion().particles).toEqual(before);

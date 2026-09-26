@@ -6,16 +6,16 @@
  * test proves which light crosses the bloom threshold (1) for any colour of
  * the shader itself. No three here.
  *
- * A node's **look** is how its surface takes the rig — matte (the default),
- * cel, fresnel, glass. A look is data a perspective chooses
- * (`lens.node-look`), and it changes only the surface light; the rest cap,
+ * A node's **surface** is how it takes the rig — matte (the default), cel,
+ * fresnel, glass — and it is its theme's, data a perspective chooses
+ * (`lens.theme`). A surface changes only the surface light; the rest cap,
  * the glow and the lift cap are the one `shadeNode` every look runs through,
  * so the bloom rule — only focus, hover, a search match and a hub cross 1 —
  * holds for every look by construction, and `force3d-light.test.ts` proves it
  * over every look, colour and design system.
  */
 
-import type { GRAPH_NODE_LOOK_VALUES } from "@kb/model";
+import type { GRAPH_THEME_VALUES } from "@kb/model";
 import { NUMBER_OPS, type Rgb, type ShadeOps } from "@/scene/shade-ops";
 
 export type { Rgb };
@@ -27,8 +27,8 @@ const NODE_LIGHT = {
   glowWhite: 0.25,
 } as const;
 
-/** A look is one of `lens.node-look`'s option nodes (`@kb/model`), by key. */
-export type NodeLook = keyof typeof GRAPH_NODE_LOOK_VALUES;
+/** A theme is one of `lens.theme`'s option nodes (`@kb/model`), by key. */
+export type GraphTheme = keyof typeof GRAPH_THEME_VALUES;
 
 /**
  * Each look's surface light, before the shared caps. Every one must grow
@@ -36,7 +36,7 @@ export type NodeLook = keyof typeof GRAPH_NODE_LOOK_VALUES;
  * only through the rim: that is what lets `peakChannel` find a sphere's
  * brightest fragment ring by ring.
  */
-const SURFACES: Record<NodeLook, <V, S>(o: ShadeOps<V, S>, f: NodeFragment<V, S>) => V> = {
+const SURFACES: Record<GraphTheme, <V, S>(o: ShadeOps<V, S>, f: NodeFragment<V, S>) => V> = {
   // A soft key from the upper left, a fill that keeps the dark side in the
   // node's own colour, and an ink rim that draws the silhouette.
   matte: (o, f) =>
@@ -131,7 +131,7 @@ export interface NodeFragment<V, S> {
 export function shadeNode<V, S>(
   o: ShadeOps<V, S>,
   f: NodeFragment<V, S>,
-  look: NodeLook = "matte",
+  look: GraphTheme = "matte",
 ): V {
   const L = NODE_LIGHT;
   const lit = SURFACES[look](o, f);
@@ -143,11 +143,13 @@ export function shadeNode<V, S>(
 }
 
 /** Every look, in the order the option set declares them. */
-export const NODE_LOOKS = Object.keys(SURFACES).filter((key): key is NodeLook => key in SURFACES);
+export const NODE_THEMES = Object.keys(SURFACES).filter(
+  (key): key is GraphTheme => key in SURFACES,
+);
 
 /** The light a node is shaded under: its look, and the palette's ink and ground (linear). */
 export interface NodeLighting {
-  readonly look: NodeLook;
+  readonly look: GraphTheme;
   readonly ink: Rgb;
   readonly ground: Rgb;
 }

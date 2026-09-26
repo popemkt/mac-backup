@@ -24,12 +24,12 @@ export const GRAPH_RENDERER_VALUES = {
   treemap: { id: "sys.graph.renderer.treemap", label: "Treemap" },
 } as const;
 
-/** The 3D node looks: `lens.node-look`'s option children (matte is the default). */
-export const GRAPH_NODE_LOOK_VALUES = {
-  matte: { id: "sys.graph.look.matte", label: "Matte" },
-  cel: { id: "sys.graph.look.cel", label: "Cel" },
-  fresnel: { id: "sys.graph.look.fresnel", label: "Fresnel" },
-  glass: { id: "sys.graph.look.glass", label: "Glass" },
+/** The graph themes: `lens.theme`'s option children (matte is the default). */
+export const GRAPH_THEME_VALUES = {
+  matte: { id: "sys.graph.theme.matte", label: "Matte" },
+  cel: { id: "sys.graph.theme.cel", label: "Cel" },
+  fresnel: { id: "sys.graph.theme.fresnel", label: "Fresnel" },
+  glass: { id: "sys.graph.theme.glass", label: "Glass" },
 } as const;
 
 /** The 3D link styles: `lens.link-style`'s option children (lines is the default). */

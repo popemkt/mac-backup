@@ -438,6 +438,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
 - **node** — `01M1MGCPJTV66QSFCR44XG29YM`
 
+### GAP: the system seed cannot retire or rename a seeded node
+
+- **expected** — A seeded node that is renamed or removed (a field such as lens.node-look becoming lens.theme, its option nodes, lens.curved-links) is retired by ensureSystemSeed on open: the old node and its option children are deleted, props keyed by it move to its replacement's key, and ref values to its options map to the replacement's options.
+- **current** — ensureSystemSeed only adds: it fills absent nodes, props and template field refs. The one retirement it knows is LEGACY_LENS_ALL_MENTIONS, special-cased. The two committed stores were migrated by hand with the kb CLI (kb rm, kb unset).
+- **impact** — A store opened elsewhere keeps the retired field nodes as clutter, the graph-perspective tag keeps listing them, and a value a perspective held under the old field is silently ignored (its choice reverts to the default).
+- **closes** — A declared retirement table in @kb/model (old id to replacement, option ids to option ids) that ensureSystemSeed applies before seeding, with the legacy all-mentions migration folded into it and a seed test over it.
+- **node** — `01M3FK1PM9P96SNCSHXF0CJZRA`
+
 ### GAP: the two pin tools use different could-not-run exit codes and no shared test holds them to one contract
 
 - **expected** — github-sources and uv-sources implement one stated contract for check (0 current, 10 newer upstream, one code for could not resolve) and update, stated once, with a shared offline test that runs both against stubbed resolvers.

@@ -58,7 +58,7 @@ export type GraphSetting =
   | "showLabels"
   | "curvedLinks"
   | "autorotate"
-  | "nodeLook"
+  | "theme"
   | "linkStyle";
 export function settingDisabledReason(
   renderer: LensRenderer,
