@@ -12,7 +12,7 @@
  * — as though it were membership. Strip the field and a query node is a plain
  * node, so the field is what a query node is.
  */
-import type { KbWsClient } from "@/api/ws";
+import type { KbWsClient, SubscriptionSink } from "@/api/ws";
 import { SYSTEM_IDS, type NodeMap, type OutlineNode, type PropValue } from "@/lib/types";
 
 export interface QueryNodeDef {
@@ -82,10 +82,10 @@ export function subscribeQueryNode(
   client: KbWsClient,
   nodeId: string,
   edn: string,
-  onRows: (rows: unknown[][], rev: number) => void,
+  sink: SubscriptionSink,
 ): () => void {
   const id = querySubscriptionId(nodeId);
-  client.subscribe(id, edn, onRows);
+  client.subscribe(id, edn, sink);
   return () => client.unsubscribe(id);
 }
 

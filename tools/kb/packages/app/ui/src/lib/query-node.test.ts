@@ -192,7 +192,10 @@ describe("subscribe/unsubscribe lifecycle over /ws", () => {
     const { client, socket } = openClient();
     const got: unknown[][][] = [];
 
-    const unsubscribe = subscribeQueryNode(client, "n.q1", EDN, (rows) => got.push(rows));
+    const unsubscribe = subscribeQueryNode(client, "n.q1", EDN, {
+      rows: (rows) => got.push(rows),
+      error: () => {},
+    });
     const subFrame = JSON.parse(present(socket.sent.at(-1), "last frame")) as Record<
       string,
       unknown
@@ -234,7 +237,7 @@ describe("subscribe/unsubscribe lifecycle over /ws", () => {
 
   it("active query subscriptions resubscribe after reconnect", () => {
     const { client, socket } = openClient();
-    subscribeQueryNode(client, "n.q1", EDN, () => {});
+    subscribeQueryNode(client, "n.q1", EDN, { rows: () => {}, error: () => {} });
     socket.sent.length = 0;
 
     // Drop and reopen the socket (client reconnects with same subs).

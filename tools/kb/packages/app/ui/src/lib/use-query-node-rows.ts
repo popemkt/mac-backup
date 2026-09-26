@@ -39,13 +39,20 @@ export function useQueryNodeRows(input: {
 
   useEffect(() => {
     if (liveEdn === null) return undefined;
-    const unsubscribe = subscribeQueryNode(getLiveClient(), nodeId, liveEdn, (rows) => {
-      setLiveRows(rows);
-      setLiveError(null);
+    const unsubscribe = subscribeQueryNode(getLiveClient(), nodeId, liveEdn, {
+      rows: (rows) => {
+        setLiveRows(rows);
+        setLiveError(null);
+      },
+      error: ({ message }) => {
+        setLiveRows(null);
+        setLiveError(message);
+      },
     });
     return () => {
       unsubscribe();
       setLiveRows(null);
+      setLiveError(null);
     };
   }, [liveEdn, nodeId]);
 

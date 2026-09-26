@@ -501,7 +501,7 @@ The rules that hold everywhere, so no surface re-invents them:
   an accessible label and current-page marker, and tag chips expose real
   navigate / remove / configure buttons instead of click-only regions.
 
-Deferred from i5 and still open: query-subscription error routing, view-settings
+Deferred from i5 and still open: view-settings
 and Board setup flows, the Add-field flow, palette ranking/highlighting, URL and
 history handling, and a toast-model redesign.
 

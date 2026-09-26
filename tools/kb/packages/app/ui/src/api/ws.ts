@@ -64,7 +64,10 @@ export interface KbWsClientOptions {
    * does.
    */
   onGap: (info: { expected: number; got: number }) => void;
-  /** Server-sent error (query_error, invalid_message, …). */
+  /**
+   * Server-sent error (invalid_message, …) that names no live subscription.
+   * An error naming one goes to that subscription's sink instead.
+   */
   onServerError?: (err: { id?: string; code: string; message: string }) => void;
   onStatus?: (status: WsStatus) => void;
   /** Backoff bounds in ms (initial doubles up to max). */
@@ -72,9 +75,19 @@ export interface KbWsClientOptions {
   backoffMaxMs?: number;
 }
 
+/**
+ * Where one live query's answers go: its rows, or the error the server
+ * answers it with (a query that does not parse or run). Both belong to the
+ * subscriber, which is the only one that can show them in place.
+ */
+export interface SubscriptionSink {
+  rows: (rows: unknown[][], rev: number) => void;
+  error: (err: { code: string; message: string }) => void;
+}
+
 interface Subscription {
   query: string;
-  onRows: (rows: unknown[][], rev: number) => void;
+  sink: SubscriptionSink;
 }
 
 function defaultUrl(): string {
@@ -138,8 +151,8 @@ export class KbWsClient {
   }
 
   /** Live query: rows pushed now and on every change. Survives reconnect. */
-  subscribe(id: string, query: string, onRows: (rows: unknown[][], rev: number) => void): void {
-    this.subs.set(id, { query, onRows });
+  subscribe(id: string, query: string, sink: SubscriptionSink): void {
+    this.subs.set(id, { query, sink });
     this.send({ op: "subscribe", id, query });
   }
 
@@ -289,12 +302,15 @@ export class KbWsClient {
         break;
       }
       case "rows": {
-        this.subs.get(msg.id)?.onRows(msg.rows, msg.rev);
+        this.subs.get(msg.id)?.sink.rows(msg.rows, msg.rev);
         break;
       }
-      case "error":
-        this.opts.onServerError?.(msg);
+      case "error": {
+        const sub = msg.id === undefined ? undefined : this.subs.get(msg.id);
+        if (sub) sub.sink.error(msg);
+        else this.opts.onServerError?.(msg);
         break;
+      }
       case "pong":
         break;
       // Exhaustive over ServerMessage['op']; switch-exhaustiveness-check guards it

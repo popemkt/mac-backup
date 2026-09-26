@@ -216,7 +216,10 @@ describe("KbWsClient", () => {
     const rowsSeen: unknown[][][] = [];
     h.client.connect();
     h.server.accept(0);
-    h.client.subscribe("s1", "[:find ?id :where [?n :node/id ?id]]", (rows) => rowsSeen.push(rows));
+    h.client.subscribe("s1", "[:find ?id :where [?n :node/id ?id]]", {
+      rows: (rows) => rowsSeen.push(rows),
+      error: () => {},
+    });
     expect(h.server.received("subscribe")).toHaveLength(1);
     h.server.push({ op: "rows", id: "s1", rev: 0, rows: [["n.a"]] });
     h.server.push({ op: "rows", id: "other", rev: 0, rows: [["nope"]] });
@@ -255,6 +258,19 @@ describe("KbWsClient", () => {
     vi.advanceTimersByTime(60_000);
     expect(h.server.sockets).toHaveLength(3);
     expect(h.client.status).toBe("closed");
+  });
+
+  it("routes an error naming a live subscription to that subscription, not the toast", () => {
+    const h = makeHarness();
+    const errors: { code: string; message: string }[] = [];
+    h.client.connect();
+    h.server.accept(0);
+    h.client.subscribe("s1", "[:find", { rows: () => {}, error: (err) => errors.push(err) });
+    h.server.push({ op: "error", id: "s1", code: "query_error", message: "bad find spec" });
+    expect(errors).toEqual([
+      { op: "error", id: "s1", code: "query_error", message: "bad find spec" },
+    ]);
+    expect(h.errors).toEqual([]);
   });
 
   it("surfaces server error messages", () => {
