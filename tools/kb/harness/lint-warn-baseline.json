@@ -21,7 +21,6 @@
       "devDependencies:packages/test-support/render-tests/package.json:@kb/test-kit": 1,
       "exports:harness/src/constraints.ts:isPackageTestFile": 1,
       "exports:packages/app/ui/src/actions/plan.ts:planInsertChild": 1,
-      "exports:packages/app/ui/src/api/live.ts:refetchGraph": 1,
       "exports:packages/app/ui/src/components/graph/graph-camera.ts:animateCamera": 1,
       "exports:packages/app/ui/src/components/graph/graph-camera.ts:framedPoints": 1,
       "exports:packages/app/ui/src/components/outline/field-row.tsx:FIELD_LABEL_WIDTH": 1,

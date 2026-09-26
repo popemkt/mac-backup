@@ -7,7 +7,8 @@ import {
   type ServerMessage,
   type WireNode,
 } from "@kb/contracts";
-import { KbWsClient, type TxDelta, type WsLike } from "./ws";
+import type { GraphMessage } from "@/session/replica";
+import { KbWsClient, type WsLike } from "./ws";
 import { FakeWsSocket } from "@/test-support/ws";
 
 /**
@@ -67,32 +68,23 @@ function wireNode(id: string, text = id): WireNode {
 interface Harness {
   server: MockServer;
   client: KbWsClient;
-  txs: TxDelta[];
-  gaps: Array<{ expected: number; got: number }>;
+  graph: GraphMessage[];
   errors: Array<{ id?: string; code: string; message: string }>;
-  rev: { current: number };
 }
 
-function makeHarness(startRev = 0): Harness {
+function makeHarness(): Harness {
   const server = new MockServer();
-  const rev = { current: startRev };
-  const txs: TxDelta[] = [];
-  const gaps: Array<{ expected: number; got: number }> = [];
+  const graph: GraphMessage[] = [];
   const errors: Array<{ id?: string; code: string; message: string }> = [];
   const client = new KbWsClient({
     url: "ws://test/ws",
     makeSocket: server.makeSocket,
-    getRev: () => rev.current,
-    onTx: (tx) => {
-      txs.push(tx);
-      rev.current = tx.rev; // mirror the store applying the delta
-    },
-    onGap: (info) => gaps.push(info),
+    onGraph: (msg) => graph.push(msg),
     onServerError: (err) => errors.push(err),
     backoffInitialMs: 100,
     backoffMaxMs: 1000,
   });
-  return { server, client, txs, gaps, errors, rev };
+  return { server, client, graph, errors };
 }
 
 describe("KbWsClient", () => {
@@ -110,105 +102,31 @@ describe("KbWsClient", () => {
     h.server.accept(0);
     expect(h.client.status).toBe("open");
     expect(h.server.received("watch-tx")).toEqual([{ op: "watch-tx", enabled: true }]);
-    expect(h.gaps).toEqual([]);
   });
 
-  it("applies contiguous tx deltas and tracks rev", () => {
+  it("carries the graph stream to the replica without reading it", () => {
     const h = makeHarness();
-    h.client.connect();
-    h.server.accept(0);
-    h.server.push({
-      op: "tx",
-      rev: 1,
-      upserts: [wireNode("n.a")],
-      deletes: [],
-    });
-    h.server.push({
-      op: "tx",
-      rev: 2,
-      upserts: [],
-      deletes: ["n.a"],
-    });
-    expect(h.txs.map((t) => t.rev)).toEqual([1, 2]);
-    const tx0 = present(h.txs.at(0), "first tx");
-    const upsert0 = present(tx0.upserts.at(0), "first upsert");
-    expect(upsert0.id).toBe("n.a");
-    const tx1 = present(h.txs.at(1), "second tx");
-    expect(tx1.deletes).toEqual(["n.a"]);
-    expect(h.rev.current).toBe(2);
-    expect(h.gaps).toEqual([]);
-  });
-
-  it("ignores duplicate/stale tx revs", () => {
-    const h = makeHarness();
-    h.client.connect();
-    h.server.accept(0);
-    h.server.push({ op: "tx", rev: 1, upserts: [wireNode("n.a")], deletes: [] });
-    h.server.push({ op: "tx", rev: 1, upserts: [wireNode("n.a")], deletes: [] });
-    expect(h.txs).toHaveLength(1);
-    expect(h.gaps).toEqual([]);
-  });
-
-  it("explicit reconciliation asks for frames after the current revision", () => {
-    const h = makeHarness(4);
     h.client.connect();
     h.server.accept(4);
-
-    h.client.reconcile();
-
-    expect(h.server.received("since")).toEqual([{ op: "since", rev: 4 }]);
-  });
-
-  it("answers a gap in the tx stream with since, then applies the batch", () => {
-    const h = makeHarness();
-    h.client.connect();
-    h.server.accept(0);
-    h.server.push({ op: "tx", rev: 3, upserts: [wireNode("n.x")], deletes: [] });
-    expect(h.txs).toEqual([]); // the gap delta itself must NOT be applied
-    expect(h.gaps).toEqual([]); // …and it is not a snapshot, it is a question
-    expect(h.server.received("since")).toEqual([{ op: "since", rev: 0 }]);
-
-    // The server answers with everything after rev 0, in order.
-    h.server.push({ op: "tx", rev: 1, upserts: [wireNode("n.a")], deletes: [] });
-    h.server.push({ op: "tx", rev: 2, upserts: [wireNode("n.b")], deletes: [] });
-    h.server.push({ op: "tx", rev: 3, upserts: [wireNode("n.x")], deletes: [] });
-    expect(h.txs.map((t) => t.rev)).toEqual([1, 2, 3]);
-    expect(h.rev.current).toBe(3);
-    expect(h.gaps).toEqual([]);
-  });
-
-  it("asks once per gap, however many out-of-order frames arrive", () => {
-    const h = makeHarness();
-    h.client.connect();
-    h.server.accept(0);
-    h.server.push({ op: "tx", rev: 3, upserts: [], deletes: [] });
-    h.server.push({ op: "tx", rev: 4, upserts: [], deletes: [] });
-    h.server.push({ op: "tx", rev: 5, upserts: [], deletes: [] });
-    expect(h.server.received("since")).toEqual([{ op: "since", rev: 0 }]);
-  });
-
-  it("falls back to a snapshot only when the server says it must", () => {
-    const h = makeHarness(4);
-    h.client.connect();
-    h.server.accept(7);
-    expect(h.gaps).toEqual([]);
-    expect(h.server.received("since")).toEqual([{ op: "since", rev: 4 }]);
-
-    h.server.push({ op: "snapshot-required", head: 7 });
-    expect(h.gaps).toEqual([{ expected: 4, got: 7 }]);
-  });
-
-  it("a self-write echo advances rev like any other frame — no snapshot", () => {
-    // The origin used to be skipped by the server, so its rev fell behind
-    // after every write of its own and the next foreign tx read as a gap.
-    const h = makeHarness();
-    h.client.connect();
-    h.server.accept(0);
-    h.server.push({ op: "tx", rev: 1, upserts: [wireNode("n.mine")], deletes: [] });
-    h.server.push({ op: "tx", rev: 2, upserts: [wireNode("n.theirs")], deletes: [] });
-    expect(h.txs.map((t) => t.rev)).toEqual([1, 2]);
+    // Out of order and behind: judging that is the replica's job, not the socket's.
+    h.server.push({ op: "tx", rev: 9, upserts: [wireNode("n.a")], deletes: [] });
+    h.server.push({ op: "tx", rev: 2, upserts: [], deletes: ["n.a"] });
+    h.server.push({ op: "snapshot-required", head: 9 });
+    expect(h.graph).toEqual([
+      { op: "hello", rev: 4 },
+      { op: "tx", rev: 9, upserts: [wireNode("n.a")], deletes: [] },
+      { op: "tx", rev: 2, upserts: [], deletes: ["n.a"] },
+      { op: "snapshot-required", head: 9 },
+    ]);
     expect(h.server.received("since")).toEqual([]);
-    expect(h.gaps).toEqual([]);
+  });
+
+  it("asks since on the replica's behalf", () => {
+    const h = makeHarness();
+    h.client.connect();
+    h.server.accept(4);
+    h.client.since(4);
+    expect(h.server.received("since")).toEqual([{ op: "since", rev: 4 }]);
   });
 
   it("routes subscription rows and resubscribes after reconnect", () => {
@@ -296,6 +214,6 @@ describe("KbWsClient", () => {
     // reach the client without passing ServerMessageSchema on the way out.
     h.server.socket.deliver({ op: "tx", rev: "not-a-number" });
     expect(h.errors.some((e) => e.code === "invalid_server_message")).toBe(true);
-    expect(h.txs).toEqual([]);
+    expect(h.graph).toEqual([{ op: "hello", rev: 0 }]);
   });
 });

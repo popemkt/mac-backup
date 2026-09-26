@@ -15,16 +15,25 @@ import { invokeReceiptWith, isomorphicActions, noteStoreSynced, portActions } fr
 import { postAction } from "@/api/action";
 import { toast } from "@/lib/toast";
 import { BrowserStore } from "./browser-store";
+import { BrowserReplica, type ReplicaLink } from "./replica";
+
+/** How the outline store projects the session: local commits, server deltas, snapshots. */
+export interface BrowserSessionView {
+  readonly onLocalCommit: () => void;
+  readonly applyServerTx: (tx: StoreTx, rev: number) => void;
+  readonly installServerSnapshot: (nodes: KbNode[], rev: number) => void;
+}
 
 interface BrowserSession {
   readonly ctx: KbContext;
   readonly store: BrowserStore;
   readonly layer: Layer.Layer<KbCtx | KbStore | KbIndexService>;
   readonly onLocalCommit: () => void;
+  readonly replica: BrowserReplica;
 }
 
 let session: BrowserSession | null = null;
-let reconcile: (() => void) | null = null;
+let link: ReplicaLink | null = null;
 let pushTail = Promise.resolve();
 
 const remoteOnlyActions = new Set(portActions.map((action) => action.def.id));
@@ -37,8 +46,9 @@ function noteBrowserStoreSynced(current: BrowserSession): void {
 /** Install the browser infrastructure around the outline store's one index. */
 export function replaceBrowserSession(
   nodes: readonly KbNode[],
+  rev: number,
   index: KbIndex,
-  onLocalCommit: () => void,
+  view: BrowserSessionView,
 ): void {
   const store = new BrowserStore(nodes);
   const ctx: KbContext = {
@@ -58,7 +68,12 @@ export function replaceBrowserSession(
       kbCtxLayer(ctx),
       Layer.succeed(KbIndexService, index),
     ),
-    onLocalCommit,
+    onLocalCommit: view.onLocalCommit,
+    replica: new BrowserReplica(
+      rev,
+      { apply: view.applyServerTx, install: view.installServerSnapshot },
+      () => link,
+    ),
   };
   session = nextSession;
   noteBrowserStoreSynced(nextSession);
@@ -73,12 +88,26 @@ export function ingestBrowserTx(tx: StoreTx): void {
   noteBrowserStoreSynced(current);
 }
 
-export function setBrowserReconciler(fn: (() => void) | null): void {
-  reconcile = fn;
+/** Replace the replicated store and index with an authoritative server snapshot. */
+export function installBrowserNodes(nodes: readonly KbNode[]): void {
+  const current = requireSession();
+  current.store.replace(nodes);
+  current.ctx.index.rebuild([...nodes]);
+  noteBrowserStoreSynced(current);
+}
+
+/** The current session's sync machine; null before the first hydrate. */
+export function browserReplica(): BrowserReplica | null {
+  return session?.replica ?? null;
+}
+
+/** The network the sync machine talks through (the live socket and /api/graph). */
+export function setBrowserLink(next: ReplicaLink | null): void {
+  link = next;
 }
 
 export function reconcileBrowserSession(): void {
-  reconcile?.();
+  session?.replica.receive({ op: "reconcile" });
 }
 
 function requireSession(): BrowserSession {
@@ -123,7 +152,7 @@ export function invokeLocal(invocation: ActionInvocation): Promise<ActionReceipt
 function surfacePushFailure(receipt: ActionReceipt): void {
   if (receipt.status === "succeeded") return;
   toast(receipt.message);
-  reconcile?.();
+  reconcileBrowserSession();
 }
 
 export async function invoke(id: string, input: unknown): Promise<ActionReceipt> {
@@ -133,7 +162,7 @@ export async function invoke(id: string, input: unknown): Promise<ActionReceipt>
   if (receipt.status === "failed") return receipt;
   void pushInvocation(invocation).then(surfacePushFailure, (error: unknown) => {
     toast(error instanceof Error ? error.message : String(error));
-    reconcile?.();
+    reconcileBrowserSession();
   });
   return receipt;
 }

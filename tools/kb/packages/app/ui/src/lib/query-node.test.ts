@@ -178,9 +178,7 @@ function openClient(): { client: KbWsClient; socket: FakeWsSocket } {
   const client = new KbWsClient({
     url: "ws://test/ws",
     makeSocket: () => socket,
-    getRev: () => 1,
-    onTx: () => {},
-    onGap: () => {},
+    onGraph: () => {},
   });
   client.connect();
   socket.accept();

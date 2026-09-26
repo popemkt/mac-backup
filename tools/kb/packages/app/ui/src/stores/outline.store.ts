@@ -23,7 +23,7 @@ import {
 } from "@/lib/types";
 import type { ActionInvocation, WireNode } from "@kb/contracts";
 import { logWarn } from "@/lib/log";
-import { ingestBrowserTx, replaceBrowserSession } from "@/session/runtime";
+import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/session/runtime";
 
 export type { VisibleInstance };
 
@@ -374,7 +374,11 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       const expanded = loadExpandedIds();
       // A fresh load starts unscoped; App re-applies the URL scope after.
       const index = new DatascriptIndex(wireNodes);
-      replaceBrowserSession(wireNodes, index, syncFromIndex);
+      replaceBrowserSession(wireNodes, rev, index, {
+        onLocalCommit: syncFromIndex,
+        applyServerTx: (tx, txRev) => get().applyTx(tx.upserts, tx.deletes, { rev: txRev }),
+        installServerSnapshot: (nodes, snapshotRev) => get().refreshFromWire(nodes, snapshotRev),
+      });
       const projection = projectOutline(wireNodes, expanded, null, index);
       set({
         wireNodes,
@@ -442,8 +446,7 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
       const prev = get();
       const expanded = collectExpanded(prev.nodes);
       const index = prev.index ?? new DatascriptIndex(wireNodes);
-      if (prev.index !== null) index.rebuild(wireNodes);
-      replaceBrowserSession(wireNodes, index, syncFromIndex);
+      if (prev.index !== null) installBrowserNodes(wireNodes);
       const projection = projectOutline(wireNodes, expanded, prev.ontologyId, index);
       const nodes = projection.nodes;
       const rootNodeId = nodes.has(prev.rootNodeId) ? prev.rootNodeId : prev.homeRootId;

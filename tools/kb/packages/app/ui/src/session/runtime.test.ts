@@ -2,13 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { setPostAction } from "@/api/action";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { DatascriptIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
-import { invoke, invokeLocal, setBrowserReconciler, waitForBrowserPushes } from "@/session/runtime";
+import { invoke, invokeLocal, setBrowserLink, waitForBrowserPushes } from "@/session/runtime";
 import { useOutlineStore } from "@/stores/outline.store";
 
 describe("browser action runtime", () => {
   afterEach(() => {
     setPostAction(null);
-    setBrowserReconciler(null);
+    setBrowserLink(null);
   });
 
   it("changes the local index before the network push starts", async () => {
@@ -91,8 +91,8 @@ describe("browser action runtime", () => {
 
   it("requests reconciliation when the remote confirmation fails", async () => {
     useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 7, "api");
-    const reconcile = vi.fn();
-    setBrowserReconciler(reconcile);
+    const since = vi.fn();
+    setBrowserLink({ since, fetchSnapshot: vi.fn() });
     setPostAction(async (invocation) => ({
       status: "failed",
       id: invocation.id,
@@ -103,6 +103,6 @@ describe("browser action runtime", () => {
     const receipt = await invoke("node.update", { id: "n.root-a", text: "optimistic" });
     expect(receipt.status).toBe("succeeded");
     await waitForBrowserPushes();
-    expect(reconcile).toHaveBeenCalledOnce();
+    expect(since).toHaveBeenCalledExactlyOnceWith(7);
   });
 });
