@@ -16,7 +16,6 @@
 import {
   Group,
   Mesh,
-  PCFSoftShadowMap,
   PlaneGeometry,
   SphereGeometry,
   TorusGeometry,
@@ -81,9 +80,7 @@ function stillLife(): Piece[] {
 }
 
 function light(stage: SceneStage, init: LabSceneInit, context: StudyContext): StudyParts {
-  stage.renderer.shadowMap.enabled = true;
-  stage.renderer.shadowMap.type = PCFSoftShadowMap;
-  const rig = createRig(init.palette, true);
+  const rig = createRig(stage, init.palette);
   const turn = new Group();
   const pieces = stillLife();
   for (const p of pieces) turn.add(p.mesh);
@@ -172,7 +169,7 @@ export function mountLight(host: HTMLElement, init: LabSceneInit): Promise<LabSc
   return mountStudy(
     host,
     init,
-    { fov: 26, bloom: { strength: 0.35, radius: 0.4 }, ao: true, vignette: 0.45 },
+    { fov: 26, bloom: { strength: 0.35, radius: 0.4 }, ao: true, shadows: true, vignette: 0.45 },
     light,
   );
 }

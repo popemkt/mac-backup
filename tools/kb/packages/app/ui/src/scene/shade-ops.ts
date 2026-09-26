@@ -12,6 +12,12 @@
 
 export type Rgb = readonly [number, number, number];
 
+/**
+ * The bloom threshold (L2): the one value the stage's bloom pass and every
+ * formula that decides what may glow agree on. Only light above it blooms.
+ */
+export const BLOOM_THRESHOLD = 1;
+
 /** The arithmetic a shading formula may use, over colours V and scalars S. */
 export interface ShadeOps<V, S> {
   readonly num: (value: number) => S;

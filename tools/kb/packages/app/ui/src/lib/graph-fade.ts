@@ -12,7 +12,7 @@
  * Values live in one Float32Array, indexed by the renderer's own item order,
  * so a frame's step allocates nothing (P3).
  */
-import { approachRate } from "@/lib/timing";
+import { approachRate, approachShare } from "@/lib/timing";
 
 /** Below this gap a value has arrived, and is set exactly. */
 const ARRIVED = 1e-3;
@@ -75,13 +75,13 @@ export class EmphasisFade {
       this.snap();
       return true;
     }
-    const keep = Math.exp(-this.rate * dt);
+    const share = approachShare(this.rate, dt);
     let still = true;
     for (let i = 0; i < this.values.length; i++) {
       const target = this.targets[i] ?? 0;
       const gap = (this.values[i] ?? 0) - target;
       if (gap === 0) continue;
-      const next = gap * keep;
+      const next = gap * (1 - share);
       if (Math.abs(next) < ARRIVED) this.values[i] = target;
       else {
         this.values[i] = target + next;

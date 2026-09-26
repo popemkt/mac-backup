@@ -128,9 +128,19 @@ export function approachRate(seconds: number): number {
   return 3.91 / Math.max(0.01, seconds);
 }
 
-/** Frame-rate-independent `current → target` (`1 - exp(-rate·dt)` of the gap). */
+/**
+ * The share of its gap an exponential approach at `rate` closes in `dt`
+ * seconds, `1 - exp(-rate·dt)`: the one frame-rate-independent step every
+ * follow, fade and decay takes (M1). A colour lerp or an array loop uses the
+ * share directly; a scalar uses `approach`.
+ */
+export function approachShare(rate: number, dt: number): number {
+  return 1 - Math.exp(-rate * dt);
+}
+
+/** Frame-rate-independent `current → target` (`approachShare` of the gap). */
 export function approach(current: number, target: number, rate: number, dt: number): number {
-  return target + (current - target) * Math.exp(-rate * dt);
+  return current + (target - current) * approachShare(rate, dt);
 }
 
 /** One axis of a unit cubic Bezier (P0 = 0, P3 = 1) at parameter t. */

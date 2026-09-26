@@ -5,18 +5,27 @@
  *
  * - Renderer: three's `WebGPURenderer` — WebGPU where the browser has it, its
  *   own WebGL2 backend where it does not; the same TSL compiles to both.
- *   Antialiased, device pixel ratio clamped to 2 (P3).
+ *   Antialiased, device pixel ratio clamped to 2 (P3). Soft shadows when the
+ *   view asks for them (`shadows`), decided here once.
  * - Colour (L2): a set tone mapping (ACES unless a study compares others) and
- *   sRGB output. Bloom's threshold sits at 1, so only HDR values glow.
- * - Post chain: scene → optional ambient occlusion (GTAO) → bloom → the edges
- *   fade to the ground (P1, L3) → tone mapping and sRGB → dither, a
- *   half-step of noise that breaks 8-bit banding in dark gradients (L4).
- * - Palette (L1): the tokens as uniforms. A theme change eases every study's
+ *   sRGB output. Bloom's threshold is `BLOOM_THRESHOLD`, so only HDR values glow.
+ * - Post chain: scene → optional ambient occlusion (GTAO, `ao`, decided once
+ *   when the stage is built) → bloom → the edges fade to the ground (P1, L3)
+ *   → tone mapping and sRGB → dither, a half-step of noise that breaks 8-bit
+ *   banding in dark gradients (L4).
+ * - Palette (L1): the tokens as uniforms. A theme change eases every view's
  *   colours across at the theme duration (M1), or jumps when nothing may
  *   move (M7).
- * - Loop: dt clamped (M2); stops when asked (hidden tab, reduced motion).
+ * - Loop: dt clamped (M2). The animation loop runs only while the view is
+ *   visible, motion is not reduced, and its frame reports that something
+ *   still moves; otherwise a change draws one frame. Under reduced motion
+ *   every frame steps by 0: a still composition, never a half-animation (M7).
  * - Reveal (P2): shaders are compiled before the first frame is shown, and
  *   the canvas fades in over the ground rather than popping.
+ *
+ * `mountScene` is the one way a view becomes a scene: it builds on a stage,
+ * reveals it, gives the stage back if the build or the reveal fails, and
+ * answers the scene host's handle (`@/scene/host`) from the stage.
  *
  * Only modules that are themselves behind a lazy boundary import this: the
  * lab's study scenes and the 3D graph's chunk (the lazy-chunk fence,
@@ -27,6 +36,7 @@ import {
   AgXToneMapping,
   Color,
   NoToneMapping,
+  PCFSoftShadowMap,
   PerspectiveCamera,
   PostProcessing,
   Scene,
@@ -59,10 +69,13 @@ import {
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 import { ao as gtao } from "three/addons/tsl/display/GTAONode.js";
 import type { SceneBackend } from "@/scene/backend";
+import type { SceneHandle } from "@/scene/host";
 import { disposeGraph } from "@/scene/gpu/dispose";
 import type { ScenePalette } from "@/scene/palette";
-import { approachRate, clampStep, type Timing } from "@/lib/timing";
+import { BLOOM_THRESHOLD } from "@/scene/shade-ops";
+import { approachRate, approachShare, clampStep, type Timing } from "@/lib/timing";
 
+/** The device pixel ratio a stage never exceeds (P3). */
 const MAX_PIXEL_RATIO = 2;
 
 export type SceneToneMapping = "agx" | "aces" | "none";
@@ -80,16 +93,35 @@ export interface StageOptions {
   readonly far?: number;
   readonly palette: ScenePalette;
   readonly timing: Timing;
+  /** Whether motion is reduced when the stage is built (it can change later). */
+  readonly reducedMotion: boolean;
   readonly bloom: { readonly strength: number; readonly radius: number };
   /** Build the ambient-occlusion pass (a study that shows contact shadows). */
   readonly ao?: boolean;
+  /** Soft shadow maps (a study whose rig casts shadows). */
+  readonly shadows?: boolean;
   /** How much of the frame's edge fades into the ground, 0–1. */
   readonly vignette?: number;
-  /** Advance the study by `dt` seconds (already clamped); `elapsed` is its clock. */
-  readonly frame: (dt: number, elapsed: number) => void;
 }
 
-/** The palette as uniforms (linear colour): what every study's shaders read. */
+/**
+ * One frame of a view: advance by `dt` seconds (clamped; 0 under reduced
+ * motion), `elapsed` its clock. Returns whether something is still moving,
+ * which is what keeps the animation loop running.
+ */
+type StageFrame = (dt: number, elapsed: number) => boolean;
+
+/** Before a view is built, a frame has nothing to move. */
+const still: StageFrame = () => false;
+
+/** What the options decide, once, when the stage is built. */
+interface StageBuild {
+  readonly options: StageOptions;
+  readonly shadows: boolean;
+  readonly occluded: boolean;
+}
+
+/** The palette as uniforms (linear colour): what every view's shaders read. */
 function paletteUniforms() {
   return {
     ground: uniform(new Color()),
@@ -103,24 +135,24 @@ export type PaletteUniforms = ReturnType<typeof paletteUniforms>;
 type PaletteKey = keyof PaletteUniforms;
 const PALETTE_KEYS: readonly PaletteKey[] = ["ground", "edge", "hue", "ink", "accent"];
 
-/** The post chain, and the handles a study turns. */
+/** The post chain, and the handles a view turns. */
 function postChain(
   renderer: WebGPURenderer,
   scene: Scene,
   camera: PerspectiveCamera,
-  options: StageOptions,
+  { options, occluded }: StageBuild,
   colors: PaletteUniforms,
 ) {
   const knobs = {
     dither: uniform(1),
-    occlusion: uniform(options.ao === true ? 1 : 0),
+    occlusion: uniform(occluded ? 1 : 0),
     vignette: uniform(options.vignette ?? 0.55),
   };
   const scenePass = pass(scene, camera);
   const color = scenePass.getTextureNode("output");
   let lit: ReturnType<typeof color.mul> | typeof color = color;
   let occlusionPass: ReturnType<typeof gtao> | null = null;
-  if (options.ao === true) {
+  if (occluded) {
     scenePass.setMRT(mrt({ output, normal: directionToColor(normalView) }));
     const normals = scenePass.getTextureNode("normal");
     occlusionPass = gtao(
@@ -132,7 +164,7 @@ function postChain(
     const occlusion = occlusionPass.getTextureNode().sample(screenUV).r;
     lit = lit.mul(mix(float(1), occlusion, knobs.occlusion));
   }
-  const glow = bloom(lit, options.bloom.strength, options.bloom.radius, 1);
+  const glow = bloom(lit, options.bloom.strength, options.bloom.radius, BLOOM_THRESHOLD);
   const edge = smoothstep(0.45, 1.05, length(screenUV.sub(0.5)).mul(Math.SQRT2)).mul(
     knobs.vignette,
   );
@@ -153,12 +185,20 @@ function backendOf(renderer: WebGPURenderer): SceneBackend {
   return "isWebGPUBackend" in renderer.backend ? "WebGPU" : "WebGL2";
 }
 
+function pixelRatio(): number {
+  return Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+}
+
 /** The renderer, its canvas in the host, hidden until the reveal (P2). */
-async function mountRenderer(host: HTMLElement): Promise<WebGPURenderer> {
+async function mountRenderer(host: HTMLElement, shadows: boolean): Promise<WebGPURenderer> {
   const renderer = new WebGPURenderer({ antialias: true, powerPreference: "high-performance" });
   await renderer.init();
   renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
+  renderer.setPixelRatio(pixelRatio());
+  if (shadows) {
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = PCFSoftShadowMap;
+  }
   Object.assign(renderer.domElement.style, {
     display: "block",
     width: "100%",
@@ -172,9 +212,9 @@ async function mountRenderer(host: HTMLElement): Promise<WebGPURenderer> {
 }
 
 /**
- * The frame loop and the palette it eases: continuous frames while running,
- * one frame on request otherwise, and the theme's colours approaching their
- * targets on the frames that are drawn.
+ * The frame loop and the palette it eases. The animation loop runs while the
+ * view is visible, motion is not reduced, and the last frame (or the palette
+ * ease) still moves; any change otherwise draws one frame on request.
  */
 function frameLoop(
   renderer: WebGPURenderer,
@@ -190,14 +230,19 @@ function frameLoop(
     accent: new Color(),
   };
   const themeRate = approachRate(options.timing.theme);
-  let running = false;
+  let frame: StageFrame = still;
+  let visible = false;
+  let reduced = options.reducedMotion;
+  let looping = false;
+  let moving = true;
   let easing = false;
   let pending = 0;
   let last = -1;
   let elapsed = 0;
+  let frames = 0;
   const ease = (dt: number) => {
     if (!easing) return;
-    const t = 1 - Math.exp(-themeRate * dt);
+    const t = approachShare(themeRate, dt);
     let remaining = 0;
     for (const key of PALETTE_KEYS) {
       const value = colors[key].value;
@@ -206,16 +251,28 @@ function frameLoop(
     }
     easing = remaining > 1e-4;
   };
-  const draw = (now: number) => {
-    const dt = last < 0 ? 0 : clampStep((now - last) / 1000);
+  const sync = () => {
+    const wanted = visible && !reduced && (moving || easing);
+    if (wanted === looping) return;
+    looping = wanted;
+    last = -1;
+    void renderer.setAnimationLoop(wanted ? draw : null);
+  };
+  function draw(now: number): void {
+    const dt = reduced || last < 0 ? 0 : clampStep((now - last) / 1000);
     last = now;
     elapsed += dt;
     ease(dt);
-    options.frame(dt, elapsed);
+    frames++;
+    moving = frame(dt, elapsed);
     render();
-  };
+    sync();
+  }
   const invalidate = () => {
-    if (running || pending !== 0) return;
+    moving = true;
+    if (!visible) return;
+    sync();
+    if (looping || pending !== 0) return;
     pending = requestAnimationFrame((now) => {
       pending = 0;
       last = -1;
@@ -233,30 +290,41 @@ function frameLoop(
   return {
     draw,
     invalidate,
-    /** New theme colours: eased across while the loop runs, set at once otherwise. */
-    setPalette: (palette: ScenePalette) => setPalette(palette, running),
+    setFrame: (next: StageFrame) => {
+      frame = next;
+    },
+    reduced: () => reduced,
+    frames: () => frames,
+    /** New theme colours: eased across while the view may move, set at once otherwise. */
+    setPalette: (palette: ScenePalette) => setPalette(palette, visible && !reduced),
     setInitialPalette: (palette: ScenePalette) => setPalette(palette, false),
-    setRunning: (next: boolean) => {
-      if (next === running) return;
-      running = next;
-      last = -1;
-      void renderer.setAnimationLoop(next ? draw : null);
+    setVisible: (next: boolean) => {
+      visible = next;
+      if (next) invalidate();
+      else sync();
+    },
+    setReducedMotion: (next: boolean) => {
+      reduced = next;
       invalidate();
     },
     stop: () => {
-      running = false;
+      visible = false;
+      looping = false;
       if (pending !== 0) cancelAnimationFrame(pending);
       void renderer.setAnimationLoop(null);
     },
   };
 }
 
-export async function createStage(host: HTMLElement, options: StageOptions) {
-  const renderer = await mountRenderer(host);
+async function createStage(host: HTMLElement, options: StageOptions) {
+  const shadows = options.shadows === true;
+  const occluded = options.ao === true;
+  const build: StageBuild = { options, shadows, occluded };
+  const renderer = await mountRenderer(host, shadows);
   const scene = new Scene();
   const camera = new PerspectiveCamera(options.fov, 1, options.near ?? 0.1, options.far ?? 400);
   const colors = paletteUniforms();
-  const chain = postChain(renderer, scene, camera, options, colors);
+  const chain = postChain(renderer, scene, camera, build, colors);
   const loop = frameLoop(renderer, colors, options, () => chain.post.render());
   loop.setInitialPalette(options.palette);
   const { invalidate } = loop;
@@ -268,8 +336,15 @@ export async function createStage(host: HTMLElement, options: StageOptions) {
     colors,
     knobs: chain.knobs,
     backend: backendOf(renderer),
+    /** Whether the rig may cast shadows on this stage. */
+    shadows,
+    /** Frames drawn so far (a render spec reads it). */
+    frames: loop.frames,
+    /** Whether motion is reduced right now. */
+    reduced: loop.reduced,
+    setFrame: loop.setFrame,
     setPalette: loop.setPalette,
-    setRunning: loop.setRunning,
+    /** Something changed: draw, and keep drawing while the frame reports motion. */
     invalidate,
     bloomStrength: () => chain.glow.strength.value,
     setBloom: (strength: number) => {
@@ -286,7 +361,7 @@ export async function createStage(host: HTMLElement, options: StageOptions) {
       // The occlusion pass renders to two targets, and three's background
       // mesh writes only one: under occlusion the ground is a flat clear (the
       // same live colour), and the post chain's edge fade does the vignette.
-      if (options.ao === true) {
+      if (occluded) {
         scene.background = colors.ground.value;
         return;
       }
@@ -306,14 +381,6 @@ export async function createStage(host: HTMLElement, options: StageOptions) {
       scene.fogNode = fog(colors.ground, rangeFogFactor(range.near, range.far));
       return range;
     },
-    resize: (width: number, height: number) => {
-      if (width <= 0 || height <= 0) return;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
-      renderer.setSize(width, height, false);
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      invalidate();
-    },
     /** Compile every shader, draw once unseen, then fade the canvas in (P2). */
     reveal: async () => {
       // `compileAsync` builds a scene's pipelines for a plain one-target draw.
@@ -321,24 +388,94 @@ export async function createStage(host: HTMLElement, options: StageOptions) {
       // shadows three r180 leaves the shadow pass out, so the first frame's
       // command buffer is rejected; those scenes compile on the hidden first
       // frame below instead. GAP [[01M3A8QG4PEQK0A9N3KPQ3K98X]]
-      if (options.ao !== true && !renderer.shadowMap.enabled) {
-        await renderer.compileAsync(scene, camera);
-      }
+      if (!occluded && !shadows) await renderer.compileAsync(scene, camera);
       loop.draw(performance.now());
       requestAnimationFrame(() => {
         renderer.domElement.style.opacity = "1";
       });
     },
-    dispose: () => {
-      loop.stop();
-      disposeGraph(scene);
-      chain.occlusionPass?.dispose();
-      chain.glow.dispose();
-      chain.post.dispose();
-      renderer.dispose();
-      renderer.domElement.remove();
-    },
+    /** The scene host's handle, answered by the stage (`@/scene/host`). */
+    handle: {
+      backend: backendOf(renderer),
+      resize: (width: number, height: number) => {
+        if (width <= 0 || height <= 0) return;
+        renderer.setPixelRatio(pixelRatio());
+        renderer.setSize(width, height, false);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        invalidate();
+      },
+      setRunning: loop.setVisible,
+      setReducedMotion: loop.setReducedMotion,
+      dispose: () => {
+        loop.stop();
+        disposeGraph(scene);
+        chain.occlusionPass?.dispose();
+        chain.glow.dispose();
+        chain.post.dispose();
+        renderer.dispose();
+        renderer.domElement.remove();
+      },
+    } satisfies SceneHandle,
   };
 }
 
 export type SceneStage = Awaited<ReturnType<typeof createStage>>;
+
+/** What a view adds to its stage: its frame, and what the stage does not own. */
+export interface SceneParts {
+  readonly frame: StageFrame;
+  /** After the stage has taken the new size. */
+  readonly resize?: (width: number, height: number) => void;
+  /** After the stage has taken the new setting. */
+  readonly setReducedMotion?: (reduced: boolean) => void;
+  /** Release what the stage's scene traversal does not reach (listeners, workers, textures). */
+  readonly dispose?: () => void;
+}
+
+/**
+ * Build a view on a new stage and reveal it. If the build or the reveal
+ * fails, the view's parts and the stage are given back before the error goes
+ * on: nobody will ever hold a handle to them, so every failed open would
+ * otherwise leak a GPU context. The handle is the stage's, extended by the
+ * parts.
+ */
+export async function mountScene<P extends SceneParts>(
+  host: HTMLElement,
+  options: StageOptions,
+  build: (stage: SceneStage) => P,
+): Promise<{ readonly stage: SceneStage; readonly parts: P; readonly handle: SceneHandle }> {
+  const stage = await createStage(host, options);
+  let parts: P | null = null;
+  try {
+    parts = build(stage);
+    stage.setFrame(parts.frame);
+    await stage.reveal();
+  } catch (error) {
+    parts?.dispose?.();
+    stage.handle.dispose();
+    throw error;
+  }
+  const built = parts;
+  const base = stage.handle;
+  return {
+    stage,
+    parts: built,
+    handle: {
+      backend: base.backend,
+      resize: (width, height) => {
+        base.resize(width, height);
+        built.resize?.(width, height);
+      },
+      setRunning: base.setRunning,
+      setReducedMotion: (reduced) => {
+        base.setReducedMotion(reduced);
+        built.setReducedMotion?.(reduced);
+      },
+      dispose: () => {
+        built.dispose?.();
+        base.dispose();
+      },
+    },
+  };
+}

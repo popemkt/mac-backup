@@ -1,3 +1,4 @@
+import type { Appearance } from "@/stores/prefs.store";
 import { asInstance } from "@/lib/dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Graph from "graphology";
@@ -28,7 +29,7 @@ export interface SigmaGraphProps extends GraphEmphasis {
   onNodeOpen: (id: string) => void;
   onSelectionChange?: (sel: GraphSelection | null) => void;
   layoutKey: string;
-  appearanceKey: string;
+  appearance: Appearance;
   layout?: LensLayout;
   cluster?: boolean;
   showLabels?: boolean;
@@ -61,7 +62,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     nodes,
     edges,
     layoutKey,
-    appearanceKey,
+    appearance,
     layout = "force",
     cluster = false,
     selectedNodeId,
@@ -371,7 +372,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     );
     sigma.setSetting("hideEdgesOnMove", nodes.length > 1500);
     refresh();
-  }, [appearanceKey, showLabels, labelDensity, nodes, edges, layoutKey, layout, cluster, refresh]);
+  }, [appearance, showLabels, labelDensity, nodes, edges, layoutKey, layout, cluster, refresh]);
   useEffect(() => {
     refresh();
   }, [selectedNodeId, highlightIds, filterIds, isolated, refresh]);

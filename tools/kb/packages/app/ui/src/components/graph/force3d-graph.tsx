@@ -6,6 +6,7 @@
  * appearance and reduced motion. A new perspective is a new scene. This
  * module is the lazy chunk `graph-adapters` imports.
  */
+import type { Appearance } from "@/stores/prefs.store";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import type { GraphEmphasis } from "@/lib/graph-interaction";
@@ -28,8 +29,8 @@ export interface Force3dGraphProps extends GraphEmphasis {
   nodes: LensNode[];
   edges: LensEdge[];
   layoutKey: string;
-  /** `Appearance.key`: a change means the tokens hold new values. */
-  appearanceKey: string;
+  /** What the page is painted in: a new value means the tokens hold new values. */
+  appearance: Appearance;
   onControlsReady?: (controls: GraphCameraControls | null) => void;
   onSelectionChange?: (sel: GraphSelection | null) => void;
   onNodeOpen?: (id: string) => void;
@@ -110,6 +111,7 @@ function useMountedScene(
       emphasis: emphasisOf(props),
       palette: readGraphPalette(),
       link: readTokenColor("--graph-edge"),
+      dark: props.appearance.dark,
       reducedMotion,
       timing: readTiming(),
       onSelect: selected,
@@ -144,7 +146,7 @@ function useMountedScene(
 }
 
 export default function Force3dGraph(props: Force3dGraphProps) {
-  const { nodes, edges, appearanceKey, selectedNodeId, highlightIds, filterIds } = props;
+  const { nodes, edges, appearance, selectedNodeId, highlightIds, filterIds } = props;
   const { spread, linkDistance, curvedLinks, autorotate, showLabels, labelTopN } = props;
   const host = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
@@ -168,9 +170,10 @@ export default function Force3dGraph(props: Force3dGraphProps) {
     scene?.setEmphasis(emphasisOf({ selectedNodeId, highlightIds, filterIds }));
   }, [scene, selectedNodeId, highlightIds, filterIds]);
   // By the time this runs <html> carries the new appearance, so the tokens hold its values.
+  // `appearance` is a new object exactly when its key changes.
   useEffect(() => {
-    if (appearanceKey !== "") scene?.setPalette(readGraphPalette(), readTokenColor("--graph-edge"));
-  }, [scene, appearanceKey]);
+    scene?.setPalette(readGraphPalette(), readTokenColor("--graph-edge"), appearance.dark);
+  }, [scene, appearance]);
   useEffect(() => scene?.setReducedMotion(reducedMotion), [scene, reducedMotion]);
 
   const hovered = hover === null ? undefined : nodes.find((n) => n.id === hover.id);

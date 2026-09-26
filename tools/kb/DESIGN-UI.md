@@ -764,7 +764,7 @@ once, run as TSL nodes through `gpu/tsl`'s `NODE_OPS` and as numbers through
 3D graph's node light). The timing vocabulary (the motion tokens, springs, eases) is
 `lib/timing.ts`, beside `lib/motion.ts`, because DOM motion reads it too.
 What only the lab needs stays in `components/lab/kit`: `study`
-(`mountStudy`: the reduced-motion and theme hand-off), `palette` (the
+(`mountStudy`: a study's side of `mountScene`, and the theme hand-off), `palette` (the
 `--lab-*` roles), `pointer`, `pan` and `velocity` (pointer field,
 drag-to-turn with momentum; a press is a pan or a grab of what it
 landed on), `orbit` (the pan read as a bearing round a target, plus a dolly
@@ -782,6 +782,22 @@ rule over the import graph (`UI_LAZY_ONLY` in `harness/src/constraints.ts`,
 applied by the harness's `ui-lazy-fence` check), so no surface lists which of
 its files may import three.
 
+**The scene contract.** A lab study and the 3D graph are implementations of
+one `SceneHandle`, and each is built through the stage's `mountScene`, which
+answers the handle from the stage. What the handle promises belongs to the
+handle, and one contract suite (`scene/scene-contract.test.ts`) proves it over
+every registered scene — each study in `LAB_STUDIES` and the 3D graph:
+disposing leaves no live renderer, loop or canvas; a hidden scene draws
+nothing; under reduced motion no animation loop runs, and a change draws one
+still frame (M7); the device pixel ratio never exceeds 2 (P3); a scene whose
+build or reveal fails gives its stage back. The loop that keeps these is the
+stage's: it runs while the scene is visible, motion is not reduced, and the
+scene's frame reports that something still moves, so a study (always moving)
+and the graph (moving while it lays out, flies or fades) share one rule.
+Shadows (`StageOptions.shadows`) and ambient occlusion (`ao`) are decided
+once, when the stage is built; the rig casts shadows exactly on a stage that
+has them.
+
 The renderer is three's `WebGPURenderer` (T1): WebGPU where the browser has
 it, three's own WebGL2 backend where it does not, the same node code
 compiling to both. Embers' collision grid needs storage atomics, which the
@@ -796,7 +812,8 @@ study's info card cites them by id.
 
 - **M1.** Nothing moves linearly except constant ambient rotation.
   Pointer-follow and settling use a critically damped spring or a
-  frame-rate-independent approach (`1 - exp(-k·dt)`).
+  frame-rate-independent approach (`1 - exp(-k·dt)`, `lib/timing.ts`
+  `approachShare`, the one place it is written).
 - **M2.** dt is clamped, so a tab switch never causes a jump.
 - **M3.** Momentum and follow-through: drags carry inertia and decay;
   secondary elements lag the primary (overlap); stagger is small and
@@ -818,7 +835,8 @@ study's info card cites them by id.
   Value contrast over hue contrast.
 - **L2.** Physically plausible light: a named key/fill/rim rig, a set tone
   mapping (ACES by default; AgX greys a light ground), sRGB output. Bloom's
-  threshold is 1, so only HDR values glow and nothing glows by accident.
+  threshold is 1 (`BLOOM_THRESHOLD` in `scene/shade-ops`), so only HDR values
+  glow and nothing glows by accident.
 - **L3.** Depth cues: fog or atmospheric perspective, size attenuation, and
   falloff at the edges.
 - **L4.** No banding in dark gradients: dither (a half-step of noise) in the

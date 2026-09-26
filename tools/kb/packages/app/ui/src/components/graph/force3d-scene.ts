@@ -20,9 +20,10 @@
  * - Frames are drawn only while something moves (P3): a settled, idle graph
  *   costs nothing, and a hidden tab draws nothing.
  */
-import { Color, Group, Vector3 } from "three/webgpu";
+import { Group, Vector3 } from "three/webgpu";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { createStage } from "@/scene/gpu/stage";
+import { disposeGraph } from "@/scene/gpu/dispose";
+import { mountScene, type SceneStage } from "@/scene/gpu/stage";
 import { starfield } from "@/scene/gpu/starfield";
 import type { SceneBackend } from "@/scene/backend";
 import type { SceneHandle } from "@/scene/host";
@@ -71,6 +72,8 @@ export interface Force3dSceneInit {
   readonly palette: ScenePalette;
   /** `--graph-edge`: a resting link's colour and alpha. */
   readonly link: string;
+  /** `Appearance.dark`: whether the page is painted dark (bloom, stars). */
+  readonly dark: boolean;
   readonly reducedMotion: boolean;
   readonly timing: Timing;
   readonly onSelect: (id: string | null) => void;
@@ -98,7 +101,7 @@ export interface Force3dScene extends SceneHandle {
   setGraph(nodes: readonly LensNode[], edges: readonly LensEdge[]): void;
   setSettings(settings: Force3dSettings): void;
   setEmphasis(emphasis: GraphEmphasis): void;
-  setPalette(palette: ScenePalette, link: string): void;
+  setPalette(palette: ScenePalette, link: string, dark: boolean): void;
   inspect(): Force3dInspection;
 }
 
@@ -118,9 +121,6 @@ const FOCUS_NEAREST = 160;
 const CLICK_SLOP = 4;
 const DOUBLE_CLICK_MS = 320;
 
-/** A frame with nothing to do. */
-const idle = () => false;
-
 /** Spiral seed placement for a node with no position yet. */
 function seed(index: number, out: Float32Array): void {
   out[index * 3] = Math.cos(index * 2.4) * Math.sqrt(index + 1) * 12;
@@ -138,26 +138,25 @@ export async function mountForce3d(
   host: HTMLElement,
   init: Force3dSceneInit,
 ): Promise<Force3dScene> {
-  let reduced = init.reducedMotion;
-  let visible = true;
-  let busy = true;
-  let frames = 0;
-  // Filled in below; the stage's frame loop calls `frame` once everything exists.
-  let frame: (dt: number) => boolean = idle;
-  const stage = await createStage(host, {
-    fov: FOV,
-    near: NEAR,
-    far: FAR,
-    palette: init.palette,
-    timing: init.timing,
-    bloom: { strength: darkGround(init.palette) ? BLOOM.dark : BLOOM.light, radius: BLOOM.radius },
-    vignette: 0,
-    frame: (dt) => {
-      frames++;
-      busy = frame(dt);
-      stage.setRunning(visible && busy);
+  const { parts, handle } = await mountScene(
+    host,
+    {
+      fov: FOV,
+      near: NEAR,
+      far: FAR,
+      palette: init.palette,
+      timing: init.timing,
+      reducedMotion: init.reducedMotion,
+      bloom: { strength: init.dark ? BLOOM.dark : BLOOM.light, radius: BLOOM.radius },
+      vignette: 0,
     },
-  });
+    (stage) => graphScene(stage, init),
+  );
+  return { ...handle, ...parts.api };
+}
+
+function graphScene(stage: SceneStage, init: Force3dSceneInit) {
+  const reduced = stage.reduced;
   stage.setToneMapping("none");
   stage.backdrop();
   const fog = stage.atmosphere(400, 2400);
@@ -166,23 +165,19 @@ export async function mountForce3d(
     count: 900,
     radius: STAR_RADIUS,
     size: 95,
-    opacity: darkGround(init.palette) ? STARS.dark : STARS.light,
+    opacity: init.dark ? STARS.dark : STARS.light,
   });
   stage.scene.add(stars.sprite);
   const camera = stage.camera;
   camera.position.set(0, 0, 900);
   const canvas = stage.renderer.domElement;
   const controls = new OrbitControls(camera, canvas);
-  controls.enableDamping = !reduced;
+  controls.enableDamping = !reduced();
   controls.dampingFactor = 0.09;
   controls.rotateSpeed = 0.7;
   controls.zoomSpeed = 0.9;
 
-  const wake = () => {
-    if (!visible) return;
-    busy = true;
-    stage.setRunning(true);
-  };
+  const wake = stage.invalidate;
 
   // --- graph state -------------------------------------------------------
   let settings = init.settings;
@@ -211,6 +206,9 @@ export async function mountForce3d(
   };
   const graph = new Group();
   stage.scene.add(graph);
+  /** The node and link layers of the current graph, rebuilt together. */
+  const layers = new Group();
+  graph.add(layers);
   let nodes: NodeLayer | null = null;
   let links: LinkLayer | null = null;
   const labels = new LabelLayer(graph, topology, palette);
@@ -288,7 +286,7 @@ export async function mountForce3d(
   // --- emphasis ------------------------------------------------------------
   const refreshEmphasis = () => {
     setEmphasisTargets(topology, emphasis, hovered, fades);
-    if (reduced) {
+    if (reduced()) {
       fades.dim.snap();
       fades.glow.snap();
       fades.lift.snap();
@@ -320,7 +318,7 @@ export async function mountForce3d(
         positions,
         links: topology.links,
         params: { spread: settings.spread, linkDistance: settings.linkDistance },
-        live: !reduced,
+        live: !reduced(),
       },
       (next, running) => {
         positions.set(next);
@@ -347,13 +345,12 @@ export async function mountForce3d(
     fades.glow.reset(topology.nodes.length, 0);
     fades.lift.reset(topology.nodes.length, 0);
     fades.focus.reset(topology.nodes.length, 0);
-    if (nodes !== null) graph.remove(nodes.mesh);
-    if (links !== null) graph.remove(links.lines, links.particles);
-    disposeLayer(nodes, links);
+    // The old layers leave the scene with their GPU buffers.
+    disposeGraph(layers);
     nodes = nodeLayer(topology, stage.colors, fades);
     links = linkLayer(topology, stage.colors, fades, settings.curvedLinks);
     links.setPalette(palette, link);
-    graph.add(links.lines, nodes.mesh, links.particles);
+    layers.add(links.lines, nodes.mesh, links.particles);
     labels.reset(topology, palette);
     labels.resize(camera, canvas.clientHeight || 1);
     rankBySize();
@@ -448,10 +445,11 @@ export async function mountForce3d(
   const viewport = { width: 0, height: 0 };
   /** Step every eased emphasis; whether any moved. */
   const stepFades = (dt: number) => {
-    const dimmed = fades.dim.step(dt, reduced);
-    const glowed = fades.glow.step(dt, reduced);
-    const lifted = fades.lift.step(dt, reduced);
-    const focused = fades.focus.step(dt, reduced);
+    const still = reduced();
+    const dimmed = fades.dim.step(dt, still);
+    const glowed = fades.glow.step(dt, still);
+    const lifted = fades.lift.step(dt, still);
+    const focused = fades.focus.step(dt, still);
     return dimmed || glowed || lifted || focused;
   };
   /** Fly or orbit the camera; whether it moved. */
@@ -464,7 +462,7 @@ export async function mountForce3d(
       if (aimAt(flyTo)) flight.retarget(goal.eye, goal.look);
     }
     const wasFlying = flight.active;
-    const flying = flight.step(dt, reduced);
+    const flying = flight.step(dt, reduced());
     if (wasFlying) {
       camera.position.set(flight.eye.x, flight.eye.y, flight.eye.z);
       controls.target.set(flight.look.x, flight.look.y, flight.look.z);
@@ -472,11 +470,11 @@ export async function mountForce3d(
     }
     // A flight owns the camera; otherwise the orbit does (its damping and
     // the ambient turn, which reduced motion stops).
-    controls.autoRotate = settings.autorotate && !reduced;
+    controls.autoRotate = settings.autorotate && !reduced();
     const orbiting = !flying && controls.update(dt);
     return flying || orbiting;
   };
-  frame = (dt) => {
+  const frame = (dt: number) => {
     hoverTest();
     const fading = stepFades(dt);
     const flying = flight.active;
@@ -486,7 +484,7 @@ export async function mountForce3d(
       links?.update(positions);
       moved = false;
     }
-    const particles = links?.stepParticles(dt, positions, reduced, particleRate) ?? false;
+    const particles = links?.stepParticles(dt, positions, reduced(), particleRate) ?? false;
     // Fog follows the camera's distance to what it looks at (L3).
     const distance = camera.position.distanceTo(controls.target);
     fog.near.value = distance * 0.55;
@@ -501,7 +499,6 @@ export async function mountForce3d(
 
   build(init.nodes, init.edges);
   key = topologyKey(init.nodes, init.edges);
-  await stage.reveal();
 
   const cameraControls: GraphCameraControls = {
     fit: () => {
@@ -520,10 +517,9 @@ export async function mountForce3d(
     labelOf: (id) => topology.nodes[topology.index.get(id) ?? -1]?.label,
   };
 
-  return {
-    backend: stage.backend,
+  const api = {
     controls: cameraControls,
-    setGraph: (nextNodes, nextEdges) => {
+    setGraph: (nextNodes: readonly LensNode[], nextEdges: readonly LensEdge[]) => {
       const next = topologyKey(nextNodes, nextEdges);
       if (next === key) {
         // Same shape: only what is drawn changed (colour, size, label).
@@ -537,7 +533,7 @@ export async function mountForce3d(
       key = next;
       build(nextNodes, nextEdges);
     },
-    setSettings: (next) => {
+    setSettings: (next: Force3dSettings) => {
       const previous = settings;
       settings = next;
       if (next.curvedLinks !== previous.curvedLinks) build(topology.nodes, topology.edges);
@@ -547,15 +543,14 @@ export async function mountForce3d(
       }
       refreshEmphasis();
     },
-    setEmphasis: (next) => {
+    setEmphasis: (next: GraphEmphasis) => {
       const selected = next.selectedNodeId ?? null;
       const changed = selected !== (emphasis.selectedNodeId ?? null);
       emphasis = next;
       refreshEmphasis();
       if (changed && selected !== null) focusNode(selected);
     },
-    setPalette: (next, nextLink) => {
-      const dark = darkGround(next);
+    setPalette: (next: ScenePalette, nextLink: string, dark: boolean) => {
       palette = next;
       link = nextLink;
       stage.setPalette(next);
@@ -565,40 +560,36 @@ export async function mountForce3d(
       labels.reset(topology, palette);
       refreshEmphasis();
     },
-    setReducedMotion: (next) => {
-      reduced = next;
-      controls.enableDamping = !next;
-      wake();
-    },
-    resize: (width, height) => {
-      stage.resize(width, height);
-      labels.resize(camera, height);
-      moved = true;
-      wake();
-    },
-    setRunning: (next) => {
-      visible = next;
-      stage.setRunning(visible && busy);
-      if (visible) stage.invalidate();
-    },
-    inspect: () => ({
+    inspect: (): Force3dInspection => ({
       backend: stage.backend,
       nodes: topology.nodes.length,
       positions: topology.nodes.map(
         (_, i) =>
           [positions[i * 3] ?? 0, positions[i * 3 + 1] ?? 0, positions[i * 3 + 2] ?? 0] as const,
       ),
-      frames,
+      frames: stage.frames(),
       bloom: stage.bloomStrength() > 0,
       particles: links?.particles.visible === true ? links.particles.count : 0,
       flying: flight.active,
-      screenOf: (id) => {
+      screenOf: (id: string) => {
         if (nodeAt(id, focusPoint) < 0) return null;
         const size = { width: canvas.clientWidth, height: canvas.clientHeight };
         const at: ScreenPoint = { x: 0, y: 0, depth: 0 };
         return toScreen(focusPoint, camera, size, at) ? { x: at.x, y: at.y } : null;
       },
     }),
+  };
+
+  return {
+    api,
+    frame,
+    setReducedMotion: (next: boolean) => {
+      controls.enableDamping = !next;
+    },
+    resize: (_width: number, height: number) => {
+      labels.resize(camera, height);
+      moved = true;
+    },
     dispose: () => {
       layout?.dispose();
       layout = null;
@@ -609,37 +600,12 @@ export async function mountForce3d(
       controls.dispose();
       labels.dispose();
       // The stage's scene traversal frees every geometry and material left.
-      stage.dispose();
     },
   };
-}
-
-/**
- * Whether the palette's ground is dark: what decides how strong the bloom,
- * how visible the stars and how faint a resting link is. Read from the
- * colour itself, so every design system's variants answer for themselves.
- */
-const probe = new Color();
-function darkGround(palette: ScenePalette): boolean {
-  probe.set(palette.ground);
-  return 0.2126 * probe.r + 0.7152 * probe.g + 0.0722 * probe.b < 0.18;
 }
 
 function copyInto(out: Vec3, from: { x: number; y: number; z: number }): void {
   out.x = from.x;
   out.y = from.y;
   out.z = from.z;
-}
-
-/** A layer's GPU buffers, once it has left the scene. */
-function disposeLayer(nodes: NodeLayer | null, links: LinkLayer | null): void {
-  if (nodes !== null) {
-    nodes.mesh.geometry.dispose();
-    for (const m of [nodes.mesh.material].flat()) m.dispose();
-    nodes.mesh.dispose();
-  }
-  if (links !== null) {
-    links.lines.geometry.dispose();
-    for (const m of [links.lines.material, links.particles.material].flat()) m.dispose();
-  }
 }

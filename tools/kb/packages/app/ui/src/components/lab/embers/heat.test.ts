@@ -8,6 +8,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { BLOOM_THRESHOLD } from "@/scene/shade-ops";
 import { oklchToRgb } from "@/lib/css-color";
 import { readDesignSystemSheets, type Variant } from "@/lib/design-system-sheets";
 import { DESIGN_SYSTEM_IDS, type DesignSystemId } from "@/lib/theme";
@@ -54,13 +55,13 @@ describe("the resting glow", () => {
       for (let i = 0; i <= 400; i++) {
         peak = Math.max(peak, peakEmissive(theme.accent, theme.gain, (i / 400) * ceiling));
       }
-      expect(peak).toBeLessThanOrEqual(1);
+      expect(peak).toBeLessThanOrEqual(BLOOM_THRESHOLD);
       // …and is still a warm rest, not a floor pushed down to nothing.
       expect(ceiling).toBeGreaterThan(0.35);
     });
 
     it(`leaves contact heat free to cross the threshold in the ${theme.name} theme`, () => {
-      expect(peakEmissive(theme.accent, theme.gain, 1)).toBeGreaterThan(1);
+      expect(peakEmissive(theme.accent, theme.gain, 1)).toBeGreaterThan(BLOOM_THRESHOLD);
     });
   }
 });
@@ -81,7 +82,7 @@ describe("the shown temperature across an appearance change", () => {
     for (const to of THEMES) {
       for (let i = 0; i <= 40; i++) {
         const rest = (i / 40) * REST_MAX;
-        expect(peakShown(to.accent, to.gain, 0, rest)).toBeLessThanOrEqual(1);
+        expect(peakShown(to.accent, to.gain, 0, rest)).toBeLessThanOrEqual(BLOOM_THRESHOLD);
       }
     }
   });
@@ -92,7 +93,7 @@ describe("the shown temperature across an appearance change", () => {
         const lerp = (c: 0 | 1 | 2) => from.accent[c] + (to.accent[c] - from.accent[c]) * s;
         const eased: Rgb = [lerp(0), lerp(1), lerp(2)];
         // The gain switches at once; the accent is still on its way.
-        expect(peakShown(eased, to.gain, 0, REST_MAX)).toBeLessThanOrEqual(1);
+        expect(peakShown(eased, to.gain, 0, REST_MAX)).toBeLessThanOrEqual(BLOOM_THRESHOLD);
       }
     }
   });
@@ -101,8 +102,8 @@ describe("the shown temperature across an appearance change", () => {
     // The cap bounds the resting glow only: a sphere at the pop threshold is
     // shown hot even where the rest is at its warmest.
     for (const theme of THEMES) {
-      expect(peakShown(theme.accent, theme.gain, 1, REST_MAX)).toBeGreaterThan(1);
-      expect(peakShown(theme.accent, theme.gain, 1, 0)).toBeGreaterThan(1);
+      expect(peakShown(theme.accent, theme.gain, 1, REST_MAX)).toBeGreaterThan(BLOOM_THRESHOLD);
+      expect(peakShown(theme.accent, theme.gain, 1, 0)).toBeGreaterThan(BLOOM_THRESHOLD);
     }
   });
 

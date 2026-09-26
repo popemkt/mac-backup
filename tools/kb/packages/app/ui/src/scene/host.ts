@@ -13,7 +13,9 @@
  * - it runs only while the tab is visible (P3: a hidden tab draws nothing);
  * - detaching disposes it: every GPU resource, loop, worker and listener.
  *
- * `host.test.ts` proves these over a stand-in scene.
+ * `host.test.ts` proves these over a stand-in scene; what a scene promises
+ * through its handle is proved over every registered scene by one contract
+ * suite, `scene-contract.test.ts`.
  */
 import type { SceneBackend } from "@/scene/backend";
 

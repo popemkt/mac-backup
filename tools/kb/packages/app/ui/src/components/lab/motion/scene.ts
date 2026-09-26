@@ -12,7 +12,6 @@ import {
   DynamicDrawUsage,
   InstancedBufferAttribute,
   Mesh,
-  PCFSoftShadowMap,
   PlaneGeometry,
   Vector3,
 } from "three/webgpu";
@@ -84,9 +83,7 @@ function motion(stage: SceneStage, init: LabSceneInit, context: StudyContext): S
   floor.material.colorNode = stage.colors.ground;
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
-  stage.renderer.shadowMap.enabled = true;
-  stage.renderer.shadowMap.type = PCFSoftShadowMap;
-  const rig = createRig(init.palette, true);
+  const rig = createRig(stage, init.palette);
   rig.setKeyAngle(Math.PI * 0.75, 9, 7);
   stage.scene.add(tiles, floor, ...rig.lights);
   stage.camera.position.set(11, 11, 11);
@@ -137,7 +134,7 @@ export function mountMotion(host: HTMLElement, init: LabSceneInit): Promise<LabS
   return mountStudy(
     host,
     init,
-    { fov: 30, bloom: { strength: 0.3, radius: 0.4 }, vignette: 0.6 },
+    { fov: 30, bloom: { strength: 0.3, radius: 0.4 }, shadows: true, vignette: 0.6 },
     motion,
   );
 }

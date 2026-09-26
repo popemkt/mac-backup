@@ -4,6 +4,7 @@
  * speed and decays to rest. Plain arithmetic on one mutable record, so a
  * frame allocates nothing (P3); shared by every study that pans.
  */
+import { approach } from "@/lib/timing";
 
 /** Where the view points, and how fast it is still turning (rad, rad/s). */
 export interface Pan {
@@ -75,11 +76,10 @@ export function panCoast(pan: Pan, limits: PanLimits, dt: number, reducedMotion:
     pan.pitchSpeed = 0;
     return;
   }
-  const decay = Math.exp(-FRICTION * dt);
   const yaw = clamp(pan.yaw + pan.yawSpeed * dt, limits.yawLimit);
   const pitch = clamp(pan.pitch + pan.pitchSpeed * dt, limits.pitchLimit);
-  pan.yawSpeed = yaw === pan.yaw ? 0 : pan.yawSpeed * decay;
-  pan.pitchSpeed = pitch === pan.pitch ? 0 : pan.pitchSpeed * decay;
+  pan.yawSpeed = yaw === pan.yaw ? 0 : approach(pan.yawSpeed, 0, FRICTION, dt);
+  pan.pitchSpeed = pitch === pan.pitch ? 0 : approach(pan.pitchSpeed, 0, FRICTION, dt);
   pan.yaw = yaw;
   pan.pitch = pitch;
 }

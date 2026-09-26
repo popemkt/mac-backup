@@ -2,15 +2,16 @@
  * `mountStudy`: the one way a study becomes a `LabScene` (Lab principles P4).
  *
  * A study supplies only what is its own — how it builds its scene, what a
- * frame does, what a control changes. Everything every study must get right
- * the same way lives here once: the stage, the reveal (P2), the theme hand-
- * off, and the reduced-motion rule (M7) — under reduced motion the loop is
- * off and the study is drawn once per change, a still composition.
+ * frame does, what a control changes. The stage, the reveal (P2), the
+ * reduced-motion rule (M7) and giving the stage back when a build fails are
+ * the scene kit's (`mountScene`); what is left here is the study's side: its
+ * frame always moves (a study is never idle while it may animate), and the
+ * theme hand-off.
  */
 import type { LabControlValue, LabScene, LabSceneInit } from "@/components/lab/kit/contract";
 import type { LabGraph } from "@/components/lab/lab-graph";
 import type { ScenePalette } from "@/scene/palette";
-import { createStage, type SceneStage, type StageOptions } from "@/scene/gpu/stage";
+import { mountScene, type SceneStage, type StageOptions } from "@/scene/gpu/stage";
 
 export interface StudyContext {
   /** The element the study draws into; its pointer events are the study's. */
@@ -30,7 +31,7 @@ export interface StudyParts {
   readonly dispose?: () => void;
 }
 
-type StudyOptions = Omit<StageOptions, "frame" | "palette" | "timing">;
+type StudyOptions = Omit<StageOptions, "palette" | "timing" | "reducedMotion">;
 
 export async function mountStudy(
   host: HTMLElement,
@@ -38,35 +39,26 @@ export async function mountStudy(
   options: StudyOptions,
   build: (stage: SceneStage, init: LabSceneInit, context: StudyContext) => StudyParts,
 ): Promise<LabScene> {
-  let parts: StudyParts | null = null;
-  let reduced = init.reducedMotion;
-  let running = false;
-  const stage = await createStage(host, {
-    ...options,
-    palette: init.palette,
-    timing: init.timing,
-    frame: (dt, elapsed) => parts?.frame(reduced ? 0 : dt, elapsed),
-  });
-  let study: StudyParts;
-  try {
-    study = build(stage, init, { host, reduced: () => reduced });
-    parts = study;
-    study.setPalette?.(init.palette, init.dark);
-    await stage.reveal();
-  } catch (error) {
-    // Nobody will ever hold a handle to this stage: give its GPU context back
-    // here, or every failed open leaks one.
-    parts?.dispose?.();
-    stage.dispose();
-    throw error;
-  }
-  const apply = () => {
-    stage.setRunning(running && !reduced);
-    stage.invalidate();
-  };
+  const { stage, parts, handle } = await mountScene(
+    host,
+    { ...options, palette: init.palette, timing: init.timing, reducedMotion: init.reducedMotion },
+    (on) => {
+      const study = build(on, init, { host, reduced: on.reduced });
+      study.setPalette?.(init.palette, init.dark);
+      return {
+        study,
+        frame: (dt: number, elapsed: number) => {
+          study.frame(dt, elapsed);
+          return true;
+        },
+        ...(study.dispose === undefined ? {} : { dispose: study.dispose }),
+      };
+    },
+  );
+  const { study } = parts;
   const setGraph = study.setGraph;
   return {
-    backend: stage.backend,
+    ...handle,
     ...(setGraph === undefined
       ? {}
       : {
@@ -80,22 +72,9 @@ export async function mountStudy(
       study.setPalette?.(palette, dark);
       stage.invalidate();
     },
-    setReducedMotion: (next) => {
-      reduced = next;
-      apply();
-    },
     setControl: (id, value) => {
       study.setControl(id, value);
       stage.invalidate();
-    },
-    resize: (width, height) => stage.resize(width, height),
-    setRunning: (next) => {
-      running = next;
-      apply();
-    },
-    dispose: () => {
-      study.dispose?.();
-      stage.dispose();
     },
   };
 }

@@ -38,12 +38,13 @@ export interface LightRig {
   setKeyAngle(angle: number, height: number, distance: number): void;
 }
 
-export function createRig(palette: ScenePalette, shadows: boolean): LightRig {
+/** The key casts soft shadows exactly when the stage it lights has them (`StageOptions.shadows`). */
+export function createRig(stage: { readonly shadows: boolean }, palette: ScenePalette): LightRig {
   const key = new DirectionalLight(undefined, KEY);
   const fill = new HemisphereLight(undefined, undefined, FILL);
   const rim = new DirectionalLight(undefined, RIM);
   rim.position.set(-3, 4, -6);
-  if (shadows) {
+  if (stage.shadows) {
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
     key.shadow.radius = 6;

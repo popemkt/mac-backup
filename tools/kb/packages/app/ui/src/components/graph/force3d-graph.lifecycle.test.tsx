@@ -106,7 +106,7 @@ describe("Force3dGraph life cycle", () => {
       nodes,
       edges: [],
       layoutKey,
-      appearanceKey: "kb:dark",
+      appearance: { designSystem: "kb", dark: true, key: "kb:dark" },
       selectedNodeId,
     });
 

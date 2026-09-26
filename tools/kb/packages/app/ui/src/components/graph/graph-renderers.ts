@@ -1,3 +1,4 @@
+import type { Appearance } from "@/stores/prefs.store";
 import { GRAPH_RENDERER_VALUES } from "@kb/model";
 import type { LensGraph, LensPerspective, LensTreeNode } from "@/lib/graph-lens";
 import type { GraphCameraControls } from "./graph-camera-controls";
@@ -10,8 +11,8 @@ export interface GraphAdapterProps {
   lensGraph: LensGraph;
   active: LensPerspective;
   forest: LensTreeNode[];
-  /** `Appearance.key`: a change means the tokens hold new values. */
-  appearanceKey: string;
+  /** What the page is painted in: a new value means the tokens hold new values. */
+  appearance: Appearance;
   searchHighlight: Set<string> | null;
   filterIds: Set<string> | null;
   selection: GraphSelection | null;

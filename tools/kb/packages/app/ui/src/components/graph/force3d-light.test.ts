@@ -11,6 +11,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { BLOOM_THRESHOLD } from "@/scene/shade-ops";
 import { oklchToRgb } from "@/lib/css-color";
 import { readDesignSystemSheets } from "@/lib/design-system-sheets";
 import { TAG_PALETTE } from "@/lib/tag-color";
@@ -62,13 +63,13 @@ describe("3D light over every storable colour", () => {
     it(`keeps a resting node, and any lift, at or under white in ${name}`, () => {
       for (const colour of COLOURS) {
         expect(peakChannel(colour, ink, 0), `rest ${colour.join(",")}`).toBeLessThanOrEqual(
-          1 + 1e-9,
+          BLOOM_THRESHOLD + 1e-9,
         );
         for (const lift of LIFTS) {
           expect(
             peakChannel(colour, ink, 0, lift),
             `lift ${lift} ${colour.join(",")}`,
-          ).toBeLessThanOrEqual(1 + 1e-9);
+          ).toBeLessThanOrEqual(BLOOM_THRESHOLD + 1e-9);
         }
       }
     });
@@ -83,6 +84,6 @@ describe("3D light over every storable colour", () => {
   it("lets every hub of a tag colour bloom", () => {
     for (const { ink } of INKS)
       for (const hex of TAG_PALETTE)
-        expect(peakChannel(hexRgb(hex), ink, GLOW.hub)).toBeGreaterThan(1);
+        expect(peakChannel(hexRgb(hex), ink, GLOW.hub)).toBeGreaterThan(BLOOM_THRESHOLD);
   });
 });

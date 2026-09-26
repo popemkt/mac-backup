@@ -20,7 +20,7 @@
  * halo). A small maroon floor keeps the coolest sphere a colour (L1).
  */
 
-import { NUMBER_OPS, type Rgb, type ShadeOps } from "@/scene/shade-ops";
+import { BLOOM_THRESHOLD, NUMBER_OPS, type Rgb, type ShadeOps } from "@/scene/shade-ops";
 
 export type { Rgb };
 
@@ -67,8 +67,7 @@ export function peakEmissive(accent: Rgb, gain: number, t: number): number {
   return Math.max(...heatEmissive(NUMBER_OPS, accent, t, gain));
 }
 
-/** The bloom threshold every resting sphere stays under, with a hair of margin. */
-const THRESHOLD = 1;
+/** Every resting sphere stays under the bloom threshold by a hair of margin. */
 const MARGIN = 0.98;
 
 /**
@@ -77,7 +76,7 @@ const MARGIN = 0.98;
  * crossing, found by scanning up from cold and refining by bisection.
  */
 export function restCeiling(accent: Rgb, gain: number, limit = 1): number {
-  const ok = (t: number) => peakEmissive(accent, gain, t) <= THRESHOLD * MARGIN;
+  const ok = (t: number) => peakEmissive(accent, gain, t) <= BLOOM_THRESHOLD * MARGIN;
   const steps = 200;
   let low = 0;
   for (let i = 1; i <= steps; i++) {

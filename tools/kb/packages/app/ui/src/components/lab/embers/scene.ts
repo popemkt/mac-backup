@@ -121,7 +121,7 @@ function embers(stage: SceneStage, init: LabSceneInit, context: StudyContext): S
   const core = new PointLight(undefined, 45, 0, 2);
   // The rig, warmed: a low key and a strong rim, both in the accent, give the
   // spheres form from the core outward rather than reading as holes.
-  const rig = createRig(init.palette, false);
+  const rig = createRig(stage, init.palette);
   rig.key.intensity = 0.3;
   rig.rim.intensity = 1.6;
   stage.scene.add(core, ...rig.lights, ash(colors, float(clock), entrance.arrival(float(0.3))));

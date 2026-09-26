@@ -10,7 +10,7 @@ import type { GraphAdapterProps } from "./graph-renderers";
 export function Force2dAdapter({
   lensGraph,
   active,
-  appearanceKey,
+  appearance,
   searchHighlight,
   filterIds,
   selection,
@@ -23,7 +23,7 @@ export function Force2dAdapter({
       nodes={lensGraph.nodes}
       edges={lensGraph.edges}
       layoutKey={active.id}
-      appearanceKey={appearanceKey}
+      appearance={appearance}
       layout={active.layout}
       showLabels={active.showLabels}
       labelDensity={active.labelDensity}
@@ -41,7 +41,7 @@ export function TreeAdapter({
   lensGraph,
   active,
   forest,
-  appearanceKey,
+  appearance,
   searchHighlight,
   filterIds,
   selection,
@@ -55,7 +55,7 @@ export function TreeAdapter({
       showLabels={active.showLabels}
       highlightIds={searchHighlight ?? undefined}
       filterIds={filterIds ?? undefined}
-      appearanceKey={appearanceKey}
+      appearance={appearance}
       selectedNodeId={selection?.nodeId ?? null}
       onSelectionChange={setSelection}
       onControlsReady={setControls}
@@ -66,7 +66,7 @@ export function TreeAdapter({
 export function ClusterAdapter({
   lensGraph,
   active,
-  appearanceKey,
+  appearance,
   searchHighlight,
   filterIds,
   selection,
@@ -79,7 +79,7 @@ export function ClusterAdapter({
       nodes={lensGraph.nodes}
       edges={lensGraph.edges}
       layoutKey={active.id}
-      appearanceKey={appearanceKey}
+      appearance={appearance}
       onNodeClick={onNodeOpen}
       selectedNodeId={selection?.nodeId ?? null}
       onSelectionChange={setSelection}
@@ -95,7 +95,7 @@ export function ClusterAdapter({
 export function Force3dAdapter({
   lensGraph,
   active,
-  appearanceKey,
+  appearance,
   searchHighlight,
   filterIds,
   selection,
@@ -109,7 +109,7 @@ export function Force3dAdapter({
         nodes={lensGraph.nodes}
         edges={lensGraph.edges}
         layoutKey={active.id}
-        appearanceKey={appearanceKey}
+        appearance={appearance}
         onSelectionChange={setSelection}
         onNodeOpen={onNodeOpen}
         selectedNodeId={selection?.nodeId ?? null}

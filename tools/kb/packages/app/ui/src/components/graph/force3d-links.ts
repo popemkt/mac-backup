@@ -27,6 +27,7 @@ import {
 import { attribute, exp, float, instancedDynamicBufferAttribute, uniform, uv } from "three/tsl";
 import type { PaletteUniforms } from "@/scene/gpu/stage";
 import type { ScenePalette } from "@/scene/palette";
+import { approach } from "@/lib/timing";
 import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";
 
 /** Segments per link when curved; a straight link is one. */
@@ -160,9 +161,7 @@ export function linkLayer(
     },
     stepParticles: (dt, positions, reduced, fadeRate) => {
       const target = wanted && !reduced ? 1 : 0;
-      showing.value = reduced
-        ? target
-        : target + (showing.value - target) * Math.exp(-fadeRate * dt);
+      showing.value = reduced ? target : approach(showing.value, target, fadeRate, dt);
       if (Math.abs(showing.value - target) < 1e-3) showing.value = target;
       particles.visible = showing.value > 0 && carrying.length > 0;
       if (!particles.visible) {

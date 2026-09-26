@@ -9,6 +9,7 @@
  * the estimate and the seed outright: nothing measured before the break may
  * be carried across it.
  */
+import { approachShare } from "@/lib/timing";
 
 /** How quickly the estimate follows the sampled speed (1/s). */
 const BLEND_RATE = 14;
@@ -28,7 +29,7 @@ export class PointerVelocity {
       this.y = 0;
       return;
     }
-    const blend = 1 - Math.exp(-dt * BLEND_RATE);
+    const blend = approachShare(BLEND_RATE, dt);
     if (at === null) {
       this.seeded = false;
       this.x -= this.x * blend;
