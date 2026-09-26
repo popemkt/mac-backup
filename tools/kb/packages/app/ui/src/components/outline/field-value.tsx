@@ -14,6 +14,7 @@ import { useCallback, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { emptyValueForType, type FieldType } from "@/lib/field-type";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
+import { refCandidatePool } from "@/lib/refs";
 import { useRefCandidates } from "@/lib/use-ref-candidates";
 import { TAG_PALETTE } from "@/lib/tag-color";
 import { asInstance } from "@/lib/dom";
@@ -39,6 +40,11 @@ export interface FieldEditorProps {
   autoOpen: boolean;
   onCommit: (next: PropValue) => void;
   schema: SchemaIndex;
+  /**
+   * The outline as shown, where a ref field that declares no targets searches
+   * (`refCandidatePool`); a declared option set is read from `schema`.
+   */
+  outline: ReadonlyMap<string, OutlineNode>;
   /**
    * Navigate to a node from a resolved ref's bullet or tag chip.
    * Opening the picker is `onOpen` on that row — it is not this.
@@ -121,6 +127,7 @@ function RefFieldEditor({
   value,
   display,
   schema,
+  outline,
   allowedRefIds,
   autoOpen,
   onCommit,
@@ -131,6 +138,7 @@ function RefFieldEditor({
       refId={value.t === "ref" ? value.v : ""}
       display={display}
       schema={schema}
+      outline={outline}
       allowedRefIds={allowedRefIds}
       autoOpen={autoOpen}
       onCommit={(id) => onCommit({ t: "ref", v: id })}
@@ -257,6 +265,7 @@ export function EmptyTypedEditor({
   autoOpen = false,
   onCommit,
   schema,
+  outline,
   onZoomTo,
 }: {
   fieldType: FieldType;
@@ -265,6 +274,7 @@ export function EmptyTypedEditor({
   autoOpen?: boolean;
   onCommit: (next: PropValue) => void;
   schema: SchemaIndex;
+  outline: ReadonlyMap<string, OutlineNode>;
   onZoomTo: (id: string) => void;
 }) {
   return (
@@ -277,6 +287,7 @@ export function EmptyTypedEditor({
       autoOpen={autoOpen}
       onCommit={onCommit}
       schema={schema}
+      outline={outline}
       onZoomTo={onZoomTo}
     />
   );
@@ -655,11 +666,13 @@ function EmptyRefSlot({ onOpen }: { onOpen: () => void }) {
  */
 function RefSearch({
   schema,
+  outline,
   allowedRefIds,
   onCommit,
   onClose,
 }: {
   schema: SchemaIndex;
+  outline: ReadonlyMap<string, OutlineNode>;
   allowedRefIds: Set<string> | null;
   onCommit: (id: string) => void;
   onClose: () => void;
@@ -673,7 +686,7 @@ function RefSearch({
   };
 
   const { candidates, activeIndex, handleKeyDown } = useRefCandidates({
-    nodes: schema,
+    nodes: refCandidatePool(allowedRefIds, outline, schema),
     query,
     allowed: allowedRefIds,
     onPick: (candidate) => {
@@ -746,6 +759,7 @@ function RefEditor({
   refId,
   display,
   schema,
+  outline,
   allowedRefIds = null,
   autoOpen = false,
   onCommit,
@@ -754,6 +768,7 @@ function RefEditor({
   refId: string;
   display: string;
   schema: SchemaIndex;
+  outline: ReadonlyMap<string, OutlineNode>;
   allowedRefIds?: Set<string> | null;
   autoOpen?: boolean;
   onCommit: (id: string) => void;
@@ -766,6 +781,7 @@ function RefEditor({
     return (
       <RefSearch
         schema={schema}
+        outline={outline}
         allowedRefIds={allowedRefIds}
         onCommit={onCommit}
         onClose={() => setOpen(false)}

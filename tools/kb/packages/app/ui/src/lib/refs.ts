@@ -1,3 +1,4 @@
+import type { SchemaIndex } from "@/lib/schema";
 import type { OutlineNode } from "@/lib/types";
 import { isSysPrefixed, WORKSPACE_ROOT_ID } from "@/lib/types";
 
@@ -24,6 +25,22 @@ export interface RefCandidate {
 function isOfferable(id: string, allowed: Set<string> | null): boolean {
   if (allowed) return allowed.has(id);
   return id !== WORKSPACE_ROOT_ID && !isSysPrefixed(id);
+}
+
+/**
+ * Where a ref picker looks for candidates. A field that declares its targets
+ * has an option set, and an option set is schema: its members are offered
+ * whatever the outline shows. A field that declares nothing is an open search
+ * for a node to point at — navigation, like `[[` — so it searches the outline
+ * as shown, and under an ontology scope offers members only (DESIGN-UI.md →
+ * Scope is a projection).
+ */
+export function refCandidatePool(
+  allowed: Set<string> | null,
+  outline: ReadonlyMap<string, OutlineNode>,
+  schema: SchemaIndex,
+): ReadonlyMap<string, OutlineNode> {
+  return allowed === null ? outline : schema;
 }
 
 /**

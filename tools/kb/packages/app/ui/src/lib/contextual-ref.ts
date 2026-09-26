@@ -34,7 +34,8 @@
  *   every editing affordance already works. ⌘-click on the bullet still zooms
  *   the reference itself, so the two destinations have two affordances.
  */
-import type { NodeMap, OutlineNode } from "@/lib/types";
+import type { SchemaIndex } from "@/lib/schema";
+import type { OutlineNode } from "@/lib/types";
 import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
 
 /**
@@ -66,10 +67,12 @@ export function isContextualRef(node: OutlineNode | undefined): boolean {
  * a reference's own text is empty, and a list that read `node.text` directly
  * would show a blank row.
  */
-export function rowText(node: OutlineNode, nodes: NodeMap): string {
+export function rowText(node: OutlineNode, schema: SchemaIndex): string {
   const targetId = contextualTargetOf(node);
   if (targetId === null) return node.text;
-  const target = nodes.get(targetId);
+  // The target's label is schema: resolved against the whole graph, so a
+  // reference to a node outside the current scope still shows its text.
+  const target = schema.get(targetId);
   // A dangling reference renders the way every other dangling ref in this app
   // renders — as the `[[id]]` token — rather than as a blank row.
   return target ? target.text : `[[${targetId}]]`;

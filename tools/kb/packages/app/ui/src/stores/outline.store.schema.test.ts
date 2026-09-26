@@ -8,6 +8,7 @@ import type { WireNode } from "@kb/contracts";
 import { cardinalityOf, present } from "@kb/model";
 import { resolveAllowedRefIdsCached, resolveFieldTypeById } from "@/lib/field-type";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
+import { rowText } from "@/lib/contextual-ref";
 import { schemaOf } from "@/lib/schema";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "./outline.store";
@@ -71,10 +72,13 @@ describe("schema lookups under an ontology scope", () => {
     expect(s.nodes.has("f.status")).toBe(false);
     expect(s.nodes.has(TAG)).toBe(false);
     expect(schemaOf(s).has("f.status")).toBe(true);
-    // Unscoped, the projection is the whole graph and is the schema itself.
+    // A schema is one object per snapshot: leaving the scope, or expanding
+    // and collapsing, does not make a new one (memos keyed on it survive).
+    const scopedSchema = schemaOf(s);
     s.setOntologyScope(null);
-    const unscoped = useOutlineStore.getState();
-    expect(schemaOf(unscoped)).toBe(unscoped.nodes);
+    expect(schemaOf(useOutlineStore.getState())).toBe(scopedSchema);
+    useOutlineStore.getState().toggleCollapse("n.a");
+    expect(schemaOf(useOutlineStore.getState())).toBe(scopedSchema);
   });
 
   it("an option set, its display and its allowed refs resolve as unscoped", () => {
@@ -116,5 +120,80 @@ describe("schema lookups under an ontology scope", () => {
     s.zoomTo("n.opt");
     const crumbs = useOutlineStore.getState().getBreadcrumbs();
     expect(crumbs.map((c) => c.id)).not.toContain("f.list");
+  });
+});
+
+describe("a contextual reference under a scope", () => {
+  it("renders its out-of-scope target's text, not the raw id", () => {
+    const graph = [
+      ...wire(),
+      node("n.far", "far away"),
+      node("n.ref", "", {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: TAG }],
+        [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: "n.far" }],
+      }),
+    ];
+    useOutlineStore.getState().hydrateFromWire(graph, 1, "fixtures");
+    useOutlineStore.getState().setOntologyScope("o.1");
+    const s = useOutlineStore.getState();
+    expect(s.nodes.has("n.far")).toBe(false);
+    const ref = present(s.nodes.get("n.ref"), "member reference");
+    expect(rowText(ref, schemaOf(s))).toBe("far away");
+  });
+});
+
+describe("transient prune reads content, not template slots", () => {
+  /** A supertag templating a hidden and a visible field, and one root. */
+  function graph(): WireNode[] {
+    return [
+      node("t.task", "task", {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
+        [SYSTEM_IDS.fieldsField]: [
+          { t: "ref", v: "f.due" },
+          { t: "ref", v: "f.secret" },
+        ],
+      }),
+      node("f.due", "due", { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }] }),
+      node("f.secret", "secret", {
+        [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+        [SYSTEM_IDS.hiddenField]: [{ t: "bool", v: true }],
+      }),
+      node("n.anchor", "anchor"),
+    ];
+  }
+
+  function transient(props: WireNode["props"]): string {
+    const store = useOutlineStore.getState();
+    store.hydrateFromWire(graph(), 1, "fixtures");
+    store.applyTx([node("n.new", "", props)], []);
+    useOutlineStore.getState().markTransient("n.new");
+    useOutlineStore.getState().activateNode("n.new", 0);
+    expect(useOutlineStore.getState().activeNodeId).toBe("n.new");
+    useOutlineStore.getState().deactivateNode();
+    return "n.new";
+  }
+
+  it("a blank node tagged with a templating supertag prunes on blur", () => {
+    const id = transient({ [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.task" }] });
+    expect(useOutlineStore.getState().nodes.has(id)).toBe(false);
+  });
+
+  it("a blank node holding a value in a hidden field is kept", () => {
+    const id = transient({
+      [SYSTEM_IDS.typeField]: [{ t: "ref", v: "t.task" }],
+      "f.secret": [{ t: "str", v: "keep me" }],
+    });
+    expect(useOutlineStore.getState().nodes.has(id)).toBe(true);
+  });
+});
+
+describe("an unscoped schema", () => {
+  it("is the projection's snapshot, and a collapse does not replace it", () => {
+    useOutlineStore.getState().hydrateFromWire(wire(), 1, "fixtures");
+    const before = schemaOf(useOutlineStore.getState());
+    useOutlineStore.getState().toggleCollapse("n.a");
+    const after = useOutlineStore.getState();
+    expect(after.nodes).not.toBe(before);
+    expect(schemaOf(after)).toBe(before);
   });
 });

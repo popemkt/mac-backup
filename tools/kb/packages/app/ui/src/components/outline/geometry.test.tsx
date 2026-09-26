@@ -102,6 +102,7 @@ describe("Field value placeholder (D17, §5.2)", () => {
         fieldType: "text",
         onCommit: () => {},
         schema: schemaFor(nodes),
+        outline: nodes,
         onZoomTo: () => undefined,
       }),
     );
@@ -119,6 +120,7 @@ describe("Field value placeholder (D17, §5.2)", () => {
         fieldType: "text",
         onCommit: () => {},
         schema: schemaFor(nodes),
+        outline: nodes,
         onZoomTo: () => undefined,
       }),
     );

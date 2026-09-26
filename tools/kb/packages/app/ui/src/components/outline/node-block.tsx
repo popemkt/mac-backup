@@ -156,7 +156,7 @@ export const NodeBlock = memo(function NodeBlock({
               <NodeContent
                 nodeId={nodeId}
                 instanceKey={instanceKey}
-                content={rowText(node, nodes)}
+                content={rowText(node, schema)}
                 isActive={isActive}
                 tags={node.tags}
                 onActivate={handleActivate}

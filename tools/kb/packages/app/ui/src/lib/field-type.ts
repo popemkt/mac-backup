@@ -87,8 +87,8 @@ export function resolveAllowedRefIdsCached(
   generation: number,
 ): Set<string> | null {
   // The answer depends on the schema it was resolved against as much as on
-  // the index generation: a new schema (a new snapshot, or a scope entered or
-  // left) starts a fresh cache.
+  // the index generation. A schema is one object per snapshot (`schemaOf`), so
+  // this restarts on a new snapshot, never on a collapse or an expand.
   if (allowedRefCacheGeneration !== generation || allowedRefCacheSchema !== schema) {
     allowedRefCache.clear();
     allowedRefCacheGeneration = generation;

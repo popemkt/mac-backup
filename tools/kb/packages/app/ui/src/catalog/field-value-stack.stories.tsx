@@ -18,6 +18,7 @@ const meta = {
     fieldId: "field.status",
     allowedRefIds: null,
     schema: schemaFor(emptyNodes),
+    outline: emptyNodes,
     readOnly: false,
     onZoomTo: () => undefined,
   },

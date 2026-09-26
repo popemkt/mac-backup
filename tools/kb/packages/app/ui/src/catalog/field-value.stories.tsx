@@ -26,6 +26,7 @@ export const CheckboxChecked: Story = {
     fieldType: "checkbox",
     onCommit: noop,
     schema: schemaFor(nodes),
+    outline: nodes,
     onZoomTo: noop,
   },
 };
@@ -37,6 +38,7 @@ export const TextFilled: Story = {
     fieldType: "text",
     onCommit: noop,
     schema: schemaFor(nodes),
+    outline: nodes,
     onZoomTo: noop,
   },
 };
@@ -48,6 +50,7 @@ export const UrlEmpty: Story = {
     fieldType: "url",
     onCommit: noop,
     schema: schemaFor(nodes),
+    outline: nodes,
     onZoomTo: noop,
   },
 };

@@ -362,6 +362,8 @@ const TableCellField = memo(function TableCellField({
   values: PropValue[];
   schema: SchemaIndex;
 }) {
+  // Where an unconstrained ref field searches: the outline as shown.
+  const outline = useOutlineStore((s) => s.nodes);
   const queryDb = useOutlineStore((s) => s.index);
   const fieldType = resolveFieldTypeById(fieldId, schema);
   const generation = useOutlineStore((s) => (fieldType === "ref" ? (s.index?.generation ?? 0) : 0));
@@ -385,6 +387,7 @@ const TableCellField = memo(function TableCellField({
           fieldType={fieldType}
           allowedRefIds={allowedRefIds}
           schema={schema}
+          outline={outline}
           onZoomTo={zoomTo}
           onCommit={(next: PropValue) => void mutations.updateProp(nodeId, fieldId, next)}
         />
@@ -410,6 +413,7 @@ const TableCellField = memo(function TableCellField({
             fieldType={fieldType}
             allowedRefIds={allowedRefIds}
             schema={schema}
+            outline={outline}
             onZoomTo={zoomTo}
             onCommit={(next: PropValue) => void mutations.updateProp(nodeId, fieldId, next, v)}
           />

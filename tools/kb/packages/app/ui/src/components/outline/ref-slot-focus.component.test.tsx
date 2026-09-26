@@ -78,6 +78,7 @@ describe("ref slot focus behaviour", () => {
           allowedRefIds={null}
           values={values}
           schema={schemaOf(useOutlineStore.getState())}
+          outline={useOutlineStore.getState().nodes}
           readOnly={false}
           onZoomTo={() => undefined}
         />,

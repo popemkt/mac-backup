@@ -45,6 +45,7 @@ describe("ColorSwatchEditor (i10 item 4)", () => {
         fieldType: "text",
         fieldId: SYSTEM_IDS.colorField,
         schema: schemaFor(nodes),
+        outline: nodes,
         onCommit: () => undefined,
         onZoomTo: () => undefined,
       }),

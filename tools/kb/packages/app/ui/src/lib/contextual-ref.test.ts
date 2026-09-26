@@ -3,6 +3,7 @@
  * node carrying `sys.f.ref.target`; it displays the target's *current* text,
  * and its own text is never the row's own to edit.
  */
+import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
@@ -17,6 +18,11 @@ import {
 } from "@/lib/contextual-ref";
 import { wireToOutlineMap } from "@/lib/graph-view";
 import { SYSTEM_IDS, type NodeMap } from "@/lib/types";
+
+/** The one constructor, over an unscoped graph: the whole map is the schema. */
+function schemaFor(nodes: NodeMap): SchemaIndex {
+  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
 
 const ISO = "2026-08-08T05:00:00.000Z";
 
@@ -79,18 +85,18 @@ describe("contextual reference model", () => {
       ctxRefWire("n.ctx", "n.md"),
       wire({ id: "n.md", text: "Original — **bold** and `code`" }),
     ]);
-    expect(rowText(present(nodes.get("n.ctx"), "n.ctx"), nodes)).toBe(
+    expect(rowText(present(nodes.get("n.ctx"), "n.ctx"), schemaFor(nodes))).toBe(
       "Original — **bold** and `code`",
     );
     // Ordinary rows are untouched — one function, one answer.
-    expect(rowText(present(nodes.get("n.root-b"), "n.root-b"), nodes)).toBe(
+    expect(rowText(present(nodes.get("n.root-b"), "n.root-b"), schemaFor(nodes))).toBe(
       "Search jumps to matching nodes",
     );
   });
 
   it("a dangling target renders as the [[id]] token, never blank or a throw", () => {
     const nodes = mapWith([ctxRefWire("n.ctx", "n.gone")]);
-    expect(rowText(present(nodes.get("n.ctx"), "n.ctx"), nodes)).toBe("[[n.gone]]");
+    expect(rowText(present(nodes.get("n.ctx"), "n.ctx"), schemaFor(nodes))).toBe("[[n.gone]]");
   });
 
   it("resolves with no seed nodes present at all — the prop is self-contained", () => {

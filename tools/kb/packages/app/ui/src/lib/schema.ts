@@ -45,12 +45,24 @@ const fullGraph = new WeakMap<readonly WireNode[], SchemaIndex>();
  * is the whole graph.
  */
 export function schemaOf(state: SchemaSource): SchemaIndex {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the one place a map becomes a SchemaIndex; unscoped, the projection is the whole graph
-  if (state.ontologyId === null) return state.nodes as unknown as SchemaIndex;
   const cached = fullGraph.get(state.wireNodes);
   if (cached !== undefined) return cached;
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the one place a map becomes a SchemaIndex; built from the full snapshot
-  const built = wireToOutlineMap([...state.wireNodes], new Set()) as unknown as SchemaIndex;
+  // Unscoped, the projection is the whole graph, so the first projection of
+  // a snapshot is its schema. It stays the schema when a collapse or expand
+  // replaces the projection map, because nothing a schema reader asks —
+  // props, text, children, tags — changes with expansion; so a schema is one
+  // object per snapshot and memos keyed on it survive UI state changes.
+  const built = state.ontologyId === null ? projectionAsSchema(state.nodes) : wholeGraph(state);
   fullGraph.set(state.wireNodes, built);
   return built;
+}
+
+function projectionAsSchema(nodes: NodeMap): SchemaIndex {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the one place a map becomes a SchemaIndex; unscoped, the projection is the whole graph
+  return nodes as unknown as SchemaIndex;
+}
+
+function wholeGraph(state: SchemaSource): SchemaIndex {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the one place a map becomes a SchemaIndex; built from the full snapshot
+  return wireToOutlineMap([...state.wireNodes], new Set()) as unknown as SchemaIndex;
 }

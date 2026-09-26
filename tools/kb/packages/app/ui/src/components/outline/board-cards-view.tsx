@@ -242,6 +242,8 @@ const ViewCard = memo(function ViewCard({
   onDragStart?: (id: string) => void;
   onDragEnd?: () => void;
 }) {
+  // Where an unconstrained ref field searches: the outline as shown.
+  const outline = useOutlineStore((s) => s.nodes);
   const isActive = useOutlineStore(
     (s) => s.activeNodeId === child.id && s.activeInstanceKey === instanceKey,
   );
@@ -343,6 +345,7 @@ const ViewCard = memo(function ViewCard({
                     display=""
                     fieldType={fieldType}
                     schema={schema}
+                    outline={outline}
                     onZoomTo={zoomTo}
                     onCommit={(next) => void mutations.updateProp(child.id, col.fieldId, next)}
                   />
@@ -364,6 +367,7 @@ const ViewCard = memo(function ViewCard({
                   display={formatPropValue(v, schema)}
                   fieldType={fieldType}
                   schema={schema}
+                  outline={outline}
                   onZoomTo={zoomTo}
                   onCommit={(next) => void mutations.updateProp(child.id, col.fieldId, next, v)}
                 />

@@ -10,7 +10,7 @@ import {
   type FieldType,
 } from "@/lib/field-type";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
-import { isSysPrefixed, SYSTEM_IDS, type PropValue } from "@/lib/types";
+import { isSysPrefixed, SYSTEM_IDS, type OutlineNode, type PropValue } from "@/lib/types";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -29,6 +29,8 @@ export interface FieldValueStackProps {
   allowedRefIds: Set<string> | null;
   values: PropValue[];
   schema: SchemaIndex;
+  /** The outline as shown, where an unconstrained ref field searches. */
+  outline: ReadonlyMap<string, OutlineNode>;
   readOnly: boolean;
   onZoomTo: (id: string) => void;
 }
@@ -48,6 +50,7 @@ export function FieldValueStack({
   allowedRefIds,
   values,
   schema,
+  outline,
   readOnly,
   onZoomTo,
 }: FieldValueStackProps) {
@@ -80,6 +83,7 @@ export function FieldValueStack({
               fieldId={fieldId}
               allowedRefIds={allowedRefIds}
               schema={schema}
+              outline={outline}
               onZoomTo={onZoomTo}
               onCommit={(next: PropValue) =>
                 void mutations.updateProp(nodeId, fieldId, next, value)
@@ -118,6 +122,7 @@ export function FieldValueStack({
           allowedRefIds={allowedRefIds}
           autoOpen={autoOpen}
           schema={schema}
+          outline={outline}
           onZoomTo={onZoomTo}
           onCommit={(next: PropValue) => {
             setPendingSlots(0);
@@ -151,6 +156,7 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   // Field definitions come from the whole graph, never the scoped projection.
   const schema = useOutlineStore(schemaOf);
+  const outline = useOutlineStore((s) => s.nodes);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const queryDb = useOutlineStore((s) => s.index);
   const generation = useOutlineStore((s) => s.index?.generation ?? 0);
@@ -194,6 +200,7 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
               allowedRefIds={allowedRefIds}
               values={values}
               schema={schema}
+              outline={outline}
               readOnly={nodeReadOnly || debug}
               onZoomTo={zoomTo}
             />

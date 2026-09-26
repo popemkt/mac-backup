@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { DatascriptIndex, type KbIndex } from "@/ds";
 import { loadExpandedIds, resolveProps, saveExpandedIds, wireToOutlineMap } from "@/lib/graph-view";
+import { resolveVisibleProps } from "@/lib/field-visibility";
 import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { isQueryNode } from "@/lib/query-node";
@@ -13,7 +14,13 @@ import {
   neighborVisibleInstance,
   type VisibleInstance,
 } from "@/lib/visible-instances";
-import { WORKSPACE_ROOT_ID, isSysPrefixed, type NodeMap, type OutlineNode } from "@/lib/types";
+import {
+  SYSTEM_IDS,
+  WORKSPACE_ROOT_ID,
+  isSysPrefixed,
+  type NodeMap,
+  type OutlineNode,
+} from "@/lib/types";
 import type { ActionInvocation, WireNode } from "@kb/contracts";
 import { logWarn } from "@/lib/log";
 import { ingestBrowserTx, replaceBrowserSession } from "@/session/runtime";
@@ -265,7 +272,11 @@ function isPrunableTransient(
   if (isSysPrefixed(id)) return false;
   if (node.text !== "") return false;
   if (node.children.length > 0) return false;
-  return resolveProps(node, schema).length === 0;
+  // Content is a value the node holds — hidden or not, since pruning deletes
+  // it — never an empty slot a supertag templates. Tags alone are not content.
+  return !resolveVisibleProps(node, schema, { showDebugFields: true }).some(
+    (prop) => prop.empty !== true && prop.fieldId !== SYSTEM_IDS.typeField,
+  );
 }
 
 export const useOutlineStore = create<OutlineState>((set, get) => {

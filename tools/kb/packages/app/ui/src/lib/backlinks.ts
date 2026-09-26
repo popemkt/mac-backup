@@ -1,3 +1,4 @@
+import type { SchemaIndex } from "@/lib/schema";
 import { queryBacklinks, type KbIndex } from "@/ds";
 import { rowText } from "@/lib/contextual-ref";
 import type { NodeMap, TagBadge } from "@/lib/types";
@@ -19,7 +20,12 @@ export interface BacklinkRow {
  * same display rule as an outline row: a referrer whose own text is empty is a
  * contextual reference, and would otherwise render as a blank line.
  */
-export function backlinkRows(index: KbIndex | null, nodes: NodeMap, nodeId: string): BacklinkRow[] {
+export function backlinkRows(
+  index: KbIndex | null,
+  nodes: NodeMap,
+  schema: SchemaIndex,
+  nodeId: string,
+): BacklinkRow[] {
   if (index === null) return [];
   return queryBacklinks(index, nodeId)
     .filter((b) => b.id !== nodeId)
@@ -27,7 +33,7 @@ export function backlinkRows(index: KbIndex | null, nodes: NodeMap, nodeId: stri
       const node = nodes.get(b.id);
       return {
         id: b.id,
-        text: node ? rowText(node, nodes) : b.text,
+        text: node ? rowText(node, schema) : b.text,
         tags: node?.tags ?? [],
       };
     });

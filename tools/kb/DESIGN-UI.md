@@ -302,8 +302,11 @@ name and template, the label of a ref value — are schema, and schema is
 resolved against the whole graph whatever the scope. It is a type of its own:
 `lib/schema.ts`'s `SchemaIndex`, which only `schemaOf` produces, and every
 function that reads a definition takes one, so handing a schema reader the
-projection (`NodeMap`) does not compile. The projection itself stays members
-only, and resolves its rows' tag chips against the full snapshot.
+projection (`NodeMap`) does not compile. A ref field's declared option set is
+schema too, and its picker offers it whole; a ref field that declares no
+targets is an open search, which is navigation, so it searches the outline as
+shown (`refCandidatePool` in `lib/refs.ts`). The projection itself stays
+members only, and resolves its rows' tag chips against the full snapshot.
 
 **Scope never dead-ends.** Navigating to a non-member leaves the scope with a
 toast rather than silently doing nothing, and the scope chip

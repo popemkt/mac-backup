@@ -45,6 +45,10 @@ function wire(view: WireNode["props"]): WireNode[] {
     ),
     node("opt.open", "Open"),
     node("opt.done", "Done"),
+    node("f.link", "link", {
+      [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+      [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: SYSTEM_IDS.ftRef }],
+    }),
     node("frame", "Services", { ...tagged, ...view }, ["row"]),
     node("row", "alpha", { ...tagged, "f.status": [{ t: "ref", v: "opt.done" }] }),
     node("outsider", "outsider"),
@@ -57,7 +61,10 @@ function wire(view: WireNode["props"]): WireNode[] {
 
 const TABLE = {
   [SYSTEM_IDS.viewModeField]: [{ t: "str" as const, v: "table" }],
-  [SYSTEM_IDS.viewDisplayField]: [{ t: "ref" as const, v: "f.status" }],
+  [SYSTEM_IDS.viewDisplayField]: [
+    { t: "ref" as const, v: "f.status" },
+    { t: "ref" as const, v: "f.link" },
+  ],
 };
 const BOARD = {
   [SYSTEM_IDS.viewModeField]: [{ t: "str" as const, v: "board" }],
@@ -142,5 +149,23 @@ describe("a projected view under an ontology scope", () => {
     expect(text).toContain("Done");
     expect(text).toContain("No status");
     expect(text).not.toContain("opt.done");
+  });
+
+  it("an unconstrained ref field searches the scope: members only", async () => {
+    await renderScoped(TABLE);
+    const slot = present(
+      container.querySelector('[data-ref-slot="closed"]'),
+      "the empty link slot",
+    ) as HTMLElement;
+    await act(async () => {
+      slot.dispatchEvent(new dom.FocusEvent("focusin", { bubbles: true }) as unknown as Event);
+    });
+    const listbox = present(container.querySelector('[role="listbox"]'), "ref picker");
+    const offered = [...listbox.querySelectorAll('[role="option"]')].map((o) => o.textContent);
+    expect(offered.some((t) => t.startsWith("alpha"))).toBe(true);
+    // Not members: an ordinary outsider, the options, the field and the tag.
+    for (const outside of ["outsider", "Open", "Done", "status", "service"]) {
+      expect(offered.some((t) => t.startsWith(outside))).toBe(false);
+    }
   });
 });
