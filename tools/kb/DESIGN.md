@@ -631,15 +631,68 @@ move operations, every store's commit, the merge, and — through the operations
   from one read never leave two siblings on one rank: the second commit sees
   the first. Untouched groups are left exactly as stored. `storeContract`
   holds all of this for every backend.
-- **A merge is one merge.** `mergeNodeSets` resolves by node id and then
-  settles ranks over the result with the same `rankTx`, so two branches that
-  each appended a root from one read never merge into a tie. The git merge
-  driver is only its boundary (tools/kb/AGENTS.md → merging `nodes.jsonl`).
+- **A merge settles ranks like a commit.** `mergeNodeSets` ends with the same
+  `rankTx`, so two branches that each appended a root from one read never
+  merge into a tie ([Merge](#merge)).
 - **Opening is a read.** `openKb` writes only when a real migration runs (the
   seed adds or retires something, or a field-type value is rewritten), and
   then commits exactly the nodes it changed. A node without a rank is ordered
   in memory by `compareRootOrder` and ranked by the next commit that writes its
   group, so reopening a store leaves its bytes, fingerprint and tail alone.
+
+### Merge
+
+`mergeNodeSets(base, ours, theirs)` is the one three-way merge of two node
+sets against their common ancestor; the git driver for `nodes.jsonl` is only
+its boundary (tools/kb/AGENTS.md → merging `nodes.jsonl`). It resolves by node
+id and, within a node, by **concern**: a concern that only one side changed
+takes that side, whatever either side did to the node's other concerns. Given
+two stores it never throws and always returns a store — a forest, every node
+ranked — and whatever it could not decide it names as a conflict, keeping one
+side's value so nothing is lost.
+
+| concern | what it is | changed when | both sides changed it, differently |
+|---|---|---|---|
+| existence | the id is in the set | a side added or deleted it | only a deletion can disagree — rule 1 |
+| content | everything but `id`, position and `updatedAt`: `text`, `props`, `createdAt` | its bytes differ from the base's | the newer `updatedAt` wins; an equal stamp keeps ours and reports `modified-both-same-stamp` |
+| position | the parent id and the rank, **one value** | either part differs from the base's | ours, reported `modified-both-position` |
+
+A node's slot among its siblings is its rank, so a reorder, a reparent and a
+re-rank are all the one position concern: one side's reorder and the other
+side's reparent of the same node conflict rather than combine into a place
+neither side wrote. Each side is read as the store would commit it — `rankTx`
+over the whole side — so every rank agrees with its group's visible order; a
+committed side reads back unchanged.
+
+1. **Existence is decided from the three sides alone.** An id both sides
+   hold, or that one side added, lives. An id one side deleted is gone when the
+   other side's copy has the base's content and position — a stamp alone is
+   not a change — and otherwise lives, reported `deleted-and-modified`.
+2. **Content and position merge three-way** by the table. A node only one side
+   holds takes that side whole. `updatedAt` is content's clock, not content:
+   the merged node carries the stamp of the side whose content it took, or the
+   later stamp when both sides' content agrees.
+3. **Children are derived, never merged.** A parent's `children` are the
+   living nodes whose merged parent it is, in rank order (then id); every
+   other living node is a root. No side's `children` array is read after it
+   has given each node its parent, so no child can dangle or have two parents.
+4. **The forest is closed by two rules**, repeated until neither applies:
+   - *A living node brings back its merged parent* when that parent is gone,
+     with the version of the side that kept it. The parent is reported
+     `deleted-and-modified` unless the node that brought it back is itself
+     reported or itself brought back — that report already names the
+     decision, so an edited leaf against a deleted subtree is one conflict, on
+     the leaf.
+   - *A cycle adopts ours.* Each side is a forest, so a cycle can only join
+     positions taken from different sides. Every node on it that ours holds
+     elsewhere takes its whole position from ours, once, and is reported
+     `modified-both-position`. Ours is a forest, so this ends; should a side
+     not be one, the cycle's least id becomes a root instead.
+5. **Ranks settle as a commit's do**: `rankTx` over the result. Order along
+   each group is kept; only ties and unusable ranks are rewritten.
+
+Swapping ours and theirs changes nothing unless a conflict is reported:
+"ours" is only ever the tie-break of a reported conflict.
 
 ### Kinds, roles and options
 

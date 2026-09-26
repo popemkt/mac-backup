@@ -71,9 +71,8 @@ once, in `DESIGN.md` →
   newly created node at the tail, and two branches that each add one collide
   there. `.gitattributes` routes both stores through the `kb-jsonl` driver:
   `tools/kb/bin/merge-jsonl`, a POSIX wrapper around
-  `packages/app/cli/src/bin/merge-jsonl.ts`, whose resolution rules — by node
-  id, then sibling ranks settled over the result — are `@kb/model`'s
-  `mergeNodeSets` (`DESIGN.md` → Sibling ranks). Git config is per clone and
+  `packages/app/cli/src/bin/merge-jsonl.ts`, whose resolution rules are
+  `@kb/model`'s `mergeNodeSets` (`DESIGN.md` → Merge). Git config is per clone and
   is not versioned, so — like `git config core.hooksPath .githooks` — register
   it once per clone, from the repo root (a clone registered before the wrapper
   existed re-runs the second line):
