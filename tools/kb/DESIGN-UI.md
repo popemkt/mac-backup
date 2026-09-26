@@ -56,17 +56,101 @@ implementation modules under `packages/app/server/src/` split by concern:
   node APIs in the datom builder). Keystrokes never wait on the network.
 - **Mutations**: `session/runtime.ts` invokes isomorphic actions against the
   browser's `BrowserStore` and existing DataScript index first, then sends the
-  same invocation through one ordered `POST /api/action` push lane. Port-only
-  actions remain server-owned. A failed confirmation asks the live socket to
-  reconcile from the current revision; only `snapshot-required` escalates to
-  an authoritative `/api/graph` refresh. Cold-boot `loadGraph` may fall back to
-  fixtures; `hydrateFromWire` is boot-only — live resync uses
-  `refreshFromWire` so `loadSource` stays `api`. No temp-id dance (nxus's
-  pain): client mints final ULIDs, server accepts explicit ids (already
-  supported by `node.add`).
+  same invocation through one ordered `POST /api/action` push lane. The local
+  write stays visible until its receipt is confirmed, under the hold rules of
+  [Replica sync](#replica-sync). Port-only actions remain server-owned.
+  Cold-boot `loadGraph` may fall back to fixtures; `hydrateFromWire` is
+  boot-only — live resync uses `refreshFromWire` so `loadSource` stays `api`.
+  No temp-id dance (nxus's pain): client mints final ULIDs, server accepts
+  explicit ids (already supported by `node.add`).
 - **Change flow**: server fs-watches `.kb/` (catches CLI/MCP/agent writes
   too) → reloads nodes → rebuilds a DataScript database → broadcasts node-level
   deltas on WS → the client applies deltas → open queries re-run.
+
+### Replica sync
+
+The browser replica is the server's graph as of one `rev`, with the local
+writes the server has not confirmed laid over it. One state machine,
+`BrowserReplica` in `session/replica.ts`, owns that. `KbWsClient` carries its
+messages and asks `since` on its behalf, `api/live.ts` runs the snapshot fetch
+it asks for, and the outline store projects what it applies. None of them
+reads a rev.
+
+**State.**
+
+- `rev` is the server rev the replica stands on. There is one rev space, the
+  server's. Only an applied frame or an installed snapshot moves it.
+- The **server image** is every node as the server had it at `rev`, including
+  held ones.
+- A **hold** is opened by each local write that is pushed. It carries the ids
+  that write's local commit touched, and `at`, the rev named by its receipt
+  (unknown until the receipt arrives). A held id shows its local image, and
+  every other id shows its server image.
+- The **phase** is one of `live`, `catching-up(from)` (a `since(from)` is
+  outstanding) or `awaiting-snapshot(fetching, failures)`.
+
+**Transitions.** Each row is an event and each column a phase. "fetch" means
+`GET /api/graph`, and "fetch unless fetching" leaves an in-flight fetch alone.
+
+| Event | `live` | `catching-up(from)` | `awaiting-snapshot` |
+|---|---|---|---|
+| `tx`, rev ≤ `rev` | ignore | ignore | ignore |
+| `tx`, rev = `rev`+1 | apply | apply, → `live` | ignore: the snapshot and its `since` cover it |
+| `tx`, rev > `rev`+1 | `since(rev)`, → `catching-up(rev)` | `since(rev)` unless `from` = `rev` | ignore |
+| `hello`, head = `rev` | stay | → `live` | fetch unless fetching |
+| `hello`, head ≠ `rev` | `since(rev)`, → `catching-up(rev)` | `since(rev)` again: a new socket has no question outstanding | fetch unless fetching |
+| `snapshot-required` | fetch, → `awaiting-snapshot` | fetch, → `awaiting-snapshot` | fetch unless fetching |
+| snapshot fetched | ignore | ignore | install, `since(snapshot.rev)`, → `catching-up(snapshot.rev)` |
+| snapshot fetch failed | — | — | not fetching; retry after 500 ms, doubling to 10 s |
+| retry due | — | — | fetch unless fetching |
+| `reconcile` (a push failed) | `since(rev)`, → `catching-up(rev)` | `since(rev)` unless `from` = `rev` | ignore |
+
+**Apply a frame.** The frame's upserts and deletes go into the server image.
+The visible replica takes them only for ids that no hold holds. `rev` becomes
+the frame's rev, and every hold whose `at` ≤ `rev` is released.
+
+**Install a snapshot.** The snapshot becomes the server image and `rev`
+becomes its rev, even when that is below the old one. Every hold whose `at` ≤
+`snapshot.rev` is released, because the snapshot contains that write whether
+or not a frame for it was seen. The visible replica becomes the snapshot, with
+each id that is still held keeping its local image.
+
+**Holds.**
+
+- A write's hold is settled by its push's receipt. A succeeded receipt
+  carries `rev`, the server log's head once the invocation had committed, so
+  every frame it caused is at or below it. The hold records `at` and is
+  released when `rev` reaches it, at once if `rev` already has. While the
+  replica awaits a snapshot, the snapshot's install decides instead. A write
+  the server commits as a no-op causes no frame, and is released the same way.
+- A failed receipt or a thrown push drops its hold at once, then reconciles.
+- Releasing a hold shows the server image, including an absence, for each of
+  its ids that no other hold still holds.
+- Typed text is a write too. The node's first keystroke opens a hold, later
+  keystrokes join it, and the coalesced flush is the push that settles it. A
+  structural write flushes every pending text first, and the one push lane
+  keeps them in order, so no text is discarded, including that of a node
+  about to be deleted.
+
+**What the table guarantees.**
+
+- Only the server escalates to a snapshot. The browser fetches `/api/graph`
+  only after the server answered `snapshot-required`. A failed push asks
+  `since` and nothing more.
+- `awaiting-snapshot` is left only by installing a snapshot. A hello at the
+  replica's rev does not clear it, and a failed fetch is retried until one
+  lands.
+- No frame is applied over a snapshot it predates, and none is lost to one.
+  Frames that arrive while the snapshot is fetched are ignored, and are
+  replayed by the `since(snapshot.rev)` that follows its install.
+- A frame never rolls back a local write that is newer than it. The frame
+  lands in the server image, under the hold.
+
+A server whose head is behind the replica's rev (its tail was replaced, not
+restarted: `rev` survives a restart, see `protocol.ts` → `GraphSnapshotSchema`)
+is not treated as a special case. The replica asks `since(rev)`, the server
+answers `snapshot-required` for a rev ahead of its head, and the snapshot's rev
+is authoritative. The browser never infers a restart from a head.
 
 ## SubscriptionHub — the "other apps can subscribe" layer
 
