@@ -127,7 +127,7 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
           />
         )}
 
-        <div className="relative flex min-h-9 items-center justify-between gap-2">
+        <div className="group/header relative flex min-h-9 items-center justify-between gap-2">
           <EditableTitle node={node} />
           {isSysPrefixed(node.id) && (
             <span
@@ -138,10 +138,23 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
               <LockSimpleIcon size={14} weight="bold" />
             </span>
           )}
-          {/* Tana model: no view chrome on list; compact toolbar only for ≠ list. */}
-          {viewConfig.mode !== "list" ? (
-            <ViewToolbar frameId={node.id} mode={viewConfig.mode} />
-          ) : null}
+          {/* A list frame keeps its view control quiet: tucked behind one gear
+              that shows on hover or keyboard focus, and stays once opened. A
+              projected view shows its toolbar outright. */}
+          <span
+            className={cn(
+              "shrink-0 transition-opacity duration-100",
+              viewConfig.mode === "list" &&
+                "opacity-0 focus-within:opacity-100 group-hover/header:opacity-100 has-[[data-view-toolbar]]:opacity-100",
+            )}
+            data-view-control="true"
+          >
+            <ViewToolbar
+              frameId={node.id}
+              mode={viewConfig.mode}
+              tucked={viewConfig.mode === "list"}
+            />
+          </span>
         </div>
 
         {node.tags.length > 0 && (

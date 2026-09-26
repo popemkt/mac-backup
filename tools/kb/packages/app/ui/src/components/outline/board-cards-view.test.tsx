@@ -114,7 +114,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     expect(html).toContain('data-filter-button="true"');
   });
 
-  it("zoomed-header shows compact toolbar when mode ≠ list (no gear on list)", () => {
+  it("zoomed-header shows the toolbar when mode ≠ list, and a quiet gear on list", () => {
     const frame = present(useOutlineStore.getState().nodes.get("frame1"), "frame1");
     expect(getViewConfig(frame.props).mode).toBe("board");
     const html = renderToStaticMarkup(createElement(ZoomedRootHeader, { node: frame }));
@@ -131,8 +131,12 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       },
     };
     const listHtml = renderToStaticMarkup(createElement(ZoomedRootHeader, { node: listFrame }));
-    expect(listHtml).not.toContain("data-view-toolbar");
-    expect(listHtml).not.toContain("data-view-toolbar-gear");
+    // P2-6: a list frame still reaches table/board/cards, through one gear
+    // that stays invisible until the header is hovered or focused.
+    expect(listHtml).not.toContain('data-view-toolbar="true"');
+    expect(listHtml).toContain('data-view-toolbar-gear="true"');
+    expect(listHtml).toMatch(/data-view-control="true"/);
+    expect(listHtml).toMatch(/opacity-0[^"]*group-hover\/header:opacity-100/);
   });
 
   it("board groups by view.group field with No status column", () => {
