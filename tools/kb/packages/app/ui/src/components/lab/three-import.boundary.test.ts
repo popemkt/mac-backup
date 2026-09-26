@@ -27,6 +27,8 @@ const ALLOWED = new Set([
   "sky/scene.ts",
   "sky/shaders.ts",
   "sky/stars.ts",
+  "glass/march.ts",
+  "glass/scene.ts",
   "light/scene.ts",
   "motion/scene.ts",
 ]);
@@ -53,7 +55,8 @@ describe("lab three boundary", () => {
   });
 
   it("reaches every scene module only through a dynamic import", () => {
-    const eager = /from\s+["']@\/components\/lab\/(?:embers|sky|light|motion)\/scene["']/;
+    const eager =
+      /from\s+["']@\/components\/lab\/(?:embers|sky|glass|river|ocean|light|motion)\/scene["']/;
     expect(files.filter((f) => eager.test(f.source)).map((f) => f.name)).toEqual([]);
     const studies = files.find((f) => f.name === "studies.ts")?.source ?? "";
     for (const study of LAB_SCENE_IDS) {

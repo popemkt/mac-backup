@@ -123,6 +123,49 @@ export const LAB_STUDIES: Record<LabSceneId, LabStudy> = {
     ],
     load: () => import("@/components/lab/sky/scene").then((m) => m.mountSky),
   },
+  glass: {
+    label: "Glass",
+    technique:
+      "Sphere tracing a signed distance field: smooth-min metaballs, refraction, dispersion",
+    teaches:
+      "Every pixel is a ray stepped through a distance field until it lands on a surface. The blobs are joined by a smooth minimum, so they melt together; move the pointer to push one through the rest. Light refracts in, is traced through the glass and refracts out once per colour — dispersion — and what travels far inside is absorbed.",
+    rules: [
+      {
+        id: "T1",
+        how: "The whole march is one TSL node graph on one material; no shader strings.",
+      },
+      { id: "M1", how: "The held blob follows the pointer on a critically damped spring." },
+      { id: "M4", how: "The other six drift on sines no faster than the ambient period." },
+      {
+        id: "L2",
+        how: "Only the studio's light strips run past 1, so only their reflections bloom.",
+      },
+      { id: "P3", how: "Rays that miss the blobs' bounding sphere skip the march." },
+    ],
+    controls: [
+      { kind: "range", id: "blend", label: "blend", min: 0, max: 1.5, step: 0.02, value: 0.7 },
+      { kind: "range", id: "ior", label: "index", min: 1, max: 2.4, step: 0.01, value: 1.45 },
+      {
+        kind: "range",
+        id: "dispersion",
+        label: "dispersion",
+        min: 0,
+        max: 0.12,
+        step: 0.005,
+        value: 0.03,
+      },
+      {
+        kind: "range",
+        id: "density",
+        label: "absorption",
+        min: 0,
+        max: 2,
+        step: 0.05,
+        value: 0.6,
+      },
+    ],
+    load: () => import("@/components/lab/glass/scene").then((m) => m.mountGlass),
+  },
   light: {
     label: "Light",
     technique: "A key, fill and rim rig, soft shadows, ambient occlusion and tone mapping",

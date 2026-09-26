@@ -30,6 +30,7 @@ export class PointerField {
   movedAt = -Infinity;
   private readonly host: HTMLElement;
   private readonly ray = new Vector3();
+  private readonly normal = new Vector3();
   private readonly onMove = (event: PointerEvent) => {
     const rect = this.host.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
@@ -65,6 +66,21 @@ export class PointerField {
     const along = this.ray[axis];
     if (Math.abs(along) < 1e-5) return false;
     const t = -camera.position[axis] / along;
+    out.copy(camera.position).addScaledVector(this.ray, t);
+    return t > 0;
+  }
+
+  /**
+   * The pointer's ray met with the plane through `through` that faces the
+   * camera — the plane to follow the pointer on when the camera orbits.
+   * Writes into `out`; false when the plane is behind the eye.
+   */
+  onFacing(camera: PerspectiveCamera, through: Vector3, out: Vector3): boolean {
+    camera.getWorldDirection(this.normal);
+    this.ray.set(this.ndcX, this.ndcY, 0.5).unproject(camera).sub(camera.position).normalize();
+    const along = this.ray.dot(this.normal);
+    if (Math.abs(along) < 1e-5) return false;
+    const t = out.copy(through).sub(camera.position).dot(this.normal) / along;
     out.copy(camera.position).addScaledVector(this.ray, t);
     return t > 0;
   }
