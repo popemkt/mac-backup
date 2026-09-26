@@ -40,6 +40,27 @@ let
     logging-to-file = false;
     usage-statistics-enabled = false;
 
+    # Antigravity exposes the 3.8 Flash route as "high"; the low alias uses
+    # the same upstream model with its thinking level fixed to low below.
+    oauth-model-alias.antigravity = [
+      {
+        name = "gemini-3.8-flash-high";
+        alias = "gemini-3.8-flash-low";
+        fork = true;
+      }
+    ];
+    payload.override = [
+      {
+        models = [
+          {
+            name = "gemini-3.8-flash-low";
+            protocol = "antigravity";
+          }
+        ];
+        params."generationConfig.thinkingConfig.thinkingLevel" = "low";
+      }
+    ];
+
     openai-compatibility = [
       {
         name = "deepseek";
