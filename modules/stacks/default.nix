@@ -1,4 +1,4 @@
-_:
+{ config, lib, ... }:
 
 # Intent layer: vertical slices grouped by functionality, not by install
 # channel. Each stack declares WHAT belongs to a capability and tags it
@@ -14,4 +14,10 @@ _:
     ./office-docs.nix
     ./vpn
   ];
+
+  # Every stack's `extra.*` (declared by mk-stack.nix) folds into the channel
+  # of the same name while the stack is enabled.
+  config.my.pkgs = lib.mkMerge (
+    map (stack: lib.mkIf stack.enable stack.extra) (lib.attrValues config.my.stacks)
+  );
 }

@@ -15,19 +15,13 @@ let
     default = [ ];
   };
 
+  # One list per channel an executor installs (../options/channels.nix).
+  # ./default.nix folds every enabled stack's lists into my.pkgs, so a stack
+  # never wires its own extras.
   extraChannels = types.submodule {
-    options = {
-      taps = strList;
-      brews = strList;
-      casks = strList;
-      npmGlobals = strList;
-      bunGlobals = strList;
-      claudeMarketplaces = strList;
-      claudePlugins = strList;
-      codexMarketplaces = strList;
-      codexPlugins = strList;
-      uvTools = strList;
-    };
+    options = lib.mapAttrs (_: _: strList) (
+      lib.filterAttrs (_: channel: channel.installedBy == "executor") (import ../options/channels.nix)
+    );
   };
 in
 {

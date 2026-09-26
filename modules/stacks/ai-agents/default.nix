@@ -9,7 +9,7 @@
 # entries stay in the my.pkgs lists below.
 #
 # Customizable: `cfg.ollama` / `cfg.archon` component toggles drop optional
-# members; `cfg.extra.*` folds in host-specific additions.
+# members; `extra.*` (folded by ../default.nix) adds host-specific ones.
 let
   mkStack = import ../mk-stack.nix lib;
   cfg = config.my.stacks.ai-agents;
@@ -82,14 +82,11 @@ in
 
   config = lib.mkIf cfg.enable {
     my.pkgs = {
-      taps =
-        optionals cfg.archon [ "coleam00/archon" ]
-        ++ [
-          "stablyai/orca"
-          "traycerai/traycer"
-          "vorssaint/tap"
-        ]
-        ++ cfg.extra.taps;
+      taps = optionals cfg.archon [ "coleam00/archon" ] ++ [
+        "stablyai/orca"
+        "traycerai/traycer"
+        "vorssaint/tap"
+      ];
 
       brews = [
         # Read/edit/automate Office docs (.docx/.xlsx/.pptx) — agent tool set.
@@ -99,8 +96,7 @@ in
       # Archon: agent command center; tap-qualified name.
       ++ optionals cfg.archon [ "coleam00/archon/archon" ]
       # Local model runtime.
-      ++ optionals cfg.ollama [ "ollama" ]
-      ++ cfg.extra.brews;
+      ++ optionals cfg.ollama [ "ollama" ];
 
       casks = [
         "antigravity-cli"
@@ -119,8 +115,7 @@ in
         # Traycer Desktop: control surface for agentic coding (tap: traycerai/traycer).
         "traycerai/traycer/traycer-desktop"
         "vorssaint/tap/vorssaint"
-      ]
-      ++ cfg.extra.casks;
+      ];
 
       npmGlobals = [
         "@deepseek-ai/dsh"
@@ -133,19 +128,11 @@ in
         "command-code" # Command Code agent (cmd)
         "gitnexus"
         "reasonix" # DeepSeek-native coding agent
-      ]
-      ++ cfg.extra.npmGlobals;
+      ];
       bunGlobals = [
         "@oh-my-pi/pi-coding-agent"
-      ]
-      ++ cfg.extra.bunGlobals;
-
-      # Stack-owned plugin membership lives with its component (see
-      # cognee-plugins.nix); these fold in host-specific additions only.
-      claudeMarketplaces = cfg.extra.claudeMarketplaces;
-      claudePlugins = cfg.extra.claudePlugins;
-      codexMarketplaces = cfg.extra.codexMarketplaces;
-      codexPlugins = cfg.extra.codexPlugins;
+      ];
+      # Plugin membership lives with its component (cognee/plugins.nix).
     };
   };
 }

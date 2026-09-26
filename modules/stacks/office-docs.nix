@@ -18,10 +18,7 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    my.pkgs.brews = [
-      "officecli"
-    ]
-    ++ cfg.extra.brews;
+    my.pkgs.brews = [ "officecli" ];
 
     home-manager.users.${username} = {
       home.packages = [ pkgs.genoffice ];

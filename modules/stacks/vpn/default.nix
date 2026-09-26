@@ -83,9 +83,6 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    my.pkgs.casks = [
-      "tailscale-app"
-    ]
-    ++ cfg.extra.casks;
+    my.pkgs.casks = [ "tailscale-app" ];
   };
 }

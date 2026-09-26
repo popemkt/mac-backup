@@ -365,8 +365,9 @@ referenced.
   `ai-agents/`, `office-docs.nix`, and `vpn/`. Each stack owns its option schema,
   config, sibling daemons, and package-channel contributions. `mk-stack.nix`
   provides `enable`, optional component toggles such as `ai-agents.ollama` or
-  `vpn.services`, and host additions through `extra.*` mirroring the channels
-  in `modules/options/pkgs.nix`; everything except `enable` is defaulted. A package may belong to multiple stacks. Homebrew, npm, and Bun
+  `vpn.services`, and host additions through `extra.*`, one list per
+  executor-installed channel in `modules/options/channels.nix`, which
+  `modules/stacks/default.nix` folds into `my.pkgs.*` for every enabled stack. A package may belong to multiple stacks. Homebrew, npm, and Bun
   executors merge contributions with `lib.unique`; Home Manager executors read
   them through `osConfig.my.pkgs.*`. A stack may be one file or a directory with
   `default.nix` and focused siblings.
