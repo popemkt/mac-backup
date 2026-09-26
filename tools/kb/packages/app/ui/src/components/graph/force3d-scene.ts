@@ -10,11 +10,11 @@
  * - the camera (`force3d-camera`): follows the layout, flies to a selection;
  * - the pointer (`force3d-pick`): hover, select, open.
  *
- * Light (L2–L4): only glowing nodes and particles exceed 1, and bloom's
- * threshold is 1; range fog fades the far side of the graph into the ground,
- * following the camera's distance; a restrained starfield sits beyond it; the
- * backdrop is the page's own surface, lifted a little at the focal point;
- * dither breaks banding. No tone mapping: the tokens are reproduced exactly,
+ * Light (L2–L4), as the perspective's theme dresses it (`graph-themes`):
+ * only glowing nodes and particles exceed 1, and bloom's threshold is 1;
+ * range fog fades the far side of the graph into the ground, following the
+ * camera's distance; a starfield sits beyond it; the backdrop is the page's
+ * own surface, pooled at the focal point; dither breaks banding. No tone mapping: the tokens are reproduced exactly,
  * so the canvas meets the page without a seam (P1, P5). Frames are drawn only
  * while something moves (P3), which is the stage's loop rule.
  */
@@ -33,6 +33,7 @@ import type { GraphCameraControls } from "./graph-camera-controls";
 import { GraphCamera } from "./force3d-camera";
 import { GraphLayers, type Force3dSettings } from "./force3d-layers";
 import { GraphPick } from "./force3d-pick";
+import { GRAPH_THEMES, variant, type GraphTheme } from "./graph-themes";
 
 export type { Force3dSettings };
 
@@ -88,15 +89,7 @@ const FOV = 50;
 const NEAR = 1;
 const FAR = 40_000;
 const STAR_RADIUS = 16_000;
-/** Bloom: soft on the dark ground, lighter on the light one (a glow on white washes out). */
-const BLOOM = { dark: 1.15, light: 0.4, radius: 0.7 } as const;
-const STARS = { dark: 0.3, light: 0.1 } as const;
-/**
- * The post chain's noise, in half-steps: dither on a dark ground (L4), a
- * fine grain on a light one, where a flat white stage would read as no
- * stage at all (P5).
- */
-const GRAIN = { dark: 1, light: 3 } as const;
+const BLOOM_RADIUS = 0.7;
 
 export async function mountForce3d(
   host: HTMLElement,
@@ -111,7 +104,10 @@ export async function mountForce3d(
       palette: init.palette,
       timing: init.timing,
       reducedMotion: init.reducedMotion,
-      bloom: { strength: init.dark ? BLOOM.dark : BLOOM.light, radius: BLOOM.radius },
+      bloom: {
+        strength: bloomOf(GRAPH_THEMES[init.settings.theme], init.dark),
+        radius: BLOOM_RADIUS,
+      },
       vignette: 0,
     },
     (stage) => graphScene(stage, init),
@@ -119,19 +115,37 @@ export async function mountForce3d(
   return { ...handle, ...parts.api };
 }
 
-/** The stage dressed for the graph: backdrop, fog, stars, the orbit. */
-function dressStage(stage: SceneStage, dark: boolean) {
+const bloomOf = (theme: GraphTheme, dark: boolean) =>
+  theme.bloom === null ? 0 : variant(theme.bloom, dark);
+
+/**
+ * The stage dressed for the graph: backdrop, fog, stars, the orbit — each as
+ * its theme says (`graph-themes`); `dress` re-dresses it for a new theme or
+ * a new variant in place.
+ */
+function dressStage(stage: SceneStage, init: Force3dSceneInit) {
   stage.setToneMapping("none");
-  stage.knobs.dither.value = dark ? GRAIN.dark : GRAIN.light;
-  stage.backdrop();
   const fog = stage.atmosphere(400, 2400);
   const stars = starfield(stage.colors, {
     seed: "graph-stars",
     count: 900,
     radius: STAR_RADIUS,
     size: 95,
-    opacity: dark ? STARS.dark : STARS.light,
+    opacity: 0,
   });
+  let dressed: GraphTheme | null = null;
+  let theme = GRAPH_THEMES[init.settings.theme];
+  const dress = (next: GraphTheme, dark: boolean) => {
+    theme = next;
+    if (next !== dressed) stage.backdrop(next.backdrop);
+    dressed = next;
+    stage.knobs.dither.value = variant(next.grain, dark);
+    stage.knobs.vignette.value = next.vignette;
+    stage.setBloom(bloomOf(next, dark));
+    stars.opacity.value = variant(next.stars, dark);
+    fog.amount.value = next.fog === null ? 0 : 1;
+  };
+  dress(theme, init.dark);
   stage.scene.add(stars.sprite);
   stage.camera.position.set(0, 0, 900);
   const orbit = new OrbitControls(stage.camera, stage.renderer.domElement);
@@ -142,17 +156,18 @@ function dressStage(stage: SceneStage, dark: boolean) {
   /** Fog follows the camera's distance to what it looks at (L3); the stars travel with the eye. */
   const follow = (camera: PerspectiveCamera) => {
     const distance = camera.position.distanceTo(orbit.target);
-    fog.near.value = distance * 0.55;
-    fog.far.value = distance * 2.6;
+    fog.near.value = distance * (theme.fog?.near ?? 1);
+    fog.far.value = distance * (theme.fog?.far ?? 2);
     stars.sprite.position.copy(camera.position);
   };
-  return { orbit, stars, follow };
+  return { orbit, follow, dress };
 }
 
 function graphScene(stage: SceneStage, init: Force3dSceneInit) {
   const { camera } = stage;
   const canvas = stage.renderer.domElement;
-  const { orbit, stars, follow } = dressStage(stage, init.dark);
+  const { orbit, follow, dress } = dressStage(stage, init);
+  let dark = init.dark;
   const layers = new GraphLayers(stage, init);
   const view = new GraphCamera(
     { camera, orbit },
@@ -188,7 +203,10 @@ function graphScene(stage: SceneStage, init: Force3dSceneInit) {
     controls: view.controls(),
     setGraph: (nodes: readonly LensNode[], edges: readonly LensEdge[]) =>
       layers.setGraph(nodes, edges),
-    setSettings: (next: Force3dSettings) => layers.setSettings(next),
+    setSettings: (next: Force3dSettings) => {
+      dress(GRAPH_THEMES[next.theme], dark);
+      layers.setSettings(next);
+    },
     setEmphasis: (next: GraphEmphasis) => {
       const selected = next.selectedNodeId ?? null;
       const changed = selected !== (layers.emphasis.selectedNodeId ?? null);
@@ -196,11 +214,10 @@ function graphScene(stage: SceneStage, init: Force3dSceneInit) {
       layers.refresh();
       if (changed && selected !== null) view.focus(selected);
     },
-    setPalette: (next: ScenePalette, link: string, dark: boolean) => {
+    setPalette: (next: ScenePalette, link: string, nextDark: boolean) => {
+      dark = nextDark;
       stage.setPalette(next);
-      stage.setBloom(dark ? BLOOM.dark : BLOOM.light);
-      stars.opacity.value = dark ? STARS.dark : STARS.light;
-      stage.knobs.dither.value = dark ? GRAIN.dark : GRAIN.light;
+      dress(GRAPH_THEMES[layers.settings.theme], dark);
       layers.setPalette(next, link);
     },
     inspect: (): Force3dInspection => inspection(stage, layers, view),

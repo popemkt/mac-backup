@@ -4,8 +4,8 @@
  * whole graph is a single draw (Lab principle P3).
  *
  * Shading is the scene kit's key/fill/rim rig baked into the node material,
- * written once in `force3d-light` (`shadeNode`, in the perspective's look)
- * and run here as TSL nodes (L2, L5); in the matte look: a soft key from the upper left, a fill that keeps the dark side
+ * written once in `force3d-light` (`shadeNode`, in the theme's surface)
+ * and run here as TSL nodes (L2, L5); in the matte surface: a soft key from the upper left, a fill that keeps the dark side
  * in the node's own colour, and a rim in the palette's ink that draws the
  * silhouette out of the ground. It stays inside the displayable range; only
  * glow (`force3d-emphasis`) lifts a node past 1, so only glowing nodes cross
@@ -30,7 +30,8 @@ import {
 import type { PaletteUniforms } from "@/scene/gpu/stage";
 import { toRenderableColor } from "@/lib/css-color";
 import { TIER, type Force3dFades, type Force3dTopology } from "./force3d-emphasis";
-import { KEY_DIRECTION, RIM_POWER, shadeNode, type GraphTheme } from "./force3d-light";
+import { KEY_DIRECTION, RIM_POWER, shadeNode } from "./force3d-light";
+import type { GraphTheme } from "./graph-themes";
 import { NODE_OPS } from "@/scene/gpu/tsl";
 
 /** World radius per cube root of a lens node's size. */
@@ -89,7 +90,8 @@ export function nodeLayer(
       glow: emphasis.y,
       lift: emphasis.z,
     },
-    theme,
+    theme.surface,
+    theme.bloom !== null,
   );
 
   const segments = topology.nodes.length > DENSE ? [12, 8] : [24, 16];

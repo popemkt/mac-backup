@@ -22,9 +22,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { EmphasisFade } from "@/lib/graph-fade";
 import {
   buildTreeForest,
+  LENS_THEMES,
   type LensEdge,
   type LensNode,
   type LensPerspective,
+  type LensTheme,
 } from "@/lib/graph-lens";
 import type { Appearance } from "@/stores/prefs.store";
 import type { Force3dScene } from "./force3d-scene";
@@ -155,12 +157,17 @@ async function until(ready: () => boolean, ms = 5000): Promise<void> {
   await settle();
 }
 
-function adapter(key: RendererKey, appearance: Appearance, selected: string | null = null) {
+function adapter(
+  key: RendererKey,
+  appearance: Appearance,
+  selected: string | null = null,
+  theme: LensTheme = PERSPECTIVE.theme,
+) {
   const definition = GRAPH_RENDERERS[key];
   if (definition === undefined) throw new Error(key);
   return createElement(definition.Component, {
     lensGraph: { nodes: NODES, edges: EDGES, dropped: 0, queryError: null },
-    active: { ...PERSPECTIVE, renderer: key },
+    active: { ...PERSPECTIVE, renderer: key, theme },
     forest: buildTreeForest(NODES, EDGES, null),
     viewKey: "contract",
     appearance,
@@ -260,6 +267,25 @@ describe("graph renderer contract", () => {
         act(() => root.unmount());
       },
     );
+  });
+
+  // The 3D graph copies its theme's tokens: in every theme it reads them again
+  // for a new appearance, and for a new theme.
+  describe.each(LENS_THEMES)("force3d in the %s theme", (theme) => {
+    it("reads its tokens again for a new appearance and a new theme", async () => {
+      await act(async () => root.render(adapter("force3d", LIGHT, null, theme)));
+      await until(() => probes.scenes.live > 0);
+      const first = probes.scenes.palettes;
+      await act(async () => root.render(adapter("force3d", DARK, null, theme)));
+      await settle();
+      expect(probes.scenes.palettes).toBeGreaterThan(first);
+      const other = LENS_THEMES.find((t) => t !== theme) ?? theme;
+      const second = probes.scenes.palettes;
+      await act(async () => root.render(adapter("force3d", DARK, null, other)));
+      await settle();
+      expect(probes.scenes.palettes).toBeGreaterThan(second);
+      act(() => root.unmount());
+    });
   });
 
   it("tree: a hover does not move the focus off a selection", async () => {

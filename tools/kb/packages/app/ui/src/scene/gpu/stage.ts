@@ -376,11 +376,12 @@ async function createStage(host: HTMLElement, options: StageOptions) {
     /**
      * Atmospheric perspective (L3): distance fades into the ground. The range
      * is two uniforms, so a view whose depth changes (a camera that dollies)
-     * moves it without rebuilding a shader.
+     * moves it without rebuilding a shader, and how much of the fade applies
+     * is a third (0: none), so a view can turn it off the same way.
      */
     atmosphere: (near: number, far: number) => {
-      const range = { near: uniform(near), far: uniform(far) };
-      scene.fogNode = fog(colors.ground, rangeFogFactor(range.near, range.far));
+      const range = { near: uniform(near), far: uniform(far), amount: uniform(1) };
+      scene.fogNode = fog(colors.ground, rangeFogFactor(range.near, range.far).mul(range.amount));
       return range;
     },
     /** Compile every shader, draw once unseen, then fade the canvas in (P2). */

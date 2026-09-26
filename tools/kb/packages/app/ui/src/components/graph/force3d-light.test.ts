@@ -5,9 +5,10 @@
  * the swatch editor — so the proof is over colour space, not a palette: at
  * rest, and under any lift, no fragment passes white, for the unit cube's
  * corners, every pure channel and a seeded spread of colours, under the ink
- * of every design system in both variants (read from the stylesheets), and
- * for every node look: the looks are the implementations, and the bloom rule
- * is their one contract. The shader caps a lift at each fragment's own
+ * of every design system in both variants (read from the stylesheets), on
+ * the ground each theme stands on, and for every theme: the themes are the
+ * implementations, and the bloom rule is their one contract. A theme that
+ * blooms lets its hubs pass white; a theme that does not never does. The shader caps a lift at each fragment's own
  * headroom; this checks the cap.
  */
 import { readFileSync } from "node:fs";
@@ -18,8 +19,10 @@ import { oklchToRgb } from "@/lib/css-color";
 import { readDesignSystemSheets } from "@/lib/design-system-sheets";
 import { TAG_PALETTE } from "@/lib/tag-color";
 import { DESIGN_SYSTEM_IDS } from "@/lib/theme";
+import { LENS_THEMES, type LensTheme } from "@/lib/graph-lens";
 import { GLOW } from "./force3d-emphasis";
-import { NODE_THEMES, peakChannel, shadeNode, type NodeLighting, type Rgb } from "./force3d-light";
+import { peakChannel, shadeNode, type NodeLighting, type Rgb } from "./force3d-light";
+import { GRAPH_THEMES } from "./graph-themes";
 
 const SRC = join(import.meta.dirname, "..", "..");
 const SHEETS = readDesignSystemSheets(readFileSync(join(SRC, "design-system.css"), "utf8"), (id) =>
@@ -47,14 +50,15 @@ function tokenRgb(
   return [linear(srgb.r / 255), linear(srgb.g / 255), linear(srgb.b / 255)];
 }
 
-/** Each appearance's ink and ground (`--foreground`, `--card`: the 3D palette's roles). */
-const APPEARANCES = DESIGN_SYSTEM_IDS.flatMap((id) =>
-  (["light", "dark"] as const).map((variant) => ({
-    name: `${id} ${variant}`,
-    ink: tokenRgb(id, variant, "--foreground"),
-    ground: tokenRgb(id, variant, "--card"),
-  })),
-);
+/** Each appearance's ink (`--foreground`) and the ground a theme stands on in it. */
+const appearances = (theme: LensTheme) =>
+  DESIGN_SYSTEM_IDS.flatMap((id) =>
+    (["light", "dark"] as const).map((variant) => ({
+      name: `${id} ${variant}`,
+      ink: tokenRgb(id, variant, "--foreground"),
+      ground: tokenRgb(id, variant, GRAPH_THEMES[theme].ground[variant]),
+    })),
+  );
 
 /** The unit cube's corners (every pure channel and mix of full channels) … */
 const CORNERS: Rgb[] = [0, 1].flatMap((r) =>
@@ -70,11 +74,16 @@ const COLOURS: Rgb[] = [...CORNERS, ...NAMED, ...SPREAD, ...TAG_PALETTE.map(hexR
 /** Lifts to try: the two roles', and far past them (the cap must hold whatever the value). */
 const LIFTS = [GLOW.rising, GLOW.neighbour, 0.5, 1, 4];
 
-const lightings = (look: (typeof NODE_THEMES)[number]): (NodeLighting & { name: string })[] =>
-  APPEARANCES.map((a) => ({ ...a, look }));
+const lightings = (theme: LensTheme): (NodeLighting & { name: string })[] =>
+  appearances(theme).map((a) => ({
+    ...a,
+    surface: GRAPH_THEMES[theme].surface,
+    glows: GRAPH_THEMES[theme].bloom !== null,
+  }));
 
-describe.each(NODE_THEMES)("3D light over every storable colour, %s look", (look) => {
-  for (const lighting of lightings(look)) {
+describe.each(LENS_THEMES)("3D light over every storable colour, %s theme", (theme) => {
+  const blooms = GRAPH_THEMES[theme].bloom !== null;
+  for (const lighting of lightings(theme)) {
     it(`keeps a resting node, and any lift, at or under white in ${lighting.name}`, () => {
       for (const colour of COLOURS) {
         expect(peakChannel(colour, lighting, 0), `rest ${colour.join(",")}`).toBeLessThanOrEqual(
@@ -106,15 +115,31 @@ describe.each(NODE_THEMES)("3D light over every storable colour, %s look", (look
           glow: 0,
           lift,
         },
-        lighting.look,
+        lighting.surface,
+        lighting.glows,
       )[0];
-    for (const lighting of lightings(look))
+    for (const lighting of lightings(theme))
       expect(facing(lighting, GLOW.rising)).toBeGreaterThan(facing(lighting, 0));
   });
 
-  it("lets every hub of a tag colour bloom", () => {
-    for (const lighting of lightings(look))
-      for (const hex of TAG_PALETTE)
-        expect(peakChannel(hexRgb(hex), lighting, GLOW.hub)).toBeGreaterThan(BLOOM_THRESHOLD);
-  });
+  it(
+    blooms
+      ? "lets every hub of a tag colour bloom"
+      : "never blooms: no glow, however strong, passes white",
+    () => {
+      for (const lighting of lightings(theme)) {
+        for (const hex of TAG_PALETTE) {
+          const hub = peakChannel(hexRgb(hex), lighting, GLOW.hub);
+          if (blooms) expect(hub).toBeGreaterThan(BLOOM_THRESHOLD);
+          else expect(hub).toBeLessThanOrEqual(BLOOM_THRESHOLD + 1e-9);
+        }
+        if (blooms) continue;
+        for (const colour of COLOURS)
+          for (const glow of [1, 4])
+            expect(peakChannel(colour, lighting, glow, 1)).toBeLessThanOrEqual(
+              BLOOM_THRESHOLD + 1e-9,
+            );
+      }
+    },
+  );
 });

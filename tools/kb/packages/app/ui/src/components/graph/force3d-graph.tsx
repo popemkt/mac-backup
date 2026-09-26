@@ -8,7 +8,13 @@
  */
 import type { Appearance } from "@/stores/prefs.store";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import type { LensEdge, LensLinkStyle, LensNode, LensTheme } from "@/lib/graph-lens";
+import {
+  DEFAULT_THEME,
+  type LensEdge,
+  type LensLinkStyle,
+  type LensNode,
+  type LensTheme,
+} from "@/lib/graph-lens";
 import { showsHoverCard, type GraphEmphasis } from "@/lib/graph-interaction";
 import { useReducedMotion } from "@/lib/motion";
 import { readTiming } from "@/lib/timing";
@@ -17,6 +23,7 @@ import { readScenePalette } from "@/scene/palette";
 import { attachScene } from "@/scene/host";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import { selectionFromNode, type GraphSelection } from "./graph-selection";
+import { GRAPH_THEMES, variant } from "./graph-themes";
 import { GraphTooltip } from "./graph-tooltip";
 import {
   mountForce3d,
@@ -44,16 +51,16 @@ export interface Force3dGraphProps extends GraphEmphasis {
 }
 
 /**
- * The 3D graph's palette roles: the page's own surfaces — the card colour at
- * the focal point, falling at the frame's edge to the background on a dark
- * ground and to the muted surface on a light one, so a light stage has a
- * ground too (a white card on a white page would be none); ink and accent as
- * the UI's.
+ * The 3D graph's palette roles: the ground and its edge as the theme names
+ * them (`graph-themes`: in the default, the card colour at the focal point
+ * falling to the background on a dark page and to the muted surface on a
+ * light one, so a light stage has a ground too); ink and accent as the UI's.
  */
-function readGraphPalette(dark: boolean) {
+function readGraphPalette(theme: LensTheme, dark: boolean) {
+  const { ground, edge } = GRAPH_THEMES[theme];
   return readScenePalette({
-    ground: "--card",
-    edge: dark ? "--background" : "--muted",
+    ground: variant(ground, dark),
+    edge: variant(edge, dark),
     hue: "--muted-foreground",
     ink: "--foreground",
     accent: "--primary",
@@ -72,7 +79,7 @@ function settingsOf(p: SettingProps): Force3dSettings {
     autorotate: p.autorotate ?? false,
     showLabels: p.showLabels ?? true,
     labelTopN: p.labelTopN ?? 24,
-    theme: p.theme ?? "matte",
+    theme: p.theme ?? DEFAULT_THEME,
     linkStyle: p.linkStyle ?? "straight",
   };
 }
@@ -113,7 +120,7 @@ function useMountedScene(
       edges: props.edges,
       settings: settingsOf(props),
       emphasis: emphasisOf(props),
-      palette: readGraphPalette(props.appearance.dark),
+      palette: readGraphPalette(props.theme ?? DEFAULT_THEME, props.appearance.dark),
       link: readTokenColor("--graph-edge"),
       dark: props.appearance.dark,
       reducedMotion,
@@ -186,11 +193,11 @@ export default function Force3dGraph(props: Force3dGraphProps) {
   // `appearance` is a new object exactly when its key changes.
   useEffect(() => {
     scene?.setPalette(
-      readGraphPalette(appearance.dark),
+      readGraphPalette(theme ?? DEFAULT_THEME, appearance.dark),
       readTokenColor("--graph-edge"),
       appearance.dark,
     );
-  }, [scene, appearance]);
+  }, [scene, appearance, theme]);
   useEffect(() => scene?.setReducedMotion(reducedMotion), [scene, reducedMotion]);
 
   const hovered = hover === null ? undefined : nodes.find((n) => n.id === hover.id);

@@ -1,7 +1,7 @@
 /**
  * The scene contract: what every `SceneHandle` promises (`@/scene/host`,
  * DESIGN-UI.md → The lab), proved over every registered scene — each lab
- * study in `LAB_STUDIES` and the 3D graph. A new study joins by being
+ * study in `LAB_STUDIES` and the 3D graph in every theme. A new study joins by being
  * registered; a promise one scene keeps and another breaks goes red here.
  *
  * - disposing leaves no live renderer, no loop and no canvas;
@@ -18,7 +18,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { Window } from "happy-dom";
 import { LAB_STUDIES } from "@/components/lab/studies";
 import type { LabSceneInit } from "@/components/lab/kit/contract";
-import type { LensEdge, LensNode } from "@/lib/graph-lens";
+import { LENS_THEMES, type LensEdge, type LensNode } from "@/lib/graph-lens";
 import { TIMING_FALLBACK } from "@/lib/timing";
 import type { SceneHandle } from "@/scene/host";
 import type { ScenePalette } from "@/scene/palette";
@@ -141,8 +141,8 @@ const SCENES: readonly (readonly [string, Mount])[] = [
     `lab study ${id}`,
     async (host, reduced) => (await study.load())(host, labInit(reduced)),
   ]),
-  [
-    "3D graph",
+  ...LENS_THEMES.map((theme): readonly [string, Mount] => [
+    `3D graph, ${theme} theme`,
     async (host, reduced) => {
       const { mountForce3d } = await import("@/components/graph/force3d-scene");
       return mountForce3d(host, {
@@ -154,7 +154,7 @@ const SCENES: readonly (readonly [string, Mount])[] = [
           autorotate: true,
           showLabels: true,
           labelTopN: 4,
-          theme: "matte",
+          theme,
           linkStyle: "straight",
         },
         emphasis: { selectedNodeId: null },
@@ -168,7 +168,7 @@ const SCENES: readonly (readonly [string, Mount])[] = [
         onHover: () => {},
       });
     },
-  ],
+  ]),
 ];
 
 // --- a document with a frame queue we drive ---------------------------------

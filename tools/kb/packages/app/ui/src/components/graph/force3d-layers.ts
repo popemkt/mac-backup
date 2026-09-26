@@ -36,12 +36,13 @@ import {
   type ParticleMotion,
 } from "./force3d-links";
 import { nodeLayer, type NodeLayer } from "./force3d-nodes";
+import { GRAPH_THEMES } from "./graph-themes";
 import type { PickField } from "./force3d-pick";
 
 export interface Force3dSettings {
   readonly spread: number;
   readonly linkDistance: number;
-  /** How the nodes' surfaces take the light (`lens.theme`). */
+  /** The scene's theme (`lens.theme`, stated in `graph-themes`). */
   readonly theme: LensTheme;
   /** How the links are drawn (`lens.link-style`). */
   readonly linkStyle: LensLinkStyle;
@@ -264,7 +265,8 @@ export class GraphLayers {
   private drawNodes(): void {
     disposeGraph(this.nodeGroup);
     const { colors } = this.stage;
-    this.nodes = nodeLayer(this.topology, colors, this.fades, this.settings.theme, this.arrival);
+    const theme = GRAPH_THEMES[this.settings.theme];
+    this.nodes = nodeLayer(this.topology, colors, this.fades, theme, this.arrival);
     this.nodeGroup.add(this.nodes.mesh);
     this.moved = true;
   }

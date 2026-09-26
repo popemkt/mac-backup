@@ -123,7 +123,7 @@ export const DEFAULT_LINK_DISTANCE = 60;
 export const DEFAULT_SHOW_LABELS = true;
 export const DEFAULT_AUTOROTATE = false;
 export const DEFAULT_LABEL_DENSITY: LensLabelDensity = "medium";
-const DEFAULT_THEME: LensTheme = "matte";
+export const DEFAULT_THEME: LensTheme = "matte";
 const DEFAULT_LINK_STYLE: LensLinkStyle = "straight";
 
 export const LENS_LAYOUTS: readonly LensLayout[] = ["force", "radial", "hierarchical", "grid"];

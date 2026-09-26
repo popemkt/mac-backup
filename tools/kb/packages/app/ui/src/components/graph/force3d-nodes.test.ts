@@ -10,6 +10,7 @@ import type { LensNode } from "@/lib/graph-lens";
 import { EmphasisFade } from "@/lib/graph-fade";
 import { topologyOf } from "./force3d-emphasis";
 import { nodeLayer } from "./force3d-nodes";
+import { GRAPH_THEMES } from "./graph-themes";
 
 function node(id: string, size: number): LensNode {
   return { id, label: id, color: "#888888", size, clusterKey: "r", tags: [], degree: 1 };
@@ -35,7 +36,7 @@ describe("nodeLayer", () => {
       lift: new EmphasisFade(2, 0.2, 0),
       focus: new EmphasisFade(2, 0.2, 0),
     };
-    const layer = nodeLayer(topology, colors(), fades, "matte");
+    const layer = nodeLayer(topology, colors(), fades, GRAPH_THEMES.matte);
     const small = layer.radius(0);
     expect(layer.radius(1)).toBe(small);
 

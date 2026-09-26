@@ -6,16 +6,16 @@
  * test proves which light crosses the bloom threshold (1) for any colour of
  * the shader itself. No three here.
  *
- * A node's **surface** is how it takes the rig — matte (the default), cel,
- * fresnel, glass — and it is its theme's, data a perspective chooses
+ * A node's **surface** is how it takes the rig — matte, cel, fresnel,
+ * glass — and it is its theme's (`graph-themes`), data a perspective chooses
  * (`lens.theme`). A surface changes only the surface light; the rest cap,
- * the glow and the lift cap are the one `shadeNode` every look runs through,
- * so the bloom rule — only focus, hover, a search match and a hub cross 1 —
- * holds for every look by construction, and `force3d-light.test.ts` proves it
- * over every look, colour and design system.
+ * the glow and the lift cap are the one `shadeNode` every surface runs
+ * through, so the bloom rule — only focus, hover, a search match and a hub
+ * cross 1, and nothing in a theme without bloom — holds for every theme by
+ * construction, and `force3d-light.test.ts` proves it over every theme,
+ * colour and design system.
  */
 
-import type { GRAPH_THEME_VALUES } from "@kb/model";
 import { NUMBER_OPS, type Rgb, type ShadeOps } from "@/scene/shade-ops";
 
 export type { Rgb };
@@ -27,16 +27,16 @@ const NODE_LIGHT = {
   glowWhite: 0.25,
 } as const;
 
-/** A theme is one of `lens.theme`'s option nodes (`@kb/model`), by key. */
-export type GraphTheme = keyof typeof GRAPH_THEME_VALUES;
+/** How a node's surface takes the light; a theme names one (`graph-themes`). */
+export type NodeSurface = "matte" | "cel" | "fresnel" | "glass";
 
 /**
- * Each look's surface light, before the shared caps. Every one must grow
+ * Each surface's light, before the shared caps. Every one must grow
  * with the key (never dim where the key is stronger) and depend on the view
  * only through the rim: that is what lets `peakChannel` find a sphere's
  * brightest fragment ring by ring.
  */
-const SURFACES: Record<GraphTheme, <V, S>(o: ShadeOps<V, S>, f: NodeFragment<V, S>) => V> = {
+const SURFACES: Record<NodeSurface, <V, S>(o: ShadeOps<V, S>, f: NodeFragment<V, S>) => V> = {
   // A soft key from the upper left, a fill that keeps the dark side in the
   // node's own colour, and an ink rim that draws the silhouette.
   matte: (o, f) =>
@@ -84,7 +84,7 @@ export const RIM_POWER = 2.4;
  * The rim depends only on the normal's angle θ from the view axis, so each
  * ring of the visible half has one rim; round the ring the key runs over an
  * interval whose ends are exact, `cosθ·k_z ∓ sinθ·√(k_x² + k_y²)` clamped at
- * 0. Every look's light grows with the key, so a ring's brightest
+ * 0. Every surface's light grows with the key, so a ring's brightest
  * fragment is at the top of its interval: sampling each ring's two ends and a
  * few points between reaches the sphere's peak without sweeping the surface.
  */
@@ -123,33 +123,33 @@ export interface NodeFragment<V, S> {
 /**
  * The node light, stated once over `ShadeOps`: the node material runs it as
  * TSL nodes, and `peakChannel` runs it as numbers, so what the test proves is
- * what the shader draws. The look's surface light is capped at white (a
- * resting node never blooms, whatever its colour or look), a `glow` is added on top and may pass white,
- * and a `lift` is capped at the fragment's own headroom under white, channel
- * by channel, so it never does.
+ * what the shader draws. The surface light is capped at white (a resting
+ * node never blooms, whatever its colour or surface), a `glow` is added on
+ * top and may pass white, and a `lift` is capped at the fragment's own
+ * headroom under white, channel by channel, so it never does. Where the
+ * theme does not bloom (`glows` false) the glow is taken as lift: it still
+ * brightens, and never passes white.
  */
 export function shadeNode<V, S>(
   o: ShadeOps<V, S>,
   f: NodeFragment<V, S>,
-  look: GraphTheme = "matte",
+  surface: NodeSurface = "matte",
+  glows = true,
 ): V {
   const L = NODE_LIGHT;
-  const lit = SURFACES[look](o, f);
+  const lit = SURFACES[surface](o, f);
   const rest = o.minColor(o.mix(f.ground, lit, f.presence), o.white);
   const light = o.scale(o.mix(f.hue, o.white, o.num(L.glowWhite)), o.num(L.glowGain));
-  const glowing = o.addColor(rest, o.scale(light, f.glow));
+  const glowing = glows ? o.addColor(rest, o.scale(light, f.glow)) : rest;
+  const lift = glows ? f.lift : o.add(f.lift, f.glow);
   const room = o.divColor(o.maxColor(o.subColor(o.white, glowing), o.black), light);
-  return o.addColor(glowing, o.scale(light, o.min(f.lift, o.minChannel(room))));
+  return o.addColor(glowing, o.scale(light, o.min(lift, o.minChannel(room))));
 }
 
-/** Every look, in the order the option set declares them. */
-export const NODE_THEMES = Object.keys(SURFACES).filter(
-  (key): key is GraphTheme => key in SURFACES,
-);
-
-/** The light a node is shaded under: its look, and the palette's ink and ground (linear). */
+/** The light a node is shaded under: its surface, whether it may bloom, the palette's ink and ground (linear). */
 export interface NodeLighting {
-  readonly look: GraphTheme;
+  readonly surface: NodeSurface;
+  readonly glows: boolean;
   readonly ink: Rgb;
   readonly ground: Rgb;
 }
@@ -160,11 +160,12 @@ export interface NodeLighting {
  * and a capped `lift`.
  */
 export function peakChannel(hue: Rgb, lighting: NodeLighting, glow: number, lift = 0): number {
-  const { look, ink, ground } = lighting;
+  const { surface, glows, ink, ground } = lighting;
   let peak = 0;
   for (const [key, rim] of SPHERE) {
     const fragment = { hue, ground, ink, key, rim, presence: 1, glow, lift };
-    for (const channel of shadeNode(NUMBER_OPS, fragment, look)) peak = Math.max(peak, channel);
+    for (const channel of shadeNode(NUMBER_OPS, fragment, surface, glows))
+      peak = Math.max(peak, channel);
   }
   return peak;
 }
