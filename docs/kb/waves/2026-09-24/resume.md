@@ -34,6 +34,19 @@ Agent ids only work in the session that spawned them. In a new session,
 start a fresh agent in that worktree and point it at this file, the audit
 report, and the package brief below.
 
+## Resumed 2026-09-26 (batches run in parallel; base `654f5b39`)
+
+| Unit | Agent id | Worktree | Scope |
+|---|---|---|---|
+| PINS | `a907fe779cb9c9454` | `agent-a907fe779cb9c9454` | grok approved with nits (EXIT trap status, a bash<4.4 case); fixing, then land + push + watch `Validate` |
+| WP1–WP5 | as in the table above | as above | resumed; all were told about the "One contract, every implementation" rule (`AGENTS.md`) |
+| LAB-X | `aecd0e2f5d5aedbba` | `agent-aecd0e2f5d5aedbba` | 3 new lab studies; Embers shader looks (toon, …) and backdrop; Sky becomes 3D (movable stars, sun lights the moon, orbit); stays out of `scene/**` and `lab/kit/**` |
+| Plugin composition | `a69ba31786af5118c` | `agent-a69ba31786af5118c` | design doc only: `briefs/plugin-composition.md` (typed embeddable views, N-hop neighbourhood panel, canvas mini-graph, DSH comparison) |
+| Dotfiles cleanup | `aef178de281436376` | `agent-aef178de281436376` | Nix/modules/pkgs/scripts/docs cleanup; not kb, not the workflows, not `npm-global.nix` |
+
+WP4 also owns new 3D-graph shader looks (toon, fresnel, glass, link styles) stored as a lens prop.
+Stray `.kb/nodes.jsonl` diff found on `main` (not the user's) was discarded; backup at `~/.cache/kb-wave-2026-09-24/main-stray-nodes.patch`.
+
 ## Briefs and tooling (outside the repo)
 
 All of these are in `~/.cache/kb-wave-2026-09-24/`:
