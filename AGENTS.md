@@ -184,9 +184,12 @@ rtk mackup backup
 rtk mackup restore
 ```
 
-`rebuild` applies the configuration and upgrades Homebrew plus tracked npm and
-Bun globals. The GitHub-sources commands check, verify, or refresh direct
-GitHub release pins.
+`rebuild` applies the configuration, installing missing declarations without
+upgrading anything, then runs the drift audit. Upgrades go through
+`update-system` and `apply-system-update`; see
+[Rebuild And Update Behavior](docs/github-release-packages.md#rebuild-and-update-behavior).
+The GitHub-sources commands check, verify, or refresh direct GitHub release
+pins.
 
 ## kb — repo knowledge base
 
@@ -247,7 +250,6 @@ Rules for agents:
 | Add software belonging to a functional stack | `modules/stacks/<stack>` and its matching `my.pkgs.*` channel list |
 | Add a functional stack | Declare `options.my.stacks.<name> = mkStack { ... }`, add its config, import it from `modules/stacks/default.nix`, then enable it in `hosts/<hostname>/default.nix` |
 | Add an unpacked browser extension checkout | `modules/stacks/browsers/` + `system-setup enroll <id>`; Load unpacked stays manual |
-| Add an unpacked browser extension checkout | `modules/stacks/browsers/` + `system-setup enroll <id>`; Load unpacked stays manual |
 | Add a CLI tool without a stack fit | `modules/common/home-manager/packages.nix` |
 | Add a GUI cask without a stack fit | `modules/darwin/system/homebrew.nix` → `homebrew.casks` |
 | Add a brew formula without a stack fit | `modules/darwin/system/homebrew.nix` → `homebrew.brews` |
@@ -255,10 +257,11 @@ Rules for agents:
 | Add a shell alias | `modules/common/home-manager/shell.nix` |
 | Add macOS-only Home Manager config | `modules/darwin/home-manager/default.nix` |
 | Change Git config | `modules/common/home-manager/git.nix` |
-| Add an npm global | `modules/common/home-manager/npm-global.nix` |
+| Add an npm global | the owning stack's `my.pkgs.npmGlobals`; without a stack fit, the base list in `modules/common/home-manager/npm-global.nix` |
 | Add a uv tool | the owning module's `uvTools`, plus an entry in `_sources/uv-pins.json` |
 | Hold a uv tool at a version | set `track = "manual"` on its `_sources/uv-pins.json` entry |
-| Add a Bun global | `modules/darwin/home-manager/bun-global.nix` |
+| Add a Bun global | the owning stack's `my.pkgs.bunGlobals` |
+| Add a stack's package on one host only | `my.stacks.<stack>.extra.<channel>` in `hosts/<hostname>/default.nix` |
 | Add a Claude Code or Codex plugin | the owning stack's `my.pkgs.{claude,codex}{Marketplaces,Plugins}` lists |
 | Add host-only config | `hosts/<hostname>/default.nix` |
 | Add a work/personal split | `lib.mkIf (config.my.role == "work") { ... }` in the owning system module |
