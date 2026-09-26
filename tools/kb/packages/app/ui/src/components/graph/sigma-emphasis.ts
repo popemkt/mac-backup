@@ -37,7 +37,7 @@ const ASIDE = 0.08;
 /** How small a node starts when the graph arrives. */
 const ARRIVE_FROM = 0.3;
 
-export interface SigmaTargets {
+interface SigmaTargets {
   /** The node in focus (selected, else hovered). */
   readonly active: string | null;
   /** Something narrows the view (a focus, a search, a filter): lit labels are forced. */

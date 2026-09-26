@@ -37,7 +37,7 @@ export interface LayoutSeed {
 }
 
 /** The simulation's settle, in ticks; alpha falls to about 0.025 by then. */
-export const COOLDOWN_TICKS = 160;
+const COOLDOWN_TICKS = 160;
 /**
  * A faint pull toward the origin. Charge alone pushes every unlinked node
  * out to the edge of the frame, so a graph with a few orphans is framed as

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useEffectEvent, useMemo } from "react";
 import { isGraphShortcutTarget } from "@/lib/graph-interaction";
 import type { LensNode, LensPerspective, LensRenderer } from "@/lib/graph-lens";
 import { GraphLegend } from "./graph-legend";
@@ -44,14 +44,13 @@ export function GraphCanvasFrame({
 }) {
   const capabilities = capabilitiesFor(renderer);
   const searchNodes = useMemo(() => nodes.map((n) => ({ id: n.id, label: n.label })), [nodes]);
-  const clearRef = useRef(onClearSelection);
-  clearRef.current = onClearSelection;
+  const clear = useEffectEvent(() => onClearSelection());
 
   useEffect(() => {
     if (!capabilities.selection) return undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || isGraphShortcutTarget(e.target)) return;
-      if (e.key === "Escape") clearRef.current();
+      if (e.key === "Escape") clear();
       if (e.key === "Enter" && selectedNodeId !== null) onOpenNode(selectedNodeId);
     };
     window.addEventListener("keydown", onKey);

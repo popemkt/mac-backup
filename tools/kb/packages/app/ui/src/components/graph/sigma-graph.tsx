@@ -1,6 +1,6 @@
 import type { Appearance } from "@/stores/prefs.store";
 import { asInstance } from "@/lib/dom";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Graph from "graphology";
 import Sigma from "sigma";
 import { EdgeCurvedArrowProgram } from "@sigma/edge-curve";
@@ -88,14 +88,18 @@ export function SigmaGraph(props: SigmaGraphProps) {
   const hullRef = useRef<HTMLCanvasElement>(null);
   const sigmaRef = useRef<Sigma | null>(null);
   const layoutRef = useRef<FA2Controller | null>(null);
+  // Sigma's handlers and reducers read the latest props and isolation; they
+  // are written after render, before any effect or handler can run.
   const live = useRef(props);
-  live.current = props;
   const hovered = useRef<string | null>(null);
   const cameraIntent = useRef(false);
   const topology = useRef("");
   const [isolated, setIsolated] = useState<string | null>(null);
   const isolatedRef = useRef(isolated);
-  isolatedRef.current = isolated;
+  useLayoutEffect(() => {
+    live.current = props;
+    isolatedRef.current = isolated;
+  });
   const [tooltip, setTooltip] = useState<{ id: string; x: number; y: number } | null>(null);
 
   const emphasis = useRef<SigmaEmphasis | null>(null);

@@ -158,6 +158,9 @@ const TOKEN_FALLBACK = {
 
 export type ColorToken = keyof typeof TOKEN_FALLBACK;
 
+/** Every token a renderer may read, with its fallback; `css-color.test.ts` binds each to the stylesheets. */
+export const COLOR_TOKEN_FALLBACKS: Readonly<Record<ColorToken, string>> = TOKEN_FALLBACK;
+
 export function readTokenColor(varName: ColorToken, opts: { alpha?: number } = {}): string {
   const fallback = TOKEN_FALLBACK[varName];
   const unresolved = toRenderableColor(fallback, opts.alpha) ?? fallback;

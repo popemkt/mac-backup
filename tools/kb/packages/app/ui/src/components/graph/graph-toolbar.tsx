@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import {
   ArrowCounterClockwiseIcon,
   ArrowsInIcon,
@@ -35,66 +35,55 @@ export function GraphToolbar({
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const controlsRef = useRef(controls);
-  controlsRef.current = controls;
-  const capsRef = useRef(capabilities);
-  capsRef.current = capabilities;
-  const selectedRef = useRef(selectedNodeId);
-  selectedRef.current = selectedNodeId;
+  // The camera keys read the latest controls, capabilities and selection.
+  const onKey = useEffectEvent((e: KeyboardEvent) => {
+    if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || isGraphShortcutTarget(e.target))
+      return;
+    const caps = capabilities;
+    const cam = controls;
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (
-        e.defaultPrevented ||
-        e.metaKey ||
-        e.ctrlKey ||
-        e.altKey ||
-        isGraphShortcutTarget(e.target)
-      )
-        return;
-      const caps = capsRef.current;
-      const cam = controlsRef.current;
+    if (e.key === "/" && caps.search) {
+      e.preventDefault();
+      setSearchOpen(true);
+      setTimeout(() => inputRef.current?.focus(), 0);
+      return;
+    }
+    if (!cam) return;
 
-      if (e.key === "/" && caps.search) {
+    switch (e.key) {
+      case "+":
+      case "=":
+        if (!caps.zoom) return;
         e.preventDefault();
-        setSearchOpen(true);
-        setTimeout(() => inputRef.current?.focus(), 0);
-        return;
-      }
-      if (!cam) return;
-
-      switch (e.key) {
-        case "+":
-        case "=":
-          if (!caps.zoom) return;
-          e.preventDefault();
-          cam.zoomIn();
-          break;
-        case "-":
-          if (!caps.zoom) return;
-          e.preventDefault();
-          cam.zoomOut();
-          break;
-        case "0":
-          if (!caps.reset) return;
-          e.preventDefault();
-          cam.reset();
-          break;
-        case "f":
-          e.preventDefault();
-          if (selectedRef.current !== null && caps.focus) {
-            cam.focusNode(selectedRef.current);
-          } else if (caps.fit) {
-            cam.fit();
-          }
-          break;
-        default:
-          // Any other key belongs to the page, not the camera.
-          break;
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+        cam.zoomIn();
+        break;
+      case "-":
+        if (!caps.zoom) return;
+        e.preventDefault();
+        cam.zoomOut();
+        break;
+      case "0":
+        if (!caps.reset) return;
+        e.preventDefault();
+        cam.reset();
+        break;
+      case "f":
+        e.preventDefault();
+        if (selectedNodeId !== null && caps.focus) {
+          cam.focusNode(selectedNodeId);
+        } else if (caps.fit) {
+          cam.fit();
+        }
+        break;
+      default:
+        // Any other key belongs to the page, not the camera.
+        break;
+    }
+  });
+  useEffect(() => {
+    const listener = (e: KeyboardEvent) => onKey(e);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
   }, []);
 
   useEffect(() => {

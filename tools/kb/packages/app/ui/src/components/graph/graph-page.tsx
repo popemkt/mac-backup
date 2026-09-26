@@ -28,6 +28,7 @@ import { SidebarToggle } from "@/components/ui/sidebar-toggle";
 import { ThemeIcon } from "@/components/ui/theme-icon";
 import { WorkspaceState } from "@/components/ui/workspace-state";
 
+// GAP [[01M3EH8SRZ2NN7QZJY88CGY0T3]]
 const SYS_STORAGE_KEY = "kb-graph-include-sys";
 
 export interface GraphPageProps {

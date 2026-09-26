@@ -12,11 +12,17 @@ const node = (id: string, children: LensTreeNode[] = []): LensTreeNode => ({
 const label = { show: true, measure: (text: string) => text.length * 6 };
 
 describe("tree layout", () => {
-  it(`opens ${OPEN_DEPTH} levels: deeper branches start folded`, () => {
+  it(`opens a large forest ${OPEN_DEPTH} levels deep: deeper branches start folded`, () => {
     const forest = [node("r", [node("a", [node("a1", [node("a11")])]), node("b")])];
-    expect([...initiallyCollapsed(forest)]).toEqual(["a", "a1"]);
-    const laid = layoutForest(forest, initiallyCollapsed(forest), label, 1.6);
+    // Past a budget of two nodes, as a big forest is past the real one.
+    expect([...initiallyCollapsed(forest, 2)]).toEqual(["a", "a1"]);
+    const laid = layoutForest(forest, initiallyCollapsed(forest, 2), label, 1.6);
     expect(laid.nodes.map((n) => n.data.id).toSorted()).toEqual(["a", "b", "r"]);
+  });
+
+  it("opens a small forest whole", () => {
+    const forest = [node("r", [node("a", [node("a1")])])];
+    expect(initiallyCollapsed(forest).size).toBe(0);
   });
 
   it("lays a tree out left to right", () => {

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { oklchToRgb, toRenderableColor } from "./css-color";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { COLOR_TOKEN_FALLBACKS, oklchToRgb, toRenderableColor } from "./css-color";
+import { readDesignSystemSheets } from "./design-system-sheets";
+import { DESIGN_SYSTEM_IDS } from "./theme";
 
 /**
  * Canvas consumers parse only hex and integer `rgb()`/`rgba()` (the strict
@@ -85,4 +89,20 @@ describe("toRenderableColor", () => {
     expect(toRenderableColor("color(display-p3 1 0 0)")).toBeNull();
     expect(toRenderableColor("rebeccapurple")).toBeNull();
   });
+});
+
+describe("the token fallbacks are bound to the stylesheets", () => {
+  const src = join(import.meta.dirname, "..");
+  const sheets = readDesignSystemSheets(
+    readFileSync(join(src, "design-system.css"), "utf8"),
+    (id) => readFileSync(join(src, "design-systems", `${id}.css`), "utf8"),
+  );
+  for (const [token, fallback] of Object.entries(COLOR_TOKEN_FALLBACKS)) {
+    it(`${token} is set by every design system in both variants, and its fallback renders`, () => {
+      for (const id of DESIGN_SYSTEM_IDS)
+        for (const variant of ["light", "dark"] as const)
+          expect(sheets.resolve(id, variant, token).length).toBeGreaterThan(0);
+      expect(toRenderableColor(fallback)).not.toBeNull();
+    });
+  }
 });

@@ -114,6 +114,6 @@ export function focusNode(sigma: Sigma, nodeId: string): void {
   animateCamera(sigma, { x: display.x, y: display.y, ratio: 0.3 });
 }
 
-export function motionDuration(duration: number): number {
+function motionDuration(duration: number): number {
   return prefersReducedMotion() ? 0 : duration;
 }

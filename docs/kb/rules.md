@@ -364,6 +364,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The canvas frame hands a non-panning renderer the legend's box as an inset its layout avoids, one rule over capabilitiesFor; folding at first was tried and dropped because the render suite pins the legend open over the treemap
 - **node** — `01M3F6FR67AC4JT3D66G7J0915`
 
+### GAP: the graph page keeps its sys-nodes switch in localStorage itself
+
+- **expected** — The graph's include-system-nodes switch is a device preference like the others: a field of the prefs store (stores/prefs.store.ts), read and written through it, so no component touches localStorage.
+- **current** — graph-page.tsx reads and writes localStorage['kb-graph-include-sys'] directly, beside the prefs store.
+- **impact** — A second persistence path for a device preference: it escapes the prefs store's parsing, fallbacks and cross-tab sync.
+- **closes** — Add the switch to the prefs store (and its tests) once the wave's outline/prefs package has landed, and delete the direct reads and writes.
+- **node** — `01M3EH8SRZ2NN7QZJY88CGY0T3`
+
 ### GAP: the graph renderer contract suite cannot mount the 2D (sigma) renderers
 
 - **expected** — renderer-contract.test.tsx proves every renderer contract property (dispose on switch, tokens re-read on appearance change, selection beats hover) over every registered renderer, force2d and cluster included.

@@ -2,9 +2,10 @@
  * The tree renderer's layout, pure: which branches start folded, where every
  * visible node sits, and how a forest of many roots fills the frame.
  *
- * - A tree opens `OPEN_DEPTH` levels deep: roots and their children show, and
- *   a child that has children of its own starts collapsed. Expanding is the
- *   user's gesture; a first look is never every node at once.
+ * - A small forest opens whole. A larger one (more than `OPEN_BUDGET` nodes)
+ *   opens `OPEN_DEPTH` levels deep: roots and their children show, and a
+ *   child that has children of its own starts collapsed. Expanding is the
+ *   user's gesture; a first look at a big graph is never every node at once.
  * - Each root's subtree is laid out on its own, left to right (a parent's
  *   children stand to its right), and the subtrees are packed into columns
  *   in their order, the column count chosen so the packed forest's shape is
@@ -17,8 +18,10 @@ import { hierarchy, tree as d3Tree, type HierarchyPointNode } from "d3-hierarchy
 import type { LensTreeNode } from "@/lib/graph-lens";
 import { GRAPH_LABEL_WIDTH, wrapGraphLabel } from "@/lib/graph-label";
 
-/** How many levels a tree shows before anything is expanded. */
+/** How many levels a large tree shows before anything is expanded. */
 export const OPEN_DEPTH = 2;
+/** A forest of at most this many nodes opens whole. */
+const OPEN_BUDGET = 60;
 /** Space between two packed columns, and above the first root of each. */
 const COLUMN_GAP = 48;
 const LEVEL = GRAPH_LABEL_WIDTH + 56;
@@ -44,9 +47,20 @@ export interface TreeLayout {
   readonly height: number;
 }
 
-/** Every node `OPEN_DEPTH - 1` levels down or deeper that has children: folded at first. */
-export function initiallyCollapsed(forest: readonly LensTreeNode[]): Set<string> {
+function forestSize(nodes: readonly LensTreeNode[]): number {
+  return nodes.reduce((sum, n) => sum + 1 + forestSize(n.children), 0);
+}
+
+/**
+ * What starts folded: nothing in a forest of at most `budget` nodes, else
+ * every node `OPEN_DEPTH - 1` levels down or deeper that has children.
+ */
+export function initiallyCollapsed(
+  forest: readonly LensTreeNode[],
+  budget = OPEN_BUDGET,
+): Set<string> {
   const ids = new Set<string>();
+  if (forestSize(forest) <= budget) return ids;
   const visit = (nodes: readonly LensTreeNode[], depth: number) => {
     for (const n of nodes) {
       if (depth >= OPEN_DEPTH - 1 && n.children.length > 0) ids.add(n.id);

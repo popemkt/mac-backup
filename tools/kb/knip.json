@@ -4,7 +4,6 @@
     ".": {
       "entry": [
         "harness/tests/*.test.ts",
-        "harness/src/snapshot.ts",
         "harness/lint/*/index.ts",
         "harness/lint/*/effect/index.ts",
         "harness/lint/**/*.rule-cases.ts"
@@ -44,7 +43,6 @@
   "ignoreDependencies": [
     "graphology-communities-louvain",
     "graphology-layout",
-    "graphology-layout-noverlap",
-    "zod"
+    "graphology-layout-noverlap"
   ]
 }
