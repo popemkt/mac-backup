@@ -364,6 +364,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The canvas frame hands a non-panning renderer the legend's box as an inset its layout avoids, one rule over capabilitiesFor; folding at first was tried and dropped because the render suite pins the legend open over the treemap
 - **node** — `01M3F6FR67AC4JT3D66G7J0915`
 
+### GAP: the graph renderer contract suite cannot mount the 2D (sigma) renderers
+
+- **expected** — renderer-contract.test.tsx proves every renderer contract property (dispose on switch, tokens re-read on appearance change, selection beats hover) over every registered renderer, force2d and cluster included.
+- **current** — force2d and cluster render through sigma, which needs a WebGL2 context happy-dom does not have; their rows are todo, and the properties are covered for them only by the render e2e lane and by unit tests of their parts (sigma-labels, sigma-emphasis, graphFocus).
+- **impact** — A regression in how the 2D host disposes sigma, or re-reads tokens on an appearance change, goes unnoticed by the unit run.
+- **closes** — Run the renderer contract suite in the browser lane (Playwright with WebGL), or give sigma a headless WebGL context in the unit run, and drop the todo rows.
+- **node** — `01M3EGV5616VKVV4J76ABC5XX2`
+
 ### GAP: the inline markdown parser is a 41-branch hand-rolled scanner
 
 - **expected** — Inline markdown parses through a table of segment recognizers tried in order, each recognizer a named, separately tested function.

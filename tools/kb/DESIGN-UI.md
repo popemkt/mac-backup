@@ -386,6 +386,16 @@ where each one lives. Everything below reads the tokens through
 `useAppearance()`, so the three design systems in both variants each look
 like themselves (P5).
 
+- **One renderer contract.** Every renderer in `GRAPH_RENDERERS` promises
+  the same things, and `renderer-contract.test.tsx` proves them over each
+  registered renderer: another renderer taking the frame leaves nothing of
+  it behind; a renderer that copies token values out (a canvas, a GPU
+  palette) reads them again when the appearance changes, while a DOM
+  renderer paints live `var()`s and copies none; with a node selected, a
+  hover never moves the focus — the one rule, `graphFocus` in
+  `lib/graph-interaction.ts`, which every renderer asks. The suite's table
+  must list exactly the registry, so a new renderer joins it; the 2D
+  renderers need WebGL, and their rows wait on a named gap.
 - **Emphasis eases, in every renderer.** What should be lit is one
   definition (`graph-interaction`, `graph-dim`); how it gets there is one
   mechanism, `lib/graph-fade.ts` (`EmphasisFade`): a hover's neighbourhood
