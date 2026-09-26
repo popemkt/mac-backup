@@ -33,7 +33,7 @@ function pagePlugin(name: string): Plugin {
         [
           ctx.contribute(
             ViewPoint,
-            provideView(view, { placements: ["page"], Component: Nothing }),
+            provideView(view, { placements: ["page"], sample: {}, Component: Nothing }),
           ),
           ctx.contribute(
             RoutePoint,

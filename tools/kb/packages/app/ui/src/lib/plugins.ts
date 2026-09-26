@@ -72,6 +72,8 @@ export interface ViewProps<P> {
 export interface View<P> {
   readonly key: ViewKey<P>;
   readonly placements: readonly Placement[];
+  /** The params the view contract mounts this view with. */
+  readonly sample: P;
   readonly Component: FunctionComponent<ViewProps<P>>;
 }
 
@@ -82,6 +84,7 @@ export interface View<P> {
 export interface ProvidedView {
   readonly key: ViewKey<unknown>;
   readonly placements: readonly Placement[];
+  readonly sample: unknown;
   readonly Component: FunctionComponent<ViewProps<never>>;
 }
 

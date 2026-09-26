@@ -21,6 +21,7 @@ export const outlineUiPlugin = definePlugin({
           ViewPoint,
           provideView(OutlineView, {
             placements: ["page"],
+            sample: {},
             Component: OutlineSurface,
           }),
         ),

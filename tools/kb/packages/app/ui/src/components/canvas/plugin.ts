@@ -21,6 +21,7 @@ export const canvasUiPlugin = definePlugin({
           ViewPoint,
           provideView(CanvasListView, {
             placements: ["page"],
+            sample: {},
             Component: CanvasListSurface,
           }),
         ),
@@ -28,6 +29,7 @@ export const canvasUiPlugin = definePlugin({
           ViewPoint,
           provideView(CanvasView, {
             placements: ["page"],
+            sample: { id: "canvas.contract-sample" },
             Component: CanvasSurface,
           }),
         ),

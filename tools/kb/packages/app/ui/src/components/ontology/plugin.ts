@@ -30,6 +30,7 @@ export const ontologyUiPlugin = definePlugin({
           ViewPoint,
           provideView(OntologyListView, {
             placements: ["page"],
+            sample: {},
             Component: OntologyListSurface,
           }),
         ),
@@ -37,6 +38,7 @@ export const ontologyUiPlugin = definePlugin({
           ViewPoint,
           provideView(OntologyScopeView, {
             placements: ["page"],
+            sample: { id: "ontology.contract-sample", view: "page" },
             Component: OntologySurface,
           }),
         ),

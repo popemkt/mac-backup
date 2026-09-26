@@ -19,7 +19,7 @@ export const graphUiPlugin = definePlugin({
       [
         ctx.contribute(
           ViewPoint,
-          provideView(GraphView, { placements: ["page"], Component: GraphSurface }),
+          provideView(GraphView, { placements: ["page"], sample: {}, Component: GraphSurface }),
         ),
         ctx.contribute(
           RoutePoint,
