@@ -635,15 +635,19 @@ if [ -x "$ROOT_DIR/scripts/github-sources" ]; then
 fi
 
 # The upgrade notice is on stderr, so the status probe reads combined output;
-# a pass needs the status command itself to have succeeded.
+# a pass needs the status command itself to have succeeded. The report derives
+# from the status read; the nix --version read only labels it, so its failure
+# costs the label and never the report.
 determinate_lines=()
 nix_version_lines=()
 if ! command -v determinate-nixd >/dev/null 2>&1; then
   record_warn "determinate-nixd not found"
-elif read_probe_into determinate_lines "$determinate_status_probe" "determinate-nixd status" \
-  && read_probe_into nix_version_lines "$nix_version_probe" "nix --version"; then
+elif read_probe_into determinate_lines "$determinate_status_probe" "determinate-nixd status"; then
   determinate_status="$(printf '%s\n' "${determinate_lines[@]}")"
-  nix_version_line="${nix_version_lines[0]:-}"
+  nix_version_line=
+  if read_probe_into nix_version_lines "$nix_version_probe" "nix --version"; then
+    nix_version_line="${nix_version_lines[0]:-}"
+  fi
   if printf '%s\n' "$determinate_status" | grep -qiE 'out of date|now available'; then
     available="$(printf '%s\n' "$determinate_status" | grep -oE 'Determinate Nix [0-9]+(\.[0-9]+)+' | head -1 | awk '{ print $3 }')"
     current="$(printf '%s\n' "$nix_version_line" | grep -oE 'Determinate Nix [0-9]+(\.[0-9]+)+' | head -1 | awk '{ print $3 }')"
