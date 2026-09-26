@@ -241,13 +241,6 @@
         "typescript": "catalog:",
       },
     },
-    "packages/domain/canvas": {
-      "name": "@kb/canvas",
-      "version": "0.0.0",
-      "devDependencies": {
-        "@types/bun": "catalog:",
-      },
-    },
     "packages/domain/model": {
       "name": "@kb/model",
       "version": "0.0.0",
@@ -284,6 +277,13 @@
         "@kb/test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "fast-check": "catalog:",
+      },
+    },
+    "packages/extension/canvas": {
+      "name": "@kb/canvas",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/bun": "catalog:",
       },
     },
     "packages/extension/ext-canvas": {
@@ -679,7 +679,7 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@kb/canvas": ["@kb/canvas@workspace:packages/domain/canvas"],
+    "@kb/canvas": ["@kb/canvas@workspace:packages/extension/canvas"],
 
     "@kb/cli": ["@kb/cli@workspace:packages/app/cli"],
 

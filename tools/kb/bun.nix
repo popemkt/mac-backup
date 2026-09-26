@@ -553,7 +553,7 @@
     url = "https://registry.npmjs.org/@jridgewell/trace-mapping/-/trace-mapping-0.3.31.tgz";
     hash = "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==";
   };
-  "@kb/canvas" = copyPathToStore ./packages/domain/canvas;
+  "@kb/canvas" = copyPathToStore ./packages/extension/canvas;
   "@kb/cli" = copyPathToStore ./packages/app/cli;
   "@kb/client" = copyPathToStore ./packages/app/client;
   "@kb/contracts" = copyPathToStore ./packages/contract/contracts;

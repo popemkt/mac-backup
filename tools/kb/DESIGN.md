@@ -50,12 +50,12 @@ not one, and on any manifest that still declares `layer:*`.
 
 ```
 packages/
-  domain/          model  query  canvas
+  domain/          model  plugin  query
   contract/        contracts  ext-sdk
-  infrastructure/  store-jsonl
+  infrastructure/  store-jsonl  store-sqlite  tx-log  workspace-fs
   application/     operations
-  extension/       ext-canvas  ext-docs
-  app/             runtime  server  cli  mcp  ui  test-kit
+  extension/       canvas  ext-canvas  ext-check  ext-docs
+  app/             client  runtime  server  cli  mcp  ui  test-kit
   test-support/    render-tests
 ```
 
@@ -64,6 +64,16 @@ and the harness applies them to what the code imports. There is no alias map:
 `@kb/*` resolve as workspace packages through each package's `exports`, and a
 package name never encodes its layer — moving a package between folders is a
 `git mv` plus one `extends` path.
+
+An extension's parts are separate workspace packages by runtime, colocated
+under `extension/`: `@kb/canvas` owns the shared JSON Canvas document and
+`@kb/ext-canvas` owns its backend plugin. The browser part still lives in
+`@kb/ui` pending the `@kb/ui-sdk` host contract (gap
+`01M39F3MR3HT2NR553FY8CRD6X`); it must not be extracted as a second UI
+mechanism ahead of that contract. A package has one `scope:*` tag, never a
+per-entry scope. Extension packages can import another extension package's
+public barrel when their scope permits it. Third-party `.kb/extensions` use
+the generated ambient `kb-ext-sdk` declaration, not workspace package imports.
 
 Nothing in the harness reads the Nx project graph. It supplied the tags, and
 its dependency edges were measured to be manifest-derived only; the workspace
@@ -1311,6 +1321,9 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   `docs.materialize`, `docs.check`, `todos` and `rules` as aliases. Core keeps
   only the render mechanism the extension calls into
   (`packages/application/operations/src/docs/`).
+- The canvas document format is extension-owned (`@kb/canvas`,
+  `packages/extension/canvas`) even though it is shared between the backend
+  plugin and the browser. It does not belong to the core node model.
 - Extensions are loaded once per process; changing one requires restarting
   long-lived surfaces (`kb ui`, `kb mcp`).
 - **Extension SDK:** external `.kb/extensions/*.ts` authors get types from
