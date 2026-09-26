@@ -401,8 +401,10 @@ like themselves (P5).
 - **2D (force, cluster).** Curved arrow edges; every node ringed in the
   ground colour (`@sigma/node-border`), in the ink when in focus; labels on
   a soft halo of the ground, their colours read once per appearance. A
-  label sits right of its node, else left, and never over a drawn node or
-  another label, so crowded clusters thin their own labels; label density
+  label sits right of its node, else left, else centred above or below it,
+  and never over another label or a drawn node at least as well connected
+  (a hub ringed by its leaves is named over a leaf), so crowded clusters
+  thin their own labels; label density
   also falls with the square root of the node count past 400. Labels are
   placed in one priority, stated once in `lib/graph-label-layout.ts`
   (`byLabelPriority`) and used by 2D, cluster and 3D alike: the node in

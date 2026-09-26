@@ -356,6 +356,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXNP3EMV1ES85BVE9CXMYE`
 
+### GAP: the graph legend overlays a renderer that cannot pan
+
+- **expected** — A renderer that cannot move its content (treemap: no zoom, no pan) lays out around the legend, so an open legend covers nothing for good
+- **current** — The legend floats over the canvas's top-left corner open by default over every renderer; over the treemap it covers the first tile until folded
+- **impact** — On the treemap the top-left tile is hidden behind an open legend until the user folds it
+- **closes** — The canvas frame hands a non-panning renderer the legend's box as an inset its layout avoids, one rule over capabilitiesFor; folding at first was tried and dropped because the render suite pins the legend open over the treemap
+- **node** — `01M3F6FR67AC4JT3D66G7J0915`
+
 ### GAP: the inline markdown parser is a 41-branch hand-rolled scanner
 
 - **expected** — Inline markdown parses through a table of segment recognizers tried in order, each recognizer a named, separately tested function.

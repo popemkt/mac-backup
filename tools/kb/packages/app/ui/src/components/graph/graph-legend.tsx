@@ -75,7 +75,7 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
   if (buckets.length <= 1 && activeFilters.size === 0) return null;
 
   return (
-    <div className="absolute left-3 top-3 z-20 flex flex-col rounded-lg border border-foreground/8 bg-popover/90 shadow-floating backdrop-blur-sm">
+    <div className="absolute left-3 top-3 z-20 flex max-h-[calc(100%-1.5rem)] flex-col rounded-lg border border-foreground/8 bg-popover/90 shadow-floating backdrop-blur-sm">
       <button
         type="button"
         className="flex items-center gap-1.5 px-2.5 py-1.5 text-label font-medium text-foreground/60 hover:text-foreground/80"
@@ -91,7 +91,7 @@ export function GraphLegend({ nodes, onFilterChange }: GraphLegendProps) {
         )}
       </button>
       {!collapsed && (
-        <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto px-1 pb-1.5">
+        <div className="flex min-h-0 max-h-72 flex-col gap-0.5 overflow-y-auto px-1 pb-1.5">
           {activeFilters.size > 0 && (
             <button
               type="button"

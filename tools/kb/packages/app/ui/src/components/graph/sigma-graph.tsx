@@ -8,7 +8,6 @@ import { createNodeBorderProgram } from "@sigma/node-border";
 import type { LensEdge, LensNode, LensLayout, LensLabelDensity } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
 import { graphLabelFont } from "@/lib/graph-label";
-import type { GraphLabelBox } from "@/lib/graph-label-layout";
 import { prefersReducedMotion } from "@/lib/motion";
 import { readTiming } from "@/lib/timing";
 import {
@@ -30,6 +29,7 @@ import {
   reserveInGraphLabels,
   resetGraphLabels,
   setGraphLabelInk,
+  type GraphNodeBox,
 } from "./sigma-labels";
 import { clusterHulls } from "./cluster-hulls";
 import { GraphTooltip } from "./graph-tooltip";
@@ -144,14 +144,15 @@ export function SigmaGraph(props: SigmaGraphProps) {
     // The drawn nodes' boxes are what labels must not cover. They are sampled
     // when the frame's first label is placed (see resetGraphLabels), after
     // sigma has processed this frame's positions and camera.
-    const sampleNodes = (out: GraphLabelBox[]) => {
-      graph.forEachNode((id) => {
+    const sampleNodes = (out: GraphNodeBox[]) => {
+      graph.forEachNode((id, attrs) => {
         const display = sigma.getNodeDisplayData(id);
         if (!display || display.hidden) return;
         const r = sigma.scaleSize(display.size);
         if (r < MIN_BLOCKING_RADIUS) return;
         const at = sigma.framedGraphToViewport(display);
-        out.push({ x: at.x - r - 1, y: at.y - r - 1, width: 2 * r + 2, height: 2 * r + 2 });
+        const degree = typeof attrs.degree === "number" ? attrs.degree : 0;
+        out.push({ x: at.x - r - 1, y: at.y - r - 1, width: 2 * r + 2, height: 2 * r + 2, degree });
       });
     };
     sigma.on("beforeRender", () => {

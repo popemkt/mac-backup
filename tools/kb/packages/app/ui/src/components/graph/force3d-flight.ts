@@ -138,6 +138,13 @@ function distance(a: Vec3, b: Vec3): number {
 }
 
 /**
+ * The smallest sphere a fit frames, world units: a graph of a few nodes, or
+ * of edgeless ones seeded close together, is seen at a node's scale, never
+ * with its nodes filling the frame.
+ */
+const FIT_MIN_RADIUS = 120;
+
+/**
  * The goal that frames every point: look at the centre of their bounding
  * sphere from the camera's current direction, far enough back that the
  * sphere fits the narrower field of view with `padding` to spare.
@@ -172,7 +179,7 @@ export function fitGoal(
   out.look.x = (minX + maxX) / 2;
   out.look.y = (minY + maxY) / 2;
   out.look.z = (minZ + maxZ) / 2;
-  const radius = Math.max(10, Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2);
+  const radius = Math.max(FIT_MIN_RADIUS, Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2);
   const vertical = (view.fov * Math.PI) / 360;
   const narrow = Math.min(vertical, Math.atan(Math.tan(vertical) * view.aspect));
   const back = (radius * padding) / Math.sin(narrow);

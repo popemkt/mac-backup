@@ -20,30 +20,41 @@ type LabelSettings = Parameters<Settings["defaultDrawNodeLabel"]>[2];
  * Sigma asks for labels cell by cell, not by importance, so the label pass
  * only collects its requests; `placeGraphLabels` (after sigma has drawn)
  * places them in the shared priority order (`byLabelPriority`), each beside
- * its node, clear of nodes, of what the frame reserved first (a cluster's
- * title) and of every label placed before it.
+ * its node, clear of what the frame reserved first (a cluster's title), of
+ * every label placed before it, and of every node at least as well connected.
  */
 interface LabelFrame {
-  readonly sample: (out: GraphLabelBox[]) => void;
-  nodes: GraphLabelBox[] | null;
-  /** The boxes taken so far: the nodes, reserved titles, then each placed label. */
-  placed: GraphLabelBox[] | null;
+  readonly sample: (out: GraphNodeBox[]) => void;
+  nodes: GraphNodeBox[] | null;
+  /** The boxes taken so far: reserved titles, then each placed label. */
+  readonly placed: GraphLabelBox[];
   readonly requests: { ctx: CanvasRenderingContext2D; data: LabelData; settings: LabelSettings }[];
 }
 const frames = new WeakMap<HTMLCanvasElement, LabelFrame>();
 
-function nodesOf(frame: LabelFrame): GraphLabelBox[] {
+/** A drawn node's box, and how connected the node is. */
+export interface GraphNodeBox extends GraphLabelBox {
+  readonly degree: number;
+}
+
+function nodesOf(frame: LabelFrame): GraphNodeBox[] {
   if (frame.nodes === null) {
-    const nodes: GraphLabelBox[] = [];
+    const nodes: GraphNodeBox[] = [];
     frame.sample(nodes);
     frame.nodes = nodes;
   }
   return frame.nodes;
 }
 
-function placedOf(frame: LabelFrame): GraphLabelBox[] {
-  frame.placed ??= [...nodesOf(frame)];
-  return frame.placed;
+/**
+ * Whether a label of a node with `degree` may take `box`: clear of every
+ * label and title placed before it, and of every drawn node at least as well
+ * connected. A label may cover a lesser node: a hub ringed by its leaves is
+ * still named, over a leaf rather than not at all.
+ */
+function reserveFor(frame: LabelFrame, box: GraphLabelBox, degree: number): boolean {
+  const blocking = nodesOf(frame).filter((node) => node.degree >= degree);
+  return !overlapsGraphLabel(box, blocking) && reserveGraphLabel(box, frame.placed);
 }
 
 /**
@@ -73,18 +84,31 @@ function labelInk(): { text: string; halo: string } {
  */
 export function resetGraphLabels(
   canvases: Iterable<HTMLCanvasElement>,
-  sampleNodes: (out: GraphLabelBox[]) => void,
+  sampleNodes: (out: GraphNodeBox[]) => void,
 ): void {
-  const frame: LabelFrame = { sample: sampleNodes, nodes: null, placed: null, requests: [] };
+  const frame: LabelFrame = { sample: sampleNodes, nodes: null, placed: [], requests: [] };
   for (const canvas of canvases) frames.set(canvas, frame);
 }
 
 /** Take `box` for this frame's labels (a cluster's title); false when it is taken. */
 export function reserveInGraphLabels(canvas: HTMLCanvasElement, box: GraphLabelBox): boolean {
   const frame = frames.get(canvas);
-  return frame === undefined || reserveGraphLabel(box, placedOf(frame));
+  return frame === undefined || reserveFor(frame, box, Infinity);
 }
 
+/** Where a label may stand: its baseline's start, and the box it covers. */
+interface LabelPlace {
+  readonly x: number;
+  readonly y: number;
+  readonly box: GraphLabelBox;
+}
+
+/**
+ * A label's text, fitted, and the places it may stand, best first: right of
+ * its node, left of it, then centred above and below it — a hub ringed by
+ * its neighbours on both sides is still labelled over or under itself.
+ * Every place is clamped into the frame.
+ */
 function measured(ctx: CanvasRenderingContext2D, data: LabelData, settings: LabelSettings) {
   ctx.font = `${settings.labelSize}px ${settings.labelFont}`;
   const dpr = window.devicePixelRatio || 1;
@@ -96,18 +120,22 @@ function measured(ctx: CanvasRenderingContext2D, data: LabelData, settings: Labe
     Math.max(60, Math.min(220, viewportWidth - 24)),
   );
   const width = ctx.measureText(text).width;
-  const y = Math.max(16, Math.min(data.y + settings.labelSize / 3, viewportHeight - 6));
-  const boxAt = (at: number) => ({
-    x: at - 3,
-    y: y - settings.labelSize - 2,
-    width: width + 8,
-    height: settings.labelSize + 7,
+  const size = settings.labelSize;
+  const clampX = (at: number) => Math.max(8, Math.min(at, viewportWidth - width - 8));
+  const clampY = (at: number) => Math.max(16, Math.min(at, viewportHeight - 6));
+  const place = (x: number, y: number): LabelPlace => ({
+    x,
+    y,
+    box: { x: x - 3, y: y - size - 2, width: width + 8, height: size + 7 },
   });
-  // Right of the node, else left of it; clamped into the frame.
-  const places = [data.x + data.size + 6, data.x - data.size - 10 - width].map((at) =>
-    Math.max(8, Math.min(at, viewportWidth - width - 8)),
-  );
-  return { text, y, boxAt, places };
+  const beside = clampY(data.y + size / 3);
+  const places: LabelPlace[] = [
+    place(clampX(data.x + data.size + 6), beside),
+    place(clampX(data.x - data.size - 10 - width), beside),
+    place(clampX(data.x - width / 2), clampY(data.y - data.size - 6)),
+    place(clampX(data.x - width / 2), clampY(data.y + data.size + size + 4)),
+  ];
+  return { text, places };
 }
 
 function paint(ctx: CanvasRenderingContext2D, text: string, x: number, y: number): void {
@@ -135,14 +163,13 @@ export const drawGraphLabel: Settings["defaultDrawNodeLabel"] = (ctx, data, sett
     frame.requests.push({ ctx, data, settings });
     return;
   }
-  const { text, y, boxAt, places } = measured(ctx, data, settings);
-  let x = places[0] ?? 8;
-  if (frame !== undefined) {
-    // The hover pass: always drawn, on whichever side is clear of other nodes.
-    const nodes = nodesOf(frame);
-    x = places.find((at) => !overlapsGraphLabel(boxAt(at), nodes)) ?? x;
-  }
-  paint(ctx, text, x, y);
+  const { text, places } = measured(ctx, data, settings);
+  const first = places[0];
+  if (first === undefined) return;
+  // The hover pass: always drawn, wherever is clear of other nodes, else beside it.
+  const nodes = frame === undefined ? [] : nodesOf(frame);
+  const at = places.find((p) => !overlapsGraphLabel(p.box, nodes)) ?? first;
+  paint(ctx, text, at.x, at.y);
 };
 
 /** A label's rank: sigma hands the node's own attributes through, `degree` among them. */
@@ -165,11 +192,11 @@ export function placeGraphLabels(canvas: HTMLCanvasElement): void {
   const requests = frame.requests
     .splice(0)
     .toSorted((a, b) => byLabelPriority(rankOf(a.data), rankOf(b.data)));
-  const boxes = placedOf(frame);
   for (const { ctx, data, settings } of requests) {
-    const { text, y, boxAt, places } = measured(ctx, data, settings);
-    const free = places.find((at) => reserveGraphLabel(boxAt(at), boxes));
-    if (free !== undefined) paint(ctx, text, free, y);
+    const { text, places } = measured(ctx, data, settings);
+    const { degree } = rankOf(data);
+    const free = places.find((p) => reserveFor(frame, p.box, degree));
+    if (free !== undefined) paint(ctx, text, free.x, free.y);
   }
 }
 

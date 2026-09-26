@@ -38,14 +38,22 @@ export function createFA2Layout(graph: Graph, opts?: { onConverged?: () => void 
   return createSyncFallbackLayout(graph, opts);
 }
 
+/**
+ * The one ForceAtlas2 setting set, worker and fallback alike: inferred from
+ * the graph, with a strong, gentle gravity so nodes with no links settle near
+ * the rest instead of drifting to the frame's corners as specks.
+ */
+function fa2Settings(graph: Graph) {
+  return {
+    ...forceAtlas2.inferSettings(graph),
+    barnesHutOptimize: graph.order > 500,
+    strongGravityMode: true,
+    gravity: 0.3,
+  };
+}
+
 function createWorkerLayout(graph: Graph, opts?: { onConverged?: () => void }): FA2Controller {
-  const settings = forceAtlas2.inferSettings(graph);
-  const layout = new FA2Layout(graph, {
-    settings: {
-      ...settings,
-      barnesHutOptimize: graph.order > 500,
-    },
-  });
+  const layout = new FA2Layout(graph, { settings: fa2Settings(graph) });
 
   let settleTimer: ReturnType<typeof setTimeout> | null = null;
   let running = false;
@@ -107,7 +115,7 @@ function createSyncFallbackLayout(
   let iterationsLeft = 0;
   const CHUNK = 10;
 
-  const settings = forceAtlas2.inferSettings(graph);
+  const settings = fa2Settings(graph);
 
   function tick() {
     if (iterationsLeft <= 0 || graph.order === 0) {

@@ -7,7 +7,6 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Settings } from "sigma/settings";
-import type { GraphLabelBox } from "@/lib/graph-label-layout";
 import {
   drawGraphHover,
   drawGraphLabel,
@@ -15,6 +14,7 @@ import {
   reserveInGraphLabels,
   resetGraphLabels,
   setGraphLabelInk,
+  type GraphNodeBox,
 } from "./sigma-labels";
 
 type LabelData = Parameters<Settings["defaultDrawNodeLabel"]>[1];
@@ -52,12 +52,19 @@ const settings = { labelSize: 12, labelFont: "sans-serif" } as unknown as Settin
 /** A world whose one blocking node moves with the layout and the camera. */
 function world() {
   const state = { layoutX: 0, cameraX: 0 };
-  const sample = (out: GraphLabelBox[]) => {
+  const sample = (out: GraphNodeBox[]) => {
     // Viewport position = layout position shifted by the camera.
     const x = 300 + state.layoutX - state.cameraX;
-    out.push({ x: x - 10, y: 290, width: 20, height: 20 });
+    out.push({ x: x - 10, y: 290, width: 20, height: 20, degree: 0 });
   };
   return { state, sample };
+}
+
+/** One node box covering the whole frame, of `degree`. */
+function around(degree: number) {
+  return (out: GraphNodeBox[]) => {
+    out.push({ x: 0, y: 0, width: 800, height: 600, degree });
+  };
 }
 
 function label(x: number): LabelData {
@@ -106,7 +113,7 @@ describe("2D label placement samples the drawn frame", () => {
   it("samples once per frame, and again on the next", () => {
     const { ctx, canvas } = fakeContext();
     let samples = 0;
-    const counting = (out: GraphLabelBox[]) => {
+    const counting = (out: GraphNodeBox[]) => {
       samples++;
       out.length = 0;
     };
@@ -127,7 +134,7 @@ describe("2D label placement samples the drawn frame", () => {
     const hovers = fakeContext("sigma-hovers");
     const { state, sample } = world();
     let samples = 0;
-    const counting = (out: GraphLabelBox[]) => {
+    const counting = (out: GraphNodeBox[]) => {
       samples++;
       sample(out);
     };
@@ -146,7 +153,7 @@ describe("2D label placement samples the drawn frame", () => {
   it("always draws the hover label, even when no side is clear", () => {
     const hovers = fakeContext("sigma-hovers");
     resetGraphLabels([hovers.canvas] as unknown as HTMLCanvasElement[], (out) =>
-      out.push({ x: 0, y: 0, width: 800, height: 600 }),
+      out.push({ x: 0, y: 0, width: 800, height: 600, degree: 0 }),
     );
     drawGraphHover(hovers.ctx, label(330), settings);
     expect(hovers.drawn).toHaveLength(1);
@@ -161,6 +168,21 @@ describe("2D label placement samples the drawn frame", () => {
     placeGraphLabels(canvas as unknown as HTMLCanvasElement);
     expect(drawn.map((d) => d.text)).toContain("hub");
     expect(drawn[0]?.text).toBe("hub");
+  });
+
+  it("names a hub ringed by leaves over a leaf, but never covers a better-connected node", () => {
+    const { ctx, canvas, drawn } = fakeContext();
+    const el = canvas as unknown as HTMLCanvasElement;
+    // Every place round the node is covered by one node box.
+    resetGraphLabels([el], around(2));
+    drawGraphLabel(ctx, { ...label(300), key: "hub", label: "hub", degree: 30 }, settings);
+    placeGraphLabels(el);
+    expect(drawn.map((d) => d.text)).toEqual(["hub"]);
+    drawn.length = 0;
+    resetGraphLabels([el], around(40));
+    drawGraphLabel(ctx, { ...label(300), key: "hub", label: "hub", degree: 30 }, settings);
+    placeGraphLabels(el);
+    expect(drawn).toHaveLength(0);
   });
 
   it("keeps a label off a box the frame reserved first (a cluster title)", () => {
