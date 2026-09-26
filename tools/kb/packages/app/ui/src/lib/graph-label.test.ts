@@ -28,3 +28,14 @@ it("graph text displays reference labels and resolves bare references without ex
   ).toBe("See Topic and Other idea");
   expect(graphDisplayText("")).toBe("Untitled");
 });
+
+it("graph text round-trips text that holds no emphasis, underscores included", () => {
+  for (const text of [
+    "a_b_c",
+    "snake_case_name",
+    "Review reconcile_claude_direct_routing.py",
+    "2 * 3 * 4",
+  ])
+    expect(graphDisplayText(text)).toBe(text);
+  expect(graphDisplayText("_em_ and **strong**")).toBe("em and strong");
+});

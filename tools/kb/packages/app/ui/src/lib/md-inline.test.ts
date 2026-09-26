@@ -10,6 +10,10 @@ import {
   textHasAssetRef,
 } from "./md-inline";
 
+function literal(text: string): void {
+  expect(parseInlineMd(text)).toEqual([{ t: "text", v: text }]);
+}
+
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 describe("parseInlineMd", () => {
@@ -98,6 +102,45 @@ describe("parseInlineMd", () => {
 
   it("leaves unmatched markers as plain text", () => {
     expect(parseInlineMd("a * lone star")).toEqual([{ t: "text", v: "a * lone star" }]);
+  });
+
+  describe("CommonMark flanking", () => {
+    it("never opens or closes `_` inside a word", () => {
+      literal("a_b_c");
+      literal("snake_case_name");
+      literal("Review reconcile_claude_direct_routing.py");
+      literal("x__y__z");
+    });
+
+    it("still emphasises a `_` run at word boundaries", () => {
+      expect(parseInlineMd("_em_")).toEqual([{ t: "italic", v: "em" }]);
+      expect(parseInlineMd("a _b_ c")).toEqual([
+        { t: "text", v: "a " },
+        { t: "italic", v: "b" },
+        { t: "text", v: " c" },
+      ]);
+      // The intraword `_` inside is text; the outer pair still closes.
+      expect(parseInlineMd("_foo_bar_")).toEqual([{ t: "italic", v: "foo_bar" }]);
+      // CommonMark: `__init__.py` is strong "init" — the closing run is followed
+      // by punctuation, which does not stop it from closing.
+      expect(parseInlineMd("__init__.py")).toEqual([
+        { t: "bold", v: "init" },
+        { t: "text", v: ".py" },
+      ]);
+    });
+
+    it("lets `*` emphasise inside a word", () => {
+      expect(parseInlineMd("un*frig*ly")).toEqual([
+        { t: "text", v: "un" },
+        { t: "italic", v: "frig" },
+        { t: "text", v: "ly" },
+      ]);
+    });
+
+    it("does not open before, or close after, whitespace", () => {
+      literal("2 * 3 * 4");
+      literal("a ** b ** c");
+    });
   });
 });
 

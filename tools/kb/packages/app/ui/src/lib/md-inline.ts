@@ -92,6 +92,70 @@ function parseUrlAfterParen(text: string, openParenIdx: number): number {
   return -1;
 }
 
+function runLength(text: string, at: number): number {
+  let end = at;
+  while (text[end] === text[at]) end++;
+  return end - at;
+}
+
+const WORD_CHAR = /[\p{L}\p{N}]/u;
+const SPACE = /\s/u;
+
+function isSpaceAt(text: string, at: number): boolean {
+  const ch = text[at];
+  return ch === undefined || SPACE.test(ch);
+}
+
+function isWordAt(text: string, at: number): boolean {
+  const ch = text[at];
+  return ch !== undefined && WORD_CHAR.test(ch);
+}
+
+/**
+ * The CommonMark flanking rule, for the one- and two-character runs kb reads.
+ * A run opens only when a non-space follows it and closes only when a
+ * non-space precedes it, and `_` additionally never opens after, or closes
+ * before, a letter or digit — so `snake_case_name` stays text while `*` may
+ * still emphasise inside a word (`un*frigging*believable`).
+ */
+function canOpen(text: string, at: number, length: number): boolean {
+  if (isSpaceAt(text, at + length)) return false;
+  return text[at] !== "_" || !isWordAt(text, at - 1);
+}
+
+function canClose(text: string, at: number, length: number): boolean {
+  if (isSpaceAt(text, at - 1)) return false;
+  return text[at] !== "_" || !isWordAt(text, at + length);
+}
+
+/** The first run of exactly `length` marks after `from` that can close. */
+function closerOf(text: string, from: number, mark: string, length: number): number {
+  let j = from;
+  while (j < text.length) {
+    if (text[j] !== mark) {
+      j++;
+      continue;
+    }
+    const run = runLength(text, j);
+    if (run === length && canClose(text, j, length)) return j;
+    j += run;
+  }
+  return -1;
+}
+
+/** Emphasis opened by the `run`-long delimiter run at `at`, or null when it is literal. */
+function emphasisAt(
+  text: string,
+  at: number,
+  run: number,
+): { seg: InlineSeg; next: number } | null {
+  if (run > 2 || !canOpen(text, at, run)) return null;
+  const end = closerOf(text, at + run, text.charAt(at), run);
+  if (end < 0) return null;
+  const v = text.slice(at + run, end);
+  return { seg: run === 2 ? { t: "bold", v } : { t: "italic", v }, next: end + run };
+}
+
 // oxlint-disable-next-line complexity -- GAP [[01M1MGCM9RWXE3CYANZK5K4KC0]]
 function parseOnce(text: string): InlineSeg[] {
   const out: InlineSeg[] = [];
@@ -179,28 +243,20 @@ function parseOnce(text: string): InlineSeg[] {
       }
     }
 
-    // **bold** or __bold__
-    if ((text[i] === "*" && text[i + 1] === "*") || (text[i] === "_" && text[i + 1] === "_")) {
-      const mark = text.charAt(i);
-      const end = text.indexOf(mark + mark, i + 2);
-      if (end > i + 1) {
+    // **bold**, __bold__, *italic*, _italic_ — one delimiter run at a time
+    const mark = text.charAt(i);
+    if (mark === "*" || mark === "_") {
+      const run = runLength(text, i);
+      const emphasis = emphasisAt(text, i, run);
+      if (emphasis) {
         flush();
-        out.push({ t: "bold", v: text.slice(i + 2, end) });
-        i = end + 2;
-        continue;
+        out.push(emphasis.seg);
+        i = emphasis.next;
+      } else {
+        buf += text.slice(i, i + run);
+        i += run;
       }
-    }
-
-    // *italic* or _italic_ (single; not part of **)
-    if ((text[i] === "*" || text[i] === "_") && text[i + 1] !== text[i]) {
-      const mark = text.charAt(i);
-      const end = text.indexOf(mark, i + 1);
-      if (end > i + 1 && text[end + 1] !== mark) {
-        flush();
-        out.push({ t: "italic", v: text.slice(i + 1, end) });
-        i = end + 1;
-        continue;
-      }
+      continue;
     }
 
     buf += text[i];
