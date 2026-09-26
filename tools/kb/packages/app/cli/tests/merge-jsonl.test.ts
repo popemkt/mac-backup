@@ -11,12 +11,14 @@
  * case then loses their node.
  */
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, writeFile, readFile, mkdir } from "node:fs/promises";
+import { realpathSync } from "node:fs";
+import { mkdtemp, rm, writeFile, readFile, mkdir, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { canonicalJsonl, type KbNode } from "@kb/model";
+import { canonicalJsonl, present, type KbNode } from "@kb/model";
 
-const DRIVER = resolve(import.meta.dir, "../src/bin/merge-jsonl.ts");
+/** What a clone registers: the wrapper, which runs the id-based driver when it can. */
+const DRIVER = resolve(import.meta.dir, "../../../../bin/merge-jsonl");
 
 function node(id: string, text: string, updatedAt = "2026-01-01T00:00:00.000Z"): KbNode {
   return {
@@ -31,16 +33,22 @@ function node(id: string, text: string, updatedAt = "2026-01-01T00:00:00.000Z"):
 
 let repo: string;
 
-async function git(...args: string[]): Promise<{ code: number; stderr: string }> {
+/** Run git in the scratch repo, with `env` over the inherited environment. */
+async function gitWith(
+  env: Record<string, string>,
+  ...args: string[]
+): Promise<{ code: number; stderr: string }> {
   const proc = Bun.spawn(["git", ...args], {
     cwd: repo,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...Bun.env, GIT_CONFIG_NOSYSTEM: "1", HOME: repo },
+    env: { ...Bun.env, GIT_CONFIG_NOSYSTEM: "1", HOME: repo, ...env },
   });
   const stderr = await new Response(proc.stderr).text();
   return { code: await proc.exited, stderr };
 }
+
+const git = (...args: string[]) => gitWith({}, ...args);
 
 const STORE = ".kb/nodes.jsonl";
 
@@ -58,7 +66,7 @@ async function setUpRepo(): Promise<void> {
   await git("config", "user.email", "test@example.com");
   await git("config", "user.name", "Test");
   await git("config", "merge.kb-jsonl.name", "kb node store (three-way by node id)");
-  await git("config", "merge.kb-jsonl.driver", `bun ${DRIVER} %O %A %B %P`);
+  await git("config", "merge.kb-jsonl.driver", `${DRIVER} %O %A %B %P`);
   await mkdir(join(repo, ".kb"), { recursive: true });
   await writeFile(join(repo, ".gitattributes"), `${STORE} merge=kb-jsonl\n`);
 }
@@ -141,6 +149,49 @@ describe("nodes.jsonl merge driver", () => {
 
     expect((await git("merge", "--no-edit", "theirs")).code).toBe(0);
     expect((JSON.parse((await readStore()).trim()) as KbNode).text).toBe("ours");
+  });
+
+  test("without bun, the wrapper falls back to git's text merge and says why", async () => {
+    const base = node("01AAA", "a");
+    await writeStore([base]);
+    await git("add", "-A");
+    await git("commit", "-qm", "base");
+    await branchWith("theirs", [base, node("01THEIR", "from their branch")]);
+    await writeStore([base, node("01OUR", "from our branch")]);
+    await git("commit", "-qam", "ours");
+
+    // A PATH that has git and the POSIX tools but no bun.
+    const bin = join(repo, ".no-bun-bin");
+    await mkdir(bin);
+    await symlink(realpathSync(present(Bun.which("git"), "git on PATH")), join(bin, "git"));
+    const merge = await gitWith({ PATH: `${bin}:/usr/bin:/bin` }, "merge", "--no-edit", "theirs");
+
+    expect(merge.code).not.toBe(0);
+    expect(merge.stderr).toContain("bun is not on PATH; fell back to a text merge");
+    // Git's text merge ran over the same three files: both appends are there.
+    const body = await readStore();
+    expect(body).toContain("01OUR");
+    expect(body).toContain("01THEIR");
+  });
+
+  test("a driver that cannot merge falls back the same way, with its reason", async () => {
+    // A base that is not a node store: the driver refuses it (exit 2).
+    await writeFile(join(repo, STORE), "not json\n");
+    await git("add", "-A");
+    await git("commit", "-qm", "base");
+    await git("checkout", "-q", "-b", "theirs", "main");
+    await writeFile(join(repo, STORE), "not json\ntheirs\n");
+    await git("commit", "-qam", "theirs");
+    await git("checkout", "-q", "main");
+    await writeFile(join(repo, STORE), "ours\nnot json\n");
+    await git("commit", "-qam", "ours");
+
+    const merge = await git("merge", "--no-edit", "theirs");
+
+    expect(merge.code).not.toBe(0);
+    expect(merge.stderr).toContain("is not a valid node store");
+    expect(merge.stderr).toContain("the kb driver could not merge (exit 2)");
+    expect(await readStore()).toBe("ours\nnot json\ntheirs\n");
   });
 
   test("a deletion racing an edit stops the merge and names the node", async () => {

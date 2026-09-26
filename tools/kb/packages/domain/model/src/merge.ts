@@ -18,9 +18,17 @@
  *  4. Anything left is a real disagreement — one side deleted what the other
  *     edited, or both edited to the same timestamp. Those are reported, not
  *     guessed at.
+ *
+ * Then the merged set's sibling ranks are settled with the store's own commit
+ * step (`rankTx`, DESIGN.md → Sibling ranks). That is part of the merge, not a
+ * pass after it: resolving by id is exactly what lets two branches that each
+ * appended a root at the tail — each ranking it from the same read — land
+ * with one rank between them, and the merge is the only writer that sees
+ * both.
  */
 import { canonicalJson } from "./canonical.ts";
 import type { KbNode } from "./model.ts";
+import { rankTx } from "./order.ts";
 
 /** Why two sides could not be reconciled for one node id. */
 export type MergeConflictReason = "deleted-and-modified" | "modified-both-same-stamp";
@@ -32,9 +40,9 @@ export interface MergeConflict {
 
 export interface MergeResult {
   /**
-   * The merged node set — always complete and loadable. A conflicted id keeps
-   * whichever side still has the node (ours first), so a conflict never
-   * silently loses content; it asks a human to choose again.
+   * The merged node set — always complete, loadable and well ranked. A
+   * conflicted id keeps whichever side still has the node (ours first), so a
+   * conflict never silently loses content; it asks a human to choose again.
    */
   nodes: KbNode[];
   /** Empty when the merge is clean. */
@@ -102,5 +110,5 @@ export function mergeNodeSets(
     nodes.push(a.updatedAt > b.updatedAt ? a : b);
   }
 
-  return { nodes, conflicts };
+  return { nodes: rankTx([], { upserts: nodes, deletes: [] }).upserts, conflicts };
 }

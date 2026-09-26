@@ -69,20 +69,26 @@ once, in `DESIGN.md` →
 - Merging `nodes.jsonl`: the store is a set of nodes keyed by id, so git's
   line-based merge reports conflicts that are not conflicts — ULIDs put every
   newly created node at the tail, and two branches that each add one collide
-  there. `.gitattributes` routes both stores through the `kb-jsonl` driver
-  (`packages/app/cli/src/bin/merge-jsonl.ts`, resolution rules in
-  `@kb/model`'s `mergeNodeSets`). Git config is per clone and is not
-  versioned, so — like `git config core.hooksPath .githooks` — register it
-  once per clone, from the repo root:
+  there. `.gitattributes` routes both stores through the `kb-jsonl` driver:
+  `tools/kb/bin/merge-jsonl`, a POSIX wrapper around
+  `packages/app/cli/src/bin/merge-jsonl.ts`, whose resolution rules — by node
+  id, then sibling ranks settled over the result — are `@kb/model`'s
+  `mergeNodeSets` (`DESIGN.md` → Sibling ranks). Git config is per clone and
+  is not versioned, so — like `git config core.hooksPath .githooks` — register
+  it once per clone, from the repo root (a clone registered before the wrapper
+  existed re-runs the second line):
 
   ```bash
   git config merge.kb-jsonl.name "kb node store (three-way by node id)"
-  git config merge.kb-jsonl.driver \
-    "bun tools/kb/packages/app/cli/src/bin/merge-jsonl.ts %O %A %B %P"
+  git config merge.kb-jsonl.driver "tools/kb/bin/merge-jsonl %O %A %B %P"
   ```
 
-  Without it git falls back to the default text merge, which is the behaviour
-  that exists today: noisy, but never wrong about content.
+  When the id-based merge cannot run — no `bun` on PATH, `tools/kb`'s
+  dependencies not installed, or the driver refusing a side it cannot read —
+  the wrapper runs `git merge-file` over the same three files, prints why on
+  one line, and exits non-zero, so git leaves the path conflicted for a human.
+  An unregistered driver gets git's default text merge: noisy, but never
+  wrong about content.
 
 ## Extensions
 

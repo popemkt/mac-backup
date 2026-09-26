@@ -628,6 +628,10 @@ move operations, every store's commit, the merge, and — through the operations
   from one read never leave two siblings on one rank: the second commit sees
   the first. Untouched groups are left exactly as stored. `storeContract`
   holds all of this for every backend.
+- **A merge is one merge.** `mergeNodeSets` resolves by node id and then
+  settles ranks over the result with the same `rankTx`, so two branches that
+  each appended a root from one read never merge into a tie. The git merge
+  driver is only its boundary (tools/kb/AGENTS.md → merging `nodes.jsonl`).
 - **Opening is a read.** `openKb` writes only when a real migration runs (the
   seed adds or retires something, or a field-type value is rewritten), and
   then commits exactly the nodes it changed. A node without a rank is ordered

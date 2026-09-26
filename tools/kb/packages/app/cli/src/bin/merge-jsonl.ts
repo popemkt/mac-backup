@@ -2,22 +2,26 @@
 /**
  * Git merge driver for `.kb/nodes.jsonl`.
  *
- * Registered per clone (git config is not versioned) alongside the hooks path:
+ * Git runs it through `tools/kb/bin/merge-jsonl`, which is what the clone
+ * registers (tools/kb/AGENTS.md) and which falls back to git's text merge
+ * when this file cannot run. `.gitattributes` points both stores at it. Git
+ * passes the three versions as files, expects the result written back over
+ * `%A`, and reads the exit status.
  *
- *   git config merge.kb-jsonl.name "kb node store (three-way by node id)"
- *   git config merge.kb-jsonl.driver \
- *     "bun tools/kb/packages/app/cli/src/bin/merge-jsonl.ts %O %A %B %P"
- *
- * `.gitattributes` points both stores at it. Git passes the three versions as
- * files, expects the result written back over `%A`, and reads the exit status
- * as clean (0) or conflicted (non-zero).
- *
- * The merge itself is {@link mergeNodeSets} — this file is the git boundary
- * and nothing else: read three files, write one, choose an exit code.
+ * The merge itself is `mergeNodeSets` — this file is the git boundary and
+ * nothing else: read three files, write one, choose an exit code. The codes
+ * are 0 merged, 1 merged with nodes that need a decision, 2 could not merge
+ * (`%A` untouched). The model is imported inside the `try`, so a clone whose
+ * dependencies are missing is a 2 with a reason, never a crash git would read
+ * as a conflict.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { canonicalJsonl, decodeStoredNode, mergeNodeSets, type KbNode } from "@kb/model";
-import { writeErr } from "@kb/runtime";
+import type { KbNode } from "@kb/model";
+
+/** Git shows the driver's stderr; each message is one line. */
+function writeErr(line: string): void {
+  process.stderr.write(`${line}\n`);
+}
 
 /** An error and what caused it, on one line — git shows the driver's stderr. */
 function describe(err: unknown): string {
@@ -26,7 +30,7 @@ function describe(err: unknown): string {
 }
 
 /** Parse one side. A side git never wrote (a fresh add) is an empty store. */
-function readSide(path: string, label: string): KbNode[] {
+function readSide(decode: (value: unknown) => KbNode, path: string, label: string): KbNode[] {
   let body: string;
   try {
     body = readFileSync(path, "utf8");
@@ -38,7 +42,7 @@ function readSide(path: string, label: string): KbNode[] {
   for (const [i, line] of lines.entries()) {
     if (line.trim().length === 0) continue;
     try {
-      nodes.push(decodeStoredNode(JSON.parse(line)));
+      nodes.push(decode(JSON.parse(line)));
     } catch (err) {
       throw new Error(`${label} is not a valid node store at line ${String(i + 1)}`, {
         cause: err,
@@ -55,25 +59,28 @@ if (basePath === undefined || oursPath === undefined || theirsPath === undefined
 }
 const shown = displayPath ?? oursPath;
 
-let result;
+let body: string;
+let conflicts: readonly { id: string; reason: string }[];
 try {
-  result = mergeNodeSets(
-    readSide(basePath, "the merge base"),
-    readSide(oursPath, "our side"),
-    readSide(theirsPath, "their side"),
+  const { canonicalJsonl, decodeStoredNode, mergeNodeSets } = await import("@kb/model");
+  const result = mergeNodeSets(
+    readSide(decodeStoredNode, basePath, "the merge base"),
+    readSide(decodeStoredNode, oursPath, "our side"),
+    readSide(decodeStoredNode, theirsPath, "their side"),
   );
+  body = canonicalJsonl(result.nodes);
+  conflicts = result.conflicts;
 } catch (err) {
-  // Leave %A untouched: git falls back to reporting the path as conflicted
-  // with our version in the worktree, which is recoverable by hand.
+  // Leave %A untouched; the wrapper falls back to git's text merge.
   writeErr(`merge-jsonl: ${shown}: ${describe(err)}`);
   process.exit(2);
 }
 
-writeFileSync(oursPath, canonicalJsonl(result.nodes));
+writeFileSync(oursPath, body);
 
-if (result.conflicts.length > 0) {
-  writeErr(`merge-jsonl: ${shown}: ${String(result.conflicts.length)} node(s) need a decision:`);
-  for (const c of result.conflicts) writeErr(`  ${c.id}: ${c.reason}`);
+if (conflicts.length > 0) {
+  writeErr(`merge-jsonl: ${shown}: ${String(conflicts.length)} node(s) need a decision:`);
+  for (const c of conflicts) writeErr(`  ${c.id}: ${c.reason}`);
   writeErr(
     "The file is valid JSONL with one side of each conflict kept. Fix those nodes with the kb CLI, then `git add` it.",
   );

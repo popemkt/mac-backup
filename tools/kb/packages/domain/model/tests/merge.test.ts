@@ -30,8 +30,9 @@ function ids(nodes: readonly KbNode[]): string[] {
   return [...nodes].map((n) => n.id).toSorted();
 }
 
-const A = node("01AAA", "a");
-const B = node("01BBB", "b");
+/** Ranked, as every committed node is; a merge of well-ranked sides changes no rank. */
+const A = { ...node("01AAA", "a"), order: "c" };
+const B = { ...node("01BBB", "b"), order: "m" };
 
 describe("mergeNodeSets", () => {
   test("both sides append: the tail collision git cannot resolve", () => {
@@ -117,12 +118,35 @@ describe("mergeNodeSets", () => {
 
   test("only one side changed: byte-identical to taking that side wholesale", () => {
     const base = [A, B];
-    const theirs = [A, node("01BBB", "b, edited", "2026-02-01T00:00:00.000Z"), node("01CCC", "c")];
+    const theirs = [
+      A,
+      { ...node("01BBB", "b, edited", "2026-02-01T00:00:00.000Z"), order: "m" },
+      { ...node("01CCC", "c"), order: "t" },
+    ];
 
     const merged = mergeNodeSets(base, base, theirs);
 
     expect(merged.conflicts).toEqual([]);
     expect(canonicalJsonl(merged.nodes)).toBe(canonicalJsonl(theirs));
+  });
+
+  test("two branches that each appended a root from one read merge with distinct ranks", () => {
+    // Both ranked their new root as the step after B's: the collision that
+    // left groups of roots sharing a rank before the merge settled them.
+    const ours = [A, B, { ...node("01OUR", "ours"), order: "n" }];
+    const theirs = [A, B, { ...node("01THEIR", "theirs"), order: "n" }];
+
+    const merged = mergeNodeSets([A, B], ours, theirs);
+
+    expect(merged.conflicts).toEqual([]);
+    const ranks = merged.nodes.map((n) => n.order);
+    expect(new Set(ranks).size).toBe(4);
+    // Nothing that already fitted moved: A, B and the first "n" keep theirs.
+    expect(
+      merged.nodes
+        .filter((n) => n.order !== "n" && n.order !== "c" && n.order !== "m")
+        .map((n) => n.id),
+    ).toEqual(["01THEIR"]);
   });
 
   test("output is canonical: sorted by id, one line each, trailing newline", () => {

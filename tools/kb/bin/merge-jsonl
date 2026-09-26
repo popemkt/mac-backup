@@ -1,0 +1,31 @@
+#!/bin/sh
+# Git merge driver entry for the kb node stores; registered per clone as
+#   tools/kb/bin/merge-jsonl %O %A %B %P
+# (see the kb-jsonl block in tools/kb/AGENTS.md).
+#
+# It runs the id-based driver (packages/app/cli/src/bin/merge-jsonl.ts) when it
+# can. When it cannot — no bun on PATH, dependencies not installed, or the
+# driver itself reports it could not merge (exit 2) — it falls back to git's
+# own three-way text merge of the same files, says why on one line, and exits
+# non-zero so git leaves the path for a human: a text merge of a node store is
+# never trusted silently.
+set -u
+
+base=$1 ours=$2 theirs=$3 shown=${4:-$2}
+kb=$(cd "$(dirname "$0")/.." && pwd)
+
+reason=""
+if ! command -v bun >/dev/null 2>&1; then
+  reason="bun is not on PATH"
+elif [ ! -d "$kb/node_modules" ]; then
+  reason="dependencies are not installed (bun install --cwd tools/kb)"
+else
+  bun "$kb/packages/app/cli/src/bin/merge-jsonl.ts" "$base" "$ours" "$theirs" "$shown"
+  status=$?
+  [ "$status" -eq 0 ] || [ "$status" -eq 1 ] && exit "$status"
+  reason="the kb driver could not merge (exit $status)"
+fi
+
+echo "merge-jsonl: $shown: $reason; fell back to a text merge, check it and git add" >&2
+git merge-file -L ours -L base -L theirs "$ours" "$base" "$theirs"
+exit 1
