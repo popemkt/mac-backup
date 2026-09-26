@@ -94,7 +94,6 @@ export const GRAPH_RENDERERS: Record<string, GraphRendererDefinition> = {
       "linkDistance",
       "labelDensity",
       "showLabels",
-      "curvedLinks",
       "autorotate",
       "theme",
       "linkStyle",

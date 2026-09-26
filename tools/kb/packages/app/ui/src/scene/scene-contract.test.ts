@@ -151,12 +151,11 @@ const SCENES: readonly (readonly [string, Mount])[] = [
         settings: {
           spread: 150,
           linkDistance: 60,
-          curvedLinks: false,
           autorotate: true,
           showLabels: true,
           labelTopN: 4,
           theme: "matte",
-          linkStyle: "lines",
+          linkStyle: "straight",
         },
         emphasis: { selectedNodeId: null },
         palette,

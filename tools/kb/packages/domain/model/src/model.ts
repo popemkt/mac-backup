@@ -184,15 +184,13 @@ export const SYSTEM_IDS = {
   lensLinkDistanceField: "sys.f.lens.link-distance",
   /** Show node labels (bool). */
   lensShowLabelsField: "sys.f.lens.show-labels",
-  /** Curved links (bool). */
-  lensCurvedLinksField: "sys.f.lens.curved-links",
   /** 3D autorotate (bool). */
   lensAutorotateField: "sys.f.lens.autorotate",
   /** Label density tier: `low` | `medium` | `high` (str). */
   lensLabelDensityField: "sys.f.lens.label-density",
   /** The graph's scene theme (ref to one of its option children). */
   lensThemeField: "sys.f.lens.theme",
-  /** How a 3D link is drawn (ref to one of its option children). */
+  /** How the graph's links are drawn, in every renderer (ref to one of its option children). */
   lensLinkStyleField: "sys.f.lens.link-style",
   /**
    * Default global mentions+child force2d perspective.

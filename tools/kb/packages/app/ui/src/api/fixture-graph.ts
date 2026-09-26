@@ -146,7 +146,6 @@ export const fixtureGraph: GraphSnapshot = {
     seedField("sys.f.lens.spread"),
     seedField("sys.f.lens.link-distance"),
     seedField("sys.f.lens.show-labels"),
-    seedField("sys.f.lens.curved-links"),
     seedField("sys.f.lens.autorotate"),
     seedField("sys.f.lens.label-density"),
     node({
@@ -167,7 +166,6 @@ export const fixtureGraph: GraphSnapshot = {
           { t: "ref", v: "sys.f.lens.spread" },
           { t: "ref", v: "sys.f.lens.link-distance" },
           { t: "ref", v: "sys.f.lens.show-labels" },
-          { t: "ref", v: "sys.f.lens.curved-links" },
           { t: "ref", v: "sys.f.lens.autorotate" },
           { t: "ref", v: "sys.f.lens.label-density" },
         ],

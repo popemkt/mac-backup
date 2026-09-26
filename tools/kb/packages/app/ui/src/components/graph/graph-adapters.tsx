@@ -120,7 +120,6 @@ export function Force3dAdapter({
         filterIds={filterIds ?? undefined}
         spread={active.spread}
         linkDistance={active.linkDistance}
-        curvedLinks={active.curvedLinks}
         autorotate={active.autorotate}
         showLabels={active.showLabels}
         theme={active.theme}

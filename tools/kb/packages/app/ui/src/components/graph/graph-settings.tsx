@@ -151,12 +151,6 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
             onChange={(v) => setBool(SYSTEM_IDS.lensShowLabelsField, v)}
           />
           <Toggle
-            label="Curved links"
-            reason={settingDisabledReason(perspective.renderer, "curvedLinks")}
-            checked={perspective.curvedLinks}
-            onChange={(v) => setBool(SYSTEM_IDS.lensCurvedLinksField, v)}
-          />
-          <Toggle
             label="Auto-rotate (3D)"
             reason={settingDisabledReason(perspective.renderer, "autorotate")}
             checked={perspective.autorotate}

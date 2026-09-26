@@ -108,11 +108,10 @@ const PERSPECTIVE: LensPerspective = {
   spread: 150,
   linkDistance: 60,
   showLabels: true,
-  curvedLinks: false,
   autorotate: false,
   labelDensity: "medium",
   theme: "matte",
-  linkStyle: "lines",
+  linkStyle: "straight",
 };
 const LIGHT: Appearance = { designSystem: "kb", dark: false, key: "kb:light" };
 const DARK: Appearance = { designSystem: "kb", dark: true, key: "kb:dark" };

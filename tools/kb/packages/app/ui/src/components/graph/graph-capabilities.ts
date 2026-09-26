@@ -56,7 +56,6 @@ export type GraphSetting =
   | "linkDistance"
   | "labelDensity"
   | "showLabels"
-  | "curvedLinks"
   | "autorotate"
   | "theme"
   | "linkStyle";

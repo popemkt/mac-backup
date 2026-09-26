@@ -24,11 +24,10 @@ const PERSPECTIVE: LensPerspective = {
   spread: 150,
   linkDistance: 60,
   showLabels: true,
-  curvedLinks: false,
   autorotate: false,
   labelDensity: "medium",
   theme: "matte",
-  linkStyle: "lines",
+  linkStyle: "straight",
 };
 
 /** a → b (both members), b → c (c outside the scope). */

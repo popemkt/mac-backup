@@ -67,12 +67,11 @@ export interface LensPerspective {
   spread: number;
   linkDistance: number;
   showLabels: boolean;
-  curvedLinks: boolean;
   autorotate: boolean;
   labelDensity: LensLabelDensity;
   /** The graph's scene theme (`lens.theme`). */
   theme: LensTheme;
-  /** How a 3D link is drawn (`lens.link-style`). */
+  /** How the graph's links are drawn, in every renderer (`lens.link-style`). */
   linkStyle: LensLinkStyle;
 }
 
@@ -122,11 +121,10 @@ export const DEFAULT_LAYOUT: LensLayout = "force";
 export const DEFAULT_SPREAD = 150;
 export const DEFAULT_LINK_DISTANCE = 60;
 export const DEFAULT_SHOW_LABELS = true;
-export const DEFAULT_CURVED_LINKS = false;
 export const DEFAULT_AUTOROTATE = false;
 export const DEFAULT_LABEL_DENSITY: LensLabelDensity = "medium";
 const DEFAULT_THEME: LensTheme = "matte";
-const DEFAULT_LINK_STYLE: LensLinkStyle = "lines";
+const DEFAULT_LINK_STYLE: LensLinkStyle = "straight";
 
 export const LENS_LAYOUTS: readonly LensLayout[] = ["force", "radial", "hierarchical", "grid"];
 export const LENS_LABEL_DENSITIES: readonly LensLabelDensity[] = ["low", "medium", "high"];
@@ -343,12 +341,6 @@ const LENS_SLOTS: ConfigSlots<LensProps> = {
     schema: Schema.Boolean,
     fallback: DEFAULT_SHOW_LABELS,
   }),
-  curvedLinks: oneOf({
-    fields: [SYSTEM_IDS.lensCurvedLinksField],
-    read: firstBool(SYSTEM_IDS.lensCurvedLinksField),
-    schema: Schema.Boolean,
-    fallback: DEFAULT_CURVED_LINKS,
-  }),
   autorotate: oneOf({
     fields: [SYSTEM_IDS.lensAutorotateField],
     read: firstBool(SYSTEM_IDS.lensAutorotateField),
@@ -402,7 +394,6 @@ export function parsePerspective(node: WireNode): LensPerspective {
     spread: slot("spread"),
     linkDistance: slot("linkDistance"),
     showLabels: slot("showLabels"),
-    curvedLinks: slot("curvedLinks"),
     autorotate: slot("autorotate"),
     labelDensity: slot("labelDensity"),
     theme: slot("theme"),
@@ -842,7 +833,6 @@ export function perspectiveProps(p: LensPerspective): WireNode["props"] {
     [SYSTEM_IDS.lensSpreadField]: [{ t: "num", v: p.spread }],
     [SYSTEM_IDS.lensLinkDistanceField]: [{ t: "num", v: p.linkDistance }],
     [SYSTEM_IDS.lensShowLabelsField]: [{ t: "bool", v: p.showLabels }],
-    [SYSTEM_IDS.lensCurvedLinksField]: [{ t: "bool", v: p.curvedLinks }],
     [SYSTEM_IDS.lensAutorotateField]: [{ t: "bool", v: p.autorotate }],
     [SYSTEM_IDS.lensLabelDensityField]: [{ t: "str", v: p.labelDensity }],
     [SYSTEM_IDS.lensThemeField]: [optionValue(GRAPH_THEME_VALUES, p.theme)],

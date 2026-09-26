@@ -32,12 +32,11 @@ const EDGES: LensEdge[] = ["a", "b", "c", "d"].map((id) => ({
 const SETTINGS: Force3dSettings = {
   spread: 150,
   linkDistance: 60,
-  curvedLinks: false,
   autorotate: false,
   showLabels: false,
   labelTopN: 0,
   theme: "matte",
-  linkStyle: "lines",
+  linkStyle: "straight",
 };
 
 function stage(): SceneStage {
@@ -74,7 +73,7 @@ function layers(): GraphLayers {
 const viewport = { width: 900, height: 600 };
 
 describe("3D graph layers", () => {
-  it("redraws a new look or link style in place: nothing moves, nothing arrives again", () => {
+  it("redraws a new theme or link style in place: nothing moves, nothing arrives again", () => {
     const graph = layers();
     const camera = new PerspectiveCamera(50, 1.5, 1, 1000);
     // Part-way through the arrival.
@@ -86,7 +85,7 @@ describe("3D graph layers", () => {
     for (const change of [
       { theme: "glass" as const },
       { linkStyle: "flow" as const },
-      { curvedLinks: true },
+      { linkStyle: "curved" as const },
     ]) {
       graph.setSettings({ ...graph.settings, ...change });
       expect(graph.positions).toBe(positions);
@@ -96,7 +95,7 @@ describe("3D graph layers", () => {
     graph.dispose();
   });
 
-  it("carries the flow's dashes across a new look and a new curve", () => {
+  it("carries the flow's dashes across a new theme and a new link style", () => {
     const graph = layers();
     const camera = new PerspectiveCamera(50, 1.5, 1, 1000);
     graph.setSettings({ ...graph.settings, linkStyle: "flow" });
@@ -105,12 +104,12 @@ describe("3D graph layers", () => {
     expect(phase).toBeGreaterThan(0);
     graph.setSettings({ ...graph.settings, theme: "cel" });
     expect(graph.motion().flowPhase).toBe(phase);
-    graph.setSettings({ ...graph.settings, curvedLinks: true });
+    graph.setSettings({ ...graph.settings, linkStyle: "curved" });
     expect(graph.motion().flowPhase).toBe(phase);
     graph.dispose();
   });
 
-  it("keeps a selection's particles showing and moving across a new look and a new curve", () => {
+  it("keeps a selection's particles showing and moving across a new theme and a new link style", () => {
     const graph = layers();
     const camera = new PerspectiveCamera(50, 1.5, 1, 1000);
     graph.emphasis = { selectedNodeId: "hub" };
@@ -121,7 +120,7 @@ describe("3D graph layers", () => {
     expect(before?.phase ?? 0).toBeGreaterThan(0);
     graph.setSettings({ ...graph.settings, theme: "glass" });
     expect(graph.motion().particles).toEqual(before);
-    graph.setSettings({ ...graph.settings, curvedLinks: true });
+    graph.setSettings({ ...graph.settings, linkStyle: "curved" });
     expect(graph.motion().particles).toEqual(before);
     graph.frame(0.016, camera, viewport);
     expect(graph.particleCount()).toBeGreaterThan(0);

@@ -49,11 +49,10 @@ const ALL_DEFAULTS: LensPerspective = {
   spread: 150,
   linkDistance: 60,
   showLabels: true,
-  curvedLinks: false,
   autorotate: false,
   labelDensity: "medium",
   theme: "matte",
-  linkStyle: "lines",
+  linkStyle: "straight",
 };
 
 describe("parsePerspective — stored nodes", () => {
@@ -240,20 +239,6 @@ const LENS_CASES: [string, string, PropValue[], Partial<LensPerspective>][] = [
     {
       showLabels: false,
     },
-  ],
-  [
-    "curvedLinks true",
-    SYSTEM_IDS.lensCurvedLinksField,
-    [{ t: "bool", v: true }],
-    {
-      curvedLinks: true,
-    },
-  ],
-  [
-    "curvedLinks non-bool",
-    SYSTEM_IDS.lensCurvedLinksField,
-    [{ t: "str", v: "true" }],
-    { curvedLinks: false },
   ],
   [
     "autorotate true",

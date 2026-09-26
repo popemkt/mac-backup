@@ -36,7 +36,6 @@
       "exports:packages/app/ui/src/lib/graph-lens.ts:DEFAULT_AUTOROTATE": 1,
       "exports:packages/app/ui/src/lib/graph-lens.ts:DEFAULT_CLUSTER_BY": 1,
       "exports:packages/app/ui/src/lib/graph-lens.ts:DEFAULT_COLOR_BY": 1,
-      "exports:packages/app/ui/src/lib/graph-lens.ts:DEFAULT_CURVED_LINKS": 1,
       "exports:packages/app/ui/src/lib/graph-lens.ts:DEFAULT_LABEL_DENSITY": 1,
       "exports:packages/app/ui/src/lib/graph-lens.ts:DEFAULT_LAYOUT": 1,
       "exports:packages/app/ui/src/lib/graph-lens.ts:DEFAULT_LINK_DISTANCE": 1,

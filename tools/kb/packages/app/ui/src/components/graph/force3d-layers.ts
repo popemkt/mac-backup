@@ -15,6 +15,7 @@ import { graphFocus, type GraphEmphasis } from "@/lib/graph-interaction";
 import type { LensEdge, LensLinkStyle, LensNode, LensTheme } from "@/lib/graph-lens";
 import { GraphArrival, hopsFromHubs } from "@/lib/graph-arrival";
 import { byLabelPriority } from "@/lib/graph-label-layout";
+import { LINK_STYLES } from "@/lib/graph-link-styles";
 import { approachRate, type Timing } from "@/lib/timing";
 import {
   particleLinks,
@@ -40,7 +41,6 @@ import type { PickField } from "./force3d-pick";
 export interface Force3dSettings {
   readonly spread: number;
   readonly linkDistance: number;
-  readonly curvedLinks: boolean;
   /** How the nodes' surfaces take the light (`lens.theme`). */
   readonly theme: LensTheme;
   /** How the links are drawn (`lens.link-style`). */
@@ -272,11 +272,9 @@ export class GraphLayers {
   private drawLinks(carry: boolean): void {
     const flowPhase = carry ? this.links?.flowPhase() : undefined;
     disposeGraph(this.linkGroup);
-    const { curvedLinks: curved, linkStyle: style } = this.settings;
     const ambientPeriod = this.timing.ambientPeriod;
     this.links = linkLayer(this.topology, this.fades, {
-      curved,
-      style,
+      ...LINK_STYLES[this.settings.linkStyle],
       ambientPeriod,
       ...(flowPhase === undefined ? {} : { flowPhase }),
     });
@@ -289,7 +287,8 @@ export class GraphLayers {
     const motion = carry ? this.particles?.motion() : undefined;
     disposeGraph(this.particleGroup);
     const { colors } = this.stage;
-    this.particles = particleLayer(this.topology, colors, this.settings.curvedLinks, motion);
+    const { curved } = LINK_STYLES[this.settings.linkStyle];
+    this.particles = particleLayer(this.topology, colors, curved, motion);
     this.particleGroup.add(this.particles.sprite);
   }
 
@@ -317,9 +316,11 @@ export class GraphLayers {
     const previous = this.settings;
     this.settings = next;
     if (next.theme !== previous.theme) this.drawNodes();
-    const curve = next.curvedLinks !== previous.curvedLinks;
-    if (curve || next.linkStyle !== previous.linkStyle) this.drawLinks(true);
-    if (curve) this.drawParticles(true);
+    if (next.linkStyle !== previous.linkStyle) {
+      this.drawLinks(true);
+      const curve = LINK_STYLES[next.linkStyle].curved !== LINK_STYLES[previous.linkStyle].curved;
+      if (curve) this.drawParticles(true);
+    }
     if (next.spread !== previous.spread || next.linkDistance !== previous.linkDistance) {
       this.laying = true;
       this.layout?.reheat({ spread: next.spread, linkDistance: next.linkDistance });

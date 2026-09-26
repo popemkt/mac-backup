@@ -280,11 +280,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     "lens.show-labels",
     "checkbox",
   );
-  const lensCurvedLinksField = singleField(
-    SYSTEM_IDS.lensCurvedLinksField,
-    "lens.curved-links",
-    "checkbox",
-  );
   const lensAutorotateField = singleField(
     SYSTEM_IDS.lensAutorotateField,
     "lens.autorotate",
@@ -319,7 +314,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.lensSpreadField },
       { t: "ref", v: SYSTEM_IDS.lensLinkDistanceField },
       { t: "ref", v: SYSTEM_IDS.lensShowLabelsField },
-      { t: "ref", v: SYSTEM_IDS.lensCurvedLinksField },
       { t: "ref", v: SYSTEM_IDS.lensAutorotateField },
       { t: "ref", v: SYSTEM_IDS.lensLabelDensityField },
       { t: "ref", v: SYSTEM_IDS.lensThemeField },
@@ -436,7 +430,6 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     lensSpreadField,
     lensLinkDistanceField,
     lensShowLabelsField,
-    lensCurvedLinksField,
     lensAutorotateField,
     lensLabelDensityField,
     lensThemeField,

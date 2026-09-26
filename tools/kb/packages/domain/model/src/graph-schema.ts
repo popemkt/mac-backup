@@ -32,9 +32,13 @@ export const GRAPH_THEME_VALUES = {
   glass: { id: "sys.graph.theme.glass", label: "Glass" },
 } as const;
 
-/** The 3D link styles: `lens.link-style`'s option children (lines is the default). */
+/**
+ * The link styles, one option set for every renderer that draws links:
+ * `lens.link-style`'s option children (straight is the default).
+ */
 export const GRAPH_LINK_STYLE_VALUES = {
-  lines: { id: "sys.graph.link-style.lines", label: "Lines" },
+  straight: { id: "sys.graph.link-style.straight", label: "Straight" },
+  curved: { id: "sys.graph.link-style.curved", label: "Curved" },
   flow: { id: "sys.graph.link-style.flow", label: "Flow" },
 } as const;
 

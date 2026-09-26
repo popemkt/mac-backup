@@ -8,8 +8,9 @@
  * emphasis, so it fades with them (M1). Curved links are a quadratic arc
  * drawn as a few segments.
  *
- * A link's **style** is data a perspective chooses (`lens.link-style`):
- * `lines`, the plain batch, or `flow`, the same batch with dashes that drift
+ * A link's **style** is data a perspective chooses (`lens.link-style`, its
+ * parts stated in `lib/graph-link-styles`): its shape, straight or curved,
+ * and whether it flows — the same batch with dashes that drift
  * from source to target — one dash passing in the ambient period (M4), so it
  * reads as a direction, never as a hero motion; under reduced motion the
  * dashes stand still (M7). Neither style lifts a link past its resting
@@ -45,7 +46,7 @@ import {
 import type { PaletteUniforms } from "@/scene/gpu/stage";
 import type { ScenePalette } from "@/scene/palette";
 import { approach } from "@/lib/timing";
-import type { LensLinkStyle } from "@/lib/graph-lens";
+import type { LinkStyleParts } from "@/lib/graph-link-styles";
 import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";
 
 /** Segments per link when curved; a straight link is one. */
@@ -86,9 +87,7 @@ export interface LinkLayer {
   flowPhase(): number;
 }
 
-export interface LinkLayerOptions {
-  readonly curved: boolean;
-  readonly style: LensLinkStyle;
+export interface LinkLayerOptions extends LinkStyleParts {
   /** `--motion-ambient-period`: the time one dash takes to pass. */
   readonly ambientPeriod: number;
   /** Carry the dashes on from a layer this one replaces (`flowPhase`). */
@@ -116,7 +115,7 @@ export function linkLayer(
   const material = new LineBasicNodeMaterial({ transparent: true, depthWrite: false });
   const vertexTint = attribute("tint", "vec4");
   const time = uniform(options.flowPhase ?? 0);
-  const flowing = options.style === "flow";
+  const { flowing } = options;
   const dash = fract(attribute("along", "float").div(DASH).sub(time));
   const flow = flowing
     ? mix(float(DASH_REST), float(1), smoothstep(1 - DASH_LIT, 1, dash))

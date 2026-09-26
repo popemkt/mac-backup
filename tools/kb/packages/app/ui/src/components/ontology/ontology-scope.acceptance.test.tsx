@@ -225,11 +225,10 @@ describe("ontology scope (acceptance)", () => {
         spread: 150,
         linkDistance: 60,
         showLabels: true,
-        curvedLinks: false,
         autorotate: false,
         labelDensity: "medium",
         theme: "matte",
-        linkStyle: "lines",
+        linkStyle: "straight",
       },
       { restrictTo: present(s.ontologyMembers, "ontology members") },
     );
