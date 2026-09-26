@@ -3,9 +3,17 @@ import { asInstance } from "@/lib/dom";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Graph from "graphology";
 import Sigma from "sigma";
+import { EdgeArrowProgram } from "sigma/rendering";
 import { EdgeCurvedArrowProgram } from "@sigma/edge-curve";
 import { createNodeBorderProgram } from "@sigma/node-border";
-import type { LensEdge, LensNode, LensLayout, LensLabelDensity } from "@/lib/graph-lens";
+import type {
+  LensEdge,
+  LensNode,
+  LensLayout,
+  LensLabelDensity,
+  LensLinkStyle,
+} from "@/lib/graph-lens";
+import { LINK_STYLES } from "@/lib/graph-link-styles";
 import { readTokenColor } from "@/lib/css-color";
 import { graphLabelFont } from "@/lib/graph-label";
 import { prefersReducedMotion } from "@/lib/motion";
@@ -47,6 +55,8 @@ export interface SigmaGraphProps extends GraphEmphasis {
   cluster?: boolean;
   showLabels?: boolean;
   labelDensity?: LensLabelDensity;
+  /** The link style: 2D draws its shape (a flow is drawn still, on its curve). */
+  linkStyle?: LensLinkStyle;
   onControlsReady?: (controls: GraphCameraControls | null) => void;
 }
 
@@ -63,6 +73,11 @@ const NodeRingProgram = createNodeBorderProgram({
   drawLabel: drawGraphLabel,
   drawHover: drawGraphHover,
 });
+
+/** The sigma edge program each link shape is drawn with. */
+const EDGE_PROGRAMS = { straight: EdgeArrowProgram, curved: EdgeCurvedArrowProgram } as const;
+const edgeProgram = (style: LensLinkStyle): keyof typeof EDGE_PROGRAMS =>
+  LINK_STYLES[style].curved ? "curved" : "straight";
 
 /** Drawn nodes at least this big (CSS px radius) keep labels off themselves. */
 const MIN_BLOCKING_RADIUS = 3;
@@ -83,6 +98,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     filterIds,
     showLabels = true,
     labelDensity = "medium",
+    linkStyle = "straight",
   } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const hullRef = useRef<HTMLCanvasElement>(null);
@@ -138,8 +154,8 @@ export function SigmaGraph(props: SigmaGraphProps) {
       defaultDrawNodeHover: drawGraphHover,
       defaultNodeType: "ring",
       nodeProgramClasses: { ring: NodeRingProgram },
-      defaultEdgeType: "arrow",
-      edgeProgramClasses: { arrow: EdgeCurvedArrowProgram },
+      defaultEdgeType: edgeProgram(live.current.linkStyle ?? "straight"),
+      edgeProgramClasses: EDGE_PROGRAMS,
       stagePadding: 70,
       zIndex: true,
     });
@@ -400,6 +416,10 @@ export function SigmaGraph(props: SigmaGraphProps) {
     sigma.setSetting("hideEdgesOnMove", nodes.length > 1500);
     refresh();
   }, [appearance, showLabels, labelDensity, nodes, edges, layoutKey, layout, cluster, refresh]);
+  useEffect(() => {
+    // A new link style redraws the links in their new shape, in place.
+    sigmaRef.current?.setSetting("defaultEdgeType", edgeProgram(linkStyle));
+  }, [linkStyle]);
   useEffect(() => {
     refresh();
   }, [selectedNodeId, highlightIds, filterIds, isolated, refresh]);

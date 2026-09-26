@@ -11,7 +11,7 @@ import {
   LENS_THEMES,
   type LensPerspective,
 } from "@/lib/graph-lens";
-import { settingDisabledReason } from "./graph-capabilities";
+import { linkStyleNote, settingDisabledReason } from "./graph-capabilities";
 import { cn } from "@/lib/cn";
 import { isOutside } from "@/lib/dom";
 
@@ -134,6 +134,7 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
           <Choice
             label="Link style"
             reason={settingDisabledReason(perspective.renderer, "linkStyle")}
+            note={linkStyleNote(perspective.renderer, perspective.linkStyle)}
             options={LENS_LINK_STYLES.map((style) => ({
               key: style,
               label: GRAPH_LINK_STYLE_VALUES[style].label,
@@ -166,11 +167,16 @@ function Field({
   label,
   children,
   reason,
+  note,
 }: {
-  reason?: string;
+  /** Why the setting is off for this renderer (disables it). */
+  reason?: string | undefined;
+  /** What the renderer makes of the value chosen (leaves it live). */
+  note?: string | undefined;
   label: string;
   children: React.ReactNode;
 }) {
+  const caption = reason ?? note;
   return (
     <fieldset
       disabled={reason !== undefined}
@@ -179,8 +185,8 @@ function Field({
     >
       <span className="text-label text-foreground/50">{label}</span>
       {children}
-      {reason !== undefined ? (
-        <span className="text-caption text-foreground/55">{reason}</span>
+      {caption !== undefined ? (
+        <span className="text-caption text-foreground/55">{caption}</span>
       ) : null}
     </fieldset>
   );
@@ -190,18 +196,20 @@ function Field({
 function Choice<K extends string>({
   label,
   reason,
+  note,
   options,
   value,
   onPick,
 }: {
   label: string;
-  reason?: string;
+  reason?: string | undefined;
+  note?: string | undefined;
   options: readonly { readonly key: K; readonly label: string }[];
   value: K;
   onPick: (key: K) => void;
 }) {
   return (
-    <Field label={label} {...(reason === undefined ? {} : { reason })}>
+    <Field label={label} reason={reason} note={note}>
       <div className="flex flex-wrap gap-1">
         {options.map((option) => (
           <button

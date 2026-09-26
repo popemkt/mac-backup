@@ -1,5 +1,6 @@
 import { GRAPH_RENDERERS } from "./graph-renderers";
-import type { LensRenderer } from "@/lib/graph-lens";
+import type { LensLinkStyle, LensRenderer } from "@/lib/graph-lens";
+import { LINK_STYLES } from "@/lib/graph-link-styles";
 
 /**
  * What the shared frame chrome may drive for a given renderer.
@@ -66,4 +67,16 @@ export function settingDisabledReason(
   return GRAPH_RENDERERS[renderer]?.settings.includes(setting) === true
     ? undefined
     : "This renderer does not support this setting";
+}
+
+/**
+ * What a renderer that draws links but cannot move them says of a flowing
+ * style: it draws the style's shape, still (`lib/graph-link-styles`).
+ */
+export function linkStyleNote(renderer: LensRenderer, style: LensLinkStyle): string | undefined {
+  const definition = GRAPH_RENDERERS[renderer];
+  if (definition?.settings.includes("linkStyle") !== true) return undefined;
+  return LINK_STYLES[style].flowing && definition.linkMotion !== true
+    ? "Drawn still here: the dashes move in 3D"
+    : undefined;
 }

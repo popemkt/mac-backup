@@ -27,6 +27,7 @@ export function Force2dAdapter({
       layout={active.layout}
       showLabels={active.showLabels}
       labelDensity={active.labelDensity}
+      linkStyle={active.linkStyle}
       onNodeOpen={onNodeOpen}
       onSelectionChange={setSelection}
       selectedNodeId={selection?.nodeId ?? null}
@@ -89,6 +90,7 @@ export function ClusterAdapter({
       filterIds={filterIds ?? undefined}
       showLabels={active.showLabels}
       labelDensity={active.labelDensity}
+      linkStyle={active.linkStyle}
       onControlsReady={setControls}
     />
   );

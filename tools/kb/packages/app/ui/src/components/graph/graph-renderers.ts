@@ -48,6 +48,8 @@ interface GraphRendererDefinition {
   label: string;
   capabilities: RendererCapabilities;
   settings: readonly GraphSetting[];
+  /** Whether it can move a link (a flowing link style's dashes); others draw the style's shape, still. */
+  linkMotion?: true;
   channels: readonly GraphChannel[];
   Component: React.ComponentType<GraphAdapterProps>;
 }
@@ -68,7 +70,7 @@ export const GRAPH_RENDERERS: Record<string, GraphRendererDefinition> = {
   force2d: {
     label: GRAPH_RENDERER_VALUES.force2d.label,
     capabilities: { ...standard, drag: true },
-    settings: ["layout", "labelDensity", "showLabels"],
+    settings: ["layout", "labelDensity", "showLabels", "linkStyle"],
     channels: ["relationships", "color", "label", "size"],
     Component: Force2dAdapter,
   },
@@ -82,7 +84,7 @@ export const GRAPH_RENDERERS: Record<string, GraphRendererDefinition> = {
   cluster: {
     label: GRAPH_RENDERER_VALUES.cluster.label,
     capabilities: { ...standard, drag: true },
-    settings: ["clusterBy", "labelDensity", "showLabels"],
+    settings: ["clusterBy", "labelDensity", "showLabels", "linkStyle"],
     channels: ["relationships", "color", "label", "size", "group"],
     Component: ClusterAdapter,
   },
@@ -98,6 +100,7 @@ export const GRAPH_RENDERERS: Record<string, GraphRendererDefinition> = {
       "theme",
       "linkStyle",
     ],
+    linkMotion: true,
     channels: ["relationships", "color", "label", "size"],
     Component: Force3dAdapter,
   },

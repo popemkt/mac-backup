@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { CAPABILITY_REASONS, capabilitiesFor, RENDERER_CAPABILITIES } from "./graph-capabilities";
+import {
+  CAPABILITY_REASONS,
+  capabilitiesFor,
+  linkStyleNote,
+  RENDERER_CAPABILITIES,
+  settingDisabledReason,
+} from "./graph-capabilities";
 
 describe("renderer capabilities", () => {
   it("declares a descriptor for every built-in renderer", () => {
@@ -36,5 +42,15 @@ describe("renderer capabilities", () => {
     for (const key of Object.keys(CAPABILITY_REASONS) as Array<keyof typeof CAPABILITY_REASONS>) {
       expect(CAPABILITY_REASONS[key].length).toBeGreaterThan(10);
     }
+  });
+
+  it("every renderer that draws force links reads the one link style; only 3D moves it", () => {
+    for (const r of ["force2d", "cluster", "force3d"] as const)
+      expect(settingDisabledReason(r, "linkStyle")).toBeUndefined();
+    expect(linkStyleNote("force2d", "flow")).toMatch(/still/);
+    expect(linkStyleNote("cluster", "flow")).toMatch(/still/);
+    expect(linkStyleNote("force2d", "curved")).toBeUndefined();
+    expect(linkStyleNote("force3d", "flow")).toBeUndefined();
+    expect(linkStyleNote("tree", "flow")).toBeUndefined();
   });
 });

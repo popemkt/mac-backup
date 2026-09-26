@@ -163,6 +163,38 @@ test("force2d paints labels and frames settled nodes", async ({ page }) => {
     .toBeGreaterThan(0);
 });
 
+test("force2d draws its links in the perspective's link style, switched in place", async ({
+  page,
+}) => {
+  await selectRenderer(page, "force2d");
+  await sigmaReady(page, "[data-sigma-container]");
+  const shapes = () =>
+    page.locator("[data-sigma-container]").evaluate((element) => {
+      const sigma = (element as SigmaHost).__kbSigma as unknown as {
+        getGraph(): { edges(): string[] };
+        getEdgeDisplayData(id: string): { type?: string } | undefined;
+      };
+      return [
+        ...new Set(
+          sigma
+            .getGraph()
+            .edges()
+            .map((e) => sigma.getEdgeDisplayData(e)?.type),
+        ),
+      ];
+    });
+  await expect.poll(shapes, PAGE_READY).toEqual(["straight"]);
+  const panel = page.getByTestId("graph-settings-panel");
+  await page.getByTestId("graph-settings-toggle").click();
+  await panel.getByRole("button", { name: "Curved", exact: true }).click();
+  await expect.poll(shapes, PAGE_READY).toEqual(["curved"]);
+  await panel.getByRole("button", { name: "Flow", exact: true }).click();
+  await expect(panel).toContainText("Drawn still here");
+  await expect.poll(shapes, PAGE_READY).toEqual(["curved"]);
+  await panel.getByRole("button", { name: "Straight", exact: true }).click();
+  await expect.poll(shapes, PAGE_READY).toEqual(["straight"]);
+});
+
 test("cluster paints labels and a hull spanning its members", async ({ page }) => {
   await selectRenderer(page, "cluster");
   const host = "[data-testid='cluster-graph'] > div";
