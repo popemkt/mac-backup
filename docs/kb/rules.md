@@ -230,6 +230,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Give the two decoders' reports a home in the ui the way ontology warnings have one — a store field plus a badge — and have the config surfaces read it instead of the log seam. Component + store work: out of g8's zone (docs/kb/waves/2026-09-09/briefs/g8-domain-typing.md).
 - **node** — `01M1XF1NA2RBAX1E6NNX6PMZ6N`
 
+### GAP: orbit controls stand in the lab kit, not the scene kit
+
+- **expected** — Orbit (a pan read as a bearing round a target, plus a dolly and flights) is a scene-kit view control any 3D view can use, beside the stage.
+- **current** — components/lab/kit/orbit.ts, used by the Sky, Glass, River and Ocean studies; the 3D graph flies its camera with its own force3d-flight.
+- **impact** — The graph cannot take the lab's orbit without a lab import; two camera-control mechanisms.
+- **closes** — WP4 folds kit/orbit.ts into scene/ with the lab kit's view controls, and the graph's flight and the orbit share one camera rig.
+- **node** — `01M3E9QZ3D6EG2W2MERM93ABNA`
+
 ### GAP: package executors share no contract check
 
 - **expected** — Every executor-installed channel in modules/options/channels.nix names the executor view that installs it, and one flake check proves, per host, that each channel's members reach that view. A new executor joins the check by registering its view.
@@ -403,6 +411,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The effect is the renderer, so nothing about it can be tested without a DOM and a real sigma instance.
 - **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
 - **node** — `01M1MGCPJTV66QSFCR44XG29YM`
+
+### GAP: the Sky borrows the graph's toScreen across the UI zones until it moves to scene/gpu/screen.ts
+
+- **expected** — One screen projection in the scene kit (scene/gpu/screen.ts, toScreen) that the 3D graph and the Sky both import.
+- **current** — components/lab/sky/scene.ts imports toScreen from components/graph/force3d-screen.ts, a lab→graph import the zone matrix forbids, marked on the import line.
+- **impact** — A lab study depends on a graph module; the graph cannot move or change force3d-screen without breaking the lab.
+- **closes** — WP4 extracts toScreen to scene/gpu/screen.ts (audit P1-10) and the Sky's import points there.
+- **node** — `01M3E9QMKPDBB9KEYCDYHT3WG1`
 
 ### GAP: the two pin tools use different could-not-run exit codes and no shared test holds them to one contract
 

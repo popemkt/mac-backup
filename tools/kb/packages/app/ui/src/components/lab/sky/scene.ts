@@ -1,56 +1,62 @@
 /**
- * Sky: a starfield you can pan, under a sun or a moon that follows the theme.
+ * Sky: a sun, a moon it lights, and the graph's nodes as stars standing in
+ * the space round them — a volume to fly through, not a painted dome.
  *
  * This study reads the graph (it may; the lab does not require it): every
  * node is a star, placed by its lens cluster so siblings gather into a
- * constellation, and the few most recently updated nodes are the glints.
- * Hovering a star names its node and draws its edges as faint constellation
- * lines; clicking opens it. The faint dust behind is decoration, never data.
+ * constellation (`layout.ts`), and the few most recently updated nodes are
+ * the glints. Hovering a star names its node and draws its edges as faint
+ * constellation lines; clicking opens it. Three layers of dust at depth, and
+ * the nebula at infinity, are decoration, never data.
  *
- * Motion: a drag turns the sky exactly; released, it coasts and decays (M3),
- * and the sun or moon follows the turn a beat behind (overlap). The one
- * ambient motion is a slow constant drift (M1, M4). A theme change sets one
- * body while the other rises, over the arrive duration (M6); the stage eases
- * the sky's colours across meanwhile.
+ * Light: the sun is the only light. The moon's shading is the sun's
+ * direction from each point of it (`shaders.ts`), so its terminator and phase
+ * follow wherever the two stand; drag either and the phase turns. The night
+ * side keeps a faint earthshine (a slider).
+ *
+ * Motion: a drag on empty sky orbits the camera round its target, and it
+ * coasts on release (M3); the wheel or a pinch dollies (`kit/orbit`). A drag
+ * that lands on a star, the sun or the moon moves that instead, at its own
+ * depth. The one ambient motion is a slow constant drift of the orbit
+ * (M1, M4). The theme picks what the camera flies to — the sun rules the
+ * light theme, the moon the dark — and by day the moon's unlit side lets the
+ * sky through, as a daytime moon does (P5). Arriving, the stars kindle in a
+ * seeded order and the bodies brighten in.
  */
-import {
-  BufferGeometry,
-  Float32BufferAttribute,
-  Group,
-  InstancedBufferAttribute,
-  LineBasicNodeMaterial,
-  LineSegments,
-  Sprite,
-  SpriteNodeMaterial,
-  Vector3,
-} from "three/webgpu";
-import { float, instancedBufferAttribute, instanceIndex, select, sin, uniform } from "three/tsl";
+import { Group, Vector3, type Object3D } from "three/webgpu";
+import { float, uniform, vec3 } from "three/tsl";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
-import type { LabGraph, LabNode } from "@/components/lab/lab-graph";
-import { SKY_PAN } from "@/components/lab/kit/pan";
-import { PanControl, PointerField } from "@/components/lab/kit/pointer";
+import type { LabGraph } from "@/components/lab/lab-graph";
+import { OrbitControl } from "@/components/lab/kit/orbit";
+import { Entrance } from "@/components/lab/kit/entrance";
 import type { SceneStage } from "@/scene/gpu/stage";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
-import { approach, approachRate, easeAt } from "@/lib/timing";
-import { HERO_GLINTS, heroPlace, starPlace } from "@/components/lab/sky/layout";
+import { approach, approachRate } from "@/lib/timing";
 import { starfield } from "@/scene/gpu/starfield";
-import { sphereDirection, unitHash } from "@/scene/sphere";
-import { dome, moon, starLight, sun } from "@/components/lab/sky/shaders";
+import { corona, moon, nebula, sun } from "@/components/lab/sky/shaders";
+import { NodeStars } from "@/components/lab/sky/stars";
+import { SkyHands } from "@/components/lab/sky/hands";
 
-const STAR_RADIUS = 60;
-const DUST = 1400;
-/** Where the sun and moon hang before any pan: up and to the right. */
-const BODY_HOME = new Vector3(0.42, 0.22, -1).normalize().multiplyScalar(48);
-const BODY_SIZE = 11;
-/** How far a setting body sinks below its place as the other rises. */
-const BODY_SET = 16;
-/** Pixels within which the pointer is on a star; a glint is easier to hit. */
-const HIT_STAR = 10;
-const HIT_GLINT = 18;
-/** The sky's own slow turn (rad/s): about 17 minutes a revolution (M4). */
+/** Where the bodies stand, and how big they are (world units). */
+const MOON_AT = new Vector3(0, 0, 0);
+const MOON_RADIUS = 1.5;
+const SUN_AT = new Vector3(-17, 3.5, -11);
+const SUN_RADIUS = 3.4;
+/** How far the camera stands from what it looks at, by theme. */
+const NIGHT_DISTANCE = 14;
+const DAY_DISTANCE = 30;
+/** How far toward the moon the day view looks from the sun, so both are in frame. */
+const DAY_LEAN = 0.4;
+/** The orbit's own slow turn (rad/s): about 17 minutes a revolution (M4). */
 const DRIFT = 0.006;
+/** Dust at three depths, so it too slides against itself as the camera moves. */
+const DUST = [
+  { seed: "dust-near", count: 700, radius: 190, size: 0.9, opacity: 0.35 },
+  { seed: "dust-mid", count: 1100, radius: 270, size: 1.1, opacity: 0.3 },
+  { seed: "dust-far", count: 1600, radius: 360, size: 1.3, opacity: 0.26 },
+] as const;
 
-function uniforms() {
+function uniforms(dark: boolean) {
   return {
     time: uniform(0),
     twinkle: uniform(1),
@@ -59,266 +65,136 @@ function uniforms() {
     /** The constellation lines' opacity, eased in when a star is hovered. */
     lines: uniform(0),
     nebula: uniform(0.32),
-    sunStrength: uniform(1),
-    moonStrength: uniform(0),
+    earthshine: uniform(0.05),
+    day: uniform(dark ? 0 : 1),
+    sun: uniform(SUN_AT.clone()),
   };
 }
 type SkyUniforms = ReturnType<typeof uniforms>;
 
-/** The node stars: one sprite drawn once per node, per-instance look from attributes. */
-function nodeStars(stage: SceneStage, u: SkyUniforms, nodes: readonly LabNode[]) {
-  const n = Math.max(1, nodes.length);
-  const positions = new Float32Array(n * 3);
-  const looks = new Float32Array(n * 4);
-  // The few most recent glints are the heroes; the rest glint smaller.
-  const rank = new Map(
-    nodes
-      .filter((node) => node.glint)
-      .toSorted((a, b) => b.recency - a.recency)
-      .map((node, i) => [node.id, i]),
-  );
-  const local = nodes.map((node, i) => {
-    const hero = heroPlace(rank.get(node.id) ?? HERO_GLINTS);
-    const [x, y, z] = sphereDirection(hero ?? starPlace(node));
-    const at = new Vector3(x, y, z).multiplyScalar(STAR_RADIUS);
-    positions.set([at.x, at.y, at.z], i * 3);
-    const glint = hero !== undefined ? 0.6 + node.recency * 0.4 : node.glint ? 0.3 : 0;
-    const size =
-      hero !== undefined
-        ? 6 + node.recency * 3
-        : node.glint
-          ? 2.6
-          : 0.9 + Math.min(1.2, Math.sqrt(node.degree) * 0.28);
-    looks.set(
-      [size, glint, unitHash(`${node.id}:twinkle`) * Math.PI * 2, 0.6 + node.recency * 0.4],
-      i * 4,
-    );
-    return at;
+/** What the camera looks at under a theme: the moon by night, the sun (leaning to the moon) by day. */
+function focus(dark: boolean, sunAt: Vector3, moonAt: Vector3, out: Vector3): Vector3 {
+  return dark ? out.copy(moonAt) : out.copy(sunAt).lerp(moonAt, DAY_LEAN);
+}
+
+/** The sun (sphere and corona) and the moon, placed and scaled. */
+function bodies(stage: SceneStage, u: SkyUniforms, entrance: Entrance) {
+  const time = float(u.time);
+  const sunMesh = sun(stage.colors, time, entrance.arrival(float(0)));
+  const halo = corona(stage.colors, time, entrance.arrival(float(0)));
+  const moonMesh = moon(stage.colors, {
+    sun: vec3(u.sun),
+    earthshine: float(u.earthshine),
+    day: float(u.day),
+    arrival: entrance.arrival(float(0.35)),
   });
-  const material = new SpriteNodeMaterial({ transparent: true, depthWrite: false });
-  const look = instancedBufferAttribute(new InstancedBufferAttribute(looks, 4));
-  const hovered = u.hover.equal(instanceIndex.toFloat());
-  material.positionNode = instancedBufferAttribute(new InstancedBufferAttribute(positions, 3));
-  material.scaleNode = select(hovered, look.x.mul(1.8).add(1.5), look.x);
-  const shimmer = sin(u.time.mul(0.8).add(look.z)).mul(0.2).mul(u.twinkle).add(1);
-  material.colorNode = stage.colors.ink;
-  material.opacityNode = starLight(select(hovered, float(1), look.y), u.spikes)
-    .mul(shimmer)
-    .mul(look.w)
-    .min(1);
-  const sprite = new Sprite(material);
-  sprite.count = nodes.length;
-  sprite.frustumCulled = false;
-  return { sprite, local };
-}
-
-/** The hovered node's edges, drawn as constellation lines between its stars. */
-function constellation(
-  lines: LineSegments,
-  graph: LabGraph,
-  local: readonly Vector3[],
-  node: LabNode | undefined,
-): void {
-  const points: number[] = [];
-  if (node !== undefined) {
-    const index = new Map(graph.nodes.map((n, i) => [n.id, i]));
-    const from = local[index.get(node.id) ?? -1];
-    for (const edge of graph.edges) {
-      const other =
-        edge.source === node.id ? edge.target : edge.target === node.id ? edge.source : null;
-      const to = other === null ? undefined : local[index.get(other) ?? -1];
-      if (from !== undefined && to !== undefined)
-        points.push(from.x, from.y, from.z, to.x, to.y, to.z);
-    }
-  }
-  lines.geometry.dispose();
-  const geometry = new BufferGeometry();
-  geometry.setAttribute("position", new Float32BufferAttribute(points, 3));
-  lines.geometry = geometry;
-  // An empty batch is not drawn: a zero-vertex draw is not free.
-  lines.visible = points.length > 0;
-}
-
-interface Hit {
-  index: number;
-  x: number;
-  y: number;
-}
-
-const projected = new Vector3();
-
-/** The node star nearest the pointer, preferring glints, within reach; written into `hit`. */
-function nearestStar(
-  { local, nodes }: { readonly local: readonly Vector3[]; readonly nodes: readonly LabNode[] },
-  turn: Group,
-  stage: SceneStage,
-  pointer: PointerField,
-  hit: Hit,
-): void {
-  const width = stage.renderer.domElement.clientWidth;
-  const height = stage.renderer.domElement.clientHeight;
-  let bestScore = Infinity;
-  hit.index = -1;
-  for (let i = 0; i < local.length; i++) {
-    const at = local[i];
-    const node = nodes[i];
-    if (at === undefined || node === undefined) continue;
-    projected.copy(at).applyMatrix4(turn.matrixWorld).project(stage.camera);
-    if (projected.z > 1) continue;
-    const x = ((projected.x + 1) / 2) * width;
-    const y = ((1 - projected.y) / 2) * height;
-    const distance = Math.hypot(x - pointer.x, y - pointer.y);
-    const score = distance - (node.glint ? 6 : 0);
-    if (distance <= (node.glint ? HIT_GLINT : HIT_STAR) && score < bestScore) {
-      bestScore = score;
-      hit.index = i;
-      hit.x = x;
-      hit.y = y;
-    }
-  }
-}
-
-/**
- * The sun and the moon: they trail the sky's turn a beat behind (overlap,
- * M3), and a theme change sets one as the other rises, over the arrive
- * duration on the one ease (M6); under reduced motion both jump (M7).
- */
-function celestial(stage: SceneStage, u: SkyUniforms, init: LabSceneInit) {
-  const group = new Group();
-  const sunSprite = sun(stage.colors, u.sunStrength);
-  const moonSprite = moon(stage.colors, u.moonStrength);
-  sunSprite.scale.setScalar(BODY_SIZE);
-  moonSprite.scale.setScalar(BODY_SIZE * 1.2);
-  group.add(sunSprite, moonSprite);
-  const dayRate = approachRate(init.timing.arrive);
-  const followRate = approachRate(init.timing.follow);
-  let day = init.dark ? 0 : 1;
-  let dayTarget = day;
-  let yaw = 0;
-  let pitch = 0;
-  const place = (
-    pan: { readonly yaw: number; readonly pitch: number },
-    reduced: boolean,
-    dt: number,
-  ) => {
-    yaw = reduced ? pan.yaw : approach(yaw, pan.yaw, followRate, dt);
-    pitch = reduced ? pan.pitch : approach(pitch, pan.pitch, followRate, dt);
-    group.rotation.set(pitch, yaw, 0, "YXZ");
-    day = reduced ? dayTarget : approach(day, dayTarget, dayRate, dt);
-    const eased = easeAt(init.timing.settle, day);
-    sunSprite.position.copy(BODY_HOME).setY(BODY_HOME.y - (1 - eased) * BODY_SET);
-    moonSprite.position.copy(BODY_HOME).setY(BODY_HOME.y - eased * BODY_SET);
-    u.sunStrength.value = eased;
-    u.moonStrength.value = 1 - eased;
-  };
-  place({ yaw: 0, pitch: 0 }, true, 0);
+  sunMesh.scale.setScalar(SUN_RADIUS);
+  halo.scale.setScalar(SUN_RADIUS * 6);
+  moonMesh.scale.setScalar(MOON_RADIUS);
+  moonMesh.position.copy(MOON_AT);
+  const sunGroup = new Group();
+  sunGroup.add(sunMesh, halo);
+  sunGroup.position.copy(SUN_AT);
   return {
-    group,
-    place,
-    setDark: (dark: boolean) => {
-      dayTarget = dark ? 0 : 1;
+    sun: sunGroup,
+    moon: moonMesh,
+    /** Stand the sun at `to`: the moon's light follows. */
+    moveSun: (to: Vector3) => {
+      sunGroup.position.copy(to);
+      u.sun.value.copy(to);
     },
   };
 }
 
 function sky(stage: SceneStage, init: LabSceneInit, context: StudyContext): StudyParts {
-  const u = uniforms();
-  const turn = new Group();
-  const lineMaterial = new LineBasicNodeMaterial({ transparent: true, depthWrite: false });
-  lineMaterial.colorNode = stage.colors.ink;
-  // Thin and faint, easing in on hover: a hint of the relationship, not a stroke.
-  lineMaterial.opacityNode = u.lines.mul(0.18);
-  const lines = new LineSegments(new BufferGeometry(), lineMaterial);
-  lines.frustumCulled = false;
-  lines.visible = false;
-  turn.add(
-    dome(stage.colors, u.nebula),
-    starfield(stage.colors, { seed: "dust", count: DUST, radius: 90, size: 0.55, opacity: 0.4 })
-      .sprite,
-    lines,
+  const u = uniforms(init.dark);
+  const entrance = new Entrance(init.timing);
+  const { colors } = stage;
+  stage.scene.add(
+    nebula(colors, {
+      amount: float(u.nebula),
+      sun: vec3(u.sun),
+      day: float(u.day),
+      arrival: entrance.arrival(float(0)),
+    }),
+    ...DUST.map((layer) => starfield(colors, layer).sprite),
   );
-  const bodies = celestial(stage, u, init);
-  stage.scene.add(turn, bodies.group);
-  stage.camera.position.set(0, 0, 0);
-  stage.camera.lookAt(0, 0, -1);
+  const body = bodies(stage, u, entrance);
+  stage.scene.add(body.sun, body.moon);
+  const starUniforms = {
+    time: float(u.time),
+    twinkle: float(u.twinkle),
+    hover: float(u.hover),
+    spikes: float(u.spikes),
+    lines: float(u.lines),
+  };
+  let stars = new NodeStars(colors, starUniforms, init.graph, entrance);
+  stage.scene.add(stars.sprite, stars.lines);
 
-  let graph = init.graph;
-  let stars = nodeStars(stage, u, graph.nodes);
-  turn.add(stars.sprite);
-  const lineRate = approachRate(init.timing.reveal);
-  let hovered = -1;
-  let hoverX = 0;
-  let hoverY = 0;
-  const pointer = new PointerField(context.host);
-  const pan = new PanControl(context.host, SKY_PAN, {
-    onChange: () => stage.invalidate(),
-    onTap: () => {
-      const node = graph.nodes[hovered];
-      if (node !== undefined) init.onOpen(node.id);
-    },
-  });
-
-  const setHovered = (index: number, x: number, y: number) => {
-    const moved = Math.abs(x - hoverX) + Math.abs(y - hoverY) > 0.75;
-    if (index === hovered && !moved) return;
-    if (index !== hovered) {
-      constellation(lines, graph, stars.local, graph.nodes[index]);
+  let dark = init.dark;
+  const aim = focus(dark, SUN_AT, MOON_AT, new Vector3());
+  const hands = new SkyHands(
+    { host: context.host, canvas: stage.renderer.domElement, camera: stage.camera },
+    { ...body, sunRadius: SUN_RADIUS, moonRadius: MOON_RADIUS },
+    () => stars,
+    init,
+    (index) => {
+      u.hover.value = index;
       u.lines.value = 0;
-    }
-    hovered = index;
-    hoverX = x;
-    hoverY = y;
-    u.hover.value = index;
-    const node = graph.nodes[index];
-    init.onHover(node === undefined ? null : { id: node.id, label: node.label, x, y });
-  };
-
-  const hit: Hit = { index: -1, x: 0, y: 0 };
-  const hitTest = () => {
-    if (pan.dragging) return;
-    if (pointer.inside)
-      nearestStar({ local: stars.local, nodes: graph.nodes }, turn, stage, pointer, hit);
-    else hit.index = -1;
-    setHovered(hit.index, hit.x, hit.y);
-  };
+    },
+  );
+  const orbit = new OrbitControl(
+    context.host,
+    { perPixel: 0.0045, pitch: [-1.25, 1.25], distance: [4, 70] },
+    { yaw: 0.42, pitch: 0.12, distance: dark ? NIGHT_DISTANCE : DAY_DISTANCE, target: aim },
+    init.timing,
+    { onChange: () => stage.invalidate(), grab: (x, y) => hands.grab(x, y) },
+  );
+  const lineRate = approachRate(init.timing.reveal);
 
   return {
     frame: (dt, elapsed) => {
-      u.time.value = elapsed;
       const reduced = context.reduced();
+      u.time.value = elapsed;
       u.twinkle.value = reduced ? 0 : 1;
-      pan.frame(dt, reduced);
-      if (!pan.dragging && !reduced) pan.pan.yaw += DRIFT * dt;
-      turn.rotation.set(pan.pan.pitch, pan.pan.yaw, 0, "YXZ");
-      bodies.place(pan.pan, context.reduced(), dt);
+      entrance.step(dt, reduced);
+      orbit.frame(dt, reduced, stage.camera, DRIFT);
       u.lines.value = reduced
-        ? Number(lines.visible)
-        : approach(u.lines.value, Number(lines.visible), lineRate, dt);
-      stage.scene.updateMatrixWorld();
-      hitTest();
+        ? Number(stars.lines.visible)
+        : approach(u.lines.value, Number(stars.lines.visible), lineRate, dt);
+      stage.camera.updateMatrixWorld();
+      hands.frame(orbit.control.dragging || orbit.control.held !== null);
     },
     setControl: (id, value: LabControlValue) => {
       if (id === "spikes" && typeof value === "number") u.spikes.value = value;
       if (id === "nebula" && typeof value === "number") u.nebula.value = value;
+      if (id === "earthshine" && typeof value === "number") u.earthshine.value = value;
       if (id === "dither" && typeof value === "boolean") stage.knobs.dither.value = value ? 1 : 0;
     },
-    setPalette: (_palette, dark) => {
-      bodies.setDark(dark);
+    setPalette: (_palette, isDark) => {
       u.twinkle.value = context.reduced() ? 0 : 1;
-      stage.setBloom(dark ? 0.8 : 0.5);
+      u.day.value = isDark ? 0 : 1;
+      stage.setBloom(isDark ? 0.85 : 0.45);
+      if (isDark === dark) return;
+      dark = isDark;
+      orbit.flyTo(
+        focus(dark, body.sun.position, body.moon.position, aim),
+        dark ? NIGHT_DISTANCE : DAY_DISTANCE,
+      );
     },
     setGraph: (next: LabGraph) => {
-      graph = next;
-      turn.remove(stars.sprite);
-      for (const m of [stars.sprite.material].flat()) m.dispose();
-      stars = nodeStars(stage, u, graph.nodes);
-      turn.add(stars.sprite);
-      setHovered(-1, 0, 0);
+      const old: Object3D[] = [stars.sprite, stars.lines];
+      stage.scene.remove(...old);
+      for (const m of [stars.sprite.material, stars.lines.material].flat()) m.dispose();
+      stars.dispose();
+      stars = new NodeStars(colors, starUniforms, next, entrance);
+      stage.scene.add(stars.sprite, stars.lines);
+      hands.reset();
     },
     dispose: () => {
-      pointer.dispose();
-      pan.dispose();
-      lines.geometry.dispose();
+      hands.dispose();
+      orbit.dispose();
+      stars.dispose();
     },
   };
 }
@@ -327,7 +203,7 @@ export function mountSky(host: HTMLElement, init: LabSceneInit): Promise<LabScen
   return mountStudy(
     host,
     init,
-    { fov: 58, bloom: { strength: 0.8, radius: 0.5 }, vignette: 0.35 },
+    { fov: 50, far: 1200, bloom: { strength: 0.85, radius: 0.55 }, vignette: 0.3 },
     sky,
   );
 }

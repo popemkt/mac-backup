@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { WireNode } from "@kb/contracts";
 import type { LensGraph, LensNode } from "@/lib/graph-lens";
 import { glintCount, toLabGraph } from "./lab-graph";
-import { starPlace } from "./sky/layout";
-import { sphereDirection, type SpherePlace } from "@/scene/sphere";
+import { starPoint } from "./sky/layout";
 import { LAB_SCENE_IDS, labPath, labSceneOf, matchLab } from "./routes";
 
 function lensNode(id: string, degree = 1, clusterKey = "root"): LensNode {
@@ -43,20 +42,27 @@ describe("toLabGraph", () => {
   });
 });
 
-function gap(x: SpherePlace, y: SpherePlace): number {
-  return Math.hypot(x.yaw - y.yaw, x.pitch - y.pitch);
+type Point = readonly [number, number, number];
+
+function gap(a: Point, b: Point): number {
+  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 }
 
-describe("the sky's star places", () => {
-  it("are stable per node and gather a cluster together", () => {
-    const a = starPlace({ id: "a", cluster: "p" });
-    expect(starPlace({ id: "a", cluster: "p" })).toEqual(a);
-    const b = starPlace({ id: "b", cluster: "p" });
-    const far = starPlace({ id: "a", cluster: "q" });
-    expect(gap(a, b)).toBeLessThan(0.33);
+describe("the sky's star points", () => {
+  it("are stable per node, gather a cluster together, and stand at depth", () => {
+    const a = starPoint({ id: "a", cluster: "p" });
+    expect(starPoint({ id: "a", cluster: "p" })).toEqual(a);
+    const b = starPoint({ id: "b", cluster: "p" });
+    const far = starPoint({ id: "a", cluster: "q" });
+    const depth = Math.hypot(...a);
+    // Siblings are a small group in the volume; another cluster is elsewhere.
+    expect(gap(a, b)).toBeLessThan(depth * 0.4);
     expect(gap(a, far)).toBeGreaterThan(0);
-    const [x, y, z] = sphereDirection(a);
-    expect(Math.hypot(x, y, z)).toBeCloseTo(1, 9);
+    for (const id of ["a", "b", "c", "d"]) {
+      const r = Math.hypot(...starPoint({ id, cluster: id }));
+      expect(r).toBeGreaterThan(45);
+      expect(r).toBeLessThan(160);
+    }
   });
 });
 

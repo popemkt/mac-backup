@@ -76,19 +76,27 @@ export const LAB_STUDIES: Record<LabSceneId, LabStudy> = {
   },
   sky: {
     label: "Sky",
-    technique: "Shader-drawn sprites, an atmospheric gradient, and dither",
+    technique: "A sun that lights the moon, stars in 3D, a domain-warped nebula, orbit controls",
     teaches:
-      "Stars and their four-point glints are drawn per pixel on sprite quads; the nebula is fractal noise on the dome. Turn dither off to see a dark gradient band.",
+      "Drag the sky to orbit, scroll to dolly; drag the sun, the moon or a star to move it. The moon is shaded by the sun's direction from each point of it, so its terminator and phase follow the two bodies; the night side keeps a little earthshine. Near constellations slide across far ones: parallax is depth. Turn dither off to see a dark gradient band.",
     rules: [
       {
         id: "M3",
-        how: "Drag turns the sky; released, it coasts; the sun or moon trails the turn.",
+        how: "An orbit coasts on release; a dolly or a flight eases in on the motion tokens.",
       },
-      { id: "M4", how: "The one ambient motion is a slow constant drift." },
+      { id: "M4", how: "The one ambient motion is a slow constant drift of the orbit." },
+      {
+        id: "L2",
+        how: "The sun is the only light, and the only thing past 1: bloom carries its corona out.",
+      },
+      {
+        id: "L3",
+        how: "Stars and dust stand at depth, sized by distance, so moving the eye reveals it.",
+      },
       { id: "L4", how: "A half-step of interleaved-gradient noise kills banding." },
       {
         id: "P5",
-        how: "The sun rules the light theme and the moon the dark; one sets as the other rises.",
+        how: "The camera flies to the sun by day and the moon by night; a daytime moon lets the sky through its dark side.",
       },
     ],
     controls: [
@@ -102,6 +110,15 @@ export const LAB_STUDIES: Record<LabSceneId, LabStudy> = {
         value: 1,
       },
       { kind: "range", id: "nebula", label: "nebula", min: 0, max: 0.8, step: 0.02, value: 0.32 },
+      {
+        kind: "range",
+        id: "earthshine",
+        label: "earthshine",
+        min: 0,
+        max: 0.2,
+        step: 0.005,
+        value: 0.05,
+      },
       { kind: "toggle", id: "dither", label: "dither", value: true },
     ],
     load: () => import("@/components/lab/sky/scene").then((m) => m.mountSky),

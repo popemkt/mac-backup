@@ -23,8 +23,10 @@ const ALLOWED = new Set([
   "embers/compute.ts",
   "embers/looks.ts",
   "embers/scene.ts",
+  "sky/hands.ts",
   "sky/scene.ts",
   "sky/shaders.ts",
+  "sky/stars.ts",
   "light/scene.ts",
   "motion/scene.ts",
 ]);
