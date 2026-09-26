@@ -289,4 +289,21 @@ describe("nodes.jsonl merge driver", () => {
       expect(() => JSON.parse(line)).not.toThrow();
     }
   });
+
+  test("two conflict kinds on one id count as one node needing a decision", async () => {
+    const base = { ...node("01BBB", "b"), order: "m" };
+    await writeStore([base]);
+    await git("add", "-A");
+    await git("commit", "-qm", "base");
+
+    await branchWith("theirs", [{ ...base, order: "p", text: "theirs" }]);
+    await writeStore([{ ...base, order: "n", text: "ours" }]);
+    await git("commit", "-qam", "ours");
+
+    const merge = await git("merge", "--no-edit", "theirs");
+    expect(merge.code).toBe(1);
+    expect(merge.stderr).toContain("1 node(s) need a decision");
+    expect(merge.stderr).toContain("01BBB: modified-both-same-stamp");
+    expect(merge.stderr).toContain("01BBB: modified-both-position");
+  });
 });

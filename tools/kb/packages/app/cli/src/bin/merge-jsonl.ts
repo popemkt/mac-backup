@@ -79,7 +79,8 @@ try {
 writeFileSync(oursPath, body);
 
 if (conflicts.length > 0) {
-  writeErr(`merge-jsonl: ${shown}: ${String(conflicts.length)} node(s) need a decision:`);
+  const nodesToDecide = new Set(conflicts.map((c) => c.id)).size;
+  writeErr(`merge-jsonl: ${shown}: ${String(nodesToDecide)} node(s) need a decision:`);
   for (const c of conflicts) writeErr(`  ${c.id}: ${c.reason}`);
   writeErr(
     "The file is valid JSONL with one side of each conflict kept. Fix those nodes with the kb CLI, then `git add` it.",
