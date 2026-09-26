@@ -3,7 +3,8 @@
  *
  * This module owns three things, and nothing else may restate them:
  *
- * 1. **Which color a tag is** (`tagColorOf`): its explicit `sys.f.color`
+ * 1. **Which color a tag is** (`tagPalette` over the whole workspace, read
+ *    through `tagColorOf`): its explicit `sys.f.color`
  *    prop, else its palette slot, chosen so tags in use do not collide; and
  *    what no tag paints (`UNTAGGED_COLOR`).
  * 2. **Which colors a node carries** (`nodeTagColors`) — a *list*. Treating it
@@ -69,33 +70,47 @@ const isTag = (node: WireNode): boolean => typeRefsOf(node).includes(SYSTEM_IDS.
 const byAge = (a: WireNode, b: WireNode): number =>
   a.createdAt === b.createdAt ? (a.id < b.id ? -1 : 1) : a.createdAt < b.createdAt ? -1 : 1;
 
-/**
- * The palette slot of every tag in one graph.
- *
- * A tag starts at its hash slot and, when another tag already holds it, takes
- * the next free one, so two tags in use never share a colour while the
- * palette has room. Explicit colours that are palette entries hold their slot
- * first. Past twelve tags every slot is taken, and a tag takes the least-used
- * slot from its hash onward. Memoized per graph map: the map is rebuilt when
- * the graph changes, and read many times per build.
- */
-const slotsByGraph = new WeakMap<ReadonlyMap<string, WireNode>, ReadonlyMap<string, string>>();
+/** The colour of every tag in a workspace, by tag id. */
+export type TagPalette = ReadonlyMap<string, string>;
 
-function paletteSlots(byId: ReadonlyMap<string, WireNode>): ReadonlyMap<string, string> {
-  const cached = slotsByGraph.get(byId);
+/** The workspace graph a palette is computed from: its wire nodes, as a list or by id. */
+type WorkspaceGraph = readonly WireNode[] | ReadonlyMap<string, WireNode>;
+
+const palettes = new WeakMap<WorkspaceGraph, TagPalette>();
+
+/**
+ * The colour of every tag in the workspace — a pure function of the whole
+ * graph, and the one map every projection reads.
+ *
+ * A tag's explicit `sys.f.color` wins. Otherwise it starts at its hash slot
+ * and, when an older tag already holds it, takes the next free one, so two
+ * tags never share a colour while the palette has room; an explicit colour
+ * that is a palette entry holds its slot first. Past twelve tags every slot
+ * is taken, and a tag takes the least-used slot from its hash onward.
+ *
+ * Always pass the **whole** workspace graph, never a projection of it (an
+ * ontology scope, a query's rows): the slots depend on which tags exist, so a
+ * subset would repaint tags that lost a neighbour. Memoized per graph object,
+ * which the store replaces whenever the graph changes.
+ */
+export function tagPalette(graph: WorkspaceGraph): TagPalette {
+  const cached = palettes.get(graph);
   if (cached) return cached;
+  const nodes = Array.isArray(graph) ? graph : [...graph.values()];
   const used: number[] = TAG_PALETTE.map(() => 0);
+  const palette = new Map<string, string>();
   const hashed: WireNode[] = [];
-  for (const node of byId.values()) {
+  for (const node of nodes) {
     if (!isTag(node)) continue;
-    const explicit = explicitColorOf(node)?.toLowerCase() ?? null;
-    if (explicit === null) hashed.push(node);
-    else {
-      const held = TAG_PALETTE.findIndex((entry) => entry === explicit);
-      if (held >= 0) used[held] = (used[held] ?? 0) + 1;
+    const explicit = explicitColorOf(node);
+    if (explicit === null) {
+      hashed.push(node);
+      continue;
     }
+    palette.set(node.id, explicit);
+    const held = TAG_PALETTE.findIndex((entry) => entry === explicit.toLowerCase());
+    if (held >= 0) used[held] = (used[held] ?? 0) + 1;
   }
-  const slots = new Map<string, string>();
   for (const node of hashed.toSorted(byAge)) {
     const start = Math.abs(djb2Hash(node.id)) % TAG_PALETTE.length;
     let best = start;
@@ -104,19 +119,18 @@ function paletteSlots(byId: ReadonlyMap<string, WireNode>): ReadonlyMap<string, 
       if ((used[slot] ?? 0) < (used[best] ?? 0)) best = slot;
     }
     used[best] = (used[best] ?? 0) + 1;
-    slots.set(node.id, present(TAG_PALETTE[best], "a slot is an index into the palette"));
+    palette.set(node.id, present(TAG_PALETTE[best], "a slot is an index into the palette"));
   }
-  slotsByGraph.set(byId, slots);
-  return slots;
+  palettes.set(graph, palette);
+  return palette;
 }
 
 /**
- * The colour tag `tagId` paints in the graph `byId`: its explicit prop, else
- * its palette slot among the graph's tags, else (an id the graph does not
- * hold as a tag) its hash.
+ * The colour tag `tagId` paints, from the workspace's palette; an id the
+ * workspace does not hold as a tag falls back to its hash.
  */
-export function tagColorOf(tagId: string, byId: ReadonlyMap<string, WireNode>): string {
-  return explicitColorOf(byId.get(tagId)) ?? paletteSlots(byId).get(tagId) ?? hashTagColor(tagId);
+export function tagColorOf(tagId: string, palette: TagPalette): string {
+  return palette.get(tagId) ?? hashTagColor(tagId);
 }
 
 /**

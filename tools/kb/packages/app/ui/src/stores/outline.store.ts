@@ -5,6 +5,7 @@ import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { isQueryNode } from "@/lib/query-node";
 import { resolveScope, scopedWireNodes } from "@/lib/ontology-scope";
+import { tagPalette } from "@/lib/tag-color";
 import { toast } from "@/lib/toast";
 import { mergeTx } from "@/lib/tx";
 import {
@@ -227,16 +228,22 @@ function projectOutline(
   ontologyId: string | null,
   index: KbIndex,
 ): Projection {
+  // One palette, from the whole workspace, whatever the projection shows.
+  const palette = tagPalette(wire);
   if (ontologyId === null) {
     return {
-      nodes: wireToOutlineMap(wire, expanded),
+      nodes: wireToOutlineMap(wire, expanded, palette),
       ontologyMembers: null,
       ontologyWarnings: [],
     };
   }
   const resolution = resolveScope(wire, ontologyId, index, index.generation);
   return {
-    nodes: wireToOutlineMap(scopedWireNodes(wire, resolution.members, ontologyId), expanded),
+    nodes: wireToOutlineMap(
+      scopedWireNodes(wire, resolution.members, ontologyId),
+      expanded,
+      palette,
+    ),
     ontologyMembers: resolution.members,
     ontologyWarnings: resolution.warnings,
   };

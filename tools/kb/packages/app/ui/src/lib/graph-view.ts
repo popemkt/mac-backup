@@ -1,7 +1,7 @@
 import type { WireNode } from "@kb/contracts";
 import { rankOf, typeRefsOf } from "@kb/model";
 import { hasQueryDef } from "@/lib/query-node";
-import { tagColorOf } from "@/lib/tag-color";
+import { tagColorOf, tagPalette, type TagPalette } from "@/lib/tag-color";
 import { compareWireNodeId } from "@/lib/tx";
 import {
   resolveVisibleProps,
@@ -38,7 +38,7 @@ function isFieldNode(node: WireNode | OutlineNode | undefined): boolean {
  * the graph: read it back as membership and every supertag looks untagged. Any
  * decision about what a node *is* must call `typeRefsOf` directly.
  */
-function resolveTags(wire: WireNode, byId: Map<string, WireNode>): TagBadge[] {
+function resolveTags(wire: WireNode, byId: Map<string, WireNode>, palette: TagPalette): TagBadge[] {
   const tags: TagBadge[] = [];
   for (const typeId of typeRefsOf(wire)) {
     if (typeId === SYSTEM_IDS.tag || typeId === SYSTEM_IDS.field) continue;
@@ -47,7 +47,7 @@ function resolveTags(wire: WireNode, byId: Map<string, WireNode>): TagBadge[] {
     tags.push({
       id: typeId,
       name: textOr(target?.text, typeId),
-      color: tagColorOf(typeId, byId),
+      color: tagColorOf(typeId, palette),
     });
   }
   return tags;
@@ -106,7 +106,17 @@ function nodeDefaultsCollapsed(wire: WireNode, byId: Map<string, WireNode>): boo
   return false;
 }
 
-export function wireToOutlineMap(nodes: WireNode[], expandedIds: Set<string>): NodeMap {
+/**
+ * The outline projection of `nodes`. Tag colours come from `palette`, the
+ * whole workspace's (`tagPalette`): a caller projecting a subset (an ontology
+ * scope) passes the full graph's palette, so a tag keeps its colour in every
+ * projection. The default is right only when `nodes` is the whole graph.
+ */
+export function wireToOutlineMap(
+  nodes: WireNode[],
+  expandedIds: Set<string>,
+  palette: TagPalette = tagPalette(nodes),
+): NodeMap {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const parentOf = new Map<string, string>();
   for (const n of nodes) {
@@ -131,7 +141,7 @@ export function wireToOutlineMap(nodes: WireNode[], expandedIds: Set<string>): N
   for (const wire of nodes) {
     const parentId = parentOf.get(wire.id) ?? null;
     const outlineParent = parentId ?? (roots.includes(wire.id) ? WORKSPACE_ROOT_ID : null);
-    const tags = resolveTags(wire, byId);
+    const tags = resolveTags(wire, byId, palette);
     const collapsed = nodeDefaultsCollapsed(wire, byId) && !expandedIds.has(wire.id);
     map.set(wire.id, {
       id: wire.id,

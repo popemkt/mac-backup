@@ -16,7 +16,7 @@ import { cn } from "@/lib/cn";
 import { excludedRows, memberRows, resolveScope } from "@/lib/ontology-scope";
 import { NotFound } from "@/components/ui/not-found";
 import { navigate } from "@/lib/router";
-import { tagChipColors, tagColorOf } from "@/lib/tag-color";
+import { tagChipColors, tagColorOf, tagPalette } from "@/lib/tag-color";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 
@@ -116,7 +116,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
               <Chip
                 key={tagId}
                 label={`#${labelFor(tagId)}`}
-                color={tagColorOf(tagId, byId)}
+                color={tagColorOf(tagId, tagPalette(wireNodes))}
                 onRemove={() => void mutations.ontologyRemoveInclude(ontologyId, tagId)}
                 removeLabel={`Remove include ${labelFor(tagId)}`}
               />

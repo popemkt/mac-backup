@@ -191,9 +191,11 @@ A 12-color palette (red orange yellow green teal cyan blue violet fuchsia pink
 indigo lime). A tag starts at its djb2 % 12 slot; when an older tag in the graph
 already holds that slot it takes the next free one, so tags in use never share
 a colour while the palette has room (past twelve, the least-used slot from its
-hash onward). A palette colour set explicitly holds its slot first. Untagged is
-a neutral grey outside the palette. `tagColorOf` in `lib/tag-color.ts` is the
-one reader. Tana improvement: tag node may carry explicit `color` prop (ref:
+hash onward). A palette colour set explicitly holds its slot first. The slots are a
+pure function of the whole workspace graph (`tagPalette`), which every
+projection reads, so an ontology scope never repaints a tag. Untagged is
+a neutral grey outside the palette. `tagPalette` in `lib/tag-color.ts` owns it,
+read through `tagColorOf`. Tana improvement: tag node may carry explicit `color` prop (ref:
 field on `sys.tag` template) — overrides the slot. Bullet dot + collapsed halo
 inherit tag color. A chip paints through `tagChipColors`: its ground is the
 tag colour at 10%, its ink the tag colour moved toward `--foreground` by the

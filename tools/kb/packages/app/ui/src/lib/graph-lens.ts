@@ -22,7 +22,13 @@ import {
 import type { WireNode } from "@kb/contracts";
 import type { KbIndex } from "@/ds";
 import { extractMentions, runQuery } from "@/ds";
-import { UNTAGGED_COLOR, hashTagColor, tagColorOf } from "@/lib/tag-color";
+import {
+  UNTAGGED_COLOR,
+  hashTagColor,
+  tagColorOf,
+  tagPalette,
+  type TagPalette,
+} from "@/lib/tag-color";
 import { graphDisplayText } from "./graph-label";
 import { SYSTEM_IDS, isSysPrefixed, type PropValue } from "@/lib/types";
 import { logWarn } from "@/lib/log";
@@ -123,9 +129,11 @@ function isTagNode(node: WireNode | undefined): boolean {
 }
 
 /** First content tag (skips sys.tag / sys.field type markers). */
+/** `byId` is the whole workspace graph, so the default palette is its palette. */
 export function firstTagOf(
   wire: WireNode,
   byId: Map<string, WireNode>,
+  palette: TagPalette = tagPalette(byId),
 ): { id: string; color: string } | null {
   const types = wire.props[SYSTEM_IDS.typeField] ?? [];
   for (const pv of types) {
@@ -133,7 +141,7 @@ export function firstTagOf(
     if (pv.v === SYSTEM_IDS.tag || pv.v === SYSTEM_IDS.field) continue;
     const target = byId.get(pv.v);
     if (!isTagNode(target)) continue;
-    return { id: pv.v, color: tagColorOf(pv.v, byId) };
+    return { id: pv.v, color: tagColorOf(pv.v, palette) };
   }
   return null;
 }
@@ -659,6 +667,7 @@ export function resolveColor(
   byId: Map<string, WireNode>,
   colorBy: string,
   parentOf = buildParentMap([...byId.values()]),
+  palette: TagPalette = tagPalette(byId),
 ): string {
   if (colorBy.startsWith("fixed:")) {
     const hex = colorBy.slice("fixed:".length).trim() || "#888888";
@@ -668,7 +677,7 @@ export function resolveColor(
     return hashTagColor(resolveCluster(wire, byId, parentOf, colorBy).key);
   }
   // default: tag
-  return firstTagOf(wire, byId)?.color ?? UNTAGGED_COLOR;
+  return firstTagOf(wire, byId, palette)?.color ?? UNTAGGED_COLOR;
 }
 
 export function resolveSize(sizeBy: string, degree: number, childCount: number): number {
@@ -710,11 +719,12 @@ export function extractLensGraph(
   const finalDegrees = degreeMap(keep, edges);
 
   const parentOf = buildParentMap(wireNodes, keep);
+  const palette = tagPalette(wireNodes);
   const nodes: LensNode[] = [];
   for (const id of keep) {
     const wire = byId.get(id);
     if (!wire) continue;
-    const color = resolveColor(wire, byId, perspective.colorBy, parentOf);
+    const color = resolveColor(wire, byId, perspective.colorBy, parentOf, palette);
     const cluster = resolveCluster(wire, byId, parentOf, perspective.clusterBy);
     const weight = resolveMeasure(wire, perspective.sizeBy, finalDegrees.get(id) ?? 0);
     const size = perspective.sizeBy.startsWith("prop:")

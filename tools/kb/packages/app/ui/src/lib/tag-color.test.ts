@@ -6,10 +6,13 @@ import {
   nodeTagColors,
   UNTAGGED_COLOR,
   tagColorOf,
+  tagPalette,
+  type TagPalette,
   tagColorAlpha,
   tagColorFill,
 } from "./tag-color";
 import type { WireNode } from "@kb/contracts";
+import { wireToOutlineMap } from "./graph-view";
 import { SYSTEM_IDS, type TagBadge } from "./types";
 
 function tagNode(
@@ -31,8 +34,9 @@ function at(day: number): string {
   return `2026-01-0${day}T00:00:00.000Z`;
 }
 
-function graph(...nodes: WireNode[]): Map<string, WireNode> {
-  return new Map(nodes.map((n) => [n.id, n]));
+/** The palette of a workspace holding exactly `nodes`. */
+function graph(...nodes: WireNode[]): TagPalette {
+  return tagPalette(nodes);
 }
 
 function tag(id: string, color: string): TagBadge {
@@ -162,5 +166,37 @@ describe("tag colours in one graph do not collide (P2-3)", () => {
 
   it("paints untagged grey, outside the palette", () => {
     expect(TAG_PALETTE).not.toContain(UNTAGGED_COLOR);
+  });
+});
+
+describe("one palette for the whole workspace (review: scoped projections)", () => {
+  it("a projection of a subset keeps every tag's colour, because it reads the full graph's palette", () => {
+    const [older, newer] = (() => {
+      const seen = new Map<string, string>();
+      for (let i = 0; ; i++) {
+        const id = `s${i}`;
+        const other = seen.get(hashTagColor(id));
+        if (other !== undefined) return [other, id];
+        seen.set(hashTagColor(id), id);
+      }
+    })();
+    const tagged: WireNode = {
+      id: "n.member",
+      text: "member",
+      children: [],
+      props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: newer }] },
+      createdAt: at(3),
+      updatedAt: at(3),
+    };
+    const full = [tagNode(older, {}, at(1)), tagNode(newer, {}, at(2)), tagged];
+    const workspaceColor = tagColorOf(newer, tagPalette(full));
+    expect(workspaceColor).not.toBe(hashTagColor(newer));
+
+    // A scope that drops the older tag: a palette of the subset would give
+    // `newer` its hash slot back, i.e. repaint it.
+    const scoped = [tagNode(newer, {}, at(2)), tagged];
+    expect(tagColorOf(newer, tagPalette(scoped))).toBe(hashTagColor(newer));
+    const projected = wireToOutlineMap(scoped, new Set(), tagPalette(full));
+    expect(projected.get("n.member")?.tags[0]?.color).toBe(workspaceColor);
   });
 });
