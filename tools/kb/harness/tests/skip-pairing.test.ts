@@ -7,9 +7,14 @@ import { WORKSPACE_ROOT, gitWorkspaceFiles } from "../src/workspace.ts";
  * Harness check 4: Skip pairing (spec 11 / plan A.9 #4).
  *
  * Asserts:
- *   Every `test.skip`, `describe.skip`, `it.skip`, `test.todo`, `it.todo` in any
- *   test file under tools/kb carries a paired debt marker `GAP [[<id>]]` within
- *   3 lines above or on the same line.
+ *   Every way a test can be kept from running — skipped (`skip`, `skipIf`,
+ *   Playwright's `test.skip(condition)` inside a body, a context's `skip()`),
+ *   left undone (`todo`, `todoIf`, `fixme`), or run only on a condition
+ *   (`if`, `runIf`) — on `test`, `it` or `describe`, in any test file under
+ *   tools/kb, carries a paired debt marker `GAP [[<id>]]` within 3 lines above
+ *   or on the same line. A lane that is not the default one (the store
+ *   benchmark) registers its tests only in that lane rather than skipping
+ *   them in this one.
  *   `BASELINED_SKIPS` is empty and stale-checked.
  *
  * Red case: add an unpaired `test.skip(...)` without a GAP marker.
@@ -17,7 +22,9 @@ import { WORKSPACE_ROOT, gitWorkspaceFiles } from "../src/workspace.ts";
 
 export const BASELINED_SKIPS: Record<string, string[]> = {};
 
-const SKIP_PATTERN = /\b(?:test|describe|it)\.(?:skip|todo)\b/;
+/** Each form a runner offers for not running a test (bun, Vitest, Playwright). */
+export const SKIP_PATTERN =
+  /\b(?:test|describe|it)\.(?:skip|skipIf|todo|todoIf|fixme|if|runIf)\b|\b(?:ctx|context|t|testInfo)\.skip\(/;
 const GAP_PATTERN = /GAP\s+\[\[([^\]]+)\]\]/;
 
 export function findUnpairedSkips(root: string = WORKSPACE_ROOT): Array<{
@@ -63,6 +70,26 @@ export function findUnpairedSkips(root: string = WORKSPACE_ROOT): Array<{
 }
 
 describe("skip-pairing", () => {
+  test("every form of not running a test is recognised", () => {
+    const skips = [
+      'test.skip("x", () => {});',
+      'describe.skip("x", () => {});',
+      'it.todo("x");',
+      'test.skipIf(!ready)("x", () => {});',
+      'describe.skipIf(!ready)("x", () => {});',
+      'test.todoIf(flag)("x");',
+      'test.if(ready)("x", () => {});',
+      'it.runIf(ready)("x", () => {});',
+      'test.fixme("x", async () => {});',
+      '    test.skip(!gpu.webgpu, "needs WebGPU");',
+      "  ctx.skip();",
+      "  testInfo.skip(cond);",
+    ];
+    expect(skips.filter((line) => !SKIP_PATTERN.test(line))).toEqual([]);
+    const runs = ['test("x", () => {});', 'test.each(rows)("x", () => {});', "skipped.push(1);"];
+    expect(runs.filter((line) => SKIP_PATTERN.test(line))).toEqual([]);
+  });
+
   test("BASELINED_SKIPS has no stale entries", () => {
     const stale: string[] = [];
     for (const [file, snippets] of Object.entries(BASELINED_SKIPS)) {

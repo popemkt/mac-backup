@@ -22,7 +22,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | No conflict markers | docs/kb/waves/2026-09-03/briefs/g2-strict-stack.md | repo | A committed merge-conflict marker fails the build. | harness | — |
 | Public surface | docs/kb/waves/2026-09-03/briefs/w1-workspace.md | tools/kb packages | Every package exposes exactly one barrel of named exports; no star re-exports and no deep imports past it. | harness | — |
 | Rule checks are nodes | tools/kb/AGENTS.md#extensions | kb rule index | A machine-enforced rule references its check node; enforcement is derived from the check surface, and the obsolete gate is removed. | harness | — |
-| Skip pairing | CLAUDE.md#drift-markers-and-gaps | tools/kb tests | Every skip or todo test names a GAP node within three lines. A skipped test is a debt, not a solved problem. | harness | — |
+| Skip pairing | CLAUDE.md#drift-markers-and-gaps | tools/kb tests | Every test kept from running — skipped, skipped on a condition, run only on a condition, left todo or fixme — names a GAP node within three lines. A skipped test is a debt, not a solved problem. | harness | — |
 | Two-mechanism soft rules | CLAUDE.md#drift-markers-and-gaps | tools/kb | A soft lint rule is either error plus pinpoint GAP disables (up to about 30 sites) or a frozen ratchet lane; never both, never a third. | harness | — |
 | UI import matrix | tools/kb/harness/src/constraints.ts | tools/kb packages/app/ui | Who may import whom inside the UI is one table — UI_ALLOWS in constraints.ts, keyed by the zone a file sits in — and the harness applies it to every intra-package import. ARCHITECTURE.md links to that table; a sanctioned breach carries a GAP marker on its import line. | harness | — |
 | Version authored once | docs/kb/waves/2026-09-03/briefs/w1-workspace.md | tools/kb workspace | Internal deps are workspace refs and external deps are catalog refs; no literal, floating or latest specifier appears in any manifest. | harness | — |
@@ -338,14 +338,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — UI import matrix
 - **node** — `01M1RXNP3EMV1ES85BVE9CXMYE`
 
-### GAP: the cluster renderer's lifecycle effect carries 28 branches
-
-- **expected** — Same shape as the sigma gap: a renderer object with update/destroy, and hull drawing as its own pure geometry function.
-- **current** — One useEffect builds the graph, runs the community layout, draws hulls on a canvas, wires pointer hit-testing and tears down.
-- **impact** — Hull geometry and hit-testing - pure maths - are trapped inside an effect.
-- **closes** — Extract the hull geometry first (it is pure and testable), then the renderer object.
-- **node** — `01M1MGCQ3JT5GE3FY5XJ9EB67Q`
-
 ### GAP: the inline markdown parser is a 41-branch hand-rolled scanner
 
 - **expected** — Inline markdown parses through a table of segment recognizers tried in order, each recognizer a named, separately tested function.
@@ -365,7 +357,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the lab pre-compiles only plain scenes; occlusion and shadow scenes compile on the hidden first frame
 
 - **expected** — Every study's pipelines, including the GTAO two-target pass and the shadow pass, are compiled before the first frame is drawn (Lab principle P2).
-- **current** — kit/stage.ts reveal() calls renderer.compileAsync only when the study has no occlusion and no shadows; the Light and Motion studies compile synchronously on the first, still-hidden frame.
+- **current** — scene/gpu/stage.ts reveal() calls renderer.compileAsync only when the scene has no occlusion and no shadows; the Light and Motion studies compile synchronously on the first, still-hidden frame.
 - **impact** — A one-frame compile hitch behind the fade-in on those two studies; nothing pops, but the frame is not pre-warmed.
 - **closes** — Compile through the post chain (PostProcessing.renderAsync on a hidden frame, or a compileAsync that takes the pass's render target and the shadow pass) once three supports it, then drop the condition.
 - **rule** — Lab principles
@@ -681,7 +673,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: lib/ reaches up into the stores it should be a leaf below
 
 - **expected** — lib/ is the UI's leaf zone: pure helpers the layers above call, taking what they need as arguments. Store reads and writes belong to the caller — a store, an action, or a component.
-- **current** — lib/toast.ts writes through useUiStore.getState().pushToast; lib/canvas-api.ts takes a type-only dependency on useOutlineStore for the node map. Two import sites in two files. lib/run-command.ts is gone: the command registry that replaced it (lib/commands.tsx) takes a CommandContext from the palette that already holds the stores, so the four store imports it carried are closed.
+- **current** — Closed. lib/ reads no store: lib/toast.ts is written through by stores/ui.store, which registers itself when it loads; lib/canvas-api.ts takes the node map rather than the store type; the command registry (lib/commands.tsx) takes a CommandContext from the palette that holds the stores.
 - **impact** — The leaf zone cannot be exercised or reused without the whole store stack behind it, and the outline-store split has to drag three lib modules along. It also inverts the direction every other row of UI_ALLOWS states.
 - **closes** — toast moves onto ui.store's own surface; canvas-api takes the node map instead of the store type. The run-command third is done (wave 2026-09-09 g4).
 - **rule** — UI import matrix
@@ -868,6 +860,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Highest-complexity handler in the canvas; clipboard parsing and selection maths are unreachable from tests.
 - **closes** — Same treatment as the outline keydown gap: pure chord mapping, separate appliers, clipboard parsing already has parseCanvasDoc to lean on.
 - **node** — `01M1MGCS6A29HT51G40W5TEEYK`
+
+### GAP: the cluster renderer's lifecycle effect carries 28 branches
+
+- **expected** — Same shape as the sigma gap: a renderer object with update/destroy, and hull drawing as its own pure geometry function.
+- **current** — Closed. ClusterGraph is SigmaGraph with the cluster layout; hull geometry is pure (cluster-hull.ts) and drawn by cluster-hulls.ts. What is left of the lifecycle effect is the shared 2D renderer's, which the sigma gap tracks.
+- **impact** — Hull geometry and hit-testing - pure maths - are trapped inside an effect.
+- **closes** — Extract the hull geometry first (it is pure and testable), then the renderer object.
+- **node** — `01M1MGCQ3JT5GE3FY5XJ9EB67Q`
 
 ### GAP: the default design system's light accent and warning sit below body-text AA
 

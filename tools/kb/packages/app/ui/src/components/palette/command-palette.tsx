@@ -20,8 +20,8 @@ import { useUiStore } from "@/stores/ui.store";
 /**
  * The state a command runs against, read at the moment it runs.
  *
- * The registry is a leaf module, so the palette hands it the stores rather
- * than the other way round (GAP [[01M1RXMQPVJKREGDS7D37J1MWN]]). ⌘K offers
+ * The registry is a leaf module (`lib/` reads no store), so the palette hands
+ * it the stores rather than the other way round. ⌘K offers
  * only the `sys.command` nodes and none of those is a picker step, so
  * `openStep` states that rather than being wired to nothing.
  */

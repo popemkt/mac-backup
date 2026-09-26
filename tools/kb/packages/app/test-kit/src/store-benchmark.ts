@@ -148,9 +148,14 @@ function runBenchmark(name: string, makeStore: StoreFactory): Promise<void> {
   );
 }
 
-/** Register the benchmark for one adapter. Skipped unless explicitly named. */
+/**
+ * Register the benchmark for one adapter, in the bench lane only. The
+ * benchmark is a lane of its own (`bun run bench`), not a test the default
+ * lane skips: a skip is debt, and this is not.
+ */
 export function storeBenchmark(name: string, makeStore: StoreFactory): void {
-  describe.skipIf(!benchmarkEnabled)(`benchmark 50k — ${name}`, () => {
+  if (!benchmarkEnabled) return;
+  describe(`benchmark 50k — ${name}`, () => {
     test("prints the store benchmark table", () => runBenchmark(name, makeStore), 60_000);
   });
 }

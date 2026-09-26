@@ -9,11 +9,14 @@ import { WORKSPACE_ROOT, gitWorkspaceFiles } from "../src/workspace.ts";
  * Asserts:
  *   Every `GAP [[<id>]]` marker in code references a valid node in
  *   .kb/nodes.jsonl. If a #gap tag definition exists, the node must carry
- *   that tag.
+ *   that tag, and the gap must still be open: a marker names a deferral that
+ *   is still in force, so one that points at a `done` or `dropped` gap says
+ *   something the code no longer means.
  *
  * Parse the JSONL directly; do not import kb.
  *
- * Red case: add an unresolvable `// GAP [[01FAKE00000000000000000000]]` marker.
+ * Red cases: add an unresolvable `// GAP [[01FAKE00000000000000000000]]`
+ * marker, or cite a gap whose `status` is `done`.
  */
 
 const NODES_JSONL = join(WORKSPACE_ROOT, "..", "..", ".kb", "nodes.jsonl");
@@ -51,6 +54,27 @@ export function findGapTagId(nodes: Map<string, KbNodeRecord>): string | null {
     if (isTag && node.text?.toLowerCase() === "gap") {
       return node.id;
     }
+  }
+  return null;
+}
+
+/** The `status` values that close a gap: its marker has nothing left to name. */
+export const CLOSED_GAP_STATUSES: ReadonlySet<string> = new Set(["done", "dropped"]);
+
+/** The `status` field node, found by what it is (a field named "status"), not by id. */
+export function findStatusFieldId(nodes: Map<string, KbNodeRecord>): string | null {
+  for (const node of nodes.values()) {
+    const types = node.props?.["sys.f.type"] ?? [];
+    const isField = types.some((ref) => ref.t === "ref" && ref.v === "sys.field");
+    if (isField && node.text === "status") return node.id;
+  }
+  return null;
+}
+
+/** The closing status a gap carries, or null while it is open. */
+export function closedStatusOf(node: KbNodeRecord, statusFieldId: string): string | null {
+  for (const value of node.props?.[statusFieldId] ?? []) {
+    if (typeof value.v === "string" && CLOSED_GAP_STATUSES.has(value.v)) return value.v;
   }
   return null;
 }
@@ -94,6 +118,7 @@ export function findAllGapMarkers(root: string = WORKSPACE_ROOT): Array<{
 describe("gap-markers-resolve", () => {
   const nodes = loadKbNodes(NODES_JSONL);
   const gapTagId = findGapTagId(nodes);
+  const statusFieldId = findStatusFieldId(nodes);
 
   test(".kb/nodes.jsonl exists and contains valid nodes", () => {
     expect(existsSync(NODES_JSONL)).toBe(true);
@@ -104,6 +129,7 @@ describe("gap-markers-resolve", () => {
     const markers = findAllGapMarkers(WORKSPACE_ROOT);
     const missing: string[] = [];
     const notTaggedGap: string[] = [];
+    const closed: string[] = [];
 
     for (const marker of markers) {
       const node = nodes.get(marker.id);
@@ -123,6 +149,13 @@ describe("gap-markers-resolve", () => {
           );
         }
       }
+
+      const status = statusFieldId === null ? null : closedStatusOf(node, statusFieldId);
+      if (status !== null) {
+        closed.push(
+          `${marker.file}:${marker.line}: GAP [[${marker.id}]] is ${status}; delete the marker or cite the gap still open`,
+        );
+      }
     }
 
     expect(missing, `Unresolved GAP markers:\n${missing.join("\n")}`).toEqual([]);
@@ -130,5 +163,15 @@ describe("gap-markers-resolve", () => {
       notTaggedGap,
       `GAP markers referencing nodes without #gap tag:\n${notTaggedGap.join("\n")}`,
     ).toEqual([]);
+    expect(closed, `GAP markers citing closed gaps:\n${closed.join("\n")}`).toEqual([]);
+  });
+
+  test("a marker that cites a done gap is red", () => {
+    const statusField = "f.status";
+    const done: KbNodeRecord = { id: "g", props: { [statusField]: [{ t: "str", v: "done" }] } };
+    const open: KbNodeRecord = { id: "g", props: { [statusField]: [{ t: "str", v: "todo" }] } };
+    expect(closedStatusOf(done, statusField)).toBe("done");
+    expect(closedStatusOf(open, statusField)).toBeNull();
+    expect(statusFieldId).not.toBeNull();
   });
 });
