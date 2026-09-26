@@ -199,6 +199,10 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
     "a node created without a rank gets one from the one owner, and a reopen keeps it",
     createdNodeKeepsItsRank,
   ],
+  [
+    "sequential root appends from fresh sessions get increasing ranks without changing older ranks",
+    freshSessionsAppendInOrder,
+  ],
   ["an opening migration commits exactly the nodes it changed", openingMigrationIsMinimal],
   [
     "a cardinality-one field holds one value: set replaces in one transaction, two are refused",
@@ -699,6 +703,40 @@ function createdNodeKeepsItsRank(makeStore: StoreFactory): Promise<void> {
 
         yield* openSession(root);
         expect(yield* stateOf(makeStore(root))).toEqual(written);
+      }),
+    ),
+  );
+}
+
+function freshSessionsAppendInOrder(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        yield* openSession(root);
+        const before = yield* makeStore(root).loadEffect;
+
+        for (const text of ["first", "second"]) {
+          const ctx = yield* openSession(root);
+          const receipt = yield* invokeReceiptEffect(ctx, {
+            id: "node.add",
+            input: { text },
+          }).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+          expect(receipt.status).toBe("succeeded");
+        }
+
+        const after = yield* makeStore(root).loadEffect;
+        const byId = new Map(after.map((node) => [node.id, node]));
+        for (const node of before) expect(byId.get(node.id)?.order).toBe(node.order);
+
+        const first = after.find((node) => node.text === "first");
+        const second = after.find((node) => node.text === "second");
+        expect(first).toBeDefined();
+        expect(second).toBeDefined();
+        expect(rankOf(first).ranked).toBe(true);
+        expect(rankOf(second).ranked).toBe(true);
+        expect((first?.order ?? "") < (second?.order ?? "")).toBe(true);
+        expect(rootRanks(after).distinct).toBe(true);
       }),
     ),
   );

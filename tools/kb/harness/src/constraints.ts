@@ -2,7 +2,7 @@
  * The two-axis constraint matrix (plan D11). One statement of the rule; the
  * `boundaries` check applies it to the import-derived package graph.
  *
- * Deviations from the brief's table, each recorded in
+ * The original deviations from the brief's table are recorded in
  * docs/kb/waves/2026-09-03/reports/w1-workspace.md:
  *
  * - `layer:extension` may reach `application`. The bundled extensions are
@@ -10,6 +10,9 @@
  *   party code; the fences that matter (extension ↛ infrastructure,
  *   extension ↛ app) still hold. Third-party `.kb/extensions/*.ts` are fenced
  *   by @kb/ext-sdk's ambient d.ts, which is not a package edge at all.
+ * - `layer:extension` may reach `extension` for @kb/ext-canvas's shared
+ *   @kb/canvas document. GAP [[01M3F923QWH9HSAW61VNFWHANV]] records the
+ *   missing distinction between a plugin's own model and another's.
  * - `test-support` may reach `app`. @kb/render-tests drives the server
  *   through its public surface; it still may not reach infrastructure. The DST
  *   harness (`@kb/test-kit`) builds the runtime Layer itself, so it sits under
