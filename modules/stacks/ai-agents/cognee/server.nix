@@ -627,6 +627,11 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
       StandardOutPath = "${logRoot}/api.out.log";
       StandardErrorPath = "${logRoot}/api.err.log";
       EnvironmentVariables.HOME = home;
+      # Cognee 1.4 can retain database descriptors across recall requests.
+      # The launchd default of 256 turns that leak into HTTP 409/500
+      # responses after a few days.
+      SoftResourceLimits.NumberOfFiles = 65536;
+      HardResourceLimits.NumberOfFiles = 65536;
     };
 
     cognee-ui.serviceConfig = {
