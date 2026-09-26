@@ -22,7 +22,7 @@ import {
 import type { WireNode } from "@kb/contracts";
 import type { KbIndex } from "@/ds";
 import { extractMentions, runQuery } from "@/ds";
-import { hashTagColor, resolveTagColor } from "@/lib/tag-color";
+import { hashTagColor, tagColorOf } from "@/lib/tag-color";
 import { graphDisplayText } from "./graph-label";
 import { SYSTEM_IDS, isSysPrefixed, type PropValue } from "@/lib/types";
 import { logWarn } from "@/lib/log";
@@ -133,9 +133,7 @@ export function firstTagOf(
     if (pv.v === SYSTEM_IDS.tag || pv.v === SYSTEM_IDS.field) continue;
     const target = byId.get(pv.v);
     if (!isTagNode(target)) continue;
-    const colorProp = target?.props[SYSTEM_IDS.colorField]?.[0];
-    const explicit = colorProp?.t === "str" ? colorProp.v : undefined;
-    return { id: pv.v, color: resolveTagColor(pv.v, explicit) };
+    return { id: pv.v, color: tagColorOf(pv.v, byId) };
   }
   return null;
 }

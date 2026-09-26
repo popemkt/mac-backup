@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { CircleHalfIcon } from "@phosphor-icons/react";
 import { FieldRow } from "./field-row";
 import { TagChip, TagChipGroup } from "./tag-chip";
-import { hashTagColor, resolveTagColor } from "@/lib/tag-color";
+import { hashTagColor } from "@/lib/tag-color";
 
 const outlineDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -98,13 +98,13 @@ describe("shared outline components (W8b)", () => {
     expect(html).not.toMatch(/h-\[\d+px\]/);
   });
 
-  it("resolveTagColor override wins over hash in TagChip style", () => {
+  it("TagChip paints the colour its tag carries", () => {
     const html = renderToStaticMarkup(
       createElement(TagChip, {
         tag: {
           id: "tag.todo",
           name: "todo",
-          color: resolveTagColor("tag.todo", "#112233"),
+          color: "#112233",
         },
       }),
     );

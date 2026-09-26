@@ -140,7 +140,7 @@ describe("bullet paint (a node's tag colors)", () => {
   // --- the hex-alpha assumption ----------------------------------------
 
   it("tints a named tag color instead of concatenating hex digits", () => {
-    // resolveTagColor returns an explicit sys.f.color prop verbatim, so the
+    // tagColorOf returns an explicit sys.f.color prop verbatim, so the
     // value reaching the bullet need not be a 6-digit hex. `"red" + "20"` is
     // not a color.
     const html = bulletHtml(

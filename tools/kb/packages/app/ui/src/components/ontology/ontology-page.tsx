@@ -15,7 +15,7 @@ import { RefAddPopover } from "@/components/ontology/ref-add-popover";
 import { cn } from "@/lib/cn";
 import { excludedRows, memberRows, resolveScope } from "@/lib/ontology-scope";
 import { navigate } from "@/lib/router";
-import { resolveTagColor } from "@/lib/tag-color";
+import { tagColorOf } from "@/lib/tag-color";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 
@@ -127,7 +127,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
               <Chip
                 key={tagId}
                 label={`#${labelFor(tagId)}`}
-                color={resolveTagColor(tagId, explicitTagColor(byId.get(tagId)))}
+                color={tagColorOf(tagId, byId)}
                 onRemove={() => void mutations.ontologyRemoveInclude(ontologyId, tagId)}
                 removeLabel={`Remove include ${labelFor(tagId)}`}
               />
@@ -298,11 +298,6 @@ function OntologyTitle({ id, text }: { id: string; text: string }) {
 
 function isTagNode(node: WireNode): boolean {
   return typeRefsOf(node).includes(SYSTEM_IDS.tag);
-}
-
-function explicitTagColor(node: WireNode | undefined): string | undefined {
-  const raw = node?.props[SYSTEM_IDS.colorField]?.[0];
-  return raw?.t === "str" ? raw.v : undefined;
 }
 
 function DefinitionRow({

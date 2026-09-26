@@ -4,11 +4,31 @@ import {
   djb2Hash,
   hashTagColor,
   nodeTagColors,
-  resolveTagColor,
+  tagColorOf,
   tagColorAlpha,
   tagColorFill,
 } from "./tag-color";
-import type { TagBadge } from "./types";
+import type { WireNode } from "@kb/contracts";
+import { SYSTEM_IDS, type TagBadge } from "./types";
+
+function tagNode(
+  id: string,
+  props: WireNode["props"] = {},
+  createdAt = "2026-01-01T00:00:00.000Z",
+): WireNode {
+  return {
+    id,
+    text: id,
+    children: [],
+    props: { [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }], ...props },
+    createdAt,
+    updatedAt: createdAt,
+  };
+}
+
+function graph(...nodes: WireNode[]): Map<string, WireNode> {
+  return new Map(nodes.map((n) => [n.id, n]));
+}
 
 function tag(id: string, color: string): TagBadge {
   return { id, name: id, color };
@@ -34,10 +54,17 @@ describe("tag color hash (DESIGN-RESKIN §1.8)", () => {
   });
 
   it("explicit color prop overrides the hash", () => {
-    expect(resolveTagColor("tag.todo", "#112233")).toBe("#112233");
-    expect(resolveTagColor("tag.todo", "  #aabbcc  ")).toBe("#aabbcc");
-    expect(resolveTagColor("tag.todo", null)).toBe(hashTagColor("tag.todo"));
-    expect(resolveTagColor("tag.todo", "")).toBe(hashTagColor("tag.todo"));
+    const withColor = (color?: string) =>
+      graph(
+        tagNode(
+          "tag.todo",
+          color === undefined ? {} : { [SYSTEM_IDS.colorField]: [{ t: "str", v: color }] },
+        ),
+      );
+    expect(tagColorOf("tag.todo", withColor("#112233"))).toBe("#112233");
+    expect(tagColorOf("tag.todo", withColor("  #aabbcc  "))).toBe("#aabbcc");
+    expect(tagColorOf("tag.todo", withColor())).toBe(hashTagColor("tag.todo"));
+    expect(tagColorOf("tag.todo", withColor(""))).toBe(hashTagColor("tag.todo"));
   });
 });
 

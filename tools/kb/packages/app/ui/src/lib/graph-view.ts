@@ -1,7 +1,7 @@
 import type { WireNode } from "@kb/contracts";
 import { rankOf, typeRefsOf } from "@kb/model";
 import { hasQueryDef } from "@/lib/query-node";
-import { resolveTagColor } from "@/lib/tag-color";
+import { tagColorOf } from "@/lib/tag-color";
 import { compareWireNodeId } from "@/lib/tx";
 import {
   resolveVisibleProps,
@@ -44,12 +44,10 @@ function resolveTags(wire: WireNode, byId: Map<string, WireNode>): TagBadge[] {
     if (typeId === SYSTEM_IDS.tag || typeId === SYSTEM_IDS.field) continue;
     const target = byId.get(typeId);
     if (!isTagNode(target)) continue;
-    const colorProp = target?.props[SYSTEM_IDS.colorField]?.[0];
-    const explicitColor = colorProp?.t === "str" ? colorProp.v : undefined;
     tags.push({
       id: typeId,
       name: textOr(target?.text, typeId),
-      color: resolveTagColor(typeId, explicitColor),
+      color: tagColorOf(typeId, byId),
     });
   }
   return tags;

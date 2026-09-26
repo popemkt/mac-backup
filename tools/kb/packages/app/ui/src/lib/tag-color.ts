@@ -3,17 +3,19 @@
  *
  * This module owns three things, and nothing else may restate them:
  *
- * 1. **Which color a tag is** (`hashTagColor` / `resolveTagColor`).
+ * 1. **Which color a tag is** (`tagColorOf`): its explicit `sys.f.color`
+ *    prop, else its palette slot.
  * 2. **Which colors a node carries** (`nodeTagColors`) — a *list*. Treating it
  *    as a scalar (`tags[0]?.color`) is what made a many-tagged bullet paint one
  *    tag; the reduction is gone from every call site.
  * 3. **How a tag color is weakened or divided** (`tagColorAlpha`,
  *    `tagColorFill`) — because an explicit `sys.f.color` prop comes back from
- *    `resolveTagColor` verbatim, so the value may be `red`, `#f00` or
+ *    `tagColorOf` verbatim, so the value may be `red`, `#f00` or
  *    `oklch(…)`, and appending hex-alpha digits to those produces garbage.
  */
+import type { WireNode } from "@kb/contracts";
 import { present } from "@kb/model";
-import type { TagBadge } from "@/lib/types";
+import { SYSTEM_IDS, type TagBadge } from "@/lib/types";
 import { textOr } from "@/lib/text";
 
 /** Deterministic 12-color hash (djb2 % 12). */
@@ -46,9 +48,15 @@ export function hashTagColor(tagId: string): string {
   return present(TAG_PALETTE[index], "tag palette index is a modulo of its length");
 }
 
-/** Explicit tag-node `color` prop overrides the hash. */
-export function resolveTagColor(tagId: string, explicitColor?: string | null): string {
-  return textOr(explicitColor?.trim(), hashTagColor(tagId));
+/** The `sys.f.color` a tag node sets for itself, verbatim — any CSS colour. */
+function explicitColorOf(tag: WireNode | undefined): string | undefined {
+  const raw = tag?.props[SYSTEM_IDS.colorField]?.[0];
+  return raw?.t === "str" ? raw.v : undefined;
+}
+
+/** The colour tag `tagId` paints in the graph `byId`: its explicit prop, else its hash. */
+export function tagColorOf(tagId: string, byId: ReadonlyMap<string, WireNode>): string {
+  return textOr(explicitColorOf(byId.get(tagId))?.trim(), hashTagColor(tagId));
 }
 
 /**
