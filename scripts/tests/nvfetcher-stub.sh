@@ -25,6 +25,15 @@ done
 mkdir -p "$build_dir"
 text="$(<"$config")"
 
+# STUB_LOCK=1 leaves a directory github-sources' cleanup cannot remove, and
+# records where it is so the test can unlock it afterwards.
+if [ "${STUB_LOCK:-}" = 1 ]; then
+  mkdir -p "$build_dir/locked"
+  : >"$build_dir/locked/file"
+  chmod 555 "$build_dir/locked"
+  echo "$build_dir/locked" >>"$STUB_RECORD/locked"
+fi
+
 fail() {
   echo "stub: resolution failed" >&2
   exit 1

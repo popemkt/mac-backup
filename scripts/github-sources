@@ -28,9 +28,12 @@ NVFETCHER_AUTH_ARGS=()
 # One scratch directory per run, removed on every exit path; each command
 # keeps its files in a subdirectory. The documented exit statuses (0, 2, 10,
 # 11, 20) always come with their own message; any other exit is a failure
-# nothing reported, so say so and show the logs it left.
+# nothing reported, so say so and show the logs it left. Cleanup is best
+# effort and never changes the status: errexit is off in here, and the trap
+# ends by exiting with the status it was given.
 WORK_DIR="$(mktemp -d)"
 on_exit() {
+  set +e
   local status="$1" log
   case "$status" in
     0 | 2 | 10 | 11 | 20) ;;
@@ -43,7 +46,8 @@ on_exit() {
       done
       ;;
   esac
-  rm -rf "$WORK_DIR"
+  rm -rf "$WORK_DIR" || echo "warning: could not remove scratch directory $WORK_DIR" >&2
+  exit "$status"
 }
 trap 'on_exit $?' EXIT
 

@@ -145,7 +145,8 @@
             ];
           }
           ''
-            bash ${./scripts/tests/github-sources-check.sh} ${app}/bin/github-sources
+            bash ${./scripts/tests/github-sources-check.sh} \
+              ${app}/bin/github-sources ${./scripts/github-sources}
             touch "$out"
           '';
 

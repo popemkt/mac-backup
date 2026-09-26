@@ -8,11 +8,12 @@
 # TMPDIR, and PATH=/usr/bin:/bin, so nothing from the caller's environment
 # (a newer bash, a token, a temp dir) can make it pass.
 #
-# Usage: github-sources-check.sh <path to the app's bin/github-sources>
+# Usage: github-sources-check.sh <app's bin/github-sources> <scripts/github-sources>
 
 set -euo pipefail
 
 app="$1"
+script="$2"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
@@ -140,6 +141,58 @@ expect verify-failed-best-effort stderr '^warning: could not fetch pinned releas
 fixture unexpected 5.3.7
 run unexpected 129 STUB_PRIMARY=5.3.7 -- update
 expect unexpected stderr '^error: github-sources exited unexpectedly \(status 129\)$'
+
+# --- cleanup never changes the status ----------------------------------------
+
+# The stub leaves an unremovable directory in the run's scratch space: the
+# documented status still comes through, with a warning about the leftover.
+unlock() {
+  local dir
+  while IFS= read -r dir; do
+    chmod 755 "$dir"
+  done <"$work/$1/record/locked"
+  while IFS= read -r dir; do
+    rm -rf "$(dirname "$(dirname "$(dirname "$dir")")")"
+  done <"$work/$1/record/locked"
+}
+
+fixture locked-outdated 5.3.6
+run locked-outdated 10 STUB_LOCK=1 STUB_PRIMARY=5.3.7 -- check
+expect locked-outdated stdout '^held: 5\.3\.6 -> 5\.3\.7$'
+expect locked-outdated stderr '^warning: could not remove scratch directory '
+unlock locked-outdated
+
+fixture locked-mismatch 5.3.7
+printf '{ held = { version = "5.3.7"; hash = "other"; }; }\n' \
+  >"$work/locked-mismatch/regenerated/generated.nix"
+run locked-mismatch 11 STUB_LOCK=1 STUB_GENERATED="$work/locked-mismatch/regenerated" -- verify
+expect locked-mismatch stderr '^warning: could not remove scratch directory '
+unlock locked-mismatch
+
+fixture locked-failed 5.3.7
+run locked-failed 20 STUB_LOCK=1 STUB_PROBE=5.4.0-beta.1 -- check
+expect locked-failed stderr '^warning: could not remove scratch directory '
+unlock locked-failed
+
+# --- bash too old ------------------------------------------------------------
+
+# Run directly under macOS's /bin/bash 3.2, the script refuses out loud.
+if [ -x /bin/bash ] && /bin/bash -c '[ "${BASH_VERSINFO[0]}" -lt 4 ]'; then
+  fixture old-bash 5.3.7
+  (
+    cd "$work/old-bash"
+    set +e
+    env -i HOME="$work/old-bash/home" PATH=/usr/bin:/bin GITHUB_SOURCES_ROOT="$work/old-bash" \
+      /bin/bash "$script" verify >stdout 2>stderr
+    echo "$?" >status
+  )
+  status="$(<"$work/old-bash/status")"
+  [ "$status" -eq 2 ] || fail "old-bash: exit $status, want 2"
+  echo "case old-bash: exit $status"
+  expect old-bash stderr '^error: github-sources needs bash 4\.4 or newer, not 3\.'
+else
+  fail "old-bash: no bash older than 4.4 at /bin/bash to run the refusal against"
+fi
 
 if [ "$failures" -gt 0 ]; then
   echo "$failures failure(s)" >&2
