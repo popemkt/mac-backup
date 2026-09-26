@@ -210,13 +210,6 @@ report_pin_check() {
   esac
 }
 
-audit_probe_app_paths() {
-  {
-    find /Applications -maxdepth 2 -name "*.app" -type d 2>/dev/null
-    find "$HOME/Applications" -maxdepth 2 -name "*.app" -type d 2>/dev/null
-  } | sort -u
-}
-
 array_contains() {
   local needle="$1"
   shift
@@ -590,7 +583,7 @@ else
 fi
 
 all_apps_probe=${#AUDIT_PROBE_PIDS[@]}
-audit_probe_start audit_probe_app_paths
+audit_probe_start audit_probe_app_paths /Applications "$HOME/Applications"
 cask_list_probe=
 if [ -x "$BREW_BIN" ]; then
   cask_list_probe=${#AUDIT_PROBE_PIDS[@]}

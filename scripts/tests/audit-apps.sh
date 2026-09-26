@@ -56,7 +56,16 @@ crashed_apps_probe=${#AUDIT_PROBE_PIDS[@]}
 audit_probe_start crashed_listing
 empty_casks_probe=${#AUDIT_PROBE_PIDS[@]}
 audit_probe_start empty_listing
+# An empty /Applications and no ~/Applications: a real empty scan.
+mkdir "$AUDIT_PROBE_DIR/Applications"
+empty_scan_probe=${#AUDIT_PROBE_PIDS[@]}
+audit_probe_start audit_probe_app_paths "$AUDIT_PROBE_DIR/Applications" "$AUDIT_PROBE_DIR/missing/Applications"
 audit_probe_wait_all
+
+[ "$(audit_probe_status "$empty_scan_probe")" = 0 ] || fail "scan of an empty root and a missing root failed"
+render "$empty_scan_probe" "$empty_casks_probe"
+printf '%s\n' "$out" | grep -qx '  Total .app bundles found: 0' || fail "empty scan: report did not render a zero total"
+[ "${#WARNINGS[@]}" -eq 0 ] || fail "empty scan warned: ${WARNINGS[*]}"
 
 # A failed cask list must not class every app as manual or App Store.
 render "$apps_probe" "$crashed_casks_probe"

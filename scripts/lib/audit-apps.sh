@@ -3,6 +3,23 @@
 # The drift audit's /Applications report, sourced by
 # scripts/audit-system-discrepancies.sh after scripts/lib/audit-probes.sh.
 #
+# audit_probe_app_paths <root>...
+#
+# The /Applications scan, run as a probe: every .app bundle up to two levels
+# under each root, sorted and unique. A root that does not exist holds no
+# apps and is not an error; the scan fails only when find fails on a root that
+# exists, and it still prints what it found.
+audit_probe_app_paths() {
+  local root listing rc=0 found=""
+  for root in "$@"; do
+    [ -d "$root" ] || continue
+    listing="$(find "$root" -maxdepth 2 -name "*.app" -type d)" || rc=1
+    found+="$listing"$'\n'
+  done
+  printf '%s' "$found" | sed '/^$/d' | sort -u
+  return "$rc"
+}
+
 # report_app_drift <all-apps probe> <cask-list probe>
 #
 # Classify every .app bundle the /Applications scan found as Homebrew cask,
