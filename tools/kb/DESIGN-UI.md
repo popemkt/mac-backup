@@ -478,9 +478,12 @@ children.
 The rules that hold everywhere, so no surface re-invents them:
 
 - **One captured global shortcut.** `lib/keyboard-shortcuts.ts`
-  `matchGlobalShortcut` returns `"global-search"` for ⌘/Ctrl-K and nothing else
+  `matchGlobalShortcut` owns ⌘/Ctrl-K and nothing else: `"node-palette"` when
+  an outline row anchors it (selected or edited), `"global-search"` otherwise
   — ⌘S is deliberately left to the browser, because kb has no save action to
-  bind it to. App-level dispatch lives in `components/App.tsx`.
+  bind it to. App-level dispatch lives in `components/App.tsx`. Zooming never
+  leaves the selection on the zoom root, which is a header and not a row: it
+  moves to the first row under it, or clears.
 - **The palette behaves like a dialog.** `components/palette/command-palette.tsx`
   records `document.activeElement` on open and restores focus on close, traps
   `Tab` inside itself, and keeps the active result scrolled into view.

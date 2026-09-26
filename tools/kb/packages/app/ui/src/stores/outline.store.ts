@@ -509,13 +509,14 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     zoomTo: (id) => {
       if (!escapeScopeFor(id)) return;
       pruneOutgoingTransient(null);
-      const key = outlineInstanceKey(id, get().nodes);
+      // The zoom root is the header, not a row, so it cannot hold the
+      // selection: row keys and ⌘K would anchor on nothing visible. The
+      // selection lands on the first row under it, or nowhere.
+      set({ rootNodeId: id, activeNodeId: null, activeInstanceKey: null });
+      const first = get().getVisibleInstances()[0] ?? null;
       set({
-        rootNodeId: id,
-        selectedNodeId: id,
-        selectedInstanceKey: key,
-        activeNodeId: null,
-        activeInstanceKey: null,
+        selectedNodeId: first?.nodeId ?? null,
+        selectedInstanceKey: first?.instanceKey ?? null,
       });
     },
 

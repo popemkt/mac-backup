@@ -4,7 +4,12 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { resetOutlineStore } from "@/test-support/outline-store";
+import { useUiStore } from "@/stores/ui.store";
 import { useOutlineStore } from "./outline.store";
+
+function toastCount(): number {
+  return useUiStore.getState().toasts.length;
+}
 
 function seed() {
   useOutlineStore.getState().hydrateFromWire(fixtureGraph.nodes, fixtureGraph.rev, "fixtures");
@@ -150,6 +155,27 @@ describe("outline store (WireNode adaptation)", () => {
     expect(s.nodes.get("n.root-b")?.collapsed).toBe(true);
   });
 
+  it("zoomTo selects the first visible row under the root, never the root itself", () => {
+    seed();
+    const before = toastCount();
+    useOutlineStore.getState().zoomTo("n.root-a");
+    const s = useOutlineStore.getState();
+    expect(s.selectedNodeId).toBe("n.child-a1");
+    expect(s.getVisibleInstances().some((i) => i.instanceKey === s.selectedInstanceKey)).toBe(true);
+    // A typed key re-enters the selected row: an anchor that is visible, so no
+    // "not visible" toast (closing audit P1-7).
+    const selected = s.selectedNodeId;
+    if (selected !== null) s.activateNode(selected, 0, s.selectedInstanceKey ?? undefined);
+    expect(useOutlineStore.getState().activeNodeId).toBe("n.child-a1");
+    expect(toastCount()).toBe(before);
+  });
+
+  it("zoomTo a leaf selects nothing", () => {
+    seed();
+    useOutlineStore.getState().zoomTo("n.child-a1");
+    expect(useOutlineStore.getState().selectedNodeId).toBeNull();
+  });
+
   it("zoomTo changes root and breadcrumbs", () => {
     seed();
     useOutlineStore.getState().zoomTo("n.root-a");
@@ -234,7 +260,7 @@ describe("outline store (WireNode adaptation)", () => {
       useOutlineStore.getState().applyTx([wire("n.new", "x")], [], { rev: 2 });
       const s = useOutlineStore.getState();
       expect(s.rootNodeId).toBe("n.root-a");
-      expect(s.selectedNodeId).toBe("n.root-a");
+      expect(s.selectedNodeId).toBe("n.child-a1");
     });
 
     it("falls back to home when the zoomed node is deleted", () => {

@@ -257,25 +257,20 @@ export function App() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const action = matchGlobalShortcut(e);
-      if (!action) return;
-      // F15: ⌘K → node palette when a row is selected/active, else global search
-      if (action === "global-search" && (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        const o = useOutlineStore.getState();
-        const hasRow = Boolean(o.activeNodeId !== null || o.selectedNodeId);
-        if (hasRow) {
-          e.preventDefault();
-          // If an editable row is active, demote to selected so palette can anchor.
-          if (o.activeNodeId !== null && o.activeInstanceKey !== null) {
-            o.selectNode(o.activeNodeId, o.activeInstanceKey);
-          }
-          useUiStore.getState().setNodePaletteOpen(true);
-          return;
-        }
-        // No row: fall through to global search
-      }
-      if (action !== "global-search") return;
+      const o = useOutlineStore.getState();
+      const action = matchGlobalShortcut(e, {
+        rowAnchored: o.activeNodeId !== null || o.selectedNodeId !== null,
+      });
+      if (action === null) return;
       e.preventDefault();
+      if (action === "node-palette") {
+        // An edited row is demoted to selected, so the palette anchors on it.
+        if (o.activeNodeId !== null && o.activeInstanceKey !== null) {
+          o.selectNode(o.activeNodeId, o.activeInstanceKey);
+        }
+        useUiStore.getState().setNodePaletteOpen(true);
+        return;
+      }
       setGlobalPaletteOpen(!useUiStore.getState().globalPaletteOpen);
     };
     window.addEventListener("keydown", handler, true);
