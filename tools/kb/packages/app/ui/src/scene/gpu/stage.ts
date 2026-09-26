@@ -19,7 +19,8 @@
  *   the canvas fades in over the ground rather than popping.
  *
  * Only modules that are themselves behind a lazy boundary import this: the
- * lab's study scenes and the 3D graph's chunk (the three boundary tests).
+ * lab's study scenes and the 3D graph's chunk (the lazy-chunk fence,
+ * `UI_LAZY_ONLY` in harness/src/constraints.ts).
  */
 import {
   ACESFilmicToneMapping,

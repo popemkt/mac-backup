@@ -81,22 +81,44 @@ export function* sourceFilesUnder(dir: string): Generator<string> {
  * entry either, so nothing strips them any more.
  */
 export function specifiersOf(file: string, source: string): string[] {
+  return importsOf(file, source).map((entry) => entry.specifier);
+}
+
+/**
+ * How an import reaches its target at run time:
+ *
+ * - `eager` — loaded with the importing module (a value import, a side-effect
+ *   import, a value `export … from`);
+ * - `type` — erased at build: every name it brings is `type`-only;
+ * - `lazy` — a dynamic `import()`, loaded when it runs, in its own chunk.
+ */
+export type ImportKind = "eager" | "type" | "lazy";
+
+export interface ImportRecord {
+  specifier: string;
+  kind: ImportKind;
+}
+
+/** Every import of one file (see {@link specifiersOf}), with how it loads. */
+export function importsOf(file: string, source: string): ImportRecord[] {
   const parsed = parseSync(file, source);
   if (parsed.errors.length > 0) {
     throw new Error(`${file}: ${parsed.errors.map((e) => e.message).join("; ")}`);
   }
-  const out: string[] = [];
+  const out: ImportRecord[] = [];
   for (const entry of parsed.module.staticImports) {
-    out.push(entry.moduleRequest.value);
+    const typeOnly = entry.entries.length > 0 && entry.entries.every((name) => name.isType);
+    out.push({ specifier: entry.moduleRequest.value, kind: typeOnly ? "type" : "eager" });
   }
   for (const statement of parsed.module.staticExports) {
     for (const entry of statement.entries) {
-      if (entry.moduleRequest !== null) out.push(entry.moduleRequest.value);
+      if (entry.moduleRequest === null) continue;
+      out.push({ specifier: entry.moduleRequest.value, kind: entry.isType ? "type" : "eager" });
     }
   }
   for (const entry of parsed.module.dynamicImports) {
     const literal = QUOTED.exec(source.slice(entry.moduleRequest.start, entry.moduleRequest.end));
-    if (literal?.[2] !== undefined) out.push(literal[2]);
+    if (literal?.[2] !== undefined) out.push({ specifier: literal[2], kind: "lazy" });
   }
   return out;
 }

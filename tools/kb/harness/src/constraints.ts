@@ -353,6 +353,25 @@ export const UI_SPECIFIER_ALLOWS: Record<string, readonly UiZone[]> = {
 };
 
 /**
+ * The UI's entry module: what the page loads before anything else, so the
+ * eager-import closure from here is the always-loaded bundle.
+ */
+export const UI_ENTRY = "main.tsx";
+
+/**
+ * The lazy-chunk fence: specifiers the always-loaded bundle never reaches
+ * except through a dynamic `import()`. three is the whole real-time 3D stack
+ * (the scene kit's GPU modules are three by another name, and are caught
+ * through the three they import), and only a view that draws 3D — a lab
+ * study's scene, the 3D graph — may load it, in its own chunk.
+ *
+ * One rule over the import graph, so no surface lists which of its files may
+ * import three: whatever a lazy boundary stands in front of may, and nothing
+ * the page loads eagerly may. `ui-lazy-fence.test.ts` applies it.
+ */
+export const UI_LAZY_ONLY = /^three(?:\/|$)/;
+
+/**
  * Test files answer to {@link UI_SPECIFIER_ALLOWS} but not to
  * {@link UI_ALLOWS}: a test reaches for whatever it drives, and holding a
  * colocated `*.test.tsx` to its subject's row would fence the tests instead of

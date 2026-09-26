@@ -12,13 +12,15 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import {
   UI_ALLOWS,
+  UI_ENTRY,
+  UI_LAZY_ONLY,
   UI_SPECIFIER_ALLOWS,
   UI_SRC,
   type UiZone,
   isUiTestFile,
   uiZoneOf,
 } from "./constraints.ts";
-import { sourceFilesUnder, specifiersOf } from "./import-graph.ts";
+import { type ImportKind, importsOf, sourceFilesUnder } from "./import-graph.ts";
 import { PACKAGES_ROOT, WORKSPACE_ROOT } from "./workspace.ts";
 
 const UI_SRC_ROOT = join(PACKAGES_ROOT, relative("packages", UI_SRC));
@@ -35,6 +37,8 @@ export interface UiImportSite {
   file: string;
   zone: UiZone;
   specifier: string;
+  /** Whether the import loads with the file, is erased, or loads lazily. */
+  kind: ImportKind;
   /** 1-based line the specifier sits on. */
   line: number;
   /**
@@ -103,7 +107,7 @@ export function uiImportSites(): UiImportSite[] {
     const lines = source.split("\n");
     const zone = uiZoneOf(file);
     const seen = new Map<string, number>();
-    for (const specifier of specifiersOf(join(UI_SRC_ROOT, file), source)) {
+    for (const { specifier, kind } of importsOf(join(UI_SRC_ROOT, file), source)) {
       const occurrences = siteLines(lines, specifier);
       const index = seen.get(specifier) ?? 0;
       seen.set(specifier, index + 1);
@@ -113,6 +117,7 @@ export function uiImportSites(): UiImportSite[] {
         file,
         zone,
         specifier,
+        kind,
         line: at?.line ?? 0,
         target,
         targetZone: target === undefined ? undefined : uiZoneOf(target),
@@ -144,6 +149,51 @@ export function uiViolations(): Array<UiImportSite & { violation: string }> {
     if (violation !== undefined) out.push({ ...site, violation });
   }
   return out;
+}
+
+/**
+ * Every file the UI loads with {@link UI_ENTRY}, each with the chain of eager
+ * imports that pulls it in: the always-loaded bundle, read off the import
+ * graph. A lazy `import()` or a type-only import ends a chain.
+ */
+export function eagerClosure(
+  sites: readonly UiImportSite[],
+  entry: string = UI_ENTRY,
+): Map<string, readonly string[]> {
+  const eager = new Map<string, string[]>();
+  for (const site of sites) {
+    if (site.kind !== "eager" || site.target === undefined) continue;
+    eager.set(site.file, [...(eager.get(site.file) ?? []), site.target]);
+  }
+  const reached = new Map<string, readonly string[]>([[entry, [entry]]]);
+  const queue = [entry];
+  for (let file = queue.shift(); file !== undefined; file = queue.shift()) {
+    const chain = reached.get(file) ?? [file];
+    for (const next of eager.get(file) ?? []) {
+      if (reached.has(next)) continue;
+      reached.set(next, [...chain, next]);
+      queue.push(next);
+    }
+  }
+  return reached;
+}
+
+/**
+ * Each eager import of a {@link UI_LAZY_ONLY} specifier from inside the
+ * always-loaded bundle, as `chain -> specifier`.
+ */
+export function lazyFenceBreaches(
+  sites: readonly UiImportSite[],
+  entry: string = UI_ENTRY,
+): string[] {
+  const closure = eagerClosure(sites, entry);
+  const out: string[] = [];
+  for (const site of sites) {
+    if (site.kind !== "eager" || !UI_LAZY_ONLY.test(site.specifier)) continue;
+    const chain = closure.get(site.file);
+    if (chain !== undefined) out.push(`${chain.join(" -> ")} -> ${site.specifier}`);
+  }
+  return out.toSorted();
 }
 
 /** Where a UI file sits in the repository, for a message a reader can follow. */
