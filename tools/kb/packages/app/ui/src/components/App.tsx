@@ -338,7 +338,7 @@ export function App() {
 
   const { Chrome } = surface?.value ?? {};
   return (
-    <div className="relative flex h-full min-h-0">
+    <div className="relative flex h-full min-h-0 overflow-hidden">
       <SkipLink />
       <ViewErrorBoundary title="Sidebar crashed" resetKey="sidebar">
         <Sidebar />

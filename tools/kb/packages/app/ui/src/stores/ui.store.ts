@@ -34,6 +34,12 @@ interface UiState {
   toasts: Toast[];
   /** Preferences popover (DESIGN-RESKIN §1.7) — header button + palette. */
   prefsOpen: boolean;
+  /**
+   * The sidebar floating over a narrow viewport. Transient, like a popover:
+   * the docked sidebar's open state is a device preference (`sidebarOpen`),
+   * and a narrow screen never inherits it.
+   */
+  sidebarOverlayOpen: boolean;
   globalPaletteOpen: boolean;
   nodePaletteOpen: boolean;
   /** W7.1: open filter popover for this frame (toolbar ⚙ / palette Filter…). */
@@ -41,6 +47,7 @@ interface UiState {
 
   setWsStatus: (status: WsStatus) => void;
   setPrefsOpen: (open: boolean) => void;
+  setSidebarOverlayOpen: (open: boolean) => void;
   setGlobalPaletteOpen: (open: boolean) => void;
   setNodePaletteOpen: (open: boolean) => void;
   setFilterPopoverFrameId: (frameId: string | null) => void;
@@ -54,12 +61,14 @@ export const useUiStore = create<UiState>((set) => ({
   wsStatus: "idle",
   toasts: [],
   prefsOpen: false,
+  sidebarOverlayOpen: false,
   globalPaletteOpen: false,
   nodePaletteOpen: false,
   filterPopoverFrameId: null,
 
   setWsStatus: (wsStatus) => set({ wsStatus }),
   setPrefsOpen: (prefsOpen) => set({ prefsOpen }),
+  setSidebarOverlayOpen: (sidebarOverlayOpen) => set({ sidebarOverlayOpen }),
   setGlobalPaletteOpen: (globalPaletteOpen) =>
     set((s) => ({
       globalPaletteOpen,

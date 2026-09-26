@@ -3,6 +3,8 @@ import { z } from "zod";
 import { create } from "zustand";
 import { SIDEBAR_REGION_SELECTOR } from "@/lib/dom";
 import { hasText } from "@/lib/text";
+import { useNarrowViewport } from "@/lib/viewport";
+import { useUiStore } from "@/stores/ui.store";
 import { transitionTheme } from "@/lib/theme-transition";
 
 /**
@@ -233,8 +235,15 @@ export function useSidebarToggle(): {
   open: boolean;
   onToggle: (button: HTMLButtonElement | null) => void;
 } {
-  const open = usePrefsStore((s) => s.sidebarOpen);
-  const toggle = usePrefsStore((s) => s.toggleSidebar);
+  // Wide, the sidebar docks and its open state is the device preference.
+  // Narrow, it floats over the page and opens only for this visit.
+  const narrow = useNarrowViewport();
+  const docked = usePrefsStore((s) => s.sidebarOpen);
+  const toggleDocked = usePrefsStore((s) => s.toggleSidebar);
+  const overlay = useUiStore((s) => s.sidebarOverlayOpen);
+  const setOverlay = useUiStore((s) => s.setSidebarOverlayOpen);
+  const open = narrow ? overlay : docked;
+  const toggle = narrow ? () => setOverlay(!overlay) : toggleDocked;
   return {
     open,
     onToggle: (button) => {
