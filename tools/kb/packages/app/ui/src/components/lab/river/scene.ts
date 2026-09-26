@@ -33,7 +33,6 @@ import { numberOf } from "@/components/lab/kit/contract";
 import { OrbitControl } from "@/components/lab/kit/orbit";
 import { PointerField } from "@/scene/gpu/pointer";
 import { Entrance } from "@/components/lab/kit/entrance";
-import { labBackdrop } from "@/components/lab/kit/backdrop";
 import type { PaletteUniforms, SceneStage } from "@/scene/gpu/stage";
 import type { TslNode } from "@/scene/gpu/tsl";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
@@ -99,7 +98,8 @@ function river(stage: SceneStage, init: LabSceneInit, context: StudyContext): St
       arrival: entrance.arrival(float(0)),
     }),
   );
-  stage.scene.backgroundNode = labBackdrop(stage.colors, float(clock), {
+  stage.backdrop({
+    time: float(clock),
     focus: [0.5, 0.5],
     warmth: 0.3,
     haze: 0.8,

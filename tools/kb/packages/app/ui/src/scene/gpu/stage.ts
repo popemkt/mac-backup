@@ -70,7 +70,9 @@ import { bloom } from "three/addons/tsl/display/BloomNode.js";
 import { ao as gtao } from "three/addons/tsl/display/GTAONode.js";
 import type { SceneBackend } from "@/scene/backend";
 import type { SceneHandle } from "@/scene/host";
+import { backdropNode, type BackdropOptions } from "@/scene/gpu/backdrop";
 import { disposeGraph } from "@/scene/gpu/dispose";
+import type { TslNode } from "@/scene/gpu/tsl";
 import type { ScenePalette } from "@/scene/palette";
 import { BLOOM_THRESHOLD } from "@/scene/shade-ops";
 import { approachRate, approachShare, clampStep, type Timing } from "@/lib/timing";
@@ -356,8 +358,12 @@ async function createStage(host: HTMLElement, options: StageOptions) {
       chain.post.needsUpdate = true;
       invalidate();
     },
-    /** The ground as a radial backdrop: the focal point lighter, the edges into `edge`. */
-    backdrop: () => {
+    /**
+     * The ground as a backdrop (`gpu/backdrop`): the focal point lighter, the
+     * edges into `edge`, and whatever warmth, haze or rise the view asks for,
+     * drifting on its `time` (seconds).
+     */
+    backdrop: (ground: BackdropOptions & { readonly time?: TslNode } = {}) => {
       // The occlusion pass renders to two targets, and three's background
       // mesh writes only one: under occlusion the ground is a flat clear (the
       // same live colour), and the post chain's edge fade does the vignette.
@@ -365,11 +371,7 @@ async function createStage(host: HTMLElement, options: StageOptions) {
         scene.background = colors.ground.value;
         return;
       }
-      scene.backgroundNode = mix(
-        colors.ground,
-        colors.edge,
-        smoothstep(0.15, 0.95, length(screenUV.sub(0.5)).mul(1.3)),
-      );
+      scene.backgroundNode = backdropNode(colors, ground.time ?? float(0), ground);
     },
     /**
      * Atmospheric perspective (L3): distance fades into the ground. The range

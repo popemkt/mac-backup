@@ -814,7 +814,10 @@ the pointer is over a scene, where its ray meets a plane, and which presses
 were taps — every study and the 3D graph read the one field), `gpu/stage` (renderer, post chain, tone
 mapping, palette uniforms, frame loop, reveal), `gpu/tsl` (the typed TSL seam
 and the ease as a shader function), `gpu/rig` (lights and finishes),
-`gpu/starfield`, `gpu/dispose`, `palette` (the five palette roles, filled
+`gpu/backdrop` (every view's ground, through the stage's `backdrop()`: the
+ground pooled at a focal point and falling to the edge colour, plus the
+warmth, domain-warped haze and heat shimmer a study asks for — never a flat
+fill), `gpu/starfield`, `gpu/dispose`, `palette` (the five palette roles, filled
 from whichever tokens the caller names), `sphere` (seeded places on a
 sphere) and `shade-ops` (the arithmetic a shading formula is written over
 once, run as TSL nodes through `gpu/tsl`'s `NODE_OPS` and as numbers through
@@ -826,8 +829,7 @@ What only the lab needs stays in `components/lab/kit`: `study`
 `--lab-*` roles), `pan`, `pan-control` and `velocity` (drag-to-turn with
 momentum, the pointer's smoothed speed; a press is a pan or a grab of what
 it landed on), `orbit` (the pan read as a bearing round a target, plus a
-dolly and eased flights), `backdrop` (the lab's ground: a focal pool, a
-drifting domain-warped haze, heat shimmer — never a flat fill), `entrance`
+dolly and eased flights), `entrance`
 (a study's pieces arriving over the arrive duration, staggered by a lag the
 study chooses; already arrived under reduced motion), `seeded` (the one
 seeded random a study scatters from), `scene-host` (its React wrapper over

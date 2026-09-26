@@ -29,7 +29,6 @@ import { PointLight, SphereGeometry, Vector3 } from "three/webgpu";
 import { float, instanceIndex, length, uniform } from "three/tsl";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
 import { PointerField } from "@/scene/gpu/pointer";
-import { labBackdrop } from "@/components/lab/kit/backdrop";
 import { Entrance } from "@/components/lab/kit/entrance";
 import { seededRandom } from "@/components/lab/kit/seeded";
 import { createRig } from "@/scene/gpu/rig";
@@ -127,7 +126,8 @@ function embers(stage: SceneStage, init: LabSceneInit, context: StudyContext): S
   stage.scene.add(core, ...rig.lights, ash(colors, float(clock), entrance.arrival(float(0.3))));
   stage.camera.position.set(0, 0, CAMERA_Z);
   stage.camera.lookAt(0, 0, 0);
-  stage.scene.backgroundNode = labBackdrop(colors, float(clock), {
+  stage.backdrop({
+    time: float(clock),
     focus: [0.5, 0.5],
     warmth: 0.7,
     haze: 0.55,

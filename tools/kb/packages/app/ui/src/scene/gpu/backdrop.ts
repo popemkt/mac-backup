@@ -1,15 +1,13 @@
 /**
- * The lab's ground (Lab principles P1, L1, L3, L4): never a flat fill.
+ * A scene's ground (Lab principles P1, L1, L3, L4): the one backdrop every
+ * real-time 3D view stands on, through the stage's `backdrop(options)`.
  *
  * A screen-space backdrop in the palette: the ground pooled at a focal
- * point, falling to the edge colour at the frame, the accent warming the pool
- * a little, and a slow, domain-warped cloud in the hue family drifting over
- * it. `rise` turns the drift upward and adds a fine shimmer — heat haze over
- * a fire. The post chain's dither keeps the dark falloff from banding (L4).
- *
- * GAP [[01M3E8ZYJT4TFAK5ZPT4W341WW]]: the stage's own `backdrop()` is the
- * plain radial this grows from; the two should be one stage option once WP4
- * folds the lab's backdrop into the scene kit.
+ * point, falling to the edge colour at the frame — with no options, that
+ * plain radial is all it is. `warmth` lets the accent warm the pool, `haze`
+ * drifts a slow, domain-warped cloud in the hue family over it, and `rise`
+ * turns the drift upward and adds a fine shimmer — heat haze over a fire. The
+ * post chain's dither keeps the dark falloff from banding (L4).
  */
 import {
   exp,
@@ -30,23 +28,23 @@ import type { TslNode } from "@/scene/gpu/tsl";
 export interface BackdropOptions {
   /** Where the light pools, in screen UV (0.5, 0.5 is the centre). */
   readonly focus?: readonly [number, number];
-  /** How much the accent warms the pool, 0–1. */
+  /** How much the accent warms the pool, 0–1 (none by default). */
   readonly warmth?: number;
-  /** How much cloud drifts over the ground, 0–1. */
+  /** How much cloud drifts over the ground, 0–1 (none by default). */
   readonly haze?: number;
   /** Heat: the cloud rises and shimmers, 0–1. */
   readonly rise?: number;
 }
 
 /** The backdrop's colour for this pixel, for `scene.backgroundNode`. `time` in seconds. */
-export function labBackdrop(
+export function backdropNode(
   colors: PaletteUniforms,
   time: TslNode,
   options: BackdropOptions = {},
 ): TslNode {
   const [fx, fy] = options.focus ?? [0.5, 0.5];
-  const warmth = options.warmth ?? 0.25;
-  const haze = options.haze ?? 0.5;
+  const warmth = options.warmth ?? 0;
+  const haze = options.haze ?? 0;
   const rise = options.rise ?? 0;
   const aspect = screenSize.x.div(screenSize.y);
   const p = screenUV.sub(vec2(fx, fy)).mul(vec2(aspect, 1));
@@ -64,7 +62,7 @@ export function labBackdrop(
   const wisps = smoothstep(0.38, 0.95, cloud).mul(float(1).sub(smoothstep(0.3, 1.3, r).mul(0.6)));
   const tint = mix(colors.ground, mix(colors.hue, colors.ink, 0.12), 0.55);
   const clouded = mix(warmed, tint, wisps.mul(haze * 0.32));
-  if (rise === 0) return clouded;
+  if (rise === 0) return haze === 0 ? warmed : clouded;
   // Heat shimmer: a fine, fast, rising ripple in the warm pool only.
   const ripple = mx_noise_float(vec3(p.x.mul(11), p.y.mul(6).sub(time.mul(0.7)), time.mul(0.35)));
   return clouded.mul(

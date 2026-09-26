@@ -31,7 +31,6 @@ import { createRig, finishMaterial } from "@/scene/gpu/rig";
 import type { SceneStage } from "@/scene/gpu/stage";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
 import { TileField } from "@/components/lab/motion/field";
-import { labBackdrop } from "@/components/lab/kit/backdrop";
 import { Entrance } from "@/components/lab/kit/entrance";
 
 const SIDE = 22;
@@ -89,7 +88,8 @@ function motion(stage: SceneStage, init: LabSceneInit, context: StudyContext): S
   stage.camera.position.set(11, 11, 11);
   stage.camera.lookAt(0, 0, 0);
   const clock = uniform(0);
-  stage.scene.backgroundNode = labBackdrop(stage.colors, float(clock), {
+  stage.backdrop({
+    time: float(clock),
     focus: [0.5, 0.42],
     warmth: 0.2,
     haze: 0.45,
