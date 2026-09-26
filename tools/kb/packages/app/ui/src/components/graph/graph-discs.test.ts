@@ -17,6 +17,7 @@ import { fa2Settings } from "./fa2-layout";
 import { computeLayoutPositions } from "@/lib/graph-layouts";
 import {
   clusterPlacement,
+  DiscSettle,
   discRadius,
   MAX_DISC_RADIUS,
   discSpacing,
@@ -118,6 +119,55 @@ describe("2D discs after the layout settles", () => {
       expect(largest).toBeLessThanOrEqual(1.5 * medianNearest(discs));
     });
   }
+
+  it("spaces a hub-and-leaves group by its radii before any separation", () => {
+    const { nodes } = denseLens();
+    const group = nodes.filter((n) => n.clusterKey === "hub.0");
+    expect(group.length).toBeGreaterThan(40);
+    const placed = clusterPlacement(group);
+    const discs = group.map((n) => ({ ...present(placed.get(n.id), n.id), r: discRadius(n.size) }));
+    // The packing alone keeps the discs apart: no separation has run.
+    expect(worstOverlap(discs)).toBeLessThanOrEqual(TOLERANCE);
+    // And it reads the radii: a larger hub pushes its leaves further out.
+    const hub = present(group[0], "hub");
+    const grown = clusterPlacement([{ ...hub, size: hub.size * 1.5 }, ...group.slice(1)]);
+    const reach = (at: Map<string, { x: number; y: number }>) =>
+      Math.min(
+        ...group.slice(1).map((n) => {
+          const p = present(at.get(n.id), n.id);
+          const c = present(at.get(hub.id), hub.id);
+          return Math.hypot(p.x - c.x, p.y - c.y);
+        }),
+      );
+    expect(reach(grown)).toBeGreaterThan(reach(placed));
+  });
+
+  it("settle again when the discs grow after the layout is still, and only then", () => {
+    // Packed as clusters with every node the same size (size-by fixed) …
+    const byDegree = denseLens();
+    const fixed = byDegree.nodes.map((n) => ({ ...n, size: resolveSize("fixed", 0, 0) }));
+    const placed = clusterPlacement(fixed);
+    const graph = new Graph();
+    for (const n of fixed)
+      graph.addNode(n.id, { ...present(placed.get(n.id), n.id), size: discRadius(n.size) });
+    const settle = new DiscSettle();
+    settle.written(graph, fixed, { reshaped: true, moving: false });
+    expect(worstOverlap(discsOf(graph))).toBeLessThanOrEqual(TOLERANCE);
+    const at = () => JSON.stringify(graph.mapNodes((_, a) => [a.x, a.y]));
+    const still = at();
+    settle.written(graph, fixed, { reshaped: false, moving: false });
+    expect(at()).toBe(still);
+    // … then sized by degree: the hubs grow over their leaves where they stand.
+    for (const n of byDegree.nodes) graph.setNodeAttribute(n.id, "size", discRadius(n.size));
+    expect(worstOverlap(discsOf(graph))).toBeGreaterThan(TOLERANCE);
+    // A layout still moving separates them when it settles; a still one does now.
+    settle.written(graph, byDegree.nodes, { reshaped: false, moving: true });
+    expect(worstOverlap(discsOf(graph))).toBeGreaterThan(TOLERANCE);
+    const idle = new DiscSettle();
+    idle.written(graph, fixed, { reshaped: false, moving: false });
+    idle.written(graph, byDegree.nodes, { reshaped: false, moving: false });
+    expect(worstOverlap(discsOf(graph))).toBeLessThanOrEqual(TOLERANCE);
+  });
 
   it("never overlap in the cluster placement, once separated", () => {
     const { nodes } = denseLens();

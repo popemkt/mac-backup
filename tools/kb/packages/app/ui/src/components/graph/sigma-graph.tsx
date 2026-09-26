@@ -27,7 +27,7 @@ import {
 } from "@/lib/graph-interaction";
 import { computeLayoutPositions } from "@/lib/graph-layouts";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
-import { clusterPlacement, discRadius, linkWidth, discSpacing, separateDiscs } from "./graph-discs";
+import { clusterPlacement, DiscSettle, discRadius, discSpacing, linkWidth } from "./graph-discs";
 import { fitView } from "./graph-camera";
 import { sigmaCameraControls, type GraphCameraControls } from "./graph-camera-controls";
 import { selectionFromNode, type GraphSelection } from "./graph-selection";
@@ -111,6 +111,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
   const hovered = useRef<string | null>(null);
   const cameraIntent = useRef(false);
   const topology = useRef("");
+  const settle = useRef(new DiscSettle());
   const [isolated, setIsolated] = useState<string | null>(null);
   const isolatedRef = useRef(isolated);
   useLayoutEffect(() => {
@@ -187,6 +188,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     });
 
     topology.current = "";
+    settle.current.reset();
     cameraIntent.current = false;
     const controls = sigmaCameraControls(() => sigmaRef.current);
     live.current.onControlsReady?.({
@@ -372,8 +374,6 @@ export function SigmaGraph(props: SigmaGraphProps) {
       });
     topology.current = key;
     if (changed) emphasis.current?.reindex(initial);
-    // A placed layout ends by separating its discs; the force layout does when it settles.
-    if (changed && graph.order && (cluster || layout !== "force")) separateDiscs(graph);
     if (changed && graph.order && !cluster && layout === "force") {
       const fa = createFA2Layout(graph, {
         onConverged: () => {
@@ -384,6 +384,10 @@ export function SigmaGraph(props: SigmaGraphProps) {
       layoutRef.current = fa;
       fa.start();
     }
+    settle.current.written(graph, nodes, {
+      reshaped: changed,
+      moving: layoutRef.current?.isRunning() === true,
+    });
     sigma.refresh();
     if (initial && graph.order) fitView(sigma, 0);
     refresh();

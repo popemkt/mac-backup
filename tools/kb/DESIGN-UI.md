@@ -464,14 +464,18 @@ rather than by navigation.
   the viewport and the zoom: a small window or a zoom out never makes the
   nodes grow over each other. `graph-discs.ts` owns the relation, once:
   the lens size maps to a radius bounded against the layout's spacing
-  (`discRadius`), every 2D layout ends by separating the discs it placed
-  (`separateDiscs`, when the force layout settles and after a placed or
-  cluster layout), a placed layout (radial, hierarchical, grid) sets
+  (`discRadius`); the discs are separated (`separateDiscs`) after every
+  write that changes the graph's shape or any disc's radius, by one rule,
+  `DiscSettle` — by the force layout when it settles if it is still
+  moving, at once otherwise, so a new size encoding on a still layout
+  settles too; a placed layout (radial, hierarchical, grid) sets
   neighbours at least their radii apart (`discSpacing`, so a ring, column
-  or cell grows to hold them), and the cluster placement packs each group
-  by disc size rather than by a fixed step. `graph-discs.test.ts` proves it
-  after settle on the fixture graph and on a dense graph of hubs and
-  leaves, in every 2D layout: no two discs overlap beyond a hair, and the
+  or cell grows to hold them); and the cluster placement packs each group
+  as a sunflower stepped by its members' radii, so a hub's leaves ring it
+  clear before any separation runs. `graph-discs.test.ts` proves it after
+  settle on the fixture graph and on a dense graph of hubs and leaves, in
+  every 2D layout and after a size change on a still one: no two discs
+  overlap beyond a hair, and the
   largest radius stays under its stated bound.
 - **Honest empty and large states.** Zero matches renders guidance rather than
   a blank canvas; invalid EDN surfaces an amber warning chip (`queryError` on

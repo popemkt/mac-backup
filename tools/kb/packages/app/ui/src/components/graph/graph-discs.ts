@@ -13,9 +13,11 @@
  *   leaf's disc is a sixth of that and the largest hub's ten units;
  * - `separateDiscs`: every 2D layout ends by pushing apart the discs it
  *   placed that still overlap (a hub and its ring of leaves), moving each as
- *   little as it can;
- * - `clusterPlacement`: the cluster renderer's groups, each packed by disc
- *   size and set on a ring whose length is the sum of their widths;
+ *   little as it can; `DiscSettle` says when — after any write that changed
+ *   the graph's shape or a disc's radius;
+ * - `clusterPlacement`: the cluster renderer's groups, each packed as a
+ *   sunflower stepped by its members' radii (`discSpacing` apart) and set
+ *   on a ring whose length is the sum of their widths;
  * - `discSpacing`: how far apart a placed layout (radial, hierarchical,
  *   grid) sets two neighbours at least — their radii and the margin — so
  *   its ring, column or cell grows to hold its discs;
@@ -64,41 +66,98 @@ export function separateDiscs(graph: Graph): void {
   });
 }
 
-/** The step of a group's sunflower packing: a leaf's diameter and the margin, with room. */
-const PACK = 4.5;
+/**
+ * The one way a 2D graph's discs settle once sigma's graph has been
+ * written: whenever its shape or any disc's radius changed — a new node set,
+ * or a new size encoding on the same one — the discs are separated, by the
+ * layout when it stops if it is still moving (`fa2-layout` separates on
+ * settle), and now if it is still (a placed or cluster layout, or a force
+ * layout already idle). A write that changed neither moves nothing.
+ */
+export class DiscSettle {
+  private radii: string | null = null;
+
+  /** Sigma's graph now holds `nodes`; `reshaped` when its topology changed. */
+  written(
+    graph: Graph,
+    nodes: readonly { readonly id: string; readonly size: number }[],
+    { reshaped, moving }: { readonly reshaped: boolean; readonly moving: boolean },
+  ): void {
+    const radii = nodes.map((n) => `${n.id}:${discRadius(n.size)}`).join("|");
+    const resized = radii !== this.radii;
+    this.radii = radii;
+    if ((reshaped || resized) && !moving) separateDiscs(graph);
+  }
+
+  /** A new sigma: nothing has settled yet. */
+  reset(): void {
+    this.radii = null;
+  }
+}
+
 /** The clear space between two groups on the ring. */
 const GROUP_GAP = 12;
+/** The golden angle: consecutive members turn by it, so none lines up with another. */
+const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+/** How much room a member's cell takes beyond its disc: a sunflower does not pack tight. */
+const CELL_ROOM = 1.3;
+
+type Placed = { readonly id: string; readonly x: number; readonly y: number; readonly r: number };
 
 /**
- * Where the cluster renderer places each node: its group packed as a
- * sunflower round the group's centre, the groups on one ring in key order,
- * each given an arc as wide as it is. `separateDiscs` then settles the hubs.
+ * One group packed round its centre as a sunflower whose steps are its
+ * members' discs: the largest at the centre, each next one on the golden
+ * angle at the radius that leaves room for every disc placed before it
+ * (their cells' area, `discSpacing` apart), so a hub's leaves ring it clear
+ * of it and of each other. Returns each member's offset and the group's
+ * radius.
+ */
+function packGroup(members: readonly { readonly id: string; readonly size: number }[]): {
+  readonly placed: readonly Placed[];
+  readonly radius: number;
+} {
+  const bySize = members.toSorted((a, b) => b.size - a.size || (a.id < b.id ? -1 : 1));
+  const placed: Placed[] = [];
+  let area = 0;
+  let radius = 0;
+  bySize.forEach((member, k) => {
+    const r = discRadius(member.size);
+    const cell = discSpacing(member, member);
+    const d = k === 0 ? 0 : Math.sqrt(area / Math.PI) + cell / 2;
+    area += cell * cell * CELL_ROOM;
+    placed.push({ id: member.id, x: Math.cos(k * GOLDEN) * d, y: Math.sin(k * GOLDEN) * d, r });
+    radius = Math.max(radius, d + r);
+  });
+  return { placed, radius };
+}
+
+/**
+ * Where the cluster renderer places each node: each group packed by its
+ * members' discs (`packGroup`), the groups on one ring in key order, each
+ * given an arc as wide as it is. `separateDiscs` then settles what is left.
  */
 export function clusterPlacement(
-  nodes: readonly { readonly id: string; readonly clusterKey: string }[],
+  nodes: readonly { readonly id: string; readonly clusterKey: string; readonly size: number }[],
 ): Map<string, { x: number; y: number }> {
-  const byGroup = new Map<string, string[]>();
+  const byGroup = new Map<string, (typeof nodes)[number][]>();
   for (const node of nodes) {
     const members = byGroup.get(node.clusterKey);
-    if (members === undefined) byGroup.set(node.clusterKey, [node.id]);
-    else members.push(node.id);
+    if (members === undefined) byGroup.set(node.clusterKey, [node]);
+    else members.push(node);
   }
-  const groups = [...byGroup.keys()].toSorted();
-  const radii = groups.map((g) => PACK * Math.sqrt(byGroup.get(g)?.length ?? 1) + GROUP_GAP / 2);
-  const around = radii.reduce((sum, r) => sum + 2 * r, 0);
+  const groups = [...byGroup.keys()].toSorted().map((key) => packGroup(byGroup.get(key) ?? []));
+  const widths = groups.map((group) => group.radius + GROUP_GAP / 2);
+  const around = widths.reduce((sum, w) => sum + 2 * w, 0);
   const ring = groups.length < 2 ? 0 : around / (2 * Math.PI);
   const out = new Map<string, { x: number; y: number }>();
   let arc = 0;
   groups.forEach((group, g) => {
-    const r = radii[g] ?? 0;
-    const angle = ((arc + r) / Math.max(around, 1)) * 2 * Math.PI;
-    arc += 2 * r;
+    const w = widths[g] ?? 0;
+    const angle = ((arc + w) / Math.max(around, 1)) * 2 * Math.PI;
+    arc += 2 * w;
     const cx = Math.cos(angle) * ring;
     const cy = Math.sin(angle) * ring;
-    (byGroup.get(group) ?? []).forEach((id, k) => {
-      const d = PACK * Math.sqrt(k + 0.5);
-      out.set(id, { x: cx + Math.cos(k * 2.4) * d, y: cy + Math.sin(k * 2.4) * d });
-    });
+    for (const member of group.placed) out.set(member.id, { x: cx + member.x, y: cy + member.y });
   });
   return out;
 }
