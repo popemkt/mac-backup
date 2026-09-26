@@ -166,6 +166,47 @@ export const LAB_STUDIES: Record<LabSceneId, LabStudy> = {
     ],
     load: () => import("@/components/lab/glass/scene").then((m) => m.mountGlass),
   },
+  river: {
+    label: "River",
+    technique: "A GPU curl-noise flow field: 131 072 particles in a TSL compute kernel",
+    teaches:
+      "The water is the curl of a noise field. A curl has no divergence, so the flow only swirls — nothing piles up or thins out, as in an incompressible fluid. Each streak is a sprite stretched along its velocity on screen. Stir the water with the pointer; raise turbulence to see the eddies, lower the scale to make them larger.",
+    rules: [
+      {
+        id: "T1",
+        how: "One compute kernel advects every particle in storage buffers; nothing reads back.",
+      },
+      {
+        id: "M1",
+        how: "A particle's velocity approaches the field's exponentially: it drifts into an eddy.",
+      },
+      { id: "L2", how: "Only the fastest water runs past 1, so only the rapids bloom." },
+      { id: "P2", how: "Particles fade in at birth and out at death: recycling never pops." },
+    ],
+    controls: [
+      { kind: "range", id: "speed", label: "current", min: 0, max: 3, step: 0.05, value: 1 },
+      {
+        kind: "range",
+        id: "scale",
+        label: "eddy scale",
+        min: 0.1,
+        max: 1.2,
+        step: 0.02,
+        value: 0.45,
+      },
+      {
+        kind: "range",
+        id: "turbulence",
+        label: "turbulence",
+        min: 0,
+        max: 3,
+        step: 0.05,
+        value: 1,
+      },
+      { kind: "range", id: "streak", label: "streak", min: 0, max: 0.2, step: 0.005, value: 0.06 },
+    ],
+    load: () => import("@/components/lab/river/scene").then((m) => m.mountRiver),
+  },
   light: {
     label: "Light",
     technique: "A key, fill and rim rig, soft shadows, ambient occlusion and tone mapping",

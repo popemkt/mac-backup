@@ -589,7 +589,7 @@ study does is a kb milestone. What a study proves graduates into functional
 views only through the shared kit — the graph-polish work (wave item g) builds
 on the same stage, palette and timing, never on a copy of a study.
 
-Five studies, each with a collapsible info card naming its technique, the
+Six studies, each with a collapsible info card naming its technique, the
 principles below it applies, and two to four live parameters:
 
 | study  | technique                                                        | parameters                          |
@@ -597,6 +597,7 @@ principles below it applies, and two to four live parameters:
 | Embers | TSL compute: a GPU spatial hash grid, contact heat, pops; bloom; four looks over one heat curve (glow, toon with an inverted-hull outline, ridged-noise molten, thin-film interference); heat haze and ash | look, heat gain, cooling rate, pop threshold |
 | Sky    | a sun that lights the moon (terminator, phase and earthshine follow where they stand), node stars in a 3D volume (parallax), a domain-warped nebula, orbit controls; four-point glints, dither | glint length, nebula, earthshine, dither |
 | Glass  | sphere tracing a signed distance field: smooth-min metaballs, normals from the gradient, Fresnel, refraction traced through the glass, per-channel dispersion, Beer–Lambert absorption, a studio of light strips and ink cards | blend, index, dispersion, absorption |
+| River  | a GPU curl-noise flow field: 131 072 particles advected by one TSL compute kernel (divergence-free swirl, a meandering current, a pointer vortex, recycling), drawn as velocity-aligned streak sprites | current, eddy scale, turbulence, streak |
 | Light  | key/fill/rim rig, soft shadows, GTAO, tone mapping, finishes     | tone mapping, PBR/matcap, AO, key angle |
 | Motion | staggered critically damped springs against an eased tween        | settle, stagger, drive, overlap     |
 

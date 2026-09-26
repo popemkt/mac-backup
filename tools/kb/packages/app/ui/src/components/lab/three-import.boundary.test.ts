@@ -29,6 +29,8 @@ const ALLOWED = new Set([
   "sky/stars.ts",
   "glass/march.ts",
   "glass/scene.ts",
+  "river/flow.ts",
+  "river/scene.ts",
   "light/scene.ts",
   "motion/scene.ts",
 ]);
