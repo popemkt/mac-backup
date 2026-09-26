@@ -146,6 +146,17 @@ describe("parseInlineMd", () => {
       literal("a *** b");
     });
 
+    it("flanks a long `_` run on its outer boundary, not its inner marks", () => {
+      literal("a___b___c");
+      literal("x___y");
+      literal("__foo___bar");
+      expect(parseInlineMd("___foo___")).toEqual([{ t: "bold", v: "foo" }]);
+      expect(parseInlineMd("__foo___")).toEqual([
+        { t: "bold", v: "foo" },
+        { t: "text", v: "_" },
+      ]);
+    });
+
     it("lets `*` emphasise inside a word", () => {
       expect(parseInlineMd("un*frig*ly")).toEqual([
         { t: "text", v: "un" },

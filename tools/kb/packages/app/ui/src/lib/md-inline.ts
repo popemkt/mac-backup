@@ -142,7 +142,8 @@ function closerOf(text: string, from: number, mark: string, length: number): num
     }
     const run = runLength(text, j);
     const fits = run === length || (length === 2 && run > 2);
-    if (fits && canClose(text, j, length)) return j;
+    // Flanking reads the whole run's outer boundary, not the marks it closes on.
+    if (fits && canClose(text, j, run)) return j;
     j += run;
   }
   return -1;
@@ -160,9 +161,11 @@ function emphasisAt(
   at: number,
   run: number,
 ): { before: string; seg: InlineSeg; after: string; next: number } | null {
+  // Flanking reads the whole run's outer boundary (the character before its
+  // first mark and after its last); only then is the inner delimiter chosen.
+  if (!canOpen(text, at, run)) return null;
   const inner = Math.min(run, 2);
   const open = at + run - inner;
-  if (!canOpen(text, open, inner)) return null;
   const mark = text.charAt(at);
   const end = closerOf(text, open + inner, mark, inner);
   if (end < 0) return null;
