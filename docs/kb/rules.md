@@ -396,7 +396,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
 - **node** — `01M1MGCPJTV66QSFCR44XG29YM`
 
-### GAP: the two pin tools claim one exit-code contract and no test holds them to it
+### GAP: the two pin tools use different could-not-run exit codes and no shared test holds them to one contract
 
 - **expected** — github-sources and uv-sources implement one stated contract for check (0 current, 10 newer upstream, one code for could not resolve) and update, stated once, with a shared offline test that runs both against stubbed resolvers.
 - **current** — uv-sources exits 1 when it cannot resolve, where github-sources exits 20; both use 0 for current and 10 for newer upstream releases. Only github-sources has an offline test (github-sources-check). The drift audit consumes both through report_pin_check, which treats any other code as skipped.
