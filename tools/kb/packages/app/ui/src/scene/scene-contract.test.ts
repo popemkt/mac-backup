@@ -208,7 +208,8 @@ function fake2d(canvas: HTMLCanvasElement) {
           ? target[key as keyof typeof target]
           : key === "createRadialGradient" || key === "createLinearGradient"
             ? () => gradient
-            : typeof key === "string" && /^[a-z]+[A-Z]|^(fill|stroke|scale|save|restore)/.test(key)
+            : typeof key === "string" &&
+                /^[a-z]+[A-Z]|^(fill|stroke|scale|save|restore|translate|rotate|arc)/.test(key)
               ? () => {}
               : undefined,
       set: () => true,

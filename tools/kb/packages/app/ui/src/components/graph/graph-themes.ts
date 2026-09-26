@@ -62,6 +62,11 @@ export interface GraphTheme {
    * node light then folds into lift, so no fragment of it passes white.
    */
   readonly bloom: Variants<number> | null;
+  /**
+   * What a node is drawn as: a lit sphere, or the outline's bullet, painted
+   * from its one definition (`lib/bullet-mode`, `force3d-bullets`).
+   */
+  readonly form: "sphere" | "bullet";
   /** How a node's surface takes the light (`force3d-light`). */
   readonly surface: NodeSurface;
   readonly links: LinkTone;
@@ -82,6 +87,7 @@ const MATTE: GraphTheme = {
   stars: { light: 0.1, dark: 0.3 },
   grain: { light: 3, dark: 1 },
   bloom: { light: 0.4, dark: 1.15 },
+  form: "sphere",
   surface: "matte",
   links: { strength: 1, source: 0.3, accent: 0 },
   labels: {
@@ -107,6 +113,7 @@ const CEL: GraphTheme = {
   stars: { light: 0, dark: 0 },
   grain: { light: 0, dark: 0 },
   bloom: null,
+  form: "sphere",
   surface: "cel",
   links: { strength: 1.9, source: 1, accent: 0 },
   labels: {
@@ -133,6 +140,7 @@ const FRESNEL: GraphTheme = {
   stars: { light: 0.2, dark: 0.6 },
   grain: { light: 3, dark: 1 },
   bloom: { light: 0.7, dark: 1.7 },
+  form: "sphere",
   surface: "fresnel",
   links: { strength: 1.25, source: 0.15, accent: 0.45 },
   labels: {
@@ -158,6 +166,7 @@ const GLASS: GraphTheme = {
   stars: { light: 0, dark: 0 },
   grain: { light: 2, dark: 1 },
   bloom: { light: 0.35, dark: 1.25 },
+  form: "sphere",
   surface: "glass",
   links: { strength: 0.65, source: 0.2, accent: 0.2 },
   labels: {
@@ -170,12 +179,41 @@ const GLASS: GraphTheme = {
   },
 };
 
+/**
+ * Bullet — the outline, in space: every node drawn as the outline draws its
+ * bullet, from the same definition, on the page's plain background under a
+ * flat light, with no bloom, fog, stars or grain; even links, and labels
+ * right of their bullet in the UI face, as a row's text stands. It stays an
+ * orbitable 3D scene.
+ */
+const BULLET: GraphTheme = {
+  ground: { light: "--background", dark: "--background" },
+  edge: { light: "--background", dark: "--background" },
+  backdrop: { warmth: 0, haze: 0 },
+  fog: null,
+  stars: { light: 0, dark: 0 },
+  grain: { light: 0, dark: 0 },
+  bloom: null,
+  form: "bullet",
+  surface: "flat",
+  links: { strength: 0.75, source: 1, accent: 0 },
+  labels: {
+    face: "ui",
+    weight: 400,
+    upper: false,
+    tracking: 0,
+    halo: "stroke",
+    placement: "right",
+  },
+};
+
 /** Keyed by the option set, so a new theme fails the build until it is stated. */
 export const GRAPH_THEMES: Readonly<Record<LensTheme, GraphTheme>> = {
   matte: MATTE,
   cel: CEL,
   fresnel: FRESNEL,
   glass: GLASS,
+  bullet: BULLET,
 };
 
 /** A theme's value for the page's variant. */

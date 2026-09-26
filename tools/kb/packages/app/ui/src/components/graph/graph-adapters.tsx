@@ -1,4 +1,8 @@
-import { lazy } from "react";
+import { lazy, useMemo } from "react";
+import { outlineBulletAppearance } from "@/lib/bullet-mode";
+import type { LensNode, LensTheme } from "@/lib/graph-lens";
+import { GRAPH_THEMES } from "./graph-themes";
+import { useOutlineStore } from "@/stores/outline.store";
 import { SigmaGraph } from "./sigma-graph";
 import { ClusterGraph } from "./cluster-graph";
 import { TreeGraph } from "./tree-graph";
@@ -96,6 +100,27 @@ export function ClusterAdapter({
   );
 }
 
+/**
+ * The lens's nodes, each carrying the bullet the outline draws for it — read
+ * off the same outline node, its collapsed state included — when the theme
+ * draws nodes as the outline does; otherwise the nodes as they are, so an
+ * outline edit that no drawn node shows redraws nothing.
+ */
+function useOutlineBullets(nodes: LensNode[], theme: LensTheme): LensNode[] {
+  const drawsBullets = GRAPH_THEMES[theme].form === "bullet";
+  const outline = useOutlineStore((s) => (drawsBullets ? s.nodes : null));
+  return useMemo(
+    () =>
+      outline === null
+        ? nodes
+        : nodes.map((node) => {
+            const row = outline.get(node.id);
+            return row === undefined ? node : { ...node, bullet: outlineBulletAppearance(row) };
+          }),
+    [nodes, outline],
+  );
+}
+
 export function Force3dAdapter({
   lensGraph,
   active,
@@ -107,10 +132,11 @@ export function Force3dAdapter({
   setControls,
   onNodeOpen,
 }: GraphAdapterProps) {
+  const nodes = useOutlineBullets(lensGraph.nodes, active.theme);
   return (
     <WorkspaceBoundary title="Opening the third dimension…">
       <Force3dGraph
-        nodes={lensGraph.nodes}
+        nodes={nodes}
         edges={lensGraph.edges}
         layoutKey={active.id}
         appearance={appearance}

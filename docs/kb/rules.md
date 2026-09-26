@@ -331,6 +331,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Skip a subscription the transaction cannot affect. @kb/query's IR names what a compiled query reads (PatternClause.attr, ReachClause.edge, children), but a StoreTx does not name what a write touched: it carries whole nodes as they are after the write, so a removed prop and every attribute of a deleted node are absent from it. Gating on that read set would silently drop those changes. Needs the tx log to carry before-images (or the store to report a per-tx attribute set), and a fallback that always re-runs an IrRaw query, which exposes no read set at all.
 - **node** — `01M1QZNM17MTGGPE517NVZYJT0`
 
+### GAP: the 3D bullet atlas has a fixed capacity
+
+- **expected** — Every distinct bullet in a 3D graph drawn in the bullet theme has its own painted cell, however many distinct tag-colour combinations the graph holds.
+- **current** — The atlas holds 16 columns by as many rows as fit a 4096px texture (400 cells); a bullet past that shares the first cell and is drawn as it.
+- **impact** — A graph with more than 400 distinct bullets (many multi-tag colour sets) draws the overflow as the wrong bullet in the bullet theme.
+- **closes** — A second atlas page (a texture array) or painting overflow cells on demand, with a test that a graph past the capacity draws every bullet from its own cell.
+- **node** — `01M3FNF3PFQA9J4XM76G3K7P9A`
+
 ### GAP: the action registry is build-once per process though the kernel can unload
 
 - **expected** — kb ui watches .kb/extensions and reloads a changed extension by unloading and loading its plugin; dependents re-pend and re-activate through the kernel.

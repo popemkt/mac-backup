@@ -28,7 +28,7 @@ const NODE_LIGHT = {
 } as const;
 
 /** How a node's surface takes the light; a theme names one (`graph-themes`). */
-export type NodeSurface = "matte" | "cel" | "fresnel" | "glass";
+export type NodeSurface = "matte" | "cel" | "fresnel" | "glass" | "flat";
 
 /**
  * Each surface's light, before the shared caps. Every one must grow
@@ -59,6 +59,8 @@ const SURFACES: Record<NodeSurface, <V, S>(o: ShadeOps<V, S>, f: NodeFragment<V,
       o.scale(f.hue, o.add(o.mul(f.key, o.num(0.22)), o.num(0.2))),
       o.scale(o.mix(f.hue, f.ink, o.num(0.45)), o.mul(o.smoothstep(0, 0.6, f.rim), o.num(1.1))),
     ),
+  // Flat: the colour as painted, whatever the light (the bullet theme's).
+  flat: (_o, f) => f.hue,
   // Glass, refraction-lite: the ground seen through a tinted body, a tight
   // specular glint from the key, and a thin ink edge where the glass turns
   // away (a mix toward the ink, so the bead has an edge on a light ground).

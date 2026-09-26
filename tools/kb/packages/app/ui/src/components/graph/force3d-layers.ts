@@ -35,9 +35,16 @@ import {
   type ParticleLayer,
   type ParticleMotion,
 } from "./force3d-links";
-import { nodeLayer, type NodeLayer } from "./force3d-nodes";
-import { GRAPH_THEMES } from "./graph-themes";
+import { bulletLayer } from "./force3d-bullets";
+import { nodeLayer, type NodeLayer, type NodeLayerInit } from "./force3d-nodes";
+import { GRAPH_THEMES, type GraphTheme } from "./graph-themes";
 import type { PickField } from "./force3d-pick";
+
+/** Each form a theme can draw nodes in, and the layer that draws it. */
+const NODE_FORMS: Record<GraphTheme["form"], (init: NodeLayerInit) => NodeLayer> = {
+  sphere: nodeLayer,
+  bullet: bulletLayer,
+};
 
 export interface Force3dSettings {
   readonly spread: number;
@@ -268,10 +275,18 @@ export class GraphLayers {
    * so nothing jumps, moves or arrives again.
    */
   private drawNodes(): void {
+    this.nodes?.dispose();
     disposeGraph(this.nodeGroup);
     const { colors } = this.stage;
     const theme = GRAPH_THEMES[this.settings.theme];
-    this.nodes = nodeLayer(this.topology, colors, this.fades, theme, this.arrival);
+    this.nodes = NODE_FORMS[theme.form]({
+      topology: this.topology,
+      colors,
+      fades: this.fades,
+      theme,
+      palette: this.palette,
+      arrival: this.arrival,
+    });
     this.nodeGroup.add(this.nodes.mesh);
     this.moved = true;
   }
@@ -344,6 +359,7 @@ export class GraphLayers {
     this.palette = palette;
     this.link = link;
     this.links?.setPalette(palette, link);
+    this.nodes?.setPalette(palette);
     this.labels.reset(this.topology, palette);
     this.refresh();
   }
@@ -413,6 +429,7 @@ export class GraphLayers {
   }
 
   dispose(): void {
+    this.nodes?.dispose();
     this.layout?.dispose();
     this.layout = null;
     this.labels.dispose();

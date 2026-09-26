@@ -283,6 +283,25 @@ export function bulletAppearance(input: BulletAppearanceInput): BulletAppearance
   };
 }
 
+const HALO_RADIUS = BULLET_GEOMETRY.box / 2 - BULLET_GEOMETRY.haloInset;
+/** How far each shape shows from the bullet's centre, px. */
+const SHAPE_EXTENT: Record<BulletShape, (a: BulletAppearance) => number> = {
+  dot: (a) => a.dotSize / 2,
+  "ref-ring": () => BULLET_GEOMETRY.ring / 2,
+  query: () => BULLET_GEOMETRY.icon / 2,
+  supertag: () => BULLET_GEOMETRY.icon / 2,
+  glyph: () => BULLET_GEOMETRY.icon / 2,
+};
+
+/**
+ * How far from its centre a bullet shows, in px of its 24px box: its halo
+ * when it has one, else its shape. What a view picks, frames and labels a
+ * drawn bullet by.
+ */
+export function bulletExtent(a: BulletAppearance): number {
+  return a.showHalo ? HALO_RADIUS : SHAPE_EXTENT[a.shape](a);
+}
+
 /** How a row draws the bullet beyond the node itself. */
 export interface OutlineBulletOptions {
   /** True when node has children, fields, or is a query node. */

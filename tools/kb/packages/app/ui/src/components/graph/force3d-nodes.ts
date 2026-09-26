@@ -15,6 +15,7 @@
 import {
   Color,
   InstancedMesh,
+  type Object3D,
   MeshBasicNodeMaterial,
   SphereGeometry,
   InstancedBufferAttribute,
@@ -28,6 +29,7 @@ import {
   vec3,
 } from "three/tsl";
 import type { PaletteUniforms } from "@/scene/gpu/stage";
+import type { ScenePalette } from "@/scene/palette";
 import { toRenderableColor } from "@/lib/css-color";
 import { TIER, type Force3dFades, type Force3dTopology } from "./force3d-emphasis";
 import { KEY_DIRECTION, RIM_POWER, shadeNode } from "./force3d-light";
@@ -44,7 +46,7 @@ const HUB_SWELL = 0.4;
 const DENSE = 2000;
 
 export interface NodeLayer {
-  readonly mesh: InstancedMesh;
+  readonly mesh: Object3D;
   /** World radius of node `i` now (with its focus swell). */
   radius(i: number): number;
   /** Write positions and eased emphasis into the instance data. */
@@ -54,16 +56,55 @@ export interface NodeLayer {
    * and radii are re-read, so spheres and picking follow a size change.
    */
   restyle(nodes: Force3dTopology["nodes"]): void;
+  /** A new palette: what the layer copied out of it is read again (uniforms need nothing). */
+  setPalette(palette: ScenePalette): void;
+  /** Free what the scene's traversal does not reach (a texture a material holds). */
+  dispose(): void;
 }
 
-export function nodeLayer(
+/**
+ * Every 3D node's world radius, whatever it is drawn as: the cube root of its
+ * lens size, a hub a little larger, the node in focus swelled, and grown in
+ * as it arrives. `sizes` holds each node's base radius (`baseRadius`).
+ */
+export function nodeRadius(
   topology: Force3dTopology,
-  colors: PaletteUniforms,
   fades: Force3dFades,
-  theme: GraphTheme,
+  arrival: { readonly values: Float32Array },
+  sizes: Float32Array,
+): (i: number) => number {
+  return (i) =>
+    (sizes[i] ?? 1) *
+    (topology.tier[i] === TIER.hub ? 1 + HUB_SWELL : 1) *
+    (1 + FOCUS_SWELL * (fades.focus.values[i] ?? 0)) *
+    (arrival.values[i] ?? 1);
+}
+
+/** A node's radius before the swells: the cube root of its lens size. */
+export function baseRadius(size: number): number {
+  return Math.cbrt(Math.max(0.5, size)) * RADIUS_PER_SIZE;
+}
+
+/** What a node layer is drawn from, whatever form its theme draws nodes in. */
+export interface NodeLayerInit {
+  readonly topology: Force3dTopology;
+  readonly colors: PaletteUniforms;
+  readonly fades: Force3dFades;
+  readonly theme: GraphTheme;
+  readonly palette: ScenePalette;
   /** How far each node has arrived (`lib/graph-arrival`): it grows in from the hubs. */
-  arrival: { readonly values: Float32Array } = { values: new Float32Array(0) },
-): NodeLayer {
+  readonly arrival?: { readonly values: Float32Array };
+}
+
+const NOT_ARRIVING = { values: new Float32Array(0) };
+
+export function nodeLayer({
+  topology,
+  colors,
+  fades,
+  theme,
+  arrival = NOT_ARRIVING,
+}: NodeLayerInit): NodeLayer {
   const n = Math.max(1, topology.nodes.length);
   const place = new InstancedBufferAttribute(new Float32Array(n * 4), 4);
   const tint = new InstancedBufferAttribute(new Float32Array(n * 3), 3);
@@ -106,22 +147,20 @@ export function nodeLayer(
     nodes.forEach((node, i) => {
       scratch.set(toRenderableColor(node.color) ?? "rgb(128, 128, 128)");
       tint.setXYZ(i, scratch.r, scratch.g, scratch.b);
-      base[i] = Math.cbrt(Math.max(0.5, node.size)) * RADIUS_PER_SIZE;
+      base[i] = baseRadius(node.size);
     });
     tint.needsUpdate = true;
   };
   restyle(topology.nodes);
 
   // The degree hierarchy reads in size as well as light: hubs stand a little larger.
-  const radius = (i: number) =>
-    (base[i] ?? 1) *
-    (topology.tier[i] === TIER.hub ? 1 + HUB_SWELL : 1) *
-    (1 + FOCUS_SWELL * (fades.focus.values[i] ?? 0)) *
-    (arrival.values[i] ?? 1);
+  const radius = nodeRadius(topology, fades, arrival, base);
   return {
     mesh,
     radius,
     restyle,
+    setPalette: () => {},
+    dispose: () => {},
     update: (positions) => {
       const count = topology.nodes.length;
       const p = place.array;

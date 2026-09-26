@@ -634,8 +634,13 @@ like themselves (P5).
     the page's plain background, the light is flat (the surface is the
     painted colour), there is no bloom, fog, stars or grain, links are even
     lines of `--graph-edge`, and labels sit right of their bullet in the UI
-    face, as a row's text does. Focus swells the bullet and lays the
-    bullet's hover plate behind it; a dimmed node sinks into the ground.
+    face, as a row's text does. A bullet carries no lift or glow, so at rest
+    each one looks as the outline's does whatever its degree; focus swells
+    it, and a dimmed node sinks into the ground. Its halo spans twice the
+    sphere the node would be in another theme, so its small dot reads, and
+    it is picked, framed and labelled by as far as it shows
+    (`bulletExtent`: its halo when it has one, else its dot or glyph). The
+    atlas is painted again only when some bullet's paint changes.
 - **Link styles** are one choice for both renderers: a perspective's
   `lens.link-style` is one of its option nodes — *straight* (the default),
   *curved*, *flow* — and `graph-link-styles.ts` states what each one means

@@ -9,12 +9,15 @@ import { uniform } from "three/tsl";
 import type { LensNode } from "@/lib/graph-lens";
 import { EmphasisFade } from "@/lib/graph-fade";
 import { topologyOf } from "./force3d-emphasis";
+import { disposeGraph } from "@/scene/gpu/dispose";
 import { nodeLayer } from "./force3d-nodes";
 import { GRAPH_THEMES } from "./graph-themes";
 
 function node(id: string, size: number): LensNode {
   return { id, label: id, color: "#888888", size, clusterKey: "r", tags: [], degree: 1 };
 }
+
+const PALETTE = { ground: "#000", edge: "#000", hue: "#888", ink: "#fff", accent: "#f80" };
 
 function colors() {
   return {
@@ -36,7 +39,13 @@ describe("nodeLayer", () => {
       lift: new EmphasisFade(2, 0.2, 0),
       focus: new EmphasisFade(2, 0.2, 0),
     };
-    const layer = nodeLayer(topology, colors(), fades, GRAPH_THEMES.matte);
+    const layer = nodeLayer({
+      topology,
+      colors: colors(),
+      fades,
+      theme: GRAPH_THEMES.matte,
+      palette: PALETTE,
+    });
     const small = layer.radius(0);
     expect(layer.radius(1)).toBe(small);
 
@@ -45,6 +54,6 @@ describe("nodeLayer", () => {
     expect(layer.radius(0)).toBe(small);
     // `radius` is what `update` writes into each instance and what picking reads.
     expect(layer.radius(1)).toBeCloseTo(small * 3, 5);
-    layer.mesh.geometry.dispose();
+    disposeGraph(layer.mesh);
   });
 });

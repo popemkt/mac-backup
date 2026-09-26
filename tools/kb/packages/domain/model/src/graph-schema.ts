@@ -30,6 +30,7 @@ export const GRAPH_THEME_VALUES = {
   cel: { id: "sys.graph.theme.cel", label: "Cel" },
   fresnel: { id: "sys.graph.theme.fresnel", label: "Fresnel" },
   glass: { id: "sys.graph.theme.glass", label: "Glass" },
+  bullet: { id: "sys.graph.theme.bullet", label: "Bullet" },
 } as const;
 
 /**

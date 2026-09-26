@@ -3,6 +3,7 @@
  * + wire nodes, driven by a #graph-perspective node's lens props.
  */
 import { Schema, SchemaGetter } from "effect";
+import type { BulletAppearance } from "@/lib/bullet-mode";
 import {
   GRAPH_LINK_STYLE_VALUES,
   GRAPH_THEME_VALUES,
@@ -92,6 +93,8 @@ export interface LensNode {
   weight?: number;
   colorKey?: string;
   colorLabel?: string;
+  /** The bullet the outline draws for this node, where a renderer draws it so (`lib/bullet-mode`). */
+  bullet?: BulletAppearance;
 }
 
 export interface LensEdge {
