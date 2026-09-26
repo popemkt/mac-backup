@@ -260,6 +260,36 @@ audit_probe_status() {
   cat "$AUDIT_PROBE_DIR/$1.rc"
 }
 
+# Load a probe's stdout into the named array, or report the probe as failed
+# and return 1. A probe that exited non-zero has not said what is installed,
+# so it never reads as an empty inventory (AGENTS.md "Writing an executor").
+read_probe_into() {
+  local dest="$1" index="$2" label="$3" rc
+  rc="$(audit_probe_status "$index")"
+  if [ "$rc" != 0 ]; then
+    record_warn "$label failed (exit $rc); that drift was not checked"
+    warn_detail "$(tail -1 "$AUDIT_PROBE_DIR/$index.err" 2>/dev/null || true)"
+    return 1
+  fi
+  readarray_safe "$dest" audit_probe_output "$index"
+}
+
+# Report a pin tool's `check` run. github-sources and uv-sources share one
+# exit contract: 0 current, 10 newer upstream releases, anything else means
+# the check could not answer.
+report_pin_check() {
+  local label="$1" pending="$2" rc="$3" out="$4"
+  case "$rc" in
+    0) record_ok "$(printf '%s\n' "$out" | tail -1)" ;;
+    10)
+      record_warn "$pending"
+      printf '%s\n' "$out" | sed 's/^/    /'
+      warn_detail "fix: update-system → review → apply-system-update"
+      ;;
+    *) printf '  %s: check skipped (%s)\n' "$label" "$(printf '%s\n' "$out" | tail -1)" ;;
+  esac
+}
+
 audit_probe_combined() {
   "$@" 2>&1
 }
@@ -362,11 +392,14 @@ else
   managed_external_paths=()
 fi
 
-if [ "${#declared_brews[@]}" -eq 0 ] && [ "${#declared_casks[@]}" -eq 0 ]; then
-  printf 'error: could not evaluate host %s; declarations below would be wrong\n' \
-    "$AUDIT_HOST" >&2
-  exit 1
-fi
+for probe in "$declared_brews_probe" "$declared_casks_probe" "$declared_taps_probe" \
+  "$declared_npm_probe" "$declared_bun_probe" "$declared_nix_packages_probe"; do
+  if [ "$(audit_probe_status "$probe")" != 0 ]; then
+    printf 'error: could not evaluate host %s; declarations below would be wrong\n' \
+      "$AUDIT_HOST" >&2
+    exit 1
+  fi
+done
 
 print_section "Repo Declarations"
 printf '  Nix packages tracked: %s\n' "${#declared_nix_packages[@]}"
@@ -409,11 +442,14 @@ if [ -f "$bun_global_manifest" ] && command -v jq >/dev/null 2>&1; then
 fi
 audit_probe_wait_all
 
-if [ -x "$BREW_BIN" ]; then
-  readarray_safe installed_brews_raw audit_probe_output "$brew_leaves_probe"
-  # Use full cask names so tapped casks do not collapse onto unrelated core
-  # casks with the same token, e.g. stablyai/orca/orca vs homebrew/cask/orca.
-  readarray_safe installed_casks audit_probe_output "$brew_casks_probe"
+if [ ! -x "$BREW_BIN" ]; then
+  print_section "Homebrew Drift"
+  printf '  brew not found at %s\n' "$BREW_BIN"
+  record_warn "Homebrew binary not found at $BREW_BIN"
+# Use full cask names so tapped casks do not collapse onto unrelated core
+# casks with the same token, e.g. stablyai/orca/orca vs homebrew/cask/orca.
+elif read_probe_into installed_brews_raw "$brew_leaves_probe" "brew leaves" \
+  && read_probe_into installed_casks "$brew_casks_probe" "brew list --cask"; then
   mapfile -t installed_brews < <(printf '%s\n' "${installed_brews_raw[@]}" | normalize_brew_names)
   mapfile -t declared_brews_normalized < <(printf '%s\n' "${declared_brews[@]}" | normalize_brew_names)
 
@@ -453,14 +489,12 @@ if [ -x "$BREW_BIN" ]; then
 
   print_section "Homebrew Formulas Also Tracked In Nix"
   print_list "${brew_also_tracked_in_nix[@]}"
-else
-  print_section "Homebrew Drift"
-  printf '  brew not found at %s\n' "$BREW_BIN"
-  record_warn "Homebrew binary not found at $BREW_BIN"
 fi
 
-if command -v "$NPM_BIN" >/dev/null 2>&1; then
-  readarray_safe installed_npm_raw audit_probe_output "$npm_probe"
+if ! command -v "$NPM_BIN" >/dev/null 2>&1; then
+  print_section "npm Global Drift"
+  printf '  npm not found\n'
+elif read_probe_into installed_npm_raw "$npm_probe" "npm ls -g"; then
   mapfile -t installed_npm < <(
     printf '%s\n' "${installed_npm_raw[@]}" \
       | sed '1d' \
@@ -482,42 +516,43 @@ if command -v "$NPM_BIN" >/dev/null 2>&1; then
   print_section "npm Globals Tracked But Missing"
   print_list "${missing_npm[@]}"
   check_count "${#missing_npm[@]}" "npm global(s) tracked but missing"
-else
-  print_section "npm Global Drift"
-  printf '  npm not found\n'
 fi
 
-if [ -n "$bun_probe" ]; then
-  readarray_safe installed_bun audit_probe_output "$bun_probe"
-else
-  installed_bun=()
+# No global manifest means Bun has installed nothing, which is a real empty
+# inventory; a manifest that could not be read is not.
+installed_bun=()
+if [ -z "$bun_probe" ] || read_probe_into installed_bun "$bun_probe" "Bun global manifest read"; then
+  mapfile -t unmanaged_bun < <(set_diff installed_bun declared_bun | sort_unique)
+  mapfile -t missing_bun < <(set_diff declared_bun installed_bun | sort_unique)
+
+  print_section "Bun Global Drift"
+  printf '  Bun global manifest: %s\n' "$bun_global_manifest"
+
+  print_section "Bun Globals Installed But Not Tracked"
+  print_list "${unmanaged_bun[@]}"
+  check_count "${#unmanaged_bun[@]}" "Bun global(s) installed but not tracked"
+
+  print_section "Bun Globals Tracked But Missing"
+  print_list "${missing_bun[@]}"
+  check_count "${#missing_bun[@]}" "Bun global(s) tracked but missing"
 fi
 
-mapfile -t unmanaged_bun < <(set_diff installed_bun declared_bun | sort_unique)
-mapfile -t missing_bun < <(set_diff declared_bun installed_bun | sort_unique)
-
-print_section "Bun Global Drift"
-printf '  Bun global manifest: %s\n' "$bun_global_manifest"
-
-print_section "Bun Globals Installed But Not Tracked"
-print_list "${unmanaged_bun[@]}"
-check_count "${#unmanaged_bun[@]}" "Bun global(s) installed but not tracked"
-
-print_section "Bun Globals Tracked But Missing"
-print_list "${missing_bun[@]}"
-check_count "${#missing_bun[@]}" "Bun global(s) tracked but missing"
-
-if command -v "$UV_BIN" >/dev/null 2>&1; then
+if ! command -v "$UV_BIN" >/dev/null 2>&1; then
+  print_section "uv Tool Drift"
+  printf '  uv not found\n'
+else
   uv_declarations_probe=${#AUDIT_PROBE_PIDS[@]}
   audit_probe_start eval_channel uvTools
   uv_list_probe=${#AUDIT_PROBE_PIDS[@]}
   audit_probe_start "$UV_BIN" tool list
   audit_probe_wait_all
+fi
 
-  read_lines_into declared_uv_raw "$(audit_probe_output "$uv_declarations_probe")"
+if command -v "$UV_BIN" >/dev/null 2>&1 \
+  && read_probe_into declared_uv_raw "$uv_declarations_probe" "uvTools evaluation" \
+  && read_probe_into uv_list_raw "$uv_list_probe" "uv tool list"; then
   mapfile -t declared_uv < <(printf '%s\n' "${declared_uv_raw[@]}" | normalize_uv_names)
 
-  readarray_safe uv_list_raw audit_probe_output "$uv_list_probe"
   mapfile -t installed_uv < <(
     printf '%s\n' "${uv_list_raw[@]}" \
       | grep -E '^[A-Za-z0-9]' \
@@ -553,9 +588,6 @@ if command -v "$UV_BIN" >/dev/null 2>&1; then
 
   print_section "uv Tools Local/Editable (untracked by design)"
   print_list "${installed_uv_editable[@]}"
-else
-  print_section "uv Tool Drift"
-  printf '  uv not found\n'
 fi
 
 # Agent plugins report presence only. Their CLIs render versions
@@ -832,31 +864,14 @@ fi
 
 audit_probe_wait_all
 if [ -x "$ROOT_DIR/scripts/uv-sources" ]; then
-  uv_check_rc="$(audit_probe_status "$uv_check_probe")"
-  uv_check_out="$(audit_probe_output "$uv_check_probe")"
-  case "$uv_check_rc" in
-    0) record_ok "$(printf '%s\n' "$uv_check_out" | tail -1)" ;;
-    10)
-      record_warn "uv tool pins have newer PyPI releases"
-      printf '%s\n' "$uv_check_out" | sed 's/^/    /'
-      warn_detail "fix: update-system → review → apply-system-update"
-      ;;
-    *) printf '  uv pins: check skipped (%s)\n' "$(printf '%s\n' "$uv_check_out" | tail -1)" ;;
-  esac
+  report_pin_check "uv pins" "uv tool pins have newer PyPI releases" \
+    "$(audit_probe_status "$uv_check_probe")" "$(audit_probe_output "$uv_check_probe")"
 fi
 if [ -x "$ROOT_DIR/scripts/github-sources" ]; then
-  gh_check_rc="$(audit_probe_status "$gh_check_probe")"
   gh_check_out="$(audit_probe_output "$gh_check_probe")"
   gh_check_clean="$(printf '%s\n' "$gh_check_out" | grep -vE "^warning: Git tree|^warning: ignoring|^this derivation|^building '|^  /nix/store/" || true)"
-  case "$gh_check_rc" in
-    0) record_ok "$(printf '%s\n' "$gh_check_clean" | tail -1)" ;;
-    10)
-      record_warn "GitHub release pins have newer upstreams"
-      printf '%s\n' "$gh_check_clean" | sed 's/^/    /'
-      warn_detail "fix: update-system → review → apply-system-update"
-      ;;
-    *) printf '  GitHub release pins: check skipped (%s)\n' "$(printf '%s\n' "$gh_check_clean" | tail -1)" ;;
-  esac
+  report_pin_check "GitHub release pins" "GitHub release pins have newer upstreams" \
+    "$(audit_probe_status "$gh_check_probe")" "$gh_check_clean"
 fi
 
 print_warning_summary
