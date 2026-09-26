@@ -3,7 +3,8 @@
  * store reads do not survive renderToStaticMarkup (the tag-fields-config
  * lesson), and the thing worth pinning here is layout, not wiring.
  */
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import type { KbIndex } from "@/ds";
+import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -12,8 +13,8 @@ import { FieldValueStack } from "@/components/outline/fields-section";
 import { SYSTEM_IDS, type NodeMap, type PropValue } from "@/lib/types";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
-function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+function contextFor(nodes: NodeMap, index: KbIndex | null = null): FieldContext {
+  return fieldContextOf({ ontologyId: null, nodes, wireNodes: [], index });
 }
 
 const nodes = new Map() as NodeMap;
@@ -24,10 +25,8 @@ function render(values: PropValue[], readOnly = false) {
       nodeId: "n.1",
       fieldId: "field.status",
       fieldType: "text" as const,
-      allowedRefIds: null,
       values,
-      schema: schemaFor(nodes),
-      outline: nodes,
+      context: contextFor(nodes),
       readOnly,
       onZoomTo: () => undefined,
     }),
@@ -71,10 +70,8 @@ describe("field value stack", () => {
         nodeId: "n.1",
         fieldId: SYSTEM_IDS.lensLinkDistanceField,
         fieldType: "number" as const,
-        allowedRefIds: null,
         values: [{ t: "num", v: 96 }],
-        schema: schemaFor(seeded),
-        outline: seeded,
+        context: contextFor(seeded),
         readOnly: false,
         onZoomTo: () => undefined,
       }),

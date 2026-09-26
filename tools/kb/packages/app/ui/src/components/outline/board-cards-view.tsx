@@ -12,7 +12,7 @@ import {
   resolveTableColumns,
   type ViewMode,
 } from "@/lib/view-config";
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { usePrefsStore } from "@/stores/prefs.store";
@@ -28,8 +28,8 @@ interface BoardCardsViewProps {
   frameId: string;
   frameInstanceKey?: string;
   nodes?: NodeMap;
-  /** The schema to read field definitions from; the store's by default. */
-  schema?: SchemaIndex;
+  /** What field values resolve against (`fieldContextOf`); the store's by default. */
+  context?: FieldContext;
   /** Query-result row ids (overrides frame children). */
   rowIds?: string[];
   isQuerySource?: boolean;
@@ -40,7 +40,7 @@ export function BoardCardsView({
   frameId,
   frameInstanceKey,
   nodes: nodesProp,
-  schema: schemaProp,
+  context: contextProp,
   rowIds,
   isQuerySource = false,
   widthPref: widthPrefProp,
@@ -64,8 +64,9 @@ export function BoardCardsView({
 
   // Column names and every field shown are schema, read from the whole graph
   // (`lib/schema.ts`), whatever projection the rows come from.
-  const storeSchema = useOutlineStore(schemaOf);
-  const schema = schemaProp ?? storeSchema;
+  const storeContext = useOutlineStore(fieldContextOf);
+  const context = contextProp ?? storeContext;
+  const schema = context.schema;
 
   // Grouping and order come from the shared owner: board columns and the flat
   // nav order are two views of one computation.
@@ -172,7 +173,7 @@ export function BoardCardsView({
               child={child}
               instanceKey={instanceKeyFor(child.id)}
               displayCols={displayCols}
-              schema={schema}
+              context={context}
               isRef={isQuerySource}
               draggable={false}
             />
@@ -206,7 +207,7 @@ export function BoardCardsView({
                     child={child}
                     instanceKey={instanceKeyFor(child.id)}
                     displayCols={displayCols}
-                    schema={schema}
+                    context={context}
                     isRef={isQuerySource}
                     draggable={!isQuerySource && groupFieldId !== null}
                     onDragStart={handleCardDragStart}
@@ -226,7 +227,7 @@ const ViewCard = memo(function ViewCard({
   child,
   instanceKey,
   displayCols,
-  schema,
+  context,
   isRef,
   draggable,
   onDragStart,
@@ -235,15 +236,14 @@ const ViewCard = memo(function ViewCard({
   child: OutlineNode;
   instanceKey: string;
   displayCols: Array<{ fieldId: string; label: string }>;
-  /** Field definitions and ref labels: the whole graph (`lib/schema.ts`). */
-  schema: SchemaIndex;
+  /** What the card's field values resolve against (`fieldContextOf`). */
+  context: FieldContext;
   isRef: boolean;
   draggable: boolean;
   onDragStart?: (id: string) => void;
   onDragEnd?: () => void;
 }) {
-  // Where an unconstrained ref field searches: the outline as shown.
-  const outline = useOutlineStore((s) => s.nodes);
+  const { schema } = context;
   const isActive = useOutlineStore(
     (s) => s.activeNodeId === child.id && s.activeInstanceKey === instanceKey,
   );
@@ -344,8 +344,8 @@ const ViewCard = memo(function ViewCard({
                     value={emptyVal}
                     display=""
                     fieldType={fieldType}
-                    schema={schema}
-                    outline={outline}
+                    fieldId={col.fieldId}
+                    context={context}
                     onZoomTo={zoomTo}
                     onCommit={(next) => void mutations.updateProp(child.id, col.fieldId, next)}
                   />
@@ -366,8 +366,8 @@ const ViewCard = memo(function ViewCard({
                   value={v}
                   display={formatPropValue(v, schema)}
                   fieldType={fieldType}
-                  schema={schema}
-                  outline={outline}
+                  fieldId={col.fieldId}
+                  context={context}
                   onZoomTo={zoomTo}
                   onCommit={(next) => void mutations.updateProp(child.id, col.fieldId, next, v)}
                 />

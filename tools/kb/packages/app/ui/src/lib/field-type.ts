@@ -11,7 +11,7 @@
  * runner core asks for, memoizing the result per snapshot, mismatch hints, and
  * the empty value a typed editor starts from.
  */
-import type { SchemaIndex } from "@/lib/schema";
+import type { FieldContext, SchemaIndex } from "@/lib/schema";
 import {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
@@ -100,6 +100,22 @@ export function resolveAllowedRefIdsCached(
   const value = resolveAllowedRefIds(fieldNode, schema, queryDb);
   allowedRefCache.set(key, value);
   return value;
+}
+
+/**
+ * The targets `fieldId` declares, resolved against a field context: its
+ * schema, and the index a declared target query runs on. The one call every
+ * ref editor makes (`refSearchOf`), so no surface computes the set itself.
+ */
+export function allowedRefsOf(context: FieldContext, fieldId: string): Set<string> | null {
+  const { schema, index } = context;
+  return resolveAllowedRefIdsCached(
+    fieldId,
+    schema.get(fieldId),
+    schema,
+    index,
+    index?.generation ?? 0,
+  );
 }
 
 /** Test helper — drop memo between cases. */

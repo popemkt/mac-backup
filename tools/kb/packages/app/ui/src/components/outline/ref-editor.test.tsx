@@ -11,13 +11,13 @@
  * (constrain, then limit — not limit, then constrain), and the one-placeholder
  * rule for the ref editing slot.
  */
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import { fieldContextOf, schemaOf, type FieldContext, type SchemaIndex } from "@/lib/schema";
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { WireNode } from "@kb/contracts";
-import { DatascriptIndex } from "@/ds";
+import { DatascriptIndex, type KbIndex } from "@/ds";
 import { FIELD_TYPE_OPTION_IDS, resolveAllowedRefIds } from "@/lib/field-type";
 import { wireToOutlineMap } from "@/lib/graph-view";
 import { fuzzyNodeCandidates } from "@/lib/refs";
@@ -27,6 +27,10 @@ import { PropValueEditor } from "./field-value";
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
   return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+}
+
+function contextFor(nodes: NodeMap, index: KbIndex | null): FieldContext {
+  return fieldContextOf({ ontologyId: null, nodes, wireNodes: [], index });
 }
 
 const ISO = "2026-08-08T00:00:00.000Z";
@@ -84,18 +88,21 @@ function queryDb(): DatascriptIndex {
  * user minted with "+ value" (open, focused), `false` is the slot that exists
  * only because the field is unset (closed placeholder). Both are asserted.
  */
-function renderRefSlot(nodes: NodeMap, allowedRefIds: Set<string> | null, autoOpen = true) {
+function renderRefSlot(
+  nodes: NodeMap,
+  index: KbIndex | null,
+  autoOpen = true,
+  fieldId: string = SYSTEM_IDS.fieldTypeField,
+) {
   return renderToStaticMarkup(
     createElement(PropValueEditor, {
       value: { t: "ref", v: "" },
       display: "",
       fieldType: "ref",
-      fieldId: SYSTEM_IDS.fieldTypeField,
-      allowedRefIds,
+      fieldId,
       autoOpen,
       onCommit: () => {},
-      schema: schemaFor(nodes),
-      outline: nodes,
+      context: contextFor(nodes, index),
       onZoomTo: () => undefined,
     }),
   );
@@ -122,7 +129,9 @@ describe("ref picker candidates (declared targets win)", () => {
       schemaFor(nodes),
       queryDb(),
     );
-    const html = renderRefSlot(nodes, allowed);
+    // The editor resolves the same set itself, from the field and the index.
+    expect(allowed).not.toBeNull();
+    const html = renderRefSlot(nodes, queryDb());
     expect(html).toContain('role="listbox"');
     for (const id of OPTION_IDS) expect(html).toContain(id);
   });
@@ -147,11 +156,22 @@ describe("ref picker candidates (declared targets win)", () => {
     const filler = Array.from({ length: 20 }, (_, i) =>
       wire({ id: `n.aa-${i}`, text: `aa ${String(i).padStart(2, "0")}` }),
     );
-    const nodes = wireToOutlineMap(
-      [...filler, wire({ id: "n.target", text: "zz target" })],
-      new Set(),
-    );
-    const html = renderRefSlot(nodes, new Set(["n.target"]));
+    // The one allowed target is the field's only option: its own child.
+    const graph = [
+      ...filler,
+      wire({ id: "n.target", text: "zz target" }),
+      wire({
+        id: "f.pick",
+        text: "pick",
+        children: ["n.target"],
+        props: {
+          [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.field }],
+          [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: FIELD_TYPE_OPTION_IDS.ref }],
+        },
+      }),
+    ];
+    const nodes = wireToOutlineMap(graph, new Set());
+    const html = renderRefSlot(nodes, new DatascriptIndex(graph), true, "f.pick");
     expect(html).toContain('role="listbox"');
     expect(html).toContain("n.target");
     expect(html).not.toContain("n.aa-00");
@@ -164,7 +184,7 @@ describe("an unset ref slot opens on focus, not on mount", () => {
     // so their dropdowns all rendered at once and their autoFocus inputs fought
     // each other (and outline keyboard navigation) for the caret.
     const nodes = ontology();
-    const html = renderRefSlot(nodes, new Set(OPTION_IDS), false);
+    const html = renderRefSlot(nodes, queryDb(), false);
     expect(html).not.toContain('role="listbox"');
     expect(html).not.toContain("<input");
     expect(html).not.toContain("autofocus");
@@ -176,7 +196,7 @@ describe("an unset ref slot opens on focus, not on mount", () => {
 
   it('a slot the user minted with "+ value" opens focused', () => {
     const nodes = ontology();
-    const html = renderRefSlot(nodes, new Set(OPTION_IDS), true);
+    const html = renderRefSlot(nodes, queryDb(), true);
     expect(html).toContain("autofocus");
     expect(html).toContain('role="listbox"');
     expect(html).not.toContain('data-ref-slot="closed"');
@@ -197,7 +217,7 @@ describe("ref editing slot placeholder (one mechanism)", () => {
 
   it("keeps a single placeholder once candidates exist", () => {
     const nodes = ontology();
-    const html = renderRefSlot(nodes, new Set(OPTION_IDS));
+    const html = renderRefSlot(nodes, queryDb());
     expect(count(html, "placeholder=")).toBe(1);
     expect(html).not.toContain("data-empty-placeholder");
   });

@@ -96,8 +96,8 @@ function nodeDefaultsCollapsed(wire: WireNode, byId: Map<string, WireNode>): boo
 }
 
 /**
- * The outline view model for `nodes`. Each node's tag chips â names and
- * colours â and its default collapse (does it show fields?) are resolved against
+ * The outline view model for `nodes`. Each node's tag chips — names and
+ * colours — and its default collapse (does it show fields?) are resolved against
  * `graph`: the whole graph, which is `nodes` itself unless `nodes` is a
  * projection of it (an ontology scope). The outline's structure comes from
  * `nodes`; what the schema means, and the tag palette (`tagPalette`, one

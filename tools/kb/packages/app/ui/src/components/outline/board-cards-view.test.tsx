@@ -1,4 +1,4 @@
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import { fieldContextOf, schemaOf, type SchemaIndex } from "@/lib/schema";
 import type { NodeMap } from "@/lib/types";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -151,7 +151,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       createElement(BoardCardsView, {
         frameId: "frame1",
         nodes: useOutlineStore.getState().nodes,
-        schema: schemaOf(useOutlineStore.getState()),
+        context: fieldContextOf(useOutlineStore.getState()),
         widthPref: "full",
       }),
     );
@@ -181,7 +181,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       createElement(BoardCardsView, {
         frameId: "frame1",
         nodes: useOutlineStore.getState().nodes,
-        schema: schemaOf(useOutlineStore.getState()),
+        context: fieldContextOf(useOutlineStore.getState()),
       }),
     );
     expect(html).toContain('data-board-empty="true"');
@@ -208,7 +208,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       createElement(BoardCardsView, {
         frameId: "frame1",
         nodes: useOutlineStore.getState().nodes,
-        schema: schemaOf(useOutlineStore.getState()),
+        context: fieldContextOf(useOutlineStore.getState()),
       }),
     );
     expect(html).toContain('data-view-mode="cards"');
@@ -252,7 +252,7 @@ describe("W7.1 BoardCardsView + toolbar", () => {
       createElement(BoardCardsView, {
         frameId: "frame1",
         nodes: useOutlineStore.getState().nodes,
-        schema: schemaOf(useOutlineStore.getState()),
+        context: fieldContextOf(useOutlineStore.getState()),
         rowIds: ["c1", "c2"],
         isQuerySource: true,
         widthPref: "full",

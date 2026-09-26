@@ -305,7 +305,10 @@ function that reads a definition takes one, so handing a schema reader the
 projection (`NodeMap`) does not compile. A ref field's declared option set is
 schema too, and its picker offers it whole; a ref field that declares no
 targets is an open search, which is navigation, so it searches the outline as
-shown (`refCandidatePool` in `lib/refs.ts`). The projection itself stays
+shown. The ref editor decides both itself, from its field id and one
+`FieldContext` (`fieldContextOf`: the schema, the outline and the index), in
+`refSearchOf` (`lib/refs.ts`), so no surface computes an allowed set or can
+forget to. The projection itself stays
 members only, and resolves its rows' tag chips against the full snapshot.
 
 **Scope never dead-ends.** Navigating to a non-member leaves the scope with a

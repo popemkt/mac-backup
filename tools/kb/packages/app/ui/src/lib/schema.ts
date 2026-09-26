@@ -22,6 +22,7 @@
  * stable.
  */
 import type { WireNode } from "@kb/contracts";
+import type { KbIndex } from "@/ds";
 import { wireToOutlineMap } from "@/lib/graph-view";
 import type { NodeMap, OutlineNode } from "@/lib/types";
 
@@ -55,6 +56,42 @@ export function schemaOf(state: SchemaSource): SchemaIndex {
   const built = state.ontologyId === null ? projectionAsSchema(state.nodes) : wholeGraph(state);
   fullGraph.set(state.wireNodes, built);
   return built;
+}
+
+/**
+ * Everything a field value's editor resolves against, as one value: the
+ * schema, the outline as shown, and the index a declared target query runs
+ * on. Editors take this and derive the rest themselves — which option set a
+ * field declares, and where its picker searches (`refSearchOf`) — so no
+ * surface computes, or forgets to pass, a part of it.
+ */
+export interface FieldContext {
+  readonly schema: SchemaIndex;
+  readonly outline: ReadonlyMap<string, OutlineNode>;
+  readonly index: KbIndex | null;
+}
+
+/** What a field context is built from: the schema's sources and the index. */
+export interface FieldContextSource extends SchemaSource {
+  readonly index: KbIndex | null;
+}
+
+const contexts = new WeakMap<NodeMap, FieldContext>();
+
+/**
+ * The field context of a state — the one constructor. One object per
+ * projection map, so a selector over it is referentially stable.
+ */
+export function fieldContextOf(state: FieldContextSource): FieldContext {
+  const cached = contexts.get(state.nodes);
+  if (cached !== undefined && cached.index === state.index) return cached;
+  const context: FieldContext = {
+    schema: schemaOf(state),
+    outline: state.nodes,
+    index: state.index,
+  };
+  contexts.set(state.nodes, context);
+  return context;
 }
 
 function projectionAsSchema(nodes: NodeMap): SchemaIndex {

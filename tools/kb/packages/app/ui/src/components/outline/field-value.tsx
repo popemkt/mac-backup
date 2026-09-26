@@ -1,4 +1,3 @@
-import type { SchemaIndex } from "@/lib/schema";
 import {
   CalendarBlankIcon,
   HashIcon,
@@ -8,13 +7,14 @@ import {
   ToggleRightIcon,
   type Icon,
 } from "@phosphor-icons/react";
+import type { FieldContext } from "@/lib/schema";
 import type { OutlineNode, PropValue } from "@/lib/types";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useCallback, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { emptyValueForType, type FieldType } from "@/lib/field-type";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
-import { refCandidatePool } from "@/lib/refs";
+import { refSearchOf } from "@/lib/refs";
 import { useRefCandidates } from "@/lib/use-ref-candidates";
 import { TAG_PALETTE } from "@/lib/tag-color";
 import { asInstance } from "@/lib/dom";
@@ -29,8 +29,8 @@ export interface FieldEditorProps {
   value: PropValue;
   /** Pre-formatted label for a ref value, when the caller already has one. */
   display: string;
-  /** When set, ref suggestions are filtered to this id set. */
-  allowedRefIds: Set<string> | null;
+  /** The field this value belongs to; a ref field's option set is its own. */
+  fieldId: string;
   /**
    * This slot exists because the user asked for it (⌘"+ value"), so the
    * gesture that created it owns the focus and the editor opens straight away.
@@ -39,12 +39,12 @@ export interface FieldEditorProps {
    */
   autoOpen: boolean;
   onCommit: (next: PropValue) => void;
-  schema: SchemaIndex;
   /**
-   * The outline as shown, where a ref field that declares no targets searches
-   * (`refCandidatePool`); a declared option set is read from `schema`.
+   * What the value resolves against (`fieldContextOf`). A ref editor derives
+   * its option set and where it searches from this and `fieldId` itself
+   * (`refSearchOf`), so no surface passes, or can forget, either.
    */
-  outline: ReadonlyMap<string, OutlineNode>;
+  context: FieldContext;
   /**
    * Navigate to a node from a resolved ref's bullet or tag chip.
    * Opening the picker is `onOpen` on that row — it is not this.
@@ -126,9 +126,8 @@ function DateEditor({ value, autoOpen, onCommit }: FieldEditorProps) {
 function RefFieldEditor({
   value,
   display,
-  schema,
-  outline,
-  allowedRefIds,
+  fieldId,
+  context,
   autoOpen,
   onCommit,
   onZoomTo,
@@ -137,9 +136,8 @@ function RefFieldEditor({
     <RefEditor
       refId={value.t === "ref" ? value.v : ""}
       display={display}
-      schema={schema}
-      outline={outline}
-      allowedRefIds={allowedRefIds}
+      fieldId={fieldId}
+      context={context}
       autoOpen={autoOpen}
       onCommit={(id) => onCommit({ t: "ref", v: id })}
       onZoomTo={onZoomTo}
@@ -243,38 +241,31 @@ export function FieldTypeIcon({
 export function PropValueEditor({
   fieldType,
   fieldId,
-  allowedRefIds = null,
   autoOpen = false,
   ...rest
-}: Omit<FieldEditorProps, "allowedRefIds" | "autoOpen"> & {
+}: Omit<FieldEditorProps, "autoOpen"> & {
   fieldType: FieldType;
-  /** Field definition id — lets a field name its own editor (e.g. sys.f.color). */
-  fieldId?: string;
-  allowedRefIds?: Set<string> | null;
   autoOpen?: boolean;
 }) {
+  // The field id also lets a field name its own editor (e.g. sys.f.color).
   const { Editor } = editorFor(fieldType, fieldId);
-  return <Editor {...rest} allowedRefIds={allowedRefIds} autoOpen={autoOpen} />;
+  return <Editor {...rest} fieldId={fieldId} autoOpen={autoOpen} />;
 }
 
 /** Editor for an empty typed slot (no value yet). */
 export function EmptyTypedEditor({
   fieldType,
   fieldId,
-  allowedRefIds = null,
   autoOpen = false,
   onCommit,
-  schema,
-  outline,
+  context,
   onZoomTo,
 }: {
   fieldType: FieldType;
-  fieldId?: string;
-  allowedRefIds?: Set<string> | null;
+  fieldId: string;
   autoOpen?: boolean;
   onCommit: (next: PropValue) => void;
-  schema: SchemaIndex;
-  outline: ReadonlyMap<string, OutlineNode>;
+  context: FieldContext;
   onZoomTo: (id: string) => void;
 }) {
   return (
@@ -283,11 +274,9 @@ export function EmptyTypedEditor({
       display=""
       fieldType={fieldType}
       fieldId={fieldId}
-      allowedRefIds={allowedRefIds}
       autoOpen={autoOpen}
       onCommit={onCommit}
-      schema={schema}
-      outline={outline}
+      context={context}
       onZoomTo={onZoomTo}
     />
   );
@@ -665,19 +654,18 @@ function EmptyRefSlot({ onOpen }: { onOpen: () => void }) {
  * search ends — a mousedown on a suggestion, and a blur.
  */
 function RefSearch({
-  schema,
-  outline,
-  allowedRefIds,
+  fieldId,
+  context,
   onCommit,
   onClose,
 }: {
-  schema: SchemaIndex;
-  outline: ReadonlyMap<string, OutlineNode>;
-  allowedRefIds: Set<string> | null;
+  fieldId: string;
+  context: FieldContext;
   onCommit: (id: string) => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState("");
+  const search = refSearchOf(context, fieldId);
 
   const commit = (id: string) => {
     onCommit(id);
@@ -686,9 +674,9 @@ function RefSearch({
   };
 
   const { candidates, activeIndex, handleKeyDown } = useRefCandidates({
-    nodes: refCandidatePool(allowedRefIds, outline, schema),
+    nodes: search.pool,
     query,
-    allowed: allowedRefIds,
+    allowed: search.allowed,
     onPick: (candidate) => {
       if (candidate) commit(candidate.id);
       // Manual entry still allowed (the list is suggestions-only).
@@ -751,38 +739,35 @@ function RefSearch({
  * blur closes it — which is also what keeps the dropdown from rendering under
  * an input nobody is typing in.
  *
- * `allowedRefIds` is an *input* to candidate resolution, never a filter over
- * its output — lib/refs owns membership, and a field's declared targets outrank
- * its hide-infrastructure heuristic.
+ * The field's declared targets are an *input* to candidate resolution, never
+ * a filter over its output — lib/refs owns membership (`refSearchOf`), and a
+ * field's declared targets outrank its hide-infrastructure heuristic.
  */
 function RefEditor({
   refId,
   display,
-  schema,
-  outline,
-  allowedRefIds = null,
+  fieldId,
+  context,
   autoOpen = false,
   onCommit,
   onZoomTo,
 }: {
   refId: string;
   display: string;
-  schema: SchemaIndex;
-  outline: ReadonlyMap<string, OutlineNode>;
-  allowedRefIds?: Set<string> | null;
+  fieldId: string;
+  context: FieldContext;
   autoOpen?: boolean;
   onCommit: (id: string) => void;
   onZoomTo: (id: string) => void;
 }) {
   const [open, setOpen] = useState(autoOpen);
-  const target = schema.get(refId);
+  const target = context.schema.get(refId);
 
   if (open) {
     return (
       <RefSearch
-        schema={schema}
-        outline={outline}
-        allowedRefIds={allowedRefIds}
+        fieldId={fieldId}
+        context={context}
         onCommit={onCommit}
         onClose={() => setOpen(false)}
       />

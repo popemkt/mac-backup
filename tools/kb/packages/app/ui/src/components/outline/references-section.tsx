@@ -13,14 +13,13 @@ import { TagChipGroup } from "./tag-chip";
  */
 export function ReferencesSection({ nodeId }: { nodeId: string }) {
   const queryDb = useOutlineStore((s) => s.index);
-  const nodes = useOutlineStore((s) => s.nodes);
   const schema = useOutlineStore(schemaOf);
   const generation = useOutlineStore((s) => s.index?.generation ?? 0);
 
   const backlinks = useMemo(
-    (): BacklinkRow[] => backlinkRows(queryDb, nodes, schema, nodeId),
+    (): BacklinkRow[] => backlinkRows(queryDb, schema, nodeId),
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- generation is the index revision; queryDb's identity is stable while its contents change
-    [queryDb, nodeId, generation, nodes, schema],
+    [queryDb, nodeId, generation, schema],
   );
 
   return <ReferencesView nodeId={nodeId} backlinks={backlinks} />;

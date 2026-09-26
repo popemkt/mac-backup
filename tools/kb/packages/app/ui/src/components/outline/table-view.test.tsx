@@ -8,7 +8,7 @@ import { viewFieldNodes } from "@/fixtures/view-fields";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { SYSTEM_IDS } from "@/lib/types";
 import { getViewConfig } from "@/lib/view-config";
-import { schemaOf } from "@/lib/schema";
+import { fieldContextOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import type { WireNode } from "@kb/contracts";
@@ -121,7 +121,7 @@ describe("W7 TableView & ViewToolbar", () => {
       createElement(TableView, {
         frameId: "frame1",
         nodes: getStoreNodes(),
-        schema: schemaOf(useOutlineStore.getState()),
+        context: fieldContextOf(useOutlineStore.getState()),
       }),
     );
 
@@ -140,7 +140,7 @@ describe("W7 TableView & ViewToolbar", () => {
       createElement(TableView, {
         frameId: "frame1",
         nodes: getStoreNodes(),
-        schema: schemaOf(useOutlineStore.getState()),
+        context: fieldContextOf(useOutlineStore.getState()),
       }),
     );
     expect(html).toContain('data-field-row="true"');
@@ -152,7 +152,7 @@ describe("W7 TableView & ViewToolbar", () => {
       createElement(TableView, {
         frameId: "frame1",
         nodes: getStoreNodes(),
-        schema: schemaOf(useOutlineStore.getState()),
+        context: fieldContextOf(useOutlineStore.getState()),
         widthPref: "centered",
       }),
     );
@@ -163,7 +163,7 @@ describe("W7 TableView & ViewToolbar", () => {
       createElement(TableView, {
         frameId: "frame1",
         nodes: getStoreNodes(),
-        schema: schemaOf(useOutlineStore.getState()),
+        context: fieldContextOf(useOutlineStore.getState()),
         widthPref: "full",
       }),
     );
@@ -178,7 +178,7 @@ describe("W7 TableView & ViewToolbar", () => {
       createElement(TableView, {
         frameId: "frame1",
         nodes: getStoreNodes(),
-        schema: schemaOf(useOutlineStore.getState()),
+        context: fieldContextOf(useOutlineStore.getState()),
       }),
     );
 
@@ -199,7 +199,7 @@ describe("W7 TableView & ViewToolbar", () => {
       createElement(TableView, {
         frameId: "frame1",
         nodes: getStoreNodes(),
-        schema: schemaOf(useOutlineStore.getState()),
+        context: fieldContextOf(useOutlineStore.getState()),
       }),
     );
 

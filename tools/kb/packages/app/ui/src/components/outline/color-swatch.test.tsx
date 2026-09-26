@@ -1,7 +1,8 @@
 /**
  * i10 item 4 — color swatch field editor for sys.f.color on tag node pages.
  */
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import type { KbIndex } from "@/ds";
+import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -13,8 +14,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
-function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+function contextFor(nodes: NodeMap, index: KbIndex | null = null): FieldContext {
+  return fieldContextOf({ ontologyId: null, nodes, wireNodes: [], index });
 }
 
 const outlineDir = path.dirname(fileURLToPath(import.meta.url));
@@ -44,8 +45,7 @@ describe("ColorSwatchEditor (i10 item 4)", () => {
         display: "#3b82f6",
         fieldType: "text",
         fieldId: SYSTEM_IDS.colorField,
-        schema: schemaFor(nodes),
-        outline: nodes,
+        context: contextFor(nodes),
         onCommit: () => undefined,
         onZoomTo: () => undefined,
       }),

@@ -12,7 +12,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import type { PropValue } from "@/lib/types";
-import { schemaOf } from "@/lib/schema";
+import { fieldContextOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
 import { FieldValueStack } from "./fields-section";
@@ -75,10 +75,8 @@ describe("ref slot focus behaviour", () => {
           nodeId="n.host"
           fieldId="f.link"
           fieldType="ref"
-          allowedRefIds={null}
           values={values}
-          schema={schemaOf(useOutlineStore.getState())}
-          outline={useOutlineStore.getState().nodes}
+          context={fieldContextOf(useOutlineStore.getState())}
           readOnly={false}
           onZoomTo={() => undefined}
         />,

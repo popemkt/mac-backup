@@ -3,7 +3,8 @@
  * The One-Row Metric Invariant: every row state resolves to identical
  * indent / bullet-slot / content-padding geometry from the token source.
  */
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import type { KbIndex } from "@/ds";
+import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,8 +17,8 @@ import { PropValueEditor } from "./field-value";
 import type { NodeMap, PropValue } from "@/lib/types";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
-function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+function contextFor(nodes: NodeMap, index: KbIndex | null = null): FieldContext {
+  return fieldContextOf({ ontologyId: null, nodes, wireNodes: [], index });
 }
 
 const outlineDir = path.dirname(fileURLToPath(import.meta.url));
@@ -100,9 +101,9 @@ describe("Field value placeholder (D17, §5.2)", () => {
         value: { t: "str", v: "" } as PropValue,
         display: "",
         fieldType: "text",
+        fieldId: "f.value",
         onCommit: () => {},
-        schema: schemaFor(nodes),
-        outline: nodes,
+        context: contextFor(nodes),
         onZoomTo: () => undefined,
       }),
     );
@@ -118,9 +119,9 @@ describe("Field value placeholder (D17, §5.2)", () => {
         value: { t: "str", v: "doing" } as PropValue,
         display: "",
         fieldType: "text",
+        fieldId: "f.value",
         onCommit: () => {},
-        schema: schemaFor(nodes),
-        outline: nodes,
+        context: contextFor(nodes),
         onZoomTo: () => undefined,
       }),
     );
@@ -133,6 +134,7 @@ describe("Field row alignment (D18, §5.2)", () => {
   const base = {
     depth: 1,
     fieldType: "text",
+    fieldId: "f.value",
     label: "status",
   } as const;
 
@@ -180,6 +182,7 @@ describe("Row decorations start at the indent, not the container edge", () => {
       createElement(FieldRow, {
         depth: 2,
         fieldType: "text",
+        fieldId: "f.value",
         label: "status",
         children: createElement("span", null, "doing"),
       }),

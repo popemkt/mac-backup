@@ -2,12 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
 import { childInstanceKey, outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
-import {
-  emptyValueForType,
-  isValueMismatch,
-  resolveAllowedRefIdsCached,
-  resolveFieldTypeById,
-} from "@/lib/field-type";
+import { emptyValueForType, isValueMismatch, resolveFieldTypeById } from "@/lib/field-type";
 import { textOr } from "@/lib/text";
 import { cn } from "@/lib/cn";
 import { isQueryNode } from "@/lib/query-node";
@@ -20,7 +15,7 @@ import {
   type TableColumnSpec,
 } from "@/lib/view-config";
 import { useDebugFields } from "@/stores/debug-fields.store";
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { Bullet } from "./bullet";
@@ -37,8 +32,8 @@ interface TableViewProps {
   frameId: string;
   frameInstanceKey?: string;
   nodes?: NodeMap;
-  /** The schema to read field definitions from; the store's by default. */
-  schema?: SchemaIndex;
+  /** What field values resolve against (`fieldContextOf`); the store's by default. */
+  context?: FieldContext;
   /** Test/override hook — defaults to prefs store width. */
   widthPref?: "centered" | "full";
   /** Query-result row ids (overrides frame children). */
@@ -50,7 +45,7 @@ export function TableView({
   frameId,
   frameInstanceKey,
   nodes: nodesProp,
-  schema: schemaProp,
+  context: contextProp,
   widthPref: widthPrefProp,
   rowIds,
   isQuerySource = false,
@@ -73,8 +68,9 @@ export function TableView({
 
   // Column names and every field shown are schema, read from the whole graph
   // (`lib/schema.ts`), whatever projection the rows come from.
-  const storeSchema = useOutlineStore(schemaOf);
-  const schema = schemaProp ?? storeSchema;
+  const storeContext = useOutlineStore(fieldContextOf);
+  const context = contextProp ?? storeContext;
+  const schema = context.schema;
 
   // Row order and pagination come from the shared owner, so the rows rendered
   // here are exactly the rows keyboard navigation can reach.
@@ -211,7 +207,7 @@ export function TableView({
                 child={child}
                 childKey={childKey}
                 columns={columns}
-                schema={schema}
+                context={context}
                 isRef={isQuerySource}
               />
             );
@@ -238,13 +234,13 @@ const TableRow = memo(function TableRow({
   child,
   childKey,
   columns,
-  schema,
+  context,
   isRef = false,
 }: {
   child: OutlineNode;
   childKey: string;
   columns: TableColumnSpec[];
-  schema: SchemaIndex;
+  context: FieldContext;
   isRef?: boolean;
 }) {
   const isActive = useOutlineStore(
@@ -268,7 +264,7 @@ const TableRow = memo(function TableRow({
   const isQuery = isQueryNode(child);
   // A row's own field rows follow the row's own flag — the frame's debug
   // columns say nothing about whether this node reveals its sys.* props.
-  const hasFields = resolveProps(child, schema, { showDebugFields: rowDebug }).length > 0;
+  const hasFields = resolveProps(child, context.schema, { showDebugFields: rowDebug }).length > 0;
   const isExpandable = child.children.length > 0 || isQuery || hasFields;
 
   return (
@@ -322,7 +318,7 @@ const TableRow = memo(function TableRow({
             nodeId={child.id}
             fieldId={col.fieldId}
             values={child.props[col.fieldId] ?? []}
-            schema={schema}
+            context={context}
           />
         </td>
       ))}
@@ -355,25 +351,17 @@ const TableCellField = memo(function TableCellField({
   nodeId,
   fieldId,
   values,
-  schema,
+  context,
 }: {
   nodeId: string;
   fieldId: string;
   values: PropValue[];
-  schema: SchemaIndex;
+  context: FieldContext;
 }) {
-  // Where an unconstrained ref field searches: the outline as shown.
-  const outline = useOutlineStore((s) => s.nodes);
-  const queryDb = useOutlineStore((s) => s.index);
+  const { schema } = context;
   const fieldType = resolveFieldTypeById(fieldId, schema);
-  const generation = useOutlineStore((s) => (fieldType === "ref" ? (s.index?.generation ?? 0) : 0));
-
   const fieldNode = schema.get(fieldId);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
-  const allowedRefIds =
-    fieldType === "ref"
-      ? resolveAllowedRefIdsCached(fieldId, fieldNode, schema, queryDb, generation)
-      : null;
 
   const label = textOr(fieldNode?.text, fieldId);
 
@@ -385,9 +373,8 @@ const TableCellField = memo(function TableCellField({
           value={emptyVal}
           display=""
           fieldType={fieldType}
-          allowedRefIds={allowedRefIds}
-          schema={schema}
-          outline={outline}
+          fieldId={fieldId}
+          context={context}
           onZoomTo={zoomTo}
           onCommit={(next: PropValue) => void mutations.updateProp(nodeId, fieldId, next)}
         />
@@ -411,9 +398,8 @@ const TableCellField = memo(function TableCellField({
             value={v}
             display={formatPropValue(v, schema)}
             fieldType={fieldType}
-            allowedRefIds={allowedRefIds}
-            schema={schema}
-            outline={outline}
+            fieldId={fieldId}
+            context={context}
             onZoomTo={zoomTo}
             onCommit={(next: PropValue) => void mutations.updateProp(nodeId, fieldId, next, v)}
           />

@@ -8,6 +8,7 @@ import type { WireNode } from "@kb/contracts";
 import { cardinalityOf, present } from "@kb/model";
 import { resolveAllowedRefIdsCached, resolveFieldTypeById } from "@/lib/field-type";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
+import { backlinkRows } from "@/lib/backlinks";
 import { rowText } from "@/lib/contextual-ref";
 import { schemaOf } from "@/lib/schema";
 import { SYSTEM_IDS } from "@/lib/types";
@@ -139,6 +140,22 @@ describe("a contextual reference under a scope", () => {
     expect(s.nodes.has("n.far")).toBe(false);
     const ref = present(s.nodes.get("n.ref"), "member reference");
     expect(rowText(ref, schemaOf(s))).toBe("far away");
+  });
+});
+
+describe("a member's backlinks under a scope", () => {
+  it("name a non-member contextual referrer by its target's text", () => {
+    const graph = [
+      ...wire(),
+      // Not tagged, so not a member: a reference to the member n.a.
+      node("n.pointer", "", { [SYSTEM_IDS.refTargetField]: [{ t: "ref", v: "n.a" }] }),
+    ];
+    useOutlineStore.getState().hydrateFromWire(graph, 1, "fixtures");
+    useOutlineStore.getState().setOntologyScope("o.1");
+    const s = useOutlineStore.getState();
+    expect(s.nodes.has("n.pointer")).toBe(false);
+    const rows = backlinkRows(s.index, schemaOf(s), "n.a");
+    expect(rows.find((r) => r.id === "n.pointer")?.text).toBe("alpha");
   });
 });
 

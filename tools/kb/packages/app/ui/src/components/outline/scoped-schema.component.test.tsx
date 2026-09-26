@@ -69,7 +69,19 @@ const TABLE = {
 const BOARD = {
   [SYSTEM_IDS.viewModeField]: [{ t: "str" as const, v: "board" }],
   [SYSTEM_IDS.viewGroupField]: [{ t: "ref" as const, v: "f.status" }],
+  [SYSTEM_IDS.viewDisplayField]: [{ t: "ref" as const, v: "f.status" }],
 };
+const CARDS = {
+  [SYSTEM_IDS.viewModeField]: [{ t: "str" as const, v: "cards" }],
+  [SYSTEM_IDS.viewDisplayField]: [{ t: "ref" as const, v: "f.status" }],
+};
+
+/** Each option shows its label (and its id beside it): both non-members. */
+function expectTheOptionSet(offered: string[]): void {
+  expect(offered).toHaveLength(2);
+  expect(offered.some((t) => t.startsWith("Done"))).toBe(true);
+  expect(offered.some((t) => t.startsWith("Open"))).toBe(true);
+}
 
 describe("a projected view under an ontology scope", () => {
   let dom: Window;
@@ -126,21 +138,32 @@ describe("a projected view under an ontology scope", () => {
     expect(cell.textContent).toContain("Done");
   });
 
-  it("the cell's picker offers the field's option set", async () => {
-    await renderScoped(TABLE);
+  /** Open the picker on the rendered "Done" value, and return what it offers. */
+  async function pickerOnDone(): Promise<string[]> {
     const label = present(
-      [...container.querySelectorAll("tbody span")].find((s) => s.textContent === "Done"),
+      [...container.querySelectorAll("span")].find((s) => s.textContent === "Done"),
       "option label",
-    ) as HTMLElement;
+    );
     await act(async () => {
       label.click();
     });
     const listbox = present(container.querySelector('[role="listbox"]'), "ref picker");
-    // Each option shows its label (and its id beside it): both non-members.
-    const offered = [...listbox.querySelectorAll('[role="option"]')].map((o) => o.textContent);
-    expect(offered).toHaveLength(2);
-    expect(offered.some((t) => t.startsWith("Done"))).toBe(true);
-    expect(offered.some((t) => t.startsWith("Open"))).toBe(true);
+    return [...listbox.querySelectorAll('[role="option"]')].map((o) => o.textContent);
+  }
+
+  it("the table cell's picker offers the field's option set", async () => {
+    await renderScoped(TABLE);
+    expectTheOptionSet(await pickerOnDone());
+  });
+
+  it("a board card's picker offers the field's option set", async () => {
+    await renderScoped(BOARD);
+    expectTheOptionSet(await pickerOnDone());
+  });
+
+  it("a card's picker offers the field's option set", async () => {
+    await renderScoped(CARDS);
+    expectTheOptionSet(await pickerOnDone());
   });
 
   it("a board groups by the option's label and names the empty column from the field", async () => {

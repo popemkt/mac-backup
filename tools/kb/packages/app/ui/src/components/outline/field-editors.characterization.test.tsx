@@ -16,7 +16,8 @@
  * and the ref picker's "commit the raw text nothing matched" fallback — are
  * pinned by what the editor *offers* rather than by the value it writes.
  */
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import type { KbIndex } from "@/ds";
+import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -30,8 +31,8 @@ import { FieldRow } from "./field-row";
 import { EmptyTypedEditor, PropValueEditor } from "./field-value";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
-function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+function contextFor(nodes: NodeMap, index: KbIndex | null = null): FieldContext {
+  return fieldContextOf({ ontologyId: null, nodes, wireNodes: [], index });
 }
 
 const nodes: NodeMap = new Map([
@@ -59,27 +60,23 @@ function editorHtml(
       value,
       display: extra.display ?? "",
       fieldType,
-      fieldId: extra.fieldId,
-      allowedRefIds: null,
+      fieldId: extra.fieldId ?? "f.value",
       autoOpen: extra.autoOpen ?? false,
       onCommit: () => undefined,
-      schema: schemaFor(nodes),
-      outline: nodes,
+      context: contextFor(nodes),
       onZoomTo: () => undefined,
     }),
   );
 }
 
-function emptyHtml(fieldType: FieldType, fieldId?: string, autoOpen = false): string {
+function emptyHtml(fieldType: FieldType, fieldId = "f.value", autoOpen = false): string {
   return renderToStaticMarkup(
     createElement(EmptyTypedEditor, {
       fieldType,
       fieldId,
-      allowedRefIds: null,
       autoOpen,
       onCommit: () => undefined,
-      schema: schemaFor(nodes),
-      outline: nodes,
+      context: contextFor(nodes),
       onZoomTo: () => undefined,
     }),
   );
@@ -240,7 +237,7 @@ describe("what a commit writes", () => {
     container.remove();
   });
 
-  async function mount(fieldType: FieldType, value: PropValue, fieldId?: string) {
+  async function mount(fieldType: FieldType, value: PropValue, fieldId = "f.value") {
     await act(async () => {
       root.render(
         createElement(PropValueEditor, {
@@ -248,11 +245,9 @@ describe("what a commit writes", () => {
           display: "",
           fieldType,
           fieldId,
-          allowedRefIds: null,
           autoOpen: false,
           onCommit: (next: PropValue) => committed.push(next),
-          schema: schemaFor(nodes),
-          outline: nodes,
+          context: contextFor(nodes),
           onZoomTo: () => undefined,
         }),
       );
@@ -405,11 +400,10 @@ describe("ref candidate keyboard navigation", () => {
           value: { t: "ref", v: "" },
           display: "",
           fieldType: "ref" as const,
-          allowedRefIds: null,
+          fieldId: "f.link",
           autoOpen: true,
           onCommit: (next: PropValue) => committed.push(next),
-          schema: schemaFor(nodes),
-          outline: nodes,
+          context: contextFor(nodes),
           onZoomTo: () => undefined,
         }),
       );
@@ -481,11 +475,10 @@ describe("ref candidate keyboard navigation", () => {
             value: { t: "ref", v: "" },
             display: "",
             fieldType: "ref" as const,
-            allowedRefIds: null,
+            fieldId: "f.link",
             autoOpen: true,
             onCommit: () => undefined,
-            schema: schemaFor(nodes),
-            outline: nodes,
+            context: contextFor(nodes),
             onZoomTo: () => undefined,
           }),
         ),

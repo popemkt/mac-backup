@@ -1,11 +1,11 @@
-import { schemaOf, type SchemaIndex } from "@/lib/schema";
+import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { FieldValueStack } from "@/components/outline/fields-section";
 import type { NodeMap } from "@/lib/types";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
-function schemaFor(nodes: NodeMap): SchemaIndex {
-  return schemaOf({ ontologyId: null, nodes, wireNodes: [] });
+function contextFor(nodes: NodeMap): FieldContext {
+  return fieldContextOf({ ontologyId: null, nodes, wireNodes: [], index: null });
 }
 
 const emptyNodes: NodeMap = new Map();
@@ -16,9 +16,7 @@ const meta = {
   args: {
     nodeId: "n.subject",
     fieldId: "field.status",
-    allowedRefIds: null,
-    schema: schemaFor(emptyNodes),
-    outline: emptyNodes,
+    context: contextFor(emptyNodes),
     readOnly: false,
     onZoomTo: () => undefined,
   },
