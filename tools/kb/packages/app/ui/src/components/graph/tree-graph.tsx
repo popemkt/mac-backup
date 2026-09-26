@@ -23,7 +23,7 @@ import {
   type TreeViewHandle,
 } from "./graph-camera-controls";
 import type { GraphSelection } from "./graph-selection";
-import { layoutForest, resolveFold, type TreeFold } from "./tree-layout";
+import { layoutForest, resolveFold, sameFold, type TreeFold } from "./tree-layout";
 
 interface TreeGraphProps extends GraphEmphasis {
   forest: LensTreeNode[];
@@ -70,6 +70,9 @@ export function TreeGraph({
   // the nodes it adds.
   const [fold, setFold] = useState<TreeFold | null>(null);
   const resolved = useMemo(() => resolveFold(fold, viewKey, forest), [fold, viewKey, forest]);
+  // Commit what this forest resolved to as it arrives (adjust-state-on-render),
+  // so every later write is judged against the nodes already seen.
+  if (!sameFold(fold, resolved)) setFold(resolved);
   const collapsed = resolved.collapsed;
   const setCollapsed = useCallback(
     (next: Set<string> | ((previous: ReadonlySet<string>) => Set<string>)) =>

@@ -69,6 +69,22 @@ export interface TreeFold {
   readonly known: ReadonlySet<string>;
 }
 
+function sameSet(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const id of a) if (!b.has(id)) return false;
+  return true;
+}
+
+/** Whether two folds say the same thing (by value: `resolveFold` makes new sets). */
+export function sameFold(a: TreeFold | null, b: TreeFold): boolean {
+  return (
+    a !== null &&
+    a.view === b.view &&
+    sameSet(a.collapsed, b.collapsed) &&
+    sameSet(a.known, b.known)
+  );
+}
+
 /**
  * The fold for `forest` in `view`. A new view starts from its own first
  * fold (`initiallyCollapsed`); within one view the user's fold stands, and

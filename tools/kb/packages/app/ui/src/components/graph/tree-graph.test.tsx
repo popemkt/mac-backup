@@ -147,6 +147,39 @@ describe("the tree's fold belongs to the view", () => {
     expect(visible("a-10-0")).toBe(false);
   });
 
+  it("leaves what is on screen alone when a write crosses the open-whole budget, with no gesture", async () => {
+    // 5 branches of 6 leaves: 36 nodes, opened whole.
+    await show(bigForest("a", 5), "view-1");
+    expect(visible("a-0-0")).toBe(true);
+    // A write adds branches past 60 nodes: what was open stays open; the new folds.
+    await show(bigForest("a", 12), "view-1");
+    expect(visible("a-0-0")).toBe(true);
+    expect(visible("a-4-5")).toBe(true);
+    expect(visible("a-11")).toBe(true);
+    expect(visible("a-11-0")).toBe(false);
+  });
+
+  it("does not re-judge a node already seen when a later write gives it children", async () => {
+    await show(bigForest("a"), "view-1");
+    expand("a-0");
+    // Write 1: a new leaf under the open branch — seen, and open.
+    const withLeaf = (leafChildren: LensTreeNode[]) =>
+      bigForest("a").map((top) => ({
+        ...top,
+        children: top.children.map((child) =>
+          child.id === "a-0"
+            ? { ...child, children: [...child.children, branch("a-0-new", leafChildren)] }
+            : child,
+        ),
+      }));
+    await show(withLeaf([]), "view-1");
+    expect(visible("a-0-new")).toBe(true);
+    // Write 2: that leaf gains a child. It was already seen, so it stays open.
+    await show(withLeaf([branch("a-0-new-kid")]), "view-1");
+    expect(visible("a-0-new-kid")).toBe(true);
+    expect(visible("a-0-0")).toBe(true);
+  });
+
   it("folds afresh for a new view, even over the same nodes", async () => {
     await show(bigForest("a"), "view-1");
     expand("a-0");

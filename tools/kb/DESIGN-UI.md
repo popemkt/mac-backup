@@ -375,7 +375,7 @@ rather than by navigation.
   drag with live hull redraw, hull-click isolation. Tree renderer: pointer
   pan/zoom plus Fit / Collapse-all / Expand-all. A small forest (60 nodes
   or fewer) opens whole, a larger one two levels deep (deeper branches
-  start folded); the fold belongs to the view (perspective, query, sys
+  start folded); the fold belongs to the view (perspective, query, focus, sys
   switch, ontology), so a new view folds afresh while a store update keeps
   the user's fold and folds only the nodes it adds, each root's subtree runs left to
   right, and a forest of many roots is packed into columns in root order,

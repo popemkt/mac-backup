@@ -26,6 +26,24 @@ export interface GraphAdapterProps {
   setControls: (controls: GraphCameraControls | null) => void;
   onNodeOpen: (id: string) => void;
 }
+/**
+ * A view's identity: everything that makes the graph page show another view
+ * rather than the same one updated — the perspective, its query and focus
+ * (which re-roots a tree), the sys switch and the ontology.
+ */
+export function graphViewKey(
+  perspective: Pick<LensPerspective, "id" | "query" | "focus">,
+  scope: { readonly includeSystemNodes: boolean; readonly ontologyId: string | null },
+): string {
+  return [
+    perspective.id,
+    perspective.query,
+    perspective.focus ?? "",
+    String(scope.includeSystemNodes),
+    scope.ontologyId ?? "",
+  ].join("\n");
+}
+
 export type GraphChannel = "relationships" | "color" | "size" | "group" | "label";
 interface GraphRendererDefinition {
   label: string;

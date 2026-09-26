@@ -1,4 +1,4 @@
-import { GRAPH_RENDERERS } from "./graph-renderers";
+import { GRAPH_RENDERERS, graphViewKey } from "./graph-renderers";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { WarningIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
@@ -273,7 +273,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
                 lensGraph={lensGraph}
                 active={active}
                 forest={forest}
-                viewKey={`${active.id}\n${active.query}\n${includeSystemNodes}\n${ontologyId ?? ""}`}
+                viewKey={graphViewKey(active, { includeSystemNodes, ontologyId })}
                 appearance={appearance}
                 selection={selection}
                 setSelection={setSelection}
