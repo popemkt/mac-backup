@@ -194,20 +194,21 @@ print_warning_summary() {
 # shellcheck source=SCRIPTDIR/lib/audit-apps.sh
 . "$ROOT_DIR/scripts/lib/audit-apps.sh"
 
-# Report a pin tool's `check` run. github-sources and uv-sources both use 0
-# for current and 10 for newer upstream releases; any other code (they differ
-# there, GAP [[01M3E9VSQZTDHRV4C9YRWD1QV1]]) means the check could not answer.
+# Report a pin tool's `check` run, read by the pin-tool contract stated in the
+# scripts/uv-sources header.
 report_pin_check() {
-  local label="$1" pending="$2" rc="$3" out="$4"
-  case "$rc" in
-    0) record_ok "$(printf '%s\n' "$out" | tail -1)" ;;
-    10)
-      record_warn "$pending"
-      printf '%s\n' "$out" | sed 's/^/    /'
-      warn_detail "fix: update-system → review → apply-system-update"
-      ;;
-    *) printf '  %s: check skipped (%s)\n' "$label" "$(printf '%s\n' "$out" | tail -1)" ;;
-  esac
+  local label="$1" pending="$2" rc="$3" out="$4" current
+  current="$(printf '%s\n' "$out" | grep -m1 'pins are current' || true)"
+  if [ "$rc" = 10 ]; then
+    record_warn "$pending"
+    printf '%s\n' "$out" | sed 's/^/    /'
+    warn_detail "fix: update-system → review → apply-system-update"
+  elif [ "$rc" = 0 ] && [ -n "$current" ]; then
+    record_ok "$current"
+  else
+    printf '  %s: not confirmed current (exit %s)\n' "$label" "$rc"
+    printf '%s\n' "$out" | sed '/^$/d; s/^/    /'
+  fi
 }
 
 array_contains() {

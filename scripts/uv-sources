@@ -10,12 +10,23 @@
 # version deliberately — Cognee's stores are coupled to its release, so a major
 # bump there wants a human decision.
 #
-# Exit codes: 0 pins current (or update applied), 10 updates available
-# (check only), 1 could not run. Two cases exit 0 without meaning current: a
-# check whose only newer releases are held (track="manual") pins prints them
-# and exits 0, and --best-effort turns could not run into a warning and 0.
-# GAP [[01M3E9VSQZTDHRV4C9YRWD1QV1]] github-sources uses 20 for could not
-# resolve, and no shared test holds the two tools to one contract.
+# Pin-tool contract. This header is its one statement; github-sources follows
+# it and the drift audit's report_pin_check reads it.
+#
+# - Exit 10: `check` found newer releases for pins it may move.
+# - Exit 0: nothing for the caller to do. Exit 0 alone does not mean current.
+#   These all exit 0 without meaning current:
+#   - `check` or `update` when every newer release belongs to a held
+#     (track="manual") pin; the held lines are printed and nothing is
+#     rewritten;
+#   - `update` after it rewrote pins;
+#   - --best-effort when the tool could not run; it warns instead.
+# - A stdout line containing "pins are current" is printed exactly when
+#   every pin is at its newest release. That line, not exit 0, is what
+#   "current" means to a caller.
+# - Any other exit code: the tool could not run. uv-sources uses 1.
+#   GAP [[01M3E9VSQZTDHRV4C9YRWD1QV1]] github-sources uses 20 there, and no
+#   shared test holds the two tools to this contract.
 
 set -euo pipefail
 
