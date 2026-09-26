@@ -352,7 +352,7 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
           || [[ "$("${mcpPython}" -c 'import platform; print(platform.python_version())' 2>/dev/null || true)" != "${pkgs.python313.version}" ]] \
           || [[ ! -f "$receipt" ]] \
           || ! ${pkgs.uv}/bin/uv tool list 2>/dev/null \
-            | ${pkgs.gnugrep}/bin/grep -q '^cognee-mcp v0\.5\.4$'
+            | ${pkgs.gnugrep}/bin/grep -qxF ${lib.escapeShellArg "cognee-mcp v${mcpVersion}"}
         then
           $DRY_RUN_CMD ${pkgs.uv}/bin/uv tool install \
             --force \
