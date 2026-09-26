@@ -4,6 +4,7 @@ import {
   djb2Hash,
   hashTagColor,
   nodeTagColors,
+  UNTAGGED_COLOR,
   tagColorOf,
   tagColorAlpha,
   tagColorFill,
@@ -24,6 +25,10 @@ function tagNode(
     createdAt,
     updatedAt: createdAt,
   };
+}
+
+function at(day: number): string {
+  return `2026-01-0${day}T00:00:00.000Z`;
 }
 
 function graph(...nodes: WireNode[]): Map<string, WireNode> {
@@ -117,5 +122,45 @@ describe("tag color as a paint value", () => {
         " color-mix(in oklab, #ef4444 12.5%, transparent) 0% 50%," +
         " color-mix(in oklab, #22c55e 12.5%, transparent) 50% 100%)",
     );
+  });
+});
+
+describe("tag colours in one graph do not collide (P2-3)", () => {
+  // The first two `t<i>` ids that hash onto the same palette slot.
+  const [first, second] = ((): [string, string] => {
+    const seen = new Map<string, string>();
+    for (let i = 0; ; i++) {
+      const id = `t${i}`;
+      const other = seen.get(hashTagColor(id));
+      if (other !== undefined) return [other, id];
+      seen.set(hashTagColor(id), id);
+    }
+  })();
+
+  it("gives the second tag on a taken slot the next free one, and keeps the older one's", () => {
+    const byId = graph(tagNode(first, {}, at(1)), tagNode(second, {}, at(2)));
+    expect(tagColorOf(first, byId)).toBe(hashTagColor(first));
+    const slot = TAG_PALETTE.findIndex((entry) => entry === hashTagColor(second));
+    expect(tagColorOf(second, byId)).toBe(TAG_PALETTE[(slot + 1) % TAG_PALETTE.length]);
+  });
+
+  it("lets an explicit palette colour hold its slot", () => {
+    const explicit = { [SYSTEM_IDS.colorField]: [{ t: "str" as const, v: hashTagColor(first) }] };
+    const byId = graph(tagNode("tag.explicit", explicit, at(2)), tagNode(first, {}, at(1)));
+    expect(tagColorOf("tag.explicit", byId)).toBe(hashTagColor(first));
+    expect(tagColorOf(first, byId)).not.toBe(hashTagColor(first));
+  });
+
+  it("uses every slot once before any slot twice", () => {
+    const tags = Array.from({ length: TAG_PALETTE.length + 1 }, (_, i) =>
+      tagNode(`tag.${i}`, {}, `2026-01-01T00:00:${String(i).padStart(2, "0")}.000Z`),
+    );
+    const byId = graph(...tags);
+    const colors = tags.map((t) => tagColorOf(t.id, byId));
+    expect(new Set(colors.slice(0, TAG_PALETTE.length)).size).toBe(TAG_PALETTE.length);
+  });
+
+  it("paints untagged grey, outside the palette", () => {
+    expect(TAG_PALETTE).not.toContain(UNTAGGED_COLOR);
   });
 });

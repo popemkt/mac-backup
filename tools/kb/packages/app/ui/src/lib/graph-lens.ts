@@ -22,7 +22,7 @@ import {
 import type { WireNode } from "@kb/contracts";
 import type { KbIndex } from "@/ds";
 import { extractMentions, runQuery } from "@/ds";
-import { hashTagColor, tagColorOf } from "@/lib/tag-color";
+import { UNTAGGED_COLOR, hashTagColor, tagColorOf } from "@/lib/tag-color";
 import { graphDisplayText } from "./graph-label";
 import { SYSTEM_IDS, isSysPrefixed, type PropValue } from "@/lib/types";
 import { logWarn } from "@/lib/log";
@@ -667,10 +667,8 @@ export function resolveColor(
   if (colorBy.startsWith("prop:") || colorBy === "parent" || colorBy === "none") {
     return hashTagColor(resolveCluster(wire, byId, parentOf, colorBy).key);
   }
-  // default: tag — untagged uses the same djb2 palette (tag-color pipeline).
-  const tag = firstTagOf(wire, byId);
-  if (tag) return tag.color;
-  return hashTagColor("untagged");
+  // default: tag
+  return firstTagOf(wire, byId)?.color ?? UNTAGGED_COLOR;
 }
 
 export function resolveSize(sizeBy: string, degree: number, childCount: number): number {

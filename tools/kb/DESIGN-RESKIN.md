@@ -187,10 +187,15 @@ with 32px gutters. Palette commands `Toggle width` / `Toggle theme` too.
 
 ### 1.8 Tag colors
 
-Deterministic 12-color hash (djb2 % 12: red orange yellow green teal cyan blue
-violet fuchsia pink indigo emerald). Chip bg = hex + `18` alpha. Tana improvement:
-tag node may carry explicit `color` prop (ref: field on `sys.tag` template) —
-overrides hash. Bullet dot + collapsed halo inherit tag color.
+A 12-color palette (red orange yellow green teal cyan blue violet fuchsia pink
+indigo lime). A tag starts at its djb2 % 12 slot; when an older tag in the graph
+already holds that slot it takes the next free one, so tags in use never share
+a colour while the palette has room (past twelve, the least-used slot from its
+hash onward). A palette colour set explicitly holds its slot first. Untagged is
+a neutral grey outside the palette. `tagColorOf` in `lib/tag-color.ts` is the
+one reader. Tana improvement: tag node may carry explicit `color` prop (ref:
+field on `sys.tag` template) — overrides the slot. Bullet dot + collapsed halo
+inherit tag color. Chip bg = hex + `18` alpha.
 
 ---
 
