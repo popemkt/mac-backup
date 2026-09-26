@@ -41,6 +41,7 @@ export function TreeAdapter({
   lensGraph,
   active,
   forest,
+  viewKey,
   appearance,
   searchHighlight,
   filterIds,
@@ -51,6 +52,7 @@ export function TreeAdapter({
   return (
     <TreeGraph
       forest={forest}
+      viewKey={viewKey}
       edges={lensGraph.edges}
       showLabels={active.showLabels}
       highlightIds={searchHighlight ?? undefined}

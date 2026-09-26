@@ -96,6 +96,38 @@ describe("3D graph layers", () => {
     graph.dispose();
   });
 
+  it("carries the flow's dashes across a new look and a new curve", () => {
+    const graph = layers();
+    const camera = new PerspectiveCamera(50, 1.5, 1, 1000);
+    graph.setSettings({ ...graph.settings, linkStyle: "flow" });
+    for (let i = 0; i < 5; i++) graph.frame(0.05, camera, viewport);
+    const phase = graph.motion().flowPhase;
+    expect(phase).toBeGreaterThan(0);
+    graph.setSettings({ ...graph.settings, nodeLook: "cel" });
+    expect(graph.motion().flowPhase).toBe(phase);
+    graph.setSettings({ ...graph.settings, curvedLinks: true });
+    expect(graph.motion().flowPhase).toBe(phase);
+    graph.dispose();
+  });
+
+  it("keeps a selection's particles showing and moving across a new look and a new curve", () => {
+    const graph = layers();
+    const camera = new PerspectiveCamera(50, 1.5, 1, 1000);
+    graph.emphasis = { selectedNodeId: "hub" };
+    graph.refresh();
+    for (let i = 0; i < 5; i++) graph.frame(0.05, camera, viewport);
+    const before = graph.motion().particles;
+    expect(before?.showing ?? 0).toBeGreaterThan(0);
+    expect(before?.phase ?? 0).toBeGreaterThan(0);
+    graph.setSettings({ ...graph.settings, nodeLook: "glass" });
+    expect(graph.motion().particles).toEqual(before);
+    graph.setSettings({ ...graph.settings, curvedLinks: true });
+    expect(graph.motion().particles).toEqual(before);
+    graph.frame(0.016, camera, viewport);
+    expect(graph.particleCount()).toBeGreaterThan(0);
+    graph.dispose();
+  });
+
   it("lays out and arrives again for a new node set", () => {
     const graph = layers();
     const camera = new PerspectiveCamera(50, 1.5, 1, 1000);

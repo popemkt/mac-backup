@@ -101,6 +101,17 @@ function within(
   );
 }
 
+/**
+ * Where the labelled nodes are this frame, how far each has arrived, and how
+ * big each is. The owner hands the same object every frame (its fields read
+ * through), so placing labels allocates nothing (P3).
+ */
+export interface LabelledNodes {
+  readonly positions: Float32Array;
+  readonly arrival: Float32Array;
+  readonly radius: (i: number) => number;
+}
+
 export class LabelLayer {
   private readonly labels = new Map<number, Label>();
   private readonly occupied: GraphLabelBox[] = [];
@@ -171,12 +182,12 @@ export class LabelLayer {
 
   /** Place, reserve and fade every wanted label for this frame. */
   frame(
-    positions: Float32Array,
+    nodes: LabelledNodes,
     camera: PerspectiveCamera,
     { width, height }: { readonly width: number; readonly height: number },
-    fades: Force3dFades & { readonly arrival: Float32Array },
-    radius: (i: number) => number,
+    fades: Force3dFades,
   ): void {
+    const { positions, arrival, radius } = nodes;
     const focus = fades.focus.values;
     // A label stands just above its node's silhouette, whatever the node's size.
     this.up.set(0, 1, 0).applyQuaternion(camera.quaternion);
@@ -208,7 +219,7 @@ export class LabelLayer {
       box.width = label.width + 6;
       box.height = HEIGHT + 4;
       const present = fades.dim.values[i] ?? 1;
-      const ready = inView && present > 0.5 && labelArrived(fades.arrival[i] ?? 1);
+      const ready = inView && present > 0.5 && labelArrived(arrival[i] ?? 1);
       label.sprite.visible = ready && within(box, size) && reserveGraphLabel(box, this.occupied);
       label.opacity.value = Math.min(1, (present - 0.5) * 2);
     }

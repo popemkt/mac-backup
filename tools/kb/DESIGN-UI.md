@@ -375,8 +375,9 @@ rather than by navigation.
   drag with live hull redraw, hull-click isolation. Tree renderer: pointer
   pan/zoom plus Fit / Collapse-all / Expand-all. A small forest (60 nodes
   or fewer) opens whole, a larger one two levels deep (deeper branches
-  start folded); the fold belongs to the node set, so a new perspective or
-  query folds afresh while a store update keeps the user's, each root's subtree runs left to
+  start folded); the fold belongs to the view (perspective, query, sys
+  switch, ontology), so a new view folds afresh while a store update keeps
+  the user's fold and folds only the nodes it adds, each root's subtree runs left to
   right, and a forest of many roots is packed into columns in root order,
   as many as bring the packed shape nearest the frame's (`tree-layout.ts`),
   so a hundred roots fill the frame instead of one sliver.
@@ -477,8 +478,10 @@ like themselves (P5).
   (lines; flow — dashes drifting source to target, one passing in the
   ambient period, still under reduced motion) are option nodes, children of
   their fields like the renderers, picked in the settings panel and
-  persisted as props. Switching one redraws the layers in place: nothing
-  moves, lays out or arrives again (only a new node set does). A look
+  persisted as props. Switching one redraws only the layer it shapes, in
+  place and carrying that layer's motion (the flow's dashes, the particles'
+  fade and phase): nothing moves, lays out or arrives again (only a new
+  node set does). A look
   changes only the surface light: every look
   runs through the one `shadeNode`, whose rest cap, glow and lift cap are
   shared, so the bloom rule holds for each by construction, and

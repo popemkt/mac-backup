@@ -11,6 +11,12 @@ export interface GraphAdapterProps {
   lensGraph: LensGraph;
   active: LensPerspective;
   forest: LensTreeNode[];
+  /**
+   * The view's identity — perspective, its query, the sys switch, the
+   * ontology — so view state (the tree's fold) can tell a new view from a
+   * store update of the same one.
+   */
+  viewKey: string;
   /** What the page is painted in: a new value means the tokens hold new values. */
   appearance: Appearance;
   searchHighlight: Set<string> | null;

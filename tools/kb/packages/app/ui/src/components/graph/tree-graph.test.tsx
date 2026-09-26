@@ -1,7 +1,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
-import { afterEach, beforeAll, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { present } from "@kb/model";
 import type { LensTreeNode } from "@/lib/graph-lens";
 import type { GraphCameraControls } from "./graph-camera-controls";
@@ -105,11 +105,11 @@ const coords = (el: Element) =>
     "node transform",
   );
 
-/** A forest past the open-whole budget: a root, 10 children, 6 leaves each. */
-const bigForest = (prefix: string): LensTreeNode[] => [
+/** A forest past the open-whole budget: a root, `children` children, 6 leaves each. */
+const bigForest = (prefix: string, children = 10): LensTreeNode[] => [
   branch(
     prefix,
-    Array.from({ length: 10 }, (_, c) =>
+    Array.from({ length: children }, (_child, c) =>
       branch(
         `${prefix}-${c}`,
         Array.from({ length: 6 }, (_leaf, l) => branch(`${prefix}-${c}-${l}`)),
@@ -118,28 +118,40 @@ const bigForest = (prefix: string): LensTreeNode[] => [
   ),
 ];
 
-it("folds each new node set afresh, and keeps the user's fold across a rebuilt one", async () => {
+describe("the tree's fold belongs to the view", () => {
   const appearance = { designSystem: "kb" as const, dark: false, key: "kb:light" };
-  const show = (forest: LensTreeNode[]) =>
-    act(async () => root.render(createElement(TreeGraph, { forest, appearance })));
+  const show = (forest: LensTreeNode[], viewKey: string) =>
+    act(async () => root.render(createElement(TreeGraph, { forest, viewKey, appearance })));
   const visible = (id: string) => container.querySelector(`[data-node-id="${id}"]`) !== null;
+  const expand = (id: string) => {
+    const toggle = present(container.querySelector(`[aria-label="Expand ${id}"]`), `expand ${id}`);
+    act(() => {
+      toggle.dispatchEvent(new dom.MouseEvent("click", { bubbles: true }) as unknown as MouseEvent);
+    });
+  };
 
-  await show(bigForest("a"));
-  // Opened two levels deep: the leaves start folded.
-  expect(visible("a-0")).toBe(true);
-  expect(visible("a-0-0")).toBe(false);
-  const expand = present(container.querySelector('[aria-label="Expand a-0"]'), "expand a-0");
-  act(() => {
-    expand.dispatchEvent(new dom.MouseEvent("click", { bubbles: true }) as unknown as MouseEvent);
+  it("keeps the user's fold through a store write that adds and removes nodes, folding only the new", async () => {
+    await show(bigForest("a"), "view-1");
+    expect(visible("a-0")).toBe(true);
+    expect(visible("a-0-0")).toBe(false);
+    expand("a-0");
+    expect(visible("a-0-0")).toBe(true);
+    // A store write adds a branch (a-10) and drops another (a-9): same view.
+    const written = bigForest("a", 11).map((top) => ({
+      ...top,
+      children: top.children.filter((child) => child.id !== "a-9"),
+    }));
+    await show(written, "view-1");
+    expect(visible("a-0-0")).toBe(true);
+    expect(visible("a-10")).toBe(true);
+    expect(visible("a-10-0")).toBe(false);
   });
-  expect(visible("a-0-0")).toBe(true);
 
-  // The same node set rebuilt (a store update): the user's fold stays.
-  await show(bigForest("a"));
-  expect(visible("a-0-0")).toBe(true);
-
-  // Another node set (a new perspective): it opens two levels deep too.
-  await show(bigForest("b"));
-  expect(visible("b-0")).toBe(true);
-  expect(visible("b-0-0")).toBe(false);
+  it("folds afresh for a new view, even over the same nodes", async () => {
+    await show(bigForest("a"), "view-1");
+    expand("a-0");
+    expect(visible("a-0-0")).toBe(true);
+    await show(bigForest("a"), "view-2");
+    expect(visible("a-0-0")).toBe(false);
+  });
 });

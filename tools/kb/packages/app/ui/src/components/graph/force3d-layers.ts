@@ -32,6 +32,7 @@ import {
   particleLayer,
   type LinkLayer,
   type ParticleLayer,
+  type ParticleMotion,
 } from "./force3d-links";
 import { nodeLayer, type NodeLayer } from "./force3d-nodes";
 import type { PickField } from "./force3d-pick";
@@ -47,11 +48,6 @@ export interface Force3dSettings {
   readonly autorotate: boolean;
   readonly showLabels: boolean;
   readonly labelTopN: number;
-}
-
-/** The settings the drawn layers are built from: a change to any redraws them, in place. */
-function layerShape(s: Force3dSettings): string {
-  return `${s.curvedLinks}|${s.nodeLook}|${s.linkStyle}`;
 }
 
 /** Spiral seed placement for a node with no position yet. */
@@ -110,7 +106,10 @@ export class GraphLayers {
   readonly fades: Force3dFades;
   private readonly stage: SceneStage;
   private readonly group = new Group();
-  private readonly layers = new Group();
+  /** Each drawn layer in a group of its own, so one can be redrawn alone. */
+  private readonly nodeGroup = new Group();
+  private readonly linkGroup = new Group();
+  private readonly particleGroup = new Group();
   private readonly labels: LabelLayer;
   private readonly particleRate: number;
   private nodes: NodeLayer | null = null;
@@ -144,7 +143,7 @@ export class GraphLayers {
     this.arrival = new GraphArrival(init.timing);
     this.particleRate = approachRate(init.timing.reveal);
     stage.scene.add(this.group);
-    this.group.add(this.layers);
+    this.group.add(this.linkGroup, this.nodeGroup, this.particleGroup);
     this.labels = new LabelLayer(this.group, this.topology, this.palette);
     this.setGraph(init.nodes, init.edges);
   }
@@ -153,6 +152,20 @@ export class GraphLayers {
   arrived(): Float32Array {
     return this.arrival.values;
   }
+
+  /**
+   * What the labels are placed from: one object, its fields repointed when
+   * the graph is rebuilt, so a frame hands it over without allocating.
+   */
+  private readonly labelled: {
+    positions: Float32Array;
+    arrival: Float32Array;
+    radius: (i: number) => number;
+  } = {
+    positions: new Float32Array(0),
+    arrival: new Float32Array(0),
+    radius: (i) => this.radius(i),
+  };
 
   /** World radius of node `i` now. */
   readonly radius = (i: number): number => this.nodes?.radius(i) ?? 4;
@@ -228,7 +241,11 @@ export class GraphLayers {
       ),
       !this.stage.reduced(),
     );
-    this.drawLayers();
+    this.labelled.positions = this.positions;
+    this.labelled.arrival = this.arrival.values;
+    this.drawNodes();
+    this.drawLinks(false);
+    this.drawParticles(false);
     this.labels.reset(this.topology, this.palette);
     this.labels.resize(this.stage.camera, this.stage.renderer.domElement.clientHeight || 1);
     this.rank();
@@ -237,21 +254,48 @@ export class GraphLayers {
   }
 
   /**
-   * Draw the node, link and particle layers anew from the graph as it stands
-   * — its positions, eased emphasis and arrival — freeing the old ones. A new
-   * look or link style is only this: nothing moves and nothing arrives again.
+   * The drawn layers, each redrawn alone when what it is built from changes,
+   * freeing the old one: nodes for a new look, links for a new style or
+   * curve, particles for a new curve. A redrawn layer takes the graph as it
+   * stands — positions, emphasis, arrival — and `carry` hands it the motion
+   * of the one it replaces (the flow's dashes, the particles' fade and phase),
+   * so nothing jumps, moves or arrives again.
    */
-  private drawLayers(): void {
-    disposeGraph(this.layers);
-    const colors = this.stage.colors;
-    const { curvedLinks: curved, linkStyle: style, nodeLook } = this.settings;
-    this.nodes = nodeLayer(this.topology, colors, this.fades, nodeLook, this.arrival);
-    const ambientPeriod = this.timing.ambientPeriod;
-    this.links = linkLayer(this.topology, this.fades, { curved, style, ambientPeriod });
-    this.links.setPalette(this.palette, this.link);
-    this.particles = particleLayer(this.topology, colors, curved);
-    this.layers.add(this.links.lines, this.nodes.mesh, this.particles.sprite);
+  private drawNodes(): void {
+    disposeGraph(this.nodeGroup);
+    const { colors } = this.stage;
+    this.nodes = nodeLayer(this.topology, colors, this.fades, this.settings.nodeLook, this.arrival);
+    this.nodeGroup.add(this.nodes.mesh);
     this.moved = true;
+  }
+
+  private drawLinks(carry: boolean): void {
+    const flowPhase = carry ? this.links?.flowPhase() : undefined;
+    disposeGraph(this.linkGroup);
+    const { curvedLinks: curved, linkStyle: style } = this.settings;
+    const ambientPeriod = this.timing.ambientPeriod;
+    this.links = linkLayer(this.topology, this.fades, {
+      curved,
+      style,
+      ambientPeriod,
+      ...(flowPhase === undefined ? {} : { flowPhase }),
+    });
+    this.links.setPalette(this.palette, this.link);
+    this.linkGroup.add(this.links.lines);
+    this.moved = true;
+  }
+
+  private drawParticles(carry: boolean): void {
+    const motion = carry ? this.particles?.motion() : undefined;
+    disposeGraph(this.particleGroup);
+    const { colors } = this.stage;
+    this.particles = particleLayer(this.topology, colors, this.settings.curvedLinks, motion);
+    this.particleGroup.add(this.particles.sprite);
+  }
+
+  /** The flow's dashes and the particles' motion now (a render spec, a test). */
+  motion(): { readonly flowPhase: number; readonly particles: ParticleMotion | undefined } {
+    return { flowPhase: this.links?.flowPhase() ?? 0, particles: this.particles?.motion() };
   }
 
   setGraph(nodes: readonly LensNode[], edges: readonly LensEdge[]): void {
@@ -272,7 +316,10 @@ export class GraphLayers {
   setSettings(next: Force3dSettings): void {
     const previous = this.settings;
     this.settings = next;
-    if (layerShape(next) !== layerShape(previous)) this.drawLayers();
+    if (next.nodeLook !== previous.nodeLook) this.drawNodes();
+    const curve = next.curvedLinks !== previous.curvedLinks;
+    if (curve || next.linkStyle !== previous.linkStyle) this.drawLinks(true);
+    if (curve) this.drawParticles(true);
     if (next.spread !== previous.spread || next.linkDistance !== previous.linkDistance) {
       this.laying = true;
       this.layout?.reheat({ spread: next.spread, linkDistance: next.linkDistance });
@@ -339,13 +386,7 @@ export class GraphLayers {
     }
     const particles = this.particles?.step(dt, this.positions, reduced, this.particleRate) ?? false;
     const flowing = this.links?.step(dt, reduced) ?? false;
-    this.labels.frame(
-      this.positions,
-      camera,
-      viewport,
-      { ...fades, arrival: this.arrival.values },
-      this.radius,
-    );
+    this.labels.frame(this.labelled, camera, viewport, fades);
     return this.laying || fading || particles || flowing;
   }
 

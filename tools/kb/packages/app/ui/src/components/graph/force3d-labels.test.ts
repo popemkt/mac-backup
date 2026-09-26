@@ -98,13 +98,12 @@ describe("a 3D label and its node's arrival", () => {
       focus: new EmphasisFade(1, 0.2, 0),
     };
     const shown = (arrival: number) => {
-      layer.frame(
-        new Float32Array([0, 0, 0]),
-        camera,
-        SIZE,
-        { ...fades, arrival: new Float32Array([arrival]) },
-        () => 4,
-      );
+      const labelled = {
+        positions: new Float32Array([0, 0, 0]),
+        arrival: new Float32Array([arrival]),
+        radius: () => 4,
+      };
+      layer.frame(labelled, camera, SIZE, fades);
       return layer.visibleCount();
     };
     expect(shown(0.3)).toBe(0);

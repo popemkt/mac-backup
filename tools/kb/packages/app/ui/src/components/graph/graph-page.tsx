@@ -273,6 +273,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
                 lensGraph={lensGraph}
                 active={active}
                 forest={forest}
+                viewKey={`${active.id}\n${active.query}\n${includeSystemNodes}\n${ontologyId ?? ""}`}
                 appearance={appearance}
                 selection={selection}
                 setSelection={setSelection}

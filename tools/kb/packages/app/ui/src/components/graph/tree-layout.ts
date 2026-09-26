@@ -47,17 +47,45 @@ export interface TreeLayout {
   readonly height: number;
 }
 
-/** The forest's node set, as one comparable key: the same ids give the same key. */
-export function forestNodeSet(forest: readonly LensTreeNode[]): string {
-  const ids: string[] = [];
+function forestIds(forest: readonly LensTreeNode[]): Set<string> {
+  const ids = new Set<string>();
   const visit = (nodes: readonly LensTreeNode[]) => {
     for (const n of nodes) {
-      ids.push(n.id);
+      ids.add(n.id);
       visit(n.children);
     }
   };
   visit(forest);
-  return ids.toSorted().join("\n");
+  return ids;
+}
+
+/**
+ * What is folded in one view (a perspective, its query, the sys switch, an
+ * ontology — the page's `view` key) and which nodes it has already seen.
+ */
+export interface TreeFold {
+  readonly view: string;
+  readonly collapsed: ReadonlySet<string>;
+  readonly known: ReadonlySet<string>;
+}
+
+/**
+ * The fold for `forest` in `view`. A new view starts from its own first
+ * fold (`initiallyCollapsed`); within one view the user's fold stands, and
+ * only a node the fold has not seen yet (a store write added it) takes the
+ * first fold's answer for itself.
+ */
+export function resolveFold(
+  fold: TreeFold | null,
+  view: string,
+  forest: readonly LensTreeNode[],
+): TreeFold {
+  const ids = forestIds(forest);
+  const opened = initiallyCollapsed(forest);
+  if (fold === null || fold.view !== view) return { view, collapsed: opened, known: ids };
+  const collapsed = new Set(fold.collapsed);
+  for (const id of opened) if (!fold.known.has(id)) collapsed.add(id);
+  return { view, collapsed, known: ids };
 }
 
 function forestSize(nodes: readonly LensTreeNode[]): number {

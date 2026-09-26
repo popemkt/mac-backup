@@ -82,6 +82,8 @@ export interface LinkLayer {
   setPalette(palette: ScenePalette, link: string): void;
   /** Move a flowing style on by `dt`; whether it still moves. */
   step(dt: number, reduced: boolean): boolean;
+  /** Where the flow's dashes are (0–1 of a dash): what a redrawn layer carries on from. */
+  flowPhase(): number;
 }
 
 export interface LinkLayerOptions {
@@ -89,6 +91,8 @@ export interface LinkLayerOptions {
   readonly style: LensLinkStyle;
   /** `--motion-ambient-period`: the time one dash takes to pass. */
   readonly ambientPeriod: number;
+  /** Carry the dashes on from a layer this one replaces (`flowPhase`). */
+  readonly flowPhase?: number;
 }
 
 export function linkLayer(
@@ -111,7 +115,7 @@ export function linkLayer(
   geometry.setDrawRange(0, linkCount * segments * 2);
   const material = new LineBasicNodeMaterial({ transparent: true, depthWrite: false });
   const vertexTint = attribute("tint", "vec4");
-  const time = uniform(0);
+  const time = uniform(options.flowPhase ?? 0);
   const flowing = options.style === "flow";
   const dash = fract(attribute("along", "float").div(DASH).sub(time));
   const flow = flowing
@@ -173,6 +177,7 @@ export function linkLayer(
       time.value = (time.value + dt / period) % 1;
       return true;
     },
+    flowPhase: () => time.value,
   };
 }
 
@@ -184,18 +189,28 @@ export interface ParticleLayer {
   step(dt: number, positions: Float32Array, reduced: boolean, fadeRate: number): boolean;
   /** How many particles are drawn now. */
   count(): number;
+  /** Where the particles are and how far they have faded in: what a redrawn layer carries on from. */
+  motion(): ParticleMotion;
+}
+
+export interface ParticleMotion {
+  readonly showing: number;
+  readonly phase: number;
+  readonly wanted: boolean;
+  readonly carrying: readonly number[];
 }
 
 export function particleLayer(
   topology: Force3dTopology,
   colors: PaletteUniforms,
   curved: boolean,
+  carried?: ParticleMotion,
 ): ParticleLayer {
   // Positions written on the CPU, a soft HDR mote each.
   const maxParticles = MAX_PARTICLE_LINKS * PARTICLES_PER_LINK;
   const moteAt = new InstancedBufferAttribute(new Float32Array(maxParticles * 3), 3);
   const material = new SpriteNodeMaterial({ transparent: true, depthWrite: false });
-  const showing = uniform(0);
+  const showing = uniform(carried?.showing ?? 0);
   material.positionNode = instancedDynamicBufferAttribute(moteAt, "vec3");
   const q = uv().sub(0.5).mul(2);
   material.colorNode = colors.accent.mul(PARTICLE_GAIN);
@@ -205,14 +220,16 @@ export function particleLayer(
   sprite.frustumCulled = false;
   sprite.count = 0;
   sprite.visible = false;
-  let carrying: readonly number[] = [];
-  let wanted = false;
-  let phase = 0;
+  let carrying: readonly number[] = carried?.carrying ?? [];
+  let wanted = carried?.wanted ?? false;
+  let phase = carried?.phase ?? 0;
+  sprite.count = carrying.length * PARTICLES_PER_LINK;
   const at = { x: 0, y: 0, z: 0 };
   const path: LinkPath = { positions: new Float32Array(0), curved };
   return {
     sprite,
     count: () => (sprite.visible ? sprite.count : 0),
+    motion: () => ({ showing: showing.value, phase, wanted, carrying }),
     setLinks: (links) => {
       wanted = links.length > 0;
       if (wanted) {

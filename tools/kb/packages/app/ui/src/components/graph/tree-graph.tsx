@@ -23,10 +23,12 @@ import {
   type TreeViewHandle,
 } from "./graph-camera-controls";
 import type { GraphSelection } from "./graph-selection";
-import { forestNodeSet, initiallyCollapsed, layoutForest } from "./tree-layout";
+import { layoutForest, resolveFold, type TreeFold } from "./tree-layout";
 
 interface TreeGraphProps extends GraphEmphasis {
   forest: LensTreeNode[];
+  /** The view's identity (perspective, query, sys switch, ontology): what the fold belongs to. */
+  viewKey?: string;
   edges?: LensEdge[];
   appearance: Appearance;
   showLabels?: boolean;
@@ -53,6 +55,7 @@ function forestFind(forest: LensTreeNode[], id: string): LensTreeNode | null {
 }
 export function TreeGraph({
   forest,
+  viewKey = "",
   edges = EMPTY_EDGES,
   appearance,
   showLabels = true,
@@ -62,22 +65,19 @@ export function TreeGraph({
   onSelectionChange,
   onControlsReady,
 }: TreeGraphProps) {
-  // What is folded belongs to one node set: a new set (another perspective,
-  // query or sys switch) starts from its own fold; the same set rebuilt (a
-  // store update) keeps the user's.
-  const nodeSet = useMemo(() => forestNodeSet(forest), [forest]);
-  const [fold, setFold] = useState(() => ({ nodeSet, collapsed: initiallyCollapsed(forest) }));
-  const collapsed = useMemo(
-    () => (fold.nodeSet === nodeSet ? fold.collapsed : initiallyCollapsed(forest)),
-    [fold, nodeSet, forest],
-  );
+  // What is folded belongs to the view (`resolveFold`): a new view folds
+  // afresh; within one, a store update keeps the user's fold and folds only
+  // the nodes it adds.
+  const [fold, setFold] = useState<TreeFold | null>(null);
+  const resolved = useMemo(() => resolveFold(fold, viewKey, forest), [fold, viewKey, forest]);
+  const collapsed = resolved.collapsed;
   const setCollapsed = useCallback(
-    (next: Set<string> | ((previous: Set<string>) => Set<string>)) =>
+    (next: Set<string> | ((previous: ReadonlySet<string>) => Set<string>)) =>
       setFold((current) => {
-        const base = current.nodeSet === nodeSet ? current.collapsed : initiallyCollapsed(forest);
-        return { nodeSet, collapsed: typeof next === "function" ? next(base) : next };
+        const base = resolveFold(current, viewKey, forest);
+        return { ...base, collapsed: typeof next === "function" ? next(base.collapsed) : next };
       }),
-    [nodeSet, forest],
+    [viewKey, forest],
   );
   // The frame's shape decides how a many-rooted forest is packed; a coarse
   // step, so a resize repacks only when the shape really changes.

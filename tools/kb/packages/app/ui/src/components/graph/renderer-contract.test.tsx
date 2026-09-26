@@ -163,6 +163,7 @@ function adapter(key: RendererKey, appearance: Appearance, selected: string | nu
     lensGraph: { nodes: NODES, edges: EDGES, dropped: 0, queryError: null },
     active: { ...PERSPECTIVE, renderer: key },
     forest: buildTreeForest(NODES, EDGES, null),
+    viewKey: "contract",
     appearance,
     searchHighlight: null,
     filterIds: null,
