@@ -489,6 +489,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1XF05FV87AR22B4SAS0A2BK`
 
+### GAP: WebGPU-only render specs skip where Chromium has no WebGPU adapter
+
+- **expected** — Every render spec runs on every lane that gates, so the Embers study, and the WebGPU backend of the scene kit, are proven in CI as well as locally.
+- **current** — A spec that needs WebGPU (the Embers study; the WebGPU half of the backend assertions) calls test.skip when the headless Chromium it runs in reports no adapter. The GitHub macos-15 runner is a VM without one, so there it proves only the WebGL2 path; locally, with --enable-unsafe-webgpu on Apple silicon, it proves both.
+- **impact** — A regression in a WebGPU-only path (storage atomics, compute) is caught only by a local test:render run, not by CI.
+- **closes** — A CI runner with a GPU adapter (a self-hosted Apple silicon runner, or a hosted runner that exposes Metal to Chromium), after which the skip condition never holds and can be deleted.
+- **node** — `01M3E6QH4WZFJQTQM96NBZ7VVA`
+
 
 ## Closed
 
