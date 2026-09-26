@@ -1,22 +1,121 @@
 import { present } from "./present.ts";
 import type { KbNode, NodeId, RankedNode } from "./model.ts";
 
-const WIDTH = 10;
-const BASE = 36n;
-const MAX = BASE ** BigInt(WIDTH) - 1n;
+/**
+ * Sibling ranks: variable-length base-36 fractions.
+ *
+ * A rank is a string over `0-9a-z` read as the digits after a radix point, so
+ * `"i"` is 18/36 and `"i5"` sits just above it. Plain code-unit comparison of
+ * two ranks is the numeric comparison of the fractions, provided no rank ends
+ * in `0` — `"i"` and `"i0"` are the same number but different strings, and no
+ * string lies strictly between them. So a trailing `0` is never produced, and
+ * a bound that carries one (a legacy fixed-width key) is read without it.
+ *
+ * Because a rank can always grow by a digit, there is always a rank strictly
+ * between two different ranks: nothing is ever "exhausted", and no insert has
+ * to fall back to returning one of its bounds.
+ */
+const DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz";
+const BASE = DIGITS.length;
 
-function encode(value: bigint): string {
-  return value.toString(36).padStart(WIDTH, "0");
+function digit(char: string | undefined): number {
+  return char === undefined ? 0 : DIGITS.indexOf(char);
 }
 
-function decode(value: string): bigint {
-  let result = 0n;
-  for (const char of value.slice(0, WIDTH)) {
-    const digit = parseInt(char, 36);
-    if (Number.isNaN(digit)) return 0n;
-    result = result * BASE + BigInt(digit);
+function digitChar(value: number): string {
+  return present(DIGITS[value], `rank digit ${value}`);
+}
+
+function trimZeros(rank: string): string {
+  return rank.replace(/0+$/, "");
+}
+
+/**
+ * A rank strictly between `low` and `high`, where `low < high` and `high`
+ * does not end in `0`; `high` undefined means 1. The midpoint of the first
+ * differing digit, descending a digit whenever the two are adjacent.
+ */
+function midpoint(low: string, high: string | undefined): string {
+  if (high !== undefined) {
+    let shared = 0;
+    while ((low[shared] ?? "0") === high[shared]) shared++;
+    if (shared > 0) return high.slice(0, shared) + midpoint(low.slice(shared), high.slice(shared));
   }
-  return result;
+  const lowDigit = digit(low[0]);
+  const highDigit = high === undefined ? BASE : digit(high[0]);
+  if (highDigit - lowDigit > 1) return digitChar(Math.round((lowDigit + highDigit) / 2));
+  // Adjacent digits. `high`'s first digit alone is below `high` when `high`
+  // continues, and above `low`; otherwise keep `low`'s digit and go one deeper.
+  if (high !== undefined && high.length > 1) return present(high[0], "rank head");
+  return digitChar(lowDigit) + midpoint(low.slice(1), undefined);
+}
+
+/**
+ * The next rank after `low` with nothing above it: bump the first digit that
+ * can be bumped. Appends at the tail therefore *step* — `"i"`, `"j"`, `"k"` …
+ * — and a rank gains a digit only once every digit before it is `z`, rather
+ * than halving the remaining gap on every append.
+ */
+function stepAfter(low: string): string {
+  for (let i = 0; i < low.length; i++) {
+    const d = digit(low[i]);
+    if (d < BASE - 1) return low.slice(0, i) + digitChar(d + 1);
+  }
+  return `${low}1`;
+}
+
+/** The mirror of {@link stepAfter} for a head insert below `high`. */
+function stepBefore(high: string): string {
+  for (let i = 0; i < high.length; i++) {
+    const d = digit(high[i]);
+    if (d === 0) continue;
+    const stepped = high.slice(0, i) + digitChar(d - 1);
+    return d - 1 === 0 ? `${stepped}z` : stepped;
+  }
+  throw new RangeError(`no rank below ${high}`);
+}
+
+/**
+ * A rank strictly between `before` and `after`; either side may be open.
+ *
+ * Throws when the bounds leave no room — `before >= after`, or `after` being
+ * `before` with trailing zeros. Callers choose bounds from a sibling group, so
+ * a throw here is a defect in that choice, never a state to paper over by
+ * returning a bound (which is what made two siblings share a rank).
+ */
+export function rankBetween(before?: string, after?: string): string {
+  if (after === undefined) {
+    return before === undefined ? digitChar(BASE / 2) : stepAfter(before);
+  }
+  const high = trimZeros(after);
+  if (high === "" || (before !== undefined && before >= high)) {
+    throw new RangeError(`no rank strictly between ${before ?? "(start)"} and ${after}`);
+  }
+  return before === undefined ? stepBefore(high) : midpoint(before, high);
+}
+
+/** Whether a rank can serve as the upper bound above `low` (open `low` = 0). */
+function hasRoomAbove(low: string | undefined, high: string): boolean {
+  const trimmed = trimZeros(high);
+  return trimmed !== "" && (low === undefined || low < trimmed);
+}
+
+/**
+ * Evenly spaced ranks for a sibling list, in its order. The width leaves at
+ * least one full digit of room between neighbours, so a group of n siblings
+ * is ranked with about `log36(n) + 1` characters.
+ */
+export function ranksFor(ids: readonly NodeId[]): Map<NodeId, string> {
+  let width = 1;
+  while (BASE ** width < ids.length + 1) width++;
+  width += 1;
+  const span = BASE ** width;
+  const ranks = new Map<NodeId, string>();
+  ids.forEach((id, index) => {
+    const value = Math.floor(((index + 1) * span) / (ids.length + 1));
+    ranks.set(id, trimZeros(value.toString(BASE).padStart(width, "0")));
+  });
+  return ranks;
 }
 
 /**
@@ -42,22 +141,22 @@ export function isRanked(node: KbNode): node is RankedNode {
   return rankOf(node).ranked;
 }
 
-/** Stable rank for an existing sibling list; it deliberately preserves order. */
-export function ranksFor(ids: readonly NodeId[]): Map<NodeId, string> {
-  const ranks = new Map<NodeId, string>();
-  const step = MAX / BigInt(ids.length + 1);
-  ids.forEach((id, index) => ranks.set(id, encode(step * BigInt(index + 1))));
-  return ranks;
-}
-
-export function rankBetween(before?: string, after?: string): string {
-  const low = before !== undefined && before !== "" ? decode(before) : 0n;
-  const high = after !== undefined && after !== "" ? decode(after) : MAX;
-  if (high - low > 1n) return encode((low + high) / 2n);
-  // Exhausting a rank gap is exceptionally rare at this width. Appending a
-  // sortable suffix avoids moving existing siblings; a later maintenance pass
-  // may compact ranks without changing their visible sequence.
-  return `${before ?? encode(0n)}h`;
+/**
+ * The visible order of the forest roots — the one sibling group with no
+ * parent array to carry its order. Ranked roots come first, by code-unit
+ * comparison of their ranks (never `localeCompare`: a rank is bytes, not
+ * prose); two roots sharing a rank, and all unranked roots, fall back to id.
+ * The store and every view sort roots with this one comparator.
+ */
+export function compareRootOrder(
+  a: { readonly id: NodeId; readonly order?: string },
+  b: { readonly id: NodeId; readonly order?: string },
+): number {
+  const ra = rankOf(a);
+  const rb = rankOf(b);
+  if (ra.ranked !== rb.ranked) return ra.ranked ? -1 : 1;
+  if (ra.ranked && rb.ranked && ra.order !== rb.order) return ra.order < rb.order ? -1 : 1;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
 /**
@@ -80,20 +179,12 @@ export function migrateOrderKeys(nodes: KbNode[]): { nodes: RankedNode[]; change
     orderedGroups.push(node.children.filter((id) => byId.has(id)));
     node.children.forEach((id) => children.add(id));
   }
-  // Forest roots: respect any ranks already stored, and fall back to the id
-  // sequence only for roots that have never been ranked.
-  const rootIds = nodes
-    .filter((node) => !children.has(node.id))
-    .map((node) => node.id)
-    .toSorted((a, b) => {
-      const ra = rankOf(byId.get(a));
-      const rb = rankOf(byId.get(b));
-      if (ra.ranked && rb.ranked) return ra.order < rb.order ? -1 : ra.order > rb.order ? 1 : 0;
-      if (ra.ranked) return -1;
-      if (rb.ranked) return 1;
-      return a < b ? -1 : a > b ? 1 : 0;
-    });
-  orderedGroups.push(rootIds);
+  orderedGroups.push(
+    nodes
+      .filter((node) => !children.has(node.id))
+      .toSorted(compareRootOrder)
+      .map((node) => node.id),
+  );
 
   const ranks = new Map<NodeId, string>();
   for (const ids of orderedGroups) {
@@ -105,7 +196,9 @@ export function migrateOrderKeys(nodes: KbNode[]): { nodes: RankedNode[]; change
       continue;
     }
     // Mixed: rank only the gaps, between their already-ranked neighbours, so
-    // the visible sequence of this group is unchanged.
+    // the visible sequence of this group is unchanged. A stored neighbour that
+    // leaves no room above the lower bound (a group whose ranks disagree with
+    // its children array) is skipped rather than handed to `rankBetween`.
     for (let i = 0; i < ids.length; i++) {
       const own = stored[i];
       if (own?.ranked === true) continue;
@@ -123,7 +216,7 @@ export function migrateOrderKeys(nodes: KbNode[]): { nodes: RankedNode[]; change
       let after: string | undefined;
       for (let j = i + 1; j < ids.length; j++) {
         const storedAfter = stored[j];
-        if (storedAfter?.ranked === true) {
+        if (storedAfter?.ranked === true && hasRoomAbove(before, storedAfter.order)) {
           after = storedAfter.order;
           break;
         }

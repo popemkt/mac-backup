@@ -62,7 +62,7 @@ export {
   wouldCreateExtendsCycle,
 } from "./ontology.ts";
 export type { MemberReason, NodeLike, OntologyResolution } from "./ontology.ts";
-export { isRanked, migrateOrderKeys, rankBetween, rankOf } from "./order.ts";
+export { compareRootOrder, isRanked, migrateOrderKeys, rankBetween, rankOf } from "./order.ts";
 export type { NodeRank } from "./order.ts";
 export { ResolveError, resolveFieldId, resolveTagId } from "./resolve.ts";
 export {

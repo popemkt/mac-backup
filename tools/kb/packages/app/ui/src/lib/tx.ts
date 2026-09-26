@@ -1,7 +1,7 @@
 import type { WireNode } from "@kb/contracts";
 
 /** Stable wire-node order: ULID id ascending (time-sortable). */
-export function compareWireNodeId(a: WireNode, b: WireNode): number {
+function compareWireNodeId(a: WireNode, b: WireNode): number {
   return a.id.localeCompare(b.id);
 }
 

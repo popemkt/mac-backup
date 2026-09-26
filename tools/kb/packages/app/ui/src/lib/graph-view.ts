@@ -1,8 +1,7 @@
 import type { WireNode } from "@kb/contracts";
-import { rankOf, typeRefsOf } from "@kb/model";
+import { compareRootOrder, typeRefsOf } from "@kb/model";
 import { hasQueryDef } from "@/lib/query-node";
 import { tagColorOf, tagPalette, type TagPalette } from "@/lib/tag-color";
-import { compareWireNodeId } from "@/lib/tx";
 import {
   resolveVisibleProps,
   isIntrinsicSystemPropKey,
@@ -65,24 +64,13 @@ export function childIdSet(nodes: WireNode[]): Set<string> {
 /** Top-level outline roots: non-system nodes not nested under another node. */
 export function forestRootIds(nodes: WireNode[]): string[] {
   const kids = childIdSet(nodes);
-  const byId = new Map(nodes.map((n) => [n.id, n]));
   return nodes
     .filter((n) => {
       if (kids.has(n.id)) return false;
       if (isSysPrefixed(n.id)) return false;
-      if (isFieldNode(n) || isTagNode(n)) return false;
-      // Keep orphaned content nodes even if they somehow look like fields
-      void byId;
-      return true;
+      return !(isFieldNode(n) || isTagNode(n));
     })
-    .toSorted((a, b) => {
-      const rankA = rankOf(a);
-      const rankB = rankOf(b);
-      if (rankA.ranked && rankB.ranked) return rankA.order.localeCompare(rankB.order);
-      if (rankA.ranked) return -1;
-      if (rankB.ranked) return 1;
-      return compareWireNodeId(a, b);
-    })
+    .toSorted(compareRootOrder)
     .map((n) => n.id);
 }
 

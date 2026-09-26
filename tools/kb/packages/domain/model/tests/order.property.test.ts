@@ -1,23 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { present } from "../src/present.ts";
 import fc from "fast-check";
-import type { KbNode, NodeId } from "../src/model.ts";
-import { migrateOrderKeys, rankBetween, ranksFor } from "../src/order.ts";
-
-/** Mirrors the comparator documented in order.ts's forest-root sort. */
-function referenceRootCompare(
-  a: { id: NodeId; order?: string },
-  b: { id: NodeId; order?: string },
-): number {
-  const oa = a.order;
-  const ob = b.order;
-  if (oa !== undefined && oa !== "" && ob !== undefined && ob !== "") {
-    return oa < ob ? -1 : oa > ob ? 1 : 0;
-  }
-  if (oa !== undefined && oa !== "") return -1;
-  if (ob !== undefined && ob !== "") return 1;
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-}
+import type { KbNode } from "../src/model.ts";
+import { compareRootOrder, migrateOrderKeys, rankBetween, ranksFor } from "../src/order.ts";
 
 describe("order properties (fast-check)", () => {
   test("ranksFor strictly preserves input order and assigns distinct ranks", () => {
@@ -234,19 +219,14 @@ describe("order properties (fast-check)", () => {
               hasOrderFlags[i] === true ? String((counter += 100)).padStart(10, "0") : undefined,
           }));
           const before = nodes.map((node) => ({ id: node.id, order: node.order }));
-          const expectedOrder = [...before].toSorted(referenceRootCompare).map((n) => n.id);
+          const expectedOrder = [...before].toSorted(compareRootOrder).map((n) => n.id);
 
           const { nodes: migrated } = migrateOrderKeys(nodes);
           const byId = new Map(migrated.map((node) => [node.id, node]));
           const actualOrder = [...ids].toSorted((a, b) =>
-            present(
-              present(byId.get(a), "expected byId.get(a)").order,
-              "expected byId.get(a).order",
-            ).localeCompare(
-              present(
-                present(byId.get(b), "expected byId.get(b)").order,
-                "expected byId.get(b).order",
-              ),
+            compareRootOrder(
+              present(byId.get(a), "expected byId.get(a)"),
+              present(byId.get(b), "expected byId.get(b)"),
             ),
           );
 
@@ -282,5 +262,85 @@ describe("order properties (fast-check)", () => {
       }),
       { numRuns: 500 },
     );
+  });
+});
+
+/** A well-formed rank: base-36 characters, never ending in `0`, any length. */
+const rankArb = fc
+  .array(fc.constantFrom(..."0123456789abcdefghijklmnopqrstuvwxyz".split("")), {
+    minLength: 1,
+    maxLength: 40,
+  })
+  .map((chars) => chars.join("").replace(/0+$/, ""))
+  .filter((rank) => rank.length > 0);
+
+const WELL_FORMED = /^[0-9a-z]*[1-9a-z]$/;
+
+describe("rankBetween (fast-check)", () => {
+  test("a < between(a, b) < b for any two distinct ranks, long ones included", () => {
+    fc.assert(
+      fc.property(rankArb, rankArb, (x, y) => {
+        fc.pre(x !== y);
+        const [a, b] = x < y ? [x, y] : [y, x];
+        const mid = rankBetween(a, b);
+        expect(a < mid && mid < b).toBe(true);
+        expect(mid).toMatch(WELL_FORMED);
+      }),
+      { numRuns: 2000 },
+    );
+  });
+
+  test("open bounds: below any rank, above any rank, both well formed", () => {
+    fc.assert(
+      fc.property(rankArb, (rank) => {
+        const below = rankBetween(undefined, rank);
+        const above = rankBetween(rank, undefined);
+        expect(below < rank && rank < above).toBe(true);
+        expect(below).toMatch(WELL_FORMED);
+        expect(above).toMatch(WELL_FORMED);
+      }),
+      { numRuns: 1000 },
+    );
+  });
+
+  test("a legacy fixed-width bound with trailing zeros is read as its value", () => {
+    // "1000000000" is "1" padded to the old fixed width.
+    const mid = rankBetween("0c85fmexyn", "1000000000");
+    expect("0c85fmexyn" < mid && mid < "1000000000").toBe(true);
+    expect(() => rankBetween("1", "10")).toThrow(RangeError);
+    expect(() => rankBetween("b", "a")).toThrow(RangeError);
+    expect(() => rankBetween("a", "a")).toThrow(RangeError);
+  });
+
+  test("tail appends step: 1000 appends stay strictly increasing and short", () => {
+    const ranks: string[] = [];
+    for (let i = 0; i < 1000; i++) ranks.push(rankBetween(ranks.at(-1), undefined));
+    for (let i = 1; i < ranks.length; i++) {
+      expect(present(ranks[i - 1], "prev") < present(ranks[i], "cur")).toBe(true);
+    }
+    // One character per 35 appends, not one per append once a halving gap runs out.
+    expect(Math.max(...ranks.map((r) => r.length))).toBeLessThanOrEqual(30);
+    expect(present(ranks[199], "200th").length).toBeLessThanOrEqual(7);
+  });
+
+  test("head inserts step the same way", () => {
+    const ranks: string[] = [];
+    for (let i = 0; i < 500; i++) ranks.unshift(rankBetween(undefined, ranks[0]));
+    for (let i = 1; i < ranks.length; i++) {
+      expect(present(ranks[i - 1], "prev") < present(ranks[i], "cur")).toBe(true);
+    }
+    expect(Math.max(...ranks.map((r) => r.length))).toBeLessThanOrEqual(16);
+  });
+
+  test("ranksFor spreads a group with room between neighbours and short keys", () => {
+    const ids = Array.from({ length: 250 }, (_, i) => `n${i}`);
+    const ranks = [...ranksFor(ids).values()];
+    expect(Math.max(...ranks.map((r) => r.length))).toBeLessThanOrEqual(3);
+    for (const rank of ranks) expect(rank).toMatch(WELL_FORMED);
+    for (let i = 1; i < ranks.length; i++) {
+      const low = present(ranks[i - 1], "low");
+      const high = present(ranks[i], "high");
+      expect(rankBetween(low, high).length).toBeLessThanOrEqual(3);
+    }
   });
 });
