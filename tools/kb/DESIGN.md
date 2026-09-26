@@ -810,16 +810,34 @@ a stream of fingerprints. What it promises, for every adapter:
   subscription is live; every later element is a fingerprint that differs from
   the one before it. A consumer that reconciles on the first element misses
   nothing that landed before it subscribed.
+- **Another writer is announced unasked, within a bound.** A commit by any
+  other instance over the same root — another process, a hand edit — appears
+  within `STORE_CHANGES_POLL` (`@kb/contracts`, one second) plus one sample.
 - **States, not writers; deduplicated.** One state is announced once, however
   many platform events it took. This instance's own commits are announced too
   when the platform reports them; a consumer treats that as a no-op, because
   its commit already returned a `StoreCommit` and the session's fingerprint
   memory (`reloadEffect`) recognises the state.
 
+`storeContract` proves all three against every adapter, with a second
+instance over the same root standing in for the other process;
+`app/server/tests/cross-process-sync.test.ts` proves the same end to end,
+with a real second process, `kb ui` and a WS frame.
+
 Both file-backed adapters get `changes` from one function,
-`fingerprintChanges` (`@kb/contracts`), and differ only in the directory and
-file names they declare and the fingerprint they sample (`[nodes.jsonl]` for
-JSONL; `[kb.sqlite, kb.sqlite-wal]` for sqlite).
+`fingerprintChanges` (`@kb/contracts`), and differ only in the directory they
+name and the fingerprint they sample. Both halves of what it does are there
+because a platform cannot be trusted to say what changed:
+
+- **Watch directories, not names.** A watch on the file is stranded by the
+  atomic replace, and the name a directory event carries is not the file that
+  changed: macOS reports a rename under its source name, so the `tmp` →
+  `nodes.jsonl` replace that ends every JSONL commit arrives as the temp file,
+  and a burst coalesces to one name the platform picked (for sqlite, usually
+  `-shm`). An event means only "sample now", and the fingerprint decides.
+- **Poll as the bound.** A write through a file descriptor that stays open
+  produces no event at all, which is how a long-lived sqlite connection writes
+  its WAL. Events keep the common case prompt; the poll keeps the promise.
 
 The consumer never names a file: the `kb ui` server runs the stream and
 ingests each element.

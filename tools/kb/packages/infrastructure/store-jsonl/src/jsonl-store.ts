@@ -1,7 +1,7 @@
 import { Effect, Predicate, Schema, type Stream } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { watch } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   domainError,
   ensureDomainError,
@@ -103,7 +103,10 @@ export class JsonlStore implements EffectStore {
   readonly backupPath: string;
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
   readonly fingerprint: Effect.Effect<StoreFingerprint | null>;
-  /** One file is the whole store; `.bak` and `.lock` are its own bookkeeping. */
+  /**
+   * Sampled on any move in `.kb`; the content hash decides, so the `.lock`,
+   * `.bak` and temp file a commit passes through never announce anything.
+   */
   readonly changes: Stream.Stream<StoreFingerprint | null>;
   readonly txTail: JsonlTxTail;
 
@@ -113,7 +116,7 @@ export class JsonlStore implements EffectStore {
     this.loadEffect = Effect.flatMap(readBody(this.path), (body) => decodeNodes(body, this.path));
     this.fingerprint = Effect.sync(() => storeMark(this.path));
     this.changes = fingerprintChanges({
-      scopes: [{ directory: dirname(this.path), names: new Set([basename(this.path)]) }],
+      directories: [dirname(this.path)],
       watch,
       fingerprint: this.fingerprint,
     });

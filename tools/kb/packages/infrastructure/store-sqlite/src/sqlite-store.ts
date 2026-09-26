@@ -1,5 +1,5 @@
 import { watch } from "node:fs";
-import { basename, dirname } from "node:path";
+import { dirname } from "node:path";
 import { Effect, Predicate, type Stream } from "effect";
 import {
   canonicalJson,
@@ -19,7 +19,7 @@ import {
   type TxRecord,
 } from "@kb/contracts";
 import { commitMark, sqliteConnection, type SqliteConnection } from "./connection.ts";
-import { sqliteStoreFiles, sqliteStorePath } from "./paths.ts";
+import { sqliteStorePath } from "./paths.ts";
 import { SqliteTxTail } from "./tx-tail.ts";
 
 interface NodeRow {
@@ -66,7 +66,7 @@ export class SqliteStore implements EffectStore {
   readonly path: string;
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;
   readonly fingerprint: Effect.Effect<StoreFingerprint | null>;
-  /** The database and its write-ahead log; `-shm` is mapped memory, not news. */
+  /** Sampled on any move in the database's directory; `meta.rev` decides. */
   readonly changes: Stream.Stream<StoreFingerprint | null>;
   readonly txTail: SqliteTxTail;
   private readonly connection: SqliteConnection;
@@ -77,16 +77,7 @@ export class SqliteStore implements EffectStore {
     this.loadEffect = loadNodes(this.connection, this.path);
     this.fingerprint = fingerprintOf(this.connection);
     this.changes = fingerprintChanges({
-      scopes: [
-        {
-          directory: dirname(this.path),
-          names: new Set(
-            sqliteStoreFiles(root)
-              .slice(0, 2)
-              .map((file) => basename(file)),
-          ),
-        },
-      ],
+      directories: [dirname(this.path)],
       watch,
       fingerprint: this.fingerprint,
     });

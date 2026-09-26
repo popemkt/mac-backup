@@ -238,7 +238,7 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   );
   yield* Effect.forkIn(
     ingestEach(
-      directorySignals([{ directory: savedDir, names: null }], watch),
+      directorySignals([savedDir], watch),
       ingestSavedQueries(opts.root, queries).pipe(Effect.provide(layer)),
     ),
     lifetime,

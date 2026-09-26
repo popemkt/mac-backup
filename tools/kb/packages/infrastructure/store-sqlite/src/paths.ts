@@ -9,11 +9,10 @@ export function sqliteStorePath(root: string): string {
  * Every file this adapter owns under a root, database first, then the
  * write-ahead log, then the shared-memory index.
  *
- * One list, three readers: the store's `changes` watches the first two (`-shm`
- * is mapped memory, not a change signal), a migration deletes all three so that "is a
- * sqlite store present?" has one answer the moment it returns, and the
- * gitignore check names the same files. Spelling `-wal` at three call sites is
- * how one of them ends up missing it.
+ * One list, two readers: a migration deletes all three so that "is a sqlite
+ * store present?" has one answer the moment it returns, and the gitignore
+ * check names the same files. Spelling `-wal` at each call site is how one of
+ * them ends up missing it.
  */
 export function sqliteStoreFiles(root: string): readonly string[] {
   const db = sqliteStorePath(root);

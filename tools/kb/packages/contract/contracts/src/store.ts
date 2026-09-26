@@ -57,7 +57,8 @@ export interface EffectStore {
    * On the port because noticing an external write is a store property, like
    * reading and committing: how it is noticed (which files, which events) is
    * the adapter's layout, and a consumer that named files would be the port
-   * leaking. The guarantee is stated once, in `DESIGN.md` → Storage.
+   * leaking. The guarantee is stated once, in `DESIGN.md` → Storage, and
+   * proved for every adapter by the store contract.
    */
   readonly changes: Stream.Stream<StoreFingerprint | null>;
   readonly loadEffect: Effect.Effect<KbNode[], DomainError>;

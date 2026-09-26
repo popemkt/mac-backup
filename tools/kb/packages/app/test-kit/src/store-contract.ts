@@ -14,11 +14,11 @@
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
-import { Cause, Effect, Exit } from "effect";
+import { Cause, Duration, Effect, Exit, Option, Queue, Stream } from "effect";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { EffectStore } from "@kb/contracts";
+import { STORE_CHANGES_POLL, type EffectStore } from "@kb/contracts";
 import { isDomainError, present, type DomainError, type KbNode, type PropValue } from "@kb/model";
 
 /** How the suite gets an adapter under test for a scratch root. */
@@ -135,6 +135,10 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
   ["the fingerprint is stable across loads and moves when the content does", fingerprintTracks],
   ["another writer's commit is visible, and changes this store's fingerprint", externalWriteIsSeen],
   ["every instance over one root gives one state one name", instancesAgreeOnTheName],
+  [
+    "changes: the state once armed, then another writer's commit, unasked and without repeats",
+    externalCommitIsAnnounced,
+  ],
   [
     "concurrent commits are serialized: neither writer's nodes are lost",
     concurrentCommitsSerialize,
@@ -259,6 +263,58 @@ function instancesAgreeOnTheName(makeStore: StoreFactory): Promise<void> {
         );
         expect(landed.base).toBe(seen);
         expect(yield* two.fingerprint).toBe(landed.fingerprint);
+      }),
+    ),
+  );
+}
+
+/**
+ * How long a commit may take to reach another instance's `changes`: the
+ * port's poll bound, with slack for a loaded machine. The property is "live
+ * without being asked", not "fast".
+ */
+const CHANGE_WITHIN = Duration.times(STORE_CHANGES_POLL, 3);
+
+function externalCommitIsAnnounced(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* scratchRoot;
+        const one = makeStore(root);
+        yield* one.commitEffect({ upserts: [plainNode("n-a", "a")], deletes: [] }, { at: AT });
+
+        const announced: Array<string | null> = [];
+        const queue = yield* Queue.unbounded<string | null>();
+        yield* Stream.runForEach(one.changes, (fingerprint) =>
+          Effect.sync(() => {
+            announced.push(fingerprint);
+            Queue.offerUnsafe(queue, fingerprint);
+          }),
+        ).pipe(Effect.forkScoped);
+        const next = Queue.take(queue).pipe(
+          Effect.timeoutOption(CHANGE_WITHIN),
+          Effect.map(Option.getOrUndefined),
+        );
+
+        // Armed: the first element is the state as it is, so what follows is news.
+        expect(yield* next).toBe(yield* one.fingerprint);
+
+        // A second instance over the same root is how another process is
+        // spelled in port terms. Two commits, because the second is the one a
+        // watch left on the file the first replaced would miss.
+        const two = makeStore(root);
+        for (const id of ["n-b", "n-c"]) {
+          const landed = yield* two.commitEffect(
+            { upserts: [plainNode(id, id)], deletes: [] },
+            { at: AT },
+          );
+          expect(yield* next).toBe(landed.fingerprint);
+        }
+
+        // One state is announced once, however many platform events it took.
+        for (const [i, fingerprint] of announced.entries()) {
+          if (i > 0) expect(fingerprint).not.toBe(announced[i - 1]);
+        }
       }),
     ),
   );
