@@ -3,7 +3,9 @@ import { HexagonIcon, PlusIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { OntologyScopeBar } from "@/components/ontology/ontology-scope-bar";
 import { ONTOLOGY_LIST_SURFACE, ONTOLOGY_SURFACE, viewOf } from "@/components/ontology/routes";
+import { isOntologyNode } from "@kb/model";
 import { ContributedSurface } from "@/components/ui/contributed-surface";
+import { NotFound } from "@/components/ui/not-found";
 import { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import type { MatchedRoute, SurfaceParams } from "@/lib/plugins";
@@ -25,13 +27,20 @@ const OntologyListPage = lazy(() =>
   })),
 );
 
-/** Scope chip fed from the store's resolved membership. */
+/** The `#ontology` node the URL names, or undefined when the workspace holds none by that id. */
+function useOntologyNode(id: string) {
+  const wireNodes = useOutlineStore((s) => s.wireNodes);
+  return useMemo(() => wireNodes.find((n) => n.id === id && isOntologyNode(n)), [wireNodes, id]);
+}
+
+/** Scope chip fed from the store's resolved membership; none for an ontology that is not there. */
 export function OntologyChrome({ params }: { readonly params: SurfaceParams }) {
   const id = params["id"] ?? "";
   const members = useOutlineStore((s) => s.ontologyMembers);
   const warnings = useOutlineStore((s) => s.ontologyWarnings);
-  const wireNodes = useOutlineStore((s) => s.wireNodes);
-  const label = textOr(wireNodes.find((n) => n.id === id)?.text.trim(), "Untitled ontology");
+  const onto = useOntologyNode(id);
+  if (onto === undefined) return null;
+  const label = textOr(onto.text.trim(), "Untitled ontology");
   return (
     <OntologyScopeBar
       ontologyId={id}
@@ -53,11 +62,15 @@ export function OntologySurface({ params }: { readonly params: SurfaceParams }) 
   const id = params["id"] ?? "";
   const view = viewOf(params);
   const setOntologyScope = useOutlineStore((s) => s.setOntologyScope);
+  const exists = useOntologyNode(id) !== undefined;
   useEffect(() => {
+    if (!exists) return undefined;
     setOntologyScope(id);
     return () => setOntologyScope(null);
-  }, [id, setOntologyScope]);
+  }, [id, exists, setOntologyScope]);
 
+  if (!exists)
+    return <NotFound what="Ontology" id={id} back={{ label: "All ontologies", path: "/o" }} />;
   if (view === "graph") return <ContributedSurface id={GRAPH_SURFACE} params={{ ontology: id }} />;
   return (
     <ViewErrorBoundary title="Ontology crashed" resetKey={`${id}:${view}`}>

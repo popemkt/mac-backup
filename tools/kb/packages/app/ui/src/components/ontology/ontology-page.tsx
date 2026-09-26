@@ -14,6 +14,7 @@ import { MemberRow } from "@/components/ontology/member-row";
 import { RefAddPopover } from "@/components/ontology/ref-add-popover";
 import { cn } from "@/lib/cn";
 import { excludedRows, memberRows, resolveScope } from "@/lib/ontology-scope";
+import { NotFound } from "@/components/ui/not-found";
 import { navigate } from "@/lib/router";
 import { tagChipColors, tagColorOf } from "@/lib/tag-color";
 import { SYSTEM_IDS } from "@/lib/types";
@@ -98,19 +99,7 @@ export function OntologyPage({ ontologyId }: OntologyPageProps) {
 
   if (!onto) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-6">
-        <h2 className="kb-text font-medium text-foreground/80">Ontology not found</h2>
-        <p className="mt-1 text-ui text-foreground/45">
-          <span className="font-mono text-meta">{ontologyId}</span> is not in this workspace.
-        </p>
-        <button
-          type="button"
-          className="mt-3 rounded-md border border-foreground/10 px-3 py-1.5 text-meta text-foreground/70 hover:bg-foreground/5"
-          onClick={() => navigate("/o")}
-        >
-          All ontologies
-        </button>
-      </div>
+      <NotFound what="Ontology" id={ontologyId} back={{ label: "All ontologies", path: "/o" }} />
     );
   }
 

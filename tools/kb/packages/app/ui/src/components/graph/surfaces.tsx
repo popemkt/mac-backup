@@ -1,8 +1,10 @@
 import { lazy, useMemo } from "react";
 import { GraphIcon } from "@phosphor-icons/react";
 import { GRAPH_SURFACE } from "@/components/graph/routes";
+import { NotFound } from "@/components/ui/not-found";
 import { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
+import { isGraphPerspectiveNode } from "@/lib/graph-lens";
 import type { MatchedRoute, SurfaceParams } from "@/lib/plugins";
 import { graphPath, navigate } from "@/lib/router";
 import { listPerspectiveNavItems } from "@/lib/sidebar-nav";
@@ -14,6 +16,21 @@ const GraphPage = lazy(() => import("@/components/graph/graph-page"));
 export function GraphSurface({ params }: { readonly params: SurfaceParams }) {
   const perspectiveId = params["perspective"] ?? null;
   const ontologyId = params["ontology"] ?? null;
+  const wireNodes = useOutlineStore((s) => s.wireNodes);
+  const missing = useMemo(
+    () =>
+      perspectiveId !== null &&
+      !wireNodes.some((n) => n.id === perspectiveId && isGraphPerspectiveNode(n)),
+    [wireNodes, perspectiveId],
+  );
+  if (missing)
+    return (
+      <NotFound
+        what="Graph perspective"
+        id={perspectiveId ?? undefined}
+        back={{ label: "Graph", path: graphPath() }}
+      />
+    );
   return (
     <ViewErrorBoundary
       title="Graph crashed"

@@ -13,8 +13,7 @@ export const outlineUiPlugin = definePlugin({
         ctx.contribute(SurfacePoint, {
           id: OUTLINE_MAIN,
           value: {
-            match: () => ({}),
-            fallback: true,
+            match: (path) => (path === "/" ? {} : null),
             frame: () => "scroll",
             pendingTitle: () => "Opening your workspace…",
             Component: OutlineSurface,

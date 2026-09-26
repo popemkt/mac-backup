@@ -7,6 +7,7 @@ import { ViewFilterPopoverHost } from "@/components/outline/view-filter-popover"
 import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { SidebarToggle } from "@/components/ui/sidebar-toggle";
+import { NotFound } from "@/components/ui/not-found";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
@@ -165,18 +166,42 @@ function SurfaceBody({
   );
 }
 
+/** What the shell frames under its header: a surface's page, or the not-found state. */
+interface ShellPage {
+  readonly pendingTitle: string;
+  readonly scroll: boolean;
+  readonly chrome: React.ReactNode;
+  readonly body: React.ReactNode;
+}
+
+function surfacePage(surface: Contribution<Surface>, params: SurfaceParams): ShellPage {
+  const { Chrome } = surface.value;
+  return {
+    pendingTitle: surface.value.pendingTitle(params),
+    scroll: surface.value.frame(params) === "scroll",
+    chrome: Chrome === undefined ? null : <Chrome params={params} />,
+    body: <SurfaceBody surface={surface} params={params} />,
+  };
+}
+
+/** A path no surface owns. */
+const NOT_FOUND_PAGE: ShellPage = {
+  pendingTitle: "Opening your workspace…",
+  scroll: true,
+  chrome: null,
+  body: <NotFound what="Page" back={{ label: "Home", path: "/" }} />,
+};
+
 function WorkspaceShell({
   status,
   error,
   onRetry,
-  surface,
-  params,
+  page,
 }: {
   status: "loading" | "ready" | "error";
   error: string | null;
   onRetry: () => void;
-  surface: Contribution<Surface>;
-  params: SurfaceParams;
+  page: ShellPage;
 }) {
   const theme = usePrefsStore((s) => s.theme);
   const rev = useOutlineStore((s) => s.rev);
@@ -185,7 +210,6 @@ function WorkspaceShell({
   const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
   const sidebar = useSidebarToggle();
-  const { Chrome } = surface.value;
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
@@ -210,15 +234,13 @@ function WorkspaceShell({
         </button>
       </header>
 
-      {Chrome !== undefined && status === "ready" ? <Chrome params={params} /> : null}
+      {status === "ready" ? page.chrome : null}
 
-      <WorkspaceBoundary pending={status === "loading"} title={surface.value.pendingTitle(params)}>
+      <WorkspaceBoundary pending={status === "loading"} title={page.pendingTitle}>
         {status === "error" ? (
           <LoadError error={error} onRetry={onRetry} />
         ) : (
-          <MainRegion scroll={surface.value.frame(params) === "scroll"}>
-            <SurfaceBody surface={surface} params={params} />
-          </MainRegion>
+          <MainRegion scroll={page.scroll}>{page.body}</MainRegion>
         )}
       </WorkspaceBoundary>
     </div>
@@ -315,7 +337,7 @@ export function App() {
         tabIndex={-1}
         className="relative flex min-h-0 min-w-0 flex-1 flex-col outline-none"
       >
-        {surface === null ? null : surface.value.frame(route.params) === "full" ? (
+        {surface !== null && surface.value.frame(route.params) === "full" ? (
           <WorkspaceBoundary
             pending={status === "loading"}
             title={surface.value.pendingTitle(route.params)}
@@ -334,8 +356,7 @@ export function App() {
             status={status}
             error={error}
             onRetry={() => void reload()}
-            surface={surface}
-            params={route.params}
+            page={surface === null ? NOT_FOUND_PAGE : surfacePage(surface, route.params)}
           />
         )}
         <SharedChrome />

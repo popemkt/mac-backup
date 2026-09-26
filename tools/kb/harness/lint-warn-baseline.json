@@ -49,7 +49,6 @@
       "exports:packages/app/ui/src/lib/graph-lens.ts:DEFAULT_SIZE_BY": 1,
       "exports:packages/app/ui/src/lib/graph-lens.ts:DEFAULT_SPREAD": 1,
       "exports:packages/app/ui/src/lib/graph-lens.ts:isElidedSchemaNode": 1,
-      "exports:packages/app/ui/src/lib/graph-lens.ts:isGraphPerspectiveNode": 1,
       "exports:packages/app/ui/src/lib/graph-view.ts:childIdSet": 1,
       "exports:packages/app/ui/src/lib/graph-view.ts:resolveRefLabel": 1,
       "exports:packages/app/ui/src/lib/md-inline.ts:mediaKindFromHref": 1,

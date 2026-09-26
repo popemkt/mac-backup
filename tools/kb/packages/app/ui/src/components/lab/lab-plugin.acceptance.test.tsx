@@ -1,6 +1,6 @@
 /**
- * The lab through the real App: off by default, so `/lab` is the outline's
- * like any unmatched path and the sidebar has no Lab row; switched on in the
+ * The lab through the real App: off by default, so `/lab` is not found like
+ * any unmatched path and the sidebar has no Lab row; switched on in the
  * preference, the row appears and `/lab` mounts a study; switched off again,
  * both leave live — no reload — and the mounted study is disposed.
  *
@@ -119,14 +119,15 @@ describe("lab plugin (acceptance)", () => {
   const labRow = () =>
     [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === "Lab");
   const study = () => container.querySelector("[data-lab-study]");
+  const notFound = () => container.querySelector('[data-not-found="Page"]');
 
-  it("is off by default: no sidebar row, and /lab falls through to the outline", async () => {
+  it("is off by default: no sidebar row, and /lab is not found", async () => {
     expect(usePrefsStore.getState().enabledPlugins).toEqual([]);
     expect(labRow()).toBeUndefined();
     await act(async () => navigate("/lab"));
     await settle();
     expect(study()).toBeNull();
-    expect(container.textContent).toContain("a note");
+    expect(notFound()).not.toBeNull();
   });
 
   it("switched on, contributes its row and page; switched off, both leave live", async () => {
@@ -144,7 +145,7 @@ describe("lab plugin (acceptance)", () => {
     await settle();
     expect(labRow()).toBeUndefined();
     expect(study()).toBeNull();
-    expect(container.textContent).toContain("a note");
+    expect(notFound()).not.toBeNull();
     // Unloading tore the page down, and the page gave its scene back.
     expect(scene.disposed).toBe(1);
   });

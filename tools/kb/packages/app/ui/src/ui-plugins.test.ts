@@ -47,10 +47,11 @@ describe("built-in surfaces", () => {
     expect(route("/o/a%2Fb")?.params).toEqual({ id: "a/b", view: "page" });
   });
 
-  it("leave unknown sub-views and deeper paths to the outline", () => {
-    expect(route("/o/abc/schema")?.surface).toBe("outline.main");
-    expect(route("/o/abc/graph/extra")?.surface).toBe("outline.main");
-    expect(route("/other")?.surface).toBe("outline.main");
+  it("leave unknown sub-views and deeper paths unowned, which is not found", () => {
+    expect(route("/")?.surface).toBe("outline.main");
+    expect(route("/o/abc/schema")).toBeNull();
+    expect(route("/o/abc/graph/extra")).toBeNull();
+    expect(route("/other")).toBeNull();
   });
 
   it("round-trip an ontology through ontologyPath", () => {
@@ -76,8 +77,7 @@ describe("built-in surfaces", () => {
   it("disappear with the plugin that contributed them", () => {
     const kernel = kernelWithBuiltins();
     Effect.runSync(kernel.unload("canvas"));
-    const left = matchSurface(kernel.contributions(SurfacePoint), "/canvas/abc");
-    expect(left?.surface.id).toBe("outline.main");
+    expect(matchSurface(kernel.contributions(SurfacePoint), "/canvas/abc")).toBeNull();
     expect(kernel.contributions(SidebarSectionPoint).map((s) => s.id)).not.toContain(
       "canvas.section",
     );

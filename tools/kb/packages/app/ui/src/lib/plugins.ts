@@ -26,10 +26,11 @@ export type SurfaceParams = Readonly<Record<string, string>>;
 type SurfaceFrame = "scroll" | "fixed" | "full";
 
 export interface Surface {
-  /** The params when this surface owns the path, else `null`. */
+  /**
+   * The params when this surface owns the path, else `null`. A path no
+   * surface owns is not found; no surface takes "whatever is left".
+   */
   readonly match: (path: string) => SurfaceParams | null;
-  /** Consulted after every other surface: the outline takes whatever is left. */
-  readonly fallback?: boolean;
   readonly frame: (params: SurfaceParams) => SurfaceFrame;
   /** Shown while the workspace loads under this surface. */
   readonly pendingTitle: (params: SurfaceParams) => string;
@@ -121,16 +122,12 @@ export function useContributions<C>(point: PointKey<C>): readonly Contribution<C
   return useSyncExternalStore(uiKernel.subscribe, read, read);
 }
 
-/** The surface that owns `path`, fallbacks last; the first match wins. */
+/** The surface that owns `path`, or null when none does; the first match wins. */
 export function matchSurface(
   surfaces: readonly Contribution<Surface>[],
   path: string,
 ): { readonly surface: Contribution<Surface>; readonly params: SurfaceParams } | null {
-  const ordered = [
-    ...surfaces.filter((s) => s.value.fallback !== true),
-    ...surfaces.filter((s) => s.value.fallback === true),
-  ];
-  for (const surface of ordered) {
+  for (const surface of surfaces) {
     const params = surface.value.match(path);
     if (params !== null) return { surface, params };
   }

@@ -573,8 +573,8 @@ beside the built-ins:
   changes, including from another tab.
 - Unloading closes the plugin's scope, so its surfaces and sidebar section
   leave the kernel and every `useContributions` reader re-renders without a
-  reload. A path the plugin owned then resolves like any unmatched path: the
-  outline fallback takes it.
+  reload. A path the plugin owned then resolves like any unmatched path: it
+  is not found (`components/ui/not-found.tsx`).
 - Off by default means absent from the list. A name with no plugin behind it
   is inert, so shipping or retiring an optional plugin needs no migration.
 

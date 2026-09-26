@@ -29,11 +29,16 @@ outline surface), never by importing a sibling folder.
 
 | plugin     | surfaces                                                 | sidebar                |
 | ---------- | -------------------------------------------------------- | ---------------------- |
-| `outline`  | `outline.main` (fallback, every path)                    | Home (0), Pinned (100) |
+| `outline`  | `outline.main` `/`                                       | Home (0), Pinned (100) |
 | `graph`    | `graph.page` `/graph[/<perspective>]`                    | Graph (10)             |
 | `ontology` | `ontology.list` `/o`, `ontology.scope` `/o/<id>[/outline | /graph]`               | Ontologies (20) |
 | `canvas`   | `canvas.list` `/canvas`, `canvas.page` `/canvas/<id>`    | Canvases (30)          |
 | `lab`      | `lab.page` `/lab[/<study>]` (optional, off by default)   | Lab (40)               |
+
+A path no surface owns, and an id a surface does not find (a canvas, an
+ontology, a graph perspective), render the one `components/ui/not-found.tsx`
+with no chrome of the missing thing; `ui/not-found.acceptance.test.tsx`
+walks every route shape through the real App.
 
 Lazy chunks: graph, canvas, ontology, lab — each surface file lazy-loads its
 page; each lab study's three.js scene is a further dynamic import.

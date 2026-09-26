@@ -3,6 +3,7 @@ import type { CanvasNode } from "@kb/canvas";
 import { upsertCanvasEdge, upsertCanvasNode } from "@kb/canvas";
 import { Bullet } from "@/components/outline/bullet";
 import { NodeRow } from "@/components/outline/node-row";
+import { NotFound } from "@/components/ui/not-found";
 import { CanvasOverlays } from "@/components/canvas/canvas-overlays";
 import { CanvasStage } from "@/components/canvas/canvas-stage";
 import { useCanvasDoc } from "@/components/canvas/use-canvas-doc";
@@ -175,12 +176,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
 
   if (!canvasNode) {
     return (
-      <div className="p-6 text-ui text-destructive">
-        Canvas not found: {canvasId}{" "}
-        <button type="button" className="underline" onClick={() => navigate("/canvas")}>
-          back
-        </button>
-      </div>
+      <NotFound what="Canvas" id={canvasId} back={{ label: "All canvases", path: "/canvas" }} />
     );
   }
 
