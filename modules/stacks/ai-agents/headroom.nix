@@ -58,6 +58,7 @@ lib.mkIf config.my.stacks.ai-agents.enable {
     {
       # Reconcile both the pinned package and its interpreter. uv keeps the
       # dependency environment isolated, while Nix owns the Python version.
+      # GAP [[01M3E9TMG3C90N8VBEDXGHHK45]] one of four copied uv installers.
       home.activation.installHeadroomUvTools = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         # CLT-only macOS doesn't set SDKROOT; without it clang can't find C/C++
         # headers and packages with native extensions can fail to build.

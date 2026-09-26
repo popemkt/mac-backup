@@ -73,6 +73,7 @@ declared_media_path() {
   ' "$MACKUP_NIX" 2>/dev/null || true
 }
 
+# GAP [[01M3E9VYK1NK02TN5MYSQXS7C7]] scrapes mackup.nix instead of evaluating.
 # Storage engine declared in the rendered .mackup.cfg (always `icloud` here).
 storage_engine() {
   [ -f "$MACKUP_NIX" ] || return 0

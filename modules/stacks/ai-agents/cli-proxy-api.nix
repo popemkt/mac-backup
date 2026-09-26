@@ -8,6 +8,7 @@
 let
   inherit (config.my) username;
   home = "/Users/${username}";
+  # GAP [[01M3E9VX8SQJKV3K2Q1JEKT309]] other modules retype this port.
   port = 8317;
   configPath = "${home}/.config/cli-proxy-api/config.yaml";
   stateRoot = "${home}/.local/state/cli-proxy-api";

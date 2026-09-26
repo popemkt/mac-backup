@@ -39,6 +39,7 @@ eval_hm_list() {
   eval_host_list "xs.home-manager.users.\${xs.my.username}.$1"
 }
 
+# GAP [[01M3E9VYK1NK02TN5MYSQXS7C7]] scrapes Nix source instead of evaluating.
 parse_external_paths() {
   awk '
     /^[[:space:]]*managedPaths[[:space:]]*=/ { in_block=1; next }

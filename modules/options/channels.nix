@@ -9,6 +9,9 @@
 # - "owner": the contributing module installs its own members, and the
 #   channel only makes membership and pins readable for drift and update
 #   checks. A host has nothing to add there, so no `extra.<name>` exists.
+#
+# GAP [[01M3E9V4VV52HJPW181Y74AR0J]] no check proves each executor installs
+# its channel.
 {
   taps = {
     description = "Homebrew taps contributed by stacks.";

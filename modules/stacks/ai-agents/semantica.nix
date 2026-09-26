@@ -35,6 +35,7 @@ lib.mkIf config.my.stacks.ai-agents.enable {
       # dependency environment isolated, while Nix owns the Python version.
       # Heavy wheels (torch, faiss-cpu, opencv) are prebuilt for macOS arm64,
       # but native builds still need the Apple toolchain and SDKROOT.
+      # GAP [[01M3E9TMG3C90N8VBEDXGHHK45]] one of four copied uv installers.
       home.activation.installSemanticaUvTool = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
         export PATH="$PATH:/usr/bin:/bin"

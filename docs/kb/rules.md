@@ -172,6 +172,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Domain typing — one canonical schema
 - **node** — `01M1PJWF4G6W4122ZE4K67319V`
 
+### GAP: four hand-copied uv tool installers, each reading a failed uv tool list as not installed
+
+- **expected** — One uv tool installer (a shared helper each owning module calls with its spec, extras and extra freshness checks) that captures uv tool list, checks its exit status, and warns and continues on failure, as AGENTS.md Writing an executor requires.
+- **current** — headroom.nix, semantica.nix, cognee/server.nix and cognee/client.nix each repeat the same toolchain exports and uv tool install --force block, and each probes with uv tool list | grep -q, so a crashed uv reads as not installed and forces a reinstall. The copies already drifted once: the cognee checks matched hand-typed versions until 3d9e0bd0.
+- **impact** — A uv failure costs a heavy forced reinstall (torch/faiss for Cognee) on every rebuild, and a fix to one copy misses the other three.
+- **closes** — Extract the installer into one function under modules/stacks/ai-agents/ (or a uvTools executor if install ownership moves to the channel), move the four call sites onto it, and have it check uv's exit status.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M3E9TMG3C90N8VBEDXGHHK45`
+
 ### GAP: GraphPage carries 35 branches of renderer and perspective selection
 
 - **expected** — GraphPage picks a renderer and hands it a resolved lens; renderer capability differences live in graph-capabilities.ts, not in the page.
@@ -221,6 +230,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Give the two decoders' reports a home in the ui the way ontology warnings have one — a store field plus a badge — and have the config surfaces read it instead of the log seam. Component + store work: out of g8's zone (docs/kb/waves/2026-09-09/briefs/g8-domain-typing.md).
 - **node** — `01M1XF1NA2RBAX1E6NNX6PMZ6N`
 
+### GAP: package executors share no contract check
+
+- **expected** — Every executor-installed channel in modules/options/channels.nix names the executor view that installs it, and one flake check proves, per host, that each channel's members reach that view. A new executor joins the check by registering its view.
+- **current** — Homebrew, npm, Bun and agent-plugins each read their channel their own way. The resolved views are ad hoc (homebrew.* for Homebrew, my.resolvedNpmGlobals and my.resolvedBunGlobals for npm and Bun, none for the Claude and Codex plugin channels), and only the drift audit, at runtime, compares them with the machine.
+- **impact** — An executor that drops or filters channel members still evaluates and builds; the loss shows only as drift on a live machine after rebuild.
+- **closes** — Replace the ad hoc resolved* options with one registry the executors fill per channel (npm-global.nix is part of this; it had uncommitted user edits when this was filed), then add an executor-contract flake check over channels.nix and point the drift audit at the same registry.
+- **rule** — One contract, every implementation
+- **node** — `01M3E9V4VV52HJPW181Y74AR0J`
+
 ### GAP: reach is recognised only inside the query subset parseEdn models
 
 - **expected** — (reach ...) works in any datalog query: parseEdn keeps where-clauses it does not model (predicates, not/or, _ wildcards, 2-element patterns) and sections like :with/:keys/:limit as opaque IR the compiler emits verbatim, so the parser never has to fall a whole query back to raw.
@@ -261,6 +279,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Search cost grows linearly with the graph and no ranking is possible.
 - **closes** — Gate on Bun's FTS5 close() segfault (oven-sh/bun#37044); adopt once a SQLite index exists.
 - **node** — `01M1M08X7037FH9Z0Y5G1RFRXX`
+
+### GAP: service ports are restated outside the module that owns them
+
+- **expected** — Each service port has one owner, exposed as a read-only option (or passthru) of its component, and every other reader derives from it.
+- **current** — CLIProxyAPI 8317 is a let binding in cli-proxy-api.nix and is retyped in ai-agents/system-setup.nix (four probes), cognee/server.nix LLM_ENDPOINT and modules/darwin/home-manager/default.nix. The Cognee gateway 8088 is retyped in system-setup.nix and hosts/popemkt-personal (vpn service target). The Cognee MCP port 8001 is a separate binding in server.nix and client.nix. Headroom 8787 is retyped in scripts/reconcile_claude_direct_routing.py.
+- **impact** — Changing a port in its module silently breaks the health probes, the tailnet route or the routing reconciler.
+- **closes** — Give cli-proxy-api, cognee and headroom read-only port options, derive the other sites from them, and pass the Headroom URL to the reconciler as an argument.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M3E9VX8SQJKV3K2Q1JEKT309`
 
 ### GAP: six React lists key by array index because the index is the identity
 
@@ -336,6 +363,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Lab principles
 - **node** — `01M3A8QG4PEQK0A9N3KPQ3K98X`
 
+### GAP: the npm executor special-cases @openai/codex and aborts activation on a failed install
+
+- **expected** — installNpmGlobals treats every member of my.pkgs.npmGlobals alike and warns and continues when an install fails, like installBunGlobals and agent-plugins.
+- **current** — Its loop carries an elif for @openai/codex that runs npm rebuild when the codex bin link is missing, and a failing npm install -g aborts the rest of Home Manager activation.
+- **impact** — The executor decides per-package behaviour, which Module Boundaries reserves for stacks, and one unreachable npm package blocks every later activation step.
+- **closes** — Generalise the relink to any declared package whose bin links are missing (or move it to the owning stack), and add || warn to the install. The marker could not be placed: npm-global.nix had uncommitted user edits.
+- **rule** — Module boundaries
+- **node** — `01M3E9V5JS5VS5ZRT14510BN4D`
+
 ### GAP: the palette index pre-sizes its arrays with new Array(n)
 
 - **expected** — buildPaletteIndex and searchPalette allocate their result arrays the way unicorn/no-new-array wants (Array.from({ length: n }) or push), with no pinpoint disable.
@@ -359,6 +395,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The effect is the renderer, so nothing about it can be tested without a DOM and a real sigma instance.
 - **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
 - **node** — `01M1MGCPJTV66QSFCR44XG29YM`
+
+### GAP: the two pin tools claim one exit-code contract and no test holds them to it
+
+- **expected** — github-sources and uv-sources implement one stated contract for check (0 current, 10 newer upstream, one code for could not resolve) and update, stated once, with a shared offline test that runs both against stubbed resolvers.
+- **current** — uv-sources says its exit codes match github-sources but exits 1 when it cannot resolve, where github-sources exits 20; only github-sources has an offline test (github-sources-check). The drift audit consumes both through report_pin_check, which treats any other code as skipped.
+- **impact** — A caller that tells unresolvable apart from broken (as github-sources callers can with 20) gets a different answer from uv-sources, and nothing notices when the two diverge further.
+- **closes** — State the pin-tool contract once in docs/github-release-packages.md, move uv-sources to exit 20 for could not resolve, and add a uv-sources case to a shared stubbed check next to github-sources-check. Coordinate with the owner of scripts/github-sources.
+- **rule** — One contract, every implementation
+- **node** — `01M3E9VSQZTDHRV4C9YRWD1QV1`
 
 ### GAP: the write check covers written values only, so a retype or a delete can strand stored ones
 
@@ -401,6 +446,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide shim versus store binary (the shim is the dev-loop affordance; the package is the artifact), then point .mcp.json at the winner and delete the loser.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1M08VKDXG6AFZHQPW5M2GRF`
+
+### GAP: two scripts read Nix settings by scraping source with awk
+
+- **expected** — Scripts read declared state one way: evaluating the host configuration, as the drift audit already does for every package channel.
+- **current** — audit-system-discrepancies.sh parse_external_paths awk-scrapes managedPaths from external-workspace.nix and hard-codes its root /Volumes/Data/workspace/symlinks/User; check-kb-assets-backup.sh awk-scrapes mackup.nix for the storage engine and allowlist.
+- **impact** — Reformatting either Nix file, or computing the list, silently changes what the scripts see, and the audit's root literal can drift from externalDataRoot.
+- **closes** — Expose managedPaths and externalDataRoot (and the mackup settings) as read-only options and read them with eval_host_list; keep check-kb-assets-backup.sh's pre-commit speed in mind before moving it to nix eval.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M3E9VYK1NK02TN5MYSQXS7C7`
 
 ### GAP: TxTail allocates a rev outside the store's exclusion for virtual transactions
 

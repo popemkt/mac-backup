@@ -10,6 +10,8 @@
 # version deliberately — Cognee's stores are coupled to its release, so a major
 # bump there wants a human decision.
 #
+# GAP [[01M3E9VSQZTDHRV4C9YRWD1QV1]] github-sources exits 20 when it cannot
+# resolve; this exits 1, and no shared test holds the two to one contract.
 # Exit codes match github-sources: 0 nothing to do, 10 updates available
 # (check only), 1 could not run.
 
