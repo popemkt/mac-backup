@@ -121,6 +121,8 @@ export function Force3dAdapter({
         curvedLinks={active.curvedLinks}
         autorotate={active.autorotate}
         showLabels={active.showLabels}
+        nodeLook={active.nodeLook}
+        linkStyle={active.linkStyle}
         labelTopN={active.labelDensity === "low" ? 12 : active.labelDensity === "high" ? 48 : 24}
       />
     </WorkspaceBoundary>

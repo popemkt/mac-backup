@@ -26,6 +26,10 @@ export interface ShadeOps<V, S> {
   readonly max: (a: S, b: S) => S;
   readonly min: (a: S, b: S) => S;
   readonly smoothstep: (from: number, to: number, t: S) => S;
+  /** `t` raised to a constant power (a specular's falloff). */
+  readonly pow: (t: S, exponent: number) => S;
+  /** `t` stepped down into `steps` flat bands over 0–1 (cel shading). */
+  readonly band: (t: S, steps: number) => S;
   readonly mix: (a: V, b: V, t: S) => V;
   readonly scale: (v: V, s: S) => V;
   /** Channel by channel, by a constant colour. */
@@ -56,6 +60,8 @@ export const NUMBER_OPS: ShadeOps<Rgb, number> = {
   max: Math.max,
   min: Math.min,
   smoothstep: smooth,
+  pow: (t, exponent) => Math.max(0, t) ** exponent,
+  band: (t, steps) => Math.floor(t * steps) / steps,
   mix: (a, b, t) => each((c) => a[c] + (b[c] - a[c]) * t),
   scale: (v, s) => each((c) => v[c] * s),
   tint: (v, rgb) => each((c) => v[c] * rgb[c]),

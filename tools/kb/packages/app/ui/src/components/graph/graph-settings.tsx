@@ -3,7 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import { GearSixIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { SYSTEM_IDS } from "@/lib/types";
-import { LENS_LABEL_DENSITIES, LENS_LAYOUTS, type LensPerspective } from "@/lib/graph-lens";
+import { GRAPH_LINK_STYLE_VALUES, GRAPH_NODE_LOOK_VALUES } from "@kb/model";
+import {
+  LENS_LABEL_DENSITIES,
+  LENS_LAYOUTS,
+  LENS_LINK_STYLES,
+  LENS_NODE_LOOKS,
+  type LensPerspective,
+} from "@/lib/graph-lens";
 import { settingDisabledReason } from "./graph-capabilities";
 import { cn } from "@/lib/cn";
 import { isOutside } from "@/lib/dom";
@@ -34,6 +41,9 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
   };
   const setNum = (field: string, v: number) => {
     void mutations.setLensProp(perspective.id, field, { t: "num", v });
+  };
+  const setRef = (field: string, v: string) => {
+    void mutations.setLensProp(perspective.id, field, { t: "ref", v });
   };
   const setBool = (field: string, v: boolean) => {
     void mutations.setLensProp(perspective.id, field, { t: "bool", v });
@@ -66,25 +76,13 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
 
           <GraphMappings perspective={perspective} />
 
-          <Field label="Layout" reason={settingDisabledReason(perspective.renderer, "layout")}>
-            <div className="flex flex-wrap gap-1">
-              {LENS_LAYOUTS.map((layout) => (
-                <button
-                  key={layout}
-                  type="button"
-                  className={cn(
-                    "rounded-xs px-2 py-0.5 text-label capitalize",
-                    perspective.layout === layout
-                      ? "bg-foreground/[0.1] font-semibold text-foreground/80"
-                      : "text-foreground/45 hover:bg-foreground/[0.05]",
-                  )}
-                  onClick={() => setStr(SYSTEM_IDS.lensLayoutField, layout)}
-                >
-                  {layout}
-                </button>
-              ))}
-            </div>
-          </Field>
+          <Choice
+            label="Layout"
+            reason={settingDisabledReason(perspective.renderer, "layout")}
+            options={LENS_LAYOUTS.map((layout) => ({ key: layout, label: layout }))}
+            value={perspective.layout}
+            onPick={(layout) => setStr(SYSTEM_IDS.lensLayoutField, layout)}
+          />
 
           <Field
             label={`Spread (${Math.round(perspective.spread)})`}
@@ -114,28 +112,37 @@ export function GraphSettings({ perspective }: GraphSettingsProps) {
             />
           </Field>
 
-          <Field
+          <Choice
             label="Label density"
             reason={settingDisabledReason(perspective.renderer, "labelDensity")}
-          >
-            <div className="flex gap-1">
-              {LENS_LABEL_DENSITIES.map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  className={cn(
-                    "rounded-xs px-2 py-0.5 text-label capitalize",
-                    perspective.labelDensity === d
-                      ? "bg-foreground/[0.1] font-semibold text-foreground/80"
-                      : "text-foreground/45 hover:bg-foreground/[0.05]",
-                  )}
-                  onClick={() => setStr(SYSTEM_IDS.lensLabelDensityField, d)}
-                >
-                  {d}
-                </button>
-              ))}
-            </div>
-          </Field>
+            options={LENS_LABEL_DENSITIES.map((density) => ({ key: density, label: density }))}
+            value={perspective.labelDensity}
+            onPick={(density) => setStr(SYSTEM_IDS.lensLabelDensityField, density)}
+          />
+
+          <Choice
+            label="Node look"
+            reason={settingDisabledReason(perspective.renderer, "nodeLook")}
+            options={LENS_NODE_LOOKS.map((look) => ({
+              key: look,
+              label: GRAPH_NODE_LOOK_VALUES[look].label,
+            }))}
+            value={perspective.nodeLook}
+            onPick={(look) => setRef(SYSTEM_IDS.lensNodeLookField, GRAPH_NODE_LOOK_VALUES[look].id)}
+          />
+
+          <Choice
+            label="Link style"
+            reason={settingDisabledReason(perspective.renderer, "linkStyle")}
+            options={LENS_LINK_STYLES.map((style) => ({
+              key: style,
+              label: GRAPH_LINK_STYLE_VALUES[style].label,
+            }))}
+            value={perspective.linkStyle}
+            onPick={(style) =>
+              setRef(SYSTEM_IDS.lensLinkStyleField, GRAPH_LINK_STYLE_VALUES[style].id)
+            }
+          />
 
           <Toggle
             label="Show labels"
@@ -182,6 +189,44 @@ function Field({
         <span className="text-caption text-foreground/55">{reason}</span>
       ) : null}
     </fieldset>
+  );
+}
+
+/** One choice among a lens field's options: a row of buttons, the chosen one marked. */
+function Choice<K extends string>({
+  label,
+  reason,
+  options,
+  value,
+  onPick,
+}: {
+  label: string;
+  reason?: string;
+  options: readonly { readonly key: K; readonly label: string }[];
+  value: K;
+  onPick: (key: K) => void;
+}) {
+  return (
+    <Field label={label} {...(reason === undefined ? {} : { reason })}>
+      <div className="flex flex-wrap gap-1">
+        {options.map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            aria-pressed={value === option.key}
+            className={cn(
+              "rounded-xs px-2 py-0.5 text-label capitalize",
+              value === option.key
+                ? "bg-foreground/[0.1] font-semibold text-foreground/80"
+                : "text-foreground/45 hover:bg-foreground/[0.05]",
+            )}
+            onClick={() => onPick(option.key)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </Field>
   );
 }
 

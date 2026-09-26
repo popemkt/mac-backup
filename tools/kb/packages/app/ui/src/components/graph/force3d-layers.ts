@@ -12,7 +12,7 @@ import type { SceneStage } from "@/scene/gpu/stage";
 import type { ScenePalette } from "@/scene/palette";
 import { EmphasisFade } from "@/lib/graph-fade";
 import { graphFocus, type GraphEmphasis } from "@/lib/graph-interaction";
-import type { LensEdge, LensNode } from "@/lib/graph-lens";
+import type { LensEdge, LensLinkStyle, LensNode, LensNodeLook } from "@/lib/graph-lens";
 import { byLabelPriority } from "@/lib/graph-label-layout";
 import { approachRate, type Timing } from "@/lib/timing";
 import {
@@ -25,7 +25,13 @@ import {
 import type { GraphPlaces } from "./force3d-camera";
 import { LabelLayer } from "./force3d-labels";
 import { startLayout3d, type Layout3d } from "./force3d-layout";
-import { MAX_PARTICLE_LINKS, linkLayer, type LinkLayer } from "./force3d-links";
+import {
+  MAX_PARTICLE_LINKS,
+  linkLayer,
+  particleLayer,
+  type LinkLayer,
+  type ParticleLayer,
+} from "./force3d-links";
 import { nodeLayer, type NodeLayer } from "./force3d-nodes";
 import type { PickField } from "./force3d-pick";
 
@@ -33,9 +39,18 @@ export interface Force3dSettings {
   readonly spread: number;
   readonly linkDistance: number;
   readonly curvedLinks: boolean;
+  /** How the nodes' surfaces take the light (`lens.node-look`). */
+  readonly nodeLook: LensNodeLook;
+  /** How the links are drawn (`lens.link-style`). */
+  readonly linkStyle: LensLinkStyle;
   readonly autorotate: boolean;
   readonly showLabels: boolean;
   readonly labelTopN: number;
+}
+
+/** The settings the layers are built from: a change to any rebuilds them. */
+function layerShape(s: Force3dSettings): string {
+  return `${s.curvedLinks}|${s.nodeLook}|${s.linkStyle}`;
 }
 
 /** Spiral seed placement for a node with no position yet. */
@@ -99,6 +114,8 @@ export class GraphLayers {
   private readonly particleRate: number;
   private nodes: NodeLayer | null = null;
   private links: LinkLayer | null = null;
+  private particles: ParticleLayer | null = null;
+  private readonly timing: Timing;
   private layout: Layout3d | null = null;
   private palette: ScenePalette;
   private link: string;
@@ -120,6 +137,7 @@ export class GraphLayers {
       lift: new EmphasisFade(0, quick, 0),
       focus: new EmphasisFade(0, quick, 0),
     };
+    this.timing = init.timing;
     this.particleRate = approachRate(init.timing.reveal);
     stage.scene.add(this.group);
     this.group.add(this.layers);
@@ -196,10 +214,13 @@ export class GraphLayers {
     // The old layers leave the scene with their GPU buffers.
     disposeGraph(this.layers);
     const colors = this.stage.colors;
-    this.nodes = nodeLayer(this.topology, colors, this.fades);
-    this.links = linkLayer(this.topology, colors, this.fades, this.settings.curvedLinks);
+    const { curvedLinks: curved, linkStyle: style, nodeLook } = this.settings;
+    this.nodes = nodeLayer(this.topology, colors, this.fades, nodeLook);
+    const ambientPeriod = this.timing.ambientPeriod;
+    this.links = linkLayer(this.topology, this.fades, { curved, style, ambientPeriod });
     this.links.setPalette(this.palette, this.link);
-    this.layers.add(this.links.lines, this.nodes.mesh, this.links.particles);
+    this.particles = particleLayer(this.topology, colors, curved);
+    this.layers.add(this.links.lines, this.nodes.mesh, this.particles.sprite);
     this.labels.reset(this.topology, this.palette);
     this.labels.resize(this.stage.camera, this.stage.renderer.domElement.clientHeight || 1);
     this.rank();
@@ -225,7 +246,7 @@ export class GraphLayers {
   setSettings(next: Force3dSettings): void {
     const previous = this.settings;
     this.settings = next;
-    if (next.curvedLinks !== previous.curvedLinks) {
+    if (layerShape(next) !== layerShape(previous)) {
       this.build(this.topology.nodes, this.topology.edges);
       return;
     }
@@ -255,7 +276,7 @@ export class GraphLayers {
       fades.focus.snap();
     }
     const active = graphFocus(emphasis.selectedNodeId, hovered);
-    this.links?.setParticleLinks(particleLinks(topology, active, MAX_PARTICLE_LINKS));
+    this.particles?.setLinks(particleLinks(topology, active, MAX_PARTICLE_LINKS));
     const wanted = new Set<number>();
     if (settings.showLabels) {
       for (const i of this.byPriority.slice(0, settings.labelTopN)) wanted.add(i);
@@ -292,10 +313,10 @@ export class GraphLayers {
       this.links?.update(this.positions);
       this.moved = false;
     }
-    const particles =
-      this.links?.stepParticles(dt, this.positions, reduced, this.particleRate) ?? false;
+    const particles = this.particles?.step(dt, this.positions, reduced, this.particleRate) ?? false;
+    const flowing = this.links?.step(dt, reduced) ?? false;
     this.labels.frame(this.positions, camera, viewport, fades, this.radius);
-    return this.laying || fading || particles;
+    return this.laying || fading || particles || flowing;
   }
 
   /** Mark the layers stale so the next frame rewrites them (the camera moved them on screen). */
@@ -304,7 +325,7 @@ export class GraphLayers {
   }
 
   particleCount(): number {
-    return this.links?.particles.visible === true ? this.links.particles.count : 0;
+    return this.particles?.count() ?? 0;
   }
 
   dispose(): void {

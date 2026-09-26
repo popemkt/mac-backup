@@ -155,6 +155,8 @@ const SCENES: readonly (readonly [string, Mount])[] = [
           autorotate: true,
           showLabels: true,
           labelTopN: 4,
+          nodeLook: "matte",
+          linkStyle: "lines",
         },
         emphasis: { selectedNodeId: null },
         palette,

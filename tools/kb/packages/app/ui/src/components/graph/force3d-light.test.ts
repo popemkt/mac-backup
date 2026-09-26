@@ -5,19 +5,21 @@
  * the swatch editor — so the proof is over colour space, not a palette: at
  * rest, and under any lift, no fragment passes white, for the unit cube's
  * corners, every pure channel and a seeded spread of colours, under the ink
- * of every design system in both variants (read from the stylesheets). The
- * shader caps a lift at each fragment's own headroom; this checks the cap.
+ * of every design system in both variants (read from the stylesheets), and
+ * for every node look: the looks are the implementations, and the bloom rule
+ * is their one contract. The shader caps a lift at each fragment's own
+ * headroom; this checks the cap.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { BLOOM_THRESHOLD } from "@/scene/shade-ops";
+import { BLOOM_THRESHOLD, NUMBER_OPS } from "@/scene/shade-ops";
 import { oklchToRgb } from "@/lib/css-color";
 import { readDesignSystemSheets } from "@/lib/design-system-sheets";
 import { TAG_PALETTE } from "@/lib/tag-color";
 import { DESIGN_SYSTEM_IDS } from "@/lib/theme";
 import { GLOW } from "./force3d-emphasis";
-import { peakChannel, type Rgb } from "./force3d-light";
+import { NODE_LOOKS, peakChannel, shadeNode, type NodeLighting, type Rgb } from "./force3d-light";
 
 const SRC = join(import.meta.dirname, "..", "..");
 const SHEETS = readDesignSystemSheets(readFileSync(join(SRC, "design-system.css"), "utf8"), (id) =>
@@ -34,14 +36,24 @@ function hexRgb(hex: string): Rgb {
   return [linear(((n >> 16) & 255) / 255), linear(((n >> 8) & 255) / 255), linear((n & 255) / 255)];
 }
 
-/** Each appearance's ink (`--foreground`, the 3D palette's ink role). */
-const INKS = DESIGN_SYSTEM_IDS.flatMap((id) =>
-  (["light", "dark"] as const).map((variant) => {
-    const srgb = oklchToRgb(SHEETS.resolve(id, variant, "--foreground"));
-    if (srgb === null) throw new Error(`${id}/${variant}: --foreground is not oklch`);
-    const ink: Rgb = [linear(srgb.r / 255), linear(srgb.g / 255), linear(srgb.b / 255)];
-    return { name: `${id} ${variant}`, ink };
-  }),
+/** A token of one appearance, as the linear colour three holds. */
+function tokenRgb(
+  id: (typeof DESIGN_SYSTEM_IDS)[number],
+  variant: "light" | "dark",
+  token: string,
+): Rgb {
+  const srgb = oklchToRgb(SHEETS.resolve(id, variant, token));
+  if (srgb === null) throw new Error(`${id}/${variant}: ${token} is not oklch`);
+  return [linear(srgb.r / 255), linear(srgb.g / 255), linear(srgb.b / 255)];
+}
+
+/** Each appearance's ink and ground (`--foreground`, `--card`: the 3D palette's roles). */
+const APPEARANCES = DESIGN_SYSTEM_IDS.flatMap((id) =>
+  (["light", "dark"] as const).map((variant) => ({
+    name: `${id} ${variant}`,
+    ink: tokenRgb(id, variant, "--foreground"),
+    ground: tokenRgb(id, variant, "--card"),
+  })),
 );
 
 /** The unit cube's corners (every pure channel and mix of full channels) … */
@@ -58,16 +70,19 @@ const COLOURS: Rgb[] = [...CORNERS, ...NAMED, ...SPREAD, ...TAG_PALETTE.map(hexR
 /** Lifts to try: the two roles', and far past them (the cap must hold whatever the value). */
 const LIFTS = [GLOW.rising, GLOW.neighbour, 0.5, 1, 4];
 
-describe("3D light over every storable colour", () => {
-  for (const { name, ink } of INKS) {
-    it(`keeps a resting node, and any lift, at or under white in ${name}`, () => {
+const lightings = (look: (typeof NODE_LOOKS)[number]): (NodeLighting & { name: string })[] =>
+  APPEARANCES.map((a) => ({ ...a, look }));
+
+describe.each(NODE_LOOKS)("3D light over every storable colour, %s look", (look) => {
+  for (const lighting of lightings(look)) {
+    it(`keeps a resting node, and any lift, at or under white in ${lighting.name}`, () => {
       for (const colour of COLOURS) {
-        expect(peakChannel(colour, ink, 0), `rest ${colour.join(",")}`).toBeLessThanOrEqual(
+        expect(peakChannel(colour, lighting, 0), `rest ${colour.join(",")}`).toBeLessThanOrEqual(
           BLOOM_THRESHOLD + 1e-9,
         );
         for (const lift of LIFTS) {
           expect(
-            peakChannel(colour, ink, 0, lift),
+            peakChannel(colour, lighting, 0, lift),
             `lift ${lift} ${colour.join(",")}`,
           ).toBeLessThanOrEqual(BLOOM_THRESHOLD + 1e-9);
         }
@@ -76,14 +91,30 @@ describe("3D light over every storable colour", () => {
   }
 
   it("still lifts a colour with headroom: a lift is visible, not zeroed", () => {
+    // Where the node faces the viewer, half lit: a fragment with headroom in every look.
     const grey: Rgb = [0.2, 0.2, 0.2];
-    for (const { ink } of INKS)
-      expect(peakChannel(grey, ink, 0, GLOW.rising)).toBeGreaterThan(peakChannel(grey, ink, 0));
+    const facing = (lighting: NodeLighting, lift: number) =>
+      shadeNode(
+        NUMBER_OPS,
+        {
+          hue: grey,
+          ground: lighting.ground,
+          ink: lighting.ink,
+          key: 0.5,
+          rim: 0,
+          presence: 1,
+          glow: 0,
+          lift,
+        },
+        lighting.look,
+      )[0];
+    for (const lighting of lightings(look))
+      expect(facing(lighting, GLOW.rising)).toBeGreaterThan(facing(lighting, 0));
   });
 
   it("lets every hub of a tag colour bloom", () => {
-    for (const { ink } of INKS)
+    for (const lighting of lightings(look))
       for (const hex of TAG_PALETTE)
-        expect(peakChannel(hexRgb(hex), ink, GLOW.hub)).toBeGreaterThan(BLOOM_THRESHOLD);
+        expect(peakChannel(hexRgb(hex), lighting, GLOW.hub)).toBeGreaterThan(BLOOM_THRESHOLD);
   });
 });

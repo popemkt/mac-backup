@@ -66,7 +66,16 @@ export const GRAPH_RENDERERS: Record<string, GraphRendererDefinition> = {
   force3d: {
     label: GRAPH_RENDERER_VALUES.force3d.label,
     capabilities: { ...standard, drag: false },
-    settings: ["spread", "linkDistance", "labelDensity", "showLabels", "curvedLinks", "autorotate"],
+    settings: [
+      "spread",
+      "linkDistance",
+      "labelDensity",
+      "showLabels",
+      "curvedLinks",
+      "autorotate",
+      "nodeLook",
+      "linkStyle",
+    ],
     channels: ["relationships", "color", "label", "size"],
     Component: Force3dAdapter,
   },

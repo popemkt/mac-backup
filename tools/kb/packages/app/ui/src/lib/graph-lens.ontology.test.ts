@@ -27,6 +27,8 @@ const PERSPECTIVE: LensPerspective = {
   curvedLinks: false,
   autorotate: false,
   labelDensity: "medium",
+  nodeLook: "matte",
+  linkStyle: "lines",
 };
 
 /** a → b (both members), b → c (c outside the scope). */

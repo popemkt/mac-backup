@@ -35,7 +35,7 @@ describe("nodeLayer", () => {
       lift: new EmphasisFade(2, 0.2, 0),
       focus: new EmphasisFade(2, 0.2, 0),
     };
-    const layer = nodeLayer(topology, colors(), fades);
+    const layer = nodeLayer(topology, colors(), fades, "matte");
     const small = layer.radius(0);
     expect(layer.radius(1)).toBe(small);
 

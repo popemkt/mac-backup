@@ -24,6 +24,20 @@ export const GRAPH_RENDERER_VALUES = {
   treemap: { id: "sys.graph.renderer.treemap", label: "Treemap" },
 } as const;
 
+/** The 3D node looks: `lens.node-look`'s option children (matte is the default). */
+export const GRAPH_NODE_LOOK_VALUES = {
+  matte: { id: "sys.graph.look.matte", label: "Matte" },
+  cel: { id: "sys.graph.look.cel", label: "Cel" },
+  fresnel: { id: "sys.graph.look.fresnel", label: "Fresnel" },
+  glass: { id: "sys.graph.look.glass", label: "Glass" },
+} as const;
+
+/** The 3D link styles: `lens.link-style`'s option children (lines is the default). */
+export const GRAPH_LINK_STYLE_VALUES = {
+  lines: { id: "sys.graph.link-style.lines", label: "Lines" },
+  flow: { id: "sys.graph.link-style.flow", label: "Flow" },
+} as const;
+
 export const GRAPH_SOURCE_VALUES = {
   tag: { id: "sys.graph.source.tags", label: "Tags", kind: "category" },
   parent: { id: "sys.graph.source.parent", label: "Containing node", kind: "category" },
@@ -107,9 +121,20 @@ export function graphSourceId(key: string): string | null {
   if (key.startsWith("prop:")) return key.slice(5);
   return Object.entries(GRAPH_SOURCE_VALUES).find(([name]) => name === key)?.[1].id ?? null;
 }
+/** An option set a lens field's children spell: key → option node. */
+type GraphOptionValues = Readonly<Record<string, { readonly id: string; readonly label: string }>>;
+
+/** The key of the option node `id` in `values`, or `id` itself when none matches. */
+export function graphOptionKey(values: GraphOptionValues, id: string): string {
+  return Object.entries(values).find(([, value]) => value.id === id)?.[0] ?? id;
+}
+/** The option node id for `key` in `values`, or `key` itself when none matches. */
+export function graphOptionId(values: GraphOptionValues, key: string): string {
+  return values[key]?.id ?? key;
+}
 export function graphRendererKey(id: string): string {
-  return Object.entries(GRAPH_RENDERER_VALUES).find(([, value]) => value.id === id)?.[0] ?? id;
+  return graphOptionKey(GRAPH_RENDERER_VALUES, id);
 }
 export function graphRendererId(key: string): string {
-  return Object.entries(GRAPH_RENDERER_VALUES).find(([name]) => name === key)?.[1].id ?? key;
+  return graphOptionId(GRAPH_RENDERER_VALUES, key);
 }

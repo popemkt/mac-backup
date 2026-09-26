@@ -1,7 +1,7 @@
 {
   "lanes": {
     "blocking": {
-      "eslint/max-lines-per-function": 27,
+      "eslint/max-lines-per-function": 26,
       "react/exhaustive-effect-dependencies": 10,
       "react/globals": 1,
       "react/hooks": 4,
@@ -23,7 +23,6 @@
       "exports:packages/app/ui/src/actions/plan.ts:planInsertChild": 1,
       "exports:packages/app/ui/src/api/live.ts:refetchGraph": 1,
       "exports:packages/app/ui/src/components/graph/force3d-layout.ts:COOLDOWN_TICKS": 1,
-      "exports:packages/app/ui/src/components/graph/force3d-links.ts:PARTICLES_PER_LINK": 1,
       "exports:packages/app/ui/src/components/graph/graph-camera.ts:animateCamera": 1,
       "exports:packages/app/ui/src/components/graph/graph-camera.ts:framedPoints": 1,
       "exports:packages/app/ui/src/components/graph/graph-camera.ts:motionDuration": 1,

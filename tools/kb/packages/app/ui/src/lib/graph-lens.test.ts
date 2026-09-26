@@ -121,6 +121,8 @@ function perspective(patch: Partial<LensPerspective> = {}): LensPerspective {
     curvedLinks: false,
     autorotate: false,
     labelDensity: "medium",
+    nodeLook: "matte",
+    linkStyle: "lines",
     ...patch,
   };
 }

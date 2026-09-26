@@ -8,7 +8,7 @@
  */
 import type { Appearance } from "@/stores/prefs.store";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import type { LensEdge, LensNode } from "@/lib/graph-lens";
+import type { LensEdge, LensLinkStyle, LensNode, LensNodeLook } from "@/lib/graph-lens";
 import { showsHoverCard, type GraphEmphasis } from "@/lib/graph-interaction";
 import { useReducedMotion } from "@/lib/motion";
 import { readTiming } from "@/lib/timing";
@@ -40,6 +40,8 @@ export interface Force3dGraphProps extends GraphEmphasis {
   labelTopN?: number;
   spread?: number;
   linkDistance?: number;
+  nodeLook?: LensNodeLook;
+  linkStyle?: LensLinkStyle;
 }
 
 /**
@@ -59,7 +61,14 @@ function readGraphPalette() {
 
 type SettingProps = Pick<
   Force3dGraphProps,
-  "spread" | "linkDistance" | "curvedLinks" | "autorotate" | "showLabels" | "labelTopN"
+  | "spread"
+  | "linkDistance"
+  | "curvedLinks"
+  | "autorotate"
+  | "showLabels"
+  | "labelTopN"
+  | "nodeLook"
+  | "linkStyle"
 >;
 
 function settingsOf(p: SettingProps): Force3dSettings {
@@ -70,6 +79,8 @@ function settingsOf(p: SettingProps): Force3dSettings {
     autorotate: p.autorotate ?? false,
     showLabels: p.showLabels ?? true,
     labelTopN: p.labelTopN ?? 24,
+    nodeLook: p.nodeLook ?? "matte",
+    linkStyle: p.linkStyle ?? "lines",
   };
 }
 
@@ -148,6 +159,7 @@ function useMountedScene(
 export default function Force3dGraph(props: Force3dGraphProps) {
   const { nodes, edges, appearance, selectedNodeId, highlightIds, filterIds } = props;
   const { spread, linkDistance, curvedLinks, autorotate, showLabels, labelTopN } = props;
+  const { nodeLook, linkStyle } = props;
   const host = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
   const [scene, setScene] = useState<Force3dScene | null>(null);
@@ -163,9 +175,28 @@ export default function Force3dGraph(props: Force3dGraphProps) {
   useEffect(() => scene?.setGraph(nodes, edges), [scene, nodes, edges]);
   useEffect(() => {
     scene?.setSettings(
-      settingsOf({ spread, linkDistance, curvedLinks, autorotate, showLabels, labelTopN }),
+      settingsOf({
+        spread,
+        linkDistance,
+        curvedLinks,
+        autorotate,
+        showLabels,
+        labelTopN,
+        nodeLook,
+        linkStyle,
+      }),
     );
-  }, [scene, spread, linkDistance, curvedLinks, autorotate, showLabels, labelTopN]);
+  }, [
+    scene,
+    spread,
+    linkDistance,
+    curvedLinks,
+    autorotate,
+    showLabels,
+    labelTopN,
+    nodeLook,
+    linkStyle,
+  ]);
   useEffect(() => {
     scene?.setEmphasis(emphasisOf({ selectedNodeId, highlightIds, filterIds }));
   }, [scene, selectedNodeId, highlightIds, filterIds]);

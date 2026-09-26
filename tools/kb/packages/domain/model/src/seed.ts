@@ -1,4 +1,6 @@
 import {
+  GRAPH_LINK_STYLE_VALUES,
+  GRAPH_NODE_LOOK_VALUES,
   GRAPH_RENDERER_VALUES,
   GRAPH_SOURCE_FIELD_KINDS,
   GRAPH_SOURCE_KINDS,
@@ -222,6 +224,14 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
   const rendererOptions = Object.values(GRAPH_RENDERER_VALUES).map((value) =>
     mk(value.id, value.label),
   );
+  // The 3D looks and link styles are option sets of one field each, shaped
+  // like the renderers: the field's own children.
+  const nodeLookOptions = Object.values(GRAPH_NODE_LOOK_VALUES).map((value) =>
+    mk(value.id, value.label),
+  );
+  const linkStyleOptions = Object.values(GRAPH_LINK_STYLE_VALUES).map((value) =>
+    mk(value.id, value.label),
+  );
   const sourceKindOptions = GRAPH_SOURCE_KINDS.map((kind) =>
     mk(GRAPH_SOURCE_KIND_OPTION_IDS[kind], kind),
   );
@@ -287,6 +297,14 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     "lens.label-density",
     "text",
   );
+  const lensNodeLookField: KbNode = {
+    ...refField(SYSTEM_IDS.lensNodeLookField, "lens.node-look", undefined, one),
+    children: nodeLookOptions.map((option) => option.id),
+  };
+  const lensLinkStyleField: KbNode = {
+    ...refField(SYSTEM_IDS.lensLinkStyleField, "lens.link-style", undefined, one),
+    children: linkStyleOptions.map((option) => option.id),
+  };
   const graphPerspectiveTag = mk(SYSTEM_IDS.graphPerspectiveTag, "graph-perspective", {
     [SYSTEM_IDS.typeField]: [{ t: "ref", v: SYSTEM_IDS.tag }],
     [SYSTEM_IDS.fieldsField]: [
@@ -306,6 +324,8 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
       { t: "ref", v: SYSTEM_IDS.lensCurvedLinksField },
       { t: "ref", v: SYSTEM_IDS.lensAutorotateField },
       { t: "ref", v: SYSTEM_IDS.lensLabelDensityField },
+      { t: "ref", v: SYSTEM_IDS.lensNodeLookField },
+      { t: "ref", v: SYSTEM_IDS.lensLinkStyleField },
     ],
   });
   const lensAllMentions = mk(SYSTEM_IDS.lensAllMentions, "All mentions", {
@@ -421,6 +441,10 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     lensCurvedLinksField,
     lensAutorotateField,
     lensLabelDensityField,
+    lensNodeLookField,
+    ...nodeLookOptions,
+    lensLinkStyleField,
+    ...linkStyleOptions,
     graphPerspectiveTag,
     lensAllMentions,
     canvasField,

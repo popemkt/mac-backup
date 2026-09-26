@@ -4,8 +4,8 @@
  * whole graph is a single draw (Lab principle P3).
  *
  * Shading is the scene kit's key/fill/rim rig baked into the node material,
- * written once in `force3d-light` (`shadeNode`) and run here as TSL nodes
- * (L2, L5): a soft key from the upper left, a fill that keeps the dark side
+ * written once in `force3d-light` (`shadeNode`, in the perspective's look)
+ * and run here as TSL nodes (L2, L5); in the matte look: a soft key from the upper left, a fill that keeps the dark side
  * in the node's own colour, and a rim in the palette's ink that draws the
  * silhouette out of the ground. It stays inside the displayable range; only
  * glow (`force3d-emphasis`) lifts a node past 1, so only glowing nodes cross
@@ -30,7 +30,7 @@ import {
 import type { PaletteUniforms } from "@/scene/gpu/stage";
 import { toRenderableColor } from "@/lib/css-color";
 import { TIER, type Force3dFades, type Force3dTopology } from "./force3d-emphasis";
-import { KEY_DIRECTION, RIM_POWER, shadeNode } from "./force3d-light";
+import { KEY_DIRECTION, RIM_POWER, shadeNode, type NodeLook } from "./force3d-light";
 import { NODE_OPS } from "@/scene/gpu/tsl";
 
 /** World radius per cube root of a lens node's size. */
@@ -59,6 +59,7 @@ export function nodeLayer(
   topology: Force3dTopology,
   colors: PaletteUniforms,
   fades: Force3dFades,
+  nodeLook: NodeLook,
 ): NodeLayer {
   const n = Math.max(1, topology.nodes.length);
   const place = new InstancedBufferAttribute(new Float32Array(n * 4), 4);
@@ -74,16 +75,20 @@ export function nodeLayer(
   const normal = normalize(normalView);
   const key = normal.dot(vec3(...KEY_DIRECTION)).max(0);
   const rim = float(1).sub(normal.z.max(0)).pow(RIM_POWER);
-  material.colorNode = shadeNode(NODE_OPS, {
-    hue: vec3(hue),
-    ground: vec3(colors.ground),
-    ink: vec3(colors.ink),
-    key,
-    rim,
-    presence: emphasis.x.pow(2),
-    glow: emphasis.y,
-    lift: emphasis.z,
-  });
+  material.colorNode = shadeNode(
+    NODE_OPS,
+    {
+      hue: vec3(hue),
+      ground: vec3(colors.ground),
+      ink: vec3(colors.ink),
+      key,
+      rim,
+      presence: emphasis.x.pow(2),
+      glow: emphasis.y,
+      lift: emphasis.z,
+    },
+    nodeLook,
+  );
 
   const segments = topology.nodes.length > DENSE ? [12, 8] : [24, 16];
   const mesh = new InstancedMesh(new SphereGeometry(1, segments[0], segments[1]), material, n);

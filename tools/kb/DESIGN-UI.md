@@ -451,6 +451,20 @@ like themselves (P5).
   drawn only while something moves, the device pixel ratio is clamped to 2,
   a hidden tab draws nothing, and a renderer switch or unmount disposes the
   scene, its worker and its listeners (`force3d-graph.lifecycle.test.tsx`).
+- **Looks and link styles (3D)** are data: a perspective's `lens.node-look`
+  (matte, the default; cel — the key in flat bands under an ink outline;
+  fresnel — a quiet body under a bright grazing rim; glass — the ground
+  seen through a tinted body, with a tight glint) and `lens.link-style`
+  (lines; flow — dashes drifting source to target, one passing in the
+  ambient period, still under reduced motion) are option nodes, children of
+  their fields like the renderers, picked in the settings panel and
+  persisted as props. A look changes only the surface light: every look
+  runs through the one `shadeNode`, whose rest cap, glow and lift cap are
+  shared, so the bloom rule holds for each by construction, and
+  `force3d-light.test.ts` proves it over every look, colour and design
+  system. A look must grow with the key and depend on the view only
+  through the rim — what lets that proof find each sphere's brightest
+  fragment ring by ring.
 - **Reduced motion (M7)** everywhere: fades and flights cut, the 3D layout
   settles unseen and posts once, particles and the ambient turn stop, and
   the DOM renderers' transitions are flattened by the global rule.
