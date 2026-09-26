@@ -373,7 +373,11 @@ rather than by navigation.
   `hideEdgesOnMove`, label threshold 12 (from 7), label density 0.5 (from 0.8).
 - Cluster renderer: padded hulls with member-count labels, top-15 cluster cap,
   drag with live hull redraw, hull-click isolation. Tree renderer: pointer
-  pan/zoom plus Fit / Collapse-all / Expand-all.
+  pan/zoom plus Fit / Collapse-all / Expand-all. A tree opens two levels
+  deep (deeper branches start folded), each root's subtree runs left to
+  right, and a forest of many roots is packed into columns in root order,
+  as many as bring the packed shape nearest the frame's (`tree-layout.ts`),
+  so a hundred roots fill the frame instead of one sliver.
 
 #### Look and motion
 

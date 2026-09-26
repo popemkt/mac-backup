@@ -2,11 +2,11 @@
   "lanes": {
     "blocking": {
       "eslint/max-lines-per-function": 27,
-      "react/exhaustive-effect-dependencies": 12,
+      "react/exhaustive-effect-dependencies": 10,
       "react/globals": 1,
       "react/hooks": 4,
       "react/memo-dependencies": 2,
-      "react/refs": 18,
+      "react/refs": 15,
       "react/set-state-in-effect": 13
     },
     "advisory": {},

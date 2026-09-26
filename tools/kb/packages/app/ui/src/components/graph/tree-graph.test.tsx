@@ -81,7 +81,8 @@ it("keeps zoom and the clicked branch at the same screen position through collap
     };
   };
   const before = point();
-  for (const label of ["Collapse branch", "Expand branch"]) {
+  // A branch below the first level starts folded (tree-layout OPEN_DEPTH).
+  for (const label of ["Expand branch", "Collapse branch"]) {
     const toggle = present(container.querySelector('[aria-label="' + label + '"]'), label);
     act(() => {
       toggle.dispatchEvent(new dom.MouseEvent("click", { bubbles: true }) as unknown as MouseEvent);

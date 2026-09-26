@@ -1,9 +1,16 @@
 import type { Appearance } from "@/stores/prefs.store";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { hierarchy, tree as d3Tree } from "d3-hierarchy";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { LensTreeNode, LensEdge } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
-import { GRAPH_LABEL_WIDTH, graphLabelFont, wrapGraphLabel } from "@/lib/graph-label";
+import { graphLabelFont } from "@/lib/graph-label";
 import {
   graphEmphasisAlpha,
   graphFocus,
@@ -16,6 +23,7 @@ import {
   type TreeViewHandle,
 } from "./graph-camera-controls";
 import type { GraphSelection } from "./graph-selection";
+import { initiallyCollapsed, layoutForest } from "./tree-layout";
 
 interface TreeGraphProps extends GraphEmphasis {
   forest: LensTreeNode[];
@@ -24,15 +32,6 @@ interface TreeGraphProps extends GraphEmphasis {
   showLabels?: boolean;
   onSelectionChange?: (sel: GraphSelection | null) => void;
   onControlsReady?: (controls: GraphCameraControls | null) => void;
-}
-interface Datum {
-  id: string;
-  label: string;
-  color: string;
-  lines: string[];
-  width: number;
-  height: number;
-  children?: Datum[];
 }
 const EMPTY_EDGES: LensEdge[] = [];
 
@@ -63,7 +62,10 @@ export function TreeGraph({
   onSelectionChange,
   onControlsReady,
 }: TreeGraphProps) {
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => initiallyCollapsed(forest));
+  // The frame's shape decides how a many-rooted forest is packed; a coarse
+  // step, so a resize repacks only when the shape really changes.
+  const [aspect, setAspect] = useState(1.6);
   const [fontRevision, setFontRevision] = useState(0);
   useEffect(() => {
     let active = true;
@@ -82,45 +84,8 @@ export function TreeGraph({
     const ctx = document.createElement("canvas").getContext("2d");
     if (ctx) ctx.font = "11px " + graphLabelFont();
     const measure = (text: string) => (ctx ? ctx.measureText(text).width : text.length * 6.5);
-    const datum = (n: LensTreeNode): Datum => {
-      const lines = showLabels ? wrapGraphLabel(n.label, measure) : [];
-      return {
-        id: n.id,
-        label: n.label,
-        color: n.color,
-        lines,
-        width: Math.max(18, ...lines.map(measure)) + 18,
-        height: Math.max(16, lines.length * 15),
-        children: collapsed.has(n.id) ? undefined : n.children.map(datum),
-      };
-    };
-    const root = hierarchy<Datum>({
-      id: "__forest__",
-      label: "",
-      color: "transparent",
-      lines: [],
-      width: 0,
-      height: 0,
-      children: forest.map(datum),
-    });
-    const laid = d3Tree<Datum>()
-      .nodeSize([1, GRAPH_LABEL_WIDTH + 56])
-      .separation((a, b) => (a.data.height + b.data.height) / 2 + 18)(root);
-    const nodes = laid.descendants().filter((n) => n.data.id !== "__forest__");
-    const links = laid.links().filter((l) => l.source.data.id !== "__forest__");
-    const minX = nodes.length ? Math.min(...nodes.map((n) => n.y - 24)) : 0;
-    const maxX = Math.max(100, ...nodes.map((n) => n.y + n.data.width));
-    const minY = nodes.length ? Math.min(...nodes.map((n) => n.x - n.data.height / 2)) : 0;
-    const maxY = Math.max(100, ...nodes.map((n) => n.x + n.data.height / 2));
-    return {
-      nodes,
-      links,
-      originX: minX - 20,
-      originY: minY - 20,
-      width: maxX - minX + 40,
-      height: maxY - minY + 40,
-    };
-  }, [forest, collapsed, showLabels, fontRevision, appearance]);
+    return layoutForest(forest, collapsed, { show: showLabels, measure }, aspect);
+  }, [forest, collapsed, showLabels, fontRevision, appearance, aspect]);
   const containerRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState({ zoom: 1, x: 0, y: 0 });
   // A drag follows the pointer exactly; every other camera move eases.
@@ -157,8 +122,7 @@ export function TreeGraph({
       y: 64 + (height - layout.height * zoom) / 2,
     });
   }, [layout]);
-  const fitRef = useRef(fit);
-  fitRef.current = fit;
+  const refit = useEffectEvent(() => fit());
   useLayoutEffect(() => {
     const anchor = collapseAnchor.current;
     collapseAnchor.current = null;
@@ -177,7 +141,8 @@ export function TreeGraph({
     let width = el.clientWidth,
       height = el.clientHeight;
     const observer = new ResizeObserver(() => {
-      if (!cameraIntent.current) fitRef.current();
+      if (el.clientHeight > 0) setAspect(Math.round((el.clientWidth / el.clientHeight) * 4) / 4);
+      if (!cameraIntent.current) refit();
       else
         setView((v) => ({
           ...v,
@@ -250,33 +215,35 @@ export function TreeGraph({
     visit(forest);
     changeCollapsed(ids);
   };
-  const handle = useRef<TreeViewHandle | null>(null);
-  handle.current = {
-    fit: () => {
-      cameraIntent.current = false;
-      fit();
-    },
-    reset: () => {
-      cameraIntent.current = false;
-      fit();
-    },
-    zoomIn: () => {
-      cameraIntent.current = true;
-      setView((v) => ({ ...v, zoom: Math.min(3, v.zoom * 1.25) }));
-    },
-    zoomOut: () => {
-      cameraIntent.current = true;
-      setView((v) => ({ ...v, zoom: Math.max(0.02, v.zoom / 1.25) }));
-    },
-    focusNode: focus,
-    expandAll,
-    collapseAll,
-  };
-  const ready = useRef(onControlsReady);
-  ready.current = onControlsReady;
+  const handle = useEffectEvent(
+    (): TreeViewHandle => ({
+      fit: () => {
+        cameraIntent.current = false;
+        fit();
+      },
+      reset: () => {
+        cameraIntent.current = false;
+        fit();
+      },
+      zoomIn: () => {
+        cameraIntent.current = true;
+        setView((v) => ({ ...v, zoom: Math.min(3, v.zoom * 1.25) }));
+      },
+      zoomOut: () => {
+        cameraIntent.current = true;
+        setView((v) => ({ ...v, zoom: Math.max(0.02, v.zoom / 1.25) }));
+      },
+      focusNode: focus,
+      expandAll,
+      collapseAll,
+    }),
+  );
+  const ready = useEffectEvent((controls: GraphCameraControls | null) =>
+    onControlsReady?.(controls),
+  );
   useEffect(() => {
-    ready.current?.(treeCameraControls(() => handle.current));
-    return () => ready.current?.(null);
+    ready(treeCameraControls(() => handle()));
+    return () => ready(null);
   }, []);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const focusId = graphFocus(selectedNodeId, hoveredId);
