@@ -31,17 +31,17 @@ export const LAYER_ALLOWS: Record<string, readonly string[]> = {
   domain: ["domain"],
   contract: ["domain", "contract"],
   infrastructure: ["domain", "contract"],
-  application: ["domain", "contract", "application"],
+  application: ["domain", "contract"],
   extension: ["domain", "contract", "application", "extension"],
   app: ["domain", "contract", "infrastructure", "application", "extension", "app"],
-  "test-support": ["domain", "contract", "application", "extension", "app", "test-support"],
+  "test-support": ["domain", "app"],
 };
 
 export const SCOPE_ALLOWS: Record<string, readonly string[]> = {
   shared: ["shared"],
   backend: ["shared", "backend"],
-  browser: ["shared", "browser"],
-  "test-support": ["shared", "backend", "test-support"],
+  browser: ["shared"],
+  "test-support": ["shared", "backend"],
 };
 
 /** Both axes of one package: where it sits, and the runtime it must survive. */
@@ -293,6 +293,7 @@ export function uiZoneOf(file: string): UiZone {
  *   `layer:app` in {@link LAYER_ALLOWS}: a composition root wires the layers
  *   together and is imported by nothing.
  */
+// GAP [[01M3F8EJSWHS38PMSSQ2BVN8DG]]
 export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   shell: [
     "shell",

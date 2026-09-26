@@ -74,6 +74,12 @@ mechanism ahead of that contract. A package has one `scope:*` tag, never a
 per-entry scope. Extension packages can import another extension package's
 public barrel when their scope permits it. Third-party `.kb/extensions` use
 the generated ambient `kb-ext-sdk` declaration, not workspace package imports.
+The layer and scope matrices admit only directions used by package imports;
+an empty compatibility edge is not a contract. `app` is the composition
+root, while `test-support` reaches only the domain and app surfaces its
+render harness actually drives. The UI's intra-package matrix is a separate
+zone contract; unused zone edges await the R1 view-point work rather than
+changing the surface imports under that branch.
 
 Nothing in the harness reads the Nx project graph. It supplied the tags, and
 its dependency edges were measured to be manifest-derived only; the workspace

@@ -261,3 +261,60 @@ describe("import-graph bypasses", () => {
     },
   );
 });
+
+describe("package matrix rejects denied directions", () => {
+  test.each([
+    ["layer", "domain", "app", "shared", "backend"],
+    ["layer", "contract", "app", "shared", "backend"],
+    ["layer", "infrastructure", "app", "backend", "backend"],
+    ["layer", "application", "infrastructure", "shared", "backend"],
+    ["layer", "extension", "infrastructure", "backend", "backend"],
+    ["layer", "app", "test-support", "backend", "test-support"],
+    ["layer", "test-support", "infrastructure", "test-support", "backend"],
+    ["layer", "application", "application", "shared", "shared"],
+    ["layer", "test-support", "contract", "test-support", "shared"],
+    ["layer", "test-support", "application", "test-support", "shared"],
+    ["layer", "test-support", "extension", "test-support", "backend"],
+    ["layer", "test-support", "test-support", "test-support", "shared"],
+    ["scope", "app", "app", "browser", "browser"],
+    ["scope", "app", "app", "test-support", "test-support"],
+    ["scope", "app", "app", "shared", "backend"],
+    ["scope", "app", "app", "backend", "browser"],
+    ["scope", "app", "app", "browser", "backend"],
+    ["scope", "app", "app", "test-support", "browser"],
+  ] as const)(
+    "%s rejects %s -> %s (%s -> %s)",
+    (axis, sourceLayer, targetLayer, sourceScope, targetScope) => {
+      const root = fixtureWorkspace([
+        {
+          dir: `${sourceLayer}/consumer`,
+          name: "@kb/consumer",
+          scope: sourceScope,
+          files: { "src/index.ts": 'import "@kb/provider";\n' },
+        },
+        {
+          dir: `${targetLayer}/provider`,
+          name: "@kb/provider",
+          scope: targetScope,
+          files: { "src/index.ts": "export const provider = 1;\n" },
+        },
+      ]);
+      const [edge] = importEdges(root);
+      expect(edge).toEqual({
+        source: "@kb/consumer",
+        target: "@kb/provider",
+        file: "src/index.ts",
+      });
+      expect(
+        matrixViolation(
+          packageAxes(workspacePackages(root)),
+          edge?.source ?? "",
+          edge?.target ?? "",
+          axis,
+        ),
+      ).toBe(
+        `@kb/consumer (${axis}:${axis === "layer" ? sourceLayer : sourceScope}) -> @kb/provider (${axis}:${axis === "layer" ? targetLayer : targetScope})`,
+      );
+    },
+  );
+});

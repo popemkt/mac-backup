@@ -531,6 +531,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1XF05FV87AR22B4SAS0A2BK`
 
+### GAP: UI_ALLOWS permits unused zone directions
+
+- **expected** — Each cross-zone permission corresponds to a production import or a deliberate composition-root capability, and each removed permission has a red import fixture.
+- **current** — UI_ALLOWS retains unused zone edges, especially shell and catalog allowances; the R1 view-point work changes the UI graph in parallel.
+- **impact** — A new accidental cross-zone import can pass without a reviewed architectural decision.
+- **closes** — After R1 settles, inventory the production UI import graph, remove unused permissions without touching the view-keys zone concurrently, and add a red fixture per removed edge.
+- **node** — `01M3F8EJSWHS38PMSSQ2BVN8DG`
+
 ### GAP: WebGPU-only render specs skip where Chromium has no WebGPU adapter
 
 - **expected** — Every render spec runs on every lane that gates, so the Embers study, and the WebGPU backend of the scene kit, are proven in CI as well as locally.
