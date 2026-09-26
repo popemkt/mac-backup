@@ -3,7 +3,7 @@
 **Context for agent on `personal`:** User is on `popemkt-work` trying to pair Android Termux (Tailscale) → Orca on `work` via `ws://popemkt-work.taild98079.ts.net:6768`. Pairing to `personal` works, to `work` never works — even `http://popemkt-work.taild98079.ts.net:6768/` is empty on `work` itself.
 
 **Current tailnet policy (pushed):**
-- `tag:home-server` → approves `svc:cognee` + `svc:adhoc` (personal only)
+- `tag:home-server` → approves `svc:cognee` + `svc:kb` + `svc:adhoc` (personal only)
 - `tag:orca-host` → `tcp:6768` for Orca Mobile (both `work` + `personal` have it — verified via `tailscale status --json`)
 - Wildcard `* → *` still live, so not a firewall issue.
 

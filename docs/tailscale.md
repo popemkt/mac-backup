@@ -87,20 +87,24 @@ apply fails, Tailscale keeps the previous live policy; inspect it with
 
 ## Services And Direct Ports
 
-The personal host publishes two HTTPS Service identities. Their tagged host is
+The personal host publishes three HTTPS Service identities. Their tagged host is
 automatically approved by policy, but creating each Service identity the first
 time remains a Tailscale control-plane operation.
 
 | Service | Tailnet URL | Loopback target | Purpose |
 |---|---|---|---|
 | `svc:cognee` | `https://cognee.<tailnet-domain>` | `127.0.0.1:8088` | Cognee UI and API gateway |
-| `svc:adhoc` | `https://adhoc.<tailnet-domain>` | `127.0.0.1:9000` | Temporary HTTP apps |
+| `svc:kb` | `https://kb.<tailnet-domain>` | `127.0.0.1:9000` | Home kb UI |
+| `svc:adhoc` | `https://adhoc.<tailnet-domain>` | `127.0.0.1:9001` | Temporary HTTP apps |
 
-The ad hoc endpoint does not keep an application running and does not add
-application authentication. Start any temporary HTTP server on
-`127.0.0.1:9000`; Tailscale terminates HTTPS and makes it available to allowed
-tailnet members at the stable URL. Stop the server and the endpoint has no
-backend. Binding the temporary app to loopback keeps port 9000 off the LAN.
+The kb endpoint does not keep the UI running or add application authentication.
+Start `kb ui --port 9000 --no-open` from the home graph checkout, and Tailscale
+terminates HTTPS for allowed tailnet members. The loopback listener keeps port
+9000 off the LAN.
+
+The ad hoc endpoint is independent of kb. Start any temporary HTTP server on
+`127.0.0.1:9001`; Tailscale serves it at the ad hoc HTTPS name for allowed
+tailnet members. It has no backend while that port is unused.
 
 ### First Tailnet Or Replacement Host
 
@@ -109,7 +113,7 @@ The remaining manual control-plane steps are:
 1. Sign the machine into Tailscale from the menu bar. Device identity and node
    keys must never be committed.
 2. For a new tailnet, open **Services** in the Tailscale console and create
-   `svc:cognee` and `svc:adhoc` once.
+   `svc:cognee`, `svc:kb`, and `svc:adhoc` once.
 3. Apply the tracked policy through the GitHub workflow so that
    `tag:home-server`, its owner, grants, and the Service auto-approver exist.
    Service auto-approvers are resolved against existing Service identities, so
@@ -118,9 +122,10 @@ The remaining manual control-plane steps are:
 4. Open **Machines**, select the home server (`popemkt-personal`), edit its tags, and assign
    `tag:home-server`.
 5. Rebuild the host. The `tailscale-services` launchd job advertises
-   `svc:cognee` and `svc:adhoc`; policy automatically approves the tagged host.
+   `svc:cognee`, `svc:kb`, and `svc:adhoc`; policy automatically approves the tagged host.
 6. Confirm `tailscale status --json` reports the tag, `services/cognee`, and
-   `services/adhoc`; then test both HTTPS origins from another tailnet device.
+   `services/kb`, and `services/adhoc`; then test the active HTTPS origins from
+   another tailnet device.
 
 For a replacement host in the same tailnet, the Service and policy already
 exist; repeat steps 1, 4, 5, and 6.
@@ -192,6 +197,7 @@ already covers them:
 |---|---|
 | Phones/tablet to either Mac, `tcp:6768` (Orca Mobile) | yes |
 | `popemkt-work` to `svc:cognee`, `tcp:443` | yes |
+| Any member to `svc:kb`, `tcp:443` | yes |
 | Any member to `svc:adhoc`, `tcp:443` | yes |
 | Member to own node, SSH | yes, `ssh` block |
 | `ControlCe` on `*:5000` and `*:7000` (AirPlay) | no — LAN feature, expected to be denied |
@@ -219,6 +225,7 @@ new configuration path:
 | Tailnet account and membership | Tailscale | Admin console **Users** |
 | `tag:home-server` assignment | Tailscale machine record | **Machines > Edit tags** |
 | `tag:orca-host` assignment | Tailscale machine record | **Machines > Edit tags** |
+| `svc:kb` identity | Tailscale | Admin console **Services** |
 | `svc:adhoc` identity | Tailscale | Admin console **Services** |
 | GitHub OIDC trust credential | Tailscale | **Settings > Trust credentials** |
 | Enrollment values | GitHub Actions secrets | `gh secret list --repo popemkt/mac-backup` |

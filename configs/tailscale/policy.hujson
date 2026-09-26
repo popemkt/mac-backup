@@ -24,8 +24,14 @@
       "ip": ["tcp:443"],
     },
 
-    // Tailnet members can reach whichever temporary HTTP app the personal
-    // host is currently running on the reserved ad hoc port.
+    // Tailnet members can reach the home knowledge base over HTTPS.
+    {
+      "src": ["autogroup:member"],
+      "dst": ["svc:kb"],
+      "ip": ["tcp:443"],
+    },
+
+    // Tailnet members can reach a temporary app on the reserved ad hoc port.
     {
       "src": ["autogroup:member"],
       "dst": ["svc:adhoc"],
@@ -44,6 +50,7 @@
   // A tagged home server can approve itself as a host for the service.
   "autoApprovers": {
     "services": {
+      "svc:kb": ["tag:home-server"],
       "svc:adhoc": ["tag:home-server"],
       "svc:cognee": ["tag:home-server"],
     },

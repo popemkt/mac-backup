@@ -226,7 +226,7 @@ tailnet must also authorize the Service:
    Tailscale Service hosts must be tagged nodes
 3. enroll the Tailscale GitOps workflow described in
    [tailscale.md](./tailscale.md); the tracked policy owns the Service grant and
-   configures `tag:home-server` as an auto-approver for `svc:cognee` and `svc:adhoc`
+   configures `tag:home-server` as an auto-approver for `svc:cognee`, `svc:kb`, and `svc:adhoc`
 Application login remains required even for clients allowed by Tailscale.
 Grant the work device or user access to `svc:cognee`; it does not host or
 advertise a Tailscale Service itself.

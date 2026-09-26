@@ -17,10 +17,10 @@ _:
     office-docs.enable = true;
     vpn = {
       enable = true;
-      # Stable tailnet entry point for temporary HTTP apps. Start an app on
-      # 127.0.0.1:9000 and it becomes available at
-      # https://adhoc.<tailnet-domain>; no listener is kept alive by Nix.
-      services.adhoc.target = "http://127.0.0.1:9000";
+      # The home kb UI listens on loopback; Tailscale provides its HTTPS name.
+      services.kb.target = "http://127.0.0.1:9000";
+      # Keep a separate endpoint available for temporary HTTP apps.
+      services.adhoc.target = "http://127.0.0.1:9001";
       services.cognee.target = "http://127.0.0.1:8088";
     };
   };
