@@ -11,7 +11,9 @@
 # bump there wants a human decision.
 #
 # Exit codes: 0 pins current (or update applied), 10 updates available
-# (check only), 1 could not run.
+# (check only), 1 could not run. Two cases exit 0 without meaning current: a
+# check whose only newer releases are held (track="manual") pins prints them
+# and exits 0, and --best-effort turns could not run into a warning and 0.
 # GAP [[01M3E9VSQZTDHRV4C9YRWD1QV1]] github-sources uses 20 for could not
 # resolve, and no shared test holds the two tools to one contract.
 
