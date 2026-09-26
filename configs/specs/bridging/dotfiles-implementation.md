@@ -25,10 +25,10 @@ Operator procedure lives in `../../README.md`.
 | Bun global packages | macOS home-manager | `modules/darwin/home-manager/bun-global.nix` |
 | uv tool installs | home-manager activation | owning behavior modules, e.g. `modules/stacks/ai-agents/cognee/server.nix` |
 | Direct release packages | nvfetcher + local Nix packages | `nvfetcher.toml`, `_sources/`, `pkgs/` |
-| External enrollment + readiness | Nix + Python (`uv2nix`) | `modules/darwin/system/system-setup.nix`, `tools/system-setup/` |
+| External enrollment + readiness | Nix + Python (`uv2nix`) | `modules/darwin/system/system-setup/default.nix`, `tools/system-setup/` |
 | macOS-only shell helpers + rebuild | home-manager | `modules/darwin/home-manager/default.nix` |
 | External workspace + data symlinks | nix-darwin + home-manager | `modules/darwin/system/external-workspace.nix` |
-| Private app exposure | Tailscale Services + nix-darwin | `modules/darwin/system/tailscale-services.nix` + `hosts/<hostname>/default.nix` |
+| Private app exposure | Tailscale Services + nix-darwin | `modules/stacks/vpn/tailscale-services.nix` + `hosts/<hostname>/default.nix` |
 | Central Cognee server/client split | nix-darwin + uv + Tailscale | `modules/stacks/ai-agents/cognee/server.nix`, `cognee/client.nix`, host declarations |
 | GUI app configs | Mackup → iCloud | `modules/darwin/home-manager/mackup.nix` → `home.file.".mackup.cfg"` |
 | Raw configs (specs, Archon) | git-tracked files | `configs/` |
@@ -56,7 +56,8 @@ requiring root since nix-darwin ≥ 2025. See `dotfiles-system.md`.
 
 | Functional need | Nix package | File |
 |---|---|---|
-| Version control | `git`, `gh` | `modules/common/home-manager/packages.nix` |
+| Version control | `git` via `programs.git` | `modules/common/home-manager/git.nix` |
+| GitHub CLI | `gh` | `modules/common/home-manager/packages.nix` |
 | File listing | `eza` | `modules/common/home-manager/packages.nix` |
 | File viewing | `bat` | `modules/common/home-manager/packages.nix` |
 | Python env manager | `uv` | `modules/common/home-manager/packages.nix` |
@@ -66,7 +67,7 @@ requiring root since nix-darwin ≥ 2025. See `dotfiles-system.md`.
 | Git TUI | `lazygit` | `modules/common/home-manager/packages.nix` |
 | Config sync | `mackup` | `modules/darwin/home-manager/mackup.nix` |
 | Rust toolchain | `rustc`, `cargo` | `modules/common/home-manager/packages.nix` |
-| OAuth API proxy | `cli-proxy-api` | `pkgs/cli-proxy-api`, `modules/darwin/system/cli-proxy-api.nix` |
+| OAuth API proxy | `cli-proxy-api` | `pkgs/cli-proxy-api`, `modules/stacks/ai-agents/cli-proxy-api.nix` |
 | Cursor terminal agent | `cursor-cli` pinned official archive | `pkgs/cursor-cli`, `modules/common/home-manager/packages.nix` |
 | Token-optimized shell output | `rtk` via Homebrew + current Claude hook | `modules/stacks/ai-agents/rtk.nix` |
 | External setup operator | `system-setup` hermetic Python 3.13 environment | `pkgs/system-setup`, `tools/system-setup/` |
@@ -88,7 +89,7 @@ requiring root since nix-darwin ≥ 2025. See `dotfiles-system.md`.
 | npmg helper | shell function | `modules/common/home-manager/shell.nix` → `initContent` |
 | sysaudit alias | calls `scripts/audit-system-discrepancies.sh` | `modules/common/home-manager/shell.nix` |
 | dump-login-items alias | calls `scripts/dump-login-items.sh` | `modules/common/home-manager/shell.nix` |
-| rebuild helper | best-effort release check, pinned `darwin-rebuild`, then drift audit | `modules/darwin/home-manager/default.nix` |
+| rebuild helper | `darwin-rebuild switch`, then read-only checks (drift audit) | `scripts/rebuild`, wrapped in `modules/darwin/home-manager/default.nix` |
 
 ---
 
@@ -96,19 +97,17 @@ requiring root since nix-darwin ≥ 2025. See `dotfiles-system.md`.
 
 | Functional need | Package | File |
 |---|---|---|
-| Declared npm globals | `npmGlobalPackages` list | `modules/common/home-manager/npm-global.nix` |
-| npm install/upgrade | home-manager activation `installNpmGlobals` | `modules/common/home-manager/npm-global.nix` |
-| Declared Bun globals | `bunGlobalPackages` list | `modules/darwin/home-manager/bun-global.nix` |
-| Bun install/upgrade | home-manager activation `installBunGlobals` | `modules/darwin/home-manager/bun-global.nix` |
+| Declared npm globals | `my.pkgs.npmGlobals` channel plus the executor's base list | `modules/common/home-manager/npm-global.nix` |
+| npm install of missing globals | home-manager activation `installNpmGlobals` | `modules/common/home-manager/npm-global.nix` |
+| Declared Bun globals | `my.pkgs.bunGlobals` channel | `modules/darwin/home-manager/bun-global.nix` |
+| Bun install of missing globals | home-manager activation `installBunGlobals` | `modules/darwin/home-manager/bun-global.nix` |
 
-Current tracked packages: `@earendil-works/pi-coding-agent`, `@fission-ai/openspec`,
-`@openai/codex`, `cline`, `gitnexus`, `portless`.
+The tracked packages are whatever stacks contribute to `my.pkgs.npmGlobals`
+and `my.pkgs.bunGlobals` (for example `modules/stacks/ai-agents/default.nix`),
+plus the npm executor's base list in `modules/common/home-manager/npm-global.nix`.
 
-Current tracked Bun package: `@oh-my-pi/pi-coding-agent`.
-
-Rebuild installs missing declarations and upgrades existing npm/Bun globals to
-the latest registry version. An unavailable registry warns and preserves an
-already-installed version; a missing package still fails activation.
+When globals are installed versus upgraded is described in
+[`docs/github-release-packages.md` → Rebuild And Update Behavior](../../../docs/github-release-packages.md#rebuild-and-update-behavior).
 
 Known gap: `@tobilu/qmd`, `ccmanager`, `kanban`, `sudocode`, `yarn` installed
 but not declared.
@@ -137,15 +136,15 @@ they live in their own repos and can't be restored from a version string.
 
 | Functional need | Implementation | File |
 |---|---|---|
-| CLIProxyAPI daemon | `launchd.user.agents.cli-proxy-api` | `modules/darwin/system/cli-proxy-api.nix` |
-| CLIProxyAPI endpoint | loopback-only `127.0.0.1:8317` | `modules/darwin/system/cli-proxy-api.nix` |
+| CLIProxyAPI daemon | `launchd.user.agents.cli-proxy-api` | `modules/stacks/ai-agents/cli-proxy-api.nix` |
+| CLIProxyAPI endpoint | loopback-only `127.0.0.1:8317` | `modules/stacks/ai-agents/cli-proxy-api.nix` |
 | CLIProxyAPI local trust boundary | no API key; all processes able to reach loopback are trusted | explicit single-user workstation policy |
 | CLIProxyAPI auth state | mutable `~/.local/share/cli-proxy-api` | secure backup or provider re-login |
 | CLIProxyAPI restart policy | retry unsuccessful exits, throttled to 30 seconds | `KeepAlive.SuccessfulExit = false` |
-| CLIProxyAPI logs | `~/Library/Logs/cli-proxy-api.{out,err}.log` | `modules/darwin/system/cli-proxy-api.nix` |
+| CLIProxyAPI logs | `~/Library/Logs/cli-proxy-api.{out,err}.log` | `modules/stacks/ai-agents/cli-proxy-api.nix` |
 | `claudex` command | Zsh function with process-scoped Sol and CLIProxyAPI environment | `modules/darwin/home-manager/default.nix` |
-| Setup manifest | generated `/etc/system-setup/integrations.json`; Pydantic-validated at runtime | `modules/darwin/system/system-setup.nix` |
-| Tailscale Service reconciliation | root launchd daemon after Tailscale is online | `modules/darwin/system/tailscale-services.nix` |
+| Setup manifest | generated `/etc/system-setup/integrations.json`; Pydantic-validated at runtime | `modules/darwin/system/system-setup/default.nix` |
+| Tailscale Service reconciliation | root launchd daemon after Tailscale is online | `modules/stacks/vpn/tailscale-services.nix` |
 | Tailscale Service declarations | typed `my.stacks.vpn.services` host inventory | `modules/stacks/vpn/default.nix`, `hosts/<hostname>/default.nix` |
 | Cognee server | API/UI/databases/models and loopback gateway on `popemkt-personal` | `modules/stacks/ai-agents/cognee/server.nix` |
 | Cognee remote client | pinned loopback MCP bridge plus agent enrollment/configuration | `modules/stacks/ai-agents/cognee/client.nix` |
@@ -159,7 +158,7 @@ they live in their own repos and can't be restored from a version string.
 | Functional need | Implementation | File |
 |---|---|---|
 | Stable service identity | attribute name becomes `svc:<name>` | host `my.stacks.vpn.services` declaration |
-| HTTPS and TailVIP endpoint | generated `tailscale serve --service` invocation | `modules/darwin/system/tailscale-services.nix` |
+| HTTPS and TailVIP endpoint | generated `tailscale serve --service` invocation | `modules/stacks/vpn/tailscale-services.nix` |
 | Local app isolation | target must resolve to `127.0.0.1` or `localhost` | module assertion |
 | Removed-service cleanup | root-owned managed-service inventory under `/var/db` | module launchd implementation |
 | Network authorization | Tailscale grant targeting `svc:<name>` | tailnet policy |

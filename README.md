@@ -68,9 +68,10 @@ Sign into iCloud first and wait for Mackup folder to sync, then:
 mackup restore
 ```
 
-Restores: AltTab, Karabiner-Elements, Zed, VS Code, Warp, Telegram, Claude Code,
-Snapzy preferences, KB media (`~/.dotfiles/.kb/assets`, via the `kb` app), and
-macOS keyboard shortcuts.
+Restores every app in the allowlist, `applications_to_sync` in
+`modules/darwin/home-manager/mackup.nix`. That includes kb media
+(`~/.dotfiles/.kb/assets`, via the `kb` app), which is backed up rather than
+committed; see `docs/backup-strategy.md`.
 
 ### 4. External enrollment and remaining manual steps
 
@@ -98,7 +99,7 @@ have an operational readiness check.
 | **App sign-ins** | Claude, Discord, Warp, Lens — manual |
 | **CuaDriver (TryCUA)** | Install: `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/trycua/cua/main/libs/cua-driver/scripts/install.sh)"` → `cua-driver permissions grant` |
 | **Tinycast** | Preferences and MCP server bindings (`cua-driver mcp --experimental-pip`) synced via Mackup |
-| **/stuff workspace** | Attach `/Volumes/Data` external drive, or update `modules/darwin/system/external-workspace.nix` and `modules/darwin/system/hermes.nix` |
+| **/stuff workspace** | Attach `/Volumes/Data` external drive, or update `modules/darwin/system/external-workspace.nix` and `modules/stacks/ai-agents/hermes.nix` |
 
 #### Hermes agent (optional)
 
@@ -222,7 +223,7 @@ users. These Home Manager modules are imported only for the configured user.
 | **nvfetcher + `pkgs/`** | pinned direct release packages | `nvfetcher.toml` + `_sources/` |
 | **Tailscale** | app, MagicDNS domain, private services, and access policy | `modules/stacks/vpn/`, host declarations, and `configs/tailscale/policy.hujson` |
 | **Cognee** | pinned service version, launchd jobs, routing, and non-secret configuration | `modules/stacks/ai-agents/cognee/server.nix` |
-| **system-setup** | declared external requirements, dependency ordering, enrollment guidance, readiness checks | `modules/darwin/system/system-setup.nix` |
+| **system-setup** | declared external requirements, dependency ordering, enrollment guidance, readiness checks | `modules/darwin/system/system-setup/default.nix` |
 | **`configs/`** | Raycast / Vorssaint exports | manual import on new machine |
 | **Manual** | SSH keys, credentials, Hermes plist, editable uv tools | — |
 

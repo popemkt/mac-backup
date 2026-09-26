@@ -4,16 +4,14 @@
 
 ### "error: attribute 'darwinConfigurations' missing"
 
-**Cause:** Hostname in `flake.nix` doesn't match your Mac's hostname.
+**Cause:** No `darwinConfigurations.<hostname>` entry in `flake.nix` matches
+your Mac's hostname (`hostname -s`).
 
-**Fix:**
-```bash
-# Find your hostname
-hostname -s
-
-# Edit flake.nix and update:
-hostname = "your-actual-hostname";
-```
+**Fix:** Either pass the host explicitly
+(`--flake ~/.dotfiles#<hostname>`), or add a host for this machine as described
+in [README.md → Adding Another Machine](../README.md#adding-another-machine).
+To rename an existing machine, see the rename note under Architecture in
+[AGENTS.md](../AGENTS.md#architecture).
 
 ### "command not found: darwin-rebuild"
 

@@ -22,10 +22,10 @@ still declared and surfaced by `system-setup`.
 | Homebrew config | nix-darwin | Homebrew taps, brews, casks, MAS apps | `modules/darwin/system/homebrew.nix` |
 | User environment | home-manager | CLI tools, shell, git, neovim, starship, npm/Bun globals | `modules/common/home-manager/` + `modules/darwin/home-manager/` |
 | Direct release packages | nvfetcher + Nix | upstream versions, assets, and hashes | `nvfetcher.toml` + `_sources/` + `pkgs/` |
-| Behavior modules | nix-darwin + home-manager | Headroom, CLIProxyAPI, Hermes, external workspace, input sources | `modules/darwin/system/` |
-| External enrollment | Nix-built Python application | OAuth, device identity, SaaS approvals, generated keys, readiness | `modules/darwin/system/system-setup.nix` |
-| Private service exposure | Tailscale Services + nix-darwin | stable service identities, TailVIP endpoints, HTTPS termination | `modules/darwin/system/tailscale-services.nix` + host declarations |
-| GUI app configs | Mackup → iCloud | Karabiner, Zed, VS Code, Warp, AltTab, Telegram, Claude Code, macOS shortcuts | `~/.mackup.cfg` allowlist |
+| Behavior modules | nix-darwin + home-manager | Headroom, CLIProxyAPI, Hermes, external workspace, input sources | `modules/stacks/ai-agents/` (AI daemons) + `modules/darwin/system/` |
+| External enrollment | Nix-built Python application | OAuth, device identity, SaaS approvals, generated keys, readiness | `modules/darwin/system/system-setup/default.nix` |
+| Private service exposure | Tailscale Services + nix-darwin | stable service identities, TailVIP endpoints, HTTPS termination | `modules/stacks/vpn/tailscale-services.nix` + host declarations |
+| GUI app configs | Mackup → iCloud | portable app preferences and kb media | `applications_to_sync` in `modules/darwin/home-manager/mackup.nix` |
 | Raw configs | `configs/` | Raycast export, login items snapshot, specs, Archon workflows | manual import on restore |
 | Manual | — | SSH keys, standalone app sign-ins, Hermes plist, editable uv tools | per-restore checklist |
 
@@ -149,19 +149,11 @@ invocations are prefixed with `sudo`. The `rebuild` shell function in
 
 ## Managed App Config Allowlist
 
-Apps in Mackup sync (`.mackup.cfg`):
-
-| App | Why tracked |
-|---|---|
-| alt-tab | window switcher layout + shortcuts |
-| karabiner-elements | keyboard remapping rules |
-| warp | terminal themes, keybindings, workflows |
-| zed | editor settings, keybindings, extensions |
-| vscode | settings, keybindings, snippets |
-| telegram_macos | account-independent UI prefs |
-| claude-code | settings.json (MCP servers, hooks, preferences) |
-| kb | opaque media dir `.kb/assets` (gitignored; copied to iCloud by `mackup backup`, never committed) |
-| macosx | global keyboard shortcuts |
+The apps in Mackup sync are `applications_to_sync` in
+`modules/darwin/home-manager/mackup.nix`; custom app definitions and the reason
+for each live next to it in that file. The `kb` entry covers the opaque media
+dir `.kb/assets`, which is gitignored and copied to iCloud by `mackup backup`,
+never committed.
 
 Deliberately excluded: anything storing credentials or tokens.
 

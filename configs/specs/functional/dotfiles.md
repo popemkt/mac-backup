@@ -39,15 +39,15 @@ in version control and minimises what must be done manually.
   service state cannot move without an operator decision.
 - `rebuild` reports external setup readiness without initiating enrollment or
   failing merely because an operator action remains.
-- `rebuild` upgrades Homebrew packages and every declared npm/Bun global to
-  its latest registry release; transient upgrades preserve the installed
-  version rather than blocking activation.
+- `rebuild` only converges declared state: it installs what is missing and
+  runs the drift audit, and never upgrades. Upgrades are an explicit
+  `update-system` then `apply-system-update` step; see
+  [`docs/github-release-packages.md` → Rebuild And Update Behavior](../../../docs/github-release-packages.md#rebuild-and-update-behavior).
 
 ## GUI App Settings Sync
 
-- App settings for Karabiner, Zed, VS Code, Warp, AltTab, Telegram, Claude
-  Code, Snapzy, Tinycast (MCP server bindings/CUA), and macOS keyboard shortcuts
-  are synced to iCloud via Mackup.
+- Portable app settings are synced to iCloud via Mackup. The allowlist is
+  `applications_to_sync` in `modules/darwin/home-manager/mackup.nix`.
 - Raycast remains a deliberate export/import workflow through
   `configs/raycast.rayconfig`; its live plist and encrypted databases mix
   portable preferences with device, permission, account, and runtime state.
@@ -136,8 +136,8 @@ in version control and minimises what must be done manually.
   and `system-setup verify` fails until every required integration is ready.
 - On `popemkt-work`, `cognee-client-enroll` provisions the per-machine key and
   `cognee-client-status` verifies the central API and local MCP bridge.
-- After `mackup restore`, Karabiner rules, Zed settings, VS Code settings,
-  Warp config, AltTab layout, and Snapzy preferences match the source machine.
+- After `mackup restore`, the synced settings of every app in the Mackup
+  allowlist match the source machine.
 
 ### Daily change
 

@@ -165,7 +165,8 @@ Verification and drift:
 - `scripts/check-kb-assets-backup.sh check` proves the directory is covered
   (the Mackup declaration, `.gitignore`, and this doc are all in place) and
   that every `assets/…` reference in committed `.kb/nodes.jsonl` resolves
-  under `.kb/assets/`. It runs on every commit via `.githooks/pre-commit`.
+  under `.kb/assets/`. `.githooks/pre-commit` runs it on any commit whose
+  staged paths touch its inputs (`assets_inputs` in that hook).
 - `scripts/check-kb-assets-backup.sh status` reports local vs iCloud state; it
   is part of `scripts/audit-system-discrepancies.sh`. It warns when local media
   is missing from storage (run `mackup backup`) or storage is not restored

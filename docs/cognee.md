@@ -1,6 +1,6 @@
 # Cognee Service
 
-Cognee 1.4.0 runs as an authenticated private service on the personal Mac.
+Cognee runs as an authenticated private service on the personal Mac.
 The machine configuration owns the deployed version, process supervision,
 loopback routing, local model dependencies, and Tailscale exposure. Cognee's
 databases and credentials remain mutable state and must be backed up separately.
@@ -37,8 +37,9 @@ Apply the machine configuration:
 rebuild
 ```
 
-The first activation installs `cognee[ollama]==1.4.0` and
-`cognee-mcp==0.5.4` in one uv tool environment and generates credentials.
+The first activation installs `cognee[ollama]` and `cognee-mcp`, at the
+versions pinned in `_sources/uv-pins.json`, in one uv tool environment and
+generates credentials.
 launchd then:
 
 1. starts Cognee's isolated Ollama instance and pulls `nomic-embed-text:latest`
@@ -82,7 +83,7 @@ Restart active agent sessions afterward.
 
 `popemkt-personal` is the sole Cognee server. It owns the API, UI, databases,
 graph processing, embeddings, model calls, and backups. Other Macs do not run
-another Cognee database or model stack. They run only `cognee-mcp==0.5.4` as a
+another Cognee database or model stack. They run only `cognee-mcp` as a
 loopback protocol bridge and point their lifecycle plugins at the central HTTPS
 origin.
 
@@ -152,16 +153,9 @@ complete Cursor, OMP, or Hermes conversation timeline.
 TODO: add thin, local lifecycle adapters for Cursor CLI, Oh My Pi, and Hermes
 that mirror the behavior of Cognee's Codex and Claude Code plugins. All three
 clients expose the events needed to do this without relying on the model to
-remember to call an MCP tool:
+remember to call an MCP tool.
 
-- Cursor: `sessionStart`, `beforeSubmitPrompt`, `postToolUse`,
-  `postToolUseFailure`, `afterAgentResponse`, and `sessionEnd` hooks
-- Oh My Pi: `session_start`, `before_agent_start`, `tool_execution_end`,
-  `message_end`, and `session_shutdown` extension events
-- Hermes: `on_session_start`, `pre_llm_call`, `post_tool_call`,
-  `post_llm_call`, and `on_session_finalize` shell hooks
-
-The detailed event mapping, shared protocol, repository layout, delivery
+The per-agent event mapping, shared protocol, repository layout, delivery
 phases, and upstream sources are recorded in
 [cognee-agent-hooks.md](./cognee-agent-hooks.md).
 
@@ -189,8 +183,8 @@ the lifecycle plugins capture. Choosing a dataset does not disable Sessions.
 
 MCP tools accept their dataset on each call (`dataset_name` for writes and
 `datasets` for recall/search); the MCP protocol has no client-wide dataset
-setting in `cognee-mcp==0.5.4`. On the work machine, MCP-only agents should pass
-`work`. A separate work user remains the reliable authorization boundary if an
+setting (observed in cognee-mcp 0.5.4). On the work machine, MCP-only agents
+should pass `work`. A separate work user remains the reliable authorization boundary if an
 agent supplies another dataset name.
 
 One unauthenticated but loopback-only MCP process listens at:
@@ -211,12 +205,13 @@ $HERMES_HOME/config.yaml
 ```
 
 The live Integrations page currently emits `COGNEE_BASE_URL` in MCP snippets,
-but `cognee-mcp==0.5.4` reads `COGNEE_SERVICE_URL`. It also cannot recover a
-self-hosted API key because the 1.4.0 frontend key helper returns an empty
-value. `cognee-agent-setup` handles both self-hosting differences.
+but `cognee-mcp` reads `COGNEE_SERVICE_URL` (observed in 0.5.4). It also
+cannot recover a self-hosted API key because the frontend key helper returns an
+empty value (observed in Cognee 1.4.0). `cognee-agent-setup` handles both
+self-hosting differences.
 
-Known upstream limitation: in `cognee-mcp==0.5.4` serve mode, administrative
-tools such as `list_data` and dataset deletion still take a local-database code
+Known upstream limitation, observed in cognee-mcp 0.5.4: in serve mode,
+administrative tools such as `list_data` and dataset deletion still take a local-database code
 path. Use the Cognee UI or authenticated API for dataset administration. The
 remote `remember`, `recall`, `search`, and session-memory routes use the shared
 self-hosted service.

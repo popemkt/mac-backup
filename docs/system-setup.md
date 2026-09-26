@@ -37,6 +37,7 @@ a Cognee prerequisite.
 | Integration schema and manifest renderer | `modules/darwin/system/system-setup/default.nix` |
 | AI connective tissue | `modules/stacks/ai-agents/system-setup.nix` |
 | VPN connective tissue | `modules/stacks/vpn/system-setup.nix` |
+| Browser extension checkouts | `modules/stacks/browsers/system-setup.nix` |
 | Generated host manifest | `/etc/system-setup/integrations.json` |
 | OAuth tokens, API keys, device keys | Provider-owned mutable state |
 | Tailscale Service creation and host approval | Tailscale control plane |
