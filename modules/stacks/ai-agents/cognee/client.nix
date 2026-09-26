@@ -7,8 +7,7 @@
 
 let
   aiCfg = config.my.stacks.ai-agents;
-  cogneeCfg = aiCfg.cognee;
-  cfg = cogneeCfg.client;
+  cfg = aiCfg.cognee.client;
   inherit (config.my) hostname username;
 
   home = "/Users/${username}";
@@ -299,10 +298,6 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
   my.pkgs = { inherit uvTools; };
 
   assertions = [
-    {
-      assertion = !cogneeCfg.server.enable;
-      message = "Cognee server and remote client roles cannot both be enabled on one host.";
-    }
     {
       assertion = config.my.stacks.vpn.enable;
       message = "The Cognee client requires my.stacks.vpn.enable = true.";
