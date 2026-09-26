@@ -189,9 +189,11 @@ export function lazyDepths(
 }
 
 /**
- * Each eager import of a {@link UI_LAZY_ONLY} specifier from a file some path
- * reaches across fewer than {@link UI_LAZY_DEPTH} dynamic imports, printed as
- * that path (`=>` marks a lazy edge).
+ * Each import of a {@link UI_LAZY_ONLY} specifier that some path from the
+ * entry reaches across fewer than {@link UI_LAZY_DEPTH} dynamic imports,
+ * printed as that path (`=>` marks a lazy edge). A lazy `import("three")` is
+ * itself one crossing, so the entry chunk may not issue it either; a
+ * type-only import loads nothing.
  */
 export function lazyFenceBreaches(
   sites: readonly UiImportSite[],
@@ -200,10 +202,11 @@ export function lazyFenceBreaches(
   const depths = lazyDepths(sites, entry);
   const out: string[] = [];
   for (const site of sites) {
-    if (site.kind !== "eager" || !UI_LAZY_ONLY.test(site.specifier)) continue;
+    if (site.kind === "type" || !UI_LAZY_ONLY.test(site.specifier)) continue;
     const reached = depths.get(site.file);
-    if (reached === undefined || reached.depth >= UI_LAZY_DEPTH) continue;
-    out.push(`${reached.chain.join(" ")} -> ${site.specifier}`);
+    const lazy = site.kind === "lazy";
+    if (reached === undefined || reached.depth + (lazy ? 1 : 0) >= UI_LAZY_DEPTH) continue;
+    out.push(`${reached.chain.join(" ")} ${lazy ? "=>" : "->"} ${site.specifier}`);
   }
   return out.toSorted();
 }

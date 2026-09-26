@@ -88,6 +88,19 @@ describe("ui-lazy-fence", () => {
       `main.tsx => ${graphPage} -> ${host} -> three/webgpu`,
     ]);
 
+    // A lazy import("three") is one crossing: from the entry chunk it is
+    // still in reach of every visit; from a route chunk it is its own chunk.
+    const lazyInEntry = [
+      site(entry, "@/lib/a", "eager", "lib/a.ts"),
+      site("lib/a.ts", "three", "lazy"),
+    ];
+    expect(lazyFenceBreaches(lazyInEntry, entry)).toEqual(["main.tsx -> lib/a.ts => three"]);
+    const lazyInRoute = [
+      site(entry, "@/components/graph/graph-page", "lazy", graphPage),
+      site(graphPage, "three", "lazy"),
+    ];
+    expect(lazyFenceBreaches(lazyInRoute, entry)).toEqual([]);
+
     const fenced = [
       site(entry, "@/components/graph/graph-page", "lazy", graphPage),
       site(graphPage, "./force3d-graph", "lazy", host),
@@ -98,16 +111,28 @@ describe("ui-lazy-fence", () => {
     expect(lazyFenceBreaches(fenced, entry)).toEqual([]);
   });
 
-  test("require() and import = require() are eager imports the fence sees", () => {
+  test("require() and import = require() are eager imports the fence sees, in source order", () => {
+    // The order is what ui-imports pairs with source lines: a require read
+    // off the program sits where it is written, not after the module record.
     const source = [
       'const three = require("three");',
+      'import type { Color } from "three";',
+      "const tagged = require(`three/webgpu`);",
       'import webgpu = require("three/webgpu");',
       'import type Types = require("three/addons");',
+      'const later = import("three/examples");',
+      "const tick = import(`three/tsl`);",
+      "const dynamic = require(`three/${name}`);",
+      "const dynamicLazy = import(`three/${name}`);",
     ].join("\n");
     expect(importsOf("probe.ts", source)).toEqual([
       { specifier: "three", kind: "eager" },
+      { specifier: "three", kind: "type" },
+      { specifier: "three/webgpu", kind: "eager" },
       { specifier: "three/webgpu", kind: "eager" },
       { specifier: "three/addons", kind: "type" },
+      { specifier: "three/examples", kind: "lazy" },
+      { specifier: "three/tsl", kind: "lazy" },
     ]);
   });
 });

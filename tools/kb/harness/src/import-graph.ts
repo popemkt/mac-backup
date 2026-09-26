@@ -32,8 +32,8 @@ const SKIP_DIRS = new Set(["node_modules", "dist", "storybook-static", ".nx"]);
  */
 const SOURCE_EXT = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"];
 
-/** A dynamic `import()` argument that is a plain quoted string. */
-const QUOTED = /^(['"])(.*)\1$/s;
+/** A dynamic `import()` argument that is a plain string: quoted, or in backticks. */
+const QUOTED = /^(['"`])(.*)\1$/s;
 
 /** One import statement: the package it sits in, the raw specifier, the file. */
 export interface ImportSite {
@@ -101,29 +101,53 @@ export interface ImportRecord {
   kind: ImportKind;
 }
 
-/** Every import of one file (see {@link specifiersOf}), with how it loads. */
+/** An import with where it sits, so the records can be put in source order. */
+type Located = ImportRecord & { start: number };
+
+/**
+ * Every import of one file (see {@link specifiersOf}), with how it loads, in
+ * source order. Order is part of the answer: a reader pairs the nth import of
+ * a specifier with the nth line that names it (ui-imports' GAP markers), so
+ * the records the module record carries and the ones read off the program
+ * are merged by offset, never appended.
+ */
 export function importsOf(file: string, source: string): ImportRecord[] {
   const parsed = parseSync(file, source);
   if (parsed.errors.length > 0) {
     throw new Error(`${file}: ${parsed.errors.map((e) => e.message).join("; ")}`);
   }
-  const out: ImportRecord[] = [];
+  const out: Located[] = [];
   for (const entry of parsed.module.staticImports) {
     const typeOnly = entry.entries.length > 0 && entry.entries.every((name) => name.isType);
-    out.push({ specifier: entry.moduleRequest.value, kind: typeOnly ? "type" : "eager" });
+    out.push({
+      specifier: entry.moduleRequest.value,
+      kind: typeOnly ? "type" : "eager",
+      start: entry.moduleRequest.start,
+    });
   }
   for (const statement of parsed.module.staticExports) {
     for (const entry of statement.entries) {
       if (entry.moduleRequest === null) continue;
-      out.push({ specifier: entry.moduleRequest.value, kind: entry.isType ? "type" : "eager" });
+      out.push({
+        specifier: entry.moduleRequest.value,
+        kind: entry.isType ? "type" : "eager",
+        start: entry.moduleRequest.start,
+      });
     }
   }
   for (const entry of parsed.module.dynamicImports) {
     const literal = QUOTED.exec(source.slice(entry.moduleRequest.start, entry.moduleRequest.end));
-    if (literal?.[2] !== undefined) out.push({ specifier: literal[2], kind: "lazy" });
+    // A template with a substitution names no one module.
+    if (literal?.[2] !== undefined && !(literal[1] === "`" && literal[2].includes("${"))) {
+      out.push({ specifier: literal[2], kind: "lazy", start: entry.moduleRequest.start });
+    }
   }
   out.push(...commonJsImports(parsed.program));
-  return out;
+  // One `export { a, b } from "x"` carries an entry per name at one offset;
+  // a stable sort keeps them together, as the module record lists them.
+  return out
+    .toSorted((a, b) => a.start - b.start)
+    .map(({ specifier, kind }) => ({ specifier, kind }));
 }
 
 type AstNode = { type?: unknown } & Record<string, unknown>;
@@ -132,9 +156,23 @@ function isAstNode(value: unknown): value is AstNode {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** A string the parser can read without running anything: `"x"`, `'x'`, or `x` in backticks with no substitution. */
 function stringLiteral(node: unknown): string | undefined {
-  if (!isAstNode(node) || node.type !== "Literal") return undefined;
-  return typeof node["value"] === "string" ? node["value"] : undefined;
+  if (!isAstNode(node)) return undefined;
+  if (node.type === "Literal") return typeof node["value"] === "string" ? node["value"] : undefined;
+  if (node.type !== "TemplateLiteral") return undefined;
+  const expressions = node["expressions"];
+  const quasis = node["quasis"];
+  if (!Array.isArray(expressions) || expressions.length > 0) return undefined;
+  if (!Array.isArray(quasis) || quasis.length !== 1) return undefined;
+  const [quasi] = quasis;
+  const value = isAstNode(quasi) ? quasi["value"] : undefined;
+  const cooked = isAstNode(value) ? value["cooked"] : undefined;
+  return typeof cooked === "string" ? cooked : undefined;
+}
+
+function startOf(node: AstNode): number {
+  return typeof node["start"] === "number" ? node["start"] : 0;
 }
 
 /**
@@ -142,8 +180,8 @@ function stringLiteral(node: unknown): string | undefined {
  * the importing module, like a static import. An `import type x =
  * require("x")` is erased.
  */
-function commonJsImports(program: unknown): ImportRecord[] {
-  const out: ImportRecord[] = [];
+function commonJsImports(program: unknown): Located[] {
+  const out: Located[] = [];
   const visit = (value: unknown): void => {
     if (Array.isArray(value)) {
       for (const item of value) visit(item);
@@ -155,14 +193,18 @@ function commonJsImports(program: unknown): ImportRecord[] {
       const [first] = Array.isArray(value["arguments"]) ? value["arguments"] : [];
       const specifier = stringLiteral(first);
       if (isAstNode(callee) && callee["name"] === "require" && specifier !== undefined) {
-        out.push({ specifier, kind: "eager" });
+        out.push({ specifier, kind: "eager", start: startOf(value) });
       }
     }
     if (value.type === "TSImportEqualsDeclaration") {
       const reference = value["moduleReference"];
       const specifier = isAstNode(reference) ? stringLiteral(reference["expression"]) : undefined;
       if (specifier !== undefined) {
-        out.push({ specifier, kind: value["importKind"] === "type" ? "type" : "eager" });
+        out.push({
+          specifier,
+          kind: value["importKind"] === "type" ? "type" : "eager",
+          start: startOf(value),
+        });
       }
     }
     for (const [key, child] of Object.entries(value)) {
