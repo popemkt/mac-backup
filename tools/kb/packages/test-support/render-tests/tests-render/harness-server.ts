@@ -1,14 +1,13 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
+import { createServer } from "node:net";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-
-const DEFAULT_HARNESS_PORT = 4323;
 
 /**
  * The UI every harness instance serves: a Vite `test-render` build, the only
  * mode in which the renderers expose their internals (`__kbSigma`,
- * `__kbForceGraph`) to a spec. It is the harness's own output, never
+ * `__kbForce3d`) to a spec. It is the harness's own output, never
  * `ui/dist`, so a spec cannot pass or fail on whichever production build — or
  * no build at all — happens to be lying there.
  */
@@ -42,19 +41,33 @@ async function stop(server: ChildProcess): Promise<void> {
   await once(server, "exit");
 }
 
+/** A port nothing is bound to right now, as the OS hands it out. */
+async function freePort(): Promise<number> {
+  const probe = createServer();
+  probe.listen(0, "127.0.0.1");
+  await once(probe, "listening");
+  const address = probe.address();
+  probe.close();
+  await once(probe, "close");
+  if (address === null || typeof address === "string") throw new Error("no free port");
+  return address.port;
+}
+
 /**
- * Spawn a harness UI over a throwaway copy of .kb.
+ * Spawn a harness UI over a fresh fixture store (`server.ts`).
  *
- * Any spec that writes needs its own instance. The store lives on the server
- * and persists for that server's lifetime, so one spec switching a renderer or
- * promoting a node changes what a later spec counts — which is exactly how a
- * passing spec makes an unrelated one fail. Ports are per-spec for isolation,
- * not for parallelism.
+ * Every test gets its own instance, through the `harness` fixture in
+ * `harness-test.ts`. The store lives on the server for that server's
+ * lifetime, so a test that switches a renderer or promotes a node would
+ * otherwise change what a later test counts — which is exactly how a passing
+ * test makes an unrelated one fail. A store opens in about 300 ms, so
+ * isolation is cheaper than any reset a test could get wrong.
  */
-export async function startHarness(port = DEFAULT_HARNESS_PORT): Promise<{
+export async function startHarness(): Promise<{
   url: string;
   stop: () => Promise<void>;
 }> {
+  const port = await freePort();
   // The port travels as an argument. The served UI travels through the
   // server's own override, `KB_UI_DIST` (packages/app/server/src/paths.ts):
   // this process runs under Node, so it cannot import that Bun module to

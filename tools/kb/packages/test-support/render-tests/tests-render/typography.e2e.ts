@@ -8,8 +8,8 @@
 // silently inherited the 16px body size while field labels hard-coded 14.5px,
 // which is the mismatch the owner could see. A source-text assertion cannot
 // catch that class of bug; only a real engine computing real styles can.
-import { expect, test } from "playwright/test";
 import { present } from "@kb/model";
+import { expect, test } from "./harness-test.ts";
 
 /** --type-body × --kb-text-leading, resolved. */
 const TEXT_SIZE = 14.5;

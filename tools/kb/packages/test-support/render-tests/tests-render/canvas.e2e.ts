@@ -1,21 +1,12 @@
 import { present } from "@kb/model";
-import { expect, test } from "playwright/test";
-import { startHarness } from "./harness-server";
-
-let harness: Awaited<ReturnType<typeof startHarness>>;
-test.beforeAll(async () => {
-  harness = await startHarness(4328);
-});
-test.afterAll(async () => {
-  await harness.stop();
-});
+import { expect, test } from "./harness-test.ts";
 
 test("reference cards have usable handles and connection preview follows the cursor through zoom", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const canvasId = "render.canvas.polish";
-  const response = await request.post(`${harness.url}/api/action`, {
+  const response = await request.post("/api/action", {
     data: {
       id: "node.add",
       input: {
@@ -67,7 +58,7 @@ test("reference cards have usable handles and connection preview follows the cur
     },
   });
   expect((await response.json()).status).toBe("succeeded");
-  await page.goto(`${harness.url}/canvas/${canvasId}`);
+  await page.goto(`/canvas/${canvasId}`);
   const viewport = page.locator("[data-canvas-viewport]");
   await expect(viewport).toBeVisible();
   const reference = page.locator('[data-card-id="reference"] .group\\/card');
@@ -106,7 +97,7 @@ test("reference cards have usable handles and connection preview follows the cur
   });
   expect(end.x).toBeCloseTo(810, 0);
   expect(end.y).toBeCloseTo(510, 0);
-  await page.screenshot({ path: "/tmp/kb-canvas-polish.png" });
+  await page.screenshot({ path: testInfo.outputPath("canvas-polish.png") });
   await page.keyboard.press("Escape");
   await page.mouse.up();
   await expect(preview).toHaveCount(0);

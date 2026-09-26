@@ -1,7 +1,6 @@
-import { buildHarnessUi, startHarness } from "./harness-server.ts";
+import { buildHarnessUi } from "./harness-server.ts";
 
-export default async function globalSetup() {
+/** One UI build per suite; each test starts its own server over it (`harness-test.ts`). */
+export default function globalSetup() {
   buildHarnessUi();
-  const { stop } = await startHarness();
-  return stop;
 }

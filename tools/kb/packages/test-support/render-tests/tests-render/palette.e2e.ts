@@ -4,32 +4,14 @@
 // dead graph toolbar is that a command can render, read correctly, and pass
 // every unit assertion while its effect never lands — so the only assertion
 // worth making about a new gesture is that invoking it changed the document.
-import { expect, test, type Page } from "playwright/test";
-import { startHarness } from "./harness-server.ts";
+import type { Page } from "playwright/test";
+import { expect, test } from "./harness-test.ts";
 
 // The fixture leaves sit collapsed under this root, so these two are the rows
-// reliably on screen at "/". They are deliberately different nodes: the store
-// persists across tests in a run, and promoting a node removes it from the
-// outline forest.
+// reliably on screen at "/". Every test writes to its own store (the
+// `harness` fixture), so no promotion here can reach another test.
 const ROOT = "render.fixture.root";
 const PERSPECTIVE = "lens.all-mentions";
-
-/**
- * These specs write, so they get their own store. Sharing the default one made
- * the graph specs — which count fixture nodes — fail because a node promoted
- * here is no longer in the forest there.
- */
-let harness: { url: string; stop: () => Promise<void> };
-
-test.beforeAll(async () => {
-  harness = await startHarness(4324);
-});
-
-test.afterAll(async () => {
-  await harness.stop();
-});
-
-const home = () => `${harness.url}/`;
 
 async function openPaletteOn(page: Page, nodeId: string) {
   await page.locator(`[data-node-id="${nodeId}"] .node-content`).first().click();
@@ -48,7 +30,7 @@ async function runCommand(page: Page, nodeId: string, label: string) {
 }
 
 test("Make supertag promotes the node and takes the user to its schema", async ({ page }) => {
-  await page.goto(home());
+  await page.goto("/");
   await expect(page.locator(`[data-node-id="${ROOT}"]`).first()).toBeVisible();
   // Not schema yet: no field-template editor anywhere.
   await expect(page.locator("[data-tag-fields-config]")).toHaveCount(0);
@@ -63,12 +45,12 @@ test("Make supertag promotes the node and takes the user to its schema", async (
   // And this is why the gesture navigates rather than just writing: a tag node
   // is schema, so forestRootIds stops listing it. Without the zoom the row
   // would simply vanish from the outline with no feedback at all.
-  await page.goto(home());
+  await page.goto("/");
   await expect(page.locator(`[data-node-id="${ROOT}"]`)).toHaveCount(0);
 });
 
 test("Add field names a new field and gives the node an editable row for it", async ({ page }) => {
-  await page.goto(home());
+  await page.goto("/");
   await expect(page.locator(`[data-node-id="${PERSPECTIVE}"]`).first()).toBeVisible();
 
   await runCommand(page, PERSPECTIVE, "Add field");
@@ -104,9 +86,7 @@ test("Add field names a new field and gives the node an editable row for it", as
   );
   await page.keyboard.press("Enter");
   await confirmed;
-  const head = (
-    (await (await page.request.get(`${harness.url}/api/graph`)).json()) as { rev: number }
-  ).rev;
+  const head = ((await (await page.request.get("/api/graph")).json()) as { rev: number }).rev;
   await expect
     .poll(() => page.evaluate(() => Number(document.documentElement.dataset.kbRev ?? -1)))
     .toBeGreaterThanOrEqual(head);
@@ -127,7 +107,7 @@ test("global search finds nodes on a freshly loaded store", async ({ page }) => 
   // its rev is 0 — the exact condition under which the palette used to cache an
   // empty index (built before hydration) and never rebuild, leaving ⌘K matching
   // nothing at all until the first edit.
-  await page.goto(home());
+  await page.goto("/");
   await expect(page.locator(`[data-node-id="${PERSPECTIVE}"]`).first()).toBeVisible();
 
   await page.keyboard.press("ControlOrMeta+k");

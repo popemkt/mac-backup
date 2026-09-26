@@ -1,23 +1,21 @@
-import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { Effect } from "effect";
-import { isSysPrefixed } from "@kb/model";
+import { systemSeedNodes } from "@kb/model";
 import { startUi } from "@kb/server";
-import { renderFixtureNodes } from "./fixture.ts";
+import { FIXTURE_TIMESTAMP, renderFixtureNodes } from "./fixture.ts";
 
-const repoRoot = resolve(import.meta.dir, "../../../../../..");
+/*
+ * The store a spec sees is the system seed plus the render fixture, and
+ * nothing else. It is built from `systemSeedNodes()` rather than copied from
+ * the working tree's `.kb`, so what a spec counts cannot move when someone
+ * adds a node to the repo's knowledge base.
+ */
 const scratchRoot = await mkdtemp(join(tmpdir(), "kb-render-harness-"));
-const sourceKb = join(repoRoot, ".kb");
 const scratchKb = join(scratchRoot, ".kb");
-
-await cp(sourceKb, scratchKb, { recursive: true });
-const sourceNodes = (await readFile(join(scratchKb, "nodes.jsonl"), "utf8"))
-  .trim()
-  .split("\n")
-  .map((line) => JSON.parse(line) as { id: string });
-const systemNodes = sourceNodes.filter((node) => isSysPrefixed(node.id));
-const fixtureNodes = [...systemNodes, ...renderFixtureNodes()];
+await mkdir(scratchKb);
+const fixtureNodes = [...systemSeedNodes(FIXTURE_TIMESTAMP), ...renderFixtureNodes()];
 await writeFile(
   join(scratchKb, "nodes.jsonl"),
   `${fixtureNodes.map((node) => JSON.stringify(node)).join("\n")}\n`,

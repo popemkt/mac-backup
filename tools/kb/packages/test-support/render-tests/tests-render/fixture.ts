@@ -1,4 +1,4 @@
-import { isSysPrefixed, systemSeedNodes } from "@kb/model";
+import { graphRendererId, isSysPrefixed, systemSeedNodes } from "@kb/model";
 
 const LEAF_IDS = Array.from({ length: 28 }, (_, index) => `render.fixture.node.${index + 1}`);
 const ROOT_ID = "render.fixture.root";
@@ -33,7 +33,8 @@ export interface FixtureNode {
   updatedAt: string;
 }
 
-const TIMESTAMP = "2026-08-24T00:00:00.000Z";
+/** Every fixture and seed node is stamped with this, so the store is the same on every run. */
+export const FIXTURE_TIMESTAMP = "2026-08-24T00:00:00.000Z";
 
 function node(
   id: string,
@@ -47,8 +48,8 @@ function node(
     children,
     order: id,
     props,
-    createdAt: TIMESTAMP,
-    updatedAt: TIMESTAMP,
+    createdAt: FIXTURE_TIMESTAMP,
+    updatedAt: FIXTURE_TIMESTAMP,
   };
 }
 
@@ -71,7 +72,7 @@ export function renderFixtureNodes(): FixtureNode[] {
     // default perspective beside this fixture.
     node(PERSPECTIVE_ID, "Render fixture", [], {
       "sys.f.type": [{ t: "ref", v: "sys.tag.graph-perspective" }],
-      "sys.f.lens.renderer": [{ t: "str", v: "force2d" }],
+      "sys.f.lens.renderer": [{ t: "ref", v: graphRendererId("force2d") }],
       "sys.f.lens.edge-kinds": [
         { t: "str", v: "mention" },
         { t: "str", v: "child" },
