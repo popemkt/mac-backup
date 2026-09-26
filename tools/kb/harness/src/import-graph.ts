@@ -76,9 +76,11 @@ export function* sourceFilesUnder(dir: string): Generator<string> {
  * matched by accident of that word. `oxc-parser`'s module record answers the
  * question directly: static imports, side-effect ones included; every
  * `export … from` specifier; and dynamic `import()` where the argument is a
- * literal. `require()` is absent from that record and does not need to be —
- * the workspace is ESM and no source calls it. Comments cannot produce an
- * entry either, so nothing strips them any more.
+ * literal. The module record does not carry the CommonJS forms —
+ * `require("x")` and TypeScript's `import x = require("x")` — so
+ * {@link importsOf} reads those off the parsed program; no source uses them
+ * today, and a fence that could not see them would pass on them. Comments
+ * cannot produce an entry, so nothing strips them any more.
  */
 export function specifiersOf(file: string, source: string): string[] {
   return importsOf(file, source).map((entry) => entry.specifier);
@@ -120,6 +122,54 @@ export function importsOf(file: string, source: string): ImportRecord[] {
     const literal = QUOTED.exec(source.slice(entry.moduleRequest.start, entry.moduleRequest.end));
     if (literal?.[2] !== undefined) out.push({ specifier: literal[2], kind: "lazy" });
   }
+  out.push(...commonJsImports(parsed.program));
+  return out;
+}
+
+type AstNode = { type?: unknown } & Record<string, unknown>;
+
+function isAstNode(value: unknown): value is AstNode {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stringLiteral(node: unknown): string | undefined {
+  if (!isAstNode(node) || node.type !== "Literal") return undefined;
+  return typeof node["value"] === "string" ? node["value"] : undefined;
+}
+
+/**
+ * `require("x")` and `import x = require("x")`, which load their target with
+ * the importing module, like a static import. An `import type x =
+ * require("x")` is erased.
+ */
+function commonJsImports(program: unknown): ImportRecord[] {
+  const out: ImportRecord[] = [];
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+      return;
+    }
+    if (!isAstNode(value)) return;
+    if (value.type === "CallExpression") {
+      const callee = value["callee"];
+      const [first] = Array.isArray(value["arguments"]) ? value["arguments"] : [];
+      const specifier = stringLiteral(first);
+      if (isAstNode(callee) && callee["name"] === "require" && specifier !== undefined) {
+        out.push({ specifier, kind: "eager" });
+      }
+    }
+    if (value.type === "TSImportEqualsDeclaration") {
+      const reference = value["moduleReference"];
+      const specifier = isAstNode(reference) ? stringLiteral(reference["expression"]) : undefined;
+      if (specifier !== undefined) {
+        out.push({ specifier, kind: value["importKind"] === "type" ? "type" : "eager" });
+      }
+    }
+    for (const [key, child] of Object.entries(value)) {
+      if (key !== "type" && typeof child === "object") visit(child);
+    }
+  };
+  visit(program);
   return out;
 }
 

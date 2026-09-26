@@ -625,9 +625,10 @@ drifting domain-warped haze, heat shimmer — never a flat fill), `entrance`
 study chooses; already arrived under reduced motion), `seeded` (the one
 seeded random a study scatters from), `scene-host` and `info-card` (the
 React side).
-`three` reaches the page only through a dynamic `import()`: each study's
-scene and the 3D graph are their own lazy chunks, and nothing the entry
-loads eagerly imports three, directly or through `scene/gpu/`. That is one
+`three` loads only in a chunk of its own: each study's scene and the 3D
+graph sit behind a dynamic `import()` inside their surface's own lazy route
+chunk, so every path from the entry to a three import, direct or through
+`scene/gpu/`, crosses two of them. That is one
 rule over the import graph (`UI_LAZY_ONLY` in `harness/src/constraints.ts`,
 applied by the harness's `ui-lazy-fence` check), so no surface lists which of
 its files may import three.

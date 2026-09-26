@@ -359,17 +359,26 @@ export const UI_SPECIFIER_ALLOWS: Record<string, readonly UiZone[]> = {
 export const UI_ENTRY = "main.tsx";
 
 /**
- * The lazy-chunk fence: specifiers the always-loaded bundle never reaches
- * except through a dynamic `import()`. three is the whole real-time 3D stack
- * (the scene kit's GPU modules are three by another name, and are caught
- * through the three they import), and only a view that draws 3D — a lab
- * study's scene, the 3D graph — may load it, in its own chunk.
+ * The lazy-chunk fence: specifiers the page loads only inside a chunk of
+ * their own. three is the whole real-time 3D stack (the scene kit's GPU
+ * modules are three by another name, and are caught through the three they
+ * import), and only a view that draws 3D — a lab study's scene, the 3D graph
+ * — may load it.
+ *
+ * Its own chunk means {@link UI_LAZY_DEPTH} dynamic `import()`s on every path
+ * from the entry: the entry chunk loads on every visit, and a surface's
+ * route chunk on every visit to that surface, so three sits behind one more
+ * lazy boundary inside the surface — the 3D host, a study's `load()`. A
+ * static three import in the graph page is as much a breach as one in the
+ * entry.
  *
  * One rule over the import graph, so no surface lists which of its files may
- * import three: whatever a lazy boundary stands in front of may, and nothing
- * the page loads eagerly may. `ui-lazy-fence.test.ts` applies it.
+ * import three. `ui-lazy-fence.test.ts` applies it.
  */
 export const UI_LAZY_ONLY = /^three(?:\/|$)/;
+
+/** Dynamic imports every path from {@link UI_ENTRY} to a {@link UI_LAZY_ONLY} import crosses. */
+export const UI_LAZY_DEPTH = 2;
 
 /**
  * Test files answer to {@link UI_SPECIFIER_ALLOWS} but not to

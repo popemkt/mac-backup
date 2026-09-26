@@ -13,6 +13,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import {
   UI_ALLOWS,
   UI_ENTRY,
+  UI_LAZY_DEPTH,
   UI_LAZY_ONLY,
   UI_SPECIFIER_ALLOWS,
   UI_SRC,
@@ -152,46 +153,57 @@ export function uiViolations(): Array<UiImportSite & { violation: string }> {
 }
 
 /**
- * Every file the UI loads with {@link UI_ENTRY}, each with the chain of eager
- * imports that pulls it in: the always-loaded bundle, read off the import
- * graph. A lazy `import()` or a type-only import ends a chain.
+ * The fewest dynamic imports any path from `entry` crosses to reach each
+ * file, with the path that does it (`a => b` for a lazy edge). Type-only
+ * edges load nothing and are not paths.
  */
-export function eagerClosure(
+export function lazyDepths(
   sites: readonly UiImportSite[],
   entry: string = UI_ENTRY,
-): Map<string, readonly string[]> {
-  const eager = new Map<string, string[]>();
+): Map<string, { depth: number; chain: readonly string[] }> {
+  const edges = new Map<string, Array<{ to: string; lazy: boolean }>>();
   for (const site of sites) {
-    if (site.kind !== "eager" || site.target === undefined) continue;
-    eager.set(site.file, [...(eager.get(site.file) ?? []), site.target]);
+    if (site.kind === "type" || site.target === undefined) continue;
+    const from = edges.get(site.file) ?? [];
+    from.push({ to: site.target, lazy: site.kind === "lazy" });
+    edges.set(site.file, from);
   }
-  const reached = new Map<string, readonly string[]>([[entry, [entry]]]);
+  // 0-1 breadth-first: an eager edge costs nothing, a lazy one costs one.
+  const best = new Map<string, { depth: number; chain: readonly string[] }>([
+    [entry, { depth: 0, chain: [entry] }],
+  ]);
   const queue = [entry];
   for (let file = queue.shift(); file !== undefined; file = queue.shift()) {
-    const chain = reached.get(file) ?? [file];
-    for (const next of eager.get(file) ?? []) {
-      if (reached.has(next)) continue;
-      reached.set(next, [...chain, next]);
-      queue.push(next);
+    const here = best.get(file);
+    if (here === undefined) continue;
+    for (const { to, lazy } of edges.get(file) ?? []) {
+      const depth = here.depth + (lazy ? 1 : 0);
+      const known = best.get(to);
+      if (known !== undefined && known.depth <= depth) continue;
+      best.set(to, { depth, chain: [...here.chain, `${lazy ? "=>" : "->"} ${to}`] });
+      if (lazy) queue.push(to);
+      else queue.unshift(to);
     }
   }
-  return reached;
+  return best;
 }
 
 /**
- * Each eager import of a {@link UI_LAZY_ONLY} specifier from inside the
- * always-loaded bundle, as `chain -> specifier`.
+ * Each eager import of a {@link UI_LAZY_ONLY} specifier from a file some path
+ * reaches across fewer than {@link UI_LAZY_DEPTH} dynamic imports, printed as
+ * that path (`=>` marks a lazy edge).
  */
 export function lazyFenceBreaches(
   sites: readonly UiImportSite[],
   entry: string = UI_ENTRY,
 ): string[] {
-  const closure = eagerClosure(sites, entry);
+  const depths = lazyDepths(sites, entry);
   const out: string[] = [];
   for (const site of sites) {
     if (site.kind !== "eager" || !UI_LAZY_ONLY.test(site.specifier)) continue;
-    const chain = closure.get(site.file);
-    if (chain !== undefined) out.push(`${chain.join(" -> ")} -> ${site.specifier}`);
+    const reached = depths.get(site.file);
+    if (reached === undefined || reached.depth >= UI_LAZY_DEPTH) continue;
+    out.push(`${reached.chain.join(" ")} -> ${site.specifier}`);
   }
   return out.toSorted();
 }
