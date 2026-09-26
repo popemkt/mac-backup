@@ -6,6 +6,7 @@ import {
   lazyDepths,
   lazyFenceBreaches,
   uiImportSites,
+  uiImportSitesIn,
   uiSourceFiles,
 } from "../src/ui-imports.ts";
 
@@ -88,8 +89,9 @@ describe("ui-lazy-fence", () => {
       `main.tsx => ${graphPage} -> ${host} -> three/webgpu`,
     ]);
 
-    // A lazy import("three") is one crossing: from the entry chunk it is
-    // still in reach of every visit; from a route chunk it is its own chunk.
+    // A top-level import("three") fetches three with the chunk that issues
+    // it: from the entry chunk on every visit, from a route chunk on every
+    // visit to that surface. Only the 3D view's own chunk may.
     const lazyInEntry = [
       site(entry, "@/lib/a", "eager", "lib/a.ts"),
       site("lib/a.ts", "three", "lazy"),
@@ -99,7 +101,14 @@ describe("ui-lazy-fence", () => {
       site(entry, "@/components/graph/graph-page", "lazy", graphPage),
       site(graphPage, "three", "lazy"),
     ];
-    expect(lazyFenceBreaches(lazyInRoute, entry)).toEqual([]);
+    expect(lazyFenceBreaches(lazyInRoute, entry)).toEqual([`main.tsx => ${graphPage} => three`]);
+    const hostChunk = "components/graph/force3d-graph.tsx";
+    const lazyInHost = [
+      site(entry, "@/components/graph/graph-page", "lazy", graphPage),
+      site(graphPage, "./force3d-graph", "lazy", hostChunk),
+      site(hostChunk, "three", "lazy"),
+    ];
+    expect(lazyFenceBreaches(lazyInHost, entry)).toEqual([]);
 
     const fenced = [
       site(entry, "@/components/graph/graph-page", "lazy", graphPage),
@@ -109,6 +118,27 @@ describe("ui-lazy-fence", () => {
       site("lib/b.ts", "three", "eager"),
     ];
     expect(lazyFenceBreaches(fenced, entry)).toEqual([]);
+  });
+
+  test("each site sits on the line of its own specifier, and carries that line's marker", () => {
+    const source = [
+      "// GAP [[g.require]]",
+      'const three = require("three");',
+      'import type { Color } from "three";',
+      "const tsl = import(`three/tsl`);",
+      "import {",
+      "  Vector3,",
+      '} from "three/webgpu"; // GAP [[g.multi]]',
+    ].join("\n");
+    const sites = uiImportSitesIn("components/lab/probe.ts", source).map(
+      ({ specifier, kind, line, gap }) => ({ specifier, kind, line, gap }),
+    );
+    expect(sites).toEqual([
+      { specifier: "three", kind: "eager", line: 2, gap: "g.require" },
+      { specifier: "three", kind: "type", line: 3, gap: undefined },
+      { specifier: "three/tsl", kind: "lazy", line: 4, gap: undefined },
+      { specifier: "three/webgpu", kind: "eager", line: 7, gap: "g.multi" },
+    ]);
   });
 
   test("require() and import = require() are eager imports the fence sees, in source order", () => {
@@ -125,7 +155,9 @@ describe("ui-lazy-fence", () => {
       "const dynamic = require(`three/${name}`);",
       "const dynamicLazy = import(`three/${name}`);",
     ].join("\n");
-    expect(importsOf("probe.ts", source)).toEqual([
+    expect(
+      importsOf("probe.ts", source).map(({ specifier, kind }) => ({ specifier, kind })),
+    ).toEqual([
       { specifier: "three", kind: "eager" },
       { specifier: "three", kind: "type" },
       { specifier: "three/webgpu", kind: "eager" },

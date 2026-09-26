@@ -75,26 +75,18 @@ function resolveWithin(file: string, specifier: string): string | undefined {
 }
 
 /**
- * The line a specifier sits on, and the gap marker that line carries.
- *
- * Located by text rather than by parse span: the module record names the
- * specifier, and a quoted specifier appears on exactly the lines that import
- * it. The marker is read from that line, or from the line above when that line
- * is a comment of its own — a marker trailing the *previous* import belongs to
- * that import, not to this one. Repeated imports of one specifier share the
- * lines, which is why a sanctioned dependency is one gap and not one per line.
+ * The 1-based line an offset falls on, and the gap marker that line carries:
+ * on the line itself, or on the line above when that line is a comment of its
+ * own — a marker trailing the *previous* import belongs to that import, not
+ * to this one. The offset is the specifier's, from {@link importsOf}, so a
+ * multi-line import is placed on the line that names its module.
  */
-function siteLines(lines: string[], specifier: string): Array<{ line: number; gap?: string }> {
-  const quoted = `"${specifier}"`;
-  const found: Array<{ line: number; gap?: string }> = [];
-  for (const [index, text] of lines.entries()) {
-    if (!text.includes(quoted)) continue;
-    const above = lines[index - 1]?.trimStart() ?? "";
-    const marker =
-      GAP_MARKER.exec(text) ?? (above.startsWith("//") ? GAP_MARKER.exec(above) : null);
-    found.push({ line: index + 1, ...(marker?.[1] === undefined ? {} : { gap: marker[1] }) });
-  }
-  return found;
+function siteAt(source: string, lines: readonly string[], offset: number) {
+  const index = source.slice(0, offset).split("\n").length - 1;
+  const text = lines[index] ?? "";
+  const above = lines[index - 1]?.trimStart() ?? "";
+  const marker = GAP_MARKER.exec(text) ?? (above.startsWith("//") ? GAP_MARKER.exec(above) : null);
+  return { line: index + 1, gap: marker?.[1] };
 }
 
 let cached: UiImportSite[] | undefined;
@@ -102,32 +94,30 @@ let cached: UiImportSite[] | undefined;
 /** Every import statement in the UI's `src/`, one entry per occurrence. */
 export function uiImportSites(): UiImportSite[] {
   if (cached !== undefined) return cached;
-  const sites: UiImportSite[] = [];
-  for (const file of uiSourceFiles()) {
-    const source = readFileSync(join(UI_SRC_ROOT, file), "utf8");
-    const lines = source.split("\n");
-    const zone = uiZoneOf(file);
-    const seen = new Map<string, number>();
-    for (const { specifier, kind } of importsOf(join(UI_SRC_ROOT, file), source)) {
-      const occurrences = siteLines(lines, specifier);
-      const index = seen.get(specifier) ?? 0;
-      seen.set(specifier, index + 1);
-      const at = occurrences[Math.min(index, occurrences.length - 1)];
-      const target = resolveWithin(file, specifier);
-      sites.push({
-        file,
-        zone,
-        specifier,
-        kind,
-        line: at?.line ?? 0,
-        target,
-        targetZone: target === undefined ? undefined : uiZoneOf(target),
-        gap: at?.gap,
-      });
-    }
-  }
-  cached = sites;
-  return sites;
+  cached = uiSourceFiles().flatMap((file) =>
+    uiImportSitesIn(file, readFileSync(join(UI_SRC_ROOT, file), "utf8")),
+  );
+  return cached;
+}
+
+/** The import sites of one UI file, given its path under `src/` and its text. */
+export function uiImportSitesIn(file: string, source: string): UiImportSite[] {
+  const lines = source.split("\n");
+  const zone = uiZoneOf(file);
+  return importsOf(join(UI_SRC_ROOT, file), source).map(({ specifier, kind, start }) => {
+    const at = siteAt(source, lines, start);
+    const target = resolveWithin(file, specifier);
+    return {
+      file,
+      zone,
+      specifier,
+      kind,
+      line: at.line,
+      target,
+      targetZone: target === undefined ? undefined : uiZoneOf(target),
+      gap: at.gap,
+    };
+  });
 }
 
 /** How a site breaks the matrix, or `undefined` when it does not. */
@@ -189,11 +179,12 @@ export function lazyDepths(
 }
 
 /**
- * Each import of a {@link UI_LAZY_ONLY} specifier that some path from the
- * entry reaches across fewer than {@link UI_LAZY_DEPTH} dynamic imports,
- * printed as that path (`=>` marks a lazy edge). A lazy `import("three")` is
- * itself one crossing, so the entry chunk may not issue it either; a
- * type-only import loads nothing.
+ * Each import of a {@link UI_LAZY_ONLY} specifier issued from a file some
+ * path from the entry reaches across fewer than {@link UI_LAZY_DEPTH}
+ * dynamic imports, printed as that path (`=>` marks a lazy edge). Eager or
+ * lazy alike: a top-level `import("three")` in a route chunk fetches three
+ * on every visit to the surface, so it too must sit behind the 3D view's own
+ * boundary. A type-only import loads nothing.
  */
 export function lazyFenceBreaches(
   sites: readonly UiImportSite[],
@@ -204,9 +195,8 @@ export function lazyFenceBreaches(
   for (const site of sites) {
     if (site.kind === "type" || !UI_LAZY_ONLY.test(site.specifier)) continue;
     const reached = depths.get(site.file);
-    const lazy = site.kind === "lazy";
-    if (reached === undefined || reached.depth + (lazy ? 1 : 0) >= UI_LAZY_DEPTH) continue;
-    out.push(`${reached.chain.join(" ")} ${lazy ? "=>" : "->"} ${site.specifier}`);
+    if (reached === undefined || reached.depth >= UI_LAZY_DEPTH) continue;
+    out.push(`${reached.chain.join(" ")} ${site.kind === "lazy" ? "=>" : "->"} ${site.specifier}`);
   }
   return out.toSorted();
 }
