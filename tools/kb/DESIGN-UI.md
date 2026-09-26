@@ -399,7 +399,14 @@ like themselves (P5).
   a soft halo of the ground, their colours read once per appearance. A
   label sits right of its node, else left, and never over a drawn node or
   another label, so crowded clusters thin their own labels; label density
-  also falls with the square root of the node count past 400. A new
+  also falls with the square root of the node count past 400. Labels are
+  placed in one priority, stated once in `lib/graph-label-layout.ts`
+  (`byLabelPriority`) and used by 2D, cluster and 3D alike: the node in
+  focus, then the best-connected, then by id — so a hub is labelled before
+  the leaves around it, whatever order the renderer asks in. A cluster's
+  title takes its place in the same layout before any node label, so titles
+  never pile on each other or on labels, and labels come in only once the
+  nodes they name have arrived. A new
   graph arrives: nodes grow and brighten into place over
   `--motion-duration-arrive` while ForceAtlas2 settles (P2). Cluster hulls
   are soft regions — a faint fill and a glow for an edge, in the cluster's

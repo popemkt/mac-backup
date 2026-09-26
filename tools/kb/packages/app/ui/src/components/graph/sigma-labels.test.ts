@@ -8,7 +8,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Settings } from "sigma/settings";
 import type { GraphLabelBox } from "@/lib/graph-label-layout";
-import { drawGraphHover, drawGraphLabel, resetGraphLabels, setGraphLabelInk } from "./sigma-labels";
+import {
+  drawGraphHover,
+  drawGraphLabel,
+  placeGraphLabels,
+  reserveInGraphLabels,
+  resetGraphLabels,
+  setGraphLabelInk,
+} from "./sigma-labels";
 
 type LabelData = Parameters<Settings["defaultDrawNodeLabel"]>[1];
 
@@ -79,6 +86,7 @@ describe("2D label placement samples the drawn frame", () => {
     // A label for a node at 330 would sit on the right, over x 340–390,
     // which is where the moved node is: it must go to the left instead.
     drawGraphLabel(ctx, label(330), settings);
+    placeGraphLabels(canvas as unknown as HTMLCanvasElement);
     expect(drawn).toHaveLength(1);
     expect(drawn[0]?.x).toBeLessThan(330);
   });
@@ -91,6 +99,7 @@ describe("2D label placement samples the drawn frame", () => {
     state.layoutX = 200;
     // A label right of a node at 270 covers 280–330: the old place, now empty.
     drawGraphLabel(ctx, label(270), settings);
+    placeGraphLabels(canvas as unknown as HTMLCanvasElement);
     expect(drawn[0]?.x).toBeGreaterThan(270);
   });
 
@@ -103,10 +112,13 @@ describe("2D label placement samples the drawn frame", () => {
     };
     resetGraphLabels([canvas as unknown as HTMLCanvasElement], counting);
     drawGraphLabel(ctx, label(100), settings);
+    placeGraphLabels(canvas as unknown as HTMLCanvasElement);
     drawGraphLabel(ctx, label(500), settings);
+    placeGraphLabels(canvas as unknown as HTMLCanvasElement);
     expect(samples).toBe(1);
     resetGraphLabels([canvas as unknown as HTMLCanvasElement], counting);
     drawGraphLabel(ctx, label(100), settings);
+    placeGraphLabels(canvas as unknown as HTMLCanvasElement);
     expect(samples).toBe(2);
   });
 
@@ -138,5 +150,26 @@ describe("2D label placement samples the drawn frame", () => {
     );
     drawGraphHover(hovers.ctx, label(330), settings);
     expect(hovers.drawn).toHaveLength(1);
+  });
+  it("places labels by priority, not in the order sigma asks: a hub before a leaf", () => {
+    const { ctx, canvas, drawn } = fakeContext();
+    resetGraphLabels([canvas as unknown as HTMLCanvasElement], () => {});
+    // Two nodes whose labels would take the same place: the leaf asks first.
+    drawGraphLabel(ctx, { ...label(100), key: "leaf", label: "leaf", degree: 1 }, settings);
+    drawGraphLabel(ctx, { ...label(104), key: "hub", label: "hub", degree: 40 }, settings);
+    expect(drawn).toHaveLength(0);
+    placeGraphLabels(canvas as unknown as HTMLCanvasElement);
+    expect(drawn.map((d) => d.text)).toContain("hub");
+    expect(drawn[0]?.text).toBe("hub");
+  });
+
+  it("keeps a label off a box the frame reserved first (a cluster title)", () => {
+    const { ctx, canvas, drawn } = fakeContext();
+    const el = canvas as unknown as HTMLCanvasElement;
+    resetGraphLabels([el], () => {});
+    expect(reserveInGraphLabels(el, { x: 0, y: 0, width: 800, height: 600 })).toBe(true);
+    drawGraphLabel(ctx, label(100), settings);
+    placeGraphLabels(el);
+    expect(drawn).toHaveLength(0);
   });
 });

@@ -23,7 +23,14 @@ import { createFA2Layout, type FA2Controller } from "./fa2-layout";
 import { fitView } from "./graph-camera";
 import { sigmaCameraControls, type GraphCameraControls } from "./graph-camera-controls";
 import { selectionFromNode, type GraphSelection } from "./graph-selection";
-import { drawGraphLabel, drawGraphHover, resetGraphLabels, setGraphLabelInk } from "./sigma-labels";
+import {
+  drawGraphLabel,
+  drawGraphHover,
+  placeGraphLabels,
+  reserveInGraphLabels,
+  resetGraphLabels,
+  setGraphLabelInk,
+} from "./sigma-labels";
 import { clusterHulls } from "./cluster-hulls";
 import { GraphTooltip } from "./graph-tooltip";
 import { sigmaEmphasis, type SigmaEmphasis } from "./sigma-emphasis";
@@ -153,6 +160,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
         sampleNodes,
       );
     });
+
     topology.current = "";
     cameraIntent.current = false;
     const controls = sigmaCameraControls(() => sigmaRef.current);
@@ -180,6 +188,14 @@ export function SigmaGraph(props: SigmaGraphProps) {
       },
     });
     const hulls = cluster && hullRef.current ? clusterHulls(sigma, hullRef.current) : null;
+    // After sigma has drawn: cluster titles take their places first, then the
+    // node labels it asked for are placed in priority order.
+    sigma.on("afterRender", () => {
+      const labels = el.querySelector<HTMLCanvasElement>("canvas.sigma-labels");
+      if (labels === null) return;
+      hulls?.draw((box) => reserveInGraphLabels(labels, box));
+      placeGraphLabels(labels);
+    });
     let drag: { node: string; x: number; y: number; moved: boolean } | null = null;
     let suppressClick = false;
     const markCamera = () => {
@@ -261,7 +277,6 @@ export function SigmaGraph(props: SigmaGraphProps) {
       el.removeEventListener("wheel", markCamera);
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", up);
-      hulls?.dispose();
       emphasis.current?.dispose();
       emphasis.current = null;
       layoutRef.current?.kill();
@@ -317,6 +332,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
         label: n.label,
         color: n.color,
         size: n.size,
+        degree: n.degree,
         clusterKey: n.clusterKey,
         clusterLabel: n.clusterLabel ?? n.clusterKey,
       };

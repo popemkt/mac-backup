@@ -1,8 +1,33 @@
+/**
+ * The graph renderers' one label layout (DESIGN-UI.md → Graph → Look and
+ * motion): labels are placed in priority order, and a label that would
+ * overlap a drawn node or a label already placed is left out. Priority is
+ * stated once here — the node in focus first, then the best-connected, then a
+ * stable order by id — so a hub such as "kb" is labelled before the leaves
+ * around it in every renderer that draws labels.
+ */
 export interface GraphLabelBox {
   x: number;
   y: number;
   width: number;
   height: number;
+}
+
+/** What decides a label's place in the queue. */
+export interface GraphLabelRank {
+  readonly id: string;
+  readonly degree: number;
+  /** 0–1: how much the node is in focus (selected, else hovered). */
+  readonly focus?: number;
+}
+
+/** Label priority: focus, then degree, then id. Sort ascending with it. */
+export function byLabelPriority(a: GraphLabelRank, b: GraphLabelRank): number {
+  return (
+    (b.focus ?? 0) - (a.focus ?? 0) ||
+    b.degree - a.degree ||
+    (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  );
 }
 
 /** Whether `box` overlaps any of `occupied` (CSS pixels). */

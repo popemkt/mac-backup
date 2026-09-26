@@ -13,6 +13,7 @@ import type { ScenePalette } from "@/scene/palette";
 import { EmphasisFade } from "@/lib/graph-fade";
 import { graphFocus, type GraphEmphasis } from "@/lib/graph-interaction";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
+import { byLabelPriority } from "@/lib/graph-label-layout";
 import { approachRate, type Timing } from "@/lib/timing";
 import {
   particleLinks,
@@ -178,8 +179,8 @@ export class GraphLayers {
 
   private rank(): void {
     this.byPriority = this.topology.nodes
-      .map((node, i) => ({ i, size: node.size, id: node.id }))
-      .toSorted((a, b) => b.size - a.size || a.id.localeCompare(b.id))
+      .map((node, i) => ({ i, id: node.id, degree: node.degree }))
+      .toSorted(byLabelPriority)
       .map((n) => n.i);
   }
 

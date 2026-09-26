@@ -2,7 +2,8 @@
  * The 3D graph's labels: a sprite per labelled node, its text painted once
  * into a texture in the graph face with a halo of the ground behind it, so it
  * stays legible over links and other nodes. Each frame the labels are placed
- * in screen space in priority order (focus first, then size) and a label that
+ * in screen space in the shared label priority (`byLabelPriority`: focus,
+ * then degree) and a label that
  * would overlap one already placed, fall off the frame, or sit behind the
  * camera is hidden — the same reservation the 2D renderers use. A label's
  * opacity follows its node's eased emphasis.
@@ -21,7 +22,7 @@ import {
 } from "three/webgpu";
 import { texture, uniform } from "three/tsl";
 import { fitGraphLabel, graphLabelFont } from "@/lib/graph-label";
-import { reserveGraphLabel, type GraphLabelBox } from "@/lib/graph-label-layout";
+import { byLabelPriority, reserveGraphLabel, type GraphLabelBox } from "@/lib/graph-label-layout";
 import type { ScenePalette } from "@/scene/palette";
 import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";
 import { pixelsPerUnit, toScreen, type ScreenPoint } from "@/scene/gpu/screen";
@@ -168,12 +169,11 @@ export class LabelLayer {
     const focus = fades.focus.values;
     // A label stands just above its node's silhouette, whatever the node's size.
     this.up.set(0, 1, 0).applyQuaternion(camera.quaternion);
-    this.order.sort(
-      (a, b) =>
-        (focus[b.node] ?? 0) - (focus[a.node] ?? 0) ||
-        (this.topology.nodes[b.node]?.size ?? 0) - (this.topology.nodes[a.node]?.size ?? 0) ||
-        a.node - b.node,
-    );
+    const rank = (label: Label) => {
+      const node = this.topology.nodes[label.node];
+      return { id: node?.id ?? "", degree: node?.degree ?? 0, focus: focus[label.node] ?? 0 };
+    };
+    this.order.sort((a, b) => byLabelPriority(rank(a), rank(b)));
     this.occupied.length = 0;
     const size = { width, height };
     // The node in focus keeps its own disc: no other label is laid over it.

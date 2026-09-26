@@ -22,6 +22,11 @@ import { clampStep, easeAt, type Timing } from "@/lib/timing";
 
 /** Presence under which a node's label is not drawn. */
 const LABEL_PRESENCE = 0.6;
+/**
+ * How far a new graph must have arrived before labels show: labels come in
+ * after the nodes they name, never at full ink over nodes still growing in.
+ */
+const LABEL_ARRIVED = 0.85;
 /** How much the node in focus swells, and how much its links widen. */
 const FOCUS_SWELL = 0.2;
 const FOCUS_WIDEN = 0.6;
@@ -73,7 +78,7 @@ export function sigmaEmphasis(sigma: Sigma, timing: Timing, reduced: () => boole
       ...data,
       color: premultipliedGraphColor(String(data.color), lit * arrived()),
       ringColor: premultipliedGraphColor(swell > 0.5 ? ring.focus : ring.rest, lit * arrived()),
-      label: lit >= LABEL_PRESENCE ? data.label : "",
+      label: lit >= LABEL_PRESENCE && arrived() >= LABEL_ARRIVED ? data.label : "",
       forceLabel: lit >= 0.95 && narrowed,
       highlighted: id === active,
       zIndex: id === active ? 2 : lit >= 0.95 ? 1 : 0,
