@@ -597,10 +597,12 @@ a separate point that only points at it.
   `<ViewSlot>` at placement `page`. A path that no route owns is not found.
 - **`ViewHost`** is what a host guarantees a view. It is never a store and
   never `ctx`. In R1 it carries only `placement`, and `Placement` is only
-  `page`, because every view today fills a page box and none nests. The rest
-  of the host contract (size, appearance, reduced motion, nesting depth, and
-  the other placements) arrives with its first consumer
-  (GAP [[01M3EZR20H0CDF5MD01M2S26C5]]).
+  `page`, because every view today fills a page box. The rest of the host
+  contract (size, appearance, reduced motion, and the other placements)
+  arrives with its first consumer (GAP [[01M3EZR20H0CDF5MD01M2S26C5]]).
+  Nesting is separate from placement, and it is already live: the ontology's
+  view embeds the graph and outline views, each in a page-placed slot inside
+  the shell's page slot. The slot owns the depth guard (promise 5).
 
 **Keys.** A `ViewKey<P>` is made once, by `viewKey<P>()("<namespace>.<local>")`,
 and is compared **by identity**, like `Service`, `Event` and `Point` keys. A
@@ -634,6 +636,11 @@ embedding another's view.
    A view that throws shows `ViewError` in its own box, and the host around
    it stays up.
 4. It adds no DOM of its own, so the box is exactly what the host gives it.
+5. It counts how many slots enclose it, through a React context that only
+   the slot writes, and past `MAX_VIEW_DEPTH` (4) it renders `fallback`
+   instead of the view. A view that embeds itself, directly or through
+   another view, therefore stops instead of recursing. The depth is the
+   slot's to count. It is not part of `ViewHost`, because no view reads it.
 
 **Views are soft and services are hard.** A missing view never makes its
 consumer `pending`. The consumer shows the fallback. A computation that
@@ -654,11 +661,14 @@ registered. For each view, in each placement it offers, the view must: be
 found by its key; mount in a slot with its `sample` and show neither the
 fallback nor the slot's error; show the fallback while its owner is unloaded
 and come back when the owner reloads; have a throw from a provider under its
-key contained by the slot; and leave nothing behind when it unmounts. The
-route table in `ui-plugins.test.ts` also checks that every route renders a
-registered view that offers `page`. The remaining properties (sizing,
-disposal of instrumented resources, appearance, reduced motion, bad config
-and nesting) are deferred with the host contract, in the same gap as above.
+key contained by the slot; stop at `MAX_VIEW_DEPTH` when a provider under
+its key embeds that key again; and, once settled, leave nothing behind in its
+box or elsewhere in the document when it unmounts. "Comes back" means
+settled, with neither the fallback, a suspended state, nor an error showing.
+The route table in `ui-plugins.test.ts` also checks that every route renders
+a registered view that offers `page`. The remaining properties (sizing,
+disposal of instrumented resources, appearance, reduced motion and bad
+config) are deferred with the host contract, in the same gap as above.
 
 **Decisions.** These are the defaults R1 takes for the brief's open
 questions. Each one can be overridden.

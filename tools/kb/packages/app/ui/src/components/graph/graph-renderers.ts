@@ -39,6 +39,7 @@ const standard: RendererCapabilities = {
 };
 
 /** One registration owns rendering, mappings, settings and interaction support. */
+// GAP [[01M3EZRFJ9RYFJJ4MW322RQ28S]] — each renderer should be a ViewPoint view, not a local registry
 export const GRAPH_RENDERERS: Record<string, GraphRendererDefinition> = {
   force2d: {
     label: GRAPH_RENDERER_VALUES.force2d.label,

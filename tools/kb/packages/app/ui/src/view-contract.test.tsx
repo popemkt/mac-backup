@@ -5,17 +5,17 @@
  *
  * R1 checks what a page-placed view must keep: it is found by its key, it
  * mounts in a slot, the slot falls back while its owner is unloaded and
- * brings it back on reload, a throw under its key stays inside the slot, and
- * unmounting leaves nothing behind. Sizing, disposal, appearance, reduced
- * motion, bad config and nesting wait on the host contract:
- * GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
+ * brings it back on reload, a throw under its key stays inside the slot, a
+ * provider that embeds its own key stops at MAX_VIEW_DEPTH, and unmounting
+ * leaves nothing behind. Sizing, disposal, appearance, reduced motion and bad
+ * config wait on the host contract: GAP [[01M3EZR20H0CDF5MD01M2S26C5]].
  */
 import { Suspense, act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Effect } from "effect";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { definePlugin, makeKernel, type Plugin } from "@kb/plugin";
-import { ViewSlot } from "@/components/ui/view-slot";
+import { MAX_VIEW_DEPTH, ViewSlot } from "@/components/ui/view-slot";
 import { ViewPoint, findView, provideView, syncUiPlugins, type ProvidedView } from "@/lib/plugins";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { BUILTIN_UI_PLUGINS, OPTIONAL_UI_PLUGINS } from "@/ui-plugins";
@@ -44,6 +44,26 @@ function throwingStandIn(owner: string, view: ProvidedView): Plugin {
     namespace: owner,
     apply: (ctx) =>
       ctx.contribute(ViewPoint, provideView(view.key, { ...view, Component: Throws })),
+  });
+}
+
+/** A provider under `view`'s own key whose component embeds that same key again. */
+function selfEmbeddingStandIn(owner: string, view: ProvidedView): Plugin {
+  const Embeds = () => (
+    <div data-contract-nested="true">
+      <ViewSlot
+        view={view.key}
+        params={view.sample}
+        placement="page"
+        fallback={<p data-contract-depth-stop="true">stop</p>}
+      />
+    </div>
+  );
+  return definePlugin({
+    name: `${owner}.contract-self-embed`,
+    namespace: owner,
+    apply: (ctx) =>
+      ctx.contribute(ViewPoint, provideView(view.key, { ...view, Component: Embeds })),
   });
 }
 
@@ -99,6 +119,13 @@ describe("view contract", () => {
 
   const shown = (selector: string) => container.querySelector(selector) !== null;
 
+  /** The slot shows the view itself: settled, not the fallback, not an error. */
+  function expectViewShown(): void {
+    expect(shown("[data-contract-suspended]")).toBe(false);
+    expect(shown("[data-contract-fallback]")).toBe(false);
+    expect(shown('[data-testid="view-error"]')).toBe(false);
+  }
+
   /**
    * Wait out a lazy page's chunk. A slot that suspended on its first render
    * never committed, so it has not subscribed to the kernel yet; the
@@ -129,9 +156,7 @@ describe("view contract", () => {
         async () => {
           mount(view);
           await settle();
-          expect(shown("[data-contract-suspended]")).toBe(false);
-          expect(shown("[data-contract-fallback]")).toBe(false);
-          expect(shown('[data-testid="view-error"]')).toBe(false);
+          expectViewShown();
         },
       );
 
@@ -142,7 +167,8 @@ describe("view contract", () => {
         expect(shown("[data-contract-fallback]")).toBe(true);
         expect(shown("[data-contract-host]")).toBe(true);
         act(() => syncUiPlugins(ALL_PLUGINS));
-        expect(shown("[data-contract-fallback]")).toBe(false);
+        await settle();
+        expectViewShown();
       });
 
       it("keeps a throw under its key inside the slot", () => {
@@ -157,10 +183,24 @@ describe("view contract", () => {
         }
       });
 
-      it("leaves nothing behind when it unmounts", () => {
+      it("stops a provider that embeds its own key at the depth limit", () => {
+        act(() => syncUiPlugins([...others(owner), selfEmbeddingStandIn(owner, view)]));
         mount(view);
+        expect(container.querySelectorAll("[data-contract-nested]")).toHaveLength(MAX_VIEW_DEPTH);
+        expect(container.querySelectorAll("[data-contract-depth-stop]")).toHaveLength(1);
+        expect(shown('[data-testid="view-error"]')).toBe(false);
+      });
+
+      it("leaves nothing behind when it unmounts", async () => {
+        const body = dom.window.document.body;
+        const before = body.childNodes.length;
+        mount(view);
+        await settle();
+        expectViewShown();
         act(() => root.render(<></>));
         expect(container.childNodes.length).toBe(0);
+        // Nothing it portalled or appended outside its box outlives it.
+        expect(body.childNodes.length).toBe(before);
       });
     },
   );

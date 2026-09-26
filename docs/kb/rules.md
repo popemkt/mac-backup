@@ -92,10 +92,10 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ### GAP: a view host is placement-only, and Placement is only page
 
-- **expected** — ViewHost carries placement, size, appearanceKey, reducedMotion and depth; Placement includes inline, beside, float, card and hover; ViewSlot measures its box and refuses to render past MAX_VIEW_DEPTH; view-contract checks sizing, disposal of instrumented resources, appearance, reduced motion, bad config and nesting (tools/kb/DESIGN-UI.md, UI points: routes and views).
-- **current** — R1 of the plugin-composition plan ships ViewHost = { placement } with Placement = page, because every view today fills a page box and none nests. view-contract checks mount, fallback on unload, error containment and clean unmount only.
-- **impact** — No view can be embedded at card, beside, float, inline or hover size yet, and a view that embedded itself would recurse. Nothing breaks today, because no host asks for those placements.
-- **closes** — Plan phases A1/A2 in docs/kb/waves/2026-09-24/briefs/plugin-composition.md: widen Placement and ViewHost with their first non-page consumer, add MAX_VIEW_DEPTH to ViewSlot, and add the matching view-contract properties.
+- **expected** — ViewHost carries placement, size, appearanceKey and reducedMotion; Placement includes inline, beside, float, card and hover; ViewSlot measures its box; view-contract checks sizing, disposal of instrumented resources, appearance, reduced motion and bad config (tools/kb/DESIGN-UI.md, UI points: routes and views). Nesting is a separate concern that the slot already owns: MAX_VIEW_DEPTH, checked by view-contract.
+- **current** — R1 of the plugin-composition plan ships ViewHost = { placement } with Placement = page. Views do already nest at page placement (the ontology view embeds the graph and outline views through ViewSlot inside the shell's page slot); ViewSlot bounds that with a depth context and MAX_VIEW_DEPTH, so this gap no longer covers nesting. view-contract checks mount, unload fallback and reload, error containment, the depth stop and clean unmount.
+- **impact** — No view can be embedded at card, beside, float, inline or hover size yet, and a view cannot learn its box size, the appearance key or the reduced-motion preference from its host, so the shared suite cannot check those properties. Nothing breaks today, because every host asks for page placement.
+- **closes** — Plan phases A1/A2 in docs/kb/waves/2026-09-24/briefs/plugin-composition.md: widen Placement and ViewHost with their first non-page consumer, have ViewSlot measure its box, and add the matching view-contract properties.
 - **node** — `01M3EZR20H0CDF5MD01M2S26C5`
 
 ### GAP: actions/ reads the outline store instead of being handed state

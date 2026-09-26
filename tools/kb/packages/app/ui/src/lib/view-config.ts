@@ -13,6 +13,7 @@ import { isSysPrefixed, SYSTEM_IDS } from "./types";
 import { logWarn } from "@/lib/log";
 import { textOr } from "@/lib/text";
 
+// GAP [[01M3EZRFJ9RYFJJ4MW322RQ28S]] — each mode should be a ViewPoint view, not a local union
 export type ViewMode = "list" | "table" | "board" | "cards";
 export type SortDir = "asc" | "desc";
 
