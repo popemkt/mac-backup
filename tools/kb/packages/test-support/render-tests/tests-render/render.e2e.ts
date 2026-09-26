@@ -47,10 +47,12 @@ async function selectRenderer(page: Page, renderer: string) {
 /** Wait until the sigma renderer under `host` holds every fixture node. */
 async function sigmaReady(page: Page, host: string) {
   await expect
-    .poll(() =>
-      page
-        .locator(host)
-        .evaluate((element) => (element as SigmaHost).__kbSigma?.getGraph().nodes().length ?? 0),
+    .poll(
+      () =>
+        page
+          .locator(host)
+          .evaluate((element) => (element as SigmaHost).__kbSigma?.getGraph().nodes().length ?? 0),
+      PAGE_READY,
     )
     .toBe(FIXTURE_SIZE);
 }
@@ -154,7 +156,7 @@ test("force2d paints labels and frames settled nodes", async ({ page }) => {
   await selectRenderer(page, "force2d");
   await expect(page.locator("canvas.sigma-labels")).toBeVisible(PAGE_READY);
   await expect
-    .poll(() => sigmaViewportCoverage(page, "[data-sigma-container]"))
+    .poll(() => sigmaViewportCoverage(page, "[data-sigma-container]"), PAGE_READY)
     .toEqual({ total: FIXTURE_SIZE, inBounds: FIXTURE_SIZE });
   await expect
     .poll(() => alphaBoundingBox(page, "canvas.sigma-labels").then((box) => box.pixels))
@@ -166,7 +168,7 @@ test("cluster paints labels and a hull spanning its members", async ({ page }) =
   const host = "[data-testid='cluster-graph'] > div";
   await expect(page.locator(`${host} canvas.sigma-labels`)).toBeVisible(PAGE_READY);
   await expect
-    .poll(() => sigmaViewportCoverage(page, host))
+    .poll(() => sigmaViewportCoverage(page, host), PAGE_READY)
     .toEqual({
       total: FIXTURE_SIZE,
       inBounds: FIXTURE_SIZE,
@@ -404,8 +406,7 @@ test.describe("dark Retina graph labels", () => {
   test.use({ deviceScaleFactor: 2, colorScheme: "dark" });
   test("hover labels stay high-contrast without a white plate", async ({ page }, testInfo) => {
     await selectRenderer(page, "cluster");
-    const root = await sigmaPagePoint(page, "[data-sigma-container]", "render.fixture.root");
-    await page.mouse.move(root.x, root.y);
+    await sigmaPagePoint(page, "[data-sigma-container]", "render.fixture.root");
     // The hover label is drawn on the hover canvas, not in the DOM: wait for
     // its paint rather than for any text that happens to say "Fixture root".
     const hoverPaint = () =>
@@ -424,11 +425,17 @@ test.describe("dark Retina graph labels", () => {
         }
         return { bright, dark, dpr: el.width / el.getBoundingClientRect().width };
       });
+    // Each attempt points at where the root is drawn now, arriving from one
+    // pixel off: sigma hovers on a move event, and a move that landed while a
+    // hull or label pass was still settling hovered nothing.
     await expect
       .poll(async () => {
+        const root = await sigmaPagePoint(page, "[data-sigma-container]", "render.fixture.root");
+        await page.mouse.move(root.x + 1, root.y);
+        await page.mouse.move(root.x, root.y);
         const paint = await hoverPaint();
         return paint.dpr === 2 && paint.bright > 100 && paint.dark > 100;
-      })
+      }, SETTLE)
       .toBe(true);
     await page.screenshot({ path: testInfo.outputPath("cluster-dark-retina.png") });
     await selectRenderer(page, "tree");
