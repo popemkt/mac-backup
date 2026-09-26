@@ -3,7 +3,8 @@ import type { WireNode } from "@kb/contracts";
 import type { LensGraph, LensNode } from "@/lib/graph-lens";
 import { glintCount, toLabGraph } from "./lab-graph";
 import { starPoint } from "./sky/layout";
-import { LAB_SCENE_IDS, labPath, labSceneOf, matchLab } from "./routes";
+import { labPath, matchLab } from "./routes";
+import { LAB_SCENE_IDS } from "./views";
 
 function lensNode(id: string, degree = 1, clusterKey = "root"): LensNode {
   return { id, label: id, color: "#888", size: 3, clusterKey, tags: [], degree };
@@ -71,10 +72,8 @@ describe("lab routes", () => {
     expect(matchLab("/lab")).toEqual({ scene: LAB_SCENE_IDS[0] });
     for (const id of LAB_SCENE_IDS) {
       expect(matchLab(labPath(id))).toEqual({ scene: id });
-      expect(labSceneOf({ scene: id })).toBe(id);
     }
     expect(matchLab("/lab/nope")).toBeNull();
     expect(matchLab("/labs")).toBeNull();
-    expect(labSceneOf({})).toBe(LAB_SCENE_IDS[0]);
   });
 });

@@ -1,13 +1,13 @@
 /**
- * Which surface owns which path, as the built-in UI plugins resolve it — the
- * route table that used to be a closed union in `lib/router`, now asserted
+ * Which view owns which path, as the built-in UI plugins' routes resolve it —
+ * the route table that used to be a closed union in `lib/router`, now asserted
  * over the contributions that replaced it.
  */
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { definePlugin, makeKernel } from "@kb/plugin";
 import { GearIcon } from "@phosphor-icons/react";
-import { SidebarSectionPoint, SurfacePoint, matchSurface } from "@/lib/plugins";
+import { RoutePoint, SidebarSectionPoint, ViewPoint, findView, matchRoute } from "@/lib/plugins";
 import { ontologyPath, type OntologyView } from "@/lib/router";
 import { BUILTIN_UI_PLUGINS, OPTIONAL_UI_PLUGINS, uiPluginsFor } from "@/ui-plugins";
 
@@ -17,12 +17,12 @@ function kernelWithBuiltins() {
   return kernel;
 }
 
-function route(path: string): { surface: string; params: Record<string, string> } | null {
-  const matched = matchSurface(kernelWithBuiltins().contributions(SurfacePoint), path);
-  return matched === null ? null : { surface: matched.surface.id, params: { ...matched.params } };
+function route(path: string): { surface: string; params: unknown } | null {
+  const matched = matchRoute(kernelWithBuiltins().contributions(RoutePoint), path);
+  return matched === null ? null : { surface: matched.view.id, params: matched.params };
 }
 
-describe("built-in surfaces", () => {
+describe("built-in routes", () => {
   it("match the canvas, graph and outline paths", () => {
     expect(route("/canvas")).toEqual({ surface: "canvas.list", params: {} });
     expect(route("/canvas/abc")).toEqual({ surface: "canvas.page", params: { id: "abc" } });
@@ -74,10 +74,23 @@ describe("built-in surfaces", () => {
     ]);
   });
 
+  it("each render a registered view that offers the page placement", () => {
+    const kernel = kernelWithBuiltins();
+    const views = kernel.contributions(ViewPoint);
+    const paths = ["/", "/graph", "/o", "/o/abc/graph", "/canvas", "/canvas/abc"];
+    for (const path of paths) {
+      const matched = matchRoute(kernel.contributions(RoutePoint), path);
+      expect(matched, path).not.toBeNull();
+      expect(
+        findView(views, matched?.view ?? { kind: "view", id: "none.none" })?.placements,
+      ).toContain("page");
+    }
+  });
+
   it("disappear with the plugin that contributed them", () => {
     const kernel = kernelWithBuiltins();
     Effect.runSync(kernel.unload("canvas"));
-    expect(matchSurface(kernel.contributions(SurfacePoint), "/canvas/abc")).toBeNull();
+    expect(matchRoute(kernel.contributions(RoutePoint), "/canvas/abc")).toBeNull();
     expect(kernel.contributions(SidebarSectionPoint).map((s) => s.id)).not.toContain(
       "canvas.section",
     );

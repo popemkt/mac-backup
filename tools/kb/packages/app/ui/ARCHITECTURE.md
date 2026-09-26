@@ -3,31 +3,33 @@
 Conventions for `tools/kb/packages/app/ui`. CLI/backend remains the source of truth; the UI
 is a projection. This file is the encapsulation contract for new work.
 
-## Tree (App → surfaces)
+## Tree (App → routes → views)
 
-The shell names no feature. Every page is a **surface** and every sidebar
-section a contribution, made by a UI plugin into the browser's `@kb/plugin`
-kernel (`lib/plugins.ts`); `ui-plugins.ts` lists the built-in plugins and the
-shell loads them before it renders.
+The shell names no feature. Every page is a **route** to a **view**, and every
+sidebar section a contribution, made by a UI plugin into the browser's
+`@kb/plugin` kernel (`lib/plugins.ts`); `ui-plugins.ts` lists the built-in
+plugins and the shell loads them before it renders. What the view and route
+points promise is stated once, in DESIGN-UI.md → UI points: routes and views.
 
 ```
 main.tsx
 └─ App                         shell: load graph, resolve the route, shortcuts
    ├─ Sidebar                  renders SidebarSectionPoint, by order — boundary
-   └─ main column              the surface whose `match` owns the path
-      ├─ frame "full"          the surface alone, under its Chrome (graph)
+   └─ main column              the route whose `match` owns the path, its view in a ViewSlot
+      ├─ frame "full"          the view alone, under the route's Chrome (graph)
       ├─ WorkspaceShell        header + connection chrome + Chrome
       │  └─ MainRegion         frame "scroll" (outline, ontology) or "fixed" (canvas)
       └─ SharedChrome          prefs, filters, ⌘ palette, toasts
 ```
 
-A feature folder owns its plugin as three files: `routes.ts` (namespace,
-surface ids, path matchers), `surfaces.tsx` (its pages and sidebar section,
-components only) and `plugin.ts` (the contributions). A surface embeds another
-plugin's by id with `ContributedSurface` (an ontology's outline view is the
-outline surface), never by importing a sibling folder.
+A feature folder owns its plugin as four files: `views.ts` (its namespace,
+view keys and their param types, nothing else), `routes.ts` (path matchers),
+`surfaces.tsx` (its view components and sidebar section, components only) and
+`plugin.ts` (the contributions). A view embeds another plugin's view with
+`<ViewSlot>` and that plugin's key from its `views.ts` (an ontology's outline
+view is the outline view), never by importing a sibling folder's components.
 
-| plugin     | surfaces                                                 | sidebar                |
+| plugin     | views and the routes to them                             | sidebar                |
 | ---------- | -------------------------------------------------------- | ---------------------- |
 | `outline`  | `outline.main` `/`                                       | Home (0), Pinned (100) |
 | `graph`    | `graph.page` `/graph[/<perspective>]`                    | Graph (10)             |
@@ -35,12 +37,12 @@ outline surface), never by importing a sibling folder.
 | `canvas`   | `canvas.list` `/canvas`, `canvas.page` `/canvas/<id>`    | Canvases (30)          |
 | `lab`      | `lab.page` `/lab[/<study>]` (optional, off by default)   | Lab (40)               |
 
-A path no surface owns, and an id a surface does not find (a canvas, an
+A path no route owns, and an id a view does not find (a canvas, an
 ontology, a graph perspective), render the one `components/ui/not-found.tsx`
 with no chrome of the missing thing; `ui/not-found.acceptance.test.tsx`
 walks every route shape through the real App.
 
-Lazy chunks: graph, canvas, ontology, lab — each surface file lazy-loads its
+Lazy chunks: graph, canvas, ontology, lab — each surfaces file lazy-loads its
 page; each lab study's three.js scene is a further dynamic import.
 Outline stays eager (primary path).
 
@@ -53,19 +55,19 @@ one and the Lab principles its studies follow.
 
 ## Error isolation
 
-| Surface              | Boundary? | Notes                                        |
-| -------------------- | --------- | -------------------------------------------- |
-| Any surface          | yes       | the shell's "View crashed", keyed by surface |
-| Graph                | yes       | `resetKey` = perspective / ontology id       |
-| Canvas               | yes       | `resetKey` = canvas id                       |
-| Ontology page / list | yes       |                                              |
-| Outline              | yes       | added i9-arch; keeps sidebar + chrome alive  |
-| Sidebar              | yes       | crash must not blank the workspace           |
-| SharedChrome         | no        | tiny; failures are non-fatal UI              |
+| Surface              | Boundary? | Notes                                       |
+| -------------------- | --------- | ------------------------------------------- |
+| Any view             | yes       | its slot's "View crashed", keyed by view id |
+| Graph                | yes       | `resetKey` = perspective / ontology id      |
+| Canvas               | yes       | `resetKey` = canvas id                      |
+| Ontology page / list | yes       |                                             |
+| Outline              | yes       | added i9-arch; keeps sidebar + chrome alive |
+| Sidebar              | yes       | crash must not blank the workspace          |
+| SharedChrome         | no        | tiny; failures are non-fatal UI             |
 
-A surface owns its boundary (only it knows what resets it); the shell's
-wraps whatever a surface renders so a plugin without one cannot blank the
-workspace. Use `ViewErrorBoundary` / `ViewError` from
+A view owns its boundary (only it knows what resets it); the `ViewSlot` it
+renders in wraps it too, so a plugin without one cannot blank the workspace
+or the view that embeds it. Use `ViewErrorBoundary` / `ViewError` from
 `components/view-error-boundary.tsx`. Do not invent a second boundary type.
 `console.error` in `componentDidCatch` is intentional (devtools signal).
 

@@ -2,21 +2,23 @@ import { lazy, useEffect, useMemo, useState } from "react";
 import { HexagonIcon, PlusIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { OntologyScopeBar } from "@/components/ontology/ontology-scope-bar";
-import { ONTOLOGY_LIST_SURFACE, ONTOLOGY_SURFACE, viewOf } from "@/components/ontology/routes";
+import {
+  OntologyListView,
+  OntologyScopeView,
+  type OntologyScopeParams,
+} from "@/components/ontology/views";
+import { GraphView } from "@/components/graph/views";
+import { OutlineView } from "@/components/outline/views";
 import { isOntologyNode } from "@kb/model";
-import { ContributedSurface } from "@/components/ui/contributed-surface";
 import { NotFound } from "@/components/ui/not-found";
 import { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";
+import { ViewSlot } from "@/components/ui/view-slot";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
-import type { MatchedRoute, SurfaceParams } from "@/lib/plugins";
+import { paramsOf, type MatchedRoute, type ViewProps } from "@/lib/plugins";
 import { navigate, ontologyPath } from "@/lib/router";
 import { listOntologyNavItems } from "@/lib/sidebar-nav";
 import { textOr } from "@/lib/text";
 import { useOutlineStore } from "@/stores/outline.store";
-
-/** Other plugins' surfaces this one embeds, by id (the kernel resolves them). */
-const GRAPH_SURFACE = "graph.page";
-const OUTLINE_SURFACE = "outline.main";
 
 const OntologyPage = lazy(() =>
   import("@/components/ontology/ontology-page").then((m) => ({ default: m.OntologyPage })),
@@ -34,8 +36,8 @@ function useOntologyNode(id: string) {
 }
 
 /** Scope chip fed from the store's resolved membership; none for an ontology that is not there. */
-export function OntologyChrome({ params }: { readonly params: SurfaceParams }) {
-  const id = params["id"] ?? "";
+export function OntologyChrome({ params }: { readonly params: OntologyScopeParams }) {
+  const { id } = params;
   const members = useOutlineStore((s) => s.ontologyMembers);
   const warnings = useOutlineStore((s) => s.ontologyWarnings);
   const onto = useOntologyNode(id);
@@ -47,7 +49,7 @@ export function OntologyChrome({ params }: { readonly params: SurfaceParams }) {
       label={label}
       memberCount={members?.size ?? 0}
       warnings={warnings}
-      view={viewOf(params)}
+      view={params.view}
       onExit={() => navigate("/")}
     />
   );
@@ -55,12 +57,11 @@ export function OntologyChrome({ params }: { readonly params: SurfaceParams }) {
 
 /**
  * An ontology's scope, projected onto the view the URL names. The scope lives
- * in the URL; the store follows it while this surface is mounted. The outline
- * and the graph are other plugins' surfaces, rendered by id.
+ * in the URL; the store follows it while this view is mounted. The outline
+ * and the graph are other plugins' views, embedded by key.
  */
-export function OntologySurface({ params }: { readonly params: SurfaceParams }) {
-  const id = params["id"] ?? "";
-  const view = viewOf(params);
+export function OntologySurface({ params }: ViewProps<OntologyScopeParams>) {
+  const { id, view } = params;
   const setOntologyScope = useOutlineStore((s) => s.setOntologyScope);
   const exists = useOntologyNode(id) !== undefined;
   useEffect(() => {
@@ -71,13 +72,25 @@ export function OntologySurface({ params }: { readonly params: SurfaceParams }) 
 
   if (!exists)
     return <NotFound what="Ontology" id={id} back={{ label: "All ontologies", path: "/o" }} />;
-  if (view === "graph") return <ContributedSurface id={GRAPH_SURFACE} params={{ ontology: id }} />;
+  // Shown only while the plugin that owns an embedded view is off.
+  const missing = (what: string) => (
+    <NotFound what={what} back={{ label: "Ontology", path: ontologyPath(id) }} />
+  );
+  if (view === "graph")
+    return (
+      <ViewSlot
+        view={GraphView}
+        params={{ ontology: id }}
+        placement="page"
+        fallback={missing("Graph")}
+      />
+    );
   return (
     <ViewErrorBoundary title="Ontology crashed" resetKey={`${id}:${view}`}>
       {view === "page" ? (
         <OntologyPage ontologyId={id} />
       ) : (
-        <ContributedSurface id={OUTLINE_SURFACE} params={{}} />
+        <ViewSlot view={OutlineView} params={{}} placement="page" fallback={missing("Outline")} />
       )}
     </ViewErrorBoundary>
   );
@@ -91,7 +104,8 @@ export function OntologyListSurface() {
   );
 }
 
-export function OntologySection({ route }: { readonly route: MatchedRoute }) {
+export function OntologySection({ route }: { readonly route: MatchedRoute | null }) {
+  const scope = paramsOf(route, OntologyScopeView);
   const wireNodes = useOutlineStore((s) => s.wireNodes);
   const ontologies = useMemo(() => listOntologyNavItems(wireNodes), [wireNodes]);
   const [creating, setCreating] = useState(false);
@@ -110,7 +124,7 @@ export function OntologySection({ route }: { readonly route: MatchedRoute }) {
       <SidebarRow
         label="Ontologies"
         icon={<HexagonIcon size={14} />}
-        active={route.surface === ONTOLOGY_LIST_SURFACE}
+        active={paramsOf(route, OntologyListView) !== null}
         onClick={() => navigate("/o")}
       />
       {ontologies.map((o) => (
@@ -118,7 +132,7 @@ export function OntologySection({ route }: { readonly route: MatchedRoute }) {
           key={o.id}
           label={o.label}
           indented
-          active={route.surface === ONTOLOGY_SURFACE && route.params["id"] === o.id}
+          active={scope?.id === o.id}
           onClick={() => navigate(ontologyPath(o.id))}
         />
       ))}

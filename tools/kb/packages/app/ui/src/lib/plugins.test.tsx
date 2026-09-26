@@ -9,26 +9,41 @@ import { Effect } from "effect";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { definePlugin, type Plugin } from "@kb/plugin";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
-import { SidebarSectionPoint, SurfacePoint, syncUiPlugins, useContributions } from "./plugins";
+import {
+  RoutePoint,
+  SidebarSectionPoint,
+  ViewPoint,
+  provideRoute,
+  provideView,
+  syncUiPlugins,
+  useContributions,
+  viewKey,
+  type NoParams,
+} from "./plugins";
 
 const Nothing = () => null;
 
-/** A plugin contributing one surface at `/<name>` and one sidebar section. */
+/** A plugin contributing one view, the route to it at `/<name>`, and one sidebar section. */
 function pagePlugin(name: string): Plugin {
+  const view = viewKey<NoParams>()(`${name}.page`);
   return definePlugin({
     name,
     apply: (ctx) =>
       Effect.all(
         [
-          ctx.contribute(SurfacePoint, {
-            id: "page",
-            value: {
+          ctx.contribute(
+            ViewPoint,
+            provideView(view, { placements: ["page"], Component: Nothing }),
+          ),
+          ctx.contribute(
+            RoutePoint,
+            provideRoute({
+              view,
               match: (path) => (path === `/${name}` ? {} : null),
               frame: () => "full",
               pendingTitle: () => name,
-              Component: Nothing,
-            },
-          }),
+            }),
+          ),
           ctx.contribute(SidebarSectionPoint, {
             id: "section",
             value: { order: 0, Component: Nothing },

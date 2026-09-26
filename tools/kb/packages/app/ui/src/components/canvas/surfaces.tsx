@@ -1,10 +1,10 @@
 import { lazy, useMemo, useState } from "react";
 import { PlusIcon, SquareIcon } from "@phosphor-icons/react";
-import { CANVAS_LIST_SURFACE, CANVAS_SURFACE } from "@/components/canvas/routes";
+import { CanvasListView, CanvasView, type CanvasParams } from "@/components/canvas/views";
 import { SidebarRow, SidebarSection } from "@/components/ui/sidebar-row";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { createCanvasNode } from "@/lib/canvas-api";
-import type { MatchedRoute, SurfaceParams } from "@/lib/plugins";
+import { paramsOf, type MatchedRoute, type ViewProps } from "@/lib/plugins";
 import { navigate } from "@/lib/router";
 import { listCanvasNavItems } from "@/lib/sidebar-nav";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -24,8 +24,8 @@ export function CanvasListSurface() {
   );
 }
 
-export function CanvasSurface({ params }: { readonly params: SurfaceParams }) {
-  const id = params["id"] ?? "";
+export function CanvasSurface({ params }: ViewProps<CanvasParams>) {
+  const { id } = params;
   return (
     <ViewErrorBoundary title="Canvas crashed" resetKey={id}>
       <CanvasPage canvasId={id} />
@@ -33,7 +33,8 @@ export function CanvasSurface({ params }: { readonly params: SurfaceParams }) {
   );
 }
 
-export function CanvasSection({ route }: { readonly route: MatchedRoute }) {
+export function CanvasSection({ route }: { readonly route: MatchedRoute | null }) {
+  const open = paramsOf(route, CanvasView);
   const nodes = useOutlineStore((s) => s.nodes);
   const canvases = useMemo(() => listCanvasNavItems(nodes), [nodes]);
   const [creating, setCreating] = useState(false);
@@ -52,7 +53,7 @@ export function CanvasSection({ route }: { readonly route: MatchedRoute }) {
       <SidebarRow
         label="Canvases"
         icon={<SquareIcon size={14} />}
-        active={route.surface === CANVAS_LIST_SURFACE}
+        active={paramsOf(route, CanvasListView) !== null}
         onClick={() => navigate("/canvas")}
       />
       {canvases.map((c) => (
@@ -60,7 +61,7 @@ export function CanvasSection({ route }: { readonly route: MatchedRoute }) {
           key={c.id}
           label={c.label}
           indented
-          active={route.surface === CANVAS_SURFACE && route.params["id"] === c.id}
+          active={open?.id === c.id}
           onClick={() => navigate(`/canvas/${c.id}`)}
         />
       ))}

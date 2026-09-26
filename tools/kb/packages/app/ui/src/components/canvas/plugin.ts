@@ -1,39 +1,54 @@
 import { Effect } from "effect";
 import { definePlugin } from "@kb/plugin";
-import {
-  CANVAS_LIST,
-  CANVAS_NAMESPACE,
-  CANVAS_PAGE,
-  matchCanvas,
-  matchCanvasList,
-} from "@/components/canvas/routes";
+import { matchCanvas, matchCanvasList } from "@/components/canvas/routes";
 import { CanvasListSurface, CanvasSection, CanvasSurface } from "@/components/canvas/surfaces";
-import { SidebarSectionPoint, SurfacePoint } from "@/lib/plugins";
+import { CANVAS_NAMESPACE, CanvasListView, CanvasView } from "@/components/canvas/views";
+import {
+  RoutePoint,
+  SidebarSectionPoint,
+  ViewPoint,
+  provideRoute,
+  provideView,
+} from "@/lib/plugins";
 
-/** Canvases: the list, one canvas (its own viewport, so `fixed`), and the section. */
+/** Canvases: the list and one canvas (its own viewport, so `fixed`), their routes, the section. */
 export const canvasUiPlugin = definePlugin({
   name: CANVAS_NAMESPACE,
   apply: (ctx) =>
     Effect.all(
       [
-        ctx.contribute(SurfacePoint, {
-          id: CANVAS_LIST,
-          value: {
+        ctx.contribute(
+          ViewPoint,
+          provideView(CanvasListView, {
+            placements: ["page"],
+            Component: CanvasListSurface,
+          }),
+        ),
+        ctx.contribute(
+          ViewPoint,
+          provideView(CanvasView, {
+            placements: ["page"],
+            Component: CanvasSurface,
+          }),
+        ),
+        ctx.contribute(
+          RoutePoint,
+          provideRoute({
+            view: CanvasListView,
             match: matchCanvasList,
             frame: () => "fixed",
             pendingTitle: () => "Opening canvas…",
-            Component: CanvasListSurface,
-          },
-        }),
-        ctx.contribute(SurfacePoint, {
-          id: CANVAS_PAGE,
-          value: {
+          }),
+        ),
+        ctx.contribute(
+          RoutePoint,
+          provideRoute({
+            view: CanvasView,
             match: matchCanvas,
             frame: () => "fixed",
             pendingTitle: () => "Opening canvas…",
-            Component: CanvasSurface,
-          },
-        }),
+          }),
+        ),
         ctx.contribute(SidebarSectionPoint, {
           id: "section",
           value: { order: 30, Component: CanvasSection },

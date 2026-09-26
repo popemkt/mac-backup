@@ -1,17 +1,11 @@
-import type { SurfaceParams } from "@/lib/plugins";
+import type { CanvasParams } from "@/components/canvas/views";
+import type { NoParams } from "@/lib/plugins";
 
-/** The canvas plugin's namespace and surface ids, derived once. */
-export const CANVAS_NAMESPACE = "canvas";
-export const CANVAS_LIST = "list";
-export const CANVAS_PAGE = "page";
-export const CANVAS_LIST_SURFACE = `${CANVAS_NAMESPACE}.${CANVAS_LIST}`;
-export const CANVAS_SURFACE = `${CANVAS_NAMESPACE}.${CANVAS_PAGE}`;
-
-export function matchCanvasList(path: string): SurfaceParams | null {
+export function matchCanvasList(path: string): NoParams | null {
   return path === "/canvas" || path === "/canvas/" ? {} : null;
 }
 
-export function matchCanvas(path: string): SurfaceParams | null {
+export function matchCanvas(path: string): CanvasParams | null {
   const id = /^\/canvas\/([^/]+)\/?$/.exec(path)?.[1];
   return id === undefined ? null : { id: decodeURIComponent(id) };
 }

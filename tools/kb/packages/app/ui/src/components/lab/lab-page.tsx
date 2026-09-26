@@ -20,7 +20,8 @@ import type { SceneBackend } from "@/scene/backend";
 import { SceneHost } from "@/components/lab/kit/scene-host";
 import { readTiming } from "@/lib/timing";
 import { useLabGraph } from "@/components/lab/lab-graph";
-import { LAB_SCENE_IDS, labPath, type LabSceneId } from "@/components/lab/routes";
+import { labPath } from "@/components/lab/routes";
+import { LAB_SCENE_IDS, type LabSceneId } from "@/components/lab/views";
 import { LAB_STUDIES } from "@/components/lab/studies";
 
 function StudySwitch({ scene }: { scene: LabSceneId }) {

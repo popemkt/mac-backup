@@ -8,11 +8,11 @@ import { PreferencesPopover } from "@/components/prefs/preferences-popover";
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { SidebarToggle } from "@/components/ui/sidebar-toggle";
 import { NotFound } from "@/components/ui/not-found";
+import { ViewSlot } from "@/components/ui/view-slot";
 import { ViewErrorBoundary } from "@/components/view-error-boundary";
 import { WorkspaceBoundary } from "@/components/ui/workspace-boundary";
 import { matchGlobalShortcut } from "@/lib/keyboard-shortcuts";
-import { useRoute, type Surface, type SurfaceParams } from "@/lib/plugins";
-import type { Contribution } from "@kb/plugin";
+import { useRoute, type ResolvedRoute } from "@/lib/plugins";
 import { OPTIONAL_UI_PLUGINS, startUiPlugins } from "@/ui-plugins";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore, useSidebarToggle } from "@/stores/prefs.store";
@@ -21,8 +21,9 @@ import { useUiStore } from "@/stores/ui.store";
 import { cn } from "@/lib/cn";
 import { hasText } from "@/lib/text";
 
-// Every page, and the sidebar section that leads to it, is a plugin's
-// contribution; the shell only frames whichever surface owns the path.
+// Every page is a route to a plugin's view, and the sidebar section that
+// leads to it is a contribution too; the shell only frames whichever route
+// owns the path.
 startUiPlugins();
 
 /** Total over `WsStatus`: every status has a dot, so the lookup cannot miss. */
@@ -161,25 +162,18 @@ function MainRegion({
   );
 }
 
-/** A surface's page, under whatever chrome it contributes. */
-function SurfaceBody({
-  surface,
-  params,
-}: {
-  surface: Contribution<Surface>;
-  params: SurfaceParams;
-}) {
-  const { Component } = surface.value;
-  // A plugin's page owns its own boundary; this one only keeps a page that
-  // lacks one from taking the shell down with it.
-  return (
-    <ViewErrorBoundary title="View crashed" resetKey={surface.id}>
-      <Component params={params} />
-    </ViewErrorBoundary>
-  );
+const NOT_FOUND = <NotFound what="Page" back={{ label: "Home", path: "/" }} />;
+
+/**
+ * The matched route's view, in the page slot. A plugin's page owns its own
+ * boundary; the slot's only keeps a page that lacks one from taking the shell
+ * down with it. A route whose view is not loaded is not found.
+ */
+function RouteBody({ route }: { route: ResolvedRoute }) {
+  return <ViewSlot view={route.view} params={route.params} placement="page" fallback={NOT_FOUND} />;
 }
 
-/** What the shell frames under its header: a surface's page, or the not-found state. */
+/** What the shell frames under its header: a route's page, or the not-found state. */
 interface ShellPage {
   readonly pendingTitle: string;
   readonly scroll: boolean;
@@ -187,22 +181,21 @@ interface ShellPage {
   readonly body: React.ReactNode;
 }
 
-function surfacePage(surface: Contribution<Surface>, params: SurfaceParams): ShellPage {
-  const { Chrome } = surface.value;
+function routePage(route: ResolvedRoute): ShellPage {
   return {
-    pendingTitle: surface.value.pendingTitle(params),
-    scroll: surface.value.frame(params) === "scroll",
-    chrome: Chrome === undefined ? null : <Chrome params={params} />,
-    body: <SurfaceBody surface={surface} params={params} />,
+    pendingTitle: route.pendingTitle,
+    scroll: route.frame === "scroll",
+    chrome: route.chrome,
+    body: <RouteBody route={route} />,
   };
 }
 
-/** A path no surface owns. */
+/** A path no route owns. */
 const NOT_FOUND_PAGE: ShellPage = {
   pendingTitle: "Opening your workspace…",
   scroll: true,
   chrome: null,
-  body: <NotFound what="Page" back={{ label: "Home", path: "/" }} />,
+  body: NOT_FOUND,
 };
 
 function WorkspaceShell({
@@ -294,7 +287,6 @@ export function App() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const route = useRoute();
-  const surface = route.contribution;
 
   const reload = useCallback(async () => {
     setStatus("loading");
@@ -336,7 +328,6 @@ export function App() {
     return () => window.removeEventListener("keydown", handler, true);
   }, [setGlobalPaletteOpen]);
 
-  const { Chrome } = surface?.value ?? {};
   return (
     <div className="relative flex h-full min-h-0 overflow-hidden">
       <SkipLink />
@@ -348,17 +339,14 @@ export function App() {
         tabIndex={-1}
         className="relative flex min-h-0 min-w-0 flex-1 flex-col outline-none"
       >
-        {surface !== null && surface.value.frame(route.params) === "full" ? (
-          <WorkspaceBoundary
-            pending={status === "loading"}
-            title={surface.value.pendingTitle(route.params)}
-          >
+        {route !== null && route.frame === "full" ? (
+          <WorkspaceBoundary pending={status === "loading"} title={route.pendingTitle}>
             {status === "error" ? (
               <LoadError error={error} onRetry={() => void reload()} />
             ) : (
               <>
-                {Chrome !== undefined ? <Chrome params={route.params} /> : null}
-                <SurfaceBody surface={surface} params={route.params} />
+                {route.chrome}
+                <RouteBody route={route} />
               </>
             )}
           </WorkspaceBoundary>
@@ -367,7 +355,7 @@ export function App() {
             status={status}
             error={error}
             onRetry={() => void reload()}
-            page={surface === null ? NOT_FOUND_PAGE : surfacePage(surface, route.params)}
+            page={route === null ? NOT_FOUND_PAGE : routePage(route)}
           />
         )}
         <SharedChrome />

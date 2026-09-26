@@ -215,6 +215,7 @@ export type UiZone =
   | "scene"
   | "test-support"
   | "catalog"
+  | "view-keys"
   | `components/${UiSurface}`;
 
 /**
@@ -235,6 +236,14 @@ const UI_PRIMITIVES: readonly string[] = [
 ];
 
 /**
+ * A plugin folder's view keys (DESIGN-UI.md → UI points: routes and views):
+ * the key constants and param types a host imports to embed that plugin's
+ * view, and nothing else. Lifted out of the folder's zone, because a key must
+ * be reachable where the folder's components must not.
+ */
+const UI_VIEW_KEYS = /^components\/[^/]+\/views\.ts$/;
+
+/**
  * A file's zone, from its path relative to {@link UI_SRC}.
  *
  * `main.tsx` and `components/App.tsx` are the composition root, so they are
@@ -245,6 +254,7 @@ const UI_PRIMITIVES: readonly string[] = [
  */
 export function uiZoneOf(file: string): UiZone {
   if (!file.includes("/") || file === "components/App.tsx") return "shell";
+  if (UI_VIEW_KEYS.test(file)) return "view-keys";
   if (UI_PRIMITIVES.some((prefix) => file.startsWith(prefix))) return "primitives";
   const [head, next] = file.split("/");
   if (head === "components") {
@@ -287,6 +297,7 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   shell: [
     "shell",
     "primitives",
+    "view-keys",
     "components/canvas",
     "components/graph",
     "components/lab",
@@ -319,6 +330,10 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
   // `resetOutlineStore` resets, and the `api/ws` port `FakeWsSocket` doubles.
   "test-support": ["test-support", "stores", "api"],
   primitives: ["primitives", "lib"],
+  // View keys: every surface may import them, so they reach only `lib` (the
+  // `viewKey` factory) — a key file that grew a component or a store read
+  // would hand that to every host.
+  "view-keys": ["view-keys", "lib"],
   catalog: [
     "catalog",
     "fixtures",
@@ -332,14 +347,58 @@ export const UI_ALLOWS: Record<UiZone, readonly UiZone[]> = {
     "components/prefs",
     "components/sidebar",
   ],
-  "components/canvas": ["components/canvas", "primitives", "stores", "actions", "lib"],
-  "components/graph": ["components/graph", "primitives", "stores", "actions", "lib", "scene"],
-  "components/lab": ["components/lab", "primitives", "stores", "actions", "lib", "scene"],
-  "components/ontology": ["components/ontology", "primitives", "stores", "actions", "lib"],
-  "components/outline": ["components/outline", "primitives", "stores", "actions", "lib"],
-  "components/palette": ["components/palette", "primitives", "stores", "actions", "lib"],
-  "components/prefs": ["components/prefs", "primitives", "stores", "actions", "lib"],
-  "components/sidebar": ["components/sidebar", "primitives", "stores", "actions", "lib"],
+  "components/canvas": ["components/canvas", "primitives", "stores", "actions", "lib", "view-keys"],
+  "components/graph": [
+    "components/graph",
+    "primitives",
+    "stores",
+    "actions",
+    "lib",
+    "scene",
+    "view-keys",
+  ],
+  "components/lab": [
+    "components/lab",
+    "primitives",
+    "stores",
+    "actions",
+    "lib",
+    "scene",
+    "view-keys",
+  ],
+  "components/ontology": [
+    "components/ontology",
+    "primitives",
+    "stores",
+    "actions",
+    "lib",
+    "view-keys",
+  ],
+  "components/outline": [
+    "components/outline",
+    "primitives",
+    "stores",
+    "actions",
+    "lib",
+    "view-keys",
+  ],
+  "components/palette": [
+    "components/palette",
+    "primitives",
+    "stores",
+    "actions",
+    "lib",
+    "view-keys",
+  ],
+  "components/prefs": ["components/prefs", "primitives", "stores", "actions", "lib", "view-keys"],
+  "components/sidebar": [
+    "components/sidebar",
+    "primitives",
+    "stores",
+    "actions",
+    "lib",
+    "view-keys",
+  ],
 };
 
 /**

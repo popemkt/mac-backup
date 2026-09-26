@@ -1,24 +1,35 @@
 import { Effect } from "effect";
 import { definePlugin } from "@kb/plugin";
-import { GRAPH_NAMESPACE, GRAPH_PAGE, matchGraph } from "@/components/graph/routes";
+import { matchGraph } from "@/components/graph/routes";
 import { GraphSection, GraphSurface } from "@/components/graph/surfaces";
-import { SidebarSectionPoint, SurfacePoint } from "@/lib/plugins";
+import { GRAPH_NAMESPACE, GraphView } from "@/components/graph/views";
+import {
+  RoutePoint,
+  SidebarSectionPoint,
+  ViewPoint,
+  provideRoute,
+  provideView,
+} from "@/lib/plugins";
 
-/** The graph: its page (whole column, no workspace header) and its sidebar section. */
+/** The graph: its view, the route to it (whole column, no workspace header), and its section. */
 export const graphUiPlugin = definePlugin({
   name: GRAPH_NAMESPACE,
   apply: (ctx) =>
     Effect.all(
       [
-        ctx.contribute(SurfacePoint, {
-          id: GRAPH_PAGE,
-          value: {
+        ctx.contribute(
+          ViewPoint,
+          provideView(GraphView, { placements: ["page"], Component: GraphSurface }),
+        ),
+        ctx.contribute(
+          RoutePoint,
+          provideRoute({
+            view: GraphView,
             match: matchGraph,
             frame: () => "full",
             pendingTitle: () => "Opening graph…",
-            Component: GraphSurface,
-          },
-        }),
+          }),
+        ),
         ctx.contribute(SidebarSectionPoint, {
           id: "section",
           value: { order: 10, Component: GraphSection },
