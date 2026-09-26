@@ -31,33 +31,49 @@ function measure(page: Page) {
   });
 }
 
+type Measure = NonNullable<Awaited<ReturnType<typeof measure>>>;
+
+/**
+ * The layout once it has stopped moving: two measurements in a row that
+ * agree, with at least one count badge laid out. Rows mount and fonts swap
+ * after the first badge is visible, so the first sample that happens to pass
+ * can still be a frame in motion; the assertions run once, on this one.
+ */
+async function settled(page: Page): Promise<Measure> {
+  const last: { m: Measure | null; key: string } = { m: null, key: "" };
+  await expect
+    .poll(
+      async () => {
+        const m = await measure(page);
+        const key = JSON.stringify(m);
+        const still = m !== null && m.badges.length > 0 && key === last.key;
+        last.m = m;
+        last.key = key;
+        return still;
+      },
+      { intervals: [100, 250] },
+    )
+    .toBe(true);
+  if (last.m === null) throw new Error("no main region");
+  return last.m;
+}
+
 for (const width of [1280, 390]) {
   test(`home at ${width}px never scrolls sideways, and its header wash stays inside`, async ({
     page,
   }) => {
     await home(page, width);
     await expect(page.locator("[data-header-wash]")).toHaveCount(1);
-    // Measured once the outline has laid out: rows mount and fonts swap
-    // after the first badge is visible, so a single read can see a frame
-    // that is still moving.
-    await expect
-      .poll(async () => {
-        const m = await measure(page);
-        return m === null ? null : { overflow: m.overflow, pageOverflow: m.pageOverflow };
-      })
-      .toEqual({ overflow: 0, pageOverflow: 0 });
+    const m = await settled(page);
+    expect(m.overflow).toBe(0);
+    expect(m.pageOverflow).toBe(0);
   });
 
   test(`home at ${width}px shows every child count whole`, async ({ page }) => {
     await home(page, width);
-    await expect
-      .poll(async () => {
-        const m = await measure(page);
-        if (m === null || m.badges.length === 0) return ["no count badges yet"];
-        return m.badges
-          .filter((badge) => badge.left < m.frameLeft)
-          .map((badge) => `count ${badge.text} starts at ${badge.left}, left of ${m.frameLeft}`);
-      })
-      .toEqual([]);
+    const m = await settled(page);
+    for (const badge of m.badges) {
+      expect(badge.left, `count ${badge.text}`).toBeGreaterThanOrEqual(m.frameLeft);
+    }
   });
 }
