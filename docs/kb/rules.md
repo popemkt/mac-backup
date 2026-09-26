@@ -422,14 +422,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Extract createSigmaRenderer(el, opts) returning {update, destroy} and let the effect be three calls.
 - **node** — `01M1MGCPJTV66QSFCR44XG29YM`
 
-### GAP: the Sky borrows the graph's toScreen across the UI zones until it moves to scene/gpu/screen.ts
-
-- **expected** — One screen projection in the scene kit (scene/gpu/screen.ts, toScreen) that the 3D graph and the Sky both import.
-- **current** — components/lab/sky/scene.ts imports toScreen from components/graph/force3d-screen.ts, a lab→graph import the zone matrix forbids, marked on the import line.
-- **impact** — A lab study depends on a graph module; the graph cannot move or change force3d-screen without breaking the lab.
-- **closes** — WP4 extracts toScreen to scene/gpu/screen.ts (audit P1-10) and the Sky's import points there.
-- **node** — `01M3E9QMKPDBB9KEYCDYHT3WG1`
-
 ### GAP: the two pin tools use different could-not-run exit codes and no shared test holds them to one contract
 
 - **expected** — github-sources and uv-sources implement one stated contract for check (0 current, 10 newer upstream, one code for could not resolve) and update, stated once, with a shared offline test that runs both against stubbed resolvers.
@@ -961,6 +953,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Move the row layout into components/ui/ beside EnumSelect and PopoverShell, which this file already uses.
 - **rule** — UI import matrix
 - **node** — `01M1RXNMP8NQZ2WD8F2E8V6QBH`
+
+### GAP: the Sky borrows the graph's toScreen across the UI zones until it moves to scene/gpu/screen.ts
+
+- **expected** — One screen projection in the scene kit (scene/gpu/screen.ts, toScreen) that the 3D graph and the Sky both import.
+- **current** — components/lab/sky/scene.ts imports toScreen from components/graph/force3d-screen.ts, a lab→graph import the zone matrix forbids, marked on the import line.
+- **impact** — A lab study depends on a graph module; the graph cannot move or change force3d-screen without breaking the lab.
+- **closes** — WP4 extracts toScreen to scene/gpu/screen.ts (audit P1-10) and the Sky's import points there.
+- **node** — `01M3E9QMKPDBB9KEYCDYHT3WG1`
 
 ### GAP: the store still exposes getPreviousVisibleNode / getNextVisibleNode by node id
 

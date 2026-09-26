@@ -25,6 +25,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { createStage } from "@/scene/gpu/stage";
 import { starfield } from "@/scene/gpu/starfield";
 import type { SceneBackend } from "@/scene/backend";
+import type { SceneHandle } from "@/scene/host";
 import type { ScenePalette } from "@/scene/palette";
 import { EmphasisFade } from "@/lib/graph-fade";
 import type { GraphEmphasis } from "@/lib/graph-interaction";
@@ -44,7 +45,7 @@ import { LabelLayer } from "./force3d-labels";
 import { startLayout3d, type Layout3d } from "./force3d-layout";
 import { MAX_PARTICLE_LINKS, linkLayer, type LinkLayer } from "./force3d-links";
 import { nodeLayer, type NodeLayer } from "./force3d-nodes";
-import { toScreen, type ScreenPoint } from "./force3d-screen";
+import { pixelsPerUnit, toScreen, type ScreenPoint } from "@/scene/gpu/screen";
 
 export interface Force3dSettings {
   readonly spread: number;
@@ -91,19 +92,14 @@ export interface Force3dInspection {
   readonly screenOf: (id: string) => { x: number; y: number } | null;
 }
 
-export interface Force3dScene {
-  readonly backend: SceneBackend;
+/** The mounted 3D graph: the scene host's handle, and what only the graph is told. */
+export interface Force3dScene extends SceneHandle {
   readonly controls: GraphCameraControls;
   setGraph(nodes: readonly LensNode[], edges: readonly LensEdge[]): void;
   setSettings(settings: Force3dSettings): void;
   setEmphasis(emphasis: GraphEmphasis): void;
   setPalette(palette: ScenePalette, link: string): void;
-  setReducedMotion(reduced: boolean): void;
-  resize(width: number, height: number): void;
-  /** Off while the tab is hidden: nothing is drawn. */
-  setRunning(running: boolean): void;
   inspect(): Force3dInspection;
-  dispose(): void;
 }
 
 const FOV = 50;
@@ -376,14 +372,17 @@ export async function mountForce3d(
   const pick = (x: number, y: number): number => {
     canvasSize.width = canvas.clientWidth;
     canvasSize.height = canvas.clientHeight;
-    const focal = canvasSize.height / 2 / Math.tan((FOV * Math.PI) / 360);
     let best = -1;
     let bestDepth = Infinity;
     for (let i = 0; i < topology.nodes.length; i++) {
       if ((fades.dim.values[i] ?? 1) < 0.5) continue;
       projected.set(positions[i * 3] ?? 0, positions[i * 3 + 1] ?? 0, positions[i * 3 + 2] ?? 0);
       if (!toScreen(projected, camera, canvasSize, onScreen)) continue;
-      const reach = Math.max(6, ((nodes?.radius(i) ?? 4) * focal) / onScreen.depth) + 2;
+      const reach =
+        Math.max(
+          6,
+          (nodes?.radius(i) ?? 4) * pixelsPerUnit(camera, canvasSize.height, onScreen.depth),
+        ) + 2;
       if (Math.hypot(onScreen.x - x, onScreen.y - y) <= reach && onScreen.depth < bestDepth) {
         best = i;
         bestDepth = onScreen.depth;

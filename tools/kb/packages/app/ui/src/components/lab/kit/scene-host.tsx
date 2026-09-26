@@ -1,14 +1,14 @@
 /**
- * Mounts one study's scene into a div and keeps it in step with React:
- * graph, theme, reduced motion, control values, size and tab visibility go
- * in through the scene's handle, and unmounting (a study switch, leaving the
- * page, the plugin being unloaded) disposes it — every GPU resource, loop and
- * listener with it.
+ * The lab's React host over the scene host (`@/scene/host`): it mounts one
+ * study's scene into a div through `attachScene`, which owns sizing, tab
+ * visibility and disposal, and hands the study what only a study is told —
+ * graph, theme, reduced motion and control values.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { LabControlValues, LabHover, LabScene, LabStudy } from "@/components/lab/kit/contract";
 import { readLabPalette } from "@/components/lab/kit/palette";
 import type { SceneBackend } from "@/scene/backend";
+import { attachScene } from "@/scene/host";
 import { readTiming } from "@/lib/timing";
 import type { LabGraph } from "@/components/lab/lab-graph";
 import type { Appearance } from "@/stores/prefs.store";
@@ -28,65 +28,6 @@ export interface SceneHostProps {
   readonly onError: (message: string) => void;
 }
 
-function visible(): boolean {
-  return document.visibilityState !== "hidden";
-}
-
-/**
- * Mount the study while this effect lives, and hand the mounted scene out
- * through `onMounted`; the latest props come through `live`.
- */
-function useMountedScene(
-  host: React.RefObject<HTMLDivElement | null>,
-  live: React.RefObject<SceneHostProps>,
-  study: LabStudy,
-  onMounted: (scene: LabScene | null) => void,
-): void {
-  useEffect(() => {
-    const el = host.current;
-    if (el === null) return undefined;
-    let gone = false;
-    let mounted: LabScene | null = null;
-    const start = async () => {
-      const mount = await study.load();
-      const props = live.current;
-      const next = await mount(el, {
-        graph: props.graph,
-        palette: readLabPalette(),
-        timing: readTiming(),
-        dark: props.appearance.dark,
-        reducedMotion: props.reducedMotion,
-        values: props.values,
-        onHover: (hover) => live.current.onHover(hover),
-        onOpen: (id) => live.current.onOpen(id),
-      });
-      if (gone) {
-        next.dispose();
-        return;
-      }
-      mounted = next;
-      next.resize(el.clientWidth, el.clientHeight);
-      next.setRunning(visible());
-      onMounted(next);
-      live.current.onReady(next.backend);
-    };
-    start().catch((error: unknown) => {
-      if (!gone) live.current.onError(error instanceof Error ? error.message : String(error));
-    });
-    const resize = new ResizeObserver(() => mounted?.resize(el.clientWidth, el.clientHeight));
-    resize.observe(el);
-    const onVisibility = () => mounted?.setRunning(visible());
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      gone = true;
-      resize.disconnect();
-      document.removeEventListener("visibilitychange", onVisibility);
-      mounted?.dispose();
-      onMounted(null);
-    };
-  }, [host, live, study, onMounted]);
-}
-
 /** Hand each changed control value to the scene, once. */
 function useControlValues(scene: LabScene | null, values: LabControlValues): void {
   const sent = useRef<LabControlValues>(values);
@@ -102,12 +43,37 @@ function useControlValues(scene: LabScene | null, values: LabControlValues): voi
 export function SceneHost(props: SceneHostProps) {
   const { study, graph, appearance, reducedMotion, values } = props;
   const host = useRef<HTMLDivElement>(null);
-  const live = useRef(props);
-  useEffect(() => {
-    live.current = props;
-  });
   const [scene, setScene] = useState<LabScene | null>(null);
-  useMountedScene(host, live, study, setScene);
+  // The scene reports through these, and a mount starts from the latest props.
+  const hovered = useEffectEvent((hover: LabHover | null) => props.onHover(hover));
+  const opened = useEffectEvent((id: string) => props.onOpen(id));
+  const initOf = useEffectEvent(() => ({
+    graph: props.graph,
+    palette: readLabPalette(),
+    timing: readTiming(),
+    dark: props.appearance.dark,
+    reducedMotion: props.reducedMotion,
+    values: props.values,
+    onHover: hovered,
+    onOpen: opened,
+  }));
+  const ready = useEffectEvent((next: LabScene) => {
+    setScene(next);
+    props.onReady(next.backend);
+  });
+  const failed = useEffectEvent((error: Error) => props.onError(error.message));
+
+  useEffect(() => {
+    const el = host.current;
+    if (el === null) return undefined;
+    const init = initOf();
+    const mounting = study.load().then((mount) => mount(el, init));
+    const detach = attachScene(el, mounting, { onReady: ready, onError: failed });
+    return () => {
+      detach();
+      setScene(null);
+    };
+  }, [study]);
   useControlValues(scene, values);
   useEffect(() => scene?.setGraph?.(graph), [scene, graph]);
   // By the time this runs <html> carries the new appearance, so the tokens hold its values.

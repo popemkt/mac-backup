@@ -1,6 +1,7 @@
 /**
- * Where a world point lands on the 3D graph's canvas — the one answer the
- * labels, picking and the render inspector all ask.
+ * Where a world point lands on a scene's canvas — the one projection every
+ * real-time 3D view asks: the graph's labels, picking and render inspector,
+ * and the Sky's hover.
  *
  * "In view" is decided in camera space, between the near and the far plane,
  * never from the projected z: three's WebGPU renderer switches the camera to
@@ -39,4 +40,9 @@ export function toScreen(
   out.x = ((scratch.x + 1) / 2) * size.width;
   out.y = ((1 - scratch.y) / 2) * size.height;
   return Number.isFinite(out.x) && Number.isFinite(out.y);
+}
+
+/** CSS pixels one world unit covers at `depth`, on a canvas `height` CSS pixels tall. */
+export function pixelsPerUnit(camera: PerspectiveCamera, height: number, depth: number): number {
+  return height / 2 / Math.tan((camera.fov * Math.PI) / 360) / depth;
 }

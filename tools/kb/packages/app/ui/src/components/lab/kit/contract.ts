@@ -8,7 +8,7 @@
  */
 import type { ComponentType } from "react";
 import type { LabGraph } from "@/components/lab/lab-graph";
-import type { SceneBackend } from "@/scene/backend";
+import type { SceneHandle } from "@/scene/host";
 import type { ScenePalette } from "@/scene/palette";
 import type { Timing } from "@/lib/timing";
 
@@ -82,19 +82,12 @@ export interface LabSceneInit {
   readonly onOpen: (id: string) => void;
 }
 
-/** A mounted scene. `dispose` releases every GPU resource, loop and listener it took. */
-export interface LabScene {
-  readonly backend: SceneBackend;
+/** A mounted study: the scene host's handle, and what only a study is told. */
+export interface LabScene extends SceneHandle {
   /** Present only on a study that reads the graph. */
   readonly setGraph?: (graph: LabGraph) => void;
   setPalette(palette: ScenePalette, dark: boolean): void;
-  setReducedMotion(reduced: boolean): void;
   setControl(id: string, value: LabControlValue): void;
-  /** CSS pixels; the stage clamps the device pixel ratio itself. */
-  resize(width: number, height: number): void;
-  /** Off while the tab is hidden: no frames are drawn. */
-  setRunning(running: boolean): void;
-  dispose(): void;
 }
 
 type MountLabScene = (host: HTMLElement, init: LabSceneInit) => Promise<LabScene>;

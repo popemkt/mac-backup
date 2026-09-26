@@ -396,12 +396,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
         </button>
       ) : null}
       {tooltip && meta && (selectedNodeId === null || selectedNodeId === undefined) ? (
-        <GraphTooltip
-          node={meta}
-          x={tooltip.x}
-          y={tooltip.y}
-          hostWidth={containerRef.current?.clientWidth ?? 400}
-        />
+        <GraphTooltip node={meta} x={tooltip.x} y={tooltip.y} />
       ) : null}
     </div>
   );

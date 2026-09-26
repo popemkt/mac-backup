@@ -746,7 +746,14 @@ principles below it applies, and two to four live parameters:
 
 Every study is built from one kit (P4), in two homes. What any real-time 3D
 view needs is the **scene kit**, `src/scene/` (its own zone in `UI_ALLOWS`,
-open to the lab and the graph): `gpu/stage` (renderer, post chain, tone
+open to the lab and the graph): `host` (`SceneHandle`, the one interface
+every mounted scene meets — sized, paused while the tab is hidden, told of
+reduced motion, disposed — and `attachScene`, the one non-React mechanism
+that keeps a scene in step with its element and disposes one whose mount
+lands after the element has gone; each surface wraps it in a thin React
+host of its own, so `scene/` holds no React), `gpu/screen` (`toScreen`, the
+one projection of a world point to canvas pixels, decided in view space;
+every label, pick and hover asks it), `gpu/stage` (renderer, post chain, tone
 mapping, palette uniforms, frame loop, reveal), `gpu/tsl` (the typed TSL seam
 and the ease as a shader function), `gpu/rig` (lights and finishes),
 `gpu/starfield`, `gpu/dispose`, `palette` (the five palette roles, filled
@@ -765,8 +772,8 @@ and eased flights), `backdrop` (the lab's ground: a focal pool, a
 drifting domain-warped haze, heat shimmer — never a flat fill), `entrance`
 (a study's pieces arriving over the arrive duration, staggered by a lag the
 study chooses; already arrived under reduced motion), `seeded` (the one
-seeded random a study scatters from), `scene-host` and `info-card` (the
-React side).
+seeded random a study scatters from), `scene-host` (its React wrapper over
+`attachScene`) and `info-card`.
 `three` loads only in a chunk of its own: each study's scene and the 3D
 graph sit behind a dynamic `import()` inside their surface's own lazy route
 chunk, so every path from the entry to a three import, direct or through

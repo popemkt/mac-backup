@@ -24,7 +24,7 @@ import { fitGraphLabel, graphLabelFont } from "@/lib/graph-label";
 import { reserveGraphLabel, type GraphLabelBox } from "@/lib/graph-label-layout";
 import type { ScenePalette } from "@/scene/palette";
 import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";
-import { toScreen, type ScreenPoint } from "./force3d-screen";
+import { pixelsPerUnit, toScreen, type ScreenPoint } from "@/scene/gpu/screen";
 
 const FONT_SIZE = 12;
 const PAD_X = 6;
@@ -84,8 +84,7 @@ export function focusDisc(
 ): GraphLabelBox | null {
   const at: ScreenPoint = { x: 0, y: 0, depth: 0 };
   if (!toScreen(world, camera, size, at)) return null;
-  const focal = size.height / 2 / Math.tan((camera.fov * Math.PI) / 360);
-  const r = (radius * focal) / at.depth;
+  const r = radius * pixelsPerUnit(camera, size.height, at.depth);
   if (!Number.isFinite(r)) return null;
   return { x: at.x - r, y: at.y - r, width: 2 * r, height: 2 * r };
 }

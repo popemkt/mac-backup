@@ -1,18 +1,19 @@
 /**
- * The 3D graph's React host: it mounts the scene (`force3d-scene`, the only
- * part that touches three) into a div and keeps it in step — graph, settings,
- * emphasis, appearance, reduced motion, size and tab visibility go in through
- * the scene's handle; unmounting (a renderer switch, a perspective change,
- * leaving the page) disposes it, every GPU resource, worker and listener with
- * it. This module is the lazy chunk `graph-adapters` imports.
+ * The 3D graph's React host over the scene host (`@/scene/host`): it mounts
+ * the scene (`force3d-scene`, the only part that touches three) into a div
+ * through `attachScene`, which owns sizing, tab visibility and disposal, and
+ * hands the scene what only the graph is told — graph, settings, emphasis,
+ * appearance and reduced motion. A new perspective is a new scene. This
+ * module is the lazy chunk `graph-adapters` imports.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import type { GraphEmphasis } from "@/lib/graph-interaction";
 import { useReducedMotion } from "@/lib/motion";
 import { readTiming } from "@/lib/timing";
 import { readTokenColor } from "@/lib/css-color";
 import { readScenePalette } from "@/scene/palette";
+import { attachScene } from "@/scene/host";
 import type { GraphCameraControls } from "./graph-camera-controls";
 import { selectionFromNode, type GraphSelection } from "./graph-selection";
 import { GraphTooltip } from "./graph-tooltip";
@@ -79,35 +80,29 @@ function emphasisOf(p: GraphEmphasis): GraphEmphasis {
   };
 }
 
-function visible(): boolean {
-  return document.visibilityState !== "hidden";
-}
-
 type InspectableHost = HTMLDivElement & { __kbForce3d?: Force3dScene };
 
-interface MountHandlers {
-  readonly onMounted: (scene: Force3dScene | null) => void;
-  readonly onHover: (hover: Force3dHover | null) => void;
-  readonly onError: (error: Error) => void;
-}
-
-/** Mount the scene while this effect lives; the latest props come through `live`. */
+/**
+ * Mount one scene per perspective while this effect lives. The scene is
+ * started from, and reports to, the latest props.
+ */
 function useMountedScene(
   host: React.RefObject<HTMLDivElement | null>,
-  live: React.RefObject<Force3dGraphProps>,
-  reduced: React.RefObject<boolean>,
-  handlers: MountHandlers,
+  props: Force3dGraphProps,
+  reducedMotion: boolean,
+  handlers: {
+    readonly onMounted: (scene: Force3dScene | null) => void;
+    readonly onHover: (hover: Force3dHover | null) => void;
+    readonly onError: (error: Error) => void;
+  },
 ): void {
-  const { layoutKey } = live.current;
   const { onMounted, onHover, onError } = handlers;
-  useEffect(() => {
-    const el = host.current;
-    if (el === null) return undefined;
-    let gone = false;
-    let mounted: Force3dScene | null = null;
-    const props = live.current;
-    // The host's hand-back target is fixed for the scene's life (the page's setter).
-    const report = props.onControlsReady;
+  const selected = useEffectEvent((id: string | null) => {
+    const node = id === null ? undefined : props.nodes.find((n) => n.id === id);
+    props.onSelectionChange?.(node === undefined ? null : selectionFromNode(node));
+  });
+  const opened = useEffectEvent((id: string) => props.onNodeOpen?.(id));
+  const start = useEffectEvent((el: HTMLElement) =>
     mountForce3d(el, {
       nodes: props.nodes,
       edges: props.edges,
@@ -115,63 +110,49 @@ function useMountedScene(
       emphasis: emphasisOf(props),
       palette: readGraphPalette(),
       link: readTokenColor("--graph-edge"),
-      reducedMotion: reduced.current,
+      reducedMotion,
       timing: readTiming(),
-      onSelect: (id) => {
-        const node = id === null ? undefined : live.current.nodes.find((n) => n.id === id);
-        live.current.onSelectionChange?.(node === undefined ? null : selectionFromNode(node));
-      },
-      onOpen: (id) => live.current.onNodeOpen?.(id),
+      onSelect: selected,
+      onOpen: opened,
       onHover,
-    })
-      .then((scene) => {
-        if (gone) {
-          scene.dispose();
-          return undefined;
-        }
-        mounted = scene;
-        scene.resize(el.clientWidth, el.clientHeight);
-        scene.setRunning(visible());
+    }),
+  );
+  // The hand-back target is fixed for the scene's life (the page's setter).
+  const report = useEffectEvent((controls: GraphCameraControls | null) =>
+    props.onControlsReady?.(controls),
+  );
+  const { layoutKey } = props;
+  useEffect(() => {
+    const el = host.current;
+    if (el === null) return undefined;
+    const detach = attachScene(el, start(el), {
+      onReady: (scene) => {
         if (import.meta.env.MODE === "test-render") (el as InspectableHost).__kbForce3d = scene;
-        report?.(scene.controls);
+        report(scene.controls);
         onMounted(scene);
-        return undefined;
-      })
-      .catch((error: unknown) => {
-        if (!gone) onError(error instanceof Error ? error : new Error(String(error)));
-      });
-    const resize = new ResizeObserver(() => mounted?.resize(el.clientWidth, el.clientHeight));
-    resize.observe(el);
-    const onVisibility = () => mounted?.setRunning(visible());
-    document.addEventListener("visibilitychange", onVisibility);
+      },
+      onError,
+    });
     return () => {
-      gone = true;
-      resize.disconnect();
-      document.removeEventListener("visibilitychange", onVisibility);
-      mounted?.dispose();
+      detach();
       delete (el as InspectableHost).__kbForce3d;
-      report?.(null);
+      report(null);
       onMounted(null);
       onHover(null);
     };
-    // One scene per perspective: a new layout key is a new scene.
-  }, [host, live, layoutKey, reduced, onMounted, onHover, onError]);
+  }, [host, layoutKey, onMounted, onHover, onError]);
 }
 
 export default function Force3dGraph(props: Force3dGraphProps) {
   const { nodes, edges, appearanceKey, selectedNodeId, highlightIds, filterIds } = props;
   const { spread, linkDistance, curvedLinks, autorotate, showLabels, labelTopN } = props;
   const host = useRef<HTMLDivElement>(null);
-  const live = useRef(props);
-  live.current = props;
   const reducedMotion = useReducedMotion();
-  const reduced = useRef(reducedMotion);
-  reduced.current = reducedMotion;
   const [scene, setScene] = useState<Force3dScene | null>(null);
   const [hover, setHover] = useState<Force3dHover | null>(null);
   const [error, setError] = useState<Error | null>(null);
   if (error !== null) throw error;
-  useMountedScene(host, live, reduced, {
+  useMountedScene(host, props, reducedMotion, {
     onMounted: setScene,
     onHover: setHover,
     onError: setError,
@@ -197,12 +178,7 @@ export default function Force3dGraph(props: Force3dGraphProps) {
     <div className="relative h-full w-full min-h-0">
       <div ref={host} className="absolute inset-0" data-testid="force3d-graph" />
       {hover !== null && hovered !== undefined && (selectedNodeId ?? null) === null ? (
-        <GraphTooltip
-          node={hovered}
-          x={hover.x}
-          y={hover.y}
-          hostWidth={host.current?.clientWidth ?? 400}
-        />
+        <GraphTooltip node={hovered} x={hover.x} y={hover.y} />
       ) : null}
     </div>
   );

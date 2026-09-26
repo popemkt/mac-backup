@@ -6,13 +6,13 @@
  * toward or away — and anything else is the orbit's. A press on a star that
  * never moves is a click, and opens the node.
  *
- * Every screen position is the graph's `toScreen`, the one projection that is
+ * Every screen position is the scene kit's `toScreen`, the one projection that is
  * right under both backends (it decides "in view" in camera space).
  */
 import { Vector3, type Mesh, type Object3D, type PerspectiveCamera } from "three/webgpu";
 import type { LabSceneInit } from "@/components/lab/kit/contract";
 import { PointerField, type Grab } from "@/components/lab/kit/pointer";
-import { toScreen, type ScreenPoint } from "@/components/graph/force3d-screen"; // GAP [[01M3E9QMKPDBB9KEYCDYHT3WG1]]
+import { toScreen, type ScreenPoint } from "@/scene/gpu/screen";
 import type { NodeStars } from "@/components/lab/sky/stars";
 
 /** Pixels within which the pointer is on a star; a glint is easier to hit. */
