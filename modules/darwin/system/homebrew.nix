@@ -31,7 +31,7 @@ in
     # "none"   = leave them alone (relaxed, good while experimenting)
     # "zap"    = remove them (strict, full reproducibility)
     onActivation = {
-      cleanup = "none"; # Change to "zap" when your config is complete
+      cleanup = "none"; # GAP [[01M3FAE5T61DZS8T7WRW3RTZ93]] Previously installed Bun remains until manual removal.
       # Routine rebuilds install missing declarations but never discover or
       # apply upgrades. `update-system` owns that explicit network boundary.
       autoUpdate = false;
@@ -63,7 +63,6 @@ in
         # OpenCode is managed as a Homebrew CLI so it is restored with the
         # rest of the terminal agent toolchain.
         "anomalyco/tap/opencode"
-        # GAP [[01M3FAE5T61DZS8T7WRW3RTZ93]] Previously installed Bun remains until manual removal.
         "ghostwright/ghost-os/ghost-os"
         "zellij"
       ]

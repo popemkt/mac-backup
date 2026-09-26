@@ -302,9 +302,8 @@ environment itself. Three rules, each learned from a real breakage:
   "nothing installed" identically, which makes an executor reinstall things
   that already exist.
 - **Converge best effort.** Homebrew and npm install their CLIs during the
-  same rebuild, and Nix-provided Bun may not yet be in the profile on a fresh
-  machine. A downstream executor may legitimately find nothing to run. Warn
-  and continue; never abort activation over an optional package.
+  same rebuild, so a downstream executor may legitimately find nothing to
+  run. Warn and continue; never abort activation over an optional package.
 
 Failing soft is only safe because the drift audit closes the loop: whatever
 did not converge shows up under "Tracked But Missing" in
