@@ -102,22 +102,30 @@ const TITLE_CLASS = cn(
  * header paints its tag's colour; home, which has no tag, paints the accent.
  */
 export function HeaderWash({ color }: { color: string }) {
+  // The wash spreads 60px past the head on each side, which inside the main
+  // region's `overflow-x: auto` is 60px of sideways scroll. So it paints in a
+  // box of the head's own width that clips horizontally (`clip`, which, unlike
+  // `hidden`, starts no scroll container and leaves the vertical spill alone).
+  // Only the wash is clipped, never the editor: a wide table must still scroll.
   return (
     <div
-      className="pointer-events-none absolute"
+      className="pointer-events-none absolute inset-x-0 overflow-x-clip"
+      style={{ top: "-40px", bottom: "-30px" }}
       aria-hidden="true"
       data-header-wash="true"
-      style={{
-        top: "-40px",
-        left: "-60px",
-        right: "-60px",
-        bottom: "-30px",
-        background:
-          `radial-gradient(ellipse 60% 70% at 50% 35%, ` +
-          `${tagColorAlpha(color, 4.7)} 0%, ` +
-          `${tagColorAlpha(color, 2)} 40%, transparent 80%)`,
-      }}
-    />
+    >
+      <div
+        className="absolute inset-y-0"
+        style={{
+          left: "-60px",
+          right: "-60px",
+          background:
+            `radial-gradient(ellipse 60% 70% at 50% 35%, ` +
+            `${tagColorAlpha(color, 4.7)} 0%, ` +
+            `${tagColorAlpha(color, 2)} 40%, transparent 80%)`,
+        }}
+      />
+    </div>
   );
 }
 
