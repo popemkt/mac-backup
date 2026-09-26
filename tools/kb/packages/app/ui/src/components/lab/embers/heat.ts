@@ -55,6 +55,37 @@ export function heatEmissive<V, S>(o: ShadeOps<V, S>, accent: V, t: S, gain: S):
 }
 
 /**
+ * A sphere's surface colour at temperature `t`, before its emissive, in the
+ * theme it is shown in (Lab principles L1, P5). `daylight` is 0 on a dark
+ * ground and 1 on a light one.
+ *
+ * On a dark ground the surface stays a deep ember, so the emissive ramp is
+ * what reads; on a light ground an emissive barely shows, so the ramp moves
+ * into the surface: a cold sphere is pale ash (the ground run toward the hue
+ * family), warming through the accent's ember to the accent, and only the
+ * hot end's emissive, as in the dark, crosses the bloom threshold. Both
+ * ramps are drawn from the `--lab-*` tokens of the theme on screen; the study
+ * never forces a dark stage, which would paint colours no light-theme token
+ * names.
+ */
+export function heatAlbedo<V, S>(
+  o: ShadeOps<V, S>,
+  palette: { readonly ground: V; readonly hue: V; readonly accent: V },
+  t: S,
+  daylight: S,
+): V {
+  const ember = o.tint(palette.accent, EMBER_TINT);
+  const night = o.mix(o.scale(ember, o.num(0.3)), o.scale(palette.hue, o.num(0.2)), o.num(0.3));
+  const ash = o.mix(palette.ground, palette.hue, o.num(0.28));
+  const day = o.mix(
+    o.mix(ash, ember, o.smoothstep(0.05, 0.5, t)),
+    palette.accent,
+    o.smoothstep(0.45, 0.9, t),
+  );
+  return o.mix(night, day, daylight);
+}
+
+/**
  * The temperature a sphere is shown at: its contact heat (and a pop's flash),
  * or its resting glow capped at `ceiling`, whichever is warmer.
  */

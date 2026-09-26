@@ -45,14 +45,16 @@ export interface Force3dGraphProps extends GraphEmphasis {
 }
 
 /**
- * The 3D graph's palette roles: the page's own surfaces, so the canvas meets
- * the page without a seam — the card colour lifted at the focal point, falling
- * to the background at the frame's edge; ink and accent as the UI's.
+ * The 3D graph's palette roles: the page's own surfaces — the card colour at
+ * the focal point, falling at the frame's edge to the background on a dark
+ * ground and to the muted surface on a light one, so a light stage has a
+ * ground too (a white card on a white page would be none); ink and accent as
+ * the UI's.
  */
-function readGraphPalette() {
+function readGraphPalette(dark: boolean) {
   return readScenePalette({
     ground: "--card",
-    edge: "--background",
+    edge: dark ? "--background" : "--muted",
     hue: "--muted-foreground",
     ink: "--foreground",
     accent: "--primary",
@@ -120,7 +122,7 @@ function useMountedScene(
       edges: props.edges,
       settings: settingsOf(props),
       emphasis: emphasisOf(props),
-      palette: readGraphPalette(),
+      palette: readGraphPalette(props.appearance.dark),
       link: readTokenColor("--graph-edge"),
       dark: props.appearance.dark,
       reducedMotion,
@@ -203,7 +205,11 @@ export default function Force3dGraph(props: Force3dGraphProps) {
   // By the time this runs <html> carries the new appearance, so the tokens hold its values.
   // `appearance` is a new object exactly when its key changes.
   useEffect(() => {
-    scene?.setPalette(readGraphPalette(), readTokenColor("--graph-edge"), appearance.dark);
+    scene?.setPalette(
+      readGraphPalette(appearance.dark),
+      readTokenColor("--graph-edge"),
+      appearance.dark,
+    );
   }, [scene, appearance]);
   useEffect(() => scene?.setReducedMotion(reducedMotion), [scene, reducedMotion]);
 

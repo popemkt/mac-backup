@@ -8,11 +8,19 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { BLOOM_THRESHOLD } from "@/scene/shade-ops";
+import { BLOOM_THRESHOLD, NUMBER_OPS } from "@/scene/shade-ops";
 import { oklchToRgb } from "@/lib/css-color";
 import { readDesignSystemSheets, type Variant } from "@/lib/design-system-sheets";
 import { DESIGN_SYSTEM_IDS, type DesignSystemId } from "@/lib/theme";
-import { HEAT_GAIN, RestCeiling, peakEmissive, peakShown, restCeiling, type Rgb } from "./heat";
+import {
+  HEAT_GAIN,
+  RestCeiling,
+  heatAlbedo,
+  peakEmissive,
+  peakShown,
+  restCeiling,
+  type Rgb,
+} from "./heat";
 
 const SRC = join(import.meta.dirname, "..", "..", "..");
 const SHEETS = readDesignSystemSheets(readFileSync(join(SRC, "design-system.css"), "utf8"), (id) =>
@@ -25,12 +33,17 @@ function linear(byte: number): number {
   return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 }
 
+/** A `--lab-*` token of one design system and variant, as linear RGB. */
+function token(id: DesignSystemId, variant: Variant, name: string): Rgb {
+  const value = SHEETS.resolve(id, variant, name);
+  const srgb = oklchToRgb(value);
+  if (srgb === null) throw new Error(`${id}/${variant}: ${name} is not oklch (${value})`);
+  return [linear(srgb.r), linear(srgb.g), linear(srgb.b)];
+}
+
 /** The lab accent (`--lab-accent`) of one design system and variant, as linear RGB. */
 function accent(id: DesignSystemId, variant: Variant): Rgb {
-  const value = SHEETS.resolve(id, variant, "--lab-accent");
-  const srgb = oklchToRgb(value);
-  if (srgb === null) throw new Error(`${id}/${variant}: --lab-accent is not oklch (${value})`);
-  return [linear(srgb.r), linear(srgb.g), linear(srgb.b)];
+  return token(id, variant, "--lab-accent");
 }
 
 /** Every appearance the lab can be shown in: each design system, light and dark. */
@@ -114,4 +127,26 @@ describe("the shown temperature across an appearance change", () => {
     expect(ceilings.for({ r, g, b }, dark.gain)).toBe(first);
     expect(ceilings.for({ r, g, b }, light.gain)).not.toBe(first);
   });
+});
+
+const luma = ([r, g, b]: Rgb) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+describe("the light ramp (P5)", () => {
+  for (const id of DESIGN_SYSTEM_IDS) {
+    it(`reads on the ${id} light ground: a cold sphere is pale ash, a hot one the accent`, () => {
+      const palette = {
+        ground: token(id, "light", "--lab-ground"),
+        hue: token(id, "light", "--lab-hue"),
+        accent: token(id, "light", "--lab-accent"),
+      };
+      const cold = heatAlbedo(NUMBER_OPS, palette, 0, 1);
+      const hot = heatAlbedo(NUMBER_OPS, palette, 1, 1);
+      const night = heatAlbedo(NUMBER_OPS, palette, 0, 0);
+      // Ash on the light ground, never the night's near-black ember.
+      expect(luma(cold)).toBeGreaterThan(luma(night) * 3);
+      hot.forEach((c, i) => expect(c).toBeCloseTo(palette.accent[i] ?? 0, 9));
+      // A surface colour, never light: it stays within the displayable range.
+      for (const c of [...cold, ...hot]) expect(c).toBeLessThanOrEqual(1);
+    });
+  }
 });

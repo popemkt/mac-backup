@@ -91,6 +91,12 @@ const STAR_RADIUS = 16_000;
 /** Bloom: soft on the dark ground, lighter on the light one (a glow on white washes out). */
 const BLOOM = { dark: 1.15, light: 0.4, radius: 0.7 } as const;
 const STARS = { dark: 0.3, light: 0.1 } as const;
+/**
+ * The post chain's noise, in half-steps: dither on a dark ground (L4), a
+ * fine grain on a light one, where a flat white stage would read as no
+ * stage at all (P5).
+ */
+const GRAIN = { dark: 1, light: 3 } as const;
 
 export async function mountForce3d(
   host: HTMLElement,
@@ -116,6 +122,7 @@ export async function mountForce3d(
 /** The stage dressed for the graph: backdrop, fog, stars, the orbit. */
 function dressStage(stage: SceneStage, dark: boolean) {
   stage.setToneMapping("none");
+  stage.knobs.dither.value = dark ? GRAIN.dark : GRAIN.light;
   stage.backdrop();
   const fog = stage.atmosphere(400, 2400);
   const stars = starfield(stage.colors, {
@@ -193,6 +200,7 @@ function graphScene(stage: SceneStage, init: Force3dSceneInit) {
       stage.setPalette(next);
       stage.setBloom(dark ? BLOOM.dark : BLOOM.light);
       stars.opacity.value = dark ? STARS.dark : STARS.light;
+      stage.knobs.dither.value = dark ? GRAIN.dark : GRAIN.light;
       layers.setPalette(next, link);
     },
     inspect: (): Force3dInspection => inspection(stage, layers, view),

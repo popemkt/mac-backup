@@ -13,6 +13,7 @@ import type { ScenePalette } from "@/scene/palette";
 import { EmphasisFade } from "@/lib/graph-fade";
 import { graphFocus, type GraphEmphasis } from "@/lib/graph-interaction";
 import type { LensEdge, LensLinkStyle, LensNode, LensNodeLook } from "@/lib/graph-lens";
+import { GraphArrival, hopsFromHubs } from "@/lib/graph-arrival";
 import { byLabelPriority } from "@/lib/graph-label-layout";
 import { approachRate, type Timing } from "@/lib/timing";
 import {
@@ -116,6 +117,8 @@ export class GraphLayers {
   private links: LinkLayer | null = null;
   private particles: ParticleLayer | null = null;
   private readonly timing: Timing;
+  /** A new graph grows in from its hubs. */
+  private readonly arrival: GraphArrival;
   private layout: Layout3d | null = null;
   private palette: ScenePalette;
   private link: string;
@@ -138,6 +141,7 @@ export class GraphLayers {
       focus: new EmphasisFade(0, quick, 0),
     };
     this.timing = init.timing;
+    this.arrival = new GraphArrival(init.timing);
     this.particleRate = approachRate(init.timing.reveal);
     stage.scene.add(this.group);
     this.group.add(this.layers);
@@ -215,7 +219,15 @@ export class GraphLayers {
     disposeGraph(this.layers);
     const colors = this.stage.colors;
     const { curvedLinks: curved, linkStyle: style, nodeLook } = this.settings;
-    this.nodes = nodeLayer(this.topology, colors, this.fades, nodeLook);
+    this.arrival.start(
+      hopsFromHubs(
+        count,
+        (i) => this.topology.nodes[i]?.degree ?? 0,
+        (i) => this.places().neighbours(i),
+      ),
+      !this.stage.reduced(),
+    );
+    this.nodes = nodeLayer(this.topology, colors, this.fades, nodeLook, this.arrival);
     const ambientPeriod = this.timing.ambientPeriod;
     this.links = linkLayer(this.topology, this.fades, { curved, style, ambientPeriod });
     this.links.setPalette(this.palette, this.link);
@@ -307,7 +319,8 @@ export class GraphLayers {
     const glowed = fades.glow.step(dt, reduced);
     const lifted = fades.lift.step(dt, reduced);
     const focused = fades.focus.step(dt, reduced);
-    const fading = dimmed || glowed || lifted || focused;
+    const arriving = this.arrival.step(dt, reduced);
+    const fading = dimmed || glowed || lifted || focused || arriving;
     if (this.moved || fading) {
       this.nodes?.update(this.positions);
       this.links?.update(this.positions);

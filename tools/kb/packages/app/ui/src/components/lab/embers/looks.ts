@@ -6,7 +6,8 @@
  * whichever is shown: a look may only ever *lower* the shown temperature or
  * multiply the emission by at most 1, never raise either (L2).
  *
- * - **glow**: the kit's satin finish under the heat ramp — the PBR-ish ember.
+ * - **glow**: the kit's satin finish under the heat ramp — the PBR-ish ember;
+ *   on a light ground the ramp moves into the surface (`heatAlbedo`).
  * - **toon**: cel shading. The rig's light falls into four flat bands
  *   (`MeshToonNodeMaterial` over a four-step ramp), heat is quantised down to
  *   the same count of steps (a pop's flash stays whole), and an inverted hull
@@ -50,7 +51,12 @@ import {
 import { finishMaterial } from "@/scene/gpu/rig";
 import type { PaletteUniforms, SceneStage } from "@/scene/gpu/stage";
 import { NODE_OPS, type TslNode } from "@/scene/gpu/tsl";
-import { EMBER_TINT, displayTemperature, heatEmissive } from "@/components/lab/embers/heat";
+import {
+  EMBER_TINT,
+  displayTemperature,
+  heatAlbedo,
+  heatEmissive,
+} from "@/components/lab/embers/heat";
 
 const EMBER_LOOKS = ["glow", "toon", "molten", "film"] as const;
 export type EmberLook = (typeof EMBER_LOOKS)[number];
@@ -112,11 +118,17 @@ function seed(): TslNode {
 }
 
 function glow(i: LookInputs, geometry: BufferGeometry, count: number): LookParts {
-  const ember = i.colors.accent.mul(vec3(...EMBER_TINT));
   const material = finishMaterial("satin");
   material.positionNode = positionLocal.mul(i.radius).add(i.place);
-  material.colorNode = mix(ember.mul(0.3), i.colors.hue.mul(0.2), 0.3);
-  material.emissiveNode = emissive(i, shown(i));
+  const t = shown(i);
+  // The theme's ramp: a deep ember on a dark ground, pale ash warming to the accent on a light one (P5).
+  const palette = {
+    ground: vec3(i.colors.ground),
+    hue: vec3(i.colors.hue),
+    accent: vec3(i.colors.accent),
+  };
+  material.colorNode = heatAlbedo(NODE_OPS, palette, t, float(1).sub(i.dark));
+  material.emissiveNode = emissive(i, t);
   return { meshes: [instanced(geometry, material, count)], dispose: () => {} };
 }
 

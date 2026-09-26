@@ -411,8 +411,10 @@ like themselves (P5).
   title takes its place in the same layout before any node label, so titles
   never pile on each other or on labels, and labels come in only once the
   nodes they name have arrived. A new
-  graph arrives: nodes grow and brighten into place over
-  `--motion-duration-arrive` while ForceAtlas2 settles (P2). Cluster hulls
+  graph arrives from its hubs, in 2D and 3D alike (`lib/graph-arrival.ts`):
+  the best-connected nodes first, their neighbours one `--motion-stagger`
+  per hop outward, each growing in over `--motion-duration-reveal`, so the
+  whole graph has settled in 300–400ms while the layout settles (P2, M3). Cluster hulls
   are soft regions — a faint fill and a glow for an edge, in the cluster's
   colour — and the hull under the pointer comes forward.
 - **Tree and treemap.** A layout change (collapse, expand, resize, a new
@@ -439,7 +441,9 @@ like themselves (P5).
   it over the unit cube's corners, every pure channel and a seeded spread of
   colours, under every design system's ink in both variants. Range fog follows the camera's distance, a
   restrained starfield stands at infinity, the backdrop is the page's own
-  surface, and dither breaks banding (L3, L4); there is no tone mapping, so
+  surface — the card at the focal point, falling to the background on a dark
+  ground and to the muted surface on a light one, under a fine grain, so a
+  light stage has a ground (P5) — and dither breaks banding (L3, L4); there is no tone mapping, so
   the tokens are reproduced exactly and the canvas meets the page. Links
   brighten from source to target, and particles run along the focused
   node's links only (M4). Select flies the camera to the node on critically
@@ -768,6 +772,13 @@ principles below it applies, and two to four live parameters:
 | Ocean  | Gerstner waves (steepness summed to at most 1), the analytic normal and a Jacobian foam mask, one sky function read by the dome, the reflections and the distance haze; Fresnel, a subsurface cheat, an HDR glitter path | waves, wavelength, sun height, foam |
 | Light  | key/fill/rim rig, soft shadows, GTAO, tone mapping, finishes     | tone mapping, PBR/matcap, AO, key angle |
 | Motion | staggered critically damped springs against an eased tween        | settle, stagger, drive, overlap     |
+
+Embers keeps its theme rather than forcing a dark stage: on a light ground
+the heat ramp moves from the emissive into the surface (`heatAlbedo`: pale
+ash warming through the accent's ember to the accent), and only the hot
+end's emissive still blooms. A forced dark stage would paint colours no
+light-theme `--lab-*` token names (L1); the ramp makes both themes
+intentional (P5).
 
 Every study is built from one kit (P4), in two homes. What any real-time 3D
 view needs is the **scene kit**, `src/scene/` (its own zone in `UI_ALLOWS`,

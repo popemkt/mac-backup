@@ -8,8 +8,9 @@
  * value toward its target through `lib/graph-fade` (Lab principles M1, M5):
  * a hover's neighbourhood fades in over `--motion-duration-quick` and fades
  * back out the same way, instead of snapping. A new graph also arrives, rather
- * than popping in: nodes grow and brighten into place over
- * `--motion-duration-arrive` on the one ease while the layout settles (P2).
+ * than popping in: the hubs first, then their neighbours hop by hop, each
+ * node growing and brightening into place (`lib/graph-arrival`, 300–400ms in
+ * all) while the layout settles (P2).
  * Under reduced motion both are immediate (M7).
  *
  * Frames are drawn only while something eases; the loop stops by itself.
@@ -18,7 +19,8 @@ import type Sigma from "sigma";
 import { EmphasisFade } from "@/lib/graph-fade";
 import { readTokenColor } from "@/lib/css-color";
 import { premultipliedGraphColor } from "@/lib/graph-dim";
-import { clampStep, easeAt, type Timing } from "@/lib/timing";
+import { GraphArrival, hopsFromHubs } from "@/lib/graph-arrival";
+import { clampStep, type Timing } from "@/lib/timing";
 
 /** Presence under which a node's label is not drawn. */
 const LABEL_PRESENCE = 0.6;
@@ -61,24 +63,25 @@ export function sigmaEmphasis(sigma: Sigma, timing: Timing, reduced: () => boole
   let index = new Map<string, number>();
   let active: string | null = null;
   let narrowed = false;
-  let arrival = 1;
+  const arrival = new GraphArrival(timing);
   let ring = { rest: readTokenColor("--background"), focus: readTokenColor("--foreground") };
   let frame = 0;
   let last = -1;
 
   const at = (fade: EmphasisFade, id: string, fallback: number) =>
     fade.values[index.get(id) ?? -1] ?? fallback;
-  const arrived = () => easeAt(timing.settle, arrival);
+  const arrived = (id: string) => arrival.values[index.get(id) ?? -1] ?? 1;
 
   sigma.setSetting("nodeReducer", (id, data) => {
     const lit = at(presence, id, 1);
     const swell = at(focus, id, 0);
-    const grown = ARRIVE_FROM + (1 - ARRIVE_FROM) * arrived();
+    const here = arrived(id);
+    const grown = ARRIVE_FROM + (1 - ARRIVE_FROM) * here;
     return {
       ...data,
-      color: premultipliedGraphColor(String(data.color), lit * arrived()),
-      ringColor: premultipliedGraphColor(swell > 0.5 ? ring.focus : ring.rest, lit * arrived()),
-      label: lit >= LABEL_PRESENCE && arrived() >= LABEL_ARRIVED ? data.label : "",
+      color: premultipliedGraphColor(String(data.color), lit * here),
+      ringColor: premultipliedGraphColor(swell > 0.5 ? ring.focus : ring.rest, lit * here),
+      label: lit >= LABEL_PRESENCE && here >= LABEL_ARRIVED ? data.label : "",
       forceLabel: lit >= 0.95 && narrowed,
       highlighted: id === active,
       zIndex: id === active ? 2 : lit >= 0.95 ? 1 : 0,
@@ -93,7 +96,7 @@ export function sigmaEmphasis(sigma: Sigma, timing: Timing, reduced: () => boole
     const alpha = active === null ? lit : ASIDE + (lit - ASIDE) * near;
     return {
       ...data,
-      color: premultipliedGraphColor(String(data.color), alpha * arrived()),
+      color: premultipliedGraphColor(String(data.color), alpha * Math.min(arrived(a), arrived(b))),
       size: Number(data.size) * (1 + FOCUS_WIDEN * near),
       zIndex: near > 0.5 ? 1 : 0,
     };
@@ -106,9 +109,9 @@ export function sigmaEmphasis(sigma: Sigma, timing: Timing, reduced: () => boole
     const still = reduced();
     presence.step(dt, still);
     focus.step(dt, still);
-    if (arrival < 1) arrival = still ? 1 : Math.min(1, arrival + dt / timing.arrive);
+    arrival.step(dt, still);
     sigma.refresh();
-    if (presence.active || focus.active || arrival < 1) frame = requestAnimationFrame(tick);
+    if (presence.active || focus.active || arrival.active) frame = requestAnimationFrame(tick);
     else last = -1;
   };
   const play = () => {
@@ -120,10 +123,14 @@ export function sigmaEmphasis(sigma: Sigma, timing: Timing, reduced: () => boole
       index = new Map(graph.nodes().map((id, i) => [id, i]));
       presence.reset(index.size);
       focus.reset(index.size, 0);
-      if (arrive && !reduced()) {
-        arrival = 0;
-        play();
-      }
+      const ids = graph.nodes();
+      const hops = hopsFromHubs(
+        ids.length,
+        (i) => graph.degree(ids[i] ?? ""),
+        (i) => graph.neighbors(ids[i] ?? "").map((n) => index.get(n) ?? 0),
+      );
+      arrival.start(hops, arrive && !reduced());
+      if (arrival.active) play();
     },
     retarget: (targets) => {
       active = targets.active;

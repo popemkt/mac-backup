@@ -60,6 +60,8 @@ export function nodeLayer(
   colors: PaletteUniforms,
   fades: Force3dFades,
   nodeLook: NodeLook,
+  /** How far each node has arrived (`lib/graph-arrival`): it grows in from the hubs. */
+  arrival: { readonly values: Float32Array } = { values: new Float32Array(0) },
 ): NodeLayer {
   const n = Math.max(1, topology.nodes.length);
   const place = new InstancedBufferAttribute(new Float32Array(n * 4), 4);
@@ -112,7 +114,8 @@ export function nodeLayer(
   const radius = (i: number) =>
     (base[i] ?? 1) *
     (topology.tier[i] === TIER.hub ? 1 + HUB_SWELL : 1) *
-    (1 + FOCUS_SWELL * (fades.focus.values[i] ?? 0));
+    (1 + FOCUS_SWELL * (fades.focus.values[i] ?? 0)) *
+    (arrival.values[i] ?? 1);
   return {
     mesh,
     radius,

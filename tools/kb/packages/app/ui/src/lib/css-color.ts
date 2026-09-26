@@ -143,6 +143,7 @@ const TOKEN_FALLBACK = {
   "--foreground": "#222",
   "--background": "#fff",
   "--card": "#fff",
+  "--muted": "#f5f5f5",
   "--muted-foreground": "#737373",
   "--primary": "#c27c0e",
   "--graph-edge": "rgba(34, 34, 34, 0.4)",
