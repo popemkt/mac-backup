@@ -45,6 +45,14 @@ describe("cardinality: one", () => {
     expect(txIntegrityError(graph, { upserts: [replaced], deletes: [] })).toBeNull();
   });
 
+  test("a duplicate of the held value is a second value, and is refused", () => {
+    const stored = node("n", { "f.single": [num(95)] });
+    const doubled = { ...stored, props: { "f.single": [num(95), num(95)] } };
+    expect(txIntegrityError([SINGLE, stored], { upserts: [doubled], deletes: [] })).toContain(
+      "holds one value",
+    );
+  });
+
   test("a many-valued field takes any number of values", () => {
     const n = node("n", { "f.multi": [num(1), num(2), num(3)] });
     expect(txIntegrityError([MULTI], { upserts: [n], deletes: [] })).toBeNull();

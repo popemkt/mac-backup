@@ -41,6 +41,7 @@ import {
   type KbNode,
   type PropValue,
 } from "@kb/model";
+import { mapSet } from "@kb/operations";
 import { bunFileSystemLayer, invokeReceiptEffect, kbRuntimeLayer, openKbEffect } from "@kb/runtime";
 
 /** How the suite gets an adapter under test for a scratch root. */
@@ -175,7 +176,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
   ],
   ["an opening migration commits exactly the nodes it changed", openingMigrationIsMinimal],
   [
-    "a cardinality-one field refuses a second value, and a replacement lands whole",
+    "a cardinality-one field holds one value: set replaces in one transaction, two are refused",
     singleValuedFieldHoldsOne,
   ],
   ["a commit merges into what is there: upserts overwrite, deletes remove", commitMerges],
@@ -711,6 +712,8 @@ function openingMigrationIsMinimal(makeStore: StoreFactory): Promise<void> {
   );
 }
 
+const num = (v: number): PropValue => ({ t: "num", v });
+
 function singleValuedFieldHoldsOne(makeStore: StoreFactory): Promise<void> {
   return Effect.runPromise(
     Effect.scoped(
@@ -718,32 +721,36 @@ function singleValuedFieldHoldsOne(makeStore: StoreFactory): Promise<void> {
         const root = yield* backendRoot(makeStore);
         const ctx = yield* openSession(root);
         const field = SYSTEM_IDS.lensLinkDistanceField;
-        const update = (input: Record<string, unknown>) =>
-          invokeReceiptEffect(ctx, {
-            id: "node.update",
-            input: { id: SYSTEM_IDS.lensAllMentions, ...input },
-          }).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+        const id = SYSTEM_IDS.lensAllMentions;
+        const run = (action: { id: string; input: unknown }) =>
+          invokeReceiptEffect(ctx, action).pipe(Effect.provide(kbRuntimeLayer(ctx)));
         const held = Effect.map(
           makeStore(root).loadEffect,
-          (nodes) => nodes.find((n) => n.id === SYSTEM_IDS.lensAllMentions)?.props[field],
+          (nodes) => nodes.find((n) => n.id === id)?.props[field],
         );
+        const tailLength = () => makeStore(root).txTail.entries().length;
 
-        expect((yield* update({ setProps: [{ field, value: { t: "num", v: 95 } }] })).status).toBe(
-          "succeeded",
-        );
-        const second = yield* update({ setProps: [{ field, value: { t: "num", v: 96 } }] });
-        expect(second.status).toBe("failed");
-        expect(yield* held).toEqual([{ t: "num", v: 95 }]);
+        // `kb set` (mapSet) on a field that already holds a value: the field
+        // decides that "set" replaces, so it is one transaction and one value.
+        expect((yield* run(mapSet({ id, field, value: num(95) }))).status).toBe("succeeded");
+        const before = tailLength();
+        expect((yield* run(mapSet({ id, field, value: num(96) }))).status).toBe("succeeded");
+        expect(yield* held).toEqual([num(96)]);
+        expect(tailLength()).toBe(before + 1);
 
-        // Unset and set in one update is a replacement: one transaction, one value.
-        const tail = makeStore(root).txTail.entries().length;
-        const replaced = yield* update({
-          unsetProps: [{ field }],
-          setProps: [{ field, value: { t: "num", v: 96 } }],
-        });
-        expect(replaced.status).toBe("succeeded");
-        expect(yield* held).toEqual([{ t: "num", v: 96 }]);
-        expect(makeStore(root).txTail.entries()).toHaveLength(tail + 1);
+        // Two values for the one slot in one write are refused — a duplicate
+        // of the held value too, which writes nothing new but is a second one.
+        for (const values of [
+          [num(97), num(98)],
+          [num(96), num(96)],
+        ]) {
+          const both = yield* run({
+            id: "node.update",
+            input: { id, setProps: values.map((value) => ({ field, value })) },
+          });
+          expect(both.status).toBe("failed");
+        }
+        expect(yield* held).toEqual([num(96)]);
       }),
     ),
   );

@@ -506,9 +506,12 @@ type PropValue =
   `sys.f.cardinality`, a ref to one of its own children `sys.cardinality.one`
   / `sys.cardinality.many` (the option-set shape, like `sys.f.fieldType`), with
   absence meaning many. A write that leaves a `one` field holding two values
-  is refused by the same check, so a replacement is one `node.update` carrying
-  both `unsetProps` and `setProps` (it removes before it adds), never an unset
-  and a set in two transactions. Every seeded setting declares `one`.
+  — a duplicate of the held value included — is refused by the same check.
+  What "set" means is the field's to say, in `node.update`'s one prop writer:
+  setting a `one` field replaces its value in the same transaction (so `kb
+  set`, MCP and the UI all replace in one write), a many-valued field gains
+  the value, and a replacement is never an unset and a set in two
+  transactions. Every seeded setting declares `one`.
   Values already stored are not rechecked, so a legacy store
   stays editable and a node's unrelated edit never fails over an old value;
   the cost is that a retype or a delete can strand values (a recorded gap). A

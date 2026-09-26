@@ -211,8 +211,9 @@ export function exampleSeedNodes(at: string = nowIso()): KbNode[] {
     }),
   ];
 
-  // Rank the roots so their order is explicit rather than left to the
-  // open-time order migration to infer from ids.
+  // Rank the roots here, so their order is the one written below rather than
+  // id order. Any group left unranked is settled by `rankTx` on the next
+  // commit that writes it (DESIGN.md → Sibling ranks).
   const childIds = new Set(nodes.flatMap((n) => n.children));
   const rootIds = nodes.filter((n) => !childIds.has(n.id)).map((n) => n.id);
   const ranks = ranksFor(rootIds);

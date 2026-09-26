@@ -10,6 +10,7 @@ import {
 import {
   ResolveError,
   SYSTEM_IDS,
+  cardinalityOf,
   currentIso,
   domainError,
   domainFromResolve,
@@ -203,14 +204,25 @@ function cloneNode(n: KbNode): KbNode {
   };
 }
 
+/**
+ * Write `entries` into `props`. What "set" means is the field's to say: a
+ * many-valued field gains the value, and a `cardinality: one` field has it
+ * *replaced* — the setting takes the new value in this same transaction,
+ * whichever surface asked (CLI `kb set`, MCP, the UI's plans, undo). Two
+ * entries for one single-valued field in one call still land both, and
+ * `txIntegrityError` refuses that, because it names two values for one slot.
+ */
 function applyProps(
   ctx: KbContext,
   props: Record<NodeId, PropValue[]>,
   entries: z.infer<typeof PropInputSchema>[],
 ): void {
+  const replaced = new Set<NodeId>();
   for (const e of entries) {
     const fieldId = resolveFieldId(ctx.nodes, e.field);
-    const list = props[fieldId] ?? [];
+    const single = cardinalityOf(nodeById(ctx, fieldId)?.props) === "one";
+    const list = single && !replaced.has(fieldId) ? [] : (props[fieldId] ?? []);
+    if (single) replaced.add(fieldId);
     list.push(e.value);
     props[fieldId] = list;
   }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cardinalityOf } from "@kb/model";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
@@ -124,7 +125,7 @@ export function FieldValueStack({
         />
       ))}
 
-      {!readOnly && values.length > 0 && (
+      {!readOnly && values.length > 0 && cardinalityOf(nodes.get(fieldId)?.props) === "many" && (
         <button
           type="button"
           className={cn(
