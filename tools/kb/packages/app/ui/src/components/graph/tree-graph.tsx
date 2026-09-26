@@ -27,7 +27,7 @@ import { layoutForest, resolveFold, sameFold, type TreeFold } from "./tree-layou
 
 interface TreeGraphProps extends GraphEmphasis {
   forest: LensTreeNode[];
-  /** The view's identity (perspective, query, sys switch, ontology): what the fold belongs to. */
+  /** The view's identity (`graphViewKey`): what the fold belongs to. */
   viewKey?: string;
   edges?: LensEdge[];
   appearance: Appearance;

@@ -98,27 +98,39 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
   // orthogonal, so both pickers sit in the header together (r5 §1.4).
   const ontologies = useMemo(() => listOntologyItems(wireNodes), [wireNodes]);
 
-  const [lensGraph, setLensGraph] = useState(() =>
-    queryDb && active
-      ? extractLensGraph(queryDb, wireNodes, active, {
-          includeSystemNodes,
-          ...(restrictTo ? { restrictTo } : {}),
-        })
-      : { nodes: [], edges: [], dropped: 0, queryError: null },
-  );
+  // The graph and the view it was extracted for are one snapshot: the view
+  // key renderers see always names the node set they are drawing, never the
+  // next one still waiting on the debounce.
+  const [extracted, setExtracted] = useState(() => ({
+    graph:
+      queryDb && active
+        ? extractLensGraph(queryDb, wireNodes, active, {
+            includeSystemNodes,
+            ...(restrictTo ? { restrictTo } : {}),
+          })
+        : { nodes: [], edges: [], dropped: 0, queryError: null },
+    view: {
+      id: active?.id ?? "",
+      query: active?.query ?? "",
+      includeSystemNodes,
+      ontologyId,
+    },
+  }));
+  const lensGraph = extracted.graph;
 
   useEffect(() => {
     if (!queryDb || !active) return undefined;
     const handle = window.setTimeout(() => {
-      setLensGraph(
-        extractLensGraph(queryDb, wireNodes, active, {
+      setExtracted({
+        graph: extractLensGraph(queryDb, wireNodes, active, {
           includeSystemNodes,
           ...(restrictTo ? { restrictTo } : {}),
         }),
-      );
+        view: { id: active.id, query: active.query, includeSystemNodes, ontologyId },
+      });
     }, 300);
     return () => window.clearTimeout(handle);
-  }, [queryDb, wireNodes, active, generation, includeSystemNodes, restrictTo]);
+  }, [queryDb, wireNodes, active, generation, includeSystemNodes, restrictTo, ontologyId]);
 
   const forest = useMemo(
     () => (active ? buildTreeForest(lensGraph.nodes, lensGraph.edges, active.focus) : []),
@@ -273,7 +285,7 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
                 lensGraph={lensGraph}
                 active={active}
                 forest={forest}
-                viewKey={graphViewKey(active, { includeSystemNodes, ontologyId })}
+                viewKey={graphViewKey({ ...extracted.view, focus: active.focus }, extracted.view)}
                 appearance={appearance}
                 selection={selection}
                 setSelection={setSelection}

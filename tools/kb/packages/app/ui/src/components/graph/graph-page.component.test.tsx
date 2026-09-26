@@ -10,6 +10,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { SYSTEM_IDS } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
+import type * as GraphAdapters from "./graph-adapters";
 
 vi.mock("sigma", () => ({ default: class {} }));
 vi.mock("sigma/rendering", () => ({ EdgeArrowProgram: class {} }));
@@ -36,6 +37,19 @@ vi.mock("@/components/graph/tree-graph", () => ({
 vi.mock("@/components/graph/force3d-graph", () => ({
   default: () => createElement("div", { "data-testid": "force3d-graph" }),
 }));
+
+/** Every (view key, node count) pair a renderer was handed, in order. */
+const handed = vi.hoisted(() => [] as { viewKey: string; nodes: number }[]);
+vi.mock("./graph-adapters", async (importOriginal) => {
+  const real = await importOriginal<typeof GraphAdapters>();
+  return {
+    ...real,
+    Force2dAdapter: (props: Parameters<typeof real.Force2dAdapter>[0]) => {
+      handed.push({ viewKey: props.viewKey, nodes: props.lensGraph.nodes.length });
+      return real.Force2dAdapter(props);
+    },
+  };
+});
 
 import GraphPage from "./graph-page";
 
@@ -143,5 +157,31 @@ describe("GraphPage (smoke)", () => {
     expect(edit).toBeDefined();
     const canvas = present(container.querySelector('[data-testid="sigma-graph"]'), "sigma graph");
     expect(Number(canvas.getAttribute("data-node-count"))).toBe(2);
+  });
+
+  it("hands a renderer a view key and the node set extracted for it, never the next view's key early", async () => {
+    handed.length = 0;
+    await act(async () => {
+      root.render(createElement(GraphPage, { perspectiveId: SYSTEM_IDS.lensAllMentions }));
+      await new Promise((r) => setTimeout(r, 350));
+    });
+    const before = handed.at(-1);
+    const toggle = present(container.querySelector("[data-elide-toggle]"), "sys toggle");
+    // The sys switch changes the view at once; its node set lands after the debounce.
+    await act(async () => {
+      toggle.dispatchEvent(new dom.MouseEvent("click", { bubbles: true }) as unknown as MouseEvent);
+      await Promise.resolve();
+    });
+    expect(handed.at(-1)?.viewKey).toBe(before?.viewKey);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 350));
+    });
+    const after = handed.at(-1);
+    expect(after?.viewKey).not.toBe(before?.viewKey);
+    // One key, one node set: no render paired a key with another view's nodes.
+    const counts = new Map<string, Set<number>>();
+    for (const { viewKey, nodes } of handed)
+      counts.set(viewKey, (counts.get(viewKey) ?? new Set()).add(nodes));
+    for (const set of counts.values()) expect(set.size).toBe(1);
   });
 });

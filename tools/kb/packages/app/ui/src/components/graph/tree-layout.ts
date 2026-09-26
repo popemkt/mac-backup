@@ -60,8 +60,8 @@ function forestIds(forest: readonly LensTreeNode[]): Set<string> {
 }
 
 /**
- * What is folded in one view (a perspective, its query, the sys switch, an
- * ontology — the page's `view` key) and which nodes it has already seen.
+ * What is folded in one view (its key is `graphViewKey`) and which nodes it
+ * has already seen.
  */
 export interface TreeFold {
   readonly view: string;
