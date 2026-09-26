@@ -24,7 +24,7 @@
     # Surface Homebrew bins on PATH for interactive shells.
     # NOTE: launchd-spawned GUI apps don't read this — set per-agent envs
     # in their plist, or globally via `launchd.user.envVariables`
-    # (nix-darwin scope, e.g. HERMES_HOME in modules/darwin/system/hermes.nix).
+    # (nix-darwin scope, e.g. HERMES_HOME in modules/stacks/ai-agents/hermes.nix).
     sessionPath = [ "/opt/homebrew/bin" ];
 
     file.".orca/keybindings.json".text = builtins.toJSON {

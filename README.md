@@ -178,36 +178,9 @@ mackup backup --force                            # sync GUI app settings + kb me
 
 ## Where to Edit
 
-| Want to... | Edit |
-|------------|------|
-| Add CLI tool | `modules/common/home-manager/packages.nix` |
-| Add GUI app (cask) | `modules/darwin/system/homebrew.nix` → `homebrew.casks` |
-| Add brew formula | `modules/darwin/system/homebrew.nix` → `homebrew.brews` |
-| Add macOS system setting | `modules/darwin/system/default.nix` → `system.defaults` |
-| Add shell alias | `modules/common/home-manager/shell.nix` |
-| Add macOS-only Home Manager config | `modules/darwin/home-manager/default.nix` |
-| Change git config | `modules/common/home-manager/git.nix` |
-| Add npm global | `modules/common/home-manager/npm-global.nix` |
-| Add uv tool | owning module's `uvTools` + `_sources/uv-pins.json` |
-| Add Bun global | `modules/darwin/home-manager/bun-global.nix` |
-| Add Claude Code / Codex plugin | owning stack's `my.pkgs.{claude,codex}{Marketplaces,Plugins}` |
-| Add direct release package | `nvfetcher.toml` + `pkgs/`; see `docs/github-release-packages.md` |
-| Expose a private app | `hosts/<hostname>/default.nix` → `my.stacks.vpn.services`; see `configs/specs/app-service-contract.md` |
-| Review local voice-tool choices | `docs/local-voice-tools.md` |
-
-### Module Boundaries
-
-Group by behavior and ownership boundary, not by app count. One-line installs
-stay in package lists. If an app needs install entries plus config files,
-activation hooks, launchd services, defaults writes, symlinks, or dependencies
-across multiple places, create a focused module for that behavior.
-
-Use `modules/common/home-manager/` for cross-platform Home Manager behavior,
-`modules/darwin/home-manager/` for macOS-only Home Manager behavior,
-`modules/darwin/system/` for nix-darwin system behavior, and
-`hosts/<hostname>/default.nix` for host-only differences.
-`common` means reusable across operating systems; it does not mean all local
-users. These Home Manager modules are imported only for the configured user.
+The table of where each kind of change goes lives in
+[AGENTS.md → Where To Edit](AGENTS.md#where-to-edit), and the rules behind it
+in [Module Boundaries](AGENTS.md#module-boundaries).
 
 ## What's Managed Where
 

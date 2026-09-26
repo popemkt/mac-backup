@@ -266,6 +266,8 @@ Rules for agents:
 | Add host-only config | `hosts/<hostname>/default.nix` |
 | Add a work/personal split | `lib.mkIf (config.my.role == "work") { ... }` in the owning system module |
 | Add a direct GitHub release package | `nvfetcher.toml` and `pkgs/`; see `docs/github-release-packages.md` |
+| Expose a private app on the tailnet | `my.stacks.vpn.services` in `hosts/<hostname>/default.nix`; see `configs/specs/app-service-contract.md` |
+| Review local voice-tool choices | `docs/local-voice-tools.md` |
 
 Run `rtk rebuild` after a change that should affect the live system.
 
