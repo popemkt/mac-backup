@@ -151,6 +151,10 @@ describe("parseInlineMd", () => {
       literal("x___y");
       literal("__foo___bar");
       expect(parseInlineMd("___foo___")).toEqual([{ t: "bold", v: "foo" }]);
+      // A run that cannot close is skipped, and the search goes on to a later
+      // valid closer rather than giving up at the first failed one.
+      expect(parseInlineMd("__foo___bar__")).toEqual([{ t: "bold", v: "foo___bar" }]);
+      expect(parseInlineMd("___foo___bar___")).toEqual([{ t: "bold", v: "foo___bar" }]);
       expect(parseInlineMd("__foo___")).toEqual([
         { t: "bold", v: "foo" },
         { t: "text", v: "_" },

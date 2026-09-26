@@ -112,11 +112,13 @@ function isWordAt(text: string, at: number): boolean {
 }
 
 /**
- * The CommonMark flanking rule, for the one- and two-character runs kb reads.
- * A run opens only when a non-space follows it and closes only when a
- * non-space precedes it, and `_` additionally never opens after, or closes
- * before, a letter or digit — so `snake_case_name` stays text while `*` may
- * still emphasise inside a word (`un*frigging*believable`).
+ * The CommonMark flanking rule, judged on a whole delimiter run (`length` is
+ * the run's full length): a run opens only when a non-space follows its last
+ * mark and closes only when a non-space precedes its first, and `_`
+ * additionally never opens after, or closes before, a letter or digit — so
+ * `snake_case_name` stays text while `*` may still emphasise inside a word
+ * (`un*frigging*believable`). Only once a run passes is a one- or two-mark
+ * delimiter taken from its inner edge (`emphasisAt`).
  */
 function canOpen(text: string, at: number, length: number): boolean {
   if (isSpaceAt(text, at + length)) return false;
