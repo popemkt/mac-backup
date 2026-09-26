@@ -56,7 +56,8 @@ function streaks(
   const seen = cameraViewMatrix.mul(vec4(motion.xyz, 0)).xy;
   const speed = length(motion.xyz);
   material.rotationNode = atan(seen.y, seen.x);
-  material.scaleNode = vec2(length(seen).mul(look.streak).add(0.03), 0.022);
+  // Streaks are the fill cost: each is a blended quad, so length and width are kept lean (P3).
+  material.scaleNode = vec2(length(seen).mul(look.streak).add(0.025), 0.018);
   // Slow water in the hue, faster in the accent, the rapids past 1.
   const pace = smoothstep(0.8, 4.5, speed);
   const bright = mix(mix(colors.hue, colors.ink, 0.35), colors.accent, pace).mul(
@@ -87,7 +88,7 @@ function river(stage: SceneStage, init: LabSceneInit, context: StudyContext): St
   u.speed.value = numberOf(init.values, "speed", 1);
   u.scale.value = numberOf(init.values, "scale", 0.45);
   u.turbulence.value = numberOf(init.values, "turbulence", 1);
-  const streak = uniform(numberOf(init.values, "streak", 0.06));
+  const streak = uniform(numberOf(init.values, "streak", 0.035));
   const dark = uniform(init.dark ? 1 : 0);
   const clock = uniform(0);
   const entrance = new Entrance(init.timing);

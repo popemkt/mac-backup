@@ -160,7 +160,8 @@ function molten(i: LookInputs, geometry: BufferGeometry, count: number): LookPar
     .add(vec3(0, i.time.mul(0.22), 0));
   const bent = flow.add(mx_noise_float(flow.mul(0.8)).mul(0.6));
   // Ridged noise: the zero set of a smooth field is a network of veins.
-  const crack = float(1).sub(smoothstep(0, 0.12, mx_noise_float(bent).abs()));
+  const vein = mx_noise_float(bent).toVar();
+  const crack = float(1).sub(smoothstep(0, 0.12, vein.abs()));
   // The cracks hold a hotter rest — still under the cap, which `shown` applies.
   const t = shown(i, i.rest.mul(0.7).add(crack.mul(0.55)));
   const melt = smoothstep(0.55, 1, i.contact);
@@ -169,7 +170,8 @@ function molten(i: LookInputs, geometry: BufferGeometry, count: number): LookPar
   material.positionNode = positionLocal.mul(i.radius).add(i.place);
   const ember = i.colors.accent.mul(vec3(...EMBER_TINT));
   material.colorNode = mix(ember.mul(0.07), i.colors.hue.mul(0.06), 0.4).mul(
-    mx_noise_float(bent.mul(3)).mul(0.35).add(0.8),
+    // The crust's roughness reuses the vein field: a third noise cost a frame.
+    vein.mul(0.6).add(0.85),
   );
   material.emissiveNode = emissive(i, t).mul(reveal);
   return { meshes: [instanced(geometry, material, count)], dispose: () => {} };
