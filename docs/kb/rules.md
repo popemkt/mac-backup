@@ -399,7 +399,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the two pin tools claim one exit-code contract and no test holds them to it
 
 - **expected** — github-sources and uv-sources implement one stated contract for check (0 current, 10 newer upstream, one code for could not resolve) and update, stated once, with a shared offline test that runs both against stubbed resolvers.
-- **current** — uv-sources says its exit codes match github-sources but exits 1 when it cannot resolve, where github-sources exits 20; only github-sources has an offline test (github-sources-check). The drift audit consumes both through report_pin_check, which treats any other code as skipped.
+- **current** — uv-sources exits 1 when it cannot resolve, where github-sources exits 20; both use 0 for current and 10 for newer upstream releases. Only github-sources has an offline test (github-sources-check). The drift audit consumes both through report_pin_check, which treats any other code as skipped.
 - **impact** — A caller that tells unresolvable apart from broken (as github-sources callers can with 20) gets a different answer from uv-sources, and nothing notices when the two diverge further.
 - **closes** — State the pin-tool contract once in docs/github-release-packages.md, move uv-sources to exit 20 for could not resolve, and add a uv-sources case to a shared stubbed check next to github-sources-check. Coordinate with the owner of scripts/github-sources.
 - **rule** — One contract, every implementation
