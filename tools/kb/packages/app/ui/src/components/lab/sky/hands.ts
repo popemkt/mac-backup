@@ -159,7 +159,13 @@ export class SkyHands {
     if (!toScreen(centre, this.camera, this.size, screen)) return false;
     const cx = screen.x;
     const cy = screen.y;
-    this.edge.copy(this.camera.up).multiplyScalar(radius).add(centre);
+    // Along the camera's own right axis, which is perpendicular to the view,
+    // so the measured radius does not foreshorten as the camera pitches.
+    this.edge
+      .setFromMatrixColumn(this.camera.matrixWorld, 0)
+      .normalize()
+      .multiplyScalar(radius)
+      .add(centre);
     if (!toScreen(this.edge, this.camera, this.size, screen)) return false;
     return Math.hypot(x - cx, y - cy) <= Math.hypot(screen.x - cx, screen.y - cy) * 1.1;
   }

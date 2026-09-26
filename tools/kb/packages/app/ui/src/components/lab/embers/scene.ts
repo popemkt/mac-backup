@@ -124,7 +124,7 @@ function embers(stage: SceneStage, init: LabSceneInit, context: StudyContext): S
   const rig = createRig(init.palette, false);
   rig.key.intensity = 0.3;
   rig.rim.intensity = 1.6;
-  stage.scene.add(core, ...rig.lights, ash(colors, float(clock), float(entrance.progress)));
+  stage.scene.add(core, ...rig.lights, ash(colors, float(clock), entrance.arrival(float(0.3))));
   stage.camera.position.set(0, 0, CAMERA_Z);
   stage.camera.lookAt(0, 0, 0);
   stage.scene.backgroundNode = labBackdrop(colors, float(clock), {

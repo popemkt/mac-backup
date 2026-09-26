@@ -14,6 +14,16 @@
 export const WAVE_COUNT = 8;
 const GRAVITY = 9.81;
 
+/** The sea's grid: its width and cell size (world units, m). */
+export const SEA_SIZE = 240;
+export const SEA_CELL = 0.5;
+/**
+ * The shortest wave the grid can draw without faceting: five cells. A
+ * shorter one is under-sampled, and the interpolated normal breaks into
+ * polygons in the reflections.
+ */
+export const SHORTEST_WAVE = SEA_CELL * 5;
+
 export interface Wave {
   /** Unit direction on the water, x and z. */
   readonly dx: number;
@@ -34,9 +44,12 @@ export function waveSet(height: number, wavelength: number, wind: number): Wave[
   const weights = Array.from({ length: WAVE_COUNT }, (_, i) => 0.78 ** i);
   const total = weights.reduce((a, b) => a + b, 0);
   const steep = Math.max(0, Math.min(1, height));
+  const longest = Math.max(wavelength, SHORTEST_WAVE);
+  // Each wave 0.8 of the last, unless that would take the shortest below
+  // what the grid draws: then the set is squeezed between the two.
+  const ratio = Math.max(0.8, (SHORTEST_WAVE / longest) ** (1 / (WAVE_COUNT - 1)));
   return weights.map((weight, i) => {
-    // Shortest wave ≥ ~5 grid cells at the default: shorter ones facet the normal.
-    const lambda = wavelength * 0.8 ** i;
+    const lambda = longest * ratio ** i;
     const k = (Math.PI * 2) / lambda;
     const turn = wind + (i % 2 === 0 ? 1 : -1) * (0.18 + i * 0.13);
     const steepness = (steep * weight) / total;

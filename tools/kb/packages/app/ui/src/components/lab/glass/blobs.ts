@@ -46,6 +46,15 @@ function wave(path: Path, axis: 0 | 1 | 2, t: number): number {
 export const BLOB_COUNT = 7;
 const HELD_RADIUS = 0.6;
 
+/**
+ * The sphere every blob stays inside: the march skips rays that miss it, so
+ * it is the one bound — the drifting paths are chosen within it, and the
+ * held blob's aim is clamped to it.
+ */
+export const BLOB_BOUNDS = 3.8;
+/** How far the held blob's centre may go: its whole sphere stays in bounds. */
+const HELD_REACH = BLOB_BOUNDS - HELD_RADIUS - 0.05;
+
 /** The shortest period any drifting blob moves on (the M4 bound, for a test). */
 export function shortestPeriod(timing: Timing): number {
   return Math.min(...paths(timing.ambientPeriod).flatMap((path) => path.periods));
@@ -87,9 +96,12 @@ export class BlobField {
     }
     const held = this.blobs[BLOB_COUNT - 1];
     if (held === undefined || dt <= 0) return;
-    stepSpring(this.hx, aim?.x ?? 0, this.rate, dt);
-    stepSpring(this.hy, aim?.y ?? 0, this.rate, dt);
-    stepSpring(this.hz, aim?.z ?? 0, this.rate, dt);
+    // The pointer can reach past the bounds at a far dolly; the blob stops at the edge.
+    const reach = aim === null ? 0 : Math.hypot(aim.x, aim.y, aim.z);
+    const keep = reach > HELD_REACH ? HELD_REACH / reach : 1;
+    stepSpring(this.hx, (aim?.x ?? 0) * keep, this.rate, dt);
+    stepSpring(this.hy, (aim?.y ?? 0) * keep, this.rate, dt);
+    stepSpring(this.hz, (aim?.z ?? 0) * keep, this.rate, dt);
     held.x = this.hx.x;
     held.y = this.hy.x;
     held.z = this.hz.x;

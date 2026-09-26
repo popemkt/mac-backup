@@ -49,10 +49,8 @@ import {
 } from "three/tsl";
 import type { PaletteUniforms } from "@/scene/gpu/stage";
 import { loop, type TslNode } from "@/scene/gpu/tsl";
-import { BLOB_COUNT } from "@/components/lab/glass/blobs";
+import { BLOB_BOUNDS, BLOB_COUNT } from "@/components/lab/glass/blobs";
 
-/** The blobs never leave this sphere round the origin; rays that miss it skip the march. */
-const BOUNDS = 3.8;
 const OUTER_STEPS = 56;
 const INNER_STEPS = 28;
 const EPSILON = 0.0015;
@@ -229,7 +227,7 @@ export function glassMesh(colors: PaletteUniforms, blobs: BlobUniforms, u: Glass
     const color = studio(rd).toVar();
     // The ray against the bounding sphere: where it enters and leaves.
     const b = dot(ro, rd);
-    const h = b.mul(b).sub(dot(ro, ro).sub(BOUNDS * BOUNDS));
+    const h = b.mul(b).sub(dot(ro, ro).sub(BLOB_BOUNDS * BLOB_BOUNDS));
     If(h.greaterThan(0), () => {
       const far = b.negate().add(sqrt(h)).toVar();
       const t = max(b.negate().sub(sqrt(h)), 0).toVar();

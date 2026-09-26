@@ -51,7 +51,7 @@ import {
 } from "three/tsl";
 import type { PaletteUniforms } from "@/scene/gpu/stage";
 import type { TslNode } from "@/scene/gpu/tsl";
-import { WAVE_COUNT, type Wave } from "@/components/lab/ocean/waves";
+import { SEA_CELL, SEA_SIZE, WAVE_COUNT, type Wave } from "@/components/lab/ocean/waves";
 
 export interface SeaUniforms {
   readonly time: TslNode;
@@ -180,7 +180,8 @@ export function sea(
   w: WaveUniforms,
   u: SeaUniforms,
 ): Mesh {
-  const geometry = new PlaneGeometry(240, 240, 480, 480);
+  const cells = SEA_SIZE / SEA_CELL;
+  const geometry = new PlaneGeometry(SEA_SIZE, SEA_SIZE, cells, cells);
   geometry.rotateX(-Math.PI / 2);
   const material = new MeshBasicNodeMaterial();
   material.fog = false;

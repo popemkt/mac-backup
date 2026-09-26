@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WAVE_COUNT, waveSet } from "./waves";
+import { SHORTEST_WAVE, SEA_CELL, WAVE_COUNT, waveSet } from "./waves";
 
 describe("the Gerstner wave set", () => {
   it("never folds a crest: steepness sums to at most 1, whatever the slider asks", () => {
@@ -7,6 +7,15 @@ describe("the Gerstner wave set", () => {
       const total = waveSet(height, 12, 0.3).reduce((sum, w) => sum + w.steepness, 0);
       expect(total).toBeLessThanOrEqual(1 + 1e-9);
       expect(total).toBeCloseTo(Math.min(1, height), 9);
+    }
+  });
+
+  it("never draws a wave shorter than five grid cells, whatever the wavelength slider", () => {
+    expect(SHORTEST_WAVE).toBeGreaterThanOrEqual(SEA_CELL * 5);
+    for (let wavelength = 1; wavelength <= 40; wavelength += 0.5) {
+      for (const w of waveSet(0.6, wavelength, 0.2)) {
+        expect((Math.PI * 2) / w.k).toBeGreaterThanOrEqual(SEA_CELL * 5 - 1e-9);
+      }
     }
   });
 

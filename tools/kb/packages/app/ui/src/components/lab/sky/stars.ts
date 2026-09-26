@@ -28,6 +28,7 @@ import type { TslNode } from "@/scene/gpu/tsl";
 import { unitHash } from "@/scene/sphere";
 import { HERO_GLINTS, heroPoint, starPoint } from "@/components/lab/sky/layout";
 import { starLight } from "@/components/lab/sky/shaders";
+import { approach } from "@/lib/timing";
 
 /** The depth at which a star is drawn at its nominal size. */
 const NOMINAL = 60;
@@ -49,6 +50,8 @@ export class NodeStars {
   private readonly graph: LabGraph;
   /** Line vertices that sit on the hovered star (every even one). */
   private lineFrom = -1;
+  /** Whether the lines are wanted; they stay drawn while they fade out. */
+  private linesWanted = false;
 
   constructor(colors: PaletteUniforms, u: StarUniforms, graph: LabGraph, entrance: Entrance) {
     this.graph = graph;
@@ -113,8 +116,16 @@ export class NodeStars {
     return this.graph.nodes[index];
   }
 
-  /** Draw `index`'s edges as lines to its neighbours' stars (or none, for -1). */
+  /**
+   * Draw `index`'s edges as lines to its neighbours' stars. For -1 (no star)
+   * the lines are let go: they keep their geometry and fade out (`fadeLines`)
+   * rather than vanishing on the frame the pointer leaves.
+   */
   constellation(index: number): void {
+    if (index < 0) {
+      this.linesWanted = false;
+      return;
+    }
     const points: number[] = [];
     const node = this.graph.nodes[index];
     const from = this.points[index];
@@ -133,7 +144,22 @@ export class NodeStars {
     this.lines.geometry = geometry;
     this.lineFrom = points.length > 0 ? index : -1;
     // An empty batch is not drawn: a zero-vertex draw is not free.
-    this.lines.visible = points.length > 0;
+    this.linesWanted = points.length > 0;
+    this.lines.visible = this.linesWanted;
+  }
+
+  /**
+   * One frame of the lines' opacity, from `opacity` toward shown or gone at
+   * `rate` (1/s); hidden only once it has faded out. Returns the new opacity.
+   */
+  fadeLines(opacity: number, rate: number, dt: number, reduced: boolean): number {
+    const target = this.linesWanted ? 1 : 0;
+    const next = reduced ? target : approach(opacity, target, rate, dt);
+    if (!this.linesWanted && next < 0.004) {
+      this.lines.visible = false;
+      return 0;
+    }
+    return next;
   }
 
   /** Stand star `index` at `to`, and its lines with it. */

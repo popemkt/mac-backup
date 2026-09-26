@@ -31,7 +31,7 @@ import { OrbitControl } from "@/components/lab/kit/orbit";
 import { Entrance } from "@/components/lab/kit/entrance";
 import type { SceneStage } from "@/scene/gpu/stage";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
-import { approach, approachRate } from "@/lib/timing";
+import { approachRate } from "@/lib/timing";
 import { starfield } from "@/scene/gpu/starfield";
 import { corona, moon, nebula, sun } from "@/components/lab/sky/shaders";
 import { NodeStars } from "@/components/lab/sky/stars";
@@ -140,7 +140,8 @@ function sky(stage: SceneStage, init: LabSceneInit, context: StudyContext): Stud
     init,
     (index) => {
       u.hover.value = index;
-      u.lines.value = 0;
+      // A new constellation fades in from nothing; a let-go one fades out from where it is.
+      if (index >= 0) u.lines.value = 0;
     },
   );
   const orbit = new OrbitControl(
@@ -159,9 +160,7 @@ function sky(stage: SceneStage, init: LabSceneInit, context: StudyContext): Stud
       u.twinkle.value = reduced ? 0 : 1;
       entrance.step(dt, reduced);
       orbit.frame(dt, reduced, stage.camera, DRIFT);
-      u.lines.value = reduced
-        ? Number(stars.lines.visible)
-        : approach(u.lines.value, Number(stars.lines.visible), lineRate, dt);
+      u.lines.value = stars.fadeLines(u.lines.value, lineRate, dt, reduced);
       stage.camera.updateMatrixWorld();
       hands.frame(orbit.control.dragging || orbit.control.held !== null);
     },

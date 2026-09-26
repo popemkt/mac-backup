@@ -37,7 +37,6 @@ import {
 import type { SceneStage, SceneToneMapping } from "@/scene/gpu/stage";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
 import { Entrance } from "@/components/lab/kit/entrance";
-import { easeAt } from "@/lib/timing";
 
 /** Which palette colour and finish each piece of the still life takes (L1, L5). */
 type Tint = keyof SceneStage["colors"];
@@ -78,11 +77,6 @@ function stillLife(): Piece[] {
     piece(new RoundedBoxGeometry(0.5, 0.5, 0.5, 4, 0.06), "accent", "matte", [1.6, 0.25, 1.3]),
     torus,
   ];
-}
-
-/** How far a light has come up at entrance progress `t`, if it starts at `lag`. */
-function arrived(init: LabSceneInit, t: number, lag: number): number {
-  return easeAt(init.timing.settle, Math.min(1, Math.max(0, (t - lag) / (1 - lag))));
 }
 
 function light(stage: SceneStage, init: LabSceneInit, context: StudyContext): StudyParts {
@@ -132,10 +126,9 @@ function light(stage: SceneStage, init: LabSceneInit, context: StudyContext): St
   const entrance = new Entrance(init.timing);
   const full = { key: rig.key.intensity, fill: rig.fill.intensity, rim: rig.rim.intensity };
   const bringUp = () => {
-    const t = entrance.progress.value;
-    rig.key.intensity = full.key * arrived(init, t, 0);
-    rig.fill.intensity = full.fill * (0.15 + 0.85 * arrived(init, t, 0.25));
-    rig.rim.intensity = full.rim * arrived(init, t, 0.45);
+    rig.key.intensity = full.key * entrance.arrived(0);
+    rig.fill.intensity = full.fill * (0.15 + 0.85 * entrance.arrived(0.25));
+    rig.rim.intensity = full.rim * entrance.arrived(0.45);
   };
   bringUp();
 
