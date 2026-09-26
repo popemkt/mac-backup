@@ -26,10 +26,6 @@ let
   '';
 in
 {
-  config.programs.zsh.initContent = lib.mkOrder 1600 ''
-    export PATH="${pkgs.bun}/bin:$PATH"
-  '';
-
   # Read-only view of what this executor will install, so drift audits can
   # evaluate the resolved set instead of re-deriving it by scanning source.
   options.my.resolvedBunGlobals = lib.mkOption {
@@ -42,15 +38,7 @@ in
 
   config.home = {
     sessionVariables.BUN_INSTALL = bunInstall;
-    sessionPath = [
-      "${pkgs.bun}/bin"
-      "${bunInstall}/bin"
-    ];
-
-    packages = [
-      pkgs.bun
-      updateBunGlobals
-    ];
+    packages = [ updateBunGlobals ];
 
     # Routine rebuilds only restore missing declarations. `update-system`
     # upgrades the declared globals with the Nix-owned Bun runtime.

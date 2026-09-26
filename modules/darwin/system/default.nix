@@ -1,4 +1,9 @@
-{ pkgs, config, ... }:
+{
+  pkgs,
+  config,
+  lib,
+  ...
+}:
 
 let
   inherit (config.my) username;
@@ -24,6 +29,22 @@ in
     computerName = config.my.hostname;
     localHostName = config.my.hostname;
   };
+
+  # Share the shell's ordered PATH with user launchd processes, including
+  # executables with #!/usr/bin/env bun shebangs.
+  launchd.user.envVariables.PATH =
+    map
+      (lib.replaceStrings
+        [ "$HOME" "$USER" ]
+        [
+          config.users.users.${username}.home
+          username
+        ]
+      )
+      (
+        config.home-manager.users.${username}.home.sessionPath
+        ++ lib.splitString ":" config.environment.systemPath
+      );
 
   launchd.daemons.time-machine-local-snapshot-prune = {
     script = ''

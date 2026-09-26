@@ -1,4 +1,9 @@
-{ lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 {
   imports = [
@@ -21,11 +26,22 @@
   };
 
   home = {
-    # Surface Homebrew bins on PATH for interactive shells.
-    # NOTE: launchd-spawned GUI apps don't read this — set per-agent envs
-    # in their plist, or globally via `launchd.user.envVariables`
-    # (nix-darwin scope, e.g. HERMES_HOME in modules/stacks/ai-agents/hermes.nix).
-    sessionPath = [ "/opt/homebrew/bin" ];
+    # Homebrew follows Nix runtimes in the merged sessionPath; the system
+    # module gives launchd the same ordering.
+    sessionPath = [
+      "${pkgs.bun}/bin"
+      "${config.home.sessionVariables.BUN_INSTALL}/bin"
+      "/opt/homebrew/bin"
+      "/opt/homebrew/sbin"
+    ];
+    sessionVariables = {
+      HOMEBREW_PREFIX = "/opt/homebrew";
+      HOMEBREW_CELLAR = "/opt/homebrew/Cellar";
+      HOMEBREW_REPOSITORY = "/opt/homebrew";
+    };
+    sessionSearchVariables = {
+      INFOPATH = [ "/opt/homebrew/share/info" ];
+    };
 
     file.".orca/keybindings.json".text = builtins.toJSON {
       version = 1;
@@ -43,10 +59,7 @@
   };
 
   programs.zsh.initContent = lib.mkAfter ''
-    # Homebrew (Apple Silicon)
-    if [ -f /opt/homebrew/bin/brew ]; then
-      eval "$(/opt/homebrew/bin/brew shellenv)"
-    fi
+    fpath=(/opt/homebrew/share/zsh/site-functions $fpath)
 
     # Homebrew dependencies may surface their own moving python3. Keep the
     # interactive runtime aligned with the Nix-owned 3.13 tool baseline.

@@ -290,6 +290,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Admission gate
 - **node** — `01M1PJVJX84AZCRVJ82R20WTK3`
 
+### GAP: retire Homebrew Bun after switching to Nix
+
+- **expected** — The flake-pinned Nix Bun is the only installed Bun runtime.
+- **current** — The previously installed Homebrew Bun formula remains because Homebrew cleanup is none.
+- **impact** — The drift audit reports an unmanaged Homebrew formula, and stale processes can still inherit its executable on PATH.
+- **closes** — After rebuild, manually run brew uninstall bun and confirm the drift audit is clean.
+- **node** — `01M3FAE5T61DZS8T7WRW3RTZ93`
+
 ### GAP: search is a substring scan, no text index
 
 - **expected** — Full-text search as an additive derived index (FTS5, and sqlite-vec for semantic search) rebuilt from the JSONL like any other index.

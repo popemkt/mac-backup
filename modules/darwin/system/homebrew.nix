@@ -63,6 +63,7 @@ in
         # OpenCode is managed as a Homebrew CLI so it is restored with the
         # rest of the terminal agent toolchain.
         "anomalyco/tap/opencode"
+        # GAP [[01M3FAE5T61DZS8T7WRW3RTZ93]] Previously installed Bun remains until manual removal.
         "ghostwright/ghost-os/ghost-os"
         "zellij"
       ]
