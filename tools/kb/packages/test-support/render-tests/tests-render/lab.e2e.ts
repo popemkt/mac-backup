@@ -10,7 +10,7 @@ import type { Page } from "playwright/test";
 import { expect, test } from "./harness-test.ts";
 
 /** The studies in switcher order (`LAB_SCENE_IDS`); the first test holds the page to it. */
-const STUDIES = ["embers", "sky", "light", "motion"] as const;
+const STUDIES = ["embers", "sky", "glass", "river", "ocean", "light", "motion"] as const;
 /**
  * The studies that decline to start without WebGPU. The fallback test holds
  * the page to this: without WebGPU exactly these say they cannot start.
