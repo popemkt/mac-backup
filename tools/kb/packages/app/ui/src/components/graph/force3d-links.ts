@@ -47,6 +47,7 @@ import type { PaletteUniforms } from "@/scene/gpu/stage";
 import type { ScenePalette } from "@/scene/palette";
 import { approach } from "@/lib/timing";
 import type { LinkStyleParts } from "@/lib/graph-link-styles";
+import type { LinkTone } from "./graph-themes";
 import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";
 
 /** Segments per link when curved; a straight link is one. */
@@ -55,8 +56,6 @@ const CURVE_SEGMENTS = 8;
 const CURVATURE = 0.22;
 /** A link's opacity in focus. (At rest its colour and alpha are `--graph-edge`.) */
 const FOCUSED = 0.85;
-/** The source end's share of a link's brightness: the gradient that shows direction. */
-const SOURCE_SHARE = 0.3;
 /** A flow dash's length and the share of it that is lit, world units. */
 const DASH = 28;
 const DASH_LIT = 0.45;
@@ -88,6 +87,8 @@ export interface LinkLayer {
 }
 
 export interface LinkLayerOptions extends LinkStyleParts {
+  /** The theme's tone over `--graph-edge`: strength, gradient, accent lean. */
+  readonly tone: LinkTone;
   /** `--motion-ambient-period`: the time one dash takes to pass. */
   readonly ambientPeriod: number;
   /** Carry the dashes on from a layer this one replaces (`flowPhase`). */
@@ -138,14 +139,17 @@ export function linkLayer(
     along.setX(v, distance);
   };
   const period = Math.max(1, options.ambientPeriod);
+  const { tone } = options;
+  const shade = (t: number) => tone.source + (1 - tone.source) * t;
 
   return {
     lines,
     setPalette: (palette, link) => {
       const rgba = /^rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?\)$/.exec(link);
       ink.set(rgba === null ? palette.ink : `rgb(${rgba[1]}, ${rgba[2]}, ${rgba[3]})`);
-      rest = rgba?.[4] === undefined ? 1 : Number(rgba[4]);
       accent.set(palette.accent);
+      ink.lerp(accent, tone.accent);
+      rest = Math.min(1, (rgba?.[4] === undefined ? 1 : Number(rgba[4])) * tone.strength);
     },
     update: (positions) => {
       path.positions = positions;
@@ -162,9 +166,9 @@ export function linkLayer(
           const t0 = s / segments;
           const t1 = (s + 1) / segments;
           pointOn(path, a, b, t0, at);
-          write(v++, mixed, alpha * (SOURCE_SHARE + (1 - SOURCE_SHARE) * t0), t0 * length);
+          write(v++, mixed, alpha * shade(t0), t0 * length);
           pointOn(path, a, b, t1, at);
-          write(v++, mixed, alpha * (SOURCE_SHARE + (1 - SOURCE_SHARE) * t1), t1 * length);
+          write(v++, mixed, alpha * shade(t1), t1 * length);
         }
       }
       position.needsUpdate = true;

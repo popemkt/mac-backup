@@ -5,6 +5,7 @@ import { EmphasisFade } from "@/lib/graph-fade";
 import type { LensNode } from "@/lib/graph-lens";
 import { topologyOf } from "./force3d-emphasis";
 import { LabelLayer, focusDisc } from "./force3d-labels";
+import { GRAPH_THEMES } from "./graph-themes";
 
 /** A camera as the WebGPU renderer uses it: WebGPU's coordinate system. */
 function webgpuCamera(): PerspectiveCamera {
@@ -81,13 +82,18 @@ describe("a 3D label and its node's arrival", () => {
       { id: "n", label: "a node", color: "#888", size: 3, clusterKey: "r", tags: [], degree: 1 },
     ];
     const topology = topologyOf(nodes, []);
-    const layer = new LabelLayer(new Group(), topology, {
-      ground: "#000",
-      edge: "#000",
-      hue: "#888",
-      ink: "#fff",
-      accent: "#f80",
-    });
+    const layer = new LabelLayer(
+      new Group(),
+      topology,
+      {
+        ground: "#000",
+        edge: "#000",
+        hue: "#888",
+        ink: "#fff",
+        accent: "#f80",
+      },
+      GRAPH_THEMES.matte.labels,
+    );
     const camera = webgpuCamera();
     layer.resize(camera, SIZE.height);
     layer.want(new Set([0]));

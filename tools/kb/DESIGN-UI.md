@@ -582,7 +582,7 @@ like themselves (P5).
   the settings panel and persisted as a ref prop. A theme is a whole scene,
   not a material: `graph-themes.ts` states each one once, as a record the
   scene, the layers and the tests read — which tokens fill the ground and
-  its edge, the backdrop's pool, warmth and haze, the vignette, the fog,
+  its edge, the backdrop's pool, warmth and haze, the fog,
   the starfield, the grain, the bloom (and so whether any light may cross
   white at all), the node surface, how links take their colour and
   gradient, and the label's face, weight, case, halo and placement. What
@@ -610,17 +610,16 @@ like themselves (P5).
     against.
   - *Cel* — ink on paper: a flat ground with no pool, stars or fog, the key
     in three hard bands under a heavy ink outline, links drawn as even ink
-    strokes, bold labels on a solid plate of the ground. No bloom: a graphic
+    strokes, bold labels on a ruled plate of the ground. No bloom: a graphic
     print does not glow; focus reads through the outline and the swell.
-  - *Fresnel* — the night instrument: the page's background deepening to
-    the edge under a drifting haze and a firm vignette, more and brighter
-    stars, a quiet body under a bright grazing rim, links tinted toward the
-    accent, labels in the monospace face, upper case and tracked, and the
-    strongest bloom.
-  - *Glass* — the aquarium: a warm pool of the accent in the ground, a soft
+  - *Fresnel* — the night instrument: a pool falling away to the frame
+    under a still haze, more and brighter stars, a quiet body under a
+    bright grazing rim, links leaning toward the accent, labels in the
+    monospace face, upper case and tracked, and the strongest bloom.
+  - *Glass* — the aquarium: a faint warm pool of the accent and a soft
     haze, fog that starts close so depth reads, no stars; the ground seen
-    through a tinted body with a tight glint, faint links, and light labels
-    on a frosted plate.
+    through a tinted bead with a tight glint and a thin ink edge, faint
+    links, and light labels on a frosted chip.
   - *Bullet* — the outline, in space. Every node is drawn as the outline
     draws its bullet, from the same definition: `lib/bullet-mode.ts` owns a
     bullet's appearance (kind, shape, glyph, halo, dot, ring, their paints

@@ -140,7 +140,6 @@ function dressStage(stage: SceneStage, init: Force3dSceneInit) {
     if (next !== dressed) stage.backdrop(next.backdrop);
     dressed = next;
     stage.knobs.dither.value = variant(next.grain, dark);
-    stage.knobs.vignette.value = next.vignette;
     stage.setBloom(bloomOf(next, dark));
     stars.opacity.value = variant(next.stars, dark);
     fog.amount.value = next.fog === null ? 0 : 1;

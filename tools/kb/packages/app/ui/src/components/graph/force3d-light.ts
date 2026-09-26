@@ -44,11 +44,13 @@ const SURFACES: Record<NodeSurface, <V, S>(o: ShadeOps<V, S>, f: NodeFragment<V,
       o.scale(f.hue, o.add(o.mul(f.key, o.num(0.5)), o.num(0.42))),
       o.scale(f.ink, o.mul(f.rim, o.num(0.16))),
     ),
-  // Cel: the key in three flat bands, and a hard ink outline at the silhouette.
+  // Cel: the key in three flat bands, under a hard ink outline drawn over
+  // the silhouette (a mix toward the ink, so it reads on a light ground too).
   cel: (o, f) =>
-    o.addColor(
+    o.mix(
       o.scale(f.hue, o.add(o.mul(o.band(f.key, 3), o.num(0.6)), o.num(0.36))),
-      o.scale(f.ink, o.mul(o.smoothstep(0.34, 0.4, f.rim), o.num(0.55))),
+      f.ink,
+      o.mul(o.smoothstep(0.2, 0.26, f.rim), o.num(0.9)),
     ),
   // Fresnel: a quiet body and a rim that brightens toward the ink, as a
   // holographic shell does at grazing angles.
@@ -58,14 +60,16 @@ const SURFACES: Record<NodeSurface, <V, S>(o: ShadeOps<V, S>, f: NodeFragment<V,
       o.scale(o.mix(f.hue, f.ink, o.num(0.45)), o.mul(o.smoothstep(0, 0.6, f.rim), o.num(1.1))),
     ),
   // Glass, refraction-lite: the ground seen through a tinted body, a tight
-  // specular glint from the key, and a faint ink edge.
+  // specular glint from the key, and a thin ink edge where the glass turns
+  // away (a mix toward the ink, so the bead has an edge on a light ground).
   glass: (o, f) =>
-    o.addColor(
+    o.mix(
       o.addColor(
-        o.scale(o.mix(f.ground, f.hue, o.num(0.45)), o.add(o.mul(f.key, o.num(0.25)), o.num(0.55))),
+        o.scale(o.mix(f.ground, f.hue, o.num(0.6)), o.add(o.mul(f.key, o.num(0.25)), o.num(0.55))),
         o.scale(o.white, o.mul(o.pow(f.key, 28), o.num(0.9))),
       ),
-      o.scale(f.ink, o.mul(f.rim, o.num(0.3))),
+      f.ink,
+      o.mul(f.rim, o.num(0.4)),
     ),
 };
 

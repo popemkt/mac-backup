@@ -145,7 +145,12 @@ export class GraphLayers {
     this.particleRate = approachRate(init.timing.reveal);
     stage.scene.add(this.group);
     this.group.add(this.linkGroup, this.nodeGroup, this.particleGroup);
-    this.labels = new LabelLayer(this.group, this.topology, this.palette);
+    this.labels = new LabelLayer(
+      this.group,
+      this.topology,
+      this.palette,
+      GRAPH_THEMES[this.settings.theme].labels,
+    );
     this.setGraph(init.nodes, init.edges);
   }
 
@@ -256,7 +261,7 @@ export class GraphLayers {
 
   /**
    * The drawn layers, each redrawn alone when what it is built from changes,
-   * freeing the old one: nodes for a new look, links for a new style or
+   * freeing the old one: nodes and labels for a new theme, links for a new theme or style or
    * curve, particles for a new curve. A redrawn layer takes the graph as it
    * stands — positions, emphasis, arrival — and `carry` hands it the motion
    * of the one it replaces (the flow's dashes, the particles' fade and phase),
@@ -277,6 +282,7 @@ export class GraphLayers {
     const ambientPeriod = this.timing.ambientPeriod;
     this.links = linkLayer(this.topology, this.fades, {
       ...LINK_STYLES[this.settings.linkStyle],
+      tone: GRAPH_THEMES[this.settings.theme].links,
       ambientPeriod,
       ...(flowPhase === undefined ? {} : { flowPhase }),
     });
@@ -317,8 +323,12 @@ export class GraphLayers {
   setSettings(next: Force3dSettings): void {
     const previous = this.settings;
     this.settings = next;
-    if (next.theme !== previous.theme) this.drawNodes();
-    if (next.linkStyle !== previous.linkStyle) {
+    const themed = next.theme !== previous.theme;
+    if (themed) {
+      this.drawNodes();
+      this.labels.reset(this.topology, this.palette, GRAPH_THEMES[next.theme].labels);
+    }
+    if (themed || next.linkStyle !== previous.linkStyle) {
       this.drawLinks(true);
       const curve = LINK_STYLES[next.linkStyle].curved !== LINK_STYLES[previous.linkStyle].curved;
       if (curve) this.drawParticles(true);

@@ -22,6 +22,7 @@ import {
 } from "three/webgpu";
 import { texture, uniform } from "three/tsl";
 import { fitGraphLabel, graphLabelFont } from "@/lib/graph-label";
+import type { LabelStyle } from "./graph-themes";
 import { labelArrived } from "@/lib/graph-arrival";
 import { byLabelPriority, reserveGraphLabel, type GraphLabelBox } from "@/lib/graph-label-layout";
 import type { ScenePalette } from "@/scene/palette";
@@ -43,27 +44,67 @@ interface Label {
   dispose(): void;
 }
 
-function paint(text: string, palette: ScenePalette, font: string) {
+/** What keeps a label legible over the links and nodes behind it. */
+const HALOS: Record<
+  LabelStyle["halo"],
+  (ctx: CanvasRenderingContext2D, label: string, width: number, palette: ScenePalette) => void
+> = {
+  // The ground, drawn wide and soft under the text.
+  soft: (ctx, label, _width, palette) => {
+    ctx.strokeStyle = palette.ground;
+    ctx.lineWidth = 4;
+    ctx.shadowColor = palette.ground;
+    ctx.shadowBlur = 6;
+    ctx.strokeText(label, PAD_X, HEIGHT / 2);
+    ctx.shadowBlur = 0;
+  },
+  // A crisp, thin line of the ground: a row's text needs no more.
+  stroke: (ctx, label, _width, palette) => {
+    ctx.strokeStyle = palette.ground;
+    ctx.lineWidth = 3;
+    ctx.strokeText(label, PAD_X, HEIGHT / 2);
+  },
+  // A solid plate of the ground under an ink rule: a printed caption.
+  plate: (ctx, _label, width, palette) => {
+    ctx.fillStyle = palette.ground;
+    ctx.strokeStyle = palette.ink;
+    ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    ctx.roundRect(1.5, 3.5, width - 3, HEIGHT - 7, 2);
+    ctx.fill();
+    ctx.stroke();
+  },
+  // A rounded chip of the ground, translucent: frosted glass.
+  frost: (ctx, _label, width, palette) => {
+    ctx.globalAlpha = 0.72;
+    ctx.fillStyle = palette.ground;
+    ctx.beginPath();
+    ctx.roundRect(1, 3, width - 2, HEIGHT - 6, (HEIGHT - 6) / 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  },
+};
+
+function paint(text: string, palette: ScenePalette, style: LabelStyle) {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   if (ctx === null) throw new Error("Canvas 2D context unavailable");
   const scale = OVERSAMPLE * Math.min(window.devicePixelRatio || 1, 2);
-  ctx.font = `500 ${FONT_SIZE}px ${font}`;
-  const label = fitGraphLabel(text, (t) => ctx.measureText(t).width);
+  const font = `${style.weight} ${FONT_SIZE}px ${graphLabelFont(style.face)}`;
+  const tracking = `${style.tracking}px`;
+  const shown = style.upper ? text.toUpperCase() : text;
+  ctx.font = font;
+  ctx.letterSpacing = tracking;
+  const label = fitGraphLabel(shown, (t) => ctx.measureText(t).width);
   const width = Math.ceil(ctx.measureText(label).width) + PAD_X * 2;
   canvas.width = width * scale;
   canvas.height = HEIGHT * scale;
   ctx.scale(scale, scale);
-  ctx.font = `500 ${FONT_SIZE}px ${font}`;
+  ctx.font = font;
+  ctx.letterSpacing = tracking;
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
-  // The halo: the ground, drawn wide and soft under the text.
-  ctx.strokeStyle = palette.ground;
-  ctx.lineWidth = 4;
-  ctx.shadowColor = palette.ground;
-  ctx.shadowBlur = 6;
-  ctx.strokeText(label, PAD_X, HEIGHT / 2);
-  ctx.shadowBlur = 0;
+  HALOS[style.halo](ctx, label, width, palette);
   ctx.fillStyle = palette.ink;
   ctx.fillText(label, PAD_X, HEIGHT / 2);
   const map = new CanvasTexture(canvas);
@@ -89,6 +130,18 @@ export function focusDisc(
   const r = radius * pixelsPerUnit(camera, size.height, at.depth);
   if (!Number.isFinite(r)) return null;
   return { x: at.x - r, y: at.y - r, width: 2 * r, height: 2 * r };
+}
+
+/**
+ * The screen box a label covers, written into `box`: centred above its
+ * anchor, or starting at it and centred on it vertically when it stands
+ * beside its node.
+ */
+function placeBox(box: GraphLabelBox, at: ScreenPoint, width: number, beside: boolean): void {
+  box.x = beside ? at.x - 3 : at.x - width / 2 - 3;
+  box.y = beside ? at.y - HEIGHT / 2 - 2 : at.y - HEIGHT * 1.15 - 2;
+  box.width = width + 6;
+  box.height = HEIGHT + 4;
 }
 
 /** Whether `box` lies wholly inside a frame of `size`. */
@@ -118,26 +171,29 @@ export class LabelLayer {
   private readonly order: Label[] = [];
   private readonly point = new Vector3();
   private readonly up = new Vector3();
+  private readonly right = new Vector3();
   private readonly screen: ScreenPoint = { x: 0, y: 0, depth: 0 };
   private pixelScale = 1;
   private readonly group: Group;
   private topology: Force3dTopology;
   private palette: ScenePalette;
+  private style: LabelStyle;
 
-  constructor(group: Group, topology: Force3dTopology, palette: ScenePalette) {
+  constructor(group: Group, topology: Force3dTopology, palette: ScenePalette, style: LabelStyle) {
     this.group = group;
     this.topology = topology;
     this.palette = palette;
+    this.style = style;
   }
 
   /** Which nodes carry a label now; others' sprites are hidden, not dropped. */
   want(nodes: ReadonlySet<number>): void {
-    const font = graphLabelFont();
+    const beside = this.style.placement === "right";
     for (const i of nodes) {
       if (this.labels.has(i)) continue;
       const node = this.topology.nodes[i];
       if (node === undefined) continue;
-      const { map, width } = paint(node.label, this.palette, font);
+      const { map, width } = paint(node.label, this.palette, this.style);
       const opacity = uniform(1);
       const material = new SpriteNodeMaterial({
         transparent: true,
@@ -150,7 +206,8 @@ export class LabelLayer {
       material.colorNode = sample.rgb;
       material.opacityNode = sample.a.mul(opacity);
       const sprite = new Sprite(material);
-      sprite.center.set(0.5, -0.15);
+      if (beside) sprite.center.set(0, 0.5);
+      else sprite.center.set(0.5, -0.15);
       sprite.renderOrder = 10;
       sprite.scale.set(width * this.pixelScale, HEIGHT * this.pixelScale, 1);
       this.group.add(sprite);
@@ -189,8 +246,12 @@ export class LabelLayer {
   ): void {
     const { positions, arrival, radius } = nodes;
     const focus = fades.focus.values;
-    // A label stands just above its node's silhouette, whatever the node's size.
+    // A label stands just above its node's silhouette, whatever the node's
+    // size, or just right of it, as a row's text stands beside its bullet.
+    const beside = this.style.placement === "right";
     this.up.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    this.right.set(1, 0, 0).applyQuaternion(camera.quaternion);
+    const away = beside ? this.right : this.up;
     const rank = (label: Label) => {
       const node = this.topology.nodes[label.node];
       return { id: node?.id ?? "", degree: node?.degree ?? 0, focus: focus[label.node] ?? 0 };
@@ -210,14 +271,11 @@ export class LabelLayer {
       const i = label.node;
       this.point
         .set(positions[i * 3] ?? 0, positions[i * 3 + 1] ?? 0, positions[i * 3 + 2] ?? 0)
-        .addScaledVector(this.up, radius(i));
+        .addScaledVector(away, radius(i));
       label.sprite.position.copy(this.point);
       const inView = toScreen(this.point, camera, size, this.screen);
       const box = label.box;
-      box.x = this.screen.x - label.width / 2 - 3;
-      box.y = this.screen.y - HEIGHT * 1.15 - 2;
-      box.width = label.width + 6;
-      box.height = HEIGHT + 4;
+      placeBox(box, this.screen, label.width, beside);
       const present = fades.dim.values[i] ?? 1;
       const ready = inView && present > 0.5 && labelArrived(arrival[i] ?? 1);
       label.sprite.visible = ready && within(box, size) && reserveGraphLabel(box, this.occupied);
@@ -230,11 +288,12 @@ export class LabelLayer {
     return this.order.filter((label) => label.sprite.visible).length;
   }
 
-  /** A new palette or graph: every texture is repainted on next want. */
-  reset(topology: Force3dTopology, palette: ScenePalette): void {
+  /** A new palette, graph or style: every texture is repainted on next want. */
+  reset(topology: Force3dTopology, palette: ScenePalette, style: LabelStyle = this.style): void {
     this.dispose();
     this.topology = topology;
     this.palette = palette;
+    this.style = style;
   }
 
   dispose(): void {

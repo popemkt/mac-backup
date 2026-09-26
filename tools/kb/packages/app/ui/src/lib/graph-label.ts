@@ -1,20 +1,30 @@
 import { parseInlineMd } from "./md-inline";
 
 /**
- * The graph label face, read from the design system's `--app-font-graph`.
+ * A graph label face, read from the design system: the graph face
+ * (`--app-font-graph`, the default), the UI face or the monospace one.
  *
  * A canvas `font` string cannot hold a `var()`, so renderers that paint on
  * canvas resolve the token here when they draw; DOM labels use the
  * `font-graph` utility instead. Outside a document (unit tests) the generic
  * family keeps measuring deterministic.
  */
-export function graphLabelFont(): string {
-  if (typeof document === "undefined") return "sans-serif";
-  const face = getComputedStyle(document.documentElement)
-    .getPropertyValue("--app-font-graph")
+export function graphLabelFont(face: GraphLabelFace = "graph"): string {
+  const fallback = face === "mono" ? "monospace" : "sans-serif";
+  if (typeof document === "undefined") return fallback;
+  const value = getComputedStyle(document.documentElement)
+    .getPropertyValue(FACE_TOKEN[face])
     .trim();
-  return face.length > 0 ? face : "sans-serif";
+  return value.length > 0 ? value : fallback;
 }
+
+/** Which of the design system's faces a canvas label is set in. */
+export type GraphLabelFace = "graph" | "ui" | "mono";
+const FACE_TOKEN: Record<GraphLabelFace, string> = {
+  graph: "--app-font-graph",
+  ui: "--app-font",
+  mono: "--app-font-mono",
+};
 export const GRAPH_LABEL_WIDTH = 220;
 
 /** Text space is measured in screen pixels, independently of node importance. */
