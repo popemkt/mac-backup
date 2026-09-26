@@ -170,6 +170,21 @@
             touch "$out"
           '';
 
+      # Offline test of the drift audit's probe mechanism.
+      auditProbesCheck =
+        pkgs.runCommand "audit-probes-check"
+          {
+            nativeBuildInputs = [
+              pkgs.bash
+              pkgs.coreutils
+              pkgs.gnused
+            ];
+          }
+          ''
+            bash ${./scripts/tests/audit-probes.sh} ${./scripts/lib/audit-probes.sh}
+            touch "$out"
+          '';
+
       # One Darwin host = shared system module + host dir (hosts/<hostname>).
       # Host identity lives in the typed `my.*` options (modules/options/my.nix),
       # not in specialArgs.
@@ -239,6 +254,7 @@
       checks.${system} = localPackages // {
         inherit systemSetupCheck;
         reconcile-scripts-check = reconcileScriptsCheck;
+        audit-probes-check = auditProbesCheck;
         github-sources-check = githubSourcesCheck;
         system-setup-manifest-personal = systemSetupManifestCheck "popemkt-personal";
         system-setup-manifest-work = systemSetupManifestCheck "popemkt-work";

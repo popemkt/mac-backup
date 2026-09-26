@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # shellcheck disable=SC2154,SC2034
-# readarray_safe/read_lines_into assign through a nameref and set_diff takes
+# read_probe_into assigns through a nameref and set_diff takes
 # array names rather than values, neither of which shellcheck can follow. No
 # variable here is genuinely unassigned or unused.
 
@@ -21,12 +21,13 @@ UV_BIN="${UV_BIN:-uv}"
 # Read a resolved list from the evaluated host configuration. Scanning Nix
 # source cannot see stack contributions, host `extra.*` additions, or lists
 # written on one line; evaluation is the only reading that matches what the
-# executors actually install.
+# executors actually install. Lines come back sorted and unique, as a set.
+# Run it as a probe, so a failed evaluation is read through read_probe_into.
 eval_host_list() {
   local apply="$1"
   nix eval --raw --no-warn-dirty \
     "$ROOT_DIR#darwinConfigurations.$AUDIT_HOST.config" \
-    --apply "xs: builtins.concatStringsSep \"\\n\" ($apply)" 2>/dev/null
+    --apply "xs: builtins.concatStringsSep \"\\n\" (builtins.attrNames (builtins.listToAttrs (map (name: { inherit name; value = null; }) ($apply))))"
 }
 
 # Same, for a my.pkgs channel by name.
@@ -186,26 +187,14 @@ print_warning_summary() {
     "$_AUDIT_BOLD" "$_AUDIT_DIM" "$_AUDIT_RESET" >&2
 }
 
-readarray_safe() {
-  local __var_name="$1"
-  shift
-  local output
-  output="$("$@" 2>/dev/null || true)"
-  if [ -n "$output" ]; then
-    mapfile -t "$__var_name" < <(printf '%s\n' "$output" | sed '/^$/d')
-  else
-    eval "$__var_name=()"
-  fi
-}
-
 # Probe workers only capture command results. The parent waits and consumes them
 # in a fixed order, so report rendering and audit state remain single-writer.
 # shellcheck source=SCRIPTDIR/lib/audit-probes.sh
 . "$ROOT_DIR/scripts/lib/audit-probes.sh"
 
-# Report a pin tool's `check` run. github-sources and uv-sources share one
-# exit contract: 0 current, 10 newer upstream releases, anything else means
-# the check could not answer.
+# Report a pin tool's `check` run. github-sources and uv-sources both use 0
+# for current and 10 for newer upstream releases; any other code (they differ
+# there, GAP [[01M3E9VSQZTDHRV4C9YRWD1QV1]]) means the check could not answer.
 report_pin_check() {
   local label="$1" pending="$2" rc="$3" out="$4"
   case "$rc" in
@@ -271,12 +260,6 @@ uv_is_editable() {
   [ -f "$receipt" ] && grep -q 'editable' "$receipt"
 }
 
-read_lines_into() {
-  local -n _dest="$1"
-  local text="$2"
-  mapfile -t _dest < <(printf '%s\n' "$text" | sed '/^$/d' | sort -u)
-}
-
 # homebrew.{brews,casks,taps} normalize to submodules, so project to the name.
 brew_names() {
   eval_host_list "map (x: if builtins.isAttrs x then x.name else x) xs.homebrew.$1"
@@ -304,27 +287,20 @@ managed_external_paths_probe=${#AUDIT_PROBE_PIDS[@]}
 audit_probe_start parse_external_paths
 audit_probe_wait_all
 
-read_lines_into declared_brews "$(audit_probe_output "$declared_brews_probe")"
-read_lines_into declared_casks "$(audit_probe_output "$declared_casks_probe")"
-read_lines_into declared_taps "$(audit_probe_output "$declared_taps_probe")"
-read_lines_into declared_npm "$(audit_probe_output "$declared_npm_probe")"
-read_lines_into declared_bun "$(audit_probe_output "$declared_bun_probe")"
-read_lines_into declared_nix_packages "$(audit_probe_output "$declared_nix_packages_probe")"
-managed_external_paths_text="$(audit_probe_output "$managed_external_paths_probe")"
-if [ -n "$managed_external_paths_text" ]; then
-  mapfile -t managed_external_paths < <(printf '%s\n' "$managed_external_paths_text" | sed '/^$/d')
-else
-  managed_external_paths=()
+if ! {
+  read_probe_into declared_brews "$declared_brews_probe" "Homebrew formula declarations" \
+    && read_probe_into declared_casks "$declared_casks_probe" "Homebrew cask declarations" \
+    && read_probe_into declared_taps "$declared_taps_probe" "Homebrew tap declarations" \
+    && read_probe_into declared_npm "$declared_npm_probe" "npm global declarations" \
+    && read_probe_into declared_bun "$declared_bun_probe" "Bun global declarations" \
+    && read_probe_into declared_nix_packages "$declared_nix_packages_probe" "Nix package declarations"
+}; then
+  printf 'error: could not evaluate host %s; declarations below would be wrong\n' \
+    "$AUDIT_HOST" >&2
+  exit 1
 fi
-
-for probe in "$declared_brews_probe" "$declared_casks_probe" "$declared_taps_probe" \
-  "$declared_npm_probe" "$declared_bun_probe" "$declared_nix_packages_probe"; do
-  if [ "$(audit_probe_status "$probe")" != 0 ]; then
-    printf 'error: could not evaluate host %s; declarations below would be wrong\n' \
-      "$AUDIT_HOST" >&2
-    exit 1
-  fi
-done
+managed_external_paths=()
+read_probe_into managed_external_paths "$managed_external_paths_probe" "external-data path scan" || true
 
 print_section "Repo Declarations"
 printf '  Nix packages tracked: %s\n' "${#declared_nix_packages[@]}"
@@ -522,8 +498,7 @@ audit_agent_plugins() {
   local label="$1" attr="$2"
   shift 2
 
-  local declared=() installed=()
-  read_lines_into declared "$(eval_channel "$attr")"
+  local declared=() installed=() raw=()
 
   if ! command -v "$1" >/dev/null 2>&1; then
     print_section "$label Plugin Drift"
@@ -531,8 +506,13 @@ audit_agent_plugins() {
     return
   fi
 
-  local raw=()
-  readarray_safe raw "$@"
+  local declared_probe=${#AUDIT_PROBE_PIDS[@]}
+  audit_probe_start eval_channel "$attr"
+  local list_probe=${#AUDIT_PROBE_PIDS[@]}
+  audit_probe_start "$@"
+  audit_probe_wait_all
+  read_probe_into declared "$declared_probe" "$label plugin declarations" || return 0
+  read_probe_into raw "$list_probe" "$label plugin list" || return 0
   mapfile -t installed < <(
     printf '%s\n' "${raw[@]}" \
       | grep -oE '[A-Za-z0-9_.-]+@[A-Za-z0-9_.-]+' \
@@ -616,12 +596,14 @@ if [ -x "$BREW_BIN" ]; then
   audit_probe_start "$BREW_BIN" list --cask
 fi
 audit_probe_wait_all
-mapfile -t all_apps < <(audit_probe_output "$all_apps_probe")
+all_apps=()
+read_probe_into all_apps "$all_apps_probe" "/Applications scan" || true
 
 cask_apps=()
 cask_app_basenames=()
-if [ -x "$BREW_BIN" ]; then
-  mapfile -t cask_list < <(audit_probe_output "$cask_list_probe")
+cask_list=()
+if [ -x "$BREW_BIN" ] \
+  && read_probe_into cask_list "$cask_list_probe" "brew list --cask"; then
   for c in "${cask_list[@]}"; do
     found_app=0
     while IFS= read -r path; do
@@ -733,8 +715,14 @@ if [ -x "$ROOT_DIR/scripts/github-sources" ]; then
 fi
 
 if command -v determinate-nixd >/dev/null 2>&1; then
-  determinate_status="$(audit_probe_output "$determinate_status_probe")"
-  nix_version_line="$(audit_probe_output "$nix_version_probe")"
+  # The upgrade notice is on stderr, so this probe reads combined output; a
+  # pass needs the status command itself to have succeeded.
+  determinate_lines=()
+  nix_version_lines=()
+  read_probe_into determinate_lines "$determinate_status_probe" "determinate-nixd status" || true
+  read_probe_into nix_version_lines "$nix_version_probe" "nix --version" || true
+  determinate_status="$(printf '%s\n' "${determinate_lines[@]}")"
+  nix_version_line="${nix_version_lines[0]:-}"
   if printf '%s\n' "$determinate_status" | grep -qiE 'out of date|now available'; then
     available="$(printf '%s\n' "$determinate_status" | grep -oE 'Determinate Nix [0-9]+(\.[0-9]+)+' | head -1 | awk '{ print $3 }')"
     current="$(printf '%s\n' "$nix_version_line" | grep -oE 'Determinate Nix [0-9]+(\.[0-9]+)+' | head -1 | awk '{ print $3 }')"
@@ -744,15 +732,19 @@ if command -v determinate-nixd >/dev/null 2>&1; then
       record_warn "Determinate Nix is out of date"
     fi
     warn_detail "fix: upgrade-out-of-band"
-  else
+  elif [ "$(audit_probe_status "$determinate_status_probe")" = 0 ]; then
     record_ok "Determinate Nix current (${nix_version_line:-unknown})"
+  else
+    printf '  Determinate Nix: could not determine (%s)\n' "${determinate_lines[-1]:-no output}"
   fi
 else
   record_warn "determinate-nixd not found"
 fi
 
 if command -v softwareupdate >/dev/null 2>&1; then
-  softwareupdate_out="$(audit_probe_output "$softwareupdate_probe")"
+  softwareupdate_lines=()
+  read_probe_into softwareupdate_lines "$softwareupdate_probe" "softwareupdate -l" || true
+  softwareupdate_out="$(printf '%s\n' "${softwareupdate_lines[@]}")"
   mapfile -t os_updates < <(printf '%s\n' "$softwareupdate_out" | sed -nE 's/^[[:space:]]*\*[[:space:]]*Label:[[:space:]]*(.*)$/\1/p')
   if [ "${#os_updates[@]}" -gt 0 ]; then
     record_warn "macOS software update(s) available: ${os_updates[*]}"
@@ -767,8 +759,9 @@ else
   record_warn "softwareupdate not found"
 fi
 
-if [ -x "$BREW_BIN" ]; then
-  mapfile -t brew_outdated < <(audit_probe_output "$brew_outdated_probe" | sed '/^$/d')
+brew_outdated=()
+if [ -x "$BREW_BIN" ] \
+  && read_probe_into brew_outdated "$brew_outdated_probe" "brew outdated"; then
   if [ "${#brew_outdated[@]}" -gt 0 ]; then
     record_warn "${#brew_outdated[@]} Homebrew package(s) outdated"
     sample_count=10
@@ -789,12 +782,16 @@ fi
 
 audit_probe_wait_all
 if [ -x "$ROOT_DIR/scripts/uv-sources" ]; then
-  report_pin_check "uv pins" "uv tool pins have newer PyPI releases" \
-    "$(audit_probe_status "$uv_check_probe")" "$(audit_probe_output "$uv_check_probe")"
+  uv_check_lines=()
+  if read_probe_into uv_check_lines "$uv_check_probe" "uv-sources check"; then
+    report_pin_check "uv pins" "uv tool pins have newer PyPI releases" \
+      "$(audit_probe_status "$uv_check_probe")" "$(printf '%s\n' "${uv_check_lines[@]}")"
+  fi
 fi
-if [ -x "$ROOT_DIR/scripts/github-sources" ]; then
-  gh_check_out="$(audit_probe_output "$gh_check_probe")"
-  gh_check_clean="$(printf '%s\n' "$gh_check_out" | grep -vE "^warning: Git tree|^warning: ignoring|^this derivation|^building '|^  /nix/store/" || true)"
+gh_check_lines=()
+if [ -x "$ROOT_DIR/scripts/github-sources" ] \
+  && read_probe_into gh_check_lines "$gh_check_probe" "github-sources check"; then
+  gh_check_clean="$(printf '%s\n' "${gh_check_lines[@]}" | grep -vE "^warning: Git tree|^warning: ignoring|^this derivation|^building '|^  /nix/store/" || true)"
   report_pin_check "GitHub release pins" "GitHub release pins have newer upstreams" \
     "$(audit_probe_status "$gh_check_probe")" "$gh_check_clean"
 fi

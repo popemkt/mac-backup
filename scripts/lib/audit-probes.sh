@@ -1,11 +1,13 @@
 # shellcheck shell=bash
 #
-# The drift audit's probe mechanism, sourced by
-# scripts/audit-system-discrepancies.sh.
+# The drift audit's one probe mechanism, sourced by
+# scripts/audit-system-discrepancies.sh and tested offline by
+# scripts/tests/audit-probes.sh.
 #
 # A probe runs one command in the background and records its stdout, stderr
-# and exit status. The caller starts probes, waits, and then reads each one.
-# The caller defines record_warn and warn_detail.
+# and exit status. The caller starts probes, waits, and then reads each one
+# only through read_probe_into, so every reading makes the same decision about
+# a failed probe. The caller defines record_warn and warn_detail.
 
 AUDIT_PROBE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/audit-probes.XXXXXX")"
 AUDIT_PROBE_PIDS=()
@@ -76,17 +78,25 @@ audit_probe_combined() {
 
 # read_probe_into <array> <index> <label>
 #
-# Load a finished probe's non-empty stdout lines into <array>, or report the
-# probe as failed and return 1. A probe that exited non-zero has not said what
-# is installed, so it never reads as an empty inventory (AGENTS.md "Writing
-# an executor").
+# Load a finished probe's non-empty stdout lines into <array> and return 0,
+# or warn and return 1 when the probe answered nothing.
+#
+# The exit status alone does not decide. Several listing commands print their
+# whole answer and still exit non-zero: `npm ls -g` exits 1 (ELSPROBLEMS)
+# when a global is missing or invalid, which is exactly when the drift must be
+# read. So a probe has failed only when it exited non-zero AND printed
+# nothing; an empty listing from a probe that exited 0 is a real empty
+# inventory. A failed probe never reads as "nothing installed"
+# (AGENTS.md "Writing an executor"), and a caller that skips on 1 never
+# records a pass from it.
 read_probe_into() {
   local dest="$1" index="$2" label="$3" rc
   rc="$(audit_probe_status "$index")"
-  if [ "$rc" != 0 ]; then
-    record_warn "$label failed (exit $rc); that drift was not checked"
+  mapfile -t "$dest" < <(audit_probe_output "$index" | sed '/^$/d')
+  local -n _probe_lines="$dest"
+  if [ "$rc" != 0 ] && [ "${#_probe_lines[@]}" -eq 0 ]; then
+    record_warn "$label failed (exit $rc); that check did not run"
     warn_detail "$(tail -1 "$AUDIT_PROBE_DIR/$index.err" 2>/dev/null || true)"
     return 1
   fi
-  mapfile -t "$dest" < <(audit_probe_output "$index" | sed '/^$/d')
 }
