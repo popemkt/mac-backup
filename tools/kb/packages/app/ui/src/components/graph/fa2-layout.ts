@@ -5,6 +5,7 @@
 import type Graph from "graphology";
 import FA2Layout from "graphology-layout-forceatlas2/worker";
 import forceAtlas2 from "graphology-layout-forceatlas2";
+import { separateDiscs } from "./graph-discs";
 
 export interface FA2Controller {
   start(): void;
@@ -43,7 +44,7 @@ export function createFA2Layout(graph: Graph, opts?: { onConverged?: () => void 
  * the graph, with a strong, gentle gravity so nodes with no links settle near
  * the rest instead of drifting to the frame's corners as specks.
  */
-function fa2Settings(graph: Graph) {
+export function fa2Settings(graph: Graph) {
   return {
     ...forceAtlas2.inferSettings(graph),
     barnesHutOptimize: graph.order > 500,
@@ -63,6 +64,7 @@ function createWorkerLayout(graph: Graph, opts?: { onConverged?: () => void }): 
     settleTimer = setTimeout(() => {
       layout.stop();
       running = false;
+      separateDiscs(graph);
       opts?.onConverged?.();
     }, ms);
   }
@@ -120,6 +122,7 @@ function createSyncFallbackLayout(
   function tick() {
     if (iterationsLeft <= 0 || graph.order === 0) {
       running = false;
+      separateDiscs(graph);
       opts?.onConverged?.();
       return;
     }

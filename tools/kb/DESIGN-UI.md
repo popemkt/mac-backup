@@ -455,8 +455,8 @@ rather than by navigation.
   as the perspective's link style says (below); a curved pair of opposite
   links bows apart instead of overlapping. `graph-lens.ts` deduplicates
   parallel edges into a `weight` count, and stroke width scales as
-  `√weight` — repeated relationships read as thicker, single links stay
-  hairline. (3D draws one-pixel links, so weight is not yet drawn there: a
+  `√weight` (`linkWidth`, in the layout's units like the discs below) —
+  repeated relationships read as thicker, single links are a hairline. (3D draws one-pixel links, so weight is not yet drawn there: a
   recorded gap.)
 - **A 2D node is a disc in the layout's space.** Its radius is in the
   layout's own units, not in screen pixels (sigma's `itemSizesReference:
@@ -465,10 +465,13 @@ rather than by navigation.
   nodes grow over each other. `graph-discs.ts` owns the relation, once:
   the lens size maps to a radius bounded against the layout's spacing
   (`discRadius`), every 2D layout ends by separating the discs it placed
-  (`separateDiscs`, when the force layout settles and after a static or
-  cluster placement), and the cluster placement packs each group by disc
-  size rather than by a fixed step. `graph-discs.test.ts` proves it on the
-  fixture graph after settle: no two discs overlap beyond a hair, and the
+  (`separateDiscs`, when the force layout settles and after a placed or
+  cluster layout), a placed layout (radial, hierarchical, grid) sets
+  neighbours at least their radii apart (`discSpacing`, so a ring, column
+  or cell grows to hold them), and the cluster placement packs each group
+  by disc size rather than by a fixed step. `graph-discs.test.ts` proves it
+  after settle on the fixture graph and on a dense graph of hubs and
+  leaves, in every 2D layout: no two discs overlap beyond a hair, and the
   largest radius stays under its stated bound.
 - **Honest empty and large states.** Zero matches renders guidance rather than
   a blank canvas; invalid EDN surfaces an amber warning chip (`queryError` on

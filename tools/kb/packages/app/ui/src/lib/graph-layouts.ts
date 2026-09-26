@@ -6,37 +6,72 @@ import type { LensEdge, LensNode, LensLayout } from "@/lib/graph-lens";
 
 export type LayoutPoint = { x: number; y: number };
 
+/** How far apart two neighbouring nodes must stand, centre to centre (none by default). */
+export type LayoutSpacing = (a: LensNode, b: LensNode) => number;
+const NO_SPACING: LayoutSpacing = () => 0;
+
+/**
+ * Where a placed layout puts each node: spread over a box of `size`, and
+ * never closer to the next node along its ring, column or row than `spacing`
+ * says — the ring, the column or the cell grows to hold them.
+ */
 export function computeLayoutPositions(
   layout: LensLayout,
   nodes: LensNode[],
   edges: LensEdge[],
   size: { width: number; height: number } = { width: 800, height: 600 },
+  spacing: LayoutSpacing = NO_SPACING,
 ): Map<string, LayoutPoint> | null {
   if (layout === "force") return null;
-  if (layout === "radial") return radialLayout(nodes, size);
-  if (layout === "hierarchical") return hierarchicalLayout(nodes, edges, size);
-  return gridLayout(nodes, size);
+  if (layout === "radial") return radialLayout(nodes, size, spacing);
+  if (layout === "hierarchical") return hierarchicalLayout(nodes, edges, size, spacing);
+  return gridLayout(nodes, size, spacing);
+}
+
+/** Each node's offset along a line: evenly `step` apart, or further where `spacing` asks. */
+function along(line: readonly LensNode[], step: number, spacing: LayoutSpacing): number[] {
+  const out: number[] = [];
+  let at = 0;
+  line.forEach((node, i) => {
+    const previous = line[i - 1];
+    if (previous !== undefined) at += Math.max(step, spacing(previous, node));
+    out.push(at);
+  });
+  return out;
+}
+
+/** The spacing the largest node asks of its own kind: a column's or a cell's least width. */
+function widest(nodes: readonly LensNode[], spacing: LayoutSpacing): number {
+  return nodes.reduce((most, node) => Math.max(most, spacing(node, node)), 0);
 }
 
 /** Ring anchors sorted by id for determinism. */
 export function radialLayout(
   nodes: LensNode[],
   size: { width: number; height: number },
+  spacing: LayoutSpacing = NO_SPACING,
 ): Map<string, LayoutPoint> {
   const out = new Map<string, LayoutPoint>();
   const sorted = [...nodes].toSorted((a, b) => a.id.localeCompare(b.id));
   const n = sorted.length;
   const cx = size.width / 2;
   const cy = size.height / 2;
-  const R = Math.min(size.width, size.height) * 0.38;
   if (n === 0) return out;
+  // The ring's length: every neighbour's spacing, the last back round to the first.
+  const first = sorted[0];
+  const last = sorted[n - 1];
+  const offsets = along(sorted, 0, spacing);
+  const closing = first !== undefined && last !== undefined ? spacing(last, first) : 0;
+  const length = (offsets[n - 1] ?? 0) + closing;
+  const R = Math.max(Math.min(size.width, size.height) * 0.38, length / (2 * Math.PI));
   const [only] = sorted;
   if (n === 1 && only !== undefined) {
     out.set(only.id, { x: cx, y: cy });
     return out;
   }
   sorted.forEach((node, i) => {
-    const angle = (2 * Math.PI * i) / n - Math.PI / 2;
+    const share = length > 0 ? (offsets[i] ?? 0) / length : i / n;
+    const angle = 2 * Math.PI * share - Math.PI / 2;
     out.set(node.id, {
       x: cx + Math.cos(angle) * R,
       y: cy + Math.sin(angle) * R,
@@ -54,6 +89,7 @@ export function hierarchicalLayout(
   nodes: LensNode[],
   edges: LensEdge[],
   size: { width: number; height: number },
+  spacing: LayoutSpacing = NO_SPACING,
 ): Map<string, LayoutPoint> {
   const out = new Map<string, LayoutPoint>();
   const ids = nodes.map((n) => n.id).toSorted();
@@ -96,14 +132,17 @@ export function hierarchicalLayout(
     layers.set(d, list);
   }
   const maxDepth = Math.max(0, ...layers.keys());
-  const colGap = size.width / (maxDepth + 2);
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const colGap = Math.max(size.width / (maxDepth + 2), widest(nodes, spacing));
   for (const [d, layer] of layers) {
     layer.sort();
     const rowGap = size.height / (layer.length + 1);
-    layer.forEach((id, i) => {
-      out.set(id, {
+    const column = layer.flatMap((id) => byId.get(id) ?? []);
+    const offsets = along(column, rowGap, spacing);
+    column.forEach((node, i) => {
+      out.set(node.id, {
         x: colGap * (d + 1),
-        y: rowGap * (i + 1),
+        y: rowGap + (offsets[i] ?? 0),
       });
     });
   }
@@ -114,6 +153,7 @@ export function hierarchicalLayout(
 export function gridLayout(
   nodes: LensNode[],
   size: { width: number; height: number },
+  spacing: LayoutSpacing = NO_SPACING,
 ): Map<string, LayoutPoint> {
   const out = new Map<string, LayoutPoint>();
   const sorted = [...nodes].toSorted((a, b) => a.id.localeCompare(b.id));
@@ -121,8 +161,9 @@ export function gridLayout(
   if (n === 0) return out;
   const cols = Math.ceil(Math.sqrt(n));
   const rows = Math.ceil(n / cols);
-  const cellW = size.width / (cols + 1);
-  const cellH = size.height / (rows + 1);
+  const cell = widest(nodes, spacing);
+  const cellW = Math.max(size.width / (cols + 1), cell);
+  const cellH = Math.max(size.height / (rows + 1), cell);
   sorted.forEach((node, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);

@@ -27,6 +27,7 @@ import {
 } from "@/lib/graph-interaction";
 import { computeLayoutPositions } from "@/lib/graph-layouts";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
+import { clusterPlacement, discRadius, linkWidth, discSpacing, separateDiscs } from "./graph-discs";
 import { fitView } from "./graph-camera";
 import { sigmaCameraControls, type GraphCameraControls } from "./graph-camera-controls";
 import { selectionFromNode, type GraphSelection } from "./graph-selection";
@@ -158,6 +159,9 @@ export function SigmaGraph(props: SigmaGraphProps) {
       edgeProgramClasses: EDGE_PROGRAMS,
       stagePadding: 70,
       zIndex: true,
+      // A node is a disc in the layout's space (`graph-discs`): its size scales with the layout.
+      itemSizesReference: "positions",
+      zoomToSizeRatioFunction: (ratio) => ratio,
     });
     sigmaRef.current = sigma;
     emphasis.current = sigmaEmphasis(sigma, readTiming(), prefersReducedMotion);
@@ -332,27 +336,18 @@ export function SigmaGraph(props: SigmaGraphProps) {
     }
     const ids = new Set(nodes.map((n) => n.id));
     for (const id of graph.nodes()) if (!ids.has(id)) graph.dropNode(id);
-    const assigned = computeLayoutPositions(layout, nodes, edges);
-    const groups = [...new Set(nodes.map((n) => n.clusterKey))].toSorted();
-    const members = new Map<string, number>();
+    const assigned = computeLayoutPositions(layout, nodes, edges, undefined, discSpacing);
+    const placed = cluster ? clusterPlacement(nodes) : null;
     nodes.forEach((n, index) => {
       const exists = graph.hasNode(n.id);
       let point = assigned?.get(n.id);
-      const count = members.get(n.clusterKey) ?? 0;
-      members.set(n.clusterKey, count + 1);
       if (cluster && (!exists || graph.getNodeAttribute(n.id, "clusterKey") !== n.clusterKey)) {
-        const group = groups.indexOf(n.clusterKey);
-        const angle = (group * 2 * Math.PI) / Math.max(1, groups.length),
-          r = 100 + groups.length * 30;
-        point = {
-          x: Math.cos(angle) * r + Math.cos(count * 2.4) * Math.sqrt(count) * 20,
-          y: Math.sin(angle) * r + Math.sin(count * 2.4) * Math.sqrt(count) * 20,
-        };
+        point = placed?.get(n.id);
       }
       const attrs = {
         label: n.label,
         color: n.color,
-        size: n.size,
+        size: discRadius(n.size),
         degree: n.degree,
         clusterKey: n.clusterKey,
         clusterLabel: n.clusterLabel ?? n.clusterKey,
@@ -371,12 +366,14 @@ export function SigmaGraph(props: SigmaGraphProps) {
       edges.forEach((e, i) => {
         if (ids.has(e.source) && ids.has(e.target))
           graph.addEdgeWithKey(String(i), e.source, e.target, {
-            size: Math.max(1, Math.sqrt(e.weight)),
+            size: linkWidth(e.weight),
             kind: e.kind,
           });
       });
     topology.current = key;
     if (changed) emphasis.current?.reindex(initial);
+    // A placed layout ends by separating its discs; the force layout does when it settles.
+    if (changed && graph.order && (cluster || layout !== "force")) separateDiscs(graph);
     if (changed && graph.order && !cluster && layout === "force") {
       const fa = createFA2Layout(graph, {
         onConverged: () => {
