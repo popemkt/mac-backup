@@ -324,10 +324,13 @@ pure function is not by itself a reason to write a property.
 "fail below N%" check and there will not be one. Chasing a percentage
 manufactures exactly the noise this doctrine forbids.
 
-**The mutation score is advisory.** Stryker runs weekly over the pure core with
-no `thresholds` block, and its own workflow header records that the score is
-non-reproducible run to run. It is a sensor a human reads to find a missing
-test; a non-deterministic merge blocker erodes trust in every other gate.
+**The mutation score is advisory.** Stryker runs weekly (`kb-mutation.yml`)
+over `@kb/model`, `@kb/query` and the CLI's argument mapper, with no
+`thresholds` block. The run seeds fast-check (`KB_FAST_CHECK_SEED`), so its
+survivor list is reproducible. It is a sensor a human reads to find a missing
+test, not a merge blocker: a gate that slow gets routed around, and a score is
+not a claim about any one change. The harness's `advisory-signals` check
+holds both halves.
 
 **Size is a signal; boundaries and branching are the gate (L1/L2/L3).**
 
