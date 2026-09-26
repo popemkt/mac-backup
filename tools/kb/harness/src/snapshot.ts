@@ -13,7 +13,7 @@
  *
  * Deterministic: sorted keys, no timestamps.
  */
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { RUNTIME_PRESET_BY_SCOPE } from "./constraints.ts";
@@ -22,6 +22,7 @@ import {
   HARNESS_ROOT,
   WORKSPACE_ROOT,
   axisValues,
+  gitEnv,
   hasEffectDiagnostics,
   rootManifest,
   tagsOf,
@@ -37,6 +38,54 @@ export interface BaselineLanes {
     blocking: Record<string, number>;
     advisory: Record<string, number>;
     knip: Record<string, number>;
+  };
+}
+
+/**
+ * Where the ratchet counts from: the commit this change forked from. In
+ * order, `KB_RATCHET_BASE`, local `main`, `origin/main`, merged with HEAD.
+ * On the base branch itself the fork point is HEAD, and then the change
+ * under test is HEAD's own commit, so the base is its first parent.
+ */
+export const RATCHET_BASE_REFS = ["main", "origin/main"] as const;
+
+export type BaseLedger =
+  | { ok: true; rev: string; lanes: BaselineLanes["lanes"] }
+  | { ok: false; reason: string };
+
+export function baselineAtRatchetBase(
+  run: (args: string[]) => string = (args) =>
+    execFileSync("git", args, {
+      cwd: HARNESS_ROOT,
+      encoding: "utf8",
+      env: gitEnv(),
+      stdio: ["ignore", "pipe", "ignore"],
+    }),
+): BaseLedger {
+  const attempt = (args: string[]): string | null => {
+    try {
+      return run(args).trim();
+    } catch {
+      return null;
+    }
+  };
+  const refs = [process.env.KB_RATCHET_BASE, ...RATCHET_BASE_REFS].filter(
+    (ref): ref is string => ref !== undefined && ref !== "",
+  );
+  const head = attempt(["rev-parse", "HEAD"]);
+  if (head === null) return { ok: false, reason: "HEAD does not resolve" };
+  for (const ref of refs) {
+    const fork = attempt(["merge-base", "HEAD", ref]);
+    if (fork === null) continue;
+    const rev = fork === head ? attempt(["rev-parse", "HEAD^"]) : fork;
+    if (rev === null) continue;
+    const text = attempt(["show", `${rev}:./lint-warn-baseline.json`]);
+    if (text === null) return { ok: false, reason: `${rev} has no lint-warn-baseline.json` };
+    return { ok: true, rev, lanes: (JSON.parse(text) as BaselineLanes).lanes };
+  }
+  return {
+    ok: false,
+    reason: `no ratchet base: none of ${refs.join(", ")} shares history with HEAD (fetch it, or a CI checkout needs fetch-depth: 0)`,
   };
 }
 

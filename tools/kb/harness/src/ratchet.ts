@@ -1,11 +1,13 @@
 /**
  * The deterministic-debt ratchet, as pure functions over the committed ledger.
  *
- * Two halves of the canonical two-mechanism rule (AGENTS.md, Drift markers):
- * the ledger equals reality exactly (`ratchetMismatches`), and a `warn` rule
- * whose debt reached zero is promoted to `error` rather than left as a silent
- * lane (`unpromotedWarnRules`). The tests in `lint-warn-ratchet.test.ts` bind
- * them to the live collectors and `.oxlintrc.json`.
+ * Three parts of the canonical two-mechanism rule (AGENTS.md, Drift markers):
+ * the ledger equals reality exactly (`ratchetMismatches`); the ledger never
+ * rises against the base the change started from (`ratchetRises`), so a
+ * regenerated snapshot cannot quietly hold new debt; and a `warn` rule whose
+ * debt reached zero is promoted to `error` rather than left as a silent lane
+ * (`unpromotedWarnRules`). The tests in `lint-warn-ratchet.test.ts` bind them
+ * to the live collectors, the base's ledger and `.oxlintrc.json`.
  */
 
 /** Every identity whose ledger count differs from the collector's, either way. */
@@ -31,6 +33,27 @@ export function ratchetMismatches(
     }
   }
   return mismatches.toSorted();
+}
+
+/**
+ * Every identity whose count is higher than at the base, or that the base did
+ * not hold at all. A fall is not a rise: draining debt lowers the ledger.
+ */
+export function ratchetRises(
+  base: Record<string, number>,
+  current: Record<string, number>,
+  lane: string,
+): string[] {
+  const rises: string[] = [];
+  for (const [identity, count] of Object.entries(current)) {
+    const was = base[identity] ?? 0;
+    if (count > was) {
+      rises.push(
+        `${lane} ${identity} rose from ${was} to ${count} against the base; drain it instead of raising the baseline`,
+      );
+    }
+  }
+  return rises.toSorted();
 }
 
 /** Oxlint rule severities as `.oxlintrc.json` writes them: a string or `[severity, options]`. */

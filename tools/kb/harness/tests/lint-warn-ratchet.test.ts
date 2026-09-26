@@ -2,12 +2,18 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import {
   BASELINE_PATH,
+  baselineAtRatchetBase,
   collectKnipFindings,
   collectLinterWarnings,
   collectOxlintWarnings,
   type BaselineLanes,
 } from "../src/snapshot.ts";
-import { ratchetMismatches, unpromotedWarnRules, type OxlintRuleSetting } from "../src/ratchet.ts";
+import {
+  ratchetMismatches,
+  ratchetRises,
+  unpromotedWarnRules,
+  type OxlintRuleSetting,
+} from "../src/ratchet.ts";
 import { WORKSPACE_ROOT } from "../src/workspace.ts";
 import { join } from "node:path";
 
@@ -18,9 +24,20 @@ import { join } from "node:path";
  * ledger must equal complete collector output. Any change requires an explicit
  * `bun run harness:snapshot`; a zero count disappears from the regenerated
  * ledger — and a `warn` rule with no debt left is promoted to `error`, so the
- * ledger never hides an unchecked lane. Advisory lint diagnostics remain
- * non-blocking.
+ * ledger never hides an unchecked lane. A snapshot records reality, so it
+ * would record new debt too: the ledger is therefore also held to the one at
+ * the commit the change forked from, and any count above it fails. Advisory
+ * lint diagnostics remain non-blocking.
  */
+
+/** A git that knows only the answers it is given, and fails like git on any other question. */
+function scriptedGit(history: Record<string, string>): (args: string[]) => string {
+  return (args) => {
+    const answer = history[args.join(" ")];
+    if (answer === undefined) throw new Error(`git ${args.join(" ")}`);
+    return answer;
+  };
+}
 
 describe("lint-warn-ratchet", () => {
   test("baseline file exists and contains valid lanes", () => {
@@ -44,6 +61,51 @@ describe("lint-warn-ratchet", () => {
     expect(ratchetMismatches({ "eslint/example": 3 }, { "eslint/example": 1 }, "lint")).toEqual([
       "lint eslint/example count changed from 3 to 1; run bun run harness:snapshot",
     ]);
+  });
+
+  test("a count above the base, or an identity the base never held, is a rise", () => {
+    expect(ratchetRises({ "react/refs": 22 }, { "react/refs": 26 }, "lint")).toEqual([
+      "lint react/refs rose from 22 to 26 against the base; drain it instead of raising the baseline",
+    ]);
+    expect(ratchetRises({}, { "exports:a.ts:X": 1 }, "knip")).toEqual([
+      "knip exports:a.ts:X rose from 0 to 1 against the base; drain it instead of raising the baseline",
+    ]);
+    expect(ratchetRises({ "react/refs": 26 }, { "react/refs": 22 }, "lint")).toEqual([]);
+  });
+
+  test("the ratchet base is the fork point, or HEAD's parent on the base branch itself", () => {
+    const ledger = JSON.stringify({ lanes: { blocking: {}, advisory: {}, knip: {} } });
+    const onBranch = baselineAtRatchetBase(
+      scriptedGit({
+        "rev-parse HEAD": "head",
+        "merge-base HEAD main": "fork",
+        "show fork:./lint-warn-baseline.json": ledger,
+      }),
+    );
+    expect(onBranch.ok && onBranch.rev).toBe("fork");
+    const onMain = baselineAtRatchetBase(
+      scriptedGit({
+        "rev-parse HEAD": "head",
+        "merge-base HEAD main": "head",
+        "rev-parse HEAD^": "parent",
+        "show parent:./lint-warn-baseline.json": ledger,
+      }),
+    );
+    expect(onMain.ok && onMain.rev).toBe("parent");
+    // Without a base the check cannot pass by default: it reports why.
+    expect(baselineAtRatchetBase(scriptedGit({ "rev-parse HEAD": "head" })).ok).toBe(false);
+  });
+
+  test("no ledger count rises against the ratchet base", () => {
+    const base = baselineAtRatchetBase();
+    expect(base.ok, base.ok ? "" : base.reason).toBe(true);
+    if (!base.ok) return;
+    const current = (JSON.parse(readFileSync(BASELINE_PATH, "utf8")) as BaselineLanes).lanes;
+    const rises = [
+      ...ratchetRises(base.lanes.blocking, current.blocking, "lint"),
+      ...ratchetRises(base.lanes.knip, current.knip, "knip"),
+    ];
+    expect(rises, `against ${base.rev}:\n${rises.join("\n")}`).toEqual([]);
   });
 
   test("a warn rule with no debt left must be promoted to error", () => {

@@ -10,16 +10,24 @@ export const WORKSPACE_ROOT = join(import.meta.dir, "..", "..");
 export const PACKAGES_ROOT = join(WORKSPACE_ROOT, "packages");
 /** The harness itself: root tooling, outside the workspace members. */
 export const HARNESS_ROOT = join(WORKSPACE_ROOT, "harness");
+/**
+ * The environment for a git command about the tree the harness runs in. A
+ * hook exports GIT_DIR and GIT_INDEX_FILE for the committing repository; run
+ * inside the pre-commit snapshot, git has to answer for the snapshot instead.
+ */
+export function gitEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  delete env.GIT_DIR;
+  delete env.GIT_WORK_TREE;
+  delete env.GIT_INDEX_FILE;
+  delete env.GIT_PREFIX;
+  return env;
+}
+
 export function gitWorkspaceFiles(
   patterns: string[] = ["*.ts", "*.tsx"],
   root: string = WORKSPACE_ROOT,
 ): string[] {
-  const gitEnv = { ...process.env };
-  delete gitEnv.GIT_DIR;
-  delete gitEnv.GIT_WORK_TREE;
-  delete gitEnv.GIT_INDEX_FILE;
-  delete gitEnv.GIT_PREFIX;
-
   const flags = patterns.filter((p) => p.startsWith("-")).join(" ");
   const paths = patterns
     .filter((p) => !p.startsWith("-"))
@@ -30,13 +38,13 @@ export function gitWorkspaceFiles(
     {
       cwd: root,
       encoding: "utf8",
-      env: gitEnv,
+      env: gitEnv(),
     },
   );
   const repoRoot = execSync("git rev-parse --show-toplevel", {
     cwd: root,
     encoding: "utf8",
-    env: gitEnv,
+    env: gitEnv(),
   }).trim();
   return raw
     .split("\n")

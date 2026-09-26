@@ -121,7 +121,14 @@ build_snapshot() {
   trap remove_snapshot EXIT
   # This one reads the index being committed, so it keeps the hook's own env.
   tree="$(git -C "$repo_root" write-tree)"
-  commit="$(git_own_env -C "$repo_root" commit-tree "$tree" -m 'pre-commit index snapshot')"
+  # Parented on HEAD, so the snapshot has the history the commit will have:
+  # the kb warn ratchet counts from the fork point with main, which an
+  # orphan commit has none of.
+  local parent=()
+  if git_own_env -C "$repo_root" rev-parse -q --verify HEAD > /dev/null; then
+    parent=(-p HEAD)
+  fi
+  commit="$(git_own_env -C "$repo_root" commit-tree "$tree" "${parent[@]}" -m 'pre-commit index snapshot')"
   git_own_env -C "$repo_root" worktree add --detach --quiet "$snapshot" "$commit"
 
   # The invariant the checks depend on: the snapshot's index is the tree that
@@ -152,8 +159,8 @@ if triggered "$docs_inputs" || triggered "$assets_inputs" || triggered "$verify_
       KB_ASSETS_ROOT="$snapshot" in_snapshot "$snapshot/scripts/check-kb-assets-backup.sh" check
     fi
 
-    # kb verify gate: typecheck + lint + fmt:check + knip + harness + the
-    # rule/check audit for the kb workspace.
+    # kb verify gate for the kb workspace; what it runs is `verify` in
+    # tools/kb/package.json.
     if triggered "$verify_inputs"; then
       echo "==> verify (kb workspace, staged snapshot)"
       (cd "$snapshot/tools/kb" && in_snapshot bun run verify)
