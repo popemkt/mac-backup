@@ -67,6 +67,30 @@ completion is meaningful only within an explicitly chosen task model, never
 as a universal kb milestone.
 
 
+## One contract, every implementation
+
+When a concept has more than one implementation (a port with several
+adapters, a store with a JSONL and a SQLite backend, a renderer with a WebGPU
+and a WebGL path), the promise belongs to the concept, not to any one
+implementation.
+
+- **The interface names the capability.** Anything a caller relies on,
+  including behaviour such as "notices writes from another process",
+  "opening never writes" or "ids are unique after a merge", is a member or a
+  documented guarantee of the port. Callers never name a backend, a file or a
+  flag to get it.
+- **One shared contract suite proves it.** The guarantee is a property in the
+  suite that runs over every implementation, for example `store-contract.ts`
+  over `STORE_BACKENDS`. It is not a test of one adapter. A new implementation
+  joins that suite, and a guarantee that one adapter keeps and another breaks
+  makes it go red.
+- **The spec states it once.** The design doc says what the port promises, and
+  the adapters point to it. An adapter-specific test may add detail, but it
+  never replaces the shared property.
+
+This is Rule 1 applied to implementations. Two backends that meet one promise
+in two unrelated ways are a mirror; the contract suite is the bridge.
+
 ## Canonical statements
 
 Every rule, principle, and decision has exactly one home. Other files link to
