@@ -207,6 +207,50 @@ export const LAB_STUDIES: Record<LabSceneId, LabStudy> = {
     ],
     load: () => import("@/components/lab/river/scene").then((m) => m.mountRiver),
   },
+  ocean: {
+    label: "Ocean",
+    technique:
+      "Gerstner waves, an analytic normal and foam, one sky for the dome, the reflections and the haze",
+    teaches:
+      "Each point of the sea moves round a circle, so crests sharpen and troughs flatten; long waves travel faster than short ones. The water reflects the sky by Fresnel, glows through thin crests toward the sun, and fades into the horizon the sky itself draws — one sky function, three readers. Lower the sun to lengthen the glitter path.",
+    rules: [
+      {
+        id: "T1",
+        how: "The wave sum runs in the vertex stage as TSL; the sky is one WGSL function by setLayout.",
+      },
+      { id: "L2", how: "Only the sun disc and its glints on the water run past 1 and bloom." },
+      {
+        id: "L3",
+        how: "Distance fades into the sky's own horizon, so the edge of the sea never shows.",
+      },
+      { id: "M7", how: "Under reduced motion the sea is one still frame of the same waves." },
+    ],
+    controls: [
+      { kind: "range", id: "height", label: "waves", min: 0.05, max: 1, step: 0.01, value: 0.55 },
+      {
+        kind: "range",
+        id: "wavelength",
+        label: "wavelength",
+        min: 4,
+        max: 40,
+        step: 0.5,
+        value: 14,
+        unit: "m",
+      },
+      {
+        kind: "range",
+        id: "sun",
+        label: "sun height",
+        min: -4,
+        max: 30,
+        step: 0.5,
+        value: 6,
+        unit: "°",
+      },
+      { kind: "toggle", id: "foam", label: "foam", value: true },
+    ],
+    load: () => import("@/components/lab/ocean/scene").then((m) => m.mountOcean),
+  },
   light: {
     label: "Light",
     technique: "A key, fill and rim rig, soft shadows, ambient occlusion and tone mapping",

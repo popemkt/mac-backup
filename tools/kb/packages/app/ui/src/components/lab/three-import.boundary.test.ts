@@ -31,6 +31,8 @@ const ALLOWED = new Set([
   "glass/scene.ts",
   "river/flow.ts",
   "river/scene.ts",
+  "ocean/scene.ts",
+  "ocean/shaders.ts",
   "light/scene.ts",
   "motion/scene.ts",
 ]);

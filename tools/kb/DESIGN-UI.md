@@ -589,7 +589,7 @@ study does is a kb milestone. What a study proves graduates into functional
 views only through the shared kit — the graph-polish work (wave item g) builds
 on the same stage, palette and timing, never on a copy of a study.
 
-Six studies, each with a collapsible info card naming its technique, the
+Seven studies, each with a collapsible info card naming its technique, the
 principles below it applies, and two to four live parameters:
 
 | study  | technique                                                        | parameters                          |
@@ -598,6 +598,7 @@ principles below it applies, and two to four live parameters:
 | Sky    | a sun that lights the moon (terminator, phase and earthshine follow where they stand), node stars in a 3D volume (parallax), a domain-warped nebula, orbit controls; four-point glints, dither | glint length, nebula, earthshine, dither |
 | Glass  | sphere tracing a signed distance field: smooth-min metaballs, normals from the gradient, Fresnel, refraction traced through the glass, per-channel dispersion, Beer–Lambert absorption, a studio of light strips and ink cards | blend, index, dispersion, absorption |
 | River  | a GPU curl-noise flow field: 131 072 particles advected by one TSL compute kernel (divergence-free swirl, a meandering current, a pointer vortex, recycling), drawn as velocity-aligned streak sprites | current, eddy scale, turbulence, streak |
+| Ocean  | Gerstner waves (steepness summed to at most 1), the analytic normal and a Jacobian foam mask, one sky function read by the dome, the reflections and the distance haze; Fresnel, a subsurface cheat, an HDR glitter path | waves, wavelength, sun height, foam |
 | Light  | key/fill/rim rig, soft shadows, GTAO, tone mapping, finishes     | tone mapping, PBR/matcap, AO, key angle |
 | Motion | staggered critically damped springs against an eased tween        | settle, stagger, drive, overlap     |
 
