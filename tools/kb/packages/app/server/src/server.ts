@@ -102,9 +102,13 @@ export const ingestExternalWrite = Effect.fn("kb.ingestExternalWrite")(function*
  * Ingest a change under `.kb/queries/`: re-list the saved queries and let the
  * virtual set record what moved.
  *
- * The saved-query sidebar is a projection of `.kb/queries/*.edn`, so the
- * directory is watched exactly the way the store's files are, and the change
- * reaches clients as the same kind of frame.
+ * The saved-query sidebar is a projection of `.kb/queries/*.edn`. It shares
+ * the store's directory watch but not its sampler: the store lane runs
+ * `changes` (directory events plus `STORE_CHANGES_POLL`, announced only when
+ * the fingerprint moves), while this lane runs `directorySignals` alone and
+ * ingests every tick, since the listing has no fingerprint and `sync` already
+ * records nothing when nothing moved. Either way the change reaches clients as
+ * the same kind of frame (`DESIGN.md` → Storage).
  */
 export const ingestSavedQueries = Effect.fn("kb.ingestSavedQueries")(function* (
   root: string,

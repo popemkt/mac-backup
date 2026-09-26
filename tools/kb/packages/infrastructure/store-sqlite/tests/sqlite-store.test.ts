@@ -1,7 +1,7 @@
 /**
  * What SqliteStore does that the port does not promise: the on-disk shape, a
- * fingerprint the database itself keeps, atomicity when a write fails part-way through
- * the transaction, and the paths it asks a watcher to watch.
+ * fingerprint the database itself keeps, and atomicity when a write fails
+ * part-way through the transaction.
  */
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";

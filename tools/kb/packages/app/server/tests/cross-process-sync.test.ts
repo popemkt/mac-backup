@@ -21,7 +21,10 @@ import { startUi, type UiServerHandle } from "../src/index.ts";
 
 const CLI = join(import.meta.dir, "..", "..", "cli", "src", "main.ts");
 
-/** Generous next to the 50ms debounce: the bound is "live", not "fast". */
+/**
+ * Generous next to `STORE_CHANGES_POLL` (1s), the port's bound for an
+ * unreported write: the property is "live", not "fast".
+ */
 const FRAME_TIMEOUT_MS = 5000;
 
 type TxFrame = Extract<ServerMessage, { op: "tx" }>;
