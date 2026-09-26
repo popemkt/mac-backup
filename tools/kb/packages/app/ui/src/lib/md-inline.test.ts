@@ -129,6 +129,23 @@ describe("parseInlineMd", () => {
       ]);
     });
 
+    it("opens a run longer than two on its inner strong delimiter", () => {
+      expect(parseInlineMd("***text***")).toEqual([{ t: "bold", v: "text" }]);
+      expect(parseInlineMd("****bold****")).toEqual([{ t: "bold", v: "bold" }]);
+      expect(parseInlineMd("a ***b*** c")).toEqual([
+        { t: "text", v: "a " },
+        { t: "bold", v: "b" },
+        { t: "text", v: " c" },
+      ]);
+      // Only one side has the extra mark: it stays text.
+      expect(parseInlineMd("***x**")).toEqual([
+        { t: "text", v: "*" },
+        { t: "bold", v: "x" },
+      ]);
+      literal("***");
+      literal("a *** b");
+    });
+
     it("lets `*` emphasise inside a word", () => {
       expect(parseInlineMd("un*frig*ly")).toEqual([
         { t: "text", v: "un" },

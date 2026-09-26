@@ -128,7 +128,11 @@ function canClose(text: string, at: number, length: number): boolean {
   return text[at] !== "_" || !isWordAt(text, at + length);
 }
 
-/** The first run of exactly `length` marks after `from` that can close. */
+/**
+ * The first run after `from` that can close a `length`-mark delimiter: a run
+ * of exactly that length, or, for a strong (two-mark) delimiter, any longer
+ * run too, which closes on its first two marks.
+ */
 function closerOf(text: string, from: number, mark: string, length: number): number {
   let j = from;
   while (j < text.length) {
@@ -137,23 +141,42 @@ function closerOf(text: string, from: number, mark: string, length: number): num
       continue;
     }
     const run = runLength(text, j);
-    if (run === length && canClose(text, j, length)) return j;
+    const fits = run === length || (length === 2 && run > 2);
+    if (fits && canClose(text, j, length)) return j;
     j += run;
   }
   return -1;
 }
 
-/** Emphasis opened by the `run`-long delimiter run at `at`, or null when it is literal. */
+/**
+ * Emphasis opened by the `run`-long delimiter run at `at`, or null when it is
+ * literal. A run longer than two opens on its inner two marks, so
+ * `***text***` and `****text****` are strong. kb's segments are flat, so the
+ * outer marks CommonMark would nest (`***` is em around strong) are dropped
+ * where both sides have them, and stay text where only one side does.
+ */
 function emphasisAt(
   text: string,
   at: number,
   run: number,
-): { seg: InlineSeg; next: number } | null {
-  if (run > 2 || !canOpen(text, at, run)) return null;
-  const end = closerOf(text, at + run, text.charAt(at), run);
+): { before: string; seg: InlineSeg; after: string; next: number } | null {
+  const inner = Math.min(run, 2);
+  const open = at + run - inner;
+  if (!canOpen(text, open, inner)) return null;
+  const mark = text.charAt(at);
+  const end = closerOf(text, open + inner, mark, inner);
   if (end < 0) return null;
-  const v = text.slice(at + run, end);
-  return { seg: run === 2 ? { t: "bold", v } : { t: "italic", v }, next: end + run };
+  const closing = runLength(text, end);
+  const outer = run - inner;
+  const trailing = closing - inner;
+  const nested = Math.min(outer, trailing);
+  const v = text.slice(open + inner, end);
+  return {
+    before: mark.repeat(outer - nested),
+    seg: inner === 2 ? { t: "bold", v } : { t: "italic", v },
+    after: mark.repeat(trailing - nested),
+    next: end + closing,
+  };
 }
 
 // oxlint-disable-next-line complexity -- GAP [[01M1MGCM9RWXE3CYANZK5K4KC0]]
@@ -249,8 +272,10 @@ function parseOnce(text: string): InlineSeg[] {
       const run = runLength(text, i);
       const emphasis = emphasisAt(text, i, run);
       if (emphasis) {
+        buf += emphasis.before;
         flush();
         out.push(emphasis.seg);
+        buf = emphasis.after;
         i = emphasis.next;
       } else {
         buf += text.slice(i, i + run);
