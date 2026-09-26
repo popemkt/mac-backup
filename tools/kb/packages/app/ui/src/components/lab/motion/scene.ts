@@ -17,13 +17,23 @@ import {
   Vector3,
 } from "three/webgpu";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { instancedBufferAttribute, mix, positionLocal, vec3 } from "three/tsl";
+import {
+  float,
+  instancedBufferAttribute,
+  length,
+  mix,
+  positionLocal,
+  uniform,
+  vec3,
+} from "three/tsl";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
 import { PointerField } from "@/components/lab/kit/pointer";
 import { createRig, finishMaterial } from "@/scene/gpu/rig";
 import type { SceneStage } from "@/scene/gpu/stage";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
 import { TileField } from "@/components/lab/motion/field";
+import { labBackdrop } from "@/components/lab/kit/backdrop";
+import { Entrance } from "@/components/lab/kit/entrance";
 
 const SIDE = 22;
 const SPACING = 0.56;
@@ -47,8 +57,23 @@ function motion(stage: SceneStage, init: LabSceneInit, context: StudyContext): S
     state.array[i * 4 + 2] = field.centers[i * 2 + 1] ?? 0;
   }
   const s = instancedBufferAttribute(state);
+  const entrance = new Entrance(init.timing);
+  // Arriving, the tiles rise out of the floor from the centre outward.
+  const risen = entrance.arrival(length(vec3(s.x, 0, s.z)).div((SIDE * SPACING) / 2));
+  const sunk = float(1)
+    .sub(risen)
+    .mul(TILE * 1.2);
   const material = finishMaterial("satin");
-  material.positionNode = positionLocal.add(vec3(s.x, s.y.mul(RISE).add(TILE * 0.3), s.z));
+  material.positionNode = positionLocal.add(
+    vec3(
+      s.x,
+      s.y
+        .mul(RISE)
+        .add(TILE * 0.3)
+        .sub(sunk),
+      s.z,
+    ),
+  );
   material.colorNode = mix(stage.colors.hue.mul(0.62), stage.colors.accent, s.w.min(1));
   const tiles = new Mesh(new RoundedBoxGeometry(TILE, TILE * 0.6, TILE, 3, 0.06), material);
   tiles.count = field.count;
@@ -66,14 +91,21 @@ function motion(stage: SceneStage, init: LabSceneInit, context: StudyContext): S
   stage.scene.add(tiles, floor, ...rig.lights);
   stage.camera.position.set(11, 11, 11);
   stage.camera.lookAt(0, 0, 0);
-  stage.backdrop();
+  const clock = uniform(0);
+  stage.scene.backgroundNode = labBackdrop(stage.colors, float(clock), {
+    focus: [0.5, 0.42],
+    warmth: 0.2,
+    haze: 0.45,
+  });
   stage.atmosphere(14, 30);
 
   const pointer = new PointerField(context.host);
   const at = new Vector3();
   let elapsedIdle = 0;
   return {
-    frame: (dt) => {
+    frame: (dt, elapsed) => {
+      clock.value = elapsed;
+      entrance.step(dt, context.reduced());
       if (dt <= 0) return;
       const idle = !pointer.inside || pointer.idleFor(performance.now()) > 3;
       if (idle) {
