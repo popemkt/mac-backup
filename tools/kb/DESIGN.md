@@ -457,8 +457,8 @@ type PropValue =
   injected runner, so the resolver is one shape — derive a query, run it —
   rather than a query path with a `children` branch bolted beside it.
   Resolution lives in `@kb/model`'s `field-type.ts` (`allowedRefIdsOf`, EDN
-  runner injected) and is shared by CLI, MCP and the browser through the
-  `@kb/field-type` alias — same posture as the ontology resolver.
+  runner injected) and is shared by CLI, MCP and the browser through
+  `@kb/model` — same posture as the ontology resolver.
 - **Hiding `sys.*` is a display rule, never a resolution rule.** Resolution
   surfaces — ref-target constraints, ontology membership, datalog, validity
   checks — read the kind slot (`typeRefsOf`, i.e. `sys.f.type`) and return

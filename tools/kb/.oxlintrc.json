@@ -149,7 +149,6 @@
         "**/tests/**",
         "**/tests-render/**",
         "harness/**",
-        "**/*.stories.tsx",
         "**/playwright.config.ts",
         "**/vite.config.ts"
       ],

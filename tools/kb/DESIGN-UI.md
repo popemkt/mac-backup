@@ -625,10 +625,12 @@ drifting domain-warped haze, heat shimmer — never a flat fill), `entrance`
 study chooses; already arrived under reduced motion), `seeded` (the one
 seeded random a study scatters from), `scene-host` and `info-card` (the
 React side).
-`three` is imported only under `scene/gpu/` and by the modules that stand
-behind a lazy boundary, and each study's scene is its own dynamic import
-(`scene/`, `lab/` and `graph/three-import.boundary.test.ts`; a surface's test
-counts an import of `@/scene/gpu/*` as an import of three).
+`three` reaches the page only through a dynamic `import()`: each study's
+scene and the 3D graph are their own lazy chunks, and nothing the entry
+loads eagerly imports three, directly or through `scene/gpu/`. That is one
+rule over the import graph (`UI_LAZY_ONLY` in `harness/src/constraints.ts`,
+applied by the harness's `ui-lazy-fence` check), so no surface lists which of
+its files may import three.
 
 The renderer is three's `WebGPURenderer` (T1): WebGPU where the browser has
 it, three's own WebGL2 backend where it does not, the same node code
@@ -699,10 +701,12 @@ study's info card cites them by id.
   (the Motion field's springs) is not a shader and stays TypeScript. TypeGPU
   or raw WGSL only where TSL cannot express the thing, recorded as a gap.
 
-Enforcement is honest: the three boundary, the timing mirror, the principle
-bounds on the timing tokens (follow 300–600ms, ambient period 8s+), the pop
-budget and the population invariant are tests; everything else here is prose
-(the `#rule` node for the lab principles says so).
+Enforcement is honest, and split across two `#rule` nodes. The measured
+bounds — the timing mirror and the principle bounds on the timing tokens
+(follow 300–600ms, ambient period 8s+), the Embers pop budget, and T1's
+fallback (each study on WebGL2 without WebGPU, or saying why it cannot
+start, in the render suite) — are tests; the lazy three chunk is the
+harness's fence above. Everything else here is prose, and its rule says so.
 
 ## Design tokens
 
@@ -960,8 +964,10 @@ system:
 - a Tailwind palette colour (`bg-amber-500`, `text-white`);
 - in `components/`, a hex colour literal.
 
-It runs in `bun run lint`. Test files are exempt: their hex strings are
-tag-colour fixtures, not styling.
+It runs in `bun run lint`. Test and tooling files are exempt — the one
+override class in `.oxlintrc.json`: tests, render specs, the harness and the
+runner configs, whose hex strings are tag-colour fixtures or rule cases, not
+styling. Stories are not in it: a story is UI and is held to the tokens.
 
 **Liveness — "this class emits CSS."** Resetting Tailwind's namespaces
 leaves every default step (`text-sm`, `text-sm/6`, `shadow-xl`, bare
@@ -991,11 +997,10 @@ surfaces make two rules.
 A sanctioned exception is the soft-rule mechanism for few sites (root
 `CLAUDE.md` → Drift markers and gaps): a pinpoint
 `oxlint-disable-next-line design-tokens/no-raw-design-value -- GAP [[id]]`
-and a `#gap` node. Two gaps use it today. The graph's query-error chip
-still uses Tailwind amber where the `warning` token exists, and three
-corners sit off the radius scale (see Radius above). Closing either is a
-visible change, so both were left out of this no-visual-change
-restructure. A stylesheet cannot carry a lint disable, so the one CSS site
+and a `#gap` node. One gap uses it today: three corners sit off the
+radius scale (see Radius above), left out of the no-visual-change
+restructure because closing it is a visible change. (The graph's
+query-error chip, the other one, reads the `warning` token now.) A stylesheet cannot carry a lint disable, so the one CSS site
 (`.kb-md-code`) carries a bare `GAP [[id]]` comment, which the harness's
 gap-marker check resolves like any other.
 

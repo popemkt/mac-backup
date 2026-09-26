@@ -2,7 +2,7 @@
  * Declared field types (Tana fieldType pattern) — the browser side.
  *
  * What a field node *declares* (its type, and for ref fields its allowed
- * targets) is shared with core through `@kb/field-type`: restating any of it
+ * targets) is shared with core through `@kb/model`: restating any of it
  * here is how the CLI mapper, the seed, and this file drifted into three copies
  * of one enum, and how allowed-ref resolution ended up reading the outline's
  * `#tag` badge array — a display artifact — as if it were the graph.
@@ -40,7 +40,7 @@ export function resolveFieldTypeById(fieldId: string, nodes: NodeMap): FieldType
 
 /**
  * Allowed ref target ids for a field — the browser binding of
- * `@kb/field-type`'s resolver, with DataScript supplied as its EDN runner.
+ * `@kb/model`'s resolver, with DataScript supplied as its EDN runner.
  *
  * There is no logic here on purpose. Resolution answers "what does this field
  * node declare", which is a question about the graph, so it is owned by core

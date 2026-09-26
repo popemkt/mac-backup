@@ -27,6 +27,6 @@ for (const v of out.views) {
   }
 }
 writeErr(
-  "kb docs out of date — run: bun tools/kb/src/bin/docs-materialize.ts, then stage the results",
+  "kb docs out of date — run: bun tools/kb/packages/app/cli/src/bin/docs-materialize.ts, then stage the results",
 );
 process.exit(1);

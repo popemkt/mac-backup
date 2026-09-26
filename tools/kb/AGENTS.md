@@ -30,10 +30,10 @@ once, in `DESIGN.md` →
   `package.json` is the only file that names a version.
 - Runtime/tooling boundary: Bun is the production runtime (Bun APIs stay where
   appropriate); TS 7 + Vite+ (`vp` 0.2.8) + oxlint + Nx own the tooling. Run
-  `bun run verify` (typecheck + lint + knip + harness — the entry point a human
-  or CI runs), `bun run typecheck` (authoritative zero-error `tsc --noEmit` per
-  package via Nx), `bun run test`,
-  `bun run test:ui`. Two runners split by package: everything but `@kb/ui` runs
+  `bun run verify` (the entry point a human or CI runs; what it runs is its
+  definition in `package.json`, stated nowhere else), `bun run typecheck`
+  (authoritative zero-error `tsc --noEmit` per package via Nx),
+  `bun run test`, `bun run test:ui`, `bun run test:render`. Two runners split by package: everything but `@kb/ui` runs
   on `bun test`; the browser package runs on Vitest. See `tools/kb/DESIGN.md`.
 - Admission: `.githooks/pre-commit` runs `verify`, the generated-docs check
   and the `.kb/assets` ownership check against a reconstructed **index
@@ -55,7 +55,9 @@ once, in `DESIGN.md` →
   a second `tests/tsconfig.json` on the Bun preset, because `bun test` is Bun
   whatever the code under test targets.
   `tools/kb/.oxlintrc.json` is the single oxlint ruleset: the three categories at `error`, the rules
-  beyond them, and overrides only for the test-file and `.d.ts` file classes.
+  beyond them, and overrides only for two file classes — test and tooling
+  files (tests, render specs, `harness/`, the runner configs; not stories,
+  which are UI) and `.d.ts`.
   A file that legitimately breaks a rule carries a pinpoint
   `// oxlint-disable-next-line <rule> -- <reason>`, not an override.
   Rules oxlint does not ship are JS plugins under `harness/lint/`, registered

@@ -5,7 +5,7 @@
  * the listed tags' instances) or `sys.f.targetQuery` (general form — EDN, wins
  * over the tag). Resolving that declaration is a question about the graph, so
  * it lives in core next to the field-type mapping and is shared verbatim with
- * the browser through `@kb/field-type`.
+ * the browser through `@kb/model`.
  *
  * These tests exist because it used to live only in the browser, where it read
  * the outline's `#tag` BADGE array instead of the kind slot. Badges deliberately

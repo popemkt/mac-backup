@@ -8,7 +8,7 @@ boundary, and the Effect action-handler seam.
 
 ```bash
 bun install         # one lockfile for the whole workspace
-bun run verify      # typecheck + lint + knip + harness — the entry point
+bun run verify      # the entry point; its steps are its definition in package.json
 bun run typecheck   # nx run-many -t typecheck (authoritative, also pre-commit)
 bun run lint        # oxlint --type-aware over packages/
 bun run test        # bun test packages

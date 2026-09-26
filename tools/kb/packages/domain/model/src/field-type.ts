@@ -12,7 +12,7 @@
  *
  * This is the single source for the mapping. It used to exist three times: an
  * enum in the CLI mapper, a string-literal union in the UI, and the seed's
- * hardcoded prop values. The UI reads it through the `@kb/field-type` alias.
+ * hardcoded prop values. The UI reads it through `@kb/model`.
  *
  * Target-constraint resolution lives here for the same reason, and it moved
  * here from the browser: it is *resolution*, not display. While it sat in the
