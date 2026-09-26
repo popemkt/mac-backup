@@ -32,6 +32,7 @@ export const LAYER_ALLOWS: Record<string, readonly string[]> = {
   contract: ["domain", "contract"],
   infrastructure: ["domain", "contract"],
   application: ["domain", "contract"],
+  // GAP [[01M3F923QWH9HSAW61VNFWHANV]]
   extension: ["domain", "contract", "application", "extension"],
   app: ["domain", "contract", "infrastructure", "application", "extension", "app"],
   "test-support": ["domain", "app"],

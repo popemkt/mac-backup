@@ -8,6 +8,11 @@ special `@kb/test-kit` test-file allowance. A blank means no package edge.
 All 22 packages carry exactly one `scope:*` tag and no `layer:*` tag; their
 layer is their directory, not a manifest copy.
 
+**Answer:** tags are necessary but not sufficient. Layer and scope restrict
+the direction and runtime of an edge only after a source import has been
+resolved; manifests/Nx alone miss actual edges, and those two tags cannot
+express extension-family ownership or intra-UI zone boundaries.
+
 | Folder / package | `nx.tags` | Imports | Imported by |
 | --- | --- | --- | --- |
 | `app/cli` / `cli` | `scope:backend` | contracts, ext-check, ext-docs, ext-sdk, mcp, model, operations, runtime, server | — |
@@ -65,9 +70,12 @@ reaches shared infrastructure (`tx-log`) and the extension's document format.
 is `test-support`. The `@kb/test-kit` devDependency and test-file import
 exceptions are explicit in the boundary check; no production exception is
 implied. `extension→extension` is now a real backend→shared edge, not a dead
-entry. No package's actual scope contradicts its runtime: shared packages
-compile with the isomorphic preset, browser with DOM, and backend/test with
-Bun. `tsconfig-presets` checks this mapping.
+entry, but it is broad enough to admit an unrelated backend extension
+importing canvas; gap `01M3F923QWH9HSAW61VNFWHANV` marks that row until
+family identity has one enforceable home. No package's actual scope
+contradicts its runtime: shared packages compile with the isomorphic preset,
+browser with DOM, and backend/test with Bun. `tsconfig-presets` checks this
+mapping.
 
 The UI zone rule is **enforced against real imports**, and
 `ui-boundaries.test.ts` checks the zone vocabulary for missing/stale rows and
@@ -162,5 +170,6 @@ the page-shaped surface mechanism. This is separate from third-party
 `.kb/extensions`, whose generated ambient `kb-ext-sdk` d.ts is a deliberately
 narrow trusted-module fence; exposing browser views there awaits the same
 SDK decision. The existing canvas gap carries the UI and seed move; the new
-UI-matrix gap carries the deferred zone tightening. No new UI zone row or
-`view-keys` hunk was made here.
+UI-matrix gap carries the deferred zone tightening, and the extension-family
+gap carries the one ownership distinction the two-axis matrix cannot prove.
+No new UI zone row or `view-keys` hunk was made here.

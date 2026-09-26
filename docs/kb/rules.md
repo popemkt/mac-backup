@@ -174,6 +174,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Domain typing — one canonical schema
 - **node** — `01M1PJWF4G6W4122ZE4K67319V`
 
+### GAP: extension-to-extension permission does not enforce family ownership
+
+- **expected** — An extension backend imports its own shared model, while independent extensions communicate through public contract points rather than each other’s implementation.
+- **current** — The extension-to-extension layer edge is required by ext-canvas to canvas, but layer and scope tags alone would also allow ext-docs or ext-check to import the canvas model.
+- **impact** — A cross-extension dependency could pass boundaries and couple independently loadable plugins.
+- **closes** — Decide a canonical package-family identity and teach the import graph check to verify extension-to-extension edges against it, with a red cross-family fixture and a green canvas fixture.
+- **node** — `01M3F923QWH9HSAW61VNFWHANV`
+
 ### GAP: four hand-copied uv tool installers, each reading a failed uv tool list as not installed
 
 - **expected** — One uv tool installer (a shared helper each owning module calls with its spec, extras and extra freshness checks) that captures uv tool list, checks its exit status, and warns and continues on failure, as AGENTS.md Writing an executor requires.
