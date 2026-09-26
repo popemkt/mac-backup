@@ -33,13 +33,26 @@ const WS_DOT: Record<WsStatus, { className: string; label: string }> = {
   idle: { className: "bg-foreground/25", label: "idle" },
 };
 
+/** Where the loaded graph came from, in words: the kb server, or the bundled fixtures. */
+const LOAD_SOURCE: Record<"api" | "fixtures", string> = {
+  api: "the kb server",
+  fixtures: "sample data",
+};
+
+/**
+ * Connection state in one plain word. The revision and the load source are
+ * diagnostics, not status: they live in the tooltip, not in the header.
+ */
 function ConnectionDot() {
   const wsStatus = useUiStore((s) => s.wsStatus);
+  const rev = useOutlineStore((s) => s.rev);
+  const loadSource = useOutlineStore((s) => s.loadSource);
   const dot = WS_DOT[wsStatus];
+  const source = loadSource === null ? "not loaded" : `from ${LOAD_SOURCE[loadSource]}`;
   return (
     <span
       className="flex items-center gap-1.5 text-label text-foreground/40"
-      title={`WebSocket: ${wsStatus}`}
+      title={`Connection: ${dot.label} · revision ${rev}, ${source}`}
     >
       <span className={cn("h-2 w-2 rounded-full", dot.className)} />
       {dot.label}
@@ -204,8 +217,6 @@ function WorkspaceShell({
   page: ShellPage;
 }) {
   const theme = usePrefsStore((s) => s.theme);
-  const rev = useOutlineStore((s) => s.rev);
-  const loadSource = useOutlineStore((s) => s.loadSource);
   const prefsOpen = useUiStore((s) => s.prefsOpen);
   const setPrefsOpen = useUiStore((s) => s.setPrefsOpen);
   const setGlobalPaletteOpen = useUiStore((s) => s.setGlobalPaletteOpen);
@@ -216,9 +227,9 @@ function WorkspaceShell({
       <header className="flex h-11 shrink-0 items-center gap-3 border-b border-foreground/[0.06] px-4">
         <SidebarToggle {...sidebar} />
         <h1 className="text-ui font-medium text-foreground/50">kb</h1>
-        <span className="text-label text-foreground/30">
-          {status === "loading" ? "loading…" : `rev ${rev} · ${loadSource ?? "?"}`}
-        </span>
+        {status === "loading" ? (
+          <span className="text-label text-foreground/30">loading…</span>
+        ) : null}
         <ConnectionDot />
         <div className="flex-1" />
         <PaletteTrigger onOpen={() => setGlobalPaletteOpen(true)} />

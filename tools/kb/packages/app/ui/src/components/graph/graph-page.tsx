@@ -195,12 +195,12 @@ export default function GraphPage({ perspectiveId, ontologyId = null }: GraphPag
           aria-pressed={includeSystemNodes}
           title={
             includeSystemNodes
-              ? "Hide sys / command / schema nodes"
-              : "Show sys / command / schema nodes"
+              ? "Hide system, command and schema nodes"
+              : "Show system, command and schema nodes"
           }
           onClick={toggleSys}
         >
-          {includeSystemNodes ? "sys on" : "sys off"}
+          System nodes
         </button>
         <span className="text-label text-foreground/30">
           {lensGraph.dropped > 0
