@@ -26,7 +26,7 @@ stdenvNoCC.mkDerivation {
 
   meta = {
     description = "AI-powered database client and SQL workspace";
-    homepage = "https://github.com/OtterMind/Chat2DB";
+    inherit (source) homepage;
     # Modified Apache-2.0 (LicenseRef-Chat2DB): personal/internal use OK;
     # object-form redistribution to external parties needs commercial terms.
     license = lib.licenses.unfree;

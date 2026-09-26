@@ -24,7 +24,7 @@ stdenvNoCC.mkDerivation {
 
   meta = {
     description = "OpenAI, Gemini, Claude, Codex, and Grok compatible API proxy";
-    homepage = "https://github.com/router-for-me/CLIProxyAPI";
+    inherit (source) homepage;
     license = lib.licenses.mit;
     mainProgram = "cli-proxy-api";
     platforms = [ "aarch64-darwin" ];

@@ -159,7 +159,9 @@ Software Update labels.
 
 1. Add an entry to `nvfetcher.toml` with a version source and fetcher.
 2. Run `nix run .#github-sources -- update <name>`.
-3. Add `pkgs/<name>/default.nix` using the generated source.
+3. Add `pkgs/<name>/default.nix` using the generated source. For a GitHub
+   release, take `meta.homepage` from `source.homepage`: `pkgs/default.nix`
+   derives it from the pinned release URL, so the repository is named once.
 4. Export it from `pkgs/default.nix`.
 5. Add a focused runtime/config module when the application needs services,
    config files, environment variables, or activation behavior.

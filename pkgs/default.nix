@@ -7,7 +7,18 @@
 }:
 
 let
-  sources = pkgs.callPackage ../_sources/generated.nix { };
+  inherit (pkgs) lib;
+
+  # A GitHub release source's homepage is its repository, which the pinned
+  # release URL already names; derive it instead of restating nvfetcher.toml.
+  withHomepage =
+    _: source:
+    let
+      repo = builtins.match "(https://github\\.com/[^/]+/[^/]+)/releases/.*" source.src.url;
+    in
+    source // lib.optionalAttrs (repo != null) { homepage = builtins.head repo; };
+
+  sources = lib.mapAttrs withHomepage (pkgs.callPackage ../_sources/generated.nix { });
 in
 {
   chat2db = pkgs.callPackage ./chat2db {

@@ -26,7 +26,7 @@ stdenvNoCC.mkDerivation {
 
   meta = {
     description = "AI-native office suite for docs, sheets, slides, and PDF";
-    homepage = "https://github.com/genspark-ai/genoffice";
+    inherit (source) homepage;
     license = lib.licenses.asl20;
     platforms = [ "aarch64-darwin" ];
     sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
