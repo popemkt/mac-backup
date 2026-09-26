@@ -282,6 +282,15 @@ operations (split, merge, indent, outdent, delete, move) are the covered case.
 `contenteditable=false` pill carrying its serialized token, so a raw ULID never
 faces the caret and serialization round-trips canonical markdown.
 
+**The bullet is one definition.** `lib/bullet-mode.ts` decides everything a
+bullet shows — its kind and shape, its glyph, whether it has a halo, the
+paints of its halo, dot and ring (a node's tag colours, or the ink at a
+stated strength when it has none) and its geometry (the 24px box, the 4px
+leaf and 5px parent dot, the halo inset, the 18px ring) — as one record,
+`BulletAppearance`, and `outlineBulletAppearance` reads it off an outline
+node. `Bullet` renders that record and decides nothing; the graph's bullet
+theme paints the same record (Graph → The themes), so the two cannot drift.
+
 **`sys.*` rows are read-only at the door.** `store.activateNode` degrades a
 `sys.*` id to selection so no caret ever enters one; the row shows a hover
 padlock instead of failing on write.
@@ -442,12 +451,25 @@ rather than by navigation.
   click. The two intersect — a node must pass both to stay lit. Both are
   **ephemeral**: filters, search and selection never persist, while a renderer
   switch is a persisted prop write (`mutations.setLensRenderer`).
-- **Directed, weighted edges.** In 2D edges are curved arrows
-  (`@sigma/edge-curve`), so a pair of opposite links bows apart instead of
-  overlapping. `graph-lens.ts` deduplicates parallel edges into a `weight`
-  count, and stroke width scales as `√weight` — repeated relationships read
-  as thicker, single links stay hairline. (3D draws one-pixel links, so
-  weight is not yet drawn there: a recorded gap.)
+- **Directed, weighted edges.** A 2D edge is an arrow, straight or curved
+  as the perspective's link style says (below); a curved pair of opposite
+  links bows apart instead of overlapping. `graph-lens.ts` deduplicates
+  parallel edges into a `weight` count, and stroke width scales as
+  `√weight` — repeated relationships read as thicker, single links stay
+  hairline. (3D draws one-pixel links, so weight is not yet drawn there: a
+  recorded gap.)
+- **A 2D node is a disc in the layout's space.** Its radius is in the
+  layout's own units, not in screen pixels (sigma's `itemSizesReference:
+  "positions"`), so a disc and the spacing around it scale together with
+  the viewport and the zoom: a small window or a zoom out never makes the
+  nodes grow over each other. `graph-discs.ts` owns the relation, once:
+  the lens size maps to a radius bounded against the layout's spacing
+  (`discRadius`), every 2D layout ends by separating the discs it placed
+  (`separateDiscs`, when the force layout settles and after a static or
+  cluster placement), and the cluster placement packs each group by disc
+  size rather than by a fixed step. `graph-discs.test.ts` proves it on the
+  fixture graph after settle: no two discs overlap beyond a hair, and the
+  largest radius stays under its stated bound.
 - **Honest empty and large states.** Zero matches renders guidance rather than
   a blank canvas; invalid EDN surfaces an amber warning chip (`queryError` on
   the lens); a capped lens reports "top N of M nodes by degree" in the header's
@@ -495,7 +517,7 @@ like themselves (P5).
 - **A link at rest is one token**, `--graph-edge` (colour and alpha
   together, set per design system and variant), read by the 2D edges, the
   tree's links and the 3D links alike.
-- **2D (force, cluster).** Curved arrow edges; every node ringed in the
+- **2D (force, cluster).** Arrow edges in the link style's shape; every node ringed in the
   ground colour (`@sigma/node-border`), in the ink when in focus; labels on
   a soft halo of the ground, their colours read once per appearance. A
   label sits right of its node, else left, else centred above or below it,
@@ -539,7 +561,7 @@ like themselves (P5).
   `force3d-light.ts`) over the scene kit's shading arithmetic, run as TSL
   nodes by the material and as numbers by `force3d-light.test.ts`, which checks
   it over the unit cube's corners, every pure channel and a seeded spread of
-  colours, under every design system's ink in both variants. Range fog follows the camera's distance, a
+  colours, under every design system's ink in both variants. The scene's dress is its theme's (below); in the default theme, range fog follows the camera's distance, a
   restrained starfield stands at infinity, the backdrop is the page's own
   surface — the card at the focal point, falling to the background on a dark
   ground and to the muted surface on a light one, under a fine grain, so a
@@ -555,24 +577,77 @@ like themselves (P5).
   drawn only while something moves, the device pixel ratio is clamped to 2,
   a hidden tab draws nothing, and a renderer switch or unmount disposes the
   scene, its worker and its listeners (`force3d-graph.lifecycle.test.tsx`).
-- **Looks and link styles (3D)** are data: a perspective's `lens.node-look`
-  (matte, the default; cel — the key in flat bands under an ink outline;
-  fresnel — a quiet body under a bright grazing rim; glass — the ground
-  seen through a tinted body, with a tight glint) and `lens.link-style`
-  (lines; flow — dashes drifting source to target, one passing in the
-  ambient period, still under reduced motion) are option nodes, children of
-  their fields like the renderers, picked in the settings panel and
-  persisted as props. Switching one redraws only the layer it shapes, in
-  place and carrying that layer's motion (the flow's dashes, the particles'
-  fade and phase): nothing moves, lays out or arrives again (only a new
-  node set does). A look
-  changes only the surface light: every look
-  runs through the one `shadeNode`, whose rest cap, glow and lift cap are
-  shared, so the bloom rule holds for each by construction, and
-  `force3d-light.test.ts` proves it over every look, colour and design
-  system. A look must grow with the key and depend on the view only
+- **Graph themes (3D)** are data: a perspective's `lens.theme` is one of
+  its option nodes (children of the field, like the renderers), picked in
+  the settings panel and persisted as a ref prop. A theme is a whole scene,
+  not a material: `graph-themes.ts` states each one once, as a record the
+  scene, the layers and the tests read — which tokens fill the ground and
+  its edge, the backdrop's pool, warmth and haze, the vignette, the fog,
+  the starfield, the grain, the bloom (and so whether any light may cross
+  white at all), the node surface, how links take their colour and
+  gradient, and the label's face, weight, case, halo and placement. What
+  the themes are, and why, is below. Switching one redraws what it shapes
+  in place: the palette eases across like a theme change, the stage's
+  knobs move, the nodes and labels are redrawn; nothing moves, lays out or
+  arrives again, and the link layer's motion is carried on.
+  Every theme's node light runs through the one `shadeNode`: its surface,
+  then the shared rest cap, lift cap and glow. A theme without bloom turns
+  its glow into lift, so no fragment of it passes white, and its stage's
+  bloom is zero. `force3d-light.test.ts` proves the bloom rule over every
+  theme, every storable colour and every design system in both variants,
+  on the ground that theme stands on: at rest and under any lift nothing
+  passes white, a blooming theme's hubs do, and a theme without bloom
+  never does. A surface must grow with the key and depend on the view only
   through the rim — what lets that proof find each sphere's brightest
-  fragment ring by ring.
+  fragment ring by ring. The scene contract and the renderer contract run
+  the 3D graph in every theme.
+- **The themes.** Each reads only the design system's tokens (L1), so it
+  looks like itself in kb, paper and terminal, light and dark (P5):
+  - *Matte* (the default) — the studio: the card's colour pooled at the
+    focal point over the page, fine stars, range fog, a soft key and an
+    ink rim, links brightening source to target, labels in the graph face
+    on a soft halo of the ground. The quiet look the others are measured
+    against.
+  - *Cel* — ink on paper: a flat ground with no pool, stars or fog, the key
+    in three hard bands under a heavy ink outline, links drawn as even ink
+    strokes, bold labels on a solid plate of the ground. No bloom: a graphic
+    print does not glow; focus reads through the outline and the swell.
+  - *Fresnel* — the night instrument: the page's background deepening to
+    the edge under a drifting haze and a firm vignette, more and brighter
+    stars, a quiet body under a bright grazing rim, links tinted toward the
+    accent, labels in the monospace face, upper case and tracked, and the
+    strongest bloom.
+  - *Glass* — the aquarium: a warm pool of the accent in the ground, a soft
+    haze, fog that starts close so depth reads, no stars; the ground seen
+    through a tinted body with a tight glint, faint links, and light labels
+    on a frosted plate.
+  - *Bullet* — the outline, in space. Every node is drawn as the outline
+    draws its bullet, from the same definition: `lib/bullet-mode.ts` owns a
+    bullet's appearance (kind, shape, glyph, halo, dot, ring, their paints
+    and their geometry — box, dot and halo sizes in proportion), and the
+    outline's `Bullet` and the theme's painter (`lib/bullet-paint.ts`, which
+    paints an appearance onto a canvas) both render that record, so a
+    change to the bullet changes both. A graph node's appearance is
+    `outlineBulletAppearance` of the same outline node the editor renders —
+    its kind, its children, its collapsed state, its tag colours through
+    `tagPalette`. Each node is a camera-facing sprite from one atlas of
+    painted bullets, one draw; the scene stays orbitable 3D. The ground is
+    the page's plain background, the light is flat (the surface is the
+    painted colour), there is no bloom, fog, stars or grain, links are even
+    lines of `--graph-edge`, and labels sit right of their bullet in the UI
+    face, as a row's text does. Focus swells the bullet and lays the
+    bullet's hover plate behind it; a dimmed node sinks into the ground.
+- **Link styles** are one choice for both renderers: a perspective's
+  `lens.link-style` is one of its option nodes — *straight* (the default),
+  *curved*, *flow* — and `graph-link-styles.ts` states what each one means
+  as two parts, its shape (straight or curved) and its motion (still, or
+  dashes drifting source to target, one passing in the ambient period,
+  still under reduced motion). Flow is drawn on curves. The renderers that
+  draw the graph's links (2D, cluster and 3D; the tree draws its own
+  elbows) read the shape; only the 3D graph can move a dash, so the 2D
+  graphs draw flow as its shape, still, and the settings panel says so.
+  Switching one redraws only the links (and the particles, which follow the
+  curve), in place and carrying their motion.
 - **Reduced motion (M7)** everywhere: fades and flights cut, the 3D layout
   settles unseen and posts once, particles and the ambient turn stop, and
   the DOM renderers' transitions are flattened by the global rule.
