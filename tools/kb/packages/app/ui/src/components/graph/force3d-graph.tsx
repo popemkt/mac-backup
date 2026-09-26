@@ -9,7 +9,7 @@
 import type { Appearance } from "@/stores/prefs.store";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
-import type { GraphEmphasis } from "@/lib/graph-interaction";
+import { showsHoverCard, type GraphEmphasis } from "@/lib/graph-interaction";
 import { useReducedMotion } from "@/lib/motion";
 import { readTiming } from "@/lib/timing";
 import { readTokenColor } from "@/lib/css-color";
@@ -180,7 +180,7 @@ export default function Force3dGraph(props: Force3dGraphProps) {
   return (
     <div className="relative h-full w-full min-h-0">
       <div ref={host} className="absolute inset-0" data-testid="force3d-graph" />
-      {hover !== null && hovered !== undefined && (selectedNodeId ?? null) === null ? (
+      {hover !== null && hovered !== undefined && showsHoverCard(selectedNodeId) ? (
         <GraphTooltip node={hovered} x={hover.x} y={hover.y} />
       ) : null}
     </div>

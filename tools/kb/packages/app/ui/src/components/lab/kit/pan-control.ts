@@ -1,13 +1,12 @@
 /**
- * The lab's pointer and pan controls (Lab principles P4, M3): every study
- * that follows the pointer or turns under a drag uses these two, and neither
- * allocates per event or per frame (P3).
- *
- * A press is one of two things, decided when it lands: a pan (the view
- * turns) or a grab (the study moves something it hit — a star, the sun).
- * The study answers `grab` with what it took, or `null` for a pan.
+ * Drag to turn, release to coast (Lab principles P4, M3): every study that
+ * turns under a drag uses this one control, and it allocates nothing per
+ * event (P3). A press is one of two things, decided when it lands: a pan
+ * (the view turns) or a grab (the study moves something it hit — a star, the
+ * sun); the study answers `grab` with what it took, or `null` for a pan. The
+ * arithmetic is `kit/pan`; where the pointer is over the scene is the scene
+ * kit's `PointerField` (`@/scene/gpu/pointer`).
  */
-import { Vector3, type PerspectiveCamera } from "three/webgpu";
 import {
   panCoast,
   panDrag,
@@ -16,80 +15,6 @@ import {
   type Pan,
   type PanLimits,
 } from "@/components/lab/kit/pan";
-
-/** Where the pointer is over a host element, and where that lands on a plane. */
-export class PointerField {
-  /** Host-relative CSS pixels. */
-  x = 0;
-  y = 0;
-  /** -1…1 across the host, +y up. */
-  ndcX = 0;
-  ndcY = 0;
-  inside = false;
-  /** `performance.now()` of the last move. */
-  movedAt = -Infinity;
-  private readonly host: HTMLElement;
-  private readonly ray = new Vector3();
-  private readonly normal = new Vector3();
-  private readonly onMove = (event: PointerEvent) => {
-    const rect = this.host.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-    this.x = event.clientX - rect.left;
-    this.y = event.clientY - rect.top;
-    this.ndcX = (this.x / rect.width) * 2 - 1;
-    this.ndcY = 1 - (this.y / rect.height) * 2;
-    this.inside = true;
-    this.movedAt = performance.now();
-  };
-  private readonly onLeave = () => {
-    this.inside = false;
-  };
-
-  constructor(host: HTMLElement) {
-    this.host = host;
-    host.addEventListener("pointermove", this.onMove);
-    host.addEventListener("pointerleave", this.onLeave);
-  }
-
-  /** Seconds since the pointer last moved. */
-  idleFor(now: number): number {
-    return (now - this.movedAt) / 1000;
-  }
-
-  /**
-   * The pointer's ray through `camera`, met with the plane through the origin
-   * whose normal is the `axis` ("y": the floor, "z": facing the camera).
-   * Writes into `out`; false when the ray runs parallel to the plane.
-   */
-  onPlane(camera: PerspectiveCamera, axis: "y" | "z", out: Vector3): boolean {
-    this.ray.set(this.ndcX, this.ndcY, 0.5).unproject(camera).sub(camera.position).normalize();
-    const along = this.ray[axis];
-    if (Math.abs(along) < 1e-5) return false;
-    const t = -camera.position[axis] / along;
-    out.copy(camera.position).addScaledVector(this.ray, t);
-    return t > 0;
-  }
-
-  /**
-   * The pointer's ray met with the plane through `through` that faces the
-   * camera — the plane to follow the pointer on when the camera orbits.
-   * Writes into `out`; false when the plane is behind the eye.
-   */
-  onFacing(camera: PerspectiveCamera, through: Vector3, out: Vector3): boolean {
-    camera.getWorldDirection(this.normal);
-    this.ray.set(this.ndcX, this.ndcY, 0.5).unproject(camera).sub(camera.position).normalize();
-    const along = this.ray.dot(this.normal);
-    if (Math.abs(along) < 1e-5) return false;
-    const t = out.copy(through).sub(camera.position).dot(this.normal) / along;
-    out.copy(camera.position).addScaledVector(this.ray, t);
-    return t > 0;
-  }
-
-  dispose(): void {
-    this.host.removeEventListener("pointermove", this.onMove);
-    this.host.removeEventListener("pointerleave", this.onLeave);
-  }
-}
 
 /** What a press took hold of, fed host-relative CSS pixels until it lets go. */
 export interface Grab {

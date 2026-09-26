@@ -31,7 +31,7 @@ import {
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
 import { numberOf } from "@/components/lab/kit/contract";
 import { OrbitControl } from "@/components/lab/kit/orbit";
-import { PointerField } from "@/components/lab/kit/pointer";
+import { PointerField } from "@/scene/gpu/pointer";
 import { Entrance } from "@/components/lab/kit/entrance";
 import { labBackdrop } from "@/components/lab/kit/backdrop";
 import type { PaletteUniforms, SceneStage } from "@/scene/gpu/stage";

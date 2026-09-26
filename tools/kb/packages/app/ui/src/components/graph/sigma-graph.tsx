@@ -11,7 +11,13 @@ import { graphLabelFont } from "@/lib/graph-label";
 import type { GraphLabelBox } from "@/lib/graph-label-layout";
 import { prefersReducedMotion } from "@/lib/motion";
 import { readTiming } from "@/lib/timing";
-import { graphEmphasisAlpha, graphNeighborhood, type GraphEmphasis } from "@/lib/graph-interaction";
+import {
+  graphEmphasisAlpha,
+  graphFocus,
+  graphNeighborhood,
+  showsHoverCard,
+  type GraphEmphasis,
+} from "@/lib/graph-interaction";
 import { computeLayoutPositions } from "@/lib/graph-layouts";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
 import { fitView } from "./graph-camera";
@@ -90,7 +96,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     const sigma = sigmaRef.current;
     if (!sigma) return;
     const state = live.current;
-    const active = state.selectedNodeId ?? hovered.current;
+    const active = graphFocus(state.selectedNodeId, hovered.current);
     const neighborhood = graphNeighborhood(active, state.edges);
     const graph = sigma.getGraph();
     emphasis.current?.retarget({
@@ -396,7 +402,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
           {nodes.find((n) => n.clusterKey === isolated)?.clusterLabel ?? "Selected group"} ×
         </button>
       ) : null}
-      {tooltip && meta && (selectedNodeId === null || selectedNodeId === undefined) ? (
+      {tooltip && meta && showsHoverCard(selectedNodeId) ? (
         <GraphTooltip node={meta} x={tooltip.x} y={tooltip.y} />
       ) : null}
     </div>

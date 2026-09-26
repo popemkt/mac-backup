@@ -12,7 +12,12 @@
  */
 import type { LensEdge, LensNode } from "@/lib/graph-lens";
 import type { EmphasisFade } from "@/lib/graph-fade";
-import { graphEmphasisAlpha, graphNeighborhood, type GraphEmphasis } from "@/lib/graph-interaction";
+import {
+  graphEmphasisAlpha,
+  graphFocus,
+  graphNeighborhood,
+  type GraphEmphasis,
+} from "@/lib/graph-interaction";
 
 /** The graph as the scene indexes it: node order, link pairs, incidence. */
 export interface Force3dTopology {
@@ -104,11 +109,6 @@ export const GLOW = {
   neighbour: 0.12,
 } as const;
 
-/** The node in focus: the selection wins over the hover. */
-export function focusOf(state: GraphEmphasis, hovered: string | null): string | null {
-  return state.selectedNodeId ?? hovered;
-}
-
 /** Set every node's targets for `state` with `hovered` under the pointer. */
 export function setEmphasisTargets(
   topology: Force3dTopology,
@@ -116,7 +116,7 @@ export function setEmphasisTargets(
   hovered: string | null,
   fades: Force3dFades,
 ): void {
-  const active = focusOf(state, hovered);
+  const active = graphFocus(state.selectedNodeId, hovered);
   const neighbourhood = graphNeighborhood(active, topology.edges);
   topology.nodes.forEach((node, i) => {
     const alpha = graphEmphasisAlpha(node.id, state, neighbourhood);

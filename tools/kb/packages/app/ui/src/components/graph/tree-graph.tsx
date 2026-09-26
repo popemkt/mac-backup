@@ -4,7 +4,12 @@ import { hierarchy, tree as d3Tree } from "d3-hierarchy";
 import type { LensTreeNode, LensEdge } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
 import { GRAPH_LABEL_WIDTH, graphLabelFont, wrapGraphLabel } from "@/lib/graph-label";
-import { graphEmphasisAlpha, graphNeighborhood, type GraphEmphasis } from "@/lib/graph-interaction";
+import {
+  graphEmphasisAlpha,
+  graphFocus,
+  graphNeighborhood,
+  type GraphEmphasis,
+} from "@/lib/graph-interaction";
 import {
   treeCameraControls,
   type GraphCameraControls,
@@ -273,9 +278,8 @@ export function TreeGraph({
     ready.current?.(treeCameraControls(() => handle.current));
     return () => ready.current?.(null);
   }, []);
-  // The node in focus: the selection, else the hover (as in every renderer).
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const focusId = selectedNodeId ?? hoveredId;
+  const focusId = graphFocus(selectedNodeId, hoveredId);
   const neighborhood = useMemo(() => graphNeighborhood(focusId, edges), [focusId, edges]);
   const alpha = (id: string) => graphEmphasisAlpha(id, { highlightIds, filterIds }, neighborhood);
   const tokens = useMemo(() => {

@@ -28,7 +28,7 @@
 import { PointLight, SphereGeometry, Vector3 } from "three/webgpu";
 import { float, instanceIndex, length, uniform } from "three/tsl";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
-import { PointerField } from "@/components/lab/kit/pointer";
+import { PointerField } from "@/scene/gpu/pointer";
 import { labBackdrop } from "@/components/lab/kit/backdrop";
 import { Entrance } from "@/components/lab/kit/entrance";
 import { seededRandom } from "@/components/lab/kit/seeded";

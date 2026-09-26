@@ -16,7 +16,7 @@
  * until that lands.
  */
 import { approach, approachRate, type Timing } from "@/lib/timing";
-import { PanControl, type Grab } from "@/components/lab/kit/pointer";
+import { PanControl, type Grab } from "@/components/lab/kit/pan-control";
 
 interface Point {
   x: number;

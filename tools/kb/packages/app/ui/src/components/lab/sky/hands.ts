@@ -11,7 +11,8 @@
  */
 import { Vector3, type Mesh, type Object3D, type PerspectiveCamera } from "three/webgpu";
 import type { LabSceneInit } from "@/components/lab/kit/contract";
-import { PointerField, type Grab } from "@/components/lab/kit/pointer";
+import type { Grab } from "@/components/lab/kit/pan-control";
+import { PointerField } from "@/scene/gpu/pointer";
 import { toScreen, type ScreenPoint } from "@/scene/gpu/screen";
 import type { NodeStars } from "@/components/lab/sky/stars";
 

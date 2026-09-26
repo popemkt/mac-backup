@@ -753,7 +753,9 @@ that keeps a scene in step with its element and disposes one whose mount
 lands after the element has gone; each surface wraps it in a thin React
 host of its own, so `scene/` holds no React), `gpu/screen` (`toScreen`, the
 one projection of a world point to canvas pixels, decided in view space;
-every label, pick and hover asks it), `gpu/stage` (renderer, post chain, tone
+every label, pick and hover asks it), `gpu/pointer` (`PointerField`: where
+the pointer is over a scene, where its ray meets a plane, and which presses
+were taps — every study and the 3D graph read the one field), `gpu/stage` (renderer, post chain, tone
 mapping, palette uniforms, frame loop, reveal), `gpu/tsl` (the typed TSL seam
 and the ease as a shader function), `gpu/rig` (lights and finishes),
 `gpu/starfield`, `gpu/dispose`, `palette` (the five palette roles, filled
@@ -765,10 +767,10 @@ once, run as TSL nodes through `gpu/tsl`'s `NODE_OPS` and as numbers through
 `lib/timing.ts`, beside `lib/motion.ts`, because DOM motion reads it too.
 What only the lab needs stays in `components/lab/kit`: `study`
 (`mountStudy`: a study's side of `mountScene`, and the theme hand-off), `palette` (the
-`--lab-*` roles), `pointer`, `pan` and `velocity` (pointer field,
-drag-to-turn with momentum; a press is a pan or a grab of what it
-landed on), `orbit` (the pan read as a bearing round a target, plus a dolly
-and eased flights), `backdrop` (the lab's ground: a focal pool, a
+`--lab-*` roles), `pan`, `pan-control` and `velocity` (drag-to-turn with
+momentum, the pointer's smoothed speed; a press is a pan or a grab of what
+it landed on), `orbit` (the pan read as a bearing round a target, plus a
+dolly and eased flights), `backdrop` (the lab's ground: a focal pool, a
 drifting domain-warped haze, heat shimmer — never a flat fill), `entrance`
 (a study's pieces arriving over the arrive duration, staggered by a lag the
 study chooses; already arrived under reduced motion), `seeded` (the one

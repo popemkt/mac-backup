@@ -25,7 +25,7 @@ import {
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
 import type { ScenePalette } from "@/scene/palette";
-import { PanControl } from "@/components/lab/kit/pointer";
+import { PanControl } from "@/components/lab/kit/pan-control";
 import {
   createRig,
   finishMaterial,
@@ -115,9 +115,7 @@ function light(stage: SceneStage, init: LabSceneInit, context: StudyContext): St
   const pan = new PanControl(
     context.host,
     { perPixel: 0.004, pitchLimit: 0, yawLimit: 0.7 },
-    {
-      onChange: () => stage.invalidate(),
-    },
+    { onChange: () => stage.invalidate() },
   );
 
   // Arriving, the lights come up: the key first, the fill and rim a beat behind.

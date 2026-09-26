@@ -8,6 +8,22 @@ export interface GraphEmphasis {
   filterIds?: Set<string>;
 }
 
+/**
+ * The node in focus, in every renderer: the selection beats the hover. A
+ * hovered node is in focus only while nothing is selected.
+ */
+export function graphFocus(
+  selected: string | null | undefined,
+  hovered: string | null | undefined,
+): string | null {
+  return selected ?? hovered ?? null;
+}
+
+/** Whether the hover card shows: only for a hover that is the focus. */
+export function showsHoverCard(selected: string | null | undefined): boolean {
+  return (selected ?? null) === null;
+}
+
 export function graphNeighborhood(
   id: string | null | undefined,
   edges: readonly LensEdge[],
