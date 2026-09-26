@@ -3,7 +3,9 @@ import { FileSystem } from "effect/FileSystem";
 import { watch } from "node:fs";
 import { dirname, join } from "node:path";
 import {
+  applyTx,
   domainError,
+  rankTx,
   ensureDomainError,
   type DomainError,
   canonicalJsonl,
@@ -145,11 +147,8 @@ export class JsonlStore implements EffectStore {
         const stale = staleCommitError(expected, base);
         if (stale !== null) return yield* stale;
         const existing = yield* decodeNodes(current, path);
-        const byId = new Map(existing.map((n) => [n.id, n]));
-        for (const id of tx.deletes) byId.delete(id);
-        for (const node of tx.upserts) byId.set(node.id, node);
-
-        const body = canonicalJsonl([...byId.values()]);
+        const applied = rankTx(existing, tx);
+        const body = canonicalJsonl([...applyTx(existing, applied).values()]);
         const fingerprint = contentMark(body);
 
         yield* Effect.try({
@@ -164,14 +163,14 @@ export class JsonlStore implements EffectStore {
         // led would hand replicas a frame for a write that never landed. An
         // empty transaction is not recorded — it costs a rev and a frame and
         // says nothing.
-        if (tx.upserts.length > 0 || tx.deletes.length > 0) {
+        if (applied.upserts.length > 0 || applied.deletes.length > 0) {
           yield* Effect.try({
-            try: () => txTail.append(tx, record, fingerprint),
+            try: () => txTail.append(applied, record, fingerprint),
             catch: (err) => ensureDomainError(err),
           });
         }
 
-        return { base, fingerprint };
+        return { base, fingerprint, tx: applied };
       }),
     ).pipe(Effect.provide(BunFileSystem.layer));
   }

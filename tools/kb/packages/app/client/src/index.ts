@@ -131,13 +131,13 @@ const commitChange = Effect.fn("kb.client.commit")(function* (
   }
   const at = yield* currentIso;
   const record = input.origin === undefined ? { at } : { at, origin: input.origin };
-  const { fingerprint } = yield* store.commitEffect(tx, record, current.revision);
+  const { fingerprint, tx: applied } = yield* store.commitEffect(tx, record, current.revision);
   if (fingerprint === null) {
     return yield* domainError("internal", `store at ${store.path} cannot name its state`);
   }
   return {
     revision: fingerprint,
-    nodes: [...applyTx(current.nodes, tx).values()].toSorted(byNodeId),
+    nodes: [...applyTx(current.nodes, applied).values()].toSorted(byNodeId),
   };
 });
 

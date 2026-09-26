@@ -29,7 +29,11 @@ describe("BrowserStore", () => {
     const afterFirstCommit = Number(await Effect.runPromise(store.fingerprint));
     await Effect.runPromise(store.commitEffect({ upserts: [], deletes: ["b"] }, { at: AT }));
 
-    expect(await Effect.runPromise(store.loadEffect)).toEqual([node("a", "after")]);
+    // The commit settles ranks like every store's does (DESIGN.md → Sibling ranks).
+    const [held, ...rest] = await Effect.runPromise(store.loadEffect);
+    expect(rest).toEqual([]);
+    expect(held).toEqual({ ...node("a", "after"), order: held?.order });
+    expect(held?.order).toMatch(/^[0-9a-z]+$/);
     expect(afterFirstCommit).toBe(initial + 1);
     expect(Number(await Effect.runPromise(store.fingerprint))).toBe(afterFirstCommit + 1);
     expect(store.path).toBe("browser");

@@ -15,7 +15,9 @@ import {
   domainFromResolve,
   freshId,
   isSysPrefixed,
+  rankForInsert,
   resolveFieldId,
+  siblingSlots,
   resolveTagId,
   type DomainError,
   type KbNode,
@@ -52,14 +54,14 @@ const PropInputSchema = z.object({
 export const nodeAddDef = {
   id: "node.add",
   title: "Add node",
-  description: "Create a node with optional props, parent, position, and tags",
+  description:
+    "Create a node with optional props, parent, position (index in its sibling group; the end when omitted), and tags",
   mode: "apply" as const,
   inputSchema: z.object({
     text: z.string(),
     props: z.array(PropInputSchema).optional(),
     parent: z.string().optional(),
     position: z.number().int().nonnegative().optional(),
-    order: z.string().min(1).optional(),
     tags: z.array(z.string()).optional(),
     id: z.string().optional(),
     /** Bypass sys.* write-guard (browse yes / break no). */
@@ -81,9 +83,10 @@ export const nodeUpdateDef = {
     text: z.string().optional(),
     setProps: z.array(PropInputSchema).optional(),
     unsetProps: z.array(z.object({ field: z.string(), value: z.unknown().optional() })).optional(),
+    /** Move under this parent, or to the forest roots when null. */
     parent: z.string().nullable().optional(),
+    /** Index in the target sibling group; the end when omitted on a move. */
     position: z.number().int().nonnegative().optional(),
-    order: z.string().min(1).optional(),
     delete: z.boolean().optional(),
     /** Parent deletion is never implicitly shallow; cascade is the default. */
     descendants: z.enum(["cascade", "reparent"]).optional(),
@@ -265,6 +268,23 @@ function insertChild(parent: KbNode, childId: NodeId, at: string, position?: num
   return c;
 }
 
+/**
+ * The rank a node takes when it is placed at `position` in the sibling group
+ * under `parent` (the forest roots when null), read from `nodes` — the state
+ * before the placement, which is why the node itself is excluded. The one
+ * owner of the answer is `@kb/model`'s `rankForInsert`; the store's commit
+ * settles it again against whatever it merges into.
+ */
+function placedRank(
+  nodes: Iterable<KbNode>,
+  parent: NodeId | null,
+  node: KbNode,
+  position: number | undefined,
+): string {
+  const siblings = siblingSlots(nodes, parent, node.id);
+  return rankForInsert(siblings, position ?? siblings.length, node.order);
+}
+
 function subtreePattern(depth: number): string {
   if (depth <= 0) return `[:node/id :node/text]`;
   if (depth === 1) {
@@ -327,19 +347,14 @@ export const nodeAddEffect = Effect.fn("node.add")(function* (
     }
   });
 
-  const node: KbNode = {
-    id,
-    text: input.text,
-    props,
-    children: [],
-    ...(input.order !== undefined ? { order: input.order } : {}),
-    createdAt: at,
-    updatedAt: at,
-  };
-
+  const draft: KbNode = { id, text: input.text, props, children: [], createdAt: at, updatedAt: at };
   const parentId = input.parent;
+  const node: KbNode = {
+    ...draft,
+    order: placedRank(ctx.nodes, parentId ?? null, draft, input.position),
+  };
   const upserts: KbNode[] = [node];
-  if (parentId !== undefined && parentId !== "") {
+  if (parentId !== undefined) {
     const parent = yield* syncDomain(() => cloneNode(requireNode(ctx, parentId)));
     upserts.push(insertChild(parent, id, at, input.position));
   }
@@ -408,7 +423,6 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
 
   yield* syncDomain(() => {
     if (input.text !== undefined) node.text = input.text;
-    if (input.order !== undefined) node.order = input.order;
     if (input.unsetProps) {
       for (const u of input.unsetProps) {
         const fieldId = resolveFieldId(ctx.nodes, u.field);
@@ -425,41 +439,34 @@ export const nodeUpdateEffect = Effect.fn("node.update")(function* (
     if (input.setProps) applyProps(ctx, node.props, input.setProps);
   });
 
-  const newParentId = input.parent;
-  if (newParentId !== undefined) {
-    if (newParentId !== null && isInSubtree(ctx.nodes, input.id, newParentId)) {
+  // A placement is a move to `parent` (null: the forest roots), or — with
+  // only `position` — a reorder inside the group the node is already in. Both
+  // are one mechanism: leave the old group, join the new one at `position`,
+  // and take the rank that position implies.
+  const placement =
+    input.parent !== undefined
+      ? input.parent
+      : input.position !== undefined
+        ? (ctx.nodes.find((n) => n.children.includes(input.id))?.id ?? null)
+        : undefined;
+  if (placement !== undefined) {
+    if (placement !== null && isInSubtree(ctx.nodes, input.id, placement)) {
       return yield* domainError(
         "invalid_move",
-        `cannot move ${input.id} under itself or its own descendant ${newParentId}`,
-        { id: input.id, parent: newParentId },
+        `cannot move ${input.id} under itself or its own descendant ${placement}`,
+        { id: input.id, parent: placement },
       );
     }
+    node.order = placedRank(ctx.nodes, placement, node, input.position);
     upserts.push(...detachFromParents(ctx.nodes, input.id, at));
-    if (newParentId !== null) {
+    if (placement !== null) {
       const parent = yield* syncDomain(
-        () => upserts.find((n) => n.id === newParentId) ?? cloneNode(requireNode(ctx, newParentId)),
+        () => upserts.find((n) => n.id === placement) ?? cloneNode(requireNode(ctx, placement)),
       );
       const updated = insertChild(parent, input.id, at, input.position);
       const idx = upserts.findIndex((n) => n.id === parent.id);
       if (idx >= 0) upserts[idx] = updated;
       else upserts.push(updated);
-    }
-  } else if (input.position !== undefined) {
-    const parent = ctx.nodes.find((n) => n.children.includes(input.id));
-    if (parent) {
-      const c = cloneNode(parent);
-      c.children = c.children.filter((id) => id !== input.id);
-      const pos = Math.min(input.position, c.children.length);
-      c.children = [...c.children.slice(0, pos), input.id, ...c.children.slice(pos)];
-      // DELIBERATE BUG (t2-dst red demo): stamp a fixed fractional rank on
-      // the reordered parent so its sibling group ends up with two children
-      // sharing one `order` key. `migrateOrderKeys` never rewrites an
-      // existing rank, so the collision survives reopen — and the store's
-      // own tx-validation never inspects `order`, so only the DST harness's
-      // "strictly increasing order" invariant catches it.
-      c.order = "1000000000";
-      c.updatedAt = at;
-      upserts.push(c);
     }
   }
 

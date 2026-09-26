@@ -95,7 +95,9 @@ export const persistEffect = Effect.fn("kb.persist")(function* (
   const caughtUpTo = seen.get(ctx) ?? null;
   const commit = yield* store.commitEffect(tx, { at: yield* currentIso, origin });
   if (commit.base !== null && commit.base === caughtUpTo) {
-    ctx.index.applyTx(tx);
+    // The store's version of the delta: it carries the ranks the commit
+    // settled, which `tx` may not.
+    ctx.index.applyTx(commit.tx);
     if (commit.fingerprint !== null) seen.set(ctx, commit.fingerprint);
   } else {
     // The commit merged into a store this session had not read, so the file it

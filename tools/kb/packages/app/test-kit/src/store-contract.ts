@@ -11,6 +11,15 @@
  *
  * Every property runs against a fresh scratch root released by the scope that
  * acquired it, so nothing here can see the owner's live store.
+ *
+ * Two layers of promise live here, both run over every adapter. The port's
+ * own (load, commit, fingerprint, and the ranks a commit settles — DESIGN.md
+ * → Sibling ranks), and what a *session* over the port promises because of
+ * them: opening is a read, and a node created without a rank gets one from
+ * the one owner and keeps it. A session guarantee that held on JSONL alone
+ * would be a JSONL property, so those are written against the port too — the
+ * session is opened on whichever store the factory made, by presence, the way
+ * every surface opens one.
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
@@ -18,8 +27,20 @@ import { Cause, Duration, Effect, Exit, Option, Queue, Stream } from "effect";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { STORE_CHANGES_POLL, type EffectStore } from "@kb/contracts";
-import { isDomainError, present, type DomainError, type KbNode, type PropValue } from "@kb/model";
+import { STORE_CHANGES_POLL, type EffectStore, type KbContext } from "@kb/contracts";
+import {
+  applyTx,
+  canonicalJsonl,
+  compareRootOrder,
+  isDomainError,
+  present,
+  rankOf,
+  rankTx,
+  type DomainError,
+  type KbNode,
+  type PropValue,
+} from "@kb/model";
+import { bunFileSystemLayer, invokeReceiptEffect, kbRuntimeLayer, openKbEffect } from "@kb/runtime";
 
 /** How the suite gets an adapter under test for a scratch root. */
 export type StoreFactory = (root: string) => EffectStore;
@@ -106,7 +127,10 @@ function roundTripHolds(makeStore: StoreFactory, nodes: KbNode[]): Promise<void>
 
         expect(loaded.map((n) => n.id)).toEqual(nodes.map((n) => n.id).toSorted());
 
-        const byId = new Map(nodes.map((n) => [n.id, n]));
+        // What was written, as the commit settles it: the model says which
+        // ranks a commit repairs, and nothing else about a node may change.
+        const settled = applyTx([], rankTx([], { upserts: nodes, deletes: [] }));
+        const byId = new Map(settled);
         for (const loadedNode of loaded) {
           expect(loadedNode).toEqual(
             present(byId.get(loadedNode.id), "expected byId.get(loadedNode.id)"),
@@ -128,9 +152,27 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
     unwrittenStoreIsEmpty,
   ],
   [
-    "write then read: identical nodes, identical order, no key invented or dropped",
+    "write then read: identical nodes apart from the ranks the commit settles, no key dropped",
     roundTripsAnyNodeSet,
   ],
+  [
+    "a node committed without a rank gets one, and reloading returns it unchanged",
+    unrankedNodeIsRanked,
+  ],
+  [
+    "two writers appending from one read never leave siblings sharing a rank",
+    concurrentAppendsGetDistinctRanks,
+  ],
+  ["a commit touches only the nodes that changed", commitTouchesOnlyChanges],
+  [
+    "opening is a read: reopening leaves the nodes, the fingerprint and the tail as they were",
+    openingNeverWrites,
+  ],
+  [
+    "a node created without a rank gets one from the one owner, and a reopen keeps it",
+    createdNodeKeepsItsRank,
+  ],
+  ["an opening migration commits exactly the nodes it changed", openingMigrationIsMinimal],
   ["a commit merges into what is there: upserts overwrite, deletes remove", commitMerges],
   ["the fingerprint is stable across loads and moves when the content does", fingerprintTracks],
   ["another writer's commit is visible, and changes this store's fingerprint", externalWriteIsSeen],
@@ -441,6 +483,224 @@ function unwritableCommitFails(makeStore: StoreFactory): Promise<void> {
         expect(Exit.isFailure(exit)).toBe(true);
         expect(isDomainError(failureOf(exit))).toBe(true);
         expect(yield* store.fingerprint).toBeNull();
+      }),
+    ),
+  );
+}
+
+/** Roots in visible order, and whether any two share a rank. */
+function rootRanks(nodes: readonly KbNode[]): { ranks: string[]; distinct: boolean } {
+  const children = new Set(nodes.flatMap((n) => n.children));
+  const ranks = nodes
+    .filter((n) => !children.has(n.id))
+    .toSorted(compareRootOrder)
+    .map((n) => {
+      const rank = rankOf(n);
+      return rank.ranked ? rank.order : "";
+    });
+  return { ranks, distinct: new Set(ranks).size === ranks.length && !ranks.includes("") };
+}
+
+function unrankedNodeIsRanked(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* scratchRoot;
+        const store = makeStore(root);
+        const parent = { ...plainNode("n-p", "p"), children: ["n-c1", "n-c2"] };
+        const commit = yield* store.commitEffect(
+          {
+            upserts: [
+              parent,
+              plainNode("n-c1", "c1"),
+              plainNode("n-c2", "c2"),
+              plainNode("n-r", "r"),
+            ],
+            deletes: [],
+          },
+          { at: AT },
+        );
+        const loaded = yield* store.loadEffect;
+        for (const node of loaded) expect(rankOf(node).ranked).toBe(true);
+        const byId = new Map(loaded.map((n) => [n.id, n]));
+        const [c1, c2] = [byId.get("n-c1")?.order ?? "", byId.get("n-c2")?.order ?? ""];
+        expect(c1 < c2).toBe(true);
+        // The commit reports the ranks it settled: they are what the store holds.
+        expect(commit.tx.upserts.toSorted((a, b) => (a.id < b.id ? -1 : 1))).toEqual(loaded);
+
+        const fingerprint = yield* store.fingerprint;
+        expect(yield* makeStore(root).loadEffect).toEqual(loaded);
+        expect(yield* store.fingerprint).toBe(fingerprint);
+      }),
+    ),
+  );
+}
+
+function concurrentAppendsGetDistinctRanks(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* scratchRoot;
+        const one = makeStore(root);
+        const two = makeStore(root);
+        yield* one.commitEffect(
+          { upserts: [{ ...plainNode("n-a", "a"), order: "i" }], deletes: [] },
+          { at: AT },
+        );
+        // Both writers read the same tail and derived the same next rank.
+        const append = (id: string) => ({ ...plainNode(id, id), order: "j" });
+        const exits = yield* Effect.all(
+          [
+            Effect.exit(one.commitEffect({ upserts: [append("n-b")], deletes: [] }, { at: AT })),
+            Effect.exit(two.commitEffect({ upserts: [append("n-c")], deletes: [] }, { at: AT })),
+          ],
+          { concurrency: "unbounded" },
+        );
+        for (const exit of exits.filter(Exit.isFailure)) {
+          expect(isDomainError(failureOf(exit))).toBe(true);
+        }
+        // And one after the other, so the property never rests on a lost race.
+        yield* two.commitEffect({ upserts: [append("n-d")], deletes: [] }, { at: AT });
+
+        const loaded = yield* one.loadEffect;
+        const { ranks, distinct } = rootRanks(loaded);
+        expect(ranks.length).toBe(2 + exits.filter(Exit.isSuccess).length);
+        expect(distinct).toBe(true);
+      }),
+    ),
+  );
+}
+
+function commitTouchesOnlyChanges(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const store = makeStore(yield* scratchRoot);
+        const [a, b] = [
+          { ...plainNode("n-a", "a"), order: "i" },
+          { ...plainNode("n-b", "b"), order: "m" },
+        ];
+        yield* store.commitEffect({ upserts: [a, b], deletes: [] }, { at: AT });
+        const commit = yield* store.commitEffect(
+          { upserts: [{ ...b, text: "b2" }], deletes: [] },
+          { at: AT },
+        );
+        expect(commit.tx.upserts.map((n) => n.id)).toEqual(["n-b"]);
+        expect(
+          store.txTail
+            .entries()
+            .at(-1)
+            ?.ops.upserts.map((n) => n.id),
+        ).toEqual(["n-b"]);
+      }),
+    ),
+  );
+}
+
+/** Open a session the way every surface does: select by presence, seed if new. */
+function openSession(root: string): Effect.Effect<KbContext, DomainError> {
+  return openKbEffect(root).pipe(Effect.provide(bunFileSystemLayer));
+}
+
+/** A root the factory's backend owns, so opening it selects that backend. */
+const backendRoot = Effect.fn("storeContract.backendRoot")(function* (makeStore: StoreFactory) {
+  const root = yield* scratchRoot;
+  yield* makeStore(root).commitEffect({ upserts: [], deletes: [] }, { at: AT });
+  return root;
+});
+
+interface StoreState {
+  readonly nodes: string;
+  readonly fingerprint: string | null;
+  readonly tail: number;
+}
+
+const stateOf = Effect.fn("storeContract.stateOf")(function* (store: EffectStore) {
+  const state: StoreState = {
+    nodes: canonicalJsonl(yield* store.loadEffect),
+    fingerprint: yield* store.fingerprint,
+    tail: store.txTail.entries().length,
+  };
+  return state;
+});
+
+function openingNeverWrites(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        // The first open seeds a new store: a real migration, so it writes.
+        yield* openSession(root);
+        const seeded = yield* stateOf(makeStore(root));
+        expect(seeded.tail).toBeGreaterThan(0);
+
+        yield* openSession(root);
+        yield* openSession(root);
+        expect(yield* stateOf(makeStore(root))).toEqual(seeded);
+      }),
+    ),
+  );
+}
+
+function createdNodeKeepsItsRank(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        const ctx = yield* openSession(root);
+        for (const text of ["first", "second"]) {
+          const receipt = yield* invokeReceiptEffect(ctx, {
+            id: "node.add",
+            input: { text },
+          }).pipe(Effect.provide(kbRuntimeLayer(ctx)));
+          expect(receipt.status).toBe("succeeded");
+        }
+        const written = yield* stateOf(makeStore(root));
+        const loaded = yield* makeStore(root).loadEffect;
+        const added = loaded.filter((n) => n.text === "first" || n.text === "second");
+        expect(added.map((n) => rankOf(n).ranked)).toEqual([true, true]);
+        // Appended in order, so ranked in order: the second after the first.
+        const [first, second] = ["first", "second"].map(
+          (text) => added.find((n) => n.text === text)?.order ?? "",
+        );
+        expect((first ?? "") < (second ?? "")).toBe(true);
+        expect(rootRanks(loaded).distinct).toBe(true);
+
+        yield* openSession(root);
+        expect(yield* stateOf(makeStore(root))).toEqual(written);
+      }),
+    ),
+  );
+}
+
+function openingMigrationIsMinimal(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* backendRoot(makeStore);
+        yield* openSession(root);
+        const store = makeStore(root);
+        // A store seeded before one declaration existed: drop a seeded prop,
+        // which the seed's fill-absent pass restores on the next open.
+        const seeded = present(
+          (yield* store.loadEffect).find(
+            (n) => n.id.startsWith("sys.") && Object.keys(n.props).length > 0,
+          ),
+          "expected a seeded node with props",
+        );
+        const [dropped] = Object.keys(seeded.props);
+        const { [present(dropped, "a prop key")]: _gone, ...kept } = seeded.props;
+        yield* store.commitEffect(
+          { upserts: [{ ...seeded, props: kept }], deletes: [] },
+          { at: AT },
+        );
+        const before = store.txTail.entries().length;
+
+        yield* openSession(root);
+        const entries = makeStore(root).txTail.entries();
+        expect(entries).toHaveLength(before + 1);
+        expect(entries.at(-1)?.ops.upserts.map((n) => n.id)).toEqual([seeded.id]);
+        expect(entries.at(-1)?.ops.deletes).toEqual([]);
       }),
     ),
   );

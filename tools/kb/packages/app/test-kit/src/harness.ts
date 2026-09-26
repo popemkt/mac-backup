@@ -9,7 +9,8 @@ import {
   isSysPrefixed,
   type KbNode,
   systemSeedNodes,
-  migrateOrderKeys,
+  rankOf,
+  rankTx,
   canonicalJsonl,
   present,
   type DomainError,
@@ -341,40 +342,20 @@ function multipleParentErrors(nodes: KbNode[]): string[] {
   return out;
 }
 
+/**
+ * The store as the simulation left it must be well ranked: every node has a
+ * rank, and settling every group again (`rankTx` over the whole set, the
+ * store's own commit step) would change nothing. Checked on the stored nodes
+ * themselves — nothing is migrated first, since opening no longer ranks.
+ */
 function orderingErrors(nodes: KbNode[]): string[] {
-  const out: string[] = [];
-  const migrated = migrateOrderKeys(nodes).nodes;
-  const migratedById = new Map(migrated.map((n) => [n.id, n]));
-  const migratedChildrenSet = new Set(migrated.flatMap((n) => n.children));
-  const migratedGroups: { label: string; ids: string[] }[] = [
-    ...migrated.map((n) => ({ label: n.id, ids: n.children })),
-    {
-      label: "(root)",
-      ids: migrated.filter((n) => !migratedChildrenSet.has(n.id)).map((n) => n.id),
-    },
-  ];
-  for (const group of migratedGroups) {
-    const members = group.ids.map((id) => migratedById.get(id));
-    const defined = members.filter(
-      (m): m is NonNullable<(typeof members)[number]> => m !== undefined,
-    );
-    if (defined.length !== members.length) continue;
-    // `migrateOrderKeys` returns RankedNode[], so every member has a rank.
-    const ranks = defined.map((m) => m.order);
-    const unique = new Set(ranks);
-    if (unique.size !== ranks.length) {
-      out.push(`ordering ranks collide at ${group.label}: ${ranks.join(", ")}`);
-      continue;
-    }
-    const sorted = [...ranks].toSorted((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-    for (let i = 1; i < sorted.length; i++) {
-      const prev = sorted[i - 1];
-      const cur = sorted[i];
-      if (prev === undefined || cur === undefined) continue;
-      if (prev >= cur) {
-        out.push(`ordering not strictly increasing at ${group.label}: ${sorted.join(", ")}`);
-        break;
-      }
+  const out = nodes.filter((n) => !rankOf(n).ranked).map((n) => `node ${n.id} has no sibling rank`);
+  const settled = rankTx(nodes, { upserts: nodes, deletes: [] }).upserts;
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  for (const node of settled) {
+    const stored = byId.get(node.id)?.order;
+    if (stored !== node.order) {
+      out.push(`sibling rank of ${node.id} is not settled: ${stored ?? "(none)"} -> ${node.order}`);
     }
   }
   return out;
@@ -401,12 +382,6 @@ function invariantViolations(nodes: KbNode[]): string[] {
     ...(txErr !== null && txErr !== "" ? [txErr] : []),
     ...mintedSysErrors(nodes),
   ];
-}
-
-/** Re-running migrateOrderKeys must be a no-op (re-open won't reorder siblings). */
-function orderingIdempotent(nodes: KbNode[]): boolean {
-  const first = migrateOrderKeys(nodes);
-  return !migrateOrderKeys(first.nodes).changed;
 }
 
 /** Structural owners: map every child id → its (single) parent, or null for roots. */
@@ -548,10 +523,6 @@ export const runScenario = Effect.fn("kb.runScenario")(function* (
       const bad = invariantViolations(snap.nodes);
       if (bad.length > 0) {
         violations.push(`op#${i} (seed ${seed}): ${bad.join("; ")}`);
-        return;
-      }
-      if (!orderingIdempotent(snap.nodes)) {
-        violations.push(`op#${i} (seed ${seed}): migrateOrderKeys reorders siblings`);
         return;
       }
       // "No prop key invented or silently dropped": re-serialising the loaded

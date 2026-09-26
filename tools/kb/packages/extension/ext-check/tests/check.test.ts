@@ -127,7 +127,7 @@ function fixtureContext(initial: readonly KbNode[]) {
         const base = `revision:${revision}`;
         stored = applyTx(stored, tx);
         revision += 1;
-        return { base, fingerprint: `revision:${revision}` };
+        return { base, fingerprint: `revision:${revision}`, tx };
       }),
   };
   const index = {

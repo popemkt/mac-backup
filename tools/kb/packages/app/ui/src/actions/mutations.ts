@@ -40,8 +40,9 @@ import { isSysPrefixed, SYSTEM_IDS, WORKSPACE_ROOT_ID, type PropValue } from "@/
 import { forestRootIds } from "@/lib/graph-view";
 import { outlineInstanceKey } from "@/lib/instance-key";
 import { findParentWire } from "@/lib/tx";
+import { restoreInvocations } from "@/actions/restore";
 import type { WireNode } from "@kb/contracts";
-import { rankOf, typeRefsOf } from "@kb/model";
+import { typeRefsOf } from "@kb/model";
 import { useOutlineStore } from "@/stores/outline.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
 import { invoke, invokeLocal, pushInvocation, reconcileBrowserSession } from "@/session/runtime";
 
@@ -54,77 +55,6 @@ function guardSysWrite(id: string): boolean {
   if (!isSysPrefixed(id)) return true;
   toast("System nodes (sys.*) are read-only");
   return false;
-}
-
-function propEntries(node: WireNode): Array<{ field: string; value: PropValue }> {
-  return Object.entries(node.props).flatMap(([field, values]) =>
-    values.map((value) => ({ field, value })),
-  );
-}
-
-/** A wire node's rank as action input: carried when ranked, absent when not. */
-function rankInput(node: WireNode): { order?: string } {
-  const rank = rankOf(node);
-  return rank.ranked ? { order: rank.order } : {};
-}
-
-/** Build inverse invocations from two graph states; actions remain the one writer. */
-function restoreInvocations(
-  from: WireNode[],
-  to: WireNode[],
-): Array<{ id: string; input: unknown }> {
-  const fromById = new Map(from.map((node) => [node.id, node]));
-  const toById = new Map(to.map((node) => [node.id, node]));
-  const actions: Array<{ id: string; input: unknown }> = [];
-  for (const node of from) {
-    if (!toById.has(node.id))
-      actions.push({ id: "node.update", input: { id: node.id, delete: true } });
-  }
-  const missing = to.filter((node) => !fromById.has(node.id));
-  const depth = (node: WireNode): number => {
-    let count = 0;
-    let parent = findParentWire(to, node.id);
-    while (parent !== null) {
-      count += 1;
-      parent = findParentWire(to, parent.id);
-    }
-    return count;
-  };
-  for (const node of missing.toSorted((a, b) => depth(a) - depth(b))) {
-    const parent = findParentWire(to, node.id);
-    actions.push({
-      id: "node.add",
-      input: {
-        id: node.id,
-        text: node.text,
-        props: propEntries(node),
-        ...(parent ? { parent: parent.id, position: parent.children.indexOf(node.id) } : {}),
-        ...rankInput(node),
-      },
-    });
-  }
-  for (const target of to) {
-    const current = fromById.get(target.id);
-    if (!current || JSON.stringify(current) === JSON.stringify(target)) continue;
-    const parent = findParentWire(to, target.id);
-    const unsetProps = Object.keys(current.props).map((field) => ({ field }));
-    actions.push({
-      id: "node.update",
-      input: {
-        id: target.id,
-        text: target.text,
-        ...(unsetProps.length > 0 ? { unsetProps } : {}),
-        parent: parent?.id ?? null,
-        ...(parent ? { position: parent.children.indexOf(target.id) } : {}),
-        ...rankInput(target),
-      },
-    });
-    const setProps = propEntries(target);
-    if (setProps.length > 0) {
-      actions.push({ id: "node.update", input: { id: target.id, setProps } });
-    }
-  }
-  return actions;
 }
 
 function recordHistory(preWire: WireNode[], plan: PlannedMutation): void {

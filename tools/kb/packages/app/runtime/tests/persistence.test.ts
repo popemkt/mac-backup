@@ -287,7 +287,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
       }),
       fingerprint: Effect.succeed(null),
       txTail: new MemoryTxTail(),
-      commitEffect: () => Effect.succeed({ base: null, fingerprint: null }),
+      commitEffect: (tx) => Effect.succeed({ base: null, fingerprint: null, tx }),
     };
 
     await Effect.runPromise(
@@ -323,7 +323,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
           for (const n of tx.upserts) byId.set(n.id, n);
           held = [...byId.values()];
           revision += 1;
-          return { base, fingerprint: `revision:${revision}` };
+          return { base, fingerprint: `revision:${revision}`, tx };
         }),
     };
 
@@ -370,7 +370,7 @@ describe("reload / persist via KbStore Layer substitution", () => {
           for (const n of tx.upserts) byId.set(n.id, n);
           held = [...byId.values()];
           revision += 1;
-          return { base, fingerprint: `revision:${revision}` };
+          return { base, fingerprint: `revision:${revision}`, tx };
         }),
     };
 

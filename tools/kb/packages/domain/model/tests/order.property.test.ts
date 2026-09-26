@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { present } from "../src/present.ts";
 import fc from "fast-check";
 import type { KbNode } from "../src/model.ts";
-import { compareRootOrder, migrateOrderKeys, rankBetween, ranksFor } from "../src/order.ts";
+import { compareRootOrder, rankBetween, rankForInsert, ranksFor, rankTx } from "../src/order.ts";
 
 describe("order properties (fast-check)", () => {
   test("ranksFor strictly preserves input order and assigns distinct ranks", () => {
@@ -113,131 +113,6 @@ describe("order properties (fast-check)", () => {
     }
   });
 
-  test("migrateOrderKeys preserves child-group visible order across arbitrary already-ranked / gap patterns", () => {
-    const NOW = "2026-08-24T00:00:00.000Z";
-
-    fc.assert(
-      fc.property(
-        fc
-          .integer({ min: 2, max: 15 })
-          .chain((n) =>
-            fc.tuple(fc.constant(n), fc.array(fc.boolean(), { minLength: n, maxLength: n })),
-          ),
-        ([n, hasOrderFlags]) => {
-          const childIds = Array.from({ length: n }, (_, i) => `c${i}`);
-          let counter = 0;
-          const orders: (string | undefined)[] = hasOrderFlags.map((flag) =>
-            flag ? String((counter += 100)).padStart(10, "0") : undefined,
-          );
-
-          const parent: KbNode = {
-            id: "parent",
-            text: "parent",
-            props: {},
-            children: childIds,
-            createdAt: NOW,
-            updatedAt: NOW,
-          };
-          const childNodes: KbNode[] = childIds.map((id, i) => ({
-            id,
-            text: id,
-            props: {},
-            children: [],
-            createdAt: NOW,
-            updatedAt: NOW,
-            order: orders[i],
-          }));
-
-          const { nodes: migrated } = migrateOrderKeys([parent, ...childNodes]);
-          const byId = new Map(migrated.map((node) => [node.id, node]));
-
-          // Every child now has an order.
-          for (const id of childIds)
-            expect(present(byId.get(id), "expected byId.get(id)").order).toBeDefined();
-
-          // Pre-existing orders are byte-for-byte untouched.
-          childIds.forEach((id, i) => {
-            const existing = orders[i];
-            if (existing !== undefined && existing !== "") {
-              expect(present(byId.get(id), "expected byId.get(id)").order).toBe(existing);
-            }
-          });
-
-          // Final order strictly increases along the ORIGINAL children[] sequence,
-          // regardless of how many consecutive gaps sit between ranked neighbours.
-          for (let i = 0; i < childIds.length - 1; i++) {
-            const a = present(
-              present(
-                byId.get(present(childIds[i], "expected childIds[i]")),
-                "expected byId.get(childIds[i])",
-              ).order,
-              "expected byId.get(childIds[i]).order",
-            );
-            const b = present(
-              present(
-                byId.get(present(childIds[i + 1], "expected childIds[i + 1]")),
-                "expected byId.get(childIds[i + 1])",
-              ).order,
-              "expected byId.get(childIds[i + 1]).order",
-            );
-            expect(a < b).toBe(true);
-          }
-
-          expect(migrateOrderKeys(migrated).changed).toBe(false);
-        },
-      ),
-      { numRuns: 500 },
-    );
-  });
-
-  test("migrateOrderKeys assigns root order matching the documented has-order-first, then-id fallback", () => {
-    const NOW = "2026-08-24T00:00:00.000Z";
-
-    fc.assert(
-      fc.property(
-        fc
-          .uniqueArray(fc.stringMatching(/^r[a-z0-9]{1,8}$/), {
-            minLength: 2,
-            maxLength: 15,
-          })
-          .chain((ids) =>
-            fc.tuple(
-              fc.constant(ids),
-              fc.array(fc.boolean(), { minLength: ids.length, maxLength: ids.length }),
-            ),
-          ),
-        ([ids, hasOrderFlags]) => {
-          let counter = 0;
-          const nodes: KbNode[] = ids.map((id, i) => ({
-            id,
-            text: id,
-            props: {},
-            children: [],
-            createdAt: NOW,
-            updatedAt: NOW,
-            order:
-              hasOrderFlags[i] === true ? String((counter += 100)).padStart(10, "0") : undefined,
-          }));
-          const before = nodes.map((node) => ({ id: node.id, order: node.order }));
-          const expectedOrder = [...before].toSorted(compareRootOrder).map((n) => n.id);
-
-          const { nodes: migrated } = migrateOrderKeys(nodes);
-          const byId = new Map(migrated.map((node) => [node.id, node]));
-          const actualOrder = [...ids].toSorted((a, b) =>
-            compareRootOrder(
-              present(byId.get(a), "expected byId.get(a)"),
-              present(byId.get(b), "expected byId.get(b)"),
-            ),
-          );
-
-          expect(actualOrder).toEqual(expectedOrder);
-          expect(migrateOrderKeys(migrated).changed).toBe(false);
-        },
-      ),
-      { numRuns: 500 },
-    );
-  });
-
   test("ranks are stable across a JSON serialize/parse round trip", () => {
     fc.assert(
       fc.property(fc.array(fc.nat(), { minLength: 2, maxLength: 30 }), (indices) => {
@@ -342,5 +217,123 @@ describe("rankBetween (fast-check)", () => {
       const high = present(ranks[i], "high");
       expect(rankBetween(low, high).length).toBeLessThanOrEqual(3);
     }
+  });
+});
+
+const NOW = "2026-08-24T00:00:00.000Z";
+
+function plain(id: string, children: string[], order: string | undefined): KbNode {
+  return {
+    id,
+    text: id,
+    props: {},
+    children,
+    ...(order !== undefined ? { order } : {}),
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
+}
+
+/** The whole set as a commit of every node would store it. */
+function settle(nodes: KbNode[]): Map<string, KbNode> {
+  const settled = new Map(nodes.map((n) => [n.id, n]));
+  for (const n of rankTx(nodes, { upserts: nodes, deletes: [] }).upserts) settled.set(n.id, n);
+  return settled;
+}
+
+/** Any stored rank a group may hold: well formed or not, short or long, or none. */
+const storedRankArb = fc.option(
+  fc.oneof(rankArb, fc.string({ minLength: 1, maxLength: 20 }), fc.constantFrom("i", "k")),
+  { nil: undefined },
+);
+
+describe("rankTx (fast-check)", () => {
+  test("any child group settles strictly increasing along its array, short and well formed", () => {
+    fc.assert(
+      fc.property(fc.array(storedRankArb, { minLength: 1, maxLength: 20 }), (orders) => {
+        const ids = orders.map((_, i) => `c${i}`);
+        const nodes = [plain("p", ids, "i"), ...ids.map((id, i) => plain(id, [], orders[i]))];
+        const settled = settle(nodes);
+        const ranks = ids.map((id) => present(settled.get(id)?.order, `${id} ranked`));
+        for (let i = 1; i < ranks.length; i++) {
+          expect(present(ranks[i - 1], "prev") < present(ranks[i], "cur")).toBe(true);
+        }
+        for (const rank of ranks) {
+          expect(rank).toMatch(WELL_FORMED);
+          expect(rank.length).toBeLessThanOrEqual(12);
+        }
+        // Settled is a fixed point: settling again writes nothing new.
+        const again = [...settled.values()];
+        expect(rankTx(again, { upserts: again, deletes: [] }).upserts).toEqual(again);
+      }),
+      { numRuns: 1000 },
+    );
+  });
+
+  test("the ranks of an already well-ranked group are kept byte for byte", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.boolean(), { minLength: 1, maxLength: 20 }),
+        fc.integer({ min: 1, max: 200 }),
+        (present_, size) => {
+          const ids = present_.map((_, i) => `c${i}`);
+          const spread = ranksFor(Array.from({ length: size + ids.length }, (_, i) => `s${i}`));
+          const orders = ids.map((_, i) =>
+            present_[i] === true ? spread.get(`s${i * 2 + 1}`) : undefined,
+          );
+          const nodes = [plain("p", ids, "i"), ...ids.map((id, i) => plain(id, [], orders[i]))];
+          const settled = settle(nodes);
+          ids.forEach((id, i) => {
+            const kept = orders[i];
+            if (kept !== undefined) expect(settled.get(id)?.order).toBe(kept);
+          });
+        },
+      ),
+      { numRuns: 500 },
+    );
+  });
+
+  test("forest roots keep their visible order and end with distinct ranks", () => {
+    fc.assert(
+      fc.property(
+        fc.uniqueArray(fc.stringMatching(/^r[a-z0-9]{1,8}$/), { minLength: 1, maxLength: 20 }),
+        fc.array(storedRankArb, { minLength: 20, maxLength: 20 }),
+        (ids, orders) => {
+          const nodes = ids.map((id, i) => plain(id, [], orders[i]));
+          const visible = nodes.toSorted(compareRootOrder).map((n) => n.id);
+          const settled = [...settle(nodes).values()];
+          expect(settled.toSorted(compareRootOrder).map((n) => n.id)).toEqual(visible);
+          expect(new Set(settled.map((n) => n.order)).size).toBe(settled.length);
+        },
+      ),
+      { numRuns: 1000 },
+    );
+  });
+});
+
+describe("rankForInsert (fast-check)", () => {
+  test("placing at any position lands the node exactly there", () => {
+    fc.assert(
+      fc.property(fc.array(fc.nat(), { minLength: 1, maxLength: 60 }), (positions) => {
+        const group: { id: string; order: string }[] = [];
+        positions.forEach((raw, n) => {
+          const at = raw % (group.length + 1);
+          group.splice(at, 0, { id: `n${n}`, order: rankForInsert(group, at) });
+        });
+        for (let i = 1; i < group.length; i++) {
+          expect(present(group[i - 1], "prev").order < present(group[i], "cur").order).toBe(true);
+        }
+      }),
+      { numRuns: 500 },
+    );
+  });
+
+  test("a node re-placed where its rank already fits keeps it", () => {
+    const group = [
+      { id: "a", order: "c" },
+      { id: "b", order: "m" },
+    ];
+    expect(rankForInsert(group, 1, "f")).toBe("f");
+    expect(rankForInsert(group, 2, "f")).not.toBe("f");
   });
 });

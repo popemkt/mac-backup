@@ -105,8 +105,8 @@ describe.each([...STORE_BACKENDS])("over a %s store", (backend) => {
     const writer = await openClient(root);
     const reader = await openClient(root);
     const empty = await writer.snapshot();
-    const foreign = { ...node("foreign"), extra: { nested: [1, 2] } };
-    const parent = { ...node("parent"), children: ["child"] };
+    const foreign = { ...node("foreign"), order: "a", extra: { nested: [1, 2] } };
+    const parent = { ...node("parent"), order: "b", children: ["child"] };
     const saved = await writer.commit({
       expectedRevision: empty.revision,
       upserts: [foreign, parent, node("child")],

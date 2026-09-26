@@ -64,7 +64,8 @@ describe("SqliteStore", () => {
       Effect.scoped(
         Effect.gen(function* () {
           const store = yield* scratchStore;
-          const written = node("n-a", "a");
+          // Ranked already, so the row holds exactly what was written.
+          const written = { ...node("n-a", "a"), order: "i" };
           yield* store.commitEffect({ upserts: [written], deletes: [] }, { at: AT });
 
           withRawConnection(store.path, (db) => {

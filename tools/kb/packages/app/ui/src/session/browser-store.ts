@@ -6,7 +6,7 @@ import {
   type StoreFingerprint,
   type TxRecord,
 } from "@kb/contracts";
-import type { DomainError, KbNode, StoreTx } from "@kb/model";
+import { rankTx, type DomainError, type KbNode, type StoreTx } from "@kb/model";
 import { MemoryTxTail } from "@kb/tx-log";
 
 /** In-memory persistence side of the browser's replicated kb session. */
@@ -47,13 +47,19 @@ export class BrowserStore implements EffectStore {
       const base = String(this.generation);
       const stale = staleCommitError(expected, base);
       if (stale !== null) return Effect.fail(stale);
-      this.apply(tx);
-      if (tx.upserts.length > 0 || tx.deletes.length > 0) this.txTail.append(tx, record);
-      return Effect.succeed({ base, fingerprint: String(this.generation) });
+      const applied = rankTx([...this.byId.values()], tx);
+      this.apply(applied);
+      if (applied.upserts.length > 0 || applied.deletes.length > 0) {
+        this.txTail.append(applied, record);
+      }
+      return Effect.succeed({ base, fingerprint: String(this.generation), tx: applied });
     });
   }
 
-  /** Keep the store side current when the replica ingests a server tx. */
+  /**
+   * Keep the store side current when the replica ingests a server tx. Taken
+   * as given: the server's store already settled its ranks.
+   */
   apply(tx: StoreTx): void {
     for (const id of tx.deletes) this.byId.delete(id);
     for (const node of tx.upserts) this.byId.set(node.id, node);

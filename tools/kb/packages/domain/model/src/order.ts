@@ -1,8 +1,11 @@
 import { present } from "./present.ts";
-import type { KbNode, NodeId, RankedNode } from "./model.ts";
+import type { KbNode, NodeId } from "./model.ts";
+import { applyTx, type StoreTx } from "./tx.ts";
 
 /**
- * Sibling ranks: variable-length base-36 fractions.
+ * Sibling ranks: variable-length base-36 fractions (DESIGN.md → Sibling
+ * ranks). This module is the one owner of ranking; the create and move
+ * operations, the store's commit, the merge and the UI all go through it.
  *
  * A rank is a string over `0-9a-z` read as the digits after a radix point, so
  * `"i"` is 18/36 and `"i5"` sits just above it. Plain code-unit comparison of
@@ -11,12 +14,22 @@ import type { KbNode, NodeId, RankedNode } from "./model.ts";
  * string lies strictly between them. So a trailing `0` is never produced, and
  * a bound that carries one (a legacy fixed-width key) is read without it.
  *
- * Because a rank can always grow by a digit, there is always a rank strictly
- * between two different ranks: nothing is ever "exhausted", and no insert has
- * to fall back to returning one of its bounds.
+ * Because a rank can always grow by a character, there is always a rank
+ * strictly between two different ranks: nothing is ever "exhausted", and no
+ * insert has to fall back to returning one of its bounds.
  */
 const DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz";
 const BASE = DIGITS.length;
+
+/**
+ * The longest rank a well-ranked group holds. Bisecting one gap over and over
+ * grows a rank by about one character per five inserts; a group whose ranks
+ * pass this is re-spread when it is next committed, so ranks stay short
+ * without a maintenance pass anybody has to remember to run.
+ */
+const MAX_RANK_LENGTH = 12;
+
+const WELL_FORMED = /^[0-9a-z]*[1-9a-z]$/;
 
 function digit(char: string | undefined): number {
   return char === undefined ? 0 : DIGITS.indexOf(char);
@@ -53,8 +66,8 @@ function midpoint(low: string, high: string | undefined): string {
 /**
  * The next rank after `low` with nothing above it: bump the first digit that
  * can be bumped. Appends at the tail therefore *step* — `"i"`, `"j"`, `"k"` …
- * — and a rank gains a digit only once every digit before it is `z`, rather
- * than halving the remaining gap on every append.
+ * — and a rank gains a character only once every digit before it is `z`,
+ * rather than halving the remaining gap on every append.
  */
 function stepAfter(low: string): string {
   for (let i = 0; i < low.length; i++) {
@@ -81,7 +94,7 @@ function stepBefore(high: string): string {
  * Throws when the bounds leave no room — `before >= after`, or `after` being
  * `before` with trailing zeros. Callers choose bounds from a sibling group, so
  * a throw here is a defect in that choice, never a state to paper over by
- * returning a bound (which is what made two siblings share a rank).
+ * returning a bound (which is what once made two siblings share a rank).
  */
 export function rankBetween(before?: string, after?: string): string {
   if (after === undefined) {
@@ -92,12 +105,6 @@ export function rankBetween(before?: string, after?: string): string {
     throw new RangeError(`no rank strictly between ${before ?? "(start)"} and ${after}`);
   }
   return before === undefined ? stepBefore(high) : midpoint(before, high);
-}
-
-/** Whether a rank can serve as the upper bound above `low` (open `low` = 0). */
-function hasRoomAbove(low: string | undefined, high: string): boolean {
-  const trimmed = trimZeros(high);
-  return trimmed !== "" && (low === undefined || low < trimmed);
 }
 
 /**
@@ -119,13 +126,12 @@ export function ranksFor(ids: readonly NodeId[]): Map<NodeId, string> {
 }
 
 /**
- * Whether a node carries a sibling rank — the migration state, named.
+ * Whether a node carries a sibling rank.
  *
  * `""` is not a rank: an order key is present or absent, never
- * present-and-empty (DESIGN.md → Domain typing), which is what
- * `KbNodeSchema` now rejects on load. Collapsing the two spellings here is
- * what lets every reader ask one question instead of repeating a two-clause
- * test, and it is why {@link migrateOrderKeys} can promise a {@link RankedNode}.
+ * present-and-empty (DESIGN.md → Domain typing), which is what `KbNodeSchema`
+ * rejects on load. Collapsing the two spellings here is what lets every
+ * reader ask one question instead of repeating a two-clause test.
  */
 export type NodeRank =
   | { readonly ranked: true; readonly order: string }
@@ -136,9 +142,18 @@ export function rankOf(node: { readonly order?: string } | undefined): NodeRank 
   return order === undefined || order === "" ? { ranked: false } : { ranked: true, order };
 }
 
-/** The same question as a narrowing, for code that keeps the node itself. */
-export function isRanked(node: KbNode): node is RankedNode {
-  return rankOf(node).ranked;
+/** What ranking needs to know about a sibling: who it is and its stored rank. */
+export interface RankSlot {
+  readonly id: NodeId;
+  readonly order?: string | undefined;
+}
+
+/** A rank this module could have written: well formed, and short enough to keep. */
+function usableRank(slot: RankSlot | undefined): string | undefined {
+  const rank = rankOf(slot);
+  return rank.ranked && WELL_FORMED.test(rank.order) && rank.order.length <= MAX_RANK_LENGTH
+    ? rank.order
+    : undefined;
 }
 
 /**
@@ -148,10 +163,7 @@ export function isRanked(node: KbNode): node is RankedNode {
  * prose); two roots sharing a rank, and all unranked roots, fall back to id.
  * The store and every view sort roots with this one comparator.
  */
-export function compareRootOrder(
-  a: { readonly id: NodeId; readonly order?: string },
-  b: { readonly id: NodeId; readonly order?: string },
-): number {
+export function compareRootOrder(a: RankSlot, b: RankSlot): number {
   const ra = rankOf(a);
   const rb = rankOf(b);
   if (ra.ranked !== rb.ranked) return ra.ranked ? -1 : 1;
@@ -159,85 +171,148 @@ export function compareRootOrder(
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-/**
- * One-time additive migration: give ranks to nodes that do not have one yet,
- * in today's visible child/root order.
- *
- * It must never rewrite a rank that already exists. This runs on every
- * `openKb`, and the first version recomputed evenly-spaced ranks for every
- * sibling group and overwrote whatever was stored. Child order survived that
- * (the group came from `node.children`, which is already the visible order),
- * but the forest-root group was rebuilt with `.sort()` on the id, so every
- * server start silently reverted root reordering to id order — defeating the
- * root-level move/insert this rank was added to enable.
- */
-export function migrateOrderKeys(nodes: KbNode[]): { nodes: RankedNode[]; changed: boolean } {
-  const byId = new Map(nodes.map((node) => [node.id, node]));
-  const orderedGroups: NodeId[][] = [];
-  const children = new Set<NodeId>();
-  for (const node of nodes) {
-    orderedGroups.push(node.children.filter((id) => byId.has(id)));
-    node.children.forEach((id) => children.add(id));
+/** The first usable rank at or after `from` that leaves room above `low`. */
+function upperBound(
+  siblings: readonly RankSlot[],
+  from: number,
+  low: string | undefined,
+): string | undefined {
+  for (let i = from; i < siblings.length; i++) {
+    const rank = usableRank(siblings[i]);
+    if (rank !== undefined && (low === undefined || low < rank)) return rank;
   }
-  orderedGroups.push(
-    nodes
-      .filter((node) => !children.has(node.id))
-      .toSorted(compareRootOrder)
-      .map((node) => node.id),
-  );
+  return undefined;
+}
 
-  const ranks = new Map<NodeId, string>();
-  for (const ids of orderedGroups) {
-    if (ids.length === 0) continue;
-    const stored = ids.map((id) => rankOf(byId.get(id)));
-    if (stored.every((rank) => rank.ranked)) continue; // fully ranked already — leave it alone
-    if (!stored.some((rank) => rank.ranked)) {
-      for (const [id, rank] of ranksFor(ids)) ranks.set(id, rank);
+/**
+ * The rank for a node placed at `position` in a sibling group.
+ *
+ * `siblings` is the group in visible order *without* the placed node, so
+ * `position` is the index it will have — the same number `node.add` and
+ * `node.update` take. A node that already has a rank keeps it when it still
+ * fits between its new neighbours, so re-placing a node where it already is
+ * writes nothing; otherwise the rank is derived from the nearest usable
+ * neighbours. A neighbour group that is itself out of order is the commit's
+ * to repair ({@link rankTx}), not this function's.
+ */
+export function rankForInsert(
+  siblings: readonly RankSlot[],
+  position: number,
+  current?: string,
+): string {
+  const at = Math.max(0, Math.min(position, siblings.length));
+  let low: string | undefined;
+  for (let i = at - 1; i >= 0 && low === undefined; i--) low = usableRank(siblings[i]);
+  const next = upperBound(siblings, at, undefined);
+  const own = usableRank({ id: "", order: current });
+  if (own !== undefined && (low === undefined || low < own) && (next === undefined || own < next)) {
+    return own;
+  }
+  return rankBetween(low, upperBound(siblings, at, low));
+}
+
+/**
+ * The ranks that make one sibling group well ranked: every member ranked,
+ * with a usable rank, strictly increasing along the visible order. Only the
+ * members whose rank changes are returned.
+ *
+ * Members are kept greedily — a rank above the last kept one stays — and the
+ * rest are placed between their neighbours, so duplicates, ties after a merge
+ * and a group whose ranks disagree with its children array are repaired with
+ * the fewest writes. A group holding a rank no one could have written (too
+ * long, malformed) is re-spread whole, which is also what keeps ranks short.
+ */
+function repairGroup(members: readonly RankSlot[]): Map<NodeId, string> {
+  const respread = (): Map<NodeId, string> => {
+    const spread = ranksFor(members.map((m) => m.id));
+    for (const m of members) if (spread.get(m.id) === m.order) spread.delete(m.id);
+    return spread;
+  };
+  if (members.some((m) => rankOf(m).ranked && usableRank(m) === undefined)) return respread();
+  const out = new Map<NodeId, string>();
+  let low: string | undefined;
+  for (let i = 0; i < members.length; i++) {
+    const member = present(members[i], "group member");
+    const own = usableRank(member);
+    if (own !== undefined && (low === undefined || low < own)) {
+      low = own;
       continue;
     }
-    // Mixed: rank only the gaps, between their already-ranked neighbours, so
-    // the visible sequence of this group is unchanged. A stored neighbour that
-    // leaves no room above the lower bound (a group whose ranks disagree with
-    // its children array) is skipped rather than handed to `rankBetween`.
-    for (let i = 0; i < ids.length; i++) {
-      const own = stored[i];
-      if (own?.ranked === true) continue;
-      let before: string | undefined;
-      for (let j = i - 1; j >= 0; j--) {
-        const neighbour = ids[j];
-        if (neighbour === undefined) continue;
-        const prior = stored[j];
-        const rank = prior?.ranked === true ? prior.order : ranks.get(neighbour);
-        if (rank !== undefined) {
-          before = rank;
-          break;
-        }
-      }
-      let after: string | undefined;
-      for (let j = i + 1; j < ids.length; j++) {
-        const storedAfter = stored[j];
-        if (storedAfter?.ranked === true && hasRoomAbove(before, storedAfter.order)) {
-          after = storedAfter.order;
-          break;
-        }
-      }
-      const gapId = present(ids[i], "order gap id");
-      ranks.set(gapId, rankBetween(before, after));
-    }
+    const rank = rankBetween(low, upperBound(members, i + 1, low));
+    if (rank.length > MAX_RANK_LENGTH) return respread();
+    out.set(member.id, rank);
+    low = rank;
+  }
+  return out;
+}
+
+/**
+ * `tx` as it commits: its upserts, plus whatever rank repairs the sibling
+ * groups it touches need, so that every group a commit writes to is well
+ * ranked in the state it lands in.
+ *
+ * Every store adapter runs this inside its own exclusion, against the state
+ * it is about to merge into. That is what makes the rank of a node created
+ * without one — or two siblings appended concurrently from the same stale
+ * read — the store's to settle, once, rather than each writer's guess. A
+ * group is touched when the tx upserts one of its members, or the parent
+ * whose children array it is. Untouched groups are left exactly as stored.
+ */
+export function rankTx(previous: readonly KbNode[], tx: StoreTx): StoreTx {
+  if (tx.upserts.length === 0) return tx;
+  const next = applyTx(previous, tx);
+  const parentOf = new Map<NodeId, NodeId>();
+  for (const node of next.values()) for (const child of node.children) parentOf.set(child, node.id);
+
+  const groups = new Set<NodeId | null>();
+  for (const node of tx.upserts) {
+    groups.add(parentOf.get(node.id) ?? null);
+    if (node.children.length > 0) groups.add(node.id);
   }
 
-  let changed = false;
-  const migrated = nodes.map((node): RankedNode => {
-    if (isRanked(node)) return node; // never overwrite an existing rank
-    changed = true;
-    /*
-     * Every node belongs to exactly one sibling group — its parent's children
-     * or the forest root — and the loop above leaves every group fully ranked,
-     * so an unranked node always has a rank waiting here. `present` states
-     * that invariant instead of widening the result back to "maybe unranked",
-     * which is the whole point of returning `RankedNode[]`.
-     */
-    return { ...node, order: present(ranks.get(node.id), `no sibling rank for ${node.id}`) };
+  const ranks = new Map<NodeId, string>();
+  for (const parent of groups) {
+    const members =
+      parent === null
+        ? [...next.values()].filter((n) => !parentOf.has(n.id)).toSorted(compareRootOrder)
+        : (next.get(parent)?.children ?? []).flatMap((id) => {
+            const member = next.get(id);
+            return member === undefined ? [] : [member];
+          });
+    for (const [id, rank] of repairGroup(members)) ranks.set(id, rank);
+  }
+  if (ranks.size === 0) return tx;
+
+  const upserts = tx.upserts.map((node) => {
+    const rank = ranks.get(node.id);
+    return rank === undefined ? node : { ...node, order: rank };
   });
-  return { nodes: migrated, changed };
+  const written = new Set(upserts.map((node) => node.id));
+  for (const [id, rank] of ranks) {
+    const node = next.get(id);
+    if (node !== undefined && !written.has(id)) upserts.push({ ...node, order: rank });
+  }
+  return { upserts, deletes: tx.deletes };
+}
+
+/**
+ * A sibling group in visible order — a parent's children, or the forest
+ * roots — optionally without one member. The group a node joins, without the
+ * node, is what a `position` indexes, on the server and in the UI alike.
+ */
+export function siblingSlots<N extends RankSlot & { readonly children: readonly NodeId[] }>(
+  nodes: Iterable<N>,
+  parent: NodeId | null,
+  excluding?: NodeId,
+): N[] {
+  const all = [...nodes];
+  if (parent !== null) {
+    const byId = new Map(all.map((n) => [n.id, n]));
+    return (byId.get(parent)?.children ?? []).flatMap((id) => {
+      const member = byId.get(id);
+      return member === undefined || id === excluding ? [] : [member];
+    });
+  }
+  const children = new Set(all.flatMap((n) => n.children));
+  return all.filter((n) => !children.has(n.id) && n.id !== excluding).toSorted(compareRootOrder);
 }

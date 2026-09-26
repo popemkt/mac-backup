@@ -32,6 +32,14 @@ export interface StoreCommit {
   readonly base: StoreFingerprint | null;
   /** The store's fingerprint after the write. */
   readonly fingerprint: StoreFingerprint | null;
+  /**
+   * The transaction as the store applied it: the caller's `tx` passed through
+   * `@kb/model`'s `rankTx` against the state it merged into, so every sibling
+   * group it touched is well ranked (DESIGN.md → Sibling ranks). This is what
+   * the tail recorded, and what a caller's index applies — never its own `tx`,
+   * which may lack the ranks the store settled.
+   */
+  readonly tx: StoreTx;
 }
 
 /**
@@ -80,6 +88,11 @@ export interface EffectStore {
    * Apply `tx`, record it on {@link txTail}, and report what the store did so
    * a caller can tell its own delta from the state that delta landed in. See
    * {@link StoreCommit}.
+   *
+   * Ranks are settled here, inside the adapter's exclusion: `tx` is passed
+   * through `rankTx` against the state it merges into before anything is
+   * written, so a node committed without a rank gets one and two writers that
+   * appended from the same read never leave siblings sharing a rank.
    *
    * `record` is the caller's half of the log entry — the rev is the tail's to
    * assign. It is required rather than optional because a commit nobody

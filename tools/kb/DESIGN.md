@@ -368,18 +368,15 @@ right field shape with no further checks: no `!`, no `as`, no field that
   `textOr`) owns that test in one place.
 - **No optional-where-discriminated.** If a field is sometimes present and the
   rule for when it appears is encodable, do not write `field?: T` — lift the
-  rule into a discriminator. `KbNode.order?` is the worked example. A
-  fractional sibling rank is absent only on a row minted before fractional
-  ordering existed, and the canonical writer must never invent one, so absence
-  is a real stored state; but it is a state of the *store*, not of a live
-  node, because `openKb` runs `migrateOrderKeys` before anything else sees the
-  nodes. The discriminator is therefore which of two **types** a node has:
-  `KbNode` is what a row may be, `RankedNode` is what the migration returns,
-  and `migrateOrderKeys` is the total function between them. No reader compares
-  `order` against `undefined`; `rankOf` (a `NodeRank` union) and `isRanked`
-  (its narrowing) are the one way to ask. `KbNodeSchema` declares
-  `order: optionalKey(NonEmptyString)`, which is what makes that one test
-  rather than two: absence is the only way to be unranked.
+  rule into a discriminator. `KbNode.order?` is the case that looks like an
+  exception and is not: absence is a real state with no rule to encode. A node
+  is unranked until a commit writes its sibling group, and a node handed to the
+  store without a rank, or written outside kb, is exactly that; the store ranks
+  it on that commit ([Sibling ranks](#sibling-ranks)), so no reader waits for a
+  migration to make the field total. What stays one test is the asking: no
+  reader compares `order` against `undefined`; `rankOf` (a `NodeRank` union) is
+  the one way, and `KbNodeSchema` declares `order: optionalKey(NonEmptyString)`
+  so absence is the only way to be unranked.
 - **Discriminators are literals**, never `Schema.String`. `PropValue.t`,
   `ActionReceipt.status`, `ServerMessage.op`, `MemberReason.kind` and
   `DomainError.code` are the model's discriminators and each is a literal
@@ -432,7 +429,7 @@ interface KbNode {
   text: string;
   props: Record<NodeId, PropValue[]>; // key = FIELD NODE id, not a string
   children: NodeId[]; // ordered outline
-  order?: string; // fractional sibling rank; absent only pre-migration (see Domain typing)
+  order?: string; // fractional sibling rank; absent until a commit ranks it (see Sibling ranks)
   createdAt: string;
   updatedAt: string;
 }
@@ -586,6 +583,50 @@ type PropValue =
   `[id :f/<fieldId> v]` with ref values as entity refs → native datalog joins
   and graph traversal.
 
+### Sibling ranks
+
+A sibling group is a parent's `children`, or the forest roots. A child's place
+is its index in the parent's array; the forest roots have no array, so their
+order is each root's `order` rank. Every node carries a rank all the same, kept
+consistent with its group's visible order, so that a node moving between the
+two kinds of group already has one that fits. The home of the mechanism is
+`@kb/model`'s `order.ts`, and every writer goes through it: the create and
+move operations, every store's commit, the merge, and — through the operations
+— the UI, which sends only a position.
+
+- **A rank is a variable-length base-36 fraction.** `rankBetween(a, b)` is
+  always strictly between its bounds, because a rank can always grow by a
+  character; a head or tail insert steps the first digit that can move instead
+  of halving the gap. No rank ends in `0` (it would tie with its own prefix);
+  a bound that does is read without it. The property test beside it holds
+  `a < between(a, b) < b` for any two ranks, long ones included.
+- **A placement is a position, and the rank is derived.** `node.add` and
+  `node.update` take `parent` and `position` — the index in the target group,
+  the end when omitted — and never a rank. `rankForInsert(siblings, position,
+  current)` is the one derivation; it keeps a moved node's rank when it still
+  fits, so re-placing a node where it is writes nothing. `compareRootOrder` is
+  the one root comparator (ranked first by code units, then id), and
+  `siblingSlots` the one group view a position indexes, on the server and in
+  the UI alike.
+- **The commit settles ranks; the store promises it.** Every `EffectStore`
+  adapter passes each transaction through `rankTx` against the state it is
+  about to merge into, inside its own exclusion, and applies, records and
+  reports (`StoreCommit.tx`) that result. `rankTx` repairs every group the
+  transaction touches — a member upserted, or the parent whose array it is —
+  so that every member is ranked, ranks are well formed and at most 12
+  characters, and they strictly increase along the visible order. It keeps
+  what already fits, places the rest between their neighbours, and re-spreads
+  a group only when it holds a rank no writer could have produced. A node
+  committed without a rank therefore gets one, and two writers that appended
+  from one read never leave two siblings on one rank: the second commit sees
+  the first. Untouched groups are left exactly as stored. `storeContract`
+  holds all of this for every backend.
+- **Opening is a read.** `openKb` writes only when a real migration runs (the
+  seed adds or retires something, or a field-type value is rewritten), and
+  then commits exactly the nodes it changed. A node without a rank is ordered
+  in memory by `compareRootOrder` and ranked by the next commit that writes its
+  group, so reopening a store leaves its bytes, fingerprint and tail alone.
+
 ### Kinds, roles and options
 
 **A supertag says what a node *is*. A behaviour is a field. An option set is
@@ -651,7 +692,15 @@ Both adapters answer the same three questions and are proven by the same
 tests: `storeContract(name, makeStore)` in `@kb/test-kit` is one `describe`
 block that each adapter's test file calls with its own factory. A property
 that holds for one backend and not the other is not a store property, and the
-contract is where that gets found out.
+contract is where that gets found out. The contract also holds what a session
+over the port promises because of it — opening is a read, and a node created
+without a rank gets one and keeps it — since a session guarantee that held on
+one backend alone would be that backend's property.
+
+A commit settles sibling ranks before it writes ([Sibling ranks](#sibling-ranks)).
+That is a port promise, not an adapter habit: each adapter runs `rankTx` inside
+its exclusion and reports the result as `StoreCommit.tx`, which is what the
+tail records and what a session's index applies.
 
 `storeBenchmark(name, makeStore)` sits beside it and is measured the same way:
 the 50k-node first write, cold load, datom build, query, `kb set`-shaped commit

@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { present } from "@kb/model";
+import { present, siblingSlots } from "@kb/model";
 import { fixtureGraph } from "@/api/fixture-graph";
-import { planDelete, planIndent, planMergeInto, planMove, planSetProp, planSplit } from "./plan";
+import {
+  planDelete,
+  planIndent,
+  planInsertSibling,
+  planMergeInto,
+  planMove,
+  planSetProp,
+  planSplit,
+} from "./plan";
 
 describe("outline action input builders", () => {
   it("split keeps the expanded-first-child decision in the UI", () => {
@@ -30,6 +38,28 @@ describe("outline action input builders", () => {
     ]);
     expect(present(planMove(fixtureGraph.nodes, "n.child-a2", "up"), "move").actions).toEqual([
       { id: "node.update", input: { id: "n.child-a2", position: 0 } },
+    ]);
+  });
+
+  it("root inserts and moves send a position in the root group, never a rank", () => {
+    const roots = siblingSlots(fixtureGraph.nodes, null).map((n) => n.id);
+    const moved = present(planMove(fixtureGraph.nodes, "n.root-b", "up"), "root move").actions;
+    // Before the visible root above it, counted over the whole root group.
+    expect(moved).toEqual([
+      {
+        id: "node.update",
+        input: {
+          id: "n.root-b",
+          position: roots.filter((id) => id !== "n.root-b").indexOf("n.root-a"),
+        },
+      },
+    ]);
+    const inserted = planInsertSibling(fixtureGraph.nodes, "n.root-a", "after", "new").actions;
+    expect(inserted).toEqual([
+      {
+        id: "node.add",
+        input: { id: "new", text: "", position: roots.indexOf("n.root-a") + 1 },
+      },
     ]);
   });
 

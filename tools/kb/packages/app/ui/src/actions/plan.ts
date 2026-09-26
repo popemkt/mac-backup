@@ -2,8 +2,7 @@ import type { ActionInvocation, WireNode } from "@kb/contracts";
 import {
   graphRendererId,
   fieldTypeValue,
-  rankBetween,
-  rankOf,
+  siblingSlots,
   wouldCreateExtendsCycle,
   type FieldType,
 } from "@kb/model";
@@ -121,13 +120,11 @@ export function planIndent(nodes: WireNode[], id: string): PlannedMutation | nul
 export function planOutdent(nodes: WireNode[], id: string): PlannedMutation | null {
   const parent = findParentWire(nodes, id);
   if (!parent) return null;
-  const grand = findParentWire(nodes, parent.id);
-  return update(
-    id,
-    grand
-      ? { parent: grand.id, position: grand.children.indexOf(parent.id) + 1 }
-      : { parent: null },
-  );
+  const grand = findParentWire(nodes, parent.id)?.id ?? null;
+  return update(id, {
+    parent: grand,
+    position: groupIds(nodes, grand, id).indexOf(parent.id) + 1,
+  });
 }
 export function planMove(
   nodes: WireNode[],
@@ -137,17 +134,13 @@ export function planMove(
   const parent = findParentWire(nodes, id);
   const siblings = parent?.children ?? forestRootIds(nodes);
   const index = siblings.indexOf(id);
-  const position = direction === "up" ? index - 1 : index + 1;
-  if (position < 0 || position >= siblings.length) return null;
-  if (parent) return update(id, { position });
-  const reordered = siblings.toSpliced(index, 1).toSpliced(position, 0, id);
-  const byId = wireById(nodes);
-  return update(id, {
-    order: rankBetween(
-      rankKey(byId.get(reordered[position - 1] ?? "")),
-      rankKey(byId.get(reordered[position + 1] ?? "")),
-    ),
-  });
+  const neighbour = siblings[direction === "up" ? index - 1 : index + 1];
+  if (index < 0 || neighbour === undefined) return null;
+  // Visible roots are a subsequence of the root group (fields, tags and
+  // `sys.*` roots sit in it unseen), so the position is the neighbour's index
+  // in the whole group: before it going up, after it going down.
+  const group = groupIds(nodes, parent?.id ?? null, id);
+  return update(id, { position: group.indexOf(neighbour) + (direction === "up" ? 0 : 1) });
 }
 
 export function planSetProp(
@@ -288,10 +281,13 @@ export function planOntologySetClosure(
     : planSetProp(nodes, id, SYSTEM_IDS.ontoClosureField, { t: "str", v: mode }, old);
 }
 
-/** A sibling's rank as a `rankBetween` bound: its order when ranked, open when not. */
-function rankKey(node: WireNode | undefined): string | undefined {
-  const rank = rankOf(node);
-  return rank.ranked ? rank.order : undefined;
+/**
+ * The sibling group `id` joins under `parent` (null: the roots), in visible
+ * order and without `id` — what a `position` indexes. The rank that position
+ * implies is the server's to derive; the UI only says where.
+ */
+function groupIds(nodes: WireNode[], parent: string | null, id: string): string[] {
+  return siblingSlots(nodes, parent, id).map((node) => node.id);
 }
 
 function addNode(
@@ -300,9 +296,8 @@ function addNode(
   {
     parent,
     position,
-    order,
     props,
-  }: { parent?: string; position?: number; order?: string; props?: WireNode["props"] } = {},
+  }: { parent?: string; position?: number; props?: WireNode["props"] } = {},
 ): PlannedMutation {
   return {
     actions: [
@@ -311,8 +306,8 @@ function addNode(
         input: {
           id,
           text,
-          ...(parent !== undefined ? { parent, position } : {}),
-          ...(order !== undefined ? { order } : {}),
+          ...(parent !== undefined ? { parent } : {}),
+          ...(position !== undefined ? { position } : {}),
           ...(props
             ? {
                 props: Object.entries(props).flatMap(([field, values]) =>
@@ -334,17 +329,11 @@ export function planInsertSibling(
   id: string,
   text = "",
 ): PlannedMutation {
-  const parent = findParentWire(nodes, anchorId);
-  const siblings = parent?.children ?? forestRootIds(nodes);
-  const anchor = siblings.indexOf(anchorId);
+  const parent = findParentWire(nodes, anchorId)?.id ?? null;
+  const anchor = groupIds(nodes, parent, id).indexOf(anchorId);
   if (anchor < 0) throw new Error(`anchor not found: ${anchorId}`);
   const position = side === "after" ? anchor + 1 : anchor;
-  const byId = wireById(nodes);
-  const order = rankBetween(
-    rankKey(byId.get(siblings[position - 1] ?? "")),
-    rankKey(byId.get(siblings[position] ?? "")),
-  );
-  return addNode(id, text, { parent: parent?.id, position, order });
+  return addNode(id, text, { ...(parent !== null ? { parent } : {}), position });
 }
 export const planInsertChild = (
   n: WireNode[],

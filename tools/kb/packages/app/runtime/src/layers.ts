@@ -2,9 +2,10 @@ import { Effect, Layer } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import {
   currentIso,
+  applyTx,
+  diffTx,
   ensureSystemSeed,
   migrateFieldTypeValues,
-  migrateOrderKeys,
   type DomainError,
   type KbNode,
 } from "@kb/model";
@@ -59,20 +60,29 @@ export function kbRuntimeLayer(
   );
 }
 
+/**
+ * Open a session over the root's store.
+ *
+ * Opening is a read. It writes only when a real migration runs — the system
+ * seed adds or retires nodes, or a field-type value is rewritten — and then it
+ * commits exactly the nodes that migration changed, never the whole set. Ranks
+ * are not a migration: a node without one is ordered by `compareRootOrder`
+ * in memory and ranked by the store on the next commit that writes its
+ * sibling group (DESIGN.md → Sibling ranks), so reopening a store leaves its
+ * bytes, its fingerprint and its tail alone.
+ */
 export const openKbEffect = Effect.fn("kb.open")(function* (
   root: string,
 ): Effect.fn.Return<KbContext, DomainError, FileSystem> {
   const store = yield* selectStore(root);
-  let nodes = yield* store.loadEffect;
+  const loaded = yield* store.loadEffect;
   const at = yield* currentIso;
-  const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(nodes, at);
+  const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(loaded, at);
   const typed = migrateFieldTypeValues(seeded);
-  const migrated = migrateOrderKeys(typed.nodes);
-  if (didSeed || nodes.length === 0 || deletes.length > 0 || typed.changed || migrated.changed) {
-    nodes = migrated.nodes;
-    yield* store.commitEffect({ upserts: nodes, deletes }, { at });
-  } else {
-    nodes = migrated.nodes;
+  let nodes = loaded;
+  if (didSeed || deletes.length > 0 || typed.changed) {
+    const commit = yield* store.commitEffect(diffTx(loaded, typed.nodes), { at });
+    nodes = [...applyTx(loaded, commit.tx).values()];
   }
   const index = new DatascriptIndex(nodes);
   const ctx: KbContext = {

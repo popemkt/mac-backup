@@ -214,7 +214,7 @@ export default actions;
       commitEffect: (tx) =>
         Effect.sync(() => {
           commits.push(tx);
-          return { base: null, fingerprint: null };
+          return { base: null, fingerprint: null, tx };
         }),
     };
 

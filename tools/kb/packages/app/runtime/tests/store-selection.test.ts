@@ -121,10 +121,16 @@ describe("selectStore", () => {
 
 describe("migrateStore", () => {
   test("jsonl → sqlite → jsonl keeps every node and leaves one store behind", async () => {
+    let held: KbNode[] = [];
     const exit = await withRoot((root) =>
       Effect.gen(function* () {
-        const written = [node("n-a", "a"), node("n-b", "b"), node("n-c", "c")];
-        yield* new JsonlStore(root).commitEffect({ upserts: written, deletes: [] }, { at: AT });
+        const source = new JsonlStore(root);
+        yield* source.commitEffect(
+          { upserts: [node("n-a", "a"), node("n-b", "b"), node("n-c", "c")], deletes: [] },
+          { at: AT },
+        );
+        // What the source holds, ranks settled by its commit, is what must arrive.
+        held = yield* source.loadEffect;
 
         const toSqlite = yield* migrateStore(root, "sqlite");
         expect(toSqlite).toMatchObject({ from: "jsonl", to: "sqlite", nodes: 3 });
@@ -147,7 +153,8 @@ describe("migrateStore", () => {
         return yield* onJsonl.loadEffect;
       }),
     );
-    expect(succeeded(exit)).toEqual([node("n-a", "a"), node("n-b", "b"), node("n-c", "c")]);
+    expect(succeeded(exit)).toEqual(held);
+    expect(held).toHaveLength(3);
   });
 
   test("the transaction tail moves with the nodes, revs preserved", async () => {

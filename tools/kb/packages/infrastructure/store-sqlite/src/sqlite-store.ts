@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import { watch } from "node:fs";
 import { dirname } from "node:path";
 import { Effect, Predicate, type Stream } from "effect";
@@ -6,6 +7,7 @@ import {
   decodeStoredNode,
   domainError,
   isDomainError,
+  rankTx,
   type DomainError,
   type KbNode,
   type StoreTx,
@@ -94,8 +96,8 @@ export class SqliteStore implements EffectStore {
     const fingerprint = this.fingerprint;
     const txTail = this.txTail;
     return Effect.gen(function* () {
-      const base = yield* commitTx(connection, path, { tx, record, expected }, txTail);
-      return { base, fingerprint: yield* fingerprint };
+      const { base, applied } = yield* commitTx(connection, path, { tx, record, expected }, txTail);
+      return { base, fingerprint: yield* fingerprint, tx: applied };
     });
   }
 
@@ -112,17 +114,18 @@ interface CommitRequest {
 }
 
 /**
- * Run one commit and return the fingerprint it merged into. Read inside the
- * immediate transaction, after sqlite's write lock is taken, so `base` is the
- * state the writes below land on and a conditional commit is checked against
- * exactly that.
+ * Run one commit and return the fingerprint it merged into, with the
+ * transaction as applied. Read inside the immediate transaction, after
+ * sqlite's write lock is taken, so `base` is the state the writes below land
+ * on, a conditional commit is checked against exactly that, and the ranks
+ * `rankTx` settles are settled against it too.
  */
 function commitTx(
   connection: SqliteConnection,
   path: string,
   { tx, record, expected }: CommitRequest,
   txTail: SqliteTxTail,
-): Effect.Effect<StoreFingerprint | null, DomainError> {
+): Effect.Effect<{ base: StoreFingerprint | null; applied: StoreTx }, DomainError> {
   return Effect.try({
     try: () => {
       const db = connection.open();
@@ -137,17 +140,18 @@ function commitTx(
           const stale = staleCommitError(expected, base);
           // Thrown to roll the transaction back; `catch` below passes it through.
           if (stale !== null) throw stale;
-          for (const id of tx.deletes) drop.run(id);
-          for (const node of tx.upserts) upsert.run(node.id, canonicalJson(node));
+          const applied = tx.upserts.length === 0 ? tx : rankTx(storedNodes(db, path), tx);
+          for (const id of applied.deletes) drop.run(id);
+          for (const node of applied.upserts) upsert.run(node.id, canonicalJson(node));
           // After the rows, whose triggers have moved `rev`, so the mark the
           // tail stamps is the one a reopen will read; inside the same
           // transaction, so on this backend the node rows and their log entry
           // are one act with no crash window between them. An empty
           // transaction is not recorded: it changes nothing and says nothing.
-          if (tx.upserts.length > 0 || tx.deletes.length > 0) {
-            txTail.appendWithin(db, tx, record);
+          if (applied.upserts.length > 0 || applied.deletes.length > 0) {
+            txTail.appendWithin(db, applied, record);
           }
-          return base;
+          return { base, applied };
         })
         .immediate();
     },
@@ -179,28 +183,38 @@ function loadNodes(
   connection: SqliteConnection,
   path: string,
 ): Effect.Effect<KbNode[], DomainError> {
-  return Effect.suspend(() => {
-    let rowId = "";
-    return Effect.try({
+  return Effect.suspend(() =>
+    Effect.try({
       try: () => {
         const db = connection.peek();
-        if (db === null) return [];
-        const rows = db.query<NodeRow, []>("SELECT id, body FROM nodes ORDER BY id").all();
-        // Accumulate only after every row validates — one bad row fails the
-        // whole load, so no caller ever sees a partial KbNode[].
-        const nodes: KbNode[] = [];
-        for (const row of rows) {
-          rowId = row.id;
-          nodes.push(decodeStoredNode(JSON.parse(row.body)));
-        }
-        return nodes;
+        return db === null ? [] : storedNodes(db, path);
       },
       catch: (err) =>
-        domainError(
-          "invalid_input",
-          `invalid node at ${path}#${rowId}: ${err instanceof Error ? err.message : String(err)}`,
-          { path, id: rowId },
-        ),
-    });
-  });
+        isDomainError(err)
+          ? err
+          : domainError("internal", err instanceof Error ? err.message : String(err)),
+    }),
+  );
+}
+
+/**
+ * Every row, decoded. One bad row throws a DomainError naming it, so no caller
+ * ever sees a partial KbNode[]. The load and the commit's rank settling read
+ * the rows through this one decoder.
+ */
+function storedNodes(db: Database, path: string): KbNode[] {
+  const rows = db.query<NodeRow, []>("SELECT id, body FROM nodes ORDER BY id").all();
+  const nodes: KbNode[] = [];
+  for (const row of rows) {
+    try {
+      nodes.push(decodeStoredNode(JSON.parse(row.body)));
+    } catch (err) {
+      throw domainError(
+        "invalid_input",
+        `invalid node at ${path}#${row.id}: ${err instanceof Error ? err.message : String(err)}`,
+        { path, id: row.id },
+      );
+    }
+  }
+  return nodes;
 }
