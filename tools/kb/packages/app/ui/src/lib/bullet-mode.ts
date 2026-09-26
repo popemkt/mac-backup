@@ -115,6 +115,19 @@ export const BULLET_GEOMETRY = {
   dot: { leaf: 4, parent: 5 },
 } as const;
 
+/** A kind glyph (# ⌗ ⚙ ▣ ◇ ⬡): set bold, at the label step of the UI face. */
+export const BULLET_GLYPH = { size: "--type-label", weight: 700 } as const;
+
+/**
+ * The query bullet's glyph: Phosphor's bold magnifier (MagnifyingGlass,
+ * `weight="bold"`), held here as the one path every renderer of a bullet
+ * draws — in a box of `viewBox` units, `BULLET_GEOMETRY.icon` pixels wide.
+ */
+export const BULLET_QUERY_ICON = {
+  viewBox: 256,
+  path: "M232.49,215.51,185,168a92.12,92.12,0,1,0-17,17l47.53,47.54a12,12,0,0,0,17-17ZM44,112a68,68,0,1,1,68,68A68.07,68.07,0,0,1,44,112Z",
+} as const;
+
 /** A `sys.*` bullet is drawn at this opacity. */
 export const BULLET_SYS_OPACITY = 0.5;
 

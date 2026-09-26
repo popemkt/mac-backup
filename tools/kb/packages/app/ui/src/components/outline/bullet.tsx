@@ -1,7 +1,8 @@
-import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import {
   BULLET_GEOMETRY,
+  BULLET_GLYPH,
+  BULLET_QUERY_ICON,
   BULLET_SYS_OPACITY,
   bulletPaintCss,
   outlineBulletAppearance,
@@ -23,14 +24,17 @@ interface BulletProps extends OutlineBulletOptions {
  * (`lib/bullet-mode`). Only the hover affordance is the DOM's own; it wins
  * over the painted ink (`!`), as it did over the ink classes.
  */
+/** A glyph's type, from the definition. */
+const GLYPH_TYPE = { fontSize: `var(${BULLET_GLYPH.size})`, fontWeight: BULLET_GLYPH.weight };
+
 function SupertagGlyph({ a }: { a: BulletAppearance }) {
   return (
     <span
       className={cn(
-        "relative z-[1] block select-none text-label font-bold leading-none",
+        "relative z-[1] block select-none leading-none",
         a.hasChildren && !a.collapsed && !a.tinted && "group-hover/bullet:text-foreground/70!",
       )}
-      style={{ color: bulletPaintCss(a.ink) }}
+      style={{ ...GLYPH_TYPE, color: bulletPaintCss(a.ink) }}
       aria-hidden
     >
       #
@@ -39,14 +43,20 @@ function SupertagGlyph({ a }: { a: BulletAppearance }) {
 }
 
 function QueryGlyph({ a }: { a: BulletAppearance }) {
+  const { viewBox, path } = BULLET_QUERY_ICON;
   return (
-    <MagnifyingGlassIcon
-      size={BULLET_GEOMETRY.icon}
-      weight="bold"
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={BULLET_GEOMETRY.icon}
+      height={BULLET_GEOMETRY.icon}
+      fill="currentColor"
+      viewBox={`0 0 ${viewBox} ${viewBox}`}
       className="relative z-[1]"
       style={{ color: bulletPaintCss(a.ink) }}
       data-bullet-query
-    />
+    >
+      <path d={path} />
+    </svg>
   );
 }
 
@@ -73,8 +83,8 @@ function RefRing({ a }: { a: BulletAppearance }) {
 function KindGlyph({ a }: { a: BulletAppearance }) {
   return (
     <span
-      className="relative z-[1] select-none text-label font-bold leading-none"
-      style={{ color: bulletPaintCss(a.ink) }}
+      className="relative z-[1] select-none leading-none"
+      style={{ ...GLYPH_TYPE, color: bulletPaintCss(a.ink) }}
       aria-hidden
     >
       {a.glyph}
