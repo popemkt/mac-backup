@@ -96,19 +96,23 @@ export interface ActionInvocation {
   input: unknown;
 }
 
+export const SucceededReceiptSchema = z.object({
+  status: z.literal("succeeded"),
+  id: z.string(),
+  output: z.unknown(),
+});
+
+export const FailedReceiptSchema = z.object({
+  status: z.literal("failed"),
+  id: z.string(),
+  code: FailureCodeSchema,
+  message: z.string(),
+  details: z.unknown().optional(),
+});
+
 export const ActionReceiptSchema = z.discriminatedUnion("status", [
-  z.object({
-    status: z.literal("succeeded"),
-    id: z.string(),
-    output: z.unknown(),
-  }),
-  z.object({
-    status: z.literal("failed"),
-    id: z.string(),
-    code: FailureCodeSchema,
-    message: z.string(),
-    details: z.unknown().optional(),
-  }),
+  SucceededReceiptSchema,
+  FailedReceiptSchema,
 ]);
 export type ActionReceipt = z.infer<typeof ActionReceiptSchema>;
 

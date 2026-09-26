@@ -44,7 +44,8 @@ import { restoreInvocations } from "@/actions/restore";
 import type { WireNode } from "@kb/contracts";
 import { typeRefsOf } from "@kb/model";
 import { useOutlineStore } from "@/stores/outline.store"; // GAP [[01M1RXMRB7AZB7DPFR6XBPBKQ9]]
-import { invoke, invokeLocal, pushInvocation, reconcileBrowserSession } from "@/session/runtime";
+import { invoke, invokeLocal, pushInvocation, writeLocal } from "@/session/runtime";
+import type { Hold } from "@/session/replica";
 
 function wire(): WireNode[] {
   return useOutlineStore.getState().wireNodes;
@@ -85,52 +86,31 @@ async function applyPlan(plan: PlannedMutation | null): Promise<boolean> {
   return result.ok;
 }
 
+/**
+ * Typed text not yet pushed. Its local write is already committed and held
+ * (DESIGN-UI.md → Replica sync → Holds); the coalesced flush is the push that
+ * settles `hold`. In fixture mode nothing is pushed, so nothing is held.
+ */
 type PendingContent = {
   text: string;
   timer: ReturnType<typeof setTimeout>;
+  hold: Hold | undefined;
 };
 
 const pendingContent = new Map<string, PendingContent>();
 
-/** Remote deltas retain a newer local text buffer until its FIFO flush lands. */
-export function mergeRemoteUpserts(upserts: WireNode[]): WireNode[] {
-  return upserts.map((remote) => {
-    const pending = pendingContent.get(remote.id);
-    return pending ? { ...remote, text: pending.text } : remote;
-  });
-}
-/**
- * Remote text writes have a deliberately small owner.  The old debounce map
- * captured a string in the timer closure, which meant a structural write
- * could overtake it (or, worse, be followed by it).  Keep one promise tail
- * per node instead: a node's writes are FIFO, while unrelated nodes are free
- * to flush concurrently.
- */
-const contentTails = new Map<string, Promise<void>>();
-
-function enqueueContent(id: string, task: () => Promise<void>): Promise<void> {
-  const previous = contentTails.get(id) ?? Promise.resolve();
-  const next = previous.catch(() => undefined).then(task);
-  contentTails.set(id, next);
-  void next.finally(() => {
-    if (contentTails.get(id) === next) contentTails.delete(id);
-  });
-  return next;
-}
-
-async function flushContentRemote(id: string, content: string): Promise<void> {
+async function flushContentRemote(id: string, pending: PendingContent): Promise<void> {
   const store = useOutlineStore.getState();
   if (store.loadSource === "fixtures" || store.loadSource === null) return;
 
   try {
-    const receipt = await pushInvocation({ id: "node.update", input: { id, text: content } });
-    if (receipt.status === "failed") {
-      toast(receipt.message);
-      reconcileBrowserSession();
-    }
+    const receipt = await pushInvocation(
+      { id: "node.update", input: { id, text: pending.text } },
+      pending.hold,
+    );
+    if (receipt.status === "failed") toast(receipt.message);
   } catch (err) {
     toast(err instanceof Error ? err.message : String(err));
-    reconcileBrowserSession();
   }
 }
 
@@ -140,38 +120,25 @@ function flushPendingContent(id: string, pending: PendingContent): Promise<void>
   // A newer keystroke may already have replaced this entry.  Only the entry
   // being flushed is removed; the newer one remains queued behind it.
   if (pendingContent.get(id) === pending) pendingContent.delete(id);
-  return enqueueContent(id, () => flushContentRemote(id, pending.text));
+  return flushContentRemote(id, pending);
 }
 
 /**
  * Structural plans must be made only after the server has seen the text that
- * their offsets/merges operate on.  Delete is the exception: unsent text is
- * discarded, and an already-sent write is awaited so the subsequent delete is
- * its compensating operation on that node's FIFO.
+ * their offsets/merges operate on. Every pending text is flushed, including
+ * that of a node about to be deleted: the one push lane orders the flush
+ * before the structural write, and the flush is what settles its hold.
  */
-async function prepareStructuralMutation(deleteIds: readonly string[] = []): Promise<void> {
-  const deleting = new Set(deleteIds);
-  const flushes: Promise<void>[] = [];
-  for (const [id, pending] of Array.from(pendingContent)) {
-    if (deleting.has(id)) {
-      clearTimeout(pending.timer);
-      if (pendingContent.get(id) === pending) pendingContent.delete(id);
-      continue;
-    }
-    flushes.push(flushPendingContent(id, pending));
-  }
-  await Promise.all(flushes);
-  // If a text POST was already in flight for a deleting node, wait for it
-  // before the delete action is planned/sent.  This is conservative (global
-  // structural flushing) but gives every touched node a strict FIFO.
-  await Promise.all([...deleting].map((id) => contentTails.get(id) ?? Promise.resolve()));
+async function prepareStructuralMutation(): Promise<void> {
+  await Promise.all(
+    Array.from(pendingContent, ([id, pending]) => flushPendingContent(id, pending)),
+  );
 }
 
 /** @internal Clear debounce map between tests. */
 export function __resetPendingContentForTests(): void {
   for (const pending of pendingContent.values()) clearTimeout(pending.timer);
   pendingContent.clear();
-  contentTails.clear();
 }
 
 export const mutations = {
@@ -186,7 +153,10 @@ export const mutations = {
     const plan = planUpdateText(store.wireNodes, id, content);
     const action = plan.actions[0];
     if (action === undefined) return;
-    const receipt = await invokeLocal(action);
+    const { receipt, hold } =
+      store.loadSource === "api"
+        ? await writeLocal(action, prev?.hold)
+        : { receipt: await invokeLocal(action), hold: undefined };
     if (receipt.status === "failed") {
       toast(receipt.message);
       return;
@@ -195,6 +165,7 @@ export const mutations = {
     if (prev) clearTimeout(prev.timer);
     pendingContent.set(id, {
       text: content,
+      hold,
       timer: setTimeout(() => {
         const latest = pendingContent.get(id);
         if (latest) void flushPendingContent(id, latest);
@@ -336,7 +307,7 @@ export const mutations = {
 
   async deleteNode(id: string): Promise<void> {
     if (!guardSysWrite(id)) return;
-    await prepareStructuralMutation([id]);
+    await prepareStructuralMutation();
     await applyPlan(planDelete(wire(), id));
   },
 
@@ -348,7 +319,7 @@ export const mutations = {
    */
   async mergeNextIntoThis(thisId: string, nextId: string): Promise<void> {
     if (!guardSysWrite(thisId) || !guardSysWrite(nextId)) return;
-    await prepareStructuralMutation([nextId]);
+    await prepareStructuralMutation();
     const plan = planMergeInto(wire(), nextId, thisId);
     if (!plan) return;
     await applyPlan(plan);
@@ -356,7 +327,7 @@ export const mutations = {
 
   async mergeWithPrevious(id: string, instanceKey?: string): Promise<void> {
     if (!guardSysWrite(id)) return;
-    await prepareStructuralMutation([id]);
+    await prepareStructuralMutation();
     let plan: PlannedMutation | null = null;
     if (instanceKey !== undefined) {
       const prevInst = useOutlineStore.getState().getPreviousVisibleInstance(instanceKey);

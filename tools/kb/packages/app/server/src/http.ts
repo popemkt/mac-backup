@@ -2,7 +2,7 @@ import { relative } from "node:path";
 import { Cause, Effect, Option } from "effect";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import { z } from "zod";
-import { TxOrigin, type KbContext } from "@kb/contracts";
+import { TxOrigin, type ActionResponse, type KbContext } from "@kb/contracts";
 import { reloadEffect } from "@kb/operations";
 import { type ActionHandlerEnv, invokeReceiptEffect, kbRuntimeLayer, manifest } from "@kb/runtime";
 import * as assets from "./assets.ts";
@@ -98,7 +98,12 @@ const handleHttpRequestEffect = (
         id: parsed.data.id,
         input: parsed.data.input ?? {},
       }).pipe(Effect.provideService(TxOrigin, req.headers.get("x-kb-origin") ?? undefined));
-      return jsonResponse(receipt);
+      // The head once the invocation has committed: the rev a client waits
+      // for before it lets the server's image replace its own (protocol.ts →
+      // ActionResponseSchema).
+      const response: ActionResponse =
+        receipt.status === "succeeded" ? { ...receipt, rev: ctx.log.head } : receipt;
+      return jsonResponse(response);
     }
 
     // W6a: opaque media files — before SPA / ui/dist so /assets never

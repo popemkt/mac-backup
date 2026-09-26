@@ -17,6 +17,7 @@ describe("browser action runtime", () => {
       status: "succeeded" as const,
       id: invocation.id,
       output: {},
+      rev: 2,
     }));
     setPostAction(post);
 
@@ -92,7 +93,7 @@ describe("browser action runtime", () => {
   it("requests reconciliation when the remote confirmation fails", async () => {
     useOutlineStore.getState().hydrateFromWire(structuredClone(fixtureGraph.nodes), 7, "api");
     const since = vi.fn();
-    setBrowserLink({ since, fetchSnapshot: vi.fn() });
+    setBrowserLink({ since, fetchSnapshot: vi.fn(), retryAfter: vi.fn() });
     setPostAction(async (invocation) => ({
       status: "failed",
       id: invocation.id,

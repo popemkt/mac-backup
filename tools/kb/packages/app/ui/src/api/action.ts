@@ -1,10 +1,10 @@
-/** POST /api/action — registry.invoke receipt shape (mirrors shared/contracts). */
+/** POST /api/action — the receipt and, on success, the rev it committed at (protocol.ts). */
 
-import { ActionReceiptSchema, type ActionInvocation, type ActionReceipt } from "@kb/contracts";
+import { ActionResponseSchema, type ActionInvocation, type ActionResponse } from "@kb/contracts";
 
-export type { ActionInvocation, ActionReceipt };
+export type { ActionInvocation, ActionResponse };
 
-export type PostActionFn = (invocation: ActionInvocation) => Promise<ActionReceipt>;
+export type PostActionFn = (invocation: ActionInvocation) => Promise<ActionResponse>;
 
 let postActionImpl: PostActionFn = defaultPostAction;
 
@@ -18,14 +18,14 @@ export function getClientOrigin(): string {
   return clientOrigin;
 }
 
-async function defaultPostAction(invocation: ActionInvocation): Promise<ActionReceipt> {
+async function defaultPostAction(invocation: ActionInvocation): Promise<ActionResponse> {
   const res = await fetch("/api/action", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-KB-Origin": getClientOrigin() },
     body: JSON.stringify(invocation),
   });
   const json: unknown = await res.json().catch(() => null);
-  const parsed = ActionReceiptSchema.safeParse(json);
+  const parsed = ActionResponseSchema.safeParse(json);
   if (parsed.success) return parsed.data;
   return {
     status: "failed",
@@ -40,6 +40,6 @@ export function setPostAction(fn: PostActionFn | null): void {
   postActionImpl = fn ?? defaultPostAction;
 }
 
-export function postAction(id: string, input: unknown): Promise<ActionReceipt> {
+export function postAction(id: string, input: unknown): Promise<ActionResponse> {
   return postActionImpl({ id, input });
 }

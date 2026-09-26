@@ -12,10 +12,10 @@ import type { KbNode, StoreTx } from "@kb/model";
 import { KbIndexService, type KbIndex } from "@kb/query"; // GAP [[01M1RXNP3EMV1ES85BVE9CXMYE]]
 import { StoreTxLog } from "@kb/tx-log";
 import { invokeReceiptWith, isomorphicActions, noteStoreSynced, portActions } from "@kb/operations";
-import { postAction } from "@/api/action";
+import { postAction, type ActionResponse } from "@/api/action";
 import { toast } from "@/lib/toast";
 import { BrowserStore } from "./browser-store";
-import { BrowserReplica, type ReplicaLink } from "./replica";
+import { BrowserReplica, type Hold, type ReplicaLink } from "./replica";
 
 /** How the outline store projects the session: local commits, server deltas, snapshots. */
 export interface BrowserSessionView {
@@ -70,8 +70,13 @@ export function replaceBrowserSession(
     ),
     onLocalCommit: view.onLocalCommit,
     replica: new BrowserReplica(
+      nodes,
       rev,
-      { apply: view.applyServerTx, install: view.installServerSnapshot },
+      {
+        apply: view.applyServerTx,
+        install: view.installServerSnapshot,
+        local: (id) => index.getNode(id),
+      },
       () => link,
     ),
   };
@@ -106,20 +111,16 @@ export function setBrowserLink(next: ReplicaLink | null): void {
   link = next;
 }
 
-export function reconcileBrowserSession(): void {
-  session?.replica.receive({ op: "reconcile" });
-}
-
 function requireSession(): BrowserSession {
   if (session === null) throw new Error("browser kb session is not hydrated");
   return session;
 }
 
 /**
- * One ordered network lane for browser mutations. Server failure asks the
- * live socket for `since(rev)`; only the socket may escalate that to snapshot.
+ * One ordered network lane for browser mutations. A push that carries a hold
+ * settles it with its receipt (DESIGN-UI.md → Replica sync → Holds).
  */
-export function pushInvocation(invocation: ActionInvocation): Promise<ActionReceipt> {
+export function pushInvocation(invocation: ActionInvocation, hold?: Hold): Promise<ActionResponse> {
   const result = pushTail
     .catch(() => undefined)
     .then(() => postAction(invocation.id, invocation.input));
@@ -127,7 +128,19 @@ export function pushInvocation(invocation: ActionInvocation): Promise<ActionRece
     () => undefined,
     () => undefined,
   );
-  return result;
+  if (hold === undefined) return result;
+  const { replica } = requireSession();
+  return result.then(
+    (response) => {
+      if (response.status === "succeeded") replica.settle(hold, response.rev);
+      else replica.drop(hold);
+      return response;
+    },
+    (error: unknown) => {
+      replica.drop(hold);
+      throw error;
+    },
+  );
 }
 
 /** Wait until the ordered push lane drains. Test-only observation seam. */
@@ -149,20 +162,37 @@ export function invokeLocal(invocation: ActionInvocation): Promise<ActionReceipt
   });
 }
 
+/**
+ * A local write that will be pushed: commit it, and hold every id the commit
+ * touched until the push settles. `into` joins an open hold (typed text).
+ */
+export async function writeLocal(
+  invocation: ActionInvocation,
+  into?: Hold,
+): Promise<{ receipt: ActionReceipt; hold?: Hold }> {
+  const current = requireSession();
+  const before = current.store.txTail.head();
+  const receipt = await invokeLocal(invocation);
+  if (receipt.status === "failed") return { receipt };
+  const touched = current.store.txTail
+    .entries()
+    .flatMap((tx) =>
+      tx.rev > before ? [...tx.ops.upserts.map((node) => node.id), ...tx.ops.deletes] : [],
+    );
+  return { receipt, hold: current.replica.hold(touched, into) };
+}
+
 function surfacePushFailure(receipt: ActionReceipt): void {
-  if (receipt.status === "succeeded") return;
-  toast(receipt.message);
-  reconcileBrowserSession();
+  if (receipt.status === "failed") toast(receipt.message);
 }
 
 export async function invoke(id: string, input: unknown): Promise<ActionReceipt> {
   const invocation: ActionInvocation = { id, input };
   if (remoteOnlyActions.has(id) || !localActions.has(id)) return pushInvocation(invocation);
-  const receipt = await invokeLocal(invocation);
+  const { receipt, hold } = await writeLocal(invocation);
   if (receipt.status === "failed") return receipt;
-  void pushInvocation(invocation).then(surfacePushFailure, (error: unknown) => {
+  void pushInvocation(invocation, hold).then(surfacePushFailure, (error: unknown) => {
     toast(error instanceof Error ? error.message : String(error));
-    reconcileBrowserSession();
   });
   return receipt;
 }

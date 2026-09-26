@@ -10,6 +10,7 @@ describe("debounced text invocation", () => {
     status: "succeeded" as const,
     id: invocation.id,
     output: {},
+    rev: 2,
   }));
 
   beforeEach(() => {

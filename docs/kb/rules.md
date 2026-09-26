@@ -56,14 +56,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Draw links as screen-space quads (three's Line2NodeMaterial / LineSegments2 with a per-instance width updated in place, or a TSL quad strip), sized by the square root of weight, keeping the one-draw batch and no per-frame allocation.
 - **node** — `01M3AZSFJ9A8K8FYGHF5ADEAPT`
 
-### GAP: a confirming frame for an earlier write overwrites a later optimistic write
-
-- **expected** — While a node has local writes the server has not confirmed yet, a remote frame never rolls it back to an older state. The browser holds or rebases the remote node until its own writes are confirmed. The text-only pendingContent carve-out in actions/mutations.ts becomes one case of that rule.
-- **current** — The browser replica has two writers. invoke/invokeLocal (session/runtime.ts) apply a local write to the browser store and index, then onLocalCommit -> syncFromIndex (outline.store.ts) projects it into wireNodes and nodes; the write is then pushed on the ordered lane, and its POST receipt is never merged. Socket tx frames are the confirming writer: live.ts applies each through mergeRemoteUpserts and applyTx as it arrives, and mergeRemoteUpserts shields only a pending text buffer. Each frame carries the whole node as the server had it after that one write, so the frame for write k overwrites local writes k+1..n until their own frames land; a resolved POST says nothing about whether its frame has been merged. rev moves only on hydrateFromWire, applyTx({rev}) and refreshFromWire. SubscriptionHub's claim that an optimistic apply is idempotent under its confirming frame holds only while one write is in flight. palette.e2e.ts works around it by waiting for the test-render data-kb-rev marker to reach the server head after its write.
-- **impact** — Fast consecutive edits on one node flicker. A field row can unmount mid-gesture, which drops its pending + value slot and sends the next keystrokes into another editor. palette.e2e.ts 'Add field' failed about 1 run in 4 under parallel load: later was appended to high (a highlater value), or typed into the node title.
-- **closes** — Track the nodes each in-flight local invocation touched, from its local StoreTx. Hold remote upserts for those nodes, then apply the newest held node once the node's last write is confirmed. Or tag tx frames with origin and invocation id, and rebase unconfirmed invocations on ingest. Then fold pendingContent in, and remove both halves of the workaround: the palette spec's settle wait, and the test-render data-kb-rev hook in outline.store.ts. Pin the behaviour with a spec that delays pushes.
-- **node** — `01M3A6NB33CT1EMM418HBN8GTT`
-
 ### GAP: a date value has two carriers, {t:str} and {t:date}
 
 - **expected** — One carrier per declared type: a date field's values are one PropValue kind, and the accepted-kinds table in @kb/model (FIELD_VALUE_KINDS in field-type.ts) lists exactly one kind for date, as it does for every other type.
@@ -118,7 +110,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: api/live.ts writes straight into the outline and ui stores
 
 - **expected** — api/ speaks to the server and hands results back. Applying a delta to a store is the caller's job — the session runtime or an action.
-- **current** — api/live.ts imports useOutlineStore and useUiStore and pushes tx deltas, resync results, connection status and error toasts into them directly. Two import sites.
+- **current** — api/live.ts imports useUiStore and pushes connection status and error toasts, a failed snapshot fetch included, into it directly. One import site. Tx deltas and snapshots no longer reach a store from here: live.ts hands them to the browser session's sync machine (session/replica.ts), which applies them through the view the outline store registered.
 - **impact** — The transport layer owns store shape, so the outline-store split reaches into api/, and the live connection cannot be driven in a test without both stores.
 - **closes** — live.ts emits results and status on its own surface; the session runtime or an action subscribes and applies them. Lands with the outline-store split.
 - **rule** — UI import matrix
@@ -541,6 +533,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Two typescript/no-unsafe-type-assertion hits remain in ui src. One of them is the seam that deleted fourteen per-callback assertions; the other is the labelled-node sprite accessor.
 - **closes** — Upstream exports a generic constructor and types nodeThreeObject as Object3D | falsy, or those two members become augmentable exported interfaces.
 - **node** — `01M1P2RAJVTB4CESYGEVF7NDE1`
+
+### GAP: a confirming frame for an earlier write overwrites a later optimistic write
+
+- **expected** — While a node has local writes the server has not confirmed yet, a remote frame never rolls it back to an older state. The browser holds or rebases the remote node until its own writes are confirmed. The text-only pendingContent carve-out in actions/mutations.ts becomes one case of that rule.
+- **current** — Closed by the browser replica's sync machine (tools/kb/DESIGN-UI.md → Replica sync). session/replica.ts holds each pushed local write, over the ids its local commit touched, until the replica reaches the rev its POST receipt names (ActionResponseSchema.rev in protocol.ts). An applied frame or an installed snapshot can reach that rev, and a write the server commits as a no-op is released by its receipt alone. A frame for a held id lands in the server image, not on screen. A failed or thrown push drops only its own hold, then asks since. Typed text is one case of the hold: its keystrokes join one hold, and the coalesced flush settles it, so mergeRemoteUpserts is gone. The palette.e2e.ts settle wait and the test-render data-kb-rev hook are removed. replica.test.ts pins every transition, and replica.scenarios.test.ts pins every reviewed scenario end to end.
+- **impact** — Fast consecutive edits on one node flicker. A field row can unmount mid-gesture, which drops its pending + value slot and sends the next keystrokes into another editor. palette.e2e.ts 'Add field' failed about 1 run in 4 under parallel load: later was appended to high (a highlater value), or typed into the node title.
+- **closes** — Track the nodes each in-flight local invocation touched, from its local StoreTx. Hold remote upserts for those nodes, then apply the newest held node once the node's last write is confirmed. Or tag tx frames with origin and invocation id, and rebase unconfirmed invocations on ingest. Then fold pendingContent in, and remove both halves of the workaround: the palette spec's settle wait, and the test-render data-kb-rev hook in outline.store.ts. Pin the behaviour with a spec that delays pushes.
+- **node** — `01M3A6NB33CT1EMM418HBN8GTT`
 
 ### GAP: a UI test gates on wall-clock time and fails under machine load
 

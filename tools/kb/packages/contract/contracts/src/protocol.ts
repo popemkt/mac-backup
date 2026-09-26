@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FailedReceiptSchema, SucceededReceiptSchema } from "./actions.ts";
 
 /**
  * Shared wire contract for the `kb ui` server (HTTP + WS) and its clients
@@ -9,7 +10,7 @@ import { z } from "zod";
  *   GET  /api/graph     -> GraphSnapshot        (full node set + rev)
  *   GET  /api/manifest  -> ActionDefinition[]   (from registry.manifest())
  *   GET  /api/queries   -> SavedQuery[]         (.kb/queries/*.edn)
- *   POST /api/action    <- ActionInvocation     -> ActionReceipt (registry.invoke)
+ *   POST /api/action    <- ActionInvocation     -> ActionResponse (registry.invoke)
  *   GET  /ws            -> upgrade to WebSocket (messages below)
  * Static UI bundle is served from / (ui/dist). Opaque kb media files are
  * served read-only from GET /assets/* → .kb/assets/ (W6a).
@@ -47,6 +48,18 @@ export const GraphSnapshotSchema = z.object({
   nodes: z.array(WireNodeSchema),
 });
 export type GraphSnapshot = z.infer<typeof GraphSnapshotSchema>;
+
+/**
+ * What `POST /api/action` answers: the invocation's receipt, and on success
+ * `rev`, the log's head once the invocation had committed. Every frame the
+ * invocation caused is at or below it, so a client that has applied `rev`
+ * has seen the write, whether or not it caused a frame at all.
+ */
+export const ActionResponseSchema = z.discriminatedUnion("status", [
+  SucceededReceiptSchema.extend({ rev: z.number().int().nonnegative() }),
+  FailedReceiptSchema,
+]);
+export type ActionResponse = z.infer<typeof ActionResponseSchema>;
 
 export const SavedQuerySchema = z.object({
   name: z.string(),

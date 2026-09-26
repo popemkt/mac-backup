@@ -10,6 +10,7 @@ describe("mutations invoke shared actions", () => {
     status: "succeeded" as const,
     id: invocation.id,
     output: {},
+    rev: 2,
   }));
 
   beforeEach(() => {

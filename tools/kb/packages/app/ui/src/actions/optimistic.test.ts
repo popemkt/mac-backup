@@ -14,7 +14,7 @@ describe("local action plans", () => {
     const calls: unknown[] = [];
     setPostAction(async (invocation) => {
       calls.push(invocation);
-      return { status: "succeeded", id: invocation.id, output: {} };
+      return { status: "succeeded", id: invocation.id, output: {}, rev: 2 };
     });
     const plan = planSplit(fixtureGraph.nodes, "n.root-a", 4, "n.split", {
       expandedIds: new Set(),

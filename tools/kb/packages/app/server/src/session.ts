@@ -49,8 +49,9 @@ export function rowsHash(rows: unknown[][]): string {
  * Every frame goes to every watcher, including the client that caused the
  * write. Suppressing the echo was what left an origin's `rev` one behind after
  * each of its own writes, so the next foreign tx read as a gap and cost a full
- * snapshot; an optimistic local apply is idempotent under its own confirming
- * frame, so sending it is both cheaper and simpler than not.
+ * snapshot. The browser lays each frame under its own unconfirmed writes
+ * instead of over them (DESIGN-UI.md → Replica sync), so its own echo is just
+ * the next rev.
  *
  * Clients are tracked by an opaque clientId with an Effect-valued send
  * handle (acquired from the socket writer at the server boundary). Message

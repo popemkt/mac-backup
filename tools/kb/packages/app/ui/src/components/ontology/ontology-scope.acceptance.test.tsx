@@ -106,7 +106,7 @@ describe("ontology scope (acceptance)", () => {
       removeEventListener(): void {}
     };
     setFetchGraphSnapshot(() => Promise.resolve(snapshot()));
-    setPostAction(() => Promise.resolve({ status: "succeeded", id: "stub", output: {} }));
+    setPostAction(() => Promise.resolve({ status: "succeeded", id: "stub", output: {}, rev: 2 }));
   });
 
   afterAll(() => {

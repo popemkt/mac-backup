@@ -7,7 +7,6 @@
 import { fetchGraphSnapshot } from "@/api/graph";
 import { KbWsClient, type KbWsClientOptions } from "@/api/ws";
 import { useUiStore } from "@/stores/ui.store"; // GAP [[01M1RXMQYDBWX4EWJPEFRDR05H]]
-import { mergeRemoteUpserts } from "@/actions/mutations";
 import { browserReplica, setBrowserLink } from "@/session/runtime";
 
 let client: KbWsClient | null = null;
@@ -31,16 +30,17 @@ function fetchSnapshot(): void {
 /** Store-wired client; overrides let tests inject a fake socket. */
 export function createLiveClient(overrides: Partial<KbWsClientOptions> = {}): KbWsClient {
   const next = new KbWsClient({
-    onGraph: (msg) =>
-      browserReplica()?.receive(
-        msg.op === "tx" ? { ...msg, upserts: mergeRemoteUpserts(msg.upserts) } : msg,
-      ),
+    onGraph: (msg) => browserReplica()?.receive(msg),
     onStatus: (status) => useUiStore.getState().setWsStatus(status),
     onServerError: (err) =>
       useUiStore.getState().pushToast("error", `ws ${err.code}: ${err.message}`),
     ...overrides,
   });
-  setBrowserLink({ since: (rev) => next.since(rev), fetchSnapshot });
+  setBrowserLink({
+    since: (rev) => next.since(rev),
+    fetchSnapshot,
+    retryAfter: (ms) => setTimeout(() => browserReplica()?.receive({ op: "retry" }), ms),
+  });
   return next;
 }
 

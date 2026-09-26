@@ -17,6 +17,7 @@ export type {
   LoadedExtension,
 } from "./extension.ts";
 export {
+  ActionResponseSchema,
   ClientMessageSchema,
   GraphSnapshotSchema,
   SavedQuerySchema,
@@ -25,6 +26,7 @@ export {
   WireNodeSchema,
 } from "./protocol.ts";
 export type {
+  ActionResponse,
   ClientMessage,
   GraphSnapshot,
   SavedQuery,

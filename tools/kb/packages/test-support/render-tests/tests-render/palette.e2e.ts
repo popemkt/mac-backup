@@ -74,22 +74,7 @@ test("Add field names a new field and gives the node an editable row for it", as
   // A text slot only becomes contenteditable once clicked, so click the slot.
   await row.locator("[data-editable-text]").first().click();
   await page.keyboard.type("high");
-  // GAP [[01M3A6NB33CT1EMM418HBN8GTT]]: a tx frame confirming an earlier write
-  // that is still in flight carries the node without "high". Merging that
-  // frame unmounts the row and its "+ value" slot. So the spec waits until the
-  // replica has merged the server's state as of the "high" write. The POST
-  // response is not enough, because the socket frame can land after it.
-  const confirmed = page.waitForResponse(
-    (response) =>
-      response.url().endsWith("/api/action") &&
-      (response.request().postData() ?? "").includes('"v":"high"'),
-  );
   await page.keyboard.press("Enter");
-  await confirmed;
-  const head = ((await (await page.request.get("/api/graph")).json()) as { rev: number }).rev;
-  await expect
-    .poll(() => page.evaluate(() => Number(document.documentElement.dataset.kbRev ?? -1)))
-    .toBeGreaterThanOrEqual(head);
   await expect(row.locator('[data-field-value="true"]')).toHaveCount(1);
   await expect(row.locator('[data-field-value="true"]')).toHaveText("high");
 

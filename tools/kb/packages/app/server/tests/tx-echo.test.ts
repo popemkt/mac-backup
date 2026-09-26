@@ -108,6 +108,27 @@ describe("the server echoes every tx to every watcher", () => {
     }
   });
 
+  test("a succeeded write answers the rev at or above every frame it caused", async () => {
+    const dir = await root();
+    try {
+      const ctx = await openKb(dir);
+      const hub = new SubscriptionHub(ctx);
+      const deps = { root: dir, ctx, hub };
+      const a = await watcher(hub, "client-a");
+
+      const res = await addNode(deps, "n.one", "client-a");
+      const [frame] = txFrames(a);
+      expect(await res.json()).toMatchObject({ status: "succeeded", rev: frame?.rev });
+
+      const again = await addNode(deps, "n.two", "client-a");
+      const [, second] = txFrames(a);
+      expect(second?.rev).toBe(ctx.log.head);
+      expect(await again.json()).toMatchObject({ status: "succeeded", rev: second?.rev });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   test("the echo converges the origin's optimistic state, and replays as a no-op", async () => {
     const dir = await root();
     try {

@@ -833,14 +833,3 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
     },
   };
 });
-
-// GAP [[01M3A6NB33CT1EMM418HBN8GTT]]: this hook exists only for the palette
-// spec's settle wait, and goes when that gap closes.
-// Test-render hook, like `__kbSigma`: the rev of the last server state this
-// replica has applied, on the root element. It lets a spec wait until its own
-// write's confirming tx frame has been merged, not just received.
-if (import.meta.env.MODE === "test-render") {
-  useOutlineStore.subscribe((state) => {
-    document.documentElement.dataset.kbRev = String(state.rev);
-  });
-}
