@@ -93,11 +93,12 @@ export function skyFunction(colors: PaletteUniforms, u: SeaUniforms): (d: TslNod
   const fn = Fn(([d]: readonly [TslNode]) => {
     const up = d.y;
     const mu = dot(d, u.sun).max(0);
-    const horizon = mix(colors.ground, colors.accent, 0.38);
+    // The hue family everywhere; the accent only where the sun warms it (L1).
+    const horizon = mix(colors.ground, mix(colors.hue, colors.ink, 0.3), 0.3);
     const zenith = mix(colors.edge, colors.hue, 0.28);
     const base = mix(horizon, zenith, pow(up.clamp(0, 1), 0.45));
     // Warmth pooled along the horizon under the sun, a wide glow and a tight one.
-    const band = exp(abs(up).mul(-14)).mul(mu.pow(2).mul(0.8).add(0.1)).mul(0.45);
+    const band = exp(abs(up).mul(-14)).mul(mu.pow(3).mul(0.9).add(0.05)).mul(0.5);
     const glow = pow(mu, 24).mul(0.3).add(pow(mu, 400).mul(1.2));
     const disc = smoothstep(0.99975, 0.99988, mu).mul(14);
     const lit = base.add(colors.accent.mul(band)).add(sunlight(colors).mul(glow.add(disc)));
@@ -108,8 +109,8 @@ export function skyFunction(colors: PaletteUniforms, u: SeaUniforms): (d: TslNod
       .mul(0.35)
       .add(vec2(u.time.mul(0.004), 0));
     const cloud = smoothstep(
-      0.48,
-      0.8,
+      0.42,
+      0.92,
       mx_fractal_noise_float(vec3(plane.x, plane.y.mul(2.6), 1.7), 5, 2, 0.5, 1)
         .mul(0.5)
         .add(0.5),

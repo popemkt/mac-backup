@@ -35,7 +35,8 @@ export function waveSet(height: number, wavelength: number, wind: number): Wave[
   const total = weights.reduce((a, b) => a + b, 0);
   const steep = Math.max(0, Math.min(1, height));
   return weights.map((weight, i) => {
-    const lambda = wavelength * 0.72 ** i;
+    // Shortest wave ≥ ~5 grid cells at the default: shorter ones facet the normal.
+    const lambda = wavelength * 0.8 ** i;
     const k = (Math.PI * 2) / lambda;
     const turn = wind + (i % 2 === 0 ? 1 : -1) * (0.18 + i * 0.13);
     const steepness = (steep * weight) / total;
