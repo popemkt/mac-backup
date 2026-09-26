@@ -192,6 +192,41 @@ describe("nodes.jsonl merge driver", () => {
     expect((JSON.parse((await readStore()).trim()) as KbNode).text).toBe("ours");
   });
 
+  test("rebasing a prop edit over a re-rank preserves every written rank", async () => {
+    const long = "zzzzzzzzzyhhhhhhhhhhhhhhhhhhhh";
+    const base = ["a", "b", "c"].map((id) => ({ ...node(id, id), order: long }));
+    await writeStore(base);
+    await git("add", "-A");
+    await git("commit", "-qm", "base");
+
+    await git("checkout", "-q", "-b", "edit");
+    await writeStore(
+      base.map((n) =>
+        n.id === "a"
+          ? {
+              ...n,
+              props: { status: [{ t: "str" as const, v: "edited" }] },
+              updatedAt: "2026-02-01T00:00:00.000Z",
+            }
+          : n,
+      ),
+    );
+    await git("commit", "-qam", "edit props");
+    await git("checkout", "-q", "main");
+    await writeStore(base.map((n, index) => ({ ...n, order: ["zkk", "zpp", "zuu"][index] })));
+    await git("commit", "-qam", "re-rank");
+    await git("checkout", "-q", "edit");
+
+    const rebase = await git("rebase", "main");
+    expect(rebase.code).toBe(0);
+    const merged = (await readStore())
+      .trimEnd()
+      .split("\n")
+      .map((line) => JSON.parse(line) as KbNode);
+    expect(merged.map((n) => n.order)).toEqual(["zkk", "zpp", "zuu"]);
+    expect(merged[0]?.props.status).toEqual([{ t: "str", v: "edited" }]);
+  });
+
   test("without bun, the wrapper falls back to git's text merge and says why", async () => {
     const base = node("01AAA", "a");
     await writeStore([base]);

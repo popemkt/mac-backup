@@ -33,6 +33,7 @@ import {
   canonicalJsonl,
   compareRootOrder,
   isDomainError,
+  mergeNodeSets,
   present,
   rankOf,
   rankTx,
@@ -104,6 +105,29 @@ function plainNode(id: string, text: string): KbNode {
   return { id, text, props: {}, children: [], createdAt: AT, updatedAt: AT };
 }
 
+function mergedConcernsSurviveCommit(makeStore: StoreFactory): Promise<void> {
+  return Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const store = makeStore(yield* scratchRoot);
+        const base = [
+          { ...plainNode("a", "a"), order: "c" },
+          { ...plainNode("b", "b"), order: "m" },
+        ];
+        const positioned = base.map((n) => (n.id === "b" ? { ...n, order: "z" } : n));
+        const edited = base.map((n) =>
+          n.id === "b" ? { ...n, text: "edited", updatedAt: "2026-02-01T00:00:00.000Z" } : n,
+        );
+        const merged = mergeNodeSets(base, positioned, edited);
+        expect(merged.conflicts).toEqual([]);
+        yield* store.commitEffect({ upserts: merged.nodes, deletes: [] }, { at: AT });
+        const loaded = yield* store.loadEffect;
+        expect(loaded.find((n) => n.id === "b")).toMatchObject({ order: "z", text: "edited" });
+      }),
+    ),
+  );
+}
+
 /** A scratch root for the current scope, removed when the scope closes. */
 const scratchRoot = Effect.acquireRelease(
   Effect.promise(() => mkdtemp(join(tmpdir(), "kb-store-contract-"))),
@@ -165,6 +189,7 @@ const PROPERTIES: ReadonlyArray<readonly [string, (makeStore: StoreFactory) => P
     "two writers appending from one read never leave siblings sharing a rank",
     concurrentAppendsGetDistinctRanks,
   ],
+  ["a merged position and content survive a commit and reload", mergedConcernsSurviveCommit],
   ["a commit touches only the nodes that changed", commitTouchesOnlyChanges],
   [
     "opening is a read: reopening leaves the nodes, the fingerprint and the tail as they were",
