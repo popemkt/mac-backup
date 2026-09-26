@@ -301,8 +301,6 @@ if ! {
     "$AUDIT_HOST" >&2
   exit 1
 fi
-managed_external_paths=()
-read_probe_into managed_external_paths "$managed_external_paths_probe" "external-data path scan" || true
 
 print_section "Repo Declarations"
 printf '  Nix packages tracked: %s\n' "${#declared_nix_packages[@]}"
@@ -311,7 +309,6 @@ printf '  Brew casks tracked: %s\n' "${#declared_casks[@]}"
 printf '  Brew taps tracked: %s\n' "${#declared_taps[@]}"
 printf '  npm globals tracked: %s\n' "${#declared_npm[@]}"
 printf '  Bun globals tracked: %s\n' "${#declared_bun[@]}"
-printf '  external-data paths tracked: %s\n' "${#managed_external_paths[@]}"
 
 forbidden_casks=()
 if array_contains "orca" "${declared_casks[@]}"; then
@@ -544,25 +541,29 @@ audit_agent_plugins "Claude Code" claudePlugins claude plugin list
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}" \
   audit_agent_plugins "Codex" codexPlugins codex plugin list
 
-print_section "Managed External Data"
-printf '  Root: /Volumes/Data/workspace/symlinks/User\n'
-for rel in "${managed_external_paths[@]}"; do
-  src="$HOME/$rel"
-  dst="/Volumes/Data/workspace/symlinks/User/$rel"
-  if [ -L "$src" ]; then
-    printf '  - linked: %s -> %s\n' "$src" "$(readlink "$src")"
-  elif [ -e "$src" ]; then
-    printf '  - real dir: %s\n' "$src"
-  else
-    printf '  - missing: %s\n' "$src"
-  fi
+managed_external_paths=()
+if read_probe_into managed_external_paths "$managed_external_paths_probe" "external-data path scan"; then
+  print_section "Managed External Data"
+  printf '  Root: /Volumes/Data/workspace/symlinks/User\n'
+  printf '  Paths tracked: %s\n' "${#managed_external_paths[@]}"
+  for rel in "${managed_external_paths[@]}"; do
+    src="$HOME/$rel"
+    dst="/Volumes/Data/workspace/symlinks/User/$rel"
+    if [ -L "$src" ]; then
+      printf '  - linked: %s -> %s\n' "$src" "$(readlink "$src")"
+    elif [ -e "$src" ]; then
+      printf '  - real dir: %s\n' "$src"
+    else
+      printf '  - missing: %s\n' "$src"
+    fi
 
-  if [ -e "$dst" ]; then
-    printf '    target exists: %s\n' "$dst"
-  else
-    printf '    target missing: %s\n' "$dst"
-  fi
-done
+    if [ -e "$dst" ]; then
+      printf '    target exists: %s\n' "$dst"
+    else
+      printf '    target missing: %s\n' "$dst"
+    fi
+  done
+fi
 
 print_section "kb Media Backup (Mackup)"
 if [ -x "$ROOT_DIR/scripts/check-kb-assets-backup.sh" ]; then
@@ -587,8 +588,6 @@ if [ -x "$ROOT_DIR/scripts/check-kb-assets-backup.sh" ]; then
 else
   record_warn "scripts/check-kb-assets-backup.sh missing"
 fi
-
-print_section "macOS /Applications Drift"
 
 all_apps_probe=${#AUDIT_PROBE_PIDS[@]}
 audit_probe_start audit_probe_app_paths
@@ -642,13 +641,14 @@ if [ -x "$ROOT_DIR/scripts/github-sources" ]; then
     nix run "$ROOT_DIR#github-sources" -- check --best-effort
 fi
 
-if command -v determinate-nixd >/dev/null 2>&1; then
-  # The upgrade notice is on stderr, so this probe reads combined output; a
-  # pass needs the status command itself to have succeeded.
-  determinate_lines=()
-  nix_version_lines=()
-  read_probe_into determinate_lines "$determinate_status_probe" "determinate-nixd status" || true
-  read_probe_into nix_version_lines "$nix_version_probe" "nix --version" || true
+# The upgrade notice is on stderr, so the status probe reads combined output;
+# a pass needs the status command itself to have succeeded.
+determinate_lines=()
+nix_version_lines=()
+if ! command -v determinate-nixd >/dev/null 2>&1; then
+  record_warn "determinate-nixd not found"
+elif read_probe_into determinate_lines "$determinate_status_probe" "determinate-nixd status" \
+  && read_probe_into nix_version_lines "$nix_version_probe" "nix --version"; then
   determinate_status="$(printf '%s\n' "${determinate_lines[@]}")"
   nix_version_line="${nix_version_lines[0]:-}"
   if printf '%s\n' "$determinate_status" | grep -qiE 'out of date|now available'; then
@@ -663,15 +663,14 @@ if command -v determinate-nixd >/dev/null 2>&1; then
   elif [ "$(audit_probe_status "$determinate_status_probe")" = 0 ]; then
     record_ok "Determinate Nix current (${nix_version_line:-unknown})"
   else
-    printf '  Determinate Nix: could not determine (%s)\n' "${determinate_lines[-1]:-no output}"
+    printf '  Determinate Nix: could not determine (%s)\n' "${determinate_lines[-1]}"
   fi
-else
-  record_warn "determinate-nixd not found"
 fi
 
-if command -v softwareupdate >/dev/null 2>&1; then
-  softwareupdate_lines=()
-  read_probe_into softwareupdate_lines "$softwareupdate_probe" "softwareupdate -l" || true
+softwareupdate_lines=()
+if ! command -v softwareupdate >/dev/null 2>&1; then
+  record_warn "softwareupdate not found"
+elif read_probe_into softwareupdate_lines "$softwareupdate_probe" "softwareupdate -l"; then
   softwareupdate_out="$(printf '%s\n' "${softwareupdate_lines[@]}")"
   mapfile -t os_updates < <(printf '%s\n' "$softwareupdate_out" | sed -nE 's/^[[:space:]]*\*[[:space:]]*Label:[[:space:]]*(.*)$/\1/p')
   if [ "${#os_updates[@]}" -gt 0 ]; then
@@ -683,8 +682,6 @@ if command -v softwareupdate >/dev/null 2>&1; then
   else
     printf '  macOS softwareupdate: could not determine (offline or deferred)\n'
   fi
-else
-  record_warn "softwareupdate not found"
 fi
 
 brew_outdated=()

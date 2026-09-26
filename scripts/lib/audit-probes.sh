@@ -8,6 +8,17 @@
 # and exit status. The caller starts probes, waits, and then reads each one
 # only through read_probe_into, so every reading makes the same decision about
 # a failed probe. The caller defines record_warn and warn_detail.
+#
+# Section rule: a report section reads every probe it derives from before it
+# prints anything, and prints nothing when a read fails. Its shape is
+#
+#   if read_probe_into a "$a_probe" "label" && read_probe_into b ...; then
+#     print_section ...   # counts, lists, passes
+#   fi
+#
+# (or `read_probe_into ... || return 0` at the top of a section function).
+# read_probe_into has already warned, so the skipped section is visible;
+# what must never appear is a count, list or pass computed from a failed read.
 
 AUDIT_PROBE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/audit-probes.XXXXXX")"
 AUDIT_PROBE_PIDS=()

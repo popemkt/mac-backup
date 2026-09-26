@@ -170,18 +170,21 @@
             touch "$out"
           '';
 
-      # Offline test of the drift audit's probe mechanism.
-      auditProbesCheck =
-        pkgs.runCommand "audit-probes-check"
+      # Offline tests of the drift audit's sourced libraries: the probe
+      # mechanism and the /Applications report.
+      auditLibCheck =
+        pkgs.runCommand "audit-lib-check"
           {
             nativeBuildInputs = [
               pkgs.bash
               pkgs.coreutils
+              pkgs.gnugrep
               pkgs.gnused
             ];
           }
           ''
             bash ${./scripts/tests/audit-probes.sh} ${./scripts/lib/audit-probes.sh}
+            bash ${./scripts/tests/audit-apps.sh} ${./scripts/lib/audit-probes.sh} ${./scripts/lib/audit-apps.sh}
             touch "$out"
           '';
 
@@ -254,7 +257,7 @@
       checks.${system} = localPackages // {
         inherit systemSetupCheck;
         reconcile-scripts-check = reconcileScriptsCheck;
-        audit-probes-check = auditProbesCheck;
+        audit-lib-check = auditLibCheck;
         github-sources-check = githubSourcesCheck;
         system-setup-manifest-personal = systemSetupManifestCheck "popemkt-personal";
         system-setup-manifest-work = systemSetupManifestCheck "popemkt-work";
