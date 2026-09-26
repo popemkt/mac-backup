@@ -62,7 +62,7 @@ requiring root since nix-darwin ≥ 2025. See `dotfiles-system.md`.
 | File viewing | `bat` | `modules/common/home-manager/packages.nix` |
 | Python env manager | `uv` | `modules/common/home-manager/packages.nix` |
 | Node runtime | `nodejs` via Nix | `modules/common/home-manager/packages.nix` |
-| Bun runtime | `bun` via Homebrew | `modules/darwin/system/homebrew.nix` |
+| Bun runtime | `pkgs.bun` via Home Manager | `modules/darwin/home-manager/bun-global.nix` |
 | Fuzzy finder | `fzf` | `modules/common/home-manager/packages.nix` |
 | Git TUI | `lazygit` | `modules/common/home-manager/packages.nix` |
 | Config sync | `mackup` | `modules/darwin/home-manager/mackup.nix` |

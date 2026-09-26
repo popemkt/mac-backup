@@ -113,8 +113,8 @@ Routine rebuilds report status but never start an enrollment ceremony. See
 npm and Bun global package lists are declarations of intent rather than
 hermetic Nix derivations. Home Manager restores missing declarations during a
 routine rebuild; `apply-system-update` asks each owning registry for the latest
-declared version after activating prepared pins. Bun itself is owned by Homebrew
-because Oh My Pi needs a newer runtime than the current nixpkgs package.
+declared version after activating prepared pins. Bun itself comes from the
+flake-pinned nixpkgs package, shared with the development shell and kb build.
 
 ### Direct releases use nvfetcher
 Applications distributed as direct release assets are declared once in

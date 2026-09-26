@@ -63,9 +63,6 @@ in
         # OpenCode is managed as a Homebrew CLI so it is restored with the
         # rest of the terminal agent toolchain.
         "anomalyco/tap/opencode"
-        # Oh My Pi requires Bun >= 1.3.14; Homebrew currently ships a newer
-        # runtime than nixpkgs and upgrades it during rebuild activation.
-        "bun"
         "ghostwright/ghost-os/ghost-os"
         "zellij"
       ]
