@@ -16,11 +16,15 @@ export const LAB_STUDIES: Record<LabSceneId, LabStudy> = {
     label: "Embers",
     technique: "TSL compute: a GPU spatial hash grid, contact heat, and an HDR ramp under bloom",
     teaches:
-      "Stir the cloud. Spheres that collide heat up, cool down, and pop when they saturate; only the hot end of the ramp is HDR, so only it blooms.",
+      "Stir the cloud. Spheres that collide heat up, cool down, and pop when they saturate; only the hot end of the ramp is HDR, so only it blooms. Switch the look: cel bands and an inverted-hull outline, noise-cracked lava, or thin-film interference — the same heat curve lights all four.",
     rules: [
       {
         id: "T1",
         how: "The sim is four TSL compute kernels over storage buffers; nothing reads back.",
+      },
+      {
+        id: "P2",
+        how: "A new look's shaders compile to one side before it is swapped in.",
       },
       {
         id: "M1",
@@ -28,10 +32,25 @@ export const LAB_STUDIES: Record<LabSceneId, LabStudy> = {
       },
       { id: "M3", how: "Shell springs are softer than the core's, so the shell lags a gesture." },
       { id: "M4", how: "Pops draw on a small budget: rare and crisp, never a barrage." },
-      { id: "L2", how: "Bloom's threshold is 1: only heat past it glows." },
-      { id: "L3", how: "Distance fades into the ground." },
+      {
+        id: "L2",
+        how: "Bloom's threshold is 1: only heat past it glows, whichever look shades it.",
+      },
+      { id: "L3", how: "Distance fades into the ground; ash drifts through heat haze." },
     ],
     controls: [
+      {
+        kind: "choice",
+        id: "look",
+        label: "look",
+        value: "glow",
+        options: [
+          { value: "glow", label: "glow" },
+          { value: "toon", label: "toon" },
+          { value: "molten", label: "molten" },
+          { value: "film", label: "thin film" },
+        ],
+      },
       { kind: "range", id: "gain", label: "heat gain", min: 0, max: 3, step: 0.05, value: 0.6 },
       {
         kind: "range",

@@ -363,6 +363,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Lab principles
 - **node** — `01M3A8QG4PEQK0A9N3KPQ3K98X`
 
+### GAP: the lab's rich backdrop stands in kit/ beside the stage's plain backdrop()
+
+- **expected** — One backdrop mechanism in the scene kit: stage.backdrop() takes options (focus, warmth, haze, rise) and every study, lab or graph, draws its ground through it.
+- **current** — components/lab/kit/backdrop.ts (labBackdrop) is the rich screen-space ground Embers, Motion and River use; scene/gpu/stage.ts backdrop() is still the plain radial Light uses.
+- **impact** — Two ground mechanisms: a fix to one (banding, theme easing) does not reach the other.
+- **closes** — WP4 folds labBackdrop into the stage as backdrop options and deletes the kit copy.
+- **node** — `01M3E8ZYJT4TFAK5ZPT4W341WW`
+
 ### GAP: the npm executor special-cases @openai/codex and aborts activation on a failed install
 
 - **expected** — installNpmGlobals treats every member of my.pkgs.npmGlobals alike and warns and continues when an install fails, like installBunGlobals and agent-plugins.

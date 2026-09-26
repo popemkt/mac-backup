@@ -594,7 +594,7 @@ principles below it applies, and two to four live parameters:
 
 | study  | technique                                                        | parameters                          |
 | ------ | ---------------------------------------------------------------- | ----------------------------------- |
-| Embers | TSL compute: a GPU spatial hash grid, contact heat, pops; bloom  | heat gain, cooling rate, pop threshold |
+| Embers | TSL compute: a GPU spatial hash grid, contact heat, pops; bloom; four looks over one heat curve (glow, toon with an inverted-hull outline, ridged-noise molten, thin-film interference); heat haze and ash | look, heat gain, cooling rate, pop threshold |
 | Sky    | shader-drawn sprites (four-point glints), a nebula dome, dither   | glint length, nebula, dither        |
 | Light  | key/fill/rim rig, soft shadows, GTAO, tone mapping, finishes     | tone mapping, PBR/matcap, AO, key angle |
 | Motion | staggered critically damped springs against an eased tween        | settle, stagger, drive, overlap     |
@@ -614,7 +614,12 @@ once, run as TSL nodes through `gpu/tsl`'s `NODE_OPS` and as numbers through
 What only the lab needs stays in `components/lab/kit`: `study`
 (`mountStudy`: the reduced-motion and theme hand-off), `palette` (the
 `--lab-*` roles), `pointer`, `pan` and `velocity` (pointer field,
-drag-to-turn with momentum), `scene-host` and `info-card` (the React side).
+drag-to-turn with momentum), `backdrop` (the lab's ground: a focal pool, a
+drifting domain-warped haze, heat shimmer — never a flat fill), `entrance`
+(a study's pieces arriving over the arrive duration, staggered by a lag the
+study chooses; already arrived under reduced motion), `seeded` (the one
+seeded random a study scatters from), `scene-host` and `info-card` (the
+React side).
 `three` is imported only under `scene/gpu/` and by the modules that stand
 behind a lazy boundary, and each study's scene is its own dynamic import
 (`scene/`, `lab/` and `graph/three-import.boundary.test.ts`; a surface's test

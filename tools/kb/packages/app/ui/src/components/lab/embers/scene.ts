@@ -18,26 +18,29 @@
  *
  * The cloud's centre follows the pointer (`steer.ts`); the shell's softer
  * springs lag the core (M3). Distance fades into the ground (L3).
+ *
+ * How the spheres are shaded is a look (`looks.ts`: glow, toon, molten,
+ * film), switched on the info card; a new look's shaders compile before it
+ * is swapped in, so a switch never stalls a frame (P2). Behind the cloud the
+ * lab's backdrop pools warm light and rises as heat haze, and ash drifts
+ * through the air (`ash.ts`). On arrival the cloud grows out from its core.
  */
-import { Mesh, PointLight, SphereGeometry, Vector3 } from "three/webgpu";
-import { float, instanceIndex, mix, positionLocal, uniform, vec3 } from "three/tsl";
+import { PointLight, SphereGeometry, Vector3 } from "three/webgpu";
+import { float, instanceIndex, length, uniform } from "three/tsl";
 import type { LabControlValue, LabSceneInit, LabScene } from "@/components/lab/kit/contract";
 import { PointerField } from "@/components/lab/kit/pointer";
-import { createRig, finishMaterial } from "@/scene/gpu/rig";
+import { labBackdrop } from "@/components/lab/kit/backdrop";
+import { Entrance } from "@/components/lab/kit/entrance";
+import { seededRandom } from "@/components/lab/kit/seeded";
+import { createRig } from "@/scene/gpu/rig";
 import type { SceneStage } from "@/scene/gpu/stage";
 import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab/kit/study";
 import { emberSimulation, restFloor, type EmberShape } from "@/components/lab/embers/compute";
 import { PopGrants } from "@/components/lab/embers/pops";
 import { EmberSteer } from "@/components/lab/embers/steer";
-import {
-  EMBER_TINT,
-  HEAT_GAIN,
-  RestCeiling,
-  displayTemperature,
-  heatEmissive,
-} from "@/components/lab/embers/heat";
-import { NODE_OPS } from "@/scene/gpu/tsl";
-import { seededRandom } from "@/components/lab/kit/seeded";
+import { HEAT_GAIN, RestCeiling } from "@/components/lab/embers/heat";
+import { ash } from "@/components/lab/embers/ash";
+import { LookSwitch, isEmberLook, type LookInputs } from "@/components/lab/embers/looks";
 
 const SHAPE: EmberShape = { count: 3400, sphere: 0.1, cloud: 3.4 };
 const CAMERA_Z = 17;
@@ -83,37 +86,53 @@ function embers(stage: SceneStage, init: LabSceneInit, context: StudyContext): S
   const { colors } = stage;
   const sim = emberSimulation(homes(), SHAPE, init.timing);
   const { u, buffers: b } = sim;
-  const look = b.state.element(instanceIndex);
+  const life = b.state.element(instanceIndex);
   const place = b.position.element(instanceIndex);
   const gain = uniform<number>(HEAT_GAIN.dark);
+  const dark = uniform(init.dark ? 1 : 0);
+  // The air's own clock: the haze and the ash drift while the sim may rest.
+  const clock = uniform(0);
   // The cap on the resting glow, solved each frame for the accent and gain
-  // that frame is shaded with, and applied here, where the colour is made.
+  // that frame is shaded with, and applied where the colour is made.
   const ceiling = uniform(0);
   const ceilings = new RestCeiling();
-  const t = displayTemperature(
-    NODE_OPS,
-    look.w,
-    restFloor(u, place, SHAPE.cloud),
-    float(ceiling),
-  ).min(1.6);
-  const ember = colors.accent.mul(vec3(...EMBER_TINT));
-  const material = finishMaterial("satin");
-  material.positionNode = positionLocal.mul(look.z.mul(SHAPE.sphere)).add(place);
-  material.colorNode = mix(ember.mul(0.3), colors.hue.mul(0.2), 0.3);
-  material.emissiveNode = heatEmissive(NODE_OPS, vec3(colors.accent), t, float(gain));
-  const mesh = new Mesh(new SphereGeometry(1, 20, 14), material);
-  mesh.count = SHAPE.count;
-  mesh.frustumCulled = false;
+  const entrance = new Entrance(init.timing);
+  // Arriving, the cloud grows from its core out to its shell.
+  const grown = entrance.arrival(length(b.home.element(instanceIndex)).div(SHAPE.cloud));
+  const inputs: LookInputs = {
+    colors,
+    place,
+    radius: life.z.mul(SHAPE.sphere).mul(grown),
+    contact: life.w,
+    rest: restFloor(u, place, SHAPE.cloud),
+    ceiling: float(ceiling),
+    gain: float(gain),
+    dark: float(dark),
+    time: float(u.time),
+  };
+  const first = init.values["look"];
+  const looks = new LookSwitch(
+    stage,
+    inputs,
+    new SphereGeometry(1, 20, 14),
+    SHAPE.count,
+    isEmberLook(first) ? first : "glow",
+  );
   const core = new PointLight(undefined, 45, 0, 2);
   // The rig, warmed: a low key and a strong rim, both in the accent, give the
   // spheres form from the core outward rather than reading as holes.
   const rig = createRig(init.palette, false);
   rig.key.intensity = 0.3;
   rig.rim.intensity = 1.6;
-  stage.scene.add(mesh, core, ...rig.lights);
+  stage.scene.add(core, ...rig.lights, ash(colors, float(clock), float(entrance.progress)));
   stage.camera.position.set(0, 0, CAMERA_Z);
   stage.camera.lookAt(0, 0, 0);
-  stage.backdrop();
+  stage.scene.backgroundNode = labBackdrop(colors, float(clock), {
+    focus: [0.5, 0.5],
+    warmth: 0.7,
+    haze: 0.55,
+    rise: 1,
+  });
   stage.atmosphere(CAMERA_Z - 1, CAMERA_Z + 7);
 
   const pointer = new PointerField(context.host);
@@ -124,6 +143,8 @@ function embers(stage: SceneStage, init: LabSceneInit, context: StudyContext): S
     frame: (dt, elapsed) => {
       // Every frame, stepped or frozen: the stage has eased its colours by now.
       ceiling.value = ceilings.for(colors.accent.value, gain.value);
+      clock.value = elapsed;
+      entrance.step(dt, context.reduced());
       const live = pointer.inside && pointer.idleFor(performance.now()) <= 2.5;
       const onPlane = live && pointer.onPlane(stage.camera, "z", aim);
       // A zero step (a restart, or reduced motion's still) steps nothing and
@@ -139,21 +160,24 @@ function embers(stage: SceneStage, init: LabSceneInit, context: StudyContext): S
       void stage.renderer.compute(sim.passes);
     },
     setControl: (id, value: LabControlValue) => {
+      if (id === "look" && isEmberLook(value)) void looks.show(value);
       if (typeof value !== "number") return;
       if (id === "gain") u.gain.value = value;
       if (id === "cooling") u.cooling.value = value;
       if (id === "threshold") u.threshold.value = value;
     },
-    setPalette: (palette, dark) => {
+    setPalette: (palette, isDark) => {
       core.color.set(palette.accent);
-      core.intensity = dark ? 45 : 20;
-      gain.value = dark ? HEAT_GAIN.dark : HEAT_GAIN.light;
+      core.intensity = isDark ? 45 : 20;
+      gain.value = isDark ? HEAT_GAIN.dark : HEAT_GAIN.light;
+      dark.value = isDark ? 1 : 0;
       rig.setPalette(palette);
       rig.key.color.set(palette.accent);
       rig.rim.color.set(palette.accent);
     },
     dispose: () => {
       pointer.dispose();
+      looks.dispose();
       for (const pass of sim.passes) pass.dispose();
     },
   };

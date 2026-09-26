@@ -15,9 +15,13 @@ const THREE_IMPORT = /from\s+["'](?:three(?:\/[^"']*)?|@\/scene\/gpu\/[^"']*)["'
 
 /** Only these may import three; each is reached only through a study's `load()`. */
 const ALLOWED = new Set([
+  "kit/backdrop.ts",
+  "kit/entrance.ts",
   "kit/pointer.ts",
   "kit/study.ts",
+  "embers/ash.ts",
   "embers/compute.ts",
+  "embers/looks.ts",
   "embers/scene.ts",
   "sky/scene.ts",
   "sky/shaders.ts",
