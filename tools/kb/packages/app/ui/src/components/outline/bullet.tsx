@@ -37,7 +37,7 @@ function SupertagGlyph({ a }: { a: BulletAppearance }) {
       style={{ ...GLYPH_TYPE, color: bulletPaintCss(a.ink) }}
       aria-hidden
     >
-      #
+      {a.glyph}
     </span>
   );
 }

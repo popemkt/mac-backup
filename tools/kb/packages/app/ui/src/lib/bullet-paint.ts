@@ -60,25 +60,21 @@ function fillOf(ctx: Ctx, paint: BulletPaint, page: BulletPage): string | Canvas
   return wedges;
 }
 
+type Style = string | CanvasGradient;
+
 /**
- * Fill `draw`'s shape with `fill` at `percent`: over the page's ground when
- * nothing lies under it yet, over what does when something does.
+ * Lay one mark in `style` at `percent` — every surface of a bullet, filled
+ * or stroked, goes through here: over the page's ground when nothing lies
+ * under it yet, over what does when something does (a halo). `mark` draws
+ * the shape in the style it is handed.
  */
-function lay(
-  ctx: Ctx,
-  brush: Brush,
-  fill: string | CanvasGradient,
-  percent: number,
-  draw: () => void,
-) {
+function lay(ctx: Ctx, brush: Brush, style: Style, percent: number, mark: (s: Style) => void) {
   if (!brush.grounded) {
     ctx.globalAlpha = 1;
-    ctx.fillStyle = brush.page.ground;
-    draw();
+    mark(brush.page.ground);
   }
   ctx.globalAlpha = (percent / 100) * brush.dim;
-  ctx.fillStyle = fill;
-  draw();
+  mark(style);
   ctx.globalAlpha = 1;
 }
 
@@ -86,12 +82,18 @@ function lay(
 function disc(ctx: Ctx, radius: number, paint: BulletPaint, brush: Brush): void {
   ctx.beginPath();
   ctx.arc(CENTRE, CENTRE, radius, 0, Math.PI * 2);
-  lay(ctx, brush, fillOf(ctx, paint, brush.page), paint.percent, () => ctx.fill());
+  lay(ctx, brush, fillOf(ctx, paint, brush.page), paint.percent, (style) => {
+    ctx.fillStyle = style;
+    ctx.fill();
+  });
 }
 
 /** Text or a path in `paint`'s first colour (a stroke or a glyph carries one). */
 function inked(ctx: Ctx, paint: BulletPaint, brush: Brush, draw: () => void) {
-  lay(ctx, brush, colorsOf(paint, brush.page)[0] ?? brush.page.ink, paint.percent, draw);
+  lay(ctx, brush, colorsOf(paint, brush.page)[0] ?? brush.page.ink, paint.percent, (style) => {
+    ctx.fillStyle = style;
+    draw();
+  });
 }
 
 function glyph(ctx: Ctx, text: string, a: BulletAppearance, brush: Brush) {
@@ -106,7 +108,7 @@ const SHAPES: Record<
   (ctx: Ctx, a: BulletAppearance, brush: Brush) => void
 > = {
   dot: (ctx, a, brush) => disc(ctx, a.dotSize / 2, a.dot, brush),
-  supertag: (ctx, a, brush) => glyph(ctx, "#", a, brush),
+  supertag: (ctx, a, brush) => glyph(ctx, a.glyph ?? "", a, brush),
   glyph: (ctx, a, brush) => glyph(ctx, a.glyph ?? "", a, brush),
   query: (ctx, a, brush) => {
     const { icon } = BULLET_GEOMETRY;
@@ -124,15 +126,12 @@ const SHAPES: Record<
     ctx.arc(CENTRE, CENTRE, BULLET_GEOMETRY.ring / 2 - 0.5, 0, Math.PI * 2);
     ctx.setLineDash([3, 2]);
     ctx.lineWidth = 1;
-    // The ring's dashes over the ground, like every other surface.
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = brush.page.ground;
-    ctx.stroke();
-    ctx.globalAlpha = (a.ring.percent / 100) * brush.dim;
-    ctx.strokeStyle = colorsOf(a.ring, brush.page)[0] ?? brush.page.ink;
-    ctx.stroke();
+    const color = colorsOf(a.ring, brush.page)[0] ?? brush.page.ink;
+    lay(ctx, brush, color, a.ring.percent, (style) => {
+      ctx.strokeStyle = style;
+      ctx.stroke();
+    });
     ctx.setLineDash([]);
-    ctx.globalAlpha = 1;
     disc(ctx, a.dotSize / 2, a.dot, brush);
   },
 };

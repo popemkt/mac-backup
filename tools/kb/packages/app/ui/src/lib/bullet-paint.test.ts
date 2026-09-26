@@ -10,8 +10,8 @@ import { bulletPaintKey, paintBullet, type BulletPage } from "./bullet-paint";
 import { SYSTEM_IDS } from "./types";
 
 interface Mark {
-  readonly kind: "arc" | "text";
-  readonly size: number;
+  readonly kind: "arc" | "text" | "stroke";
+  readonly size: number | string;
   readonly fill: unknown;
   readonly alpha: number;
 }
@@ -36,7 +36,15 @@ function recorder() {
     },
     beginPath() {},
     setLineDash() {},
-    stroke() {},
+    stroke() {
+      if (pending)
+        marks.push({
+          kind: "stroke",
+          size: pending.size,
+          fill: ctx.strokeStyle,
+          alpha: ctx.globalAlpha,
+        });
+    },
     arc(_x: number, _y: number, r: number) {
       pending = { kind: "arc", size: r };
     },
@@ -44,7 +52,7 @@ function recorder() {
       if (pending) marks.push({ ...pending, fill: ctx.fillStyle, alpha: ctx.globalAlpha });
     },
     fillText(text: string) {
-      marks.push({ kind: "text", size: text.length, fill: ctx.fillStyle, alpha: ctx.globalAlpha });
+      marks.push({ kind: "text", size: text, fill: ctx.fillStyle, alpha: ctx.globalAlpha });
     },
     createConicGradient: () => ({ addColorStop() {} }),
   };
@@ -94,7 +102,49 @@ describe("paintBullet draws the bullet definition", () => {
     const { ctx, marks } = recorder();
     const a = appear({ typeRefs: [SYSTEM_IDS.field], isSys: true });
     paintBullet(ctx, a, { x: 0, y: 0, size: BULLET_GEOMETRY.box }, PAGE);
-    expect(marks.at(-1)).toEqual({ kind: "text", size: 1, fill: PAGE.ink, alpha: 0.45 * 0.5 });
+    expect(marks.at(-1)).toEqual({
+      kind: "text",
+      size: a.glyph,
+      fill: PAGE.ink,
+      alpha: 0.45 * 0.5,
+    });
+  });
+
+  it("a supertag draws the record's glyph, as every glyph shape does", () => {
+    for (const a of [
+      appear({ typeRefs: [SYSTEM_IDS.tag] }),
+      appear({ typeRefs: [SYSTEM_IDS.command] }),
+    ]) {
+      const { ctx, marks } = recorder();
+      paintBullet(ctx, a, { x: 0, y: 0, size: BULLET_GEOMETRY.box }, PAGE);
+      expect(a.glyph).not.toBeNull();
+      expect(marks.filter((m) => m.kind === "text").map((m) => m.size)).toEqual([a.glyph, a.glyph]);
+    }
+  });
+
+  it("a collapsed reference ring strokes over its halo, not over a ground dash", () => {
+    const ring = BULLET_GEOMETRY.ring / 2 - 0.5;
+    const { ctx, marks } = recorder();
+    const a = appear({ hasChildren: true, childCount: 2, isRef: true, tagColors: ["red"] });
+    expect(a.shape).toBe("ref-ring");
+    expect(a.showHalo).toBe(true);
+    paintBullet(ctx, a, { x: 0, y: 0, size: BULLET_GEOMETRY.box }, PAGE);
+    const strokes = marks.filter((m) => m.kind === "stroke");
+    expect(strokes).toEqual([{ kind: "stroke", size: ring, fill: "red", alpha: 0.25 }]);
+    // Nothing after the halo is laid on the ground: the dot sits on the halo too.
+    expect(marks.slice(2).some((m) => m.fill === PAGE.ground)).toBe(false);
+  });
+
+  it("an open reference ring, with nothing under it, strokes over the ground first", () => {
+    const ring = BULLET_GEOMETRY.ring / 2 - 0.5;
+    const { ctx, marks } = recorder();
+    const a = appear({ isRef: true, collapsed: false, tagColors: ["red"] });
+    expect(a.showHalo).toBe(false);
+    paintBullet(ctx, a, { x: 0, y: 0, size: BULLET_GEOMETRY.box }, PAGE);
+    expect(marks.filter((m) => m.kind === "stroke")).toEqual([
+      { kind: "stroke", size: ring, fill: PAGE.ground, alpha: 1 },
+      { kind: "stroke", size: ring, fill: "red", alpha: 0.25 },
+    ]);
   });
 
   it("scales the 24px box to the cell it is painted into", () => {
