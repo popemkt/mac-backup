@@ -4,7 +4,7 @@ import { float, uniform } from "three/tsl";
 import { TIMING_FALLBACK } from "@/lib/timing";
 import type { LabGraph } from "@/components/lab/lab-graph";
 import { Entrance } from "@/components/lab/kit/entrance";
-import { NodeStars } from "./stars";
+import { NodeStars, stepConstellation } from "./stars";
 
 const colors = {
   ground: uniform(new Color()),
@@ -46,6 +46,19 @@ describe("the Sky's constellation lines", () => {
     expect(s.fadeLines(0, 8, 0, true)).toBe(1);
     s.constellation(-1);
     expect(s.fadeLines(1, 8, 0, true)).toBe(0);
+    expect(s.lines.visible).toBe(false);
+  });
+
+  it("see a let-go on the frame it happens: the hover settles before the fade", () => {
+    const s = stars();
+    s.constellation(0);
+    // The pointer left the star this frame: the hover lets the lines go.
+    const hover = { frame: () => s.constellation(-1) };
+    const opacity = stepConstellation(
+      { hover, stars: s },
+      { opacity: 1, rate: 8, dt: 0, reduced: true, holding: false },
+    );
+    expect(opacity).toBe(0);
     expect(s.lines.visible).toBe(false);
   });
 

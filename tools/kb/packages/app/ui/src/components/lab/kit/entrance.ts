@@ -13,7 +13,7 @@ import { easeNode, type TslNode } from "@/scene/gpu/tsl";
 import { easeAt, type CubicBezier, type Timing } from "@/lib/timing";
 
 /** How much of the entrance the stagger spans; the rest is each piece's own arrival. */
-const SPREAD = 0.55;
+export const ENTRANCE_SPREAD = 0.55;
 
 export class Entrance {
   /** 0 → 1 over the arrive duration, linear; `arrival` shapes it. */
@@ -45,15 +45,17 @@ export class Entrance {
   arrival(lag: TslNode): TslNode {
     return this.ease(
       this.progress
-        .sub(lag.clamp(0, 1).mul(SPREAD))
-        .div(1 - SPREAD)
+        .sub(lag.clamp(0, 1).mul(ENTRANCE_SPREAD))
+        .div(1 - ENTRANCE_SPREAD)
         .clamp(0, 1),
     );
   }
 
   /** `arrival`, as a number on the CPU (a light's intensity): the same law. */
   arrived(lag: number): number {
-    const at = (this.progress.value - Math.min(1, Math.max(0, lag)) * SPREAD) / (1 - SPREAD);
+    const at =
+      (this.progress.value - Math.min(1, Math.max(0, lag)) * ENTRANCE_SPREAD) /
+      (1 - ENTRANCE_SPREAD);
     return easeAt(this.curve, Math.min(1, Math.max(0, at)));
   }
 }

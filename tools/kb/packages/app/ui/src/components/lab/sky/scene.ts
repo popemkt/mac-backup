@@ -34,7 +34,7 @@ import { mountStudy, type StudyContext, type StudyParts } from "@/components/lab
 import { approachRate } from "@/lib/timing";
 import { starfield } from "@/scene/gpu/starfield";
 import { corona, moon, nebula, sun } from "@/components/lab/sky/shaders";
-import { NodeStars } from "@/components/lab/sky/stars";
+import { NodeStars, stepConstellation } from "@/components/lab/sky/stars";
 import { SkyHands } from "@/components/lab/sky/hands";
 
 /** Where the bodies stand, and how big they are (world units). */
@@ -161,10 +161,16 @@ function sky(stage: SceneStage, init: LabSceneInit, context: StudyContext): Stud
       entrance.step(dt, reduced);
       orbit.frame(dt, reduced, stage.camera, DRIFT);
       stage.camera.updateMatrixWorld();
-      // The hover first: a let-go this frame must be the target this frame's
-      // fade sees, or a still draw (reduced motion) keeps the lines up.
-      hands.frame(orbit.control.dragging || orbit.control.held !== null);
-      u.lines.value = stars.fadeLines(u.lines.value, lineRate, dt, reduced);
+      u.lines.value = stepConstellation(
+        { hover: hands, stars },
+        {
+          opacity: u.lines.value,
+          rate: lineRate,
+          dt,
+          reduced,
+          holding: orbit.control.dragging || orbit.control.held !== null,
+        },
+      );
     },
     setControl: (id, value: LabControlValue) => {
       if (id === "spikes" && typeof value === "number") u.spikes.value = value;

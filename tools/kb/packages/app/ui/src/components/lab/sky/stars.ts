@@ -180,6 +180,31 @@ export class NodeStars {
   }
 }
 
+/** What names the hovered star each frame (the Sky's hands). */
+interface Hover {
+  frame(holding: boolean): void;
+}
+
+/**
+ * One frame of the constellation: first the hover is settled — which may let
+ * the lines go — then the lines fade toward what that frame wants. The order
+ * is the contract: a let-go is seen by the same frame's fade, so a still draw
+ * (reduced motion) hides the lines at once. Returns the lines' opacity.
+ */
+export function stepConstellation(
+  parts: { readonly hover: Hover; readonly stars: NodeStars },
+  frame: {
+    readonly opacity: number;
+    readonly rate: number;
+    readonly dt: number;
+    readonly reduced: boolean;
+    readonly holding: boolean;
+  },
+): number {
+  parts.hover.frame(frame.holding);
+  return parts.stars.fadeLines(frame.opacity, frame.rate, frame.dt, frame.reduced);
+}
+
 function size(node: LabNode, hero: boolean): number {
   if (hero) return 6 + node.recency * 3;
   return node.glint ? 2.6 : 0.9 + Math.min(1.2, Math.sqrt(node.degree) * 0.28);
