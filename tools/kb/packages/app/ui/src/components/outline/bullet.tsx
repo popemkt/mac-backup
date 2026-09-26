@@ -139,7 +139,7 @@ export function Bullet({
   });
   const Shape = BULLET_SHAPES[appearance.shape];
 
-  return (
+  const bullet = (
     <button
       type="button"
       onClick={onClick}
@@ -165,15 +165,20 @@ export function Bullet({
       )}
 
       <Shape a={appearance} />
-
-      {appearance.showCount && (
-        <span
-          className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-foreground/10 px-0.5 text-micro font-medium text-foreground/50"
-          data-bullet-count
-        >
-          {appearance.childCount}
-        </span>
-      )}
     </button>
+  );
+  if (!appearance.showCount) return bullet;
+  // The count sits beside the bullet, in the indent gutter, not over its
+  // corner; outside the button, so the bullet's hover tint never lies under it.
+  return (
+    <span className="relative inline-flex shrink-0">
+      {bullet}
+      <span
+        className="pointer-events-none absolute right-full top-1/2 -translate-y-1/2 pr-0.5 text-micro font-medium tabular-nums text-muted-foreground"
+        data-bullet-count
+      >
+        {appearance.childCount}
+      </span>
+    </span>
   );
 }

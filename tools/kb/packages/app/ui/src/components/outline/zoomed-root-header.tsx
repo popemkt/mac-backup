@@ -96,6 +96,31 @@ const TITLE_CLASS = cn(
   "text-title font-semibold leading-[1.4]",
 );
 
+/**
+ * The ambient wash behind a page's head: a soft radial tint of `color`,
+ * weakened through the tag-color owner so any CSS colour works. The zoomed
+ * header paints its tag's colour; home, which has no tag, paints the accent.
+ */
+export function HeaderWash({ color }: { color: string }) {
+  return (
+    <div
+      className="pointer-events-none absolute"
+      aria-hidden="true"
+      data-header-wash="true"
+      style={{
+        top: "-40px",
+        left: "-60px",
+        right: "-60px",
+        bottom: "-30px",
+        background:
+          `radial-gradient(ellipse 60% 70% at 50% 35%, ` +
+          `${tagColorAlpha(color, 4.7)} 0%, ` +
+          `${tagColorAlpha(color, 2)} 40%, transparent 80%)`,
+      }}
+    />
+  );
+}
+
 /** Zoomed root title + tag wash + fields at depth −1 (DESIGN-RESKIN §1.5). */
 export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
   const zoomTo = useOutlineStore((s) => s.zoomTo);
@@ -111,21 +136,7 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
       data-frame-id={node.id}
     >
       <div className="relative pl-7 pt-1">
-        {hasText(washColor) && (
-          <div
-            className="pointer-events-none absolute"
-            style={{
-              top: "-40px",
-              left: "-60px",
-              right: "-60px",
-              bottom: "-30px",
-              background:
-                `radial-gradient(ellipse 60% 70% at 50% 35%, ` +
-                `${tagColorAlpha(washColor, 4.7)} 0%, ` +
-                `${tagColorAlpha(washColor, 2)} 40%, transparent 80%)`,
-            }}
-          />
-        )}
+        {hasText(washColor) && <HeaderWash color={washColor} />}
 
         <div className="group/header relative flex min-h-9 items-center justify-between gap-2">
           <EditableTitle node={node} />

@@ -13,7 +13,7 @@ import { NodeCommandPalette } from "./node-command-palette";
 import { ReferencesSection } from "./references-section";
 import { SchemaSection } from "./schema-section";
 import { isTextEntry } from "@/lib/dom";
-import { ZoomedRootHeader } from "./zoomed-root-header";
+import { HeaderWash, ZoomedRootHeader } from "./zoomed-root-header";
 import { useSelectionKeymap } from "./use-selection-keymap";
 
 /**
@@ -106,7 +106,12 @@ export function OutlineEditor() {
 
   return (
     <div className="outline-editor px-2 pb-40">
-      <Breadcrumbs />
+      <div className="relative">
+        <HeaderWash color="var(--primary)" />
+        <div className="relative">
+          <Breadcrumbs />
+        </div>
+      </div>
 
       {rootRows}
 
