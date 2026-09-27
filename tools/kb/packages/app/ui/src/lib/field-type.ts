@@ -15,8 +15,8 @@ import type { FieldContext, SchemaIndex } from "@/lib/schema";
 import {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
-  acceptsValueKind,
   allowedRefIdsOf,
+  conformsToType,
   fieldTypeOf,
   fieldTypeValue,
   isFieldType,
@@ -160,9 +160,13 @@ export function expectedPropKind(fieldType: FieldType): PropValue["t"] | "str-ur
   return FIELD_TYPE_SPEC[fieldType].wireKind;
 }
 
-/** A stored value whose kind its field's declared type does not accept. */
+/**
+ * A stored value its field's declared type does not accept — the wrong kind,
+ * or the right kind out of the type's form (a url that is not a link). The
+ * rule is `@kb/model`'s (`conformsToType`), the one the write check applies.
+ */
 export function isValueMismatch(fieldType: FieldType, value: PropValue): boolean {
-  return !acceptsValueKind(fieldType, value);
+  return !conformsToType(fieldType, value);
 }
 
 /** Empty / starter value for a typed editor. */

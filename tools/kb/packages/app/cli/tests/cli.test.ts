@@ -143,6 +143,8 @@ describe("arg → invocation mapping", () => {
     expect(parseFieldValue("false", "checkbox", "f")).toEqual({ t: "bool", v: false });
     expect(parseFieldValue("42", "ref", "f")).toEqual({ t: "ref", v: "42" });
     expect(parseFieldValue("https://x.dev", "url", "f")).toEqual({ t: "str", v: "https://x.dev" });
+    // A bare host is written as the link it names; a non-link is refused.
+    expect(parseFieldValue("x.dev/a", "url", "f")).toEqual({ t: "str", v: "https://x.dev/a" });
     expect(parseFieldValue("2026-09-24", "date", "f")).toEqual({ t: "str", v: "2026-09-24" });
     for (const [raw, type] of [
       ["abc", "number"],
@@ -150,6 +152,8 @@ describe("arg → invocation mapping", () => {
       ["Infinity", "number"],
       ["yes", "checkbox"],
       ["1", "checkbox"],
+      ["javascript:alert(1)", "url"],
+      ["not a link", "url"],
     ] as const satisfies readonly (readonly [string, FieldType])[]) {
       expect(() => parseFieldValue(raw, type, "f")).toThrow(UsageError);
     }

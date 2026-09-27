@@ -11,8 +11,8 @@
  * keyed by the same union in `components/outline/field-value.tsx`.
  */
 import type { FieldType } from "@/lib/field-type";
+import { normalizeUrl, parseTypedValue, type ParsedValue } from "@kb/model";
 import { nodeTarget, type FollowTarget } from "@/lib/follow";
-import { isSafeHref } from "@/lib/md-inline";
 import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 
 /**
@@ -62,8 +62,12 @@ export interface ValueKindSpec {
   readonly editor: EditorMode;
   /** The value as its editor's text. */
   readonly text: (value: PropValue) => string;
-  /** The editor's text as a value, or null when the text is not one. */
-  readonly parse: (text: string) => PropValue | null;
+  /**
+   * The editor's text as a value, or why it is not one. The typed kinds read
+   * it through `parseTypedValue`, the parser the CLI uses and the write check
+   * agrees with, so the UI accepts exactly what the store does.
+   */
+  readonly parse: (text: string) => ParsedValue;
   /** The slot shows its placeholder rather than the value. */
   readonly isBlank: (value: PropValue) => boolean;
   /**
@@ -80,56 +84,61 @@ function isBlankScalar(value: PropValue): boolean {
 }
 
 const asText = (value: PropValue): string => (value.t === "str" ? value.v : String(value.v));
-const asString = (text: string): PropValue => ({ t: "str", v: text });
 const nowhere = (): FollowTarget | null => null;
+const accept = (value: PropValue): ParsedValue => ({ ok: true, value });
 
 export const VALUE_KINDS: Readonly<Record<ValueKind, ValueKindSpec>> = {
-  text: { editor: "caret", text: asText, parse: asString, isBlank: isBlankScalar, follow: nowhere },
+  text: {
+    editor: "caret",
+    text: asText,
+    parse: (text) => parseTypedValue(text, "text"),
+    isBlank: isBlankScalar,
+    follow: nowhere,
+  },
   url: {
     editor: "caret",
     text: asText,
-    parse: asString,
+    parse: (text) => parseTypedValue(text, "url"),
     isBlank: isBlankScalar,
-    follow: (value) =>
-      value.t === "str" && value.v !== "" && isSafeHref(value.v)
-        ? { kind: "href", href: value.v.trim() }
-        : null,
+    follow: (value) => {
+      const href = value.t === "str" ? normalizeUrl(value.v) : null;
+      return href === null || href === "" ? null : { kind: "href", href };
+    },
   },
   number: {
     editor: "caret",
     text: asText,
-    parse: (text) => {
-      const n = Number(text.trim());
-      return Number.isNaN(n) ? null : { t: "num", v: n };
-    },
+    // A cleared number reads as unset, the value an empty number slot holds.
+    parse: (text) =>
+      text.trim() === "" ? accept({ t: "num", v: 0 }) : parseTypedValue(text.trim(), "number"),
     isBlank: (value) => value.t !== "num",
     follow: nowhere,
   },
   date: {
     editor: "calendar",
     text: (value) => (value.t === "str" || value.t === "date" ? value.v : ""),
-    parse: asString,
+    parse: (text) => parseTypedValue(text, "date"),
     isBlank: (value) => !(value.t === "str" || value.t === "date") || value.v === "",
     follow: nowhere,
   },
   checkbox: {
     editor: "toggle",
     text: (value) => String(value.t === "bool" && value.v),
-    parse: (text) => ({ t: "bool", v: text === "true" }),
+    parse: (text) => accept({ t: "bool", v: text === "true" }),
     isBlank: (value) => value.t !== "bool" || !value.v,
     follow: nowhere,
   },
   ref: {
     editor: "picker",
     text: (value) => (value.t === "ref" ? value.v : ""),
-    parse: (text) => ({ t: "ref", v: text }),
+    parse: (text) => parseTypedValue(text, "ref"),
     isBlank: (value) => value.t !== "ref" || value.v === "",
     follow: (value) => (value.t === "ref" && value.v !== "" ? nodeTarget(value.v) : null),
   },
   color: {
     editor: "swatch",
     text: asText,
-    parse: asString,
+    parse: (text) => accept({ t: "str", v: text }),
     isBlank: isBlankScalar,
     follow: nowhere,
   },

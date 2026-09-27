@@ -224,3 +224,127 @@ describe("ValueSlot follows like a link", () => {
     expect(container.querySelector("input")).toBeNull();
   });
 });
+
+describe("a url value is a link", () => {
+  let dom: InstalledDom;
+  let container: HTMLDivElement;
+  let root: Root;
+  let committed: PropValue[];
+
+  beforeAll(() => {
+    dom = installDomGlobals();
+    (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
+    dom.restore();
+  });
+
+  beforeEach(() => {
+    committed = [];
+    container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
+    dom.window.document.body.appendChild(container as unknown as never);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  async function mountUrl(v: string) {
+    await act(async () => {
+      root.render(
+        createElement(ValueSlot, {
+          value: { t: "str", v },
+          fieldType: "url",
+          fieldId: "f.site",
+          context,
+          onCommit: (next: PropValue) => committed.push(next),
+          onFollow: () => undefined,
+        }),
+      );
+    });
+    return present(container.querySelector<HTMLElement>('[data-value-slot="url"]'), "slot");
+  }
+
+  const editable = () =>
+    present(container.querySelector<HTMLElement>('[data-editable-text="true"]'), "editable");
+
+  async function typeAndLeave(text: string) {
+    editable().textContent = text;
+    await act(async () => {
+      editable().dispatchEvent(
+        new dom.window.FocusEvent("focusout", { bubbles: true }) as unknown as Event,
+      );
+    });
+  }
+
+  it("shows a short label on a real anchor, the full url as its title", async () => {
+    await mountUrl("https://www.kb.example/docs/");
+    const link = present(container.querySelector("a.kb-md-link"), "link");
+    expect(link.getAttribute("href")).toBe("https://www.kb.example/docs/");
+    expect(link.getAttribute("title")).toBe("https://www.kb.example/docs/");
+    expect(link.getAttribute("rel")).toContain("noopener");
+    expect(link.textContent).toBe("kb.example/docs");
+  });
+
+  it("a click on the link opens it; a click beside it edits the raw url", async () => {
+    const slot = await mountUrl("https://kb.example/a");
+    await act(async () => {
+      present(container.querySelector<HTMLElement>("a.kb-md-link"), "link").click();
+    });
+    expect(slot.getAttribute("data-editing")).toBeNull();
+    await act(async () => {
+      editable().click();
+    });
+    expect(slot.getAttribute("data-editing")).toBe("true");
+    expect(container.querySelector("a.kb-md-link")).toBeNull();
+    expect(editable().textContent).toBe("https://kb.example/a");
+  });
+
+  it("writes a bare host as the link it names", async () => {
+    const slot = await mountUrl("");
+    await act(async () => {
+      slot.click();
+    });
+    await typeAndLeave("kb.example/x");
+    expect(committed).toEqual([{ t: "str", v: "https://kb.example/x" }]);
+  });
+
+  it("keeps input that is not a link, marked, instead of dropping it", async () => {
+    const slot = await mountUrl("https://kb.example");
+    await act(async () => {
+      slot.click();
+    });
+    await typeAndLeave("javascript:alert(1)");
+    expect(committed).toEqual([]);
+    const shown = editable();
+    expect(shown.getAttribute("data-rejected")).toBe("true");
+    expect(shown.textContent).toBe("javascript:alert(1)");
+    expect(shown.getAttribute("title")).toContain("not a link");
+    expect(container.querySelector('[data-mismatch-warning="true"]')).not.toBeNull();
+
+    // Escape while editing puts the stored value back and drops the mark.
+    await act(async () => {
+      slot.click();
+    });
+    await act(async () => {
+      editable().dispatchEvent(
+        new dom.window.KeyboardEvent("keydown", {
+          key: "Escape",
+          bubbles: true,
+          cancelable: true,
+        }) as unknown as Event,
+      );
+    });
+    await act(async () => {
+      editable().dispatchEvent(
+        new dom.window.FocusEvent("focusout", { bubbles: true }) as unknown as Event,
+      );
+    });
+    expect(editable().getAttribute("data-rejected")).toBeNull();
+    expect(committed).toEqual([]);
+  });
+});

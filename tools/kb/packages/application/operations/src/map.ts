@@ -7,6 +7,7 @@ import {
   fieldTypeOf,
   fieldTypeValue,
   isFieldType,
+  parseTypedValue,
   resolveFieldId,
   SYSTEM_IDS,
   type FieldType,
@@ -43,37 +44,18 @@ export function declaredTypes(nodes: KbNode[]): DeclaredTypes {
   };
 }
 
-const CHECKBOX_VALUES: Readonly<Record<string, boolean>> = { true: true, false: false };
-
 /**
  * Parse a CLI argument as a value of the field's declared type.
  *
- * The type decides the value kind; the argument's shape never does, so `42`
- * on a text field is the string "42". An argument the type cannot read is a
- * usage error, not a coercion: `abc` is no number, and writing it as a string
- * would only be refused by the write check with a less useful message.
+ * The one parser every surface shares (`parseTypedValue` in @kb/model): the
+ * type decides the value kind, and an argument the type cannot read — `abc`
+ * for a number, `javascript:` for a url — is a usage error, not a coercion.
+ * A bare host for a url field is written as the `https://` link it names.
  */
 export function parseFieldValue(raw: string, type: FieldType, field: string): PropValue {
-  if (type === "number") {
-    const n = raw.trim() === "" ? Number.NaN : Number(raw);
-    if (!Number.isFinite(n)) {
-      throw new UsageError({ message: `${field} is a number field; not a number: ${raw}` });
-    }
-    return { t: "num", v: n };
-  }
-  if (type === "checkbox") {
-    const v = CHECKBOX_VALUES[raw];
-    if (v === undefined) {
-      throw new UsageError({
-        message: `${field} is a checkbox field; expected true|false: ${raw}`,
-      });
-    }
-    return { t: "bool", v };
-  }
-  if (type === "ref") return { t: "ref", v: raw };
-  // text, url, and date — which the UI's date editor also writes as a string.
-  // GAP [[01M39X7NQV187BDQVGH81997M5]] — date has a second carrier, {t:"date"}.
-  return { t: "str", v: raw };
+  const parsed = parseTypedValue(raw, type);
+  if (parsed.ok) return parsed.value;
+  throw new UsageError({ message: `${field} is a ${type} field; ${parsed.reason}` });
 }
 
 /** One `--prop field=value` fragment, parsed as the field's declared type. */

@@ -10,6 +10,7 @@ import {
 } from "@phosphor-icons/react";
 import type { FieldContext } from "@/lib/schema";
 import type { PropValue } from "@/lib/types";
+import type { ParsedValue } from "@kb/model";
 import { routePointerClick, type Follow } from "@/lib/follow";
 import { emptyValueForType, type FieldType } from "@/lib/field-type";
 import {
@@ -28,6 +29,7 @@ import {
   RefSurface,
   type CaretTone,
   type EditHandle,
+  type RejectedInput,
   type ValueSurfaceProps,
 } from "./field-value";
 
@@ -144,6 +146,8 @@ export function ValueSlot({
   const shown = value ?? emptyValueForType(fieldType);
   const blank = spec.isBlank(shown);
   const [editing, setEditing] = useState(autoOpen && mode.autoOpens);
+  /** Typed text the kind refused: shown, marked, and where the next edit starts. */
+  const [rejected, setRejected] = useState<RejectedInput | null>(null);
   const handle = useRef<EditHandle>(null);
   const composing = useRef(false);
   const { Surface } = VALUE_VIEWS[kind];
@@ -154,9 +158,13 @@ export function ValueSlot({
     else if (spec.editor !== "swatch") setEditing(true);
   };
 
-  const end = (next?: PropValue) => {
+  const end = (parsed?: ParsedValue, text = "") => {
     setEditing(false);
-    if (next !== undefined) onCommit(next);
+    if (parsed === undefined) setRejected(null);
+    else if (parsed.ok) {
+      setRejected(null);
+      onCommit(parsed.value);
+    } else setRejected({ text, reason: parsed.reason });
   };
 
   const opensOnFocus = mode.opensOnFocusWhenEmpty && blank && !editing;
@@ -205,6 +213,7 @@ export function ValueSlot({
           e.preventDefault();
           handle.current?.commit();
         } else if (intent === "cancel") {
+          setRejected(null);
           handle.current?.cancel();
         } else if (intent === "follow" && target !== null) {
           e.preventDefault();
@@ -216,6 +225,7 @@ export function ValueSlot({
         value={shown}
         blank={blank}
         editing={editing}
+        rejected={rejected}
         spec={spec}
         display={display}
         fieldId={fieldId}

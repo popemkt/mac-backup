@@ -3,7 +3,10 @@ import type { OutlineNode, PropValue } from "@/lib/types";
 import { useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
-import { KB_REF_ID_ATTR } from "@/lib/md-edit";
+import { INLINE_TEXT_CLASSES, KB_REF_ID_ATTR } from "@/lib/md-edit";
+import { urlLabel } from "@/lib/url-label";
+import type { ParsedValue } from "@kb/model";
+import { WarningIcon } from "@phosphor-icons/react";
 import { nodeCandidates, refSearchOf } from "@/lib/refs";
 import { pickerRows } from "@/lib/picker";
 import { usePickerKeys } from "@/lib/use-picker";
@@ -28,6 +31,12 @@ export interface EditHandle {
   cancel: () => void;
 }
 
+/** Input a kind refused, and why. */
+export interface RejectedInput {
+  readonly text: string;
+  readonly reason: string;
+}
+
 /** Everything a kind's surface is handed by the slot that holds it. */
 export interface ValueSurfaceProps {
   /** The stored value, or the type's empty value when the slot holds none. */
@@ -47,8 +56,13 @@ export interface ValueSurfaceProps {
    * (`refSearchOf`), so no surface passes, or can forget, either.
    */
   context: FieldContext;
-  /** Leave the editor, committing `next` when one is given. */
-  onEnd: (next?: PropValue) => void;
+  /** Text the kind could not read, kept so it is never dropped (`CaretValue`). */
+  rejected: RejectedInput | null;
+  /**
+   * Leave the editor. With a parse, commit what it read — or, when it read
+   * nothing, keep `text` as rejected input; without one, nothing changed.
+   */
+  onEnd: (parsed?: ParsedValue, text?: string) => void;
   /** Where a caret surface exposes itself to the slot's keymap. */
   handleRef: React.Ref<EditHandle>;
   /** Follow a pointer inside the value: a ref's bullet or tag chip. */
@@ -63,20 +77,26 @@ export type CaretTone = "plain" | "link";
 /**
  * A value that is text: the same element reads it and, while the slot edits,
  * holds the caret. Entering puts the caret at the end; leaving reads the text
- * back through the kind's `parse`, and a text the kind cannot read commits
- * nothing.
+ * back through the kind's `parse`.
+ *
+ * Text the kind cannot read is never dropped: the slot keeps it (`rejected`),
+ * this shows it marked with the reason, and the next edit starts from it.
+ * A url at rest is a real link — a pointer segment, so a plain click on it
+ * opens it (lib/follow) while a click beside it edits.
  */
 export function CaretValue({
   value,
   blank,
   editing,
   spec,
+  rejected,
   onEnd,
   handleRef,
   tone,
 }: ValueSurfaceProps & { tone: CaretTone }) {
   const ref = useRef<HTMLDivElement>(null);
-  const text = spec.text(value);
+  const stored = spec.text(value);
+  const text = rejected?.text ?? stored;
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -95,43 +115,92 @@ export function CaretValue({
     () => ({
       commit: () => ref.current?.blur(),
       cancel: () => {
-        if (ref.current) ref.current.textContent = text;
+        if (ref.current) ref.current.textContent = stored;
         ref.current?.blur();
       },
     }),
-    [text],
+    [stored],
   );
 
   const finish = () => {
     const next = ref.current?.textContent ?? text;
-    onEnd(next === text ? undefined : (spec.parse(next) ?? undefined));
+    if (next === stored) onEnd();
+    else onEnd(spec.parse(next), next);
   };
 
   const showEmpty = blank && !text;
+  const href = tone === "link" && !editing && rejected === null ? spec.follow(value) : null;
 
   return (
-    <div
-      ref={ref}
-      className={cn(
-        editableClass,
-        "cursor-text",
-        showEmpty && "empty-placeholder",
-        showEmpty
-          ? "text-foreground/25 italic"
-          : tone === "link"
-            ? "text-primary underline underline-offset-2 decoration-primary/20"
-            : "text-foreground/70",
+    <div className="flex min-w-0 flex-1 items-start">
+      <div
+        ref={ref}
+        className={cn(
+          editableClass,
+          "min-w-0 cursor-text",
+          showEmpty && "empty-placeholder",
+          showEmpty
+            ? "text-foreground/25 italic"
+            : rejected !== null
+              ? "text-warning underline decoration-wavy decoration-warning/50 underline-offset-2"
+              : "text-foreground/70",
+        )}
+        contentEditable={editing}
+        onBlur={editing ? finish : undefined}
+        onPaste={(e) => {
+          // A link pasted into an empty url slot is the whole gesture.
+          const pasted = e.clipboardData.getData("text/plain").trim();
+          if (!editing || tone !== "link" || !showEmpty || pasted === "" || /\n/.test(pasted)) {
+            return;
+          }
+          e.preventDefault();
+          onEnd(spec.parse(pasted), pasted);
+        }}
+        data-editable-text="true"
+        data-empty-placeholder={showEmpty ? "true" : undefined}
+        data-rejected={rejected !== null ? "true" : undefined}
+        aria-invalid={rejected !== null || undefined}
+        title={rejected?.reason}
+        suppressContentEditableWarning
+      >
+        {/* D17: empty state is CSS-only (:empty::before) — the DOM stays
+            empty so the caret lands on a truly blank editor. */}
+        {showEmpty ? "" : href?.kind === "href" ? <UrlLink href={href.href} /> : text}
+      </div>
+      {rejected !== null && !editing && (
+        <span
+          className="flex h-6 w-4 shrink-0 items-center justify-center text-warning"
+          title={rejected.reason}
+          data-mismatch-warning="true"
+        >
+          <WarningIcon size={11} weight="fill" aria-hidden />
+        </span>
       )}
-      contentEditable={editing}
-      onBlur={editing ? finish : undefined}
-      data-editable-text="true"
-      data-empty-placeholder={showEmpty ? "true" : undefined}
-      suppressContentEditableWarning
-    >
-      {/* D17: empty state is CSS-only (:empty::before) — the DOM stays
-          empty so the caret lands on a truly blank editor. */}
-      {showEmpty ? "" : text}
     </div>
+  );
+}
+
+/**
+ * A url value at rest: a real anchor, so the browser's own open, middle-click,
+ * status-bar preview and "Copy link" all work. The label is short and capped
+ * below the slot's width, so there is always space beside it to click into
+ * the value; the full url is the title.
+ */
+function UrlLink({ href }: { href: string }) {
+  return (
+    <a
+      className={cn(
+        INLINE_TEXT_CLASSES.link,
+        "inline-block max-w-[60%] truncate align-bottom text-primary",
+        "underline decoration-primary/25 underline-offset-2 hover:decoration-primary/60",
+      )}
+      href={href}
+      title={href}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {urlLabel(href)}
+    </a>
   );
 }
 
@@ -174,7 +243,7 @@ export function DateSurface({ value, spec, editing, onEnd }: ValueSurfaceProps) 
         className={cn(editableClass, "border-none bg-transparent text-foreground/70")}
         defaultValue={text ? text.slice(0, 10) : ""}
         autoFocus
-        onChange={(e) => onEnd(spec.parse(e.target.value) ?? undefined)}
+        onChange={(e) => onEnd(spec.parse(e.target.value), e.target.value)}
         onBlur={() => onEnd()}
       />
     );
@@ -196,10 +265,7 @@ export function DateSurface({ value, spec, editing, onEnd }: ValueSurfaceProps) 
 
 export function ColorSurface({ value, spec, onEnd }: ValueSurfaceProps) {
   return (
-    <ColorSwatchEditor
-      value={spec.text(value)}
-      onCommit={(hex) => onEnd(spec.parse(hex) ?? undefined)}
-    />
+    <ColorSwatchEditor value={spec.text(value)} onCommit={(hex) => onEnd(spec.parse(hex), hex)} />
   );
 }
 
@@ -473,7 +539,7 @@ export function RefSurface({
       <RefSearch
         fieldId={fieldId}
         context={context}
-        onCommit={(id) => onEnd(spec.parse(id) ?? undefined)}
+        onCommit={(id) => onEnd(spec.parse(id), id)}
         onClose={() => onEnd()}
       />
     );

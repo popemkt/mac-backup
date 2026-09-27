@@ -1,5 +1,6 @@
 import { canonicalJson } from "./canonical.ts";
-import { cardinalityOf, valueConformanceError } from "./field-type.ts";
+import { cardinalityOf } from "./field-type.ts";
+import { valueConformanceError } from "./field-value.ts";
 import type { KbNode, NodeId } from "./model.ts";
 import { present } from "./present.ts";
 
