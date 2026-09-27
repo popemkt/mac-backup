@@ -1,6 +1,16 @@
 import type { Settings } from "sigma/settings";
 import { fitGraphLabel } from "@/lib/graph-label";
+import {
+  GRAPH_LABEL_PAD,
+  graphLabelText,
+  paintGraphLabel,
+  setGraphLabelType,
+  type GraphLabelInk,
+  type GraphLabelStyle,
+} from "@/lib/graph-label-paint";
+import { DEFAULT_THEME } from "@/lib/graph-lens";
 import { readTokenColor } from "@/lib/css-color";
+import { GRAPH_THEMES } from "./graph-themes";
 import {
   byLabelPriority,
   overlapsGraphLabel,
@@ -58,17 +68,20 @@ function reserveFor(frame: LabelFrame, box: GraphLabelBox, degree: number): bool
 }
 
 /**
- * The label ink and its halo, read from the tokens once per appearance
- * (`setGraphLabelInk`) rather than once per label per frame: each token read
- * is a style recalculation.
+ * How labels are painted: the theme's label style, and the ink and ground
+ * read from the tokens once per appearance (`setGraphLabelPaint`) rather
+ * than once per label per frame — each token read is a style recalculation.
  */
-let ink: { text: string; halo: string } | null = null;
-export function setGraphLabelInk(text: string, halo: string): void {
-  ink = { text, halo };
+let look: { ink: GraphLabelInk; style: GraphLabelStyle } | null = null;
+export function setGraphLabelPaint(ink: GraphLabelInk, style: GraphLabelStyle): void {
+  look = { ink, style };
 }
-function labelInk(): { text: string; halo: string } {
-  ink ??= { text: readTokenColor("--foreground"), halo: readTokenColor("--background") };
-  return ink;
+function labelLook(): { ink: GraphLabelInk; style: GraphLabelStyle } {
+  look ??= {
+    ink: { text: readTokenColor("--foreground"), ground: readTokenColor("--background") },
+    style: GRAPH_THEMES[DEFAULT_THEME].labels,
+  };
+  return look;
 }
 /**
  * Start a frame's label layout. `sampleNodes` writes the drawn nodes' boxes:
@@ -96,7 +109,7 @@ export function reserveInGraphLabels(canvas: HTMLCanvasElement, box: GraphLabelB
   return frame === undefined || reserveFor(frame, box, Infinity);
 }
 
-/** Where a label may stand: its baseline's start, and the box it covers. */
+/** Where a label may stand: its text's start and middle, and the box it covers. */
 interface LabelPlace {
   readonly x: number;
   readonly y: number;
@@ -104,54 +117,47 @@ interface LabelPlace {
 }
 
 /**
- * A label's text, fitted, and the places it may stand, best first: right of
- * its node, left of it, then centred above and below it — a hub ringed by
- * its neighbours on both sides is still labelled over or under itself.
- * Every place is clamped into the frame.
+ * A label's text, fitted and set in its style, and the places it may stand,
+ * best first: right of its node, left of it, then centred above and below
+ * it — a hub ringed by its neighbours on both sides is still labelled over
+ * or under itself. Every place is clamped into the frame.
  */
 function measured(ctx: CanvasRenderingContext2D, data: LabelData, settings: LabelSettings) {
-  ctx.font = `${settings.labelSize}px ${settings.labelFont}`;
+  const { style } = labelLook();
+  setGraphLabelType(ctx, style, settings.labelSize);
   const dpr = window.devicePixelRatio || 1;
   const viewportWidth = ctx.canvas.width / dpr;
   const viewportHeight = ctx.canvas.height / dpr;
   const text = fitGraphLabel(
-    data.label ?? "",
+    graphLabelText(data.label ?? "", style),
     (value) => ctx.measureText(value).width,
     Math.max(60, Math.min(220, viewportWidth - 24)),
   );
   const width = ctx.measureText(text).width;
-  const size = settings.labelSize;
-  const clampX = (at: number) => Math.max(8, Math.min(at, viewportWidth - width - 8));
-  const clampY = (at: number) => Math.max(16, Math.min(at, viewportHeight - 6));
+  // The box a label covers: its text and padding, as tall as its halo draws.
+  const boxWidth = width + GRAPH_LABEL_PAD * 2;
+  const half = (settings.labelSize + 7) / 2;
+  const clampX = (at: number) =>
+    Math.max(GRAPH_LABEL_PAD + 2, Math.min(at, viewportWidth - width - GRAPH_LABEL_PAD - 2));
+  const clampY = (at: number) => Math.max(half + 2, Math.min(at, viewportHeight - half - 2));
   const place = (x: number, y: number): LabelPlace => ({
     x,
     y,
-    box: { x: x - 3, y: y - size - 2, width: width + 8, height: size + 7 },
+    box: { x: x - GRAPH_LABEL_PAD, y: y - half, width: boxWidth, height: half * 2 },
   });
-  const beside = clampY(data.y + size / 3);
+  const gap = data.size + GRAPH_LABEL_PAD;
   const places: LabelPlace[] = [
-    place(clampX(data.x + data.size + 6), beside),
-    place(clampX(data.x - data.size - 10 - width), beside),
-    place(clampX(data.x - width / 2), clampY(data.y - data.size - 6)),
-    place(clampX(data.x - width / 2), clampY(data.y + data.size + size + 4)),
+    place(clampX(data.x + gap), clampY(data.y)),
+    place(clampX(data.x - gap - width), clampY(data.y)),
+    place(clampX(data.x - width / 2), clampY(data.y - data.size - half - 2)),
+    place(clampX(data.x - width / 2), clampY(data.y + data.size + half + 2)),
   ];
-  return { text, places };
+  return { text, width: boxWidth, places };
 }
 
-function paint(ctx: CanvasRenderingContext2D, text: string, x: number, y: number): void {
-  // The halo: the ground, wide and soft under the text, so a label reads over
-  // the links and nodes behind it.
-  const { text: fill, halo } = labelInk();
-  ctx.save();
-  ctx.strokeStyle = halo;
-  ctx.shadowColor = halo;
-  ctx.shadowBlur = 6;
-  ctx.lineWidth = 5;
-  ctx.lineJoin = "round";
-  ctx.strokeText(text, x, y);
-  ctx.restore();
-  ctx.fillStyle = fill;
-  ctx.fillText(text, x, y);
+function paint(ctx: CanvasRenderingContext2D, text: string, at: LabelPlace, width: number): void {
+  const { ink, style } = labelLook();
+  paintGraphLabel(ctx, text, { x: at.x, y: at.y, width }, style, ink);
 }
 
 /** Sigma's default hover plate is white; own label paint for both 2D views. */
@@ -163,13 +169,13 @@ export const drawGraphLabel: Settings["defaultDrawNodeLabel"] = (ctx, data, sett
     frame.requests.push({ ctx, data, settings });
     return;
   }
-  const { text, places } = measured(ctx, data, settings);
+  const { text, width, places } = measured(ctx, data, settings);
   const first = places[0];
   if (first === undefined) return;
   // The hover pass: always drawn, wherever is clear of other nodes, else beside it.
   const nodes = frame === undefined ? [] : nodesOf(frame);
   const at = places.find((p) => !overlapsGraphLabel(p.box, nodes)) ?? first;
-  paint(ctx, text, at.x, at.y);
+  paint(ctx, text, at, width);
 };
 
 /** A label's rank: sigma hands the node's own attributes through, `degree` among them. */
@@ -193,17 +199,17 @@ export function placeGraphLabels(canvas: HTMLCanvasElement): void {
     .splice(0)
     .toSorted((a, b) => byLabelPriority(rankOf(a.data), rankOf(b.data)));
   for (const { ctx, data, settings } of requests) {
-    const { text, places } = measured(ctx, data, settings);
+    const { text, width, places } = measured(ctx, data, settings);
     const { degree } = rankOf(data);
     const free = places.find((p) => reserveFor(frame, p.box, degree));
-    if (free !== undefined) paint(ctx, text, free.x, free.y);
+    if (free !== undefined) paint(ctx, text, free, width);
   }
 }
 
 export const drawGraphHover: Settings["defaultDrawNodeHover"] = (ctx, data, settings) => {
   ctx.beginPath();
   ctx.arc(data.x, data.y, data.size + 3, 0, Math.PI * 2);
-  ctx.strokeStyle = labelInk().text;
+  ctx.strokeStyle = labelLook().ink.text;
   ctx.lineWidth = 1.5;
   ctx.stroke();
   drawGraphLabel(ctx, data, settings);

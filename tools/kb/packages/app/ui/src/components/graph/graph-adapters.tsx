@@ -22,9 +22,10 @@ export function Force2dAdapter({
   setControls,
   onNodeOpen,
 }: GraphAdapterProps) {
+  const nodes = useOutlineBullets(lensGraph.nodes, active.theme);
   return (
     <SigmaGraph
-      nodes={lensGraph.nodes}
+      nodes={nodes}
       edges={lensGraph.edges}
       layoutKey={active.id}
       appearance={appearance}
@@ -32,6 +33,7 @@ export function Force2dAdapter({
       showLabels={active.showLabels}
       labelDensity={active.labelDensity}
       linkStyle={active.linkStyle}
+      theme={active.theme}
       onNodeOpen={onNodeOpen}
       onSelectionChange={setSelection}
       selectedNodeId={selection?.nodeId ?? null}
@@ -81,9 +83,10 @@ export function ClusterAdapter({
   setControls,
   onNodeOpen,
 }: GraphAdapterProps) {
+  const nodes = useOutlineBullets(lensGraph.nodes, active.theme);
   return (
     <ClusterGraph
-      nodes={lensGraph.nodes}
+      nodes={nodes}
       edges={lensGraph.edges}
       layoutKey={active.id}
       appearance={appearance}
@@ -95,6 +98,7 @@ export function ClusterAdapter({
       showLabels={active.showLabels}
       labelDensity={active.labelDensity}
       linkStyle={active.linkStyle}
+      theme={active.theme}
       onControlsReady={setControls}
     />
   );

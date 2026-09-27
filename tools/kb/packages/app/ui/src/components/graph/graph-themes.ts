@@ -10,7 +10,7 @@
  * Values only, and only tokens for colour (Lab principle L1), so every theme
  * looks like itself in each design system, light and dark (P5). No three.
  */
-import type { ColorToken } from "@/lib/css-color";
+import { toRenderableColor, type ColorToken } from "@/lib/css-color";
 import type { GraphLabelStyle } from "@/lib/graph-label-paint";
 import type { LensTheme } from "@/lib/graph-lens";
 import type { NodeSurface } from "./force3d-light";
@@ -29,6 +29,37 @@ export interface LinkTone {
   readonly source: number;
   /** How far the resting colour leans toward the accent, 0–1. */
   readonly accent: number;
+}
+
+/** A colour's channels (0–255) and alpha, as `toRenderableColor` writes them. */
+function channels(color: string): [number, number, number, number] | null {
+  const rendered = toRenderableColor(color);
+  const m =
+    rendered === null
+      ? null
+      : /^rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?\)$/.exec(rendered);
+  if (m === null) return null;
+  return [Number(m[1]), Number(m[2]), Number(m[3]), m[4] === undefined ? 1 : Number(m[4])];
+}
+
+/**
+ * A link at rest in a theme, the one reading every renderer draws its links
+ * from: `link` (`--graph-edge`, else `fallback`) leaned toward `accent` by
+ * the tone's accent share, its alpha times the tone's strength, at most 1.
+ */
+export function restingLink(
+  link: string,
+  fallback: string,
+  accent: string,
+  tone: LinkTone,
+): { readonly color: string; readonly alpha: number } {
+  const base = channels(link) ?? channels(fallback) ?? [128, 128, 128, 1];
+  const lean = channels(accent) ?? base;
+  const mix = (i: 0 | 1 | 2) => Math.round(base[i] + (lean[i] - base[i]) * tone.accent);
+  return {
+    color: `rgb(${mix(0)}, ${mix(1)}, ${mix(2)})`,
+    alpha: Math.min(1, base[3] * tone.strength),
+  };
 }
 
 /**

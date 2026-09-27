@@ -47,7 +47,7 @@ import type { PaletteUniforms } from "@/scene/gpu/stage";
 import type { ScenePalette } from "@/scene/palette";
 import { approach } from "@/lib/timing";
 import type { LinkStyleParts } from "@/lib/graph-link-styles";
-import type { LinkTone } from "./graph-themes";
+import { restingLink, type LinkTone } from "./graph-themes";
 import type { Force3dFades, Force3dTopology } from "./force3d-emphasis";
 
 /** Segments per link when curved; a straight link is one. */
@@ -145,11 +145,10 @@ export function linkLayer(
   return {
     lines,
     setPalette: (palette, link) => {
-      const rgba = /^rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?\)$/.exec(link);
-      ink.set(rgba === null ? palette.ink : `rgb(${rgba[1]}, ${rgba[2]}, ${rgba[3]})`);
+      const resting = restingLink(link, palette.ink, palette.accent, tone);
+      ink.set(resting.color);
       accent.set(palette.accent);
-      ink.lerp(accent, tone.accent);
-      rest = Math.min(1, (rgba?.[4] === undefined ? 1 : Number(rgba[4])) * tone.strength);
+      rest = resting.alpha;
     },
     update: (positions) => {
       path.positions = positions;

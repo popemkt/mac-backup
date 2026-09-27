@@ -6,12 +6,14 @@ import Sigma from "sigma";
 import { EdgeArrowProgram } from "sigma/rendering";
 import { EdgeCurvedArrowProgram } from "@sigma/edge-curve";
 import { createNodeBorderProgram } from "@sigma/node-border";
-import type {
-  LensEdge,
-  LensNode,
-  LensLayout,
-  LensLabelDensity,
-  LensLinkStyle,
+import {
+  DEFAULT_THEME,
+  type LensEdge,
+  type LensNode,
+  type LensLayout,
+  type LensLabelDensity,
+  type LensLinkStyle,
+  type LensTheme,
 } from "@/lib/graph-lens";
 import { LINK_STYLES } from "@/lib/graph-link-styles";
 import { readTokenColor } from "@/lib/css-color";
@@ -37,9 +39,12 @@ import {
   placeGraphLabels,
   reserveInGraphLabels,
   resetGraphLabels,
-  setGraphLabelInk,
+  setGraphLabelPaint,
   type GraphNodeBox,
 } from "./sigma-labels";
+import { createBulletProgram, SigmaBulletAtlas } from "./sigma-bullets";
+import { GRAPH_THEMES, restingLink, type NodeForm } from "./graph-themes";
+import { withGraphAlpha } from "@/lib/graph-dim";
 import { clusterHulls } from "./cluster-hulls";
 import { GraphTooltip } from "./graph-tooltip";
 import { sigmaEmphasis, type SigmaEmphasis } from "./sigma-emphasis";
@@ -58,6 +63,11 @@ export interface SigmaGraphProps extends GraphEmphasis {
   labelDensity?: LensLabelDensity;
   /** The link style: 2D draws its shape (a flow is drawn still, on its curve). */
   linkStyle?: LensLinkStyle;
+  /**
+   * The theme (`graph-themes`): 2D draws its node form, its links' tone and
+   * its label style; the 3D scene's dress is the 3D graph's alone.
+   */
+  theme?: LensTheme;
   onControlsReady?: (controls: GraphCameraControls | null) => void;
 }
 
@@ -74,6 +84,12 @@ const NodeRingProgram = createNodeBorderProgram({
   drawLabel: drawGraphLabel,
   drawHover: drawGraphHover,
 });
+
+/**
+ * The sigma node program each form is drawn with: a solid is its disc in
+ * 2D, and a bullet is the outline's bullet (`sigma-bullets`).
+ */
+const NODE_PROGRAMS: Record<NodeForm, "ring" | "bullet"> = { sphere: "ring", bullet: "bullet" };
 
 /** The sigma edge program each link shape is drawn with. */
 const EDGE_PROGRAMS = { straight: EdgeArrowProgram, curved: EdgeCurvedArrowProgram } as const;
@@ -100,7 +116,9 @@ export function SigmaGraph(props: SigmaGraphProps) {
     showLabels = true,
     labelDensity = "medium",
     linkStyle = "straight",
+    theme = DEFAULT_THEME,
   } = props;
+  const { form } = GRAPH_THEMES[theme];
   const containerRef = useRef<HTMLDivElement>(null);
   const hullRef = useRef<HTMLCanvasElement>(null);
   const sigmaRef = useRef<Sigma | null>(null);
@@ -112,6 +130,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
   const cameraIntent = useRef(false);
   const topology = useRef("");
   const settle = useRef(new DiscSettle());
+  const bullets = useRef(new SigmaBulletAtlas());
   const [isolated, setIsolated] = useState<string | null>(null);
   const isolatedRef = useRef(isolated);
   useLayoutEffect(() => {
@@ -154,8 +173,8 @@ export function SigmaGraph(props: SigmaGraphProps) {
       labelDensity: 0.7,
       defaultDrawNodeLabel: drawGraphLabel,
       defaultDrawNodeHover: drawGraphHover,
-      defaultNodeType: "ring",
-      nodeProgramClasses: { ring: NodeRingProgram },
+      defaultNodeType: NODE_PROGRAMS[GRAPH_THEMES[live.current.theme ?? DEFAULT_THEME].form],
+      nodeProgramClasses: { ring: NodeRingProgram, bullet: createBulletProgram(bullets.current) },
       defaultEdgeType: edgeProgram(live.current.linkStyle ?? "straight"),
       edgeProgramClasses: EDGE_PROGRAMS,
       stagePadding: 70,
@@ -166,6 +185,14 @@ export function SigmaGraph(props: SigmaGraphProps) {
     });
     sigmaRef.current = sigma;
     emphasis.current = sigmaEmphasis(sigma, readTiming(), prefersReducedMotion);
+    // A glyph painted before the UI face has loaded is painted again once it has.
+    let mounted = true;
+    if ("fonts" in document)
+      void document.fonts.ready.then(() => {
+        if (!mounted) return;
+        bullets.current.paint();
+        sigma.refresh();
+      });
     // The drawn nodes' boxes are what labels must not cover. They are sampled
     // when the frame's first label is placed (see resetGraphLabels), after
     // sigma has processed this frame's positions and camera.
@@ -300,6 +327,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     if (import.meta.env.MODE === "test-render")
       (el as HTMLDivElement & { __kbSigma?: Sigma }).__kbSigma = sigma;
     return () => {
+      mounted = false;
       el.removeEventListener("pointerdown", markCamera);
       el.removeEventListener("wheel", markCamera);
       document.removeEventListener("mousemove", move);
@@ -339,6 +367,8 @@ export function SigmaGraph(props: SigmaGraphProps) {
     const ids = new Set(nodes.map((n) => n.id));
     for (const id of graph.nodes()) if (!ids.has(id)) graph.dropNode(id);
     const assigned = computeLayoutPositions(layout, nodes, edges, undefined, discSpacing);
+    // Where the theme draws bullets, each node's cell in the atlas and its box.
+    const drawn = form === "bullet" ? bullets.current.place(nodes.map((n) => n.bullet)) : null;
     const placed = cluster ? clusterPlacement(nodes) : null;
     nodes.forEach((n, index) => {
       const exists = graph.hasNode(n.id);
@@ -353,6 +383,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
         degree: n.degree,
         clusterKey: n.clusterKey,
         clusterLabel: n.clusterLabel ?? n.clusterKey,
+        ...drawn?.[index],
       };
       if (exists) graph.mergeNodeAttributes(n.id, { ...attrs, ...(cluster ? point : undefined) });
       else
@@ -391,22 +422,33 @@ export function SigmaGraph(props: SigmaGraphProps) {
     sigma.refresh();
     if (initial && graph.order) fitView(sigma, 0);
     refresh();
-  }, [nodes, edges, layoutKey, layout, cluster, refresh]);
+  }, [nodes, edges, layoutKey, layout, cluster, form, refresh]);
 
   useEffect(() => {
     const sigma = sigmaRef.current;
     if (!sigma) return;
-    // Everything sigma copied out of the tokens is re-read on an appearance change.
-    sigma.setSetting("labelFont", graphLabelFont());
-    const edgeColor = readTokenColor("--graph-edge");
+    // Everything sigma copied out of the tokens is re-read on an appearance
+    // change, and what the theme shapes on a new theme.
+    const look = GRAPH_THEMES[theme];
+    sigma.setSetting("labelFont", graphLabelFont(look.labels.face));
+    const ground = readTokenColor("--background");
+    const ink = readTokenColor("--foreground");
+    // One colour per link: 2D takes the tone's strength and accent lean, not its gradient.
+    const resting = restingLink(
+      readTokenColor("--graph-edge"),
+      ink,
+      readTokenColor("--primary"),
+      look.links,
+    );
+    const edgeColor = withGraphAlpha(resting.color, resting.alpha);
     sigma.setSetting("defaultEdgeColor", edgeColor);
     sigma
       .getGraph()
       .forEachEdge((edge) => sigma.getGraph().setEdgeAttribute(edge, "color", edgeColor));
-    const ground = readTokenColor("--background");
-    const ink = readTokenColor("--foreground");
     emphasis.current?.setRings(ground, ink);
-    setGraphLabelInk(ink, ground);
+    setGraphLabelPaint({ text: ink, ground }, look.labels);
+    bullets.current.setPage(ink, ground);
+    sigma.setSetting("defaultNodeType", NODE_PROGRAMS[look.form]);
     sigma.setSetting("renderLabels", showLabels);
     // Density-aware: the busier the graph, the fewer labels per grid cell.
     const crowd = Math.min(1, Math.sqrt(LABEL_CROWD / Math.max(1, nodes.length)));
@@ -416,7 +458,18 @@ export function SigmaGraph(props: SigmaGraphProps) {
     );
     sigma.setSetting("hideEdgesOnMove", nodes.length > 1500);
     refresh();
-  }, [appearance, showLabels, labelDensity, nodes, edges, layoutKey, layout, cluster, refresh]);
+  }, [
+    appearance,
+    theme,
+    showLabels,
+    labelDensity,
+    nodes,
+    edges,
+    layoutKey,
+    layout,
+    cluster,
+    refresh,
+  ]);
   useEffect(() => {
     // A new link style redraws the links in their new shape, in place.
     sigmaRef.current?.setSetting("defaultEdgeType", edgeProgram(linkStyle));

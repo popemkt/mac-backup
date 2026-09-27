@@ -534,8 +534,10 @@ like themselves (P5).
   together, set per design system and variant), read by the 2D edges, the
   tree's links and the 3D links alike.
 - **2D (force, cluster).** Arrow edges in the link style's shape; every node ringed in the
-  ground colour (`@sigma/node-border`), in the ink when in focus; labels on
-  a soft halo of the ground, their colours read once per appearance. A
+  ground colour (`@sigma/node-border`), in the ink when in focus (the
+  bullet theme draws bullets instead, below); labels in the theme's label
+  style over a halo of the ground (the default's is soft), their colours
+  read once per appearance. A
   label sits right of its node, else left, else centred above or below it,
   and never over another label or a drawn node at least as well connected
   (a hub ringed by its leaves is named over a leaf), so crowded clusters
@@ -593,7 +595,7 @@ like themselves (P5).
   drawn only while something moves, the device pixel ratio is clamped to 2,
   a hidden tab draws nothing, and a renderer switch or unmount disposes the
   scene, its worker and its listeners (`force3d-graph.lifecycle.test.tsx`).
-- **Graph themes (3D)** are data: a perspective's `lens.theme` is one of
+- **Graph themes** are data: a perspective's `lens.theme` is one of
   its option nodes (children of the field, like the renderers), picked in
   the settings panel and persisted as a ref prop. A theme is a whole scene,
   not a material: `graph-themes.ts` states each one once, as one record in
@@ -606,8 +608,15 @@ like themselves (P5).
   which tokens fill the ground and its edge, the backdrop's pool, warmth
   and haze, the fog, the starfield, the grain, the bloom (and so whether
   any light may cross white at all) and the node surface — is its
-  `scene`, which only the 3D graph has. What the themes are, and why, is
-  below. Switching one redraws what it shapes
+  `scene`, which only the 3D graph has. The 2D graphs (force and
+  cluster) wear the theme too, through the same record: a solid form is
+  drawn as the node's disc and the bullet form as the outline's bullet
+  (below); labels are set in the theme's face, weight and case under its
+  halo, still placed by the 2D label layout (beside first), so `placement`
+  is the 3D label's anchor; links take the tone's strength and accent lean
+  (`restingLink`, the one reading both renderers draw links from) but not
+  its gradient, since a sigma link is one colour. What the themes are, and
+  why, is below. Switching one redraws what it shapes
   in place: the palette eases across like a theme change, the stage's
   knobs move, the nodes and labels are redrawn; nothing moves, lays out or
   arrives again, and the link layer's motion is carried on.
@@ -661,7 +670,13 @@ like themselves (P5).
     sphere the node would be in another theme, so its small dot reads, and
     it is picked, framed and labelled by as far as it shows
     (`bulletExtent`: its halo when it has one, else its dot or glyph). The
-    atlas is painted again only when some bullet's paint changes.
+    atlas is painted again only when some bullet's paint changes. In 2D
+    the same atlas is sampled by a sigma node program
+    (`sigma-bullets.ts`, one instanced quad per node), and a bullet
+    stands exactly as far as its disc — its halo, else its dot or glyph —
+    so the disc rules above (separation, picking, label clearance) hold
+    unchanged and a plain leaf is the disc it always was; a dimmed bullet
+    fades as a disc does.
 - **Link styles** are one choice for both renderers: a perspective's
   `lens.link-style` is one of its option nodes — *straight* (the default),
   *curved*, *flow* — and `graph-link-styles.ts` states what each one means

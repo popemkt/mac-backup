@@ -13,9 +13,10 @@ import {
   placeGraphLabels,
   reserveInGraphLabels,
   resetGraphLabels,
-  setGraphLabelInk,
+  setGraphLabelPaint,
   type GraphNodeBox,
 } from "./sigma-labels";
+import { GRAPH_THEMES } from "./graph-themes";
 
 type LabelData = Parameters<Settings["defaultDrawNodeLabel"]>[1];
 
@@ -35,6 +36,11 @@ function fakeContext(pass: "sigma-labels" | "sigma-hovers" = "sigma-labels") {
     shadowBlur: 0,
     lineWidth: 0,
     lineJoin: "",
+    letterSpacing: "",
+    textBaseline: "",
+    globalAlpha: 1,
+    fill: () => {},
+    roundRect: () => {},
     measureText: (text: string) => ({ width: text.length * 6 }),
     save: () => {},
     beginPath: () => {},
@@ -72,7 +78,8 @@ function label(x: number): LabelData {
 }
 
 describe("2D label placement samples the drawn frame", () => {
-  setGraphLabelInk("#111", "#fff");
+  const INK = { text: "#111", ground: "#fff" };
+  beforeAll(() => setGraphLabelPaint(INK, GRAPH_THEMES.matte.labels));
   const g = globalThis as Record<string, unknown>;
   beforeAll(() => {
     g.window = { devicePixelRatio: 1 };
@@ -193,5 +200,16 @@ describe("2D label placement samples the drawn frame", () => {
     drawGraphLabel(ctx, label(100), settings);
     placeGraphLabels(el);
     expect(drawn).toHaveLength(0);
+  });
+
+  it("sets a label in its theme's style: capitals where the theme says so", () => {
+    const { ctx, canvas, drawn } = fakeContext();
+    const el = canvas as unknown as HTMLCanvasElement;
+    setGraphLabelPaint(INK, GRAPH_THEMES.fresnel.labels);
+    resetGraphLabels([el], () => {});
+    drawGraphLabel(ctx, { ...label(100), label: "Hub" }, settings);
+    placeGraphLabels(el);
+    setGraphLabelPaint(INK, GRAPH_THEMES.matte.labels);
+    expect(drawn.map((d) => d.text)).toEqual(["HUB"]);
   });
 });

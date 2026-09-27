@@ -70,7 +70,7 @@ export const GRAPH_RENDERERS: Record<string, GraphRendererDefinition> = {
   force2d: {
     label: GRAPH_RENDERER_VALUES.force2d.label,
     capabilities: { ...standard, drag: true },
-    settings: ["layout", "labelDensity", "showLabels", "linkStyle"],
+    settings: ["layout", "labelDensity", "showLabels", "theme", "linkStyle"],
     channels: ["relationships", "color", "label", "size"],
     Component: Force2dAdapter,
   },
@@ -84,7 +84,7 @@ export const GRAPH_RENDERERS: Record<string, GraphRendererDefinition> = {
   cluster: {
     label: GRAPH_RENDERER_VALUES.cluster.label,
     capabilities: { ...standard, drag: true },
-    settings: ["clusterBy", "labelDensity", "showLabels", "linkStyle"],
+    settings: ["clusterBy", "labelDensity", "showLabels", "theme", "linkStyle"],
     channels: ["relationships", "color", "label", "size", "group"],
     Component: ClusterAdapter,
   },
