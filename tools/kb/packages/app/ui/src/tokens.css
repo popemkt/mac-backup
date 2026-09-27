@@ -91,10 +91,17 @@
 
 /*
  * A formatted segment's markup (`**`, `[`, `](href)`) is in the DOM so the
- * text reads back byte for byte (lib/md-edit.ts); it is not shown.
+ * text reads back byte for byte (lib/md-edit.ts). It is hidden, except in the
+ * segment the editing caret touches, where it shows faint beside the
+ * formatting it makes — the text never turns back into source.
  */
 .kb-md-mark {
   display: none;
+}
+
+.kb-md-seg[data-md-reveal] > .kb-md-mark {
+  display: inline;
+  opacity: 0.4;
 }
 
 /* W2 inline md — inherit .kb-text line-height; tint code; primary refs */

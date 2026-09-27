@@ -10,7 +10,8 @@
  * a reference renders as a non-editable link carrying its whole token, so a
  * raw ULID never faces the caret, and a media embed's element holds no text.
  */
-import { isElementNode, isTextNode } from "@/lib/dom";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { asElement, isElementNode, isTextNode } from "@/lib/dom";
 import {
   assetSrcUrl,
   inlineSpanSource,
@@ -19,33 +20,9 @@ import {
   type InlineSeg,
   type InlineSpan,
 } from "@/lib/md-inline";
-import { textOr } from "@/lib/text";
 export const KB_REF_ATTR = "data-kb-ref";
 /** The id a rendered reference points at, read by click routing. */
-export const KB_REF_ID_ATTR = "data-kb-ref-id";
-
-/** Complete wiki-link token: [[id]] or [[id|label]]. */
-const REF_TOKEN = /\[\[([^\][|]+)(?:\|([^\][]*))?\]\]/g;
-
-export interface RefSpan {
-  token: string;
-  id: string;
-  label: string;
-  index: number;
-}
-
-/** Ordered reference tokens in a serialized text (for tests + tooling). */
-export function findRefSpans(text: string): RefSpan[] {
-  const out: RefSpan[] = [];
-  for (const m of text.matchAll(REF_TOKEN)) {
-    const [, target] = m;
-    if (target === undefined) continue;
-    const id = target.trim();
-    const label = textOr(m[2]?.trim(), id);
-    out.push({ token: m[0], id, label, index: m.index });
-  }
-  return out;
-}
+const KB_REF_ID_ATTR = "data-kb-ref-id";
 
 /**
  * The classes inline markdown paints text with. Exported so the contrast
@@ -58,10 +35,11 @@ export const INLINE_TEXT_CLASSES = {
   mark: "kb-md-mark",
 } as const;
 
-/** A formatted segment's wrapper, carrying the source range it spans. */
+/** The line box after a trailing newline: layout only, it reads back as nothing. */
+const TRAILING_BREAK_ATTR = "data-kb-trailing-break";
+
+/** A formatted segment's wrapper: its marks and its formatted element. */
 const INLINE_SEG_CLASS = "kb-md-seg";
-const INLINE_SEG_FROM = "data-md-from";
-const INLINE_SEG_TO = "data-md-to";
 
 /**
  * One node of inline markdown's element tree: text, or an element named by
@@ -138,7 +116,7 @@ function contentNode(seg: Exclude<InlineSeg, { t: "text" } | { t: "ref" }>): Inl
   }
 }
 
-function spanNode(span: InlineSpan, from: number, to: number): InlineNode {
+function spanNode(span: InlineSpan): InlineNode {
   const { seg } = span;
   if (seg.t === "text") return seg.v;
   if (seg.t === "ref") {
@@ -158,7 +136,7 @@ function spanNode(span: InlineSpan, from: number, to: number): InlineNode {
   }
   return h(
     "span",
-    { class: INLINE_SEG_CLASS, [INLINE_SEG_FROM]: String(from), [INLINE_SEG_TO]: String(to) },
+    { class: INLINE_SEG_CLASS },
     ...mark(span.open),
     contentNode(seg),
     ...mark(span.close),
@@ -167,14 +145,12 @@ function spanNode(span: InlineSpan, from: number, to: number): InlineNode {
 
 /** `text`'s inline element tree: every source character is in it (see the module doc). */
 export function inlineNodes(text: string): InlineNode[] {
-  const out: InlineNode[] = [];
-  let at = 0;
-  for (const span of parseInlineSource(text)) {
-    const to = at + inlineSpanSource(span).length;
-    if (to > at) out.push(spanNode(span, at, to));
-    at = to;
-  }
-  return out;
+  const nodes = parseInlineSource(text)
+    .filter((span) => inlineSpanSource(span) !== "")
+    .map(spanNode);
+  // A trailing line break opens a line only if something follows it; this
+  // gives that line its box, so a caret after the break has a place to be.
+  return text.endsWith("\n") ? [...nodes, h("br", { [TRAILING_BREAK_ATTR]: "" })] : nodes;
 }
 
 function toDom(node: InlineNode): Node {
@@ -193,23 +169,103 @@ export function renderInlineMarkdown(target: HTMLElement, text: string): void {
   target.replaceChildren(...inlineNodes(text).map(toDom));
 }
 
-/** Rebuild the editor DOM: text nodes + atomic ref pills. Idempotent. */
-export function renderEditableContent(el: HTMLElement, text: string): void {
-  el.textContent = "";
-  let last = 0;
-  for (const span of findRefSpans(text)) {
-    const before = text.slice(last, span.index);
-    if (before) el.appendChild(document.createTextNode(before));
-    const pill = document.createElement("span");
-    pill.setAttribute("contenteditable", "false");
-    pill.setAttribute(KB_REF_ATTR, span.token);
-    pill.setAttribute("class", "kb-edit-ref");
-    pill.textContent = span.label;
-    el.appendChild(pill);
-    last = span.index + span.token.length;
+/**
+ * What a click inside rendered inline markdown does, decided by what it
+ * landed on: a reference navigates through `onRefClick`, a link or a media
+ * embed keeps the click to itself (the link opens, the player plays), and
+ * anything else is not inline content's business. True when it was handled.
+ *
+ * Every surface that renders node text routes clicks through this, so a
+ * reference is clicked the same way in a read-only list and in an outline row.
+ */
+export function routeInlineClick(
+  e: ReactMouseEvent,
+  onRefClick: (e: ReactMouseEvent, id: string) => void,
+): boolean {
+  const target = asElement(e.target);
+  const id = target?.closest(`[${KB_REF_ID_ATTR}]`)?.getAttribute(KB_REF_ID_ATTR);
+  if (id !== null && id !== undefined && id !== "") {
+    onRefClick(e, id);
+    return true;
   }
-  const rest = text.slice(last);
-  if (rest) el.appendChild(document.createTextNode(rest));
+  if (target?.closest(`a.${INLINE_TEXT_CLASSES.link}, .kb-md-media`)) {
+    e.stopPropagation();
+    return true;
+  }
+  return false;
+}
+
+/** Set on a segment's wrapper while the selection touches it: its markup shows. */
+const SEG_REVEAL = "data-md-reveal";
+
+/** Two nodes' children are the same trees. */
+function sameChildren(a: Node, b: Node): boolean {
+  if (a.childNodes.length !== b.childNodes.length) return false;
+  return Array.from(a.childNodes).every((child, i) => {
+    const other = b.childNodes[i];
+    return other !== undefined && sameTree(child, other);
+  });
+}
+
+/** Two inline trees are the same, ignoring which segments are revealed. */
+function sameTree(a: Node, b: Node): boolean {
+  if (a.nodeType !== b.nodeType) return false;
+  if (isTextNode(a)) return isTextNode(b) && a.data === b.data;
+  if (isElementNode(a) && isElementNode(b)) {
+    if (a.tagName !== b.tagName) return false;
+    const attrs = (el: Element) =>
+      el
+        .getAttributeNames()
+        .filter((n) => n !== SEG_REVEAL)
+        .toSorted()
+        .map((n) => `${n}=${el.getAttribute(n) ?? ""}`)
+        .join("\n");
+    if (attrs(a) !== attrs(b)) return false;
+  }
+  return sameChildren(a, b);
+}
+
+/**
+ * Whether `el` already holds the tree {@link renderInlineMarkdown} builds for
+ * `text`. Typing inside a segment keeps it; typing that opens or closes one
+ * (the second `*` of `**`) does not, and the editor rebuilds.
+ */
+export function isCanonicalInline(el: HTMLElement, text: string): boolean {
+  const probe = document.createElement("div");
+  renderInlineMarkdown(probe, text);
+  // The host element is the surface's; only what is inside it is the text.
+  return sameChildren(el, probe);
+}
+
+/**
+ * Reveal the markup of every formatted segment the selection touches — a
+ * caret at either edge of `**b**` counts — and hide the rest. Both sides are
+ * measured as serialized offsets, so a caret resting in a hidden mark and one
+ * resting in the text beside it agree.
+ */
+export function revealMarkupAtSelection(el: HTMLElement): void {
+  const sel = window.getSelection();
+  const range = sel !== null && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+  const inside = range !== null && el.contains(range.startContainer);
+  const from = inside
+    ? serializedOffsetOfBoundary(el, range.startContainer, range.startOffset)
+    : null;
+  const to = inside ? serializedOffsetOfBoundary(el, range.endContainer, range.endOffset) : null;
+  for (const seg of Array.from(el.querySelectorAll(`.${INLINE_SEG_CLASS}`))) {
+    const parent = seg.parentNode;
+    const index = parent === null ? -1 : Array.from(parent.childNodes).indexOf(seg);
+    const segFrom = parent === null ? null : serializedOffsetOfBoundary(el, parent, index);
+    const segTo = parent === null ? null : serializedOffsetOfBoundary(el, parent, index + 1);
+    const touched =
+      from !== null &&
+      to !== null &&
+      segFrom !== null &&
+      segTo !== null &&
+      segFrom <= to &&
+      from <= segTo;
+    if (touched) seg.setAttribute(SEG_REVEAL, "");
+    else seg.removeAttribute(SEG_REVEAL);
+  }
 }
 
 function serializeNode(node: Node): string {
@@ -217,7 +273,7 @@ function serializeNode(node: Node): string {
   if (isElementNode(node)) {
     const token = node.getAttribute(KB_REF_ATTR);
     if (token !== null) return token;
-    if (node.tagName === "BR") return "\n";
+    if (node.tagName === "BR") return node.hasAttribute(TRAILING_BREAK_ATTR) ? "" : "\n";
     let out = "";
     for (const child of Array.from(node.childNodes)) out += serializeNode(child);
     return out;
@@ -290,7 +346,8 @@ export function serializedOffsetOfBoundary(
   offset: number,
 ): number | null {
   const state: MeasureState = { target: container, offset, done: false, total: 0 };
-  for (const child of Array.from(el.childNodes)) measureUpTo(child, state);
+  // From `el` itself, so a boundary between its own children is reached too.
+  measureUpTo(el, state);
   return state.done ? state.total : null;
 }
 
@@ -306,72 +363,73 @@ export function getCaretSerializedOffset(el: HTMLElement | null | undefined): nu
   );
 }
 
-function placeInTextNode(tn: Text, _local: number, remaining: { n: number }): boolean {
-  const len = tn.data.length;
-  if (remaining.n <= len) return true;
-  remaining.n -= len;
-  return false;
+function inMark(node: Text): boolean {
+  return node.parentElement?.classList.contains(INLINE_TEXT_CLASSES.mark) === true;
 }
 
-/** Place the caret at a serialized offset, skipping over pills. */
+/**
+ * Place the caret at a serialized offset, skipping over pills.
+ *
+ * An offset on a boundary has several DOM positions — the end of one text
+ * node and the start of the next — and where the caret rests decides where
+ * typing lands. A position outside the hidden markup wins: typing then goes
+ * into the text beside a segment or inside its formatting, never into its
+ * `**`, which would cost a rebuild for nothing.
+ */
 export function setCaretSerializedOffset(el: HTMLElement, pos: number): void {
-  const remaining = { n: Math.max(0, pos) };
-  // A holder, not a `let`: `visit` writes it, and control-flow analysis
-  // cannot see through the closure.
-  const state = { placed: false };
+  const state = { remaining: Math.max(0, pos), stop: false };
+  /** Every DOM position at the offset, in document order; `plain` is text outside markup. */
+  const candidates: { container: Node; offset: number; plain: boolean }[] = [];
 
-  const visit = (node: Node): boolean => {
-    if (state.placed) return true;
+  const visit = (node: Node): void => {
+    if (state.stop) return;
     if (isTextNode(node)) {
-      if (placeInTextNode(node, remaining.n, remaining)) {
-        selectRange(node, Math.min(remaining.n, node.data.length));
-        state.placed = true;
-        return true;
+      const len = node.data.length;
+      if (state.remaining > len) {
+        state.remaining -= len;
+        return;
       }
-      return false;
+      candidates.push({ container: node, offset: state.remaining, plain: !inMark(node) });
+      // Strictly inside this node: no other position is the same offset.
+      if (state.remaining < len) state.stop = true;
+      state.remaining = 0;
+      return;
     }
-    if (isElementNode(node)) {
-      if (node.getAttribute(KB_REF_ATTR) !== null) {
-        remaining.n -= tokenLengthOf(node);
-        return false;
-      }
-      for (const kid of Array.from(node.childNodes)) {
-        if (visit(kid)) return true;
-      }
-      return false;
+    if (!isElementNode(node)) return;
+    if (node.getAttribute(KB_REF_ATTR) === null) {
+      for (const kid of Array.from(node.childNodes)) visit(kid);
+      return;
     }
-    return false;
+    // An atomic pill: the caret rests beside it, in its parent, never inside.
+    const parent = node.parentNode;
+    const index = parent === null ? 0 : Array.from(parent.childNodes).indexOf(node);
+    if (candidates.length > 0 || state.remaining === 0) {
+      if (parent !== null && candidates.length === 0) {
+        candidates.push({ container: parent, offset: index, plain: false });
+      }
+      state.stop = true;
+      return;
+    }
+    state.remaining = Math.max(0, state.remaining - tokenLengthOf(node));
+    if (state.remaining === 0 && parent !== null) {
+      candidates.push({ container: parent, offset: index + 1, plain: false });
+    }
   };
 
-  for (const child of Array.from(el.childNodes)) {
-    if (visit(child)) break;
-  }
+  for (const child of Array.from(el.childNodes)) visit(child);
 
-  if (!state.placed) {
-    // Past the end: park the caret after the last content.
-    const lastText = lastDescendantText(el);
-    if (lastText) selectRange(lastText, lastText.data.length);
-  }
+  const pick = candidates.find((c) => c.plain) ?? candidates[0];
+  if (pick) selectRange(pick.container, pick.offset);
+  // Past the end: park the caret after the last content.
+  else selectRange(el, el.childNodes.length);
 }
 
-function selectRange(tn: Text, offset: number): void {
+function selectRange(container: Node, offset: number): void {
   const sel = window.getSelection();
   if (!sel) return;
   const range = document.createRange();
-  range.setStart(tn, offset);
+  range.setStart(container, offset);
   range.collapse(true);
   sel.removeAllRanges();
   sel.addRange(range);
-}
-
-/** `NodeFilter.SHOW_TEXT` — the global is not present in every test DOM. */
-const SHOW_TEXT = 0x4;
-
-function lastDescendantText(el: HTMLElement): Text | null {
-  const walker = document.createTreeWalker(el, SHOW_TEXT);
-  let last: Text | null = null;
-  for (let cur = walker.nextNode(); cur !== null; cur = walker.nextNode()) {
-    if (isTextNode(cur)) last = cur;
-  }
-  return last;
 }

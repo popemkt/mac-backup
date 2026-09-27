@@ -11,7 +11,7 @@
  */
 import { mutations } from "@/actions/mutations";
 import { rowTextOf } from "@/lib/contextual-ref";
-import { renderEditableContent, setCaretSerializedOffset } from "@/lib/md-edit";
+import { renderInlineMarkdown, serializeEditable, setCaretSerializedOffset } from "@/lib/md-edit";
 import { useOutlineStore } from "@/stores/outline.store";
 import type { EditingIntent } from "./editing-keymap";
 
@@ -21,18 +21,25 @@ type EditingSteps = {
   [T in EditingIntent["type"]]: (intent: IntentOf<T>, editable: HTMLElement) => void;
 };
 
-/** A soft break rewrites the live element as well as the node. */
+/**
+ * A soft break is typed into the live element like any character: it breaks
+ * the text the element holds (which may be ahead of the store), and the
+ * element hears it as input, so its host records the write as its own.
+ */
 function softBreak(
   { nodeId, instanceKey, cursor }: IntentOf<"softBreak">,
   editable: HTMLElement,
 ): void {
   const store = useOutlineStore.getState();
   // The row's text channel: a reference's break lands in its original.
-  const { text, textNodeId } = rowTextOf(store, nodeId);
+  const { textNodeId } = rowTextOf(store, nodeId);
+  const text = serializeEditable(editable);
   const next = `${text.slice(0, cursor)}\n${text.slice(cursor)}`;
-  void mutations.updateNodeContent(textNodeId, next);
-  renderEditableContent(editable, next);
+  renderInlineMarkdown(editable, next);
   setCaretSerializedOffset(editable, cursor + 1);
+  const view = editable.ownerDocument.defaultView;
+  if (view) editable.dispatchEvent(new view.Event("input", { bubbles: true }));
+  void mutations.updateNodeContent(textNodeId, next);
   store.activateNode(nodeId, cursor + 1, instanceKey);
 }
 

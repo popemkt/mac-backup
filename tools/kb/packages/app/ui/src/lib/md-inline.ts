@@ -1,5 +1,5 @@
 /**
- * Inline markdown subset for node text (DESIGN-REFINE §2 W2/W6a).
+ * Inline markdown subset for node text (DESIGN-UI → Outline editor; W2/W6a).
  * bold / italic / code / links / [[id|label]] refs / ![alt](assets/…) media.
  *
  * One parser, two readings of its result: {@link parseInlineSource} keeps the

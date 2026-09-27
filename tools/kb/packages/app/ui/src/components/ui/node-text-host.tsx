@@ -4,7 +4,10 @@ import { cn } from "@/lib/cn";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
 import {
   getCaretSerializedOffset,
-  renderEditableContent,
+  isCanonicalInline,
+  renderInlineMarkdown,
+  revealMarkupAtSelection,
+  routeInlineClick,
   serializeEditable,
   setCaretSerializedOffset,
 } from "@/lib/md-edit";
@@ -12,8 +15,8 @@ import { fuzzyNodeCandidates, insertRefAtCursor, openRefQuery } from "@/lib/refs
 import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
 import type { SchemaIndex } from "@/lib/schema";
 import type { NodeMap, TagBadge } from "@/lib/types";
-import { MdView } from "@/components/ui/md-view";
-import { asElement } from "@/lib/dom";
+import { InlineMarkdown } from "@/components/ui/md-view";
+import { useTextHistory } from "@/components/ui/use-text-history";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
 import { nearestOffsetForX, offsetFromPoint } from "@/lib/caret";
 import { TagChipGroup } from "@/components/outline/tag-chip";
@@ -64,6 +67,32 @@ export interface NodeTextHostProps extends NodeTextHostBinding {
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
 }
 
+/**
+ * Put the caret where a placement asks, in the serialized text, and show the
+ * markup it lands in. Returns the offset it took.
+ */
+function seatCaret(el: HTMLElement, at: NodeTextHostCaretAt, length: number): number {
+  let placed = at === "end" ? length : typeof at === "number" ? at : 0;
+  setCaretSerializedOffset(el, placed);
+  // Column preservation across vertical navigation (D11): nudge the caret to
+  // the character whose visual x best matches the previous row.
+  if (typeof at === "object") {
+    const adjusted = nearestOffsetForX(el, at.x, "first") ?? nearestOffsetForX(el, at.x, "last");
+    if (adjusted !== null) {
+      setCaretSerializedOffset(el, adjusted);
+      placed = adjusted;
+    }
+  }
+  revealMarkupAtSelection(el);
+  return placed;
+}
+
+/** The text-history step a chord asks for: ⌘Z undoes, ⇧⌘Z redoes. */
+function historyChord(e: React.KeyboardEvent): "undo" | "redo" | null {
+  if (!(e.metaKey || e.ctrlKey) || e.altKey || e.key.toLowerCase() !== "z") return null;
+  return e.shiftKey ? "redo" : "undo";
+}
+
 export function NodeTextHost({
   nodeId,
   instanceKey,
@@ -91,10 +120,19 @@ export function NodeTextHost({
   onAttachFile,
   onRemoveTag,
 }: NodeTextHostProps) {
+  /**
+   * The row's one text element. It shows the same inline DOM whether the row
+   * is being read or edited; editing makes it contentEditable and reveals the
+   * markup of the segment under the caret.
+   */
   const editorRef = useRef<HTMLDivElement>(null);
-  const mdViewRef = useRef<HTMLDivElement>(null);
   const isComposing = useRef(false);
   const wasActive = useRef(false);
+  /**
+   * The last text this editor wrote that has not come back as `content` yet.
+   * While one is pending, `content` is behind the DOM, not ahead of it.
+   */
+  const pendingEcho = useRef<string | null>(null);
   /** Query captured at dismissal time; a different query re-opens (D14). */
   const acDismissedQuery = useRef<string | null>(null);
   const [acIndex, setAcIndex] = useState(0);
@@ -103,6 +141,15 @@ export function NodeTextHost({
   const [cursor, setCursor] = useState(0);
   const readOnlyReason = rowTextReadOnlyReason(nodeId, nodes.get(nodeId), schema);
   const readOnly = readOnlyReason !== null;
+  const editing = isActive && !readOnly;
+  /** Every write this editor makes goes through here (see `pendingEcho`). */
+  const emit = useCallback(
+    (text: string) => {
+      if (text !== content) pendingEcho.current = text;
+      onChange(text);
+    },
+    [content, onChange],
+  );
 
   const rawRefOpen = useMemo(() => {
     if (!isActive || readOnly) return null;
@@ -135,59 +182,69 @@ export function NodeTextHost({
         ? { instanceKey: instanceKey ?? "local", at: initialCaret }
         : null;
     const placement = intent ?? localIntent;
-    if (isActive && editorRef.current && placement) {
+    if (pendingEcho.current === content) pendingEcho.current = null;
+    if (editing && editorRef.current && placement) {
       const el = editorRef.current;
 
-      if (!wasActive.current) {
-        // Rebuild DOM from the authoritative string (atomic pills, D16).
-        renderEditableContent(el, content);
-      }
+      // While editing, the DOM is the text. It is built from `content` when
+      // the editor mounts (empty), and again only when `content` moved on its
+      // own — a merge wrote this row — never from a `content` that has not
+      // caught up with this editor's own writes yet.
+      const movedOnItsOwn = pendingEcho.current === null && serializeEditable(el) !== content;
+      if (!wasActive.current || movedOnItsOwn) renderInlineMarkdown(el, content);
       wasActive.current = true;
 
       el.focus();
-      let placedCursor =
-        placement.at === "end"
-          ? content.length
-          : typeof placement.at === "number"
-            ? placement.at
-            : 0;
-      setCaretSerializedOffset(el, placedCursor);
-
-      // Column preservation across vertical navigation (D11): nudge the
-      // caret to the character whose visual x best matches the previous row.
-      if (typeof placement.at === "object") {
-        const adjusted =
-          nearestOffsetForX(el, placement.at.x, "first") ??
-          nearestOffsetForX(el, placement.at.x, "last");
-        if (adjusted !== null) {
-          setCaretSerializedOffset(el, adjusted);
-          placedCursor = adjusted;
-        }
-      }
-
+      const placedCursor = seatCaret(el, placement.at, content.length);
       setCursor(placedCursor);
       if (intent) consumeCaret(intent.instanceKey);
       setAcDismissed(false);
       acDismissedQuery.current = null;
-    } else {
+    } else if (!editing) {
       wasActive.current = false;
+      pendingEcho.current = null;
     }
-  }, [isActive, content, initialCaret, instanceKey, pendingCaret, consumeCaret]);
+  }, [editing, isActive, content, initialCaret, instanceKey, pendingCaret, consumeCaret]);
+
+  const restoreText = useCallback(
+    (state: { text: string; caret: number }) => {
+      setCursor(state.caret);
+      emit(state.text);
+    },
+    [emit],
+  );
+  const stepTextHistory = useTextHistory({
+    editorRef,
+    editing,
+    content,
+    onRestore: restoreText,
+  });
+
+  // The markup under the caret shows while it is there, wherever the caret
+  // moved it from: a click, an arrow, a caret the host placed.
+  useEffect(() => {
+    const el = editorRef.current;
+    if (!editing || !el) return undefined;
+    const reveal = () => revealMarkupAtSelection(el);
+    document.addEventListener("selectionchange", reveal);
+    return () => document.removeEventListener("selectionchange", reveal);
+  }, [editing]);
 
   const applyRef = useCallback(
     (id: string, label: string) => {
       const pos = cursor;
       const inserted = insertRefAtCursor(content, pos, id, label);
       if (!inserted) return;
-      onChange(inserted.text);
+      emit(inserted.text);
       if (editorRef.current) {
-        renderEditableContent(editorRef.current, inserted.text);
+        renderInlineMarkdown(editorRef.current, inserted.text);
         setCaretSerializedOffset(editorRef.current, inserted.cursor);
+        revealMarkupAtSelection(editorRef.current);
       }
       setCursor(inserted.cursor);
       if (instanceKey !== undefined) placeCaret(instanceKey, inserted.cursor);
     },
-    [content, cursor, instanceKey, onChange, placeCaret],
+    [content, cursor, instanceKey, emit, placeCaret],
   );
 
   /**
@@ -197,38 +254,44 @@ export function NodeTextHost({
   const completeBracket = useCallback(() => {
     if (!editorRef.current) return;
     const next = content.slice(0, cursor) + "]]" + content.slice(cursor);
-    onChange(next);
-    renderEditableContent(editorRef.current, next);
+    emit(next);
+    renderInlineMarkdown(editorRef.current, next);
     setCaretSerializedOffset(editorRef.current, cursor + 2);
+    revealMarkupAtSelection(editorRef.current);
     setCursor(cursor + 2);
     if (instanceKey !== undefined) placeCaret(instanceKey, cursor + 2);
-  }, [content, cursor, instanceKey, onChange, placeCaret]);
+  }, [content, cursor, instanceKey, emit, placeCaret]);
 
   const handleInput = useCallback(() => {
-    if (editorRef.current && !isComposing.current) {
-      const text = serializeEditable(editorRef.current);
-      setCursor(getCaretSerializedOffset(editorRef.current));
+    const el = editorRef.current;
+    if (el && !isComposing.current) {
+      const text = serializeEditable(el);
+      const caret = getCaretSerializedOffset(el);
+      // Typing that changes what the text means — closing a `**`, breaking a
+      // link — rebuilds the tree so the formatting follows; typing that does
+      // not leaves the browser's DOM (and its native undo) alone.
+      if (!isCanonicalInline(el, text)) {
+        renderInlineMarkdown(el, text);
+        setCaretSerializedOffset(el, caret);
+      }
+      revealMarkupAtSelection(el);
+      setCursor(caret);
       acDismissedQuery.current = null;
       setAcDismissed(false);
-      onChange(text);
+      emit(text);
     }
-  }, [onChange]);
+  }, [emit]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
+      // A reference navigates and a link or player keeps its click, in both
+      // states; everything else is a click into the text.
+      if (routeInlineClick(e, onRefClick)) return;
       if (!isActive) {
-        const t = asElement(e.target);
-        if (
-          t?.closest(
-            "a.kb-md-ref, a.kb-md-link, .kb-md-media, img.kb-md-media, video.kb-md-media, audio.kb-md-media",
-          )
-        ) {
-          e.stopPropagation();
-          return;
-        }
-        // F16: caret at click, not at end. Probe the rendered text; fallback to end.
+        // F16: caret at click, not at end. The text is already the tree the
+        // editor edits, so the point under the click is the offset to edit at.
         let at = content.length;
-        const host = mdViewRef.current;
+        const host = editorRef.current;
         if (host) {
           const probed = offsetFromPoint(host, e.clientX, e.clientY);
           if (probed !== null) at = Math.max(0, Math.min(probed, content.length));
@@ -237,7 +300,7 @@ export function NodeTextHost({
       }
       e.stopPropagation();
     },
-    [isActive, onActivate, content],
+    [isActive, onActivate, onRefClick, content],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -271,6 +334,14 @@ export function NodeTextHost({
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (isComposing.current) return;
+
+      // Text undo is the row's own: native undo cannot follow a rebuilt tree.
+      const history = historyChord(e);
+      if (history !== null) {
+        e.preventDefault();
+        stepTextHistory(history);
+        return;
+      }
 
       // F15: '/' at offset 0 of an empty node opens the node palette (r1 Mode A MUST, before autocomplete).
       if (
@@ -338,10 +409,16 @@ export function NodeTextHost({
       instanceKey,
       selectNode,
       setNodePaletteOpen,
+      stepTextHistory,
     ],
   );
 
   const showPadlock = readOnly && !isActive;
+  const textClass = cn(
+    KB_TEXT_CLASS,
+    "kb-text-row kb-md-view min-h-6 min-w-0 outline-none text-foreground/85",
+    textClassName,
+  );
 
   return (
     <>
@@ -382,24 +459,16 @@ export function NodeTextHost({
           </span>
         )}
 
-        {isActive && !readOnly ? (
+        {editing ? (
           <div
             ref={editorRef}
-            key="editor"
-            className={cn(
-              "editable kb-text-row min-h-6 min-w-0",
-              KB_TEXT_CLASS,
-              "outline-none",
-              "text-foreground/85",
-              "caret-foreground/70",
-              textClassName,
-            )}
+            key="edit"
+            className={cn(textClass, "editable caret-foreground/70")}
             contentEditable
             suppressContentEditableWarning
             onInput={handleInput}
             onKeyDown={handleKeyDown}
             onKeyUp={() => setCursor(getCaretSerializedOffset(editorRef.current))}
-            onClick={(e) => e.stopPropagation()}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
             onBlur={onBlur}
@@ -407,13 +476,9 @@ export function NodeTextHost({
             data-zoom-title-editor={zoomTitleEditor === true ? "true" : undefined}
           />
         ) : (
-          <div ref={mdViewRef} className="min-h-6 min-w-0">
-            <MdView
-              text={content}
-              className={cn("min-h-6 min-w-0 text-foreground/85", textClassName)}
-              clamp={false}
-              onRefClick={onRefClick}
-            />
+          // The same element and tree, owned by React while nothing edits it.
+          <div ref={editorRef} key="view" className={textClass} role="presentation">
+            {content ? <InlineMarkdown text={content} /> : "\u200B"}
           </div>
         )}
 

@@ -103,6 +103,10 @@ Replace hardcoded Tailwind sizes with a row token sheet; restructure row to nxus
 - Tree guide lines, click-to-navigate.
 
 ### W2 — Markdown render-swap + ref links (M, cursor)
+*Superseded 2026-09-27:* edit mode no longer swaps to plain text — node text is
+one formatted surface, read or edited; see DESIGN-UI.md → Outline editor
+("Node text is one surface"). The record below is the original wave plan.
+
 Logseq pattern on top of existing swap:
 
 ```

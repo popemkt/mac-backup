@@ -22,7 +22,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
 import { rowTextOf } from "@/lib/contextual-ref";
 import { outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
-import { renderEditableContent, setCaretSerializedOffset } from "@/lib/md-edit";
+import { renderInlineMarkdown, setCaretSerializedOffset } from "@/lib/md-edit";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { mountActiveTextHost } from "@/test-support/active-text-host";
@@ -152,7 +152,7 @@ describe("outline editing keymap (characterization)", () => {
     );
     // What the row shows — for a contextual reference, its target's text.
     const { text } = rowTextOf(useOutlineStore.getState(), nodeId);
-    renderEditableContent(el, text);
+    renderInlineMarkdown(el, text);
     setCaretSerializedOffset(el, cursor);
     return el;
   }

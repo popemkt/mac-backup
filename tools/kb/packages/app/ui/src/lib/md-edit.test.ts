@@ -8,11 +8,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
 import { present } from "@kb/model";
+import { isTextNode } from "@/lib/dom";
 import {
-  findRefSpans,
   getCaretSerializedOffset,
-  renderEditableContent,
+  isCanonicalInline,
   renderInlineMarkdown,
+  revealMarkupAtSelection,
   serializeEditable,
   setCaretSerializedOffset,
 } from "@/lib/md-edit";
@@ -46,15 +47,15 @@ function selectAt(_el: HTMLElement, node: Node, offset: number): void {
 describe("md-edit serialization", () => {
   it("round-trips plain text", () => {
     const el = makeEl();
-    renderEditableContent(el, "hello world");
+    renderInlineMarkdown(el, "hello world");
     expect(serializeEditable(el)).toBe("hello world");
   });
 
   it("renders refs as atomic pills and serializes back exactly", () => {
     const el = makeEl();
     const text = "see [[n.root-a|Ship kb]] and [[n.root-b]] end";
-    renderEditableContent(el, text);
-    // Pills are non-editable spans carrying the full token.
+    renderInlineMarkdown(el, text);
+    // Pills are non-editable links carrying the full token.
     const pills = el.querySelectorAll("[data-kb-ref]");
     expect(pills.length).toBe(2);
     const pill = present(pills.item(0), "first pill");
@@ -63,21 +64,12 @@ describe("md-edit serialization", () => {
     expect(pill.textContent).toBe("Ship kb"); // label only — no ULID
     expect(serializeEditable(el)).toBe(text);
   });
-
-  it("finds ordered ref spans with ids/labels", () => {
-    const spans = findRefSpans("a [[id1|x]] b [[id2]] c");
-    expect(spans.map((s) => s.id)).toEqual(["id1", "id2"]);
-    const first = present(spans.at(0), "first span");
-    const second = present(spans.at(1), "second span");
-    expect(second.label).toBe("id2");
-    expect(first.index).toBe(2);
-  });
 });
 
 describe("md-edit caret offsets", () => {
   it("counts pill tokens at full serialized length (D06)", () => {
     const el = makeEl();
-    renderEditableContent(el, "[[n.root-a|Ship kb]] tail");
+    renderInlineMarkdown(el, "[[n.root-a|Ship kb]] tail");
     const pill = present(el.querySelector("[data-kb-ref]"), "ref pill");
     const tail = present(pill.nextSibling, "pill tail");
     selectAt(el, tail, 3); // mid "tail" → after token
@@ -87,7 +79,7 @@ describe("md-edit caret offsets", () => {
   it("places the caret by serialized offset skipping over pills", () => {
     const el = makeEl();
     const text = "pre [[n.a|L]] post";
-    renderEditableContent(el, text);
+    renderInlineMarkdown(el, text);
     setCaretSerializedOffset(el, text.length);
     const sel = present(window.getSelection(), "selection");
     expect(sel.rangeCount).toBe(1);
@@ -96,7 +88,7 @@ describe("md-edit caret offsets", () => {
 
   it("clamps offsets past the end of content", () => {
     const el = makeEl();
-    renderEditableContent(el, "abc");
+    renderInlineMarkdown(el, "abc");
     setCaretSerializedOffset(el, 99);
     expect(getCaretSerializedOffset(el)).toBe(3);
   });
@@ -121,6 +113,7 @@ describe("renderInlineMarkdown — one DOM for reading and editing", () => {
     "![shot](assets/a.png) and ![v](assets/v.mp4)",
     "unmatched ** and ` and [[",
     "line one\nline **two**",
+    "ends in a break\n",
   ];
 
   it("reads every text back byte for byte", () => {
@@ -135,8 +128,6 @@ describe("renderInlineMarkdown — one DOM for reading and editing", () => {
     const el = makeEl();
     renderInlineMarkdown(el, "a **b** [x](https://ex.test)");
     const seg = present(el.querySelector(".kb-md-seg"), "bold segment");
-    expect(seg.getAttribute("data-md-from")).toBe("2");
-    expect(seg.getAttribute("data-md-to")).toBe("7");
     expect([...seg.childNodes].map((n) => n.textContent)).toEqual(["**", "b", "**"]);
     expect(present(seg.querySelector("strong"), "strong").textContent).toBe("b");
     expect([...el.querySelectorAll(".kb-md-mark")].map((m) => m.textContent)).toEqual([
@@ -169,5 +160,120 @@ describe("renderInlineMarkdown — one DOM for reading and editing", () => {
       probe.innerHTML = renderToStaticMarkup(createElement(InlineMarkdown, { text }));
       expect(el.innerHTML).toBe(probe.innerHTML);
     }
+  });
+});
+
+const revealed = (el: HTMLElement) =>
+  [...el.querySelectorAll(".kb-md-seg[data-md-reveal]")].map((s) => s.textContent);
+
+/** Where the caret rests, as `text@offset`. */
+function where(): string {
+  const range = present(window.getSelection(), "selection").getRangeAt(0);
+  return `${range.startContainer.textContent}@${range.startOffset}`;
+}
+
+describe("editing in place", () => {
+  function mounted(text: string): HTMLDivElement {
+    const el = makeEl();
+    document.body.appendChild(el);
+    renderInlineMarkdown(el, text);
+    return el;
+  }
+
+  it("reveals the markup of the segment the caret touches, at either edge", () => {
+    const el = mounted("a **b** c `d`");
+    for (const [at, shown] of [
+      [0, []],
+      [2, ["**b**"]],
+      [5, ["**b**"]],
+      [7, ["**b**"]],
+      [8, []],
+      [10, ["`d`"]],
+    ] as const) {
+      setCaretSerializedOffset(el, at);
+      revealMarkupAtSelection(el);
+      expect(revealed(el)).toEqual(shown);
+    }
+    window.getSelection()?.removeAllRanges();
+    revealMarkupAtSelection(el);
+    expect(revealed(el)).toEqual([]);
+    el.remove();
+  });
+
+  it("reveals every segment a selection spans", () => {
+    const el = mounted("**a** and *b* and `c`");
+    const range = document.createRange();
+    range.setStart(present(el.querySelector("strong")?.firstChild, "a"), 0);
+    range.setEnd(present(el.querySelector("em")?.firstChild, "b"), 1);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+    revealMarkupAtSelection(el);
+    expect(revealed(el)).toEqual(["**a**", "*b*"]);
+    el.remove();
+  });
+
+  it("is canonical after typing inside a segment, not after closing one", () => {
+    const el = mounted("a **b");
+    const tail = present(el.lastChild, "text");
+    // The browser types into the text node it holds the caret in.
+    if (isTextNode(tail)) tail.data += "**";
+    expect(serializeEditable(el)).toBe("a **b**");
+    expect(isCanonicalInline(el, "a **b**")).toBe(false);
+    renderInlineMarkdown(el, "a **b**");
+    expect(isCanonicalInline(el, "a **b**")).toBe(true);
+    const strong = present(el.querySelector("strong")?.firstChild, "bold text");
+    if (isTextNode(strong)) strong.data = "bc";
+    expect(isCanonicalInline(el, serializeEditable(el))).toBe(true);
+    el.remove();
+  });
+
+  it("ignores which segments are revealed and the host element's own attributes", () => {
+    const el = mounted("**b**");
+    el.setAttribute("contenteditable", "true");
+    el.className = "kb-text";
+    setCaretSerializedOffset(el, 1);
+    revealMarkupAtSelection(el);
+    expect(revealed(el)).toEqual(["**b**"]);
+    expect(isCanonicalInline(el, "**b**")).toBe(true);
+    el.remove();
+  });
+
+  it("rests a caret beside a pill, in its parent, never inside it", () => {
+    const el = mounted("[[n.a|A]][[n.b|B]]");
+    const inParent = () => {
+      const range = present(window.getSelection(), "selection").getRangeAt(0);
+      return [range.startContainer === el, range.startOffset];
+    };
+    setCaretSerializedOffset(el, 0);
+    expect(inParent()).toEqual([true, 0]);
+    setCaretSerializedOffset(el, "[[n.a|A]]".length);
+    expect(inParent()).toEqual([true, 1]);
+    setCaretSerializedOffset(el, 99);
+    expect(inParent()).toEqual([true, 2]);
+    expect(getCaretSerializedOffset(el)).toBe("[[n.a|A]][[n.b|B]]".length);
+    el.remove();
+  });
+
+  it("rests a boundary caret outside the hidden markup", () => {
+    const el = mounted("a **b** c");
+    setCaretSerializedOffset(el, 2);
+    expect(where()).toBe("a @2");
+    setCaretSerializedOffset(el, 4);
+    expect(where()).toBe("b@0");
+    setCaretSerializedOffset(el, 5);
+    expect(where()).toBe("b@1");
+    setCaretSerializedOffset(el, 7);
+    expect(where()).toBe(" c@0");
+    el.remove();
+  });
+
+  it("puts a caret at a segment's edge where typing extends it by source", () => {
+    const el = mounted("**b**");
+    // Offset 2 sits after the opening marks: the next character typed is bold.
+    setCaretSerializedOffset(el, 2);
+    expect(getCaretSerializedOffset(el)).toBe(2);
+    setCaretSerializedOffset(el, 5);
+    expect(getCaretSerializedOffset(el)).toBe(5);
+    el.remove();
   });
 });

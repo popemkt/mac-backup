@@ -1,31 +1,7 @@
 import { createElement, memo, useMemo, type MouseEvent, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import { asElement } from "@/lib/dom";
-import { KB_REF_ID_ATTR, inlineNodes, type InlineNode } from "@/lib/md-edit";
+import { inlineNodes, routeInlineClick, type InlineNode } from "@/lib/md-edit";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
-
-/**
- * What a click inside rendered inline markdown does, decided by what it
- * landed on: a reference navigates through `onRefClick`, a link or a media
- * embed keeps the click to itself (the link opens, the player plays), and
- * anything else is not inline content's business. True when it was handled.
- *
- * Every surface that renders node text routes clicks through this, so a
- * reference is clicked the same way in a read-only list and in an outline row.
- */
-function routeInlineClick(e: MouseEvent, onRefClick: (e: MouseEvent, id: string) => void): boolean {
-  const target = asElement(e.target);
-  const id = target?.closest(`[${KB_REF_ID_ATTR}]`)?.getAttribute(KB_REF_ID_ATTR);
-  if (id !== null && id !== undefined && id !== "") {
-    onRefClick(e, id);
-    return true;
-  }
-  if (target?.closest("a.kb-md-link, .kb-md-media")) {
-    e.stopPropagation();
-    return true;
-  }
-  return false;
-}
 
 /** DOM attribute names whose React prop is spelled differently. */
 const REACT_PROP: Readonly<Record<string, string>> = {
@@ -47,7 +23,7 @@ function toReact(node: InlineNode, key: number): ReactNode {
 /**
  * `text`'s inline markdown as React elements — the element tree
  * `renderInlineMarkdown` builds as DOM (`inlineNodes`), with the markup
- * present and hidden. Clicks are the surface's: see {@link routeInlineClick}.
+ * present and hidden. Clicks are the surface's: see `routeInlineClick`.
  */
 export const InlineMarkdown = memo(function InlineMarkdown({ text }: { text: string }) {
   const nodes = useMemo(() => inlineNodes(text), [text]);
