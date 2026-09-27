@@ -1,5 +1,7 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
+import { shownNodeId } from "@/lib/contextual-ref";
+import { isReferenceRow } from "@/lib/row-chrome";
 import { formatPropValue } from "@/lib/graph-view";
 import {
   childInstanceKey,
@@ -255,7 +257,6 @@ const ViewCard = memo(function ViewCard({
   const activateNode = useOutlineStore((s) => s.activateNode);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
 
-  const isRef = isQueryResultInstance(instanceKey);
   const handleKeyDown = useNodeKeyDown({ nodeId: child.id, instanceKey });
 
   return (
@@ -282,32 +283,25 @@ const ViewCard = memo(function ViewCard({
         instanceKey={instanceKey}
         isSelected={isSelected}
         isActive={isActive}
-        onRowClick={() => {
-          if (isRef) zoomTo(child.id);
-          else selectNode(child.id, instanceKey);
-        }}
+        onRowClick={() => selectNode(child.id, instanceKey)}
         bullet={
           <Bullet
             node={child}
             collapsible={false}
-            isRef={isRef}
+            isRef={isReferenceRow(child, isQueryResultInstance(instanceKey))}
             onClick={(e) => {
               e.stopPropagation();
-              zoomTo(child.id);
+              zoomTo(shownNodeId(child));
             }}
           />
         }
         content={
           <NodeContent
-            nodeId={child.id}
+            node={child}
             instanceKey={instanceKey}
-            content={child.text}
             isActive={isActive}
             tags={[]}
             onActivate={(pos) => activateNode(child.id, pos, instanceKey)}
-            onChange={(text) => {
-              void mutations.updateNodeContent(child.id, text);
-            }}
             onKeyDown={handleKeyDown}
           />
         }

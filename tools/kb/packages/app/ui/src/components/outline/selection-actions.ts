@@ -11,6 +11,7 @@
  * branch.
  */
 import { mutations } from "@/actions/mutations";
+import { rowTextOf, shownNodeId } from "@/lib/contextual-ref";
 import type { SelectionKeyAction } from "@/lib/selection-keymap";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -57,9 +58,17 @@ function createAfter({ nodeId }: ActionOf<"createAfter">): void {
 /** A printable character: activate at text end with the character appended. */
 function append({ nodeId, instanceKey, char }: ActionOf<"append">): void {
   const store = useOutlineStore.getState();
-  const nextText = (store.nodes.get(nodeId)?.text ?? "") + char;
+  const { text, textNodeId } = rowTextOf(store, nodeId);
+  const nextText = text + char;
   store.activateNode(nodeId, nextText.length, instanceKey);
-  void mutations.updateNodeContent(nodeId, nextText);
+  void mutations.updateNodeContent(textNodeId, nextText);
+}
+
+/** Open the page of the node the row shows — a reference's original. */
+function zoom({ nodeId }: ActionOf<"zoom">): void {
+  const store = useOutlineStore.getState();
+  const node = store.nodes.get(nodeId);
+  store.zoomTo(node ? shownNodeId(node) : nodeId);
 }
 
 /** Delete, then take the focus to the previous visible row, else the next. */
@@ -93,7 +102,7 @@ const SELECTION_STEPS: SelectionSteps = {
   outdent: ({ nodeId }) => void mutations.outdentNode(nodeId),
   moveUp: ({ nodeId }) => void mutations.moveNodeUp(nodeId),
   moveDown: ({ nodeId }) => void mutations.moveNodeDown(nodeId),
-  zoom: ({ nodeId }) => useOutlineStore.getState().zoomTo(nodeId),
+  zoom,
   createAfter,
   createBefore: ({ nodeId }) => void mutations.createNodeBefore(nodeId),
   append,

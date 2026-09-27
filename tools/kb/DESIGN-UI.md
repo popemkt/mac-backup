@@ -322,27 +322,41 @@ reference:
   a referrer whose own text is empty is not a blank line in a backlinks list.
   What a ref *prop* buys over a hand-typed `[[id|label]]`: the hand-typed label
   freezes at insert time, this resolves every render.
-- **The row's own text is read-only, and the click is answered at the target.**
-  The text is not what the row owns, so a caret in it would edit an invisible
-  second string. `rowTextReadOnlyReason(id, node)` is the single owner of that
-  rule — it absorbed the `sys.*` read-only check (r1 D20), which was previously
-  duplicated between `outlineStore.activateNode` and `NodeContent`, and it
-  supplies the padlock's wording. Rather than leaving the click dead, `NodeBlock`
-  routes the same activate intent to the node that owns the string: clicking a
-  reference opens the original. ⌘-click on the bullet still zooms the reference
-  itself, so the two destinations have two affordances.
-  **Deliberate deviation from Tana**, which edits the original *in place* through
-  the reference: redirecting the editor's write to a node other than the row's
-  `data-node-id` forks the one row↔node identity that instance keys, both
-  keymaps, optimistic mutations and undo are all built on.
+- **The row shows, edits and opens its target; its structure is its own.**
+  `shownNodeId(node)` names the node whose text the row carries — the target
+  for a reference, the row itself otherwise — and it is the one text channel:
+  `NodeContent` renders `rowText` and sends every write (typing, `[[`
+  completion, a dropped file) to it, the selection-mode append and the
+  soft-break intent read and write through `rowTextOf`, and the bullet's
+  ⌘-click, a card's bullet and the selection keymap's zoom open it. So a
+  reference is clicked, typed into and navigated exactly like any row, and
+  editing it edits the original in place, as in Tana. Everything structural —
+  the row's place, children, collapse, tags, selection, instance key, Tab,
+  moves, delete — stays on the reference node, so the one row↔node identity
+  that instance keys, both keymaps, optimistic mutations and undo are built on
+  is not forked; only the text is routed. The keymap's `ownsText` is the one
+  place that difference shows: Enter on a reference opens the next row
+  instead of cutting the original's text (`planSplit(…, "end")`), and the
+  text-joining chords (Backspace at offset 0 merging up, Delete at the end
+  merging the next row in) are claimed inert when either string is not its
+  row's own, because there is no string of the row's to join.
+  `rowTextReadOnlyReason(id, node, schema)` owns what cannot be written: `sys.*`
+  text (whether the row is the sys node or a reference to it, r1 D20) and a
+  reference whose target is missing; it supplies the padlock's wording.
+  *History:* until 2026-09-27 the reference's text was read-only and a click
+  opened the original; that was rejected on the grounds that it made a
+  reference a different kind of row to click and type into.
 - **The bullet reuses the existing reference treatment** (dashed ring). Only the
   bullet: a *query-result* row — read from its instance key by
   `isQueryResultInstance` (`lib/instance-key.ts`), never passed as a flag —
   keeps suppressing nested query results, the create-child strip and the
   structural chords, because its place under the query is computed rather than
   a child edge. A contextual reference is a real child whose children **are**
-  its own, and creating them is the whole point.
-  `bulletIsRef = isQueryResult || isContextualRef(node)`.
+  its own, and creating them is the whole point. `isReferenceRow(node,
+  isQueryResult)` in `lib/row-chrome.ts` is the one answer, read by the list
+  row's chrome and by table and card rows alike. Apart from those gates a
+  result row is clicked like any row in every view: a row click selects, a
+  text click edits, a bullet click toggles and ⌘-click opens the node.
 
 **Contextual children belong to the location, not the target** — the
 Tana-faithful default, and the one question the owner did not answer. Visiting
@@ -371,7 +385,10 @@ ancestor context it sits in, so on the original's own page a reference row reads
 as a copy of the original's text; a context breadcrumb (and rendering the
 contextual children inline under the backlink row) is the obvious next step and
 is not built. There is no global ⌘K entry: a contextual reference needs both a
-host row and a target, and the global palette has no two-step for that.
+host row and a target, and the global palette has no two-step for that. Since
+zoom opens the shown node, no row gesture zooms into the reference node
+itself; its contextual children are reached by expanding it in place, and its
+own props through *Show debug fields*.
 
 ### Ontology scope (i6)
 

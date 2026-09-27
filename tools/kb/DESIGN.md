@@ -595,8 +595,8 @@ type PropValue =
   target's _current_ text verbatim (so the target's markdown still renders);
   its own children are content local to that location and stay on the
   reference, so the original shows them only through References/backlinks — a
-  new node _kind_, not a new node _type_, exactly like a query node. Anatomy,
-  the rendering rule and the deliberate deviations from Tana are in
+  new node _kind_, not a new node _type_, exactly like a query node. Anatomy
+  and the rendering and editing rules are in
   [DESIGN-UI.md → Contextual references](./DESIGN-UI.md#contextual-references-2026-08-27).
   Creating one needs no new action:
 

@@ -25,16 +25,17 @@
  *   Note what a ref *prop* buys over typing `[[id|label]]` by hand: the label
  *   in a hand-written token freezes at insert time, while this resolves on every
  *   render.
- * - **The row's own text is not editable, and "click here" is answered at the
- *   target.** The text is not the row's, so a caret in it would edit an
- *   invisible second string; `rowTextReadOnlyReason` is the single owner of that
- *   rule and absorbed the `sys.*` case that already had it. Rather than leaving
- *   the click dead, `NodeBlock` routes the same activate intent to the node that
- *   owns the text — clicking a reference opens the original, which is where
- *   every editing affordance already works. ⌘-click on the bullet still zooms
- *   the reference itself, so the two destinations have two affordances.
+ * - **The row shows, edits and opens its target; its structure is its own.**
+ *   `shownNodeId` names the node whose text the row renders and writes, and
+ *   whose page the row's zoom gesture opens. Everything structural — the row's
+ *   place, its children, collapse, tags, selection, instance key, indent,
+ *   moves and delete — stays on the reference node, so the one row↔node
+ *   identity every keymap, optimistic mutation and undo entry is built on is
+ *   not forked: only the text channel is routed. Clicking the text edits the
+ *   original in place (Tana's behaviour); deleting the row deletes the
+ *   reference, never the original.
  */
-import type { SchemaIndex } from "@/lib/schema";
+import { schemaOf, type SchemaIndex, type SchemaSource } from "@/lib/schema";
 import type { OutlineNode } from "@/lib/types";
 import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
 
@@ -60,6 +61,15 @@ export function isContextualRef(node: OutlineNode | undefined): boolean {
 }
 
 /**
+ * The node a row shows: its target for a contextual reference, itself for
+ * every other row. The row's text is this node's text — rendered, edited and
+ * zoomed into here — while the row's structure stays the row's own.
+ */
+export function shownNodeId(node: OutlineNode): string {
+  return contextualTargetOf(node) ?? node.id;
+}
+
+/**
  * The markdown a row renders. Ordinary nodes render their own text; a
  * contextual reference renders its target's, resolved on every render.
  *
@@ -68,27 +78,47 @@ export function isContextualRef(node: OutlineNode | undefined): boolean {
  * would show a blank row.
  */
 export function rowText(node: OutlineNode, schema: SchemaIndex): string {
-  const targetId = contextualTargetOf(node);
-  if (targetId === null) return node.text;
+  const shownId = shownNodeId(node);
+  if (shownId === node.id) return node.text;
   // The target's label is schema: resolved against the whole graph, so a
   // reference to a node outside the current scope still shows its text.
-  const target = schema.get(targetId);
+  const target = schema.get(shownId);
   // A dangling reference renders the way every other dangling ref in this app
   // renders — as the `[[id]]` token — rather than as a blank row.
-  return target ? target.text : `[[${targetId}]]`;
+  return target ? target.text : `[[${shownId}]]`;
 }
 
 /**
- * Why a row's text is not the row's own to edit, or null when it is — the
- * single owner of that rule, and of the wording the padlock shows.
- *
- * `sys.*` rows are read-only at the door (r1 D20); a contextual reference is
- * read-only for the same underlying reason — the text on screen belongs to
- * another node. Returning the reason rather than a bare boolean is what keeps
- * the tooltip from re-deriving the distinction at the call site.
+ * A row's text and the node that text belongs to, by row id, from store
+ * state — for the steps that act on a row they know only by id (a keymap
+ * intent, a selection action). An unknown id reads as its own empty text.
  */
-export function rowTextReadOnlyReason(id: string, node: OutlineNode | undefined): string | null {
-  if (isSysPrefixed(id)) return "System node — read-only";
-  if (isContextualRef(node)) return "Reference — edit the original";
+export function rowTextOf(
+  state: SchemaSource,
+  nodeId: string,
+): { readonly text: string; readonly textNodeId: string } {
+  const node = state.nodes.get(nodeId);
+  if (!node) return { text: "", textNodeId: nodeId };
+  return { text: rowText(node, schemaOf(state)), textNodeId: shownNodeId(node) };
+}
+
+/**
+ * Why a row's text cannot be edited, or null when it can — the single owner
+ * of that rule, and of the wording the padlock shows.
+ *
+ * The rule is about the node whose text is on screen (`shownNodeId`): a
+ * `sys.*` node is read-only at the door (r1 D20), whether the row is that node
+ * or a reference to it, and a reference whose target is gone has no text to
+ * write to. Returning the reason rather than a bare boolean keeps the tooltip
+ * from re-deriving the distinction at the call site.
+ */
+export function rowTextReadOnlyReason(
+  id: string,
+  node: OutlineNode | undefined,
+  schema: SchemaIndex,
+): string | null {
+  const shownId = node ? shownNodeId(node) : id;
+  if (isSysPrefixed(id) || isSysPrefixed(shownId)) return "System node — read-only";
+  if (shownId !== id && schema.get(shownId) === undefined) return "Reference target is missing";
   return null;
 }

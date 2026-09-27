@@ -1,3 +1,4 @@
+import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useRefNavigation } from "@/stores/ref-navigation";
 import { useUiStore } from "@/stores/ui.store";
@@ -12,6 +13,7 @@ import { useUiStore } from "@/stores/ui.store";
  */
 export function useNodeTextHostBinding() {
   const nodes = useOutlineStore((s) => s.nodes);
+  const schema = useOutlineStore(schemaOf);
   const zoomTo = useOutlineStore((s) => s.zoomTo);
   const pendingCaret = useOutlineStore((s) => s.pendingCaret);
   const consumeCaret = useOutlineStore((s) => s.consumeCaret);
@@ -24,6 +26,7 @@ export function useNodeTextHostBinding() {
 
   return {
     nodes,
+    schema,
     zoomTo,
     pendingCaret,
     onRefClick,

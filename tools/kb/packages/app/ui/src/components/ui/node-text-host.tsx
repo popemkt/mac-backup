@@ -10,6 +10,7 @@ import {
 } from "@/lib/md-edit";
 import { fuzzyNodeCandidates, insertRefAtCursor, openRefQuery } from "@/lib/refs";
 import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
+import type { SchemaIndex } from "@/lib/schema";
 import type { NodeMap, TagBadge } from "@/lib/types";
 import { MdView } from "@/components/ui/md-view";
 import { asElement } from "@/lib/dom";
@@ -32,6 +33,8 @@ interface NodeTextHostPendingCaret {
  */
 export interface NodeTextHostBinding {
   nodes: NodeMap;
+  /** What a reference's target resolves against (`rowTextReadOnlyReason`). */
+  schema: SchemaIndex;
   zoomTo: (id: string) => void;
   pendingCaret: NodeTextHostPendingCaret | null;
   onRefClick: (e: React.MouseEvent, id: string) => void;
@@ -75,6 +78,7 @@ export function NodeTextHost({
   onChange,
   onKeyDown,
   nodes,
+  schema,
   zoomTo,
   pendingCaret,
   onRefClick,
@@ -97,7 +101,7 @@ export function NodeTextHost({
   /** D14: Escape dismisses the popup without blurring or leaving edit mode. */
   const [acDismissed, setAcDismissed] = useState(false);
   const [cursor, setCursor] = useState(0);
-  const readOnlyReason = rowTextReadOnlyReason(nodeId, nodes.get(nodeId));
+  const readOnlyReason = rowTextReadOnlyReason(nodeId, nodes.get(nodeId), schema);
   const readOnly = readOnlyReason !== null;
 
   const rawRefOpen = useMemo(() => {

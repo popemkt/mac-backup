@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { NodeTextHost, type NodeTextHostBinding } from "@/components/ui/node-text-host";
+import { schemaOf } from "@/lib/schema";
 
 const noop = (): void => undefined;
 const noopActivate = (): void => undefined;
@@ -7,6 +8,7 @@ const noopNav = (_e: React.MouseEvent, _id: string): void => undefined;
 
 const binding: NodeTextHostBinding = {
   nodes: new Map(),
+  schema: schemaOf({ ontologyId: null, nodes: new Map(), wireNodes: [] }),
   zoomTo: noop,
   pendingCaret: null,
   onRefClick: noopNav,

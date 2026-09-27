@@ -27,6 +27,7 @@ export interface EditingKeyContext {
   readonly nodeId: string;
   readonly instanceKey: string;
   readonly cursor: number;
+  /** The text the row shows and edits (`rowTextOf`); `cursor` is an offset into it. */
   readonly text: string;
   readonly childCount: number;
   readonly collapsed: boolean;
@@ -36,7 +37,15 @@ export interface EditingKeyContext {
   readonly siblingIndex: number;
   readonly previousInstance: VisibleInstance | null;
   readonly nextInstance: VisibleInstance | null;
+  /** Length of the text a row shows, by row id. */
   readonly textLengthOf: (nodeId: string) => number;
+  /**
+   * Whether a row's shown text is its own. A contextual reference shows its
+   * target's, so text-joining chords (split mid-text, the two merges) have no
+   * string of the row's to cut or join; structural chords are unaffected,
+   * because the row's place is its own.
+   */
+  readonly ownsText: (nodeId: string) => boolean;
   /**
    * Visual-line decision for the pressed arrow (D10/D11).
    *
@@ -50,7 +59,7 @@ export type EditingIntent =
   /** Claimed and deliberately inert — the key must not reach the browser. */
   | { type: "claim" }
   | { type: "softBreak"; nodeId: string; instanceKey: string; cursor: number }
-  | { type: "split"; nodeId: string; cursor: number }
+  | { type: "split"; nodeId: string; cursor: number | "end" }
   | { type: "indent"; nodeId: string; cursor: number }
   | { type: "outdent"; nodeId: string; cursor: number }
   | { type: "deleteSubtree"; nodeId: string; instanceKey: string }
@@ -103,6 +112,8 @@ const RESULT_STRUCTURAL: readonly ResultGuardBinding[] = [
   { chord: { key: "Enter", shift: false } },
   { chord: { key: ["Backspace", "Delete"], mod: true } },
   { chord: { key: "Backspace" }, when: (ctx) => ctx.cursor === 0 },
+  // Forward delete at the end merges the next row in — a structural join too.
+  { chord: { key: "Delete" }, when: (ctx) => ctx.cursor === ctx.text.length },
   { chord: { key: ARROWS, meta: true, shift: true } },
 ];
 
@@ -128,6 +139,12 @@ function backspaceIntent(ctx: EditingKeyContext): EditingIntent | null {
     return { type: "outdent", nodeId: ctx.nodeId, cursor: ctx.cursor };
   }
   if (ctx.siblingIndex > 0) {
+    // A merge joins this text onto the row above; either string not being
+    // its row's own leaves nothing to join, so the key is claimed inert.
+    const above = ctx.previousInstance;
+    if (!ctx.ownsText(ctx.nodeId) || (above !== null && !ctx.ownsText(above.nodeId))) {
+      return { type: "claim" };
+    }
     return { type: "mergeIntoPrevious", nodeId: ctx.nodeId, instanceKey: ctx.instanceKey };
   }
   return null;
@@ -138,6 +155,7 @@ function deleteIntent(ctx: EditingKeyContext): EditingIntent | null {
   if (ctx.cursor !== ctx.text.length) return null;
   const next = ctx.nextInstance;
   if (next === null || next.nodeId === ctx.nodeId) return null;
+  if (!ctx.ownsText(ctx.nodeId) || !ctx.ownsText(next.nodeId)) return { type: "claim" };
   return {
     type: "mergeNextIn",
     nodeId: ctx.nodeId,
@@ -204,9 +222,14 @@ const EDITING_KEYMAP: readonly EditingBinding[] = [
     }),
   },
   {
-    // Expanded parent ⇒ first child; otherwise sibling-after (D07).
+    // Expanded parent ⇒ first child; otherwise sibling-after (D07). A row
+    // whose text is not its own is never cut: Enter only opens the next row.
     chord: { key: "Enter" },
-    toIntent: (ctx) => ({ type: "split", nodeId: ctx.nodeId, cursor: ctx.cursor }),
+    toIntent: (ctx) => ({
+      type: "split",
+      nodeId: ctx.nodeId,
+      cursor: ctx.ownsText(ctx.nodeId) ? ctx.cursor : "end",
+    }),
   },
   {
     chord: { key: "Tab", shift: true },

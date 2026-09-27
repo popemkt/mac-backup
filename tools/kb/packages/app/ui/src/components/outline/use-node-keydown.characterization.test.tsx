@@ -19,6 +19,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import { mutations } from "@/actions/mutations";
 import { fixtureGraph } from "@/api/fixture-graph";
+import { REF_SEED_WIRES, ctxRefWire } from "@/fixtures/contextual-ref";
+import { rowTextOf } from "@/lib/contextual-ref";
 import { outlineInstanceKey, queryResultInstanceKey } from "@/lib/instance-key";
 import { renderEditableContent, setCaretSerializedOffset } from "@/lib/md-edit";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
@@ -64,6 +66,29 @@ async function settle(rounds = 4, delayMs = 0): Promise<void> {
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     });
   }
+}
+
+function endOf(id: string): number {
+  return rowTextOf(useOutlineStore.getState(), id).text.length;
+}
+
+/**
+ * `n.ref`, a contextual reference to `n.root-c`, sits between `n.child-a1`
+ * and `n.child-a2` under an expanded `n.root-a`.
+ */
+function seedWithReference(): void {
+  const wires = structuredClone(fixtureGraph.nodes).map((w) =>
+    w.id === "n.root-a" ? { ...w, children: ["n.child-a1", "n.ref", "n.child-a2"] } : w,
+  );
+  resetOutlineStore();
+  useOutlineStore
+    .getState()
+    .hydrateFromWire(
+      [...wires, ...REF_SEED_WIRES, ctxRefWire("n.ref", "n.root-c")],
+      fixtureGraph.rev,
+      "fixtures",
+    );
+  act(() => useOutlineStore.getState().toggleCollapse("n.root-a"));
 }
 
 describe("outline editing keymap (characterization)", () => {
@@ -125,7 +150,8 @@ describe("outline editing keymap (characterization)", () => {
       container.querySelector<HTMLElement>('[data-editor="true"]'),
       "characterization editor",
     );
-    const text = useOutlineStore.getState().nodes.get(nodeId)?.text ?? "";
+    // What the row shows — for a contextual reference, its target's text.
+    const { text } = rowTextOf(useOutlineStore.getState(), nodeId);
     renderEditableContent(el, text);
     setCaretSerializedOffset(el, cursor);
     return el;
@@ -150,9 +176,57 @@ describe("outline editing keymap (characterization)", () => {
     return node(parentId)?.children ?? [];
   }
 
-  function endOf(id: string): number {
-    return node(id)?.text.length ?? 0;
-  }
+  describe("contextual references: text chords reach the original, structure stays the row's", () => {
+    const TARGET_TEXT = "Read-only props panel resolves field names";
+
+    beforeEach(seedWithReference);
+
+    it("Enter opens the next row and never cuts the original's text", async () => {
+      expect(await press(mount("n.ref", 4), "Enter")).toBe(true);
+      const children = present(node("n.root-a"), "n.root-a").children;
+      expect(children.length).toBe(4);
+      expect(children.indexOf("n.ref")).toBe(1);
+      expect(node(present(children[2], "new row"))?.text).toBe("");
+      expect(node("n.root-c")?.text).toBe(TARGET_TEXT);
+      expect(node("n.ref")?.text).toBe("");
+    });
+
+    it("Shift+Enter breaks the line in the original", async () => {
+      expect(await press(mount("n.ref", 4), "Enter", { shiftKey: true })).toBe(true);
+      expect(node("n.root-c")?.text.startsWith("Read\n")).toBe(true);
+      expect(node("n.ref")?.text).toBe("");
+    });
+
+    it("Tab indents the reference itself — its place is its own", async () => {
+      expect(await press(mount("n.ref", 0), "Tab")).toBe(true);
+      expect(node("n.ref")?.parentId).toBe("n.child-a1");
+      expect(node("n.root-c")?.parentId).toBe(WORKSPACE_ROOT_ID);
+    });
+
+    it("Backspace at offset 0 is claimed: there is no text of its own to merge up", async () => {
+      expect(await press(mount("n.ref", 0), "Backspace")).toBe(true);
+      expect(node("n.ref")).toBeDefined();
+      expect(node("n.child-a1")?.text).toBe("Load graph into client DataScript");
+    });
+
+    it("nor can the row below merge into the reference", async () => {
+      expect(await press(mount("n.child-a2", 0), "Backspace")).toBe(true);
+      expect(node("n.child-a2")).toBeDefined();
+      expect(node("n.ref")?.text).toBe("");
+    });
+
+    it("Delete at the end of the row above does not swallow the reference", async () => {
+      expect(await press(mount("n.child-a1", endOf("n.child-a1")), "Delete")).toBe(true);
+      expect(node("n.ref")).toBeDefined();
+      expect(node("n.child-a1")?.text).toBe("Load graph into client DataScript");
+    });
+
+    it("Meta+Backspace deletes the reference, never the original", async () => {
+      expect(await press(mount("n.ref", 0), "Backspace", { metaKey: true })).toBe(true);
+      expect(node("n.ref")).toBeUndefined();
+      expect(node("n.root-c")?.text).toBe(TARGET_TEXT);
+    });
+  });
 
   describe("ref instances: structural chords are swallowed, the rest fall through", () => {
     it("Tab is claimed and does nothing", async () => {
@@ -200,6 +274,11 @@ describe("outline editing keymap (characterization)", () => {
     it("Meta+Backspace mid-text IS structural here, unlike a plain row", async () => {
       expect(await press(mount("n.root-b", 3, true), "Backspace", { metaKey: true })).toBe(true);
       expect(node("n.root-b")).toBeDefined();
+    });
+
+    it("Delete at end of text is claimed and does not merge the next row in", async () => {
+      expect(await press(mount("n.root-b", endOf("n.root-b"), true), "Delete")).toBe(true);
+      expect(node("n.root-c")).toBeDefined();
     });
 
     it("a printable key is left to the browser", async () => {

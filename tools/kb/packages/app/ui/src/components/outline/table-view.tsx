@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
+import { shownNodeId } from "@/lib/contextual-ref";
+import { isReferenceRow } from "@/lib/row-chrome";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
 import {
   childInstanceKey,
@@ -245,7 +247,6 @@ const TableRow = memo(function TableRow({
   columns: TableColumnSpec[];
   context: FieldContext;
 }) {
-  const isRef = isQueryResultInstance(childKey);
   const isActive = useOutlineStore(
     (s) => s.activeNodeId === child.id && s.activeInstanceKey === childKey,
   );
@@ -279,32 +280,25 @@ const TableRow = memo(function TableRow({
           instanceKey={childKey}
           isSelected={isSelected}
           isActive={isActive}
-          onRowClick={() => {
-            if (isRef) zoomTo(child.id);
-            else selectNode(child.id, childKey);
-          }}
+          onRowClick={() => selectNode(child.id, childKey)}
           bullet={
             <Bullet
               node={child}
-              collapsible={isExpandable && !isRef}
-              isRef={isRef}
+              collapsible={isExpandable}
+              isRef={isReferenceRow(child, isQueryResultInstance(childKey))}
               onClick={(e) => {
-                if (isRef || e.metaKey || e.ctrlKey) zoomTo(child.id);
+                if (e.metaKey || e.ctrlKey) zoomTo(shownNodeId(child));
                 else toggleCollapse(child.id);
               }}
             />
           }
           content={
             <NodeContent
-              nodeId={child.id}
+              node={child}
               instanceKey={childKey}
-              content={child.text}
               isActive={isActive}
               tags={child.tags}
               onActivate={(pos) => activateNode(child.id, pos, childKey)}
-              onChange={(text) => {
-                void mutations.updateNodeContent(child.id, text);
-              }}
               onKeyDown={handleKeyDown}
             />
           }

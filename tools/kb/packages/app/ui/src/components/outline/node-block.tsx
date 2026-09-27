@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo } from "react";
-import { contextualTargetOf, rowText } from "@/lib/contextual-ref";
+import { shownNodeId } from "@/lib/contextual-ref";
 import { cn } from "@/lib/cn";
 import { guideLineStyle, indentStyle } from "@/lib/indent";
 import { childInstanceKey, isQueryResultInstance, outlineInstanceKey } from "@/lib/instance-key";
@@ -53,32 +53,24 @@ export const NodeBlock = memo(function NodeBlock({
   const instanceKey = instanceKeyProp ?? outlineInstanceKey(nodeId, nodes);
 
   // One rule for every row, reference rows included: plain click toggles,
-  // modifier click focuses. (Also the guide-line strip's handler.)
+  // modifier click opens the page of the node the row shows — for a contextual
+  // reference, the original. (Also the guide-line strip's handler.)
   const handleBulletClick = useCallback(
     (e: React.MouseEvent) => {
       if (e.metaKey || e.ctrlKey) {
-        zoomTo(nodeId);
+        zoomTo(node ? shownNodeId(node) : nodeId);
       } else {
         toggleCollapse(nodeId);
       }
     },
-    [toggleCollapse, zoomTo, nodeId],
+    [toggleCollapse, zoomTo, node, nodeId],
   );
 
   const handleActivate = useCallback(
     (cursorPos?: number) => {
-      // A contextual reference shows the target's text, so "put my caret here"
-      // is answered where that text actually lives. Not a second gesture — the
-      // same activate intent, routed to the node that owns the string. (The
-      // bullet's ⌘-click still zooms this reference.)
-      const targetId = contextualTargetOf(node);
-      if (targetId !== null) {
-        zoomTo(targetId);
-        return;
-      }
       activateNode(nodeId, cursorPos, instanceKey);
     },
-    [activateNode, zoomTo, node, nodeId, instanceKey],
+    [activateNode, nodeId, instanceKey],
   );
 
   const handleRowSelect = useCallback(
@@ -88,13 +80,6 @@ export const NodeBlock = memo(function NodeBlock({
       }
     },
     [selectNode, nodeId, instanceKey],
-  );
-
-  const handleContentChange = useCallback(
-    (content: string) => {
-      void mutations.updateNodeContent(nodeId, content);
-    },
-    [nodeId],
   );
 
   /** Tana whitespace-create: mint a transient child under this parent. */
@@ -156,13 +141,11 @@ export const NodeBlock = memo(function NodeBlock({
             }
             content={
               <NodeContent
-                nodeId={nodeId}
+                node={node}
                 instanceKey={instanceKey}
-                content={rowText(node, schema)}
                 isActive={isActive}
                 tags={node.tags}
                 onActivate={handleActivate}
-                onChange={handleContentChange}
                 onKeyDown={handleKeyDown}
               />
             }

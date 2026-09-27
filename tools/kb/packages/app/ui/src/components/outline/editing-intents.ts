@@ -10,6 +10,7 @@
  * here fails the build.
  */
 import { mutations } from "@/actions/mutations";
+import { rowTextOf } from "@/lib/contextual-ref";
 import { renderEditableContent, setCaretSerializedOffset } from "@/lib/md-edit";
 import { useOutlineStore } from "@/stores/outline.store";
 import type { EditingIntent } from "./editing-keymap";
@@ -26,9 +27,10 @@ function softBreak(
   editable: HTMLElement,
 ): void {
   const store = useOutlineStore.getState();
-  const text = store.nodes.get(nodeId)?.text ?? "";
+  // The row's text channel: a reference's break lands in its original.
+  const { text, textNodeId } = rowTextOf(store, nodeId);
   const next = `${text.slice(0, cursor)}\n${text.slice(cursor)}`;
-  void mutations.updateNodeContent(nodeId, next);
+  void mutations.updateNodeContent(textNodeId, next);
   renderEditableContent(editable, next);
   setCaretSerializedOffset(editable, cursor + 1);
   store.activateNode(nodeId, cursor + 1, instanceKey);
@@ -48,8 +50,7 @@ function deleteSubtree({ nodeId, instanceKey }: IntentOf<"deleteSubtree">): void
       useOutlineStore.getState().selectNode(null);
       return;
     }
-    const picked = useOutlineStore.getState().nodes.get(pick.nodeId);
-    const at = pick === prev ? (picked?.text.length ?? 0) : 0;
+    const at = pick === prev ? rowTextOf(useOutlineStore.getState(), pick.nodeId).text.length : 0;
     useOutlineStore.getState().activateNode(pick.nodeId, at, pick.instanceKey);
   });
 }
@@ -60,11 +61,7 @@ function deleteEmptyRow({ nodeId, instanceKey }: IntentOf<"deleteEmptyRow">): vo
   void mutations.deleteNode(nodeId).then(() => {
     if (!prev) return;
     const store = useOutlineStore.getState();
-    store.activateNode(
-      prev.nodeId,
-      store.nodes.get(prev.nodeId)?.text.length ?? 0,
-      prev.instanceKey,
-    );
+    store.activateNode(prev.nodeId, rowTextOf(store, prev.nodeId).text.length, prev.instanceKey);
   });
 }
 

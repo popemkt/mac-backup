@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
 import { LockSimpleIcon } from "@phosphor-icons/react";
-import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
+import { rowText, rowTextReadOnlyReason } from "@/lib/contextual-ref";
+import { schemaOf } from "@/lib/schema";
 import type { OutlineNode } from "@/lib/types";
 import { isSysPrefixed } from "@/lib/types";
 import { nodeTagColors, tagColorAlpha } from "@/lib/tag-color";
@@ -18,9 +19,12 @@ import { hasText } from "@/lib/text";
  * header typography. sys.* roots stay read-only behind a padlock.
  */
 function EditableTitle({ node }: { node: OutlineNode }) {
-  const readOnly = isSysPrefixed(node.id);
+  const schema = useOutlineStore(schemaOf);
+  // The same text channel as a row: what it shows and whether it can be
+  // written are the row rules (`lib/contextual-ref`), not a second copy.
+  const readOnly = rowTextReadOnlyReason(node.id, node, schema) !== null;
   const [editing, setEditing] = useState(false);
-  const text = node.text;
+  const text = rowText(node, schema);
 
   const commit = useCallback(() => setEditing(false), []);
 
@@ -39,17 +43,13 @@ function EditableTitle({ node }: { node: OutlineNode }) {
   if (editing) {
     return (
       <NodeContent
-        nodeId={node.id}
+        node={node}
         instanceKey={`title/${node.id}`}
-        content={text}
         isActive
         tags={[]}
         initialCaret="end"
         textClassName={cn(TITLE_CLASS, "rounded-sm text-foreground/90")}
         onActivate={() => undefined}
-        onChange={(next) => {
-          if (next !== text) void mutations.updateNodeContent(node.id, next);
-        }}
         onBlur={commit}
         zoomTitleEditor
         onKeyDown={(e) => {

@@ -552,11 +552,11 @@ export const useOutlineStore = create<OutlineState>((set, get) => {
 
     activateNode: (id, cursorPos, instanceKey, opts) => {
       if (!get().nodes.has(id)) return;
-      // A row whose text is not its own is read-only at the DOM level:
+      // A row whose text cannot be written is read-only at the DOM level:
       // activation degrades to selection so no caret ever enters it (r1 D20).
-      // `rowTextReadOnlyReason` owns which rows those are — sys.* nodes and
-      // contextual references, whose text belongs to the referenced node.
-      if (rowTextReadOnlyReason(id, get().nodes.get(id)) !== null) {
+      // `rowTextReadOnlyReason` owns which rows those are — sys.* text, and a
+      // contextual reference whose target is gone.
+      if (rowTextReadOnlyReason(id, get().nodes.get(id), schemaOf(get())) !== null) {
         pruneOutgoingTransient(id);
         const roKey = resolveActivateKey(id, instanceKey, get().nodes);
         set({

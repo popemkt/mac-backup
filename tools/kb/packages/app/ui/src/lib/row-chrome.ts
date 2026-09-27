@@ -45,6 +45,15 @@ export interface RowChrome {
   showsChildContainer: boolean;
 }
 
+/**
+ * The row stands for a node whose place or text lives elsewhere — a query
+ * result, or a contextual reference — and so wears the dashed ref ring. One
+ * answer for every surface that draws a row (list, table, card).
+ */
+export function isReferenceRow(node: OutlineNode, isQueryResult: boolean): boolean {
+  return isQueryResult || isContextualRef(node);
+}
+
 export interface RowChromeInput {
   node: OutlineNode;
   /** Where field definitions are read from: the whole graph (`lib/schema.ts`). */
@@ -74,7 +83,7 @@ export function resolveRowChrome({
   const projected = isProjectedViewMode(viewConfig.mode);
 
   return {
-    bulletIsRef: isQueryResult || isContextualRef(node),
+    bulletIsRef: isReferenceRow(node, isQueryResult),
     hasFields,
     showsQueryResults,
     showsChildren,

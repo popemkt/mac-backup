@@ -60,16 +60,24 @@ export const planReplaceField = (
 
 export const planUpdateText = (_nodes: WireNode[], id: string, text: string) =>
   update(id, { text });
+/**
+ * Split a row's text at `cursor` into itself and a new row after it (or its
+ * first child when it is an expanded parent). `"end"` splits after the whole
+ * text, i.e. only creates the next row — what Enter means on a row whose shown
+ * text is not its own (a contextual reference), where no offset the caret
+ * reports is an offset into this node's text.
+ */
 export function planSplit(
   nodes: WireNode[],
   id: string,
-  cursor: number,
+  cursor: number | "end",
   newId: string,
   opts: { expandedIds: Set<string> },
 ): PlannedMutation {
   const node = requireNode(nodes, id);
-  const left = node.text.slice(0, cursor);
-  const right = node.text.slice(cursor);
+  const at = cursor === "end" ? node.text.length : cursor;
+  const left = node.text.slice(0, at);
+  const right = node.text.slice(at);
   const firstChild = node.children.length > 0 && opts.expandedIds.has(id);
   const parent = firstChild ? node : findParentWire(nodes, id);
   const position = firstChild ? 0 : parent ? parent.children.indexOf(id) + 1 : undefined;

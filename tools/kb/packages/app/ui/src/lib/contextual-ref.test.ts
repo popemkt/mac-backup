@@ -1,7 +1,7 @@
 /**
  * Contextual references — the data half. A contextual reference is an ordinary
  * node carrying `sys.f.ref.target`; it displays the target's *current* text,
- * and its own text is never the row's own to edit.
+ * and editing that text edits the target.
  */
 import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { describe, expect, it } from "vitest";
@@ -14,7 +14,9 @@ import {
   contextualTargetOf,
   isContextualRef,
   rowText,
+  rowTextOf,
   rowTextReadOnlyReason,
+  shownNodeId,
 } from "@/lib/contextual-ref";
 import { wireToOutlineMap } from "@/lib/graph-view";
 import { SYSTEM_IDS, type NodeMap } from "@/lib/types";
@@ -114,15 +116,37 @@ describe("contextual reference model", () => {
     expect(contextualTargetOf(ref)).toBe("n.root-a");
   });
 
-  it("owns the read-only-text rule for sys rows and reference rows alike", () => {
+  it("a row shows, edits and opens its target; every other row itself", () => {
     const nodes = mapWith([ctxRefWire("n.ctx", "n.root-a")]);
-    expect(rowTextReadOnlyReason("n.ctx", nodes.get("n.ctx"))).toBe(
-      "Reference — edit the original",
-    );
-    expect(rowTextReadOnlyReason("sys.f.query", nodes.get("sys.f.query"))).toBe(
+    expect(shownNodeId(present(nodes.get("n.ctx"), "n.ctx"))).toBe("n.root-a");
+    expect(shownNodeId(present(nodes.get("n.root-b"), "n.root-b"))).toBe("n.root-b");
+    const state = { ontologyId: null, nodes, wireNodes: [] };
+    expect(rowTextOf(state, "n.ctx")).toEqual({ text: "Ship kb ui shell", textNodeId: "n.root-a" });
+    expect(rowTextOf(state, "n.missing")).toEqual({ text: "", textNodeId: "n.missing" });
+  });
+
+  it("owns the read-only-text rule: sys text and missing targets, never a live reference", () => {
+    const nodes = mapWith([
+      ctxRefWire("n.ctx", "n.root-a"),
+      ctxRefWire("n.to-sys", "sys.f.query"),
+      ctxRefWire("n.dangling", "n.gone"),
+    ]);
+    const schema = schemaFor(nodes);
+    // A live reference edits its original in place.
+    expect(rowTextReadOnlyReason("n.ctx", nodes.get("n.ctx"), schema)).toBeNull();
+    // The rule is about the text on screen: a reference to a sys node is as
+    // read-only as the sys node itself.
+    expect(rowTextReadOnlyReason("n.to-sys", nodes.get("n.to-sys"), schema)).toBe(
       "System node — read-only",
     );
-    expect(rowTextReadOnlyReason("n.root-a", nodes.get("n.root-a"))).toBeNull();
+    expect(rowTextReadOnlyReason("sys.f.query", nodes.get("sys.f.query"), schema)).toBe(
+      "System node — read-only",
+    );
+    // A dangling reference has no text to write to.
+    expect(rowTextReadOnlyReason("n.dangling", nodes.get("n.dangling"), schema)).toBe(
+      "Reference target is missing",
+    );
+    expect(rowTextReadOnlyReason("n.root-a", nodes.get("n.root-a"), schema)).toBeNull();
   });
 });
 

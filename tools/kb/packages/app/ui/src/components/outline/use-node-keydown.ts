@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { rowTextOf } from "@/lib/contextual-ref";
 import { isQueryResultInstance } from "@/lib/instance-key";
 import { getCaretSerializedOffset } from "@/lib/md-edit";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -20,6 +21,7 @@ function readEditingContext(args: {
   const { nodeId, instanceKey, editable } = args;
   const store = useOutlineStore.getState();
   const live = store.nodes.get(nodeId);
+  const shown = rowTextOf(store, nodeId);
   const parentId = live?.parentId ?? null;
   const parent = parentId === null ? undefined : store.nodes.get(parentId);
   return {
@@ -29,7 +31,7 @@ function readEditingContext(args: {
     // Serialized caret offset — robust across element boundaries and atomic
     // ref pills (D06).
     cursor: getCaretSerializedOffset(editable),
-    text: live?.text ?? "",
+    text: shown.text,
     childCount: live?.children.length ?? 0,
     collapsed: live?.collapsed ?? false,
     tagCount: live?.tags.length ?? 0,
@@ -37,7 +39,8 @@ function readEditingContext(args: {
     siblingIndex: parent ? parent.children.indexOf(nodeId) : -1,
     previousInstance: store.getPreviousVisibleInstance(instanceKey),
     nextInstance: store.getNextVisibleInstance(instanceKey),
-    textLengthOf: (id) => store.nodes.get(id)?.text.length ?? 0,
+    textLengthOf: (id) => rowTextOf(store, id).text.length,
+    ownsText: (id) => rowTextOf(store, id).textNodeId === id,
     readVerticalDecision: (key): VerticalNavDecision =>
       verticalArrowDecision({
         key: key === "ArrowUp" ? "ArrowUp" : "ArrowDown",

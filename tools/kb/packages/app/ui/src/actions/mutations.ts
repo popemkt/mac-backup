@@ -293,7 +293,7 @@ export const mutations = {
     await applyPlan(planSetFieldTargetQuery(wire(), fieldId, edn));
   },
 
-  async splitNode(id: string, cursor: number): Promise<void> {
+  async splitNode(id: string, cursor: number | "end"): Promise<void> {
     if (!guardSysWrite(id)) return;
     await prepareStructuralMutation();
     const store = useOutlineStore.getState();
@@ -520,7 +520,10 @@ export const mutations = {
         toast("asset.upload returned no path");
         return false;
       }
-      const node = store.nodes.get(nodeId);
+      // The whole graph, not the projection: the row may be a reference whose
+      // target sits outside the current scope, and its text must not be read
+      // as empty and overwritten.
+      const node = useOutlineStore.getState().wireNodes.find((n) => n.id === nodeId);
       const alt = file.name.replace(/\.[^.]+$/, "") || "file";
       const md = `![${alt}](${out.data.path})`;
       const next =

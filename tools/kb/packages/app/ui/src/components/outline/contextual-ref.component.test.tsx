@@ -1,10 +1,11 @@
 /**
  * Contextual references — the render half.
  *
- * The reference row shows the target's content, its children belong to the
- * reference (not the target), and it is an ordinary outline row everywhere
- * else: same instance-key owner, same keyboard walk, same dashed ref bullet
- * already used for query-result rows.
+ * The reference row shows the target's content and edits it in place, its
+ * children belong to the reference (not the target), and it is an ordinary
+ * outline row everywhere else: same click, same bullet gestures, same
+ * instance-key owner, same keyboard walk, same dashed ref bullet already used
+ * for query-result rows.
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -17,6 +18,7 @@ import { fixtureGraph } from "@/api/fixture-graph";
 import { childInstanceKey, outlineInstanceKey } from "@/lib/instance-key";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
+import { rowTextOf } from "@/lib/contextual-ref";
 import { NodeBlock } from "./node-block";
 
 const ISO = "2026-08-08T05:00:00.000Z";
@@ -42,6 +44,11 @@ function seed(extra: WireNode[]) {
   useOutlineStore
     .getState()
     .hydrateFromWire([...fixtureGraph.nodes, ...extra], fixtureGraph.rev, "fixtures");
+}
+
+function click(el: Element, init: MouseEventInit = {}) {
+  const Ctor = (globalThis as unknown as { MouseEvent: typeof MouseEvent }).MouseEvent;
+  el.dispatchEvent(new Ctor("click", { bubbles: true, cancelable: true, ...init }));
 }
 
 describe("contextual reference row", () => {
@@ -113,35 +120,74 @@ describe("contextual reference row", () => {
     expect(next?.instanceKey).toBe(childInstanceKey(refKey, "n.ctx-child"));
   });
 
-  it("the target's text is not editable from the reference", async () => {
-    const key = await render("n.ctx");
-    act(() => {
-      useOutlineStore.getState().activateNode("n.ctx", 0, key);
-    });
-    await render("n.ctx");
-    const s = useOutlineStore.getState();
-    expect(s.activeNodeId).toBeNull();
-    expect(s.selectedNodeId).toBe("n.ctx");
-    expect(
-      container.querySelector(`[data-instance-key="${key}"] [contenteditable="true"]`),
-    ).toBeNull();
-  });
-
-  it("clicking the reference's text opens the original instead of dying", async () => {
-    const key = await render("n.ctx");
-    const text = present(
+  function textOf(key: string): Element {
+    return present(
       container.querySelector(
         `[data-instance-key="${key}"] .kb-md-view, [data-instance-key="${key}"] .kb-text-row`,
       ),
       "text",
     );
-    await act(async () => {
-      text.dispatchEvent(
-        new (globalThis as unknown as { MouseEvent: typeof MouseEvent }).MouseEvent("click", {
-          bubbles: true,
-        }),
-      );
+  }
+
+  it("clicking the reference's text edits in place, like any row", async () => {
+    const key = await render("n.ctx");
+    await act(async () => click(textOf(key)));
+    await render("n.ctx");
+    const s = useOutlineStore.getState();
+    // No navigation: the caret lands in this row, on this instance.
+    expect(s.rootNodeId).not.toBe("n.root-a");
+    expect(s.activeNodeId).toBe("n.ctx");
+    expect(s.activeInstanceKey).toBe(key);
+    const editor = present(
+      container.querySelector(`[data-instance-key="${key}"] [contenteditable="true"]`),
+      "editor",
+    );
+    expect(editor.textContent).toContain("Ship kb ui shell");
+  });
+
+  it("typing in the reference writes the original, never the reference", async () => {
+    const key = await render("n.ctx");
+    act(() => {
+      useOutlineStore.getState().activateNode("n.ctx", 0, key);
     });
+    await render("n.ctx");
+    const editor = present(
+      container.querySelector<HTMLElement>(`[data-instance-key="${key}"] [contenteditable="true"]`),
+      "editor",
+    );
+    await act(async () => {
+      editor.textContent = "Ship kb ui shell!";
+      editor.dispatchEvent(new dom.Event("input", { bubbles: true }) as unknown as Event);
+    });
+    const s = useOutlineStore.getState();
+    expect(s.nodes.get("n.root-a")?.text).toBe("Ship kb ui shell!");
+    expect(s.nodes.get("n.ctx")?.text).toBe("");
+    expect(rowTextOf(s, "n.ctx").text).toBe("Ship kb ui shell!");
+  });
+
+  it("the bullet: click toggles its own children, ⌘-click opens the original", async () => {
+    const key = await render("n.ctx");
+    const bullet = () =>
+      present(
+        container.querySelector(`[data-instance-key="${key}"] [data-bullet-ref="true"]`),
+        "bullet",
+      );
+    const before = present(useOutlineStore.getState().nodes.get("n.ctx"), "n.ctx").collapsed;
+    await act(async () => click(bullet()));
+    expect(useOutlineStore.getState().nodes.get("n.ctx")?.collapsed).toBe(!before);
+    expect(useOutlineStore.getState().rootNodeId).not.toBe("n.root-a");
+    await act(async () => click(bullet(), { metaKey: true }));
     expect(useOutlineStore.getState().rootNodeId).toBe("n.root-a");
+  });
+
+  it("a dangling reference stays read-only: there is no text to write to", async () => {
+    seed(ctxRefWires().concat(ctxRefWire("n.dangling", "n.gone")));
+    const key = await render("n.dangling");
+    act(() => {
+      useOutlineStore.getState().activateNode("n.dangling", 0, key);
+    });
+    const s = useOutlineStore.getState();
+    expect(s.activeNodeId).toBeNull();
+    expect(s.selectedNodeId).toBe("n.dangling");
   });
 });
