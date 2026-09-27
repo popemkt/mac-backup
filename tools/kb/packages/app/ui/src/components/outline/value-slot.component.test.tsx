@@ -62,7 +62,7 @@ describe("ValueSlot gestures", () => {
             fieldId: "f.value",
             context,
             onCommit: (next: PropValue) => committed.push(next),
-            onZoomTo: () => undefined,
+            onFollow: () => undefined,
           }),
         ),
       );

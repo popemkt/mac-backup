@@ -7,10 +7,10 @@ import {
   isCanonicalInline,
   renderInlineMarkdown,
   revealMarkupAtSelection,
-  routeInlineClick,
   serializeEditable,
   setCaretSerializedOffset,
 } from "@/lib/md-edit";
+import { nodeTarget, routePointerClick, type Follow } from "@/lib/follow";
 import { fuzzyNodeCandidates, insertRefAtCursor, openRefQuery } from "@/lib/refs";
 import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
 import type { SchemaIndex } from "@/lib/schema";
@@ -38,9 +38,9 @@ export interface NodeTextHostBinding {
   nodes: NodeMap;
   /** What a reference's target resolves against (`rowTextReadOnlyReason`). */
   schema: SchemaIndex;
-  zoomTo: (id: string) => void;
   pendingCaret: NodeTextHostPendingCaret | null;
-  onRefClick: (e: React.MouseEvent, id: string) => void;
+  /** Follow a pointer in the text (`useFollow`). */
+  onFollow: Follow;
   consumeCaret: (instanceKey: string) => NodeTextHostPendingCaret | null;
   placeCaret: (instanceKey: string, at: NodeTextHostCaretAt) => void;
   selectNode: (id: string | null, instanceKey?: string) => void;
@@ -108,9 +108,8 @@ export function NodeTextHost({
   onKeyDown,
   nodes,
   schema,
-  zoomTo,
   pendingCaret,
-  onRefClick,
+  onFollow,
   consumeCaret,
   placeCaret,
   selectNode,
@@ -286,7 +285,7 @@ export function NodeTextHost({
     (e: React.MouseEvent) => {
       // A reference navigates and a link or player keeps its click, in both
       // states; everything else is a click into the text.
-      if (routeInlineClick(e, onRefClick)) return;
+      if (routePointerClick(e, onFollow)) return;
       if (!isActive) {
         // F16: caret at click, not at end. The text is already the tree the
         // editor edits, so the point under the click is the offset to edit at.
@@ -300,7 +299,7 @@ export function NodeTextHost({
       }
       e.stopPropagation();
     },
-    [isActive, onActivate, onRefClick, content],
+    [isActive, onActivate, onFollow, content],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -449,7 +448,7 @@ export function NodeTextHost({
               tags={tags}
               onTagClick={(tag, e) => {
                 e.stopPropagation();
-                zoomTo(tag.id);
+                onFollow(nodeTarget(tag.id), "open");
               }}
               onTagRemove={(tag, e) => {
                 e.stopPropagation();

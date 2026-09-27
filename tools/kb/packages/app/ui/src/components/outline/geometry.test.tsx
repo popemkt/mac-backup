@@ -104,7 +104,7 @@ describe("Field value placeholder (D17, §5.2)", () => {
         fieldId: "f.value",
         onCommit: () => {},
         context: contextFor(nodes),
-        onZoomTo: () => undefined,
+        onFollow: () => undefined,
       }),
     );
     expect(html).toContain("empty-placeholder");
@@ -122,7 +122,7 @@ describe("Field value placeholder (D17, §5.2)", () => {
         fieldId: "f.value",
         onCommit: () => {},
         context: contextFor(nodes),
-        onZoomTo: () => undefined,
+        onFollow: () => undefined,
       }),
     );
     expect(html).not.toContain("empty-placeholder");

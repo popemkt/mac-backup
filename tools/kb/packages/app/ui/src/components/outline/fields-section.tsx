@@ -9,6 +9,8 @@ import { isSysPrefixed, type PropValue } from "@/lib/types";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
+import { useFollow } from "@/stores/follow";
+import type { Follow } from "@/lib/follow";
 import { FieldRow } from "./field-row";
 import { ValueSlot } from "./value-slot";
 
@@ -25,7 +27,8 @@ export interface FieldValueStackProps {
   /** What the values resolve against (`fieldContextOf`). */
   context: FieldContext;
   readOnly: boolean;
-  onZoomTo: (id: string) => void;
+  /** Carry out a follow from inside a value (`useFollow`). */
+  onFollow: Follow;
 }
 
 /**
@@ -43,7 +46,7 @@ export function FieldValueStack({
   values,
   context,
   readOnly,
-  onZoomTo,
+  onFollow,
 }: FieldValueStackProps) {
   const { schema } = context;
   /** Slots the user minted with "+ value" and has not filled yet. */
@@ -74,7 +77,7 @@ export function FieldValueStack({
               fieldType={fieldType}
               fieldId={fieldId}
               context={context}
-              onZoomTo={onZoomTo}
+              onFollow={onFollow}
               onCommit={(next: PropValue) =>
                 void mutations.updateProp(nodeId, fieldId, next, value)
               }
@@ -112,7 +115,7 @@ export function FieldValueStack({
           fieldId={fieldId}
           autoOpen={autoOpen}
           context={context}
-          onZoomTo={onZoomTo}
+          onFollow={onFollow}
           onCommit={(next: PropValue) => {
             setPendingSlots(0);
             void mutations.updateProp(nodeId, fieldId, next);
@@ -175,7 +178,7 @@ export function NodeField({
   valueOnly = false,
   debug = false,
 }: NodeFieldProps) {
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const follow = useFollow();
   const fieldType = resolveFieldTypeById(fieldId, context.schema);
   return (
     <FieldRow
@@ -194,7 +197,7 @@ export function NodeField({
         values={values}
         context={context}
         readOnly={isSysPrefixed(nodeId) || debug}
-        onZoomTo={zoomTo}
+        onFollow={follow}
       />
     </FieldRow>
   );

@@ -3,7 +3,7 @@ import { backlinkRows, type BacklinkRow } from "@/lib/backlinks";
 import { MdView } from "@/components/ui/md-view";
 import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
-import { useRefNavigation } from "@/stores/ref-navigation";
+import { useFollow } from "@/stores/follow";
 import { Bullet } from "./bullet";
 import { NodeRow } from "./node-row";
 import { TagChipGroup } from "./tag-chip";
@@ -48,7 +48,7 @@ export function ReferencesView({
 
 function ShallowBacklinkRow({ row }: { row: BacklinkRow }) {
   const zoomTo = useOutlineStore((s) => s.zoomTo);
-  const onRefClick = useRefNavigation();
+  const follow = useFollow();
   const nodes = useOutlineStore((s) => s.nodes);
   const node = nodes.get(row.id);
 
@@ -82,11 +82,7 @@ function ShallowBacklinkRow({ row }: { row: BacklinkRow }) {
       }
       content={
         <>
-          <MdView
-            text={row.text}
-            className="min-w-0 flex-1 text-foreground/85"
-            onRefClick={onRefClick}
-          />
+          <MdView text={row.text} className="min-w-0 flex-1 text-foreground/85" onFollow={follow} />
           {row.tags.length > 0 && (
             <TagChipGroup
               tags={row.tags}

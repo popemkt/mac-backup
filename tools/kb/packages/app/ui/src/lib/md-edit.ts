@@ -10,8 +10,7 @@
  * a reference renders as a non-editable link carrying its whole token, so a
  * raw ULID never faces the caret, and a media embed's element holds no text.
  */
-import type { MouseEvent as ReactMouseEvent } from "react";
-import { asElement, isElementNode, isTextNode } from "@/lib/dom";
+import { isElementNode, isTextNode } from "@/lib/dom";
 import {
   assetSrcUrl,
   inlineSpanSource,
@@ -22,7 +21,7 @@ import {
 } from "@/lib/md-inline";
 export const KB_REF_ATTR = "data-kb-ref";
 /** The id a rendered reference points at, read by click routing. */
-const KB_REF_ID_ATTR = "data-kb-ref-id";
+export const KB_REF_ID_ATTR = "data-kb-ref-id";
 
 /**
  * The classes inline markdown paints text with. Exported so the contrast
@@ -167,32 +166,6 @@ function toDom(node: InlineNode): Node {
  */
 export function renderInlineMarkdown(target: HTMLElement, text: string): void {
   target.replaceChildren(...inlineNodes(text).map(toDom));
-}
-
-/**
- * What a click inside rendered inline markdown does, decided by what it
- * landed on: a reference navigates through `onRefClick`, a link or a media
- * embed keeps the click to itself (the link opens, the player plays), and
- * anything else is not inline content's business. True when it was handled.
- *
- * Every surface that renders node text routes clicks through this, so a
- * reference is clicked the same way in a read-only list and in an outline row.
- */
-export function routeInlineClick(
-  e: ReactMouseEvent,
-  onRefClick: (e: ReactMouseEvent, id: string) => void,
-): boolean {
-  const target = asElement(e.target);
-  const id = target?.closest(`[${KB_REF_ID_ATTR}]`)?.getAttribute(KB_REF_ID_ATTR);
-  if (id !== null && id !== undefined && id !== "") {
-    onRefClick(e, id);
-    return true;
-  }
-  if (target?.closest(`a.${INLINE_TEXT_CLASSES.link}, .kb-md-media`)) {
-    e.stopPropagation();
-    return true;
-  }
-  return false;
 }
 
 /** Set on a segment's wrapper while the selection touches it: its markup shows. */

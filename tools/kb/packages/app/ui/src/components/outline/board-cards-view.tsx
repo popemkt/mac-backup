@@ -19,6 +19,8 @@ import {
 } from "@/lib/view-config";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
+import { useFollow } from "@/stores/follow";
+import { bulletClickIntent, nodeTarget } from "@/lib/follow";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { Bullet } from "./bullet";
@@ -251,7 +253,7 @@ const ViewCard = memo(function ViewCard({
   );
   const selectNode = useOutlineStore((s) => s.selectNode);
   const activateNode = useOutlineStore((s) => s.activateNode);
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const follow = useFollow();
 
   const handleKeyDown = useNodeKeyDown({ nodeId: child.id, instanceKey });
 
@@ -287,7 +289,10 @@ const ViewCard = memo(function ViewCard({
             isRef={isReferenceRow(child, isQueryResultInstance(instanceKey))}
             onClick={(e) => {
               e.stopPropagation();
-              zoomTo(shownNodeId(child));
+              // A card's bullet cannot toggle: its children are not drawn.
+              if (bulletClickIntent(e, false) === "follow") {
+                follow(nodeTarget(shownNodeId(child)), "open");
+              }
             }}
           />
         }
@@ -308,7 +313,7 @@ const ViewCard = memo(function ViewCard({
             tags={child.tags}
             onTagClick={(tag, e) => {
               e.stopPropagation();
-              zoomTo(tag.id);
+              follow(nodeTarget(tag.id), "open");
             }}
           />
         </div>

@@ -27,7 +27,7 @@ export const CheckboxChecked: Story = {
     fieldId: "f.value",
     onCommit: noop,
     context: contextFor(nodes),
-    onZoomTo: noop,
+    onFollow: noop,
   },
 };
 
@@ -39,7 +39,7 @@ export const TextFilled: Story = {
     fieldId: "f.value",
     onCommit: noop,
     context: contextFor(nodes),
-    onZoomTo: noop,
+    onFollow: noop,
   },
 };
 
@@ -51,6 +51,6 @@ export const UrlEmpty: Story = {
     fieldId: "f.value",
     onCommit: noop,
     context: contextFor(nodes),
-    onZoomTo: noop,
+    onFollow: noop,
   },
 };

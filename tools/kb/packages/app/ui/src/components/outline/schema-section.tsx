@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useOutlineStore } from "@/stores/outline.store";
-import { useRefNavigation } from "@/stores/ref-navigation";
+import { useFollow } from "@/stores/follow";
 import {
   queryFieldCarriers,
   queryTaggedInstances,
@@ -76,7 +76,7 @@ function SchemaInstanceRow({
   onZoom: () => void;
 }) {
   const nodes = useOutlineStore((s) => s.nodes);
-  const onRefClick = useRefNavigation();
+  const follow = useFollow();
   const node = nodes.get(hit.id);
   const tags = node?.tags ?? [];
 
@@ -114,7 +114,7 @@ function SchemaInstanceRow({
             <MdView
               text={hit.text || "(empty)"}
               className="min-w-0 flex-1 text-foreground/85"
-              onRefClick={onRefClick}
+              onFollow={follow}
             />
             {tags.length > 0 && (
               <TagChipGroup

@@ -22,6 +22,8 @@ import {
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
+import { useFollow } from "@/stores/follow";
+import { bulletClickIntent, nodeTarget } from "@/lib/follow";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { Bullet } from "./bullet";
 import { NodeField } from "./fields-section";
@@ -253,7 +255,7 @@ const TableRow = memo(function TableRow({
   const selectNode = useOutlineStore((s) => s.selectNode);
   const activateNode = useOutlineStore((s) => s.activateNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const follow = useFollow();
   const rowDebug = useDebugFields(child.id);
 
   const handleKeyDown = useNodeKeyDown({ nodeId: child.id, instanceKey: childKey });
@@ -284,8 +286,9 @@ const TableRow = memo(function TableRow({
               collapsible={isExpandable}
               isRef={isReferenceRow(child, isQueryResultInstance(childKey))}
               onClick={(e) => {
-                if (e.metaKey || e.ctrlKey) zoomTo(shownNodeId(child));
-                else toggleCollapse(child.id);
+                if (bulletClickIntent(e, true) === "follow") {
+                  follow(nodeTarget(shownNodeId(child)), "open");
+                } else toggleCollapse(child.id);
               }}
             />
           }

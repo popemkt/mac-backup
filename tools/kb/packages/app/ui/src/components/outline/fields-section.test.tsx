@@ -28,7 +28,7 @@ function render(values: PropValue[], readOnly = false) {
       values,
       context: contextFor(nodes),
       readOnly,
-      onZoomTo: () => undefined,
+      onFollow: () => undefined,
     }),
   );
 }
@@ -73,7 +73,7 @@ describe("field value stack", () => {
         values: [{ t: "num", v: 96 }],
         context: contextFor(seeded),
         readOnly: false,
-        onZoomTo: () => undefined,
+        onFollow: () => undefined,
       }),
     );
     expect(html).toContain("Remove this value");

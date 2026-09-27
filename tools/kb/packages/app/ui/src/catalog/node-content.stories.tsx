@@ -4,14 +4,13 @@ import { schemaOf } from "@/lib/schema";
 
 const noop = (): void => undefined;
 const noopActivate = (): void => undefined;
-const noopNav = (_e: React.MouseEvent, _id: string): void => undefined;
+const noopFollow = (): void => undefined;
 
 const binding: NodeTextHostBinding = {
   nodes: new Map(),
   schema: schemaOf({ ontologyId: null, nodes: new Map(), wireNodes: [] }),
-  zoomTo: noop,
   pendingCaret: null,
-  onRefClick: noopNav,
+  onFollow: noopFollow,
   consumeCaret: () => null,
   placeCaret: noop,
   selectNode: noop,

@@ -8,6 +8,8 @@ import { useUiStore } from "@/stores/ui.store";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { schemaOf } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
+import { useFollow } from "@/stores/follow";
+import { bulletClickIntent, nodeTarget } from "@/lib/follow";
 import { mutations } from "@/actions/mutations";
 import { frameListChildren } from "@/lib/frame-rows";
 import { getViewConfig, isProjectedViewMode } from "@/lib/view-config";
@@ -45,25 +47,25 @@ export const NodeBlock = memo(function NodeBlock({
   const activateNode = useOutlineStore((s) => s.activateNode);
   const selectNode = useOutlineStore((s) => s.selectNode);
   const toggleCollapse = useOutlineStore((s) => s.toggleCollapse);
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const follow = useFollow();
   const showDebugFields = useDebugFields(nodeId);
   const nodePaletteOpen = useUiStore((s) => s.nodePaletteOpen);
   const filterOpen = useUiStore((s) => s.filterPopoverFrameId === nodeId);
 
   const instanceKey = instanceKeyProp ?? outlineInstanceKey(nodeId, nodes);
 
-  // One rule for every row, reference rows included: plain click toggles,
-  // modifier click opens the page of the node the row shows — for a contextual
-  // reference, the original. (Also the guide-line strip's handler.)
+  // The one bullet rule (`bulletClickIntent`), reference rows included: a
+  // plain click toggles, a modifier click follows to the node the row shows —
+  // for a contextual reference, the original. (Also the guide-line strip's.)
   const handleBulletClick = useCallback(
     (e: React.MouseEvent) => {
-      if (e.metaKey || e.ctrlKey) {
-        zoomTo(node ? shownNodeId(node) : nodeId);
+      if (bulletClickIntent(e, true) === "follow") {
+        follow(nodeTarget(node ? shownNodeId(node) : nodeId), "open");
       } else {
         toggleCollapse(nodeId);
       }
     },
-    [toggleCollapse, zoomTo, node, nodeId],
+    [toggleCollapse, follow, node, nodeId],
   );
 
   const handleActivate = useCallback(

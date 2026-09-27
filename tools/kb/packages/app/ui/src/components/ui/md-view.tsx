@@ -1,6 +1,7 @@
-import { createElement, memo, useMemo, type MouseEvent, type ReactNode } from "react";
+import { createElement, memo, useMemo, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import { inlineNodes, routeInlineClick, type InlineNode } from "@/lib/md-edit";
+import { routePointerClick, type Follow } from "@/lib/follow";
+import { inlineNodes, type InlineNode } from "@/lib/md-edit";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
 
 /** DOM attribute names whose React prop is spelled differently. */
@@ -23,7 +24,7 @@ function toReact(node: InlineNode, key: number): ReactNode {
 /**
  * `text`'s inline markdown as React elements — the element tree
  * `renderInlineMarkdown` builds as DOM (`inlineNodes`), with the markup
- * present and hidden. Clicks are the surface's: see `routeInlineClick`.
+ * present and hidden. Clicks are the surface's: see `routePointerClick`.
  */
 export const InlineMarkdown = memo(function InlineMarkdown({ text }: { text: string }) {
   const nodes = useMemo(() => inlineNodes(text), [text]);
@@ -35,15 +36,15 @@ interface MdViewProps {
   className?: string;
   clamp?: boolean;
   /**
-   * What clicking an inline `[[id]]` reference does. A primitive does not
-   * decide navigation, so the surface passes it — `useRefNavigation` is the
-   * one handler every caller uses.
+   * What following an inline `[[id]]` reference does. A primitive does not
+   * decide navigation, so the surface passes it — `useFollow` is the one
+   * handler every caller uses.
    */
-  onRefClick: (e: MouseEvent, id: string) => void;
+  onFollow: Follow;
 }
 
 /** Read-only inline markdown: accent refs, tinted code, media. */
-export const MdView = memo(function MdView({ text, className, clamp, onRefClick }: MdViewProps) {
+export const MdView = memo(function MdView({ text, className, clamp, onFollow }: MdViewProps) {
   if (!text) {
     return (
       <div
@@ -70,7 +71,7 @@ export const MdView = memo(function MdView({ text, className, clamp, onRefClick 
       )}
       role="presentation"
       onClick={(e) => {
-        routeInlineClick(e, onRefClick);
+        routePointerClick(e, onFollow);
       }}
     >
       <InlineMarkdown text={text} />

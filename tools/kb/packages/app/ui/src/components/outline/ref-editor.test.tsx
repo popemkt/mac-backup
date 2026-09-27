@@ -103,7 +103,7 @@ function renderRefSlot(
       autoOpen,
       onCommit: () => {},
       context: contextFor(nodes, index),
-      onZoomTo: () => undefined,
+      onFollow: () => undefined,
     }),
   );
 }

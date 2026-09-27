@@ -10,6 +10,7 @@ import {
 } from "@phosphor-icons/react";
 import type { FieldContext } from "@/lib/schema";
 import type { PropValue } from "@/lib/types";
+import type { Follow } from "@/lib/follow";
 import { emptyValueForType, type FieldType } from "@/lib/field-type";
 import {
   EDITOR_MODES,
@@ -108,8 +109,8 @@ export interface ValueSlotProps {
    */
   autoOpen?: boolean;
   onCommit: (next: PropValue) => void;
-  /** Navigate to a node from a resolved ref's bullet or tag chip. */
-  onZoomTo: (id: string) => void;
+  /** Carry out a follow from inside the value (`useFollow`). */
+  onFollow: Follow;
 }
 
 /**
@@ -135,7 +136,7 @@ export function ValueSlot({
   display = "",
   autoOpen = false,
   onCommit,
-  onZoomTo,
+  onFollow,
 }: ValueSlotProps) {
   const kind = valueKindOf(fieldType, fieldId);
   const spec = VALUE_KINDS[kind];
@@ -208,7 +209,7 @@ export function ValueSlot({
         context={context}
         onEnd={end}
         handleRef={handle}
-        onZoomTo={onZoomTo}
+        onFollow={onFollow}
       />
     </div>
   );

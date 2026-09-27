@@ -18,7 +18,7 @@ const meta = {
     fieldId: "field.status",
     context: contextFor(emptyNodes),
     readOnly: false,
-    onZoomTo: () => undefined,
+    onFollow: () => undefined,
   },
 } satisfies Meta<typeof FieldValueStack>;
 

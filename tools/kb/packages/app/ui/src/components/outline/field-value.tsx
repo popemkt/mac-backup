@@ -7,6 +7,7 @@ import { refSearchOf } from "@/lib/refs";
 import { useRefCandidates } from "@/lib/use-ref-candidates";
 import { TAG_PALETTE } from "@/lib/tag-color";
 import { asInstance } from "@/lib/dom";
+import { bulletClickIntent, nodeTarget, type Follow } from "@/lib/follow";
 import type { ValueKindSpec } from "@/lib/value-kind";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
 import { Bullet } from "./bullet";
@@ -48,8 +49,8 @@ export interface ValueSurfaceProps {
   onEnd: (next?: PropValue) => void;
   /** Where a caret surface exposes itself to the slot's keymap. */
   handleRef: React.Ref<EditHandle>;
-  /** Navigate to a node from a resolved ref's bullet or tag chip. */
-  onZoomTo: (id: string) => void;
+  /** Follow a pointer inside the value: a ref's bullet or tag chip. */
+  onFollow: Follow;
 }
 
 const editableClass = cn("flex-1 outline-none rounded-sm px-1", KB_TEXT_CLASS);
@@ -281,11 +282,11 @@ export function ColorSwatchEditor({
 function ResolvedRefRow({
   refId,
   target,
-  onZoomTo,
+  onFollow,
 }: {
   refId: string;
   target: OutlineNode;
-  onZoomTo: (id: string) => void;
+  onFollow: Follow;
 }) {
   return (
     <NodeRow
@@ -298,7 +299,8 @@ function ResolvedRefRow({
           isRef
           onClick={(e) => {
             e.stopPropagation();
-            onZoomTo(refId);
+            // A value's bullet has nothing of its own to expand, so it follows.
+            if (bulletClickIntent(e, false) === "follow") onFollow(nodeTarget(refId), "open");
           }}
         />
       }
@@ -314,7 +316,7 @@ function ResolvedRefRow({
               tags={target.tags}
               onTagClick={(tag, e) => {
                 e.stopPropagation();
-                onZoomTo(tag.id);
+                onFollow(nodeTarget(tag.id), "open");
               }}
             />
           )}
@@ -446,7 +448,7 @@ export function RefSurface({
   fieldId,
   context,
   onEnd,
-  onZoomTo,
+  onFollow,
 }: ValueSurfaceProps) {
   const refId = spec.text(value);
   if (editing) {
@@ -460,7 +462,7 @@ export function RefSurface({
     );
   }
   const target = context.schema.get(refId);
-  if (target) return <ResolvedRefRow refId={refId} target={target} onZoomTo={onZoomTo} />;
+  if (target) return <ResolvedRefRow refId={refId} target={target} onFollow={onFollow} />;
   if (refId) return <UnresolvedRefChip refId={refId} display={display} />;
   return (
     <span
