@@ -93,7 +93,7 @@ const EDITOR_MARKER: Record<FieldType, string> = {
   number: 'data-editable-text="true"',
   url: 'data-editable-text="true"',
   date: 'data-value-slot="date"',
-  checkbox: 'aria-pressed="true"',
+  checkbox: 'aria-checked="true"',
   ref: 'data-node-row="true"',
 };
 
@@ -137,10 +137,11 @@ describe("every declared type routes to one editor (display)", () => {
     expect(html).not.toContain("<input");
   });
 
-  it("checkbox is a switch, off for anything that is not a true bool", () => {
-    expect(editorHtml("checkbox", { t: "bool", v: true })).toContain('aria-pressed="true"');
-    expect(editorHtml("checkbox", { t: "bool", v: false })).toContain('aria-pressed="false"');
-    expect(editorHtml("checkbox", { t: "str", v: "true" })).toContain('aria-pressed="false"');
+  it("checkbox is a checkbox, off for anything that is not a true bool", () => {
+    expect(editorHtml("checkbox", { t: "bool", v: true })).toContain('role="checkbox"');
+    expect(editorHtml("checkbox", { t: "bool", v: true })).toContain('aria-checked="true"');
+    expect(editorHtml("checkbox", { t: "bool", v: false })).toContain('aria-checked="false"');
+    expect(editorHtml("checkbox", { t: "str", v: "true" })).toContain('aria-checked="false"');
   });
 
   it("a resolved ref renders the target row; an unresolved one warns", () => {
@@ -164,7 +165,7 @@ describe("the empty slot of each type", () => {
     number: ">0<",
     url: 'data-empty-placeholder="true"',
     date: 'data-empty-placeholder="true"',
-    checkbox: 'aria-pressed="false"',
+    checkbox: 'aria-checked="false"',
     ref: 'data-ref-slot="closed"',
   };
 

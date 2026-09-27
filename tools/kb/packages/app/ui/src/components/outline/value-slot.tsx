@@ -5,7 +5,7 @@ import {
   LinkSimpleIcon,
   PaletteIcon,
   TextTIcon,
-  ToggleRightIcon,
+  CheckSquareIcon,
   type Icon,
 } from "@phosphor-icons/react";
 import type { FieldContext } from "@/lib/schema";
@@ -66,7 +66,7 @@ const VALUE_VIEWS: Readonly<Record<ValueKind, ValueView>> = {
   url: { icon: TextTIcon, Surface: caretSurface("link") },
   number: { icon: HashIcon, Surface: caretSurface("number") },
   date: { icon: CalendarBlankIcon, Surface: DateSurface },
-  checkbox: { icon: ToggleRightIcon, Surface: CheckboxSurface },
+  checkbox: { icon: CheckSquareIcon, Surface: CheckboxSurface },
   ref: { icon: LinkSimpleIcon, Surface: RefSurface },
   color: { icon: PaletteIcon, Surface: ColorSurface },
 };

@@ -21,7 +21,7 @@ import { formatNumber } from "@/lib/number-format";
 import { parseDateInput, parseDay, type ParsedValue } from "@kb/model";
 import { longDateLabel, relativeDateLabel } from "@/lib/date-display";
 import { DateEditor } from "@/components/ui/date-editor";
-import { WarningIcon } from "@phosphor-icons/react";
+import { CheckIcon, WarningIcon } from "@phosphor-icons/react";
 import { nodeCandidates, refSearchOf } from "@/lib/refs";
 import { pickerRows } from "@/lib/picker";
 import { usePickerKeys } from "@/lib/use-picker";
@@ -346,25 +346,32 @@ function UrlLink({ href }: { href: string }) {
   );
 }
 
+/**
+ * A checkbox value: a real checkbox, not a switch (a switch reads as a device
+ * setting). The slot owns the toggle; this is a button so it is a Tab stop
+ * and Space or Enter activate it. Unset and off look the same.
+ */
 export function CheckboxSurface({ value }: ValueSurfaceProps) {
   const on = value.t === "bool" && value.v;
   return (
-    <button
-      type="button"
-      className={cn(
-        "relative h-[20px] w-[36px] shrink-0 rounded-full transition-colors duration-150",
-        on ? "bg-primary/60" : "bg-foreground/15",
-      )}
-      aria-pressed={on}
-    >
-      <span
+    <span className="flex h-6 items-center px-1">
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={on}
+        aria-label={on ? "Checked" : "Unchecked"}
         className={cn(
-          "absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-knob shadow-raised",
-          "transition-transform duration-150",
-          on && "translate-x-4",
+          "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-xs border",
+          "transition-colors duration-100 outline-none",
+          "focus-visible:ring-2 focus-visible:ring-primary/60",
+          on
+            ? "border-primary/70 bg-primary/10 text-primary"
+            : "border-foreground/25 hover:border-foreground/45",
         )}
-      />
-    </button>
+      >
+        {on && <CheckIcon size={10} weight="bold" aria-hidden />}
+      </button>
+    </span>
   );
 }
 

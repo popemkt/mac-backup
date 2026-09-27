@@ -10,7 +10,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { present } from "@kb/model";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { fieldContextOf } from "@/lib/schema";
-import type { NodeMap, PropValue } from "@/lib/types";
+import { SYSTEM_IDS, type NodeMap, type PropValue } from "@/lib/types";
+import { fieldTypeValue } from "@/lib/field-type";
+import { FieldValueStack } from "./fields-section";
 import type { FollowHow, FollowTarget } from "@/lib/follow";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { formatNumber, numberEditText } from "@/lib/number-format";
@@ -544,5 +546,86 @@ describe("a number value reads in the locale", () => {
     expect(committed).toEqual([]);
     expect(editable().getAttribute("data-rejected")).toBe("true");
     expect(editable().textContent).toBe("12 apples");
+  });
+});
+
+describe("a checkbox value", () => {
+  let dom: InstalledDom;
+  let container: HTMLDivElement;
+  let root: Root;
+  let committed: PropValue[];
+
+  const boxField = stubOutlineNode({
+    id: "f.done",
+    text: "done",
+    props: { [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("checkbox")] },
+  });
+  const boxContext = fieldContextOf({
+    ontologyId: null,
+    nodes: new Map([["f.done", boxField]]),
+    wireNodes: [],
+    index: null,
+  });
+
+  beforeAll(() => {
+    dom = installDomGlobals();
+    (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
+    dom.restore();
+  });
+
+  beforeEach(() => {
+    committed = [];
+    container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
+    dom.window.document.body.appendChild(container as unknown as never);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it("is a real checkbox the slot toggles", async () => {
+    await act(async () => {
+      root.render(
+        createElement(ValueSlot, {
+          value: { t: "bool", v: false },
+          fieldType: "checkbox",
+          fieldId: "f.done",
+          context: boxContext,
+          onCommit: (next: PropValue) => committed.push(next),
+          onFollow: () => undefined,
+        }),
+      );
+    });
+    const box = present(container.querySelector<HTMLElement>('[role="checkbox"]'), "checkbox");
+    expect(box.getAttribute("aria-checked")).toBe("false");
+    await act(async () => {
+      box.click();
+    });
+    expect(committed).toEqual([{ t: "bool", v: true }]);
+  });
+
+  it("holds one value by its type, so its field offers no second one", async () => {
+    await act(async () => {
+      root.render(
+        createElement(FieldValueStack, {
+          nodeId: "n.task",
+          fieldId: "f.done",
+          fieldType: "checkbox",
+          values: [{ t: "bool", v: true }],
+          context: boxContext,
+          readOnly: false,
+          onFollow: () => undefined,
+        }),
+      );
+    });
+    expect(
+      [...container.querySelectorAll("button")].some((b) => b.textContent.trim() === "value"),
+    ).toBe(false);
   });
 });

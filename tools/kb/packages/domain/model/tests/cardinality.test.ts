@@ -34,6 +34,31 @@ describe("cardinality: one", () => {
     expect(cardinalityOf(SINGLE.props)).toBe("one");
   });
 
+  test("a checkbox holds one value by its type, whatever it declares", () => {
+    const box = node("f.done", {
+      [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: SYSTEM_IDS.ftCheckbox }],
+    });
+    const declaredMany = node("f.done2", {
+      [SYSTEM_IDS.fieldTypeField]: [{ t: "ref", v: SYSTEM_IDS.ftCheckbox }],
+      [SYSTEM_IDS.cardinalityField]: [{ t: "ref", v: SYSTEM_IDS.cardinalityMany }],
+    });
+    expect(cardinalityOf(box.props)).toBe("one");
+    expect(cardinalityOf(declaredMany.props)).toBe("one");
+    const stored = node("n", { "f.done": [{ t: "bool", v: true }] });
+    const doubled = {
+      ...stored,
+      props: {
+        "f.done": [
+          { t: "bool" as const, v: true },
+          { t: "bool" as const, v: false },
+        ],
+      },
+    };
+    expect(txIntegrityError([box, stored], { upserts: [doubled], deletes: [] })).toContain(
+      "holds one value",
+    );
+  });
+
   test("a second value in a single-valued field is refused, a replacement is not", () => {
     const stored = node("n", { "f.single": [num(95)] });
     const graph = [SINGLE, MULTI, stored];

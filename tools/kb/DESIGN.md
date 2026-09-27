@@ -524,7 +524,8 @@ type PropValue =
   version did not. A field may also declare how many values it holds:
   `sys.f.cardinality`, a ref to one of its own children `sys.cardinality.one`
   / `sys.cardinality.many` (the option-set shape, like `sys.f.fieldType`), with
-  absence meaning many. A write that leaves a `one` field holding two values
+  absence meaning many — except that a type may cap it: a checkbox holds one
+  value whatever it declares (`cardinalityOf`, the one reader). A write that leaves a `one` field holding two values
   — a duplicate of the held value included — is refused by the same check.
   What "set" means is the field's to say, in `node.update`'s one prop writer:
   setting a `one` field replaces its value in the same transaction (so `kb

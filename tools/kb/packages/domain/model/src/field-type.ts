@@ -92,10 +92,23 @@ export function acceptsValueKind(type: FieldType, value: PropValue): boolean {
 /** How many values a field holds. */
 export type Cardinality = "one" | "many";
 
-/** Read a field node's declared cardinality off its props. Absent ⇒ many. */
+/**
+ * Types that hold one value by their nature, whatever the field declares: a
+ * checkbox is on or off, and two answers to that are no answer.
+ */
+const SINGLE_VALUED_TYPES: ReadonlySet<FieldType> = new Set(["checkbox"]);
+
+/**
+ * How many values a field holds, read off its node's props: one when its type
+ * is single-valued (`SINGLE_VALUED_TYPES`) or it declares `cardinality: one`,
+ * many otherwise — absence means many. The write check, `node.update`'s set
+ * and the UI's add affordance all read this, so a type's cap is enforced on
+ * every surface, not special-cased in any one.
+ */
 export function cardinalityOf(
   props: Record<string, readonly PropValue[]> | undefined,
 ): Cardinality {
+  if (SINGLE_VALUED_TYPES.has(fieldTypeOf(props))) return "one";
   const raw = props?.[SYSTEM_IDS.cardinalityField]?.[0];
   return raw?.t === "ref" && raw.v === SYSTEM_IDS.cardinalityOne ? "one" : "many";
 }
