@@ -399,9 +399,10 @@ single owner of "which rows does this frame show".
 **Creation** is a node-⌘K step, next to *Turn into query*: **Turn into
 reference…** opens the picker, which is the same picker `Add tag` and `Add field`
 use — generalized from two kinds to three, with the candidate *source* as the
-only difference. A reference's candidates come from `fuzzyNodeCandidates`, the
-resolver the `[[` autocomplete and the typed ref field editor already share, so
-no fourth node picker was added. The gesture itself is `mutations.addTag` +
+only difference. A reference's candidates come from `nodeCandidates`, the
+source the `[[` autocomplete and the field picker share, over the one picker
+engine (→ [Field values](#field-values-one-slot-grammar)), so no fourth node
+picker was added. The gesture itself is `mutations.addTag` +
 `mutations.updateProp`, i.e. plain `node.update` — no new registry action, and
 the CLI/MCP form is in DESIGN.md.
 
@@ -418,6 +419,107 @@ host row and a target, and the global palette has no two-step for that. Since
 zoom opens the shown node, no row gesture zooms into the reference node
 itself; its contextual children are reached by expanding it in place, and its
 own props through *Show debug fields*.
+
+### Field values: one slot grammar
+
+A node's field values are drawn by one component on every surface —
+`NodeField` (`components/outline/fields-section.tsx`): the outline's field
+rows, a table's cells and a card's fields are `FieldRow` chrome around the one
+`FieldValueStack`, so none of them has its own loop of editors. Each value sits
+in a **value slot** (`ValueSlot`, `components/outline/value-slot.tsx`), and
+**the slot owns every gesture**; a value's kind contributes only data. A kind
+is a row in `VALUE_KINDS` (`lib/value-kind.ts`: its editor mode, how it reads
+as text and back, when it is blank, where it points, how its values sit
+together) and a row in the slot's view registry (its glyph and its surface).
+The surfaces in `field-value.tsx` draw and edit; none has a click or key
+handler of its own. A new type is two rows, never a component deciding its
+own clicks.
+
+**Three verbs, the same on every kind.**
+
+| Verb | Mouse | Keyboard |
+|---|---|---|
+| **Follow** (a ref's node, an option's page, a url) | plain click on a *pointer segment* — a ref label, an option chip, a url's link, a `[[ref]]` pill in text — exactly as in node text; ⌘/Ctrl-click anywhere on the value | ⌘Enter, at rest or editing |
+| **Edit** | plain click anywhere else in the slot; a caret lands where the click did | Enter or F2; a printable key opens it with that key typed (replacing the value; a picker starts its query with it); Space flips a checkbox |
+| **Add** (many-valued fields only) | the "+" in the trailing space of the last value, on hover or focus | Enter at the end of a typed value; the picker, which stays open |
+
+Following is one function for every pointer in kb (`lib/follow.ts`:
+`routePointerClick`, the bullet rule `bulletClickIntent`, and `useFollow`,
+which carries a follow out); a url's link is a real anchor, so the browser's
+open, middle-click and context menu work.
+
+**Keys.** At rest (the slot focused, its editor closed): ↑/↓ and
+Tab/Shift-Tab move through the field's values and out to the row; Backspace or
+Delete takes the value out; Escape hands the keyboard back to the row,
+selected. While a caret editor is open: Enter commits (Shift+Enter is a line
+break in text), Escape reverts and leaves the value focused, Tab or an arrow
+off the text's first or last character commits and moves on, and Backspace in
+an emptied value takes it out and opens the one before. A picker and the date
+editor keep their own keys. The chord tables are `lib/value-slot-keymap.ts`.
+The rows' keymaps pass through the values: ↓ off a row's last line (editing
+or selected) lands on its first value, ↓ from its last value goes to the next
+row, ↑ comes back the same way (`enterFields`; the order is read off the DOM
+by `lib/value-slot-nav.ts`, never kept a second time).
+
+**Adding has no line of its own.** Enter at the end of a value of a
+many-valued field commits it and opens the next value's slot; Enter on that
+empty slot closes it. A typed value emptied is taken out, not kept blank.
+Picked values are added in the picker. A one-valued field — and a checkbox,
+which holds one value by its type (`cardinalityOf`) — offers no add.
+
+**Per kind.**
+
+- **text** is node text: it renders and edits through the same live preview
+  (`readInlineInput`, `useRevealMarkup`), and a `[[id]]` token in it is a
+  mention like one in node text (DESIGN.md → Refs, `nodeMentions`).
+- **url** is a link at rest, labelled short (`urlLabel`), the full url its
+  title. Its form is `@kb/model`'s (`normalizeUrl`: http(s)/mailto, a bare
+  host made https, every other scheme refused), and every surface parses
+  input through the one `parseTypedValue`, which the write check agrees with.
+- **number** reads and writes in the browser's locale (`lib/number-format`),
+  grouped at rest and ungrouped while edited.
+- **date** is a local calendar day (`@kb/model` `local-date`), labelled near
+  today (Today, Fri, Oct 12), edited in `DateEditor`: typed phrases
+  (`parseDateInput`: tomorrow, next fri, in 2 weeks, oct 3) with a live
+  preview, over a keyboard-first calendar.
+- **checkbox** is a checkbox, not a switch.
+- **ref** is its target's row; the label follows, the rest of the row edits.
+- **option** — a ref field that declares its values by parenting them
+  (`declaresOptionSet`) — is a chip drawn in the tag chip's box, in the
+  option's colour (`optionColorOf`); a field's chips wrap on one line.
+
+Input a kind cannot read is never dropped: the slot keeps it, marked with the
+reason, and the next edit starts from it.
+
+**The one node picker.** Every "which node?" in the UI is one engine
+(`lib/picker.ts`: candidates in, ranked rows out; `usePickerKeys`) and one
+list (`components/ui/picker-list.tsx`): the field picker (`FieldPicker`), the
+`[[` completion, the node palette's add-tag, add-field and reference steps,
+the ontology page's include/extends, the canvas's "add existing node" and the
+tag page's add-field. A query matches fuzzily (prefix, substring, id, word
+initials, a compact subsequence) and the matched letters are marked; with
+nothing typed an option set keeps its own order, other fields offer the
+session's recent picks and then the most used. The field picker shows what the
+field holds checked; in a many-valued field Enter toggles and it stays open,
+Backspace on an empty query takes back the last value, and in a one-valued
+field a pick replaces and closes. Its last row creates the query as a node
+where the field's declaration says a target goes (`refCreationOf`: an option
+under the field, a node with the field's target tag, a top-level node) — never
+for a query-constrained field. The list is anchored to its input, flipped and
+clamped to the viewport (`useAnchoredPosition`), so a cell or a column never
+clips it. The global ⌘K palette is a different gesture — search and open —
+and keeps its own index.
+
+**Named gaps.** A ref value's bullet follows on a plain click (a value's
+bullet has no children of its own to expand) rather than expanding the
+target's children inline under the field. `[[` completion is not offered while
+editing a text value (a typed token still mentions). The date editor's Enter
+commits without opening a next value, and its Tab does not move on. Pasting
+several lines into a many-valued field is not split into values. The node
+palette has no "Add value to …" command. `sys.f.color` keeps its always-open
+swatch row. The PropValue union still carries the legacy `date` variant so old
+stores decode (opening rewrites it). Table and board cells are not in the
+arrow path (the outline's rows are).
 
 ### Ontology scope (i6)
 
