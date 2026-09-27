@@ -77,6 +77,7 @@ const LIFTS = [GLOW.rising, GLOW.neighbour, 0.5, 1, 4];
 const lightings = (theme: LensTheme): (NodeLighting & { name: string })[] =>
   appearances(theme).map((a) => ({
     ...a,
+    form: GRAPH_THEMES[theme].form,
     surface: GRAPH_THEMES[theme].scene.surface,
     glows: GRAPH_THEMES[theme].scene.bloom !== null,
   }));

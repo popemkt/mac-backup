@@ -31,6 +31,7 @@ export const GRAPH_THEME_VALUES = {
   fresnel: { id: "sys.graph.theme.fresnel", label: "Fresnel" },
   glass: { id: "sys.graph.theme.glass", label: "Glass" },
   bullet: { id: "sys.graph.theme.bullet", label: "Bullet" },
+  cube: { id: "sys.graph.theme.cube", label: "Cube" },
 } as const;
 
 /**

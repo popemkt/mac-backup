@@ -62,11 +62,14 @@ export function restingLink(
   };
 }
 
+/** A lit solid a node may be drawn as (`force3d-nodes` → `SOLIDS`). */
+export type SolidForm = "sphere" | "cube";
+
 /**
- * What a node is drawn as: a lit sphere, or the outline's bullet, painted
+ * What a node is drawn as: a lit solid, or the outline's bullet, painted
  * from its one definition (`lib/bullet-mode`, `lib/bullet-atlas`).
  */
-export type NodeForm = "sphere" | "bullet";
+export type NodeForm = SolidForm | "bullet";
 
 /** The 3D scene a theme dresses: the stage the 3D graph stands on, and its light. */
 export interface SceneDress {
@@ -244,6 +247,36 @@ const BULLET: GraphTheme = {
   },
 };
 
+/**
+ * Cube — the model on the bench: every node a small cube of its colour set
+ * corner-on, so three faces take the key and each edge is drawn out in a
+ * fine line of the ink; the card's colour pooled under a faint warm haze,
+ * range fog, a few stars on dark, a restrained bloom so only hubs and the
+ * focus glow, even links, and labels in a firmer weight of the graph face.
+ */
+const CUBE: GraphTheme = {
+  form: "cube",
+  links: { strength: 1.1, source: 0.45, accent: 0.1 },
+  labels: {
+    face: "graph",
+    weight: 600,
+    upper: false,
+    tracking: 0.2,
+    halo: "soft",
+    placement: "above",
+  },
+  scene: {
+    ground: { light: "--card", dark: "--card" },
+    edge: { light: "--muted", dark: "--background" },
+    backdrop: { warmth: 0.08, haze: 0.15 },
+    fog: { near: 0.5, far: 2.4 },
+    stars: { light: 0, dark: 0.15 },
+    grain: { light: 2, dark: 1 },
+    bloom: { light: 0.3, dark: 0.95 },
+    surface: "matte",
+  },
+};
+
 /** Keyed by the option set, so a new theme fails the build until it is stated. */
 export const GRAPH_THEMES: Readonly<Record<LensTheme, GraphTheme>> = {
   matte: MATTE,
@@ -251,6 +284,7 @@ export const GRAPH_THEMES: Readonly<Record<LensTheme, GraphTheme>> = {
   fresnel: FRESNEL,
   glass: GLASS,
   bullet: BULLET,
+  cube: CUBE,
 };
 
 /** A theme's value for the page's variant. */

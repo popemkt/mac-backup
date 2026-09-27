@@ -646,7 +646,10 @@ like themselves (P5).
   passes white, a blooming theme's hubs do, and a theme without bloom
   never does. A surface must grow with the key and depend on the view only
   through the rim — what lets that proof find each sphere's brightest
-  fragment ring by ring. The scene contract and the renderer contract run
+  fragment ring by ring. Each form states where its fragments stand in
+  (key, rim) — a sphere's rings, a cube's whole square (a face may meet
+  the key squarely while its edge line is drawn), a bullet's one flat
+  fragment — so the proof runs over what that theme's nodes can show. The scene contract and the renderer contract run
   the 3D graph in every theme.
 - **The themes.** Each reads only the design system's tokens (L1), so it
   looks like itself in kb, paper and terminal, light and dark (P5):
@@ -694,6 +697,20 @@ like themselves (P5).
     so the disc rules above (separation, picking, label clearance) hold
     unchanged and a plain leaf is the disc it always was; a dimmed bullet
     fades as a disc does.
+  - *Cube* — the model on the bench. Every node is a cube of its colour
+    (`SOLIDS` in `force3d-nodes.ts`: the solid layer is one instanced
+    draw whatever the solid, and a theme's `form` picks it), holding the
+    volume of the sphere it replaces, so it is picked, framed and
+    labelled by the same radius and sizes compare across themes. Every
+    cube is set once in the isometric attitude, a corner toward the
+    default eye, so three faces show and each takes the key differently;
+    it does not turn, because a moving cube would keep the stage drawing
+    and one shared attitude lets light, not angle, carry the hierarchy.
+    Its rim is a face's grazing rim or a thin line along each edge, so the
+    matte surface draws the silhouette and every edge in the ink. The
+    card's pool under a faint warm haze, range fog, a few stars on dark,
+    a restrained bloom, even links, labels in a firmer weight of the
+    graph face. In 2D a cube is the node's disc.
 - **Link styles** are one choice for both renderers: a perspective's
   `lens.link-style` is one of its option nodes — *straight* (the default),
   *curved*, *flow* — and `graph-link-styles.ts` states what each one means

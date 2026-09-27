@@ -89,7 +89,11 @@ const NodeRingProgram = createNodeBorderProgram({
  * The sigma node program each form is drawn with: a solid is its disc in
  * 2D, and a bullet is the outline's bullet (`sigma-bullets`).
  */
-const NODE_PROGRAMS: Record<NodeForm, "ring" | "bullet"> = { sphere: "ring", bullet: "bullet" };
+const NODE_PROGRAMS: Record<NodeForm, "ring" | "bullet"> = {
+  sphere: "ring",
+  cube: "ring",
+  bullet: "bullet",
+};
 
 /** The sigma edge program each link shape is drawn with. */
 const EDGE_PROGRAMS = { straight: EdgeArrowProgram, curved: EdgeCurvedArrowProgram } as const;

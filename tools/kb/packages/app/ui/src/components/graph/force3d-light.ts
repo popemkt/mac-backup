@@ -17,6 +17,7 @@
  */
 
 import { NUMBER_OPS, type Rgb, type ShadeOps } from "@/scene/shade-ops";
+import type { NodeForm } from "./graph-themes";
 
 export type { Rgb };
 
@@ -109,6 +110,29 @@ const SPHERE: readonly (readonly [number, number])[] = (() => {
   return out;
 })();
 
+/**
+ * The (key, rim) pairs a cube's visible fragments can see, sampled over the
+ * whole square: a face may face the key squarely while its edge line is
+ * fully drawn, so every key meets every rim. A superset of what any
+ * attitude shows, so a peak found here bounds the drawn one.
+ */
+const STEPS = 16;
+const CUBE: readonly (readonly [number, number])[] = Array.from(
+  { length: (STEPS + 1) ** 2 },
+  (_, i): [number, number] => [Math.floor(i / (STEPS + 1)) / STEPS, (i % (STEPS + 1)) / STEPS],
+);
+
+/**
+ * Where each form's fragments stand in (key, rim): a sphere's rings, a
+ * cube's full square, and a bullet's one flat fragment — the sprite is lit
+ * with the key full on and no rim (`force3d-bullets`).
+ */
+const FRAGMENTS: Record<NodeForm, readonly (readonly [number, number])[]> = {
+  sphere: SPHERE,
+  cube: CUBE,
+  bullet: [[1, 0]],
+};
+
 /** What one fragment of a node is shaded from, over colours V and scalars S. */
 export interface NodeFragment<V, S> {
   /** The node's colour, and the palette's ground and ink (linear). */
@@ -152,8 +176,12 @@ export function shadeNode<V, S>(
   return o.addColor(glowing, o.scale(light, o.min(lift, o.minChannel(room))));
 }
 
-/** The light a node is shaded under: its surface, whether it may bloom, the palette's ink and ground (linear). */
+/**
+ * The light a node is shaded under: what it is drawn as, its surface,
+ * whether it may bloom, the palette's ink and ground (linear).
+ */
 export interface NodeLighting {
+  readonly form: NodeForm;
   readonly surface: NodeSurface;
   readonly glows: boolean;
   readonly ink: Rgb;
@@ -162,13 +190,13 @@ export interface NodeLighting {
 
 /**
  * The brightest channel a fully present node of linear colour `hue` reaches
- * anywhere on its visible surface, under `lighting`, with a blooming `glow`
+ * anywhere on its visible surface (as its form shows it), under `lighting`, with a blooming `glow`
  * and a capped `lift`.
  */
 export function peakChannel(hue: Rgb, lighting: NodeLighting, glow: number, lift = 0): number {
-  const { surface, glows, ink, ground } = lighting;
+  const { form, surface, glows, ink, ground } = lighting;
   let peak = 0;
-  for (const [key, rim] of SPHERE) {
+  for (const [key, rim] of FRAGMENTS[form]) {
     const fragment = { hue, ground, ink, key, rim, presence: 1, glow, lift };
     for (const channel of shadeNode(NUMBER_OPS, fragment, surface, glows))
       peak = Math.max(peak, channel);
