@@ -3,10 +3,13 @@ import { useLayoutEffect, useState, type CSSProperties, type RefObject } from "r
 /** The gap between an anchor and what floats from it, and the viewport margin. */
 const GAP = 4;
 const MARGIN = 8;
+/** Below the anchor is the reading direction: flip only when there is less room than this. */
+const ROOM_TO_STAY = 180;
 
 /**
  * Where a floating panel (a picker's list, a calendar) sits next to its
- * anchor: below it, flipped above when there is no room below and more above,
+ * anchor: below it, flipped above only when the room below is short and there
+ * is more above,
  * clamped inside the viewport horizontally, its height capped to the room it
  * has. `position: fixed`, so a scrolling or clipping ancestor (a table cell,
  * a board column) neither clips nor shifts it.
@@ -35,7 +38,7 @@ export function useAnchoredPosition(
       const below = r.bottom + GAP;
       const roomBelow = vh - MARGIN - below;
       const roomAbove = r.top - GAP - MARGIN;
-      const flip = height > roomBelow && roomAbove > roomBelow;
+      const flip = height > roomBelow && roomBelow < ROOM_TO_STAY && roomAbove > roomBelow;
       const room = Math.max(flip ? roomAbove : roomBelow, 0);
       const shown = Math.min(height, room);
       setStyle({

@@ -266,35 +266,41 @@ function ValueItem({
   onAdd: (() => void) | null;
   children: React.ReactNode;
 }) {
+  const remove =
+    onRemove === null ? null : (
+      <button
+        type="button"
+        // The keyboard's remove is Backspace on the value; this is the mouse's.
+        tabIndex={-1}
+        className={cn(
+          "flex shrink-0 items-center justify-center",
+          "opacity-0 transition-opacity group-hover/value:opacity-100 focus-visible:opacity-100",
+          "focus-visible:ring-2 focus-visible:ring-primary/60 outline-none",
+          layout === "inline"
+            ? // Over the chip's corner, so chips sit as close as tags do.
+              "absolute -right-1 -top-0.5 h-3.5 w-3.5 rounded-full border border-foreground/10 bg-popover text-foreground/40 hover:text-foreground/70"
+            : "mt-0.5 h-4 w-4 rounded-sm text-foreground/20 hover:bg-foreground/8 hover:text-foreground/50",
+        )}
+        title="Remove this value"
+        aria-label="Remove this value"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+      >
+        <XIcon size={layout === "inline" ? 7 : 9} weight="bold" aria-hidden />
+      </button>
+    );
   return (
     <div
       className={cn(
-        "group/value flex min-w-0 items-start gap-1",
-        layout === "inline" && "max-w-full",
+        "group/value flex min-w-0 items-start",
+        layout === "inline" ? "relative max-w-full" : "gap-1",
       )}
       data-field-value="true"
     >
       <div className={cn("min-w-0", layout === "stack" && "flex-1")}>{children}</div>
-      {onRemove !== null && (
-        <button
-          type="button"
-          className={cn(
-            "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm",
-            "text-foreground/20 opacity-0 transition-opacity",
-            "group-hover/value:opacity-100 focus-visible:opacity-100",
-            "hover:bg-foreground/8 hover:text-foreground/50",
-            "focus-visible:ring-2 focus-visible:ring-primary/60 outline-none",
-          )}
-          title="Remove this value"
-          aria-label="Remove this value"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-        >
-          <XIcon size={9} weight="bold" aria-hidden />
-        </button>
-      )}
+      {remove}
       {onAdd !== null && <AddValueButton onAdd={onAdd} />}
     </div>
   );
@@ -318,6 +324,7 @@ function AddValueButton({ onAdd }: { onAdd: () => void }) {
           "hover:bg-foreground/[0.06] hover:text-foreground/60",
           "focus-visible:ring-2 focus-visible:ring-primary/60 outline-none",
         )}
+        tabIndex={-1}
         title="Add a value"
         aria-label="Add a value"
         data-add-value="true"

@@ -381,7 +381,7 @@ function UrlLink({ href }: { href: string }) {
     <a
       className={cn(
         INLINE_TEXT_CLASSES.link,
-        "inline-block max-w-[60%] truncate align-bottom text-primary",
+        "inline-block max-w-[calc(100%-0.75rem)] truncate align-bottom text-primary",
         "underline decoration-primary/25 underline-offset-2 hover:decoration-primary/60",
       )}
       href={href}

@@ -23,8 +23,14 @@ describe("matching a query", () => {
     expect(matchCandidate("Alpha", "x", "al")?.score).toBe(0);
     expect(matchCandidate("Gamma alpha", "x", "al")?.score).toBe(1);
     expect(matchCandidate("Other", "n.alpha", "alpha")?.score).toBe(2);
-    expect(matchCandidate("Data pipeline", "x", "dpl")?.score).toBe(3);
+    expect(Math.floor(matchCandidate("Data pipeline", "x", "dpi")?.score ?? 0)).toBe(3);
     expect(matchCandidate("Alpha", "x", "zz")).toBeNull();
+  });
+
+  it("takes a subsequence only when it is compact or spells word starts", () => {
+    expect(matchCandidate("Binary assets & VCS", "x", "bav")).not.toBeNull();
+    // Letters strewn across a long label are not a match.
+    expect(matchCandidate("Action failures remain localized", "x", "zara")).toBeNull();
   });
 
   it("says where in the label the query landed", () => {

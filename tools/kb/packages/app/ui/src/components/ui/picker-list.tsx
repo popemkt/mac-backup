@@ -96,7 +96,7 @@ export function PickerList({
         ))
       )}
       {hint !== undefined && rows.length > 0 && (
-        <div className="mt-1 border-t border-foreground/[0.06] px-2 pt-1 text-caption text-foreground/25">
+        <div className="sticky -bottom-1 -mx-1 -mb-1 mt-1 border-t border-foreground/[0.06] bg-popover px-3 py-1 text-caption text-foreground/25">
           {hint}
         </div>
       )}

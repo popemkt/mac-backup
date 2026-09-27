@@ -93,12 +93,37 @@ function subsequence(hay: string, q: string): number[] | null {
   return i === q.length ? at : null;
 }
 
+const isWordStart = (text: string, i: number): boolean =>
+  i === 0 || /[\s\-_./:&]/.test(text[i - 1] ?? "");
+
+/** Where `q`'s letters start words of `text`, in order (`bav` in "Binary assets & VCS"), or null. */
+function initials(text: string, q: string): number[] | null {
+  const at: number[] = [];
+  let i = 0;
+  for (let h = 0; h < text.length && i < q.length; h++) {
+    if (text[h] === q[i] && isWordStart(text, h)) {
+      at.push(h);
+      i += 1;
+    }
+  }
+  return i === q.length ? at : null;
+}
+
+/**
+ * A subsequence reads as the query only when it is compact — its letters sit
+ * close together (`dpi` in "Data pipeline"). Letters strewn across a long
+ * label are noise: every long title "contains" every short query that way.
+ */
+function compact(at: readonly number[]): boolean {
+  return (at.at(-1) ?? 0) - (at[0] ?? 0) + 1 <= at.length * 2 + 1;
+}
+
 /**
  * How well `query` matches a candidate, or null when it does not.
  *
  * In order: the label starts with the query, contains it, the id contains it,
- * or the query's characters occur in order in the label (then in the label
- * and id together). Only label matches carry ranges, since only the label is
+ * or the query's characters start the label's words in order, or occur in
+ * order close together. Only label matches carry ranges, since only the label is
  * shown.
  */
 export function matchCandidate(label: string, id: string, query: string): Match | null {
@@ -109,9 +134,14 @@ export function matchCandidate(label: string, id: string, query: string): Match 
   if (at === 0) return { score: 0, ranges: [[0, q.length]] };
   if (at > 0) return { score: 1, ranges: [[at, at + q.length]] };
   if (id.toLowerCase().includes(q)) return { score: 2, ranges: [] };
+  const words = initials(text, q);
+  if (words !== null) return { score: 3, ranges: runs(words) };
   const inLabel = subsequence(text, q);
-  if (inLabel !== null) return { score: 3, ranges: runs(inLabel) };
-  if (subsequence(`${text} ${id.toLowerCase()}`, q) !== null) return { score: 3, ranges: [] };
+  if (inLabel !== null && compact(inLabel)) {
+    // Tighter first: the span the letters cover breaks ties among these.
+    const span = (inLabel.at(-1) ?? 0) - (inLabel[0] ?? 0);
+    return { score: 3 + span / 1000, ranges: runs(inLabel) };
+  }
   return null;
 }
 

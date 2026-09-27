@@ -196,7 +196,8 @@ export function ValueSlot({
 
   return (
     <div
-      className="min-w-0"
+      // A value the keyboard is on reads as selected, the way a row does.
+      className="min-w-0 rounded-sm outline-none focus:bg-primary/8"
       data-value-slot={kind}
       data-editing={slot.editing ? "true" : undefined}
       {...slot.props}
