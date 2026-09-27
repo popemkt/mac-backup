@@ -13,7 +13,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { NodeRow } from "./node-row";
 import { FieldRow } from "./field-row";
-import { PropValueEditor } from "./field-value";
+import { ValueSlot } from "./value-slot";
 import type { NodeMap, PropValue } from "@/lib/types";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
@@ -97,7 +97,7 @@ describe("Field value placeholder (D17, §5.2)", () => {
 
   it("renders an EMPTY dom with the CSS placeholder class", () => {
     const html = renderToStaticMarkup(
-      createElement(PropValueEditor, {
+      createElement(ValueSlot, {
         value: { t: "str", v: "" } as PropValue,
         display: "",
         fieldType: "text",
@@ -115,7 +115,7 @@ describe("Field value placeholder (D17, §5.2)", () => {
 
   it("keeps real values as DOM text without placeholder styling", () => {
     const html = renderToStaticMarkup(
-      createElement(PropValueEditor, {
+      createElement(ValueSlot, {
         value: { t: "str", v: "doing" } as PropValue,
         display: "",
         fieldType: "text",

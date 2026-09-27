@@ -1,7 +1,7 @@
 import type { NodeMap } from "@/lib/types";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { PropValueEditor } from "@/components/outline/field-value";
+import { ValueSlot } from "@/components/outline/value-slot";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function contextFor(nodes: NodeMap): FieldContext {
@@ -12,9 +12,9 @@ const nodes = new Map();
 const noop = (): void => undefined;
 
 const meta = {
-  title: "Outline/PropValueEditor",
-  component: PropValueEditor,
-} satisfies Meta<typeof PropValueEditor>;
+  title: "Outline/ValueSlot",
+  component: ValueSlot,
+} satisfies Meta<typeof ValueSlot>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

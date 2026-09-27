@@ -22,7 +22,7 @@ import { FIELD_TYPE_OPTION_IDS, resolveAllowedRefIds } from "@/lib/field-type";
 import { wireToOutlineMap } from "@/lib/graph-view";
 import { fuzzyNodeCandidates } from "@/lib/refs";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID, type NodeMap } from "@/lib/types";
-import { PropValueEditor } from "./field-value";
+import { ValueSlot } from "./value-slot";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function schemaFor(nodes: NodeMap): SchemaIndex {
@@ -95,7 +95,7 @@ function renderRefSlot(
   fieldId: string = SYSTEM_IDS.fieldTypeField,
 ) {
   return renderToStaticMarkup(
-    createElement(PropValueEditor, {
+    createElement(ValueSlot, {
       value: { t: "ref", v: "" },
       display: "",
       fieldType: "ref",

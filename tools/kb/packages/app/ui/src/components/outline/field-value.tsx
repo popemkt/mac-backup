@@ -1,283 +1,201 @@
-import {
-  CalendarBlankIcon,
-  HashIcon,
-  LinkSimpleIcon,
-  PaletteIcon,
-  TextTIcon,
-  ToggleRightIcon,
-  type Icon,
-} from "@phosphor-icons/react";
 import type { FieldContext } from "@/lib/schema";
 import type { OutlineNode, PropValue } from "@/lib/types";
-import { SYSTEM_IDS } from "@/lib/types";
-import { useCallback, useRef, useState } from "react";
+import { useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import { emptyValueForType, type FieldType } from "@/lib/field-type";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
 import { refSearchOf } from "@/lib/refs";
 import { useRefCandidates } from "@/lib/use-ref-candidates";
 import { TAG_PALETTE } from "@/lib/tag-color";
 import { asInstance } from "@/lib/dom";
+import type { ValueKindSpec } from "@/lib/value-kind";
 import { RefAutocomplete } from "@/components/ref-autocomplete";
 import { Bullet } from "./bullet";
 import { NodeRow } from "./node-row";
 import { TagChipGroup } from "./tag-chip";
 import { hasText } from "@/lib/text";
 
-/** Everything a field's value needs from the surfaces that show it. */
-export interface FieldEditorProps {
+/**
+ * What a slot's keymap asks of the editor it holds. Only a caret editor has
+ * one: the other editors own their keys (`EDITOR_MODES[…].keys`).
+ */
+export interface EditHandle {
+  /** Enter: keep what was typed and leave the editor. */
+  commit: () => void;
+  /** Escape: put the value back and leave the editor. */
+  cancel: () => void;
+}
+
+/** Everything a kind's surface is handed by the slot that holds it. */
+export interface ValueSurfaceProps {
+  /** The stored value, or the type's empty value when the slot holds none. */
   value: PropValue;
+  /** The slot shows its placeholder rather than the value. */
+  blank: boolean;
+  /** The slot's editor is open (`ValueSlot` owns this state). */
+  editing: boolean;
+  spec: ValueKindSpec;
   /** Pre-formatted label for a ref value, when the caller already has one. */
   display: string;
   /** The field this value belongs to; a ref field's option set is its own. */
   fieldId: string;
-  /**
-   * This slot exists because the user asked for it (⌘"+ value"), so the
-   * gesture that created it owns the focus and the editor opens straight away.
-   * A slot that exists only because the field is unset passes false and renders
-   * as a quiet placeholder until it is focused — see RefEditor.
-   */
-  autoOpen: boolean;
-  onCommit: (next: PropValue) => void;
   /**
    * What the value resolves against (`fieldContextOf`). A ref editor derives
    * its option set and where it searches from this and `fieldId` itself
    * (`refSearchOf`), so no surface passes, or can forget, either.
    */
   context: FieldContext;
-  /**
-   * Navigate to a node from a resolved ref's bullet or tag chip.
-   * Opening the picker is `onOpen` on that row — it is not this.
-   */
+  /** Leave the editor, committing `next` when one is given. */
+  onEnd: (next?: PropValue) => void;
+  /** Where a caret surface exposes itself to the slot's keymap. */
+  handleRef: React.Ref<EditHandle>;
+  /** Navigate to a node from a resolved ref's bullet or tag chip. */
   onZoomTo: (id: string) => void;
-}
-
-/**
- * One field type's presentation: the glyph its row wears, and the component
- * that both shows the value and edits it in place.
- *
- * Display and edit are one component per type on purpose — every editor here
- * *is* its own display until it is clicked, which is what makes an inline
- * field feel like text rather than a form control.
- */
-export interface FieldEditor {
-  /** The type glyph `FieldRow` shows in its icon slot. */
-  readonly icon: Icon;
-  readonly Editor: (props: FieldEditorProps) => React.ReactNode;
 }
 
 const editableClass = cn("flex-1 outline-none rounded-sm px-1", KB_TEXT_CLASS);
 
+/** How a caret surface is painted; the one column that tells text from url. */
+export type CaretTone = "plain" | "link";
+
 /**
- * The three textual types differ by data, not by component.
- *
- * `text`, `url` and `number` all edit a contenteditable line. What separates
- * them is the underline, when the line counts as empty, and how the string
- * becomes a `PropValue` — so those are the columns, and the editor is written
- * once.
+ * A value that is text: the same element reads it and, while the slot edits,
+ * holds the caret. Entering puts the caret at the end; leaving reads the text
+ * back through the kind's `parse`, and a text the kind cannot read commits
+ * nothing.
  */
-interface TextualSpec {
-  readonly underline: boolean;
-  readonly isEmpty: (value: PropValue) => boolean;
-  /** `null` rejects the input: the field keeps the value it had. */
-  readonly parse: (text: string) => PropValue | null;
-}
-
-function textualEditor(spec: TextualSpec): FieldEditor["Editor"] {
-  return function TextualEditor({ value, onCommit }: FieldEditorProps) {
-    return (
-      <EditableText
-        text={value.t === "str" ? value.v : String(value.v)}
-        empty={spec.isEmpty(value)}
-        underline={spec.underline}
-        onCommit={(text) => {
-          const next = spec.parse(text);
-          if (next) onCommit(next);
-        }}
-      />
-    );
-  };
-}
-
-/** A scalar reads as unset when it holds its type's zero. */
-function isBlankScalar(value: PropValue): boolean {
-  return value.v === "" || value.v === 0 || value.v === false;
-}
-
-function BooleanEditor({ value, onCommit }: FieldEditorProps) {
-  return (
-    <BooleanValue
-      value={value.t === "bool" ? value.v : false}
-      onChange={(v) => onCommit({ t: "bool", v })}
-    />
-  );
-}
-
-function DateEditor({ value, autoOpen, onCommit }: FieldEditorProps) {
-  return (
-    <DateValue
-      value={value.t === "str" || value.t === "date" ? value.v : ""}
-      autoOpen={autoOpen}
-      onChange={(v) => onCommit({ t: "str", v })}
-    />
-  );
-}
-
-function RefFieldEditor({
+export function CaretValue({
   value,
-  display,
-  fieldId,
-  context,
-  autoOpen,
-  onCommit,
-  onZoomTo,
-}: FieldEditorProps) {
-  return (
-    <RefEditor
-      refId={value.t === "ref" ? value.v : ""}
-      display={display}
-      fieldId={fieldId}
-      context={context}
-      autoOpen={autoOpen}
-      onCommit={(id) => onCommit({ t: "ref", v: id })}
-      onZoomTo={onZoomTo}
-    />
-  );
-}
+  blank,
+  editing,
+  spec,
+  onEnd,
+  handleRef,
+  tone,
+}: ValueSurfaceProps & { tone: CaretTone }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const text = spec.text(value);
 
-function ColorEditor({ value, onCommit }: FieldEditorProps) {
-  return (
-    <ColorSwatchEditor
-      value={value.t === "str" ? value.v : ""}
-      onCommit={(hex) => onCommit({ t: "str", v: hex })}
-    />
-  );
-}
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!editing || el === null) return;
+    el.focus();
+    const sel = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  }, [editing]);
 
-/**
- * The editor registry: one row per declared field type.
- *
- * `FieldRow`, `PropValueEditor` and `EmptyTypedEditor` all read this table —
- * a `switch` in the first two and a leading `if` in all three used to answer
- * the same question three ways. A new field type is a row here; a type that
- * needs something special says so in *its own row*, never in an `if` at a
- * call site.
- *
- * `url` shares the text glyph, as it always has. That is now a cell rather
- * than a fall-through, so giving it its own icon is a one-word change.
- */
-const FIELD_EDITORS: Record<FieldType, FieldEditor> = {
-  text: {
-    icon: TextTIcon,
-    Editor: textualEditor({
-      underline: false,
-      isEmpty: isBlankScalar,
-      parse: (text) => ({ t: "str", v: text }),
-    }),
-  },
-  url: {
-    icon: TextTIcon,
-    Editor: textualEditor({
-      underline: true,
-      isEmpty: isBlankScalar,
-      parse: (text) => ({ t: "str", v: text }),
-    }),
-  },
-  number: {
-    icon: HashIcon,
-    Editor: textualEditor({
-      underline: false,
-      isEmpty: (value) => value.t !== "num",
-      parse: (text) => {
-        const n = Number(text.trim());
-        return Number.isNaN(n) ? null : { t: "num", v: n };
+  useImperativeHandle(
+    handleRef,
+    () => ({
+      commit: () => ref.current?.blur(),
+      cancel: () => {
+        if (ref.current) ref.current.textContent = text;
+        ref.current?.blur();
       },
     }),
-  },
-  date: { icon: CalendarBlankIcon, Editor: DateEditor },
-  checkbox: { icon: ToggleRightIcon, Editor: BooleanEditor },
-  ref: { icon: LinkSimpleIcon, Editor: RefFieldEditor },
-};
+    [text],
+  );
 
-/**
- * Fields that name their own editor, whatever type they declare.
- *
- * A declared type says what shape the value has; a particular field may still
- * know a better way to pick one. `sys.f.color` stores a hex string — a text
- * field by type — and is edited as palette swatches. One row here replaces the
- * three `if (fieldId === SYSTEM_IDS.colorField)` this was: the editor, the
- * empty slot, and the row's icon.
- */
-const FIELD_ID_EDITORS: Readonly<Record<string, FieldEditor>> = {
-  [SYSTEM_IDS.colorField]: { icon: PaletteIcon, Editor: ColorEditor },
-};
+  const finish = () => {
+    const next = ref.current?.textContent ?? text;
+    onEnd(next === text ? undefined : (spec.parse(next) ?? undefined));
+  };
 
-/** The editor a field uses: its own if it names one, else its type's. */
-function editorFor(fieldType: FieldType, fieldId?: string): FieldEditor {
-  const named = fieldId === undefined ? undefined : FIELD_ID_EDITORS[fieldId];
-  return named ?? FIELD_EDITORS[fieldType];
-}
+  const showEmpty = blank && !text;
 
-/**
- * The type glyph for a field — the icon half of its registry row.
- *
- * `FieldRow` renders this rather than looking the row up itself, so the glyph
- * and the editor can never come from different rows.
- */
-export function FieldTypeIcon({
-  fieldType,
-  fieldId,
-  size = 13,
-}: {
-  fieldType: FieldType;
-  fieldId?: string;
-  size?: number;
-}) {
-  const { icon: Glyph } = editorFor(fieldType, fieldId);
-  return <Glyph size={size} />;
-}
-
-/** Borderless inline prop editor — looked up by field, rendered by type. */
-export function PropValueEditor({
-  fieldType,
-  fieldId,
-  autoOpen = false,
-  ...rest
-}: Omit<FieldEditorProps, "autoOpen"> & {
-  fieldType: FieldType;
-  autoOpen?: boolean;
-}) {
-  // The field id also lets a field name its own editor (e.g. sys.f.color).
-  const { Editor } = editorFor(fieldType, fieldId);
-  return <Editor {...rest} fieldId={fieldId} autoOpen={autoOpen} />;
-}
-
-/** Editor for an empty typed slot (no value yet). */
-export function EmptyTypedEditor({
-  fieldType,
-  fieldId,
-  autoOpen = false,
-  onCommit,
-  context,
-  onZoomTo,
-}: {
-  fieldType: FieldType;
-  fieldId: string;
-  autoOpen?: boolean;
-  onCommit: (next: PropValue) => void;
-  context: FieldContext;
-  onZoomTo: (id: string) => void;
-}) {
   return (
-    <PropValueEditor
-      value={emptyValueForType(fieldType)}
-      display=""
-      fieldType={fieldType}
-      fieldId={fieldId}
-      autoOpen={autoOpen}
-      onCommit={onCommit}
-      context={context}
-      onZoomTo={onZoomTo}
+    <div
+      ref={ref}
+      className={cn(
+        editableClass,
+        "cursor-text",
+        showEmpty && "empty-placeholder",
+        showEmpty
+          ? "text-foreground/25 italic"
+          : tone === "link"
+            ? "text-primary underline underline-offset-2 decoration-primary/20"
+            : "text-foreground/70",
+      )}
+      contentEditable={editing}
+      onBlur={editing ? finish : undefined}
+      data-editable-text="true"
+      data-empty-placeholder={showEmpty ? "true" : undefined}
+      suppressContentEditableWarning
+    >
+      {/* D17: empty state is CSS-only (:empty::before) — the DOM stays
+          empty so the caret lands on a truly blank editor. */}
+      {showEmpty ? "" : text}
+    </div>
+  );
+}
+
+export function CheckboxSurface({ value }: ValueSurfaceProps) {
+  const on = value.t === "bool" && value.v;
+  return (
+    <button
+      type="button"
+      className={cn(
+        "relative h-[20px] w-[36px] shrink-0 rounded-full transition-colors duration-150",
+        on ? "bg-primary/60" : "bg-foreground/15",
+      )}
+      aria-pressed={on}
+    >
+      <span
+        className={cn(
+          "absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-knob shadow-raised",
+          "transition-transform duration-150",
+          on && "translate-x-4",
+        )}
+      />
+    </button>
+  );
+}
+
+export function DateSurface({ value, spec, editing, onEnd }: ValueSurfaceProps) {
+  const text = spec.text(value);
+  const displayDate = text
+    ? new Date(text).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
+
+  if (editing) {
+    return (
+      <input
+        type="date"
+        className={cn(editableClass, "border-none bg-transparent text-foreground/70")}
+        defaultValue={text ? text.slice(0, 10) : ""}
+        autoFocus
+        onChange={(e) => onEnd(spec.parse(e.target.value) ?? undefined)}
+        onBlur={() => onEnd()}
+      />
+    );
+  }
+
+  return (
+    <span
+      className={cn(
+        editableClass,
+        "cursor-text",
+        !hasText(displayDate) && "empty-placeholder text-foreground/25 italic",
+      )}
+      data-empty-placeholder={!hasText(displayDate) ? "true" : undefined}
+    >
+      {displayDate ?? ""}
+    </span>
+  );
+}
+
+export function ColorSurface({ value, spec, onEnd }: ValueSurfaceProps) {
+  return (
+    <ColorSwatchEditor
+      value={spec.text(value)}
+      onCommit={(hex) => onEnd(spec.parse(hex) ?? undefined)}
     />
   );
 }
@@ -359,180 +277,14 @@ export function ColorSwatchEditor({
   );
 }
 
-function EditableText({
-  text,
-  onCommit,
-  empty,
-  underline = false,
-}: {
-  text: string;
-  onCommit: (text: string) => void;
-  empty?: boolean;
-  underline?: boolean;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const isEditing = useRef(false);
-  const isComposing = useRef(false);
-
-  const handleClick = useCallback(() => {
-    if (!isEditing.current && ref.current) {
-      isEditing.current = true;
-      ref.current.contentEditable = "true";
-      ref.current.focus();
-      const sel = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(ref.current);
-      range.collapse(false);
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-    }
-  }, []);
-
-  const commit = useCallback(() => {
-    if (!ref.current) return;
-    isEditing.current = false;
-    ref.current.contentEditable = "false";
-    const next = ref.current.textContent;
-    if (next !== text) onCommit(next);
-  }, [text, onCommit]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === "Enter" && !e.shiftKey && !isComposing.current && !e.nativeEvent.isComposing) {
-        e.preventDefault();
-        ref.current?.blur();
-      }
-      if (e.key === "Escape") {
-        if (ref.current) ref.current.textContent = text;
-        ref.current?.blur();
-      }
-      e.stopPropagation();
-    },
-    [text],
-  );
-
-  const showEmpty = empty === true && !text;
-
-  return (
-    <div
-      ref={ref}
-      className={cn(
-        editableClass,
-        "cursor-text",
-        showEmpty && "empty-placeholder",
-        showEmpty
-          ? "text-foreground/25 italic"
-          : underline
-            ? "text-primary underline underline-offset-2 decoration-primary/20"
-            : "text-foreground/70",
-      )}
-      onClick={handleClick}
-      onBlur={commit}
-      onKeyDown={handleKeyDown}
-      data-editable-text="true"
-      data-empty-placeholder={showEmpty ? "true" : undefined}
-      onCompositionStart={() => {
-        isComposing.current = true;
-      }}
-      onCompositionEnd={() => {
-        isComposing.current = false;
-      }}
-      suppressContentEditableWarning
-    >
-      {/* D17: empty state is CSS-only (:empty::before) — the DOM stays
-          empty so the caret lands on a truly blank editor. */}
-      {showEmpty ? "" : text}
-    </div>
-  );
-}
-
-function BooleanValue({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "relative h-[20px] w-[36px] shrink-0 rounded-full transition-colors duration-150",
-        value ? "bg-primary/60" : "bg-foreground/15",
-      )}
-      onClick={(e) => {
-        e.stopPropagation();
-        onChange(!value);
-      }}
-      aria-pressed={value}
-    >
-      <span
-        className={cn(
-          "absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-knob shadow-raised",
-          "transition-transform duration-150",
-          value && "translate-x-4",
-        )}
-      />
-    </button>
-  );
-}
-
-function DateValue({
-  value,
-  autoOpen = false,
-  onChange,
-}: {
-  value: string;
-  autoOpen?: boolean;
-  onChange: (v: string) => void;
-}) {
-  // Same rule as RefEditor: mount open only when a gesture created this slot.
-  const [editing, setEditing] = useState(autoOpen);
-
-  const displayDate = value
-    ? new Date(value).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
-    : null;
-
-  if (editing) {
-    return (
-      <input
-        type="date"
-        className={cn(editableClass, "border-none bg-transparent text-foreground/70")}
-        defaultValue={value ? value.slice(0, 10) : ""}
-        autoFocus
-        onChange={(e) => {
-          onChange(e.target.value);
-          setEditing(false);
-        }}
-        onBlur={() => setEditing(false)}
-        onKeyDown={(e) => e.stopPropagation()}
-      />
-    );
-  }
-
-  return (
-    <span
-      className={cn(
-        editableClass,
-        "cursor-text",
-        !hasText(displayDate) && "empty-placeholder text-foreground/25 italic",
-      )}
-      data-empty-placeholder={!hasText(displayDate) ? "true" : undefined}
-      onClick={() => setEditing(true)}
-    >
-      {displayDate ?? ""}
-    </span>
-  );
-}
-
-/** A resolved ref: the target's own row, clickable into the search. */
+/** A resolved ref: the target's own row. Activating the slot opens the search. */
 function ResolvedRefRow({
   refId,
   target,
-  onOpen,
   onZoomTo,
 }: {
   refId: string;
   target: OutlineNode;
-  onOpen: () => void;
   onZoomTo: (id: string) => void;
 }) {
   return (
@@ -540,7 +292,6 @@ function ResolvedRefRow({
       depth={0}
       nodeId={refId}
       className="cursor-pointer"
-      onRowClick={onOpen}
       bullet={
         <Bullet
           node={{ ...target, collapsed: true }}
@@ -553,16 +304,10 @@ function ResolvedRefRow({
       }
       content={
         <>
-          <span
-            className={cn(KB_TEXT_CLASS, "min-w-0 flex-1 truncate text-foreground/70")}
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpen();
-            }}
-          >
+          <span className={cn(KB_TEXT_CLASS, "min-w-0 flex-1 truncate text-foreground/70")}>
             {/* A resolved target's own text is the label; the caller's
                 `display` is only ever a fallback for an *un*resolved id. */}
-            {target.text || "\u200B"}
+            {target.text || "​"}
           </span>
           {target.tags.length > 0 && (
             <TagChipGroup
@@ -586,15 +331,7 @@ function ResolvedRefRow({
  * quiet. Without one there is nothing to show but the id, and that is what the
  * warning glyph is for: a specific unresolved id, not a generic complaint.
  */
-function UnresolvedRefChip({
-  refId,
-  display,
-  onOpen,
-}: {
-  refId: string;
-  display: string;
-  onOpen: () => void;
-}) {
+function UnresolvedRefChip({ refId, display }: { refId: string; display: string }) {
   const hasDisplay = Boolean(display && display !== refId);
   return (
     <span
@@ -604,7 +341,6 @@ function UnresolvedRefChip({
         hasDisplay ? "bg-primary/8 hover:bg-primary/12" : "bg-warning/10 hover:bg-warning/15",
         "transition-colors duration-100",
       )}
-      onClick={onOpen}
       title={hasDisplay ? `Node: ${refId}` : `Unresolved ref: ${refId}`}
       data-unresolved-ref={!hasDisplay ? "true" : undefined}
     >
@@ -621,31 +357,11 @@ function UnresolvedRefChip({
 }
 
 /**
- * An unset slot nobody asked for: the quiet placeholder every other editor
- * here shows, focusable so the search opens the moment it is aimed at — by
- * click, by Tab, or by anything else that moves focus.
- */
-function EmptyRefSlot({ onOpen }: { onOpen: () => void }) {
-  return (
-    <span
-      tabIndex={0}
-      role="button"
-      aria-label="Set reference"
-      className={cn(editableClass, "cursor-text italic empty-placeholder text-foreground/25")}
-      data-empty-placeholder="true"
-      data-ref-slot="closed"
-      onFocus={onOpen}
-      onClick={onOpen}
-    />
-  );
-}
-
-/**
  * The open search: an input over the field's allowed targets, with the
  * suggestion list showing from the moment it focuses (no typing required).
  *
  * Its placeholder is the input's own native attribute. `.empty-placeholder`
- * (`:empty::before`) is the mechanism the other editors here use, but it
+ * (`:empty::before`) is the mechanism the other surfaces here use, but it
  * cannot render on an `<input>`, so there is exactly one placeholder per state
  * and this is the open one.
  *
@@ -667,25 +383,16 @@ function RefSearch({
   const [query, setQuery] = useState("");
   const search = refSearchOf(context, fieldId);
 
-  const commit = (id: string) => {
-    onCommit(id);
-    setQuery("");
-    onClose();
-  };
-
   const { candidates, activeIndex, handleKeyDown } = useRefCandidates({
     nodes: search.pool,
     query,
     allowed: search.allowed,
     onPick: (candidate) => {
-      if (candidate) commit(candidate.id);
+      if (candidate) onCommit(candidate.id);
       // Manual entry still allowed (the list is suggestions-only).
-      else if (query.trim()) commit(query.trim());
+      else if (query.trim()) onCommit(query.trim());
     },
-    onCancel: () => {
-      setQuery("");
-      onClose();
-    },
+    onCancel: onClose,
   });
 
   return (
@@ -707,17 +414,14 @@ function RefSearch({
         }}
         onBlur={() => {
           // Delay so mousedown on suggestion can fire first.
-          window.setTimeout(() => {
-            setQuery("");
-            onClose();
-          }, 120);
+          window.setTimeout(onClose, 120);
         }}
       />
       {candidates.length > 0 && (
         <RefAutocomplete
           candidates={candidates}
           activeIndex={activeIndex}
-          onSelect={(c) => commit(c.id)}
+          onSelect={(c) => onCommit(c.id)}
         />
       )}
       {/* No `.empty-placeholder` sibling — see the note on RefSearch. */}
@@ -726,57 +430,43 @@ function RefSearch({
 }
 
 /**
- * Ref value editor: one of four states, and the rule for which.
- *
- * **Focus belongs to the gesture that created the slot, not to the slot being
- * empty.** `useState(!refId)` meant every unset ref field on a page mounted
- * already open, so a page of empty option fields opened every dropdown at once
- * and several `autoFocus` inputs fought over the caret with outline keyboard
- * navigation. An unset slot renders as a quiet placeholder and opens when it
- * *receives focus*; `autoOpen` (threaded down from FieldValueStack, the only
- * component that knows which kind of slot this is) opens the ones the user
- * minted with "+ value". Openness is therefore one state, driven by focus —
- * blur closes it — which is also what keeps the dropdown from rendering under
- * an input nobody is typing in.
+ * A ref value: one of four states. While the slot edits, the search; at rest,
+ * the target's row, the unresolved chip, or the quiet placeholder of an unset
+ * slot, which the slot opens when it receives focus (`opensOnFocusWhenEmpty`).
  *
  * The field's declared targets are an *input* to candidate resolution, never
  * a filter over its output — lib/refs owns membership (`refSearchOf`), and a
  * field's declared targets outrank its hide-infrastructure heuristic.
  */
-function RefEditor({
-  refId,
+export function RefSurface({
+  value,
+  spec,
+  editing,
   display,
   fieldId,
   context,
-  autoOpen = false,
-  onCommit,
+  onEnd,
   onZoomTo,
-}: {
-  refId: string;
-  display: string;
-  fieldId: string;
-  context: FieldContext;
-  autoOpen?: boolean;
-  onCommit: (id: string) => void;
-  onZoomTo: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(autoOpen);
-  const target = context.schema.get(refId);
-
-  if (open) {
+}: ValueSurfaceProps) {
+  const refId = spec.text(value);
+  if (editing) {
     return (
       <RefSearch
         fieldId={fieldId}
         context={context}
-        onCommit={onCommit}
-        onClose={() => setOpen(false)}
+        onCommit={(id) => onEnd(spec.parse(id) ?? undefined)}
+        onClose={() => onEnd()}
       />
     );
   }
-  const show = () => setOpen(true);
-  if (target) {
-    return <ResolvedRefRow refId={refId} target={target} onOpen={show} onZoomTo={onZoomTo} />;
-  }
-  if (refId) return <UnresolvedRefChip refId={refId} display={display} onOpen={show} />;
-  return <EmptyRefSlot onOpen={show} />;
+  const target = context.schema.get(refId);
+  if (target) return <ResolvedRefRow refId={refId} target={target} onZoomTo={onZoomTo} />;
+  if (refId) return <UnresolvedRefChip refId={refId} display={display} />;
+  return (
+    <span
+      className={cn(editableClass, "block cursor-text italic empty-placeholder text-foreground/25")}
+      data-empty-placeholder="true"
+      data-ref-slot="closed"
+    />
+  );
 }

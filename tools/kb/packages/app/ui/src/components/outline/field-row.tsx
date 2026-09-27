@@ -2,14 +2,14 @@ import { WarningIcon, XIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import type { FieldType } from "@/lib/field-type";
 import { indentStyle } from "@/lib/indent";
-import { FieldTypeIcon, type FieldEditor } from "./field-value";
+import { FieldTypeIcon, type FieldGlyph } from "./value-slot";
 
 export const FIELD_LABEL_WIDTH = 120;
 
 export interface FieldRowProps {
   depth?: number;
   /** Overrides the type glyph the field's editor declares. */
-  icon?: FieldEditor["icon"];
+  icon?: FieldGlyph;
   /** Declared field type (defaults text). Drives the type icon. */
   fieldType?: FieldType;
   fieldId?: string;

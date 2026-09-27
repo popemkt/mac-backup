@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 import { fieldTypeOf, systemSeedNodes } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ColorSwatchEditor, PropValueEditor } from "./field-value";
+import { ColorSwatchEditor } from "./field-value";
+import { ValueSlot } from "./value-slot";
 import { SYSTEM_IDS, type NodeMap } from "@/lib/types";
 import { TAG_PALETTE } from "@/lib/tag-color";
 import { readFileSync } from "node:fs";
@@ -39,9 +40,9 @@ describe("ColorSwatchEditor (i10 item 4)", () => {
     }
   });
 
-  it("PropValueEditor routes sys.f.color to the swatch editor", () => {
+  it("ValueSlot routes sys.f.color to the swatch editor", () => {
     const html = renderToStaticMarkup(
-      createElement(PropValueEditor, {
+      createElement(ValueSlot, {
         value: { t: "str", v: "#3b82f6" },
         display: "#3b82f6",
         fieldType: "text",

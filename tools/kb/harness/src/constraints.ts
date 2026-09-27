@@ -237,6 +237,7 @@ const UI_PRIMITIVES: readonly string[] = [
   "components/outline/node-row",
   "components/outline/field-row",
   "components/outline/field-value",
+  "components/outline/value-slot",
 ];
 
 /**

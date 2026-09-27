@@ -10,7 +10,7 @@ import { useDebugFields } from "@/stores/debug-fields.store";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { FieldRow } from "./field-row";
-import { EmptyTypedEditor, PropValueEditor } from "./field-value";
+import { ValueSlot } from "./value-slot";
 
 interface FieldsSectionProps {
   nodeId: string;
@@ -68,7 +68,7 @@ export function FieldValueStack({
           data-field-value="true"
         >
           <div className="min-w-0 flex-1">
-            <PropValueEditor
+            <ValueSlot
               value={value}
               display={formatPropValue(value, schema)}
               fieldType={fieldType}
@@ -104,9 +104,10 @@ export function FieldValueStack({
       ))}
 
       {emptySlots.map((autoOpen, i) => (
-        <EmptyTypedEditor
+        <ValueSlot
           // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
           key={`empty-${i}`}
+          value={null}
           fieldType={fieldType}
           fieldId={fieldId}
           autoOpen={autoOpen}

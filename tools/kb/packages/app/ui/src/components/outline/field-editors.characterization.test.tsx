@@ -1,7 +1,7 @@
 /**
  * What every declared field type renders, and what a commit writes.
  *
- * `PropValueEditor` picked its editor with a `switch` over `FieldType` and a
+ * `ValueSlot` picked its editor with a `switch` over `FieldType` and a
  * leading `if` on `fieldId`; `EmptyTypedEditor` repeated the `fieldId` half and
  * `FieldRow` repeated it a third time for the icon. This file is the matrix
  * those three shapes have to keep answering the same way once one registry
@@ -28,7 +28,7 @@ import { stubOutlineNode } from "@/catalog/fixtures";
 import { emptyValueForType, FIELD_TYPES, type FieldType } from "@/lib/field-type";
 import { SYSTEM_IDS, type NodeMap, type PropValue } from "@/lib/types";
 import { FieldRow } from "./field-row";
-import { EmptyTypedEditor, PropValueEditor } from "./field-value";
+import { ValueSlot } from "./value-slot";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
 function contextFor(nodes: NodeMap, index: KbIndex | null = null): FieldContext {
@@ -56,7 +56,7 @@ function editorHtml(
   extra: { fieldId?: string; autoOpen?: boolean; display?: string } = {},
 ): string {
   return renderToStaticMarkup(
-    createElement(PropValueEditor, {
+    createElement(ValueSlot, {
       value,
       display: extra.display ?? "",
       fieldType,
@@ -71,7 +71,8 @@ function editorHtml(
 
 function emptyHtml(fieldType: FieldType, fieldId = "f.value", autoOpen = false): string {
   return renderToStaticMarkup(
-    createElement(EmptyTypedEditor, {
+    createElement(ValueSlot, {
+      value: null,
       fieldType,
       fieldId,
       autoOpen,
@@ -240,7 +241,7 @@ describe("what a commit writes", () => {
   async function mount(fieldType: FieldType, value: PropValue, fieldId = "f.value") {
     await act(async () => {
       root.render(
-        createElement(PropValueEditor, {
+        createElement(ValueSlot, {
           value,
           display: "",
           fieldType,
@@ -396,7 +397,7 @@ describe("ref candidate keyboard navigation", () => {
   async function openPicker() {
     await act(async () => {
       root.render(
-        createElement(PropValueEditor, {
+        createElement(ValueSlot, {
           value: { t: "ref", v: "" },
           display: "",
           fieldType: "ref" as const,
@@ -471,7 +472,7 @@ describe("ref candidate keyboard navigation", () => {
               leaked += 1;
             },
           },
-          createElement(PropValueEditor, {
+          createElement(ValueSlot, {
             value: { t: "ref", v: "" },
             display: "",
             fieldType: "ref" as const,
