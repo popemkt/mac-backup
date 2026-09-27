@@ -20,6 +20,30 @@ export interface ScreenPoint {
 }
 
 const scratch = new Vector3();
+const ray = new Vector3();
+const normal = new Vector3();
+
+/**
+ * Where the eye's ray through canvas point (`ndcX`, `ndcY`) (-1…1, +y up)
+ * meets the plane through `through` that faces the camera — the plane a
+ * point follows the pointer on while the camera orbits. Writes into `out`;
+ * false when the plane is behind the eye or the ray runs along it.
+ */
+export function onFacingPlane(
+  camera: PerspectiveCamera,
+  ndcX: number,
+  ndcY: number,
+  through: { readonly x: number; readonly y: number; readonly z: number },
+  out: Vector3,
+): boolean {
+  camera.getWorldDirection(normal);
+  ray.set(ndcX, ndcY, 0.5).unproject(camera).sub(camera.position).normalize();
+  const along = ray.dot(normal);
+  if (Math.abs(along) < 1e-5) return false;
+  const t = out.set(through.x, through.y, through.z).sub(camera.position).dot(normal) / along;
+  out.copy(camera.position).addScaledVector(ray, t);
+  return t > 0;
+}
 
 /**
  * Project `world` (not mutated) for a canvas of `width` × `height` CSS

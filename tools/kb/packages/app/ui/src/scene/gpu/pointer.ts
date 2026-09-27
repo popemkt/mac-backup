@@ -11,6 +11,7 @@
  */
 import { Vector3, type PerspectiveCamera } from "three/webgpu";
 import { pastSlop } from "@/lib/pointer-slop";
+import { onFacingPlane } from "./screen";
 
 export interface PointerFieldEvents {
   /** The pointer moved over the element, or left it. */
@@ -36,7 +37,6 @@ export class PointerField {
   private readonly host: HTMLElement;
   private readonly events: PointerFieldEvents;
   private readonly ray = new Vector3();
-  private readonly normal = new Vector3();
   /** Where `event` lands in the host; false when the host has no size. */
   private place(event: PointerEvent): boolean {
     const rect = this.host.getBoundingClientRect();
@@ -110,13 +110,7 @@ export class PointerField {
    * Writes into `out`; false when the plane is behind the eye.
    */
   onFacing(camera: PerspectiveCamera, through: Vector3, out: Vector3): boolean {
-    camera.getWorldDirection(this.normal);
-    this.ray.set(this.ndcX, this.ndcY, 0.5).unproject(camera).sub(camera.position).normalize();
-    const along = this.ray.dot(this.normal);
-    if (Math.abs(along) < 1e-5) return false;
-    const t = out.copy(through).sub(camera.position).dot(this.normal) / along;
-    out.copy(camera.position).addScaledVector(this.ray, t);
-    return t > 0;
+    return onFacingPlane(camera, this.ndcX, this.ndcY, through, out);
   }
 
   dispose(): void {
