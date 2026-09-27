@@ -101,6 +101,7 @@ describe("FieldPicker", () => {
         return "n.new";
       },
       openPicker: () => undefined,
+      addSlot: () => undefined,
     };
   }
 

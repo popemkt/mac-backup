@@ -47,6 +47,8 @@ export interface EditHandle {
   cancel: () => void;
   /** Shift+Enter: a line break inside the value (text only). */
   softBreak: () => void;
+  /** The caret is at the end of a text that is not empty. */
+  atEnd: () => boolean;
   /**
    * Where a click at a point lands in the text, measured on the value at
    * rest — before the slot swaps it for the editor.
@@ -92,6 +94,8 @@ export interface ValueSurfaceProps {
   handleRef: React.Ref<EditHandle>;
   /** The field the value belongs to, as a whole (a picker edits it). */
   field: FieldHandle;
+  /** What an empty value says while it waits (`data-placeholder`). */
+  placeholder?: string;
   /** Follow a pointer inside the value: a ref's bullet or tag chip. */
   onFollow: Follow;
 }
@@ -126,6 +130,7 @@ export function CaretValue({
   rejected,
   onEnd,
   handleRef,
+  placeholder,
   display: shownAs,
 }: Omit<ValueSurfaceProps, "display"> & { display: CaretDisplay }) {
   const viewRef = useRef<HTMLDivElement>(null);
@@ -164,6 +169,12 @@ export function CaretValue({
         setCaretSerializedOffset(el, at + 1);
         revealMarkupAtSelection(el);
       },
+      atEnd: () => {
+        const el = editRef.current;
+        if (el === null) return false;
+        const typed = serializeEditable(el);
+        return typed.trim() !== "" && getCaretSerializedOffset(el) >= typed.length;
+      },
       caretAtPoint: (x, y) => {
         // Only a surface whose rest tree is its edit tree can map a point to
         // an offset; a url's short label and a grouped number are not the
@@ -200,6 +211,7 @@ export function CaretValue({
       {editing ? (
         <CaretEditor
           editRef={editRef}
+          placeholder={placeholder}
           className={cn(textClass, "editable")}
           onFinish={finish}
           onPaste={(e) => {
@@ -236,11 +248,13 @@ export function CaretValue({
  */
 function CaretEditor({
   editRef,
+  placeholder,
   className,
   onFinish,
   onPaste,
 }: {
   editRef: React.RefObject<HTMLDivElement | null>;
+  placeholder: string | undefined;
   className: string;
   onFinish: () => void;
   onPaste: (e: React.ClipboardEvent<HTMLDivElement>) => void;
@@ -255,6 +269,7 @@ function CaretEditor({
       suppressContentEditableWarning
       role="textbox"
       data-editable-text="true"
+      data-placeholder={placeholder}
       onInput={() => {
         if (editRef.current && !composing.current) readInlineInput(editRef.current);
       }}
@@ -620,6 +635,8 @@ export interface FieldHandle {
   create: (creation: RefCreation, name: string) => Promise<string | null>;
   /** Open the field's picker, for a many-valued field (the stack draws it). */
   openPicker: () => void;
+  /** Open an empty slot for the next value, after the last. */
+  addSlot: () => void;
 }
 
 /**

@@ -108,7 +108,7 @@ export interface ValueSlotProps {
   /** Pre-formatted label for a ref value, when the caller already has one. */
   display?: string;
   /**
-   * This slot exists because the user asked for it ("+ value"), so the
+   * This slot exists because the user asked for it (Enter at the end of a value, the inline "+"), so the
    * gesture that created it owns the focus and the editor opens straight
    * away. A slot that exists only because the field is unset passes false and
    * renders as a quiet placeholder until it is aimed at.
@@ -122,7 +122,17 @@ export interface ValueSlotProps {
    * own (a story, a test) is a lone single-valued field.
    */
   field?: FieldHandle;
+  /**
+   * Take this value out of the field: a stored one is removed, a new one not
+   * yet written is dropped. A typed value left empty is taken out this way.
+   */
+  onRemove?: () => void;
+  /** What an empty slot says while it waits for a value; the default is "Empty". */
+  placeholder?: string;
 }
+
+/** A slot with no stack around it has nothing to remove itself from. */
+const noRemove = (): void => undefined;
 
 /** A slot with no stack around it: one value, replaced by what is picked. */
 function loneField(value: PropValue | null, onCommit: (next: PropValue) => void): FieldHandle {
@@ -133,6 +143,7 @@ function loneField(value: PropValue | null, onCommit: (next: PropValue) => void)
     remove: () => undefined,
     create: () => Promise.resolve(null),
     openPicker: () => undefined,
+    addSlot: () => undefined,
   };
 }
 
@@ -161,11 +172,22 @@ export function ValueSlot({
   onCommit,
   onFollow,
   field = loneField(value, onCommit),
+  onRemove = noRemove,
+  placeholder,
 }: ValueSlotProps) {
   const kind = valueKindOf(fieldType, fieldId, context.schema.get(fieldId));
   const spec = VALUE_KINDS[kind];
   const shown = value ?? emptyValueForType(fieldType);
-  const slot = useSlotGestures({ spec, shown, autoOpen, field, onCommit, onFollow });
+  const slot = useSlotGestures({
+    spec,
+    shown,
+    isNew: value === null,
+    autoOpen,
+    field,
+    onCommit,
+    onRemove,
+    onFollow,
+  });
   const { Surface } = VALUE_VIEWS[kind];
 
   return (
@@ -188,44 +210,41 @@ export function ValueSlot({
         onEnd={slot.end}
         handleRef={slot.handle}
         field={field}
+        placeholder={placeholder}
         onFollow={onFollow}
       />
     </div>
   );
 }
 
-/**
- * A slot's state and its gestures: open or closed (and where a caret editor
- * opens), refused input, and the focus, click, composition and key handlers
- * the slot's element takes. Every gesture on a value is here.
- */
-function useSlotGestures({
-  spec,
-  shown,
-  autoOpen,
-  field,
-  onCommit,
-  onFollow,
-}: {
+interface SlotArgs {
   spec: ValueKindSpec;
   shown: PropValue;
+  /** The slot holds no stored value yet. */
+  isNew: boolean;
   autoOpen: boolean;
   field: FieldHandle;
   onCommit: (next: PropValue) => void;
+  onRemove: () => void;
   onFollow: Follow;
-}) {
+}
+
+/**
+ * A slot's editing state: open or closed (and where a caret editor opens),
+ * refused input, and the two transitions — `begin` and `end` — every gesture
+ * goes through.
+ */
+function useSlotEditing({ spec, shown, isNew, autoOpen, field, onCommit, onRemove }: SlotArgs) {
   const mode = EDITOR_MODES[spec.editor];
-  const blank = spec.isBlank(shown);
   /** Open, and where a caret editor's caret goes; closed is null. */
   const [entry, setEntry] = useState<{ at: number | "end" } | null>(
     autoOpen && mode.autoOpens ? { at: "end" } : null,
   );
-  const editing = entry !== null;
   /** Typed text the kind refused: shown, marked, and where the next edit starts. */
   const [rejected, setRejected] = useState<RejectedInput | null>(null);
   const handle = useRef<EditHandle>(null);
-  const composing = useRef(false);
-  const target = spec.follow(shown);
+  /** The edit ends in the next value's slot (Enter at the end of a value). */
+  const addAfter = useRef(false);
 
   /**
    * Activate the slot: open its editor — with the caret at `at`, for a caret
@@ -240,21 +259,55 @@ function useSlotGestures({
   };
 
   const end = (parsed?: ParsedValue, text = "") => {
+    const adding = addAfter.current;
+    addAfter.current = false;
     setEntry(null);
-    if (parsed === undefined) setRejected(null);
-    else if (parsed.ok) {
+    if (parsed === undefined) {
+      setRejected(null);
+      // Nothing typed into a new value's slot: there is no value to keep.
+      if (spec.editor === "caret" && isNew) onRemove();
+      else if (adding) field.addSlot();
+    } else if (spec.editor === "caret" && text.trim() === "") {
+      // A typed value emptied is a value taken out, not a blank one kept.
+      setRejected(null);
+      onRemove();
+    } else if (parsed.ok) {
       setRejected(null);
       onCommit(parsed.value);
+      if (adding) field.addSlot();
     } else setRejected({ text, reason: parsed.reason });
   };
+
+  /** Commit, and open the next value's slot once the commit lands. */
+  const commitAndAdd = () => {
+    addAfter.current = true;
+    handle.current?.commit();
+  };
+
+  return { mode, entry, rejected, setRejected, handle, begin, end, commitAndAdd };
+}
+
+/**
+ * A slot's gestures: the focus, click, composition and key handlers its
+ * element takes, over its editing state. Every gesture on a value is here.
+ */
+function useSlotGestures(args: SlotArgs) {
+  const { spec, shown, field, onFollow } = args;
+  const { mode, entry, rejected, setRejected, handle, begin, end, commitAndAdd } =
+    useSlotEditing(args);
+  const editing = entry !== null;
+  const blank = spec.isBlank(shown);
+  const composing = useRef(false);
+  const target = spec.follow(shown);
 
   const follow = () => {
     if (target !== null) onFollow(target, "open");
   };
 
   /** What each keymap intent does here; `contain` only keeps the key in. */
-  const APPLY: Readonly<Record<ValueSlotIntent, () => void>> = {
+  const apply: Readonly<Record<ValueSlotIntent, () => void>> = {
     commit: () => handle.current?.commit(),
+    commitAndAdd,
     cancel: () => {
       setRejected(null);
       handle.current?.cancel();
@@ -297,13 +350,14 @@ function useSlotGestures({
         keys: mode.keys,
         composing: composing.current || e.nativeEvent.isComposing,
         canFollow: target !== null,
+        addsOnEnter: () => field.many && handle.current?.atEnd() === true,
       });
       if (intent === null) return;
       // A key an editing slot receives is its own: the outline behind it
       // must not also act on it.
       e.stopPropagation();
       if (intent !== "contain" && intent !== "cancel") e.preventDefault();
-      APPLY[intent]();
+      apply[intent]();
     },
   };
 

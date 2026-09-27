@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { cardinalityOf } from "@kb/model";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
@@ -58,8 +58,12 @@ export function FieldValueStack({
   const { schema } = context;
   const spec = VALUE_KINDS[valueKindOf(fieldType, fieldId, schema.get(fieldId))];
   const many = cardinalityOf(schema.get(fieldId)?.props) === "many";
-  /** Slots the user minted with "+ value" and has not filled yet. */
-  const [pendingSlots, setPendingSlots] = useState(0);
+  /**
+   * Slots opened for a next value and not written yet, by a stable id each,
+   * so the slot a gesture opens is a new one and takes the focus.
+   */
+  const [pending, setPending] = useState<readonly number[]>([]);
+  const nextPending = useRef(0);
   /** The field's picker is open (a many-valued field of picked values). */
   const [picking, setPicking] = useState(false);
   const field: FieldHandle = {
@@ -69,19 +73,12 @@ export function FieldValueStack({
     remove: (value) => void mutations.removeProp(nodeId, fieldId, value),
     create: (creation, name) => mutations.createRefTarget(creation, name),
     openPicker: () => setPicking(true),
+    addSlot: () => setPending((ids) => [...ids, (nextPending.current += 1)]),
   };
-  /**
-   * The empty slots to render, each carrying *why it exists* — the one piece of
-   * knowledge only this component has, and the thing the editors need in order
-   * to decide whether they own the focus. A slot that exists only because the
-   * field is unset was nobody's gesture, so it opens closed; a slot minted by
-   * "+ value" is the continuation of that click and opens focused.
-   */
-  const emptySlots: boolean[] = picking
-    ? []
-    : values.length === 0
-      ? [false]
-      : Array.from({ length: pendingSlots }, () => true);
+  const drop = (id: number) => setPending((ids) => ids.filter((x) => x !== id));
+  /** Adding is the picker for picked values, and a new empty slot for typed ones. */
+  const beginAdd = spec.editor === "picker" ? field.openPicker : field.addSlot;
+  const canAdd = !readOnly && many && values.length > 0 && !picking;
 
   return (
     <div
@@ -99,6 +96,7 @@ export function FieldValueStack({
           key={`${i}-${JSON.stringify(value)}`}
           layout={spec.layout}
           onRemove={readOnly ? null : () => field.remove(value)}
+          onAdd={canAdd && i === values.length - 1 && pending.length === 0 ? beginAdd : null}
         >
           <ValueSlot
             value={value}
@@ -109,25 +107,43 @@ export function FieldValueStack({
             field={field}
             onFollow={onFollow}
             onCommit={(next: PropValue) => void mutations.updateProp(nodeId, fieldId, next, value)}
+            onRemove={() => field.remove(value)}
           />
         </ValueItem>
       ))}
 
-      {emptySlots.map((autoOpen, i) => (
+      {values.length === 0 &&
+        pending.length === 0 &&
+        !picking && (
+          // The one slot an unset field shows: nobody's gesture, so it opens closed.
+          <ValueSlot
+            value={null}
+            fieldType={fieldType}
+            fieldId={fieldId}
+            context={context}
+            field={field}
+            onFollow={onFollow}
+            onCommit={field.add}
+          />
+        )}
+
+      {pending.map((id) => (
+        // A slot a gesture opened for the next value: it opens focused.
         <ValueSlot
-          // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
-          key={`empty-${i}`}
+          key={`new-${id}`}
           value={null}
           fieldType={fieldType}
           fieldId={fieldId}
-          autoOpen={autoOpen}
+          autoOpen
+          placeholder="Enter to add another · Esc to finish"
           context={context}
           field={field}
           onFollow={onFollow}
           onCommit={(next: PropValue) => {
-            setPendingSlots(0);
+            drop(id);
             field.add(next);
           }}
+          onRemove={() => drop(id)}
         />
       ))}
 
@@ -140,25 +156,6 @@ export function FieldValueStack({
           onClose={() => setPicking(false)}
         />
       )}
-
-      {!readOnly && values.length > 0 && many && !picking && (
-        <button
-          type="button"
-          className={cn(
-            "mt-px flex w-fit items-center gap-1 rounded-sm px-1 py-px",
-            "text-label text-foreground/30 opacity-0 transition-opacity",
-            "group-hover/field:opacity-100 focus-visible:opacity-100",
-            "hover:bg-foreground/[0.06] hover:text-foreground/60",
-            "focus-visible:ring-2 focus-visible:ring-primary/60 outline-none",
-          )}
-          onClick={() =>
-            spec.editor === "picker" ? setPicking(true) : setPendingSlots((n) => n + 1)
-          }
-        >
-          <PlusIcon size={9} weight="bold" aria-hidden />
-          value
-        </button>
-      )}
     </div>
   );
 }
@@ -167,11 +164,17 @@ export function FieldValueStack({
 function ValueItem({
   layout,
   onRemove,
+  onAdd,
   children,
 }: {
   layout: "stack" | "inline";
   /** Null: the field is read-only here, and offers no remove. */
   onRemove: (() => void) | null;
+  /**
+   * The last value of a many-valued field carries the "+" that adds the
+   * next. Null everywhere else.
+   */
+  onAdd: (() => void) | null;
   children: React.ReactNode;
 }) {
   return (
@@ -203,7 +206,40 @@ function ValueItem({
           <XIcon size={9} weight="bold" aria-hidden />
         </button>
       )}
+      {onAdd !== null && <AddValueButton onAdd={onAdd} />}
     </div>
+  );
+}
+
+/**
+ * The mouse's way to add a value: a "+" in the trailing space of the last
+ * value, shown while the field is hovered or holds the focus. It sits in a
+ * zero-width box, so it costs no line and no width — adding is Enter at the
+ * end of a value, or the picker, for the keyboard.
+ */
+function AddValueButton({ onAdd }: { onAdd: () => void }) {
+  return (
+    <span className="relative w-0 shrink-0 self-stretch">
+      <button
+        type="button"
+        className={cn(
+          "absolute left-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-sm",
+          "text-foreground/30 opacity-0 transition-opacity",
+          "group-hover/field:opacity-100 group-focus-within/field:opacity-100 focus-visible:opacity-100",
+          "hover:bg-foreground/[0.06] hover:text-foreground/60",
+          "focus-visible:ring-2 focus-visible:ring-primary/60 outline-none",
+        )}
+        title="Add a value"
+        aria-label="Add a value"
+        data-add-value="true"
+        onClick={(e) => {
+          e.stopPropagation();
+          onAdd();
+        }}
+      >
+        <PlusIcon size={10} weight="bold" aria-hidden />
+      </button>
+    </span>
   );
 }
 

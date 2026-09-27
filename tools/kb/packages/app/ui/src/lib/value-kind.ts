@@ -47,7 +47,7 @@ export type EditorMode = "caret" | "calendar" | "picker" | "toggle" | "swatch";
 interface EditorModeSpec {
   /**
    * The slot opens straight into its editor when the gesture that created it
-   * asks (`autoOpen`). A caret slot does not: it is its own display.
+   * asks (`autoOpen`): a new value's slot is where the typing goes.
    */
   readonly autoOpens: boolean;
   /** An unset slot is a Tab stop, and focusing it opens the editor. */
@@ -61,7 +61,7 @@ interface EditorModeSpec {
 }
 
 export const EDITOR_MODES: Readonly<Record<EditorMode, EditorModeSpec>> = {
-  caret: { autoOpens: false, opensOnFocusWhenEmpty: false, keys: "slot" },
+  caret: { autoOpens: true, opensOnFocusWhenEmpty: false, keys: "slot" },
   calendar: { autoOpens: true, opensOnFocusWhenEmpty: false, keys: "editor" },
   picker: { autoOpens: true, opensOnFocusWhenEmpty: true, keys: "editor" },
   toggle: { autoOpens: false, opensOnFocusWhenEmpty: false, keys: "slot" },
@@ -137,11 +137,7 @@ export const VALUE_KINDS: Readonly<Record<ValueKind, ValueKindSpec>> = {
     editor: "caret",
     // Edited in the locale's own decimal separator, and read back in it.
     text: (value) => (value.t === "num" ? numberEditText(value.v) : asText(value)),
-    // A cleared number reads as unset, the value an empty number slot holds.
-    parse: (text) =>
-      text.trim() === ""
-        ? accept({ t: "num", v: 0 })
-        : parseTypedValue(text, "number", { numbers: numberSeparators() }),
+    parse: (text) => parseTypedValue(text, "number", { numbers: numberSeparators() }),
     isBlank: (value) => value.t !== "num",
     layout: "stack",
     follow: nowhere,

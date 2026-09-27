@@ -13,6 +13,8 @@ import { lookupChord, type Chord, type KeyChordEvent } from "@/lib/keychord";
 export type ValueSlotIntent =
   /** Keep what was typed and leave the editor. */
   | "commit"
+  /** Keep what was typed, and open the next value of a many-valued field. */
+  | "commitAndAdd"
   /** Put the value back and leave the editor. */
   | "cancel"
   /** A line break inside the value. */
@@ -30,6 +32,11 @@ export interface ValueSlotKeyState {
   readonly composing: boolean;
   /** The value points somewhere (`ValueKindSpec.follow` is not null). */
   readonly canFollow: boolean;
+  /**
+   * Enter here adds the next value: the field holds many and the caret is at
+   * the end of a text that is not empty. Read only when Enter is pressed.
+   */
+  readonly addsOnEnter: () => boolean;
 }
 
 interface SlotBinding {
@@ -39,6 +46,12 @@ interface SlotBinding {
   readonly slotKeysOnly: boolean;
 }
 
+/** What a binding needs of the slot beyond its chord, by intent. */
+const NEEDS: Partial<Record<ValueSlotIntent, (state: ValueSlotKeyState) => boolean>> = {
+  follow: (state) => state.canFollow,
+  commitAndAdd: (state) => state.addsOnEnter(),
+};
+
 /** ⌘Enter follows the value, whether the slot is at rest or editing. */
 const FOLLOW: SlotBinding = {
   chord: { key: "Enter", mod: true },
@@ -46,10 +59,16 @@ const FOLLOW: SlotBinding = {
   slotKeysOnly: true,
 };
 
-/** First match wins. Shift+Enter is a line break, not a commit. */
+/**
+ * First match wins. Shift+Enter is a line break, not a commit; Enter at the
+ * end of a value of a many-valued field is the outliner's "next item", so it
+ * adds one — and Enter on that new, empty one closes it (the blank-commit
+ * rule), as Enter on an empty list item does.
+ */
 const EDITING_KEYS: readonly SlotBinding[] = [
   FOLLOW,
   { chord: { key: "Enter", shift: true, mod: false }, intent: "softBreak", slotKeysOnly: true },
+  { chord: { key: "Enter", shift: false }, intent: "commitAndAdd", slotKeysOnly: true },
   { chord: { key: "Enter", shift: false }, intent: "commit", slotKeysOnly: true },
   { chord: { key: "Escape" }, intent: "cancel", slotKeysOnly: true },
 ];
@@ -61,7 +80,7 @@ export function valueSlotIntent(
 ): ValueSlotIntent | null {
   const accepts = (binding: SlotBinding) =>
     (!binding.slotKeysOnly || !state.editing || state.keys === "slot") &&
-    (binding.intent !== "follow" || state.canFollow);
+    (NEEDS[binding.intent]?.(state) ?? true);
   if (!state.editing) return lookupChord(event, [FOLLOW], accepts)?.intent ?? null;
   if (state.composing) return "contain";
   return lookupChord(event, EDITING_KEYS, accepts)?.intent ?? "contain";

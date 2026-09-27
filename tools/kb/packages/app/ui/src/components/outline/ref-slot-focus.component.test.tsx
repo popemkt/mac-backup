@@ -108,14 +108,12 @@ describe("ref slot focus behaviour", () => {
     expect(placeholder()).toBeNull();
   });
 
-  it('"+ value" mints a slot that is already open', async () => {
+  it("the inline + opens the field's picker, already focused and listing", async () => {
     await render([{ t: "ref", v: "n.target" }]);
     expect(inputs().length).toBe(0);
-    const addValue = [...container.querySelectorAll("button")].find(
-      (b) => b.textContent.trim() === "value",
-    ) as HTMLElement | undefined;
+    const addValue = container.querySelector<HTMLElement>('[data-add-value="true"]');
     await act(async () => {
-      present(addValue, "+ value").click();
+      present(addValue, "+").click();
     });
     expect(inputs().length).toBe(1);
     expect(listboxes().length).toBe(1);

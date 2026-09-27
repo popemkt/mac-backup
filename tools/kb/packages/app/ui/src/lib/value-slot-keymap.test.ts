@@ -6,6 +6,7 @@ const editingCaret: ValueSlotKeyState = {
   keys: "slot",
   composing: false,
   canFollow: false,
+  addsOnEnter: () => false,
 };
 
 describe("value slot keymap", () => {
@@ -53,8 +54,17 @@ describe("value slot keymap", () => {
       keys: "editor",
       composing: false,
       canFollow: true,
+      addsOnEnter: () => true,
     };
     expect(valueSlotIntent({ key: "Enter" }, picker)).toBe("contain");
     expect(valueSlotIntent({ key: "Escape" }, picker)).toBe("contain");
+  });
+
+  it("Enter at the end of a many-valued field's value adds the next one", () => {
+    expect(valueSlotIntent({ key: "Enter" }, { ...editingCaret, addsOnEnter: () => true })).toBe(
+      "commitAndAdd",
+    );
+    // Anywhere else, or in a one-valued field, Enter only commits.
+    expect(valueSlotIntent({ key: "Enter" }, editingCaret)).toBe("commit");
   });
 });

@@ -56,10 +56,15 @@ describe("field value stack", () => {
     expect(html).toContain("data-field-values");
   });
 
-  it("offers per-value removal and another slot once a value exists", () => {
-    const html = render([{ t: "str", v: "one" }]);
+  it("offers per-value removal and, on the last value, an inline add", () => {
+    const html = render([
+      { t: "str", v: "one" },
+      { t: "str", v: "two" },
+    ]);
     expect(html).toContain("Remove this value");
-    expect(html).toContain(">value</button>");
+    // One "+", in the last value's trailing space — never a line of its own.
+    expect(html.match(/data-add-value="true"/g)?.length).toBe(1);
+    expect(html.lastIndexOf('data-add-value="true"')).toBeGreaterThan(html.indexOf(">two<"));
   });
 
   it("a single-valued field offers no second slot", () => {
@@ -77,12 +82,12 @@ describe("field value stack", () => {
       }),
     );
     expect(html).toContain("Remove this value");
-    expect(html).not.toContain(">value</button>");
+    expect(html).not.toContain('data-add-value="true"');
   });
 
   it("read-only fields offer neither removal nor new slots", () => {
     const html = render([{ t: "str", v: "one" }], true);
     expect(html).not.toContain("Remove this value");
-    expect(html).not.toContain(">value</button>");
+    expect(html).not.toContain('data-add-value="true"');
   });
 });

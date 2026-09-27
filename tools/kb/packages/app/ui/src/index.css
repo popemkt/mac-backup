@@ -190,6 +190,15 @@
     content: "Empty";
   }
 
+  /* A value slot that says what it waits for (a new value: "Enter to add…"),
+     at rest and while its editor is still empty. */
+  .empty-placeholder[data-placeholder]:empty::before,
+  .editable[contenteditable="true"][data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    font-style: italic;
+    opacity: 0.35;
+  }
+
   .editable[contenteditable="true"]:focus {
     outline: none;
   }
