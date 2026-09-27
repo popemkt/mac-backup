@@ -12,6 +12,7 @@ import { isTextNode } from "@/lib/dom";
 import {
   getCaretSerializedOffset,
   isCanonicalInline,
+  readInlineInput,
   renderInlineMarkdown,
   revealMarkupAtSelection,
   serializeEditable,
@@ -224,6 +225,24 @@ describe("editing in place", () => {
     const strong = present(el.querySelector("strong")?.firstChild, "bold text");
     if (isTextNode(strong)) strong.data = "bc";
     expect(isCanonicalInline(el, serializeEditable(el))).toBe(true);
+    el.remove();
+  });
+
+  it("reads typing back, rebuilding the tree only when the typing changed its meaning", () => {
+    const el = mounted("a **b");
+    const tail = present(el.lastChild, "text");
+    if (isTextNode(tail)) tail.data += "**";
+    setCaretSerializedOffset(el, 7);
+    expect(el.querySelector("strong")).toBeNull();
+    // Closing the `**` changed what the text means: the tree follows it.
+    expect(readInlineInput(el)).toEqual({ text: "a **b**", caret: 7 });
+    expect(el.querySelector("strong")?.textContent).toBe("b");
+    // Typing inside the segment does not: the browser's own nodes stay.
+    const strong = present(el.querySelector("strong"), "bold");
+    const inner = present(strong.firstChild, "bold text");
+    if (isTextNode(inner)) inner.data = "bc";
+    expect(readInlineInput(el).text).toBe("a **bc**");
+    expect(el.querySelector("strong")).toBe(strong);
     el.remove();
   });
 

@@ -211,6 +211,27 @@ export function isCanonicalInline(el: HTMLElement, text: string): boolean {
 }
 
 /**
+ * Read an inline editor after the browser changed it: its serialized text and
+ * caret, with the tree rebuilt around the caret when the typing changed what
+ * the text means (the second `*` of `**`, breaking a link) and the markup
+ * under the caret revealed. Typing that did not change the meaning leaves the
+ * browser's DOM — and its native undo — alone.
+ *
+ * The one input step of every live-preview surface: node text and a text
+ * field's value read typing through this, so they format the same way.
+ */
+export function readInlineInput(el: HTMLElement): { text: string; caret: number } {
+  const text = serializeEditable(el);
+  const caret = getCaretSerializedOffset(el);
+  if (!isCanonicalInline(el, text)) {
+    renderInlineMarkdown(el, text);
+    setCaretSerializedOffset(el, caret);
+  }
+  revealMarkupAtSelection(el);
+  return { text, caret };
+}
+
+/**
  * Reveal the markup of every formatted segment the selection touches — a
  * caret at either edge of `**b**` counts — and hide the rest. Both sides are
  * measured as serialized offsets, so a caret resting in a hidden mark and one

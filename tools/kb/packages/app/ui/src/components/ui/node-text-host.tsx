@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { LockSimpleIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
 import {
   getCaretSerializedOffset,
-  isCanonicalInline,
+  readInlineInput,
   renderInlineMarkdown,
   revealMarkupAtSelection,
   serializeEditable,
@@ -18,6 +18,7 @@ import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
 import type { SchemaIndex } from "@/lib/schema";
 import type { NodeMap, TagBadge } from "@/lib/types";
 import { InlineMarkdown } from "@/components/ui/md-view";
+import { useRevealMarkup } from "@/components/ui/use-reveal-markup";
 import { useTextHistory } from "@/components/ui/use-text-history";
 import { PickerList } from "@/components/ui/picker-list";
 import { nearestOffsetForX, offsetFromPoint } from "@/lib/caret";
@@ -217,15 +218,7 @@ export function NodeTextHost({
     onRestore: restoreText,
   });
 
-  // The markup under the caret shows while it is there, wherever the caret
-  // moved it from: a click, an arrow, a caret the host placed.
-  useEffect(() => {
-    const el = editorRef.current;
-    if (!editing || !el) return undefined;
-    const reveal = () => revealMarkupAtSelection(el);
-    document.addEventListener("selectionchange", reveal);
-    return () => document.removeEventListener("selectionchange", reveal);
-  }, [editing]);
+  useRevealMarkup(editorRef, editing);
 
   const applyRef = useCallback(
     (id: string, label: string) => {
@@ -259,10 +252,7 @@ export function NodeTextHost({
     if (instanceKey !== undefined) placeCaret(instanceKey, cursor + 2);
   }, [content, cursor, instanceKey, emit, placeCaret]);
 
-  /*
-   * D15: Enter/Tab with an open popup and zero candidates completes the
-   * bracket (`]]`) instead of falling through to a destructive split.
-   */
+  // The `[[` completion is the one node picker; its keys run before the row's.
   const picker = usePickerKeys({
     rows,
     query: refOpen?.query ?? "",
@@ -280,16 +270,7 @@ export function NodeTextHost({
   const handleInput = useCallback(() => {
     const el = editorRef.current;
     if (el && !isComposing.current) {
-      const text = serializeEditable(el);
-      const caret = getCaretSerializedOffset(el);
-      // Typing that changes what the text means — closing a `**`, breaking a
-      // link — rebuilds the tree so the formatting follows; typing that does
-      // not leaves the browser's DOM (and its native undo) alone.
-      if (!isCanonicalInline(el, text)) {
-        renderInlineMarkdown(el, text);
-        setCaretSerializedOffset(el, caret);
-      }
-      revealMarkupAtSelection(el);
+      const { text, caret } = readInlineInput(el);
       setCursor(caret);
       acDismissedQuery.current = null;
       setAcDismissed(false);
