@@ -29,6 +29,8 @@ import {
 } from "@/lib/graph-interaction";
 import { computeLayoutPositions } from "@/lib/graph-layouts";
 import { createFA2Layout, type FA2Controller } from "./fa2-layout";
+import { NodeDrag } from "@/lib/graph-drag";
+import { placedDrag, sigmaDragSurface } from "./sigma-drag";
 import { clusterPlacement, DiscSettle, discRadius, discSpacing, linkWidth } from "./graph-discs";
 import { fitView } from "./graph-camera";
 import { sigmaCameraControls, type GraphCameraControls } from "./graph-camera-controls";
@@ -254,7 +256,8 @@ export function SigmaGraph(props: SigmaGraphProps) {
       hulls?.draw((box) => reserveInGraphLabels(labels, box));
       placeGraphLabels(labels);
     });
-    let drag: { node: string; x: number; y: number; moved: boolean } | null = null;
+    // A press on a node drags it in the layout the graph stands in now.
+    const drag = new NodeDrag(() => placedDrag(graph), sigmaDragSurface(sigma));
     let suppressClick = false;
     const markCamera = () => {
       cameraIntent.current = true;
@@ -303,10 +306,8 @@ export function SigmaGraph(props: SigmaGraphProps) {
     });
     sigma.on("downNode", ({ node, event }) => {
       event.preventSigmaDefault();
-      drag = { node, x: event.x, y: event.y, moved: false };
       suppressClick = false;
-      graph.setNodeAttribute(node, "fixed", true);
-      sigma.getCamera().disable();
+      drag.down(node, event.x, event.y);
     });
     const move = (e: MouseEvent) => {
       const rect = el.getBoundingClientRect();
@@ -314,17 +315,10 @@ export function SigmaGraph(props: SigmaGraphProps) {
         y = e.clientY - rect.top;
       if (hovered.current !== null) setTooltip({ id: hovered.current, x, y });
       if (e.target instanceof Node && el.contains(e.target)) hulls?.hover(x, y);
-      if (!drag) return;
-      if (Math.hypot(x - drag.x, y - drag.y) > 3) drag.moved = true;
-      if (!drag.moved) return;
-      const point = sigma.viewportToGraph({ x, y });
-      graph.mergeNodeAttributes(drag.node, point);
+      drag.move(x, y);
     };
     const up = () => {
-      suppressClick = drag?.moved === true;
-      if (drag && graph.hasNode(drag.node)) graph.removeNodeAttribute(drag.node, "fixed");
-      drag = null;
-      sigma.getCamera().enable();
+      suppressClick = drag.up();
     };
     document.addEventListener("mousemove", move);
     document.addEventListener("mouseup", up);

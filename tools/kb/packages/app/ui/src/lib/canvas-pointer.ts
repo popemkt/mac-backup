@@ -9,6 +9,7 @@ import {
 } from "@kb/canvas";
 import { sidePoint } from "@/lib/canvas-edge-path";
 import { snapCanvasMove } from "@/lib/canvas-snap";
+import { pastSlop } from "@/lib/pointer-slop";
 import {
   EMPTY_SELECTION,
   addNodes,
@@ -17,7 +18,6 @@ import {
   type CanvasSelection,
 } from "@/lib/canvas-selection";
 
-const DRAG_THRESHOLD = 4;
 const MIN_NODE_W = 80;
 const MIN_NODE_H = 40;
 
@@ -311,8 +311,7 @@ function reduceMove(
     });
   }
   if (drag.kind === "marquee-pending") {
-    const distance = Math.hypot(event.screen.x - drag.startX, event.screen.y - drag.startY);
-    if (distance < DRAG_THRESHOLD) return result(state);
+    if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
     return result({
       ...state,
       drag: {
@@ -349,15 +348,13 @@ function reduceMove(
     );
   }
   if (drag.kind === "move-pending") {
-    const distance = Math.hypot(event.screen.x - drag.startX, event.screen.y - drag.startY);
-    if (distance < DRAG_THRESHOLD) return result(state);
+    if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
     const active = { ...drag, kind: "move" as const };
     return moveNodes({ ...state, drag: active }, active, event, ctx);
   }
   if (drag.kind === "move") return moveNodes(state, drag, event, ctx);
   if (drag.kind === "resize-pending") {
-    const distance = Math.hypot(event.screen.x - drag.startX, event.screen.y - drag.startY);
-    if (distance < DRAG_THRESHOLD) return result(state);
+    if (!pastSlop(event.screen.x - drag.startX, event.screen.y - drag.startY)) return result(state);
     const active = { ...drag, kind: "resize" as const };
     return resizeNode({ ...state, drag: active }, active, event, ctx);
   }

@@ -744,8 +744,9 @@ manipulation feel professional rather than merely functional.
 - **Undo/redo.** `lib/canvas-history.ts` is an immutable ring buffer
   (`MAX_HISTORY` = 30) with reference-equality skip; `Cmd+Z` /
   `Cmd+Shift+Z` / `Cmd+Y`.
-- **Direct-manipulation invariants.** A 4px `DRAG_THRESHOLD` kills hair-trigger
-  moves, pointer capture on card drags and resize handles survives a fast drag,
+- **Direct-manipulation invariants.** A 4px pointer slop (`POINTER_SLOP` in
+  `lib/pointer-slop.ts`, the one slop the scene kit's taps and a graph node's
+  drag use too) kills hair-trigger moves, pointer capture on card drags and resize handles survives a fast drag,
   four corner resize handles clamp at 80×40 (`Shift` locks aspect ratio), and
   arrow keys nudge 1px / 10px with `Shift`.
 - **Snap guides and fit.** Alignment snapping is magnetic within 5px

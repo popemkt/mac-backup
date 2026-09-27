@@ -36,8 +36,11 @@ export interface LayoutSeed {
   readonly live: boolean;
 }
 
-/** The simulation's settle, in ticks; alpha falls to about 0.025 by then. */
-const COOLDOWN_TICKS = 160;
+/**
+ * The simulation is at rest once its alpha has cooled to this: from a full
+ * heat of 1, about 160 ticks (under three seconds at one tick a frame).
+ */
+const REST_ALPHA = 0.025;
 /**
  * A faint pull toward the origin. Charge alone pushes every unlinked node
  * out to the edge of the frame, so a graph with a few orphans is framed as
@@ -81,17 +84,15 @@ function simulation(seed: LayoutSeed) {
     .force("y", forceY().strength(GRAVITY))
     .force("z", forceZ().strength(GRAVITY))
     .stop();
-  let ticks = 0;
   const setParams = (params: LayoutParams) => {
     link.distance(params.linkDistance);
     charge.strength(-params.spread);
   };
   setParams(seed.params);
   return {
-    running: () => ticks < COOLDOWN_TICKS,
+    running: () => sim.alpha() > REST_ALPHA,
     tick: () => {
       sim.tick();
-      ticks++;
     },
     write: (out: Float32Array) => {
       for (let i = 0; i < n; i++) {
@@ -105,7 +106,6 @@ function simulation(seed: LayoutSeed) {
     reheat: (params: LayoutParams) => {
       setParams(params);
       sim.alpha(1);
-      ticks = 0;
     },
   };
 }
