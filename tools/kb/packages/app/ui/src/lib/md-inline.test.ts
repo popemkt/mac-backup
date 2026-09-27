@@ -6,7 +6,9 @@ import {
   KB_TEXT_CLASS,
   assetSrcUrl,
   clearInlineMdCache,
+  inlineSpanSource,
   parseInlineMd,
+  parseInlineSource,
   textHasAssetRef,
 } from "./md-inline";
 
@@ -176,25 +178,64 @@ describe("parseInlineMd", () => {
   });
 });
 
+describe("parseInlineSource", () => {
+  const corpus = [
+    "",
+    "plain",
+    "**b** and *i* plus `c`",
+    "__b__ _i_ snake_case_name",
+    "***both*** and ****four****",
+    "***left** only",
+    "**right*** only",
+    "see [[n.root-a|Ship]] ok [[sys.tag]] [[ spaced | label ]]",
+    "[docs](https://ex.test/a_(b)) and [bad](javascript:x)",
+    "![shot](assets/a.png) ![x](https://ex.test/a.png) ![v](assets/v.mp4)",
+    "unmatched ** and * and ` and [[ and [x](",
+    "`**not bold**` then **bold `code`**",
+    "line one\nline **two**",
+  ];
+
+  it("rebuilds every text byte for byte from its spans", () => {
+    for (const text of corpus) {
+      expect(parseInlineSource(text).map(inlineSpanSource).join("")).toBe(text);
+    }
+  });
+
+  it("keeps the delimiters a segment was written with", () => {
+    expect(parseInlineSource("__b__ ***i***")).toEqual([
+      { seg: { t: "bold", v: "b" }, open: "__", close: "__" },
+      { seg: { t: "text", v: " " }, open: "", close: "" },
+      { seg: { t: "bold", v: "i" }, open: "***", close: "***" },
+    ]);
+    expect(parseInlineSource("[docs](https://ex.test)")).toEqual([
+      {
+        seg: { t: "link", href: "https://ex.test", label: "docs" },
+        open: "[",
+        close: "](https://ex.test)",
+      },
+    ]);
+  });
+
+  it("carries an atomic segment's whole token in open", () => {
+    expect(parseInlineSource("[[ n.a | L ]]")).toEqual([
+      { seg: { t: "ref", id: "n.a", label: "L" }, open: "[[ n.a | L ]]", close: "" },
+    ]);
+  });
+
+  it("is the one parse parseInlineMd reads", () => {
+    const text = "**b** [[n.a|L]]";
+    expect(parseInlineMd(text)).toEqual(parseInlineSource(text).map((span) => span.seg));
+  });
+});
+
 describe("line-height consistency (edit vs view)", () => {
   it("edit and view share KB_TEXT_CLASS / .kb-text token", () => {
     const tokens = readFileSync(path.join(root, "tokens.css"), "utf8");
     const content = readFileSync(path.join(root, "components/ui/node-text-host.tsx"), "utf8");
-    const mdView = readFileSync(path.join(root, "components/ui/md-view.tsx"), "utf8");
-
     expect(KB_TEXT_CLASS).toBe("kb-text");
     expect(tokens).toMatch(/\.kb-text\s*\{[^}]*var\(--type-body\)/s);
     // Both modes must apply the same token class (equal computed font/line-height).
     expect(content).toContain(`KB_TEXT_CLASS`);
     expect(content).toMatch(/isActive[\s\S]*KB_TEXT_CLASS/);
-    expect(mdView).toContain("KB_TEXT_CLASS");
-    expect(mdView).toContain('className="kb-md-code"');
-    expect(mdView).toContain("kb-md-ref");
-    // W6a render branch for assets media
-    expect(mdView).toContain('case "media"');
-    expect(mdView).toContain("kb-md-media");
-    expect(mdView).toMatch(/<img[\s\S]*kb-md-media/);
-    expect(mdView).toMatch(/<video[\s\S]*kb-md-media/);
-    expect(mdView).toMatch(/<audio[\s\S]*kb-md-media/);
   });
 });

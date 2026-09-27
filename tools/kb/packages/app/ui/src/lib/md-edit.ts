@@ -1,15 +1,28 @@
 /**
- * Active-editor content model (r1 D16).
+ * Node text's DOM model: one element tree for inline markdown, whether it is
+ * being read or edited (r1 D16).
  *
- * References (`[[id|label]]`) render inside the ACTIVE contentEditable as
- * atomic, non-editable pills — the raw 26-char ULID is never exposed to the
- * caret. Everything else stays plain text. Serialization is canonical
- * markdown, so the store keeps plain text; the pill layer is purely
- * presentational and rebuilt from the authoritative string.
+ * {@link renderInlineMarkdown} builds it from the stored string, and every
+ * character of that string is in it: a formatted segment keeps its markup as
+ * `.kb-md-mark` text beside the formatted element (hidden until revealed), so
+ * {@link serializeEditable} reads the string straight back and a caret offset
+ * into the DOM is an offset into the string. The two exceptions are atomic:
+ * a reference renders as a non-editable link carrying its whole token, so a
+ * raw ULID never faces the caret, and a media embed's element holds no text.
  */
 import { isElementNode, isTextNode } from "@/lib/dom";
+import {
+  assetSrcUrl,
+  inlineSpanSource,
+  isSafeHref,
+  parseInlineSource,
+  type InlineSeg,
+  type InlineSpan,
+} from "@/lib/md-inline";
 import { textOr } from "@/lib/text";
 export const KB_REF_ATTR = "data-kb-ref";
+/** The id a rendered reference points at, read by click routing. */
+export const KB_REF_ID_ATTR = "data-kb-ref-id";
 
 /** Complete wiki-link token: [[id]] or [[id|label]]. */
 const REF_TOKEN = /\[\[([^\][|]+)(?:\|([^\][]*))?\]\]/g;
@@ -32,6 +45,152 @@ export function findRefSpans(text: string): RefSpan[] {
     out.push({ token: m[0], id, label, index: m.index });
   }
   return out;
+}
+
+/**
+ * The classes inline markdown paints text with. Exported so the contrast
+ * guard measures the classes actually written (`design-systems.test.ts`).
+ */
+export const INLINE_TEXT_CLASSES = {
+  code: "kb-md-code",
+  link: "kb-md-link",
+  ref: "kb-md-ref",
+  mark: "kb-md-mark",
+} as const;
+
+/** A formatted segment's wrapper, carrying the source range it spans. */
+const INLINE_SEG_CLASS = "kb-md-seg";
+const INLINE_SEG_FROM = "data-md-from";
+const INLINE_SEG_TO = "data-md-to";
+
+/**
+ * One node of inline markdown's element tree: text, or an element named by
+ * its DOM tag and attributes. This is the one description of what node text
+ * renders as; {@link renderInlineMarkdown} builds it as live DOM and
+ * `InlineMarkdown` (components/ui/md-view.tsx) as React elements, and
+ * neither decides anything about markdown.
+ */
+export type InlineNode =
+  | string
+  | { tag: string; attrs: Readonly<Record<string, string>>; children: readonly InlineNode[] };
+
+function h(
+  tag: string,
+  attrs: Readonly<Record<string, string>>,
+  ...children: InlineNode[]
+): InlineNode {
+  return { tag, attrs, children };
+}
+
+const mark = (source: string): InlineNode[] =>
+  source ? [h("span", { class: INLINE_TEXT_CLASSES.mark }, source)] : [];
+
+function mediaNode(seg: Extract<InlineSeg, { t: "media" }>): InlineNode {
+  const src = assetSrcUrl(seg.href);
+  const common = { src, contenteditable: "false" };
+  if (seg.kind === "image") {
+    return h("img", {
+      ...common,
+      class: "kb-md-media kb-md-media-img",
+      alt: seg.alt,
+      loading: "lazy",
+    });
+  }
+  // No fallback text child: it would read back as part of the source.
+  return h(seg.kind, {
+    ...common,
+    class: `kb-md-media kb-md-media-${seg.kind}`,
+    "aria-label": seg.alt,
+    controls: "",
+    preload: "metadata",
+  });
+}
+
+/** The element a formatted segment renders as, between its marks. */
+function contentNode(seg: Exclude<InlineSeg, { t: "text" } | { t: "ref" }>): InlineNode {
+  switch (seg.t) {
+    case "bold":
+      return h("strong", {}, seg.v);
+    case "italic":
+      return h("em", {}, seg.v);
+    case "code":
+      return h("code", { class: INLINE_TEXT_CLASSES.code }, seg.v);
+    case "link":
+      // Defense in depth: the parser already filters unsafe protocols.
+      return isSafeHref(seg.href)
+        ? h(
+            "a",
+            {
+              class: INLINE_TEXT_CLASSES.link,
+              href: seg.href,
+              target: "_blank",
+              rel: "noreferrer",
+            },
+            seg.label,
+          )
+        : h("span", {}, seg.label);
+    case "media":
+      return mediaNode(seg);
+    default: {
+      const unhandled: never = seg;
+      throw new Error(`unhandled inline segment: ${JSON.stringify(unhandled)}`);
+    }
+  }
+}
+
+function spanNode(span: InlineSpan, from: number, to: number): InlineNode {
+  const { seg } = span;
+  if (seg.t === "text") return seg.v;
+  if (seg.t === "ref") {
+    // Atomic: the caret never enters it, and it reads back as its token.
+    return h(
+      "a",
+      {
+        class: INLINE_TEXT_CLASSES.ref,
+        href: `#${seg.id}`,
+        title: seg.id,
+        contenteditable: "false",
+        [KB_REF_ATTR]: span.open,
+        [KB_REF_ID_ATTR]: seg.id,
+      },
+      seg.label,
+    );
+  }
+  return h(
+    "span",
+    { class: INLINE_SEG_CLASS, [INLINE_SEG_FROM]: String(from), [INLINE_SEG_TO]: String(to) },
+    ...mark(span.open),
+    contentNode(seg),
+    ...mark(span.close),
+  );
+}
+
+/** `text`'s inline element tree: every source character is in it (see the module doc). */
+export function inlineNodes(text: string): InlineNode[] {
+  const out: InlineNode[] = [];
+  let at = 0;
+  for (const span of parseInlineSource(text)) {
+    const to = at + inlineSpanSource(span).length;
+    if (to > at) out.push(spanNode(span, at, to));
+    at = to;
+  }
+  return out;
+}
+
+function toDom(node: InlineNode): Node {
+  if (typeof node === "string") return document.createTextNode(node);
+  const element = document.createElement(node.tag);
+  for (const [name, value] of Object.entries(node.attrs)) element.setAttribute(name, value);
+  for (const child of node.children) element.appendChild(toDom(child));
+  return element;
+}
+
+/**
+ * Build `text`'s inline DOM into `el`, replacing what is there. Idempotent,
+ * and the inverse of {@link serializeEditable}.
+ */
+export function renderInlineMarkdown(target: HTMLElement, text: string): void {
+  target.replaceChildren(...inlineNodes(text).map(toDom));
 }
 
 /** Rebuild the editor DOM: text nodes + atomic ref pills. Idempotent. */

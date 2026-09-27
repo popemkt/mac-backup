@@ -13,6 +13,7 @@ import { Scanner } from "@tailwindcss/oxide";
 import { parseSync } from "oxc-parser";
 import { describe, expect, it } from "vitest";
 import { oklchToRgb } from "./css-color";
+import { INLINE_TEXT_CLASSES } from "./md-edit";
 import {
   baseSelector,
   darkSelector,
@@ -412,6 +413,17 @@ function scanModule(file: string, source: string) {
 }
 
 /**
+ * `renderInlineMarkdown` (lib/md-edit.ts) writes its elements with the DOM
+ * API, which the JSX walk cannot read. Its text classes are exported, so the
+ * guard scans them as one text element each — the classes the builder writes,
+ * not a copy of them.
+ */
+const INLINE_BUILDER = "lib/md-edit.inline-builder.tsx";
+const INLINE_BUILDER_SOURCE = Object.values(INLINE_TEXT_CLASSES)
+  .map((c) => `<span className="${c}">text</span>;`)
+  .join("\n");
+
+/**
  * Content one component mounts into another's element, which the per-module
  * walk cannot see: the guest module's sites are measured again under the
  * host element's chain. `at` is a class the host element carries.
@@ -424,10 +436,17 @@ const MOUNTS: readonly { host: string; at: string; guest: string }[] = [
     at: "node-content",
     guest: "components/ui/md-view.tsx",
   },
+  // The inline markdown inside it is built as DOM, not JSX, so its classes
+  // are measured through INLINE_BUILDER.
+  {
+    host: "components/outline/node-row.tsx",
+    at: "node-content",
+    guest: INLINE_BUILDER,
+  },
 ];
 
 function uiModules(): Map<string, string> {
-  const out = new Map<string, string>();
+  const out = new Map<string, string>([[INLINE_BUILDER, INLINE_BUILDER_SOURCE]]);
   for (const entry of readdirSync(src, { recursive: true })) {
     const file = String(entry);
     if (!file.endsWith(".tsx") || /\.(test|stories)\.tsx$/.test(file)) continue;

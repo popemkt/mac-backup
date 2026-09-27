@@ -1,12 +1,58 @@
-import { memo, useMemo, type MouseEvent, type ReactNode } from "react";
+import { createElement, memo, useMemo, type MouseEvent, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import {
-  KB_TEXT_CLASS,
-  assetSrcUrl,
-  isSafeHref,
-  parseInlineMd,
-  type InlineSeg,
-} from "@/lib/md-inline";
+import { asElement } from "@/lib/dom";
+import { KB_REF_ID_ATTR, inlineNodes, type InlineNode } from "@/lib/md-edit";
+import { KB_TEXT_CLASS } from "@/lib/md-inline";
+
+/**
+ * What a click inside rendered inline markdown does, decided by what it
+ * landed on: a reference navigates through `onRefClick`, a link or a media
+ * embed keeps the click to itself (the link opens, the player plays), and
+ * anything else is not inline content's business. True when it was handled.
+ *
+ * Every surface that renders node text routes clicks through this, so a
+ * reference is clicked the same way in a read-only list and in an outline row.
+ */
+function routeInlineClick(e: MouseEvent, onRefClick: (e: MouseEvent, id: string) => void): boolean {
+  const target = asElement(e.target);
+  const id = target?.closest(`[${KB_REF_ID_ATTR}]`)?.getAttribute(KB_REF_ID_ATTR);
+  if (id !== null && id !== undefined && id !== "") {
+    onRefClick(e, id);
+    return true;
+  }
+  if (target?.closest("a.kb-md-link, .kb-md-media")) {
+    e.stopPropagation();
+    return true;
+  }
+  return false;
+}
+
+/** DOM attribute names whose React prop is spelled differently. */
+const REACT_PROP: Readonly<Record<string, string>> = {
+  class: "className",
+  contenteditable: "contentEditable",
+};
+
+function toReact(node: InlineNode, key: number): ReactNode {
+  if (typeof node === "string") return node;
+  const props: Record<string, unknown> = { key };
+  for (const [name, value] of Object.entries(node.attrs)) {
+    props[REACT_PROP[name] ?? name] = name === "controls" ? true : value;
+  }
+  if ("contenteditable" in node.attrs) props["suppressContentEditableWarning"] = true;
+  const children = node.children.map(toReact);
+  return createElement(node.tag, props, ...children);
+}
+
+/**
+ * `text`'s inline markdown as React elements — the element tree
+ * `renderInlineMarkdown` builds as DOM (`inlineNodes`), with the markup
+ * present and hidden. Clicks are the surface's: see {@link routeInlineClick}.
+ */
+export const InlineMarkdown = memo(function InlineMarkdown({ text }: { text: string }) {
+  const nodes = useMemo(() => inlineNodes(text), [text]);
+  return <>{nodes.map(toReact)}</>;
+});
 
 interface MdViewProps {
   text: string;
@@ -20,10 +66,8 @@ interface MdViewProps {
   onRefClick: (e: MouseEvent, id: string) => void;
 }
 
-/** Inactive-row markdown view — memoized parse, accent refs, tinted code, media. */
+/** Read-only inline markdown: accent refs, tinted code, media. */
 export const MdView = memo(function MdView({ text, className, clamp, onRefClick }: MdViewProps) {
-  const segs = useMemo(() => parseInlineMd(text), [text]);
-
   if (!text) {
     return (
       <div
@@ -35,7 +79,7 @@ export const MdView = memo(function MdView({ text, className, clamp, onRefClick 
         )}
         role="presentation"
       >
-        {"\u200B"}
+        {"​"}
       </div>
     );
   }
@@ -49,107 +93,11 @@ export const MdView = memo(function MdView({ text, className, clamp, onRefClick 
         className,
       )}
       role="presentation"
+      onClick={(e) => {
+        routeInlineClick(e, onRefClick);
+      }}
     >
-      {segs.map((seg, i) => renderSeg(seg, i, onRefClick))}
+      <InlineMarkdown text={text} />
     </div>
   );
 });
-
-function renderSeg(
-  seg: InlineSeg,
-  key: number,
-  onRefClick: (e: MouseEvent, id: string) => void,
-): ReactNode {
-  switch (seg.t) {
-    case "text":
-      return <span key={key}>{seg.v}</span>;
-    case "bold":
-      return <strong key={key}>{seg.v}</strong>;
-    case "italic":
-      return <em key={key}>{seg.v}</em>;
-    case "code":
-      return (
-        <code key={key} className="kb-md-code">
-          {seg.v}
-        </code>
-      );
-    case "link":
-      // Defense in depth: parser already filters, but never render an
-      // unsafe protocol even if a segment arrives from elsewhere.
-      if (!isSafeHref(seg.href)) {
-        return <span key={key}>{seg.label}</span>;
-      }
-      return (
-        <a
-          key={key}
-          className="kb-md-link"
-          href={seg.href}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {seg.label}
-        </a>
-      );
-    case "ref":
-      return (
-        <a
-          key={key}
-          className="kb-md-ref"
-          href={`#${seg.id}`}
-          title={seg.id}
-          onClick={(e) => onRefClick(e, seg.id)}
-        >
-          {seg.label}
-        </a>
-      );
-    case "media": {
-      const src = assetSrcUrl(seg.href);
-      if (seg.kind === "image") {
-        return (
-          <img
-            key={key}
-            className="kb-md-media kb-md-media-img"
-            src={src}
-            alt={seg.alt}
-            loading="lazy"
-            onClick={(e) => e.stopPropagation()}
-          />
-        );
-      }
-      if (seg.kind === "video") {
-        return (
-          <video
-            key={key}
-            className="kb-md-media kb-md-media-video"
-            src={src}
-            controls
-            preload="metadata"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {seg.alt}
-          </video>
-        );
-      }
-      return (
-        <audio
-          key={key}
-          className="kb-md-media kb-md-media-audio"
-          src={src}
-          controls
-          preload="metadata"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {seg.alt}
-        </audio>
-      );
-    }
-    default: {
-      // Unreachable: `never` makes the compiler prove the switch is exhaustive
-      // over InlineSeg. The clause exists because the switch must produce a
-      // value, so the function needs a terminating branch here.
-      const unhandled: never = seg;
-      throw new Error(`unhandled inline segment: ${JSON.stringify(unhandled)}`);
-    }
-  }
-}

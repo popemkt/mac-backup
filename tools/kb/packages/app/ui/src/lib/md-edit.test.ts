@@ -3,6 +3,8 @@
  * The active editor must never expose raw ULIDs to the caret while the
  * stored text stays canonical markdown.
  */
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { beforeAll, describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
 import { present } from "@kb/model";
@@ -10,9 +12,11 @@ import {
   findRefSpans,
   getCaretSerializedOffset,
   renderEditableContent,
+  renderInlineMarkdown,
   serializeEditable,
   setCaretSerializedOffset,
 } from "@/lib/md-edit";
+import { InlineMarkdown } from "@/components/ui/md-view";
 
 beforeAll(() => {
   const dom = new Window();
@@ -104,5 +108,66 @@ describe("md-edit caret offsets", () => {
     window.getSelection()?.removeAllRanges();
     expect(getCaretSerializedOffset(el)).toBe(0);
     el.remove();
+  });
+});
+
+describe("renderInlineMarkdown — one DOM for reading and editing", () => {
+  const corpus = [
+    "plain",
+    "**b** and *i* plus `c`",
+    "__b__ ***both*** snake_case_name",
+    "see [[n.root-a|Ship]] ok [[sys.tag]]",
+    "[docs](https://ex.test/a_(b)) and [bad](javascript:x)",
+    "![shot](assets/a.png) and ![v](assets/v.mp4)",
+    "unmatched ** and ` and [[",
+    "line one\nline **two**",
+  ];
+
+  it("reads every text back byte for byte", () => {
+    for (const text of corpus) {
+      const el = makeEl();
+      renderInlineMarkdown(el, text);
+      expect(serializeEditable(el)).toBe(text);
+    }
+  });
+
+  it("keeps a segment's markup beside its formatted element, hidden by class", () => {
+    const el = makeEl();
+    renderInlineMarkdown(el, "a **b** [x](https://ex.test)");
+    const seg = present(el.querySelector(".kb-md-seg"), "bold segment");
+    expect(seg.getAttribute("data-md-from")).toBe("2");
+    expect(seg.getAttribute("data-md-to")).toBe("7");
+    expect([...seg.childNodes].map((n) => n.textContent)).toEqual(["**", "b", "**"]);
+    expect(present(seg.querySelector("strong"), "strong").textContent).toBe("b");
+    expect([...el.querySelectorAll(".kb-md-mark")].map((m) => m.textContent)).toEqual([
+      "**",
+      "**",
+      "[",
+      "](https://ex.test)",
+    ]);
+    expect(present(el.querySelector("a.kb-md-link"), "link").textContent).toBe("x");
+  });
+
+  it("renders a reference as one atomic link carrying its token", () => {
+    const el = makeEl();
+    renderInlineMarkdown(el, "`[[n.a|in code]]` [[n.b|Ship]]");
+    const refs = el.querySelectorAll("a.kb-md-ref");
+    // The one grammar: a ref inside code is code, not a ref.
+    expect(refs.length).toBe(1);
+    const ref = present(refs.item(0), "ref");
+    expect(ref.getAttribute("contenteditable")).toBe("false");
+    expect(ref.getAttribute("data-kb-ref")).toBe("[[n.b|Ship]]");
+    expect(ref.getAttribute("data-kb-ref-id")).toBe("n.b");
+    expect(ref.textContent).toBe("Ship");
+  });
+
+  it("builds the same tree React renders (InlineMarkdown)", () => {
+    for (const text of corpus) {
+      const el = makeEl();
+      renderInlineMarkdown(el, text);
+      const probe = makeEl();
+      probe.innerHTML = renderToStaticMarkup(createElement(InlineMarkdown, { text }));
+      expect(el.innerHTML).toBe(probe.innerHTML);
+    }
   });
 });

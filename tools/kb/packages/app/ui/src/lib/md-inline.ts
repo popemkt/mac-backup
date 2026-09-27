@@ -1,7 +1,11 @@
 /**
- * Inline markdown subset for inactive outline rows (DESIGN-REFINE §2 W2/W6a).
+ * Inline markdown subset for node text (DESIGN-REFINE §2 W2/W6a).
  * bold / italic / code / links / [[id|label]] refs / ![alt](assets/…) media.
- * Edit mode stays plain text; this module is never on the typing hot path.
+ *
+ * One parser, two readings of its result: {@link parseInlineSource} keeps the
+ * markup each segment was written with, so the source can be rebuilt byte for
+ * byte, and {@link parseInlineMd} is that result with the markup dropped, for
+ * readers that only want the meaning (a graph label).
  */
 
 /** Shared type-scale class: edit + view must use this for equal line-height. */
@@ -23,8 +27,47 @@ export type InlineSeg =
       kind: AssetMediaKind;
     };
 
+/**
+ * One segment with the markup it was written with. `open` and `close` are
+ * the source around the segment's content (`**` and `**`, `[` and
+ * `](href)`); an atomic segment — a ref or a media embed, whose content is
+ * not text — carries its whole token in `open`. So for every text,
+ * `parseInlineSource(text).map(inlineSpanSource).join("") === text`.
+ */
+export interface InlineSpan {
+  seg: InlineSeg;
+  open: string;
+  close: string;
+}
+
+/** The text a segment shows as its content; empty for an atomic segment. */
+function inlineSegContent(seg: InlineSeg): string {
+  switch (seg.t) {
+    case "text":
+    case "bold":
+    case "italic":
+    case "code":
+      return seg.v;
+    case "link":
+      return seg.label;
+    case "ref":
+    case "media":
+      return "";
+    default: {
+      // Unreachable: `never` makes the compiler prove the switch is exhaustive.
+      const unhandled: never = seg;
+      throw new Error(`unhandled inline segment: ${JSON.stringify(unhandled)}`);
+    }
+  }
+}
+
+/** The exact source a span was parsed from. */
+export function inlineSpanSource(span: InlineSpan): string {
+  return span.open + inlineSegContent(span.seg) + span.close;
+}
+
 const CACHE_MAX = 256;
-const parseCache = new Map<string, InlineSeg[]>();
+const parseCache = new Map<string, InlineSpan[]>();
 
 /**
  * Only these link targets render as <a href>; anything else (javascript:,
@@ -66,13 +109,25 @@ export function isSafeHref(href: string): boolean {
   return SAFE_HREF.test(href.trim());
 }
 
-/** Memoized parse keyed by full text (stable while inactive). */
-export function parseInlineMd(text: string): InlineSeg[] {
+/** Memoized source-keeping parse, keyed by full text. */
+export function parseInlineSource(text: string): InlineSpan[] {
   const hit = parseCache.get(text);
   if (hit) return hit;
-  const segs = parseOnce(text);
+  const spans = parseOnce(text);
   if (parseCache.size >= CACHE_MAX) parseCache.clear();
-  parseCache.set(text, segs);
+  parseCache.set(text, spans);
+  return spans;
+}
+
+const segCache = new WeakMap<InlineSpan[], InlineSeg[]>();
+
+/** The segments' meaning without their markup (same array per cached text). */
+export function parseInlineMd(text: string): InlineSeg[] {
+  const spans = parseInlineSource(text);
+  const hit = segCache.get(spans);
+  if (hit) return hit;
+  const segs = spans.map((span) => span.seg);
+  segCache.set(spans, segs);
   return segs;
 }
 
@@ -162,7 +217,7 @@ function emphasisAt(
   text: string,
   at: number,
   run: number,
-): { before: string; seg: InlineSeg; after: string; next: number } | null {
+): { before: string; span: InlineSpan; after: string; next: number } | null {
   // Flanking reads the whole run's outer boundary (the character before its
   // first mark and after its last); only then is the inner delimiter chosen.
   if (!canOpen(text, at, run)) return null;
@@ -176,23 +231,29 @@ function emphasisAt(
   const trailing = closing - inner;
   const nested = Math.min(outer, trailing);
   const v = text.slice(open + inner, end);
+  // The nested outer marks are dropped from the meaning, not from the source:
+  // they belong to the delimiters, so the source still rebuilds exactly.
   return {
     before: mark.repeat(outer - nested),
-    seg: inner === 2 ? { t: "bold", v } : { t: "italic", v },
+    span: {
+      seg: inner === 2 ? { t: "bold", v } : { t: "italic", v },
+      open: mark.repeat(nested + inner),
+      close: mark.repeat(inner + nested),
+    },
     after: mark.repeat(trailing - nested),
     next: end + closing,
   };
 }
 
 // oxlint-disable-next-line complexity -- GAP [[01M1MGCM9RWXE3CYANZK5K4KC0]]
-function parseOnce(text: string): InlineSeg[] {
-  const out: InlineSeg[] = [];
+function parseOnce(text: string): InlineSpan[] {
+  const out: InlineSpan[] = [];
   let i = 0;
   let buf = "";
 
   const flush = () => {
     if (buf) {
-      out.push({ t: "text", v: buf });
+      out.push({ seg: { t: "text", v: buf }, open: "", close: "" });
       buf = "";
     }
   };
@@ -203,7 +264,7 @@ function parseOnce(text: string): InlineSeg[] {
       const end = text.indexOf("`", i + 1);
       if (end > i) {
         flush();
-        out.push({ t: "code", v: text.slice(i + 1, end) });
+        out.push({ seg: { t: "code", v: text.slice(i + 1, end) }, open: "`", close: "`" });
         i = end + 1;
         continue;
       }
@@ -220,7 +281,7 @@ function parseOnce(text: string): InlineSeg[] {
           const id = (pipe >= 0 ? inner.slice(0, pipe) : inner).trim();
           const label = pipe >= 0 ? inner.slice(pipe + 1).trim() || id : id;
           if (id) {
-            out.push({ t: "ref", id, label });
+            out.push({ seg: { t: "ref", id, label }, open: text.slice(i, end + 2), close: "" });
             i = end + 2;
             continue;
           }
@@ -241,10 +302,9 @@ function parseOnce(text: string): InlineSeg[] {
         if (kind) {
           flush();
           out.push({
-            t: "media",
-            alt: text.slice(i + 2, close),
-            href: href.trim(),
-            kind,
+            seg: { t: "media", alt: text.slice(i + 2, close), href: href.trim(), kind },
+            open: text.slice(i, urlEnd + 1),
+            close: "",
           });
           i = urlEnd + 1;
           continue;
@@ -261,9 +321,9 @@ function parseOnce(text: string): InlineSeg[] {
         if (urlEnd > close && isSafeHref(href)) {
           flush();
           out.push({
-            t: "link",
-            label: text.slice(i + 1, close),
-            href,
+            seg: { t: "link", label: text.slice(i + 1, close), href },
+            open: "[",
+            close: text.slice(close, urlEnd + 1),
           });
           i = urlEnd + 1;
           continue;
@@ -279,7 +339,7 @@ function parseOnce(text: string): InlineSeg[] {
       if (emphasis) {
         buf += emphasis.before;
         flush();
-        out.push(emphasis.seg);
+        out.push(emphasis.span);
         buf = emphasis.after;
         i = emphasis.next;
       } else {
@@ -294,5 +354,5 @@ function parseOnce(text: string): InlineSeg[] {
   }
 
   flush();
-  return out.length ? out : [{ t: "text", v: "" }];
+  return out.length ? out : [{ seg: { t: "text", v: "" }, open: "", close: "" }];
 }
