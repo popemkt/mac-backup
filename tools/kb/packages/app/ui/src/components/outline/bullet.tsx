@@ -5,7 +5,9 @@ import {
   BULLET_QUERY_ICON,
   BULLET_SYS_OPACITY,
   bulletPaintCss,
+  bulletRingDash,
   outlineBulletAppearance,
+  queryIconPath,
   type BulletAppearance,
   type OutlineBulletOptions,
   type BulletShape,
@@ -43,36 +45,55 @@ function SupertagGlyph({ a }: { a: BulletAppearance }) {
 }
 
 function QueryGlyph({ a }: { a: BulletAppearance }) {
-  const { viewBox, path } = BULLET_QUERY_ICON;
+  const { viewBox, stroke } = BULLET_QUERY_ICON;
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width={BULLET_GEOMETRY.icon}
       height={BULLET_GEOMETRY.icon}
-      fill="currentColor"
+      fill="none"
       viewBox={`0 0 ${viewBox} ${viewBox}`}
       className="relative z-[1]"
       style={{ color: bulletPaintCss(a.ink) }}
       data-bullet-query
     >
-      <path d={path} />
+      <path d={queryIconPath()} stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" />
     </svg>
   );
 }
 
+/** The ring's dashes, fitted to its circle once: the same for every ring. */
+const RING_DASH = bulletRingDash();
+
 function RefRing({ a }: { a: BulletAppearance }) {
+  const { size, stroke } = BULLET_GEOMETRY.ring;
   return (
     <span
-      className="relative z-[1] flex items-center justify-center rounded-full border border-dashed"
-      style={{
-        width: BULLET_GEOMETRY.ring,
-        height: BULLET_GEOMETRY.ring,
-        borderColor: bulletPaintCss(a.ring),
-      }}
+      className="relative z-[1] flex items-center justify-center"
+      style={{ width: size, height: size }}
       data-bullet-ref-ring
     >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        fill="none"
+        className="absolute inset-0"
+        style={{ color: bulletPaintCss(a.ring) }}
+        aria-hidden
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={RING_DASH.radius}
+          stroke="currentColor"
+          strokeWidth={stroke}
+          strokeDasharray={`${RING_DASH.dash} ${RING_DASH.gap}`}
+        />
+      </svg>
       <span
-        className="block rounded-full"
+        className="relative block rounded-full"
         style={{ width: a.dotSize, height: a.dotSize, background: bulletPaintCss(a.dot) }}
         data-bullet-dot
       />

@@ -313,7 +313,9 @@ click on it navigates whether the row is being read or edited
 bullet shows — its kind and shape, its glyph, whether it has a halo, the
 paints of its halo, dot and ring (a node's tag colours, or the ink at a
 stated strength when it has none) and its geometry (the 24px box, the 4px
-leaf and 5px parent dot, the halo inset, the 18px ring) — as one record,
+leaf and 5px parent dot, the halo inset, the 18px ring with its stroke and
+its dashes fitted whole to the circle, and the query magnifier as a lens and
+a handle rather than a copied path) — as one record,
 `BulletAppearance`, and `outlineBulletAppearance` reads it off an outline
 node. `Bullet` renders that record and decides nothing; the graph's bullet
 theme paints the same record (Graph → The themes), so the two cannot drift.

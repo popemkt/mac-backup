@@ -104,13 +104,14 @@ export const BULLET_INK = "var(--foreground)";
 /**
  * A bullet's geometry, CSS pixels at density 1 (DESIGN-REFINE §2 W1): the
  * 24px box every mode shares, the halo inset from it, the dashed reference
- * ring, the query icon and the two dot sizes. Every part is sized from here,
- * so every renderer keeps the parts in proportion.
+ * ring (its outer size, its stroke, and the dash and gap it is drawn in),
+ * the query icon and the two dot sizes. Every part is sized from here, so
+ * every renderer keeps the parts in proportion.
  */
 export const BULLET_GEOMETRY = {
   box: 24,
   haloInset: 3,
-  ring: 18,
+  ring: { size: 18, stroke: 1, dash: 3, gap: 2 },
   icon: 14,
   dot: { leaf: 4, parent: 5 },
 } as const;
@@ -119,14 +120,59 @@ export const BULLET_GEOMETRY = {
 export const BULLET_GLYPH = { size: "--type-label", weight: 700 } as const;
 
 /**
- * The query bullet's glyph: Phosphor's bold magnifier (MagnifyingGlass,
- * `weight="bold"`), held here as the one path every renderer of a bullet
- * draws — in a box of `viewBox` units, `BULLET_GEOMETRY.icon` pixels wide.
+ * The query bullet's glyph, a magnifier (Phosphor's bold MagnifyingGlass),
+ * as geometry: a lens circle and a handle running from the lens's rim to its
+ * round end, both one stroke wide, in a box of `viewBox` units drawn
+ * `BULLET_GEOMETRY.icon` pixels wide. A renderer draws this, not a copy: the
+ * DOM strokes `queryIconPath()`, a shader measures its distance to it.
  */
 export const BULLET_QUERY_ICON = {
   viewBox: 256,
-  path: "M232.49,215.51,185,168a92.12,92.12,0,1,0-17,17l47.53,47.54a12,12,0,0,0,17-17ZM44,112a68,68,0,1,1,68,68A68.07,68.07,0,0,1,44,112Z",
+  lens: { x: 112, y: 112, radius: 80 },
+  handle: { x: 224, y: 224 },
+  stroke: 24,
 } as const;
+
+/** Where the magnifier's handle leaves the lens: its rim, toward the handle's end. */
+export function queryHandleStart(): { x: number; y: number } {
+  const { lens, handle } = BULLET_QUERY_ICON;
+  const length = Math.hypot(handle.x - lens.x, handle.y - lens.y);
+  return {
+    x: lens.x + ((handle.x - lens.x) / length) * lens.radius,
+    y: lens.y + ((handle.y - lens.y) / length) * lens.radius,
+  };
+}
+
+/**
+ * The magnifier as one SVG path to stroke `BULLET_QUERY_ICON.stroke` wide with
+ * round caps: the lens as two half-circle arcs, the handle as a line. One path,
+ * so a translucent ink paints the overlap once.
+ */
+export function queryIconPath(): string {
+  const { lens, handle } = BULLET_QUERY_ICON;
+  const { x, y, radius: r } = lens;
+  const from = queryHandleStart();
+  return [
+    `M${x - r},${y}A${r},${r} 0 1 0 ${x + r},${y}A${r},${r} 0 1 0 ${x - r},${y}Z`,
+    `M${from.x},${from.y}L${handle.x},${handle.y}`,
+  ].join("");
+}
+
+/**
+ * The reference ring's dashes, fitted to its circle: as many whole
+ * dash-and-gap periods as come nearest `BULLET_GEOMETRY.ring`'s, stretched
+ * evenly so the last meets the first. `radius` is the stroke's centre line,
+ * `dash` and `gap` are arc lengths, the first dash starting at three o'clock
+ * and running clockwise.
+ */
+export function bulletRingDash(): { radius: number; count: number; dash: number; gap: number } {
+  const { size, stroke, dash, gap } = BULLET_GEOMETRY.ring;
+  const radius = size / 2 - stroke / 2;
+  const around = 2 * Math.PI * radius;
+  const count = Math.max(1, Math.round(around / (dash + gap)));
+  const stretch = around / (count * (dash + gap));
+  return { radius, count, dash: dash * stretch, gap: gap * stretch };
+}
 
 /** A `sys.*` bullet is drawn at this opacity. */
 export const BULLET_SYS_OPACITY = 0.5;
@@ -283,11 +329,12 @@ export function bulletAppearance(input: BulletAppearanceInput): BulletAppearance
   };
 }
 
-const HALO_RADIUS = BULLET_GEOMETRY.box / 2 - BULLET_GEOMETRY.haloInset;
+/** The halo's radius, px of the box: the box less its inset. */
+const BULLET_HALO_RADIUS = BULLET_GEOMETRY.box / 2 - BULLET_GEOMETRY.haloInset;
 /** How far each shape shows from the bullet's centre, px. */
 const SHAPE_EXTENT: Record<BulletShape, (a: BulletAppearance) => number> = {
   dot: (a) => a.dotSize / 2,
-  "ref-ring": () => BULLET_GEOMETRY.ring / 2,
+  "ref-ring": () => BULLET_GEOMETRY.ring.size / 2,
   query: () => BULLET_GEOMETRY.icon / 2,
   supertag: () => BULLET_GEOMETRY.icon / 2,
   glyph: () => BULLET_GEOMETRY.icon / 2,
@@ -299,7 +346,7 @@ const SHAPE_EXTENT: Record<BulletShape, (a: BulletAppearance) => number> = {
  * drawn bullet by.
  */
 export function bulletExtent(a: BulletAppearance): number {
-  return a.showHalo ? HALO_RADIUS : SHAPE_EXTENT[a.shape](a);
+  return a.showHalo ? BULLET_HALO_RADIUS : SHAPE_EXTENT[a.shape](a);
 }
 
 /** How a row draws the bullet beyond the node itself. */

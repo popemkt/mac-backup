@@ -110,7 +110,7 @@ describe("one shape per kind", () => {
     expect(out).toContain("data-bullet-ref-ring");
     expect(out).toContain("data-bullet-dot");
     expect(out).toContain('data-bullet-ref="true"');
-    expect(out).toContain("border-dashed");
+    expect(out).toContain("stroke-dasharray");
   });
 });
 

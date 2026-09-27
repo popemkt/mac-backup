@@ -5,7 +5,12 @@
  * shape the painter lays and the colour it lays it in.
  */
 import { describe, expect, it } from "vitest";
-import { BULLET_GEOMETRY, bulletAppearance, type BulletAppearanceInput } from "./bullet-mode";
+import {
+  BULLET_GEOMETRY,
+  bulletAppearance,
+  bulletRingDash,
+  type BulletAppearanceInput,
+} from "./bullet-mode";
 import { bulletPaintKey, paintBullet, type BulletPage } from "./bullet-paint";
 import { SYSTEM_IDS } from "./types";
 
@@ -123,7 +128,7 @@ describe("paintBullet draws the bullet definition", () => {
   });
 
   it("a collapsed reference ring strokes over its halo, not over a ground dash", () => {
-    const ring = BULLET_GEOMETRY.ring / 2 - 0.5;
+    const ring = bulletRingDash().radius;
     const { ctx, marks } = recorder();
     const a = appear({ hasChildren: true, childCount: 2, isRef: true, tagColors: ["red"] });
     expect(a.shape).toBe("ref-ring");
@@ -136,7 +141,7 @@ describe("paintBullet draws the bullet definition", () => {
   });
 
   it("an open reference ring, with nothing under it, strokes over the ground first", () => {
-    const ring = BULLET_GEOMETRY.ring / 2 - 0.5;
+    const ring = bulletRingDash().radius;
     const { ctx, marks } = recorder();
     const a = appear({ isRef: true, collapsed: false, tagColors: ["red"] });
     expect(a.showHalo).toBe(false);

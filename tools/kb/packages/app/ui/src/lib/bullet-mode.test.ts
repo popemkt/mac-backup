@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   BULLET_GEOMETRY,
   BULLET_INK,
+  BULLET_QUERY_ICON,
   bulletAppearance,
+  bulletRingDash,
+  queryHandleStart,
+  queryIconPath,
   bulletPaintCss,
   resolveBulletKind,
   type BulletModeInput,
@@ -119,6 +123,23 @@ describe("bulletAppearance paints and sizes (the one definition every renderer d
 
   it("the halo sits inside the box, and the ring is the halo's size", () => {
     const { box, haloInset, ring } = BULLET_GEOMETRY;
-    expect(box - 2 * haloInset).toBe(ring);
+    expect(box - 2 * haloInset).toBe(ring.size);
+  });
+
+  it("the ring's dashes close on themselves, near the stated dash and gap", () => {
+    const { radius, count, dash, gap } = bulletRingDash();
+    const { size, stroke } = BULLET_GEOMETRY.ring;
+    expect(radius).toBe(size / 2 - stroke / 2);
+    expect(count * (dash + gap)).toBeCloseTo(2 * Math.PI * radius, 9);
+    expect(dash / gap).toBeCloseTo(BULLET_GEOMETRY.ring.dash / BULLET_GEOMETRY.ring.gap, 9);
+  });
+
+  it("the magnifier's handle leaves the lens on its rim", () => {
+    const { lens } = BULLET_QUERY_ICON;
+    const from = queryHandleStart();
+    expect(Math.hypot(from.x - lens.x, from.y - lens.y)).toBeCloseTo(lens.radius, 9);
+    expect(queryIconPath()).toContain(
+      `L${BULLET_QUERY_ICON.handle.x},${BULLET_QUERY_ICON.handle.y}`,
+    );
   });
 });

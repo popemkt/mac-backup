@@ -22,6 +22,12 @@ import { present } from "@kb/model";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { queryResultInstanceKey } from "@/lib/instance-key";
+import {
+  BULLET_GEOMETRY,
+  BULLET_QUERY_ICON,
+  bulletRingDash,
+  queryIconPath,
+} from "@/lib/bullet-mode";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID, type OutlineNode, type TagBadge } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
 import { resetOutlineStore } from "@/test-support/outline-store";
@@ -166,7 +172,7 @@ describe("bullet paint (a node's tag colors)", () => {
     );
     expect(html).toContain("data-bullet-ref-ring");
     expect(html).not.toContain("red40");
-    expect(html).toContain("border-color:color-mix(in oklab, red 25%, transparent)");
+    expect(html).toContain("color:color-mix(in oklab, red 25%, transparent)");
   });
 
   // --- surfaces that cannot be divided ----------------------------------
@@ -183,6 +189,61 @@ describe("bullet paint (a node's tag colors)", () => {
     expect(html).toContain('data-bullet-kind="tag"');
     expect(html).toContain(`color:${RED}`);
     expect(html).not.toContain("conic-gradient");
+  });
+});
+
+/** The bullet's markup, read back as a document. */
+function bulletDoc(node: OutlineNode, isRef = false): Document {
+  const doc = new Window().document;
+  doc.body.innerHTML = bulletHtml(node, isRef);
+  return doc as unknown as Document;
+}
+
+const px = (value: number) => `${value}px`;
+
+// The graph's bullet shaders take the same numbers (`lib/bullet-gpu`), so the
+// outline and the graph draw one bullet.
+describe("the outline's bullet draws the one description (lib/bullet-mode)", () => {
+  it("a collapsed parent: the halo at the stated inset, the parent dot at its size", () => {
+    const doc = bulletDoc(
+      stubOutlineNode({ id: "n.p", text: "p", children: ["c1"], collapsed: true }),
+    );
+    const halo = doc.querySelector<HTMLElement>("[data-bullet-halo]");
+    expect(halo?.style.inset).toBe(px(BULLET_GEOMETRY.haloInset));
+    const dot = doc.querySelector<HTMLElement>("[data-bullet-dot]");
+    expect(dot?.style.width).toBe(px(BULLET_GEOMETRY.dot.parent));
+  });
+
+  it("a reference ring: its circle, stroke and dashes are the description's", () => {
+    const doc = bulletDoc(stubOutlineNode({ id: "n.r", text: "r" }), true);
+    const ring = doc.querySelector("[data-bullet-ref-ring] circle");
+    const dash = bulletRingDash();
+    expect(Number(ring?.getAttribute("r"))).toBe(dash.radius);
+    expect(Number(ring?.getAttribute("stroke-width"))).toBe(BULLET_GEOMETRY.ring.stroke);
+    expect(ring?.getAttribute("stroke-dasharray")).toBe(`${dash.dash} ${dash.gap}`);
+    const box = doc.querySelector<HTMLElement>("[data-bullet-ref-ring]");
+    expect(box?.style.width).toBe(px(BULLET_GEOMETRY.ring.size));
+    const dot = doc.querySelector<HTMLElement>("[data-bullet-dot]");
+    expect(dot?.style.width).toBe(px(BULLET_GEOMETRY.dot.leaf));
+  });
+
+  it("a query node: the magnifier's path and stroke, in the icon's box", () => {
+    const doc = bulletDoc(
+      stubOutlineNode({
+        id: "n.q",
+        text: "q",
+        props: { [SYSTEM_IDS.queryField]: [{ t: "str", v: "[]" }] },
+      }),
+    );
+    const svg = doc.querySelector("[data-bullet-query]");
+    expect(Number(svg?.getAttribute("width"))).toBe(BULLET_GEOMETRY.icon);
+    expect(svg?.getAttribute("viewBox")).toBe(
+      `0 0 ${BULLET_QUERY_ICON.viewBox} ${BULLET_QUERY_ICON.viewBox}`,
+    );
+    const path = svg?.querySelector("path");
+    expect(path?.getAttribute("d")).toBe(queryIconPath());
+    expect(Number(path?.getAttribute("stroke-width"))).toBe(BULLET_QUERY_ICON.stroke);
+    expect(path?.getAttribute("stroke-linecap")).toBe("round");
   });
 });
 

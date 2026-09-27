@@ -16,6 +16,8 @@ import {
   BULLET_INK,
   BULLET_QUERY_ICON,
   BULLET_SYS_OPACITY,
+  bulletRingDash,
+  queryIconPath,
   type BulletAppearance,
   type BulletPaint,
 } from "@/lib/bullet-mode";
@@ -112,20 +114,26 @@ const SHAPES: Record<
   glyph: (ctx, a, brush) => glyph(ctx, a.glyph ?? "", a, brush),
   query: (ctx, a, brush) => {
     const { icon } = BULLET_GEOMETRY;
-    const { viewBox, path } = BULLET_QUERY_ICON;
-    const shape = new Path2D(path);
+    const { viewBox, stroke } = BULLET_QUERY_ICON;
+    const shape = new Path2D(queryIconPath());
     ctx.save();
     ctx.translate(CENTRE - icon / 2, CENTRE - icon / 2);
     ctx.scale(icon / viewBox, icon / viewBox);
-    // oxlint-disable-next-line unicorn/no-array-fill-with-reference-type -- a canvas fill of a Path2D, not Array#fill
-    inked(ctx, a.ink, brush, () => ctx.fill(shape));
+    ctx.lineWidth = stroke;
+    ctx.lineCap = "round";
+    const color = colorsOf(a.ink, brush.page)[0] ?? brush.page.ink;
+    lay(ctx, brush, color, a.ink.percent, (style) => {
+      ctx.strokeStyle = style;
+      ctx.stroke(shape);
+    });
     ctx.restore();
   },
   "ref-ring": (ctx, a, brush) => {
+    const { radius, dash, gap } = bulletRingDash();
     ctx.beginPath();
-    ctx.arc(CENTRE, CENTRE, BULLET_GEOMETRY.ring / 2 - 0.5, 0, Math.PI * 2);
-    ctx.setLineDash([3, 2]);
-    ctx.lineWidth = 1;
+    ctx.arc(CENTRE, CENTRE, radius, 0, Math.PI * 2);
+    ctx.setLineDash([dash, gap]);
+    ctx.lineWidth = BULLET_GEOMETRY.ring.stroke;
     const color = colorsOf(a.ring, brush.page)[0] ?? brush.page.ink;
     lay(ctx, brush, color, a.ring.percent, (style) => {
       ctx.strokeStyle = style;
