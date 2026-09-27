@@ -15,6 +15,8 @@ export type ValueSlotIntent =
   | "commit"
   /** Put the value back and leave the editor. */
   | "cancel"
+  /** Go where the value points (`ValueKindSpec.follow`). */
+  | "follow"
   /** The editing slot's key: nothing behind the slot may act on it. */
   | "contain";
 
@@ -24,6 +26,8 @@ export interface ValueSlotKeyState {
   readonly keys: "slot" | "editor";
   /** An IME composition is in progress: its Enter confirms the composition. */
   readonly composing: boolean;
+  /** The value points somewhere (`ValueKindSpec.follow` is not null). */
+  readonly canFollow: boolean;
 }
 
 interface SlotBinding {
@@ -33,8 +37,16 @@ interface SlotBinding {
   readonly slotKeysOnly: boolean;
 }
 
+/** ⌘Enter follows the value, whether the slot is at rest or editing. */
+const FOLLOW: SlotBinding = {
+  chord: { key: "Enter", mod: true },
+  intent: "follow",
+  slotKeysOnly: true,
+};
+
 /** First match wins. Shift+Enter is a line break, not a commit. */
 const EDITING_KEYS: readonly SlotBinding[] = [
+  FOLLOW,
   { chord: { key: "Enter", shift: false }, intent: "commit", slotKeysOnly: true },
   { chord: { key: "Escape" }, intent: "cancel", slotKeysOnly: true },
 ];
@@ -44,12 +56,10 @@ export function valueSlotIntent(
   event: KeyChordEvent,
   state: ValueSlotKeyState,
 ): ValueSlotIntent | null {
-  if (!state.editing) return null;
+  const accepts = (binding: SlotBinding) =>
+    (!binding.slotKeysOnly || !state.editing || state.keys === "slot") &&
+    (binding.intent !== "follow" || state.canFollow);
+  if (!state.editing) return lookupChord(event, [FOLLOW], accepts)?.intent ?? null;
   if (state.composing) return "contain";
-  const match = lookupChord(
-    event,
-    EDITING_KEYS,
-    (binding) => !binding.slotKeysOnly || state.keys === "slot",
-  );
-  return match?.intent ?? "contain";
+  return lookupChord(event, EDITING_KEYS, accepts)?.intent ?? "contain";
 }

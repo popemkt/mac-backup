@@ -3,6 +3,7 @@ import type { OutlineNode, PropValue } from "@/lib/types";
 import { useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
+import { KB_REF_ID_ATTR } from "@/lib/md-edit";
 import { refSearchOf } from "@/lib/refs";
 import { useRefCandidates } from "@/lib/use-ref-candidates";
 import { TAG_PALETTE } from "@/lib/tag-color";
@@ -306,9 +307,18 @@ function ResolvedRefRow({
       }
       content={
         <>
-          <span className={cn(KB_TEXT_CLASS, "min-w-0 flex-1 truncate text-foreground/70")}>
-            {/* A resolved target's own text is the label; the caller's
-                `display` is only ever a fallback for an *un*resolved id. */}
+          {/* The label is a pointer segment: a plain click follows it, the
+              way a `[[ref]]` pill does. The rest of the row edits the value.
+              A resolved target's own text is the label; the caller's
+              `display` is only ever a fallback for an *un*resolved id. */}
+          <span
+            className={cn(
+              KB_TEXT_CLASS,
+              "min-w-0 cursor-pointer truncate text-foreground/70 hover:underline",
+              "decoration-foreground/25 underline-offset-2",
+            )}
+            {...{ [KB_REF_ID_ATTR]: refId }}
+          >
             {target.text || "​"}
           </span>
           {target.tags.length > 0 && (

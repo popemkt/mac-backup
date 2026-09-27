@@ -10,7 +10,7 @@ import {
 } from "@phosphor-icons/react";
 import type { FieldContext } from "@/lib/schema";
 import type { PropValue } from "@/lib/types";
-import type { Follow } from "@/lib/follow";
+import { routePointerClick, type Follow } from "@/lib/follow";
 import { emptyValueForType, type FieldType } from "@/lib/field-type";
 import {
   EDITOR_MODES,
@@ -160,6 +160,7 @@ export function ValueSlot({
   };
 
   const opensOnFocus = mode.opensOnFocusWhenEmpty && blank && !editing;
+  const target = spec.follow(shown);
 
   return (
     <div
@@ -172,6 +173,14 @@ export function ValueSlot({
       onFocus={opensOnFocus ? begin : undefined}
       onClick={(e) => {
         if (editing) return;
+        // A pointer segment (a ref label, a link) follows on a plain click, as
+        // it does in node text; a modifier click follows from anywhere.
+        if (routePointerClick(e, onFollow)) return;
+        if (target !== null && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          onFollow(target, "open");
+          return;
+        }
         if (spec.editor === "toggle") e.stopPropagation();
         begin();
       }}
@@ -186,6 +195,7 @@ export function ValueSlot({
           editing,
           keys: mode.keys,
           composing: composing.current || e.nativeEvent.isComposing,
+          canFollow: target !== null,
         });
         if (intent === null) return;
         // A key an editing slot receives is its own: the outline behind it
@@ -196,6 +206,9 @@ export function ValueSlot({
           handle.current?.commit();
         } else if (intent === "cancel") {
           handle.current?.cancel();
+        } else if (intent === "follow" && target !== null) {
+          e.preventDefault();
+          onFollow(target, "open");
         }
       }}
     >

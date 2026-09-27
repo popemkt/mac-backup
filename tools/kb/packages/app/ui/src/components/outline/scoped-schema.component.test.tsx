@@ -144,8 +144,10 @@ describe("a projected view under an ontology scope", () => {
       [...container.querySelectorAll("span")].find((s) => s.textContent === "Done"),
       "option label",
     );
+    // The label itself is a pointer (it follows); the slot around it edits.
+    const slot = present(label.closest<HTMLElement>("[data-value-slot]"), "value slot");
     await act(async () => {
-      label.click();
+      slot.click();
     });
     const listbox = present(container.querySelector('[role="listbox"]'), "ref picker");
     return [...listbox.querySelectorAll('[role="option"]')].map((o) => o.textContent);

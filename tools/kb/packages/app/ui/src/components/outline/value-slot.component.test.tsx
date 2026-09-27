@@ -11,6 +11,8 @@ import { present } from "@kb/model";
 import { installDomGlobals, type InstalledDom } from "@/test-support/dom-globals";
 import { fieldContextOf } from "@/lib/schema";
 import type { NodeMap, PropValue } from "@/lib/types";
+import type { FollowHow, FollowTarget } from "@/lib/follow";
+import { stubOutlineNode } from "@/catalog/fixtures";
 import { ValueSlot } from "./value-slot";
 
 const context = fieldContextOf({
@@ -134,5 +136,91 @@ describe("ValueSlot gestures", () => {
     await mount({ t: "str", v: "before" });
     await press("ArrowDown");
     expect(leaked).toBe(1);
+  });
+});
+
+describe("ValueSlot follows like a link", () => {
+  let dom: InstalledDom;
+  let container: HTMLDivElement;
+  let root: Root;
+  let followed: Array<[FollowTarget, FollowHow]>;
+
+  const nodes: NodeMap = new Map([
+    ["n.target", stubOutlineNode({ id: "n.target", text: "Target one" })],
+  ]);
+  const refContext = fieldContextOf({ ontologyId: null, nodes, wireNodes: [], index: null });
+
+  beforeAll(() => {
+    dom = installDomGlobals();
+    (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
+    dom.restore();
+  });
+
+  beforeEach(() => {
+    followed = [];
+    container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
+    dom.window.document.body.appendChild(container as unknown as never);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  async function mountRef() {
+    await act(async () => {
+      root.render(
+        createElement(ValueSlot, {
+          value: { t: "ref", v: "n.target" },
+          fieldType: "ref",
+          fieldId: "f.link",
+          context: refContext,
+          onCommit: () => undefined,
+          onFollow: (target: FollowTarget, how: FollowHow) => followed.push([target, how]),
+        }),
+      );
+    });
+    return present(container.querySelector<HTMLElement>('[data-value-slot="ref"]'), "slot");
+  }
+
+  function clickOn(el: Element, init: { metaKey?: boolean } = {}) {
+    return act(async () => {
+      el.dispatchEvent(
+        new dom.window.MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          ...init,
+        }) as unknown as Event,
+      );
+    });
+  }
+
+  it("a plain click on the target's label follows it, as a [[ref]] pill does", async () => {
+    await mountRef();
+    const label = present(container.querySelector("[data-kb-ref-id]"), "label");
+    await clickOn(label);
+    expect(followed).toEqual([[{ kind: "node", id: "n.target" }, "open"]]);
+    expect(container.querySelector("input")).toBeNull();
+  });
+
+  it("a plain click beside the label edits the value", async () => {
+    const slot = await mountRef();
+    const row = present(slot.querySelector('[data-node-row="true"]'), "row");
+    await clickOn(row);
+    expect(followed).toEqual([]);
+    expect(container.querySelector("input")).not.toBeNull();
+  });
+
+  it("a modifier click anywhere on the value follows it", async () => {
+    const slot = await mountRef();
+    const row = present(slot.querySelector('[data-node-row="true"]'), "row");
+    await clickOn(row, { metaKey: true });
+    expect(followed).toEqual([[{ kind: "node", id: "n.target" }, "open"]]);
+    expect(container.querySelector("input")).toBeNull();
   });
 });

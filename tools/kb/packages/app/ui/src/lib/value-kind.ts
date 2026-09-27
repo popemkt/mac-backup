@@ -11,6 +11,8 @@
  * keyed by the same union in `components/outline/field-value.tsx`.
  */
 import type { FieldType } from "@/lib/field-type";
+import { nodeTarget, type FollowTarget } from "@/lib/follow";
+import { isSafeHref } from "@/lib/md-inline";
 import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 
 /**
@@ -64,6 +66,12 @@ export interface ValueKindSpec {
   readonly parse: (text: string) => PropValue | null;
   /** The slot shows its placeholder rather than the value. */
   readonly isBlank: (value: PropValue) => boolean;
+  /**
+   * Where the value points, or null for a value that points nowhere. A slot
+   * with a target follows it on ⌘/Ctrl-click anywhere and on ⌘Enter; its
+   * pointer segments follow on a plain click, as they do in node text.
+   */
+  readonly follow: (value: PropValue) => FollowTarget | null;
 }
 
 /** A scalar reads as unset when it holds its type's zero. */
@@ -73,10 +81,20 @@ function isBlankScalar(value: PropValue): boolean {
 
 const asText = (value: PropValue): string => (value.t === "str" ? value.v : String(value.v));
 const asString = (text: string): PropValue => ({ t: "str", v: text });
+const nowhere = (): FollowTarget | null => null;
 
 export const VALUE_KINDS: Readonly<Record<ValueKind, ValueKindSpec>> = {
-  text: { editor: "caret", text: asText, parse: asString, isBlank: isBlankScalar },
-  url: { editor: "caret", text: asText, parse: asString, isBlank: isBlankScalar },
+  text: { editor: "caret", text: asText, parse: asString, isBlank: isBlankScalar, follow: nowhere },
+  url: {
+    editor: "caret",
+    text: asText,
+    parse: asString,
+    isBlank: isBlankScalar,
+    follow: (value) =>
+      value.t === "str" && value.v !== "" && isSafeHref(value.v)
+        ? { kind: "href", href: value.v.trim() }
+        : null,
+  },
   number: {
     editor: "caret",
     text: asText,
@@ -85,26 +103,36 @@ export const VALUE_KINDS: Readonly<Record<ValueKind, ValueKindSpec>> = {
       return Number.isNaN(n) ? null : { t: "num", v: n };
     },
     isBlank: (value) => value.t !== "num",
+    follow: nowhere,
   },
   date: {
     editor: "calendar",
     text: (value) => (value.t === "str" || value.t === "date" ? value.v : ""),
     parse: asString,
     isBlank: (value) => !(value.t === "str" || value.t === "date") || value.v === "",
+    follow: nowhere,
   },
   checkbox: {
     editor: "toggle",
     text: (value) => String(value.t === "bool" && value.v),
     parse: (text) => ({ t: "bool", v: text === "true" }),
     isBlank: (value) => value.t !== "bool" || !value.v,
+    follow: nowhere,
   },
   ref: {
     editor: "picker",
     text: (value) => (value.t === "ref" ? value.v : ""),
     parse: (text) => ({ t: "ref", v: text }),
     isBlank: (value) => value.t !== "ref" || value.v === "",
+    follow: (value) => (value.t === "ref" && value.v !== "" ? nodeTarget(value.v) : null),
   },
-  color: { editor: "swatch", text: asText, parse: asString, isBlank: isBlankScalar },
+  color: {
+    editor: "swatch",
+    text: asText,
+    parse: asString,
+    isBlank: isBlankScalar,
+    follow: nowhere,
+  },
 };
 
 /**
