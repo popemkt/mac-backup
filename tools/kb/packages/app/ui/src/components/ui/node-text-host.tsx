@@ -453,6 +453,7 @@ export function NodeTextHost({
         {refOpen && (
           <PickerList
             placement="popover"
+            anchorRef={editorRef}
             rows={rows}
             activeIndex={picker.activeIndex}
             onHover={picker.setActiveIndex}

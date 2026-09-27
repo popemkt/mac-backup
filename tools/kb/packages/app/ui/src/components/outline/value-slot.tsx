@@ -19,8 +19,9 @@ import {
   valueKindOf,
   VALUE_KINDS,
   type ValueKind,
+  type ValueKindSpec,
 } from "@/lib/value-kind";
-import { valueSlotIntent } from "@/lib/value-slot-keymap";
+import { valueSlotIntent, type ValueSlotIntent } from "@/lib/value-slot-keymap";
 import {
   CaretValue,
   CheckboxSurface,
@@ -30,6 +31,7 @@ import {
   RefSurface,
   type CaretDisplay,
   type EditHandle,
+  type FieldHandle,
   type RejectedInput,
   type ValueSurfaceProps,
 } from "./field-value";
@@ -115,6 +117,23 @@ export interface ValueSlotProps {
   onCommit: (next: PropValue) => void;
   /** Carry out a follow from inside the value (`useFollow`). */
   onFollow: Follow;
+  /**
+   * The field as a whole, from the stack that holds its values. A slot on its
+   * own (a story, a test) is a lone single-valued field.
+   */
+  field?: FieldHandle;
+}
+
+/** A slot with no stack around it: one value, replaced by what is picked. */
+function loneField(value: PropValue | null, onCommit: (next: PropValue) => void): FieldHandle {
+  return {
+    values: value === null ? [] : [value],
+    many: false,
+    add: onCommit,
+    remove: () => undefined,
+    create: () => Promise.resolve(null),
+    openPicker: () => undefined,
+  };
 }
 
 /**
@@ -141,11 +160,61 @@ export function ValueSlot({
   autoOpen = false,
   onCommit,
   onFollow,
+  field = loneField(value, onCommit),
 }: ValueSlotProps) {
   const kind = valueKindOf(fieldType, fieldId, context.schema.get(fieldId));
   const spec = VALUE_KINDS[kind];
-  const mode = EDITOR_MODES[spec.editor];
   const shown = value ?? emptyValueForType(fieldType);
+  const slot = useSlotGestures({ spec, shown, autoOpen, field, onCommit, onFollow });
+  const { Surface } = VALUE_VIEWS[kind];
+
+  return (
+    <div
+      className="min-w-0"
+      data-value-slot={kind}
+      data-editing={slot.editing ? "true" : undefined}
+      {...slot.props}
+    >
+      <Surface
+        value={shown}
+        blank={slot.blank}
+        editing={slot.editing}
+        caretAt={slot.caretAt}
+        rejected={slot.rejected}
+        spec={spec}
+        display={display}
+        fieldId={fieldId}
+        context={context}
+        onEnd={slot.end}
+        handleRef={slot.handle}
+        field={field}
+        onFollow={onFollow}
+      />
+    </div>
+  );
+}
+
+/**
+ * A slot's state and its gestures: open or closed (and where a caret editor
+ * opens), refused input, and the focus, click, composition and key handlers
+ * the slot's element takes. Every gesture on a value is here.
+ */
+function useSlotGestures({
+  spec,
+  shown,
+  autoOpen,
+  field,
+  onCommit,
+  onFollow,
+}: {
+  spec: ValueKindSpec;
+  shown: PropValue;
+  autoOpen: boolean;
+  field: FieldHandle;
+  onCommit: (next: PropValue) => void;
+  onFollow: Follow;
+}) {
+  const mode = EDITOR_MODES[spec.editor];
   const blank = spec.isBlank(shown);
   /** Open, and where a caret editor's caret goes; closed is null. */
   const [entry, setEntry] = useState<{ at: number | "end" } | null>(
@@ -156,7 +225,7 @@ export function ValueSlot({
   const [rejected, setRejected] = useState<RejectedInput | null>(null);
   const handle = useRef<EditHandle>(null);
   const composing = useRef(false);
-  const { Surface } = VALUE_VIEWS[kind];
+  const target = spec.follow(shown);
 
   /**
    * Activate the slot: open its editor — with the caret at `at`, for a caret
@@ -164,6 +233,9 @@ export function ValueSlot({
    */
   const begin = (at: number | "end" = "end") => {
     if (spec.editor === "toggle") onCommit(toggledValue(shown));
+    // A many-valued field is picked as a whole: its stack draws one picker
+    // over every value, so toggling this value off cannot close it.
+    else if (spec.editor === "picker" && field.many) field.openPicker();
     else if (spec.editor !== "swatch") setEntry({ at });
   };
 
@@ -176,78 +248,64 @@ export function ValueSlot({
     } else setRejected({ text, reason: parsed.reason });
   };
 
-  const opensOnFocus = mode.opensOnFocusWhenEmpty && blank && !editing;
-  const target = spec.follow(shown);
+  const follow = () => {
+    if (target !== null) onFollow(target, "open");
+  };
 
-  return (
-    <div
-      className="min-w-0"
-      data-value-slot={kind}
-      data-editing={editing ? "true" : undefined}
-      tabIndex={opensOnFocus ? 0 : undefined}
-      role={opensOnFocus ? "button" : undefined}
-      aria-label={opensOnFocus ? "Set value" : undefined}
-      onFocus={opensOnFocus ? () => begin() : undefined}
-      onClick={(e) => {
-        if (editing) return;
-        // A pointer segment (a ref label, a link) follows on a plain click, as
-        // it does in node text; a modifier click follows from anywhere.
-        if (routePointerClick(e, onFollow)) return;
-        if (target !== null && (e.metaKey || e.ctrlKey)) {
-          e.preventDefault();
-          onFollow(target, "open");
-          return;
-        }
-        if (spec.editor === "toggle") e.stopPropagation();
-        // The caret lands where the click did, as it does in node text.
-        begin(handle.current?.caretAtPoint(e.clientX, e.clientY) ?? "end");
-      }}
-      onCompositionStart={() => {
-        composing.current = true;
-      }}
-      onCompositionEnd={() => {
-        composing.current = false;
-      }}
-      onKeyDown={(e) => {
-        const intent = valueSlotIntent(e, {
-          editing,
-          keys: mode.keys,
-          composing: composing.current || e.nativeEvent.isComposing,
-          canFollow: target !== null,
-        });
-        if (intent === null) return;
-        // A key an editing slot receives is its own: the outline behind it
-        // must not also act on it.
-        e.stopPropagation();
-        if (intent === "commit") {
-          e.preventDefault();
-          handle.current?.commit();
-        } else if (intent === "cancel") {
-          setRejected(null);
-          handle.current?.cancel();
-        } else if (intent === "softBreak") {
-          e.preventDefault();
-          handle.current?.softBreak();
-        } else if (intent === "follow" && target !== null) {
-          e.preventDefault();
-          onFollow(target, "open");
-        }
-      }}
-    >
-      <Surface
-        value={shown}
-        blank={blank}
-        editing={editing}
-        caretAt={entry?.at ?? "end"}
-        rejected={rejected}
-        spec={spec}
-        display={display}
-        fieldId={fieldId}
-        context={context}
-        onEnd={end}
-        handleRef={handle}
-        onFollow={onFollow}
-      />
-    </div>
-  );
+  /** What each keymap intent does here; `contain` only keeps the key in. */
+  const APPLY: Readonly<Record<ValueSlotIntent, () => void>> = {
+    commit: () => handle.current?.commit(),
+    cancel: () => {
+      setRejected(null);
+      handle.current?.cancel();
+    },
+    softBreak: () => handle.current?.softBreak(),
+    follow,
+    contain: () => undefined,
+  };
+
+  const opensOnFocus = mode.opensOnFocusWhenEmpty && blank && !editing;
+
+  const props = {
+    tabIndex: opensOnFocus ? 0 : undefined,
+    role: opensOnFocus ? "button" : undefined,
+    "aria-label": opensOnFocus ? "Set value" : undefined,
+    onFocus: opensOnFocus ? () => begin() : undefined,
+    onClick: (e: React.MouseEvent) => {
+      if (editing) return;
+      // A pointer segment (a ref label, a link) follows on a plain click, as
+      // it does in node text; a modifier click follows from anywhere.
+      if (routePointerClick(e, onFollow)) return;
+      if (target !== null && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        follow();
+        return;
+      }
+      if (spec.editor === "toggle") e.stopPropagation();
+      // The caret lands where the click did, as it does in node text.
+      begin(handle.current?.caretAtPoint(e.clientX, e.clientY) ?? "end");
+    },
+    onCompositionStart: () => {
+      composing.current = true;
+    },
+    onCompositionEnd: () => {
+      composing.current = false;
+    },
+    onKeyDown: (e: React.KeyboardEvent) => {
+      const intent = valueSlotIntent(e, {
+        editing,
+        keys: mode.keys,
+        composing: composing.current || e.nativeEvent.isComposing,
+        canFollow: target !== null,
+      });
+      if (intent === null) return;
+      // A key an editing slot receives is its own: the outline behind it
+      // must not also act on it.
+      e.stopPropagation();
+      if (intent !== "contain" && intent !== "cancel") e.preventDefault();
+      APPLY[intent]();
+    },
+  };
+
+  return { blank, editing, caretAt: entry?.at ?? "end", rejected, handle, end, props };
 }

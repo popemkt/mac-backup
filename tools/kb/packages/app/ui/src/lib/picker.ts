@@ -26,7 +26,7 @@ export interface PickerCandidate {
 }
 
 /** A half-open `[from, to)` range of a label that the query matched. */
-type MatchRange = readonly [number, number];
+export type MatchRange = readonly [number, number];
 
 /** The id of the row that mints a node from the query. Never a node id. */
 export const CREATE_ROW_ID = "\u0000create";
@@ -144,4 +144,55 @@ export function pickerRows(
   const named = candidates.some((c) => c.label.trim().toLowerCase() === name.toLowerCase());
   if (canCreate && name !== "" && !named) rows.push({ kind: "create", id: CREATE_ROW_ID, name });
   return rows;
+}
+
+/**
+ * Split a label into the runs a query matched and the runs it did not, for
+ * the list to highlight.
+ */
+export function labelRuns(
+  label: string,
+  matches: readonly MatchRange[],
+): Array<{ text: string; matched: boolean; from: number }> {
+  const out: Array<{ text: string; matched: boolean; from: number }> = [];
+  let at = 0;
+  for (const [from, to] of matches) {
+    if (from > at) out.push({ text: label.slice(at, from), matched: false, from: at });
+    out.push({ text: label.slice(from, to), matched: true, from });
+    at = to;
+  }
+  if (at < label.length) out.push({ text: label.slice(at), matched: false, from: at });
+  return out;
+}
+
+/** What orders a picker's candidates before a query does. */
+export interface CandidateOrder {
+  /** A declared order (a field's own options, in outline order): it wins outright. */
+  readonly declared?: readonly string[];
+  /** Picked lately, most recent first. */
+  readonly recent?: readonly string[];
+  /** How many times each candidate is already used where this picker writes. */
+  readonly uses?: ReadonlyMap<string, number>;
+}
+
+/**
+ * Candidates in the order a picker offers them with nothing typed: a declared
+ * order when there is one — an option list is curated, and reordering a
+ * status list by use would scramble it — otherwise the recently picked
+ * first, then the most used, then the source's own order. A query then ranks
+ * by match (`pickerRows`), stable, so this order breaks its ties.
+ */
+export function orderCandidates(
+  candidates: readonly PickerCandidate[],
+  { declared, recent = [], uses }: CandidateOrder,
+): PickerCandidate[] {
+  if (declared !== undefined) {
+    const place = new Map(declared.map((id, i) => [id, i]));
+    const at = (c: PickerCandidate) => place.get(c.id) ?? Number.POSITIVE_INFINITY;
+    return candidates.toSorted((a, b) => at(a) - at(b));
+  }
+  const lately = new Map(recent.map((id, i) => [id, i]));
+  const rank = (c: PickerCandidate) => lately.get(c.id) ?? Number.POSITIVE_INFINITY;
+  const used = (c: PickerCandidate) => uses?.get(c.id) ?? 0;
+  return candidates.toSorted((a, b) => rank(a) - rank(b) || used(b) - used(a));
 }

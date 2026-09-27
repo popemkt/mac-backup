@@ -353,7 +353,7 @@ describe("what a commit writes", () => {
       );
     });
     const input = present(container.querySelector("input"), "ref input");
-    expect(input.getAttribute("placeholder")).toBe("Search node\u2026");
+    expect(input.getAttribute("placeholder")).toBe("Search or create\u2026");
     expect(committed).toEqual([]);
   });
 

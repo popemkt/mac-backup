@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { pickerRows } from "@/lib/picker";
 import { usePickerKeys } from "@/lib/use-picker";
 import { PickerList } from "@/components/ui/picker-list";
@@ -44,6 +44,7 @@ export function TagFieldsConfigView({
 }: TagFieldsConfigViewProps) {
   const [draft, setDraft] = useState("");
   const [picking, setPicking] = useState(false);
+  const anchorRef = useRef<HTMLDivElement>(null);
 
   function add(name: string) {
     const trimmed = name.trim();
@@ -115,7 +116,7 @@ export function TagFieldsConfigView({
       {!readOnly && (
         <div className="mt-1 flex items-center gap-1.5 px-1">
           <PlusIcon size={10} weight="bold" className="text-foreground/40" aria-hidden />
-          <div className="relative min-w-0 flex-1">
+          <div ref={anchorRef} className="relative min-w-0 flex-1">
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -137,6 +138,7 @@ export function TagFieldsConfigView({
             {picking && (
               <PickerList
                 placement="popover"
+                anchorRef={anchorRef}
                 rows={rows}
                 activeIndex={keys.activeIndex}
                 onHover={keys.setActiveIndex}

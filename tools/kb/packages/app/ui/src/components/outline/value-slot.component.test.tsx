@@ -750,7 +750,8 @@ describe("an option value is a chip", () => {
     await act(async () => {
       slot.click();
     });
+    // The picker keeps the field's own order of its options.
     const offered = [...container.querySelectorAll('[role="option"]')].map((o) => o.textContent);
-    expect(offered).toEqual(["Done", "Todo"]);
+    expect(offered).toEqual(["Todo", "Done"]);
   });
 });

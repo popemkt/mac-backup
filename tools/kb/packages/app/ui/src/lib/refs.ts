@@ -1,3 +1,4 @@
+import { declaresOptionSet, targetQueryOf, targetTagsOf } from "@kb/model";
 import { allowedRefsOf } from "@/lib/field-type";
 import type { FieldContext } from "@/lib/schema";
 import type { PickerCandidate } from "@/lib/picker";
@@ -42,6 +43,46 @@ export interface RefSearch {
 export function refSearchOf(context: FieldContext, fieldId: string): RefSearch {
   const allowed = allowedRefsOf(context, fieldId);
   return { allowed, pool: allowed === null ? context.outline : context.schema };
+}
+
+/**
+ * Where a node minted from a ref field's picker goes, so that it is one of
+ * the field's allowed values the moment it exists: a new option is a child of
+ * the field (the children carrier), a new target of a tag-constrained field
+ * carries the field's first target tag, and an open field's new target is a
+ * top-level node. A field whose targets are a query offers no create: kb
+ * cannot mint a node a query is guaranteed to return.
+ */
+export type RefCreation =
+  | { readonly kind: "child"; readonly parentId: string }
+  | { readonly kind: "tagged"; readonly tagId: string }
+  | { readonly kind: "root" };
+
+export function refCreationOf(context: FieldContext, fieldId: string): RefCreation | null {
+  const field = context.schema.get(fieldId);
+  if (declaresOptionSet(field)) return { kind: "child", parentId: fieldId };
+  const query = targetQueryOf(field);
+  if (query !== null && query !== "") return null;
+  const [tagId] = targetTagsOf(field);
+  if (tagId !== undefined) return { kind: "tagged", tagId };
+  return { kind: "root" };
+}
+
+/**
+ * How many nodes already hold each value of `fieldId` — what "most used"
+ * means to a field's picker (`orderCandidates`).
+ */
+export function refUses(
+  nodes: ReadonlyMap<string, OutlineNode>,
+  fieldId: string,
+): Map<string, number> {
+  const uses = new Map<string, number>();
+  for (const node of nodes.values()) {
+    for (const value of node.props[fieldId] ?? []) {
+      if (value.t === "ref") uses.set(value.v, (uses.get(value.v) ?? 0) + 1);
+    }
+  }
+  return uses;
 }
 
 /**

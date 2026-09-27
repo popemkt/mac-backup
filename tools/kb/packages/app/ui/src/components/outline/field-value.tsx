@@ -3,6 +3,7 @@ import type { OutlineNode, PropValue } from "@/lib/types";
 import { useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
+import { textOr } from "@/lib/text";
 import {
   INLINE_TEXT_CLASSES,
   KB_REF_ID_ATTR,
@@ -18,12 +19,13 @@ import { InlineMarkdown } from "@/components/ui/md-view";
 import { useRevealMarkup } from "@/components/ui/use-reveal-markup";
 import { urlLabel } from "@/lib/url-label";
 import { formatNumber } from "@/lib/number-format";
-import { parseDateInput, parseDay, type ParsedValue } from "@kb/model";
+import { declaresOptionSet, parseDateInput, parseDay, type ParsedValue } from "@kb/model";
 import { longDateLabel, relativeDateLabel } from "@/lib/date-display";
 import { DateEditor } from "@/components/ui/date-editor";
 import { CheckIcon, WarningIcon } from "@phosphor-icons/react";
-import { nodeCandidates, refSearchOf } from "@/lib/refs";
-import { pickerRows } from "@/lib/picker";
+import { nodeCandidates, refCreationOf, refSearchOf, refUses, type RefCreation } from "@/lib/refs";
+import { notePick, recentPicks } from "@/lib/picker-recency";
+import { orderCandidates, pickerRows, type PickerRow } from "@/lib/picker";
 import { usePickerKeys } from "@/lib/use-picker";
 import { optionColorOf, TAG_PALETTE } from "@/lib/tag-color";
 import { asInstance } from "@/lib/dom";
@@ -88,6 +90,8 @@ export interface ValueSurfaceProps {
   onEnd: (parsed?: ParsedValue, text?: string) => void;
   /** Where a caret surface exposes itself to the slot's keymap. */
   handleRef: React.Ref<EditHandle>;
+  /** The field the value belongs to, as a whole (a picker edits it). */
+  field: FieldHandle;
   /** Follow a pointer inside the value: a ref's bullet or tag chip. */
   onFollow: Follow;
 }
@@ -602,54 +606,120 @@ function UnresolvedRefChip({ refId, display }: { refId: string; display: string 
 }
 
 /**
- * The open search: an input over the field's allowed targets, with the
- * suggestion list showing from the moment it focuses (no typing required).
- *
- * Its placeholder is the input's own native attribute. `.empty-placeholder`
- * (`:empty::before`) is the mechanism the other surfaces here use, but it
- * cannot render on an `<input>`, so there is exactly one placeholder per state
- * and this is the open one.
- *
- * Ranking is the picker engine's (`pickerRows`) and the keys are
- * `usePickerKeys`; what is left here is the input, the query state that
- * belongs to it, and the two ways a search ends — a pick, and a blur.
+ * What a value slot, and a field's picker, may do to the field as a whole —
+ * the stack that holds the values provides it.
  */
-function RefSearch({
+export interface FieldHandle {
+  /** Every value the field holds: a picker shows them checked. */
+  readonly values: readonly PropValue[];
+  /** The field holds many values: its picker toggles, and stays open. */
+  readonly many: boolean;
+  add: (value: PropValue) => void;
+  remove: (value: PropValue) => void;
+  /** Mint a node the field may point at (`refCreationOf`); its id, or null. */
+  create: (creation: RefCreation, name: string) => Promise<string | null>;
+  /** Open the field's picker, for a many-valued field (the stack draws it). */
+  openPicker: () => void;
+}
+
+/**
+ * The one node picker, as a field's values are chosen with it: an input over
+ * the field's allowed targets (`refSearchOf`: its option set, its tag, its
+ * query, or the outline), with the list showing from the moment it opens.
+ *
+ * - **Type to filter**, fuzzily, the matched letters marked (`pickerRows`).
+ *   With nothing typed, an option set keeps its own order; other fields
+ *   offer the recently picked first, then the most used.
+ * - **Already picked is checked.** In a many-valued field Enter (or a click)
+ *   toggles a row and the picker stays open for the next; Backspace on an
+ *   empty query takes back the last value. In a single-valued field a pick
+ *   replaces the value and closes.
+ * - **Create** the query as a new node, as the last row, wherever the
+ *   field's declaration says a new target goes (`refCreationOf`) — a new
+ *   option under the field, a node with the field's tag — and never for a
+ *   query-constrained field, whose members kb cannot promise.
+ * - Escape closes; so does leaving the input.
+ *
+ * Its placeholder is the input's own native attribute: `.empty-placeholder`
+ * cannot render on an `<input>`, so there is one placeholder per state.
+ */
+export function FieldPicker({
   fieldId,
   context,
-  onCommit,
+  field,
+  initialQuery = "",
+  onReplace,
   onClose,
 }: {
   fieldId: string;
   context: FieldContext;
-  onCommit: (id: string) => void;
+  field: FieldHandle;
+  /** What the query starts as: the character typed on a value at rest. */
+  initialQuery?: string;
+  /** A single-valued field: the pick replaces the value. */
+  onReplace: (id: string) => void;
   onClose: () => void;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
+  const anchorRef = useRef<HTMLDivElement>(null);
   const search = refSearchOf(context, fieldId);
-  const candidates = useMemo(
-    () => nodeCandidates(search.pool, { allowed: search.allowed }),
-    [search.pool, search.allowed],
+  const fieldNode = context.schema.get(fieldId);
+  const creation = refCreationOf(context, fieldId);
+  const selected = useMemo(
+    () => new Set(field.values.flatMap((v) => (v.t === "ref" ? [v.v] : []))),
+    [field.values],
   );
-  const rows = useMemo(() => pickerRows(candidates, { query, limit: 12 }), [candidates, query]);
+  const candidates = useMemo(
+    () =>
+      orderCandidates(nodeCandidates(search.pool, { allowed: search.allowed }), {
+        declared: declaresOptionSet(fieldNode) ? fieldNode?.children : undefined,
+        recent: recentPicks(fieldId),
+        uses: refUses(context.outline, fieldId),
+      }),
+    [search.pool, search.allowed, fieldNode, fieldId, context.outline],
+  );
+  const rows = useMemo(
+    () => pickerRows(candidates, { query, selected, canCreate: creation !== null, limit: 50 }),
+    [candidates, query, selected, creation],
+  );
 
-  const { activeIndex, setActiveIndex, handleKeyDown } = usePickerKeys({
+  const pickId = (id: string) => {
+    notePick(fieldId, id);
+    if (!field.many) {
+      onReplace(id);
+      return;
+    }
+    const value: PropValue = { t: "ref", v: id };
+    if (selected.has(id)) field.remove(value);
+    else field.add(value);
+    setQuery("");
+  };
+
+  const pick = (row: PickerRow | null) => {
+    if (row?.kind === "item") pickId(row.id);
+    else if (row?.kind === "create" && creation !== null) {
+      void field.create(creation, row.name).then((id) => {
+        if (id !== null) pickId(id);
+      });
+    }
+  };
+
+  const last = field.values.at(-1);
+  const keys = usePickerKeys({
     rows,
     query,
-    onPick: (row) => {
-      if (row?.kind === "item") onCommit(row.id);
-      // Manual entry still allowed (the list is suggestions-only).
-      else if (query.trim()) onCommit(query.trim());
-    },
+    onPick: pick,
     onCancel: onClose,
+    onRemoveLast: field.many && last !== undefined ? () => field.remove(last) : undefined,
   });
 
   return (
-    <div className="relative min-w-0 flex-1">
+    <div ref={anchorRef} className="relative min-w-[8rem] flex-1" data-field-picker={fieldId}>
       <input
         type="text"
         value={query}
-        placeholder="Search node…"
+        placeholder={creation === null ? "Search…" : "Search or create…"}
+        aria-label={`Pick ${textOr(fieldNode?.text, "a value")}`}
         className={cn(
           editableClass,
           "w-full border-none bg-transparent text-foreground/70 placeholder:text-foreground/25",
@@ -659,25 +729,33 @@ function RefSearch({
         onKeyDown={(e) => {
           // The outline behind this input must not also act on these keys.
           e.stopPropagation();
-          handleKeyDown(e);
+          keys.handleKeyDown(e);
         }}
-        onBlur={() => {
-          // Delay so mousedown on suggestion can fire first.
-          window.setTimeout(onClose, 120);
-        }}
+        onBlur={onClose}
       />
       <PickerList
         placement="popover"
+        anchorRef={anchorRef}
         rows={rows}
-        activeIndex={activeIndex}
-        onHover={setActiveIndex}
-        onPick={(row) => {
-          if (row.kind === "item") onCommit(row.id);
-        }}
+        activeIndex={keys.activeIndex}
+        onHover={keys.setActiveIndex}
+        onPick={pick}
+        createLabel={(name) => createLabelOf(creation, context, name)}
+        emptyText={query.trim() === "" ? "Nothing to pick yet" : "No matches"}
+        hint={field.many ? "↵ toggle · ⌫ remove last · esc done" : "↵ pick · esc close"}
+        aria-label={textOr(fieldNode?.text, "Values")}
       />
-      {/* No `.empty-placeholder` sibling — see the note on RefSearch. */}
     </div>
   );
+}
+
+/** What the create row offers to make, in the field's words. */
+function createLabelOf(creation: RefCreation | null, context: FieldContext, name: string): string {
+  if (creation?.kind === "child") return `Create option “${name}”`;
+  if (creation?.kind === "tagged") {
+    return `Create #${textOr(context.schema.get(creation.tagId)?.text, "tag")} “${name}”`;
+  }
+  return `Create “${name}”`;
 }
 
 /**
@@ -696,16 +774,18 @@ export function RefSurface({
   display,
   fieldId,
   context,
+  field,
   onEnd,
   onFollow,
 }: ValueSurfaceProps) {
   const refId = spec.text(value);
   if (editing) {
     return (
-      <RefSearch
+      <FieldPicker
         fieldId={fieldId}
         context={context}
-        onCommit={(id) => onEnd(spec.parse(id), id)}
+        field={field}
+        onReplace={(id) => onEnd(spec.parse(id), id)}
         onClose={() => onEnd()}
       />
     );
@@ -735,15 +815,17 @@ export function OptionSurface({
   display,
   fieldId,
   context,
+  field,
   onEnd,
 }: ValueSurfaceProps) {
   const optionId = spec.text(value);
   if (editing) {
     return (
-      <RefSearch
+      <FieldPicker
         fieldId={fieldId}
         context={context}
-        onCommit={(id) => onEnd(spec.parse(id), id)}
+        field={field}
+        onReplace={(id) => onEnd(spec.parse(id), id)}
         onClose={() => onEnd()}
       />
     );

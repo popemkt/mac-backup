@@ -210,7 +210,7 @@ describe("ref editing slot placeholder (one mechanism)", () => {
     // was a second one showing "Empty" under "Search node…".
     const html = renderRefSlot(new Map() as NodeMap, null);
     expect(count(html, "placeholder=")).toBe(1);
-    expect(html).toContain("Search node");
+    expect(html).toContain("Search");
     expect(html).not.toContain("empty-placeholder");
     expect(html).not.toContain("data-empty-placeholder");
   });

@@ -31,6 +31,7 @@ import {
   type PlannedMutation,
 } from "@/actions/plan";
 import { pinnedRefIdsFor } from "@/lib/pinned";
+import type { RefCreation } from "@/lib/refs";
 import { toast } from "@/lib/toast";
 
 /** `asset.upload` answers with the repo-relative path it stored the bytes at. */
@@ -420,6 +421,22 @@ export const mutations = {
   async removeProp(nodeId: string, fieldId: string, value?: PropValue): Promise<void> {
     if (!guardSysWrite(nodeId)) return;
     await applyPlan(planUnsetProp(wire(), nodeId, fieldId, value));
+  },
+
+  /**
+   * Mint a node a ref field may point at, named `name`, where the field's
+   * declaration says a new target goes (`refCreationOf`): a child of the
+   * field for an option, a node carrying the field's target tag, or a
+   * top-level node for an open field. Returns its id, or null when refused.
+   */
+  async createRefTarget(creation: RefCreation, name: string): Promise<string | null> {
+    const id = ulid();
+    if (creation.kind === "child") {
+      return (await mutations.addChildNode(creation.parentId, name, id)) ? id : null;
+    }
+    if (!(await mutations.addRootNode(name, id))) return null;
+    if (creation.kind === "tagged") await mutations.addTag(id, creation.tagId);
+    return id;
   },
 
   async addTag(nodeId: string, tagId: string): Promise<void> {

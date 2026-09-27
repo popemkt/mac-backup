@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { CREATE_ROW_ID, matchCandidate, pickerRows, type PickerCandidate } from "@/lib/picker";
+import {
+  CREATE_ROW_ID,
+  labelRuns,
+  matchCandidate,
+  orderCandidates,
+  pickerRows,
+  type PickerCandidate,
+} from "@/lib/picker";
+import { notePick, recentPicks } from "@/lib/picker-recency";
 
 const candidates: PickerCandidate[] = [
   { id: "n.b", label: "Beta release" },
@@ -58,5 +66,57 @@ describe("the rows a picker shows", () => {
     // Not for an empty query, and not where minting is not allowed.
     expect(pickerRows(candidates, { query: "", canCreate: true }).at(-1)?.kind).toBe("item");
     expect(pickerRows(candidates, { query: "Delta" })).toEqual([]);
+  });
+});
+
+describe("the order a picker offers with nothing typed", () => {
+  const nodes: PickerCandidate[] = [
+    { id: "a", label: "A" },
+    { id: "b", label: "B" },
+    { id: "c", label: "C" },
+    { id: "d", label: "D" },
+  ];
+  const order = (o: Parameters<typeof orderCandidates>[1]) =>
+    orderCandidates(nodes, o).map((c) => c.id);
+
+  it("a declared order wins outright", () => {
+    expect(order({ declared: ["c", "a"], recent: ["b"] })).toEqual(["c", "a", "b", "d"]);
+  });
+
+  it("otherwise the recently picked first, then the most used, then the source's order", () => {
+    expect(
+      order({
+        recent: ["d"],
+        uses: new Map([
+          ["c", 5],
+          ["b", 2],
+        ]),
+      }),
+    ).toEqual(["d", "c", "b", "a"]);
+    expect(order({})).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("a session remembers what was picked, most recent first", () => {
+    notePick("f.test", "a");
+    notePick("f.test", "b");
+    notePick("f.test", "a");
+    expect(recentPicks("f.test")).toEqual(["a", "b"]);
+    expect(recentPicks("f.other")).toEqual([]);
+  });
+});
+
+describe("a label's highlight", () => {
+  it("splits into matched and unmatched runs", () => {
+    expect(
+      labelRuns("Data pipeline", [
+        [0, 2],
+        [5, 7],
+      ]),
+    ).toEqual([
+      { text: "Da", matched: true, from: 0 },
+      { text: "ta ", matched: false, from: 2 },
+      { text: "pi", matched: true, from: 5 },
+      { text: "peline", matched: false, from: 7 },
+    ]);
   });
 });
