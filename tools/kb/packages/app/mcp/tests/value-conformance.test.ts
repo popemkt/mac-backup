@@ -63,3 +63,29 @@ test("a tool call that writes a string into a number field is a readable tool er
   const got = await call(client, "node_get", { id: "n.task" });
   expect(got.text).toContain('"f.estimate":[{"t":"num","v":3}]');
 });
+
+test("a url field holds only a link, as the CLI and the UI write it", async () => {
+  const client = await connected();
+  await call(client, "field_define", { name: "f.site", id: "f.site" });
+  await call(client, "node_update", {
+    id: "f.site",
+    setProps: [{ field: SYSTEM_IDS.fieldTypeField, value: fieldTypeValue("url") }],
+  });
+  await call(client, "node_add", { id: "n.task", text: "Task" });
+  const write = (v: string) =>
+    call(client, "node_update", {
+      id: "n.task",
+      setProps: [{ field: "f.site", value: { t: "str", v } }],
+    });
+
+  const unsafe = await write("javascript:alert(1)");
+  expect(unsafe.isError).toBe(true);
+  expect(unsafe.text).toContain("is not a link");
+
+  // A bare host is a link, but the store holds the form every surface writes.
+  const bare = await write("kb.example");
+  expect(bare.isError).toBe(true);
+  expect(bare.text).toContain("https://kb.example");
+
+  expect((await write("https://kb.example")).isError).toBe(false);
+});
