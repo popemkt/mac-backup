@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { isEditableTarget, mapSelectionKey } from "@/lib/selection-keymap";
 import { useOutlineStore } from "@/stores/outline.store";
+import { fieldSlotCount } from "@/lib/value-slot-nav";
 import { applySelectionAction } from "./selection-actions";
 
 /** Window-level selection-mode keymap while a node is selected (not editing). */
@@ -36,6 +37,7 @@ export function useSelectionKeymap(): void {
           activeNodeId: store.activeNodeId,
           getPreviousVisibleInstance: store.getPreviousVisibleInstance,
           getNextVisibleInstance: store.getNextVisibleInstance,
+          fieldSlotsOf: fieldSlotCount,
           getNode: (id) => {
             const n = store.nodes.get(id);
             if (!n) return undefined;

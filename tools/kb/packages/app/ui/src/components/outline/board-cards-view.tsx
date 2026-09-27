@@ -324,6 +324,7 @@ const ViewCard = memo(function ViewCard({
             <NodeField
               key={col.fieldId}
               depth={-1}
+              instanceKey={instanceKey}
               nodeId={child.id}
               fieldId={col.fieldId}
               label={col.label}

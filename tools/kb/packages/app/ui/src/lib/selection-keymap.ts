@@ -25,7 +25,9 @@ export type SelectionKeyAction =
   | { type: "createAfter"; nodeId: string }
   | { type: "createBefore"; nodeId: string }
   | { type: "delete"; nodeId: string; instanceKey: string }
-  | { type: "append"; nodeId: string; instanceKey: string; char: string };
+  | { type: "append"; nodeId: string; instanceKey: string; char: string }
+  /** Onto a row's field values: its first going down, its last coming up. */
+  | { type: "enterFields"; instanceKey: string; which: "first" | "last" };
 
 export interface SelectionNodeInfo {
   collapsed: boolean;
@@ -40,6 +42,8 @@ export interface SelectionKeyContext {
   getPreviousVisibleInstance: (instanceKey: string) => VisibleInstance | null;
   getNextVisibleInstance: (instanceKey: string) => VisibleInstance | null;
   getNode?: (id: string) => SelectionNodeInfo | undefined;
+  /** How many field values a row instance shows; a vertical move passes through them. */
+  fieldSlotsOf: (instanceKey: string) => number;
 }
 
 /** True when the event target is a text field / contentEditable (skip map). */
@@ -73,6 +77,25 @@ function selectInstance(instance: VisibleInstance | null): SelectionKeyAction | 
   return instance === null
     ? null
     : { type: "select", nodeId: instance.nodeId, instanceKey: instance.instanceKey };
+}
+
+/**
+ * ArrowDown: onto the selected row's own field values when it shows any
+ * (they are drawn between it and the next row), else the next row.
+ */
+function downOrIntoFields({ ctx, instanceKey }: SelectionTarget): SelectionKeyAction | null {
+  if (ctx.fieldSlotsOf(instanceKey) > 0)
+    return { type: "enterFields", instanceKey, which: "first" };
+  return selectInstance(ctx.getNextVisibleInstance(instanceKey));
+}
+
+/** ArrowUp: onto the field values of the row above when it shows any, else that row. */
+function upOrIntoFields({ ctx, instanceKey }: SelectionTarget): SelectionKeyAction | null {
+  const above = ctx.getPreviousVisibleInstance(instanceKey);
+  if (above !== null && ctx.fieldSlotsOf(above.instanceKey) > 0) {
+    return { type: "enterFields", instanceKey: above.instanceKey, which: "last" };
+  }
+  return selectInstance(above);
 }
 
 /** ArrowLeft: close what is open, else climb to the parent. */
@@ -111,14 +134,8 @@ const SELECTION_KEYMAP: readonly SelectionBinding[] = [
   },
   { chord: { key: ".", mod: true }, toAction: ({ nodeId }) => ({ type: "zoom", nodeId }) },
   { chord: { mod: true }, toAction: () => null },
-  {
-    chord: { key: "ArrowUp" },
-    toAction: ({ ctx, instanceKey }) => selectInstance(ctx.getPreviousVisibleInstance(instanceKey)),
-  },
-  {
-    chord: { key: "ArrowDown" },
-    toAction: ({ ctx, instanceKey }) => selectInstance(ctx.getNextVisibleInstance(instanceKey)),
-  },
+  { chord: { key: "ArrowUp" }, toAction: upOrIntoFields },
+  { chord: { key: "ArrowDown" }, toAction: downOrIntoFields },
   { chord: { key: "ArrowLeft" }, toAction: closeOrClimb },
   { chord: { key: "ArrowRight" }, toAction: openOrDescend },
   {

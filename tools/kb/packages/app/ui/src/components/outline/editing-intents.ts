@@ -13,6 +13,7 @@ import { mutations } from "@/actions/mutations";
 import { rowTextOf } from "@/lib/contextual-ref";
 import { renderInlineMarkdown, serializeEditable, setCaretSerializedOffset } from "@/lib/md-edit";
 import { useOutlineStore } from "@/stores/outline.store";
+import { enterFields } from "@/lib/value-slot-nav";
 import type { EditingIntent } from "./editing-keymap";
 
 type IntentOf<T extends EditingIntent["type"]> = Extract<EditingIntent, { type: T }>;
@@ -97,6 +98,7 @@ const EDITING_STEPS: EditingSteps = {
   moveCaretToRow: ({ nodeId, instanceKey, cursor, x }) =>
     useOutlineStore.getState().activateNode(nodeId, cursor, instanceKey, { x }),
   select: ({ nodeId, instanceKey }) => useOutlineStore.getState().selectNode(nodeId, instanceKey),
+  enterFields: ({ instanceKey, which }) => void enterFields(instanceKey, which),
 };
 
 /**

@@ -140,9 +140,18 @@ describe("ValueSlot gestures", () => {
     expect(leaked).toBe(0);
   });
 
-  it("a key at rest is not the slot's to take", async () => {
+  it("a modified key at rest is the app's, not the slot's", async () => {
     await mount({ t: "str", v: "before" });
-    await press("ArrowDown");
+    await act(async () => {
+      editable().dispatchEvent(
+        new dom.window.KeyboardEvent("keydown", {
+          key: "k",
+          metaKey: true,
+          bubbles: true,
+          cancelable: true,
+        }) as unknown as Event,
+      );
+    });
     expect(leaked).toBe(1);
   });
 });

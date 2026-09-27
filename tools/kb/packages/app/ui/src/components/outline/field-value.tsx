@@ -1,9 +1,8 @@
 import type { FieldContext } from "@/lib/schema";
 import type { OutlineNode, PropValue } from "@/lib/types";
-import { useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
-import { textOr } from "@/lib/text";
 import {
   INLINE_TEXT_CLASSES,
   KB_REF_ID_ATTR,
@@ -19,22 +18,18 @@ import { InlineMarkdown } from "@/components/ui/md-view";
 import { useRevealMarkup } from "@/components/ui/use-reveal-markup";
 import { urlLabel } from "@/lib/url-label";
 import { formatNumber } from "@/lib/number-format";
-import { declaresOptionSet, parseDateInput, parseDay, type ParsedValue } from "@kb/model";
+import { parseDateInput, parseDay, type ParsedValue } from "@kb/model";
 import { longDateLabel, relativeDateLabel } from "@/lib/date-display";
 import { DateEditor } from "@/components/ui/date-editor";
 import { CheckIcon, WarningIcon } from "@phosphor-icons/react";
-import { nodeCandidates, refCreationOf, refSearchOf, refUses, type RefCreation } from "@/lib/refs";
-import { notePick, recentPicks } from "@/lib/picker-recency";
-import { orderCandidates, pickerRows, type PickerRow } from "@/lib/picker";
-import { usePickerKeys } from "@/lib/use-picker";
 import { optionColorOf, TAG_PALETTE } from "@/lib/tag-color";
 import { asInstance } from "@/lib/dom";
 import { bulletClickIntent, nodeTarget, type Follow, type FollowTarget } from "@/lib/follow";
 import type { ValueKindSpec } from "@/lib/value-kind";
-import { PickerList } from "@/components/ui/picker-list";
 import { Bullet } from "./bullet";
 import { NodeRow } from "./node-row";
 import { OptionChip, TagChipGroup } from "./tag-chip";
+import { FieldPicker, type FieldHandle } from "./field-picker";
 
 /**
  * What a slot's keymap asks of the editor it holds. Only a caret editor has
@@ -49,6 +44,8 @@ export interface EditHandle {
   softBreak: () => void;
   /** The caret is at the end of a text that is not empty. */
   atEnd: () => boolean;
+  /** Where the caret is in the text being edited, and how long that text is. */
+  caret: () => { at: number; length: number } | null;
   /**
    * Where a click at a point lands in the text, measured on the value at
    * rest — before the slot swaps it for the editor.
@@ -72,6 +69,11 @@ export interface ValueSurfaceProps {
   editing: boolean;
   /** Where a caret editor opens: the click's offset, or the end. */
   caretAt: number | "end";
+  /**
+   * A key typed on the value at rest, which opened the editor: it replaces
+   * the value, as typing on a selected value does.
+   */
+  seed?: string;
   spec: ValueKindSpec;
   /** Pre-formatted label for a ref value, when the caller already has one. */
   display: string;
@@ -126,6 +128,7 @@ export function CaretValue({
   blank,
   editing,
   caretAt,
+  seed,
   spec,
   rejected,
   onEnd,
@@ -141,9 +144,13 @@ export function CaretValue({
   useLayoutEffect(() => {
     const el = editRef.current;
     if (!editing || el === null) return;
-    renderInlineMarkdown(el, text);
+    const start = seed ?? text;
+    renderInlineMarkdown(el, start);
     el.focus();
-    setCaretSerializedOffset(el, caretAt === "end" ? text.length : Math.min(caretAt, text.length));
+    setCaretSerializedOffset(
+      el,
+      caretAt === "end" || seed !== undefined ? start.length : Math.min(caretAt, start.length),
+    );
     revealMarkupAtSelection(el);
     // Entering is the only time the DOM is built from `text`: while editing,
     // the DOM is the text.
@@ -152,40 +159,7 @@ export function CaretValue({
 
   useRevealMarkup(editRef, editing);
 
-  useImperativeHandle(
-    handleRef,
-    () => ({
-      commit: () => editRef.current?.blur(),
-      cancel: () => {
-        if (editRef.current) renderInlineMarkdown(editRef.current, stored);
-        editRef.current?.blur();
-      },
-      softBreak: () => {
-        const el = editRef.current;
-        if (el === null || shownAs !== "markdown") return;
-        const current = serializeEditable(el);
-        const at = getCaretSerializedOffset(el);
-        renderInlineMarkdown(el, `${current.slice(0, at)}\n${current.slice(at)}`);
-        setCaretSerializedOffset(el, at + 1);
-        revealMarkupAtSelection(el);
-      },
-      atEnd: () => {
-        const el = editRef.current;
-        if (el === null) return false;
-        const typed = serializeEditable(el);
-        return typed.trim() !== "" && getCaretSerializedOffset(el) >= typed.length;
-      },
-      caretAtPoint: (x, y) => {
-        // Only a surface whose rest tree is its edit tree can map a point to
-        // an offset; a url's short label and a grouped number are not the
-        // text they edit.
-        const el = viewRef.current;
-        if (el === null || shownAs === "link" || shownAs === "number") return "end";
-        return offsetFromPoint(el, x, y) ?? "end";
-      },
-    }),
-    [stored, shownAs],
-  );
+  useCaretHandle({ handleRef, editRef, viewRef, stored, shownAs });
 
   const finish = () => {
     const next = editRef.current === null ? text : serializeEditable(editRef.current);
@@ -239,6 +213,61 @@ export function CaretValue({
         />
       )}
     </div>
+  );
+}
+
+/** A caret value's side of the slot's keymap (`EditHandle`), over its two elements. */
+function useCaretHandle({
+  handleRef,
+  editRef,
+  viewRef,
+  stored,
+  shownAs,
+}: {
+  handleRef: React.Ref<EditHandle>;
+  editRef: React.RefObject<HTMLDivElement | null>;
+  viewRef: React.RefObject<HTMLDivElement | null>;
+  stored: string;
+  shownAs: CaretDisplay;
+}) {
+  useImperativeHandle(
+    handleRef,
+    () => ({
+      commit: () => editRef.current?.blur(),
+      cancel: () => {
+        if (editRef.current) renderInlineMarkdown(editRef.current, stored);
+        editRef.current?.blur();
+      },
+      softBreak: () => {
+        const el = editRef.current;
+        if (el === null || shownAs !== "markdown") return;
+        const current = serializeEditable(el);
+        const at = getCaretSerializedOffset(el);
+        renderInlineMarkdown(el, `${current.slice(0, at)}\n${current.slice(at)}`);
+        setCaretSerializedOffset(el, at + 1);
+        revealMarkupAtSelection(el);
+      },
+      caret: () => {
+        const el = editRef.current;
+        if (el === null) return null;
+        return { at: getCaretSerializedOffset(el), length: serializeEditable(el).length };
+      },
+      atEnd: () => {
+        const el = editRef.current;
+        if (el === null) return false;
+        const typed = serializeEditable(el);
+        return typed.trim() !== "" && getCaretSerializedOffset(el) >= typed.length;
+      },
+      caretAtPoint: (x, y) => {
+        // Only a surface whose rest tree is its edit tree can map a point to
+        // an offset; a url's short label and a grouped number are not the
+        // text they edit.
+        const el = viewRef.current;
+        if (el === null || shownAs === "link" || shownAs === "number") return "end";
+        return offsetFromPoint(el, x, y) ?? "end";
+      },
+    }),
+    [editRef, viewRef, stored, shownAs],
   );
 }
 
@@ -400,7 +429,7 @@ export function CheckboxSurface({ value }: ValueSurfaceProps) {
  * the slot edits, the date editor — typed phrases or the calendar — seeded
  * with the stored date, or with input the slot kept.
  */
-export function DateSurface({ value, spec, editing, rejected, onEnd }: ValueSurfaceProps) {
+export function DateSurface({ value, spec, editing, seed, rejected, onEnd }: ValueSurfaceProps) {
   const stored = spec.text(value);
   // A stored date in an older form (an ISO timestamp) still reads as its day.
   const canonical = stored === "" ? "" : (parseDateInput(stored) ?? stored);
@@ -409,7 +438,7 @@ export function DateSurface({ value, spec, editing, rejected, onEnd }: ValueSurf
   if (editing) {
     return (
       <DateEditor
-        initialText={rejected?.text ?? canonical}
+        initialText={seed ?? rejected?.text ?? canonical}
         onCommit={(text) => onEnd(spec.parse(text), text)}
         onCancel={() => onEnd()}
       />
@@ -621,161 +650,6 @@ function UnresolvedRefChip({ refId, display }: { refId: string; display: string 
 }
 
 /**
- * What a value slot, and a field's picker, may do to the field as a whole —
- * the stack that holds the values provides it.
- */
-export interface FieldHandle {
-  /** Every value the field holds: a picker shows them checked. */
-  readonly values: readonly PropValue[];
-  /** The field holds many values: its picker toggles, and stays open. */
-  readonly many: boolean;
-  add: (value: PropValue) => void;
-  remove: (value: PropValue) => void;
-  /** Mint a node the field may point at (`refCreationOf`); its id, or null. */
-  create: (creation: RefCreation, name: string) => Promise<string | null>;
-  /** Open the field's picker, for a many-valued field (the stack draws it). */
-  openPicker: () => void;
-  /** Open an empty slot for the next value, after the last. */
-  addSlot: () => void;
-}
-
-/**
- * The one node picker, as a field's values are chosen with it: an input over
- * the field's allowed targets (`refSearchOf`: its option set, its tag, its
- * query, or the outline), with the list showing from the moment it opens.
- *
- * - **Type to filter**, fuzzily, the matched letters marked (`pickerRows`).
- *   With nothing typed, an option set keeps its own order; other fields
- *   offer the recently picked first, then the most used.
- * - **Already picked is checked.** In a many-valued field Enter (or a click)
- *   toggles a row and the picker stays open for the next; Backspace on an
- *   empty query takes back the last value. In a single-valued field a pick
- *   replaces the value and closes.
- * - **Create** the query as a new node, as the last row, wherever the
- *   field's declaration says a new target goes (`refCreationOf`) — a new
- *   option under the field, a node with the field's tag — and never for a
- *   query-constrained field, whose members kb cannot promise.
- * - Escape closes; so does leaving the input.
- *
- * Its placeholder is the input's own native attribute: `.empty-placeholder`
- * cannot render on an `<input>`, so there is one placeholder per state.
- */
-export function FieldPicker({
-  fieldId,
-  context,
-  field,
-  initialQuery = "",
-  onReplace,
-  onClose,
-}: {
-  fieldId: string;
-  context: FieldContext;
-  field: FieldHandle;
-  /** What the query starts as: the character typed on a value at rest. */
-  initialQuery?: string;
-  /** A single-valued field: the pick replaces the value. */
-  onReplace: (id: string) => void;
-  onClose: () => void;
-}) {
-  const [query, setQuery] = useState(initialQuery);
-  const anchorRef = useRef<HTMLDivElement>(null);
-  const search = refSearchOf(context, fieldId);
-  const fieldNode = context.schema.get(fieldId);
-  const creation = refCreationOf(context, fieldId);
-  const selected = useMemo(
-    () => new Set(field.values.flatMap((v) => (v.t === "ref" ? [v.v] : []))),
-    [field.values],
-  );
-  const candidates = useMemo(
-    () =>
-      orderCandidates(nodeCandidates(search.pool, { allowed: search.allowed }), {
-        declared: declaresOptionSet(fieldNode) ? fieldNode?.children : undefined,
-        recent: recentPicks(fieldId),
-        uses: refUses(context.outline, fieldId),
-      }),
-    [search.pool, search.allowed, fieldNode, fieldId, context.outline],
-  );
-  const rows = useMemo(
-    () => pickerRows(candidates, { query, selected, canCreate: creation !== null, limit: 50 }),
-    [candidates, query, selected, creation],
-  );
-
-  const pickId = (id: string) => {
-    notePick(fieldId, id);
-    if (!field.many) {
-      onReplace(id);
-      return;
-    }
-    const value: PropValue = { t: "ref", v: id };
-    if (selected.has(id)) field.remove(value);
-    else field.add(value);
-    setQuery("");
-  };
-
-  const pick = (row: PickerRow | null) => {
-    if (row?.kind === "item") pickId(row.id);
-    else if (row?.kind === "create" && creation !== null) {
-      void field.create(creation, row.name).then((id) => {
-        if (id !== null) pickId(id);
-      });
-    }
-  };
-
-  const last = field.values.at(-1);
-  const keys = usePickerKeys({
-    rows,
-    query,
-    onPick: pick,
-    onCancel: onClose,
-    onRemoveLast: field.many && last !== undefined ? () => field.remove(last) : undefined,
-  });
-
-  return (
-    <div ref={anchorRef} className="relative min-w-[8rem] flex-1" data-field-picker={fieldId}>
-      <input
-        type="text"
-        value={query}
-        placeholder={creation === null ? "Search…" : "Search or create…"}
-        aria-label={`Pick ${textOr(fieldNode?.text, "a value")}`}
-        className={cn(
-          editableClass,
-          "w-full border-none bg-transparent text-foreground/70 placeholder:text-foreground/25",
-        )}
-        autoFocus
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={(e) => {
-          // The outline behind this input must not also act on these keys.
-          e.stopPropagation();
-          keys.handleKeyDown(e);
-        }}
-        onBlur={onClose}
-      />
-      <PickerList
-        placement="popover"
-        anchorRef={anchorRef}
-        rows={rows}
-        activeIndex={keys.activeIndex}
-        onHover={keys.setActiveIndex}
-        onPick={pick}
-        createLabel={(name) => createLabelOf(creation, context, name)}
-        emptyText={query.trim() === "" ? "Nothing to pick yet" : "No matches"}
-        hint={field.many ? "↵ toggle · ⌫ remove last · esc done" : "↵ pick · esc close"}
-        aria-label={textOr(fieldNode?.text, "Values")}
-      />
-    </div>
-  );
-}
-
-/** What the create row offers to make, in the field's words. */
-function createLabelOf(creation: RefCreation | null, context: FieldContext, name: string): string {
-  if (creation?.kind === "child") return `Create option “${name}”`;
-  if (creation?.kind === "tagged") {
-    return `Create #${textOr(context.schema.get(creation.tagId)?.text, "tag")} “${name}”`;
-  }
-  return `Create “${name}”`;
-}
-
-/**
  * A ref value: one of four states. While the slot edits, the search; at rest,
  * the target's row, the unresolved chip, or the quiet placeholder of an unset
  * slot, which the slot opens when it receives focus (`opensOnFocusWhenEmpty`).
@@ -788,6 +662,7 @@ export function RefSurface({
   value,
   spec,
   editing,
+  seed,
   display,
   fieldId,
   context,
@@ -802,6 +677,7 @@ export function RefSurface({
         fieldId={fieldId}
         context={context}
         field={field}
+        initialQuery={seed}
         onReplace={(id) => onEnd(spec.parse(id), id)}
         onClose={() => onEnd()}
       />
@@ -829,6 +705,7 @@ export function OptionSurface({
   value,
   spec,
   editing,
+  seed,
   display,
   fieldId,
   context,
@@ -842,6 +719,7 @@ export function OptionSurface({
         fieldId={fieldId}
         context={context}
         field={field}
+        initialQuery={seed}
         onReplace={(id) => onEnd(spec.parse(id), id)}
         onClose={() => onEnd()}
       />

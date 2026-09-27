@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   CalendarBlankIcon,
   HashIcon,
@@ -22,6 +22,7 @@ import {
   type ValueKindSpec,
 } from "@/lib/value-kind";
 import { valueSlotIntent, type ValueSlotIntent } from "@/lib/value-slot-keymap";
+import { arriveAt, neighbourSlot, registerSlot, slotIndex } from "@/lib/value-slot-nav";
 import {
   CaretValue,
   CheckboxSurface,
@@ -31,10 +32,10 @@ import {
   RefSurface,
   type CaretDisplay,
   type EditHandle,
-  type FieldHandle,
   type RejectedInput,
   type ValueSurfaceProps,
 } from "./field-value";
+import type { FieldHandle } from "./field-picker";
 
 /**
  * One kind's presentation: the glyph its row wears, and the surface that
@@ -144,6 +145,9 @@ function loneField(value: PropValue | null, onCommit: (next: PropValue) => void)
     create: () => Promise.resolve(null),
     openPicker: () => undefined,
     addSlot: () => undefined,
+    leave: () => undefined,
+    claimKeyboard: () => undefined,
+    focusSlot: () => undefined,
   };
 }
 
@@ -202,6 +206,7 @@ export function ValueSlot({
         blank={slot.blank}
         editing={slot.editing}
         caretAt={slot.caretAt}
+        seed={slot.seed}
         rejected={slot.rejected}
         spec={spec}
         display={display}
@@ -236,37 +241,42 @@ interface SlotArgs {
  */
 function useSlotEditing({ spec, shown, isNew, autoOpen, field, onCommit, onRemove }: SlotArgs) {
   const mode = EDITOR_MODES[spec.editor];
-  /** Open, and where a caret editor's caret goes; closed is null. */
-  const [entry, setEntry] = useState<{ at: number | "end" } | null>(
+  /** Open (where a caret editor's caret goes, and a key typed to open it); closed is null. */
+  const [entry, setEntry] = useState<{ at: number | "end"; seed?: string } | null>(
     autoOpen && mode.autoOpens ? { at: "end" } : null,
   );
   /** Typed text the kind refused: shown, marked, and where the next edit starts. */
   const [rejected, setRejected] = useState<RejectedInput | null>(null);
   const handle = useRef<EditHandle>(null);
-  /** The edit ends in the next value's slot (Enter at the end of a value). */
-  const addAfter = useRef(false);
+  /**
+   * Where the keyboard goes once the edit lands: the next value's new slot,
+   * a neighbour, this value again. `changed` says whether a value was written
+   * (then this slot is drawn anew, so it is found by place, not held).
+   */
+  const then = useRef<((changed: boolean) => void) | null>(null);
 
   /**
    * Activate the slot: open its editor — with the caret at `at`, for a caret
-   * editor — or, for a toggle, flip it.
+   * editor, and `seed` as the text when a key opened it — or, for a toggle,
+   * flip it.
    */
-  const begin = (at: number | "end" = "end") => {
+  const begin = (at: number | "end" = "end", seed?: string) => {
     if (spec.editor === "toggle") onCommit(toggledValue(shown));
     // A many-valued field is picked as a whole: its stack draws one picker
     // over every value, so toggling this value off cannot close it.
-    else if (spec.editor === "picker" && field.many) field.openPicker();
-    else if (spec.editor !== "swatch") setEntry({ at });
+    else if (spec.editor === "picker" && field.many) field.openPicker(seed);
+    else if (spec.editor !== "swatch") setEntry(seed === undefined ? { at } : { at, seed });
   };
 
   const end = (parsed?: ParsedValue, text = "") => {
-    const adding = addAfter.current;
-    addAfter.current = false;
+    const next = then.current;
+    then.current = null;
     setEntry(null);
     if (parsed === undefined) {
       setRejected(null);
       // Nothing typed into a new value's slot: there is no value to keep.
       if (spec.editor === "caret" && isNew) onRemove();
-      else if (adding) field.addSlot();
+      else next?.(false);
     } else if (spec.editor === "caret" && text.trim() === "") {
       // A typed value emptied is a value taken out, not a blank one kept.
       setRejected(null);
@@ -274,17 +284,97 @@ function useSlotEditing({ spec, shown, isNew, autoOpen, field, onCommit, onRemov
     } else if (parsed.ok) {
       setRejected(null);
       onCommit(parsed.value);
-      if (adding) field.addSlot();
+      next?.(true);
     } else setRejected({ text, reason: parsed.reason });
   };
 
-  /** Commit, and open the next value's slot once the commit lands. */
-  const commitAndAdd = () => {
-    addAfter.current = true;
+  /** Commit what is typed, and carry on to `after` once the commit lands. */
+  const commitThen = (after: (changed: boolean) => void) => {
+    then.current = after;
     handle.current?.commit();
   };
 
-  return { mode, entry, rejected, setRejected, handle, begin, end, commitAndAdd };
+  return { mode, entry, rejected, setRejected, handle, begin, end, commitThen };
+}
+
+/** What each keymap intent does to a slot, and where the keyboard goes after. */
+function useSlotIntents({
+  element,
+  handle,
+  field,
+  onRemove,
+  begin,
+  commitThen,
+  setRejected,
+  follow,
+}: {
+  element: React.RefObject<HTMLDivElement | null>;
+  handle: React.RefObject<EditHandle | null>;
+  field: FieldHandle;
+  onRemove: () => void;
+  begin: (at?: number | "end", seed?: string) => void;
+  commitThen: (after: (changed: boolean) => void) => void;
+  setRejected: (next: RejectedInput | null) => void;
+  follow: () => void;
+}): Readonly<Record<ValueSlotIntent, (e: React.KeyboardEvent) => void>> {
+  /** On from this value: the neighbour at rest, or out of the field to the row. */
+  const moveOn = (delta: -1 | 1, from: Element | null) => {
+    const neighbour = from === null ? null : neighbourSlot(from, delta);
+    if (neighbour !== null) arriveAt(neighbour, "rest");
+    else field.leave(delta === -1 ? "up" : "down");
+  };
+
+  /** This value again, at rest, once an edit has landed. */
+  const stay = () => {
+    const el = element.current;
+    const index = el === null ? -1 : slotIndex(el);
+    return (changed: boolean) => {
+      if (changed && index >= 0) field.focusSlot(index);
+      else el?.focus();
+    };
+  };
+
+  /** `contain` only keeps the key in. */
+  return {
+    edit: () => begin("end"),
+    type: (e) => begin("end", e.key),
+    remove: () => {
+      const el = element.current;
+      const before = el === null ? null : (neighbourSlot(el, -1) ?? neighbourSlot(el, 1));
+      onRemove();
+      if (before !== null) arriveAt(before, "rest");
+      else field.leave("back");
+    },
+    leave: () => field.leave("back"),
+    previous: () => moveOn(-1, element.current),
+    next: () => moveOn(1, element.current),
+    commit: () => commitThen(stay()),
+    commitAndAdd: () => commitThen(() => field.addSlot()),
+    commitAndPrevious: () => {
+      const from = element.current;
+      commitThen(() => moveOn(-1, from));
+    },
+    commitAndNext: () => {
+      const from = element.current;
+      commitThen(() => moveOn(1, from));
+    },
+    cancel: () => {
+      setRejected(null);
+      const back = stay();
+      handle.current?.cancel();
+      back(false);
+    },
+    removeEmpty: () => {
+      const el = element.current;
+      const before = el === null ? null : neighbourSlot(el, -1);
+      onRemove();
+      if (before !== null) arriveAt(before, "edit");
+      else field.leave("up");
+    },
+    softBreak: () => handle.current?.softBreak(),
+    follow,
+    contain: () => undefined,
+  };
 }
 
 /**
@@ -292,38 +382,59 @@ function useSlotEditing({ spec, shown, isNew, autoOpen, field, onCommit, onRemov
  * element takes, over its editing state. Every gesture on a value is here.
  */
 function useSlotGestures(args: SlotArgs) {
-  const { spec, shown, field, onFollow } = args;
-  const { mode, entry, rejected, setRejected, handle, begin, end, commitAndAdd } =
+  const { spec, shown, field, onRemove, onFollow } = args;
+  const { mode, entry, rejected, setRejected, handle, begin, end, commitThen } =
     useSlotEditing(args);
   const editing = entry !== null;
   const blank = spec.isBlank(shown);
   const composing = useRef(false);
+  const element = useRef<HTMLDivElement>(null);
+  /** The next focus is the keyboard's own arrival, not an aim to open. */
+  const quiet = useRef(false);
   const target = spec.follow(shown);
+
+  useLayoutEffect(() => {
+    const el = element.current;
+    if (el === null) return undefined;
+    return registerSlot(el, {
+      focus: () => {
+        quiet.current = true;
+        el.focus({ preventScroll: false });
+        quiet.current = false;
+      },
+      editAtEnd: () => begin("end"),
+    });
+  });
 
   const follow = () => {
     if (target !== null) onFollow(target, "open");
   };
 
-  /** What each keymap intent does here; `contain` only keeps the key in. */
-  const apply: Readonly<Record<ValueSlotIntent, () => void>> = {
-    commit: () => handle.current?.commit(),
-    commitAndAdd,
-    cancel: () => {
-      setRejected(null);
-      handle.current?.cancel();
-    },
-    softBreak: () => handle.current?.softBreak(),
+  const caret = () => handle.current?.caret() ?? null;
+  const apply = useSlotIntents({
+    element,
+    handle,
+    field,
+    onRemove,
+    begin,
+    commitThen,
+    setRejected,
     follow,
-    contain: () => undefined,
-  };
+  });
 
   const opensOnFocus = mode.opensOnFocusWhenEmpty && blank && !editing;
 
   const props = {
-    tabIndex: opensOnFocus ? 0 : undefined,
+    ref: element,
+    // Every value is a keyboard stop (the outline's arrows arrive on it); an
+    // unset slot that opens when aimed at is a Tab stop too.
+    tabIndex: opensOnFocus ? 0 : -1,
     role: opensOnFocus ? "button" : undefined,
     "aria-label": opensOnFocus ? "Set value" : undefined,
-    onFocus: opensOnFocus ? () => begin() : undefined,
+    onFocus: () => {
+      field.claimKeyboard();
+      if (opensOnFocus && !quiet.current) begin();
+    },
     onClick: (e: React.MouseEvent) => {
       if (editing) return;
       // A pointer segment (a ref label, a link) follows on a plain click, as
@@ -345,21 +456,39 @@ function useSlotGestures(args: SlotArgs) {
       composing.current = false;
     },
     onKeyDown: (e: React.KeyboardEvent) => {
+      // A key inside an open picker or the date editor is theirs; it only
+      // reaches here if they let it.
       const intent = valueSlotIntent(e, {
         editing,
         keys: mode.keys,
         composing: composing.current || e.nativeEvent.isComposing,
         canFollow: target !== null,
+        toggles: spec.editor === "toggle",
         addsOnEnter: () => field.many && handle.current?.atEnd() === true,
+        caretAtStart: () => caret()?.at === 0,
+        caretAtEnd: () => {
+          const c = caret();
+          return c !== null && c.at >= c.length;
+        },
+        textEmpty: () => caret()?.length === 0,
       });
       if (intent === null) return;
-      // A key an editing slot receives is its own: the outline behind it
-      // must not also act on it.
+      // A key the slot takes is its own: the outline behind it must not also
+      // act on it.
       e.stopPropagation();
       if (intent !== "contain" && intent !== "cancel") e.preventDefault();
-      apply[intent]();
+      apply[intent](e);
     },
   };
 
-  return { blank, editing, caretAt: entry?.at ?? "end", rejected, handle, end, props };
+  return {
+    blank,
+    editing,
+    caretAt: entry?.at ?? "end",
+    seed: entry?.seed,
+    rejected,
+    handle,
+    end,
+    props,
+  };
 }

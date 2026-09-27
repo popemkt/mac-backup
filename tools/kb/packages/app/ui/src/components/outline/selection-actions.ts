@@ -15,6 +15,7 @@ import { rowTextOf, shownNodeId } from "@/lib/contextual-ref";
 import type { SelectionKeyAction } from "@/lib/selection-keymap";
 import { WORKSPACE_ROOT_ID } from "@/lib/types";
 import { useOutlineStore } from "@/stores/outline.store";
+import { enterFields } from "@/lib/value-slot-nav";
 
 type ActionOf<T extends SelectionKeyAction["type"]> = Extract<SelectionKeyAction, { type: T }>;
 
@@ -88,6 +89,7 @@ function deleteRow({ nodeId, instanceKey }: ActionOf<"delete">): void {
 
 const SELECTION_STEPS: SelectionSteps = {
   select: ({ nodeId, instanceKey }) => useOutlineStore.getState().selectNode(nodeId, instanceKey),
+  enterFields: ({ instanceKey, which }) => void enterFields(instanceKey, which),
   clear: () => useOutlineStore.getState().selectNode(null),
   edit: ({ nodeId, instanceKey }) =>
     useOutlineStore.getState().activateNode(nodeId, 0, instanceKey),

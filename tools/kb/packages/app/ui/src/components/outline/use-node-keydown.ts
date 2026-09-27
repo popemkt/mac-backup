@@ -4,6 +4,7 @@ import { isQueryResultInstance } from "@/lib/instance-key";
 import { getCaretSerializedOffset } from "@/lib/md-edit";
 import { useOutlineStore } from "@/stores/outline.store";
 import { readCaretGeometry, verticalArrowDecision, type VerticalNavDecision } from "@/lib/caret";
+import { fieldSlotCount } from "@/lib/value-slot-nav";
 import { applyEditingIntent } from "./editing-intents";
 import { mapEditingKey, type EditingKeyContext } from "./editing-keymap";
 
@@ -46,6 +47,7 @@ function readEditingContext(args: {
         key: key === "ArrowUp" ? "ArrowUp" : "ArrowDown",
         geometry: readCaretGeometry(editable),
       }),
+    fieldSlotsOf: fieldSlotCount,
   };
 }
 

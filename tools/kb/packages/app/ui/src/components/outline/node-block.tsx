@@ -177,7 +177,7 @@ export const NodeBlock = memo(function NodeBlock({
             <div className="absolute left-[9px] top-0 bottom-0 w-px bg-foreground/[0.06] group-hover/line:bg-foreground/15 transition-colors duration-200" />
           </div>
 
-          <FieldsSection nodeId={nodeId} depth={depth} />
+          <FieldsSection nodeId={nodeId} depth={depth} instanceKey={instanceKey} />
 
           {chrome.showsQueryResults && (
             <QueryResultsSection

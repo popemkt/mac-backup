@@ -78,8 +78,8 @@ describe("per-node debug field rows", () => {
     await act(async () => {
       root.render(
         <>
-          <FieldsSection nodeId="n.a" depth={0} />
-          <FieldsSection nodeId="n.b" depth={0} />
+          <FieldsSection nodeId="n.a" depth={0} instanceKey="tree/n.a" />
+          <FieldsSection nodeId="n.b" depth={0} instanceKey="tree/n.b" />
         </>,
       );
     });

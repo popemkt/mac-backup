@@ -309,6 +309,7 @@ const TableRow = memo(function TableRow({
         <td key={col.fieldId} className="px-2 py-1 align-top">
           <NodeField
             valueOnly
+            instanceKey={childKey}
             nodeId={child.id}
             fieldId={col.fieldId}
             label={col.label}

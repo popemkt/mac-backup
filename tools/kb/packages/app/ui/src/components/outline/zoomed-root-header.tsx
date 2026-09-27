@@ -189,7 +189,7 @@ export function ZoomedRootHeader({ node }: { node: OutlineNode }) {
         )}
       </div>
 
-      <FieldsSection nodeId={node.id} depth={-1} />
+      <FieldsSection nodeId={node.id} depth={-1} instanceKey={`title/${node.id}`} />
     </div>
   );
 }

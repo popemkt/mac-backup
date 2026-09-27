@@ -15,7 +15,7 @@ import { wireToOutlineMap } from "@/lib/graph-view";
 import type { RefCreation } from "@/lib/refs";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { SYSTEM_IDS, type PropValue } from "@/lib/types";
-import { FieldPicker, type FieldHandle } from "./field-value";
+import { FieldPicker, type FieldHandle } from "./field-picker";
 
 const ISO = "2026-09-28T00:00:00.000Z";
 const wire = (partial: Pick<WireNode, "id" | "text"> & Partial<WireNode>): WireNode => ({
@@ -102,6 +102,9 @@ describe("FieldPicker", () => {
       },
       openPicker: () => undefined,
       addSlot: () => undefined,
+      leave: () => undefined,
+      claimKeyboard: () => undefined,
+      focusSlot: () => undefined,
     };
   }
 

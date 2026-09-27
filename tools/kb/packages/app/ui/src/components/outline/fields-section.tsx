@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { cardinalityOf } from "@kb/model";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
@@ -10,15 +10,19 @@ import { useDebugFields } from "@/stores/debug-fields.store";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { useFollow } from "@/stores/follow";
+import { rowTextOf } from "@/lib/contextual-ref";
+import { arriveAt, slotAt } from "@/lib/value-slot-nav";
 import type { Follow } from "@/lib/follow";
 import { FieldRow } from "./field-row";
 import { ValueSlot } from "./value-slot";
-import { FieldPicker, type FieldHandle } from "./field-value";
+import { FieldPicker, type FieldHandle } from "./field-picker";
 import { valueKindOf, VALUE_KINDS } from "@/lib/value-kind";
 
 interface FieldsSectionProps {
   nodeId: string;
   depth: number;
+  /** The row instance these fields are drawn under (the keyboard's way back). */
+  instanceKey: string;
 }
 
 export interface FieldValueStackProps {
@@ -31,6 +35,11 @@ export interface FieldValueStackProps {
   readOnly: boolean;
   /** Carry out a follow from inside a value (`useFollow`). */
   onFollow: Follow;
+  /**
+   * The row instance the field is drawn under: where the keyboard goes when
+   * it leaves the field. Absent, the field keeps it (a story, a test).
+   */
+  instanceKey?: string;
 }
 
 /**
@@ -54,27 +63,14 @@ export function FieldValueStack({
   context,
   readOnly,
   onFollow,
+  instanceKey,
 }: FieldValueStackProps) {
   const { schema } = context;
   const spec = VALUE_KINDS[valueKindOf(fieldType, fieldId, schema.get(fieldId))];
   const many = cardinalityOf(schema.get(fieldId)?.props) === "many";
-  /**
-   * Slots opened for a next value and not written yet, by a stable id each,
-   * so the slot a gesture opens is a new one and takes the focus.
-   */
-  const [pending, setPending] = useState<readonly number[]>([]);
-  const nextPending = useRef(0);
-  /** The field's picker is open (a many-valued field of picked values). */
-  const [picking, setPicking] = useState(false);
-  const field: FieldHandle = {
-    values,
-    many,
-    add: (value) => void mutations.updateProp(nodeId, fieldId, value),
-    remove: (value) => void mutations.removeProp(nodeId, fieldId, value),
-    create: (creation, name) => mutations.createRefTarget(creation, name),
-    openPicker: () => setPicking(true),
-    addSlot: () => setPending((ids) => [...ids, (nextPending.current += 1)]),
-  };
+  const { field, pending, setPending, picking, pickerQuery, setPicking, stackRef } = useFieldHandle(
+    { nodeId, fieldId, values, many, instanceKey },
+  );
   const drop = (id: number) => setPending((ids) => ids.filter((x) => x !== id));
   /** Adding is the picker for picked values, and a new empty slot for typed ones. */
   const beginAdd = spec.editor === "picker" ? field.openPicker : field.addSlot;
@@ -82,6 +78,7 @@ export function FieldValueStack({
 
   return (
     <div
+      ref={stackRef}
       className={cn(
         "flex min-w-0",
         // Chips wrap on one line; every other kind stacks a value per line.
@@ -90,10 +87,9 @@ export function FieldValueStack({
       data-field-values={fieldId}
       data-layout={spec.layout}
     >
-      {values.map((value, i) => (
+      {valueKeys(values).map(({ key, value }, i) => (
         <ValueItem
-          // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
-          key={`${i}-${JSON.stringify(value)}`}
+          key={key}
           layout={spec.layout}
           onRemove={readOnly ? null : () => field.remove(value)}
           onAdd={canAdd && i === values.length - 1 && pending.length === 0 ? beginAdd : null}
@@ -152,12 +148,105 @@ export function FieldValueStack({
           fieldId={fieldId}
           context={context}
           field={field}
+          initialQuery={pickerQuery}
           onReplace={(id) => field.add({ t: "ref", v: id })}
           onClose={() => setPicking(false)}
         />
       )}
     </div>
   );
+}
+
+/**
+ * A key per value that survives the others changing: its content, and which
+ * occurrence of that content it is (a field may hold one value twice). An
+ * index key remounted every value after a removed one — and dropped the
+ * keyboard off the neighbour it had just landed on.
+ */
+function valueKeys(values: readonly PropValue[]): Array<{ key: string; value: PropValue }> {
+  const seen = new Map<string, number>();
+  return values.map((value) => {
+    const content = JSON.stringify(value);
+    const n = seen.get(content) ?? 0;
+    seen.set(content, n + 1);
+    return { key: `${content}#${n}`, value };
+  });
+}
+
+/**
+ * The field as a whole, as its slots see it (`FieldHandle`): writes, the
+ * picker and new slots, and the keyboard's way in and out — out of the field
+ * to the row it is drawn under, and back onto a value once it redraws.
+ */
+function useFieldHandle({
+  nodeId,
+  fieldId,
+  values,
+  many,
+  instanceKey,
+}: {
+  nodeId: string;
+  fieldId: string;
+  values: PropValue[];
+  many: boolean;
+  instanceKey: string | undefined;
+}) {
+  /**
+   * Slots opened for a next value and not written yet, by a stable id each,
+   * so the slot a gesture opens is a new one and takes the focus.
+   */
+  const [pending, setPending] = useState<readonly number[]>([]);
+  const nextPending = useRef(0);
+  /** The field's picker is open (a many-valued field of picked values), with a query typed. */
+  const [picker, setPicker] = useState<{ query: string } | null>(null);
+  /** A value the keyboard lands on once the field redraws with new values. */
+  const [landing, setLanding] = useState<{ index: number; values: PropValue[] } | null>(null);
+  /** The landing already made: it is made until the field has redrawn, then once more. */
+  const landed = useRef<typeof landing>(null);
+  const stackRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const stack = stackRef.current;
+    if (landing === null || stack === null || landed.current === landing) return;
+    const slot = slotAt(stack, landing.index) ?? slotAt(stack, landing.index - 1);
+    if (slot !== null) arriveAt(slot, "rest");
+    if (values !== landing.values) landed.current = landing;
+  }, [landing, values]);
+
+  const store = useOutlineStore.getState;
+  const field: FieldHandle = {
+    values,
+    many,
+    add: (value) => void mutations.updateProp(nodeId, fieldId, value),
+    remove: (value) => void mutations.removeProp(nodeId, fieldId, value),
+    create: (creation, name) => mutations.createRefTarget(creation, name),
+    openPicker: (query = "") => setPicker({ query }),
+    addSlot: () => setPending((ids) => [...ids, (nextPending.current += 1)]),
+    leave: (way) => {
+      if (instanceKey === undefined) return;
+      const s = store();
+      if (way === "back") s.selectNode(nodeId, instanceKey);
+      else if (way === "up") s.activateNode(nodeId, rowTextOf(s, nodeId).text.length, instanceKey);
+      else {
+        const next = s.getNextVisibleInstance(instanceKey);
+        if (next !== null) s.activateNode(next.nodeId, 0, next.instanceKey);
+      }
+    },
+    claimKeyboard: () => {
+      const s = store();
+      if (s.selectedNodeId !== null || s.activeNodeId !== null) s.selectNode(null);
+    },
+    focusSlot: (index) => setLanding({ index, values }),
+  };
+  return {
+    field,
+    pending,
+    setPending,
+    picking: picker !== null,
+    pickerQuery: picker?.query,
+    setPicking: (open: boolean) => setPicker(open ? { query: "" } : null),
+    stackRef,
+  };
 }
 
 /** One value in a stack, with the hover "×" that removes it. */
@@ -257,6 +346,8 @@ interface NodeFieldProps {
   valueOnly?: boolean;
   /** A `sys.*` prop shown because the node asked for its debug fields. */
   debug?: boolean;
+  /** The row instance the field is drawn under (the keyboard's way back). */
+  instanceKey?: string;
 }
 
 /**
@@ -277,6 +368,7 @@ export function NodeField({
   depth = 0,
   valueOnly = false,
   debug = false,
+  instanceKey,
 }: NodeFieldProps) {
   const follow = useFollow();
   const fieldType = resolveFieldTypeById(fieldId, context.schema);
@@ -298,13 +390,14 @@ export function NodeField({
         context={context}
         readOnly={isSysPrefixed(nodeId) || debug}
         onFollow={follow}
+        instanceKey={instanceKey}
       />
     </FieldRow>
   );
 }
 
 /** Inline field rows under a node (DESIGN-RESKIN §1.4). */
-export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
+export function FieldsSection({ nodeId, depth, instanceKey }: FieldsSectionProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   // Field definitions come from the whole graph, never the scoped projection.
   const context = useOutlineStore(fieldContextOf);
@@ -326,6 +419,7 @@ export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
           values={p.values}
           context={context}
           depth={depth}
+          instanceKey={instanceKey}
           debug={"debug" in p ? Boolean(p.debug) : false}
         />
       ))}

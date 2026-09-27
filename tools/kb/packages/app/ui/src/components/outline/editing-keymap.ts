@@ -53,6 +53,12 @@ export interface EditingKeyContext {
    * only the two bare-arrow chords ask for one.
    */
   readonly readVerticalDecision: (key: string) => VerticalNavDecision;
+  /**
+   * How many field values a row instance shows (`fieldSlotCount`). A row's
+   * values sit between its text and its children, so a vertical move passes
+   * through them.
+   */
+  readonly fieldSlotsOf: (instanceKey: string) => number;
 }
 
 export type EditingIntent =
@@ -83,7 +89,9 @@ export type EditingIntent =
       cursor: number;
       x: number | null;
     }
-  | { type: "select"; nodeId: string; instanceKey: string };
+  | { type: "select"; nodeId: string; instanceKey: string }
+  /** Onto a row's field values: its first going down, its last coming up. */
+  | { type: "enterFields"; instanceKey: string; which: "first" | "last" };
 
 interface EditingBinding {
   readonly chord: Chord;
@@ -186,12 +194,22 @@ function revealIntent(ctx: EditingKeyContext, key: string): EditingIntent {
   return { type: "claim" };
 }
 
-/** A bare arrow crosses rows only from the outermost visual line (D10/D11). */
+/**
+ * A bare arrow crosses rows only from the outermost visual line (D10/D11).
+ * What is drawn between two rows is crossed on the way: going down, this
+ * row's own field values; coming up, the values of the row above.
+ */
 function crossRowIntent(ctx: EditingKeyContext, key: string): EditingIntent | null {
   const decision = ctx.readVerticalDecision(key);
   if (decision.kind === "within") return null;
+  if (decision.direction === 1 && ctx.fieldSlotsOf(ctx.instanceKey) > 0) {
+    return { type: "enterFields", instanceKey: ctx.instanceKey, which: "first" };
+  }
   const neighbour = decision.direction === -1 ? ctx.previousInstance : ctx.nextInstance;
   if (neighbour === null) return null;
+  if (decision.direction === -1 && ctx.fieldSlotsOf(neighbour.instanceKey) > 0) {
+    return { type: "enterFields", instanceKey: neighbour.instanceKey, which: "last" };
+  }
   return {
     type: "moveCaretToRow",
     nodeId: neighbour.nodeId,

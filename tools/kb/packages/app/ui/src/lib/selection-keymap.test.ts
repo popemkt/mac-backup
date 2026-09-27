@@ -30,8 +30,10 @@ function ctx(
   selected: string | null,
   active: string | null = null,
   selectedKey: string | null = selected !== null && selected !== "" ? `tree/${selected}` : null,
+  withFields: readonly string[] = [],
 ) {
   return {
+    fieldSlotsOf: (instanceKey: string) => (withFields.includes(instanceKey) ? 2 : 0),
     selectedNodeId: selected,
     selectedInstanceKey: selectedKey,
     activeNodeId: active,
@@ -307,5 +309,13 @@ describe("mapSelectionKey chord table (characterization)", () => {
       expect(mapSelectionKey(event, ctx(null))).toBeNull();
       expect(mapSelectionKey(event, ctx("b", null, null))).toBeNull();
     }
+  });
+
+  it("passes through a row's field values: down onto the selected row's, up onto the row above's", () => {
+    const withFields = ["tree/b"];
+    const down = mapSelectionKey(key("ArrowDown"), ctx("b", null, "tree/b", withFields));
+    expect(down).toEqual({ type: "enterFields", instanceKey: "tree/b", which: "first" });
+    const up = mapSelectionKey(key("ArrowUp"), ctx("c", null, "tree/c", withFields));
+    expect(up).toEqual({ type: "enterFields", instanceKey: "tree/b", which: "last" });
   });
 });
