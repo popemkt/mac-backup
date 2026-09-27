@@ -5,6 +5,7 @@ import { describe, expect, test } from "bun:test";
 import { present } from "../src/present.ts";
 import { SYSTEM_IDS, type KbNode, type PropValue } from "../src/model.ts";
 import {
+  declaresOptionSet,
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
   acceptsValueKind,
@@ -231,5 +232,38 @@ describe("accepted value kinds", () => {
       checkbox: ["bool"],
       ref: ["ref"],
     });
+  });
+});
+
+const optionField = (over: Partial<KbNode>): KbNode => ({
+  id: "f.status",
+  text: "status",
+  props: { [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")] },
+  children: [],
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+  ...over,
+});
+
+describe("an option set is declared by parenting", () => {
+  test("a ref field with children and no other declaration holds options", () => {
+    expect(declaresOptionSet(optionField({ children: ["opt.a"] }))).toBe(true);
+    expect(declaresOptionSet(optionField({}))).toBe(false);
+    expect(declaresOptionSet(undefined)).toBe(false);
+  });
+
+  test("a query or a tag outranks the children, as it does for the allowed set", () => {
+    const tagged = optionField({
+      children: ["opt.a"],
+      props: { [SYSTEM_IDS.targetTagField]: [{ t: "ref", v: "t.x" }] },
+    });
+    const queried = optionField({
+      children: ["opt.a"],
+      props: {
+        [SYSTEM_IDS.targetQueryField]: [{ t: "str", v: "[:find ?id :where [?n :node/id ?id]]" }],
+      },
+    });
+    expect(declaresOptionSet(tagged)).toBe(false);
+    expect(declaresOptionSet(queried)).toBe(false);
   });
 });

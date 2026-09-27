@@ -11,7 +11,13 @@
  * keyed by the same union in `components/outline/field-value.tsx`.
  */
 import type { FieldType } from "@/lib/field-type";
-import { normalizeUrl, parseTypedValue, type ParsedValue } from "@kb/model";
+import {
+  declaresOptionSet,
+  normalizeUrl,
+  parseTypedValue,
+  type NodeLike,
+  type ParsedValue,
+} from "@kb/model";
 import { nodeTarget, type FollowTarget } from "@/lib/follow";
 import { numberEditText, numberSeparators } from "@/lib/number-format";
 import { todayLocal } from "@/lib/date-display";
@@ -20,9 +26,11 @@ import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 /**
  * The kinds of value slot. A declared type names one; a field may name its
  * own (`sys.f.color` stores a hex string — text by type — and picks from
- * swatches).
+ * swatches); and a ref field that declares its values by parenting them holds
+ * options (`declaresOptionSet`), which are chosen from a list and drawn as
+ * chips.
  */
-export type ValueKind = FieldType | "color";
+export type ValueKind = FieldType | "color" | "option";
 
 /**
  * How a slot is edited.
@@ -73,6 +81,12 @@ export interface ValueKindSpec {
   /** The slot shows its placeholder rather than the value. */
   readonly isBlank: (value: PropValue) => boolean;
   /**
+   * How a field's values of this kind sit together: stacked one under the
+   * other, or inline and wrapping (chips), so a many-valued field of chips
+   * stays on one line.
+   */
+  readonly layout: "stack" | "inline";
+  /**
    * Where the value points, or null for a value that points nowhere. A slot
    * with a target follows it on ⌘/Ctrl-click anywhere and on ⌘Enter; its
    * pointer segments follow on a plain click, as they do in node text.
@@ -89,12 +103,23 @@ const asText = (value: PropValue): string => (value.t === "str" ? value.v : Stri
 const nowhere = (): FollowTarget | null => null;
 const accept = (value: PropValue): ParsedValue => ({ ok: true, value });
 
+/** A ref's row: an option is the same value, laid out as a chip. */
+const REF: ValueKindSpec = {
+  editor: "picker",
+  text: (value) => (value.t === "ref" ? value.v : ""),
+  parse: (text) => parseTypedValue(text, "ref"),
+  isBlank: (value) => value.t !== "ref" || value.v === "",
+  layout: "stack",
+  follow: (value) => (value.t === "ref" && value.v !== "" ? nodeTarget(value.v) : null),
+};
+
 export const VALUE_KINDS: Readonly<Record<ValueKind, ValueKindSpec>> = {
   text: {
     editor: "caret",
     text: asText,
     parse: (text) => parseTypedValue(text, "text"),
     isBlank: isBlankScalar,
+    layout: "stack",
     follow: nowhere,
   },
   url: {
@@ -102,6 +127,7 @@ export const VALUE_KINDS: Readonly<Record<ValueKind, ValueKindSpec>> = {
     text: asText,
     parse: (text) => parseTypedValue(text, "url"),
     isBlank: isBlankScalar,
+    layout: "stack",
     follow: (value) => {
       const href = value.t === "str" ? normalizeUrl(value.v) : null;
       return href === null || href === "" ? null : { kind: "href", href };
@@ -117,6 +143,7 @@ export const VALUE_KINDS: Readonly<Record<ValueKind, ValueKindSpec>> = {
         ? accept({ t: "num", v: 0 })
         : parseTypedValue(text, "number", { numbers: numberSeparators() }),
     isBlank: (value) => value.t !== "num",
+    layout: "stack",
     follow: nowhere,
   },
   date: {
@@ -125,6 +152,7 @@ export const VALUE_KINDS: Readonly<Record<ValueKind, ValueKindSpec>> = {
     // Phrases (`tomorrow`, `next fri`) read against this browser's today.
     parse: (text) => parseTypedValue(text, "date", { today: todayLocal() }),
     isBlank: (value) => value.t !== "str" || value.v === "",
+    layout: "stack",
     follow: nowhere,
   },
   checkbox: {
@@ -132,20 +160,17 @@ export const VALUE_KINDS: Readonly<Record<ValueKind, ValueKindSpec>> = {
     text: (value) => String(value.t === "bool" && value.v),
     parse: (text) => accept({ t: "bool", v: text === "true" }),
     isBlank: (value) => value.t !== "bool" || !value.v,
+    layout: "stack",
     follow: nowhere,
   },
-  ref: {
-    editor: "picker",
-    text: (value) => (value.t === "ref" ? value.v : ""),
-    parse: (text) => parseTypedValue(text, "ref"),
-    isBlank: (value) => value.t !== "ref" || value.v === "",
-    follow: (value) => (value.t === "ref" && value.v !== "" ? nodeTarget(value.v) : null),
-  },
+  ref: REF,
+  option: { ...REF, layout: "inline" },
   color: {
     editor: "swatch",
     text: asText,
     parse: (text) => accept({ t: "str", v: text }),
     isBlank: isBlankScalar,
+    layout: "stack",
     follow: nowhere,
   },
 };
@@ -158,10 +183,19 @@ const FIELD_ID_KINDS: Readonly<Record<string, ValueKind>> = {
   [SYSTEM_IDS.colorField]: "color",
 };
 
-/** The kind of slot a field's values sit in: its own if it names one, else its type's. */
-export function valueKindOf(fieldType: FieldType, fieldId?: string): ValueKind {
+/**
+ * The kind of slot a field's values sit in: its own if it names one; an
+ * option when it is a ref field whose node declares its values by parenting
+ * them; else its type's.
+ */
+export function valueKindOf(
+  fieldType: FieldType,
+  fieldId?: string,
+  fieldNode?: NodeLike,
+): ValueKind {
   const named = fieldId === undefined ? undefined : FIELD_ID_KINDS[fieldId];
-  return named ?? fieldType;
+  if (named !== undefined) return named;
+  return fieldType === "ref" && declaresOptionSet(fieldNode) ? "option" : fieldType;
 }
 
 /**

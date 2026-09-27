@@ -130,10 +130,10 @@ describe("a projected view under an ontology scope", () => {
     await renderScoped(TABLE);
     const header = present(container.querySelector("thead"), "table header");
     expect(header.textContent).toContain("status");
-    // A ref cell renders the resolved option as a row, not a text editor.
+    // An option cell renders the resolved option as its chip, not a text editor.
     const cell = present(
-      container.querySelector('tbody [data-node-id="opt.done"]'),
-      "the option rendered as a resolved ref",
+      container.querySelector('tbody [data-option-chip="true"][data-kb-ref-id="opt.done"]'),
+      "the option rendered as a resolved option chip",
     );
     expect(cell.textContent).toContain("Done");
   });

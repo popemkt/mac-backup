@@ -20,6 +20,7 @@ export {
   allowedRefIdsOf,
   cardinalityOf,
   childrenTargetQuery,
+  declaresOptionSet,
   fieldTypeOf,
   fieldTypeValue,
   isFieldType,

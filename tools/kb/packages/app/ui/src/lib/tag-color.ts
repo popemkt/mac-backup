@@ -51,10 +51,27 @@ export function hashTagColor(tagId: string): string {
 }
 
 /** The `sys.f.color` a tag node sets for itself, trimmed — any CSS colour — or null. */
-function explicitColorOf(tag: WireNode | undefined): string | null {
+function explicitColorOf(tag: Pick<WireNode, "props"> | undefined): string | null {
   const raw = tag?.props[SYSTEM_IDS.colorField]?.[0];
   const color = raw?.t === "str" ? raw.v.trim() : "";
   return hasText(color) ? color : null;
+}
+
+/**
+ * The colour an option of a field paints its chip with: its own `sys.f.color`
+ * when it sets one, else the palette slot of its place among the field's
+ * options — so a field's options start out distinct, in the order the field
+ * lists them, the way a workspace's tags do.
+ */
+export function optionColorOf(
+  option: Pick<WireNode, "id" | "props">,
+  field: Pick<WireNode, "children"> | undefined,
+): string {
+  const explicit = explicitColorOf(option);
+  if (explicit !== null) return explicit;
+  const place = field?.children.indexOf(option.id) ?? -1;
+  if (place < 0) return hashTagColor(option.id);
+  return present(TAG_PALETTE[place % TAG_PALETTE.length], "a slot is an index into the palette");
 }
 
 /**

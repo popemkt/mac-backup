@@ -2,6 +2,38 @@ import { HashIcon, XIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/cn";
 import { tagChipColors } from "@/lib/tag-color";
 import type { TagBadge } from "@/lib/types";
+import { KB_REF_ID_ATTR } from "@/lib/md-edit";
+
+/**
+ * A chip's box: the pill that fills the text line box (`.kb-tag`), tinted by
+ * `tagChipColors`. Every chip that stands for a node — a tag, an option — is
+ * this box, so they read as one kind of thing.
+ */
+const CHIP_CLASS = cn(
+  "inline-flex max-w-full items-center rounded-sm px-1.5 py-0",
+  "kb-tag select-none whitespace-nowrap",
+  "transition-opacity hover:opacity-70",
+);
+
+/**
+ * An option value — a node picked from a field's own list — drawn as the
+ * chip tags are drawn, in the option's colour. It is a pointer segment (the
+ * `[[ref]]` attribute), so a plain click follows it to the option's page,
+ * where every node holding the option is listed.
+ */
+export function OptionChip({ id, label, color }: { id: string; label: string; color: string }) {
+  return (
+    <span
+      className={cn(CHIP_CLASS, "cursor-pointer")}
+      style={tagChipColors(color)}
+      title={label}
+      data-option-chip="true"
+      {...{ [KB_REF_ID_ATTR]: id }}
+    >
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
 
 export interface TagChipProps {
   tag: TagBadge;
@@ -63,12 +95,7 @@ export function TagChip({ tag, onClick, onRemove, className }: TagChipProps) {
 
   return (
     <span
-      className={cn(
-        "group/tag inline-flex max-w-full items-center gap-1 rounded-sm px-1.5 py-0",
-        "kb-tag select-none whitespace-nowrap",
-        "transition-opacity hover:opacity-70",
-        className,
-      )}
+      className={cn(CHIP_CLASS, "group/tag gap-1", className)}
       style={tagChipColors(tag.color)}
       data-tag-chip="true"
     >

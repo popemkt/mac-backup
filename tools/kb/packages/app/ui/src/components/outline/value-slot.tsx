@@ -26,6 +26,7 @@ import {
   CheckboxSurface,
   ColorSurface,
   DateSurface,
+  OptionSurface,
   RefSurface,
   type CaretDisplay,
   type EditHandle,
@@ -68,6 +69,7 @@ const VALUE_VIEWS: Readonly<Record<ValueKind, ValueView>> = {
   date: { icon: CalendarBlankIcon, Surface: DateSurface },
   checkbox: { icon: CheckSquareIcon, Surface: CheckboxSurface },
   ref: { icon: LinkSimpleIcon, Surface: RefSurface },
+  option: { icon: LinkSimpleIcon, Surface: OptionSurface },
   color: { icon: PaletteIcon, Surface: ColorSurface },
 };
 
@@ -140,7 +142,7 @@ export function ValueSlot({
   onCommit,
   onFollow,
 }: ValueSlotProps) {
-  const kind = valueKindOf(fieldType, fieldId);
+  const kind = valueKindOf(fieldType, fieldId, context.schema.get(fieldId));
   const spec = VALUE_KINDS[kind];
   const mode = EDITOR_MODES[spec.editor];
   const shown = value ?? emptyValueForType(fieldType);

@@ -13,6 +13,7 @@ import { useFollow } from "@/stores/follow";
 import type { Follow } from "@/lib/follow";
 import { FieldRow } from "./field-row";
 import { ValueSlot } from "./value-slot";
+import { valueKindOf, VALUE_KINDS } from "@/lib/value-kind";
 
 interface FieldsSectionProps {
   nodeId: string;
@@ -49,6 +50,7 @@ export function FieldValueStack({
   onFollow,
 }: FieldValueStackProps) {
   const { schema } = context;
+  const { layout } = VALUE_KINDS[valueKindOf(fieldType, fieldId, schema.get(fieldId))];
   /** Slots the user minted with "+ value" and has not filled yet. */
   const [pendingSlots, setPendingSlots] = useState(0);
   /**
@@ -62,15 +64,26 @@ export function FieldValueStack({
     values.length === 0 ? [false] : Array.from({ length: pendingSlots }, () => true);
 
   return (
-    <div className="flex min-w-0 flex-col" data-field-values={fieldId}>
+    <div
+      className={cn(
+        "flex min-w-0",
+        // Chips wrap on one line; every other kind stacks a value per line.
+        layout === "inline" ? "flex-row flex-wrap items-start gap-x-1" : "flex-col",
+      )}
+      data-field-values={fieldId}
+      data-layout={layout}
+    >
       {values.map((value, i) => (
         <div
           // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
           key={`${i}-${JSON.stringify(value)}`}
-          className="group/value flex min-w-0 items-start gap-1"
+          className={cn(
+            "group/value flex min-w-0 items-start gap-1",
+            layout === "inline" && "max-w-full",
+          )}
           data-field-value="true"
         >
-          <div className="min-w-0 flex-1">
+          <div className={cn("min-w-0", layout === "stack" && "flex-1")}>
             <ValueSlot
               value={value}
               display={formatPropValue(value, schema)}

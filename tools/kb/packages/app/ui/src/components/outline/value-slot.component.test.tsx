@@ -13,6 +13,11 @@ import { fieldContextOf } from "@/lib/schema";
 import { SYSTEM_IDS, type NodeMap, type PropValue } from "@/lib/types";
 import { fieldTypeValue } from "@/lib/field-type";
 import { FieldValueStack } from "./fields-section";
+import { renderToStaticMarkup } from "react-dom/server";
+import type { WireNode } from "@kb/contracts";
+import { DatascriptIndex } from "@/ds";
+import { wireToOutlineMap } from "@/lib/graph-view";
+import { TAG_PALETTE } from "@/lib/tag-color";
 import type { FollowHow, FollowTarget } from "@/lib/follow";
 import { stubOutlineNode } from "@/catalog/fixtures";
 import { formatNumber, numberEditText } from "@/lib/number-format";
@@ -627,5 +632,125 @@ describe("a checkbox value", () => {
     expect(
       [...container.querySelectorAll("button")].some((b) => b.textContent.trim() === "value"),
     ).toBe(false);
+  });
+});
+
+describe("an option value is a chip", () => {
+  let dom: InstalledDom;
+  let container: HTMLDivElement;
+  let root: Root;
+  let followed: FollowTarget[];
+
+  const ISO = "2026-09-28T00:00:00.000Z";
+  const optionWire: WireNode[] = [
+    {
+      id: "f.status",
+      text: "status",
+      children: ["opt.todo", "opt.done"],
+      props: { [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("ref")] },
+      createdAt: ISO,
+      updatedAt: ISO,
+    },
+    { id: "opt.todo", text: "Todo", children: [], props: {}, createdAt: ISO, updatedAt: ISO },
+    {
+      id: "opt.done",
+      text: "Done",
+      children: [],
+      props: { [SYSTEM_IDS.colorField]: [{ t: "str", v: "#22c55e" }] },
+      createdAt: ISO,
+      updatedAt: ISO,
+    },
+  ];
+  // The option set is the field's children, a declaration resolved by query.
+  const optionContext = fieldContextOf({
+    ontologyId: null,
+    nodes: wireToOutlineMap(optionWire, new Set()),
+    wireNodes: [],
+    index: new DatascriptIndex(optionWire),
+  });
+
+  beforeAll(() => {
+    dom = installDomGlobals();
+    (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
+    dom.restore();
+  });
+
+  beforeEach(() => {
+    followed = [];
+    container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
+    dom.window.document.body.appendChild(container as unknown as never);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  async function mountStack(values: PropValue[]) {
+    await act(async () => {
+      root.render(
+        createElement(FieldValueStack, {
+          nodeId: "n.task",
+          fieldId: "f.status",
+          fieldType: "ref",
+          values,
+          context: optionContext,
+          readOnly: false,
+          onFollow: (target: FollowTarget) => followed.push(target),
+        }),
+      );
+    });
+  }
+
+  it("draws each option as a chip in its colour, and the chips wrap on one line", async () => {
+    await mountStack([
+      { t: "ref", v: "opt.done" },
+      { t: "ref", v: "opt.todo" },
+    ]);
+    const stack = present(container.querySelector('[data-field-values="f.status"]'), "stack");
+    expect(stack.getAttribute("data-layout")).toBe("inline");
+    const chips = [...container.querySelectorAll<HTMLElement>('[data-option-chip="true"]')];
+    expect(chips.map((c) => c.textContent)).toEqual(["Done", "Todo"]);
+    // Its own colour, else its place among the field's options (the palette's
+    // first slot for the field's first child). Read from the markup: the DOM
+    // here drops `color-mix` styles it cannot parse.
+    const html = renderToStaticMarkup(
+      createElement(FieldValueStack, {
+        nodeId: "n.task",
+        fieldId: "f.status",
+        fieldType: "ref",
+        values: [
+          { t: "ref", v: "opt.done" },
+          { t: "ref", v: "opt.todo" },
+        ],
+        context: optionContext,
+        readOnly: false,
+        onFollow: () => undefined,
+      }),
+    );
+    expect(html).toContain("#22c55e");
+    expect(html).toContain(TAG_PALETTE[0]);
+  });
+
+  it("a click on the chip follows it; a click beside it opens the picker", async () => {
+    await mountStack([{ t: "ref", v: "opt.done" }]);
+    await act(async () => {
+      present(container.querySelector<HTMLElement>('[data-option-chip="true"]'), "chip").click();
+    });
+    expect(followed).toEqual([{ kind: "node", id: "opt.done" }]);
+    const slot = present(
+      container.querySelector<HTMLElement>('[data-value-slot="option"]'),
+      "slot",
+    );
+    await act(async () => {
+      slot.click();
+    });
+    const offered = [...container.querySelectorAll('[role="option"]')].map((o) => o.textContent);
+    expect(offered).toEqual(["Done", "Todo"]);
   });
 });

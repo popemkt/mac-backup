@@ -190,9 +190,20 @@ export function childrenTargetQuery(fieldId: NodeId): string {
 function declaredTargetQuery(fieldNode: NodeLike | undefined): string | null {
   const edn = targetQueryOf(fieldNode);
   if (typeof edn === "string" && edn !== "") return edn;
-  if (targetTagsOf(fieldNode).length > 0) return null;
-  if (fieldNode === undefined || fieldNode.children.length === 0) return null;
+  if (fieldNode === undefined || !declaresOptionSet(fieldNode)) return null;
   return childrenTargetQuery(fieldNode.id);
+}
+
+/**
+ * Whether a field declares its values by parenting them — its children are
+ * its option set (the third carrier above, and the one a query or a tag
+ * outranks). What such a value *is* is an option: a node chosen from a fixed
+ * list, which a surface may show as a chip rather than as a row.
+ */
+export function declaresOptionSet(fieldNode: NodeLike | undefined): boolean {
+  if (fieldNode === undefined || fieldNode.children.length === 0) return false;
+  const edn = targetQueryOf(fieldNode);
+  return (edn === null || edn === "") && targetTagsOf(fieldNode).length === 0;
 }
 
 function runTargetQuery(

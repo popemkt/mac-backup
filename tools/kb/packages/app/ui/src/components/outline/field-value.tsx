@@ -25,14 +25,14 @@ import { CheckIcon, WarningIcon } from "@phosphor-icons/react";
 import { nodeCandidates, refSearchOf } from "@/lib/refs";
 import { pickerRows } from "@/lib/picker";
 import { usePickerKeys } from "@/lib/use-picker";
-import { TAG_PALETTE } from "@/lib/tag-color";
+import { optionColorOf, TAG_PALETTE } from "@/lib/tag-color";
 import { asInstance } from "@/lib/dom";
 import { bulletClickIntent, nodeTarget, type Follow, type FollowTarget } from "@/lib/follow";
 import type { ValueKindSpec } from "@/lib/value-kind";
 import { PickerList } from "@/components/ui/picker-list";
 import { Bullet } from "./bullet";
 import { NodeRow } from "./node-row";
-import { TagChipGroup } from "./tag-chip";
+import { OptionChip, TagChipGroup } from "./tag-chip";
 
 /**
  * What a slot's keymap asks of the editor it holds. Only a caret editor has
@@ -713,6 +713,54 @@ export function RefSurface({
   const target = context.schema.get(refId);
   if (target) return <ResolvedRefRow refId={refId} target={target} onFollow={onFollow} />;
   if (refId) return <UnresolvedRefChip refId={refId} display={display} />;
+  return (
+    <span
+      className={cn(editableClass, "block cursor-text italic empty-placeholder text-foreground/25")}
+      data-empty-placeholder="true"
+      data-ref-slot="closed"
+    />
+  );
+}
+
+/**
+ * An option value: a node picked from its field's own list, drawn as the chip
+ * a tag is drawn as, in the option's colour (`optionColorOf`). The chip is a
+ * pointer segment — a plain click opens the option's page — and the slot
+ * around it edits, opening the same picker a ref value uses.
+ */
+export function OptionSurface({
+  value,
+  spec,
+  editing,
+  display,
+  fieldId,
+  context,
+  onEnd,
+}: ValueSurfaceProps) {
+  const optionId = spec.text(value);
+  if (editing) {
+    return (
+      <RefSearch
+        fieldId={fieldId}
+        context={context}
+        onCommit={(id) => onEnd(spec.parse(id), id)}
+        onClose={() => onEnd()}
+      />
+    );
+  }
+  const option = context.schema.get(optionId);
+  if (option) {
+    return (
+      <span className="flex h-6 items-center px-1">
+        <OptionChip
+          id={optionId}
+          label={option.text || optionId}
+          color={optionColorOf(option, context.schema.get(fieldId))}
+        />
+      </span>
+    );
+  }
+  if (optionId) return <UnresolvedRefChip refId={optionId} display={display} />;
   return (
     <span
       className={cn(editableClass, "block cursor-text italic empty-placeholder text-foreground/25")}
