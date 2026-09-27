@@ -27,7 +27,7 @@ import {
   ColorSurface,
   DateSurface,
   RefSurface,
-  type CaretTone,
+  type CaretDisplay,
   type EditHandle,
   type RejectedInput,
   type ValueSurfaceProps,
@@ -48,9 +48,9 @@ interface ValueView {
   readonly Surface: (props: ValueSurfaceProps) => React.ReactNode;
 }
 
-function caretSurface(tone: CaretTone): ValueView["Surface"] {
+function caretSurface(display: CaretDisplay): ValueView["Surface"] {
   return function CaretSurface(props: ValueSurfaceProps) {
-    return <CaretValue {...props} tone={tone} />;
+    return <CaretValue {...props} display={display} />;
   };
 }
 
@@ -62,7 +62,7 @@ function caretSurface(tone: CaretTone): ValueView["Surface"] {
  * fall-through, so giving it its own icon is a one-word change.
  */
 const VALUE_VIEWS: Readonly<Record<ValueKind, ValueView>> = {
-  text: { icon: TextTIcon, Surface: caretSurface("plain") },
+  text: { icon: TextTIcon, Surface: caretSurface("markdown") },
   url: { icon: TextTIcon, Surface: caretSurface("link") },
   number: { icon: HashIcon, Surface: caretSurface("plain") },
   date: { icon: CalendarBlankIcon, Surface: DateSurface },
@@ -145,21 +145,28 @@ export function ValueSlot({
   const mode = EDITOR_MODES[spec.editor];
   const shown = value ?? emptyValueForType(fieldType);
   const blank = spec.isBlank(shown);
-  const [editing, setEditing] = useState(autoOpen && mode.autoOpens);
+  /** Open, and where a caret editor's caret goes; closed is null. */
+  const [entry, setEntry] = useState<{ at: number | "end" } | null>(
+    autoOpen && mode.autoOpens ? { at: "end" } : null,
+  );
+  const editing = entry !== null;
   /** Typed text the kind refused: shown, marked, and where the next edit starts. */
   const [rejected, setRejected] = useState<RejectedInput | null>(null);
   const handle = useRef<EditHandle>(null);
   const composing = useRef(false);
   const { Surface } = VALUE_VIEWS[kind];
 
-  /** Activate the slot: open its editor, or — for a toggle — flip it. */
-  const begin = () => {
+  /**
+   * Activate the slot: open its editor — with the caret at `at`, for a caret
+   * editor — or, for a toggle, flip it.
+   */
+  const begin = (at: number | "end" = "end") => {
     if (spec.editor === "toggle") onCommit(toggledValue(shown));
-    else if (spec.editor !== "swatch") setEditing(true);
+    else if (spec.editor !== "swatch") setEntry({ at });
   };
 
   const end = (parsed?: ParsedValue, text = "") => {
-    setEditing(false);
+    setEntry(null);
     if (parsed === undefined) setRejected(null);
     else if (parsed.ok) {
       setRejected(null);
@@ -178,7 +185,7 @@ export function ValueSlot({
       tabIndex={opensOnFocus ? 0 : undefined}
       role={opensOnFocus ? "button" : undefined}
       aria-label={opensOnFocus ? "Set value" : undefined}
-      onFocus={opensOnFocus ? begin : undefined}
+      onFocus={opensOnFocus ? () => begin() : undefined}
       onClick={(e) => {
         if (editing) return;
         // A pointer segment (a ref label, a link) follows on a plain click, as
@@ -190,7 +197,8 @@ export function ValueSlot({
           return;
         }
         if (spec.editor === "toggle") e.stopPropagation();
-        begin();
+        // The caret lands where the click did, as it does in node text.
+        begin(handle.current?.caretAtPoint(e.clientX, e.clientY) ?? "end");
       }}
       onCompositionStart={() => {
         composing.current = true;
@@ -215,6 +223,9 @@ export function ValueSlot({
         } else if (intent === "cancel") {
           setRejected(null);
           handle.current?.cancel();
+        } else if (intent === "softBreak") {
+          e.preventDefault();
+          handle.current?.softBreak();
         } else if (intent === "follow" && target !== null) {
           e.preventDefault();
           onFollow(target, "open");
@@ -225,6 +236,7 @@ export function ValueSlot({
         value={shown}
         blank={blank}
         editing={editing}
+        caretAt={entry?.at ?? "end"}
         rejected={rejected}
         spec={spec}
         display={display}

@@ -259,10 +259,11 @@ describe("what a commit writes", () => {
     present(container.querySelector<HTMLElement>('[data-editable-text="true"]'), "editable");
 
   async function typeAndBlur(text: string) {
-    const el = editable();
     await act(async () => {
-      el.click();
+      editable().click();
     });
+    // Editing swaps the value at rest for its editor: type into that one.
+    const el = editable();
     el.textContent = text;
     await act(async () => {
       el.dispatchEvent(

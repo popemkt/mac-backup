@@ -3,7 +3,19 @@ import type { OutlineNode, PropValue } from "@/lib/types";
 import { useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
-import { INLINE_TEXT_CLASSES, KB_REF_ID_ATTR } from "@/lib/md-edit";
+import {
+  INLINE_TEXT_CLASSES,
+  KB_REF_ID_ATTR,
+  getCaretSerializedOffset,
+  readInlineInput,
+  renderInlineMarkdown,
+  revealMarkupAtSelection,
+  serializeEditable,
+  setCaretSerializedOffset,
+} from "@/lib/md-edit";
+import { offsetFromPoint } from "@/lib/caret";
+import { InlineMarkdown } from "@/components/ui/md-view";
+import { useRevealMarkup } from "@/components/ui/use-reveal-markup";
 import { urlLabel } from "@/lib/url-label";
 import type { ParsedValue } from "@kb/model";
 import { WarningIcon } from "@phosphor-icons/react";
@@ -12,7 +24,7 @@ import { pickerRows } from "@/lib/picker";
 import { usePickerKeys } from "@/lib/use-picker";
 import { TAG_PALETTE } from "@/lib/tag-color";
 import { asInstance } from "@/lib/dom";
-import { bulletClickIntent, nodeTarget, type Follow } from "@/lib/follow";
+import { bulletClickIntent, nodeTarget, type Follow, type FollowTarget } from "@/lib/follow";
 import type { ValueKindSpec } from "@/lib/value-kind";
 import { PickerList } from "@/components/ui/picker-list";
 import { Bullet } from "./bullet";
@@ -29,6 +41,13 @@ export interface EditHandle {
   commit: () => void;
   /** Escape: put the value back and leave the editor. */
   cancel: () => void;
+  /** Shift+Enter: a line break inside the value (text only). */
+  softBreak: () => void;
+  /**
+   * Where a click at a point lands in the text, measured on the value at
+   * rest — before the slot swaps it for the editor.
+   */
+  caretAtPoint: (x: number, y: number) => number | "end";
 }
 
 /** Input a kind refused, and why. */
@@ -45,6 +64,8 @@ export interface ValueSurfaceProps {
   blank: boolean;
   /** The slot's editor is open (`ValueSlot` owns this state). */
   editing: boolean;
+  /** Where a caret editor opens: the click's offset, or the end. */
+  caretAt: number | "end";
   spec: ValueKindSpec;
   /** Pre-formatted label for a ref value, when the caller already has one. */
   display: string;
@@ -71,103 +92,185 @@ export interface ValueSurfaceProps {
 
 const editableClass = cn("flex-1 outline-none rounded-sm px-1", KB_TEXT_CLASS);
 
-/** How a caret surface is painted; the one column that tells text from url. */
-export type CaretTone = "plain" | "link";
+/**
+ * What a caret surface shows at rest: text's inline markdown, a url's link,
+ * or the plain string.
+ */
+export type CaretDisplay = "markdown" | "link" | "plain";
 
 /**
- * A value that is text: the same element reads it and, while the slot edits,
- * holds the caret. Entering puts the caret at the end; leaving reads the text
- * back through the kind's `parse`.
+ * A value that is text, edited in place by the same live preview node text
+ * uses (DESIGN-UI.md → Node text is one surface): at rest the value is its
+ * inline tree, and editing makes that tree contentEditable with the caret
+ * where the click landed and the markup under the caret revealed. Typing is
+ * read back through `readInlineInput`, so `**b**`, links and `[[ref]]` pills
+ * format and follow exactly as they do in node text. A url and a number are
+ * the same surface with a plain display: the url is a link at rest, and
+ * neither has formatting to reveal.
  *
  * Text the kind cannot read is never dropped: the slot keeps it (`rejected`),
  * this shows it marked with the reason, and the next edit starts from it.
- * A url at rest is a real link — a pointer segment, so a plain click on it
- * opens it (lib/follow) while a click beside it edits.
  */
 export function CaretValue({
   value,
   blank,
   editing,
+  caretAt,
   spec,
   rejected,
   onEnd,
   handleRef,
-  tone,
-}: ValueSurfaceProps & { tone: CaretTone }) {
-  const ref = useRef<HTMLDivElement>(null);
+  display: shownAs,
+}: Omit<ValueSurfaceProps, "display"> & { display: CaretDisplay }) {
+  const viewRef = useRef<HTMLDivElement>(null);
+  const editRef = useRef<HTMLDivElement>(null);
+  const composing = useRef(false);
   const stored = spec.text(value);
   const text = rejected?.text ?? stored;
 
   useLayoutEffect(() => {
-    const el = ref.current;
+    const el = editRef.current;
     if (!editing || el === null) return;
+    renderInlineMarkdown(el, text);
     el.focus();
-    const sel = window.getSelection();
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    range.collapse(false);
-    sel?.removeAllRanges();
-    sel?.addRange(range);
+    setCaretSerializedOffset(el, caretAt === "end" ? text.length : Math.min(caretAt, text.length));
+    revealMarkupAtSelection(el);
+    // Entering is the only time the DOM is built from `text`: while editing,
+    // the DOM is the text.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- rebuilt on entry only
   }, [editing]);
+
+  useRevealMarkup(editRef, editing);
 
   useImperativeHandle(
     handleRef,
     () => ({
-      commit: () => ref.current?.blur(),
+      commit: () => editRef.current?.blur(),
       cancel: () => {
-        if (ref.current) ref.current.textContent = stored;
-        ref.current?.blur();
+        if (editRef.current) renderInlineMarkdown(editRef.current, stored);
+        editRef.current?.blur();
+      },
+      softBreak: () => {
+        const el = editRef.current;
+        if (el === null || shownAs !== "markdown") return;
+        const current = serializeEditable(el);
+        const at = getCaretSerializedOffset(el);
+        renderInlineMarkdown(el, `${current.slice(0, at)}\n${current.slice(at)}`);
+        setCaretSerializedOffset(el, at + 1);
+        revealMarkupAtSelection(el);
+      },
+      caretAtPoint: (x, y) => {
+        // Only a surface whose rest tree is its edit tree can map a point to
+        // an offset; a url's short label is not the text it edits.
+        const el = viewRef.current;
+        if (el === null || shownAs === "link") return "end";
+        return offsetFromPoint(el, x, y) ?? "end";
       },
     }),
-    [stored],
+    [stored, shownAs],
   );
 
   const finish = () => {
-    const next = ref.current?.textContent ?? text;
+    const next = editRef.current === null ? text : serializeEditable(editRef.current);
     if (next === stored) onEnd();
     else onEnd(spec.parse(next), next);
   };
 
   const showEmpty = blank && !text;
-  const href = tone === "link" && !editing && rejected === null ? spec.follow(value) : null;
+  const tone = showEmpty
+    ? "text-foreground/25 italic"
+    : rejected !== null
+      ? "text-warning underline decoration-wavy decoration-warning/50 underline-offset-2"
+      : "text-foreground/70";
+  const textClass = cn(editableClass, "kb-md-view min-w-0 cursor-text whitespace-pre-wrap", tone);
 
   return (
     <div className="flex min-w-0 flex-1 items-start">
+      {editing ? (
+        <div
+          key="edit"
+          ref={editRef}
+          className={cn(textClass, "editable")}
+          contentEditable
+          suppressContentEditableWarning
+          role="textbox"
+          data-editable-text="true"
+          onInput={() => {
+            if (editRef.current && !composing.current) readInlineInput(editRef.current);
+          }}
+          onCompositionStart={() => {
+            composing.current = true;
+          }}
+          onCompositionEnd={() => {
+            composing.current = false;
+            if (editRef.current) readInlineInput(editRef.current);
+          }}
+          onBlur={finish}
+          onPaste={(e) => {
+            // A link pasted into an empty url slot is the whole gesture.
+            const pasted = e.clipboardData.getData("text/plain").trim();
+            if (shownAs !== "link" || !showEmpty || pasted === "" || /\n/.test(pasted)) return;
+            e.preventDefault();
+            onEnd(spec.parse(pasted), pasted);
+          }}
+        />
+      ) : (
+        <CaretRest
+          viewRef={viewRef}
+          className={cn(textClass, showEmpty && "empty-placeholder")}
+          text={showEmpty ? null : text}
+          href={shownAs === "link" && rejected === null ? spec.follow(value) : null}
+          markdown={shownAs === "markdown" && rejected === null}
+          rejected={rejected}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * A caret value at rest: its inline tree (text), its link (url) or its plain
+ * string, or — refused input — that input marked with the reason.
+ */
+function CaretRest({
+  viewRef,
+  className,
+  text,
+  href,
+  markdown,
+  rejected,
+}: {
+  viewRef: React.Ref<HTMLDivElement>;
+  className: string;
+  /** Null: the slot is unset and shows its placeholder. */
+  text: string | null;
+  href: FollowTarget | null;
+  markdown: boolean;
+  rejected: RejectedInput | null;
+}) {
+  return (
+    <>
       <div
-        ref={ref}
-        className={cn(
-          editableClass,
-          "min-w-0 cursor-text",
-          showEmpty && "empty-placeholder",
-          showEmpty
-            ? "text-foreground/25 italic"
-            : rejected !== null
-              ? "text-warning underline decoration-wavy decoration-warning/50 underline-offset-2"
-              : "text-foreground/70",
-        )}
-        contentEditable={editing}
-        onBlur={editing ? finish : undefined}
-        onPaste={(e) => {
-          // A link pasted into an empty url slot is the whole gesture.
-          const pasted = e.clipboardData.getData("text/plain").trim();
-          if (!editing || tone !== "link" || !showEmpty || pasted === "" || /\n/.test(pasted)) {
-            return;
-          }
-          e.preventDefault();
-          onEnd(spec.parse(pasted), pasted);
-        }}
+        key="view"
+        ref={viewRef}
+        className={className}
         data-editable-text="true"
-        data-empty-placeholder={showEmpty ? "true" : undefined}
+        data-empty-placeholder={text === null ? "true" : undefined}
         data-rejected={rejected !== null ? "true" : undefined}
         aria-invalid={rejected !== null || undefined}
         title={rejected?.reason}
-        suppressContentEditableWarning
       >
         {/* D17: empty state is CSS-only (:empty::before) — the DOM stays
             empty so the caret lands on a truly blank editor. */}
-        {showEmpty ? "" : href?.kind === "href" ? <UrlLink href={href.href} /> : text}
+        {text === null ? null : href?.kind === "href" ? (
+          <UrlLink href={href.href} />
+        ) : markdown ? (
+          <InlineMarkdown text={text} />
+        ) : (
+          text
+        )}
       </div>
-      {rejected !== null && !editing && (
+      {rejected !== null && (
         <span
           className="flex h-6 w-4 shrink-0 items-center justify-center text-warning"
           title={rejected.reason}
@@ -176,7 +279,7 @@ export function CaretValue({
           <WarningIcon size={11} weight="fill" aria-hidden />
         </span>
       )}
-    </div>
+    </>
   );
 }
 

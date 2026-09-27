@@ -348,3 +348,113 @@ describe("a url value is a link", () => {
     expect(committed).toEqual([]);
   });
 });
+
+describe("a text value is node text", () => {
+  let dom: InstalledDom;
+  let container: HTMLDivElement;
+  let root: Root;
+  let committed: PropValue[];
+  let followed: FollowTarget[];
+
+  beforeAll(() => {
+    dom = installDomGlobals();
+    (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
+    dom.restore();
+  });
+
+  beforeEach(() => {
+    committed = [];
+    followed = [];
+    container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
+    dom.window.document.body.appendChild(container as unknown as never);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  async function mountText(v: string) {
+    await act(async () => {
+      root.render(
+        createElement(ValueSlot, {
+          value: { t: "str", v },
+          fieldType: "text",
+          fieldId: "f.note",
+          context,
+          onCommit: (next: PropValue) => committed.push(next),
+          onFollow: (target: FollowTarget) => followed.push(target),
+        }),
+      );
+    });
+    return present(container.querySelector<HTMLElement>('[data-value-slot="text"]'), "slot");
+  }
+
+  const editable = () =>
+    present(container.querySelector<HTMLElement>('[data-editable-text="true"]'), "editable");
+
+  async function key(k: string, init: { shiftKey?: boolean } = {}) {
+    await act(async () => {
+      editable().dispatchEvent(
+        new dom.window.KeyboardEvent("keydown", {
+          key: k,
+          bubbles: true,
+          cancelable: true,
+          ...init,
+        }) as unknown as Event,
+      );
+    });
+  }
+
+  async function leave() {
+    await act(async () => {
+      editable().dispatchEvent(
+        new dom.window.FocusEvent("focusout", { bubbles: true }) as unknown as Event,
+      );
+    });
+  }
+
+  it("renders its inline markdown at rest: formatting and ref pills", async () => {
+    await mountText("**bold** and [[n.x|X]]");
+    expect(editable().querySelector("strong")?.textContent).toBe("bold");
+    expect(editable().querySelector("[data-kb-ref-id]")?.getAttribute("data-kb-ref-id")).toBe(
+      "n.x",
+    );
+  });
+
+  it("a click on a ref pill follows it rather than editing", async () => {
+    const slot = await mountText("see [[n.x|X]]");
+    await act(async () => {
+      present(container.querySelector<HTMLElement>("[data-kb-ref-id]"), "pill").click();
+    });
+    expect(followed).toEqual([{ kind: "node", id: "n.x" }]);
+    expect(slot.getAttribute("data-editing")).toBeNull();
+  });
+
+  it("edits over the same tree, and writes the markdown back byte for byte", async () => {
+    const slot = await mountText("a **b** [[n.x|X]]");
+    await act(async () => {
+      slot.click();
+    });
+    // The editor holds the same inline tree: the pill is still a pill.
+    expect(editable().getAttribute("contenteditable")).toBe("true");
+    expect(editable().querySelector("[data-kb-ref-id]")).not.toBeNull();
+    await leave();
+    expect(committed).toEqual([]);
+  });
+
+  it("Shift+Enter breaks the line inside the value", async () => {
+    const slot = await mountText("one");
+    await act(async () => {
+      slot.click();
+    });
+    await key("Enter", { shiftKey: true });
+    await leave();
+    expect(committed).toEqual([{ t: "str", v: "one\n" }]);
+  });
+});

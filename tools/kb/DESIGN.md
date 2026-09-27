@@ -549,7 +549,11 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
 - **Refs / `:node/mentions` (the reference relationship, carrier-independent).**
   Two things carry a reference in this model, and `:node/mentions` is emitted
   from **both**:
-  1. a wiki-link in node `text` — `[[node-id|label]]` or bare `[[node-id]]`;
+  1. a wiki-link in **text** — `[[node-id|label]]` or bare `[[node-id]]` —
+     whether the text is the node's own `text` or a `{t:"str"}` value it
+     holds (`nodeMentions` in `@kb/query`): a text field's value is written,
+     rendered and followed exactly like node text (DESIGN-UI.md → Field
+     values), so a token in it references exactly like one in node text;
   2. a `{t:"ref"}` **prop value** — a typed field pointing at a node.
 
   At datom build time each distinct target of either kind becomes one
@@ -581,8 +585,9 @@ set`, MCP and the UI all replace in one write), a many-valued field gains
   distinction survives exactly where it is a genuine lens: the graph's
   `mention` / `child` / `ref-prop` edge kinds label provenance, and each is
   therefore read from its own carrier (`collectEdges` in `ui/src/lib/graph-lens.ts`
-  scans text, children and props separately and never queries `:node/mentions`,
-  which would double every prop edge).
+  scans text tokens — `nodeMentions`, the same reader the datoms use — children
+  and ref props separately and never queries `:node/mentions`, which would
+  double every prop edge).
 
   Optional Logseq-style `:node/path-refs` (ancestor mentions) is backlog —
   add only when a real query needs hierarchy-scoped reach.

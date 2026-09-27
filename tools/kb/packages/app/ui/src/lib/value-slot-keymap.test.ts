@@ -20,8 +20,8 @@ describe("value slot keymap", () => {
     expect(valueSlotIntent({ key: "Escape" }, editingCaret)).toBe("cancel");
   });
 
-  it("Shift+Enter is a line break, so the slot only contains it", () => {
-    expect(valueSlotIntent({ key: "Enter", shiftKey: true }, editingCaret)).toBe("contain");
+  it("Shift+Enter is a line break inside the value", () => {
+    expect(valueSlotIntent({ key: "Enter", shiftKey: true }, editingCaret)).toBe("softBreak");
   });
 
   it("every other key an editing slot receives stays inside it", () => {

@@ -110,7 +110,7 @@ components/
 scene/                    the scene kit every real-time 3D view stands on (gpu/ = three)
 catalog/                  story modules + smoke tests (dev/test only)
 stores/, lib/, api/, actions/
-ds/                       one-file @kb/query seam (runQuery, queryBacklinks, DatascriptIndex, extractMentions)
+ds/                       one-file @kb/query seam (runQuery, queryBacklinks, DatascriptIndex, nodeMentions)
 ```
 
 Colocate tests as `*.test.ts(x)` next to the unit. Catalog stories are

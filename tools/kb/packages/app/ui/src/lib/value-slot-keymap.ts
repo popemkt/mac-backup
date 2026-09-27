@@ -15,6 +15,8 @@ export type ValueSlotIntent =
   | "commit"
   /** Put the value back and leave the editor. */
   | "cancel"
+  /** A line break inside the value. */
+  | "softBreak"
   /** Go where the value points (`ValueKindSpec.follow`). */
   | "follow"
   /** The editing slot's key: nothing behind the slot may act on it. */
@@ -47,6 +49,7 @@ const FOLLOW: SlotBinding = {
 /** First match wins. Shift+Enter is a line break, not a commit. */
 const EDITING_KEYS: readonly SlotBinding[] = [
   FOLLOW,
+  { chord: { key: "Enter", shift: true, mod: false }, intent: "softBreak", slotKeysOnly: true },
   { chord: { key: "Enter", shift: false }, intent: "commit", slotKeysOnly: true },
   { chord: { key: "Escape" }, intent: "cancel", slotKeysOnly: true },
 ];

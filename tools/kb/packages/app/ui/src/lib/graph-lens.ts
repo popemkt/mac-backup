@@ -24,7 +24,7 @@ import {
 } from "@kb/model";
 import type { WireNode } from "@kb/contracts";
 import type { KbIndex } from "@/ds";
-import { extractMentions, runQuery } from "@/ds";
+import { nodeMentions, runQuery } from "@/ds";
 import {
   UNTAGGED_COLOR,
   hashTagColor,
@@ -631,7 +631,8 @@ function collectEdges(
 
   /*
    * The three edge kinds are provenance lenses over one relation, so each is
-   * read from its own carrier and they stay disjoint: text tokens here, the
+   * read from its own carrier and they stay disjoint: text tokens here (the
+   * node's text and its text values, `nodeMentions`), the
    * children array below, ref prop values after that. `:node/mentions` is
    * deliberately NOT used — it is carrier-independent (see ds/datoms), so
    * querying it would double every ref-prop edge as a mention as well.
@@ -639,7 +640,7 @@ function collectEdges(
   if (kinds.has("mention")) {
     for (const n of wireNodes) {
       if (!nodeSet.has(n.id)) continue;
-      for (const to of new Set(extractMentions(n.text))) {
+      for (const to of new Set(nodeMentions(n))) {
         push(n.id, to, "mention");
       }
     }

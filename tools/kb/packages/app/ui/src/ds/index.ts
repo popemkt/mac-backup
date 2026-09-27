@@ -6,7 +6,7 @@
 import { backlinksQuery, type KbIndex } from "@kb/query";
 
 export type { KbIndex } from "@kb/query";
-export { DatascriptIndex, extractMentions } from "@kb/query";
+export { DatascriptIndex, nodeMentions } from "@kb/query";
 
 export const runQuery = (ix: KbIndex, edn: string): unknown[][] => ix.runDatalog(edn);
 

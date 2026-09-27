@@ -2,7 +2,7 @@ export { DatalogError } from "./datalog-error.ts";
 export { datascriptExecutor, pull, query, queryRows, runIr } from "./datascript.ts";
 export type { EdnExecutor } from "./datascript.ts";
 export { DatascriptIndex } from "./index/datascript-index.ts";
-export { extractMentions } from "./index/datoms.ts";
+export { nodeMentions } from "./index/datoms.ts";
 export { KbIndexService } from "./index/index.ts";
 export type { KbIndex } from "./index/index.ts";
 export { compile, normalizeEdnQuery } from "./ir/compile.ts";

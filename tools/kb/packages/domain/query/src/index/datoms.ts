@@ -4,8 +4,9 @@ import { present, type KbNode, type NodeId, type PropValue } from "@kb/model";
  * `:node/mentions` is THE reference relation — "this node references that one"
  * — and it is carrier-independent by design.
  *
- * Two things carry a reference in this model: a `[[node-id]]` token in text and
- * a `{t:"ref"}` prop value. Both are already first-class, so a question about
+ * Two things carry a reference in this model: a `[[node-id]]` token in text —
+ * the node's own text or any text value it holds — and a `{t:"ref"}` prop
+ * value. Both are already first-class, so a question about
  * the relation ("what references X?" — `kb backlinks`, the UI's References
  * section) must not have to remember which carrier was used; asking twice and
  * unioning at every call site is the second `if` on one distinction that Rule 1
@@ -122,10 +123,7 @@ export function nodeToDatoms(node: KbNode, ids: IdMap): NodeDatoms {
     }
   }
 
-  MENTION_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = MENTION_RE.exec(node.text)) !== null) {
-    const mentionId = present(m[1], "mention id").trim();
+  for (const mentionId of nodeMentions(node)) {
     refs.add(mentionId);
     const meid = ids.toEid.get(mentionId);
     if (meid !== undefined) mentioned.add(meid);
@@ -171,6 +169,21 @@ export function schemaFor(attrs: ReadonlySet<string>): Record<string, Record<str
     schema[attr] = { ...many };
   }
   return schema;
+}
+
+/**
+ * Every id a node mentions in text: `[[id]]` tokens in its own text and in
+ * each text (`{t:"str"}`) value it holds. A token is a mention wherever the
+ * text lives — a text field's value is written, rendered and followed exactly
+ * like node text, so it references exactly like node text. In order, with
+ * repeats (a caller that wants a set dedupes).
+ */
+export function nodeMentions(node: Pick<KbNode, "text" | "props">): NodeId[] {
+  const out = extractMentions(node.text);
+  for (const values of Object.values(node.props)) {
+    for (const pv of values) if (pv.t === "str") out.push(...extractMentions(pv.v));
+  }
+  return out;
 }
 
 /** Extract [[id|label]] mentions from text. */
