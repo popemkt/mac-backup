@@ -256,8 +256,10 @@ export function SigmaGraph(props: SigmaGraphProps) {
       hulls?.draw((box) => reserveInGraphLabels(labels, box));
       placeGraphLabels(labels);
     });
-    // A press on a node drags it in the layout the graph stands in now.
-    const drag = new NodeDrag(() => placedDrag(graph), sigmaDragSurface(sigma));
+    // A press on a node drags it in the layout the graph stands in now: the
+    // force layout while there is one, else the placed layout.
+    const placed = placedDrag(graph);
+    const drag = new NodeDrag(() => layoutRef.current ?? placed, sigmaDragSurface(sigma));
     let suppressClick = false;
     const markCamera = () => {
       cameraIntent.current = true;

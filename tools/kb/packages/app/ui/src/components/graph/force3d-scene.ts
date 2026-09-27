@@ -8,7 +8,8 @@
  * - the drawn state and its layers (`force3d-layers`): nodes, links and
  *   direction particles, labels — one draw each;
  * - the camera (`force3d-camera`): follows the layout, flies to a selection;
- * - the pointer (`force3d-pick`): hover, select, open.
+ * - the pointer (`force3d-pick`): hover, select, open, and drag a node
+ *   (`lib/graph-drag` over the layers' layout and `force3d-drag`'s surface).
  *
  * Light (L2–L4), as the perspective's theme dresses it (`graph-themes`):
  * only glowing nodes and particles exceed 1, and bloom's threshold is 1;
@@ -33,6 +34,8 @@ import type { GraphCameraControls } from "./graph-camera-controls";
 import { GraphCamera } from "./force3d-camera";
 import { GraphLayers, type Force3dSettings } from "./force3d-layers";
 import { GraphPick } from "./force3d-pick";
+import { NodeDrag } from "@/lib/graph-drag";
+import { sceneDragSurface } from "./force3d-drag";
 import { GRAPH_THEMES, variant, type SceneDress } from "./graph-themes";
 
 export type { Force3dSettings };
@@ -168,28 +171,36 @@ function graphScene(stage: SceneStage, init: Force3dSceneInit) {
   const { orbit, follow, dress } = dressStage(stage, init);
   let dark = init.dark;
   const layers = new GraphLayers(stage, init);
-  const view = new GraphCamera(
-    { camera, orbit },
-    layers.places(),
-    init.timing.follow,
-    stage.invalidate,
+  const places = layers.places();
+  const view = new GraphCamera({ camera, orbit }, places, init.timing.follow, stage.invalidate);
+  const dragLayout = layers.dragLayout();
+  const drag = new NodeDrag(
+    () => dragLayout,
+    sceneDragSurface({ canvas, camera, orbit, view, places }),
   );
-  const pick = new GraphPick({ canvas, camera }, layers.pickField(), {
-    onSelect: init.onSelect,
-    onOpen: init.onOpen,
-    onHover: init.onHover,
-    onHoverChange: (id) => {
-      layers.hovered = id;
-      layers.refresh();
+  const pick = new GraphPick(
+    { canvas, camera },
+    layers.pickField(),
+    {
+      onSelect: init.onSelect,
+      onOpen: init.onOpen,
+      onHover: init.onHover,
+      onHoverChange: (id) => {
+        layers.hovered = id;
+        layers.refresh();
+      },
+      wake: stage.invalidate,
     },
-    wake: stage.invalidate,
-  });
+    drag,
+  );
   const viewport = { width: 0, height: 0 };
 
   const frame = (dt: number) => {
     pick.frame();
     const flying = view.flying;
-    const turning = view.step(dt, stage.reduced(), layers.laying, layers.settings.autorotate);
+    // The ambient turn waits while the pointer is on a node, so it holds still to be read or dragged.
+    const turn = layers.settings.autorotate && pick.hovered === null && pick.pressed === null;
+    const turning = view.step(dt, stage.reduced(), layers.laying, turn);
     if (flying) layers.touch();
     follow(camera);
     viewport.width = canvas.clientWidth;

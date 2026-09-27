@@ -50,6 +50,12 @@ const REST_ALPHA = 0.025;
 const GRAVITY = 0.035;
 /** One tick per frame at 60 Hz, so a settle is watchable, not a jump. */
 const TICK_MS = 16;
+/**
+ * The heat a drag holds the layout at (d3's own drag convention): enough for
+ * the neighbours to follow the held node live; after the drop it cools from
+ * here to rest in under two seconds.
+ */
+const DRAG_ALPHA = 0.3;
 
 type Emit = (positions: Float32Array, running: boolean) => void;
 
@@ -58,6 +64,23 @@ interface SimNode {
   x?: number;
   y?: number;
   z?: number;
+  fx?: number | null;
+  fy?: number | null;
+  fz?: number | null;
+}
+
+/** The layout's side of a node drag (`lib/graph-drag`), by node index. */
+interface LayoutDrag {
+  grab(index: number): void;
+  hold(index: number, x: number, y: number, z: number): void;
+  drop(index: number): void;
+}
+
+/** Stand `node` at (x, y, z), fixed there. */
+function pin(node: SimNode, x: number, y: number, z: number): void {
+  node.x = node.fx = x;
+  node.y = node.fy = y;
+  node.z = node.fz = z;
 }
 
 /** A simulation over `seed`, ticked by hand. */
@@ -89,7 +112,39 @@ function simulation(seed: LayoutSeed) {
     charge.strength(-params.spread);
   };
   setParams(seed.params);
+  const held = new Set<number>();
+  /**
+   * A drag heats the layout. Watched live, it is held at the drag's heat for
+   * as long as any node is held; settling unseen, each move heats it once
+   * and it runs to rest around where the node now stands.
+   */
+  const heat = () => {
+    sim.alphaTarget(seed.live && held.size > 0 ? DRAG_ALPHA : 0);
+    if (sim.alpha() < DRAG_ALPHA) sim.alpha(DRAG_ALPHA);
+  };
+  const drag: LayoutDrag = {
+    grab: (i) => {
+      const node = nodes[i];
+      if (node === undefined) return;
+      held.add(i);
+      pin(node, node.x ?? 0, node.y ?? 0, node.z ?? 0);
+      heat();
+    },
+    hold: (i, x, y, z) => {
+      const node = nodes[i];
+      if (node === undefined || !held.has(i)) return;
+      pin(node, x, y, z);
+      heat();
+    },
+    drop: (i) => {
+      const node = nodes[i];
+      if (node === undefined || !held.delete(i)) return;
+      node.fx = node.fy = node.fz = null;
+      heat();
+    },
+  };
   return {
+    drag,
     running: () => sim.alpha() > REST_ALPHA,
     tick: () => {
       sim.tick();
@@ -110,15 +165,17 @@ function simulation(seed: LayoutSeed) {
   };
 }
 
+/** A running layout's controls: new physics, a node drag, and stopping it. */
+interface LayoutDriver extends LayoutDrag {
+  reheat(params: LayoutParams): void;
+  stop(): void;
+}
+
 /**
  * Tick `seed` to rest, handing positions to `emit` whenever `take` offers a
- * buffer (the page may still hold both). Returns the driver's two controls.
+ * buffer (the page may still hold both). Returns the driver's controls.
  */
-function driveLayout(
-  seed: LayoutSeed,
-  take: () => Float32Array | null,
-  emit: Emit,
-): { reheat: (params: LayoutParams) => void; stop: () => void } {
+function driveLayout(seed: LayoutSeed, take: () => Float32Array | null, emit: Emit): LayoutDriver {
   const sim = simulation(seed);
   let timer: ReturnType<typeof setTimeout> | null = null;
   const post = () => {
@@ -138,10 +195,27 @@ function driveLayout(
     timer = setTimeout(step, Math.max(0, TICK_MS - (Date.now() - started)));
   };
   step();
+  const wake = () => {
+    if (timer === null) step();
+  };
   return {
     reheat: (params) => {
       sim.reheat(params);
-      if (timer === null) step();
+      wake();
+    },
+    grab: (i) => {
+      sim.drag.grab(i);
+      wake();
+    },
+    // A move is taken on the next step, not this one: moves that arrive
+    // faster than steps are coalesced into the latest.
+    hold: (i, x, y, z) => {
+      sim.drag.hold(i, x, y, z);
+      if (timer === null) timer = setTimeout(step, 0);
+    },
+    drop: (i) => {
+      sim.drag.drop(i);
+      wake();
     },
     stop: () => {
       if (timer !== null) clearTimeout(timer);
@@ -164,6 +238,17 @@ export type LayoutRequest =
       readonly buffers: Float32Array[];
     }
   | { readonly type: "reheat"; readonly generation: number; readonly params: LayoutParams }
+  | {
+      readonly type: "grab" | "drop";
+      readonly generation: number;
+      readonly index: number;
+    }
+  | {
+      readonly type: "hold";
+      readonly generation: number;
+      readonly index: number;
+      readonly at: readonly [number, number, number];
+    }
   | { readonly type: "return"; readonly generation: number; readonly buffer: Float32Array };
 export type LayoutReply = {
   readonly type: "positions";
@@ -206,13 +291,30 @@ export function serveLayout(port: LayoutPort<LayoutRequest, LayoutReply>): void 
       );
       return;
     }
-    if (request.generation !== generation) return;
-    if (request.type === "reheat") driver?.reheat(request.params);
-    else if (request.buffer.length === size) free.push(request.buffer);
+    if (request.generation !== generation || driver === null) return;
+    switch (request.type) {
+      case "reheat":
+        driver.reheat(request.params);
+        return;
+      case "grab":
+        driver.grab(request.index);
+        return;
+      case "hold":
+        driver.hold(request.index, ...request.at);
+        return;
+      case "drop":
+        driver.drop(request.index);
+        return;
+      case "return":
+        if (request.buffer.length === size) free.push(request.buffer);
+        return;
+      default:
+        request satisfies never;
+    }
   });
 }
 
-export interface Layout3d {
+export interface Layout3d extends LayoutDrag {
   reheat(params: LayoutParams): void;
   dispose(): void;
 }
@@ -245,7 +347,10 @@ export function startLayout3d(
       },
     );
     return {
-      reheat: driver.reheat,
+      reheat: (params) => driver.reheat(params),
+      grab: (index) => driver.grab(index),
+      hold: (index, x, y, z) => driver.hold(index, x, y, z),
+      drop: (index) => driver.drop(index),
       dispose: () => {
         disposed = true;
         driver.stop();
@@ -272,6 +377,15 @@ export function startLayout3d(
   return {
     reheat: (params) => {
       if (!disposed) send({ type: "reheat", generation, params });
+    },
+    grab: (index) => {
+      if (!disposed) send({ type: "grab", generation, index });
+    },
+    hold: (index, x, y, z) => {
+      if (!disposed) send({ type: "hold", generation, index, at: [x, y, z] });
+    },
+    drop: (index) => {
+      if (!disposed) send({ type: "drop", generation, index });
     },
     dispose: () => {
       disposed = true;

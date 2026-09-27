@@ -29,7 +29,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 type SigmaInspector = {
-  getGraph(): { nodes(): string[] };
+  getGraph(): { nodes(): string[]; neighbors(id: string): string[] };
   getNodeDisplayData(id: string): { x: number; y: number; label?: string } | undefined;
   framedGraphToViewport(position: { x: number; y: number }): { x: number; y: number };
   getCamera(): { getState(): { x: number; y: number; ratio: number } };
@@ -414,6 +414,91 @@ test("cluster selects in place, keeps camera still, and composes zero search wit
       ),
     )
     .toBe("");
+});
+
+/**
+ * A node drag through each force renderer's worker layout (the unit
+ * contract, `drag-layout.contract.test.ts`, proves the page-side layouts):
+ * the held node follows the pointer, its neighbours come after it, the
+ * press is not a click, and after the drop the layout settles again.
+ */
+async function dragNode(
+  page: Page,
+  from: { x: number; y: number },
+  by: { x: number; y: number },
+  read: () => Promise<{ held: { x: number; y: number }; leaves: { x: number; y: number } }>,
+) {
+  const before = await read();
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  for (let step = 1; step <= 10; step += 1)
+    await page.mouse.move(from.x + (by.x * step) / 10, from.y + (by.y * step) / 10);
+  const target = { x: before.held.x + by.x, y: before.held.y + by.y };
+  // The held node stands under the pointer while its leaves come after it.
+  await expect
+    .poll(async () => {
+      const now = await read();
+      const held = Math.hypot(now.held.x - target.x, now.held.y - target.y);
+      const followed =
+        Math.hypot(before.leaves.x - target.x, before.leaves.y - target.y) -
+        Math.hypot(now.leaves.x - target.x, now.leaves.y - target.y);
+      return held < 3 && followed > Math.hypot(by.x, by.y) * 0.2;
+    }, SETTLE)
+    .toBe(true);
+  await page.mouse.up();
+  await expect(page.getByTestId("graph-selection-card")).toHaveCount(0);
+}
+
+test("force2d drags a node live: its neighbours follow and the layout settles after", async ({
+  page,
+}) => {
+  await selectRenderer(page, "force2d");
+  const host = "[data-sigma-container]";
+  const root = await sigmaPagePoint(page, host, "render.fixture.root");
+  const read = () =>
+    page.locator(host).evaluate((element) => {
+      const sigma = (element as SigmaHost).__kbSigma;
+      const at = (id: string) => {
+        const display = sigma?.getNodeDisplayData(id);
+        if (!sigma || !display) throw new Error(`${id} is not drawn`);
+        const point = sigma.framedGraphToViewport(display);
+        const box = element.getBoundingClientRect();
+        return { x: box.left + point.x, y: box.top + point.y };
+      };
+      const leaves = sigma?.getGraph().neighbors("render.fixture.root").map(at) ?? [];
+      const mean = (axis: "x" | "y") =>
+        leaves.reduce((sum, point) => sum + point[axis], 0) / leaves.length;
+      return { held: at("render.fixture.root"), leaves: { x: mean("x"), y: mean("y") } };
+    });
+  await dragNode(page, root, { x: 220, y: 140 }, read);
+  // After the drop the layout cools and stops: the positions come to rest.
+  await sigmaPagePoint(page, host, "render.fixture.root");
+});
+
+test("force3d drags a node live: its neighbours follow and the layout settles after", async ({
+  page,
+}) => {
+  await selectRenderer(page, "force3d");
+  await settled3d(page);
+  const box = await page.getByTestId("force3d-graph").boundingBox();
+  if (!box) throw new Error("no 3D host");
+  const read = async () => {
+    const held = await screenOf3d(page, "render.fixture.root");
+    const leaves = await Promise.all(
+      Array.from({ length: 28 }, (_, i) => screenOf3d(page, `render.fixture.node.${i + 1}`)),
+    );
+    const seen = leaves.filter((point) => point !== null);
+    if (!held || seen.length === 0) throw new Error("fixture nodes off screen");
+    const mean = (axis: "x" | "y") =>
+      seen.reduce((sum, point) => sum + point[axis], 0) / seen.length;
+    return {
+      held: { x: box.x + held.x, y: box.y + held.y },
+      leaves: { x: box.x + mean("x"), y: box.y + mean("y") },
+    };
+  };
+  const { held } = await read();
+  await dragNode(page, held, { x: 200, y: -120 }, read);
+  await settled3d(page);
 });
 
 test("a renderer replacement survives reload on the first attempt", async ({ page }) => {

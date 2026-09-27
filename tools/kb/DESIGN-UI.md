@@ -278,9 +278,36 @@ the same local invocation + ordered push lane — there is **no** server-authori
 undo journal, and rapid same-node text edits are not coalesced. Structural
 operations (split, merge, indent, outdent, delete, move) are the covered case.
 
-**Refs are atomic in the editor.** An active editor renders `[[id|label]]` as a
-`contenteditable=false` pill carrying its serialized token, so a raw ULID never
-faces the caret and serialization round-trips canonical markdown.
+**Node text is one surface, read or edited.** There is no raw-source edit
+mode. `lib/md-edit.ts` `inlineNodes` is the one description of what inline
+markdown renders as; `renderInlineMarkdown` builds it as DOM and `InlineMarkdown`
+(`components/ui/md-view.tsx`) as React, and a parity test holds the two to the
+same markup. Every source character is in that tree: a formatted segment keeps
+its delimiters (`**`, `` ` ``, `[`/`](href)`) as `.kb-md-mark` text beside the
+formatted element, hidden, so the DOM serializes back to the stored string
+byte for byte and a DOM caret position *is* a serialized offset. Entering edit
+mode therefore swaps nothing visible: the row's text element becomes
+contentEditable over the same tree, a click lands where it was aimed
+(`offsetFromPoint` on the tree the editor edits), and only the segment the
+selection touches shows its delimiters, faint (Obsidian-style live preview;
+`revealMarkupAtSelection`). Typing that changes what the text means — the
+second `*` of `**`, breaking a link — rebuilds the tree around the caret
+(`isCanonicalInline`); typing inside a segment leaves the browser's DOM alone. A
+boundary caret rests outside hidden markup, so typing after `**b**` is plain.
+While editing, the DOM is the text: it is rebuilt from `content` on mount and
+when `content` moved on its own (a merge), never from a `content` still behind
+the editor's own writes. Text undo inside the row is the host's
+(`lib/text-history.ts`, `components/ui/use-text-history.ts`), recorded from the
+row's `content` stream so every write path — typing, `[[` completion,
+Shift+Enter — is covered, because native undo cannot follow a rebuilt tree;
+structural undo stays the store's (below).
+
+**Refs are atomic in the editor.** `[[id|label]]` renders as a
+`contenteditable=false` link carrying its serialized token, in both states, so
+a raw ULID never faces the caret and serialization round-trips canonical
+markdown. The caret rests beside a pill (in its parent), never inside it. A
+click on it navigates whether the row is being read or edited
+(`routeInlineClick`).
 
 **The bullet is one definition.** `lib/bullet-mode.ts` decides everything a
 bullet shows — its kind and shape, its glyph, whether it has a halo, the
@@ -462,9 +489,33 @@ rather than by navigation.
   perspective's layout when you return to it.
 - **Worker layout.** `fa2-layout.ts` runs ForceAtlas2 in a web worker with a
   2.5s auto-settle (`SETTLE_TIMEOUT_MS`), falling back to a synchronous
-  rAF-chunked loop by feature detection. Dragging a node reheats the layout
-  (~600ms burst) on release; the camera is disabled during drag so a pan
-  cannot fight the drag.
+  rAF-chunked loop by feature detection.
+- **Dragging a node runs the layout live**, in 2D and 3D alike: one gesture,
+  `NodeDrag` in `lib/graph-drag.ts`, over a `DragLayout` port every layout
+  implements. A press on a node suspends what else the pointer drives (the
+  2D pan, the 3D orbit); past the pointer slop it is a drag, and a press
+  that never passed it is a click (select, open) as before. While a node is
+  held, a force layout pins it under the pointer and keeps running — 2D
+  holds it as ForceAtlas2's `fixed`, 3D at d3's drag heat (alpha target
+  0.3) — so its neighbours follow; the drop frees it, and the layout cools
+  and stops (2D after an 800ms burst, 3D as alpha falls back to rest), so
+  nothing draws after the settle. A placed layout (radial, hierarchical,
+  grid, the cluster placement) only moves the held node. The dropped node is
+  **not left pinned**: a graph view is a projection of the graph, and a pin
+  would be view state with no node to live on and no gesture to undo it, and
+  would bend the layout for good; the layout stays the truth, and a drag is
+  a way to pull on it and watch what comes along. Where the pointer puts the
+  node is the renderer's (`DragSurface`): sigma's camera inverted, its frame
+  held at its extent during the drag so a node dragged outward does not
+  rescale the view under the pointer; in 3D the camera holds still
+  (`GraphCamera.hold`) and the node follows the pointer's ray on the plane
+  through where it was grabbed, facing the eye (`force3d-drag.ts`). A 3D
+  press is taken ahead of the orbit (a capture listener), the pressed node
+  stays hovered so its neighbourhood stays lit, and the ambient turn waits
+  while the pointer is on a node. `drag-layout.contract.test.ts` proves the
+  port over every layout (2D force, placed, 3D force on the page and through
+  its worker protocol), and the render suite drags through both force
+  renderers' workers in a browser.
 - **Search and filter compose.** The toolbar search (`/` focuses) does
   case-insensitive substring matching on labels, `Enter` cycles matches with an
   animated camera move; the collapsible tag legend isolates a colour bucket on
@@ -723,7 +774,8 @@ like themselves (P5).
   Switching one redraws only the links (and the particles, which follow the
   curve), in place and carrying their motion.
 - **Reduced motion (M7)** everywhere: fades and flights cut, the 3D layout
-  settles unseen and posts once, particles and the ambient turn stop, and
+  settles unseen and posts once (and so does each move of a node drag, the
+  layout at rest around where the node now stands), particles and the ambient turn stop, and
   the DOM renderers' transitions are flattened by the global rule.
 
 Not shipped, named: the settings popover (the FA2 live-layout API is wired but

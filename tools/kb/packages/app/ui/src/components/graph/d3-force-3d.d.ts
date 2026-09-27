@@ -27,6 +27,8 @@ declare module "d3-force-3d" {
     alpha(): number;
     alpha(alpha: number): this;
     alphaDecay(decay: number): this;
+    alphaTarget(): number;
+    alphaTarget(target: number): this;
     alphaMin(min: number): this;
     velocityDecay(decay: number): this;
     force(name: string, force: Force | null): this;

@@ -135,6 +135,16 @@ export class GraphCamera {
     if (this.aimAt(id)) this.fly();
   }
 
+  /**
+   * Hold the camera where it is: a node drag has taken it, so the fit stops
+   * following the layout and no flight moves the plane the node is dragged on.
+   */
+  hold(): void {
+    this.taken = true;
+    this.flyTo = null;
+    this.flight.cancel();
+  }
+
   dolly(scale: number): void {
     this.taken = true;
     this.flyTo = null;

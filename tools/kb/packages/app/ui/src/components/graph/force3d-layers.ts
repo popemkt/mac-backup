@@ -39,6 +39,7 @@ import { bulletLayer } from "./force3d-bullets";
 import { solidLayer, type NodeLayer, type NodeLayerInit } from "./force3d-nodes";
 import { GRAPH_THEMES, type NodeForm } from "./graph-themes";
 import type { PickField } from "./force3d-pick";
+import type { DragLayout } from "@/lib/graph-drag";
 
 /** Each form a theme can draw nodes in, and the layer that draws it. */
 const NODE_FORMS: Record<NodeForm, (init: NodeLayerInit) => NodeLayer> = {
@@ -133,6 +134,12 @@ export class GraphLayers {
   private key = "";
   /** Node indices by label priority: who is labelled at rest. */
   private byPriority: number[] = [];
+  /**
+   * The node a drag holds, and where: written into the positions as the
+   * pointer moves and again over every set the layout posts, which was
+   * computed a move behind.
+   */
+  private held: { i: number; x: number; y: number; z: number } | null = null;
 
   constructor(stage: SceneStage, init: GraphLayersInit) {
     this.stage = stage;
@@ -224,11 +231,56 @@ export class GraphLayers {
       },
       (next, running) => {
         this.positions.set(next);
+        this.placeHeld();
         this.laying = running;
         this.moved = true;
         this.stage.invalidate();
       },
     );
+  }
+
+  private placeHeld(): void {
+    const { held, positions } = this;
+    if (held === null || held.i * 3 + 2 >= positions.length) return;
+    positions[held.i * 3] = held.x;
+    positions[held.i * 3 + 1] = held.y;
+    positions[held.i * 3 + 2] = held.z;
+  }
+
+  /** The 3D layout as a node drag moves it (`lib/graph-drag`). */
+  dragLayout(): DragLayout {
+    const indexOf = (id: string) => this.topology.index.get(id);
+    const moving = () => {
+      this.laying = true;
+      this.moved = true;
+      this.stage.invalidate();
+    };
+    return {
+      grab: (id) => {
+        const i = indexOf(id);
+        if (i === undefined) return;
+        const { positions } = this;
+        const [x, y, z] = [positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]];
+        this.held = { i, x: x ?? 0, y: y ?? 0, z: z ?? 0 };
+        this.layout?.grab(i);
+        moving();
+      },
+      hold: (id, at) => {
+        const { held } = this;
+        if (held === null || indexOf(id) !== held.i) return;
+        this.held = { i: held.i, x: at.x, y: at.y, z: at.z ?? held.z };
+        this.placeHeld();
+        this.layout?.hold(held.i, at.x, at.y, at.z ?? held.z);
+        moving();
+      },
+      drop: (id) => {
+        const { held } = this;
+        if (held === null || indexOf(id) !== held.i) return;
+        this.held = null;
+        this.layout?.drop(held.i);
+        moving();
+      },
+    };
   }
 
   private rank(): void {
@@ -240,6 +292,7 @@ export class GraphLayers {
 
   private build(nodes: readonly LensNode[], edges: readonly LensEdge[]): void {
     const was = this.topology;
+    this.held = null;
     this.topology = topologyOf(nodes, edges);
     this.positions = carryPositions(was, this.positions, this.topology);
     const count = this.topology.nodes.length;
