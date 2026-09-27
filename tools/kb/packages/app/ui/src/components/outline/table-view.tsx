@@ -2,18 +2,16 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
 import { shownNodeId } from "@/lib/contextual-ref";
 import { isReferenceRow } from "@/lib/row-chrome";
-import { formatPropValue, resolveProps } from "@/lib/graph-view";
+import { resolveProps } from "@/lib/graph-view";
 import {
   childInstanceKey,
   isQueryResultInstance,
   outlineInstanceKey,
   queryResultInstanceKey,
 } from "@/lib/instance-key";
-import { emptyValueForType, isValueMismatch, resolveFieldTypeById } from "@/lib/field-type";
-import { textOr } from "@/lib/text";
 import { cn } from "@/lib/cn";
 import { isQueryNode } from "@/lib/query-node";
-import { SYSTEM_IDS, type NodeMap, type OutlineNode, type PropValue } from "@/lib/types";
+import { SYSTEM_IDS, type NodeMap, type OutlineNode } from "@/lib/types";
 import { frameRows } from "@/lib/frame-rows";
 import {
   getViewConfig,
@@ -26,8 +24,7 @@ import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { Bullet } from "./bullet";
-import { FieldRow } from "./field-row";
-import { PropValueEditor } from "./field-value";
+import { NodeField } from "./fields-section";
 import { NodeContent } from "./node-content";
 import { NodeRow } from "./node-row";
 import { useNodeKeyDown } from "./use-node-keydown";
@@ -307,9 +304,11 @@ const TableRow = memo(function TableRow({
 
       {columns.map((col) => (
         <td key={col.fieldId} className="px-2 py-1 align-top">
-          <TableCellField
+          <NodeField
+            valueOnly
             nodeId={child.id}
             fieldId={col.fieldId}
+            label={col.label}
             values={child.props[col.fieldId] ?? []}
             context={context}
           />
@@ -339,65 +338,3 @@ function ResizeHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => v
     </div>
   );
 }
-
-const TableCellField = memo(function TableCellField({
-  nodeId,
-  fieldId,
-  values,
-  context,
-}: {
-  nodeId: string;
-  fieldId: string;
-  values: PropValue[];
-  context: FieldContext;
-}) {
-  const { schema } = context;
-  const fieldType = resolveFieldTypeById(fieldId, schema);
-  const fieldNode = schema.get(fieldId);
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
-
-  const label = textOr(fieldNode?.text, fieldId);
-
-  if (values.length === 0) {
-    const emptyVal = emptyValueForType(fieldType);
-    return (
-      <FieldRow valueOnly fieldType={fieldType} fieldId={fieldId} label={label}>
-        <PropValueEditor
-          value={emptyVal}
-          display=""
-          fieldType={fieldType}
-          fieldId={fieldId}
-          context={context}
-          onZoomTo={zoomTo}
-          onCommit={(next: PropValue) => void mutations.updateProp(nodeId, fieldId, next)}
-        />
-      </FieldRow>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-1">
-      {values.map((v, i) => (
-        <FieldRow
-          // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
-          key={`${fieldId}-${i}`}
-          valueOnly
-          fieldType={fieldType}
-          fieldId={fieldId}
-          label={label}
-          mismatch={isValueMismatch(fieldType, v)}
-        >
-          <PropValueEditor
-            value={v}
-            display={formatPropValue(v, schema)}
-            fieldType={fieldType}
-            fieldId={fieldId}
-            context={context}
-            onZoomTo={zoomTo}
-            onCommit={(next: PropValue) => void mutations.updateProp(nodeId, fieldId, next, v)}
-          />
-        </FieldRow>
-      ))}
-    </div>
-  );
-});

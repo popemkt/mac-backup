@@ -4,6 +4,7 @@
 import type { KbIndex } from "@/ds";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { describe, expect, it } from "vitest";
+import { fieldTypeOf, systemSeedNodes } from "@kb/model";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ColorSwatchEditor, PropValueEditor } from "./field-value";
@@ -58,6 +59,10 @@ describe("ColorSwatchEditor (i10 item 4)", () => {
     expect(() => readFileSync(path.join(outlineDir, "tag-config-panel.tsx"), "utf8")).toThrow();
     const fields = readFileSync(path.join(outlineDir, "fields-section.tsx"), "utf8");
     expect(fields).toContain("fieldId={p.fieldId}");
-    expect(fields).toContain("SYSTEM_IDS.hiddenField");
+    // The hidden flag is a checkbox because its seeded field node says so,
+    // not because the field section special-cases its id.
+    expect(fields).not.toContain("SYSTEM_IDS.hiddenField");
+    const hidden = systemSeedNodes().find((n) => n.id === SYSTEM_IDS.hiddenField);
+    expect(fieldTypeOf(hidden?.props)).toBe("checkbox");
   });
 });

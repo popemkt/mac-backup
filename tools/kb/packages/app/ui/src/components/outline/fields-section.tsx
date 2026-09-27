@@ -5,7 +5,7 @@ import { mutations } from "@/actions/mutations";
 import { cn } from "@/lib/cn";
 import { isValueMismatch, resolveFieldTypeById, type FieldType } from "@/lib/field-type";
 import { formatPropValue, resolveProps } from "@/lib/graph-view";
-import { isSysPrefixed, SYSTEM_IDS, type PropValue } from "@/lib/types";
+import { isSysPrefixed, type PropValue } from "@/lib/types";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
 import { useOutlineStore } from "@/stores/outline.store";
@@ -139,53 +139,92 @@ export function FieldValueStack({
   );
 }
 
+interface NodeFieldProps {
+  nodeId: string;
+  fieldId: string;
+  /** The field's name, as the surface resolved it. */
+  label: string;
+  values: PropValue[];
+  /** What the values resolve against (`fieldContextOf`). */
+  context: FieldContext;
+  /** Indent of the label column; a card passes -1, a row its own depth. */
+  depth?: number;
+  /** A table cell: the column header is the label, so the row draws none. */
+  valueOnly?: boolean;
+  /** A `sys.*` prop shown because the node asked for its debug fields. */
+  debug?: boolean;
+}
+
+/**
+ * One field of one node, on any surface: its row chrome and its values.
+ *
+ * Outline rows, table cells and board cards are three projections of the same
+ * field, so they draw it with this one component and differ only in the
+ * chrome they ask `FieldRow` for. Each of them used to carry its own loop of
+ * "one editor per value, or one empty editor", which is how the table and the
+ * cards ended up without remove and add while the outline had both.
+ */
+export function NodeField({
+  nodeId,
+  fieldId,
+  label,
+  values,
+  context,
+  depth = 0,
+  valueOnly = false,
+  debug = false,
+}: NodeFieldProps) {
+  const zoomTo = useOutlineStore((s) => s.zoomTo);
+  const fieldType = resolveFieldTypeById(fieldId, context.schema);
+  return (
+    <FieldRow
+      depth={depth}
+      valueOnly={valueOnly}
+      fieldType={fieldType}
+      fieldId={fieldId}
+      label={label}
+      debug={debug}
+      mismatch={values.some((v) => isValueMismatch(fieldType, v))}
+    >
+      <FieldValueStack
+        nodeId={nodeId}
+        fieldId={fieldId}
+        fieldType={fieldType}
+        values={values}
+        context={context}
+        readOnly={isSysPrefixed(nodeId) || debug}
+        onZoomTo={zoomTo}
+      />
+    </FieldRow>
+  );
+}
+
 /** Inline field rows under a node (DESIGN-RESKIN §1.4). */
 export function FieldsSection({ nodeId, depth }: FieldsSectionProps) {
   const node = useOutlineStore((s) => s.nodes.get(nodeId));
   // Field definitions come from the whole graph, never the scoped projection.
   const context = useOutlineStore(fieldContextOf);
-  const { schema } = context;
-  const zoomTo = useOutlineStore((s) => s.zoomTo);
   // Debug rows are this node's own business (⌘K → "Show debug fields").
   const showDebugFields = useDebugFields(nodeId);
 
   if (!node) return null;
-  const props = resolveProps(node, schema, { showDebugFields });
+  const props = resolveProps(node, context.schema, { showDebugFields });
   if (props.length === 0) return null;
-  const nodeReadOnly = isSysPrefixed(nodeId);
 
   return (
     <div className="fields-section" data-fields-for={nodeId}>
-      {props.map((p) => {
-        const fieldType =
-          p.fieldId === SYSTEM_IDS.hiddenField
-            ? "checkbox"
-            : resolveFieldTypeById(p.fieldId, schema);
-        const debug = "debug" in p ? Boolean(p.debug) : false;
-        const values = p.values;
-
-        return (
-          <FieldRow
-            key={p.fieldId}
-            depth={depth}
-            fieldType={fieldType}
-            fieldId={p.fieldId}
-            label={p.fieldName}
-            debug={debug}
-            mismatch={values.some((v) => isValueMismatch(fieldType, v))}
-          >
-            <FieldValueStack
-              nodeId={nodeId}
-              fieldId={p.fieldId}
-              fieldType={fieldType}
-              values={values}
-              context={context}
-              readOnly={nodeReadOnly || debug}
-              onZoomTo={zoomTo}
-            />
-          </FieldRow>
-        );
-      })}
+      {props.map((p) => (
+        <NodeField
+          key={p.fieldId}
+          nodeId={nodeId}
+          fieldId={p.fieldId}
+          label={p.fieldName}
+          values={p.values}
+          context={context}
+          depth={depth}
+          debug={"debug" in p ? Boolean(p.debug) : false}
+        />
+      ))}
     </div>
   );
 }

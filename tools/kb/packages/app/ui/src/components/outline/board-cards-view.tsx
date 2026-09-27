@@ -2,14 +2,12 @@ import { memo, useCallback, useMemo, useState } from "react";
 import { mutations } from "@/actions/mutations";
 import { shownNodeId } from "@/lib/contextual-ref";
 import { isReferenceRow } from "@/lib/row-chrome";
-import { formatPropValue } from "@/lib/graph-view";
 import {
   childInstanceKey,
   isQueryResultInstance,
   outlineInstanceKey,
   queryResultInstanceKey,
 } from "@/lib/instance-key";
-import { emptyValueForType, isValueMismatch, resolveFieldTypeById } from "@/lib/field-type";
 import { cn } from "@/lib/cn";
 import type { NodeMap, OutlineNode, PropValue } from "@/lib/types";
 import { frameRows } from "@/lib/frame-rows";
@@ -24,8 +22,7 @@ import { useOutlineStore } from "@/stores/outline.store";
 import { useDebugFields } from "@/stores/debug-fields.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { Bullet } from "./bullet";
-import { FieldRow } from "./field-row";
-import { PropValueEditor } from "./field-value";
+import { NodeField } from "./fields-section";
 import { NodeContent } from "./node-content";
 import { NodeRow } from "./node-row";
 import { TagChipGroup } from "./tag-chip";
@@ -246,7 +243,6 @@ const ViewCard = memo(function ViewCard({
   onDragStart?: (id: string) => void;
   onDragEnd?: () => void;
 }) {
-  const { schema } = context;
   const isActive = useOutlineStore(
     (s) => s.activeNodeId === child.id && s.activeInstanceKey === instanceKey,
   );
@@ -319,53 +315,17 @@ const ViewCard = memo(function ViewCard({
       )}
       {displayCols.length > 0 && (
         <div className="mt-1 flex flex-col gap-0.5">
-          {displayCols.map((col) => {
-            const values = child.props[col.fieldId] ?? [];
-            const fieldType = resolveFieldTypeById(col.fieldId, schema);
-            if (values.length === 0) {
-              const emptyVal = emptyValueForType(fieldType);
-              return (
-                <FieldRow
-                  key={col.fieldId}
-                  depth={-1}
-                  fieldType={fieldType}
-                  fieldId={col.fieldId}
-                  label={col.label}
-                >
-                  <PropValueEditor
-                    value={emptyVal}
-                    display=""
-                    fieldType={fieldType}
-                    fieldId={col.fieldId}
-                    context={context}
-                    onZoomTo={zoomTo}
-                    onCommit={(next) => void mutations.updateProp(child.id, col.fieldId, next)}
-                  />
-                </FieldRow>
-              );
-            }
-            return values.map((v, i) => (
-              <FieldRow
-                // oxlint-disable-next-line react/no-array-index-key -- GAP [[01M1MFP33RDP5MVB4827DR5RE7]]
-                key={`${col.fieldId}-${i}`}
-                depth={-1}
-                fieldType={fieldType}
-                fieldId={col.fieldId}
-                label={col.label}
-                mismatch={isValueMismatch(fieldType, v)}
-              >
-                <PropValueEditor
-                  value={v}
-                  display={formatPropValue(v, schema)}
-                  fieldType={fieldType}
-                  fieldId={col.fieldId}
-                  context={context}
-                  onZoomTo={zoomTo}
-                  onCommit={(next) => void mutations.updateProp(child.id, col.fieldId, next, v)}
-                />
-              </FieldRow>
-            ));
-          })}
+          {displayCols.map((col) => (
+            <NodeField
+              key={col.fieldId}
+              depth={-1}
+              nodeId={child.id}
+              fieldId={col.fieldId}
+              label={col.label}
+              values={child.props[col.fieldId] ?? []}
+              context={context}
+            />
+          ))}
         </div>
       )}
     </div>

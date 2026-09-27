@@ -216,6 +216,11 @@ describe("W7.1 BoardCardsView + toolbar", () => {
     expect(html).not.toContain("No status");
     expect(html).toContain("Alpha");
     expect(html).toContain("Beta");
+    // A card's fields are the outline's value stack: one per field, one slot
+    // per value, and the one empty slot for a card that holds none.
+    expect(html.match(/data-field-values="f_status"/g)?.length).toBe(3);
+    expect(html.match(/data-field-value="true"/g)?.length).toBe(2);
+    expect(html).toContain('aria-label="Remove this value"');
   });
 
   it("board drag unsets ALL group values then sets one; children[] untouched", async () => {

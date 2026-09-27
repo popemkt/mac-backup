@@ -147,6 +147,21 @@ describe("W7 TableView & ViewToolbar", () => {
     expect(html).toContain('data-field-value-only="true"');
   });
 
+  it("a cell is the outline's value stack, remove affordance and all", () => {
+    const html = renderToStaticMarkup(
+      createElement(TableView, {
+        frameId: "frame1",
+        nodes: getStoreNodes(),
+        context: fieldContextOf(useOutlineStore.getState()),
+      }),
+    );
+    // One stack per cell, keyed by the field it shows, with one slot per value.
+    expect(html).toContain('data-field-values="f_status"');
+    expect(html).toContain('data-field-values="f_score"');
+    expect(html.match(/data-field-value="true"/g)?.length).toBe(4);
+    expect(html).toContain('aria-label="Remove this value"');
+  });
+
   it("auto-full-width breakout when width pref is centered", () => {
     const centered = renderToStaticMarkup(
       createElement(TableView, {
