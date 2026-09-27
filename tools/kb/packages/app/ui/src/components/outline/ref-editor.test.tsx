@@ -20,7 +20,7 @@ import type { WireNode } from "@kb/contracts";
 import { DatascriptIndex, type KbIndex } from "@/ds";
 import { FIELD_TYPE_OPTION_IDS, resolveAllowedRefIds } from "@/lib/field-type";
 import { wireToOutlineMap } from "@/lib/graph-view";
-import { fuzzyNodeCandidates } from "@/lib/refs";
+import { nodeCandidates } from "@/lib/refs";
 import { SYSTEM_IDS, WORKSPACE_ROOT_ID, type NodeMap } from "@/lib/types";
 import { ValueSlot } from "./value-slot";
 
@@ -138,7 +138,7 @@ describe("ref picker candidates (declared targets win)", () => {
 
   it("hides infrastructure nodes only when nothing is declared", () => {
     const nodes = ontology();
-    const ids = fuzzyNodeCandidates(nodes, "").map((c) => c.id);
+    const ids = nodeCandidates(nodes).map((c) => c.id);
     expect(ids).toEqual(["n.note"]);
     expect(ids).not.toContain(WORKSPACE_ROOT_ID);
   });
@@ -146,7 +146,7 @@ describe("ref picker candidates (declared targets win)", () => {
   it("takes the declared set as an input, not a post-filter", () => {
     const nodes = ontology();
     const allowed = new Set(OPTION_IDS);
-    const ids = fuzzyNodeCandidates(nodes, "", { allowed }).map((c) => c.id);
+    const ids = nodeCandidates(nodes, { allowed }).map((c) => c.id);
     expect(ids.slice().toSorted()).toEqual(OPTION_IDS);
   });
 

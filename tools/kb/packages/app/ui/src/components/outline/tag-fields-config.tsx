@@ -1,4 +1,7 @@
 import { useMemo, useState } from "react";
+import { pickerRows } from "@/lib/picker";
+import { usePickerKeys } from "@/lib/use-picker";
+import { PickerList } from "@/components/ui/picker-list";
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { mutations } from "@/actions/mutations";
 import { schemaOf } from "@/lib/schema";
@@ -9,7 +12,6 @@ import { FieldRow } from "./field-row";
 import { resolveTagFields, type TagFieldRef } from "./tag-fields";
 
 export interface TagFieldsConfigViewProps {
-  tagId: string;
   /** Fields this tag templates onto its members, in `sys.f.fields` order. */
   template: TagFieldRef[];
   /** Existing fields not yet on this tag, offered so names get reused. */
@@ -33,7 +35,6 @@ export interface TagFieldsConfigViewProps {
  * survive `renderToStaticMarkup`, so the logic has to be testable without one.
  */
 export function TagFieldsConfigView({
-  tagId,
   template,
   suggestions,
   readOnly,
@@ -42,13 +43,31 @@ export function TagFieldsConfigView({
   onOpen,
 }: TagFieldsConfigViewProps) {
   const [draft, setDraft] = useState("");
+  const [picking, setPicking] = useState(false);
 
-  function commit() {
-    const name = draft.trim();
-    if (!name) return;
-    onAdd(name);
+  function add(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onAdd(trimmed);
     setDraft("");
   }
+
+  // Adding a field is the one node picker over the fields not yet here, with
+  // a create row for a name none of them has.
+  const candidates = useMemo(
+    () => suggestions.map((f) => ({ id: f.id, label: f.name })),
+    [suggestions],
+  );
+  const rows = useMemo(
+    () => pickerRows(candidates, { query: draft, canCreate: true, limit: 12 }),
+    [candidates, draft],
+  );
+  const keys = usePickerKeys({
+    rows,
+    query: draft,
+    onPick: (row) => add(row === null ? draft : row.kind === "item" ? row.label : row.name),
+    onCancel: () => setDraft(""),
+  });
 
   return (
     <div className="mb-4" data-tag-fields-config="true">
@@ -96,31 +115,37 @@ export function TagFieldsConfigView({
       {!readOnly && (
         <div className="mt-1 flex items-center gap-1.5 px-1">
           <PlusIcon size={10} weight="bold" className="text-foreground/40" aria-hidden />
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                commit();
-              } else if (e.key === "Escape") {
-                setDraft("");
-              }
-            }}
-            onBlur={commit}
-            list={`tag-field-suggestions-${tagId}`}
-            placeholder="Add field"
-            aria-label="Add a field to this tag"
-            className={cn(
-              "min-w-0 flex-1 bg-transparent text-ui text-foreground",
-              "placeholder:text-foreground/35 outline-none",
+          <div className="relative min-w-0 flex-1">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onFocus={() => setPicking(true)}
+              onKeyDown={(e) => {
+                keys.handleKeyDown(e);
+              }}
+              onBlur={() => {
+                setPicking(false);
+                add(draft);
+              }}
+              placeholder="Add field"
+              aria-label="Add a field to this tag"
+              className={cn(
+                "w-full bg-transparent text-ui text-foreground",
+                "placeholder:text-foreground/35 outline-none",
+              )}
+            />
+            {picking && (
+              <PickerList
+                placement="popover"
+                rows={rows}
+                activeIndex={keys.activeIndex}
+                onHover={keys.setActiveIndex}
+                onPick={(row) => add(row.kind === "item" ? row.label : row.name)}
+                createLabel={(name) => `Create field "${name}"`}
+                aria-label="Fields"
+              />
             )}
-          />
-          <datalist id={`tag-field-suggestions-${tagId}`}>
-            {suggestions.map((f) => (
-              <option key={f.id} value={f.name} />
-            ))}
-          </datalist>
+          </div>
         </div>
       )}
     </div>
@@ -138,7 +163,6 @@ export function TagFieldsConfig({ tagId }: { tagId: string }) {
 
   return (
     <TagFieldsConfigView
-      tagId={tagId}
       template={template}
       suggestions={suggestions}
       readOnly={isSysPrefixed(tagId)}

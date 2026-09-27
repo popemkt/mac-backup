@@ -1,16 +1,17 @@
 import type { FieldContext } from "@/lib/schema";
 import type { OutlineNode, PropValue } from "@/lib/types";
-import { useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
+import { useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { KB_TEXT_CLASS } from "@/lib/md-inline";
 import { KB_REF_ID_ATTR } from "@/lib/md-edit";
-import { refSearchOf } from "@/lib/refs";
-import { useRefCandidates } from "@/lib/use-ref-candidates";
+import { nodeCandidates, refSearchOf } from "@/lib/refs";
+import { pickerRows } from "@/lib/picker";
+import { usePickerKeys } from "@/lib/use-picker";
 import { TAG_PALETTE } from "@/lib/tag-color";
 import { asInstance } from "@/lib/dom";
 import { bulletClickIntent, nodeTarget, type Follow } from "@/lib/follow";
 import type { ValueKindSpec } from "@/lib/value-kind";
-import { RefAutocomplete } from "@/components/ref-autocomplete";
+import { PickerList } from "@/components/ui/picker-list";
 import { Bullet } from "./bullet";
 import { NodeRow } from "./node-row";
 import { TagChipGroup } from "./tag-chip";
@@ -377,9 +378,9 @@ function UnresolvedRefChip({ refId, display }: { refId: string; display: string 
  * cannot render on an `<input>`, so there is exactly one placeholder per state
  * and this is the open one.
  *
- * Ranking and key handling are `useRefCandidates`; what is left here is the
- * markup, the query state that belongs to this input, and the two ways a
- * search ends — a mousedown on a suggestion, and a blur.
+ * Ranking is the picker engine's (`pickerRows`) and the keys are
+ * `usePickerKeys`; what is left here is the input, the query state that
+ * belongs to it, and the two ways a search ends — a pick, and a blur.
  */
 function RefSearch({
   fieldId,
@@ -394,13 +395,17 @@ function RefSearch({
 }) {
   const [query, setQuery] = useState("");
   const search = refSearchOf(context, fieldId);
+  const candidates = useMemo(
+    () => nodeCandidates(search.pool, { allowed: search.allowed }),
+    [search.pool, search.allowed],
+  );
+  const rows = useMemo(() => pickerRows(candidates, { query, limit: 12 }), [candidates, query]);
 
-  const { candidates, activeIndex, handleKeyDown } = useRefCandidates({
-    nodes: search.pool,
+  const { activeIndex, setActiveIndex, handleKeyDown } = usePickerKeys({
+    rows,
     query,
-    allowed: search.allowed,
-    onPick: (candidate) => {
-      if (candidate) onCommit(candidate.id);
+    onPick: (row) => {
+      if (row?.kind === "item") onCommit(row.id);
       // Manual entry still allowed (the list is suggestions-only).
       else if (query.trim()) onCommit(query.trim());
     },
@@ -429,13 +434,15 @@ function RefSearch({
           window.setTimeout(onClose, 120);
         }}
       />
-      {candidates.length > 0 && (
-        <RefAutocomplete
-          candidates={candidates}
-          activeIndex={activeIndex}
-          onSelect={(c) => onCommit(c.id)}
-        />
-      )}
+      <PickerList
+        placement="popover"
+        rows={rows}
+        activeIndex={activeIndex}
+        onHover={setActiveIndex}
+        onPick={(row) => {
+          if (row.kind === "item") onCommit(row.id);
+        }}
+      />
       {/* No `.empty-placeholder` sibling — see the note on RefSearch. */}
     </div>
   );

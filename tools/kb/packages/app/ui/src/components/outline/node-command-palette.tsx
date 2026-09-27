@@ -12,7 +12,10 @@ import {
 } from "@/lib/commands";
 import { asInstance } from "@/lib/dom";
 import { emptyValueForType, resolveFieldTypeById } from "@/lib/field-type";
-import { fuzzyNodeCandidates } from "@/lib/refs";
+import { nodeCandidates } from "@/lib/refs";
+import { CREATE_ROW_ID, pickerRows, type PickerCandidate, type PickerRow } from "@/lib/picker";
+import { usePickerKeys } from "@/lib/use-picker";
+import { PickerList } from "@/components/ui/picker-list";
 import { SYSTEM_IDS, type NodeMap } from "@/lib/types";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
 import { schemaOf, type SchemaIndex } from "@/lib/schema";
@@ -23,24 +26,15 @@ import { useUiStore } from "@/stores/ui.store";
 /** The command list, or one of the pickers a command hands the palette to. */
 type PaletteStep = "commands" | NodeCommandStep;
 
-/** Sentinel row id for "no match — make one with what I typed". */
-const CREATE_ID = "\u0000create";
-
-interface PickOption {
-  id: string;
-  name: string;
-}
-
 /**
  * One picker step, whole.
  *
  * Add-tag, add-field and add-ref are the same gesture over different node
- * kinds: resolve candidates from the query, and — where minting makes sense —
- * offer to create one when nothing matches. Only the candidate *source* and
- * the write vary, and a reference draws its candidates from
- * `fuzzyNodeCandidates`, the resolver the `[[` autocomplete and the typed ref
- * field editor already share. Keeping them one table is what stops them
- * drifting into three pickers.
+ * kinds, and the same gesture as every other node picker (lib/picker): only
+ * the candidate *source*, whether a new one may be minted, and the write
+ * vary. A reference draws its candidates from `nodeCandidates`, the source
+ * the `[[` autocomplete and the field picker share. Keeping them one table
+ * over one engine is what stops them drifting into three pickers.
  *
  * `createLabel` absent ⇒ this kind cannot be minted from the picker.
  */
@@ -49,7 +43,9 @@ interface Picker {
   stepLabel: string;
   icon: React.ReactNode;
   createLabel?: (name: string) => string;
-  match: (graph: PickerGraph, query: string) => PickOption[];
+  candidates: (graph: PickerGraph) => PickerCandidate[];
+  /** At most this many rows; absent, every match. */
+  limit?: number;
   commit: (target: PickerTarget) => Promise<void>;
 }
 
@@ -69,14 +65,12 @@ interface PickerTarget {
   name: string;
 }
 
-/** Nodes whose kind slot points at `kind`, by name, filtered by the query. */
-function optionsOfKind(wireNodes: WireNode[], kind: string, query: string): PickOption[] {
-  const needle = query.toLowerCase();
+/** Nodes whose kind slot points at `kind`, by name. */
+function nodesOfKind(wireNodes: WireNode[], kind: string): PickerCandidate[] {
   return wireNodes
     .filter((n) => (n.props[SYSTEM_IDS.typeField] ?? []).some((v) => v.t === "ref" && v.v === kind))
-    .map((n) => ({ id: n.id, name: n.text || n.id }))
-    .filter((o) => o.name.toLowerCase().includes(needle))
-    .toSorted((a, b) => a.name.localeCompare(b.name));
+    .map((n) => ({ id: n.id, label: n.text || n.id }))
+    .toSorted((a, b) => a.label.localeCompare(b.label));
 }
 
 const PICKERS: Record<NodeCommandStep, Picker> = {
@@ -85,7 +79,7 @@ const PICKERS: Record<NodeCommandStep, Picker> = {
     stepLabel: "Add tag",
     icon: <HashIcon size={12} weight="bold" />,
     createLabel: (name) => `Create tag "${name}"`,
-    match: (graph, query) => optionsOfKind(graph.wireNodes, SYSTEM_IDS.tag, query),
+    candidates: (graph) => nodesOfKind(graph.wireNodes, SYSTEM_IDS.tag),
     commit: async ({ targetNodeId, pickedId, creating, name }) => {
       const tagId = creating ? await mutations.defineTag(name) : pickedId;
       if (tagId !== null) await mutations.addTag(targetNodeId, tagId);
@@ -96,7 +90,7 @@ const PICKERS: Record<NodeCommandStep, Picker> = {
     stepLabel: "Add field",
     icon: <TextTIcon size={12} weight="bold" />,
     createLabel: (name) => `Create field "${name}"`,
-    match: (graph, query) => optionsOfKind(graph.wireNodes, SYSTEM_IDS.field, query),
+    candidates: (graph) => nodesOfKind(graph.wireNodes, SYSTEM_IDS.field),
     commit: async ({ targetNodeId, schema, pickedId, creating, name }) => {
       const fieldId = creating ? await mutations.defineField(name) : pickedId;
       if (fieldId === null) return;
@@ -113,11 +107,9 @@ const PICKERS: Record<NodeCommandStep, Picker> = {
     placeholder: "Search for a node to reference...",
     stepLabel: "Reference a node",
     icon: <LinkSimpleIcon size={12} weight="bold" />,
-    match: (graph, query) =>
-      fuzzyNodeCandidates(graph.nodes, query)
-        // A reference to itself is not a reference.
-        .filter((c) => c.id !== graph.anchorId)
-        .map((c) => ({ id: c.id, name: c.text })),
+    // A reference to itself is not a reference.
+    candidates: (graph) => nodeCandidates(graph.nodes, { exclude: (id) => id === graph.anchorId }),
+    limit: 12,
     commit: async ({ targetNodeId, pickedId }) => {
       // The whole creation gesture, and nothing but existing primitives: point
       // the target field at the picked node. The field is the kind.
@@ -130,37 +122,6 @@ const PICKERS: Record<NodeCommandStep, Picker> = {
 };
 
 const COMMANDS_PLACEHOLDER = "Type a command...";
-
-/** One row of the palette list, from either query. */
-interface PaletteItem {
-  id: string;
-  label: string;
-  icon?: React.ReactNode;
-}
-
-/**
- * A picker step's rows: the candidates, plus the mint row when the typed name
- * matches nothing and this kind can be minted.
- */
-function pickerRows(picker: Picker, graph: PickerGraph, query: string): PaletteItem[] {
-  const options = picker.match(graph, query);
-  const trimmed = query.trim();
-  const exact = options.some((o) => o.name.toLowerCase() === trimmed.toLowerCase());
-  const rows: PaletteItem[] = options.map((o) => ({
-    id: o.id,
-    label: o.name,
-    icon: picker.icon,
-  }));
-  const createLabel = picker.createLabel;
-  if (trimmed !== "" && !exact && createLabel !== undefined) {
-    rows.push({
-      id: CREATE_ID,
-      label: createLabel(trimmed),
-      icon: <PlusIcon size={12} weight="bold" />,
-    });
-  }
-  return rows;
-}
 
 export interface NodeCommandPaletteProps {
   open: boolean;
@@ -178,7 +139,6 @@ export interface NodeCommandPaletteProps {
 export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const [step, setStep] = useState<PaletteStep>("commands");
   const [query, setQuery] = useState("");
-  const [highlightIndex, setHighlightIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
@@ -214,7 +174,6 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     if (open) {
       setStep("commands");
       setQuery("");
-      setHighlightIndex(0);
     }
   }, [open]);
 
@@ -225,7 +184,6 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
   const goToStep = (next: PaletteStep) => {
     setStep(next);
     setQuery("");
-    setHighlightIndex(0);
   };
 
   const palette: PaletteSurface = { close: onClose, openStep: goToStep };
@@ -244,75 +202,57 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
     palette,
   };
 
-  const filteredCommands = listNodeCommands(commandCtx).filter((c) =>
-    c.label.toLowerCase().includes(query.toLowerCase()),
-  );
-
+  const commands = listNodeCommands(commandCtx);
   const picker = step === "commands" ? null : PICKERS[step];
 
-  const items: PaletteItem[] =
+  // Commands and a picker step's candidates are both rows of the one picker
+  // engine: the same matching, the same keys, the same list.
+  const candidates: PickerCandidate[] =
     picker === null
-      ? filteredCommands.map((c) => ({ id: c.id, label: c.label, icon: c.icon }))
-      : pickerRows(picker, { nodes, wireNodes, anchorId: targetNodeId }, query);
+      ? commands.map((c) => ({ id: c.id, label: c.label }))
+      : picker.candidates({ nodes, wireNodes, anchorId: targetNodeId });
+  const rows = pickerRows(candidates, {
+    query,
+    canCreate: picker?.createLabel !== undefined,
+    limit: picker?.limit,
+  });
 
-  useEffect(() => {
-    setHighlightIndex(0);
-  }, [query, step]);
-
-  useEffect(() => {
-    const item = asInstance(listRef.current?.children[highlightIndex], HTMLElement);
-    item?.scrollIntoView({ block: "nearest" });
-  }, [highlightIndex]);
-
-  const handleSelect = (index: number) => {
+  const handleSelect = (row: PickerRow | null) => {
+    if (row === null) return;
     if (picker === null) {
-      filteredCommands[index]?.run();
+      commands.find((c) => c.id === row.id)?.run();
       return;
     }
-    const item = items[index];
-    if (!item || targetNodeId === null) return;
+    if (targetNodeId === null) return;
     void picker.commit({
       targetNodeId,
       schema,
-      pickedId: item.id,
-      creating: item.id === CREATE_ID,
+      pickedId: row.id,
+      creating: row.id === CREATE_ROW_ID,
       name: query.trim(),
     });
     onClose();
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      e.stopPropagation();
-      if (picker === null) onClose();
-      else goToStep("commands");
-      return;
-    }
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setHighlightIndex((i) => Math.min(i + 1, Math.max(items.length - 1, 0)));
-      return;
-    }
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setHighlightIndex((i) => Math.max(i - 1, 0));
-      return;
-    }
-    if (e.key === "Home") {
-      e.preventDefault();
-      setHighlightIndex(0);
-      return;
-    }
-    if (e.key === "End") {
-      e.preventDefault();
-      setHighlightIndex(Math.max(items.length - 1, 0));
-      return;
-    }
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleSelect(highlightIndex);
-    }
+  const keys = usePickerKeys({
+    rows,
+    query,
+    scope: step,
+    onPick: handleSelect,
+    onCancel: () => (picker === null ? onClose() : goToStep("commands")),
+  });
+
+  useEffect(() => {
+    const item = asInstance(
+      listRef.current?.querySelectorAll('[role="option"]')[keys.activeIndex],
+      HTMLElement,
+    );
+    item?.scrollIntoView({ block: "nearest" });
+  }, [keys.activeIndex]);
+
+  const iconOf = (row: PickerRow): React.ReactNode => {
+    if (row.kind === "create") return <PlusIcon size={12} weight="bold" />;
+    return picker === null ? commands.find((c) => c.id === row.id)?.icon : picker.icon;
   };
 
   if (!open || !anchorRect || targetNodeId === null) return null;
@@ -357,7 +297,11 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={(e) => {
+              if (!keys.handleKeyDown(e)) return;
+              // The palette's keys are its own; the outline must not see them.
+              if (e.key === "Escape") e.stopPropagation();
+            }}
             placeholder={picker?.placeholder ?? COMMANDS_PLACEHOLDER}
             className="flex-1 bg-transparent text-ui text-foreground/85 outline-none placeholder:text-foreground/25"
           />
@@ -366,35 +310,20 @@ export function NodeCommandPalette({ open, onClose }: NodeCommandPaletteProps) {
         {/* Always occupy the list slot so empty ↔ matched does not resize the shell. */}
         <div
           ref={listRef}
-          className="min-h-[2.5rem] max-h-[240px] overflow-y-auto border-t border-foreground/[0.06] p-1"
+          className="min-h-[2.5rem] border-t border-foreground/[0.06]"
           data-palette-list="true"
         >
-          {items.length === 0 ? (
-            <div className="px-2 py-2 text-center text-meta text-foreground/25">
-              {query ? "No matches" : "Type to filter…"}
-            </div>
-          ) : (
-            items.map((item, i) => (
-              <button
-                key={item.id}
-                type="button"
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left",
-                  "text-ui transition-colors duration-75",
-                  i === highlightIndex
-                    ? "bg-accent text-accent-foreground"
-                    : "text-foreground/70 hover:bg-foreground/[0.04]",
-                )}
-                onClick={() => handleSelect(i)}
-                onMouseEnter={() => setHighlightIndex(i)}
-              >
-                {item.icon !== undefined && item.icon !== null && (
-                  <span className="shrink-0 opacity-50">{item.icon}</span>
-                )}
-                <span className="truncate">{item.label}</span>
-              </button>
-            ))
-          )}
+          <PickerList
+            placement="inline"
+            rows={rows}
+            activeIndex={keys.activeIndex}
+            onHover={keys.setActiveIndex}
+            onPick={handleSelect}
+            createLabel={picker?.createLabel}
+            iconOf={iconOf}
+            emptyText={query ? "No matches" : "Type to filter…"}
+            aria-label={stepLabel ?? "Node commands"}
+          />
         </div>
 
         <div className="flex items-center gap-3 border-t border-foreground/[0.06] px-3 py-1.5 text-caption text-foreground/20">

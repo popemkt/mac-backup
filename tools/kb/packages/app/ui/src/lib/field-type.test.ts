@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DatascriptIndex } from "@/ds";
 import { fixtureGraph } from "@/api/fixture-graph";
 import { wireToOutlineMap } from "@/lib/graph-view";
-import { fuzzyNodeCandidates } from "@/lib/refs";
+import { nodeCandidates } from "@/lib/refs";
 import {
   clearAllowedRefIdsCache,
   emptyValueForType,
@@ -320,7 +320,7 @@ describe("allowed ref targets: resolution vs display", () => {
     // The over-correction guard: the hide-sys heuristic is load-bearing for an
     // unconstrained picker — offering ~70 seeded sys nodes makes it useless.
     const nodes = withIncludeField();
-    const open = fuzzyNodeCandidates(nodes, "").map((c) => c.id);
+    const open = nodeCandidates(nodes).map((c) => c.id);
     expect(open.some(isSysPrefixed)).toBe(false);
     expect(open).not.toContain(WORKSPACE_ROOT_ID);
     expect(open).toContain("n.root-c");
@@ -331,7 +331,7 @@ describe("allowed ref targets: resolution vs display", () => {
       schemaFor(nodes),
       null,
     );
-    const offered = fuzzyNodeCandidates(nodes, "", { allowed }).map((c) => c.id);
+    const offered = nodeCandidates(nodes, { allowed }).map((c) => c.id);
     expect(offered.slice().toSorted()).toEqual(TAG_NODES);
   });
 

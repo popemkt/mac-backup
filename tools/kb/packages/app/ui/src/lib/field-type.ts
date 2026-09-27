@@ -47,7 +47,7 @@ export function resolveFieldTypeById(fieldId: string, schema: SchemaIndex): Fiel
  * node declare", which is a question about the graph, so it is owned by core
  * and shared verbatim with the CLI and MCP. Deciding which of the answers a
  * picker should *show* is the separate, display-side question, and it is
- * answered once in `fuzzyNodeCandidates` (lib/refs), which takes this set as an
+ * answered once in `nodeCandidates` (lib/refs), which takes this set as an
  * input.
  */
 export function resolveAllowedRefIds(

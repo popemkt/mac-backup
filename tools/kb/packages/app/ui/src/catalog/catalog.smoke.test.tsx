@@ -27,7 +27,7 @@ import * as canvasCardStories from "./canvas-card.stories";
 import * as graphToolbarStories from "./graph-toolbar.stories";
 import * as nodeContentStories from "./node-content.stories";
 import * as graphCanvasFrameStories from "./graph-canvas-frame.stories";
-import * as refAutocompleteStories from "./ref-autocomplete.stories";
+import * as pickerListStories from "./picker-list.stories";
 
 const catalogDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -42,7 +42,7 @@ const modules: { name: string; mod: Parameters<typeof composeStories>[0] }[] = [
   { name: "graph-toolbar", mod: graphToolbarStories },
   { name: "node-content", mod: nodeContentStories },
   { name: "graph-canvas-frame", mod: graphCanvasFrameStories },
-  { name: "ref-autocomplete", mod: refAutocompleteStories },
+  { name: "picker-list", mod: pickerListStories },
 ];
 
 describe("component catalog smoke", () => {

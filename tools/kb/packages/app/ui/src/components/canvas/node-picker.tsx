@@ -3,32 +3,45 @@ import { createPortal } from "react-dom";
 import { useOutlineStore } from "@/stores/outline.store";
 import { typeRefsOf } from "@kb/model";
 import { SYSTEM_IDS, isSysPrefixed } from "@/lib/types";
-import { cn } from "@/lib/cn";
+import { pickerRows, type PickerCandidate } from "@/lib/picker";
+import { usePickerKeys } from "@/lib/use-picker";
+import { PickerList } from "@/components/ui/picker-list";
 
 interface NodePickerProps {
   onPick: (nodeId: string) => void;
   onClose: () => void;
 }
 
+/**
+ * "Add existing node" to a canvas: a modal around the one node picker
+ * (lib/picker). Only the candidate set is the canvas's own.
+ */
 export function NodePicker({ onPick, onClose }: NodePickerProps) {
   const nodes = useOutlineStore((s) => s.nodes);
   const [q, setQ] = useState("");
 
   const candidates = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    const list = [...nodes.values()].filter((n) => {
+    const out: PickerCandidate[] = [];
+    for (const n of nodes.values()) {
       // DISPLAY: a free-form canvas card picker offers content, not the
       // seeded ontology or schema nodes. Nothing here decides validity.
-      if (isSysPrefixed(n.id)) return false;
+      if (isSysPrefixed(n.id)) continue;
       const types = typeRefsOf(n);
-      if (types.includes(SYSTEM_IDS.tag) || types.includes(SYSTEM_IDS.field)) {
-        return false;
-      }
-      if (!needle) return true;
-      return n.text.toLowerCase().includes(needle) || n.id.includes(needle);
-    });
-    return list.slice(0, 40);
-  }, [nodes, q]);
+      if (types.includes(SYSTEM_IDS.tag) || types.includes(SYSTEM_IDS.field)) continue;
+      out.push({ id: n.id, label: n.text || "∅", note: n.id.slice(0, 8) });
+    }
+    return out;
+  }, [nodes]);
+  const rows = useMemo(() => pickerRows(candidates, { query: q, limit: 40 }), [candidates, q]);
+
+  const keys = usePickerKeys({
+    rows,
+    query: q,
+    onPick: (row) => {
+      if (row?.kind === "item") onPick(row.id);
+    },
+    onCancel: onClose,
+  });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -45,31 +58,23 @@ export function NodePicker({ onPick, onClose }: NodePickerProps) {
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => {
+            keys.handleKeyDown(e);
+          }}
           placeholder="Add existing node…"
           className="w-full border-b border-foreground/10 bg-transparent px-3 py-2.5 text-ui outline-none"
         />
-        <ul className="max-h-72 overflow-auto py-1">
-          {candidates.map((n) => (
-            <li key={n.id}>
-              <button
-                type="button"
-                className={cn(
-                  "flex w-full items-center gap-2 px-3 py-1.5 text-left text-ui",
-                  "hover:bg-foreground/5",
-                )}
-                onClick={() => onPick(n.id)}
-              >
-                <span className="truncate text-foreground/80">{n.text || "∅"}</span>
-                <span className="ml-auto shrink-0 font-mono text-caption text-foreground/30">
-                  {n.id.slice(0, 8)}
-                </span>
-              </button>
-            </li>
-          ))}
-          {candidates.length === 0 && (
-            <li className="px-3 py-4 text-center text-meta text-foreground/40">No nodes</li>
-          )}
-        </ul>
+        <PickerList
+          placement="inline"
+          rows={rows}
+          activeIndex={keys.activeIndex}
+          onHover={keys.setActiveIndex}
+          onPick={(row) => {
+            if (row.kind === "item") onPick(row.id);
+          }}
+          emptyText="No nodes"
+          aria-label="Nodes"
+        />
       </div>
     </div>,
     document.body,

@@ -247,7 +247,7 @@ function runTargetQuery(
  * `sys.`-prefixed: `sys.f.fieldType` legitimately parents six `sys.ft.*`
  * options, and `sys.f.onto.include` legitimately targets every supertag,
  * `sys.tag.*` ones included. Which of these a picker chooses to *show* is a
- * separate decision, made once in the UI's `fuzzyNodeCandidates`, which takes
+ * separate decision, made once in the UI's `nodeCandidates`, which takes
  * this set as an input.
  *
  * `nodes` is typed as a map of {@link NodeLike} on purpose — a map, so the UI

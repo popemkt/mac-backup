@@ -324,14 +324,10 @@ describe("what a commit writes", () => {
         new dom.window.FocusEvent("focusin", { bubbles: true }) as unknown as Event,
       );
     });
-    const option = present(container.querySelector('[role="option"]'), "first option");
+    const option = present(container.querySelector<HTMLElement>('[role="option"]'), "first option");
+    // A row's mousedown only keeps the input focused; the click picks.
     await act(async () => {
-      option.dispatchEvent(
-        new dom.window.MouseEvent("mousedown", {
-          bubbles: true,
-          cancelable: true,
-        }) as unknown as Event,
-      );
+      option.click();
     });
     expect(committed).toEqual([{ t: "ref", v: "n.target" }]);
   });

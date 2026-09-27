@@ -1,30 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { pickerRows, type PickerCandidate, type PickerRow } from "@/lib/picker";
+import { usePickerKeys } from "@/lib/use-picker";
+import { PickerList } from "@/components/ui/picker-list";
 import { PlusIcon } from "@phosphor-icons/react";
-import { cn } from "@/lib/cn";
 import { isOutside } from "@/lib/dom";
-import { hasText } from "@/lib/text";
-
-export interface RefCandidateItem {
-  id: string;
-  label: string;
-  /** Rendered muted after the label (e.g. "already extends"). */
-  note?: string;
-  disabled?: boolean;
-}
 
 interface RefAddPopoverProps {
   /** Button label, e.g. "+ tag". */
   trigger: string;
   title: string;
-  candidates: RefCandidateItem[];
+  candidates: PickerCandidate[];
   onPick: (id: string) => void;
   emptyHint?: string;
 }
 
 /**
- * Filterable "add a ref" popover for the ontology page's include / extends
- * rows. Deliberately small: the ontology page owns three ref lists and nothing
- * else needs a picker this shape yet.
+ * The ontology page's "add a ref" popover for its include / extends rows: a
+ * trigger and a panel around the one node picker (lib/picker) — the same
+ * matching, keys and list every other "which node?" surface uses.
  */
 export function RefAddPopover({
   trigger,
@@ -35,24 +28,30 @@ export function RefAddPopover({
 }: RefAddPopoverProps) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
-  const [active, setActive] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const hits = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    const list = q
-      ? candidates.filter(
-          (c) => c.label.toLowerCase().includes(q) || c.id.toLowerCase().includes(q),
-        )
-      : candidates;
-    return list.slice(0, 40);
-  }, [candidates, filter]);
+  const rows = useMemo(
+    () => pickerRows(candidates, { query: filter, limit: 40 }),
+    [candidates, filter],
+  );
+
+  const commit = (row: PickerRow | null) => {
+    if (row?.kind !== "item" || row.disabled) return;
+    onPick(row.id);
+    setOpen(false);
+  };
+
+  const keys = usePickerKeys({
+    rows,
+    query: filter,
+    onPick: commit,
+    onCancel: () => setOpen(false),
+  });
 
   useEffect(() => {
     if (!open) return;
     setFilter("");
-    setActive(0);
     // Focus after paint so the popover is mounted.
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
@@ -65,12 +64,6 @@ export function RefAddPopover({
     window.addEventListener("pointerdown", onPointerDown);
     return () => window.removeEventListener("pointerdown", onPointerDown);
   }, [open]);
-
-  const commit = (item: RefCandidateItem | undefined) => {
-    if (!item || item.disabled === true) return;
-    onPick(item.id);
-    setOpen(false);
-  };
 
   return (
     <div ref={rootRef} className="relative inline-flex">
@@ -96,62 +89,20 @@ export function RefAddPopover({
             placeholder={title}
             aria-label={title}
             className="mb-1 w-full rounded-md bg-foreground/[0.04] px-2 py-1 text-meta text-foreground/85 outline-none placeholder:text-foreground/30"
-            onChange={(e) => {
-              setFilter(e.target.value);
-              setActive(0);
-            }}
+            onChange={(e) => setFilter(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                e.preventDefault();
-                setOpen(false);
-                return;
-              }
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                setActive((i) => Math.min(i + 1, hits.length - 1));
-                return;
-              }
-              if (e.key === "ArrowUp") {
-                e.preventDefault();
-                setActive((i) => Math.max(i - 1, 0));
-                return;
-              }
-              if (e.key === "Enter") {
-                e.preventDefault();
-                commit(hits[active]);
-              }
+              keys.handleKeyDown(e);
             }}
           />
-          <div role="listbox" aria-label={title} className="max-h-56 overflow-auto">
-            {hits.length === 0 ? (
-              <p className="px-2 py-1.5 text-meta text-foreground/30">{emptyHint}</p>
-            ) : (
-              hits.map((c, i) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  role="option"
-                  aria-selected={i === active}
-                  disabled={c.disabled}
-                  className={cn(
-                    "flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-meta",
-                    "transition-colors duration-75",
-                    c.disabled === true
-                      ? "cursor-not-allowed text-foreground/25"
-                      : "text-foreground/75 hover:bg-foreground/5 hover:text-foreground/90",
-                    i === active && c.disabled !== true && "bg-foreground/[0.05]",
-                  )}
-                  onMouseEnter={() => setActive(i)}
-                  onClick={() => commit(c)}
-                >
-                  <span className="min-w-0 flex-1 truncate">{c.label}</span>
-                  {hasText(c.note) ? (
-                    <span className="shrink-0 text-caption text-foreground/25">{c.note}</span>
-                  ) : null}
-                </button>
-              ))
-            )}
-          </div>
+          <PickerList
+            placement="inline"
+            rows={rows}
+            activeIndex={keys.activeIndex}
+            onHover={keys.setActiveIndex}
+            onPick={commit}
+            emptyText={emptyHint}
+            aria-label={title}
+          />
         </div>
       ) : null}
     </div>

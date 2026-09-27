@@ -5,7 +5,9 @@
  */
 import { schemaOf, type SchemaIndex } from "@/lib/schema";
 import { describe, expect, it, vi } from "vitest";
-import { createElement } from "react";
+import { act, createElement } from "react";
+import { createRoot } from "react-dom/client";
+import { installDomGlobals } from "@/test-support/dom-globals";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TagFieldsConfigView } from "./tag-fields-config";
 import { resolveTagFields, type TagFieldRef } from "./tag-fields";
@@ -72,7 +74,6 @@ const nodes = new Map<string, TestNode>([
 const view = (over: Partial<Parameters<typeof TagFieldsConfigView>[0]> = {}) =>
   renderToStaticMarkup(
     createElement(TagFieldsConfigView, {
-      tagId: "tag_project",
       template: [{ id: "f_owner", name: "owner" }],
       suggestions: [{ id: "f_severity", name: "severity" }],
       readOnly: false,
@@ -129,9 +130,40 @@ describe("TagFieldsConfigView", () => {
     expect(html).toContain("(1)");
   });
 
-  it("exposes suggestions as datalist options so names get reused", () => {
-    const html = view();
-    expect(html).toContain('value="severity"');
+  it("offers suggestions through the node picker so names get reused", async () => {
+    const dom = installDomGlobals();
+    (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+    const host = dom.window.document.createElement("div") as unknown as HTMLDivElement;
+    dom.window.document.body.appendChild(host as unknown as never);
+    const root = createRoot(host);
+    try {
+      await act(async () => {
+        root.render(
+          createElement(TagFieldsConfigView, {
+            template: [{ id: "f_owner", name: "owner" }],
+            suggestions: [{ id: "f_severity", name: "severity" }],
+            readOnly: false,
+            onAdd: () => undefined,
+            onRemove: () => undefined,
+            onOpen: () => undefined,
+          }),
+        );
+      });
+      // Closed until the input is aimed at: a page of tags opens no lists.
+      expect(host.querySelector('[role="listbox"]')).toBeNull();
+      const input = host.querySelector("input");
+      await act(async () => {
+        input?.dispatchEvent(
+          new dom.window.FocusEvent("focusin", { bubbles: true }) as unknown as Event,
+        );
+      });
+      const options = [...host.querySelectorAll('[role="option"]')].map((o) => o.textContent);
+      expect(options).toEqual(["severity"]);
+    } finally {
+      act(() => root.unmount());
+      delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
+      dom.restore();
+    }
   });
 
   it("explains what fields do when the tag has none", () => {
@@ -141,7 +173,7 @@ describe("TagFieldsConfigView", () => {
   });
 
   it("offers no editing controls on a write-guarded sys.* tag", () => {
-    const html = view({ readOnly: true, tagId: SYSTEM_IDS.tag });
+    const html = view({ readOnly: true });
     expect(html).not.toContain('aria-label="Add a field to this tag"');
     expect(html).not.toContain("Remove field");
   });

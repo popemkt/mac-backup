@@ -11,13 +11,15 @@ import {
   setCaretSerializedOffset,
 } from "@/lib/md-edit";
 import { nodeTarget, routePointerClick, type Follow } from "@/lib/follow";
-import { fuzzyNodeCandidates, insertRefAtCursor, openRefQuery } from "@/lib/refs";
+import { insertRefAtCursor, nodeCandidates, openRefQuery } from "@/lib/refs";
+import { pickerRows } from "@/lib/picker";
+import { usePickerKeys } from "@/lib/use-picker";
 import { rowTextReadOnlyReason } from "@/lib/contextual-ref";
 import type { SchemaIndex } from "@/lib/schema";
 import type { NodeMap, TagBadge } from "@/lib/types";
 import { InlineMarkdown } from "@/components/ui/md-view";
 import { useTextHistory } from "@/components/ui/use-text-history";
-import { RefAutocomplete } from "@/components/ref-autocomplete";
+import { PickerList } from "@/components/ui/picker-list";
 import { nearestOffsetForX, offsetFromPoint } from "@/lib/caret";
 import { TagChipGroup } from "@/components/outline/tag-chip";
 
@@ -134,7 +136,6 @@ export function NodeTextHost({
   const pendingEcho = useRef<string | null>(null);
   /** Query captured at dismissal time; a different query re-opens (D14). */
   const acDismissedQuery = useRef<string | null>(null);
-  const [acIndex, setAcIndex] = useState(0);
   /** D14: Escape dismisses the popup without blurring or leaving edit mode. */
   const [acDismissed, setAcDismissed] = useState(false);
   const [cursor, setCursor] = useState(0);
@@ -158,14 +159,11 @@ export function NodeTextHost({
   // Dismissal survives until the query itself changes or typing resumes.
   const refOpen = acDismissed && rawRefOpen?.query === acDismissedQuery.current ? null : rawRefOpen;
 
-  const candidates = useMemo(() => {
-    if (!refOpen) return [];
-    return fuzzyNodeCandidates(nodes, refOpen.query);
-  }, [refOpen, nodes]);
-
-  useEffect(() => {
-    setAcIndex(0);
-  }, [refOpen?.query, refOpen?.start]);
+  const candidates = useMemo(() => nodeCandidates(nodes), [nodes]);
+  const rows = useMemo(
+    () => (refOpen ? pickerRows(candidates, { query: refOpen.query, limit: 12 }) : []),
+    [refOpen, candidates],
+  );
 
   useLayoutEffect(() => {
     if (!isActive || instanceKey === undefined) return undefined;
@@ -260,6 +258,24 @@ export function NodeTextHost({
     setCursor(cursor + 2);
     if (instanceKey !== undefined) placeCaret(instanceKey, cursor + 2);
   }, [content, cursor, instanceKey, emit, placeCaret]);
+
+  /*
+   * D15: Enter/Tab with an open popup and zero candidates completes the
+   * bracket (`]]`) instead of falling through to a destructive split.
+   */
+  const picker = usePickerKeys({
+    rows,
+    query: refOpen?.query ?? "",
+    pickOnTab: true,
+    onPick: (row) => {
+      if (row?.kind === "item") applyRef(row.id, row.label);
+      else completeBracket();
+    },
+    onCancel: () => {
+      acDismissedQuery.current = refOpen?.query ?? null;
+      setAcDismissed(true);
+    },
+  });
 
   const handleInput = useCallback(() => {
     const el = editorRef.current;
@@ -362,35 +378,10 @@ export function NodeTextHost({
         return;
       }
 
-      if (refOpen) {
-        if (e.key === "ArrowDown" && candidates.length > 0) {
-          e.preventDefault();
-          setAcIndex((i) => (i + 1) % candidates.length);
-          return;
-        }
-        if (e.key === "ArrowUp" && candidates.length > 0) {
-          e.preventDefault();
-          setAcIndex((i) => (i - 1 + candidates.length) % candidates.length);
-          return;
-        }
-        if (e.key === "Enter" || e.key === "Tab") {
-          e.preventDefault();
-          if (candidates.length > 0) {
-            const pick = candidates[acIndex] ?? candidates[0];
-            if (pick) applyRef(pick.id, pick.text);
-          } else {
-            completeBracket();
-          }
-          return;
-        }
-        if (e.key === "Escape") {
-          // D14: dismiss the popover only — stay editing, keep caret.
-          e.preventDefault();
-          e.stopPropagation();
-          acDismissedQuery.current = refOpen.query;
-          setAcDismissed(true);
-          return;
-        }
+      if (refOpen && picker.handleKeyDown(e)) {
+        // D14: Escape dismisses the popover only — stay editing, keep caret.
+        if (e.key === "Escape") e.stopPropagation();
+        return;
       }
 
       setCursor(getCaretSerializedOffset(editorRef.current));
@@ -398,10 +389,7 @@ export function NodeTextHost({
     },
     [
       refOpen,
-      candidates,
-      acIndex,
-      applyRef,
-      completeBracket,
+      picker,
       onKeyDown,
       content,
       nodeId,
@@ -481,11 +469,13 @@ export function NodeTextHost({
           </div>
         )}
 
-        {refOpen && candidates.length > 0 && (
-          <RefAutocomplete
-            candidates={candidates}
-            activeIndex={acIndex}
-            onSelect={(c) => applyRef(c.id, c.text)}
+        {refOpen && (
+          <PickerList
+            placement="popover"
+            rows={rows}
+            activeIndex={picker.activeIndex}
+            onHover={picker.setActiveIndex}
+            onPick={(row) => applyRef(row.id, row.kind === "item" ? row.label : row.name)}
           />
         )}
       </div>

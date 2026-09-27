@@ -35,10 +35,10 @@ publishing one curated barrel of named exports at `src/index.ts` (or
 `"exports": {}` when it has no importable surface). It has two axes, and each
 axis is stated in exactly one place:
 
-| Axis    | Where it lives                          | Values                                                                                    | Means                               |
-| ------- | --------------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------- |
-| layer   | the folder under `packages/`            | `domain`, `contract`, `infrastructure`, `application`, `app`, `extension`, `test-support` | which way dependencies may point    |
-| `scope:*` | one tag in the package's `nx` key     | `shared`, `backend`, `browser`, `test-support`                                            | which runtime the code must survive |
+| Axis      | Where it lives                    | Values                                                                                    | Means                               |
+| --------- | --------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------- |
+| layer     | the folder under `packages/`      | `domain`, `contract`, `infrastructure`, `application`, `app`, `extension`, `test-support` | which way dependencies may point    |
+| `scope:*` | one tag in the package's `nx` key | `shared`, `backend`, `browser`, `test-support`                                            | which runtime the code must survive |
 
 Placement carries the layer because the layer is the thing a reader wants to
 see without opening a manifest, and a `layer:*` tag beside the folder would be
@@ -280,7 +280,7 @@ re-snapshotting — a rule nothing can satisfy is a rule nothing enforces.
 `ratchet-scope` is its red case.
 
 Promotion carries the same scope. A suggestion rule that reaches 0 in `src`
-but still has hits outside it *is* promotable, because the severity flip in
+but still has hits outside it _is_ promotable, because the severity flip in
 `tsconfig.bun.json` is file-scoped too — see "Effect diagnostic severities and
 their file scope". The collector and the plugin state one scope, not two: a
 package's `src/`, with nothing carved out of it.
@@ -414,11 +414,11 @@ right field shape with no further checks: no `!`, no `as`, no field that
   nothing. Carrier and validity stay apart: "the first `num` value of
   `lens.max-nodes`" is a projection, "positive and whole" is the schema. A
   default has exactly one home — the slot, beside the shape it defaults to —
-  never the ontology *and* the function.
+  never the ontology _and_ the function.
 
   The malformed-input policy is part of the mechanism, not per call site:
 
-  - An **absent** prop is *unset*. The declared default applies, silently.
+  - An **absent** prop is _unset_. The declared default applies, silently.
   - A **present** prop the slot cannot read — wrong carrier, or a value the
     schema rejects — falls back to that same default **and is reported**,
     naming the field node and what was expected. Nothing throws: a bad prop
@@ -426,7 +426,7 @@ right field shape with no further checks: no `!`, no `as`, no field that
   - Props are multi-valued, so a **multi-valued** field decodes per value —
     one bad clause is reported by its index and the readable ones survive —
     while a **single-valued** field is one value and decodes whole.
-  - An element that decodes to `null` contributes nothing and is *not*
+  - An element that decodes to `null` contributes nothing and is _not_
     reported. That is how a documented sentinel says "explicitly empty": the
     `none` source option stored in `lens.edge-kinds` means no edges, and is a
     value, not a mistake.
@@ -481,7 +481,7 @@ type PropValue =
   everything it names, seeded ids included: `sys.f.fieldType` legitimately
   targets six `sys.ft.*` options and `sys.f.onto.include` legitimately targets
   every supertag. Display surfaces then decide what to _show_: an unconstrained
-  ref picker hides infrastructure (`fuzzyNodeCandidates` in `ui/src/lib/refs`),
+  ref picker hides infrastructure (`nodeCandidates` in `ui/src/lib/refs`),
   and the outline's `#tag` badge list omits the kind refs so a tag's own page
   shows no "#tag" chip. Those two lists are not interchangeable — reading the
   badge list back as membership reports every supertag as untagged, which is
@@ -525,7 +525,7 @@ type PropValue =
   — a duplicate of the held value included — is refused by the same check.
   What "set" means is the field's to say, in `node.update`'s one prop writer:
   setting a `one` field replaces its value in the same transaction (so `kb
-  set`, MCP and the UI all replace in one write), a many-valued field gains
+set`, MCP and the UI all replace in one write), a many-valued field gains
   the value, and a replacement is never an unset and a set in two
   transactions. Every seeded setting declares `one`.
   Values already stored are not rechecked, so a legacy store
@@ -539,7 +539,7 @@ type PropValue =
   nodes) caching is premature; revisit only if load profiling says so.
 - **A CLI value is parsed as its field's declared type**, never guessed from
   its shape (`parseFieldValue` in `@kb/operations`' `map.ts`): `kb set <n>
-  <field> 42` writes the string `"42"` into a text field and the number `42`
+<field> 42` writes the string `"42"` into a text field and the number `42`
   into a number field, a ref field takes the argument as a node id, and a
   checkbox takes `true`/`false`. An argument the type cannot read (`abc` for a
   number) is a usage error, exit 2. A field that does not exist yet reads as
@@ -629,7 +629,7 @@ move operations, every store's commit, the merge, and — through the operations
 - **A placement is a position, and the rank is derived.** `node.add` and
   `node.update` take `parent` and `position` — the index in the target group,
   the end when omitted — and never a rank. `rankForInsert(siblings, position,
-  current)` is the one derivation; it keeps a moved node's rank when it still
+current)` is the one derivation; it keeps a moved node's rank when it still
   fits, so re-placing a node where it is writes nothing. `compareRootOrder` is
   the one root comparator (ranked first by code units, then id), and
   `siblingSlots` the one group view a position indexes, on the server and in
@@ -667,11 +667,11 @@ two stores it never throws and always returns a store — a forest, every node
 ranked — and whatever it could not decide it names as a conflict, keeping one
 side's value so nothing is lost.
 
-| concern | what it is | changed when | both sides changed it, differently |
-|---|---|---|---|
-| existence | the id is in the set | a side added or deleted it | only a deletion can disagree — rule 1 |
-| content | everything but `id`, position and `updatedAt`: `text`, `props`, `createdAt` | its bytes differ from the base's | the newer `updatedAt` wins; an equal stamp keeps ours and reports `modified-both-same-stamp` |
-| position | the parent id and the rank, **one value** | either part differs from the base's | ours, reported `modified-both-position` |
+| concern   | what it is                                                                  | changed when                        | both sides changed it, differently                                                           |
+| --------- | --------------------------------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------- |
+| existence | the id is in the set                                                        | a side added or deleted it          | only a deletion can disagree — rule 1                                                        |
+| content   | everything but `id`, position and `updatedAt`: `text`, `props`, `createdAt` | its bytes differ from the base's    | the newer `updatedAt` wins; an equal stamp keeps ours and reports `modified-both-same-stamp` |
+| position  | the parent id and the rank, **one value**                                   | either part differs from the base's | ours, reported `modified-both-position`                                                      |
 
 A node's slot among its siblings is its rank, so a reorder, a reparent and a
 re-rank are all the one position concern: one side's reorder and the other
@@ -693,13 +693,13 @@ committed side reads back unchanged.
    other living node is a root. No side's `children` array is read after it
    has given each node its parent, so no child can dangle or have two parents.
 4. **The forest is closed by two rules**, repeated until neither applies:
-   - *A living node brings back its merged parent* when that parent is gone,
+   - _A living node brings back its merged parent_ when that parent is gone,
      with the version of the side that kept it. The parent is reported
      `deleted-and-modified` unless the node that brought it back is itself
      reported or itself brought back — that report already names the
      decision, so an edited leaf against a deleted subtree is one conflict, on
      the leaf.
-   - *A cycle adopts ours.* Each side is a forest, so a cycle can only join
+   - _A cycle adopts ours._ Each side is a forest, so a cycle can only join
      positions taken from different sides. Every node on it that ours holds
      elsewhere takes its whole position from ours, once, and is reported
      `modified-both-position`. Ours is a forest, so this ends; should a side
@@ -712,24 +712,24 @@ Swapping ours and theirs changes nothing unless a conflict is reported:
 
 ### Kinds, roles and options
 
-**A supertag says what a node *is*. A behaviour is a field. An option set is
+**A supertag says what a node _is_. A behaviour is a field. An option set is
 children.**
 
 Everything is a node, and a tag is a node too — but that is a statement about
-*storage*, not a licence to express every distinction as one. Three carriers
+_storage_, not a licence to express every distinction as one. Three carriers
 exist and they are not interchangeable:
 
-| carrier | says | example |
-|---|---|---|
-| supertag (`sys.f.type` → a `sys.tag` node) | this node **is a** thing of that kind | `#rule`, `#gap`, `#check`, `#ontology`, `#todo` |
-| field (a `props` key) | this node **does** something, or **has** an attribute | `sys.f.query` (a query node), `sys.f.ref.target` (a contextual reference) |
-| children | these nodes **are the values** the parent may take | `sys.ft.text` … under `sys.f.fieldType`; `prose lint tsc harness hook ci` under `enforcement` |
+| carrier                                    | says                                                  | example                                                                                       |
+| ------------------------------------------ | ----------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| supertag (`sys.f.type` → a `sys.tag` node) | this node **is a** thing of that kind                 | `#rule`, `#gap`, `#check`, `#ontology`, `#todo`                                               |
+| field (a `props` key)                      | this node **does** something, or **has** an attribute | `sys.f.query` (a query node), `sys.f.ref.target` (a contextual reference)                     |
+| children                                   | these nodes **are the values** the parent may take    | `sys.ft.text` … under `sys.f.fieldType`; `prose lint tsc harness hook ci` under `enforcement` |
 
 **The strip test**, applied before minting a tag: remove the behaviour and ask
 whether the node is still that thing. A `#gap` with no `expected` is still a
 gap — badly filled in, but a gap — so `gap` is a kind and earns a tag. A node
 with no `sys.f.ref.target` is not a reference, it is a plain node, so `ref` is
-a *role* the field already carries and a `#ref` tag would be a second carrier
+a _role_ the field already carries and a `#ref` tag would be a second carrier
 for one distinction (Rule 1's second `if`). `lint` is not "a check-surface", it
 is one of the values `surface` may take, so it is a child of that field.
 
@@ -739,7 +739,7 @@ Two consequences the code depends on:
   asks whether `sys.f.query` is present; `contextualTargetOf` asks whether
   `sys.f.ref.target` names a node. Neither consults `node.tags`, which is a
   badge array that deliberately drops kind refs, and neither matches a tag by
-  *name* — a user tag called `query` is a user tag.
+  _name_ — a user tag called `query` is a user tag.
 - **An option set needs no tag to group it.** Siblings under one parent are
   already a set, and `allowedRefIdsOf` derives the picker's candidates from
   exactly that (see the ref-targets bullet above). This is what "in Tana you
@@ -918,11 +918,11 @@ CREATE TABLE meta  (key TEXT PRIMARY KEY, value TEXT);   -- schema_version, rev
 `selectStore(root)` in `@kb/runtime` (the one composition root) answers by
 looking:
 
-| `.kb/kb.sqlite` | `.kb/nodes.jsonl` | store |
-|---|---|---|
-| absent | either | `JsonlStore` |
-| present | absent | `SqliteStore` |
-| present | present | `conflict`, naming both paths |
+| `.kb/kb.sqlite` | `.kb/nodes.jsonl` | store                         |
+| --------------- | ----------------- | ----------------------------- |
+| absent          | either            | `JsonlStore`                  |
+| present         | absent            | `SqliteStore`                 |
+| present         | present           | `conflict`, naming both paths |
 
 Presence rather than a config key because there is nothing else to configure —
 the answer is a single bit, the file that holds the data is the least
@@ -990,7 +990,7 @@ It is a CLI command in `@kb/cli`, not an action in `@kb/operations`, and the
 reason is structural rather than a preference: `@kb/operations` is
 `scope:shared` and sits in the `application` layer, so it may import neither
 `bun:`/`node:` nor an infrastructure package. Migration is defined by
-constructing *both concrete adapters* and deleting *their* files; written
+constructing _both concrete adapters_ and deleting _their_ files; written
 against `EffectStore` alone it cannot name a single one of those things. The
 one place that legitimately knows both adapters exist is the composition root,
 so `migrateStore` lives beside `selectStore` in `@kb/runtime` and the CLI
@@ -999,7 +999,7 @@ command is a thin surface over it.
 ### The transaction tail — the store records what changed, in order
 
 `KbTxLog` (`contracts/src/tx-log.ts`) is the one producer of "what changed, in
-order". Its *sequence* is not in the log: it is `EffectStore.txTail`, a
+order". Its _sequence_ is not in the log: it is `EffectStore.txTail`, a
 `TxTail` the store owns. That is where it has to be, because the node write and
 the record have to be one act, and only the store is inside the exclusion that
 makes them one. The log is the session's **view** of that tail — the head it
@@ -1008,10 +1008,10 @@ enters the sequence:
 
 - `refresh()` adopts whatever the tail gained past head. That is how a
   session's own commit is recorded (the store appended it inside
-  `commitEffect`) *and* how another process's commit arrives — the tail is
+  `commitEffect`) _and_ how another process's commit arrives — the tail is
   shared, so a CLI write is already in it when `changes` announces it, and reading
   it beats re-deriving it by diffing node sets.
-- `append(ops, at, origin)` records a transaction the store did *not* commit.
+- `append(ops, at, origin)` records a transaction the store did _not_ commit.
   There is exactly one: the saved-query virtual set (below). The
   hand-edited-file fallback uses it too, because no transaction was ever
   recorded for that write.
@@ -1026,10 +1026,10 @@ of refetching the graph.
 
 **The two tails.**
 
-| | tail | atomic with the node write? | rev allocation |
-|---|---|---|---|
-| JSONL | `.kb/tx.jsonl`, one canonical-JSON record per line | no — two files, one lock | under `.kb/nodes.jsonl.lock`, the lock that already covers load → merge → replace |
-| SQLite | a `tx` table in `.kb/kb.sqlite` | yes — the same `BEGIN IMMEDIATE` | inside that transaction |
+|        | tail                                               | atomic with the node write?      | rev allocation                                                                    |
+| ------ | -------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------- |
+| JSONL  | `.kb/tx.jsonl`, one canonical-JSON record per line | no — two files, one lock         | under `.kb/nodes.jsonl.lock`, the lock that already covers load → merge → replace |
+| SQLite | a `tx` table in `.kb/kb.sqlite`                    | yes — the same `BEGIN IMMEDIATE` | inside that transaction                                                           |
 
 Both records carry `mark`: the store's own durable commit mark as of that
 append (`nodes.jsonl`'s content hash; sqlite's `meta.rev`) — on both, the
@@ -1042,7 +1042,7 @@ the two writes are two files. The order is not symmetric in cost:
 
 - a tail that **lags** costs one snapshot. `isCurrent()` returns false at open,
   `StoreTxLog` sets its `floor` to `head + 1`, and every `since(rev ≤ head)`
-  answers `"snapshot-required"` — including a client that is *at* head, which
+  answers `"snapshot-required"` — including a client that is _at_ head, which
   is the case a naive implementation gets wrong.
 - a tail that **led** would hand every replica a frame for a write that never
   landed, and no later frame could take it back.
@@ -1165,6 +1165,7 @@ same lane. One path to a client, whatever a node's provenance.
   ```bash
   kb query '[:find ?id :where [?r :node/id "n.root-a"] (reach ?r :node/mentions ?n) [?n :node/id ?id]]'
   ```
+
 - Query failures are typed at the action boundary: errors thrown by the
   datascript engine on the caller's EDN become `DatalogError`
   (→ `invalid_input`); defects in our own glue (normalization / result

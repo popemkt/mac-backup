@@ -1,13 +1,8 @@
 import { allowedRefsOf } from "@/lib/field-type";
 import type { FieldContext } from "@/lib/schema";
+import type { PickerCandidate } from "@/lib/picker";
 import type { OutlineNode } from "@/lib/types";
 import { isSysPrefixed, WORKSPACE_ROOT_ID } from "@/lib/types";
-
-export interface RefCandidate {
-  id: string;
-  text: string;
-  score: number;
-}
 
 /**
  * Which nodes a ref picker may offer.
@@ -50,45 +45,27 @@ export function refSearchOf(context: FieldContext, fieldId: string): RefSearch {
 }
 
 /**
- * Fuzzy candidate resolution for every ref picker — the `[[ref]]` autocomplete
- * in node text and the typed ref field editor both come through here.
+ * The nodes of `nodes` a node picker may offer, as picker candidates, in
+ * label order — the candidate source the field picker, the `[[`
+ * autocomplete and the palette's "reference a node" step share. Matching and
+ * ranking against a query are the engine's (`pickerRows`, lib/picker).
  *
- * The declared constraint is an *input*, applied before ranking and the limit.
- * Post-filtering the already-limited list was the other half of the same bug:
- * an allowed node that ranked 13th disappeared.
+ * The declared constraint is an *input*, applied before the engine ranks and
+ * limits. Post-filtering an already-limited list was the other half of the
+ * bug `isOfferable` describes: an allowed node that ranked 13th disappeared.
  */
-export function fuzzyNodeCandidates(
+export function nodeCandidates(
   nodes: ReadonlyMap<string, OutlineNode>,
-  query: string,
-  options: { allowed?: Set<string> | null; limit?: number } = {},
-): RefCandidate[] {
-  const { allowed = null, limit = 12 } = options;
-  const q = query.trim().toLowerCase();
-  const out: RefCandidate[] = [];
+  options: { allowed?: Set<string> | null; exclude?: (id: string) => boolean } = {},
+): PickerCandidate[] {
+  const { allowed = null, exclude } = options;
+  const out: PickerCandidate[] = [];
   for (const n of nodes.values()) {
     if (!isOfferable(n.id, allowed)) continue;
-    const text = n.text || n.id;
-    const hay = `${text} ${n.id}`.toLowerCase();
-    if (!q) {
-      out.push({ id: n.id, text, score: 0 });
-      continue;
-    }
-    if (!hay.includes(q) && !fuzzySubsequence(hay, q)) continue;
-    const idx = text.toLowerCase().indexOf(q);
-    const score = idx === 0 ? 0 : idx > 0 ? 1 : n.id.toLowerCase().includes(q) ? 2 : 3;
-    out.push({ id: n.id, text, score });
+    if (exclude?.(n.id) === true) continue;
+    out.push({ id: n.id, label: n.text || n.id });
   }
-  out.sort((a, b) => a.score - b.score || a.text.localeCompare(b.text));
-  return out.slice(0, limit);
-}
-
-function fuzzySubsequence(hay: string, q: string): boolean {
-  let i = 0;
-  for (const ch of hay) {
-    if (ch === q[i]) i += 1;
-    if (i >= q.length) return true;
-  }
-  return false;
+  return out.toSorted((a, b) => a.label.localeCompare(b.label));
 }
 
 /** Build the wiki-link token inserted on autocomplete select. */

@@ -230,7 +230,6 @@ export type UiZone =
  */
 const UI_PRIMITIVES: readonly string[] = [
   "components/view-error-boundary",
-  "components/ref-autocomplete",
   "components/ui/",
   "components/outline/tag-chip",
   "components/outline/bullet",
