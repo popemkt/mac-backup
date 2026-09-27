@@ -11,10 +11,10 @@
  * Written before the registry, unchanged through it.
  *
  * One blind spot, stated rather than hidden: React's `onChange` does not fire
- * for an `<input>` under happy-dom (its `onInput` does), so the two writes that
- * can only come from typing into a real input — the native date picker's pick,
- * and the ref picker's "commit the raw text nothing matched" fallback — are
- * pinned by what the editor *offers* rather than by the value it writes.
+ * for an `<input>` under happy-dom (its `onInput` does), so the writes that
+ * can only come from typing into a real input — the date editor's phrase, and
+ * the ref picker's query — are pinned by what the editor *offers* here, and by
+ * the pure readers (`parseDateInput`, the picker engine) elsewhere.
  */
 import type { KbIndex } from "@/ds";
 import { fieldContextOf, type FieldContext } from "@/lib/schema";
@@ -28,6 +28,7 @@ import { stubOutlineNode } from "@/catalog/fixtures";
 import { emptyValueForType, FIELD_TYPES, type FieldType } from "@/lib/field-type";
 import { SYSTEM_IDS, type NodeMap, type PropValue } from "@/lib/types";
 import { FieldRow } from "./field-row";
+import { longDateLabel, relativeDateLabel } from "@/lib/date-display";
 import { ValueSlot } from "./value-slot";
 
 /** The one constructor, over an unscoped graph: the whole map is the schema. */
@@ -91,7 +92,7 @@ const EDITOR_MARKER: Record<FieldType, string> = {
   text: 'data-editable-text="true"',
   number: 'data-editable-text="true"',
   url: 'data-editable-text="true"',
-  date: ">Mar 4, 2026<",
+  date: 'data-value-slot="date"',
   checkbox: 'aria-pressed="true"',
   ref: 'data-node-row="true"',
 };
@@ -127,9 +128,12 @@ describe("every declared type routes to one editor (display)", () => {
     expect(editorHtml("number", { t: "str", v: "7" })).toContain("7");
   });
 
-  it("date formats an ISO string for display, and opens closed", () => {
+  it("date shows its local calendar day by label, and opens closed", () => {
+    // Relative to today, so pinned through the label function itself; the
+    // full date is the title either way.
     const html = editorHtml("date", { t: "str", v: "2026-03-04" });
-    expect(html).toContain("Mar 4, 2026");
+    expect(html).toContain(`>${relativeDateLabel({ year: 2026, month: 3, day: 4 })}<`);
+    expect(html).toContain(longDateLabel({ year: 2026, month: 3, day: 4 }));
     expect(html).not.toContain("<input");
   });
 
@@ -176,8 +180,8 @@ describe("the empty slot of each type", () => {
     expect(minted).not.toContain('data-ref-slot="closed"');
   });
 
-  it("a date slot minted by a gesture opens its native picker", () => {
-    expect(emptyHtml("date", undefined, true)).toContain('type="date"');
+  it("a date slot minted by a gesture opens its date editor", () => {
+    expect(emptyHtml("date", undefined, true)).toContain('data-date-editor="true"');
   });
 });
 
@@ -304,16 +308,19 @@ describe("what a commit writes", () => {
     expect(committed).toEqual([{ t: "bool", v: true }]);
   });
 
-  it("date offers a native picker seeded from the stored ISO string", async () => {
-    // The write itself (`{t:"str"}`, never `{t:"date"}`) is `emptyValueForType`
-    // and the picker's own `onChange`; see the blind spot at the top of the file.
+  it("date offers its editor seeded with the stored day, in the one form", async () => {
+    // An older timestamp form reads as its day; the write is `{t:"str"}`,
+    // never `{t:"date"}` (one carrier), through the editor's commit.
     await mount("date", { t: "str", v: "2026-05-06T00:00:00.000Z" });
     const span = present(container.querySelector<HTMLElement>("span.cursor-text"), "date display");
     await act(async () => {
       span.click();
     });
-    const input = present(container.querySelector('input[type="date"]'), "date input");
-    expect(input.getAttribute("value")).toBe("2026-05-06");
+    const input = present(
+      container.querySelector<HTMLInputElement>('input[aria-label="Date"]'),
+      "date input",
+    );
+    expect(input.value).toBe("2026-05-06");
     expect(emptyValueForType("date")).toEqual({ t: "str", v: "" });
   });
 

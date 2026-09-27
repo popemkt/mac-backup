@@ -15,7 +15,7 @@ describe("numbers in a locale", () => {
       const seps = numberSeparators(locale);
       for (const n of [0, -12.25, 1234567.5]) {
         for (const text of [formatNumber(n, locale), numberEditText(n, locale)]) {
-          expect(parseTypedValue(text, "number", seps)).toEqual({
+          expect(parseTypedValue(text, "number", { numbers: seps })).toEqual({
             ok: true,
             value: { t: "num", v: n },
           });

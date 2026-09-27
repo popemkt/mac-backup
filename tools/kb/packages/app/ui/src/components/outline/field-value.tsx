@@ -18,7 +18,9 @@ import { InlineMarkdown } from "@/components/ui/md-view";
 import { useRevealMarkup } from "@/components/ui/use-reveal-markup";
 import { urlLabel } from "@/lib/url-label";
 import { formatNumber } from "@/lib/number-format";
-import type { ParsedValue } from "@kb/model";
+import { parseDateInput, parseDay, type ParsedValue } from "@kb/model";
+import { longDateLabel, relativeDateLabel } from "@/lib/date-display";
+import { DateEditor } from "@/components/ui/date-editor";
 import { WarningIcon } from "@phosphor-icons/react";
 import { nodeCandidates, refSearchOf } from "@/lib/refs";
 import { pickerRows } from "@/lib/picker";
@@ -31,7 +33,6 @@ import { PickerList } from "@/components/ui/picker-list";
 import { Bullet } from "./bullet";
 import { NodeRow } from "./node-row";
 import { TagChipGroup } from "./tag-chip";
-import { hasText } from "@/lib/text";
 
 /**
  * What a slot's keymap asks of the editor it holds. Only a caret editor has
@@ -367,39 +368,56 @@ export function CheckboxSurface({ value }: ValueSurfaceProps) {
   );
 }
 
-export function DateSurface({ value, spec, editing, onEnd }: ValueSurfaceProps) {
-  const text = spec.text(value);
-  const displayDate = text
-    ? new Date(text).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
-    : null;
+/**
+ * A date value: at rest its label near today (`Today`, `Fri`, `Oct 12`),
+ * read from its local calendar day, with the full date as the title; while
+ * the slot edits, the date editor — typed phrases or the calendar — seeded
+ * with the stored date, or with input the slot kept.
+ */
+export function DateSurface({ value, spec, editing, rejected, onEnd }: ValueSurfaceProps) {
+  const stored = spec.text(value);
+  // A stored date in an older form (an ISO timestamp) still reads as its day.
+  const canonical = stored === "" ? "" : (parseDateInput(stored) ?? stored);
+  const date = parseDay(canonical);
 
   if (editing) {
     return (
-      <input
-        type="date"
-        className={cn(editableClass, "border-none bg-transparent text-foreground/70")}
-        defaultValue={text ? text.slice(0, 10) : ""}
-        autoFocus
-        onChange={(e) => onEnd(spec.parse(e.target.value), e.target.value)}
-        onBlur={() => onEnd()}
+      <DateEditor
+        initialText={rejected?.text ?? canonical}
+        onCommit={(text) => onEnd(spec.parse(text), text)}
+        onCancel={() => onEnd()}
       />
     );
   }
 
+  const shown = rejected?.text ?? (date === null ? stored : relativeDateLabel(date));
   return (
-    <span
-      className={cn(
-        editableClass,
-        "cursor-text",
-        !hasText(displayDate) && "empty-placeholder text-foreground/25 italic",
+    <span className="flex min-w-0 items-start">
+      <span
+        className={cn(
+          editableClass,
+          "cursor-text tabular-nums",
+          shown === ""
+            ? "empty-placeholder text-foreground/25 italic"
+            : rejected !== null
+              ? "text-warning underline decoration-wavy decoration-warning/50 underline-offset-2"
+              : "text-foreground/70",
+        )}
+        data-empty-placeholder={shown === "" ? "true" : undefined}
+        data-rejected={rejected !== null ? "true" : undefined}
+        title={rejected?.reason ?? (date === null ? undefined : longDateLabel(date))}
+      >
+        {shown}
+      </span>
+      {rejected !== null && (
+        <span
+          className="flex h-6 w-4 shrink-0 items-center justify-center text-warning"
+          title={rejected.reason}
+          data-mismatch-warning="true"
+        >
+          <WarningIcon size={11} weight="fill" aria-hidden />
+        </span>
       )}
-      data-empty-placeholder={!hasText(displayDate) ? "true" : undefined}
-    >
-      {displayDate ?? ""}
     </span>
   );
 }

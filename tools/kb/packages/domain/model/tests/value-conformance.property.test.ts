@@ -22,6 +22,7 @@ import {
   type PropValue,
 } from "../src/index.ts";
 import { normalizeUrl, valueConformanceError } from "../src/field-value.ts";
+import { parseDay } from "../src/local-date.ts";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -48,8 +49,12 @@ const typeArb = fc.option(fc.constantFrom(...FIELD_TYPES), { nil: null });
 /** Whether `value` may be held by a field declared `type` (null: undeclared). */
 function expectedOk(type: FieldType | null, value: PropValue): boolean {
   if (!acceptsValueKind(type ?? "text", value)) return false;
-  // A url is held only as a link in canonical form, or unset.
+  // A url is held only as a link in canonical form, a date only as a real
+  // local YYYY-MM-DD; either may be unset.
   if (type === "url" && value.t === "str" && normalizeUrl(value.v) !== value.v) return false;
+  if (type === "date" && value.t === "str" && value.v !== "" && parseDay(value.v) === null) {
+    return false;
+  }
   return value.t !== "ref" || value.v === TARGET;
 }
 

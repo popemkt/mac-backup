@@ -14,6 +14,7 @@ import type { FieldType } from "@/lib/field-type";
 import { normalizeUrl, parseTypedValue, type ParsedValue } from "@kb/model";
 import { nodeTarget, type FollowTarget } from "@/lib/follow";
 import { numberEditText, numberSeparators } from "@/lib/number-format";
+import { todayLocal } from "@/lib/date-display";
 import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 
 /**
@@ -114,14 +115,15 @@ export const VALUE_KINDS: Readonly<Record<ValueKind, ValueKindSpec>> = {
     parse: (text) =>
       text.trim() === ""
         ? accept({ t: "num", v: 0 })
-        : parseTypedValue(text, "number", numberSeparators()),
+        : parseTypedValue(text, "number", { numbers: numberSeparators() }),
     isBlank: (value) => value.t !== "num",
     follow: nowhere,
   },
   date: {
     editor: "calendar",
     text: (value) => (value.t === "str" ? value.v : ""),
-    parse: (text) => parseTypedValue(text, "date"),
+    // Phrases (`tomorrow`, `next fri`) read against this browser's today.
+    parse: (text) => parseTypedValue(text, "date", { today: todayLocal() }),
     isBlank: (value) => value.t !== "str" || value.v === "",
     follow: nowhere,
   },

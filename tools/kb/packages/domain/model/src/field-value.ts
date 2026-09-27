@@ -15,6 +15,7 @@
 import { acceptsValueKind, fieldTypeOf, type FieldType } from "./field-type.ts";
 import type { NodeLike } from "./ontology.ts";
 import type { NodeId, PropValue } from "./model.ts";
+import { parseDateInput, parseDay, type LocalDate } from "./local-date.ts";
 
 /** The schemes a url value may carry: the ones a link in kb may open. */
 const LINK_SCHEME = /^(https?:\/\/|mailto:)/i;
@@ -74,16 +75,25 @@ function readNumber(raw: string, { decimal, group }: NumberSeparators): number {
   return text === "" ? Number.NaN : Number(text);
 }
 
+/** What a surface knows that raw input may be read against. */
+export interface ParseContext {
+  /** How the writer writes numbers; JavaScript's own form when absent. */
+  readonly numbers?: NumberSeparators;
+  /** The writer's today, so relative dates (`tomorrow`, `fri`) read; absolute ones only when absent. */
+  readonly today?: LocalDate;
+}
+
 /**
  * Raw input read as a value of `type`. The type decides the value kind; the
  * input's shape never does, so `42` for a text field is the string "42".
  * Input the type cannot read is refused, never coerced. A number is read in
- * the writer's own separators (`numbers`), grouping and spaces ignored.
+ * the writer's own separators, grouping and spaces ignored; a date is any
+ * phrase `parseDateInput` reads, stored as its local `YYYY-MM-DD`.
  */
 export function parseTypedValue(
   raw: string,
   type: FieldType,
-  numbers: NumberSeparators = JS_NUMBERS,
+  { numbers = JS_NUMBERS, today }: ParseContext = {},
 ): ParsedValue {
   switch (type) {
     case "number": {
@@ -100,8 +110,12 @@ export function parseTypedValue(
     }
     case "ref":
       return ok({ t: "ref", v: raw });
+    case "date": {
+      if (raw.trim() === "") return ok({ t: "str", v: "" });
+      const date = parseDateInput(raw, today);
+      return date === null ? refuse(`not a date: ${raw}`) : ok({ t: "str", v: date });
+    }
     case "text":
-    case "date":
       return ok({ t: "str", v: raw });
     default: {
       const unhandled: never = type;
@@ -112,9 +126,14 @@ export function parseTypedValue(
 
 /**
  * Why a value of an accepted kind is still not in its type's form, or null.
- * A url must be a link in canonical form (`normalizeUrl` of itself), or unset.
+ * A url must be a link in canonical form (`normalizeUrl` of itself), a date a
+ * real local `YYYY-MM-DD`; either may be unset.
  */
 function valueFormError(type: FieldType, value: PropValue): string | null {
+  if (type === "date" && value.t === "str" && value.v !== "" && parseDay(value.v) === null) {
+    const date = parseDateInput(value.v);
+    return date === null ? "is not a date" : `is not in date form (${date})`;
+  }
   if (type === "url" && value.t === "str" && normalizeUrl(value.v) !== value.v) {
     const href = normalizeUrl(value.v);
     return href === null ? "is not a link" : `is not in link form (${href})`;

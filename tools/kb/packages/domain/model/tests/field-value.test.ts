@@ -142,20 +142,20 @@ describe("reading a number", () => {
 
   test("in a writer's separators, grouping and spaces ignored", () => {
     const de = { decimal: ",", group: "." };
-    expect(parseTypedValue("1.234,5", "number", de)).toEqual({
+    expect(parseTypedValue("1.234,5", "number", { numbers: de })).toEqual({
       ok: true,
       value: { t: "num", v: 1234.5 },
     });
     const fr = { decimal: ",", group: " " };
-    expect(parseTypedValue("1 234,5", "number", fr)).toEqual({
+    expect(parseTypedValue("1 234,5", "number", { numbers: fr })).toEqual({
       ok: true,
       value: { t: "num", v: 1234.5 },
     });
     const en = { decimal: ".", group: "," };
-    expect(parseTypedValue(" 12,345.67 ", "number", en)).toEqual({
+    expect(parseTypedValue(" 12,345.67 ", "number", { numbers: en })).toEqual({
       ok: true,
       value: { t: "num", v: 12345.67 },
     });
-    expect(parseTypedValue("12 apples", "number", en).ok).toBe(false);
+    expect(parseTypedValue("12 apples", "number", { numbers: en }).ok).toBe(false);
   });
 });
