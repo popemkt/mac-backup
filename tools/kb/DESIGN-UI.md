@@ -674,7 +674,7 @@ like themselves (P5).
   face, weight, case, halo and placement — are the theme's, and each
   renderer realises them in its own terms; the label is painted by one
   canvas painter wherever it is drawn (`lib/graph-label-paint.ts`), and a
-  bullet from one atlas (`lib/bullet-atlas.ts`). The 3D scene's dress —
+  bullet from one GPU form (`lib/bullet-gpu.ts`). The 3D scene's dress —
   which tokens fill the ground and its edge, the backdrop's pool, warmth
   and haze, the fog, the starfield, the grain, the bloom (and so whether
   any light may cross white at all) and the node surface — is its
@@ -726,25 +726,42 @@ like themselves (P5).
   - *Bullet* — the outline, in space. Every node is drawn as the outline
     draws its bullet, from the same definition: `lib/bullet-mode.ts` owns a
     bullet's appearance (kind, shape, glyph, halo, dot, ring, their paints
-    and their geometry — box, dot and halo sizes in proportion), and the
-    outline's `Bullet` and the theme's painter (`lib/bullet-paint.ts`, which
-    paints an appearance onto a canvas) both render that record, so a
-    change to the bullet changes both. A graph node's appearance is
-    `outlineBulletAppearance` of the same outline node the editor renders —
-    its kind, its children, its collapsed state, its tag colours through
-    `tagPalette`. Each node is a camera-facing sprite from one atlas of
-    painted bullets, one draw; the scene stays orbitable 3D. The ground is
+    and their geometry — box, dot, halo and ring sizes, the ring's stroke
+    and dashes, the magnifier's lens and handle), and the outline's
+    `Bullet` and the graph's GPU form of it (`lib/bullet-gpu.ts`) both
+    read that record, so a change to the bullet changes both. A graph
+    node's appearance is `outlineBulletAppearance` of the same outline node
+    the editor renders — its kind, its children, its collapsed state, its
+    tag colours through `tagPalette`. A bullet is drawn analytically: the
+    shape is a handful of uniforms (`BULLET_UNIFORMS`: the ring, the
+    magnifier, the glyph box, in px of the box), each node carries its
+    mark, its halo and dot radii and where its colours sit in a small
+    colour table (`BulletTable`: one row per distinct bullet — the page's
+    ground and ink, the ring, then every tag's wedge of the halo and dot),
+    and each fragment measures its signed distance to the marks and
+    antialiases it over one screen pixel, laying the halo, ring, dot and
+    ink over the ground in the outline's order. So a bullet is as sharp
+    zoomed in as the outline's is, and nothing is painted per frame: the
+    table is painted again only when some bullet or the page changes. The
+    kind glyphs (# ⌗ ⚙ ▣ ◇ ⬡) are type, not geometry: they are set once in
+    the UI face and read back as a signed distance field
+    (`BulletGlyphs`, one cell per glyph, shared by every renderer for the
+    session), which the same antialiasing draws, set again only when the
+    face or its size changes or it finishes loading. A multi-channel field
+    would keep a glyph's corners sharper under extreme zoom, but needs the
+    glyph's outline, which a canvas does not give; a raster re-set to the
+    zoom would be per-frame work. Each 3D node is one camera-facing
+    sprite, one draw; the scene stays orbitable 3D. The ground is
     the page's plain background, the light is flat (the surface is the
-    painted colour), there is no bloom, fog, stars or grain, links are even
+    laid colour), there is no bloom, fog, stars or grain, links are even
     lines of `--graph-edge`, and labels sit right of their bullet in the UI
     face, as a row's text does. A bullet carries no lift or glow, so at rest
     each one looks as the outline's does whatever its degree; focus swells
     it, and a dimmed node sinks into the ground. Its halo spans twice the
     sphere the node would be in another theme, so its small dot reads, and
     it is picked, framed and labelled by as far as it shows
-    (`bulletExtent`: its halo when it has one, else its dot or glyph). The
-    atlas is painted again only when some bullet's paint changes. In 2D
-    the same atlas is sampled by a sigma node program
+    (`bulletExtent`: its halo when it has one, else its dot or glyph). In
+    2D the same GPU form is drawn by a sigma node program
     (`sigma-bullets.ts`, one instanced quad per node), and a bullet
     stands exactly as far as its disc — its halo, else its dot or glyph —
     so the disc rules above (separation, picking, label clearance) hold

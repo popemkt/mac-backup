@@ -1,18 +1,25 @@
 /**
- * The bullet theme's node layer: each node sampling its own atlas cell
- * (`lib/bullet-atlas`), picked and labelled by as far as its bullet
- * shows, restyled in place when a bullet changes (a collapse), and giving
- * its atlas back when it is replaced.
+ * The bullet theme's node layer: each node drawn from its own entry in the
+ * bullet table (`lib/bullet-gpu`) under the shared shape uniforms, picked
+ * and labelled by as far as its bullet shows, restyled in place when a
+ * bullet changes (a collapse), and giving its textures back when disposed.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { Window } from "happy-dom";
-import { CanvasTexture, Color } from "three/webgpu";
+import {
+  CanvasTexture,
+  Color,
+  Sprite,
+  Vector4,
+  type Node,
+  type SpriteNodeMaterial,
+} from "three/webgpu";
 import { uniform } from "three/tsl";
 import { BULLET_GEOMETRY, bulletAppearance, bulletExtent } from "@/lib/bullet-mode";
 import { EmphasisFade } from "@/lib/graph-fade";
 import type { LensNode } from "@/lib/graph-lens";
 import { topologyOf } from "./force3d-emphasis";
-import { BulletAtlas } from "@/lib/bullet-atlas";
+import { BULLET_UNIFORMS, BulletTable } from "@/lib/bullet-gpu";
 import { bulletLayer } from "./force3d-bullets";
 import { GRAPH_THEMES } from "./graph-themes";
 
@@ -87,8 +94,8 @@ describe("the 3D bullet layer", () => {
     layer.dispose();
   });
 
-  it("repaints its atlas only when a bullet changed, and gives it back when disposed", () => {
-    const paint = vi.spyOn(BulletAtlas.prototype, "paint");
+  it("repaints its table only when a bullet changed, and gives its textures back when disposed", () => {
+    const paint = vi.spyOn(BulletTable.prototype, "paintColors");
     const nodes = [node("a"), node("b", bullet(true, true))];
     const layer = bulletLayer({
       topology: topologyOf(nodes, []),
@@ -105,8 +112,34 @@ describe("the 3D bullet layer", () => {
     expect(paint.mock.calls.length).toBe(painted + 1);
     const dispose = vi.spyOn(CanvasTexture.prototype, "dispose");
     layer.dispose();
-    expect(dispose).toHaveBeenCalledTimes(1);
+    // The colour table and the glyphs.
+    expect(dispose).toHaveBeenCalledTimes(2);
     paint.mockRestore();
     dispose.mockRestore();
+  });
+
+  it("draws under the one GPU form's shape uniforms", () => {
+    const layer = bulletLayer({
+      topology: topologyOf([node("a")], []),
+      colors: colors(),
+      fades: fades(1),
+      theme: GRAPH_THEMES.bullet,
+      palette: PALETTE,
+    });
+    const values: number[][] = [];
+    const seen = new Set<Node>();
+    const visit = (n: Node) => {
+      if (seen.has(n)) return;
+      seen.add(n);
+      const { value } = n as Node & { value?: unknown };
+      if (value instanceof Vector4) values.push(value.toArray());
+      for (const child of n.getChildren()) visit(child);
+    };
+    const sprite = layer.mesh;
+    expect(sprite).toBeInstanceOf(Sprite);
+    const { opacityNode } = (sprite as Sprite).material as SpriteNodeMaterial;
+    if (opacityNode !== null) visit(opacityNode);
+    for (const shape of Object.values(BULLET_UNIFORMS)) expect(values).toContainEqual([...shape]);
+    layer.dispose();
   });
 });

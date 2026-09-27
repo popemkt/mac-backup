@@ -44,7 +44,7 @@ import {
   setGraphLabelPaint,
   type GraphNodeBox,
 } from "./sigma-labels";
-import { createBulletProgram, SigmaBulletAtlas } from "./sigma-bullets";
+import { createBulletProgram, SigmaBullets } from "./sigma-bullets";
 import { GRAPH_THEMES, restingLink, type NodeForm } from "./graph-themes";
 import { withGraphAlpha } from "@/lib/graph-dim";
 import { clusterHulls } from "./cluster-hulls";
@@ -136,7 +136,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
   const cameraIntent = useRef(false);
   const topology = useRef("");
   const settle = useRef(new DiscSettle());
-  const bullets = useRef(new SigmaBulletAtlas());
+  const bullets = useRef(new SigmaBullets());
   const [isolated, setIsolated] = useState<string | null>(null);
   const isolatedRef = useRef(isolated);
   useLayoutEffect(() => {
@@ -367,7 +367,7 @@ export function SigmaGraph(props: SigmaGraphProps) {
     const ids = new Set(nodes.map((n) => n.id));
     for (const id of graph.nodes()) if (!ids.has(id)) graph.dropNode(id);
     const assigned = computeLayoutPositions(layout, nodes, edges, undefined, discSpacing);
-    // Where the theme draws bullets, each node's cell in the atlas and its box.
+    // Where the theme draws bullets, each node's entry in the bullet table and its box.
     const drawn = form === "bullet" ? bullets.current.place(nodes.map((n) => n.bullet)) : null;
     const placed = cluster ? clusterPlacement(nodes) : null;
     nodes.forEach((n, index) => {

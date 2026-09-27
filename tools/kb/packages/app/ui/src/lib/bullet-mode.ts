@@ -84,7 +84,7 @@ export function resolveBulletKind(input: BulletModeInput): BulletKind {
  * This record now carries all of it — what the bullet is, what paints each
  * surface, and how big each part is — so every renderer of a bullet draws
  * the same thing: the outline's `Bullet` in the DOM, and the graph's bullet
- * theme on a canvas (`lib/bullet-paint`). A renderer decides nothing.
+ * theme on the GPU (`lib/bullet-gpu`). A renderer decides nothing.
  */
 export type BulletShape = "supertag" | "query" | "ref-ring" | "glyph" | "dot";
 
@@ -243,6 +243,9 @@ const KIND_GLYPH: Partial<Record<BulletKind, string>> = {
   ontology: "\u2B21",
 };
 
+/** Every glyph a bullet may show, in a fixed order: what a renderer that sets glyphs ahead of time sets. */
+export const BULLET_GLYPHS: readonly string[] = Object.values(KIND_GLYPH);
+
 /**
  * Which element the bullet is.
  *
@@ -330,7 +333,7 @@ export function bulletAppearance(input: BulletAppearanceInput): BulletAppearance
 }
 
 /** The halo's radius, px of the box: the box less its inset. */
-const BULLET_HALO_RADIUS = BULLET_GEOMETRY.box / 2 - BULLET_GEOMETRY.haloInset;
+export const BULLET_HALO_RADIUS = BULLET_GEOMETRY.box / 2 - BULLET_GEOMETRY.haloInset;
 /** How far each shape shows from the bullet's centre, px. */
 const SHAPE_EXTENT: Record<BulletShape, (a: BulletAppearance) => number> = {
   dot: (a) => a.dotSize / 2,

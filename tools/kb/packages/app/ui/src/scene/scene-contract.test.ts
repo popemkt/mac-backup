@@ -201,7 +201,16 @@ const renders = (renderer: InstanceType<typeof gpu.FakeRenderer>) => renderer.po
 function fake2d(canvas: HTMLCanvasElement) {
   const gradient = { addColorStop: () => {} };
   return new Proxy(
-    { canvas, measureText: (text: string) => ({ width: text.length * 6 }) },
+    {
+      canvas,
+      measureText: (text: string) => ({ width: text.length * 6 }),
+      // A blank canvas's pixels (the bullet theme reads its glyphs back).
+      getImageData: (_x: number, _y: number, width: number, height: number) => ({
+        width,
+        height,
+        data: new Uint8ClampedArray(width * height * 4),
+      }),
+    },
     {
       get: (target, key) =>
         key in target

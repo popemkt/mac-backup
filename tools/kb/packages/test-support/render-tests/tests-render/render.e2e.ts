@@ -501,6 +501,89 @@ test("force3d drags a node live: its neighbours follow and the layout settles af
   await settled3d(page);
 });
 
+/** What a close-up reads of sigma beyond the inspector: a node's size, and the camera it sets. */
+type SigmaCloseUp = {
+  getNodeDisplayData(id: string): { x: number; y: number; size: number } | undefined;
+  framedGraphToViewport(position: { x: number; y: number }): { x: number; y: number };
+  getCamera(): { setState(state: { x: number; y: number; ratio: number }): void };
+  scaleSize(size: number, ratio: number): number;
+};
+
+/** How far apart two colours are: their widest channel difference. */
+const colorDistance = (a: number[], b: number[]) =>
+  Math.max(...a.map((v, k) => Math.abs(v - (b[k] ?? 0))));
+
+/**
+ * How many pixels of `column` (RGBA, top to bottom) differ from the one
+ * before: where the colour is changing. A sharp edge changes in about a
+ * pixel; a soft one over as many pixels as it is blurred across.
+ */
+function changingPixels(column: number[]): number {
+  const at = (i: number) => column.slice(i * 4, i * 4 + 3);
+  let changing = 0;
+  for (let i = 1; i < column.length / 4; i++)
+    if (colorDistance(at(i), at(i - 1)) > 2) changing += 1;
+  return changing;
+}
+
+test("force2d draws the bullet theme sharp however near the camera is", async ({ page }) => {
+  await selectRenderer(page, "force2d");
+  const host = "[data-sigma-container]";
+  await sigmaPagePoint(page, host, "render.fixture.root");
+  await page.getByTestId("graph-settings-toggle").click();
+  await page
+    .getByTestId("graph-settings-panel")
+    .getByRole("button", { name: "Bullet", exact: true })
+    .click();
+  await page.getByTestId("graph-settings-toggle").click();
+  await page.mouse.move(0, 0);
+  const half = 240;
+  // One column of pixels down through the root, a collapsed parent, the
+  // camera near enough that its halo runs past both ends of the column (so
+  // no link shows in it) and its dot is a couple of hundred pixels across:
+  // far past the resolution any painted bullet had. The camera is set again
+  // on every attempt, so a graph drawn again under the new theme is framed
+  // too.
+  const disc = 300;
+  const column = async () => {
+    const centre = await page.locator(host).evaluate((element, radius) => {
+      const sigma = (element as HTMLDivElement & { __kbSigma?: SigmaCloseUp }).__kbSigma;
+      const display = sigma?.getNodeDisplayData("render.fixture.root");
+      if (!sigma || !display) throw new Error("the root is not drawn");
+      const ratio = sigma.scaleSize(display.size, 1) / radius;
+      sigma.getCamera().setState({ x: display.x, y: display.y, ratio });
+      const point = sigma.framedGraphToViewport(display);
+      const box = element.getBoundingClientRect();
+      return { x: Math.round(box.left + point.x), y: Math.round(box.top + point.y) };
+    }, disc);
+    const shot = await page.screenshot({
+      clip: { x: centre.x, y: centre.y - half, width: 1, height: half * 2 },
+    });
+    return page.evaluate(async (png) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${png}`;
+      await image.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext("2d");
+      context?.drawImage(image, 0, 0);
+      return [...(context?.getImageData(0, 0, image.width, image.height).data ?? [])];
+    }, shot.toString("base64"));
+  };
+  let pixels: number[] = [];
+  await expect
+    .poll(async () => {
+      pixels = await column();
+      // The bullet is drawn: its dot stands apart from its halo at the ends.
+      return colorDistance(pixels.slice(half * 4, half * 4 + 3), pixels.slice(0, 3));
+    }, PAGE_READY)
+    .toBeGreaterThan(40);
+  // The column crosses the dot's two edges: each changes over about a
+  // pixel, as a vector's does.
+  expect(changingPixels(pixels)).toBeLessThanOrEqual(4);
+});
+
 test("a renderer replacement survives reload on the first attempt", async ({ page }) => {
   // Reload once the server has the replacement, not merely the optimistic
   // replica: a reload inside that window loses the write by design.

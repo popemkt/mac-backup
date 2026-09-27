@@ -66,8 +66,8 @@ export function restingLink(
 export type SolidForm = "sphere" | "cube";
 
 /**
- * What a node is drawn as: a lit solid, or the outline's bullet, painted
- * from its one definition (`lib/bullet-mode`, `lib/bullet-atlas`).
+ * What a node is drawn as: a lit solid, or the outline's bullet, drawn
+ * from its one definition (`lib/bullet-mode`, `lib/bullet-gpu`).
  */
 export type NodeForm = SolidForm | "bullet";
 
