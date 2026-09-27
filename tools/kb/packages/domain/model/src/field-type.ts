@@ -75,8 +75,10 @@ export function isFieldType(value: unknown): value is FieldType {
 const FIELD_VALUE_KINDS: Record<FieldType, readonly PropValue["t"][]> = {
   text: ["str"],
   number: ["num"],
-  // GAP [[01M39X7NQV187BDQVGH81997M5]] — date is the one type with two carriers.
-  date: ["str", "date"],
+  // One carrier, like every other type: a local `YYYY-MM-DD` string. Stores
+  // that still hold the legacy `{t:"date"}` are rewritten on open
+  // (`migrateDateValues`).
+  date: ["str"],
   url: ["str"],
   checkbox: ["bool"],
   ref: ["ref"],

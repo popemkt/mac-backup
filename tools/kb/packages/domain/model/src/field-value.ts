@@ -74,7 +74,6 @@ export function parseTypedValue(raw: string, type: FieldType): ParsedValue {
     case "ref":
       return ok({ t: "ref", v: raw });
     case "text":
-    // GAP [[01M39X7NQV187BDQVGH81997M5]] — date has a second carrier, {t:"date"}.
     case "date":
       return ok({ t: "str", v: raw });
     default: {
@@ -130,4 +129,30 @@ export function valueConformanceError(
     return `field ${fieldId} refs missing node ${value.v}`;
   }
   return null;
+}
+
+/**
+ * Rewrite the legacy date carrier, `{t:"date"}`, to the one date values have:
+ * `{t:"str"}`. Run on open beside `migrateFieldTypeValues`, for the same
+ * reason — one representation in the store, so a sort, a filter or an
+ * editor never has to match two. Idempotent, and a node with no legacy value
+ * is returned as it was.
+ */
+export function migrateDateValues<T extends { props: Record<string, PropValue[]> }>(
+  nodes: T[],
+): { nodes: T[]; changed: boolean } {
+  const out = nodes.map((node) => {
+    if (!Object.values(node.props).some((values) => values.some((v) => v.t === "date"))) {
+      return node;
+    }
+    const props = Object.fromEntries(
+      Object.entries(node.props).map(([field, values]) => [
+        field,
+        values.map((v): PropValue => (v.t === "date" ? { t: "str", v: v.v } : v)),
+      ]),
+    );
+    return { ...node, props };
+  });
+  const changed = out.some((node, i) => node !== nodes[i]);
+  return { nodes: changed ? out : nodes, changed };
 }

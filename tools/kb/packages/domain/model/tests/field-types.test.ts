@@ -226,7 +226,7 @@ describe("accepted value kinds", () => {
     expect(Object.fromEntries(FIELD_TYPES.map((type) => [type, accepted(type)]))).toEqual({
       text: ["str"],
       number: ["num"],
-      date: ["str", "date"],
+      date: ["str"],
       url: ["str"],
       checkbox: ["bool"],
       ref: ["ref"],

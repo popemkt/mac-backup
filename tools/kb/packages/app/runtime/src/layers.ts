@@ -5,6 +5,7 @@ import {
   applyTx,
   diffTx,
   ensureSystemSeed,
+  migrateDateValues,
   migrateFieldTypeValues,
   type DomainError,
   type KbNode,
@@ -64,7 +65,8 @@ export function kbRuntimeLayer(
  * Open a session over the root's store.
  *
  * Opening is a read. It writes only when a real migration runs — the system
- * seed adds or retires nodes, or a field-type value is rewritten — and then it
+ * seed adds or retires nodes, a field-type value or a legacy date value is
+ * rewritten — and then it
  * commits exactly the nodes that migration changed, never the whole set. Ranks
  * are not a migration: a node without one is ordered by `compareRootOrder`
  * in memory and ranked by the store on the next commit that writes its
@@ -79,9 +81,10 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   const at = yield* currentIso;
   const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed(loaded, at);
   const typed = migrateFieldTypeValues(seeded);
+  const dated = migrateDateValues(typed.nodes);
   let nodes = loaded;
-  if (didSeed || deletes.length > 0 || typed.changed) {
-    const commit = yield* store.commitEffect(diffTx(loaded, typed.nodes), { at });
+  if (didSeed || deletes.length > 0 || typed.changed || dated.changed) {
+    const commit = yield* store.commitEffect(diffTx(loaded, dated.nodes), { at });
     nodes = [...applyTx(loaded, commit.tx).values()];
   }
   const index = new DatascriptIndex(nodes);

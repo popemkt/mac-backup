@@ -20,6 +20,8 @@ export type NodeId = string;
  * Property values keyed by field-node id.
  * Refs point at other nodes by NodeId.
  * `t`/`v` are correlated (same discriminant as wire + persistence schemas).
+ * `date` is the legacy date carrier: it still decodes, no field accepts a new
+ * one, and opening a store rewrites it to `str` (`migrateDateValues`).
  */
 export type PropValue =
   | { t: "str"; v: string }

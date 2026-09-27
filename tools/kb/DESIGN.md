@@ -511,8 +511,11 @@ type PropValue =
   what it holds. Each type accepts fixed value kinds (`acceptsValueKind` in
   `field-type.ts`, the one table the UI's mismatch hint also reads): text and
   url → `str`, number → `num`, checkbox → `bool`, ref → `ref`, and date →
-  `str` or `date` (two carriers, a recorded gap). A `ref` must also name a node
-  the graph stores. The check (`valueConformanceError`) is part of
+  `str` (a local `YYYY-MM-DD`; the legacy `{t:"date"}` carrier is rewritten on
+  open). A value of the right kind must also be in its type's form (`field-value.ts`,
+  the one statement of it: a url is a canonical link, `normalizeUrl`), and every
+  surface parses raw input through the same `parseTypedValue`. A `ref` must
+  also name a node the graph stores. The check (`valueConformanceError`) is part of
   `txIntegrityError`, so it runs where outline integrity already runs —
   `persistEffect`, which every action on every surface (CLI, MCP, HTTP/WS, the
   browser's local replica) commits through, and `@kb/client`'s commit — and a
@@ -656,7 +659,8 @@ current)` is the one derivation; it keeps a moved node's rank when it still
   `rankTx`, so two branches that each appended a root from one read never
   merge into a tie ([Merge](#merge)).
 - **Opening is a read.** `openKb` writes only when a real migration runs (the
-  seed adds or retires something, or a field-type value is rewritten), and
+  seed adds or retires something, or a field-type value or a legacy
+  `{t:"date"}` value is rewritten), and
   then commits exactly the nodes it changed. A node without a rank is ordered
   in memory by `compareRootOrder` and ranked by the next commit that writes its
   group, so reopening a store leaves its bytes, fingerprint and tail alone.

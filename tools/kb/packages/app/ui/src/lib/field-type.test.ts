@@ -59,7 +59,8 @@ describe("field types", () => {
     expect(isValueMismatch("ref", { t: "ref", v: "n.root-a" })).toBe(false);
     expect(isValueMismatch("ref", { t: "str", v: "n.root-a" })).toBe(true);
     expect(isValueMismatch("date", { t: "str", v: "2026-08-08" })).toBe(false);
-    expect(isValueMismatch("date", { t: "date", v: "2026-08-08" })).toBe(false);
+    // One carrier: the legacy `{t:"date"}` is rewritten on open, and hinted until then.
+    expect(isValueMismatch("date", { t: "date", v: "2026-08-08" })).toBe(true);
     expect(isValueMismatch("url", { t: "str", v: "https://x" })).toBe(false);
     expect(emptyValueForType("checkbox")).toEqual({ t: "bool", v: false });
     expect(emptyValueForType("ref")).toEqual({ t: "ref", v: "" });

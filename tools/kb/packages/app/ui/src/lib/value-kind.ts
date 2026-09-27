@@ -116,9 +116,9 @@ export const VALUE_KINDS: Readonly<Record<ValueKind, ValueKindSpec>> = {
   },
   date: {
     editor: "calendar",
-    text: (value) => (value.t === "str" || value.t === "date" ? value.v : ""),
+    text: (value) => (value.t === "str" ? value.v : ""),
     parse: (text) => parseTypedValue(text, "date"),
-    isBlank: (value) => !(value.t === "str" || value.t === "date") || value.v === "",
+    isBlank: (value) => value.t !== "str" || value.v === "",
     follow: nowhere,
   },
   checkbox: {

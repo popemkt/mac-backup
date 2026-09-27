@@ -72,6 +72,42 @@ describe("JsonlStore", () => {
   });
 });
 
+describe("opening migrates the legacy date carrier", () => {
+  let root: string;
+  beforeEach(async () => {
+    root = await tempRoot();
+  });
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  test("a {t:date} value is rewritten to the one carrier, once", async () => {
+    const at = "2026-01-01T00:00:00.000Z";
+    const legacy: KbNode = {
+      id: "01HZZZZZZZZZZZZZZZZZZZZZZ9",
+      text: "due soon",
+      props: { f_due: [{ t: "date", v: "2026-09-28" }] },
+      children: [],
+      createdAt: at,
+      updatedAt: at,
+    };
+    await Effect.runPromise(
+      new JsonlStore(root).commitEffect(
+        { upserts: [...systemSeedNodes(), legacy], deletes: [] },
+        { at: TX_AT },
+      ),
+    );
+    const ctx = await openKb(root);
+    expect(ctx.nodes.find((n) => n.id === legacy.id)?.props).toEqual({
+      f_due: [{ t: "str", v: "2026-09-28" }],
+    });
+    // The rewrite is committed, so reopening is a read again.
+    const bytes = await readFile(join(root, ".kb", "nodes.jsonl"), "utf8");
+    await openKb(root);
+    expect(await readFile(join(root, ".kb", "nodes.jsonl"), "utf8")).toBe(bytes);
+  });
+});
+
 describe("system seed", () => {
   let root: string;
   beforeEach(async () => {

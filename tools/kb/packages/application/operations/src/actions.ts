@@ -47,7 +47,6 @@ const PropInputSchema = z.object({
     z.object({ t: z.literal("str"), v: z.string() }),
     z.object({ t: z.literal("num"), v: z.number() }),
     z.object({ t: z.literal("bool"), v: z.boolean() }),
-    z.object({ t: z.literal("date"), v: z.string() }),
     z.object({ t: z.literal("ref"), v: z.string() }),
   ]),
 });

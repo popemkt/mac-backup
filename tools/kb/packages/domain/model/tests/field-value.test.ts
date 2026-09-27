@@ -10,6 +10,7 @@ import {
   FIELD_TYPES,
   SYSTEM_IDS,
   fieldTypeValue,
+  migrateDateValues,
   normalizeUrl,
   parseTypedValue,
   txIntegrityError,
@@ -101,5 +102,33 @@ describe("every surface agrees on a value's form", () => {
       ok: true,
       value: { t: "str", v: "https://example.com" },
     });
+  });
+});
+
+describe("one date carrier", () => {
+  test("a date field accepts only the string carrier", () => {
+    const base = [node("f", { [SYSTEM_IDS.fieldTypeField]: [fieldTypeValue("date")] })];
+    const write = (value: KbNode["props"][string][number]) =>
+      txIntegrityError(base, { upserts: [node("n.a", { f: [value] })], deletes: [] });
+    expect(write({ t: "str", v: "2026-09-28" })).toBeNull();
+    expect(write({ t: "date", v: "2026-09-28" })).toContain("cannot hold");
+  });
+
+  test("opening rewrites the legacy carrier, idempotently, and leaves the rest alone", () => {
+    const legacy = node("n.a", {
+      due: [{ t: "date", v: "2026-09-28" }],
+      note: [{ t: "str", v: "x" }],
+    });
+    const plain = node("n.b", { note: [{ t: "str", v: "y" }] });
+    const first = migrateDateValues([legacy, plain]);
+    expect(first.changed).toBe(true);
+    expect(first.nodes[0]?.props).toEqual({
+      due: [{ t: "str", v: "2026-09-28" }],
+      note: [{ t: "str", v: "x" }],
+    });
+    expect(first.nodes[1]).toBe(plain);
+    const again = migrateDateValues(first.nodes);
+    expect(again.changed).toBe(false);
+    expect(again.nodes).toBe(first.nodes);
   });
 });
