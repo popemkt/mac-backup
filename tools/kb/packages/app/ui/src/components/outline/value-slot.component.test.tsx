@@ -13,6 +13,7 @@ import { fieldContextOf } from "@/lib/schema";
 import type { NodeMap, PropValue } from "@/lib/types";
 import type { FollowHow, FollowTarget } from "@/lib/follow";
 import { stubOutlineNode } from "@/catalog/fixtures";
+import { formatNumber, numberEditText } from "@/lib/number-format";
 import { ValueSlot } from "./value-slot";
 
 const context = fieldContextOf({
@@ -456,5 +457,92 @@ describe("a text value is node text", () => {
     await key("Enter", { shiftKey: true });
     await leave();
     expect(committed).toEqual([{ t: "str", v: "one\n" }]);
+  });
+});
+
+describe("a number value reads in the locale", () => {
+  let dom: InstalledDom;
+  let container: HTMLDivElement;
+  let root: Root;
+  let committed: PropValue[];
+
+  beforeAll(() => {
+    dom = installDomGlobals();
+    (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
+    dom.restore();
+  });
+
+  beforeEach(() => {
+    committed = [];
+    container = dom.window.document.createElement("div") as unknown as HTMLDivElement;
+    dom.window.document.body.appendChild(container as unknown as never);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  async function mountNumber(v: number) {
+    await act(async () => {
+      root.render(
+        createElement(ValueSlot, {
+          value: { t: "num", v },
+          fieldType: "number",
+          fieldId: "f.estimate",
+          context,
+          onCommit: (next: PropValue) => committed.push(next),
+          onFollow: () => undefined,
+        }),
+      );
+    });
+    return present(container.querySelector<HTMLElement>('[data-value-slot="number"]'), "slot");
+  }
+
+  const editable = () =>
+    present(container.querySelector<HTMLElement>('[data-editable-text="true"]'), "editable");
+
+  async function typeAndLeave(text: string) {
+    editable().textContent = text;
+    await act(async () => {
+      editable().dispatchEvent(
+        new dom.window.FocusEvent("focusout", { bubbles: true }) as unknown as Event,
+      );
+    });
+  }
+
+  it("shows the number grouped, and edits it ungrouped", async () => {
+    const slot = await mountNumber(1234567.5);
+    expect(editable().textContent).toBe(formatNumber(1234567.5));
+    expect(editable().className).toContain("tabular-nums");
+    await act(async () => {
+      slot.click();
+    });
+    expect(editable().textContent).toBe(numberEditText(1234567.5));
+  });
+
+  it("reads typing in the locale's separators, grouping ignored", async () => {
+    const slot = await mountNumber(1);
+    await act(async () => {
+      slot.click();
+    });
+    await typeAndLeave(formatNumber(12345.5));
+    expect(committed).toEqual([{ t: "num", v: 12345.5 }]);
+  });
+
+  it("keeps input that is no number, marked, and commits nothing", async () => {
+    const slot = await mountNumber(1);
+    await act(async () => {
+      slot.click();
+    });
+    await typeAndLeave("12 apples");
+    expect(committed).toEqual([]);
+    expect(editable().getAttribute("data-rejected")).toBe("true");
+    expect(editable().textContent).toBe("12 apples");
   });
 });

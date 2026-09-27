@@ -13,6 +13,7 @@
 import type { FieldType } from "@/lib/field-type";
 import { normalizeUrl, parseTypedValue, type ParsedValue } from "@kb/model";
 import { nodeTarget, type FollowTarget } from "@/lib/follow";
+import { numberEditText, numberSeparators } from "@/lib/number-format";
 import { SYSTEM_IDS, type PropValue } from "@/lib/types";
 
 /**
@@ -107,10 +108,13 @@ export const VALUE_KINDS: Readonly<Record<ValueKind, ValueKindSpec>> = {
   },
   number: {
     editor: "caret",
-    text: asText,
+    // Edited in the locale's own decimal separator, and read back in it.
+    text: (value) => (value.t === "num" ? numberEditText(value.v) : asText(value)),
     // A cleared number reads as unset, the value an empty number slot holds.
     parse: (text) =>
-      text.trim() === "" ? accept({ t: "num", v: 0 }) : parseTypedValue(text.trim(), "number"),
+      text.trim() === ""
+        ? accept({ t: "num", v: 0 })
+        : parseTypedValue(text, "number", numberSeparators()),
     isBlank: (value) => value.t !== "num",
     follow: nowhere,
   },

@@ -29,7 +29,7 @@ export {
 } from "./field-type.ts";
 export type { Cardinality, FieldType } from "./field-type.ts";
 export { conformsToType, migrateDateValues, normalizeUrl, parseTypedValue } from "./field-value.ts";
-export type { ParsedValue } from "./field-value.ts";
+export type { NumberSeparators, ParsedValue } from "./field-value.ts";
 export { SYSTEM_IDS, currentIso, freshId, isSysPrefixed, nowIso } from "./model.ts";
 export type { KbNode, NodeId, PropValue } from "./model.ts";
 export {

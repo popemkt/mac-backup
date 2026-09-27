@@ -132,3 +132,30 @@ describe("one date carrier", () => {
     expect(again.nodes).toBe(first.nodes);
   });
 });
+
+describe("reading a number", () => {
+  test("in JavaScript's form by default, refusing what is no finite number", () => {
+    expect(parseTypedValue("-3.5", "number")).toEqual({ ok: true, value: { t: "num", v: -3.5 } });
+    for (const raw of ["", "abc", "Infinity", "1,5"])
+      expect(parseTypedValue(raw, "number").ok).toBe(false);
+  });
+
+  test("in a writer's separators, grouping and spaces ignored", () => {
+    const de = { decimal: ",", group: "." };
+    expect(parseTypedValue("1.234,5", "number", de)).toEqual({
+      ok: true,
+      value: { t: "num", v: 1234.5 },
+    });
+    const fr = { decimal: ",", group: " " };
+    expect(parseTypedValue("1 234,5", "number", fr)).toEqual({
+      ok: true,
+      value: { t: "num", v: 1234.5 },
+    });
+    const en = { decimal: ".", group: "," };
+    expect(parseTypedValue(" 12,345.67 ", "number", en)).toEqual({
+      ok: true,
+      value: { t: "num", v: 12345.67 },
+    });
+    expect(parseTypedValue("12 apples", "number", en).ok).toBe(false);
+  });
+});

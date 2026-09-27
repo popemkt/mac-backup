@@ -53,14 +53,41 @@ const ok = (value: PropValue): ParsedValue => ({ ok: true, value });
 const refuse = (reason: string): ParsedValue => ({ ok: false, reason });
 
 /**
+ * How a surface writes numbers: its decimal and grouping separators. The UI
+ * passes its locale's; the CLI passes none and reads JavaScript's own form.
+ */
+export interface NumberSeparators {
+  readonly decimal: string;
+  readonly group: string;
+}
+
+const JS_NUMBERS: NumberSeparators = { decimal: ".", group: "" };
+
+/** Spaces a locale may group with (plain, no-break, narrow no-break, thin). */
+const NUMBER_SPACES = /[\s\u00a0\u202f\u2009]/g;
+
+/** A number as a surface writes it, in JavaScript's form, or NaN. */
+function readNumber(raw: string, { decimal, group }: NumberSeparators): number {
+  let text = raw.replace(NUMBER_SPACES, "");
+  if (group !== "" && group !== decimal) text = text.replaceAll(group, "");
+  if (decimal !== ".") text = text.replaceAll(decimal, ".");
+  return text === "" ? Number.NaN : Number(text);
+}
+
+/**
  * Raw input read as a value of `type`. The type decides the value kind; the
  * input's shape never does, so `42` for a text field is the string "42".
- * Input the type cannot read is refused, never coerced.
+ * Input the type cannot read is refused, never coerced. A number is read in
+ * the writer's own separators (`numbers`), grouping and spaces ignored.
  */
-export function parseTypedValue(raw: string, type: FieldType): ParsedValue {
+export function parseTypedValue(
+  raw: string,
+  type: FieldType,
+  numbers: NumberSeparators = JS_NUMBERS,
+): ParsedValue {
   switch (type) {
     case "number": {
-      const n = raw.trim() === "" ? Number.NaN : Number(raw);
+      const n = readNumber(raw, numbers);
       return Number.isFinite(n) ? ok({ t: "num", v: n }) : refuse(`not a number: ${raw}`);
     }
     case "checkbox": {

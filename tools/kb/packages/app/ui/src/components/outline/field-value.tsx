@@ -17,6 +17,7 @@ import { offsetFromPoint } from "@/lib/caret";
 import { InlineMarkdown } from "@/components/ui/md-view";
 import { useRevealMarkup } from "@/components/ui/use-reveal-markup";
 import { urlLabel } from "@/lib/url-label";
+import { formatNumber } from "@/lib/number-format";
 import type { ParsedValue } from "@kb/model";
 import { WarningIcon } from "@phosphor-icons/react";
 import { nodeCandidates, refSearchOf } from "@/lib/refs";
@@ -94,9 +95,9 @@ const editableClass = cn("flex-1 outline-none rounded-sm px-1", KB_TEXT_CLASS);
 
 /**
  * What a caret surface shows at rest: text's inline markdown, a url's link,
- * or the plain string.
+ * or a number grouped in the locale's separators.
  */
-export type CaretDisplay = "markdown" | "link" | "plain";
+export type CaretDisplay = "markdown" | "link" | "number";
 
 /**
  * A value that is text, edited in place by the same live preview node text
@@ -124,7 +125,6 @@ export function CaretValue({
 }: Omit<ValueSurfaceProps, "display"> & { display: CaretDisplay }) {
   const viewRef = useRef<HTMLDivElement>(null);
   const editRef = useRef<HTMLDivElement>(null);
-  const composing = useRef(false);
   const stored = spec.text(value);
   const text = rejected?.text ?? stored;
 
@@ -161,9 +161,10 @@ export function CaretValue({
       },
       caretAtPoint: (x, y) => {
         // Only a surface whose rest tree is its edit tree can map a point to
-        // an offset; a url's short label is not the text it edits.
+        // an offset; a url's short label and a grouped number are not the
+        // text they edit.
         const el = viewRef.current;
-        if (el === null || shownAs === "link") return "end";
+        if (el === null || shownAs === "link" || shownAs === "number") return "end";
         return offsetFromPoint(el, x, y) ?? "end";
       },
     }),
@@ -182,30 +183,20 @@ export function CaretValue({
     : rejected !== null
       ? "text-warning underline decoration-wavy decoration-warning/50 underline-offset-2"
       : "text-foreground/70";
-  const textClass = cn(editableClass, "kb-md-view min-w-0 cursor-text whitespace-pre-wrap", tone);
+  const textClass = cn(
+    editableClass,
+    "kb-md-view min-w-0 cursor-text whitespace-pre-wrap",
+    shownAs === "number" && "tabular-nums",
+    tone,
+  );
 
   return (
     <div className="flex min-w-0 flex-1 items-start">
       {editing ? (
-        <div
-          key="edit"
-          ref={editRef}
+        <CaretEditor
+          editRef={editRef}
           className={cn(textClass, "editable")}
-          contentEditable
-          suppressContentEditableWarning
-          role="textbox"
-          data-editable-text="true"
-          onInput={() => {
-            if (editRef.current && !composing.current) readInlineInput(editRef.current);
-          }}
-          onCompositionStart={() => {
-            composing.current = true;
-          }}
-          onCompositionEnd={() => {
-            composing.current = false;
-            if (editRef.current) readInlineInput(editRef.current);
-          }}
-          onBlur={finish}
+          onFinish={finish}
           onPaste={(e) => {
             // A link pasted into an empty url slot is the whole gesture.
             const pasted = e.clipboardData.getData("text/plain").trim();
@@ -218,13 +209,60 @@ export function CaretValue({
         <CaretRest
           viewRef={viewRef}
           className={cn(textClass, showEmpty && "empty-placeholder")}
-          text={showEmpty ? null : text}
+          text={
+            showEmpty
+              ? null
+              : shownAs === "number" && rejected === null && value.t === "num"
+                ? formatNumber(value.v)
+                : text
+          }
           href={shownAs === "link" && rejected === null ? spec.follow(value) : null}
           markdown={shownAs === "markdown" && rejected === null}
           rejected={rejected}
         />
       )}
     </div>
+  );
+}
+
+/**
+ * A caret value while it edits: the inline tree made contentEditable, typing
+ * read back through `readInlineInput` (outside an IME composition).
+ */
+function CaretEditor({
+  editRef,
+  className,
+  onFinish,
+  onPaste,
+}: {
+  editRef: React.RefObject<HTMLDivElement | null>;
+  className: string;
+  onFinish: () => void;
+  onPaste: (e: React.ClipboardEvent<HTMLDivElement>) => void;
+}) {
+  const composing = useRef(false);
+  return (
+    <div
+      key="edit"
+      ref={editRef}
+      className={className}
+      contentEditable
+      suppressContentEditableWarning
+      role="textbox"
+      data-editable-text="true"
+      onInput={() => {
+        if (editRef.current && !composing.current) readInlineInput(editRef.current);
+      }}
+      onCompositionStart={() => {
+        composing.current = true;
+      }}
+      onCompositionEnd={() => {
+        composing.current = false;
+        if (editRef.current) readInlineInput(editRef.current);
+      }}
+      onBlur={onFinish}
+      onPaste={onPaste}
+    />
   );
 }
 

@@ -64,7 +64,7 @@ function caretSurface(display: CaretDisplay): ValueView["Surface"] {
 const VALUE_VIEWS: Readonly<Record<ValueKind, ValueView>> = {
   text: { icon: TextTIcon, Surface: caretSurface("markdown") },
   url: { icon: TextTIcon, Surface: caretSurface("link") },
-  number: { icon: HashIcon, Surface: caretSurface("plain") },
+  number: { icon: HashIcon, Surface: caretSurface("number") },
   date: { icon: CalendarBlankIcon, Surface: DateSurface },
   checkbox: { icon: ToggleRightIcon, Surface: CheckboxSurface },
   ref: { icon: LinkSimpleIcon, Surface: RefSurface },
